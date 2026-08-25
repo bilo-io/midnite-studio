@@ -15,6 +15,8 @@ const reset = () =>
     selectedWorktreePath: null,
     selectedCommitSha: null,
     terminalOpen: false,
+    terminalMaximized: false,
+    terminalSidebarSide: 'right',
     layout: DEFAULT_LAYOUT,
     graphColumns: DEFAULT_GRAPH_COLUMNS,
     navMode: 'auto',
@@ -69,13 +71,17 @@ describe('persistence', () => {
   beforeEach(reset);
 
   /**
-   * The exclusions are the contract. Restoring `terminalOpen` would spawn a
-   * login shell before the user asked for a terminal, and restoring a ref
-   * filter would present a truncated history as the whole truth.
+   * The exclusions are the contract, and `terminalOpen` is no longer one of
+   * them.
+   *
+   * It used to be, on the grounds that restoring it would spawn a login shell
+   * unasked. Sessions now restore dead — a saved transcript with no process
+   * behind it — so there is nothing to spawn, and losing every terminal on each
+   * launch was the worse half of the trade. A ref filter still cannot survive a
+   * restart: it would present a truncated history as the whole truth.
    */
   it('persists geometry and chrome but nothing session-scoped', () => {
     useUiStore.getState().setLayout('reposWidth', 300);
-    useUiStore.getState().setTerminalOpen(true);
     useUiStore.getState().setGraphRefFilter(['refs/heads/main']);
     useUiStore.getState().selectCommit('abc123');
 
@@ -84,9 +90,22 @@ describe('persistence', () => {
     };
 
     expect(saved.state.layout).toMatchObject({ reposWidth: 300 });
-    expect(saved.state).not.toHaveProperty('terminalOpen');
     expect(saved.state).not.toHaveProperty('graphRefFilter');
     expect(saved.state).not.toHaveProperty('selectedCommitSha');
+  });
+
+  it('persists the terminal chrome, so a restart reopens what was open', () => {
+    useUiStore.getState().setTerminalOpen(true);
+    useUiStore.getState().toggleTerminalMaximized();
+    useUiStore.getState().setTerminalSidebarSide('left');
+
+    const saved = JSON.parse(localStorage.getItem('midnite-git.ui') ?? '{}') as {
+      state: Record<string, unknown>;
+    };
+
+    expect(saved.state.terminalOpen).toBe(true);
+    expect(saved.state.terminalMaximized).toBe(true);
+    expect(saved.state.terminalSidebarSide).toBe('left');
   });
 
   it('clears the ref filter when the repo changes', () => {

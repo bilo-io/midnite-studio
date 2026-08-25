@@ -149,12 +149,34 @@ export async function installMockBridge(page: Page, fixtures: MockFixtures): Pro
         },
       ),
       pty: {
-        create: async () => ({ ptyId: 'pty-1' }),
+        // `ok: true` is not decoration — `PtyCreateResponse` is a discriminated
+        // union, and without the tag the renderer reads every create as a
+        // failure and renders the panel as "terminal unavailable". Nothing
+        // asserted on it, so the e2e app quietly ran with a broken terminal.
+        create: async () => ({ ok: true as const, ptyId: `pty-${++ptyCount}` }),
         input: noop,
         resize: noop,
         kill: noop,
         onData: unsubscribe,
         onExit: unsubscribe,
+      },
+      /*
+        No saved sessions and the built-in roster: the e2e app starts with a
+        clean terminal panel, and a spec that wants restored ones seeds them
+        itself.
+      */
+      terminal: {
+        list: async () => ({ sessions: [] }),
+        save: noop,
+        forget: noop,
+        reorder: noop,
+      },
+      agent: {
+        list: async () => ({
+          agents: [
+            { id: 'claude', label: 'Claude', command: 'claude', args: [], accent: '#D97757' },
+          ],
+        }),
       },
       watch: { onEvent: unsubscribe },
       menu: { onCommand: unsubscribe },
@@ -185,6 +207,9 @@ export async function installMockBridge(page: Page, fixtures: MockFixtures): Pro
     // array between gestures.
     // eslint-disable-next-line no-var
     var opCalls: Array<{ op: string; args: unknown }> = [];
+    // Unique per create, so a spec can tell two terminals' streams apart.
+    // eslint-disable-next-line no-var
+    var ptyCount = 0;
     (window as unknown as { __mgitOps: unknown }).__mgitOps = opCalls;
   }, fixtures);
 }

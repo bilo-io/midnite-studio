@@ -31,6 +31,7 @@ import { TerminalPanel } from './features/terminal/terminal-panel';
 import { hslTokenToHex } from './lib/color';
 import { bridge } from './services/bridge';
 import { useKeybindings } from './services/keybindings/use-keybindings';
+import { useRepos } from './services/queries';
 import { useWatchInvalidation } from './services/watch-invalidation';
 import { useAppearanceSync } from './store/appearance-store';
 import {
@@ -175,7 +176,14 @@ function NavLockToggle({
 function Shell() {
   const activeView = useUiStore((s) => s.activeView);
   const terminalOpen = useUiStore((s) => s.terminalOpen);
+  const terminalMaximized = useUiStore((s) => s.terminalMaximized);
+  const selectedRepoId = useUiStore((s) => s.selectedRepoId);
   const selectedWorktreePath = useUiStore((s) => s.selectedWorktreePath);
+  // The repo's own name labels its terminals; the path is the fallback for a
+  // repo that has since been closed out from under a saved session.
+  const { data: openRepos } = useRepos();
+  const selectedRepoName =
+    openRepos?.find((repo) => repo.id === selectedRepoId)?.name ?? 'terminal';
   const layout = useUiStore((s) => s.layout);
   const setLayout = useUiStore((s) => s.setLayout);
   const navMode = useUiStore((s) => s.navMode);
@@ -331,7 +339,18 @@ function Shell() {
             The key is what makes it an ENTRANCE: without it React reuses the
             same element and the animation, having already run, never replays.
           */}
-          <div key={activeView} className="min-h-0 flex-1 animate-fade-in">
+          <div
+            key={activeView}
+            /*
+              Hidden, not unmounted, while the terminal is maximized: the graph
+              holds a streamed row buffer and a virtualizer scroll position, and
+              tearing those down for a temporary full-screen terminal would cost
+              a re-stream on the way back.
+            */
+            className={`min-h-0 flex-1 animate-fade-in ${
+              terminalOpen && terminalMaximized ? 'hidden' : ''
+            }`}
+          >
             {activeView === 'graph' ? (
               <GraphView />
             ) : activeView === 'changes' ? (
@@ -344,14 +363,22 @@ function Shell() {
           </div>
 
           {/*
-            Mounted only while open, and unmounting kills the shell. Keeping a
-            hidden terminal alive would mean a stray shell per session with no
-            way to see or stop it — and a 0-height xterm is exactly the state
-            that breaks its renderer.
+            Mounted while open, and no longer killed on hide.
+
+            Phase 9 unmounted this deliberately, because a hidden shell had no
+            UI to see or stop it. The session list is that UI, so the trade has
+            flipped: a build running in a background terminal is the point, and
+            losing it every time the panel is toggled was the worse cost.
+
+            Maximized, the panel takes the whole column below the title bar and
+            the resize handle goes with it — there is nothing left to resize
+            against.
           */}
           {terminalOpen ? (
             <>
-              <ResizeHandle resizable={terminal} axis="y" label="Resize terminal" />
+              {terminalMaximized ? null : (
+                <ResizeHandle resizable={terminal} axis="y" label="Resize terminal" />
+              )}
               {/*
                 No width/height transition on this one. The panel's
                 ResizeObserver drives a pty resize, and animating the height
@@ -359,10 +386,16 @@ function Shell() {
                 behind for the length of every drag.
               */}
               <div
-                className="shrink-0 overflow-hidden border-t border-border"
-                style={{ height: terminal.current }}
+                className={`overflow-hidden border-t border-border ${
+                  terminalMaximized ? 'min-h-0 flex-1' : 'shrink-0'
+                }`}
+                style={terminalMaximized ? undefined : { height: terminal.current }}
               >
-                <TerminalPanel cwd={selectedWorktreePath} />
+                <TerminalPanel
+                  cwd={selectedWorktreePath}
+                  repoId={selectedRepoId}
+                  repoName={selectedRepoName}
+                />
               </div>
             </>
           ) : null}

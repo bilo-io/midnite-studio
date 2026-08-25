@@ -15,6 +15,9 @@ import { DEFAULT_GRAPH_THEME, type GraphThemeId } from '../features/graph/graph-
  */
 export type NavMode = 'auto' | 'expanded' | 'collapsed';
 
+/** Which edge of the terminal pane the session list docks to. */
+export type TerminalSidebarSide = 'left' | 'right';
+
 /** The main content views the rail switches between. */
 export type ViewId = 'graph' | 'changes' | 'settings';
 
@@ -36,6 +39,17 @@ export type GraphColumns = {
    * lose the width you dragged.
    */
   author: number;
+  /**
+   * The lane gutter.
+   *
+   * Unlike its neighbours this width is a REQUEST, not a result: the graph
+   * clamps it to what the current history and style can actually paint, so a
+   * value carried into a repo with more branches quietly widens to keep every
+   * lane visible rather than clipping them. Stored as a plain number all the
+   * same — the default is the widest gutter any style can want, which every
+   * clamp turns into "as wide as the lanes need".
+   */
+  graph: number;
   date: number;
   sha: number;
 };
@@ -53,6 +67,10 @@ export const DEFAULT_LAYOUT: LayoutSizes = {
 export const DEFAULT_GRAPH_COLUMNS: GraphColumns = {
   branchTag: 180,
   author: 140,
+  // 12 lanes at GitKraken's 30px — the widest natural gutter any style asks
+  // for, so out of the box the clamp resolves it to the exact fit and the
+  // column behaves as it always has until somebody drags it.
+  graph: 360,
   date: 112,
   sha: 64,
 };
@@ -70,6 +88,11 @@ export const GRAPH_COLUMN_BOUNDS = {
   author: { min: 80, max: 320 },
   date: { min: 72, max: 240 },
   sha: { min: 56, max: 160 },
+  // The gutter has no entry: both its bounds are geometry — the natural fit of
+  // the loaded history and the point past which its lanes stop being separable
+  // — so they are computed per render in `GraphView` and handed to
+  // `useGraphColumns`. A constant pair here would be a second answer to a
+  // question that already has one.
 } as const;
 
 /**
@@ -88,6 +111,10 @@ export type UiState = {
   selectedWorktreePath: string | null;
   selectedCommitSha: string | null;
   terminalOpen: boolean;
+  /** Terminal fills everything below the title bar, hiding the graph. */
+  terminalMaximized: boolean;
+  /** Which edge of the terminal pane the session list docks to. */
+  terminalSidebarSide: TerminalSidebarSide;
 
   layout: LayoutSizes;
   graphColumns: GraphColumns;
@@ -114,6 +141,8 @@ export type UiState = {
   selectCommit: (sha: string | null) => void;
   toggleTerminal: () => void;
   setTerminalOpen: (open: boolean) => void;
+  toggleTerminalMaximized: () => void;
+  setTerminalSidebarSide: (side: TerminalSidebarSide) => void;
 
   setLayout: <K extends keyof LayoutSizes>(key: K, value: number) => void;
   setGraphColumn: <K extends keyof GraphColumns>(key: K, value: number) => void;
@@ -147,6 +176,8 @@ export const useUiStore = create<UiState>()(
       selectedWorktreePath: null,
       selectedCommitSha: null,
       terminalOpen: false,
+      terminalMaximized: false,
+      terminalSidebarSide: 'right',
 
       layout: DEFAULT_LAYOUT,
       graphColumns: DEFAULT_GRAPH_COLUMNS,
@@ -174,6 +205,9 @@ export const useUiStore = create<UiState>()(
       selectCommit: (selectedCommitSha) => set({ selectedCommitSha }),
       toggleTerminal: () => set((state) => ({ terminalOpen: !state.terminalOpen })),
       setTerminalOpen: (terminalOpen) => set({ terminalOpen }),
+      toggleTerminalMaximized: () =>
+        set((state) => ({ terminalMaximized: !state.terminalMaximized })),
+      setTerminalSidebarSide: (terminalSidebarSide) => set({ terminalSidebarSide }),
 
       setLayout: (key, value) => set((state) => ({ layout: { ...state.layout, [key]: value } })),
       setGraphColumn: (key, value) =>
@@ -203,12 +237,14 @@ export const useUiStore = create<UiState>()(
        * Geometry and chrome preferences persist; everything about *this
        * session* does not.
        *
-       * `terminalOpen` is the one that matters: restoring it spawns a login
-       * shell before the user has asked for a terminal, and the panel's
-       * mount/unmount contract exists precisely so no shell outlives its
-       * visible panel. `graphRefFilter` is excluded too — a filter that
-       * silently survived a restart would present a truncated history as the
-       * whole truth.
+       * `terminalOpen` used to be excluded, on the grounds that restoring it
+       * would spawn a login shell before the user had asked for a terminal.
+       * That is no longer true — sessions restore *dead*, a saved transcript
+       * with no process behind it until the user types — so reopening the panel
+       * costs nothing, and losing every terminal on each launch was the worse
+       * end of the trade. `graphRefFilter` stays excluded for a reason that has
+       * not changed: a filter surviving a restart would present a truncated
+       * history as the whole truth.
        */
       partialize: (state) => ({
         layout: state.layout,
@@ -217,6 +253,9 @@ export const useUiStore = create<UiState>()(
         collapsedNavSections: state.collapsedNavSections,
         diffShowOldGutter: state.diffShowOldGutter,
         graphTheme: state.graphTheme,
+        terminalOpen: state.terminalOpen,
+        terminalMaximized: state.terminalMaximized,
+        terminalSidebarSide: state.terminalSidebarSide,
       }),
 
       /**
