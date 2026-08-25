@@ -2,6 +2,7 @@ import { BrowserWindow, dialog } from 'electron';
 
 import { addWorktree, readCommitDetail, removeWorktree } from '@midnite/git-engine';
 import { CHANNELS, failure, schemas } from '@midnite/git-shared';
+import { ipcMain } from 'electron';
 
 import { cancelLog, startLog } from '../log-service';
 import {
@@ -10,6 +11,7 @@ import {
   listRepos,
   openRepo,
   refsFor,
+  reorderRepos,
   worktreesFor,
 } from '../repo-registry';
 import { reconcileWatchers } from '../watch-service';
@@ -149,4 +151,11 @@ export function registerRepoHandlers(getWindow: () => BrowserWindow | null): voi
 
     return result.canceled ? null : (result.filePaths[0] ?? null);
   });
+  // One-way: ordering is a preference, and the next drag rewrites the whole
+  // list anyway, so there is nothing worth a round trip.
+  ipcMain.on(CHANNELS.repoReorder, (_event, raw: unknown) => {
+    const parsed = schemas.RepoReorderRequest.safeParse(raw);
+    if (parsed.success) void reorderRepos(parsed.data.repoIds);
+  });
+
 }

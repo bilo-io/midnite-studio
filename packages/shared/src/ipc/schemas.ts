@@ -13,6 +13,11 @@ import {
   WatchEventSchema,
   WorktreeSchema,
 } from '../domain';
+import {
+  AgentDefinitionSchema,
+  TerminalSessionKindSchema,
+  TerminalSessionSchema,
+} from '../terminal';
 
 /**
  * Payload/response schemas for every channel. Each `ipcMain.handle` parses its
@@ -274,10 +279,30 @@ export const OpResponse = GitOpResultSchema;
 // --- pty -------------------------------------------------------------------
 
 export const PtyCreateRequest = z.object({
+  /**
+   * The session this pty belongs to.
+   *
+   * Supplied by the renderer rather than minted here, because the session record
+   * exists before the process does — a restored session is a row with no pty
+   * until the user revives it, and reviving must append to that row's own
+   * scrollback log rather than start a new one.
+   */
+  sessionId: z.string().min(1),
+  kind: TerminalSessionKindSchema,
+  agentId: z.string().min(1).optional(),
+  repoId: z.string().min(1),
   /** Working directory — the selected worktree. */
   cwd: z.string().min(1),
   cols: z.number().int().positive(),
   rows: z.number().int().positive(),
+  /**
+   * Typed into the shell once it is up, for agent sessions (`'claude\r'`).
+   *
+   * Deliberately *not* `pty.spawn(command)`: a login shell resolves nvm- and
+   * asdf-managed binaries the way the user's real terminal does, and leaves them
+   * at a prompt when the agent exits instead of at a dead pane.
+   */
+  initialInput: z.string().optional(),
 });
 export const PtyCreateResponse = z.discriminatedUnion('ok', [
   z.object({ ok: z.literal(true), ptyId: z.string() }),
@@ -296,6 +321,34 @@ export const PtyExitEvent = z.object({
   exitCode: z.number().int(),
   signal: z.number().int().optional(),
 });
+
+// --- terminal sessions -----------------------------------------------------
+
+/**
+ * A restored session: the saved record plus the bytes to replay into its xterm.
+ *
+ * The scrollback crosses as a `Uint8Array` via structured clone — the same
+ * no-base64 rule `ptyData` follows, and for the same reason: these are raw pty
+ * bytes with their escape sequences intact, and xterm is the one thing that
+ * should be decoding them.
+ */
+export const RestoredTerminalSession = z.object({
+  session: TerminalSessionSchema,
+  scrollback: z.instanceof(Uint8Array),
+});
+export const TerminalListResponse = z.object({
+  sessions: z.array(RestoredTerminalSession),
+});
+
+export const TerminalSaveRequest = z.object({ session: TerminalSessionSchema });
+export const TerminalForgetRequest = z.object({ sessionId: z.string().min(1) });
+/** The full ordered id list, not a moved-from/moved-to pair — idempotent on replay. */
+export const TerminalReorderRequest = z.object({ sessionIds: z.array(z.string().min(1)) });
+
+export const AgentListResponse = z.object({ agents: z.array(AgentDefinitionSchema) });
+
+/** Likewise the whole order, so a dropped message cannot leave a half-applied swap. */
+export const RepoReorderRequest = z.object({ repoIds: z.array(z.string().min(1)) });
 
 // --- window chrome ---------------------------------------------------------
 

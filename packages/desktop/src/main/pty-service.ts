@@ -1,7 +1,7 @@
 import { randomUUID } from 'node:crypto';
 import { existsSync } from 'node:fs';
 
-import { EVENT_CHANNELS } from '@midnite/git-shared';
+import { EVENT_CHANNELS, SCROLLBACK_BYTES } from '@midnite/git-shared';
 import type { BrowserWindow } from 'electron';
 
 /**
@@ -54,9 +54,67 @@ export function isPidAlive(pid: number): boolean {
   }
 }
 
-type Session = { id: string; pty: IPty };
+type Session = {
+  id: string;
+  /** The durable row this process belongs to; the scrollback is filed under it. */
+  sessionId: string;
+  pty: IPty;
+  /** Cleared once the shell's first output proves it is ready for input. */
+  pendingInput: string | null;
+};
 
 const sessions = new Map<string, Session>();
+
+/**
+ * Output kept per session, keyed by *session* id rather than pty id.
+ *
+ * Reviving a restored session starts a new pty against the same row, and its
+ * output has to land on the end of what is already there — otherwise pressing
+ * Enter on a dead terminal wipes the history you revived it to read.
+ */
+const scrollbackBySession = new Map<string, Uint8Array>();
+
+/**
+ * Append to a session's buffer, keeping only the most recent bytes.
+ *
+ * A hard byte cap rather than a line count: the cost being bounded here is
+ * memory and disk, and one `cat` of a minified bundle is a million characters on
+ * three lines. Trimming to a line boundary is `trimScrollback`'s job, at the
+ * point of writing the file — doing it on every chunk would cost a scan per
+ * keystroke to save nothing.
+ */
+function appendScrollback(sessionId: string, chunk: Uint8Array): void {
+  const previous = scrollbackBySession.get(sessionId) ?? new Uint8Array(0);
+  const combined = new Uint8Array(previous.length + chunk.length);
+  combined.set(previous, 0);
+  combined.set(chunk, previous.length);
+
+  // Keep a little slack above the cap so the newline-boundary trim at write
+  // time has something to cut back to.
+  const limit = SCROLLBACK_BYTES * 2;
+  const kept = combined.length > limit ? combined.subarray(combined.length - limit) : combined;
+  scrollbackBySession.set(sessionId, kept);
+}
+
+/** Everything a session has produced this launch, plus whatever it was restored with. */
+export function readScrollback(sessionId: string): Uint8Array {
+  return scrollbackBySession.get(sessionId) ?? new Uint8Array(0);
+}
+
+/** Seed a restored session's buffer so a revived pty appends rather than replaces. */
+export function seedScrollback(sessionId: string, bytes: Uint8Array): void {
+  scrollbackBySession.set(sessionId, bytes);
+}
+
+/** Every session id currently holding output, for the shutdown flush. */
+export function scrollbackSessionIds(): string[] {
+  return [...scrollbackBySession.keys()];
+}
+
+/** Drop a closed session's buffer — the record is gone, the memory should be too. */
+export function dropScrollback(sessionId: string): void {
+  scrollbackBySession.delete(sessionId);
+}
 
 /**
  * The shell to run, as a login shell.
@@ -80,7 +138,14 @@ export type CreateResult = { ok: true; ptyId: string } | { ok: false; message: s
 
 export function createPty(
   win: BrowserWindow,
-  options: { cwd: string; cols: number; rows: number },
+  options: {
+    sessionId: string;
+    cwd: string;
+    cols: number;
+    rows: number;
+    /** Typed in once the shell is up — see the deferred write in `onData` below. */
+    initialInput?: string | undefined;
+  },
 ): CreateResult {
   const pty = loadNodePty();
   if (!pty) {
@@ -111,7 +176,6 @@ export function createPty(
     });
 
     child.onData((data) => {
-      if (win.isDestroyed()) return;
       /**
        * Bytes cross as a Uint8Array via structured clone — no base64.
        *
@@ -121,10 +185,34 @@ export function createPty(
        * decoding keeps the split-sequence handling in the one place that
        * actually implements it.
        */
-      win.webContents.send(EVENT_CHANNELS.ptyData, {
-        ptyId: id,
-        data: new TextEncoder().encode(data),
-      });
+      const bytes = new TextEncoder().encode(data);
+
+      // Recorded before the window check: a session whose panel is hidden, or
+      // whose window is going away, still has history worth restoring.
+      appendScrollback(options.sessionId, bytes);
+
+      /**
+       * Send the agent's command only once the shell has spoken.
+       *
+       * Writing it at spawn time looks like it should work — a pty has an input
+       * queue — but a login shell reads and discards pending input while it
+       * sources the user's profile, and powerlevel10k's instant prompt does so
+       * explicitly. The first output chunk is the shell saying it has a prompt
+       * up and is listening.
+       */
+      const session = sessions.get(id);
+      if (session?.pendingInput) {
+        const input = session.pendingInput;
+        session.pendingInput = null;
+        try {
+          child.write(input);
+        } catch {
+          // The shell died between printing a prompt and reading input.
+        }
+      }
+
+      if (win.isDestroyed()) return;
+      win.webContents.send(EVENT_CHANNELS.ptyData, { ptyId: id, data: bytes });
     });
 
     child.onExit(({ exitCode, signal }) => {
@@ -137,7 +225,12 @@ export function createPty(
       });
     });
 
-    sessions.set(id, { id, pty: child });
+    sessions.set(id, {
+      id,
+      sessionId: options.sessionId,
+      pty: child,
+      pendingInput: options.initialInput ?? null,
+    });
     return { ok: true, ptyId: id };
   } catch (error) {
     return {
@@ -161,6 +254,12 @@ export function resizePty(ptyId: string, cols: number, rows: number): void {
   }
 }
 
+/**
+ * Kill a pty, leaving its session's scrollback intact.
+ *
+ * The row outlives the process — a killed terminal stays in the sidebar showing
+ * what it printed. Only `terminal:forget` drops the buffer.
+ */
 export function killPty(ptyId: string): void {
   const session = sessions.get(ptyId);
   if (!session) return;

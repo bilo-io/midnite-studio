@@ -10,3 +10,4 @@ export const SHARED_CONTRACT_VERSION = '0.1.0' as const;
 export * from './domain';
 export * from './ipc';
 export * from './keybindings';
+export * from './terminal';

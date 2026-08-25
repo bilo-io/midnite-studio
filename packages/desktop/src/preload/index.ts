@@ -77,7 +77,17 @@ const windowChrome: WindowChromeBridge = {
  */
 const bridge: Pick<
   MidniteGitBridge,
-  'repos' | 'log' | 'status' | 'ops' | 'pty' | 'watch' | 'window' | 'windowChrome' | 'menu'
+  | 'repos'
+  | 'log'
+  | 'status'
+  | 'ops'
+  | 'pty'
+  | 'terminal'
+  | 'agent'
+  | 'watch'
+  | 'window'
+  | 'windowChrome'
+  | 'menu'
 > = {
   repos: {
     open: (req) => call(CHANNELS.repoOpen, req),
@@ -88,6 +98,7 @@ const bridge: Pick<
     worktreeAdd: (req) => call(CHANNELS.repoWorktreeAdd, req),
     worktreeRemove: (req) => call(CHANNELS.repoWorktreeRemove, req),
     pickDirectory: () => call(CHANNELS.repoPickDirectory),
+    reorder: (req) => ipcRenderer.send(CHANNELS.repoReorder, req),
   },
   log: {
     start: (req) => call(CHANNELS.logStart, req),
@@ -131,6 +142,17 @@ const bridge: Pick<
     kill: (req) => ipcRenderer.send(CHANNELS.ptyKill, req),
     onData: (handler) => subscribe(EVENT_CHANNELS.ptyData, handler),
     onExit: (handler) => subscribe(EVENT_CHANNELS.ptyExit, handler),
+  },
+  terminal: {
+    list: () => call(CHANNELS.terminalList),
+    // Bookkeeping, so one-way: a dropped save costs an ordering or a title, and
+    // the next change rewrites the whole list regardless.
+    save: (req) => ipcRenderer.send(CHANNELS.terminalSave, req),
+    forget: (req) => ipcRenderer.send(CHANNELS.terminalForget, req),
+    reorder: (req) => ipcRenderer.send(CHANNELS.terminalReorder, req),
+  },
+  agent: {
+    list: () => call(CHANNELS.agentList),
   },
   watch: {
     onEvent: (handler) => subscribe(EVENT_CHANNELS.watchEvent, handler),
