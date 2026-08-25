@@ -90,7 +90,7 @@ localStorage clear, and the scrollback bytes are far too big for a 5 MB quota.
 - [ ] `app/src/components/icons/claude-icon.tsx` — there is no Claude or Anthropic mark anywhere in
       the repo or in `@bilo-io/ui`, so it is a new local SVG following the `brand.tsx` precedent,
       typed as the existing structural `IconComponent` so it drops straight into `IconButton`
-- [ ] Row: shell → lucide `Terminal`; agent → the Claude mark tinted with the roster entry's
+- [ ] Row: shell → react-icons `LuTerminal`; agent → the Claude mark tinted with the roster entry's
       `accent`. Repo name · short cwd, a running dot, hover `X` to close. Dead rows dimmed
 - [ ] Right-click the sidebar → `Move to left` / `Move to right` through the same `openMenu` —
       cheaper than another piece of chrome for a preference set once

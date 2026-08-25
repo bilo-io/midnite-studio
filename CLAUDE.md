@@ -61,6 +61,16 @@ explanatory messages. If a boundary rule fires, the fix is an IPC channel, not a
   `GraphRow` batches — parsing and layout stay off the render thread.
 - **No force-push anywhere in the MVP.** Destructive ops need a confirm dialog showing blast
   radius (`rev-list --count` of commits about to be orphaned).
+- **New icons come from `react-icons`.** It fronts ~30 icon sets behind one package, so a
+  control can take the glyph that actually reads as its job instead of the nearest match
+  within one family. Lucide is one of those sets — `react-icons/lu`, e.g. `LuGitBranch` —
+  so switching costs a rename, not a redesign. Import per set (`react-icons/lu`,
+  `react-icons/md`), never from the package root: the root barrel pulls every set.
+- **`lucide-react` stays, and the two coexist.** Most of the renderer still imports it and
+  there is no migration in flight; only the nav rail in `app.tsx` is on react-icons today.
+  Match the file you are editing rather than mixing families inside one component. The
+  shared `IconComponent` type (`components/icon-button.tsx`) is declared structurally, so
+  `IconButton`, `Tooltip` and the context menus accept either family with no change.
 - **`Ctrl+`` toggles the terminal on every platform.** macOS reserves `Cmd+`` for window
   cycling — do not take it.
 
