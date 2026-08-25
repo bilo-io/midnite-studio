@@ -5,11 +5,25 @@
 /* The shell's appearance layer: accent/density/motion data-attribute rules. */
 @import '@bilo-io/shell/appearance.css';
 
+/* The "Quick Kiss" brand face, the same file the midnite apps ship. Vite
+ * fingerprints and emits it from this url(), so there is no public/ copy to keep
+ * in step. Exposed as `--font-brand` so `font-brand` (tailwind.config.ts) reaches
+ * it — the same three-part wiring midnite/packages/docs uses. */
+@font-face {
+  font-family: 'Quick Kiss';
+  src: url('./fonts/quick-kiss.ttf') format('truetype');
+  font-display: swap;
+}
+
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
 
 @layer base {
+  :root {
+    --font-brand: 'Quick Kiss', sans-serif;
+  }
+
   html,
   body,
   #root {

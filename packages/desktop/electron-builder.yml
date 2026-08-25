@@ -44,6 +44,8 @@ afterPack: scripts/afterpack.cjs
 
 mac:
   category: public.app-category.developer-tools
+  # The midnite crescent, shared with the midnite app (resources/icon.icns).
+  icon: resources/icon.icns
   # Apple Silicon only: an Intel build would need node-pty rebuilt on an x64
   # runner to be correct, and this is a macOS-arm64-first app.
   target:
