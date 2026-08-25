@@ -30,9 +30,11 @@ import { useUiStore } from '../../store/ui-store';
  * The repositories sidebar, modelled on VS Code's SCM view crossed with
  * GitKraken's ref tree.
  *
- * Each repository owns four labelled subsections — Branches, Remotes, Tags,
+ * Each repository owns four labelled subsections — Local, Remotes, Tags,
  * Worktrees — because "which ref" and "which checkout" are different questions
- * and the app answers both. A linked worktree is nested under the repository
+ * and the app answers both. Every one of them folds independently: a repo with
+ * two hundred tags and three worktrees is unusable if the tags cannot be got
+ * out of the way. A linked worktree is nested under the repository
  * that owns it, never listed as a sibling: git treats every checkout as a
  * worktree, including the main one, so the list is uniform with the primary
  * checkout marked rather than special-cased.
@@ -117,10 +119,14 @@ function RepoItem({
   return (
     <section
       style={cascadeStyle(index)}
-      className={`animate-fade-in-up cascade-delay py-0.5 ${
+      className={`animate-fade-in-up cascade-delay ${
         // A delimiter between repositories, not above the first one — a rule at
         // the top of a list reads as a header separator that lost its header.
-        first ? '' : 'mt-0.5 border-t border-border/60 pt-1.5'
+        //
+        // No padding around the rule: the repo row and the tree below it carry
+        // their own, and adding more here left the selected row's highlight
+        // floating a few pixels clear of the delimiter above it.
+        first ? '' : 'border-t border-border/60'
       }`}
     >
       <div
@@ -174,8 +180,33 @@ function RepoItem({
 /** Beyond this a tag list stops being a list and becomes a wall. */
 const TAG_PREVIEW = 50;
 
+type SectionKey = 'local' | 'remotes' | 'tags' | 'worktrees';
+
+/**
+ * Fold state for a repo's subsections.
+ *
+ * Held as the set of *closed* sections so a section defaults to open without
+ * having to be listed — a repo the user just opened should show its tree, and
+ * a section they folded away should stay folded while the repo stays expanded.
+ */
+function useSectionToggles() {
+  const [closed, setClosed] = useState<ReadonlySet<SectionKey>>(() => new Set());
+
+  return (key: SectionKey) => ({
+    collapsible: true,
+    open: !closed.has(key),
+    onToggle: () =>
+      setClosed((prev) => {
+        const next = new Set(prev);
+        if (!next.delete(key)) next.add(key);
+        return next;
+      }),
+  });
+}
+
 function RepoTree({ repo, refs }: { repo: RepoDescriptor; refs: Ref[] }) {
   const [showAllTags, setShowAllTags] = useState(false);
+  const section = useSectionToggles();
 
   const { branches, remotes, tags } = useMemo(() => partitionRefs(refs), [refs]);
 
@@ -190,13 +221,18 @@ function RepoTree({ repo, refs }: { repo: RepoDescriptor; refs: Ref[] }) {
 
   return (
     <div className="pb-1">
-      <TreeSection title="Branches" count={branches.length} indent>
+      {/*
+        "Local", not "Branches": the section below it is remote branches too,
+        and a heading that only says "Branches" leaves the reader to work out
+        which of the two they are looking at.
+      */}
+      <TreeSection title="Local" count={branches.length} depth={1} {...section('local')}>
         {branches.map((ref, i) => (
           <RefRow key={ref.fullName} refItem={ref} icon={GitBranch} index={i} />
         ))}
       </TreeSection>
 
-      <TreeSection title="Remotes" count={remotes.length} indent>
+      <TreeSection title="Remotes" count={remotes.length} depth={1} {...section('remotes')}>
         {remotes.map((group) => (
           <RemoteGroup key={group.name} name={group.name} refs={group.refs} />
         ))}
@@ -205,7 +241,8 @@ function RepoTree({ repo, refs }: { repo: RepoDescriptor; refs: Ref[] }) {
       <TreeSection
         title="Tags"
         count={tags.length}
-        indent
+        depth={1}
+        {...section('tags')}
         action={
           tags.length > TAG_PREVIEW
             ? {
@@ -220,7 +257,7 @@ function RepoTree({ repo, refs }: { repo: RepoDescriptor; refs: Ref[] }) {
         ))}
       </TreeSection>
 
-      <TreeSection title="Worktrees" count={worktrees.length} indent>
+      <TreeSection title="Worktrees" count={worktrees.length} depth={1} {...section('worktrees')}>
         {worktrees.map((worktree, i) => (
           <WorktreeRow key={worktree.id} repo={repo} worktree={worktree} index={i} />
         ))}
@@ -239,7 +276,7 @@ function RemoteGroup({ name, refs }: { name: string; refs: Ref[] }) {
       collapsible
       open={open}
       onToggle={() => setOpen((v) => !v)}
-      indent
+      depth={2}
     >
       {refs.map((ref, i) => (
         <RefRow key={ref.fullName} refItem={ref} icon={GitBranch} index={i} depth={2} />

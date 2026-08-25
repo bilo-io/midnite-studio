@@ -7,7 +7,7 @@ import { ChevronRight } from 'lucide-react';
  * A labelled, optionally collapsible group of rows.
  *
  * Promoted out of the status panel, which had the only copy of this heading
- * style, so the sidebar's Branches/Remotes/Tags/Worktrees sections and the
+ * style, so the sidebar's Local/Remotes/Tags/Worktrees sections and the
  * staged/unstaged lists share one visual grammar rather than two that drift.
  *
  * The body is wrapped in `<Collapse>` from `@bilo-io/ui` — it animates a
@@ -16,6 +16,9 @@ import { ChevronRight } from 'lucide-react';
  * that last part every control in a collapsed section stays in the tab order,
  * reachable by keyboard and readable by a screen reader while invisible.
  */
+/** Tailwind can't build class names at runtime, so the map is spelled out. */
+const HEADER_INDENT = ['pl-3', 'pl-4', 'pl-8'] as const;
+
 export function TreeSection({
   title,
   count,
@@ -25,7 +28,7 @@ export function TreeSection({
   open = true,
   onToggle,
   hideWhenEmpty = true,
-  indent = false,
+  depth = 0,
   children,
 }: {
   title: string;
@@ -37,8 +40,13 @@ export function TreeSection({
   onToggle?: () => void;
   /** A section with nothing in it is noise, not information. */
   hideWhenEmpty?: boolean;
-  /** Nested inside a repo row, so the heading aligns with the tree. */
-  indent?: boolean;
+  /**
+   * How deep in a tree the heading sits — 0 is a top-level panel section, 1 a
+   * repository's subsection, 2 a group inside one of those. Each step indents
+   * the chevron far enough that the heading lands left of its own rows, which
+   * is what makes the nesting readable without guide lines.
+   */
+  depth?: 0 | 1 | 2;
   children: ReactNode;
 }) {
   const bodyId = useId();
@@ -66,7 +74,7 @@ export function TreeSection({
 
   return (
     <section>
-      <header className={`flex items-center gap-1.5 py-1 pr-2 ${indent ? 'pl-5' : 'pl-3'}`}>
+      <header className={`flex items-center gap-1.5 py-1 pr-2 ${HEADER_INDENT[depth]}`}>
         {collapsible ? (
           <button
             type="button"

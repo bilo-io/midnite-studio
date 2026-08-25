@@ -27,8 +27,11 @@ and the sidebar listed only worktrees. This phase makes the app feel deliberate.
 ### C — Sidebar
 
 - [x] `components/tree-section.tsx` promoted out of `status-panel`, backed by `<Collapse>`
-- [x] Per-repo **Branches · Remotes · Tags · Worktrees**, refs fetched only while expanded
-- [x] Delimiters between repos; worktrees get `FolderGit2`, branches `GitBranch`
+- [x] Per-repo **Local · Remotes · Tags · Worktrees**, refs fetched only while expanded,
+      every section independently collapsible (`TreeSection` gained a `depth` prop so a
+      heading indents left of its own rows at each nesting level)
+- [x] Delimiters between repos, flush — the rule carries no padding of its own; worktrees
+      get `FolderGit2`, branches `GitBranch`
 - [x] Every remaining Unicode glyph replaced with a lucide icon
 
 ### D — Lockable nav rail
@@ -59,13 +62,26 @@ and the sidebar listed only worktrees. This phase makes the app feel deliberate.
 - [x] `moon run :typecheck :lint :test` green — 304 tests
 - [x] New tests: `use-resizable` (9), `partitionRefs` (6), `logOptionsFor` (3),
       `LogStartRequest.revisions` (2), store persistence (3)
-- [ ] Manual smoke via `moon run desktop:start` — **not run**; Electron cannot reach the
-      macOS window server from the agent's shell, so every visual claim here rests on the
-      static gate alone
-- [ ] Screenshot
+- [x] Manual smoke via `moon run desktop:start` — runs; see the finding below on the
+      single-instance lock, which is what made it look like it could not
+- [x] Screenshot — sidebar with two repos expanded, and again with sections folded, both
+      via `MGIT_CAPTURE` against the dev server
 
 ## Findings while landing this phase
 
+- **`desktop:start` was never blocked by the window server.** It exits ~700ms with no
+  output, which reads as "Electron cannot open a window here". The cause is
+  `app.requestSingleInstanceLock()` in `main/index.ts`: the packaged app installed in
+  /Applications holds the lock, and the dev instance quits silently by design. The lock is
+  keyed on `userData`, so a dev run alongside the installed app just needs
+  `electron . --user-data-dir=<tmp>`. With that plus `MGIT_OPEN_REPOS` and `MGIT_CAPTURE`,
+  the whole visual checklist is verifiable without touching the user's running app.
+- **"Branches" was the wrong heading.** The section under it is branches too. `Local` vs
+  `Remotes` is the distinction the reader is actually making.
+- **The delimiter gap was padding, not the border.** Each repo `<section>` carried `py-0.5`
+  *and* `mt-0.5 … pt-1.5`, so ~6px sat under the rule against ~4px above it. A selected
+  repo's highlight then floated clear of the rule above it, which is what reads as a gap.
+  The repo row and the tree below it already supply their own padding.
 - **The engine already supported ref filtering.** `LogOptions.revisions` has been in
   `git-engine/src/commands/log.ts` since Phase 1 and `buildLogArgs` appends it; only
   `log-service.ts` hard-coded `{ all: true }`. The "feature" was a schema field and a
