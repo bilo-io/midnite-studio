@@ -34,14 +34,19 @@ Recorded here when a phase punts on something; pick these up post-MVP.
   (`GitBranch` → `LuGitBranch`), so the migration is a mechanical rename plus dropping the
   `lucide-react` dependency — worth doing in one pass rather than drifting file by file.
   Nothing is broken meanwhile: the shared structural `IconComponent` accepts both families.
-- **Branch checks (the RAG dot's real source).** `branchHealth()` in
-  `packages/app/src/features/repos/branch-health.ts` already reduces several signals to one
-  red/amber/green level and takes a `ChecksVerdict` argument; nothing produces one. The two
-  obvious producers are a local test run (`moon run :test` per branch, cached by tip sha) and the
-  last GitHub Actions conclusion for the branch's head commit (`gh api` / `/check-runs`, which
-  needs a token and a rate-limit-aware cache). Until one exists every branch git has nothing to
-  say about renders no dot, which is deliberate — a green dot that means "no data" is worse than
-  no dot. Wire it through IPC keyed on `(repoId, branch, sha)`, never per render.
+- ~~**Branch checks (the RAG dot's real source).**~~ — ✅ landed in Phase 17 Theme F, by the
+  route this entry predicted: the last GitHub Actions conclusion for the branch's head commit,
+  read through `gh`. `checksVerdict()` in
+  `packages/app/src/features/repos/checks-verdict.ts` produces the `ChecksVerdict` that
+  `branchHealth()` had accepted since Phase 13 with no supplier — matched on **sha** rather
+  than branch name (a green tick sourced from the previous tip is the exact failure that
+  teaches people to distrust the dot), newest run per workflow, and an all-skipped set
+  reported as `unknown` rather than green. The rate-limit concern this entry raised is
+  answered by never fetching for the dot: the sidebar reads the Actions query with
+  `enabled: false`, so a branch is coloured only when the user has already opened that repo's
+  Actions section, and shows nothing otherwise. The **local test run** producer
+  (`moon run :test` per branch, cached by tip sha) is still unbuilt.
+
 - **Command palette** — the keybinding service's CommandId registry is designed to feed one.
 - **Submodules** — status/graph awareness.
 - **Windows/Linux targets** — packaging is macOS arm64 first; keybindings already use Ctrl+`

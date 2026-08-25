@@ -100,6 +100,22 @@ export type MidniteGitBridge = {
   };
 
   /**
+   * GitHub, read through the user's own `gh` CLI.
+   *
+   * Separate from `remotes` even though it is keyed off the same `Forge`,
+   * because the two have nothing in common at runtime: `remotes.list` reads
+   * `.git/config` in microseconds and changes only when someone edits it,
+   * while these spawn a subprocess that talks to the network. Every method
+   * fails soft — a machine with no `gh`, or one that is signed out, gets a
+   * `cli` reason code and an empty list, never a rejection.
+   */
+  forge: {
+    cliStatus: () => Promise<z.infer<typeof S.ForgeCliStatusResponse>>;
+    runs: (req: In<typeof S.ForgeRunsRequest>) => Promise<z.infer<typeof S.ForgeRunsResponse>>;
+    pulls: (req: In<typeof S.ForgePullsRequest>) => Promise<z.infer<typeof S.ForgePullsResponse>>;
+  };
+
+  /**
    * Hand-offs to the OS. Deliberately one method wide.
    *
    * `openExternal` is protocol-restricted in the schema AND re-checked in the

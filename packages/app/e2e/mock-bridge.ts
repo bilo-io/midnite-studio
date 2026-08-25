@@ -22,6 +22,28 @@ export type MockFixtures = {
   /** Configured remotes, as `mgit:remotes:list` returns them (forge pre-derived). */
   remotes?: unknown[];
   /**
+   * Extra checkouts beyond the built-in main one.
+   *
+   * The default repo has a single main worktree, which is enough for most
+   * specs and useless for the sidebar's per-checkout counts — those only mean
+   * anything once two checkouts disagree about how dirty they are.
+   */
+  worktrees?: { path: string; branch: string; isMain?: boolean; locked?: boolean }[];
+  /**
+   * Status entries per checkout, keyed by worktree path.
+   *
+   * `statusEntries` remains the answer for any path with no entry here, so
+   * existing specs keep the single-status behaviour they were written against.
+   */
+  statusByWorktree?: Record<string, unknown[]>;
+  /** `mgit:forge:*` answers. Absent means a repo with no GitHub remote. */
+  forge?: {
+    cli?: { reason: 'ready' | 'not-installed' | 'not-authenticated'; hint?: string };
+    runs?: unknown[];
+    pulls?: unknown[];
+    error?: string | null;
+  };
+  /**
    * Sessions `terminal.list` restores, each with the scrollback to replay.
    *
    * A restored session comes back with NO process — that is the whole point of
@@ -67,13 +89,38 @@ export async function installMockBridge(page: Page, fixtures: MockFixtures): Pro
       prunable: false,
     };
 
+    const extraWorktrees = (data.worktrees ?? []).map((entry) => ({
+      id: `repo-1:${entry.path}`,
+      repoId: 'repo-1',
+      path: entry.path,
+      branch: entry.branch,
+      headSha: 'b'.repeat(40),
+      locked: entry.locked ?? false,
+      isMain: entry.isMain ?? false,
+      prunable: false,
+    }));
+    const allWorktrees = [worktree, ...extraWorktrees];
+
     const repo = {
       id: 'repo-1',
       name: 'midnite-git',
       path: '/tmp/midnite-git',
       headRef: 'main',
-      worktrees: [worktree],
+      worktrees: allWorktrees,
     };
+
+    /*
+      No `forge` fixture means a repository with no GitHub remote — which the
+      real handler reports as `not-installed` with an explanatory hint, so the
+      sections render nothing at all. That is the correct default for the specs
+      that predate this feature.
+    */
+    const forgeCli = () => ({
+      reason: data.forge?.cli?.reason ?? 'not-installed',
+      binPath: null,
+      hint: data.forge?.cli?.hint ?? 'This repository has no GitHub remote.',
+    });
+    const forgeError = () => data.forge?.error ?? null;
 
     // Diff lookups fall back to a well-formed empty FileDiff rather than
     // undefined: the real handler does the same, and a test that silently gets
@@ -100,7 +147,7 @@ export async function installMockBridge(page: Page, fixtures: MockFixtures): Pro
         list: async () => [repo],
         close: async () => undefined,
         refs: async () => data.refs ?? [],
-        worktrees: async () => [worktree],
+        worktrees: async () => allWorktrees,
         worktreeAdd: ok,
         worktreeRemove: ok,
         pickDirectory: async () => null,
@@ -137,7 +184,7 @@ export async function installMockBridge(page: Page, fixtures: MockFixtures): Pro
         },
       },
       status: {
-        get: async () => ({
+        get: async (req: { worktreePath?: string }) => ({
           branch: {
             head: 'main',
             oid: 'a'.repeat(40),
@@ -147,7 +194,9 @@ export async function installMockBridge(page: Page, fixtures: MockFixtures): Pro
             unborn: false,
             detached: false,
           },
-          entries: data.statusEntries,
+          entries:
+            (req.worktreePath ? data.statusByWorktree?.[req.worktreePath] : undefined) ??
+            data.statusEntries,
           inProgress: null,
         }),
         commitDetail: async () => data.commitDetail,
@@ -172,6 +221,15 @@ export async function installMockBridge(page: Page, fixtures: MockFixtures): Pro
         The protocol allow-list itself is enforced in main and unit-tested there;
         what this can show is that the renderer only ever asks for https URLs.
       */
+      forge: {
+        cliStatus: async () => forgeCli(),
+        runs: async () => ({ cli: forgeCli(), runs: data.forge?.runs ?? [], error: forgeError() }),
+        pulls: async () => ({
+          cli: forgeCli(),
+          pulls: data.forge?.pulls ?? [],
+          error: forgeError(),
+        }),
+      },
       shell: {
         openExternal: async (req: { url: string }) => {
           externalUrls.push(req.url);
