@@ -10,8 +10,8 @@ Completed work is logged append-only in [`done.md`](done.md). Deferred scope liv
 
 | Phase | Status | Done | Progress | % | 🔄 WIP | ◻ TODO |
 |-------|--------|------|----------|---|--------|--------|
-| [14 · Graph themes + avatars](phase-14-graph-themes.md) | ◻ TODO | 0/26 | `░░░░░░░░░░` | 0% | — | A B C D E |
-| [13 · UI polish](phase-13-ui-polish.md) | ✅ DONE | 24/26 | `█████████░` | 92% | — | verification: smoke + screenshot |
+| [14 · Graph themes + avatars](phase-14-graph-themes.md) | 🔄 WIP | 0/26 | `░░░░░░░░░░` | 0% | A B C D E | — |
+| [13 · UI polish](phase-13-ui-polish.md) | ✅ DONE | 26/26 | `██████████` | 100% | — | — |
 | [12 · Commit inspector + live badges](phase-12-commit-inspector.md) | 🔄 WIP | 9/51 | `██░░░░░░░░` | 18% | — | A B C E F |
 | [11 · Packaging + docs](phase-11-packaging.md) | ✅ DONE | 12/12 | `██████████` | 100% | — | — |
 | [10 · Watcher / live refresh](phase-10-watcher.md) | ✅ DONE | 9/9 | `██████████` | 100% | — | — |
@@ -56,7 +56,7 @@ Completed work is logged append-only in [`done.md`](done.md). Deferred scope liv
 
 - ✅ **A** — lucide, motion keyframes, applyMotion, Tooltip, IconButton, cascade
 - ✅ **B** — use-resizable + ResizeHandle, persisted ui-store, four resizable panes
-- ✅ **C** — TreeSection, per-repo Branches/Remotes/Tags/Worktrees, icon overhaul
+- ✅ **C** — TreeSection, per-repo collapsible Local/Remotes/Tags/Worktrees, icon overhaul
 - ✅ **D** — lockable nav rail (navMode persisted, pin in the brand slot)
 - ✅ **E** — theme toggle + sync cluster in the title bar, three dead CommandIds wired
 - ✅ **F** — graph column headers, resizable columns, multi-select branch filter
