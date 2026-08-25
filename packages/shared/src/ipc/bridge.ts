@@ -75,6 +75,13 @@ export type MidniteGitBridge = {
       req: In<typeof S.CommitDetailRequest>,
     ) => Promise<z.infer<typeof S.CommitDetailResponse>>;
     fileDiff: (req: In<typeof S.FileDiffRequest>) => Promise<z.infer<typeof S.FileDiffResponse>>;
+    /**
+     * A file's diff within a commit. Same response shape as `fileDiff` — one
+     * `<DiffView>` renders both — but scoped to a sha rather than the index.
+     */
+    commitFileDiff: (
+      req: In<typeof S.CommitFileDiffRequest>,
+    ) => Promise<z.infer<typeof S.FileDiffResponse>>;
   };
 
   /** Mutating operations. None of these reject — they resolve to a GitOpResult. */

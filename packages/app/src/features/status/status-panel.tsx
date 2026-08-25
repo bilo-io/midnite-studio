@@ -27,7 +27,13 @@ export function StatusPanel() {
   const { data: status } = useStatus();
   const [message, setMessage] = useState('');
   const [error, setError] = useState('');
-  const [selectedPath, setSelectedPath] = useState<{ path: string; staged: boolean } | null>(null);
+  // `origPath` rides along because rename detection needs both sides of the
+  // pathspec — without it a renamed file diffs as a brand-new file.
+  const [selectedPath, setSelectedPath] = useState<{
+    path: string;
+    staged: boolean;
+    origPath: string | null;
+  } | null>(null);
 
   const stage = useStage();
   const unstage = useUnstage();
@@ -93,7 +99,7 @@ export function StatusPanel() {
                 code={entry.staged}
                 selected={selectedPath?.path === entry.path && selectedPath.staged}
                 busy={busy}
-                onSelect={() => setSelectedPath({ path: entry.path, staged: true })}
+                onSelect={() => setSelectedPath({ path: entry.path, staged: true, origPath: entry.origPath })}
                 actions={[{ icon: Minus, title: 'Unstage', onClick: () => unstage.mutate([entry.path]) }]}
               />
             ))}
@@ -111,7 +117,7 @@ export function StatusPanel() {
                 code={entry.unstaged}
                 selected={selectedPath?.path === entry.path && !selectedPath.staged}
                 busy={busy}
-                onSelect={() => setSelectedPath({ path: entry.path, staged: false })}
+                onSelect={() => setSelectedPath({ path: entry.path, staged: false, origPath: entry.origPath })}
                 actions={[
                   {
                     icon: Undo2,
@@ -157,7 +163,12 @@ export function StatusPanel() {
 
       <div className="min-w-0 flex-1">
         {selectedPath ? (
-          <FileDiff repoId={repoId} path={selectedPath.path} staged={selectedPath.staged} />
+          <FileDiff
+            repoId={repoId}
+            path={selectedPath.path}
+            staged={selectedPath.staged}
+            oldPath={selectedPath.origPath}
+          />
         ) : (
           <Empty>Select a file to see its diff.</Empty>
         )}

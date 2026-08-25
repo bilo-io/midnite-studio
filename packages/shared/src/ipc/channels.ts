@@ -26,7 +26,10 @@ export const CHANNELS = {
   // --- status --------------------------------------------------------------
   statusGet: 'mgit:status:get',
   commitDetail: 'mgit:commit:detail',
+  /** A path's diff in the worktree or the index. */
   fileDiff: 'mgit:file:diff',
+  /** A path's diff *inside a commit* — the worktree-scoped one can't answer this. */
+  commitFileDiff: 'mgit:commit:file-diff',
 
   // --- mutating operations -------------------------------------------------
   opCheckout: 'mgit:op:checkout',

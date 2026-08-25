@@ -2,6 +2,9 @@ import { z } from 'zod';
 
 import {
   ConflictOpSchema,
+  DIFF_DEFAULT_CONTEXT,
+  DIFF_FULL_CONTEXT,
+  FileDiffSchema,
   GitOpResultSchema,
   GraphRowSchema,
   RefSchema,
@@ -118,13 +121,45 @@ export const CommitDetailResponse = z.object({
   ),
 });
 
+/**
+ * How much context to ask git for. Bounded because it becomes a `-U` argument:
+ * the renderer supplies it when expanding a collapsed gap, and an unbounded
+ * value from the renderer is an unbounded amount of work in main.
+ */
+const ContextLines = z.number().int().nonnegative().max(DIFF_FULL_CONTEXT);
+
+/**
+ * The pre-image path when the file was renamed (`StatusEntry.origPath`).
+ * Rename detection pairs a deletion with an addition, and a pathspec filters
+ * before that pairing — so without this a renamed file diffs as wholly new.
+ */
+const OldPath = z.string().min(1).optional();
+
 export const FileDiffRequest = RepoId.extend({
   path: z.string().min(1),
+  oldPath: OldPath,
   worktreePath: z.string().optional(),
   /** Staged diff (`--cached`) vs worktree diff. */
   staged: z.boolean().default(false),
+  context: ContextLines.default(DIFF_DEFAULT_CONTEXT),
 });
-export const FileDiffResponse = z.object({ path: z.string(), patch: z.string() });
+
+/**
+ * A file's diff *within a commit* — `git show <sha> -- <path>`.
+ *
+ * Deliberately not a widening of FileDiffRequest: that one is scoped to a
+ * worktree and its index (`staged` is meaningless here), and collapsing the two
+ * would make both fields conditionally-meaningful on the other.
+ */
+export const CommitFileDiffRequest = RepoId.extend({
+  sha: z.string().min(1),
+  path: z.string().min(1),
+  oldPath: OldPath,
+  worktreePath: z.string().optional(),
+  context: ContextLines.default(DIFF_DEFAULT_CONTEXT),
+});
+
+export const FileDiffResponse = FileDiffSchema;
 
 // --- mutating operations ---------------------------------------------------
 

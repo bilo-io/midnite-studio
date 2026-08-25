@@ -1,13 +1,21 @@
 import { useQuery } from '@tanstack/react-query';
+import { useEffect, useState } from 'react';
 
 import { bridge } from '../../services/bridge';
+import { DiffView } from '../diff/diff-view';
+import { useCommitFileDiff } from '../diff/use-file-diff';
 
 /**
- * Commit detail pane — message, per-file counts, and git's own `--stat` block.
+ * Commit detail pane — message, per-file counts, and the diff of whichever file
+ * is selected.
  *
- * A stub by design (docs/INITIAL_PLAN.md): a real diff viewer is deferred to
- * post-MVP, and rendering `git show --stat` verbatim is honest about that
- * rather than half-building a diff view.
+ * Phase 12 Theme D replaced the `git show --stat` block that used to sit at the
+ * bottom of this pane: it repeated, as preformatted text, the very numbers the
+ * file list above it already showed. Clicking a file now yields its actual diff,
+ * which is what the space was always meant to be for.
+ *
+ * The message body is still plain text — markdown and reference linkification
+ * are Theme A.
  */
 export function CommitDetail({ repoId, sha }: { repoId: string; sha: string }) {
   const { data, isLoading } = useQuery({
@@ -16,6 +24,17 @@ export function CommitDetail({ repoId, sha }: { repoId: string; sha: string }) {
     // A commit is immutable, so this never goes stale.
     staleTime: Number.POSITIVE_INFINITY,
   });
+
+  const [selectedPath, setSelectedPath] = useState<string | null>(null);
+
+  // Selecting a commit must not carry the previous commit's file selection —
+  // the path may not even exist in this one, which would render a permanently
+  // empty diff pane with no clue as to why.
+  useEffect(() => {
+    setSelectedPath(null);
+  }, [sha]);
+
+  const diff = useCommitFileDiff({ repoId, sha, path: selectedPath });
 
   if (isLoading || !data) {
     return <p className="p-3 text-xs text-muted-foreground">Loading…</p>;
@@ -43,27 +62,44 @@ export function CommitDetail({ repoId, sha }: { repoId: string; sha: string }) {
         <span className="text-destructive">−{deletions}</span>
       </div>
 
-      <div className="min-h-0 flex-1 overflow-auto">
+      <div className="min-h-0 shrink-0 overflow-auto" style={{ maxHeight: '40%' }}>
         <ul className="py-1">
-          {data.files.map((file) => (
-            <li key={file.path} className="flex items-baseline gap-2 px-3 py-0.5 text-xs">
-              <span className="min-w-0 flex-1 truncate" title={file.path} data-selectable>
-                {file.path}
-              </span>
-              <span className="shrink-0 tabular-nums text-success">+{file.insertions}</span>
-              <span className="shrink-0 tabular-nums text-destructive">−{file.deletions}</span>
-            </li>
-          ))}
+          {data.files.map((file) => {
+            const selected = file.path === selectedPath;
+            return (
+              <li key={file.path}>
+                <button
+                  type="button"
+                  onClick={() => setSelectedPath(selected ? null : file.path)}
+                  aria-pressed={selected}
+                  className={`flex w-full items-baseline gap-2 px-3 py-0.5 text-left text-xs ${
+                    selected ? 'bg-accent' : 'hover:bg-accent/40'
+                  }`}
+                >
+                  <span className="min-w-0 flex-1 truncate" title={file.path}>
+                    {file.path}
+                  </span>
+                  <span className="shrink-0 tabular-nums text-success">+{file.insertions}</span>
+                  <span className="shrink-0 tabular-nums text-destructive">−{file.deletions}</span>
+                </button>
+              </li>
+            );
+          })}
         </ul>
+      </div>
 
-        {data.stat ? (
-          <pre
-            className="mt-2 overflow-x-auto border-t border-border px-3 py-2 font-mono text-[11px] leading-tight text-muted-foreground"
-            data-selectable
-          >
-            {data.stat}
-          </pre>
-        ) : null}
+      <div className="min-h-0 flex-1 border-t border-border">
+        {selectedPath === null ? (
+          <p className="p-3 text-xs text-muted-foreground">
+            Select a file to see what changed in it.
+          </p>
+        ) : (
+          <DiffView
+            diff={diff.diff}
+            isLoading={diff.isLoading}
+            onExpandContext={diff.expandContext}
+          />
+        )}
       </div>
     </div>
   );

@@ -1,72 +1,63 @@
-import { useQuery } from '@tanstack/react-query';
-
-import { bridge } from '../../services/bridge';
-import { useActiveWorktree } from '../../services/use-status';
+import { DiffView } from '../diff/diff-view';
+import { useFileDiff } from '../diff/use-file-diff';
 
 /**
- * Unified-diff text pane.
+ * Working-tree / index diff pane.
  *
- * A deliberate stub (docs/INITIAL_PLAN.md → Post-MVP): a real side-by-side diff
- * viewer is out of scope, and rendering git's own unified output — coloured by
- * line prefix, nothing more — is honest about that rather than half-building
- * one.
+ * A thin wrapper over `<DiffView>` since Phase 12 Theme D: the renderer, the
+ * colour treatment and the expansion behaviour are shared with the commit
+ * inspector, so there is exactly one place where a deletion's styling is
+ * decided.
  */
 export function FileDiff({
   repoId,
   path,
   staged,
+  oldPath,
 }: {
   repoId: string;
   path: string;
   staged: boolean;
+  /** `StatusEntry.origPath` — without it a renamed file diffs as wholly new. */
+  oldPath?: string | null;
 }) {
-  const { worktreePath } = useActiveWorktree();
-
-  const { data, isLoading } = useQuery({
-    queryKey: ['diff', repoId, worktreePath ?? 'main', path, staged],
-    queryFn: async () =>
-      bridge()?.status.fileDiff({
-        repoId,
-        path,
-        staged,
-        ...(worktreePath ? { worktreePath } : {}),
-      }),
+  const { diff, isLoading, expandContext } = useFileDiff({
+    repoId,
+    path,
+    staged,
+    ...(oldPath === undefined ? {} : { oldPath }),
   });
 
-  if (isLoading) return <p className="p-3 text-xs text-muted-foreground">Loading…</p>;
-
-  const patch = data?.patch ?? '';
-  if (!patch.trim()) {
-    return <p className="p-3 text-xs text-muted-foreground">No textual diff for this file.</p>;
-  }
-
   return (
-    <div className="h-full overflow-auto">
-      <header className="sticky top-0 border-b border-border bg-background px-3 py-1.5 text-xs">
+    <div className="flex h-full min-h-0 flex-col">
+      <header className="shrink-0 border-b border-border bg-background px-3 py-1.5 text-xs">
         <span className="font-medium">{path}</span>
         <span className="ml-2 text-muted-foreground">{staged ? 'staged' : 'working tree'}</span>
       </header>
-      <pre className="px-3 py-2 font-mono text-[11px] leading-[1.45]" data-selectable>
-        {patch.split('\n').map((line, index) => (
-          <div key={index} className={lineClass(line)}>
-            {line || ' '}
-          </div>
-        ))}
-      </pre>
+      <div className="min-h-0 flex-1">
+        <DiffView
+          diff={diff}
+          isLoading={isLoading}
+          onExpandContext={expandContext}
+          emptyMessage={diff ? describeEmpty(diff) : 'No textual diff for this file.'}
+        />
+      </div>
     </div>
   );
 }
 
 /**
- * Colour by line prefix. Order matters: `+++`/`---` are file headers, not
- * added/removed lines, so they must be matched before the single-character
- * cases or every diff opens with a spurious green and red line.
+ * Why a diff has nothing to show. Mirrors git-engine's `describeEmptyDiff`,
+ * which the renderer may not import — `app` never depends on git-engine.
  */
-function lineClass(line: string): string {
-  if (line.startsWith('+++') || line.startsWith('---')) return 'text-muted-foreground';
-  if (line.startsWith('@@')) return 'text-primary';
-  if (line.startsWith('+')) return 'text-success';
-  if (line.startsWith('-')) return 'text-destructive';
-  if (line.startsWith('diff ') || line.startsWith('index ')) return 'text-muted-foreground';
-  return '';
+function describeEmpty(diff: {
+  binary: boolean;
+  oldMode: string | null;
+  newMode: string | null;
+}): string {
+  if (diff.binary) return 'Binary file — no textual diff.';
+  if (diff.oldMode && diff.newMode && diff.oldMode !== diff.newMode) {
+    return `Mode changed from ${diff.oldMode} to ${diff.newMode}.`;
+  }
+  return 'No textual diff for this file.';
 }
