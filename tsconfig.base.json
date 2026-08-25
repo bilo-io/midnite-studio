@@ -1,0 +1,27 @@
+{
+  "compilerOptions": {
+    "target": "ES2022",
+    "lib": ["ES2022"],
+    "module": "ESNext",
+    "moduleResolution": "bundler",
+    "esModuleInterop": true,
+    "allowSyntheticDefaultImports": true,
+    "resolveJsonModule": true,
+    "isolatedModules": true,
+    "skipLibCheck": true,
+    "strict": true,
+    "noUncheckedIndexedAccess": true,
+    "noImplicitOverride": true,
+    "forceConsistentCasingInFileNames": true,
+    "composite": true,
+    "declaration": true,
+    "declarationMap": true,
+    "sourceMap": true,
+    "paths": {
+      "@midnite-git/shared": ["./packages/shared/src/index.ts"],
+      "@midnite-git/shared/*": ["./packages/shared/src/*"],
+      "@midnite-git/git-engine": ["./packages/git-engine/src/index.ts"],
+      "@midnite-git/git-engine/*": ["./packages/git-engine/src/*"]
+    }
+  }
+}

@@ -1,0 +1,23 @@
+$schema: 'https://moonrepo.dev/schemas/project.json'
+
+language: 'typescript'
+
+dependsOn:
+  - 'shared'
+  - 'git-engine'
+  # `development` scope so moon's package.json sync writes @midnite-git/app to
+  # devDependencies. The renderer ships as a prebuilt static bundle loaded from
+  # disk — desktop never imports it as a module.
+  - id: 'app'
+    scope: 'development'
+
+tasks:
+  # tsc --noEmit resolves shared/git-engine through project references but does
+  # not build them, so build those two first. Deliberately NOT `^:build`: that
+  # would also build the renderer bundle, which desktop never imports as a module.
+
+  lint:
+    inputs:
+      - 'src/**/*'
+      - 'scripts/**/*'
+      - '/eslint.config.mjs'

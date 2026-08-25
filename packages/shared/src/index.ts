@@ -1,0 +1,8 @@
+/**
+ * @midnite-git/shared — the single wire contract between the Electron main
+ * process and the renderer. Zod schemas double as runtime validators (every IPC
+ * handler validates its payload) and as the source of the TypeScript types.
+ *
+ * Dependency rule: this package imports zod and nothing else in the workspace.
+ */
+export const SHARED_CONTRACT_VERSION = '0.1.0' as const;
