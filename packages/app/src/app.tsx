@@ -20,6 +20,7 @@ import { TerminalPanel } from './features/terminal/terminal-panel';
 import { hslTokenToHex } from './lib/color';
 import { bridge } from './services/bridge';
 import { useKeybindings } from './services/keybindings/use-keybindings';
+import { useWatchInvalidation } from './services/watch-invalidation';
 import { pathForView, useUiStore, viewForPath, type ViewId } from './store/ui-store';
 
 /**
@@ -114,6 +115,7 @@ function Shell() {
   const terminalOpen = useUiStore((s) => s.terminalOpen);
   const selectedWorktreePath = useUiStore((s) => s.selectedWorktreePath);
   useDefaultSelection();
+  useWatchInvalidation(useUiStore((s) => s.selectedRepoId));
 
   /**
    * Every shortcut and every native menu item lands here, keyed by CommandId.

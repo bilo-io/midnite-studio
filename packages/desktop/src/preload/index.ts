@@ -77,7 +77,7 @@ const windowChrome: WindowChromeBridge = {
  */
 const bridge: Pick<
   MidniteGitBridge,
-  'repos' | 'log' | 'status' | 'ops' | 'pty' | 'window' | 'windowChrome' | 'menu'
+  'repos' | 'log' | 'status' | 'ops' | 'pty' | 'watch' | 'window' | 'windowChrome' | 'menu'
 > = {
   repos: {
     open: (req) => call(CHANNELS.repoOpen, req),
@@ -130,6 +130,9 @@ const bridge: Pick<
     kill: (req) => ipcRenderer.send(CHANNELS.ptyKill, req),
     onData: (handler) => subscribe(EVENT_CHANNELS.ptyData, handler),
     onExit: (handler) => subscribe(EVENT_CHANNELS.ptyExit, handler),
+  },
+  watch: {
+    onEvent: (handler) => subscribe(EVENT_CHANNELS.watchEvent, handler),
   },
   window: {
     minimize: () => ipcRenderer.send(CHANNELS.windowMinimize),

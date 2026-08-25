@@ -6,7 +6,8 @@ import { registerRepoHandlers } from './ipc/repo-handlers';
 import { registerStatusHandlers } from './ipc/status-handlers';
 import { installMenu } from './menu';
 import { killAllPtys } from './pty-service';
-import { configureRegistry, openRepo, restoreRepos } from './repo-registry';
+import { configureRegistry, listRepos, openRepo, restoreRepos } from './repo-registry';
+import { reconcileWatchers, stopAllWatchers } from './watch-service';
 import { createRepoStore } from './repo-store';
 import { ensureLoginShellPath } from './shell-path';
 import { createWindow } from './window';
@@ -86,6 +87,13 @@ if (!app.requestSingleInstanceLock()) {
       mainWindow = null;
     });
 
+    // Watch what was restored. After this the handlers reconcile on every
+    // open/close, so there is exactly one place that starts a watcher at boot.
+    await reconcileWatchers(
+      mainWindow,
+      (await listRepos()).map((repo) => ({ id: repo.id, path: repo.path })),
+    );
+
     // macOS: clicking the dock icon with no windows open reopens one.
     app.on('activate', () => {
       if (BrowserWindow.getAllWindows().length === 0) {
@@ -99,10 +107,14 @@ if (!app.requestSingleInstanceLock()) {
 
   // Ptys are children, not detached processes: without this a shell is orphaned
   // per window per launch, and on macOS those outlive the app entirely.
-  app.on('before-quit', () => killAllPtys());
+  app.on('before-quit', () => {
+    killAllPtys();
+    stopAllWatchers();
+  });
 
   app.on('window-all-closed', () => {
     killAllPtys();
+    stopAllWatchers();
     // macOS apps conventionally stay alive with no windows; everywhere else,
     // closing the last window quits.
     if (process.platform !== 'darwin') app.quit();

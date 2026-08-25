@@ -1,6 +1,6 @@
 # midnite-git — Phase Index
 
-**Headline:** the integrated terminal runs the user's real shell; Phase 10 (watcher / live refresh) is the live frontier.
+**Headline:** the UI follows the repository live; Phase 11 (packaging + docs) is the live frontier — the last one.
 
 Completed work is logged append-only in [`done.md`](done.md). Deferred scope lives in [`outstanding.md`](outstanding.md).
 
@@ -11,7 +11,7 @@ Completed work is logged append-only in [`done.md`](done.md). Deferred scope liv
 | Phase | Status | Done | Progress | % | 🔄 WIP | ◻ TODO |
 |-------|--------|------|----------|---|--------|--------|
 | [11 · Packaging + docs](phase-11-packaging.md) | ◻ TODO | 0/12 | `░░░░░░░░░░` | 0% | — | A |
-| [10 · Watcher / live refresh](phase-10-watcher.md) | ◻ TODO | 0/9 | `░░░░░░░░░░` | 0% | — | A |
+| [10 · Watcher / live refresh](phase-10-watcher.md) | ✅ DONE | 9/9 | `██████████` | 100% | — | — |
 | [9 · Integrated terminal + keybindings](phase-9-terminal-and-keybindings.md) | ✅ DONE | 11/11 | `██████████` | 100% | — | — |
 | [8 · Drag-drop ops + conflicts](phase-8-drag-drop-ops.md) | ✅ DONE | 10/10 | `██████████` | 100% | — | — |
 | [7 · Graph interactions](phase-7-graph-interactions.md) | ✅ DONE | 10/10 | `██████████` | 100% | — | — |
@@ -34,7 +34,7 @@ Completed work is logged append-only in [`done.md`](done.md). Deferred scope liv
 
 ### [Phase 10 — Watcher / live refresh](phase-10-watcher.md)
 
-- ◻ **A** — fs.watch repo watcher, own-write suppression, kind→invalidation map
+- ✅ **A** — fs.watch repo watcher, own-write suppression, kind→invalidation map
 
 ### [Phase 9 — Integrated terminal + keybindings](phase-9-terminal-and-keybindings.md)
 

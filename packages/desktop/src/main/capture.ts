@@ -153,11 +153,25 @@ async function runType(win: BrowserWindow): Promise<void> {
       win.webContents.sendInputEvent({ type: 'keyDown', keyCode: 'Return' });
       win.webContents.sendInputEvent({ type: 'char', keyCode: '\r' });
       win.webContents.sendInputEvent({ type: 'keyUp', keyCode: 'Return' });
-    } else {
-      win.webContents.sendInputEvent({ type: 'keyDown', keyCode: char });
-      win.webContents.sendInputEvent({ type: 'char', keyCode: char });
-      win.webContents.sendInputEvent({ type: 'keyUp', keyCode: char });
+      await new Promise((resolve) => setTimeout(resolve, 12));
+      continue;
     }
+
+    /**
+     * Shift has to be declared for capitals.
+     *
+     * Without it the event carries the physical key and arrives lowercased:
+     * `git add -A` reaches the shell as `git add -a`, which is a different flag
+     * — and the failure is invisible unless you read the terminal output. Every
+     * other punctuation character survives unshifted, so this is the one case
+     * that needs it.
+     */
+    const shifted = char !== char.toLowerCase() && char === char.toUpperCase();
+    const modifiers = (shifted ? ['shift'] : []) as Electron.InputEvent['modifiers'];
+
+    win.webContents.sendInputEvent({ type: 'keyDown', keyCode: char, modifiers });
+    win.webContents.sendInputEvent({ type: 'char', keyCode: char, modifiers });
+    win.webContents.sendInputEvent({ type: 'keyUp', keyCode: char, modifiers });
     await new Promise((resolve) => setTimeout(resolve, 12));
   }
 
