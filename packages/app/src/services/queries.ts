@@ -1,4 +1,4 @@
-import type { Ref, RepoDescriptor, Worktree } from '@midnite/git-shared';
+import type { Ref, Remote, RepoDescriptor, Worktree } from '@midnite/git-shared';
 import { useMutation, useQuery, useQueryClient, type QueryClient } from '@tanstack/react-query';
 
 import { bridge } from './bridge';
@@ -16,6 +16,18 @@ export const keys = {
   repo: (repoId: string) => ['repos', repoId] as const,
   refs: (repoId: string) => ['repos', repoId, 'refs'] as const,
   worktrees: (repoId: string) => ['repos', repoId, 'worktrees'] as const,
+  /**
+   * A repo's configured remotes.
+   *
+   * Under the `repos/<id>` prefix like everything else, so closing a repo drops
+   * it and a `head` watch event refreshes it. It is deliberately NOT refreshed
+   * on `refs` events: a fetch fires those constantly and cannot change what is
+   * configured in `.git/config`. The gap that leaves is a `git remote add` run
+   * in the integrated terminal, which the watcher does not classify at all —
+   * reopening the repo picks it up, and inventing a `config` watch kind for one
+   * rare command is not worth the extra fs traffic.
+   */
+  remotes: (repoId: string) => ['repos', repoId, 'remotes'] as const,
   status: (repoId: string, worktreePath?: string) =>
     ['repos', repoId, 'status', worktreePath ?? 'main'] as const,
   /**
@@ -70,6 +82,34 @@ export function useWorktrees(repoId: string | null) {
     queryFn: async () => (repoId ? ((await bridge()?.repos.worktrees({ repoId })) ?? []) : []),
     enabled: repoId !== null,
   });
+}
+
+/**
+ * The repo's remotes, with each URL already normalised into a `forge` in main.
+ *
+ * Shipped pre-derived rather than parsed here: the renderer may not import
+ * git-engine, so deriving it on this side would mean a second implementation of
+ * git's five remote-URL syntaxes.
+ */
+export function useRemotes(repoId: string | null) {
+  return useQuery<Remote[]>({
+    queryKey: keys.remotes(repoId ?? ''),
+    queryFn: async () => (repoId ? ((await bridge()?.remotes.list({ repoId })) ?? []) : []),
+    enabled: repoId !== null,
+  });
+}
+
+/**
+ * Open a URL in the user's browser, via the protocol-guarded main handler.
+ *
+ * Not `window.open`: the packaged app is a `file://` origin, and while
+ * `setWindowOpenHandler` in main already intercepts anchor clicks, a
+ * programmatic hand-off should go through the channel that states — and
+ * enforces — which protocols are allowed. A refused URL resolves `{ok:false}`
+ * rather than rejecting, so a bad link is a no-op, not an unhandled rejection.
+ */
+export function openExternal(url: string): void {
+  void bridge()?.shell.openExternal({ url });
 }
 
 /** Everything derived from a repo, after an op that could have changed any of it. */

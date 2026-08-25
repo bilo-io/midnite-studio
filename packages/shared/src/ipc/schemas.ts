@@ -8,6 +8,7 @@ import {
   GitOpResultSchema,
   GraphRowSchema,
   RefSchema,
+  RemoteSchema,
   RepoDescriptorSchema,
   StatusResultSchema,
   WatchEventSchema,
@@ -171,6 +172,70 @@ export const CommitFileDiffRequest = RepoId.extend({
 });
 
 export const FileDiffResponse = FileDiffSchema;
+
+// --- remotes ---------------------------------------------------------------
+
+export const RemotesListRequest = RepoId;
+export const RemotesListResponse = z.array(RemoteSchema);
+
+// --- shell -----------------------------------------------------------------
+
+/**
+ * Protocols `shell.openExternal` is allowed to be handed.
+ *
+ * `openExternal` is a hand-off to the OS's default handler for a scheme, and the
+ * OS has handlers for far more than the web. A renderer-supplied `file:///…`
+ * opens Finder on an arbitrary path; on Windows an `smb:` URL reaches out to a
+ * host of the caller's choosing; and a `javascript:` URL is the classic form.
+ * The renderer is our own code today, but the whole point of the boundary is
+ * that main does not depend on that staying true — a linkified commit message
+ * is attacker-authored text arriving from a clone.
+ *
+ * `mailto:` is on the list because Theme A linkifies the author emails a commit
+ * trailer is full of, and routing those through the same guarded channel beats
+ * a second channel with a second (weaker) check.
+ */
+export const OPEN_EXTERNAL_PROTOCOLS = ['http:', 'https:', 'mailto:'] as const;
+
+/**
+ * The canonical form of an openable URL, or null if it is not one.
+ *
+ * Returns the parsed `href` rather than the caller's string so main opens what
+ * was *validated*, not what was sent. The two can differ: the WHATWG parser
+ * strips leading whitespace and control characters, so `\njavascript:…` and
+ * `javascript:…` validate identically — and if main then passed the raw string
+ * on, it would be handing the OS a string this function never actually saw.
+ */
+export function normalizeExternalUrl(url: string): string | null {
+  let parsed: URL;
+  try {
+    parsed = new URL(url);
+  } catch {
+    return null;
+  }
+  // Exact protocol match, never a prefix test: `httpsx:` starts with `https`.
+  if (!(OPEN_EXTERNAL_PROTOCOLS as readonly string[]).includes(parsed.protocol)) return null;
+  return parsed.href;
+}
+
+/** True only for a well-formed URL whose protocol is on the allowlist. */
+export const isOpenableExternally = (url: string): boolean => normalizeExternalUrl(url) !== null;
+
+export const OpenExternalRequest = z.object({
+  url: z.string().min(1).refine(isOpenableExternally, {
+    message: 'Only http, https and mailto URLs can be opened externally.',
+  }),
+});
+
+/**
+ * Whether the hand-off happened. Not a `GitOpResult` — nothing here ran git, and
+ * the failure the caller can act on is "we refused this URL", not a git error.
+ */
+export const OpenExternalResponse = z.object({
+  ok: z.boolean(),
+  /** Present only on refusal, for the console. Never surfaced as a dialog. */
+  message: z.string().optional(),
+});
 
 // --- mutating operations ---------------------------------------------------
 

@@ -2,6 +2,54 @@
 
 <!-- Append one entry per landed phase/PR: date, phase, PR link, one-line summary. -->
 
+## 2026-08-26 — Phase 12 · Theme E — Remotes and forge links
+
+Nothing in the repo modelled a git remote: no domain type, and no command ever read
+`.git/config`. Theme A's `#123` links need one, and so does every "open this on the forge" verb
+that follows it. `Remote {name, fetchUrl, pushUrl, forge}` now ships from main with the URL
+already normalised, alongside `pickForgeRemote` (origin first, then the first remote that
+resolves to a known forge) and the GitHub/GitLab project and issue URL builders.
+
+- [x] `shared/src/domain/remote.ts` — `Remote` + a derived `forge {host, owner, repo, kind}`
+- [x] `git-engine/src/commands/remotes.ts` — `listRemotes` via `git config -z --get-regexp`
+- [x] URL normaliser, pure + unit-tested: scp-like, `ssh://`, `https://`, `git://`, self-hosted
+      GitLab subgroups; unknown hosts degrade to `kind: 'unknown'` and do not linkify
+- [x] Issue-URL builder — GitHub `/issues/{n}`, GitLab `/-/issues/{n}`
+- [x] Channels `mgit:remotes:list` and `mgit:shell:open-external`, the latter protocol-restricted
+- [x] `remotes` + `shell` on the bridge and the preload `Pick<>`; `ipc.test.ts` extended
+
+Beyond the checklist: a `useRemotes` hook keyed under `keys.repo` and one visible consumer, so
+the slice is exercised rather than dormant until Theme A — each Remotes group in the sidebar
+gains a link to its project page, absent (not disabled) for a remote that has none.
+
+429 tests green plus 44 Playwright specs.
+
+What this shook out:
+
+- **`git remote -v` is the wrong command.** Its output is whitespace-delimited with a
+  parenthesised suffix, a URL may legally contain a space, and it has no `-z`. `git config -z
+  --get-regexp` frames records as `key\nvalue\0`, which is the NUL-delimited form the rest of
+  the engine already assumes. It also reads `pushurl` in the same pass — git's own rule is that
+  it falls back to `url`, and resolving that once in the engine beats every reader remembering
+  it.
+- **`new URL()` silently mangles the scp-like syntax.** `git@github.com:o/r.git` parses as
+  protocol `git@github.com:` with the whole path opaque, so the host disappears — and that is
+  the exact form git prints for a GitHub SSH remote. It is matched ahead of `URL`, not after.
+- **A remote name may contain dots.** `remote.my.fork.url` split on `.` yields the name `my`.
+- **`github.com.evil.example` classified as GitHub.** It carries the leading `github.` label the
+  self-hosted heuristic keys on, so the suffix check never saw it — and the test that claimed to
+  cover this only asserted the easier `notgithub.com` shape. A host embedding the canonical
+  domain as a prefix is now excluded explicitly, and a trailing FQDN dot is stripped first.
+- **`decodeURIComponent` throws on a malformed percent-escape**, and `%` is legal in a
+  repository name. The throw escaped `listRemotes` and rejected the whole IPC call, so one
+  oddly-named repo would have cost every remote in that repository its link.
+- **A schema refine is not a security boundary on its own.** `shell.openExternal` hands a scheme
+  to the OS's registered handler, so an unfiltered `file://` opens Finder on an arbitrary path.
+  The allow-list is enforced in the schema AND re-checked on the line that makes the call — and
+  main opens the *normalised* href, because the URL parser strips leading control characters, so
+  `\njavascript:` and `javascript:` validate identically and only one of them is the string the
+  OS would otherwise have received.
+
 ## 2026-08-25 — Phase 12 · Theme D — Real diff rendering
 
 `readFileDiff` and the new `readCommitFileDiff` return a parsed `FileDiff` — hunks, per-line

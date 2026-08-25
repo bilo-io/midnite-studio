@@ -5,6 +5,7 @@ import { BrowserWindow, app } from 'electron';
 import { registerPtyHandlers } from './ipc/pty-handlers';
 import { registerTerminalHandlers } from './ipc/terminal-handlers';
 import { registerRefHandlers } from './ipc/ref-handlers';
+import { registerRemoteHandlers } from './ipc/remote-handlers';
 import { registerRepoHandlers } from './ipc/repo-handlers';
 import { registerStatusHandlers } from './ipc/status-handlers';
 import { installMenu } from './menu';
@@ -86,6 +87,7 @@ if (!app.requestSingleInstanceLock()) {
     registerRepoHandlers(getWindow);
     registerStatusHandlers();
     registerRefHandlers();
+    registerRemoteHandlers();
     registerPtyHandlers(getWindow);
     registerTerminalHandlers();
     installMenu(getWindow);

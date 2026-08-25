@@ -1,6 +1,7 @@
 import { useMemo, useState } from 'react';
 
-import type { Ref, RepoDescriptor, StatusResult, Worktree } from '@midnite/git-shared';
+import type { Ref, Remote, RepoDescriptor, StatusResult, Worktree } from '@midnite/git-shared';
+import { forgeProjectUrl } from '@midnite/git-shared';
 import {
   ArrowRightLeft,
   ChevronRight,
@@ -11,6 +12,7 @@ import {
   FolderX,
   GitBranch,
   MoreVertical,
+  SquareArrowOutUpRight,
   Tag,
   X,
 } from 'lucide-react';
@@ -24,8 +26,10 @@ import { Tooltip } from '../../components/tooltip';
 import { TreeSection } from '../../components/tree-section';
 import { cascadeStyle } from '../../lib/cascade';
 import {
+  openExternal,
   usePickAndOpenRepo,
   useRefs,
+  useRemotes,
   useRemoveWorktree,
   useRepos,
 } from '../../services/queries';
@@ -343,6 +347,16 @@ function RepoTree({
 
   const { branches, remotes, tags } = useMemo(() => partitionRefs(refs), [refs]);
 
+  // Only fetched for an expanded repo — RepoTree does not render otherwise —
+  // and only used to decorate the groups the ref list already produced. A
+  // configured remote with no fetched branches yet stays absent from the tree,
+  // which is the existing behaviour and not something this changes.
+  const { data: configured } = useRemotes(repo.id);
+  const forgeByName = useMemo(
+    () => new Map((configured ?? []).map((r: Remote) => [r.name, r.forge])),
+    [configured],
+  );
+
   // The main worktree is listed alongside the linked ones: git models it as a
   // worktree too, so the list is uniform with the primary checkout flagged.
   const worktrees = useMemo(
@@ -375,7 +389,13 @@ function RepoTree({
 
       <TreeSection title="Remotes" count={remotes.length} depth={1} {...section('remotes')}>
         {remotes.map((group) => (
-          <RemoteGroup key={group.name} name={group.name} refs={group.refs} menu={refMenu} />
+          <RemoteGroup
+            key={group.name}
+            name={group.name}
+            refs={group.refs}
+            forge={forgeByName.get(group.name) ?? null}
+            menu={refMenu}
+          />
         ))}
       </TreeSection>
 
@@ -416,16 +436,28 @@ function RepoTree({
   );
 }
 
+/**
+ * One remote's branches, with a link out to the project when we can build one.
+ *
+ * The button is absent rather than disabled for a remote we cannot resolve — a
+ * local-path remote or an unrecognised host. A disabled control implies the
+ * action exists and is currently unavailable; here there is simply no web page
+ * to open, and that is permanent for that remote.
+ */
 function RemoteGroup({
   name,
   refs,
+  forge,
   menu,
 }: {
   name: string;
   refs: Ref[];
+  forge: Remote['forge'];
   menu: (ref: Ref) => MenuItem[];
 }) {
   const [open, setOpen] = useState(true);
+  const projectUrl = forge ? forgeProjectUrl(forge) : null;
+
   return (
     <TreeSection
       title={name}
@@ -435,6 +467,15 @@ function RemoteGroup({
       open={open}
       onToggle={() => setOpen((v) => !v)}
       depth={2}
+      action={
+        projectUrl === null || forge === null
+          ? undefined
+          : {
+              icon: SquareArrowOutUpRight,
+              label: `Open ${forge.owner}/${forge.repo} on ${forge.host}`,
+              onClick: () => openExternal(projectUrl),
+            }
+      }
     >
       {refs.map((ref, i) => (
         <RefRow key={ref.fullName} refItem={ref} icon={GitBranch} index={i} depth={2} menu={menu} />

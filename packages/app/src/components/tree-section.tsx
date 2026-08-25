@@ -3,6 +3,8 @@ import { useId, type ReactNode } from 'react';
 import { Collapse } from '@bilo-io/ui';
 import { ChevronRight } from 'lucide-react';
 
+import { IconButton, type IconComponent } from './icon-button';
+
 /**
  * A labelled, optionally collapsible group of rows.
  *
@@ -34,7 +36,15 @@ export function TreeSection({
   title: string;
   count?: number;
   icon?: ReactNode;
-  action?: { label: string; onClick: () => void };
+  /**
+   * A single trailing control on the heading row.
+   *
+   * With an `icon` it renders as an `IconButton`, so the label becomes the
+   * tooltip and the accessible name rather than visible text — which is what a
+   * heading needs when the label is a sentence ("Open bilo-io/midnite-git on
+   * github.com") that would otherwise push the row's own title out of view.
+   */
+  action?: { label: string; onClick: () => void; icon?: IconComponent };
   collapsible?: boolean;
   open?: boolean;
   onToggle?: () => void;
@@ -89,13 +99,24 @@ export function TreeSection({
           <span className="flex min-w-0 flex-1 items-center gap-1.5">{heading}</span>
         )}
         {action ? (
-          <button
-            type="button"
-            onClick={action.onClick}
-            className="ml-auto shrink-0 rounded px-1 text-[11px] text-muted-foreground transition-colors hover:text-foreground"
-          >
-            {action.label}
-          </button>
+          action.icon ? (
+            <span className="ml-auto shrink-0">
+              <IconButton
+                icon={action.icon}
+                label={action.label}
+                size="sm"
+                onClick={action.onClick}
+              />
+            </span>
+          ) : (
+            <button
+              type="button"
+              onClick={action.onClick}
+              className="ml-auto shrink-0 rounded px-1 text-[11px] text-muted-foreground transition-colors hover:text-foreground"
+            >
+              {action.label}
+            </button>
+          )
         ) : null}
       </header>
       <Collapse open={!collapsible || open} id={bodyId} aria-label={title}>

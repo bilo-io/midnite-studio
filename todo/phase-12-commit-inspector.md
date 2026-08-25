@@ -109,17 +109,28 @@ viewer can least afford, because nothing about it looks wrong:
 Deferred out of this theme, now in [`outstanding.md`](outstanding.md): syntax highlighting
 inside diff lines, and a side-by-side mode.
 
-## Theme E — Remotes and forge links · M
+## Theme E — Remotes and forge links · M — ✅ DONE (2026-08-26)
 
-Nothing in the repo models a git remote today — no domain type, and no command ever runs
-`git remote -v`. `#123` links need it, and so does everything "open on GitHub"-shaped later.
+Landed on `feature/phase-12-remotes`. `Remote {name, fetchUrl, pushUrl, forge}` ships from main
+with the URL already normalised; the renderer reads it through `useRemotes` and each Remotes
+group in the sidebar gains a link to its project page. Items moved to [`done.md`](done.md).
 
-- [ ] `shared/src/domain/remote.ts` — `Remote {name, fetchUrl, pushUrl}` + a derived `forge {host, owner, repo, kind: 'github'|'gitlab'|'unknown'}` **S**
-- [ ] `git-engine/src/commands/remotes.ts` — `listRemotes` via `git config --get-regexp '^remote\..*\.url$'` (more parseable than `git remote -v`), NUL-safe **S**
-- [ ] **URL normaliser**, pure + unit-tested: `git@github.com:o/r.git`, `ssh://git@host:22/o/r.git`, `https://host/o/r.git`, and self-hosted GitLab subpaths all → `{host, owner, repo}`. Unknown hosts degrade to `kind: 'unknown'` and simply do not linkify **M**
-- [ ] Issue-URL builder: GitHub `/{owner}/{repo}/issues/{n}`, GitLab `/{owner}/{repo}/-/issues/{n}` **S**
-- [ ] Channel `mgit:remotes:list` + a **`mgit:shell:open-external`** channel whose schema `refine`s to http/https only — a renderer-supplied `file://` or `javascript:` must never reach `shell.openExternal` **M**
-- [ ] Expose `shell` and `remotes` on the bridge + preload `Pick<>`; extend `ipc.test.ts` coverage **S**
+Two decisions worth carrying forward:
+
+- **The normaliser lives in git-engine, and `forge` ships on the wire.** The renderer may not
+  import git-engine, so deriving it on that side would mean a second implementation of git's five
+  remote-URL syntaxes — exactly the kind of duplicate that agrees until it doesn't. The pure
+  *consumers* of the derived shape (`pickForgeRemote`, the issue/project URL builders) do live in
+  `shared`, because both sides want them.
+- **`openExternal` also accepts `mailto:`**, not just http/https. Theme A linkifies the author
+  emails a commit trailer is full of, and routing those through the same guarded channel beats a
+  second channel with a second, weaker check.
+
+Beyond the plan, the guard needed to be more than a schema refine: main re-checks on the line
+that makes the call and opens the *normalised* href, because the URL parser strips leading
+control characters — so `\njavascript:` and `javascript:` validate identically and only one of
+them is the string the OS would otherwise have received. See [`done.md`](done.md) for the rest,
+including the `github.com.evil.example` classification hole and the `decodeURIComponent` throw.
 
 ## Theme F — Graph row polish · S/M
 
