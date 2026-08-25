@@ -1,6 +1,6 @@
 # Midnite Git — Phase Index
 
-**Headline:** all 12 phases are landed — the app packages, installs and runs from /Applications. Post-MVP scope lives in [`outstanding.md`](outstanding.md).
+**Headline:** the MVP (phases 0–11) is landed — the app packages, installs and runs from /Applications. The live frontier is **[Phase 12](phase-12-commit-inspector.md)**: making the commit graph a place you can actually read and act in — rendered commit messages, a real inspector with tree/list + diffs, and ref badges that push and pull. Post-MVP scope lives in [`outstanding.md`](outstanding.md).
 
 Completed work is logged append-only in [`done.md`](done.md). Deferred scope lives in [`outstanding.md`](outstanding.md).
 
@@ -10,6 +10,7 @@ Completed work is logged append-only in [`done.md`](done.md). Deferred scope liv
 
 | Phase | Status | Done | Progress | % | 🔄 WIP | ◻ TODO |
 |-------|--------|------|----------|---|--------|--------|
+| [12 · Commit inspector + live badges](phase-12-commit-inspector.md) | ◻ TODO | 0/51 | `░░░░░░░░░░` | 0% | — | A B C D E F |
 | [11 · Packaging + docs](phase-11-packaging.md) | ✅ DONE | 12/12 | `██████████` | 100% | — | — |
 | [10 · Watcher / live refresh](phase-10-watcher.md) | ✅ DONE | 9/9 | `██████████` | 100% | — | — |
 | [9 · Integrated terminal + keybindings](phase-9-terminal-and-keybindings.md) | ✅ DONE | 11/11 | `██████████` | 100% | — | — |
@@ -27,6 +28,17 @@ Completed work is logged append-only in [`done.md`](done.md). Deferred scope liv
 
 <!-- Each phase currently carries a single theme A = its full deliverables checklist. Split into
      lettered themes if a phase gets parallelised. -->
+
+### [Phase 12 — Commit inspector + live badges](phase-12-commit-inspector.md)
+
+*Turns Phase 5's detail stub into a real inspector, and ref badges into controls. **E before A** (issue links need remotes); B/D pair; C and F are independent.*
+
+- ◻ **A** — markdown + linkify commit bodies: clickable SHAs, URLs, `#123`, emails, trailer styling
+- ◻ **B** — inspector rebuild: sha header + copy button, tree ⇄ list toggle, parent navigation, drop the duplicate stat block
+- ◻ **C** — ref badges as controls: subtle `isHead` glow, hover-expand pull/push with tooltips, branch-scoped sync in the context menu
+- ◻ **D** — real diffs: `mgit:commit:file-diff` channel, hunk parser, one restrained `<DiffView>` shared with the status panel
+- ◻ **E** — `Remote` domain type, `listRemotes`, ssh/https URL normaliser, guarded `shell:open-external`
+- ◻ **F** — graph row polish: selection treatment, lane contrast, badge/subject width, row density
 
 ### [Phase 11 — Packaging + docs](phase-11-packaging.md)
 
