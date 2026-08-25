@@ -1,6 +1,5 @@
 import { useCallback, useEffect, useMemo } from 'react';
 
-import { ThemeToggle } from '@bilo-io/ui';
 import {
   AppFrame,
   ShellProviders,
@@ -19,6 +18,7 @@ import { Brand, BrandMark, Wordmark } from './components/brand';
 import { DialogHost } from './components/dialog-host';
 import { ResizeHandle } from './components/resizable/resize-handle';
 import { useResizable } from './components/resizable/use-resizable';
+import { ThemeToggle } from './components/theme-toggle';
 import { GraphView } from './features/graph/graph-view';
 import { ReposPanel } from './features/repos/repos-panel';
 import { useDefaultSelection } from './features/repos/use-default-selection';

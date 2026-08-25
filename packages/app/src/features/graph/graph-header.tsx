@@ -9,7 +9,7 @@ import {
   type GraphColumns,
 } from '../../store/ui-store';
 import { AuthorFilter, type AuthorSummary } from './author-filter';
-import type { GraphTheme } from './graph-themes';
+import { showsAuthorColumn, type GraphTheme } from './graph-themes';
 import { RefFilter } from './ref-filter';
 
 export type GraphColumnResizables = Record<keyof GraphColumns, Resizable>;
@@ -36,12 +36,16 @@ export function useGraphColumns(): GraphColumnResizables {
     ...GRAPH_COLUMN_BOUNDS[name],
   });
 
-  // Three fixed hook calls, not a map: the rules of hooks forbid deriving the
-  // count from data, and there is exactly one shape of this table.
+  // Four fixed hook calls, not a map: the rules of hooks forbid deriving the
+  // count from data. Author is sized here even in the styles that do not render
+  // it — a hook cannot be called conditionally, and a width for a hidden column
+  // costs nothing but keeps its size when you switch back to a style that has
+  // one.
   return {
     // BRANCH / TAG is the leading column, so its handle is on its RIGHT and a
-    // rightward drag grows it — the opposite of the trailing pair.
+    // rightward drag grows it — the opposite of the trailing group.
     branchTag: useResizable(common('branchTag', 'start')),
+    author: useResizable(common('author', 'end')),
     date: useResizable(common('date', 'end')),
     sha: useResizable(common('sha', 'end')),
   };
@@ -59,6 +63,7 @@ export function useGraphColumns(): GraphColumnResizables {
 export const graphColumnVars = (columns: GraphColumnResizables): React.CSSProperties =>
   ({
     '--col-branch-tag': `${columns.branchTag.current}px`,
+    '--col-author': `${columns.author.current}px`,
     '--col-date': `${columns.date.current}px`,
     '--col-sha': `${columns.sha.current}px`,
   }) as React.CSSProperties;
@@ -124,6 +129,10 @@ export function GraphHeader({
           Commit message
         </span>
 
+        {/* Only where the node is a dot; see `showsAuthorColumn`. */}
+        {showsAuthorColumn(theme) ? (
+          <ResizableColumn label="Author" resizable={columns.author} />
+        ) : null}
         <ResizableColumn label="Date" resizable={columns.date} />
         <ResizableColumn label="SHA" resizable={columns.sha} />
       </div>

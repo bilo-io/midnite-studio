@@ -9,7 +9,12 @@ import {
   arrivalRun,
   graphTheme,
   nodeExtent,
+  showsAuthorColumn,
 } from './graph-themes';
+
+/** The styles whose node is a face — the ones the avatar invariants apply to. */
+const AVATAR_IDS = GRAPH_THEME_IDS.filter((id) => GRAPH_THEMES[id].node === 'avatar');
+const DOT_IDS = GRAPH_THEME_IDS.filter((id) => GRAPH_THEMES[id].node === 'dot');
 
 describe('graph themes', () => {
   it('lists every declared theme exactly once', () => {
@@ -18,18 +23,37 @@ describe('graph themes', () => {
   });
 
   /**
-   * The invariants the avatar-everywhere decision imposes. A fifth theme that
-   * keeps a small dot from its reference screenshot breaks here rather than in a
-   * screenshot nobody re-reads.
+   * The invariants the avatar imposes — on the styles that HAVE one. A dot
+   * style is exempt by construction (its `avatarSize` is 0), which is the whole
+   * reason it can be 26px tall with a 3.5px node.
    */
-  it.each(GRAPH_THEME_IDS)('%s has a row tall enough for its avatar', (id) => {
+  it.each(AVATAR_IDS)('%s has a row tall enough for its avatar', (id) => {
     const theme = GRAPH_THEMES[id];
     expect(theme.rowHeight).toBeGreaterThanOrEqual(theme.avatarSize + ROW_PADDING * 2);
   });
 
-  it.each(GRAPH_THEME_IDS)('%s has a node big enough to hold its avatar', (id) => {
+  it.each(AVATAR_IDS)('%s has a node big enough to hold its avatar', (id) => {
     const theme = GRAPH_THEMES[id];
     expect(theme.nodeRadius * 2).toBeGreaterThanOrEqual(theme.avatarSize);
+  });
+
+  /**
+   * The mirror of the above: a dot style must NOT be carrying avatar geometry.
+   * A non-zero `avatarSize` on a style that draws a circle is a field that
+   * silently means nothing, and the next person to read it will size something
+   * from it.
+   */
+  it.each(DOT_IDS)('%s declares no avatar geometry it does not use', (id) => {
+    const theme = GRAPH_THEMES[id];
+    expect(theme.avatarSize).toBe(0);
+    expect(theme.ringWidth).toBe(0);
+  });
+
+  it.each(GRAPH_THEME_IDS)('%s clears its own row vertically', (id) => {
+    const theme = GRAPH_THEMES[id];
+    // Whatever the node is, it has to fit between the rows above and below —
+    // the avatar assertion above says it for faces, this says it for both.
+    expect(theme.rowHeight / 2).toBeGreaterThanOrEqual(nodeExtent(theme));
   });
 
   it.each(GRAPH_THEME_IDS)('%s keeps adjacent nodes apart', (id) => {
@@ -72,5 +96,30 @@ describe('graph themes', () => {
 
   it('round-trips a known id', () => {
     expect(graphTheme('gitkraken').label).toBe('GitKraken');
+  });
+
+  /**
+   * The Author column and the avatar are the same decision seen twice: the face
+   * names the author, so a style that has one must not also spend a column
+   * saying it, and a style that has none must.
+   */
+  it.each(GRAPH_THEME_IDS)('%s pairs its Author column with its node style', (id) => {
+    const theme = GRAPH_THEMES[id];
+    expect(showsAuthorColumn(theme)).toBe(theme.node === 'dot');
+  });
+
+  it('keeps the pre-avatar geometry the classic style exists to preserve', () => {
+    // These are the module constants the graph shipped with from Phase 5 to
+    // Phase 14, verbatim. Drifting them turns "the old look" into "an old-ish
+    // look", which is not what anyone picking this style is asking for.
+    expect(GRAPH_THEMES.classic).toMatchObject({
+      rowHeight: 26,
+      laneWidth: 14,
+      nodeRadius: 3.5,
+      strokeWidth: 1.75,
+      edge: 'bezier',
+      arrowheads: false,
+      node: 'dot',
+    });
   });
 });

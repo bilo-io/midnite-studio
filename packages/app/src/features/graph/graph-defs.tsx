@@ -19,7 +19,15 @@ export function GraphDefs({ theme }: { theme: GraphTheme }) {
   return (
     <svg width={0} height={0} aria-hidden className="absolute">
       <defs>
-        <AvatarClipPath id={avatarClipId(theme)} size={theme.avatarSize} />
+        {/*
+          Omitted for a `dot` style, whose `avatarSize` is 0 — a clip circle of
+          radius 0 clips away everything it is applied to, and leaving one
+          defined invites exactly that bug the first time somebody wires a dot
+          style to something that consumes the clip.
+        */}
+        {theme.node === 'avatar' ? (
+          <AvatarClipPath id={avatarClipId(theme)} size={theme.avatarSize} />
+        ) : null}
         {theme.arrowheads
           ? laneColors(theme.palette).map((color, index) => (
               <marker

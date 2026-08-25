@@ -30,6 +30,12 @@ export type LayoutSizes = {
 export type GraphColumns = {
   /** The BRANCH / TAG column, left of the lane gutter. */
   branchTag: number;
+  /**
+   * The Author column — rendered only by the styles whose node is a dot
+   * (`showsAuthorColumn`), sized always, so switching style and back does not
+   * lose the width you dragged.
+   */
+  author: number;
   date: number;
   sha: number;
 };
@@ -46,6 +52,7 @@ export const DEFAULT_LAYOUT: LayoutSizes = {
 
 export const DEFAULT_GRAPH_COLUMNS: GraphColumns = {
   branchTag: 180,
+  author: 140,
   date: 112,
   sha: 64,
 };
@@ -60,6 +67,7 @@ export const LAYOUT_BOUNDS = {
 
 export const GRAPH_COLUMN_BOUNDS = {
   branchTag: { min: 100, max: 400 },
+  author: { min: 80, max: 320 },
   date: { min: 72, max: 240 },
   sha: { min: 56, max: 160 },
 } as const;
@@ -85,7 +93,7 @@ export type UiState = {
   graphColumns: GraphColumns;
   navMode: NavMode;
   collapsedNavSections: string[];
-  /** Which of the four graph styles is drawn. A preference, so it persists. */
+  /** Which of the graph styles is drawn. A preference, so it persists. */
   graphTheme: GraphThemeId;
   /** Fully-qualified refs the graph is limited to; empty means every ref. */
   graphRefFilter: string[];
@@ -186,7 +194,10 @@ export const useUiStore = create<UiState>()(
     {
       name: 'midnite-git.ui',
       // 2 — `graphColumns.author` was retired when the avatar took over naming
-      // the author, and `branchTag` took its place in the table.
+      // the author, and `branchTag` took its place in the table. The `classic`
+      // style has since brought the column back, but NOT the migration: a width
+      // last chosen before Phase 14 is two schema versions stale, and the
+      // current default is a better guess than it is.
       version: 2,
       /**
        * Geometry and chrome preferences persist; everything about *this
@@ -209,12 +220,12 @@ export const useUiStore = create<UiState>()(
       }),
 
       /**
-       * v1 → v2: drop the retired `author` column width.
+       * v1 → v2: drop the pre-Phase-14 `author` column width.
        *
-       * Left in place it is harmless data, but the field-wise merge below would
-       * resurrect it into a `graphColumns` that no longer has a key for it —
-       * and the next person to read the persisted state would find a column
-       * that does not exist.
+       * The column itself is back (the `classic` style renders it), so this is
+       * no longer about a key with no column behind it — it is about a value
+       * chosen for a table that had different neighbouring columns and a 26px
+       * row. The merge below refills it from the defaults.
        */
       migrate: (persisted, version) => {
         if (version >= 2) return persisted as PersistedUi;

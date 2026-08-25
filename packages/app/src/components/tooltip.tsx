@@ -9,6 +9,7 @@ import {
   type ReactElement,
   type ReactNode,
 } from 'react';
+import { createPortal } from 'react-dom';
 
 /**
  * A hover/focus tooltip.
@@ -22,6 +23,9 @@ import {
  * The trigger is cloned rather than wrapped in a `<span>` — a wrapper element
  * would break the flex/grid layouts these controls sit in, and would sever the
  * dnd-kit listeners the graph's badges rely on.
+ *
+ * The bubble is portalled to `<body>`; see the note on the portal below for
+ * why rendering it next to the trigger is not an option.
  */
 export function Tooltip({
   label,
@@ -133,17 +137,32 @@ export function Tooltip({
   return (
     <>
       {trigger}
-      {open ? (
-        <div
-          ref={bubbleRef}
-          id={id}
-          role="tooltip"
-          className="pointer-events-none fixed z-[60] max-w-xs animate-fade-in rounded-md border border-border bg-popover px-2 py-1 text-xs text-popover-foreground shadow-lg"
-          style={{ left: placed.x, top: placed.y }}
-        >
-          {label}
-        </div>
-      ) : null}
+      {/*
+        Portalled to <body>, not rendered beside the trigger.
+
+        The graph's rows are virtualized, so each one carries a
+        `transform: translateY(...)`. A transform makes the element the
+        containing block for `position: fixed` descendants AND opens a stacking
+        context, which broke the bubble twice over: viewport coordinates were
+        re-read as row-relative ones, so it landed a row's offset away from the
+        node it describes, and `z-60` could only outrank things inside that one
+        row, so every row painted after it covered it. `<body>` carries neither,
+        which is what `fixed` and the z-index were written against.
+      */}
+      {open
+        ? createPortal(
+            <div
+              ref={bubbleRef}
+              id={id}
+              role="tooltip"
+              className="pointer-events-none fixed z-[60] max-w-xs animate-fade-in rounded-md border border-border bg-popover px-2 py-1 text-xs text-popover-foreground shadow-lg"
+              style={{ left: placed.x, top: placed.y }}
+            >
+              {label}
+            </div>,
+            document.body,
+          )
+        : null}
     </>
   );
 }

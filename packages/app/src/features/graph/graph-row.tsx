@@ -4,7 +4,8 @@ import { memo } from 'react';
 import { Tooltip } from '../../components/tooltip';
 import { useCommitDnd, useRefDnd } from './graph-dnd';
 import { GraphSvg } from './graph-svg';
-import type { GraphTheme } from './graph-themes';
+import { CONNECTOR_OPACITY, showsAuthorColumn, type GraphTheme } from './graph-themes';
+import { laneColor } from './lane-colors';
 import { RefBadge } from './ref-badge';
 
 /**
@@ -44,6 +45,11 @@ function GraphRowInner({
   onRefContextMenu,
   onRefActivate,
 }: GraphRowProps) {
+  // `refs` arrives sorted by importance (HEAD, locals, remotes, tags), so the
+  // slice keeps the ref you most need to see and buries the ones you don't.
+  const shown = refs.length > REF_CHIP_CAP ? refs.slice(0, REF_CHIP_CAP) : refs;
+  const hidden = refs.length > REF_CHIP_CAP ? refs.slice(REF_CHIP_CAP) : EMPTY_REFS;
+
   return (
     <div
       role="row"
@@ -71,11 +77,13 @@ function GraphRowInner({
         className="flex shrink-0 items-center gap-1 overflow-hidden pl-2"
         style={{ width: 'var(--col-branch-tag)' }}
       >
-        {refs.map((ref) => (
+        {shown.map((ref) => (
           <DraggableRefBadge
             key={ref.fullName}
             refItem={ref}
             rowId={row.commit.sha}
+            colorIdx={row.colorIdx}
+            palette={theme.palette}
             onContextMenu={(event) => {
               // Stop the row's own menu opening as well — the badge's menu is
               // the more specific target the user aimed at.
@@ -89,6 +97,43 @@ function GraphRowInner({
             }}
           />
         ))}
+
+        {/*
+          The overflow counter, GitKraken's answer to a commit that five refs
+          point at. A fixed cap rather than a measured fit: the alternative is a
+          ResizeObserver per row, and this list is virtualized over 50 000 of
+          them. The names live in the tooltip so a hidden ref is still findable.
+        */}
+        {hidden.length > 0 ? (
+          <span
+            title={hidden.map((ref) => ref.name).join('\n')}
+            className="shrink-0 rounded-[3px] border border-border bg-muted/60 px-1 py-px text-[11px] leading-4 text-muted-foreground"
+          >
+            +{hidden.length}
+          </span>
+        ) : null}
+
+        {/*
+          The chip's half of the leader line: a rule stretching to the column's
+          right edge, where `GraphSvg` picks it up and carries it across the
+          row's gap to the node. Two halves rather than one element because the
+          left half has to start after chips of unknown width — which is exactly
+          what `flex-1` solves and what an SVG with a fixed viewBox cannot.
+
+          `min-w-0`, so a row whose chips already fill the column gives up the
+          rule entirely instead of squeezing the names it exists to point at.
+        */}
+        {refs.length > 0 ? (
+          <span
+            aria-hidden
+            className="min-w-0 flex-1"
+            style={{
+              height: theme.strokeWidth,
+              backgroundColor: laneColor(row.colorIdx, theme.palette),
+              opacity: CONNECTOR_OPACITY,
+            }}
+          />
+        ) : null}
       </div>
 
       {/*
@@ -119,6 +164,7 @@ function GraphRowInner({
               theme={theme}
               clipId={clipId}
               dimmed={dimmed}
+              connector={refs.length > 0}
             />
           </span>
         </Tooltip>
@@ -146,9 +192,21 @@ function GraphRowInner({
         pointermove of a column drag and push every visible row through React at
         60Hz. A variable repaints without React seeing it.
 
-        There is no Author column any more — the avatar in the node carries the
-        author, and its tooltip carries the name.
+        The Author column exists only where the node is a plain dot. The four
+        avatar styles have the author's face in the graph itself, and its
+        tooltip carries the name — a column repeating it would be the widest
+        redundancy in the table.
       */}
+      {showsAuthorColumn(theme) ? (
+        <span
+          className={`shrink-0 truncate text-right text-xs text-muted-foreground transition-opacity duration-150 ease-in-out ${
+            dimmed ? 'opacity-40' : ''
+          }`}
+          style={{ width: 'var(--col-author)' }}
+        >
+          {row.commit.authorName}
+        </span>
+      ) : null}
       <span
         className={`shrink-0 text-right text-xs tabular-nums text-muted-foreground transition-opacity duration-150 ease-in-out ${
           dimmed ? 'opacity-40' : ''
@@ -201,11 +259,15 @@ function CommitDragHandle({
 function DraggableRefBadge({
   refItem,
   rowId,
+  colorIdx,
+  palette,
   onContextMenu,
   onDoubleClick,
 }: {
   refItem: Ref;
   rowId: string;
+  colorIdx: number;
+  palette: GraphTheme['palette'];
   onContextMenu: (event: React.MouseEvent) => void;
   onDoubleClick: (event: React.MouseEvent) => void;
 }) {
@@ -214,6 +276,8 @@ function DraggableRefBadge({
   return (
     <RefBadge
       refItem={refItem}
+      colorIdx={colorIdx}
+      palette={palette}
       onContextMenu={onContextMenu}
       onDoubleClick={onDoubleClick}
       dnd={{
@@ -229,6 +293,17 @@ function DraggableRefBadge({
     />
   );
 }
+
+/**
+ * Chips drawn before the overflow counter takes over.
+ *
+ * Two, because that is what the default 180px column holds without either name
+ * truncating to nothing: the pair that matters is nearly always a local branch
+ * and its remote-tracking twin.
+ */
+const REF_CHIP_CAP = 2;
+
+const EMPTY_REFS: readonly Ref[] = [];
 
 export const CommitGraphRow = memo(GraphRowInner);
 
