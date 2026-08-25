@@ -10,7 +10,10 @@ import {
   type NavLinkComponent,
 } from '@bilo-io/shell';
 import { QueryClient } from '@tanstack/react-query';
-import { ChevronLeft, FileDiff, GitBranch, Settings, type LucideIcon } from 'lucide-react';
+import { ChevronLeft } from 'lucide-react';
+import type { IconType } from 'react-icons';
+import { LuGitBranch, LuSettings } from 'react-icons/lu';
+import { MdOutlineDifference } from 'react-icons/md';
 
 import { Brand, BrandMark, Wordmark } from './components/brand';
 import { DialogHost } from './components/dialog-host';
@@ -90,10 +93,16 @@ const CONTENT_BOX = {
   marginTop: 'var(--titlebar-h, 0px)',
 } as const;
 
-const NAV_ITEMS: { view: ViewId; label: string; icon: LucideIcon }[] = [
-  { view: 'graph', label: 'Graph', icon: GitBranch },
-  { view: 'changes', label: 'Changes', icon: FileDiff },
-  { view: 'settings', label: 'Settings', icon: Settings },
+/**
+ * Rail icons come from react-icons, which fronts several icon sets at once —
+ * so each nav item can take the glyph that actually reads as its view rather
+ * than the nearest match within one family. `IconType` is react-icons' own
+ * component type; the mixed `Lu*`/`Md*` prefixes are the sets, not a mistake.
+ */
+const NAV_ITEMS: { view: ViewId; label: string; icon: IconType }[] = [
+  { view: 'graph', label: 'Graph', icon: LuGitBranch },
+  { view: 'changes', label: 'Changes', icon: MdOutlineDifference },
+  { view: 'settings', label: 'Settings', icon: LuSettings },
 ];
 
 function Placeholder({ view }: { view: ViewId }) {
