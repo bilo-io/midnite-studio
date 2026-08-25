@@ -10,7 +10,7 @@ import {
   type NavLinkComponent,
 } from '@bilo-io/shell';
 import { QueryClient } from '@tanstack/react-query';
-import { FileDiff, GitBranch, Settings, type LucideIcon } from 'lucide-react';
+import { ChevronLeft, FileDiff, GitBranch, Settings, type LucideIcon } from 'lucide-react';
 
 import { Brand, BrandMark, Wordmark } from './components/brand';
 import { DialogHost } from './components/dialog-host';
@@ -20,6 +20,8 @@ import { GraphView } from './features/graph/graph-view';
 import { ReposPanel } from './features/repos/repos-panel';
 import { useDefaultSelection } from './features/repos/use-default-selection';
 import { StatusPanel } from './features/status/status-panel';
+import { SyncActions } from './features/status/sync-actions';
+import { useFetch, usePull, usePush, useStatus } from './services/use-status';
 import { FooterBar } from './features/terminal/footer-bar';
 import { TerminalPanel } from './features/terminal/terminal-panel';
 import { hslTokenToHex } from './lib/color';
@@ -32,6 +34,7 @@ import {
   pathForView,
   useUiStore,
   viewForPath,
+  type NavMode,
   type ViewId,
 } from './store/ui-store';
 
@@ -120,12 +123,60 @@ function Placeholder({ view }: { view: ViewId }) {
   );
 }
 
+/**
+ * Locks the nav rail open, or hands it back to hover.
+ *
+ * The two modes differ in more than persistence: `auto` hover-expands as an
+ * OVERLAY, while `expanded` is the only mode that shifts the page content
+ * (AppFrame sets `--nav-offset` from it). That asymmetry is what makes the lock
+ * feel like a lock rather than a preference — mirroring midnite's own rail.
+ *
+ * `collapsed` is deliberately not reachable from here: a two-state pin is a
+ * pin, a three-state one is a menu wearing a pin's clothes.
+ */
+function NavLockToggle({
+  navMode,
+  onChange,
+}: {
+  navMode: NavMode;
+  onChange: (mode: NavMode) => void;
+}) {
+  const locked = navMode === 'expanded';
+  return (
+    <button
+      type="button"
+      onClick={() => onChange(locked ? 'auto' : 'expanded')}
+      aria-pressed={locked}
+      aria-label={locked ? 'Unlock navigation' : 'Keep navigation expanded'}
+      title={locked ? 'Unlock navigation' : 'Keep navigation expanded'}
+      className="ml-auto shrink-0 rounded p-1 text-muted-foreground transition-colors hover:bg-accent hover:text-foreground"
+    >
+      <ChevronLeft
+        aria-hidden
+        className={`h-4 w-4 transition-transform duration-200 ease-in-out ${
+          locked ? '' : 'rotate-180'
+        }`}
+      />
+    </button>
+  );
+}
+
 function Shell() {
   const activeView = useUiStore((s) => s.activeView);
   const terminalOpen = useUiStore((s) => s.terminalOpen);
   const selectedWorktreePath = useUiStore((s) => s.selectedWorktreePath);
   const layout = useUiStore((s) => s.layout);
   const setLayout = useUiStore((s) => s.setLayout);
+  const navMode = useUiStore((s) => s.navMode);
+  const setNavMode = useUiStore((s) => s.setNavMode);
+  const collapsedNavSections = useUiStore((s) => s.collapsedNavSections);
+  const toggleNavSection = useUiStore((s) => s.toggleNavSection);
+
+  const fetch = useFetch();
+  const pull = usePull();
+  const push = usePush();
+  const { data: status } = useStatus();
+  const hasUpstream = status?.branch.upstream != null;
   useDefaultSelection();
   useWatchInvalidation(useUiStore((s) => s.selectedRepoId));
 
@@ -140,6 +191,11 @@ function Shell() {
     'terminal.focus': () => useUiStore.getState().setTerminalOpen(true),
     'graph.focus': () => useUiStore.getState().setActiveView('graph'),
     'status.focus': () => useUiStore.getState().setActiveView('changes'),
+    // Declared in the keymap and wired into the native menu since Phase 9, but
+    // never given a handler — the accelerators and the menu items were inert.
+    'sync.fetch': () => void fetch.mutateAsync(),
+    'sync.pull': () => void pull.mutateAsync(),
+    'sync.push': () => void push.mutateAsync({ setUpstream: !hasUpstream }),
   });
 
   const repos = useResizable({
@@ -177,10 +233,20 @@ function Shell() {
       ],
       // Collapsed, the rail shows the mark alone — the wordmark would be
       // clipped to a couple of letters, which reads as a rendering bug.
-      brand: ({ expanded }) => <Brand className="px-1" showWordmark={expanded} />,
-      footer: () => <ThemeToggle />,
+      brand: ({ expanded }) => (
+        <div className="flex min-w-0 flex-1 items-center gap-1">
+          <Brand className="px-1" showWordmark={expanded} />
+          {/*
+            The pin only exists while the rail is expanded. Collapsed, the rail
+            is 3.5rem of icons with nowhere to put it — and it would be asking
+            the user to lock open a rail they cannot currently see the contents
+            of.
+          */}
+          {expanded ? <NavLockToggle navMode={navMode} onChange={setNavMode} /> : null}
+        </div>
+      ),
     }),
-    [],
+    [navMode, setNavMode],
   );
 
   // <TitleBar> renders nothing unless the bridge reports a frameless window, so
@@ -188,19 +254,37 @@ function Shell() {
   // native frame.
   const windowChrome = bridge()?.windowChrome ?? null;
 
+  const chrome = (
+    <>
+      <SyncActions />
+      <ThemeToggle />
+    </>
+  );
+
   const titleBar = (
     <TitleBar
       windowChrome={windowChrome}
       left={<Wordmark className="text-xs" />}
+      right={chrome}
     />
   );
+
+  /**
+   * <TitleBar> renders nothing unless the window is frameless — true on macOS,
+   * false on every other platform and under jsdom. The sync cluster and the
+   * theme toggle are app-level controls, not macOS decoration, so a framed
+   * window gets its own slim strip rather than losing them entirely.
+   */
+  const framed = !windowChrome?.frameless;
 
   return (
     <AppFrame
       nav={nav}
       activePath={pathForView(activeView)}
       linkComponent={ViewLink}
-      navMode="auto"
+      navMode={navMode}
+      collapsedSections={collapsedNavSections}
+      onToggleSection={toggleNavSection}
       navLabel="Views"
       titleBar={titleBar}
     >
@@ -216,6 +300,12 @@ function Shell() {
         offset itself. Without this the first rows of the panel render behind the
         bar, which looks like a missing header rather than a layout bug.
       */}
+      {framed ? (
+        <div className="flex h-10 shrink-0 items-center justify-end gap-2 border-b border-border px-3">
+          {chrome}
+        </div>
+      ) : null}
+
       <div className="flex min-h-0" style={CONTENT_BOX}>
         <aside
           className={`shrink-0 ${repos.dragging ? '' : 'transition-[width] duration-150 ease-in-out'}`}
