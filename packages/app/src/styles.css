@@ -39,6 +39,19 @@
     user-select: none;
   }
 
+  /*
+   * The stagger half of the cascade. `cascadeStyle(i)` (lib/cascade.ts) sets
+   * `--i`; this turns it into a delay, so the 18ms step is written down once
+   * rather than at every list that fans in.
+   *
+   * The fallback of 0 matters: an element carrying the class but no `--i` (a
+   * lone item, a conditional row) animates immediately instead of resolving to
+   * an invalid calc() and dropping the whole animation.
+   */
+  .cascade-delay {
+    animation-delay: calc(var(--i, 0) * 18ms);
+  }
+
   /* Text the user is meant to read and copy opts back in. */
   input,
   textarea,
