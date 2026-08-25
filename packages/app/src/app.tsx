@@ -5,6 +5,7 @@ import {
   AppFrame,
   ShellProviders,
   TitleBar,
+  applyMotion,
   type NavConfig,
   type NavLinkComponent,
 } from '@bilo-io/shell';
@@ -221,6 +222,30 @@ function Shell() {
 }
 
 /**
+ * Arms or disarms every animation in the app from the OS setting.
+ *
+ * `@bilo-io/shell/appearance.css` ships a universal reduced-motion reset, but
+ * it is keyed on `html[data-motion='reduced']` and nothing was ever setting the
+ * attribute — so the whole layer sat inert.
+ *
+ * Resolved to `reduced`/`full` here rather than passed through as `system`:
+ * the shell's `system` path is a set of per-effect `@media (prefers-reduced-motion)`
+ * blocks covering the shell's OWN effects, which would leave this app's
+ * keyframes (fade-in, the cascade, the fetch spinner) running against a user
+ * who asked for stillness.
+ */
+function useMotionPreference(): void {
+  useEffect(() => {
+    if (typeof matchMedia !== 'function') return;
+    const query = matchMedia('(prefers-reduced-motion: reduce)');
+    const sync = () => applyMotion(query.matches ? 'reduced' : 'full');
+    sync();
+    query.addEventListener('change', sync);
+    return () => query.removeEventListener('change', sync);
+  }, []);
+}
+
+/**
  * Keeps the native window backing in step with the app theme.
  *
  * Without it a resize or a rounded corner shows the launch background against a
@@ -250,6 +275,7 @@ function useWindowBackgroundSync(): void {
 
 export function App() {
   useWindowBackgroundSync();
+  useMotionPreference();
   return (
     <ShellProviders queryClient={queryClient}>
       <DialogHost>
