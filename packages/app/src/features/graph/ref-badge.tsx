@@ -46,10 +46,19 @@ export function RefBadge({
   refItem,
   onContextMenu,
   onDoubleClick,
+  dnd,
 }: {
   refItem: Ref;
   onContextMenu?: (event: React.MouseEvent) => void;
   onDoubleClick?: (event: React.MouseEvent) => void;
+  /** Drag/drop wiring from useRefDnd — omitted where the badge is static. */
+  dnd?: {
+    setNodeRef: (node: HTMLElement | null) => void;
+    listeners: Record<string, unknown>;
+    attributes: Record<string, unknown>;
+    isOver: boolean;
+    isDragging: boolean;
+  };
 }) {
   const upstream = refItem.upstream;
   const ahead = upstream?.ahead ?? 0;
@@ -57,11 +66,18 @@ export function RefBadge({
 
   return (
     <span
+      ref={dnd?.setNodeRef}
       onContextMenu={onContextMenu}
       onDoubleClick={onDoubleClick}
+      {...(dnd?.listeners ?? {})}
+      {...(dnd?.attributes ?? {})}
       className={`inline-flex min-w-0 max-w-[16rem] shrink cursor-default items-center gap-1 rounded border px-1.5 py-px text-[11px] leading-4 ${
         STYLES[refItem.kind]
-      } ${refItem.isHead ? 'font-semibold' : ''}`}
+      } ${refItem.isHead ? 'font-semibold' : ''} ${
+        // A drop target has to look like one mid-drag, or the gesture is a
+        // guess — the ring is the only feedback the user gets before releasing.
+        dnd?.isOver ? 'ring-2 ring-primary ring-offset-1 ring-offset-background' : ''
+      } ${dnd?.isDragging ? 'opacity-40' : ''}`}
       title={`${refItem.fullName}${upstream ? ` → ${upstream.name}` : ''}`}
     >
       {refItem.isHead ? <span aria-hidden>◉</span> : null}

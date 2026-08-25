@@ -38,12 +38,23 @@ export function useGraphActions(onError: (message: string) => void) {
   const resetTo = useGitOp<{ target: string; mode: 'soft' | 'mixed' | 'hard' }>((api, args, ctx) =>
     api.ops.reset({ ...ctx, ...args }),
   );
+  const mergeBranch = useGitOp<{ source: string }>((api, args, ctx) =>
+    api.ops.merge({ ...ctx, source: args.source, noFastForward: false }),
+  );
+  const rebaseOnto = useGitOp<{ onto: string }>((api, args, ctx) =>
+    api.ops.rebase({ ...ctx, onto: args.onto }),
+  );
+  const cherryPickCommits = useGitOp<{ shas: string[] }>((api, args, ctx) =>
+    api.ops.cherryPick({ ...ctx, shas: args.shas }),
+  );
 
   const report = useCallback(
     (result: GitOpResult) => {
       if (result.ok) onError('');
       else if (result.kind === 'error') onError(result.message);
-      else onError(`Conflicts in ${result.files.length} file(s).`);
+      // A conflict is not an error message — the conflict banner takes over and
+      // says everything that needs saying, with the way out attached.
+      else onError('');
     },
     [onError],
   );
@@ -213,5 +224,52 @@ export function useGraphActions(onError: (message: string) => void) {
     [branchDelete, branchRename, checkout, dialogs, report, withBlastRadius],
   );
 
-  return { commitMenu, refMenu, checkoutRef: checkout, report };
+  /**
+   * The menu offered when something is dropped onto a branch badge.
+   *
+   * A drop never acts directly. "Merge X into Y" and "Rebase X onto Y" are the
+   * same gesture with opposite effects on history, and guessing which one was
+   * meant is not a guess worth making — GitKraken asks too. Cherry-pick is a
+   * single action but still confirmed, because dropping a commit is easy to do
+   * by accident while scrolling.
+   */
+  const dropMenu = useCallback(
+    (source: DropSource, target: Ref, currentBranch: string | null): MenuItem[] => {
+      if (source.kind === 'commit') {
+        return [
+          {
+            label: `Cherry-pick ${source.sha.slice(0, 7)} onto ${target.name}`,
+            disabled: target.name !== currentBranch,
+            disabledReason: `Check out ${target.name} first — a cherry-pick applies to the current branch.`,
+            onSelect: () =>
+              void cherryPickCommits.mutateAsync({ shas: [source.sha] }).then(report),
+          },
+        ];
+      }
+
+      const sourceName = source.ref.name;
+      const targetIsCurrent = target.name === currentBranch;
+
+      return [
+        {
+          label: `Merge ${sourceName} into ${target.name}`,
+          disabled: !targetIsCurrent,
+          disabledReason: `Check out ${target.name} first — a merge brings changes into the current branch.`,
+          onSelect: () => void mergeBranch.mutateAsync({ source: sourceName }).then(report),
+        },
+        {
+          label: `Rebase ${target.name} onto ${sourceName}`,
+          disabled: !targetIsCurrent,
+          disabledReason: `Check out ${target.name} first — a rebase replays the current branch.`,
+          onSelect: () => void rebaseOnto.mutateAsync({ onto: sourceName }).then(report),
+        },
+      ];
+    },
+    [cherryPickCommits, mergeBranch, rebaseOnto, report],
+  );
+
+  return { commitMenu, refMenu, dropMenu, checkoutRef: checkout, report };
 }
+
+/** What can be dropped onto a branch badge. */
+export type DropSource = { kind: 'ref'; ref: Ref } | { kind: 'commit'; sha: string };

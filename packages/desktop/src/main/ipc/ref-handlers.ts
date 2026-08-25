@@ -1,9 +1,14 @@
 import {
+  abort,
   checkout,
+  cherryPick,
+  continueOp,
   countOrphanedCommits,
   createBranch,
   createTag,
   deleteBranch,
+  merge,
+  rebase,
   renameBranch,
   reset,
 } from '@midnite-git/git-engine';
@@ -66,6 +71,36 @@ export function registerRefHandlers(): void {
     CHANNELS.opReset,
     schemas.ResetRequest,
     inWorkdir((cwd, req) => reset(cwd, req.target, req.mode)),
+  );
+
+  handleOp(
+    CHANNELS.opMerge,
+    schemas.MergeRequest,
+    inWorkdir((cwd, req) => merge(cwd, { source: req.source, noFastForward: req.noFastForward })),
+  );
+
+  handleOp(
+    CHANNELS.opRebase,
+    schemas.RebaseRequest,
+    inWorkdir((cwd, req) => rebase(cwd, { onto: req.onto })),
+  );
+
+  handleOp(
+    CHANNELS.opCherryPick,
+    schemas.CherryPickRequest,
+    inWorkdir((cwd, req) => cherryPick(cwd, req.shas)),
+  );
+
+  handleOp(
+    CHANNELS.opAbort,
+    schemas.AbortRequest,
+    inWorkdir((cwd, req) => abort(cwd, req.op)),
+  );
+
+  handleOp(
+    CHANNELS.opContinue,
+    schemas.ContinueRequest,
+    inWorkdir((cwd, req) => continueOp(cwd, req.op)),
   );
 
   /**

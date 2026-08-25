@@ -5,8 +5,10 @@ import { useVirtualizer } from '@tanstack/react-virtual';
 import { useDialogs } from '../../components/dialog-host';
 import { useRefs } from '../../services/queries';
 import { useStatus } from '../../services/use-status';
+import { ConflictBanner } from '../status/conflict-banner';
 import { useUiStore } from '../../store/ui-store';
 import { CommitDetail } from '../commit/commit-detail';
+import { GraphDndProvider, type DropEvent } from './graph-dnd';
 import { CommitGraphRow } from './graph-row';
 import { useGraphStore } from './graph-store';
 import { LANE_WIDTH, ROW_HEIGHT } from './graph-svg';
@@ -40,7 +42,22 @@ export function GraphView() {
   const currentBranch = status?.branch.head ?? null;
   const dialogs = useDialogs();
   const [opError, setOpError] = useState('');
-  const { commitMenu, refMenu, checkoutRef, report } = useGraphActions(setOpError);
+  const { commitMenu, refMenu, dropMenu, checkoutRef, report } = useGraphActions(setOpError);
+
+  /**
+   * A drop opens a menu at the pointer rather than acting.
+   *
+   * "Merge X into Y" and "Rebase Y onto X" are the same gesture with opposite
+   * effects on history; picking one for the user is a decision they cannot see
+   * being made.
+   */
+  const onDrop = useCallback(
+    (event: DropEvent) => {
+      const at = lastPointer.current;
+      dialogs.openMenu(at, dropMenu(event.source, event.target, currentBranch));
+    },
+    [currentBranch, dialogs, dropMenu],
+  );
 
   const onRowContextMenu = useCallback(
     (event: { clientX: number; clientY: number }, row: (typeof rows)[number]) =>
@@ -66,6 +83,9 @@ export function GraphView() {
   );
 
   const scrollRef = useRef<HTMLDivElement>(null);
+  // dnd-kit's drag-end event carries no pointer position, and the drop menu has
+  // to appear where the user released.
+  const lastPointer = useRef({ clientX: 0, clientY: 0 });
   const virtualizer = useVirtualizer({
     count: rows.length,
     getScrollElement: () => scrollRef.current,
@@ -105,8 +125,15 @@ export function GraphView() {
   }
 
   return (
-    <div className="flex h-full min-h-0">
+    <GraphDndProvider onDrop={onDrop}>
+      <div
+        className="flex h-full min-h-0"
+        onPointerMove={(event) => {
+          lastPointer.current = { clientX: event.clientX, clientY: event.clientY };
+        }}
+      >
       <div className="flex min-w-0 flex-1 flex-col">
+        {status ? <ConflictBanner status={status} onError={setOpError} /> : null}
         <div ref={scrollRef} className="min-h-0 flex-1 overflow-auto" role="grid">
           <div className="relative w-full" style={{ height: virtualizer.getTotalSize() }}>
             {virtualizer.getVirtualItems().map((item) => {
@@ -153,7 +180,8 @@ export function GraphView() {
           <CommitDetail repoId={repoId} sha={selectedSha} />
         </aside>
       ) : null}
-    </div>
+      </div>
+    </GraphDndProvider>
   );
 }
 

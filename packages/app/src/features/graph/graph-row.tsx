@@ -1,6 +1,7 @@
 import type { GraphRow, Ref } from '@midnite-git/shared';
 import { memo } from 'react';
 
+import { useCommitDnd, useRefDnd } from './graph-dnd';
 import { GraphSvg, LANE_WIDTH, ROW_HEIGHT } from './graph-svg';
 import { RefBadge } from './ref-badge';
 
@@ -50,7 +51,14 @@ function GraphRowInner({
       }`}
       style={{ height: ROW_HEIGHT }}
     >
-      <GraphSvg row={row} width={gutterLanes * LANE_WIDTH} />
+      {/*
+        The lane gutter doubles as the commit's drag handle. Dragging from the
+        subject text would fight text selection, and the node is the thing that
+        visually *is* the commit.
+      */}
+      <CommitDragHandle sha={row.commit.sha} subject={row.commit.subject}>
+        <GraphSvg row={row} width={gutterLanes * LANE_WIDTH} />
+      </CommitDragHandle>
 
       {/*
         `overflow-hidden` plus a shrinkable badge group, not just `truncate` on
@@ -63,9 +71,10 @@ function GraphRowInner({
         {refs.length > 0 ? (
           <span className="flex min-w-0 shrink items-center gap-1.5 overflow-hidden">
             {refs.map((ref) => (
-              <RefBadge
+              <DraggableRefBadge
                 key={ref.fullName}
                 refItem={ref}
+                rowId={row.commit.sha}
                 onContextMenu={(event) => {
                   // Stop the row's own menu opening as well — the badge's menu
                   // is the more specific target the user aimed at.
@@ -96,6 +105,67 @@ function GraphRowInner({
         {row.commit.sha.slice(0, 7)}
       </span>
     </div>
+  );
+}
+
+/**
+ * A badge that is both a drag source and a drop target.
+ *
+ * Split into its own component because `useRefDnd` is a hook and the badges are
+ * rendered in a map — the alternative is one hook call per possible badge,
+ * which the rules of hooks forbid.
+ */
+function CommitDragHandle({
+  sha,
+  subject,
+  children,
+}: {
+  sha: string;
+  subject: string;
+  children: React.ReactNode;
+}) {
+  const { setNodeRef, listeners, attributes, isDragging } = useCommitDnd(sha, subject);
+  return (
+    <span
+      ref={setNodeRef}
+      {...listeners}
+      {...attributes}
+      className={`shrink-0 ${isDragging ? 'opacity-40' : ''}`}
+    >
+      {children}
+    </span>
+  );
+}
+
+function DraggableRefBadge({
+  refItem,
+  rowId,
+  onContextMenu,
+  onDoubleClick,
+}: {
+  refItem: Ref;
+  rowId: string;
+  onContextMenu: (event: React.MouseEvent) => void;
+  onDoubleClick: (event: React.MouseEvent) => void;
+}) {
+  const { draggable, droppable } = useRefDnd(refItem, rowId);
+
+  return (
+    <RefBadge
+      refItem={refItem}
+      onContextMenu={onContextMenu}
+      onDoubleClick={onDoubleClick}
+      dnd={{
+        setNodeRef: (node) => {
+          draggable.setNodeRef(node);
+          droppable.setNodeRef(node);
+        },
+        listeners: (draggable.listeners ?? {}) as Record<string, unknown>,
+        attributes: draggable.attributes as unknown as Record<string, unknown>,
+        isOver: droppable.isOver,
+        isDragging: draggable.isDragging,
+      }}
+    />
   );
 }
 
