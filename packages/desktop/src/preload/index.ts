@@ -28,6 +28,10 @@ import {
  *    runtime. Annotating the const is what makes the contract load-bearing.
  */
 
+/** Typed `invoke` wrapper — one place where the `unknown` from IPC is narrowed. */
+const call = <Req, Res>(channel: string, req?: Req): Promise<Res> =>
+  ipcRenderer.invoke(channel, req) as Promise<Res>;
+
 /** Subscribe to a main→renderer channel, returning the teardown. */
 function subscribe<T>(channel: string, handler: (payload: T) => void): Unsubscribe {
   const listener = (_event: unknown, payload: T): void => handler(payload);
@@ -66,12 +70,22 @@ const windowChrome: WindowChromeBridge = {
 };
 
 /**
- * Phase 3 exposes the chrome and menu halves; the repo/log/status/ops/pty
- * groups land with the phases that implement their handlers. Typed as a `Pick`
- * so a group can't be half-wired: adding it to this list without implementing
- * every method in it is a compile error.
+ * The exposed surface, group by group, as each phase's handlers land. Typed as a
+ * `Pick` so a group can't be half-wired: naming it here without implementing
+ * every method in it is a compile error, rather than an `undefined` the renderer
+ * only discovers at the moment of the call.
  */
-const bridge: Pick<MidniteGitBridge, 'window' | 'windowChrome' | 'menu'> = {
+const bridge: Pick<MidniteGitBridge, 'repos' | 'window' | 'windowChrome' | 'menu'> = {
+  repos: {
+    open: (req) => call(CHANNELS.repoOpen, req),
+    list: () => call(CHANNELS.repoList),
+    close: (req) => call(CHANNELS.repoClose, req),
+    refs: (req) => call(CHANNELS.repoRefs, req),
+    worktrees: (req) => call(CHANNELS.repoWorktrees, req),
+    worktreeAdd: (req) => call(CHANNELS.repoWorktreeAdd, req),
+    worktreeRemove: (req) => call(CHANNELS.repoWorktreeRemove, req),
+    pickDirectory: () => call(CHANNELS.repoPickDirectory),
+  },
   window: {
     minimize: () => ipcRenderer.send(CHANNELS.windowMinimize),
     toggleMaximize: () => ipcRenderer.send(CHANNELS.windowMaximizeToggle),

@@ -13,7 +13,8 @@
   "dependencies": {
     "@midnite-git/git-engine": "workspace:*",
     "@midnite-git/shared": "workspace:*",
-    "node-pty": "^1.0.0"
+    "node-pty": "^1.0.0",
+    "zod": "^3.23.8"
   },
   "devDependencies": {
     "@electron/rebuild": "^3.7.0",

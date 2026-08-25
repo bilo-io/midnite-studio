@@ -10,6 +10,8 @@
 export const CHANNELS = {
   // --- repositories --------------------------------------------------------
   repoOpen: 'mgit:repo:open',
+  /** Native directory picker; resolves to null when the user cancels. */
+  repoPickDirectory: 'mgit:repo:pick-directory',
   repoList: 'mgit:repo:list',
   repoClose: 'mgit:repo:close',
   repoRefs: 'mgit:repo:refs',

@@ -106,13 +106,42 @@ export async function execGit(
     ...(opts.processCallback === undefined ? {} : { processCallback: opts.processCallback }),
   };
 
-  const raw = await GitProcess.exec([...args], repoPath, options);
+  const raw = await runGit(args, repoPath, options);
   const result: GitExecResult = { ...raw, args };
 
   if (opts.throwOnError && raw.exitCode !== 0) {
     throw new GitExecError(describeFailure(args, raw), result);
   }
   return result;
+}
+
+/**
+ * dugite REJECTS when the git process can't be launched at all — most commonly
+ * "Unable to find path to repository on disk", which happens whenever `cwd` no
+ * longer exists. That is not an exceptional condition for a desktop client:
+ * a repository the user opened last week may have been moved, deleted or
+ * unmounted since, and the app has to redraw its sidebar, not fail to boot.
+ *
+ * Converting the rejection into an ordinary non-zero result means every caller
+ * gets one failure shape to handle instead of two, and `throwOnError` still
+ * opts back into exceptions where a caller genuinely wants them.
+ */
+async function runGit(
+  args: readonly string[],
+  repoPath: string,
+  options: IGitExecutionOptions,
+): Promise<IGitResult> {
+  try {
+    return await GitProcess.exec([...args], repoPath, options);
+  } catch (error) {
+    return {
+      stdout: '',
+      stderr: error instanceof Error ? error.message : String(error),
+      // -1 rather than a plausible git exit code: nothing ran, so no exit code
+      // from git could be honest here.
+      exitCode: -1,
+    };
+  }
 }
 
 /**
