@@ -276,3 +276,47 @@ cherry-pick onto `feature/drag-me` one row above. The fixture keeps ref-less row
 drop target now; that spacing is load-bearing.
 
 445 unit tests + 26 e2e green.
+
+## 2026-08-25 — Sidebar: per-repo sync, primary-checkout switching, status dots
+
+The repository headers grew the sync control that only the title bar had: `↑n ↓n` plus
+fetch / pull / push per repo, acting on **that** repo's primary checkout whether or not it is the
+selected one. Which needed two generalisations rather than a copy — `useRepoStatus(target)` and
+`useTargetedGitOp(target, …)`, with `useStatus`/`useGitOp` now the selected-checkout case of each —
+and one extraction: `<SyncControls>` and `<AheadBehind>` are shared with the title bar, so the two
+places cannot disagree about when Push is live.
+
+When a button is live and when it is not is now a pure function, `syncAffordances(branch)`, and
+every disabled state carries a reason. That forced a fix in `IconButton`: a real `disabled`
+attribute suppresses mouse events in every engine, so the one state most in need of explaining was
+the only one that could not raise a tooltip. With a `disabledReason` it switches to `aria-disabled`,
+stays hoverable and swallows the click. The same rules feed the header's ellipsis menu, which
+replaces the bare ✕ — Fetch/Pull/Push, a *Switch primary checkout to ▸* submenu, Copy path, and
+Close, reachable from the ⋮ or a right-click anywhere on the row.
+
+Switching the primary checkout also lands on the branch rows themselves, on right-click and as a
+hover button, with git's own refusal spelled out (`Checked out in <path> — a branch can only be
+checked out once`). The sidebar's menus stay non-destructive on purpose: delete and rename remain
+on the graph's ref badges behind Phase 7's blast-radius gating. Remote rows offer *Create local
+branch from origin/x…* instead of a checkout, because `git checkout origin/x` lands on a detached
+HEAD, which is never what clicking a remote branch means.
+
+The checked-out marker is now a `<BranchDot>`: the same dot, with a radial-gradient halo that
+breathes (`halo-breathe`, the app's only ambient loop — scale/opacity only, so it stays off the
+main thread, and reduced motion freezes it on its final frame) and a red/amber/green level from
+`branchHealth()`. Only signals the app can justify get a colour — a paused merge or a conflict is
+red, uncommitted changes are amber, a gone upstream is amber — and a clean tree deliberately
+reports `unknown` and stays neutral white, because "you have not edited anything" is not a verdict
+on the code and a sidebar of green dots would drown a real one. `ChecksVerdict` is the seam a test
+run or a GitHub pipeline plugs into (todo/outstanding.md → Branch checks); nothing supplies one
+yet, so every branch git has nothing to say about shows no dot at all rather than a green lie.
+Worst-signal-wins, which is why the worktree rows carry their own dot for the checkout they name.
+
+Fitting all that on a 256px row cost the header's branch chip while the repo is expanded — the
+Local list two rows below names the same branch and marks it live — and the fresh-profile default
+sidebar width went to 288. Verified in the app via `--user-data-dir` + `MGIT_OPEN_REPOS`: names
+intact, `↑0 ↓0` with both counts dimmed, Pull/Push at `aria-disabled` + `opacity .4` with
+`pointer-events: auto`, the submenu listing exactly the branches free to check out, and amber dots
+on both dirty checkouts. `moon run :typecheck :lint :test` green, with 16 new unit tests across
+`sync-availability` and `branch-health`. **Outstanding:** the light theme's amber was not screenshotted, and no
+screenshot can show a pulse.

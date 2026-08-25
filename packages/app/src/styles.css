@@ -22,6 +22,23 @@
 @layer base {
   :root {
     --font-brand: 'Quick Kiss', sans-serif;
+
+    /* The red/amber/green a branch's status dot reads in (features/repos/branch-health.ts).
+     * Three of the four defer to an existing token so the dots stay in the
+     * theme's palette; only amber has no token to borrow, because @bilo-io/ui
+     * ships success and destructive but no warning. Indirection through var()
+     * resolves at the point of USE, so the `.dark` overrides below reach these
+     * without them being restated. */
+    --health-unknown: var(--primary);
+    --health-ok: var(--success);
+    --health-warn: 38 92% 50%;
+    --health-fail: var(--destructive);
+  }
+
+  .dark {
+    /* Lifted for contrast against a near-black sidebar; the mid-tone amber that
+     * reads on white goes muddy on it. */
+    --health-warn: 38 95% 58%;
   }
 
   html,

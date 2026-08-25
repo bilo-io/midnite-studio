@@ -35,7 +35,10 @@ export type GraphColumns = {
 };
 
 export const DEFAULT_LAYOUT: LayoutSizes = {
-  reposWidth: 256,
+  // Wide enough for a repository row's full contents: name, ahead/behind pair,
+  // the three sync buttons and the actions ellipsis. At 256 the name was the
+  // thing that truncated, which is the one part of the row that identifies it.
+  reposWidth: 288,
   terminalHeight: 288,
   detailWidth: 384,
   changesListWidth: 384,

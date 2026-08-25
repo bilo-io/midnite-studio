@@ -99,10 +99,27 @@ const config: Config = {
           from: { opacity: '0', transform: 'translateY(3px)' },
           to: { opacity: '1', transform: 'none' },
         },
+        /**
+         * The halo around a branch's status dot. Scale and opacity only — both
+         * are compositor-only properties, so a dot per repository row costs
+         * nothing on the main thread, which a `box-shadow` animation would not.
+         */
+        'halo-breathe': {
+          '0%, 100%': { transform: 'scale(1)', opacity: '0.55' },
+          '50%': { transform: 'scale(1.7)', opacity: '0.12' },
+        },
       },
       animation: {
         'fade-in': 'fade-in 160ms ease-in-out both',
         'fade-in-up': 'fade-in-up 180ms ease-in-out both',
+        /**
+         * The one ambient loop in the app, and the only animation outside the
+         * 160-220ms entrance band. It is not an entrance: it marks the live
+         * checkout for as long as the sidebar is open, so it has to breathe
+         * slowly enough to read as a state rather than a notification. Reduced
+         * motion stops it dead along with everything else.
+         */
+        'halo-breathe': 'halo-breathe 2600ms ease-in-out infinite',
       },
       transitionTimingFunction: {
         // Tailwind's default `transition` curve is cubic-bezier(0.4,0,0.2,1)
