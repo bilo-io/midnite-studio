@@ -59,6 +59,8 @@ export const CHANNELS = {
   windowMaximizeToggle: 'mgit:window:maximize-toggle',
   windowClose: 'mgit:window:close',
   windowState: 'mgit:window:state',
+  /** Renderer → main: retint the native window backing to match the theme. */
+  windowSetBackground: 'mgit:window:set-background',
 } as const;
 
 /** One-way pushes from main → renderer (`webContents.send`). */
@@ -77,6 +79,18 @@ export const EVENT_CHANNELS = {
   /** A native-menu item fired — carries a CommandId, dispatched like a keybinding. */
   menuCommand: 'mgit:menu:command',
 } as const;
+
+/**
+ * CLI switch carrying the frameless flag from main into the preload.
+ *
+ * Passed via `webPreferences.additionalArguments` rather than re-derived in the
+ * preload from `process.platform`. The window options in main are the single
+ * source of truth for whether the native title bar was dropped; a second
+ * platform check in the preload is a copy that silently disagrees the moment
+ * the window-creation logic gains a condition (a setting, a platform, a debug
+ * flag) — and the symptom is an app-drawn title bar stacked on a native one.
+ */
+export const WINDOW_FRAMELESS_ARG = '--mgit-frameless=';
 
 export type ChannelName = (typeof CHANNELS)[keyof typeof CHANNELS];
 export type EventChannelName = (typeof EVENT_CHANNELS)[keyof typeof EVENT_CHANNELS];

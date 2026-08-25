@@ -31,3 +31,12 @@ one-shot pass. 28 unit tests (linear, single merge, octopus, criss-cross, orphan
 children, truncated history, degenerate input) plus structural invariants and an inline snapshot.
 `smoke.ts` renders the lanes as ASCII next to `git log --graph` and they match row for row on
 ~/Dev/midnite.
+
+## 2026-08-25 — Phase 3 · Electron shell boots
+
+Frameless macOS window rendering the Vite app inside `@bilo-io/shell`'s `AppFrame`, with a working
+`TitleBar` bound to a typed `windowChrome` bridge, the login-shell PATH fix, a native menu that
+dispatches CommandIds, and the design tokens driving light/dark. Verified with three in-app
+screenshots: dark, light (tokens flip), and fullscreen (traffic-light clearance collapses from
+112px to 20px, proving `onFullscreenChange` round-trips). Tailwind's library content globs
+verified by asserting 21 shell-only utility classes are present in the generated CSS.

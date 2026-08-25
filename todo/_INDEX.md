@@ -1,6 +1,6 @@
 # midnite-git — Phase Index
 
-**Headline:** the engine reads real repositories and lays out their commit graph; Phase 3 (Electron shell boots) is the live frontier.
+**Headline:** the app boots as a frameless desktop window on the design system; Phase 4 (repo open/list + worktree sidebar) is the live frontier.
 
 Completed work is logged append-only in [`done.md`](done.md). Deferred scope lives in [`outstanding.md`](outstanding.md).
 
@@ -18,7 +18,7 @@ Completed work is logged append-only in [`done.md`](done.md). Deferred scope liv
 | [6 · Status / stage / commit / sync](phase-6-status-and-sync.md) | ◻ TODO | 0/11 | `░░░░░░░░░░` | 0% | — | A |
 | [5 · Commit graph, read-only](phase-5-commit-graph.md) | ◻ TODO | 0/11 | `░░░░░░░░░░` | 0% | — | A |
 | [4 · Repo open/list + worktree sidebar](phase-4-repos-and-worktrees.md) | ◻ TODO | 0/10 | `░░░░░░░░░░` | 0% | — | A |
-| [3 · Electron shell boots](phase-3-electron-shell.md) | ◻ TODO | 0/15 | `░░░░░░░░░░` | 0% | — | A |
+| [3 · Electron shell boots](phase-3-electron-shell.md) | ✅ DONE | 15/15 | `██████████` | 100% | — | — |
 | [2 · Lane layout engine](phase-2-lane-layout.md) | ✅ DONE | 10/10 | `██████████` | 100% | — | — |
 | [1 · Shared contracts + git-engine parsers](phase-1-contracts-and-parsers.md) | ✅ DONE | 14/14 | `██████████` | 100% | — | — |
 | [0 · Scaffold](phase-0-scaffold.md) | ✅ DONE | 17/17 | `██████████` | 100% | — | — |
@@ -62,7 +62,7 @@ Completed work is logged append-only in [`done.md`](done.md). Deferred scope liv
 
 ### [Phase 3 — Electron shell boots](phase-3-electron-shell.md)
 
-- ◻ **A** — frameless window, AppFrame/TitleBar/theme on @bilo-io/ui+shell, preload windowChrome bridge
+- ✅ **A** — frameless window, AppFrame/TitleBar/theme on @bilo-io/ui+shell, preload windowChrome bridge
 
 ### [Phase 2 — Lane layout engine](phase-2-lane-layout.md)
 

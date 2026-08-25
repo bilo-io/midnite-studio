@@ -8,7 +8,7 @@
     "build": "tsc -b",
     "typecheck": "tsc --noEmit",
     "test": "vitest run",
-    "start": "electron ."
+    "start": "node scripts/start-electron.mjs"
   },
   "dependencies": {
     "@midnite-git/git-engine": "workspace:*",

@@ -4,6 +4,37 @@
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>midnite-git</title>
+    <!--
+      No-flash theme init. Mirrors `themeInitScript` from @bilo-io/ui/theme
+      (storage key 'midnite.theme') and runs before React, so the stored
+      light/dark preference is applied before first paint.
+
+      Inline rather than imported on purpose: a module import resolves only
+      after the bundle loads, by which point the wrong theme has already been
+      painted — the white flash on launch this exists to prevent.
+    -->
+    <script>
+      (function () {
+        try {
+          var k = 'midnite.theme';
+          var s = localStorage.getItem(k);
+          var p = s === 'light' || s === 'dark' || s === 'time' ? s : 'system';
+          var r;
+          if (p === 'system') {
+            r = window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light';
+          } else if (p === 'time') {
+            var h = new Date().getHours();
+            r = h >= 8 && h < 18 ? 'light' : 'dark';
+          } else {
+            r = p;
+          }
+          var c = document.documentElement.classList;
+          if (r === 'dark') c.add('dark');
+          else c.remove('dark');
+          document.documentElement.style.colorScheme = r;
+        } catch (e) {}
+      })();
+    </script>
   </head>
   <body>
     <div id="root"></div>

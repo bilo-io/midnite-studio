@@ -1,0 +1,35 @@
+/* Design tokens (HSL custom properties + the `.dark` block). The `.dark` class
+ * is toggled on <html> by @bilo-io/ui's ThemeProvider — and, before first paint,
+ * by the inline script in index.html. */
+@import '@bilo-io/ui/styles';
+/* The shell's appearance layer: accent/density/motion data-attribute rules. */
+@import '@bilo-io/shell/appearance.css';
+
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  html,
+  body,
+  #root {
+    height: 100%;
+  }
+
+  body {
+    @apply bg-background text-foreground antialiased;
+    /* A desktop window is not a document: rubber-band scrolling on the body and
+     * a text cursor over chrome both read as "web page in a frame". */
+    overflow: hidden;
+    -webkit-user-select: none;
+    user-select: none;
+  }
+
+  /* Text the user is meant to read and copy opts back in. */
+  input,
+  textarea,
+  [data-selectable] {
+    -webkit-user-select: text;
+    user-select: text;
+  }
+}
