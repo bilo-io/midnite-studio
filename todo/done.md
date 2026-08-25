@@ -366,3 +366,55 @@ so no transform or backdrop-filter up the title bar can reinterpret its coordina
 157 unit tests + 31 Playwright green (`moon run :typecheck :lint :test`, `moon run app:e2e`), with
 new coverage for the node/column pairing, the lane-colour helpers, the two chip strengths, the
 connector's negative origin, and the theme menu landing inside the viewport.
+
+## 2026-08-25 — Graph: the table lines up, the gutter resizes, the rail lands
+
+Three defects and one addition, all in the graph table's geometry.
+
+**The gutter sat four pixels high.** Its SVG defaulted to `display: inline`, so it
+participated in a line box and carried a descender's worth of phantom height beneath it. The row's
+`items-center` split that evenly and lifted the whole graphic, leaving every ref chip pointing at a
+node slightly below it and every leader line meeting its lane off-centre. `block` on the SVG and
+`flex` on the two spans wrapping it. Asserted per style, because the offset came from the row's
+font metrics rather than from anything one style could be blamed for.
+
+**The header sat nine pixels right of the rows it labelled**, per resize handle preceding it. A
+handle is 5px wide with −2px margins, which is 1px of net width — but it is also an extra item in a
+`gap-2` flex row, so it costs a whole additional gap. The rows have no handles, so the two laid out
+on different grids and the drift compounded: Graph +9, Commit message +7, Date −9. `ResizeHandle`
+now takes the row's `gap` and pulls itself in by half its own width plus that gap, so inserting one
+moves neither neighbour. Every column origin now matches the rows to the pixel.
+
+**The gutter is a resizable column.** Dragging it in closes the lanes up and slides the indented
+commits left; `Home` takes it to its floor, `End` and a double-click back to the natural fit. Both
+bounds are geometry rather than constants, so they are computed per render and handed to
+`useGraphColumns`: `max` is `lanes * laneWidth`, and `min` is where the lanes have closed to half a
+node — which for a single-lane history is exactly one node wide.
+
+That floor is deliberate. Nodes that merely TOUCH would cap compression at three percent for the
+avatar styles, since GitKraken's 30px lane already holds a 29px node; at half a node they overlap
+the way a stacked avatar list does, each keeping a visible crescent. To let them, `laneOffset` pins
+the outermost lanes a node-radius from the gutter's edges instead of half a lane — identical at a
+style's own spacing, so nothing that was never dragged moves, and it turns "lane 0 stays inside the
+gutter" from an invariant every new style must be checked against into a structural fact.
+`laneWidthForGutter` inverts `gutterWidth` exactly across both regimes, so the handle and the
+painted edge stay on the same pixel instead of the graph lagging the pointer.
+
+Lane spacing is the one piece of geometry the row takes as a prop rather than as a custom property,
+and it does bust the row's memo on every pointermove of a gutter drag. SVG coordinates are
+attributes, not styles, so no variable can reach them; the drag re-renders the ~30 rows the
+virtualizer has mounted, not the 50 000 behind them.
+
+**The lane rail.** GitKraken stands a bar in the branch's colour between the graph and the subject,
+so the message you are reading is tied to the branch it landed on without your eye travelling back
+to the node. Full row height, so a run of commits on one branch reads as one rail rather than a
+column of ticks. Only the styles whose node is an avatar: a face says who, not where, while
+`classic` already draws the whole lane in that colour a few pixels away.
+
+Along the way the e2e suite stopped asserting on `svg circle`, which had been quietly matching the
+hole in a ref chip's tag icon as well as the commit nodes — three tests appeared to cover the
+gutter's geometry while measuring an icon. The lane graphic carries `data-graph-gutter` now, and
+the assertions that matter — nodes inside their column, the squeeze losing none of them — actually
+look at it.
+
+198 unit tests + 38 Playwright green (`moon run :typecheck :lint :test`, `moon run app:e2e`).

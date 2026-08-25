@@ -138,6 +138,9 @@ function ThemeCard({
             row={row}
             width={width}
             theme={theme}
+            // The preview is never resized, so the style's own spacing is the
+            // only honest thing to draw it at.
+            laneWidth={theme.laneWidth}
             clipId={avatarClipId(theme)}
           />
         ))}

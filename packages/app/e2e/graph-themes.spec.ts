@@ -185,9 +185,11 @@ test.describe('graph themes', () => {
     await expect(page.getByText('Ada Lovelace').first()).toBeVisible();
 
     // No avatar of either kind: no Gravatar image, and no initials fallback.
-    await expect(page.locator('[role="row"] svg image')).toHaveCount(0);
-    await expect(page.locator('[role="row"] svg text')).toHaveCount(0);
-    expect(await page.locator('[role="row"] svg circle').count()).toBeGreaterThan(0);
+    await expect(page.locator('[role="row"] [data-graph-gutter] image')).toHaveCount(0);
+    await expect(page.locator('[role="row"] [data-graph-gutter] text')).toHaveCount(0);
+    expect(
+      await page.locator('[role="row"] [data-graph-gutter] circle').count(),
+    ).toBeGreaterThan(0);
 
     // And it goes away again, rather than leaving a column the style has no
     // node-level answer for.
@@ -261,11 +263,120 @@ test.describe('graph themes', () => {
   test('a ref chip is joined to its commit', async ({ page }) => {
     await openGraph(page);
     const starts = await page
-      .locator('[role="row"] svg line[stroke-opacity]')
+      .locator('[role="row"] [data-graph-gutter] line[stroke-opacity]')
       .evaluateAll((nodes) => nodes.map((n) => Number(n.getAttribute('x1'))));
 
     expect(starts.length).toBeGreaterThan(0);
     for (const x of starts) expect(x).toBeLessThan(0);
+  });
+
+  /**
+   * The chip and the node it points at have to sit on the same line.
+   *
+   * They did not: the gutter SVG defaulted to `display: inline`, so it sat on a
+   * text baseline with a line box's descender space beneath it. The row's
+   * `items-center` split that phantom height evenly and lifted the whole
+   * graphic a few pixels, leaving every leader line meeting its node off-centre
+   * — subtle enough to survive four styles and a screenshot review.
+   *
+   * Asserted for every style, because the offset scaled with the row's font
+   * metrics rather than with anything a single style could be blamed for.
+   */
+  for (const label of THEMES) {
+    test(`${label} lines the chip up with its node`, async ({ page }) => {
+      await openGraph(page);
+      await chooseTheme(page, label);
+
+      const row = page
+        .locator('[role="grid"] [role="row"]')
+        .filter({ hasText: 'feat(graph): merge the feature branch' });
+      const chip = await row.getByText('main', { exact: true }).boundingBox();
+      const node = await row.locator('[data-graph-gutter] circle').first().boundingBox();
+
+      expect(chip).not.toBeNull();
+      expect(node).not.toBeNull();
+      const centre = (box: { y: number; height: number }) => box.y + box.height / 2;
+      // One pixel of tolerance for a half-pixel row height; the bug was four.
+      expect(Math.abs(centre(chip!) - centre(node!))).toBeLessThanOrEqual(1);
+    });
+  }
+
+  /**
+   * The gutter is a column like any other now, and the interesting end of its
+   * travel is the tight one: lanes close up, indented commits slide left, and
+   * nothing drops off either edge.
+   */
+  test('the gutter resizes, and every lane survives the squeeze', async ({ page }) => {
+    await openGraph(page);
+
+    const header = page.getByRole('columnheader', { name: 'Graph' });
+    const handle = page.getByRole('separator', { name: 'Resize graph column' });
+
+    /** Every node's centre, and how far the widest one reaches. */
+    const geometry = async () => {
+      const gutter = (await header.boundingBox())!;
+      const nodes = await page
+        .locator('[role="grid"] [role="row"] [data-graph-gutter] circle')
+        .evaluateAll((els) =>
+          els.map((el) => {
+            const box = el.getBoundingClientRect();
+            return { centre: box.x + box.width / 2, left: box.x, right: box.right };
+          }),
+        );
+      return { gutter, nodes };
+    };
+
+    const wide = await geometry();
+    expect(wide.nodes.length).toBeGreaterThan(0);
+
+    // `Home` is the handle's own "as small as you allow" — a keyboard press
+    // rather than a synthesised drag, so the test is about the geometry and not
+    // about pointer-event plumbing.
+    await handle.focus();
+    await page.keyboard.press('Home');
+    const tight = await geometry();
+
+    expect(tight.gutter.width).toBeLessThan(wide.gutter.width);
+
+    // The indented lane moved left; lane 0 did not move right off its edge.
+    const rightmost = (g: typeof wide) => Math.max(...g.nodes.map((n) => n.centre));
+    expect(rightmost(tight)).toBeLessThan(rightmost(wide));
+
+    // Still all there, and still inside the column that names them — the floor
+    // exists precisely so a squeezed gutter cannot hide a branch.
+    expect(tight.nodes).toHaveLength(wide.nodes.length);
+    for (const node of tight.nodes) {
+      expect(node.left).toBeGreaterThanOrEqual(tight.gutter.x - 1);
+      expect(node.right).toBeLessThanOrEqual(tight.gutter.x + tight.gutter.width + 1);
+    }
+
+    // And `End` gives the history its natural fit back.
+    await page.keyboard.press('End');
+    expect((await geometry()).gutter.width).toBeCloseTo(wide.gutter.width, 0);
+  });
+
+  /**
+   * GitKraken's rail — the bar between the graph and the subject, in the
+   * branch's colour.
+   */
+  test('avatar styles carry a lane rail; Classic does not', async ({ page }) => {
+    await openGraph(page);
+
+    const rails = page.locator('[role="grid"] [role="row"] > span[aria-hidden]');
+    const rowCount = await page.locator('[role="grid"] [role="row"]').count();
+    await expect(rails).toHaveCount(rowCount);
+
+    // Coloured by the lane, not by one shared accent: row 0 sits on lane 0 and
+    // row 1 on lane 1, so their rails must differ.
+    const colours = await rails.evaluateAll((els) =>
+      els.map((el) => getComputedStyle(el).backgroundColor),
+    );
+    expect(new Set(colours).size).toBeGreaterThan(1);
+
+    // `classic` draws its whole lane in that colour a few pixels away, so a
+    // rail would be saying it twice.
+    await chooseTheme(page, 'Classic');
+    await expect(page.locator('[role="grid"] [role="row"] > span[aria-hidden]')).toHaveCount(0);
   });
 
   test('each style redraws the graph and persists', async ({ page }) => {
@@ -319,13 +430,15 @@ test.describe('graph themes', () => {
 
     // Row 1 sits in lane 1 while lane 0 runs alongside it; the node must not
     // paint over its neighbour's line.
-    const boxes = await page.locator('[role="row"] svg circle').evaluateAll((nodes) =>
+    const boxes = await page
+      .locator('[role="row"] [data-graph-gutter] circle')
+      .evaluateAll((nodes) =>
       nodes.map((n) => n.getBoundingClientRect()).map((r) => ({ left: r.left, right: r.right })),
     );
     expect(boxes.length).toBeGreaterThan(0);
     // Nothing may start left of the gutter's own origin.
     const gutterLeft = await page
-      .locator('[role="row"] svg')
+      .locator('[role="row"] [data-graph-gutter]')
       .first()
       .evaluate((n) => n.getBoundingClientRect().left);
     for (const box of boxes) expect(box.left).toBeGreaterThanOrEqual(gutterLeft - 1);
