@@ -1,7 +1,8 @@
 import { useMemo, useState } from 'react';
 
-import type { Ref, RepoDescriptor, Worktree } from '@midnite/git-shared';
+import type { Ref, RepoDescriptor, StatusResult, Worktree } from '@midnite/git-shared';
 import {
+  ArrowRightLeft,
   ChevronRight,
   Cloud,
   FolderCheck,
@@ -9,22 +10,29 @@ import {
   FolderPlus,
   FolderX,
   GitBranch,
+  MoreVertical,
   Tag,
   X,
 } from 'lucide-react';
 
+import type { MenuItem } from '../../components/context-menu';
+import { useDialogs } from '../../components/dialog-host';
 import { IconButton } from '../../components/icon-button';
 import { Tooltip } from '../../components/tooltip';
 import { TreeSection } from '../../components/tree-section';
 import { cascadeStyle } from '../../lib/cascade';
 import {
-  useCloseRepo,
   usePickAndOpenRepo,
   useRefs,
   useRemoveWorktree,
   useRepos,
 } from '../../services/queries';
+import { useRepoStatus } from '../../services/use-status';
 import { useUiStore } from '../../store/ui-store';
+import { AheadBehind, SyncControls } from '../status/sync-controls';
+import { BranchDot } from './branch-dot';
+import { branchHealth, worktreeHealth, type BranchHealth } from './branch-health';
+import { primaryTarget, useRepoActions } from './use-repo-actions';
 
 /**
  * The repositories sidebar, modelled on VS Code's SCM view crossed with
@@ -85,7 +93,15 @@ export function ReposPanel() {
           </p>
         ) : (
           repos.map((repo, index) => (
-            <RepoItem key={repo.id} repo={repo} first={index === 0} index={index} />
+            <RepoItem
+              key={repo.id}
+              repo={repo}
+              first={index === 0}
+              index={index}
+              // '' clears a stale message on the next successful op, so an
+              // error from two operations ago cannot sit there looking current.
+              onError={(message) => setError(message || null)}
+            />
           ))
         )}
       </div>
@@ -97,13 +113,15 @@ function RepoItem({
   repo,
   first,
   index,
+  onError,
 }: {
   repo: RepoDescriptor;
   first: boolean;
   index: number;
+  onError: (message: string) => void;
 }) {
   const [expanded, setExpanded] = useState(true);
-  const close = useCloseRepo();
+  const dialogs = useDialogs();
   const selectedRepoId = useUiStore((s) => s.selectedRepoId);
   const selectRepo = useUiStore((s) => s.selectRepo);
 
@@ -115,6 +133,25 @@ function RepoItem({
    * watcher invalidation, to populate a tree nobody has opened.
    */
   const { data: refs = [] } = useRefs(expanded ? repo.id : null);
+
+  /**
+   * Status, on the other hand, is fetched whether the repo is expanded or not:
+   * the header's whole job is to answer "does this repo need a push?" without
+   * being opened. It is the same query key the title bar uses for the same
+   * checkout, so selecting the repo costs no second `git status`.
+   *
+   * `isPlaceholderData` is load-bearing. The placeholder is an EMPTY status —
+   * no upstream, nothing ahead — and `syncAffordances` reads that as a branch
+   * that has never been published, i.e. it would offer a live "Publish branch"
+   * for a repository whose real state has not arrived yet.
+   */
+  const { data: status, isPlaceholderData } = useRepoStatus(primaryTarget(repo));
+  const loaded = isPlaceholderData ? undefined : status;
+
+  const { refMenu, repoMenu, checkout, report } = useRepoActions(repo, onError);
+
+  const openRepoMenu = (at: { clientX: number; clientY: number }) =>
+    dialogs.openMenu(at, repoMenu(refs, loaded));
 
   return (
     <section
@@ -130,6 +167,10 @@ function RepoItem({
       }`}
     >
       <div
+        onContextMenu={(event) => {
+          event.preventDefault();
+          openRepoMenu(event);
+        }}
         className={`group flex items-center gap-1 px-2 py-1 text-sm transition-colors ${
           selectedRepoId === repo.id ? 'bg-accent/60' : 'hover:bg-accent/30'
         }`}
@@ -153,26 +194,83 @@ function RepoItem({
           <button
             type="button"
             onClick={() => selectRepo(repo.id)}
-            className="flex min-w-0 flex-1 items-baseline gap-2 text-left"
+            className="flex min-w-0 flex-1 items-center gap-1.5 text-left"
           >
             <span className="truncate font-medium">{repo.name}</span>
-            <span className="shrink-0 truncate text-xs text-muted-foreground">
-              {repo.headRef ?? 'detached'}
-            </span>
+            {/*
+              The branch, with its own glyph rather than as loose grey text: it
+              is the subject of the sync counts beside it, and a bare name reads
+              as a subtitle to the repo instead.
+
+              Only while the repo is folded, though. Expanded, the Local list a
+              few pixels below names the same branch and marks it with the live
+              dot — and at the 256px default the two of them plus the sync
+              cluster left the repository's own name truncated to "midnite-…",
+              which is the one string on the row that has to survive. `shrink-[6]`
+              backs that up at narrower widths: the branch gives up its space
+              six times faster than the name does.
+            */}
+            {expanded ? null : (
+              <span className="flex min-w-0 shrink-[6] items-center gap-1 text-xs text-muted-foreground">
+                <GitBranch aria-hidden className="h-3 w-3 shrink-0" />
+                <span className="truncate">
+                  {loaded?.branch.head ?? repo.headRef ?? 'detached'}
+                </span>
+              </span>
+            )}
           </button>
         </Tooltip>
 
+        {/*
+          The sync control, per repository. Push and pull are per-repo questions,
+          and answering them only for the selected one means opening each repo in
+          turn to find out which needs attention. The counts stay visible at
+          `↑0 ↓0` — "in sync" and "no upstream" must not look alike — and the
+          buttons stay visible while disabled, faint, with the reason on hover.
+        */}
+        {loaded ? (
+          <span className="flex shrink-0 items-center gap-1 text-[11px]">
+            <AheadBehind branch={loaded.branch} />
+            <SyncControls
+              target={primaryTarget(repo)}
+              branch={loaded.branch}
+              size="sm"
+              onError={onError}
+            />
+          </span>
+        ) : null}
+
+        {/*
+          One ellipsis rather than a row of per-repo buttons. The close action
+          used to sit here as a bare X, which cost as much width as the sync
+          cluster now uses and put the panel's only irreversible-looking control
+          one stray click from the pointer's resting place.
+        */}
         <IconButton
-          icon={X}
-          label={`Close ${repo.name}`}
+          icon={MoreVertical}
+          label={`Actions for ${repo.name}`}
           size="sm"
-          tone="danger"
-          onClick={() => close.mutate(repo.id)}
-          className="opacity-0 transition-opacity group-hover:opacity-100 focus-visible:opacity-100"
+          onClick={(event) => {
+            const rect = event.currentTarget.getBoundingClientRect();
+            // A keyboard activation reports 0,0 — fall back to the button's own
+            // box so the menu opens under the control rather than in the corner.
+            openRepoMenu({
+              clientX: event.clientX || rect.left,
+              clientY: event.clientY || rect.bottom,
+            });
+          }}
         />
       </div>
 
-      {expanded ? <RepoTree repo={repo} refs={refs} /> : null}
+      {expanded ? (
+        <RepoTree
+          repo={repo}
+          refs={refs}
+          status={loaded}
+          refMenu={refMenu}
+          onCheckout={(ref) => void checkout.mutateAsync({ target: ref.name }).then(report)}
+        />
+      ) : null}
     </section>
   );
 }
@@ -204,7 +302,20 @@ function useSectionToggles() {
   });
 }
 
-function RepoTree({ repo, refs }: { repo: RepoDescriptor; refs: Ref[] }) {
+function RepoTree({
+  repo,
+  refs,
+  status,
+  refMenu,
+  onCheckout,
+}: {
+  repo: RepoDescriptor;
+  refs: Ref[];
+  /** The primary checkout's status, once it has arrived. */
+  status: StatusResult | undefined;
+  refMenu: (ref: Ref) => MenuItem[];
+  onCheckout: (ref: Ref) => void;
+}) {
   const [showAllTags, setShowAllTags] = useState(false);
   const section = useSectionToggles();
 
@@ -228,13 +339,21 @@ function RepoTree({ repo, refs }: { repo: RepoDescriptor; refs: Ref[] }) {
       */}
       <TreeSection title="Local" count={branches.length} depth={1} {...section('local')}>
         {branches.map((ref, i) => (
-          <RefRow key={ref.fullName} refItem={ref} icon={GitBranch} index={i} />
+          <RefRow
+            key={ref.fullName}
+            refItem={ref}
+            icon={GitBranch}
+            index={i}
+            health={branchHealth({ ref, status })}
+            menu={refMenu}
+            onCheckout={onCheckout}
+          />
         ))}
       </TreeSection>
 
       <TreeSection title="Remotes" count={remotes.length} depth={1} {...section('remotes')}>
         {remotes.map((group) => (
-          <RemoteGroup key={group.name} name={group.name} refs={group.refs} />
+          <RemoteGroup key={group.name} name={group.name} refs={group.refs} menu={refMenu} />
         ))}
       </TreeSection>
 
@@ -253,20 +372,37 @@ function RepoTree({ repo, refs }: { repo: RepoDescriptor; refs: Ref[] }) {
         }
       >
         {visibleTags.map((ref, i) => (
-          <RefRow key={ref.fullName} refItem={ref} icon={Tag} index={i} />
+          <RefRow key={ref.fullName} refItem={ref} icon={Tag} index={i} menu={refMenu} />
         ))}
       </TreeSection>
 
       <TreeSection title="Worktrees" count={worktrees.length} depth={1} {...section('worktrees')}>
         {worktrees.map((worktree, i) => (
-          <WorktreeRow key={worktree.id} repo={repo} worktree={worktree} index={i} />
+          <WorktreeRow
+            key={worktree.id}
+            repo={repo}
+            worktree={worktree}
+            index={i}
+            // Only the main worktree's status is fetched, so only its row can
+            // say anything about its working tree. A linked worktree gets no
+            // dot rather than the primary's dirt attributed to it.
+            health={worktree.isMain ? worktreeHealth(status) : undefined}
+          />
         ))}
       </TreeSection>
     </div>
   );
 }
 
-function RemoteGroup({ name, refs }: { name: string; refs: Ref[] }) {
+function RemoteGroup({
+  name,
+  refs,
+  menu,
+}: {
+  name: string;
+  refs: Ref[];
+  menu: (ref: Ref) => MenuItem[];
+}) {
   const [open, setOpen] = useState(true);
   return (
     <TreeSection
@@ -279,7 +415,7 @@ function RemoteGroup({ name, refs }: { name: string; refs: Ref[] }) {
       depth={2}
     >
       {refs.map((ref, i) => (
-        <RefRow key={ref.fullName} refItem={ref} icon={GitBranch} index={i} depth={2} />
+        <RefRow key={ref.fullName} refItem={ref} icon={GitBranch} index={i} depth={2} menu={menu} />
       ))}
     </TreeSection>
   );
@@ -288,42 +424,64 @@ function RemoteGroup({ name, refs }: { name: string; refs: Ref[] }) {
 /**
  * One ref row — a branch, a remote branch, or a tag.
  *
- * Read-only by design: checkout, delete and rename all live on the graph's ref
- * badges behind a context menu with the blast-radius gating Phase 7 built. A
- * second, subtly different set of destructive affordances over here would be a
- * place for the two to disagree.
+ * Non-destructive by design: delete and rename live on the graph's ref badges
+ * behind the blast-radius gating Phase 7 built, and a second, subtly different
+ * set of destructive affordances over here would be a place for the two to
+ * disagree. What this row does own is the thing the graph cannot express —
+ * switching THIS repository's primary checkout, on a repository that is not
+ * even the selected one — offered both on right-click and as a hover button,
+ * because a context menu alone is an affordance nobody finds.
  */
 function RefRow({
   refItem,
   icon: Icon,
   index,
   depth = 1,
+  health,
+  menu,
+  onCheckout,
 }: {
   refItem: Ref;
   icon: typeof GitBranch;
   index: number;
   depth?: number;
+  health?: BranchHealth;
+  menu: (ref: Ref) => MenuItem[];
+  onCheckout?: (ref: Ref) => void;
 }) {
+  const dialogs = useDialogs();
   const ahead = refItem.upstream?.ahead ?? 0;
   const behind = refItem.upstream?.behind ?? 0;
 
   // Checked out somewhere else: git refuses to check the same branch out twice,
   // so the row says why rather than looking merely inert.
   const elsewhere = refItem.worktreePath !== null && !refItem.isHead;
+  const switchable =
+    onCheckout !== undefined && refItem.kind === 'localBranch' && !refItem.isHead && !elsewhere;
+
+  // The dot is the checked-out marker first and a health readout second, so a
+  // branch nobody knows anything about shows nothing at all rather than a
+  // fourth, meaningless colour on every row.
+  const dot = health && (refItem.isHead || health.level !== 'unknown') ? health : null;
 
   const row = (
     <div
+      onContextMenu={(event) => {
+        event.preventDefault();
+        dialogs.openMenu(event, menu(refItem));
+      }}
       style={cascadeStyle(index)}
-      className={`flex animate-fade-in-up cascade-delay items-center gap-1.5 py-0.5 pr-2 text-[13px] transition-colors hover:bg-accent/30 ${
+      className={`group flex animate-fade-in-up cascade-delay items-center gap-1.5 py-0.5 pr-2 text-[13px] transition-colors hover:bg-accent/30 ${
         depth === 2 ? 'pl-12' : 'pl-8'
       } ${elsewhere ? 'text-muted-foreground' : ''}`}
     >
       <Icon aria-hidden className="h-3 w-3 shrink-0 text-muted-foreground" />
       <span className="truncate">{shortName(refItem)}</span>
-      {refItem.isHead ? (
-        <span
-          aria-label="current branch"
-          className="h-1.5 w-1.5 shrink-0 rounded-full bg-primary"
+      {dot ? (
+        <BranchDot
+          health={dot}
+          what={refItem.isHead ? 'Primary checkout' : refItem.name}
+          pulse={refItem.isHead}
         />
       ) : null}
       {refItem.upstream?.gone ? (
@@ -334,6 +492,15 @@ function RefRow({
           {ahead > 0 ? `↑${ahead}` : ''}
           {behind > 0 ? `↓${behind}` : ''}
         </span>
+      ) : null}
+      {switchable ? (
+        <IconButton
+          icon={ArrowRightLeft}
+          label={`Switch primary checkout to ${refItem.name}`}
+          size="sm"
+          onClick={() => onCheckout?.(refItem)}
+          className="ml-auto opacity-0 transition-opacity group-hover:opacity-100 focus-visible:opacity-100"
+        />
       ) : null}
     </div>
   );
@@ -349,10 +516,12 @@ function WorktreeRow({
   repo,
   worktree,
   index,
+  health,
 }: {
   repo: RepoDescriptor;
   worktree: Worktree;
   index: number;
+  health?: BranchHealth;
 }) {
   const selectedWorktreePath = useUiStore((s) => s.selectedWorktreePath);
   const selectedRepoId = useUiStore((s) => s.selectedRepoId);
@@ -393,6 +562,14 @@ function WorktreeRow({
             }`}
           />
           <span className="truncate">{worktree.branch ?? 'detached'}</span>
+          {/*
+            No pulse here. The breathing dot marks the live checkout in the
+            Local list; repeating it a few rows down would put two animations on
+            one repository, drawing the eye to the least informative of them.
+          */}
+          {health && health.level !== 'unknown' ? (
+            <BranchDot health={health} what={worktree.branch ?? worktree.path} />
+          ) : null}
           {worktree.isMain ? (
             <span className="shrink-0 text-[10px] uppercase tracking-wide text-muted-foreground">
               main

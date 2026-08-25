@@ -34,9 +34,19 @@ export function useActiveWorktree(): { repoId: string | null; worktreePath?: str
   return { repoId, ...(worktreePath ? { worktreePath } : {}) };
 }
 
-export function useStatus() {
-  const { repoId, worktreePath } = useActiveWorktree();
+/** A repo + one of its checkouts. `null` repoId means "nothing selected". */
+export type StatusTarget = { repoId: string | null; worktreePath?: string };
 
+/**
+ * Status for an arbitrary checkout, not just the selected one.
+ *
+ * The sidebar needs this: each repository header carries its own sync control,
+ * and "am I ahead of origin" is a question about THAT repo's primary checkout
+ * regardless of which repo is currently selected. The key is the same one
+ * `useStatus` uses, so a sidebar row and the title bar looking at the same
+ * checkout share a single query rather than running `git status` twice.
+ */
+export function useRepoStatus({ repoId, worktreePath }: StatusTarget) {
   return useQuery<StatusResult>({
     queryKey: keys.status(repoId ?? '', worktreePath),
     queryFn: async () => {
@@ -50,6 +60,10 @@ export function useStatus() {
   });
 }
 
+export function useStatus() {
+  return useRepoStatus(useActiveWorktree());
+}
+
 /**
  * Wrap a git operation so it invalidates the repo afterwards and never rejects.
  *
@@ -59,8 +73,23 @@ export function useStatus() {
 export function useGitOp<TArgs>(
   run: (api: NonNullable<ReturnType<typeof bridge>>, args: TArgs, ctx: { repoId: string; worktreePath?: string }) => Promise<GitOpResult>,
 ) {
+  return useTargetedGitOp(useActiveWorktree(), run);
+}
+
+/**
+ * `useGitOp` against an explicit checkout.
+ *
+ * Same envelope and the same post-op invalidation; the difference is only where
+ * the operation lands. The sidebar acts on a repository the user has not
+ * selected — its header's Push must push THAT repo — and omitting
+ * `worktreePath` targets the primary checkout, which is what
+ * `resolveWorkdir` in main falls back to.
+ */
+export function useTargetedGitOp<TArgs>(
+  { repoId, worktreePath }: StatusTarget,
+  run: (api: NonNullable<ReturnType<typeof bridge>>, args: TArgs, ctx: { repoId: string; worktreePath?: string }) => Promise<GitOpResult>,
+) {
   const client = useQueryClient();
-  const { repoId, worktreePath } = useActiveWorktree();
 
   return useMutation<GitOpResult, never, TArgs>({
     mutationFn: async (args: TArgs) => {

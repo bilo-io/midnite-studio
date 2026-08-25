@@ -24,6 +24,20 @@ Recorded here when a phase punts on something; pick these up post-MVP.
     prerequisite, not a follow-up — the current build is ad-hoc signed so it merely launches.
 - **Interval-tree edge culling** in the graph — only if profiling shows edge rendering as the
   bottleneck on very large repos (see pvigier's benchmarks: ~180x on the naive path).
+- **Finish the `lucide-react` → `react-icons` move.** react-icons became the source for new
+  icons when the nav rail switched to it; 13 renderer files still import `lucide-react`, and
+  both packages ship. Every glyph the app uses exists in `react-icons/lu` under a `Lu` prefix
+  (`GitBranch` → `LuGitBranch`), so the migration is a mechanical rename plus dropping the
+  `lucide-react` dependency — worth doing in one pass rather than drifting file by file.
+  Nothing is broken meanwhile: the shared structural `IconComponent` accepts both families.
+- **Branch checks (the RAG dot's real source).** `branchHealth()` in
+  `packages/app/src/features/repos/branch-health.ts` already reduces several signals to one
+  red/amber/green level and takes a `ChecksVerdict` argument; nothing produces one. The two
+  obvious producers are a local test run (`moon run :test` per branch, cached by tip sha) and the
+  last GitHub Actions conclusion for the branch's head commit (`gh api` / `/check-runs`, which
+  needs a token and a rate-limit-aware cache). Until one exists every branch git has nothing to
+  say about renders no dot, which is deliberate — a green dot that means "no data" is worse than
+  no dot. Wire it through IPC keyed on `(repoId, branch, sha)`, never per render.
 - **Command palette** — the keybinding service's CommandId registry is designed to feed one.
 - **Submodules** — status/graph awareness.
 - **Windows/Linux targets** — packaging is macOS arm64 first; keybindings already use Ctrl+`
