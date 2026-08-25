@@ -57,3 +57,12 @@ by `requestId`) feeding a virtualized SVG-per-row graph: coloured lanes with mer
 badges joined by sha with ahead/behind, subject/author/date columns, and a commit detail pane.
 On `~/Dev/midnite` (2,376 commits) 56 DOM rows are live, scrolling holds a median 8.3ms frame,
 and switching repos mid-stream carries zero rows across.
+
+## 2026-08-25 — Phase 6 · Status / stage / commit / sync
+
+Stage, unstage, discard, commit, fetch, pull and push in the engine — all through the write queue,
+all with explicit paths, and none of them with a force-push escape hatch — plus a VS Code-style
+changes panel: ahead/behind chips with Fetch/Pull/Publish, staged and unstaged lists (a partially
+staged file correctly appears in both), a commit box, and a unified-diff text pane. Verified by
+committing through the UI on a scratch repo and checking `git log`. 130 engine tests green,
+including a push/fetch/pull round trip and a conflicting pull against a real bare remote.
