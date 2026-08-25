@@ -22,6 +22,7 @@ import { useResizable } from './components/resizable/use-resizable';
 import { GraphView } from './features/graph/graph-view';
 import { ReposPanel } from './features/repos/repos-panel';
 import { useDefaultSelection } from './features/repos/use-default-selection';
+import { SettingsView } from './features/settings/settings-view';
 import { StatusPanel } from './features/status/status-panel';
 import { SyncActions } from './features/status/sync-actions';
 import { useFetch, usePull, usePush, useStatus } from './services/use-status';
@@ -31,6 +32,7 @@ import { hslTokenToHex } from './lib/color';
 import { bridge } from './services/bridge';
 import { useKeybindings } from './services/keybindings/use-keybindings';
 import { useWatchInvalidation } from './services/watch-invalidation';
+import { useAppearanceSync } from './store/appearance-store';
 import {
   DEFAULT_LAYOUT,
   LAYOUT_BOUNDS,
@@ -334,6 +336,8 @@ function Shell() {
               <GraphView />
             ) : activeView === 'changes' ? (
               <StatusPanel />
+            ) : activeView === 'settings' ? (
+              <SettingsView />
             ) : (
               <Placeholder view={activeView} />
             )}
@@ -425,6 +429,9 @@ function useWindowBackgroundSync(): void {
 export function App() {
   useWindowBackgroundSync();
   useMotionPreference();
+  // The user's own appearance preferences, applied over the OS-derived motion
+  // default above — an explicit `full`/`reduced` choice outranks the media query.
+  useAppearanceSync();
   return (
     <ShellProviders queryClient={queryClient}>
       <DialogHost>

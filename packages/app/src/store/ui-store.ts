@@ -1,6 +1,8 @@
 import { create } from 'zustand';
 import { persist } from 'zustand/middleware';
 
+import { DEFAULT_GRAPH_THEME, type GraphThemeId } from '../features/graph/graph-themes';
+
 /**
  * Collapse/expand/lock behaviour of the nav rail, mirroring `AppFrame`'s
  * `navMode` prop.
@@ -24,9 +26,10 @@ export type LayoutSizes = {
   changesListWidth: number;
 };
 
-/** Widths of the graph table's fixed-width trailing columns. */
+/** Widths of the graph table's fixed-width columns. */
 export type GraphColumns = {
-  author: number;
+  /** The BRANCH / TAG column, left of the lane gutter. */
+  branchTag: number;
   date: number;
   sha: number;
 };
@@ -39,7 +42,7 @@ export const DEFAULT_LAYOUT: LayoutSizes = {
 };
 
 export const DEFAULT_GRAPH_COLUMNS: GraphColumns = {
-  author: 160,
+  branchTag: 180,
   date: 112,
   sha: 64,
 };
@@ -53,7 +56,7 @@ export const LAYOUT_BOUNDS = {
 } as const;
 
 export const GRAPH_COLUMN_BOUNDS = {
-  author: { min: 80, max: 320 },
+  branchTag: { min: 100, max: 400 },
   date: { min: 72, max: 240 },
   sha: { min: 56, max: 160 },
 } as const;
@@ -79,8 +82,12 @@ export type UiState = {
   graphColumns: GraphColumns;
   navMode: NavMode;
   collapsedNavSections: string[];
+  /** Which of the four graph styles is drawn. A preference, so it persists. */
+  graphTheme: GraphThemeId;
   /** Fully-qualified refs the graph is limited to; empty means every ref. */
   graphRefFilter: string[];
+  /** Lowercased author emails to highlight; empty means every author. */
+  graphAuthorFilter: string[];
   /**
    * Show the pre-image line-number column in a diff.
    *
@@ -101,9 +108,25 @@ export type UiState = {
   setGraphColumn: <K extends keyof GraphColumns>(key: K, value: number) => void;
   setNavMode: (mode: NavMode) => void;
   toggleNavSection: (key: string) => void;
+  setGraphTheme: (theme: GraphThemeId) => void;
   setGraphRefFilter: (refs: string[]) => void;
+  setGraphAuthorFilter: (emails: string[]) => void;
   toggleDiffOldGutter: () => void;
 };
+
+/**
+ * The slice that reaches localStorage — the return type `partialize` produces
+ * and `migrate` must therefore also produce. Named so the two cannot drift.
+ */
+type PersistedUi = Pick<
+  UiState,
+  | 'layout'
+  | 'graphColumns'
+  | 'navMode'
+  | 'collapsedNavSections'
+  | 'diffShowOldGutter'
+  | 'graphTheme'
+>;
 
 export const useUiStore = create<UiState>()(
   persist(
@@ -118,7 +141,9 @@ export const useUiStore = create<UiState>()(
       graphColumns: DEFAULT_GRAPH_COLUMNS,
       navMode: 'auto',
       collapsedNavSections: [],
+      graphTheme: DEFAULT_GRAPH_THEME,
       graphRefFilter: [],
+      graphAuthorFilter: [],
       diffShowOldGutter: false,
 
       setActiveView: (activeView) => set({ activeView }),
@@ -132,6 +157,7 @@ export const useUiStore = create<UiState>()(
           selectedWorktreePath: null,
           selectedCommitSha: null,
           graphRefFilter: [],
+          graphAuthorFilter: [],
         }),
       selectWorktree: (selectedWorktreePath) => set({ selectedWorktreePath }),
       selectCommit: (selectedCommitSha) => set({ selectedCommitSha }),
@@ -148,13 +174,17 @@ export const useUiStore = create<UiState>()(
             ? state.collapsedNavSections.filter((k) => k !== key)
             : [...state.collapsedNavSections, key],
         })),
+      setGraphTheme: (graphTheme) => set({ graphTheme }),
       setGraphRefFilter: (graphRefFilter) => set({ graphRefFilter }),
+      setGraphAuthorFilter: (graphAuthorFilter) => set({ graphAuthorFilter }),
       toggleDiffOldGutter: () =>
         set((state) => ({ diffShowOldGutter: !state.diffShowOldGutter })),
     }),
     {
       name: 'midnite-git.ui',
-      version: 1,
+      // 2 — `graphColumns.author` was retired when the avatar took over naming
+      // the author, and `branchTag` took its place in the table.
+      version: 2,
       /**
        * Geometry and chrome preferences persist; everything about *this
        * session* does not.
@@ -172,7 +202,28 @@ export const useUiStore = create<UiState>()(
         navMode: state.navMode,
         collapsedNavSections: state.collapsedNavSections,
         diffShowOldGutter: state.diffShowOldGutter,
+        graphTheme: state.graphTheme,
       }),
+
+      /**
+       * v1 → v2: drop the retired `author` column width.
+       *
+       * Left in place it is harmless data, but the field-wise merge below would
+       * resurrect it into a `graphColumns` that no longer has a key for it —
+       * and the next person to read the persisted state would find a column
+       * that does not exist.
+       */
+      migrate: (persisted, version) => {
+        if (version >= 2) return persisted as PersistedUi;
+        const state = (persisted ?? {}) as Record<string, unknown> & {
+          graphColumns?: Record<string, number>;
+        };
+        if (state.graphColumns) {
+          const { author: _retired, ...rest } = state.graphColumns;
+          state.graphColumns = rest;
+        }
+        return state as PersistedUi;
+      },
       /**
        * Merge field-by-field over the defaults.
        *

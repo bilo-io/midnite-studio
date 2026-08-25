@@ -17,6 +17,8 @@ export type MockFixtures = {
   commitDetail: { sha: string; body: string; stat: string; files: unknown[] };
   graphRows: unknown[];
   statusEntries: unknown[];
+  /** Refs the sidebar and the BRANCH / TAG column render. */
+  refs?: unknown[];
 };
 
 export async function installMockBridge(page: Page, fixtures: MockFixtures): Promise<void> {
@@ -68,7 +70,7 @@ export async function installMockBridge(page: Page, fixtures: MockFixtures): Pro
         open: async () => ({ ok: true, repo }),
         list: async () => [repo],
         close: async () => undefined,
-        refs: async () => [],
+        refs: async () => data.refs ?? [],
         worktrees: async () => [worktree],
         worktreeAdd: ok,
         worktreeRemove: ok,

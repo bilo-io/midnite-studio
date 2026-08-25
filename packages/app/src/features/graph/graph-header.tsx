@@ -8,14 +8,9 @@ import {
   useUiStore,
   type GraphColumns,
 } from '../../store/ui-store';
+import { AuthorFilter, type AuthorSummary } from './author-filter';
+import type { GraphTheme } from './graph-themes';
 import { RefFilter } from './ref-filter';
-
-/** The trailing, resizable columns, in render order. */
-export const GRAPH_COLUMNS: { name: keyof GraphColumns; label: string }[] = [
-  { name: 'author', label: 'Author' },
-  { name: 'date', label: 'Date' },
-  { name: 'sha', label: 'SHA' },
-];
 
 export type GraphColumnResizables = Record<keyof GraphColumns, Resizable>;
 
@@ -27,30 +22,28 @@ export type GraphColumnResizables = Record<keyof GraphColumns, Resizable>;
  * the header labels and the rows. Split across the two, the header would track
  * the pointer while the rows lagged on the last committed width, and the table
  * would visibly come apart mid-drag.
- *
- * The handles sit on each column's LEFT and the columns are right-aligned, so
- * dragging left widens them — `edge: 'end'`, the same inversion the
- * right-docked panes need.
  */
 export function useGraphColumns(): GraphColumnResizables {
   const columns = useUiStore((s) => s.graphColumns);
   const setColumn = useUiStore((s) => s.setGraphColumn);
 
-  const common = (name: keyof GraphColumns) => ({
+  const common = (name: keyof GraphColumns, edge: 'start' | 'end') => ({
     size: columns[name],
     onSize: (value: number) => setColumn(name, value),
     initial: DEFAULT_GRAPH_COLUMNS[name],
     axis: 'x' as const,
-    edge: 'end' as const,
+    edge,
     ...GRAPH_COLUMN_BOUNDS[name],
   });
 
   // Three fixed hook calls, not a map: the rules of hooks forbid deriving the
   // count from data, and there is exactly one shape of this table.
   return {
-    author: useResizable(common('author')),
-    date: useResizable(common('date')),
-    sha: useResizable(common('sha')),
+    // BRANCH / TAG is the leading column, so its handle is on its RIGHT and a
+    // rightward drag grows it — the opposite of the trailing pair.
+    branchTag: useResizable(common('branchTag', 'start')),
+    date: useResizable(common('date', 'end')),
+    sha: useResizable(common('sha', 'end')),
   };
 }
 
@@ -65,45 +58,74 @@ export function useGraphColumns(): GraphColumnResizables {
  */
 export const graphColumnVars = (columns: GraphColumnResizables): React.CSSProperties =>
   ({
-    '--col-author': `${columns.author.current}px`,
+    '--col-branch-tag': `${columns.branchTag.current}px`,
     '--col-date': `${columns.date.current}px`,
     '--col-sha': `${columns.sha.current}px`,
   }) as React.CSSProperties;
 
-/** The graph table's header: a branch filter, then the column labels. */
+/** The graph table's header: the two filters, then the column labels. */
 export function GraphHeader({
   refs,
+  authors,
   gutterWidth,
   columns,
+  theme,
 }: {
   refs: readonly Ref[];
+  authors: readonly AuthorSummary[];
   /** Matches the lane gutter, so "Graph" sits over the lanes it names. */
   gutterWidth: number;
   columns: GraphColumnResizables;
+  theme: GraphTheme;
 }) {
   const graphRefFilter = useUiStore((s) => s.graphRefFilter);
   const setGraphRefFilter = useUiStore((s) => s.setGraphRefFilter);
+  const graphAuthorFilter = useUiStore((s) => s.graphAuthorFilter);
+  const setGraphAuthorFilter = useUiStore((s) => s.setGraphAuthorFilter);
 
   return (
     <div className="shrink-0 border-b border-border">
       <div className="flex items-center gap-2 px-3 py-1.5">
         <RefFilter refs={refs} selected={graphRefFilter} onChange={setGraphRefFilter} />
+        <AuthorFilter
+          authors={authors}
+          selected={graphAuthorFilter}
+          onChange={setGraphAuthorFilter}
+        />
+        <span className="ml-auto text-[11px] text-muted-foreground">{theme.label}</span>
       </div>
 
       <div
         role="row"
         className="flex items-stretch gap-2 border-t border-border/60 pr-3 text-[11px] font-medium uppercase tracking-wide text-muted-foreground"
       >
-        <span role="columnheader" className="shrink-0 py-1 pl-2" style={{ width: gutterWidth }}>
+        <span
+          role="columnheader"
+          className="shrink-0 py-1 pl-2"
+          style={{ width: columns.branchTag.current }}
+        >
+          Branch / Tag
+        </span>
+        <ResizeHandle resizable={columns.branchTag} axis="x" label="Resize branch and tag column" />
+
+        {/*
+          Clipped, because the gutter is sized by the history — a shallow repo
+          gives it two lanes (32px), which the word "Graph" overflows straight
+          into the next header, rendering as "GRAPHCOMMIT MESSAGE".
+        */}
+        <span
+          role="columnheader"
+          className="shrink-0 overflow-hidden truncate py-1"
+          style={{ width: gutterWidth }}
+        >
           Graph
         </span>
         <span role="columnheader" className="min-w-0 flex-1 py-1">
-          Commit
+          Commit message
         </span>
 
-        {GRAPH_COLUMNS.map(({ name, label }) => (
-          <ResizableColumn key={name} label={label} resizable={columns[name]} />
-        ))}
+        <ResizableColumn label="Date" resizable={columns.date} />
+        <ResizableColumn label="SHA" resizable={columns.sha} />
       </div>
     </div>
   );

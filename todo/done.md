@@ -234,3 +234,20 @@ is keyed on `userData`, so `electron . --user-data-dir=<tmp>` runs a dev instanc
 installed one. With that plus `MGIT_OPEN_REPOS` and the `MGIT_CAPTURE` harness already in
 `main/capture.ts`, the sidebar was screenshotted expanded and folded without touching the
 user's running app — closing Phase 13's last two verification items.
+## 2026-08-25 — Phase 14 · Graph themes, avatars, author filter
+
+Four selectable graph styles (`git-graph` with solid nodes and arrowheads, `git-extensions`,
+`sourcetree`, `gitkraken`) driven by a `GraphTheme` descriptor — git-engine untouched, since
+lane assignment is already a pure function of history and a style only decides how lanes are
+drawn. Gravatar avatars inside every commit node, hashed with SHA-256 via `crypto.subtle`
+(no MD5 dependency), deduped by email so twelve authors across 50 000 commits is twelve
+requests, with generated initials as both the first-paint and the failure state. The avatar
+retires the Author column; name/email/date moved to a tooltip on the bubble. Ref chips moved
+into a dedicated BRANCH / TAG column. An author filter that dims rather than removes —
+`git log --author` omits commits without rewriting `%P`, which would leave the lane engine
+holding a lane open per filtered-out parent. And Settings finally exists: a style picker that
+draws the same synthetic history four ways, plus the shell's appearance runtime (seven
+appliers and a 500-line stylesheet shipped since Phase 0 and never called). Playwright covers
+it against a stubbed Gravatar. 422 unit tests + 10 e2e green. **Outstanding:** the ref-chip drag gesture
+(Phase 8's merge/rebase) has no test and needs a human in the real app.
+

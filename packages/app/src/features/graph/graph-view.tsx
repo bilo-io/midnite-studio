@@ -1,4 +1,4 @@
-import { useCallback, useRef, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 
 import { useVirtualizer } from '@tanstack/react-virtual';
 
@@ -11,10 +11,12 @@ import { ConflictBanner } from '../status/conflict-banner';
 import { DEFAULT_LAYOUT, LAYOUT_BOUNDS, useUiStore } from '../../store/ui-store';
 import { CommitDetail } from '../commit/commit-detail';
 import { GraphDndProvider, type DropEvent } from './graph-dnd';
+import { summariseAuthors } from './author-filter';
+import { GraphDefs, avatarClipId } from './graph-defs';
 import { GraphHeader, graphColumnVars, useGraphColumns } from './graph-header';
 import { CommitGraphRow } from './graph-row';
 import { useGraphStore } from './graph-store';
-import { LANE_WIDTH, ROW_HEIGHT } from './graph-svg';
+import { graphTheme } from './graph-themes';
 import { useRefsBySha } from './ref-badge';
 import { useGraphActions } from './use-graph-actions';
 import { useGraphStream } from './use-graph-stream';
@@ -34,6 +36,8 @@ export function GraphView() {
   const setLayout = useUiStore((s) => s.setLayout);
 
   const graphRefFilter = useUiStore((s) => s.graphRefFilter);
+  const graphAuthorFilter = useUiStore((s) => s.graphAuthorFilter);
+  const theme = graphTheme(useUiStore((s) => s.graphTheme));
   useGraphStream(repoId, graphRefFilter);
 
   const rows = useGraphStore((s) => s.rows);
@@ -109,10 +113,36 @@ export function GraphView() {
   const virtualizer = useVirtualizer({
     count: rows.length,
     getScrollElement: () => scrollRef.current,
-    estimateSize: () => ROW_HEIGHT,
-    // Every row is exactly ROW_HEIGHT, so measurement is pure overhead.
+    estimateSize: () => theme.rowHeight,
+    // Every row is exactly the theme's row height, so measurement is overhead.
     overscan: 24,
   });
+
+  /**
+   * Re-measure when the style changes.
+   *
+   * `estimateSize` is captured per measurement pass, not read per render, so
+   * switching style leaves every row positioned at the OLD height — the list
+   * renders overlapping or gappy and only corrects itself if you scroll the
+   * whole way through it.
+   */
+  useEffect(() => {
+    virtualizer.measure();
+  }, [theme.rowHeight, virtualizer]);
+
+  /**
+   * The authors to keep at full strength — everyone else is dimmed. `null`
+   * means no filter, so nobody dims.
+   *
+   * A Set, built once per filter change: a `.includes()` per row would be
+   * O(rows x selected) on every render of a 50 000-row list.
+   */
+  const highlightedEmails = useMemo(
+    () => (graphAuthorFilter.length === 0 ? null : new Set(graphAuthorFilter)),
+    [graphAuthorFilter],
+  );
+
+  const authors = useMemo(() => summariseAuthors(rows), [rows]);
 
   /**
    * One gutter width for the whole list, not per row.
@@ -126,6 +156,7 @@ export function GraphView() {
     12,
     rows.reduce((max, row) => Math.max(max, row.laneCount), 1),
   );
+  const gutterWidth = gutterLanes * theme.laneWidth;
 
   if (!repoId) {
     return <EmptyState title="No repository selected" body="Pick one from the sidebar." />;
@@ -154,7 +185,14 @@ export function GraphView() {
       >
       <div className="flex min-w-0 flex-1 flex-col" style={graphColumnVars(columns)}>
         {status ? <ConflictBanner status={status} onError={setOpError} /> : null}
-        <GraphHeader refs={refs} gutterWidth={gutterLanes * LANE_WIDTH} columns={columns} />
+        <GraphDefs theme={theme} />
+        <GraphHeader
+          refs={refs}
+          authors={authors}
+          gutterWidth={gutterWidth}
+          columns={columns}
+          theme={theme}
+        />
         {/*
           Keyed on requestId so the list fades in ONCE per stream — on a repo
           switch or a filter change. Cascading the rows themselves would re-fire
@@ -182,6 +220,12 @@ export function GraphView() {
                     refs={refsBySha.get(row.commit.sha) ?? EMPTY_REFS}
                     selected={selectedSha === row.commit.sha}
                     gutterLanes={gutterLanes}
+                    theme={theme}
+                    clipId={avatarClipId(theme)}
+                    dimmed={
+                      highlightedEmails !== null &&
+                      !highlightedEmails.has(row.commit.authorEmail.trim().toLowerCase())
+                    }
                     onSelect={selectCommit}
                     onContextMenu={onRowContextMenu}
                     onRefContextMenu={onRefContextMenu}
@@ -203,7 +247,7 @@ export function GraphView() {
           <span className="tabular-nums">{rows.length.toLocaleString()} commits</span>
           {loading ? <span>loading…</span> : null}
           {truncated ? <span>history truncated at the row cap</span> : null}
-          <span className="ml-auto tabular-nums">{gutterLanes * LANE_WIDTH}px gutter</span>
+          <span className="ml-auto tabular-nums">{gutterWidth}px gutter</span>
         </footer>
       </div>
 
