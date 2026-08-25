@@ -33,3 +33,7 @@ pnpm-debug.log*
 
 # Scratch output from scripts/smoke.ts and friends
 tmp/
+
+# Playwright browser-test artefacts (packages/app/e2e).
+test-results/
+playwright-report/

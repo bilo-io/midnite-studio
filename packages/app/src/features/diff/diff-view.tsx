@@ -9,7 +9,7 @@ import { useRef } from 'react';
 
 import { IconButton } from '../../components/icon-button';
 import { useUiStore } from '../../store/ui-store';
-import { toDiffRows, toSegments, type DiffRow } from './diff-rows';
+import { nextContext, toDiffRows, toSegments, type DiffRow } from './diff-rows';
 
 /**
  * The one diff renderer. Both the working-tree pane and the commit inspector
@@ -153,9 +153,7 @@ function HunkHeader({
       {expandable ? (
         <button
           type="button"
-          // Doubling the context is what an expander click means here; a fixed
-          // +10 makes a large gap take an absurd number of clicks to cross.
-          onClick={() => onExpand(Math.max(context * 4, context + 10))}
+          onClick={() => onExpand(nextContext(context))}
           className="shrink-0 rounded px-1 hover:bg-accent hover:text-foreground"
           aria-label={`Expand ${row.gap} hidden lines`}
         >

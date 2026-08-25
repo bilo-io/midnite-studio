@@ -46,3 +46,21 @@ tasks:
   dev:
     command: 'pnpm exec vite'
     preset: 'server'
+
+  # Browser-driven renderer tests against a mocked window.midniteGit. Kept OUT
+  # of the `:test` gate deliberately — it needs a chromium download, which is a
+  # poor thing to make `moon run :test` depend on. Run it explicitly, or in CI
+  # after `playwright install chromium`.
+  e2e:
+    command: 'pnpm exec playwright test'
+    options:
+      mergeArgs: 'replace'
+    deps:
+      - 'root:install'
+      - 'shared:build'
+    inputs:
+      - 'src/**/*'
+      - 'e2e/**/*'
+      - 'playwright.config.ts'
+      - 'vite.config.ts'
+      - '/packages/shared/src/**/*'

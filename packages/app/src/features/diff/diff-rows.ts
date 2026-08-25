@@ -40,6 +40,18 @@ export function toDiffRows(diff: FileDiff): DiffRow[] {
 }
 
 /**
+ * How much context an expander click asks for next.
+ *
+ * Multiplicative rather than a fixed `+10`: a 400-line gap would otherwise take
+ * forty clicks to cross. The floor keeps the first step from being trivially
+ * small when the current context is 0 or 1.
+ *
+ * Named and exported so the component and its tests agree on the step by
+ * construction rather than by two copies of the same arithmetic.
+ */
+export const nextContext = (current: number): number => Math.max(current * 4, 10);
+
+/**
  * Split a line's text into painted segments: the parts that changed within the
  * line, and the parts that didn't.
  *
