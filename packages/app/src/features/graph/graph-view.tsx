@@ -3,10 +3,12 @@ import { useCallback, useRef, useState } from 'react';
 import { useVirtualizer } from '@tanstack/react-virtual';
 
 import { useDialogs } from '../../components/dialog-host';
+import { ResizeHandle } from '../../components/resizable/resize-handle';
+import { useResizable } from '../../components/resizable/use-resizable';
 import { useRefs } from '../../services/queries';
 import { useStatus } from '../../services/use-status';
 import { ConflictBanner } from '../status/conflict-banner';
-import { useUiStore } from '../../store/ui-store';
+import { DEFAULT_LAYOUT, LAYOUT_BOUNDS, useUiStore } from '../../store/ui-store';
 import { CommitDetail } from '../commit/commit-detail';
 import { GraphDndProvider, type DropEvent } from './graph-dnd';
 import { CommitGraphRow } from './graph-row';
@@ -27,6 +29,8 @@ export function GraphView() {
   const repoId = useUiStore((s) => s.selectedRepoId);
   const selectedSha = useUiStore((s) => s.selectedCommitSha);
   const selectCommit = useUiStore((s) => s.selectCommit);
+  const detailWidth = useUiStore((s) => s.layout.detailWidth);
+  const setLayout = useUiStore((s) => s.setLayout);
 
   useGraphStream(repoId);
 
@@ -81,6 +85,17 @@ export function GraphView() {
     },
     [checkoutRef, currentBranch, report],
   );
+
+  // Docked to the window's right edge, so its splitter is on its LEFT and a
+  // leftward drag has to grow it.
+  const detail = useResizable({
+    size: detailWidth,
+    onSize: (value) => setLayout('detailWidth', value),
+    initial: DEFAULT_LAYOUT.detailWidth,
+    axis: 'x',
+    edge: 'end',
+    ...LAYOUT_BOUNDS.detailWidth,
+  });
 
   const scrollRef = useRef<HTMLDivElement>(null);
   // dnd-kit's drag-end event carries no pointer position, and the drop menu has
@@ -176,9 +191,17 @@ export function GraphView() {
       </div>
 
       {selectedSha ? (
-        <aside className="w-96 shrink-0 border-l border-border">
-          <CommitDetail repoId={repoId} sha={selectedSha} />
-        </aside>
+        <>
+          <ResizeHandle resizable={detail} axis="x" label="Resize commit detail" />
+          <aside
+            className={`shrink-0 border-l border-border ${
+              detail.dragging ? '' : 'transition-[width] duration-150 ease-in-out'
+            }`}
+            style={{ width: detail.current }}
+          >
+            <CommitDetail repoId={repoId} sha={selectedSha} />
+          </aside>
+        </>
       ) : null}
       </div>
     </GraphDndProvider>

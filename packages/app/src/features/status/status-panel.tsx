@@ -2,8 +2,10 @@ import { useState } from 'react';
 
 import type { StatusEntry } from '@midnite/git-shared';
 
+import { ResizeHandle } from '../../components/resizable/resize-handle';
+import { useResizable } from '../../components/resizable/use-resizable';
 import { useCommit, useDiscard, useStage, useStatus, useUnstage } from '../../services/use-status';
-import { useUiStore } from '../../store/ui-store';
+import { DEFAULT_LAYOUT, LAYOUT_BOUNDS, useUiStore } from '../../store/ui-store';
 import { FileDiff } from './file-diff';
 import { SyncBar } from './sync-bar';
 
@@ -17,6 +19,8 @@ import { SyncBar } from './sync-bar';
  */
 export function StatusPanel() {
   const repoId = useUiStore((s) => s.selectedRepoId);
+  const listWidth = useUiStore((s) => s.layout.changesListWidth);
+  const setLayout = useUiStore((s) => s.setLayout);
   const { data: status } = useStatus();
   const [message, setMessage] = useState('');
   const [error, setError] = useState('');
@@ -26,6 +30,14 @@ export function StatusPanel() {
   const unstage = useUnstage();
   const discard = useDiscard();
   const commit = useCommit();
+
+  const list = useResizable({
+    size: listWidth,
+    onSize: (value) => setLayout('changesListWidth', value),
+    initial: DEFAULT_LAYOUT.changesListWidth,
+    axis: 'x',
+    ...LAYOUT_BOUNDS.changesListWidth,
+  });
 
   if (!repoId || !status) {
     return <Empty>Select a repository to see its changes.</Empty>;
@@ -47,7 +59,12 @@ export function StatusPanel() {
 
   return (
     <div className="flex h-full min-h-0">
-      <div className="flex w-96 shrink-0 flex-col border-r border-border">
+      <div
+        className={`flex shrink-0 flex-col border-r border-border ${
+          list.dragging ? '' : 'transition-[width] duration-150 ease-in-out'
+        }`}
+        style={{ width: list.current }}
+      >
         <SyncBar branch={status.branch} onError={setError} />
 
         {status.inProgress ? (
@@ -135,6 +152,7 @@ export function StatusPanel() {
           </button>
         </div>
       </div>
+      <ResizeHandle resizable={list} axis="x" label="Resize file list" />
 
       <div className="min-w-0 flex-1">
         {selectedPath ? (
