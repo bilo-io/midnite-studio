@@ -1,3 +1,4 @@
+import { ArrowDown, ArrowUp, GitBranch, SquareTerminal } from 'lucide-react';
 import { DEFAULT_KEYMAP } from '@midnite/git-shared';
 
 import { useStatus } from '../../services/use-status';
@@ -31,18 +32,23 @@ export function FooterBar() {
           terminalOpen ? 'bg-accent text-foreground' : ''
         }`}
       >
-        {'>_'} Terminal
+        <SquareTerminal aria-hidden className="mr-1 inline h-3.5 w-3.5 align-[-2px]" />
+        Terminal
         <span className="ml-1.5 opacity-60">{toggleChord}</span>
       </button>
 
       {branch ? (
         <>
-          <span className="truncate" title={worktreePath ?? undefined}>
+          <span className="flex min-w-0 items-center gap-1 truncate" title={worktreePath ?? undefined}>
+            <GitBranch aria-hidden className="h-3 w-3 shrink-0" />
             {branch.detached ? 'detached' : (branch.head ?? '—')}
           </span>
           {branch.upstream ? (
-            <span className="tabular-nums">
-              ↑{branch.ahead} ↓{branch.behind}
+            <span className="flex items-center gap-0.5 tabular-nums">
+              <ArrowUp aria-hidden className="h-3 w-3" />
+              {branch.ahead}
+              <ArrowDown aria-hidden className="ml-1 h-3 w-3" />
+              {branch.behind}
             </span>
           ) : null}
           {changes > 0 ? <span>{changes} changed</span> : null}

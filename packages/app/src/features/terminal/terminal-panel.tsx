@@ -1,3 +1,6 @@
+import { X } from 'lucide-react';
+
+import { IconButton } from '../../components/icon-button';
 import { useCallback, useEffect, useRef, useState } from 'react';
 
 import { FitAddon } from '@xterm/addon-fit';
@@ -154,14 +157,13 @@ export function TerminalPanel({ cwd }: { cwd: string | null }) {
           {cwd ?? 'no worktree selected'}
         </span>
         <StateChip state={connectionState} />
-        <button
-          type="button"
+        <IconButton
+          icon={X}
+          label="Hide terminal"
+          size="sm"
+          className="ml-auto"
           onClick={() => useUiStore.getState().setTerminalOpen(false)}
-          className="ml-auto rounded px-1 hover:bg-accent hover:text-foreground"
-          aria-label="Hide terminal"
-        >
-          ✕
-        </button>
+        />
       </div>
 
       {connectionState === 'unavailable' ? (

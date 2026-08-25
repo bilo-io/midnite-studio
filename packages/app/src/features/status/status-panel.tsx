@@ -2,10 +2,14 @@ import { useState } from 'react';
 
 import type { StatusEntry } from '@midnite/git-shared';
 
+import { Minus, Plus, Undo2 } from 'lucide-react';
+
+import { IconButton, type IconComponent } from '../../components/icon-button';
 import { ResizeHandle } from '../../components/resizable/resize-handle';
 import { useResizable } from '../../components/resizable/use-resizable';
 import { useCommit, useDiscard, useStage, useStatus, useUnstage } from '../../services/use-status';
 import { DEFAULT_LAYOUT, LAYOUT_BOUNDS, useUiStore } from '../../store/ui-store';
+import { TreeSection } from '../../components/tree-section';
 import { FileDiff } from './file-diff';
 import { SyncBar } from './sync-bar';
 
@@ -80,7 +84,7 @@ export function StatusPanel() {
         ) : null}
 
         <div className="min-h-0 flex-1 overflow-y-auto">
-          <Section
+          <TreeSection
             title="Staged"
             count={staged.length}
             action={staged.length > 0 ? { label: 'Unstage all', onClick: () => unstage.mutate(staged.map((e) => e.path)) } : undefined}
@@ -93,12 +97,12 @@ export function StatusPanel() {
                 selected={selectedPath?.path === entry.path && selectedPath.staged}
                 busy={busy}
                 onSelect={() => setSelectedPath({ path: entry.path, staged: true })}
-                actions={[{ label: '−', title: 'Unstage', onClick: () => unstage.mutate([entry.path]) }]}
+                actions={[{ icon: Minus, title: 'Unstage', onClick: () => unstage.mutate([entry.path]) }]}
               />
             ))}
-          </Section>
+          </TreeSection>
 
-          <Section
+          <TreeSection
             title="Changes"
             count={unstaged.length}
             action={unstaged.length > 0 ? { label: 'Stage all', onClick: () => stage.mutate(unstaged.map((e) => e.path)) } : undefined}
@@ -113,7 +117,7 @@ export function StatusPanel() {
                 onSelect={() => setSelectedPath({ path: entry.path, staged: false })}
                 actions={[
                   {
-                    label: '↺',
+                    icon: Undo2,
                     title: 'Discard changes',
                     // Uncommitted work has no reflog — a mistake here cannot be
                     // undone, so it asks first, every time.
@@ -123,11 +127,11 @@ export function StatusPanel() {
                     // them is a different, more dangerous operation.
                     hidden: entry.unstaged === 'untracked',
                   },
-                  { label: '+', title: 'Stage', onClick: () => stage.mutate([entry.path]) },
+                  { icon: Plus, title: 'Stage', onClick: () => stage.mutate([entry.path]) },
                 ]}
               />
             ))}
-          </Section>
+          </TreeSection>
 
           {status.entries.length === 0 ? (
             <p className="px-3 py-3 text-xs text-muted-foreground">No changes.</p>
@@ -165,42 +169,9 @@ export function StatusPanel() {
   );
 }
 
-function Section({
-  title,
-  count,
-  action,
-  children,
-}: {
-  title: string;
-  count: number;
-  action?: { label: string; onClick: () => void };
-  children: React.ReactNode;
-}) {
-  if (count === 0) return null;
-  return (
-    <section>
-      <header className="flex items-center gap-2 px-3 py-1">
-        <h3 className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
-          {title}
-        </h3>
-        <span className="text-xs tabular-nums text-muted-foreground">{count}</span>
-        {action ? (
-          <button
-            type="button"
-            onClick={action.onClick}
-            className="ml-auto rounded px-1 text-xs text-muted-foreground hover:text-foreground"
-          >
-            {action.label}
-          </button>
-        ) : null}
-      </header>
-      {children}
-    </section>
-  );
-}
-
 type RowAction = {
-  label: string;
+  icon: IconComponent;
+  /** Accessible name, tooltip, and React key — one string, so they cannot drift. */
   title: string;
   onClick: () => void;
   confirm?: string;
@@ -238,12 +209,13 @@ function FileRow({
       {actions
         .filter((action) => !action.hidden)
         .map((action) => (
-          <button
-            key={action.label}
-            type="button"
+          <IconButton
+            key={action.title}
+            icon={action.icon}
+            label={`${action.title} ${entry.path}`}
+            size="sm"
+            tone={action.confirm ? 'danger' : 'ghost'}
             disabled={busy}
-            title={action.title}
-            aria-label={`${action.title} ${entry.path}`}
             onClick={() => {
               // A native confirm is the right weight for a per-file discard;
               // the blast-radius dialog is for history-rewriting operations,
@@ -251,10 +223,8 @@ function FileRow({
               if (action.confirm && !window.confirm(action.confirm)) return;
               action.onClick();
             }}
-            className="shrink-0 rounded px-1 text-xs text-muted-foreground opacity-0 hover:text-foreground group-hover:opacity-100 disabled:opacity-30"
-          >
-            {action.label}
-          </button>
+            className="opacity-0 transition-opacity group-hover:opacity-100 focus-visible:opacity-100"
+          />
         ))}
     </div>
   );

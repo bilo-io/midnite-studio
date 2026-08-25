@@ -10,6 +10,7 @@ import {
   type NavLinkComponent,
 } from '@bilo-io/shell';
 import { QueryClient } from '@tanstack/react-query';
+import { FileDiff, GitBranch, Settings, type LucideIcon } from 'lucide-react';
 
 import { Brand, BrandMark, Wordmark } from './components/brand';
 import { DialogHost } from './components/dialog-host';
@@ -86,10 +87,10 @@ const CONTENT_BOX = {
   marginTop: 'var(--titlebar-h, 0px)',
 } as const;
 
-const NAV_ITEMS: { view: ViewId; label: string; icon: string }[] = [
-  { view: 'graph', label: 'Graph', icon: '⑂' },
-  { view: 'changes', label: 'Changes', icon: '±' },
-  { view: 'settings', label: 'Settings', icon: '⚙' },
+const NAV_ITEMS: { view: ViewId; label: string; icon: LucideIcon }[] = [
+  { view: 'graph', label: 'Graph', icon: GitBranch },
+  { view: 'changes', label: 'Changes', icon: FileDiff },
+  { view: 'settings', label: 'Settings', icon: Settings },
 ];
 
 function Placeholder({ view }: { view: ViewId }) {
@@ -170,11 +171,7 @@ function Shell() {
           items: NAV_ITEMS.map((item) => ({
             href: pathForView(item.view),
             label: item.label,
-            icon: (
-              <span aria-hidden className="text-base leading-none">
-                {item.icon}
-              </span>
-            ),
+            icon: <item.icon aria-hidden className="h-4 w-4" />,
           })),
         },
       ],
