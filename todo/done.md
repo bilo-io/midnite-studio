@@ -2,6 +2,37 @@
 
 <!-- Append one entry per landed phase/PR: date, phase, PR link, one-line summary. -->
 
+## 2026-08-25 — Phase 12 · Theme D — Real diff rendering
+
+`readFileDiff` and the new `readCommitFileDiff` return a parsed `FileDiff` — hunks, per-line
+old/new numbers, word-level intraline ranges — instead of patch text, so the renderer paints
+geometry rather than tokenising on the render thread. New `mgit:commit:file-diff` channel (kept
+separate from `mgit:file:diff`, where `staged` is meaningless against a sha), a hunk parser in
+git-engine, and one `<DiffView>` serving both the status panel and the commit inspector: rows
+virtualised, low-alpha row tint with the saturated colour on a 2px gutter bar, both line-number
+columns behind a persisted toggle, context expansion as a refetch at a wider `-U`, and an honest
+"N more lines not shown" past the cap. The inspector's `git show --stat` block is gone — it
+repeated the file list's own numbers as preformatted text; that space now shows the diff.
+
+363 tests green (`moon run :typecheck :lint :test`) plus 8 Playwright specs under
+`moon run app:e2e` — the repo's first renderer-level test harness, driving the real app against a
+mocked `window.midniteGit`.
+
+Three things this shook out, each now covered by a regression test:
+
+- **A pathspec is applied before rename detection**, so `git diff -M -- new-name` sees only the
+  addition and reports a brand-new file with every line green. Both diff requests gained an
+  `oldPath`; it comes from `StatusEntry.origPath` in the status panel, and in the inspector from
+  the rename token `parseNumstat` had been reading and discarding.
+- **`git show` prints no diff at all for a merge commit** — a merge has no single pre-image, so
+  git declines to guess. `-m --first-parent` is what makes a merge's files inspectable.
+- **A diff body line can be indistinguishable from a file header.** A deleted `-- comment` reads
+  `--- comment` in the patch; parsing headers anywhere but before the first hunk dropped the line
+  from the diff entirely, under-counted the deletion, clobbered `oldPath`, and shifted every
+  following old-side line number by one. Found in self-review, not by the original tests.
+
+Deferred to `outstanding.md`: syntax highlighting inside diff lines, side-by-side mode.
+
 ## 2026-08-25 — Phase 0 · Scaffold
 
 proto/moon/pnpm workspace skeleton with four packages (`shared`, `git-engine`, `app`,

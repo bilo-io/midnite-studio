@@ -62,19 +62,27 @@ none of this. Rebuild it as a real panel.
 - [ ] Disabled items carry their reason as a tooltip, per the Phase 7 convention (e.g. "Nothing to push", "No upstream configured") **S**
 - [ ] In-flight state: the icon button shows a spinner and the badge is non-interactive until the op resolves; failures surface through the existing `GitOpResult` envelope, never a throw **S**
 
-## Theme D — Real diff rendering · L
+## Theme D — Real diff rendering · L — ✅ DONE (2026-08-25)
 
-Today [`file-diff.tsx`](../packages/app/src/features/status/file-diff.tsx) splits the patch on
-`\n` and colours by first character; the commit panel shows no patch at all.
+Landed on `feature/phase-12-diffs`. Diffs are parsed in main and painted by one
+`<DiffView>` shared by the inspector and the status panel. Items moved to
+[`done.md`](done.md).
 
-- [ ] **New channel `mgit:commit:file-diff`** — `{repoId, sha, path, worktreePath}` → unified patch. The existing `mgit:file:diff` is worktree/index-scoped and cannot answer this. Add to [`channels.ts`](../packages/shared/src/ipc/channels.ts), [`schemas.ts`](../packages/shared/src/ipc/schemas.ts), [`bridge.ts`](../packages/shared/src/ipc/bridge.ts), [`preload/index.ts`](../packages/desktop/src/preload/index.ts) (extend the `Pick<>`), a handler under [`main/ipc/`](../packages/desktop/src/main/ipc/), **and the coverage assertions in `ipc.test.ts`** **M**
-- [ ] git-engine command: `git show --format= --patch <sha> -- <path>`, `-z`-safe pathspec handling, honouring the write-queue-free read path **S**
-- [ ] **Hunk parser** in `git-engine/src/parsers/diff-parser.ts` — `{header, hunks: [{oldStart, oldLines, newStart, newLines, lines: [{kind: 'add'|'del'|'ctx', oldNo, newNo, text}]}]}`. Pure, unit-tested against renames, binary files, mode-only changes, no-newline-at-EOF, and an empty diff **M**
-- [ ] **One `<DiffView>` component** in `app/src/features/diff/` consumed by *both* the inspector and the status panel — the styling fix should land everywhere, not just in the sidebar **M**
-- [ ] **Restrained colour:** tinted line backgrounds at low alpha (`--success` / `--destructive` at ~8–12%) with a saturated 2px left gutter bar carrying the signal, rather than a strong fill across the whole line. Old/new line numbers in a muted `tabular-nums` gutter. Hunk headers as a quiet separator row, not primary-coloured **M**
-- [ ] Collapsed context between hunks with an expand affordance; large diffs virtualised or truncated with an explicit "show the rest" rather than silently cut **M**
-- [ ] Binary and mode-only changes render an honest one-line summary instead of an empty pane **S**
-- [ ] Retire the local `lineClass()` in `file-diff.tsx`; it becomes a thin wrapper over `<DiffView>` **S**
+Beyond the plan, three things this shook out:
+
+- **A pathspec filters before rename detection.** `git diff -M -- new-name` sees only
+  the addition and reports a brand-new file, every line green. Both requests gained an
+  `oldPath` so the pathspec can name both sides; it comes from `StatusEntry.origPath` in
+  the status panel and from `parseNumstat`'s rename token — which was being discarded —
+  in the inspector.
+- **`git show` prints nothing for a merge commit.** `-m --first-parent` is what makes a
+  merge's files inspectable at all.
+- **Body lines can look exactly like file headers.** A deleted `-- comment` reads
+  `--- comment` in the patch. Parsing headers anywhere but before the first hunk dropped
+  the line, under-counted the deletion and shifted every following line number.
+
+Deferred out of this theme, now in [`outstanding.md`](outstanding.md): syntax highlighting
+inside diff lines, and a side-by-side mode.
 
 ## Theme E — Remotes and forge links · M
 
@@ -110,7 +118,7 @@ Nothing in the repo models a git remote today — no domain type, and no command
 ## Verification
 
 - [ ] `moon run :typecheck :lint :test` green; no boundary-lint exception added anywhere
-- [ ] **First component test harness exists.** `@testing-library/react` is installed but has never been imported and there is no `setupFiles` — add cleanup + `jest-dom` matchers to [`vitest.config.ts`](../packages/app/vitest.config.ts) and land at least one render-based test (the file tree is the best candidate)
+- [x] **A renderer test harness exists.** ✅ DONE — Playwright driving the real app against a mocked `window.midniteGit` ([`packages/app/e2e/`](../packages/app/e2e/), `moon run app:e2e`), chosen over an RTL/jsdom harness because the bridge *is* the renderer's only route to main, so replacing it covers every UI path without Electron, a repo or a git binary. `@testing-library/react` remains unused; drop it or adopt it when a non-visual component needs a unit test.
 - [ ] Unit tests: linkify matcher (incl. the false-positive cases), diff hunk parser (rename/binary/mode-only/no-EOL/empty), remote URL normaliser (ssh/https/self-hosted)
 - [ ] Integration test for `readCommitDetail`'s new fields and the commit-scoped file diff, using [`TempRepo`](../packages/git-engine/src/testing/temp-repo.ts)
 - [ ] Manual: click a parent SHA in a commit body → the sidebar follows, **including for a commit below the loaded graph window**
@@ -125,9 +133,9 @@ Nothing in the repo models a git remote today — no domain type, and no command
 1. **"Gradient glow pulsating effect should have a sub…"** — the seed line was cut off. Planned as *subtle*: low-opacity, slow, no reflow. If it meant a **sub-label** (upstream name under the badge name), say so and Theme C grows one item. — *unresolved, assumption stated*
 2. **Markdown + linkify, not linkify alone** — resolved. Accepted cost: a runtime dependency and the rule that raw HTML in commit messages stays inert (no `rehype-raw`).
 3. **`#123` links are in scope**, which is why Theme E exists — resolved. Worth noting E is ~5 files across all four packages for one link type; its real payoff is the "open commit/branch/PR on the forge" verbs that become trivial afterwards.
-4. **`stat` gets dropped from `CommitDetailResponse`** rather than left unused. Recommendation: drop it — a field nothing reads is a field that drifts. — *recommended, not yet confirmed*
-5. **Clipboard via Electron's `clipboard` module**, not `navigator.clipboard`, because the packaged app is a `file://` origin and may not be a secure context. — *recommended*
-6. **No syntax highlighting inside diff lines** this phase. `shiki`/`prism` is a heavy dependency plus a language-detection story; the restrained-colour work is what actually fixes the complaint. Candidate for `outstanding.md`.
-7. **No side-by-side diff.** The inspector is a narrow panel; split view earns its keep only in a full-width diff surface, which does not exist yet. Candidate for `outstanding.md`.
+4. **`stat` gets dropped from `CommitDetailResponse`** rather than left unused. — *deferred to Theme B: Theme D removed the `<pre>` that rendered it, so the field is now unread but still on the wire.*
+5. **Clipboard via Electron's `clipboard` module**, not `navigator.clipboard`, because the packaged app is a `file://` origin and may not be a secure context. — *recommended, still open (Theme B)*
+6. **No syntax highlighting inside diff lines** — *resolved, deferred.* Word-level intraline marking landed instead, which is what actually distinguishes a one-token edit from a rewrite.
+7. **No side-by-side diff** — *resolved, deferred.* The inspector is a narrow panel; split view earns its keep only in a full-width diff surface, which does not exist yet.
 8. **Navigation history (back/forward through selected commits)** — deliberately left out. Add it if clicking parents proves disorienting in use; it would register in the Phase 9 keybinding registry. — *deferred*
 9. **Theme ordering under `/exec`:** E before A (A's `#123` links need it), otherwise free. B and D pair naturally; C and F are fully independent and are the best candidates to run in parallel.
