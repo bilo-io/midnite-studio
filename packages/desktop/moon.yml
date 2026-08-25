@@ -15,6 +15,22 @@ tasks:
   # tsc --noEmit resolves shared/git-engine through project references but does
   # not build them, so build those two first. Deliberately NOT `^:build`: that
   # would also build the renderer bundle, which desktop never imports as a module.
+  #
+  # The upstream SOURCES are listed as inputs, not just as deps. moon hashes a
+  # task from its own declared inputs, so without them a change confined to
+  # git-engine leaves this task a cache hit and `desktop:typecheck` reports green
+  # against an engine API that no longer exists — which then surfaces as a
+  # baffling failure one command later.
+  typecheck:
+    deps:
+      - 'shared:build'
+      - 'git-engine:build'
+    inputs:
+      - 'src/**/*'
+      - 'tsconfig.json'
+      - 'package.json'
+      - '/packages/shared/src/**/*'
+      - '/packages/git-engine/src/**/*'
 
   lint:
     inputs:

@@ -1,6 +1,6 @@
 # midnite-git — Phase Index
 
-**Headline:** the graph is interactive — checkout, branch, tag and gated reset; Phase 8 (drag-drop merge/rebase/cherry-pick) is the live frontier.
+**Headline:** merge, rebase and cherry-pick by dragging, with conflicts as a first-class state; Phase 9 (integrated terminal + keybindings) is the live frontier.
 
 Completed work is logged append-only in [`done.md`](done.md). Deferred scope lives in [`outstanding.md`](outstanding.md).
 
@@ -13,7 +13,7 @@ Completed work is logged append-only in [`done.md`](done.md). Deferred scope liv
 | [11 · Packaging + docs](phase-11-packaging.md) | ◻ TODO | 0/12 | `░░░░░░░░░░` | 0% | — | A |
 | [10 · Watcher / live refresh](phase-10-watcher.md) | ◻ TODO | 0/9 | `░░░░░░░░░░` | 0% | — | A |
 | [9 · Integrated terminal + keybindings](phase-9-terminal-and-keybindings.md) | ◻ TODO | 0/11 | `░░░░░░░░░░` | 0% | — | A |
-| [8 · Drag-drop ops + conflicts](phase-8-drag-drop-ops.md) | ◻ TODO | 0/10 | `░░░░░░░░░░` | 0% | — | A |
+| [8 · Drag-drop ops + conflicts](phase-8-drag-drop-ops.md) | ✅ DONE | 10/10 | `██████████` | 100% | — | — |
 | [7 · Graph interactions](phase-7-graph-interactions.md) | ✅ DONE | 10/10 | `██████████` | 100% | — | — |
 | [6 · Status / stage / commit / sync](phase-6-status-and-sync.md) | ✅ DONE | 11/11 | `██████████` | 100% | — | — |
 | [5 · Commit graph, read-only](phase-5-commit-graph.md) | ✅ DONE | 11/11 | `██████████` | 100% | — | — |
@@ -42,7 +42,7 @@ Completed work is logged append-only in [`done.md`](done.md). Deferred scope liv
 
 ### [Phase 8 — Drag-drop ops + conflicts](phase-8-drag-drop-ops.md)
 
-- ◻ **A** — merge/rebase/cherry-pick + sequencer, @dnd-kit gestures, conflict banner
+- ✅ **A** — merge/rebase/cherry-pick + sequencer, @dnd-kit gestures, conflict banner
 
 ### [Phase 7 — Graph interactions](phase-7-graph-interactions.md)
 

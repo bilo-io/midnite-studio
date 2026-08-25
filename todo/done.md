@@ -74,3 +74,14 @@ refusals translated into a sentence that says what to do; renderer-drawn context
 rows and ref badges; double-click a badge to check it out; and a confirmation dialog that shows
 the real blast radius. The count excludes commits any other ref still holds — the naive
 `to..from` range overstated it, which is how safety dialogs become noise. 157 engine tests green.
+
+## 2026-08-25 — Phase 8 · Drag-drop ops + conflicts
+
+merge/rebase/cherry-pick plus a sequencer that detects in-progress state and exposes abort and
+continue, all returning conflicts as the `GitOpResult` conflict arm rather than throwing.
+@dnd-kit gestures on the graph: drag a branch badge onto another to get a merge/rebase choice,
+drag a commit onto a branch to cherry-pick. An always-visible conflict banner lists the unmerged
+files, disables Continue until they are resolved, and never disables Abort. 173 engine tests.
+
+Also fixed a build-graph bug found here: `desktop:typecheck` could pass against a stale
+`git-engine` API because moon hashed only the task's own inputs.
