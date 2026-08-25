@@ -328,7 +328,11 @@ describe('git-engine integration', () => {
       expect(detail.sha).toBe(second);
       expect(detail.body).toContain('second commit');
       expect(detail.stat).toContain('src.ts');
-      expect(detail.files).toEqual([{ path: 'src.ts', insertions: 1, deletions: 0 }]);
+      expect(detail.files).toEqual([
+        // `oldPath` is null for anything that isn't a rename — it exists so the
+        // inspector can ask for a rename-aware diff (see commands/diff.ts).
+        { path: 'src.ts', oldPath: null, insertions: 1, deletions: 0 },
+      ]);
     });
   });
 });

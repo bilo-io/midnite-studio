@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 
-import { countDiffLines, describeEmptyDiff, parseUnifiedDiff } from './diff-parser';
+import { countDiffLines, parseUnifiedDiff } from './diff-parser';
 
 const opts = { contextLines: 3, fallbackPath: 'fallback.ts' };
 
@@ -86,6 +86,99 @@ describe('parseUnifiedDiff — structure', () => {
   });
 });
 
+describe('parseUnifiedDiff — body lines that look like headers', () => {
+  // Inside a hunk, `+`/`-`/` ` is the ONLY thing separating content from
+  // structure. Treating these as file headers silently drops the line,
+  // under-counts the change, clobbers the paths, and shifts every following
+  // line number — a diff that lies about what a commit did.
+
+  it('keeps a deleted line whose content starts with a comment marker', () => {
+    const d = parseUnifiedDiff(
+      [
+        '--- a/q.sql',
+        '+++ b/q.sql',
+        '@@ -1,3 +1,2 @@',
+        ' select 1;',
+        '--- pick the newest row',
+        ' select 2;',
+      ].join('\n'),
+      { ...opts, fallbackPath: 'q.sql' },
+    );
+
+    expect(d.deletions).toBe(1);
+    expect(d.oldPath).toBe('q.sql');
+    expect(d.hunks[0]!.lines.map((l) => [l.kind, l.oldNo, l.newNo, l.text])).toEqual([
+      ['ctx', 1, 1, 'select 1;'],
+      ['del', 2, null, '-- pick the newest row'],
+      // Line 3 in the pre-image, not 2 — this is what the bug shifted.
+      ['ctx', 3, 2, 'select 2;'],
+    ]);
+  });
+
+  it('keeps an added line whose content starts with ++', () => {
+    const d = parseUnifiedDiff(
+      ['--- a/x.md', '+++ b/x.md', '@@ -1,1 +1,2 @@', ' text', '+++ nested marker'].join('\n'),
+      { ...opts, fallbackPath: 'x.md' },
+    );
+
+    expect(d.insertions).toBe(1);
+    expect(d.path).toBe('x.md');
+    expect(d.hunks[0]!.lines[1]).toMatchObject({ kind: 'add', text: '++ nested marker' });
+  });
+
+  it('does not read a mode header out of a deleted line of prose', () => {
+    const d = parseUnifiedDiff(
+      ['--- a/README.md', '+++ b/README.md', '@@ -1,1 +1,1 @@', '-old mode 100644 was here', '+gone'].join(
+        '\n',
+      ),
+      { ...opts, fallbackPath: 'README.md' },
+    );
+    expect(d.oldMode).toBeNull();
+    expect(d.deletions).toBe(1);
+  });
+});
+
+describe('parseUnifiedDiff — multi-section patches', () => {
+  // A two-path pathspec (see commands/diff.ts) yields two sections whenever
+  // `-M` fails to pair the rename. Concatenating them would put hunks and line
+  // numbers from two different files under one path.
+  const twoSections = [
+    'diff --git a/old.txt b/old.txt',
+    'deleted file mode 100644',
+    '--- a/old.txt',
+    '+++ /dev/null',
+    '@@ -1,1 +0,0 @@',
+    '-gone',
+    'diff --git a/new.txt b/new.txt',
+    'new file mode 100644',
+    '--- /dev/null',
+    '+++ b/new.txt',
+    '@@ -0,0 +1,1 @@',
+    '+fresh',
+  ].join('\n');
+
+  it('returns the section describing the requested path', () => {
+    const d = parseUnifiedDiff(twoSections, { ...opts, fallbackPath: 'new.txt' });
+    expect(d.path).toBe('new.txt');
+    expect(d.change).toBe('added');
+    expect(d.insertions).toBe(1);
+    expect(d.deletions).toBe(0);
+    expect(d.hunks).toHaveLength(1);
+  });
+
+  it('matches on the pre-image path too', () => {
+    const d = parseUnifiedDiff(twoSections, { ...opts, fallbackPath: 'old.txt' });
+    expect(d.change).toBe('deleted');
+    expect(d.deletions).toBe(1);
+    expect(d.insertions).toBe(0);
+  });
+
+  it('falls back to the first section when nothing matches', () => {
+    const d = parseUnifiedDiff(twoSections, { ...opts, fallbackPath: 'unrelated.txt' });
+    expect(d.path).toBe('old.txt');
+  });
+});
+
 describe('parseUnifiedDiff — file-level change kinds', () => {
   it('classifies an addition and leaves oldPath null', () => {
     const diff = parseUnifiedDiff(
@@ -152,7 +245,6 @@ describe('parseUnifiedDiff — file-level change kinds', () => {
     );
     expect(diff.binary).toBe(true);
     expect(diff.hunks).toEqual([]);
-    expect(describeEmptyDiff(diff)).toBe('Binary file — no textual diff.');
   });
 
   it('reports a mode-only change, which has no hunks at all', () => {
@@ -165,7 +257,8 @@ describe('parseUnifiedDiff — file-level change kinds', () => {
       opts,
     );
     expect(diff.hunks).toEqual([]);
-    expect(describeEmptyDiff(diff)).toBe('Mode changed from 100644 to 100755.');
+    expect(diff.oldMode).toBe('100644');
+    expect(diff.newMode).toBe('100755');
   });
 
   it('survives an empty patch', () => {
@@ -173,7 +266,6 @@ describe('parseUnifiedDiff — file-level change kinds', () => {
     expect(diff.path).toBe('fallback.ts');
     expect(diff.hunks).toEqual([]);
     expect(diff.insertions + diff.deletions).toBe(0);
-    expect(describeEmptyDiff(diff)).toBe('No changes to show for this file.');
   });
 
   it('attaches "\\ No newline at end of file" to the line before it', () => {
@@ -202,6 +294,48 @@ describe('parseUnifiedDiff — truncation', () => {
     expect(diff.truncated).toBe(true);
     expect(countDiffLines(diff)).toBe(10);
     expect(diff.droppedLines).toBe(40);
+  });
+
+  it('counts every change, not just the ones that fit', () => {
+    // The header renders these next to "N more lines not shown"; a count that
+    // shrank to what happened to fit would contradict the notice beside it.
+    const body = Array.from({ length: 50 }, (_, i) => `+line ${i}`);
+    const diff = parseUnifiedDiff(
+      ['--- a/x', '+++ b/x', '@@ -0,0 +1,50 @@', ...body].join('\n'),
+      { ...opts, maxLines: 10 },
+    );
+    expect(diff.insertions).toBe(50);
+  });
+
+  it('emits no empty hunks, which would render a useless expander', () => {
+    const diff = parseUnifiedDiff(
+      [
+        '--- a/x',
+        '+++ b/x',
+        '@@ -1,2 +1,2 @@',
+        '-a',
+        '+b',
+        '@@ -50,2 +50,2 @@',
+        '-c',
+        '+d',
+      ].join('\n'),
+      { ...opts, maxLines: 2 },
+    );
+
+    expect(diff.hunks).toHaveLength(1);
+    expect(diff.hunks.every((h) => h.lines.length > 0)).toBe(true);
+  });
+
+  it('does not pin the no-newline marker onto a line it does not belong to', () => {
+    const diff = parseUnifiedDiff(
+      ['--- a/x', '+++ b/x', '@@ -1,3 +1,3 @@', '-a', '-b', '-c', '\\ No newline at end of file'].join(
+        '\n',
+      ),
+      { ...opts, maxLines: 1 },
+    );
+    // Only 'a' survived the cap, and the marker belonged to 'c'.
+    expect(diff.hunks[0]!.lines).toHaveLength(1);
+    expect(diff.hunks[0]!.lines[0]!.noNewline).toBe(false);
   });
 
   it('leaves truncated false when the diff fits', () => {

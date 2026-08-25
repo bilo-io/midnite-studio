@@ -39,25 +39,8 @@ export function FileDiff({
           diff={diff}
           isLoading={isLoading}
           onExpandContext={expandContext}
-          emptyMessage={diff ? describeEmpty(diff) : 'No textual diff for this file.'}
         />
       </div>
     </div>
   );
-}
-
-/**
- * Why a diff has nothing to show. Mirrors git-engine's `describeEmptyDiff`,
- * which the renderer may not import — `app` never depends on git-engine.
- */
-function describeEmpty(diff: {
-  binary: boolean;
-  oldMode: string | null;
-  newMode: string | null;
-}): string {
-  if (diff.binary) return 'Binary file — no textual diff.';
-  if (diff.oldMode && diff.newMode && diff.oldMode !== diff.newMode) {
-    return `Mode changed from ${diff.oldMode} to ${diff.newMode}.`;
-  }
-  return 'No textual diff for this file.';
 }

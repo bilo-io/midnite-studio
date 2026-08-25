@@ -135,8 +135,7 @@ export function registerStatusHandlers(): void {
 /**
  * What a diff handler returns when there is nothing to diff — a closed repo, or
  * a payload that failed validation. A well-formed empty `FileDiff` rather than a
- * null, so the renderer has one shape to handle and `describeEmptyDiff` can
- * speak for it.
+ * null, so the renderer has exactly one shape to handle.
  */
 function emptyDiff(path: string, context: number): FileDiff {
   return {

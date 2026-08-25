@@ -100,7 +100,10 @@ test('a binary file says so instead of rendering an empty pane', async ({ page }
   await openCommit(page);
   await page.getByRole('button', { name: /phase-11-packaged-app\.png/ }).click();
 
-  await expect(page.getByTestId('diff-empty')).toBeVisible();
+  // Asserting the TEXT, not just that something rendered: the inspector used to
+  // fall back to "No changes to show for this file" for a binary blob while the
+  // working-tree pane said the right thing.
+  await expect(page.getByTestId('diff-empty')).toHaveText('Binary file — no textual diff.');
 });
 
 test('a capped diff reports how many lines it withheld', async ({ page }) => {

@@ -115,6 +115,12 @@ export const CommitDetailResponse = z.object({
   files: z.array(
     z.object({
       path: z.string(),
+      /**
+       * Pre-image path on a rename, else null. Carried so the inspector can ask
+       * for a rename-aware diff — a path-scoped diff without both sides reports
+       * the file as wholly new.
+       */
+      oldPath: z.string().nullable().default(null),
       insertions: z.number().int().nonnegative(),
       deletions: z.number().int().nonnegative(),
     }),
