@@ -1,14 +1,17 @@
-import { useRef } from 'react';
+import { useCallback, useRef, useState } from 'react';
 
 import { useVirtualizer } from '@tanstack/react-virtual';
 
+import { useDialogs } from '../../components/dialog-host';
 import { useRefs } from '../../services/queries';
+import { useStatus } from '../../services/use-status';
 import { useUiStore } from '../../store/ui-store';
 import { CommitDetail } from '../commit/commit-detail';
 import { CommitGraphRow } from './graph-row';
 import { useGraphStore } from './graph-store';
 import { LANE_WIDTH, ROW_HEIGHT } from './graph-svg';
 import { useRefsBySha } from './ref-badge';
+import { useGraphActions } from './use-graph-actions';
 import { useGraphStream } from './use-graph-stream';
 
 /**
@@ -32,6 +35,35 @@ export function GraphView() {
 
   const { data: refs = [] } = useRefs(repoId);
   const refsBySha = useRefsBySha(refs);
+
+  const { data: status } = useStatus();
+  const currentBranch = status?.branch.head ?? null;
+  const dialogs = useDialogs();
+  const [opError, setOpError] = useState('');
+  const { commitMenu, refMenu, checkoutRef, report } = useGraphActions(setOpError);
+
+  const onRowContextMenu = useCallback(
+    (event: { clientX: number; clientY: number }, row: (typeof rows)[number]) =>
+      dialogs.openMenu(event, commitMenu(row, currentBranch)),
+    [commitMenu, currentBranch, dialogs],
+  );
+  const onRefContextMenu = useCallback(
+    (event: { clientX: number; clientY: number }, ref: (typeof refs)[number]) =>
+      dialogs.openMenu(event, refMenu(ref, currentBranch)),
+    [currentBranch, dialogs, refMenu],
+  );
+  const onRefActivate = useCallback(
+    (ref: (typeof refs)[number]) => {
+      // Double-click to check out — but a branch already live in another
+      // worktree cannot be, and silently doing nothing would look like a bug.
+      if (ref.worktreePath !== null && ref.name !== currentBranch) {
+        setOpError(`"${ref.name}" is checked out in another worktree.`);
+        return;
+      }
+      void checkoutRef.mutateAsync({ target: ref.name }).then(report);
+    },
+    [checkoutRef, currentBranch, report],
+  );
 
   const scrollRef = useRef<HTMLDivElement>(null);
   const virtualizer = useVirtualizer({
@@ -92,12 +124,21 @@ export function GraphView() {
                     selected={selectedSha === row.commit.sha}
                     gutterLanes={gutterLanes}
                     onSelect={selectCommit}
+                    onContextMenu={onRowContextMenu}
+                    onRefContextMenu={onRefContextMenu}
+                    onRefActivate={onRefActivate}
                   />
                 </div>
               );
             })}
           </div>
         </div>
+
+        {opError ? (
+          <p className="shrink-0 border-t border-border bg-destructive/10 px-3 py-1.5 text-xs text-destructive">
+            {opError}
+          </p>
+        ) : null}
 
         <footer className="flex shrink-0 items-center gap-3 border-t border-border px-3 py-1 text-xs text-muted-foreground">
           <span className="tabular-nums">{rows.length.toLocaleString()} commits</span>

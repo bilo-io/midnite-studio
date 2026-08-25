@@ -66,3 +66,11 @@ changes panel: ahead/behind chips with Fetch/Pull/Publish, staged and unstaged l
 staged file correctly appears in both), a commit box, and a unified-diff text pane. Verified by
 committing through the UI on a scratch repo and checking `git log`. 130 engine tests green,
 including a push/fetch/pull round trip and a conflicting pull against a real bare remote.
+
+## 2026-08-25 — Phase 7 · Graph interactions
+
+Checkout, branch create/rename/delete, tag create and reset in the engine, each with git's
+refusals translated into a sentence that says what to do; renderer-drawn context menus on commit
+rows and ref badges; double-click a badge to check it out; and a confirmation dialog that shows
+the real blast radius. The count excludes commits any other ref still holds — the naive
+`to..from` range overstated it, which is how safety dialogs become noise. 157 engine tests green.

@@ -1,6 +1,6 @@
 # midnite-git — Phase Index
 
-**Headline:** the app stages, commits and syncs real repositories; Phase 7 (graph interactions) is the live frontier.
+**Headline:** the graph is interactive — checkout, branch, tag and gated reset; Phase 8 (drag-drop merge/rebase/cherry-pick) is the live frontier.
 
 Completed work is logged append-only in [`done.md`](done.md). Deferred scope lives in [`outstanding.md`](outstanding.md).
 
@@ -14,7 +14,7 @@ Completed work is logged append-only in [`done.md`](done.md). Deferred scope liv
 | [10 · Watcher / live refresh](phase-10-watcher.md) | ◻ TODO | 0/9 | `░░░░░░░░░░` | 0% | — | A |
 | [9 · Integrated terminal + keybindings](phase-9-terminal-and-keybindings.md) | ◻ TODO | 0/11 | `░░░░░░░░░░` | 0% | — | A |
 | [8 · Drag-drop ops + conflicts](phase-8-drag-drop-ops.md) | ◻ TODO | 0/10 | `░░░░░░░░░░` | 0% | — | A |
-| [7 · Graph interactions](phase-7-graph-interactions.md) | ◻ TODO | 0/10 | `░░░░░░░░░░` | 0% | — | A |
+| [7 · Graph interactions](phase-7-graph-interactions.md) | ✅ DONE | 10/10 | `██████████` | 100% | — | — |
 | [6 · Status / stage / commit / sync](phase-6-status-and-sync.md) | ✅ DONE | 11/11 | `██████████` | 100% | — | — |
 | [5 · Commit graph, read-only](phase-5-commit-graph.md) | ✅ DONE | 11/11 | `██████████` | 100% | — | — |
 | [4 · Repo open/list + worktree sidebar](phase-4-repos-and-worktrees.md) | ✅ DONE | 10/10 | `██████████` | 100% | — | — |
@@ -46,7 +46,7 @@ Completed work is logged append-only in [`done.md`](done.md). Deferred scope liv
 
 ### [Phase 7 — Graph interactions](phase-7-graph-interactions.md)
 
-- ◻ **A** — context menus, checkout, branch/tag create, blast-radius-gated reset/delete
+- ✅ **A** — context menus, checkout, branch/tag create, blast-radius-gated reset/delete
 
 ### [Phase 6 — Status / stage / commit / sync](phase-6-status-and-sync.md)
 

@@ -198,9 +198,16 @@ export const AbortRequest = OpBase.extend({ op: ConflictOpSchema });
 export const ContinueRequest = AbortRequest;
 
 export const BlastRadiusRequest = OpBase.extend({
-  /** Commits reachable from `from` but not `to` — i.e. what the op orphans. */
+  /** The tip whose history is at risk: `HEAD` for a reset, the branch for a delete. */
   from: z.string().min(1),
-  to: z.string().min(1),
+  /** Where the ref ends up. Omitted for a delete, where it ends up nowhere. */
+  to: z.string().min(1).optional(),
+  /**
+   * The ref being moved or deleted, fully qualified. Excluded from the
+   * "still reachable elsewhere" set — before the operation it is exactly what
+   * keeps these commits alive, so counting it would always yield zero.
+   */
+  movingRef: z.string().min(1).optional(),
 });
 export const BlastRadiusResponse = z.object({
   count: z.number().int().nonnegative(),

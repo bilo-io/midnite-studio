@@ -2,6 +2,7 @@ export * from './commit';
 export * from './diff';
 export * from './log';
 export * from './refs';
+export * from './refs-ops';
 export * from './stage';
 export * from './status';
 export * from './sync';
