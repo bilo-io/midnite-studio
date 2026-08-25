@@ -24,6 +24,9 @@ import type { BrowserWindow } from 'electron';
  *   MGIT_CAPTURE_FULLSCREEN=1       capture in fullscreen, where macOS hides the
  *                                   traffic lights and the title bar must
  *                                   collapse its left clearance
+ *   MGIT_EVAL=<js expression>       evaluate in the renderer and log the JSON
+ *                                   result — for checking layout/DOM state that
+ *                                   a screenshot can only hint at
  */
 export function maybeCapture(win: BrowserWindow): void {
   const target = process.env['MGIT_CAPTURE'];
@@ -39,6 +42,7 @@ export function maybeCapture(win: BrowserWindow): void {
       void (async () => {
         try {
           await applyCaptureState(win);
+          await runEval(win);
           const image = await win.webContents.capturePage();
           await mkdir(dirname(target), { recursive: true });
           await writeFile(target, image.toPNG());
@@ -82,4 +86,23 @@ async function applyCaptureState(win: BrowserWindow): Promise<void> {
 
   // The theme swap and the fullscreen transition both animate.
   await new Promise((resolve) => setTimeout(resolve, 600));
+}
+
+/** Evaluate `MGIT_EVAL` in the renderer and print the result. Dev-only. */
+async function runEval(win: BrowserWindow): Promise<void> {
+  const expression = process.env['MGIT_EVAL'];
+  if (!expression) return;
+  try {
+    // The variable holds a JS *expression*; wrap an IIFE around it yourself if
+    // you need statements. Serialising here (rather than returning the value)
+    // keeps DOM objects like DOMRect legible instead of arriving as `{}`.
+    const value: unknown = await win.webContents.executeJavaScript(
+      `JSON.stringify(${expression}, null, 2)`,
+    );
+    // eslint-disable-next-line no-console -- this IS the tool's output
+    console.log(`[eval] ${String(value)}`);
+  } catch (error) {
+    // eslint-disable-next-line no-console -- ditto
+    console.error('[eval] failed', error);
+  }
 }

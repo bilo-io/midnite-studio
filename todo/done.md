@@ -40,3 +40,12 @@ dispatches CommandIds, and the design tokens driving light/dark. Verified with t
 screenshots: dark, light (tokens flip), and fullscreen (traffic-light clearance collapses from
 112px to 20px, proving `onFullscreenChange` round-trips). Tailwind's library content globs
 verified by asserting 21 shell-only utility classes are present in the generated CSS.
+
+## 2026-08-25 — Phase 4 · Repo open/list + worktree sidebar
+
+A repo registry in main that resolves any path inside a repository — root, subdirectory, or linked
+worktree — to one entry, so opening a worktree nests it under its owner instead of adding a
+duplicate top-level repo. Paths (only paths) persist to `userData/repos.json`; everything else is
+re-read from git at open time. VS Code-style sidebar with nested worktrees, native folder picker,
+and worktree removal that never passes `--force`. Verified against `~/Dev/midnite` and its real
+worktrees, including a restart. 40 new tests.

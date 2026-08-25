@@ -10,6 +10,7 @@ import {
 } from '@bilo-io/shell';
 import { QueryClient } from '@tanstack/react-query';
 
+import { ReposPanel } from './features/repos/repos-panel';
 import { hslTokenToHex } from './lib/color';
 import { bridge } from './services/bridge';
 import { pathForView, useUiStore, viewForPath, type ViewId } from './store/ui-store';
@@ -56,6 +57,16 @@ const ViewLink: NavLinkComponent = ({ href, className, children, ...rest }) => {
   );
 };
 
+/**
+ * The app column's box: full viewport height minus the title bar, pushed below
+ * it. `--titlebar-h` is published by <TitleBar> while mounted and is absent in a
+ * framed window, where the fallback of 0 is exactly right.
+ */
+const CONTENT_BOX = {
+  height: 'calc(100vh - var(--titlebar-h, 0px))',
+  marginTop: 'var(--titlebar-h, 0px)',
+} as const;
+
 const NAV_ITEMS: { view: ViewId; label: string; icon: string }[] = [
   { view: 'graph', label: 'Graph', icon: '⑂' },
   { view: 'changes', label: 'Changes', icon: '±' },
@@ -64,15 +75,28 @@ const NAV_ITEMS: { view: ViewId; label: string; icon: string }[] = [
 
 function Placeholder({ view }: { view: ViewId }) {
   const label = NAV_ITEMS.find((i) => i.view === view)?.label ?? view;
+  const selectedRepoId = useUiStore((s) => s.selectedRepoId);
+  const selectedWorktreePath = useUiStore((s) => s.selectedWorktreePath);
+
   return (
     <div className="flex min-h-[60vh] flex-col items-center justify-center gap-3 text-center">
       <div className="text-5xl leading-none" aria-hidden>
         🌒
       </div>
-      <h1 className="text-lg font-semibold tracking-tight">midnite-git</h1>
-      <p className="max-w-sm text-sm text-muted-foreground">
-        The shell is up. <span className="font-medium text-foreground">{label}</span> lands in a
-        later phase — see <code className="rounded bg-muted px-1 py-0.5 text-xs">todo/</code>.
+      <h1 className="text-lg font-semibold tracking-tight">{label}</h1>
+      <p className="max-w-md text-sm text-muted-foreground">
+        {selectedRepoId ? (
+          <>
+            Active checkout:{' '}
+            <code className="rounded bg-muted px-1 py-0.5 text-xs" data-selectable>
+              {selectedWorktreePath ?? 'main worktree'}
+            </code>
+            . The {label.toLowerCase()} view lands in a later phase — see{' '}
+            <code className="rounded bg-muted px-1 py-0.5 text-xs">todo/</code>.
+          </>
+        ) : (
+          <>Select a repository on the left to get started.</>
+        )}
       </p>
     </div>
   );
@@ -135,7 +159,26 @@ function Shell() {
       navLabel="Views"
       titleBar={titleBar}
     >
-      <Placeholder view={activeView} />
+      {/*
+        The repositories panel is a fixed-width column beside the content, not
+        part of AppFrame's rail: the rail is view navigation (which is global),
+        while this is the app's primary object list and has to stay visible
+        whichever view is active — the same split VS Code makes.
+
+        The offset is the host's job. AppFrame pads `<main>` on the left for the
+        fixed rail but NOT on the top for the title bar — the bar publishes its
+        height as `--titlebar-h` on :root precisely so the in-flow app column can
+        offset itself. Without this the first rows of the panel render behind the
+        bar, which looks like a missing header rather than a layout bug.
+      */}
+      <div className="flex min-h-0" style={CONTENT_BOX}>
+        <aside className="w-64 shrink-0">
+          <ReposPanel />
+        </aside>
+        <div className="min-w-0 flex-1 overflow-auto">
+          <Placeholder view={activeView} />
+        </div>
+      </div>
     </AppFrame>
   );
 }
