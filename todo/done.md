@@ -21,3 +21,13 @@ NUL-delimited parsers, and `log`/`status`/`refs`/`worktrees` commands including 
 tests that build throwaway repos with real git (renames, conflicts, detached HEAD, unborn repo,
 linked worktrees, upstream ahead/behind). `scripts/smoke.ts` parses ~/Dev/midnite — 4 worktrees,
 200 refs, 2000 commits in 156ms.
+
+## 2026-08-25 — Phase 2 · Lane layout engine
+
+`LaneLayoutSession.push(commits) → GraphRow[]`: a single forward pass over `--topo-order` output
+assigning straight branch lanes with left-first lane recycling, and sha-derived colours so a
+branch keeps its colour across refreshes. Streaming-safe — batched layout is byte-identical to a
+one-shot pass. 28 unit tests (linear, single merge, octopus, criss-cross, orphan roots, multiple
+children, truncated history, degenerate input) plus structural invariants and an inline snapshot.
+`smoke.ts` renders the lanes as ASCII next to `git log --graph` and they match row for row on
+~/Dev/midnite.

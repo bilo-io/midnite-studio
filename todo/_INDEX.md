@@ -1,6 +1,6 @@
 # midnite-git — Phase Index
 
-**Headline:** the git engine reads real repositories through a fully typed contract; Phase 2 (lane layout) is the live frontier.
+**Headline:** the engine reads real repositories and lays out their commit graph; Phase 3 (Electron shell boots) is the live frontier.
 
 Completed work is logged append-only in [`done.md`](done.md). Deferred scope lives in [`outstanding.md`](outstanding.md).
 
@@ -19,7 +19,7 @@ Completed work is logged append-only in [`done.md`](done.md). Deferred scope liv
 | [5 · Commit graph, read-only](phase-5-commit-graph.md) | ◻ TODO | 0/11 | `░░░░░░░░░░` | 0% | — | A |
 | [4 · Repo open/list + worktree sidebar](phase-4-repos-and-worktrees.md) | ◻ TODO | 0/10 | `░░░░░░░░░░` | 0% | — | A |
 | [3 · Electron shell boots](phase-3-electron-shell.md) | ◻ TODO | 0/15 | `░░░░░░░░░░` | 0% | — | A |
-| [2 · Lane layout engine](phase-2-lane-layout.md) | ◻ TODO | 0/10 | `░░░░░░░░░░` | 0% | — | A |
+| [2 · Lane layout engine](phase-2-lane-layout.md) | ✅ DONE | 10/10 | `██████████` | 100% | — | — |
 | [1 · Shared contracts + git-engine parsers](phase-1-contracts-and-parsers.md) | ✅ DONE | 14/14 | `██████████` | 100% | — | — |
 | [0 · Scaffold](phase-0-scaffold.md) | ✅ DONE | 17/17 | `██████████` | 100% | — | — |
 
@@ -66,7 +66,7 @@ Completed work is logged append-only in [`done.md`](done.md). Deferred scope liv
 
 ### [Phase 2 — Lane layout engine](phase-2-lane-layout.md)
 
-- ◻ **A** — straight-lane layout with recycling, LaneLayoutSession streaming, stable colors
+- ✅ **A** — straight-lane layout with recycling, LaneLayoutSession streaming, stable colors
 
 ### [Phase 1 — Shared contracts + git-engine parsers](phase-1-contracts-and-parsers.md)
 

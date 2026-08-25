@@ -8,7 +8,9 @@
  * find the ones we didn't, on a repo with years of real history, worktrees,
  * annotated tags and remotes.
  */
-import { resolveMainWorktree, resolveRepoRoot } from '../src/exec/git-exec';
+import { execGit, resolveMainWorktree, resolveRepoRoot } from '../src/exec/git-exec';
+import { layoutGraph } from '../src/layout/lane-layout';
+import { renderAscii } from './ascii-graph';
 import { listRefs } from '../src/commands/refs';
 import { getStatus } from '../src/commands/status';
 import { listWorktrees } from '../src/commands/worktrees';
@@ -99,6 +101,28 @@ const main = async (): Promise<void> => {
   const shas = new Set(commits.map((c) => c.sha));
   const dangling = commits.flatMap((c) => c.parents.filter((p) => !shas.has(p)));
   console.log(`\nparents outside the window: ${dangling.length} (expected at the boundary)`);
+
+  heading('lane layout');
+  const laidOut = layoutGraph(commits);
+  const widest = Math.max(...laidOut.map((r) => r.laneCount));
+  console.log(`${laidOut.length} rows, widest point ${widest} lanes`);
+
+  // The real check: our drawing beside git's own, for the same commits. A
+  // self-consistent layout can still disagree with git about the topology, and
+  // only a side-by-side comparison shows that.
+  const rowsToShow = Number.parseInt(process.env.SMOKE_GRAPH_ROWS ?? '30', 10);
+  const ours = renderAscii(laidOut.slice(0, rowsToShow));
+  const theirs = (
+    await execGit(root, ['log', '--graph', '--oneline', '--all', `-n${rowsToShow}`])
+  ).stdout.split('\n');
+
+  console.log('\n  ours' + ' '.repeat(46) + 'git log --graph');
+  const height = Math.max(ours.length, theirs.length);
+  for (let i = 0; i < height; i += 1) {
+    const left = (ours[i] ?? '').slice(0, 48).padEnd(48);
+    const right = (theirs[i] ?? '').slice(0, 48);
+    console.log(`  ${left}| ${right}`);
+  }
 };
 
 main().catch((error: unknown) => {
