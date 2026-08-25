@@ -107,21 +107,37 @@ describe('useTerminalStore', () => {
   });
 
   /**
-   * A replay is the largest thing the store holds and must land exactly once —
-   * a second write would double the restored transcript on a remount.
+   * A replay survives being read, and retires when a shell takes over.
+   *
+   * It used to be consumed on the first read, on the grounds that a remount
+   * would otherwise double it. But a remount builds a NEW xterm with an empty
+   * screen, so replaying into it is right every time — and consuming it meant
+   * the second mount found nothing, came up blank, and (reading "no replay" as
+   * "brand new session") started a shell nobody had asked to revive. Under
+   * StrictMode that is every mount.
    */
-  it('hands out a replay buffer once and then forgets it', () => {
+  it('hands out a replay buffer as often as a new terminal asks for it', () => {
     const a = open('a');
     const bytes = new TextEncoder().encode('restored output');
     useTerminalStore.setState({ replay: { [a.id]: bytes } });
 
-    expect(useTerminalStore.getState().takeReplay(a.id)).toEqual(bytes);
-    expect(useTerminalStore.getState().takeReplay(a.id)).toBeNull();
+    expect(useTerminalStore.getState().peekReplay(a.id)).toEqual(bytes);
+    expect(useTerminalStore.getState().peekReplay(a.id)).toEqual(bytes);
+  });
+
+  it('retires the replay once a live shell owns the screen', () => {
+    // Past this point the pty is writing the screen, so the transcript from the
+    // last run is history a remount should not paint over it.
+    const a = open('a');
+    useTerminalStore.setState({ replay: { [a.id]: new TextEncoder().encode('old') } });
+
+    useTerminalStore.getState().bindPty(a.id, 'pty-1');
+    expect(useTerminalStore.getState().peekReplay(a.id)).toBeNull();
   });
 
   it('reports no replay for a session that never had one', () => {
     const a = open('a');
-    expect(useTerminalStore.getState().takeReplay(a.id)).toBeNull();
+    expect(useTerminalStore.getState().peekReplay(a.id)).toBeNull();
   });
 
   it('records an error alongside the unavailable state', () => {

@@ -52,3 +52,20 @@ Recorded here when a phase punts on something; pick these up post-MVP.
   directory will see extra `git status` calls.
 - **`load more` beyond the 50,000-commit cap.** The log stream reports `truncated` and the footer
   says so, but there is no control to extend the window yet.
+
+## xterm throws on unmount under the dev server
+
+`Viewport.syncScrollArea` reads `dimensions` off a renderer the terminal has already disposed,
+so every `term.dispose()` can leave one queued callback firing against nothing:
+
+```
+TypeError: Cannot read properties of undefined (reading 'dimensions')
+    at get dimensions (@xterm/xterm)
+    at Viewport.syncScrollArea (@xterm/xterm)
+```
+
+Upstream, inside `@xterm/xterm`'s own teardown — not the WebGL addon, which was the first guess
+and disposing it first changes nothing. Reachable only through StrictMode's mount → unmount →
+mount, so it fires for every pane opened under `moon run desktop:start` and never in a packaged
+build. Harmless beyond the console noise, and worth revisiting on the next xterm bump rather than
+worked around from outside the library.

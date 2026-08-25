@@ -55,19 +55,59 @@ export const BUILTIN_AGENTS: readonly AgentDefinition[] = [
  * running app, and persisting either would let a stale file claim a process that
  * died with the last quit.
  */
-export const TerminalSessionSchema = z.object({
-  id: z.string().min(1),
-  kind: TerminalSessionKindSchema,
-  /** Set when `kind === 'agent'`; the roster entry that started it. */
-  agentId: z.string().min(1).optional(),
-  /** Display label — the repo name, by default. */
-  title: z.string(),
-  cwd: z.string().min(1),
-  /** The repo this session was opened against, for grouping and labelling. */
-  repoId: z.string().min(1),
-  createdAt: z.number().int().nonnegative(),
-});
+export const TerminalSessionSchema = z
+  .object({
+    id: z.string().min(1),
+    kind: TerminalSessionKindSchema,
+    /** Set when `kind === 'agent'`; the roster entry that started it. */
+    agentId: z.string().min(1).optional(),
+    /** Display label — the repo name, by default. */
+    title: z.string(),
+    cwd: z.string().min(1),
+    /** The repo this session was opened against, for grouping and labelling. */
+    repoId: z.string().min(1),
+    createdAt: z.number().int().nonnegative(),
+  })
+  .superRefine(agentIdMatchesKind);
 export type TerminalSession = z.infer<typeof TerminalSessionSchema>;
+
+/**
+ * `kind` and `agentId` are one fact, so neither half may travel alone.
+ *
+ * `agentId` was declared optional with a comment saying it is set when the kind
+ * is `agent` — a rule the schema did not actually hold anyone to. Both halves
+ * degrade silently rather than loudly, which is why this is worth a refinement
+ * rather than a convention:
+ *
+ * - An **agent without an id** restores as a row the roster cannot resolve, so
+ *   it loses its accent and its Claude mark and reads as a plain shell — and
+ *   `agentInput` returns `undefined`, so reviving it starts a bare login shell
+ *   instead of the agent. It is still labelled an agent throughout.
+ * - A **shell carrying an id** is the inverse: the session list looks the id up
+ *   and paints the mark on a terminal that is not running an agent.
+ *
+ * Both are reachable from `terminals.json`, which is a file on disk that
+ * outlives any one build.
+ */
+export function agentIdMatchesKind(
+  session: { kind: TerminalSessionKind; agentId?: string },
+  ctx: z.RefinementCtx,
+): void {
+  if (session.kind === 'agent' && session.agentId === undefined) {
+    ctx.addIssue({
+      code: z.ZodIssueCode.custom,
+      path: ['agentId'],
+      message: 'an agent session must name the agent that started it',
+    });
+  }
+  if (session.kind === 'shell' && session.agentId !== undefined) {
+    ctx.addIssue({
+      code: z.ZodIssueCode.custom,
+      path: ['agentId'],
+      message: 'a shell session has no agent to name',
+    });
+  }
+}
 
 /**
  * How much output is kept per session, in bytes.

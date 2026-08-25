@@ -113,24 +113,57 @@ localStorage clear, and the scrollback bytes are far too big for a 5 MB quota.
 
 ## Verification
 
-- [ ] `moon run :typecheck :lint :test` green
-- [ ] `terminal-store.test.ts` — JSON round-trip; corrupt file ⇒ empty; the cap holds at 256 KB;
+- [x] `moon run :typecheck :lint :test` green — 562 unit tests, plus 47 Playwright
+- [x] `terminal-store.test.ts` — JSON round-trip; corrupt file ⇒ empty; the cap holds at 256 KB;
       **scrollback trims at a newline boundary and never mid-escape-sequence**
-- [ ] `agents-store.test.ts` — builtins alone with no file; override by `id`; unknown id appends;
+- [x] `agents-store.test.ts` — builtins alone with no file; override by `id`; unknown id appends;
       corrupt file falls back to builtins
-- [ ] `ui-store.test.ts` — the `terminalOpen` exclusion assertion **inverted, not deleted**, plus
+- [x] `ui-store.test.ts` — the `terminalOpen` exclusion assertion **inverted, not deleted**, plus
       `terminalMaximized` / `terminalSidebarSide` persisted and `sessions` / `activeId` not
-- [ ] `ipc.test.ts` — the new `terminal:*` schemas parse and reject, and the extended
-      `PtyCreateRequest` too (there are no pty schema tests today)
-- [ ] `e2e/mock-bridge.ts` — fix `pty.create` returning `{ ptyId }` without the `ok: true`
-      discriminant `PtyCreateResponse` requires, which silently renders the panel "unavailable"
-      under e2e today; then specs for a second terminal, sidebar switching, and drag reorder
-- [ ] **Ctrl+` still toggles with the terminal focused** — the chord escapes xterm via the
-      `GLOBAL_CHORDS`-derived allow-list, and it is the easiest thing here to break silently while
-      restructuring the panel
-- [ ] Manual: three terminals across two repos plus one Claude agent; the agent row carries the
-      Claude mark in `#D97757`; maximize and restore; quit and relaunch — all four reappear dimmed
-      with their scrollback and **`ps` shows no shells**; Enter revives one
-- [ ] Manual: hide the panel with `sleep 30` running, re-show it — the process is still alive, so
-      the Phase 9 unmount contract is genuinely overturned rather than just visually
-- [ ] Screenshots → `docs/screenshots/phase-15-terminals.png` and `phase-15-terminal-maximized.png`
+- [x] `ipc.test.ts` — the new `terminal:*` schemas parse and reject, and the extended
+      `PtyCreateRequest` too. Written as a table closed by a guard asserting every `pty:*` /
+      `terminal:*` channel has a row, so the next unvalidated channel fails rather than ships;
+      `pty:data` is a named exemption with its reason (a per-chunk firehose whose only consumer
+      is xterm). The guard's first find was a real one — see `done.md`
+- [x] `e2e/mock-bridge.ts` — `pty.create` returns the `ok: true` discriminant, and the mock is now
+      a **fake pty that talks back**: it writes a coloured prompt, echoes keystrokes with
+      backspace, answers a short transcript, and refuses to write after `kill`. Sessions are
+      seeded through `terminalSessions`, and the pty's traffic is published on `window.__mgitPty`
+      — xterm paints through the WebGL addon, so its contents are canvas pixels and what crossed
+      the bridge is both reachable and the more precise thing to assert
+- [x] Specs for a second terminal, sidebar switching (incl. surviving a reload) and drag reorder
+      with a real pointer, plus maximize/restore and the agent row's roster accent
+- [x] **Ctrl+` still toggles with the terminal focused** — asserted in `ipc.test.ts` against the
+      `GLOBAL_CHORDS` allow-list, and end-to-end with the chord pressed into a focused xterm
+- [x] Restored sessions come back dimmed with their scrollback and revive on Enter — seeded
+      through the mock rather than by relaunching, and asserted as *no pty was created*, which is
+      what dimmed actually means
+- [x] Hiding the panel does not kill the shell — asserted as no `kill` and no second `create`,
+      which is the Phase 9 unmount contract being overturned stated in its own terms
+- [ ] ◐ PARTIAL — **Manual, needs a human at a machine:** quit and relaunch the packaged app with
+      three terminals across two repos plus one Claude agent, and confirm all four reappear dimmed
+      with their scrollback while `ps` shows **no** surviving shells. Everything either side of the
+      relaunch is covered above; a browser cannot quit an Electron app or read the process table,
+      and faking that would be the one assertion in this list that proves nothing
+- [x] Screenshots → [`docs/screenshots/phase-15-terminals.png`](../docs/screenshots/phase-15-terminals.png)
+      and [`phase-15-terminal-maximized.png`](../docs/screenshots/phase-15-terminal-maximized.png)
+
+### Defects this pass found
+
+Three, all invisible to the suite as it stood, and all fixed here — see [`done.md`](done.md) for
+the reasoning:
+
+1. **Two ptys per terminal.** `start()` guarded on `ptyIds`, which is only written once
+   `pty.create` has *resolved*, so two calls in a tick both spawned a shell and the second
+   overwrote the first — orphaning a live process nothing held an id for.
+2. **Restored sessions revived themselves.** `takeReplay` consumed the transcript, so a second
+   mount found none, came up blank, and read "no replay" as "brand new session".
+3. **`TerminalSessionSchema` never enforced its own comment** — `agentId` documented as paired
+   with `kind` and required by neither direction.
+
+### Known, not fixed
+
+- xterm's `Viewport.syncScrollArea` throws `Cannot read properties of undefined (reading
+  'dimensions')` on unmount — upstream, inside `@xterm/xterm`'s own teardown, and reachable only
+  through StrictMode's double-mount under the dev server. Logged in
+  [`outstanding.md`](outstanding.md).

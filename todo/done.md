@@ -466,3 +466,67 @@ the assertions that matter — nodes inside their column, the squeeze losing non
 look at it.
 
 198 unit tests + 38 Playwright green (`moon run :typecheck :lint :test`, `moon run app:e2e`).
+
+## 2026-08-26 — Phase 15 · Verification — and the three defects it found
+
+The point of a verification pass is the things it turns up, and this one turned up three, none of
+which the existing suite could have seen.
+
+**Two ptys per terminal.** `start()` guarded on `store.ptyIds[session.id]`, which is only written
+once `pty.create` has *resolved*. Two calls in the same tick therefore both saw it empty and both
+spawned a shell; the second `bindPty` overwrote the first, orphaning a live process nothing held an
+id for — never killed, never listed, invisible except in `ps`. StrictMode's double-invoked mount
+effect made it happen for **every terminal opened under the dev server**, which is how the app is
+run day to day. The guard now covers the await: `starting` is set synchronously before it, so the
+second call bails on the state rather than on a field that does not exist yet.
+
+**Restored sessions revived themselves.** `takeReplay` consumed the transcript on first read, on
+the reasoning that a remount would otherwise double it. But a remount builds a *new* xterm with an
+empty screen, so replaying into it is right every time — and consuming it meant the second mount
+found nothing, came up blank, and, since the auto-start condition was `if (!replay)`, read "no
+replay" as "brand new session" and started a shell. Precisely the promise the phase makes
+("reopening the app with a dozen of them is free"), broken. Now `peekReplay` reads without
+consuming, `bindPty` retires the transcript once a live shell owns the screen, and auto-start keys
+on `state === 'idle'` — a restored session hydrates as `exited`, which is the actual question
+being asked. The transcript was always a poor proxy for it: a session saved before it printed
+anything would have been revived on sight.
+
+**`TerminalSessionSchema` never enforced its own comment.** `agentId` was documented as "set when
+`kind === 'agent'`" and required by neither direction, and both halves degrade *silently*: an agent
+with no id restores as a row the roster cannot resolve, losing its accent and its Claude mark and
+reviving as a bare login shell while still labelled an agent; a shell carrying an id paints that
+mark on a terminal running no agent. Both reachable from `terminals.json`, a file that outlives any
+one build. `agentIdMatchesKind` now refines the session record and `PtyCreateRequest` alike.
+
+**The tests.** `ipc.test.ts` had no pty coverage at all — which is how `PtyCreateRequest` grew four
+fields across this phase without a single assertion. It is now a table (schema, a payload that must
+parse, payloads that must not, each labelled with the rule it tests) closed by a guard asserting
+every `pty:*`/`terminal:*` channel has a row. That guard's first act was to find `pty:data`, left
+unvalidated on purpose — one message per chunk of shell output, and putting zod on the path of each
+keystroke's echo buys nothing for a payload whose only consumer is xterm. It is a named exemption
+with its reason, so the guard still fires for the next one.
+
+The e2e mock stopped being a stub and became a **fake pty that talks back**: a coloured prompt,
+echoed keystrokes with backspace, a short canned transcript, and silence after `kill` — escape
+sequences included deliberately, because the real pty sends them and a mock that omitted them would
+quietly stop testing that they survive the trip. Sessions are seeded through `terminalSessions`, so
+a spec reaches the restored-and-dimmed state without quitting an app it never launched.
+
+Assertions moved to the bridge rather than the screen. xterm paints through the WebGL addon, so a
+terminal's contents are canvas pixels that no DOM query can read — and what crossed the bridge is
+the more precise thing anyway. "The shell survived hiding the panel" is asserted as *no `kill` was
+sent and no second `create` followed*, which is the Phase 9 unmount-kills-the-shell contract being
+overturned, stated in the terms it was written in. "Restored sessions come back dimmed" is asserted
+as *no pty was created*, which is what dimmed means.
+
+Nine specs: open on Ctrl+` and close again with xterm focused, a second terminal getting its own
+pane and pty, the Claude row's accent coming from the roster rather than a default, the session list
+docking either side and surviving a reload, maximize and restore, restore-dimmed-then-revive,
+hide-without-killing, and drag reorder with a real pointer past dnd-kit's 6px activation constraint
+— the only thing that would catch a misrouted `DndContext`.
+
+One item is left open on purpose: quitting and relaunching the packaged app to confirm `ps` shows no
+surviving shells. A browser cannot quit Electron or read the process table, and faking it would be
+the one assertion in the list that proved nothing.
+
+562 unit tests + 47 Playwright green.
