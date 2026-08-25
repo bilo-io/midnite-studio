@@ -10,6 +10,7 @@ Completed work is logged append-only in [`done.md`](done.md). Deferred scope liv
 
 | Phase | Status | Done | Progress | % | 🔄 WIP | ◻ TODO |
 |-------|--------|------|----------|---|--------|--------|
+| [14 · Graph themes + avatars](phase-14-graph-themes.md) | ◻ TODO | 0/26 | `░░░░░░░░░░` | 0% | — | A B C D E |
 | [13 · UI polish](phase-13-ui-polish.md) | ✅ DONE | 24/26 | `█████████░` | 92% | — | verification: smoke + screenshot |
 | [12 · Commit inspector + live badges](phase-12-commit-inspector.md) | 🔄 WIP | 0/51 | `░░░░░░░░░░` | 0% | D | A B C E F |
 | [11 · Packaging + docs](phase-11-packaging.md) | ✅ DONE | 12/12 | `██████████` | 100% | — | — |
@@ -40,6 +41,16 @@ Completed work is logged append-only in [`done.md`](done.md). Deferred scope liv
 - 🔄 **D** — real diffs: `mgit:commit:file-diff` channel, hunk parser, one restrained `<DiffView>` shared with the status panel
 - ◻ **E** — `Remote` domain type, `listRemotes`, ssh/https URL normaliser, guarded `shell:open-external`
 - ◻ **F** — graph row polish: selection treatment, lane contrast, badge/subject width, row density
+
+### [Phase 14 — Graph themes + avatars](phase-14-graph-themes.md)
+
+*Four selectable graph styles, avatars in the commit bubble, and the Settings view to hold the picker. A is the spine — B/C/D all render through it.*
+
+- ◻ **A** — `GraphTheme` descriptor + four styles; theme-driven `graph-svg`
+- ◻ **B** — Gravatar avatars in the node, generated fallback; Author column deleted
+- ◻ **C** — dedicated BRANCH / TAG column, `graphColumns` migration
+- ◻ **D** — author filter (dim, never remove); shared multi-select menu
+- ◻ **E** — Settings view + live style picker
 
 ### [Phase 13 — UI polish](phase-13-ui-polish.md)
 
