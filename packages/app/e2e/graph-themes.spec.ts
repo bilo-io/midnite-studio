@@ -7,7 +7,7 @@ import { installMockBridge, type MockFixtures } from './mock-bridge';
  * A history with something to look at.
  *
  * The shipped fixture is one edgeless commit, which renders identically in all
- * four styles — the differences between them ARE the edges, so a screenshot of
+ * every style — the differences between them ARE the edges, so a screenshot of
  * it would prove nothing.
  */
 const AUTHORS = [
@@ -157,7 +157,7 @@ async function chooseTheme(page: Page, label: string): Promise<void> {
   await expect(page.getByRole('columnheader', { name: 'Commit message' })).toBeVisible();
 }
 
-const THEMES = ['Git Graph', 'Git Extensions', 'Sourcetree', 'GitKraken'] as const;
+const THEMES = ['Classic', 'Git Graph', 'Git Extensions', 'Sourcetree', 'GitKraken'] as const;
 
 test.describe('graph themes', () => {
   test('the table has the phase 14 column set', async ({ page }) => {
@@ -168,7 +168,30 @@ test.describe('graph themes', () => {
     await expect(page.getByRole('columnheader', { name: 'Date' })).toBeVisible();
     await expect(page.getByRole('columnheader', { name: 'SHA' })).toBeVisible();
 
-    // The avatar retired it — this is the assertion that catches a revert.
+    // The avatar retired it in the styles that HAVE an avatar — which is every
+    // style but `classic`, and the default is not `classic`.
+    await expect(page.getByRole('columnheader', { name: 'Author' })).toHaveCount(0);
+  });
+
+  /**
+   * The pre-Phase-14 look, back as a style: dots instead of faces, and the
+   * Author column the avatar had replaced.
+   */
+  test('Classic swaps faces for dots and brings the Author column back', async ({ page }) => {
+    await openGraph(page);
+    await chooseTheme(page, 'Classic');
+
+    await expect(page.getByRole('columnheader', { name: 'Author' })).toBeVisible();
+    await expect(page.getByText('Ada Lovelace').first()).toBeVisible();
+
+    // No avatar of either kind: no Gravatar image, and no initials fallback.
+    await expect(page.locator('[role="row"] svg image')).toHaveCount(0);
+    await expect(page.locator('[role="row"] svg text')).toHaveCount(0);
+    expect(await page.locator('[role="row"] svg circle').count()).toBeGreaterThan(0);
+
+    // And it goes away again, rather than leaving a column the style has no
+    // node-level answer for.
+    await chooseTheme(page, 'GitKraken');
     await expect(page.getByRole('columnheader', { name: 'Author' })).toHaveCount(0);
   });
 
@@ -176,6 +199,73 @@ test.describe('graph themes', () => {
     await openGraph(page);
     const chip = page.getByText('feat/graph-themes', { exact: true }).first();
     await expect(chip).toBeVisible();
+  });
+
+  /**
+   * A chip and its node are the same object shown twice, so they share a
+   * colour — and the ref you are STANDING on is the one that has to win the
+   * column.
+   *
+   * `main` is HEAD in the fixture and sits on lane 0; `feat/graph-themes` sits
+   * on lane 1, so the two also prove the colour tracks the LANE rather than
+   * being one accent reused for every chip.
+   */
+  test('ref chips take their lane colour, and the checked-out one leads', async ({ page }) => {
+    await openGraph(page);
+
+    // Scoped to the grid: `main` is also a repository's branch in the sidebar,
+    // and the sidebar comes first in the DOM.
+    const read = (name: string) =>
+      page
+        .locator('[role="grid"]')
+        .getByText(name, { exact: true })
+        .first()
+        // The chip is the span wrapping the truncated name.
+        .evaluate((node) => {
+          const chip = node.parentElement as HTMLElement;
+          const style = getComputedStyle(chip);
+          return {
+            hue: style.getPropertyValue('--lane-h').trim(),
+            background: style.backgroundColor,
+            weight: style.fontWeight,
+            opacity: Number(style.opacity),
+          };
+        });
+
+    const head = await read('main');
+    const other = await read('feat/graph-themes');
+
+    // Coloured at all, and by the lane rather than by a shared accent.
+    expect(head.hue).not.toBe('');
+    expect(other.hue).not.toBe('');
+    expect(head.hue).not.toBe(other.hue);
+
+    // Bolder and more opaque — the two words the brief used.
+    expect(Number(head.weight)).toBeGreaterThan(Number(other.weight));
+    expect(head.opacity).toBeGreaterThan(other.opacity);
+
+    // Filled solid rather than tinted: the fixture's HEAD chip is opaque, the
+    // other is an alpha wash of the same hue.
+    expect(head.background).not.toContain('rgba');
+    expect(other.background).toContain('rgba');
+  });
+
+  /**
+   * The leader line joining a chip to its node.
+   *
+   * Drawn in two halves — an HTML rule to the column's edge, an SVG line across
+   * the row's gap — so the assertion that matters is that the SVG half starts
+   * to the LEFT of its own viewBox. A connector that begins at x=0 stops at the
+   * gutter and never reaches the chip.
+   */
+  test('a ref chip is joined to its commit', async ({ page }) => {
+    await openGraph(page);
+    const starts = await page
+      .locator('[role="row"] svg line[stroke-opacity]')
+      .evaluateAll((nodes) => nodes.map((n) => Number(n.getAttribute('x1'))));
+
+    expect(starts.length).toBeGreaterThan(0);
+    for (const x of starts) expect(x).toBeLessThan(0);
   });
 
   test('each style redraws the graph and persists', async ({ page }) => {
@@ -295,5 +385,56 @@ test.describe('graph themes', () => {
         path: `../../docs/screenshots/phase-14/${label.toLowerCase().replace(/ /g, '-')}.png`,
       });
     }
+  });
+});
+
+/**
+ * The theme switch lives in the window's top-right corner, which is the worst
+ * place to open a menu and the reason the library's own control could not be
+ * used: its flyout is anchored to the RIGHT of the trigger, so every option
+ * opened past the window edge — visible in the DOM, unreachable by pointer.
+ */
+test.describe('theme toggle', () => {
+  test('opens its menu inside the window', async ({ page }) => {
+    await openGraph(page);
+    await page.getByRole('button', { name: 'Toggle theme' }).click();
+
+    const menu = page.getByRole('menu', { name: 'Theme' });
+    await expect(menu).toBeVisible();
+
+    const box = await menu.boundingBox();
+    const viewport = page.viewportSize();
+    expect(box).not.toBeNull();
+    expect(viewport).not.toBeNull();
+    expect(box!.x).toBeGreaterThanOrEqual(0);
+    expect(box!.y).toBeGreaterThanOrEqual(0);
+    expect(box!.x + box!.width).toBeLessThanOrEqual(viewport!.width);
+    expect(box!.y + box!.height).toBeLessThanOrEqual(viewport!.height);
+
+    // Every option present AND hit-testable — `toBeVisible` alone passes for an
+    // element sitting off the right edge, which was the whole bug.
+    for (const label of ['Light', 'Dark', 'System', 'Time of day']) {
+      await expect(menu.getByRole('menuitemradio', { name: label })).toBeInViewport();
+    }
+  });
+
+  test('picks a theme and shows which one is picked', async ({ page }) => {
+    await openGraph(page);
+    await page.getByRole('button', { name: 'Toggle theme' }).click();
+    await page.getByRole('menuitemradio', { name: 'Light' }).click();
+
+    // The preference reaches the document, which is the only thing the rest of
+    // the app reads.
+    await expect(page.locator('html')).not.toHaveClass(/dark/);
+
+    await page.getByRole('button', { name: 'Toggle theme' }).click();
+    await expect(page.getByRole('menuitemradio', { name: 'Light' })).toHaveAttribute(
+      'aria-checked',
+      'true',
+    );
+
+    // Escape closes it, like every other transient surface in the app.
+    await page.keyboard.press('Escape');
+    await expect(page.getByRole('menu', { name: 'Theme' })).toHaveCount(0);
   });
 });

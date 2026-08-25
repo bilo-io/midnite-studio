@@ -320,3 +320,49 @@ intact, `↑0 ↓0` with both counts dimmed, Pull/Push at `aria-disabled` + `opa
 on both dirty checkouts. `moon run :typecheck :lint :test` green, with 16 new unit tests across
 `sync-availability` and `branch-health`. **Outstanding:** the light theme's amber was not screenshotted, and no
 screenshot can show a pulse.
+
+## 2026-08-25 — Graph: a fifth style, colour-matched ref chips, a usable theme menu
+
+Three follow-ups to Phase 14, one of them a plain bug.
+
+**`classic` — the pre-avatar graph, back as a style.** Phase 14 replaced 26px rows, 14px lanes and
+a 3.5px dot with an avatar in every node, and retired the Author column because the face named the
+author. That was a change of default, but it read as a change of options: there was no way back to
+the denser table. `classic` is the old module constants verbatim — bezier lanes at 1.75px, hollow
+merges, no faces — with the Author column returned. Which is why `GraphTheme` grew `node:
+'avatar' | 'dot'` rather than a `showAvatars` flag: the column and the node are the same decision
+seen twice, so `showsAuthorColumn(theme)` derives from the node and the two incoherent pairings —
+a face beside a redundant Author column, a dot graph with the author nowhere — are unrepresentable.
+`nodeExtent` branches with it (avatar + ring, or dot + half its stroke), so the lane-spacing
+invariants still hold for a style whose `avatarSize` is 0.
+
+**Ref chips take their lane's colour.** A branch name in the BRANCH / TAG column and a coloured
+node in the GRAPH column are the same object shown twice, and nothing connected them: every chip
+was one of four semantic tints (`primary`, `muted`, `success`) regardless of which branch it named.
+They are now the hue of the lane their commit sits on, at two strengths — the checked-out ref
+filled solid and semibold, everything else a 14% wash at 0.78 opacity — because a column of
+equally-loud chips answers "which branches exist" while the question being asked is "where am I".
+Kind moved onto the icon (check / cloud / tag / branch), since kind and identity are independent
+facts and spending colour on kind costs the identity colour is there to carry. The chips publish
+`--lane-h/s/l` and the stylesheet composes tint, border and ink from them, because the label's
+lightness has to flip with the app theme and only the stylesheet knows which one is on.
+
+A **leader line** now runs from the chip to its node, in two halves: a flex-`1` rule to the
+column's edge (the chips ahead of it are of unknown width, which is what `flex` solves and a fixed
+viewBox cannot) and an SVG line starting at `-ROW_GAP`, crossing the row's gap into the gutter. It
+is drawn before the lanes so the verticals stay unbroken — a horizontal rule laid over them chops
+history into segments. Commits carrying more refs than the column holds now end in a GitKraken-style
+`+N` chip with the rest in its tooltip, instead of a name clipped mid-word.
+
+**The theme menu opened off-screen.** `<ThemeToggle>` from `@bilo-io/ui` anchors its menu
+`bottom-0 left-full` — a flyout to the right of the trigger, growing upward. Correct for the
+sidenav rail it was written for; in this app the trigger is in the window's top-right corner, so
+all four options rendered past the right edge and above the top one: present in the DOM,
+unreachable by pointer. The library takes no placement prop, so the app has its own toggle now,
+built on the library's `useTheme` and positioned the way `<Tooltip>` and `<ContextMenu>` already
+are — measured against the trigger, right-aligned, clamped to the window, and portalled to `<body>`
+so no transform or backdrop-filter up the title bar can reinterpret its coordinates.
+
+157 unit tests + 31 Playwright green (`moon run :typecheck :lint :test`, `moon run app:e2e`), with
+new coverage for the node/column pairing, the lane-colour helpers, the two chip strengths, the
+connector's negative origin, and the theme menu landing inside the viewport.

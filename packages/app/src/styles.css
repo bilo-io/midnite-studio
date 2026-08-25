@@ -33,12 +33,23 @@
     --health-ok: var(--success);
     --health-warn: 38 92% 50%;
     --health-fail: var(--destructive);
+
+    /* Lightness of the label on a ref chip that is NOT the checked-out one
+     * (features/graph/ref-badge.tsx). The chip's hue and saturation come from
+     * the lane it belongs to, as `--lane-h` / `--lane-s` set inline per chip;
+     * only the lightness is the app theme's business, because the lane palette
+     * is tuned to sit on a DARK ground and the same value on a 14%-tint chip
+     * over white is a pastel on paper. Dark here, lifted in `.dark` below. */
+    --lane-ink-l: 34%;
   }
 
   .dark {
     /* Lifted for contrast against a near-black sidebar; the mid-tone amber that
      * reads on white goes muddy on it. */
     --health-warn: 38 95% 58%;
+    /* Above the lane's own 45–68%, so the label reads brighter than the line
+     * that shares its hue rather than disappearing into the chip's tint. */
+    --lane-ink-l: 76%;
   }
 
   html,

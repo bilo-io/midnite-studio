@@ -12,7 +12,7 @@ import { useUiStore } from '../../store/ui-store';
  * Hand-built rather than sampled from the open repo so every card shows the same
  * shapes — a branch opening, a lane running alongside, a merge closing it — and
  * the cards differ ONLY by style. A preview drawn from real history would make
- * four styles look different because they were drawing different commits.
+ * styles look different because they were drawing different commits.
  */
 const PREVIEW_ROWS: GraphRow[] = [
   {
@@ -74,7 +74,7 @@ function commit(sha: string, parents: string[], authorName: string, authorEmail:
   };
 }
 
-/** Pick the graph style. Four cards, each drawing the same history its own way. */
+/** Pick the graph style. One card per style, each drawing the same history its own way. */
 export function GraphThemePicker() {
   const active = useUiStore((s) => s.graphTheme);
   const setGraphTheme = useUiStore((s) => s.setGraphTheme);

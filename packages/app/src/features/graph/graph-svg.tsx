@@ -1,7 +1,13 @@
 import type { GraphRow } from '@midnite/git-shared';
 
 import { CommitAvatar } from './commit-avatar';
-import { ARROW_GAP, nodeExtent, type GraphTheme } from './graph-themes';
+import {
+  ARROW_GAP,
+  CONNECTOR_OPACITY,
+  ROW_GAP,
+  nodeExtent,
+  type GraphTheme,
+} from './graph-themes';
 import { LANE_COLOR_COUNT, laneColor } from './lane-colors';
 
 /**
@@ -26,6 +32,7 @@ export function GraphSvg({
   theme,
   clipId,
   dimmed = false,
+  connector = false,
 }: {
   row: GraphRow;
   width: number;
@@ -34,6 +41,13 @@ export function GraphSvg({
   clipId: string;
   /** Author-filtered out — drawn back, never removed. */
   dimmed?: boolean;
+  /**
+   * Draw the leader line joining this row's ref chips to its node.
+   *
+   * Set by the row only when it actually rendered chips — a connector reaching
+   * back to an empty column is a line pointing at nothing.
+   */
+  connector?: boolean;
 }) {
   const mid = theme.rowHeight / 2;
   const lane = (n: number): number => n * theme.laneWidth + theme.laneWidth / 2;
@@ -52,6 +66,32 @@ export function GraphSvg({
       // screen reader announcing lane geometry would be noise.
       aria-hidden
     >
+      {/*
+        First, so every lane paints over it.
+
+        The connector crosses whatever lanes sit between the gutter's edge and
+        this row's node — in a busy history, several of them — and a horizontal
+        rule laid ON TOP of the vertical ones chops them into segments, which
+        reads as history that stops and restarts. Underneath, the lanes stay
+        continuous and the connector still reads as a line, because it is the
+        only horizontal thing in the picture.
+
+        It starts at `-ROW_GAP`: the row's own `gap-2`, crossed backwards out of
+        the SVG (which is `overflow-visible`) to meet the rule that the
+        BRANCH / TAG cell stretches to its own right edge.
+      */}
+      {connector ? (
+        <line
+          x1={-ROW_GAP}
+          y1={mid}
+          x2={nodeX}
+          y2={mid}
+          stroke={nodeColor}
+          strokeWidth={theme.strokeWidth}
+          strokeOpacity={CONNECTOR_OPACITY}
+        />
+      ) : null}
+
       {row.edges.map((edge, index) => {
         const color = laneColor(edge.colorIdx, theme.palette);
         const from = lane(edge.fromLane);
@@ -131,18 +171,34 @@ export function GraphSvg({
 
       {/*
         The node last so it sits above every edge — a merge line arriving at the
-        same point would otherwise paint over the face.
+        same point would otherwise paint over it.
+
+        A `dot` style draws a merge commit HOLLOW: at 3.5px that is the one
+        distinction still legible, and it is what `git log --graph` readers
+        already expect. The avatar styles cannot make it — the node is a face,
+        and there is no inside left to empty out.
       */}
-      <CommitAvatar
-        email={row.commit.authorEmail}
-        name={row.commit.authorName}
-        cx={nodeX}
-        cy={mid}
-        size={theme.avatarSize}
-        ring={nodeColor}
-        ringWidth={theme.ringWidth}
-        clipId={clipId}
-      />
+      {theme.node === 'avatar' ? (
+        <CommitAvatar
+          email={row.commit.authorEmail}
+          name={row.commit.authorName}
+          cx={nodeX}
+          cy={mid}
+          size={theme.avatarSize}
+          ring={nodeColor}
+          ringWidth={theme.ringWidth}
+          clipId={clipId}
+        />
+      ) : (
+        <circle
+          cx={nodeX}
+          cy={mid}
+          r={theme.nodeRadius}
+          fill={row.commit.parents.length > 1 ? 'hsl(var(--background))' : nodeColor}
+          stroke={nodeColor}
+          strokeWidth={theme.strokeWidth}
+        />
+      )}
     </svg>
   );
 }
