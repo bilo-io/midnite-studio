@@ -1,4 +1,4 @@
-# midnite-git — Phase Index
+# Midnite Git — Phase Index
 
 **Headline:** all 12 phases are landed — the app packages, installs and runs from /Applications. Post-MVP scope lives in [`outstanding.md`](outstanding.md).
 

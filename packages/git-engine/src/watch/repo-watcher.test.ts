@@ -1,6 +1,6 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
-import type { WatchKind } from '@midnite-git/shared';
+import type { WatchKind } from '@midnite/git-shared';
 
 import { writeQueue } from '../exec/write-queue';
 import { TempRepo } from '../testing/temp-repo';

@@ -1,4 +1,4 @@
-import type { Commit, GraphEdge, GraphRow } from '@midnite-git/shared';
+import type { Commit, GraphEdge, GraphRow } from '@midnite/git-shared';
 
 import { colorForSha } from './colors';
 import { LaneRegistry } from './lane-registry';

@@ -1,7 +1,7 @@
 import { ipcMain } from 'electron';
 import type { z } from 'zod';
 
-import { failure, type GitOpResult } from '@midnite-git/shared';
+import { failure, type GitOpResult } from '@midnite/git-shared';
 
 /**
  * Register an `invoke` handler that validates its payload before doing anything.

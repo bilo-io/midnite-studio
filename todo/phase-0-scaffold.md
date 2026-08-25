@@ -12,9 +12,9 @@ Read `docs/INITIAL_PLAN.md` → "Package layout" before starting. Crib root conf
 - [x] `.moon/toolchain.yml` (node/pnpm mirrored from `.prototools`; `typescript.syncProjectReferences: false`)
 - [x] `.moon/tasks.yml` — inherited `build` (tsc -b) / `typecheck` / `test` (vitest run) / `lint` (eslint)
 - [x] Root `moon.yml` (`id: root`, `install` task), `pnpm-workspace.yaml`, root `package.json` (private, packageManager, engines, moon-passthrough scripts)
-- [x] `tsconfig.base.json` — strict, composite, `noUncheckedIndexedAccess`, paths for `@midnite-git/shared` + `@midnite-git/git-engine`
+- [x] `tsconfig.base.json` — strict, composite, `noUncheckedIndexedAccess`, paths for `@midnite/git-shared` + `@midnite/git-engine`
 - [x] `eslint.config.mjs` — eslint 9 flat config + **boundary rules** via per-package `no-restricted-imports`: `app` may not import git-engine/desktop/electron; `git-engine` may not import electron; `shared` imports no workspace package
-- [x] `packages/{shared,git-engine,app,desktop}/` each with `package.json` (`@midnite-git/<name>`, private, exports → dist), `tsconfig.json`, `moon.yml`, `vitest.config.ts`, stub `src/index.ts` + one trivial test
+- [x] `packages/{shared,git-engine,app,desktop}/` each with `package.json` (`@midnite/git-<name>`, private, exports → dist), `tsconfig.json`, `moon.yml`, `vitest.config.ts`, stub `src/index.ts` + one trivial test
 - [x] `app` deps include `@bilo-io/ui@0.1.0`, `@bilo-io/shell@0.1.0`, `react@^19`, `react-dom@^19` **now** — proves registry auth early
 - [x] Root `pnpm.peerDependencyRules.ignoreMissing: ["next-intl"]`
 - [x] `scripts/fix-node-pty.cjs` postinstall (crib from midnite root) — spawn-helper chmod

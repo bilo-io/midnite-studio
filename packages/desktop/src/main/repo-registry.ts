@@ -6,8 +6,8 @@ import {
   listWorktrees,
   resolveMainWorktree,
   resolveRepoRoot,
-} from '@midnite-git/git-engine';
-import type { Ref, RepoDescriptor, Worktree } from '@midnite-git/shared';
+} from '@midnite/git-engine';
+import type { Ref, RepoDescriptor, Worktree } from '@midnite/git-shared';
 
 import { nullRepoStore, type RepoStore } from './repo-store';
 

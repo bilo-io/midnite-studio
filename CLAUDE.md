@@ -1,4 +1,4 @@
-# midnite-git — working notes for Claude
+# Midnite Git — working notes for Claude
 
 A GitKraken-inspired desktop git client. **Design source of truth:
 [`docs/INITIAL_PLAN.md`](docs/INITIAL_PLAN.md)** — read it before any non-trivial change; it

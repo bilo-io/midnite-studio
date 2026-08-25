@@ -1,4 +1,4 @@
-import { DEFAULT_KEYMAP } from '@midnite-git/shared';
+import { DEFAULT_KEYMAP } from '@midnite/git-shared';
 
 import { useStatus } from '../../services/use-status';
 import { useUiStore } from '../../store/ui-store';

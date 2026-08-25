@@ -18,10 +18,10 @@
     "declarationMap": true,
     "sourceMap": true,
     "paths": {
-      "@midnite-git/shared": ["./packages/shared/src/index.ts"],
-      "@midnite-git/shared/*": ["./packages/shared/src/*"],
-      "@midnite-git/git-engine": ["./packages/git-engine/src/index.ts"],
-      "@midnite-git/git-engine/*": ["./packages/git-engine/src/*"]
+      "@midnite/git-shared": ["./packages/shared/src/index.ts"],
+      "@midnite/git-shared/*": ["./packages/shared/src/*"],
+      "@midnite/git-engine": ["./packages/git-engine/src/index.ts"],
+      "@midnite/git-engine/*": ["./packages/git-engine/src/*"]
     }
   }
 }

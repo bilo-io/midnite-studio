@@ -1,7 +1,7 @@
 import { randomUUID } from 'node:crypto';
 import { existsSync } from 'node:fs';
 
-import { EVENT_CHANNELS } from '@midnite-git/shared';
+import { EVENT_CHANNELS } from '@midnite/git-shared';
 import type { BrowserWindow } from 'electron';
 
 /**

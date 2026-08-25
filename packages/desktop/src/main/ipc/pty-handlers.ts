@@ -1,4 +1,4 @@
-import { CHANNELS, schemas } from '@midnite-git/shared';
+import { CHANNELS, schemas } from '@midnite/git-shared';
 import { ipcMain, type BrowserWindow } from 'electron';
 
 import { createPty, killPty, resizePty, writePty } from '../pty-service';

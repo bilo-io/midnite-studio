@@ -5,7 +5,7 @@ argument-hint: "[optional: phase number or task hint]"
 allowed-tools: Bash, Read, Edit, Write, Glob, Grep, AskUserQuestion, TodoWrite, Agent, ToolSearch
 ---
 
-End-to-end "execute a phase slice" for **midnite-git**.
+End-to-end "execute a phase slice" for **Midnite Git**.
 
 **Conversation style — enforced.** Be terse to save time and tokens. No preamble, no recap of these instructions, no narrating what you're *about* to do. Report results, not intentions; bullets over prose. Stay silent on no-op stages. Spend tokens on code, diffs, and decisions — not commentary.
 

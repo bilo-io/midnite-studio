@@ -1,8 +1,8 @@
-# midnite-git — GitKraken-inspired desktop git client (new repo at `~/Dev/midnite-git`)
+# Midnite Git — GitKraken-inspired desktop git client (new repo at `~/Dev/midnite-git`)
 
 ## Context
 
-Bilo wants a brand-new standalone desktop app — **midnite-git** — in `~/Dev/midnite-git`, a separate repo structured like the midnite monorepo (proto + moon + pnpm workspace, `todo/` phase docs), consuming the published **@bilo-io/ui@0.1.0** and **@bilo-io/shell@0.1.0** from GitHub Packages (`bilo-io/midnite-ui`).
+Bilo wants a brand-new standalone desktop app — **Midnite Git** (`@midnite/git`) — in `~/Dev/midnite-git`, a separate repo structured like the midnite monorepo (proto + moon + pnpm workspace, `todo/` phase docs), consuming the published **@bilo-io/ui@0.1.0** and **@bilo-io/shell@0.1.0** from GitHub Packages (`bilo-io/midnite-ui`).
 
 Product pillars:
 
@@ -39,10 +39,10 @@ moon.yml  pnpm-workspace.yaml  tsconfig.base.json  eslint.config.mjs
 scripts/fix-node-pty.cjs   # spawn-helper chmod (crib midnite)
 todo/                      # _INDEX.md, done.md, outstanding.md, phase-N-*.md
 packages/
-  shared/       # @midnite-git/shared — zod-only contract layer (domain types, IPC channels+schemas, bridge type, CommandId/keymap)
-  git-engine/   # @midnite-git/git-engine — pure Node/TS, NO electron imports: dugite exec + write queue, parsers, commands, lane layout, watcher
-  app/          # @midnite-git/app — Vite + React renderer; talks only to window.midniteGit
-  desktop/      # @midnite-git/desktop — Electron main + preload, node-pty, menus, packaging
+  shared/       # @midnite/git-shared — zod-only contract layer (domain types, IPC channels+schemas, bridge type, CommandId/keymap)
+  git-engine/   # @midnite/git-engine — pure Node/TS, NO electron imports: dugite exec + write queue, parsers, commands, lane layout, watcher
+  app/          # @midnite/git-app — Vite + React renderer; talks only to window.midniteGit
+  desktop/      # @midnite/git-desktop — Electron main + preload, node-pty, menus, packaging
 ```
 
 Dependency graph (eslint `no-restricted-imports` boundary rules, midnite-style):

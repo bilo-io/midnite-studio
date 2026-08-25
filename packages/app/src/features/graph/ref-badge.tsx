@@ -1,4 +1,4 @@
-import type { Ref } from '@midnite-git/shared';
+import type { Ref } from '@midnite/git-shared';
 import { useMemo } from 'react';
 
 /**

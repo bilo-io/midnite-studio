@@ -1,4 +1,4 @@
-import type { BranchStatus } from '@midnite-git/shared';
+import type { BranchStatus } from '@midnite/git-shared';
 
 import { useFetch, usePull, usePush } from '../../services/use-status';
 

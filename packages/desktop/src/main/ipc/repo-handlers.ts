@@ -1,7 +1,7 @@
 import { BrowserWindow, dialog } from 'electron';
 
-import { addWorktree, readCommitDetail, removeWorktree } from '@midnite-git/git-engine';
-import { CHANNELS, failure, schemas } from '@midnite-git/shared';
+import { addWorktree, readCommitDetail, removeWorktree } from '@midnite/git-engine';
+import { CHANNELS, failure, schemas } from '@midnite/git-shared';
 
 import { cancelLog, startLog } from '../log-service';
 import {

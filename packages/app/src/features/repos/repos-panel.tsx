@@ -1,6 +1,6 @@
 import { useState } from 'react';
 
-import type { RepoDescriptor, Worktree } from '@midnite-git/shared';
+import type { RepoDescriptor, Worktree } from '@midnite/git-shared';
 
 import {
   useCloseRepo,

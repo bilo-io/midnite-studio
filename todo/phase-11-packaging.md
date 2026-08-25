@@ -43,7 +43,7 @@ Verified against the **installed** `/Applications/midnite-git.app`, launched wit
   sibling directories, and dies with `<sibling>/dist/.tsbuildinfo must be under
   packages/desktop/`. Inlining `shared` and `git-engine` removes them from the runtime graph
   entirely; moving them to `devDependencies` (via `scope: 'development'` in moon.yml) is the other
-  half of the fix, and the negation pattern `!node_modules/@midnite-git/**` alone is not enough.
+  half of the fix, and the negation pattern `!node_modules/@midnite/**` alone is not enough.
 - **dugite must be a DIRECT dependency of `desktop`.** It reached the package transitively through
   `git-engine`; once that moved to devDependencies the packaged app shipped without git and the
   afterPack hook chmod'd 3 files instead of 197. The build succeeded and the app was broken.

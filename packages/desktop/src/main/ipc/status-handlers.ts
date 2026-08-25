@@ -8,8 +8,8 @@ import {
   readFileDiff,
   stagePaths,
   unstagePaths,
-} from '@midnite-git/git-engine';
-import { CHANNELS, failure, schemas, type GitOpResult } from '@midnite-git/shared';
+} from '@midnite/git-engine';
+import { CHANNELS, failure, schemas, type GitOpResult } from '@midnite/git-shared';
 
 import { resolveWorkdir } from '../repo-registry';
 import { handle, handleOp } from './handle';

@@ -15,7 +15,12 @@ import { fileURLToPath } from 'node:url';
 const here = dirname(fileURLToPath(import.meta.url));
 const root = resolve(here, '..');
 
-const APP_NAME = 'midnite-git.app';
+// Matches electron-builder's `productName` — the display name, space and all.
+const APP_NAME = 'Midnite Git.app';
+// The bundle name before the display-name rename. Left behind by an older
+// install it would sit in /Applications beside the new one, and Spotlight would
+// happily launch the stale build.
+const LEGACY_APP_NAME = 'midnite-git.app';
 const source = join(root, 'release', 'mac-arm64', APP_NAME);
 const target = join('/Applications', APP_NAME);
 
@@ -38,6 +43,12 @@ try {
   execFileSync('xattr', ['-dr', 'com.apple.quarantine', target], { stdio: 'ignore' });
 } catch {
   // Not quarantined — nothing to clear.
+}
+
+const legacyTarget = join('/Applications', LEGACY_APP_NAME);
+if (existsSync(legacyTarget)) {
+  console.log(`Removing pre-rename ${legacyTarget}`);
+  rmSync(legacyTarget, { recursive: true, force: true });
 }
 
 console.log(`Installed. Launch it from Finder to exercise the login-shell PATH fix.`);

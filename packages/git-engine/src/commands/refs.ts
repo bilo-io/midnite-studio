@@ -1,4 +1,4 @@
-import type { Ref } from '@midnite-git/shared';
+import type { Ref } from '@midnite/git-shared';
 
 import { execGit } from '../exec/git-exec';
 import { FOR_EACH_REF_FORMAT, parseRefs } from '../parsers/refs-parser';

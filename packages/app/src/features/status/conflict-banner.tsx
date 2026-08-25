@@ -1,4 +1,4 @@
-import type { InProgressOp, StatusResult } from '@midnite-git/shared';
+import type { InProgressOp, StatusResult } from '@midnite/git-shared';
 
 import { useGitOp } from '../../services/use-status';
 

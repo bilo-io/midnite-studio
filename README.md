@@ -1,9 +1,9 @@
-# midnite-git
+# Midnite Git
 
 A GitKraken-inspired desktop git client. Plain Electron + typed IPC, a Vite + React renderer, and
 the published [`@bilo-io/ui`](https://github.com/bilo-io/midnite-ui) design system.
 
-![midnite-git](docs/screenshots/midnite-git.png)
+![Midnite Git](docs/screenshots/midnite-git.png)
 
 <sub>Running `~/Dev/midnite` — linked worktrees nested under their repository, 2,376 commits,
 live branch and sync state in the footer. The crescent and the wordmark face are the midnite
@@ -62,7 +62,7 @@ moon run desktop:start-built        # Electron against the built renderer (file:
 moon run desktop:rebuild-native     # node-pty for Electron's ABI, after an Electron bump
 moon run desktop:dist               # macOS arm64 dmg + zip → packages/desktop/release
 moon run desktop:install-local      # ditto the .app into /Applications
-pnpm --filter @midnite-git/git-engine smoke ~/some/repo   # parse a real repo, print the lanes
+pnpm --filter @midnite/git-engine smoke ~/some/repo   # parse a real repo, print the lanes
 ```
 
 ## How it is put together

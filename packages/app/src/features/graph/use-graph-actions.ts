@@ -1,6 +1,6 @@
 import { useCallback } from 'react';
 
-import type { GitOpResult, GraphRow, Ref } from '@midnite-git/shared';
+import type { GitOpResult, GraphRow, Ref } from '@midnite/git-shared';
 
 import { useDialogs } from '../../components/dialog-host';
 import { validateRefName } from '../../components/prompt-dialog';

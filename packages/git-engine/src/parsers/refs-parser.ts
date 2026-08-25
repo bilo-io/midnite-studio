@@ -1,4 +1,4 @@
-import type { Ref, RefKind, Upstream } from '@midnite-git/shared';
+import type { Ref, RefKind, Upstream } from '@midnite/git-shared';
 
 /**
  * Parser for `git for-each-ref` output.
