@@ -2,7 +2,36 @@
 
 <!-- Append one entry per landed phase/PR: date, phase, PR link, one-line summary. -->
 
-## 2026-08-26 — Phase 12 · Theme E — Remotes and forge links
+## 2026-08-26 — Phase 16 · Themes A–E — Folder explorer, preview pane, settings pages
+
+The app grows real pages, in one branch (`feature/phase-16-explorer-settings`, squash-merged —
+no remote/PR yet). A new **Folder** view above Graph browses the active checkout as a lazy tree
+(dotfiles shown, gitignored entries dimmed via one batched NUL-delimited `check-ignore` per
+listing, `node_modules` costing nothing until opened) with a strictly read-only preview pane:
+shiki-highlighted code (github-dark/light synced to the app theme, grammars lazy-loaded
+per-extension, a 200 KB highlight cap so a minified bundle can't freeze the render thread),
+markdown rendered through `react-markdown`+`remark-gfm` with a source ⇄ rendered toggle and
+deliberately inert links, and images/video/audio/PDF streaming straight off a new jailed
+`mgit-file://` protocol — media bytes never cross IPC.
+
+Underneath: the first arbitrary-fs IPC in the app, `mgit:fs:list-dir` / `mgit:fs:read-file`,
+scoped requests only (`repo` via `resolveWorkdir`, `claude-home` for `~/.claude`) with a
+two-stage path jail — pure `joinWithin` (traversal/absolute/NUL) plus `realpath` confinement
+(symlink escapes) — that fails closed everywhere, crafted percent-encoding included. No write
+channel exists; "can't edit yet" is the contract, not the UI.
+
+Settings moved to the **bottom of the nav rail** (the shell's `footer` slot) and split into four
+pages behind an inner sidebar — Appearance and Graph moved one-to-one, **Terminal** hosts the
+sidebar-side toggle and the agent roster, and **Agent** peeks into `~/.claude` (tree + preview),
+probes `claude --version` through a login shell (`-lic`, banner-proof parsing, best-effort
+npm/brew/native detection) and offers the hybrid actions: **Update** runs in main with output
+streamed over `agent:claude-update-data`; **Uninstall** opens the terminal with the
+method-matched command pasted and *no newline* — Enter is the confirmation, consumed once so a
+revived session never re-types it.
+
+25 new tests (jail table-tests, NUL round-trip `check-ignore` integration, claude parsers,
+language map, ui-store persistence) plus 7 new Playwright specs; 45 e2e green. Still open in the
+phase doc: the two real-app manual verification passes (media/PDF in the packaged renderer).
 
 Nothing in the repo modelled a git remote: no domain type, and no command ever read
 `.git/config`. Theme A's `#123` links need one, and so does every "open this on the forge" verb

@@ -2,6 +2,8 @@ import { dirname, join } from 'node:path';
 
 import { BrowserWindow, app } from 'electron';
 
+import { registerClaudeHandlers } from './ipc/claude-handlers';
+import { registerFsHandlers } from './ipc/fs-handlers';
 import { registerPtyHandlers } from './ipc/pty-handlers';
 import { registerTerminalHandlers } from './ipc/terminal-handlers';
 import { registerRefHandlers } from './ipc/ref-handlers';
@@ -20,6 +22,7 @@ import { configureRegistry, listRepos, openRepo, restoreRepos } from './repo-reg
 import { reconcileWatchers, stopAllWatchers } from './watch-service';
 import { createRepoStore } from './repo-store';
 import { LEGACY_APP_NAME, migrateLegacyRepoStore } from './userdata-migration';
+import { installMgitFileProtocol, registerMgitFileScheme } from './fs-protocol';
 import { ensureLoginShellPath } from './shell-path';
 import { createWindow } from './window';
 import { registerWindowChrome } from './window-chrome';
@@ -82,6 +85,9 @@ if (!app.requestSingleInstanceLock()) {
   // shell config. Must run before the first git or pty call.
   ensureLoginShellPath();
 
+  // Chromium fixes the privileged-scheme list at startup — must precede ready.
+  registerMgitFileScheme();
+
   void app.whenReady().then(async () => {
     registerWindowChrome(getWindow);
     registerRepoHandlers(getWindow);
@@ -90,6 +96,9 @@ if (!app.requestSingleInstanceLock()) {
     registerRemoteHandlers();
     registerPtyHandlers(getWindow);
     registerTerminalHandlers();
+    registerFsHandlers();
+    registerClaudeHandlers(getWindow);
+    installMgitFileProtocol();
     installMenu(getWindow);
 
     // Restore before the window opens: the renderer's first `repo:list` fires

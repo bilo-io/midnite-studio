@@ -1,5 +1,6 @@
 export * from './commit';
 export * from './diff';
+export * from './ignore';
 export * from './log';
 export * from './refs';
 export * from './refs-ops';

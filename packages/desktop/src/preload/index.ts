@@ -86,6 +86,7 @@ const bridge: Pick<
   | 'pty'
   | 'terminal'
   | 'agent'
+  | 'fs'
   | 'watch'
   | 'window'
   | 'windowChrome'
@@ -163,6 +164,13 @@ const bridge: Pick<
   },
   agent: {
     list: () => call(CHANNELS.agentList),
+    claudeInfo: () => call(CHANNELS.agentClaudeInfo),
+    claudeUpdate: () => call(CHANNELS.agentClaudeUpdate),
+    onClaudeUpdateData: (handler) => subscribe(EVENT_CHANNELS.agentClaudeUpdateData, handler),
+  },
+  fs: {
+    listDir: (req) => call(CHANNELS.fsListDir, req),
+    readFile: (req) => call(CHANNELS.fsReadFile, req),
   },
   watch: {
     onEvent: (handler) => subscribe(EVENT_CHANNELS.watchEvent, handler),

@@ -42,9 +42,19 @@ type TerminalState = {
    */
   replay: Record<string, Uint8Array>;
   errors: Record<string, string>;
+  /**
+   * Text to type into a session's shell once its pty is up — WITHOUT a
+   * trailing newline, so it sits at the prompt awaiting the user's Enter.
+   * How the Agent settings page pastes an uninstall command (Phase 16):
+   * pressing Enter is the confirmation, so the app never runs it itself.
+   */
+  pendingInput: Record<string, string>;
 
   hydrate: () => Promise<void>;
   openSession: (request: NewSessionRequest) => TerminalSession;
+  queueInput: (sessionId: string, input: string) => void;
+  /** Consumed on pty creation — one paste per queue, never on a revive. */
+  clearPendingInput: (sessionId: string) => void;
   closeSession: (sessionId: string) => void;
   setActive: (sessionId: string) => void;
   reorder: (sessionIds: string[]) => void;
@@ -71,6 +81,7 @@ export const useTerminalStore = create<TerminalState>()((set, get) => ({
   states: {},
   replay: {},
   errors: {},
+  pendingInput: {},
 
   /**
    * Load the saved sessions. Spawns nothing.
@@ -141,6 +152,17 @@ export const useTerminalStore = create<TerminalState>()((set, get) => ({
 
   setActive: (activeId) => set({ activeId }),
 
+  queueInput: (sessionId, input) =>
+    set((state) => ({ pendingInput: { ...state.pendingInput, [sessionId]: input } })),
+
+  clearPendingInput: (sessionId) =>
+    set((state) => {
+      if (!(sessionId in state.pendingInput)) return state;
+      const pendingInput = { ...state.pendingInput };
+      delete pendingInput[sessionId];
+      return { pendingInput };
+    }),
+
   reorder: (sessionIds) => {
     set((state) => {
       const byId = new Map(state.sessions.map((s) => [s.id, s]));
@@ -193,16 +215,18 @@ function nextActiveId(sessions: TerminalSession[], closingId: string): string | 
 function dropKey(
   state: TerminalState,
   sessionId: string,
-): Pick<TerminalState, 'ptyIds' | 'states' | 'replay' | 'errors'> {
+): Pick<TerminalState, 'ptyIds' | 'states' | 'replay' | 'errors' | 'pendingInput'> {
   const ptyIds = { ...state.ptyIds };
   const states = { ...state.states };
   const replay = { ...state.replay };
   const errors = { ...state.errors };
+  const pendingInput = { ...state.pendingInput };
   delete ptyIds[sessionId];
   delete states[sessionId];
   delete replay[sessionId];
   delete errors[sessionId];
-  return { ptyIds, states, replay, errors };
+  delete pendingInput[sessionId];
+  return { ptyIds, states, replay, errors, pendingInput };
 }
 
 /**

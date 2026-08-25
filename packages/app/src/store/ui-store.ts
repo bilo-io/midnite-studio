@@ -19,7 +19,21 @@ export type NavMode = 'auto' | 'expanded' | 'collapsed';
 export type TerminalSidebarSide = 'left' | 'right';
 
 /** The main content views the rail switches between. */
-export type ViewId = 'graph' | 'changes' | 'settings';
+export type ViewId = 'files' | 'graph' | 'changes' | 'settings';
+
+/**
+ * The pages the Settings view splits into (Phase 16). An inner sidebar, not
+ * nav-rail sub-items: the rail stays view navigation, and settings pages are
+ * one view's internal structure.
+ */
+export type SettingsPageId = 'appearance' | 'graph' | 'terminal' | 'agent';
+
+export const SETTINGS_PAGES: { id: SettingsPageId; label: string }[] = [
+  { id: 'appearance', label: 'Appearance' },
+  { id: 'graph', label: 'Graph' },
+  { id: 'terminal', label: 'Terminal' },
+  { id: 'agent', label: 'Agent' },
+];
 
 /** Pixel sizes of the draggable panes. */
 export type LayoutSizes = {
@@ -27,6 +41,8 @@ export type LayoutSizes = {
   terminalHeight: number;
   detailWidth: number;
   changesListWidth: number;
+  /** The Folder view's tree pane, left of the preview. */
+  filesTreeWidth: number;
 };
 
 /** Widths of the graph table's fixed-width columns. */
@@ -62,6 +78,7 @@ export const DEFAULT_LAYOUT: LayoutSizes = {
   terminalHeight: 288,
   detailWidth: 384,
   changesListWidth: 384,
+  filesTreeWidth: 320,
 };
 
 export const DEFAULT_GRAPH_COLUMNS: GraphColumns = {
@@ -81,6 +98,7 @@ export const LAYOUT_BOUNDS = {
   terminalHeight: { min: 120, max: 720 },
   detailWidth: { min: 280, max: 720 },
   changesListWidth: { min: 240, max: 720 },
+  filesTreeWidth: { min: 200, max: 640 },
 } as const;
 
 export const GRAPH_COLUMN_BOUNDS = {
@@ -107,6 +125,9 @@ export const GRAPH_COLUMN_BOUNDS = {
  */
 export type UiState = {
   activeView: ViewId;
+  /** Which settings page is showing. A preference — reopening Settings should
+   *  land where you last were, so it persists. */
+  settingsPage: SettingsPageId;
   selectedRepoId: string | null;
   selectedWorktreePath: string | null;
   selectedCommitSha: string | null;
@@ -136,6 +157,7 @@ export type UiState = {
   diffShowOldGutter: boolean;
 
   setActiveView: (view: ViewId) => void;
+  setSettingsPage: (page: SettingsPageId) => void;
   selectRepo: (repoId: string | null) => void;
   selectWorktree: (path: string | null) => void;
   selectCommit: (sha: string | null) => void;
@@ -166,12 +188,14 @@ type PersistedUi = Pick<
   | 'collapsedNavSections'
   | 'diffShowOldGutter'
   | 'graphTheme'
+  | 'settingsPage'
 >;
 
 export const useUiStore = create<UiState>()(
   persist(
     (set) => ({
       activeView: 'graph',
+      settingsPage: 'appearance',
       selectedRepoId: null,
       selectedWorktreePath: null,
       selectedCommitSha: null,
@@ -189,6 +213,7 @@ export const useUiStore = create<UiState>()(
       diffShowOldGutter: false,
 
       setActiveView: (activeView) => set({ activeView }),
+      setSettingsPage: (settingsPage) => set({ settingsPage }),
       // Switching repo invalidates every selection scoped to the old one — the
       // ref filter included: refs are per-repo, so carrying `refs/heads/feat-x`
       // into a repo that has no such branch yields an empty graph that looks
@@ -253,6 +278,7 @@ export const useUiStore = create<UiState>()(
         collapsedNavSections: state.collapsedNavSections,
         diffShowOldGutter: state.diffShowOldGutter,
         graphTheme: state.graphTheme,
+        settingsPage: state.settingsPage,
         terminalOpen: state.terminalOpen,
         terminalMaximized: state.terminalMaximized,
         terminalSidebarSide: state.terminalSidebarSide,
@@ -302,4 +328,10 @@ export const useUiStore = create<UiState>()(
 /** Route path for a view — AppFrame is router-agnostic and compares strings. */
 export const pathForView = (view: ViewId): string => `/${view}`;
 export const viewForPath = (path: string): ViewId =>
-  path === '/changes' ? 'changes' : path === '/settings' ? 'settings' : 'graph';
+  path === '/files'
+    ? 'files'
+    : path === '/changes'
+      ? 'changes'
+      : path === '/settings'
+        ? 'settings'
+        : 'graph';

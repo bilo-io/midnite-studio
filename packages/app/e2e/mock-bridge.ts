@@ -33,6 +33,21 @@ export type MockFixtures = {
    * have to spell out byte arrays.
    */
   terminalSessions?: { session: Record<string, unknown>; scrollback?: string }[];
+  /**
+   * Directory listings for the Folder view and the Agent page's ~/.claude
+   * tree, keyed `repo:<relPath>` / `claude:<relPath>` ('' is the root).
+   */
+  fsDirs?: Record<
+    string,
+    Array<{ name: string; kind: 'file' | 'dir' | 'symlink'; size: number; isIgnored: boolean }>
+  >;
+  /** File reads for the preview pane, keyed the same way. */
+  fsFiles?: Record<
+    string,
+    | { kind: 'text'; content: string; size: number }
+    | { kind: 'binary' | 'too-large'; size: number }
+    | { kind: 'error'; message: string }
+  >;
 };
 
 export async function installMockBridge(page: Page, fixtures: MockFixtures): Promise<void> {
@@ -254,6 +269,25 @@ export async function installMockBridge(page: Page, fixtures: MockFixtures): Pro
             { id: 'claude', label: 'Claude', command: 'claude', args: [], accent: '#D97757' },
           ],
         }),
+        claudeInfo: async () => ({
+          installed: true,
+          version: '2.1.34',
+          method: 'npm',
+          binPath: '/Users/e2e/.nvm/versions/node/v22.12.0/bin/claude',
+        }),
+        claudeUpdate: async () => ({ ok: true as const, exitCode: 0 }),
+        onClaudeUpdateData: unsubscribe,
+      },
+      fs: {
+        listDir: async (req: { scope: string; relPath: string }) => {
+          const key = `${req.scope === 'repo' ? 'repo' : 'claude'}:${req.relPath}`;
+          const entries = data.fsDirs?.[key];
+          return entries ? { ok: true, entries } : { ok: false, message: 'no fixture for ' + key };
+        },
+        readFile: async (req: { scope: string; relPath: string }) => {
+          const key = `${req.scope === 'repo' ? 'repo' : 'claude'}:${req.relPath}`;
+          return data.fsFiles?.[key] ?? { kind: 'error', message: 'no fixture for ' + key };
+        },
       },
       watch: { onEvent: unsubscribe },
       menu: { onCommand: unsubscribe },
