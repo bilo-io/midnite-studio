@@ -33,6 +33,16 @@ export const CHANNELS = {
   /** A path's diff *inside a commit* — the worktree-scoped one can't answer this. */
   commitFileDiff: 'mgit:commit:file-diff',
 
+  // --- remotes -------------------------------------------------------------
+  remotesList: 'mgit:remotes:list',
+
+  // --- shell ---------------------------------------------------------------
+  /**
+   * Hand a URL to the OS browser. Protocol-restricted at both ends — see the
+   * schema's refine and the main handler's re-check.
+   */
+  shellOpenExternal: 'mgit:shell:open-external',
+
   // --- mutating operations -------------------------------------------------
   opCheckout: 'mgit:op:checkout',
   opBranchCreate: 'mgit:op:branch-create',

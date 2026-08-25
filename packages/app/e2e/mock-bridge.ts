@@ -19,6 +19,8 @@ export type MockFixtures = {
   statusEntries: unknown[];
   /** Refs the sidebar and the BRANCH / TAG column render. */
   refs?: unknown[];
+  /** Configured remotes, as `mgit:remotes:list` returns them (forge pre-derived). */
+  remotes?: unknown[];
 };
 
 export async function installMockBridge(page: Page, fixtures: MockFixtures): Promise<void> {
@@ -131,6 +133,24 @@ export async function installMockBridge(page: Page, fixtures: MockFixtures): Pro
           data.diffs[`${req.sha}:${req.path}`] ??
           emptyDiff(req.path),
       },
+      remotes: {
+        list: async () => data.remotes ?? [],
+      },
+      /*
+        Records the URL and then answers as the real handler does.
+
+        Recorded rather than stubbed silently because the assertion worth making
+        is which URL a link hands over — a button that opens the WRONG project
+        page looks identical to one that opens the right one from the outside.
+        The protocol allow-list itself is enforced in main and unit-tested there;
+        what this can show is that the renderer only ever asks for https URLs.
+      */
+      shell: {
+        openExternal: async (req: { url: string }) => {
+          externalUrls.push(req.url);
+          return { ok: true as const };
+        },
+      },
       /*
         Every op still resolves to `{ok:true}` — but records itself first.
 
@@ -210,6 +230,9 @@ export async function installMockBridge(page: Page, fixtures: MockFixtures): Pro
     // Unique per create, so a spec can tell two terminals' streams apart.
     // eslint-disable-next-line no-var
     var ptyCount = 0;
+    // eslint-disable-next-line no-var
+    var externalUrls: string[] = [];
     (window as unknown as { __mgitOps: unknown }).__mgitOps = opCalls;
+    (window as unknown as { __mgitExternalUrls: unknown }).__mgitExternalUrls = externalUrls;
   }, fixtures);
 }

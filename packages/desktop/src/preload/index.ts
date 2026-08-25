@@ -80,6 +80,8 @@ const bridge: Pick<
   | 'repos'
   | 'log'
   | 'status'
+  | 'remotes'
+  | 'shell'
   | 'ops'
   | 'pty'
   | 'terminal'
@@ -111,6 +113,14 @@ const bridge: Pick<
     commitDetail: (req) => call(CHANNELS.commitDetail, req),
     fileDiff: (req) => call(CHANNELS.fileDiff, req),
     commitFileDiff: (req) => call(CHANNELS.commitFileDiff, req),
+  },
+  remotes: {
+    list: (req) => call(CHANNELS.remotesList, req),
+  },
+  shell: {
+    // `invoke`, not `send`: the renderer needs to know a URL was refused, and
+    // a one-way send would make a blocked link indistinguishable from a slow one.
+    openExternal: (req) => call(CHANNELS.shellOpenExternal, req),
   },
   ops: {
     checkout: (req) => call(CHANNELS.opCheckout, req),

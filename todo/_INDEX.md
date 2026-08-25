@@ -1,6 +1,6 @@
 # Midnite Git — Phase Index
 
-**Headline:** the MVP (phases 0–11) is landed — the app packages, installs and runs from /Applications. Three phases are open at once: **[12](phase-12-commit-inspector.md)** makes the commit graph a place you can read and act in (only its diffs have landed), **[14](phase-14-graph-themes.md)** makes the graph itself configurable, and **[15](phase-15-multi-terminal-sessions.md)** turns the single terminal into several — shells and coding agents, persisted across restarts. **[16](phase-16-explorer-and-settings-pages.md)** is planned next: a read-only Folder explorer with a preview pane, and Settings split into pages (including an Agent page into `~/.claude`). Post-MVP scope lives in [`outstanding.md`](outstanding.md).
+**Headline:** the MVP (phases 0–11) is landed — the app packages, installs and runs from /Applications. Three phases are open at once: **[12](phase-12-commit-inspector.md)** makes the commit graph a place you can read and act in (its diffs and its remote model have landed), **[14](phase-14-graph-themes.md)** makes the graph itself configurable, and **[15](phase-15-multi-terminal-sessions.md)** turns the single terminal into several — shells and coding agents, persisted across restarts. **[16](phase-16-explorer-and-settings-pages.md)** is planned next: a read-only Folder explorer with a preview pane, and Settings split into pages (including an Agent page into `~/.claude`). Post-MVP scope lives in [`outstanding.md`](outstanding.md).
 
 Completed work is logged append-only in [`done.md`](done.md). Deferred scope lives in [`outstanding.md`](outstanding.md).
 
@@ -14,7 +14,7 @@ Completed work is logged append-only in [`done.md`](done.md). Deferred scope liv
 | [15 · Multi-terminal sessions + agents](phase-15-multi-terminal-sessions.md) | 🔄 WIP | 27/37 | `███████░░░` | 73% | verification | — |
 | [14 · Graph themes + avatars](phase-14-graph-themes.md) | ✅ DONE | 28/28 | `██████████` | 100% | — | — |
 | [13 · UI polish](phase-13-ui-polish.md) | ✅ DONE | 26/26 | `██████████` | 100% | — | — |
-| [12 · Commit inspector + live badges](phase-12-commit-inspector.md) | 🔄 WIP | 9/51 | `██░░░░░░░░` | 18% | E | A B C F |
+| [12 · Commit inspector + live badges](phase-12-commit-inspector.md) | 🔄 WIP | 15/51 | `███░░░░░░░` | 29% | — | A B C F |
 | [11 · Packaging + docs](phase-11-packaging.md) | ✅ DONE | 12/12 | `██████████` | 100% | — | — |
 | [10 · Watcher / live refresh](phase-10-watcher.md) | ✅ DONE | 9/9 | `██████████` | 100% | — | — |
 | [9 · Integrated terminal + keybindings](phase-9-terminal-and-keybindings.md) | ✅ DONE | 11/11 | `██████████` | 100% | — | — |
@@ -55,13 +55,13 @@ Completed work is logged append-only in [`done.md`](done.md). Deferred scope liv
 
 ### [Phase 12 — Commit inspector + live badges](phase-12-commit-inspector.md)
 
-*Turns Phase 5's detail stub into a real inspector, and ref badges into controls. **E before A** (issue links need remotes); B/D pair; C and F are independent.*
+*Turns Phase 5's detail stub into a real inspector, and ref badges into controls. **A is now unblocked** — E landed, so `#123` resolves; B/D pair; C and F are independent.*
 
 - ◻ **A** — markdown + linkify commit bodies: clickable SHAs, URLs, `#123`, emails, trailer styling
 - ◻ **B** — inspector rebuild: sha header + copy button, tree ⇄ list toggle, parent navigation, drop the duplicate stat block
 - ◻ **C** — ref badges as controls: subtle `isHead` glow, hover-expand pull/push with tooltips, branch-scoped sync in the context menu
 - ✅ **D** — real diffs: `mgit:commit:file-diff` channel, hunk parser, one restrained `<DiffView>` shared with the status panel (branch `feature/phase-12-diffs`)
-- ◻ **E** — `Remote` domain type, `listRemotes`, ssh/https URL normaliser, guarded `shell:open-external`
+- ✅ **E** — `Remote` domain type, `listRemotes`, ssh/https URL normaliser, guarded `shell:open-external` (2026-08-26)
 - ◻ **F** — graph row polish: selection treatment, lane contrast, badge/subject width, row density
 
 ### [Phase 14 — Graph themes + avatars](phase-14-graph-themes.md)

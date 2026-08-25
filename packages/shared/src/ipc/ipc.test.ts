@@ -87,6 +87,45 @@ describe('request schemas', () => {
   });
 });
 
+describe('OpenExternalRequest', () => {
+  it.each(['https://github.com/o/r', 'http://localhost:3000/x', 'mailto:dev@example.com'])(
+    'accepts %s',
+    (url) => {
+      expect(schemas.OpenExternalRequest.parse({ url }).url).toBe(url);
+    },
+  );
+
+  it.each([
+    // `openExternal` hands the scheme to the OS's registered handler, so each of
+    // these is a real capability the renderer must not be able to reach for.
+    ['a local file', 'file:///etc/passwd'],
+    ['script execution', 'javascript:alert(1)'],
+    ['an inline payload', 'data:text/html,<script>alert(1)</script>'],
+    ['an SMB share', 'smb://attacker.example/share'],
+    ['a custom app scheme', 'ms-msdt:/id/PCWDiagnostic'],
+    ['a bare host', 'github.com/o/r'],
+    ['a relative path', '/etc/passwd'],
+    // The WHATWG parser strips leading whitespace and control characters before
+    // reading the scheme, so this is `javascript:` by the time anything sees it.
+    ['whitespace-smuggled script execution', ' \njavascript:alert(1)'],
+  ])('rejects %s', (_label, url) => {
+    expect(() => schemas.OpenExternalRequest.parse({ url })).toThrow();
+  });
+
+  it('rejects a protocol whose prefix is on the allow-list', () => {
+    // `https:` is allowed; `httpsx:` merely starts with it. The check compares
+    // the parsed protocol exactly rather than testing the raw string's prefix.
+    expect(schemas.isOpenableExternally('httpsx://evil.example')).toBe(false);
+  });
+
+  it('normalises to the parsed href, so main opens what was validated', () => {
+    // If main passed the caller's raw string on instead, the string the OS
+    // receives would be one this validation never actually inspected.
+    expect(schemas.normalizeExternalUrl(' https://ok.example')).toBe('https://ok.example/');
+    expect(schemas.normalizeExternalUrl('nope')).toBeNull();
+  });
+});
+
 describe('keybindings', () => {
   it('binds every command at most once', () => {
     const commands = DEFAULT_KEYMAP.map((b) => b.command);

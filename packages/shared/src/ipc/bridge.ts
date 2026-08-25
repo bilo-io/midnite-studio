@@ -4,6 +4,7 @@ import type {
   GitOpResult,
   GraphRow,
   Ref,
+  Remote,
   RepoDescriptor,
   StatusResult,
   WatchEvent,
@@ -85,6 +86,31 @@ export type MidniteGitBridge = {
     commitFileDiff: (
       req: In<typeof S.CommitFileDiffRequest>,
     ) => Promise<z.infer<typeof S.FileDiffResponse>>;
+  };
+
+  /**
+   * Configured remotes, with each URL already normalised into a `forge`.
+   *
+   * Its own group rather than a member of `repos` because it is read on a
+   * different cadence: `repos.refs` is re-fetched on every ref event, while
+   * remotes change only when someone edits the config.
+   */
+  remotes: {
+    list: (req: In<typeof S.RemotesListRequest>) => Promise<Remote[]>;
+  };
+
+  /**
+   * Hand-offs to the OS. Deliberately one method wide.
+   *
+   * `openExternal` is protocol-restricted in the schema AND re-checked in the
+   * handler — see OPEN_EXTERNAL_PROTOCOLS. Resolves `{ok:false}` on a refused
+   * URL rather than rejecting, so a bad link in a commit message is a no-op
+   * rather than an unhandled rejection in the renderer.
+   */
+  shell: {
+    openExternal: (
+      req: In<typeof S.OpenExternalRequest>,
+    ) => Promise<z.infer<typeof S.OpenExternalResponse>>;
   };
 
   /** Mutating operations. None of these reject — they resolve to a GitOpResult. */
