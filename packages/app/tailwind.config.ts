@@ -75,6 +75,9 @@ const config: Config = {
       },
       fontFamily: {
         mono: ['ui-monospace', 'SFMono-Regular', 'SF Mono', 'Menlo', 'monospace'],
+        // The wordmark face. Declared as a var in styles.css so the @font-face
+        // and the utility stay in one place; keep the three in sync.
+        brand: ['var(--font-brand)', 'sans-serif'],
       },
     },
   },

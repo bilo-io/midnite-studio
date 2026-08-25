@@ -5,8 +5,9 @@ the published [`@bilo-io/ui`](https://github.com/bilo-io/midnite-ui) design syst
 
 ![midnite-git](docs/screenshots/midnite-git.png)
 
-<sub>The packaged app running `~/Dev/midnite` — three linked worktrees nested under the
-repository, 2,376 commits, live branch and sync state in the footer.</sub>
+<sub>Running `~/Dev/midnite` — linked worktrees nested under their repository, 2,376 commits,
+live branch and sync state in the footer. The crescent and the wordmark face are the midnite
+app's own.</sub>
 
 **Design source of truth:** [`docs/INITIAL_PLAN.md`](docs/INITIAL_PLAN.md).
 **Progress tracker:** [`todo/`](todo/) — one checklist per phase, an append-only

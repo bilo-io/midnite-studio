@@ -10,6 +10,7 @@ import {
 } from '@bilo-io/shell';
 import { QueryClient } from '@tanstack/react-query';
 
+import { Brand, BrandMark, Wordmark } from './components/brand';
 import { DialogHost } from './components/dialog-host';
 import { GraphView } from './features/graph/graph-view';
 import { ReposPanel } from './features/repos/repos-panel';
@@ -88,9 +89,7 @@ function Placeholder({ view }: { view: ViewId }) {
 
   return (
     <div className="flex min-h-[60vh] flex-col items-center justify-center gap-3 text-center">
-      <div className="text-5xl leading-none" aria-hidden>
-        🌒
-      </div>
+      <BrandMark className="h-14 w-14 opacity-80" />
       <h1 className="text-lg font-semibold tracking-tight">{label}</h1>
       <p className="max-w-md text-sm text-muted-foreground">
         {selectedRepoId ? (
@@ -146,18 +145,9 @@ function Shell() {
           })),
         },
       ],
-      brand: ({ expanded }) => (
-        <div className="flex items-center gap-2 px-1 font-semibold tracking-tight">
-          <span aria-hidden className="text-lg leading-none">
-            🌒
-          </span>
-          {expanded ? (
-            <span className="text-sm">
-              midnite <span className="font-normal text-muted-foreground">git</span>
-            </span>
-          ) : null}
-        </div>
-      ),
+      // Collapsed, the rail shows the mark alone — the wordmark would be
+      // clipped to a couple of letters, which reads as a rendering bug.
+      brand: ({ expanded }) => <Brand className="px-1" showWordmark={expanded} />,
       footer: () => <ThemeToggle />,
     }),
     [],
@@ -171,7 +161,7 @@ function Shell() {
   const titleBar = (
     <TitleBar
       windowChrome={windowChrome}
-      left={<span className="text-xs font-medium text-muted-foreground">midnite-git</span>}
+      left={<Wordmark className="text-xs" />}
     />
   );
 

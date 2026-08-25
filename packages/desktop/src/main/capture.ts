@@ -111,6 +111,19 @@ async function applyCaptureState(win: BrowserWindow): Promise<void> {
 
   // The theme swap and the fullscreen transition both animate.
   await new Promise((resolve) => setTimeout(resolve, 600));
+
+  /**
+   * Force a compositor frame before capturing.
+   *
+   * macOS throttles rendering for an occluded window, so a DOM change made from
+   * `executeJavaScript` can be fully applied — `getComputedStyle` agrees — while
+   * `capturePage()` still returns the last painted frame. The symptom is a
+   * screenshot of the *previous* theme with no error anywhere, which reads as
+   * "the theme override is broken" rather than "the window never repainted".
+   */
+  win.showInactive();
+  win.webContents.invalidate();
+  await new Promise((resolve) => setTimeout(resolve, 400));
 }
 
 /** Evaluate an expression from `variable` in the renderer and print the result. */

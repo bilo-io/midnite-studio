@@ -26,8 +26,6 @@ Recorded here when a phase punts on something; pick these up post-MVP.
   Windows build needs node-pty rebuilt on a matching runner, and `windowFrameless()` returns false
   off darwin so those platforms keep their native title bar (which `<TitleBar>` already handles by
   rendering nothing).
-- **An app icon.** The build currently logs "default Electron icon is used". Needs
-  `resources/icon.icns`.
 - **A real `.gitignore`-aware watch filter.** `isNoise` uses a fixed directory list. Parsing
   gitignore per event would cost more than the refetch it saves, but a repo with an unusual build
   directory will see extra `git status` calls.

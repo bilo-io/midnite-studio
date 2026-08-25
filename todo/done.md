@@ -131,3 +131,15 @@ Against the installed `/Applications/midnite-git.app`, launched with `env -i` an
 - A commit made in that terminal appears in the graph without a refresh
 
 Screenshot: [`docs/screenshots/midnite-git.png`](../docs/screenshots/midnite-git.png).
+
+## 2026-08-25 — Brand assets from the midnite app
+
+The crescent mark and the Quick Kiss wordmark face are now the midnite app's own files rather than
+placeholders: `resources/icon.icns` + `icon.png` become the macOS app icon, `logo.PNG` is the
+in-app mark, and `quick-kiss.ttf` sets the wordmark. Same product family, same logo — an
+approximation reads worse than none.
+
+Worth knowing: the mark is an **opaque** disc (a black crescent on a white ground, transparent
+only outside the circle). A CSS mask reads only the alpha channel, so masking it flattens it to a
+featureless dot — it has to be an `<img>`, in the rounded-coin-with-a-hairline-ring treatment
+midnite itself uses, which is also what makes one asset work on both themes.
