@@ -1,5 +1,7 @@
 import { useEffect, useLayoutEffect, useRef, useState } from 'react';
 
+import { ChevronRight } from 'lucide-react';
+
 /**
  * A renderer-drawn context menu.
  *
@@ -141,7 +143,7 @@ function MenuRow({
         }`}
       >
         <span className="flex-1 truncate">{item.label}</span>
-        {item.submenu ? <span aria-hidden>›</span> : null}
+        {item.submenu ? <ChevronRight aria-hidden className="h-3.5 w-3.5 shrink-0" /> : null}
       </button>
 
       {item.submenu && open ? (

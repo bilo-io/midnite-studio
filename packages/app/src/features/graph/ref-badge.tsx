@@ -1,3 +1,4 @@
+import { GitCommitHorizontal, Tag } from 'lucide-react';
 import type { Ref } from '@midnite/git-shared';
 import { useMemo } from 'react';
 
@@ -80,8 +81,8 @@ export function RefBadge({
       } ${dnd?.isDragging ? 'opacity-40' : ''}`}
       title={`${refItem.fullName}${upstream ? ` → ${upstream.name}` : ''}`}
     >
-      {refItem.isHead ? <span aria-hidden>◉</span> : null}
-      {refItem.kind === 'tag' ? <span aria-hidden>🏷</span> : null}
+      {refItem.isHead ? <GitCommitHorizontal aria-hidden className="h-3 w-3 shrink-0" /> : null}
+      {refItem.kind === 'tag' ? <Tag aria-hidden className="h-3 w-3 shrink-0" /> : null}
       <span className="truncate">{refItem.name}</span>
       {/* Ahead/behind belongs on the badge: it's the answer to "do I need to
           push or pull", asked while looking at exactly this branch. */}
