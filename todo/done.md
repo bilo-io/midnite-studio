@@ -117,3 +117,17 @@ packages on main. README rewritten around what the app does and the decisions be
 Verified on the installed app launched with a bare `env -i` PATH: the graph renders (bundled git
 works from `app.asar.unpacked`) and the terminal runs the user's real zsh (node-pty plus the
 login-shell PATH fix).
+
+## 2026-08-25 — Final end-to-end verification
+
+Against the installed `/Applications/midnite-git.app`, launched with `env -i` and
+`PATH=/usr/bin:/bin:/usr/sbin:/sbin` (what a Finder launch actually gets), opening the real
+`~/Dev/midnite`:
+
+- 2 repositories, 3 linked worktrees nested under their owner
+- 2,376 commits streamed, lanes and ref badges rendered
+- Full-graph scroll (61,776px): median frame **8.3ms**, 1 frame over 16.7ms in 120
+- Integrated terminal runs the user's own zsh in the selected worktree
+- A commit made in that terminal appears in the graph without a refresh
+
+Screenshot: [`docs/screenshots/midnite-git.png`](../docs/screenshots/midnite-git.png).
