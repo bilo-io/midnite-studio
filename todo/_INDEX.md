@@ -11,7 +11,7 @@ Completed work is logged append-only in [`done.md`](done.md). Deferred scope liv
 | Phase | Status | Done | Progress | % | 🔄 WIP | ◻ TODO |
 |-------|--------|------|----------|---|--------|--------|
 | [13 · UI polish](phase-13-ui-polish.md) | ✅ DONE | 24/26 | `█████████░` | 92% | — | verification: smoke + screenshot |
-| [12 · Commit inspector + live badges](phase-12-commit-inspector.md) | ◻ TODO | 0/51 | `░░░░░░░░░░` | 0% | — | A B C D E F |
+| [12 · Commit inspector + live badges](phase-12-commit-inspector.md) | 🔄 WIP | 0/51 | `░░░░░░░░░░` | 0% | D | A B C E F |
 | [11 · Packaging + docs](phase-11-packaging.md) | ✅ DONE | 12/12 | `██████████` | 100% | — | — |
 | [10 · Watcher / live refresh](phase-10-watcher.md) | ✅ DONE | 9/9 | `██████████` | 100% | — | — |
 | [9 · Integrated terminal + keybindings](phase-9-terminal-and-keybindings.md) | ✅ DONE | 11/11 | `██████████` | 100% | — | — |
@@ -37,7 +37,7 @@ Completed work is logged append-only in [`done.md`](done.md). Deferred scope liv
 - ◻ **A** — markdown + linkify commit bodies: clickable SHAs, URLs, `#123`, emails, trailer styling
 - ◻ **B** — inspector rebuild: sha header + copy button, tree ⇄ list toggle, parent navigation, drop the duplicate stat block
 - ◻ **C** — ref badges as controls: subtle `isHead` glow, hover-expand pull/push with tooltips, branch-scoped sync in the context menu
-- ◻ **D** — real diffs: `mgit:commit:file-diff` channel, hunk parser, one restrained `<DiffView>` shared with the status panel
+- 🔄 **D** — real diffs: `mgit:commit:file-diff` channel, hunk parser, one restrained `<DiffView>` shared with the status panel
 - ◻ **E** — `Remote` domain type, `listRemotes`, ssh/https URL normaliser, guarded `shell:open-external`
 - ◻ **F** — graph row polish: selection treatment, lane contrast, badge/subject width, row density
 
