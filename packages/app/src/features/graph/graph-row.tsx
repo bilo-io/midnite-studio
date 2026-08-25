@@ -1,8 +1,10 @@
 import type { GraphRow, Ref } from '@midnite/git-shared';
 import { memo } from 'react';
 
+import { Tooltip } from '../../components/tooltip';
 import { useCommitDnd, useRefDnd } from './graph-dnd';
-import { GraphSvg, LANE_WIDTH, ROW_HEIGHT } from './graph-svg';
+import { GraphSvg } from './graph-svg';
+import type { GraphTheme } from './graph-themes';
 import { RefBadge } from './ref-badge';
 
 /**
@@ -17,6 +19,11 @@ export type GraphRowProps = {
   refs: readonly Ref[];
   selected: boolean;
   gutterLanes: number;
+  theme: GraphTheme;
+  /** Id of the list-level avatar clip path. */
+  clipId: string;
+  /** Author-filtered out — drawn back, never removed. */
+  dimmed: boolean;
   onSelect: (sha: string) => void;
   onContextMenu: (event: React.MouseEvent, row: GraphRow) => void;
   onRefContextMenu: (event: React.MouseEvent, ref: Ref) => void;
@@ -29,6 +36,9 @@ function GraphRowInner({
   refs,
   selected,
   gutterLanes,
+  theme,
+  clipId,
+  dimmed,
   onSelect,
   onContextMenu,
   onRefContextMenu,
@@ -46,18 +56,72 @@ function GraphRowInner({
         onSelect(row.commit.sha);
         onContextMenu(event, row);
       }}
-      className={`flex cursor-default items-center gap-2 pr-3 text-sm ${
+      className={`flex cursor-default items-center gap-2 pr-3 text-sm transition-colors ${
         selected ? 'bg-accent/70' : 'hover:bg-accent/30'
       }`}
-      style={{ height: ROW_HEIGHT }}
+      style={{ height: theme.rowHeight }}
     >
+      {/*
+        BRANCH / TAG, in its own column so labels line up vertically instead of
+        floating at whatever horizontal position each subject happens to start.
+        Most commits have none, and the empty cell is the price of the ones that
+        do being scannable.
+      */}
+      <div
+        className="flex shrink-0 items-center gap-1 overflow-hidden pl-2"
+        style={{ width: 'var(--col-branch-tag)' }}
+      >
+        {refs.map((ref) => (
+          <DraggableRefBadge
+            key={ref.fullName}
+            refItem={ref}
+            rowId={row.commit.sha}
+            onContextMenu={(event) => {
+              // Stop the row's own menu opening as well — the badge's menu is
+              // the more specific target the user aimed at.
+              event.preventDefault();
+              event.stopPropagation();
+              onRefContextMenu(event, ref);
+            }}
+            onDoubleClick={(event) => {
+              event.stopPropagation();
+              onRefActivate(ref);
+            }}
+          />
+        ))}
+      </div>
+
       {/*
         The lane gutter doubles as the commit's drag handle. Dragging from the
         subject text would fight text selection, and the node is the thing that
         visually *is* the commit.
       */}
       <CommitDragHandle sha={row.commit.sha} subject={row.commit.subject}>
-        <GraphSvg row={row} width={gutterLanes * LANE_WIDTH} />
+        {/*
+          The bubble names the author, so the tooltip is what replaced the
+          Author column rather than a decoration on top of it.
+        */}
+        <Tooltip
+          label={
+            <span className="block">
+              <span className="block font-medium">{row.commit.authorName}</span>
+              <span className="block text-muted-foreground">{row.commit.authorEmail}</span>
+              <span className="block text-muted-foreground">
+                {new Date(row.commit.authorDate * 1000).toLocaleString()}
+              </span>
+            </span>
+          }
+        >
+          <span className="inline-flex">
+            <GraphSvg
+              row={row}
+              width={gutterLanes * theme.laneWidth}
+              theme={theme}
+              clipId={clipId}
+              dimmed={dimmed}
+            />
+          </span>
+        </Tooltip>
       </CommitDragHandle>
 
       {/*
@@ -67,31 +131,11 @@ function GraphRowInner({
         through the author and date columns — the badges are the widest thing in
         the row and nothing was allowed to give.
       */}
-      <div className="flex min-w-0 flex-1 items-center gap-1.5 overflow-hidden">
-        {refs.length > 0 ? (
-          <span className="flex min-w-0 shrink items-center gap-1.5 overflow-hidden">
-            {refs.map((ref) => (
-              <DraggableRefBadge
-                key={ref.fullName}
-                refItem={ref}
-                rowId={row.commit.sha}
-                onContextMenu={(event) => {
-                  // Stop the row's own menu opening as well — the badge's menu
-                  // is the more specific target the user aimed at.
-                  event.preventDefault();
-                  event.stopPropagation();
-                  onRefContextMenu(event, ref);
-                }}
-                onDoubleClick={(event) => {
-                  event.stopPropagation();
-                  onRefActivate(ref);
-                }}
-              />
-            ))}
-          </span>
-        ) : null}
-        {/* The subject gives up its space last: badges are short and fixed,
-            a subject is long and its tail is the least important part. */}
+      <div
+        className={`flex min-w-0 flex-1 items-center overflow-hidden transition-opacity duration-150 ease-in-out ${
+          dimmed ? 'opacity-40' : ''
+        }`}
+      >
         <span className="min-w-0 flex-1 truncate">{row.commit.subject}</span>
       </div>
 
@@ -101,21 +145,22 @@ function GraphRowInner({
         list on every 500-row batch; a width prop would bust that memo on every
         pointermove of a column drag and push every visible row through React at
         60Hz. A variable repaints without React seeing it.
+
+        There is no Author column any more — the avatar in the node carries the
+        author, and its tooltip carries the name.
       */}
       <span
-        className="shrink-0 truncate text-right text-xs text-muted-foreground"
-        style={{ width: 'var(--col-author)' }}
-      >
-        {row.commit.authorName}
-      </span>
-      <span
-        className="shrink-0 text-right text-xs tabular-nums text-muted-foreground"
+        className={`shrink-0 text-right text-xs tabular-nums text-muted-foreground transition-opacity duration-150 ease-in-out ${
+          dimmed ? 'opacity-40' : ''
+        }`}
         style={{ width: 'var(--col-date)' }}
       >
         {formatDate(row.commit.committerDate)}
       </span>
       <span
-        className="shrink-0 text-right font-mono text-xs text-muted-foreground"
+        className={`shrink-0 text-right font-mono text-xs text-muted-foreground transition-opacity duration-150 ease-in-out ${
+          dimmed ? 'opacity-40' : ''
+        }`}
         style={{ width: 'var(--col-sha)' }}
       >
         {row.commit.sha.slice(0, 7)}

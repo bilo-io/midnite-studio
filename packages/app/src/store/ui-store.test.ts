@@ -20,6 +20,8 @@ const reset = () =>
     navMode: 'auto',
     collapsedNavSections: [],
     graphRefFilter: [],
+    graphAuthorFilter: [],
+    graphTheme: 'git-graph',
   });
 
 describe('useUiStore', () => {
@@ -104,5 +106,47 @@ describe('persistence', () => {
 
     expect(merged.layout.reposWidth).toBe(300);
     expect(merged.layout.terminalHeight).toBe(DEFAULT_LAYOUT.terminalHeight);
+  });
+});
+
+describe('phase 14 store additions', () => {
+  beforeEach(reset);
+
+  it('persists the graph style but neither filter', () => {
+    // The style is a preference; a filter that silently survived a restart
+    // would present a dimmed or truncated view as the whole truth.
+    useUiStore.getState().setGraphTheme('gitkraken');
+    useUiStore.getState().setGraphAuthorFilter(['ada@example.com']);
+
+    const saved = JSON.parse(localStorage.getItem('midnite-git.ui') ?? '{}') as {
+      state: Record<string, unknown>;
+    };
+
+    expect(saved.state.graphTheme).toBe('gitkraken');
+    expect(saved.state).not.toHaveProperty('graphAuthorFilter');
+    expect(saved.state).not.toHaveProperty('graphRefFilter');
+  });
+
+  it('clears the author filter when the repo changes', () => {
+    useUiStore.getState().setGraphAuthorFilter(['ada@example.com']);
+    useUiStore.getState().selectRepo('repo-b');
+    expect(useUiStore.getState().graphAuthorFilter).toEqual([]);
+  });
+
+  it('drops the retired author column width on the v1 to v2 migration', () => {
+    const migrate = useUiStore.persist.getOptions().migrate;
+    const migrated = migrate?.(
+      { graphColumns: { author: 160, date: 112, sha: 64 } },
+      1,
+    ) as { graphColumns: Record<string, number> };
+
+    expect(migrated.graphColumns).not.toHaveProperty('author');
+    expect(migrated.graphColumns.date).toBe(112);
+  });
+
+  it('leaves an already-migrated payload alone', () => {
+    const migrate = useUiStore.persist.getOptions().migrate;
+    const payload = { graphColumns: { branchTag: 200, date: 112, sha: 64 } };
+    expect(migrate?.(payload, 2)).toBe(payload);
   });
 });

@@ -1,3 +1,5 @@
+import type { PaletteStyle } from './graph-themes';
+
 /**
  * Lane palette.
  *
@@ -10,18 +12,40 @@
  * Hues are spread evenly and kept at a saturation/lightness that stays legible
  * on both the light and dark backgrounds, so one palette serves both themes.
  */
-export const LANE_COLORS: readonly string[] = [
-  'hsl(210 90% 58%)', // blue
-  'hsl(160 70% 45%)', // teal
-  'hsl(280 70% 65%)', // violet
-  'hsl(35 90% 55%)', // amber
-  'hsl(340 75% 62%)', // rose
-  'hsl(190 80% 48%)', // cyan
-  'hsl(100 55% 48%)', // green
-  'hsl(20 85% 58%)', // orange
-  'hsl(255 75% 68%)', // indigo
-  'hsl(320 60% 58%)', // magenta
+const LANE_HUES: readonly [number, number, number][] = [
+  [210, 90, 58], // blue
+  [160, 70, 45], // teal
+  [280, 70, 65], // violet
+  [35, 90, 55], // amber
+  [340, 75, 62], // rose
+  [190, 80, 48], // cyan
+  [100, 55, 48], // green
+  [20, 85, 58], // orange
+  [255, 75, 68], // indigo
+  [320, 60, 58], // magenta
 ];
 
-export const laneColor = (colorIdx: number): string =>
-  LANE_COLORS[colorIdx % LANE_COLORS.length] ?? LANE_COLORS[0]!;
+/**
+ * `muted` is derived, not a second hand-tuned array.
+ *
+ * The HUE is preserved and only saturation is pulled back, so a branch is
+ * recognisably the same colour whichever style you are in — switching style
+ * should change the drawing, not re-identify the branches. Two independent
+ * arrays would also be two things to keep in step every time the palette moves.
+ */
+const MUTED_SATURATION = 0.5;
+const MUTED_LIGHTNESS_SHIFT = -4;
+
+export const laneColor = (colorIdx: number, palette: PaletteStyle = 'vivid'): string => {
+  const [h, s, l] = LANE_HUES[colorIdx % LANE_HUES.length] ?? LANE_HUES[0]!;
+  return palette === 'muted'
+    ? `hsl(${h} ${Math.round(s * MUTED_SATURATION)}% ${l + MUTED_LIGHTNESS_SHIFT}%)`
+    : `hsl(${h} ${s}% ${l}%)`;
+};
+
+/** Distinct lane colours available before the palette repeats. */
+export const LANE_COLOR_COUNT = LANE_HUES.length;
+
+/** Every colour in a palette — for the `<defs>` block that defines one marker per colour. */
+export const laneColors = (palette: PaletteStyle): string[] =>
+  LANE_HUES.map((_, index) => laneColor(index, palette));

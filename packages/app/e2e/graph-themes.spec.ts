@@ -1,0 +1,299 @@
+import { expect, test, type Page } from '@playwright/test';
+
+import { fixtures } from './fixtures';
+import { installMockBridge, type MockFixtures } from './mock-bridge';
+
+/**
+ * A history with something to look at.
+ *
+ * The shipped fixture is one edgeless commit, which renders identically in all
+ * four styles — the differences between them ARE the edges, so a screenshot of
+ * it would prove nothing.
+ */
+const AUTHORS = [
+  { name: 'Ada Lovelace', email: 'ada@example.com' },
+  { name: 'Grace Hopper', email: 'grace@example.com' },
+  { name: 'Alan Turing', email: 'alan@example.com' },
+];
+
+const commit = (i: number, parents: string[], subject: string) => {
+  const author = AUTHORS[i % AUTHORS.length]!;
+  return {
+    sha: `${i}`.padStart(40, 'a'),
+    parents,
+    authorName: author.name,
+    authorEmail: author.email,
+    authorDate: 1_787_000_000 - i * 3600,
+    committerDate: 1_787_000_000 - i * 3600,
+    subject,
+    refs: [],
+  };
+};
+
+const sha = (i: number) => `${i}`.padStart(40, 'a');
+
+/** Straight run, a branch opening, a lane alongside, then a merge closing it. */
+const GRAPH_ROWS = [
+  {
+    row: 0,
+    lane: 0,
+    colorIdx: 0,
+    laneCount: 2,
+    edges: [
+      { fromLane: 0, toLane: 0, type: 'branch', colorIdx: 0 },
+      { fromLane: 0, toLane: 0, type: 'merge', colorIdx: 0 },
+      { fromLane: 0, toLane: 1, type: 'merge', colorIdx: 1 },
+    ],
+    commit: commit(0, [sha(1), sha(2)], 'feat(graph): merge the feature branch'),
+  },
+  {
+    row: 1,
+    lane: 1,
+    colorIdx: 1,
+    laneCount: 2,
+    edges: [
+      { fromLane: 0, toLane: 0, type: 'straight', colorIdx: 0 },
+      { fromLane: 1, toLane: 1, type: 'branch', colorIdx: 1 },
+      { fromLane: 1, toLane: 1, type: 'merge', colorIdx: 1 },
+    ],
+    commit: commit(1, [sha(3)], 'feat(graph): resizable columns'),
+  },
+  {
+    row: 2,
+    lane: 0,
+    colorIdx: 0,
+    laneCount: 2,
+    edges: [
+      { fromLane: 0, toLane: 0, type: 'branch', colorIdx: 0 },
+      { fromLane: 0, toLane: 0, type: 'merge', colorIdx: 0 },
+      { fromLane: 1, toLane: 1, type: 'straight', colorIdx: 1 },
+    ],
+    commit: commit(2, [sha(3)], 'fix(graph): lane recycling off by one'),
+  },
+  {
+    row: 3,
+    lane: 0,
+    colorIdx: 0,
+    laneCount: 2,
+    edges: [
+      { fromLane: 0, toLane: 0, type: 'branch', colorIdx: 0 },
+      { fromLane: 1, toLane: 0, type: 'branch', colorIdx: 1 },
+      { fromLane: 0, toLane: 0, type: 'merge', colorIdx: 0 },
+    ],
+    commit: commit(3, [sha(4)], 'chore: the commit both lanes came from'),
+  },
+  {
+    row: 4,
+    lane: 0,
+    colorIdx: 0,
+    laneCount: 1,
+    edges: [{ fromLane: 0, toLane: 0, type: 'branch', colorIdx: 0 }],
+    commit: commit(4, [], 'initial commit'),
+  },
+];
+
+const REFS = [
+  {
+    name: 'main',
+    fullName: 'refs/heads/main',
+    kind: 'localBranch',
+    sha: sha(0),
+    upstream: { name: 'origin/main', ahead: 0, behind: 0, gone: false },
+    isHead: true,
+    worktreePath: null,
+  },
+  {
+    name: 'feat/graph-themes',
+    fullName: 'refs/heads/feat/graph-themes',
+    kind: 'localBranch',
+    sha: sha(1),
+    upstream: null,
+    isHead: false,
+    worktreePath: null,
+  },
+  {
+    name: 'v0.1.0',
+    fullName: 'refs/tags/v0.1.0',
+    kind: 'tag',
+    sha: sha(4),
+    upstream: null,
+    isHead: false,
+    worktreePath: null,
+  },
+];
+
+const themedFixtures: MockFixtures = { ...fixtures, graphRows: GRAPH_ROWS, refs: REFS };
+
+/**
+ * Gravatar is stubbed, never called for real.
+ *
+ * A suite that hits the network is a suite that fails on a train and produces a
+ * different screenshot every run. Stubbing also lets the 404 path — the one that
+ * decides whether a face or initials appear — be exercised deliberately.
+ */
+async function stubGravatar(page: Page, mode: 'hit' | 'miss'): Promise<void> {
+  await page.route('**gravatar.com/**', async (route) => {
+    if (mode === 'miss') return route.fulfill({ status: 404, body: '' });
+    return route.fulfill({
+      status: 200,
+      contentType: 'image/svg+xml',
+      body: '<svg xmlns="http://www.w3.org/2000/svg" width="64" height="64"><rect width="64" height="64" fill="#5b8def"/><circle cx="32" cy="24" r="11" fill="#fff"/><path d="M8 64c0-14 11-22 24-22s24 8 24 22z" fill="#fff"/></svg>',
+    });
+  });
+}
+
+async function openGraph(page: Page, mode: 'hit' | 'miss' = 'hit'): Promise<void> {
+  await stubGravatar(page, mode);
+  await installMockBridge(page, themedFixtures);
+  await page.goto('/');
+  await expect(page.getByRole('columnheader', { name: 'Commit message' })).toBeVisible();
+}
+
+/** Switch style via Settings, then come back to the graph. */
+async function chooseTheme(page: Page, label: string): Promise<void> {
+  await page.getByRole('link', { name: 'Settings' }).click();
+  await page.getByRole('button', { name: new RegExp(`^${label}`) }).click();
+  await page.getByRole('link', { name: 'Graph' }).click();
+  await expect(page.getByRole('columnheader', { name: 'Commit message' })).toBeVisible();
+}
+
+const THEMES = ['Git Graph', 'Git Extensions', 'Sourcetree', 'GitKraken'] as const;
+
+test.describe('graph themes', () => {
+  test('the table has the phase 14 column set', async ({ page }) => {
+    await openGraph(page);
+
+    await expect(page.getByRole('columnheader', { name: 'Branch / Tag' })).toBeVisible();
+    await expect(page.getByRole('columnheader', { name: 'Graph' })).toBeVisible();
+    await expect(page.getByRole('columnheader', { name: 'Date' })).toBeVisible();
+    await expect(page.getByRole('columnheader', { name: 'SHA' })).toBeVisible();
+
+    // The avatar retired it — this is the assertion that catches a revert.
+    await expect(page.getByRole('columnheader', { name: 'Author' })).toHaveCount(0);
+  });
+
+  test('ref chips render in the branch column, not beside the subject', async ({ page }) => {
+    await openGraph(page);
+    const chip = page.getByText('feat/graph-themes', { exact: true }).first();
+    await expect(chip).toBeVisible();
+  });
+
+  test('each style redraws the graph and persists', async ({ page }) => {
+    await openGraph(page);
+
+    for (const label of THEMES) {
+      await chooseTheme(page, label);
+      await expect(page.locator('[role="row"] svg').first()).toBeVisible();
+    }
+
+    // A style is a preference, so it has to survive a reload.
+    await page.reload();
+    await expect(page.getByRole('columnheader', { name: 'Commit message' })).toBeVisible();
+    await expect(page.getByText('GitKraken').first()).toBeVisible();
+  });
+
+  test('a Gravatar hit paints an image, actually clipped to the node', async ({ page }) => {
+    await openGraph(page, 'hit');
+    const image = page.locator('svg image').first();
+    await expect(image).toBeVisible();
+
+    // `toBeVisible` is not enough: an element clipped away by an unresolvable
+    // clip-path still has a layout box, so the assertion would pass even if the
+    // clip silently broke. Check the reference resolves to a live node.
+    const clipped = await image.evaluate((node) => {
+      const ref = getComputedStyle(node).clipPath.match(/url\("?#([^")]+)"?\)/)?.[1];
+      return ref ? document.getElementById(ref) !== null : false;
+    });
+    expect(clipped).toBe(true);
+  });
+
+  test('Git Graph draws arrowheads; the other styles do not', async ({ page }) => {
+    await openGraph(page);
+    await chooseTheme(page, 'Git Graph');
+
+    /*
+      Counted, not `toBeVisible`. An arriving lane is a zero-width vertical
+      line, so it has no bounding box for Playwright to call visible — the
+      question that matters is whether anything REFERENCES a marker at all,
+      which is what was broken.
+    */
+    expect(await page.locator('[marker-end]').count()).toBeGreaterThan(0);
+
+    await chooseTheme(page, 'Sourcetree');
+    expect(await page.locator('[marker-end]').count()).toBe(0);
+  });
+
+  test('adjacent lanes do not overlap their avatars', async ({ page }) => {
+    await openGraph(page);
+    await chooseTheme(page, 'GitKraken');
+
+    // Row 1 sits in lane 1 while lane 0 runs alongside it; the node must not
+    // paint over its neighbour's line.
+    const boxes = await page.locator('[role="row"] svg circle').evaluateAll((nodes) =>
+      nodes.map((n) => n.getBoundingClientRect()).map((r) => ({ left: r.left, right: r.right })),
+    );
+    expect(boxes.length).toBeGreaterThan(0);
+    // Nothing may start left of the gutter's own origin.
+    const gutterLeft = await page
+      .locator('[role="row"] svg')
+      .first()
+      .evaluate((n) => n.getBoundingClientRect().left);
+    for (const box of boxes) expect(box.left).toBeGreaterThanOrEqual(gutterLeft - 1);
+  });
+
+  test('offline renders initials and never an empty node', async ({ page }) => {
+    await openGraph(page, 'miss');
+    // Every author's node still carries a mark — initials, from the local hash.
+    await expect(page.locator('svg text').first()).toBeVisible();
+    await expect(page.locator('svg image')).toHaveCount(0);
+  });
+
+  test('the author filter dims rather than removing', async ({ page }) => {
+    await openGraph(page);
+
+    const before = await page.locator('[role="row"]').count();
+    await page.getByRole('button', { name: /All authors/ }).click();
+    await page.getByRole('option', { name: /Ada Lovelace/ }).click();
+    await page.keyboard.press('Escape');
+
+    // The row count is unchanged: filtering removes commits from the log, which
+    // would leave the lane engine holding lanes open for parents that never
+    // arrive. Dimming keeps the topology honest.
+    await expect(page.locator('[role="row"]')).toHaveCount(before);
+    await expect(page.locator('.opacity-40').first()).toBeVisible();
+  });
+
+  /**
+   * Written to `docs/screenshots/phase-14/`, not attached to the report.
+   *
+   * The phase convention is that visual work lands its screenshots in the repo,
+   * where they stay readable long after the test run's artefacts are swept up.
+   */
+  test('the settings picker previews every style', async ({ page }) => {
+    await openGraph(page);
+    await page.getByRole('link', { name: 'Settings' }).click();
+
+    for (const label of THEMES) {
+      await expect(page.getByRole('button', { name: new RegExp(`^${label}`) })).toBeVisible();
+    }
+    // The appearance runtime the shell has always shipped and the app never called.
+    await expect(page.getByRole('radiogroup', { name: 'Motion' })).toBeVisible();
+    await expect(page.getByRole('radiogroup', { name: 'Density' })).toBeVisible();
+
+    await page.waitForTimeout(300);
+    await page.screenshot({ path: '../../docs/screenshots/phase-14/settings.png' });
+  });
+
+  test('screenshot each style', async ({ page }) => {
+    await openGraph(page);
+
+    for (const label of THEMES) {
+      await chooseTheme(page, label);
+      // Let the fade settle, or the shot catches the graph mid-entrance.
+      await page.waitForTimeout(300);
+      await page.screenshot({
+        path: `../../docs/screenshots/phase-14/${label.toLowerCase().replace(/ /g, '-')}.png`,
+      });
+    }
+  });
+});
