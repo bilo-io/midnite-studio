@@ -6,7 +6,6 @@ import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 
 import { TempRepo } from '../testing/temp-repo';
 import { commit } from './commit';
-import { readFileDiff } from './diff';
 import { discardPaths, stagePaths, unstagePaths } from './stage';
 import { getStatus } from './status';
 import { fetch, pull, push } from './sync';
@@ -138,35 +137,11 @@ describe('commit', () => {
   });
 });
 
-describe('file diff', () => {
-  it('returns the unified diff of a tracked change', async () => {
-    await repo.commitFile('a.txt', 'one\n', 'base');
-    await repo.writeFile('a.txt', 'two\n');
-
-    const patch = await readFileDiff(repo.path, 'a.txt', false);
-    expect(patch).toContain('-one');
-    expect(patch).toContain('+two');
-  });
-
-  it('returns the staged diff separately', async () => {
-    await repo.commitFile('a.txt', 'one\n', 'base');
-    await repo.writeFile('a.txt', 'two\n');
-    await stagePaths(repo.path, ['a.txt']);
-    await repo.writeFile('a.txt', 'three\n');
-
-    expect(await readFileDiff(repo.path, 'a.txt', true)).toContain('+two');
-    expect(await readFileDiff(repo.path, 'a.txt', false)).toContain('+three');
-  });
-
-  it('shows content for an untracked file', async () => {
-    // `git diff` says nothing about untracked files, so a plain call renders an
-    // empty pane for a file the user can plainly see in the changes list.
-    await repo.commitFile('base.txt', 'base\n', 'base');
-    await repo.writeFile('new.txt', 'brand new\n');
-
-    expect(await readFileDiff(repo.path, 'new.txt', false)).toContain('+brand new');
-  });
-});
+// Diff coverage lives in diff.integration.test.ts as of Phase 12 Theme D:
+// `readFileDiff` now returns a parsed FileDiff rather than patch text, and the
+// cases that used to live here (tracked, staged-vs-worktree, untracked) are
+// asserted there against the structured shape, alongside renames, binaries,
+// mode-only changes, truncation and intraline ranges.
 
 describe('sync against a local bare remote', () => {
   it('pushes, fetches and pulls', async () => {

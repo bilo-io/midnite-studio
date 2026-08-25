@@ -5,11 +5,19 @@ import {
   getStatus,
   pull,
   push,
+  readCommitFileDiff,
   readFileDiff,
   stagePaths,
   unstagePaths,
 } from '@midnite/git-engine';
-import { CHANNELS, failure, schemas, type GitOpResult } from '@midnite/git-shared';
+import {
+  CHANNELS,
+  DIFF_DEFAULT_CONTEXT,
+  failure,
+  schemas,
+  type FileDiff,
+  type GitOpResult,
+} from '@midnite/git-shared';
 
 import { resolveWorkdir } from '../repo-registry';
 import { handle, handleOp } from './handle';
@@ -39,10 +47,27 @@ export function registerStatusHandlers(): void {
     schemas.FileDiffRequest,
     async (req) => {
       const cwd = await resolveWorkdir(req.repoId, req.worktreePath);
-      if (!cwd) return { path: req.path, patch: '' };
-      return { path: req.path, patch: await readFileDiff(cwd, req.path, req.staged) };
+      if (!cwd) return emptyDiff(req.path, req.context);
+      return readFileDiff(cwd, req.path, req.staged, {
+        context: req.context,
+        ...(req.oldPath === undefined ? {} : { oldPath: req.oldPath }),
+      });
     },
-    () => ({ path: '', patch: '' }),
+    () => emptyDiff('', DIFF_DEFAULT_CONTEXT),
+  );
+
+  handle(
+    CHANNELS.commitFileDiff,
+    schemas.CommitFileDiffRequest,
+    async (req) => {
+      const cwd = await resolveWorkdir(req.repoId, req.worktreePath);
+      if (!cwd) return emptyDiff(req.path, req.context);
+      return readCommitFileDiff(cwd, req.sha, req.path, {
+        context: req.context,
+        ...(req.oldPath === undefined ? {} : { oldPath: req.oldPath }),
+      });
+    },
+    () => emptyDiff('', DIFF_DEFAULT_CONTEXT),
   );
 
   const inWorkdir = <T extends { repoId: string; worktreePath?: string }>(
@@ -105,6 +130,29 @@ export function registerStatusHandlers(): void {
       }),
     ),
   );
+}
+
+/**
+ * What a diff handler returns when there is nothing to diff — a closed repo, or
+ * a payload that failed validation. A well-formed empty `FileDiff` rather than a
+ * null, so the renderer has one shape to handle and `describeEmptyDiff` can
+ * speak for it.
+ */
+function emptyDiff(path: string, context: number): FileDiff {
+  return {
+    path,
+    oldPath: null,
+    change: 'modified',
+    binary: false,
+    oldMode: null,
+    newMode: null,
+    hunks: [],
+    insertions: 0,
+    deletions: 0,
+    contextLines: context,
+    truncated: false,
+    droppedLines: 0,
+  };
 }
 
 const EMPTY_STATUS = {

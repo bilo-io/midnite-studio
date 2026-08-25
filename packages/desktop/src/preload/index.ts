@@ -99,6 +99,7 @@ const bridge: Pick<
     get: (req) => call(CHANNELS.statusGet, req),
     commitDetail: (req) => call(CHANNELS.commitDetail, req),
     fileDiff: (req) => call(CHANNELS.fileDiff, req),
+    commitFileDiff: (req) => call(CHANNELS.commitFileDiff, req),
   },
   ops: {
     checkout: (req) => call(CHANNELS.opCheckout, req),

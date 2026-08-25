@@ -54,6 +54,31 @@ describe('request schemas', () => {
     expect(Object.keys(schemas.PushRequest.shape)).not.toContain('force');
   });
 
+  it('defaults both diff requests to git\'s own -U3', () => {
+    expect(schemas.FileDiffRequest.parse({ repoId: 'r', path: 'a.ts' }).context).toBe(3);
+    expect(
+      schemas.CommitFileDiffRequest.parse({ repoId: 'r', sha: 'abc', path: 'a.ts' }).context,
+    ).toBe(3);
+  });
+
+  it('bounds the diff context a renderer can ask for', () => {
+    // `context` becomes a `-U` argument, so an unbounded value from the renderer
+    // is an unbounded amount of work in main.
+    expect(() =>
+      schemas.FileDiffRequest.parse({ repoId: 'r', path: 'a.ts', context: 10 ** 9 }),
+    ).toThrow();
+    expect(() =>
+      schemas.FileDiffRequest.parse({ repoId: 'r', path: 'a.ts', context: -1 }),
+    ).toThrow();
+  });
+
+  it('keeps the commit diff request scoped to a sha, not to the index', () => {
+    // Widening FileDiffRequest with a sha would leave `staged` conditionally
+    // meaningful on it. Two requests, each with only fields that always apply.
+    expect(Object.keys(schemas.CommitFileDiffRequest.shape)).not.toContain('staged');
+    expect(() => schemas.CommitFileDiffRequest.parse({ repoId: 'r', path: 'a.ts' })).toThrow();
+  });
+
   it('defaults fetch to pruning origin', () => {
     expect(schemas.FetchRequest.parse({ repoId: 'r' })).toMatchObject({
       remote: 'origin',

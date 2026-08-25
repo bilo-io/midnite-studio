@@ -81,6 +81,14 @@ export type UiState = {
   collapsedNavSections: string[];
   /** Fully-qualified refs the graph is limited to; empty means every ref. */
   graphRefFilter: string[];
+  /**
+   * Show the pre-image line-number column in a diff.
+   *
+   * Off by default: the inspector is a side panel, and two monospace gutters
+   * eat width that the code itself needs. On when the user wants to answer
+   * "which line is this in HEAD".
+   */
+  diffShowOldGutter: boolean;
 
   setActiveView: (view: ViewId) => void;
   selectRepo: (repoId: string | null) => void;
@@ -94,6 +102,7 @@ export type UiState = {
   setNavMode: (mode: NavMode) => void;
   toggleNavSection: (key: string) => void;
   setGraphRefFilter: (refs: string[]) => void;
+  toggleDiffOldGutter: () => void;
 };
 
 export const useUiStore = create<UiState>()(
@@ -110,6 +119,7 @@ export const useUiStore = create<UiState>()(
       navMode: 'auto',
       collapsedNavSections: [],
       graphRefFilter: [],
+      diffShowOldGutter: false,
 
       setActiveView: (activeView) => set({ activeView }),
       // Switching repo invalidates every selection scoped to the old one — the
@@ -139,6 +149,8 @@ export const useUiStore = create<UiState>()(
             : [...state.collapsedNavSections, key],
         })),
       setGraphRefFilter: (graphRefFilter) => set({ graphRefFilter }),
+      toggleDiffOldGutter: () =>
+        set((state) => ({ diffShowOldGutter: !state.diffShowOldGutter })),
     }),
     {
       name: 'midnite-git.ui',
@@ -159,6 +171,7 @@ export const useUiStore = create<UiState>()(
         graphColumns: state.graphColumns,
         navMode: state.navMode,
         collapsedNavSections: state.collapsedNavSections,
+        diffShowOldGutter: state.diffShowOldGutter,
       }),
       /**
        * Merge field-by-field over the defaults.
