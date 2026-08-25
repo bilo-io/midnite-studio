@@ -16,15 +16,27 @@ export const CommitSchema = z.object({
 });
 export type Commit = z.infer<typeof CommitSchema>;
 
-/** How an edge leaves a commit row on its way to a parent. */
-export const GraphEdgeTypeSchema = z.enum([
-  /** Continues straight down the same lane. */
-  'straight',
-  /** The parent lives in a lane to the left/right — the edge slants across. */
-  'merge',
-  /** A lane ends here (this commit's parent is already drawn in another lane). */
-  'branch',
-]);
+/**
+ * Which part of a row's box an edge occupies.
+ *
+ * A row renders as one fixed-height SVG. The commit node sits at the vertical
+ * centre of its lane, so every edge is either the full height, the half above
+ * the node, or the half below it. Encoding that in the type (rather than making
+ * the renderer infer it from lane indices) is what keeps the drawing code a
+ * direct translation with no geometry guesswork:
+ *
+ *   straight  full height — `fromLane === toLane`, either a lane passing through
+ *             this row untouched, or this commit's own lane arriving and
+ *             continuing through the node.
+ *   branch    UPPER half — enters at the top edge in `fromLane` and terminates at
+ *             the node in `toLane`. A lane converging into this commit, or this
+ *             commit's own lane when it is a root (arrives, doesn't continue).
+ *   merge     LOWER half — leaves the node in `fromLane` (always the commit's own
+ *             lane) and exits the bottom edge in `toLane`. An edge to a parent in
+ *             another lane, or this commit's own lane when it is a branch tip
+ *             (doesn't arrive, does continue).
+ */
+export const GraphEdgeTypeSchema = z.enum(['straight', 'merge', 'branch']);
 export type GraphEdgeType = z.infer<typeof GraphEdgeTypeSchema>;
 
 export const GraphEdgeSchema = z.object({

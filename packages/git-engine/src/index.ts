@@ -11,4 +11,5 @@ export const GIT_ENGINE_VERSION = '0.1.0' as const;
 export * from './commands';
 export * from './exec/git-exec';
 export * from './exec/write-queue';
+export * from './layout';
 export * from './parsers';
