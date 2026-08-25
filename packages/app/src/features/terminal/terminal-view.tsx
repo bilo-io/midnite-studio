@@ -162,9 +162,15 @@ export function TerminalView({
       /**
        * Replay a restored transcript before anything else is written.
        *
-       * Taken from the store rather than re-read, so a remount cannot double it.
+       * Read, not consumed. A remount builds a NEW xterm with an empty screen,
+       * so re-writing it is what the transcript is for — the doubling this used
+       * to guard against can only happen within one terminal, and each mount
+       * writes exactly once. Taking it destructively meant the second mount saw
+       * nothing to replay, which under StrictMode is every mount: the pane came
+       * up blank, and the auto-start below read "no replay" as "brand new" and
+       * revived a shell the user never asked for.
        */
-      const replay = useTerminalStore.getState().takeReplay(session.id);
+      const replay = useTerminalStore.getState().peekReplay(session.id);
       if (replay && replay.length > 0) {
         term.write(replay);
         term.write(REVIVE_HINT);
@@ -189,9 +195,19 @@ export function TerminalView({
 
       setReady(true);
 
-      // A brand-new session starts straight away; a restored one waits to be
-      // asked, which is what makes reopening the app with a dozen of them free.
-      if (!replay) void startRef.current(term.cols, term.rows, initialInputRef.current);
+      /*
+        A brand-new session starts straight away; a restored one waits to be
+        asked, which is what makes reopening the app with a dozen of them free.
+
+        Keyed on the connection state rather than on whether a transcript was
+        found. `idle` means this session has never had a process in this run;
+        a restored one hydrates as `exited`. The transcript is a poor proxy for
+        the same question — a session saved before it printed anything restores
+        with an empty one, and would then be revived on sight.
+      */
+      if (stateRef.current === 'idle') {
+        void startRef.current(term.cols, term.rows, initialInputRef.current);
+      }
     };
 
     const observer = new ResizeObserver(() => {

@@ -11,7 +11,7 @@ Completed work is logged append-only in [`done.md`](done.md). Deferred scope liv
 | Phase | Status | Done | Progress | % | 🔄 WIP | ◻ TODO |
 |-------|--------|------|----------|---|--------|--------|
 | [16 · Folder explorer, preview pane + settings pages](phase-16-explorer-and-settings-pages.md) | 🔄 WIP | 0/35 | `░░░░░░░░░░` | 0% | A B C D E | — |
-| [15 · Multi-terminal sessions + agents](phase-15-multi-terminal-sessions.md) | 🔄 WIP | 27/37 | `███████░░░` | 73% | verification | — |
+| [15 · Multi-terminal sessions + agents](phase-15-multi-terminal-sessions.md) | 🔄 WIP | 38/39 | `█████████░` | 97% | — | manual relaunch check |
 | [14 · Graph themes + avatars](phase-14-graph-themes.md) | ✅ DONE | 28/28 | `██████████` | 100% | — | — |
 | [13 · UI polish](phase-13-ui-polish.md) | ✅ DONE | 26/26 | `██████████` | 100% | — | — |
 | [12 · Commit inspector + live badges](phase-12-commit-inspector.md) | 🔄 WIP | 15/51 | `███░░░░░░░` | 29% | — | A B C F |
@@ -52,6 +52,10 @@ Completed work is logged append-only in [`done.md`](done.md). Deferred scope liv
 - ✅ **C** — maximize chevron and the `+` → New Terminal / New Agent menu
 - ✅ **D** — the session sidebar, dockable left/right, with a Claude mark for agent sessions
 - ✅ **E** — drag-to-reorder via `@dnd-kit/sortable`, for terminals *and* repos
+- ✅ **verification** — pty/terminal schema sweep, a fake pty that talks back, nine e2e specs and
+  both screenshots; found and fixed two ptys per terminal, self-reviving restored sessions, and an
+  `agentId`/`kind` pairing the schema documented but never enforced. One manual item is left for a
+  human: quit, relaunch, and confirm `ps` shows no surviving shells
 
 ### [Phase 12 — Commit inspector + live badges](phase-12-commit-inspector.md)
 

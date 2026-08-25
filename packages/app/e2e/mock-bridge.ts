@@ -21,6 +21,18 @@ export type MockFixtures = {
   refs?: unknown[];
   /** Configured remotes, as `mgit:remotes:list` returns them (forge pre-derived). */
   remotes?: unknown[];
+  /**
+   * Sessions `terminal.list` restores, each with the scrollback to replay.
+   *
+   * A restored session comes back with NO process — that is the whole point of
+   * persisting one — so seeding these is how a spec reaches the dimmed-until-
+   * revived state without quitting an app it never launched.
+   *
+   * `scrollback` is written as a plain string here and encoded to the
+   * `Uint8Array` the contract requires on the way in; a fixture file should not
+   * have to spell out byte arrays.
+   */
+  terminalSessions?: { session: Record<string, unknown>; scrollback?: string }[];
 };
 
 export async function installMockBridge(page: Page, fixtures: MockFixtures): Promise<void> {
@@ -168,25 +180,70 @@ export async function installMockBridge(page: Page, fixtures: MockFixtures): Pro
           },
         },
       ),
+      /*
+        A fake pty that actually talks back.
+
+        Not a stub: xterm only paints what arrives on `pty:data`, so a `create`
+        that resolves and then goes silent leaves a blank pane — which looks
+        identical to a broken one and makes every screenshot an empty rectangle.
+        This one writes a prompt when it opens, echoes what is typed, and answers
+        a couple of commands from a canned transcript. Escape sequences are
+        included deliberately (the prompt is coloured), because the bytes the
+        real pty sends have them and a mock that omits them would hide any
+        regression in how they are decoded.
+      */
       pty: {
         // `ok: true` is not decoration — `PtyCreateResponse` is a discriminated
         // union, and without the tag the renderer reads every create as a
         // failure and renders the panel as "terminal unavailable". Nothing
         // asserted on it, so the e2e app quietly ran with a broken terminal.
-        create: async () => ({ ok: true as const, ptyId: `pty-${++ptyCount}` }),
-        input: noop,
+        create: async (req: { sessionId: string; initialInput?: string }) => {
+          const ptyId = `pty-${++ptyCount}`;
+          ptySessions[ptyId] = req.sessionId;
+          ptyCalls.creates.push({ ptyId, sessionId: req.sessionId });
+          // A tick later, the way a real shell takes a moment to come up —
+          // immediate output would race the renderer's own attach.
+          setTimeout(() => {
+            write(ptyId, PROMPT);
+            if (req.initialInput) feed(ptyId, req.initialInput);
+          }, 10);
+          return { ok: true as const, ptyId };
+        },
+        input: (req: { ptyId: string; data: string }) => {
+          ptyCalls.inputs.push(req);
+          feed(req.ptyId, req.data);
+        },
         resize: noop,
-        kill: noop,
-        onData: unsubscribe,
-        onExit: unsubscribe,
+        kill: (req: { ptyId: string }) => {
+          ptyCalls.kills.push(req.ptyId);
+          delete ptySessions[req.ptyId];
+          for (const handler of exitHandlers) handler({ ptyId: req.ptyId, exitCode: 0 });
+        },
+        onData: (handler: (e: { ptyId: string; data: Uint8Array }) => void) => {
+          dataHandlers.push(handler);
+          return () => {
+            dataHandlers.splice(dataHandlers.indexOf(handler), 1);
+          };
+        },
+        onExit: (handler: (e: { ptyId: string; exitCode: number }) => void) => {
+          exitHandlers.push(handler);
+          return () => {
+            exitHandlers.splice(exitHandlers.indexOf(handler), 1);
+          };
+        },
       },
       /*
-        No saved sessions and the built-in roster: the e2e app starts with a
-        clean terminal panel, and a spec that wants restored ones seeds them
-        itself.
+        Restored sessions come from the fixture, and the roster is the builtin
+        one. A spec that wants a clean panel simply passes none, which is what
+        every pre-existing spec does.
       */
       terminal: {
-        list: async () => ({ sessions: [] }),
+        list: async () => ({
+          sessions: (data.terminalSessions ?? []).map((entry) => ({
+            session: entry.session,
+            scrollback: encode(entry.scrollback ?? ''),
+          })),
+        }),
         save: noop,
         forget: noop,
         reorder: noop,
@@ -232,7 +289,99 @@ export async function installMockBridge(page: Page, fixtures: MockFixtures): Pro
     var ptyCount = 0;
     // eslint-disable-next-line no-var
     var externalUrls: string[] = [];
+
+    // --- the fake pty ------------------------------------------------------
+    // eslint-disable-next-line no-var
+    var dataHandlers: Array<(e: { ptyId: string; data: Uint8Array }) => void> = [];
+    // eslint-disable-next-line no-var
+    var exitHandlers: Array<(e: { ptyId: string; exitCode: number }) => void> = [];
+    /** Which session each live pty belongs to — a killed pty is deleted, not flagged. */
+    // eslint-disable-next-line no-var
+    var ptySessions: Record<string, string> = {};
+
+    /**
+     * A coloured prompt, escape sequences and all.
+     *
+     * Real pty bytes carry them, and the whole no-base64 rule on `pty:data`
+     * exists so xterm is the one thing decoding them. A mock that sent plain
+     * ASCII would quietly stop testing that.
+     */
+    // eslint-disable-next-line no-var
+    var PROMPT = '\x1b[32m➜\x1b[0m \x1b[36mmidnite-git\x1b[0m $ ';
+
+    /** Canned answers, keyed by the line typed. Anything else gets a not-found. */
+    // eslint-disable-next-line no-var
+    var TRANSCRIPT: Record<string, string> = {
+      'git status': 'On branch main\r\nnothing to commit, working tree clean\r\n',
+      ls: 'CLAUDE.md  README.md  docs  packages  todo\r\n',
+      claude: '\x1b[38;2;217;119;87m✻\x1b[0m Welcome to Claude Code\r\n',
+      pwd: '/tmp/midnite-git\r\n',
+    };
+
+    // eslint-disable-next-line no-var
+    var encode = (text: string) => new TextEncoder().encode(text);
+
+    // eslint-disable-next-line no-var
+    var write = (ptyId: string, text: string) => {
+      // A killed pty is silent, the way a dead process is: writing after kill
+      // would let a spec pass against output no real terminal could produce.
+      if (!(ptyId in ptySessions)) return;
+      const event = { ptyId, data: encode(text) };
+      for (const handler of dataHandlers) handler(event);
+    };
+
+    /**
+     * One keystroke's worth of input, echoed the way a line-buffered shell does.
+     *
+     * Return is what runs a line, so the buffer accumulates until one arrives —
+     * which is also what makes "revive a restored session by pressing Enter"
+     * testable as the gesture it actually is.
+     */
+    // eslint-disable-next-line no-var
+    var buffers: Record<string, string> = {};
+    // eslint-disable-next-line no-var
+    var feed = (ptyId: string, data: string) => {
+      if (!(ptyId in ptySessions)) return;
+      for (const ch of data) {
+        if (ch === '\r' || ch === '\n') {
+          const line = (buffers[ptyId] ?? '').trim();
+          buffers[ptyId] = '';
+          write(ptyId, '\r\n');
+          if (line) {
+            write(ptyId, TRANSCRIPT[line] ?? `zsh: command not found: ${line}\r\n`);
+          }
+          write(ptyId, PROMPT);
+        } else if (ch === '\x7f') {
+          const buffer = buffers[ptyId] ?? '';
+          if (buffer) {
+            buffers[ptyId] = buffer.slice(0, -1);
+            write(ptyId, '\b \b');
+          }
+        } else {
+          buffers[ptyId] = (buffers[ptyId] ?? '') + ch;
+          write(ptyId, ch);
+        }
+      }
+    };
+
+    /*
+      The pty's traffic, published for the specs.
+
+      xterm paints through the WebGL addon, so everything a terminal displays is
+      canvas pixels — unreachable by any DOM query. What IS observable, and is
+      the more precise thing to assert anyway, is what crossed the bridge: that
+      hiding the panel neither killed a pty nor started a second one is exactly
+      the Phase 9 contract being overturned, stated in the terms it was written.
+    */
+    // eslint-disable-next-line no-var
+    var ptyCalls = {
+      creates: [] as { ptyId: string; sessionId: string }[],
+      inputs: [] as { ptyId: string; data: string }[],
+      kills: [] as string[],
+    };
+
     (window as unknown as { __mgitOps: unknown }).__mgitOps = opCalls;
+    (window as unknown as { __mgitPty: unknown }).__mgitPty = ptyCalls;
     (window as unknown as { __mgitExternalUrls: unknown }).__mgitExternalUrls = externalUrls;
   }, fixtures);
 }

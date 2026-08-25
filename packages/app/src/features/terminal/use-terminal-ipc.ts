@@ -69,6 +69,18 @@ export function useTerminalIpc(session: TerminalSession, onData: (bytes: Uint8Ar
 
       const store = useTerminalStore.getState();
       if (store.ptyIds[session.id]) return;
+      /*
+        `ptyIds` alone is not enough: it is only written once `pty.create` has
+        RESOLVED, so two calls in the same tick both see it empty and both spawn
+        a shell. The second `bindPty` then overwrites the first, orphaning a
+        live process nothing holds an id for — it is never killed, and it never
+        appears in the session list.
+        `starting` is set synchronously below, so it is the marker that covers
+        the await. StrictMode's double-invoked mount effect made this happen on
+        every single terminal opened under the dev server, which is how the app
+        is run day to day.
+      */
+      if (store.states[session.id] === 'starting') return;
 
       store.setState(session.id, 'starting');
       const result = await api.pty.create({

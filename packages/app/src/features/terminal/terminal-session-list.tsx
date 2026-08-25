@@ -43,6 +43,12 @@ export function TerminalSessionList({ agents }: { agents: AgentDefinition[] }) {
 
   return (
     <div
+      /*
+        Named for the e2e suite, which has to tell this column apart from the
+        repos sidebar and from the pane beside it — both are plain divs, and
+        which SIDE this one sits on is exactly what the docking test asserts.
+      */
+      data-session-list
       className={`w-44 shrink-0 overflow-y-auto ${border} border-border py-1`}
       onContextMenu={showDockMenu}
     >
@@ -83,6 +89,9 @@ function SessionRow({
       style={style}
       {...attributes}
       {...listeners}
+      // A drag gesture needs a row to grab by; the close button and the label
+      // are both inside it and neither is the drag handle.
+      data-session-row
       className={`group flex w-full items-center gap-1.5 px-2 py-1 text-xs ${
         active ? 'bg-accent/60' : 'hover:bg-accent/30'
       } ${isDragging ? 'opacity-80' : ''}`}

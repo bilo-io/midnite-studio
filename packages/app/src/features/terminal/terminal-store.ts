@@ -52,7 +52,15 @@ type TerminalState = {
   bindPty: (sessionId: string, ptyId: string) => void;
   unbindPty: (sessionId: string) => void;
   setState: (sessionId: string, state: ConnectionState, error?: string) => void;
-  takeReplay: (sessionId: string) => Uint8Array | null;
+  /**
+   * The restored transcript for a session, or null.
+   *
+   * A read, not a take: each mount builds a fresh xterm, so replaying into it
+   * is correct every time. It is cleared by `bindPty` instead — once a live
+   * shell owns the screen, the saved transcript is history the pty is already
+   * writing over.
+   */
+  peekReplay: (sessionId: string) => Uint8Array | null;
 };
 
 export const useTerminalStore = create<TerminalState>()((set, get) => ({
@@ -146,7 +154,14 @@ export const useTerminalStore = create<TerminalState>()((set, get) => ({
   },
 
   bindPty: (sessionId, ptyId) =>
-    set((state) => ({ ptyIds: { ...state.ptyIds, [sessionId]: ptyId } })),
+    set((state) => {
+      // The saved transcript retires here: a live shell now owns that screen,
+      // and a later remount should replay what the pty wrote, not what the last
+      // run did before it.
+      const replay = { ...state.replay };
+      delete replay[sessionId];
+      return { ptyIds: { ...state.ptyIds, [sessionId]: ptyId }, replay };
+    }),
 
   unbindPty: (sessionId) =>
     set((state) => {
@@ -164,16 +179,7 @@ export const useTerminalStore = create<TerminalState>()((set, get) => ({
           : { ...state.errors, [sessionId]: error },
     })),
 
-  takeReplay: (sessionId) => {
-    const bytes = get().replay[sessionId];
-    if (!bytes) return null;
-    set((state) => {
-      const replay = { ...state.replay };
-      delete replay[sessionId];
-      return { replay };
-    });
-    return bytes;
-  },
+  peekReplay: (sessionId) => get().replay[sessionId] ?? null,
 }));
 
 /** The row to show after closing one: the next along, else the previous. */

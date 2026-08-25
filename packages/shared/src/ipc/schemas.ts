@@ -18,6 +18,7 @@ import {
   AgentDefinitionSchema,
   TerminalSessionKindSchema,
   TerminalSessionSchema,
+  agentIdMatchesKind,
 } from '../terminal';
 
 /**
@@ -354,6 +355,7 @@ export const PtyCreateRequest = z.object({
    */
   sessionId: z.string().min(1),
   kind: TerminalSessionKindSchema,
+  /** Paired with `kind`, exactly as on the session record it belongs to. */
   agentId: z.string().min(1).optional(),
   repoId: z.string().min(1),
   /** Working directory — the selected worktree. */
@@ -368,7 +370,7 @@ export const PtyCreateRequest = z.object({
    * at a prompt when the agent exits instead of at a dead pane.
    */
   initialInput: z.string().optional(),
-});
+}).superRefine(agentIdMatchesKind);
 export const PtyCreateResponse = z.discriminatedUnion('ok', [
   z.object({ ok: z.literal(true), ptyId: z.string() }),
   /** node-pty is loaded lazily and fails soft — the UI shows "terminal unavailable". */
