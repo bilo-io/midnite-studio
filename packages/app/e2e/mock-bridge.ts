@@ -131,7 +131,23 @@ export async function installMockBridge(page: Page, fixtures: MockFixtures): Pro
           data.diffs[`${req.sha}:${req.path}`] ??
           emptyDiff(req.path),
       },
-      ops: new Proxy({}, { get: () => ok }),
+      /*
+        Every op still resolves to `{ok:true}` — but records itself first.
+
+        A drop gesture is only half-verified by the right menu appearing: the
+        item has to be wired to the operation it names. Recording the calls lets
+        a test assert that "Merge X into Y" really reaches `ops.merge` carrying
+        X, which no amount of asserting on menu labels can show.
+      */
+      ops: new Proxy(
+        {},
+        {
+          get: (_target, name) => async (args: unknown) => {
+            opCalls.push({ op: String(name), args });
+            return { ok: true as const };
+          },
+        },
+      ),
       pty: {
         create: async () => ({ ptyId: 'pty-1' }),
         input: noop,
@@ -164,5 +180,11 @@ export async function installMockBridge(page: Page, fixtures: MockFixtures): Pro
     var batchHandlers: Array<(e: unknown) => void> = [];
     // eslint-disable-next-line no-var
     var doneHandlers: Array<(e: unknown) => void> = [];
+
+    // Published on `window` so a test can read the ops back, and clear the
+    // array between gestures.
+    // eslint-disable-next-line no-var
+    var opCalls: Array<{ op: string; args: unknown }> = [];
+    (window as unknown as { __mgitOps: unknown }).__mgitOps = opCalls;
   }, fixtures);
 }

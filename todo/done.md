@@ -251,3 +251,28 @@ appliers and a 500-line stylesheet shipped since Phase 0 and never called). Play
 it against a stubbed Gravatar. 422 unit tests + 10 e2e green. **Outstanding:** the ref-chip drag gesture
 (Phase 8's merge/rebase) has no test and needs a human in the real app.
 
+## 2026-08-25 — Phase 14 verification: the ref-chip drag gesture, under a real pointer
+
+Closes the one item Phase 14 landed without: whether Phase 8's drag gestures survived the ref
+chips moving into the BRANCH / TAG column. They did — `useRefDnd` is wired from `graph-row.tsx`,
+so the wiring travelled with the chips — but nothing in the markup says so, which is why the
+item was left for a human. `e2e/ref-drag.spec.ts` now drives merge, rebase and cherry-pick with
+a real pointer through the Playwright mock bridge, and the mock's `ops` proxy records its calls
+so each assertion lands on the *operation*, not just on a menu label: choosing "Merge X into Y"
+has to reach `ops.merge({source: X})`. The guard cases come with it — a tag is neither a drag
+source nor a drop target, a branch dropped on itself is a no-op, and a drop onto a branch that
+is not checked out shows both items disabled with the reason attached. 8 tests, plus
+`docs/screenshots/phase-14/drop-menu.png`.
+
+Two things bit while writing it, both worth knowing before touching a dnd-kit test again.
+**dnd-kit eats the click that trails a drag for 50ms** — `AbstractPointerSensor` adds a
+document-level capture listener that `stopPropagation()`s `click` on activation and only tears
+it down on a 50ms timeout. A human never meets it; a synthetic click lands inside the window
+and dies before React's delegated listener sees it, so the menu item looks stone dead while a
+DOM-level `.click()` on the same button works perfectly. **And `rectIntersection` collides the
+DragOverlay's rect, not the dragged element's** — the overlay pill is sized by the text it
+carries, so the first version of this spec dropped a commit on `main` and was offered a
+cherry-pick onto `feature/drag-me` one row above. The fixture keeps ref-less rows around every
+drop target now; that spacing is load-bearing.
+
+445 unit tests + 26 e2e green.
