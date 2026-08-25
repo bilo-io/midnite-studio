@@ -1,5 +1,6 @@
 import { BrowserWindow, app } from 'electron';
 
+import { registerRefHandlers } from './ipc/ref-handlers';
 import { registerRepoHandlers } from './ipc/repo-handlers';
 import { registerStatusHandlers } from './ipc/status-handlers';
 import { installMenu } from './menu';
@@ -59,6 +60,7 @@ if (!app.requestSingleInstanceLock()) {
     registerWindowChrome(getWindow);
     registerRepoHandlers(getWindow);
     registerStatusHandlers();
+    registerRefHandlers();
     installMenu(getWindow);
 
     // Restore before the window opens: the renderer's first `repo:list` fires

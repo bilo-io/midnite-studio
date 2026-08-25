@@ -11,6 +11,7 @@ import {
 import { QueryClient } from '@tanstack/react-query';
 
 import { GraphView } from './features/graph/graph-view';
+import { DialogHost } from './components/dialog-host';
 import { ReposPanel } from './features/repos/repos-panel';
 import { StatusPanel } from './features/status/status-panel';
 import { useDefaultSelection } from './features/repos/use-default-selection';
@@ -225,7 +226,9 @@ export function App() {
   useWindowBackgroundSync();
   return (
     <ShellProviders queryClient={queryClient}>
-      <Shell />
+      <DialogHost>
+        <Shell />
+      </DialogHost>
     </ShellProviders>
   );
 }

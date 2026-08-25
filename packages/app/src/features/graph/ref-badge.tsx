@@ -42,14 +42,24 @@ const STYLES: Record<Ref['kind'], string> = {
   tag: 'border-success/40 bg-success/10 text-success',
 };
 
-export function RefBadge({ refItem }: { refItem: Ref }) {
+export function RefBadge({
+  refItem,
+  onContextMenu,
+  onDoubleClick,
+}: {
+  refItem: Ref;
+  onContextMenu?: (event: React.MouseEvent) => void;
+  onDoubleClick?: (event: React.MouseEvent) => void;
+}) {
   const upstream = refItem.upstream;
   const ahead = upstream?.ahead ?? 0;
   const behind = upstream?.behind ?? 0;
 
   return (
     <span
-      className={`inline-flex min-w-0 max-w-[16rem] shrink items-center gap-1 rounded border px-1.5 py-px text-[11px] leading-4 ${
+      onContextMenu={onContextMenu}
+      onDoubleClick={onDoubleClick}
+      className={`inline-flex min-w-0 max-w-[16rem] shrink cursor-default items-center gap-1 rounded border px-1.5 py-px text-[11px] leading-4 ${
         STYLES[refItem.kind]
       } ${refItem.isHead ? 'font-semibold' : ''}`}
       title={`${refItem.fullName}${upstream ? ` → ${upstream.name}` : ''}`}

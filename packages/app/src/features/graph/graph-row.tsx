@@ -17,15 +17,34 @@ export type GraphRowProps = {
   selected: boolean;
   gutterLanes: number;
   onSelect: (sha: string) => void;
+  onContextMenu: (event: React.MouseEvent, row: GraphRow) => void;
+  onRefContextMenu: (event: React.MouseEvent, ref: Ref) => void;
+  /** Double-clicking a branch badge checks it out — the GitKraken gesture. */
+  onRefActivate: (ref: Ref) => void;
 };
 
-function GraphRowInner({ row, refs, selected, gutterLanes, onSelect }: GraphRowProps) {
+function GraphRowInner({
+  row,
+  refs,
+  selected,
+  gutterLanes,
+  onSelect,
+  onContextMenu,
+  onRefContextMenu,
+  onRefActivate,
+}: GraphRowProps) {
   return (
     <div
       role="row"
       aria-selected={selected}
       tabIndex={-1}
       onClick={() => onSelect(row.commit.sha)}
+      onContextMenu={(event) => {
+        event.preventDefault();
+        // Right-click selects too, so the detail pane matches the menu's target.
+        onSelect(row.commit.sha);
+        onContextMenu(event, row);
+      }}
       className={`flex cursor-default items-center gap-2 pr-3 text-sm ${
         selected ? 'bg-accent/70' : 'hover:bg-accent/30'
       }`}
@@ -44,7 +63,21 @@ function GraphRowInner({ row, refs, selected, gutterLanes, onSelect }: GraphRowP
         {refs.length > 0 ? (
           <span className="flex min-w-0 shrink items-center gap-1.5 overflow-hidden">
             {refs.map((ref) => (
-              <RefBadge key={ref.fullName} refItem={ref} />
+              <RefBadge
+                key={ref.fullName}
+                refItem={ref}
+                onContextMenu={(event) => {
+                  // Stop the row's own menu opening as well — the badge's menu
+                  // is the more specific target the user aimed at.
+                  event.preventDefault();
+                  event.stopPropagation();
+                  onRefContextMenu(event, ref);
+                }}
+                onDoubleClick={(event) => {
+                  event.stopPropagation();
+                  onRefActivate(ref);
+                }}
+              />
             ))}
           </span>
         ) : null}

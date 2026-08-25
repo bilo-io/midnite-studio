@@ -1,0 +1,117 @@
+import { useEffect, useRef } from 'react';
+
+/**
+ * Confirmation for a destructive operation, with its blast radius.
+ *
+ * The number is the entire point. "Are you sure?" is a question nobody can
+ * answer — it asks the user to re-derive what the app already knows. "This will
+ * orphan 14 commits, including 'fix the parser'" is a decision.
+ *
+ * Rendered in-app rather than as a native dialog for the same reason as the
+ * context menu: it has to carry the app's own tokens and its own content.
+ */
+export type BlastRadius = {
+  count: number;
+  sample: { sha: string; subject: string }[];
+};
+
+export type ConfirmRequest = {
+  title: string;
+  body?: string;
+  confirmLabel: string;
+  danger?: boolean;
+  /** Absent while still being counted; null when there is nothing to lose. */
+  blastRadius?: BlastRadius | null;
+  onConfirm: () => void;
+};
+
+export function ConfirmDialog({
+  request,
+  onCancel,
+}: {
+  request: ConfirmRequest;
+  onCancel: () => void;
+}) {
+  const confirmRef = useRef<HTMLButtonElement>(null);
+
+  useEffect(() => {
+    const onKeyDown = (event: KeyboardEvent) => {
+      if (event.key === 'Escape') onCancel();
+    };
+    window.addEventListener('keydown', onKeyDown);
+    // Focus Cancel, not Confirm: for a destructive action the safe option is
+    // the one a stray Return should hit.
+    return () => window.removeEventListener('keydown', onKeyDown);
+  }, [onCancel]);
+
+  const radius = request.blastRadius;
+
+  return (
+    <div
+      className="fixed inset-0 z-50 flex items-center justify-center bg-background/70 p-6"
+      role="dialog"
+      aria-modal="true"
+      aria-label={request.title}
+      onClick={(event) => {
+        if (event.target === event.currentTarget) onCancel();
+      }}
+    >
+      <div className="w-full max-w-md rounded-lg border border-border bg-popover p-4 shadow-xl">
+        <h2 className="text-sm font-semibold">{request.title}</h2>
+        {request.body ? (
+          <p className="mt-1.5 text-sm text-muted-foreground">{request.body}</p>
+        ) : null}
+
+        {radius === undefined ? (
+          <p className="mt-3 text-xs text-muted-foreground">Checking what this affects…</p>
+        ) : radius && radius.count > 0 ? (
+          <div className="mt-3 rounded-md border border-destructive/40 bg-destructive/10 p-2.5">
+            <p className="text-xs font-medium text-destructive">
+              {radius.count} commit{radius.count === 1 ? '' : 's'} will no longer be reachable from
+              any branch.
+            </p>
+            <ul className="mt-1.5 space-y-0.5">
+              {radius.sample.map((commit) => (
+                <li key={commit.sha} className="truncate text-xs text-muted-foreground">
+                  <span className="font-mono">{commit.sha.slice(0, 7)}</span> {commit.subject}
+                </li>
+              ))}
+              {radius.count > radius.sample.length ? (
+                <li className="text-xs text-muted-foreground">
+                  …and {radius.count - radius.sample.length} more
+                </li>
+              ) : null}
+            </ul>
+          </div>
+        ) : radius ? (
+          <p className="mt-3 text-xs text-muted-foreground">
+            No commits become unreachable — every one is still on another branch.
+          </p>
+        ) : null}
+
+        <div className="mt-4 flex justify-end gap-2">
+          <button
+            type="button"
+            onClick={onCancel}
+            autoFocus
+            className="rounded-md px-3 py-1.5 text-sm text-muted-foreground transition-colors hover:bg-accent hover:text-foreground"
+          >
+            Cancel
+          </button>
+          <button
+            ref={confirmRef}
+            type="button"
+            onClick={request.onConfirm}
+            className={`rounded-md px-3 py-1.5 text-sm font-medium transition-opacity hover:opacity-90 ${
+              request.danger
+                ? 'bg-destructive text-destructive-foreground'
+                : 'bg-primary text-primary-foreground'
+            }`}
+          >
+            {request.confirmLabel}
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+}

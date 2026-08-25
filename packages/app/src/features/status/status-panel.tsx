@@ -227,9 +227,9 @@ function FileRow({
             title={action.title}
             aria-label={`${action.title} ${entry.path}`}
             onClick={() => {
-              // eslint-disable-next-line no-alert -- a native confirm is the
-              // right weight for a per-file destructive action; the heavier
-              // blast-radius dialog lands in Phase 7 for history-rewriting ops.
+              // A native confirm is the right weight for a per-file discard;
+              // the blast-radius dialog is for history-rewriting operations,
+              // where the number of orphaned commits is the actual decision.
               if (action.confirm && !window.confirm(action.confirm)) return;
               action.onClick();
             }}
