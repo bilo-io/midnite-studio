@@ -315,7 +315,12 @@ function Shell() {
         </aside>
         <ResizeHandle resizable={repos} axis="x" label="Resize repositories sidebar" />
         <div className="flex min-w-0 flex-1 flex-col">
-          <div className="min-h-0 flex-1">
+          {/*
+            Keyed on the view so switching cross-fades rather than cutting.
+            The key is what makes it an ENTRANCE: without it React reuses the
+            same element and the animation, having already run, never replays.
+          */}
+          <div key={activeView} className="min-h-0 flex-1 animate-fade-in">
             {activeView === 'graph' ? (
               <GraphView />
             ) : activeView === 'changes' ? (

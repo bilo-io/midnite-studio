@@ -66,6 +66,19 @@ export const LogStartRequest = RepoId.extend({
   requestId: z.string().min(1),
   /** Hard cap on rows; the UI offers "load more" beyond it. */
   limit: z.number().int().positive().default(50_000),
+  /**
+   * Fully-qualified refs to walk (`refs/heads/main`), or empty for every ref.
+   *
+   * Fully-qualified because `main` and `origin/main` are different commits with
+   * the same short name, and `git log main` would silently resolve one of them.
+   *
+   * Filtering here rather than in the renderer is what keeps the lanes honest:
+   * the layout engine assigns lanes from the commits it is given, so hiding
+   * rows after the fact would leave edges running into empty space.
+   *
+   * Defaulted, so a payload written before this field existed still parses.
+   */
+  revisions: z.array(z.string()).default([]),
 });
 export const LogCancelRequest = z.object({ requestId: z.string().min(1) });
 

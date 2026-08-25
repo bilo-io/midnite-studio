@@ -31,7 +31,29 @@ export type LogStartOptions = {
   requestId: string;
   repoPath: string;
   limit: number;
+  /** Refs to walk; empty means every ref (`--all`). */
+  revisions?: readonly string[];
 };
+
+/**
+ * Turn a request's ref filter into the engine's log options.
+ *
+ * `--all` and an explicit revision list are alternatives, not additions: git
+ * walks the union, so passing both reaches every ref and silently ignores the
+ * filter. Empty means unfiltered, which is `--all`.
+ *
+ * Filtering here rather than in the renderer is what keeps the lanes honest —
+ * the layout engine assigns lanes from the commits it is given, so dropping
+ * rows afterwards would leave edges running into empty space.
+ */
+export function logOptionsFor(options: LogStartOptions): {
+  all: boolean;
+  limit: number;
+  revisions: readonly string[];
+} {
+  const revisions = options.revisions ?? [];
+  return { all: revisions.length === 0, limit: options.limit, revisions };
+}
 
 /**
  * Begin (or restart) the log stream.
@@ -54,7 +76,7 @@ export function startLog(win: BrowserWindow, options: LogStartOptions): void {
 
   const stream = streamLog(
     options.repoPath,
-    { all: true, limit: options.limit },
+    logOptionsFor(options),
     (commits) => {
       // Layout is incremental: the session carries lane state across batches, so
       // a branch opened in batch 1 is still the same lane in batch 40.

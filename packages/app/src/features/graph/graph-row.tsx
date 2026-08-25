@@ -95,13 +95,29 @@ function GraphRowInner({
         <span className="min-w-0 flex-1 truncate">{row.commit.subject}</span>
       </div>
 
-      <span className="w-40 shrink-0 truncate text-right text-xs text-muted-foreground">
+      {/*
+        Widths arrive as custom properties set on the scroll container, not as
+        props. This component is memoised because a streaming log re-renders the
+        list on every 500-row batch; a width prop would bust that memo on every
+        pointermove of a column drag and push every visible row through React at
+        60Hz. A variable repaints without React seeing it.
+      */}
+      <span
+        className="shrink-0 truncate text-right text-xs text-muted-foreground"
+        style={{ width: 'var(--col-author)' }}
+      >
         {row.commit.authorName}
       </span>
-      <span className="w-28 shrink-0 text-right text-xs tabular-nums text-muted-foreground">
+      <span
+        className="shrink-0 text-right text-xs tabular-nums text-muted-foreground"
+        style={{ width: 'var(--col-date)' }}
+      >
         {formatDate(row.commit.committerDate)}
       </span>
-      <span className="w-16 shrink-0 text-right font-mono text-xs text-muted-foreground">
+      <span
+        className="shrink-0 text-right font-mono text-xs text-muted-foreground"
+        style={{ width: 'var(--col-sha)' }}
+      >
         {row.commit.sha.slice(0, 7)}
       </span>
     </div>
