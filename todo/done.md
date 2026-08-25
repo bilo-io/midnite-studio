@@ -14,11 +14,13 @@ columns behind a persisted toggle, context expansion as a refetch at a wider `-U
 "N more lines not shown" past the cap. The inspector's `git show --stat` block is gone — it
 repeated the file list's own numbers as preformatted text; that space now shows the diff.
 
-363 tests green (`moon run :typecheck :lint :test`) plus 8 Playwright specs under
+372 tests green (`moon run :typecheck :lint :test`) plus 8 Playwright specs under
 `moon run app:e2e` — the repo's first renderer-level test harness, driving the real app against a
 mocked `window.midniteGit`.
 
-Three things this shook out, each now covered by a regression test:
+What this shook out — mostly a family of cases where the pane rendered something plausible that
+was not the file in front of you, which is the failure a diff viewer can least afford because
+nothing about it looks wrong. Each is now covered by a regression test:
 
 - **A pathspec is applied before rename detection**, so `git diff -M -- new-name` sees only the
   addition and reports a brand-new file with every line green. Both diff requests gained an
@@ -30,6 +32,26 @@ Three things this shook out, each now covered by a regression test:
   `--- comment` in the patch; parsing headers anywhere but before the first hunk dropped the line
   from the diff entirely, under-counted the deletion, clobbered `oldPath`, and shifted every
   following old-side line number by one. Found in self-review, not by the original tests.
+- **`git diff` on an unmerged path emits a combined diff** (`@@@ -1,3 -1,3 +1,7 @@@`, one marker
+  column per parent), which an `^@@ -`-anchored parser skips whole — so mid-merge the one file
+  you most need to see said "No changes to show for this file." The parser reads N-parent headers
+  now and flags `combined`, and the view states that the old numbers are the first parent's.
+- **A pathspec is glob-matched**, so `pages/[id].tsx` is a character class that matches
+  `pages/i.tsx` — the pane rendered a *different file's* content under the requested name.
+  `--literal-pathspecs` fixes it, and it is a MAIN git option: as a subcommand flag it exits 255,
+  which reads downstream as an empty diff rather than as an error.
+- **"Empty output and not staged" does not mean "untracked."** A tracked file with nothing
+  unstaged looks identical, and the `/dev/null` fallback painted it entirely green. Settled with
+  `ls-files --error-unmatch`.
+- **A query key outside the invalidation prefix is never refreshed.** The diff key sat at
+  `['diff', …]` rather than under `keys.status`, and with the client's `staleTime: Infinity` the
+  pane held its first-loaded hunks for the life of the process — through edits, stages, discards.
+- **State reset in an effect lands one render late.** The context reset ran after the render that
+  had already issued its query, so the click after "show the whole file" fetched the *next* file
+  in full — precisely what the reset exists to prevent. It adjusts during render now.
+- **The Vite dev port is contended across worktrees.** Playwright's `reuseExistingServer` attached
+  to whichever server reached 5173 first, running the suite against another checkout's source
+  while looking entirely healthy. The e2e config owns its own port.
 
 Deferred to `outstanding.md`: syntax highlighting inside diff lines, side-by-side mode.
 
