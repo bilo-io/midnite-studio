@@ -11,7 +11,6 @@ import { useCommit, useDiscard, useStage, useStatus, useUnstage } from '../../se
 import { DEFAULT_LAYOUT, LAYOUT_BOUNDS, useUiStore } from '../../store/ui-store';
 import { TreeSection } from '../../components/tree-section';
 import { FileDiff } from './file-diff';
-import { SyncBar } from './sync-bar';
 
 /**
  * The changes panel: staged/unstaged lists, a commit box, and the sync bar.
@@ -69,8 +68,6 @@ export function StatusPanel() {
         }`}
         style={{ width: list.current }}
       >
-        <SyncBar branch={status.branch} onError={setError} />
-
         {status.inProgress ? (
           <p className="shrink-0 border-b border-border bg-destructive/10 px-3 py-1.5 text-xs text-destructive">
             A {status.inProgress} is in progress.
