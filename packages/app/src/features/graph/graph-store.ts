@@ -34,6 +34,15 @@ export type GraphState = {
   finish: (requestId: string, info: { truncated: boolean; error?: string }) => void;
   /** Drop everything (repo closed, or no selection). */
   reset: () => void;
+  /**
+   * Ask for a fresh stream of the same repo.
+   *
+   * A counter rather than a boolean flag: the stream hook keys an effect on it,
+   * and a flag would have to be reset afterwards — a two-step handshake with a
+   * window in which a second request is silently swallowed.
+   */
+  requestRestream: () => void;
+  restreamNonce: number;
 };
 
 const EMPTY = {
@@ -47,6 +56,7 @@ const EMPTY = {
 
 export const useGraphStore = create<GraphState>((set, get) => ({
   ...EMPTY,
+  restreamNonce: 0,
 
   begin: (repoId, requestId) =>
     set({ ...EMPTY, repoId, requestId, loading: true, rows: [] }),
@@ -63,4 +73,6 @@ export const useGraphStore = create<GraphState>((set, get) => ({
   },
 
   reset: () => set({ ...EMPTY, rows: [] }),
+
+  requestRestream: () => set((state) => ({ restreamNonce: state.restreamNonce + 1 })),
 }));

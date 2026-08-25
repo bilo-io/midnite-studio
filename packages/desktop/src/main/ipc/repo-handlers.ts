@@ -12,6 +12,7 @@ import {
   refsFor,
   worktreesFor,
 } from '../repo-registry';
+import { reconcileWatchers } from '../watch-service';
 import { handle, handleBare, handleOp } from './handle';
 
 /**
@@ -24,10 +25,24 @@ import { handle, handleBare, handleOp } from './handle';
  * exception renders as an error boundary.
  */
 export function registerRepoHandlers(getWindow: () => BrowserWindow | null): void {
+  /** Reconcile after any registry change, so no open repo is left unwatched. */
+  const syncWatchers = async (): Promise<void> => {
+    const win = getWindow();
+    if (!win) return;
+    await reconcileWatchers(
+      win,
+      (await listRepos()).map((repo) => ({ id: repo.id, path: repo.path })),
+    );
+  };
+
   handle(
     CHANNELS.repoOpen,
     schemas.RepoOpenRequest,
-    ({ path }) => openRepo(path),
+    async ({ path }) => {
+      const result = await openRepo(path);
+      await syncWatchers();
+      return result;
+    },
     (issue) => ({ ok: false as const, message: issue }),
   );
 
@@ -38,6 +53,7 @@ export function registerRepoHandlers(getWindow: () => BrowserWindow | null): voi
     schemas.RepoCloseRequest,
     async ({ repoId }) => {
       await closeRepo(repoId);
+      await syncWatchers();
     },
     () => undefined,
   );

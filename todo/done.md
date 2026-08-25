@@ -94,3 +94,14 @@ by the key handler and the native menu, with an xterm escape allow-list derived 
 `global` scope; and a footer bar with the toggle, branch, ahead/behind and change count. Verified
 with real OS-level key events: `Ctrl+\`` opens from cold and closes again with the terminal
 focused, and `git status --short` inside the shell agrees with the footer.
+
+## 2026-08-25 — Phase 10 · Watcher / live refresh
+
+`fs.watch` on the narrow set of git paths plus the working tree, classified into
+refs/head/index/worktree, debounced at 200ms, with own-write suppression driven by the write
+queue so the app's own commits don't loop back as external changes. The renderer maps each kind
+to the narrowest correct refresh. Verified live: committing from the integrated terminal adds the
+row to the graph, and `git checkout -b` outside the app makes the badge appear.
+
+The mapping had a real bug worth remembering: `refs` events were treated as badge-only, which
+meant a commit — the commonest ref event there is — never appeared in the graph.

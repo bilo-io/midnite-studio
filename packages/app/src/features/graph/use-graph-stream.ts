@@ -16,6 +16,10 @@ export const DEFAULT_LOG_LIMIT = 50_000;
  */
 export function useGraphStream(repoId: string | null, limit = DEFAULT_LOG_LIMIT): void {
   const requestSeq = useRef(0);
+  // Bumped by the watcher when HEAD moves; re-running the effect restarts the
+  // stream with a fresh requestId, so any in-flight batches from the old one
+  // are discarded by the store rather than appended to the new graph.
+  const restreamNonce = useGraphStore((state) => state.restreamNonce);
 
   useEffect(() => {
     const api = bridge();
@@ -53,5 +57,5 @@ export function useGraphStream(repoId: string | null, limit = DEFAULT_LOG_LIMIT)
     return () => {
       void api.log.cancel({ requestId });
     };
-  }, [repoId, limit]);
+  }, [repoId, limit, restreamNonce]);
 }
