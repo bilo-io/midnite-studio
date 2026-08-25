@@ -87,6 +87,16 @@ export const FileDiffSchema = z.object({
    */
   contextLines: z.number().int().nonnegative(),
   /**
+   * True when this is a *combined* diff — git's output for an unmerged path,
+   * carrying one marker column per parent.
+   *
+   * The UI needs to know: the old-side line numbers describe only the first
+   * parent, and the content includes conflict markers rather than one side's
+   * text. Rendering it as an ordinary diff would present a merge conflict as
+   * though it were a finished change.
+   */
+  combined: z.boolean().default(false),
+  /**
    * True when main stopped parsing at its line ceiling. `droppedLines` says how
    * many were left behind so the UI can offer an honest "show the rest" instead
    * of silently truncating.

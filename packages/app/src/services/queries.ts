@@ -18,6 +18,28 @@ export const keys = {
   worktrees: (repoId: string) => ['repos', repoId, 'worktrees'] as const,
   status: (repoId: string, worktreePath?: string) =>
     ['repos', repoId, 'status', worktreePath ?? 'main'] as const,
+  /**
+   * A worktree/index diff. Deliberately nested UNDER `status`: the watcher
+   * invalidates `keys.status(repoId)` non-exactly on every worktree and index
+   * event, and the global client sets `staleTime: Infinity`. A diff key outside
+   * that prefix is never invalidated and never refetched — the pane would keep
+   * rendering hunks from before the file was edited, staged or discarded, for
+   * the life of the process.
+   */
+  diff: (
+    repoId: string,
+    worktreePath: string | undefined,
+    path: string,
+    staged: boolean,
+    context: number,
+  ) => [...keys.status(repoId, worktreePath), 'diff', path, staged, context] as const,
+  /**
+   * A commit's diff. Under the repo (so it is dropped when the repo closes) but
+   * NOT under `status` — a commit is immutable, so a working-tree event has
+   * nothing to say about it.
+   */
+  commitDiff: (repoId: string, sha: string, path: string, context: number) =>
+    ['repos', repoId, 'commit-diff', sha, path, context] as const,
 };
 
 /**

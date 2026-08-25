@@ -47,6 +47,18 @@ export class TempRepo {
     return res.stdout;
   }
 
+  /**
+   * Run git WITHOUT failing the test on a non-zero exit.
+   *
+   * Some fixtures need a command that is supposed to fail: a conflicting
+   * `git merge` exits 1 and leaves the unmerged index that the test is actually
+   * about, so `git()`'s throwOnError would destroy the state being set up.
+   */
+  async gitAllowFailure(args: string[]): Promise<{ exitCode: number; stdout: string }> {
+    const res = await execGit(this.path, args, { write: true });
+    return { exitCode: res.exitCode, stdout: res.stdout };
+  }
+
   async writeFile(relative: string, contents: string): Promise<void> {
     await writeFile(join(this.path, relative), contents, 'utf8');
   }

@@ -138,6 +138,77 @@ describe('parseUnifiedDiff — body lines that look like headers', () => {
   });
 });
 
+describe('parseUnifiedDiff — combined diffs (unmerged paths)', () => {
+  // `git diff` on a conflicted path emits `@@@` with one marker COLUMN per
+  // parent. An `^@@ -`-anchored parser matches none of it, so the whole section
+  // falls through as unstructured text and the pane reports "no changes" for
+  // the one file the user most needs mid-merge.
+  const conflicted = [
+    'diff --cc f.txt',
+    'index 1111111,2222222..0000000',
+    '--- a/f.txt',
+    '+++ b/f.txt',
+    '@@@ -1,3 -1,3 +1,7 @@@',
+    '  a',
+    '++<<<<<<< HEAD',
+    ' +MAIN',
+    '++=======',
+    '+ FEATURE',
+    '++>>>>>>> feature',
+    '  c',
+  ].join('\n');
+
+  it('flags the diff as combined', () => {
+    expect(parseUnifiedDiff(conflicted, { ...opts, fallbackPath: 'f.txt' }).combined).toBe(true);
+  });
+
+  it('keeps every body line, conflict markers included', () => {
+    const d = parseUnifiedDiff(conflicted, { ...opts, fallbackPath: 'f.txt' });
+    const lines = d.hunks[0]!.lines;
+
+    expect(lines.map((l) => l.text)).toEqual([
+      'a',
+      '<<<<<<< HEAD',
+      'MAIN',
+      '=======',
+      'FEATURE',
+      '>>>>>>> feature',
+      'c',
+    ]);
+    // Both marker columns are stripped — one per parent, not just the first.
+    expect(lines.every((l) => !l.text.startsWith('+') && !l.text.startsWith('-'))).toBe(true);
+  });
+
+  it('classifies a line as added when any parent lacks it', () => {
+    const d = parseUnifiedDiff(conflicted, { ...opts, fallbackPath: 'f.txt' });
+    expect(d.hunks[0]!.lines.map((l) => l.kind)).toEqual([
+      'ctx',
+      'add',
+      'add',
+      'add',
+      'add',
+      'add',
+      'ctx',
+    ]);
+  });
+
+  it('reads the first parent\'s range for the old-side numbers', () => {
+    // A combined header carries one `-` range per parent. The old numbers can
+    // only describe one of them, and the first parent is the branch merged into.
+    const d = parseUnifiedDiff(conflicted, { ...opts, fallbackPath: 'f.txt' });
+    expect(d.hunks[0]).toMatchObject({ oldStart: 1, oldLines: 3, newStart: 1, newLines: 7 });
+    expect(d.hunks[0]!.lines[0]).toMatchObject({ oldNo: 1, newNo: 1 });
+  });
+
+  it('leaves an ordinary two-way diff unflagged', () => {
+    const d = parseUnifiedDiff(
+      ['--- a/x', '+++ b/x', '@@ -1,1 +1,1 @@', '-a', '+b'].join('\n'),
+      opts,
+    );
+    expect(d.combined).toBe(false);
+  });
+});
+
 describe('parseUnifiedDiff — multi-section patches', () => {
   // A two-path pathspec (see commands/diff.ts) yields two sections whenever
   // `-M` fails to pair the rename. Concatenating them would put hunks and line

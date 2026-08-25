@@ -149,6 +149,7 @@ function emptyDiff(path: string, context: number): FileDiff {
     insertions: 0,
     deletions: 0,
     contextLines: context,
+    combined: false,
     truncated: false,
     droppedLines: 0,
   };
