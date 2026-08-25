@@ -1,6 +1,6 @@
 # Midnite Git — Phase Index
 
-**Headline:** the MVP (phases 0–11) is landed — the app packages, installs and runs from /Applications. Three phases are open at once: **[12](phase-12-commit-inspector.md)** makes the commit graph a place you can read and act in (only its diffs have landed), **[14](phase-14-graph-themes.md)** makes the graph itself configurable, and **[15](phase-15-multi-terminal-sessions.md)** turns the single terminal into several — shells and coding agents, persisted across restarts. Post-MVP scope lives in [`outstanding.md`](outstanding.md).
+**Headline:** the MVP (phases 0–11) is landed — the app packages, installs and runs from /Applications. Three phases are open at once: **[12](phase-12-commit-inspector.md)** makes the commit graph a place you can read and act in (only its diffs have landed), **[14](phase-14-graph-themes.md)** makes the graph itself configurable, and **[15](phase-15-multi-terminal-sessions.md)** turns the single terminal into several — shells and coding agents, persisted across restarts. **[16](phase-16-explorer-and-settings-pages.md)** is planned next: a read-only Folder explorer with a preview pane, and Settings split into pages (including an Agent page into `~/.claude`). Post-MVP scope lives in [`outstanding.md`](outstanding.md).
 
 Completed work is logged append-only in [`done.md`](done.md). Deferred scope lives in [`outstanding.md`](outstanding.md).
 
@@ -10,6 +10,7 @@ Completed work is logged append-only in [`done.md`](done.md). Deferred scope liv
 
 | Phase | Status | Done | Progress | % | 🔄 WIP | ◻ TODO |
 |-------|--------|------|----------|---|--------|--------|
+| [16 · Folder explorer, preview pane + settings pages](phase-16-explorer-and-settings-pages.md) | ◻ TODO | 0/35 | `░░░░░░░░░░` | 0% | — | A B C D E |
 | [15 · Multi-terminal sessions + agents](phase-15-multi-terminal-sessions.md) | 🔄 WIP | 27/37 | `███████░░░` | 73% | — | verification |
 | [14 · Graph themes + avatars](phase-14-graph-themes.md) | ✅ DONE | 28/28 | `██████████` | 100% | — | — |
 | [13 · UI polish](phase-13-ui-polish.md) | ✅ DONE | 26/26 | `██████████` | 100% | — | — |
@@ -31,6 +32,16 @@ Completed work is logged append-only in [`done.md`](done.md). Deferred scope liv
 
 <!-- Each phase currently carries a single theme A = its full deliverables checklist. Split into
      lettered themes if a phase gets parallelised. -->
+
+### [Phase 16 — Folder explorer, preview pane + settings pages](phase-16-explorer-and-settings-pages.md)
+
+*The app grows real pages: a read-only Folder view with a preview pane, and Settings split into four pages behind an inner sidebar — including an Agent page into `~/.claude`. B is the spine (the fs IPC + path jail); C/D/E all read through it; A is independent chrome.*
+
+- ◻ **A** — nav rail regrouped (Folder above Graph, Settings pinned bottom) + the settings page shell
+- ◻ **B** — read-only `mgit:fs:*` IPC with a path-confinement jail (repo root + `~/.claude`) and a jailed `mgit-file://` protocol
+- ◻ **C** — lazy repo file tree, dotfiles shown, gitignored dimmed and collapsed
+- ◻ **D** — preview pane: shiki code, rendered markdown w/ source toggle, images/PDF/media, fallback card
+- ◻ **E** — Agent settings page: `~/.claude` tree, Claude version card, Update streams / Uninstall pastes into the terminal
 
 ### [Phase 15 — Multi-terminal sessions + agents](phase-15-multi-terminal-sessions.md)
 
