@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 
 import { bridge } from '../../services/bridge';
+import { useUiStore } from '../../store/ui-store';
 
 export type ConnectionState = 'idle' | 'starting' | 'open' | 'exited' | 'unavailable';
 
@@ -16,6 +17,15 @@ export function useTerminalIpc(cwd: string | null, onData: (bytes: Uint8Array) =
   const [connectionState, setConnectionState] = useState<ConnectionState>('idle');
   const [error, setError] = useState<string | null>(null);
   const ptyIdRef = useRef<string | null>(null);
+
+  /**
+   * The durable session this pty belongs to.
+   *
+   * Minted per mount for now: this hook still owns exactly one terminal, so the
+   * row it names lives and dies with the panel. It becomes a real, persisted id
+   * when the session list lands and this hook is keyed by one instead.
+   */
+  const sessionIdRef = useRef<string>(crypto.randomUUID());
 
   // The data handler changes identity on every render of the consumer; keeping
   // it in a ref means the IPC subscription is created once and never churns.
@@ -49,7 +59,17 @@ export function useTerminalIpc(cwd: string | null, onData: (bytes: Uint8Array) =
       if (ptyIdRef.current) return;
 
       setConnectionState('starting');
-      const result = await api.pty.create({ cwd, cols, rows });
+      const result = await api.pty.create({
+        sessionId: sessionIdRef.current,
+        kind: 'shell',
+        // The repo the shell was opened against, for the session list's label.
+        // Falls back to the path when nothing is selected — the schema wants a
+        // non-empty string, and a cwd is a truer answer than a placeholder.
+        repoId: useUiStore.getState().selectedRepoId ?? cwd,
+        cwd,
+        cols,
+        rows,
+      });
 
       if (!result.ok) {
         // node-pty failing to load is not a crash — the panel says so and the

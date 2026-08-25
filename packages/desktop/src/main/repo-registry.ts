@@ -83,6 +83,36 @@ export async function closeRepo(repoId: string): Promise<void> {
   if (entries.delete(repoId)) await persist();
 }
 
+/**
+ * Apply the sidebar's user-defined order.
+ *
+ * Order is the `Map`'s insertion order, which is what `persist()` writes out as
+ * `repos.json`'s `paths` array — so reordering means rebuilding the map, and the
+ * order round-trips through the same file the list itself does. Keeping it here
+ * rather than as a renderer-side sort means it survives a cleared localStorage
+ * alongside the repos it orders.
+ *
+ * Takes the whole id list so it is idempotent, and reconciles: unknown ids are
+ * ignored, and repos the renderer omitted keep their relative order at the end
+ * rather than being dropped.
+ */
+export async function reorderRepos(repoIds: readonly string[]): Promise<void> {
+  const remaining = new Map(entries);
+  const ordered: [string, RepoEntry][] = [];
+
+  for (const id of repoIds) {
+    const entry = remaining.get(id);
+    if (entry) {
+      ordered.push([id, entry]);
+      remaining.delete(id);
+    }
+  }
+
+  entries.clear();
+  for (const [id, entry] of [...ordered, ...remaining.entries()]) entries.set(id, entry);
+  await persist();
+}
+
 export function getRepo(repoId: string): RepoEntry | undefined {
   return entries.get(repoId);
 }

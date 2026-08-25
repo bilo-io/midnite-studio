@@ -54,6 +54,9 @@ export type MidniteGitBridge = {
     worktrees: (req: In<typeof S.RepoWorktreesRequest>) => Promise<Worktree[]>;
     worktreeAdd: (req: In<typeof S.WorktreeAddRequest>) => Promise<GitOpResult>;
     worktreeRemove: (req: In<typeof S.WorktreeRemoveRequest>) => Promise<GitOpResult>;
+    /** Persist the sidebar's user-defined order. Fire-and-forget: a dropped
+     *  message costs an order, not correctness. */
+    reorder: (req: In<typeof S.RepoReorderRequest>) => void;
     /** Native directory picker. Resolves to null when the user cancels. */
     pickDirectory: () => Promise<string | null>;
   };
@@ -122,6 +125,24 @@ export type MidniteGitBridge = {
      */
     onData: (handler: (e: { ptyId: string; data: Uint8Array }) => void) => Unsubscribe;
     onExit: (handler: (e: z.infer<typeof S.PtyExitEvent>) => void) => Unsubscribe;
+  };
+
+  /**
+   * The durable half of the terminal — session rows and their scrollback.
+   *
+   * Separate from `pty` because a session outlives every process it ever ran:
+   * `list()` returns rows that have no pty at all until the user revives them.
+   */
+  terminal: {
+    list: () => Promise<z.infer<typeof S.TerminalListResponse>>;
+    save: (req: In<typeof S.TerminalSaveRequest>) => void;
+    forget: (req: In<typeof S.TerminalForgetRequest>) => void;
+    reorder: (req: In<typeof S.TerminalReorderRequest>) => void;
+  };
+
+  /** Built-in agents merged with the user's `agents.json`. */
+  agent: {
+    list: () => Promise<z.infer<typeof S.AgentListResponse>>;
   };
 
   watch: {

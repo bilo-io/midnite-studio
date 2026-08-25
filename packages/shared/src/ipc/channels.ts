@@ -18,6 +18,8 @@ export const CHANNELS = {
   repoWorktrees: 'mgit:repo:worktrees',
   repoWorktreeAdd: 'mgit:repo:worktree-add',
   repoWorktreeRemove: 'mgit:repo:worktree-remove',
+  /** User-defined sidebar order; re-persisted to `repos.json`. */
+  repoReorder: 'mgit:repo:reorder',
 
   // --- log stream ----------------------------------------------------------
   logStart: 'mgit:log:start',
@@ -54,10 +56,22 @@ export const CHANNELS = {
   opBlastRadius: 'mgit:op:blast-radius',
 
   // --- pty -----------------------------------------------------------------
+  // `pty:*` owns the *process*; `terminal:*` below owns the durable *record*.
+  // A session outlives its pty (that is the whole point of restoring one), so
+  // conflating the two would tie a saved row to a pid that no longer exists.
   ptyCreate: 'mgit:pty:create',
   ptyInput: 'mgit:pty:input',
   ptyResize: 'mgit:pty:resize',
   ptyKill: 'mgit:pty:kill',
+
+  // --- terminal sessions ---------------------------------------------------
+  /** Restore: every saved session plus its replayable scrollback. */
+  terminalList: 'mgit:terminal:list',
+  terminalSave: 'mgit:terminal:save',
+  terminalForget: 'mgit:terminal:forget',
+  terminalReorder: 'mgit:terminal:reorder',
+  /** Built-in agents merged with the user's `agents.json`. */
+  agentList: 'mgit:agent:list',
 
   // --- window chrome -------------------------------------------------------
   windowMinimize: 'mgit:window:minimize',
