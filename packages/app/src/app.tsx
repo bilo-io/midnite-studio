@@ -10,7 +10,9 @@ import {
 } from '@bilo-io/shell';
 import { QueryClient } from '@tanstack/react-query';
 
+import { GraphView } from './features/graph/graph-view';
 import { ReposPanel } from './features/repos/repos-panel';
+import { useDefaultSelection } from './features/repos/use-default-selection';
 import { hslTokenToHex } from './lib/color';
 import { bridge } from './services/bridge';
 import { pathForView, useUiStore, viewForPath, type ViewId } from './store/ui-store';
@@ -104,6 +106,7 @@ function Placeholder({ view }: { view: ViewId }) {
 
 function Shell() {
   const activeView = useUiStore((s) => s.activeView);
+  useDefaultSelection();
 
   const nav: NavConfig = useMemo(
     () => ({
@@ -175,8 +178,8 @@ function Shell() {
         <aside className="w-64 shrink-0">
           <ReposPanel />
         </aside>
-        <div className="min-w-0 flex-1 overflow-auto">
-          <Placeholder view={activeView} />
+        <div className="min-w-0 flex-1">
+          {activeView === 'graph' ? <GraphView /> : <Placeholder view={activeView} />}
         </div>
       </div>
     </AppFrame>

@@ -49,3 +49,11 @@ duplicate top-level repo. Paths (only paths) persist to `userData/repos.json`; e
 re-read from git at open time. VS Code-style sidebar with nested worktrees, native folder picker,
 and worktree removal that never passes `--force`. Verified against `~/Dev/midnite` and its real
 worktrees, including a restart. 40 new tests.
+
+## 2026-08-25 — Phase 5 · Commit graph, read-only
+
+Streaming log service in main (parse + lane-layout incrementally, 500-row batches, cancellation
+by `requestId`) feeding a virtualized SVG-per-row graph: coloured lanes with merge curves, ref
+badges joined by sha with ahead/behind, subject/author/date columns, and a commit detail pane.
+On `~/Dev/midnite` (2,376 commits) 56 DOM rows are live, scrolling holds a median 8.3ms frame,
+and switching repos mid-stream carries zero rows across.

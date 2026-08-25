@@ -75,7 +75,10 @@ const windowChrome: WindowChromeBridge = {
  * every method in it is a compile error, rather than an `undefined` the renderer
  * only discovers at the moment of the call.
  */
-const bridge: Pick<MidniteGitBridge, 'repos' | 'window' | 'windowChrome' | 'menu'> = {
+const bridge: Pick<
+  MidniteGitBridge,
+  'repos' | 'log' | 'status' | 'window' | 'windowChrome' | 'menu'
+> = {
   repos: {
     open: (req) => call(CHANNELS.repoOpen, req),
     list: () => call(CHANNELS.repoList),
@@ -85,6 +88,17 @@ const bridge: Pick<MidniteGitBridge, 'repos' | 'window' | 'windowChrome' | 'menu
     worktreeAdd: (req) => call(CHANNELS.repoWorktreeAdd, req),
     worktreeRemove: (req) => call(CHANNELS.repoWorktreeRemove, req),
     pickDirectory: () => call(CHANNELS.repoPickDirectory),
+  },
+  log: {
+    start: (req) => call(CHANNELS.logStart, req),
+    cancel: (req) => call(CHANNELS.logCancel, req),
+    onBatch: (handler) => subscribe(EVENT_CHANNELS.logBatch, handler),
+    onDone: (handler) => subscribe(EVENT_CHANNELS.logDone, handler),
+  },
+  status: {
+    get: (req) => call(CHANNELS.statusGet, req),
+    commitDetail: (req) => call(CHANNELS.commitDetail, req),
+    fileDiff: (req) => call(CHANNELS.fileDiff, req),
   },
   window: {
     minimize: () => ipcRenderer.send(CHANNELS.windowMinimize),
