@@ -4,6 +4,7 @@ import { IconButton } from '../../components/icon-button';
 import { useCallback, useEffect, useRef, useState } from 'react';
 
 import { FitAddon } from '@xterm/addon-fit';
+import { WebglAddon } from '@xterm/addon-webgl';
 import { Terminal } from '@xterm/xterm';
 import '@xterm/xterm/css/xterm.css';
 
@@ -26,6 +27,13 @@ import { useTerminalIpc } from './use-terminal-ipc';
  *
  * 2. **safeFit.** Same reasoning for every subsequent fit: bail out unless the
  *    element is measurable, and swallow the throw if it stops being so mid-fit.
+ *
+ * Rendering: the WebGL addon, not the DOM renderer. Powerline prompts
+ * (powerlevel10k et al) use private-use glyphs (U+E0B0…) that none of the
+ * macOS system monospace fonts contain; only the webgl/canvas renderers honor
+ * `customGlyphs` and draw those shapes themselves, which is how VS Code shows
+ * them without a Nerd Font installed. The font stack still leads with common
+ * Nerd Fonts so users who have one get its full symbol set.
  */
 const DARK_THEME = {
   background: '#09090b',
@@ -70,8 +78,12 @@ export function TerminalPanel({ cwd }: { cwd: string | null }) {
     const term = new Terminal({
       convertEol: false,
       cursorBlink: true,
-      fontFamily: 'ui-monospace, SFMono-Regular, "SF Mono", Menlo, monospace',
+      fontFamily:
+        '"MesloLGS NF", "Hack Nerd Font Mono", "JetBrainsMono Nerd Font Mono", "FiraCode Nerd Font Mono", ui-monospace, SFMono-Regular, "SF Mono", Menlo, monospace',
       fontSize: 12,
+      // Honored by the WebGL renderer below: box-drawing and powerline glyphs
+      // are drawn by xterm itself instead of looked up in the font.
+      customGlyphs: true,
       theme: isDark() ? DARK_THEME : LIGHT_THEME,
       // The scrollback a real terminal has; the default 1000 loses the top of a
       // long build log, which is exactly the part you want.
@@ -114,6 +126,16 @@ export function TerminalPanel({ cwd }: { cwd: string | null }) {
       if (!el || el.clientWidth === 0 || el.clientHeight === 0) return;
 
       term.open(el);
+      // Must load after open() — the addon needs the terminal's element. If the
+      // GPU says no (context creation fails or is later lost), fall back to the
+      // DOM renderer: everything still works, only the drawn glyphs degrade.
+      try {
+        const webgl = new WebglAddon();
+        webgl.onContextLoss(() => webgl.dispose());
+        term.loadAddon(webgl);
+      } catch {
+        // WebGL unavailable; DOM renderer remains active.
+      }
       termRef.current = term;
       fitRef.current = fit;
       safeFit();
