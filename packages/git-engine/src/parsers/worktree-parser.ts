@@ -1,6 +1,6 @@
 import { basename } from 'node:path';
 
-import type { Worktree } from '@midnite-git/shared';
+import type { Worktree } from '@midnite/git-shared';
 
 /**
  * Parser for `git worktree list --porcelain`.

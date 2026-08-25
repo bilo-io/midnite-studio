@@ -1,5 +1,5 @@
 {
-  "name": "@midnite-git/app",
+  "name": "@midnite/git-app",
   "version": "0.1.0",
   "private": true,
   "description": "Renderer: Vite + React SPA. Talks to the main process only through window.midniteGit.",
@@ -15,7 +15,7 @@
     "@bilo-io/shell": "0.1.0",
     "@bilo-io/ui": "0.1.0",
     "@dnd-kit/core": "^6.3.1",
-    "@midnite-git/shared": "workspace:*",
+    "@midnite/git-shared": "workspace:*",
     "@tanstack/react-query": "^5.62.0",
     "@tanstack/react-virtual": "^3.11.2",
     "@xterm/addon-fit": "^0.10.0",

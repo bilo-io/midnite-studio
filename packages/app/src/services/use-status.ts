@@ -1,4 +1,4 @@
-import type { GitOpResult, StatusResult } from '@midnite-git/shared';
+import type { GitOpResult, StatusResult } from '@midnite/git-shared';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 
 import { useUiStore } from '../store/ui-store';

@@ -1,5 +1,5 @@
 /**
- * @midnite-git/git-engine — everything that touches git, as plain Node/TS.
+ * @midnite/git-engine — everything that touches git, as plain Node/TS.
  *
  * Dependency rule: no `electron` imports anywhere in this package. It runs
  * inside the Electron main process in production, but it must stay runnable

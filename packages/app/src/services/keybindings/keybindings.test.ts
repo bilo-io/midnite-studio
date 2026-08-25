@@ -84,7 +84,7 @@ describe('key normalisation', () => {
 
 describe('the keymap matches real keystrokes', () => {
   it('Ctrl+` on macOS resolves to the terminal toggle binding', async () => {
-    const { DEFAULT_KEYMAP } = await import('@midnite-git/shared');
+    const { DEFAULT_KEYMAP } = await import('@midnite/git-shared');
     withPlatform('MacIntel', () => {
       const chord = chordFromEvent(event({ key: '`', ctrlKey: true }));
       const binding = DEFAULT_KEYMAP.find((b) => b.chord === chord);

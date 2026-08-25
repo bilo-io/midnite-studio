@@ -1,4 +1,4 @@
-import type { Commit } from '@midnite-git/shared';
+import type { Commit } from '@midnite/git-shared';
 
 /**
  * Field separator inside a record. NUL, never whitespace: commit subjects

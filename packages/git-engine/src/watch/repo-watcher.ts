@@ -1,7 +1,7 @@
 import { watch, type FSWatcher } from 'node:fs';
 import { basename, join, sep } from 'node:path';
 
-import type { WatchKind } from '@midnite-git/shared';
+import type { WatchKind } from '@midnite/git-shared';
 
 import { execGit } from '../exec/git-exec';
 import { writeQueue } from '../exec/write-queue';

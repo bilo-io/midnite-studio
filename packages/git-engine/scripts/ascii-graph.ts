@@ -1,4 +1,4 @@
-import type { GraphRow } from '@midnite-git/shared';
+import type { GraphRow } from '@midnite/git-shared';
 
 /**
  * Render laid-out rows as ASCII, in the shape `git log --graph` uses.

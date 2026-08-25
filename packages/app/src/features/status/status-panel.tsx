@@ -1,6 +1,6 @@
 import { useState } from 'react';
 
-import type { StatusEntry } from '@midnite-git/shared';
+import type { StatusEntry } from '@midnite/git-shared';
 
 import { useCommit, useDiscard, useStage, useStatus, useUnstage } from '../../services/use-status';
 import { useUiStore } from '../../store/ui-store';

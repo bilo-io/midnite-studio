@@ -1,5 +1,5 @@
 {
-  "name": "@midnite-git/git-engine",
+  "name": "@midnite/git-engine",
   "version": "0.1.0",
   "private": true,
   "description": "Pure Node/TS git layer \u2014 dugite exec, NUL-delimited parsers, commands, lane layout, watcher. No electron imports.",
@@ -21,7 +21,7 @@
     "smoke": "tsx scripts/smoke.ts"
   },
   "dependencies": {
-    "@midnite-git/shared": "workspace:*",
+    "@midnite/git-shared": "workspace:*",
     "dugite": "^2.7.1",
     "zod": "^3.23.8"
   },

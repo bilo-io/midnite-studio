@@ -11,7 +11,7 @@ import {
   type DragEndEvent,
   type DragStartEvent,
 } from '@dnd-kit/core';
-import type { Ref } from '@midnite-git/shared';
+import type { Ref } from '@midnite/git-shared';
 
 /**
  * Drag gestures on the graph: branch → branch, and commit → branch.

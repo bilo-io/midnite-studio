@@ -1,4 +1,4 @@
-import type { WatchKind } from '@midnite-git/shared';
+import type { WatchKind } from '@midnite/git-shared';
 import { QueryClient } from '@tanstack/react-query';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 

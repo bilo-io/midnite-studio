@@ -1,6 +1,6 @@
 import { useEffect } from 'react';
 
-import { DEFAULT_KEYMAP, GLOBAL_CHORDS, type CommandId } from '@midnite-git/shared';
+import { DEFAULT_KEYMAP, GLOBAL_CHORDS, type CommandId } from '@midnite/git-shared';
 
 import { bridge } from '../bridge';
 import { chordFromEvent } from './chord';

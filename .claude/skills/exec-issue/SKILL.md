@@ -1,11 +1,11 @@
 ---
 name: exec-issue
-description: Triage the midnite-git issue board, recommend the highest-impact issue (plus 3 alternatives), agree a fix plan interactively, then build it in a worktree and open a linked PR. Stops at the PR — never merges.
+description: Triage the Midnite Git issue board, recommend the highest-impact issue (plus 3 alternatives), agree a fix plan interactively, then build it in a worktree and open a linked PR. Stops at the PR — never merges.
 argument-hint: "[optional: issue number, label, or keyword]"
 allowed-tools: Bash, Read, Edit, Write, Glob, Grep, AskUserQuestion, TodoWrite, Agent, ToolSearch
 ---
 
-End-to-end "fix a reported issue" for **midnite-git**, driven by the repo's issue board.
+End-to-end "fix a reported issue" for **Midnite Git**, driven by the repo's issue board.
 
 **Conversation style — enforced.** Be terse to save time and tokens. No preamble, no recap of these instructions, no narrating what you're *about* to do. Report results, not intentions; bullets over prose. Stay silent on no-op stages. Spend tokens on the root cause, the diff, and the decisions — not commentary.
 

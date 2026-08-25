@@ -5,7 +5,7 @@ argument-hint: "[today | yesterday | YYYY-MM-DD | this-week | this-month | YYYY-
 allowed-tools: Bash, Read, Write, Glob, Grep, AskUserQuestion, Artifact, Agent, SendUserFile
 ---
 
-A git activity + phase-progress report for **midnite-git** over a chosen window.
+A git activity + phase-progress report for **Midnite Git** over a chosen window.
 
 **Style:** terse — lead with the report, don't narrate the gathering.
 

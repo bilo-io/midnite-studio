@@ -1,4 +1,4 @@
-import type { GraphRow, Ref } from '@midnite-git/shared';
+import type { GraphRow, Ref } from '@midnite/git-shared';
 import { memo } from 'react';
 
 import { useCommitDnd, useRefDnd } from './graph-dnd';

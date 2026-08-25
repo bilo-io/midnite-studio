@@ -29,7 +29,7 @@ tasks:
       - 'dist'
 
 
-  # tsc --noEmit resolves @midnite-git/shared through a project reference but
+  # tsc --noEmit resolves @midnite/git-shared through a project reference but
   # does not build it, so build it first. Shared's sources are inputs too — see
   # the note in packages/desktop/moon.yml: without them a shared-only change
   # leaves this a cache hit and the typecheck runs against a stale API.

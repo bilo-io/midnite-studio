@@ -1,3 +1,5 @@
+import { dirname, join } from 'node:path';
+
 import { BrowserWindow, app } from 'electron';
 
 import { registerPtyHandlers } from './ipc/pty-handlers';
@@ -9,6 +11,7 @@ import { killAllPtys } from './pty-service';
 import { configureRegistry, listRepos, openRepo, restoreRepos } from './repo-registry';
 import { reconcileWatchers, stopAllWatchers } from './watch-service';
 import { createRepoStore } from './repo-store';
+import { LEGACY_APP_NAME, migrateLegacyRepoStore } from './userdata-migration';
 import { ensureLoginShellPath } from './shell-path';
 import { createWindow } from './window';
 import { registerWindowChrome } from './window-chrome';
@@ -16,7 +19,7 @@ import { registerWindowChrome } from './window-chrome';
 /**
  * Electron main entry point.
  *
- * Owns everything the renderer cannot: git (through @midnite-git/git-engine),
+ * Owns everything the renderer cannot: git (through @midnite/git-engine),
  * node-pty, the filesystem, and the native window. The renderer reaches all of
  * it through the typed bridge in ../preload.
  */
@@ -48,10 +51,14 @@ async function openReposFromEnv(): Promise<void> {
 /**
  * Electron derives the app name from package.json, which here is the scoped
  * workspace name — so the macOS menu bar, the About dialog and `~/Library/
- * Application Support` all read "@midnite-git/desktop". Set it before anything
+ * Application Support` all read "@midnite/git-desktop". Set it before anything
  * reads it, which includes `app.getPath('userData')`.
+ *
+ * This is the display name, matching electron-builder's `productName`. It has a
+ * space in it, which means `userData` moved when the app was renamed from
+ * `midnite-git` — see ./userdata-migration.
  */
-app.setName('midnite-git');
+app.setName('Midnite Git');
 
 if (!app.requestSingleInstanceLock()) {
   app.quit();
@@ -78,7 +85,11 @@ if (!app.requestSingleInstanceLock()) {
     // Restore before the window opens: the renderer's first `repo:list` fires
     // on mount, and an empty answer there shows the empty state for a frame
     // even though repos are about to appear.
-    configureRegistry(createRepoStore(app.getPath('userData')));
+    const userData = app.getPath('userData');
+    // Must run before the store is read: the rename to "Midnite Git" moved
+    // userData, and the user's repository list is still under the old name.
+    await migrateLegacyRepoStore(join(dirname(userData), LEGACY_APP_NAME), userData);
+    configureRegistry(createRepoStore(userData));
     await restoreRepos();
     await openReposFromEnv();
 

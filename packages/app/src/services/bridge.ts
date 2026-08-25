@@ -1,7 +1,7 @@
 import type { ComponentProps } from 'react';
 
 import type { TitleBar } from '@bilo-io/shell';
-import type { MidniteGitBridge, WindowChromeBridge } from '@midnite-git/shared';
+import type { MidniteGitBridge, WindowChromeBridge } from '@midnite/git-shared';
 
 /**
  * Access to the preload bridge — the renderer's only route to the main process.

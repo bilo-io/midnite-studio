@@ -1,4 +1,4 @@
-import type { Ref, RepoDescriptor, Worktree } from '@midnite-git/shared';
+import type { Ref, RepoDescriptor, Worktree } from '@midnite/git-shared';
 import { useMutation, useQuery, useQueryClient, type QueryClient } from '@tanstack/react-query';
 
 import { bridge } from './bridge';

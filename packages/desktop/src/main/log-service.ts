@@ -1,5 +1,5 @@
-import { LaneLayoutSession, readCommitDetail, streamLog, type LogStream } from '@midnite-git/git-engine';
-import { EVENT_CHANNELS, type GraphRow } from '@midnite-git/shared';
+import { LaneLayoutSession, readCommitDetail, streamLog, type LogStream } from '@midnite/git-engine';
+import { EVENT_CHANNELS, type GraphRow } from '@midnite/git-shared';
 import type { BrowserWindow } from 'electron';
 
 /**
