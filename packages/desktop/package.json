@@ -1,0 +1,27 @@
+{
+  "name": "@midnite-git/desktop",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Electron main + preload: owns git (via git-engine) and node-pty, exposes typed IPC.",
+  "main": "dist/main/index.js",
+  "scripts": {
+    "build": "tsc -b",
+    "typecheck": "tsc --noEmit",
+    "test": "vitest run",
+    "start": "electron ."
+  },
+  "dependencies": {
+    "@midnite-git/git-engine": "workspace:*",
+    "@midnite-git/shared": "workspace:*",
+    "node-pty": "^1.0.0"
+  },
+  "devDependencies": {
+    "@electron/rebuild": "^3.7.0",
+    "@midnite-git/app": "workspace:*",
+    "@types/node": "^22.10.2",
+    "electron": "^33.2.0",
+    "electron-builder": "^25.1.8",
+    "typescript": "^5.6.3",
+    "vitest": "^3.2.4"
+  }
+}

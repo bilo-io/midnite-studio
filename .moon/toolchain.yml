@@ -1,0 +1,17 @@
+$schema: 'https://moonrepo.dev/schemas/toolchain.json'
+
+node:
+  # Keep in lockstep with `.prototools` (what proto actually installs). A mismatch
+  # here makes moon rewrite each package.json's `engines.node` on every run.
+  version: '22.12.0'
+  packageManager: 'pnpm'
+  pnpm:
+    version: '9.15.0'
+
+# TypeScript project-reference syncing is intentionally OFF. When enabled, moon
+# re-serialises every package tsconfig on each run — stripping the hand-written
+# explanatory comments and reformatting them — and generates a root `tsconfig.json`
+# that `extends` a `tsconfig.options.json` we don't have. The committed tsconfigs
+# are the source of truth.
+typescript:
+  syncProjectReferences: false

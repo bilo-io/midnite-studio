@@ -1,6 +1,6 @@
 # midnite-git — Phase Index
 
-**Headline:** nothing built yet — the plan is seeded (see [`../docs/INITIAL_PLAN.md`](../docs/INITIAL_PLAN.md)); Phase 0 (scaffold) is the live frontier.
+**Headline:** the workspace is scaffolded and installs clean against GitHub Packages; Phase 1 (shared contracts + git-engine exec/parsers) is the live frontier.
 
 Completed work is logged append-only in [`done.md`](done.md). Deferred scope lives in [`outstanding.md`](outstanding.md).
 
@@ -21,7 +21,7 @@ Completed work is logged append-only in [`done.md`](done.md). Deferred scope liv
 | [3 · Electron shell boots](phase-3-electron-shell.md) | ◻ TODO | 0/15 | `░░░░░░░░░░` | 0% | — | A |
 | [2 · Lane layout engine](phase-2-lane-layout.md) | ◻ TODO | 0/10 | `░░░░░░░░░░` | 0% | — | A |
 | [1 · Shared contracts + git-engine parsers](phase-1-contracts-and-parsers.md) | ◻ TODO | 0/14 | `░░░░░░░░░░` | 0% | — | A |
-| [0 · Scaffold](phase-0-scaffold.md) | ◻ TODO | 0/17 | `░░░░░░░░░░` | 0% | — | A |
+| [0 · Scaffold](phase-0-scaffold.md) | ✅ DONE | 17/17 | `██████████` | 100% | — | — |
 
 ## Theme key
 
@@ -74,7 +74,7 @@ Completed work is logged append-only in [`done.md`](done.md). Deferred scope liv
 
 ### [Phase 0 — Scaffold](phase-0-scaffold.md)
 
-- ◻ **A** — proto/moon/pnpm skeleton, four packages, boundary lint rules, GH Packages auth proven
+- ✅ **A** — proto/moon/pnpm skeleton, four packages, boundary lint rules, GH Packages auth proven
 
 ## Conventions
 

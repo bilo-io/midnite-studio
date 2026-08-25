@@ -1,0 +1,40 @@
+$schema: 'https://moonrepo.dev/schemas/project.json'
+
+language: 'typescript'
+
+dependsOn:
+  - 'shared'
+
+tasks:
+  # Vite owns the renderer build, not `tsc -b`. `mergeArgs: replace` is required:
+  # moon's default is to APPEND a local task's args to the inherited ones, which
+  # would run `pnpm exec tsc -b exec vite build`.
+  build:
+    command: 'pnpm exec vite build'
+    options:
+      mergeArgs: 'replace'
+    deps:
+      - 'root:install'
+      - '^:build'
+    inputs:
+      - 'src/**/*'
+      - 'index.html'
+      - 'vite.config.ts'
+      - 'tailwind.config.ts'
+      - 'postcss.config.js'
+      - 'tsconfig.json'
+      - 'package.json'
+    outputs:
+      - 'dist'
+
+
+  # tsc --noEmit resolves @midnite-git/shared through a project reference but
+  # does not build it, so build it first.
+  typecheck:
+    deps:
+      - 'shared:build'
+
+  # Vite dev server for the Electron main process to load in development.
+  dev:
+    command: 'pnpm exec vite'
+    preset: 'server'

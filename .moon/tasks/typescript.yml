@@ -1,0 +1,47 @@
+$schema: 'https://moonrepo.dev/schemas/tasks.json'
+
+# Tasks inherited by every project declaring `language: 'typescript'` — i.e. all
+# four packages, but not the `root` project (language: bash).
+#
+# NOTE: moon 2 resolves global tasks from `.moon/tasks/<scope>.yml` only. A
+# top-level `.moon/tasks.yml` is silently ignored — projects come out with zero
+# inherited tasks and `moon run :typecheck` quietly does nothing.
+
+fileGroups:
+  sources:
+    - 'src/**/*'
+  configs:
+    - 'tsconfig.json'
+    - 'package.json'
+
+tasks:
+  build:
+    command: 'pnpm exec tsc -b'
+    deps:
+      - 'root:install'
+    inputs:
+      - '@group(sources)'
+      - '@group(configs)'
+    outputs:
+      - 'dist'
+
+  typecheck:
+    command: 'pnpm exec tsc --noEmit'
+    inputs:
+      - '@group(sources)'
+      - '@group(configs)'
+
+  test:
+    command: 'pnpm exec vitest run'
+    inputs:
+      - '@group(sources)'
+      - '@group(configs)'
+      - 'vitest.config.ts'
+
+  lint:
+    command: 'pnpm exec eslint .'
+    inputs:
+      - 'src/**/*'
+      - 'scripts/**/*'
+      - '*.{ts,tsx,cjs,mjs}'
+      - '/eslint.config.mjs'
