@@ -10,6 +10,7 @@ Completed work is logged append-only in [`done.md`](done.md). Deferred scope liv
 
 | Phase | Status | Done | Progress | % | 🔄 WIP | ◻ TODO |
 |-------|--------|------|----------|---|--------|--------|
+| [13 · UI polish](phase-13-ui-polish.md) | ✅ DONE | 24/26 | `█████████░` | 92% | — | verification: smoke + screenshot |
 | [12 · Commit inspector + live badges](phase-12-commit-inspector.md) | ◻ TODO | 0/51 | `░░░░░░░░░░` | 0% | — | A B C D E F |
 | [11 · Packaging + docs](phase-11-packaging.md) | ✅ DONE | 12/12 | `██████████` | 100% | — | — |
 | [10 · Watcher / live refresh](phase-10-watcher.md) | ✅ DONE | 9/9 | `██████████` | 100% | — | — |
@@ -39,6 +40,16 @@ Completed work is logged append-only in [`done.md`](done.md). Deferred scope liv
 - ◻ **D** — real diffs: `mgit:commit:file-diff` channel, hunk parser, one restrained `<DiffView>` shared with the status panel
 - ◻ **E** — `Remote` domain type, `listRemotes`, ssh/https URL normaliser, guarded `shell:open-external`
 - ◻ **F** — graph row polish: selection treatment, lane contrast, badge/subject width, row density
+
+### [Phase 13 — UI polish](phase-13-ui-polish.md)
+
+- ✅ **A** — lucide, motion keyframes, applyMotion, Tooltip, IconButton, cascade
+- ✅ **B** — use-resizable + ResizeHandle, persisted ui-store, four resizable panes
+- ✅ **C** — TreeSection, per-repo Branches/Remotes/Tags/Worktrees, icon overhaul
+- ✅ **D** — lockable nav rail (navMode persisted, pin in the brand slot)
+- ✅ **E** — theme toggle + sync cluster in the title bar, three dead CommandIds wired
+- ✅ **F** — graph column headers, resizable columns, multi-select branch filter
+- ✅ **G** — cascading fade-in, view cross-fade, once-per-stream graph fade
 
 ### [Phase 11 — Packaging + docs](phase-11-packaging.md)
 
