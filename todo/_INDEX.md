@@ -14,7 +14,7 @@ Completed work is logged append-only in [`done.md`](done.md). Deferred scope liv
 | [15 · Multi-terminal sessions + agents](phase-15-multi-terminal-sessions.md) | 🔄 WIP | 38/39 | `█████████░` | 97% | — | manual relaunch check |
 | [14 · Graph themes + avatars](phase-14-graph-themes.md) | ✅ DONE | 28/28 | `██████████` | 100% | — | — |
 | [13 · UI polish](phase-13-ui-polish.md) | ✅ DONE | 26/26 | `██████████` | 100% | — | — |
-| [12 · Commit inspector + live badges](phase-12-commit-inspector.md) | 🔄 WIP | 15/51 | `███░░░░░░░` | 29% | A B | C F |
+| [12 · Commit inspector + live badges](phase-12-commit-inspector.md) | 🔄 WIP | 15/51 | `███░░░░░░░` | 29% | A B C F | — |
 | [11 · Packaging + docs](phase-11-packaging.md) | ✅ DONE | 12/12 | `██████████` | 100% | — | — |
 | [10 · Watcher / live refresh](phase-10-watcher.md) | ✅ DONE | 9/9 | `██████████` | 100% | — | — |
 | [9 · Integrated terminal + keybindings](phase-9-terminal-and-keybindings.md) | ✅ DONE | 11/11 | `██████████` | 100% | — | — |
