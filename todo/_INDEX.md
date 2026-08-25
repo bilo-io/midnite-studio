@@ -11,7 +11,7 @@ Completed work is logged append-only in [`done.md`](done.md). Deferred scope liv
 | Phase | Status | Done | Progress | % | 🔄 WIP | ◻ TODO |
 |-------|--------|------|----------|---|--------|--------|
 | [15 · Multi-terminal sessions + agents](phase-15-multi-terminal-sessions.md) | 🔄 WIP | 7/37 | `██░░░░░░░░` | 19% | — | B C D E |
-| [14 · Graph themes + avatars](phase-14-graph-themes.md) | ✅ DONE | 27/28 | `██████████` | 96% | — | verification: ref-chip drag smoke |
+| [14 · Graph themes + avatars](phase-14-graph-themes.md) | ✅ DONE | 28/28 | `██████████` | 100% | — | — |
 | [13 · UI polish](phase-13-ui-polish.md) | ✅ DONE | 26/26 | `██████████` | 100% | — | — |
 | [12 · Commit inspector + live badges](phase-12-commit-inspector.md) | 🔄 WIP | 9/51 | `██░░░░░░░░` | 18% | — | A B C E F |
 | [11 · Packaging + docs](phase-11-packaging.md) | ✅ DONE | 12/12 | `██████████` | 100% | — | — |

@@ -67,12 +67,31 @@ the ASCII `git log` variant dropped) plus a GitKraken capture.
 - [x] Switching style re-measures the virtualizer (`estimateSize` is cached — without an
       explicit `measure()` every row keeps the old height until fully scrolled)
 - [x] Offline: every node shows initials, no broken images
-- [ ] **Dragging a ref chip onto another still opens the merge/rebase menu** — Phase 8's
-      gesture, relocated to the new column. Covered by no test; needs a human in the real
-      app. The easiest thing in this phase to have broken silently.
+- [x] **Dragging a ref chip onto another still opens the merge/rebase menu** — Phase 8's
+      gesture, relocated to the new column. Covered by `e2e/ref-drag.spec.ts`: merge, rebase
+      and cherry-pick each driven with a real pointer and asserted down to the `ops.*` call,
+      plus the guard cases (tag, self-drop, target not checked out)
 - [x] Screenshot per style → `docs/screenshots/phase-14/*.png` (Playwright)
 
 ## Findings while landing this phase
+
+- **The relocation did not break the gesture — but only a pointer-level test could say so.**
+  `useRefDnd` is wired from `graph-row.tsx`, so moving the chips into the BRANCH / TAG column
+  carried the drag and drop wiring with them for free. Nothing in the markup shows that,
+  which is why the item sat unchecked: the failure mode was silent by construction.
+- **dnd-kit eats the click that trails a drag, for 50ms.** `AbstractPointerSensor` adds a
+  document-level *capture* listener that `stopPropagation()`s `click` on activation, and its
+  teardown removes it only after `setTimeout(…, 50)`. No human meets it — releasing the
+  mouse, reading the menu and clicking takes far longer — but a synthetic click lands inside
+  the window and dies in the capture phase before React's delegated listener sees it. The
+  menu item then looks completely dead: no error, nothing in the DOM, and a DOM-level
+  `.click()` on the very same button works. Every gesture in the spec pauses for it.
+- **`rectIntersection` collides the OVERLAY's rect, not the dragged element's.** With a
+  `<DragOverlay>` the rect being scored is the overlay pill's — sized by whatever text it
+  carries — so a commit dropped on a chip can be scored onto a chip one row away. The first
+  version of the spec dropped a commit onto `main` and got a menu offering to cherry-pick
+  onto `feature/drag-me`, which sat on the adjacent row. The fixture now keeps ref-less rows
+  around every drop target; row spacing is load-bearing in that file, not decoration.
 
 - **The avatar sets a floor on node size.** No style can use its reference screenshot's 4px
   dot when the node has to hold a face, so the four differentiate on edge routing, stroke
