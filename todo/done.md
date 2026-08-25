@@ -143,3 +143,20 @@ Worth knowing: the mark is an **opaque** disc (a black crescent on a white groun
 only outside the circle). A CSS mask reads only the alpha channel, so masking it flattens it to a
 featureless dot — it has to be an `<img>`, in the rounded-coin-with-a-hairline-ring treatment
 midnite itself uses, which is also what makes one asset work on both themes.
+
+## 2026-08-25 — Phase 13 · UI polish
+
+Resizable panels (sidebar, terminal, commit detail, changes list) with geometry persisted in
+`midnite-git.ui`; a full per-repo ref tree (Branches · Remotes · Tags · Worktrees) replacing the
+worktree-only sidebar, with `FolderGit2` distinguishing a checkout from a branch; a lockable nav
+rail; the theme toggle and an icon-only fetch/pull/push cluster moved into the title bar (with a
+framed-window fallback, since `<TitleBar>` renders nothing off darwin); graph column headers with
+resizable Author/Date/SHA driven by CSS custom properties so the memoised rows never re-render
+during a drag; and a multi-select branch filter that re-runs the log stream server-side —
+`LogOptions.revisions` already existed in the engine, only `log-service` hard-coded `--all`. Every
+Unicode glyph is now a lucide icon, and motion is a two-keyframe vocabulary disarmed by
+`applyMotion` under `prefers-reduced-motion`. Three CommandIds (`sync.fetch/pull/push`) that had
+been declared with chords and menu items since Phase 9 finally have handlers. 304 tests green.
+**Not verified visually** — Electron cannot reach the macOS window server from the agent's shell,
+so the manual smoke and the screenshot are outstanding.
+
