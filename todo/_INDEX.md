@@ -1,6 +1,6 @@
 # midnite-git — Phase Index
 
-**Headline:** the workspace is scaffolded and installs clean against GitHub Packages; Phase 1 (shared contracts + git-engine exec/parsers) is the live frontier.
+**Headline:** the git engine reads real repositories through a fully typed contract; Phase 2 (lane layout) is the live frontier.
 
 Completed work is logged append-only in [`done.md`](done.md). Deferred scope lives in [`outstanding.md`](outstanding.md).
 
@@ -20,7 +20,7 @@ Completed work is logged append-only in [`done.md`](done.md). Deferred scope liv
 | [4 · Repo open/list + worktree sidebar](phase-4-repos-and-worktrees.md) | ◻ TODO | 0/10 | `░░░░░░░░░░` | 0% | — | A |
 | [3 · Electron shell boots](phase-3-electron-shell.md) | ◻ TODO | 0/15 | `░░░░░░░░░░` | 0% | — | A |
 | [2 · Lane layout engine](phase-2-lane-layout.md) | ◻ TODO | 0/10 | `░░░░░░░░░░` | 0% | — | A |
-| [1 · Shared contracts + git-engine parsers](phase-1-contracts-and-parsers.md) | ◻ TODO | 0/14 | `░░░░░░░░░░` | 0% | — | A |
+| [1 · Shared contracts + git-engine parsers](phase-1-contracts-and-parsers.md) | ✅ DONE | 14/14 | `██████████` | 100% | — | — |
 | [0 · Scaffold](phase-0-scaffold.md) | ✅ DONE | 17/17 | `██████████` | 100% | — | — |
 
 ## Theme key
@@ -70,7 +70,7 @@ Completed work is logged append-only in [`done.md`](done.md). Deferred scope liv
 
 ### [Phase 1 — Shared contracts + git-engine parsers](phase-1-contracts-and-parsers.md)
 
-- ◻ **A** — zod domain/IPC contracts, dugite exec + write queue, NUL-delimited parsers, smoke script
+- ✅ **A** — zod domain/IPC contracts, dugite exec + write queue, NUL-delimited parsers, smoke script
 
 ### [Phase 0 — Scaffold](phase-0-scaffold.md)
 
