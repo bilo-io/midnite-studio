@@ -1,6 +1,6 @@
 # midnite-git — Phase Index
 
-**Headline:** the UI follows the repository live; Phase 11 (packaging + docs) is the live frontier — the last one.
+**Headline:** all 12 phases are landed — the app packages, installs and runs from /Applications. Post-MVP scope lives in [`outstanding.md`](outstanding.md).
 
 Completed work is logged append-only in [`done.md`](done.md). Deferred scope lives in [`outstanding.md`](outstanding.md).
 
@@ -10,7 +10,7 @@ Completed work is logged append-only in [`done.md`](done.md). Deferred scope liv
 
 | Phase | Status | Done | Progress | % | 🔄 WIP | ◻ TODO |
 |-------|--------|------|----------|---|--------|--------|
-| [11 · Packaging + docs](phase-11-packaging.md) | ◻ TODO | 0/12 | `░░░░░░░░░░` | 0% | — | A |
+| [11 · Packaging + docs](phase-11-packaging.md) | ✅ DONE | 12/12 | `██████████` | 100% | — | — |
 | [10 · Watcher / live refresh](phase-10-watcher.md) | ✅ DONE | 9/9 | `██████████` | 100% | — | — |
 | [9 · Integrated terminal + keybindings](phase-9-terminal-and-keybindings.md) | ✅ DONE | 11/11 | `██████████` | 100% | — | — |
 | [8 · Drag-drop ops + conflicts](phase-8-drag-drop-ops.md) | ✅ DONE | 10/10 | `██████████` | 100% | — | — |
@@ -30,7 +30,7 @@ Completed work is logged append-only in [`done.md`](done.md). Deferred scope liv
 
 ### [Phase 11 — Packaging + docs](phase-11-packaging.md)
 
-- ◻ **A** — electron-builder arm64, afterpack/install-local scripts, CI workflow, README/docs final
+- ✅ **A** — electron-builder arm64, afterpack/install-local scripts, CI workflow, README/docs final
 
 ### [Phase 10 — Watcher / live refresh](phase-10-watcher.md)
 

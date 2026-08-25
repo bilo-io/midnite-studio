@@ -1,0 +1,89 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  gate:
+    # macOS because the integration tests shell out to dugite's bundled git and
+    # the repo targets macOS arm64 first. The gate itself is platform-agnostic.
+    runs-on: macos-14
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          # moon compares against the merge base to decide what is affected.
+          fetch-depth: 0
+
+      - uses: pnpm/action-setup@v4
+        with:
+          version: 9.15.0
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22.12.0
+          cache: pnpm
+
+      # @bilo-io/ui and @bilo-io/shell come from GitHub Packages, which requires
+      # an Authorization header even for public packages. GITHUB_TOKEN carries
+      # `packages: read` for this repo's own org, so no PAT is needed in CI.
+      - name: Install
+        run: pnpm install --frozen-lockfile
+        env:
+          GITHUB_PACKAGES_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Typecheck, lint, test
+        run: pnpm exec moon run :typecheck :lint :test
+        env:
+          GITHUB_PACKAGES_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          # The integration tests create commits; git refuses without an identity.
+          GIT_AUTHOR_NAME: ci
+          GIT_AUTHOR_EMAIL: ci@example.com
+          GIT_COMMITTER_NAME: ci
+          GIT_COMMITTER_EMAIL: ci@example.com
+
+  package:
+    # Packaging is macOS-arm64 only and slow, so it runs on main rather than on
+    # every PR. It is here to catch electron-builder breakage early — the pnpm
+    # symlink and native-module traps only show up in a real package.
+    if: github.ref == 'refs/heads/main'
+    needs: gate
+    runs-on: macos-14
+    permissions:
+      packages: read
+    steps:
+      - uses: actions/checkout@v4
+      - uses: pnpm/action-setup@v4
+        with:
+          version: 9.15.0
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22.12.0
+          cache: pnpm
+
+      - name: Install
+        run: pnpm install --frozen-lockfile
+        env:
+          GITHUB_PACKAGES_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Rebuild native modules for Electron
+        run: pnpm exec moon run desktop:rebuild-native
+
+      - name: Package
+        run: pnpm exec moon run desktop:dist
+        env:
+          GITHUB_PACKAGES_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          # No Developer ID cert in CI: build cleanly unsigned. afterpack.cjs
+          # ad-hoc signs the bundle so it still launches locally.
+          CSC_IDENTITY_AUTO_DISCOVERY: 'false'
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: midnite-git-macos-arm64
+          path: packages/desktop/release/*.dmg
+          if-no-files-found: error

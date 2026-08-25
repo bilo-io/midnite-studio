@@ -1,0 +1,63 @@
+appId: io.bilo.midnite-git
+productName: midnite-git
+
+directories:
+  output: release
+  buildResources: resources
+
+artifactName: midnite-git-${version}-${arch}.${ext}
+
+# The asar carries only the two esbuild bundles. Everything from the workspace
+# is already inlined into them (see scripts/bundle.mjs), so the workspace
+# symlinks must be kept out — electron-builder follows them into sibling
+# directories and fails on paths outside the app root.
+files:
+  - dist/bundle/**/*
+  - package.json
+  - '!node_modules/@midnite-git/**'
+  - '!dist/main/**'
+  - '!dist/preload/**'
+
+extraResources:
+  # The renderer, loaded over file:// from Resources/renderer/index.html
+  # (see src/main/window.ts). Static assets, so no reason to put them in the asar.
+  - from: ../app/dist
+    to: renderer
+
+asar: true
+asarUnpack:
+  # Native modules cannot be loaded from inside an asar.
+  - '**/*.node'
+  # dugite's bundled git — 42MB of real executables that must exist on disk.
+  # dugite resolves them relative to its own __dirname and already rewrites an
+  # `app.asar` segment to `app.asar.unpacked`, so unpacking here is all it needs.
+  - '**/node_modules/dugite/git/**'
+
+# The only native module is node-pty, and it is rebuilt deliberately by
+# `moon run desktop:rebuild-native`. electron-builder's own rebuild pass walks
+# pnpm's virtual store and trips over its optional/dangling entries.
+npmRebuild: false
+
+# Re-assert +x on node-pty's spawn-helper and on dugite's git binaries, prune
+# dangling symlinks, and ad-hoc sign so an unsigned local build still launches.
+afterPack: scripts/afterpack.cjs
+
+mac:
+  category: public.app-category.developer-tools
+  # Apple Silicon only: an Intel build would need node-pty rebuilt on an x64
+  # runner to be correct, and this is a macOS-arm64-first app.
+  target:
+    - target: dmg
+      arch:
+        - arm64
+    - target: zip
+      arch:
+        - arm64
+  # Required for notarization and harmless while unsigned.
+  hardenedRuntime: true
+  gatekeeperAssess: false
+  # Signing is env-gated: with a Developer ID cert (CSC_LINK + CSC_KEY_PASSWORD)
+  # electron-builder signs the bundle; without one, the release workflow sets
+  # CSC_IDENTITY_AUTO_DISCOVERY=false and afterpack.cjs ad-hoc signs it so it
+  # still launches locally.
+  notarize: false

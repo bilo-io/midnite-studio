@@ -23,6 +23,7 @@ const DEV_SERVER_URL = process.env['MGIT_RENDERER_URL'] ?? 'http://localhost:517
 function rendererEntry(): string {
   const packaged = join(process.resourcesPath, 'renderer', 'index.html');
   if (app.isPackaged || existsSync(packaged)) return packaged;
+  // Unpackaged: dist/bundle/main.js → ../../../app/dist/index.html
   return join(__dirname, '..', '..', '..', 'app', 'dist', 'index.html');
 }
 
@@ -54,7 +55,9 @@ export function createWindow(): BrowserWindow {
       ? { titleBarStyle: 'hidden' as const, trafficLightPosition: { x: 16, y: 16 } }
       : {}),
     webPreferences: {
-      preload: join(__dirname, '..', 'preload', 'index.js'),
+      // Sibling of the bundled main. Dev and production run the same esbuild
+      // output (see scripts/bundle.mjs), so there is one layout, not two.
+      preload: join(__dirname, 'preload.js'),
       contextIsolation: true,
       nodeIntegration: false,
       // The preload requires `@midnite-git/shared` for the channel constants,

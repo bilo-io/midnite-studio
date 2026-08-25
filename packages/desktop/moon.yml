@@ -2,12 +2,21 @@ $schema: 'https://moonrepo.dev/schemas/project.json'
 
 language: 'typescript'
 
+# All three are `development` scope so moon's package.json sync keeps them in
+# devDependencies. None is a RUNTIME dependency of the packaged app:
+#
+#   shared, git-engine  inlined into the esbuild bundles (scripts/bundle.mjs)
+#   app                 ships as a prebuilt static bundle loaded from disk
+#
+# The distinction is load-bearing, not cosmetic. electron-builder resolves
+# `dependencies` by walking node_modules, follows pnpm's workspace symlinks into
+# sibling directories, and fails with "<sibling path> must be under
+# packages/desktop/". Only dugite and node-pty are real runtime deps.
 dependsOn:
-  - 'shared'
-  - 'git-engine'
-  # `development` scope so moon's package.json sync writes @midnite-git/app to
-  # devDependencies. The renderer ships as a prebuilt static bundle loaded from
-  # disk — desktop never imports it as a module.
+  - id: 'shared'
+    scope: 'development'
+  - id: 'git-engine'
+    scope: 'development'
   - id: 'app'
     scope: 'development'
 
@@ -38,6 +47,45 @@ tasks:
       - 'scripts/**/*'
       - '/eslint.config.mjs'
 
+  # Bundle main + preload into single files (see scripts/bundle.mjs).
+  bundle:
+    command: 'node scripts/bundle.mjs'
+    inputs:
+      - 'src/**/*'
+      - 'scripts/bundle.mjs'
+      - '/packages/shared/src/**/*'
+      - '/packages/git-engine/src/**/*'
+    outputs:
+      - 'dist/bundle'
+
+  # Produce the macOS arm64 dmg + zip.
+  dist:
+    command: 'pnpm exec electron-builder --mac --config electron-builder.yml'
+    deps:
+      - '~:bundle'
+      - 'app:build'
+    inputs:
+      - 'dist/bundle/**/*'
+      - 'electron-builder.yml'
+      - 'scripts/afterpack.cjs'
+      - 'package.json'
+    # macOS-only packaging; never in `moon ci` on Linux. `outputs` is
+    # deliberately unset: the dmg + zip are ~200MB and moon's content-addressed
+    # cache fails to store artifacts that size (`cas::read_failed`) — and
+    # caching a release build buys nothing anyway.
+    options:
+      runInCI: false
+      cache: false
+
+  # Copy the built .app into /Applications with `ditto`.
+  install-local:
+    command: 'node scripts/install-local.mjs'
+    deps:
+      - '~:dist'
+    options:
+      runInCI: false
+      cache: false
+
   # Rebuild node-pty against Electron's ABI. Only needed after an Electron bump
   # or a fresh install whose prebuild targets a different ABI — never in CI,
   # which runs no Electron binary.
@@ -54,7 +102,7 @@ tasks:
     command: 'node scripts/start-electron.mjs'
     preset: 'server'
     deps:
-      - '~:build'
+      - '~:bundle'
       - 'app:dev'
 
   # Same, but against the built renderer over file:// — the only way to
@@ -66,5 +114,5 @@ tasks:
     env:
       MGIT_USE_BUILT_RENDERER: '1'
     deps:
-      - '~:build'
+      - '~:bundle'
       - 'app:build'

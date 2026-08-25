@@ -105,3 +105,15 @@ row to the graph, and `git checkout -b` outside the app makes the badge appear.
 
 The mapping had a real bug worth remembering: `refs` events were treated as badge-only, which
 meant a commit — the commonest ref event there is — never appeared in the graph.
+
+## 2026-08-25 — Phase 11 · Packaging + docs
+
+macOS arm64 dmg + zip via electron-builder, with main and preload bundled by esbuild so
+electron-builder never has to walk pnpm's workspace symlinks; dugite's bundled git and node-pty
+unpacked from the asar; an afterPack hook that restores +x on 197 executables, prunes dangling
+symlinks and ad-hoc signs; `install-local` using `ditto`. CI runs the gate on every PR and
+packages on main. README rewritten around what the app does and the decisions behind it.
+
+Verified on the installed app launched with a bare `env -i` PATH: the graph renders (bundled git
+works from `app.asar.unpacked`) and the terminal runs the user's real zsh (node-pty plus the
+login-shell PATH fix).
