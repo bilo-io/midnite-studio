@@ -1,6 +1,6 @@
 # Midnite Git — Phase Index
 
-**Headline:** the MVP (phases 0–11) is landed — the app packages, installs and runs from /Applications. The live frontier is **[Phase 12](phase-12-commit-inspector.md)**: making the commit graph a place you can actually read and act in — rendered commit messages, a real inspector with tree/list + diffs, and ref badges that push and pull. Post-MVP scope lives in [`outstanding.md`](outstanding.md).
+**Headline:** the MVP (phases 0–11) is landed — the app packages, installs and runs from /Applications. Three phases are open at once: **[12](phase-12-commit-inspector.md)** makes the commit graph a place you can read and act in (only its diffs have landed), **[14](phase-14-graph-themes.md)** makes the graph itself configurable, and **[15](phase-15-multi-terminal-sessions.md)** turns the single terminal into several — shells and coding agents, persisted across restarts. Post-MVP scope lives in [`outstanding.md`](outstanding.md).
 
 Completed work is logged append-only in [`done.md`](done.md). Deferred scope lives in [`outstanding.md`](outstanding.md).
 
@@ -10,6 +10,7 @@ Completed work is logged append-only in [`done.md`](done.md). Deferred scope liv
 
 | Phase | Status | Done | Progress | % | 🔄 WIP | ◻ TODO |
 |-------|--------|------|----------|---|--------|--------|
+| [15 · Multi-terminal sessions + agents](phase-15-multi-terminal-sessions.md) | 🔄 WIP | 7/37 | `██░░░░░░░░` | 19% | — | B C D E |
 | [14 · Graph themes + avatars](phase-14-graph-themes.md) | 🔄 WIP | 0/26 | `░░░░░░░░░░` | 0% | A B C D E | — |
 | [13 · UI polish](phase-13-ui-polish.md) | ✅ DONE | 26/26 | `██████████` | 100% | — | — |
 | [12 · Commit inspector + live badges](phase-12-commit-inspector.md) | 🔄 WIP | 9/51 | `██░░░░░░░░` | 18% | — | A B C E F |
@@ -30,6 +31,16 @@ Completed work is logged append-only in [`done.md`](done.md). Deferred scope liv
 
 <!-- Each phase currently carries a single theme A = its full deliverables checklist. Split into
      lettered themes if a phase gets parallelised. -->
+
+### [Phase 15 — Multi-terminal sessions + agents](phase-15-multi-terminal-sessions.md)
+
+*Several terminals at once — shells and coding agents — in a VS Code-style sidebar, surviving a restart with their scrollback. A is the spine: B/C/D all render what A persists. E is independent and also covers the repos sidebar.*
+
+- ✅ **A** — session record + capped scrollback in main; `terminal:*` channels; agent roster with an `agents.json` override
+- ◻ **B** — per-session renderer model; multi-xterm host; the cwd-change kill effect deleted (fixes a dead pane)
+- ◻ **C** — maximize chevron and the `+` → New Terminal / New Agent menu
+- ◻ **D** — the session sidebar, dockable left/right, with a Claude mark for agent sessions
+- ◻ **E** — drag-to-reorder via `@dnd-kit/sortable`, for terminals *and* repos
 
 ### [Phase 12 — Commit inspector + live badges](phase-12-commit-inspector.md)
 
