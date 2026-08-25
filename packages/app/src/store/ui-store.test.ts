@@ -57,13 +57,51 @@ describe('useUiStore', () => {
 
 describe('view paths', () => {
   it('round-trips every view', () => {
-    for (const view of ['graph', 'changes', 'settings'] as const) {
+    for (const view of ['files', 'graph', 'changes', 'settings'] as const) {
       expect(viewForPath(pathForView(view))).toBe(view);
     }
   });
 
   it('falls back to the graph for an unknown path', () => {
     expect(viewForPath('/nope')).toBe('graph');
+  });
+});
+
+describe('phase 16 store additions', () => {
+  beforeEach(reset);
+
+  it('persists the settings page, so reopening Settings lands where you were', () => {
+    useUiStore.getState().setSettingsPage('agent');
+
+    const saved = JSON.parse(localStorage.getItem('midnite-git.ui') ?? '{}') as {
+      state: Record<string, unknown>;
+    };
+    expect(saved.state.settingsPage).toBe('agent');
+  });
+
+  it('gives the Folder view a persisted, merge-filled tree pane', () => {
+    // A pre-16 payload has no filesTreeWidth — the merge must refill it from
+    // the defaults. Checked before the store is touched, while `current` still
+    // carries the default width.
+    const merged = useUiStore.persist.getOptions().merge?.(
+      { layout: { reposWidth: 300 } },
+      useUiStore.getState(),
+    ) as { layout: Record<string, number> };
+    expect(merged.layout.filesTreeWidth).toBe(DEFAULT_LAYOUT.filesTreeWidth);
+
+    useUiStore.getState().setLayout('filesTreeWidth', 260);
+    const saved = JSON.parse(localStorage.getItem('midnite-git.ui') ?? '{}') as {
+      state: { layout: Record<string, number> };
+    };
+    expect(saved.state.layout.filesTreeWidth).toBe(260);
+  });
+
+  it('does not persist the active view — a launch starts on the graph', () => {
+    useUiStore.getState().setActiveView('files');
+    const saved = JSON.parse(localStorage.getItem('midnite-git.ui') ?? '{}') as {
+      state: Record<string, unknown>;
+    };
+    expect(saved.state).not.toHaveProperty('activeView');
   });
 });
 

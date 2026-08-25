@@ -7,9 +7,13 @@ Recorded here when a phase punts on something; pick these up post-MVP.
 - ~~**Proper diff viewer**~~ — ✅ landed in Phase 12 Theme D: parsed hunks over IPC, one shared
   `<DiffView>`, restrained tinting with intraline word marking, virtualised rows. Two pieces
   deliberately left out of it:
-  - **Syntax highlighting inside diff lines** — `shiki`/`prism` is a heavy dependency plus a
-    language-detection story, and word-level intraline marking already distinguishes a one-token
-    edit from a rewrite. Revisit if reading unfamiliar code in the panel proves hard.
+  - **Syntax highlighting inside diff lines** — now much cheaper than when this was parked:
+    Phase 16 landed `shiki` (lazy per-extension grammars, both github themes synced to the app
+    theme) and a language map (`app/src/lib/languages.ts`) for its file previews, so the "heavy
+    dependency plus a language-detection story" is already paid for. What remains is wiring
+    `codeToHtml` into `<DiffView>`'s virtualised rows without regressing scroll performance.
+    Word-level intraline marking still covers the common case; revisit when reading unfamiliar
+    code in the panel proves hard.
   - **Side-by-side diff** — earns its keep only in a full-width diff surface, which does not
     exist yet; the inspector is a narrow side panel.
 - **Stash** — list/apply/pop/drop + a graph affordance.

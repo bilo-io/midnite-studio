@@ -26,6 +26,7 @@ export function TerminalPanel({ cwd, repoId, repoName }: TerminalPanelProps) {
   const sessions = useTerminalStore((s) => s.sessions);
   const activeId = useTerminalStore((s) => s.activeId);
   const hydrated = useTerminalStore((s) => s.hydrated);
+  const pendingInput = useTerminalStore((s) => s.pendingInput);
   const maximized = useUiStore((s) => s.terminalMaximized);
   const side = useUiStore((s) => s.terminalSidebarSide);
 
@@ -131,7 +132,7 @@ export function TerminalPanel({ cwd, repoId, repoName }: TerminalPanelProps) {
               key={session.id}
               session={session}
               active={session.id === activeId}
-              initialInput={agentInput(agents, session.agentId)}
+              initialInput={pendingInput[session.id] ?? agentInput(agents, session.agentId)}
             />
           ))}
 

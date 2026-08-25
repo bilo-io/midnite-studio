@@ -82,6 +82,16 @@ export const CHANNELS = {
   terminalReorder: 'mgit:terminal:reorder',
   /** Built-in agents merged with the user's `agents.json`. */
   agentList: 'mgit:agent:list',
+  /** Installed Claude CLI: version + install method, probed via a login shell. */
+  agentClaudeInfo: 'mgit:agent:claude-info',
+  /** Run the method-matched update command; resolves when it exits. */
+  agentClaudeUpdate: 'mgit:agent:claude-update',
+
+  // --- read-only filesystem (Phase 16) --------------------------------------
+  // Strictly reads. There is no write/rename/delete channel on purpose: the
+  // file browser being unable to edit is enforced here, not in the UI.
+  fsListDir: 'mgit:fs:list-dir',
+  fsReadFile: 'mgit:fs:read-file',
 
   // --- window chrome -------------------------------------------------------
   windowMinimize: 'mgit:window:minimize',
@@ -107,6 +117,8 @@ export const EVENT_CHANNELS = {
   windowStateChanged: 'mgit:window:state-changed',
   /** A native-menu item fired — carries a CommandId, dispatched like a keybinding. */
   menuCommand: 'mgit:menu:command',
+  /** stdout/stderr chunks from an in-flight Claude CLI update. */
+  agentClaudeUpdateData: 'mgit:agent:claude-update-data',
 } as const;
 
 /**

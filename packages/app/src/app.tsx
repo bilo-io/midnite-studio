@@ -11,7 +11,7 @@ import {
 import { QueryClient } from '@tanstack/react-query';
 import { ChevronLeft } from 'lucide-react';
 import type { IconType } from 'react-icons';
-import { LuGitBranch, LuSettings } from 'react-icons/lu';
+import { LuFolderTree, LuGitBranch, LuSettings } from 'react-icons/lu';
 import { MdOutlineDifference } from 'react-icons/md';
 
 import { Brand, BrandMark, Wordmark } from './components/brand';
@@ -19,6 +19,7 @@ import { DialogHost } from './components/dialog-host';
 import { ResizeHandle } from './components/resizable/resize-handle';
 import { useResizable } from './components/resizable/use-resizable';
 import { ThemeToggle } from './components/theme-toggle';
+import { FilesView } from './features/files/files-view';
 import { GraphView } from './features/graph/graph-view';
 import { ReposPanel } from './features/repos/repos-panel';
 import { useDefaultSelection } from './features/repos/use-default-selection';
@@ -103,9 +104,12 @@ const CONTENT_BOX = {
  * component type; the mixed `Lu*`/`Md*` prefixes are the sets, not a mistake.
  */
 const NAV_ITEMS: { view: ViewId; label: string; icon: IconType }[] = [
+  { view: 'files', label: 'Folder', icon: LuFolderTree },
   { view: 'graph', label: 'Graph', icon: LuGitBranch },
   { view: 'changes', label: 'Changes', icon: MdOutlineDifference },
-  { view: 'settings', label: 'Settings', icon: LuSettings },
+  // Settings is deliberately absent: it renders in the rail's FOOTER slot
+  // (bottom-pinned, the way settings sit in VS Code/GitKraken), not among the
+  // workspace views — see the `footer` in the nav config below.
 ];
 
 function Placeholder({ view }: { view: ViewId }) {
@@ -264,8 +268,30 @@ function Shell() {
           {expanded ? <NavLockToggle navMode={navMode} onChange={setNavMode} /> : null}
         </div>
       ),
+      /*
+        Settings, pinned to the bottom of the rail (Phase 16). The footer slot
+        is the shell's own bottom cluster, so no spacer hacks — but it is
+        free-form, so the row restates the nav-item look by hand.
+      */
+      footer: ({ expanded }) => (
+        <button
+          type="button"
+          onClick={() => useUiStore.getState().setActiveView('settings')}
+          aria-label="Settings"
+          aria-current={activeView === 'settings' ? 'page' : undefined}
+          title="Settings"
+          className={`flex w-full items-center gap-2 rounded-md px-2 py-1.5 text-xs transition-colors ${
+            activeView === 'settings'
+              ? 'bg-primary/10 text-foreground'
+              : 'text-muted-foreground hover:bg-accent hover:text-foreground'
+          } ${expanded ? '' : 'justify-center'}`}
+        >
+          <LuSettings aria-hidden className="h-4 w-4 shrink-0" />
+          {expanded ? <span>Settings</span> : null}
+        </button>
+      ),
     }),
-    [navMode, setNavMode],
+    [navMode, setNavMode, activeView],
   );
 
   // <TitleBar> renders nothing unless the bridge reports a frameless window, so
@@ -351,7 +377,9 @@ function Shell() {
               terminalOpen && terminalMaximized ? 'hidden' : ''
             }`}
           >
-            {activeView === 'graph' ? (
+            {activeView === 'files' ? (
+              <FilesView />
+            ) : activeView === 'graph' ? (
               <GraphView />
             ) : activeView === 'changes' ? (
               <StatusPanel />

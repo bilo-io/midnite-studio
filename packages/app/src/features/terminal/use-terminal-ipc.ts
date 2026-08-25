@@ -104,6 +104,12 @@ export function useTerminalIpc(session: TerminalSession, onData: (bytes: Uint8Ar
       const next = useTerminalStore.getState();
       next.bindPty(session.id, result.ptyId);
       next.setState(session.id, 'open');
+      // A queued paste (the Agent page's uninstall command) is spent the
+      // moment a pty has received it. Without this, reviving the session
+      // after an `exit` would re-type a destructive command at the fresh
+      // prompt. Agent commands are different on purpose: they come from
+      // `agentInput`, not this map, and SHOULD re-run on revive.
+      next.clearPendingInput(session.id);
     },
     [session.id, session.kind, session.agentId, session.repoId, session.cwd],
   );

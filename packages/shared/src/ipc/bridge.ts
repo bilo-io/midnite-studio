@@ -166,9 +166,29 @@ export type MidniteGitBridge = {
     reorder: (req: In<typeof S.TerminalReorderRequest>) => void;
   };
 
-  /** Built-in agents merged with the user's `agents.json`. */
+  /** Built-in agents merged with the user's `agents.json`, plus the Claude CLI. */
   agent: {
     list: () => Promise<z.infer<typeof S.AgentListResponse>>;
+    /** Installed version + install method; `installed: false` when absent. */
+    claudeInfo: () => Promise<z.infer<typeof S.ClaudeInfoResponse>>;
+    /** Runs the update to completion; output streams on `onClaudeUpdateData`. */
+    claudeUpdate: () => Promise<z.infer<typeof S.ClaudeUpdateResponse>>;
+    onClaudeUpdateData: (
+      handler: (e: z.infer<typeof S.ClaudeUpdateDataEvent>) => void,
+    ) => Unsubscribe;
+  };
+
+  /**
+   * Read-only filesystem browsing (Phase 16). No write methods exist — the
+   * file explorer's inability to edit is a property of this contract.
+   */
+  fs: {
+    listDir: (
+      req: In<typeof S.FsListDirRequest>,
+    ) => Promise<z.infer<typeof S.FsListDirResponse>>;
+    readFile: (
+      req: In<typeof S.FsReadFileRequest>,
+    ) => Promise<z.infer<typeof S.FsReadFileResponse>>;
   };
 
   watch: {

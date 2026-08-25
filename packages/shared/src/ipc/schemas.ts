@@ -14,6 +14,7 @@ import {
   WatchEventSchema,
   WorktreeSchema,
 } from '../domain';
+import { ClaudeInfoSchema, FsEntrySchema } from '../fs';
 import {
   AgentDefinitionSchema,
   TerminalSessionKindSchema,
@@ -413,6 +414,52 @@ export const TerminalForgetRequest = z.object({ sessionId: z.string().min(1) });
 export const TerminalReorderRequest = z.object({ sessionIds: z.array(z.string().min(1)) });
 
 export const AgentListResponse = z.object({ agents: z.array(AgentDefinitionSchema) });
+
+export const ClaudeInfoResponse = ClaudeInfoSchema;
+/**
+ * Update runs to completion in main; chunks stream on the event channel while
+ * it does. Failures resolve — the settings page renders them like any other.
+ */
+export const ClaudeUpdateResponse = z.discriminatedUnion('ok', [
+  z.object({ ok: z.literal(true), exitCode: z.number().int() }),
+  z.object({ ok: z.literal(false), message: z.string() }),
+]);
+export const ClaudeUpdateDataEvent = z.object({ chunk: z.string() });
+
+// --- read-only filesystem (Phase 16) ----------------------------------------
+// Scoped, relative paths only: the renderer never names an absolute path, and
+// main confines every join to the scope's root (repo checkout or ~/.claude).
+
+const FsRepoScope = z.object({
+  scope: z.literal('repo'),
+  repoId: z.string().min(1),
+  /** A linked worktree's checkout; omitted means the main worktree. */
+  worktreePath: z.string().optional(),
+  /** POSIX-relative from the scope root; empty string is the root itself. */
+  relPath: z.string(),
+});
+const FsClaudeScope = z.object({
+  scope: z.literal('claude-home'),
+  relPath: z.string(),
+});
+
+export const FsListDirRequest = z.discriminatedUnion('scope', [FsRepoScope, FsClaudeScope]);
+export const FsListDirResponse = z.discriminatedUnion('ok', [
+  z.object({ ok: z.literal(true), entries: z.array(FsEntrySchema) }),
+  z.object({ ok: z.literal(false), message: z.string() }),
+]);
+
+export const FsReadFileRequest = z.discriminatedUnion('scope', [FsRepoScope, FsClaudeScope]);
+/**
+ * `binary` and `too-large` are outcomes, not errors: the preview renders each
+ * as a fallback card. Only a jail rejection or a read failure is `error`.
+ */
+export const FsReadFileResponse = z.discriminatedUnion('kind', [
+  z.object({ kind: z.literal('text'), content: z.string(), size: z.number().int().nonnegative() }),
+  z.object({ kind: z.literal('binary'), size: z.number().int().nonnegative() }),
+  z.object({ kind: z.literal('too-large'), size: z.number().int().nonnegative() }),
+  z.object({ kind: z.literal('error'), message: z.string() }),
+]);
 
 /** Likewise the whole order, so a dropped message cannot leave a half-applied swap. */
 export const RepoReorderRequest = z.object({ repoIds: z.array(z.string().min(1)) });
