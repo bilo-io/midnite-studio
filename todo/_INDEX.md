@@ -1,6 +1,6 @@
 # midnite-git — Phase Index
 
-**Headline:** the commit graph streams and renders at 60fps; Phase 6 (status / stage / commit / sync) is the live frontier.
+**Headline:** the app stages, commits and syncs real repositories; Phase 7 (graph interactions) is the live frontier.
 
 Completed work is logged append-only in [`done.md`](done.md). Deferred scope lives in [`outstanding.md`](outstanding.md).
 
@@ -15,7 +15,7 @@ Completed work is logged append-only in [`done.md`](done.md). Deferred scope liv
 | [9 · Integrated terminal + keybindings](phase-9-terminal-and-keybindings.md) | ◻ TODO | 0/11 | `░░░░░░░░░░` | 0% | — | A |
 | [8 · Drag-drop ops + conflicts](phase-8-drag-drop-ops.md) | ◻ TODO | 0/10 | `░░░░░░░░░░` | 0% | — | A |
 | [7 · Graph interactions](phase-7-graph-interactions.md) | ◻ TODO | 0/10 | `░░░░░░░░░░` | 0% | — | A |
-| [6 · Status / stage / commit / sync](phase-6-status-and-sync.md) | ◻ TODO | 0/11 | `░░░░░░░░░░` | 0% | — | A |
+| [6 · Status / stage / commit / sync](phase-6-status-and-sync.md) | ✅ DONE | 11/11 | `██████████` | 100% | — | — |
 | [5 · Commit graph, read-only](phase-5-commit-graph.md) | ✅ DONE | 11/11 | `██████████` | 100% | — | — |
 | [4 · Repo open/list + worktree sidebar](phase-4-repos-and-worktrees.md) | ✅ DONE | 10/10 | `██████████` | 100% | — | — |
 | [3 · Electron shell boots](phase-3-electron-shell.md) | ✅ DONE | 15/15 | `██████████` | 100% | — | — |
@@ -50,7 +50,7 @@ Completed work is logged append-only in [`done.md`](done.md). Deferred scope liv
 
 ### [Phase 6 — Status / stage / commit / sync](phase-6-status-and-sync.md)
 
-- ◻ **A** — stage/unstage/discard/commit, ahead-behind chips, fetch/pull/push (no force)
+- ✅ **A** — stage/unstage/discard/commit, ahead-behind chips, fetch/pull/push (no force)
 
 ### [Phase 5 — Commit graph, read-only](phase-5-commit-graph.md)
 

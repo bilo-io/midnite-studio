@@ -77,7 +77,7 @@ const windowChrome: WindowChromeBridge = {
  */
 const bridge: Pick<
   MidniteGitBridge,
-  'repos' | 'log' | 'status' | 'window' | 'windowChrome' | 'menu'
+  'repos' | 'log' | 'status' | 'ops' | 'window' | 'windowChrome' | 'menu'
 > = {
   repos: {
     open: (req) => call(CHANNELS.repoOpen, req),
@@ -99,6 +99,27 @@ const bridge: Pick<
     get: (req) => call(CHANNELS.statusGet, req),
     commitDetail: (req) => call(CHANNELS.commitDetail, req),
     fileDiff: (req) => call(CHANNELS.fileDiff, req),
+  },
+  ops: {
+    checkout: (req) => call(CHANNELS.opCheckout, req),
+    branchCreate: (req) => call(CHANNELS.opBranchCreate, req),
+    branchDelete: (req) => call(CHANNELS.opBranchDelete, req),
+    branchRename: (req) => call(CHANNELS.opBranchRename, req),
+    tagCreate: (req) => call(CHANNELS.opTagCreate, req),
+    merge: (req) => call(CHANNELS.opMerge, req),
+    rebase: (req) => call(CHANNELS.opRebase, req),
+    cherryPick: (req) => call(CHANNELS.opCherryPick, req),
+    reset: (req) => call(CHANNELS.opReset, req),
+    stage: (req) => call(CHANNELS.opStage, req),
+    unstage: (req) => call(CHANNELS.opUnstage, req),
+    discard: (req) => call(CHANNELS.opDiscard, req),
+    commit: (req) => call(CHANNELS.opCommit, req),
+    fetch: (req) => call(CHANNELS.opFetch, req),
+    pull: (req) => call(CHANNELS.opPull, req),
+    push: (req) => call(CHANNELS.opPush, req),
+    abort: (req) => call(CHANNELS.opAbort, req),
+    continue: (req) => call(CHANNELS.opContinue, req),
+    blastRadius: (req) => call(CHANNELS.opBlastRadius, req),
   },
   window: {
     minimize: () => ipcRenderer.send(CHANNELS.windowMinimize),
