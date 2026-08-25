@@ -184,15 +184,92 @@ export const ROW_PADDING = 3;
  * Half the node's painted width — the avatar plus its ring, or the dot plus
  * half its stroke (a stroke straddles the circle it outlines).
  *
- * `laneWidth` is centre-to-centre, so a lane narrower than twice this puts two
- * adjacent nodes on top of each other, and lane 0's node bleeds out of the
- * gutter entirely (`overflow-visible` on the row SVG lets it paint over the
- * BRANCH / TAG column). Asserted per theme in the tests.
+ * The unit the whole gutter is measured in: `laneOffset` keeps the outermost
+ * nodes this far from the gutter's edges, and `MIN_LANE_WIDTH_RATIO` sets how
+ * far lanes may close in terms of it.
  */
 export const nodeExtent = (theme: GraphTheme): number =>
   theme.node === 'avatar'
     ? theme.avatarSize / 2 + theme.ringWidth
     : theme.nodeRadius + theme.strokeWidth / 2;
+
+/**
+ * How far lane 0's centre sits from the gutter's left edge — and, mirrored,
+ * the last lane's from its right.
+ *
+ * At the style's own `laneWidth` this is exactly half a lane, which is where
+ * the nodes have always been drawn; the `max` only bites once the gutter has
+ * been dragged narrower than the lanes want. Without it, compressed lanes put
+ * lane 0's centre less than a node-radius from x=0 and the face bleeds out of
+ * the gutter — `overflow-visible` on the row SVG means it paints over the
+ * BRANCH / TAG column rather than being clipped.
+ *
+ * This is what makes "lane 0 stays inside the gutter" structural instead of an
+ * invariant every new style has to be checked against.
+ */
+export const laneOffset = (theme: GraphTheme, laneWidth: number): number =>
+  Math.max(nodeExtent(theme), laneWidth / 2);
+
+/** Horizontal centre of a lane, at a given spacing. */
+export const laneCentre = (theme: GraphTheme, laneWidth: number, lane: number): number =>
+  laneOffset(theme, laneWidth) + lane * laneWidth;
+
+/**
+ * Width the gutter needs to hold `lanes` lanes at `laneWidth` spacing.
+ *
+ * An offset at each end plus the runs between the lanes — which, at the style's
+ * own `laneWidth`, comes to exactly `lanes * laneWidth`, the value the gutter
+ * has always been. The general form only differs once lanes are compressed.
+ */
+export const gutterWidth = (theme: GraphTheme, laneWidth: number, lanes: number): number =>
+  laneOffset(theme, laneWidth) * 2 + Math.max(0, lanes - 1) * laneWidth;
+
+/**
+ * Tightest lane spacing the gutter may be dragged to, as a fraction of a node's
+ * painted width.
+ *
+ * Half, so nodes overlap the way a stacked avatar list does: each keeps a
+ * visible crescent and the frontmost is whole. Nodes that merely TOUCH would
+ * cap compression at a few percent for the avatar styles — GitKraken's 30px
+ * lane already holds a 29px node — which is no compression at all, and the
+ * point of a resizable gutter is to get a wide history out of the way.
+ */
+export const MIN_LANE_WIDTH_RATIO = 0.5;
+
+export const minLaneWidth = (theme: GraphTheme): number =>
+  nodeExtent(theme) * 2 * MIN_LANE_WIDTH_RATIO;
+
+/**
+ * The lane spacing that renders a gutter exactly `width` wide.
+ *
+ * The inverse of `gutterWidth`, which has two regimes because `laneOffset`
+ * does: while the lanes are wider than a node the offset is half a lane and the
+ * width is simply `lanes * laneWidth`; once they are narrower the offset pins
+ * to a node radius and only the runs between lanes give. Solving the right one
+ * is what keeps the drag handle and the gutter's painted edge on the same
+ * pixel — deriving the spacing approximately and re-deriving the width from it
+ * makes the graph lag the pointer by a pixel or two, which reads as a stutter.
+ */
+export const laneWidthForGutter = (theme: GraphTheme, lanes: number, width: number): number => {
+  const node = nodeExtent(theme) * 2;
+  const clamp = (value: number): number =>
+    Math.min(theme.laneWidth, Math.max(minLaneWidth(theme), value));
+
+  // A single lane has no runs between lanes, so the whole gutter IS the two
+  // offsets: the spacing and the width are the same number until the offset
+  // pins, below which the gutter simply stops narrowing.
+  if (lanes <= 1) return clamp(width);
+
+  /*
+    Which regime a requested width lands in is decided by the width alone, and
+    the two are exhaustive: at `laneWidth >= node` the width is exactly
+    `lanes * laneWidth`, so an even share of it is >= a node; below it the width
+    is under `lanes * node`, so the even share is under a node. No third case,
+    and no need to guess and check.
+  */
+  const even = width / lanes;
+  return clamp(even >= node ? even : (width - node) / (lanes - 1));
+};
 
 /**
  * Whether the table carries an Author column in this style.
@@ -240,6 +317,17 @@ export const arrivalRun = (theme: GraphTheme): number =>
  * so the two halves cannot meet at a seam if the row's spacing ever changes.
  */
 export const ROW_GAP = 8;
+
+/**
+ * Width of the lane rail — the bar standing between the gutter and the commit
+ * message, in the colour of the branch the commit landed on.
+ *
+ * GitKraken's, and drawn only by the styles whose node is an avatar. A face
+ * says who, not where, so the rail is what carries the branch across to the
+ * subject line; `classic` has the whole lane drawn in that colour a few pixels
+ * away and does not need saying twice.
+ */
+export const RAIL_WIDTH = 3;
 
 /**
  * Opacity of that leader line, against the lane's own colour.

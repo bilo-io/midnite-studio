@@ -8,19 +8,38 @@ import type { Resizable } from './use-resizable';
  * space in every layout it appears in. The extra width is negative margin, so
  * the handle overlaps its neighbours instead of displacing them.
  */
+/** Grab target, in px. See the note above on why it is not the visible rule. */
+const HIT = 5;
+
 export function ResizeHandle({
   resizable,
   axis,
   label,
+  gap,
   className = '',
 }: {
   resizable: Resizable;
   axis: 'x' | 'y';
   /** Accessible name, e.g. "Resize repositories sidebar". */
   label: string;
+  /**
+   * The flex `gap` of the row this handle sits in, in px.
+   *
+   * Given one, the handle pulls itself in by half its own width plus that gap,
+   * so dropping it between two cells moves neither of them. Without it a handle
+   * costs its 1px of net width PLUS an extra gap — which is why the graph
+   * table's header used to sit nine pixels right of the rows it labelled for
+   * every handle that preceded it, and eighteen by the third.
+   *
+   * A pane splitter (the repos sidebar, the detail pane) sits between two flex
+   * items with no gap and wants the default: it is the only thing separating
+   * them, so it is allowed to take a pixel.
+   */
+  gap?: number;
   className?: string;
 }) {
   const vertical = axis === 'x';
+  const pull = gap === undefined ? undefined : -(HIT + gap) / 2;
 
   return (
     <div
@@ -29,10 +48,17 @@ export function ResizeHandle({
       aria-label={label}
       title={`${label} — drag, or double-click to reset`}
       {...resizable.handleProps}
+      style={
+        pull === undefined
+          ? undefined
+          : vertical
+            ? { marginInline: pull }
+            : { marginBlock: pull }
+      }
       className={`group relative z-10 shrink-0 touch-none transition-colors focus-visible:outline-none ${
         vertical
-          ? '-mx-[2px] w-[5px] cursor-col-resize'
-          : '-my-[2px] h-[5px] cursor-row-resize'
+          ? `w-[5px] cursor-col-resize ${pull === undefined ? '-mx-[2px]' : ''}`
+          : `h-[5px] cursor-row-resize ${pull === undefined ? '-my-[2px]' : ''}`
       } ${className}`}
     >
       {/*

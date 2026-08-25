@@ -5,6 +5,7 @@ import {
   ARROW_GAP,
   CONNECTOR_OPACITY,
   ROW_GAP,
+  laneCentre,
   nodeExtent,
   type GraphTheme,
 } from './graph-themes';
@@ -30,6 +31,7 @@ export function GraphSvg({
   row,
   width,
   theme,
+  laneWidth,
   clipId,
   dimmed = false,
   connector = false,
@@ -37,6 +39,13 @@ export function GraphSvg({
   row: GraphRow;
   width: number;
   theme: GraphTheme;
+  /**
+   * Live lane spacing, which is the style's `laneWidth` until the gutter is
+   * dragged narrower than the lanes want. Passed in rather than read off the
+   * theme because it is a property of the COLUMN, not of the style, and one
+   * gutter width serves the whole list.
+   */
+  laneWidth: number;
   /** Id of the list-level avatar clip path. */
   clipId: string;
   /** Author-filtered out — drawn back, never removed. */
@@ -50,7 +59,7 @@ export function GraphSvg({
   connector?: boolean;
 }) {
   const mid = theme.rowHeight / 2;
-  const lane = (n: number): number => n * theme.laneWidth + theme.laneWidth / 2;
+  const lane = (n: number): number => laneCentre(theme, laneWidth, n);
   const nodeX = lane(row.lane);
   const nodeColor = laneColor(row.colorIdx, theme.palette);
 
@@ -59,12 +68,29 @@ export function GraphSvg({
       width={width}
       height={theme.rowHeight}
       viewBox={`0 0 ${width} ${theme.rowHeight}`}
-      className={`shrink-0 overflow-visible transition-opacity duration-150 ease-in-out ${
+      /*
+        `block`, not the SVG default of `inline`. An inline box sits ON the text
+        baseline, so the gutter was rendered with a line box's descender space
+        beneath it — a few pixels of extra height at the bottom of its
+        container, which the row's `items-center` then split evenly and pushed
+        the whole graphic UP. Every node ended a few pixels above the ref chip
+        pointing at it, and the leader line met the lane off-centre.
+      */
+      className={`block shrink-0 overflow-visible transition-opacity duration-150 ease-in-out ${
         dimmed ? 'opacity-40' : ''
       }`}
       // Decorative: the row's text already carries the commit's identity, and a
       // screen reader announcing lane geometry would be noise.
       aria-hidden
+      /*
+        Names the lane graphic among the several SVGs a row contains — the ref
+        chips carry icons, and lucide's `Tag` and `GitBranch` are themselves
+        circles and lines. Without this, "every node in the row" is a selector
+        that quietly also matches the hole in a tag icon, which is how the
+        gutter's own geometry went unasserted while three tests appeared to
+        cover it.
+      */
+      data-graph-gutter
     >
       {/*
         First, so every lane paints over it.

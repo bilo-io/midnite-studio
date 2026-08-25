@@ -4,7 +4,7 @@ import { memo } from 'react';
 import { Tooltip } from '../../components/tooltip';
 import { useCommitDnd, useRefDnd } from './graph-dnd';
 import { GraphSvg } from './graph-svg';
-import { CONNECTOR_OPACITY, showsAuthorColumn, type GraphTheme } from './graph-themes';
+import { CONNECTOR_OPACITY, RAIL_WIDTH, showsAuthorColumn, type GraphTheme } from './graph-themes';
 import { laneColor } from './lane-colors';
 import { RefBadge } from './ref-badge';
 
@@ -19,7 +19,22 @@ export type GraphRowProps = {
   row: GraphRow;
   refs: readonly Ref[];
   selected: boolean;
-  gutterLanes: number;
+  /**
+   * Painted width of the lane gutter, and the spacing between lanes inside it.
+   *
+   * Both live values, not derived from the theme: the gutter is a resizable
+   * column, so dragging it narrower closes the lanes up and slides the indented
+   * ones left. One pair for the whole list — a per-row width would make the
+   * subject column jog as the graph narrows and widens while you scroll.
+   *
+   * They are the only geometry the row takes as props rather than as a CSS
+   * variable, and they do bust this component's memo on every pointermove of a
+   * gutter drag. That is a real cost paid deliberately: SVG coordinates are
+   * attributes, not styles, so no custom property can reach them, and the drag
+   * re-renders only the ~30 rows the virtualizer has mounted.
+   */
+  gutterWidth: number;
+  laneWidth: number;
   theme: GraphTheme;
   /** Id of the list-level avatar clip path. */
   clipId: string;
@@ -36,7 +51,8 @@ function GraphRowInner({
   row,
   refs,
   selected,
-  gutterLanes,
+  gutterWidth,
+  laneWidth,
   theme,
   clipId,
   dimmed,
@@ -157,11 +173,13 @@ function GraphRowInner({
             </span>
           }
         >
-          <span className="inline-flex">
+          {/* `flex`, not `inline-flex` — see the note on the SVG's own `block`. */}
+          <span className="flex">
             <GraphSvg
               row={row}
-              width={gutterLanes * theme.laneWidth}
+              width={gutterWidth}
               theme={theme}
+              laneWidth={laneWidth}
               clipId={clipId}
               dimmed={dimmed}
               connector={refs.length > 0}
@@ -169,6 +187,27 @@ function GraphRowInner({
           </span>
         </Tooltip>
       </CommitDragHandle>
+
+      {/*
+        GitKraken's rail: a bar in the lane's colour standing between the graph
+        and the message, so the subject you are reading is tied to the branch it
+        landed on without your eye travelling back to the node.
+      */}
+      {theme.node === 'avatar' ? (
+        <span
+          aria-hidden
+          className={`shrink-0 rounded-full transition-opacity duration-150 ease-in-out ${
+            dimmed ? 'opacity-40' : ''
+          }`}
+          style={{
+            width: RAIL_WIDTH,
+            // Full row height, so a run of commits on one branch reads as one
+            // continuous rail rather than a column of ticks.
+            height: theme.rowHeight,
+            backgroundColor: laneColor(row.colorIdx, theme.palette),
+          }}
+        />
+      ) : null}
 
       {/*
         `overflow-hidden` plus a shrinkable badge group, not just `truncate` on
@@ -249,7 +288,9 @@ function CommitDragHandle({
       ref={setNodeRef}
       {...listeners}
       {...attributes}
-      className={`shrink-0 ${isDragging ? 'opacity-40' : ''}`}
+      // `flex`, so the handle is exactly as tall as the gutter it wraps and
+      // nothing inside it can be pushed off-centre by a line box.
+      className={`flex shrink-0 items-center ${isDragging ? 'opacity-40' : ''}`}
     >
       {children}
     </span>

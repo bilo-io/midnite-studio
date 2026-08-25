@@ -16,7 +16,12 @@ import { GraphDefs, avatarClipId } from './graph-defs';
 import { GraphHeader, graphColumnVars, useGraphColumns } from './graph-header';
 import { CommitGraphRow } from './graph-row';
 import { useGraphStore } from './graph-store';
-import { graphTheme } from './graph-themes';
+import {
+  graphTheme,
+  gutterWidth,
+  laneWidthForGutter,
+  minLaneWidth,
+} from './graph-themes';
 import { useRefsBySha } from './ref-badge';
 import { useGraphActions } from './use-graph-actions';
 import { useGraphStream } from './use-graph-stream';
@@ -104,7 +109,46 @@ export function GraphView() {
     ...LAYOUT_BOUNDS.detailWidth,
   });
 
-  const columns = useGraphColumns();
+  /**
+   * One gutter geometry for the whole list, not one per row.
+   *
+   * A per-row width would make the subject column jog left and right as the
+   * graph narrows and widens while you scroll, which is far more distracting
+   * than a little empty space. Capped at 12 lanes because a pathological
+   * history should not push the subjects off screen.
+   */
+  const gutterLanes = Math.min(
+    MAX_GUTTER_LANES,
+    rows.reduce((max, row) => Math.max(max, row.laneCount), 1),
+  );
+
+  /**
+   * The gutter is a resizable column, so its bounds are geometry rather than
+   * constants — `max` the natural fit of this history in this style, `min` the
+   * point past which the lanes stop being separable. Computed before
+   * `useGraphColumns` because that hook clamps the persisted width to them.
+   */
+  const gutterBounds = useMemo(
+    () => ({
+      min: gutterWidth(theme, minLaneWidth(theme), gutterLanes),
+      max: gutterWidth(theme, theme.laneWidth, gutterLanes),
+    }),
+    [gutterLanes, theme],
+  );
+
+  const columns = useGraphColumns(gutterBounds);
+
+  /**
+   * The requested width resolved back into lane spacing, then forward into the
+   * width that spacing actually paints.
+   *
+   * Round-tripped rather than used directly so the header, the rows and the
+   * drag handle cannot disagree: a requested width that does not divide evenly
+   * into lanes paints a pixel or two narrower, and taking the raw drag value
+   * for the header would leave the label overhanging the lanes it names.
+   */
+  const laneWidth = laneWidthForGutter(theme, gutterLanes, columns.graph.current);
+  const paintedGutter = gutterWidth(theme, laneWidth, gutterLanes);
 
   const scrollRef = useRef<HTMLDivElement>(null);
   // dnd-kit's drag-end event carries no pointer position, and the drop menu has
@@ -144,20 +188,6 @@ export function GraphView() {
 
   const authors = useMemo(() => summariseAuthors(rows), [rows]);
 
-  /**
-   * One gutter width for the whole list, not per row.
-   *
-   * A per-row width would make the subject column jog left and right as the
-   * graph narrows and widens while you scroll, which is far more distracting
-   * than a little empty space. Capped because a pathological history should not
-   * push the subjects off screen.
-   */
-  const gutterLanes = Math.min(
-    12,
-    rows.reduce((max, row) => Math.max(max, row.laneCount), 1),
-  );
-  const gutterWidth = gutterLanes * theme.laneWidth;
-
   if (!repoId) {
     return <EmptyState title="No repository selected" body="Pick one from the sidebar." />;
   }
@@ -189,7 +219,7 @@ export function GraphView() {
         <GraphHeader
           refs={refs}
           authors={authors}
-          gutterWidth={gutterWidth}
+          gutterWidth={paintedGutter}
           columns={columns}
           theme={theme}
         />
@@ -219,7 +249,8 @@ export function GraphView() {
                     row={row}
                     refs={refsBySha.get(row.commit.sha) ?? EMPTY_REFS}
                     selected={selectedSha === row.commit.sha}
-                    gutterLanes={gutterLanes}
+                    gutterWidth={paintedGutter}
+                    laneWidth={laneWidth}
                     theme={theme}
                     clipId={avatarClipId(theme)}
                     dimmed={
@@ -247,7 +278,7 @@ export function GraphView() {
           <span className="tabular-nums">{rows.length.toLocaleString()} commits</span>
           {loading ? <span>loading…</span> : null}
           {truncated ? <span>history truncated at the row cap</span> : null}
-          <span className="ml-auto tabular-nums">{gutterWidth}px gutter</span>
+          <span className="ml-auto tabular-nums">{Math.round(paintedGutter)}px gutter</span>
         </footer>
       </div>
 
@@ -270,6 +301,15 @@ export function GraphView() {
 }
 
 const EMPTY_REFS: never[] = [];
+
+/**
+ * Lanes the gutter will draw before it stops widening.
+ *
+ * A pathological history — a repo with fifty concurrent branches — would
+ * otherwise push the commit subjects off the right edge of the window. Beyond
+ * this the deeper lanes are simply not drawn.
+ */
+const MAX_GUTTER_LANES = 12;
 
 function EmptyState({ title, body }: { title: string; body: string }) {
   return (
