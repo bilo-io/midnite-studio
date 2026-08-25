@@ -1,0 +1,90 @@
+import { spawnSync } from 'node:child_process';
+
+/**
+ * A Finder/Dock-launched app inherits launchd's bare PATH
+ * (`/usr/bin:/bin:/usr/sbin:/sbin`), not the user's shell PATH. For a git client
+ * that breaks two things at once: the integrated terminal starts with a PATH
+ * that has no Homebrew, no `~/.local/bin` and often no `git` the user would
+ * recognise; and any git subprocess that shells out to a credential helper or a
+ * signing binary can't find it.
+ *
+ * The symptom is maddening because it only happens when launched from Finder —
+ * run the same build from a terminal and everything works, because the terminal
+ * already exported the right PATH.
+ *
+ * The fix: ask the user's login shell for its PATH once at boot and fold it
+ * into `process.env.PATH` before anything is spawned.
+ *
+ * Cribbed near-verbatim from ~/Dev/midnite/packages/desktop/src/main/shell-path.ts.
+ */
+
+/** Wrapped around `$PATH` so profile noise (motd, nvm banners) can't corrupt the parse. */
+const MARKER_START = '__MGIT_PATH_START__';
+const MARKER_END = '__MGIT_PATH_END__';
+
+/**
+ * How long to wait for the login shell before shipping without the fix. Bounds
+ * boot, so it stays tight — but it's a *parameter* of
+ * {@link resolveLoginShellPath} rather than a hard constant, because the
+ * integration spec runs the real shell on a machine that may be under heavy
+ * parallel load (the whole moon graph at once), where a 5s ceiling is a coin
+ * flip and a failure says nothing about the code.
+ */
+export const RESOLVE_TIMEOUT_MS = 5000;
+
+/** Extract the PATH between the markers (last occurrence wins, in case a
+ *  profile echoes the command line). Pure/exported for testing. */
+export function parseShellPathOutput(output: string): string | null {
+  const start = output.lastIndexOf(MARKER_START);
+  if (start === -1) return null;
+  const from = start + MARKER_START.length;
+  const end = output.indexOf(MARKER_END, from);
+  if (end === -1) return null;
+  const path = output.slice(from, end).trim();
+  return path.length > 0 ? path : null;
+}
+
+/** The login-shell PATH first (the user's real ordering), then any current
+ *  entries it lacks — never drops a dir the process already had. Pure/exported
+ *  for testing. */
+export function mergePath(current: string | undefined, resolved: string): string {
+  const seen = new Set(resolved.split(':'));
+  const extras = (current ?? '').split(':').filter((dir) => dir.length > 0 && !seen.has(dir));
+  return [resolved, ...extras].join(':');
+}
+
+/**
+ * PATH as the user's shell sees it, or null when it can't be resolved (Windows
+ * GUI apps already inherit the full user PATH; any shell error/timeout fails
+ * soft). The shell runs `-lic` — login AND interactive — because PATH additions
+ * commonly live in interactive-only rc files (`~/.zshrc`: nvm, `~/.local/bin`,
+ * pyenv), which a plain `-lc` login shell never sources; the markers keep
+ * interactive profile noise (banners, prompts) out of the parse, and the
+ * timeout bounds an rc file that hangs.
+ *
+ * `timeoutMs` defaults to the boot-safe {@link RESOLVE_TIMEOUT_MS}; only the
+ * integration spec overrides it, to buy headroom on a loaded machine.
+ */
+export function resolveLoginShellPath(timeoutMs: number = RESOLVE_TIMEOUT_MS): string | null {
+  if (process.platform === 'win32') return null;
+  const shell =
+    process.env['SHELL'] ?? (process.platform === 'darwin' ? '/bin/zsh' : '/bin/bash');
+  // Braces around ${PATH} — a bare $PATH would swallow the end marker as part
+  // of the variable name (`$PATH__MIDNITE...` is a valid, unset identifier).
+  const probe = `printf '%s' "${MARKER_START}\${PATH}${MARKER_END}"`;
+  const res = spawnSync(shell, ['-lic', probe], {
+    encoding: 'utf-8',
+    timeout: timeoutMs,
+  });
+  if (res.error || res.status !== 0) return null;
+  return parseShellPathOutput(res.stdout ?? '');
+}
+
+/** Fold the login-shell PATH into this process's env (inherited by every git
+ *  subprocess and every PTY the terminal spawns). No-op when resolution fails —
+ *  boot must never hang or die on a broken shell profile. */
+export function ensureLoginShellPath(): void {
+  const resolved = resolveLoginShellPath();
+  if (!resolved) return;
+  process.env['PATH'] = mergePath(process.env['PATH'], resolved);
+}

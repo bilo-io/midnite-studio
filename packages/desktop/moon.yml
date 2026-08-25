@@ -21,3 +21,25 @@ tasks:
       - 'src/**/*'
       - 'scripts/**/*'
       - '/eslint.config.mjs'
+
+  # Dev: compile main+preload, then run Electron against the Vite dev server.
+  # `app:dev` is a persistent dep, so moon starts the two together and Electron
+  # retries the connection until Vite is listening.
+  start:
+    command: 'node scripts/start-electron.mjs'
+    preset: 'server'
+    deps:
+      - '~:build'
+      - 'app:dev'
+
+  # Same, but against the built renderer over file:// — the only way to
+  # reproduce a bug that depends on the production asset paths without
+  # packaging first.
+  start-built:
+    command: 'node scripts/start-electron.mjs'
+    preset: 'server'
+    env:
+      MGIT_USE_BUILT_RENDERER: '1'
+    deps:
+      - '~:build'
+      - 'app:build'
