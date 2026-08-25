@@ -47,67 +47,67 @@ localStorage clear, and the scrollback bytes are far too big for a 5 MB quota.
 
 ### B — Renderer session model
 
-- [ ] `app/src/features/terminal/terminal-store.ts` — zustand, **not** localStorage-persisted
+- [x] `app/src/features/terminal/terminal-store.ts` — zustand, **not** localStorage-persisted
       (main owns durability): ordered `sessions`, `activeId`, and non-persisted `ptyIdBySession` /
       `stateBySession`. Atomic selectors, per the house pattern
-- [ ] `use-terminal-ipc.ts` — from "the pty" to "this session's pty": keyed on `sessionId`, with
+- [x] `use-terminal-ipc.ts` — from "the pty" to "this session's pty": keyed on `sessionId`, with
       `onData` / `onExit` filtered by the ptyId bound to that session
-- [ ] **Delete the cwd-change kill effect.** It calls `kill()`, but `start()` is only ever invoked
+- [x] **Delete the cwd-change kill effect.** It calls `kill()`, but `start()` is only ever invoked
       from inside `openWhenSized`, which early-returns because `termRef.current` is already set —
       so switching worktree today kills the shell and *never restarts it*, leaving a dead pane
-- [ ] `terminal-panel.tsx` — a host that mounts every session's xterm and shows one. Deferred
+- [x] `terminal-panel.tsx` — a host that mounts every session's xterm and shows one. Deferred
       `term.open()`, `safeFit`, the in-place `MutationObserver` re-theme and
       `attachCustomKeyEventHandler` all survive untouched
-- [ ] Inactive panes use **`invisible`, never `hidden`/`display:none`** — a `display:none` element
+- [x] Inactive panes use **`invisible`, never `hidden`/`display:none`** — a `display:none` element
       measures 0×0, which is exactly the state Phase 9 found throws `Cannot read properties of
       undefined (reading 'dimensions')`. `visibility: hidden` keeps the layout box, so `safeFit`
       still measures and the shell's column count stays right
-- [ ] `ui-store.ts` — `terminalMaximized` and `terminalSidebarSide` added and persisted;
+- [x] `ui-store.ts` — `terminalMaximized` and `terminalSidebarSide` added and persisted;
       `terminalOpen` **moved into** `partialize` with its comment rewritten. The old objection
       ("restoring it spawns a login shell before the user has asked") dies with the dead-buffer
       model: restored sessions come back with no process at all
-- [ ] Restore on boot — sessions reappear dimmed with their scrollback replayed and a trailing
+- [x] Restore on boot — sessions reappear dimmed with their scrollback replayed and a trailing
       `[session ended]` line; the pty spawns on the first keystroke, not before
 
 ### C — Panel chrome: maximize and the `+` menu
 
-- [ ] Maximize toggle (`ChevronUp` ⇄ `ChevronDown`) — the terminal fills everything below the
+- [x] Maximize toggle (`ChevronUp` ⇄ `ChevronDown`) — the terminal fills everything below the
       custom titlebar, its own controls still visible; restoring returns to the stored
       `layout.terminalHeight`. Keep the wrapper's deliberate *absence* of a height transition
-- [ ] `Plus` button opening a menu through `useDialogs().openMenu`, anchored at the button's
+- [x] `Plus` button opening a menu through `useDialogs().openMenu`, anchored at the button's
       `getBoundingClientRect()`. There is no generic `DropdownMenu` in the app or in `@bilo-io/ui`;
       `ContextMenu` via `useDialogs` is the established path
-- [ ] Menu items: `New Terminal`, separator, then one `New Agent — <label>` per roster entry. Both
+- [x] Menu items: `New Terminal`, separator, then one `New Agent — <label>` per roster entry. Both
       spawn into the selected worktree's directory
-- [ ] An agent session is **a login shell sent `claude\r`**, not `pty.spawn('claude')` — the login
+- [x] An agent session is **a login shell sent `claude\r`**, not `pty.spawn('claude')` — the login
       shell resolves nvm/asdf-managed binaries the way the user's real terminal does, and when the
       agent exits you are left at a prompt rather than a dead pane
 
 ### D — The session sidebar
 
-- [ ] `app/src/features/terminal/terminal-session-list.tsx` — rendered only when
+- [x] `app/src/features/terminal/terminal-session-list.tsx` — rendered only when
       `sessions.length > 1`, docked per `terminalSidebarSide`, ~180px
-- [ ] `app/src/components/icons/claude-icon.tsx` — there is no Claude or Anthropic mark anywhere in
+- [x] `app/src/components/icons/claude-icon.tsx` — there is no Claude or Anthropic mark anywhere in
       the repo or in `@bilo-io/ui`, so it is a new local SVG following the `brand.tsx` precedent,
       typed as the existing structural `IconComponent` so it drops straight into `IconButton`
-- [ ] Row: shell → react-icons `LuTerminal`; agent → the Claude mark tinted with the roster entry's
+- [x] Row: shell → react-icons `LuTerminal`; agent → the Claude mark tinted with the roster entry's
       `accent`. Repo name · short cwd, a running dot, hover `X` to close. Dead rows dimmed
-- [ ] Right-click the sidebar → `Move to left` / `Move to right` through the same `openMenu` —
+- [x] Right-click the sidebar → `Move to left` / `Move to right` through the same `openMenu` —
       cheaper than another piece of chrome for a preference set once
 
 ### E — Drag-to-reorder, terminals and repos
 
-- [ ] Add `@dnd-kit/sortable` — `@dnd-kit/core` is already a dependency, the sortable primitives
+- [x] Add `@dnd-kit/sortable` — `@dnd-kit/core` is already a dependency, the sortable primitives
       are not
-- [ ] `app/src/components/sortable-list.tsx` — one shared wrapper for both lists, so sensor config
+- [x] `app/src/components/sortable-list.tsx` — one shared wrapper for both lists, so sensor config
       and keyboard a11y live in one place. Match graph-dnd's `PointerSensor`
       `activationConstraint: { distance: 6 }`: the repo row already has three overlapping click
       targets (chevron, select, close) and a 0-distance drag would swallow them
-- [ ] Terminal order → `mgit:terminal:reorder`, persisted as `terminals.json` array order
-- [ ] Repo order → new `mgit:repo:reorder` mutating the registry `Map` and re-persisting. Order
+- [x] Terminal order → `mgit:terminal:reorder`, persisted as `terminals.json` array order
+- [x] Repo order → new `mgit:repo:reorder` mutating the registry `Map` and re-persisting. Order
       stays where the repo list already lives (`repos.json` `paths` order) rather than splitting
       into localStorage
-- [ ] Compose drag listeners **through** `Tooltip`, which clones its child and carries `assignRef`
+- [x] Compose drag listeners **through** `Tooltip`, which clones its child and carries `assignRef`
       precisely to keep dnd-kit refs alive; and confirm the repos panel sits outside
       `GraphDndProvider` before adding a second `DndContext` — nested contexts misroute drops
 

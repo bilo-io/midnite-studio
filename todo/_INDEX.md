@@ -10,7 +10,7 @@ Completed work is logged append-only in [`done.md`](done.md). Deferred scope liv
 
 | Phase | Status | Done | Progress | % | 🔄 WIP | ◻ TODO |
 |-------|--------|------|----------|---|--------|--------|
-| [15 · Multi-terminal sessions + agents](phase-15-multi-terminal-sessions.md) | 🔄 WIP | 7/37 | `██░░░░░░░░` | 19% | — | B C D E |
+| [15 · Multi-terminal sessions + agents](phase-15-multi-terminal-sessions.md) | 🔄 WIP | 27/37 | `███████░░░` | 73% | — | verification |
 | [14 · Graph themes + avatars](phase-14-graph-themes.md) | ✅ DONE | 28/28 | `██████████` | 100% | — | — |
 | [13 · UI polish](phase-13-ui-polish.md) | ✅ DONE | 26/26 | `██████████` | 100% | — | — |
 | [12 · Commit inspector + live badges](phase-12-commit-inspector.md) | 🔄 WIP | 9/51 | `██░░░░░░░░` | 18% | — | A B C E F |
@@ -37,10 +37,10 @@ Completed work is logged append-only in [`done.md`](done.md). Deferred scope liv
 *Several terminals at once — shells and coding agents — in a VS Code-style sidebar, surviving a restart with their scrollback. A is the spine: B/C/D all render what A persists. E is independent and also covers the repos sidebar.*
 
 - ✅ **A** — session record + capped scrollback in main; `terminal:*` channels; agent roster with an `agents.json` override
-- ◻ **B** — per-session renderer model; multi-xterm host; the cwd-change kill effect deleted (fixes a dead pane)
-- ◻ **C** — maximize chevron and the `+` → New Terminal / New Agent menu
-- ◻ **D** — the session sidebar, dockable left/right, with a Claude mark for agent sessions
-- ◻ **E** — drag-to-reorder via `@dnd-kit/sortable`, for terminals *and* repos
+- ✅ **B** — per-session renderer model; multi-xterm host; the cwd-change kill effect deleted (fixes a dead pane)
+- ✅ **C** — maximize chevron and the `+` → New Terminal / New Agent menu
+- ✅ **D** — the session sidebar, dockable left/right, with a Claude mark for agent sessions
+- ✅ **E** — drag-to-reorder via `@dnd-kit/sortable`, for terminals *and* repos
 
 ### [Phase 12 — Commit inspector + live badges](phase-12-commit-inspector.md)
 
