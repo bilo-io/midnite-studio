@@ -559,3 +559,98 @@ surviving shells. A browser cannot quit Electron or read the process table, and 
 the one assertion in the list that proved nothing.
 
 562 unit tests + 47 Playwright green.
+
+---
+
+## Phase 17 — the repositories sidebar as a workbench (2026-08-26)
+
+Five gaps closed on one branch: change counts, a Changes-view filter, menus on everything,
+whole-checkout diffs, and the app's first forge integration.
+
+The counts needed **no new IPC at all**, which was the surprise. `status.get` has taken an
+optional `worktreePath` since Phase 6, `resolveWorkdir` validates it against
+`git worktree list`, and `getStatus` resolves `.git` through `rev-parse --git-dir` so it
+already worked inside a linked worktree. The sidebar simply never asked. `useWorktreeStatuses`
+asks — one `useQueries` entry per checkout, on **exactly** `keys.status(repoId, path)`, so a
+row's pill and the Changes panel that later selects that checkout are one cached `git status`
+rather than two, and the Phase 10 watcher invalidates both without knowing the hook exists.
+
+`isPlaceholderData` turned out to be load-bearing twice over. The placeholder is an *empty*
+status, so trusting it would report every checkout clean while its query was in flight — and
+Theme B's filter would then have hidden a dirty worktree on the strength of a number that had
+not arrived. `byPath` therefore holds only checkouts that have actually answered, and the
+filter refuses to hide anything while `isLoading`.
+
+The old `isMain`-only guard on `worktreeHealth` was right and is preserved. Its comment said a
+linked worktree gets no dot rather than the primary's dirt attributed to it; `liveStatus()`
+keeps that invariant and the data caught up to it.
+
+**Destructive verbs moved into the sidebar**, reversing a documented Phase 4 decision. The old
+docblock argued that delete and rename belonged only to the graph's ref badges, because a
+second set of destructive affordances would be somewhere for the two to disagree. That did not
+survive contact with the tree — the sidebar is where branches and worktrees are actually
+managed, and sending someone to the graph to delete a branch they are looking at is the
+indirection a git client exists to remove. The docblock was rewritten rather than left
+contradicting the code, and the disagreement risk is answered by one shared confirm shape.
+
+Branch delete passes `--force` unconditionally, which looks alarming and is the honest choice:
+git's `-d` refuses on unmerged commits with no way to see what they are, so a UI built on it
+can only relay a refusal. The blast radius dialog *names the commits*, which is strictly better
+information — so the decision moves to the person, in front of the numbers.
+
+Worktree removal is two-step. The first attempt never forces; only after git has actually
+objected does a second, separately-confirmed dialog offer to override it, so "force" is always
+a reply to a specific objection rather than a checkbox nobody read.
+
+Two rows in one tree can both be called `main` — a branch and the worktree it lives in. Their
+action buttons had identical accessible names, which a Playwright strict-mode violation caught
+and which a screen reader user would have hit the same way. Labels now name the kind.
+
+`inline` mode on `DiffView` drops the **virtualizer**, not just the chrome: inside an accordion
+the scroller is the page, so a virtualizer would render three rows and stop. `DIFF_LINE_CAP`
+already bounds a single file, which is what makes plain flow affordable. Each accordion's query
+lives in its *body*, so a checkout with 200 changed files costs 200 rows and zero `git diff`
+calls until something is expanded; expand-all is capped and **says** what it withheld.
+
+Tabs live in their own store rather than a `ui-store` slice. Everything in that store is a
+persistence candidate; a tab names a repo, a checkout or a run, any of which can be gone by
+next launch — so keeping them apart means nobody has to remember to exclude them from
+`partialize`. `NewWorkbenchTab` distributes its `Omit`: a naive `Omit` over the union keeps
+only shared keys and would have erased the very fields tab identity is derived from.
+
+**The forge integration goes through the user's own `gh`.** No PAT, no keychain decision, no
+token that silently expires — `gh` already holds a credential and knows about enterprise hosts.
+`shellQuote()` is the load-bearing piece and not defensive politeness: `runInShell` takes a
+single command string, and owner/repo are parsed out of whatever URL is sitting in
+`.git/config`. It is tested against `$(…)`, backticks, `;`, `&&`, `|`, a newline, and the
+embedded `'` that is the only character single-quoting cannot contain. Owner/repo are resolved
+**in main** from the config rather than sent by the renderer, so the only thing crossing the
+boundary is a `repoId`.
+
+Two `gh` details cost a debugging round each and are now encoded: an interactive login shell
+convinces `gh` it has a tty, so `GH_PAGER=cat` is required or the call hangs until the timeout;
+and `gh auth status` exits 1 if *any* configured host has a bad token, which must not sign the
+user out of the host that works.
+
+This finally closes **"Branch checks (the RAG dot's real source)"** from `outstanding.md`, by
+the exact route that entry predicted. `checksVerdict()` matches on **sha**, never branch name —
+a green tick sourced from the previous tip is the precise failure that teaches people to
+distrust the dot — takes the newest run per workflow so a re-run supersedes what it replaced,
+and reports an all-skipped set as `unknown` rather than green. The rate-limit worry that
+parked it is answered by never fetching for the dot at all: the sidebar reads the Actions query
+with `enabled: false`, so a branch is coloured only when the user has already opened that
+repo's Actions section.
+
+Two verification items are left open for a human, both because this session could not perform
+them rather than because they were skipped. Electron will not attach to the macOS window server
+from a non-interactive shell — it exits silently with no output while other Electron apps on
+the same machine run fine — so the packaged-app screenshot pass in both themes did not run. And
+the `gh`-availability matrix (present-and-authed, absent, authed-but-offline) needs a machine
+whose state can be changed between runs.
+
+Note for whoever picks this up: `e2e/graph-themes.spec.ts` has 12 failures **on `main`** —
+verified in a clean worktree at `0b810c2`, identical count and file. It looks like a Phase 16
+leftover: the spec reaches for Settings via `getByRole('link')`, but Settings became a footer
+`button` when the nav rail regrouped. Untouched here; it is not this phase's to fix.
+
+724 unit tests + 56 Playwright green (11 of them new).

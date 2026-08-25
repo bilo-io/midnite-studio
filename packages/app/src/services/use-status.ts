@@ -1,5 +1,6 @@
-import type { GitOpResult, StatusResult } from '@midnite/git-shared';
-import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
+import type { GitOpResult, RepoDescriptor, StatusResult, Worktree } from '@midnite/git-shared';
+import { useMemo } from 'react';
+import { useMutation, useQueries, useQuery, useQueryClient } from '@tanstack/react-query';
 
 import { useUiStore } from '../store/ui-store';
 import { bridge } from './bridge';
@@ -62,6 +63,87 @@ export function useRepoStatus({ repoId, worktreePath }: StatusTarget) {
 
 export function useStatus() {
   return useRepoStatus(useActiveWorktree());
+}
+
+/**
+ * Status for EVERY checkout of a repository, keyed by worktree path.
+ *
+ * The sidebar used to fetch only the primary checkout, so a linked worktree
+ * with a dozen uncommitted files rendered exactly like a clean one. Nothing in
+ * main had to change for this: `status.get` has always taken an optional
+ * `worktreePath`, `resolveWorkdir` validates it against `git worktree list`,
+ * and `getStatus` resolves `.git` through `rev-parse --git-dir` so it works
+ * inside a linked worktree.
+ *
+ * `useQueries` with EXACTLY `keys.status(repoId, path)` is the load-bearing
+ * part. Sharing the key means a row's count and the Changes panel that later
+ * selects that same worktree are one cached `git status`, not two — and the
+ * watcher's existing invalidation reaches both without knowing this hook
+ * exists.
+ *
+ * `enabled` is the caller's promise that these are worth a subprocess apiece.
+ */
+export type WorktreeStatuses = {
+  /** Only checkouts whose real status has ARRIVED. Absent is not clean. */
+  byPath: ReadonlyMap<string, StatusResult>;
+  /** Changed paths across every checkout, for the collapsed repo row. */
+  total: number;
+  /** True until every checkout has answered — nothing may be hidden before then. */
+  isLoading: boolean;
+};
+
+export function useWorktreeStatuses(
+  repo: Pick<RepoDescriptor, 'id' | 'worktrees'>,
+  enabled: boolean,
+): WorktreeStatuses {
+  const results = useQueries({
+    queries: repo.worktrees.map((worktree: Worktree) => ({
+      queryKey: keys.status(repo.id, worktree.path),
+      queryFn: async (): Promise<StatusResult> => {
+        const api = bridge();
+        if (!api) return EMPTY_STATUS;
+        return api.status.get({ repoId: repo.id, worktreePath: worktree.path });
+      },
+      enabled,
+      placeholderData: EMPTY_STATUS,
+    })),
+  });
+
+  const paths = repo.worktrees.map((worktree) => worktree.path);
+  /*
+    `isPlaceholderData` is what keeps this honest, the same way it does in the
+    repo header. The placeholder is an EMPTY status, so treating it as data
+    would report every checkout as clean for as long as the query is in
+    flight — and Theme B's filter would then hide a dirty worktree on the
+    strength of a number that had not arrived yet.
+  */
+  const settled = results.map((result) => (result.isPlaceholderData ? undefined : result.data));
+  const key = settled
+    .map((status, index) => `${paths[index]}:${status?.entries.length ?? -1}`)
+    .join('|');
+
+  return useMemo(() => {
+    const byPath = new Map<string, StatusResult>();
+    let total = 0;
+    let isLoading = false;
+
+    settled.forEach((status, index) => {
+      const path = paths[index];
+      if (path === undefined) return;
+      if (!status) {
+        isLoading = true;
+        return;
+      }
+      byPath.set(path, status);
+      total += status.entries.length;
+    });
+
+    return { byPath, total, isLoading };
+    // `key` collapses the results to the only thing downstream reads — which
+    // path has how many changes — so the map identity survives the refetches
+    // that return an unchanged status.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [key, enabled]);
 }
 
 /**

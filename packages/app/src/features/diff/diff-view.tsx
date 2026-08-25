@@ -33,6 +33,7 @@ export function DiffView({
   isLoading = false,
   onExpandContext,
   emptyMessage,
+  inline = false,
 }: {
   diff: FileDiff | undefined;
   isLoading?: boolean;
@@ -42,6 +43,21 @@ export function DiffView({
    */
   onExpandContext?: (context: number) => void;
   emptyMessage?: string | null;
+  /**
+   * Render into the flow of a taller page instead of owning a pane.
+   *
+   * Used by the multi-file accordion, where a dozen diffs share one scroller.
+   * Two things change and both have to: the box stops claiming `h-full`, and
+   * the virtualizer is dropped. A virtualizer needs a scroll element to
+   * measure against, and inside an accordion its scroller is the PAGE — so it
+   * would either render three rows and stop, or fight the outer scroll. The
+   * row count it would have saved is already bounded by `DIFF_LINE_CAP`,
+   * which is what makes plain flow affordable here.
+   *
+   * The toolbar goes too: `+n / −m` and the expander belong to the accordion's
+   * own header, and a dozen stacked toolbars is a dozen rows of chrome.
+   */
+  inline?: boolean;
 }) {
   const showOldGutter = useUiStore((s) => s.diffShowOldGutter);
   const toggleOldGutter = useUiStore((s) => s.toggleDiffOldGutter);
@@ -50,7 +66,9 @@ export function DiffView({
   const rows = diff ? toDiffRows(diff) : [];
 
   const virtualizer = useVirtualizer({
-    count: rows.length,
+    // Zero in inline mode: the hook must still be called unconditionally, but
+    // it must not also do the work of measuring rows nothing will read.
+    count: inline ? 0 : rows.length,
     getScrollElement: () => scrollRef.current,
     estimateSize: () => ROW_HEIGHT,
     overscan: 24,
@@ -72,6 +90,44 @@ export function DiffView({
   }
 
   const canExpandAll = diff.contextLines < DIFF_FULL_CONTEXT && onExpandContext !== undefined;
+
+  if (inline) {
+    return (
+      <div className="font-mono text-[11px] leading-[18px]" data-testid="diff-view">
+        {diff.combined ? (
+          <p className="border-b border-border bg-destructive/10 px-3 py-1.5 font-sans text-[11px] text-muted-foreground">
+            This file is unmerged — the content below includes conflict markers.
+          </p>
+        ) : null}
+
+        {/*
+          `w-max min-w-full` on the rows, and the horizontal scroller HERE
+          rather than on the page. A long line must not widen the whole
+          accordion list and make every other file scroll sideways with it.
+        */}
+        <div className="overflow-x-auto">
+          {rows.map((row, index) =>
+            row.kind === 'hunk' ? (
+              <div key={`h${index}`} className="flex w-max min-w-full">
+                <HunkHeader row={row} onExpand={onExpandContext} context={diff.contextLines} />
+              </div>
+            ) : (
+              <div key={`l${index}`} className="flex w-max min-w-full">
+                <LineRow line={row.line} showOldGutter={showOldGutter} />
+              </div>
+            ),
+          )}
+        </div>
+
+        {diff.truncated ? (
+          <p className="border-t border-border px-3 py-2 font-sans text-[11px] text-muted-foreground">
+            {diff.droppedLines.toLocaleString()} more lines not shown — this diff was capped to
+            keep the panel responsive.
+          </p>
+        ) : null}
+      </div>
+    );
+  }
 
   return (
     <div className="flex h-full min-h-0 flex-col" data-testid="diff-view">

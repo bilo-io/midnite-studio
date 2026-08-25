@@ -11,6 +11,7 @@ import { useCommit, useDiscard, useStage, useStatus, useUnstage } from '../../se
 import { DEFAULT_LAYOUT, LAYOUT_BOUNDS, useUiStore } from '../../store/ui-store';
 import { TreeSection } from '../../components/tree-section';
 import { FileDiff } from './file-diff';
+import { StatusMark } from './status-mark';
 
 /**
  * The changes panel: staged/unstaged lists, a commit box, and the sync bar.
@@ -235,27 +236,6 @@ function FileRow({
           />
         ))}
     </div>
-  );
-}
-
-const MARKS: Record<string, { char: string; className: string }> = {
-  modified: { char: 'M', className: 'text-amber-500' },
-  added: { char: 'A', className: 'text-success' },
-  deleted: { char: 'D', className: 'text-destructive' },
-  renamed: { char: 'R', className: 'text-primary' },
-  copied: { char: 'C', className: 'text-primary' },
-  untracked: { char: 'U', className: 'text-muted-foreground' },
-  ignored: { char: 'I', className: 'text-muted-foreground' },
-  typeChanged: { char: 'T', className: 'text-amber-500' },
-  conflicted: { char: '!', className: 'text-destructive' },
-};
-
-function StatusMark({ code, conflicted }: { code: string; conflicted: boolean }) {
-  const mark = MARKS[conflicted ? 'conflicted' : code] ?? MARKS['modified']!;
-  return (
-    <span className={`w-3 shrink-0 text-center font-mono text-xs ${mark.className}`} aria-hidden>
-      {mark.char}
-    </span>
   );
 }
 

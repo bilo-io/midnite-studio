@@ -11,13 +11,15 @@ import {
   FolderPlus,
   FolderX,
   GitBranch,
+  ListFilter,
   MoreVertical,
   SquareArrowOutUpRight,
   Tag,
-  X,
 } from 'lucide-react';
+import { MdOutlineDifference } from 'react-icons/md';
 
 import type { MenuItem } from '../../components/context-menu';
+import { ChangeCountPill } from '../../components/change-count-pill';
 import { bridge } from '../../services/bridge';
 import { SortableList, useSortableRow } from '../../components/sortable-list';
 import { useDialogs } from '../../components/dialog-host';
@@ -28,39 +30,49 @@ import { cascadeStyle } from '../../lib/cascade';
 import {
   openExternal,
   usePickAndOpenRepo,
+  useForgeRuns,
   useRefs,
   useRemotes,
-  useRemoveWorktree,
   useRepos,
 } from '../../services/queries';
-import { useRepoStatus } from '../../services/use-status';
+import {
+  useRepoStatus,
+  useWorktreeStatuses,
+  type WorktreeStatuses,
+} from '../../services/use-status';
 import { useUiStore } from '../../store/ui-store';
 import { AheadBehind, SyncControls } from '../status/sync-controls';
 import { BranchDot } from './branch-dot';
 import { branchHealth, worktreeHealth, type BranchHealth } from './branch-health';
+import { checksVerdict } from './checks-verdict';
+import { ForgeSections } from './forge-sections';
+import { useDirtyFilter, type DirtyFilter } from './use-dirty-filter';
 import { primaryTarget, useRepoActions } from './use-repo-actions';
 
 /**
  * The repositories sidebar, modelled on VS Code's SCM view crossed with
  * GitKraken's ref tree.
  *
- * Each repository owns four labelled subsections — Local, Remotes, Tags,
- * Worktrees — because "which ref" and "which checkout" are different questions
- * and the app answers both. Every one of them folds independently: a repo with
+ * Each repository owns its labelled subsections — Local, Remotes, Tags,
+ * Worktrees, and (for a GitHub remote) Actions and Reviews — because "which
+ * ref", "which checkout" and "what does CI say" are different questions and the
+ * app answers all of them. Every one of them folds independently: a repo with
  * two hundred tags and three worktrees is unusable if the tags cannot be got
- * out of the way. A linked worktree is nested under the repository
- * that owns it, never listed as a sibling: git treats every checkout as a
- * worktree, including the main one, so the list is uniform with the primary
- * checkout marked rather than special-cased.
+ * out of the way. A linked worktree is nested under the repository that owns
+ * it, never listed as a sibling: git treats every checkout as a worktree,
+ * including the main one, so the list is uniform with the primary checkout
+ * marked rather than special-cased.
  *
  * Selecting a worktree, not just a repo, is the point of the panel: staging,
  * committing and status are all per-checkout, so "which worktree" is the app's
- * primary context.
+ * primary context — and since Phase 17 every checkout carries its own change
+ * count, so the tree answers "where did I leave off" without being opened.
  */
 export function ReposPanel() {
   const { data: repos = [], isLoading } = useRepos();
   const { pickAndOpen, isPending } = usePickAndOpenRepo();
   const [error, setError] = useState<string | null>(null);
+  const filter = useDirtyFilter();
 
   const onOpen = async () => {
     setError(null);
@@ -74,6 +86,20 @@ export function ReposPanel() {
         <h2 className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
           Repositories
         </h2>
+        {/*
+          The filter is visible whenever it is on, and reversible from here.
+          Arriving in Changes to find two thirds of the tree missing is only
+          acceptable if the thing that did it is on screen saying so — a hidden
+          mode that eats rows is indistinguishable from data loss.
+        */}
+        <IconButton
+          icon={ListFilter}
+          label={filter.active ? 'Showing only changed checkouts' : 'Show every ref and checkout'}
+          aria-pressed={filter.active}
+          size="sm"
+          onClick={filter.toggle}
+          className={filter.active ? 'text-primary' : ''}
+        />
         <IconButton
           icon={FolderPlus}
           label="Open a repository…"
@@ -114,6 +140,7 @@ export function ReposPanel() {
                 repo={repo}
                 first={index === 0}
                 index={index}
+                filter={filter}
                 // '' clears a stale message on the next successful op, so an
                 // error from two operations ago cannot sit there looking current.
                 onError={(message) => setError(message || null)}
@@ -130,11 +157,13 @@ function RepoItem({
   repo,
   first,
   index,
+  filter,
   onError,
 }: {
   repo: RepoDescriptor;
   first: boolean;
   index: number;
+  filter: DirtyFilter;
   onError: (message: string) => void;
 }) {
   const [expanded, setExpanded] = useState(true);
@@ -151,6 +180,7 @@ function RepoItem({
    * watcher invalidation, to populate a tree nobody has opened.
    */
   const { data: refs = [] } = useRefs(expanded ? repo.id : null);
+  const { data: remotes = [] } = useRemotes(expanded ? repo.id : null);
 
   /**
    * Status, on the other hand, is fetched whether the repo is expanded or not:
@@ -166,10 +196,38 @@ function RepoItem({
   const { data: status, isPlaceholderData } = useRepoStatus(primaryTarget(repo));
   const loaded = isPlaceholderData ? undefined : status;
 
-  const { refMenu, repoMenu, checkout, report } = useRepoActions(repo, onError);
+  /**
+   * Every checkout's status — one `git status` per worktree.
+   *
+   * Gated the same way refs are, with one exception that is the whole point of
+   * the filter: in "changed only" mode the panel has to know each checkout's
+   * count BEFORE it can decide whether to show the repository at all, so the
+   * queries run for a folded repo too. That is the cost of the mode, and it is
+   * bounded — `staleTime: Infinity` plus the watcher means each one is paid
+   * once and refreshed only when the filesystem actually changes.
+   */
+  const statuses = useWorktreeStatuses(repo, expanded || filter.active);
+
+  const changedByWorktree = useMemo(() => {
+    const map = new Map<string, number>();
+    for (const [path, result] of statuses.byPath) map.set(path, result.entries.length);
+    return map;
+  }, [statuses.byPath]);
+
+  const actions = useRepoActions(repo, onError, { changedByWorktree, remotes });
+  const { refMenu, repoMenu, worktreeMenu, sectionMenu, checkout, report, viewAllChanges } =
+    actions;
 
   const openRepoMenu = (at: { clientX: number; clientY: number }) =>
     dialogs.openMenu(at, repoMenu(refs, loaded));
+
+  /*
+    A repo with nothing changed drops out of the filtered tree — but never
+    while its counts are still arriving. Hiding on missing data would make the
+    panel flicker repos out and back in on every refetch, and would hide a
+    dirty checkout on the strength of a number that had not landed yet.
+  */
+  if (filter.active && !statuses.isLoading && statuses.total === 0) return null;
 
   return (
     <section
@@ -224,25 +282,26 @@ function RepoItem({
           >
             <span className="truncate font-medium">{repo.name}</span>
             {/*
-              The branch, with its own glyph rather than as loose grey text: it
-              is the subject of the sync counts beside it, and a bare name reads
-              as a subtitle to the repo instead.
-
-              Only while the repo is folded, though. Expanded, the Local list a
-              few pixels below names the same branch and marks it with the live
-              dot — and at the 256px default the two of them plus the sync
-              cluster left the repository's own name truncated to "midnite-…",
-              which is the one string on the row that has to survive. `shrink-[6]`
-              backs that up at narrower widths: the branch gives up its space
-              six times faster than the name does.
+              Folded, the row has to stand in for the whole tree below it, so it
+              carries the branch and the repository's TOTAL uncommitted count.
+              Expanded, both are said better a few pixels down — the Local list
+              names the branch and marks it with the live dot, and each worktree
+              carries its own count — and at the 288px default repeating them
+              here truncated the repository's own name to "midnite-…", which is
+              the one string on the row that has to survive. `shrink-[6]` backs
+              that up at narrower widths: the branch gives up its space six
+              times faster than the name does.
             */}
             {expanded ? null : (
-              <span className="flex min-w-0 shrink-[6] items-center gap-1 text-xs text-muted-foreground">
-                <GitBranch aria-hidden className="h-3 w-3 shrink-0" />
-                <span className="truncate">
-                  {loaded?.branch.head ?? repo.headRef ?? 'detached'}
+              <>
+                <span className="flex min-w-0 shrink-[6] items-center gap-1 text-xs text-muted-foreground">
+                  <GitBranch aria-hidden className="h-3 w-3 shrink-0" />
+                  <span className="truncate">
+                    {loaded?.branch.head ?? repo.headRef ?? 'detached'}
+                  </span>
                 </span>
-              </span>
+                <ChangeCountPill count={statuses.total} what={repo.name} />
+              </>
             )}
           </button>
         </Tooltip>
@@ -292,8 +351,13 @@ function RepoItem({
         <RepoTree
           repo={repo}
           refs={refs}
-          status={loaded}
+          remotes={remotes}
+          statuses={statuses}
+          filter={filter}
           refMenu={refMenu}
+          worktreeMenu={worktreeMenu}
+          sectionMenu={sectionMenu}
+          onViewAllChanges={viewAllChanges}
           onCheckout={(ref) => void checkout.mutateAsync({ target: ref.name }).then(report)}
         />
       ) : null}
@@ -305,6 +369,13 @@ function RepoItem({
 const TAG_PREVIEW = 50;
 
 type SectionKey = 'local' | 'remotes' | 'tags' | 'worktrees';
+
+const SECTION_TITLE: Record<SectionKey, string> = {
+  local: 'Local',
+  remotes: 'Remotes',
+  tags: 'Tags',
+  worktrees: 'Worktrees',
+};
 
 /**
  * Fold state for a repo's subsections.
@@ -331,30 +402,35 @@ function useSectionToggles() {
 function RepoTree({
   repo,
   refs,
-  status,
+  remotes,
+  statuses,
+  filter,
   refMenu,
+  worktreeMenu,
+  sectionMenu,
+  onViewAllChanges,
   onCheckout,
 }: {
   repo: RepoDescriptor;
   refs: Ref[];
-  /** The primary checkout's status, once it has arrived. */
-  status: StatusResult | undefined;
+  remotes: Remote[];
+  statuses: WorktreeStatuses;
+  filter: DirtyFilter;
   refMenu: (ref: Ref) => MenuItem[];
+  worktreeMenu: (worktree: Worktree) => MenuItem[];
+  sectionMenu: (kind: SectionKey, refs: readonly Ref[]) => MenuItem[];
+  onViewAllChanges: (worktreePath: string, label: string) => void;
   onCheckout: (ref: Ref) => void;
 }) {
   const [showAllTags, setShowAllTags] = useState(false);
   const section = useSectionToggles();
+  const dialogs = useDialogs();
 
-  const { branches, remotes, tags } = useMemo(() => partitionRefs(refs), [refs]);
+  const { branches, remotes: remoteGroups, tags } = useMemo(() => partitionRefs(refs), [refs]);
 
-  // Only fetched for an expanded repo — RepoTree does not render otherwise —
-  // and only used to decorate the groups the ref list already produced. A
-  // configured remote with no fetched branches yet stays absent from the tree,
-  // which is the existing behaviour and not something this changes.
-  const { data: configured } = useRemotes(repo.id);
   const forgeByName = useMemo(
-    () => new Map((configured ?? []).map((r: Remote) => [r.name, r.forge])),
-    [configured],
+    () => new Map(remotes.map((remote: Remote) => [remote.name, remote.forge])),
+    [remotes],
   );
 
   // The main worktree is listed alongside the linked ones: git models it as a
@@ -364,77 +440,196 @@ function RepoTree({
     [repo.worktrees],
   );
 
+  /**
+   * CI verdicts for the branch dots — from cache only, never fetched for.
+   *
+   * `enabled: false` is doing real work here. It closes the loop
+   * `todo/outstanding.md` left open ("Branch checks — the RAG dot's real
+   * source") without paying for it: if the user has opened Actions on this
+   * repo, the runs are already in the query cache and every branch tip that
+   * matches one gets a real red/amber/green. If they have not, this fetches
+   * nothing, `runs` is undefined, and every branch reports `unknown` and shows
+   * no dot — which is the behaviour the dot was designed around. A green dot
+   * meaning "no data" is worse than no dot; a `gh` subprocess per repo just to
+   * colour a 6px circle is worse than both.
+   */
+  const { data: cachedRuns } = useForgeRuns(repo.id, false);
+
+  const changedOf = (path: string): number => statuses.byPath.get(path)?.entries.length ?? 0;
+  const conflictedOf = (path: string): number =>
+    statuses.byPath.get(path)?.entries.filter((entry) => entry.conflicted).length ?? 0;
+
+  /*
+    In filter mode the tree shows only what the mode is about. Local, Remotes,
+    Tags, Actions and Reviews are all answers to questions the Changes view is
+    not asking, and leaving them in place would mean the filter had removed
+    repositories while keeping two hundred tags.
+  */
+  const visibleWorktrees = filter.active
+    ? worktrees.filter((worktree) => changedOf(worktree.path) > 0)
+    : worktrees;
+
   const visibleTags = showAllTags ? tags : tags.slice(0, TAG_PREVIEW);
+
+  /** One builder for both affordances, so right-click and the ellipsis agree. */
+  const headingAction = (kind: SectionKey, count: number) => ({
+    icon: MoreVertical,
+    label: `${SECTION_TITLE[kind]} section actions`,
+    onClick: () => {
+      const items = sectionMenu(kind, refs);
+      if (items.length === 0) return;
+      dialogs.openMenu(lastPointer(), items);
+    },
+    count,
+  });
 
   return (
     <div className="pb-1">
-      {/*
-        "Local", not "Branches": the section below it is remote branches too,
-        and a heading that only says "Branches" leaves the reader to work out
-        which of the two they are looking at.
-      */}
-      <TreeSection title="Local" count={branches.length} depth={1} {...section('local')}>
-        {branches.map((ref, i) => (
-          <RefRow
-            key={ref.fullName}
-            refItem={ref}
-            icon={GitBranch}
-            index={i}
-            health={branchHealth({ ref, status })}
-            menu={refMenu}
-            onCheckout={onCheckout}
-          />
-        ))}
-      </TreeSection>
+      {filter.active ? null : (
+        <>
+          {/*
+            "Local", not "Branches": the section below it is remote branches too,
+            and a heading that only says "Branches" leaves the reader to work out
+            which of the two they are looking at.
+          */}
+          <TreeSection
+            title="Local"
+            count={branches.length}
+            depth={1}
+            {...section('local')}
+            action={headingAction('local', branches.length)}
+          >
+            {branches.map((ref, i) => (
+              <RefRow
+                key={ref.fullName}
+                refItem={ref}
+                icon={GitBranch}
+                index={i}
+                health={branchHealth({
+                  ref,
+                  status: liveStatus(ref, statuses, repo),
+                  checks: checksVerdict(cachedRuns?.runs, ref.sha),
+                })}
+                changed={ref.worktreePath ? changedOf(ref.worktreePath) : 0}
+                conflicted={ref.worktreePath ? conflictedOf(ref.worktreePath) : 0}
+                menu={refMenu}
+                onCheckout={onCheckout}
+                onViewAllChanges={onViewAllChanges}
+              />
+            ))}
+          </TreeSection>
 
-      <TreeSection title="Remotes" count={remotes.length} depth={1} {...section('remotes')}>
-        {remotes.map((group) => (
-          <RemoteGroup
-            key={group.name}
-            name={group.name}
-            refs={group.refs}
-            forge={forgeByName.get(group.name) ?? null}
-            menu={refMenu}
-          />
-        ))}
-      </TreeSection>
+          <TreeSection
+            title="Remotes"
+            count={remoteGroups.length}
+            depth={1}
+            {...section('remotes')}
+            action={headingAction('remotes', remoteGroups.length)}
+          >
+            {remoteGroups.map((group) => (
+              <RemoteGroup
+                key={group.name}
+                name={group.name}
+                refs={group.refs}
+                forge={forgeByName.get(group.name) ?? null}
+                menu={refMenu}
+              />
+            ))}
+          </TreeSection>
+
+          <TreeSection
+            title="Tags"
+            count={tags.length}
+            depth={1}
+            {...section('tags')}
+            action={
+              tags.length > TAG_PREVIEW
+                ? {
+                    label: showAllTags ? 'Show fewer' : `Show all ${tags.length}`,
+                    onClick: () => setShowAllTags((v) => !v),
+                  }
+                : undefined
+            }
+          >
+            {visibleTags.map((ref, i) => (
+              <RefRow key={ref.fullName} refItem={ref} icon={Tag} index={i} menu={refMenu} />
+            ))}
+          </TreeSection>
+        </>
+      )}
 
       <TreeSection
-        title="Tags"
-        count={tags.length}
+        title="Worktrees"
+        count={visibleWorktrees.length}
         depth={1}
-        {...section('tags')}
-        action={
-          tags.length > TAG_PREVIEW
-            ? {
-                label: showAllTags ? 'Show fewer' : `Show all ${tags.length}`,
-                onClick: () => setShowAllTags((v) => !v),
-              }
-            : undefined
-        }
+        {...section('worktrees')}
+        action={headingAction('worktrees', visibleWorktrees.length)}
       >
-        {visibleTags.map((ref, i) => (
-          <RefRow key={ref.fullName} refItem={ref} icon={Tag} index={i} menu={refMenu} />
-        ))}
-      </TreeSection>
-
-      <TreeSection title="Worktrees" count={worktrees.length} depth={1} {...section('worktrees')}>
-        {worktrees.map((worktree, i) => (
+        {visibleWorktrees.map((worktree, i) => (
           <WorktreeRow
             key={worktree.id}
             repo={repo}
             worktree={worktree}
             index={i}
-            // Only the main worktree's status is fetched, so only its row can
-            // say anything about its working tree. A linked worktree gets no
-            // dot rather than the primary's dirt attributed to it.
-            health={worktree.isMain ? worktreeHealth(status) : undefined}
+            // Every checkout now speaks for itself. This used to be
+            // `isMain`-only — the primary's status was the only one fetched, so
+            // attributing it to a linked worktree would have reported the wrong
+            // directory's dirt. The invariant survives; the data caught up.
+            health={worktreeHealth(statuses.byPath.get(worktree.path))}
+            changed={changedOf(worktree.path)}
+            conflicted={conflictedOf(worktree.path)}
+            menu={worktreeMenu}
+            onViewAllChanges={onViewAllChanges}
           />
         ))}
       </TreeSection>
+
+      {filter.active ? null : (
+        <ForgeSections repoId={repo.id} remotes={remotes} index={worktrees.length} />
+      )}
     </div>
   );
 }
+
+/**
+ * The status of the checkout a branch is actually live in.
+ *
+ * The rule this preserves: only a checkout's OWN status may speak for it.
+ * `branchHealth` would happily fold the primary checkout's dirt into a branch
+ * living in another worktree, and the row would then report a directory the
+ * user is not looking at.
+ */
+function liveStatus(
+  ref: Ref,
+  statuses: WorktreeStatuses,
+  repo: RepoDescriptor,
+): StatusResult | undefined {
+  if (ref.worktreePath) return statuses.byPath.get(ref.worktreePath);
+  if (!ref.isHead) return undefined;
+  const main = repo.worktrees.find((worktree) => worktree.isMain);
+  return main ? statuses.byPath.get(main.path) : undefined;
+}
+
+/**
+ * Where the last pointer event landed, for a menu opened from a heading.
+ *
+ * `TreeSection`'s `action` is a bare `onClick: () => void` — it never sees the
+ * event — and widening that prop for one caller would push a menu concern into
+ * a layout primitive that four other places use. Tracking the pointer is the
+ * smaller intrusion, and it degrades correctly: a keyboard activation with no
+ * prior pointer opens the menu at the top-left rather than nowhere.
+ */
+let pointer = { clientX: 0, clientY: 0 };
+if (typeof window !== 'undefined') {
+  window.addEventListener(
+    'pointerdown',
+    (event) => {
+      pointer = { clientX: event.clientX, clientY: event.clientY };
+    },
+    true,
+  );
+}
+const lastPointer = () => pointer;
 
 /**
  * One remote's branches, with a link out to the project when we can build one.
@@ -487,13 +682,10 @@ function RemoteGroup({
 /**
  * One ref row — a branch, a remote branch, or a tag.
  *
- * Non-destructive by design: delete and rename live on the graph's ref badges
- * behind the blast-radius gating Phase 7 built, and a second, subtly different
- * set of destructive affordances over here would be a place for the two to
- * disagree. What this row does own is the thing the graph cannot express —
- * switching THIS repository's primary checkout, on a repository that is not
- * even the selected one — offered both on right-click and as a hover button,
- * because a context menu alone is an affordance nobody finds.
+ * Three affordances, deliberately overlapping: right-click and a hover ellipsis
+ * open the same menu (a context menu alone is an affordance nobody finds), and
+ * the two verbs worth a dedicated button get one — switching this repository's
+ * primary checkout, and reading the whole checkout's diff.
  */
 function RefRow({
   refItem,
@@ -501,16 +693,22 @@ function RefRow({
   index,
   depth = 1,
   health,
+  changed = 0,
+  conflicted = 0,
   menu,
   onCheckout,
+  onViewAllChanges,
 }: {
   refItem: Ref;
   icon: typeof GitBranch;
   index: number;
   depth?: number;
   health?: BranchHealth;
+  changed?: number;
+  conflicted?: number;
   menu: (ref: Ref) => MenuItem[];
   onCheckout?: (ref: Ref) => void;
+  onViewAllChanges?: (worktreePath: string, label: string) => void;
 }) {
   const dialogs = useDialogs();
   const ahead = refItem.upstream?.ahead ?? 0;
@@ -527,11 +725,18 @@ function RefRow({
   // fourth, meaningless colour on every row.
   const dot = health && (refItem.isHead || health.level !== 'unknown') ? health : null;
 
+  const openMenu = (at: { clientX: number; clientY: number }) =>
+    dialogs.openMenu(at, menu(refItem));
+
+  // "Actions for main" is ambiguous the moment a worktree is also called main
+  // — which is the common case, not an edge one.
+  const kindWord = refItem.kind === 'tag' ? 'tag' : 'branch';
+
   const row = (
     <div
       onContextMenu={(event) => {
         event.preventDefault();
-        dialogs.openMenu(event, menu(refItem));
+        openMenu(event);
       }}
       style={cascadeStyle(index)}
       className={`group flex animate-fade-in-up cascade-delay items-center gap-1.5 py-0.5 pr-2 text-[13px] transition-colors hover:bg-accent/30 ${
@@ -550,21 +755,50 @@ function RefRow({
       {refItem.upstream?.gone ? (
         <span className="shrink-0 text-[10px] uppercase tracking-wide text-destructive">gone</span>
       ) : null}
+      <ChangeCountPill count={changed} conflicted={conflicted} what={refItem.name} />
+
+      {/*
+        The counts sit right, and everything that only appears on hover shares
+        that edge. `ml-auto` on the first of them is what pushes the group
+        there without a spacer element.
+      */}
       {ahead > 0 || behind > 0 ? (
         <span className="ml-auto shrink-0 tabular-nums text-[10px] text-muted-foreground">
           {ahead > 0 ? `↑${ahead}` : ''}
           {behind > 0 ? `↓${behind}` : ''}
         </span>
       ) : null}
-      {switchable ? (
+
+      <span className="ml-auto flex shrink-0 items-center opacity-0 transition-opacity group-focus-within:opacity-100 group-hover:opacity-100">
+        {onViewAllChanges && refItem.worktreePath ? (
+          <IconButton
+            icon={MdOutlineDifference}
+            label={`View all changes in branch ${refItem.name}`}
+            size="sm"
+            onClick={() => onViewAllChanges(refItem.worktreePath!, refItem.name)}
+          />
+        ) : null}
+        {switchable ? (
+          <IconButton
+            icon={ArrowRightLeft}
+            label={`Switch primary checkout to ${refItem.name}`}
+            size="sm"
+            onClick={() => onCheckout?.(refItem)}
+          />
+        ) : null}
         <IconButton
-          icon={ArrowRightLeft}
-          label={`Switch primary checkout to ${refItem.name}`}
+          icon={MoreVertical}
+          label={`Actions for ${kindWord} ${refItem.name}`}
           size="sm"
-          onClick={() => onCheckout?.(refItem)}
-          className="ml-auto opacity-0 transition-opacity group-hover:opacity-100 focus-visible:opacity-100"
+          onClick={(event) => {
+            const rect = event.currentTarget.getBoundingClientRect();
+            openMenu({
+              clientX: event.clientX || rect.left,
+              clientY: event.clientY || rect.bottom,
+            });
+          }}
         />
-      ) : null}
+      </span>
     </div>
   );
 
@@ -580,25 +814,36 @@ function WorktreeRow({
   worktree,
   index,
   health,
+  changed,
+  conflicted,
+  menu,
+  onViewAllChanges,
 }: {
   repo: RepoDescriptor;
   worktree: Worktree;
   index: number;
   health?: BranchHealth;
+  changed: number;
+  conflicted: number;
+  menu: (worktree: Worktree) => MenuItem[];
+  onViewAllChanges: (worktreePath: string, label: string) => void;
 }) {
+  const dialogs = useDialogs();
   const selectedWorktreePath = useUiStore((s) => s.selectedWorktreePath);
   const selectedRepoId = useUiStore((s) => s.selectedRepoId);
   const selectRepo = useUiStore((s) => s.selectRepo);
   const selectWorktree = useUiStore((s) => s.selectWorktree);
-  const remove = useRemoveWorktree(repo.id);
-  const [pendingRemove, setPendingRemove] = useState(false);
 
   const active = selectedRepoId === repo.id && selectedWorktreePath === worktree.path;
+  const label = worktree.branch ?? 'detached';
 
   const onSelect = () => {
     if (selectedRepoId !== repo.id) selectRepo(repo.id);
     selectWorktree(worktree.path);
   };
+
+  const openMenu = (at: { clientX: number; clientY: number }) =>
+    dialogs.openMenu(at, menu(worktree));
 
   /**
    * A folder glyph, deliberately unlike the branch's `GitBranch`.
@@ -611,20 +856,28 @@ function WorktreeRow({
 
   return (
     <div
+      onContextMenu={(event) => {
+        event.preventDefault();
+        openMenu(event);
+      }}
       style={cascadeStyle(index)}
       className={`group flex animate-fade-in-up cascade-delay items-center gap-1.5 py-0.5 pl-8 pr-2 text-[13px] transition-colors ${
         active ? 'bg-accent/60' : 'hover:bg-accent/30'
       }`}
     >
       <Tooltip label={worktree.path}>
-        <button type="button" onClick={onSelect} className="flex min-w-0 flex-1 items-center gap-1.5 text-left">
+        <button
+          type="button"
+          onClick={onSelect}
+          className="flex min-w-0 flex-1 items-center gap-1.5 text-left"
+        >
           <Icon
             aria-hidden
             className={`h-3 w-3 shrink-0 ${
               worktree.prunable ? 'text-destructive' : 'text-muted-foreground'
             }`}
           />
-          <span className="truncate">{worktree.branch ?? 'detached'}</span>
+          <span className="truncate">{label}</span>
           {/*
             No pulse here. The breathing dot marks the live checkout in the
             Local list; repeating it a few rows down would put two animations on
@@ -633,6 +886,7 @@ function WorktreeRow({
           {health && health.level !== 'unknown' ? (
             <BranchDot health={health} what={worktree.branch ?? worktree.path} />
           ) : null}
+          <ChangeCountPill count={changed} conflicted={conflicted} what={label} />
           {worktree.isMain ? (
             <span className="shrink-0 text-[10px] uppercase tracking-wide text-muted-foreground">
               main
@@ -652,42 +906,34 @@ function WorktreeRow({
       </Tooltip>
 
       {/*
-        The main worktree cannot be removed — `git worktree remove` refuses, and
-        offering the action would only ever produce an error.
+        The bare `X` that used to live here is gone, and with it the inline
+        "Remove / Cancel" swap it opened. Removal now goes through the shared
+        confirm dialog: it can say how many uncommitted changes are at stake
+        BEFORE the click, which two unlabelled buttons appearing in a 20px-tall
+        row cannot.
       */}
-      {worktree.isMain ? null : pendingRemove ? (
-        <span className="flex shrink-0 animate-fade-in items-center gap-1 text-xs">
-          <button
-            type="button"
-            onClick={() => {
-              // Never `--force`: git's refusal to remove a worktree with
-              // uncommitted changes is the last thing between a stray click and
-              // lost work. The error surfaces instead.
-              remove.mutate({ path: worktree.path, force: false });
-              setPendingRemove(false);
-            }}
-            className="rounded bg-destructive/15 px-1.5 py-0.5 text-destructive transition-colors"
-          >
-            Remove
-          </button>
-          <button
-            type="button"
-            onClick={() => setPendingRemove(false)}
-            className="rounded px-1.5 py-0.5 text-muted-foreground transition-colors"
-          >
-            Cancel
-          </button>
-        </span>
-      ) : (
+      <span className="flex shrink-0 items-center opacity-0 transition-opacity group-focus-within:opacity-100 group-hover:opacity-100">
         <IconButton
-          icon={X}
-          label={`Remove worktree ${worktree.branch ?? worktree.path}`}
+          icon={MdOutlineDifference}
+          label={`View all changes in worktree ${label}`}
+          disabled={changed === 0}
+          disabledReason="This checkout has no uncommitted changes."
           size="sm"
-          tone="danger"
-          onClick={() => setPendingRemove(true)}
-          className="opacity-0 transition-opacity group-hover:opacity-100 focus-visible:opacity-100"
+          onClick={() => onViewAllChanges(worktree.path, label)}
         />
-      )}
+        <IconButton
+          icon={MoreVertical}
+          label={`Actions for worktree ${label}`}
+          size="sm"
+          onClick={(event) => {
+            const rect = event.currentTarget.getBoundingClientRect();
+            openMenu({
+              clientX: event.clientX || rect.left,
+              clientY: event.clientY || rect.bottom,
+            });
+          }}
+        />
+      </span>
     </div>
   );
 }

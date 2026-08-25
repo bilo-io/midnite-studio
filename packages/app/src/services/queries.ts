@@ -1,4 +1,11 @@
-import type { Ref, Remote, RepoDescriptor, Worktree } from '@midnite/git-shared';
+import type {
+  ForgePullsResult,
+  ForgeRunsResult,
+  Ref,
+  Remote,
+  RepoDescriptor,
+  Worktree,
+} from '@midnite/git-shared';
 import { useMutation, useQuery, useQueryClient, type QueryClient } from '@tanstack/react-query';
 
 import { bridge } from './bridge';
@@ -45,6 +52,21 @@ export const keys = {
     staged: boolean,
     context: number,
   ) => [...keys.status(repoId, worktreePath), 'diff', path, staged, context] as const,
+  /**
+   * A repo's GitHub listings.
+   *
+   * Under the repo prefix so closing one drops them, but deliberately NOT
+   * under `status`: the watcher fires `status` invalidations on every index
+   * and worktree event, and a local edit tells us nothing new about what CI
+   * concluded ten minutes ago. These refresh on their own clock and on the
+   * section's own refresh button.
+   */
+  forge: (repoId: string) => ['repos', repoId, 'forge'] as const,
+  forgeRuns: (repoId: string, branch?: string) =>
+    ['repos', repoId, 'forge', 'runs', branch ?? 'all'] as const,
+  forgePulls: (repoId: string) => ['repos', repoId, 'forge', 'pulls'] as const,
+  /** Whether `gh` is installed and signed in. Not repo-scoped — it is machine state. */
+  forgeCli: ['forge', 'cli'] as const,
   /**
    * A commit's diff. Under the repo (so it is dropped when the repo closes) but
    * NOT under `status` — a commit is immutable, so a working-tree event has
@@ -161,4 +183,83 @@ export function useRemoveWorktree(repoId: string | null) {
     },
     onSuccess: () => client.invalidateQueries({ queryKey: keys.repos }),
   });
+}
+
+/**
+ * How long a forge listing stays fresh.
+ *
+ * The app's global default is `staleTime: Infinity`, which is right for
+ * everything the repo watcher can invalidate — it sees the filesystem, so it
+ * knows when a refetch is warranted. It sees nothing of GitHub. A finite
+ * window plus the section's own refresh button is the honest substitute; a
+ * minute is short enough that a run finishing while you watch turns green on
+ * the next glance, and long enough that expanding a repo does not spawn `gh`.
+ */
+const FORGE_STALE_MS = 60_000;
+
+/** Whether `gh` is installed and signed in. Machine state, so not repo-keyed. */
+export function useForgeCli() {
+  return useQuery({
+    queryKey: keys.forgeCli,
+    queryFn: async () =>
+      (await bridge()?.forge.cliStatus()) ?? {
+        reason: 'not-installed' as const,
+        binPath: null,
+        hint: '',
+      },
+    staleTime: FORGE_STALE_MS,
+  });
+}
+
+/**
+ * Recent workflow runs. `enabled` is the caller's promise that a human has
+ * opened the section — every call is a `gh` subprocess and an API request
+ * against the user's rate limit, so nothing here is speculative.
+ */
+export function useForgeRuns(repoId: string | null, enabled: boolean, branch?: string) {
+  return useQuery<ForgeRunsResult>({
+    queryKey: keys.forgeRuns(repoId ?? '', branch),
+    queryFn: async () => {
+      const api = bridge();
+      if (!api || !repoId) return EMPTY_RUNS;
+      return api.forge.runs({ repoId, limit: 20, ...(branch ? { branch } : {}) });
+    },
+    enabled: enabled && repoId !== null,
+    staleTime: FORGE_STALE_MS,
+  });
+}
+
+export function useForgePulls(repoId: string | null, enabled: boolean) {
+  return useQuery<ForgePullsResult>({
+    queryKey: keys.forgePulls(repoId ?? ''),
+    queryFn: async () => {
+      const api = bridge();
+      if (!api || !repoId) return EMPTY_PULLS;
+      return api.forge.pulls({ repoId, limit: 20 });
+    },
+    enabled: enabled && repoId !== null,
+    staleTime: FORGE_STALE_MS,
+  });
+}
+
+/**
+ * The bridge-less answer, shaped like a repository with no GitHub remote.
+ *
+ * Under vitest/jsdom there is no preload; a component should render its "no
+ * forge here" state rather than an error, exactly as `useRepos` returns `[]`.
+ */
+const EMPTY_CLI = { reason: 'not-installed' as const, binPath: null, hint: '' };
+const EMPTY_RUNS: ForgeRunsResult = { cli: EMPTY_CLI, runs: [], error: null };
+const EMPTY_PULLS: ForgePullsResult = { cli: EMPTY_CLI, pulls: [], error: null };
+
+/** Re-run the forge listings for one repo, on the user's say-so. */
+export function useRefreshForge(repoId: string | null) {
+  const client = useQueryClient();
+  return () => {
+    if (!repoId) return;
+    void client.invalidateQueries({ queryKey: keys.forge(repoId) });
+    // The probe too: the commonest reason a section is empty is that the user
+    // has just run `gh auth login` in the terminal beside the app.
+    void client.invalidateQueries({ queryKey: keys.forgeCli });
+  };
 }

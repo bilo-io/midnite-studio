@@ -126,6 +126,68 @@ describe('OpenExternalRequest', () => {
   });
 });
 
+describe('forge schemas', () => {
+  it('caps a listing so a sidebar section cannot spawn an unbounded gh call', () => {
+    expect(schemas.ForgeRunsRequest.parse({ repoId: 'r' }).limit).toBe(20);
+    expect(() => schemas.ForgePullsRequest.parse({ repoId: 'r', limit: 500 })).toThrow();
+    expect(() => schemas.ForgeRunsRequest.parse({ repoId: 'r', limit: 0 })).toThrow();
+  });
+
+  it('leaves branch optional — omitted means every branch', () => {
+    expect(schemas.ForgeRunsRequest.parse({ repoId: 'r' }).branch).toBeUndefined();
+    expect(schemas.ForgeRunsRequest.parse({ repoId: 'r', branch: 'main' }).branch).toBe('main');
+  });
+
+  it('keeps an unfinished run distinguishable from a failed one', () => {
+    // The whole point of a nullable conclusion: defaulting it to anything
+    // would paint a queued run with a verdict nobody has reached.
+    const parsed = schemas.ForgeRunsResponse.parse({
+      cli: { reason: 'ready' },
+      runs: [
+        {
+          id: '1',
+          name: 'CI',
+          status: 'queued',
+          createdAt: '2026-08-26T10:00:00Z',
+          url: 'https://github.com/o/r/actions/runs/1',
+        },
+      ],
+    });
+    expect(parsed.runs[0]?.conclusion).toBeNull();
+    expect(parsed.error).toBeNull();
+  });
+
+  it('lets an empty listing and an unavailable CLI stay different answers', () => {
+    const ready = schemas.ForgePullsResponse.parse({ cli: { reason: 'ready' } });
+    const missing = schemas.ForgePullsResponse.parse({
+      cli: { reason: 'not-installed', hint: 'Install the GitHub CLI.' },
+    });
+    expect(ready.pulls).toEqual([]);
+    expect(missing.pulls).toEqual([]);
+    // Same empty list, different reason — which is what the envelope buys.
+    expect(ready.cli.reason).not.toBe(missing.cli.reason);
+  });
+
+  it('rejects a forge status with a reason it cannot render', () => {
+    expect(() => schemas.ForgeCliStatusResponse.parse({ reason: 'probably-fine' })).toThrow();
+  });
+
+  it('has a request schema for every forge channel', () => {
+    // The same guard the pty/terminal table applies: a forge channel added
+    // without a schema is unvalidated input reaching a subprocess.
+    const expected: Record<string, string[]> = {
+      forgeCliStatus: ['ForgeCliStatusRequest', 'ForgeCliStatusResponse'],
+      forgeRuns: ['ForgeRunsRequest', 'ForgeRunsResponse'],
+      forgePulls: ['ForgePullsRequest', 'ForgePullsResponse'],
+    };
+    const channelKeys = Object.keys(CHANNELS).filter((key) => key.startsWith('forge'));
+    expect(channelKeys.sort()).toEqual(Object.keys(expected).sort());
+    for (const names of Object.values(expected)) {
+      for (const name of names) expect(schemas).toHaveProperty(name);
+    }
+  });
+});
+
 describe('keybindings', () => {
   it('binds every command at most once', () => {
     const commands = DEFAULT_KEYMAP.map((b) => b.command);

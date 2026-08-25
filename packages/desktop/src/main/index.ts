@@ -3,6 +3,7 @@ import { dirname, join } from 'node:path';
 import { BrowserWindow, app } from 'electron';
 
 import { registerClaudeHandlers } from './ipc/claude-handlers';
+import { registerForgeHandlers } from './ipc/forge-handlers';
 import { registerFsHandlers } from './ipc/fs-handlers';
 import { registerPtyHandlers } from './ipc/pty-handlers';
 import { registerTerminalHandlers } from './ipc/terminal-handlers';
@@ -94,6 +95,7 @@ if (!app.requestSingleInstanceLock()) {
     registerStatusHandlers();
     registerRefHandlers();
     registerRemoteHandlers();
+    registerForgeHandlers();
     registerPtyHandlers(getWindow);
     registerTerminalHandlers();
     registerFsHandlers();
