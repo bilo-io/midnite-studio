@@ -30,7 +30,64 @@ export type ParseDiffOptions = {
   fallbackPath: string;
 };
 
-const HUNK_HEADER = /^@@ -(\d+)(?:,(\d+))? \+(\d+)(?:,(\d+))? @@ ?(.*)$/;
+/**
+ * A hunk header, ordinary or combined.
+ *
+ * `git diff` on an UNMERGED path emits a *combined* diff, not a two-way one:
+ *
+ *   diff --cc conflicted.txt
+ *   @@@ -1,3 -1,3 +1,7 @@@
+ *     context
+ *   ++<<<<<<< HEAD
+ *    +MAIN
+ *
+ * One extra `@` and one extra `-` range per parent, and one marker COLUMN per
+ * parent on every body line. An `^@@ -`-anchored pattern never matches it, so
+ * the whole section falls through as unstructured text and the pane reports
+ * "no changes" for the one file the user most needs to see mid-merge.
+ *
+ * Captures: [1] the `@` run (its length gives the parent count), [2] the run of
+ * `-<start>[,<len>]` pre-image ranges, [3] post-image start, [4] post-image
+ * length, [5] the function heading.
+ */
+const HUNK_HEADER = /^(@{2,}) ((?:-\d+(?:,\d+)? )+)\+(\d+)(?:,(\d+))? @{2,} ?(.*)$/;
+
+/** First pre-image range in a (possibly combined) header's range run. */
+function firstOldRange(ranges: string): { start: number; lines: number } {
+  const first = /^-(\d+)(?:,(\d+))?/.exec(ranges.trim());
+  return {
+    start: first ? Number(first[1]) : 0,
+    // git omits the count when it is 1 — `@@ -5 +5 @@` means one line each.
+    lines: first?.[2] === undefined ? 1 : Number(first[2]),
+  };
+}
+
+/**
+ * Classify a body line from its marker columns.
+ *
+ * A combined diff carries one column per parent. A line that any parent lacks
+ * is an addition relative to that parent, and one that any parent had but the
+ * result does not is a deletion — which is exactly how conflict markers and the
+ * lines around them read. `null` means the line is not diff body at all.
+ */
+function classifyMarkers(
+  line: string,
+  parents: number,
+): { kind: 'add' | 'del' | 'ctx'; text: string } | null {
+  const markers = line.slice(0, parents);
+  if (markers.length < parents) {
+    // A genuinely empty context line: git writes N spaces, but some tools trim
+    // trailing whitespace off the patch.
+    return markers.trim() === '' ? { kind: 'ctx', text: '' } : null;
+  }
+  for (const marker of markers) {
+    if (marker !== ' ' && marker !== '+' && marker !== '-') return null;
+  }
+  const text = line.slice(parents);
+  if (markers.includes('-')) return { kind: 'del', text };
+  if (markers.includes('+')) return { kind: 'add', text };
+  return { kind: 'ctx', text };
+}
 
 export function parseUnifiedDiff(patch: string, opts: ParseDiffOptions): FileDiff {
   const sections = splitSections(patch);
@@ -79,6 +136,7 @@ function emptyResult(opts: ParseDiffOptions): FileDiff {
     oldPath: null,
     change: 'modified',
     binary: false,
+    combined: false,
     oldMode: null,
     newMode: null,
     hunks: [],
@@ -101,6 +159,10 @@ function parseSection(lines: readonly string[], opts: ParseDiffOptions): FileDif
   /** False once a body line has been dropped — the `\ No newline` marker that
    *  follows it must not be pinned onto some earlier, unrelated line. */
   let lastLineKept = false;
+  // Marker columns on a body line — one per parent. 1 for an ordinary diff,
+  // 2+ for the combined diff git emits for an unmerged path.
+  let parents = 1;
+  let combined = false;
   // Set when a rename header named the pre-image; `--- a/...` would otherwise
   // overwrite it with the same value and a `deleted` classification.
   let sawRenameHeader = false;
@@ -189,18 +251,21 @@ function parseSection(lines: readonly string[], opts: ParseDiffOptions): FileDif
     const header = HUNK_HEADER.exec(line);
     if (header) {
       if (hunk) result.hunks.push(hunk);
-      const oldStart = Number(header[1]);
+      // `@@` is two-way (one parent); each extra `@` is another parent, and
+      // another marker column on every body line of this hunk.
+      parents = Math.max(1, (header[1] ?? '@@').length - 1);
+      combined = parents > 1;
+      const old = firstOldRange(header[2] ?? '');
       const newStart = Number(header[3]);
       hunk = {
-        oldStart,
-        // git omits the count when it is 1 — `@@ -5 +5 @@` means one line each.
-        oldLines: header[2] === undefined ? 1 : Number(header[2]),
+        oldStart: old.start,
+        oldLines: old.lines,
         newStart,
         newLines: header[4] === undefined ? 1 : Number(header[4]),
         heading: header[5] ?? '',
         lines: [],
       };
-      oldNo = oldStart;
+      oldNo = old.start;
       newNo = newStart;
       lastLineKept = false;
       continue;
@@ -211,7 +276,9 @@ function parseSection(lines: readonly string[], opts: ParseDiffOptions): FileDif
     // A trailing empty element from the final `\n` is not a context line.
     if (line === '' && i === lines.length - 1) continue;
 
-    if (line.startsWith('\\')) {
+    // In a combined diff the marker columns come first, so the annotation is
+    // indented by one column per parent.
+    if (line.trimStart().startsWith('\\')) {
       // "\ No newline at end of file" annotates the line just emitted — but
       // only if that line actually made it into the output.
       if (lastLineKept) {
@@ -221,8 +288,11 @@ function parseSection(lines: readonly string[], opts: ParseDiffOptions): FileDif
       continue;
     }
 
-    const marker = line[0];
-    const text = line.slice(1);
+    const classified = classifyMarkers(line, parents);
+    // Anything that is not diff body this deep is skipped rather than
+    // mis-counted.
+    if (classified === null) continue;
+    const { kind, text } = classified;
 
     /**
      * Stat counters are incremented for EVERY body line, including the ones
@@ -230,9 +300,8 @@ function parseSection(lines: readonly string[], opts: ParseDiffOptions): FileDif
      * count that silently shrank to what happened to fit would contradict the
      * "N more lines not shown" notice sitting directly beneath it.
      */
-    if (marker === '+') result.insertions += 1;
-    else if (marker === '-') result.deletions += 1;
-    else if (marker !== ' ' && marker !== undefined) continue;
+    if (kind === 'add') result.insertions += 1;
+    else if (kind === 'del') result.deletions += 1;
 
     if (bodyLines >= maxLines) {
       result.truncated = true;
@@ -240,8 +309,8 @@ function parseSection(lines: readonly string[], opts: ParseDiffOptions): FileDif
       lastLineKept = false;
       // Line numbers still have to advance, or a later "show the rest" would
       // renumber the tail of the file.
-      if (marker === '+') newNo += 1;
-      else if (marker === '-') oldNo += 1;
+      if (kind === 'add') newNo += 1;
+      else if (kind === 'del') oldNo += 1;
       else {
         oldNo += 1;
         newNo += 1;
@@ -249,15 +318,13 @@ function parseSection(lines: readonly string[], opts: ParseDiffOptions): FileDif
       continue;
     }
 
-    if (marker === '+') {
+    if (kind === 'add') {
       hunk.lines.push({ kind: 'add', oldNo: null, newNo, text, ranges: [], noNewline: false });
       newNo += 1;
-    } else if (marker === '-') {
+    } else if (kind === 'del') {
       hunk.lines.push({ kind: 'del', oldNo, newNo: null, text, ranges: [], noNewline: false });
       oldNo += 1;
     } else {
-      // `marker === undefined` is a genuinely empty context line: git writes a
-      // lone space, but some tools trim trailing whitespace off the patch.
       hunk.lines.push({ kind: 'ctx', oldNo, newNo, text, ranges: [], noNewline: false });
       oldNo += 1;
       newNo += 1;
@@ -265,6 +332,10 @@ function parseSection(lines: readonly string[], opts: ParseDiffOptions): FileDif
     bodyLines += 1;
     lastLineKept = true;
   }
+
+  // A combined diff's old-side numbers describe only the first parent, and its
+  // add/del runs are never the balanced pairs the word-differ looks for.
+  if (combined) result.combined = true;
 
   if (hunk) result.hunks.push(hunk);
 

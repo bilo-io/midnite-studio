@@ -58,6 +58,7 @@ export async function installMockBridge(page: Page, fixtures: MockFixtures): Pro
       insertions: 0,
       deletions: 0,
       contextLines: 3,
+      combined: false,
       truncated: false,
       droppedLines: 0,
     });

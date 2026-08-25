@@ -1,8 +1,9 @@
 import { useQuery } from '@tanstack/react-query';
 import { DIFF_DEFAULT_CONTEXT, type FileDiff } from '@midnite/git-shared';
-import { useCallback, useEffect, useState } from 'react';
+import { useCallback, useState } from 'react';
 
 import { bridge } from '../../services/bridge';
+import { keys } from '../../services/queries';
 import { useActiveWorktree } from '../../services/use-status';
 
 /**
@@ -20,21 +21,41 @@ type Result = {
   expandContext: (context: number) => void;
 };
 
-function useContextReset(...deps: ReadonlyArray<string | boolean | undefined>): {
+/**
+ * Context that resets when the target changes — DURING render, not in an effect.
+ *
+ * An effect runs after render, so the render that first observes the new path
+ * still holds the previous target's context and issues a query with it. After a
+ * "Show the whole file", clicking the next file would fetch it once at
+ * `-U1000000` — the entire file across the wire, then cached under the client's
+ * `staleTime: Infinity` — before the reset landed and it refetched at `-U3`.
+ * That is the precise outcome this reset exists to prevent, so it cannot be one
+ * render late.
+ *
+ * Storing the key alongside the value is React's documented "adjust state when a
+ * prop changes" pattern: the comparison happens in render, and the corrected
+ * value is what that same render uses.
+ */
+function useContextReset(key: string): {
   context: number;
   expandContext: (next: number) => void;
 } {
-  const [context, setContext] = useState(DIFF_DEFAULT_CONTEXT);
-  const key = deps.join('\u0000');
+  const [state, setState] = useState({ key, context: DIFF_DEFAULT_CONTEXT });
 
-  useEffect(() => {
-    setContext(DIFF_DEFAULT_CONTEXT);
-  }, [key]);
+  const context = state.key === key ? state.context : DIFF_DEFAULT_CONTEXT;
+  if (state.key !== key) setState({ key, context: DIFF_DEFAULT_CONTEXT });
 
-  // Monotonic: an expander click must never narrow what is already on screen.
-  const expandContext = useCallback((next: number) => {
-    setContext((current) => (next > current ? next : current));
-  }, []);
+  // Monotonic within one target: an expander click must never narrow what is
+  // already on screen. Keyed on the current target so a click that races a
+  // selection change cannot reopen the previous file's context.
+  const expandContext = useCallback(
+    (next: number) => {
+      setState((current) =>
+        current.key === key && next <= current.context ? current : { key, context: next },
+      );
+    },
+    [key],
+  );
 
   return { context, expandContext };
 }
@@ -53,10 +74,12 @@ export function useFileDiff({
   oldPath?: string | null;
 }): Result {
   const { worktreePath } = useActiveWorktree();
-  const { context, expandContext } = useContextReset(repoId, path, staged, worktreePath);
+  const { context, expandContext } = useContextReset(
+    [repoId, worktreePath ?? 'main', path, String(staged)].join(' '),
+  );
 
   const { data, isLoading } = useQuery({
-    queryKey: ['diff', repoId, worktreePath ?? 'main', path, staged, context],
+    queryKey: keys.diff(repoId, worktreePath, path, staged, context),
     queryFn: async () =>
       bridge()?.status.fileDiff({
         repoId,
@@ -84,10 +107,10 @@ export function useCommitFileDiff({
   oldPath?: string | null;
 }): Result {
   const { worktreePath } = useActiveWorktree();
-  const { context, expandContext } = useContextReset(repoId, sha, path ?? '');
+  const { context, expandContext } = useContextReset([repoId, sha, path ?? ''].join(' '));
 
   const { data, isLoading } = useQuery({
-    queryKey: ['commit-diff', repoId, sha, path, context],
+    queryKey: keys.commitDiff(repoId, sha, path ?? '', context),
     enabled: path !== null,
     queryFn: async () =>
       path === null
@@ -100,8 +123,8 @@ export function useCommitFileDiff({
             ...(oldPath ? { oldPath } : {}),
             ...(worktreePath ? { worktreePath } : {}),
           }),
-    // A commit is immutable — but only at the context it was fetched with, which
-    // is already part of the key.
+    // A commit is immutable — but only at the context it was fetched with, and
+    // that is already part of the key.
     staleTime: Number.POSITIVE_INFINITY,
   });
 

@@ -100,6 +100,14 @@ export function DiffView({
         ) : null}
       </div>
 
+      {diff.combined ? (
+        <p className="shrink-0 border-b border-border bg-destructive/10 px-3 py-1.5 text-[11px] text-muted-foreground">
+          This file is unmerged. git shows a combined diff against every parent —
+          the content below includes conflict markers, and the original line
+          numbers are the first parent&rsquo;s.
+        </p>
+      ) : null}
+
       <div ref={scrollRef} className="min-h-0 flex-1 overflow-auto">
         <div
           className="relative w-full font-mono text-[11px] leading-[18px]"
@@ -111,7 +119,10 @@ export function DiffView({
             return (
               <div
                 key={item.key}
-                className="absolute left-0 top-0 flex w-full"
+                // `w-max min-w-full`, not `w-full`: on a line wider than the
+                // pane, a full-width row ends the tint and the 2px gutter bar at
+                // the viewport edge while the text scrolls on past them.
+                className="absolute left-0 top-0 flex w-max min-w-full"
                 style={{ height: item.size, transform: `translateY(${item.start}px)` }}
               >
                 {row.kind === 'hunk' ? (

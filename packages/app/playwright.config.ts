@@ -13,6 +13,9 @@ import { defineConfig, devices } from '@playwright/test';
  * handlers. Those are covered by desktop's own vitest suite and git-engine's
  * integration tests against real repositories.
  */
+/** Not 5173 — see the `reuseExistingServer` note below. */
+const PORT = 5273;
+
 export default defineConfig({
   testDir: './e2e',
   // The suite is UI-deterministic — a retry would mask a real race rather than
@@ -20,14 +23,24 @@ export default defineConfig({
   retries: 0,
   reporter: process.env.CI ? 'line' : 'list',
   use: {
-    baseURL: 'http://localhost:5173',
+    baseURL: `http://localhost:${PORT}`,
     trace: 'retain-on-failure',
   },
   projects: [{ name: 'chromium', use: { ...devices['Desktop Chrome'] } }],
   webServer: {
-    command: 'pnpm exec vite --port 5173 --strictPort',
-    url: 'http://localhost:5173',
-    reuseExistingServer: !process.env.CI,
+    command: `pnpm exec vite --port ${PORT} --strictPort`,
+    url: `http://localhost:${PORT}`,
+    /**
+     * Never reuse a server this config did not start.
+     *
+     * The dev port (5173) is contended: `moon run app:dev` from the primary
+     * checkout and from any `.worktrees/*` copy all want it, and Playwright
+     * happily reuses whichever got there first. The suite then passes or fails
+     * against a DIFFERENT checkout's source — silently, since the app looks
+     * entirely normal. A dedicated port plus `strictPort` turns that collision
+     * into a startup error instead of a wrong answer.
+     */
+    reuseExistingServer: false,
     timeout: 120_000,
   },
 });

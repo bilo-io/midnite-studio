@@ -8,6 +8,7 @@ const diff = (over: Partial<FileDiff> = {}): FileDiff => ({
   oldPath: 'a.ts',
   change: 'modified',
   binary: false,
+  combined: false,
   oldMode: null,
   newMode: null,
   hunks: [],

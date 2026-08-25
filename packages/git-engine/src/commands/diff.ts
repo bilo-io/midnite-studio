@@ -22,6 +22,19 @@ import { parseUnifiedDiff } from '../parsers/diff-parser';
 
 const BASE_ARGS = ['--no-color', '--no-ext-diff', '-M'] as const;
 
+/**
+ * `--literal-pathspecs` is load-bearing, not hygiene. Without it git glob-matches
+ * the path, so a Next.js-style `pages/[id].tsx` is a character class: it matches
+ * `pages/i.tsx` and the pane renders a DIFFERENT file's content under the
+ * requested filename. Every path here comes from a status entry or a commit's
+ * file list — always a literal path, never a user-typed pattern.
+ *
+ * It is a MAIN git option, not a subcommand one: `git diff --literal-pathspecs`
+ * exits 255 with "invalid option", which reads downstream as an empty diff
+ * rather than as an error.
+ */
+const LITERAL = ['--literal-pathspecs'] as const;
+
 export type DiffOptions = {
   /** `-U` context. Defaults to git's own 3. */
   context?: number;
@@ -58,7 +71,7 @@ export async function readFileDiff(
   opts: DiffOptions = {},
 ): Promise<FileDiff> {
   const context = opts.context ?? DIFF_DEFAULT_CONTEXT;
-  const args = ['diff', ...BASE_ARGS, `-U${context}`];
+  const args = [...LITERAL, 'diff', ...BASE_ARGS, `-U${context}`];
   if (staged) args.push('--cached');
   args.push(...pathspec(path, opts.oldPath));
 
@@ -67,9 +80,13 @@ export async function readFileDiff(
     return parse(res.stdout, path, context, opts);
   }
 
-  if (!staged) {
-    // `--no-index` exits 1 when the files differ, which is the normal case here.
+  // Empty output is ambiguous: an untracked file (which `git diff` says nothing
+  // about) looks exactly like a tracked file with no unstaged changes. Guessing
+  // "untracked" and running the /dev/null diff renders an entire staged file as
+  // one green block, so ask git which it is.
+  if (!staged && !(await isTracked(worktreePath, path))) {
     const untracked = await execGit(worktreePath, [
+      ...LITERAL,
       'diff',
       ...BASE_ARGS,
       `-U${context}`,
@@ -79,10 +96,7 @@ export async function readFileDiff(
       path,
     ]);
     if (untracked.stdout.trim().length > 0) {
-      const diff = parse(untracked.stdout, path, context, opts);
-      // `--no-index` has no index to compare against, so it never emits the
-      // "new file mode" header that would classify this as an addition.
-      return { ...diff, change: 'added' };
+      return parse(untracked.stdout, path, context, opts);
     }
   }
 
@@ -106,6 +120,7 @@ export async function readCommitFileDiff(
 ): Promise<FileDiff> {
   const context = opts.context ?? DIFF_DEFAULT_CONTEXT;
   const res = await execGit(repoPath, [
+    ...LITERAL,
     'show',
     ...BASE_ARGS,
     `-U${context}`,
@@ -117,6 +132,18 @@ export async function readCommitFileDiff(
   ]);
 
   return parse(res.stdout, path, context, opts);
+}
+
+/** Whether git has this path in the index — the untracked test that matters. */
+async function isTracked(worktreePath: string, path: string): Promise<boolean> {
+  const res = await execGit(worktreePath, [
+    ...LITERAL,
+    'ls-files',
+    '--error-unmatch',
+    '--',
+    path,
+  ]);
+  return res.exitCode === 0;
 }
 
 function parse(stdout: string, path: string, context: number, opts: DiffOptions): FileDiff {
