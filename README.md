@@ -3,7 +3,10 @@
 A GitKraken-inspired desktop git client. Plain Electron + typed IPC, a Vite + React renderer, and
 the published [`@bilo-io/ui`](https://github.com/bilo-io/midnite-ui) design system.
 
-![The commit graph](docs/screenshots/phase-5-commit-graph.png)
+![midnite-git](docs/screenshots/midnite-git.png)
+
+<sub>The packaged app running `~/Dev/midnite` — three linked worktrees nested under the
+repository, 2,376 commits, live branch and sync state in the footer.</sub>
 
 **Design source of truth:** [`docs/INITIAL_PLAN.md`](docs/INITIAL_PLAN.md).
 **Progress tracker:** [`todo/`](todo/) — one checklist per phase, an append-only
