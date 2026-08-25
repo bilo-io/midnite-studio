@@ -100,7 +100,12 @@ export function registerRepoHandlers(getWindow: () => BrowserWindow | null): voi
       const entry = getRepo(req.repoId);
       const win = getWindow();
       if (!entry || !win) return;
-      startLog(win, { requestId: req.requestId, repoPath: entry.path, limit: req.limit });
+      startLog(win, {
+        requestId: req.requestId,
+        repoPath: entry.path,
+        limit: req.limit,
+        revisions: req.revisions,
+      });
     },
     () => undefined,
   );

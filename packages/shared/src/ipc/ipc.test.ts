@@ -96,3 +96,23 @@ describe('keybindings', () => {
     expect(COMMAND_IDS.length).toBeGreaterThan(0);
   });
 });
+
+
+describe('LogStartRequest.revisions', () => {
+  it('defaults to every ref, so a pre-filter payload still parses', () => {
+    const parsed = schemas.LogStartRequest.parse({ repoId: 'r1', requestId: 'r1#1' });
+    expect(parsed.revisions).toEqual([]);
+    expect(parsed.limit).toBe(50_000);
+  });
+
+  it('carries fully-qualified refs through unchanged', () => {
+    // Fully-qualified because `main` and `origin/main` are different commits
+    // with the same short name, and `git log main` would resolve one silently.
+    const parsed = schemas.LogStartRequest.parse({
+      repoId: 'r1',
+      requestId: 'r1#2',
+      revisions: ['refs/heads/main', 'refs/remotes/origin/main'],
+    });
+    expect(parsed.revisions).toEqual(['refs/heads/main', 'refs/remotes/origin/main']);
+  });
+});

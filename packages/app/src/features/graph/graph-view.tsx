@@ -11,6 +11,7 @@ import { ConflictBanner } from '../status/conflict-banner';
 import { DEFAULT_LAYOUT, LAYOUT_BOUNDS, useUiStore } from '../../store/ui-store';
 import { CommitDetail } from '../commit/commit-detail';
 import { GraphDndProvider, type DropEvent } from './graph-dnd';
+import { GraphHeader, graphColumnVars, useGraphColumns } from './graph-header';
 import { CommitGraphRow } from './graph-row';
 import { useGraphStore } from './graph-store';
 import { LANE_WIDTH, ROW_HEIGHT } from './graph-svg';
@@ -32,9 +33,11 @@ export function GraphView() {
   const detailWidth = useUiStore((s) => s.layout.detailWidth);
   const setLayout = useUiStore((s) => s.setLayout);
 
-  useGraphStream(repoId);
+  const graphRefFilter = useUiStore((s) => s.graphRefFilter);
+  useGraphStream(repoId, graphRefFilter);
 
   const rows = useGraphStore((s) => s.rows);
+  const requestId = useGraphStore((s) => s.requestId);
   const loading = useGraphStore((s) => s.loading);
   const truncated = useGraphStore((s) => s.truncated);
   const error = useGraphStore((s) => s.error);
@@ -97,6 +100,8 @@ export function GraphView() {
     ...LAYOUT_BOUNDS.detailWidth,
   });
 
+  const columns = useGraphColumns();
+
   const scrollRef = useRef<HTMLDivElement>(null);
   // dnd-kit's drag-end event carries no pointer position, and the drop menu has
   // to appear where the user released.
@@ -147,9 +152,21 @@ export function GraphView() {
           lastPointer.current = { clientX: event.clientX, clientY: event.clientY };
         }}
       >
-      <div className="flex min-w-0 flex-1 flex-col">
+      <div className="flex min-w-0 flex-1 flex-col" style={graphColumnVars(columns)}>
         {status ? <ConflictBanner status={status} onError={setOpError} /> : null}
-        <div ref={scrollRef} className="min-h-0 flex-1 overflow-auto" role="grid">
+        <GraphHeader refs={refs} gutterWidth={gutterLanes * LANE_WIDTH} columns={columns} />
+        {/*
+          Keyed on requestId so the list fades in ONCE per stream — on a repo
+          switch or a filter change. Cascading the rows themselves would re-fire
+          the animation every time the virtualizer recycled one, i.e. on every
+          scroll, which strobes.
+        */}
+        <div
+          key={requestId ?? 'empty'}
+          ref={scrollRef}
+          className="min-h-0 flex-1 animate-fade-in overflow-auto"
+          role="grid"
+        >
           <div className="relative w-full" style={{ height: virtualizer.getTotalSize() }}>
             {virtualizer.getVirtualItems().map((item) => {
               const row = rows[item.index];

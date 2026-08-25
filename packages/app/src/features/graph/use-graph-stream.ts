@@ -14,12 +14,17 @@ export const DEFAULT_LOG_LIMIT = 50_000;
  * rebuild them mid-stream, and any batch in flight across that gap is simply
  * lost — a hole in the middle of the graph with no error anywhere.
  */
-export function useGraphStream(repoId: string | null, limit = DEFAULT_LOG_LIMIT): void {
+export function useGraphStream(
+  repoId: string | null,
+  revisions: readonly string[] = EMPTY_REVISIONS,
+  limit = DEFAULT_LOG_LIMIT,
+): void {
   const requestSeq = useRef(0);
   // Bumped by the watcher when HEAD moves; re-running the effect restarts the
   // stream with a fresh requestId, so any in-flight batches from the old one
   // are discarded by the store rather than appended to the new graph.
   const restreamNonce = useGraphStore((state) => state.restreamNonce);
+  const revisionKey = revisions.join('\u0000');
 
   useEffect(() => {
     const api = bridge();
@@ -52,10 +57,23 @@ export function useGraphStream(repoId: string | null, limit = DEFAULT_LOG_LIMIT)
     const requestId = `${repoId}#${requestSeq.current}`;
 
     useGraphStore.getState().begin(repoId, requestId);
-    void api.log.start({ repoId, requestId, limit });
+    // Rebuilt from the key rather than closed over the array, so the effect's
+    // only revision input IS its dependency — no lint suppression, and no way
+    // for the two to describe different filters.
+    void api.log.start({
+      repoId,
+      requestId,
+      limit,
+      revisions: revisionKey === '' ? [] : revisionKey.split('\u0000'),
+    });
 
     return () => {
       void api.log.cancel({ requestId });
     };
-  }, [repoId, limit, restreamNonce]);
+    // Keyed on the joined string, not the array: a fresh array identity every
+    // render would restart the stream each time, which reads as a graph that
+    // permanently reloads itself.
+  }, [repoId, limit, restreamNonce, revisionKey]);
 }
+
+const EMPTY_REVISIONS: readonly string[] = [];
