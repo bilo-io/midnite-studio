@@ -213,3 +213,24 @@ been declared with chords and menu items since Phase 9 finally have handlers. 30
 **Not verified visually** — Electron cannot reach the macOS window server from the agent's shell,
 so the manual smoke and the screenshot are outstanding.
 
+
+## 2026-08-25 — Sidebar: flush delimiters, collapsible sections, and a smoke run that works
+
+Two fixes to the Phase 13 sidebar, plus the visual verification that phase had left open.
+
+Each repo `<section>` carried `py-0.5` *and* `mt-0.5 … pt-1.5`, which put ~6px under the
+delimiter against ~4px above it, so a selected repo's highlight floated clear of the rule above
+it. The rule now carries no padding of its own — the repo row and the tree below it already have
+theirs. Every subsection folds independently (Local · Remotes · Tags · Worktrees), state held as
+the set of *closed* keys so a section defaults open, and `TreeSection` swapped its boolean
+`indent` for a `depth` so each nesting level's heading indents left of its own rows. "Branches"
+became **Local**: the section under it is branches too, and the old heading left the reader to
+work out which was which.
+
+Worth knowing: `moon run desktop:start` was never blocked by the macOS window server, which is
+what Phase 13 recorded. It exits ~700ms with no output because `app.requestSingleInstanceLock()`
+hands the launch to the packaged app in /Applications and quits — silently, by design. The lock
+is keyed on `userData`, so `electron . --user-data-dir=<tmp>` runs a dev instance alongside the
+installed one. With that plus `MGIT_OPEN_REPOS` and the `MGIT_CAPTURE` harness already in
+`main/capture.ts`, the sidebar was screenshotted expanded and folded without touching the
+user's running app — closing Phase 13's last two verification items.
