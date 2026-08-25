@@ -96,8 +96,12 @@ async function runEval(win: BrowserWindow): Promise<void> {
     // The variable holds a JS *expression*; wrap an IIFE around it yourself if
     // you need statements. Serialising here (rather than returning the value)
     // keeps DOM objects like DOMRect legible instead of arriving as `{}`.
+    //
+    // Wrapped in Promise.resolve so an async expression works: an unwrapped
+    // promise stringifies to `{}`, which looks like an empty result rather than
+    // a mistake.
     const value: unknown = await win.webContents.executeJavaScript(
-      `JSON.stringify(${expression}, null, 2)`,
+      `Promise.resolve(${expression}).then((v) => JSON.stringify(v, null, 2))`,
     );
     // eslint-disable-next-line no-console -- this IS the tool's output
     console.log(`[eval] ${String(value)}`);

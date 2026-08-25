@@ -1,8 +1,9 @@
 import { BrowserWindow, dialog } from 'electron';
 
-import { addWorktree, removeWorktree } from '@midnite-git/git-engine';
+import { addWorktree, readCommitDetail, removeWorktree } from '@midnite-git/git-engine';
 import { CHANNELS, failure, schemas } from '@midnite-git/shared';
 
+import { cancelLog, startLog } from '../log-service';
 import {
   closeRepo,
   getRepo,
@@ -71,6 +72,40 @@ export function registerRepoHandlers(getWindow: () => BrowserWindow | null): voi
     if (!entry) return failure('That repository is no longer open.');
     return removeWorktree(entry.path, req.path, req.force);
   });
+
+  /**
+   * Start streaming the commit graph. Resolves immediately — the rows arrive as
+   * `log:batch` events, and the `log:done` event ends the stream.
+   */
+  handle(
+    CHANNELS.logStart,
+    schemas.LogStartRequest,
+    (req) => {
+      const entry = getRepo(req.repoId);
+      const win = getWindow();
+      if (!entry || !win) return;
+      startLog(win, { requestId: req.requestId, repoPath: entry.path, limit: req.limit });
+    },
+    () => undefined,
+  );
+
+  handle(
+    CHANNELS.logCancel,
+    schemas.LogCancelRequest,
+    ({ requestId }) => cancelLog(requestId),
+    () => undefined,
+  );
+
+  handle(
+    CHANNELS.commitDetail,
+    schemas.CommitDetailRequest,
+    async ({ repoId, sha }) => {
+      const entry = getRepo(repoId);
+      if (!entry) return { sha, body: '', stat: '', files: [] };
+      return readCommitDetail(entry.path, sha);
+    },
+    () => ({ sha: '', body: '', stat: '', files: [] }),
+  );
 
   /**
    * The native folder picker.
