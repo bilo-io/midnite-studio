@@ -16,6 +16,8 @@ import {
 } from 'lucide-react';
 
 import type { MenuItem } from '../../components/context-menu';
+import { bridge } from '../../services/bridge';
+import { SortableList, useSortableRow } from '../../components/sortable-list';
 import { useDialogs } from '../../components/dialog-host';
 import { IconButton } from '../../components/icon-button';
 import { Tooltip } from '../../components/tooltip';
@@ -92,17 +94,28 @@ export function ReposPanel() {
             a linked worktree works too, and nests under the repository that owns it.
           </p>
         ) : (
-          repos.map((repo, index) => (
-            <RepoItem
-              key={repo.id}
-              repo={repo}
-              first={index === 0}
-              index={index}
-              // '' clears a stale message on the next successful op, so an
-              // error from two operations ago cannot sit there looking current.
-              onError={(message) => setError(message || null)}
-            />
-          ))
+          /*
+            Order is the user's, and it lives in `repos.json` alongside the
+            repo list itself — not in localStorage. A drag reorders the
+            registry's own Map, so clearing the browser store cannot leave the
+            sidebar in an order the repo list disagrees with.
+          */
+          <SortableList
+            ids={repos.map((repo) => repo.id)}
+            onReorder={(repoIds) => bridge()?.repos.reorder({ repoIds })}
+          >
+            {repos.map((repo, index) => (
+              <RepoItem
+                key={repo.id}
+                repo={repo}
+                first={index === 0}
+                index={index}
+                // '' clears a stale message on the next successful op, so an
+                // error from two operations ago cannot sit there looking current.
+                onError={(message) => setError(message || null)}
+              />
+            ))}
+          </SortableList>
         )}
       </div>
     </div>
@@ -124,6 +137,7 @@ function RepoItem({
   const dialogs = useDialogs();
   const selectedRepoId = useUiStore((s) => s.selectedRepoId);
   const selectRepo = useUiStore((s) => s.selectRepo);
+  const drag = useSortableRow(repo.id);
 
   /**
    * Refs are fetched per repo, but only while it is expanded.
@@ -155,8 +169,16 @@ function RepoItem({
 
   return (
     <section
-      style={cascadeStyle(index)}
-      className={`animate-fade-in-up cascade-delay ${
+      ref={drag.setNodeRef}
+      /*
+        The drag transform has to win over the entrance animation's own
+        transform, so the two are merged rather than one replacing the other —
+        a row picked up mid-cascade would otherwise snap back to its start.
+      */
+      style={{ ...cascadeStyle(index), ...drag.style }}
+      {...drag.attributes}
+      {...drag.listeners}
+      className={`animate-fade-in-up cascade-delay ${drag.isDragging ? 'opacity-80' : ''} ${
         // A delimiter between repositories, not above the first one — a rule at
         // the top of a list reads as a header separator that lost its header.
         //

@@ -1,212 +1,180 @@
-import { X } from 'lucide-react';
+import { BUILTIN_AGENTS, type AgentDefinition } from '@midnite/git-shared';
+import { useQuery } from '@tanstack/react-query';
+import { ChevronDown, ChevronUp, Plus, X } from 'lucide-react';
+import { useEffect } from 'react';
 
+import { useDialogs } from '../../components/dialog-host';
 import { IconButton } from '../../components/icon-button';
-import { useCallback, useEffect, useRef, useState } from 'react';
-
-import { FitAddon } from '@xterm/addon-fit';
-import { WebglAddon } from '@xterm/addon-webgl';
-import { Terminal } from '@xterm/xterm';
-import '@xterm/xterm/css/xterm.css';
-
-import { shouldEscapeTerminal } from '../../services/keybindings/use-keybindings';
+import type { MenuItem } from '../../components/context-menu';
+import { bridge, hasBridge } from '../../services/bridge';
 import { useUiStore } from '../../store/ui-store';
-import { useTerminalIpc } from './use-terminal-ipc';
+import { TerminalSessionList } from './terminal-session-list';
+import { useTerminalStore } from './terminal-store';
+import { TerminalView } from './terminal-view';
 
 /**
- * The integrated terminal.
+ * The terminal pane: chrome, the session list, and every session's xterm.
  *
- * Adapted from midnite's web terminal; the transport is IPC rather than a
- * WebSocket, but the two hard-won parts are the same.
- *
- * 1. **Deferred open.** `term.open()` on a 0×0 element leaves xterm's render
- *    service without valid dimensions, and a later scroll or fit throws
- *    "Cannot read properties of undefined (reading 'dimensions')", killing the
- *    panel. The container is 0-height whenever the terminal starts collapsed —
- *    which is always, since it opens on a keystroke — so open is deferred to
- *    the first ResizeObserver callback that reports real dimensions.
- *
- * 2. **safeFit.** Same reasoning for every subsequent fit: bail out unless the
- *    element is measurable, and swallow the throw if it stops being so mid-fit.
- *
- * Rendering: the WebGL addon, not the DOM renderer. Powerline prompts
- * (powerlevel10k et al) use private-use glyphs (U+E0B0…) that none of the
- * macOS system monospace fonts contain; only the webgl/canvas renderers honor
- * `customGlyphs` and draw those shapes themselves, which is how VS Code shows
- * them without a Nerd Font installed. The font stack still leads with common
- * Nerd Fonts so users who have one get its full symbol set.
+ * Every open session is mounted at once and stacked; only the active one is
+ * visible. That is what lets a build keep running in one terminal while you
+ * work in another, and it is a deliberate reversal of Phase 9's
+ * unmount-when-hidden rule — which existed because a hidden shell had no UI to
+ * see or stop it. The session list is that UI.
  */
-const DARK_THEME = {
-  background: '#09090b',
-  foreground: '#e4e4e7',
-  cursor: '#e4e4e7',
-  selectionBackground: '#3f3f46',
-} as const;
+export function TerminalPanel({ cwd, repoId, repoName }: TerminalPanelProps) {
+  const dialogs = useDialogs();
+  const sessions = useTerminalStore((s) => s.sessions);
+  const activeId = useTerminalStore((s) => s.activeId);
+  const hydrated = useTerminalStore((s) => s.hydrated);
+  const maximized = useUiStore((s) => s.terminalMaximized);
+  const side = useUiStore((s) => s.terminalSidebarSide);
 
-const LIGHT_THEME = {
-  background: '#ffffff',
-  foreground: '#18181b',
-  cursor: '#18181b',
-  selectionBackground: '#d4d4d8',
-} as const;
+  const agents = useAgents();
 
-const isDark = (): boolean => document.documentElement.classList.contains('dark');
-
-export function TerminalPanel({ cwd }: { cwd: string | null }) {
-  const containerRef = useRef<HTMLDivElement>(null);
-  const termRef = useRef<Terminal | null>(null);
-  const fitRef = useRef<FitAddon | null>(null);
-  const [ready, setReady] = useState(false);
-
-  const write = useCallback((bytes: Uint8Array) => {
-    termRef.current?.write(bytes);
-  }, []);
-
-  const { connectionState, error, start, sendInput, sendResize } = useTerminalIpc(cwd, write);
-
-  // Refs so the mount effect can stay dependency-free and run exactly once.
-  const sendInputRef = useRef(sendInput);
-  sendInputRef.current = sendInput;
-  const sendResizeRef = useRef(sendResize);
-  sendResizeRef.current = sendResize;
-  const startRef = useRef(start);
-  startRef.current = start;
-
+  // Restore saved sessions once, on first mount. Spawns nothing.
   useEffect(() => {
-    const container = containerRef.current;
-    if (termRef.current || !container) return;
-
-    const term = new Terminal({
-      convertEol: false,
-      cursorBlink: true,
-      fontFamily:
-        '"MesloLGS NF", "Hack Nerd Font Mono", "JetBrainsMono Nerd Font Mono", "FiraCode Nerd Font Mono", ui-monospace, SFMono-Regular, "SF Mono", Menlo, monospace',
-      fontSize: 12,
-      // Honored by the WebGL renderer below: box-drawing and powerline glyphs
-      // are drawn by xterm itself instead of looked up in the font.
-      customGlyphs: true,
-      theme: isDark() ? DARK_THEME : LIGHT_THEME,
-      // The scrollback a real terminal has; the default 1000 loses the top of a
-      // long build log, which is exactly the part you want.
-      scrollback: 10_000,
-    });
-
-    /**
-     * Which keystrokes escape the terminal.
-     *
-     * Returning false swallows the event for xterm and lets it reach the app's
-     * capture-phase handler. The allow-list is tiny by necessity: Ctrl+C, Ctrl+D
-     * and friends belong to the shell, and stealing them would make the panel
-     * useless.
-     */
-    term.attachCustomKeyEventHandler((event) => {
-      if (event.type !== 'keydown') return true;
-      return !shouldEscapeTerminal(event);
-    });
-
-    const fit = new FitAddon();
-    term.loadAddon(fit);
-
-    const safeFit = () => {
-      const el = containerRef.current;
-      if (!fitRef.current || !termRef.current || !el) return;
-      if (el.clientWidth === 0 || el.clientHeight === 0) return;
-      try {
-        fitRef.current.fit();
-        sendResizeRef.current(termRef.current.cols, termRef.current.rows);
-      } catch {
-        // Container stopped being measurable mid-fit.
-      }
-    };
-
-    let dataSub: { dispose: () => void } | null = null;
-
-    const openWhenSized = () => {
-      if (termRef.current) return;
-      const el = containerRef.current;
-      if (!el || el.clientWidth === 0 || el.clientHeight === 0) return;
-
-      term.open(el);
-      // Must load after open() — the addon needs the terminal's element. If the
-      // GPU says no (context creation fails or is later lost), fall back to the
-      // DOM renderer: everything still works, only the drawn glyphs degrade.
-      try {
-        const webgl = new WebglAddon();
-        webgl.onContextLoss(() => webgl.dispose());
-        term.loadAddon(webgl);
-      } catch {
-        // WebGL unavailable; DOM renderer remains active.
-      }
-      termRef.current = term;
-      fitRef.current = fit;
-      safeFit();
-      dataSub = term.onData((data) => sendInputRef.current(data));
-      setReady(true);
-      void startRef.current(term.cols, term.rows);
-    };
-
-    const observer = new ResizeObserver(() => {
-      if (!termRef.current) openWhenSized();
-      else safeFit();
-    });
-    observer.observe(container);
-    openWhenSized();
-
-    return () => {
-      observer.disconnect();
-      dataSub?.dispose();
-      term.dispose();
-      termRef.current = null;
-      fitRef.current = null;
-      setReady(false);
-    };
+    void useTerminalStore.getState().hydrate();
   }, []);
 
-  // Re-theme in place rather than recreating the terminal — a rebuild would
-  // wipe the scrollback and kill the shell.
+  /**
+   * Open the first terminal automatically.
+   *
+   * Only when nothing was restored: with saved sessions the user already has
+   * terminals, and adding an unasked-for one on every launch would grow the
+   * list forever.
+   */
   useEffect(() => {
-    const observer = new MutationObserver(() => {
-      if (termRef.current) termRef.current.options.theme = isDark() ? DARK_THEME : LIGHT_THEME;
+    if (!hydrated || sessions.length > 0 || !cwd || !repoId) return;
+    useTerminalStore.getState().openSession({ kind: 'shell', title: repoName, cwd, repoId });
+  }, [hydrated, sessions.length, cwd, repoId, repoName]);
+
+  const openNew = (agent?: AgentDefinition) => {
+    if (!cwd || !repoId) return;
+    useTerminalStore.getState().openSession({
+      kind: agent ? 'agent' : 'shell',
+      ...(agent ? { agentId: agent.id } : {}),
+      title: repoName,
+      cwd,
+      repoId,
     });
-    observer.observe(document.documentElement, { attributes: true, attributeFilter: ['class'] });
-    return () => observer.disconnect();
-  }, []);
+  };
+
+  /**
+   * The `+` menu, anchored under the button.
+   *
+   * `useDialogs().openMenu` takes a point, so the button's own rect supplies
+   * one — there is no generic dropdown in the app, and the context menu is
+   * already the thing that knows how to stay on screen and close on Escape.
+   */
+  const showNewMenu = (event: React.MouseEvent<HTMLElement>) => {
+    const rect = event.currentTarget.getBoundingClientRect();
+    const items: MenuItem[] = [
+      {
+        label: 'New Terminal',
+        onSelect: () => openNew(),
+        ...(cwd ? {} : { disabled: true, disabledReason: 'No worktree selected' }),
+      },
+      ...(agents.length > 0 ? [{ type: 'separator' as const }] : []),
+      ...agents.map((agent) => ({
+        label: `New Agent — ${agent.label}`,
+        onSelect: () => openNew(agent),
+        ...(cwd ? {} : { disabled: true, disabledReason: 'No worktree selected' }),
+      })),
+    ];
+    dialogs.openMenu({ clientX: rect.left, clientY: rect.bottom }, items);
+  };
+
+  const active = sessions.find((s) => s.id === activeId) ?? null;
+  const showList = sessions.length > 1;
 
   return (
     <div className="flex h-full min-h-0 flex-col bg-background">
       <div className="flex shrink-0 items-center gap-2 border-b border-border px-3 py-1 text-xs text-muted-foreground">
         <span>Terminal</span>
-        <span className="truncate" title={cwd ?? undefined}>
-          {cwd ?? 'no worktree selected'}
+        <span className="truncate" title={active?.cwd ?? cwd ?? undefined}>
+          {active?.cwd ?? cwd ?? 'no worktree selected'}
         </span>
-        <StateChip state={connectionState} />
-        <IconButton
-          icon={X}
-          label="Hide terminal"
-          size="sm"
-          className="ml-auto"
-          onClick={() => useUiStore.getState().setTerminalOpen(false)}
-        />
+
+        <div className="ml-auto flex items-center gap-0.5">
+          <IconButton
+            icon={Plus}
+            label="New terminal or agent"
+            size="sm"
+            aria-expanded={false}
+            onClick={showNewMenu}
+          />
+          <IconButton
+            icon={maximized ? ChevronDown : ChevronUp}
+            label={maximized ? 'Restore terminal height' : 'Expand terminal'}
+            size="sm"
+            aria-pressed={maximized}
+            onClick={() => useUiStore.getState().toggleTerminalMaximized()}
+          />
+          <IconButton
+            icon={X}
+            label="Hide terminal"
+            size="sm"
+            onClick={() => useUiStore.getState().setTerminalOpen(false)}
+          />
+        </div>
       </div>
 
-      {connectionState === 'unavailable' ? (
-        <p className="p-3 text-xs text-destructive">
-          {error ?? 'The terminal backend is unavailable.'}
-        </p>
-      ) : null}
+      <div className={`flex min-h-0 flex-1 ${side === 'left' ? 'flex-row' : 'flex-row-reverse'}`}>
+        {showList ? <TerminalSessionList agents={agents} /> : null}
 
-      <div className="min-h-0 flex-1 p-1">
-        <div ref={containerRef} className="h-full w-full" />
+        {/* Positioned, because the stacked panes inside are absolutely placed. */}
+        <div className="relative min-h-0 min-w-0 flex-1">
+          {sessions.map((session) => (
+            <TerminalView
+              key={session.id}
+              session={session}
+              active={session.id === activeId}
+              initialInput={agentInput(agents, session.agentId)}
+            />
+          ))}
+
+          {sessions.length === 0 ? (
+            <p className="p-3 text-xs text-muted-foreground">
+              {cwd ? 'No terminals open. Use + to start one.' : 'No worktree selected.'}
+            </p>
+          ) : null}
+        </div>
       </div>
-
-      {!ready && connectionState !== 'unavailable' ? (
-        <p className="shrink-0 px-3 pb-1 text-xs text-muted-foreground">Starting shell…</p>
-      ) : null}
     </div>
   );
 }
 
-function StateChip({ state }: { state: string }) {
-  if (state === 'open') return null;
-  const label = state === 'exited' ? 'shell exited' : state;
-  return <span className="rounded bg-muted px-1.5 py-px text-[10px] uppercase">{label}</span>;
+export type TerminalPanelProps = {
+  cwd: string | null;
+  repoId: string | null;
+  repoName: string;
+};
+
+/**
+ * The agent roster: builtins merged with the user's `agents.json`.
+ *
+ * Queried rather than imported so an edit to that file shows up on the next
+ * launch without a rebuild. The builtins are the placeholder while it loads,
+ * and the fallback when there is no bridge at all (jsdom, the e2e harness).
+ */
+function useAgents(): AgentDefinition[] {
+  const { data } = useQuery({
+    queryKey: ['agents'],
+    queryFn: async () => (await bridge()?.agent.list())?.agents ?? [...BUILTIN_AGENTS],
+    enabled: hasBridge(),
+  });
+  return data ?? [...BUILTIN_AGENTS];
+}
+
+/**
+ * What to type into an agent session once its shell is up.
+ *
+ * A trailing `\r` because this is a keystroke, not an argv: the shell needs the
+ * Return to run the line.
+ */
+function agentInput(agents: AgentDefinition[], agentId?: string): string | undefined {
+  if (!agentId) return undefined;
+  const agent = agents.find((a) => a.id === agentId);
+  if (!agent) return undefined;
+  return `${[agent.command, ...agent.args].join(' ')}\r`;
 }
