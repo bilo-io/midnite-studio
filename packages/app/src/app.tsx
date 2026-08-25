@@ -13,6 +13,8 @@ import { QueryClient } from '@tanstack/react-query';
 
 import { Brand, BrandMark, Wordmark } from './components/brand';
 import { DialogHost } from './components/dialog-host';
+import { ResizeHandle } from './components/resizable/resize-handle';
+import { useResizable } from './components/resizable/use-resizable';
 import { GraphView } from './features/graph/graph-view';
 import { ReposPanel } from './features/repos/repos-panel';
 import { useDefaultSelection } from './features/repos/use-default-selection';
@@ -23,7 +25,14 @@ import { hslTokenToHex } from './lib/color';
 import { bridge } from './services/bridge';
 import { useKeybindings } from './services/keybindings/use-keybindings';
 import { useWatchInvalidation } from './services/watch-invalidation';
-import { pathForView, useUiStore, viewForPath, type ViewId } from './store/ui-store';
+import {
+  DEFAULT_LAYOUT,
+  LAYOUT_BOUNDS,
+  pathForView,
+  useUiStore,
+  viewForPath,
+  type ViewId,
+} from './store/ui-store';
 
 /**
  * A QueryClient tuned for a desktop app talking to its own main process.
@@ -114,6 +123,8 @@ function Shell() {
   const activeView = useUiStore((s) => s.activeView);
   const terminalOpen = useUiStore((s) => s.terminalOpen);
   const selectedWorktreePath = useUiStore((s) => s.selectedWorktreePath);
+  const layout = useUiStore((s) => s.layout);
+  const setLayout = useUiStore((s) => s.setLayout);
   useDefaultSelection();
   useWatchInvalidation(useUiStore((s) => s.selectedRepoId));
 
@@ -128,6 +139,27 @@ function Shell() {
     'terminal.focus': () => useUiStore.getState().setTerminalOpen(true),
     'graph.focus': () => useUiStore.getState().setActiveView('graph'),
     'status.focus': () => useUiStore.getState().setActiveView('changes'),
+  });
+
+  const repos = useResizable({
+    size: layout.reposWidth,
+    onSize: (value) => setLayout('reposWidth', value),
+    initial: DEFAULT_LAYOUT.reposWidth,
+    axis: 'x',
+    ...LAYOUT_BOUNDS.reposWidth,
+  });
+
+  /**
+   * The terminal's splitter is ABOVE it, so dragging up must grow the panel —
+   * `edge: 'end'`, the same inversion the right-docked detail pane needs.
+   */
+  const terminal = useResizable({
+    size: layout.terminalHeight,
+    onSize: (value) => setLayout('terminalHeight', value),
+    initial: DEFAULT_LAYOUT.terminalHeight,
+    axis: 'y',
+    edge: 'end',
+    ...LAYOUT_BOUNDS.terminalHeight,
   });
 
   const nav: NavConfig = useMemo(
@@ -188,9 +220,13 @@ function Shell() {
         bar, which looks like a missing header rather than a layout bug.
       */}
       <div className="flex min-h-0" style={CONTENT_BOX}>
-        <aside className="w-64 shrink-0">
+        <aside
+          className={`shrink-0 ${repos.dragging ? '' : 'transition-[width] duration-150 ease-in-out'}`}
+          style={{ width: repos.current }}
+        >
           <ReposPanel />
         </aside>
+        <ResizeHandle resizable={repos} axis="x" label="Resize repositories sidebar" />
         <div className="flex min-w-0 flex-1 flex-col">
           <div className="min-h-0 flex-1">
             {activeView === 'graph' ? (
@@ -209,9 +245,21 @@ function Shell() {
             that breaks its renderer.
           */}
           {terminalOpen ? (
-            <div className="h-72 shrink-0 border-t border-border">
-              <TerminalPanel cwd={selectedWorktreePath} />
-            </div>
+            <>
+              <ResizeHandle resizable={terminal} axis="y" label="Resize terminal" />
+              {/*
+                No width/height transition on this one. The panel's
+                ResizeObserver drives a pty resize, and animating the height
+                would make the shell's column count chase the pointer a frame
+                behind for the length of every drag.
+              */}
+              <div
+                className="shrink-0 overflow-hidden border-t border-border"
+                style={{ height: terminal.current }}
+              >
+                <TerminalPanel cwd={selectedWorktreePath} />
+              </div>
+            </>
           ) : null}
 
           <FooterBar />
