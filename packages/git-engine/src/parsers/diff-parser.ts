@@ -33,10 +33,48 @@ export type ParseDiffOptions = {
 const HUNK_HEADER = /^@@ -(\d+)(?:,(\d+))? \+(\d+)(?:,(\d+))? @@ ?(.*)$/;
 
 export function parseUnifiedDiff(patch: string, opts: ParseDiffOptions): FileDiff {
-  const maxLines = opts.maxLines ?? DIFF_LINE_CAP;
-  const lines = patch.length === 0 ? [] : patch.split('\n');
+  const sections = splitSections(patch);
+  const parsed = sections.map((section) => parseSection(section, opts));
 
-  const result: FileDiff = {
+  // With a two-path pathspec (see commands/diff.ts `pathspec`), git emits ONE
+  // section when `-M` pairs the rename and TWO when it doesn't. Prefer the
+  // section that actually describes the file the caller asked about; a
+  // concatenation of both would carry hunks and line numbers from two files
+  // under one path.
+  const match =
+    parsed.find((d) => d.path === opts.fallbackPath) ??
+    parsed.find((d) => d.oldPath === opts.fallbackPath);
+
+  return match ?? parsed[0] ?? emptyResult(opts);
+}
+
+/**
+ * Split a patch at `diff --git` boundaries.
+ *
+ * Text before the first boundary is its own section so that a patch body with
+ * no `diff --git` header at all — which is what `git diff` emits under some
+ * configs, and what most hand-written fixtures look like — still parses.
+ */
+function splitSections(patch: string): string[][] {
+  if (patch.length === 0) return [];
+  const lines = patch.split('\n');
+  const sections: string[][] = [];
+  let current: string[] = [];
+
+  for (const line of lines) {
+    if (line.startsWith('diff --git ') && current.length > 0) {
+      sections.push(current);
+      current = [];
+    }
+    current.push(line);
+  }
+  if (current.length > 0) sections.push(current);
+
+  return sections;
+}
+
+function emptyResult(opts: ParseDiffOptions): FileDiff {
+  return {
     path: opts.fallbackPath,
     oldPath: null,
     change: 'modified',
@@ -50,11 +88,19 @@ export function parseUnifiedDiff(patch: string, opts: ParseDiffOptions): FileDif
     truncated: false,
     droppedLines: 0,
   };
+}
+
+function parseSection(lines: readonly string[], opts: ParseDiffOptions): FileDiff {
+  const maxLines = opts.maxLines ?? DIFF_LINE_CAP;
+  const result = emptyResult(opts);
 
   let hunk: DiffHunk | null = null;
   let oldNo = 0;
   let newNo = 0;
   let bodyLines = 0;
+  /** False once a body line has been dropped — the `\ No newline` marker that
+   *  follows it must not be pinned onto some earlier, unrelated line. */
+  let lastLineKept = false;
   // Set when a rename header named the pre-image; `--- a/...` would otherwise
   // overwrite it with the same value and a `deleted` classification.
   let sawRenameHeader = false;
@@ -66,8 +112,18 @@ export function parseUnifiedDiff(patch: string, opts: ParseDiffOptions): FileDif
   for (let i = 0; i < lines.length; i += 1) {
     const line = lines[i] ?? '';
 
-    // --- headers, which only appear before the first hunk -------------------
-    if (hunk === null || !line.startsWith(' ')) {
+    /**
+     * Headers are only headers BEFORE the first hunk of a section.
+     *
+     * Inside a hunk body every line begins with `+`, `-`, ` ` or `\`, and the
+     * marker is the only thing that distinguishes content from structure. A
+     * deleted SQL/Lua/Haskell comment reads `--- pick the newest row` in the
+     * patch and a deleted email signature delimiter reads `--- `; matching
+     * those as `--- a/path` headers silently drops the line from the diff,
+     * under-counts the deletion, clobbers `oldPath`, and shifts every
+     * subsequent old-side line number by one.
+     */
+    if (hunk === null) {
       if (line.startsWith('diff --git ')) continue;
       if (line.startsWith('index ')) continue;
 
@@ -146,6 +202,7 @@ export function parseUnifiedDiff(patch: string, opts: ParseDiffOptions): FileDif
       };
       oldNo = oldStart;
       newNo = newStart;
+      lastLineKept = false;
       continue;
     }
 
@@ -155,43 +212,66 @@ export function parseUnifiedDiff(patch: string, opts: ParseDiffOptions): FileDif
     if (line === '' && i === lines.length - 1) continue;
 
     if (line.startsWith('\\')) {
-      // "\ No newline at end of file" annotates the line just emitted.
-      const last = hunk.lines[hunk.lines.length - 1];
-      if (last) last.noNewline = true;
-      continue;
-    }
-
-    if (bodyLines >= maxLines) {
-      result.truncated = true;
-      result.droppedLines += 1;
+      // "\ No newline at end of file" annotates the line just emitted — but
+      // only if that line actually made it into the output.
+      if (lastLineKept) {
+        const last = hunk.lines[hunk.lines.length - 1];
+        if (last) last.noNewline = true;
+      }
       continue;
     }
 
     const marker = line[0];
     const text = line.slice(1);
 
+    /**
+     * Stat counters are incremented for EVERY body line, including the ones
+     * past the cap. The header reads "+4000 / −0" over a truncated diff, and a
+     * count that silently shrank to what happened to fit would contradict the
+     * "N more lines not shown" notice sitting directly beneath it.
+     */
+    if (marker === '+') result.insertions += 1;
+    else if (marker === '-') result.deletions += 1;
+    else if (marker !== ' ' && marker !== undefined) continue;
+
+    if (bodyLines >= maxLines) {
+      result.truncated = true;
+      result.droppedLines += 1;
+      lastLineKept = false;
+      // Line numbers still have to advance, or a later "show the rest" would
+      // renumber the tail of the file.
+      if (marker === '+') newNo += 1;
+      else if (marker === '-') oldNo += 1;
+      else {
+        oldNo += 1;
+        newNo += 1;
+      }
+      continue;
+    }
+
     if (marker === '+') {
       hunk.lines.push({ kind: 'add', oldNo: null, newNo, text, ranges: [], noNewline: false });
       newNo += 1;
-      result.insertions += 1;
     } else if (marker === '-') {
       hunk.lines.push({ kind: 'del', oldNo, newNo: null, text, ranges: [], noNewline: false });
       oldNo += 1;
-      result.deletions += 1;
-    } else if (marker === ' ' || marker === undefined) {
+    } else {
       // `marker === undefined` is a genuinely empty context line: git writes a
       // lone space, but some tools trim trailing whitespace off the patch.
       hunk.lines.push({ kind: 'ctx', oldNo, newNo, text, ranges: [], noNewline: false });
       oldNo += 1;
       newNo += 1;
-    } else {
-      // Anything else this deep is not diff body — skip rather than mis-count.
-      continue;
     }
     bodyLines += 1;
+    lastLineKept = true;
   }
 
   if (hunk) result.hunks.push(hunk);
+
+  // A hunk whose every line fell past the cap has nothing to show, and an empty
+  // one still renders a header row with a working "expand" control — which
+  // refetches at wider context and truncates harder. Drop them.
+  result.hunks = result.hunks.filter((h) => h.lines.length > 0);
   for (const h of result.hunks) annotateIntraline(h);
 
   // A deletion's post-image header is `+++ /dev/null`, so nothing ever set
@@ -377,21 +457,16 @@ function rangesOutsideCommon(
   return ranges.filter((r) => r.end > r.start);
 }
 
-/** Total body lines across every hunk — what the renderer virtualises over. */
+/**
+ * Total body lines across every hunk.
+ *
+ * Used by the parser's own tests to assert truncation; the renderer counts its
+ * own rows. `describeEmptyDiff` deliberately does NOT live here — `app` may not
+ * import git-engine, so a copy in this package would be unreachable from the
+ * only code that needs it (see app/src/features/diff/describe-empty.ts).
+ */
 export function countDiffLines(diff: FileDiff): number {
   return diff.hunks.reduce((total, hunk) => total + hunk.lines.length, 0);
-}
-
-/** Human-facing summary for a diff with no hunks to show. */
-export function describeEmptyDiff(diff: FileDiff): string | null {
-  if (diff.binary) return 'Binary file — no textual diff.';
-  if (diff.hunks.length > 0) return null;
-  if (diff.oldMode && diff.newMode && diff.oldMode !== diff.newMode) {
-    return `Mode changed from ${diff.oldMode} to ${diff.newMode}.`;
-  }
-  if (diff.change === 'renamed') return `Renamed from ${diff.oldPath ?? '?'} with no content change.`;
-  if (diff.change === 'copied') return `Copied from ${diff.oldPath ?? '?'} with no content change.`;
-  return 'No changes to show for this file.';
 }
 
 export type { FileChangeKind };

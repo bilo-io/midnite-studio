@@ -25,16 +25,24 @@ export function CommitDetail({ repoId, sha }: { repoId: string; sha: string }) {
     staleTime: Number.POSITIVE_INFINITY,
   });
 
-  const [selectedPath, setSelectedPath] = useState<string | null>(null);
+  // The pre-image path rides along with the selection: rename detection needs
+  // both sides of the pathspec, and without it a renamed file renders as a
+  // brand-new file with every line green.
+  const [selected, setSelected] = useState<{ path: string; oldPath: string | null } | null>(null);
 
   // Selecting a commit must not carry the previous commit's file selection —
   // the path may not even exist in this one, which would render a permanently
   // empty diff pane with no clue as to why.
   useEffect(() => {
-    setSelectedPath(null);
+    setSelected(null);
   }, [sha]);
 
-  const diff = useCommitFileDiff({ repoId, sha, path: selectedPath });
+  const diff = useCommitFileDiff({
+    repoId,
+    sha,
+    path: selected?.path ?? null,
+    oldPath: selected?.oldPath ?? null,
+  });
 
   if (isLoading || !data) {
     return <p className="p-3 text-xs text-muted-foreground">Loading…</p>;
@@ -65,15 +73,17 @@ export function CommitDetail({ repoId, sha }: { repoId: string; sha: string }) {
       <div className="min-h-0 shrink-0 overflow-auto" style={{ maxHeight: '40%' }}>
         <ul className="py-1">
           {data.files.map((file) => {
-            const selected = file.path === selectedPath;
+            const isSelected = file.path === selected?.path;
             return (
               <li key={file.path}>
                 <button
                   type="button"
-                  onClick={() => setSelectedPath(selected ? null : file.path)}
-                  aria-pressed={selected}
+                  onClick={() =>
+                    setSelected(isSelected ? null : { path: file.path, oldPath: file.oldPath })
+                  }
+                  aria-pressed={isSelected}
                   className={`flex w-full items-baseline gap-2 px-3 py-0.5 text-left text-xs ${
-                    selected ? 'bg-accent' : 'hover:bg-accent/40'
+                    isSelected ? 'bg-accent' : 'hover:bg-accent/40'
                   }`}
                 >
                   <span className="min-w-0 flex-1 truncate" title={file.path}>
@@ -89,7 +99,7 @@ export function CommitDetail({ repoId, sha }: { repoId: string; sha: string }) {
       </div>
 
       <div className="min-h-0 flex-1 border-t border-border">
-        {selectedPath === null ? (
+        {selected === null ? (
           <p className="p-3 text-xs text-muted-foreground">
             Select a file to see what changed in it.
           </p>

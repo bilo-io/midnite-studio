@@ -9,6 +9,7 @@ import { useRef } from 'react';
 
 import { IconButton } from '../../components/icon-button';
 import { useUiStore } from '../../store/ui-store';
+import { describeEmptyDiff } from './describe-empty';
 import { nextContext, toDiffRows, toSegments, type DiffRow } from './diff-rows';
 
 /**
@@ -60,9 +61,12 @@ export function DiffView({
   }
 
   if (!diff || rows.length === 0) {
+    // Derived here rather than left to each caller: a binary blob and a
+    // mode-only change both arrive as zero hunks, and the two surfaces used to
+    // disagree about what to say for them.
     return (
       <p className="p-3 text-xs text-muted-foreground" data-testid="diff-empty">
-        {emptyMessage ?? 'No changes to show for this file.'}
+        {emptyMessage ?? (diff ? describeEmptyDiff(diff) : 'No changes to show for this file.')}
       </p>
     );
   }
