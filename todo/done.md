@@ -10,3 +10,14 @@ proto/moon/pnpm workspace skeleton with four packages (`shared`, `git-engine`, `
 GitHub Packages (registry auth proven). `moon run :typecheck :lint :test :build` green; single
 `react@19.2.8` in the store. Boundary rules negative-tested (probe files importing `electron`
 from `app/src` and `git-engine/src` both fail lint).
+
+## 2026-08-25 — Phase 1 · Shared contracts + git-engine exec/parsers
+
+`shared` now carries the whole wire contract (domain zod schemas, `mgit:*` channel constants, IPC
+payload schemas, the `MidniteGitBridge` type, the CommandId registry + default keymap), and
+`git-engine` reads a real repository: dugite exec with env hygiene, the per-repo write queue, four
+NUL-delimited parsers, and `log`/`status`/`refs`/`worktrees` commands including an incremental
+`streamLog`. 93 tests green — 47 parser unit tests against fixture strings plus 21 integration
+tests that build throwaway repos with real git (renames, conflicts, detached HEAD, unborn repo,
+linked worktrees, upstream ahead/behind). `scripts/smoke.ts` parses ~/Dev/midnite — 4 worktrees,
+200 refs, 2000 commits in 156ms.
