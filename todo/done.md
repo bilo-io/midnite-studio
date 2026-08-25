@@ -85,3 +85,12 @@ files, disables Continue until they are resolved, and never disables Abort. 173 
 
 Also fixed a build-graph bug found here: `desktop:typecheck` could pass against a stale
 `git-engine` API because moon hashed only the task's own inputs.
+
+## 2026-08-25 — Phase 9 · Integrated terminal + keybindings
+
+node-pty in the main process (lazy, fail-soft, login shell, cwd = the selected worktree) behind an
+xterm panel that defers `open()` until its container is measurable; a CommandId dispatcher shared
+by the key handler and the native menu, with an xterm escape allow-list derived from the keymap's
+`global` scope; and a footer bar with the toggle, branch, ahead/behind and change count. Verified
+with real OS-level key events: `Ctrl+\`` opens from cold and closes again with the terminal
+focused, and `git status --short` inside the shell agrees with the footer.

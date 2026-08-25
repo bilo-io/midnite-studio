@@ -77,7 +77,7 @@ const windowChrome: WindowChromeBridge = {
  */
 const bridge: Pick<
   MidniteGitBridge,
-  'repos' | 'log' | 'status' | 'ops' | 'window' | 'windowChrome' | 'menu'
+  'repos' | 'log' | 'status' | 'ops' | 'pty' | 'window' | 'windowChrome' | 'menu'
 > = {
   repos: {
     open: (req) => call(CHANNELS.repoOpen, req),
@@ -120,6 +120,16 @@ const bridge: Pick<
     abort: (req) => call(CHANNELS.opAbort, req),
     continue: (req) => call(CHANNELS.opContinue, req),
     blastRadius: (req) => call(CHANNELS.opBlastRadius, req),
+  },
+  pty: {
+    create: (req) => call(CHANNELS.ptyCreate, req),
+    // One-way sends: these fire per keystroke and per resize frame, and a
+    // round-trip would add latency to typing for nothing to report back.
+    input: (req) => ipcRenderer.send(CHANNELS.ptyInput, req),
+    resize: (req) => ipcRenderer.send(CHANNELS.ptyResize, req),
+    kill: (req) => ipcRenderer.send(CHANNELS.ptyKill, req),
+    onData: (handler) => subscribe(EVENT_CHANNELS.ptyData, handler),
+    onExit: (handler) => subscribe(EVENT_CHANNELS.ptyExit, handler),
   },
   window: {
     minimize: () => ipcRenderer.send(CHANNELS.windowMinimize),

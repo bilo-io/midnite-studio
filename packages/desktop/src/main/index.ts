@@ -1,9 +1,11 @@
 import { BrowserWindow, app } from 'electron';
 
+import { registerPtyHandlers } from './ipc/pty-handlers';
 import { registerRefHandlers } from './ipc/ref-handlers';
 import { registerRepoHandlers } from './ipc/repo-handlers';
 import { registerStatusHandlers } from './ipc/status-handlers';
 import { installMenu } from './menu';
+import { killAllPtys } from './pty-service';
 import { configureRegistry, openRepo, restoreRepos } from './repo-registry';
 import { createRepoStore } from './repo-store';
 import { ensureLoginShellPath } from './shell-path';
@@ -42,6 +44,14 @@ async function openReposFromEnv(): Promise<void> {
  * two watchers and two write queues racing on the same `index.lock`. Hand the
  * launch to the running instance instead.
  */
+/**
+ * Electron derives the app name from package.json, which here is the scoped
+ * workspace name — so the macOS menu bar, the About dialog and `~/Library/
+ * Application Support` all read "@midnite-git/desktop". Set it before anything
+ * reads it, which includes `app.getPath('userData')`.
+ */
+app.setName('midnite-git');
+
 if (!app.requestSingleInstanceLock()) {
   app.quit();
 } else {
@@ -61,6 +71,7 @@ if (!app.requestSingleInstanceLock()) {
     registerRepoHandlers(getWindow);
     registerStatusHandlers();
     registerRefHandlers();
+    registerPtyHandlers(getWindow);
     installMenu(getWindow);
 
     // Restore before the window opens: the renderer's first `repo:list` fires
@@ -86,7 +97,12 @@ if (!app.requestSingleInstanceLock()) {
     });
   });
 
+  // Ptys are children, not detached processes: without this a shell is orphaned
+  // per window per launch, and on macOS those outlive the app entirely.
+  app.on('before-quit', () => killAllPtys());
+
   app.on('window-all-closed', () => {
+    killAllPtys();
     // macOS apps conventionally stay alive with no windows; everywhere else,
     // closing the last window quits.
     if (process.platform !== 'darwin') app.quit();

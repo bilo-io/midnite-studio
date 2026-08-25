@@ -38,6 +38,15 @@ tasks:
       - 'scripts/**/*'
       - '/eslint.config.mjs'
 
+  # Rebuild node-pty against Electron's ABI. Only needed after an Electron bump
+  # or a fresh install whose prebuild targets a different ABI — never in CI,
+  # which runs no Electron binary.
+  rebuild-native:
+    command: 'node scripts/rebuild-native.mjs'
+    options:
+      runInCI: false
+      cache: false
+
   # Dev: compile main+preload, then run Electron against the Vite dev server.
   # `app:dev` is a persistent dep, so moon starts the two together and Electron
   # retries the connection until Vite is listening.

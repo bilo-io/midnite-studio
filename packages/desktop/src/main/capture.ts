@@ -1,7 +1,7 @@
 import { mkdir, writeFile } from 'node:fs/promises';
 import { dirname } from 'node:path';
 
-import type { BrowserWindow } from 'electron';
+import { Menu, type BrowserWindow } from 'electron';
 
 /**
  * Screenshot the window from inside the app, on demand.
@@ -27,6 +27,27 @@ import type { BrowserWindow } from 'electron';
  *   MGIT_EVAL=<js expression>       evaluate in the renderer and log the JSON
  *                                   result — for checking layout/DOM state that
  *                                   a screenshot can only hint at
+ *   MGIT_TYPE=<text>                type real key events into the focused
+ *                                   element (`\n` sends Return). Synthetic DOM
+ *                                   KeyboardEvents do not drive xterm, so this
+ *                                   is the only way to exercise the terminal's
+ *                                   true path: OS event → xterm → IPC → pty
+ *   MGIT_KEYS=<json>                send chords as real input events, e.g.
+ *                                   `[{"keyCode":"`","modifiers":["control"]}]`
+ *                                   — the only way to test a shortcut against
+ *                                   xterm's own key handling
+ *   MGIT_EVAL_AFTER=<js expression> a second eval, run AFTER the typing and the
+ *                                   chords. MGIT_EVAL sets the scene; this one
+ *                                   asserts what the input did.
+ *
+ *   MGIT_DUMP_MENU=1                log the native application menu. The menu
+ *                                   is OS chrome, invisible to both the DOM and
+ *                                   a page screenshot, so this is the only way
+ *                                   to check that (say) the Edit roles Cmd+C/V
+ *                                   depend on are actually registered.
+ *
+ * Order: theme/fullscreen → MGIT_EVAL → MGIT_TYPE → MGIT_KEYS → MGIT_EVAL_AFTER
+ * → capture.
  */
 export function maybeCapture(win: BrowserWindow): void {
   const target = process.env['MGIT_CAPTURE'];
@@ -42,7 +63,11 @@ export function maybeCapture(win: BrowserWindow): void {
       void (async () => {
         try {
           await applyCaptureState(win);
-          await runEval(win);
+          await runEval(win, 'MGIT_EVAL');
+          await runType(win);
+          await runKeys(win);
+          await runEval(win, 'MGIT_EVAL_AFTER');
+          dumpMenu();
           const image = await win.webContents.capturePage();
           await mkdir(dirname(target), { recursive: true });
           await writeFile(target, image.toPNG());
@@ -88,9 +113,9 @@ async function applyCaptureState(win: BrowserWindow): Promise<void> {
   await new Promise((resolve) => setTimeout(resolve, 600));
 }
 
-/** Evaluate `MGIT_EVAL` in the renderer and print the result. Dev-only. */
-async function runEval(win: BrowserWindow): Promise<void> {
-  const expression = process.env['MGIT_EVAL'];
+/** Evaluate an expression from `variable` in the renderer and print the result. */
+async function runEval(win: BrowserWindow, variable: string): Promise<void> {
+  const expression = process.env[variable];
   if (!expression) return;
   try {
     // The variable holds a JS *expression*; wrap an IIFE around it yourself if
@@ -104,9 +129,80 @@ async function runEval(win: BrowserWindow): Promise<void> {
       `Promise.resolve(${expression}).then((v) => JSON.stringify(v, null, 2))`,
     );
     // eslint-disable-next-line no-console -- this IS the tool's output
-    console.log(`[eval] ${String(value)}`);
+    console.log(`[${variable}] ${String(value)}`);
   } catch (error) {
     // eslint-disable-next-line no-console -- ditto
-    console.error('[eval] failed', error);
+    console.error(`[${variable}] failed`, error);
   }
+}
+
+/**
+ * Type `MGIT_TYPE` into the focused element as real input events.
+ *
+ * `webContents.sendInputEvent` goes in above the DOM, the way a keyboard does,
+ * so xterm's own key handling runs. A synthetic `KeyboardEvent` dispatched from
+ * page script does not: xterm reads from a hidden textarea driven by the real
+ * input pipeline, so a dispatched event changes nothing.
+ */
+async function runType(win: BrowserWindow): Promise<void> {
+  const text = process.env['MGIT_TYPE'];
+  if (!text) return;
+
+  for (const char of text.replace(/\\n/g, '\n')) {
+    if (char === '\n') {
+      win.webContents.sendInputEvent({ type: 'keyDown', keyCode: 'Return' });
+      win.webContents.sendInputEvent({ type: 'char', keyCode: '\r' });
+      win.webContents.sendInputEvent({ type: 'keyUp', keyCode: 'Return' });
+    } else {
+      win.webContents.sendInputEvent({ type: 'keyDown', keyCode: char });
+      win.webContents.sendInputEvent({ type: 'char', keyCode: char });
+      win.webContents.sendInputEvent({ type: 'keyUp', keyCode: char });
+    }
+    await new Promise((resolve) => setTimeout(resolve, 12));
+  }
+
+  // Let the shell run and the output stream back.
+  await new Promise((resolve) => setTimeout(resolve, Number(process.env['MGIT_TYPE_WAIT_MS'] ?? 2500)));
+}
+
+/**
+ * Send chords from `MGIT_KEYS` as real input events.
+ *
+ * Separate from MGIT_TYPE because a shortcut has to be tested *against* xterm's
+ * key handling, not through it: the question is whether the chord escapes the
+ * terminal to reach the app, and only a genuine modifier-bearing event answers
+ * it.
+ */
+async function runKeys(win: BrowserWindow): Promise<void> {
+  const raw = process.env['MGIT_KEYS'];
+  if (!raw) return;
+
+  const chords = JSON.parse(raw) as { keyCode: string; modifiers?: string[] }[];
+  for (const chord of chords) {
+    const modifiers = (chord.modifiers ?? []) as Electron.InputEvent['modifiers'];
+    win.webContents.sendInputEvent({ type: 'keyDown', keyCode: chord.keyCode, modifiers });
+    win.webContents.sendInputEvent({ type: 'keyUp', keyCode: chord.keyCode, modifiers });
+    await new Promise((resolve) => setTimeout(resolve, 400));
+  }
+  await new Promise((resolve) => setTimeout(resolve, 600));
+}
+
+/** Log the native application menu — invisible to the DOM and to a screenshot. */
+function dumpMenu(): void {
+  if (process.env['MGIT_DUMP_MENU'] !== '1') return;
+  const menu = Menu.getApplicationMenu();
+  if (!menu) return;
+
+  const describe = (items: Electron.MenuItem[]): unknown[] =>
+    items
+      .filter((item) => item.type !== 'separator')
+      .map((item) => ({
+        label: item.label,
+        role: item.role,
+        accelerator: item.accelerator ?? undefined,
+        ...(item.submenu ? { submenu: describe(item.submenu.items) } : {}),
+      }));
+
+  // eslint-disable-next-line no-console -- this IS the tool's output
+  console.log(`[menu] ${JSON.stringify(describe(menu.items), null, 2)}`);
 }

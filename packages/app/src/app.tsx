@@ -10,13 +10,16 @@ import {
 } from '@bilo-io/shell';
 import { QueryClient } from '@tanstack/react-query';
 
-import { GraphView } from './features/graph/graph-view';
 import { DialogHost } from './components/dialog-host';
+import { GraphView } from './features/graph/graph-view';
 import { ReposPanel } from './features/repos/repos-panel';
-import { StatusPanel } from './features/status/status-panel';
 import { useDefaultSelection } from './features/repos/use-default-selection';
+import { StatusPanel } from './features/status/status-panel';
+import { FooterBar } from './features/terminal/footer-bar';
+import { TerminalPanel } from './features/terminal/terminal-panel';
 import { hslTokenToHex } from './lib/color';
 import { bridge } from './services/bridge';
+import { useKeybindings } from './services/keybindings/use-keybindings';
 import { pathForView, useUiStore, viewForPath, type ViewId } from './store/ui-store';
 
 /**
@@ -108,7 +111,22 @@ function Placeholder({ view }: { view: ViewId }) {
 
 function Shell() {
   const activeView = useUiStore((s) => s.activeView);
+  const terminalOpen = useUiStore((s) => s.terminalOpen);
+  const selectedWorktreePath = useUiStore((s) => s.selectedWorktreePath);
   useDefaultSelection();
+
+  /**
+   * Every shortcut and every native menu item lands here, keyed by CommandId.
+   * The handlers object is rebuilt each render and the hook depends on it —
+   * cheap, and it keeps the handlers closing over current state rather than a
+   * stale snapshot.
+   */
+  useKeybindings({
+    'terminal.toggle': () => useUiStore.getState().toggleTerminal(),
+    'terminal.focus': () => useUiStore.getState().setTerminalOpen(true),
+    'graph.focus': () => useUiStore.getState().setActiveView('graph'),
+    'status.focus': () => useUiStore.getState().setActiveView('changes'),
+  });
 
   const nav: NavConfig = useMemo(
     () => ({
@@ -180,14 +198,30 @@ function Shell() {
         <aside className="w-64 shrink-0">
           <ReposPanel />
         </aside>
-        <div className="min-w-0 flex-1">
-          {activeView === 'graph' ? (
-            <GraphView />
-          ) : activeView === 'changes' ? (
-            <StatusPanel />
-          ) : (
-            <Placeholder view={activeView} />
-          )}
+        <div className="flex min-w-0 flex-1 flex-col">
+          <div className="min-h-0 flex-1">
+            {activeView === 'graph' ? (
+              <GraphView />
+            ) : activeView === 'changes' ? (
+              <StatusPanel />
+            ) : (
+              <Placeholder view={activeView} />
+            )}
+          </div>
+
+          {/*
+            Mounted only while open, and unmounting kills the shell. Keeping a
+            hidden terminal alive would mean a stray shell per session with no
+            way to see or stop it — and a 0-height xterm is exactly the state
+            that breaks its renderer.
+          */}
+          {terminalOpen ? (
+            <div className="h-72 shrink-0 border-t border-border">
+              <TerminalPanel cwd={selectedWorktreePath} />
+            </div>
+          ) : null}
+
+          <FooterBar />
         </div>
       </div>
     </AppFrame>
