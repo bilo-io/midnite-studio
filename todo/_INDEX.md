@@ -10,7 +10,7 @@ Completed work is logged append-only in [`done.md`](done.md). Deferred scope liv
 
 | Phase | Status | Done | Progress | % | 🔄 WIP | ◻ TODO |
 |-------|--------|------|----------|---|--------|--------|
-| [19 · Dashboard, Actions and Tests as views](phase-19-dashboard-actions-tests.md) | 🔄 WIP | 0/77 | `░░░░░░░░░░` | 0% | B | A C D E F G |
+| [19 · Dashboard, Actions and Tests as views](phase-19-dashboard-actions-tests.md) | 🔄 WIP | 0/77 | `░░░░░░░░░░` | 0% | A B | C D E F G |
 | [18 · Footer system monitor + repo diagnostics](phase-18-footer-monitor-diagnostics.md) | 🔄 WIP | 32/54 | `██████░░░░` | 59% | E F | — |
 | [17 · Repositories workbench + forge](phase-17-repos-workbench.md) | 🔄 WIP | 46/48 | `█████████░` | 96% | — | 2 manual checks |
 | [16 · Folder explorer, preview pane + settings pages](phase-16-explorer-and-settings-pages.md) | 🔄 WIP | 34/36 | `█████████░` | 94% | — | manual verification |
@@ -42,7 +42,7 @@ Completed work is logged append-only in [`done.md`](done.md). Deferred scope liv
 B and C are the two data layers (local history, and a deeper `gh`); D, E and F are the three
 surfaces; G is the one piece that waits on someone else.*
 
-- ◻ **A** — `ViewId` grows to seven, Dashboard rides `NavConfig.pinned` (ungrouped, above the
+- 🔄 **A** — `ViewId` grows to seven, Dashboard rides `NavConfig.pinned` (ungrouped, above the
   sections), Actions/Tests join the rail, and a per-view section allowlist reshapes the sidebar —
   with a "show all sections" escape hatch
 - 🔄 **B** — `git-engine/src/stats/`: one NUL-delimited history pass feeding a local-timezone
