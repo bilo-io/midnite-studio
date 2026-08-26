@@ -24,7 +24,7 @@ import { GraphView } from './features/graph/graph-view';
 import { ReposPanel } from './features/repos/repos-panel';
 import { useDefaultSelection } from './features/repos/use-default-selection';
 import { SettingsView } from './features/settings/settings-view';
-import { StatusPanel } from './features/status/status-panel';
+import { Workbench } from './features/workbench/workbench';
 import { SyncActions } from './features/status/sync-actions';
 import { useFetch, usePull, usePush, useStatus } from './services/use-status';
 import { FooterBar } from './features/terminal/footer-bar';
@@ -382,7 +382,7 @@ function Shell() {
             ) : activeView === 'graph' ? (
               <GraphView />
             ) : activeView === 'changes' ? (
-              <StatusPanel />
+              <Workbench />
             ) : activeView === 'settings' ? (
               <SettingsView />
             ) : (

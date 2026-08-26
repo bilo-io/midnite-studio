@@ -81,6 +81,7 @@ const bridge: Pick<
   | 'log'
   | 'status'
   | 'remotes'
+  | 'forge'
   | 'shell'
   | 'clipboard'
   | 'ops'
@@ -119,6 +120,11 @@ const bridge: Pick<
   },
   remotes: {
     list: (req) => call(CHANNELS.remotesList, req),
+  },
+  forge: {
+    cliStatus: () => call(CHANNELS.forgeCliStatus),
+    runs: (req) => call(CHANNELS.forgeRuns, req),
+    pulls: (req) => call(CHANNELS.forgePulls, req),
   },
   shell: {
     // `invoke`, not `send`: the renderer needs to know a URL was refused, and

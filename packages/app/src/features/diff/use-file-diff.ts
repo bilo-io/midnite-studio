@@ -66,14 +66,26 @@ export function useFileDiff({
   path,
   staged,
   oldPath,
+  worktreePath: explicitWorktree,
 }: {
   repoId: string;
   path: string;
   staged: boolean;
   /** `StatusEntry.origPath` — without it a renamed file diffs as wholly new. */
   oldPath?: string | null;
+  /**
+   * Diff THIS checkout, rather than whichever one is selected.
+   *
+   * The active-worktree fallback below is right for the Changes panel, which
+   * is by definition looking at the selection. It is wrong for anything that
+   * addresses a checkout by name — the sidebar can open a full diff of a
+   * worktree the user has not selected, and silently reading the store there
+   * would show the wrong repository's changes under the right title.
+   */
+  worktreePath?: string | undefined;
 }): Result {
-  const { worktreePath } = useActiveWorktree();
+  const active = useActiveWorktree();
+  const worktreePath = explicitWorktree ?? active.worktreePath;
   const { context, expandContext } = useContextReset(
     [repoId, worktreePath ?? 'main', path, String(staged)].join(' '),
   );
