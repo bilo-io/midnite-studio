@@ -1504,3 +1504,18 @@ view does by default", so a default that changes in a later release still applie
 Worth knowing for the next settings e2e: an empty ref section hides itself (`hideWhenEmpty`
 in `TreeSection`), and the settings spec's fixtures carried no refs — so the sidebar next to
 Settings never showed Local at all, unfiltered or not. The spec now feeds one branch in.
+
+## 2026-08-27 — Sidebar page: the side-navigation lock moves in
+
+The "Side navigation" control (Auto / Locked open / Locked closed) moved from Appearance to
+the Sidebar settings page — locking the nav is a sidebar decision, and that page is where
+someone looking for it looks. Same `navMode` field, same three states, and the rail's own
+chevron pin remains the two-state face of it.
+
+No behaviour needed building: `AppFrame` (from `@bilo-io/shell`, and verified in the
+installed dist) already keys everything off this value — hover-expand handlers attach only
+in `auto`, so **locked closed never expands, hover included**, and while the rail is
+collapsed each item names itself in a portal tooltip. What was missing was the setting's
+home and any proof of that contract. The e2e now locks the rail closed, hovers a nav item,
+and asserts the tooltip appears — a tooltip only renders against a collapsed rail, so its
+visibility during a hover IS the assertion that the hover expanded nothing.

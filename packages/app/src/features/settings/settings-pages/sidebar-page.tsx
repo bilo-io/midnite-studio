@@ -1,6 +1,6 @@
-import { useUiStore, VIEW_IDS, type ViewId } from '../../../store/ui-store';
+import { useUiStore, VIEW_IDS, type NavMode, type ViewId } from '../../../store/ui-store';
 import { filtersByDefault, VIEW_FILTERS, type SectionKey } from '../../repos/view-sections';
-import { Field } from './controls';
+import { Choice, Field } from './controls';
 
 /**
  * The repositories sidebar's settings page.
@@ -97,9 +97,35 @@ export function SidebarPage() {
   const overrides = useUiStore((s) => s.sectionFilters);
   const resetSectionFilters = useUiStore((s) => s.resetSectionFilters);
   const anyOverride = Object.keys(overrides).length > 0;
+  /*
+    Nav mode lives in the UI store, not the appearance store: it is the shape of
+    the window rather than a theme token, and `AppFrame` reads it straight off
+    `useUiStore` (see `app.tsx`). The rail's chevron is the same setting seen
+    from the other side — a two-state pin between `auto` and `expanded` — so
+    both controls write the one field and each reflects the other immediately.
+
+    Moved here from Appearance: locking the nav is a sidebar decision, and this
+    page is where someone looking for it looks. Locked closed really means
+    closed — the rail never hover-expands in that mode; each item names itself
+    in a tooltip instead (that behaviour is `AppFrame`'s, keyed off this value).
+  */
+  const navMode = useUiStore((s) => s.navMode);
+  const setNavMode = useUiStore((s) => s.setNavMode);
 
   return (
     <div className="flex flex-col gap-4">
+      <Choice<NavMode>
+        label="Side navigation"
+        hint="Lock the nav open or closed, or let it stay collapsed and expand on hover."
+        value={navMode}
+        onChange={setNavMode}
+        options={[
+          ['auto', 'Auto', 'Collapsed; expands on hover'],
+          ['expanded', 'Locked open', 'Always expanded'],
+          ['collapsed', 'Locked closed', 'Always the icon bar — never expands, items show tooltips'],
+        ]}
+      />
+
       <Field
         label="What each view shows"
         hint="Views that are a question about a subset — Changes, Actions, Tests — arrive narrowed to it; the rest start with the whole tree. This is the setting the panel's own filter button flips, one view at a time."
