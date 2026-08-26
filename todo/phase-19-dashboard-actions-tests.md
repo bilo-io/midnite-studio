@@ -117,38 +117,38 @@ shell — and is left open.*
       empty-repo case
 - [x] The whole module imports **nothing from electron** and is exercised under bare vitest
 
-### C — Forge: issues, run detail and logs (L)
+### C — Forge: issues, run detail and logs (L) — ✅ DONE (2026-08-26)
 
-- [ ] `listIssues()` in [`gh-cli.ts`](../packages/desktop/src/main/forge/gh-cli.ts) —
+- [x] `listIssues()` in [`gh-cli.ts`](../packages/desktop/src/main/forge/gh-cli.ts) —
       `gh issue list --json number,title,state,author,labels,assignees,updatedAt,url`. **`gh issue`
       fails on a repo with issues disabled**, and that is a normal outcome to render, not an error
       to surface as a crash
-- [ ] `runDetail()` — `gh run view <id> --json jobs,...` giving the job/step tree with per-step
+- [x] `runDetail()` — `gh run view <id> --json jobs,...` giving the job/step tree with per-step
       `conclusion` and timings. Run ids stay **strings** throughout, as `gh-parse.ts` already
       insists
-- [ ] `runLog()` — `gh run view <id> --log`. Capped output with an explicit
+- [x] `runLog()` — `gh run view <id> --log`. Capped output with an explicit
       **`truncated` flag** in the payload; a failed matrix job's log is routinely tens of megabytes
       and must never be shipped whole across IPC
-- [ ] `parseIssueList`, `parseRunDetail` and the log envelope in
+- [x] `parseIssueList`, `parseRunDetail` and the log envelope in
       [`gh-parse.ts`](../packages/desktop/src/main/forge/gh-parse.ts) — total functions over
       `unknown`, matching the existing parsers' shape
-- [ ] New domain types in [`forge.ts`](../packages/shared/src/domain/forge.ts): `ForgeIssue`,
+- [x] New domain types in [`forge.ts`](../packages/shared/src/domain/forge.ts): `ForgeIssue`,
       `ForgeIssueState`, `ForgeJob`, `ForgeStep`, `ForgeRunDetail`, `ForgeRunLog`, each with the
       `{cli, items, error}` envelope the existing results use
-- [ ] New channels `mgit:forge:issues`, `mgit:forge:run-detail`, `mgit:forge:run-log`, documented
+- [x] New channels `mgit:forge:issues`, `mgit:forge:run-detail`, `mgit:forge:run-log`, documented
       in [`channels.ts`](../packages/shared/src/ipc/channels.ts) under the same read-only comment
       block
-- [ ] `listRuns` grows an optional **`workflow` filter** (`gh run list --workflow <file>`) and the
+- [x] `listRuns` grows an optional **`workflow` filter** (`gh run list --workflow <file>`) and the
       payload carries the run's workflow **file name**, so `.yml` grouping is data rather than a
       string-match on the display name
-- [ ] Every new call goes through the existing `ghStatus()` gate and inherits the login-shell
+- [x] Every new call goes through the existing `ghStatus()` gate and inherits the login-shell
       wrapper, `GH_PAGER=cat`, `shellQuote()` and the probe timeout. **No new subprocess path**
-- [ ] Handlers in [`forge-handlers.ts`](../packages/desktop/src/main/ipc/forge-handlers.ts) resolve
+- [x] Handlers in [`forge-handlers.ts`](../packages/desktop/src/main/ipc/forge-handlers.ts) resolve
       owner/repo in main from `repoId`; the renderer never learns a path
-- [ ] Issues appear as a sidebar section too, beside Actions and Reviews in
+- [x] Issues appear as a sidebar section too, beside Actions and Reviews in
       [`forge-sections.tsx`](../packages/app/src/features/repos/forge-sections.tsx) — closed by
       default, `enabled: false` until opened, like its siblings
-- [ ] Unit tests: issue-list parsing including empty and issues-disabled output, run-detail parsing
+- [x] Unit tests: issue-list parsing including empty and issues-disabled output, run-detail parsing
       with a skipped job and an in-progress step, and log truncation at the boundary
 
 ### D — The dashboard: grid and widgets (L)

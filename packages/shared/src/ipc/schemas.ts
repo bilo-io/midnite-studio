@@ -10,8 +10,12 @@ import {
   DIFF_FULL_CONTEXT,
   FileDiffSchema,
   ForgeCliStatusSchema,
+  ForgeIssuesResultSchema,
   ForgePullsResultSchema,
+  ForgeRunDetailResultSchema,
+  ForgeRunLogResultSchema,
   ForgeRunsResultSchema,
+  ForgeWorkflowsResultSchema,
   GitOpResultSchema,
   GraphRowSchema,
   METRICS_MAX_INTERVAL_MS,
@@ -274,6 +278,48 @@ export const ForgeRunsResponse = ForgeRunsResultSchema;
 
 export const ForgePullsRequest = ForgeListRequest;
 export const ForgePullsResponse = ForgePullsResultSchema;
+
+/**
+ * `state` is bounded to what `gh issue list --state` accepts, and defaults to
+ * `open`: a repository's closed-issue history is unbounded and nothing in this
+ * phase reads it, so asking for it has to be a deliberate act.
+ */
+export const ForgeIssuesRequest = ForgeListRequest.extend({
+  state: z.enum(['open', 'closed', 'all']).default('open'),
+});
+export const ForgeIssuesResponse = ForgeIssuesResultSchema;
+
+/**
+ * A run id, as the string it has always been in this contract.
+ *
+ * `.regex(/^\d+$/)` rather than a bare string because this value is spliced
+ * into a shell command line. `shellQuote` already makes that safe, but a run id
+ * has exactly one legal shape and rejecting anything else at the boundary means
+ * main never has to trust the quoting alone.
+ */
+const RunId = z.string().regex(/^\d+$/, 'a run id is digits only');
+
+export const ForgeRunDetailRequest = RepoId.extend({ runId: RunId });
+export const ForgeRunDetailResponse = ForgeRunDetailResultSchema;
+
+/**
+ * A log request, capped by default.
+ *
+ * `full` is the escape hatch behind the head-and-tail window, and it is opt-in
+ * for a reason: a failed matrix job's log runs to tens of megabytes, and
+ * shipping that across IPC unasked would stall the renderer for the sake of a
+ * middle section that is almost always matrix noise.
+ */
+export const ForgeRunLogRequest = RepoId.extend({
+  runId: RunId,
+  /** Restrict to one job's log. Omitted means the whole run's. */
+  jobId: RunId.optional(),
+  full: z.boolean().default(false),
+});
+export const ForgeRunLogResponse = ForgeRunLogResultSchema;
+
+export const ForgeWorkflowsRequest = RepoId;
+export const ForgeWorkflowsResponse = ForgeWorkflowsResultSchema;
 
 // --- shell -----------------------------------------------------------------
 

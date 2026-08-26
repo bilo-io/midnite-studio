@@ -65,6 +65,26 @@ export const CHANNELS = {
   forgeRuns: 'mgit:forge:runs',
   /** Open pull requests for the repo's GitHub remote. */
   forgePulls: 'mgit:forge:pulls',
+  /**
+   * Issues for the repo's GitHub remote.
+   *
+   * A repository with issues switched off answers `disabled`, not an error —
+   * `gh issue list` exits non-zero for it, and that exit is a configuration
+   * the UI states, not a fault it reports.
+   */
+  forgeIssues: 'mgit:forge:issues',
+  /** One run's job/step tree. Cached in main once the run has completed. */
+  forgeRunDetail: 'mgit:forge:run-detail',
+  /** One run's (or job's) log, capped head-and-tail unless `full` is asked for. */
+  forgeRunLog: 'mgit:forge:run-log',
+  /**
+   * The repo's workflow definitions, for their file paths.
+   *
+   * Separate from `forgeRuns` on purpose: grouping runs needs only the
+   * workflow id the run list already carries, so this second subprocess is
+   * paid only when something needs to link to a `.yml`.
+   */
+  forgeWorkflows: 'mgit:forge:workflows',
 
   // --- shell ---------------------------------------------------------------
   /**

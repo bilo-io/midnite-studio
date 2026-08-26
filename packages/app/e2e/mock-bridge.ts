@@ -88,6 +88,25 @@ export type MockFixtures = {
     cli?: { reason: 'ready' | 'not-installed' | 'not-authenticated'; hint?: string };
     runs?: unknown[];
     pulls?: unknown[];
+    issues?: unknown[];
+    /**
+     * The repository has its issue tracker switched off.
+     *
+     * Its own fixture field rather than an `error` string, because the two
+     * unlock different UI: `disabled` is a calm sentence, `error` is a red
+     * card, and a spec that could only reach one of them could not tell them
+     * apart. Nothing else in the forge fixture is affected by it.
+     */
+    issuesDisabled?: boolean;
+    /** Job trees, keyed by run id — what expanding a run row reveals. */
+    runDetail?: Record<string, { run?: unknown; jobs?: unknown[] }>;
+    /** Job logs, keyed by run id. `truncated` is the state worth seeding. */
+    runLogs?: Record<
+      string,
+      { lines: string[]; truncated?: boolean; omittedLines?: number; totalBytes?: number }
+    >;
+    /** Workflow definitions, for the lazy `.yml` path lookup. */
+    workflows?: unknown[];
     error?: string | null;
   };
   /**
@@ -320,6 +339,48 @@ export async function installMockBridge(page: Page, fixtures: MockFixtures): Pro
         pulls: async () => ({
           cli: forgeCli(),
           pulls: data.forge?.pulls ?? [],
+          error: forgeError(),
+        }),
+        issues: async () => ({
+          cli: forgeCli(),
+          issues: data.forge?.issues ?? [],
+          disabled: data.forge?.issuesDisabled === true,
+          error: forgeError(),
+        }),
+        runDetail: async (req: { runId: string }) => {
+          const seeded = data.forge?.runDetail?.[req.runId];
+          if (!seeded) return { cli: forgeCli(), detail: null, error: forgeError() };
+          // A run with no seeded `run` half still needs one: the real payload
+          // always carries both, and a spec should not have to restate a run
+          // it already listed above.
+          const listed = (data.forge?.runs ?? []).find(
+            (row) => (row as { id?: string }).id === req.runId,
+          );
+          return {
+            cli: forgeCli(),
+            detail: { run: seeded.run ?? listed, jobs: seeded.jobs ?? [] },
+            error: null,
+          };
+        },
+        runLog: async (req: { runId: string }) => {
+          const seeded = data.forge?.runLogs?.[req.runId];
+          if (!seeded) return { cli: forgeCli(), log: null, pending: true, error: null };
+          return {
+            cli: forgeCli(),
+            log: {
+              lines: seeded.lines,
+              truncated: seeded.truncated ?? false,
+              omittedLines: seeded.omittedLines ?? 0,
+              totalBytes: seeded.totalBytes ?? 0,
+              complete: seeded.truncated !== true,
+            },
+            pending: false,
+            error: null,
+          };
+        },
+        workflows: async () => ({
+          cli: forgeCli(),
+          workflows: data.forge?.workflows ?? [],
           error: forgeError(),
         }),
       },

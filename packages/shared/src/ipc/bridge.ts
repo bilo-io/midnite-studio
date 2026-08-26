@@ -137,6 +137,17 @@ export type MidniteGitBridge = {
     cliStatus: () => Promise<z.infer<typeof S.ForgeCliStatusResponse>>;
     runs: (req: In<typeof S.ForgeRunsRequest>) => Promise<z.infer<typeof S.ForgeRunsResponse>>;
     pulls: (req: In<typeof S.ForgePullsRequest>) => Promise<z.infer<typeof S.ForgePullsResponse>>;
+    issues: (req: In<typeof S.ForgeIssuesRequest>) => Promise<z.infer<typeof S.ForgeIssuesResponse>>;
+    /** One run's job/step tree. Served from main's cache once the run is over. */
+    runDetail: (
+      req: In<typeof S.ForgeRunDetailRequest>,
+    ) => Promise<z.infer<typeof S.ForgeRunDetailResponse>>;
+    /** A capped log, unless `full` is asked for. Never a silently short one. */
+    runLog: (req: In<typeof S.ForgeRunLogRequest>) => Promise<z.infer<typeof S.ForgeRunLogResponse>>;
+    /** Workflow definitions, for their file paths. Lazy — see the channel doc. */
+    workflows: (
+      req: In<typeof S.ForgeWorkflowsRequest>,
+    ) => Promise<z.infer<typeof S.ForgeWorkflowsResponse>>;
   };
 
   /**

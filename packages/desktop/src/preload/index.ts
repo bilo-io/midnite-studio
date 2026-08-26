@@ -129,6 +129,10 @@ const bridge: Pick<
     cliStatus: () => call(CHANNELS.forgeCliStatus),
     runs: (req) => call(CHANNELS.forgeRuns, req),
     pulls: (req) => call(CHANNELS.forgePulls, req),
+    issues: (req) => call(CHANNELS.forgeIssues, req),
+    runDetail: (req) => call(CHANNELS.forgeRunDetail, req),
+    runLog: (req) => call(CHANNELS.forgeRunLog, req),
+    workflows: (req) => call(CHANNELS.forgeWorkflows, req),
   },
   shell: {
     // `invoke`, not `send`: the renderer needs to know a URL was refused, and

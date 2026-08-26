@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest';
 
 import { DiagnosticsTrustStateSchema, commandFingerprint } from '../domain/diagnostics';
+import { ForgeRunSchema } from '../domain/forge';
 import {
   CalendarDaySchema,
   ContributorStatSchema,
@@ -266,6 +267,56 @@ describe('forge schemas', () => {
     expect(() => schemas.ForgeCliStatusResponse.parse({ reason: 'probably-fine' })).toThrow();
   });
 
+  it('keeps "issues are off" and "the call failed" apart', () => {
+    const off = schemas.ForgeIssuesResponse.parse({ cli: { reason: 'ready' }, disabled: true });
+    const broke = schemas.ForgeIssuesResponse.parse({
+      cli: { reason: 'ready' },
+      error: 'HTTP 502',
+    });
+    // Both are empty listings; only one of them is worth a red card.
+    expect(off.issues).toEqual([]);
+    expect(broke.issues).toEqual([]);
+    expect(off.disabled).toBe(true);
+    expect(off.error).toBeNull();
+    expect(broke.disabled).toBe(false);
+  });
+
+  it('refuses a run id that is not a run id', () => {
+    // The value is spliced into a shell command line. `shellQuote` makes that
+    // safe; this makes it safe twice, and cheaply.
+    expect(() => schemas.ForgeRunDetailRequest.parse({ repoId: 'r', runId: '123' })).not.toThrow();
+    expect(() => schemas.ForgeRunDetailRequest.parse({ repoId: 'r', runId: '1; rm -rf /' })).toThrow();
+    expect(() => schemas.ForgeRunLogRequest.parse({ repoId: 'r', runId: '' })).toThrow();
+  });
+
+  it('caps a log by default and makes the whole thing opt-in', () => {
+    const capped = schemas.ForgeRunLogRequest.parse({ repoId: 'r', runId: '7' });
+    expect(capped.full).toBe(false);
+    // A truncated log always says how much it dropped — the shape has no way
+    // to express "short" without also expressing "and here is what is missing".
+    const log = schemas.ForgeRunLogResponse.parse({
+      cli: { reason: 'ready' },
+      log: { lines: ['a'], truncated: true, omittedLines: 400, totalBytes: 9_000_000 },
+    });
+    expect(log.log?.omittedLines).toBe(400);
+    expect(log.log?.complete).toBe(false);
+  });
+
+  it('lets a Phase 17 run payload keep parsing after Theme C widened it', () => {
+    // Every field Theme C added is nullable with a default, so a cached run
+    // from before this phase still parses — and draws the columns it can.
+    const old = ForgeRunSchema.parse({
+      id: '1',
+      name: 'CI',
+      status: 'completed',
+      conclusion: 'success',
+      createdAt: '2026-01-01T00:00:00Z',
+      url: 'https://github.com/o/r/actions/runs/1',
+    });
+    expect(old.workflowId).toBeNull();
+    expect(old.event).toBeNull();
+  });
+
   it('has a request schema for every forge channel', () => {
     // The same guard the pty/terminal table applies: a forge channel added
     // without a schema is unvalidated input reaching a subprocess.
@@ -273,6 +324,10 @@ describe('forge schemas', () => {
       forgeCliStatus: ['ForgeCliStatusRequest', 'ForgeCliStatusResponse'],
       forgeRuns: ['ForgeRunsRequest', 'ForgeRunsResponse'],
       forgePulls: ['ForgePullsRequest', 'ForgePullsResponse'],
+      forgeIssues: ['ForgeIssuesRequest', 'ForgeIssuesResponse'],
+      forgeRunDetail: ['ForgeRunDetailRequest', 'ForgeRunDetailResponse'],
+      forgeRunLog: ['ForgeRunLogRequest', 'ForgeRunLogResponse'],
+      forgeWorkflows: ['ForgeWorkflowsRequest', 'ForgeWorkflowsResponse'],
     };
     const channelKeys = Object.keys(CHANNELS).filter((key) => key.startsWith('forge'));
     expect(channelKeys.sort()).toEqual(Object.keys(expected).sort());

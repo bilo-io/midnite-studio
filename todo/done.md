@@ -2,6 +2,77 @@
 
 <!-- Append one entry per landed phase/PR: date, phase, PR link, one-line summary. -->
 
+## 2026-08-26 — Phase 19 · Theme C — Forge: issues, run detail and logs
+
+Landed on `feature/phase-19-forge` (squash-merged — this repository still has no remote, so
+there is no PR link). Three more `gh` calls behind the wrapper Phase 17 built, the four channels
+that carry them, and the one sidebar surface they make possible.
+
+### What landed
+
+- [x] `listIssues`, `runDetail`, `runLog` and `listWorkflows` in `gh-cli.ts` — same login-shell
+      wrapper, `GH_PAGER=cat`, `shellQuote()` and `ghStatus()` gate. No new subprocess path
+- [x] `parseIssueList`, `parseRunDetail`, `parseWorkflowList`, `parseRunLog` and
+      `isIssuesDisabled` in `gh-parse.ts`, total over `unknown` like their siblings
+- [x] `ForgeIssue`, `ForgeLabel`, `ForgeStep`, `ForgeJob`, `ForgeRunDetail`, `ForgeRunLog` and
+      `ForgeWorkflow`, each in the `{cli, …, error}` envelope
+- [x] `mgit:forge:{issues,run-detail,run-log,workflows}`, all read-only, all `repoId`-keyed
+- [x] `ForgeRun` grows `event`, `workflowId`, `workflowName`, `startedAt`, `updatedAt`,
+      `displayTitle`, `number`, `attempt` — every one nullable, so Phase 17's payloads still parse
+- [x] An Issues sidebar section beside Actions and Reviews; run rows grow a disclosure chevron
+      that peeks at the job tree in place
+- [x] Unit tests over captured `gh` output; five Playwright specs over the new surface
+
+Gate green: typecheck, lint, 1,144 unit tests, Playwright 160 passed / 4 skipped.
+
+Four decisions worth carrying forward:
+
+- **The field set was read off the installed `gh`, not assumed.** `gh run list --json` publishes
+  no `actor` at any version, and an unknown `--json` field makes the whole call exit non-zero
+  rather than degrade one column. Guessing here would have taken the Actions section down for
+  everyone. `ForgeRun` therefore has no actor to fill — worth knowing before Theme E designs a
+  run row around one.
+- **"Issues are off" is a field, not an error string.** `gh issue list` exits non-zero for a
+  repository with its tracker disabled, and that exit is the *only* signal — no payload, no
+  distinct code. So the message match is load-bearing, and it degrades to an ordinary error
+  rather than to a silent empty list. Theme D reads `disabled` to drop its Issues widget entirely.
+- **Only completed runs are cached.** A completed run is immutable, an in-flight one is the
+  opposite; the LRU is capped at 20 because these are the largest payloads the app holds. Logs
+  need no status check at all — GitHub does not serve one for an unfinished run, so a log we
+  managed to fetch is by definition final.
+- **Grouping is by `workflowId`; the `.yml` path is a separate, lazy call.** No run-list field
+  carries a path, so `gh workflow list` is a second subprocess — paid only when something needs
+  to *link* to a workflow, never to render a list.
+
+A self-review pass found ten things, two of which would have shipped broken:
+
+- **`--hostname` is not a flag on any of these subcommands.** It reads like the flag for
+  "target this Enterprise host" and is not one — `gh issue list --hostname x` exits with
+  `unknown flag`, as do `run list`, `run view`, `pr list` and `workflow list`; it belongs to
+  `gh auth` and `gh api`. This was **pre-existing in `listRuns`/`listPulls` since Phase 17**, so
+  every forge section has been broken for GHES remotes all along and nobody had one to notice
+  with. The supported form is `--repo [HOST/]OWNER/REPO`, and `hostFlag` is now `repoFlag`.
+- **An exit code is the failure signal; an empty string is not.** `gh run view --log` prints the
+  job logs it *did* fetch before exiting non-zero over the ones it could not, and the 60s
+  timeout kills it mid-stream the same way. Believing non-empty stdout cached a half-log as
+  `complete: true` — the silently-short log `ForgeRunLog` was shaped to make impossible. The
+  rule is now `logVerdict`, pure and unit-tested, reading its verdict off stderr.
+
+The other eight, briefly: `full: true` was returning the first 8MB and no tail, dropping the
+failure that is the reason anyone opens a log; one unparseable step deleted its whole job,
+because zod fails an object over a single bad array element; `ForgeRunStatus` was missing
+`waiting`/`requested`/`pending`, so a job held by an environment protection rule — the one job
+worth seeing — was the one that vanished; `runInShell` buffered a log twice; `describeFailure`
+could render a whole JSON payload into a sidebar note; the job peek claimed "no jobs" for a
+signed-out `gh`; `gh workflow list` was silently stopping at its default of 50; and twenty
+expand chevrons were all called "Jobs in CI".
+
+Two smaller things the work shook out. `runInShell` now keeps stdout and stderr apart as well as
+combined: a log has no brace for `parseJsonPayload` to seek past, so a chatty `.zshrc` would
+otherwise be interleaved into the text the user reads. And `runStatus` split into
+`outcomeStatus(status, conclusion)` so a job borrows the run's conclusion→colour mapping instead
+of growing a second opinion about whether `cancelled` is red.
+
 ## 2026-08-26 — Phase 18 · Theme F — The diagnostics segment, its trust prompt, and a settings page
 
 Landed on `feature/phase-18-diag-ui` (squash-merged — this repository still has no remote, so
