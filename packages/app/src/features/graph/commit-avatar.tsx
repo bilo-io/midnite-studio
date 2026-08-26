@@ -63,6 +63,14 @@ export function CommitAvatar({
 
   return (
     <g>
+      {/*
+        Drawn under both states, not just the fallback: once `status` flips to
+        'ready' the <image> still has to fetch its bytes over the network, and
+        without this the node goes transparent for that gap instead of just
+        swapping from initials to the loaded face.
+      */}
+      <circle cx={cx} cy={cy} r={radius} fill={`hsl(${hue} 45% 42%)`} />
+
       {state.status === 'ready' ? (
         /*
           Translated so the image sits at the origin of its own space, which is
@@ -88,23 +96,20 @@ export function CommitAvatar({
           />
         </g>
       ) : (
-        <>
-          <circle cx={cx} cy={cy} r={radius} fill={`hsl(${hue} 45% 42%)`} />
-          <text
-            x={cx}
-            y={cy}
-            textAnchor="middle"
-            dominantBaseline="central"
-            fontSize={size * 0.42}
-            fontWeight={600}
-            fill="hsl(0 0% 100%)"
-            // The row's text already names the author to assistive tech via the
-            // tooltip; initials read aloud as letters would be noise.
-            aria-hidden
-          >
-            {initialsFor(name, email)}
-          </text>
-        </>
+        <text
+          x={cx}
+          y={cy}
+          textAnchor="middle"
+          dominantBaseline="central"
+          fontSize={size * 0.42}
+          fontWeight={600}
+          fill="hsl(0 0% 100%)"
+          // The row's text already names the author to assistive tech via the
+          // tooltip; initials read aloud as letters would be noise.
+          aria-hidden
+        >
+          {initialsFor(name, email)}
+        </text>
       )}
 
       <circle
