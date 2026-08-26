@@ -4,6 +4,8 @@ import {
   DEFAULT_GRAPH_COLUMNS,
   DEFAULT_LAYOUT,
   pathForView,
+  SETTINGS_GROUPS,
+  SETTINGS_PAGES,
   useUiStore,
   viewForPath,
   VIEW_IDS,
@@ -22,6 +24,7 @@ const reset = () =>
     graphColumns: DEFAULT_GRAPH_COLUMNS,
     navMode: 'auto',
     collapsedNavSections: [],
+    collapsedSettingsGroups: [],
     sectionFilters: {},
     graphRefFilter: [],
     graphAuthorFilter: [],
@@ -260,5 +263,70 @@ describe('phase 14 store additions', () => {
     const migrate = useUiStore.persist.getOptions().migrate;
     const payload = { graphColumns: { branchTag: 200, date: 112, sha: 64 } };
     expect(migrate?.(payload, 2)).toBe(payload);
+  });
+});
+
+
+describe('grouped settings navigation', () => {
+  beforeEach(reset);
+
+  it('files every page into a group that exists', () => {
+    // The sidebar renders group-first — `SETTINGS_PAGES.filter(by group)` — so a
+    // page carrying a group id no header declares renders nowhere at all, and
+    // does so silently. There is no runtime check for it; this is the check.
+    const groups = new Set(SETTINGS_GROUPS.map((group) => group.id));
+    for (const page of SETTINGS_PAGES) {
+      expect(groups, `page "${page.id}"`).toContain(page.group);
+    }
+  });
+
+  it('gives every group at least one page', () => {
+    // The other direction: the view skips an empty group rather than drawing a
+    // header over nothing, so an empty one is dead weight, not a broken screen.
+    for (const group of SETTINGS_GROUPS) {
+      expect(
+        SETTINGS_PAGES.filter((page) => page.group === group.id),
+        `group "${group.id}"`,
+      ).not.toHaveLength(0);
+    }
+  });
+
+  it('toggles a settings group shut and open again', () => {
+    useUiStore.getState().toggleSettingsGroup('tools');
+    expect(useUiStore.getState().collapsedSettingsGroups).toEqual(['tools']);
+
+    useUiStore.getState().toggleSettingsGroup('tools');
+    expect(useUiStore.getState().collapsedSettingsGroups).toEqual([]);
+  });
+
+  it('collapses groups independently', () => {
+    useUiStore.getState().toggleSettingsGroup('tools');
+    useUiStore.getState().toggleSettingsGroup('system');
+    useUiStore.getState().toggleSettingsGroup('tools');
+
+    expect(useUiStore.getState().collapsedSettingsGroups).toEqual(['system']);
+  });
+
+  it('persists which groups are folded shut', () => {
+    // Arranged chrome, like `collapsedNavSections`: a user who folded Tools away
+    // should not have to fold it away again on every launch.
+    useUiStore.getState().toggleSettingsGroup('system');
+
+    const saved = JSON.parse(localStorage.getItem('midnite-git.ui') ?? '{}') as {
+      state: Record<string, unknown>;
+    };
+    expect(saved.state.collapsedSettingsGroups).toEqual(['system']);
+  });
+
+  it('starts a group added after the stored payload was written open', () => {
+    // Storing only the collapsed ones is what buys this: a payload predating a
+    // group says nothing about it, and saying nothing means open.
+    const merged = useUiStore.persist.getOptions().merge?.(
+      { collapsedSettingsGroups: ['tools'] },
+      useUiStore.getState(),
+    ) as { collapsedSettingsGroups: string[] };
+
+    expect(merged.collapsedSettingsGroups).toEqual(['tools']);
+    expect(merged.collapsedSettingsGroups).not.toContain('general');
   });
 });
