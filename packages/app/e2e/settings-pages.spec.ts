@@ -145,6 +145,61 @@ test('the side-navigation mode is settable from Appearance, not just the rail ch
   );
 });
 
+/**
+ * The other direction of the same field — and the part that makes the lock a
+ * lock rather than a preference.
+ *
+ * `auto` hover-expands the rail as an OVERLAY: the page keeps its 3.5rem
+ * offset and nothing reflows. `expanded` is the only mode that moves content,
+ * which `AppFrame` publishes as `--nav-offset` on the root element. Asserting
+ * the variable is the only way to tell the two expanded-looking rails apart —
+ * they render identically.
+ */
+test('the rail pin locks and unlocks, and only the lock shifts the page', async ({ page }) => {
+  await openSettings(page);
+
+  const navOffset = () =>
+    page.evaluate(() =>
+      getComputedStyle(document.documentElement).getPropertyValue('--nav-offset').trim(),
+    );
+  const modes = page.getByRole('radiogroup', { name: 'Side navigation' });
+
+  // Off the rail first: `openSettings` clicks the rail's own footer button, so
+  // the pointer is still over it and `auto` is holding it hover-expanded.
+  await page.mouse.move(800, 400);
+
+  // Collapsed at rest, so the pin does not exist yet: it would be asking the
+  // user to lock open a rail whose contents they cannot see.
+  await expect(page.getByRole('button', { name: 'Keep navigation expanded' })).toHaveCount(0);
+
+  // Hover-expanded — the rail is wide, but the page has not moved.
+  await page.getByRole('navigation', { name: 'Views' }).hover();
+  const pin = page.getByRole('button', { name: 'Keep navigation expanded' });
+  await expect(pin).toBeVisible();
+  await expect(pin).toHaveAttribute('aria-pressed', 'false');
+  expect(await navOffset()).toBe('3.5rem');
+
+  await pin.click();
+
+  // Locked: now the content shifts, and the Appearance control agrees without
+  // a reload — one store field, seen from two places.
+  expect(await navOffset()).toBe('16rem');
+  await expect(page.getByRole('button', { name: 'Unlock navigation' })).toHaveAttribute(
+    'aria-pressed',
+    'true',
+  );
+  await expect(modes.getByRole('radio', { name: 'Locked open' })).toHaveAttribute(
+    'aria-checked',
+    'true',
+  );
+
+  // And back. Two-state by design: unlocking lands on `auto`, never on
+  // `collapsed` — a three-state pin is a menu wearing a pin's clothes.
+  await page.getByRole('button', { name: 'Unlock navigation' }).click();
+  await expect(modes.getByRole('radio', { name: 'Auto' })).toHaveAttribute('aria-checked', 'true');
+  expect(await navOffset()).toBe('3.5rem');
+});
+
 test('the Agent page shows the version card and browses ~/.claude', async ({ page }) => {
   await openSettings(page);
 
