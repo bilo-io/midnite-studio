@@ -10,7 +10,7 @@ Completed work is logged append-only in [`done.md`](done.md). Deferred scope liv
 
 | Phase | Status | Done | Progress | % | 🔄 WIP | ◻ TODO |
 |-------|--------|------|----------|---|--------|--------|
-| [19 · Dashboard, Actions and Tests as views](phase-19-dashboard-actions-tests.md) | 🔄 WIP | 20/77 | `███░░░░░░░` | 26% | D | C E F G |
+| [19 · Dashboard, Actions and Tests as views](phase-19-dashboard-actions-tests.md) | 🔄 WIP | 20/77 | `███░░░░░░░` | 26% | C D | E F G |
 | [18 · Footer system monitor + repo diagnostics](phase-18-footer-monitor-diagnostics.md) | 🔄 WIP | 51/54 | `█████████░` | 94% | — | 3 manual checks |
 | [17 · Repositories workbench + forge](phase-17-repos-workbench.md) | 🔄 WIP | 46/48 | `█████████░` | 96% | — | 2 manual checks |
 | [16 · Folder explorer, preview pane + settings pages](phase-16-explorer-and-settings-pages.md) | ✅ DONE | 36/36 | `██████████` | 100% | — | — |
@@ -50,7 +50,7 @@ surfaces; G is the one piece that waits on someone else.*
   calendar, contributors by email, opt-in churn, and repo health — cached on a digest of every
   ref tip rather than HEAD, because an `--all` traversal changes when any branch moves
   (landed 2026-08-26)
-- ◻ **C** — forge deepening through the existing `gh` wrapper: `gh issue list`,
+- 🔄 **C** — forge deepening through the existing `gh` wrapper: `gh issue list`,
   `gh run view --json jobs`, `gh run view --log`, plus a workflow-file filter on run lists
 - 🔄 **D** — the dashboard: `react-grid-layout` with theme-token overrides, a widget registry,
   per-repo persisted layout, and a board-wide author filter across every widget
