@@ -180,6 +180,25 @@ export type UiState = {
    * persists, and it survives a repo switch.
    */
   commitFileView: CommitFileView;
+  /**
+   * Is the commit inspector's metadata accordion open?
+   *
+   * Open by default — the author, the message and the parents are what the
+   * inspector is for. Closed, the panel is a file list over a full-height diff,
+   * which is the shape you want once you are reading the change rather than
+   * the commit. Persisted for the same reason `commitFileView` is: it tracks
+   * which of those two jobs you are doing, and that does not change per commit.
+   */
+  commitMetaOpen: boolean;
+  /**
+   * How the Changes panel lists a checkout's files.
+   *
+   * Its own preference rather than a share of `commitFileView`: the questions
+   * differ. A commit's list answers "what moved"; the Changes panel's answers
+   * "what do I stage next", which is a question about where files live far more
+   * often than about how big they are.
+   */
+  changesFileView: CommitFileView;
 
   setActiveView: (view: ViewId) => void;
   setSettingsPage: (page: SettingsPageId) => void;
@@ -200,6 +219,8 @@ export type UiState = {
   setGraphAuthorFilter: (emails: string[]) => void;
   toggleDiffOldGutter: () => void;
   setCommitFileView: (view: CommitFileView) => void;
+  toggleCommitMeta: () => void;
+  setChangesFileView: (view: CommitFileView) => void;
 };
 
 /**
@@ -216,6 +237,8 @@ type PersistedUi = Pick<
   | 'graphTheme'
   | 'settingsPage'
   | 'commitFileView'
+  | 'commitMetaOpen'
+  | 'changesFileView'
 >;
 
 export const useUiStore = create<UiState>()(
@@ -239,6 +262,8 @@ export const useUiStore = create<UiState>()(
       graphAuthorFilter: [],
       diffShowOldGutter: false,
       commitFileView: 'tree',
+      commitMetaOpen: true,
+      changesFileView: 'list',
 
       setActiveView: (activeView) => set({ activeView }),
       setSettingsPage: (settingsPage) => set({ settingsPage }),
@@ -278,6 +303,8 @@ export const useUiStore = create<UiState>()(
       toggleDiffOldGutter: () =>
         set((state) => ({ diffShowOldGutter: !state.diffShowOldGutter })),
       setCommitFileView: (commitFileView) => set({ commitFileView }),
+      toggleCommitMeta: () => set((state) => ({ commitMetaOpen: !state.commitMetaOpen })),
+      setChangesFileView: (changesFileView) => set({ changesFileView }),
     }),
     {
       name: 'midnite-git.ui',
@@ -309,6 +336,8 @@ export const useUiStore = create<UiState>()(
         graphTheme: state.graphTheme,
         settingsPage: state.settingsPage,
         commitFileView: state.commitFileView,
+        commitMetaOpen: state.commitMetaOpen,
+        changesFileView: state.changesFileView,
         terminalOpen: state.terminalOpen,
         terminalMaximized: state.terminalMaximized,
         terminalSidebarSide: state.terminalSidebarSide,

@@ -1,13 +1,18 @@
 /**
- * The path trie behind the inspector's tree view.
+ * The path trie behind every "here are the changed files" list.
  *
- * Pure, and tested on its own, because it is the part of Theme B most likely to
- * be quietly wrong: the collapsing rule and the roll-up sums both produce
- * plausible-looking output when they are off by one directory, and neither is
- * something a screenshot would catch.
+ * Pure, and tested on its own, because it is the part most likely to be quietly
+ * wrong: the collapsing rule and the roll-up sums both produce plausible-looking
+ * output when they are off by one directory, and neither is something a
+ * screenshot would catch.
+ *
+ * Promoted out of the commit inspector once the Changes panel grew the same
+ * tree ⇄ list choice. Generic over the row payload, so a caller can hang
+ * whatever its own rows need — a status code, the staging actions — off each
+ * file and get it back on the node rather than re-joining by path afterwards.
  */
 
-/** What `CommitDetail.files[]` carries — restated so this module needs no import. */
+/** The minimum a row must carry to be placed and summed. */
 export type ChangedFile = {
   path: string;
   oldPath: string | null;
@@ -15,13 +20,13 @@ export type ChangedFile = {
   deletions: number;
 };
 
-export type FileNode = ChangedFile & {
+export type FileNode<T extends ChangedFile = ChangedFile> = T & {
   kind: 'file';
   /** The last path segment — what the row shows. */
   name: string;
 };
 
-export type DirNode = {
+export type DirNode<T extends ChangedFile = ChangedFile> = {
   kind: 'dir';
   /**
    * One or more segments joined by `/`. A chain of single-child directories
@@ -35,17 +40,17 @@ export type DirNode = {
   deletions: number;
   /** Subtree file count, so a collapsed directory can still say how much is in it. */
   fileCount: number;
-  children: TreeNode[];
+  children: TreeNode<T>[];
 };
 
-export type TreeNode = FileNode | DirNode;
+export type TreeNode<T extends ChangedFile = ChangedFile> = FileNode<T> | DirNode<T>;
 
 /** Mutable trie node; becomes a `DirNode` on the way out. */
-type Building = {
+type Building<T extends ChangedFile> = {
   segment: string;
   path: string;
-  dirs: Map<string, Building>;
-  files: ChangedFile[];
+  dirs: Map<string, Building<T>>;
+  files: T[];
 };
 
 /**
@@ -55,8 +60,8 @@ type Building = {
  * file explorer does and therefore the only ordering nobody has to learn. The
  * *list* view is the one sorted by change size — see `flattenBySize`.
  */
-export function buildFileTree(files: readonly ChangedFile[]): TreeNode[] {
-  const root: Building = { segment: '', path: '', dirs: new Map(), files: [] };
+export function buildChangeTree<T extends ChangedFile>(files: readonly T[]): TreeNode<T>[] {
+  const root: Building<T> = { segment: '', path: '', dirs: new Map(), files: [] };
 
   for (const file of files) {
     // A path is NUL-safe but not segment-safe: git can emit `a//b` for an odd
@@ -94,14 +99,14 @@ export function buildFileTree(files: readonly ChangedFile[]): TreeNode[] {
  * `a → b → c` is only collapsible once you know `a` and `b` each have exactly
  * one child and no files of their own, and that is not knowable top-down.
  */
-function finish(node: Building): DirNode {
-  const children: TreeNode[] = [];
+function finish<T extends ChangedFile>(node: Building<T>): DirNode<T> {
+  const children: TreeNode<T>[] = [];
   let insertions = 0;
   let deletions = 0;
   let fileCount = 0;
 
   for (const dir of [...node.dirs.values()].sort((a, b) => compare(a.segment, b.segment))) {
-    let child = finish(dir);
+    let child: DirNode<T> = finish(dir);
 
     // The collapse: a directory holding exactly one directory and no files of
     // its own is a step on the way somewhere, not a place. `packages` and
@@ -153,7 +158,7 @@ const compare = (a: string, b: string): number =>
  * to offer a second view is to answer that question in one glance. Ties fall
  * back to path so the order is stable across renders.
  */
-export function flattenBySize(files: readonly ChangedFile[]): FileNode[] {
+export function flattenBySize<T extends ChangedFile>(files: readonly T[]): FileNode<T>[] {
   return [...files]
     .map((file) => ({
       ...file,

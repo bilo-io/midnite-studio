@@ -8,6 +8,7 @@ export * from './remotes';
 export * from './sequencer';
 export * from './stage';
 export * from './status';
+export * from './status-counts';
 export * from './sync';
 export * from './worktree-ops';
 export * from './worktrees';

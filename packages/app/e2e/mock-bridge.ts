@@ -76,6 +76,13 @@ export type MockFixtures = {
    * existing specs keep the single-status behaviour they were written against.
    */
   statusByWorktree?: Record<string, unknown[]>;
+  /**
+   * Line counts per path, for the `+n −n` the Changes panel and the all-changes
+   * tab render. Keyed `staged:<path>` / `unstaged:<path>` so a partially staged
+   * file can carry a different pair on each side — the case the split exists
+   * for. A path with no entry answers zero, exactly as the real handler does.
+   */
+  statusCounts?: Record<string, { insertions: number; deletions: number }>;
   /** `mgit:forge:*` answers. Absent means a repo with no GitHub remote. */
   forge?: {
     cli?: { reason: 'ready' | 'not-installed' | 'not-authenticated'; hint?: string };
@@ -267,6 +274,22 @@ export async function installMockBridge(page: Page, fixtures: MockFixtures): Pro
             data.statusEntries,
           inProgress: null,
         }),
+        counts: async (req: { worktreePath?: string }) => {
+          const entries = ((req.worktreePath
+            ? data.statusByWorktree?.[req.worktreePath]
+            : undefined) ?? data.statusEntries) as { path: string }[];
+          const side = (prefix: 'staged' | 'unstaged') =>
+            entries
+              .map((entry) => ({
+                path: entry.path,
+                ...(data.statusCounts?.[`${prefix}:${entry.path}`] ?? {
+                  insertions: 0,
+                  deletions: 0,
+                }),
+              }))
+              .filter((row) => row.insertions > 0 || row.deletions > 0);
+          return { staged: side('staged'), unstaged: side('unstaged') };
+        },
         // Null for an unknown sha, exactly as the real handler does — the
         // inspector's not-found state is unreachable otherwise.
         commitDetail: async (req: { sha: string }) => data.commitDetails[req.sha] ?? null,

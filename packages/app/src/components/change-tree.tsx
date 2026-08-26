@@ -1,48 +1,72 @@
 import { ChevronDown, ChevronRight, File as FileIcon, Folder } from 'lucide-react';
+import type { ReactNode } from 'react';
 
-import type { DirNode, FileNode, TreeNode } from './build-file-tree';
+import type { ChangedFile, DirNode, FileNode, TreeNode } from './build-change-tree';
 
-/** What the inspector needs to know about the open file, and how to change it. */
-export type FileSelection = {
+/** What a caller needs to know about the open file, and how to change it. */
+export type FileSelection<T extends ChangedFile> = {
   path: string | null;
-  onSelect: (file: { path: string; oldPath: string | null }) => void;
+  onSelect: (file: FileNode<T>) => void;
 };
 
 /**
- * The file rows of a commit, as a tree or as a flat list.
+ * Changed files, as a tree or as a flat list.
  *
  * One component for both because the row itself — name, `+n −n`, selected
  * treatment — is identical; only what precedes it differs. Two components would
  * be two places to fix the next time the row changes.
+ *
+ * Two callers now: the commit inspector, which reads a commit, and the Changes
+ * panel, which stages a worktree. Their rows differ only at the ends — a status
+ * mark in front, staging buttons behind — so those are slots rather than a
+ * second copy of the recursion.
  */
-export function FileTree({
+export function ChangeTree<T extends ChangedFile>({
   nodes,
   selection,
   collapsed,
   onToggleDir,
   /** Directories are hidden in list mode, so their rows are never rendered. */
   flat = false,
+  renderLeading,
+  renderActions,
+  testId,
 }: {
-  nodes: readonly TreeNode[];
-  selection: FileSelection;
+  nodes: readonly TreeNode<T>[];
+  selection: FileSelection<T>;
   collapsed: ReadonlySet<string>;
   onToggleDir: (path: string) => void;
   flat?: boolean;
+  /**
+   * What sits between the indent and the name. Defaults to a file glyph; the
+   * Changes panel puts the porcelain status letter there instead, which is the
+   * one thing you scan that list for.
+   */
+  renderLeading?: (node: FileNode<T>) => ReactNode;
+  /**
+   * Trailing per-row controls, rendered AFTER the counts and outside the row's
+   * own button — a stage button nested inside a select button is not a thing
+   * the DOM allows, and the counts must not shift as the buttons fade in.
+   */
+  renderActions?: (node: FileNode<T>) => ReactNode;
+  testId?: string;
 }) {
+  const rowProps = { selection, ...(renderLeading ? { renderLeading } : {}), ...(renderActions ? { renderActions } : {}) };
+
   return (
-    <ul className="py-1" data-testid="commit-files">
+    <ul className="py-1" {...(testId ? { 'data-testid': testId } : {})}>
       {nodes.map((node) =>
         node.kind === 'dir' ? (
           <DirRow
             key={node.path}
             node={node}
             depth={0}
-            selection={selection}
             collapsed={collapsed}
             onToggleDir={onToggleDir}
+            {...rowProps}
           />
         ) : (
-          <FileRow key={node.path} node={node} depth={0} selection={selection} showPath={flat} />
+          <FileRow key={node.path} node={node} depth={0} showPath={flat} {...rowProps} />
         ),
       )}
     </ul>
@@ -52,16 +76,22 @@ export function FileTree({
 /** Indent per level. Tight on purpose — the pane is ~384px and paths are long. */
 const INDENT = 12;
 
-function DirRow({
+/** The slots, threaded unchanged through the recursion. */
+type RowSlots<T extends ChangedFile> = {
+  selection: FileSelection<T>;
+  renderLeading?: (node: FileNode<T>) => ReactNode;
+  renderActions?: (node: FileNode<T>) => ReactNode;
+};
+
+function DirRow<T extends ChangedFile>({
   node,
   depth,
-  selection,
   collapsed,
   onToggleDir,
-}: {
-  node: DirNode;
+  ...slots
+}: RowSlots<T> & {
+  node: DirNode<T>;
   depth: number;
-  selection: FileSelection;
   collapsed: ReadonlySet<string>;
   onToggleDir: (path: string) => void;
 }) {
@@ -105,12 +135,12 @@ function DirRow({
                 key={child.path}
                 node={child}
                 depth={depth + 1}
-                selection={selection}
                 collapsed={collapsed}
                 onToggleDir={onToggleDir}
+                {...slots}
               />
             ) : (
-              <FileRow key={child.path} node={child} depth={depth + 1} selection={selection} />
+              <FileRow key={child.path} node={child} depth={depth + 1} {...slots} />
             ),
           )}
         </ul>
@@ -119,36 +149,44 @@ function DirRow({
   );
 }
 
-function FileRow({
+function FileRow<T extends ChangedFile>({
   node,
   depth,
   selection,
   showPath = false,
-}: {
-  node: FileNode;
+  renderLeading,
+  renderActions,
+}: RowSlots<T> & {
+  node: FileNode<T>;
   depth: number;
-  selection: FileSelection;
   /** List mode shows the full path; tree mode shows the leaf name. */
   showPath?: boolean;
 }) {
   const isSelected = node.path === selection.path;
+  const actions = renderActions?.(node);
 
   return (
-    <li>
+    <li
+      className={`group flex items-center pr-2 text-xs ${
+        isSelected ? 'bg-accent text-foreground' : 'hover:bg-accent/40'
+      }`}
+    >
       <button
         type="button"
-        onClick={() => selection.onSelect({ path: node.path, oldPath: node.oldPath })}
+        onClick={() => selection.onSelect(node)}
         aria-pressed={isSelected}
         // The full path is the accessible name in both modes: in tree mode the
         // leaf alone ("index.ts") names a dozen different files in one commit.
         aria-label={node.path}
-        className={`flex w-full items-center gap-1 px-3 py-0.5 text-left text-xs ${
-          isSelected ? 'bg-accent text-foreground' : 'hover:bg-accent/40'
-        }`}
+        className="flex min-w-0 flex-1 items-center gap-1 py-0.5 pr-1 text-left"
         style={{ paddingLeft: 12 + depth * INDENT + (showPath ? 0 : 16) }}
         title={node.oldPath === null ? node.path : `${node.oldPath} → ${node.path}`}
       >
-        <FileIcon className="h-3.5 w-3.5 shrink-0 text-muted-foreground" strokeWidth={2} />
+        {renderLeading ? (
+          renderLeading(node)
+        ) : (
+          <FileIcon className="h-3.5 w-3.5 shrink-0 text-muted-foreground" strokeWidth={2} />
+        )}
         <span className="min-w-0 flex-1 truncate">{showPath ? node.path : node.name}</span>
         {/* A rename is worth a marker: the diff it opens is against `oldPath`,
             and without the hint the pane looks like it is showing the wrong
@@ -158,6 +196,7 @@ function FileRow({
         )}
         <Counts insertions={node.insertions} deletions={node.deletions} />
       </button>
+      {actions}
     </li>
   );
 }
@@ -170,7 +209,7 @@ function FileRow({
  * A zero is dimmed rather than hidden: a binary file changes with `+0 −0`, and an
  * absent number reads as missing data.
  */
-function Counts({ insertions, deletions }: { insertions: number; deletions: number }) {
+export function Counts({ insertions, deletions }: { insertions: number; deletions: number }) {
   return (
     <span className="shrink-0 tabular-nums">
       <span className={insertions === 0 ? 'text-muted-foreground/50' : 'text-success'}>
@@ -179,6 +218,37 @@ function Counts({ insertions, deletions }: { insertions: number; deletions: numb
       <span className={deletions === 0 ? 'text-muted-foreground/50' : 'text-destructive'}>
         −{deletions}
       </span>
+    </span>
+  );
+}
+
+/**
+ * The total across a whole list, for the row above it.
+ *
+ * A file count and a `+n −n` in one line. The tree already rolls the numbers up
+ * per directory; this is the same roll-up taken one step further, so "how big
+ * is this change" is answerable without expanding anything or adding up rows.
+ */
+export function ChangeTotals({
+  fileCount,
+  insertions,
+  deletions,
+  className = '',
+}: {
+  fileCount: number;
+  insertions: number;
+  deletions: number;
+  className?: string;
+}) {
+  return (
+    <span
+      className={`flex shrink-0 items-baseline gap-2 text-[11px] text-muted-foreground ${className}`}
+      data-testid="change-totals"
+    >
+      <span className="tabular-nums">
+        {fileCount} {fileCount === 1 ? 'file' : 'files'}
+      </span>
+      <Counts insertions={insertions} deletions={deletions} />
     </span>
   );
 }

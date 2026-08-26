@@ -38,6 +38,14 @@ export const CHANNELS = {
 
   // --- status --------------------------------------------------------------
   statusGet: 'mgit:status:get',
+  /**
+   * Per-path line counts for a checkout — `git diff --numstat`, both sides.
+   *
+   * Its own channel rather than fields on `statusGet` because that call is the
+   * sidebar's, once per checkout per repository, and it must stay one
+   * subprocess. Only the panels that render numbers pay for the numbers.
+   */
+  statusCounts: 'mgit:status:counts',
   commitDetail: 'mgit:commit:detail',
   /** A path's diff in the worktree or the index. */
   fileDiff: 'mgit:file:diff',

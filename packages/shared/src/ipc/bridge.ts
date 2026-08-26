@@ -8,6 +8,7 @@ import type {
   Remote,
   RepoDescriptor,
   RepoStats,
+  StatusCounts,
   StatusResult,
   WatchEvent,
   Worktree,
@@ -86,6 +87,14 @@ export type MidniteGitBridge = {
 
   status: {
     get: (req: In<typeof S.StatusGetRequest>) => Promise<StatusResult>;
+    /**
+     * Per-path `+n −n` for the same checkout `get` describes.
+     *
+     * A path missing from either list changed by nothing on that side — the
+     * caller reads absence as zero rather than as "not loaded", which is what
+     * lets a row render its counts the moment status arrives.
+     */
+    counts: (req: In<typeof S.StatusCountsRequest>) => Promise<StatusCounts>;
     /**
      * One commit in full. Resolves `null` when the sha names no commit here —
      * which a linkified reference from a commit message legitimately can.

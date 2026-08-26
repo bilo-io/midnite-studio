@@ -1,4 +1,10 @@
-import type { GitOpResult, RepoDescriptor, StatusResult, Worktree } from '@midnite/git-shared';
+import type {
+  ChangeCounts,
+  GitOpResult,
+  RepoDescriptor,
+  StatusResult,
+  Worktree,
+} from '@midnite/git-shared';
 import { useMemo } from 'react';
 import { useMutation, useQueries, useQuery, useQueryClient } from '@tanstack/react-query';
 
@@ -64,6 +70,47 @@ export function useRepoStatus({ repoId, worktreePath }: StatusTarget) {
 export function useStatus() {
   return useRepoStatus(useActiveWorktree());
 }
+
+/**
+ * `+n −n` per path, for the panels that show numbers.
+ *
+ * Separate from `useRepoStatus` on purpose. Status is fetched for every
+ * checkout of every open repository to draw the sidebar's change counts; the
+ * line counts cost two more subprocesses and a walk of the untracked files, and
+ * only two views render them. Keeping the two queries apart is what stops a
+ * sidebar of eight worktrees from paying for numbers nobody is looking at.
+ *
+ * Returns lookups rather than arrays: every caller is asking "what are the
+ * counts for THIS row", and a missing path means zero, not missing.
+ */
+export type StatusCountLookup = {
+  staged: (path: string) => ChangeCounts;
+  unstaged: (path: string) => ChangeCounts;
+};
+
+export function useStatusCounts({ repoId, worktreePath }: StatusTarget): StatusCountLookup {
+  const { data } = useQuery({
+    queryKey: keys.statusCounts(repoId ?? '', worktreePath),
+    queryFn: async () => {
+      const api = bridge();
+      if (!api || !repoId) return EMPTY_COUNTS;
+      return api.status.counts({ repoId, ...(worktreePath ? { worktreePath } : {}) });
+    },
+    enabled: repoId !== null,
+    placeholderData: EMPTY_COUNTS,
+  });
+
+  return useMemo(() => {
+    const index = (rows: readonly ChangeCounts[]) => {
+      const byPath = new Map(rows.map((row) => [row.path, row]));
+      return (path: string): ChangeCounts =>
+        byPath.get(path) ?? { path, insertions: 0, deletions: 0 };
+    };
+    return { staged: index(data?.staged ?? []), unstaged: index(data?.unstaged ?? []) };
+  }, [data]);
+}
+
+const EMPTY_COUNTS = { staged: [], unstaged: [] };
 
 /**
  * Status for EVERY checkout of a repository, keyed by worktree path.

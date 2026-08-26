@@ -1,6 +1,8 @@
-import { Check, Copy, List, ListTree } from 'lucide-react';
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { Check, ChevronDown, ChevronRight, Copy, List, ListTree } from 'lucide-react';
+import { useCallback, useEffect, useId, useMemo, useRef, useState } from 'react';
 
+import { buildChangeTree, flattenBySize } from '../../components/build-change-tree';
+import { ChangeTotals, ChangeTree } from '../../components/change-tree';
 import { IconButton } from '../../components/icon-button';
 import { ResizeHandle } from '../../components/resizable/resize-handle';
 import { useResizable } from '../../components/resizable/use-resizable';
@@ -15,9 +17,7 @@ import { LAYOUT_BOUNDS, useUiStore, type CommitFileView } from '../../store/ui-s
 import { DiffView } from '../diff/diff-view';
 import { useCommitFileDiff } from '../diff/use-file-diff';
 import { formatDate } from '../graph/graph-row';
-import { buildFileTree, flattenBySize } from './build-file-tree';
 import { CommitMessage } from './commit-message';
-import { FileTree } from './file-tree';
 
 /**
  * The commit inspector.
@@ -40,6 +40,14 @@ export function CommitDetail({ repoId, sha }: { repoId: string; sha: string }) {
   const selectCommit = useUiStore((s) => s.selectCommit);
   const fileView = useUiStore((s) => s.commitFileView);
   const setFileView = useUiStore((s) => s.setCommitFileView);
+  /*
+    Open ⇄ closed is a preference, like the tree/list choice beside it: you are
+    either reading commits or scanning diffs, and you keep doing the one you
+    were doing. So it persists, and it is not reset by selecting another commit.
+  */
+  const metaOpen = useUiStore((s) => s.commitMetaOpen);
+  const toggleMeta = useUiStore((s) => s.toggleCommitMeta);
+  const metaId = useId();
 
   // The pre-image path rides along with the selection: rename detection needs
   // both sides of the pathspec, and without it a renamed file renders as a
@@ -120,7 +128,7 @@ export function CommitDetail({ repoId, sha }: { repoId: string; sha: string }) {
     [repoId, selectCommit],
   );
 
-  const tree = useMemo(() => buildFileTree(data?.files ?? []), [data?.files]);
+  const tree = useMemo(() => buildChangeTree(data?.files ?? []), [data?.files]);
   const list = useMemo(() => flattenBySize(data?.files ?? []), [data?.files]);
 
   const toggleDir = useCallback(
@@ -170,49 +178,86 @@ export function CommitDetail({ repoId, sha }: { repoId: string; sha: string }) {
   return (
     <div className="flex h-full min-h-0 flex-col">
       {/*
-        The header scrolls. A long commit message is the one thing in this pane
-        with no upper bound on its height, and pinning it would push the file
-        list off the bottom of the panel for exactly the commits worth reading.
+        The accordion's header row, and the only part of the metadata that is
+        always on screen: the sha you came here to check, the copy button, and
+        the tree/list toggle. Pinned rather than scrolled, because it now also
+        carries the control that reveals everything below it.
       */}
-      <div className="min-h-0 flex-1 overflow-auto border-b border-border">
-        <header className="px-3 py-2">
-          <div className="flex items-start gap-1">
-            {/*
-              11px rather than the panel's 12: forty monospace characters plus
-              the three buttons beside them fit the default 384px pane at this
-              size and wrap to an orphaned character at the next one up. Still
-              `break-all`, because the pane is draggable down to 280.
-            */}
-            <p
-              className="min-w-0 flex-1 break-all font-mono text-[11px] leading-tight text-muted-foreground"
-              data-selectable
-            >
-              {data.sha}
-            </p>
-            <CopySha sha={data.sha} />
-            <div className="flex shrink-0 items-center">
-              <ViewToggle view={fileView} onChange={setFileView} />
-            </div>
-          </div>
+      <div className="flex shrink-0 items-start gap-1 py-2 pl-1 pr-2">
+        <button
+          type="button"
+          onClick={toggleMeta}
+          aria-expanded={metaOpen}
+          // Only while the panel exists: `aria-controls` naming an absent id is
+          // a dangling reference, and the region is unmounted rather than
+          // hidden — see the note on the block itself.
+          {...(metaOpen ? { 'aria-controls': metaId } : {})}
+          aria-label={metaOpen ? 'Hide the commit details' : 'Show the commit details'}
+          className="mt-0.5 shrink-0 rounded p-0.5 text-muted-foreground transition-colors hover:bg-accent/40 hover:text-foreground"
+        >
+          {metaOpen ? (
+            <ChevronDown className="h-3 w-3" strokeWidth={2.5} />
+          ) : (
+            <ChevronRight className="h-3 w-3" strokeWidth={2.5} />
+          )}
+        </button>
+        {/*
+          11px rather than the panel's 12: forty monospace characters plus
+          the buttons beside them fit the default 384px pane at this size and
+          wrap to an orphaned character at the next one up. Still `break-all`,
+          because the pane is draggable down to 280.
 
-          <Identities author={data.author} committer={data.committer} />
-          <div className="mt-2">
-            <CommitMessage
-              body={data.body}
-              remotes={remotes ?? EMPTY_REMOTES}
-              onSelectSha={followSha}
-            />
-          </div>
-          <Parents parents={data.parents} onSelect={followSha} />
-        </header>
+          The row's padding is tighter than the `px-3` used everywhere below,
+          and that is what pays for the chevron: at `px-3` the 40th character
+          wrapped to a line of its own. Sitting the chevron in the reclaimed
+          gutter is also the usual shape for an accordion header — the control
+          is left of the content it opens, not inset with it.
+        */}
+        <p
+          className="min-w-0 flex-1 break-all font-mono text-[11px] leading-tight text-muted-foreground"
+          data-selectable
+        >
+          {data.sha}
+        </p>
+        <CopySha sha={data.sha} />
+        <div className="flex shrink-0 items-center">
+          <ViewToggle view={fileView} onChange={setFileView} />
+        </div>
       </div>
 
-      <div className="flex shrink-0 items-center gap-3 border-b border-border px-3 py-1.5 text-xs text-muted-foreground">
-        <span>
-          {data.files.length} file{data.files.length === 1 ? '' : 's'}
-        </span>
-        <span className="text-success">+{insertions}</span>
-        <span className="text-destructive">−{deletions}</span>
+      {/*
+        Unmounted when closed rather than clipped by a `<Collapse>`.
+
+        The panel is a column of flex children, and this one is the elastic one
+        — a commit message has no upper bound on its height, so it takes
+        `flex-1` and scrolls. A collapse animation would have to keep the
+        element in the layout, and a `1fr` track holding an unbounded message
+        pushes the file list and the diff off the bottom of the panel. Taking
+        the row out of the column is what hands its height to the diff, which
+        is the whole point of being able to close it.
+      */}
+      {metaOpen ? (
+        <div id={metaId} className="min-h-0 flex-1 overflow-auto">
+          <header className="px-3 pb-2">
+            <Identities author={data.author} committer={data.committer} />
+            <div className="mt-2">
+              <CommitMessage
+                body={data.body}
+                remotes={remotes ?? EMPTY_REMOTES}
+                onSelectSha={followSha}
+              />
+            </div>
+            <Parents parents={data.parents} onSelect={followSha} />
+          </header>
+        </div>
+      ) : null}
+
+      <div className="flex shrink-0 items-center border-y border-border px-3 py-1.5">
+        <ChangeTotals
+          fileCount={data.files.length}
+          insertions={insertions}
+          deletions={deletions}
+        />
       </div>
 
       {/*
@@ -233,19 +278,21 @@ export function CommitDetail({ repoId, sha }: { repoId: string; sha: string }) {
             This commit changed no files.
           </p>
         ) : fileView === 'tree' ? (
-          <FileTree
+          <ChangeTree
             nodes={tree}
             selection={{ path: selected?.path ?? null, onSelect: toggleFile }}
             collapsed={collapsedDirs}
             onToggleDir={toggleDir}
+            testId="commit-files"
           />
         ) : (
-          <FileTree
+          <ChangeTree
             nodes={list}
             selection={{ path: selected?.path ?? null, onSelect: toggleFile }}
             collapsed={EMPTY_SET}
             onToggleDir={toggleDir}
             flat
+            testId="commit-files"
           />
         )}
       </div>

@@ -22,6 +22,7 @@ import {
   RepoDescriptorSchema,
   RepoStatsSchema,
   StatsWindowSchema,
+  StatusCountsSchema,
   StatusResultSchema,
   WatchEventSchema,
   WorktreeSchema,
@@ -125,6 +126,12 @@ export const StatusGetRequest = RepoId.extend({
   worktreePath: z.string().optional(),
 });
 export const StatusGetResponse = StatusResultSchema;
+
+/** Same target as `StatusGetRequest` — a repo, and optionally one of its checkouts. */
+export const StatusCountsRequest = RepoId.extend({
+  worktreePath: z.string().optional(),
+});
+export const StatusCountsResponse = StatusCountsSchema;
 
 /**
  * A revision, restricted to hex.

@@ -25,6 +25,7 @@ export function TreeSection({
   title,
   count,
   icon,
+  meta,
   action,
   collapsible = false,
   open = true,
@@ -36,6 +37,14 @@ export function TreeSection({
   title: string;
   count?: number;
   icon?: ReactNode;
+  /**
+   * Read-only detail pushed to the right of the heading, before the action.
+   *
+   * The Changes panel puts its `+n −n` roll-up here. Outside the heading button
+   * so the accessible name of a collapsible section stays "Staged 4" rather
+   * than growing a pair of numbers that are visible text beside it.
+   */
+  meta?: ReactNode;
   /**
    * A single trailing control on the heading row.
    *
@@ -98,6 +107,10 @@ export function TreeSection({
         ) : (
           <span className="flex min-w-0 flex-1 items-center gap-1.5">{heading}</span>
         )}
+        {/* `ml-auto` on BOTH this and the action: the first one absorbs the free
+            space, so the second has none left and the two sit adjacent at the
+            right edge — no conditional class needed for either arrangement. */}
+        {meta ? <span className="ml-auto shrink-0 pl-2">{meta}</span> : null}
         {action ? (
           action.icon ? (
             <span className="ml-auto shrink-0">
