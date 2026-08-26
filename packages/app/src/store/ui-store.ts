@@ -62,7 +62,7 @@ export const VIEW_IDS: readonly ViewId[] = [
  * nav-rail sub-items: the rail stays view navigation, and settings pages are
  * one view's internal structure.
  */
-export type SettingsPageId = 'appearance' | 'graph' | 'terminal' | 'agent' | 'monitor';
+export type SettingsPageId = 'appearance' | 'graph' | 'sidebar' | 'terminal' | 'agent' | 'monitor';
 
 /**
  * The categories the settings pages sort into, in UX priority order — the
@@ -90,6 +90,7 @@ export const SETTINGS_GROUPS: { id: SettingsGroupId; label: string }[] = [
 export const SETTINGS_PAGES: { id: SettingsPageId; label: string; group: SettingsGroupId }[] = [
   { id: 'appearance', label: 'Appearance', group: 'general' },
   { id: 'graph', label: 'Graph', group: 'general' },
+  { id: 'sidebar', label: 'Sidebar', group: 'general' },
   { id: 'terminal', label: 'Terminal', group: 'tools' },
   { id: 'agent', label: 'Agent', group: 'tools' },
   { id: 'monitor', label: 'Monitor & Diagnostics', group: 'system' },
@@ -311,6 +312,15 @@ export type UiState = {
   toggleNavSection: (key: string) => void;
   /** Flip one view's sidebar between "what this view needs" and the whole tree. */
   setSectionFilter: (view: ViewId, filtered: boolean) => void;
+  /**
+   * Drop every per-view override, returning each view to its own default.
+   *
+   * Empties the map rather than writing each view's default back as an explicit
+   * entry: an absent entry means "whatever this view does by default", so a
+   * view whose default changes in a later release follows it — a written-out
+   * default would freeze today's answer forever.
+   */
+  resetSectionFilters: () => void;
   setGraphTheme: (theme: GraphThemeId) => void;
   setGraphDensity: (density: GraphDensity) => void;
   setGraphRefFilter: (refs: string[]) => void;
@@ -426,6 +436,7 @@ export const useUiStore = create<UiState>()(
         })),
       setSectionFilter: (view, filtered) =>
         set((state) => ({ sectionFilters: { ...state.sectionFilters, [view]: filtered } })),
+      resetSectionFilters: () => set({ sectionFilters: {} }),
       setGraphTheme: (graphTheme) => set({ graphTheme }),
       setGraphDensity: (graphDensity) => set({ graphDensity }),
       setGraphRefFilter: (graphRefFilter) => set({ graphRefFilter }),

@@ -1482,3 +1482,25 @@ had read as a third column of the title row.
 Two new Playwright tests pin both fixes: one asserts the four heading kinds share a single
 bounding-box height, the other that a folded row's change-count pill sits in the trailing half,
 left of the sync button. All 14 repos-workbench e2e tests green; unit gate green.
+
+## 2026-08-27 — Settings: the sidebar gets a page of its own
+
+The repositories sidebar's narrowing — which views show the whole tree and which arrive
+narrowed to what the view is about — was settable only one view at a time, from the funnel
+button inside the panel itself. It now also has a **Sidebar** page under Settings › General
+(its own nav sub-item, `LuPanelLeft`): every view's answer in one column, each row a
+Narrowed/Everything pair with the view's own default named beside it, plus a reset.
+
+Both faces write the same `sectionFilters` field, so a row flipped here is immediately what
+the funnel button reads and vice versa — the e2e proves it on the live view: Settings IS the
+active view while the page is open, so flipping its row must narrow the panel sitting beside
+the page, and does. What "Narrowed" means per view is spelt out from `VIEW_FILTERS` rather
+than written by hand, so a view whose narrowing changes cannot leave a stale description.
+
+The reset is a new store action, `resetSectionFilters`, and it empties the map rather than
+writing each view's default back as an explicit entry: an absent entry means "whatever this
+view does by default", so a default that changes in a later release still applies.
+
+Worth knowing for the next settings e2e: an empty ref section hides itself (`hideWhenEmpty`
+in `TreeSection`), and the settings spec's fixtures carried no refs — so the sidebar next to
+Settings never showed Local at all, unfiltered or not. The spec now feeds one branch in.

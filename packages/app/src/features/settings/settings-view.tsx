@@ -6,6 +6,7 @@ import {
   LuChevronDown,
   LuGitBranch,
   LuPalette,
+  LuPanelLeft,
   LuSquareTerminal,
 } from 'react-icons/lu';
 
@@ -19,6 +20,7 @@ import { AgentPage } from './settings-pages/agent-page';
 import { AppearancePage } from './settings-pages/appearance-page';
 import { GraphPage } from './settings-pages/graph-page';
 import { MonitorPage } from './settings-pages/monitor-page';
+import { SidebarPage } from './settings-pages/sidebar-page';
 import { TerminalPage } from './settings-pages/terminal-page';
 
 /**
@@ -32,6 +34,7 @@ import { TerminalPage } from './settings-pages/terminal-page';
 const PAGE_CONTENT: Record<SettingsPageId, () => React.ReactNode> = {
   appearance: () => <AppearancePage />,
   graph: () => <GraphPage />,
+  sidebar: () => <SidebarPage />,
   terminal: () => <TerminalPage />,
   agent: () => <AgentPage />,
   monitor: () => <MonitorPage />,
@@ -51,6 +54,7 @@ const PAGE_CONTENT: Record<SettingsPageId, () => React.ReactNode> = {
 const PAGE_ICON: Record<SettingsPageId, IconType> = {
   appearance: LuPalette,
   graph: LuGitBranch,
+  sidebar: LuPanelLeft,
   terminal: LuSquareTerminal,
   agent: LuBot,
   monitor: LuActivity,

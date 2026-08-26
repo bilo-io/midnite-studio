@@ -11,6 +11,22 @@ import { installMockBridge, type MockFixtures } from './mock-bridge';
 
 const settingsFixtures: MockFixtures = {
   ...fixtures,
+  /*
+    One branch, so the sidebar's Local section has something to show: an empty
+    ref section hides itself (`hideWhenEmpty`), and the Sidebar-page test below
+    needs a section that is visible unfiltered and gone once the view narrows.
+  */
+  refs: [
+    {
+      name: 'main',
+      fullName: 'refs/heads/main',
+      kind: 'localBranch',
+      sha: 'a'.repeat(40),
+      upstream: null,
+      isHead: true,
+      worktreePath: null,
+    },
+  ],
   fsDirs: {
     'claude:': [
       { name: 'skills', kind: 'dir', size: 0, isIgnored: false },
@@ -143,6 +159,50 @@ test('the side-navigation mode is settable from Appearance, not just the rail ch
     'aria-checked',
     'true',
   );
+});
+
+test('the Sidebar page reads every view\'s narrowing, edits it live, and resets it', async ({
+  page,
+}) => {
+  await openSettings(page);
+  await page
+    .getByRole('navigation', { name: 'Settings pages' })
+    .getByRole('button', { name: 'Sidebar' })
+    .click();
+  await expect(page.getByRole('heading', { name: 'Sidebar' })).toBeVisible();
+
+  // The defaults, readable per row: Changes arrives narrowed, Graph whole.
+  const changes = page.getByRole('radiogroup', { name: 'Changes' });
+  await expect(changes.getByRole('radio', { name: 'Narrowed' })).toHaveAttribute(
+    'aria-checked',
+    'true',
+  );
+  await expect(
+    page.getByRole('radiogroup', { name: 'Graph' }).getByRole('radio', { name: 'Everything' }),
+  ).toHaveAttribute('aria-checked', 'true');
+
+  // Nothing overridden yet, so there is nothing for reset to do.
+  const resetButton = page.getByRole('button', { name: 'Reset to view defaults' });
+  await expect(resetButton).toBeDisabled();
+
+  /*
+    The Settings row is the live one — Settings IS the active view — so
+    flipping it must narrow the panel sitting beside this very page. That is
+    the whole claim of the page: same store field as the panel's funnel
+    button, seen from the other side.
+  */
+  await expect(page.getByRole('heading', { name: 'Local' })).toBeVisible();
+  await page
+    .getByRole('radiogroup', { name: 'Settings' })
+    .getByRole('radio', { name: 'Narrowed' })
+    .click();
+  await expect(page.getByRole('heading', { name: 'Local' })).toHaveCount(0);
+
+  // Reset puts the row — and the panel — back.
+  await expect(resetButton).toBeEnabled();
+  await resetButton.click();
+  await expect(resetButton).toBeDisabled();
+  await expect(page.getByRole('heading', { name: 'Local' })).toBeVisible();
 });
 
 test('the Agent page shows the version card and browses ~/.claude', async ({ page }) => {
