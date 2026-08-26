@@ -8,7 +8,7 @@ describe('filtersByDefault', () => {
   });
 
   it('leaves every other view showing the whole tree', () => {
-    // The Graph view is about history, and the Folder view about files on
+    // The Graph view is about history, and the Files view about files on
     // disk; neither has any reason to care whether a checkout is dirty, and a
     // tree that quietly dropped repos there would look like they had closed.
     for (const view of ['graph', 'files', 'settings'] as const) {

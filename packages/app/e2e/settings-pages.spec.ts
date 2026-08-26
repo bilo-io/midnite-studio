@@ -34,8 +34,8 @@ test('settings is one bottom entry, not a workspace nav item', async ({ page }) 
   await installMockBridge(page, settingsFixtures);
   await page.goto('/');
 
-  // The rail's workspace links: Folder, Graph, Changes — no Settings link.
-  await expect(page.getByRole('link', { name: 'Folder' })).toBeVisible();
+  // The rail's workspace links: Files, Graph, Changes — no Settings link.
+  await expect(page.getByRole('link', { name: 'Files' })).toBeVisible();
   await expect(page.getByRole('link', { name: 'Settings' })).toHaveCount(0);
   await expect(page.getByRole('button', { name: 'Settings' })).toBeVisible();
 });

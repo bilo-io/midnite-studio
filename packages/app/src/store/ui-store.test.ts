@@ -79,7 +79,7 @@ describe('phase 16 store additions', () => {
     expect(saved.state.settingsPage).toBe('agent');
   });
 
-  it('gives the Folder view a persisted, merge-filled tree pane', () => {
+  it('gives the Files view a persisted, merge-filled tree pane', () => {
     // A pre-16 payload has no filesTreeWidth — the merge must refill it from
     // the defaults. Checked before the store is touched, while `current` still
     // carries the default width.

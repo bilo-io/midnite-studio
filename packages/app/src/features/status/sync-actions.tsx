@@ -2,18 +2,21 @@ import { GitBranch } from 'lucide-react';
 
 import { useActiveWorktree, useStatus } from '../../services/use-status';
 import { useUiStore } from '../../store/ui-store';
-import { AheadBehind, SyncControls } from './sync-controls';
+import { SyncControls } from './sync-controls';
 
 /**
- * Branch state and the three sync actions, for the selected checkout.
+ * Branch state and the sync button, for the selected checkout.
  *
  * Lives in the title bar rather than inside the Changes view, where it used to
  * be: "do I need to push or pull" is checked constantly and from whichever view
  * you happen to be in — hiding it behind a tab makes it unanswerable from the
  * graph, which is where most of the time is spent.
  *
- * The buttons themselves are <SyncControls>, shared with the sidebar's
- * per-repository headers, so the two cannot disagree about when Push is live.
+ * The button itself is <SyncControls>, shared with the sidebar's per-repository
+ * headers, so the two cannot disagree about what a sync will do. It carries its
+ * own ahead/behind counts — they are the reading the click acts on, and a pair
+ * sitting a few pixels away from the control that consumes them was two things
+ * to look at where there is one decision.
  */
 export function SyncActions({ onError }: { onError?: (message: string) => void }) {
   const repoId = useUiStore((s) => s.selectedRepoId);
@@ -37,8 +40,6 @@ export function SyncActions({ onError }: { onError?: (message: string) => void }
           {branch.unborn ? `${branch.head ?? 'main'} (no commits)` : (branch.head ?? 'detached')}
         </span>
       </span>
-
-      <AheadBehind branch={branch} />
 
       <SyncControls target={target} branch={branch} {...(onError ? { onError } : {})} />
     </div>

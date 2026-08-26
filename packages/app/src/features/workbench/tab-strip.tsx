@@ -1,5 +1,5 @@
 import { GitPullRequest, Play, X } from 'lucide-react';
-import { MdOutlineDifference } from 'react-icons/md';
+import { LuDiff } from 'react-icons/lu';
 
 import type { IconComponent } from '../../components/icon-button';
 import { Tooltip } from '../../components/tooltip';
@@ -17,8 +17,12 @@ import type { WorkbenchTab, WorkbenchTabKind } from '../../store/workbench-store
  * has a working-tree tab following the sidebar's selection — it is the view's
  * home, and a strip you can empty down to nothing is a view with no content.
  */
+// `LuDiff` for both diff tabs, because it is the glyph the nav rail gives the
+// Changes view itself — a tab inside a view should not be wearing a different
+// icon for the same idea. The button that OPENS an all-changes tab is the one
+// exception (`AiOutlineDiff` in the sidebar): it is an action, not the view.
 const KIND_ICON: Record<WorkbenchTabKind, IconComponent> = {
-  'all-changes': MdOutlineDifference,
+  'all-changes': LuDiff,
   run: Play,
   review: GitPullRequest,
 };
@@ -47,7 +51,7 @@ export function TabStrip({
       className="flex shrink-0 items-stretch overflow-x-auto border-b border-border bg-card/40"
     >
       <Tab
-        icon={MdOutlineDifference}
+        icon={LuDiff}
         label={workingTreeLabel}
         title="Working tree — follows the checkout selected in the sidebar"
         active={activeTabId === null}

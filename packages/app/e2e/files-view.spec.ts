@@ -4,7 +4,7 @@ import { fixtures } from './fixtures';
 import { installMockBridge, type MockFixtures } from './mock-bridge';
 
 /**
- * The Folder view (Phase 16): lazy tree, gitignore dimming, and the read-only
+ * The Files view (Phase 16): lazy tree, gitignore dimming, and the read-only
  * preview pane — text through the mocked fs bridge, markdown with its
  * source ⇄ rendered toggle, and the binary fallback card.
  */
@@ -34,7 +34,7 @@ const filesFixtures: MockFixtures = {
 async function openFiles(page: Page): Promise<void> {
   await installMockBridge(page, filesFixtures);
   await page.goto('/');
-  await page.getByRole('link', { name: 'Folder' }).click();
+  await page.getByRole('link', { name: 'Files' }).click();
   await expect(page.getByRole('tree', { name: 'Files' })).toBeVisible();
 }
 

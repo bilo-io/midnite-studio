@@ -100,16 +100,38 @@ export const useTerminalStore = create<TerminalState>()((set, get) => ({
     }
 
     const { sessions } = await api.terminal.list();
-    set({
-      hydrated: true,
-      sessions: sessions.map((entry) => entry.session),
-      activeId: sessions[0]?.session.id ?? null,
-      states: Object.fromEntries(sessions.map((e) => [e.session.id, 'exited' as const])),
-      replay: Object.fromEntries(
-        sessions
-          .filter((e) => e.scrollback.length > 0)
-          .map((e) => [e.session.id, e.scrollback]),
-      ),
+
+    /*
+      Merged, never replaced.
+
+      A session can be opened while the restore is still in flight — the sync
+      dialog's "resolve with Claude" does exactly that, from a cold terminal —
+      and it is LIVE by the time this resolves, usually with a pty already
+      attached. Overwriting `sessions` with the saved list dropped it from the
+      store while its process kept running: an orphaned shell nothing holds an
+      id for, and a panel that then auto-opened a second one because it saw an
+      empty list.
+    */
+    set((state) => {
+      const restored = sessions.map((entry) => entry.session);
+      const live = state.sessions.filter((open) => !restored.some((s) => s.id === open.id));
+
+      return {
+        hydrated: true,
+        sessions: [...restored, ...live],
+        // A session opened by hand outranks the restored list for focus: the
+        // user asked for it seconds ago, and the saved ones have no process.
+        activeId: live.length > 0 ? state.activeId : (restored[0]?.id ?? null),
+        states: {
+          ...Object.fromEntries(restored.map((s) => [s.id, 'exited' as const])),
+          ...state.states,
+        },
+        replay: Object.fromEntries(
+          sessions
+            .filter((e) => e.scrollback.length > 0)
+            .map((e) => [e.session.id, e.scrollback]),
+        ),
+      };
     });
   },
 

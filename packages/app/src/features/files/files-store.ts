@@ -1,7 +1,7 @@
 import { create } from 'zustand';
 
 /**
- * The Folder view's UI state — which directories are expanded and which file
+ * The Files view's UI state — which directories are expanded and which file
  * is selected. Deliberately NOT persisted (the tree is cheap to re-open and a
  * stale selection into a deleted file is worse than none), and keyed per
  * checkout so switching repo or worktree starts a fresh browse rather than

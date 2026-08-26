@@ -16,7 +16,7 @@ import {
   SquareArrowOutUpRight,
   Tag,
 } from 'lucide-react';
-import { MdOutlineDifference } from 'react-icons/md';
+import { AiOutlineDiff } from 'react-icons/ai';
 
 import type { MenuItem } from '../../components/context-menu';
 import { ChangeCountPill } from '../../components/change-count-pill';
@@ -41,7 +41,7 @@ import {
   type WorktreeStatuses,
 } from '../../services/use-status';
 import { useUiStore } from '../../store/ui-store';
-import { AheadBehind, SyncControls } from '../status/sync-controls';
+import { SyncControls } from '../status/sync-controls';
 import { BranchDot } from './branch-dot';
 import { branchHealth, worktreeHealth, type BranchHealth } from './branch-health';
 import { checksVerdict } from './checks-verdict';
@@ -307,15 +307,14 @@ function RepoItem({
         </Tooltip>
 
         {/*
-          The sync control, per repository. Push and pull are per-repo questions,
-          and answering them only for the selected one means opening each repo in
-          turn to find out which needs attention. The counts stay visible at
-          `↑0 ↓0` — "in sync" and "no upstream" must not look alike — and the
-          buttons stay visible while disabled, faint, with the reason on hover.
+          The sync control, per repository. Syncing is a per-repo question, and
+          answering it only for the selected one means opening each repo in turn
+          to find out which needs attention. The counts stay visible at `↑0 ↓0`
+          — "in sync" and "no upstream" must not look alike — and they now sit
+          inside the button that acts on them.
         */}
         {loaded ? (
-          <span className="flex shrink-0 items-center gap-1 text-[11px]">
-            <AheadBehind branch={loaded.branch} />
+          <span className="flex shrink-0 items-center text-[11px]">
             <SyncControls
               target={primaryTarget(repo)}
               branch={loaded.branch}
@@ -772,7 +771,7 @@ function RefRow({
       <span className="ml-auto flex shrink-0 items-center opacity-0 transition-opacity group-focus-within:opacity-100 group-hover:opacity-100">
         {onViewAllChanges && refItem.worktreePath ? (
           <IconButton
-            icon={MdOutlineDifference}
+            icon={AiOutlineDiff}
             label={`View all changes in branch ${refItem.name}`}
             size="sm"
             onClick={() => onViewAllChanges(refItem.worktreePath!, refItem.name)}
@@ -914,7 +913,7 @@ function WorktreeRow({
       */}
       <span className="flex shrink-0 items-center opacity-0 transition-opacity group-focus-within:opacity-100 group-hover:opacity-100">
         <IconButton
-          icon={MdOutlineDifference}
+          icon={AiOutlineDiff}
           label={`View all changes in worktree ${label}`}
           disabled={changed === 0}
           disabledReason="This checkout has no uncommitted changes."

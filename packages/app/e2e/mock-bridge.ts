@@ -34,6 +34,22 @@ export type MockFixtures = {
   /** Configured remotes, as `mgit:remotes:list` returns them (forge pre-derived). */
   remotes?: unknown[];
   /**
+   * Overrides merged over the default `status.get` branch — ahead/behind, a
+   * missing upstream, a detached HEAD.
+   *
+   * The sync button is a reading OF these numbers, so a spec that cannot set
+   * them can only ever exercise the in-sync case.
+   */
+  branchStatus?: Record<string, unknown>;
+  /**
+   * Ops that answer with something other than `{ok:true}`, keyed by op name.
+   *
+   * A failed pull is a normal outcome the UI is supposed to render (the
+   * conflict banner, and now the sync dialog), so it has to be reachable from
+   * a fixture. Anything absent still succeeds.
+   */
+  opResults?: Record<string, unknown>;
+  /**
    * Extra checkouts beyond the built-in main one.
    *
    * The default repo has a single main worktree, which is enough for most
@@ -68,7 +84,7 @@ export type MockFixtures = {
    */
   terminalSessions?: { session: Record<string, unknown>; scrollback?: string }[];
   /**
-   * Directory listings for the Folder view and the Agent page's ~/.claude
+   * Directory listings for the Files view and the Agent page's ~/.claude
    * tree, keyed `repo:<relPath>` / `claude:<relPath>` ('' is the root).
    */
   fsDirs?: Record<
@@ -206,6 +222,7 @@ export async function installMockBridge(page: Page, fixtures: MockFixtures): Pro
             behind: 0,
             unborn: false,
             detached: false,
+            ...data.branchStatus,
           },
           entries:
             (req.worktreePath ? data.statusByWorktree?.[req.worktreePath] : undefined) ??
@@ -266,7 +283,8 @@ export async function installMockBridge(page: Page, fixtures: MockFixtures): Pro
         },
       },
       /*
-        Every op still resolves to `{ok:true}` — but records itself first.
+        Every op resolves to `{ok:true}` unless `opResults` says otherwise — but
+        records itself first, either way.
 
         A drop gesture is only half-verified by the right menu appearing: the
         item has to be wired to the operation it names. Recording the calls lets
@@ -278,7 +296,7 @@ export async function installMockBridge(page: Page, fixtures: MockFixtures): Pro
         {
           get: (_target, name) => async (args: unknown) => {
             opCalls.push({ op: String(name), args });
-            return { ok: true as const };
+            return data.opResults?.[String(name)] ?? { ok: true as const };
           },
         },
       ),
@@ -299,10 +317,18 @@ export async function installMockBridge(page: Page, fixtures: MockFixtures): Pro
         // union, and without the tag the renderer reads every create as a
         // failure and renders the panel as "terminal unavailable". Nothing
         // asserted on it, so the e2e app quietly ran with a broken terminal.
-        create: async (req: { sessionId: string; initialInput?: string }) => {
+        create: async (req: { sessionId: string; agentId?: string; initialInput?: string }) => {
           const ptyId = `pty-${++ptyCount}`;
           ptySessions[ptyId] = req.sessionId;
-          ptyCalls.creates.push({ ptyId, sessionId: req.sessionId });
+          // `initialInput` is recorded, not just fed: it is the only place a
+          // spec can read what the app decided to type into a fresh session,
+          // and xterm's canvas cannot be queried for it afterwards.
+          ptyCalls.creates.push({
+            ptyId,
+            sessionId: req.sessionId,
+            ...(req.agentId === undefined ? {} : { agentId: req.agentId }),
+            ...(req.initialInput === undefined ? {} : { initialInput: req.initialInput }),
+          });
           // A tick later, the way a real shell takes a moment to come up —
           // immediate output would race the renderer's own attach.
           setTimeout(() => {

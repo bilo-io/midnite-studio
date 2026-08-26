@@ -8,7 +8,7 @@ import { FileIcon, FolderIcon } from './file-icons';
 
 /**
  * A listing request minus its relPath — the tree threads this through every
- * level. Two callers own it: the Folder view (repo scope) and the Agent
+ * level. Two callers own it: the Files view (repo scope) and the Agent
  * settings page (claude-home scope), which is why expansion/selection arrive
  * as props rather than being read from the files store here.
  */

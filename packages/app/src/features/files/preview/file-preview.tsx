@@ -12,7 +12,7 @@ import { CodePreview } from './code-preview';
 import { MarkdownPreview } from './markdown-preview';
 
 /**
- * The right-hand pane of the Folder view: one file, rendered the best way its
+ * The right-hand pane of the Files view: one file, rendered the best way its
  * type allows, read-only throughout. Media never crosses IPC — those render
  * straight off `mgit-file://` (see fs-protocol.ts); only text comes through
  * `fs:readFile`, capped and sniffed in main.
