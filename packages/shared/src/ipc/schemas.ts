@@ -10,6 +10,9 @@ import {
   ForgeRunsResultSchema,
   GitOpResultSchema,
   GraphRowSchema,
+  METRICS_MAX_INTERVAL_MS,
+  METRICS_MIN_INTERVAL_MS,
+  MetricSampleSchema,
   RefSchema,
   RemoteSchema,
   RepoDescriptorSchema,
@@ -568,6 +571,24 @@ export const FsReadFileResponse = z.discriminatedUnion('kind', [
 
 /** Likewise the whole order, so a dropped message cannot leave a half-applied swap. */
 export const RepoReorderRequest = z.object({ repoIds: z.array(z.string().min(1)) });
+
+// --- system metrics (Phase 18) ---------------------------------------------
+
+export const MetricsStartRequest = z.object({
+  intervalMs: z
+    .number()
+    .int()
+    .min(METRICS_MIN_INTERVAL_MS)
+    .max(METRICS_MAX_INTERVAL_MS),
+  /**
+   * Read disk capacity on this tick regardless of the usual coarse schedule.
+   * The flyout's gauge is the one surface that shows a figure precise enough
+   * for staleness to be visible, so opening it forces a fresh `statfs`.
+   */
+  freshDisk: z.boolean().optional(),
+});
+
+export const MetricsSampleEvent = MetricSampleSchema;
 
 // --- window chrome ---------------------------------------------------------
 

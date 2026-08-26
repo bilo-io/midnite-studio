@@ -39,102 +39,107 @@ Effort tags: **S** ≈ an hour or two · **M** ≈ half a day · **L** ≈ a day
 
 ## Deliverables
 
-### A — The metrics sampler in main (L)
+**Themes A, B, C and D landed 2026-08-26** — the metrics half of the phase, end to end:
+probes in main, the `mgit:metrics:*` stream, the store and the hand-rolled chart, and the
+footer cluster with the app's first popover primitive. E and F (diagnostics) are untouched.
+Screenshots: [`docs/screenshots/phase-18/`](../docs/screenshots/phase-18/).
 
-- [ ] `desktop/src/main/metrics/cpu.ts` — `os.cpus()` reports **cumulative** counters, so a
+### A — The metrics sampler in main (L) — ✅ DONE (2026-08-26)
+
+- [x] `desktop/src/main/metrics/cpu.ts` — `os.cpus()` reports **cumulative** counters, so a
       single read is meaningless; usage is `(1 - idleDelta / totalDelta) * 100` between ticks.
       Also `cores`, and `os.loadavg()[0]` omitted on win32 where libuv hard-codes it to 0
-- [ ] `desktop/src/main/metrics/memory.ts` — **not `os.freemem()`**, which on macOS counts
+- [x] `desktop/src/main/metrics/memory.ts` — **not `os.freemem()`**, which on macOS counts
       cached pages as used and reads catastrophically high. Shell `/usr/bin/vm_stat` and
       reproduce Activity Monitor's "Memory Used":
       `max(anonymous - purgeable, 0) + wired + compressed`. The page size **must** come from the
       `page size of (\d+) bytes` header — assuming 4096 is 4× wrong on Apple Silicon. Degrade to
       `os.freemem()` on any parse failure rather than reporting nothing
-- [ ] `desktop/src/main/metrics/gpu.ts` — `/usr/sbin/ioreg -r -d 1 -w 0 -c IOAccelerator` matched
+- [x] `desktop/src/main/metrics/gpu.ts` — `/usr/sbin/ioreg -r -d 1 -w 0 -c IOAccelerator` matched
       for `"Device Utilization %"`. World-readable, so no privilege prompt
-- [ ] The GPU probe **self-disables after 3 consecutive failures and logs once**. A probe that
+- [x] The GPU probe **self-disables after 3 consecutive failures and logs once**. A probe that
       cannot work will otherwise spawn a doomed subprocess every few seconds for the app's whole
       lifetime
-- [ ] An unreadable GPU is **omitted from the payload entirely** and reaches the renderer as
+- [x] An unreadable GPU is **omitted from the payload entirely** and reaches the renderer as
       `null`, so the chart drops the series. A flat zero line is a lie about a working GPU
-- [ ] `desktop/src/main/metrics/disk.ts` — `fs.statfs`, using `bavail` (unprivileged-available,
+- [x] `desktop/src/main/metrics/disk.ts` — `fs.statfs`, using `bavail` (unprivileged-available,
       what `df` shows) not `bfree`. Read on demand, not on the sample interval
-- [ ] `desktop/src/main/metrics/metrics-service.ts` — one interval for all clients, `timer.unref()`,
+- [x] `desktop/src/main/metrics/metrics-service.ts` — one interval for all clients, `timer.unref()`,
       and concurrent probes collapsed onto a single in-flight promise (`this.inFlight ??= probe()`).
       **2s while a flyout is open, 5s when closed, stopped entirely on window blur or hide**
-- [ ] Every probe is a **pure parser plus a thin `execFile` wrapper**, in separate exports, with
+- [x] Every probe is a **pure parser plus a thin `execFile` wrapper**, in separate exports, with
       `.test.ts` files driven by captured `vm_stat` and `ioreg` output. Absolute binary paths
       throughout, and no `electron` import in any probe module — the pattern
       [`repo-store.ts`](../packages/desktop/src/main/repo-store.ts) uses to stay unit-testable
 
-### B — The contract and the sample stream (M)
+### B — The contract and the sample stream (M) — ✅ DONE (2026-08-26)
 
-- [ ] [`shared/src/domain/metrics.ts`](../packages/shared/src/domain/metrics.ts) — `MetricSample`
+- [x] [`shared/src/domain/metrics.ts`](../packages/shared/src/domain/metrics.ts) — `MetricSample`
       with **every metric optional**, so "not readable on this machine" and "0%" stay different
       answers all the way to the chart
-- [ ] `mgit:metrics:start` / `mgit:metrics:stop` on `CHANNELS`, `mgit:metrics:sample` on
+- [x] `mgit:metrics:start` / `mgit:metrics:stop` on `CHANNELS`, `mgit:metrics:sample` on
       `EVENT_CHANNELS` — the [`channels.ts`](../packages/shared/src/ipc/channels.ts) split between
       `invoke` request/response and one-way `webContents.send` pushes
-- [ ] Schemas + `ipc.test.ts` coverage
-- [ ] A `metrics` bridge group whose subscription returns `Unsubscribe`, for the StrictMode
+- [x] Schemas + `ipc.test.ts` coverage
+- [x] A `metrics` bridge group whose subscription returns `Unsubscribe`, for the StrictMode
       double-mount reason [`bridge.ts`](../packages/shared/src/ipc/bridge.ts) documents
-- [ ] Preload: `subscribe()` for the sample stream, and `ipcRenderer.send` — not `invoke` — for
+- [x] Preload: `subscribe()` for the sample stream, and `ipcRenderer.send` — not `invoke` — for
       start/stop, matching `pty.input`. **Add `metrics` to the exposed `Pick<MidniteGitBridge, …>`
       union**, which is what makes a half-wired group a compile error
-- [ ] `registerMetricsHandlers(getWindow)` called from
+- [x] `registerMetricsHandlers(getWindow)` called from
       [`main/index.ts`](../packages/desktop/src/main/index.ts), following
       `registerPtyHandlers(getWindow)`
 
-### C — The store, the palette and the hand-rolled chart (L)
+### C — The store, the palette and the hand-rolled chart (L) — ✅ DONE (2026-08-26)
 
-- [ ] `app/src/store/metrics-store.ts` — a fixed-length ring buffer per metric. The **first**
+- [x] `app/src/store/metrics-store.ts` — a fixed-length ring buffer per metric. The **first**
       sample seeds a flat series at the current value rather than letting the line ramp up from
       zero, which otherwise reads as a load spike that never happened
-- [ ] Samples are stored as `{ value, at }`, **not bare numbers**. The cadence is adaptive, so
+- [x] Samples are stored as `{ value, at }`, **not bare numbers**. The cadence is adaptive, so
       spacing points evenly by index would silently draw a 5s-apart gap as if it were 2s — the
       chart may space by index, but only because the store kept the timestamps to prove it
-- [ ] `app/src/features/monitor/use-metrics-stream.ts` — subscribe **once with `[]` deps** and
+- [x] `app/src/features/monitor/use-metrics-stream.ts` — subscribe **once with `[]` deps** and
       write imperatively via `getState()`, the
       [`use-graph-stream.ts`](../packages/app/src/features/graph/use-graph-stream.ts) pattern.
       Re-subscribing on cadence change would drop samples across the gap
-- [ ] `features/monitor/metric-palette.ts` — raw HSL triples, one palette serving both themes at
+- [x] `features/monitor/metric-palette.ts` — raw HSL triples, one palette serving both themes at
       a saturation and lightness legible on each, per the `lane-colors.ts` policy. Derived muted
       variants, not hand-tuned duplicates
-- [ ] `features/monitor/metric-geometry.ts` — chart width, height, stroke width and area alpha as
+- [x] `features/monitor/metric-geometry.ts` — chart width, height, stroke width and area alpha as
       **data**, the way [`graph-themes.ts`](../packages/app/src/features/graph/graph-themes.ts)
       holds geometry rather than scattering constants through JSX
-- [ ] `features/monitor/metric-chart.tsx` — values are 0–100 so there is no y-scaling pass. Build
+- [x] `features/monitor/metric-chart.tsx` — values are 0–100 so there is no y-scaling pass. Build
       the line as `M x,y L …` and close the area with `L W,H L 0,H Z`. **All areas painted before
       all lines**, series reversed so the first series lands on top and no stroke is buried under
       a later fill
-- [ ] `features/monitor/sparkline.tsx` — the ~24×12 inline form. Same path maths, no axis, no
+- [x] `features/monitor/sparkline.tsx` — the ~24×12 inline form. Same path maths, no axis, no
       legend, `aria-hidden`: the percentage beside it carries the accessible value
-- [ ] Tests for the ring buffer, the path geometry and the palette — pure modules with `.test.ts`,
+- [x] Tests for the ring buffer, the path geometry and the palette — pure modules with `.test.ts`,
       the convention every one of the 22 existing app tests follows
 
-### D — The footer cluster and a real flyout primitive (L)
+### D — The footer cluster and a real flyout primitive (L) — ✅ DONE (2026-08-26)
 
-- [ ] `app/src/components/popover.tsx` — **new, and genuinely absent today**.
+- [x] `app/src/components/popover.tsx` — **new, and genuinely absent today**.
       [`tooltip.tsx`](../packages/app/src/components/tooltip.tsx) is hover-triggered and
       `pointer-events-none`, so it cannot host a chart, and `context-menu.tsx` is item-list
       shaped. Reuse their portal-and-clamp mechanics: portalled to `document.body`,
       `useLayoutEffect` positioning clamped to the viewport, Escape and capture-phase scroll
       dismiss. **Read tooltip.tsx's comment about `transform`-induced containing blocks first**
-- [ ] Click-toggled, focus trapped while open, outside-click dismiss, and focus returned to the
+- [x] Click-toggled, focus trapped while open, outside-click dismiss, and focus returned to the
       trigger on close. Extracted as a shared primitive, not inlined into the footer — the
       checks-verdict indicator and the in-progress-op warning both want one next
-- [ ] `features/monitor/monitor-cluster.tsx` — a new `<div className="ml-auto flex items-center
+- [x] `features/monitor/monitor-cluster.tsx` — a new `<div className="ml-auto flex items-center
       gap-3">` in the footer. Nothing existing has to move
-- [ ] Per metric: a `h-2 w-2 rounded-full` dot with a `0 0 8px` glow, a `tabular-nums`
+- [x] Per metric: a `h-2 w-2 rounded-full` dot with a `0 0 8px` glow, a `tabular-nums`
       percentage, and the sparkline. Footer-scale styling cribbed from
       [`change-count-pill.tsx`](../packages/app/src/components/change-count-pill.tsx)
-- [ ] A metric that is `null` renders **no readout at all** — no dot, no dash, no zero
-- [ ] `features/monitor/monitor-flyout.tsx` — the subtle gradient box-shadow glow, three stacked
+- [x] A metric that is `null` renders **no readout at all** — no dot, no dash, no zero
+- [x] `features/monitor/monitor-flyout.tsx` — the subtle gradient box-shadow glow, three stacked
       area charts (CPU, RAM, GPU) with legends, and disk as a used-of-total gauge rather than a
       fourth flat line
-- [ ] Opening the flyout escalates the sampler to 2s and closing it drops back to 5s — the
+- [x] Opening the flyout escalates the sampler to 2s and closing it drops back to 5s — the
       cadence is a consequence of what is on screen, not a setting the user has to think about
-- [ ] Animation via the existing `animate-fade-in` Tailwind keyframes, gated on `html[data-motion]`.
+- [x] Animation via the existing `animate-fade-in` Tailwind keyframes, gated on `html[data-motion]`.
       There is no `motion`/`framer-motion` in this repo and this phase does not add one
 
 ### E — Diagnostics: the trust boundary and the runner (L)
@@ -203,17 +208,17 @@ Effort tags: **S** ≈ an hour or two · **M** ≈ half a day · **L** ≈ a day
 
 ## Verification
 
-- [ ] `moon run :typecheck :lint :test` green
-- [ ] `mock-bridge.ts` grows a `metrics` group with a **live handler array and a real splice
+- [x] `moon run :typecheck :lint :test` green
+- [x] `mock-bridge.ts` grows a `metrics` group with a **live handler array and a real splice
       teardown**, not the inert `unsubscribe` that `watch.onEvent` and `menu.onCommand` use. An
       inert stream renders an empty flyout in every spec, which would pass while testing nothing.
       Samples pushed asynchronously via `setTimeout(…, 0)`, as `log.start` already does
-- [ ] A `metricsSamples?` and a `diagnostics?` field on `MockFixtures`, each commented with the
+- [ ] ◐ PARTIAL — A `metricsSamples?` and a `diagnostics?` field on `MockFixtures`, each commented with the
       state it unlocks
-- [ ] New Playwright spec: the cluster renders four readouts, a `null` GPU renders three, the
+- [ ] ◐ PARTIAL — New Playwright spec: the cluster renders four readouts, a `null` GPU renders three, the
       flyout opens on click and closes on Escape with focus returned, an untrusted repo shows the
       enable affordance, and trusting one surfaces counts
-- [ ] Unit tests: `vm_stat` and `ioreg` fixture parsing (including the Apple Silicon page-size
+- [ ] ◐ PARTIAL — Unit tests: `vm_stat` and `ioreg` fixture parsing (including the Apple Silicon page-size
       header), the CPU delta maths, the ring buffer's flat-seed behaviour, the chart path
       geometry, and the eslint JSON parser against truncated and non-JSON output
 - [ ] **Open, for a human:** cross-check CPU, RAM and GPU against Activity Monitor on Apple
@@ -252,7 +257,20 @@ Effort tags: **S** ≈ an hour or two · **M** ≈ half a day · **L** ≈ a day
   strictly better, swapping is a component change, not an architecture one.
 - **Resolved — disk gets a gauge, not a chart**, so "three charts" is three charts.
 - **Resolved — the segment follows the sidebar selection**, not the active workbench tab.
-- **Open — non-uniform time axis.** The adaptive cadence means a series can hold 2s-apart and
+- **Resolved — non-uniform time axis (Theme C).** Timestamps are kept in the store, points
+  are spaced by index, and `cadenceBreaks()` draws a faint dashed rule where the interval
+  changed — the doc's own fallback, taken up front rather than waiting for it to read badly.
+  A time-scaled x-axis was rejected as real work for a five-minute window nobody measures
+  against.
+- **Resolved — the ring buffer is time-windowed, not count-capped (Theme C).** Five real
+  minutes at either cadence. A fixed sample count would have made the window silently 2.5×
+  longer whenever the flyout closed, so the same chart width would show a different span
+  depending on something the user did a minute earlier. A count cap survives only as a
+  memory backstop.
+- **Resolved — the cluster takes slots (Theme D).** `FooterCluster` renders children rather
+  than a fixed list of four metrics, so the diagnostics segment and the checks-verdict
+  indicator arrive as children instead of as a restructuring of whatever got there first.
+- **Superseded — non-uniform time axis.** The adaptive cadence means a series can hold 2s-apart and
   5s-apart samples, and a chart spacing by index draws them identically. Recommendation: keep the
   timestamps in the store, space by index, and accept the distortion for now — the alternative is
   a time-scaled x-axis, which is real work for a 60-second window nobody measures against. If it

@@ -2,6 +2,95 @@
 
 <!-- Append one entry per landed phase/PR: date, phase, PR link, one-line summary. -->
 
+## 2026-08-26 — Phase 18 · Themes A + B + C + D — The footer's right half becomes a live system monitor
+
+Landed on `feature/phase-18-monitor` (squash-merged — this repository still has no remote, so
+there is no PR link). The footer bar had looked the same since Phase 9: 24px of `border-t
+bg-card/50` holding a terminal toggle, a branch name, ahead/behind arrows and a changed count —
+every one of them a left-aligned flex child under a single `gap-3`, with no `ml-auto` anywhere,
+so the entire right half was empty. It now carries CPU, RAM, GPU and disk as a coloured dot, a
+percentage and a sparkline, opening into a flyout of area-chart timelines. E and F (the
+diagnostics segment and its trust boundary) are untouched.
+
+**Theme A — four probes in main, each a pure parser behind a thin `execFile`.**
+
+- `cpu.ts` — `os.cpus()` reports **cumulative counters since boot**, so a single read says nothing
+  about now; usage only exists as `1 - idleDelta/totalDelta` between two snapshots. The first call
+  returns `undefined` rather than a fabricated zero, and a counter that went backwards (a sleep,
+  a changed core set) is `undefined` too — a difference that is not a rate.
+- `memory.ts` — **not `os.freemem()`**, which on macOS counts the file cache as free and reads
+  99% used on an idle 32 GB machine. Activity Monitor's own sum instead:
+  `max(anonymous - purgeable, 0) + wired + compressed`, over `/usr/bin/vm_stat`. The page size is
+  read from the `page size of (\d+) bytes` header rather than assumed — Apple Silicon uses 16 KiB
+  pages, so a hardcoded 4096 under-reports by exactly 4×. Any parse failure degrades to
+  `os.freemem()` rather than reporting nothing.
+- `gpu.ts` — `/usr/sbin/ioreg -c IOAccelerator` matched for `"Device Utilization %"`, the same
+  counter Activity Monitor graphs, and deliberately **not** `powermetrics`, which needs sudo. Takes
+  the busiest accelerator rather than the first in registry order. **Self-disables after three
+  consecutive failures and logs once**; a single good read clears the streak, so a transient spawn
+  failure under load does not retire the probe for the session.
+- `disk.ts` — `fs.statfs` capacity, **not throughput**. `bavail` not `bfree`, and denominated
+  against `used + available` rather than the raw volume size, so the gauge agrees with the
+  percentage printed beside it.
+
+`metrics-service.ts` keeps **one** interval however many `start`s arrive (each cadence change is a
+fresh one), `unref()`s it so main can still exit, collapses concurrent probes onto a single
+in-flight promise (`ioreg` under load outlasts a 2s tick, and without the guard they stack), and
+reads disk once every ten ticks rather than every tick. Sampling stops outright on blur, hide and
+minimize. No probe module imports `electron`, so all of it runs under bare vitest.
+
+**Theme B — the contract.** `MetricSample` has **every metric optional**, which is the whole
+design: a GPU whose counter cannot be read is *omitted from the payload*, so "not readable here"
+and "0%" stay different answers all the way to the chart. A flat zero line is a lie about a
+working GPU. Cadence crosses IPC as a **re-sent `start`** rather than its own verb — one channel,
+no extra schema, and main clamps the interval rather than trusting it (the floor exists because a
+renderer bug asking for 10ms would fork-bomb the machine with `ioreg` spawns).
+
+**Theme C — the store and the drawing.** Points are `{value, at}`, not bare numbers, and the
+window is evicted **by time** (five real minutes) rather than by count — a fixed sample count
+would silently become 2.5× longer in wall-clock terms whenever the flyout closed. The first
+sample seeds a **flat pair** so a new series draws a straight line at its true value instead of
+ramping up from an implicit zero, which reads as a load spike that never happened at exactly the
+moment someone looked. `metric-path.ts` has no y-scaling pass at all — the 0–100 domain is fixed
+by the contract, so two screenshots a minute apart are comparable — and spaces points by index,
+with `cadenceBreaks()` finding where the interval changed so the chart marks it with a dashed
+rule instead of drawing a 5s gap as though it were a 2s one. Colours are raw HSL triples per the
+`lane-colors.ts` policy (metric colours are *data*, with no semantic role; the diagnostics counts
+in Theme F are the opposite case and will take tokens), with muted and fill variants derived
+rather than hand-tuned twice. Charts are hand-rolled despite `@bilo-io/ui` shipping an unused
+`AreaChart`, consistent with the app hand-rolling its tab strip, tooltip and theme toggle.
+
+**Theme D — the cluster and the app's first popover.** `components/popover.tsx` is genuinely new:
+`tooltip.tsx` is hover-triggered and `pointer-events-none` so it cannot host a chart, and
+`context-menu.tsx` is item-list shaped. It reuses their portal-and-clamp mechanics and adds
+click-toggle, a focus trap, outside-click and capture-phase-scroll dismiss, and focus returned to
+the trigger on close — extracted as a shared primitive because Theme F's diagnostics flyout and
+Phase 17's checks-verdict indicator both want exactly this. The cluster takes **slots** rather
+than a fixed list of four metrics, so those arrive as children rather than as a restructuring of
+whatever got there first. A metric that is null renders **no readout at all** — no dot, no dash,
+no zero. Disk gets a gauge instead of a fourth timeline, because a capacity line is flat for hours
+and drawing it as one would imply movement that is not there.
+
+**A latent e2e bug this uncovered.** `mock-bridge.ts` reported `windowChrome.frameless: false`,
+which is not what ships on macOS. `AppFrame` only sets `--titlebar-h` when it draws the chrome
+itself, and `app.tsx` sizes its content box `calc(100vh - var(--titlebar-h, 0px))` — so with a
+framed window the box claimed the full viewport height starting 40px down, and **every spec had
+been running against an app whose footer sat entirely below the fold**. Nothing failed, because
+`toBeVisible()` asks for a non-empty box rather than one inside the viewport; it only surfaced
+when a spec first tried to *click* something down there.
+
+Twelve Playwright specs (including the phase's screenshots) plus 42 unit tests in desktop and 35
+in app. `moon run :typecheck :lint :test` green.
+
+**Left open:** the three human passes the phase doc names — cross-checking CPU/RAM/GPU against
+Activity Monitor on Apple Silicon, and an hour's idle battery cost confirming the blur pause
+really stops the `ioreg` spawns. Also noted while here: `graph-themes.spec.ts` has twelve
+pre-existing failures on `main`, unrelated to this phase — its `chooseTheme` helper still reaches
+for `getByRole('link', {name: 'Settings'})`, which Phase 16 turned into a bottom-pinned rail
+button. Fixing that locator alone makes it worse (twenty failures), because the suite also has
+cross-test flake underneath, so it is left for whoever owns Phase 14's specs.
+
+
 ## 2026-08-26 — Phase 12 · Themes A + B — Commit inspector: rendered message, live references, real header
 
 Landed on `feature/phase-12-inspector` (squash-merged — this repository still has no remote, so

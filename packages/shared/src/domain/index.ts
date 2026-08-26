@@ -1,6 +1,7 @@
 export * from './commit';
 export * from './diff';
 export * from './forge';
+export * from './metrics';
 export * from './ref';
 export * from './remote';
 export * from './repo';

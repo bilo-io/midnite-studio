@@ -1,11 +1,16 @@
 import { ArrowDown, ArrowUp, GitBranch, SquareTerminal } from 'lucide-react';
 import { DEFAULT_KEYMAP } from '@midnite/git-shared';
 
+import { FooterCluster, MonitorCluster } from '../monitor/monitor-cluster';
 import { useStatus } from '../../services/use-status';
 import { useUiStore } from '../../store/ui-store';
 
 /**
- * The status footer: branch, sync counts, change count, and the terminal toggle.
+ * The status footer: branch, sync counts, change count, the terminal toggle —
+ * and, since Phase 18, the machine's vitals in the right half.
+ *
+ * Everything on the left is unchanged. The cluster is an `ml-auto` sibling, so
+ * filling the empty right half cost no repositioning of what was already here.
  *
  * The shortcut is rendered from the keymap rather than typed as a literal, so
  * the hint can never disagree with the binding that actually fires.
@@ -57,6 +62,15 @@ export function FooterBar() {
           ) : null}
         </>
       ) : null}
+
+      {/*
+        Slots, not a fixed list: Theme F's diagnostics segment and Phase 17's
+        checks-verdict indicator both belong in this cluster, and each should
+        arrive as a child rather than as a rewrite of whatever got here first.
+      */}
+      <FooterCluster>
+        <MonitorCluster />
+      </FooterCluster>
     </footer>
   );
 }

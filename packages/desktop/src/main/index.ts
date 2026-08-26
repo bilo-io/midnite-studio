@@ -5,6 +5,7 @@ import { BrowserWindow, app } from 'electron';
 import { registerClaudeHandlers } from './ipc/claude-handlers';
 import { registerForgeHandlers } from './ipc/forge-handlers';
 import { registerFsHandlers } from './ipc/fs-handlers';
+import { bindMetricsToWindow, registerMetricsHandlers } from './ipc/metrics-handlers';
 import { registerPtyHandlers } from './ipc/pty-handlers';
 import { registerTerminalHandlers } from './ipc/terminal-handlers';
 import { registerRefHandlers } from './ipc/ref-handlers';
@@ -99,6 +100,7 @@ if (!app.requestSingleInstanceLock()) {
     registerClipboardHandlers();
     registerForgeHandlers();
     registerPtyHandlers(getWindow);
+    const metrics = registerMetricsHandlers(getWindow);
     registerTerminalHandlers();
     registerFsHandlers();
     registerClaudeHandlers(getWindow);
@@ -121,6 +123,10 @@ if (!app.requestSingleInstanceLock()) {
     mainWindow.on('closed', () => {
       mainWindow = null;
     });
+    // Sampling follows visibility: blurred, hidden or minimized stops it
+    // outright rather than spending an `ioreg` spawn every few seconds on a
+    // footer nobody can see.
+    bindMetricsToWindow(metrics, mainWindow);
 
     // Periodic scrollback flush, so a crash or a force-quit still leaves
     // something to restore rather than only the last clean exit.
@@ -140,6 +146,10 @@ if (!app.requestSingleInstanceLock()) {
         mainWindow.on('closed', () => {
           mainWindow = null;
         });
+        // The reopened window is a new BrowserWindow, so it carries none of
+        // the visibility listeners the first one was given. Without this the
+        // sampler never pauses again for the rest of the session.
+        bindMetricsToWindow(metrics, mainWindow);
       }
     });
   });
