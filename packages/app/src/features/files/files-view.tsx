@@ -13,7 +13,7 @@ import { FilePreview } from './preview/file-preview';
 import { useFilesStore } from './files-store';
 
 /**
- * The Folder view: the active checkout as a lazy tree on the left, a
+ * The Files view: the active checkout as a lazy tree on the left, a
  * read-only preview of the selected file on the right. Follows the same
  * repo/worktree selection the graph uses — this is "browse what I have
  * checked out", not a second repo picker.

@@ -58,3 +58,81 @@ export function syncAffordances(branch: BranchStatus): SyncAffordances {
             : on(`Push ${branch.ahead}`),
   };
 }
+
+/**
+ * What one click of the Sync button actually runs.
+ *
+ * The cluster used to be three buttons — fetch, pull, push — beside the very
+ * counts that said which of them were live. That is three controls to read a
+ * state the counts had already reported, and the two arrows were the pair
+ * people reached for in the wrong order: push while behind is a rejection, and
+ * pull-then-push is the sequence they meant both times. One button that reads
+ * the counts and runs that sequence removes the ordering mistake rather than
+ * labelling it. Fetch and push stay individually reachable in the repository's
+ * context menu, where an unusual intention belongs.
+ *
+ * A fetch always leads. It is the step that makes the counts the rest of the
+ * plan is reasoning about TRUE — running pull/push off numbers from ten minutes
+ * ago is how a "nothing to push" branch turns out to be two behind.
+ */
+export type SyncStep = SyncOp;
+
+export type SyncPlan = {
+  /** In order. Each runs only if the one before it succeeded. */
+  steps: SyncStep[];
+  /** Accessible name, and the first half of the tooltip. */
+  label: string;
+  /** What the click will do, in words. The second half of the tooltip. */
+  detail: string;
+};
+
+export function syncPlan(branch: BranchStatus): SyncPlan {
+  if (branch.detached) {
+    return {
+      steps: ['fetch'],
+      label: 'Fetch',
+      detail: 'HEAD is detached, so fetch is all that can run — check out a branch to pull or push.',
+    };
+  }
+
+  if (branch.unborn) {
+    return {
+      steps: ['fetch'],
+      label: 'Fetch',
+      detail: 'This repository has no commits yet, so there is nothing to pull into or push.',
+    };
+  }
+
+  // No upstream: the click has to CREATE one, which is a different enough act
+  // to deserve its own name. Nothing about "Sync" says "a branch appears on the
+  // remote", and this is the only path in the app that publishes one now that
+  // the Push button is gone.
+  if (branch.upstream === null) {
+    return {
+      steps: ['fetch', 'push'],
+      label: 'Publish branch',
+      detail: `Fetch, then push ${branch.head ?? 'this branch'} and set its upstream.`,
+    };
+  }
+
+  const steps: SyncStep[] = ['fetch'];
+  if (branch.behind > 0) steps.push('pull');
+  if (branch.ahead > 0) steps.push('push');
+
+  if (steps.length === 1) {
+    return {
+      steps,
+      label: 'Fetch',
+      detail: 'Nothing to pull or push as of the last fetch. This fetches again.',
+    };
+  }
+
+  return { steps, label: 'Sync', detail: `Fetch, then ${describePlan(branch)}.` };
+}
+
+const describePlan = ({ ahead, behind }: BranchStatus): string =>
+  behind > 0 && ahead > 0
+    ? `pull ${behind} and push ${ahead}`
+    : behind > 0
+      ? `pull ${behind}`
+      : `push ${ahead}`;

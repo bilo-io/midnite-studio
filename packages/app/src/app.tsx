@@ -11,8 +11,7 @@ import {
 import { QueryClient } from '@tanstack/react-query';
 import { ChevronLeft } from 'lucide-react';
 import type { IconType } from 'react-icons';
-import { LuFolderTree, LuGitBranch, LuSettings } from 'react-icons/lu';
-import { MdOutlineDifference } from 'react-icons/md';
+import { LuDiff, LuFolderTree, LuGitBranch, LuSettings } from 'react-icons/lu';
 
 import { Brand, BrandMark, Wordmark } from './components/brand';
 import { DialogHost } from './components/dialog-host';
@@ -101,12 +100,18 @@ const CONTENT_BOX = {
  * Rail icons come from react-icons, which fronts several icon sets at once —
  * so each nav item can take the glyph that actually reads as its view rather
  * than the nearest match within one family. `IconType` is react-icons' own
- * component type; the mixed `Lu*`/`Md*` prefixes are the sets, not a mistake.
+ * component type, and the `Lu*` prefix names the set — a sibling elsewhere in
+ * the app importing `Ai*` or `Md*` is the point of the package, not a mistake.
+ *
+ * "Files", not "Folder": the view is a browser for the checkout's files, and
+ * naming it after the container rather than what you came looking for made it
+ * read as a second sidebar. ("Explore" describes the verb, but a rail of nouns
+ * with one verb in it is the odd one out.)
  */
 const NAV_ITEMS: { view: ViewId; label: string; icon: IconType }[] = [
-  { view: 'files', label: 'Folder', icon: LuFolderTree },
+  { view: 'files', label: 'Files', icon: LuFolderTree },
   { view: 'graph', label: 'Graph', icon: LuGitBranch },
-  { view: 'changes', label: 'Changes', icon: MdOutlineDifference },
+  { view: 'changes', label: 'Changes', icon: LuDiff },
   // Settings is deliberately absent: it renders in the rail's FOOTER slot
   // (bottom-pinned, the way settings sit in VS Code/GitKraken), not among the
   // workspace views — see the `footer` in the nav config below.

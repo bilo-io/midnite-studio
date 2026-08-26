@@ -176,7 +176,7 @@ function pasteCommand(command: string): void {
 
 function ClaudeHomeTree() {
   // Local expansion state: the Agent page's browse is independent of the
-  // Folder view's per-repo store — different scope, different lifetime.
+  // Files view's per-repo store — different scope, different lifetime.
   const [expanded, setExpanded] = useState<Record<string, true>>({});
   const [selectedPath, setSelectedPath] = useState<string | null>(null);
 

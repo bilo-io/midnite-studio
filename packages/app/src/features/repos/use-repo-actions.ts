@@ -375,7 +375,7 @@ export function useRepoActions(
           onSelect: () => viewAllChanges(worktree.path, label),
         },
         {
-          label: 'Show in Folder view',
+          label: 'Show in Files view',
           onSelect: () => {
             useUiStore.getState().selectRepo(repo.id);
             useUiStore.getState().selectWorktree(worktree.path);

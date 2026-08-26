@@ -44,7 +44,7 @@ export type LayoutSizes = {
   terminalHeight: number;
   detailWidth: number;
   changesListWidth: number;
-  /** The Folder view's tree pane, left of the preview. */
+  /** The Files view's tree pane, left of the preview. */
   filesTreeWidth: number;
   /**
    * The commit inspector's file list, above its diff.
