@@ -8,7 +8,15 @@ import { useUiStore, type ViewId } from '../../store/ui-store';
  * single answer, and a forge section that decided its own visibility would be a
  * second one that could disagree.
  */
-export type SectionKey = 'local' | 'remotes' | 'tags' | 'worktrees' | 'actions' | 'reviews' | 'tests';
+export type SectionKey =
+  | 'local'
+  | 'remotes'
+  | 'tags'
+  | 'worktrees'
+  | 'actions'
+  | 'reviews'
+  | 'issues'
+  | 'tests';
 
 /**
  * The sections whose heading menu is built from a repo's refs.
@@ -27,6 +35,7 @@ export const ALL_SECTIONS: readonly SectionKey[] = [
   'worktrees',
   'actions',
   'reviews',
+  'issues',
   'tests',
 ];
 

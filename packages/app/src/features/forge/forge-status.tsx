@@ -1,4 +1,4 @@
-import type { ForgePull, ForgeRun } from '@midnite/git-shared';
+import type { ForgeIssue, ForgeJob, ForgePull, ForgeRun } from '@midnite/git-shared';
 
 /**
  * The status vocabulary shared by the Actions and Reviews surfaces.
@@ -24,6 +24,22 @@ const TONE_CLASS: Record<ForgeTone, string> = {
 export type ForgeStatus = { tone: ForgeTone; label: string };
 
 /**
+ * The five ways of not being finished.
+ *
+ * `waiting` is amber rather than the busy amber's sibling by accident — a job
+ * held by an environment protection rule is waiting on a *person*, which is the
+ * same call to action `action_required` makes, and rendering it as "Running"
+ * would tell the user to wait for a machine that is waiting for them.
+ */
+const UNFINISHED: Record<Exclude<ForgeRun['status'], 'completed'>, ForgeStatus> = {
+  queued: { tone: 'busy', label: 'Queued' },
+  in_progress: { tone: 'busy', label: 'Running' },
+  requested: { tone: 'busy', label: 'Requested' },
+  pending: { tone: 'busy', label: 'Pending' },
+  waiting: { tone: 'warn', label: 'Waiting for approval' },
+};
+
+/**
  * A run's state in one word.
  *
  * `skipped`, `neutral` and `stale` are deliberately `idle`, not failures — a
@@ -31,10 +47,23 @@ export type ForgeStatus = { tone: ForgeTone; label: string };
  * it red trains people to ignore red.
  */
 export function runStatus(run: ForgeRun): ForgeStatus {
-  if (run.status !== 'completed') {
-    return { tone: 'busy', label: run.status === 'queued' ? 'Queued' : 'Running' };
-  }
-  switch (run.conclusion) {
+  return outcomeStatus(run.status, run.conclusion);
+}
+
+/**
+ * Status and conclusion, in one word — the shared half of `runStatus`.
+ *
+ * A run, a job and a step answer to the same two enums, so they get one mapping
+ * rather than three ternaries that can disagree about whether `cancelled` is
+ * red. Taking the two fields rather than a whole run is what lets a job borrow
+ * it without being dressed up as a run first.
+ */
+export function outcomeStatus(
+  status: ForgeRun['status'],
+  conclusion: ForgeRun['conclusion'],
+): ForgeStatus {
+  if (status !== 'completed') return UNFINISHED[status];
+  switch (conclusion) {
     case 'success':
       return { tone: 'ok', label: 'Passed' };
     case 'failure':
@@ -108,4 +137,27 @@ export function StatusPill({
       {status.label}
     </span>
   );
+}
+
+/**
+ * An issue's state in one word.
+ *
+ * Two arms, because an issue has two. The pill exists so an issue row reads
+ * the same way as the run and pull rows above it rather than being the one
+ * list in the sidebar with a bare title.
+ */
+export function issueStatus(issue: ForgeIssue): ForgeStatus {
+  return issue.state === 'closed'
+    ? { tone: 'idle', label: 'Closed' }
+    : { tone: 'warn', label: 'Open' };
+}
+
+/**
+ * A job's state in one word.
+ *
+ * A job and a run answer to the same two enums, so this is `runStatus` with a
+ * narrower argument rather than a second opinion about what `skipped` means.
+ */
+export function jobStatus(job: ForgeJob): ForgeStatus {
+  return outcomeStatus(job.status, job.conclusion);
 }

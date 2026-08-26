@@ -3,7 +3,9 @@ import type {
   DiagnosticsCommand,
   DiagnosticsRun,
   DiagnosticsTrustStatus,
+  ForgeIssuesResult,
   ForgePullsResult,
+  ForgeRunDetailResult,
   ForgeRunsResult,
   Ref,
   Remote,
@@ -76,6 +78,17 @@ export const keys = {
   forgeRuns: (repoId: string, branch?: string) =>
     ['repos', repoId, 'forge', 'runs', branch ?? 'all'] as const,
   forgePulls: (repoId: string) => ['repos', repoId, 'forge', 'pulls'] as const,
+  forgeIssues: (repoId: string, state: string) =>
+    ['repos', repoId, 'forge', 'issues', state] as const,
+  /**
+   * One run's job tree.
+   *
+   * Keyed by run id under the forge prefix, so the section's Refresh drops
+   * every open run's tree along with the listing above it — a re-fetched run
+   * list beside a stale job tree is the one combination that would lie.
+   */
+  forgeRunDetail: (repoId: string, runId: string) =>
+    ['repos', repoId, 'forge', 'run-detail', runId] as const,
   /** Whether `gh` is installed and signed in. Not repo-scoped — it is machine state. */
   forgeCli: ['forge', 'cli'] as const,
   /**
@@ -312,6 +325,46 @@ export function useForgeRuns(repoId: string | null, enabled: boolean, branch?: s
   });
 }
 
+/**
+ * Open issues. `enabled` carries the same promise as the runs query — a human
+ * opened the section — for the same subprocess-and-rate-limit reason.
+ */
+export function useForgeIssues(repoId: string | null, enabled: boolean) {
+  return useQuery<ForgeIssuesResult>({
+    queryKey: keys.forgeIssues(repoId ?? '', 'open'),
+    queryFn: async () => {
+      const api = bridge();
+      if (!api || !repoId) return EMPTY_ISSUES;
+      return api.forge.issues({ repoId, limit: 20, state: 'open' });
+    },
+    enabled: enabled && repoId !== null,
+    staleTime: FORGE_STALE_MS,
+  });
+}
+
+/**
+ * One run's job/step tree, fetched only once a row has been expanded.
+ *
+ * The same staleness window as its siblings, deliberately: a completed run is
+ * immutable and main caches it outright, so re-asking costs nothing, while an
+ * unfinished one main refuses to cache — and that is the run whose tree is
+ * worth re-reading. The section's Refresh drops this key along with the listing
+ * above it, since a re-fetched run list beside a stale job tree is the one
+ * combination that would lie.
+ */
+export function useForgeRunDetail(repoId: string | null, runId: string | null, enabled: boolean) {
+  return useQuery<ForgeRunDetailResult>({
+    queryKey: keys.forgeRunDetail(repoId ?? '', runId ?? ''),
+    queryFn: async () => {
+      const api = bridge();
+      if (!api || !repoId || !runId) return EMPTY_RUN_DETAIL;
+      return api.forge.runDetail({ repoId, runId });
+    },
+    enabled: enabled && repoId !== null && runId !== null,
+    staleTime: FORGE_STALE_MS,
+  });
+}
+
 export function useForgePulls(repoId: string | null, enabled: boolean) {
   return useQuery<ForgePullsResult>({
     queryKey: keys.forgePulls(repoId ?? ''),
@@ -334,6 +387,16 @@ export function useForgePulls(repoId: string | null, enabled: boolean) {
 const EMPTY_CLI = { reason: 'not-installed' as const, binPath: null, hint: '' };
 const EMPTY_RUNS: ForgeRunsResult = { cli: EMPTY_CLI, runs: [], error: null };
 const EMPTY_PULLS: ForgePullsResult = { cli: EMPTY_CLI, pulls: [], error: null };
+const EMPTY_ISSUES: ForgeIssuesResult = {
+  cli: EMPTY_CLI,
+  issues: [],
+  // Not `disabled`: with no bridge there is no repository to have issues
+  // switched off, and claiming otherwise would render a definite answer to a
+  // question nobody asked.
+  disabled: false,
+  error: null,
+};
+const EMPTY_RUN_DETAIL: ForgeRunDetailResult = { cli: EMPTY_CLI, detail: null, error: null };
 
 /** Re-run the forge listings for one repo, on the user's say-so. */
 export function useRefreshForge(repoId: string | null) {

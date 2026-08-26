@@ -5,11 +5,23 @@ import {
   schemas,
   type Forge,
   type ForgeCliStatus,
+  type ForgeIssuesResult,
   type ForgePullsResult,
+  type ForgeRunDetailResult,
+  type ForgeRunLogResult,
   type ForgeRunsResult,
+  type ForgeWorkflowsResult,
 } from '@midnite/git-shared';
 
-import { ghStatus, listPulls, listRuns } from '../forge/gh-cli';
+import {
+  ghStatus,
+  listIssues,
+  listPulls,
+  listRuns,
+  listWorkflows,
+  runDetail,
+  runLog,
+} from '../forge/gh-cli';
 import { resolveWorkdir } from '../repo-registry';
 import { handle, handleBare } from './handle';
 
@@ -76,5 +88,54 @@ export function registerForgeHandlers(): void {
       return listPulls(forge, { limit: req.limit });
     },
     (issue) => ({ cli: noForgeStatus(), pulls: [], error: issue }),
+  );
+
+  handle<typeof schemas.ForgeIssuesRequest, ForgeIssuesResult>(
+    CHANNELS.forgeIssues,
+    schemas.ForgeIssuesRequest,
+    async (req) => {
+      const forge = await githubForge(req.repoId);
+      // No GitHub remote is not "issues are disabled" — the repository has no
+      // issue tracker to have an opinion about, which the `cli` reason says.
+      if (!forge) return { cli: noForgeStatus(), issues: [], disabled: false, error: null };
+      return listIssues(forge, { limit: req.limit, state: req.state });
+    },
+    (issue) => ({ cli: noForgeStatus(), issues: [], disabled: false, error: issue }),
+  );
+
+  handle<typeof schemas.ForgeRunDetailRequest, ForgeRunDetailResult>(
+    CHANNELS.forgeRunDetail,
+    schemas.ForgeRunDetailRequest,
+    async (req) => {
+      const forge = await githubForge(req.repoId);
+      if (!forge) return { cli: noForgeStatus(), detail: null, error: null };
+      return runDetail(forge, req.runId);
+    },
+    (issue) => ({ cli: noForgeStatus(), detail: null, error: issue }),
+  );
+
+  handle<typeof schemas.ForgeRunLogRequest, ForgeRunLogResult>(
+    CHANNELS.forgeRunLog,
+    schemas.ForgeRunLogRequest,
+    async (req) => {
+      const forge = await githubForge(req.repoId);
+      if (!forge) return { cli: noForgeStatus(), log: null, pending: false, error: null };
+      return runLog(forge, req.runId, {
+        ...(req.jobId ? { jobId: req.jobId } : {}),
+        ...(req.full ? { full: true } : {}),
+      });
+    },
+    (issue) => ({ cli: noForgeStatus(), log: null, pending: false, error: issue }),
+  );
+
+  handle<typeof schemas.ForgeWorkflowsRequest, ForgeWorkflowsResult>(
+    CHANNELS.forgeWorkflows,
+    schemas.ForgeWorkflowsRequest,
+    async (req) => {
+      const forge = await githubForge(req.repoId);
+      if (!forge) return { cli: noForgeStatus(), workflows: [], error: null };
+      return listWorkflows(forge);
+    },
+    (issue) => ({ cli: noForgeStatus(), workflows: [], error: issue }),
   );
 }

@@ -1,20 +1,29 @@
 import type { ForgeRun } from '@midnite/git-shared';
+import { ForgeRunSchema } from '@midnite/git-shared';
 import { describe, expect, it } from 'vitest';
 
 import { checksVerdict } from './checks-verdict';
 
 const SHA = 'a'.repeat(40);
 
-const run = (over: Partial<ForgeRun> = {}): ForgeRun => ({
-  id: over.id ?? '1',
-  name: over.name ?? 'CI',
-  status: over.status ?? 'completed',
-  conclusion: over.conclusion ?? 'success',
-  headBranch: 'main',
-  headSha: over.headSha ?? SHA,
-  createdAt: over.createdAt ?? '2026-08-26T10:00:00Z',
-  url: 'https://github.com/o/r/actions/runs/1',
-});
+/*
+  Built through the schema rather than as an object literal, so every field the
+  contract grows arrives here filled with its own default. A hand-written
+  fixture would have to be edited — and would go stale — every time a run
+  learned a new field it does not care about.
+*/
+const run = (over: Partial<ForgeRun> = {}): ForgeRun =>
+  ForgeRunSchema.parse({
+    id: '1',
+    name: 'CI',
+    status: 'completed',
+    conclusion: 'success',
+    headBranch: 'main',
+    headSha: SHA,
+    createdAt: '2026-08-26T10:00:00Z',
+    url: 'https://github.com/o/r/actions/runs/1',
+    ...over,
+  });
 
 describe('checksVerdict', () => {
   it('is undefined when nothing is known', () => {
