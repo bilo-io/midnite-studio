@@ -52,6 +52,12 @@ export const keys = {
    */
   commitDiff: (repoId: string, sha: string, path: string, context: number) =>
     ['repos', repoId, 'commit-diff', sha, path, context] as const,
+  /**
+   * One commit's metadata and file list. Under the repo, and — like
+   * `commitDiff` — deliberately NOT under `status`: a commit is immutable, so no
+   * worktree event has anything to say about it.
+   */
+  commitDetail: (repoId: string, sha: string) => ['repos', repoId, 'commit', sha] as const,
 };
 
 /**
@@ -110,6 +116,51 @@ export function useRemotes(repoId: string | null) {
  */
 export function openExternal(url: string): void {
   void bridge()?.shell.openExternal({ url });
+}
+
+/**
+ * One commit in full — metadata, parents and the per-file counts.
+ *
+ * `data === null` is a real answer, not a loading state: the sha may name no
+ * commit in this repository, which is what a linkified reference out of a commit
+ * message can legitimately do. The pane distinguishes the two on `isLoading`.
+ */
+export function useCommitDetail(repoId: string | null, sha: string | null) {
+  // No explicit generic: the bridge's own return type is the authority on the
+  // shape, and restating it here is a second declaration that can drift from it.
+  return useQuery({
+    queryKey: keys.commitDetail(repoId ?? '', sha ?? ''),
+    queryFn: async () =>
+      repoId && sha ? ((await bridge()?.status.commitDetail({ repoId, sha })) ?? null) : null,
+    enabled: repoId !== null && sha !== null,
+    // A commit is immutable, so this never goes stale.
+    staleTime: Number.POSITIVE_INFINITY,
+  });
+}
+
+/**
+ * Resolve an abbreviated revision to its full sha.
+ *
+ * Imperative rather than a query: the caller is a click handler on a linkified
+ * sha, and the answer is needed once, to decide what to select — not held as
+ * state anybody renders.
+ */
+export async function resolveRevision(repoId: string, rev: string): Promise<string | null> {
+  const res = await bridge()?.repos.revParse({ repoId, rev });
+  return res?.sha ?? null;
+}
+
+/**
+ * Put text on the system clipboard, reporting whether it landed.
+ *
+ * Through main rather than `navigator.clipboard`: the packaged app loads from
+ * `file://`, which is not guaranteed to be a secure context, and the Async
+ * Clipboard API is gated on one. Returns false with no bridge at all, so a
+ * copy button under vitest/jsdom reports failure instead of throwing.
+ */
+export async function copyText(text: string): Promise<boolean> {
+  const res = await bridge()?.clipboard.writeText({ text });
+  return res?.ok ?? false;
 }
 
 /** Everything derived from a repo, after an op that could have changed any of it. */

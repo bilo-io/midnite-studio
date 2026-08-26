@@ -4,7 +4,7 @@ import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 
 import { resolveMainWorktree, resolveRepoRoot } from '../exec/git-exec';
 import { TempRepo } from '../testing/temp-repo';
-import { readCommitDetail, readLog, streamLog } from './log';
+import { readCommitDetail, readLog, revParse, streamLog } from './log';
 import { currentBranch, listRefs } from './refs';
 import { conflictedPaths, detectInProgress, getStatus } from './status';
 import { listWorktrees } from './worktrees';
@@ -325,14 +325,89 @@ describe('git-engine integration', () => {
     it('returns the body, the stat block and per-file counts', async () => {
       const detail = await readCommitDetail(repo.path, second);
 
-      expect(detail.sha).toBe(second);
-      expect(detail.body).toContain('second commit');
-      expect(detail.stat).toContain('src.ts');
-      expect(detail.files).toEqual([
+      expect(detail).not.toBeNull();
+      expect(detail?.sha).toBe(second);
+      expect(detail?.subject).toBe('second commit');
+      expect(detail?.body).toContain('second commit');
+      expect(detail?.parents).toEqual([first]);
+      expect(detail?.author).toMatchObject({ name: 'Test User', email: 'test@example.com' });
+      expect(detail?.committer).toMatchObject({ name: 'Test User', email: 'test@example.com' });
+      // Unix seconds, like every other date on the wire — a millisecond value
+      // here would render as a commit from 1970 in the inspector.
+      expect(detail?.author.date).toBeGreaterThan(1_600_000_000);
+      expect(detail?.author.date).toBeLessThan(4_000_000_000);
+      expect(detail?.files).toEqual([
         // `oldPath` is null for anything that isn't a rename — it exists so the
         // inspector can ask for a rename-aware diff (see commands/diff.ts).
         { path: 'src.ts', oldPath: null, insertions: 1, deletions: 0 },
       ]);
+    });
+
+    it('reads a full multi-line body with its trailers intact', async () => {
+      // `%B` is last in the format string precisely so a multi-line body cannot
+      // be truncated at a separator; this is what proves it round-trips.
+      const bodied = await TempRepo.create();
+      const message = 'subject line\n\nA paragraph.\n\nCo-Authored-By: Someone <s@example.com>';
+      await bodied.writeFile('a.txt', 'a\n');
+      await bodied.git(['add', '--', 'a.txt']);
+      const sha = await bodied.commit(message);
+
+      const detail = await readCommitDetail(bodied.path, sha);
+      expect(detail?.subject).toBe('subject line');
+      expect(detail?.body.trim()).toBe(message);
+      await bodied.cleanup();
+    });
+
+    it('reports no parents for the root commit', async () => {
+      const detail = await readCommitDetail(repo.path, first);
+      expect(detail?.parents).toEqual([]);
+    });
+
+    it('lists the files of a merge commit rather than reporting none', async () => {
+      // `git show` prints no diff for a merge by default, so without
+      // `-m --first-parent` every merge reports zero changed files.
+      const merged = await TempRepo.create();
+      await merged.commitFile('base.txt', 'base\n', 'base');
+      await merged.git(['checkout', '-b', 'side']);
+      await merged.commitFile('side.txt', 'side\n', 'side');
+      await merged.git(['checkout', 'main']);
+      await merged.commitFile('main.txt', 'main\n', 'main');
+      await merged.git(['merge', '--no-ff', '-m', 'merge side', 'side']);
+      const sha = await merged.head();
+
+      const detail = await readCommitDetail(merged.path, sha);
+      expect(detail?.parents).toHaveLength(2);
+      expect(detail?.files.map((f) => f.path)).toEqual(['side.txt']);
+      await merged.cleanup();
+    });
+
+    it('answers null for a sha this repository does not have', async () => {
+      // A linkified reference in a commit message may name a commit that was
+      // never pushed here, or that a rebase orphaned.
+      expect(await readCommitDetail(repo.path, 'a'.repeat(40))).toBeNull();
+    });
+  });
+
+  describe('revParse', () => {
+    it('resolves an abbreviated sha to its full form', async () => {
+      expect(await revParse(repo.path, second.slice(0, 8))).toBe(second);
+    });
+
+    it('resolves a full sha to itself', async () => {
+      expect(await revParse(repo.path, second)).toBe(second);
+    });
+
+    it('peels an annotated tag to the commit it points at', async () => {
+      // An annotated tag is its own object, so without `^{commit}` this resolves
+      // to a sha `git show` describes as a tag rather than as a commit.
+      const tagSha = (await repo.git(['rev-parse', 'v1.0.0'])).trim();
+      expect(tagSha).not.toBe(second);
+      expect(await revParse(repo.path, tagSha)).toBe(second);
+    });
+
+    it('answers null for a revision that names nothing', async () => {
+      expect(await revParse(repo.path, 'a'.repeat(40))).toBeNull();
+      expect(await revParse(repo.path, 'beef')).toBeNull();
     });
   });
 });

@@ -18,6 +18,9 @@ export type NavMode = 'auto' | 'expanded' | 'collapsed';
 /** Which edge of the terminal pane the session list docks to. */
 export type TerminalSidebarSide = 'left' | 'right';
 
+/** How the commit inspector lists a commit's files. */
+export type CommitFileView = 'tree' | 'list';
+
 /** The main content views the rail switches between. */
 export type ViewId = 'files' | 'graph' | 'changes' | 'settings';
 
@@ -43,6 +46,14 @@ export type LayoutSizes = {
   changesListWidth: number;
   /** The Folder view's tree pane, left of the preview. */
   filesTreeWidth: number;
+  /**
+   * The commit inspector's file list, above its diff.
+   *
+   * A drag rather than the fixed 40% it used to be: a four-file commit wastes
+   * the space and a forty-file one cannot use it, and which of the two panes you
+   * want tall depends entirely on whether you are picking a file or reading one.
+   */
+  commitFilesHeight: number;
 };
 
 /** Widths of the graph table's fixed-width columns. */
@@ -79,6 +90,7 @@ export const DEFAULT_LAYOUT: LayoutSizes = {
   detailWidth: 384,
   changesListWidth: 384,
   filesTreeWidth: 320,
+  commitFilesHeight: 200,
 };
 
 export const DEFAULT_GRAPH_COLUMNS: GraphColumns = {
@@ -99,6 +111,11 @@ export const LAYOUT_BOUNDS = {
   detailWidth: { min: 280, max: 720 },
   changesListWidth: { min: 240, max: 720 },
   filesTreeWidth: { min: 200, max: 640 },
+  // Absolute pixels, like its neighbours — but the inspector additionally caps
+  // the rendered height at a share of the pane, because these bounds cannot know
+  // how tall the window is and a 720px file list in a short one would leave the
+  // message above and the diff below with no room at all.
+  commitFilesHeight: { min: 80, max: 720 },
 } as const;
 
 export const GRAPH_COLUMN_BOUNDS = {
@@ -155,6 +172,14 @@ export type UiState = {
    * "which line is this in HEAD".
    */
   diffShowOldGutter: boolean;
+  /**
+   * How the commit inspector lists a commit's files.
+   *
+   * A preference, not a per-commit choice: whichever of "where does this live"
+   * and "what actually moved" you are asking, you tend to keep asking it. So it
+   * persists, and it survives a repo switch.
+   */
+  commitFileView: CommitFileView;
 
   setActiveView: (view: ViewId) => void;
   setSettingsPage: (page: SettingsPageId) => void;
@@ -174,6 +199,7 @@ export type UiState = {
   setGraphRefFilter: (refs: string[]) => void;
   setGraphAuthorFilter: (emails: string[]) => void;
   toggleDiffOldGutter: () => void;
+  setCommitFileView: (view: CommitFileView) => void;
 };
 
 /**
@@ -189,6 +215,7 @@ type PersistedUi = Pick<
   | 'diffShowOldGutter'
   | 'graphTheme'
   | 'settingsPage'
+  | 'commitFileView'
 >;
 
 export const useUiStore = create<UiState>()(
@@ -211,6 +238,7 @@ export const useUiStore = create<UiState>()(
       graphRefFilter: [],
       graphAuthorFilter: [],
       diffShowOldGutter: false,
+      commitFileView: 'tree',
 
       setActiveView: (activeView) => set({ activeView }),
       setSettingsPage: (settingsPage) => set({ settingsPage }),
@@ -249,6 +277,7 @@ export const useUiStore = create<UiState>()(
       setGraphAuthorFilter: (graphAuthorFilter) => set({ graphAuthorFilter }),
       toggleDiffOldGutter: () =>
         set((state) => ({ diffShowOldGutter: !state.diffShowOldGutter })),
+      setCommitFileView: (commitFileView) => set({ commitFileView }),
     }),
     {
       name: 'midnite-git.ui',
@@ -279,6 +308,7 @@ export const useUiStore = create<UiState>()(
         diffShowOldGutter: state.diffShowOldGutter,
         graphTheme: state.graphTheme,
         settingsPage: state.settingsPage,
+        commitFileView: state.commitFileView,
         terminalOpen: state.terminalOpen,
         terminalMaximized: state.terminalMaximized,
         terminalSidebarSide: state.terminalSidebarSide,

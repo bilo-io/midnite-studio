@@ -60,6 +60,15 @@ export type MidniteGitBridge = {
     reorder: (req: In<typeof S.RepoReorderRequest>) => void;
     /** Native directory picker. Resolves to null when the user cancels. */
     pickDirectory: () => Promise<string | null>;
+    /**
+     * Resolve an abbreviated hex revision to its full commit sha.
+     *
+     * Resolves `{sha: null}` for a revision this repo does not have — a commit
+     * message can reference one that was never pushed, or that a rebase
+     * orphaned — so the caller can say so instead of selecting a sha that will
+     * never load.
+     */
+    revParse: (req: In<typeof S.RevParseRequest>) => Promise<z.infer<typeof S.RevParseResponse>>;
   };
 
   log: {
@@ -75,9 +84,13 @@ export type MidniteGitBridge = {
 
   status: {
     get: (req: In<typeof S.StatusGetRequest>) => Promise<StatusResult>;
+    /**
+     * One commit in full. Resolves `null` when the sha names no commit here —
+     * which a linkified reference from a commit message legitimately can.
+     */
     commitDetail: (
       req: In<typeof S.CommitDetailRequest>,
-    ) => Promise<z.infer<typeof S.CommitDetailResponse>>;
+    ) => Promise<z.infer<typeof S.CommitDetailResponse> | null>;
     fileDiff: (req: In<typeof S.FileDiffRequest>) => Promise<z.infer<typeof S.FileDiffResponse>>;
     /**
      * A file's diff within a commit. Same response shape as `fileDiff` — one
@@ -111,6 +124,22 @@ export type MidniteGitBridge = {
     openExternal: (
       req: In<typeof S.OpenExternalRequest>,
     ) => Promise<z.infer<typeof S.OpenExternalResponse>>;
+  };
+
+  /**
+   * The system clipboard, write-only.
+   *
+   * Read is deliberately absent: nothing in the app pastes, and exposing
+   * `readText` would let renderer code observe whatever the user last copied
+   * anywhere on their machine.
+   *
+   * Routed through main rather than `navigator.clipboard` because the packaged
+   * app is a `file://` origin — see CHANNELS.clipboardWriteText.
+   */
+  clipboard: {
+    writeText: (
+      req: In<typeof S.ClipboardWriteTextRequest>,
+    ) => Promise<z.infer<typeof S.ClipboardWriteTextResponse>>;
   };
 
   /** Mutating operations. None of these reject — they resolve to a GitOpResult. */

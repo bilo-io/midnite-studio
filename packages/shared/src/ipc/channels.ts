@@ -20,6 +20,17 @@ export const CHANNELS = {
   repoWorktreeRemove: 'mgit:repo:worktree-remove',
   /** User-defined sidebar order; re-persisted to `repos.json`. */
   repoReorder: 'mgit:repo:reorder',
+  /**
+   * Resolve an abbreviated revision to its full 40-char commit sha.
+   *
+   * Its own channel rather than a flag on `commitDetail` because the caller
+   * needs the answer *before* it decides what to select: a linkified `deadbee`
+   * in a commit message has to become the selection, and a selection that is
+   * not a full sha cannot match a graph row. `commitDetail` would hand back the
+   * resolved sha too, but only after fetching a whole commit's worth of data
+   * for a reference that might not resolve at all.
+   */
+  repoRevParse: 'mgit:repo:rev-parse',
 
   // --- log stream ----------------------------------------------------------
   logStart: 'mgit:log:start',
@@ -42,6 +53,16 @@ export const CHANNELS = {
    * schema's refine and the main handler's re-check.
    */
   shellOpenExternal: 'mgit:shell:open-external',
+  /**
+   * Put text on the system clipboard.
+   *
+   * Goes through main rather than `navigator.clipboard`: the packaged app loads
+   * the renderer from `file://`, which is not guaranteed to be a secure context,
+   * and the Async Clipboard API is gated on one. A copy button that works in
+   * `moon run desktop:start` and silently fails in the shipped dmg is the worst
+   * shape this could take.
+   */
+  clipboardWriteText: 'mgit:clipboard:write-text',
 
   // --- mutating operations -------------------------------------------------
   opCheckout: 'mgit:op:checkout',

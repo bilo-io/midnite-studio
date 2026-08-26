@@ -37,8 +37,10 @@
   "devDependencies": {
     "@playwright/test": "^1.62.1",
     "@testing-library/react": "^16.1.0",
+    "@types/hast": "^3.0.5",
     "@types/react": "^19.0.0",
     "@types/react-dom": "^19.0.0",
+    "@types/unist": "^3.0.3",
     "@vitejs/plugin-react": "^4.3.4",
     "autoprefixer": "^10.4.20",
     "jsdom": "^25.0.1",

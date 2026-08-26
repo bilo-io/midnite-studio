@@ -73,10 +73,18 @@ test('markdown renders, and the toggle reveals the source', async ({ page }) => 
   await expect(page.getByText('git client', { exact: true })).toBeVisible();
   await expect(page.getByText('**git client**')).toHaveCount(0);
 
-  // Links render as styled text, never as a real anchor — a navigation here
-  // would take the whole window to the URL (shell:open-external is Phase 12 E).
-  await expect(page.getByText('the site')).toBeVisible();
-  await expect(page.getByRole('link', { name: 'the site' })).toHaveCount(0);
+  // Links are live now that Phase 12 E has landed, and route through the
+  // guarded `shell:open-external` channel rather than navigating this window —
+  // which, in a `file://` SPA with no browser chrome, would be one-way.
+  const link = page.getByRole('link', { name: 'the site' });
+  await expect(link).toBeVisible();
+  await link.click();
+  await expect(page.getByRole('button', { name: 'Source' })).toBeVisible();
+  expect(
+    await page.evaluate(
+      () => (window as never as { __mgitExternalUrls: string[] }).__mgitExternalUrls,
+    ),
+  ).toHaveLength(1);
 
   await page.getByRole('button', { name: 'Source' }).click();
   await expect(page.getByText(/\*\*git client\*\*/)).toBeVisible();
