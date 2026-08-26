@@ -237,7 +237,7 @@ shell — and is left open.*
 - [ ] Unit tests over fixture repo shapes: a plain npm package, a pnpm workspace, this moon repo,
       and a repo with no tests at all (which must render an empty state, not a broken tree)
 
-### G — Tests: execution and parsed results (M) — ⛔ blocked on Phase 18 Theme E
+### G — Tests: execution and parsed results (M) — unblocked, Phase 18 Theme E has landed
 
 - [ ] **Do not start this theme until [Phase 18](phase-18-footer-monitor-diagnostics.md) Theme E
       has landed.** Executing a repository's own test runner is the same arbitrary-code-execution
