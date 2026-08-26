@@ -27,6 +27,7 @@ import { DialogHost } from './components/dialog-host';
 import { ResizeHandle } from './components/resizable/resize-handle';
 import { useResizable } from './components/resizable/use-resizable';
 import { ThemeToggle } from './components/theme-toggle';
+import { DashboardView } from './features/dashboard/dashboard-view';
 import { FilesView } from './features/files/files-view';
 import { GraphView } from './features/graph/graph-view';
 import { ReposPanel } from './features/repos/repos-panel';
@@ -493,7 +494,9 @@ function Shell() {
               terminalOpen && terminalMaximized ? 'hidden' : ''
             }`}
           >
-            {activeView === 'files' ? (
+            {activeView === 'dashboard' ? (
+              <DashboardView />
+            ) : activeView === 'files' ? (
               <FilesView />
             ) : activeView === 'graph' ? (
               <GraphView />

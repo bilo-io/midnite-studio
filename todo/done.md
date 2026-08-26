@@ -2,6 +2,60 @@
 
 <!-- Append one entry per landed phase/PR: date, phase, PR link, one-line summary. -->
 
+## 2026-08-26 — Phase 19 · Theme D — The dashboard becomes a board
+
+Landed on `feature/phase-19-dashboard` (squash-merged — this repository still has no remote, so
+there is no PR link). The Dashboard rail item stops being a placeholder: it is a
+`react-grid-layout` board over one repository, following the sidebar selection, with seven
+widgets driven from a single registry.
+
+This branch originally carried its own `gh issue list` — pulled forward so the Issues widget
+would not have to wait for Theme C. C landed first, with a fuller version (run detail, logs,
+`gh workflow list`, and a `--hostname` fix), so that commit was dropped on rebase and the widget
+reads C's contract instead. Nothing of it survives here beyond the widget.
+
+### What landed
+
+- [x] `react-grid-layout` **v2** — not the v1 the phase doc was written against. `cols`/`rowHeight`
+      moved into `gridConfig`, `draggableHandle` into `dragConfig`, and `WidthProvider` was
+      replaced by a `useContainerWidth` hook that observes the CONTAINER rather than the window —
+      which is precisely the responsive-container pattern the doc asked for, so it is used
+      instead of the hand-rolled `ResizeObserver` wrapper that was written first and deleted
+- [x] Its stylesheet retinted for theme tokens: the drop placeholder (shipped as `red` at 20%)
+      and the resize handle (a base64 PNG of a grey corner), plus a reduced-motion opt-out
+- [x] A widget registry — id, title, min size, and the **data source** each widget needs. One
+      table serves rendering, the Add-widget menu and the availability gate
+- [x] Per-repo layout, author filter and window in a new `dashboard-store.ts` on its own persist key
+- [x] Per-tile ⋮ (Move up / Move down / Remove) and a board menu (add/remove, Reset layout).
+      **Drag is not the only way to reorder**, and every tile is a `<section>` with an `<h3>`
+- [x] Commit calendar, contributors, activity feed, open PRs, open issues, latest runs, repo health
+- [x] The author filter is scoped **once**, in the view, and handed down — so the calendar, the
+      feed and the contributor table cannot disagree about who is included
+- [x] Widgets whose data source the repo lacks leave the board **and the picker**; a stale id in a
+      persisted layout is skipped rather than crashing
+- [x] `withChurn` is derived from the board, so a board with no widget that can show insertions
+      never pays for `--numstat`
+- [x] `MetricDial` and `RadialGauge` given their first callers — the two health figures that are a
+      bounded fraction of a known total; the unbounded ones stay flat stat tiles
+- [x] `docs/screenshots/phase-19-dashboard/*.png` — light, dark, author-filtered, widget picker
+
+### Two bugs this found, and one thing worth remembering
+
+- **A layout report must not delete what it did not mention.** The board renders only the widgets
+  a repo can populate, and `hasForge` is false while the remotes query is in flight — so the
+  grid's first `onLayoutChange` reports the stats widgets alone. `setLayout` replaced the stored
+  layout wholesale and permanently deleted the three forge tiles a frame before the remotes
+  arrived. It merges now. Found reviewing the diff; the regression test came second.
+- **A disabled issue tracker is an answer, not an error.** `gh issue list` exits non-zero both for
+  a switched-off tracker and for a bad credential. `issuesDisabled` keeps them apart, so a repo
+  that tracks its work in Jira does not get a red failure card.
+- **The heatmap ramp cannot be a theme token.** `--primary` is a near-black here (the same thing
+  Theme A recorded about the sidebar toggle), and five alphas of a near-neutral give five greys.
+  For a widget whose entire content is intensity that is not a styling preference — it is the loss
+  of the only thing it says. The four steps are a data hue in `styles.css`, mirrored for dark,
+  following the rule `metric-palette.ts` and `lane-colors.ts` already state.
+
+Gate green: typecheck, lint, 1,190 unit tests, Playwright 170 passed / 8 skipped (rebased onto Theme C).
 ## 2026-08-26 — Phase 19 · Theme C — Forge: issues, run detail and logs
 
 Landed on `feature/phase-19-forge` (squash-merged — this repository still has no remote, so

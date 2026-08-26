@@ -151,43 +151,43 @@ shell — and is left open.*
 - [x] Unit tests: issue-list parsing including empty and issues-disabled output, run-detail parsing
       with a skipped job and an in-progress step, and log truncation at the boundary
 
-### D — The dashboard: grid and widgets (L)
+### D — The dashboard: grid and widgets (L) — ✅ DONE (2026-08-26)
 
-- [ ] `react-grid-layout` added to `packages/app` only, with its CSS imported into
+- [x] `react-grid-layout` added to `packages/app` only, with its CSS imported into
       [`styles.css`](../packages/app/src/styles.css) and **overridden for theme tokens** — the
       shipped stylesheet hard-codes light-mode placeholder and handle colours that read as bugs in
       dark mode
-- [ ] A width-observer wrapper (`ResizeObserver` around the grid container). There is no responsive
+- [x] A width-observer wrapper (`ResizeObserver` around the grid container). There is no responsive
       container pattern in the app yet, and `WidthProvider` re-measures on window resize only,
       which misses the sidebar and terminal resizes this app does constantly
-- [ ] A **widget registry** — each widget declares `id`, `title`, default `w`/`h`, `minW`/`minH`
+- [x] A **widget registry** — each widget declares `id`, `title`, default `w`/`h`, `minW`/`minH`
       and its data dependency (`stats` | `forge` | `both`), so the board can render, list and gate
       widgets from one table rather than a switch statement
-- [ ] Layout persisted **per repository** in `ui-store` under the existing
+- [x] Layout persisted **per repository** in `ui-store` under the existing
       `midnite-git.ui` key, with a shared default applied to any repo not yet customised, plus
       **Reset layout** and an add/remove-widget menu
-- [ ] Widgets whose data source is unavailable **remove themselves from the picker** rather than
+- [x] Widgets whose data source is unavailable **remove themselves from the picker** rather than
       rendering an error tile — no GitHub remote means no PRs, issues or runs widget at all
-- [ ] **Commit calendar** — a GitHub-style day-cell heatmap over the selected window, cells scaled
+- [x] **Commit calendar** — a GitHub-style day-cell heatmap over the selected window, cells scaled
       by count, hovering a day showing its commits, clicking a day filtering the activity feed
-- [ ] **Contributor leaderboard** — commits, insertions, deletions and last-seen per author, with
+- [x] **Contributor leaderboard** — commits, insertions, deletions and last-seen per author, with
       gravatar identicons reusing the Phase 14 avatar helper
-- [ ] An **author filter that is board-wide**, not per-widget: selecting a contributor scopes the
+- [x] An **author filter that is board-wide**, not per-widget: selecting a contributor scopes the
       calendar, the activity feed and the churn tile together. A dashboard where each tile filters
       separately is seven dashboards
-- [ ] **Recent activity** — a merged feed of commits, and (where a GitHub remote exists) run and PR
+- [x] **Recent activity** — a merged feed of commits, and (where a GitHub remote exists) run and PR
       events, newest first, each row clickable through to the graph, the Actions view or the browser
-- [ ] **Open pull requests** and **Open issues** tiles over the Theme C data, with state, author,
+- [x] **Open pull requests** and **Open issues** tiles over the Theme C data, with state, author,
       labels and age; both link out
-- [ ] **Latest workflow runs** tile grouped by workflow file, each row a status dot, branch, actor
+- [x] **Latest workflow runs** tile grouped by workflow file, each row a status dot, branch, actor
       and duration, clicking through to the Actions view's run detail
-- [ ] **Repo health** tiles — repo size, stale branches, hot files by churn, ref counts. These are
+- [x] **Repo health** tiles — repo size, stale branches, hot files by churn, ref counts. These are
       the natural home for `@bilo-io/ui`'s installed-but-unused `MetricDial` and `RadialGauge`; use
       them where a single bounded number is the whole message, and hand-roll only where they do not
       fit
-- [ ] Every widget renders a **skeleton, an empty state and a failed state**. A repo cloned five
+- [x] Every widget renders a **skeleton, an empty state and a failed state**. A repo cloned five
       minutes ago has no year of history and must not look broken
-- [ ] The board is **keyboard- and screen-reader-survivable**: drag is not the only way to reorder
+- [x] The board is **keyboard- and screen-reader-survivable**: drag is not the only way to reorder
       (the widget menu can move a tile), and every tile is a landmark with a heading
 
 ### E — The Actions view (M)
