@@ -2,6 +2,11 @@ import { describe, expect, it } from 'vitest';
 
 import { DiagnosticsTrustStateSchema, commandFingerprint } from '../domain/diagnostics';
 import {
+  CalendarDaySchema,
+  ContributorStatSchema,
+  STATS_WINDOW_DAYS,
+} from '../domain/stats';
+import {
   METRICS_ACTIVE_INTERVAL_MS,
   METRICS_IDLE_INTERVAL_MS,
   metricsPresent,
@@ -340,6 +345,96 @@ describe('metrics schemas', () => {
     for (const names of Object.values(expected)) {
       for (const name of names) expect(schemas).toHaveProperty(name);
     }
+  });
+});
+
+describe('stats schemas', () => {
+  it('defaults to the 90-day window and to churn off', () => {
+    // Churn off by default is the load-bearing half: `--numstat` makes git diff
+    // every commit rather than read commit objects, so a caller that forgets to
+    // ask should get the cheap traversal, not the expensive one.
+    const parsed = schemas.StatsSummaryRequest.parse({ repoId: 'r' });
+    expect(parsed.window).toBe('90d');
+    expect(parsed.withChurn).toBe(false);
+  });
+
+  it('takes a repoId only — never a path', () => {
+    // The forge-handlers rule: main resolves the checkout itself, so the
+    // renderer cannot point a history traversal at an arbitrary directory.
+    expect(Object.keys(schemas.StatsSummaryRequest.shape)).toEqual([
+      'repoId',
+      'window',
+      'withChurn',
+    ]);
+  });
+
+  it('rejects an empty repoId and an unknown window', () => {
+    expect(() => schemas.StatsSummaryRequest.parse({ repoId: '' })).toThrow();
+    expect(() => schemas.StatsSummaryRequest.parse({ repoId: 'r', window: '5y' })).toThrow();
+  });
+
+  it('accepts every window the domain offers', () => {
+    for (const window of Object.keys(STATS_WINDOW_DAYS)) {
+      expect(() => schemas.StatsSummaryRequest.parse({ repoId: 'r', window })).not.toThrow();
+    }
+  });
+
+  it('keeps "churn not requested" distinct from "no files changed"', () => {
+    // Null, not an empty table — the widget renders the two differently.
+    const base = {
+      repoId: 'r',
+      window: '90d',
+      generatedAt: 1,
+      truncated: false,
+      commitsScanned: 0,
+      calendar: [],
+      contributors: [],
+      activity: [],
+      health: {
+        localBranches: 0,
+        remoteBranches: 0,
+        tags: 0,
+        staleByAge: 0,
+        mergedBranches: 0,
+        oldestUnmergedAt: null,
+        sizeBytes: null,
+        looseObjects: null,
+      },
+    };
+    expect(schemas.StatsSummaryResponse.parse({ ...base, churn: null }).churn).toBeNull();
+    expect(
+      schemas.StatsSummaryResponse.parse({ ...base, churn: { files: [], withheld: 0 } }).churn,
+    ).toEqual({ files: [], withheld: 0 });
+  });
+
+  it('requires a calendar date to be an actual YYYY-MM-DD', () => {
+    // The heatmap keys cells on this string; a stray ISO timestamp would draw
+    // a cell nobody can look up.
+    expect(() => CalendarDaySchema.parse({ date: '2024-3-5', count: 1 })).toThrow();
+    expect(() => CalendarDaySchema.parse({ date: '2024-03-05T00:00:00Z', count: 1 })).toThrow();
+    expect(CalendarDaySchema.parse({ date: '2024-03-05', count: 1 }).date).toBe('2024-03-05');
+  });
+
+  it('lets a contributor report null line counts', () => {
+    const parsed = ContributorStatSchema.parse({
+      email: 'a@b.com',
+      name: 'A',
+      commits: 1,
+      insertions: null,
+      deletions: null,
+      firstAt: 1,
+      lastAt: 2,
+    });
+    expect(parsed.insertions).toBeNull();
+  });
+
+  it('covers the stats channel with a schema', () => {
+    const channelKeys = [...Object.keys(CHANNELS), ...Object.keys(EVENT_CHANNELS)].filter((key) =>
+      key.startsWith('stats'),
+    );
+    expect(channelKeys).toEqual(['statsSummary']);
+    expect(schemas).toHaveProperty('StatsSummaryRequest');
+    expect(schemas).toHaveProperty('StatsSummaryResponse');
   });
 });
 

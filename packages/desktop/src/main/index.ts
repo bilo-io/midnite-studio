@@ -13,6 +13,7 @@ import { registerRefHandlers } from './ipc/ref-handlers';
 import { registerClipboardHandlers } from './ipc/clipboard-handlers';
 import { registerRemoteHandlers } from './ipc/remote-handlers';
 import { registerRepoHandlers } from './ipc/repo-handlers';
+import { registerStatsHandlers } from './ipc/stats-handlers';
 import { registerStatusHandlers } from './ipc/status-handlers';
 import { installMenu } from './menu';
 import { killAllPtys } from './pty-service';
@@ -97,6 +98,7 @@ if (!app.requestSingleInstanceLock()) {
     registerWindowChrome(getWindow);
     registerRepoHandlers(getWindow);
     registerStatusHandlers();
+    registerStatsHandlers();
     registerRefHandlers();
     registerRemoteHandlers();
     registerClipboardHandlers();

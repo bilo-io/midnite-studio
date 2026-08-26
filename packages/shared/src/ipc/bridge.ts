@@ -7,6 +7,7 @@ import type {
   Ref,
   Remote,
   RepoDescriptor,
+  RepoStats,
   StatusResult,
   WatchEvent,
   Worktree,
@@ -284,6 +285,18 @@ export type MidniteGitBridge = {
     detect: (req: In<typeof S.DiagDetectRequest>) => Promise<z.infer<typeof S.DiagDetectResponse>>;
     /** Spawn and parse. Manual only — nothing in the app calls this on a file change. */
     run: (req: In<typeof S.DiagRunRequest>) => Promise<z.infer<typeof S.DiagRunResponse>>;
+  };
+
+  /**
+   * Everything the dashboard draws, in one payload.
+   *
+   * A single method rather than one per widget: the figures are seven foldings
+   * of a single history traversal, and splitting them would mean each widget
+   * walking the same log independently. `withChurn` is the one knob, because
+   * `--numstat` costs far more than the rest put together.
+   */
+  stats: {
+    summary: (req: In<typeof S.StatsSummaryRequest>) => Promise<RepoStats>;
   };
 
   watch: {

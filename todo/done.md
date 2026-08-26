@@ -2,6 +2,78 @@
 
 <!-- Append one entry per landed phase/PR: date, phase, PR link, one-line summary. -->
 
+## 2026-08-26 — Phase 19 · Theme B — Repository statistics from one history traversal
+
+Landed on `feature/phase-19-stats` (squash-merged — this repository still has no remote, so there
+is no PR link). The dashboard Theme D will build needs seven numbers about a repository's history;
+this is the layer that produces all of them from **one** `git log --all` pass. On any real
+repository the traversal is the entire cost and the arithmetic afterwards is free, so seven
+widgets each shelling out would have been seven times slower for exactly the same information.
+
+**The traversal.** `commit-history.ts` walks `--all` (a contributor table that omits everyone
+whose work sits on a branch is simply wrong) with `--use-mailmap` always on — the flag has shipped
+since git 1.8.2 and dugite bundles the binary, so the "if available" hedge in the plan was
+guarding against a git we do not ship. Records are framed by a **sentinel**, not `-z`: with
+`--numstat` git interleaves plain file lines between commit records, and `-z` removes the very
+newlines that would distinguish a header from a file line. It asks for one commit more than the
+cap so "exactly at the cap" and "there is more" stay distinguishable.
+
+**Churn is opt-in**, and that turned out to be the most consequential decision in the slice.
+`--numstat` makes git diff every commit against its parent rather than just read commit objects,
+which on a large repository dominates everything else put together. A board with no churn widget
+on it now pays nothing for one.
+
+Three aggregators, each with a trap the obvious implementation falls into:
+
+- **The calendar buckets in the reader's local timezone.** `%at` is a UTC epoch and a heatmap cell
+  is *a day in the life of the person looking at it*. A commit made at 00:30 on the 6th in Berlin
+  is 23:30 on the 5th in UTC — bucket it as UTC and the square lights up on a day that person had
+  not started yet. The error is small, systematic, and lands precisely on the late-night commits
+  people remember making. The zone is an **explicit parameter** rather than an ambient read, which
+  is what makes it testable: mutating `process.env.TZ` mid-run is unreliable because V8 caches the
+  resolved zone, and it cannot express "these two zones disagree about this instant", which is the
+  only assertion worth making. Bucketing happens first and gap-filling second, so the
+  daylight-saving case is correct for free — once a commit is a `YYYY-MM-DD` string, a 23-hour day
+  is not a thing that can be miscounted.
+- **Contributors aggregate by email and display the most recent name.** Keying on the display name
+  is the obvious implementation and it splits one person into three entries that each look like a
+  stranger, none of whom did enough work to appear near the top. Showing the *first* name seen is
+  the other half of the trap: the table goes stale the moment anybody updates their git config.
+- **Churn ranks by commits that touched a file, not by lines changed.** A lockfile rewritten once
+  inside a 90,000-line diff tops any line-based ranking while telling you nothing; the file thirty
+  commits have had to touch is where the work actually is. Binary files stay `null` rather than
+  flattening to 0 — `-`/`-` means "not expressible in lines", and summing it as zero would drop a
+  40MB asset from the table while claiming it never moved.
+
+**Health counts stale-by-age and already-merged separately**, because they answer different
+questions — "nobody has touched this in three months" and "this is already in the default branch,
+so deleting it loses nothing" — and a branch can be either, both or neither. Collapsing them would
+bury the actionable case inside the merely quiet one. "Merged into" resolves against `HEAD` rather
+than guessing at `main`/`master`, and the current branch is excluded so every repository does not
+report at least one deletable branch.
+
+**The cache is keyed on a digest of every ref tip, not on HEAD.** The traversal is `--all`, so a
+`git fetch` that moves `origin/main` changes the contributor table while HEAD stands perfectly
+still — and a HEAD-keyed cache would serve the pre-fetch answer indefinitely. That failure is
+invisible: the numbers look entirely plausible, they are just from before. A TTL sits alongside
+the digest for the two things refs cannot see, a `git gc` changing the size figure and the passage
+of time turning a fresh branch stale. Clock and ref-reader are injected, so the whole module stays
+`electron`-free and runs under bare vitest.
+
+`mgit:stats:summary` takes a **`repoId` only**, never a path — main resolves the checkout through
+`resolveWorkdir`, the same rule `forge-handlers.ts` and the diagnostics channels follow. The row
+cap and the timing budget surface as `truncated` in the envelope rather than quietly shortening a
+year, so every widget can say "showing the last N" instead of presenting a fragment as the whole.
+
+One naming collision worth recording: `commands/log.ts` already exported a `parseNumstat`, for the
+`-z` form. This one is line-oriented and keeps binary counts as null, so it is
+`parseNumstatLines` — two parsers for one flag, because they genuinely read different output.
+
+Verification: `moon run :typecheck :lint :test` green (15 tasks). 70 new git-engine tests over the
+parsers and aggregators — including the timezone bucketing in three zones, rename paths in both
+git spellings, binary `-`/`-` rows, and the cache's ref-digest and LRU behaviour — plus 8 new
+shared schema tests. No screenshots: Theme B is engine-only and renders nothing.
+
 ## 2026-08-26 — Phase 18 · Theme E — The diagnostics trust boundary, detector registry and runner
 
 Landed on `feature/phase-18-diagnostics` (squash-merged — this repository still has no remote,

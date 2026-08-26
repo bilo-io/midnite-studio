@@ -77,36 +77,36 @@ Effort tags: **S** ≈ an hour or two · **M** ≈ half a day · **L** ≈ a day
 - [ ] Switching views **preserves the selected repo and worktree**. The rail changes what you are
       looking at, never what you are looking at it for
 
-### B — Repository statistics in git-engine (L)
+### B — Repository statistics in git-engine (L) — ✅ DONE (2026-08-26)
 
-- [ ] New `git-engine/src/stats/commit-history.ts` — one
+- [x] New `git-engine/src/stats/commit-history.ts` — one
       `git log --all --since=<window> -z --pretty=%H%x00%at%x00%aN%x00%aE%x00%s` pass feeding every
       history-derived widget. **One traversal, many aggregations**: the calendar, the contributor
       table and the activity feed must not each shell out
-- [ ] `stats/calendar.ts` — day-bucketed counts in the **user's local timezone**, not UTC. Git's
+- [x] `stats/calendar.ts` — day-bucketed counts in the **user's local timezone**, not UTC. Git's
       `%at` is a UTC epoch and bucketing it as UTC silently shifts late-evening commits into the
       next day, which is exactly the cell a heatmap draws
-- [ ] `stats/contributors.ts` — aggregate by **email, display by most-recent name**. Identities
+- [x] `stats/contributors.ts` — aggregate by **email, display by most-recent name**. Identities
       change names; a leaderboard keyed on name splits one person into three. Optional
       `.mailmap` support if `git log --use-mailmap` is available, degrading silently if not
-- [ ] `stats/churn.ts` — hot files and per-author insert/delete totals from `--numstat`. Merge
+- [x] `stats/churn.ts` — hot files and per-author insert/delete totals from `--numstat`. Merge
       commits are skipped (`--no-merges`) or every merge double-counts its whole branch
-- [ ] `stats/health.ts` — stale-branch count from `for-each-ref --sort=committerdate`, repo size
+- [x] `stats/health.ts` — stale-branch count from `for-each-ref --sort=committerdate`, repo size
       from `count-objects -vH`, ref counts, and the age of the oldest un-merged branch
-- [ ] A **hard row cap and a timing budget** on the history pass. A repo with 200k commits must
+- [x] A **hard row cap and a timing budget** on the history pass. A repo with 200k commits must
       degrade to "showing the last N" rather than blocking the write queue or the renderer
-- [ ] Results are **cached in main, keyed by `(repoId, HEAD sha, window)`** and invalidated through
+- [x] Results are **cached in main, keyed by `(repoId, HEAD sha, window)`** and invalidated through
       the existing Phase 10 watcher invalidation map. Recomputing a year of history on every
       sidebar click is not acceptable
-- [ ] New `shared/src/domain/stats.ts` — `CalendarDay`, `ContributorStat`, `ActivityEntry`,
+- [x] New `shared/src/domain/stats.ts` — `CalendarDay`, `ContributorStat`, `ActivityEntry`,
       `RepoHealth`, and a `RepoStats` envelope. Every field zod-schema'd like the rest of the
       contract
-- [ ] New `mgit:stats:summary` channel taking `{ repoId, window }`, returning the envelope.
+- [x] New `mgit:stats:summary` channel taking `{ repoId, window }`, returning the envelope.
       A single fetch, not seven — the widgets slice one payload
-- [ ] Unit tests over fixture `git log` output: the timezone bucketing, the mailmap/email
+- [x] Unit tests over fixture `git log` output: the timezone bucketing, the mailmap/email
       aggregation, `--numstat` parsing with renames and binary files (`-`/`-` counts), and the
       empty-repo case
-- [ ] The whole module imports **nothing from electron** and is exercised under bare vitest
+- [x] The whole module imports **nothing from electron** and is exercised under bare vitest
 
 ### C — Forge: issues, run detail and logs (L)
 
