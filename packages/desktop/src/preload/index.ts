@@ -89,6 +89,7 @@ const bridge: Pick<
   | 'terminal'
   | 'agent'
   | 'fs'
+  | 'diag'
   | 'metrics'
   | 'watch'
   | 'window'
@@ -193,6 +194,16 @@ const bridge: Pick<
     start: (req) => ipcRenderer.send(CHANNELS.metricsStart, req),
     stop: () => ipcRenderer.send(CHANNELS.metricsStop),
     onSample: (handler) => subscribe(EVENT_CHANNELS.metricsSample, handler),
+  },
+  diag: {
+    // All `invoke`. Unlike `metrics`, every verb here has an answer the caller
+    // cannot proceed without: whether the grant still applies, what may be
+    // proposed, what the linter said.
+    trustStatus: (req) => call(CHANNELS.diagTrustStatus, req),
+    trust: (req) => call(CHANNELS.diagTrust, req),
+    untrust: (req) => call(CHANNELS.diagUntrust, req),
+    detect: (req) => call(CHANNELS.diagDetect, req),
+    run: (req) => call(CHANNELS.diagRun, req),
   },
   watch: {
     onEvent: (handler) => subscribe(EVENT_CHANNELS.watchEvent, handler),

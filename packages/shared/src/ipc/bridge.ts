@@ -255,6 +255,37 @@ export type MidniteGitBridge = {
     onSample: (handler: (sample: MetricSample) => void) => Unsubscribe;
   };
 
+  /**
+   * The selected repository's own opinion of itself, from its own linter.
+   *
+   * The only surface in this app that executes a binary belonging to the
+   * repository rather than to us, which is why it is the only one with a
+   * trust verb. `run` does nothing at all until `trust` has recorded a grant
+   * for the exact command it is about to spawn; an untrusted repo resolves to
+   * `{ok:false, reason:'untrusted'}` rather than prompting from main, because
+   * the prompt is a renderer concern and main must not be able to block on one.
+   *
+   * `detect` is safe to call unprompted — it reads the filesystem and executes
+   * nothing. `run` never is.
+   *
+   * Nothing here rejects: every failure is a reason code the footer renders.
+   */
+  diag: {
+    trustStatus: (
+      req: In<typeof S.DiagTrustStatusRequest>,
+    ) => Promise<z.infer<typeof S.DiagTrustStatusResponse>>;
+    /** Approve the exact command the user was shown. */
+    trust: (req: In<typeof S.DiagTrustRequest>) => Promise<z.infer<typeof S.DiagTrustResponse>>;
+    /** Revoke the grant. The configured command is kept, so re-enabling is one click. */
+    untrust: (
+      req: In<typeof S.DiagUntrustRequest>,
+    ) => Promise<z.infer<typeof S.DiagUntrustResponse>>;
+    /** What could be run here. Ranked; empty for a repo with no recognised tooling. */
+    detect: (req: In<typeof S.DiagDetectRequest>) => Promise<z.infer<typeof S.DiagDetectResponse>>;
+    /** Spawn and parse. Manual only — nothing in the app calls this on a file change. */
+    run: (req: In<typeof S.DiagRunRequest>) => Promise<z.infer<typeof S.DiagRunResponse>>;
+  };
+
   watch: {
     onEvent: (handler: (e: WatchEvent) => void) => Unsubscribe;
   };

@@ -142,31 +142,31 @@ Screenshots: [`docs/screenshots/phase-18/`](../docs/screenshots/phase-18/).
 - [x] Animation via the existing `animate-fade-in` Tailwind keyframes, gated on `html[data-motion]`.
       There is no `motion`/`framer-motion` in this repo and this phase does not add one
 
-### E — Diagnostics: the trust boundary and the runner (L)
+### E — Diagnostics: the trust boundary and the runner (L) ✅ DONE (2026-08-26)
 
-- [ ] A docblock at the top of `desktop/src/main/diagnostics/` **stating the policy** this phase
+- [x] A docblock at the top of `desktop/src/main/diagnostics/` **stating the policy** this phase
       establishes: repo-local binaries execute only for repositories the user has explicitly
       trusted, and the prompt names the command. The fs jail's counterpart rule is written down in
       `channels.ts`; this one deserves the same treatment rather than living in a commit message
-- [ ] `desktop/src/main/diagnostics/trust-store.ts` — trusted repoIds in `trust.json`, keyed by
+- [x] `desktop/src/main/diagnostics/trust-store.ts` — trusted repoIds in `trust.json`, keyed by
       repoId like `repos.json`, with the userData dir **injected** so the module carries no
       `electron` import, plus a paired `.test.ts`
-- [ ] A per-repo diagnostics command and parser choice in the same store. **First per-repo
+- [x] A per-repo diagnostics command and parser choice in the same store. **First per-repo
       persisted config in the app** — every setting today is global
-- [ ] `desktop/src/main/diagnostics/runner.ts` — `execFile` with an **arg array, never a shell
+- [x] `desktop/src/main/diagnostics/runner.ts` — `execFile` with an **arg array, never a shell
       string** (unlike `gh-cli.ts`, which needs a login shell to find a Homebrew binary; a
       repo-local `node_modules/.bin` path needs no PATH resolution). Explicit timeout enforced by
       a `SIGKILL` timer, `NO_COLOR=1`, and `stdio: ['ignore', 'pipe', 'pipe']`
-- [ ] `cwd` comes from `resolveWorkdir(repoId)`, which validates any renderer-supplied worktree
+- [x] `cwd` comes from `resolveWorkdir(repoId)`, which validates any renderer-supplied worktree
       against the real `git worktree list`. The channel takes a **`repoId` only** — main does not
       take the renderer's word for arguments it is about to execute with
-- [ ] `desktop/src/main/diagnostics/parse-eslint.ts` — a **total** parser over
+- [x] `desktop/src/main/diagnostics/parse-eslint.ts` — a **total** parser over
       `eslint --format json`, dropping a row it cannot understand rather than guessing, like
       `gh-parse.ts`. Never throws
-- [ ] `mgit:diag:{trust-status,trust,untrust,detect,run}` + schemas + bridge group + preload +
+- [x] `mgit:diag:{trust-status,trust,untrust,detect,run}` + schemas + bridge group + preload +
       `ipc.test.ts`. Everything fails soft to a reason code: `untrusted`, `no-command`,
       `not-installed`, `timed-out`, `parse-failed`
-- [ ] Detection **proposes** a command from a discovered eslint config, and never invents one. A
+- [x] Detection **proposes** a command from a discovered eslint config, and never invents one. A
       repository with no linter offers nothing rather than failing loudly
 
 ### F — The footer segment and the settings page (L)

@@ -1,4 +1,8 @@
 import type {
+  DiagnosticsCandidate,
+  DiagnosticsCommand,
+  DiagnosticsRun,
+  DiagnosticsTrustStatus,
   ForgePullsResult,
   ForgeRunsResult,
   Ref,
@@ -80,6 +84,16 @@ export const keys = {
    * worktree event has anything to say about it.
    */
   commitDetail: (repoId: string, sha: string) => ['repos', repoId, 'commit', sha] as const,
+  /**
+   * Repo diagnostics. Under the repo so closing one drops them, and — like
+   * `forge` — deliberately NOT under `status`: the watcher fires on every
+   * keystroke-save, and re-linting on a file change is exactly what the trust
+   * policy forbids. These refresh only when a human asks.
+   */
+  diag: (repoId: string) => ['repos', repoId, 'diag'] as const,
+  diagTrust: (repoId: string) => ['repos', repoId, 'diag', 'trust'] as const,
+  diagDetect: (repoId: string) => ['repos', repoId, 'diag', 'detect'] as const,
+  diagRun: (repoId: string) => ['repos', repoId, 'diag', 'run'] as const,
 };
 
 /**
@@ -314,3 +328,151 @@ export function useRefreshForge(repoId: string | null) {
     void client.invalidateQueries({ queryKey: keys.forgeCli });
   };
 }
+
+// --- repo diagnostics (Phase 18) --------------------------------------------
+
+/**
+ * The renderer is where a diagnostics result lives.
+ *
+ * Main runs the linter and forgets it. Everything about that is deliberate:
+ * a cached count in main would need a staleness rule nobody has written, and
+ * persisting one would break `repo-store.ts`'s standing rule that only
+ * un-derivable state is written to disk. A lint result read from disk at boot
+ * describes a working tree that has since changed — worse than no answer,
+ * because the footer would state it with the same confidence as a fresh one.
+ *
+ * So: `staleTime: Infinity` and no automatic refetch anywhere. The result
+ * stands until a human asks for another, which is also what makes the trust
+ * grant mean something — one approval is not standing permission to re-run on
+ * every save.
+ */
+
+/** Whether this repo may run its linter, and whether the grant still applies. */
+export function useDiagTrust(repoId: string | null) {
+  return useQuery<DiagnosticsTrustStatus>({
+    queryKey: keys.diagTrust(repoId ?? ''),
+    queryFn: async () => {
+      const api = bridge();
+      if (!api || !repoId) return NO_DIAG_TRUST;
+      return api.diag.trustStatus({ repoId });
+    },
+    enabled: repoId !== null,
+    staleTime: Infinity,
+  });
+}
+
+/**
+ * What could be run here, ranked.
+ *
+ * Safe to fetch unprompted — detection reads the filesystem and executes
+ * nothing — but `enabled` still gates it on the caller actually needing the
+ * list, because nothing should stat a repo's `node_modules` to render a footer.
+ */
+export function useDiagCandidates(repoId: string | null, enabled: boolean) {
+  return useQuery<DiagnosticsCandidate[]>({
+    queryKey: keys.diagDetect(repoId ?? ''),
+    queryFn: async () => {
+      const api = bridge();
+      if (!api || !repoId) return [];
+      return (await api.diag.detect({ repoId })).candidates;
+    },
+    enabled: enabled && repoId !== null,
+    staleTime: Infinity,
+  });
+}
+
+/**
+ * The last result, for as long as the renderer is alive.
+ *
+ * `enabled: false` throughout: this query never fetches on its own. The cache
+ * entry is written by `useRunDiagnostics` below, so `data === undefined` means
+ * "not measured", which is the state the footer must render as *absent* rather
+ * than as a clean repo. A `staleTime` would not be enough on its own — a
+ * mounting component would still trigger a spawn.
+ */
+export function useDiagResult(repoId: string | null) {
+  return useQuery<DiagnosticsRun>({
+    queryKey: keys.diagRun(repoId ?? ''),
+    enabled: false,
+    staleTime: Infinity,
+    // Never called while `enabled` is false, and deliberately loud if that ever
+    // changes: the alternative — a queryFn that spawns, or one that fabricates
+    // a result — would either execute the repo's linter without anyone asking
+    // or turn "never measured" into a value, which is the one distinction the
+    // footer must not lose.
+    queryFn: () => {
+      throw new Error('diagnostics results are written by useRunDiagnostics, never fetched');
+    },
+  });
+}
+
+/** Approve one command. The caller must have shown the user its literal text. */
+export function useTrustDiagnostics(repoId: string | null) {
+  const client = useQueryClient();
+  return useMutation({
+    mutationFn: async (command: DiagnosticsCommand) => {
+      const api = bridge();
+      if (!api || !repoId) return NO_DIAG_TRUST;
+      return api.diag.trust({ repoId, command });
+    },
+    onSuccess: (status) => {
+      if (repoId) client.setQueryData(keys.diagTrust(repoId), status);
+    },
+  });
+}
+
+/** Revoke. The stale result goes with it — it describes a run no longer sanctioned. */
+export function useUntrustDiagnostics(repoId: string | null) {
+  const client = useQueryClient();
+  return useMutation({
+    mutationFn: async () => {
+      const api = bridge();
+      if (!api || !repoId) return NO_DIAG_TRUST;
+      return api.diag.untrust({ repoId });
+    },
+    onSuccess: (status) => {
+      if (!repoId) return;
+      client.setQueryData(keys.diagTrust(repoId), status);
+      client.removeQueries({ queryKey: keys.diagRun(repoId) });
+    },
+  });
+}
+
+/**
+ * Run the linter, on the user's say-so and never otherwise.
+ *
+ * A mutation rather than a query with a refetch, because that is what it is:
+ * it spawns a process. Modelling it as a query would invite `refetchOnMount`,
+ * `refetchOnWindowFocus` and every other well-meaning default to execute the
+ * repository's code without anyone asking.
+ */
+export function useRunDiagnostics(repoId: string | null) {
+  const client = useQueryClient();
+  return useMutation({
+    mutationFn: async () => {
+      const api = bridge();
+      if (!api || !repoId) return NO_DIAG_BRIDGE;
+      return api.diag.run({ repoId });
+    },
+    onSuccess: (result) => {
+      if (repoId) client.setQueryData(keys.diagRun(repoId), result);
+    },
+  });
+}
+
+/**
+ * The bridge-less answers, shaped like a repo with nothing configured.
+ *
+ * Under vitest/jsdom there is no preload, and the footer should render its
+ * resting state rather than an error — the same reason `EMPTY_RUNS` exists.
+ */
+const NO_DIAG_TRUST: DiagnosticsTrustStatus = {
+  state: 'no-command',
+  command: null,
+  trustedAt: null,
+};
+const NO_DIAG_BRIDGE: DiagnosticsRun = {
+  ok: false,
+  reason: 'no-command',
+  hint: 'Diagnostics are unavailable here.',
+};

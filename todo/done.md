@@ -2,6 +2,92 @@
 
 <!-- Append one entry per landed phase/PR: date, phase, PR link, one-line summary. -->
 
+## 2026-08-26 — Phase 18 · Theme E — The diagnostics trust boundary, detector registry and runner
+
+Landed on `feature/phase-18-diagnostics` (squash-merged — this repository still has no remote,
+so there is no PR link). This is the first place Midnite Git executes a binary that belongs to
+the **repository** rather than to us. Every other subprocess in the app is bundled git, a
+binary found on the PATH a login shell builds (`gh`, `claude`), or the user's own shell at
+their explicit request. `node_modules/.bin/eslint` is none of those: it arrives with the
+checkout, and opening a folder to read its history is not consent to run code out of it. So the
+policy is **written down**, in a docblock at the top of `main/diagnostics/index.ts`, the same
+treatment the fs jail gets in `channels.ts` — rather than left implicit in a commit message.
+
+**The seven rules.** Opt in per repository, never globally. The grant names the exact command.
+Main never takes the renderer's word for what to run. Detection proposes, never invents.
+Arguments, not a shell. Never on a timer and never on a file change. Fail soft, always.
+
+**Trust is granted to a repo *and* a command together.** `trust-store.ts` records a
+`commandFingerprint` — the NUL-joined `[parser, command, ...args]`, NUL for the same reason the
+git parsers are — not a boolean. Editing the configured command therefore withdraws the grant,
+because the sentence the user agreed to had the old command in it; a grant that survived an edit
+would let a repository escalate by rewriting its own config. That makes `command-changed` a
+distinct state from `untrusted`: identical to a state machine, completely different to a person.
+First per-repo persisted config in the app — every setting before it was global — so `trust.json`
+is a map from repoId to a record with room for more than trust. The userData dir is injected, so
+the module carries no `electron` import and tests run against a temp dir.
+
+**The detector registry is ecosystem-open and parser-gated.** The obvious shape — "look for
+node_modules/.bin/eslint" — is wrong, because a repository opened in this app is as likely to be
+Go with a Makefile, a language-agnostic `moon.yml`, dotnet, python, or C++. So a detector is a
+pure function with a stable shape and adding Go is one object plus one parser module. The gate is
+the honest half: a candidate naming a parser this build cannot read is **dropped**, so a C++ repo
+proposes nothing rather than proposing `make lint` whose every run would come back `parse-failed`
+— a feature that looks enabled and reports nothing. Candidates are ranked (flat config outranks
+`.eslintrc`, because eslint 9 reads it in preference) and carry the `evidence` that made the
+detector fire, so the trust prompt can say *why* a command is offered.
+
+**The eslint parser streams.** One top-level array element at a time, so peak memory is bounded
+by the largest single file result rather than by the payload — a checkout mid-refactor can emit
+tens of megabytes for a result we reduce to two integers and a few hundred rows. Total about
+messages (an unknown severity is dropped, never promoted) but **strict about the array**: output
+that does not begin with `[` is `parse-failed`, not an empty success. That distinction is the
+point — a command that errored must never be indistinguishable from a clean repository. Counts
+are always complete; rows cap at `DIAGNOSTICS_ROW_CAP` (500) with a `withheld` count, and the cap
+**favours errors**, because file-order truncation would let ten thousand warnings in one file
+bury every error in the repo.
+
+**The runner spawns an argument vector with no shell anywhere**, on a deadline enforced by a
+SIGKILL timer (a wedged linter is precisely the process that ignores a polite signal), with
+`NO_COLOR=1` and stdin `ignore` so a tool that decides to prompt gets EOF. It **ignores the exit
+code** when the report parsed: eslint exits 1 whenever it found a single error, which is the
+normal case here, and reading the code would make a repo with problems report nothing at all.
+
+`diag-handlers.ts` is the enforcement point: `run` refuses without a live grant, and `trust` only
+records commands main itself proposed — re-derived from detection, compared by fingerprint. Self
+review moved that check into `isProposedCommand` as a pure function, because it was the most
+security-relevant line in the diff and living inside an electron-importing handler made it
+untestable; six cases now cover the ways a renderer could try to widen a grant.
+
+Contract: `mgit:diag:{trust-status,trust,untrust,detect,run}`, each taking a **`repoId` only** —
+the working directory comes from `resolveWorkdir` and the command from main's own store. Reason
+codes `no-command | untrusted | not-installed | timed-out | parse-failed`, all fail-soft; nothing
+throws across the boundary. The renderer caches results via react-query with `staleTime: Infinity`
+and no automatic refetch — main stays stateless, because a lint result read from disk at boot
+describes a working tree that has since changed, and would be stated with the same confidence as
+a fresh one.
+
+Verified end to end against this repository's own eslint: the detector found `eslint.config.mjs`
+plus the local binary, the runner streamed, and the parser returned three real errors with
+repo-relative paths. 53 new tests (trust-store 14, detect 16, parse-eslint 19, runner 10),
+`moon run :typecheck :lint :test` green at 961 across four packages.
+
+**Known limitation, deliberate:** the channels take a `repoId`, and `resolveWorkdir(repoId)` with
+no worktree argument resolves the **main** worktree. A linked worktree selected in the sidebar
+will therefore be linted in the main checkout. This is what the phase doc specifies; widening it
+to an optional, `git worktree list`-validated `worktreePath` is a small follow-up rather than a
+redesign, and is noted for Theme F to raise.
+
+## 2026-08-26 — Phase 16 · manual verification — Phase 16 complete
+
+The two real-app passes the phase had been holding open were run by the user and both pass:
+browsing this repository (ignored entries dimmed, `node_modules` costing nothing until expanded,
+`.ts` highlighting, `README.md` rendering with a working source toggle, a png/mp4/pdf displaying
+in-pane, the >1.5 MB and binary fallback cards, and nothing anywhere offering to edit); and the
+Agent page (the `~/.claude` tree, the real installed version, Update streaming to completion, and
+Uninstall pasting into the terminal **without** executing). Phase 16 is now 36/36 and ✅ DONE —
+its five themes had already landed on 2026-08-26.
+
 ## 2026-08-26 — Phase 18 · Themes A + B + C + D — The footer's right half becomes a live system monitor
 
 Landed on `feature/phase-18-monitor` (squash-merged — this repository still has no remote, so

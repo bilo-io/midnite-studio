@@ -3,6 +3,7 @@ import { dirname, join } from 'node:path';
 import { BrowserWindow, app } from 'electron';
 
 import { registerClaudeHandlers } from './ipc/claude-handlers';
+import { configureDiagnostics, registerDiagHandlers } from './ipc/diag-handlers';
 import { registerForgeHandlers } from './ipc/forge-handlers';
 import { registerFsHandlers } from './ipc/fs-handlers';
 import { bindMetricsToWindow, registerMetricsHandlers } from './ipc/metrics-handlers';
@@ -23,6 +24,7 @@ import {
 } from './terminal-service';
 import { configureRegistry, listRepos, openRepo, restoreRepos } from './repo-registry';
 import { reconcileWatchers, stopAllWatchers } from './watch-service';
+import { createTrustStore } from './diagnostics/trust-store';
 import { createRepoStore } from './repo-store';
 import { LEGACY_APP_NAME, migrateLegacyRepoStore } from './userdata-migration';
 import { installMgitFileProtocol, registerMgitFileScheme } from './fs-protocol';
@@ -99,6 +101,7 @@ if (!app.requestSingleInstanceLock()) {
     registerRemoteHandlers();
     registerClipboardHandlers();
     registerForgeHandlers();
+    registerDiagHandlers();
     registerPtyHandlers(getWindow);
     const metrics = registerMetricsHandlers(getWindow);
     registerTerminalHandlers();
@@ -116,6 +119,7 @@ if (!app.requestSingleInstanceLock()) {
     await migrateLegacyRepoStore(join(dirname(userData), LEGACY_APP_NAME), userData);
     configureRegistry(createRepoStore(userData));
     configureTerminals(createTerminalStore(userData), userData);
+    configureDiagnostics(createTrustStore(userData));
     await restoreRepos();
     await openReposFromEnv();
 

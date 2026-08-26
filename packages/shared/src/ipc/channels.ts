@@ -135,6 +135,28 @@ export const CHANNELS = {
   metricsStart: 'mgit:metrics:start',
   metricsStop: 'mgit:metrics:stop',
 
+  // --- repo diagnostics (Phase 18) -----------------------------------------
+  // The one place this app runs a binary out of a directory the user merely
+  // opened to look at. Everything here is gated on an explicit per-repository
+  // trust grant recorded against the exact command — see
+  // desktop/src/main/diagnostics/, which states the policy in full.
+  //
+  // Every one of these takes a `repoId` and NOTHING else. Not a path, and
+  // above all not a command: main resolves the checkout through
+  // `resolveWorkdir` and reads the command from its own store, so the renderer
+  // cannot name what gets executed. Same rule as forge-handlers.ts, and it
+  // matters more here.
+  /** Is diagnostics enabled for this repo, and does the grant still apply? */
+  diagTrustStatus: 'mgit:diag:trust-status',
+  /** Record a grant for a command the user has just been shown. */
+  diagTrust: 'mgit:diag:trust',
+  /** Revoke. The configured command survives; the grant does not. */
+  diagUntrust: 'mgit:diag:untrust',
+  /** What the detector registry can propose for this repo. Runs nothing. */
+  diagDetect: 'mgit:diag:detect',
+  /** Run the trusted command and parse its output. Manual, never automatic. */
+  diagRun: 'mgit:diag:run',
+
   // --- window chrome -------------------------------------------------------
   windowMinimize: 'mgit:window:minimize',
   windowMaximizeToggle: 'mgit:window:maximize-toggle',
