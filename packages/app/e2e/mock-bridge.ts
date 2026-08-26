@@ -478,7 +478,7 @@ export async function installMockBridge(page: Page, fixtures: MockFixtures): Pro
       */
       diag: {
         trustStatus: async () => diagTrust,
-        detect: async () => ({ candidates: data.diagnostics?.candidates ?? [] }),
+        detect: async () => ({ candidates: data.diagnostics?.candidates ?? DEFAULT_CANDIDATES }),
         trust: async (req: { command: unknown }) => {
           diagTrust = {
             state: 'trusted',
@@ -493,6 +493,10 @@ export async function installMockBridge(page: Page, fixtures: MockFixtures): Pro
           return diagTrust;
         },
         run: async () => {
+          // Counted, so a spec can prove the linter ran ONCE for a trusted
+          // repo rather than once per render — the assertion that matters most
+          // about a call that spawns a process.
+          diagRuns += 1;
           if (diagTrust.state !== 'trusted') {
             return {
               ok: false,
@@ -607,6 +611,28 @@ export async function installMockBridge(page: Page, fixtures: MockFixtures): Pro
     var metricsCalls: Array<{ intervalMs: number; freshDisk?: boolean; stopped?: boolean }> = [];
     // eslint-disable-next-line no-var
     var metricsEmitted = false;
+
+    // --- diagnostics -------------------------------------------------------
+    /** Counted, so a spec can prove the linter ran once and not once per render. */
+    // eslint-disable-next-line no-var
+    var diagRuns = 0;
+    /**
+     * What `detect` proposes when a fixture does not say — a repo whose
+     * ecosystem the detector registry recognises. A fixture wanting the
+     * no-linter case passes `candidates: []`.
+     */
+    // eslint-disable-next-line no-var
+    var DEFAULT_CANDIDATES = [
+      {
+        parser: 'eslint' as const,
+        ecosystem: 'javascript' as const,
+        detectorId: 'eslint-local',
+        label: 'ESLint',
+        command: 'node_modules/.bin/eslint',
+        args: ['.', '--format', 'json'],
+        evidence: ['eslint.config.mjs', 'node_modules/.bin/eslint'],
+      },
+    ];
     // eslint-disable-next-line no-var
     var clipboardWrites: string[] = [];
     /**
@@ -712,6 +738,7 @@ export async function installMockBridge(page: Page, fixtures: MockFixtures): Pro
     (window as unknown as { __mgitExternalUrls: unknown }).__mgitExternalUrls = externalUrls;
     (window as unknown as { __mgitClipboard: unknown }).__mgitClipboard = clipboardWrites;
     (window as unknown as { __mgitMetrics: unknown }).__mgitMetrics = metricsCalls;
+    (window as unknown as { __mgitDiagRuns: unknown }).__mgitDiagRuns = () => diagRuns;
     /*
       A hook for the scripted cadence change.
 

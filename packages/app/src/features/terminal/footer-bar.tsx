@@ -1,6 +1,7 @@
 import { ArrowDown, ArrowUp, GitBranch, SquareTerminal } from 'lucide-react';
 import { DEFAULT_KEYMAP } from '@midnite/git-shared';
 
+import { DiagnosticsSegment } from '../diagnostics/diagnostics-segment';
 import { FooterCluster, MonitorCluster } from '../monitor/monitor-cluster';
 import { useStatus } from '../../services/use-status';
 import { useUiStore } from '../../store/ui-store';
@@ -64,11 +65,17 @@ export function FooterBar() {
       ) : null}
 
       {/*
-        Slots, not a fixed list: Theme F's diagnostics segment and Phase 17's
-        checks-verdict indicator both belong in this cluster, and each should
-        arrive as a child rather than as a rewrite of whatever got here first.
+        Slots, not a fixed list. Theme D left this container taking children
+        precisely so Theme F could arrive as an insertion — which it did, one
+        line below, with nothing in the monitor changed.
+
+        Diagnostics sits LEFT of the monitor: it is about this repository and
+        belongs nearer the branch segment it agrees with, while the machine's
+        vitals stay hard against the window edge where they do not move as
+        things are added. Phase 17's checks-verdict indicator slots in here too.
       */}
       <FooterCluster>
+        <DiagnosticsSegment />
         <MonitorCluster />
       </FooterCluster>
     </footer>

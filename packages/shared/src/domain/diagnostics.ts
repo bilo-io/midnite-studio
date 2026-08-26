@@ -190,3 +190,17 @@ export type DiagnosticsTrustStatus = z.infer<typeof DiagnosticsTrustStatusSchema
 export function commandFingerprint(command: DiagnosticsCommand): string {
   return [command.parser, command.command, ...command.args].join('\0');
 }
+
+/**
+ * The command as a person reads it, for the trust prompt and the settings page.
+ *
+ * Space-joined, and therefore lossy in exactly the way
+ * {@link commandFingerprint} refuses to be — which is the point. This string is
+ * shown to a human deciding whether to approve an execution; the fingerprint is
+ * what decides whether the approval still holds. Using one for the other would
+ * either make the prompt unreadable or make two different commands compare
+ * equal, so they are deliberately separate functions over the same value.
+ */
+export function commandLine(command: DiagnosticsCommand): string {
+  return [command.command, ...command.args].join(' ');
+}

@@ -3,6 +3,7 @@ import { useState, type ReactNode } from 'react';
 
 import { Popover } from '../../components/popover';
 import { useMetricsStore, type MetricPoint } from '../../store/metrics-store';
+import { useUiStore } from '../../store/ui-store';
 import { METRIC_LABELS, metricColor, metricGlow } from './metric-palette';
 import { MonitorFlyout } from './monitor-flyout';
 import { Sparkline } from './sparkline';
@@ -39,12 +40,23 @@ export function MonitorCluster() {
   const [open, setOpen] = useState(false);
   const latest = useMetricsStore((state) => state.latest);
   const series = useMetricsStore((state) => state.series);
+  const hidden = useUiStore((state) => state.hiddenMetrics);
+  const idleIntervalMs = useUiStore((state) => state.metricsIdleIntervalMs);
 
-  // Cadence is a consequence of what is on screen: 2s with the flyout open,
-  // 5s with only the sparklines.
-  useMetricsStream({ detailed: open });
+  // Cadence is a consequence of what is on screen — the flyout escalates to 2s
+  // — with the closed-flyout figure taken from settings.
+  useMetricsStream({ detailed: open, idleIntervalMs });
 
-  const present = METRIC_IDS.filter((id) => typeof latest?.[id] === 'number');
+  /*
+    Two independent reasons a readout is absent, and they compose in one
+    direction only: the machine cannot report it, or the user turned it off.
+    Sampling is NOT narrowed to the visible set — the flyout still charts a
+    metric you have hidden from the strip, and un-hiding one should show
+    history rather than start from nothing.
+  */
+  const present = METRIC_IDS.filter(
+    (id) => typeof latest?.[id] === 'number' && !hidden.includes(id),
+  );
   // Before the first sample there is nothing truthful to draw. An empty
   // cluster for a second or two beats four zeroes that then jump.
   if (present.length === 0) return null;

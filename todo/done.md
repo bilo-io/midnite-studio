@@ -2,6 +2,68 @@
 
 <!-- Append one entry per landed phase/PR: date, phase, PR link, one-line summary. -->
 
+## 2026-08-26 — Phase 18 · Theme F — The diagnostics segment, its trust prompt, and a settings page
+
+Landed on `feature/phase-18-diag-ui` (squash-merged — this repository still has no remote, so
+there is no PR link). The footer's right cluster gains a segment for the selected repository's
+error and warning counts, opening into a flyout that lists them as `file:line`. Getting there
+means passing the app's first consent gate: the dialog shows the literal command and the
+directory it will run in, says why that command was proposed, and warns that this executes a
+program from the repository itself.
+
+### What landed
+
+- [x] Trust prompt through `confirm-dialog.tsx` in `danger` mode — literal command, resolved
+      workdir, detector evidence
+- [x] Error/warning pills on `--destructive` and `--health-warn`, semantic tokens rather than the
+      monitor's data hues
+- [x] **Absent ≠ zero** — a trusted-but-unmeasured repo says "not measured", never a green zero
+- [x] The segment follows `useActiveWorktree()`, not the workbench tab
+- [x] The flyout caps its list and says what it withheld (Phase 17's `EXPAND_ALL_LIMIT` rule)
+- [x] An untrusted repo shows "Enable diagnostics" rather than silence
+- [x] A Monitor & Diagnostics settings page: which metrics appear, the closed-flyout cadence, the
+      trusted command, and revocation
+- [x] Re-running is manual — nothing lints because a file changed
+- [x] `docs/screenshots/phase-18/diagnostics-{trust-prompt,flyout}.png`
+
+Gate green: typecheck, lint, 1,105 unit tests, Playwright 155 passed / 4 skipped.
+
+What this shook out — nearly all of it from **integrating F against the Theme E that actually
+landed**, rather than the one F was written against:
+
+- **A shim that documents its own deletion still has to be deleted.** F was built in a parallel
+  session against `contract-shim.ts`, a restatement of E's contract whose docblock said every
+  type in it dies when E merges. E merged; the shim did not. Because it reached the bridge
+  through one `as unknown` cast, **the whole feature typechecked while talking a shape the
+  renderer never receives** — `rule` for `ruleId`, `line: number | null` for a `number` where `0`
+  means file-level, a `workdir` on the trust record that E deliberately does not carry. A cast is
+  what let a compile-time guarantee become a comment.
+- **A rebase can merge two implementations of the same key and pick one silently.** Both E's
+  `diag` mock and F's landed in the same object literal in `mock-bridge.ts`, along with two
+  `diagnostics?` fixture blocks in the same type. The second `diag` won at runtime, so every F
+  spec was driving F's stand-in and none of them touched E's. Duplicate keys in a JS object are
+  legal; that is the whole problem.
+- **The evidence line in the consent dialog had never once rendered.** Detection was enabled only
+  for `no-command`, and the prompt that quotes evidence is reached from `untrusted` — so "Proposed
+  because: …" was unreachable in exactly the state that shows it. It now detects for every arm
+  except `trusted` (the steady state still stats nothing), and matches evidence to the command
+  being approved by `commandFingerprint`, so a repo whose detected command differs from its stored
+  one cannot cite one's reasons for the other.
+- **An absent `blastRadius` is not "no blast radius" — it is "still counting".** `ConfirmDialog`
+  renders "Checking what this affects…" for `undefined`, so the diagnostics prompt carried a
+  sentence that would never resolve. The type already documented `null` as "nothing to lose";
+  the caller simply had to say so.
+- **The consent dialog was collapsing the newline that separated the command from its directory.**
+  `node_modules/.bin/eslint . --format json in /tmp/midnite-git` reads as one string — precisely
+  the ambiguity a prompt asking to execute something must not have. The body is
+  `whitespace-pre-line` now.
+- **`min-w-0 flex-1` does not stop a long token overflowing its box.** A repo-relative file path
+  is unbreakable, so it ran *underneath* the rule id in the next column. Only the screenshot
+  showed it; every assertion about the row passed.
+- **A fixed epoch in a screenshot fixture ages.** The flyout's shot read "Measured 24366 hours
+  ago", which is what `ranAt: 1_700_000_000_000` becomes three years later.
+
+
 ## 2026-08-26 — Phase 19 · Theme A — The nav rail becomes the app's table of contents
 
 Landed on `feature/phase-19-nav-shell` (squash-merged — this repository still has no remote, so
