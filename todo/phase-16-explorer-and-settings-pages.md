@@ -146,11 +146,11 @@ Effort tags: **S** ≈ an hour or two · **M** ≈ half a day · **L** ≈ a day
 - [x] `e2e/mock-bridge.ts` gains `fs:*` + `agent:claude-info` mocks; spec: open Files, expand
       a directory, select a file, the preview renders; switch to Settings, all four pages
       reachable, Settings sits at the bottom of the rail
-- [ ] Manual: browse this repo — ignored entries dimmed, `node_modules` costs nothing until
+- [x] Manual: browse this repo — ignored entries dimmed, `node_modules` costs nothing until
       expanded; a `.ts` file highlights; `README.md` renders and the toggle shows source; a
       png, an mp4, and a pdf display in-pane; a >1.5 MB file and a binary show the fallback
       card; nothing anywhere lets you edit
-- [ ] Manual: Agent page shows the `~/.claude` tree and the real installed version; Update
+- [x] Manual: Agent page shows the `~/.claude` tree and the real installed version; Update
       streams output to completion; Uninstall opens the terminal with the command pasted and
       **not** executed
 - [x] Screenshots → `docs/screenshots/phase-16-files.png`, `phase-16-settings-agent.png`

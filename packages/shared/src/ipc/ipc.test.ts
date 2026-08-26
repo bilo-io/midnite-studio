@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest';
 
+import { DiagnosticsTrustStateSchema, commandFingerprint } from '../domain/diagnostics';
 import {
   METRICS_ACTIVE_INTERVAL_MS,
   METRICS_IDLE_INTERVAL_MS,
@@ -21,6 +22,89 @@ describe('channels', () => {
     for (const name of [...Object.values(CHANNELS), ...Object.values(EVENT_CHANNELS)]) {
       expect(name.startsWith('mgit:')).toBe(true);
     }
+  });
+});
+
+describe('diagnostics contract', () => {
+  const command = {
+    command: '/repo/node_modules/.bin/eslint',
+    args: ['.', '--format', 'json'],
+    parser: 'eslint' as const,
+    ecosystem: 'javascript' as const,
+  };
+
+  it('takes a repoId and nothing else on every verb but trust', () => {
+    // Main resolves the checkout and reads the command from its own store. A
+    // path or a command on these calls would make the renderer the thing that
+    // decides what gets executed — see diag-handlers.ts.
+    for (const schema of [
+      schemas.DiagTrustStatusRequest,
+      schemas.DiagUntrustRequest,
+      schemas.DiagDetectRequest,
+      schemas.DiagRunRequest,
+    ]) {
+      expect(Object.keys(schema.shape)).toEqual(['repoId']);
+    }
+  });
+
+  it('carries the command only on trust, where it is what is being approved', () => {
+    expect(Object.keys(schemas.DiagTrustRequest.shape).sort()).toEqual(['command', 'repoId']);
+  });
+
+  it('rejects a command with no executable', () => {
+    expect(() =>
+      schemas.DiagTrustRequest.parse({ repoId: 'r', command: { ...command, command: '' } }),
+    ).toThrow();
+  });
+
+  it('rejects a parser this build cannot read', () => {
+    // The gate that stops a proposal whose output would always be parse-failed.
+    expect(() =>
+      schemas.DiagTrustRequest.parse({ repoId: 'r', command: { ...command, parser: 'golangci' } }),
+    ).toThrow();
+  });
+
+  it('fingerprints a command by its whole argument vector', () => {
+    expect(commandFingerprint(command)).toBe(commandFingerprint({ ...command }));
+    expect(commandFingerprint(command)).not.toBe(
+      commandFingerprint({ ...command, args: [...command.args, '--fix'] }),
+    );
+  });
+
+  it('cannot be fooled by re-splitting an argument', () => {
+    // NUL-joined for the same reason the git parsers are: any printable
+    // separator makes ['a b'] and ['a', 'b'] fingerprint alike, and this value
+    // decides whether something executes.
+    expect(commandFingerprint({ ...command, args: ['a b'] })).not.toBe(
+      commandFingerprint({ ...command, args: ['a', 'b'] }),
+    );
+  });
+
+  it('distinguishes a changed command from one never approved', () => {
+    expect(DiagnosticsTrustStateSchema.options).toContain('command-changed');
+    expect(DiagnosticsTrustStateSchema.options).toContain('untrusted');
+  });
+
+  it('makes every failure a reason code rather than a throw', () => {
+    const parsed = schemas.DiagRunResponse.parse({
+      ok: false,
+      reason: 'untrusted',
+      hint: 'not enabled',
+    });
+    expect(parsed.ok).toBe(false);
+  });
+
+  it('keeps counts and rows separable so a cap cannot understate the total', () => {
+    const parsed = schemas.DiagRunResponse.parse({
+      ok: true,
+      errorCount: 900,
+      warningCount: 100,
+      rows: [],
+      withheld: 1000,
+      ranAt: 1,
+      durationMs: 2,
+    });
+    expect(parsed.ok && parsed.errorCount).toBe(900);
   });
 });
 

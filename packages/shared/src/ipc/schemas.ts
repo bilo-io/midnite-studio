@@ -2,6 +2,10 @@ import { z } from 'zod';
 
 import {
   ConflictOpSchema,
+  DiagnosticsCandidateSchema,
+  DiagnosticsCommandSchema,
+  DiagnosticsRunSchema,
+  DiagnosticsTrustStatusSchema,
   DIFF_DEFAULT_CONTEXT,
   DIFF_FULL_CONTEXT,
   FileDiffSchema,
@@ -589,6 +593,38 @@ export const MetricsStartRequest = z.object({
 });
 
 export const MetricsSampleEvent = MetricSampleSchema;
+
+// --- repo diagnostics (Phase 18) -------------------------------------------
+// A `repoId` and nothing else on every request. The command is never sent from
+// the renderer *except* on `trust`, where it is the thing being approved — and
+// even there main re-derives the candidate list and refuses a command it did
+// not itself propose. See diag-handlers.ts.
+
+export const DiagTrustStatusRequest = RepoId;
+export const DiagTrustStatusResponse = DiagnosticsTrustStatusSchema;
+
+/**
+ * Approve one command for one repository.
+ *
+ * The command travels on this call because the user is approving *that exact
+ * command* — a grant recorded against anything looser would bless a value the
+ * prompt never showed. Main still validates it against its own detector output
+ * before storing, so this is a confirmation, not an instruction.
+ */
+export const DiagTrustRequest = RepoId.extend({ command: DiagnosticsCommandSchema });
+export const DiagTrustResponse = DiagnosticsTrustStatusSchema;
+
+export const DiagUntrustRequest = RepoId;
+export const DiagUntrustResponse = DiagnosticsTrustStatusSchema;
+
+/** Detection reads the filesystem and runs nothing. Safe before any grant. */
+export const DiagDetectRequest = RepoId;
+export const DiagDetectResponse = z.object({
+  candidates: z.array(DiagnosticsCandidateSchema),
+});
+
+export const DiagRunRequest = RepoId;
+export const DiagRunResponse = DiagnosticsRunSchema;
 
 // --- window chrome ---------------------------------------------------------
 

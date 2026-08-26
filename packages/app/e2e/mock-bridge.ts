@@ -27,6 +27,18 @@ export type MockFixtures = {
    * "commit is not in this repository" state is reached.
    */
   revisions?: Record<string, string>;
+  /**
+   * Repo diagnostics (Phase 18). All three parts are optional because the
+   * three states a spec cares about are reached by leaving parts out:
+   * no `candidates` is a repo with no recognised linter, no `trust` is one
+   * nobody has approved, and no `result` is one that has never been measured —
+   * which the footer must render as ABSENT, not as zero problems.
+   */
+  diagnostics?: {
+    candidates?: unknown[];
+    trust?: { state: string; command: unknown; trustedAt: number | null };
+    result?: unknown;
+  };
   graphRows: unknown[];
   statusEntries: unknown[];
   /** Refs the sidebar and the BRANCH / TAG column render. */
@@ -429,6 +441,56 @@ export async function installMockBridge(page: Page, fixtures: MockFixtures): Pro
         },
       },
       /*
+        The diagnostics group.
+
+        Deliberately stateful across calls rather than a pair of constants:
+        the trust flow is a sequence — detect, approve, run — and each step's
+        answer depends on the last. A mock that returned a fixed `trusted`
+        status could never exercise the case the whole feature turns on, which
+        is what the footer shows BEFORE anyone has approved anything.
+
+        `run` refuses while untrusted, exactly as the handler does. A mock that
+        happily linted for an untrusted repo would let a spec pass against
+        behaviour main does not have.
+      */
+      diag: {
+        trustStatus: async () => diagTrust,
+        detect: async () => ({ candidates: data.diagnostics?.candidates ?? [] }),
+        trust: async (req: { command: unknown }) => {
+          diagTrust = {
+            state: 'trusted',
+            command: req.command,
+            trustedAt: 1_700_000_000_000,
+          };
+          return diagTrust;
+        },
+        untrust: async () => {
+          // The command survives revocation, as in the real store.
+          diagTrust = { state: 'untrusted', command: diagTrust.command, trustedAt: null };
+          return diagTrust;
+        },
+        run: async () => {
+          if (diagTrust.state !== 'trusted') {
+            return {
+              ok: false,
+              reason: 'untrusted',
+              hint: 'Diagnostics are not enabled for this repository.',
+            };
+          }
+          return (
+            data.diagnostics?.result ?? {
+              ok: true,
+              errorCount: 0,
+              warningCount: 0,
+              rows: [],
+              withheld: 0,
+              ranAt: 1_700_000_000_000,
+              durationMs: 12,
+            }
+          );
+        },
+      },
+      /*
         A live stream, not an inert one.
 
         `watch.onEvent` and `menu.onCommand` above return a no-op unsubscribe
@@ -524,6 +586,13 @@ export async function installMockBridge(page: Page, fixtures: MockFixtures): Pro
     var metricsEmitted = false;
     // eslint-disable-next-line no-var
     var clipboardWrites: string[] = [];
+    /**
+     * The trust grant, mutated by `trust`/`untrust` so the sequence a spec
+     * drives is the sequence the real store would go through.
+     */
+    // eslint-disable-next-line no-var
+    var diagTrust: { state: string; command: unknown; trustedAt: number | null } =
+      data.diagnostics?.trust ?? { state: 'no-command', command: null, trustedAt: null };
 
     // --- the fake pty ------------------------------------------------------
     // eslint-disable-next-line no-var

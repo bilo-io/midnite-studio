@@ -1,6 +1,6 @@
 # Midnite Git — Phase Index
 
-**Headline:** **[19](phase-19-dashboard-actions-tests.md)** is the newest frontier — the nav rail stops being three views and becomes the app's table of contents: a pinned **Dashboard** of `react-grid-layout` widgets over one repo's history, contributors, PRs, issues and runs; an **Actions** view with job trees and logs; and a **Tests** view that discovers each repo's suites (its execution half waits on 18's trust-gated runner). **[18](phase-18-footer-monitor-diagnostics.md)** has landed its metrics half — the footer bar's empty right half is now a live system monitor (CPU/RAM/GPU/disk as dot, percentage and sparkline, opening into area-chart timelines over the app's first real popover primitive). What remains is its diagnostics half: per-repo lint counts, gated behind an explicit per-repository trust prompt because running a repo's own linter is the first arbitrary code execution this app would do. **[17](phase-17-repos-workbench.md)** turns the repositories sidebar into a workbench — per-worktree change counts, menus on everything, a whole-checkout diff in a tab strip, and the app's first forge integration (Actions + Reviews through the user's own `gh`). The MVP (phases 0–11) is landed — the app packages, installs and runs from /Applications. Three phases are open at once: **[12](phase-12-commit-inspector.md)** makes the commit graph a place you can read and act in (its diffs, its remote model and now its inspector have landed — ref badges and row polish remain), **[14](phase-14-graph-themes.md)** makes the graph itself configurable, and **[15](phase-15-multi-terminal-sessions.md)** turns the single terminal into several — shells and coding agents, persisted across restarts. **[16](phase-16-explorer-and-settings-pages.md)** has landed its five themes — a read-only Folder explorer with a preview pane, and Settings split into pages (including an Agent page into `~/.claude`) — with only its real-app manual verification open. Post-MVP scope lives in [`outstanding.md`](outstanding.md).
+**Headline:** **[19](phase-19-dashboard-actions-tests.md)** is the newest frontier — the nav rail stops being three views and becomes the app's table of contents: a pinned **Dashboard** of `react-grid-layout` widgets over one repo's history, contributors, PRs, issues and runs; an **Actions** view with job trees and logs; and a **Tests** view that discovers each repo's suites (its execution half waits on 18's trust-gated runner). **[18](phase-18-footer-monitor-diagnostics.md)** has landed its metrics half — the footer bar's empty right half is now a live system monitor (CPU/RAM/GPU/disk as dot, percentage and sparkline, opening into area-chart timelines over the app's first real popover primitive). What remains is its diagnostics half: per-repo lint counts, gated behind an explicit per-repository trust prompt because running a repo's own linter is the first arbitrary code execution this app would do. **[17](phase-17-repos-workbench.md)** turns the repositories sidebar into a workbench — per-worktree change counts, menus on everything, a whole-checkout diff in a tab strip, and the app's first forge integration (Actions + Reviews through the user's own `gh`). The MVP (phases 0–11) is landed — the app packages, installs and runs from /Applications. Three phases are open at once: **[12](phase-12-commit-inspector.md)** makes the commit graph a place you can read and act in (its diffs, its remote model and now its inspector have landed — ref badges and row polish remain), **[14](phase-14-graph-themes.md)** makes the graph itself configurable, and **[15](phase-15-multi-terminal-sessions.md)** turns the single terminal into several — shells and coding agents, persisted across restarts. **[16](phase-16-explorer-and-settings-pages.md)** is **done** — a read-only Folder explorer with a preview pane, and Settings split into pages (including an Agent page into `~/.claude`), with both real-app manual passes now signed off. Post-MVP scope lives in [`outstanding.md`](outstanding.md).
 
 Completed work is logged append-only in [`done.md`](done.md). Deferred scope lives in [`outstanding.md`](outstanding.md).
 
@@ -11,9 +11,9 @@ Completed work is logged append-only in [`done.md`](done.md). Deferred scope liv
 | Phase | Status | Done | Progress | % | 🔄 WIP | ◻ TODO |
 |-------|--------|------|----------|---|--------|--------|
 | [19 · Dashboard, Actions and Tests as views](phase-19-dashboard-actions-tests.md) | 🔄 WIP | 0/77 | `░░░░░░░░░░` | 0% | A B | C D E F G |
-| [18 · Footer system monitor + repo diagnostics](phase-18-footer-monitor-diagnostics.md) | 🔄 WIP | 32/54 | `██████░░░░` | 59% | E F | — |
+| [18 · Footer system monitor + repo diagnostics](phase-18-footer-monitor-diagnostics.md) | 🔄 WIP | 40/54 | `███████░░░` | 74% | F | — |
 | [17 · Repositories workbench + forge](phase-17-repos-workbench.md) | 🔄 WIP | 46/48 | `█████████░` | 96% | — | 2 manual checks |
-| [16 · Folder explorer, preview pane + settings pages](phase-16-explorer-and-settings-pages.md) | 🔄 WIP | 34/36 | `█████████░` | 94% | — | manual verification |
+| [16 · Folder explorer, preview pane + settings pages](phase-16-explorer-and-settings-pages.md) | ✅ DONE | 36/36 | `██████████` | 100% | — | — |
 | [15 · Multi-terminal sessions + agents](phase-15-multi-terminal-sessions.md) | 🔄 WIP | 38/39 | `█████████░` | 97% | — | manual relaunch check |
 | [14 · Graph themes + avatars](phase-14-graph-themes.md) | ✅ DONE | 28/28 | `██████████` | 100% | — | — |
 | [13 · UI polish](phase-13-ui-polish.md) | ✅ DONE | 26/26 | `██████████` | 100% | — | — |
@@ -72,8 +72,9 @@ and F all read the sample stream they push; E is the trust boundary F prompts th
   (landed 2026-08-26)
 - ✅ **D** — the first real click-toggled popover primitive, plus the footer's slot-based right
   cluster: dot, percentage and sparkline per metric (landed 2026-08-26)
-- 🔄 **E** — the diagnostics trust policy, written down: per-repo opt-in, a `repoId`-only channel,
-  a configurable command, and a total eslint-JSON parser
+- ✅ **E** — the diagnostics trust policy, written down: per-repo opt-in, a `repoId`-only channel,
+  a configurable command, a ranked parser-gated detector registry and a total, *streaming*
+  eslint-JSON parser (landed 2026-08-26)
 - 🔄 **F** — the diagnostics segment (absent ≠ zero, sidebar-selection-driven) and a Monitor &
   Diagnostics settings page — built ON Theme E's contract, in a separate session; F is pure
   presentation because E ships the channels, the preload and the `queries.ts` hooks
@@ -115,7 +116,8 @@ non-interactive session) and the `gh`-availability matrix.*
 - ✅ **D** — preview pane: shiki code, rendered markdown w/ source toggle, images/PDF/media, fallback card (merged 2026-08-26)
 - ✅ **E** — Agent settings page: `~/.claude` tree + preview, Claude version card, Update streams / Uninstall pastes into the terminal (merged 2026-08-26)
 
-*Open: the two real-app manual verification passes (media/PDF in the packaged renderer).*
+*Closed: both real-app manual verification passes done by the user on 2026-08-26 — the
+phase is complete.*
 
 ### [Phase 15 — Multi-terminal sessions + agents](phase-15-multi-terminal-sessions.md)
 

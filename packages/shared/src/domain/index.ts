@@ -1,4 +1,5 @@
 export * from './commit';
+export * from './diagnostics';
 export * from './diff';
 export * from './forge';
 export * from './metrics';
