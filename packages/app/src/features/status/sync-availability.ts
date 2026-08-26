@@ -9,6 +9,11 @@ import type { BranchStatus } from '@midnite/git-shared';
  * each site decides for itself. A disabled button also has to say WHY: the
  * counts it is reasoning about (`↑0 ↓0`) are only as fresh as the last fetch,
  * so "Nothing to push" is information, while a silently grey button is not.
+ *
+ * Scoped to the **checked-out** branch, from a `BranchStatus`. The graph's ref
+ * badges answer the same question for an arbitrary ref and live in
+ * [`graph/ref-sync.ts`](../graph/ref-sync.ts) — see the note there for why the
+ * two stay apart rather than collapsing into one rule table.
  */
 export type SyncOp = 'fetch' | 'pull' | 'push';
 

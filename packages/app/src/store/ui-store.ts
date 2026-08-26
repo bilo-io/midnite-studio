@@ -1,7 +1,12 @@
 import { create } from 'zustand';
 import { persist } from 'zustand/middleware';
 
-import { DEFAULT_GRAPH_THEME, type GraphThemeId } from '../features/graph/graph-themes';
+import {
+  DEFAULT_GRAPH_DENSITY,
+  DEFAULT_GRAPH_THEME,
+  type GraphDensity,
+  type GraphThemeId,
+} from '../features/graph/graph-themes';
 
 /**
  * Collapse/expand/lock behaviour of the nav rail, mirroring `AppFrame`'s
@@ -200,6 +205,14 @@ export type UiState = {
   sectionFilters: Partial<Record<ViewId, boolean>>;
   /** Which of the graph styles is drawn. A preference, so it persists. */
   graphTheme: GraphThemeId;
+  /**
+   * How much vertical room a commit row takes.
+   *
+   * A second axis rather than five more styles: "which graph do I like" and
+   * "how much history fits on this screen" are different questions, and the
+   * answer to the second changes with the display rather than with taste.
+   */
+  graphDensity: GraphDensity;
   /** Fully-qualified refs the graph is limited to; empty means every ref. */
   graphRefFilter: string[];
   /** Lowercased author emails to highlight; empty means every author. */
@@ -257,6 +270,7 @@ export type UiState = {
   /** Flip one view's sidebar between "what this view needs" and the whole tree. */
   setSectionFilter: (view: ViewId, filtered: boolean) => void;
   setGraphTheme: (theme: GraphThemeId) => void;
+  setGraphDensity: (density: GraphDensity) => void;
   setGraphRefFilter: (refs: string[]) => void;
   setGraphAuthorFilter: (emails: string[]) => void;
   toggleDiffOldGutter: () => void;
@@ -278,6 +292,7 @@ type PersistedUi = Pick<
   | 'sectionFilters'
   | 'diffShowOldGutter'
   | 'graphTheme'
+  | 'graphDensity'
   | 'settingsPage'
   | 'commitFileView'
   | 'commitMetaOpen'
@@ -302,6 +317,7 @@ export const useUiStore = create<UiState>()(
       collapsedNavSections: [],
       sectionFilters: {},
       graphTheme: DEFAULT_GRAPH_THEME,
+      graphDensity: DEFAULT_GRAPH_DENSITY,
       graphRefFilter: [],
       graphAuthorFilter: [],
       diffShowOldGutter: false,
@@ -344,6 +360,7 @@ export const useUiStore = create<UiState>()(
       setSectionFilter: (view, filtered) =>
         set((state) => ({ sectionFilters: { ...state.sectionFilters, [view]: filtered } })),
       setGraphTheme: (graphTheme) => set({ graphTheme }),
+      setGraphDensity: (graphDensity) => set({ graphDensity }),
       setGraphRefFilter: (graphRefFilter) => set({ graphRefFilter }),
       setGraphAuthorFilter: (graphAuthorFilter) => set({ graphAuthorFilter }),
       toggleDiffOldGutter: () =>
@@ -388,6 +405,7 @@ export const useUiStore = create<UiState>()(
         sectionFilters: state.sectionFilters,
         diffShowOldGutter: state.diffShowOldGutter,
         graphTheme: state.graphTheme,
+        graphDensity: state.graphDensity,
         settingsPage: state.settingsPage,
         commitFileView: state.commitFileView,
         commitMetaOpen: state.commitMetaOpen,

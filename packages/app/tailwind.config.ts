@@ -108,6 +108,22 @@ const config: Config = {
           '0%, 100%': { transform: 'scale(1)', opacity: '0.55' },
           '50%': { transform: 'scale(1.7)', opacity: '0.12' },
         },
+        /**
+         * The checked-out branch chip's gradient border, sweeping around it.
+         *
+         * `background-position` on an over-wide linear gradient rather than a
+         * rotating conic one: a conic gradient has to be re-rasterised at every
+         * angle, and this runs on every visible HEAD chip in a virtualized
+         * table for as long as the graph is open. Sliding a background is a
+         * compositor job.
+         *
+         * 200% travel, so the gradient's two ends meet and the loop has no
+         * visible seam where it restarts.
+         */
+        'lane-sweep': {
+          from: { backgroundPosition: '0% 50%' },
+          to: { backgroundPosition: '200% 50%' },
+        },
       },
       animation: {
         'fade-in': 'fade-in 160ms ease-in-out both',
@@ -120,6 +136,17 @@ const config: Config = {
          * motion stops it dead along with everything else.
          */
         'halo-breathe': 'halo-breathe 2600ms ease-in-out infinite',
+        /**
+         * Slow and linear, unlike everything else here. A sweep that eases is a
+         * sweep that appears to stop twice per cycle, which turns an ambient
+         * marker into something that keeps catching the eye — the opposite of
+         * what "you are here" should do while you read the rest of the table.
+         *
+         * Reduced motion stops it dead, which is why the chip's halo underneath
+         * it is styled to stand on its own rather than to be a keyframe's
+         * starting position (see `ref-badge.tsx`).
+         */
+        'lane-sweep': 'lane-sweep 3600ms linear infinite',
       },
       transitionTimingFunction: {
         // Tailwind's default `transition` curve is cubic-bezier(0.4,0,0.2,1)

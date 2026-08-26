@@ -13,6 +13,8 @@ import {
   laneWidthForGutter,
   minLaneWidth,
   nodeExtent,
+  minRowHeight,
+  scaleTheme,
   showsAuthorColumn,
 } from './graph-themes';
 
@@ -212,5 +214,70 @@ describe('graph themes', () => {
       arrowheads: false,
       node: 'dot',
     });
+  });
+});
+
+describe('scaleTheme', () => {
+  it('leaves a style untouched at comfortable density', () => {
+    for (const id of GRAPH_THEME_IDS) {
+      expect(scaleTheme(GRAPH_THEMES[id], 'comfortable')).toBe(GRAPH_THEMES[id]);
+    }
+  });
+
+  it('actually fits more rows on screen when compact', () => {
+    // The whole point of the setting. A density that saves two pixels is a
+    // preference nobody can see the effect of.
+    for (const id of GRAPH_THEME_IDS) {
+      const theme = GRAPH_THEMES[id];
+      const compact = scaleTheme(theme, 'compact');
+      expect(compact.rowHeight, id).toBeLessThan(theme.rowHeight);
+      expect(theme.rowHeight - compact.rowHeight, id).toBeGreaterThanOrEqual(3);
+    }
+  });
+
+  /**
+   * The invariants the comfortable styles are held to, applied to the compact
+   * ones — the same assertions, not a relaxed copy.
+   *
+   * This is the test that earns `minRowHeight`: a flat multiplier put
+   * `git-graph`'s arriving segment at 3px, under `MIN_ARROW_RUN`, which renders
+   * as an arrowhead overhanging the row edge above a line too short to see.
+   */
+  it('keeps every compact style inside its own geometry', () => {
+    for (const id of GRAPH_THEME_IDS) {
+      const compact = scaleTheme(GRAPH_THEMES[id], 'compact');
+      expect(compact.rowHeight, `${id}: avatar crops`).toBeGreaterThanOrEqual(
+        compact.avatarSize + ROW_PADDING * 2,
+      );
+      expect(compact.rowHeight / 2, `${id}: node overflows the row`).toBeGreaterThanOrEqual(
+        nodeExtent(compact),
+      );
+      expect(compact.laneWidth, `${id}: lanes collide`).toBeGreaterThanOrEqual(
+        nodeExtent(compact) * 2,
+      );
+      if (compact.arrowheads) {
+        expect(arrivalRun(compact), `${id}: arrow has no segment`).toBeGreaterThanOrEqual(
+          MIN_ARROW_RUN,
+        );
+      }
+    }
+  });
+
+  it('never compresses below the floor its own geometry sets', () => {
+    for (const id of GRAPH_THEME_IDS) {
+      const compact = scaleTheme(GRAPH_THEMES[id], 'compact');
+      expect(compact.rowHeight, id).toBeGreaterThanOrEqual(minRowHeight(compact));
+    }
+  });
+
+  it('takes a base style, not one it already scaled', () => {
+    // Documented as a test because it is the one way to misuse this: scaling
+    // compounds, so the call site must derive from GRAPH_THEMES every render
+    // rather than memoise a scaled theme and re-scale it. `graphThemeFor` is
+    // the entry point that guarantees it.
+    for (const id of GRAPH_THEME_IDS) {
+      const once = scaleTheme(GRAPH_THEMES[id], 'compact');
+      expect(scaleTheme(once, 'compact').rowHeight, id).toBeLessThanOrEqual(once.rowHeight);
+    }
   });
 });

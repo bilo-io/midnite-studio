@@ -75,18 +75,36 @@ Beyond the plan, three of the four review findings were about *when* rather than
 - **react-markdown keys its element map by component identity**, so a `components` object built
   inline remounts every sha button on each render and drops keyboard focus.
 
-## Theme C — Ref badges as a control surface · M
+## Theme C — Ref badges as a control surface · M — ✅ DONE (2026-08-26)
 
-[`ref-badge.tsx`](../packages/app/src/features/graph/ref-badge.tsx) already has `Ref.isHead` and
-`Ref.upstream {ahead, behind, gone}`. It renders them as static text. Make them actionable.
+Landed on `feature/phase-12-badges-rows`, together with Theme F. The chip is a control now:
+the checked-out one glows, and one that is ahead or behind expands on hover into the buttons
+that fix it. Items moved to [`done.md`](done.md).
 
-- [ ] **Active-branch glow:** `isHead` badges get a slow pulsating gradient border/halo. Keyframes go in [`tailwind.config.ts`](../packages/app/tailwind.config.ts) alongside the existing `fade-in` precedent. Deliberately *subtle* — low opacity, ~2.4s cycle, no size change (a badge that resizes reflows the row). `html[data-motion='reduced']` from `@bilo-io/shell` disarms it for free; verify that **M**
-- [ ] **Hover-expand sync affordance:** when `upstream.ahead > 0 || upstream.behind > 0`, hovering the badge expands it to the right revealing icon buttons — ↓ pull when behind, ↑ push when ahead, both when diverged. Expansion must not reflow neighbouring badges or the subject column (overlay/absolute, or reserve the width) **M**
-- [ ] Each icon button carries a `Tooltip` ([`components/tooltip.tsx`](../packages/app/src/components/tooltip.tsx)) stating exactly what it does with real numbers — "Push 3 commits to origin/main", "Pull 2 commits from origin/main", "Publish branch to origin (sets upstream)" when `upstream` is null **S**
-- [ ] Replace the badge's native `title=` attribute with the `Tooltip` component so the hover story is one system, not two **S**
-- [ ] **Branch context menu gains sync verbs** in [`use-graph-actions.ts`](../packages/app/src/features/graph/use-graph-actions.ts): Push `<branch>` · Pull into `<branch>` · Fetch `<remote>` · Publish (`push -u`, only when no upstream). Wire to the existing `usePush/usePull/useFetch` in [`queries.ts`](../packages/app/src/services/queries.ts) — **no new IPC needed**; `mgit:op:push` already takes `setUpstream` **M**
-- [ ] Disabled items carry their reason as a tooltip, per the Phase 7 convention (e.g. "Nothing to push", "No upstream configured") **S**
-- [ ] In-flight state: the icon button shows a spinner and the badge is non-interactive until the op resolves; failures surface through the existing `GitOpResult` envelope, never a throw **S**
+Three decisions worth carrying forward:
+
+- **The verbs are derived once, as data.** `syncActions(ref, currentBranch, remoteNames)` returns
+  the four verbs with their enablement and their reason already resolved, and the hover buttons
+  and the context menu both render that array. Deriving twice is how a menu ends up offering a
+  pull the button greys out.
+- **Push is not restricted to the checked-out branch; pull is.** The push refspec names the
+  branch, so it works from anywhere; `git pull` merges into HEAD and nothing else. The one
+  exception is a branch tracking a *differently named* upstream (`main` → `origin/trunk`): the
+  request carries a single `branch`, not a `local:remote` pair, so pushing it by name would
+  create `origin/main` beside the `origin/trunk` it meant to update. It now omits the branch and
+  lets git resolve the destination from the branch's own config — which it can only do on the
+  branch you are standing on, so that is the one push that asks for a checkout first.
+- **Reduced motion got a design, not a disabled feature.** The glow is two layers: a still halo
+  that stands on its own, and a gradient border sweeping over it. The sweep is an animation, so
+  `html[data-motion='reduced']` stops it — and stopping it leaves the halo rather than a frozen
+  frame of something that was meant to move.
+
+Beyond the plan, the overlay had to be **portalled**. An absolutely-positioned strip inside the
+row is clipped by the BRANCH / TAG cell's `overflow-hidden` — and a clipped element still has a
+bounding box, so it reads as "visible" to a test while being entirely absent for the user. Each
+virtualized row also carries a `transform`, which makes it the containing block for `fixed`
+descendants and opens a stacking context: the same two traps `Tooltip` already documents. An
+e2e assertion that the subject column does not move on hover is what caught it.
 
 ## Theme D — Real diff rendering · L — ✅ DONE (2026-08-25)
 
@@ -158,13 +176,36 @@ control characters — so `\njavascript:` and `javascript:` validate identically
 them is the string the OS would otherwise have received. See [`done.md`](done.md) for the rest,
 including the `github.com.evil.example` classification hole and the `decodeURIComponent` throw.
 
-## Theme F — Graph row polish · S/M
+## Theme F — Graph row polish · S/M — ✅ DONE (2026-08-26)
 
-- [ ] Selected-row treatment: `bg-accent/70` reads as barely-distinct from `hover:bg-accent/30`. Give selection a left accent bar or a stronger tint so the selected row is unambiguous in the screenshot **S**
-- [ ] Lane colour contrast pass in [`lane-colors.ts`](../packages/app/src/features/graph/lane-colors.ts) — verify adjacent lane colours are distinguishable in both light and dark, and for the common colour-vision deficiencies **S**
-- [ ] Description column: badges currently share a `shrink` group with the subject, so a long branch name eats the message. Give badges a max share and truncate them first **S**
-- [ ] Row density option (comfortable/compact) driven from `ROW_HEIGHT` in [`graph-svg.tsx`](../packages/app/src/features/graph/graph-svg.tsx#L21) — the virtualizer already reads it; verify the SVG geometry scales rather than clipping **M**
-- [ ] The uncommitted-changes pseudo-row gets visually distinguished from real commits (dashed node, muted text) **S**
+Landed with Theme C. Items moved to [`done.md`](done.md).
+
+The lane-contrast item turned out to be the substantial one. The palette held every lane inside
+a 0.63–0.77 band of perceptual lightness, which looks tidy and is exactly what breaks it:
+red–green deficiency collapses hue, and two equally-light lanes then have nothing left to tell
+them apart. Simulated protanopia put violet and indigo **0.0097 apart in OKLab** — one colour,
+on a graph whose entire job is telling branches apart. The retune spreads lightness deliberately
+and takes the worst pair under any simulated deficiency to 0.068, a 7× improvement;
+`lane-contrast.test.ts` measures it under normal/protan/deutan/tritan vision and fails if a
+future edit gives it back.
+
+That also exposed a real bug it had been hiding: `laneInk` flipped on the **HSL** lightness
+component, which is not a measure of how light a colour looks. At `l: 48%` the cyan is the
+brightest thing in the palette and was being handed white ink. It compares actual WCAG contrast
+ratios now and takes the winner, so there is no threshold left to land on the wrong side of —
+and the old test could not have caught it, because it restated the same wrong rule.
+
+Row density became a second axis rather than five more styles, bounded by the drawing rather
+than by taste: `scaleTheme` shrinks the node a little and the row a lot, and `minRowHeight`
+stops the compression where the geometry would break. A flat 0.8 multiplier put `git-graph`'s
+arriving segment at 3px, under `MIN_ARROW_RUN` — an arrowhead overhanging the row edge above a
+line too short to see.
+
+**One item was not in the repo to polish.** The last checklist entry assumed an
+uncommitted-changes pseudo-row existed; nothing in `features/graph/` rendered one. It was built
+rather than deferred — dashed node, dashed lane, italic count, click-through to Changes — as a
+sibling of the scroller rather than a synthetic `GraphRow`, so the virtualizer's index space is
+still exactly the commits.
 
 ---
 
@@ -179,20 +220,31 @@ including the `github.com.evil.example` classification hole and the `decodeURICo
 
 ## Verification
 
-- [x] `moon run :typecheck :lint :test` green; no boundary-lint exception added anywhere ✅
+- [x] `moon run :typecheck :lint :test` green; no boundary-lint exception added anywhere ✅ (715 unit tests + the e2e suite)
 - [x] **A renderer test harness exists.** ✅ DONE — Playwright driving the real app against a mocked `window.midniteGit` ([`packages/app/e2e/`](../packages/app/e2e/), `moon run app:e2e`), chosen over an RTL/jsdom harness because the bridge *is* the renderer's only route to main, so replacing it covers every UI path without Electron, a repo or a git binary. `@testing-library/react` remains unused; drop it or adopt it when a non-visual component needs a unit test.
 - [x] Unit tests: linkify matcher (incl. the false-positive cases), diff hunk parser (rename/binary/mode-only/no-EOL/empty), remote URL normaliser (ssh/https/self-hosted) ✅ — plus the rehype plugin's ancestor rule, the trailer splitter and the file-tree collapse
 - [x] Integration test for `readCommitDetail`'s new fields and the commit-scoped file diff, using [`TempRepo`](../packages/git-engine/src/testing/temp-repo.ts) ✅ — merge commits, root commits, unknown shas and annotated-tag peeling
 - [x] Click a parent SHA in a commit body → the sidebar follows, **including for a commit below the loaded graph window** ✅ — covered by [`commit-inspector.spec.ts`](../packages/app/e2e/commit-inspector.spec.ts); the fixture graph holds one row and the linkified target is not it
 - [x] A commit whose message contains a URL, a `#123`, a bare SHA and a `Co-Authored-By` trailer renders all four correctly against a GitHub remote — and against a repo with **no** remote ✅ (e2e, mocked bridge). ⏳ Still worth one pass against a real clone.
+- [x] A branch that is ahead, one behind, one diverged, and one with no upstream each show the
+      right hover affordance and the right tooltip text ✅ — covered by [`ref-sync.spec.ts`](../packages/app/e2e/ref-sync.spec.ts)
+      against the mocked bridge, including that the op reaches git scoped to the right branch
+- [x] Reduced motion (`html[data-motion='reduced']`) stops the badge pulse ✅ — and leaves the
+      still halo behind rather than nothing; the sweep is the only animated layer
+- [x] Screenshot captured: inspector in tree mode with a diff open ✅ ([`docs/screenshots/phase-12/`](../docs/screenshots/phase-12/), regenerated by the e2e suite)
+- [x] Screenshot captured: a diverged branch badge hover-expanded, the selected row + working-copy
+      row, the density picker, and the graph at compact density
+      ([`docs/screenshots/phase-12-badges-rows/`](../docs/screenshots/phase-12-badges-rows/)) ✅
 - [ ] Manual: copy button puts the full 40-char sha on the clipboard **in the packaged app**, not just the dev server — *the e2e asserts the bridge is handed all 40 characters; the `file://` secure-context question can only be answered in the dmg*
-- [ ] Manual: a branch that is ahead, one behind, one diverged, and one with no upstream each show the right hover affordance and the right tooltip text; pushing/pulling from the badge updates the counts without a manual refresh (watch invalidation)
-- [ ] Reduced motion (`html[data-motion='reduced']`) stops the badge pulse
-- [x] Screenshot captured: inspector in tree mode with a diff open ✅ ([`docs/screenshots/phase-12/`](../docs/screenshots/phase-12/), regenerated by the e2e suite). ◻ The diverged-badge shot belongs to Theme C.
+- [ ] Manual: pushing/pulling from the badge updates the counts against a REAL remote without a
+      manual refresh (watch invalidation) — the mocked bridge cannot prove this one
 
 ## Decisions / open questions
 
-1. **"Gradient glow pulsating effect should have a sub…"** — the seed line was cut off. Planned as *subtle*: low-opacity, slow, no reflow. If it meant a **sub-label** (upstream name under the badge name), say so and Theme C grows one item. — *unresolved, assumption stated*
+1. **"Gradient glow pulsating effect should have a sub…"** — the seed line was cut off. Resolved
+   as *subtle*: a still halo plus a slow gradient border sweep, no reflow, and the halo alone
+   under reduced motion. The upstream name did end up under the chip, but in the tooltip rather
+   than as a sub-label — the chip is 11px in a 180px column and had no room for a second line.
 2. **Markdown + linkify, not linkify alone** — resolved. Accepted cost: a runtime dependency and the rule that raw HTML in commit messages stays inert (no `rehype-raw`).
 3. **`#123` links are in scope**, which is why Theme E exists — resolved. Worth noting E is ~5 files across all four packages for one link type; its real payoff is the "open commit/branch/PR on the forge" verbs that become trivial afterwards.
 4. **`stat` gets dropped from `CommitDetailResponse`** rather than left unused. — *resolved in Theme B: the field is gone, and so is the `git show --stat` invocation that produced it.*
@@ -200,4 +252,8 @@ including the `github.com.evil.example` classification hole and the `decodeURICo
 6. **No syntax highlighting inside diff lines** — *resolved, deferred.* Word-level intraline marking landed instead, which is what actually distinguishes a one-token edit from a rewrite.
 7. **No side-by-side diff** — *resolved, deferred.* The inspector is a narrow panel; split view earns its keep only in a full-width diff surface, which does not exist yet.
 8. **Navigation history (back/forward through selected commits)** — deliberately left out. Add it if clicking parents proves disorienting in use; it would register in the Phase 9 keybinding registry. — *deferred*
-9. **Theme ordering under `/exec`:** E before A (A's `#123` links need it), otherwise free. B and D pair naturally; C and F are fully independent and are the best candidates to run in parallel. — *A, B, D and E have landed; C and F remain and can go in parallel.*
+9. **Theme ordering under `/exec`:** E before A (A's `#123` links need it), otherwise free. B and D pair naturally; C and F are fully independent and are the best candidates to run in parallel. — *resolved: A, B, D and E landed first; C and F then landed together as one slice, and did not touch anything A or B needs.*
+10. **`git pull` for a branch you are not on** — deliberately left out rather than implemented as
+    `fetch` + a fast-forward-only ref update. That is a new engine command and a new failure mode
+    (non-fast-forward) this phase did not scope; the menu item is disabled with the reason
+    instead. Revisit if reaching for it proves common.

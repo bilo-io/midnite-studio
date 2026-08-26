@@ -313,8 +313,11 @@ function Shell() {
     'status.focus': () => useUiStore.getState().setActiveView('changes'),
     // Declared in the keymap and wired into the native menu since Phase 9, but
     // never given a handler — the accelerators and the menu items were inert.
-    'sync.fetch': () => void fetch.mutateAsync(),
-    'sync.pull': () => void pull.mutateAsync(),
+    // No scope: the title-bar cluster and its accelerators act on whatever is
+    // checked out, which is what they have always meant. The ref badges pass a
+    // scope instead — see `SyncScope` in use-status.
+    'sync.fetch': () => void fetch.mutateAsync({}),
+    'sync.pull': () => void pull.mutateAsync({}),
     'sync.push': () => void push.mutateAsync({ setUpstream: !hasUpstream }),
   });
 

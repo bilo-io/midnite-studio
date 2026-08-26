@@ -7,6 +7,7 @@ import { GraphSvg } from './graph-svg';
 import { CONNECTOR_OPACITY, RAIL_WIDTH, showsAuthorColumn, type GraphTheme } from './graph-themes';
 import { laneColor } from './lane-colors';
 import { RefBadge } from './ref-badge';
+import { badgeActions, type SyncAction } from './ref-sync';
 
 /**
  * One commit row: lane graphic, ref badges, subject, author, date.
@@ -45,6 +46,19 @@ export type GraphRowProps = {
   onRefContextMenu: (event: React.MouseEvent, ref: Ref) => void;
   /** Double-clicking a branch badge checks it out — the GitKraken gesture. */
   onRefActivate: (ref: Ref) => void;
+  /**
+   * The sync verbs a ref may run, derived once in `useGraphActions`.
+   *
+   * Passed as a function rather than as resolved arrays because most rows have
+   * no refs at all: resolving per row in the parent would allocate for 50 000
+   * commits to serve the handful that carry a branch.
+   */
+  syncFor: (ref: Ref, currentBranch: string | null) => SyncAction[];
+  onSync: (ref: Ref, action: SyncAction) => void;
+  /** Verb in flight per ref `fullName`. Several refs may sync at once. */
+  syncing: Record<string, SyncAction['kind']>;
+  /** HEAD's branch, which decides whether a pull is offered. */
+  currentBranch: string | null;
 };
 
 function GraphRowInner({
@@ -60,6 +74,10 @@ function GraphRowInner({
   onContextMenu,
   onRefContextMenu,
   onRefActivate,
+  syncFor,
+  onSync,
+  syncing,
+  currentBranch,
 }: GraphRowProps) {
   // `refs` arrives sorted by importance (HEAD, locals, remotes, tags), so the
   // slice keeps the ref you most need to see and buries the ones you don't.
@@ -78,11 +96,35 @@ function GraphRowInner({
         onSelect(row.commit.sha);
         onContextMenu(event, row);
       }}
-      className={`flex cursor-default items-center gap-2 pr-3 text-sm transition-colors ${
-        selected ? 'bg-accent/70' : 'hover:bg-accent/30'
+      className={`relative flex cursor-default items-center gap-2 pr-3 text-sm transition-colors ${
+        selected ? 'bg-accent' : 'hover:bg-accent/30'
       }`}
       style={{ height: theme.rowHeight }}
     >
+      {/*
+        The selection bar, in the row's OWN lane colour.
+
+        Selection used to be `bg-accent/70` against a `bg-accent/30` hover — two
+        tints of one colour, a difference small enough that the selected row was
+        found by elimination rather than seen. A bar at the left edge is read
+        before any tint is, because it is the only thing in the column and the
+        eye is already there.
+
+        Taking the lane's hue rather than `--primary` means selecting a row also
+        restates which branch it landed on — the same colour-matching argument
+        that puts the ref chips in the lane colour, applied to the one row the
+        user has actually asked about.
+
+        Absolutely positioned inside the row's existing left padding, so it
+        costs no layout and the BRANCH / TAG column keeps every pixel.
+      */}
+      {selected ? (
+        <span
+          aria-hidden
+          className="pointer-events-none absolute inset-y-0 left-0 w-[3px]"
+          style={{ backgroundColor: laneColor(row.colorIdx, theme.palette) }}
+        />
+      ) : null}
       {/*
         BRANCH / TAG, in its own column so labels line up vertically instead of
         floating at whatever horizontal position each subject happens to start.
@@ -100,6 +142,10 @@ function GraphRowInner({
             rowId={row.commit.sha}
             colorIdx={row.colorIdx}
             palette={theme.palette}
+            actions={badgeActions(syncFor(ref, currentBranch))}
+            crowded={shown.length > 1}
+            onSync={(action) => onSync(ref, action)}
+            syncing={syncing[ref.fullName] ?? null}
             onContextMenu={(event) => {
               // Stop the row's own menu opening as well — the badge's menu is
               // the more specific target the user aimed at.
@@ -302,6 +348,10 @@ function DraggableRefBadge({
   rowId,
   colorIdx,
   palette,
+  actions,
+  crowded,
+  onSync,
+  syncing,
   onContextMenu,
   onDoubleClick,
 }: {
@@ -309,6 +359,10 @@ function DraggableRefBadge({
   rowId: string;
   colorIdx: number;
   palette: GraphTheme['palette'];
+  actions: SyncAction[];
+  crowded: boolean;
+  onSync: (action: SyncAction) => void;
+  syncing: SyncAction['kind'] | null;
   onContextMenu: (event: React.MouseEvent) => void;
   onDoubleClick: (event: React.MouseEvent) => void;
 }) {
@@ -319,6 +373,10 @@ function DraggableRefBadge({
       refItem={refItem}
       colorIdx={colorIdx}
       palette={palette}
+      actions={actions}
+      crowded={crowded}
+      onSync={onSync}
+      syncing={syncing}
       onContextMenu={onContextMenu}
       onDoubleClick={onDoubleClick}
       dnd={{

@@ -248,9 +248,40 @@ export const useCommit = () =>
     api.ops.commit({ ...ctx, message: args.message, amend: args.amend ?? false }),
   );
 
-export const useFetch = () => useGitOp<void>((api, _args, ctx) => api.ops.fetch({ ...ctx }));
-export const usePull = () => useGitOp<void>((api, _args, ctx) => api.ops.pull({ ...ctx }));
+/**
+ * Sync scope.
+ *
+ * Every field is optional, and omitting all of them is the title-bar cluster's
+ * "sync whatever I am on" — the behaviour these three had before Phase 12. The
+ * ref badges pass a scope instead, because a branch chip three rows down the
+ * graph is not HEAD and pushing HEAD when the user clicked ↑ on `feature/x` is
+ * the kind of wrong that only shows up after it has happened.
+ *
+ * `PushRequest`/`PullRequest` have carried `{remote, branch}` since Phase 6, so
+ * this is the renderer catching up with the contract rather than a new one.
+ */
+export type SyncScope = { remote?: string; branch?: string };
+
+export const useFetch = () =>
+  useGitOp<SyncScope>((api, args, ctx) =>
+    api.ops.fetch({ ...ctx, ...(args.remote ? { remote: args.remote } : {}) }),
+  );
+
+export const usePull = () =>
+  useGitOp<SyncScope>((api, args, ctx) =>
+    api.ops.pull({
+      ...ctx,
+      ...(args.remote ? { remote: args.remote } : {}),
+      ...(args.branch ? { branch: args.branch } : {}),
+    }),
+  );
+
 export const usePush = () =>
-  useGitOp<{ setUpstream: boolean }>((api, args, ctx) =>
-    api.ops.push({ ...ctx, setUpstream: args.setUpstream }),
+  useGitOp<SyncScope & { setUpstream: boolean }>((api, args, ctx) =>
+    api.ops.push({
+      ...ctx,
+      setUpstream: args.setUpstream,
+      ...(args.remote ? { remote: args.remote } : {}),
+      ...(args.branch ? { branch: args.branch } : {}),
+    }),
   );
