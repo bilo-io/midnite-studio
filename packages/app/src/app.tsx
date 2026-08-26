@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo } from 'react';
+import { useCallback, useEffect, useMemo, useRef } from 'react';
 
 import {
   AppFrame,
@@ -8,10 +8,19 @@ import {
   type NavConfig,
   type NavLinkComponent,
 } from '@bilo-io/shell';
+import { pickForgeRemote } from '@midnite/git-shared';
 import { QueryClient } from '@tanstack/react-query';
 import { ChevronLeft } from 'lucide-react';
 import type { IconType } from 'react-icons';
-import { LuDiff, LuFolderTree, LuGitBranch, LuSettings } from 'react-icons/lu';
+import { FaCheckDouble } from 'react-icons/fa';
+import {
+  LuDiff,
+  LuFolderTree,
+  LuGitBranch,
+  LuLayoutDashboard,
+  LuPlay,
+  LuSettings,
+} from 'react-icons/lu';
 
 import { Brand, BrandMark, Wordmark } from './components/brand';
 import { DialogHost } from './components/dialog-host';
@@ -31,7 +40,7 @@ import { TerminalPanel } from './features/terminal/terminal-panel';
 import { hslTokenToHex } from './lib/color';
 import { bridge } from './services/bridge';
 import { useKeybindings } from './services/keybindings/use-keybindings';
-import { useRepos } from './services/queries';
+import { useRemotes, useRepos } from './services/queries';
 import { useWatchInvalidation } from './services/watch-invalidation';
 import { useAppearanceSync } from './store/appearance-store';
 import {
@@ -108,17 +117,81 @@ const CONTENT_BOX = {
  * read as a second sidebar. ("Explore" describes the verb, but a rail of nouns
  * with one verb in it is the odd one out.)
  */
-const NAV_ITEMS: { view: ViewId; label: string; icon: IconType }[] = [
+type NavItem = { view: ViewId; label: string; icon: IconType };
+
+/**
+ * Dashboard, alone, above everything else.
+ *
+ * Rendered through `NavConfig.pinned` rather than as a fourth workspace entry —
+ * the shell's own type documents that slot as "items rendered above the
+ * sections (e.g. Dashboard), with no section header", so this asks for the slot
+ * that already exists rather than a new one. It is not a view OF a checkout the
+ * way Files and Graph are; it is the repository's front page, and grouping it
+ * with them would say otherwise.
+ */
+const PINNED_ITEM: NavItem = {
+  view: 'dashboard',
+  label: 'Dashboard',
+  icon: LuLayoutDashboard,
+};
+
+const NAV_ITEMS: NavItem[] = [
   { view: 'files', label: 'Files', icon: LuFolderTree },
   { view: 'graph', label: 'Graph', icon: LuGitBranch },
   { view: 'changes', label: 'Changes', icon: LuDiff },
+  { view: 'actions', label: 'Actions', icon: LuPlay },
+  // `FaCheckDouble` — Font Awesome, not Lucide. A second icon set in the rail
+  // is the point of `react-icons` (see CLAUDE.md): the double tick reads as
+  // "these passed" in a way no Lucide glyph does, and taking the nearest match
+  // within one family is the thing the package exists to avoid.
+  { view: 'tests', label: 'Tests', icon: FaCheckDouble },
   // Settings is deliberately absent: it renders in the rail's FOOTER slot
   // (bottom-pinned, the way settings sit in VS Code/GitKraken), not among the
   // workspace views — see the `footer` in the nav config below.
 ];
 
+/** Every rail item, pinned included — the label lookup the Placeholder needs. */
+const ALL_NAV_ITEMS: NavItem[] = [PINNED_ITEM, ...NAV_ITEMS];
+
+/**
+ * Whether the Actions view has anything it could ever show.
+ *
+ * `gh` speaks GitHub only, so for a repository with a GitLab remote, a
+ * local-path remote or no remote at all the view is permanently empty — and a
+ * rail item that can only say "not applicable" is worse than no rail item. The
+ * same rule already governs the sidebar's forge sections, and it is the same
+ * `pickForgeRemote` both ask.
+ *
+ * "Still loading" is deliberately NOT "no". It answers with whatever it last
+ * knew until the remotes arrive, which matters more than it looks: the rail
+ * item disappearing is wired to a redirect, so a momentary "no" while switching
+ * between two GitHub repositories would throw the user out of the very view
+ * they are standing in and then put the item back a frame later.
+ *
+ * That held answer is a guess about a DIFFERENT repository, and deliberately
+ * so — it is wrong for at most one paint, and it is corrected the moment the
+ * query resolves. A cold "no" would be wrong for the same paint AND take the
+ * view down with it.
+ */
+function useActionsAvailable(repoId: string | null): boolean {
+  const { data: remotes } = useRemotes(repoId);
+  const lastKnown = useRef(false);
+
+  // No repo selected is a real "no", not a gap in the data — there is nothing
+  // for the query to be loading, so there is nothing to hold an answer for.
+  if (repoId === null) {
+    lastKnown.current = false;
+    return false;
+  }
+
+  if (remotes === undefined) return lastKnown.current;
+
+  lastKnown.current = pickForgeRemote(remotes)?.forge?.kind === 'github';
+  return lastKnown.current;
+}
+
 function Placeholder({ view }: { view: ViewId }) {
-  const label = NAV_ITEMS.find((i) => i.view === view)?.label ?? view;
+  const label = ALL_NAV_ITEMS.find((i) => i.view === view)?.label ?? view;
   const selectedRepoId = useUiStore((s) => s.selectedRepoId);
   const selectedWorktreePath = useUiStore((s) => s.selectedWorktreePath);
 
@@ -206,6 +279,25 @@ function Shell() {
   const { data: status } = useStatus();
   const hasUpstream = status?.branch.upstream != null;
   useDefaultSelection();
+
+  const actionsAvailable = useActionsAvailable(selectedRepoId);
+
+  /**
+   * Never leave the user standing in a view the rail no longer offers.
+   *
+   * Selecting a repository with no GitHub remote takes the Actions item away;
+   * without this the pane it named would stay mounted with no way back to it
+   * and no entry showing as current, which reads as the rail having lost its
+   * selection rather than as the view having gone.
+   *
+   * Graph is the fallback because it is the app's default view — the one a
+   * launch already lands on.
+   */
+  useEffect(() => {
+    if (activeView === 'actions' && !actionsAvailable) {
+      useUiStore.getState().setActiveView('graph');
+    }
+  }, [activeView, actionsAvailable]);
   useWatchInvalidation(useUiStore((s) => s.selectedRepoId));
 
   /**
@@ -247,16 +339,25 @@ function Shell() {
     ...LAYOUT_BOUNDS.terminalHeight,
   });
 
+  const navItem = useCallback(
+    (item: NavItem) => ({
+      href: pathForView(item.view),
+      label: item.label,
+      icon: <item.icon aria-hidden className="h-4 w-4" />,
+    }),
+    [],
+  );
+
   const nav: NavConfig = useMemo(
     () => ({
+      // Ungrouped, above the sections — the shell's own slot for exactly this.
+      pinned: [navItem(PINNED_ITEM)],
       sections: [
         {
           key: 'workspace',
-          items: NAV_ITEMS.map((item) => ({
-            href: pathForView(item.view),
-            label: item.label,
-            icon: <item.icon aria-hidden className="h-4 w-4" />,
-          })),
+          items: NAV_ITEMS.filter(
+            (item) => item.view !== 'actions' || actionsAvailable,
+          ).map(navItem),
         },
       ],
       // Collapsed, the rail shows the mark alone — the wordmark would be
@@ -296,7 +397,7 @@ function Shell() {
         </button>
       ),
     }),
-    [navMode, setNavMode, activeView],
+    [navMode, setNavMode, activeView, actionsAvailable, navItem],
   );
 
   // <TitleBar> renders nothing unless the bridge reports a frameless window, so
@@ -357,7 +458,14 @@ function Shell() {
       ) : null}
 
       <div className="flex min-h-0" style={CONTENT_BOX}>
+        {/*
+          Named, because it is not the only complementary landmark on the page —
+          AppFrame's nav rail is an `<aside>` too, and two unlabelled ones leave
+          a screen reader announcing "complementary" twice with no way to tell
+          which is the repository list.
+        */}
         <aside
+          aria-label="Repositories"
           className={`shrink-0 ${repos.dragging ? '' : 'transition-[width] duration-150 ease-in-out'}`}
           style={{ width: repos.current }}
         >

@@ -2,6 +2,55 @@
 
 <!-- Append one entry per landed phase/PR: date, phase, PR link, one-line summary. -->
 
+## 2026-08-26 — Phase 19 · Theme A — The nav rail becomes the app's table of contents
+
+Landed on `feature/phase-19-nav-shell` (squash-merged — this repository still has no remote, so
+there is no PR link). `ViewId` grows from four to seven: **Dashboard**, **Actions** and **Tests**
+join Files, Graph, Changes and Settings. Dashboard renders through **`NavConfig.pinned`** — the
+shell's own ungrouped slot above the sections, documented in its type as being for exactly this —
+so no shell change was needed. Tests takes `FaCheckDouble` from `react-icons/fa`, a second icon set
+in the rail on purpose.
+
+**`viewForPath` became a lookup over `VIEW_IDS`** rather than a chain of comparisons. The chain
+answered `graph` for anything it had not been taught, so three new views would have meant three
+rail links that all looked like the graph — and nothing would have failed to compile.
+
+**One table now reshapes the sidebar, on two axes.** `features/repos/view-sections.ts` holds
+`VIEW_FILTERS: Record<ViewId, ViewFilter>`, where a filter says which `SectionKey`s render AND
+whether clean checkouts are dropped. Actions → `['actions','worktrees']`, Tests →
+`['tests','worktrees']`, everything else → work-in-progress. Phase 17's `use-dirty-filter.ts` is
+deleted: it was the first instance of this idea and is now just the `changes` row. Keeping both
+axes in one hook is what makes "Show all sections" a real escape hatch — it has to put back the
+ref sections *and* the clean checkouts, or it only half works.
+
+`SectionKey` gained `actions`, `reviews` and `tests`, and `ForgeSections` takes the visibility
+predicate as a **prop** rather than reading the view itself — one answer to "which sections does
+this view show", not two free to disagree. A narrower `RefSectionKey` keeps `sectionMenu`'s
+parameter honest: it has nothing to offer a forge or test section, and widening it would have
+traded a compile error for a menu that opens empty.
+
+**Actions hides itself when `pickForgeRemote` finds no GitHub remote**, and standing in it when
+that happens redirects to Graph. The availability probe holds its **last** answer while remotes
+load — including across a repo switch. That held answer is knowingly about a different repository:
+it is wrong for at most one paint, whereas a cold "no" would be wrong for the same paint and take
+the view down with it.
+
+The narrowing toggle is persisted per view in `ui-store.sectionFilters`, a sparse map so a view
+added later starts from its own default rather than a stale `false`.
+
+**The e2e suite was un-rotted on the way through.** `graph-themes.spec.ts` had twelve tests failing
+on `main` for two Phase 16 changes it was never updated for: Settings became a footer *button*
+rather than a link, and the style picker moved onto a Settings **page**. Because `settingsPage`
+persists, *which* tests failed moved with test order — the "cross-test ordering" the 30s timeouts
+were masking. 6.4 minutes red → 25 seconds green. Ten new `nav-shell.spec.ts` specs cover the rail,
+the gating, the narrowing, the escape hatch and the redirect; the repositories `<aside>` gained an
+`aria-label` because AppFrame's rail is an `<aside>` too and two unlabelled ones are ambiguous.
+
+**Left open:** the toggle's *visual* on-state. `--primary` is a near-black within a point of
+`--muted-foreground`, and `bg-accent` / `bg-primary/10` both resolve to alpha ≈0.03, so the tint
+Phase 17 shipped has never read. `aria-pressed` and the label carry the state and are asserted;
+the colour belongs with the appearance tokens, not the nav shell.
+
 ## 2026-08-26 — Phase 19 · Theme B — Repository statistics from one history traversal
 
 Landed on `feature/phase-19-stats` (squash-merged — this repository still has no remote, so there

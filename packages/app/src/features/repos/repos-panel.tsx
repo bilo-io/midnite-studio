@@ -46,8 +46,28 @@ import { BranchDot } from './branch-dot';
 import { branchHealth, worktreeHealth, type BranchHealth } from './branch-health';
 import { checksVerdict } from './checks-verdict';
 import { ForgeSections } from './forge-sections';
-import { useDirtyFilter, type DirtyFilter } from './use-dirty-filter';
+import {
+  useViewSections,
+  type RefSectionKey,
+  type SectionKey,
+  type ViewSections,
+} from './view-sections';
 import { primaryTarget, useRepoActions } from './use-repo-actions';
+
+/**
+ * What the sidebar's narrowing toggle says it will do.
+ *
+ * Kept exact for the dirty-checkout case: "Showing only changed checkouts" is
+ * the accessible name Phase 17's Changes filter shipped with, and it is what
+ * the user has been reading since. The views that hide whole sections rather
+ * than clean checkouts need their own wording — "showing only changed
+ * checkouts" would be a lie in Actions — and `dirtyOnly` is what tells the two
+ * apart, so the view id itself is never needed here.
+ */
+function sectionFilterLabel(sections: ViewSections): string {
+  if (!sections.filtered) return 'Show every ref and checkout';
+  return sections.dirtyOnly ? 'Showing only changed checkouts' : 'Show all sections';
+}
 
 /**
  * The repositories sidebar, modelled on VS Code's SCM view crossed with
@@ -72,7 +92,7 @@ export function ReposPanel() {
   const { data: repos = [], isLoading } = useRepos();
   const { pickAndOpen, isPending } = usePickAndOpenRepo();
   const [error, setError] = useState<string | null>(null);
-  const filter = useDirtyFilter();
+  const sections = useViewSections();
 
   const onOpen = async () => {
     setError(null);
@@ -94,18 +114,39 @@ export function ReposPanel() {
         */}
         <div className="flex shrink-0 items-center gap-0.5">
           {/*
-            The filter is visible whenever it is on, and reversible from here.
-            Arriving in Changes to find two thirds of the tree missing is only
-            acceptable if the thing that did it is on screen saying so — a
+            The narrowing is visible whenever it is on, and reversible from
+            here. Arriving in a view to find two thirds of the tree missing is
+            only acceptable if the thing that did it is on screen saying so — a
             hidden mode that eats rows is indistinguishable from data loss.
+
+            The label names the STATE while narrowed and the ACTION while not,
+            which is the pairing the Changes filter shipped with; the views that
+            hide sections rather than checkouts get their own wording, because
+            "showing only changed checkouts" would be a lie in Actions.
           */}
           <IconButton
             icon={ListFilter}
-            label={filter.active ? 'Showing only changed checkouts' : 'Show every ref and checkout'}
-            aria-pressed={filter.active}
+            label={sectionFilterLabel(sections)}
+            aria-pressed={sections.filtered}
             size="sm"
-            onClick={filter.toggle}
-            className={filter.active ? 'text-primary' : ''}
+            onClick={sections.toggle}
+            /*
+              NOTE: this tint does not currently read.
+
+              `--primary` is a near-black in this theme (`240 5.9% 10%`), within
+              a point of `--muted-foreground` on every channel, so the pressed
+              icon computes to rgb(93,93,100) against a resting rgb(93,93,101).
+              Tinted backgrounds fare no better — `bg-accent` and `bg-primary/10`
+              both resolve to alpha ≈0.03 here. It is a token problem rather than
+              a problem with this control, it predates Phase 19 (Phase 17 shipped
+              the same line), and chasing it belongs with the appearance tokens,
+              not in the nav shell.
+
+              The STATE is not lost meanwhile: `aria-pressed` is correct, the
+              label says which mode is on in words, and both are asserted by
+              `nav-shell.spec.ts`.
+            */
+            className={sections.filtered ? 'text-primary' : ''}
           />
           <IconButton
             icon={FolderPlus}
@@ -148,7 +189,7 @@ export function ReposPanel() {
                 repo={repo}
                 first={index === 0}
                 index={index}
-                filter={filter}
+                sections={sections}
                 // '' clears a stale message on the next successful op, so an
                 // error from two operations ago cannot sit there looking current.
                 onError={(message) => setError(message || null)}
@@ -165,13 +206,13 @@ function RepoItem({
   repo,
   first,
   index,
-  filter,
+  sections,
   onError,
 }: {
   repo: RepoDescriptor;
   first: boolean;
   index: number;
-  filter: DirtyFilter;
+  sections: ViewSections;
   onError: (message: string) => void;
 }) {
   const [expanded, setExpanded] = useState(true);
@@ -214,7 +255,7 @@ function RepoItem({
    * bounded — `staleTime: Infinity` plus the watcher means each one is paid
    * once and refreshed only when the filesystem actually changes.
    */
-  const statuses = useWorktreeStatuses(repo, expanded || filter.active);
+  const statuses = useWorktreeStatuses(repo, expanded || sections.dirtyOnly);
 
   const changedByWorktree = useMemo(() => {
     const map = new Map<string, number>();
@@ -235,7 +276,7 @@ function RepoItem({
     panel flicker repos out and back in on every refetch, and would hide a
     dirty checkout on the strength of a number that had not landed yet.
   */
-  if (filter.active && !statuses.isLoading && statuses.total === 0) return null;
+  if (sections.dirtyOnly && !statuses.isLoading && statuses.total === 0) return null;
 
   return (
     <section
@@ -373,7 +414,7 @@ function RepoItem({
           refs={refs}
           remotes={remotes}
           statuses={statuses}
-          filter={filter}
+          sections={sections}
           refMenu={refMenu}
           worktreeMenu={worktreeMenu}
           sectionMenu={sectionMenu}
@@ -388,9 +429,7 @@ function RepoItem({
 /** Beyond this a tag list stops being a list and becomes a wall. */
 const TAG_PREVIEW = 50;
 
-type SectionKey = 'local' | 'remotes' | 'tags' | 'worktrees';
-
-const SECTION_TITLE: Record<SectionKey, string> = {
+const SECTION_TITLE: Record<RefSectionKey, string> = {
   local: 'Local',
   remotes: 'Remotes',
   tags: 'Tags',
@@ -424,7 +463,7 @@ function RepoTree({
   refs,
   remotes,
   statuses,
-  filter,
+  sections,
   refMenu,
   worktreeMenu,
   sectionMenu,
@@ -435,10 +474,10 @@ function RepoTree({
   refs: Ref[];
   remotes: Remote[];
   statuses: WorktreeStatuses;
-  filter: DirtyFilter;
+  sections: ViewSections;
   refMenu: (ref: Ref) => MenuItem[];
   worktreeMenu: (worktree: Worktree) => MenuItem[];
-  sectionMenu: (kind: SectionKey, refs: readonly Ref[]) => MenuItem[];
+  sectionMenu: (kind: RefSectionKey, refs: readonly Ref[]) => MenuItem[];
   onViewAllChanges: (worktreePath: string, label: string) => void;
   onCheckout: (ref: Ref) => void;
 }) {
@@ -485,14 +524,14 @@ function RepoTree({
     not asking, and leaving them in place would mean the filter had removed
     repositories while keeping two hundred tags.
   */
-  const visibleWorktrees = filter.active
+  const visibleWorktrees = sections.dirtyOnly
     ? worktrees.filter((worktree) => changedOf(worktree.path) > 0)
     : worktrees;
 
   const visibleTags = showAllTags ? tags : tags.slice(0, TAG_PREVIEW);
 
   /** One builder for both affordances, so right-click and the ellipsis agree. */
-  const headingAction = (kind: SectionKey, count: number) => ({
+  const headingAction = (kind: RefSectionKey, count: number) => ({
     icon: MoreVertical,
     label: `${SECTION_TITLE[kind]} section actions`,
     onClick: () => {
@@ -505,108 +544,122 @@ function RepoTree({
 
   return (
     <div className="pb-1">
-      {filter.active ? null : (
-        <>
-          {/*
-            "Local", not "Branches": the section below it is remote branches too,
-            and a heading that only says "Branches" leaves the reader to work out
-            which of the two they are looking at.
-          */}
-          <TreeSection
-            title="Local"
-            count={branches.length}
-            depth={1}
-            {...section('local')}
-            action={headingAction('local', branches.length)}
-          >
-            {branches.map((ref, i) => (
-              <RefRow
-                key={ref.fullName}
-                refItem={ref}
-                icon={GitBranch}
-                index={i}
-                health={branchHealth({
-                  ref,
-                  status: liveStatus(ref, statuses, repo),
-                  checks: checksVerdict(cachedRuns?.runs, ref.sha),
-                })}
-                changed={ref.worktreePath ? changedOf(ref.worktreePath) : 0}
-                conflicted={ref.worktreePath ? conflictedOf(ref.worktreePath) : 0}
-                menu={refMenu}
-                onCheckout={onCheckout}
-                onViewAllChanges={onViewAllChanges}
-              />
-            ))}
-          </TreeSection>
+      {/*
+        Each section asks the view table for itself. One gate over the whole
+        group would be smaller, but the Actions view wants Worktrees without
+        Local and the Changes view wants neither — the sections are independent
+        answers and have to be filtered as such.
+      */}
+      {sections.visible('local') ? (
+        /*
+          "Local", not "Branches": the section below it is remote branches too,
+          and a heading that only says "Branches" leaves the reader to work out
+          which of the two they are looking at.
+        */
+        <TreeSection
+          title="Local"
+          count={branches.length}
+          depth={1}
+          {...section('local')}
+          action={headingAction('local', branches.length)}
+        >
+          {branches.map((ref, i) => (
+            <RefRow
+              key={ref.fullName}
+              refItem={ref}
+              icon={GitBranch}
+              index={i}
+              health={branchHealth({
+                ref,
+                status: liveStatus(ref, statuses, repo),
+                checks: checksVerdict(cachedRuns?.runs, ref.sha),
+              })}
+              changed={ref.worktreePath ? changedOf(ref.worktreePath) : 0}
+              conflicted={ref.worktreePath ? conflictedOf(ref.worktreePath) : 0}
+              menu={refMenu}
+              onCheckout={onCheckout}
+              onViewAllChanges={onViewAllChanges}
+            />
+          ))}
+        </TreeSection>
+      ) : null}
 
-          <TreeSection
-            title="Remotes"
-            count={remoteGroups.length}
-            depth={1}
-            {...section('remotes')}
-            action={headingAction('remotes', remoteGroups.length)}
-          >
-            {remoteGroups.map((group) => (
-              <RemoteGroup
-                key={group.name}
-                name={group.name}
-                refs={group.refs}
-                forge={forgeByName.get(group.name) ?? null}
-                menu={refMenu}
-              />
-            ))}
-          </TreeSection>
+      {sections.visible('remotes') ? (
+        <TreeSection
+          title="Remotes"
+          count={remoteGroups.length}
+          depth={1}
+          {...section('remotes')}
+          action={headingAction('remotes', remoteGroups.length)}
+        >
+          {remoteGroups.map((group) => (
+            <RemoteGroup
+              key={group.name}
+              name={group.name}
+              refs={group.refs}
+              forge={forgeByName.get(group.name) ?? null}
+              menu={refMenu}
+            />
+          ))}
+        </TreeSection>
+      ) : null}
 
-          <TreeSection
-            title="Tags"
-            count={tags.length}
-            depth={1}
-            {...section('tags')}
-            action={
-              tags.length > TAG_PREVIEW
-                ? {
-                    label: showAllTags ? 'Show fewer' : `Show all ${tags.length}`,
-                    onClick: () => setShowAllTags((v) => !v),
-                  }
-                : undefined
-            }
-          >
-            {visibleTags.map((ref, i) => (
-              <RefRow key={ref.fullName} refItem={ref} icon={Tag} index={i} menu={refMenu} />
-            ))}
-          </TreeSection>
-        </>
-      )}
+      {sections.visible('tags') ? (
+        <TreeSection
+          title="Tags"
+          count={tags.length}
+          depth={1}
+          {...section('tags')}
+          action={
+            tags.length > TAG_PREVIEW
+              ? {
+                  label: showAllTags ? 'Show fewer' : `Show all ${tags.length}`,
+                  onClick: () => setShowAllTags((v) => !v),
+                }
+              : undefined
+          }
+        >
+          {visibleTags.map((ref, i) => (
+            <RefRow key={ref.fullName} refItem={ref} icon={Tag} index={i} menu={refMenu} />
+          ))}
+        </TreeSection>
+      ) : null}
 
-      <TreeSection
-        title="Worktrees"
-        count={visibleWorktrees.length}
-        depth={1}
-        {...section('worktrees')}
-        action={headingAction('worktrees', visibleWorktrees.length)}
-      >
-        {visibleWorktrees.map((worktree, i) => (
-          <WorktreeRow
-            key={worktree.id}
-            repo={repo}
-            worktree={worktree}
-            index={i}
-            // Every checkout now speaks for itself. This used to be
-            // `isMain`-only — the primary's status was the only one fetched, so
-            // attributing it to a linked worktree would have reported the wrong
-            // directory's dirt. The invariant survives; the data caught up.
-            health={worktreeHealth(statuses.byPath.get(worktree.path))}
-            changed={changedOf(worktree.path)}
-            conflicted={conflictedOf(worktree.path)}
-            menu={worktreeMenu}
-            onViewAllChanges={onViewAllChanges}
-          />
-        ))}
-      </TreeSection>
+      {sections.visible('worktrees') ? (
+        <TreeSection
+          title="Worktrees"
+          count={visibleWorktrees.length}
+          depth={1}
+          {...section('worktrees')}
+          action={headingAction('worktrees', visibleWorktrees.length)}
+        >
+          {visibleWorktrees.map((worktree, i) => (
+            <WorktreeRow
+              key={worktree.id}
+              repo={repo}
+              worktree={worktree}
+              index={i}
+              // Every checkout now speaks for itself. This used to be
+              // `isMain`-only — the primary's status was the only one fetched,
+              // so attributing it to a linked worktree would have reported the
+              // wrong directory's dirt. The invariant survives; the data caught
+              // up.
+              health={worktreeHealth(statuses.byPath.get(worktree.path))}
+              changed={changedOf(worktree.path)}
+              conflicted={conflictedOf(worktree.path)}
+              menu={worktreeMenu}
+              onViewAllChanges={onViewAllChanges}
+            />
+          ))}
+        </TreeSection>
+      ) : null}
 
-      {filter.active ? null : (
-        <ForgeSections repoId={repo.id} remotes={remotes} index={worktrees.length} />
-      )}
+      <ForgeSections
+        repoId={repo.id}
+        remotes={remotes}
+        index={worktrees.length}
+        visible={sections.visible}
+      />
     </div>
   );
 }

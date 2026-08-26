@@ -149,11 +149,31 @@ async function openGraph(page: Page, mode: 'hit' | 'miss' = 'hit'): Promise<void
   await expect(page.getByRole('columnheader', { name: 'Commit message' })).toBeVisible();
 }
 
+/**
+ * Open the Settings view's Graph page.
+ *
+ * Two Phase 16 changes this spec was never updated for, and each on its own was
+ * enough to hang every test that switches style. Settings became a BUTTON in
+ * the rail's footer slot rather than a workspace link; and Settings itself
+ * split into pages, so the style picker no longer sits on the page Settings
+ * opens on — `settingsPage` defaults to Appearance, and persists, which is why
+ * the failures moved around with test order.
+ */
+async function openGraphSettings(page: Page): Promise<void> {
+  await page.getByRole('button', { name: 'Settings' }).click();
+  await page
+    .getByRole('navigation', { name: 'Settings pages' })
+    .getByRole('button', { name: 'Graph' })
+    .click();
+}
+
 /** Switch style via Settings, then come back to the graph. */
 async function chooseTheme(page: Page, label: string): Promise<void> {
-  await page.getByRole('link', { name: 'Settings' }).click();
+  await openGraphSettings(page);
   await page.getByRole('button', { name: new RegExp(`^${label}`) }).click();
-  await page.getByRole('link', { name: 'Graph' }).click();
+  // The rail's Graph link, not the settings page of the same name — the rail is
+  // a navigation landmark of its own, which is what tells the two apart.
+  await page.getByRole('navigation', { name: 'Views' }).getByRole('link', { name: 'Graph' }).click();
   await expect(page.getByRole('columnheader', { name: 'Commit message' })).toBeVisible();
 }
 
@@ -474,17 +494,27 @@ test.describe('graph themes', () => {
    */
   test('the settings picker previews every style', async ({ page }) => {
     await openGraph(page);
-    await page.getByRole('link', { name: 'Settings' }).click();
+    await openGraphSettings(page);
 
     for (const label of THEMES) {
       await expect(page.getByRole('button', { name: new RegExp(`^${label}`) })).toBeVisible();
     }
-    // The appearance runtime the shell has always shipped and the app never called.
-    await expect(page.getByRole('radiogroup', { name: 'Motion' })).toBeVisible();
-    await expect(page.getByRole('radiogroup', { name: 'Density' })).toBeVisible();
 
     await page.waitForTimeout(300);
     await page.screenshot({ path: '../../docs/screenshots/phase-14/settings.png' });
+
+    /*
+      Motion and Density are the APPEARANCE page, not this one — Phase 16 split
+      what used to be one settings screen, and asserting all four in one place
+      is now asserting a screen that does not exist.
+    */
+    await page
+      .getByRole('navigation', { name: 'Settings pages' })
+      .getByRole('button', { name: 'Appearance' })
+      .click();
+    // The appearance runtime the shell has always shipped and the app never called.
+    await expect(page.getByRole('radiogroup', { name: 'Motion' })).toBeVisible();
+    await expect(page.getByRole('radiogroup', { name: 'Density' })).toBeVisible();
   });
 
   test('screenshot each style', async ({ page }) => {

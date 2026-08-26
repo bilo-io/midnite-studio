@@ -6,6 +6,7 @@ import {
   pathForView,
   useUiStore,
   viewForPath,
+  VIEW_IDS,
 } from './ui-store';
 
 const reset = () =>
@@ -21,6 +22,7 @@ const reset = () =>
     graphColumns: DEFAULT_GRAPH_COLUMNS,
     navMode: 'auto',
     collapsedNavSections: [],
+    sectionFilters: {},
     graphRefFilter: [],
     graphAuthorFilter: [],
     graphTheme: 'git-graph',
@@ -57,13 +59,66 @@ describe('useUiStore', () => {
 
 describe('view paths', () => {
   it('round-trips every view', () => {
-    for (const view of ['files', 'graph', 'changes', 'settings'] as const) {
+    // Derived from VIEW_IDS rather than a literal list: the round-trip is only
+    // worth asserting if it cannot be true for four views and untested for the
+    // three that were added later.
+    for (const view of VIEW_IDS) {
       expect(viewForPath(pathForView(view))).toBe(view);
     }
   });
 
   it('falls back to the graph for an unknown path', () => {
     expect(viewForPath('/nope')).toBe('graph');
+  });
+
+  it('gives the three Phase 19 views paths of their own', () => {
+    // Their own, and distinct: the chain this replaced answered `graph` for
+    // anything it had not been taught, which for three new views would have
+    // meant three rail links that all looked like the graph.
+    expect(viewForPath('/dashboard')).toBe('dashboard');
+    expect(viewForPath('/actions')).toBe('actions');
+    expect(viewForPath('/tests')).toBe('tests');
+  });
+});
+
+describe('phase 19 store additions', () => {
+  beforeEach(reset);
+
+  it('starts every view on its own default — no entry means "whatever this view does"', () => {
+    expect(useUiStore.getState().sectionFilters).toEqual({});
+  });
+
+  it('keeps each view\'s sidebar narrowing separate', () => {
+    // Filtering Actions down to its two sections and wanting the whole tree in
+    // Changes are unrelated decisions; one flag for both would make each undo
+    // the other.
+    useUiStore.getState().setSectionFilter('actions', false);
+    useUiStore.getState().setSectionFilter('changes', true);
+
+    expect(useUiStore.getState().sectionFilters).toEqual({
+      actions: false,
+      changes: true,
+    });
+  });
+
+  it('persists the narrowing, like the sections a user folded away', () => {
+    useUiStore.getState().setSectionFilter('actions', false);
+
+    const saved = JSON.parse(localStorage.getItem('midnite-git.ui') ?? '{}') as {
+      state: { sectionFilters: Record<string, boolean> };
+    };
+    expect(saved.state.sectionFilters).toEqual({ actions: false });
+  });
+
+  it('fills in views a stored payload predates', () => {
+    // A payload written before a view existed must not replace the whole map
+    // and leave the newer views without their defaults.
+    const merged = useUiStore.persist.getOptions().merge?.(
+      { sectionFilters: { changes: false } },
+      useUiStore.getState(),
+    ) as { sectionFilters: Record<string, boolean> };
+
+    expect(merged.sectionFilters).toEqual({ changes: false });
   });
 });
 

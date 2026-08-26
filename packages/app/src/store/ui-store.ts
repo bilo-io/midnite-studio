@@ -21,8 +21,34 @@ export type TerminalSidebarSide = 'left' | 'right';
 /** How the commit inspector lists a commit's files. */
 export type CommitFileView = 'tree' | 'list';
 
-/** The main content views the rail switches between. */
-export type ViewId = 'files' | 'graph' | 'changes' | 'settings';
+/**
+ * The main content views the rail switches between.
+ *
+ * Seven since Phase 19, and the rail is now the app's table of contents rather
+ * than three ways to look at one checkout. `dashboard` is deliberately first:
+ * it renders through `NavConfig.pinned`, ABOVE the workspace section and
+ * without a header of its own, so its position in this union is the only place
+ * that ordering is written down.
+ */
+export type ViewId =
+  | 'dashboard'
+  | 'files'
+  | 'graph'
+  | 'changes'
+  | 'actions'
+  | 'tests'
+  | 'settings';
+
+/** Every view, in rail order — the domain of the per-view maps below. */
+export const VIEW_IDS: readonly ViewId[] = [
+  'dashboard',
+  'files',
+  'graph',
+  'changes',
+  'actions',
+  'tests',
+  'settings',
+];
 
 /**
  * The pages the Settings view splits into (Phase 16). An inner sidebar, not
@@ -158,6 +184,20 @@ export type UiState = {
   graphColumns: GraphColumns;
   navMode: NavMode;
   collapsedNavSections: string[];
+  /**
+   * Per-view override of whether the repositories sidebar is narrowed to what
+   * the view is about — the "Show all sections" escape hatch.
+   *
+   * A sparse map, not a full record: an absent entry means "whatever this view
+   * does by default" (see `features/repos/view-sections.ts`), so a view added
+   * later starts from its own default rather than from a stale `false` written
+   * before it existed.
+   *
+   * Keyed by view because the answer is per-view. Filtering Actions down to its
+   * two sections and then wanting the whole tree in Changes are unrelated
+   * decisions, and one flag for both would make each undo the other.
+   */
+  sectionFilters: Partial<Record<ViewId, boolean>>;
   /** Which of the graph styles is drawn. A preference, so it persists. */
   graphTheme: GraphThemeId;
   /** Fully-qualified refs the graph is limited to; empty means every ref. */
@@ -214,6 +254,8 @@ export type UiState = {
   setGraphColumn: <K extends keyof GraphColumns>(key: K, value: number) => void;
   setNavMode: (mode: NavMode) => void;
   toggleNavSection: (key: string) => void;
+  /** Flip one view's sidebar between "what this view needs" and the whole tree. */
+  setSectionFilter: (view: ViewId, filtered: boolean) => void;
   setGraphTheme: (theme: GraphThemeId) => void;
   setGraphRefFilter: (refs: string[]) => void;
   setGraphAuthorFilter: (emails: string[]) => void;
@@ -233,6 +275,7 @@ type PersistedUi = Pick<
   | 'graphColumns'
   | 'navMode'
   | 'collapsedNavSections'
+  | 'sectionFilters'
   | 'diffShowOldGutter'
   | 'graphTheme'
   | 'settingsPage'
@@ -257,6 +300,7 @@ export const useUiStore = create<UiState>()(
       graphColumns: DEFAULT_GRAPH_COLUMNS,
       navMode: 'auto',
       collapsedNavSections: [],
+      sectionFilters: {},
       graphTheme: DEFAULT_GRAPH_THEME,
       graphRefFilter: [],
       graphAuthorFilter: [],
@@ -297,6 +341,8 @@ export const useUiStore = create<UiState>()(
             ? state.collapsedNavSections.filter((k) => k !== key)
             : [...state.collapsedNavSections, key],
         })),
+      setSectionFilter: (view, filtered) =>
+        set((state) => ({ sectionFilters: { ...state.sectionFilters, [view]: filtered } })),
       setGraphTheme: (graphTheme) => set({ graphTheme }),
       setGraphRefFilter: (graphRefFilter) => set({ graphRefFilter }),
       setGraphAuthorFilter: (graphAuthorFilter) => set({ graphAuthorFilter }),
@@ -332,6 +378,14 @@ export const useUiStore = create<UiState>()(
         graphColumns: state.graphColumns,
         navMode: state.navMode,
         collapsedNavSections: state.collapsedNavSections,
+        /*
+          Persisted alongside `collapsedNavSections`, and for the same reason:
+          both are the shape the user has arranged the sidebar into, not a
+          reading of anything. The ref-filter argument against persisting does
+          not apply — a narrowed sidebar always keeps its own toggle on screen
+          saying so, so it cannot present a partial tree as the whole one.
+        */
+        sectionFilters: state.sectionFilters,
         diffShowOldGutter: state.diffShowOldGutter,
         graphTheme: state.graphTheme,
         settingsPage: state.settingsPage,
@@ -378,6 +432,7 @@ export const useUiStore = create<UiState>()(
           ...saved,
           layout: { ...current.layout, ...saved.layout },
           graphColumns: { ...current.graphColumns, ...saved.graphColumns },
+          sectionFilters: { ...current.sectionFilters, ...saved.sectionFilters },
         };
       },
     },
@@ -386,11 +441,15 @@ export const useUiStore = create<UiState>()(
 
 /** Route path for a view — AppFrame is router-agnostic and compares strings. */
 export const pathForView = (view: ViewId): string => `/${view}`;
+
+/**
+ * The inverse of `pathForView`, over `VIEW_IDS` rather than a chain of
+ * comparisons.
+ *
+ * The chain this replaced had to grow a branch per view and silently answered
+ * `graph` for any it had not been taught — which for three new views would mean
+ * three rail links that all looked like the graph. Deriving it from the union's
+ * own list means a view cannot be added to `ViewId` and forgotten here.
+ */
 export const viewForPath = (path: string): ViewId =>
-  path === '/files'
-    ? 'files'
-    : path === '/changes'
-      ? 'changes'
-      : path === '/settings'
-        ? 'settings'
-        : 'graph';
+  VIEW_IDS.find((view) => pathForView(view) === path) ?? 'graph';
