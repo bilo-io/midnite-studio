@@ -1,6 +1,6 @@
 # Midnite Git — Phase Index
 
-**Headline:** **[18](phase-18-footer-monitor-diagnostics.md)** is the next frontier — the footer bar's empty right half becomes a live system monitor (CPU/RAM/GPU/disk, sparklines inline and area-chart timelines in a flyout) alongside per-repo lint counts, gated behind an explicit per-repository trust prompt because running a repo's own linter is the first arbitrary code execution this app would do. **[17](phase-17-repos-workbench.md)** turns the repositories sidebar into a workbench — per-worktree change counts, menus on everything, a whole-checkout diff in a tab strip, and the app's first forge integration (Actions + Reviews through the user's own `gh`). The MVP (phases 0–11) is landed — the app packages, installs and runs from /Applications. Three phases are open at once: **[12](phase-12-commit-inspector.md)** makes the commit graph a place you can read and act in (its diffs, its remote model and now its inspector have landed — ref badges and row polish remain), **[14](phase-14-graph-themes.md)** makes the graph itself configurable, and **[15](phase-15-multi-terminal-sessions.md)** turns the single terminal into several — shells and coding agents, persisted across restarts. **[16](phase-16-explorer-and-settings-pages.md)** has landed its five themes — a read-only Folder explorer with a preview pane, and Settings split into pages (including an Agent page into `~/.claude`) — with only its real-app manual verification open. Post-MVP scope lives in [`outstanding.md`](outstanding.md).
+**Headline:** **[19](phase-19-dashboard-actions-tests.md)** is the newest frontier — the nav rail stops being three views and becomes the app's table of contents: a pinned **Dashboard** of `react-grid-layout` widgets over one repo's history, contributors, PRs, issues and runs; an **Actions** view with job trees and logs; and a **Tests** view that discovers each repo's suites (its execution half waits on 18's trust-gated runner). **[18](phase-18-footer-monitor-diagnostics.md)** is in flight — the footer bar's empty right half becomes a live system monitor (CPU/RAM/GPU/disk, sparklines inline and area-chart timelines in a flyout) alongside per-repo lint counts, gated behind an explicit per-repository trust prompt because running a repo's own linter is the first arbitrary code execution this app would do. **[17](phase-17-repos-workbench.md)** turns the repositories sidebar into a workbench — per-worktree change counts, menus on everything, a whole-checkout diff in a tab strip, and the app's first forge integration (Actions + Reviews through the user's own `gh`). The MVP (phases 0–11) is landed — the app packages, installs and runs from /Applications. Three phases are open at once: **[12](phase-12-commit-inspector.md)** makes the commit graph a place you can read and act in (its diffs, its remote model and now its inspector have landed — ref badges and row polish remain), **[14](phase-14-graph-themes.md)** makes the graph itself configurable, and **[15](phase-15-multi-terminal-sessions.md)** turns the single terminal into several — shells and coding agents, persisted across restarts. **[16](phase-16-explorer-and-settings-pages.md)** has landed its five themes — a read-only Folder explorer with a preview pane, and Settings split into pages (including an Agent page into `~/.claude`) — with only its real-app manual verification open. Post-MVP scope lives in [`outstanding.md`](outstanding.md).
 
 Completed work is logged append-only in [`done.md`](done.md). Deferred scope lives in [`outstanding.md`](outstanding.md).
 
@@ -10,6 +10,7 @@ Completed work is logged append-only in [`done.md`](done.md). Deferred scope liv
 
 | Phase | Status | Done | Progress | % | 🔄 WIP | ◻ TODO |
 |-------|--------|------|----------|---|--------|--------|
+| [19 · Dashboard, Actions and Tests as views](phase-19-dashboard-actions-tests.md) | ◻ TODO | 0/77 | `░░░░░░░░░░` | 0% | — | A B C D E F G |
 | [18 · Footer system monitor + repo diagnostics](phase-18-footer-monitor-diagnostics.md) | 🔄 WIP | 0/54 | `░░░░░░░░░░` | 0% | A B C D | E F |
 | [17 · Repositories workbench + forge](phase-17-repos-workbench.md) | 🔄 WIP | 46/48 | `█████████░` | 96% | — | 2 manual checks |
 | [16 · Folder explorer, preview pane + settings pages](phase-16-explorer-and-settings-pages.md) | 🔄 WIP | 34/36 | `█████████░` | 94% | — | manual verification |
@@ -34,6 +35,28 @@ Completed work is logged append-only in [`done.md`](done.md). Deferred scope liv
 
 <!-- Each phase currently carries a single theme A = its full deliverables checklist. Split into
      lettered themes if a phase gets parallelised. -->
+
+### [Phase 19 — Dashboard, Actions and Tests as views](phase-19-dashboard-actions-tests.md)
+
+*The nav rail becomes the app's table of contents. A is the shell every other theme renders into;
+B and C are the two data layers (local history, and a deeper `gh`); D, E and F are the three
+surfaces; G is the one piece that waits on someone else.*
+
+- ◻ **A** — `ViewId` grows to seven, Dashboard rides `NavConfig.pinned` (ungrouped, above the
+  sections), Actions/Tests join the rail, and a per-view section allowlist reshapes the sidebar —
+  with a "show all sections" escape hatch
+- ◻ **B** — `git-engine/src/stats/`: one NUL-delimited history pass feeding a local-timezone
+  commit calendar, contributors by email, churn, and repo health, cached by HEAD sha
+- ◻ **C** — forge deepening through the existing `gh` wrapper: `gh issue list`,
+  `gh run view --json jobs`, `gh run view --log`, plus a workflow-file filter on run lists
+- ◻ **D** — the dashboard: `react-grid-layout` with theme-token overrides, a widget registry,
+  per-repo persisted layout, and a board-wide author filter across every widget
+- ◻ **E** — the Actions view: runs grouped by `.yml`, a job/step tree with failed jobs expanded,
+  an ANSI log pane honest about truncation, and Open-in-GitHub for anything stateful
+- ◻ **F** — Tests discovery: suites parsed from package.json/moon/vitest/playwright configs,
+  monorepo-aware, classified by kind, with "run in terminal" and **no** new trust surface
+- ◻ **G** — ⛔ **blocked on Phase 18 Theme E** — real suite execution through 18E's trust-gated
+  runner, with `--reporter=json` parsing and a live output stream
 
 ### [Phase 18 — Footer system monitor + repo diagnostics](phase-18-footer-monitor-diagnostics.md)
 
