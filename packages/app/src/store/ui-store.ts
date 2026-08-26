@@ -88,6 +88,8 @@ export type LayoutSizes = {
    * want tall depends entirely on whether you are picking a file or reading one.
    */
   commitFilesHeight: number;
+  /** The Actions view's run list, left of the run detail. */
+  actionsListWidth: number;
 };
 
 /** Widths of the graph table's fixed-width columns. */
@@ -125,6 +127,9 @@ export const DEFAULT_LAYOUT: LayoutSizes = {
   changesListWidth: 384,
   filesTreeWidth: 320,
   commitFilesHeight: 200,
+  // Wider than the files tree: a run row carries a status pill, a workflow
+  // name, a branch and an age, and the branch is the part that truncates first.
+  actionsListWidth: 360,
 };
 
 export const DEFAULT_GRAPH_COLUMNS: GraphColumns = {
@@ -150,6 +155,7 @@ export const LAYOUT_BOUNDS = {
   // how tall the window is and a 720px file list in a short one would leave the
   // message above and the diff below with no room at all.
   commitFilesHeight: { min: 80, max: 720 },
+  actionsListWidth: { min: 240, max: 640 },
 } as const;
 
 export const GRAPH_COLUMN_BOUNDS = {

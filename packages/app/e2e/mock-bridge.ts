@@ -100,10 +100,32 @@ export type MockFixtures = {
     issuesDisabled?: boolean;
     /** Job trees, keyed by run id — what expanding a run row reveals. */
     runDetail?: Record<string, { run?: unknown; jobs?: unknown[] }>;
-    /** Job logs, keyed by run id. `truncated` is the state worth seeding. */
+    /**
+     * Job logs, keyed by run id.
+     *
+     * Lines carry the real `job<TAB>step<TAB>timestamp message` prefix, because
+     * that prefix is exactly what the Actions view's log model exists to split
+     * — a fixture without it would exercise the un-prefixed fallback path and
+     * nothing else. `truncated` is the other state worth seeding: it is the one
+     * the whole ForgeRunLog shape was designed to make impossible to hide.
+     */
     runLogs?: Record<
       string,
-      { lines: string[]; truncated?: boolean; omittedLines?: number; totalBytes?: number }
+      {
+        lines: string[];
+        truncated?: boolean;
+        omittedLines?: number;
+        totalBytes?: number;
+        /**
+         * What `full: true` answers with, when a spec asks for the whole log.
+         *
+         * A separate payload rather than a flag, because that is what it is:
+         * the capped and un-capped fetches are different requests with
+         * different keys, and a fixture that returned the same lines for both
+         * could not show that the button did anything.
+         */
+        full?: string[];
+      }
     >;
     /** Workflow definitions, for the lazy `.yml` path lookup. */
     workflows?: unknown[];
@@ -379,17 +401,21 @@ export async function installMockBridge(page: Page, fixtures: MockFixtures): Pro
             error: null,
           };
         },
-        runLog: async (req: { runId: string }) => {
+        runLog: async (req: { runId: string; full?: boolean }) => {
           const seeded = data.forge?.runLogs?.[req.runId];
+          // No fixture means a run that has not finished — GitHub serves no log
+          // for one, which is a `pending`, not an error.
           if (!seeded) return { cli: forgeCli(), log: null, pending: true, error: null };
+
+          const whole = req.full === true && seeded.full !== undefined;
           return {
             cli: forgeCli(),
             log: {
-              lines: seeded.lines,
-              truncated: seeded.truncated ?? false,
-              omittedLines: seeded.omittedLines ?? 0,
+              lines: whole ? seeded.full : seeded.lines,
+              truncated: whole ? false : (seeded.truncated ?? false),
+              omittedLines: whole ? 0 : (seeded.omittedLines ?? 0),
               totalBytes: seeded.totalBytes ?? 0,
-              complete: seeded.truncated !== true,
+              complete: whole || seeded.truncated !== true,
             },
             pending: false,
             error: null,
