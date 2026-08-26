@@ -1004,3 +1004,26 @@ leftover: the spec reaches for Settings via `getByRole('link')`, but Settings be
 `button` when the nav rail regrouped. Untouched here; it is not this phase's to fix.
 
 724 unit tests + 56 Playwright green (11 of them new).
+
+## 2026-08-26 — Sidebar: rows stop changing height, and folded summaries line up
+
+Three polish fixes to the repositories sidebar, each about the same disease: layout that
+depended on what a row happened to contain.
+
+`TreeSection` headings sized themselves with `py-1`, and the trailing ellipsis action is an
+`h-6` IconButton — so Local, Remotes and Worktrees (which carry one) sat ~7px taller than Tags,
+Actions and Reviews (which do not), and the section rhythm stuttered from repo to repo. The
+heading now pins `h-7`; an optional control cannot change it. Repo rows got the same treatment
+(`h-8`): the sync cluster only renders once `git status` comes back, so a padded row grew a few
+pixels the moment status loaded and every repo below it shifted down.
+
+On a folded repo, the branch + change-count summary used to trail the name, starting at a
+different x on every row because names differ in length. It is now pushed to the trailing edge
+(`ml-auto`), so folded rows read as a column — the summary lines up down the panel, directly
+left of the sync control it explains. And the panel header's filter and "open a repository"
+buttons became one trailing cluster instead of two controls spread by `justify-between`, which
+had read as a third column of the title row.
+
+Two new Playwright tests pin both fixes: one asserts the four heading kinds share a single
+bounding-box height, the other that a folded row's change-count pill sits in the trailing half,
+left of the sync button. All 14 repos-workbench e2e tests green; unit gate green.
