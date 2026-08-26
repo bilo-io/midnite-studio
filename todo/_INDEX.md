@@ -11,7 +11,7 @@ Completed work is logged append-only in [`done.md`](done.md). Deferred scope liv
 | Phase | Status | Done | Progress | % | 🔄 WIP | ◻ TODO |
 |-------|--------|------|----------|---|--------|--------|
 | [19 · Dashboard, Actions and Tests as views](phase-19-dashboard-actions-tests.md) | ◻ TODO | 0/77 | `░░░░░░░░░░` | 0% | — | A B C D E F G |
-| [18 · Footer system monitor + repo diagnostics](phase-18-footer-monitor-diagnostics.md) | 🔄 WIP | 32/54 | `██████░░░░` | 59% | — | E F |
+| [18 · Footer system monitor + repo diagnostics](phase-18-footer-monitor-diagnostics.md) | 🔄 WIP | 32/54 | `██████░░░░` | 59% | E | F |
 | [17 · Repositories workbench + forge](phase-17-repos-workbench.md) | 🔄 WIP | 46/48 | `█████████░` | 96% | — | 2 manual checks |
 | [16 · Folder explorer, preview pane + settings pages](phase-16-explorer-and-settings-pages.md) | 🔄 WIP | 34/36 | `█████████░` | 94% | — | manual verification |
 | [15 · Multi-terminal sessions + agents](phase-15-multi-terminal-sessions.md) | 🔄 WIP | 38/39 | `█████████░` | 97% | — | manual relaunch check |
@@ -72,7 +72,7 @@ and F all read the sample stream they push; E is the trust boundary F prompts th
   (landed 2026-08-26)
 - ✅ **D** — the first real click-toggled popover primitive, plus the footer's slot-based right
   cluster: dot, percentage and sparkline per metric (landed 2026-08-26)
-- ◻ **E** — the diagnostics trust policy, written down: per-repo opt-in, a `repoId`-only channel,
+- 🔄 **E** — the diagnostics trust policy, written down: per-repo opt-in, a `repoId`-only channel,
   a configurable command, and a total eslint-JSON parser
 - ◻ **F** — the diagnostics segment (absent ≠ zero, sidebar-selection-driven) and a Monitor &
   Diagnostics settings page
