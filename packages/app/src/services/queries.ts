@@ -10,6 +10,8 @@ import type {
   Ref,
   Remote,
   RepoDescriptor,
+  RepoStats,
+  StatsWindow,
   Worktree,
 } from '@midnite/git-shared';
 import { useMutation, useQuery, useQueryClient, type QueryClient } from '@tanstack/react-query';
@@ -409,6 +411,85 @@ export function useRefreshForge(repoId: string | null) {
     void client.invalidateQueries({ queryKey: keys.forgeCli });
   };
 }
+
+// --- repository statistics (Phase 19) ---------------------------------------
+
+/**
+ * How long a statistics payload stays fresh.
+ *
+ * Far longer than a forge listing, and for the opposite reason: the expensive
+ * part happens in main, which memoises on a digest of every ref tip, so a
+ * refetch inside this window is usually a cache hit that still costs an IPC
+ * round trip and a re-render of seven widgets. The watcher invalidates
+ * `keys.stats` on a `refs` or `head` event, which is what actually makes the
+ * board current.
+ */
+const STATS_STALE_MS = 5 * 60_000;
+
+/**
+ * Everything the dashboard draws, in one query.
+ *
+ * `withChurn` is part of the key rather than a flag on the payload: a board
+ * that gains the contributors widget genuinely needs a DIFFERENT, more
+ * expensive traversal, and sharing a cache entry between the two would serve
+ * the cheap answer to the widget that asked for the expensive one — insertions
+ * and deletions rendering as `null` forever.
+ */
+export function useRepoStats(
+  repoId: string | null,
+  window: StatsWindow,
+  withChurn: boolean,
+  enabled = true,
+) {
+  return useQuery<RepoStats>({
+    queryKey: keys.statsSummary(repoId ?? '', window, withChurn),
+    queryFn: async () => {
+      const api = bridge();
+      if (!api || !repoId) return emptyStats(repoId ?? '', window);
+      return api.stats.summary({ repoId, window, withChurn });
+    },
+    enabled: enabled && repoId !== null,
+    staleTime: STATS_STALE_MS,
+  });
+}
+
+/** Re-run the history traversal for one repo, on the user's say-so. */
+export function useRefreshStats(repoId: string | null) {
+  const client = useQueryClient();
+  return () => {
+    if (!repoId) return;
+    void client.invalidateQueries({ queryKey: keys.stats(repoId) });
+  };
+}
+
+/**
+ * The bridge-less answer, shaped like a repository with no history.
+ *
+ * Under vitest/jsdom there is no preload, and every widget already renders its
+ * empty state — so this is what makes a dashboard component testable without a
+ * mock bridge, exactly as `EMPTY_RUNS` does for the forge sections.
+ */
+const emptyStats = (repoId: string, window: StatsWindow): RepoStats => ({
+  repoId,
+  window,
+  generatedAt: 0,
+  truncated: false,
+  commitsScanned: 0,
+  calendar: [],
+  contributors: [],
+  activity: [],
+  churn: null,
+  health: {
+    localBranches: 0,
+    remoteBranches: 0,
+    tags: 0,
+    staleByAge: 0,
+    mergedBranches: 0,
+    oldestUnmergedAt: null,
+    sizeBytes: null,
+    looseObjects: null,
+  },
+});
 
 // --- repo diagnostics (Phase 18) --------------------------------------------
 

@@ -4,6 +4,11 @@
 @import '@bilo-io/ui/styles';
 /* The shell's appearance layer: accent/density/motion data-attribute rules. */
 @import '@bilo-io/shell/appearance.css';
+/* react-grid-layout's positioning and resize-handle rules. Every @import has to
+ * precede every other statement, so this sits with the other two rather than
+ * beside the @tailwind directives it logically comes before. Its light-mode
+ * hard-codings are overridden at the bottom of this file. */
+@import 'react-grid-layout/css/styles.css';
 
 /* The "Quick Kiss" brand face, the same file the midnite apps ship. Vite
  * fingerprints and emits it from this url(), so there is no public/ copy to keep
@@ -41,6 +46,20 @@
      * is tuned to sit on a DARK ground and the same value on a 14%-tint chip
      * over white is a pastel on paper. Dark here, lifted in `.dark` below. */
     --lane-ink-l: 34%;
+
+    /* The commit heatmap's four intensity steps
+     * (features/dashboard/calendar-palette.ts). A data ramp, not a semantic
+     * one, and deliberately NOT `--primary` at four alphas: `--primary` is a
+     * near-black here, so alphas of it give four greys and a heatmap that
+     * cannot show intensity at all. Teal-green rather than the emerald the
+     * contributor table uses for insertions — the two sit on the same board,
+     * and one hue meaning both "commits made" and "lines added" invites
+     * reading the calendar as a diff. Saturation and lightness both climb, so
+     * the ramp cannot invert. */
+    --cal-1: 158 45% 78%;
+    --cal-2: 158 55% 62%;
+    --cal-3: 158 65% 46%;
+    --cal-4: 158 72% 34%;
   }
 
   .dark {
@@ -50,6 +69,14 @@
     /* Above the lane's own 45–68%, so the label reads brighter than the line
      * that shares its hue rather than disappearing into the chip's tint. */
     --lane-ink-l: 76%;
+
+    /* Mirrored, so the ramp still climbs against ink: on a dark ground the
+     * busiest day has to be the BRIGHTEST cell, or level 4 is the one that
+     * disappears. */
+    --cal-1: 158 40% 26%;
+    --cal-2: 158 50% 38%;
+    --cal-3: 158 60% 52%;
+    --cal-4: 158 68% 66%;
   }
 
   html,
@@ -86,5 +113,50 @@
   [data-selectable] {
     -webkit-user-select: text;
     user-select: text;
+  }
+}
+
+/* ---------------------------------------------------------------------------
+ * react-grid-layout, retinted.
+ *
+ * The shipped stylesheet hard-codes a light-mode palette: the drop placeholder
+ * is `red` at 20% opacity, and the resize handle is a base64 PNG of a dark grey
+ * corner. Both read as bugs in dark mode — the placeholder as an error state,
+ * the handle as a smudge — so each is replaced with a theme token. This is the
+ * "overridden for theme tokens" the phase doc calls for, and it is the reason
+ * the library's CSS is imported here rather than in a component.
+ * ------------------------------------------------------------------------- */
+
+.react-grid-item.react-grid-placeholder {
+  background: hsl(var(--primary) / 0.18);
+  border: 1px dashed hsl(var(--primary) / 0.5);
+  border-radius: 0.5rem;
+  opacity: 1;
+}
+
+/* The default handle is an image sprite; replaced with a drawn corner so it
+ * takes the foreground token and is visible on either ground. */
+.react-grid-item > .react-resizable-handle::after {
+  border-right-color: hsl(var(--muted-foreground) / 0.7);
+  border-bottom-color: hsl(var(--muted-foreground) / 0.7);
+}
+
+.react-grid-item > .react-resizable-handle {
+  background-image: none;
+}
+
+.react-grid-item.resizing,
+.react-grid-item.react-draggable-dragging {
+  /* Above its neighbours while in flight, and visibly lifted. */
+  z-index: 20;
+  box-shadow: 0 8px 24px hsl(var(--foreground) / 0.15);
+}
+
+/* The library animates `top`/`left` via a CSS transition on every item. With
+ * reduced motion asked for, tiles snap instead of sliding — the same courtesy
+ * `applyMotion` extends to the rest of the app. */
+@media (prefers-reduced-motion: reduce) {
+  .react-grid-item {
+    transition: none !important;
   }
 }

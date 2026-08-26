@@ -110,6 +110,23 @@ export type MockFixtures = {
     error?: string | null;
   };
   /**
+   * `mgit:stats:summary` — everything the dashboard draws.
+   *
+   * Merged over an all-zero envelope, so a spec sets only the arrays its
+   * widgets read. **Absent means a repository with no history**, which is the
+   * state every widget's empty case is written against — a freshly cloned repo,
+   * not a broken one.
+   */
+  stats?: {
+    calendar?: { date: string; count: number }[];
+    contributors?: unknown[];
+    activity?: unknown[];
+    churn?: unknown;
+    health?: Record<string, unknown>;
+    truncated?: boolean;
+    commitsScanned?: number;
+  };
+  /**
    * Sessions `terminal.list` restores, each with the scrollback to replay.
    *
    * A restored session comes back with NO process — that is the whole point of
@@ -382,6 +399,37 @@ export async function installMockBridge(page: Page, fixtures: MockFixtures): Pro
           cli: forgeCli(),
           workflows: data.forge?.workflows ?? [],
           error: forgeError(),
+        }),
+      },
+      /*
+        One payload, echoing back the window it was asked for.
+
+        Echoed rather than fixed because the window is part of the query key:
+        a spec that changes the toolbar's window and sees the same object back
+        would not be able to tell a refetch from a cache hit.
+      */
+      stats: {
+        summary: async (req: { repoId: string; window: string }) => ({
+          repoId: req.repoId,
+          window: req.window,
+          generatedAt: 0,
+          truncated: data.stats?.truncated ?? false,
+          commitsScanned: data.stats?.commitsScanned ?? data.stats?.activity?.length ?? 0,
+          calendar: data.stats?.calendar ?? [],
+          contributors: data.stats?.contributors ?? [],
+          activity: data.stats?.activity ?? [],
+          churn: data.stats?.churn ?? null,
+          health: {
+            localBranches: 0,
+            remoteBranches: 0,
+            tags: 0,
+            staleByAge: 0,
+            mergedBranches: 0,
+            oldestUnmergedAt: null,
+            sizeBytes: null,
+            looseObjects: null,
+            ...(data.stats?.health ?? {}),
+          },
         }),
       },
       shell: {
