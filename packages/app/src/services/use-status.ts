@@ -112,6 +112,45 @@ export function useStatusCounts({ repoId, worktreePath }: StatusTarget): StatusC
 
 const EMPTY_COUNTS = { staged: [], unstaged: [] };
 
+export type ChangeTotals = { fileCount: number; insertions: number; deletions: number };
+
+/**
+ * The whole-checkout roll-up: file count plus `+n −n`, for anything that needs
+ * to answer "how big is this" without rendering every row — the all-changes
+ * view's own header, and the tab that opens it.
+ *
+ * `undefined` while status is still loading, not a zeroed result — a tab
+ * showing "0 files" for the instant before the real count arrives would read
+ * as an empty checkout rather than a checkout not yet read.
+ */
+export function useAllChangesTotals({ repoId, worktreePath }: StatusTarget): ChangeTotals | undefined {
+  const { data: status, isPlaceholderData } = useRepoStatus({ repoId, worktreePath });
+  const counts = useStatusCounts({ repoId, worktreePath });
+
+  return useMemo(() => {
+    if (isPlaceholderData) return undefined;
+
+    // One row per path — the same de-dupe the all-changes view applies before
+    // rendering, so a staged-then-edited file is not counted twice here either.
+    const entries = (status?.entries ?? []).filter(
+      (entry, index, all) => all.findIndex((e) => e.path === entry.path) === index,
+    );
+
+    return entries.reduce<ChangeTotals>(
+      (sum, entry) => {
+        const row =
+          entry.unstaged === 'unmodified' ? counts.staged(entry.path) : counts.unstaged(entry.path);
+        return {
+          fileCount: sum.fileCount + 1,
+          insertions: sum.insertions + row.insertions,
+          deletions: sum.deletions + row.deletions,
+        };
+      },
+      { fileCount: 0, insertions: 0, deletions: 0 },
+    );
+  }, [status, isPlaceholderData, counts]);
+}
+
 /**
  * Status for EVERY checkout of a repository, keyed by worktree path.
  *

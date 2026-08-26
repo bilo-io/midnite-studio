@@ -16,7 +16,13 @@ import { useTerminalStore, type ConnectionState } from './terminal-store';
  * unmount-when-hidden rule — a background shell is only defensible when there
  * is somewhere to see it and stop it.
  */
-export function TerminalSessionList({ agents }: { agents: AgentDefinition[] }) {
+export function TerminalSessionList({
+  agents,
+  width,
+}: {
+  agents: AgentDefinition[];
+  width: number;
+}) {
   const dialogs = useDialogs();
   const sessions = useTerminalStore((s) => s.sessions);
   const activeId = useTerminalStore((s) => s.activeId);
@@ -49,7 +55,8 @@ export function TerminalSessionList({ agents }: { agents: AgentDefinition[] }) {
         which SIDE this one sits on is exactly what the docking test asserts.
       */
       data-session-list
-      className={`w-44 shrink-0 overflow-y-auto ${border} border-border py-1`}
+      className={`shrink-0 overflow-y-auto ${border} border-border py-1`}
+      style={{ width }}
       onContextMenu={showDockMenu}
     >
       <SortableList

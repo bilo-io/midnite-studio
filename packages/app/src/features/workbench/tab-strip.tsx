@@ -1,8 +1,11 @@
-import { GitPullRequest, Play, X } from 'lucide-react';
+import { Files, GitPullRequest, Play, X } from 'lucide-react';
+import type { ReactNode } from 'react';
 import { LuDiff } from 'react-icons/lu';
 
 import type { IconComponent } from '../../components/icon-button';
+import { Counts } from '../../components/change-tree';
 import { Tooltip } from '../../components/tooltip';
+import { useAllChangesTotals } from '../../services/use-status';
 import type { WorkbenchTab, WorkbenchTabKind } from '../../store/workbench-store';
 
 /**
@@ -66,9 +69,32 @@ export function TabStrip({
           active={activeTabId === tab.id}
           onFocus={() => onFocus(tab.id)}
           onClose={() => onClose(tab.id)}
+          stats={
+            tab.kind === 'all-changes' ? (
+              <AllChangesTabStats repoId={tab.repoId} worktreePath={tab.worktreePath} />
+            ) : null
+          }
         />
       ))}
     </div>
+  );
+}
+
+/**
+ * The all-changes tab's own summary — file count and `+n −n` — read off the
+ * same status query the view underneath already runs, so this costs no
+ * subprocess of its own: TanStack Query dedupes it against the tab body.
+ */
+function AllChangesTabStats({ repoId, worktreePath }: { repoId: string; worktreePath: string }) {
+  const totals = useAllChangesTotals({ repoId, worktreePath });
+  if (!totals || totals.fileCount === 0) return null;
+
+  return (
+    <span className="flex shrink-0 items-center gap-1 text-[11px] tabular-nums text-muted-foreground">
+      <Files aria-hidden className="h-3 w-3" />
+      {totals.fileCount}
+      <Counts insertions={totals.insertions} deletions={totals.deletions} />
+    </span>
   );
 }
 
@@ -79,6 +105,7 @@ function Tab({
   active,
   onFocus,
   onClose,
+  stats,
 }: {
   icon: IconComponent;
   label: string;
@@ -87,6 +114,8 @@ function Tab({
   onFocus: () => void;
   /** Absent on the working-tree tab, which has nothing to close to. */
   onClose?: () => void;
+  /** The all-changes tab's file/line summary, rendered ahead of the close button. */
+  stats?: ReactNode;
 }) {
   return (
     <div
@@ -119,6 +148,8 @@ function Tab({
           <span className="truncate">{label}</span>
         </button>
       </Tooltip>
+
+      {stats}
 
       {onClose ? (
         <button

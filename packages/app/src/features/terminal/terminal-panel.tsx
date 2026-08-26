@@ -6,8 +6,10 @@ import { useEffect } from 'react';
 import { useDialogs } from '../../components/dialog-host';
 import { IconButton } from '../../components/icon-button';
 import type { MenuItem } from '../../components/context-menu';
+import { ResizeHandle } from '../../components/resizable/resize-handle';
+import { useResizable } from '../../components/resizable/use-resizable';
 import { bridge, hasBridge } from '../../services/bridge';
-import { useUiStore } from '../../store/ui-store';
+import { DEFAULT_LAYOUT, LAYOUT_BOUNDS, useUiStore } from '../../store/ui-store';
 import { TerminalSessionList } from './terminal-session-list';
 import { useTerminalStore } from './terminal-store';
 import { TerminalView } from './terminal-view';
@@ -29,8 +31,26 @@ export function TerminalPanel({ cwd, repoId, repoName }: TerminalPanelProps) {
   const pendingInput = useTerminalStore((s) => s.pendingInput);
   const maximized = useUiStore((s) => s.terminalMaximized);
   const side = useUiStore((s) => s.terminalSidebarSide);
+  const layout = useUiStore((s) => s.layout);
+  const setLayout = useUiStore((s) => s.setLayout);
 
   const agents = useAgents();
+
+  /*
+    The list sits left of the handle in DOM order regardless of dock side —
+    `flex-row-reverse` is what actually moves it to the right visually. Docked
+    right, the handle ends up to the list's LEFT on screen, so dragging it
+    left has to grow the list: the same inversion the terminal's own height
+    handle needs against the panel above it.
+  */
+  const list = useResizable({
+    size: layout.terminalListWidth,
+    onSize: (value) => setLayout('terminalListWidth', value),
+    initial: DEFAULT_LAYOUT.terminalListWidth,
+    axis: 'x',
+    edge: side === 'left' ? 'start' : 'end',
+    ...LAYOUT_BOUNDS.terminalListWidth,
+  });
 
   // Restore saved sessions once, on first mount. Spawns nothing.
   useEffect(() => {
@@ -123,7 +143,12 @@ export function TerminalPanel({ cwd, repoId, repoName }: TerminalPanelProps) {
       </div>
 
       <div className={`flex min-h-0 flex-1 ${side === 'left' ? 'flex-row' : 'flex-row-reverse'}`}>
-        {showList ? <TerminalSessionList agents={agents} /> : null}
+        {showList ? (
+          <>
+            <TerminalSessionList agents={agents} width={list.current} />
+            <ResizeHandle resizable={list} axis="x" label="Resize terminal sessions" />
+          </>
+        ) : null}
 
         {/* Positioned, because the stacked panes inside are absolutely placed. */}
         <div className="relative min-h-0 min-w-0 flex-1">
