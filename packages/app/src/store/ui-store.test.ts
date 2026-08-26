@@ -113,6 +113,17 @@ describe('phase 19 store additions', () => {
     expect(saved.state.sectionFilters).toEqual({ actions: false });
   });
 
+  it('resets every override at once, back to the sparse map', () => {
+    // `{}`, not each view's default written out: an absent entry keeps meaning
+    // "whatever this view does", so a default that changes later still applies.
+    useUiStore.getState().setSectionFilter('actions', false);
+    useUiStore.getState().setSectionFilter('changes', true);
+
+    useUiStore.getState().resetSectionFilters();
+
+    expect(useUiStore.getState().sectionFilters).toEqual({});
+  });
+
   it('fills in views a stored payload predates', () => {
     // A payload written before a view existed must not replace the whole map
     // and leave the newer views without their defaults.
