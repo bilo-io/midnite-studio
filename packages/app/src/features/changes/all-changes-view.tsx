@@ -6,7 +6,7 @@ import { ChevronsDownUp, ChevronsUpDown } from 'lucide-react';
 
 import { ChangeTotals } from '../../components/change-tree';
 import { IconButton } from '../../components/icon-button';
-import { useRepoStatus, useStatusCounts } from '../../services/use-status';
+import { useAllChangesTotals, useRepoStatus, useStatusCounts } from '../../services/use-status';
 import { FileAccordion } from './file-accordion';
 import {
   EXPAND_ALL_LIMIT,
@@ -76,17 +76,11 @@ export function AllChangesView({
   const countsFor = (entry: StatusEntry) =>
     entry.unstaged === 'unmodified' ? counts.staged(entry.path) : counts.unstaged(entry.path);
 
-  const totals = entries.reduce(
-    (sum, entry) => {
-      const row = countsFor(entry);
-      return {
-        fileCount: sum.fileCount + 1,
-        insertions: sum.insertions + row.insertions,
-        deletions: sum.deletions + row.deletions,
-      };
-    },
-    { fileCount: 0, insertions: 0, deletions: 0 },
-  );
+  const totals = useAllChangesTotals({ repoId, worktreePath }) ?? {
+    fileCount: 0,
+    insertions: 0,
+    deletions: 0,
+  };
 
   if (!loaded) {
     return <Empty>Reading {label}…</Empty>;

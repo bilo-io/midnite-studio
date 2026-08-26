@@ -235,6 +235,40 @@ test.describe('terminal panel', () => {
   });
 
   /**
+   * The session list's own width, independent of the terminal pane beside it —
+   * previously a fixed `w-44`, now a drag like every other split in the app.
+   */
+  test('the session list resizes independently of the terminal pane', async ({ page }) => {
+    await open(page, { terminalSessions: RESTORED });
+    await toggleTerminal(page);
+
+    const list = page.locator('[data-session-list]');
+    const before = (await list.boundingBox())!;
+
+    const handle = page.getByRole('separator', { name: 'Resize terminal sessions' });
+    const handleBox = (await handle.boundingBox())!;
+    const midY = handleBox.y + handleBox.height / 2;
+
+    await page.mouse.move(handleBox.x + handleBox.width / 2, midY);
+    await page.mouse.down();
+    // Docked right (the default), the handle sits LEFT of the list — growing
+    // it means dragging left, the same inversion the panel's own height
+    // handle needs against the pane above it.
+    await page.mouse.move(handleBox.x - 60, midY, { steps: 6 });
+    await page.mouse.up();
+
+    const after = (await list.boundingBox())!;
+    expect(after.width).toBeGreaterThan(before.width + 40);
+    // The pane beside it did not move with it — the two size independently.
+    await expect(page.locator('.xterm-screen').first()).toBeVisible();
+
+    // Survives a reload, like every other dragged pane in the app.
+    await page.reload();
+    await expect(page.getByRole('button', { name: 'New terminal or agent' })).toBeVisible();
+    expect((await list.boundingBox())!.width).toBeCloseTo(after.width, 0);
+  });
+
+  /**
    * Drag-to-reorder, with a real pointer.
    *
    * `@dnd-kit`'s PointerSensor has a 6px activation constraint, so the move has

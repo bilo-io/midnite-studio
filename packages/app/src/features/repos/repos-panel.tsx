@@ -11,6 +11,7 @@ import {
   FolderPlus,
   FolderX,
   GitBranch,
+  GripVertical,
   ListFilter,
   MoreVertical,
   SquareArrowOutUpRight,
@@ -287,8 +288,6 @@ function RepoItem({
         a row picked up mid-cascade would otherwise snap back to its start.
       */
       style={{ ...cascadeStyle(index), ...drag.style }}
-      {...drag.attributes}
-      {...drag.listeners}
       className={`animate-fade-in-up cascade-delay ${drag.isDragging ? 'opacity-80' : ''} ${
         // A delimiter between repositories, not above the first one — a rule at
         // the top of a list reads as a header separator that lost its header.
@@ -314,6 +313,23 @@ function RepoItem({
           selectedRepoId === repo.id ? 'bg-accent/60' : 'hover:bg-accent/30'
         }`}
       >
+        {/*
+          The drag handle, not the whole row — a repo row already carries three
+          click targets (expand, select, the actions ellipsis), and dnd-kit's
+          own attributes put a `role="button"` + keyboard handling on whatever
+          they land on. Spread across the row those would have doubled up on
+          the row's own semantics; here they own one small, purpose-built grip.
+        */}
+        <span
+          {...drag.attributes}
+          {...drag.listeners}
+          aria-label={`Reorder ${repo.name}`}
+          title="Drag to reorder"
+          className="shrink-0 cursor-grab text-muted-foreground/40 opacity-0 transition-opacity hover:text-muted-foreground focus-visible:opacity-100 group-hover:opacity-100 active:cursor-grabbing"
+        >
+          <GripVertical aria-hidden className="h-3.5 w-3.5" />
+        </span>
+
         <button
           type="button"
           onClick={() => setExpanded((v) => !v)}
