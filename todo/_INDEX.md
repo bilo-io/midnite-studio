@@ -10,7 +10,7 @@ Completed work is logged append-only in [`done.md`](done.md). Deferred scope liv
 
 | Phase | Status | Done | Progress | % | 🔄 WIP | ◻ TODO |
 |-------|--------|------|----------|---|--------|--------|
-| [19 · Dashboard, Actions and Tests as views](phase-19-dashboard-actions-tests.md) | 🔄 WIP | 45/77 | `██████░░░░` | 58% | E | F G |
+| [19 · Dashboard, Actions and Tests as views](phase-19-dashboard-actions-tests.md) | 🔄 WIP | 53/77 | `███████░░░` | 69% | — | F G |
 | [18 · Footer system monitor + repo diagnostics](phase-18-footer-monitor-diagnostics.md) | 🔄 WIP | 51/54 | `█████████░` | 94% | — | 3 manual checks |
 | [17 · Repositories workbench + forge](phase-17-repos-workbench.md) | 🔄 WIP | 46/48 | `█████████░` | 96% | — | 2 manual checks |
 | [16 · Folder explorer, preview pane + settings pages](phase-16-explorer-and-settings-pages.md) | ✅ DONE | 36/36 | `██████████` | 100% | — | — |
@@ -57,8 +57,10 @@ surfaces; G is the one piece that waits on someone else.*
 - ✅ **D** — the dashboard: a `react-grid-layout` v2 board with theme-token overrides, a widget
   registry that gates on the repo's data sources, per-repo persisted layout, and one board-wide
   author filter every widget reads (landed 2026-08-26)
-- 🔄 **E** — the Actions view: runs grouped by `.yml`, a job/step tree with failed jobs expanded,
-  an ANSI log pane honest about truncation, and Open-in-GitHub for anything stateful
+- ✅ **E** — the Actions view: runs sectioned by workflow **id** (a name is whatever `name:` says
+  this morning), a job/step tree with only the failed jobs expanded, one whole-run log fetch split
+  in the renderer, a virtualised ANSI pane whose folding changes which rows *exist*, and
+  Open-in-GitHub for anything stateful (landed 2026-08-26)
 - ◻ **F** — Tests discovery: suites parsed from package.json/moon/vitest/playwright configs,
   monorepo-aware, classified by kind, with "run in terminal" and **no** new trust surface
 - ◻ **G** — **unblocked** (18E landed) — real suite execution through 18E's trust-gated

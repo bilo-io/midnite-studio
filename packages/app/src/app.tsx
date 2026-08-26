@@ -27,6 +27,7 @@ import { DialogHost } from './components/dialog-host';
 import { ResizeHandle } from './components/resizable/resize-handle';
 import { useResizable } from './components/resizable/use-resizable';
 import { ThemeToggle } from './components/theme-toggle';
+import { ActionsView } from './features/actions/actions-view';
 import { DashboardView } from './features/dashboard/dashboard-view';
 import { FilesView } from './features/files/files-view';
 import { GraphView } from './features/graph/graph-view';
@@ -502,6 +503,8 @@ function Shell() {
               <GraphView />
             ) : activeView === 'changes' ? (
               <Workbench />
+            ) : activeView === 'actions' ? (
+              <ActionsView />
             ) : activeView === 'settings' ? (
               <SettingsView />
             ) : (

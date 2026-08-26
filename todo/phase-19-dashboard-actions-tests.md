@@ -190,28 +190,28 @@ shell — and is left open.*
 - [x] The board is **keyboard- and screen-reader-survivable**: drag is not the only way to reorder
       (the widget menu can move a tile), and every tile is a landmark with a heading
 
-### E — The Actions view (M)
+### E — The Actions view (M) — ✅ DONE (2026-08-26)
 
-- [ ] `features/actions/actions-view.tsx` — the main pane for the Actions view: a run list on the
+- [x] `features/actions/actions-view.tsx` — the main pane for the Actions view: a run list on the
       left, run detail on the right, following the sidebar's repo selection
-- [ ] Runs **grouped by workflow file** with a filter control, driven by the workflow file name
+- [x] Runs **grouped by workflow file** with a filter control, driven by the workflow file name
       Theme C now returns rather than by matching display names
-- [ ] Each run row: status dot reusing the Phase 17
+- [x] Each run row: status dot reusing the Phase 17
       [`checks-verdict.ts`](../packages/app/src/features/repos/checks-verdict.ts) colour mapping,
       workflow name, branch, actor, event, duration and relative age
-- [ ] Run detail: the **job/step tree**, each step with its conclusion and elapsed time, failed
+- [x] Run detail: the **job/step tree**, each step with its conclusion and elapsed time, failed
       jobs auto-expanded and successful ones collapsed — the failure is the only reason the pane is
       open
-- [ ] A **log pane** for a selected job, with ANSI colour handling and GitHub's `##[group]` /
+- [x] A **log pane** for a selected job, with ANSI colour handling and GitHub's `##[group]` /
       `::group::` markers folded into collapsible regions. Virtualised via the existing
       `@tanstack/react-virtual`, and honest about truncation: a visible "log truncated — open in
       GitHub" affordance, never a silently short log
-- [ ] **"Open in GitHub"** on the run, on each job, and on the workflow file itself, through the
+- [x] **"Open in GitHub"** on the run, on each job, and on the workflow file itself, through the
       guarded `mgit:shell:open-external` channel. Anything that would *change* a run — re-run,
       cancel, approve — links out; it is not built here
-- [ ] Refresh is **explicit**, matching the existing forge sections. Polling a run to completion is
+- [x] Refresh is **explicit**, matching the existing forge sections. Polling a run to completion is
       a subprocess every few seconds against a rate-limited API and is deliberately not done
-- [ ] `gh` missing or unauthenticated renders the existing Phase 17 CLI-status affordance rather
+- [x] `gh` missing or unauthenticated renders the existing Phase 17 CLI-status affordance rather
       than an empty list
 
 ### F — Tests: discovery and the Tests view (M)

@@ -321,6 +321,32 @@ export const ForgeRunLogSchema = z.object({
 export type ForgeRunLog = z.infer<typeof ForgeRunLogSchema>;
 
 /**
+ * The line spliced in where a truncated log's middle was removed.
+ *
+ * Contract, not cosmetics, and it lives here for a reason: main writes this
+ * line and the renderer has to *recognise* it, because it is the boundary
+ * between two windows that were never adjacent. A group opened in the head
+ * window and never closed would otherwise swallow every line of the tail —
+ * including the failure the log was opened for — under the wrong header.
+ *
+ * Two regexes in two packages agreeing by luck is how that breaks silently, so
+ * the writer and the reader share one definition.
+ */
+export const logGapMarker = (omittedLines: number): string =>
+  `··· ${omittedLines.toLocaleString('en-US')} lines omitted — open the run on GitHub for the full log ···`;
+
+/**
+ * Whether a log line is that marker.
+ *
+ * Matched on the sentinel rule rather than the exact sentence: the marker is
+ * the only line in a log that carries no `job<TAB>step<TAB>` prefix *and*
+ * opens with the ellipsis run, so the wording can change without the reader
+ * losing the boundary.
+ */
+export const isLogGapMarker = (line: string): boolean =>
+  line.startsWith('··· ') && line.endsWith(' ···') && !line.includes('\t');
+
+/**
  * An issue listing.
  *
  * `disabled` is its own field rather than an `error` string because "this

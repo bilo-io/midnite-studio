@@ -6,7 +6,9 @@ import type {
   ForgeIssuesResult,
   ForgePullsResult,
   ForgeRunDetailResult,
+  ForgeRunLogResult,
   ForgeRunsResult,
+  ForgeWorkflowsResult,
   Ref,
   Remote,
   RepoDescriptor,
@@ -91,6 +93,16 @@ export const keys = {
    */
   forgeRunDetail: (repoId: string, runId: string) =>
     ['repos', repoId, 'forge', 'run-detail', runId] as const,
+  /**
+   * One run's log.
+   *
+   * `full` is part of the key, not a parameter of the same query: the capped
+   * and un-capped answers are different payloads, and sharing a key would make
+   * "show the whole log" replace the cached window it was expanded from.
+   */
+  forgeRunLog: (repoId: string, runId: string, full: boolean) =>
+    ['repos', repoId, 'forge', 'run-log', runId, full] as const,
+  forgeWorkflows: (repoId: string) => ['repos', repoId, 'forge', 'workflows'] as const,
   /** Whether `gh` is installed and signed in. Not repo-scoped — it is machine state. */
   forgeCli: ['forge', 'cli'] as const,
   /**
@@ -367,6 +379,68 @@ export function useForgeRunDetail(repoId: string | null, runId: string | null, e
   });
 }
 
+/**
+ * A run's whole log, in one fetch.
+ *
+ * The run, not the job: `gh run view --log` returns every job's output prefixed
+ * with its job name, so one subprocess serves the whole tree and clicking
+ * between jobs afterwards is free. `log-model.ts` does the splitting.
+ *
+ * `staleTime: Infinity` is right here and nowhere else in this file: GitHub
+ * serves a log only for a *finished* run, so anything this resolves with is
+ * already immutable. An unfinished run comes back `pending` and is re-asked
+ * when the user refreshes.
+ */
+export function useForgeRunLog(
+  repoId: string | null,
+  runId: string | null,
+  enabled: boolean,
+  full = false,
+  /**
+   * What to show while this key loads — the capped answer, when asking for the
+   * full one.
+   *
+   * The capped and un-capped fetches are different keys by design, so without
+   * this the moment a caller flips to `full` its `data` is undefined and the
+   * pane blanks. A placeholder keeps the log the user was already reading on
+   * screen until the wider one arrives.
+   */
+  placeholderData?: ForgeRunLogResult,
+) {
+  return useQuery<ForgeRunLogResult>({
+    queryKey: keys.forgeRunLog(repoId ?? '', runId ?? '', full),
+    queryFn: async () => {
+      const api = bridge();
+      if (!api || !repoId || !runId) return EMPTY_RUN_LOG;
+      return api.forge.runLog({ repoId, runId, full });
+    },
+    enabled: enabled && repoId !== null && runId !== null,
+    staleTime: Infinity,
+    ...(placeholderData === undefined ? {} : { placeholderData }),
+  });
+}
+
+/**
+ * Workflow definitions, for their `.yml` paths.
+ *
+ * Grouping runs never needs this — `ForgeRun.workflowId` comes free with the
+ * listing — so it is fetched only where something needs to *link* to a
+ * workflow file, and cached for a long window because a repository's set of
+ * workflows changes when someone edits `.github/`, not while you are looking.
+ */
+export function useForgeWorkflows(repoId: string | null, enabled: boolean) {
+  return useQuery<ForgeWorkflowsResult>({
+    queryKey: keys.forgeWorkflows(repoId ?? ''),
+    queryFn: async () => {
+      const api = bridge();
+      if (!api || !repoId) return EMPTY_WORKFLOWS;
+      return api.forge.workflows({ repoId });
+    },
+    enabled: enabled && repoId !== null,
+    staleTime: 5 * 60_000,
+  });
+}
+
 export function useForgePulls(repoId: string | null, enabled: boolean) {
   return useQuery<ForgePullsResult>({
     queryKey: keys.forgePulls(repoId ?? ''),
@@ -399,6 +473,15 @@ const EMPTY_ISSUES: ForgeIssuesResult = {
   error: null,
 };
 const EMPTY_RUN_DETAIL: ForgeRunDetailResult = { cli: EMPTY_CLI, detail: null, error: null };
+const EMPTY_RUN_LOG: ForgeRunLogResult = {
+  cli: EMPTY_CLI,
+  log: null,
+  // Not `pending`: with no bridge there is no run to still be going. Both
+  // nulls with both flags false is "nothing to say", which is the truth.
+  pending: false,
+  error: null,
+};
+const EMPTY_WORKFLOWS: ForgeWorkflowsResult = { cli: EMPTY_CLI, workflows: [], error: null };
 
 /** Re-run the forge listings for one repo, on the user's say-so. */
 export function useRefreshForge(repoId: string | null) {

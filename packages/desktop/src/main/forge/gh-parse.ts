@@ -14,6 +14,7 @@ import {
   type ForgeRunLog,
   type ForgeStep,
   type ForgeWorkflow,
+  logGapMarker,
 } from '@midnite/git-shared';
 
 /**
@@ -372,10 +373,6 @@ export function parseRunLog(output: string, options: { full?: boolean } = {}): F
     complete: false,
   };
 }
-
-/** The one line the UI is guaranteed to find in place of what was dropped. */
-export const logGapMarker = (omitted: number): string =>
-  `··· ${omitted.toLocaleString('en-US')} lines omitted — open the run on GitHub for the full log ···`;
 
 /** How many lines `splitLines` would produce, without producing them. */
 function countLines(text: string): number {

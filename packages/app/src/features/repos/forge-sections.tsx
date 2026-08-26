@@ -25,6 +25,7 @@ import {
   useForgeRuns,
   useRefreshForge,
 } from '../../services/queries';
+import { useActionsStore } from '../../store/actions-store';
 import { useUiStore } from '../../store/ui-store';
 import { useWorkbenchStore } from '../../store/workbench-store';
 import {
@@ -87,6 +88,8 @@ export function ForgeSections({
 
 function ActionsSection({ repoId, index }: { repoId: string; index: number }) {
   const [open, setOpen] = useState(false);
+  const selectRun = useActionsStore((s) => s.selectRun);
+  const selectRepo = useUiStore((s) => s.selectRepo);
   /*
     One run expanded at a time, by id rather than by a set.
 
@@ -97,7 +100,6 @@ function ActionsSection({ repoId, index }: { repoId: string; index: number }) {
   const [expandedRun, setExpandedRun] = useState<string | null>(null);
   const { data, isFetching } = useForgeRuns(repoId, open);
   const refresh = useRefreshForge(repoId);
-  const openTab = useWorkbenchStore((s) => s.openTab);
   const setActiveView = useUiStore((s) => s.setActiveView);
   const dialogs = useDialogs();
 
@@ -147,15 +149,33 @@ function ActionsSection({ repoId, index }: { repoId: string; index: number }) {
             label: run.number === null ? `Jobs in ${run.name}` : `Jobs in ${run.name} #${run.number}`,
             onToggle: () => setExpandedRun((current) => (current === run.id ? null : run.id)),
           }}
+          /*
+            The Actions view, not a Changes tab.
+
+            Phase 17 opened a run into the workbench because there was nowhere
+            else for it to go. Theme E built somewhere: a run list, its job
+            tree and its log. Two places rendering the same run differently,
+            depending on how you arrived, is one place too many — so the row
+            selects the run and switches to the view that can actually read it.
+            The `run` tab kind stays in the store for any tab already open; it
+            is simply no longer created.
+          */
           onOpen={() => {
-            openTab({
-              kind: 'run',
-              repoId,
-              runId: run.id,
-              label: `${run.name} · ${run.headBranch ?? 'detached'}`,
-              url: run.url,
-            });
-            setActiveView('changes');
+            /*
+              The repository first, and it is load-bearing.
+
+              Every repo card in the sidebar is expanded by default, so this row
+              can be clicked while a DIFFERENT repo is selected — and the
+              Actions view follows `selectedRepoId`, not the row. Without this
+              the view opens on the other repository's runs and the run you
+              clicked is nowhere in it; worse, if that repository has no GitHub
+              remote the rail hides Actions and `app.tsx` bounces you to Graph.
+              The workbench tab this replaced carried its own `repoId`, so
+              omitting it here was a regression, not a new gap.
+            */
+            selectRepo(repoId);
+            selectRun(repoId, run.id);
+            setActiveView('actions');
           }}
         >
           {expandedRun === run.id ? <RunJobs repoId={repoId} runId={run.id} /> : null}

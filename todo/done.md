@@ -56,6 +56,102 @@ reads C's contract instead. Nothing of it survives here beyond the widget.
   following the rule `metric-palette.ts` and `lane-colors.ts` already state.
 
 Gate green: typecheck, lint, 1,190 unit tests, Playwright 170 passed / 8 skipped (rebased onto Theme C).
+## 2026-08-26 — Phase 19 · Theme E — The Actions view
+
+Landed on `feature/phase-19-actions` (squash-merged — this repository still has no remote, so
+there is no PR link). Two panes: runs sectioned by workflow on the left, one run read in depth on
+the right — facts, job/step tree, and the log of whichever job is selected.
+
+### What landed
+
+- [x] `features/actions/actions-view.tsx` — resizable two-pane, following the sidebar's repo
+      selection, with an explicit Refresh and no polling
+- [x] Runs sectioned under collapsible workflow headers, ordered by each section's newest run
+- [x] Run detail: facts row, job tree with only the failed jobs expanded, per-step conclusions
+      and elapsed times
+- [x] `log-pane.tsx` — virtualised through `@tanstack/react-virtual`, `::group::` **and**
+      `##[group]` folding, a truncation notice above the log, and a "Load the full log" escape
+- [x] `ansi.ts` — sixteen colours, bold, dim, reset, resolved to theme-token pairs
+- [x] Open-in-GitHub on the run, each job, and the workflow file; nothing here writes
+- [x] `actions-store.ts` (selection, non-persisted) + `layout.actionsListWidth` (geometry, persisted)
+- [x] 49 unit tests; 10 Playwright specs; `docs/screenshots/phase-19-actions/*` in both themes
+
+Gate green: typecheck, lint, 1,247 unit tests, Playwright 188 passed / 8 skipped.
+
+Four decisions, all taken before any code:
+
+- **One place a run is rendered.** Phase 17 opened a run into a Changes tab because there was
+  nowhere else for it to go. There is now, so the sidebar row selects the run and switches to
+  this view. The `run` tab kind stays in `workbench-store` for any tab already open — it is
+  simply never created again. Two surfaces rendering the same run differently, depending on how
+  you arrived, is one surface too many.
+- **One log fetch per run, split in the renderer.** `gh run view --log` prefixes every line
+  `job<TAB>step<TAB>timestamp message`, so one subprocess serves the whole tree and clicking
+  between jobs afterwards is free. The alternative — `--job <id>` per job — is a smaller payload
+  per click and a subprocess per click, and a failed matrix run is exactly when you click a lot.
+- **Folding changes which rows EXIST.** The pane virtualises, and a collapsed group left in the
+  index space at zero height is a measurement that disagrees with the screen. `visibleRows`
+  derives a fresh flat array from the fold state over the same parsed tree. Collapsed state is
+  keyed on group **ordinal**, not label: a job's log routinely holds four groups called
+  "Run actions/checkout@v4".
+- **ANSI resolves to theme pairs, and the rest is removed.** A terminal's #cd0000 is unreadable
+  on this ground; stripping colour altogether throws away what makes a failed vitest run legible.
+  256-colour and truecolour sequences are *swallowed with their arguments* — reading `38;5;196`
+  as three codes would paint the rest of the line at random. Carriage returns resolve to the last
+  pass, so one npm install is one row rather than forty.
+
+Two bugs the specs caught, both worth remembering:
+
+- **A zustand selector that builds a value is a render loop.**
+  `(s) => s.collapsedWorkflows[repoId] ?? []` returns a new array every call, and
+  `useSyncExternalStore` compares snapshots by identity — so React reported "The result of
+  getSnapshot should be cached to avoid an infinite loop" and *stopped rendering the subtree*.
+  The view was blank with no error. Select the record, index it outside.
+- **`=== null` is not a null check for anything a fixture built.** `RunHeader` read
+  `run.headSha.slice(0, 7)` behind `run.headSha === null`. Through the real IPC path every
+  payload is schema-parsed and that guard holds; a hand-built e2e fixture is under no such
+  obligation, `undefined === null` is false, and the missing field took the whole view down.
+  The renderer should not be the layer that trusts this.
+
+The self-review pass found nine more. The one that mattered most was a **regression**: the run
+row set the run but not the *repository*, and the view follows `selectedRepoId`. Every repo card
+is expanded by default, so the row is clickable while another repo is selected — the view then
+opened on that repo's runs with the clicked run nowhere in it, and if it had no GitHub remote the
+rail hid Actions and `app.tsx` bounced to Graph. The workbench tab this replaced carried its own
+`repoId`; removing the tab lost it.
+
+Two more made the log actively lie, and both trace to the same thing — **a truncated log is two
+windows that were never adjacent**:
+
+- The gap marker main splices in has no `job<TAB>step<TAB>` prefix, so the parser filed it under
+  `preamble`, which nothing renders. A capped log read as a complete one. It is a `gap` node now,
+  always visible and never foldable, and `logGapMarker`/`isLogGapMarker` moved into
+  `@midnite/git-shared` so the writer and the reader share one definition — with a round-trip
+  test that says so rather than two regexes agreeing by luck.
+- Folding ran over the concatenation, so the head window's dangling `##[group]` absorbed every
+  tail line — including the failure the log was opened for — under the wrong header, where
+  "Collapse all groups" hid it completely. Each window folds on its own now.
+
+The other six, briefly: `ESC[?25l`/`ESC[?25h` (cursor hide/show — npm, pnpm, every CI spinner)
+carry a *private* parameter byte that `[0-9;]` does not match, so they rendered as literal
+`[?25l`; the log pane's fold state is keyed on the job, since group *ordinals* carried across
+jobs fold unrelated groups; "Load the full log" blanked the pane, because the capped and
+un-capped keys differ by design and a second query cannot bridge them (`placeholderData` can);
+a stored job is now honoured only if it exists in the current run, which changes without anyone
+selecting one; `full` is stored with its run id rather than reset in an effect that lands a
+render *after* the query has already fired at the new run; and a running run no longer reports a
+duration, since `updatedAt` is the last state change and is non-null mid-flight.
+
+**Not covered, deliberately stated:** the two-repo case behind the first finding has no e2e test.
+`mock-bridge.ts` serves a single hard-coded repository, and widening it would touch every
+existing spec's fixture shape — a change worth making on its own, not inside this theme.
+
+Also noted while landing: each pane is now a named landmark (`Workflow runs`, `Jobs`, `Run
+detail`, `Job log`), and the job status pill moved *outside* its button. Both started as test
+ergonomics — four panes rendering buttons called "CI" made every locator ambiguous — and both
+are the accessible thing to do anyway. A status is a reading of a job, not part of what the
+control does.
+
 ## 2026-08-26 — Phase 19 · Theme C — Forge: issues, run detail and logs
 
 Landed on `feature/phase-19-forge` (squash-merged — this repository still has no remote, so
