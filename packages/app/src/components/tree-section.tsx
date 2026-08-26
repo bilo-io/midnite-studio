@@ -93,7 +93,15 @@ export function TreeSection({
 
   return (
     <section>
-      <header className={`flex items-center gap-1.5 py-1 pr-2 ${HEADER_INDENT[depth]}`}>
+      {/*
+        A fixed height, not vertical padding.
+        With `py-1` the row was as tall as whatever it happened to contain, and
+        the trailing action is an `h-6` IconButton — so Local, Remotes and
+        Worktrees (which have one) sat ~7px taller than Tags, Actions and
+        Reviews (which do not), and the sidebar's section rhythm visibly
+        stuttered. Pinning the row means an optional control cannot change it.
+      */}
+      <header className={`flex h-7 items-center gap-1.5 pr-2 ${HEADER_INDENT[depth]}`}>
         {collapsible ? (
           <button
             type="button"
