@@ -204,6 +204,12 @@ export const CHANNELS = {
   windowState: 'mgit:window:state',
   /** Renderer → main: retint the native window backing to match the theme. */
   windowSetBackground: 'mgit:window:set-background',
+  /**
+   * Renderer → main: reload the window. Payload is `hard: boolean` — `false`
+   * mirrors a browser's plain refresh (`webContents.reload`), `true` mirrors
+   * a hard refresh that bypasses the HTTP cache (`webContents.reloadIgnoringCache`).
+   */
+  windowReload: 'mgit:window:reload',
 } as const;
 
 /** One-way pushes from main → renderer (`webContents.send`). */
