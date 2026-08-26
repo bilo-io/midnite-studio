@@ -100,6 +100,8 @@ export const SETTINGS_PAGES: { id: SettingsPageId; label: string; group: Setting
 export type LayoutSizes = {
   reposWidth: number;
   terminalHeight: number;
+  /** The terminal panel's session list, beside the active terminal. */
+  terminalListWidth: number;
   detailWidth: number;
   changesListWidth: number;
   /** The Files view's tree pane, left of the preview. */
@@ -147,6 +149,9 @@ export const DEFAULT_LAYOUT: LayoutSizes = {
   // thing that truncated, which is the one part of the row that identifies it.
   reposWidth: 288,
   terminalHeight: 288,
+  // Matches the list's old fixed `w-44`, so switching to a drag changes
+  // nothing about how the panel looks until someone actually drags it.
+  terminalListWidth: 176,
   detailWidth: 384,
   changesListWidth: 384,
   filesTreeWidth: 320,
@@ -171,6 +176,7 @@ export const DEFAULT_GRAPH_COLUMNS: GraphColumns = {
 export const LAYOUT_BOUNDS = {
   reposWidth: { min: 180, max: 560 },
   terminalHeight: { min: 120, max: 720 },
+  terminalListWidth: { min: 120, max: 360 },
   detailWidth: { min: 280, max: 720 },
   changesListWidth: { min: 240, max: 720 },
   filesTreeWidth: { min: 200, max: 640 },

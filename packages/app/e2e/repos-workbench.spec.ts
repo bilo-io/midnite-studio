@@ -278,6 +278,26 @@ test('the all-changes tab totals the checkout without expanding anything', async
   await expect(page.getByRole('button', { name: /README\.md/ })).toContainText('+300');
 });
 
+test('the all-changes tab carries its own totals in the tab bar', async ({ page }) => {
+  await open(page);
+
+  await page
+    .getByRole('button', { name: 'View all changes in worktree feature/x' })
+    .first()
+    .click();
+
+  // Ahead of the close button, so it reads before the "X" rather than after it.
+  const tab = page.getByRole('tab', { name: 'feature/x' }).locator('..');
+  await expect(tab).toContainText('3');
+  await expect(tab).toContainText('+321');
+  await expect(tab).toContainText('−3');
+
+  const closeButton = page.getByRole('button', { name: 'Close feature/x' });
+  const statsBox = (await tab.getByText('+321').boundingBox())!;
+  const closeBox = (await closeButton.boundingBox())!;
+  expect(statsBox.x).toBeLessThan(closeBox.x);
+});
+
 test('the working-tree tab cannot be closed', async ({ page }) => {
   await open(page);
   await page
