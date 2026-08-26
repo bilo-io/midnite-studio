@@ -1,5 +1,10 @@
 import { describe, expect, it } from 'vitest';
 
+import {
+  METRICS_ACTIVE_INTERVAL_MS,
+  METRICS_IDLE_INTERVAL_MS,
+  metricsPresent,
+} from '../domain/metrics';
 import { COMMAND_IDS, DEFAULT_KEYMAP, GLOBAL_CHORDS, isCommandId } from '../keybindings';
 import { CHANNELS, EVENT_CHANNELS } from './channels';
 import * as schemas from './schemas';
@@ -181,6 +186,72 @@ describe('forge schemas', () => {
       forgePulls: ['ForgePullsRequest', 'ForgePullsResponse'],
     };
     const channelKeys = Object.keys(CHANNELS).filter((key) => key.startsWith('forge'));
+    expect(channelKeys.sort()).toEqual(Object.keys(expected).sort());
+    for (const names of Object.values(expected)) {
+      for (const name of names) expect(schemas).toHaveProperty(name);
+    }
+  });
+});
+
+describe('metrics schemas', () => {
+  it('accepts a sample carrying nothing but a timestamp', () => {
+    // A machine where every probe failed is a valid sample, not an error. The
+    // renderer renders no readouts at all for it, which is the honest answer.
+    expect(() => schemas.MetricsSampleEvent.parse({ at: 1 })).not.toThrow();
+  });
+
+  it('keeps "unreadable" and "zero" as different answers, all the way down', () => {
+    const absent = schemas.MetricsSampleEvent.parse({ at: 1, cpu: 40 });
+    const zero = schemas.MetricsSampleEvent.parse({ at: 1, cpu: 40, gpu: 0 });
+    expect(absent.gpu).toBeUndefined();
+    expect(zero.gpu).toBe(0);
+    // Distinguishable by presence, not by value — which is what lets the chart
+    // drop the series instead of drawing a flat zero line.
+    expect('gpu' in absent).toBe(false);
+    expect('gpu' in zero).toBe(true);
+  });
+
+  it('rejects a percentage outside 0-100', () => {
+    expect(() => schemas.MetricsSampleEvent.parse({ at: 1, cpu: 101 })).toThrow();
+    expect(() => schemas.MetricsSampleEvent.parse({ at: 1, memory: -1 })).toThrow();
+  });
+
+  it('omits load1 rather than reporting win32\'s hard-coded zero', () => {
+    // libuv returns [0,0,0] on win32; the field being optional is what keeps
+    // that from reading as a genuinely idle machine.
+    const parsed = schemas.MetricsSampleEvent.parse({ at: 1, cpuInfo: { cores: 8 } });
+    expect(parsed.cpuInfo?.load1).toBeUndefined();
+  });
+
+  it('bounds the cadence the renderer may ask for', () => {
+    // The floor matters: the GPU probe spawns a subprocess per tick, so a
+    // renderer bug asking for 10ms would fork-bomb the machine.
+    expect(() => schemas.MetricsStartRequest.parse({ intervalMs: 10 })).toThrow();
+    expect(() => schemas.MetricsStartRequest.parse({ intervalMs: 600_000 })).toThrow();
+    expect(schemas.MetricsStartRequest.parse({ intervalMs: 2_000 }).intervalMs).toBe(2_000);
+  });
+
+  it('offers both cadences inside the bounds it enforces', () => {
+    for (const interval of [METRICS_ACTIVE_INTERVAL_MS, METRICS_IDLE_INTERVAL_MS]) {
+      expect(() => schemas.MetricsStartRequest.parse({ intervalMs: interval })).not.toThrow();
+    }
+  });
+
+  it('reports which metrics a sample actually carries', () => {
+    expect(metricsPresent({ at: 1, cpu: 10, gpu: 0 })).toEqual(['cpu', 'gpu']);
+    expect(metricsPresent({ at: 1 })).toEqual([]);
+  });
+
+  it('covers every metrics channel with a schema', () => {
+    const expected: Record<string, string[]> = {
+      metricsStart: ['MetricsStartRequest'],
+      // `stop` carries no payload at all — there is nothing to validate.
+      metricsStop: [],
+      metricsSample: ['MetricsSampleEvent'],
+    };
+    const channelKeys = [...Object.keys(CHANNELS), ...Object.keys(EVENT_CHANNELS)].filter((key) =>
+      key.startsWith('metrics'),
+    );
     expect(channelKeys.sort()).toEqual(Object.keys(expected).sort());
     for (const names of Object.values(expected)) {
       for (const name of names) expect(schemas).toHaveProperty(name);

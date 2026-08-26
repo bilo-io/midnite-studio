@@ -3,6 +3,7 @@ import type { z } from 'zod';
 import type {
   GitOpResult,
   GraphRow,
+  MetricSample,
   Ref,
   Remote,
   RepoDescriptor,
@@ -234,6 +235,24 @@ export type MidniteGitBridge = {
     readFile: (
       req: In<typeof S.FsReadFileRequest>,
     ) => Promise<z.infer<typeof S.FsReadFileResponse>>;
+  };
+
+  /**
+   * The machine's live vitals, for the footer's right cluster.
+   *
+   * `start`/`stop` are one-way sends with nothing to report back, and `start`
+   * doubles as the cadence control: re-sending it with a different
+   * `intervalMs` re-arms the existing sampler rather than adding a second one.
+   * That keeps cadence a consequence of what is on screen (the flyout opening
+   * escalates to 2s) instead of a separate verb the two sides must agree on.
+   *
+   * A sample OMITS any metric this machine cannot report. Nothing here is ever
+   * zero-filled — see MetricSample.
+   */
+  metrics: {
+    start: (req: In<typeof S.MetricsStartRequest>) => void;
+    stop: () => void;
+    onSample: (handler: (sample: MetricSample) => void) => Unsubscribe;
   };
 
   watch: {

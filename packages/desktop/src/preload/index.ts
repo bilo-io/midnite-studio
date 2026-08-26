@@ -89,6 +89,7 @@ const bridge: Pick<
   | 'terminal'
   | 'agent'
   | 'fs'
+  | 'metrics'
   | 'watch'
   | 'window'
   | 'windowChrome'
@@ -184,6 +185,14 @@ const bridge: Pick<
   fs: {
     listDir: (req) => call(CHANNELS.fsListDir, req),
     readFile: (req) => call(CHANNELS.fsReadFile, req),
+  },
+  metrics: {
+    // `send`, not `invoke`, like `pty.input`: neither verb has an answer worth
+    // waiting for, and `start` is re-sent on every cadence change — a
+    // round-trip per flyout open would buy nothing.
+    start: (req) => ipcRenderer.send(CHANNELS.metricsStart, req),
+    stop: () => ipcRenderer.send(CHANNELS.metricsStop),
+    onSample: (handler) => subscribe(EVENT_CHANNELS.metricsSample, handler),
   },
   watch: {
     onEvent: (handler) => subscribe(EVENT_CHANNELS.watchEvent, handler),

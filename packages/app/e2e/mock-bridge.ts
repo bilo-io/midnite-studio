@@ -98,6 +98,32 @@ export type MockFixtures = {
     | { kind: 'binary' | 'too-large'; size: number }
     | { kind: 'error'; message: string }
   >;
+  /**
+   * The samples `metrics.onSample` pushes, in order, one per entry.
+   *
+   * **Omit a metric to reach the "unreadable on this machine" state** — that is
+   * the only way to a three-readout cluster, and it is the state the whole
+   * optional-fields design exists to make renderable. A sample with `gpu: 0`
+   * is a different fixture and must render a fourth readout.
+   *
+   * `at` is written as an offset in milliseconds from an arbitrary epoch, not
+   * a wall-clock time: the store evicts by timestamp, so a spec that wants a
+   * cadence change needs to control the spacing, and `Date.now()` inside a
+   * fixture cannot.
+   *
+   * Absent means no samples at all — the pre-Phase-18 footer, which is what
+   * every spec written before this one expects.
+   */
+  metricsSamples?: Array<{
+    at: number;
+    cpu?: number;
+    memory?: number;
+    gpu?: number;
+    disk?: number;
+    memoryBytes?: { used: number; total: number };
+    diskBytes?: { used: number; total: number };
+    cpuInfo?: { cores: number; load1?: number };
+  }>;
 };
 
 export async function installMockBridge(page: Page, fixtures: MockFixtures): Promise<void> {
@@ -402,6 +428,43 @@ export async function installMockBridge(page: Page, fixtures: MockFixtures): Pro
           return data.fsFiles?.[key] ?? { kind: 'error', message: 'no fixture for ' + key };
         },
       },
+      /*
+        A live stream, not an inert one.
+
+        `watch.onEvent` and `menu.onCommand` above return a no-op unsubscribe
+        and never push anything, which is fine for channels no spec drives. It
+        would be quietly fatal here: an inert metrics stream renders an EMPTY
+        flyout in every spec, and the assertions would pass while testing
+        nothing at all. So this keeps a real handler array with a real splice
+        teardown — the StrictMode double-mount the contract's `Unsubscribe`
+        exists for is only observable if the teardown actually removes one.
+
+        Samples go out asynchronously, as `log.start` does, so the renderer's
+        subscribe-then-receive ordering stays on its normal path.
+      */
+      metrics: {
+        start: (req: { intervalMs: number; freshDisk?: boolean }) => {
+          metricsCalls.push(req);
+          // Only the FIRST start emits the backlog. `start` is re-sent on
+          // every cadence change, and replaying the fixture each time would
+          // pile duplicate points into the store — which would then look like
+          // a chart that grows every time the flyout is opened.
+          if (metricsEmitted) return;
+          metricsEmitted = true;
+          setTimeout(() => {
+            for (const sample of data.metricsSamples ?? []) {
+              for (const handler of metricsHandlers) handler(sample);
+            }
+          }, 0);
+        },
+        stop: () => {
+          metricsCalls.push({ intervalMs: 0, stopped: true });
+        },
+        onSample: (handler: (sample: unknown) => void) => {
+          metricsHandlers.push(handler);
+          return () => metricsHandlers.splice(metricsHandlers.indexOf(handler), 1);
+        },
+      },
       watch: { onEvent: unsubscribe },
       menu: { onCommand: unsubscribe },
       window: {
@@ -413,7 +476,23 @@ export async function installMockBridge(page: Page, fixtures: MockFixtures): Pro
       },
       windowChrome: {
         platform: 'darwin',
-        frameless: false,
+        /*
+          `true`, matching what actually ships on macOS.
+
+          This was `false`, and the mismatch had a visible cost nobody had
+          noticed: `AppFrame` only sets `--titlebar-h` when it is drawing the
+          window chrome itself, and `app.tsx`'s content box is sized
+          `calc(100vh - var(--titlebar-h, 0px))`. With a NON-frameless window
+          the shell renders a title bar in normal flow *and* leaves the
+          variable unset, so the box claims the full viewport height starting
+          40px down — and every spec ran against an app whose footer sat
+          entirely below the fold.
+
+          Nothing failed, because `toBeVisible()` asks for a non-empty box
+          rather than one inside the viewport. It only surfaced when a spec
+          tried to CLICK something down there.
+        */
+        frameless: true,
         onFullscreenChange: unsubscribe,
         onFocusChange: unsubscribe,
         setBackgroundColor: noop,
@@ -436,6 +515,13 @@ export async function installMockBridge(page: Page, fixtures: MockFixtures): Pro
     var ptyCount = 0;
     // eslint-disable-next-line no-var
     var externalUrls: string[] = [];
+    // eslint-disable-next-line no-var
+    var metricsHandlers: Array<(sample: unknown) => void> = [];
+    /** Every start/stop, so a spec can assert the cadence actually escalated. */
+    // eslint-disable-next-line no-var
+    var metricsCalls: Array<{ intervalMs: number; freshDisk?: boolean; stopped?: boolean }> = [];
+    // eslint-disable-next-line no-var
+    var metricsEmitted = false;
     // eslint-disable-next-line no-var
     var clipboardWrites: string[] = [];
 
@@ -533,5 +619,18 @@ export async function installMockBridge(page: Page, fixtures: MockFixtures): Pro
     (window as unknown as { __mgitPty: unknown }).__mgitPty = ptyCalls;
     (window as unknown as { __mgitExternalUrls: unknown }).__mgitExternalUrls = externalUrls;
     (window as unknown as { __mgitClipboard: unknown }).__mgitClipboard = clipboardWrites;
+    (window as unknown as { __mgitMetrics: unknown }).__mgitMetrics = metricsCalls;
+    /*
+      A hook for the scripted cadence change.
+
+      The dashed gridline only appears once the sampling interval has actually
+      changed mid-series, which no fixture written up front can produce: the
+      store needs points that arrived BEFORE and AFTER the change. So the spec
+      pushes the second half itself, at the wider spacing, through the same
+      handler array the real stream uses.
+    */
+    (window as unknown as { __mgitPushMetric: unknown }).__mgitPushMetric = (sample: unknown) => {
+      for (const handler of metricsHandlers) handler(sample);
+    };
   }, fixtures);
 }

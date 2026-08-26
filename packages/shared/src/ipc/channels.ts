@@ -125,6 +125,16 @@ export const CHANNELS = {
   fsListDir: 'mgit:fs:list-dir',
   fsReadFile: 'mgit:fs:read-file',
 
+  // --- system metrics (Phase 18) -------------------------------------------
+  // One-way `send`s, not `invoke`s: neither has anything to report back, and
+  // the renderer fires `start` again whenever the cadence changes (the flyout
+  // opening escalates to 2s, closing drops to 5s). Main treats a repeat start
+  // as a re-arm rather than a second sampler — see metrics-service.ts.
+  //
+  // No `repoId` and no path: these read the machine, not a repository.
+  metricsStart: 'mgit:metrics:start',
+  metricsStop: 'mgit:metrics:stop',
+
   // --- window chrome -------------------------------------------------------
   windowMinimize: 'mgit:window:minimize',
   windowMaximizeToggle: 'mgit:window:maximize-toggle',
@@ -151,6 +161,11 @@ export const EVENT_CHANNELS = {
   menuCommand: 'mgit:menu:command',
   /** stdout/stderr chunks from an in-flight Claude CLI update. */
   agentClaudeUpdateData: 'mgit:agent:claude-update-data',
+  /**
+   * One reading of CPU/RAM/GPU/disk. A metric the machine cannot report is
+   * OMITTED from the payload rather than sent as zero — see MetricSample.
+   */
+  metricsSample: 'mgit:metrics:sample',
 } as const;
 
 /**
