@@ -8,6 +8,30 @@ carries the architecture, IPC contract, data model, and the verified research co
 **Progress tracker: [`todo/`](todo/)** — `_INDEX.md` is the phase table, `done.md` is the
 append-only landed log, `outstanding.md` is deliberately-deferred scope.
 
+## Where to work — ask before the first edit
+
+**At the start of every session, and again at the start of every new task, ask the user
+whether to work in the primary checkout (`/Users/bilolwabona/Dev/midnite-git`) or in a
+worktree — and say that a worktree is the default.** Ask before the first file edit or
+branch switch, not after. The prompt is one line, e.g. _"Worktree (default) or the primary
+checkout for this one?"_.
+
+Why: several sessions can be live at once. A session that quietly checks out a branch or
+edits files in the primary checkout stomps on whatever the human has open there — and the
+damage is invisible until they switch back to a dirty tree on a branch they did not choose.
+
+- **Default: a worktree.** `git worktree add .worktrees/<slug> -b feature/<slug>` for work
+  that will become a PR; `git worktree add --detach <path> main` for a throwaway build or
+  test, which needs no branch and cannot be left behind on one.
+- **Throwaway worktrees go in the session scratchpad**, not `.worktrees/` — they are
+  discardable by construction and never clutter the repo.
+- **A fresh worktree needs its own install**: `export GITHUB_PACKAGES_TOKEN=$(gh auth token)`
+  then `pnpm install --frozen-lockfile`. The pnpm store is shared, so this is seconds, not
+  minutes.
+- **Clean up when done**: `git worktree remove <path>` (add `--force` if the tree is dirty),
+  then `git worktree prune`. Check `git worktree list` for strays from dead sessions.
+- Only work directly in the primary checkout when the user says so in this session.
+
 ## Toolchain
 
 `proto use` installs the pinned node 22.12.0 / pnpm 9.15.0 / moon 2.3.4 (`.prototools`).
