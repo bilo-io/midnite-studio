@@ -1,12 +1,20 @@
-import { useCallback } from 'react';
+import { useCallback, useMemo, useState } from 'react';
 
-import type { GitOpResult, GraphRow, Ref } from '@midnite/git-shared';
+import type { GitOpResult, GraphRow, Ref, Remote } from '@midnite/git-shared';
 
 import { useDialogs } from '../../components/dialog-host';
 import { validateRefName } from '../../components/prompt-dialog';
 import type { MenuItem } from '../../components/context-menu';
 import { bridge } from '../../services/bridge';
-import { useActiveWorktree, useGitOp } from '../../services/use-status';
+import {
+  useActiveWorktree,
+  useFetch,
+  useGitOp,
+  usePull,
+  usePush,
+} from '../../services/use-status';
+import { useRemotes } from '../../services/queries';
+import { syncActions, type SyncAction } from './ref-sync';
 
 /**
  * The commit-row and branch-badge context menus.
@@ -57,6 +65,66 @@ export function useGraphActions(onError: (message: string) => void) {
       else onError('');
     },
     [onError],
+  );
+
+  const fetchRemote = useFetch();
+  const pullBranch = usePull();
+  const pushBranch = usePush();
+  const { data: remotes = EMPTY_REMOTES } = useRemotes(repoId);
+  const remoteNames = useMemo(() => remotes.map((remote) => remote.name), [remotes]);
+
+  /**
+   * Which verb is in flight on which ref.
+   *
+   * A map rather than a single slot, and neither is the obvious `isPending` on
+   * the mutation: the three mutations are shared by every badge in the graph,
+   * so `isPending` would spin all of them at once. A single slot fixed that and
+   * introduced a subtler version of it — two branches syncing at the same time,
+   * and whichever settled FIRST cleared the other's spinner and collapsed the
+   * strip out from under it.
+   */
+  const [syncing, setSyncing] = useState<Record<string, SyncAction['kind']>>({});
+
+  /**
+   * Run one derived sync verb.
+   *
+   * The verbs come from `syncActions`, so the badge buttons and the menu items
+   * cannot disagree about what a branch may do — they are rendered from the
+   * same array and executed through here.
+   */
+  const runSync = useCallback(
+    (ref: Ref, action: SyncAction) => {
+      if (action.disabled) return;
+      setSyncing((current) => ({ ...current, [ref.fullName]: action.kind }));
+
+      const scope = {
+        remote: action.remote,
+        ...(action.branch ? { branch: action.branch } : {}),
+      };
+      const run =
+        action.kind === 'fetch'
+          ? fetchRemote.mutateAsync({ remote: action.remote })
+          : action.kind === 'pull'
+            ? pullBranch.mutateAsync(scope)
+            : pushBranch.mutateAsync({ ...scope, setUpstream: action.setUpstream });
+
+      void run
+        .then(report)
+        // `finally`, not the success path: a failed push must release the
+        // spinner too, or the badge stays busy until the next repo switch.
+        .finally(() =>
+          setSyncing((current) => {
+            const { [ref.fullName]: _done, ...rest } = current;
+            return rest;
+          }),
+        );
+    },
+    [fetchRemote, pullBranch, pushBranch, report],
+  );
+
+  const syncFor = useCallback(
+    (ref: Ref, currentBranch: string | null) => syncActions(ref, currentBranch, remoteNames),
+    [remoteNames],
   );
 
   /**
@@ -178,6 +246,26 @@ export function useGraphActions(onError: (message: string) => void) {
         },
       ];
 
+      /*
+        The sync verbs, from the same `syncActions` array the badge's hover
+        buttons render. The menu shows all of them — including the ones with no
+        count — because this is where a branch with NO upstream can be
+        published, and a branch with nothing to push still has a remote worth
+        fetching. The badge only expands for the counted ones.
+      */
+      const sync = syncFor(ref, currentBranch);
+      if (sync.length > 0) {
+        items.push({ type: 'separator' });
+        for (const action of sync) {
+          items.push({
+            label: action.label,
+            disabled: action.disabled,
+            ...(action.disabledReason ? { disabledReason: action.disabledReason } : {}),
+            onSelect: () => runSync(ref, action),
+          });
+        }
+      }
+
       if (ref.kind === 'localBranch') {
         items.push(
           { type: 'separator' },
@@ -221,7 +309,7 @@ export function useGraphActions(onError: (message: string) => void) {
 
       return items;
     },
-    [branchDelete, branchRename, checkout, dialogs, report, withBlastRadius],
+    [branchDelete, branchRename, checkout, dialogs, report, runSync, syncFor, withBlastRadius],
   );
 
   /**
@@ -268,8 +356,10 @@ export function useGraphActions(onError: (message: string) => void) {
     [cherryPickCommits, mergeBranch, rebaseOnto, report],
   );
 
-  return { commitMenu, refMenu, dropMenu, checkoutRef: checkout, report };
+  return { commitMenu, refMenu, dropMenu, checkoutRef: checkout, report, syncFor, runSync, syncing };
 }
+
+const EMPTY_REMOTES: Remote[] = [];
 
 /** What can be dropped onto a branch badge. */
 export type DropSource = { kind: 'ref'; ref: Ref } | { kind: 'commit'; sha: string };

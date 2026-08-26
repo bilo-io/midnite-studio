@@ -93,8 +93,16 @@ async function openGraph(page: Page): Promise<void> {
 }
 
 /** A chip, scoped to the graph rows so the sidebar's own refs cannot match. */
+/**
+ * By full ref name, via `data-ref` on the chip.
+ *
+ * Was `getByTitle`, until Theme C replaced the badge's native `title=` with the
+ * `Tooltip` component — the attribute the locator depended on stopped existing.
+ * `data-ref` carries the same value and is not a hover affordance, so a future
+ * tooltip change cannot take it away again.
+ */
 const chip = (page: Page, fullName: string): Locator =>
-  page.locator('[role="row"]').getByTitle(fullName, { exact: true });
+  page.locator('[role="row"]').locator(`[data-ref="${fullName}"]`);
 
 /**
  * The lane gutter of the row with `subject` — the commit's drag handle.

@@ -307,6 +307,86 @@ export const arrivalRun = (theme: GraphTheme): number =>
   theme.rowHeight / 2 - nodeExtent(theme) - ARROW_GAP;
 
 /**
+ * The shortest row this style's own geometry permits.
+ *
+ * Two independent floors, and a style has to clear both:
+ *
+ * - the node plus `ROW_PADDING` at the top and bottom, or the face crops
+ *   against the neighbouring row;
+ * - for an arrowhead style, enough room above the node for the marker to sit on
+ *   a segment long enough to read as a line — see `MIN_ARROW_RUN`.
+ *
+ * Written down as a function because the density setting needs to know where to
+ * stop compressing, and "stop where the drawing breaks" is the only answer that
+ * does not have to be re-derived by hand for every style added later.
+ */
+export const minRowHeight = (theme: GraphTheme): number => {
+  const clearsNode = nodeExtent(theme) * 2 + ROW_PADDING * 2;
+  const clearsArrow = theme.arrowheads
+    ? (nodeExtent(theme) + ARROW_GAP + MIN_ARROW_RUN) * 2
+    : 0;
+  return Math.max(clearsNode, clearsArrow, theme.avatarSize + ROW_PADDING * 2);
+};
+
+/**
+ * Row density.
+ *
+ * A separate axis from the style, because "which graph do I like" and "how much
+ * history do I want on screen" are different questions — and the answer to the
+ * second changes with the laptop, not with taste.
+ */
+export type GraphDensity = 'comfortable' | 'compact';
+
+export const GRAPH_DENSITIES: readonly GraphDensity[] = ['comfortable', 'compact'];
+
+export const DEFAULT_GRAPH_DENSITY: GraphDensity = 'comfortable';
+
+/** How far `compact` pulls the row height and the node in. */
+const COMPACT_ROW = 0.82;
+const COMPACT_NODE = 0.86;
+
+/**
+ * The style as it will actually be drawn, at a given density.
+ *
+ * Compact shrinks the node a little and the row a lot — density is about rows
+ * per screen, and the node only comes down far enough to let the row follow.
+ * Then `minRowHeight` puts a floor under it, so compression stops where the
+ * geometry would break rather than at a hand-picked number per style. That is
+ * what keeps `graph-themes.test.ts`'s invariants true of the compact styles
+ * without a second set of assertions tuned to them: they are the same
+ * invariants, enforced structurally.
+ *
+ * Every returned style is a `GraphTheme`, so nothing downstream — the
+ * virtualizer, `nodeExtent`, `laneOffset`, the SVG — needs to know density
+ * exists.
+ *
+ * **Takes a BASE style.** Scaling compounds, so the caller must derive from
+ * `GRAPH_THEMES` each render rather than hold a scaled theme and re-scale it.
+ * `graphThemeFor` is the entry point that guarantees it.
+ */
+export const scaleTheme = (theme: GraphTheme, density: GraphDensity): GraphTheme => {
+  if (density === 'comfortable') return theme;
+
+  const scaled: GraphTheme = {
+    ...theme,
+    avatarSize: Math.round(theme.avatarSize * COMPACT_NODE),
+    // Half-pixel steps: a dot's radius is a coordinate, not a box, and rounding
+    // `classic`'s 3.5 to 3 costs a fifth of its area.
+    nodeRadius: Math.round(theme.nodeRadius * COMPACT_NODE * 2) / 2,
+    laneWidth: Math.round(theme.laneWidth * COMPACT_NODE),
+    // Stroke and ring stay put. They are 1.5–3px already; scaling them lands on
+    // fractions that anti-alias into a blur rather than reading as a thinner
+    // line, and a hairline lane is harder to follow, not denser.
+    rowHeight: theme.rowHeight,
+  };
+
+  return {
+    ...scaled,
+    rowHeight: Math.max(Math.round(theme.rowHeight * COMPACT_ROW), minRowHeight(scaled)),
+  };
+};
+
+/**
  * The gap between the BRANCH / TAG column and the lane gutter, in px.
  *
  * The row lays its cells out with Tailwind's `gap-2`, and the ref connector —
@@ -337,3 +417,16 @@ export const RAIL_WIDTH = 3;
  * one, which is a shape the graph never otherwise draws.
  */
 export const CONNECTOR_OPACITY = 0.45;
+
+/**
+ * The style to draw with, from the two persisted settings.
+ *
+ * The single entry point the renderer should use: it resolves the id from the
+ * store (falling back for an unknown one) and applies density to the BASE
+ * style, which is what keeps `scaleTheme`'s compounding precondition from being
+ * something every call site has to remember.
+ */
+export const graphThemeFor = (
+  id: string | null | undefined,
+  density: GraphDensity,
+): GraphTheme => scaleTheme(graphTheme(id), density);

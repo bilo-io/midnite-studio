@@ -17,12 +17,13 @@ import { GraphHeader, graphColumnVars, useGraphColumns } from './graph-header';
 import { CommitGraphRow } from './graph-row';
 import { useGraphStore } from './graph-store';
 import {
-  graphTheme,
+  graphThemeFor,
   gutterWidth,
   laneWidthForGutter,
   minLaneWidth,
 } from './graph-themes';
 import { useRefsBySha } from './ref-badge';
+import { UncommittedRow, hasUncommittedWork } from './uncommitted-row';
 import { useGraphActions } from './use-graph-actions';
 import { useGraphStream } from './use-graph-stream';
 
@@ -39,10 +40,20 @@ export function GraphView() {
   const selectCommit = useUiStore((s) => s.selectCommit);
   const detailWidth = useUiStore((s) => s.layout.detailWidth);
   const setLayout = useUiStore((s) => s.setLayout);
+  const setActiveView = useUiStore((s) => s.setActiveView);
 
   const graphRefFilter = useUiStore((s) => s.graphRefFilter);
   const graphAuthorFilter = useUiStore((s) => s.graphAuthorFilter);
-  const theme = graphTheme(useUiStore((s) => s.graphTheme));
+  /*
+    Derived from the two settings every render, never memoised as a scaled
+    theme: `scaleTheme` compounds, so holding its output and re-scaling it would
+    shrink the graph a little more on each pass. `graphThemeFor` always starts
+    from the base style.
+  */
+  const theme = graphThemeFor(
+    useUiStore((s) => s.graphTheme),
+    useUiStore((s) => s.graphDensity),
+  );
   useGraphStream(repoId, graphRefFilter);
 
   const rows = useGraphStore((s) => s.rows);
@@ -58,7 +69,8 @@ export function GraphView() {
   const currentBranch = status?.branch.head ?? null;
   const dialogs = useDialogs();
   const [opError, setOpError] = useState('');
-  const { commitMenu, refMenu, dropMenu, checkoutRef, report } = useGraphActions(setOpError);
+  const { commitMenu, refMenu, dropMenu, checkoutRef, report, syncFor, runSync, syncing } =
+    useGraphActions(setOpError);
 
   /**
    * A drop opens a menu at the pointer rather than acting.
@@ -188,6 +200,19 @@ export function GraphView() {
 
   const authors = useMemo(() => summariseAuthors(rows), [rows]);
 
+  /**
+   * The row HEAD points at, for the working-copy row to sit on top of.
+   *
+   * `undefined` when HEAD is below the loaded window, which is normal on a
+   * large repo mid-stream; the pseudo-row then falls back to lane 0 rather than
+   * disappearing, since the changes it reports are real either way.
+   */
+  const headOid = status?.branch.oid ?? null;
+  const headRow = useMemo(
+    () => (headOid === null ? undefined : rows.find((row) => row.commit.sha === headOid)),
+    [headOid, rows],
+  );
+
   if (!repoId) {
     return <EmptyState title="No repository selected" body="Pick one from the sidebar." />;
   }
@@ -223,6 +248,30 @@ export function GraphView() {
           columns={columns}
           theme={theme}
         />
+        {/*
+          Above the scroller, not inside it.
+
+          The working copy is always the top of history, so it must not scroll
+          away from it — and keeping it out of the virtualizer means the list's
+          index space is still exactly the commits, rather than every `rows[i]`
+          having to subtract one.
+        */}
+        {hasUncommittedWork(status) ? (
+          <UncommittedRow
+            status={status}
+            theme={theme}
+            gutterWidth={paintedGutter}
+            laneWidth={laneWidth}
+            // HEAD's own row, not the newest one. They are usually the same and
+            // conspicuously are not when another branch carries newer commits —
+            // and then `rows[0]` draws the working copy in a different branch's
+            // colour, on a lane it does not sit on.
+            colorIdx={headRow?.colorIdx ?? 0}
+            lane={headRow?.lane ?? 0}
+            onSelect={() => setActiveView('changes')}
+          />
+        ) : null}
+
         {/*
           Keyed on requestId so the list fades in ONCE per stream — on a repo
           switch or a filter change. Cascading the rows themselves would re-fire
@@ -261,6 +310,10 @@ export function GraphView() {
                     onContextMenu={onRowContextMenu}
                     onRefContextMenu={onRefContextMenu}
                     onRefActivate={onRefActivate}
+                    syncFor={syncFor}
+                    onSync={runSync}
+                    syncing={syncing}
+                    currentBranch={currentBranch}
                   />
                 </div>
               );

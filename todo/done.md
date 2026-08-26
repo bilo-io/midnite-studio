@@ -297,6 +297,78 @@ for `getByRole('link', {name: 'Settings'})`, which Phase 16 turned into a bottom
 button. Fixing that locator alone makes it worse (twenty failures), because the suite also has
 cross-test flake underneath, so it is left for whoever owns Phase 14's specs.
 
+## 2026-08-26 — Phase 12 · Themes C + F — Ref badges as controls, graph row polish
+
+The chip stopped being a label. A branch that is ahead or behind expands on hover into the
+buttons that fix it; the checked-out one glows; and the same four verbs appear in its context
+menu, rendered from the same derived array so the two surfaces cannot disagree.
+
+### Theme C — ref badges as a control surface
+
+- [x] `features/graph/ref-sync.ts` — `syncActions(ref, currentBranch, remoteNames)` returning
+      push/pull/publish/fetch with enablement and reason already resolved; pure + unit-tested
+- [x] `isHead` glow: a still halo plus a gradient border sweeping over it (`lane-sweep` keyframe,
+      `background-position` on a masked 200%-wide gradient — a conic one re-rasterises per frame)
+- [x] Hover-expand strip of `IconButton`s, ↓ pull / ↑ push, with the real counts in the label
+- [x] Native `title=` replaced by the `Tooltip` component; upstream state laid out, not crammed
+- [x] `refMenu` gains Push / Pull / Fetch / Publish, disabled items carrying their reason
+- [x] `useFetch`/`usePull`/`usePush` take an optional `SyncScope {remote, branch}`; the title-bar
+      cluster passes none and keeps acting on HEAD
+- [x] In-flight state per ref+verb, so one badge spins and the rest stay live
+- [x] `e2e/ref-sync.spec.ts` — ten specs over the four upstream states
+
+### Theme F — graph row polish
+
+- [x] Selected row: a bar at the left edge in the row's own lane colour, plus a full-strength
+      tint (it was `bg-accent/70` against a `bg-accent/30` hover)
+- [x] Lane palette retuned for colour-vision deficiency; `lane-contrast.test.ts` measures it
+- [x] `laneInk` flips on measured WCAG contrast rather than on HSL lightness
+- [x] Chips cap at 60% of the column when two share it, so the shorter name survives
+- [x] Row density (`comfortable`/`compact`) as a second axis, with a Settings picker
+- [x] The working copy as the row above the first commit — dashed node, dashed lane, italic count
+
+Landed on `feature/phase-12-land` (squash-merged — this repository still has no remote, so
+there is no PR link). The unit gate is green and the Playwright suite runs 137 passed / 4 skipped,
+with four new screenshots under `docs/screenshots/phase-12-badges-rows/`.
+
+What this shook out:
+
+- **A palette with a flat lightness profile is inaccessible by construction.** Every lane sat
+  inside a 0.63–0.77 band of perceptual lightness. That looks tidy, and it is exactly the
+  failure: red–green deficiency collapses hue, so two equally-light lanes have nothing left to
+  separate them. Simulated protanopia put violet and indigo 0.0097 apart in OKLab — one colour.
+  The retune spreads lightness deliberately; the worst pair under any simulated deficiency is
+  now 0.068.
+- **`laneInk` was flipping on the wrong axis, and its test agreed with it.** HSL lightness is
+  not how light a colour looks: at `l: 48%` the cyan is the brightest thing in the palette and
+  was being given white text, while the violet at `l: 57%` got dark ink. The old test restated
+  the same `l >= 58` rule, so it passed. Comparing real contrast ratios removes the threshold.
+- **An overlay inside the row is clipped, and still passes a visibility assertion.** The
+  BRANCH / TAG cell is `overflow-hidden`, so the sync strip was invisible to a user while
+  keeping a bounding box — which is all `toBeVisible()` checks. Portalling it to `<body>` fixes
+  that and the virtualizer's `transform` stacking context at once, the same pair of traps
+  `Tooltip` already documents. The e2e assertion that the subject column does not move on hover
+  is what caught it.
+- **A portalled strip breaks its own hover.** Moving the pointer from the chip onto the buttons
+  fires `mouseleave` with no `mouseenter` on any descendant, because they are not DOM relatives
+  — the strip closed as the user reached for it. A 140ms grace period, cancelled by an enter
+  anywhere in the group, makes the gap crossable.
+- **A flat density multiplier breaks the drawing.** 0.8 across the board put `git-graph`'s
+  arriving segment at 3px, under `MIN_ARROW_RUN` — a marker overhanging the row edge above a
+  line too short to see. `minRowHeight` derives the floor from the style's own geometry, so
+  compression stops where the drawing would break and the existing invariants cover the compact
+  styles unchanged.
+- **A branch may track a differently-named upstream.** `main` → `origin/trunk` is legal, and
+  `PushRequest` carries one `branch`, not a `local:remote` pair — so pushing by name would have
+  created `origin/main` beside the `origin/trunk` it meant to update.
+- **The e2e port is contended between worktrees, not just against the dev server.** The config's
+  dedicated port solved `moon run app:dev`; two `.worktrees/*` checkouts running the suite still
+  collide. `MGIT_E2E_PORT` is the escape hatch.
+- **`toBeVisible()` ignores opacity.** The first screenshot of the sync strip contained no sync
+  strip: the assertion passed mid-`fade-in`.
+- **The last Theme F item described polishing something that was never built.** No
+  uncommitted-changes pseudo-row existed anywhere in `features/graph/`. It was built rather than
+  deferred.
 
 ## 2026-08-26 — Phase 12 · Themes A + B — Commit inspector: rendered message, live references, real header
 
@@ -399,7 +471,8 @@ Theme E had already landed by the time it did.
 integration for merges, root commits, unknown shas and tag peeling) and 18 new Playwright specs;
 51 e2e green. `moon run :typecheck :lint :test` green.
 
-Not in this slice: Themes C (ref badges as controls) and F (graph row polish) remain open.
+Not in this slice: Themes C (ref badges as controls) and F (graph row polish), which landed
+the same day — see the entry above.
 
 ## 2026-08-26 — Phase 16 · Themes A–E — Folder explorer, preview pane, settings pages
 

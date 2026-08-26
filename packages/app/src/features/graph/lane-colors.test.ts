@@ -33,31 +33,75 @@ describe('laneHsl', () => {
 describe('laneInk', () => {
   /**
    * The checked-out chip is the one place a lane colour becomes a solid fill
-   * rather than a line, so it is the one place the label can be unreadable. The
-   * palette straddles the flip point — white reads on the 45% green and does
-   * not on the 65% violet — which is why this is a function and not a constant.
+   * rather than a line, so it is the one place the label can be unreadable.
+   *
+   * Asserted as a contrast RATIO rather than against the flip rule, so the test
+   * cannot agree with the implementation about a threshold that is itself
+   * wrong — which is exactly what happened while `laneInk` keyed on the HSL
+   * lightness component: the old test restated `l >= 58` and passed while
+   * handing white ink to the palette's brightest colour.
    */
-  it('flips to a dark ink once the lane is too pale for white', () => {
+  it('picks the ink that actually reads on the fill', () => {
     for (let index = 0; index < LANE_COLOR_COUNT; index += 1) {
-      const [, , lightness] = laneHsl(index);
-      const ink = laneInk(index);
-      if (lightness >= 58) expect(ink).not.toBe('hsl(0 0% 100%)');
-      else expect(ink).toBe('hsl(0 0% 100%)');
+      for (const palette of ['vivid', 'muted'] as const) {
+        const ink = laneInk(index, palette);
+        const ratio = contrast(inkLuminance(ink), luminance(laneHsl(index, palette)));
+        // 4.5:1 is AA for body text; these are 11px semibold chips, so the bar
+        // is AA-large (3:1) plus a margin rather than a bare pass.
+        expect(
+          ratio,
+          `lane ${index} (${palette}) ink ${ink} scores ${ratio.toFixed(2)}:1`,
+        ).toBeGreaterThan(3.5);
+      }
+    }
+  });
+
+  it('never picks the worse of the two candidate inks', () => {
+    for (let index = 0; index < LANE_COLOR_COUNT; index += 1) {
+      const [h] = laneHsl(index);
+      const fill = luminance(laneHsl(index));
+      const chosen = contrast(inkLuminance(laneInk(index)), fill);
+      const white = contrast(1, fill);
+      const dark = contrast(luminance([h, 70, 12]), fill);
+      expect(chosen).toBe(Math.max(white, dark));
     }
   });
 
   it('picks the ink for the palette it was asked about', () => {
-    // `muted` shifts lightness down, so a lane can want white in one palette
-    // and dark ink in the other. Reading the wrong one is a silent contrast bug.
-    const flipped = Array.from({ length: LANE_COLOR_COUNT }, (_, i) => i).filter(
-      (i) => laneInk(i, 'vivid') !== laneInk(i, 'muted'),
-    );
-    for (const index of flipped) {
-      expect(laneHsl(index, 'vivid')[2]).toBeGreaterThanOrEqual(58);
-      expect(laneHsl(index, 'muted')[2]).toBeLessThan(58);
+    // `muted` shifts both saturation and lightness, so a lane can want white in
+    // one palette and dark ink in the other. Reading the wrong one is a silent
+    // contrast bug — invisible except on the one chip that has it.
+    for (let index = 0; index < LANE_COLOR_COUNT; index += 1) {
+      if (laneInk(index, 'vivid') === laneInk(index, 'muted')) continue;
+      const vivid = luminance(laneHsl(index, 'vivid'));
+      const muted = luminance(laneHsl(index, 'muted'));
+      expect(vivid).not.toBeCloseTo(muted, 3);
     }
   });
 });
+
+/** WCAG relative luminance of an HSL triple. */
+function luminance([h, s, l]: [number, number, number]): number {
+  const sat = s / 100;
+  const lum = l / 100;
+  const k = (n: number): number => (n + h / 30) % 12;
+  const a = sat * Math.min(lum, 1 - lum);
+  const f = (n: number): number =>
+    lum - a * Math.max(-1, Math.min(k(n) - 3, Math.min(9 - k(n), 1)));
+  const lin = (c: number): number => (c <= 0.04045 ? c / 12.92 : ((c + 0.055) / 1.055) ** 2.4);
+  return 0.2126 * lin(f(0)) + 0.7152 * lin(f(8)) + 0.0722 * lin(f(4));
+}
+
+const contrast = (a: number, b: number): number =>
+  (Math.max(a, b) + 0.05) / (Math.min(a, b) + 0.05);
+
+/** Parse the two shapes `laneInk` can return back into a luminance. */
+function inkLuminance(ink: string): number {
+  if (ink === 'hsl(0 0% 100%)') return 1;
+  const match = /^hsl\((\d+(?:\.\d+)?) 70% 12%\)$/.exec(ink);
+  if (!match) throw new Error(`unrecognised ink: ${ink}`);
+  return luminance([Number(match[1]), 70, 12]);
+}
 
 describe('laneVars', () => {
   it('publishes the three components the stylesheet composes', () => {
