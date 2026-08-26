@@ -133,10 +133,14 @@ test('a folded category stays folded across a reload', async ({ page }) => {
   );
 });
 
-test('the side-navigation mode is settable from Appearance, not just the rail chevron', async ({
+test('the side-navigation lock lives on the Sidebar page, and locked closed means closed', async ({
   page,
 }) => {
   await openSettings(page);
+  await page
+    .getByRole('navigation', { name: 'Settings pages' })
+    .getByRole('button', { name: 'Sidebar' })
+    .click();
 
   // Same store field the rail's pin writes, so the two must agree.
   const modes = page.getByRole('radiogroup', { name: 'Side navigation' });
@@ -146,10 +150,6 @@ test('the side-navigation mode is settable from Appearance, not just the rail ch
   );
 
   await modes.getByRole('radio', { name: 'Locked open' }).click();
-  await expect(modes.getByRole('radio', { name: 'Locked open' })).toHaveAttribute(
-    'aria-checked',
-    'true',
-  );
   // The rail's own pin is the other face of this control; expanded means pinned.
   await expect(page.getByRole('button', { name: 'Unlock navigation' })).toBeVisible();
 
@@ -159,6 +159,18 @@ test('the side-navigation mode is settable from Appearance, not just the rail ch
     'aria-checked',
     'true',
   );
+
+  /*
+    Locked closed means CLOSED: hovering the rail must not expand it. The proof
+    is the tooltip — AppFrame renders one against a rail item only while the
+    rail is collapsed, so a visible tooltip and a hover in progress together
+    say the hover did not expand anything. In `auto` this same hover would have
+    expanded the rail and the label would be in-flow text, not a tooltip.
+  */
+  await page.getByRole('link', { name: 'Files' }).hover();
+  await expect(page.getByRole('tooltip')).toHaveText('Files');
+  // And the expanded rail's furniture stays gone — no pin to unlock.
+  await expect(page.getByRole('button', { name: 'Unlock navigation' })).toHaveCount(0);
 });
 
 test('the Sidebar page reads every view\'s narrowing, edits it live, and resets it', async ({
