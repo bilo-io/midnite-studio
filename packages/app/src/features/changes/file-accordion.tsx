@@ -1,7 +1,8 @@
-import type { StatusEntry } from '@midnite/git-shared';
+import type { ChangeCounts, StatusEntry } from '@midnite/git-shared';
 import { ChevronRight } from 'lucide-react';
 import { useId } from 'react';
 
+import { Counts } from '../../components/change-tree';
 import { DiffView } from '../diff/diff-view';
 import { useFileDiff } from '../diff/use-file-diff';
 import { primaryCode, StatusMark } from '../status/status-mark';
@@ -20,6 +21,7 @@ export function FileAccordion({
   repoId,
   worktreePath,
   entry,
+  counts,
   open,
   onToggle,
 }: {
@@ -27,6 +29,13 @@ export function FileAccordion({
   /** The checkout being read — never the globally selected one. */
   worktreePath: string;
   entry: StatusEntry;
+  /**
+   * `+n −n` for this file, from the view's one numstat rather than from the
+   * diff below. That is the whole point of it being a prop: the body — and its
+   * `git diff` — only exists while the row is open, so counts derived from the
+   * diff could never appear on a closed row, which is every row by default.
+   */
+  counts: ChangeCounts;
   open: boolean;
   onToggle: () => void;
 }) {
@@ -59,6 +68,7 @@ export function FileAccordion({
             <span className="text-muted-foreground">{directoryOf(entry.path)}</span>
             <span className="font-medium">{basenameOf(entry.path)}</span>
           </span>
+          <Counts insertions={counts.insertions} deletions={counts.deletions} />
         </button>
       </header>
 
@@ -104,16 +114,13 @@ function FileAccordionBody({
     ...(entry.origPath ? { oldPath: entry.origPath } : {}),
   });
 
+  /*
+    No counts row here any more. The header above carries them whether the row
+    is open or closed, and printing the same pair twice the moment you expand a
+    file reads as a rendering bug rather than as corroboration.
+  */
   return (
     <div className="border-t border-border/40">
-      <div className="flex items-center gap-2 px-3 py-1 text-[11px] text-muted-foreground">
-        {diff ? (
-          <>
-            <span className="tabular-nums text-success">+{diff.insertions}</span>
-            <span className="tabular-nums text-destructive">−{diff.deletions}</span>
-          </>
-        ) : null}
-      </div>
       <DiffView diff={diff} isLoading={isLoading} onExpandContext={expandContext} inline />
     </div>
   );

@@ -130,6 +130,43 @@ test('the header shows the full sha and copies it through the bridge', async ({ 
   await expect(page.getByRole('button', { name: 'Copied' })).toBeVisible();
 });
 
+test('the metadata collapses to its header, and the choice survives a reload', async ({ page }) => {
+  await openCommit(page);
+
+  // Open by default: the message and the identities are what the inspector is
+  // for, and a panel that starts folded hides them behind a control nobody has
+  // been told about.
+  await expect(identities(page)).toBeVisible();
+
+  // A diff has to be open for "the space goes to the diff" to be measurable at
+  // all — the closed state is a one-line placeholder either way.
+  await files(page)
+    .getByRole('button', { name: 'packages/desktop/src/main/window.ts', exact: true })
+    .click();
+  await expect(page.getByTestId('diff-view')).toBeVisible();
+  const paneBefore = (await page.getByTestId('diff-view').boundingBox())?.height ?? 0;
+
+  await page.getByRole('button', { name: 'Hide the commit details' }).click();
+
+  // The message and the parents go; the sha, the copy button and the tree/list
+  // toggle stay, because they are the accordion's own header row.
+  await expect(identities(page)).toHaveCount(0);
+  await expect(message(page)).toHaveCount(0);
+  await expect(page.getByText(COMMIT_SHA, { exact: true })).toBeVisible();
+  await expect(page.getByRole('button', { name: 'Copy the full sha' })).toBeVisible();
+  await expect(files(page)).toBeVisible();
+
+  // The whole point of closing it: the height goes to the diff below.
+  const paneAfter = (await page.getByTestId('diff-view').boundingBox())?.height ?? 0;
+  expect(paneAfter).toBeGreaterThan(paneBefore + 40);
+
+  await page.reload();
+  const row = page.getByText('feat(phase-11): package, install and run from /Applications').first();
+  await row.click();
+  await expect(page.getByRole('button', { name: 'Show the commit details' })).toBeVisible();
+  await expect(identities(page)).toHaveCount(0);
+});
+
 test('the committer row appears only when it differs from the author', async ({ page }) => {
   await openCommit(page);
 

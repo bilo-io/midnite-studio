@@ -7,6 +7,7 @@ import {
   push,
   readCommitFileDiff,
   readFileDiff,
+  readStatusCounts,
   stagePaths,
   unstagePaths,
 } from '@midnite/git-engine';
@@ -40,6 +41,16 @@ export function registerStatusHandlers(): void {
       return cwd ? getStatus(cwd) : EMPTY_STATUS;
     },
     () => EMPTY_STATUS,
+  );
+
+  handle(
+    CHANNELS.statusCounts,
+    schemas.StatusCountsRequest,
+    async (req) => {
+      const cwd = await resolveWorkdir(req.repoId, req.worktreePath);
+      return cwd ? readStatusCounts(cwd) : EMPTY_COUNTS;
+    },
+    () => EMPTY_COUNTS,
   );
 
   handle(
@@ -154,6 +165,9 @@ function emptyDiff(path: string, context: number): FileDiff {
     droppedLines: 0,
   };
 }
+
+/** No repository, no numbers — and empty lists read as "zero", never as "loading". */
+const EMPTY_COUNTS = { staged: [], unstaged: [] } as const;
 
 const EMPTY_STATUS = {
   branch: {

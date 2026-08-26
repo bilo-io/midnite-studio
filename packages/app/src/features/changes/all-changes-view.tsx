@@ -1,9 +1,12 @@
 import { useMemo, useState } from 'react';
 
+import type { StatusEntry } from '@midnite/git-shared';
+
 import { ChevronsDownUp, ChevronsUpDown } from 'lucide-react';
 
+import { ChangeTotals } from '../../components/change-tree';
 import { IconButton } from '../../components/icon-button';
-import { useRepoStatus } from '../../services/use-status';
+import { useRepoStatus, useStatusCounts } from '../../services/use-status';
 import { FileAccordion } from './file-accordion';
 import {
   EXPAND_ALL_LIMIT,
@@ -39,6 +42,7 @@ export function AllChangesView({
   label: string;
 }) {
   const { data: status, isPlaceholderData } = useRepoStatus({ repoId, worktreePath });
+  const counts = useStatusCounts({ repoId, worktreePath });
   const [expanded, setExpanded] = useState<ExpansionState>(NOTHING_EXPANDED);
 
   const loaded = isPlaceholderData ? undefined : status;
@@ -63,6 +67,27 @@ export function AllChangesView({
   const paths = useMemo(() => entries.map((entry) => entry.path), [entries]);
   const withheld = withheldByCap(paths);
 
+  /*
+    The counts each row shows, resolved on the SAME side its diff comes from —
+    see `FileAccordionBody`, which reads the index for a file that is staged and
+    otherwise untouched. Reading the worktree side for such a file would print
+    `+0 −0` above a diff full of green.
+  */
+  const countsFor = (entry: StatusEntry) =>
+    entry.unstaged === 'unmodified' ? counts.staged(entry.path) : counts.unstaged(entry.path);
+
+  const totals = entries.reduce(
+    (sum, entry) => {
+      const row = countsFor(entry);
+      return {
+        fileCount: sum.fileCount + 1,
+        insertions: sum.insertions + row.insertions,
+        deletions: sum.deletions + row.deletions,
+      };
+    },
+    { fileCount: 0, insertions: 0, deletions: 0 },
+  );
+
   if (!loaded) {
     return <Empty>Reading {label}…</Empty>;
   }
@@ -73,13 +98,14 @@ export function AllChangesView({
 
   return (
     <div className="flex h-full min-h-0 flex-col">
-      <header className="flex shrink-0 items-center gap-1 border-b border-border px-3 py-1.5">
-        <span className="mr-auto truncate text-xs">
-          <span className="font-medium">{label}</span>
-          <span className="ml-2 text-muted-foreground">
-            {entries.length} changed {entries.length === 1 ? 'file' : 'files'}
-          </span>
-        </span>
+      <header className="flex shrink-0 items-center gap-2 border-b border-border px-3 py-1.5">
+        <span className="min-w-0 truncate text-xs font-medium">{label}</span>
+        {/*
+          The whole tab in one line. Every file below is collapsed by default,
+          so without this the answer to "how big is this branch's work" needs
+          forty subprocesses and a scroll.
+        */}
+        <ChangeTotals {...totals} className="mr-auto" />
 
         <IconButton
           icon={ChevronsUpDown}
@@ -114,6 +140,7 @@ export function AllChangesView({
             repoId={repoId}
             worktreePath={worktreePath}
             entry={entry}
+            counts={countsFor(entry)}
             open={expanded.has(entry.path)}
             onToggle={() => setExpanded((current) => toggleExpanded(current, entry.path))}
           />

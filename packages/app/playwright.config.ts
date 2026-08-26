@@ -13,8 +13,15 @@ import { defineConfig, devices } from '@playwright/test';
  * handlers. Those are covered by desktop's own vitest suite and git-engine's
  * integration tests against real repositories.
  */
-/** Not 5173 — see the `reuseExistingServer` note below. */
-const PORT = 5273;
+/**
+ * Not 5173 — see the `reuseExistingServer` note below.
+ *
+ * Overridable because 5273 is contended the same way 5173 is, just less often:
+ * two worktrees running the suite at once collide, and `strictPort` correctly
+ * turns that into a hard error. `MGIT_E2E_PORT=5274 pnpm e2e` is the way out,
+ * rather than either session killing the other's server.
+ */
+const PORT = Number(process.env.MGIT_E2E_PORT ?? 5273);
 
 export default defineConfig({
   testDir: './e2e',

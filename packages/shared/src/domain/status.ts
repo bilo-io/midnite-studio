@@ -63,3 +63,35 @@ export const StatusResultSchema = z.object({
   inProgress: InProgressOpSchema.nullable().default(null),
 });
 export type StatusResult = z.infer<typeof StatusResultSchema>;
+
+/**
+ * Line counts for one changed path, from `git diff --numstat`.
+ *
+ * Separate from `StatusEntry` and fetched on its own channel, deliberately.
+ * `status.get` runs on every sidebar row of every open repository, and making
+ * it three subprocesses instead of one to serve two panels that may not even be
+ * mounted is the wrong trade. The panels that show numbers ask for them.
+ *
+ * A binary file — or one too large to be worth measuring — reports `0`/`0`, the
+ * same shape `--numstat` uses for it. That matches how the commit inspector has
+ * always rendered a binary change, so there is one convention, not two.
+ */
+export const ChangeCountsSchema = z.object({
+  path: z.string(),
+  insertions: z.number().int().nonnegative(),
+  deletions: z.number().int().nonnegative(),
+});
+export type ChangeCounts = z.infer<typeof ChangeCountsSchema>;
+
+/**
+ * Counts for a checkout, split the same way status is: index-vs-HEAD and
+ * worktree-vs-index. One combined list would be unusable — a partially staged
+ * file has a different number on each side, and that difference is the thing
+ * the Changes panel exists to show.
+ */
+export const StatusCountsSchema = z.object({
+  staged: z.array(ChangeCountsSchema),
+  /** Tracked worktree changes AND untracked files, which git's diff never sees. */
+  unstaged: z.array(ChangeCountsSchema),
+});
+export type StatusCounts = z.infer<typeof StatusCountsSchema>;

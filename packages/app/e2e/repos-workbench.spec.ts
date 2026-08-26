@@ -116,6 +116,13 @@ const base: MockFixtures = {
     [MAIN]: [],
     [FEATURE]: [entry('src/a.ts'), entry('src/b.ts'), entry('README.md', 'untracked')],
   },
+  // Deliberately uneven, so the header's total can only be a real sum:
+  // 1+20+300 = 321 in, 1+2+0 = 3 out.
+  statusCounts: {
+    'unstaged:src/a.ts': { insertions: 1, deletions: 1 },
+    'unstaged:src/b.ts': { insertions: 20, deletions: 2 },
+    'unstaged:README.md': { insertions: 300, deletions: 0 },
+  },
 };
 
 async function open(page: Page, data: MockFixtures = base): Promise<void> {
@@ -234,7 +241,7 @@ test('View all changes opens a tab of per-file accordions', async ({ page }) => 
     'aria-selected',
     'true',
   );
-  await expect(page.getByText('3 changed files')).toBeVisible();
+  await expect(page.getByTestId('change-totals')).toContainText('3 files');
 
   // Closed accordions render no diff — that is the whole performance story of
   // this view, and a spec that never checks it would not notice it regressing.
@@ -248,6 +255,27 @@ test('View all changes opens a tab of per-file accordions', async ({ page }) => 
 
   await page.getByRole('button', { name: 'Collapse all files' }).click();
   await expect(page.getByTestId('diff-view')).toHaveCount(0);
+});
+
+test('the all-changes tab totals the checkout without expanding anything', async ({ page }) => {
+  await open(page);
+
+  await page
+    .getByRole('button', { name: 'View all changes in worktree feature/x' })
+    .first()
+    .click();
+
+  // The point of the header total: it is a real sum over all three files while
+  // every one of them is still closed and no `git diff` has run.
+  const totals = page.getByTestId('change-totals');
+  await expect(totals).toContainText('3 files');
+  await expect(totals).toContainText('+321');
+  await expect(totals).toContainText('−3');
+  await expect(page.getByTestId('diff-view')).toHaveCount(0);
+
+  // And each closed row carries its own pair — the whole reason the counts come
+  // from the view's numstat rather than from the diff the body would fetch.
+  await expect(page.getByRole('button', { name: /README\.md/ })).toContainText('+300');
 });
 
 test('the working-tree tab cannot be closed', async ({ page }) => {

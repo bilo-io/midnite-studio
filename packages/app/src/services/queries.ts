@@ -42,6 +42,13 @@ export const keys = {
   status: (repoId: string, worktreePath?: string) =>
     ['repos', repoId, 'status', worktreePath ?? 'main'] as const,
   /**
+   * A checkout's per-path `+n −n`. Under `status` for the same reason `diff` is:
+   * every index or worktree event invalidates that prefix, and counts that
+   * outlived the edit they describe would be worse than no counts at all.
+   */
+  statusCounts: (repoId: string, worktreePath?: string) =>
+    [...keys.status(repoId, worktreePath), 'counts'] as const,
+  /**
    * A worktree/index diff. Deliberately nested UNDER `status`: the watcher
    * invalidates `keys.status(repoId)` non-exactly on every worktree and index
    * event, and the global client sets `staleTime: Infinity`. A diff key outside

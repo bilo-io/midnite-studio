@@ -117,6 +117,7 @@ const bridge: Pick<
   },
   status: {
     get: (req) => call(CHANNELS.statusGet, req),
+    counts: (req) => call(CHANNELS.statusCounts, req),
     commitDetail: (req) => call(CHANNELS.commitDetail, req),
     fileDiff: (req) => call(CHANNELS.fileDiff, req),
     commitFileDiff: (req) => call(CHANNELS.commitFileDiff, req),
