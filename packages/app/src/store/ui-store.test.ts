@@ -330,3 +330,49 @@ describe('grouped settings navigation', () => {
     expect(merged.collapsedSettingsGroups).not.toContain('general');
   });
 });
+
+describe('the nav-mode lock', () => {
+  beforeEach(reset);
+
+  it('moves between all three modes', () => {
+    // Three, not two: the rail's own chevron is a deliberate two-state pin
+    // (`auto` ⇄ `expanded`), and the Appearance control is the only route to
+    // `collapsed`. The store has to carry all three regardless of which
+    // control is driving.
+    expect(useUiStore.getState().navMode).toBe('auto');
+
+    useUiStore.getState().setNavMode('expanded');
+    expect(useUiStore.getState().navMode).toBe('expanded');
+
+    useUiStore.getState().setNavMode('collapsed');
+    expect(useUiStore.getState().navMode).toBe('collapsed');
+
+    useUiStore.getState().setNavMode('auto');
+    expect(useUiStore.getState().navMode).toBe('auto');
+  });
+
+  it('persists the mode, so a locked rail is still locked next launch', () => {
+    // The whole point of a lock is that it outlives the session that set it —
+    // a pin the app forgets is a hover preference with extra steps. `navMode`
+    // is in `partialize` for exactly this, and nothing else asserted it.
+    useUiStore.getState().setNavMode('expanded');
+
+    const saved = JSON.parse(localStorage.getItem('midnite-git.ui') ?? '{}') as {
+      state: Record<string, unknown>;
+    };
+    expect(saved.state.navMode).toBe('expanded');
+  });
+
+  it('leaves a payload that predates the setting on auto', () => {
+    // The failure this guards is not a crash but a launch: booting into a rail
+    // locked open — or worse, locked shut — that the user never asked for,
+    // because the merge left the field undefined and `AppFrame` fell back to
+    // something other than the store's own default.
+    const merged = useUiStore.persist.getOptions().merge?.(
+      { collapsedNavSections: ['workspace'] },
+      useUiStore.getState(),
+    ) as { navMode: string };
+
+    expect(merged.navMode).toBe('auto');
+  });
+});
