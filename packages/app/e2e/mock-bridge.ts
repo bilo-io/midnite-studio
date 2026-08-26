@@ -697,6 +697,7 @@ export async function installMockBridge(page: Page, fixtures: MockFixtures): Pro
         close: noop,
         getState: async () => ({ maximized: false, fullScreen: false, focused: true }),
         onStateChange: unsubscribe,
+        reload: noop,
       },
       windowChrome: {
         platform: 'darwin',
