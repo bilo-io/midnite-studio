@@ -2,6 +2,109 @@
 
 <!-- Append one entry per landed phase/PR: date, phase, PR link, one-line summary. -->
 
+## 2026-08-26 — Phase 12 · Themes A + B — Commit inspector: rendered message, live references, real header
+
+Landed on `feature/phase-12-inspector` (squash-merged — this repository still has no remote, so
+there is no PR link). Phase 5 shipped the commit detail pane as an explicit stub: `%B` dumped
+into a `whitespace-pre-wrap` div, a flat file list, and a `<pre>` of `git show --stat` repeating
+the very numbers the list beside it already showed. This makes it the thing you actually read a
+commit in.
+
+**Theme A** renders the message as markdown (`react-markdown` + `remark-gfm`, deliberately **no**
+`rehype-raw` — raw HTML in a commit message stays inert text, which removes the sanitisation
+problem rather than solving it) and then linkifies references in the resulting text nodes. Two
+passes in that order, because at the hast stage a code span is a real `code` element: "don't
+linkify inside a fence" becomes an ancestor test rather than a lookaround in a regex. The matcher
+is a pure `segment(text): Segment[]` with no React and no hast in it, and the plugin beside it
+knows nothing about the grammar.
+
+Three matcher decisions are load-bearing and each has a test:
+
+- **URL wins the alternation.** `https://github.com/o/r/commit/7c521fed00d` contains a valid
+  abbreviated sha and an issue-shaped fragment; with SHA first it shreds into three links, one of
+  which navigates the inspector somewhere unrelated.
+- **An abbreviation must contain both a digit and a hex letter.** `deadbeef`, `facade`, `decade`
+  and `defaced` are pure hex and pure English; `12345678` is a record count. About 3.7% of genuine
+  7-character shas are pure digits and 0.14% pure letters, and that is still the right trade — a
+  missed link renders as the text the author typed, while a false one is a control that navigates
+  to an unrelated commit, or to nothing.
+- **`#\d{1,7}` needs its trailing `(?!\d)`.** Without it the quantifier takes the first seven
+  digits of `#12345678` and links `#1234567`, orphaning the `8` — a link to a real but entirely
+  unrelated issue, which is worse than no link.
+
+`#123` resolves through Theme E's `pickForgeRemote`; a repo with no forge remote renders it as
+plain text rather than inventing a URL that 404s. Trailers (`Co-Authored-By:` and friends) are
+split off the message tail by a pure `splitTrailers` implementing git's rules more strictly than
+git does — every line in the block must be a trailer or a continuation, because the cost of being
+loose is a real final paragraph restyled as metadata and detached from the message it belongs to.
+Trailer values are linkified WITHOUT a markdown pass: `<s@example.com>` is an address in angle
+brackets, which markdown reads as a tag and swallows.
+
+**Theme B** rebuilds the panel: the full sha with a copy button, author and committer identities
+(the committer row only when the name **or** the email differs — a squash-merge keeps the address
+and changes the name), relative dates with the absolute in a tooltip, parents as clickable short
+shas labelled `parent 1` / `parent 2` on a merge, a tree ⇄ list toggle persisted in the ui-store,
+and a draggable split between the file list and the diff. The tree is built by a pure
+`buildFileTree` that collapses single-child directory chains on the way *up* (`packages/desktop/src/main`
+is one row, and whether it collapses is only knowable once its children are final) and rolls
+subtree totals into every directory row, so collapsing does not hide the number you collapsed in
+order to compare. The list view sorts by change size descending — a 4000-line lockfile churn and
+a two-line fix are indistinguishable in a path-sorted tree.
+
+Three contract changes came with it:
+
+- **`CommitDetailResponse` gains `parents`, `subject`, `author` and `committer`, and loses
+  `stat`** — and with `stat` goes one of the three `git show` invocations per selection. One
+  NUL-separated `--pretty=format:` record now carries everything, with `%B` deliberately last so
+  surplus tokens rejoin into the body rather than truncating it.
+- **`readCommitDetail` returns null** for a sha this repo does not have, instead of the
+  empty-but-well-formed record it used to, which conflated "that repo is closed" with "no such
+  commit" and rendered both as a commit with no message, no author and no files.
+- **A new `mgit:repo:rev-parse` channel** resolves an abbreviation *before* it becomes a
+  selection. A 7-char sha reaches `git show` fine, but the selection is also what the graph
+  highlights and what the diff key is built from, and neither works with an abbreviation.
+
+Clipboard goes through a new `mgit:clipboard:write-text` channel rather than
+`navigator.clipboard`: the packaged app loads the renderer from `file://`, which is not
+guaranteed to be a secure context, and the Async Clipboard API is gated on one — so the web API
+is the one path that would work under the dev server and fail silently in the shipped dmg. The
+button's checkmark is shown only on a confirmed write.
+
+Beyond the plan, reviewing the diff turned up four real defects, each now pinned by a test:
+
+- **Opacity is about ancestry, not parentage.** `unist-util-visit` hands a visitor only the
+  immediate parent, so `a > strong > text` — what a markdown link with a bold label produces —
+  passed the `code`/`pre`/`a` check and was linkified inside the anchor. The result is a control
+  nested in a link: one click fires both, so `[**deadbeef1**](https://evil.example)` in a commit
+  message would select a commit *and* open the URL. Replaced with an explicit walk carrying an
+  inherited flag, which also dropped the dependency.
+- **Resetting selection in an effect is one render too late.** The render that first observed a
+  new sha still held the previous commit's path and issued a real `git diff` for it — cached under
+  `staleTime: Infinity`. The same shape, and the same fix, as `useContextReset` in
+  `use-file-diff.ts`. (Theme D hit this exact bug once already.)
+- **Absolute pixel bounds cannot know how tall the window is.** A 720px file list in a short
+  window collapsed both the message above and the diff below to nothing — and, being persisted,
+  stayed collapsed across restarts with only a zero-height handle left to drag back.
+- **react-markdown keys its element map by component identity.** `components={{ button:
+  shaButton(onSelectSha) }}` built inline remounts every sha button on every render, dropping
+  keyboard focus to `<body>`.
+
+`CommitDetailRequest.sha` is now hex-validated like `RevParseRequest` and `git show` takes
+`--end-of-options`: `git show` accepts diff options, and `--output=<file>` alone is an arbitrary
+file write. No caller could reach it — the linkifier's output is hex by construction — but one
+of the two rev-taking channels being guarded and the other not is an asymmetry one refactor away
+from mattering.
+
+Phase 16's markdown preview picked up the shared prose classes and live links on the way past:
+its links were inert only because `shell:open-external` did not exist when it was written, and
+Theme E had already landed by the time it did.
+
+70 new tests (22 matcher, 10 plugin, 14 file tree, 12 trailers, 7 detail record, plus git-engine
+integration for merges, root commits, unknown shas and tag peeling) and 18 new Playwright specs;
+51 e2e green. `moon run :typecheck :lint :test` green.
+
+Not in this slice: Themes C (ref badges as controls) and F (graph row polish) remain open.
+
 ## 2026-08-26 — Phase 16 · Themes A–E — Folder explorer, preview pane, settings pages
 
 The app grows real pages, in one branch (`feature/phase-16-explorer-settings`, squash-merged —

@@ -167,18 +167,95 @@ const truncatedDiff = fileDiff({
 });
 
 export const COMMIT_SHA = SHA;
+/** The parent of `SHA` — the target of the inspector's parent-navigation row. */
+export const PARENT_SHA = 'f11fafb4c693a8e38ad44f04e4908c15315843a3';
+/** A commit referenced by an abbreviated sha in the message body, in this repo. */
+export const LINKED_SHA = '4c1a9b2038e75d6f83b1c0e4a7d59f21630bc8ae';
+export const LINKED_ABBREV = '4c1a9b2';
+/** An abbreviation `revParse` cannot resolve — the not-found state. */
+export const ORPHAN_ABBREV = 'a1b2c3d';
+
+const identity = (over: Record<string, unknown> = {}) => ({
+  name: 'Bilo Lwabona',
+  email: 'bilo.lwabona@ekko.earth',
+  date: 1_787_000_000,
+  ...over,
+});
+
+/**
+ * The message the inspector's Theme A path is asserted against.
+ *
+ * Deliberately one line of each kind the matcher claims to handle, plus the
+ * `deadbeef` false positive and a fenced sha the ancestor skip must leave alone.
+ */
+const BODY = [
+  'feat(phase-11): package, install and run from /Applications',
+  '',
+  'macOS arm64 dmg + zip. Main and preload are bundled.',
+  '',
+  `Follows on from ${LINKED_ABBREV}, closes #123, see https://example.com/notes.`,
+  'The deadbeef path is unaffected.',
+  '',
+  '```',
+  'const sha = 7c521fe;',
+  '```',
+  '',
+  'Co-Authored-By: Claude Opus 5 <noreply@anthropic.com>',
+].join('\n');
 
 export const fixtures: MockFixtures = {
-  commitDetail: {
-    sha: SHA,
-    body: 'feat(phase-11): package, install and run from /Applications\n\nmacOS arm64 dmg + zip. Main and preload are bundled.',
-    stat: '',
-    files: [
-      { path: 'packages/desktop/src/main/window.ts', insertions: 4, deletions: 1 },
-      { path: '.github/workflows/ci.yml', insertions: 2, deletions: 0 },
-      { path: 'docs/screenshots/phase-11-packaged-app.png', insertions: 0, deletions: 0 },
-      { path: 'pnpm-lock.yaml', insertions: 4000, deletions: 0 },
-    ],
+  commitDetails: {
+    [SHA]: {
+      sha: SHA,
+      parents: [PARENT_SHA],
+      subject: 'feat(phase-11): package, install and run from /Applications',
+      body: BODY,
+      author: identity(),
+      // Differs from the author in both name and email, so the committer row
+      // renders — the case a squash-merge through a forge produces.
+      committer: identity({ name: 'GitHub', email: 'noreply@github.com' }),
+      files: [
+        {
+          path: 'packages/desktop/src/main/window.ts',
+          oldPath: null,
+          insertions: 4,
+          deletions: 1,
+        },
+        { path: '.github/workflows/ci.yml', oldPath: null, insertions: 2, deletions: 0 },
+        {
+          path: 'docs/screenshots/phase-11-packaged-app.png',
+          oldPath: null,
+          insertions: 0,
+          deletions: 0,
+        },
+        { path: 'pnpm-lock.yaml', oldPath: null, insertions: 4000, deletions: 0 },
+      ],
+    },
+    // The root commit: no parents, one file, no trailers — the other end of
+    // every branch in the header's rendering.
+    [PARENT_SHA]: {
+      sha: PARENT_SHA,
+      parents: [],
+      subject: 'chore: initial import',
+      body: 'chore: initial import',
+      author: identity(),
+      committer: identity(),
+      files: [{ path: 'README.md', oldPath: null, insertions: 1, deletions: 0 }],
+    },
+    [LINKED_SHA]: {
+      sha: LINKED_SHA,
+      parents: [PARENT_SHA],
+      subject: 'fix(graph): the linkified target',
+      body: 'fix(graph): the linkified target',
+      author: identity(),
+      committer: identity(),
+      files: [{ path: 'packages/app/src/a.ts', oldPath: null, insertions: 2, deletions: 2 }],
+    },
+  },
+  revisions: {
+    [LINKED_ABBREV]: LINKED_SHA,
+    [PARENT_SHA]: PARENT_SHA,
+    [SHA]: SHA,
   },
   diffs: {
     [`${SHA}:packages/desktop/src/main/window.ts`]: windowDiff,

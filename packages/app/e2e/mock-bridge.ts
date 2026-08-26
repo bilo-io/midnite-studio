@@ -14,7 +14,19 @@ import type { Page } from '@playwright/test';
 export type MockFixtures = {
   /** Keyed by `${sha}:${path}` for commit diffs, and `wt:${path}` for worktree ones. */
   diffs: Record<string, unknown>;
-  commitDetail: { sha: string; body: string; stat: string; files: unknown[] };
+  /**
+   * Keyed by resolved sha, so a spec can navigate between commits — clicking a
+   * parent or a linkified sha is the Theme B behaviour under test, and a single
+   * record could only ever answer for one of them.
+   */
+  commitDetails: Record<string, unknown>;
+  /**
+   * What `repos.revParse` answers, keyed by the abbreviation asked for.
+   *
+   * An abbreviation with no entry resolves to `{sha: null}`, which is how the
+   * "commit is not in this repository" state is reached.
+   */
+  revisions?: Record<string, string>;
   graphRows: unknown[];
   statusEntries: unknown[];
   /** Refs the sidebar and the BRANCH / TAG column render. */
@@ -104,6 +116,7 @@ export async function installMockBridge(page: Page, fixtures: MockFixtures): Pro
         worktreeAdd: ok,
         worktreeRemove: ok,
         pickDirectory: async () => null,
+        revParse: async (req: { rev: string }) => ({ sha: data.revisions?.[req.rev] ?? null }),
       },
       log: {
         start: async (req: { requestId: string }) => {
@@ -150,7 +163,9 @@ export async function installMockBridge(page: Page, fixtures: MockFixtures): Pro
           entries: data.statusEntries,
           inProgress: null,
         }),
-        commitDetail: async () => data.commitDetail,
+        // Null for an unknown sha, exactly as the real handler does — the
+        // inspector's not-found state is unreachable otherwise.
+        commitDetail: async (req: { sha: string }) => data.commitDetails[req.sha] ?? null,
         fileDiff: async (req: { path: string }) =>
           data.diffs[`wt:${req.path}`] ?? emptyDiff(req.path),
         commitFileDiff: async (req: { sha: string; path: string; context: number }) =>
@@ -175,6 +190,20 @@ export async function installMockBridge(page: Page, fixtures: MockFixtures): Pro
       shell: {
         openExternal: async (req: { url: string }) => {
           externalUrls.push(req.url);
+          return { ok: true as const };
+        },
+      },
+      /*
+        Recorded rather than stubbed, for the same reason as openExternal: the
+        assertion worth making about a copy button is WHAT it copied. In the real
+        app this is Electron's clipboard because the packaged renderer is a
+        `file://` origin and `navigator.clipboard` needs a secure context —
+        which is also why there is nothing here for a spec to read back except
+        what the bridge was handed.
+      */
+      clipboard: {
+        writeText: async (req: { text: string }) => {
+          clipboardWrites.push(req.text);
           return { ok: true as const };
         },
       },
@@ -323,6 +352,8 @@ export async function installMockBridge(page: Page, fixtures: MockFixtures): Pro
     var ptyCount = 0;
     // eslint-disable-next-line no-var
     var externalUrls: string[] = [];
+    // eslint-disable-next-line no-var
+    var clipboardWrites: string[] = [];
 
     // --- the fake pty ------------------------------------------------------
     // eslint-disable-next-line no-var
@@ -417,5 +448,6 @@ export async function installMockBridge(page: Page, fixtures: MockFixtures): Pro
     (window as unknown as { __mgitOps: unknown }).__mgitOps = opCalls;
     (window as unknown as { __mgitPty: unknown }).__mgitPty = ptyCalls;
     (window as unknown as { __mgitExternalUrls: unknown }).__mgitExternalUrls = externalUrls;
+    (window as unknown as { __mgitClipboard: unknown }).__mgitClipboard = clipboardWrites;
   }, fixtures);
 }

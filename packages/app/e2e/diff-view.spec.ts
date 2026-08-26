@@ -1,6 +1,6 @@
 import { expect, test, type Page } from '@playwright/test';
 
-import { fixtures } from './fixtures';
+import { fixtures, PARENT_SHA } from './fixtures';
 import { installMockBridge } from './mock-bridge';
 
 /**
@@ -113,12 +113,26 @@ test('a capped diff reports how many lines it withheld', async ({ page }) => {
   await expect(diff(page).getByText(/16,412 more lines not shown/)).toBeVisible();
 });
 
-test('switching commits clears the selected file rather than carrying it over', async ({ page }) => {
+test('clicking the open file again closes its diff', async ({ page }) => {
   await openCommit(page);
   await page.getByRole('button', { name: /window\.ts/ }).click();
   await expect(diff(page)).toBeVisible();
 
-  // Re-selecting the same commit row is a no-op; deselect and reselect instead.
   await page.getByRole('button', { name: /window\.ts/ }).click();
   await expect(page.getByText('Select a file to see what changed in it.')).toBeVisible();
+});
+
+test('switching commits clears the selected file rather than carrying it over', async ({ page }) => {
+  // The path may not even exist in the next commit, which would leave a
+  // permanently empty diff pane with no clue as to why. Reachable as a real
+  // gesture now that Theme B has parent navigation — the previous version of
+  // this test could only approximate it by deselecting.
+  await openCommit(page);
+  await page.getByRole('button', { name: /window\.ts/ }).click();
+  await expect(diff(page)).toBeVisible();
+
+  await page.getByRole('button', { name: `Show commit ${PARENT_SHA}` }).click();
+
+  await expect(page.getByText('Select a file to see what changed in it.')).toBeVisible();
+  await expect(diff(page)).toHaveCount(0);
 });

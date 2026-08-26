@@ -1,6 +1,6 @@
 import { BrowserWindow, dialog } from 'electron';
 
-import { addWorktree, readCommitDetail, removeWorktree } from '@midnite/git-engine';
+import { addWorktree, readCommitDetail, removeWorktree, revParse } from '@midnite/git-engine';
 import { CHANNELS, failure, schemas } from '@midnite/git-shared';
 import { ipcMain } from 'electron';
 
@@ -119,15 +119,45 @@ export function registerRepoHandlers(getWindow: () => BrowserWindow | null): voi
     () => undefined,
   );
 
+  /**
+   * One commit in full, or null.
+   *
+   * Null rather than an empty-but-well-formed record, which is what this used to
+   * answer. The two states it was conflating — "that repo is closed" and "this
+   * sha names no commit" — both rendered as a commit with no message, no author
+   * and no files, which reads as a bug in the inspector rather than as the
+   * truthful answer it was. The pane now says which happened.
+   */
   handle(
     CHANNELS.commitDetail,
     schemas.CommitDetailRequest,
     async ({ repoId, sha }) => {
       const entry = getRepo(repoId);
-      if (!entry) return { sha, body: '', stat: '', files: [] };
+      if (!entry) return null;
       return readCommitDetail(entry.path, sha);
     },
-    () => ({ sha: '', body: '', stat: '', files: [] }),
+    () => null,
+  );
+
+  /**
+   * Resolve an abbreviated revision to a full sha.
+   *
+   * The caller is the linkifier: a commit message says `deadbee`, and a
+   * selection that is not a full sha can never match a graph row. Answering
+   * `{sha: null}` for an unknown revision is the load-bearing case — a message
+   * may reference a commit that was never pushed here, or that a rebase
+   * orphaned, and the inspector says so rather than selecting a sha that will
+   * never load.
+   */
+  handle(
+    CHANNELS.repoRevParse,
+    schemas.RevParseRequest,
+    async ({ repoId, rev }) => {
+      const entry = getRepo(repoId);
+      if (!entry) return { sha: null };
+      return { sha: await revParse(entry.path, rev) };
+    },
+    () => ({ sha: null }),
   );
 
   /**

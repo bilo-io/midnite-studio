@@ -151,7 +151,9 @@ describe('diff commands (integration)', () => {
     const sha = await repo.commit('rename and edit');
 
     const detail = await readCommitDetail(repo.path, sha);
-    const entry = detail.files.find((f) => f.path === 'after.txt');
+    // Non-null asserted rather than optional-chained: a null here means the sha
+    // did not resolve, which would make every assertion below vacuously pass.
+    const entry = detail!.files.find((f) => f.path === 'after.txt');
     expect(entry?.oldPath).toBe('before.txt');
 
     const diff = await readCommitFileDiff(repo.path, sha, 'after.txt', {

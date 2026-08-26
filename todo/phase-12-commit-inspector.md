@@ -22,32 +22,58 @@ and emails in A do not). Everything else is independent.
 
 ---
 
-## Theme A — Rendered commit message with live references · M
+## Theme A — Rendered commit message with live references · M — ✅ DONE (2026-08-26)
 
-The body is markdown often enough to be worth parsing, and full of references that should be
-clickable regardless. Two passes: markdown first, then linkify the resulting text nodes.
+Landed on `feature/phase-12-inspector`. Markdown first (`react-markdown` + `remark-gfm`, no
+`rehype-raw`), then a rehype pass that linkifies references in the resulting text nodes — in
+that order, because at the hast stage a code span is a real `code` element, so "don't linkify
+inside a fence" is an ancestor test rather than a lookaround in a regex. Items moved to
+[`done.md`](done.md).
 
-- [ ] Add `react-markdown` + `remark-gfm` to [`packages/app`](../packages/app/package.json); render `CommitDetail.body` through it. **No `rehype-raw`** — raw HTML in a commit message stays inert text, which removes the sanitisation problem rather than solving it **S**
-- [ ] `app/src/features/commit/linkify.tsx` — a remark/rehype plugin (or a post-render text-node walker) recognising, in priority order: 40-char and 7–12-char hex SHAs · bare `http(s)://` URLs · `#\d+` issue refs · RFC-5322 emails. Pure function + unit test; no React inside the matcher **M**
-- [ ] Link targets: SHA → `selectCommit(sha)` (Theme B) · URL → `<a target="_blank" rel="noreferrer">`, which already reaches [`window.ts:83`](../packages/desktop/src/main/window.ts#L83)'s `setWindowOpenHandler` and opens externally · `#123` → `shell.openExternal(issueUrl)` via Theme E · email → `mailto:` **S**
-- [ ] Trailer block styling — `Co-Authored-By:`, `Signed-off-by:`, `Reviewed-by:` split off the body tail and rendered as a muted metadata list rather than prose **S**
-- [ ] Guard the SHA matcher against false positives: a bare 7-hex word inside a code fence or a URL path must not linkify. Test the nasty cases (`deadbeef` as an English-ish word, `#1` in a markdown ordered list) **S**
+Three matcher decisions turned out to be load-bearing, and each has a test:
 
-## Theme B — Inspector panel rebuild · L
+- **URL wins the alternation.** `https://github.com/o/r/commit/7c521fed00d` contains a valid
+  abbreviated sha and an issue-shaped fragment; SHA-first shreds it into three links, one of
+  which navigates the inspector somewhere unrelated.
+- **An abbreviation needs both a digit and a hex letter.** `deadbeef`, `facade` and `defaced`
+  are pure hex and pure English; `12345678` is a record count. It costs ~3.7% of genuine
+  7-character shas, and that is the right trade — a missed link renders as the text the author
+  typed, a false one is a control that goes somewhere unrelated.
+- **`#\d{1,7}` needs its trailing `(?!\d)`.** Without it `#12345678` links `#1234567` and
+  orphans the `8`: a link to a real but unrelated issue, which beats no link only in the sense
+  that it is harder to notice.
 
-[`commit-detail.tsx`](../packages/app/src/features/commit/commit-detail.tsx) is 70 lines and does
-none of this. Rebuild it as a real panel.
+The one defect that survived into review was about ancestry: `unist-util-visit` hands a visitor
+only the *immediate* parent, so `a > strong > text` — what a markdown link with a bold label
+produces — passed the opacity check and was linkified inside the anchor. A control nested in a
+link fires both on one click, so `[**deadbeef1**](https://evil.example)` in a commit message
+would select a commit *and* open the URL. The walk is written out now, carrying an inherited
+flag, which also dropped the dependency.
 
-- [ ] **Header row:** full sha, monospace, with a **copy-to-clipboard icon button top-right** next to it. Use Electron's `clipboard` module through a new preload affordance — `navigator.clipboard` needs a secure context and the packaged app loads from `file://`. Copied-state feedback on the button (checkmark, ~1.2s) **S**
-- [ ] **Metadata block:** author, committer (only when it differs from author), authored + committed dates. This needs `CommitDetail` extending — see the schema item below **S**
-- [ ] **Kill the redundant `<pre>{stat}</pre>`.** The `files[]` list already carries every number in it. Drop `stat` from the response entirely rather than leaving a dead field **S**
-- [ ] **Tree ⇄ list toggle** — two icon buttons top-right (`IconButton` from [`components/icon-button.tsx`](../packages/app/src/components/icon-button.tsx)), each with a `Tooltip`. Persist the choice in [`store/ui-store.ts`](../packages/app/src/store/ui-store.ts) so it survives repo switches **M**
-- [ ] **Tree view:** build a path trie from `files[]`; collapsible directories; single-child directories collapsed into one row (`packages / desktop / scripts`) as in the current screenshot; per-file `+n −n` right-aligned; directory rows roll up their subtree totals **M**
-- [ ] **List view:** flat, full paths, sorted by change size descending — the "what actually moved" view **S**
-- [ ] Selecting a file opens its diff inline below (or in a lower pane) — Theme D provides the renderer **S**
-- [ ] **Commit navigation:** `selectCommit(sha)` in [`graph-store.ts`](../packages/app/src/features/graph/graph-store.ts) becomes the single entry point. Clicking a parent SHA, or any linkified SHA from Theme A, selects that commit and re-renders the panel — **including commits outside the currently loaded graph window** (fall back to fetching detail directly rather than requiring a row) **M**
-- [ ] Parent SHAs rendered as an explicit row of clickable short-shas; merge commits show all parents labelled `parent 1` / `parent 2` **S**
-- [ ] Extend `CommitDetailResponse` in [`schemas.ts`](../packages/shared/src/ipc/schemas.ts#L93) → add `parents: string[]`, `subject`, `author {name, email, date}`, `committer {name, email, date}`; drop `stat`. Update [`readCommitDetail`](../packages/git-engine/src/commands/log.ts#L150) (one `git show --no-patch --pretty=format:` with NUL-separated fields — **not** whitespace-split) and the `ipc.test.ts` coverage assertions **M**
+## Theme B — Inspector panel rebuild · L — ✅ DONE (2026-08-26)
+
+Landed on `feature/phase-12-inspector`. A real header (full sha + copy button, author/committer
+identities, parents as clickable short shas), a collapsible file tree with a list alternative,
+and a draggable split between the file list and the diff. Items moved to [`done.md`](done.md).
+
+Three contract changes came with it: `CommitDetailResponse` gained `parents`, `subject`,
+`author` and `committer` and lost `stat` — and with `stat`, one of the three `git show`
+invocations per selection; `readCommitDetail` returns **null** for a sha the repo does not have,
+rather than the empty-but-well-formed record that conflated "repo closed" with "no such commit";
+and a new `mgit:repo:rev-parse` channel resolves an abbreviation *before* it becomes a selection,
+because the selection is also what the graph highlights and what the diff key is built from.
+
+Beyond the plan, three of the four review findings were about *when* rather than *what*:
+
+- **Resetting selection in an effect is one render too late.** The render that first observes a
+  new sha still holds the previous commit's path, and issues a real `git diff` for it — cached
+  under `staleTime: Infinity`. Theme D hit this same shape once already; the fix is the one
+  `useContextReset` in `use-file-diff.ts` already uses.
+- **Absolute pixel bounds cannot know how tall the window is.** A 720px file list in a short
+  window collapsed the message above and the diff below to nothing, persistently, leaving a
+  zero-height handle as the only way back.
+- **react-markdown keys its element map by component identity**, so a `components` object built
+  inline remounts every sha button on each render and drops keyboard focus.
 
 ## Theme C — Ref badges as a control surface · M
 
@@ -153,25 +179,25 @@ including the `github.com.evil.example` classification hole and the `decodeURICo
 
 ## Verification
 
-- [ ] `moon run :typecheck :lint :test` green; no boundary-lint exception added anywhere
+- [x] `moon run :typecheck :lint :test` green; no boundary-lint exception added anywhere ✅
 - [x] **A renderer test harness exists.** ✅ DONE — Playwright driving the real app against a mocked `window.midniteGit` ([`packages/app/e2e/`](../packages/app/e2e/), `moon run app:e2e`), chosen over an RTL/jsdom harness because the bridge *is* the renderer's only route to main, so replacing it covers every UI path without Electron, a repo or a git binary. `@testing-library/react` remains unused; drop it or adopt it when a non-visual component needs a unit test.
-- [ ] Unit tests: linkify matcher (incl. the false-positive cases), diff hunk parser (rename/binary/mode-only/no-EOL/empty), remote URL normaliser (ssh/https/self-hosted)
-- [ ] Integration test for `readCommitDetail`'s new fields and the commit-scoped file diff, using [`TempRepo`](../packages/git-engine/src/testing/temp-repo.ts)
-- [ ] Manual: click a parent SHA in a commit body → the sidebar follows, **including for a commit below the loaded graph window**
-- [ ] Manual: a commit whose message contains a URL, a `#123`, a bare SHA and a `Co-Authored-By` trailer renders all four correctly against a real GitHub remote — and against a repo with **no** remote (must degrade, not error)
-- [ ] Manual: copy button puts the full 40-char sha on the clipboard **in the packaged app**, not just the dev server
+- [x] Unit tests: linkify matcher (incl. the false-positive cases), diff hunk parser (rename/binary/mode-only/no-EOL/empty), remote URL normaliser (ssh/https/self-hosted) ✅ — plus the rehype plugin's ancestor rule, the trailer splitter and the file-tree collapse
+- [x] Integration test for `readCommitDetail`'s new fields and the commit-scoped file diff, using [`TempRepo`](../packages/git-engine/src/testing/temp-repo.ts) ✅ — merge commits, root commits, unknown shas and annotated-tag peeling
+- [x] Click a parent SHA in a commit body → the sidebar follows, **including for a commit below the loaded graph window** ✅ — covered by [`commit-inspector.spec.ts`](../packages/app/e2e/commit-inspector.spec.ts); the fixture graph holds one row and the linkified target is not it
+- [x] A commit whose message contains a URL, a `#123`, a bare SHA and a `Co-Authored-By` trailer renders all four correctly against a GitHub remote — and against a repo with **no** remote ✅ (e2e, mocked bridge). ⏳ Still worth one pass against a real clone.
+- [ ] Manual: copy button puts the full 40-char sha on the clipboard **in the packaged app**, not just the dev server — *the e2e asserts the bridge is handed all 40 characters; the `file://` secure-context question can only be answered in the dmg*
 - [ ] Manual: a branch that is ahead, one behind, one diverged, and one with no upstream each show the right hover affordance and the right tooltip text; pushing/pulling from the badge updates the counts without a manual refresh (watch invalidation)
 - [ ] Reduced motion (`html[data-motion='reduced']`) stops the badge pulse
-- [ ] Screenshot captured: inspector in tree mode with a diff open, and a diverged branch badge hover-expanded
+- [x] Screenshot captured: inspector in tree mode with a diff open ✅ ([`docs/screenshots/phase-12/`](../docs/screenshots/phase-12/), regenerated by the e2e suite). ◻ The diverged-badge shot belongs to Theme C.
 
 ## Decisions / open questions
 
 1. **"Gradient glow pulsating effect should have a sub…"** — the seed line was cut off. Planned as *subtle*: low-opacity, slow, no reflow. If it meant a **sub-label** (upstream name under the badge name), say so and Theme C grows one item. — *unresolved, assumption stated*
 2. **Markdown + linkify, not linkify alone** — resolved. Accepted cost: a runtime dependency and the rule that raw HTML in commit messages stays inert (no `rehype-raw`).
 3. **`#123` links are in scope**, which is why Theme E exists — resolved. Worth noting E is ~5 files across all four packages for one link type; its real payoff is the "open commit/branch/PR on the forge" verbs that become trivial afterwards.
-4. **`stat` gets dropped from `CommitDetailResponse`** rather than left unused. — *deferred to Theme B: Theme D removed the `<pre>` that rendered it, so the field is now unread but still on the wire.*
-5. **Clipboard via Electron's `clipboard` module**, not `navigator.clipboard`, because the packaged app is a `file://` origin and may not be a secure context. — *recommended, still open (Theme B)*
+4. **`stat` gets dropped from `CommitDetailResponse`** rather than left unused. — *resolved in Theme B: the field is gone, and so is the `git show --stat` invocation that produced it.*
+5. **Clipboard via Electron's `clipboard` module**, not `navigator.clipboard`, because the packaged app is a `file://` origin and may not be a secure context. — *resolved in Theme B: `mgit:clipboard:write-text`, write-only (no `readText`, so renderer code cannot observe whatever the user last copied anywhere).*
 6. **No syntax highlighting inside diff lines** — *resolved, deferred.* Word-level intraline marking landed instead, which is what actually distinguishes a one-token edit from a rewrite.
 7. **No side-by-side diff** — *resolved, deferred.* The inspector is a narrow panel; split view earns its keep only in a full-width diff surface, which does not exist yet.
 8. **Navigation history (back/forward through selected commits)** — deliberately left out. Add it if clicking parents proves disorienting in use; it would register in the Phase 9 keybinding registry. — *deferred*
-9. **Theme ordering under `/exec`:** E before A (A's `#123` links need it), otherwise free. B and D pair naturally; C and F are fully independent and are the best candidates to run in parallel.
+9. **Theme ordering under `/exec`:** E before A (A's `#123` links need it), otherwise free. B and D pair naturally; C and F are fully independent and are the best candidates to run in parallel. — *A, B, D and E have landed; C and F remain and can go in parallel.*

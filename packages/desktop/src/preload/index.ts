@@ -82,6 +82,7 @@ const bridge: Pick<
   | 'status'
   | 'remotes'
   | 'shell'
+  | 'clipboard'
   | 'ops'
   | 'pty'
   | 'terminal'
@@ -101,6 +102,7 @@ const bridge: Pick<
     worktreeAdd: (req) => call(CHANNELS.repoWorktreeAdd, req),
     worktreeRemove: (req) => call(CHANNELS.repoWorktreeRemove, req),
     pickDirectory: () => call(CHANNELS.repoPickDirectory),
+    revParse: (req) => call(CHANNELS.repoRevParse, req),
     reorder: (req) => ipcRenderer.send(CHANNELS.repoReorder, req),
   },
   log: {
@@ -122,6 +124,11 @@ const bridge: Pick<
     // `invoke`, not `send`: the renderer needs to know a URL was refused, and
     // a one-way send would make a blocked link indistinguishable from a slow one.
     openExternal: (req) => call(CHANNELS.shellOpenExternal, req),
+  },
+  clipboard: {
+    // Also `invoke`: the copy button's checkmark is a claim that the text is on
+    // the clipboard, and a one-way send would make that claim unverifiable.
+    writeText: (req) => call(CHANNELS.clipboardWriteText, req),
   },
   ops: {
     checkout: (req) => call(CHANNELS.opCheckout, req),

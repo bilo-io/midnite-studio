@@ -114,12 +114,63 @@ export const StatusGetRequest = RepoId.extend({
 });
 export const StatusGetResponse = StatusResultSchema;
 
-export const CommitDetailRequest = RepoId.extend({ sha: z.string().min(1) });
+/**
+ * A revision, restricted to hex.
+ *
+ * The only producer is the linkifier, which matches 7-40 hex characters, and the
+ * value reaches a `git` argv. Hex-only is therefore both sufficient and the
+ * tightest guard available: no leading `-` to be read as an option, no `..` to
+ * become a range, no `^{}` peel, no refname at all. Widening this to accept
+ * branch names is a deliberate decision to make later, not a default to inherit.
+ */
+const HexRev = z
+  .string()
+  .regex(/^[0-9a-fA-F]{4,40}$/, 'A revision must be 4-40 hexadecimal characters.');
+
+export const RevParseRequest = RepoId.extend({ rev: HexRev });
+/** `sha` is null when the revision names nothing in this repository. */
+export const RevParseResponse = z.object({ sha: z.string().nullable() });
+
+/**
+ * One commit, in full.
+ *
+ * `committer` is always populated — git writes both trailers on every commit —
+ * and the renderer is what decides whether to show it, by comparing the two.
+ * Shipping it unconditionally keeps that decision in one place instead of
+ * splitting it between a handler that omits a field and a view that checks for
+ * its absence.
+ */
+const CommitIdentity = z.object({
+  name: z.string(),
+  email: z.string(),
+  /** Unix seconds, matching every other date on the wire (see GraphRow). */
+  date: z.number().int(),
+});
+
+/**
+ * Hex, like `RevParseRequest` — not `z.string().min(1)`.
+ *
+ * The value becomes a `git show` argument, and `git show` accepts diff options:
+ * `--output=<file>` alone is an arbitrary file write. Every caller already
+ * passes hex (a graph row's sha, a parent, or the linkifier's output, which is
+ * hex by construction), so this costs nothing and removes the asymmetry where
+ * one of the two rev-taking channels was guarded and the other was not.
+ */
+export const CommitDetailRequest = RepoId.extend({ sha: HexRev });
 export const CommitDetailResponse = z.object({
+  /**
+   * The resolved 40-char sha, which need not equal the requested one — the
+   * request accepts anything `git show` does.
+   */
   sha: z.string(),
+  /** Parent shas, in git's order. Two or more means a merge. */
+  parents: z.array(z.string()),
+  /** `%s` — the first line, already stripped of its trailing newline. */
+  subject: z.string(),
+  /** `%B` — the whole message, subject included. */
   body: z.string(),
-  /** `git show --stat` output, rendered as preformatted text for now. */
-  stat: z.string(),
+  author: CommitIdentity,
+  committer: CommitIdentity,
   files: z.array(
     z.object({
       path: z.string(),
@@ -236,6 +287,32 @@ export const OpenExternalRequest = z.object({
 export const OpenExternalResponse = z.object({
   ok: z.boolean(),
   /** Present only on refusal, for the console. Never surfaced as a dialog. */
+  message: z.string().optional(),
+});
+
+// --- clipboard -------------------------------------------------------------
+
+/**
+ * Upper bound on a clipboard write.
+ *
+ * Generous next to the 40 characters the copy button actually sends, and small
+ * next to what an unbounded renderer string could be. The cap exists because
+ * `clipboard.writeText` in main is synchronous: a multi-megabyte payload is a
+ * frozen window, and nothing this channel legitimately carries is long.
+ */
+export const CLIPBOARD_MAX_LENGTH = 8192;
+
+export const ClipboardWriteTextRequest = z.object({
+  text: z.string().min(1).max(CLIPBOARD_MAX_LENGTH),
+});
+
+/**
+ * Whether the write happened. Not a `GitOpResult` — no git ran — and reported
+ * rather than assumed because the button's copied-state feedback would otherwise
+ * be a claim it has no evidence for.
+ */
+export const ClipboardWriteTextResponse = z.object({
+  ok: z.boolean(),
   message: z.string().optional(),
 });
 

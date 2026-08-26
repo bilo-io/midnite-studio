@@ -7,6 +7,7 @@ import { registerFsHandlers } from './ipc/fs-handlers';
 import { registerPtyHandlers } from './ipc/pty-handlers';
 import { registerTerminalHandlers } from './ipc/terminal-handlers';
 import { registerRefHandlers } from './ipc/ref-handlers';
+import { registerClipboardHandlers } from './ipc/clipboard-handlers';
 import { registerRemoteHandlers } from './ipc/remote-handlers';
 import { registerRepoHandlers } from './ipc/repo-handlers';
 import { registerStatusHandlers } from './ipc/status-handlers';
@@ -94,6 +95,7 @@ if (!app.requestSingleInstanceLock()) {
     registerStatusHandlers();
     registerRefHandlers();
     registerRemoteHandlers();
+    registerClipboardHandlers();
     registerPtyHandlers(getWindow);
     registerTerminalHandlers();
     registerFsHandlers();
