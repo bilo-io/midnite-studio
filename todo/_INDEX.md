@@ -58,7 +58,7 @@ surfaces; G is the one piece that waits on someone else.*
   an ANSI log pane honest about truncation, and Open-in-GitHub for anything stateful
 - ◻ **F** — Tests discovery: suites parsed from package.json/moon/vitest/playwright configs,
   monorepo-aware, classified by kind, with "run in terminal" and **no** new trust surface
-- ◻ **G** — ⛔ **blocked on Phase 18 Theme E** — real suite execution through 18E's trust-gated
+- ◻ **G** — **unblocked** (18E landed) — real suite execution through 18E's trust-gated
   runner, with `--reporter=json` parsing and a live output stream
 
 ### [Phase 18 — Footer system monitor + repo diagnostics](phase-18-footer-monitor-diagnostics.md)
