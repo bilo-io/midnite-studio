@@ -10,7 +10,7 @@ Completed work is logged append-only in [`done.md`](done.md). Deferred scope liv
 
 | Phase | Status | Done | Progress | % | 🔄 WIP | ◻ TODO |
 |-------|--------|------|----------|---|--------|--------|
-| [18 · Footer system monitor + repo diagnostics](phase-18-footer-monitor-diagnostics.md) | ◻ TODO | 0/54 | `░░░░░░░░░░` | 0% | — | A B C D E F |
+| [18 · Footer system monitor + repo diagnostics](phase-18-footer-monitor-diagnostics.md) | 🔄 WIP | 0/54 | `░░░░░░░░░░` | 0% | A B C D | E F |
 | [17 · Repositories workbench + forge](phase-17-repos-workbench.md) | 🔄 WIP | 46/48 | `█████████░` | 96% | — | 2 manual checks |
 | [16 · Folder explorer, preview pane + settings pages](phase-16-explorer-and-settings-pages.md) | 🔄 WIP | 34/36 | `█████████░` | 94% | — | manual verification |
 | [15 · Multi-terminal sessions + agents](phase-15-multi-terminal-sessions.md) | 🔄 WIP | 38/39 | `█████████░` | 97% | — | manual relaunch check |
@@ -40,13 +40,13 @@ Completed work is logged append-only in [`done.md`](done.md). Deferred scope liv
 *The footer's empty right half becomes the app's live-state strip. A and B are the spine — C, D
 and F all read the sample stream they push; E is the trust boundary F prompts through.*
 
-- ◻ **A** — darwin metric probes in main (`vm_stat`, `ioreg`, `os.cpus()` deltas, `statfs`), each
+- 🔄 **A** — darwin metric probes in main (`vm_stat`, `ioreg`, `os.cpus()` deltas, `statfs`), each
   a pure parser behind a thin `execFile`, with a self-disabling GPU probe
-- ◻ **B** — `mgit:metrics:*` contract: an all-optional `MetricSample`, a one-way sample stream,
+- 🔄 **B** — `mgit:metrics:*` contract: an all-optional `MetricSample`, a one-way sample stream,
   and an adaptive sampler that stops on window blur
-- ◻ **C** — metrics store with flat-seeded ring buffers, a data-colour palette, geometry-as-data,
+- 🔄 **C** — metrics store with flat-seeded ring buffers, a data-colour palette, geometry-as-data,
   and hand-rolled area chart + sparkline
-- ◻ **D** — the first real click-toggled popover primitive, plus the footer's right cluster:
+- 🔄 **D** — the first real click-toggled popover primitive, plus the footer's right cluster:
   dot, percentage and sparkline per metric
 - ◻ **E** — the diagnostics trust policy, written down: per-repo opt-in, a `repoId`-only channel,
   a configurable command, and a total eslint-JSON parser
