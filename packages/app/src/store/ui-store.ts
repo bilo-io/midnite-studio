@@ -212,6 +212,19 @@ export const GRAPH_COLUMN_BOUNDS = {
  */
 export type UiState = {
   activeView: ViewId;
+  /**
+   * Browser-style back/forward stack over `activeView`, for the title bar's
+   * history buttons — session-only, like `activeView` itself, so a restart
+   * does not hand the user a "back" button to a view from last time.
+   *
+   * An array + cursor rather than two stacks: `goBack`/`goForward` just move
+   * the cursor, and `setActiveView` truncates everything past it before
+   * pushing — the same shape `window.history` uses, and it is what makes
+   * "go back twice, then navigate somewhere new" drop the old forward branch
+   * instead of leaving it dangling.
+   */
+  viewHistory: ViewId[];
+  viewHistoryIndex: number;
   /** Which settings page is showing. A preference — reopening Settings should
    *  land where you last were, so it persists. */
   settingsPage: SettingsPageId;
@@ -302,6 +315,10 @@ export type UiState = {
   changesFileView: CommitFileView;
 
   setActiveView: (view: ViewId) => void;
+  /** Step the view history back one entry; a no-op at its start. */
+  goBack: () => void;
+  /** Step the view history forward one entry; a no-op at its end. */
+  goForward: () => void;
   setSettingsPage: (page: SettingsPageId) => void;
   selectRepo: (repoId: string | null) => void;
   selectWorktree: (path: string | null) => void;
@@ -377,6 +394,8 @@ export const useUiStore = create<UiState>()(
   persist(
     (set) => ({
       activeView: 'graph',
+      viewHistory: ['graph'],
+      viewHistoryIndex: 0,
       settingsPage: 'appearance',
       hiddenMetrics: [],
       metricsIdleIntervalMs: METRICS_IDLE_INTERVAL_MS,
@@ -402,7 +421,24 @@ export const useUiStore = create<UiState>()(
       commitMetaOpen: true,
       changesFileView: 'list',
 
-      setActiveView: (activeView) => set({ activeView }),
+      setActiveView: (view) =>
+        set((state) => {
+          if (view === state.activeView) return {};
+          const viewHistory = [...state.viewHistory.slice(0, state.viewHistoryIndex + 1), view];
+          return { activeView: view, viewHistory, viewHistoryIndex: viewHistory.length - 1 };
+        }),
+      goBack: () =>
+        set((state) => {
+          if (state.viewHistoryIndex <= 0) return {};
+          const viewHistoryIndex = state.viewHistoryIndex - 1;
+          return { activeView: state.viewHistory[viewHistoryIndex], viewHistoryIndex };
+        }),
+      goForward: () =>
+        set((state) => {
+          if (state.viewHistoryIndex >= state.viewHistory.length - 1) return {};
+          const viewHistoryIndex = state.viewHistoryIndex + 1;
+          return { activeView: state.viewHistory[viewHistoryIndex], viewHistoryIndex };
+        }),
       setSettingsPage: (settingsPage) => set({ settingsPage }),
       // Switching repo invalidates every selection scoped to the old one — the
       // ref filter included: refs are per-repo, so carrying `refs/heads/feat-x`

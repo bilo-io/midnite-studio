@@ -27,6 +27,7 @@ import { DialogHost } from './components/dialog-host';
 import { ResizeHandle } from './components/resizable/resize-handle';
 import { useResizable } from './components/resizable/use-resizable';
 import { ThemeToggle } from './components/theme-toggle';
+import { TitleBarNav } from './components/title-bar-nav';
 import { ActionsView } from './features/actions/actions-view';
 import { DashboardView } from './features/dashboard/dashboard-view';
 import { FilesView } from './features/files/files-view';
@@ -420,7 +421,12 @@ function Shell() {
   const titleBar = (
     <TitleBar
       windowChrome={windowChrome}
-      left={<Wordmark className="text-xs" />}
+      left={
+        <div className="flex min-w-0 items-center">
+          <Wordmark className="text-xs" />
+          <TitleBarNav />
+        </div>
+      }
       right={chrome}
     />
   );

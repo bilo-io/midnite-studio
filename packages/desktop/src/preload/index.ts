@@ -223,6 +223,7 @@ const bridge: Pick<
     close: () => ipcRenderer.send(CHANNELS.windowClose),
     getState: () => ipcRenderer.invoke(CHANNELS.windowState),
     onStateChange: (handler) => subscribe(EVENT_CHANNELS.windowStateChanged, handler),
+    reload: (hard) => ipcRenderer.send(CHANNELS.windowReload, hard),
   },
   menu: {
     onCommand: (handler) => subscribe(EVENT_CHANNELS.menuCommand, handler),

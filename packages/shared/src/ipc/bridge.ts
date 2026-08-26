@@ -336,6 +336,8 @@ export type MidniteGitBridge = {
     onStateChange: (
       handler: (state: z.infer<typeof S.WindowStateSchema>) => void,
     ) => Unsubscribe;
+    /** `false` for a plain reload, `true` to bypass the HTTP cache. */
+    reload: (hard: boolean) => void;
   };
 
   /** Implements `@bilo-io/shell`'s WindowChromeBridge for <TitleBar>. */

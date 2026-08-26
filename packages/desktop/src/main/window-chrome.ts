@@ -79,6 +79,14 @@ export function registerWindowChrome(getWindow: () => BrowserWindow | null): voi
     }),
   );
   ipcMain.on(CHANNELS.windowClose, withWindow((win) => win.close()));
+  // Not `withWindow`: that helper's listener takes no arguments, and this one
+  // needs the `hard` payload the renderer sends alongside it.
+  ipcMain.on(CHANNELS.windowReload, (_event, hard: unknown) => {
+    const win = getWindow();
+    if (!win || win.isDestroyed()) return;
+    if (hard === true) win.webContents.reloadIgnoringCache();
+    else win.webContents.reload();
+  });
 
   ipcMain.handle(CHANNELS.windowState, () => {
     const win = getWindow();
