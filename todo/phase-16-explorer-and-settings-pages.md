@@ -124,6 +124,31 @@ Effort tags: **S** ≈ an hour or two · **M** ≈ half a day · **L** ≈ a day
       login shell timing out all land on the "not installed / unknown" card, never a spinner
       forever
 
+### F — Grouped settings navigation + the side-navigation control (S) ✅ DONE (2026-08-26)
+
+*Follow-up scope, opened after the phase closed. Theme A's inner sidebar was a flat list of
+five words; five is where a flat list stops being scannable, and the third nav mode the store
+had always carried was reachable from nowhere in the UI.*
+
+- [x] `SETTINGS_GROUPS` (General / Tools / System) + a `group` field on each `SETTINGS_PAGES`
+      entry — one data change, and every existing consumer of the flat list keeps working
+- [x] The sidebar renders group-first behind collapsible `<Collapse>` headers, with
+      `collapsedSettingsGroups` persisted — the list-of-collapsed inversion
+      `collapsedNavSections` uses, so a group added later starts open with no migration
+- [x] One `react-icons/lu` glyph per page, held in a `PAGE_ICON` map in the view rather than on
+      `SETTINGS_PAGES`, so the store stays a plain data module. Nav widened 11rem → 12rem: the
+      glyph and its gap are what pushed "Monitor & Diagnostics" into an ellipsis
+- [x] Appearance gains a **Side navigation** control over `navMode` — the only route to
+      `collapsed`, since the rail's own chevron is deliberately a two-state pin. `Choice` takes
+      an optional per-option hint (title + a line under the selected row) because "Auto /
+      Locked open / Locked closed" cannot explain itself in three words
+- [x] Tests: six `ui-store.test.ts` cases (toggle, independence, persistence, forward-compatible
+      merge, and both directions of the page↔group integrity check) plus three e2e specs —
+      grouping, fold-survives-reload, and the nav-mode control. Folded state is asserted through
+      `inert` on the clipped region, not visibility: `<Collapse>` folds a grid track to `0fr`, so
+      the buttons keep boxes of their own and `inert` is what actually removes them from the tab
+      order
+
 ## Files this phase touches
 
 - [`packages/app/src/app.tsx`](../packages/app/src/app.tsx) — nav regroup, `files` view branch

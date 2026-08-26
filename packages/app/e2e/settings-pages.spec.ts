@@ -56,6 +56,95 @@ test('all four pages are reachable through the inner sidebar', async ({ page }) 
   await expect(page.getByText('Interface font')).toBeVisible();
 });
 
+test('the pages are grouped under collapsible category headers', async ({ page }) => {
+  await openSettings(page);
+  const nav = page.getByRole('navigation', { name: 'Settings pages' });
+
+  // Three categories, each a disclosure trigger over its own page list.
+  const tools = nav.getByRole('button', { name: 'Tools' });
+  await expect(nav.getByRole('button', { name: 'General' })).toHaveAttribute(
+    'aria-expanded',
+    'true',
+  );
+  await expect(tools).toHaveAttribute('aria-expanded', 'true');
+  await expect(nav.getByRole('button', { name: 'System' })).toBeVisible();
+
+  /*
+    Folded is asserted through `inert` on the clipped region rather than through
+    the buttons' visibility, and that is not a workaround — it is the stronger
+    claim. `<Collapse>` folds by animating a grid track to `0fr` over an
+    `overflow-hidden` child, so the buttons inside keep boxes of their own and
+    Playwright still calls them visible; what actually takes them out of the tab
+    order and the accessibility tree is the `inert` attribute. Assert that, and a
+    regression to painted-but-focusable fails here.
+  */
+  const toolsBody = page.locator('#settings-group-tools > div');
+  await expect(toolsBody).not.toHaveAttribute('inert');
+
+  await tools.click();
+  await expect(tools).toHaveAttribute('aria-expanded', 'false');
+  await expect(toolsBody).toHaveAttribute('inert', '');
+
+  // Folding one category leaves the others alone.
+  await expect(page.locator('#settings-group-general > div')).not.toHaveAttribute('inert');
+  await expect(nav.getByRole('button', { name: 'Appearance' })).toBeVisible();
+
+  await tools.click();
+  await expect(tools).toHaveAttribute('aria-expanded', 'true');
+  await expect(toolsBody).not.toHaveAttribute('inert');
+});
+
+test('a folded category stays folded across a reload', async ({ page }) => {
+  await openSettings(page);
+  const nav = page.getByRole('navigation', { name: 'Settings pages' });
+
+  await nav.getByRole('button', { name: 'System' }).click();
+  await expect(page.locator('#settings-group-system > div')).toHaveAttribute('inert', '');
+
+  await page.reload();
+  await page.getByRole('button', { name: 'Settings' }).click();
+
+  const afterReload = page.getByRole('navigation', { name: 'Settings pages' });
+  await expect(afterReload.getByRole('button', { name: 'System' })).toHaveAttribute(
+    'aria-expanded',
+    'false',
+  );
+  await expect(page.locator('#settings-group-system > div')).toHaveAttribute('inert', '');
+  // Only that one — the rest come back open, not all-collapsed.
+  await expect(afterReload.getByRole('button', { name: 'General' })).toHaveAttribute(
+    'aria-expanded',
+    'true',
+  );
+});
+
+test('the side-navigation mode is settable from Appearance, not just the rail chevron', async ({
+  page,
+}) => {
+  await openSettings(page);
+
+  // Same store field the rail's pin writes, so the two must agree.
+  const modes = page.getByRole('radiogroup', { name: 'Side navigation' });
+  await expect(modes.getByRole('radio', { name: 'Auto' })).toHaveAttribute(
+    'aria-checked',
+    'true',
+  );
+
+  await modes.getByRole('radio', { name: 'Locked open' }).click();
+  await expect(modes.getByRole('radio', { name: 'Locked open' })).toHaveAttribute(
+    'aria-checked',
+    'true',
+  );
+  // The rail's own pin is the other face of this control; expanded means pinned.
+  await expect(page.getByRole('button', { name: 'Unlock navigation' })).toBeVisible();
+
+  // `collapsed` is reachable here and nowhere else — the rail's pin is two-state.
+  await modes.getByRole('radio', { name: 'Locked closed' }).click();
+  await expect(modes.getByRole('radio', { name: 'Locked closed' })).toHaveAttribute(
+    'aria-checked',
+    'true',
+  );
+});
+
 test('the Agent page shows the version card and browses ~/.claude', async ({ page }) => {
   await openSettings(page);
 

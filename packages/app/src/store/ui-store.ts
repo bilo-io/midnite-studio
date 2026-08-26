@@ -64,12 +64,35 @@ export const VIEW_IDS: readonly ViewId[] = [
  */
 export type SettingsPageId = 'appearance' | 'graph' | 'terminal' | 'agent' | 'monitor';
 
-export const SETTINGS_PAGES: { id: SettingsPageId; label: string }[] = [
-  { id: 'appearance', label: 'Appearance' },
-  { id: 'graph', label: 'Graph' },
-  { id: 'terminal', label: 'Terminal' },
-  { id: 'agent', label: 'Agent' },
-  { id: 'monitor', label: 'Monitor & Diagnostics' },
+/**
+ * The categories the settings pages sort into, in UX priority order — the
+ * shape midnite's own settings hub uses, brought across so the two apps read
+ * as one product rather than two takes on a preferences screen.
+ *
+ * Groups, not a flat list, because a flat list stops scanning at about five
+ * entries and this one is already there. The headers are collapsible (see
+ * `collapsedSettingsGroups`) for the same reason the repositories panel's are:
+ * a user who lives in one category should be able to fold the rest away.
+ */
+export type SettingsGroupId = 'general' | 'tools' | 'system';
+
+export const SETTINGS_GROUPS: { id: SettingsGroupId; label: string }[] = [
+  { id: 'general', label: 'General' },
+  { id: 'tools', label: 'Tools' },
+  { id: 'system', label: 'System' },
+];
+
+/**
+ * Order matters twice over: within a group it is the render order, and across
+ * the array it is the tab order. `group` is the only addition to what this was
+ * before — every consumer that wants the flat list still gets it.
+ */
+export const SETTINGS_PAGES: { id: SettingsPageId; label: string; group: SettingsGroupId }[] = [
+  { id: 'appearance', label: 'Appearance', group: 'general' },
+  { id: 'graph', label: 'Graph', group: 'general' },
+  { id: 'terminal', label: 'Terminal', group: 'tools' },
+  { id: 'agent', label: 'Agent', group: 'tools' },
+  { id: 'monitor', label: 'Monitor & Diagnostics', group: 'system' },
 ];
 
 /** Pixel sizes of the draggable panes. */
@@ -200,6 +223,14 @@ export type UiState = {
   navMode: NavMode;
   collapsedNavSections: string[];
   /**
+   * Which settings categories the user has folded shut, by `SettingsGroupId`.
+   *
+   * A list of the collapsed ones rather than a record of every group's state,
+   * so a category added later starts open without a migration — the same
+   * inversion `collapsedNavSections` uses for the nav rail.
+   */
+  collapsedSettingsGroups: string[];
+  /**
    * Per-view override of whether the repositories sidebar is narrowed to what
    * the view is about — the "Show all sections" escape hatch.
    *
@@ -276,6 +307,7 @@ export type UiState = {
   setLayout: <K extends keyof LayoutSizes>(key: K, value: number) => void;
   setGraphColumn: <K extends keyof GraphColumns>(key: K, value: number) => void;
   setNavMode: (mode: NavMode) => void;
+  toggleSettingsGroup: (key: SettingsGroupId) => void;
   toggleNavSection: (key: string) => void;
   /** Flip one view's sidebar between "what this view needs" and the whole tree. */
   setSectionFilter: (view: ViewId, filtered: boolean) => void;
@@ -312,6 +344,7 @@ type PersistedUi = Pick<
   | 'graphColumns'
   | 'navMode'
   | 'collapsedNavSections'
+  | 'collapsedSettingsGroups'
   | 'sectionFilters'
   | 'diffShowOldGutter'
   | 'graphTheme'
@@ -342,6 +375,7 @@ export const useUiStore = create<UiState>()(
       graphColumns: DEFAULT_GRAPH_COLUMNS,
       navMode: 'auto',
       collapsedNavSections: [],
+      collapsedSettingsGroups: [],
       sectionFilters: {},
       graphTheme: DEFAULT_GRAPH_THEME,
       graphDensity: DEFAULT_GRAPH_DENSITY,
@@ -383,6 +417,12 @@ export const useUiStore = create<UiState>()(
           collapsedNavSections: state.collapsedNavSections.includes(key)
             ? state.collapsedNavSections.filter((k) => k !== key)
             : [...state.collapsedNavSections, key],
+        })),
+      toggleSettingsGroup: (key) =>
+        set((state) => ({
+          collapsedSettingsGroups: state.collapsedSettingsGroups.includes(key)
+            ? state.collapsedSettingsGroups.filter((k) => k !== key)
+            : [...state.collapsedSettingsGroups, key],
         })),
       setSectionFilter: (view, filtered) =>
         set((state) => ({ sectionFilters: { ...state.sectionFilters, [view]: filtered } })),
@@ -429,6 +469,7 @@ export const useUiStore = create<UiState>()(
         graphColumns: state.graphColumns,
         navMode: state.navMode,
         collapsedNavSections: state.collapsedNavSections,
+        collapsedSettingsGroups: state.collapsedSettingsGroups,
         /*
           Persisted alongside `collapsedNavSections`, and for the same reason:
           both are the shape the user has arranged the sidebar into, not a

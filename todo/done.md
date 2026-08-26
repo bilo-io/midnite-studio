@@ -2,6 +2,56 @@
 
 <!-- Append one entry per landed phase/PR: date, phase, PR link, one-line summary. -->
 
+## 2026-08-26 — Phase 16 · Theme F — Grouped settings navigation + the side-navigation control
+
+Landed on `feature/sidebar-settings` (squash-merged — this repository still has no remote, so
+there is no PR link). Follow-up scope on a phase that had already closed: the settings sidebar
+Theme A built was a flat list of five words, and the store's third nav mode was reachable from
+nowhere in the UI.
+
+### What landed
+
+- [x] `SETTINGS_GROUPS` — General / Tools / System — plus a `group` field on each
+      `SETTINGS_PAGES` entry. One data change; every consumer of the flat list is untouched
+- [x] The sidebar renders group-first behind collapsible headers on `@bilo-io/ui`'s `<Collapse>`,
+      with `collapsedSettingsGroups` persisted. Stored as the list of *collapsed* groups, not a
+      record of every group's state — the same inversion `collapsedNavSections` uses, which is
+      what makes a group added later start open with no migration
+- [x] One `react-icons/lu` glyph per page. The map lives in the view, not on `SETTINGS_PAGES`:
+      putting React components in the store would make every consumer of a page id drag an icon
+      package in behind it
+- [x] Appearance gains a **Side navigation** control over `navMode`, and it is the only route to
+      `collapsed` — the rail's own chevron is deliberately a two-state pin, `auto` ⇄ `expanded`.
+      Both controls write the one field, so each reflects the other immediately
+- [x] `Choice` takes an optional third element per option: a hint, rendered as the button's
+      `title` and as a line under the selected row. "Auto / Locked open / Locked closed" cannot
+      explain itself in three words, and one field-level hint cannot say it three ways. Omit the
+      element and the control renders exactly as before
+
+### Two things worth remembering
+
+- **The nav had to widen, 11rem → 12rem.** A glyph plus its gap is ~22px, which is precisely
+  what pushed "Monitor & Diagnostics" into an ellipsis. Caught from the regenerated Phase 16
+  screenshot, not from a test — no assertion in this repo can see a clipped label. `truncate`
+  stays as the backstop, and each page button now carries a `title`.
+- **`<Collapse>` folds by animating a grid track to `0fr`, so a folded group's buttons keep
+  bounding boxes of their own** — Playwright still calls them visible, and the first draft of
+  the e2e spec asserted `toHaveCount(0)` and failed. What actually takes them out of the tab
+  order and the accessibility tree is the `inert` attribute `<Collapse>` puts on the clipped
+  region, so that is what the spec asserts. It is the stronger claim anyway: a regression to
+  painted-but-focusable fails there, where a visibility check would not.
+
+### Verification
+
+- `moon run :typecheck :lint :test` green — 15 tasks
+- Six new `ui-store.test.ts` cases: toggle, independence across groups, persistence,
+  forward-compatible merge, and both directions of the page↔group integrity check (a page filed
+  under a group no header declares renders nowhere, silently; there is no runtime check for it)
+- Three new e2e specs in `settings-pages.spec.ts` — grouping and fold/unfold, a fold surviving a
+  reload, and the nav-mode control agreeing with the rail's pin. Full suite: 191 passed
+- `docs/screenshots/phase-16/settings-agent.png` regenerated — it is the shot that shows the
+  grouped sidebar
+
 ## 2026-08-26 — Phase 19 · Theme D — The dashboard becomes a board
 
 Landed on `feature/phase-19-dashboard` (squash-merged — this repository still has no remote, so
