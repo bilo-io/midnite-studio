@@ -82,31 +82,39 @@ export function ReposPanel() {
 
   return (
     <div className="flex h-full min-h-0 flex-col border-r border-border bg-card/40">
-      <header className="flex items-center justify-between gap-2 px-3 py-2">
-        <h2 className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+      <header className="flex h-9 items-center gap-2 px-3">
+        <h2 className="min-w-0 flex-1 truncate text-xs font-semibold uppercase tracking-wide text-muted-foreground">
           Repositories
         </h2>
         {/*
-          The filter is visible whenever it is on, and reversible from here.
-          Arriving in Changes to find two thirds of the tree missing is only
-          acceptable if the thing that did it is on screen saying so — a hidden
-          mode that eats rows is indistinguishable from data loss.
+          One toolbar cluster, not two controls spread by `justify-between`.
+          The filter and "open a repository" are both things done TO the list,
+          so they belong together at the trailing edge; floating the filter
+          mid-header read as a third column of the title row.
         */}
-        <IconButton
-          icon={ListFilter}
-          label={filter.active ? 'Showing only changed checkouts' : 'Show every ref and checkout'}
-          aria-pressed={filter.active}
-          size="sm"
-          onClick={filter.toggle}
-          className={filter.active ? 'text-primary' : ''}
-        />
-        <IconButton
-          icon={FolderPlus}
-          label="Open a repository…"
-          size="sm"
-          disabled={isPending}
-          onClick={() => void onOpen()}
-        />
+        <div className="flex shrink-0 items-center gap-0.5">
+          {/*
+            The filter is visible whenever it is on, and reversible from here.
+            Arriving in Changes to find two thirds of the tree missing is only
+            acceptable if the thing that did it is on screen saying so — a
+            hidden mode that eats rows is indistinguishable from data loss.
+          */}
+          <IconButton
+            icon={ListFilter}
+            label={filter.active ? 'Showing only changed checkouts' : 'Show every ref and checkout'}
+            aria-pressed={filter.active}
+            size="sm"
+            onClick={filter.toggle}
+            className={filter.active ? 'text-primary' : ''}
+          />
+          <IconButton
+            icon={FolderPlus}
+            label="Open a repository…"
+            size="sm"
+            disabled={isPending}
+            onClick={() => void onOpen()}
+          />
+        </div>
       </header>
 
       {error ? (
@@ -255,7 +263,13 @@ function RepoItem({
           event.preventDefault();
           openRepoMenu(event);
         }}
-        className={`group flex items-center gap-1 px-2 py-1 text-sm transition-colors ${
+        /*
+          Fixed height for the same reason `TreeSection`'s heading has one: the
+          sync cluster only renders once status has loaded, so a padded row
+          grew by a few pixels the moment the first `git status` came back and
+          every repo below it shifted down.
+        */
+        className={`group flex h-8 items-center gap-1 px-2 text-sm transition-colors ${
           selectedRepoId === repo.id ? 'bg-accent/60' : 'hover:bg-accent/30'
         }`}
       >
@@ -293,15 +307,22 @@ function RepoItem({
               times faster than the name does.
             */}
             {expanded ? null : (
-              <>
-                <span className="flex min-w-0 shrink-[6] items-center gap-1 text-xs text-muted-foreground">
+              /*
+                Pushed to the trailing edge rather than trailing the name.
+                Folded rows are scanned as a column: branch and count line up
+                under each other and sit directly left of the sync control they
+                explain, instead of starting at a different x on every row
+                because repository names differ in length.
+              */
+              <span className="ml-auto flex min-w-0 shrink-[6] items-center gap-1.5">
+                <span className="flex min-w-0 items-center gap-1 text-xs text-muted-foreground">
                   <GitBranch aria-hidden className="h-3 w-3 shrink-0" />
                   <span className="truncate">
                     {loaded?.branch.head ?? repo.headRef ?? 'detached'}
                   </span>
                 </span>
                 <ChangeCountPill count={statuses.total} what={repo.name} />
-              </>
+              </span>
             )}
           </button>
         </Tooltip>

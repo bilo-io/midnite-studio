@@ -377,3 +377,51 @@ test('a repo with no GitHub remote grows no forge sections at all', async ({ pag
   await expect(page.getByRole('heading', { name: 'Actions' })).toHaveCount(0);
   await expect(page.getByRole('heading', { name: 'Reviews' })).toHaveCount(0);
 });
+
+test('the section headings share one height, whether or not they carry an action', async ({
+  page,
+}) => {
+  await open(page);
+
+  /*
+    Only some headings have a trailing ellipsis — Tags earns one past the
+    preview cap, Actions and Reviews only once open — and that control is an
+    `h-6` button. While the row was padded rather than sized, its presence made
+    the row taller, so the sidebar's section rhythm stuttered from repo to repo
+    depending on which sections happened to have a menu.
+  */
+  const heights = await Promise.all(
+    // Local and Worktrees carry an ellipsis here; Actions and Reviews, closed,
+    // carry nothing. That is the pair the row height used to disagree about.
+    ['Local', 'Worktrees', 'Actions', 'Reviews'].map(async (title) => {
+      const header = page
+        .getByRole('heading', { name: title, exact: true })
+        .first()
+        .locator('xpath=ancestor::header[1]');
+      return Math.round((await header.boundingBox())?.height ?? -1);
+    }),
+  );
+
+  expect(new Set(heights).size).toBe(1);
+  expect(heights[0]).toBeGreaterThan(0);
+});
+
+test('a folded repo hangs its branch and count off the trailing edge', async ({ page }) => {
+  await open(page);
+
+  await page.locator('button[aria-label="Collapse midnite-git"]').click();
+  await expect(page.getByRole('heading', { name: 'Worktrees' })).toHaveCount(0);
+
+  /*
+    Folded rows are read as a column, so the summary has to line up down the
+    panel rather than start wherever each repository's name happens to end —
+    and it belongs beside the sync control it explains, not beside the name.
+  */
+  const row = page.locator('div.group').filter({ has: page.getByTestId('change-count') }).first();
+  const pill = (await row.getByTestId('change-count').boundingBox())!;
+  const sync = (await row.getByRole('button', { name: /^Fetch —/ }).boundingBox())!;
+  const box = (await row.boundingBox())!;
+
+  expect(pill.x + pill.width).toBeLessThanOrEqual(sync.x);
+  expect(pill.x).toBeGreaterThan(box.x + box.width / 2);
+});
