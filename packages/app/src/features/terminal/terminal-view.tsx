@@ -57,6 +57,22 @@ const isDark = (): boolean => document.documentElement.classList.contains('dark'
 /** Shown under a restored transcript, in place of the prompt that is not there. */
 const REVIVE_HINT = '\r\n\x1b[2m[session ended] Press Enter to start a new shell here.\x1b[0m\r\n';
 
+/**
+ * DEC private-mode resets, written after a restored transcript.
+ *
+ * The replayed bytes are parsed exactly like live output, so if the shell was
+ * last showing a full-screen program (vim, an agent's TUI) that had turned on
+ * mouse tracking or the alternate screen, that mode survives into the revived
+ * pane even though its process is dead. The visible symptom: hovering the
+ * inert pane spams mouse-report escape codes at whatever plain shell starts
+ * next, which echoes them back as garbage. Force every such mode off after
+ * replay so a revived pane always starts in xterm's default, boring state —
+ * DECRST of a mode that is already off is a no-op, so this is safe even when
+ * nothing needs resetting.
+ */
+const RESET_MODES =
+  '\x1b[?1000l\x1b[?1002l\x1b[?1003l\x1b[?1005l\x1b[?1006l\x1b[?1015l\x1b[?2004l\x1b[?1049l\x1b[?47l\x1b[?25h';
+
 export function TerminalView({
   session,
   active,
@@ -119,6 +135,24 @@ export function TerminalView({
      */
     term.attachCustomKeyEventHandler((event) => {
       if (event.type !== 'keydown') return true;
+
+      /**
+       * Cmd+Enter means "insert a newline, don't submit."
+       *
+       * xterm has no concept of the Cmd modifier on Enter — left alone it sends
+       * a bare '\r', which is indistinguishable from plain Enter and submits
+       * whatever the shell (or an agent CLI) is reading. Readline- and
+       * Ink-based CLIs, Claude Code included, already treat Meta+Enter
+       * (ESC then CR — the same sequence a terminal sends for Option+Enter) as
+       * a literal newline, so sending that sequence ourselves gets Cmd+Enter
+       * to mean the same thing without the CLI needing to know anything about
+       * Cmd specifically.
+       */
+      if (event.key === 'Enter' && event.metaKey && !event.ctrlKey && !event.altKey) {
+        if (stateRef.current === 'open') sendInputRef.current('\x1b\r');
+        return false;
+      }
+
       return !shouldEscapeTerminal(event);
     });
 
@@ -173,6 +207,7 @@ export function TerminalView({
       const replay = useTerminalStore.getState().peekReplay(session.id);
       if (replay && replay.length > 0) {
         term.write(replay);
+        term.write(RESET_MODES);
         term.write(REVIVE_HINT);
       }
 
@@ -217,8 +252,28 @@ export function TerminalView({
     observer.observe(container);
     openWhenSized();
 
+    /**
+     * Force a repaint when the window comes back from being minimized.
+     *
+     * Minimizing changes nothing about the panel's own dimensions, so the
+     * ResizeObserver above never fires — but Chromium can leave the WebGL
+     * canvas showing stale or blank pixels once the window is unminimized,
+     * since nothing told it to redraw. `visibilitychange` catches exactly
+     * that transition (Electron ties `document.hidden` to the window's
+     * minimized state) and `refresh` forces every row to redraw regardless of
+     * whether the size actually changed — which is why an actual resize,
+     * which does go through `safeFit`, has always been enough to fix it.
+     */
+    const onVisibilityChange = () => {
+      if (document.hidden || !termRef.current) return;
+      safeFit();
+      termRef.current.refresh(0, termRef.current.rows - 1);
+    };
+    document.addEventListener('visibilitychange', onVisibilityChange);
+
     return () => {
       observer.disconnect();
+      document.removeEventListener('visibilitychange', onVisibilityChange);
       dataSub?.dispose();
       term.dispose();
       termRef.current = null;
