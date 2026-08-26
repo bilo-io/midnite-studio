@@ -89,7 +89,16 @@ export function ConfirmDialog({
             <span className={request.danger ? 'text-destructive' : ''}>{request.title}</span>
           </h2>
           {request.body ? (
-            <p className="mt-1.5 text-sm text-muted-foreground">{request.body}</p>
+            /*
+              `whitespace-pre-line`, because a body that took the trouble to
+              contain a line break meant it. The diagnostics prompt puts the
+              literal command on one line and the directory it runs in on the
+              next; collapsed into a paragraph they read as one run-on string,
+              which is the opposite of what a consent dialog is for.
+            */
+            <p className="mt-1.5 whitespace-pre-line text-sm text-muted-foreground">
+              {request.body}
+            </p>
           ) : null}
 
           {request.warnings && request.warnings.length > 0 ? (

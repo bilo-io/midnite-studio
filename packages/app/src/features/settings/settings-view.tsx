@@ -2,6 +2,7 @@ import { SETTINGS_PAGES, useUiStore, type SettingsPageId } from '../../store/ui-
 import { AgentPage } from './settings-pages/agent-page';
 import { AppearancePage } from './settings-pages/appearance-page';
 import { GraphPage } from './settings-pages/graph-page';
+import { MonitorPage } from './settings-pages/monitor-page';
 import { TerminalPage } from './settings-pages/terminal-page';
 
 /**
@@ -17,6 +18,7 @@ const PAGE_CONTENT: Record<SettingsPageId, () => React.ReactNode> = {
   graph: () => <GraphPage />,
   terminal: () => <TerminalPage />,
   agent: () => <AgentPage />,
+  monitor: () => <MonitorPage />,
 };
 
 export function SettingsView() {

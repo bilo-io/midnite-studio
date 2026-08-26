@@ -171,26 +171,26 @@ Screenshots: [`docs/screenshots/phase-18/`](../docs/screenshots/phase-18/).
 
 ### F — The footer segment and the settings page (L)
 
-- [ ] The trust prompt through [`confirm-dialog.tsx`](../packages/app/src/components/confirm-dialog.tsx)
+- [x] The trust prompt through [`confirm-dialog.tsx`](../packages/app/src/components/confirm-dialog.tsx)
       in `danger` mode, showing the **literal command string** and the resolved working directory.
       Phase 17 already taught that dialog to tint its border, ring, header and glyph
-- [ ] Error and warning counts as pills — `--destructive` for errors, `--health-warn` for
+- [x] Error and warning counts as pills — `--destructive` for errors, `--health-warn` for
       warnings. These are **semantic**, unlike the metric colours, so they take tokens; the
       `--health-*` triples in [`styles.css`](../packages/app/src/styles.css) are the precedent
-- [ ] **Absent ≠ zero.** A repo that has not been measured shows a distinct resting state, not a
+- [x] **Absent ≠ zero.** A repo that has not been measured shows a distinct resting state, not a
       green "0 problems" — the same trap `useWorktreeStatuses` documents about
       `isPlaceholderData` reporting every checkout clean while queries are in flight
-- [ ] The segment follows `useActiveWorktree()` — the sidebar selection — **not** the active
+- [x] The segment follows `useActiveWorktree()` — the sidebar selection — **not** the active
       workbench tab. Several tabs can point at different repos, but the branch and ahead/behind
       segments beside it are sidebar-driven, and a footer disagreeing with itself is worse than a
       footer that is occasionally behind
-- [ ] The flyout lists problems as `file:line` with rule and message, capped, and **says what it
+- [x] The flyout lists problems as `file:line` with rule and message, capped, and **says what it
       withheld** — the `EXPAND_ALL_LIMIT` rule from Phase 17
-- [ ] An untrusted repo shows an "Enable diagnostics" affordance, not silence. A feature that
+- [x] An untrusted repo shows an "Enable diagnostics" affordance, not silence. A feature that
       renders nothing is indistinguishable from a broken one
-- [ ] A Monitor & Diagnostics settings page in the Phase 16 settings shell: which metrics appear,
+- [x] A Monitor & Diagnostics settings page in the Phase 16 settings shell: which metrics appear,
       the closed-flyout cadence, the per-repo command, and **revoking** trust
-- [ ] Re-running is manual and per-repo. The fs watcher fires on every keystroke-save and lint is
+- [x] Re-running is manual and per-repo. The fs watcher fires on every keystroke-save and lint is
       not free; nothing here runs a linter because a file changed
 
 ## Files this phase touches
@@ -213,12 +213,14 @@ Screenshots: [`docs/screenshots/phase-18/`](../docs/screenshots/phase-18/).
       teardown**, not the inert `unsubscribe` that `watch.onEvent` and `menu.onCommand` use. An
       inert stream renders an empty flyout in every spec, which would pass while testing nothing.
       Samples pushed asynchronously via `setTimeout(…, 0)`, as `log.start` already does
-- [ ] ◐ PARTIAL — A `metricsSamples?` and a `diagnostics?` field on `MockFixtures`, each commented with the
-      state it unlocks
-- [ ] ◐ PARTIAL — New Playwright spec: the cluster renders four readouts, a `null` GPU renders three, the
+- [x] A `metricsSamples?` and a `diagnostics?` field on `MockFixtures`, each commented with the
+      state it unlocks — one `diagnostics` group, not two: Theme F was written against a
+      restated contract and the rebase left both its fixture block and its `diag` mock beside
+      Theme E's, the second silently shadowing the first
+- [x] New Playwright spec: the cluster renders four readouts, a `null` GPU renders three, the
       flyout opens on click and closes on Escape with focus returned, an untrusted repo shows the
       enable affordance, and trusting one surfaces counts
-- [ ] ◐ PARTIAL — Unit tests: `vm_stat` and `ioreg` fixture parsing (including the Apple Silicon page-size
+- [x] Unit tests: `vm_stat` and `ioreg` fixture parsing (including the Apple Silicon page-size
       header), the CPU delta maths, the ring buffer's flat-seed behaviour, the chart path
       geometry, and the eslint JSON parser against truncated and non-JSON output
 - [ ] **Open, for a human:** cross-check CPU, RAM and GPU against Activity Monitor on Apple

@@ -26,9 +26,14 @@ import { useMetricsStore } from '../../store/metrics-store';
  * not a setting anyone configures, so it is derived from `detailed` here rather
  * than read from anywhere.
  */
-export function useMetricsStream(options: { enabled?: boolean; detailed?: boolean } = {}): void {
+export function useMetricsStream(
+  options: { enabled?: boolean; detailed?: boolean; idleIntervalMs?: number } = {},
+): void {
   const enabled = options.enabled ?? true;
   const detailed = options.detailed ?? false;
+  // Clamped in main regardless, so a stale persisted value cannot ask for a
+  // cadence the sampler will not honour.
+  const idleIntervalMs = options.idleIntervalMs ?? METRICS_IDLE_INTERVAL_MS;
 
   useEffect(() => {
     const api = bridge();
@@ -48,7 +53,7 @@ export function useMetricsStream(options: { enabled?: boolean; detailed?: boolea
     }
 
     api.metrics.start({
-      intervalMs: detailed ? METRICS_ACTIVE_INTERVAL_MS : METRICS_IDLE_INTERVAL_MS,
+      intervalMs: detailed ? METRICS_ACTIVE_INTERVAL_MS : idleIntervalMs,
       // Opening the flyout is the one moment a stale capacity figure becomes
       // visible — the gauge shows it precisely enough to notice.
       ...(detailed ? { freshDisk: true } : {}),
@@ -58,7 +63,7 @@ export function useMetricsStream(options: { enabled?: boolean; detailed?: boolea
     // stopping there would leave a window where main has no timer armed at all.
     // `start` re-arms rather than stacking, and the sampler stops itself on
     // window blur — see metrics-service.ts.
-  }, [enabled, detailed]);
+  }, [enabled, detailed, idleIntervalMs]);
 
   // Stopping is tied to the footer unmounting, which in practice is the app
   // closing. Kept separate from the cadence effect so a cadence change never

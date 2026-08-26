@@ -1,6 +1,8 @@
 import { create } from 'zustand';
 import { persist } from 'zustand/middleware';
 
+import { METRICS_IDLE_INTERVAL_MS, type MetricId } from '@midnite/git-shared';
+
 import {
   DEFAULT_GRAPH_DENSITY,
   DEFAULT_GRAPH_THEME,
@@ -60,13 +62,14 @@ export const VIEW_IDS: readonly ViewId[] = [
  * nav-rail sub-items: the rail stays view navigation, and settings pages are
  * one view's internal structure.
  */
-export type SettingsPageId = 'appearance' | 'graph' | 'terminal' | 'agent';
+export type SettingsPageId = 'appearance' | 'graph' | 'terminal' | 'agent' | 'monitor';
 
 export const SETTINGS_PAGES: { id: SettingsPageId; label: string }[] = [
   { id: 'appearance', label: 'Appearance' },
   { id: 'graph', label: 'Graph' },
   { id: 'terminal', label: 'Terminal' },
   { id: 'agent', label: 'Agent' },
+  { id: 'monitor', label: 'Monitor & Diagnostics' },
 ];
 
 /** Pixel sizes of the draggable panes. */
@@ -185,6 +188,7 @@ export type UiState = {
   /** Which edge of the terminal pane the session list docks to. */
   terminalSidebarSide: TerminalSidebarSide;
 
+
   layout: LayoutSizes;
   graphColumns: GraphColumns;
   navMode: NavMode;
@@ -277,6 +281,19 @@ export type UiState = {
   setCommitFileView: (view: CommitFileView) => void;
   toggleCommitMeta: () => void;
   setChangesFileView: (view: CommitFileView) => void;
+  /**
+   * Metrics the user has turned OFF in the footer (Phase 18 F).
+   *
+   * Stored as the hidden set rather than the shown one so a metric added in a
+   * later release appears by default — an allowlist persisted before it
+   * existed would silently hide it for every existing user, which is the
+   * failure mode nobody notices because nothing is broken, only absent.
+   */
+  hiddenMetrics: MetricId[];
+  toggleMetric: (id: MetricId) => void;
+  /** Sampling cadence with the flyout closed. Opening it always escalates. */
+  metricsIdleIntervalMs: number;
+  setMetricsIdleInterval: (ms: number) => void;
 };
 
 /**
@@ -297,6 +314,8 @@ type PersistedUi = Pick<
   | 'commitFileView'
   | 'commitMetaOpen'
   | 'changesFileView'
+  | 'hiddenMetrics'
+  | 'metricsIdleIntervalMs'
 >;
 
 export const useUiStore = create<UiState>()(
@@ -304,6 +323,8 @@ export const useUiStore = create<UiState>()(
     (set) => ({
       activeView: 'graph',
       settingsPage: 'appearance',
+      hiddenMetrics: [],
+      metricsIdleIntervalMs: METRICS_IDLE_INTERVAL_MS,
       selectedRepoId: null,
       selectedWorktreePath: null,
       selectedCommitSha: null,
@@ -368,6 +389,13 @@ export const useUiStore = create<UiState>()(
       setCommitFileView: (commitFileView) => set({ commitFileView }),
       toggleCommitMeta: () => set((state) => ({ commitMetaOpen: !state.commitMetaOpen })),
       setChangesFileView: (changesFileView) => set({ changesFileView }),
+      toggleMetric: (id) =>
+        set((state) => ({
+          hiddenMetrics: state.hiddenMetrics.includes(id)
+            ? state.hiddenMetrics.filter((entry) => entry !== id)
+            : [...state.hiddenMetrics, id],
+        })),
+      setMetricsIdleInterval: (metricsIdleIntervalMs) => set({ metricsIdleIntervalMs }),
     }),
     {
       name: 'midnite-git.ui',
@@ -413,6 +441,8 @@ export const useUiStore = create<UiState>()(
         terminalOpen: state.terminalOpen,
         terminalMaximized: state.terminalMaximized,
         terminalSidebarSide: state.terminalSidebarSide,
+        hiddenMetrics: state.hiddenMetrics,
+        metricsIdleIntervalMs: state.metricsIdleIntervalMs,
       }),
 
       /**
