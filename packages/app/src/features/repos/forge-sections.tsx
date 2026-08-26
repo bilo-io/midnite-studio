@@ -13,6 +13,7 @@ import { openExternal, useForgePulls, useForgeRuns, useRefreshForge } from '../.
 import { useUiStore } from '../../store/ui-store';
 import { useWorkbenchStore } from '../../store/workbench-store';
 import { checksStatus, pullStatus, runStatus, StatusPill } from '../forge/forge-status';
+import type { SectionKey } from './view-sections';
 
 /**
  * A repository's CI runs and open pull requests, in the sidebar tree.
@@ -32,19 +33,31 @@ export function ForgeSections({
   repoId,
   remotes,
   index,
+  visible,
 }: {
   repoId: string;
   remotes: readonly Remote[];
   /** Cascade offset, so these animate in with the rest of the tree. */
   index: number;
+  /**
+   * Whether the active view shows a given section, from the one table in
+   * `view-sections.ts`.
+   *
+   * Passed in rather than read from the store here so that "which sections does
+   * this view show" has exactly one answer. A forge section that consulted the
+   * view itself would be a second answer, free to disagree with the tree above
+   * it — and the two would drift the first time a view was added to only one of
+   * them.
+   */
+  visible: (key: SectionKey) => boolean;
 }) {
   const forge = pickForgeRemote(remotes)?.forge ?? null;
   if (forge?.kind !== 'github') return null;
 
   return (
     <>
-      <ActionsSection repoId={repoId} index={index} />
-      <ReviewsSection repoId={repoId} index={index + 1} />
+      {visible('actions') ? <ActionsSection repoId={repoId} index={index} /> : null}
+      {visible('reviews') ? <ReviewsSection repoId={repoId} index={index + 1} /> : null}
     </>
   );
 }

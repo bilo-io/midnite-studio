@@ -44,38 +44,47 @@ Effort tags: **S** ≈ an hour or two · **M** ≈ half a day · **L** ≈ a day
 
 ## Deliverables
 
-### A — The view-scoped navigation shell (M)
+### A — The view-scoped navigation shell (M) — ✅ DONE (2026-08-26)
 
-- [ ] `ViewId` in [`ui-store.ts`](../packages/app/src/store/ui-store.ts) grows from
+- [x] `ViewId` in [`ui-store.ts`](../packages/app/src/store/ui-store.ts) grows from
       `files | graph | changes | settings` to include `dashboard`, `actions` and `tests`.
       `pathForView`/`viewForPath` follow for free; the `Placeholder` fallback in
       [`app.tsx`](../packages/app/src/app.tsx) shrinks as each view lands
-- [ ] Dashboard renders through **`NavConfig.pinned`**, not as a fourth entry in the `workspace`
+- [x] Dashboard renders through **`NavConfig.pinned`**, not as a fourth entry in the `workspace`
       section — an ungrouped item above the sections, per the shell's own doc comment. It keeps its
       active state through the same `href`/`activePath` comparison as everything else
-- [ ] Actions and Tests join `NAV_ITEMS` in the workspace section. Tests takes **`FaCheckDouble`**
+- [x] Actions and Tests join `NAV_ITEMS` in the workspace section. Tests takes **`FaCheckDouble`**
       from `react-icons/fa` — a second icon set in the rail is the point of `react-icons`, per
       [`CLAUDE.md`](../CLAUDE.md), not a mistake to correct
-- [ ] Actions is **hidden from the rail when the selected repo has no GitHub remote**, reusing
+- [x] Actions is **hidden from the rail when the selected repo has no GitHub remote**, reusing
       `pickForgeRemote` from [`remote.ts`](../packages/shared/src/domain/remote.ts). A rail item
       that can only ever say "not applicable" is worse than no rail item
-- [ ] A per-view **visible-section allowlist** in
+- [x] A per-view **visible-section allowlist** in
       [`repos-panel.tsx`](../packages/app/src/features/repos/repos-panel.tsx): `SectionKey` gains
       `actions` and `tests`, and a `VISIBLE_SECTIONS: Record<ViewId, SectionKey[]>` map decides what
       renders. Actions view → `['actions', 'worktrees']`; Tests view → `['tests', 'worktrees']`;
       every other view → the full list
-- [ ] The view's own section renders **collapsed by default** (Actions costs a subprocess plus an
+- [x] The view's own section renders **collapsed by default** (Actions costs a subprocess plus an
       API call to open — the reason Phase 17 closed it in the first place), Worktrees open
-- [ ] A **"Show all sections"** toggle in the sidebar header, visible only in a filtered view,
+- [x] A **"Show all sections"** toggle in the sidebar header, visible only in a filtered view,
       persisted per-view in `ui-store` beside `collapsedNavSections`. The hard filter is the
       default; this is the escape hatch so wanting a branch mid-triage is not a reason to leave the
       view
-- [ ] The existing Changes-view filter
+- [x] The existing Changes-view filter
       ([`use-dirty-filter.ts`](../packages/app/src/features/repos/use-dirty-filter.ts)) is folded
       into the same mechanism rather than left as a parallel one-off — it is the first instance of
       exactly this idea
-- [ ] Switching views **preserves the selected repo and worktree**. The rail changes what you are
+- [x] Switching views **preserves the selected repo and worktree**. The rail changes what you are
       looking at, never what you are looking at it for
+
+*Landed with Theme A, and worth carrying forward: the sidebar's narrowing
+toggle has never actually **looked** different when on. `--primary` is a
+near-black in this theme (within a point of `--muted-foreground` on every
+channel) and `bg-accent` / `bg-primary/10` both resolve to alpha ≈0.03, so the
+`text-primary` Phase 17 shipped computes to rgb(93,93,100) against a resting
+rgb(93,93,101). `aria-pressed` and the label carry the state correctly and are
+asserted, but the visual cue belongs with the appearance tokens — not the nav
+shell — and is left open.*
 
 ### B — Repository statistics in git-engine (L) — ✅ DONE (2026-08-26)
 

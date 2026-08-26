@@ -10,7 +10,7 @@ Completed work is logged append-only in [`done.md`](done.md). Deferred scope liv
 
 | Phase | Status | Done | Progress | % | 🔄 WIP | ◻ TODO |
 |-------|--------|------|----------|---|--------|--------|
-| [19 · Dashboard, Actions and Tests as views](phase-19-dashboard-actions-tests.md) | 🔄 WIP | 11/77 | `█░░░░░░░░░` | 14% | A | C D E F G |
+| [19 · Dashboard, Actions and Tests as views](phase-19-dashboard-actions-tests.md) | 🔄 WIP | 20/77 | `███░░░░░░░` | 26% | — | C D E F G |
 | [18 · Footer system monitor + repo diagnostics](phase-18-footer-monitor-diagnostics.md) | 🔄 WIP | 40/54 | `███████░░░` | 74% | F | — |
 | [17 · Repositories workbench + forge](phase-17-repos-workbench.md) | 🔄 WIP | 46/48 | `█████████░` | 96% | — | 2 manual checks |
 | [16 · Folder explorer, preview pane + settings pages](phase-16-explorer-and-settings-pages.md) | ✅ DONE | 36/36 | `██████████` | 100% | — | — |
@@ -42,9 +42,10 @@ Completed work is logged append-only in [`done.md`](done.md). Deferred scope liv
 B and C are the two data layers (local history, and a deeper `gh`); D, E and F are the three
 surfaces; G is the one piece that waits on someone else.*
 
-- 🔄 **A** — `ViewId` grows to seven, Dashboard rides `NavConfig.pinned` (ungrouped, above the
-  sections), Actions/Tests join the rail, and a per-view section allowlist reshapes the sidebar —
-  with a "show all sections" escape hatch
+- ✅ **A** — `ViewId` grows to seven, Dashboard rides `NavConfig.pinned` (ungrouped, above the
+  sections), Actions/Tests join the rail, and one `VIEW_FILTERS` table reshapes the sidebar on two
+  axes — sections and dirty-only — folding Phase 17's Changes filter in rather than leaving it a
+  parallel one-off, with a "show all sections" escape hatch (landed 2026-08-26)
 - ✅ **B** — `git-engine/src/stats/`: one `--all` history pass feeding a local-timezone commit
   calendar, contributors by email, opt-in churn, and repo health — cached on a digest of every
   ref tip rather than HEAD, because an `--all` traversal changes when any branch moves
