@@ -48,6 +48,12 @@ export function invalidateForWatchKind(
     case 'refs':
       void client.invalidateQueries({ queryKey: keys.refs(repoId) });
       void client.invalidateQueries({ queryKey: keys.status(repoId), exact: false });
+      // Statistics are an `--all` traversal, so every figure in the dashboard
+      // depends on the ref set: a commit or a fetch changes the contributor
+      // table and the calendar. Main's own cache is keyed on a digest of the
+      // ref tips and would miss anyway; this is what makes the widgets refetch
+      // rather than sit on a correct-but-old answer until something else moves.
+      void client.invalidateQueries({ queryKey: keys.stats(repoId), exact: false });
       return { restreamGraph: true };
 
     case 'head':

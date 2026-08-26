@@ -89,6 +89,7 @@ const bridge: Pick<
   | 'terminal'
   | 'agent'
   | 'fs'
+  | 'stats'
   | 'diag'
   | 'metrics'
   | 'watch'
@@ -204,6 +205,9 @@ const bridge: Pick<
     untrust: (req) => call(CHANNELS.diagUntrust, req),
     detect: (req) => call(CHANNELS.diagDetect, req),
     run: (req) => call(CHANNELS.diagRun, req),
+  },
+  stats: {
+    summary: (req) => call(CHANNELS.statsSummary, req),
   },
   watch: {
     onEvent: (handler) => subscribe(EVENT_CHANNELS.watchEvent, handler),

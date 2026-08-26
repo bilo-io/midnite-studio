@@ -157,6 +157,18 @@ export const CHANNELS = {
   /** Run the trusted command and parse its output. Manual, never automatic. */
   diagRun: 'mgit:diag:run',
 
+  // --- repository statistics (Phase 19) ------------------------------------
+  /**
+   * Every dashboard figure in one payload — the calendar, contributors, the
+   * activity feed, churn and repo health.
+   *
+   * One channel rather than seven, because they are seven foldings of a single
+   * history traversal. Seven channels would mean seven walks of the same log,
+   * which on a large repository is the difference between a dashboard that
+   * opens and one that hangs.
+   */
+  statsSummary: 'mgit:stats:summary',
+
   // --- window chrome -------------------------------------------------------
   windowMinimize: 'mgit:window:minimize',
   windowMaximizeToggle: 'mgit:window:maximize-toggle',

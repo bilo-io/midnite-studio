@@ -20,6 +20,8 @@ import {
   RefSchema,
   RemoteSchema,
   RepoDescriptorSchema,
+  RepoStatsSchema,
+  StatsWindowSchema,
   StatusResultSchema,
   WatchEventSchema,
   WorktreeSchema,
@@ -625,6 +627,23 @@ export const DiagDetectResponse = z.object({
 
 export const DiagRunRequest = RepoId;
 export const DiagRunResponse = DiagnosticsRunSchema;
+
+// --- repository statistics (Phase 19) --------------------------------------
+
+/**
+ * `repoId` only, never a path — the `forge-handlers.ts` rule. Main resolves the
+ * checkout itself, so the renderer cannot point the traversal somewhere else.
+ */
+export const StatsSummaryRequest = RepoId.extend({
+  window: StatsWindowSchema.default('90d'),
+  /**
+   * `--numstat` is the expensive half of the traversal: it makes git diff every
+   * commit rather than just read commit objects. A board with no churn widget
+   * on it should not pay for one, so the caller opts in.
+   */
+  withChurn: z.boolean().default(false),
+});
+export const StatsSummaryResponse = RepoStatsSchema;
 
 // --- window chrome ---------------------------------------------------------
 

@@ -72,6 +72,17 @@ export const keys = {
   /** Whether `gh` is installed and signed in. Not repo-scoped — it is machine state. */
   forgeCli: ['forge', 'cli'] as const,
   /**
+   * A repo's dashboard statistics, per window and churn setting.
+   *
+   * Under the repo prefix so closing one drops it, and deliberately NOT under
+   * `status`: the watcher fires `status` on every index and worktree event —
+   * every keystroke-save — and none of those change a commit history. `refs`
+   * and `head` do, and those invalidate this key explicitly.
+   */
+  stats: (repoId: string) => ['repos', repoId, 'stats'] as const,
+  statsSummary: (repoId: string, window: string, withChurn: boolean) =>
+    ['repos', repoId, 'stats', window, withChurn] as const,
+  /**
    * A commit's diff. Under the repo (so it is dropped when the repo closes) but
    * NOT under `status` — a commit is immutable, so a working-tree event has
    * nothing to say about it.

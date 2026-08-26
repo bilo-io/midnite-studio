@@ -13,4 +13,5 @@ export * from './exec/git-exec';
 export * from './exec/write-queue';
 export * from './layout';
 export * from './parsers';
+export * from './stats';
 export * from './watch';

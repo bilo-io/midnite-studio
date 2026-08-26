@@ -10,7 +10,7 @@ Completed work is logged append-only in [`done.md`](done.md). Deferred scope liv
 
 | Phase | Status | Done | Progress | % | 🔄 WIP | ◻ TODO |
 |-------|--------|------|----------|---|--------|--------|
-| [19 · Dashboard, Actions and Tests as views](phase-19-dashboard-actions-tests.md) | 🔄 WIP | 0/77 | `░░░░░░░░░░` | 0% | A B | C D E F G |
+| [19 · Dashboard, Actions and Tests as views](phase-19-dashboard-actions-tests.md) | 🔄 WIP | 11/77 | `█░░░░░░░░░` | 14% | A | C D E F G |
 | [18 · Footer system monitor + repo diagnostics](phase-18-footer-monitor-diagnostics.md) | 🔄 WIP | 40/54 | `███████░░░` | 74% | F | — |
 | [17 · Repositories workbench + forge](phase-17-repos-workbench.md) | 🔄 WIP | 46/48 | `█████████░` | 96% | — | 2 manual checks |
 | [16 · Folder explorer, preview pane + settings pages](phase-16-explorer-and-settings-pages.md) | ✅ DONE | 36/36 | `██████████` | 100% | — | — |
@@ -45,8 +45,10 @@ surfaces; G is the one piece that waits on someone else.*
 - 🔄 **A** — `ViewId` grows to seven, Dashboard rides `NavConfig.pinned` (ungrouped, above the
   sections), Actions/Tests join the rail, and a per-view section allowlist reshapes the sidebar —
   with a "show all sections" escape hatch
-- 🔄 **B** — `git-engine/src/stats/`: one NUL-delimited history pass feeding a local-timezone
-  commit calendar, contributors by email, churn, and repo health, cached by HEAD sha
+- ✅ **B** — `git-engine/src/stats/`: one `--all` history pass feeding a local-timezone commit
+  calendar, contributors by email, opt-in churn, and repo health — cached on a digest of every
+  ref tip rather than HEAD, because an `--all` traversal changes when any branch moves
+  (landed 2026-08-26)
 - ◻ **C** — forge deepening through the existing `gh` wrapper: `gh issue list`,
   `gh run view --json jobs`, `gh run view --log`, plus a workflow-file filter on run lists
 - ◻ **D** — the dashboard: `react-grid-layout` with theme-token overrides, a widget registry,
