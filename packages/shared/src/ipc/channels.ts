@@ -47,6 +47,17 @@ export const CHANNELS = {
   // --- remotes -------------------------------------------------------------
   remotesList: 'mgit:remotes:list',
 
+  // --- forge (GitHub, via the user's own `gh` CLI) --------------------------
+  // Read-only, and deliberately so: nothing here merges, approves or reruns.
+  // The app links out for anything that changes state on the forge, so a
+  // stale cache can never cause a write.
+  /** Is `gh` installed and authenticated? Probed through a login shell. */
+  forgeCliStatus: 'mgit:forge:cli-status',
+  /** Recent workflow runs for the repo's GitHub remote. */
+  forgeRuns: 'mgit:forge:runs',
+  /** Open pull requests for the repo's GitHub remote. */
+  forgePulls: 'mgit:forge:pulls',
+
   // --- shell ---------------------------------------------------------------
   /**
    * Hand a URL to the OS browser. Protocol-restricted at both ends — see the

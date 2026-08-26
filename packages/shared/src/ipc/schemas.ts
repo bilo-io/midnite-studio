@@ -5,6 +5,9 @@ import {
   DIFF_DEFAULT_CONTEXT,
   DIFF_FULL_CONTEXT,
   FileDiffSchema,
+  ForgeCliStatusSchema,
+  ForgePullsResultSchema,
+  ForgeRunsResultSchema,
   GitOpResultSchema,
   GraphRowSchema,
   RefSchema,
@@ -230,6 +233,31 @@ export const FileDiffResponse = FileDiffSchema;
 
 export const RemotesListRequest = RepoId;
 export const RemotesListResponse = z.array(RemoteSchema);
+
+// --- forge -----------------------------------------------------------------
+
+export const ForgeCliStatusRequest = z.object({});
+export const ForgeCliStatusResponse = ForgeCliStatusSchema;
+
+/**
+ * A forge listing, capped.
+ *
+ * `limit` is bounded here rather than left to the caller: these round-trip
+ * through a `gh` subprocess, and an unbounded page size turns a sidebar
+ * section into a multi-second spawn that also burns the user's API quota.
+ */
+const ForgeListRequest = RepoId.extend({
+  limit: z.number().int().min(1).max(100).default(20),
+});
+
+export const ForgeRunsRequest = ForgeListRequest.extend({
+  /** Restrict to one branch's runs. Omitted means every branch. */
+  branch: z.string().min(1).optional(),
+});
+export const ForgeRunsResponse = ForgeRunsResultSchema;
+
+export const ForgePullsRequest = ForgeListRequest;
+export const ForgePullsResponse = ForgePullsResultSchema;
 
 // --- shell -----------------------------------------------------------------
 
