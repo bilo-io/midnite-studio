@@ -1,6 +1,9 @@
 import { useState } from 'react';
+import { MoreVertical } from 'lucide-react';
 import { LuFlaskConical, LuHammer, LuPackage, LuRocket } from 'react-icons/lu';
 
+import type { MenuItem } from '../../components/context-menu';
+import { useDialogs } from '../../components/dialog-host';
 import { IconButton } from '../../components/icon-button';
 import { runLifecycleAction, type LifecycleAction } from './repo-lifecycle';
 
@@ -61,5 +64,57 @@ export function RepoLifecycleActions({
         />
       ))}
     </div>
+  );
+}
+
+/**
+ * Install / Build / Test / Launch, collapsed behind one ellipsis.
+ *
+ * Same four verbs and the same `runLifecycleAction` as {@link RepoLifecycleActions}, but for
+ * the sidebar's repository row specifically: four standing icon buttons there, next to the
+ * git sync control and the repo's own actions ellipsis, read as more controls than one row
+ * has room to carry. A second ellipsis — this repo's tooling, as distinct from the first
+ * ellipsis's git and housekeeping actions — keeps the row scannable without dropping any verb.
+ */
+export function RepoLifecycleMenu({
+  repoId,
+  repoName,
+  cwd,
+  worktreePath,
+}: {
+  repoId: string;
+  repoName: string;
+  cwd: string;
+  worktreePath?: string;
+}) {
+  const dialogs = useDialogs();
+
+  const run = (action: LifecycleAction) => {
+    void runLifecycleAction(action, {
+      repoId,
+      repoName,
+      cwd,
+      ...(worktreePath ? { worktreePath } : {}),
+    });
+  };
+
+  const items: MenuItem[] = ACTIONS.map(({ action, label }) => ({
+    label,
+    onSelect: () => run(action),
+  }));
+
+  return (
+    <IconButton
+      icon={MoreVertical}
+      label={`Install, build, test or launch ${repoName}`}
+      size="sm"
+      onClick={(event) => {
+        const rect = event.currentTarget.getBoundingClientRect();
+        dialogs.openMenu(
+          { clientX: event.clientX || rect.left, clientY: event.clientY || rect.bottom },
+          items,
+        );
+      }}
+    />
   );
 }

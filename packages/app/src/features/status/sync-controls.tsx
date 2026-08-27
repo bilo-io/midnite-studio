@@ -1,5 +1,5 @@
 import type { BranchStatus, GitOpResult } from '@midnite/git-shared';
-import { RefreshCw } from 'lucide-react';
+import { SiGit } from 'react-icons/si';
 
 import { useDialogs } from '../../components/dialog-host';
 import { IconButton } from '../../components/icon-button';
@@ -116,7 +116,7 @@ export function SyncControls({
 
   return (
     <IconButton
-      icon={RefreshCw}
+      icon={SiGit}
       size={size}
       busy={busy}
       // Both halves of the tooltip and the accessible name: the label alone
