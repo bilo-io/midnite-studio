@@ -1,5 +1,5 @@
 import type { BranchStatus, GitOpResult } from '@midnite/git-shared';
-import { SiGit } from 'react-icons/si';
+import { RefreshCw } from 'lucide-react';
 
 import { useDialogs } from '../../components/dialog-host';
 import { IconButton } from '../../components/icon-button';
@@ -25,6 +25,11 @@ import { syncResolution, type SyncFailure } from './sync-resolution';
  *
  * There is no force-push button, and no menu that could become one. See
  * docs/INITIAL_PLAN.md → Risks.
+ *
+ * The glyph is a reload, not the Git logo it briefly became. The logo names the
+ * tool; this button names an action, and the git menu beside it now carries the
+ * branded mark — wearing it here too left the row saying "git" twice and
+ * nothing about what a click does.
  */
 export function SyncControls({
   target,
@@ -116,7 +121,7 @@ export function SyncControls({
 
   return (
     <IconButton
-      icon={SiGit}
+      icon={RefreshCw}
       size={size}
       busy={busy}
       // Both halves of the tooltip and the accessible name: the label alone

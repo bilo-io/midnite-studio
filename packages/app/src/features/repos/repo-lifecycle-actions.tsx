@@ -72,9 +72,10 @@ export function RepoLifecycleActions({
  *
  * Same four verbs and the same `runLifecycleAction` as {@link RepoLifecycleActions}, but for
  * the sidebar's repository row specifically: four standing icon buttons there, next to the
- * git sync control and the repo's own actions ellipsis, read as more controls than one row
- * has room to carry. A second ellipsis — this repo's tooling, as distinct from the first
- * ellipsis's git and housekeeping actions — keeps the row scannable without dropping any verb.
+ * git sync control and the repo's own actions menu, read as more controls than one row has
+ * room to carry. Collapsing them behind one ellipsis — this repo's tooling, as distinct from
+ * the Git-logo menu's git and housekeeping actions — keeps the row scannable without dropping
+ * any verb, and each verb keeps its glyph inside the menu.
  */
 export function RepoLifecycleMenu({
   repoId,
@@ -98,8 +99,15 @@ export function RepoLifecycleMenu({
     });
   };
 
-  const items: MenuItem[] = ACTIONS.map(({ action, label }) => ({
+  /*
+    The same four glyphs the standing-button variant uses. A menu of four bare
+    verbs made the icons the ellipsis had replaced unrecoverable — carrying them
+    into the rows keeps "Build" recognisable at a glance and keeps this menu and
+    the title bar's cluster saying the same thing in the same marks.
+  */
+  const items: MenuItem[] = ACTIONS.map(({ action, icon, label }) => ({
     label,
+    icon,
     onSelect: () => run(action),
   }));
 
