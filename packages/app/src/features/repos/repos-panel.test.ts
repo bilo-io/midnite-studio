@@ -1,7 +1,7 @@
 import type { Ref } from '@midnite/git-shared';
 import { describe, expect, it } from 'vitest';
 
-import { partitionRefs } from './repos-panel';
+import { matchesRepoQuery, partitionRefs } from './repos-panel';
 
 const ref = (partial: Partial<Ref> & Pick<Ref, 'name' | 'kind'>): Ref => ({
   fullName: `refs/${partial.kind === 'tag' ? 'tags' : 'heads'}/${partial.name}`,
@@ -68,5 +68,38 @@ describe('partitionRefs', () => {
 
   it('returns empty sections for a repo with no refs', () => {
     expect(partitionRefs([])).toEqual({ branches: [], remotes: [], tags: [] });
+  });
+});
+
+describe('matchesRepoQuery', () => {
+  const repo = { name: 'midnite-git', path: '/Users/x/Dev/midnite-git' };
+
+  it('keeps everything for an empty or whitespace-only query', () => {
+    // The box starts empty and stays empty most of the time; a filter that
+    // hides the list until something is typed is not a filter.
+    expect(matchesRepoQuery(repo, '')).toBe(true);
+    expect(matchesRepoQuery(repo, '   ')).toBe(true);
+  });
+
+  it('matches the name case-insensitively on a partial', () => {
+    expect(matchesRepoQuery(repo, 'MIDN')).toBe(true);
+    expect(matchesRepoQuery(repo, 'nite-g')).toBe(true);
+  });
+
+  it('matches on the path, not just the name', () => {
+    // Two checkouts of one project share a name and differ only in where they
+    // live, so the path has to be searchable or they cannot be told apart.
+    expect(matchesRepoQuery(repo, 'dev')).toBe(true);
+    expect(matchesRepoQuery({ name: 'api', path: '/srv/legacy/api' }, 'legacy')).toBe(true);
+  });
+
+  it('requires every whitespace-separated term to match, in any order', () => {
+    expect(matchesRepoQuery(repo, 'git dev')).toBe(true);
+    expect(matchesRepoQuery(repo, 'dev git')).toBe(true);
+    expect(matchesRepoQuery(repo, 'dev nope')).toBe(false);
+  });
+
+  it('rejects a repo that matches nothing typed', () => {
+    expect(matchesRepoQuery(repo, 'zzz')).toBe(false);
   });
 });
