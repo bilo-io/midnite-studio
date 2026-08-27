@@ -2431,3 +2431,44 @@ layer this is and leaves one place to check what that outranks. The dialogs move
 how this survived a 250-spec suite. The probe is `elementFromPoint` at the centre of the menu's
 INTERSECTION with the title bar, and no intersection throws rather than passing quietly: an
 earlier draft probed the menu's centre, which sits below the bar, and passed against the bug.
+
+## 2026-08-27 — The terminal and the repos sidebar slide instead of cutting
+
+Hidden → visible → maximized, and the sidebar's own toggle, were all hard cuts: the panels were
+`{open ? <Panel/> : null}`, which can animate in neither direction — on the way in the panel is
+already at its final size in the frame it first paints, and on the way out it is gone before a
+transition could run. `useReveal` (`components/use-reveal.ts`) keeps a leaving panel mounted for
+the length of its exit and gives an entrance a painted frame at zero to travel from; the call site
+renders `shown ? size : 0` and puts a 200ms `ease-in-out` on that property.
+
+Maximizing needed a second length, because `flex-1` is not one. The view, the splitter and the
+terminal now share a measured box — the room the column has between the title bar and the footer —
+and maximizing animates towards its height. Measured off that box rather than computed from the
+window, since the title bar, the framed-window chrome strip and the footer each take a slice first.
+
+**Two boxes for the terminal, and the reason is the pty.** The outer box animates; the panel inside
+is already at its final height and gets clipped. The panel's `ResizeObserver` drives an xterm fit
+and a pty resize, so animating the panel itself would send the shell a dozen SIGWINCHes over the
+length of every toggle — the same objection that kept a transition off this panel in the first
+place. It is told its new column count once, at the start, and what moves is the window onto it.
+The inner box is top-anchored so the header — and the restore and close buttons in it — is the
+first thing revealed and the last to leave, rather than clipped out of reach mid-animation.
+
+Two smaller things fall out of it. The height transition is armed by a change of STATE, not by
+every change of height: maximized, the height tracks the window, and easing towards each new
+window height would leave the panel's top edge trailing the edge the user is dragging by a fifth
+of a second. And the view's `hidden` waits for the growing to finish — `display: none` mid-animation
+takes the view out of the layout, so the terminal would climb through blank background instead of
+over the thing it is covering.
+
+`useReveal` also waits for a frame the main thread is not busy in before it starts, capped at eight.
+A panel with work to do on arrival blocks longer than the animation lasts, and a transition started
+into that stall runs to completion with no frames to show it in. It does not save the FIRST terminal
+open of a session — xterm's first paint (shader compile, glyph atlas) only happens once the panel is
+no longer fully clipped, so that one stall is inside the reveal by construction — but every open
+after it, and every maximize, is a clean curve.
+
+Asserted by sampling: `terminal.spec.ts` clicks inside the page and reads a rect per
+`requestAnimationFrame`, so "it went through the middle" is something the test sees rather than
+infers. A `boundingBox()` per frame from the test process spends most of a 200ms animation in
+transit and reports exactly what a panel that CUT would.

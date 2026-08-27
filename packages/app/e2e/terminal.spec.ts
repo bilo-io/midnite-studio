@@ -70,6 +70,51 @@ const ptyCalls = (page: Page) =>
       }).__mgitPty,
   );
 
+/**
+ * Click a control and measure one box, once per frame, until it stops moving.
+ *
+ * Clicked and sampled INSIDE the page on purpose. A `boundingBox()` per frame
+ * from the test process spends most of a 200ms animation in transit and can
+ * easily read only its first and last value — which is exactly what a panel
+ * that CUT between the two would report. A rect per `requestAnimationFrame`
+ * misses no frame, so "it went through the middle" becomes something the test
+ * can see rather than infer.
+ */
+const slide = (
+  page: Page,
+  control: string,
+  box: string,
+  axis: 'width' | 'height',
+): Promise<number[]> =>
+  page.evaluate(
+    async ([controlSelector, boxSelector, side]) => {
+      document.querySelector<HTMLElement>(controlSelector)?.click();
+      const sizes: number[] = [];
+      /*
+        40 frames is ~660ms: the transition is 200ms, it waits for a frame the
+        main thread is not busy in before it starts, and a frame that has a
+        panel mounting in it can take a while. Overshooting by this much is what
+        makes the LAST sample the settled size, so the test can compare against
+        the layout's own number rather than hard-coding one.
+      */
+      for (let frame = 0; frame < 40; frame += 1) {
+        await new Promise((done) => requestAnimationFrame(done));
+        const rect = document.querySelector(boxSelector)?.getBoundingClientRect();
+        sizes.push(rect ? Math.round(side === 'width' ? rect.width : rect.height) : 0);
+      }
+      return sizes;
+    },
+    [control, box, axis] as const,
+  );
+
+/** Sorted, so ease-in-out's monotony is stated rather than eyeballed. */
+const rising = (sizes: number[]) => [...sizes].sort((a, b) => a - b);
+const falling = (sizes: number[]) => [...sizes].sort((a, b) => b - a);
+
+/** Did it stop anywhere between the two ends, or did it cut? */
+const passedThrough = (sizes: number[], from: number, to: number) =>
+  sizes.some((size) => size > Math.min(from, to) + 8 && size < Math.max(from, to) - 8);
+
 test.describe('terminal panel', () => {
   test('opens on Ctrl+` and starts one shell for the selected worktree', async ({ page }) => {
     await open(page);
@@ -324,6 +369,87 @@ test.describe('terminal panel', () => {
     await page.getByRole('button', { name: 'Restore terminal height' }).click();
     expect(await height()).toBeCloseTo(normal, 0);
     await expect(page.getByRole('columnheader', { name: 'Commit message' })).toBeVisible();
+  });
+
+  /**
+   * Hidden → visible → maximized → visible → hidden, and every step a slide.
+   *
+   * The frame is what moves; the panel inside it is already at its final size
+   * and gets clipped, which is how the shell is told its new column count once
+   * per toggle instead of once per frame. So the frame is what this measures.
+   *
+   * Two of the five steps are held to "it ended where it should, and it only
+   * ever moved one way", and the other three to "it also went through the
+   * middle". That is not timidity about those two, it is what the main thread
+   * allows: the FIRST open pays for xterm's first paint (shader compile, glyph
+   * atlas) and restoring from maximized pays for the view coming back out of
+   * `display: none`, and either can eat every frame the middle would have been
+   * visible in. The transition is the same one in all five.
+   */
+  test('the panel slides between hidden, open and maximized', async ({ page }) => {
+    await open(page, { terminalSessions: RESTORED });
+
+    const frame = '[data-terminal-frame]';
+    const toggle = '[title^="Toggle terminal"]';
+
+    const opening = await slide(page, toggle, frame, 'height');
+    const shown = opening[opening.length - 1];
+    expect(shown).toBeGreaterThan(100);
+    expect(opening).toEqual(rising(opening));
+
+    const closing = await slide(page, toggle, frame, 'height');
+    expect(closing).toEqual(falling(closing));
+    expect(passedThrough(closing, shown, 0)).toBe(true);
+    // Gone at the end, not merely collapsed: the panel unmounts once it has
+    // finished leaving, which is what keeps `terminalOpen` meaning what it did.
+    await expect(page.locator(frame)).toHaveCount(0);
+
+    const reopening = await slide(page, toggle, frame, 'height');
+    expect(reopening[reopening.length - 1]).toBe(shown);
+    expect(reopening).toEqual(rising(reopening));
+    expect(passedThrough(reopening, 0, shown)).toBe(true);
+
+    const growing = await slide(page, '[aria-label="Expand terminal"]', frame, 'height');
+    const tall = growing[growing.length - 1];
+    expect(tall).toBeGreaterThan(shown);
+    expect(growing).toEqual(rising(growing));
+    expect(passedThrough(growing, shown, tall)).toBe(true);
+
+    const shrinking = await slide(page, '[aria-label="Restore terminal height"]', frame, 'height');
+    expect(shrinking[shrinking.length - 1]).toBe(shown);
+    expect(shrinking).toEqual(falling(shrinking));
+  });
+
+  /**
+   * The repositories sidebar, held to the same promise as the terminal.
+   *
+   * Its width is what animates, and the panel inside keeps its own — a sidebar
+   * that reflowed its rows on the way out would read as rebuilding rather than
+   * leaving.
+   */
+  test('the repositories sidebar slides in and out', async ({ page }) => {
+    await open(page);
+
+    const sidebar = 'aside[aria-label="Repositories"]';
+    const toggle = '[title^="Toggle repositories"]';
+
+    const closing = await slide(page, toggle, sidebar, 'width');
+    /*
+      The widest sample, not the first: the click and the first frame after it
+      are the same frame, so by the time anything can be measured the sidebar is
+      already a few pixels into leaving.
+    */
+    const full = Math.max(...closing);
+    expect(closing).toEqual(falling(closing));
+    expect(passedThrough(closing, full, 0)).toBe(true);
+    await expect(page.locator(sidebar)).toHaveCount(0);
+
+    const opening = await slide(page, toggle, sidebar, 'width');
+    const wide = opening[opening.length - 1];
+    // Back the width it was, which is the point of persisting it separately.
+    expect(wide).toBe(full);
+    expect(opening).toEqual(rising(opening));
+    expect(passedThrough(opening, 0, wide)).toBe(true);
   });
 
   /**
