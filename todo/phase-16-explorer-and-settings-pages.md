@@ -148,6 +148,11 @@ had always carried was reachable from nowhere in the UI.*
       `inert` on the clipped region, not visibility: `<Collapse>` folds a grid track to `0fr`, so
       the buttons keep boxes of their own and `inert` is what actually removes them from the tab
       order
+- [x] *(follow-up, same day)* The lock itself is now asserted, in both directions: the pin's
+      round trip through `auto` ⇄ `expanded`, and the `--nav-offset` distinction that makes it a
+      lock — hover-expand is an overlay at `3.5rem`, only `expanded` moves content to `16rem`.
+      Plus three `ui-store.test.ts` cases for `setNavMode`, its persistence, and a pre-Theme-F
+      payload merging to `auto`
 
 ## Files this phase touches
 
