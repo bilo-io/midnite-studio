@@ -16,7 +16,7 @@ Completed work is logged append-only in [`done.md`](done.md). Deferred scope liv
 
 | Phase | Status | Done | Progress | % | 🔄 WIP | ◻ TODO |
 |-------|--------|------|----------|---|--------|--------|
-| [20 · Reviews page & unified diff syntax highlighting](phase-20-reviews-page.md) | ◻ TODO | 0/40 | `░░░░░░░░░░` | 0% | — | A B C D E F G |
+| [20 · Reviews page & unified diff syntax highlighting](phase-20-reviews-page.md) | 🔄 WIP | 0/40 | `░░░░░░░░░░` | 0% | A B D | C E F G |
 | [19 · Dashboard, Actions and Tests as views](phase-19-dashboard-actions-tests.md) | 🔄 WIP | 73/76 | `██████████` | 96% | — | 3 manual checks |
 | [18 · Footer system monitor + repo diagnostics](phase-18-footer-monitor-diagnostics.md) | 🔄 WIP | 51/54 | `█████████░` | 94% | — | 3 manual checks |
 | [17 · Repositories workbench + forge](phase-17-repos-workbench.md) | 🔄 WIP | 46/48 | `█████████░` | 96% | — | 2 manual checks |
@@ -51,13 +51,13 @@ two read surfaces (list, then detail); D is the highlighting pass shared by ever
 the app; E, F and G are the phase's one deliberate write path — approve/request-changes/comment/
 merge, kept in a new `gh-write.ts` so `gh-cli.ts`'s "strictly reads" comment stays true.*
 
-- ◻ **A** — Reviews joins the nav rail as a first-class view, reusing the `VIEW_FILTERS` mechanism
+- 🔄 **A** — Reviews joins the nav rail as a first-class view, reusing the `VIEW_FILTERS` mechanism
   Actions/Tests already established, hidden for repos with no GitHub remote
-- ◻ **B** — PR list filterable across every state (open/draft/merged/closed) plus author and
+- 🔄 **B** — PR list filterable across every state (open/draft/merged/closed) plus author and
   search, not just the open-only list Phase 17 fetches today
 - ◻ **C** — PR detail grows Files/Conversation/Checks tabs, reusing the existing hunk parser for
   PR diffs rather than a second parser
-- ◻ **D** — syntax highlighting wired into the one shared `DiffView`, reusing Phase 16's
+- 🔄 **D** — syntax highlighting wired into the one shared `DiffView`, reusing Phase 16's
   already-installed, theme-synced `shiki` highlighter, so Reviews/Changes/Graph render diffs
   identically
 - ◻ **E** — inline diff-line comment threads, right-side (added/context) lines only for v1 — the
