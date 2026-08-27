@@ -261,6 +261,12 @@ export function TerminalView({
           if (session.kind === 'shell') {
             const command = trackShellCommand(shellLineRef.current, data);
             if (command) useTerminalStore.getState().setAutoName(session.id, command);
+          } else {
+            // Typing at an agent answers the question the "waiting" glyph is
+            // asking, so the glyph drops back to idle on the first keystroke
+            // rather than sitting there until the next footer repaint proves
+            // it stale. The detector re-arms on the very next chunk of output.
+            useTerminalStore.getState().setActivity(session.id, undefined);
           }
           return;
         }
