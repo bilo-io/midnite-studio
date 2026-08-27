@@ -5,6 +5,7 @@ import { Terminal } from '@xterm/xterm';
 import '@xterm/xterm/css/xterm.css';
 import { useCallback, useEffect, useRef, useState } from 'react';
 
+import { bridge } from '../../services/bridge';
 import { shouldEscapeTerminal } from '../../services/keybindings/use-keybindings';
 import {
   createActivityState,
@@ -12,8 +13,18 @@ import {
   detectActivity,
   trackShellCommand,
 } from './activity-detect';
+import { parseOsc7 } from './parse-osc7';
 import { useTerminalStore } from './terminal-store';
 import { useTerminalIpc } from './use-terminal-ipc';
+
+/**
+ * How long OSC 7 has to stay quiet before the store is told.
+ *
+ * Short enough that a `cd` re-labels the header before you have finished
+ * reading the prompt, long enough that a prompt which re-announces the same
+ * directory on every Enter collapses into one write.
+ */
+const OSC7_QUIET_MS = 80;
 
 /**
  * One session's xterm.
@@ -167,6 +178,36 @@ export function TerminalView({
             if (trimmed) useTerminalStore.getState().setAutoName(session.id, trimmed);
           })
         : null;
+
+    /**
+     * Where the shell actually is, from the OSC 7 sequence it emits on `cd`.
+     *
+     * Registered for every session, shell and agent alike: a shell that never
+     * emits the sequence — macOS `zsh` out of the box, or a bare `sh` — simply
+     * never fires this, and the header goes on showing the cwd the session was
+     * opened at. Handling it costs nothing on a session that has nothing to
+     * say.
+     *
+     * Returning false leaves the sequence for any other handler and for
+     * xterm's default, which is to ignore an OSC 7 it was not asked about.
+     *
+     * Debounced, because a shell configured to emit OSC 7 from its prompt
+     * re-announces the same directory on every Enter. The timer is cleared on
+     * teardown alongside the handler that arms it — an unmounted session must
+     * not write to the store a beat later.
+     */
+    let cwdTimer: ReturnType<typeof setTimeout> | null = null;
+    const oscSub = term.parser.registerOscHandler(7, (payload) => {
+      const next = parseOsc7(payload, bridge()?.hostname);
+      if (next === null) return false;
+
+      if (cwdTimer) clearTimeout(cwdTimer);
+      cwdTimer = setTimeout(() => {
+        cwdTimer = null;
+        useTerminalStore.getState().setLiveCwd(session.id, next);
+      }, OSC7_QUIET_MS);
+      return false;
+    });
 
     /**
      * Which keystrokes escape the terminal.
@@ -329,8 +370,10 @@ export function TerminalView({
     return () => {
       observer.disconnect();
       document.removeEventListener('visibilitychange', onVisibilityChange);
+      if (cwdTimer) clearTimeout(cwdTimer);
       dataSub?.dispose();
       titleSub?.dispose();
+      oscSub.dispose();
       term.dispose();
       termRef.current = null;
       fitRef.current = null;

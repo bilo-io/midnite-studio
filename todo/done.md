@@ -2,6 +2,52 @@
 
 <!-- Append one entry per landed phase/PR: date, phase, PR link, one-line summary. -->
 
+## 2026-08-27 — Phase 21 · Theme D — a terminal that knows where it is
+
+Landed on `feature/phase-21-live-cwd`, merged locally — no PR link, no GitHub remote on this
+checkout.
+
+A session's `cwd` was captured once at `openSession` and never revisited, so `cd` into a sibling
+worktree left the header naming the directory you started in. The shell already announces every
+`cd` and nothing was listening.
+
+- [x] **`parseOsc7`**, pure and tested (13 cases). The host segment is the part that matters and
+      the part that is easy to skip: inside `ssh` a remote shell emits OSC 7 for a path on the
+      *remote* machine, and a parser ignoring the host would hand the header a local repository the
+      terminal is not in. Empty / `localhost` / this machine only — and the machine match is
+      full-string in one direction or the other, never label-to-label, which would accept
+      `mac.attacker.example` as `mac.local`. A `..` segment is refused rather than resolved, since
+      `resolveRepoForPath` matches on string prefixes and `…/midnite-git/../other` would label the
+      header with the repository the shell has just left
+- [x] **`bridge.hostname`**, beside `homeDir` — the finding that mattered most, and it disabled the
+      whole theme. The parser was first wired to `window.location.hostname`, which is the *page's*
+      host: `localhost` under the dev server, empty under `file://` in the packaged build, never
+      the machine. The canonical emitters all put the real hostname in the payload
+      (`printf '\e]7;file://%s%s\a' "$HOST" "$PWD"`, macOS's own `update_terminal_cwd`, VTE's
+      `__vte_osc7`), so every one of them was being rejected and the header never moved on a
+      correctly configured machine. The e2e suite missed it because the mock emitted
+      `file://localhost…`, one of the two spellings that happened to survive
+- [x] **`liveCwd` in the terminal store**, runtime-only and never persisted — a path the shell
+      wandered into is not a path the user chose to open a session at. In the `dropKey` tuple, and
+      **also cleared on `pty:exit`**: a revive respawns at `session.cwd`, so a value left over from
+      the dead process would name a directory the new shell is not in
+- [x] **Debounced in the handler**, with the timer cleared in the same cleanup that disposes the
+      handler — a prompt that re-announces its directory on every Enter collapses to one write
+- [x] **The header reads `liveCwd[id] ?? session.cwd`.** That fallback is the degradation path:
+      macOS `zsh` emits nothing by default, and such a session reads exactly as it did before this
+      existed. The session keeps its stored `repoId` throughout — an unrecognised directory is not
+      evidence that the session changed repositories
+- [x] **e2e drives a real escape sequence** through a new `__mgitPtyWrite` hook rather than poking
+      the store, because the thing that can silently fail is the xterm registration itself. The
+      hook reports whether the pty existed, so a spec whose pty numbering shifts fails instead of
+      passing on negative assertions about a sequence that was never delivered. `terminal.save` is
+      now recorded in the mock too, so "nothing is persisted" is asserted against what the app
+      actually tried to save rather than restating a pty-create count
+
+Still open on the phase: **E** (the process probe). Also noted: the `zsh` hook that makes any of
+this fire — `precmd() { printf '\e]7;file://%s%s\a' "$HOST" "$PWD" }` — belongs on the
+Settings ▸ Terminal page Theme C created, and is deliberately not in this slice.
+
 ## 2026-08-27 — Phase 21 · Themes A + B + C — a plural agent roster, and a `+` menu that says what it starts
 
 Landed on `feature/phase-21-roster-plural`, squash-merged locally — no PR link, no GitHub remote on

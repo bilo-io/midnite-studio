@@ -96,6 +96,55 @@ describe('useTerminalStore', () => {
     expect(useTerminalStore.getState().states[a.id]).toBeUndefined();
   });
 
+  /*
+    Written over the tuple rather than field by field, so one assertion covers
+    every runtime map — and the pre-check below makes it non-vacuous by proving
+    each map held something first.
+
+    It does NOT catch a map added to the store and forgotten in `dropKey`: this
+    list is hand-written and would be forgotten alongside it. Keeping the two in
+    step is still a review job.
+  */
+  it('leaves no runtime state behind in any map', () => {
+    const a = open('a');
+    const store = useTerminalStore.getState();
+    store.bindPty(a.id, 'pty-1');
+    store.setState(a.id, 'open');
+    store.queueInput(a.id, 'ls\r');
+    store.setAutoName(a.id, 'building');
+    store.setActivity(a.id, 'thinking');
+    store.setLiveCwd(a.id, '/tmp/elsewhere');
+    /*
+      `replay` is written only by `hydrate` and `errors` only by a failed
+      spawn; seeded directly so the tuple below is exercised in full rather
+      than proving teardown for whichever maps happen to be easy to fill.
+    */
+    useTerminalStore.setState((state) => ({
+      replay: { ...state.replay, [a.id]: new Uint8Array([1]) },
+      errors: { ...state.errors, [a.id]: 'spawn failed' },
+    }));
+
+    const runtime = [
+      'ptyIds',
+      'states',
+      'replay',
+      'errors',
+      'pendingInput',
+      'autoNames',
+      'activity',
+      'liveCwd',
+    ] as const;
+
+    // Every map genuinely held something first, or the assertion below is vacuous.
+    const before = useTerminalStore.getState();
+    expect(runtime.filter((key) => before[key][a.id] === undefined)).toEqual([]);
+
+    useTerminalStore.getState().closeSession(a.id);
+
+    const after = useTerminalStore.getState();
+    expect(runtime.filter((key) => after[key][a.id] !== undefined)).toEqual([]);
+  });
+
   it('applies a new order', () => {
     const a = open('a');
     const b = open('b');
@@ -189,6 +238,51 @@ describe('useTerminalStore', () => {
       useTerminalStore.getState().setAutoName(a.id, '\u2733');
 
       expect(useTerminalStore.getState().autoNames[a.id]).toBe('Rebasing');
+    });
+  });
+
+  describe('setLiveCwd', () => {
+    it('records where the shell says it is', () => {
+      const a = open('a');
+      useTerminalStore.getState().setLiveCwd(a.id, '/tmp/other-repo');
+      expect(useTerminalStore.getState().liveCwd[a.id]).toBe('/tmp/other-repo');
+    });
+
+    /*
+      A shell whose prompt re-announces the same directory on every Enter must
+      not re-render anything. The handler debounces the burst; this is the
+      backstop for the value that survives it.
+    */
+    it('is a no-op for an unchanged path, so nothing re-renders', () => {
+      const a = open('a');
+      useTerminalStore.getState().setLiveCwd(a.id, '/tmp/other-repo');
+      const first = useTerminalStore.getState().liveCwd;
+
+      useTerminalStore.getState().setLiveCwd(a.id, '/tmp/other-repo');
+      expect(useTerminalStore.getState().liveCwd).toBe(first);
+    });
+
+    /*
+      The dead shell's directory dies with it: a revive respawns at
+      `session.cwd`, so a value left over from the last process would have the
+      header naming a directory the new shell is not in. `use-terminal-ipc`
+      calls this on `pty:exit`.
+    */
+    it('clears on undefined, for a pty that has exited', () => {
+      const a = open('a');
+      useTerminalStore.getState().setLiveCwd(a.id, '/tmp/other-repo');
+      useTerminalStore.getState().setLiveCwd(a.id, undefined);
+      expect(useTerminalStore.getState().liveCwd[a.id]).toBeUndefined();
+      expect(a.id in useTerminalStore.getState().liveCwd).toBe(false);
+    });
+
+    it('never touches the session record, which stays the opened-at truth', () => {
+      const a = open('a');
+      useTerminalStore.getState().setLiveCwd(a.id, '/tmp/somewhere-else');
+
+      const session = useTerminalStore.getState().sessions.find((s) => s.id === a.id)!;
+      expect(session.cwd).toBe(a.cwd);
+      expect(session.repoId).toBe(a.repoId);
     });
   });
 

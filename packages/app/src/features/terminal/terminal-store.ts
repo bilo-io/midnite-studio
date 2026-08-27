@@ -72,6 +72,17 @@ type TerminalState = {
   autoNames: Record<string, string>;
   /** What a live agent session looks to be doing right now; absent otherwise. */
   activity: Record<string, SessionActivity>;
+  /**
+   * Where a session's shell actually is, from the OSC 7 sequence it emits on
+   * `cd` — as opposed to `session.cwd`, which is where it was opened.
+   *
+   * Runtime only, and deliberately never persisted: a path the shell wandered
+   * into is not a path the user chose to open a session at, and writing it to
+   * `terminals.json` would silently re-home the session on the next launch.
+   * Absent for any shell that does not emit the sequence, which is macOS `zsh`
+   * out of the box — everything reading this has to fall back to `session.cwd`.
+   */
+  liveCwd: Record<string, string>;
 
   hydrate: () => Promise<void>;
   openSession: (request: NewSessionRequest) => TerminalSession;
@@ -85,6 +96,13 @@ type TerminalState = {
   renameSession: (sessionId: string, name: string | undefined) => void;
   setAutoName: (sessionId: string, name: string) => void;
   setActivity: (sessionId: string, activity: SessionActivity | undefined) => void;
+  /**
+   * From the OSC 7 handler in `terminal-view.tsx`. Never persisted.
+   *
+   * `undefined` clears it, which is what a pty exit does: the next shell is
+   * spawned at `session.cwd`, not wherever the last one wandered to.
+   */
+  setLiveCwd: (sessionId: string, cwd: string | undefined) => void;
 
   bindPty: (sessionId: string, ptyId: string) => void;
   unbindPty: (sessionId: string) => void;
@@ -111,6 +129,7 @@ export const useTerminalStore = create<TerminalState>()((set, get) => ({
   pendingInput: {},
   autoNames: {},
   activity: {},
+  liveCwd: {},
 
   /**
    * Load the saved sessions. Spawns nothing.
@@ -251,6 +270,15 @@ export const useTerminalStore = create<TerminalState>()((set, get) => ({
       return { autoNames: { ...state.autoNames, [sessionId]: cleaned } };
     }),
 
+  setLiveCwd: (sessionId, cwd) =>
+    set((state) => {
+      if (state.liveCwd[sessionId] === cwd) return state;
+      const next = { ...state.liveCwd };
+      if (cwd === undefined) delete next[sessionId];
+      else next[sessionId] = cwd;
+      return { liveCwd: next };
+    }),
+
   setActivity: (sessionId, activity) =>
     set((state) => {
       if (state.activity[sessionId] === activity) return state;
@@ -302,7 +330,14 @@ function dropKey(
   sessionId: string,
 ): Pick<
   TerminalState,
-  'ptyIds' | 'states' | 'replay' | 'errors' | 'pendingInput' | 'autoNames' | 'activity'
+  | 'ptyIds'
+  | 'states'
+  | 'replay'
+  | 'errors'
+  | 'pendingInput'
+  | 'autoNames'
+  | 'activity'
+  | 'liveCwd'
 > {
   const ptyIds = { ...state.ptyIds };
   const states = { ...state.states };
@@ -311,6 +346,7 @@ function dropKey(
   const pendingInput = { ...state.pendingInput };
   const autoNames = { ...state.autoNames };
   const activity = { ...state.activity };
+  const liveCwd = { ...state.liveCwd };
   delete ptyIds[sessionId];
   delete states[sessionId];
   delete replay[sessionId];
@@ -318,7 +354,8 @@ function dropKey(
   delete pendingInput[sessionId];
   delete autoNames[sessionId];
   delete activity[sessionId];
-  return { ptyIds, states, replay, errors, pendingInput, autoNames, activity };
+  delete liveCwd[sessionId];
+  return { ptyIds, states, replay, errors, pendingInput, autoNames, activity, liveCwd };
 }
 
 /**

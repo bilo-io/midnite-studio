@@ -46,6 +46,13 @@ export function useTerminalIpc(session: TerminalSession, onData: (bytes: Uint8Ar
       const store = useTerminalStore.getState();
       store.unbindPty(session.id);
       store.setState(session.id, 'exited');
+      /*
+        The dead shell's directory dies with it. A revive respawns at
+        `session.cwd` (below), so a `liveCwd` left over from the last process
+        would have the header naming a directory the new shell is not in — and,
+        through `resolveRepoForPath`, a repository it was never in.
+      */
+      store.setLiveCwd(session.id, undefined);
     });
 
     return () => {

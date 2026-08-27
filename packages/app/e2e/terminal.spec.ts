@@ -45,6 +45,22 @@ async function toggleTerminal(page: Page): Promise<void> {
   await page.keyboard.press('Control+`');
 }
 
+/**
+ * Make the fake shell emit an OSC 7 sequence on the one open pty — `ESC ] 7 ;
+ * <payload> BEL`, exactly as a configured shell writes it on `cd`.
+ */
+async function emitOsc7(page: Page, payload: string): Promise<void> {
+  const delivered = await page.evaluate((text) => {
+    const write = (window as unknown as { __mgitPtyWrite: (id: string, data: string) => boolean })
+      .__mgitPtyWrite;
+    return write('pty-1', `\u001b]7;${text}\u0007`);
+  }, payload);
+  // The hook no-ops on an unknown pty id. Without this, a spec whose pty
+  // numbering shifted would go on making negative assertions about a sequence
+  // that was never delivered, and pass for entirely the wrong reason.
+  expect(delivered, `OSC 7 was not delivered to pty-1: ${payload}`).toBe(true);
+}
+
 const panel = (page: Page) => page.locator('[data-terminal-panel]');
 /** The session list's rows. `IconButton` renders its label twice, so count these. */
 const rows = (page: Page) => page.locator('[data-session-row]');
@@ -351,6 +367,72 @@ test.describe('terminal panel', () => {
     // Inside the header's own box, and clear of the controls it shares a line with.
     expect(tail.x + tail.width).toBeLessThanOrEqual(box.x + box.width);
     expect(tail.x + tail.width).toBeLessThanOrEqual(buttons.x);
+  });
+
+  /**
+   * Theme D: the header follows the shell, not the menu item that opened it.
+   *
+   * Driven with a real OSC 7 sequence written through the fake pty rather than
+   * by poking the store, because the thing that can silently fail here is the
+   * xterm registration itself — a handler that is never called, or a payload
+   * the parser refuses, both look exactly like "no `cd` happened".
+   */
+  test('the header follows a cd into a sibling worktree', async ({ page }) => {
+    const sibling = '/tmp/midnite-git/.worktrees/theme-d';
+    await open(page, { worktrees: [{ path: sibling, branch: 'feature/theme-d' }] });
+    await toggleTerminal(page);
+    await expect.poll(async () => (await ptyCalls(page)).creates.length).toBe(1);
+
+    const path = page.locator('[data-terminal-header] [title]').first();
+    await expect(path).toHaveText('~/midnite-git');
+
+    // `cd` into the sibling worktree, announced the way a configured shell does.
+    await emitOsc7(page, `file://localhost${sibling}`);
+    await expect(path).toHaveText('~/midnite-git/.worktrees/theme-d');
+    // The emphasis follows too: the worktree is the checkout you navigate by.
+    await expect(path.locator('span').last()).toHaveText('theme-d');
+
+    // Somewhere no repository knows about: still `~`-collapsed (the mock's home
+    // is `/tmp`), still left-truncating, but with no segment emphasised —
+    // an unrecognised directory is not evidence the session changed repository.
+    await emitOsc7(page, 'file:///tmp/scratch/notes');
+    await expect(path).toHaveText('~/scratch/notes');
+    await expect(path.locator('span.font-medium')).toHaveCount(0);
+
+    /*
+      And none of it is persisted. The session keeps the cwd it was opened at —
+      a directory the shell wandered into is not one the user chose — so every
+      session the app asked to save still carries the ORIGINAL cwd, not either
+      of the two it has since been told about.
+    */
+    const saved = await page.evaluate(
+      () => (window as unknown as { __mgitTerminalSaves: { id: string; cwd: string }[] })
+        .__mgitTerminalSaves,
+    );
+    expect(saved.length).toBeGreaterThan(0);
+    expect(saved.map((s) => s.cwd)).toEqual(saved.map(() => '/tmp/midnite-git'));
+  });
+
+  /**
+   * The degradation path, which is most of the real world: macOS `zsh` emits no
+   * OSC 7 at all unless the user has added a `chpwd` hook.
+   */
+  test('a shell that never emits OSC 7 keeps the cwd it was opened at', async ({ page }) => {
+    await open(page);
+    await toggleTerminal(page);
+    await expect.poll(async () => (await ptyCalls(page)).creates.length).toBe(1);
+
+    const path = page.locator('[data-terminal-header] [title]').first();
+    await expect(path).toHaveText('~/midnite-git');
+
+    // Ordinary output, including an escape sequence that is not OSC 7, and a
+    // malformed OSC 7 that the parser must refuse rather than half-accept.
+    await emitOsc7(page, 'file://build-server/var/www');
+    await emitOsc7(page, 'file:///Users/x/%');
+    await emitOsc7(page, 'not-a-uri');
+    await page.waitForTimeout(200);
+
+    await expect(path).toHaveText('~/midnite-git');
   });
 
   test('maximize fills the window and restores', async ({ page }) => {

@@ -63,6 +63,19 @@ export type MidniteGitBridge = {
    */
   homeDir: string;
 
+  /**
+   * This machine's hostname, as an absolute-truth string.
+   *
+   * Here for the same reason as `homeDir`, and needed for a reason that is not
+   * obvious: `window.location.hostname` is the *page's* host, which in this app
+   * is `localhost` under the dev server and empty under `file://` in the
+   * packaged build. Neither is the machine. OSC 7 payloads routinely carry the
+   * real hostname — `printf '\e]7;file://%s%s\a' "$HOST" "$PWD"` is the
+   * canonical emitter — so a cwd parser that compared against the page's host
+   * would reject every one of them.
+   */
+  hostname: string;
+
   repos: {
     open: (req: In<typeof S.RepoOpenRequest>) => Promise<z.infer<typeof S.RepoOpenResponse>>;
     list: () => Promise<RepoDescriptor[]>;

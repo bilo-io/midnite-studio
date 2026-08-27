@@ -114,30 +114,33 @@ The spine: B–F all read off this contract, so it lands first.
       live example — the other three are already on PATH here), none installed, and no worktree
       selected, where every item is disabled for a different reason.
 
-### D — A terminal that knows where it is (M)
+### D — A terminal that knows where it is (M) — ✅ DONE (2026-08-27)
 
-- [ ] An OSC 7 handler registered on the xterm instance in
+- [x] An OSC 7 handler registered on the xterm instance in
       [`terminal-view.tsx`](../packages/app/src/features/terminal/terminal-view.tsx) via
       `term.parser.registerOscHandler(7, …)`, beside the existing `onTitleChange` subscription and
       disposed with it. Parses `file://<host>/<path>`, percent-decoded, ignoring a payload that is
       not a local absolute path.
-- [ ] `liveCwd: Record<string, string>` in
+- [x] `liveCwd: Record<string, string>` in
       [`terminal-store.ts`](../packages/app/src/features/terminal/terminal-store.ts), set from that
       handler and added to the `forget` tuple alongside `autoNames` and `activity` — a session's
       runtime state has to be dropped together or the next session to reuse an id inherits half of
-      it.
-- [ ] A `resolveRepoForPath` helper: longest-prefix match of a path against the registered repos
+      it. *Also cleared on `pty:exit`: a revive respawns at `session.cwd`, so a value left over
+      from the dead process would name a directory the new shell is not in — the same class of
+      staleness on the restart axis rather than the id-reuse one.*
+- [x] A `resolveRepoForPath` helper: longest-prefix match of a path against the registered repos
       and their worktrees, returning `{ repoId, repoName, root } | null`. Unit-tested for the case
       [`workbench-store.test.ts`](../packages/app/src/store/workbench-store.test.ts) already
       guards elsewhere — two repos whose worktrees sit at nested paths must not collapse into each
-      other — plus a path inside no repo at all.
-- [ ] The header's mark and repo name derive from the live cwd through that helper, so `cd` into a
+      other — plus a path inside no repo at all. *(Landed early, with Theme F, which needed the
+      same split point against the stored cwd.)*
+- [x] The header's mark and repo name derive from the live cwd through that helper, so `cd` into a
       sibling worktree re-labels the header. Nothing writes to `terminals.json`: the persisted
       `cwd` remains the opened-at record.
-- [ ] Outside every known repo, the header shows the plain `~`-collapsed path with no emphasised
+- [x] Outside every known repo, the header shows the plain `~`-collapsed path with no emphasised
       segment and the session keeps its stored `repoId` — an unrecognised directory is not evidence
       that the session changed repositories.
-- [ ] A shell that never emits OSC 7 (a bare `sh`, or a `zsh` without the hook) must degrade to
+- [x] A shell that never emits OSC 7 (a bare `sh`, or a `zsh` without the hook) must degrade to
       exactly today's behaviour rather than to an empty header.
 
 ### E — A terminal that knows what is running in it (M)
@@ -297,10 +300,16 @@ The spine: B–F all read off this contract, so it lands first.
   and exit, on a session becoming active, and once roughly 750ms after output goes quiet. A
   background session's icon can then lag until you look at it, which is the cheap failure; a poll
   across every open pty is a cost paid forever for a fact that changes a handful of times a day.
-- **Open — where the OSC 7 emission comes from.** The handler is useless if the user's shell never
-  emits the sequence; `zsh` on macOS does not by default. *Recommendation:* handle it if it arrives
-  and degrade silently if not (Theme D's last item), and note the one-line `chpwd` hook in the
-  Settings ▸ Terminal page rather than editing anyone's rc file from the app.
+- **Resolved — where the OSC 7 emission comes from.** Handled if it arrives, silently ignored if
+  not, exactly as recommended. The one-line hook is
+  `precmd() { printf '\e]7;file://%s%s\a' "$HOST" "$PWD" }` for `zsh`; the Settings ▸ Terminal
+  page that Theme C created is where it belongs, and putting it there is deliberately left out of
+  Theme D (see *Not in this phase*). **The hostname in that payload is why the parser takes one:**
+  `window.location.hostname` is the *page's* host — `localhost` under the dev server, empty under
+  `file://` in the packaged build — so the machine's name reaches the renderer as `bridge.hostname`
+  beside `homeDir`. A parser comparing against the page's host would reject every payload the
+  canonical emitters produce, and Theme D would silently do nothing on a correctly configured
+  machine.
 - **Open — whether `liveAgentId` should override a stored `agentId` in the session *label* too**,
   not just the icon. *Recommendation:* icon only, this phase. `sessionLabel` already resolves four
   ways (`name` → `autoName` → `agentLabel` → `'Terminal'`) and Phase 19's notes show how quickly

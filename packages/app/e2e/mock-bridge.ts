@@ -399,6 +399,12 @@ export async function installMockBridge(page: Page, fixtures: MockFixtures): Pro
         fixture cwd is under it.
       */
       homeDir: '/tmp',
+      /*
+        A real-looking machine name, not `localhost` — the OSC 7 specs emit
+        payloads carrying it, which is the form a configured shell actually
+        writes and the form the parser has to accept.
+      */
+      hostname: 'mock-machine.local',
 
       repos: {
         open: async () => ({ ok: true, repo }),
@@ -866,7 +872,11 @@ export async function installMockBridge(page: Page, fixtures: MockFixtures): Pro
             scrollback: encode(entry.scrollback ?? ''),
           })),
         }),
-        save: noop,
+        // Recorded, not dropped: "the wandered-into path is never persisted"
+        // is only assertable against what the app actually tried to save.
+        save: (req: { session: { id: string; cwd: string } }) => {
+          terminalSaves.push(req.session);
+        },
         forget: noop,
         reorder: noop,
       },
@@ -1282,6 +1292,12 @@ export async function installMockBridge(page: Page, fixtures: MockFixtures): Pro
       hiding the panel neither killed a pty nor started a second one is exactly
       the Phase 9 contract being overturned, stated in the terms it was written.
     */
+    /*
+      Every `TerminalSession` the app asked to persist, in order. Hoisted like
+      `ptyCalls` because `terminal.save` is defined above this point.
+    */
+    // eslint-disable-next-line no-var
+    var terminalSaves = [] as { id: string; cwd: string }[];
     // eslint-disable-next-line no-var
     var ptyCalls = {
       creates: [] as { ptyId: string; sessionId: string }[],
@@ -1291,6 +1307,25 @@ export async function installMockBridge(page: Page, fixtures: MockFixtures): Pro
 
     (window as unknown as { __mgitOps: unknown }).__mgitOps = opCalls;
     (window as unknown as { __mgitPty: unknown }).__mgitPty = ptyCalls;
+    /*
+      A spec's way to make the fake shell say something arbitrary — an escape
+      sequence the app is supposed to react to, rather than a command the mock
+      knows how to answer. OSC 7 is the first user: the only honest test of the
+      handler is a real sequence arriving on `pty:data` and being parsed by the
+      xterm the app actually built.
+    */
+    (window as unknown as { __mgitPtyWrite: unknown }).__mgitPtyWrite = (
+      ptyId: string,
+      data: string,
+    ): boolean => {
+      // Reports whether the pty existed. `write` no-ops on an unknown id, so a
+      // spec whose pty numbering shifted would otherwise assert against a
+      // sequence that was never delivered — and pass for the wrong reason.
+      if (!(ptyId in ptySessions)) return false;
+      write(ptyId, data);
+      return true;
+    };
+    (window as unknown as { __mgitTerminalSaves: unknown }).__mgitTerminalSaves = terminalSaves;
     (window as unknown as { __mgitExternalUrls: unknown }).__mgitExternalUrls = externalUrls;
     (window as unknown as { __mgitClipboard: unknown }).__mgitClipboard = clipboardWrites;
     (window as unknown as { __mgitMetrics: unknown }).__mgitMetrics = metricsCalls;
