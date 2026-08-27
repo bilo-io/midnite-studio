@@ -1,6 +1,15 @@
 import type { MouseEvent as ReactMouseEvent } from 'react';
 
-import { LuArrowLeft, LuArrowRight, LuChevronRight, LuRotateCw } from 'react-icons/lu';
+import type { IconType } from 'react-icons';
+import {
+  LuArrowLeft,
+  LuArrowRight,
+  LuChevronRight,
+  LuFolderGit2,
+  LuGitBranch,
+  LuGitCommitHorizontal,
+  LuRotateCw,
+} from 'react-icons/lu';
 
 import { bridge } from '../services/bridge';
 import { useRepos } from '../services/queries';
@@ -9,11 +18,14 @@ import { SETTINGS_PAGES, useUiStore, type ViewId } from '../store/ui-store';
 import type { MenuItem } from './context-menu';
 import { useDialogs } from './dialog-host';
 import { IconButton } from './icon-button';
+import { SETTINGS_PAGE_ICON, VIEW_ICON } from './nav-icons';
 
 /**
  * Short labels for the rail's views, duplicated from `app.tsx`'s `NAV_ITEMS`
- * rather than imported: that module also carries the rail's icons and
- * ordering, and a breadcrumb only ever needs these seven short strings.
+ * rather than imported: that module also carries the rail's ordering and forge
+ * gating, and a breadcrumb only ever needs these eight short strings. The
+ * glyphs beside them are NOT duplicated — they come from the shared
+ * `nav-icons` map, so a view wears one icon everywhere.
  */
 const VIEW_LABELS: Record<ViewId, string> = {
   dashboard: 'Dashboard',
@@ -84,6 +96,13 @@ function ReloadButton() {
 type Crumb = {
   key: string;
   label: string;
+  /**
+   * The glyph shown ahead of the label. Every crumb has one: a breadcrumb where
+   * only some segments carry an icon reads as a ragged list rather than a path,
+   * and the glyph is what says *what kind of thing* a truncated name is when
+   * the label alone has been cut to "midnite-…".
+   */
+  icon: IconType;
   onSelect?: (event: ReactMouseEvent<HTMLButtonElement>) => void;
 };
 
@@ -110,6 +129,7 @@ function useBreadcrumbs(): Crumb[] {
     crumbs.push({
       key: 'repo',
       label: repo.name,
+      icon: LuFolderGit2,
       onSelect:
         others.length > 0
           ? (event) =>
@@ -131,13 +151,20 @@ function useBreadcrumbs(): Crumb[] {
       crumbs.push({
         key: 'branch',
         label: head,
+        icon: LuGitBranch,
         onSelect: () => {
           useUiStore.getState().setGraphRefFilter([`refs/heads/${head}`]);
           useUiStore.getState().setActiveView('graph');
         },
       });
     } else if (branch?.detached && branch.oid) {
-      crumbs.push({ key: 'branch', label: `${branch.oid.slice(0, 7)} (detached)` });
+      // A commit glyph, not the branch one: detached HEAD is precisely the
+      // state of standing on a commit rather than on a branch.
+      crumbs.push({
+        key: 'branch',
+        label: `${branch.oid.slice(0, 7)} (detached)`,
+        icon: LuGitCommitHorizontal,
+      });
     }
   }
 
@@ -145,14 +172,16 @@ function useBreadcrumbs(): Crumb[] {
     crumbs.push({
       key: 'settings',
       label: 'Settings',
+      icon: VIEW_ICON.settings,
       onSelect: () => useUiStore.getState().setSettingsPage('appearance'),
     });
     crumbs.push({
       key: 'settings-page',
       label: SETTINGS_PAGES.find((p) => p.id === settingsPage)?.label ?? 'Settings',
+      icon: SETTINGS_PAGE_ICON[settingsPage],
     });
   } else {
-    crumbs.push({ key: 'view', label: VIEW_LABELS[activeView] });
+    crumbs.push({ key: 'view', label: VIEW_LABELS[activeView], icon: VIEW_ICON[activeView] });
   }
 
   return crumbs;
@@ -165,6 +194,14 @@ function Breadcrumbs() {
     <nav aria-label="Location" className="flex min-w-0 items-center text-xs">
       {crumbs.map((crumb, index) => {
         const isLast = index === crumbs.length - 1;
+        const Icon = crumb.icon;
+        /*
+          `shrink-0` on the glyph and `truncate` on the label, not the other way
+          round: when the strip runs out of room it is the long repo or branch
+          NAME that should give way, and a half-clipped icon would read as a
+          rendering fault.
+        */
+        const icon = <Icon aria-hidden className="h-3 w-3 shrink-0" />;
         return (
           <span key={crumb.key} className="flex min-w-0 items-center">
             {index > 0 ? (
@@ -177,18 +214,20 @@ function Breadcrumbs() {
               <button
                 type="button"
                 onClick={crumb.onSelect}
-                className="max-w-[10rem] shrink truncate rounded px-1 py-0.5 text-muted-foreground transition-colors hover:bg-accent hover:text-foreground"
+                className="flex min-w-0 items-center gap-1 rounded px-1 py-0.5 text-muted-foreground transition-colors hover:bg-accent hover:text-foreground"
               >
-                {crumb.label}
+                {icon}
+                <span className="max-w-[10rem] truncate">{crumb.label}</span>
               </button>
             ) : (
               <span
                 aria-current={isLast ? 'page' : undefined}
-                className={`max-w-[12rem] shrink truncate px-1 py-0.5 ${
+                className={`flex min-w-0 items-center gap-1 px-1 py-0.5 ${
                   isLast ? 'font-medium text-foreground' : 'text-muted-foreground'
                 }`}
               >
-                {crumb.label}
+                {icon}
+                <span className="max-w-[12rem] truncate">{crumb.label}</span>
               </span>
             )}
           </span>
