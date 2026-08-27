@@ -119,7 +119,15 @@ export function TerminalPanel({ cwd, repoId, repoName }: TerminalPanelProps) {
     // Named for the e2e suite: the panel's own box is what maximizing changes,
     // and its header, its list and its panes are all separately-sized children.
     <div data-terminal-panel className="flex h-full min-h-0 flex-col bg-background">
-      <div className="flex shrink-0 items-center gap-2 border-b border-border px-3 py-1 text-xs text-muted-foreground">
+      {/*
+        Named for the e2e suite as well: the one thing that must be true of this
+        strip is that nothing else in the window is ever drawn on top of it, and
+        that is asserted by hit-testing across its width.
+      */}
+      <div
+        data-terminal-header
+        className="flex shrink-0 items-center gap-2 border-b border-border px-3 py-1 text-xs text-muted-foreground"
+      >
         <span>Terminal</span>
         <span className="truncate" title={active?.cwd ?? cwd ?? undefined}>
           {active?.cwd ?? cwd ?? 'no worktree selected'}

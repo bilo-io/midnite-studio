@@ -77,7 +77,16 @@ export function PrDetail({ repoId, number }: { repoId: string; number: number })
   const checks = checksStatus(pull);
 
   return (
-    <section aria-label={`Pull request #${pull.number}`} className="flex h-full min-h-0 flex-col">
+    /*
+      `flex-1 min-w-0`, matching `RunDetail`'s own root in the Actions view.
+      Without them this pane is a flex item at its CONTENT width — a long log
+      line or a wide markdown table sizes the whole detail column past the
+      window and out over whatever sits beside it.
+    */
+    <section
+      aria-label={`Pull request #${pull.number}`}
+      className="flex h-full min-h-0 min-w-0 flex-1 flex-col"
+    >
       <PrHeader pull={pull} detail={detail} />
 
       <div
@@ -118,7 +127,16 @@ export function PrDetail({ repoId, number }: { repoId: string; number: number })
         id={`pr-panel-${tab}`}
         role="tabpanel"
         aria-labelledby={`pr-tab-${tab}`}
-        className={`min-h-0 flex-1 ${tab === 'checks' ? 'flex flex-col' : 'overflow-y-auto'}`}
+        /*
+          The Checks tab lays its own children out (a job tree over a log pane)
+          and so cannot be the scroller; it clips instead. Both of its chrome
+          rows are `shrink-0`, so a window short enough that they do not fit
+          would otherwise push them out of the bottom of the panel rather than
+          simply leaving the log with no room.
+        */
+        className={`min-h-0 flex-1 ${
+          tab === 'checks' ? 'flex flex-col overflow-hidden' : 'overflow-y-auto'
+        }`}
       >
         {tab === 'files' ? (
           <PrFiles

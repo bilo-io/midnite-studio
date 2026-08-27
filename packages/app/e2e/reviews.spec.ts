@@ -320,3 +320,98 @@ test('a signed-out gh gets the fix-it hint, not a claim about the pull request',
   await expect(detail.getByText('Run `gh auth login` in a terminal.')).toBeVisible();
   await expect(detail.getByText('Nobody has commented on this pull request.')).toHaveCount(0);
 });
+
+/**
+ * A tall detail pane must never be drawn over the terminal.
+ *
+ * The Checks tab is the worst case in the app: a PR header sized by its
+ * description, a job tree and a log pane, three of whose four chrome rows
+ * refuse to shrink. Squeeze the column — a short window with the terminal
+ * open — and the surplus used to spill straight out of the view and across the
+ * terminal's own header, because nothing between them clipped and CSS paints an
+ * earlier sibling's TEXT after a later sibling's BACKGROUND.
+ *
+ * Hit-testing across the strip is the honest assertion. `toBeVisible()` would
+ * pass on a header buried under another pane's rows, and a bounding-box check
+ * would pass on content that is clipped but still laid out where it was.
+ */
+test('the terminal header is never painted over by a squeezed detail pane', async ({ page }) => {
+  // Short enough that the 288px terminal leaves the Checks tab less room than
+  // its own chrome needs — the condition, not an incidental viewport.
+  await page.setViewportSize({ width: 1280, height: 620 });
+
+  await openPull(
+    page,
+    withPull({
+      pullDetail: {
+        '42': {
+          ...pullDetail,
+          // A description long enough to hit the header's own `max-h-40` cap,
+          // which is what leaves the tab panel short.
+          body: Array.from({ length: 40 }, (_, at) => `Paragraph ${at + 1} of the description.`).join(
+            '\n\n',
+          ),
+        },
+      },
+      runs: [run],
+      runDetail: {
+        '1': {
+          jobs: [
+            {
+              id: '10',
+              name: 'typecheck',
+              status: 'completed',
+              conclusion: 'failure',
+              startedAt: '2026-08-26T10:00:10Z',
+              completedAt: '2026-08-26T10:01:00Z',
+              url: 'https://github.com/bilo-io/midnite-git/actions/runs/1/job/10',
+              steps: [],
+            },
+          ],
+        },
+      },
+      runLogs: {
+        '1': {
+          lines: Array.from(
+            { length: 200 },
+            (_, at) => `typecheck\tRun tsc\t2026-08-26T10:00:11Z line ${at + 1}`,
+          ),
+        },
+      },
+    }),
+  );
+
+  await page.getByRole('tab', { name: /Checks/ }).click();
+  await expect(page.getByRole('list', { name: 'Jobs' }).getByText('typecheck')).toBeVisible();
+
+  await page.keyboard.press('Control+`');
+  const header = page.locator('[data-terminal-header]');
+  await expect(header).toBeVisible();
+
+  const box = await header.boundingBox();
+  expect(box).not.toBeNull();
+
+  /*
+    Sampled across the whole width rather than at one point: the spill lands
+    over the detail pane's own columns on the right, and a single probe near
+    the label on the left would have passed throughout the bug.
+  */
+  const probes = Array.from({ length: 24 }, (_, at) => ({
+    x: box!.x + ((at + 0.5) * box!.width) / 24,
+    y: box!.y + box!.height / 2,
+  }));
+
+  const strays = await page.evaluate(
+    (points) =>
+      points
+        .map(({ x, y }) => {
+          const hit = document.elementFromPoint(x, y);
+          if (hit?.closest('[data-terminal-panel]')) return null;
+          return { x: Math.round(x), tag: hit?.tagName ?? 'none', text: hit?.textContent?.slice(0, 40) ?? '' };
+        })
+        .filter((entry) => entry !== null),
+    probes,
+  );
+
+  expect(strays).toEqual([]);
+});

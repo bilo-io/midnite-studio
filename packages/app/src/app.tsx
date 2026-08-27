@@ -537,8 +537,20 @@ function Shell() {
               holds a streamed row buffer and a virtualizer scroll position, and
               tearing those down for a temporary full-screen terminal would cost
               a re-stream on the way back.
+
+              `overflow-hidden` is the guard rail, not decoration. A view is one
+              of several stacked children of this column — the terminal and the
+              footer are the others — and a pane inside it that runs taller than
+              its box (a tall PR header over a short window, say) otherwise
+              spills its rows straight across the terminal's header. Painting
+              order makes that worse than a stray pixel: the overflowing TEXT of
+              an earlier sibling is drawn after the later sibling's BACKGROUND,
+              so the terminal cannot cover it by being below in the DOM. Clipping
+              here is what makes "a view stays inside its box" true of every
+              view, present and future, rather than a property each one has to
+              remember.
             */
-            className={`min-h-0 flex-1 animate-fade-in ${
+            className={`min-h-0 flex-1 overflow-hidden animate-fade-in ${
               terminalOpen && terminalMaximized ? 'hidden' : ''
             }`}
           >
@@ -587,7 +599,14 @@ function Shell() {
                 behind for the length of every drag.
               */}
               <div
-                className={`overflow-hidden border-t border-border ${
+                /*
+                  Stacked above the view column as well as clipped: the view
+                  clips itself now, but the terminal is the one surface in this
+                  window whose chrome must never be sat on, and a z-index is a
+                  cheaper guarantee of that than trusting every future pane to
+                  keep its overflow to itself.
+                */
+                className={`relative z-10 overflow-hidden border-t border-border ${
                   terminalMaximized ? 'min-h-0 flex-1' : 'shrink-0'
                 }`}
                 style={terminalMaximized ? undefined : { height: terminal.current }}
