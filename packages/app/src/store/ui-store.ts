@@ -116,6 +116,8 @@ export type LayoutSizes = {
   commitFilesHeight: number;
   /** The Actions view's run list, left of the run detail. */
   actionsListWidth: number;
+  /** The Tests view's suite tree, left of the suite detail. */
+  testsListWidth: number;
 };
 
 /** Widths of the graph table's fixed-width columns. */
@@ -159,6 +161,7 @@ export const DEFAULT_LAYOUT: LayoutSizes = {
   // Wider than the files tree: a run row carries a status pill, a workflow
   // name, a branch and an age, and the branch is the part that truncates first.
   actionsListWidth: 360,
+  testsListWidth: 320,
 };
 
 export const DEFAULT_GRAPH_COLUMNS: GraphColumns = {
@@ -186,6 +189,7 @@ export const LAYOUT_BOUNDS = {
   // message above and the diff below with no room at all.
   commitFilesHeight: { min: 80, max: 720 },
   actionsListWidth: { min: 240, max: 640 },
+  testsListWidth: { min: 240, max: 640 },
 } as const;
 
 export const GRAPH_COLUMN_BOUNDS = {

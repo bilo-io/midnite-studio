@@ -197,6 +197,25 @@ export const CHANNELS = {
    */
   statsSummary: 'mgit:stats:summary',
 
+  // --- repository tests (Phase 19) ------------------------------------------
+  // Discovery runs no repo-local code — it reads package.json/moon.yml and
+  // config-file presence, same posture as `diagDetect`. Execution is the
+  // second arbitrary-code-execution surface after diagnostics and rides the
+  // same trust policy, granted per SUITE rather than per repo — see
+  // desktop/src/main/testing/, which states the policy in full.
+  /** Suites this checkout declares. Runs nothing; safe unprompted. */
+  testsDiscover: 'mgit:tests:discover',
+  /** Is this suite trusted to run, and does the grant still apply? */
+  testsTrustStatus: 'mgit:tests:trust-status',
+  /** Record a grant for a suite the user has just been shown. */
+  testsTrust: 'mgit:tests:trust',
+  /** Revoke. Re-discovering and re-trusting is one click. */
+  testsUntrust: 'mgit:tests:untrust',
+  /** Spawn a trusted suite. Resolves with a run id immediately — see `testsOutput`. */
+  testsRun: 'mgit:tests:run',
+  /** Kill an in-flight run's whole process tree. */
+  testsCancel: 'mgit:tests:cancel',
+
   // --- window chrome -------------------------------------------------------
   windowMinimize: 'mgit:window:minimize',
   windowMaximizeToggle: 'mgit:window:maximize-toggle',
@@ -234,6 +253,10 @@ export const EVENT_CHANNELS = {
    * OMITTED from the payload rather than sent as zero — see MetricSample.
    */
   metricsSample: 'mgit:metrics:sample',
+  /** Live stdout/stderr chunks from an in-flight suite run — `{runId, chunk}`. */
+  testsOutput: 'mgit:tests:output',
+  /** A run finished (or was cancelled) — `{runId, suiteId, result}`. */
+  testsResult: 'mgit:tests:result',
 } as const;
 
 /**

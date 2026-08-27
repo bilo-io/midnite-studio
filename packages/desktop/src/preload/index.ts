@@ -91,6 +91,7 @@ const bridge: Pick<
   | 'fs'
   | 'stats'
   | 'diag'
+  | 'tests'
   | 'metrics'
   | 'watch'
   | 'window'
@@ -213,6 +214,16 @@ const bridge: Pick<
   },
   stats: {
     summary: (req) => call(CHANNELS.statsSummary, req),
+  },
+  tests: {
+    discover: (req) => call(CHANNELS.testsDiscover, req),
+    trustStatus: (req) => call(CHANNELS.testsTrustStatus, req),
+    trust: (req) => call(CHANNELS.testsTrust, req),
+    untrust: (req) => call(CHANNELS.testsUntrust, req),
+    run: (req) => call(CHANNELS.testsRun, req),
+    cancel: (req) => ipcRenderer.send(CHANNELS.testsCancel, req),
+    onOutput: (handler) => subscribe(EVENT_CHANNELS.testsOutput, handler),
+    onResult: (handler) => subscribe(EVENT_CHANNELS.testsResult, handler),
   },
   watch: {
     onEvent: (handler) => subscribe(EVENT_CHANNELS.watchEvent, handler),

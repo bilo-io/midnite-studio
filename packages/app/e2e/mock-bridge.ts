@@ -201,6 +201,20 @@ export type MockFixtures = {
     diskBytes?: { used: number; total: number };
     cpuInfo?: { cores: number; load1?: number };
   }>;
+  /**
+   * Repository tests (Phase 19). `packages` is what `tests.discover` answers
+   * with — absent means a repository with no discoverable suites, the state
+   * every empty case is written against. `trust` seeds which suite ids start
+   * already trusted, keyed `${repoId}:${suiteId}`. `runResult` is what a
+   * `tests.run` call resolves its stream with once the fixture's fake process
+   * "closes" — a spec drives the run and reads the result off the live stream,
+   * exactly as the real bridge does.
+   */
+  tests?: {
+    packages?: unknown[];
+    trusted?: string[];
+    runResult?: unknown;
+  };
 };
 
 export async function installMockBridge(page: Page, fixtures: MockFixtures): Promise<void> {
@@ -666,6 +680,67 @@ export async function installMockBridge(page: Page, fixtures: MockFixtures): Pro
         Samples go out asynchronously, as `log.start` does, so the renderer's
         subscribe-then-receive ordering stays on its normal path.
       */
+      /*
+        A live stream, like `metrics` — for the same reason: an inert
+        `onOutput`/`onResult` would let every spec pass against a Tests view
+        that never actually receives a run's output.
+      */
+      tests: {
+        discover: async (req: { repoId: string }) => ({
+          repoId: req.repoId,
+          packages: data.tests?.packages ?? [],
+          generatedAt: 1_700_000_000_000,
+        }),
+        trustStatus: async (req: { repoId: string; suiteId: string }) =>
+          testsTrustedSet.has(`${req.repoId}:${req.suiteId}`)
+            ? { state: 'trusted', trustedAt: 1_700_000_000_000 }
+            : { state: 'untrusted', trustedAt: null },
+        trust: async (req: { repoId: string; suiteId: string }) => {
+          testsTrustedSet.add(`${req.repoId}:${req.suiteId}`);
+          return { state: 'trusted', trustedAt: 1_700_000_000_000 };
+        },
+        untrust: async (req: { repoId: string; suiteId: string }) => {
+          testsTrustedSet.delete(`${req.repoId}:${req.suiteId}`);
+          return { state: 'untrusted', trustedAt: null };
+        },
+        run: async (req: { repoId: string; suiteId: string }) => {
+          if (!testsTrustedSet.has(`${req.repoId}:${req.suiteId}`)) {
+            return { ok: false, reason: 'untrusted' };
+          }
+          testsRunCounter += 1;
+          const runId = `run-${testsRunCounter}`;
+          setTimeout(() => {
+            const chunk = 'running…\n';
+            for (const handler of testsOutputHandlers) handler({ runId, chunk });
+            const result = data.tests?.runResult ?? {
+              ok: true,
+              structured: true,
+              exitCode: 0,
+              passed: 1,
+              failed: 0,
+              skipped: 0,
+              failures: [],
+              output: chunk,
+              truncated: false,
+              ranAt: 1_700_000_000_000,
+              durationMs: 5,
+            };
+            for (const handler of testsResultHandlers) {
+              handler({ runId, suiteId: req.suiteId, result });
+            }
+          }, 0);
+          return { ok: true, runId };
+        },
+        cancel: noop,
+        onOutput: (handler: (e: unknown) => void) => {
+          testsOutputHandlers.push(handler);
+          return () => testsOutputHandlers.splice(testsOutputHandlers.indexOf(handler), 1);
+        },
+        onResult: (handler: (e: unknown) => void) => {
+          testsResultHandlers.push(handler);
+          return () => testsResultHandlers.splice(testsResultHandlers.indexOf(handler), 1);
+        },
+      },
       metrics: {
         start: (req: { intervalMs: number; freshDisk?: boolean }) => {
           metricsCalls.push(req);
@@ -747,6 +822,22 @@ export async function installMockBridge(page: Page, fixtures: MockFixtures): Pro
     var metricsCalls: Array<{ intervalMs: number; freshDisk?: boolean; stopped?: boolean }> = [];
     // eslint-disable-next-line no-var
     var metricsEmitted = false;
+
+    // --- tests ---------------------------------------------------------------
+    // eslint-disable-next-line no-var
+    var testsOutputHandlers: Array<(e: unknown) => void> = [];
+    // eslint-disable-next-line no-var
+    var testsResultHandlers: Array<(e: unknown) => void> = [];
+    /**
+     * `${repoId}:${suiteId}` — seeded from the fixture, mutated by
+     * trust/untrust. Always qualified with the fixture's fixed `repo-1`: a
+     * suite id already contains `::` (`package::name`), so there is no bare
+     * form to distinguish from a qualified one.
+     */
+    // eslint-disable-next-line no-var
+    var testsTrustedSet = new Set<string>((data.tests?.trusted ?? []).map((id) => `repo-1:${id}`));
+    // eslint-disable-next-line no-var
+    var testsRunCounter = 0;
 
     // --- diagnostics -------------------------------------------------------
     /** Counted, so a spec can prove the linter ran once and not once per render. */

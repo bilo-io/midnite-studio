@@ -9,4 +9,5 @@ export * from './repo';
 export * from './result';
 export * from './stats';
 export * from './status';
+export * from './tests';
 export * from './watch';

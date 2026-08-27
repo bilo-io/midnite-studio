@@ -36,9 +36,10 @@ import it, so the calendar and contributor maths reach the renderer only through
 `mgit:stats:*`. All log parsing is **NUL-delimited** (`-z` / `%x00`); author names and commit
 subjects contain newlines and this phase reads a year of both. The dashboard is **one repository at
 a time**, following the sidebar selection, exactly as the Phase 18 diagnostics segment does — there
-is no cross-repo roll-up here. And **Theme G is blocked**: executing a repository's own test runner
-is arbitrary code execution, the trust boundary for that is Phase 18 Theme E, and this phase waits
-for it rather than building a second one.
+is no cross-repo roll-up here. Executing a repository's own test runner (Theme G) is the same
+arbitrary-code-execution problem as the linter, so it waited for Phase 18 Theme E's trust boundary
+and rides its runner — generalised into `desktop/src/main/process-runner.ts` once diagnostics and
+tests both needed it — rather than building a second one.
 
 Effort tags: **S** ≈ an hour or two · **M** ≈ half a day · **L** ≈ a day plus.
 
@@ -214,48 +215,55 @@ shell — and is left open.*
 - [x] `gh` missing or unauthenticated renders the existing Phase 17 CLI-status affordance rather
       than an empty list
 
-### F — Tests: discovery and the Tests view (M)
+### F — Tests: discovery and the Tests view (M) — ✅ DONE (2026-08-27)
 
-- [ ] New `git-engine/src/tests/discover.ts` — detect configured test suites from
+- [x] New `git-engine/src/tests/discover.ts` — detect configured test suites from
       `package.json` scripts, `moon.yml` / `.moon/tasks` tasks, and the presence of
       `vitest.config.*`, `playwright.config.*`, `jest.config.*` and `cypress.config.*`. Pure
       functions over file contents; no execution, so this stays electron-free and unit-testable
-- [ ] Suites are classified into **unit / integration / smoke / e2e / lint / typecheck**, by
+- [x] Suites are classified into **unit / integration / smoke / e2e / lint / typecheck**, by
       config file first and script-name heuristics second, with `other` as the honest fallback for
       anything unrecognised
-- [ ] **Monorepo-aware**: workspace packages each contribute their own suites, so a repo shows a
+- [x] **Monorepo-aware**: workspace packages each contribute their own suites, so a repo shows a
       tree of package → suite rather than one flat list. This repo is itself the test case — four
       packages, moon tasks, vitest configs and a Playwright e2e project
-- [ ] New `shared/src/domain/tests.ts` (`TestSuite`, `TestSuiteKind`, `TestDiscovery`) and a
-      `mgit:tests:discover` channel taking a `repoId`, cached and watcher-invalidated like Theme B
-- [ ] A **Tests** sidebar section using `FaCheckDouble`, grouped by suite kind, closed by default
-- [ ] `features/tests/tests-view.tsx` — the main pane: the discovered suite tree, each suite showing
+- [x] New `shared/src/domain/tests.ts` (`TestSuite`, `TestSuiteKind`, `TestDiscovery`) and a
+      `mgit:tests:discover` channel taking a `repoId`, cached like Theme B (`discovery-cache.ts`,
+      TTL + `invalidate(repoId)`). **Not yet wired into the Phase 10 watcher** — same gap Theme B's
+      own `invalidateStats` already has on `main`; a config-file edit is picked up within the
+      cache's TTL rather than instantly
+- [x] A **Tests** sidebar section using `FaCheckDouble`, grouped by suite kind, closed by default
+- [x] `features/tests/tests-view.tsx` — the main pane: the discovered suite tree, each suite showing
       its literal command, its source (which file declared it) and its package
-- [ ] **"Run in terminal"** on every suite — writes the command into an existing pty session via
-      the Phase 15 terminal store, or opens a new one. **No new trust surface**: it is the user
-      typing the command, in their own shell, at their explicit request
-- [ ] Unit tests over fixture repo shapes: a plain npm package, a pnpm workspace, this moon repo,
+- [x] **"Run in terminal"** on every suite — opens a new shell session with the command typed at
+      the prompt and not run, the `start-claude.ts` posture. **No new trust surface**: it is the
+      user typing the command, in their own shell, at their explicit request
+- [x] Unit tests over fixture repo shapes: a plain npm package, a pnpm workspace, this moon repo,
       and a repo with no tests at all (which must render an empty state, not a broken tree)
 
-### G — Tests: execution and parsed results (M) — unblocked, Phase 18 Theme E has landed
+### G — Tests: execution and parsed results (M) — ✅ DONE (2026-08-27)
 
-- [ ] **Do not start this theme until [Phase 18](phase-18-footer-monitor-diagnostics.md) Theme E
-      has landed.** Executing a repository's own test runner is the same arbitrary-code-execution
-      problem as running its linter, and 18E owns the trust prompt, the trust store and the runner.
-      A second spawn path and a second trust prompt is drift, not speed
-- [ ] Suite execution rides 18E's `desktop/src/main/diagnostics/runner.ts` (generalised, and
-      renamed out of `diagnostics/` if it is now serving two callers), inheriting its per-repo trust
-      gate, timeout and cancellation
-- [ ] Structured results where the runner supports it — `vitest --reporter=json`,
-      `playwright --reporter=json` — parsed into pass/fail/skip counts and per-test failures.
-      Unknown runners fall back to **exit code plus raw output**, which is still a useful answer
-- [ ] `mgit:tests:run` (invoke, returning a run id) and a `mgit:tests:output` one-way stream for
-      live output, mirroring the Phase 18 sample-stream shape
-- [ ] Results render in the Tests view: per-suite pass/fail counts, a failed-test list, and the
-      output pane. **Last result is remembered per suite** for the session so switching suites does
-      not throw the answer away
-- [ ] Cancellation actually kills the process tree. A `moon run :test` that spawns four vitest
-      children must not leave them running after Cancel
+- [x] Suite execution rides 18E's `desktop/src/main/diagnostics/runner.ts`, generalised and
+      relocated to `desktop/src/main/process-runner.ts` (both diagnostics and tests now import the
+      spawn/deadline/kill engine from there); `diagnostics/runner.ts` is a thin eslint-shaped
+      adapter over it, `diagnostics/runner.test.ts` unchanged and green. Also generalised: the kill
+      now signals the whole process group (`detached` + `process.kill(-pid, 'SIGKILL')`), not just
+      the direct child — a test runner routinely spawns workers of its own, which diagnostics never
+      had to account for
+- [x] Structured results where the runner supports it — `vitest`/`jest`'s shared JSON reporter
+      shape, and `playwright`'s `stats` + nested `suites` shape — parsed into pass/fail/skip counts
+      and per-test failures (`desktop/src/main/testing/reporters.ts`). Unknown runners fall back to
+      **exit code plus raw output** (`structured: false`), which is still a useful answer
+- [x] `mgit:tests:run` (invoke, returning a run id) and `mgit:tests:output`/`mgit:tests:result`
+      one-way streams for live output and completion, mirroring the Phase 18 sample-stream shape.
+      Trust is granted **per suite**, not per repo (`desktop/src/main/testing/trust-store.ts`) — a
+      repo's `test` and `e2e` scripts are different propositions and approving one must not
+      silently approve the other
+- [x] Results render in the Tests view: per-suite pass/fail counts, a failed-test list, and the
+      output pane. **Last result is remembered per suite** for the session (`tests-store.ts`) so
+      switching suites does not throw the answer away
+- [x] Cancellation kills the process tree via the process-group signal above. A `moon run :test`
+      that spawns four vitest children does not leave them running after Cancel
 
 ## Files this phase touches
 
@@ -274,23 +282,23 @@ shell — and is left open.*
 
 ## Verification
 
-- [ ] `moon run :typecheck :lint :test` green
-- [ ] Boundary lint still passes: `packages/app` imports nothing from `git-engine` — the stats and
+- [x] `moon run :typecheck :lint :test` green
+- [x] Boundary lint still passes: `packages/app` imports nothing from `git-engine` — the stats and
       discovery modules are reachable only through `mgit:stats:*` and `mgit:tests:*`
-- [ ] `mock-bridge.ts` grows `stats`, `tests` and the three new `forge` handlers, with
+- [x] `mock-bridge.ts` grows `stats`, `tests` and the three new `forge` handlers, with
       `MockFixtures` fields for each, commented with the state they unlock. The `tests.output`
       stream needs a **live handler array and a real splice teardown**, not an inert `unsubscribe`
-- [ ] Playwright: the rail shows Dashboard pinned above the section, Actions hidden for a
+- [x] Playwright: the rail shows Dashboard pinned above the section, Actions hidden for a
       non-GitHub repo, the Actions view filtering the sidebar to Actions + Worktrees, the "show all
       sections" toggle restoring the rest, and Tests grouping discovered suites by kind
-- [ ] Playwright: the dashboard renders its widgets, a widget can be removed and restored, Reset
+- [x] Playwright: the dashboard renders its widgets, a widget can be removed and restored, Reset
       layout restores the default, and a repo with no GitHub remote offers no forge widgets in the
       picker
-- [ ] Unit tests: local-timezone day bucketing across a DST boundary, contributor aggregation by
+- [x] Unit tests: local-timezone day bucketing across a DST boundary, contributor aggregation by
       email with a renamed author, `--numstat` with renames and binary files, `gh issue` output for
       an issues-disabled repo, run-detail with a skipped job, log truncation at the boundary, and
       suite discovery across the four fixture repo shapes
-- [ ] Dashboard layout survives an app restart, per repository
+- [x] Dashboard layout survives an app restart, per repository
 - [ ] **Open, for a human:** the dashboard against a large repository (10k+ commits) — first paint
       under a second, the history pass cached, and no interaction jank while the grid is dragged
 - [ ] **Open, for a human:** the Actions view against a real failing matrix run — job tree,

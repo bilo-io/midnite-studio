@@ -14,6 +14,8 @@ import type {
   RepoDescriptor,
   RepoStats,
   StatsWindow,
+  TestDiscovery,
+  TestTrustStatus,
   Worktree,
 } from '@midnite/git-shared';
 import { useMutation, useQuery, useQueryClient, type QueryClient } from '@tanstack/react-query';
@@ -139,6 +141,9 @@ export const keys = {
   diagTrust: (repoId: string) => ['repos', repoId, 'diag', 'trust'] as const,
   diagDetect: (repoId: string) => ['repos', repoId, 'diag', 'detect'] as const,
   diagRun: (repoId: string) => ['repos', repoId, 'diag', 'run'] as const,
+  testsDiscover: (repoId: string) => ['repos', repoId, 'tests', 'discover'] as const,
+  testsTrust: (repoId: string, suiteId: string) =>
+    ['repos', repoId, 'tests', 'trust', suiteId] as const,
 };
 
 /**
@@ -721,3 +726,94 @@ const NO_DIAG_BRIDGE: DiagnosticsRun = {
   reason: 'no-command',
   hint: 'Diagnostics are unavailable here.',
 };
+
+// --- repository tests (Phase 19) ---------------------------------------------
+
+const EMPTY_DISCOVERY = (repoId: string): TestDiscovery => ({ repoId, packages: [], generatedAt: 0 });
+const NO_TEST_TRUST: TestTrustStatus = { state: 'untrusted', trustedAt: null };
+
+/** Suites this checkout declares. Safe unprompted — discovery runs nothing. */
+export function useTestDiscovery(repoId: string | null) {
+  return useQuery<TestDiscovery>({
+    queryKey: keys.testsDiscover(repoId ?? ''),
+    queryFn: async () => {
+      const api = bridge();
+      if (!api || !repoId) return EMPTY_DISCOVERY(repoId ?? '');
+      return api.tests.discover({ repoId });
+    },
+    enabled: repoId !== null,
+    // Matches the discovery cache's own TTL — asking more often than that
+    // buys nothing, since main answers from the same cached pass.
+    staleTime: 60_000,
+  });
+}
+
+export function useRefreshTestDiscovery(repoId: string | null) {
+  const client = useQueryClient();
+  return () => {
+    if (!repoId) return;
+    void client.invalidateQueries({ queryKey: keys.testsDiscover(repoId) });
+  };
+}
+
+/** Whether one suite is trusted to run, and whether the grant still applies. */
+export function useTestTrustStatus(repoId: string | null, suiteId: string | null) {
+  return useQuery<TestTrustStatus>({
+    queryKey: keys.testsTrust(repoId ?? '', suiteId ?? ''),
+    queryFn: async () => {
+      const api = bridge();
+      if (!api || !repoId || !suiteId) return NO_TEST_TRUST;
+      return api.tests.trustStatus({ repoId, suiteId });
+    },
+    enabled: repoId !== null && suiteId !== null,
+    staleTime: Infinity,
+  });
+}
+
+/** Approve one suite. The caller must have shown the user its literal command. */
+export function useTrustTestSuite(repoId: string | null) {
+  const client = useQueryClient();
+  return useMutation({
+    mutationFn: async ({ suiteId, fingerprint }: { suiteId: string; fingerprint: string }) => {
+      const api = bridge();
+      if (!api || !repoId) return NO_TEST_TRUST;
+      return api.tests.trust({ repoId, suiteId, fingerprint });
+    },
+    onSuccess: (status, { suiteId }) => {
+      if (repoId) client.setQueryData(keys.testsTrust(repoId, suiteId), status);
+    },
+  });
+}
+
+export function useUntrustTestSuite(repoId: string | null) {
+  const client = useQueryClient();
+  return useMutation({
+    mutationFn: async (suiteId: string) => {
+      const api = bridge();
+      if (!api || !repoId) return NO_TEST_TRUST;
+      return api.tests.untrust({ repoId, suiteId });
+    },
+    onSuccess: (status, suiteId) => {
+      if (repoId) client.setQueryData(keys.testsTrust(repoId, suiteId), status);
+    },
+  });
+}
+
+/**
+ * Start a trusted suite. Resolves with a run id immediately — the run itself
+ * plays out on `tests.onOutput`/`tests.onResult`, which `tests-store.ts`
+ * subscribes to once, in the Tests view.
+ */
+export function useRunTestSuite(repoId: string | null) {
+  return useMutation({
+    mutationFn: async (suiteId: string) => {
+      const api = bridge();
+      if (!api || !repoId) return { ok: false as const, reason: 'no bridge' };
+      return api.tests.run({ repoId, suiteId });
+    },
+  });
+}
+
+export function useCancelTestRun() {
+  return (runId: string) => bridge()?.tests.cancel({ runId });
+}
