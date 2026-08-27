@@ -18,6 +18,7 @@ const reset = () =>
     selectedRepoId: null,
     selectedWorktreePath: null,
     selectedCommitSha: null,
+    reposOpen: true,
     terminalOpen: false,
     terminalMaximized: false,
     terminalSidebarSide: 'right',
@@ -59,6 +60,16 @@ describe('useUiStore', () => {
     expect(useUiStore.getState().terminalOpen).toBe(true);
     useUiStore.getState().toggleTerminal();
     expect(useUiStore.getState().terminalOpen).toBe(false);
+  });
+
+  // Open by default, unlike the terminal: it is the app's primary object list,
+  // so the toggle's first press must HIDE it rather than reveal it.
+  it('toggles the repositories sidebar, starting from shown', () => {
+    expect(useUiStore.getState().reposOpen).toBe(true);
+    useUiStore.getState().toggleRepos();
+    expect(useUiStore.getState().reposOpen).toBe(false);
+    useUiStore.getState().toggleRepos();
+    expect(useUiStore.getState().reposOpen).toBe(true);
   });
 });
 
@@ -215,6 +226,16 @@ describe('persistence', () => {
     expect(saved.state.terminalOpen).toBe(true);
     expect(saved.state.terminalMaximized).toBe(true);
     expect(saved.state.terminalSidebarSide).toBe('left');
+  });
+
+  it('persists a hidden repositories sidebar, so it stays hidden across a restart', () => {
+    useUiStore.getState().setReposOpen(false);
+
+    const saved = JSON.parse(localStorage.getItem('midnite-git.ui') ?? '{}') as {
+      state: Record<string, unknown>;
+    };
+
+    expect(saved.state.reposOpen).toBe(false);
   });
 
   it('clears the ref filter when the repo changes', () => {
