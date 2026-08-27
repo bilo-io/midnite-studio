@@ -1,6 +1,6 @@
 import type { AgentDefinition, TerminalSession } from '@midnite/git-shared';
 import { Terminal, X } from 'lucide-react';
-import { LuChevronRight, LuPencil } from 'react-icons/lu';
+import { LuChevronRight } from 'react-icons/lu';
 
 import { useDialogs } from '../../components/dialog-host';
 import { IconButton } from '../../components/icon-button';
@@ -144,6 +144,14 @@ function SessionRow({
         type="button"
         className="flex min-w-0 flex-1 items-center gap-1 text-left"
         onClick={() => useTerminalStore.getState().setActive(session.id)}
+        /*
+          The rename gesture, and now the only one on the row itself — a hover
+          pencil sat here too until it was removed. Double-click IS how a name
+          in a list gets edited (Finder, VS Code's tabs, a spreadsheet cell), so
+          the button was a second control for a thing the row already did, and
+          it cost the row width every session paid for and few needed. The
+          context menu keeps the discoverable, keyboard-reachable route.
+        */
         onDoubleClick={rename}
       >
         <SessionIcon agent={agent} live={live} />
@@ -174,14 +182,6 @@ function SessionRow({
         — a blinking caret on either would be an invented signal.
       */}
       {session.kind === 'agent' && live ? <ActivityIndicator activity={activity} /> : null}
-
-      <IconButton
-        icon={LuPencil}
-        label="Rename session"
-        size="sm"
-        className="opacity-0 group-hover:opacity-100"
-        onClick={rename}
-      />
 
       <StateDot state={state} />
 

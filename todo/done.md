@@ -2152,3 +2152,20 @@ Known-red, and red before this too: `repos-workbench.spec.ts`'s folded-row test 
 second assertion (`pill.x` past the row's midpoint) on `main` and here alike. The e2e suite is
 deliberately outside the `:test` gate; it stands at 20 failures on both sides of this change, with
 the four new ones green.
+
+## 2026-08-27 — The terminal session list drops its rename pencil
+
+The hover pencil on each session row is gone. Double-click already renames — it is how a name
+in a list is edited everywhere else (Finder, VS Code's tabs, a spreadsheet cell) — so the button
+was a second control for something the row already did, and the context menu keeps the
+discoverable and keyboard-reachable route alongside "Reset to detected name".
+
+It was not free to keep. `opacity-0` hides a button but does not take it out of the flow, so the
+pencil cost every row ~22px of layout width whether or not anyone hovered — in a list whose
+default is 176px, and whose rows carry a repo name, a separator, the session's own name, an
+activity indicator, a state dot and a close button. The session name is the part that tells two
+Claude sessions apart and the part that truncates first, so those pixels went to the one thing
+on the row that most needed them.
+
+`rename` itself is untouched; only the third way to reach it is gone. The `LuPencil` import went
+with it, and no test referenced the control.
