@@ -12,6 +12,20 @@ import type { Page } from '@playwright/test';
  * close over anything from the test file.
  */
 export type MockFixtures = {
+  /**
+   * Hold every `forge.*` answer this long, in milliseconds.
+   *
+   * Zero — the default — leaves the bridge exactly as it was: the wrapper is
+   * skipped entirely rather than resolving a zero-length timer, so no existing
+   * spec changes shape or timing.
+   *
+   * It exists because a loading state is otherwise unphotographable. Real `gh`
+   * calls are subprocesses and the mock answers in the same tick, so the
+   * skeletons the Reviews view draws between those two moments never render at
+   * all under test — they cannot be screenshotted, and a regression that
+   * deleted them would pass every spec. See `reviews-loading-shots.spec.ts`.
+   */
+  forgeLatencyMs?: number;
   /** Keyed by `${sha}:${path}` for commit diffs, and `wt:${path}` for worktree ones. */
   diffs: Record<string, unknown>;
   /**
@@ -261,6 +275,27 @@ export type MockFixtures = {
 
 export async function installMockBridge(page: Page, fixtures: MockFixtures): Promise<void> {
   await page.addInitScript((data: MockFixtures) => {
+    /*
+      Every method on an api object, held for `forgeLatencyMs` before it
+      answers. Applied to the whole `forge` namespace at once rather than to
+      the handful of reads a loading spec happens to need, so a call added
+      later is slow too without anyone remembering to wrap it.
+    */
+    const latency = data.forgeLatencyMs ?? 0;
+    const slowed = <T extends object>(api: T): T => {
+      if (latency <= 0) return api;
+      const entries = Object.entries(api as Record<string, unknown>).map(([name, value]) => [
+        name,
+        typeof value === 'function'
+          ? async (...args: unknown[]) => {
+              await new Promise((resolve) => setTimeout(resolve, latency));
+              return (value as (...rest: unknown[]) => unknown)(...args);
+            }
+          : value,
+      ]);
+      return Object.fromEntries(entries) as T;
+    };
+
     const noop = () => undefined;
     const unsubscribe = () => noop;
     const ok = async () => ({ ok: true as const });
@@ -444,7 +479,7 @@ export async function installMockBridge(page: Page, fixtures: MockFixtures): Pro
         The protocol allow-list itself is enforced in main and unit-tested there;
         what this can show is that the renderer only ever asks for https URLs.
       */
-      forge: {
+      forge: slowed({
         cliStatus: async () => forgeCli(),
         runs: async () => ({ cli: forgeCli(), runs: data.forge?.runs ?? [], error: forgeError() }),
         pulls: async () => ({
@@ -668,7 +703,7 @@ export async function installMockBridge(page: Page, fixtures: MockFixtures): Pro
           recordWrite('runRerun', req);
           return writeResult(writeError() === null);
         },
-      },
+      }),
       /*
         One payload, echoing back the window it was asked for.
 

@@ -2010,3 +2010,38 @@ used (an alpha channel on the plain pane background reads as a solid dark shape 
 detail worth seeing), and the natural dimensions in the header. Both come from the diff
 viewer's own module rather than a copy, so the two surfaces cannot drift on what a picture sits
 on.
+
+## 2026-08-27 — The Reviews view draws the shape of what it is fetching
+
+Every wait in the view was a sentence in the middle of an empty pane — "Asking GitHub…",
+"Reading the diff…", "Reading the conversation…". Each threw away a layout the app already
+knew, so the pane sat blank and then everything landed at once and jumped.
+
+`components/skeleton.tsx` adds the two marks and, more usefully, the rule for choosing between
+them: a skeleton stands in for content that is not on screen yet and whose shape is known; a
+spinner belongs where content *is* on screen and something is happening to it — a write in
+flight, a refetch behind a list that still shows the last answer. `LoadingRegion` keeps the
+prose those placeholders used to show as an `sr-only` status, so the bars can be `aria-hidden`
+and a screen reader hears "Reading the diff…" instead of "div div div".
+
+`reviews-skeletons.tsx` holds every pane's outline in one module rather than beside each
+component. What makes them work is being the same geometry as the panes they replace — same
+padding, same row heights, same borders — and that only stays true if they are read together;
+a skeleton kept next to its component drifts from it one padding change at a time. Widths are
+constants, never random: a random width is a diff in every screenshot and a flicker on every
+re-render while the fetch is still out.
+
+The ordering matters more than the bars. Anything the app can actually assert — an empty list,
+filters matching nothing, a signed-out CLI, an error — is still prose, and every caller checks
+for those *before* reaching for a skeleton. That is what lets a grey bar mean "still asking"
+rather than "nothing here". Spinners go on the four in-flight writes (comment, review submit,
+request review, merge) and on the list's own refresh, where the rows behind the fetch are good
+and must not be blanked out.
+
+None of it was photographable or testable: the mock bridge answers in the same tick it is
+asked, so the skeletons lived for zero frames and a change deleting them would have passed the
+whole suite. `forgeLatencyMs` holds every forge answer — the whole namespace, so a call added
+later is slow too, and zero skips the wrapper entirely so no existing spec changes timing.
+`reviews-loading-shots.spec.ts` asserts each `sr-only` status and photographs seven states into
+`docs/screenshots/phase-20-reviews-loading/`. The shots settle animations first; without that
+they caught the shell mid-fade and came out as a washed-out grey page showing none of the work.
