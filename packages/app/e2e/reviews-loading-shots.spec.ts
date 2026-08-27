@@ -112,6 +112,15 @@ async function openReviews(page: Page): Promise<void> {
   */
   await page.getByRole('link', { name: 'Reviews' }).click();
   /*
+    Every scope group starts collapsed, and a collapsed group issues no query —
+    so the list pane has no loading state to photograph until one is opened.
+    Opening it is what puts the held `gh pr list` in flight.
+  */
+  await page
+    .getByTestId('reviews-groups')
+    .getByRole('button', { name: 'All Pull Requests' })
+    .click();
+  /*
     Off the rail. The click leaves the pointer resting on the nav rail, which
     hover-expands into a flyout over the sidebar — and since `shoot` settles
     animations, that flyout is fully open in every screenshot rather than
@@ -131,9 +140,10 @@ async function openReviews(page: Page): Promise<void> {
  * first and then fails on the header rather than on anything real.
  */
 function prRow(page: Page, title: string) {
-  return page.getByRole('list', { name: 'Pull requests' }).getByRole('button', {
-    name: new RegExp(title),
-  });
+  return page
+    .getByTestId('reviews-groups')
+    .getByRole('list', { name: 'All Pull Requests' })
+    .getByRole('button', { name: new RegExp(title) });
 }
 
 /**

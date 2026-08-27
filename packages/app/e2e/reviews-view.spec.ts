@@ -111,7 +111,24 @@ const base: MockFixtures = {
   },
 };
 
-const pulls = (page: Page) => page.getByRole('list', { name: 'Pull requests' });
+/**
+ * The list pane, and only the list pane.
+ *
+ * The sidebar carries its own copy of the same three groups, with the same
+ * headings, and a collapsed `TreeSection` is still in the DOM — so an unscoped
+ * locator is ambiguous rather than wrong. `reviews-groups` is the view's own
+ * container, which is why it has a test id at all.
+ */
+const groups = (page: Page) => page.getByTestId('reviews-groups');
+
+/** The rows of one scope group, once it is open. */
+const pulls = (page: Page, group = 'All Pull Requests') =>
+  groups(page).getByRole('list', { name: group });
+
+/** Open one scope group — which is also what makes it fetch. */
+async function expandGroup(page: Page, title = 'All Pull Requests'): Promise<void> {
+  await groups(page).getByRole('button', { name: title }).click();
+}
 
 async function goToReviews(page: Page, data: MockFixtures = base): Promise<void> {
   await installMockBridge(page, data);
@@ -127,8 +144,52 @@ test('the Reviews nav item is hidden for a repository with no GitHub remote', as
   await expect(page.getByRole('link', { name: 'Reviews' })).toHaveCount(0);
 });
 
+test('every group starts collapsed, and expanding one is what loads it', async ({ page }) => {
+  await goToReviews(page);
+
+  // All three headings are there; none of them has a listing under it yet.
+  for (const title of ['My Requests', 'Awaiting My Review', 'All Pull Requests']) {
+    await expect(groups(page).getByRole('button', { name: title })).toBeVisible();
+  }
+  await expect(groups(page).getByRole('list')).toHaveCount(0);
+  await expect(page.getByText('Open one of the groups on the left')).toBeVisible();
+
+  await expandGroup(page);
+  await expect(pulls(page)).toBeVisible();
+});
+
+test('each group is its own listing, and shows only its own scope', async ({ page }) => {
+  await goToReviews(page, {
+    ...base,
+    forge: {
+      ...base.forge,
+      /*
+        Deliberately disjoint from `pulls`: if the groups shared one query — or
+        one cache key — whichever expanded first would serve its rows to the
+        others, and only fixtures that disagree can show that they do not.
+      */
+      pullsByScope: {
+        mine: [pull({ number: 201, title: 'Mine to land', author: 'bilo' })],
+        'review-requested': [pull({ number: 202, title: 'Yours to read', author: 'ana' })],
+      },
+    },
+  });
+
+  await expandGroup(page, 'My Requests');
+  await expect(pulls(page, 'My Requests').getByText('Mine to land')).toBeVisible();
+  await expect(pulls(page, 'My Requests').getByText('Yours to read')).toHaveCount(0);
+
+  await expandGroup(page, 'Awaiting My Review');
+  await expect(pulls(page, 'Awaiting My Review').getByText('Yours to read')).toBeVisible();
+  await expect(pulls(page, 'Awaiting My Review').getByText('Mine to land')).toHaveCount(0);
+
+  // And the first group is still showing its own answer, not the second's.
+  await expect(pulls(page, 'My Requests').getByText('Mine to land')).toBeVisible();
+});
+
 test('the default Open tab excludes drafts, merged and closed PRs', async ({ page }) => {
   await goToReviews(page);
+  await expandGroup(page);
   await expect(pulls(page)).toBeVisible();
 
   await expect(pulls(page).getByText('Add reviews list')).toBeVisible();
@@ -139,6 +200,7 @@ test('the default Open tab excludes drafts, merged and closed PRs', async ({ pag
 
 test('status tabs narrow the list to each state', async ({ page }) => {
   await goToReviews(page);
+  await expandGroup(page);
 
   await page.getByRole('tab', { name: 'All' }).click();
   for (const title of ['Add reviews list', 'WIP: highlight diffs', 'Fix flaky test', 'Drop dead code']) {
@@ -160,6 +222,7 @@ test('status tabs narrow the list to each state', async ({ page }) => {
 
 test('the author filter and the search box narrow the list together', async ({ page }) => {
   await goToReviews(page);
+  await expandGroup(page);
   await page.getByRole('tab', { name: 'All' }).click();
 
   await page.getByRole('button', { name: 'All authors' }).click();
@@ -182,6 +245,7 @@ test('a repository with gh signed out shows the hint, not an empty list', async 
     ...base,
     forge: { ...base.forge, cli: { reason: 'not-authenticated', hint: 'Run `gh auth login`…' } },
   });
+  await expandGroup(page);
   // The sidebar's own (collapsed) Reviews section carries the identical hint,
   // so this is deliberately `.first()` rather than a stricter single-match.
   await expect(page.getByText('Run `gh auth login`…').first()).toBeVisible();
@@ -196,11 +260,20 @@ test('the sidebar Reviews row opens the Reviews view rather than a workbench tab
   await expect(page.getByRole('heading', { name: 'Worktrees' })).toBeVisible();
 
   await page.getByRole('button', { name: 'Reviews', exact: true }).click();
+  await page.getByRole('button', { name: 'All Pull Requests', exact: true }).click();
   await page.getByText('Add reviews list').first().click();
 
-  // Landed on the Reviews VIEW's own list — a workbench tab would render the
-  // read-only `ReviewView` summary card instead, which has no such landmark.
-  await expect(pulls(page)).toBeVisible();
+  /*
+    Landed on the Reviews VIEW — a workbench tab would render the read-only
+    `ReviewView` summary card instead, which has neither of these landmarks.
+
+    The view's own groups are all still collapsed, and deliberately so: the
+    sidebar row carried a SELECTION, not a listing, and `PrDetail` fetches the
+    pull request by number. Arriving with a PR open and no list loaded is the
+    normal path, not a gap — so the assertion is the pane, not its rows.
+  */
+  await expect(groups(page)).toBeVisible();
+  await expect(page.getByRole('region', { name: 'Pull request #101' })).toBeVisible();
 });
 
 test('the Reviews view narrows the sidebar to Reviews and Worktrees, with the escape hatch intact', async ({

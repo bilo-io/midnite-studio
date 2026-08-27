@@ -15,6 +15,7 @@ import {
   ForgePullCommentsResultSchema,
   ForgePullDetailResultSchema,
   ForgePullFilesResultSchema,
+  ForgePullScopeSchema,
   ForgePullsResultSchema,
   ForgePullThreadsResultSchema,
   ForgeReviewEventSchema,
@@ -296,6 +297,15 @@ export const ForgeRunsResponse = ForgeRunsResultSchema;
  */
 export const ForgePullsRequest = ForgeListRequest.extend({
   state: z.enum(['open', 'closed', 'merged', 'all']).default('open'),
+  /**
+   * Which slice to ask for — `all` keeps Phase 17's contract exactly.
+   *
+   * Defaulted rather than required so every caller written before the Reviews
+   * groups landed still means what it meant: the dashboard widget and the
+   * `PrDetail` header both want the repository's pull requests, not the
+   * viewer's, and neither should have to say so.
+   */
+  scope: ForgePullScopeSchema.default('all'),
 });
 export const ForgePullsResponse = ForgePullsResultSchema;
 

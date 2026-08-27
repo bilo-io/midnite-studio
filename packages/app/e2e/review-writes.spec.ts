@@ -126,6 +126,9 @@ async function openPull(
   await expect(page.getByRole('heading', { name: 'Worktrees' })).toBeVisible();
 
   await page.getByRole('button', { name: 'Reviews', exact: true }).click();
+  // The section is a heading over three lazy scopes now — the rows live under
+  // one of them, and nothing is fetched until that one is opened.
+  await page.getByRole('button', { name: 'All Pull Requests', exact: true }).click();
   await page.getByText('Teach the app to review', { exact: true }).click();
   /*
     The list's status tab has to agree with the PR, or nothing opens.
@@ -167,7 +170,12 @@ test('the Settings switch is what turns the actions on', async ({ page }) => {
   await expect(consent).not.toBeChecked();
   await consent.check();
 
-  await page.getByRole('button', { name: 'Reviews', exact: true }).click();
+  /*
+    Straight back to the row — the sidebar was never unmounted, so its Reviews
+    section and the All Pull Requests group inside it are still open from
+    `openPull`. Toggling them again would only fold them, and `Reviews` is no
+    longer an unambiguous name while Settings is showing a page by that name.
+  */
   await page.getByText('Teach the app to review', { exact: true }).click();
   await expect(page.getByRole('button', { name: 'Approve' })).toBeEnabled();
   await expect(page.getByRole('button', { name: 'Merge' })).toBeEnabled();

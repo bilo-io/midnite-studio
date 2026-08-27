@@ -102,6 +102,19 @@ export type MockFixtures = {
     cli?: { reason: 'ready' | 'not-installed' | 'not-authenticated'; hint?: string };
     runs?: unknown[];
     pulls?: unknown[];
+    /**
+     * Per-scope `gh pr list` answers, for the Reviews groups.
+     *
+     * A scope with no entry falls back to `pulls`, so every spec written before
+     * the groups landed still gets the listing it seeded — and a spec that
+     * cares which group a PR shows up in seeds only the scopes it is about.
+     *
+     * Explicit fixtures rather than a filter over `pulls`, because two of the
+     * three scopes are not derivable from a `ForgePull`: `mine` needs to know
+     * who the viewer is, and `review-requested` is a fact the listing shape
+     * does not carry at all. `gh` resolves both server-side against `@me`.
+     */
+    pullsByScope?: Partial<Record<'all' | 'mine' | 'review-requested', unknown[]>>;
     issues?: unknown[];
     /**
      * The repository has its issue tracker switched off.
@@ -482,9 +495,9 @@ export async function installMockBridge(page: Page, fixtures: MockFixtures): Pro
       forge: slowed({
         cliStatus: async () => forgeCli(),
         runs: async () => ({ cli: forgeCli(), runs: data.forge?.runs ?? [], error: forgeError() }),
-        pulls: async () => ({
+        pulls: async (req: { scope?: 'all' | 'mine' | 'review-requested' }) => ({
           cli: forgeCli(),
-          pulls: data.forge?.pulls ?? [],
+          pulls: data.forge?.pullsByScope?.[req.scope ?? 'all'] ?? data.forge?.pulls ?? [],
           error: forgeError(),
         }),
         issues: async () => ({
