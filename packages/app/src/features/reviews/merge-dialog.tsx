@@ -93,7 +93,7 @@ export function MergeDialog({
 
   return (
     <div
-      className="fixed inset-0 z-50 flex items-center justify-center bg-background/70 p-6"
+      className="fixed inset-0 z-dialog flex items-center justify-center bg-background/70 p-6"
       role="dialog"
       aria-modal="true"
       aria-label={`Merge pull request #${pullNumber}`}
