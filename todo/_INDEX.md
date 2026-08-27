@@ -20,7 +20,7 @@ Completed work is logged append-only in [`done.md`](done.md). Deferred scope liv
 
 | Phase | Status | Done | Progress | % | 🔄 WIP | ◻ TODO |
 |-------|--------|------|----------|---|--------|--------|
-| [21 · Agent roster + terminal identity](phase-21-agent-roster-and-terminal-identity.md) | 🔄 WIP | 0/46 | `░░░░░░░░░░` | 0% | F | A B C D E |
+| [21 · Agent roster + terminal identity](phase-21-agent-roster-and-terminal-identity.md) | 🔄 WIP | 0/46 | `░░░░░░░░░░` | 0% | A B C F | D E |
 | [20 · Reviews page & unified diff syntax highlighting](phase-20-reviews-page.md) | 🔄 WIP | 42/44 | `██████████` | 95% | — | 2 manual checks |
 | [19 · Dashboard, Actions and Tests as views](phase-19-dashboard-actions-tests.md) | 🔄 WIP | 73/76 | `██████████` | 96% | — | 3 manual checks |
 | [18 · Footer system monitor + repo diagnostics](phase-18-footer-monitor-diagnostics.md) | 🔄 WIP | 51/54 | `█████████░` | 94% | — | 3 manual checks |
@@ -57,11 +57,11 @@ stop hard-coding Claude (the session-list mark, the `+` menu); D and E are the l
 terminal that knows where it is (OSC 7) and what is running in it (a process probe in main); F is
 the header those two finally give something true to say.*
 
-- ◻ **A** — `AgentDefinitionSchema` gains `icon` and `install`; `BUILTIN_AGENTS` grows to four real
+- 🔄 **A** — `AgentDefinitionSchema` gains `icon` and `install`; `BUILTIN_AGENTS` grows to four real
   terminal agents (Claude Code `claude`, Antigravity `agy`, Codex `codex`, OpenClaude `openclaude`)
-- ◻ **B** — three new local brand SVGs beside `claude-icon.tsx` plus an `AGENT_ICONS` registry, so
+- 🔄 **B** — three new local brand SVGs beside `claude-icon.tsx` plus an `AGENT_ICONS` registry, so
   `SessionIcon` resolves a mark from the roster instead of hard-coding `<ClaudeIcon>`
-- ◻ **C** — the `+` menu goes flat and iconned (New Terminal / Claude Code / Antigravity / Codex /
+- 🔄 **C** — the `+` menu goes flat and iconned (New Terminal / Claude Code / Antigravity / Codex /
   OpenClaude), with a main-side install probe — resolving against the *login shell's* PATH, not
   Electron's — disabling what is missing and saying why
 - ◻ **D** — OSC 7 live cwd tracking, `liveCwd` in the terminal store, and a cwd→repo/worktree
@@ -71,8 +71,7 @@ the header those two finally give something true to say.*
 - 🔄 **F** — the header loses the word "Terminal": a glyph, the status circle, then a `~`-collapsed
   path with the repo segment emphasised and left-truncation
 
-*Open: nothing claimed yet — A is the spine and lands first; B/C and D/E/F are then two independent
-tracks.*
+*Open: A B C claimed (roster + marks + the `+` menu); F claimed separately. D and E remain.*
 
 ### [Phase 20 — Reviews page & unified diff syntax highlighting](phase-20-reviews-page.md)
 
