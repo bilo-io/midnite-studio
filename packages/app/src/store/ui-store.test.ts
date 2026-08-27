@@ -419,7 +419,7 @@ describe('the midnite menu\'s skills', () => {
 
     useUiStore.getState().setAgentSkill('exec', '/exec-issue');
 
-    // One entry moves; the other three are untouched.
+    // One entry moves; the other four are untouched.
     expect(useUiStore.getState().agentSkills).toEqual({
       ...DEFAULT_AGENT_SKILLS,
       exec: '/exec-issue',
@@ -442,7 +442,7 @@ describe('the midnite menu\'s skills', () => {
     /*
       The reason `merge` re-spreads this record. zustand's default shallow merge
       would replace the whole object with the stored one, and a payload written
-      before a fifth entry existed carries no key for it — which reaches the
+      before a later entry existed carries no key for it — which reaches the
       shell as `claude 'undefined'`, a prompt rather than a crash.
     */
     const merged = useUiStore.persist.getOptions().merge?.(
