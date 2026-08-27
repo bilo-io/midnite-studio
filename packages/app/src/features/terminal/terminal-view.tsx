@@ -6,6 +6,7 @@ import '@xterm/xterm/css/xterm.css';
 import { useCallback, useEffect, useRef, useState } from 'react';
 
 import { shouldEscapeTerminal } from '../../services/keybindings/use-keybindings';
+import { createShellLineState, detectActivity, trackShellCommand } from './activity-detect';
 import { useTerminalStore } from './terminal-store';
 import { useTerminalIpc } from './use-terminal-ipc';
 
@@ -88,9 +89,26 @@ export function TerminalView({
   const fitRef = useRef<FitAddon | null>(null);
   const [ready, setReady] = useState(false);
 
-  const write = useCallback((bytes: Uint8Array) => {
-    termRef.current?.write(bytes);
-  }, []);
+  // Output-side state for the activity guess: a persistent decoder because a
+  // multi-byte UTF-8 character can land split across two pty chunks, and
+  // `{ stream: true }` is what keeps the trailing half from decoding as
+  // replacement characters.
+  const decoderRef = useRef<TextDecoder>(new TextDecoder());
+  // Input-side state for a shell session's last-typed command.
+  const shellLineRef = useRef(createShellLineState());
+
+  const write = useCallback(
+    (bytes: Uint8Array) => {
+      termRef.current?.write(bytes);
+      // Only an agent has a status footer worth reading; a plain shell's own
+      // output is arbitrary program text and would false-positive constantly.
+      if (session.kind !== 'agent') return;
+      const text = decoderRef.current.decode(bytes, { stream: true });
+      const activity = detectActivity(text);
+      if (activity) useTerminalStore.getState().setActivity(session.id, activity);
+    },
+    [session.id, session.kind],
+  );
 
   const { connectionState, error, start, sendInput, sendResize } = useTerminalIpc(session, write);
 
@@ -124,6 +142,22 @@ export function TerminalView({
       // long build log, which is exactly the part you want.
       scrollback: 10_000,
     });
+
+    /**
+     * An agent's own idea of its session name, when it sets one.
+     *
+     * xterm parses the OSC 0/2 "set window title" sequence out of the byte
+     * stream itself and fires this regardless of whether anything on screen
+     * looks like a terminal tab — it costs nothing to listen for on a session
+     * that never sends one, which degrades to the roster label fallback.
+     */
+    const titleSub =
+      session.kind === 'agent'
+        ? term.onTitleChange((title) => {
+            const trimmed = title.trim();
+            if (trimmed) useTerminalStore.getState().setAutoName(session.id, trimmed);
+          })
+        : null;
 
     /**
      * Which keystrokes escape the terminal.
@@ -222,6 +256,12 @@ export function TerminalView({
       dataSub = term.onData((data) => {
         if (stateRef.current === 'open') {
           sendInputRef.current(data);
+          // A plain shell has no title escape of its own, so the best guess
+          // at what it is doing is the last thing the user typed at it.
+          if (session.kind === 'shell') {
+            const command = trackShellCommand(shellLineRef.current, data);
+            if (command) useTerminalStore.getState().setAutoName(session.id, command);
+          }
           return;
         }
         if (stateRef.current === 'starting' || stateRef.current === 'unavailable') return;
@@ -275,13 +315,16 @@ export function TerminalView({
       observer.disconnect();
       document.removeEventListener('visibilitychange', onVisibilityChange);
       dataSub?.dispose();
+      titleSub?.dispose();
       term.dispose();
       termRef.current = null;
       fitRef.current = null;
       setReady(false);
     };
     // One xterm per session, built once: `session.id` is the only dep that can
-    // legitimately rebuild it.
+    // legitimately rebuild it. `session.kind` is read here too, but it never
+    // changes for a session's lifetime, so it needs no entry of its own.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [session.id]);
 
   // Re-theme in place rather than recreating the terminal - a rebuild would

@@ -17,10 +17,22 @@ import { bridge } from '../../services/bridge';
  */
 export type ConnectionState = 'idle' | 'starting' | 'open' | 'exited' | 'unavailable';
 
+/**
+ * What a live agent session appears to be doing, guessed from its own output.
+ *
+ * There is no channel that tells the app this directly — an agent CLI is just
+ * a process writing bytes — so it is inferred from the same markers a human
+ * reads off the screen: the "esc to interrupt" hint means it is generating,
+ * and the prompt box reappearing means it is back waiting on you.
+ */
+export type SessionActivity = 'thinking' | 'waiting';
+
 export type NewSessionRequest = {
   kind: TerminalSessionKind;
   agentId?: string;
   title: string;
+  /** An initial session name — e.g. the lifecycle action that opened it. */
+  name?: string;
   cwd: string;
   repoId: string;
 };
@@ -49,6 +61,17 @@ type TerminalState = {
    * pressing Enter is the confirmation, so the app never runs it itself.
    */
   pendingInput: Record<string, string>;
+  /**
+   * A guessed session name, per session — from the shell's own OSC title for
+   * an agent, or the last command typed into a plain shell.
+   *
+   * Runtime only, never persisted: it is a live guess about a running process,
+   * not something the user chose. `session.name` (persisted) always wins where
+   * both exist — see `sessionLabel`.
+   */
+  autoNames: Record<string, string>;
+  /** What a live agent session looks to be doing right now; absent otherwise. */
+  activity: Record<string, SessionActivity>;
 
   hydrate: () => Promise<void>;
   openSession: (request: NewSessionRequest) => TerminalSession;
@@ -58,6 +81,10 @@ type TerminalState = {
   closeSession: (sessionId: string) => void;
   setActive: (sessionId: string) => void;
   reorder: (sessionIds: string[]) => void;
+  /** The user's own name for a session — persisted. `undefined` clears it. */
+  renameSession: (sessionId: string, name: string | undefined) => void;
+  setAutoName: (sessionId: string, name: string) => void;
+  setActivity: (sessionId: string, activity: SessionActivity | undefined) => void;
 
   bindPty: (sessionId: string, ptyId: string) => void;
   unbindPty: (sessionId: string) => void;
@@ -82,6 +109,8 @@ export const useTerminalStore = create<TerminalState>()((set, get) => ({
   replay: {},
   errors: {},
   pendingInput: {},
+  autoNames: {},
+  activity: {},
 
   /**
    * Load the saved sessions. Spawns nothing.
@@ -141,6 +170,7 @@ export const useTerminalStore = create<TerminalState>()((set, get) => ({
       kind: request.kind,
       ...(request.agentId === undefined ? {} : { agentId: request.agentId }),
       title: request.title,
+      ...(request.name === undefined ? {} : { name: request.name }),
       cwd: request.cwd,
       repoId: request.repoId,
       createdAt: Date.now(),
@@ -197,6 +227,37 @@ export const useTerminalStore = create<TerminalState>()((set, get) => ({
     bridge()?.terminal.reorder({ sessionIds });
   },
 
+  renameSession: (sessionId, name) => {
+    const session = get().sessions.find((s) => s.id === sessionId);
+    if (!session) return;
+    const trimmed = name?.trim();
+    const next: TerminalSession = trimmed
+      ? { ...session, name: trimmed }
+      : // Falls back through to `undefined` explicitly, so a rename to '' clears
+        // the override instead of persisting an empty string that would then
+        // out-rank the auto-detected name forever.
+        { ...session, name: undefined };
+    set((state) => ({
+      sessions: state.sessions.map((s) => (s.id === sessionId ? next : s)),
+    }));
+    bridge()?.terminal.save({ session: next });
+  },
+
+  setAutoName: (sessionId, name) =>
+    set((state) => {
+      if (state.autoNames[sessionId] === name) return state;
+      return { autoNames: { ...state.autoNames, [sessionId]: name } };
+    }),
+
+  setActivity: (sessionId, activity) =>
+    set((state) => {
+      if (state.activity[sessionId] === activity) return state;
+      const next = { ...state.activity };
+      if (activity === undefined) delete next[sessionId];
+      else next[sessionId] = activity;
+      return { activity: next };
+    }),
+
   bindPty: (sessionId, ptyId) =>
     set((state) => {
       // The saved transcript retires here: a live shell now owns that screen,
@@ -237,25 +298,39 @@ function nextActiveId(sessions: TerminalSession[], closingId: string): string | 
 function dropKey(
   state: TerminalState,
   sessionId: string,
-): Pick<TerminalState, 'ptyIds' | 'states' | 'replay' | 'errors' | 'pendingInput'> {
+): Pick<
+  TerminalState,
+  'ptyIds' | 'states' | 'replay' | 'errors' | 'pendingInput' | 'autoNames' | 'activity'
+> {
   const ptyIds = { ...state.ptyIds };
   const states = { ...state.states };
   const replay = { ...state.replay };
   const errors = { ...state.errors };
   const pendingInput = { ...state.pendingInput };
+  const autoNames = { ...state.autoNames };
+  const activity = { ...state.activity };
   delete ptyIds[sessionId];
   delete states[sessionId];
   delete replay[sessionId];
   delete errors[sessionId];
   delete pendingInput[sessionId];
-  return { ptyIds, states, replay, errors, pendingInput };
+  delete autoNames[sessionId];
+  delete activity[sessionId];
+  return { ptyIds, states, replay, errors, pendingInput, autoNames, activity };
 }
 
 /**
- * A session's label: the repo name, disambiguated by agent.
+ * A session's own name — the part shown after the repo name in the terminal
+ * list, and the value a rename dialog seeds itself with.
  *
- * Kept out of the row itself so a repo rename shows up on existing sessions —
- * the stored `title` is a fallback for when the repo is no longer open.
+ * The user's own choice (`session.name`, persisted) always outranks the live
+ * guess (`autoName` — an agent's OSC title, or a shell's last command): once
+ * someone names a session, a guess from its output should not overwrite that
+ * choice. Absent both, an agent falls back to its roster label ("Claude")
+ * rather than the repo name repeated a second time.
  */
-export const sessionLabel = (session: TerminalSession, agentLabel?: string): string =>
-  session.kind === 'agent' ? `${agentLabel ?? 'Agent'} · ${session.title}` : session.title;
+export const sessionLabel = (
+  session: TerminalSession,
+  autoName: string | undefined,
+  agentLabel?: string,
+): string => session.name ?? autoName ?? agentLabel ?? 'Terminal';
