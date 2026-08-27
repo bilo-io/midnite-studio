@@ -8,15 +8,19 @@ import { Accordion } from '@bilo-io/ui';
 import { CLAUDE_COMMANDS, type ClaudeInfo } from '@midnite/git-shared';
 
 import { IconButton } from '../../../components/icon-button';
+import { MidniteIcon } from '../../../components/icons/midnite-icon';
 import { bridge, hasBridge } from '../../../services/bridge';
-import { useUiStore } from '../../../store/ui-store';
+import { DEFAULT_AGENT_SKILLS, useUiStore } from '../../../store/ui-store';
+import { AGENT_COMMANDS } from '../../agent/agent-commands';
 import { useTerminalStore } from '../../terminal/terminal-store';
 import { FileTree } from '../../files/file-tree';
 import { FilePreview } from '../../files/preview/file-preview';
+import { Field } from './controls';
 
 /**
- * The Agent page: what `~/.claude` holds, which Claude CLI is installed, and
- * the two maintenance actions with deliberately different postures —
+ * The Agent page: what `~/.claude` holds, which Claude CLI is installed, where
+ * the sidebar's midnite menu points, and the two maintenance actions with
+ * deliberately different postures —
  *
  * - **Update** runs in main and streams its output here (low blast radius).
  * - **Uninstall** is only ever PASTED into the integrated terminal, without a
@@ -45,6 +49,19 @@ export function AgentPage() {
         </div>
       </Accordion>
 
+      <Accordion title="midnite menu" icon={<MidniteIcon className="h-4 w-4" />} defaultOpen>
+        <div className="flex flex-col gap-4 p-3">
+          <p className="text-[11px] leading-relaxed text-muted-foreground">
+            What each entry of the sidebar&rsquo;s midnite menu types at a fresh Claude session.
+            Point one somewhere else and the menu follows — a skill is a file in your{' '}
+            <code>~/.claude</code>, not something this app ships, so it can be renamed or forked
+            without the menu knowing. Anything Claude accepts works: a slash command, a slash
+            command with arguments, or a plain sentence.
+          </p>
+          <SkillFields />
+        </div>
+      </Accordion>
+
       <Accordion title="~/.claude" icon={<LuFolderTree className="h-4 w-4" />} defaultOpen>
         <div className="flex flex-col gap-2 p-3">
           <p className="text-[11px] leading-relaxed text-muted-foreground">
@@ -53,6 +70,60 @@ export function AgentPage() {
           <ClaudeHomeTree />
         </div>
       </Accordion>
+    </div>
+  );
+}
+
+/**
+ * One text field per menu entry, in the menu's own order.
+ *
+ * Free text rather than a picker over the skills found on disk, and that is a
+ * deliberate trade: enumerating `~/.claude/skills` would catch a typo, but it
+ * would also refuse every legitimate value that is not a bare skill — a project
+ * skill in a repo the app has not opened, a command with arguments, a plain
+ * prompt. The failure mode of free text is visible and cheap: the menu opens a
+ * terminal with the command typed but NOT run, so a wrong value is something you
+ * read before pressing Return.
+ *
+ * The reset link appears only where the value has drifted from the default, so
+ * the row stays quiet for anyone who never changed it.
+ */
+function SkillFields() {
+  const skills = useUiStore((s) => s.agentSkills);
+  const setSkill = useUiStore((s) => s.setAgentSkill);
+
+  return (
+    <div className="flex flex-col gap-3">
+      {AGENT_COMMANDS.map(({ id, label, icon: Icon, hint }) => {
+        const value = skills[id];
+        const dirty = value !== DEFAULT_AGENT_SKILLS[id];
+        return (
+          <Field key={id} label={label} hint={hint}>
+            <div className="flex items-center gap-2">
+              {/* The menu's own glyph, so a field and its entry are the same thing. */}
+              <Icon aria-hidden className="h-3.5 w-3.5 shrink-0 text-muted-foreground" />
+              <input
+                type="text"
+                value={value}
+                spellCheck={false}
+                placeholder={DEFAULT_AGENT_SKILLS[id]}
+                aria-label={`Skill for ${label}`}
+                onChange={(event) => setSkill(id, event.target.value)}
+                className="h-7 min-w-0 flex-1 rounded border border-input bg-background px-2 font-mono text-xs outline-none focus-visible:border-primary"
+              />
+              {dirty ? (
+                <button
+                  type="button"
+                  onClick={() => setSkill(id, DEFAULT_AGENT_SKILLS[id])}
+                  className="h-7 shrink-0 rounded-md border border-border px-2 text-[11px] text-muted-foreground transition-colors hover:bg-accent hover:text-foreground"
+                >
+                  Reset
+                </button>
+              ) : null}
+            </div>
+          </Field>
+        );
+      })}
     </div>
   );
 }
