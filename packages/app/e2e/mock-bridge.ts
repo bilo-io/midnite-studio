@@ -859,6 +859,12 @@ export async function installMockBridge(page: Page, fixtures: MockFixtures): Pro
             exitHandlers.splice(exitHandlers.indexOf(handler), 1);
           };
         },
+        onAgentChanged: (handler: (e: { ptyId: string; agentId: string | null }) => void) => {
+          agentHandlers.push(handler);
+          return () => {
+            agentHandlers.splice(agentHandlers.indexOf(handler), 1);
+          };
+        },
       },
       /*
         Restored sessions come from the fixture, and the roster is the builtin
@@ -1214,6 +1220,15 @@ export async function installMockBridge(page: Page, fixtures: MockFixtures): Pro
     var dataHandlers: Array<(e: { ptyId: string; data: Uint8Array }) => void> = [];
     // eslint-disable-next-line no-var
     var exitHandlers: Array<(e: { ptyId: string; exitCode: number }) => void> = [];
+    /*
+      The live-agent probe's channel. There is no fake `ps` behind it: main's
+      matcher is unit-tested against captured process listings, and what a spec
+      needs here is the *renderer* half — that an event arriving on this channel
+      swaps the right session's mark, and that a `null` is a different thing from
+      never having heard.
+    */
+    // eslint-disable-next-line no-var
+    var agentHandlers: Array<(e: { ptyId: string; agentId: string | null }) => void> = [];
     /** Which session each live pty belongs to — a killed pty is deleted, not flagged. */
     // eslint-disable-next-line no-var
     var ptySessions: Record<string, string> = {};
@@ -1323,6 +1338,20 @@ export async function installMockBridge(page: Page, fixtures: MockFixtures): Pro
       // sequence that was never delivered — and pass for the wrong reason.
       if (!(ptyId in ptySessions)) return false;
       write(ptyId, data);
+      return true;
+    };
+    /*
+      A spec's way to say "main's probe just noticed this". Reports whether the
+      pty existed, for the same reason `__mgitPtyWrite` does: a spec whose pty
+      numbering shifted would otherwise assert against an event that was never
+      delivered and pass for the wrong reason.
+    */
+    (window as unknown as { __mgitPtyAgent: unknown }).__mgitPtyAgent = (
+      ptyId: string,
+      agentId: string | null,
+    ): boolean => {
+      if (!(ptyId in ptySessions)) return false;
+      for (const handler of agentHandlers) handler({ ptyId, agentId });
       return true;
     };
     (window as unknown as { __mgitTerminalSaves: unknown }).__mgitTerminalSaves = terminalSaves;

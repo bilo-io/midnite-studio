@@ -871,6 +871,18 @@ describe('terminal and pty schemas', () => {
       ],
     },
     {
+      name: 'PtyAgentChangedEvent',
+      schema: schemas.PtyAgentChangedEvent,
+      valid: { ptyId: 'p1', agentId: 'codex' },
+      invalid: [
+        ['no agentId at all', { ptyId: 'p1' }],
+        // `null` is a real answer — "looked, recognised nothing" — but an empty
+        // string is not one, and would resolve to no roster entry either way.
+        ['an empty agentId', { ptyId: 'p1', agentId: '' }],
+        ['no ptyId', { agentId: null }],
+      ],
+    },
+    {
       name: 'TerminalListResponse',
       schema: schemas.TerminalListResponse,
       valid: { sessions: [{ session, scrollback: new Uint8Array([0x24, 0x20]) }] },
@@ -936,6 +948,23 @@ describe('terminal and pty schemas', () => {
     });
   });
 
+  /**
+   * `null` is not an absence, and the wire has to carry it as one of two real
+   * answers.
+   *
+   * The renderer keys this into a `Record<string, string | null>` where a
+   * *missing key* means "never probed" and `null` means "probed, nothing
+   * running" — the first has to leave an agent session wearing its mark and the
+   * second has to take it away. A schema that dropped `null` to `undefined`
+   * would collapse the two and every agent row would keep its mark forever.
+   */
+  it('carries a null agent as a real answer, not an absence', () => {
+    const parsed = schemas.PtyAgentChangedEvent.parse({ ptyId: 'p1', agentId: null });
+
+    expect(parsed.agentId).toBeNull();
+    expect('agentId' in parsed).toBe(true);
+  });
+
   it('defaults an agent pty to no initial input', () => {
     // `initialInput` is what makes an agent session an agent session; it must
     // stay absent rather than becoming '' when nobody sets it.
@@ -976,6 +1005,7 @@ describe('terminal and pty schemas', () => {
       ptyResize: ['PtyResizeRequest'],
       ptyKill: ['PtyKillRequest'],
       ptyExit: ['PtyExitEvent'],
+      ptyAgentChanged: ['PtyAgentChangedEvent'],
       terminalList: ['TerminalListResponse'],
       terminalSave: ['TerminalSaveRequest'],
       terminalForget: ['TerminalForgetRequest'],

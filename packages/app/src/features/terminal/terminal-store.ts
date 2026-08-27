@@ -83,6 +83,26 @@ type TerminalState = {
    * out of the box — everything reading this has to fall back to `session.cwd`.
    */
   liveCwd: Record<string, string>;
+  /**
+   * Which agent is *actually running* in a session, from main's process probe.
+   *
+   * A deliberate tri-state, and the distinction is the whole point:
+   *
+   * - **key absent** — never probed. Fall back to the session's stored
+   *   `agentId`, which is what it was opened for.
+   * - **`null`** — probed, and nothing recognised is running. An agent that has
+   *   quit, so the row gets the plain terminal glyph back.
+   * - **a string** — that agent, running now. `$ codex` typed into a plain shell
+   *   lands here.
+   *
+   * Collapsing absent and `null` into one value would make every agent session
+   * flash a terminal glyph before its first probe arrived — see
+   * `resolveSessionAgentId`, which is where the three cases are actually read.
+   *
+   * Runtime only, never persisted: the stored `agentId` stays the record of what
+   * the user asked for.
+   */
+  liveAgentId: Record<string, string | null>;
 
   hydrate: () => Promise<void>;
   openSession: (request: NewSessionRequest) => TerminalSession;
@@ -103,6 +123,11 @@ type TerminalState = {
    * spawned at `session.cwd`, not wherever the last one wandered to.
    */
   setLiveCwd: (sessionId: string, cwd: string | undefined) => void;
+  /**
+   * From `pty:agent-changed`. `undefined` clears it back to *never probed*,
+   * which is what a pty exit does — the answer belonged to a dead process.
+   */
+  setLiveAgentId: (sessionId: string, agentId: string | null | undefined) => void;
 
   bindPty: (sessionId: string, ptyId: string) => void;
   unbindPty: (sessionId: string) => void;
@@ -130,6 +155,7 @@ export const useTerminalStore = create<TerminalState>()((set, get) => ({
   autoNames: {},
   activity: {},
   liveCwd: {},
+  liveAgentId: {},
 
   /**
    * Load the saved sessions. Spawns nothing.
@@ -279,6 +305,18 @@ export const useTerminalStore = create<TerminalState>()((set, get) => ({
       return { liveCwd: next };
     }),
 
+  setLiveAgentId: (sessionId, agentId) =>
+    set((state) => {
+      const known = sessionId in state.liveAgentId;
+      if (agentId === undefined ? !known : known && state.liveAgentId[sessionId] === agentId) {
+        return state;
+      }
+      const next = { ...state.liveAgentId };
+      if (agentId === undefined) delete next[sessionId];
+      else next[sessionId] = agentId;
+      return { liveAgentId: next };
+    }),
+
   setActivity: (sessionId, activity) =>
     set((state) => {
       if (state.activity[sessionId] === activity) return state;
@@ -338,6 +376,7 @@ function dropKey(
   | 'autoNames'
   | 'activity'
   | 'liveCwd'
+  | 'liveAgentId'
 > {
   const ptyIds = { ...state.ptyIds };
   const states = { ...state.states };
@@ -347,6 +386,7 @@ function dropKey(
   const autoNames = { ...state.autoNames };
   const activity = { ...state.activity };
   const liveCwd = { ...state.liveCwd };
+  const liveAgentId = { ...state.liveAgentId };
   delete ptyIds[sessionId];
   delete states[sessionId];
   delete replay[sessionId];
@@ -355,7 +395,38 @@ function dropKey(
   delete autoNames[sessionId];
   delete activity[sessionId];
   delete liveCwd[sessionId];
-  return { ptyIds, states, replay, errors, pendingInput, autoNames, activity, liveCwd };
+  delete liveAgentId[sessionId];
+  return {
+    ptyIds,
+    states,
+    replay,
+    errors,
+    pendingInput,
+    autoNames,
+    activity,
+    liveCwd,
+    liveAgentId,
+  };
+}
+
+/**
+ * Which agent a session should be *drawn* as, reading the tri-state above.
+ *
+ * Icons only, deliberately. `sessionLabel` already resolves four ways
+ * (`name` → `autoName` → `agentLabel` → `'Terminal'`) and a fifth input into
+ * that ordering wants its own design pass — so a plain shell running Codex gets
+ * Codex's mark and keeps whatever it was called.
+ *
+ * Returns `undefined` for "no agent", which is the shape both `SessionIcon` and
+ * the header already take for a bare terminal.
+ */
+export function resolveSessionAgentId(
+  session: Pick<TerminalSession, 'id' | 'agentId'>,
+  liveAgentId: Record<string, string | null>,
+): string | undefined {
+  // Absent means never probed — not "probed and found nothing".
+  if (!(session.id in liveAgentId)) return session.agentId;
+  return liveAgentId[session.id] ?? undefined;
 }
 
 /**

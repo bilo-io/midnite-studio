@@ -1,7 +1,9 @@
 import { dirname, join } from 'node:path';
 
+import { EVENT_CHANNELS } from '@midnite/git-shared';
 import { BrowserWindow, app } from 'electron';
 
+import { createAgentWatcher, realAgentWatcherDeps } from './agent-watcher';
 import { registerClaudeHandlers } from './ipc/claude-handlers';
 import { configureDiagnostics, registerDiagHandlers } from './ipc/diag-handlers';
 import { registerForgeHandlers } from './ipc/forge-handlers';
@@ -17,10 +19,11 @@ import { registerStatsHandlers } from './ipc/stats-handlers';
 import { registerStatusHandlers } from './ipc/status-handlers';
 import { configureTests, registerTestsHandlers } from './ipc/tests-handlers';
 import { installMenu } from './menu';
-import { killAllPtys } from './pty-service';
+import { killAllPtys, setAgentWatcher } from './pty-service';
 import { createTerminalStore } from './terminal-store';
 import {
   configureTerminals,
+  listAgents,
   shutdownTerminals,
   startTerminalFlush,
 } from './terminal-service';
@@ -108,6 +111,25 @@ if (!app.requestSingleInstanceLock()) {
     registerDiagHandlers();
     registerTestsHandlers(getWindow);
     registerPtyHandlers(getWindow);
+    /*
+      What is running inside each terminal, from the pty's own process tree.
+
+      Wired here rather than inside `pty-service` because the roster it matches
+      against lives behind `terminal-service`, which already imports
+      `pty-service` for the scrollback — injecting the watcher is what keeps
+      that a line rather than a cycle. `listAgents` is passed as a thunk, not
+      called: the agents store is configured further down, after `whenReady`.
+    */
+    setAgentWatcher(
+      createAgentWatcher(
+        realAgentWatcherDeps(listAgents, (event) => {
+          const win = getWindow();
+          if (win && !win.isDestroyed()) {
+            win.webContents.send(EVENT_CHANNELS.ptyAgentChanged, event);
+          }
+        }),
+      ),
+    );
     const metrics = registerMetricsHandlers(getWindow);
     registerTerminalHandlers();
     registerFsHandlers();

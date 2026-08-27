@@ -1,0 +1,4 @@
+    1     0 /sbin/launchd
+    0     0 kernel_task
+60000 59980 /bin/zsh -l
+60200     1 claude

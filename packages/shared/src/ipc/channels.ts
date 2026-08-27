@@ -326,6 +326,15 @@ export const EVENT_CHANNELS = {
   /** Raw pty output, as a Uint8Array (structured clone — never base64). */
   ptyData: 'mgit:pty:data',
   ptyExit: 'mgit:pty:exit',
+  /**
+   * What is actually running inside a pty changed — an agent started or quit.
+   *
+   * An event rather than a request because the renderer has no way to know when
+   * to ask: `$ codex` typed into a plain shell is indistinguishable from any
+   * other keystroke until the process exists. Emitted only on a *change*, so an
+   * idle terminal produces no traffic at all.
+   */
+  ptyAgentChanged: 'mgit:pty:agent-changed',
   /** Window maximized/fullscreen state changed, for the frameless TitleBar. */
   windowStateChanged: 'mgit:window:state-changed',
   /** A native-menu item fired — carries a CommandId, dispatched like a keybinding. */

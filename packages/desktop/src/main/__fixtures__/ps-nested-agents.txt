@@ -1,0 +1,5 @@
+    1     0 /sbin/launchd
+60000 59980 /bin/zsh -l
+60130 60000 claude
+60131 60130 /bin/zsh -c node /opt/homebrew/bin/codex
+60132 60131 node /opt/homebrew/bin/codex

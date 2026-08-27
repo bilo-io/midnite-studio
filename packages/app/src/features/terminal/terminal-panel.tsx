@@ -9,7 +9,7 @@ import { DEFAULT_LAYOUT, LAYOUT_BOUNDS, useUiStore } from '../../store/ui-store'
 import { buildNewSessionMenu } from './new-session-menu';
 import { TerminalHeader } from './terminal-header';
 import { TerminalSessionList } from './terminal-session-list';
-import { useTerminalStore } from './terminal-store';
+import { resolveSessionAgentId, useTerminalStore } from './terminal-store';
 import { TerminalView } from './terminal-view';
 import { useAgents } from './use-agents';
 
@@ -119,6 +119,16 @@ export function TerminalPanel({ cwd, repoId, repoName }: TerminalPanelProps) {
   */
   const activeLiveCwd = useTerminalStore((s) => (activeId ? s.liveCwd[activeId] : undefined));
   /*
+    And what is running in it (Theme E), by the same rule: main's probe wins
+    where it has spoken, and the session's stored `agentId` is the fallback for
+    one it has not looked at yet. `resolveSessionAgentId` owns that tri-state —
+    an absent entry is "never probed", not "nothing running".
+  */
+  const liveAgentId = useTerminalStore((s) => s.liveAgentId);
+  const activeAgent = active
+    ? agents.find((a) => a.id === resolveSessionAgentId(active, liveAgentId))
+    : undefined;
+  /*
     A list of one session names nothing the header does not already say, so
     the toggle governs the list only once there is more than one — and says so
     on hover rather than sitting there dead with no explanation.
@@ -133,6 +143,7 @@ export function TerminalPanel({ cwd, repoId, repoName }: TerminalPanelProps) {
       <TerminalHeader
         path={activeLiveCwd ?? active?.cwd ?? cwd}
         state={activeState}
+        agent={activeAgent}
         repos={repos}
         listable={listable}
         showList={showList}

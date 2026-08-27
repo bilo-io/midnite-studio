@@ -1,6 +1,6 @@
 # Midnite Git — Phase Index
 
-**Headline:** **[22](phase-22-stash-and-safety-net.md)** is the newest frontier and is planned but unstarted — the largest phase in the repo, and the one that closes the two gaps every earlier phase wrote into its margins. `git stash` appears nowhere in the codebase today and `refs/stash` is deliberately dropped by the ref parser; Phase 22 gives it an engine, a sidebar section, graph pseudo-rows, a readable diff and a verb in the Changes view. Then it builds the safety net three files have been promising in doc comments since Phase 7: the reflog read and browsable as a **History** rail view, an ops journal, the app's first toast primitive, and an undo that is honest about being ref-shaped — because the reflog records where refs pointed and nothing about the working tree. On the strength of that it reverses the MVP's flat no-force-push ban, `--force-with-lease` only and only in its explicit `=<ref>:<sha>` form, behind the blast-radius gate Phase 7 already built and a default-off switch. Interactive rebase, a command palette and undo for the sequencer's ops are explicitly out. **[21](phase-21-agent-roster-and-terminal-identity.md)** is the previous frontier and its first three themes have landed: the terminal's one-entry agent roster has grown to four — Claude Code, Antigravity (`agy`), Codex and OpenClaude — each with its own brand mark resolved from roster data rather than a hard-coded component, behind a flat, iconned `+` menu that disables what is not installed and says why — the probe behind that resolving against the *login shell's* PATH, since `claude` and `agy` live where only an rc file puts them. Its live half is still ahead and is the more interesting one: OSC 7 cwd tracking and a process probe in main mean a terminal finally knows where it is and what is running in it, so the session list's icon and a rebuilt header — a glyph, the status circle, a `~`-collapsed path with the repo segment emphasised — follow a `cd` or an agent quit instead of reporting whichever menu item opened the session. Per-agent activity detection and a writable Settings ▸ Agents page are explicitly out, as are launcher-style "Open in <IDE>" entries. **[20](phase-20-reviews-page.md)** is the previous frontier and is now feature-complete:
+**Headline:** **[22](phase-22-stash-and-safety-net.md)** is the newest frontier and is planned but unstarted — the largest phase in the repo, and the one that closes the two gaps every earlier phase wrote into its margins. `git stash` appears nowhere in the codebase today and `refs/stash` is deliberately dropped by the ref parser; Phase 22 gives it an engine, a sidebar section, graph pseudo-rows, a readable diff and a verb in the Changes view. Then it builds the safety net three files have been promising in doc comments since Phase 7: the reflog read and browsable as a **History** rail view, an ops journal, the app's first toast primitive, and an undo that is honest about being ref-shaped — because the reflog records where refs pointed and nothing about the working tree. On the strength of that it reverses the MVP's flat no-force-push ban, `--force-with-lease` only and only in its explicit `=<ref>:<sha>` form, behind the blast-radius gate Phase 7 already built and a default-off switch. Interactive rebase, a command palette and undo for the sequencer's ops are explicitly out. **[21](phase-21-agent-roster-and-terminal-identity.md)** is the previous frontier and is now feature-complete: the terminal's one-entry agent roster has grown to four — Claude Code, Antigravity (`agy`), Codex and OpenClaude — each with its own brand mark resolved from roster data rather than a hard-coded component, behind a flat, iconned `+` menu that disables what is not installed and says why — the probe behind that resolving against the *login shell's* PATH, since `claude` and `agy` live where only an rc file puts them. **Its live half has landed too, which completes the phase:** OSC 7 cwd tracking and a process probe in main mean a terminal finally knows where it is and what is running in it, so the session list's icon and a rebuilt header — a glyph, the status circle, a `~`-collapsed path with the repo segment emphasised — follow a `cd` or an agent quit instead of reporting whichever menu item opened the session. The probe reads `ps` and acts on nothing, matches argv by three deliberately narrow rules rather than scanning for a name anywhere, and never lets a `null` take away a mark it has not actually seen; three manual passes remain, all needing a real shell or a packaged app. Per-agent activity detection and a writable Settings ▸ Agents page are explicitly out, as are launcher-style "Open in <IDE>" entries. **[20](phase-20-reviews-page.md)** is the previous frontier and is now feature-complete:
 a Reviews page joins the nav rail — a PR list filterable by state/author/search, beside a tabbed PR
 detail (Files/Conversation/Checks) — diffs across the whole app are syntax-highlighted through the
 one shared `DiffView`, inline comment threads hang off the diff's own lines, and the phase's
@@ -21,7 +21,7 @@ Completed work is logged append-only in [`done.md`](done.md). Deferred scope liv
 | Phase | Status | Done | Progress | % | 🔄 WIP | ◻ TODO |
 |-------|--------|------|----------|---|--------|--------|
 | [22 · Stash, the reflog, and writes you can take back](phase-22-stash-and-safety-net.md) | ◻ TODO | 0/70 | `░░░░░░░░░░` | 0% | — | A–H |
-| [21 · Agent roster + terminal identity](phase-21-agent-roster-and-terminal-identity.md) | 🔄 WIP | 31/46 | `███████░░░` | 67% | E | — |
+| [21 · Agent roster + terminal identity](phase-21-agent-roster-and-terminal-identity.md) | 🔄 WIP | 43/46 | `█████████░` | 93% | — | 3 manual checks |
 | [20 · Reviews page & unified diff syntax highlighting](phase-20-reviews-page.md) | 🔄 WIP | 43/45 | `██████████` | 96% | — | 2 manual checks |
 | [19 · Dashboard, Actions and Tests as views](phase-19-dashboard-actions-tests.md) | 🔄 WIP | 73/76 | `██████████` | 96% | — | 3 manual checks |
 | [18 · Footer system monitor + repo diagnostics](phase-18-footer-monitor-diagnostics.md) | 🔄 WIP | 51/54 | `█████████░` | 94% | — | 3 manual checks |
@@ -104,17 +104,23 @@ the header those two finally give something true to say.*
 - ✅ **D** — OSC 7 live cwd tracking, `liveCwd` in the terminal store, and the header following a
   `cd` through Theme F's resolver — plus `bridge.hostname`, without which the parser rejects every
   payload the canonical emitters actually produce (landed 2026-08-27)
-- 🔄 **E** — a process probe in main behind `pty:agent-changed`, so an agent started or quit by hand
-  swaps the sidebar row's icon; reads process state and acts on nothing
+- ✅ **E** — a process probe in main behind `pty:agent-changed`, so an agent started or quit by hand
+  swaps the sidebar row's icon; reads process state and acts on nothing. Split into the read
+  (`agent-process.ts` — one `ps`, a pure depth-carrying walk, a three-rule matcher that never scans
+  arguments) and the cadence (`agent-watcher.ts` — a 750ms quiet debounce, change-only emission, a
+  shared snapshot, and a hard rule that a `null` may only take away a mark some probe has actually
+  *seen* — a timed grace window would have stripped Claude's mark off an `npm`-installed Claude Code
+  the matcher deliberately cannot name). The store's `liveAgentId` is a true tri-state:
+  absent ≠ `null` (landed 2026-08-27)
 - ✅ **F** — the header loses the word "Terminal": a glyph, the status circle, then a `~`-collapsed
   path with the repo segment emphasised and left-truncation. Brought Theme D's `resolveRepoForPath`
   forward with it — F needs the split point, D needs the same helper against `liveCwd`
   (landed 2026-08-27)
 
-*Open: A, B, C and F have all landed (2026-08-27) — the roster is four agents, each resolves its own
-mark, the `+` menu names them and greys what is not installed, and the header names where the
-terminal is rather than that it is a terminal. D and E remain, and they are the phase's live half;
-D is now half-built, since F landed its path resolver.*
+*All six themes have landed (2026-08-27). Three manual passes remain, all needing a real shell or a
+packaged app: `cd` between two worktrees and watch the header follow (D), start and quit `codex` and
+`agy` inside a shell and watch the row's icon swap both ways (E), and launch the packaged `.app`
+from Finder to confirm the install probe still reads the login shell's PATH (C).*
 
 ### [Phase 20 — Reviews page & unified diff syntax highlighting](phase-20-reviews-page.md)
 

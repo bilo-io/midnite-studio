@@ -200,6 +200,7 @@ const bridge: Pick<
     kill: (req) => ipcRenderer.send(CHANNELS.ptyKill, req),
     onData: (handler) => subscribe(EVENT_CHANNELS.ptyData, handler),
     onExit: (handler) => subscribe(EVENT_CHANNELS.ptyExit, handler),
+    onAgentChanged: (handler) => subscribe(EVENT_CHANNELS.ptyAgentChanged, handler),
   },
   terminal: {
     list: () => call(CHANNELS.terminalList),

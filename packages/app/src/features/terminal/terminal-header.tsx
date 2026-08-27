@@ -1,7 +1,8 @@
-import type { RepoDescriptor } from '@midnite/git-shared';
+import type { AgentDefinition, RepoDescriptor } from '@midnite/git-shared';
 import { ChevronDown, ChevronUp, List, Plus, Terminal, X } from 'lucide-react';
 
 import { IconButton } from '../../components/icon-button';
+import { resolveAgentIcon } from '../../components/icons';
 import { StateDot } from '../../components/state-dot';
 import { bridge } from '../../services/bridge';
 import { useUiStore } from '../../store/ui-store';
@@ -14,6 +15,12 @@ export type TerminalHeaderProps = {
   path: string | null;
   /** The active session's connection state; `idle` when nothing is open. */
   state: ConnectionState;
+  /**
+   * What is running in the active session right now, from main's process probe
+   * — falling back to what the session was opened for, and absent for a plain
+   * shell. Drives the leading glyph only; the path beside it is Theme D's.
+   */
+  agent: AgentDefinition | undefined;
   repos: readonly RepoDescriptor[] | undefined;
   /** False while there is at most one session — the list toggle governs nothing. */
   listable: boolean;
@@ -35,6 +42,7 @@ export type TerminalHeaderProps = {
 export function TerminalHeader({
   path,
   state,
+  agent,
   repos,
   listable,
   showList,
@@ -51,7 +59,7 @@ export function TerminalHeader({
       data-terminal-header
       className="flex shrink-0 items-center gap-2 border-b border-border px-3 py-1 text-xs text-muted-foreground"
     >
-      <Terminal aria-hidden className="size-3.5 shrink-0" />
+      <HeaderMark agent={agent} />
       <StateDot state={state} />
       <HeaderPath path={path} repos={repos} />
 
@@ -87,6 +95,30 @@ export function TerminalHeader({
         />
       </div>
     </div>
+  );
+}
+
+/**
+ * The glyph at the head of the strip: the agent running here, or a terminal.
+ *
+ * It follows the *live* answer, so quitting Claude Code inside an agent session
+ * gives the header a terminal glyph back and typing `codex` into a plain shell
+ * gives it Codex's mark. Together with the path beside it, the left of this row
+ * names the current repository and the current agent rather than whichever menu
+ * item happened to open the session.
+ */
+function HeaderMark({ agent }: { agent: AgentDefinition | undefined }) {
+  if (!agent) return <Terminal aria-hidden className="size-3.5 shrink-0" />;
+
+  const Icon = resolveAgentIcon(agent);
+  return (
+    <Icon
+      aria-hidden
+      className="size-3.5 shrink-0"
+      // Inline for the same reason `SessionIcon` does it: a user-added agent's
+      // accent is roster data, and Tailwind has never seen that colour.
+      style={{ color: agent.accent }}
+    />
   );
 }
 

@@ -61,6 +61,35 @@ async function emitOsc7(page: Page, payload: string): Promise<void> {
   expect(delivered, `OSC 7 was not delivered to pty-1: ${payload}`).toBe(true);
 }
 
+/**
+ * Say that main's process probe just noticed something in a pty.
+ *
+ * `null` is a real answer — "looked, recognised nothing" — and is a different
+ * thing from never having emitted, which is the distinction these specs exist to
+ * pin down. There is no fake `ps` behind this: main's matcher is unit-tested
+ * against captured process listings (`agent-process.test.ts`), and what a spec
+ * can only assert here is the renderer half.
+ */
+async function emitAgentChanged(
+  page: Page,
+  agentId: string | null,
+  ptyId = 'pty-1',
+): Promise<void> {
+  const delivered = await page.evaluate(
+    ({ id, agent }) => {
+      const notify = (
+        window as unknown as { __mgitPtyAgent: (p: string, a: string | null) => boolean }
+      ).__mgitPtyAgent;
+      return notify(id, agent);
+    },
+    { id: ptyId, agent: agentId },
+  );
+  // Same trap as `emitOsc7`: the hook no-ops on an unknown pty id, so a spec
+  // whose numbering shifted would make negative assertions about an event that
+  // never arrived and pass for the wrong reason.
+  expect(delivered, `pty:agent-changed was not delivered to ${ptyId}: ${agentId}`).toBe(true);
+}
+
 const panel = (page: Page) => page.locator('[data-terminal-panel]');
 /** The session list's rows. `IconButton` renders its label twice, so count these. */
 const rows = (page: Page) => page.locator('[data-session-row]');
@@ -269,6 +298,128 @@ test.describe('terminal panel', () => {
     expect(claude.color).toBe('rgb(217, 119, 87)');
     expect(codex.color).toBe('rgb(16, 163, 127)');
     expect(claude.shape).not.toBe(codex.shape);
+  });
+
+  /**
+   * Theme E's whole point, from the side the user sees it.
+   *
+   * A plain shell that someone typed `codex` into is indistinguishable from any
+   * other shell until main looks at its process tree — and before this existed
+   * the row went on claiming to be a bare terminal for as long as the session
+   * lived.
+   */
+  test('a shell running an agent takes on that agent\u2019s mark', async ({ page }) => {
+    await open(page);
+    await toggleTerminal(page);
+    /*
+      A second terminal, because the session list governs nothing while there is
+      one session — the header already says everything a list of one could, so
+      the toggle is disabled and no row is rendered at all.
+    */
+    await page.getByRole('button', { name: 'New terminal or agent' }).click();
+    await page.getByRole('menuitem', { name: 'New Terminal', exact: true }).click();
+    await expect(rows(page)).toHaveCount(2);
+    await expect.poll(async () => (await ptyCalls(page)).creates.length).toBe(2);
+
+    // The repo's own auto-opened session, which is `pty-1`.
+    const row = rows(page).first();
+    const mark = row.locator('svg').first();
+    const colourOf = () => mark.evaluate((node) => getComputedStyle(node).color);
+
+    // A shell's glyph is painted in the row's own text colour, never an accent.
+    const before = await colourOf();
+    expect(before).not.toBe('rgb(16, 163, 127)');
+
+    await emitAgentChanged(page, 'codex');
+
+    // Codex's roster accent, resolved through the icon registry.
+    await expect.poll(colourOf).toBe('rgb(16, 163, 127)');
+
+    /*
+      Icons only, deliberately. `sessionLabel` already resolves four ways and a
+      fifth input into that ordering wants its own design pass, so the row keeps
+      the name it had — it did not silently become "Codex".
+    */
+    await expect(row.locator('[data-session-name]')).not.toHaveText('Codex');
+  });
+
+  /**
+   * The header's half of the same fact: with Theme D's path beside it, the left
+   * of that strip names the current repository and the current agent rather than
+   * whichever menu item opened the session.
+   */
+  test('the header\u2019s glyph follows what is running, not what was opened', async ({ page }) => {
+    await open(page);
+    await toggleTerminal(page);
+    await expect.poll(async () => (await ptyCalls(page)).creates.length).toBe(1);
+
+    const glyph = page.locator('[data-terminal-header] svg').first();
+    const colourOf = () => glyph.evaluate((node) => getComputedStyle(node).color);
+
+    await emitAgentChanged(page, 'claude');
+    await expect.poll(colourOf).toBe('rgb(217, 119, 87)');
+
+    // Quit it, and the terminal glyph comes back — an explicit `null` is an
+    // answer, and it is allowed to take a mark away.
+    await emitAgentChanged(page, null);
+    await expect.poll(colourOf).not.toBe('rgb(217, 119, 87)');
+  });
+
+  /**
+   * The tri-state, from the outside. An agent session must keep the mark it was
+   * opened with until a probe says otherwise — an absent answer is "nobody has
+   * looked", and collapsing it into `null` would flash a terminal glyph over
+   * every agent row on startup.
+   */
+  test('an agent session keeps its mark until the probe contradicts it', async ({ page }) => {
+    await open(page);
+    await toggleTerminal(page);
+
+    await page.getByRole('button', { name: 'New terminal or agent' }).click();
+    await page.getByRole('menuitem', { name: 'Claude Code', exact: true }).click();
+    await expect(rows(page)).toHaveCount(2);
+
+    const agentRow = rows(page).filter({ hasText: 'Claude Code' });
+    const mark = agentRow.locator('svg').first();
+    const colourOf = () => mark.evaluate((node) => getComputedStyle(node).color);
+
+    // Never probed, and already wearing Claude's accent.
+    await expect.poll(colourOf).toBe('rgb(217, 119, 87)');
+
+    // The agent quit. `pty-2` is the second session's — the first was opened
+    // automatically for the repo.
+    await emitAgentChanged(page, null, 'pty-2');
+    await expect.poll(colourOf).not.toBe('rgb(217, 119, 87)');
+
+    // And the label is untouched throughout: this phase moves icons only.
+    await expect(agentRow.locator('[data-session-name]')).toHaveText('Claude Code');
+  });
+
+  /**
+   * The probe reports one pty at a time, and a change to one session must not
+   * reach another. Two rows, one event.
+   */
+  test('a probe result lands on one session only', async ({ page }) => {
+    await open(page);
+    await toggleTerminal(page);
+
+    await page.getByRole('button', { name: 'New terminal or agent' }).click();
+    await page.getByRole('menuitem', { name: 'New Terminal', exact: true }).click();
+    await expect(rows(page)).toHaveCount(2);
+    await expect.poll(async () => (await ptyCalls(page)).creates.length).toBe(2);
+
+    const colourOf = (index: number) =>
+      rows(page)
+        .nth(index)
+        .locator('svg')
+        .first()
+        .evaluate((node) => getComputedStyle(node).color);
+
+    const untouched = await colourOf(0);
+    await emitAgentChanged(page, 'codex', 'pty-2');
+
+    await expect.poll(() => colourOf(1)).toBe('rgb(16, 163, 127)');
+    expect(await colourOf(0)).toBe(untouched);
   });
 
   test('the session list docks to either side', async ({ page }) => {
@@ -814,6 +965,47 @@ test.describe('phase 21 screenshots', () => {
     await page.waitForTimeout(300);
     await header.screenshot({
       path: '../../docs/screenshots/phase-21-terminal-header-narrow.png',
+    });
+  });
+
+  /**
+   * Theme E, before and after — the one thing a still image can show about a
+   * live probe.
+   *
+   * Two sessions, so the list is rendered: the first is a plain shell someone
+   * typed `codex` into, the second an agent session whose Claude Code has just
+   * quit. Both rows are lying in the "before" shot and honest in the "after"
+   * one, and the header's glyph moves with the active session.
+   */
+  test('the session list before and after a live agent probe', async ({ page }) => {
+    await open(page);
+    await toggleTerminal(page);
+
+    await page.getByRole('button', { name: 'New terminal or agent' }).click();
+    await page.getByRole('menuitem', { name: 'Claude Code', exact: true }).click();
+    await expect(rows(page)).toHaveCount(2);
+    await expect.poll(async () => (await ptyCalls(page)).creates.length).toBe(2);
+    await page.waitForTimeout(200);
+
+    /*
+      The whole panel, not just the list. The header's glyph is half of what
+      Theme E changes, and the list at its default width truncates every label
+      to three characters — a crop of it shows the marks swapping but nothing
+      about which session each one belongs to.
+    */
+    const list = panel(page);
+    await list.screenshot({
+      path: '../../docs/screenshots/phase-21-live-agent-before.png',
+    });
+
+    // What main's probe found: Codex running in the plain shell, and nothing at
+    // all in the session that was opened for Claude Code.
+    await emitAgentChanged(page, 'codex', 'pty-1');
+    await emitAgentChanged(page, null, 'pty-2');
+    await page.waitForTimeout(200);
+
+    await list.screenshot({
+      path: '../../docs/screenshots/phase-21-live-agent-after.png',
     });
   });
 });

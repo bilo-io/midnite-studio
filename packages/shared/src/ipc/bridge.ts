@@ -312,6 +312,16 @@ export type MidniteGitBridge = {
      */
     onData: (handler: (e: { ptyId: string; data: Uint8Array }) => void) => Unsubscribe;
     onExit: (handler: (e: z.infer<typeof S.PtyExitEvent>) => void) => Unsubscribe;
+    /**
+     * An agent started or quit inside a pty, from main's own process probe.
+     *
+     * Fires on a change only. `agentId: null` means main looked and recognised
+     * nothing — see {@link S.PtyAgentChangedEvent} for why that is a different
+     * thing from never having been told.
+     */
+    onAgentChanged: (
+      handler: (e: z.infer<typeof S.PtyAgentChangedEvent>) => void,
+    ) => Unsubscribe;
   };
 
   /**

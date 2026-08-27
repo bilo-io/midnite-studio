@@ -2,6 +2,92 @@
 
 <!-- Append one entry per landed phase/PR: date, phase, PR link, one-line summary. -->
 
+## 2026-08-27 — Phase 21 · Theme E — a terminal that knows what is running in it
+
+Landed on `feature/phase-21-live-agent`, merged locally — no PR link, no GitHub remote on this
+checkout. **Phase 21 is now complete.**
+
+A session's `kind` and `agentId` were decided by which `+` menu item opened it and then frozen.
+Type `codex` into a plain shell and the sidebar row went on claiming to be a bare terminal; quit
+Claude Code inside an agent session and the row went on wearing Claude's mark over a shell prompt.
+Both facts were sitting in the pty's own process tree and nobody was asking.
+
+- [x] **`agent-process.ts`** — the read. One `ps -axo pid=,ppid=,args=` per probe (the `=`
+      suffixes suppress the headers, which is what stops a localised header being parsed as data),
+      a pure parser, a pure descendant walk carrying depth, and an argv matcher. Everything but the
+      `execFile` wrapper is pure, so the interesting cases are asserted against captured output.
+- [x] **The matcher has exactly three rules**, and the restraint is the design. argv[0]'s basename
+      (a bare `claude` or `agy` — both are compiled binaries here); a runtime's script argument
+      (`node /opt/homebrew/bin/codex`, which is what a `#!/usr/bin/env node` script looks like in
+      the table, and is what `codex` actually is on this machine); and a whole path *segment* of
+      that argument, for a package layout whose entry file is named `index.js`. It never scans
+      arguments — `git commit -m 'try codex'` and `vim codex.md` are a plain shell doing plain
+      things, and a scan-everything rule would have put Codex's mark on both. Segment matching is
+      exact, so `…/@anthropic-ai/claude-code/cli.js` goes **unmatched** rather than guessed at: a
+      documented limit, and the phase's stated posture that a wrong mark is worse than no mark.
+- [x] **Deepest match wins; a tie is `null`.** An agent launched from inside another is the one the
+      user is talking to, and the outer one is a launcher by then. Two *different* agents at the
+      same depth is genuinely ambiguous — nothing in the process table says which owns the screen.
+      The same agent twice at one depth is not a tie at all, just an agent that forked a worker.
+- [x] **`agent-watcher.ts`** — the decision, split out from the read. Event-driven rather than a
+      poll: a pty's output resets its own quiet timer and the probe runs after 750ms of silence, so
+      an agent booting costs one probe rather than one per chunk. It speaks only on a *change*, so
+      an idle terminal produces no traffic. One `ps` is shared across ptys that go quiet together,
+      the in-flight promise cached rather than just the result — two ptys in the same tick would
+      otherwise both start a read before either finished.
+- [x] **Nothing is probed at pty-open, on purpose.** At that instant the tree is a login shell and
+      nothing else: the agent's command is written only once the shell prints a prompt. A probe
+      there would confidently answer "nothing running" for a session about to run Claude Code. The
+      declared `agentId` seeds the last-known value instead.
+- [x] **A `null` may only take away a mark some probe has actually *seen*.** This began as a
+      five-second grace window — the seed alone does not stop the flicker, since a shell that prints
+      nothing for 750ms while a cold binary starts leaves the first probe reporting `null` for a
+      session one moment away from running the agent. Self-review found the window was worse than
+      no window: `npm i -g` installs Claude Code as
+      `node …/@anthropic-ai/claude-code/cli.js`, which the matcher deliberately does not match, so
+      on such a machine the seed is *never* observed and the window would eventually strip Claude's
+      mark off a live Claude Code session. Made permanent instead, which is also what the phase doc
+      already said — the stored `agentId` is "the fallback and the persisted truth". The price,
+      recorded rather than hidden: a session opened for an agent that never started keeps its mark
+      too, over a `command not found` the user can read on the screen beside it. A *different*
+      agent is still reported at once; the guard only stops a mark being taken away, never
+      corrected.
+- [x] **The watcher is injected into `pty-service`, not imported by it.** `terminal-service`
+      already imports `pty-service` for the scrollback, so reaching for the roster from inside it
+      would close a cycle. Every seam — `ps`, the roster, `setTimeout`, the clock — arrives from
+      outside, which is also what lets the cadence be asserted against a hand-driven timer wheel
+      instead of a real 750ms wait.
+- [x] **`liveAgentId: Record<string, string | null>`** in the terminal store, read through one
+      exported helper. A deliberate tri-state: key absent means *never probed* and falls back to
+      the stored `agentId`; `null` means *probed, nothing running*; a string wins outright.
+      Collapsing absent into `null` would flash a terminal glyph over every agent row at startup.
+      Cleared to *absent* rather than `null` on `pty:exit` — a revive re-runs the session's agent,
+      so an asserted `null` would sit over it until the next probe.
+- [x] **Icons only.** `sessionLabel` already resolves four ways and Phase 19's notes record how
+      subtle that ordering became; a fifth input wants its own look. `SessionRow` therefore carries
+      two agents — `agent` for the label (what it was opened for) and `runningAgent` for the mark.
+      The header's leading glyph follows the same live value, so with Theme D's path beside it the
+      left of that strip names the current repository and the current agent.
+- [x] **Reads process state and acts on nothing.** No kill, no restart, no auto-spawn. A probe that
+      cannot read the table says nothing rather than `null`, so a machine without a usable `ps`
+      loses the icon that follows the shell and nothing else.
+- [x] **58 new tests** — 41 for the matcher against eleven captured `ps` fixtures under
+      `__fixtures__/`, 17 for the cadence against a fake clock — plus six e2e specs, seven store
+      cases and a before/after screenshot pair. Self-review found two real matcher bugs, both now
+      regression-tested: rule 3 walked path segments left to right, so
+      `node ~/codex/node_modules/claude/bin/cli.js` reported Codex (a checkout named after one
+      agent holding another's script) — it now walks deepest-first, since the segments nearest the
+      entry file say what is *running*; and "the first token that is not a flag" found the path
+      belonging to `--require`/`-r`/`--import`/`--env-file` rather than the script, which is the
+      never-scan-arguments false positive sneaking back in through script detection. Also asserted:
+      `ROWS_TTL_MS < QUIET_MS`, the unwritten invariant the shared snapshot's correctness rests
+      on. The e2e specs drive a mock-bridge hook rather than
+      a fake `ps`: the matcher is proven in main, and what only a browser can assert is that an
+      event lands on one session, that a `null` takes a mark away, and that the label never moves.
+
+Still open for a human, and unavoidably so: start and quit `codex` and `agy` inside a real shell
+session and watch the sidebar row's icon swap both ways. A fixture proves the matcher; only a real
+process tree proves the wiring.
 ## 2026-08-27 — Phase 20 · follow-up — the Playwright suite is green again
 
 Landed on `feature/reviews-e2e-repair`, merged locally — no PR link, no GitHub remote on this
