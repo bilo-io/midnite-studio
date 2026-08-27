@@ -46,7 +46,7 @@ describe('buildNewSessionMenu — everything installed', () => {
     expect(items[1]).toEqual({ type: 'separator' });
     expect(rows(items).map((r) => r.label)).toEqual([
       'New Terminal',
-      'Claude Code',
+      'Claude',
       'Antigravity',
       'Codex',
       'OpenClaude',
@@ -70,14 +70,14 @@ describe('buildNewSessionMenu — everything installed', () => {
   it('resolves each agent to its own mark rather than to Claude four times', () => {
     const items = build();
 
-    expect(row(items, 'Claude Code')?.icon).toBe(ClaudeIcon);
+    expect(row(items, 'Claude')?.icon).toBe(ClaudeIcon);
     expect(row(items, 'Antigravity')?.icon).toBe(AntigravityIcon);
     expect(row(items, 'Codex')?.icon).toBe(CodexIcon);
     expect(row(items, 'OpenClaude')?.icon).toBe(OpenClaudeIcon);
   });
 
   it('paints a live row in the agent brand accent', () => {
-    expect(row(build(), 'Claude Code')?.iconStyle).toEqual({ color: '#D97757' });
+    expect(row(build(), 'Claude')?.iconStyle).toEqual({ color: '#D97757' });
     expect(row(build(), 'Codex')?.iconStyle).toEqual({ color: '#10A37F' });
   });
 
@@ -206,7 +206,7 @@ describe('buildNewSessionMenu — an unprobed roster', () => {
     });
 
     expect(row(items, 'OpenClaude')?.disabled).toBe(true);
-    expect(row(items, 'Claude Code')?.disabled).toBeUndefined();
+    expect(row(items, 'Claude')?.disabled).toBeUndefined();
     expect(row(items, 'Antigravity')?.disabled).toBeUndefined();
   });
 });

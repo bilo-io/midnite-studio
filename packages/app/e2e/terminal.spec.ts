@@ -213,7 +213,7 @@ test.describe('terminal panel', () => {
     await toggleTerminal(page);
     await page.getByRole('button', { name: 'New terminal or agent' }).click();
 
-    for (const label of ['New Terminal', 'Claude Code', 'Antigravity', 'Codex', 'OpenClaude']) {
+    for (const label of ['New Terminal', 'Claude', 'Antigravity', 'Codex', 'OpenClaude']) {
       await expect(page.getByRole('menuitem', { name: label, exact: true })).toBeVisible();
     }
     await expect(page.getByRole('menuitem', { name: /New Agent —/ })).toHaveCount(0);
@@ -243,7 +243,7 @@ test.describe('terminal panel', () => {
     await toggleTerminal(page);
 
     await page.getByRole('button', { name: 'New terminal or agent' }).click();
-    await page.getByRole('menuitem', { name: 'Claude Code', exact: true }).click();
+    await page.getByRole('menuitem', { name: 'Claude', exact: true }).click();
 
     await expect(rows(page)).toHaveCount(2);
     /*
@@ -252,7 +252,7 @@ test.describe('terminal panel', () => {
       default width it collapsed to nothing and the row named its repo twice
       while saying nothing about which agent was running in it.
     */
-    await expect(page.locator('[data-session-name]', { hasText: 'Claude Code' })).toBeVisible();
+    await expect(page.locator('[data-session-name]', { hasText: 'Claude' })).toBeVisible();
 
     // The accent comes from the roster, not from a switch in the component —
     // #D97757 is Claude's, and a mark painted in the default foreground means
@@ -260,7 +260,7 @@ test.describe('terminal panel', () => {
     // its first svg; the close button's is the other one.
     const accent = await page
       .locator('[data-session-row]')
-      .filter({ hasText: 'Claude Code' })
+      .filter({ hasText: 'Claude' })
       .locator('svg')
       .first()
       .evaluate((node) => getComputedStyle(node).color);
@@ -276,7 +276,7 @@ test.describe('terminal panel', () => {
     await open(page);
     await toggleTerminal(page);
 
-    for (const label of ['Claude Code', 'Codex']) {
+    for (const label of ['Claude', 'Codex']) {
       await page.getByRole('button', { name: 'New terminal or agent' }).click();
       await page.getByRole('menuitem', { name: label, exact: true }).click();
     }
@@ -292,7 +292,7 @@ test.describe('terminal panel', () => {
           shape: node.innerHTML,
         }));
 
-    const claude = await markOf('Claude Code');
+    const claude = await markOf('Claude');
     const codex = await markOf('Codex');
 
     expect(claude.color).toBe('rgb(217, 119, 87)');
@@ -376,10 +376,10 @@ test.describe('terminal panel', () => {
     await toggleTerminal(page);
 
     await page.getByRole('button', { name: 'New terminal or agent' }).click();
-    await page.getByRole('menuitem', { name: 'Claude Code', exact: true }).click();
+    await page.getByRole('menuitem', { name: 'Claude', exact: true }).click();
     await expect(rows(page)).toHaveCount(2);
 
-    const agentRow = rows(page).filter({ hasText: 'Claude Code' });
+    const agentRow = rows(page).filter({ hasText: 'Claude' });
     const mark = agentRow.locator('svg').first();
     const colourOf = () => mark.evaluate((node) => getComputedStyle(node).color);
 
@@ -392,7 +392,7 @@ test.describe('terminal panel', () => {
     await expect.poll(colourOf).not.toBe('rgb(217, 119, 87)');
 
     // And the label is untouched throughout: this phase moves icons only.
-    await expect(agentRow.locator('[data-session-name]')).toHaveText('Claude Code');
+    await expect(agentRow.locator('[data-session-name]')).toHaveText('Claude');
   });
 
   /**
@@ -860,7 +860,7 @@ test.describe('terminal panel', () => {
     expect(await titles()).toEqual([
       'midnite-git · Terminal',
       'other-repo · Terminal',
-      'midnite-git · Claude Code',
+      'midnite-git · Claude',
     ]);
 
     const first = (await page.locator('[data-session-row]').first().boundingBox())!;
@@ -875,7 +875,7 @@ test.describe('terminal panel', () => {
 
     expect(await titles()).toEqual([
       'other-repo · Terminal',
-      'midnite-git · Claude Code',
+      'midnite-git · Claude',
       'midnite-git · Terminal',
     ]);
   });
@@ -982,7 +982,7 @@ test.describe('phase 21 screenshots', () => {
     await toggleTerminal(page);
 
     await page.getByRole('button', { name: 'New terminal or agent' }).click();
-    await page.getByRole('menuitem', { name: 'Claude Code', exact: true }).click();
+    await page.getByRole('menuitem', { name: 'Claude', exact: true }).click();
     await expect(rows(page)).toHaveCount(2);
     await expect.poll(async () => (await ptyCalls(page)).creates.length).toBe(2);
     await page.waitForTimeout(200);
