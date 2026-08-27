@@ -1900,3 +1900,24 @@ Tailwind only emits it while some other file uses the built-in utility.
 Left standing for next time: once `thinking` is seen, the state is sticky. In that same 80s
 probe the detector returned `thinking` 113 times and `waiting` never again after the turn
 ended, so a finished agent keeps its spinner until its next byte of output.
+
+## 2026-08-27 — The PR description becomes a tab, and the header stops spending height on it
+
+The description sat under the PR title in a `max-h-40` scroller, which spent 160px on every
+pull request whether or not anyone was reading it and pushed the review actions and the tabs
+that far down the pane — on a short window the diff got what was left. It is the `Overview`
+tab now, first of four, and it opens by default: the body was always visible when a PR opened,
+so making Files the landing tab would have hidden it behind a click nobody asked to make.
+
+Overview costs no extra fetch. It reads `useForgePullDetail`, which the header already runs
+for the base branch and the line counts, so a PR opened onto Overview now pulls *less* than
+before — the patch and the review threads stay behind their own tab gates, and a reader who
+only wanted the description never fetches them. Its three states are kept distinct (in flight,
+no detail, a genuinely empty body) so a panel that has not answered yet cannot read as a PR
+with nothing to say.
+
+The dead band under the header was two margins doing one job: `ReviewActionBar`'s root carried
+`mt-2` and its slot in `PrDetail` carried `pb-2`, so the gap above the Approve row came from
+the bar and the gap below it came from the pane. The slot owns both now (`px-3 py-2`) and the
+bar's own top margin is gone. With the body out of it the header is a fixed two rows however
+long the description is, so the rule, the actions and the tablist stack with 8px between them.
