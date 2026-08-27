@@ -37,7 +37,7 @@ export function AgentPage() {
 
   return (
     <div className="flex flex-col gap-3">
-      <Accordion title="Claude Code" icon={<LuBot className="h-4 w-4" />} defaultOpen>
+      <Accordion title="Claude" icon={<LuBot className="h-4 w-4" />} defaultOpen>
         <div className="flex flex-col gap-2 p-3">
           <p className="text-[11px] leading-relaxed text-muted-foreground">
             Detected through your login shell, the same way the terminal resolves it.

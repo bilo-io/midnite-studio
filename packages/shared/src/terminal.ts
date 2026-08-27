@@ -87,7 +87,7 @@ export type AgentStatus = z.infer<typeof AgentStatusSchema>;
 export const BUILTIN_AGENTS: readonly AgentDefinition[] = [
   {
     id: 'claude',
-    label: 'Claude Code',
+    label: 'Claude',
     command: 'claude',
     args: [],
     accent: '#D97757',

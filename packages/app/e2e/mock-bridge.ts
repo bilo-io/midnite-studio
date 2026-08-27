@@ -898,7 +898,7 @@ export async function installMockBridge(page: Page, fixtures: MockFixtures): Pro
           agents: [
             {
               id: 'claude',
-              label: 'Claude Code',
+              label: 'Claude',
               command: 'claude',
               args: [],
               accent: '#D97757',
