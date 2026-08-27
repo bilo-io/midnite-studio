@@ -199,7 +199,13 @@ test('the view opens on the run that failed, not the newest one', async ({ page 
 
   // #130 is newer and green; #129 is why anyone opened this view.
   await expect(detail(page).getByRole('heading', { level: 3 })).toContainText('CI');
-  await expect(detail(page).getByText('Failed').first()).toBeVisible();
+  /*
+    `getByRole('img', …)`, not `getByText`: a settled status renders as a bare
+    coloured glyph now, so its word survives only as the mark's accessible
+    name. Asserting on the name rather than on visible text is also the stronger
+    check — it fails if the pill loses the label a screen reader needs.
+  */
+  await expect(detail(page).getByRole('img', { name: 'Failed', exact: true }).first()).toBeVisible();
   await expect(
     jobs(page).getByRole('button', { name: 'test (ubuntu-latest)', exact: true }),
   ).toBeVisible();
@@ -315,7 +321,7 @@ test('an unfinished run is pending, not broken', async ({ page }) => {
     },
   });
 
-  await expect(detail(page).getByText('Running').first()).toBeVisible();
+  await expect(detail(page).getByRole('img', { name: 'Running', exact: true }).first()).toBeVisible();
   await expect(detail(page).getByText(/has not finished, so GitHub has no log/)).toBeVisible();
 });
 

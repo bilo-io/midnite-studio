@@ -161,7 +161,13 @@ test('a resolved thread arrives collapsed, and says so', async ({ page }) => {
   await openFiles(page, withThreads([thread({ resolved: true })]));
 
   const panel = page.getByTestId('comment-thread');
-  await expect(panel.getByText('Resolved')).toBeVisible();
+  /*
+    `getByRole('img', …)`, not `getByText`: a settled status renders as a bare
+    coloured glyph now, so its word survives only as the mark's accessible
+    name. Asserting on the name rather than on visible text is also the stronger
+    check — it fails if the pill loses the label a screen reader needs.
+  */
+  await expect(panel.getByRole('img', { name: 'Resolved', exact: true })).toBeVisible();
   // Collapsed, not hidden: the summary counts it and one click opens it.
   await expect(panel.getByText('This reads better as a guard clause.')).toHaveCount(0);
   await panel.getByRole('button', { name: /ana/ }).click();
@@ -241,7 +247,7 @@ test('resolving flips the thread, and the panel reads back resolved', async ({ p
     .toMatchObject([
       { channel: 'resolveThread', request: { threadId: 'PRRT_one', resolved: true } },
     ]);
-  await expect(panel.getByText('Resolved')).toBeVisible();
+  await expect(panel.getByRole('img', { name: 'Resolved', exact: true })).toBeVisible();
   await expect(panel.getByRole('button', { name: 'Reopen' })).toBeVisible();
 });
 

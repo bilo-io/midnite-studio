@@ -20,48 +20,55 @@ const pull = (over: Partial<ForgePull> = {}): ForgePull =>
     ...over,
   });
 
+/*
+  `toMatchObject`, not `toEqual`: every assertion here is about which verdict
+  *wins* — merged over approved, draft over changes-requested. A status now also
+  carries the glyph that draws it, and pinning that in this file would make
+  every one of these cases fail the next time a mark is swapped for a clearer
+  one, for a reason none of them is testing.
+*/
 describe('pullStatus', () => {
   it('reads merged and closed off state, not reviewDecision', () => {
     // Phase 20 B fetches every state, so a merged/closed PR now reaches this
     // function carrying whatever reviewDecision it had while open — reading
     // that instead of `state` would render a merged PR as "Approved".
-    expect(pullStatus(pull({ state: 'merged', reviewDecision: 'APPROVED' }))).toEqual({
+    expect(pullStatus(pull({ state: 'merged', reviewDecision: 'APPROVED' }))).toMatchObject({
       tone: 'ok',
       label: 'Merged',
     });
-    expect(pullStatus(pull({ state: 'closed', reviewDecision: null }))).toEqual({
+    expect(pullStatus(pull({ state: 'closed', reviewDecision: null }))).toMatchObject({
       tone: 'idle',
       label: 'Closed',
     });
   });
 
   it('merged/closed outrank draft', () => {
-    expect(pullStatus(pull({ state: 'merged', isDraft: true }))).toEqual({
+    expect(pullStatus(pull({ state: 'merged', isDraft: true }))).toMatchObject({
       tone: 'ok',
       label: 'Merged',
     });
   });
 
   it('draft wins over an open PR’s review decision', () => {
-    expect(pullStatus(pull({ isDraft: true, reviewDecision: 'CHANGES_REQUESTED' }))).toEqual({
+    expect(pullStatus(pull({ isDraft: true, reviewDecision: 'CHANGES_REQUESTED' }))).toMatchObject({
       tone: 'idle',
       label: 'Draft',
     });
   });
 
   it('an open PR still reads its review decision', () => {
-    expect(pullStatus(pull({ reviewDecision: 'APPROVED' }))).toEqual({
+    expect(pullStatus(pull({ reviewDecision: 'APPROVED' }))).toMatchObject({
       tone: 'ok',
       label: 'Approved',
     });
-    expect(pullStatus(pull({ reviewDecision: 'CHANGES_REQUESTED' }))).toEqual({
+    expect(pullStatus(pull({ reviewDecision: 'CHANGES_REQUESTED' }))).toMatchObject({
       tone: 'fail',
       label: 'Changes requested',
     });
-    expect(pullStatus(pull({ reviewDecision: 'REVIEW_REQUIRED' }))).toEqual({
+    expect(pullStatus(pull({ reviewDecision: 'REVIEW_REQUIRED' }))).toMatchObject({
       tone: 'warn',
       label: 'Review required',
     });
-    expect(pullStatus(pull({ reviewDecision: null }))).toEqual({ tone: 'idle', label: 'Open' });
+    expect(pullStatus(pull({ reviewDecision: null }))).toMatchObject({ tone: 'idle', label: 'Open' });
   });
 });
