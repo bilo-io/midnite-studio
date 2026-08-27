@@ -80,7 +80,7 @@ export function GraphThemePicker() {
   const setGraphTheme = useUiStore((s) => s.setGraphTheme);
 
   return (
-    <div className="grid grid-cols-1 gap-3 px-3 pb-2 sm:grid-cols-2">
+    <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
       {GRAPH_THEME_IDS.map((id, index) => (
         <ThemeCard
           key={id}

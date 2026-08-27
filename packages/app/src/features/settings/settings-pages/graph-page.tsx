@@ -1,3 +1,6 @@
+import { Accordion } from '@bilo-io/ui';
+import { LuGitBranch, LuRows3 } from 'react-icons/lu';
+
 import { GraphDensityPicker } from '../density-picker';
 import { GraphThemePicker } from '../graph-theme-picker';
 
@@ -11,9 +14,18 @@ import { GraphThemePicker } from '../graph-theme-picker';
  */
 export function GraphPage() {
   return (
-    <>
-      <GraphThemePicker />
-      <GraphDensityPicker />
-    </>
+    <div className="flex flex-col gap-3">
+      <Accordion title="Style" icon={<LuGitBranch className="h-4 w-4" />} defaultOpen>
+        <div className="p-3">
+          <GraphThemePicker />
+        </div>
+      </Accordion>
+
+      <Accordion title="Row density" icon={<LuRows3 className="h-4 w-4" />} defaultOpen>
+        <div className="p-3">
+          <GraphDensityPicker />
+        </div>
+      </Accordion>
+    </div>
   );
 }
