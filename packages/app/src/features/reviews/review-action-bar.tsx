@@ -116,7 +116,7 @@ export function ReviewActionBar({
       action that stopped making sense.
     */
     return (
-      <p className="mt-2 text-[11px] text-muted-foreground">
+      <p className="text-[11px] text-muted-foreground">
         This pull request is {pull.state === 'merged' ? 'merged' : 'closed'} — there is nothing left
         to review.
       </p>
@@ -124,7 +124,10 @@ export function ReviewActionBar({
   }
 
   return (
-    <div className="mt-2 flex flex-col gap-2">
+    /* The `py-2` on this bar's slot in `PrDetail` owns the gap above and below
+       it — a margin here as well is what left a visible band of nothing between
+       the header rule and the Approve row. */
+    <div className="flex flex-col gap-2">
       <div className="flex flex-wrap items-center gap-1.5">
         {(['APPROVE', 'REQUEST_CHANGES', 'COMMENT'] as const).map((event) => (
           <ActionButton

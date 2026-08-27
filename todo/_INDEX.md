@@ -1,6 +1,6 @@
 # Midnite Git — Phase Index
 
-**Headline:** **[20](phase-20-reviews-page.md)** is the newest frontier and is now feature-complete:
+**Headline:** **[21](phase-21-agent-roster-and-terminal-identity.md)** is the newest frontier and is planned but unstarted: the terminal's one-entry agent roster grows to four — Claude Code, Antigravity (`agy`), Codex and OpenClaude — each with its own brand mark resolved from roster data rather than a hard-coded component, behind a flat, iconned `+` menu that disables what is not installed and says why. Its live half is the more interesting one: OSC 7 cwd tracking and a process probe in main mean a terminal finally knows where it is and what is running in it, so the session list's icon and a rebuilt header — a glyph, the status circle, a `~`-collapsed path with the repo segment emphasised — follow a `cd` or an agent quit instead of reporting whichever menu item opened the session. Per-agent activity detection and a writable Settings ▸ Agents page are explicitly out, as are launcher-style "Open in <IDE>" entries. **[20](phase-20-reviews-page.md)** is the previous frontier and is now feature-complete:
 a Reviews page joins the nav rail — a PR list filterable by state/author/search, beside a tabbed PR
 detail (Files/Conversation/Checks) — diffs across the whole app are syntax-highlighted through the
 one shared `DiffView`, inline comment threads hang off the diff's own lines, and the phase's
@@ -20,6 +20,7 @@ Completed work is logged append-only in [`done.md`](done.md). Deferred scope liv
 
 | Phase | Status | Done | Progress | % | 🔄 WIP | ◻ TODO |
 |-------|--------|------|----------|---|--------|--------|
+| [21 · Agent roster + terminal identity](phase-21-agent-roster-and-terminal-identity.md) | ◻ TODO | 0/46 | `░░░░░░░░░░` | 0% | — | A B C D E F |
 | [20 · Reviews page & unified diff syntax highlighting](phase-20-reviews-page.md) | 🔄 WIP | 42/44 | `██████████` | 95% | — | 2 manual checks |
 | [19 · Dashboard, Actions and Tests as views](phase-19-dashboard-actions-tests.md) | 🔄 WIP | 73/76 | `██████████` | 96% | — | 3 manual checks |
 | [18 · Footer system monitor + repo diagnostics](phase-18-footer-monitor-diagnostics.md) | 🔄 WIP | 51/54 | `█████████░` | 94% | — | 3 manual checks |
@@ -46,6 +47,32 @@ Completed work is logged append-only in [`done.md`](done.md). Deferred scope liv
 
 <!-- Each phase currently carries a single theme A = its full deliverables checklist. Split into
      lettered themes if a phase gets parallelised. -->
+
+### [Phase 21 — A plural agent roster, and a terminal that knows where it is](phase-21-agent-roster-and-terminal-identity.md)
+
+*Phase 15 built the agent machinery around a roster with one entry in it, and the renderer never
+held up its half of the "adding one is an edit, not a release" bargain. A is the contract every
+other theme reads off (`icon`, `mode`, `install`, four builtins); B and C are the two surfaces that
+stop hard-coding Claude (the session-list mark, the `+` menu); D and E are the live half — a
+terminal that knows where it is (OSC 7) and what is running in it (a process probe in main); F is
+the header those two finally give something true to say.*
+
+- ◻ **A** — `AgentDefinitionSchema` gains `icon` and `install`; `BUILTIN_AGENTS` grows to four real
+  terminal agents (Claude Code `claude`, Antigravity `agy`, Codex `codex`, OpenClaude `openclaude`)
+- ◻ **B** — three new local brand SVGs beside `claude-icon.tsx` plus an `AGENT_ICONS` registry, so
+  `SessionIcon` resolves a mark from the roster instead of hard-coding `<ClaudeIcon>`
+- ◻ **C** — the `+` menu goes flat and iconned (New Terminal / Claude Code / Antigravity / Codex /
+  OpenClaude), with a main-side install probe — resolving against the *login shell's* PATH, not
+  Electron's — disabling what is missing and saying why
+- ◻ **D** — OSC 7 live cwd tracking, `liveCwd` in the terminal store, and a cwd→repo/worktree
+  resolver so the header's repo name and mark follow a `cd`
+- ◻ **E** — a process probe in main behind `pty:agent-changed`, so an agent started or quit by hand
+  swaps the sidebar row's icon; reads process state and acts on nothing
+- ◻ **F** — the header loses the word "Terminal": a glyph, the status circle, then a `~`-collapsed
+  path with the repo segment emphasised and left-truncation
+
+*Open: nothing claimed yet — A is the spine and lands first; B/C and D/E/F are then two independent
+tracks.*
 
 ### [Phase 20 — Reviews page & unified diff syntax highlighting](phase-20-reviews-page.md)
 

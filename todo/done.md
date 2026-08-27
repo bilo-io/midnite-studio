@@ -323,6 +323,33 @@ case-insensitive **substring** match by default, and the new "Tests" sidebar tog
 unrelated `forge-issues.spec.ts` fixture whose CI job happens to be named `test` — fixed there with
 `exact: true`, the same guard the spec already used for "Actions".
 
+## 2026-08-26 — Phase 16 · Theme F (follow-up) — Coverage for the nav-mode lock
+
+Landed on `feature/nav-mode-coverage`. Theme F shipped the locked/unlocked rail and it works,
+but the behaviour itself was never asserted: the e2e only checked that the pin *appeared* once
+Appearance had locked the rail, and `navMode` was the one Theme F field with no store test at
+all — despite sitting in `partialize`, where a future edit could drop it silently.
+
+### What landed
+
+- [x] e2e — the pin's round trip, and the distinction that makes a lock a lock:
+      `auto` hover-expands as an overlay (`--nav-offset` stays `3.5rem`), `expanded` is the only
+      mode that moves content (`16rem`). The two rails render identically, so the custom property
+      `AppFrame` publishes is the only thing that can tell them apart
+- [x] e2e — unlocking lands on `auto`, never on `collapsed`: the pin is two-state by design, and
+      nothing had held it to that
+- [x] Three `ui-store.test.ts` cases — all three modes through `setNavMode`, the mode surviving a
+      restart, and a stored payload that predates the setting merging to `auto` rather than
+      booting someone into a rail they never locked
+
+### Worth remembering
+
+`openSettings` clicks the rail's own footer button, so the pointer is left sitting on the rail
+and `auto` holds it hover-expanded — the "no pin at rest" assertion failed until the test moved
+the mouse off first. A hover-driven rail makes the pointer's resting place part of the fixture.
+
+Tests: `app:test` 513 passed; full e2e 192 passed / 8 skipped. Gate green.
+
 ## 2026-08-26 — Phase 16 · Theme F — Grouped settings navigation + the side-navigation control
 
 Landed on `feature/sidebar-settings` (squash-merged — this repository still has no remote, so
@@ -1900,3 +1927,86 @@ Tailwind only emits it while some other file uses the built-in utility.
 Left standing for next time: once `thinking` is seen, the state is sticky. In that same 80s
 probe the detector returned `thinking` 113 times and `waiting` never again after the turn
 ended, so a finished agent keeps its spinner until its next byte of output.
+
+## 2026-08-27 — The PR description becomes a tab, and the header stops spending height on it
+
+The description sat under the PR title in a `max-h-40` scroller, which spent 160px on every
+pull request whether or not anyone was reading it and pushed the review actions and the tabs
+that far down the pane — on a short window the diff got what was left. It is the `Overview`
+tab now, first of four, and it opens by default: the body was always visible when a PR opened,
+so making Files the landing tab would have hidden it behind a click nobody asked to make.
+
+Overview costs no extra fetch. It reads `useForgePullDetail`, which the header already runs
+for the base branch and the line counts, so a PR opened onto Overview now pulls *less* than
+before — the patch and the review threads stay behind their own tab gates, and a reader who
+only wanted the description never fetches them. Its three states are kept distinct (in flight,
+no detail, a genuinely empty body) so a panel that has not answered yet cannot read as a PR
+with nothing to say.
+
+The dead band under the header was two margins doing one job: `ReviewActionBar`'s root carried
+`mt-2` and its slot in `PrDetail` carried `pb-2`, so the gap above the Approve row came from
+the bar and the gap below it came from the pane. The slot owns both now (`px-3 py-2`) and the
+bar's own top margin is gone. With the body out of it the header is a fixed two rows however
+long the description is, so the rule, the actions and the tablist stack with 8px between them.
+
+## 2026-08-27 — A changed image is shown, not described
+
+`git diff` on a PNG prints "Binary files differ" and stops, so the diff pane printed
+`Binary file — no textual diff.` and stopped too: true, and no answer to the only question the
+reader has. An image now renders as its two revisions, with three ways to compare them —
+two-up, a swipe divider, and an onion-skin fade — because no single one answers everything:
+two-up says what the picture is now, swipe catches geometry (a shifted element lines up or it
+does not), and onion catches tone, where a slow fade shows a colour shift that side-by-side
+hides. The header states the dimensions, and the change in them, which is the difference a
+picture makes hardest to see and a number makes obvious.
+
+The hard part was never the viewer, it was the *before* side: those bytes are not on disk
+anywhere. They come out of the object database instead, through the `mgit-file://` scheme the
+Files preview already uses, with a `?rev=` the handler answers by `git cat-file blob <rev>:<path>`
+— `readBlob` in git-engine, spawned rather than `execGit`'d because dugite hands stdout back as
+a *string* and would corrupt every byte outside the encoding it assumed. Same jail as before
+plus two conditions of its own: the rev must survive a narrow whitelist (`cat-file` takes its
+object as a bare argument with no `--` terminator, so anything flag-shaped must never reach
+git), and a `?rev=` request that fails any check 404s rather than falling through to the disk
+read — otherwise a crafted rev would quietly serve the working-tree file at that path.
+
+Which revisions to pair was the decision worth getting right, and it belongs to the caller:
+the Changes pane compares the index with the checkout (or HEAD with the index, when the file is
+staged), the commit inspector compares the commit with its first parent — matching the
+`--first-parent` diff it already asked git for. `imageDiffSources` is that arithmetic, pure and
+unit-tested, and it returns `null` for everything that is not a binary image, so every call site
+wires it unconditionally and the branch never fires for text. An SVG keeps its textual diff on
+purpose: it has one, and replacing it with two pictures would hide the change rather than show
+it. A rename reads its pre-image from the *old* path, since asking for the new one at the old
+revision finds nothing.
+
+Two smaller things fell out. A blob at a rev is immutable, so those responses are cached
+forever — which is what makes flipping between before and after instant. A working-tree image
+is the opposite case: its URL does not change when the bytes do, so disk-served *images* now
+revalidate, or a re-exported screenshot would sit next to today's "before" and look like the
+diff was wrong. Video and audio were left alone; they go through Chromium's range machinery,
+which is not worth disturbing for a staleness problem they do not have.
+
+## 2026-08-27 — The Files view compares an asset, not just displays it
+
+The image viewer landed in the diff surfaces first, which left the Files browser as the one
+place that shows a picture and cannot answer what changed in it. It has a `Compare` toggle now,
+on an image whose bytes differ from HEAD's: off is today's pane, on is the same `ImageDiff` the
+diff pane mounts — two-up, swipe, onion — over HEAD → the file on disk.
+
+That pairing is deliberately the only one offered here. A file browser has no staged/unstaged
+distinction to work with; it shows one checkout, and the question a reader has of a changed
+asset is how it differs from what is committed, which covers both halves of a staged-then-edited
+change in one comparison.
+
+The gate is `differsFromHead`, over the status entry the sidebar has already fetched for this
+checkout — so it costs a cache read, not a subprocess. A path status never mentions matches
+HEAD and offers nothing. Untracked, ignored, and staged-as-added are refused for a different
+reason: HEAD holds no pre-image, and a "compare" that opens an empty before pane reads as a
+broken viewer rather than as a new file.
+
+Two things the single-image pane gained on the way past: the checkerboard the viewer already
+used (an alpha channel on the plain pane background reads as a solid dark shape — exactly the
+detail worth seeing), and the natural dimensions in the header. Both come from the diff
+viewer's own module rather than a copy, so the two surfaces cannot drift on what a picture sits
+on.

@@ -17,6 +17,8 @@ const filesFixtures: MockFixtures = {
       { name: 'node_modules', kind: 'dir', size: 0, isIgnored: true },
       { name: 'README.md', kind: 'file', size: 120, isIgnored: false },
       { name: 'logo.bin', kind: 'file', size: 2048, isIgnored: false },
+      { name: 'shot.png', kind: 'file', size: 4096, isIgnored: false },
+      { name: 'fresh.png', kind: 'file', size: 4096, isIgnored: false },
     ],
     'repo:src': [{ name: 'main.ts', kind: 'file', size: 64, isIgnored: false }],
   },
@@ -29,6 +31,28 @@ const filesFixtures: MockFixtures = {
     'repo:src/main.ts': { kind: 'text', content: 'const answer = 42;\n', size: 64 },
     'repo:logo.bin': { kind: 'binary', size: 2048 },
   },
+  /*
+    `shot.png` is modified against HEAD and `fresh.png` is untracked — the two
+    sides of the Compare gate. The preview reads status for exactly this.
+  */
+  statusEntries: [
+    {
+      path: 'shot.png',
+      origPath: null,
+      staged: 'unmodified',
+      unstaged: 'modified',
+      conflicted: false,
+      similarity: null,
+    },
+    {
+      path: 'fresh.png',
+      origPath: null,
+      staged: 'untracked',
+      unstaged: 'untracked',
+      conflicted: false,
+      similarity: null,
+    },
+  ],
 };
 
 async function openFiles(page: Page): Promise<void> {
@@ -95,4 +119,39 @@ test('a binary file gets the fallback card, not a preview', async ({ page }) => 
 
   await page.getByRole('treeitem', { name: /logo\.bin/ }).click();
   await expect(page.getByText(/Binary file · 2\.0 KB/)).toBeVisible();
+});
+
+test('a changed image offers the before/after comparison the diff pane gives', async ({ page }) => {
+  await openFiles(page);
+  await page.getByRole('treeitem', { name: /shot\.png/ }).click();
+
+  // Off by default: the Files view answers "what is this file" first, and the
+  // comparison is the follow-up question.
+  await expect(page.getByTestId('image-diff')).toHaveCount(0);
+
+  const compare = page.getByRole('button', { name: 'Compare' });
+  await expect(compare).toBeVisible();
+  await compare.click();
+
+  // The bytes come from `mgit-file://`, which does not exist in a browser, so
+  // this asserts the viewer's chrome — both revisions named, modes offered.
+  const viewer = page.getByTestId('image-diff');
+  await expect(viewer.getByTestId('image-before')).toBeVisible();
+  await expect(viewer.getByTestId('image-after')).toBeVisible();
+  await viewer.getByRole('button', { name: 'Onion' }).click();
+  await expect(viewer.getByRole('slider', { name: 'New revision opacity' })).toBeVisible();
+
+  // And back, without leaving the file.
+  await page.getByRole('button', { name: 'Current' }).click();
+  await expect(page.getByTestId('image-diff')).toHaveCount(0);
+});
+
+test('an untracked image offers no comparison — HEAD holds no pre-image', async ({ page }) => {
+  await openFiles(page);
+  await page.getByRole('treeitem', { name: /fresh\.png/ }).click();
+
+  // The single-image pane rendered — proof the preview really opened on this
+  // file, which is what makes the absent button mean something.
+  await expect(page.getByRole('img', { name: 'fresh.png' })).toBeVisible();
+  await expect(page.getByRole('button', { name: 'Compare' })).toHaveCount(0);
 });
