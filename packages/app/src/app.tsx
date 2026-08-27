@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useRef } from 'react';
+import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
 
 import {
   AppFrame,
@@ -19,6 +19,7 @@ import { DialogHost } from './components/dialog-host';
 import { VIEW_ICON } from './components/nav-icons';
 import { ResizeHandle } from './components/resizable/resize-handle';
 import { useResizable } from './components/resizable/use-resizable';
+import { REVEAL_HOLD_MS, useReveal, useSettled } from './components/use-reveal';
 import { ThemeToggle } from './components/theme-toggle';
 import { TitleBarNav } from './components/title-bar-nav';
 import { ActionsView } from './features/actions/actions-view';
@@ -378,6 +379,64 @@ function Shell() {
     ...LAYOUT_BOUNDS.terminalHeight,
   });
 
+  /*
+    Both toggles are animated, so both panels outlive the flag that hides them:
+    `mounted` keeps them in the tree for the length of the exit, and `shown` is
+    what the width and the height below actually follow.
+  */
+  const reposReveal = useReveal(reposOpen);
+  const terminalReveal = useReveal(terminalOpen);
+
+  /**
+   * The terminal's height while maximized, measured rather than `flex-1`.
+   *
+   * A transition needs two lengths and `flex-1` is not one, so maximizing
+   * animates towards the stack's own height instead — the room the column has
+   * between the title bar and the footer. Measured off the stack rather than
+   * computed from the window: the title bar, the framed-window chrome strip and
+   * the footer each take a slice first, and the stack is what is left after all
+   * of them.
+   */
+  const stackRef = useRef<HTMLDivElement | null>(null);
+  const [stackHeight, setStackHeight] = useState(0);
+  useLayoutEffect(() => {
+    const stack = stackRef.current;
+    if (!stack) return;
+    // Measured before the first paint, so a window that launches with the
+    // terminal already maximized draws it full height rather than growing into
+    // it — a layout effect runs while the browser still owes us that paint.
+    setStackHeight(stack.clientHeight);
+    if (typeof ResizeObserver === 'undefined') return;
+    const observer = new ResizeObserver(() => setStackHeight(stack.clientHeight));
+    observer.observe(stack);
+    return () => observer.disconnect();
+  }, []);
+
+  /*
+    What the panel is aiming at: the whole stack maximized, otherwise the height
+    the handle was dragged to — the live drag value, so a drag still lands
+    exactly where the pointer is.
+  */
+  const terminalTarget = terminalMaximized ? stackHeight : terminal.current;
+
+  /*
+    A maximized terminal covers the view — and only a terminal that is actually
+    open covers anything, which is why hiding one that was left maximized hands
+    the room straight back rather than blanking the column.
+  */
+  const covering = terminalOpen && terminalMaximized;
+
+  /**
+   * Whether the terminal is mid-toggle, and so whether its height animates.
+   *
+   * Armed by a change of STATE, not by every change of height, and that is the
+   * point: maximized, the height tracks the window, and easing towards each new
+   * window height would leave the panel's top edge trailing the window edge the
+   * user is dragging by a fifth of a second. The same shortcut covers the
+   * resize handle, whose whole job is to put the edge under the pointer.
+   */
+  const settled = useSettled(`${terminalOpen}:${terminalMaximized}`, REVEAL_HOLD_MS);
+
   const navItem = useCallback(
     (item: NavItem) => ({
       href: pathForView(item.view),
@@ -541,121 +600,166 @@ function Shell() {
             which is the repository list.
           */}
           {/*
-            Unmounted when hidden, not merely zero-width: the panel streams a
-            per-repository status and ref list, and a hidden-but-live column would
-            keep paying for a view the user has dismissed. Its width is layout
-            state and survives independently, so it comes back the size it was.
+            Unmounted when hidden — once it has finished sliding shut — not
+            merely zero-width: the panel streams a per-repository status and ref
+            list, and a hidden-but-live column would keep paying for a view the
+            user has dismissed. Its width is layout state and survives
+            independently, so it comes back the size it was.
 
-            The handle goes with it. A splitter with nothing on its left edge is
-            a drag target that resizes an invisible thing.
+            The handle goes with it, and travels with it on the way out: a
+            splitter with nothing on its left edge is a drag target that resizes
+            an invisible thing.
           */}
-          {reposOpen ? (
+          {reposReveal.mounted ? (
             <>
               <aside
                 aria-label="Repositories"
-                className={`shrink-0 ${repos.dragging ? '' : 'transition-[width] duration-150 ease-in-out'}`}
-                style={{ width: repos.current }}
+                /*
+                  The animated box is the aside; the panel inside keeps its full
+                  width and is clipped. Reflowing the panel itself would turn
+                  every frame of the slide into a fresh layout of the whole
+                  repository tree — rows re-truncating, the toolbar re-wrapping —
+                  which reads as the sidebar rebuilding rather than moving.
+                */
+                className={`shrink-0 overflow-hidden ${
+                  repos.dragging ? '' : 'transition-[width] duration-200 ease-in-out'
+                }`}
+                style={{ width: reposReveal.shown ? repos.current : 0 }}
               >
-                <ReposPanel />
+                <div className="h-full" style={{ width: repos.current }}>
+                  <ReposPanel />
+                </div>
               </aside>
               <ResizeHandle resizable={repos} axis="x" label="Resize repositories sidebar" />
             </>
           ) : null}
           <div className="flex min-w-0 flex-1 flex-col">
             {/*
-              Keyed on the view so switching cross-fades rather than cutting.
-              The key is what makes it an ENTRANCE: without it React reuses the
-              same element and the animation, having already run, never replays.
+              View, splitter and terminal share this box, and the footer does
+              not: the box is what a maximized terminal is measured against (see
+              `stackHeight`), so it has to be exactly the room those three have
+              between them — no footer, no title bar, nothing else's slice.
             */}
-            <div
-              key={activeView}
-              /*
-                Hidden, not unmounted, while the terminal is maximized: the graph
-                holds a streamed row buffer and a virtualizer scroll position, and
-                tearing those down for a temporary full-screen terminal would cost
-                a re-stream on the way back.
+            <div ref={stackRef} className="flex min-h-0 flex-1 flex-col">
+              {/*
+                Keyed on the view so switching cross-fades rather than cutting.
+                The key is what makes it an ENTRANCE: without it React reuses the
+                same element and the animation, having already run, never replays.
+              */}
+              <div
+                key={activeView}
+                /*
+                  Hidden, not unmounted, while the terminal is maximized: the graph
+                  holds a streamed row buffer and a virtualizer scroll position, and
+                  tearing those down for a temporary full-screen terminal would cost
+                  a re-stream on the way back.
 
-                `overflow-hidden` is the guard rail, not decoration. A view is one
-                of several stacked children of this column — the terminal and the
-                footer are the others — and a pane inside it that runs taller than
-                its box (a tall PR header over a short window, say) otherwise
-                spills its rows straight across the terminal's header. Painting
-                order makes that worse than a stray pixel: the overflowing TEXT of
-                an earlier sibling is drawn after the later sibling's BACKGROUND,
-                so the terminal cannot cover it by being below in the DOM. Clipping
-                here is what makes "a view stays inside its box" true of every
-                view, present and future, rather than a property each one has to
-                remember.
-              */
-              className={`min-h-0 flex-1 overflow-hidden animate-fade-in ${
-                terminalOpen && terminalMaximized ? 'hidden' : ''
-              }`}
-            >
-              {activeView === 'dashboard' ? (
-                <DashboardView />
-              ) : activeView === 'files' ? (
-                <FilesView />
-              ) : activeView === 'graph' ? (
-                <GraphView />
-              ) : activeView === 'changes' ? (
-                <Workbench />
-              ) : activeView === 'actions' ? (
-                <ActionsView />
-              ) : activeView === 'tests' ? (
-                <TestsView />
-              ) : activeView === 'reviews' ? (
-                <ReviewsView />
-              ) : activeView === 'settings' ? (
-                <SettingsView />
-              ) : (
-                <Placeholder view={activeView} />
-              )}
-            </div>
+                  Hidden only once the terminal has finished growing over it, too.
+                  `display: none` takes the view out of the layout, and a view out
+                  of the layout while the terminal is still on its way up leaves a
+                  hole above it — the panel would climb through blank background
+                  instead of over the thing it is covering. So it keeps its box for
+                  the length of the animation, shrinking as the terminal grows, and
+                  only steps out at the end.
 
-            {/*
-              Mounted while open, and no longer killed on hide.
-
-              Phase 9 unmounted this deliberately, because a hidden shell had no
-              UI to see or stop it. The session list is that UI, so the trade has
-              flipped: a build running in a background terminal is the point, and
-              losing it every time the panel is toggled was the worse cost.
-
-              Maximized, the panel takes the whole column below the title bar and
-              the resize handle goes with it — there is nothing left to resize
-              against.
-            */}
-            {terminalOpen ? (
-              <>
-                {terminalMaximized ? null : (
-                  <ResizeHandle resizable={terminal} axis="y" label="Resize terminal" />
+                  `overflow-hidden` is the guard rail, not decoration. A view is one
+                  of several stacked children of this column — the terminal and the
+                  footer are the others — and a pane inside it that runs taller than
+                  its box (a tall PR header over a short window, say) otherwise
+                  spills its rows straight across the terminal's header. Painting
+                  order makes that worse than a stray pixel: the overflowing TEXT of
+                  an earlier sibling is drawn after the later sibling's BACKGROUND,
+                  so the terminal cannot cover it by being below in the DOM. Clipping
+                  here is what makes "a view stays inside its box" true of every
+                  view, present and future, rather than a property each one has to
+                  remember.
+                */
+                className={`min-h-0 flex-1 overflow-hidden animate-fade-in ${
+                  covering && settled ? 'hidden' : ''
+                }`}
+              >
+                {activeView === 'dashboard' ? (
+                  <DashboardView />
+                ) : activeView === 'files' ? (
+                  <FilesView />
+                ) : activeView === 'graph' ? (
+                  <GraphView />
+                ) : activeView === 'changes' ? (
+                  <Workbench />
+                ) : activeView === 'actions' ? (
+                  <ActionsView />
+                ) : activeView === 'tests' ? (
+                  <TestsView />
+                ) : activeView === 'reviews' ? (
+                  <ReviewsView />
+                ) : activeView === 'settings' ? (
+                  <SettingsView />
+                ) : (
+                  <Placeholder view={activeView} />
                 )}
-                {/*
-                  No width/height transition on this one. The panel's
-                  ResizeObserver drives a pty resize, and animating the height
-                  would make the shell's column count chase the pointer a frame
-                  behind for the length of every drag.
-                */}
-                <div
-                  /*
-                    Stacked above the view column as well as clipped: the view
-                    clips itself now, but the terminal is the one surface in this
-                    window whose chrome must never be sat on, and a z-index is a
-                    cheaper guarantee of that than trusting every future pane to
-                    keep its overflow to itself.
-                  */
-                  className={`relative z-10 overflow-hidden border-t border-border ${
-                    terminalMaximized ? 'min-h-0 flex-1' : 'shrink-0'
-                  }`}
-                  style={terminalMaximized ? undefined : { height: terminal.current }}
-                >
-                  <TerminalPanel
-                    cwd={selectedWorktreePath}
-                    repoId={selectedRepoId}
-                    repoName={selectedRepoName}
-                  />
-                </div>
-              </>
-            ) : null}
+              </div>
+
+              {/*
+                Mounted while open — and for the length of the slide shut — and
+                no longer killed on hide.
+
+                Phase 9 unmounted this deliberately, because a hidden shell had no
+                UI to see or stop it. The session list is that UI, so the trade has
+                flipped: a build running in a background terminal is the point, and
+                losing it every time the panel is toggled was the worse cost.
+
+                Maximized, the panel takes the whole column below the title bar and
+                the resize handle goes with it — there is nothing left to resize
+                against.
+              */}
+              {terminalReveal.mounted ? (
+                <>
+                  {terminalMaximized ? null : (
+                    <ResizeHandle resizable={terminal} axis="y" label="Resize terminal" />
+                  )}
+                  <div
+                    // Named for the e2e suite: this box, not the panel inside it,
+                    // is the one that animates between the three heights.
+                    data-terminal-frame
+                    /*
+                      Stacked above the view column as well as clipped: the view
+                      clips itself now, but the terminal is the one surface in this
+                      window whose chrome must never be sat on, and a z-index is a
+                      cheaper guarantee of that than trusting every future pane to
+                      keep its overflow to itself.
+
+                      Two boxes, not one, and the reason is the pty. This outer box
+                      is the one that animates; the panel inside it is already at
+                      its final height and gets clipped. The panel's ResizeObserver
+                      drives an xterm fit and a pty resize, so animating the panel
+                      ITSELF would send the shell a dozen SIGWINCHes over the length
+                      of every toggle and have its column count chase the animation
+                      a frame behind. This way the shell is told its new size once,
+                      at the start, and what moves is only the window onto it.
+                    */
+                    className={`relative z-10 shrink-0 overflow-hidden border-t border-border ${
+                      settled ? '' : 'transition-[height] duration-200 ease-in-out'
+                    }`}
+                    style={{ height: terminalReveal.shown ? terminalTarget : 0 }}
+                  >
+                    {/*
+                      Top-anchored, which is what keeps the promise the header's
+                      e2e test makes: the chrome is the first thing revealed and the
+                      last thing to leave, so the restore and close buttons are
+                      under the pointer for every frame of the animation rather than
+                      clipped out of reach halfway through it.
+                    */}
+                    <div style={{ height: terminalTarget }}>
+                      <TerminalPanel
+                        cwd={selectedWorktreePath}
+                        repoId={selectedRepoId}
+                        repoName={selectedRepoName}
+                      />
+                    </div>
+                  </div>
+                </>
+              ) : null}
+            </div>
 
             <FooterBar />
           </div>
