@@ -141,6 +141,12 @@ const bridge: Pick<
     reviewComment: (req) => call(CHANNELS.forgeReviewComment, req),
     reviewReply: (req) => call(CHANNELS.forgeReviewReply, req),
     resolveThread: (req) => call(CHANNELS.forgeResolveThread, req),
+    pullReview: (req) => call(CHANNELS.forgePullReview, req),
+    pullComment: (req) => call(CHANNELS.forgePullComment, req),
+    pullMerge: (req) => call(CHANNELS.forgePullMerge, req),
+    pullRequestReview: (req) => call(CHANNELS.forgePullRequestReview, req),
+    pullReady: (req) => call(CHANNELS.forgePullReady, req),
+    runRerun: (req) => call(CHANNELS.forgeRunRerun, req),
   },
   shell: {
     // `invoke`, not `send`: the renderer needs to know a URL was refused, and

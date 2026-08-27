@@ -8,6 +8,8 @@ import type {
   ForgePullDetailResult,
   ForgePullFilesResult,
   ForgePullsResult,
+  ForgeMergeMethod,
+  ForgeReviewEvent,
   ForgePullThreadsResult,
   ForgeRunDetailResult,
   ForgeRunLogResult,
@@ -695,6 +697,168 @@ export function useSetThreadResolved(repoId: string | null, number: number | nul
 function invalidateThreads(client: QueryClient, repoId: string | null, number: number | null): void {
   if (!repoId || number === null) return;
   void client.invalidateQueries({ queryKey: keys.forgePullThreads(repoId, number) });
+}
+
+/*
+  ─── The six review write actions (Phase 20 Themes F and G) ──────────────────
+
+  Same envelope discipline as Theme E's three above: none of these throws, all
+  of them answer `ForgeWriteResult`, and the caller renders `gh`'s own sentence
+  beside the control that caused it.
+
+  Where they differ is what a success invalidates. A posted thread changes only
+  the threads; a *review* changes the PR's `reviewDecision`, which the listing
+  row and the detail header both draw, so those have to be re-read. The
+  invalidator below is scoped to that — the listing and the one PR's detail —
+  rather than the whole `forge(repoId)` prefix, which would also re-spawn the
+  runs, workflows and issues subprocesses for a state none of them reflect.
+
+  None of them is optimistic. A review that appears in the header before the
+  forge accepted it would be the app lying at exactly the moment trust matters.
+*/
+
+/**
+ * What a review verdict changed: this PR's own facts, and its row in the list.
+ *
+ * The *patch* is deliberately not invalidated. Approving a pull request does
+ * not alter its diff, and re-fetching a capped patch is the most expensive read
+ * in this file.
+ */
+function invalidatePullState(
+  client: QueryClient,
+  repoId: string | null,
+  number: number | null,
+): void {
+  if (!repoId) return;
+  if (number !== null) {
+    void client.invalidateQueries({ queryKey: keys.forgePullDetail(repoId, number) });
+  }
+  /*
+    Prefix-matched, not exact.
+
+    `keys.forgePulls` is keyed by limit AND state, and the list, the sidebar
+    section and the dashboard widget each ask with different values — so an
+    exact key would refresh whichever one happened to match and leave a stale
+    "Changes requested" pill in the other two.
+  */
+  void client.invalidateQueries({ queryKey: ['repos', repoId, 'forge', 'pulls'] });
+}
+
+/** Submit a review: approve, request changes, or comment. */
+export function useReviewPull(repoId: string | null, number: number | null) {
+  const client = useQueryClient();
+  return useMutation({
+    mutationFn: async (input: {
+      event: ForgeReviewEvent;
+      body: string;
+    }): Promise<ForgeWriteResult> => {
+      const api = bridge();
+      if (!api || !repoId || number === null) return NO_FORGE_WRITE;
+      return api.forge.pullReview({ repoId, number, ...input });
+    },
+    onSuccess: (result) => {
+      if (result.ok) invalidatePullState(client, repoId, number);
+    },
+  });
+}
+
+/**
+ * Post a top-level conversation comment.
+ *
+ * Invalidates the conversation rather than the PR's state, because that is what
+ * changed: a discussion comment carries no verdict, so the listing row's review
+ * pill is the same as it was.
+ */
+export function useCommentPull(repoId: string | null, number: number | null) {
+  const client = useQueryClient();
+  return useMutation({
+    mutationFn: async (input: { body: string }): Promise<ForgeWriteResult> => {
+      const api = bridge();
+      if (!api || !repoId || number === null) return NO_FORGE_WRITE;
+      return api.forge.pullComment({ repoId, number, ...input });
+    },
+    onSuccess: (result) => {
+      if (!result.ok || !repoId || number === null) return;
+      void client.invalidateQueries({ queryKey: keys.forgePullComments(repoId, number) });
+    },
+  });
+}
+
+/** Merge the pull request. The dialog confirms before this is reached. */
+export function useMergePull(repoId: string | null, number: number | null) {
+  const client = useQueryClient();
+  return useMutation({
+    mutationFn: async (input: { method: ForgeMergeMethod }): Promise<ForgeWriteResult> => {
+      const api = bridge();
+      if (!api || !repoId || number === null) return NO_FORGE_WRITE;
+      return api.forge.pullMerge({ repoId, number, ...input });
+    },
+    onSuccess: (result) => {
+      if (result.ok) invalidatePullState(client, repoId, number);
+    },
+  });
+}
+
+/** Ask one or more logins for a review — the same call re-asks an existing one. */
+export function useRequestReview(repoId: string | null, number: number | null) {
+  const client = useQueryClient();
+  return useMutation({
+    mutationFn: async (input: { reviewers: string[] }): Promise<ForgeWriteResult> => {
+      const api = bridge();
+      if (!api || !repoId || number === null) return NO_FORGE_WRITE;
+      return api.forge.pullRequestReview({ repoId, number, ...input });
+    },
+    onSuccess: (result) => {
+      if (result.ok) invalidatePullState(client, repoId, number);
+    },
+  });
+}
+
+/** Take a draft pull request out of draft. */
+export function useMarkPullReady(repoId: string | null, number: number | null) {
+  const client = useQueryClient();
+  return useMutation({
+    mutationFn: async (): Promise<ForgeWriteResult> => {
+      const api = bridge();
+      if (!api || !repoId || number === null) return NO_FORGE_WRITE;
+      return api.forge.pullReady({ repoId, number });
+    },
+    onSuccess: (result) => {
+      if (result.ok) invalidatePullState(client, repoId, number);
+    },
+  });
+}
+
+/**
+ * Re-run a workflow run, or only its failed jobs.
+ *
+ * Invalidates both the run listing and that run's detail, because `gh run rerun`
+ * adds an attempt to the *same* run id rather than creating a new one: the
+ * listing's status and conclusion go stale, and so does the job tree. Main
+ * evicts its own cache for the same reason — see `forgetRun` — since a query
+ * invalidation alone would re-fetch and be served the previous attempt.
+ *
+ * Both keys are prefix-matched, for the same reason as the pull listing:
+ * `keys.forgeRuns` is keyed by branch and `keys.forgeRunDetail` by run id, and
+ * the Checks tab asks per-branch while the Actions view asks for all.
+ */
+export function useRerunChecks(repoId: string | null) {
+  const client = useQueryClient();
+  return useMutation({
+    mutationFn: async (input: {
+      runId: string;
+      failedOnly: boolean;
+    }): Promise<ForgeWriteResult> => {
+      const api = bridge();
+      if (!api || !repoId) return NO_FORGE_WRITE;
+      return api.forge.runRerun({ repoId, ...input });
+    },
+    onSuccess: (result, input) => {
+      if (!result.ok || !repoId) return;
+      void client.invalidateQueries({ queryKey: ['repos', repoId, 'forge', 'runs'] });
+      void client.invalidateQueries({ queryKey: keys.forgeRunDetail(repoId, input.runId) });
+    },
+  });
 }
 
 /**

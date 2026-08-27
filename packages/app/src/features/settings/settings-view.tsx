@@ -7,6 +7,7 @@ import {
   LuGitBranch,
   LuPalette,
   LuPanelLeft,
+  LuShieldCheck,
   LuSquareTerminal,
 } from 'react-icons/lu';
 
@@ -20,6 +21,7 @@ import { AgentPage } from './settings-pages/agent-page';
 import { AppearancePage } from './settings-pages/appearance-page';
 import { GraphPage } from './settings-pages/graph-page';
 import { MonitorPage } from './settings-pages/monitor-page';
+import { ReviewsPage } from './settings-pages/reviews-page';
 import { SidebarPage } from './settings-pages/sidebar-page';
 import { TerminalPage } from './settings-pages/terminal-page';
 
@@ -37,6 +39,7 @@ const PAGE_CONTENT: Record<SettingsPageId, () => React.ReactNode> = {
   sidebar: () => <SidebarPage />,
   terminal: () => <TerminalPage />,
   agent: () => <AgentPage />,
+  reviews: () => <ReviewsPage />,
   monitor: () => <MonitorPage />,
 };
 
@@ -57,6 +60,9 @@ const PAGE_ICON: Record<SettingsPageId, IconType> = {
   sidebar: LuPanelLeft,
   terminal: LuSquareTerminal,
   agent: LuBot,
+  // A shield rather than a git or comment glyph: this page is the permission in
+  // front of the review actions, not the actions themselves.
+  reviews: LuShieldCheck,
   monitor: LuActivity,
 };
 

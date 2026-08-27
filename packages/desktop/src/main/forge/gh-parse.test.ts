@@ -4,13 +4,15 @@ import { parseMultiFileDiff } from '@midnite/git-engine';
 
 import {
   capPatch,
-  describeFailure,
   logVerdict,
-  repoFlag,
-  shellQuote,
   stripPatchPreamble,
   stripShellPreamble,
 } from './gh-cli';
+import {
+  describeFailure,
+  repoFlag,
+  shellQuote,
+} from './gh-shell';
 import {
   LOG_FULL_MAX_BYTES,
   LOG_HEAD_BYTES,

@@ -1,7 +1,9 @@
 import type { ForgeRun } from '@midnite/git-shared';
+import { RefreshCw } from 'lucide-react';
 import { useMemo, useState } from 'react';
 
-import { useForgeRunDetail, useForgeRuns } from '../../services/queries';
+import { useForgeRunDetail, useForgeRuns, useRerunChecks } from '../../services/queries';
+import { useUiStore } from '../../store/ui-store';
 import { RunDetail } from '../actions/run-detail';
 import { runStatus, StatusPill } from '../forge/forge-status';
 
@@ -71,6 +73,7 @@ export function PrChecks({
   const active = matching.find((run) => run.id === selectedId) ?? matching[0] ?? null;
 
   const detail = useForgeRunDetail(repoId, active?.id ?? null, active !== null);
+  const rerun = useRerunChecks(repoId);
 
   // "We are still asking" comes before every claim about what GitHub said.
   if (loadingDetail && headSha === null) return <Note>Reading pull request detail…</Note>;
@@ -106,22 +109,41 @@ export function PrChecks({
         common case, and a strip holding a single un-pressable button is chrome
         that explains nothing.
       */}
-      {matching.length > 1 ? (
-        <div
-          role="tablist"
-          aria-label="Workflow runs for this commit"
-          className="flex shrink-0 gap-1 overflow-x-auto border-b border-border px-2 py-1"
-        >
-          {matching.map((run) => (
-            <RunTab
-              key={run.id}
-              run={run}
-              selected={run.id === active.id}
-              onSelect={() => setSelectedId(run.id)}
-            />
-          ))}
-        </div>
-      ) : null}
+      <div className="flex shrink-0 items-center gap-2 border-b border-border px-2 py-1">
+        {/*
+          The picker's tablist appears only when there is a choice. One workflow
+          is the common case, and a strip of a single un-pressable button is
+          chrome that explains nothing — but the re-run controls beside it are
+          worth having either way, so the strip itself now always renders.
+        */}
+        {matching.length > 1 ? (
+          <div
+            role="tablist"
+            aria-label="Workflow runs for this commit"
+            className="flex min-w-0 flex-1 gap-1 overflow-x-auto"
+          >
+            {matching.map((run) => (
+              <RunTab
+                key={run.id}
+                run={run}
+                selected={run.id === active.id}
+                onSelect={() => setSelectedId(run.id)}
+              />
+            ))}
+          </div>
+        ) : (
+          <span className="min-w-0 flex-1 truncate text-xs text-muted-foreground">
+            {active.workflowName ?? active.name}
+          </span>
+        )}
+
+        <RerunControls
+          run={active}
+          pending={rerun.isPending}
+          error={failureOf(rerun.data)}
+          onRerun={(failedOnly) => rerun.mutate({ runId: active.id, failedOnly })}
+        />
+      </div>
 
       <RunDetail
         // Keyed on the run, so the log pane's fold state and the selected job
@@ -135,6 +157,97 @@ export function PrChecks({
       />
     </div>
   );
+}
+
+/**
+ * Re-run this run, or only what failed in it.
+ *
+ * **Two buttons, and the narrower one is conditional.** `gh run rerun --failed`
+ * is refused by the Actions API for a run that did not fail, so offering it on a
+ * green run would be a live control that is guaranteed to be told no. It is
+ * absent instead — the same rule the action bar applies to Draft → Ready.
+ *
+ * The gate is `forgeWritesEnabled`, exactly as in `ReviewActionBar`, and for the
+ * same reason: this is the seventh thing the app can change on GitHub, so it
+ * belongs behind the same one switch rather than beside it.
+ */
+function RerunControls({
+  run,
+  pending,
+  error,
+  onRerun,
+}: {
+  run: ForgeRun;
+  pending: boolean;
+  error: string | null;
+  onRerun: (failedOnly: boolean) => void;
+}) {
+  const enabled = useUiStore((s) => s.forgeWritesEnabled);
+  const failed = run.conclusion === 'failure' || run.conclusion === 'timed_out';
+
+  const className =
+    'flex shrink-0 items-center gap-1.5 rounded border border-border px-2 py-1 text-[11px] ' +
+    'text-muted-foreground transition-colors hover:bg-accent hover:text-foreground ' +
+    'disabled:cursor-not-allowed disabled:opacity-40';
+  const title = (label: string) =>
+    enabled ? label : `${label} — enable review actions in Settings → Reviews`;
+
+  return (
+    <div className="flex shrink-0 items-center gap-1.5">
+      {/*
+        One slot for the refusal, beside the buttons that caused it. Only one
+        re-run can be in flight at a time, so there is nothing to disambiguate.
+      */}
+      {error !== null ? (
+        <span role="alert" className="max-w-[18rem] truncate text-[11px] text-destructive">
+          {error}
+        </span>
+      ) : null}
+      <button
+        type="button"
+        disabled={!enabled || pending}
+        onClick={() => onRerun(false)}
+        title={title('Re-run all jobs')}
+        className={className}
+      >
+        <RefreshCw className={`h-3 w-3 ${pending ? 'animate-spin' : ''}`} aria-hidden />
+        Re-run all jobs
+      </button>
+      {failed ? (
+        <button
+          type="button"
+          disabled={!enabled || pending}
+          onClick={() => onRerun(true)}
+          title={title('Re-run failed jobs')}
+          className={className}
+        >
+          Re-run failed jobs
+        </button>
+      ) : null}
+    </div>
+  );
+}
+
+/**
+ * The sentence a finished-and-refused re-run has to say, if any.
+ *
+ * Reads the mutation's `data`, not its `error`: `ForgeWriteResult` carries the
+ * refusal as a value, so there is no rejection to read. Mirrors `failureOf` in
+ * `review-action-bar.tsx` — duplicated rather than shared because the two files
+ * would otherwise need a module for one four-line function, and this is the
+ * second and last caller.
+ */
+function failureOf(result?: {
+  ok: boolean;
+  error: string | null;
+  cli: { reason: string; hint: string };
+}): string | null {
+  if (result === undefined || result.ok) return null;
+  if (result.error !== null) return result.error;
+  if (result.cli.reason !== 'ready') {
+    return result.cli.hint.length > 0 ? result.cli.hint : 'The GitHub CLI is not available.';
+  }
+  return 'The GitHub CLI could not complete that request.';
 }
 
 function RunTab({

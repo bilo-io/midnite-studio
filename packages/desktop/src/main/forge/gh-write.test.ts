@@ -1,10 +1,17 @@
 import type { Forge } from '@midnite/git-shared';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
+import { parseCommitSample } from './gh-parse';
 import {
   addReviewComment,
+  commentCommand,
   describeApiFailure,
+  mergeCommand,
+  readyCommand,
   replyToReviewComment,
+  requestReviewCommand,
+  rerunCommand,
+  reviewCommand,
   setThreadResolved,
 } from './gh-write';
 
@@ -17,9 +24,12 @@ import {
  * *quoting* (an owner or repo out of a `.git/config` reaching a shell). Both
  * are visible in the command line, so the command line is what is asserted.
  *
- * `runInShell` is mocked and everything else in `gh-cli` is real — `shellQuote`
- * especially. Stubbing the quoting would make these tests agree with themselves
- * about escaping rather than with the function that does it.
+ * `runInShell` is mocked and everything else in `gh-shell` is real —
+ * `shellQuote` especially. Stubbing the quoting would make these tests agree
+ * with themselves about escaping rather than with the function that does it.
+ *
+ * The Themes F and G half at the bottom needs no mock at all: those commands are
+ * built by pure functions and asserted as strings.
  */
 
 /*
@@ -48,8 +58,8 @@ const { runInShell } = vi.hoisted(() => ({
   >(),
 }));
 
-vi.mock('./gh-cli', async (importOriginal) => {
-  const actual = await importOriginal<typeof import('./gh-cli')>();
+vi.mock('./gh-shell', async (importOriginal) => {
+  const actual = await importOriginal<typeof import('./gh-shell')>();
   return {
     ...actual,
     runInShell,
@@ -265,5 +275,170 @@ describe('describeApiFailure', () => {
 
   it('falls back to the line scan for output that is not JSON', () => {
     expect(describeApiFailure('gh: error connecting to api.github.com')).toMatch(/error connecting/);
+  });
+});
+
+/*
+  ─── Themes F and G: the command line itself ────────────────────────────────
+
+  The assertions below are deliberately about the exact string, not about a
+  parsed shape: this is the one module in the app that changes someone else's
+  data, and the failure modes worth catching are all textual — a verb that
+  becomes a value, a body that breaks out of its quoting, a `--failed` that
+  appears when nobody asked for it, a method flag omitted so `gh` drops into an
+  interactive prompt and hangs. None of those are visible in a mock's
+  arguments; all of them are visible here.
+
+  No `vi.mock` is needed for any of it, which is the reward for splitting
+  command construction from the spawn.
+*/
+
+const forge: Forge = { kind: 'github', host: 'github.com', owner: 'bilo-io', repo: 'midnite-git' };
+const enterprise: Forge = { kind: 'github', host: 'ghe.example.com', owner: 'acme', repo: 'app' };
+
+describe('reviewCommand', () => {
+  it('spells each event as its own flag, not as a value', () => {
+    expect(reviewCommand(forge, 7, 'APPROVE', '')).toBe(
+      "gh pr review 7 --repo 'bilo-io/midnite-git' --approve",
+    );
+    expect(reviewCommand(forge, 7, 'REQUEST_CHANGES', 'needs work')).toBe(
+      "gh pr review 7 --repo 'bilo-io/midnite-git' --request-changes --body 'needs work'",
+    );
+    expect(reviewCommand(forge, 7, 'COMMENT', 'looks fine')).toBe(
+      "gh pr review 7 --repo 'bilo-io/midnite-git' --comment --body 'looks fine'",
+    );
+  });
+
+  it('omits --body entirely for a bare approval', () => {
+    // Not `--body ''`: gh accepts that and publishes an approval carrying an
+    // empty comment, which is not what "approve with nothing to add" means.
+    expect(reviewCommand(forge, 1, 'APPROVE', '   ')).not.toContain('--body');
+  });
+
+  it('renders a hostile body as one inert argument', () => {
+    const body = "'; rm -rf ~; echo '";
+    const command = reviewCommand(forge, 1, 'COMMENT', body);
+    // Every `'` the body carried is closed, escaped and reopened, so nothing in
+    // it can end the quoting and become a second command.
+    expect(command).toBe(
+      `gh pr review 1 --repo 'bilo-io/midnite-git' --comment --body ` +
+        `''\\''; rm -rf ~; echo '\\'''`,
+    );
+    expect(command.split(' --body ')[1]?.startsWith("'")).toBe(true);
+  });
+
+  it('keeps a multi-line body in one argument', () => {
+    const command = reviewCommand(forge, 2, 'COMMENT', 'line one\nline two');
+    expect(command).toContain("--body 'line one\nline two'");
+  });
+
+  it('host-qualifies --repo for GitHub Enterprise', () => {
+    expect(reviewCommand(enterprise, 3, 'APPROVE', '')).toContain(
+      "--repo 'ghe.example.com/acme/app'",
+    );
+  });
+});
+
+describe('commentCommand', () => {
+  it('posts a discussion comment, not a verdict-less review', () => {
+    // `gh pr comment`, not `gh pr review --comment` — different collections,
+    // different attribution. See the doc comment on commentCommand.
+    expect(commentCommand(forge, 12, 'ping')).toBe(
+      "gh pr comment 12 --repo 'bilo-io/midnite-git' --body 'ping'",
+    );
+  });
+});
+
+describe('mergeCommand', () => {
+  it('always carries a method flag', () => {
+    // A method-less `gh pr merge` prompts interactively, and the login shell
+    // these run in is tty-ish enough that it would hang until the timeout.
+    for (const method of ['merge', 'squash', 'rebase'] as const) {
+      expect(mergeCommand(forge, 9, method)).toBe(
+        `gh pr merge 9 --repo 'bilo-io/midnite-git' --${method}`,
+      );
+    }
+  });
+
+  it('never deletes the head branch', () => {
+    // A second destructive act with its own blast radius; deliberately absent.
+    expect(mergeCommand(forge, 9, 'squash')).not.toContain('--delete-branch');
+  });
+});
+
+describe('requestReviewCommand', () => {
+  it('repeats the flag rather than comma-joining logins', () => {
+    expect(requestReviewCommand(forge, 4, ['octocat', 'hubot'])).toBe(
+      "gh pr edit 4 --repo 'bilo-io/midnite-git' --add-reviewer 'octocat' --add-reviewer 'hubot'",
+    );
+  });
+
+  it('quotes each login on its own', () => {
+    expect(requestReviewCommand(forge, 4, ['a-b'])).toContain("--add-reviewer 'a-b'");
+  });
+});
+
+describe('readyCommand', () => {
+  it('has no --undo path', () => {
+    const command = readyCommand(forge, 5);
+    expect(command).toBe("gh pr ready 5 --repo 'bilo-io/midnite-git'");
+    expect(command).not.toContain('--undo');
+  });
+});
+
+describe('rerunCommand', () => {
+  it('adds --failed only when asked', () => {
+    expect(rerunCommand(forge, '123456', false)).toBe(
+      "gh run rerun '123456' --repo 'bilo-io/midnite-git'",
+    );
+    expect(rerunCommand(forge, '123456', true)).toBe(
+      "gh run rerun '123456' --repo 'bilo-io/midnite-git' --failed",
+    );
+  });
+});
+
+/**
+ * The merge confirm's number, at its source.
+ *
+ * Lives in this file rather than beside the other parsers because it exists for
+ * one caller — the blast radius on the one irreversible write above — and the
+ * property that matters is not "it parses" but "the count is exact even though
+ * the sample is capped". A test that only checked the sample would pass while
+ * the dialog under-reported what a merge was about to do.
+ */
+describe('parseCommitSample', () => {
+  const commit = (oid: string, headline: string) => ({
+    oid,
+    messageHeadline: headline,
+    messageBody: 'body text nobody renders',
+    authors: [{ login: 'octocat' }],
+  });
+
+  it('returns the newest commits first', () => {
+    // `gh` sends them oldest-first; a branch is recognised by its newest tip.
+    const sample = parseCommitSample([commit('a1', 'first'), commit('b2', 'second')]);
+    expect(sample).toEqual([
+      { sha: 'b2', subject: 'second' },
+      { sha: 'a1', subject: 'first' },
+    ]);
+  });
+
+  it('caps the sample at PULL_COMMIT_SAMPLE', () => {
+    const many = Array.from({ length: 40 }, (_, i) => commit(`sha${i}`, `subject ${i}`));
+    expect(parseCommitSample(many)).toHaveLength(5);
+    // Newest first means the cap keeps the tip, not the root.
+    expect(parseCommitSample(many)[0]).toEqual({ sha: 'sha39', subject: 'subject 39' });
+  });
+
+  it('drops rows with no sha rather than inventing one', () => {
+    expect(parseCommitSample([{ messageHeadline: 'orphan' }, commit('c3', 'kept')])).toEqual([
+      { sha: 'c3', subject: 'kept' },
+    ]);
+  });
+
+  it('answers empty for anything that is not an array', () => {
+    expect(parseCommitSample(undefined)).toEqual([]);
+    expect(parseCommitSample(null)).toEqual([]);
+    expect(parseCommitSample('nope')).toEqual([]);
   });
 });

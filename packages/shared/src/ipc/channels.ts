@@ -110,16 +110,45 @@ export const CHANNELS = {
    */
   forgePullThreads: 'mgit:forge:pull-threads',
 
-  // --- forge writes (Phase 20 Theme E) -------------------------------------
+  // --- forge writes (Phase 20 Themes E, F and G) ---------------------------
   //
-  // The three channels below are the exception the block above documents, and
-  // the whole of it as of Theme E. All three live in `forge/gh-write.ts`.
+  // The nine channels below are the exception the block above documents, and
+  // the whole of it. Every one is served by `forge/gh-write.ts`; nothing above
+  // this heading writes anything.
+  //
+  // Theme E — inline threads:
   /** Start a new inline thread on a line of the PR's diff. */
   forgeReviewComment: 'mgit:forge:review-comment',
   /** Add a reply to an existing inline thread. */
   forgeReviewReply: 'mgit:forge:review-reply',
   /** Mark an inline thread resolved, or reopen it. */
   forgeResolveThread: 'mgit:forge:resolve-thread',
+  // Themes F and G — the review verdict, the merge, and the three nudges:
+  /**
+   * Submit a review: approve, request changes, or comment.
+   *
+   * One channel for three verbs because they are one GitHub action with an
+   * `event` — `gh pr review` takes the verb as a flag, and three channels would
+   * be three names for one command line.
+   */
+  forgePullReview: 'mgit:forge:pull-review',
+  /**
+   * Add a top-level comment to the conversation.
+   *
+   * Separate from `forgePullReview` even though `--comment` looks similar: `gh
+   * pr comment` posts a discussion comment, `gh pr review --comment` submits a
+   * *review* that happens to carry no verdict. They land in different
+   * collections and the Conversation tab renders them differently.
+   */
+  forgePullComment: 'mgit:forge:pull-comment',
+  /** Merge the pull request. The one irreversible call in this contract. */
+  forgePullMerge: 'mgit:forge:pull-merge',
+  /** Ask one or more logins for a review. */
+  forgePullRequestReview: 'mgit:forge:pull-request-review',
+  /** Take a draft pull request out of draft. */
+  forgePullReady: 'mgit:forge:pull-ready',
+  /** Re-run a workflow run — every job, or only the failed ones. */
+  forgeRunRerun: 'mgit:forge:run-rerun',
   /**
    * Issues for the repo's GitHub remote.
    *

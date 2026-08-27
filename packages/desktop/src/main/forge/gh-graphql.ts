@@ -13,7 +13,7 @@ import {
   LIST_TIMEOUT_MS,
   runInShell,
   shellQuote,
-} from './gh-cli';
+} from './gh-shell';
 
 /**
  * The one GraphQL read in the app, and why it has to be one.

@@ -27,6 +27,7 @@ import { MARKDOWN_PROSE_CLASSES } from '../markdown/prose';
 import { PrChecks } from './pr-checks';
 import { PrConversation } from './pr-conversation';
 import { PrFiles } from './pr-files';
+import { ReviewActionBar } from './review-action-bar';
 
 /**
  * One pull request, read in the app.
@@ -118,6 +119,16 @@ export function PrDetail({ repoId, number }: { repoId: string; number: number })
       className="flex h-full min-h-0 min-w-0 flex-1 flex-col"
     >
       <PrHeader pull={pull} detail={detail} />
+
+      {/*
+        Outside the tabpanel on purpose: these actions apply to the pull request,
+        not to one view of it, so they stay put and stay visible whichever tab is
+        open. Inside Conversation — GitHub's own placement — Merge would be
+        hidden behind a tab.
+      */}
+      <div className="shrink-0 px-3 pb-2">
+        <ReviewActionBar repoId={repoId} pull={pull} detail={detail} />
+      </div>
 
       <div
         role="tablist"

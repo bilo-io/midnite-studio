@@ -494,6 +494,36 @@ export const ForgePullDetailSchema = z.object({
    * finished computing it, which is a third answer and not a `false`.
    */
   mergeable: z.string().nullable().default(null),
+  /**
+   * How many commits the PR would bring in — the merge confirm's blast radius.
+   *
+   * Read from `gh pr view --json commits` rather than a local
+   * `rev-list --count base..head`, which is what the destructive-op confirms
+   * elsewhere in the app use. The difference is that those count commits in the
+   * local object store; a pull request's head ref usually is not there at all —
+   * nothing fetches a contributor's branch just because it opened a PR — and
+   * `rev-list` against a missing ref reads as zero, which is the one number a
+   * blast radius must never be wrong about.
+   */
+  commitCount: z.number().int().nonnegative().default(0),
+  /**
+   * The newest few of those commits, for the confirm dialog's sample list.
+   *
+   * Capped in main (see `PULL_COMMIT_SAMPLE`), not here: the full array `gh`
+   * returns carries every commit's message and author, and shipping a
+   * 200-commit PR's worth of that across IPC to render three lines would be the
+   * whole payload for none of the value.
+   */
+  commits: z.array(z.object({ sha: z.string(), subject: z.string().default('') })).default([]),
+  /**
+   * Logins whose review has been requested and not yet given.
+   *
+   * Here rather than behind its own fetch because `gh pr view --json
+   * reviewRequests` is one more field on a call the detail header already makes
+   * — which is what lets Theme G's re-request picker offer real names without
+   * spending a subprocess on a collaborator listing.
+   */
+  reviewRequests: z.array(z.string()).default([]),
 });
 export type ForgePullDetail = z.infer<typeof ForgePullDetailSchema>;
 
@@ -560,6 +590,15 @@ export type ForgePullCommentsResult = z.infer<typeof ForgePullCommentsResultSche
  * milliseconds rather than a stalled window.
  */
 export const PULL_PATCH_BYTE_CAP = 2 * 1024 * 1024;
+
+/**
+ * How many of a PR's commits travel to the renderer for the merge confirm.
+ *
+ * Five, because the dialog lists a sample and then says "and N more" — the count
+ * is the number that matters, and the sample only has to make the count
+ * concrete enough to recognise.
+ */
+export const PULL_COMMIT_SAMPLE = 5;
 
 /*
   ─── Inline review threads (Phase 20 Theme E) ──────────────────────────────
@@ -676,6 +715,31 @@ export const ForgePullThreadsResultSchema = z.object({
   error: z.string().nullable().default(null),
 });
 export type ForgePullThreadsResult = z.infer<typeof ForgePullThreadsResultSchema>;
+
+/*
+  ─── Review write actions (Phase 20 Themes F and G) ────────────────────────
+
+  The one deliberate write surface in this contract, and the reason `gh-cli.ts`
+  has a sibling: everything above is a listing that a stale cache can only
+  render wrongly, while everything below changes state on someone else's
+  server. Keeping the two apart in the contract is what makes the write surface
+  auditable in one place — six actions, all of them about reviewing a pull
+  request, none of them about creating, labelling or configuring one.
+*/
+
+/**
+ * What submitting a review says.
+ *
+ * GitHub's own three verbs, spelled as its API spells them. `PENDING` is absent
+ * for the same reason `ForgeReviewState` omits it: an unsubmitted draft is not
+ * an outcome this app can produce, since `gh pr review` submits.
+ */
+export const ForgeReviewEventSchema = z.enum(['APPROVE', 'REQUEST_CHANGES', 'COMMENT']);
+export type ForgeReviewEvent = z.infer<typeof ForgeReviewEventSchema>;
+
+/** The three shapes a merge can take, as `gh pr merge`'s own flags name them. */
+export const ForgeMergeMethodSchema = z.enum(['merge', 'squash', 'rebase']);
+export type ForgeMergeMethod = z.infer<typeof ForgeMergeMethodSchema>;
 
 /**
  * What a forge *write* answers with.
