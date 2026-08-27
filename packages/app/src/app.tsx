@@ -162,11 +162,11 @@ const PINNED_ITEM: NavItem = {
 */
 const NAV_ITEMS: NavItem[] = [
   { view: 'files', label: 'Files', icon: VIEW_ICON.files },
+  { view: 'reviews', label: 'Reviews', icon: VIEW_ICON.reviews },
   { view: 'graph', label: 'Graph', icon: VIEW_ICON.graph },
   { view: 'changes', label: 'Changes', icon: VIEW_ICON.changes },
   { view: 'actions', label: 'Actions', icon: VIEW_ICON.actions },
   { view: 'tests', label: 'Tests', icon: VIEW_ICON.tests },
-  { view: 'reviews', label: 'Reviews', icon: VIEW_ICON.reviews },
   // Settings is deliberately absent: it renders in the rail's FOOTER slot
   // (bottom-pinned, the way settings sit in VS Code/GitKraken), not among the
   // workspace views — see the `footer` in the nav config below.
