@@ -20,7 +20,7 @@ Completed work is logged append-only in [`done.md`](done.md). Deferred scope liv
 
 | Phase | Status | Done | Progress | % | 🔄 WIP | ◻ TODO |
 |-------|--------|------|----------|---|--------|--------|
-| [21 · Agent roster + terminal identity](phase-21-agent-roster-and-terminal-identity.md) | 🔄 WIP | 31/46 | `███████░░░` | 67% | — | E |
+| [21 · Agent roster + terminal identity](phase-21-agent-roster-and-terminal-identity.md) | 🔄 WIP | 31/46 | `███████░░░` | 67% | E | — |
 | [20 · Reviews page & unified diff syntax highlighting](phase-20-reviews-page.md) | 🔄 WIP | 42/44 | `██████████` | 95% | — | 2 manual checks |
 | [19 · Dashboard, Actions and Tests as views](phase-19-dashboard-actions-tests.md) | 🔄 WIP | 73/76 | `██████████` | 96% | — | 3 manual checks |
 | [18 · Footer system monitor + repo diagnostics](phase-18-footer-monitor-diagnostics.md) | 🔄 WIP | 51/54 | `█████████░` | 94% | — | 3 manual checks |
@@ -74,7 +74,7 @@ the header those two finally give something true to say.*
 - ✅ **D** — OSC 7 live cwd tracking, `liveCwd` in the terminal store, and the header following a
   `cd` through Theme F's resolver — plus `bridge.hostname`, without which the parser rejects every
   payload the canonical emitters actually produce (landed 2026-08-27)
-- ◻ **E** — a process probe in main behind `pty:agent-changed`, so an agent started or quit by hand
+- 🔄 **E** — a process probe in main behind `pty:agent-changed`, so an agent started or quit by hand
   swaps the sidebar row's icon; reads process state and acts on nothing
 - ✅ **F** — the header loses the word "Terminal": a glyph, the status circle, then a `~`-collapsed
   path with the repo segment emphasised and left-truncation. Brought Theme D's `resolveRepoForPath`
