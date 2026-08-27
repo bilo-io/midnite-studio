@@ -35,6 +35,14 @@ export type ConfirmRequest = {
    * warning region either way.
    */
   warnings?: string[];
+  /**
+   * Drop the Cancel button, for a dialog with nothing to cancel.
+   *
+   * A notice — "this is not built yet" — has one way out, and offering both
+   * Cancel and OK asks the reader to choose between two words that mean the
+   * same thing here. See `notify` in `dialog-host`.
+   */
+  hideCancel?: boolean;
   onConfirm: () => void;
 };
 
@@ -139,17 +147,23 @@ export function ConfirmDialog({
           ) : null}
 
           <div className="mt-4 flex justify-end gap-2">
-            <button
-              type="button"
-              onClick={onCancel}
-              autoFocus
-              className="rounded-md px-3 py-1.5 text-sm text-muted-foreground transition-colors hover:bg-accent hover:text-foreground"
-            >
-              Cancel
-            </button>
+            {request.hideCancel ? null : (
+              <button
+                type="button"
+                onClick={onCancel}
+                autoFocus
+                className="rounded-md px-3 py-1.5 text-sm text-muted-foreground transition-colors hover:bg-accent hover:text-foreground"
+              >
+                Cancel
+              </button>
+            )}
             <button
               ref={confirmRef}
               type="button"
+              // With Cancel gone this is the only control, so it takes the
+              // focus Cancel would otherwise hold — the safe-option rule above
+              // has nothing left to protect.
+              autoFocus={request.hideCancel === true}
               onClick={request.onConfirm}
               className={`rounded-md px-3 py-1.5 text-sm font-medium transition-opacity hover:opacity-90 ${
                 request.danger
