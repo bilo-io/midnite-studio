@@ -59,30 +59,25 @@ export const DEFAULT_KEYMAP: readonly KeyBinding[] = [
   { command: 'terminal.toggle', chord: 'Ctrl+`', scope: 'global', label: 'Toggle Terminal' },
   { command: 'terminal.focus', chord: 'Mod+Shift+`', scope: 'app', label: 'Focus Terminal' },
   /**
-   * Mod+Shift+b. Mod+b is the chord every editor with a left sidebar uses, and
-   * it was this one's until the browser claimed it below; Shift keeps the
-   * panel a keystroke away on the same letter. `app` scope, unlike the
+   * Mod+g ("G" for Git). `app` scope, unlike the
    * terminal toggle: showing the repository list while the terminal has focus
-   * is not something you reach for mid-command, and Ctrl+B is a readline
-   * motion the shell is entitled to keep.
+   * is not something you reach for mid-command.
    */
-  { command: 'repos.toggle', chord: 'Mod+Shift+b', scope: 'app', label: 'Toggle Repositories' },
+  { command: 'repos.toggle', chord: 'Mod+g', scope: 'app', label: 'Toggle Repositories' },
   /**
    * Mod+b is where a browser will live — the built-in web pane is not written
    * yet, so for now the chord opens a notice that says so. Claiming it early
    * costs nothing and means the shortcut will not move under a user once the
-   * pane lands; `repos.toggle`, which held it, shifts one modifier along.
+   * pane lands.
    */
   { command: 'browser.open', chord: 'Mod+b', scope: 'app', label: 'Browser' },
   { command: 'repo.open', chord: 'Mod+o', scope: 'app', label: 'Open Repository…' },
   { command: 'repo.close', chord: 'Mod+w', scope: 'app', label: 'Close Repository' },
   { command: 'view.refresh', chord: 'Mod+r', scope: 'app', label: 'Refresh' },
   /**
-   * Mod+g, not Mod+1: the graph is the git tree, and the letter says so where
-   * a positional number only says "first in the rail" — which stopped being
-   * true the moment the rail was reordered.
+   * Mod+1: focus the graph (git tree).
    */
-  { command: 'graph.focus', chord: 'Mod+g', scope: 'app', label: 'Focus Graph' },
+  { command: 'graph.focus', chord: 'Mod+1', scope: 'app', label: 'Focus Graph' },
   { command: 'status.focus', chord: 'Mod+2', scope: 'app', label: 'Focus Changes' },
   { command: 'status.commit', chord: 'Mod+Enter', scope: 'app', label: 'Commit' },
   { command: 'sync.fetch', chord: 'Mod+Shift+f', scope: 'app', label: 'Fetch' },

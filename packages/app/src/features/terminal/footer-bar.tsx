@@ -26,7 +26,7 @@ const chordFor = (command: 'terminal.toggle' | 'repos.toggle', fallback: string)
   DEFAULT_KEYMAP.find((b) => b.command === command)?.chord ?? fallback;
 
 const terminalChord = chordFor('terminal.toggle', 'Ctrl+`');
-const reposChord = chordFor('repos.toggle', 'Mod+Shift+b');
+const reposChord = chordFor('repos.toggle', 'Mod+g');
 
 /**
  * `Mod` is how the keymap spells "Cmd on macOS, Ctrl elsewhere" — correct for
