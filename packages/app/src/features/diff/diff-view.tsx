@@ -21,6 +21,8 @@ import {
   withCommentRows,
   type DiffRow,
 } from './diff-rows';
+import { ImageDiff } from './image-diff';
+import type { ImageDiffSources } from './image-sources';
 import { useLineHighlight } from './line-highlight';
 
 /**
@@ -60,6 +62,7 @@ export function DiffView({
   onComment,
   renderThread,
   composer = null,
+  images = null,
 }: {
   diff: FileDiff | undefined;
   isLoading?: boolean;
@@ -108,6 +111,18 @@ export function DiffView({
   renderThread?: (threads: readonly ForgeReviewThread[], line: number) => React.ReactNode;
   /** The open composer, if any, and the line it belongs to. */
   composer?: { line: number; node: React.ReactNode } | null;
+
+  /**
+   * Where to find the file's bytes on each side, when it is an image.
+   *
+   * Passed in rather than derived here for the same reason the review nodes are:
+   * a URL needs the repo id and the revision pair, and which pair is right is
+   * the CALLER's question — the commit inspector diffs against a parent, the
+   * Changes pane against the index. `imageDiffSources` answers it and returns
+   * `null` for everything that is not a binary image, so a caller wires it
+   * unconditionally and this branch simply never fires for text.
+   */
+  images?: ImageDiffSources | null;
 }) {
   const showOldGutter = useUiStore((s) => s.diffShowOldGutter);
   const toggleOldGutter = useUiStore((s) => s.toggleDiffOldGutter);
@@ -155,6 +170,14 @@ export function DiffView({
   }
 
   if (!diff || rows.length === 0) {
+    // An image has no textual diff and never will; showing the two revisions is
+    // the diff. This sits above the sentence rather than replacing it because
+    // every other zero-hunk case — a mode change, a rename, a non-image blob —
+    // still needs the words.
+    if (images && (images.before || images.after)) {
+      return <ImageDiff sources={images} inline={inline} />;
+    }
+
     // Derived here rather than left to each caller: a binary blob and a
     // mode-only change both arrive as zero hunks, and the two surfaces used to
     // disagree about what to say for them.

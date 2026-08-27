@@ -1948,3 +1948,41 @@ The dead band under the header was two margins doing one job: `ReviewActionBar`'
 the bar and the gap below it came from the pane. The slot owns both now (`px-3 py-2`) and the
 bar's own top margin is gone. With the body out of it the header is a fixed two rows however
 long the description is, so the rule, the actions and the tablist stack with 8px between them.
+
+## 2026-08-27 — A changed image is shown, not described
+
+`git diff` on a PNG prints "Binary files differ" and stops, so the diff pane printed
+`Binary file — no textual diff.` and stopped too: true, and no answer to the only question the
+reader has. An image now renders as its two revisions, with three ways to compare them —
+two-up, a swipe divider, and an onion-skin fade — because no single one answers everything:
+two-up says what the picture is now, swipe catches geometry (a shifted element lines up or it
+does not), and onion catches tone, where a slow fade shows a colour shift that side-by-side
+hides. The header states the dimensions, and the change in them, which is the difference a
+picture makes hardest to see and a number makes obvious.
+
+The hard part was never the viewer, it was the *before* side: those bytes are not on disk
+anywhere. They come out of the object database instead, through the `mgit-file://` scheme the
+Files preview already uses, with a `?rev=` the handler answers by `git cat-file blob <rev>:<path>`
+— `readBlob` in git-engine, spawned rather than `execGit`'d because dugite hands stdout back as
+a *string* and would corrupt every byte outside the encoding it assumed. Same jail as before
+plus two conditions of its own: the rev must survive a narrow whitelist (`cat-file` takes its
+object as a bare argument with no `--` terminator, so anything flag-shaped must never reach
+git), and a `?rev=` request that fails any check 404s rather than falling through to the disk
+read — otherwise a crafted rev would quietly serve the working-tree file at that path.
+
+Which revisions to pair was the decision worth getting right, and it belongs to the caller:
+the Changes pane compares the index with the checkout (or HEAD with the index, when the file is
+staged), the commit inspector compares the commit with its first parent — matching the
+`--first-parent` diff it already asked git for. `imageDiffSources` is that arithmetic, pure and
+unit-tested, and it returns `null` for everything that is not a binary image, so every call site
+wires it unconditionally and the branch never fires for text. An SVG keeps its textual diff on
+purpose: it has one, and replacing it with two pictures would hide the change rather than show
+it. A rename reads its pre-image from the *old* path, since asking for the new one at the old
+revision finds nothing.
+
+Two smaller things fell out. A blob at a rev is immutable, so those responses are cached
+forever — which is what makes flipping between before and after instant. A working-tree image
+is the opposite case: its URL does not change when the bytes do, so disk-served *images* now
+revalidate, or a re-exported screenshot would sit next to today's "before" and look like the
+diff was wrong. Video and audio were left alone; they go through Chromium's range machinery,
+which is not worth disturbing for a staleness problem they do not have.
