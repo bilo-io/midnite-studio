@@ -295,6 +295,7 @@ export async function installMockBridge(page: Page, fixtures: MockFixtures): Pro
         worktrees: async () => allWorktrees,
         worktreeAdd: ok,
         worktreeRemove: ok,
+        reorder: noop,
         pickDirectory: async () => null,
         revParse: async (req: { rev: string }) => ({ sha: data.revisions?.[req.rev] ?? null }),
       },
