@@ -1,8 +1,9 @@
 import { useState } from 'react';
-import { FaCheckDouble } from 'react-icons/fa';
+import { GoBeaker } from 'react-icons/go';
 
 import type { TestSuiteKind } from '@midnite/git-shared';
 
+import { TREE_INDENT } from '../../components/tree-indent';
 import { TreeSection } from '../../components/tree-section';
 import { useTestDiscovery } from '../../services/queries';
 import { useUiStore } from '../../store/ui-store';
@@ -57,7 +58,7 @@ export function TestsSection({
     <TreeSection
       title="Tests"
       count={open ? suites.length : undefined}
-      icon={<FaCheckDouble aria-hidden className="h-3 w-3 shrink-0 text-muted-foreground" />}
+      icon={<GoBeaker aria-hidden className="h-3 w-3 shrink-0 text-muted-foreground" />}
       collapsible
       open={open}
       onToggle={() => setOpen((v) => !v)}
@@ -65,13 +66,15 @@ export function TestsSection({
       hideWhenEmpty={false}
     >
       {suites.length === 0 ? (
-        <p className="px-8 py-1.5 text-xs text-muted-foreground">
+        <p className={`${TREE_INDENT[2]} py-1.5 pr-2 text-xs text-muted-foreground`}>
           {discovery.isFetching ? 'Scanning for test suites…' : 'No test suites discovered.'}
         </p>
       ) : (
         KIND_ORDER.filter((kind) => byKind.has(kind)).map((kind) => (
           <div key={kind}>
-            <p className="px-8 py-1 text-[10px] font-medium uppercase tracking-wide text-muted-foreground/70">
+            <p
+              className={`${TREE_INDENT[2]} py-1 pr-2 text-[10px] font-medium uppercase tracking-wide text-muted-foreground/70`}
+            >
               {kind} · {byKind.get(kind)?.length}
             </p>
             {byKind.get(kind)?.map((suite) => (
@@ -79,7 +82,7 @@ export function TestsSection({
                 key={suite.id}
                 type="button"
                 onClick={() => openSuite(suite.id)}
-                className="flex w-full flex-col items-start gap-0 py-0.5 pl-10 pr-2 text-left text-[13px] transition-colors hover:bg-accent/30"
+                className={`flex w-full flex-col items-start gap-0 py-0.5 ${TREE_INDENT[3]} pr-2 text-left text-[13px] transition-colors hover:bg-accent/30`}
               >
                 <span className="truncate">{suite.name}</span>
                 <span className="truncate text-[11px] text-muted-foreground">

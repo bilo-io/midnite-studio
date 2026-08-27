@@ -55,7 +55,7 @@ test('the changed word inside a modified line is marked, and the rest is not', a
   await expect(added).toContainText('height: 880,');
 
   // Exactly one intraline span, and it covers the number rather than the line.
-  const marked = added.locator('span.rounded-\\[2px\\]');
+  const marked = added.locator('span[data-diff-mark]');
   await expect(marked).toHaveCount(1);
   await expect(marked).toHaveText('880');
 });
@@ -98,12 +98,32 @@ test('a gap between hunks offers an expander, and expanding refetches at wider c
 
 test('a binary file says so instead of rendering an empty pane', async ({ page }) => {
   await openCommit(page);
-  await page.getByRole('button', { name: /phase-11-packaged-app\.png/ }).click();
+  await page.getByRole('button', { name: /inter\.woff2/ }).click();
 
   // Asserting the TEXT, not just that something rendered: the inspector used to
   // fall back to "No changes to show for this file" for a binary blob while the
   // working-tree pane said the right thing.
   await expect(page.getByTestId('diff-empty')).toHaveText('Binary file — no textual diff.');
+});
+
+test('a binary IMAGE gets the viewer rather than the sentence', async ({ page }) => {
+  await openCommit(page);
+  await page.getByRole('button', { name: /phase-11-packaged-app\.png/ }).click();
+
+  // The bytes come from `mgit-file://`, which does not exist in a browser — so
+  // this asserts the viewer's chrome, which is what the renderer owns: both
+  // revisions named, and the compare modes offered.
+  const viewer = page.getByTestId('image-diff');
+  await expect(viewer).toBeVisible();
+  await expect(page.getByTestId('diff-empty')).toHaveCount(0);
+  await expect(viewer.getByTestId('image-before')).toBeVisible();
+  await expect(viewer.getByTestId('image-after')).toBeVisible();
+
+  await viewer.getByRole('button', { name: 'Swipe' }).click();
+  await expect(viewer.getByRole('slider', { name: 'Swipe position' })).toBeVisible();
+
+  await viewer.getByRole('button', { name: 'Onion' }).click();
+  await expect(viewer.getByRole('slider', { name: 'New revision opacity' })).toBeVisible();
 });
 
 test('a capped diff reports how many lines it withheld', async ({ page }) => {
@@ -120,6 +140,34 @@ test('clicking the open file again closes its diff', async ({ page }) => {
 
   await page.getByRole('button', { name: /window\.ts/ }).click();
   await expect(page.getByText('Select a file to see what changed in it.')).toBeVisible();
+});
+
+test('syntax highlighting colours a line without disturbing the intraline diff mark', async ({
+  page,
+}) => {
+  await openCommit(page);
+  await page.getByRole('button', { name: /window\.ts/ }).click();
+  await expect(diff(page)).toBeVisible();
+
+  // Highlighting is scheduled through requestIdleCallback and lands
+  // asynchronously — Playwright's own auto-retrying `expect` is the wait.
+  const coloured = diff(page).locator('span[style*="color"]');
+  await expect(coloured.first()).toBeVisible();
+
+  // The existing intraline mark still renders, and still covers the same
+  // text — colour is an inner layer over it, not a replacement for it.
+  const added = lines(page, 'add').first();
+  const marked = added.locator('span[data-diff-mark]');
+  await expect(marked).toHaveCount(1);
+  await expect(marked).toHaveText('880');
+
+  // The diff itself is unchanged: same row counts as the un-highlighted
+  // assertion above, and the virtualized pane keeps scrolling without
+  // erroring now that every row also schedules a highlight.
+  await expect(lines(page, 'add')).toHaveCount(4);
+  await diff(page).hover();
+  await page.mouse.wheel(0, 200);
+  await expect(diff(page)).toBeVisible();
 });
 
 test('switching commits clears the selected file rather than carrying it over', async ({ page }) => {

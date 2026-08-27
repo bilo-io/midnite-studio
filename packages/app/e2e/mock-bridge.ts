@@ -129,6 +129,48 @@ export type MockFixtures = {
     >;
     /** Workflow definitions, for the lazy `.yml` path lookup. */
     workflows?: unknown[];
+    /**
+     * `gh pr view` answers, keyed by PR number.
+     *
+     * Its own fixture rather than a widening of `pulls`, because that is what
+     * it is in the app: the listing row and the opened detail are two fetches,
+     * and a spec that seeded only `pulls` should still exercise the header's
+     * "listing first, detail fills in" path.
+     */
+    pullDetail?: Record<string, Record<string, unknown>>;
+    /**
+     * `gh pr diff --patch` answers, keyed by PR number — already parsed.
+     *
+     * `FileDiff[]` rather than a raw patch, because the real handler parses in
+     * main and the renderer never sees patch text. A fixture carrying a patch
+     * would be exercising a parser this package does not run.
+     */
+    pullFiles?: Record<
+      string,
+      { files?: unknown[]; truncated?: boolean; omittedFiles?: number; totalBytes?: number }
+    >;
+    /** The merged conversation, keyed by PR number, in the order it renders. */
+    pullComments?: Record<string, unknown[]>;
+    /**
+     * Inline review threads, keyed by PR number — `ForgeReviewThread[]`.
+     *
+     * Already grouped and already parsed, because the real handler parses the
+     * GraphQL payload in main and the renderer only ever sees domain objects. A
+     * fixture written in GraphQL's own field names (`isResolved`, `diffSide`)
+     * would be exercising `gh-graphql.ts`'s parser, which this package does not
+     * run — that parser has its own vitest suite against captured output.
+     */
+    pullThreads?: Record<string, unknown[]>;
+    /**
+     * What the nine write channels answer with.
+     *
+     * Its own field rather than reusing `error`, because a *refused write* and a
+     * *failed read* unlock different UI and a spec that could only reach one
+     * could not tell them apart: a read error paints the tab, a write error
+     * paints the line beside the composer that caused it. `undefined` means
+     * every write succeeds.
+     */
+    writeError?: string | null;
     error?: string | null;
   };
   /**
@@ -266,6 +308,21 @@ export async function installMockBridge(page: Page, fixtures: MockFixtures): Pro
       hint: data.forge?.cli?.hint ?? 'This repository has no GitHub remote.',
     });
     const forgeError = () => data.forge?.error ?? null;
+    const writeError = () => data.forge?.writeError ?? null;
+    /** A `ForgeWriteResult`. The seeded error is what a refusal reports. */
+    const writeResult = (ok: boolean) => ({ cli: forgeCli(), ok, error: ok ? null : writeError() });
+    /**
+     * Every write, in order, on the window.
+     *
+     * The anchor a comment was posted with is invisible in the rendered result —
+     * a thread on line 12 looks identical whether it was sent as `line: 12` or
+     * as some position that happened to land there. A spec has to be able to
+     * read the request itself.
+     */
+    const recordWrite = (channel: string, request: unknown): void => {
+      const store = (window as unknown as { __mgitWrites?: unknown[] });
+      store.__mgitWrites = [...(store.__mgitWrites ?? []), { channel, request }];
+    };
 
     // Diff lookups fall back to a well-formed empty FileDiff rather than
     // undefined: the real handler does the same, and a test that silently gets
@@ -295,6 +352,7 @@ export async function installMockBridge(page: Page, fixtures: MockFixtures): Pro
         worktrees: async () => allWorktrees,
         worktreeAdd: ok,
         worktreeRemove: ok,
+        reorder: noop,
         pickDirectory: async () => null,
         revParse: async (req: { rev: string }) => ({ sha: data.revisions?.[req.rev] ?? null }),
       },
@@ -440,6 +498,176 @@ export async function installMockBridge(page: Page, fixtures: MockFixtures): Pro
           workflows: data.forge?.workflows ?? [],
           error: forgeError(),
         }),
+        pullDetail: async (req: { number: number }) => {
+          const seeded = data.forge?.pullDetail?.[String(req.number)];
+          if (!seeded) return { cli: forgeCli(), detail: null, error: forgeError() };
+          // The listing row fills the `pull` half, exactly as the real parser
+          // does — a spec should not have to restate a PR it already listed.
+          const listed = (data.forge?.pulls ?? []).find(
+            (row) => (row as { number?: number }).number === req.number,
+          );
+          return {
+            cli: forgeCli(),
+            detail: {
+              pull: seeded['pull'] ?? listed,
+              body: seeded['body'] ?? '',
+              headSha: seeded['headSha'] ?? null,
+              baseBranch: seeded['baseBranch'] ?? '',
+              additions: seeded['additions'] ?? 0,
+              deletions: seeded['deletions'] ?? 0,
+              changedFiles: seeded['changedFiles'] ?? 0,
+              createdAt: seeded['createdAt'] ?? null,
+              updatedAt: seeded['updatedAt'] ?? null,
+              mergeable: seeded['mergeable'] ?? null,
+              // Phase 20 F's blast radius, and G's reviewer suggestions.
+              commitCount: seeded['commitCount'] ?? 0,
+              commits: seeded['commits'] ?? [],
+              reviewRequests: seeded['reviewRequests'] ?? [],
+            },
+            error: null,
+          };
+        },
+        pullFiles: async (req: { number: number }) => {
+          const seeded = data.forge?.pullFiles?.[String(req.number)];
+          // No fixture is "no diff to show", not an empty one: `files: []`
+          // would render "this pull request changes no files" as a fact.
+          if (!seeded) return { cli: forgeCli(), files: null, error: forgeError() };
+          return {
+            cli: forgeCli(),
+            files: {
+              files: seeded.files ?? [],
+              truncated: seeded.truncated ?? false,
+              omittedFiles: seeded.omittedFiles ?? 0,
+              totalBytes: seeded.totalBytes ?? 0,
+            },
+            error: null,
+          };
+        },
+        pullComments: async (req: { number: number }) => ({
+          cli: forgeCli(),
+          comments: data.forge?.pullComments?.[String(req.number)] ?? [],
+          error: forgeError(),
+        }),
+        pullThreads: async (req: { number: number }) => ({
+          cli: forgeCli(),
+          threads: data.forge?.pullThreads?.[String(req.number)] ?? [],
+          error: forgeError(),
+        }),
+
+        /*
+          The writes.
+
+          They mutate `data.forge.pullThreads` in the page's own copy of the
+          fixture, so a spec can post a comment and then assert it renders — a
+          write that answered `ok: true` and changed nothing would let a broken
+          invalidation pass. That is the whole point of modelling them as state
+          rather than as a stub: `queries.ts` invalidates the thread key on
+          success, and the refetch has to come back different.
+
+          Every call is also recorded on `window.__mgitWrites` so a spec can
+          assert the *anchor* — that a comment on line 12 was sent as line 12,
+          with the head sha and a position — which no amount of re-reading the
+          list can show.
+        */
+        reviewComment: async (req: Record<string, unknown>) => {
+          recordWrite('reviewComment', req);
+          if (writeError() !== null) return writeResult(false);
+          const key = String(req['number']);
+          const threads = (data.forge?.pullThreads?.[key] ?? []) as Record<string, unknown>[];
+          threads.push({
+            id: `PRRT_new_${String(threads.length + 1)}`,
+            path: req['path'],
+            line: req['line'],
+            originalLine: req['line'],
+            startLine: null,
+            side: 'RIGHT',
+            resolved: false,
+            outdated: false,
+            fileLevel: false,
+            comments: [
+              {
+                id: `PRRC_new_${String(threads.length + 1)}`,
+                databaseId: String(9000 + threads.length),
+                author: 'you',
+                body: req['body'],
+                createdAt: '2026-08-27T12:00:00Z',
+                url: '',
+              },
+            ],
+          });
+          if (data.forge) data.forge.pullThreads = { ...data.forge.pullThreads, [key]: threads };
+          return writeResult(true);
+        },
+        reviewReply: async (req: Record<string, unknown>) => {
+          recordWrite('reviewReply', req);
+          if (writeError() !== null) return writeResult(false);
+          const key = String(req['number']);
+          const threads = (data.forge?.pullThreads?.[key] ?? []) as Record<string, unknown>[];
+          for (const thread of threads) {
+            const comments = (thread['comments'] ?? []) as Record<string, unknown>[];
+            // The reply goes into whichever thread owns the target comment —
+            // the same lookup the real endpoint does by `comment_id`.
+            if (!comments.some((c) => c['databaseId'] === req['commentId'])) continue;
+            comments.push({
+              id: `PRRC_reply_${String(comments.length + 1)}`,
+              databaseId: String(9500 + comments.length),
+              author: 'you',
+              body: req['body'],
+              createdAt: '2026-08-27T12:05:00Z',
+              url: '',
+            });
+            thread['comments'] = comments;
+            break;
+          }
+          if (data.forge) data.forge.pullThreads = { ...data.forge.pullThreads, [key]: threads };
+          return writeResult(true);
+        },
+        resolveThread: async (req: Record<string, unknown>) => {
+          recordWrite('resolveThread', req);
+          if (writeError() !== null) return writeResult(false);
+          // Not repo-scoped in the request — a node id identifies the thread
+          // globally — so every seeded PR is searched, exactly as GraphQL does.
+          for (const threads of Object.values(data.forge?.pullThreads ?? {})) {
+            for (const thread of threads as Record<string, unknown>[]) {
+              if (thread['id'] === req['threadId']) thread['resolved'] = req['resolved'];
+            }
+          }
+          return writeResult(true);
+        },
+        /*
+          Themes F and G — the verdict, the merge and the nudges.
+
+          Deliberately thinner than Theme E's three above: those mutate the
+          seeded thread list so the UI updates the way a real write would, while
+          these change state the fixture does not model (a PR's reviewDecision, a
+          merge, a workflow attempt). What a spec can assert is the RECORDED
+          REQUEST — that the app sent the verb the user chose, with the body they
+          typed — plus how the UI behaves on refusal. Both are what these serve.
+        */
+        pullReview: async (req: Record<string, unknown>) => {
+          recordWrite('pullReview', req);
+          return writeResult(writeError() === null);
+        },
+        pullComment: async (req: Record<string, unknown>) => {
+          recordWrite('pullComment', req);
+          return writeResult(writeError() === null);
+        },
+        pullMerge: async (req: Record<string, unknown>) => {
+          recordWrite('pullMerge', req);
+          return writeResult(writeError() === null);
+        },
+        pullRequestReview: async (req: Record<string, unknown>) => {
+          recordWrite('pullRequestReview', req);
+          return writeResult(writeError() === null);
+        },
+        pullReady: async (req: Record<string, unknown>) => {
+          recordWrite('pullReady', req);
+          return writeResult(writeError() === null);
+        },
+        runRerun: async (req: Record<string, unknown>) => {
+          recordWrite('runRerun', req);
+          return writeResult(writeError() === null);
+        },
       },
       /*
         One payload, echoing back the window it was asked for.

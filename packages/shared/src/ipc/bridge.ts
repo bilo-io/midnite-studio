@@ -148,6 +148,74 @@ export type MidniteGitBridge = {
     workflows: (
       req: In<typeof S.ForgeWorkflowsRequest>,
     ) => Promise<z.infer<typeof S.ForgeWorkflowsResponse>>;
+    /** One PR's metadata — fetched when a pull request is opened, never for a list. */
+    pullDetail: (
+      req: In<typeof S.ForgePullDetailRequest>,
+    ) => Promise<z.infer<typeof S.ForgePullDetailResponse>>;
+    /** One PR's diff, parsed in main and capped by bytes. */
+    pullFiles: (
+      req: In<typeof S.ForgePullFilesRequest>,
+    ) => Promise<z.infer<typeof S.ForgePullFilesResponse>>;
+    /** One PR's conversation — discussion comments and review submissions, merged. */
+    pullComments: (
+      req: In<typeof S.ForgePullCommentsRequest>,
+    ) => Promise<z.infer<typeof S.ForgePullCommentsResponse>>;
+    /** One PR's inline threads, read through GraphQL — see `ForgeReviewThread`. */
+    pullThreads: (
+      req: In<typeof S.ForgePullThreadsRequest>,
+    ) => Promise<z.infer<typeof S.ForgePullThreadsResponse>>;
+
+    /*
+      The three writes (Phase 20 Theme E), and the only ones on this bridge.
+
+      They resolve `ForgeWriteResult` rather than rejecting, exactly as the
+      reads resolve an envelope: a refused approve belongs beside the button
+      that asked for it, not in an unhandled rejection that takes the composer
+      and its unsent text with it.
+    */
+    /** Start a new inline thread on a line of the PR's diff. */
+    reviewComment: (
+      req: In<typeof S.ForgeReviewCommentRequest>,
+    ) => Promise<z.infer<typeof S.ForgeReviewCommentResponse>>;
+    /** Reply into an existing inline thread. */
+    reviewReply: (
+      req: In<typeof S.ForgeReviewReplyRequest>,
+    ) => Promise<z.infer<typeof S.ForgeReviewReplyResponse>>;
+    /** Mark an inline thread resolved, or reopen it. */
+    resolveThread: (
+      req: In<typeof S.ForgeResolveThreadRequest>,
+    ) => Promise<z.infer<typeof S.ForgeResolveThreadResponse>>;
+    /*
+      Themes F and G — the verdict, the merge, and the three nudges.
+
+      All six answer `ForgeWriteResult` rather than throwing, so a refused
+      approve is a sentence the composer renders beside itself with the typed
+      body still in it. See the domain schema's own note.
+    */
+    /** Approve, request changes, or comment — the verb rides in `event`. */
+    pullReview: (
+      req: In<typeof S.ForgePullReviewRequest>,
+    ) => Promise<z.infer<typeof S.ForgePullReviewResponse>>;
+    /** A discussion comment, not a verdict-less review. See the channel doc. */
+    pullComment: (
+      req: In<typeof S.ForgePullCommentRequest>,
+    ) => Promise<z.infer<typeof S.ForgePullCommentResponse>>;
+    /** Merge. Confirmed in the renderer before it is ever reached. */
+    pullMerge: (
+      req: In<typeof S.ForgePullMergeRequest>,
+    ) => Promise<z.infer<typeof S.ForgePullMergeResponse>>;
+    /** Ask logins for a review — the same call re-asks an existing request. */
+    pullRequestReview: (
+      req: In<typeof S.ForgePullRequestReviewRequest>,
+    ) => Promise<z.infer<typeof S.ForgePullRequestReviewResponse>>;
+    /** Draft → ready. One-directional; there is no un-ready here. */
+    pullReady: (
+      req: In<typeof S.ForgePullReadyRequest>,
+    ) => Promise<z.infer<typeof S.ForgePullReadyResponse>>;
+    /** Re-run a workflow run, or only its failed jobs. */
+    runRerun: (
+      req: In<typeof S.ForgeRunRerunRequest>,
+    ) => Promise<z.infer<typeof S.ForgeRunRerunResponse>>;
   };
 
   /**

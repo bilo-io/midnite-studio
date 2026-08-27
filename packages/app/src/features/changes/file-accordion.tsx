@@ -4,6 +4,7 @@ import { useId } from 'react';
 
 import { Counts } from '../../components/change-tree';
 import { DiffView } from '../diff/diff-view';
+import { imageDiffSources } from '../diff/image-sources';
 import { useFileDiff } from '../diff/use-file-diff';
 import { primaryCode, StatusMark } from '../status/status-mark';
 
@@ -121,7 +122,18 @@ function FileAccordionBody({
   */
   return (
     <div className="border-t border-border/40">
-      <DiffView diff={diff} isLoading={isLoading} onExpandContext={expandContext} inline />
+      <DiffView
+        diff={diff}
+        isLoading={isLoading}
+        onExpandContext={expandContext}
+        inline
+        images={imageDiffSources(diff, {
+          kind: 'worktree',
+          repoId,
+          worktreePath,
+          staged: entry.unstaged === 'unmodified',
+        })}
+      />
     </div>
   );
 }

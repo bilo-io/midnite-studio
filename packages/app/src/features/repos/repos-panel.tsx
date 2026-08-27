@@ -5,6 +5,8 @@ import { forgeProjectUrl } from '@midnite/git-shared';
 import {
   ArrowRightLeft,
   ChevronRight,
+  ChevronsDownUp,
+  ChevronsUpDown,
   Cloud,
   FolderCheck,
   FolderGit2,
@@ -14,18 +16,22 @@ import {
   GripVertical,
   ListFilter,
   MoreVertical,
+  Search,
   SquareArrowOutUpRight,
   Tag,
+  X,
 } from 'lucide-react';
 import { AiOutlineDiff } from 'react-icons/ai';
+import { FaGitAlt } from 'react-icons/fa';
+import { GoRepo } from 'react-icons/go';
 
 import type { MenuItem } from '../../components/context-menu';
 import { ChangeCountPill } from '../../components/change-count-pill';
-import { bridge } from '../../services/bridge';
 import { SortableList, useSortableRow } from '../../components/sortable-list';
 import { useDialogs } from '../../components/dialog-host';
 import { IconButton } from '../../components/icon-button';
 import { Tooltip } from '../../components/tooltip';
+import { TREE_INDENT } from '../../components/tree-indent';
 import { TreeSection } from '../../components/tree-section';
 import { cascadeStyle } from '../../lib/cascade';
 import {
@@ -34,6 +40,7 @@ import {
   useForgeRuns,
   useRefs,
   useRemotes,
+  useReorderRepos,
   useRepos,
 } from '../../services/queries';
 import {
@@ -54,6 +61,7 @@ import {
   type SectionKey,
   type ViewSections,
 } from './view-sections';
+import { RepoLifecycleMenu } from './repo-lifecycle-actions';
 import { primaryTarget, useRepoActions } from './use-repo-actions';
 
 /**
@@ -69,6 +77,63 @@ import { primaryTarget, useRepoActions } from './use-repo-actions';
 function sectionFilterLabel(sections: ViewSections): string {
   if (!sections.filtered) return 'Show every ref and checkout';
   return sections.dirtyOnly ? 'Showing only changed checkouts' : 'Show all sections';
+}
+
+/**
+ * Does a repository match what was typed in the filter box?
+ *
+ * Name AND path, because both are how a repository is identified in this panel:
+ * every row's tooltip is its path, and two checkouts of the same project share
+ * a name while differing only in where they live. Whitespace splits the query
+ * into independent terms that must all match somewhere, so `mid api` finds
+ * `~/Dev/api/midnite` without the user having to recall which part came first.
+ *
+ * The two fields are joined by a NUL so a term cannot match across the seam and
+ * claim a repo whose name ends where its path begins.
+ */
+export function matchesRepoQuery(
+  repo: Pick<RepoDescriptor, 'name' | 'path'>,
+  query: string,
+): boolean {
+  const terms = query.toLowerCase().split(/\s+/).filter(Boolean);
+  if (terms.length === 0) return true;
+  const haystack = `${repo.name}\u0000${repo.path}`.toLowerCase();
+  return terms.every((term) => haystack.includes(term));
+}
+
+/**
+ * Which repositories are folded shut.
+ *
+ * Lifted out of the rows and into the panel because "collapse all" is a
+ * question about the whole list, and a per-row `useState` cannot be asked it.
+ * Held as the set of CLOSED repos, the same way `useSectionToggles` does one
+ * level down: a repository that has just been opened shows its tree without
+ * having to be listed anywhere first.
+ */
+function useRepoFolds() {
+  const [closed, setClosed] = useState<ReadonlySet<string>>(() => new Set());
+
+  return useMemo(
+    () => ({
+      collapsed: (id: string) => closed.has(id),
+      toggle: (id: string) =>
+        setClosed((prev) => {
+          const next = new Set(prev);
+          if (!next.delete(id)) next.add(id);
+          return next;
+        }),
+      setAll: (ids: readonly string[], collapse: boolean) =>
+        setClosed((prev) => {
+          const next = new Set(prev);
+          for (const id of ids) {
+            if (collapse) next.add(id);
+            else next.delete(id);
+          }
+          return next;
+        }),
+    }),
+    [closed],
+  );
 }
 
 /**
@@ -93,8 +158,11 @@ function sectionFilterLabel(sections: ViewSections): string {
 export function ReposPanel() {
   const { data: repos = [], isLoading } = useRepos();
   const { pickAndOpen, isPending } = usePickAndOpenRepo();
+  const reorderRepos = useReorderRepos();
   const [error, setError] = useState<string | null>(null);
+  const [query, setQuery] = useState('');
   const sections = useViewSections();
+  const folds = useRepoFolds();
 
   const onOpen = async () => {
     setError(null);
@@ -102,11 +170,38 @@ export function ReposPanel() {
     if (result && !result.ok) setError(result.message);
   };
 
+  const matched = useMemo(
+    () => repos.filter((repo) => matchesRepoQuery(repo, query)),
+    [repos, query],
+  );
+
+  /*
+    "All collapsed" is asked of what is ON SCREEN, not of the registry — and so
+    is the button's action. A filter narrowed to one repository whose tree is
+    open should offer to collapse it, even if the eleven repos the filter hid
+    are already shut.
+  */
+  const allCollapsed = matched.length > 0 && matched.every((repo) => folds.collapsed(repo.id));
+
   return (
     <div className="flex h-full min-h-0 flex-col border-r border-border bg-card/40">
       <header className="flex h-9 items-center gap-2 px-3">
-        <h2 className="min-w-0 flex-1 truncate text-xs font-semibold uppercase tracking-wide text-muted-foreground">
-          Repositories
+        {/*
+          "Repos", with a glyph. The word is the one the app uses everywhere
+          else it has to fit ("Open a repository…" is the verb, this is the
+          label), and at the 288px default the shorter noun buys the toolbar
+          the room the fourth control needs.
+
+          `GoRepo` is Octicons — this file is mostly lucide, but lucide has no
+          repository glyph that is not a folder, and the three folder variants
+          in this panel already mean "worktree", "main worktree" and "missing
+          worktree" a few rows down. Reusing a fourth one for the panel itself
+          would have said the panel was a checkout. (Same reasoning as the rail
+          in `app.tsx`; see CLAUDE.md on react-icons fronting several sets.)
+        */}
+        <h2 className="flex min-w-0 flex-1 items-center gap-1.5 text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+          <GoRepo aria-hidden className="h-3.5 w-3.5 shrink-0" />
+          <span className="truncate">Repos</span>
         </h2>
         {/*
           One toolbar cluster, not two controls spread by `justify-between`.
@@ -115,6 +210,34 @@ export function ReposPanel() {
           mid-header read as a third column of the title row.
         */}
         <div className="flex shrink-0 items-center gap-0.5">
+          {/*
+            One button for both directions, not two.
+
+            "Expand all" with everything already expanded is a control that can
+            only do nothing, and the pair would have spent two thirds of their
+            life with one of them inert — in a toolbar where the two neighbours
+            are always live. As a toggle it always has a job, and it says which
+            one in words: the chevrons close inward to collapse and open outward
+            to expand, matching the direction the tree is about to move.
+
+            It acts on the FILTERED list, so the button never quietly reaches
+            past what the panel is showing.
+          */}
+          {repos.length > 0 ? (
+            <IconButton
+              icon={allCollapsed ? ChevronsUpDown : ChevronsDownUp}
+              label={allCollapsed ? 'Expand all repositories' : 'Collapse all repositories'}
+              size="sm"
+              disabled={matched.length === 0}
+              disabledReason="No repository matches the filter."
+              onClick={() =>
+                folds.setAll(
+                  matched.map((repo) => repo.id),
+                  !allCollapsed,
+                )
+              }
+            />
+          ) : null}
           {/*
             The narrowing is visible whenever it is on, and reversible from
             here. Arriving in a view to find two thirds of the tree missing is
@@ -160,6 +283,52 @@ export function ReposPanel() {
         </div>
       </header>
 
+      {/*
+        A standing box, not a magnifier that swaps itself for an input. The
+        panel is the app's primary navigation and the list grows monotonically —
+        by the time a filter is worth having, a control the user has to discover
+        by clicking the right 24px of toolbar is a filter they do not know they
+        have. It costs one row, and only for a panel that has something to
+        filter: over an empty registry it would be furniture.
+
+        Name and path, not refs. Refs are fetched per repo and only while it is
+        expanded (see `RepoItem`), so matching on a branch name would either
+        report nothing for every folded repository or make the filter mean
+        "run `for-each-ref` over everything you have ever opened".
+      */}
+      {repos.length > 0 ? (
+        <div className="px-3 pb-2">
+          <div className="relative">
+            <Search
+              aria-hidden
+              className="pointer-events-none absolute left-2 top-1/2 h-3 w-3 -translate-y-1/2 text-muted-foreground"
+            />
+            <input
+              // `search` for the semantics and the Escape-to-clear the platform
+              // gives it; its native cancel button is suppressed because this
+              // renders its own, which can carry a label.
+              type="search"
+              value={query}
+              onChange={(event) => setQuery(event.target.value)}
+              placeholder="Filter repos…"
+              aria-label="Filter repositories by name or path"
+              className="h-7 w-full rounded-md border border-input bg-background pl-7 pr-7 text-xs outline-none placeholder:text-muted-foreground focus-visible:border-primary [&::-webkit-search-cancel-button]:appearance-none"
+            />
+            {query ? (
+              <button
+                type="button"
+                onClick={() => setQuery('')}
+                aria-label="Clear the repository filter"
+                title="Clear the repository filter"
+                className="absolute right-1 top-1/2 -translate-y-1/2 rounded p-0.5 text-muted-foreground transition-colors hover:text-foreground"
+              >
+                <X aria-hidden className="h-3 w-3" />
+              </button>
+            ) : null}
+          </div>
+        </div>
+      ) : null}
+
       {error ? (
         <p className="mx-3 mb-2 animate-fade-in rounded-md bg-destructive/10 px-2 py-1.5 text-xs text-destructive">
           {error}
@@ -174,24 +343,36 @@ export function ReposPanel() {
             No repositories yet. <span className="text-foreground">Open</span> one to get started —
             a linked worktree works too, and nests under the repository that owns it.
           </p>
+        ) : matched.length === 0 ? (
+          <p className="px-3 py-2 text-xs leading-relaxed text-muted-foreground">
+            No repository matches <span className="text-foreground">{query.trim()}</span>. The
+            filter reads names and paths.
+          </p>
         ) : (
           /*
             Order is the user's, and it lives in `repos.json` alongside the
             repo list itself — not in localStorage. A drag reorders the
             registry's own Map, so clearing the browser store cannot leave the
             sidebar in an order the repo list disagrees with.
+
+            `ids` is the FULL registry even while the filter is narrowing what
+            renders, and that is load-bearing rather than lazy: `onReorder`
+            takes the whole new order and `reorderByIds` keeps only the ids it
+            is handed, so handing it the filtered list would drop every hidden
+            repository out of the registry's order. With the complete list here,
+            a drag between two visible rows moves the dragged repo to the other
+            one's real index and leaves the hidden ones exactly where they were.
           */
-          <SortableList
-            ids={repos.map((repo) => repo.id)}
-            onReorder={(repoIds) => bridge()?.repos.reorder({ repoIds })}
-          >
-            {repos.map((repo, index) => (
+          <SortableList ids={repos.map((repo) => repo.id)} onReorder={reorderRepos}>
+            {matched.map((repo, index) => (
               <RepoItem
                 key={repo.id}
                 repo={repo}
                 first={index === 0}
                 index={index}
                 sections={sections}
+                expanded={!folds.collapsed(repo.id)}
+                onToggleExpanded={() => folds.toggle(repo.id)}
                 // '' clears a stale message on the next successful op, so an
                 // error from two operations ago cannot sit there looking current.
                 onError={(message) => setError(message || null)}
@@ -209,15 +390,19 @@ function RepoItem({
   first,
   index,
   sections,
+  expanded,
+  onToggleExpanded,
   onError,
 }: {
   repo: RepoDescriptor;
   first: boolean;
   index: number;
   sections: ViewSections;
+  /** Owned by `ReposPanel` — see `useRepoFolds` for why it is not local. */
+  expanded: boolean;
+  onToggleExpanded: () => void;
   onError: (message: string) => void;
 }) {
-  const [expanded, setExpanded] = useState(true);
   const dialogs = useDialogs();
   const selectedRepoId = useUiStore((s) => s.selectedRepoId);
   const selectRepo = useUiStore((s) => s.selectRepo);
@@ -310,7 +495,15 @@ function RepoItem({
           grew by a few pixels the moment the first `git status` came back and
           every repo below it shifted down.
         */
-        className={`group flex h-8 items-center gap-1 px-2 text-sm transition-colors ${
+        /*
+          `pl-1`, not `pl-2`: this row is the ROOT of the tree below it, and the
+          grip ahead of the chevron already spends one indent step's worth of
+          width on something that is not nesting. Left at the panel's own 8px
+          gutter the chevron sat at 26px — further right than the Local/Remotes
+          headings underneath it, so a repository read as a sibling of its own
+          sections. The grip lives in the gutter, which is what gutters are for.
+        */
+        className={`group flex h-8 items-center gap-1 pl-1 pr-2 text-sm transition-colors ${
           selectedRepoId === repo.id ? 'bg-accent/60' : 'hover:bg-accent/30'
         }`}
       >
@@ -333,7 +526,7 @@ function RepoItem({
 
         <button
           type="button"
-          onClick={() => setExpanded((v) => !v)}
+          onClick={onToggleExpanded}
           className="shrink-0 text-muted-foreground"
           aria-label={expanded ? `Collapse ${repo.name}` : `Expand ${repo.name}`}
           aria-expanded={expanded}
@@ -352,7 +545,20 @@ function RepoItem({
             onClick={() => selectRepo(repo.id)}
             className="flex min-w-0 flex-1 items-center gap-1.5 text-left"
           >
-            <span className="truncate font-medium">{repo.name}</span>
+            {/*
+              The selected repository's name takes the accent colour. The row's
+              `bg-accent/60` alone is a faint tint — at a glance a folded list
+              of eight repos reads as eight identical rows — and the accent is
+              the one colour in the theme that already means "this is the one
+              you picked", so the name says it in the place the eye lands.
+            */}
+            <span
+              className={`truncate font-medium ${
+                selectedRepoId === repo.id ? 'text-primary' : ''
+              }`}
+            >
+              {repo.name}
+            </span>
             {/*
               Folded, the row has to stand in for the whole tree below it, so it
               carries the branch and the repository's TOTAL uncommitted count.
@@ -402,16 +608,38 @@ function RepoItem({
             />
           </span>
         ) : null}
+        <span aria-hidden className="h-4 w-px shrink-0 bg-border" />
 
         {/*
-          One ellipsis rather than a row of per-repo buttons. The close action
-          used to sit here as a bare X, which cost as much width as the sync
-          cluster now uses and put the panel's only irreversible-looking control
-          one stray click from the pointer's resting place.
+          Two ellipses, not a row of standing icons. Install/Build/Test/Launch
+          used to sit here as four buttons ahead of the sync control — this repo's
+          own tooling, collapsed behind its own ellipsis so it reads as one
+          control rather than four, sits beside the repo's git/housekeeping
+          ellipsis. Always the main worktree: a folded row already reports the
+          repo's own state rather than any one checkout's, and these run at the
+          same "primary checkout" `primaryTarget` resolves everywhere else.
+        */}
+        <RepoLifecycleMenu
+          repoId={repo.id}
+          repoName={repo.name}
+          cwd={primaryTarget(repo).worktreePath ?? repo.path}
+        />
+
+        {/*
+          The close action used to sit here as a bare X, which cost as much
+          width as the sync cluster now uses and put the panel's only
+          irreversible-looking control one stray click from the pointer's
+          resting place.
+        */}
+        {/*
+          The Git logo, not a third ellipsis. This menu IS the git verbs —
+          fetch, pull, push, then the housekeeping around them — and the row
+          already carried two identical ellipses that said only "more" while
+          hiding which one held what.
         */}
         <IconButton
-          icon={MoreVertical}
-          label={`Actions for ${repo.name}`}
+          icon={FaGitAlt}
+          label={`Git actions for ${repo.name}`}
           size="sm"
           onClick={(event) => {
             const rect = event.currentTarget.getBoundingClientRect();
@@ -831,7 +1059,7 @@ function RefRow({
       }}
       style={cascadeStyle(index)}
       className={`group flex animate-fade-in-up cascade-delay items-center gap-1.5 py-0.5 pr-2 text-[13px] transition-colors hover:bg-accent/30 ${
-        depth === 2 ? 'pl-12' : 'pl-8'
+        depth === 2 ? TREE_INDENT[3] : TREE_INDENT[2]
       } ${elsewhere ? 'text-muted-foreground' : ''}`}
     >
       <Icon aria-hidden className="h-3 w-3 shrink-0 text-muted-foreground" />
@@ -952,7 +1180,7 @@ function WorktreeRow({
         openMenu(event);
       }}
       style={cascadeStyle(index)}
-      className={`group flex animate-fade-in-up cascade-delay items-center gap-1.5 py-0.5 pl-8 pr-2 text-[13px] transition-colors ${
+      className={`group flex animate-fade-in-up cascade-delay items-center gap-1.5 py-0.5 ${TREE_INDENT[2]} pr-2 text-[13px] transition-colors ${
         active ? 'bg-accent/60' : 'hover:bg-accent/30'
       }`}
     >

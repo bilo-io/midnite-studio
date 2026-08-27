@@ -44,6 +44,7 @@ export type ViewId =
   | 'changes'
   | 'actions'
   | 'tests'
+  | 'reviews'
   | 'settings';
 
 /** Every view, in rail order — the domain of the per-view maps below. */
@@ -54,6 +55,7 @@ export const VIEW_IDS: readonly ViewId[] = [
   'changes',
   'actions',
   'tests',
+  'reviews',
   'settings',
 ];
 
@@ -62,7 +64,14 @@ export const VIEW_IDS: readonly ViewId[] = [
  * nav-rail sub-items: the rail stays view navigation, and settings pages are
  * one view's internal structure.
  */
-export type SettingsPageId = 'appearance' | 'graph' | 'sidebar' | 'terminal' | 'agent' | 'monitor';
+export type SettingsPageId =
+  | 'appearance'
+  | 'graph'
+  | 'sidebar'
+  | 'terminal'
+  | 'agent'
+  | 'reviews'
+  | 'monitor';
 
 /**
  * The categories the settings pages sort into, in UX priority order — the
@@ -93,6 +102,7 @@ export const SETTINGS_PAGES: { id: SettingsPageId; label: string; group: Setting
   { id: 'sidebar', label: 'Sidebar', group: 'general' },
   { id: 'terminal', label: 'Terminal', group: 'tools' },
   { id: 'agent', label: 'Agent', group: 'tools' },
+  { id: 'reviews', label: 'Reviews', group: 'tools' },
   { id: 'monitor', label: 'Monitor & Diagnostics', group: 'system' },
 ];
 
@@ -118,6 +128,8 @@ export type LayoutSizes = {
   actionsListWidth: number;
   /** The Tests view's suite tree, left of the suite detail. */
   testsListWidth: number;
+  /** The Reviews view's PR list, left of the PR detail (Phase 20 Theme C). */
+  reviewsListWidth: number;
 };
 
 /** Widths of the graph table's fixed-width columns. */
@@ -162,6 +174,9 @@ export const DEFAULT_LAYOUT: LayoutSizes = {
   // name, a branch and an age, and the branch is the part that truncates first.
   actionsListWidth: 360,
   testsListWidth: 320,
+  // A PR row carries two status pills, a title, a number, a branch and an
+  // author — the widest row of any list pane in the app.
+  reviewsListWidth: 380,
 };
 
 export const DEFAULT_GRAPH_COLUMNS: GraphColumns = {
@@ -179,7 +194,10 @@ export const DEFAULT_GRAPH_COLUMNS: GraphColumns = {
 export const LAYOUT_BOUNDS = {
   reposWidth: { min: 180, max: 560 },
   terminalHeight: { min: 120, max: 720 },
-  terminalListWidth: { min: 120, max: 360 },
+  // Up to 560, like the repos sidebar: an agent session's name is a summary
+  // of the task it was given ("Git actions dropdown icon buttons"), so this
+  // is the one list pane whose rows get longer the more useful they are.
+  terminalListWidth: { min: 120, max: 560 },
   detailWidth: { min: 280, max: 720 },
   changesListWidth: { min: 240, max: 720 },
   filesTreeWidth: { min: 200, max: 640 },
@@ -190,6 +208,7 @@ export const LAYOUT_BOUNDS = {
   commitFilesHeight: { min: 80, max: 720 },
   actionsListWidth: { min: 240, max: 640 },
   testsListWidth: { min: 240, max: 640 },
+  reviewsListWidth: { min: 280, max: 640 },
 } as const;
 
 export const GRAPH_COLUMN_BOUNDS = {
@@ -240,6 +259,14 @@ export type UiState = {
   terminalMaximized: boolean;
   /** Which edge of the terminal pane the session list docks to. */
   terminalSidebarSide: TerminalSidebarSide;
+  /**
+   * Whether the session list is shown beside the active terminal.
+   *
+   * Still only rendered past one session — a list of one names nothing the
+   * header does not — so this is the second half of that condition rather
+   * than a replacement for it.
+   */
+  terminalListOpen: boolean;
 
 
   layout: LayoutSizes;
@@ -331,6 +358,7 @@ export type UiState = {
   setTerminalOpen: (open: boolean) => void;
   toggleTerminalMaximized: () => void;
   setTerminalSidebarSide: (side: TerminalSidebarSide) => void;
+  toggleTerminalList: () => void;
 
   setLayout: <K extends keyof LayoutSizes>(key: K, value: number) => void;
   setGraphColumn: <K extends keyof GraphColumns>(key: K, value: number) => void;
@@ -369,6 +397,27 @@ export type UiState = {
   /** Sampling cadence with the flyout closed. Opening it always escalates. */
   metricsIdleIntervalMs: number;
   setMetricsIdleInterval: (ms: number) => void;
+  /**
+   * Whether the Reviews view may act on a pull request (Phase 20 Themes F/G).
+   *
+   * Off until a human turns it on, in Settings → Reviews. One machine-wide
+   * switch, deliberately NOT Phase 18's per-repository trust prompt, and the
+   * difference is what is being consented to: running a repo's own linter
+   * executes arbitrary code that repository chose, so consent for one says
+   * nothing about another. Nothing behind this flag executes anyone's code — it
+   * calls the user's own already-authenticated `gh`, against a repository they
+   * opened, doing things they could equally type into a terminal.
+   *
+   * So this is a guard against the accidental click and a place to see in one
+   * screen what the app may change on your behalf — not a security boundary,
+   * and the page says so rather than implying a protection it does not give.
+   *
+   * The gate lives at the controls rather than inside the mutations: a disabled
+   * button whose tooltip names the setting is somewhere to go, while a mutation
+   * that silently refused would be a dead click with nothing to read.
+   */
+  forgeWritesEnabled: boolean;
+  setForgeWritesEnabled: (enabled: boolean) => void;
 };
 
 /**
@@ -392,6 +441,7 @@ type PersistedUi = Pick<
   | 'changesFileView'
   | 'hiddenMetrics'
   | 'metricsIdleIntervalMs'
+  | 'forgeWritesEnabled'
 >;
 
 export const useUiStore = create<UiState>()(
@@ -403,12 +453,15 @@ export const useUiStore = create<UiState>()(
       settingsPage: 'appearance',
       hiddenMetrics: [],
       metricsIdleIntervalMs: METRICS_IDLE_INTERVAL_MS,
+      // Default off. A fresh install cannot change anything on GitHub.
+      forgeWritesEnabled: false,
       selectedRepoId: null,
       selectedWorktreePath: null,
       selectedCommitSha: null,
       terminalOpen: false,
       terminalMaximized: false,
       terminalSidebarSide: 'right',
+      terminalListOpen: true,
 
       layout: DEFAULT_LAYOUT,
       graphColumns: DEFAULT_GRAPH_COLUMNS,
@@ -463,6 +516,8 @@ export const useUiStore = create<UiState>()(
       toggleTerminalMaximized: () =>
         set((state) => ({ terminalMaximized: !state.terminalMaximized })),
       setTerminalSidebarSide: (terminalSidebarSide) => set({ terminalSidebarSide }),
+      toggleTerminalList: () =>
+        set((state) => ({ terminalListOpen: !state.terminalListOpen })),
 
       setLayout: (key, value) => set((state) => ({ layout: { ...state.layout, [key]: value } })),
       setGraphColumn: (key, value) =>
@@ -499,6 +554,7 @@ export const useUiStore = create<UiState>()(
             : [...state.hiddenMetrics, id],
         })),
       setMetricsIdleInterval: (metricsIdleIntervalMs) => set({ metricsIdleIntervalMs }),
+      setForgeWritesEnabled: (forgeWritesEnabled) => set({ forgeWritesEnabled }),
     }),
     {
       name: 'midnite-git.ui',
@@ -545,8 +601,17 @@ export const useUiStore = create<UiState>()(
         terminalOpen: state.terminalOpen,
         terminalMaximized: state.terminalMaximized,
         terminalSidebarSide: state.terminalSidebarSide,
+        terminalListOpen: state.terminalListOpen,
         hiddenMetrics: state.hiddenMetrics,
         metricsIdleIntervalMs: state.metricsIdleIntervalMs,
+        /*
+          Persisted, so consent survives a relaunch — a switch that reset on
+          every start would be a nag rather than a setting. It is one of the
+          few persisted fields whose *absence* is the safe reading: an older
+          stored blob has no such key, `false` is the initial value, and a
+          restored state therefore cannot arrive with writes silently on.
+        */
+        forgeWritesEnabled: state.forgeWritesEnabled,
       }),
 
       /**

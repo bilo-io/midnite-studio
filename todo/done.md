@@ -2,6 +2,278 @@
 
 <!-- Append one entry per landed phase/PR: date, phase, PR link, one-line summary. -->
 
+## 2026-08-27 — Phase 20 · Themes F + G — review write actions, and the consent switch in front of them
+
+Landed on `feature/phase-20-review-writes`, squash-merged locally — no PR link, no GitHub remote on
+this checkout. The phase's one deliberate reversal of the Phase 17/19 read-only-forge rule, and the
+last of its seven themes.
+
+- [x] **Six writes in `gh-write.ts`**, beside Theme E's three: approve/request-changes/comment,
+      merge, reviewer re-request, draft→ready and run re-run. All six are plain `gh` subcommands
+      rather than `gh api` — Theme E reaches for the API because threads have no CLI verb, and
+      these have one. Command construction is split from the spawn, so each is a pure
+      `*Command(forge, …)` returning a string and the tests assert the exact command line — flags,
+      ordering, quoting — with no subprocess, network or repository. The failure modes worth
+      catching are all textual: a verb that becomes a value, a body that breaks out of its quoting,
+      a `--failed` nobody asked for, a method flag omitted so `gh` drops into an interactive prompt
+      and hangs on the timeout
+- [x] **`gh-shell.ts` extracted** — the spawn, quoting, both host flags, the availability probe and
+      the failure summary, previously in `gh-cli.ts` and imported from there by the write module.
+      Now a third module imported by `gh-cli`, `gh-write` and `gh-graphql` alike: two probe caches
+      would let the read path and the write path disagree about whether `gh` holds a credential,
+      and `gh-cli.ts`'s "strictly reads" comment is now true of its dependencies as well as its
+      calls
+- [x] **Contract**: six channels appended to the write block Theme E opened, so the whole write
+      surface is auditable in one screen and the read-only comment above it says nine rather than
+      going stale. Three rules encoded in the payloads rather than left to the UI — a merge method
+      never defaults, a reviewer must look like a GitHub login, and `APPROVE` is the only bodiless
+      verb. `ForgePullDetail` grows `commitCount`, a five-commit sample and `reviewRequests`, all
+      three riding the `gh pr view` the detail header already makes
+- [x] **The blast radius comes from GitHub, not `rev-list --count`** — a departure from the theme's
+      own bullet. A PR's head ref usually is not in this checkout at all, and `rev-list` against a
+      missing ref reads as zero, which is the one number a confirm dialog must never be wrong about
+- [x] **Action bar under the PR header**, outside the tabpanel because these actions apply to the
+      pull request rather than to one view of it — inside Conversation, GitHub's own placement,
+      Merge would be hidden behind a tab. One composer for all three verbs, the verb restated on
+      Submit. Merge has its own dialog rather than the shared `ConfirmDialog`: that one asks a
+      single question whose answer is one click, and a merge asks two, the second ("merge, squash
+      or rebase?") changing what the first one means. Nothing preselected, Merge disabled until a
+      human picks
+- [x] **Nothing optimistic.** Every action disables its control until `gh` answers, then either
+      invalidates the listing and detail — not the patch, which a verdict does not change — or
+      renders `gh`'s own sentence beside the control that caused it
+- [x] **A default-off Settings → Reviews switch** gates all of it, and lists what stays out: no PR
+      creation, no labels, no issue writes, no force-push, no branch deletion, no editing anyone's
+      comment. Not the phase doc's idea and deliberately not Phase 18's per-repo trust prompt —
+      nothing here executes anyone's code, so one machine-wide switch is the honest weight
+- [x] **Two bugs found in self-review, both about what GitHub actually does.** `gh run rerun` adds
+      an attempt to the *same* run id, and main caches a completed run's tree and logs permanently
+      — so re-running would refresh the listing, watch the run finish, and then serve the previous
+      attempt's failure for as long as the app stayed open; `forgetRun` now evicts it in the
+      handler, scoped by host and slug because run ids collide across repositories. And a
+      comment-review could be submitted empty, which GitHub refuses — `APPROVE` is now the only
+      bodiless verb everywhere
+- [x] **Tests**: 31 command-construction cases over `gh-write.ts`, five spawn-counting cases over
+      the cache eviction, four contract cases over the new payloads, and 13 Playwright cases over
+      the guards — consent, the required bodies, the merge count and method, the absent controls on
+      a draft/merged PR, `--failed` only on a failed run, and the recorded requests proving the app
+      sent the verb the user chose. Five committed screenshots
+
+Still open on the phase, both needing a human: a real `gh pr review` / `gh pr merge` against a
+disposable test PR, and syntax-highlighted diff scroll performance on a PR with 100+ changed files.
+
+## 2026-08-27 — Phase 20 · Theme E — inline review comment threads on the PR diff
+
+Landed on `feature/phase-20-inline-threads`, squash-merged locally — no PR link, no GitHub remote
+on this checkout. The phase's highest-unknown piece, and two of its three unknowns turned out to be
+API facts rather than design calls:
+
+- [x] `ForgeReviewThread` / `ForgeReviewComment` domain types plus `ForgeThreadSide` and the
+      `ForgeWriteResult` envelope. The thread carries **three** position fields — `line`,
+      `originalLine`, `startLine` — because a thread can lose its anchor, and collapsing them is
+      how a comment gets pinned to code its author never saw
+- [x] **Read through GraphQL, on its own channel**, both departures from the original bullet and
+      both forced: REST `pulls/{n}/comments` returns a flat list with no thread object, no
+      `isResolved` and no thread node id — resolution is a property of `PullRequestReviewThread`,
+      which REST does not expose, and its node id is the only handle `resolveReviewThread` takes.
+      New `gh-graphql.ts` is the app's one GraphQL read, kept out of `gh-cli.ts` so that file stays
+      one `gh` subcommand per function. `mgit:forge:pull-threads` is its own channel rather than a
+      widening of `pull-comments`: one key serving the Files and Conversation tabs would make
+      either tab's fetch serve the other's payload
+- [x] Threads render as **rows** in the diff, not overlays — the diff is a list and a thread has to
+      push the code below it down. The virtualizer now measures rather than assuming `ROW_HEIGHT`;
+      code rows still land on exactly 18px, so a diff with no threads reflows nothing
+- [x] The gutter affordance is opt-in on `threads`/`onComment` being present, because `DiffView` is
+      shared with the Changes page and the commit inspector — a working-tree diff must not grow a
+      comment gutter by accident. It replaces the `+`/`−` marker column rather than adding one, so
+      hovering changes what a cell shows and nothing about where anything sits
+- [x] `isCommentableLine` is the one gate on right-side-only v1, and `withCommentRows` refuses to
+      splice onto a deleted line even if asked
+- [x] The diff-position mapping, spiked first as the bullet asked. Verified against `cli/cli#14200`:
+      `line`/`originalLine`/`startLine` and `diffSide` live on the **thread**, `databaseId` on the
+      **comment**, and `diffSide` does not exist on `PullRequestReviewComment` at all — the first
+      thing the spike got wrong
+- [x] `gh-write.ts` exists as of this theme rather than waiting for F, carrying only E's three calls
+      plus `describeApiFailure`, so `gh-cli.ts`'s "strictly reads" comment stays literally true
+
+Found and fixed while reviewing the slice before it landed:
+
+- **A live thread anchored outside every hunk rendered nowhere at all.** `isAnchored` cannot see
+  this case: a reviewer who expands context on github.com can comment far outside any hunk, and the
+  thread comes back live, right-side and unresolved with a perfectly real `line`, while `gh pr diff`
+  fetches three lines of context. Keyed into `byLine` it matched no row and vanished — the same harm
+  as pinning one to the wrong line, and harder to notice. `threadsForFile` now takes the `FileDiff`
+  and checks the anchor against `rightSideLines(diff)`, a Set rather than a range test because a
+  diff is hunks with gaps: line 50 falling between rendered hunks 10-12 and 90-92 does not make it
+  renderable. Such threads join the collapsed group above the diff, which grew a fourth documented
+  kind
+- **`gh api graphql -F` type-guesses its variables**, which `gh-write.ts`'s own `apiPost` comment
+  warns about for REST bodies and `gh-graphql.ts` then did anyway: `-F name=2048` sends the *integer*
+  2048 for a `String!` variable and GitHub refuses the whole query — for a repo name that is neither
+  unusual nor invalid (`gabrielecirulli/2048`). The String!/ID! variables now use `-f`; `-F` is kept
+  only for `number`, which really is an `Int!`
+
+**Pre-existing on `main`, not this theme's:** four e2e failures — `repos-workbench.spec.ts`'s
+folded-repo trailing-edge test and three `terminal.spec.ts` session tests. Confirmed identical on a
+detached `main` worktree at `5ff0df8`, and they sit in the two areas the last two `main` commits
+touched. `229 passed` otherwise; the full vitest gate is green (599 app, 331 desktop).
+
+## 2026-08-27 — Phase 20 · Themes A+B+C+D integration — the Reviews view gets its detail pane
+
+Landed on `feature/phase-20-reviews-shell`, on rebase onto `main` after Theme C merged separately
+(`feature/phase-20-pr-detail`, squash-merged locally — no PR link, no GitHub remote on this
+checkout). Themes A/B/D built the Reviews view as a list-only pane against `main` as it stood
+before Theme C existed; Theme C's own commit message said the plan all along was for the Reviews
+*view* to mount the same `PrDetail` its workbench-tab route does. Rebasing surfaced that gap, so
+this integrates the two rather than landing them side by side unconnected:
+
+- [x] `ReviewsList` grows a resizable list-plus-detail split — the same shape `ActionsView`
+      already has — with a new `reviewsListWidth` in `ui-store.ts`'s `LayoutSizes`
+- [x] A row's click now **selects** the PR (mounting `PrDetail` on the right) rather than opening
+      it on GitHub directly; that action moved to `PrDetail`'s own header button, which already
+      existed for exactly this
+- [x] New `store/reviews-store.ts` (`selectedPull`, keyed by repo) — the same shape
+      `actions-store.ts`'s `selectedRun` uses, so the sidebar's Reviews section row can carry a
+      specific PR number into the view, the same way `ActionsSection` already carries a run id
+- [x] `ReviewsView`'s CLI-not-ready / error handling moved from a blanket early return into
+      `ReviewsList`'s own list pane — a PR already selected from the sidebar keeps showing its
+      `PrDetail` even when the listing itself can't refresh, since `PrDetail`'s three tabs already
+      report "not ready" per tab on their own. Theme C's own `reviews.spec.ts` caught this: its
+      signed-out-gh test expects the detail region to render regardless of the list's CLI status,
+      which the original list-only Theme A/B early return would have blocked entirely
+- [x] `gh-cli.ts`'s `listPulls` and the `forge.pulls` IPC contract both grow a `state` parameter
+      (default `open`) rather than the hardcoded `--state all` Theme B shipped alone — the
+      sidebar's Reviews section and the dashboard's pulls widget keep asking for open PRs only,
+      exactly as Phase 17/19 shipped; only the Reviews view's own list explicitly asks for `all`.
+      Caught in an independent code-review pass before the rebase: `--state all --limit N` meant N
+      most-recent-of-any-state, which could silently starve those two surfaces of real open PRs
+      on a repo where merges outpace opens
+- [x] `pullStatus()` reads merged/closed off `pull.state` before falling back to
+      `reviewDecision`/`isDraft` — also from that review pass, since a merged PR was rendering
+      "Approved" once B started fetching every state
+- [x] `LineRow` rounds only the outer edge of a run of adjacent `changed` diff pieces, not each one
+      independently — a syntax-highlight token boundary landing inside one diff segment no longer
+      draws a visible seam between two touching highlight boxes
+- [x] Status tabs moved to `@bilo-io/ui`'s `Tabs` (WAI-ARIA roving-tabindex) instead of a
+      hand-rolled tablist
+
+### One thing worth remembering
+
+**A parallel `/exec` loop landed Theme C on `main` while this session was mid-flight on A/B/D**,
+and Theme C's own commit message and `done.md` entry both said, in effect, "the Reviews view will
+mount this" — a forward reference to work this session hadn't written yet. The rebase's merge
+conflicts were all mechanical (the same fields added to `PULL_FIELDS`/`gh-cli.ts` from both sides);
+the real integration gap — a fully-built, tested `PrDetail` sitting unreachable because the
+sidebar's route into Reviews no longer created the workbench tab that used to mount it — only
+showed up by reading what Theme C actually shipped, not from any merge conflict. Worth remembering
+for the next phase split across parallel sessions: a clean rebase is not the same claim as a
+working merged result, and the two themes' own `done.md` entries are the place to check for a
+forward reference like this one before calling a rebase finished.
+
+## 2026-08-27 — Phase 20 · Theme C — PR detail: files, conversation and checks
+
+Landed on `feature/phase-20-pr-detail` (squash-merged locally — this checkout has no GitHub
+remote, so there is no PR link). Phase 17 shipped the Reviews tab as a summary and a link out,
+and Phase 19 explicitly parked the rest; this is that parked work. Opening a pull request now
+shows its diff, its discussion and its CI verdict without leaving the window.
+
+### What landed
+
+- [x] New `mgit:forge:pull-files` channel (`repoId` + PR number) — **bare `gh pr diff`, not
+      `--patch`**: the phase doc named `--patch`, which asks GitHub for `git format-patch` output
+      (one mbox entry per commit, so a file touched twice appears twice and every mbox header
+      after the first is swallowed as diff body). Verified against `cli/cli#14255` — 16 sections
+      for 14 files with `--patch`, exactly 14 without. Parsed in main by git-engine's **existing**
+      hunk parser through a new `parseMultiFileDiff` entry point over the same `parseSection`, so
+      a PR diff and a `git diff` agree about renames, combined hunks and the line cap by
+      construction. Capped by bytes, preferring a file boundary (half a hunk is not a diff) but
+      falling back to a whole-line slice for the two shapes that have no boundary — a one-file
+      patch and a header-less one — because a cap that can be escaped is not a cap
+- [x] New `mgit:forge:pull-comments` channel — `issues/{n}/comments` and `pulls/{n}/reviews`
+      fetched concurrently and merged into one chronological thread in main, as a `ForgeComment`
+      with a `kind` discriminator. A `PENDING` review and the empty `COMMENTED` shell around
+      inline comments are both dropped: neither is a verdict anyone published
+- [x] New `mgit:forge:pull-detail` channel (beyond the theme's spec) — `gh pr view --json` for the
+      body, base branch, line counts, `mergeable` and the head sha, which no listing field carries
+      and the Checks tab is built on. Its own channel rather than a widening of `listPulls`, which
+      Theme B is rewriting
+- [x] `ReviewView` rebuilt into a tabbed PR detail under `app/src/features/reviews/` — **Files**,
+      **Conversation**, **Checks** — with `forge-detail.tsx`'s `ReviewView` reduced to a one-line
+      delegation so the Reviews *view* (Theme A) mounts the same component
+- [x] Files tab renders each changed file through the existing `DiffView`, first three expanded,
+      matching the Changes page's accordion row rather than inventing a second layout. No
+      `onExpandContext`: expanding context is a refetch, and `gh pr diff` has no per-file form
+- [x] Conversation tab lists the merged thread read-only, markdown-rendered with no `rehype-raw`,
+      review verdicts riding the same `StatusPill` the sidebar row uses
+- [x] Checks tab mounts the Phase 19 `RunDetail` unchanged, resolving the PR's **head sha** against
+      the cached run listing — no third subprocess, and correct after a force-push in a way
+      branch-matching would not be
+- [x] Handlers resolve owner/repo in main from `.git/config`; the renderer sends only a `repoId`
+      and a PR number the schema bounds to a positive integer before it reaches a command line
+- [x] Tests: `parseMultiFileDiff` (ordering, per-section classification, empty-section drop,
+      per-file line cap), `parsePullDetail`/`parseIssueComments`/`parsePullReviews`/
+      `mergeConversation`, `stripPatchPreamble` and `capPatch` under bare vitest; three new schema
+      guards in `ipc.test.ts`; seven Playwright specs in `reviews.spec.ts` plus a
+      `reviews-shots.spec.ts` producing the four committed screenshots
+
+### Open
+
+- The two human passes named in the phase's Verification list are Theme F's and D's, not this
+  one's. Nothing from Theme C is left for a human.
+
+## 2026-08-27 — Phase 20 · Themes A, B, D — Reviews view shell + PR list + syntax-highlighted diffs
+
+Landed on `feature/phase-20-reviews-shell` (squash-merged locally — this checkout has no GitHub
+remote, so there is no PR link). The first slice of Phase 20: Reviews grows from a sidebar-section
+stub into a full nav-rail view with a real PR list, and every diff in the app gains syntax colour.
+Themes C, E, F, G are separate, later slices.
+
+### What landed
+
+- [x] **Theme A** — `reviews` joins `ViewId`/`VIEW_IDS`; the rail gets a `FaCodePullRequest` item
+      beside Tests' `FaCheckDouble`; `VIEW_FILTERS['reviews']` narrows the sidebar to Reviews +
+      Worktrees, the same mechanism Actions/Tests already use. Actions and Reviews now share one
+      `useForgeGateAvailable` gate (renamed from `useActionsAvailable`) since both ask the same
+      "does this repo have a GitHub remote" question. The sidebar's Reviews section row now routes
+      into the Reviews view instead of opening a workbench tab — the same move Phase 19 made for
+      Actions runs, and it leaves the old `ReviewView`/`'review'` workbench-tab kind in place
+      unrendered-but-reachable, exactly as Phase 19 did for `RunView`/`'run'`
+- [x] **Theme B** — `listPulls` moves off `--state open` to `--state all`; `ForgePull` grows
+      `mergedAt`/`closedAt`. `features/reviews/{reviews-view,reviews-list}.tsx`: status tabs
+      (All/Open/Draft/Merged/Closed), an author filter (`MultiSelectMenu`, reused), a search box,
+      all orthogonal (AND-combined), plus a "Load more" button — `gh pr list` has no cursor, so
+      widening `limit` and refetching is the honest shape. No detail pane yet (Theme C); a row's
+      click opens the PR on GitHub, matching the sidebar's own read-only Issues section
+- [x] **Theme D** — `features/diff/line-highlight.ts`: per-line shiki highlighting, deferred
+      through `requestIdleCallback` and cached module-level by `(path, line kind, line text)` —
+      mirroring `services/avatars.ts` — so it never competes with the virtualized scroll path
+      `outstanding.md` flagged as the risk when this was parked at Phase 12. `diff-rows.ts` grows
+      `mergeSegmentsWithTokens`, intersecting the highlight tokens with the existing intraline
+      diff segments as two independent partitions of the same line — syntax colour is the inner
+      layer, the add/del tint stays the outer one. The shiki singleton itself moved out of
+      `code-preview.tsx` into `lib/highlighter.ts` so the Files preview pane and diff rows share
+      one engine instance. Applies to Changes and the Graph commit inspector by construction (one
+      shared `LineRow`); Reviews' own diff surface gets it for free once Theme C lands
+
+### One thing worth remembering
+
+**shiki's instance `codeToTokensBase` does not auto-load a grammar**, despite its own type
+declaration sitting right next to a *different*, module-level shorthand that does. Calling it for
+a language shiki hadn't already loaded threw `Language 'typescript' not found` on every single
+line, silently — the catch block swallowed it and every row just stayed unhighlighted, which reads
+identically to "still scheduled" and cost real time to notice. The fix is the same on-demand
+`loadLanguage()`-then-highlight two-step `code-preview.tsx` already uses for `codeToHtml`; worth
+remembering that shiki's "shorthand" doc comments describe a sibling API, not the instance method
+they're attached next to.
+
+Also worth remembering for the next fixture author: the mock bridge stands in for the **preload**,
+which only ever hands the renderer already-parsed domain objects (`gh-parse.ts`'s job) — a forge
+fixture written in `gh`'s own raw JSON field names (`headRefName`, `author: {login}`) crashes the
+renderer with "Objects are not valid as a React child" the moment a component reads the parsed
+field name (`author` as a string) and gets the raw shape instead. `actions-view.spec.ts`'s `run()`
+builder already gets this right; a new builder should be checked against it before assuming the
+raw `gh --json` field names are the fixture's contract.
+
 ## 2026-08-27 — Phase 19 · Themes F+G — Tests discovery and execution
 
 Landed on `feature/phase-19-tests` (squash-merged locally — this checkout has no GitHub remote, so
@@ -50,6 +322,33 @@ answer regardless of the cause. Also worth remembering: `getByRole('button', { n
 case-insensitive **substring** match by default, and the new "Tests" sidebar toggle collided with an
 unrelated `forge-issues.spec.ts` fixture whose CI job happens to be named `test` — fixed there with
 `exact: true`, the same guard the spec already used for "Actions".
+
+## 2026-08-26 — Phase 16 · Theme F (follow-up) — Coverage for the nav-mode lock
+
+Landed on `feature/nav-mode-coverage`. Theme F shipped the locked/unlocked rail and it works,
+but the behaviour itself was never asserted: the e2e only checked that the pin *appeared* once
+Appearance had locked the rail, and `navMode` was the one Theme F field with no store test at
+all — despite sitting in `partialize`, where a future edit could drop it silently.
+
+### What landed
+
+- [x] e2e — the pin's round trip, and the distinction that makes a lock a lock:
+      `auto` hover-expands as an overlay (`--nav-offset` stays `3.5rem`), `expanded` is the only
+      mode that moves content (`16rem`). The two rails render identically, so the custom property
+      `AppFrame` publishes is the only thing that can tell them apart
+- [x] e2e — unlocking lands on `auto`, never on `collapsed`: the pin is two-state by design, and
+      nothing had held it to that
+- [x] Three `ui-store.test.ts` cases — all three modes through `setNavMode`, the mode surviving a
+      restart, and a stored payload that predates the setting merging to `auto` rather than
+      booting someone into a rail they never locked
+
+### Worth remembering
+
+`openSettings` clicks the rail's own footer button, so the pointer is left sitting on the rail
+and `auto` holds it hover-expanded — the "no pin at rest" assertion failed until the test moved
+the mouse off first. A hover-driven rail makes the pointer's resting place part of the fixture.
+
+Tests: `app:test` 513 passed; full e2e 192 passed / 8 skipped. Gate green.
 
 ## 2026-08-26 — Phase 16 · Theme F — Grouped settings navigation + the side-navigation control
 
@@ -1568,3 +1867,146 @@ collapsed each item names itself in a portal tooltip. What was missing was the s
 home and any proof of that contract. The e2e now locks the rail closed, hovers a nav item,
 and asserts the tooltip appears — a tooltip only renders against a collapsed rail, so its
 visibility during a hover IS the assertion that the hover expanded nothing.
+
+## 2026-08-27 — The agent activity spinner reads a frame, not a chunk
+
+The spinner added a commit earlier never once appeared. `detectActivity` decided "thinking"
+by looking for `esc to interrupt`, and the strings in the shipped binary
+(`~/.local/share/claude/versions/2.1.247`) say that phrase now survives only in the retry
+banner — the live spinner row prints `✳ Kneading… (1m 38s · ↓ 4.5k tokens)`. Meanwhile the
+*waiting* marker it fell through to (`auto mode on` / `shift+tab to cycle`) is drawn on every
+repaint, generating or not, so every busy agent read as idle.
+
+Thinking is now keyed on the spinner row itself: the frame glyphs `✢ ✳ ✶ ✻ ✽` — taken from
+the binary's own frame arrays, with `·` and the ASCII `*` left out because a middle dot is
+the separator in every footer segment — followed by the verb's ellipsis, plus the
+`↓ N tokens` counter and the old interrupt hint for older builds.
+
+The footer's real job turned out to be a FRAME BOUNDARY, not a state: the spinner row is
+drawn above it, so a frame that reaches its footer with no spinner in it is what means
+"waiting". Detection therefore runs over the bytes since the last boundary rather than over
+one pty chunk — a repaint is a couple of kilobytes and macOS hands it over in pieces, so
+judged chunk by chunk the same frame said thinking and then waiting a millisecond later and
+the glyph flickered between the two for the length of the turn. `TerminalView` carries that
+state per session, beside the decoder it already kept for the same reason.
+
+Alongside it, the session list got the two things a list that now says something useful
+needs: a drag ceiling of 560 rather than 360 (matching the repos sidebar — an agent row's
+label is a summary of the task it was given, so these are the longest rows in the app), and
+a `List` toggle in the terminal header, persisted as `terminalListOpen`. The toggle is
+explained-disabled below two sessions, since a list of one still names nothing the header
+does not.
+
+## 2026-08-27 — The thinking ring was spinning all along; nobody could see it
+
+The spinner appeared, correctly, the moment an agent started generating — and read as a
+static circle. Everything that could have stopped it was ruled out before anything was
+changed: `.animate-spin{animation:spin 1s linear infinite}` is in the built stylesheet with
+no later rule overriding it, the persisted appearance is `motion:"system"` with the OS
+`ReduceMotionEnabled` at 0 so the shell's universal reduced-motion reset never armed, and
+the packaged app in /Applications ships the exact bundle and CSS that was inspected. Driving
+a real tool-using Claude turn through `detectActivity` (138 pty chunks over 80s) produced one
+transition into `thinking` and then held, so the ring was never being remounted mid-turn
+either — a remount would have reset the rotation to 0° and frozen it in place, which was the
+obvious suspect and the wrong one. Sampled in a browser against the app's own stylesheet, the
+element reported `animationName: spin`, `playState: running`, and transforms stepping
+0° → 57° → 111° → 165° → 219° over 600ms.
+
+So the animation was running the entire time. What failed was the mark. One lit quadrant on a
+12px circle is a lone ~8px dash, and `border-[1.5px]` floors to a single device pixel below
+2× scale — Chromium's computed `borderTopWidth` comes back `1px`. A one-pixel dash going round
+once a second, in a sidebar nobody looks straight at, is not perceptible as motion; captured
+frame by frame off a paused animation it is plainly rotating, and at speed it is a ring
+sitting still.
+
+The fix is geometry, not motion: 14px, a 2px rim, and two adjacent borders lit rather than one,
+so a half ring sweeps instead of a dash creeping. Duration stays Tailwind's built-in 1s
+deliberately — a custom `spin 900ms` would rest on `@keyframes spin` still being emitted, and
+Tailwind only emits it while some other file uses the built-in utility.
+
+Left standing for next time: once `thinking` is seen, the state is sticky. In that same 80s
+probe the detector returned `thinking` 113 times and `waiting` never again after the turn
+ended, so a finished agent keeps its spinner until its next byte of output.
+
+## 2026-08-27 — The PR description becomes a tab, and the header stops spending height on it
+
+The description sat under the PR title in a `max-h-40` scroller, which spent 160px on every
+pull request whether or not anyone was reading it and pushed the review actions and the tabs
+that far down the pane — on a short window the diff got what was left. It is the `Overview`
+tab now, first of four, and it opens by default: the body was always visible when a PR opened,
+so making Files the landing tab would have hidden it behind a click nobody asked to make.
+
+Overview costs no extra fetch. It reads `useForgePullDetail`, which the header already runs
+for the base branch and the line counts, so a PR opened onto Overview now pulls *less* than
+before — the patch and the review threads stay behind their own tab gates, and a reader who
+only wanted the description never fetches them. Its three states are kept distinct (in flight,
+no detail, a genuinely empty body) so a panel that has not answered yet cannot read as a PR
+with nothing to say.
+
+The dead band under the header was two margins doing one job: `ReviewActionBar`'s root carried
+`mt-2` and its slot in `PrDetail` carried `pb-2`, so the gap above the Approve row came from
+the bar and the gap below it came from the pane. The slot owns both now (`px-3 py-2`) and the
+bar's own top margin is gone. With the body out of it the header is a fixed two rows however
+long the description is, so the rule, the actions and the tablist stack with 8px between them.
+
+## 2026-08-27 — A changed image is shown, not described
+
+`git diff` on a PNG prints "Binary files differ" and stops, so the diff pane printed
+`Binary file — no textual diff.` and stopped too: true, and no answer to the only question the
+reader has. An image now renders as its two revisions, with three ways to compare them —
+two-up, a swipe divider, and an onion-skin fade — because no single one answers everything:
+two-up says what the picture is now, swipe catches geometry (a shifted element lines up or it
+does not), and onion catches tone, where a slow fade shows a colour shift that side-by-side
+hides. The header states the dimensions, and the change in them, which is the difference a
+picture makes hardest to see and a number makes obvious.
+
+The hard part was never the viewer, it was the *before* side: those bytes are not on disk
+anywhere. They come out of the object database instead, through the `mgit-file://` scheme the
+Files preview already uses, with a `?rev=` the handler answers by `git cat-file blob <rev>:<path>`
+— `readBlob` in git-engine, spawned rather than `execGit`'d because dugite hands stdout back as
+a *string* and would corrupt every byte outside the encoding it assumed. Same jail as before
+plus two conditions of its own: the rev must survive a narrow whitelist (`cat-file` takes its
+object as a bare argument with no `--` terminator, so anything flag-shaped must never reach
+git), and a `?rev=` request that fails any check 404s rather than falling through to the disk
+read — otherwise a crafted rev would quietly serve the working-tree file at that path.
+
+Which revisions to pair was the decision worth getting right, and it belongs to the caller:
+the Changes pane compares the index with the checkout (or HEAD with the index, when the file is
+staged), the commit inspector compares the commit with its first parent — matching the
+`--first-parent` diff it already asked git for. `imageDiffSources` is that arithmetic, pure and
+unit-tested, and it returns `null` for everything that is not a binary image, so every call site
+wires it unconditionally and the branch never fires for text. An SVG keeps its textual diff on
+purpose: it has one, and replacing it with two pictures would hide the change rather than show
+it. A rename reads its pre-image from the *old* path, since asking for the new one at the old
+revision finds nothing.
+
+Two smaller things fell out. A blob at a rev is immutable, so those responses are cached
+forever — which is what makes flipping between before and after instant. A working-tree image
+is the opposite case: its URL does not change when the bytes do, so disk-served *images* now
+revalidate, or a re-exported screenshot would sit next to today's "before" and look like the
+diff was wrong. Video and audio were left alone; they go through Chromium's range machinery,
+which is not worth disturbing for a staleness problem they do not have.
+
+## 2026-08-27 — The Files view compares an asset, not just displays it
+
+The image viewer landed in the diff surfaces first, which left the Files browser as the one
+place that shows a picture and cannot answer what changed in it. It has a `Compare` toggle now,
+on an image whose bytes differ from HEAD's: off is today's pane, on is the same `ImageDiff` the
+diff pane mounts — two-up, swipe, onion — over HEAD → the file on disk.
+
+That pairing is deliberately the only one offered here. A file browser has no staged/unstaged
+distinction to work with; it shows one checkout, and the question a reader has of a changed
+asset is how it differs from what is committed, which covers both halves of a staged-then-edited
+change in one comparison.
+
+The gate is `differsFromHead`, over the status entry the sidebar has already fetched for this
+checkout — so it costs a cache read, not a subprocess. A path status never mentions matches
+HEAD and offers nothing. Untracked, ignored, and staged-as-added are refused for a different
+reason: HEAD holds no pre-image, and a "compare" that opens an empty before pane reads as a
+broken viewer rather than as a new file.
+
+Two things the single-image pane gained on the way past: the checkerboard the viewer already
+used (an alpha channel on the plain pane background reads as a solid dark shape — exactly the
+detail worth seeing), and the natural dimensions in the header. Both come from the diff
+viewer's own module rather than a copy, so the two surfaces cannot drift on what a picture sits
+on.
