@@ -1,6 +1,7 @@
 import { beforeEach, describe, expect, it } from 'vitest';
 
 import {
+  DEFAULT_AGENT_SKILLS,
   DEFAULT_GRAPH_COLUMNS,
   DEFAULT_LAYOUT,
   pathForView,
@@ -30,6 +31,7 @@ const reset = () =>
     graphRefFilter: [],
     graphAuthorFilter: [],
     graphTheme: 'git-graph',
+    agentSkills: DEFAULT_AGENT_SKILLS,
   });
 
 describe('useUiStore', () => {
@@ -406,5 +408,49 @@ describe('the nav-mode lock', () => {
     ) as { navMode: string };
 
     expect(merged.navMode).toBe('auto');
+  });
+});
+
+describe('the midnite menu\'s skills', () => {
+  beforeEach(reset);
+
+  it('points each entry at a default that Settings can move', () => {
+    expect(useUiStore.getState().agentSkills.exec).toBe('/exec');
+
+    useUiStore.getState().setAgentSkill('exec', '/exec-issue');
+
+    // One entry moves; the other three are untouched.
+    expect(useUiStore.getState().agentSkills).toEqual({
+      ...DEFAULT_AGENT_SKILLS,
+      exec: '/exec-issue',
+    });
+  });
+
+  it('persists the whole record, so a launch reads back what was configured', () => {
+    useUiStore.getState().setAgentSkill('brainstorm', '/brainstorm --wide');
+
+    const saved = JSON.parse(localStorage.getItem('midnite-git.ui') ?? '{}') as {
+      state: Record<string, unknown>;
+    };
+    expect(saved.state.agentSkills).toEqual({
+      ...DEFAULT_AGENT_SKILLS,
+      brainstorm: '/brainstorm --wide',
+    });
+  });
+
+  it('fills an entry the stored payload predates, rather than leaving it undefined', () => {
+    /*
+      The reason `merge` re-spreads this record. zustand's default shallow merge
+      would replace the whole object with the stored one, and a payload written
+      before a fifth entry existed carries no key for it — which reaches the
+      shell as `claude 'undefined'`, a prompt rather than a crash.
+    */
+    const merged = useUiStore.persist.getOptions().merge?.(
+      { agentSkills: { exec: '/exec-issue' } },
+      useUiStore.getState(),
+    ) as { agentSkills: Record<string, string> };
+
+    expect(merged.agentSkills.exec).toBe('/exec-issue');
+    expect(merged.agentSkills.loopPrFeedback).toBe(DEFAULT_AGENT_SKILLS.loopPrFeedback);
   });
 });

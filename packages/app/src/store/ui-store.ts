@@ -159,9 +159,15 @@ export type GraphColumns = {
 
 export const DEFAULT_LAYOUT: LayoutSizes = {
   // Wide enough for a repository row's full contents: name, ahead/behind pair,
-  // the three sync buttons and the actions ellipsis. At 256 the name was the
+  // the three sync buttons and the row's three menus. At 256 the name was the
   // thing that truncated, which is the one part of the row that identifies it.
-  reposWidth: 288,
+  //
+  // 312, not the 288 this was, and the 24 is the midnite menu's own footprint:
+  // 288 was measured against a row with two menus, and a folded row at that
+  // width was already spending its last pixels on the branch name — a third
+  // control took the name's first character with it. A persisted width still
+  // wins, so this moves only the installs that never dragged the panel.
+  reposWidth: 312,
   terminalHeight: 288,
   // Matches the list's old fixed `w-44`, so switching to a drag changes
   // nothing about how the panel looks until someone actually drags it.
@@ -431,6 +437,43 @@ export type UiState = {
    */
   forgeWritesEnabled: boolean;
   setForgeWritesEnabled: (enabled: boolean) => void;
+  /**
+   * Which Claude skill each entry of the sidebar's midnite menu invokes.
+   *
+   * A setting rather than a constant because a skill is a *file in the user's
+   * `~/.claude`*, not something this app ships: `/exec` and `/brainstorm` are
+   * this repository's own project skills, `/loop-pr-reviews` and
+   * `/loop-pr-feedback` are personal commands, and any of the four can be
+   * renamed, forked or replaced without the app knowing. Hard-coding them would
+   * make the menu silently open a terminal on a command that no longer exists.
+   *
+   * The values are whole prompts, not bare skill names, so a caller can point
+   * an entry at anything Claude accepts — `/exec`, `/exec --dry-run`, or a plain
+   * sentence — and the menu keeps working.
+   */
+  agentSkills: Record<AgentCommandId, string>;
+  setAgentSkill: (id: AgentCommandId, skill: string) => void;
+};
+
+/**
+ * The four verbs the sidebar's midnite menu offers.
+ *
+ * Ids, not labels or glyphs: those live with the menu in
+ * `features/agent/agent-commands.ts`, the same split `SETTINGS_PAGES` and
+ * `PAGE_ICON` already use, so this file stays a plain data module that pulls no
+ * icon package in behind it.
+ */
+export type AgentCommandId = 'exec' | 'brainstorm' | 'loopPrReview' | 'loopPrFeedback';
+
+/**
+ * What each entry invokes out of the box — the skills this repo and its author
+ * actually have. Settings → Agent can point any of them somewhere else.
+ */
+export const DEFAULT_AGENT_SKILLS: Record<AgentCommandId, string> = {
+  exec: '/exec',
+  brainstorm: '/brainstorm',
+  loopPrReview: '/loop-pr-reviews',
+  loopPrFeedback: '/loop-pr-feedback',
 };
 
 /**
@@ -455,6 +498,7 @@ type PersistedUi = Pick<
   | 'hiddenMetrics'
   | 'metricsIdleIntervalMs'
   | 'forgeWritesEnabled'
+  | 'agentSkills'
 >;
 
 export const useUiStore = create<UiState>()(
@@ -468,6 +512,7 @@ export const useUiStore = create<UiState>()(
       metricsIdleIntervalMs: METRICS_IDLE_INTERVAL_MS,
       // Default off. A fresh install cannot change anything on GitHub.
       forgeWritesEnabled: false,
+      agentSkills: DEFAULT_AGENT_SKILLS,
       selectedRepoId: null,
       selectedWorktreePath: null,
       selectedCommitSha: null,
@@ -571,6 +616,8 @@ export const useUiStore = create<UiState>()(
         })),
       setMetricsIdleInterval: (metricsIdleIntervalMs) => set({ metricsIdleIntervalMs }),
       setForgeWritesEnabled: (forgeWritesEnabled) => set({ forgeWritesEnabled }),
+      setAgentSkill: (id, skill) =>
+        set((state) => ({ agentSkills: { ...state.agentSkills, [id]: skill } })),
     }),
     {
       name: 'midnite-git.ui',
@@ -629,6 +676,7 @@ export const useUiStore = create<UiState>()(
           restored state therefore cannot arrive with writes silently on.
         */
         forgeWritesEnabled: state.forgeWritesEnabled,
+        agentSkills: state.agentSkills,
       }),
 
       /**
@@ -667,6 +715,13 @@ export const useUiStore = create<UiState>()(
           layout: { ...current.layout, ...saved.layout },
           graphColumns: { ...current.graphColumns, ...saved.graphColumns },
           sectionFilters: { ...current.sectionFilters, ...saved.sectionFilters },
+          /*
+            Re-spread for the reason the comment above gives, and one more: a
+            blob written before a fifth menu entry existed would otherwise
+            replace the whole record and leave that entry's skill `undefined`,
+            which reaches the terminal as the string "undefined".
+          */
+          agentSkills: { ...current.agentSkills, ...saved.agentSkills },
         };
       },
     },
