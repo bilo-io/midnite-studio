@@ -260,6 +260,17 @@ export type UiState = {
   selectedRepoId: string | null;
   selectedWorktreePath: string | null;
   selectedCommitSha: string | null;
+  /**
+   * Whether the repositories sidebar is shown at all.
+   *
+   * Distinct from `sectionFilters`, which narrows what the panel LISTS: this is
+   * the panel's existence, and the two compose — a narrowed panel can still be
+   * hidden outright to give the graph the full window.
+   *
+   * Open by default. It is the app's primary object list, and a fresh install
+   * that started with no repository picker would look broken.
+   */
+  reposOpen: boolean;
   terminalOpen: boolean;
   /** Terminal fills everything below the title bar, hiding the graph. */
   terminalMaximized: boolean;
@@ -360,6 +371,8 @@ export type UiState = {
   selectRepo: (repoId: string | null) => void;
   selectWorktree: (path: string | null) => void;
   selectCommit: (sha: string | null) => void;
+  toggleRepos: () => void;
+  setReposOpen: (open: boolean) => void;
   toggleTerminal: () => void;
   setTerminalOpen: (open: boolean) => void;
   toggleTerminalMaximized: () => void;
@@ -503,6 +516,7 @@ export const useUiStore = create<UiState>()(
       selectedRepoId: null,
       selectedWorktreePath: null,
       selectedCommitSha: null,
+      reposOpen: true,
       terminalOpen: false,
       terminalMaximized: false,
       terminalSidebarSide: 'right',
@@ -556,6 +570,8 @@ export const useUiStore = create<UiState>()(
         }),
       selectWorktree: (selectedWorktreePath) => set({ selectedWorktreePath }),
       selectCommit: (selectedCommitSha) => set({ selectedCommitSha }),
+      toggleRepos: () => set((state) => ({ reposOpen: !state.reposOpen })),
+      setReposOpen: (reposOpen) => set({ reposOpen }),
       toggleTerminal: () => set((state) => ({ terminalOpen: !state.terminalOpen })),
       setTerminalOpen: (terminalOpen) => set({ terminalOpen }),
       toggleTerminalMaximized: () =>
@@ -645,6 +661,7 @@ export const useUiStore = create<UiState>()(
         commitFileView: state.commitFileView,
         commitMetaOpen: state.commitMetaOpen,
         changesFileView: state.changesFileView,
+        reposOpen: state.reposOpen,
         terminalOpen: state.terminalOpen,
         terminalMaximized: state.terminalMaximized,
         terminalSidebarSide: state.terminalSidebarSide,
