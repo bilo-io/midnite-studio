@@ -98,12 +98,32 @@ test('a gap between hunks offers an expander, and expanding refetches at wider c
 
 test('a binary file says so instead of rendering an empty pane', async ({ page }) => {
   await openCommit(page);
-  await page.getByRole('button', { name: /phase-11-packaged-app\.png/ }).click();
+  await page.getByRole('button', { name: /inter\.woff2/ }).click();
 
   // Asserting the TEXT, not just that something rendered: the inspector used to
   // fall back to "No changes to show for this file" for a binary blob while the
   // working-tree pane said the right thing.
   await expect(page.getByTestId('diff-empty')).toHaveText('Binary file — no textual diff.');
+});
+
+test('a binary IMAGE gets the viewer rather than the sentence', async ({ page }) => {
+  await openCommit(page);
+  await page.getByRole('button', { name: /phase-11-packaged-app\.png/ }).click();
+
+  // The bytes come from `mgit-file://`, which does not exist in a browser — so
+  // this asserts the viewer's chrome, which is what the renderer owns: both
+  // revisions named, and the compare modes offered.
+  const viewer = page.getByTestId('image-diff');
+  await expect(viewer).toBeVisible();
+  await expect(page.getByTestId('diff-empty')).toHaveCount(0);
+  await expect(viewer.getByTestId('image-before')).toBeVisible();
+  await expect(viewer.getByTestId('image-after')).toBeVisible();
+
+  await viewer.getByRole('button', { name: 'Swipe' }).click();
+  await expect(viewer.getByRole('slider', { name: 'Swipe position' })).toBeVisible();
+
+  await viewer.getByRole('button', { name: 'Onion' }).click();
+  await expect(viewer.getByRole('slider', { name: 'New revision opacity' })).toBeVisible();
 });
 
 test('a capped diff reports how many lines it withheld', async ({ page }) => {
