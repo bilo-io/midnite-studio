@@ -10,10 +10,12 @@ import {
   type ForgePullDetailResult,
   type ForgePullFilesResult,
   type ForgePullsResult,
+  type ForgePullThreadsResult,
   type ForgeRunDetailResult,
   type ForgeRunLogResult,
   type ForgeRunsResult,
   type ForgeWorkflowsResult,
+  type ForgeWriteResult,
 } from '@midnite/git-shared';
 
 import {
@@ -28,6 +30,8 @@ import {
   runDetail,
   runLog,
 } from '../forge/gh-cli';
+import { pullThreads } from '../forge/gh-graphql';
+import { addReviewComment, replyToReviewComment, setThreadResolved } from '../forge/gh-write';
 import { resolveWorkdir } from '../repo-registry';
 import { handle, handleBare } from './handle';
 
@@ -67,6 +71,14 @@ const noForgeStatus = (): ForgeCliStatus => ({
   binPath: null,
   hint: NO_FORGE,
 });
+
+/**
+ * A write against a repository that has no forge to write to.
+ *
+ * `ok: false` with a null error, matching `notReady` in `gh-write.ts`: nothing
+ * failed, because nothing was attempted. The `cli` hint says which.
+ */
+const noForgeWrite = (): ForgeWriteResult => ({ ok: false, cli: noForgeStatus(), error: null });
 
 export function registerForgeHandlers(): void {
   handleBare(CHANNELS.forgeCliStatus, () => ghStatus());
@@ -134,6 +146,79 @@ export function registerForgeHandlers(): void {
       return pullComments(forge, req.number);
     },
     (issue) => ({ cli: noForgeStatus(), comments: [], error: issue }),
+  );
+
+  handle<typeof schemas.ForgePullThreadsRequest, ForgePullThreadsResult>(
+    CHANNELS.forgePullThreads,
+    schemas.ForgePullThreadsRequest,
+    async (req) => {
+      const forge = await githubForge(req.repoId);
+      if (!forge) return { cli: noForgeStatus(), threads: [], error: null };
+      return pullThreads(forge, req.number);
+    },
+    (issue) => ({ cli: noForgeStatus(), threads: [], error: issue }),
+  );
+
+  /*
+    ─── The write channels (Phase 20 Theme E) ───────────────────────────────
+
+    The one place in this app that changes state on a forge. Three properties
+    hold here that hold nowhere else in this file, and all three are the reason
+    the exception is safe to make:
+
+    - Owner and repo are still resolved from `.git/config` on THIS side. A
+      write is exactly the wrong operation to let the renderer aim.
+    - A repo with no GitHub remote answers `ok: false` with a null error — the
+      same "nothing to say" shape the reads use. Not a failure: there was
+      nothing to write to.
+    - A rejected payload lands in the `(issue) =>` arm as `ok: false` plus the
+      validation text, so a malformed request from a stale renderer is a
+      message beside the button, never a thrown handler.
+  */
+
+  handle<typeof schemas.ForgeReviewCommentRequest, ForgeWriteResult>(
+    CHANNELS.forgeReviewComment,
+    schemas.ForgeReviewCommentRequest,
+    async (req) => {
+      const forge = await githubForge(req.repoId);
+      if (!forge) return noForgeWrite();
+      return addReviewComment(forge, {
+        number: req.number,
+        commitId: req.commitId,
+        path: req.path,
+        line: req.line,
+        side: req.side,
+        ...(req.position === undefined ? {} : { position: req.position }),
+        body: req.body,
+      });
+    },
+    (issue) => ({ ok: false, cli: noForgeStatus(), error: issue }),
+  );
+
+  handle<typeof schemas.ForgeReviewReplyRequest, ForgeWriteResult>(
+    CHANNELS.forgeReviewReply,
+    schemas.ForgeReviewReplyRequest,
+    async (req) => {
+      const forge = await githubForge(req.repoId);
+      if (!forge) return noForgeWrite();
+      return replyToReviewComment(forge, {
+        number: req.number,
+        commentId: req.commentId,
+        body: req.body,
+      });
+    },
+    (issue) => ({ ok: false, cli: noForgeStatus(), error: issue }),
+  );
+
+  handle<typeof schemas.ForgeResolveThreadRequest, ForgeWriteResult>(
+    CHANNELS.forgeResolveThread,
+    schemas.ForgeResolveThreadRequest,
+    async (req) => {
+      const forge = await githubForge(req.repoId);
+      if (!forge) return noForgeWrite();
+      return setThreadResolved(forge, { threadId: req.threadId, resolved: req.resolved });
+    },
+    (issue) => ({ ok: false, cli: noForgeStatus(), error: issue }),
   );
 
   handle<typeof schemas.ForgeIssuesRequest, ForgeIssuesResult>(

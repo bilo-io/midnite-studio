@@ -56,9 +56,23 @@ export const CHANNELS = {
   remotesList: 'mgit:remotes:list',
 
   // --- forge (GitHub, via the user's own `gh` CLI) --------------------------
-  // Read-only, and deliberately so: nothing here merges, approves or reruns.
-  // The app links out for anything that changes state on the forge, so a
-  // stale cache can never cause a write.
+  //
+  // Reads, plus ONE deliberate and narrow exception.
+  //
+  // Every channel here was read-only through Phases 17 and 19, on the rule
+  // that the app links out for anything that changes state so a stale cache
+  // can never cause a write. Phase 20 reverses that for pull-request review
+  // specifically — and only there. The exception is bounded three ways, so it
+  // stays auditable rather than becoming the new default:
+  //
+  // 1. The write channels are named below under their own heading, and every
+  //    one of them is served by `forge/gh-write.ts`. `forge/gh-cli.ts` keeps
+  //    its "strictly reads" doc comment, and that comment stays literally true.
+  // 2. Nothing outside PR review is writable. No issues, no labels, no branch
+  //    protection, no PR creation.
+  // 3. They take a `repoId` like every read here; owner and repo are still
+  //    resolved in main from `.git/config`, so the renderer never chooses what
+  //    a subprocess is pointed at.
   /** Is `gh` installed and authenticated? Probed through a login shell. */
   forgeCliStatus: 'mgit:forge:cli-status',
   /** Recent workflow runs for the repo's GitHub remote. */
@@ -81,6 +95,31 @@ export const CHANNELS = {
   forgePullFiles: 'mgit:forge:pull-files',
   /** One PR's top-level conversation — discussion comments and review submissions. */
   forgePullComments: 'mgit:forge:pull-comments',
+  /**
+   * One PR's *inline* threads — the comments hanging off lines of the diff.
+   *
+   * Its own channel rather than a widening of `forgePullComments`, and the
+   * reason is which tab reads it: the conversation is the Conversation tab's
+   * payload and the threads are the Files tab's, so a combined channel would
+   * make each tab fetch the other's. Same split, same reasoning as
+   * `forgePullDetail` being separate from `forgePulls`.
+   *
+   * Read through `gh api graphql`, not REST — only GraphQL's
+   * `reviewThreads` carries the resolved flag and the thread id a resolve
+   * needs. See `ForgeReviewThread`.
+   */
+  forgePullThreads: 'mgit:forge:pull-threads',
+
+  // --- forge writes (Phase 20 Theme E) -------------------------------------
+  //
+  // The three channels below are the exception the block above documents, and
+  // the whole of it as of Theme E. All three live in `forge/gh-write.ts`.
+  /** Start a new inline thread on a line of the PR's diff. */
+  forgeReviewComment: 'mgit:forge:review-comment',
+  /** Add a reply to an existing inline thread. */
+  forgeReviewReply: 'mgit:forge:review-reply',
+  /** Mark an inline thread resolved, or reopen it. */
+  forgeResolveThread: 'mgit:forge:resolve-thread',
   /**
    * Issues for the repo's GitHub remote.
    *

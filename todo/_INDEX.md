@@ -3,10 +3,11 @@
 **Headline:** **[20](phase-20-reviews-page.md)** is the newest frontier, and its read half has
 landed: a Reviews page joins the nav rail — a PR list filterable by state/author/search, beside a
 tabbed PR detail (Files/Conversation/Checks) — and diffs across the whole app are now
-syntax-highlighted through the one `DiffView` shared by Reviews, Changes and Graph. Left ahead:
-Themes E/F/G, which — deliberately reversing Phase 17/19's read-only-forge rule for PR review
-specifically — will let you approve, request changes, comment (inline or top-level) and merge
-without leaving the app. **[19](phase-19-dashboard-actions-tests.md)** is the previous *landed*
+syntax-highlighted through the one `DiffView` shared by Reviews, Changes and Graph. **Theme E has
+landed too**: inline comment threads render as rows *in* the PR diff — reply and resolve without
+leaving the app — read over the app's one GraphQL read, because REST exposes no thread object at
+all. Left ahead: Themes F/G, which — deliberately reversing Phase 17/19's read-only-forge rule for
+PR review specifically — will let you approve, request changes, comment at the top level and merge. **[19](phase-19-dashboard-actions-tests.md)** is the previous *landed*
 frontier — the nav rail stops being three views and becomes the app's table of contents. Its forge half is now deep enough to triage from — issues in the sidebar, and a job tree under each failed run — and the **Dashboard has landed**: a `react-grid-layout` board of widgets over one repo's history, contributors, PRs, issues and runs, all scoped together by one author filter; an **Actions** view with job trees and logs; and a **Tests** view that discovers each repo's suites and — trusted per suite, riding the same runner 18's diagnostics generalised into `process-runner.ts` — runs them, with a live output stream and parsed pass/fail counts. Three manual passes remain, all needing a packaged app or a large real repository. **[18](phase-18-footer-monitor-diagnostics.md)** has landed both halves — the footer bar's empty right half is now a live system monitor (CPU/RAM/GPU/disk as dot, percentage and sparkline, opening into area-chart timelines over the app's first real popover primitive), and beside it per-repo lint counts gated behind an explicit per-repository trust prompt, because running a repo's own linter is the first arbitrary code execution this app does. Three human passes remain. **[17](phase-17-repos-workbench.md)** turns the repositories sidebar into a workbench — per-worktree change counts, menus on everything, a whole-checkout diff in a tab strip, and the app's first forge integration (Actions + Reviews through the user's own `gh`). The MVP (phases 0–11) is landed — the app packages, installs and runs from /Applications. **[12](phase-12-commit-inspector.md)** has landed **all six themes** — the commit graph is now a place you can read and act in: the inspector, real diffs, the remote model, ref badges that act, and rows that read at two densities; only two manual passes remain, both needing a packaged app or a real remote. Still open: **[14](phase-14-graph-themes.md)** makes the graph itself configurable, and **[15](phase-15-multi-terminal-sessions.md)** turns the single terminal into several — shells and coding agents, persisted across restarts. **[16](phase-16-explorer-and-settings-pages.md)** is **done** — a read-only Folder explorer with a preview pane, and Settings split into pages (including an Agent page into `~/.claude`), with both real-app manual passes signed off; a follow-up has since made that settings sidebar grouped and collapsible, and given Appearance the side-navigation control that reaches the rail's third mode. Post-MVP scope lives in [`outstanding.md`](outstanding.md).
 
 Completed work is logged append-only in [`done.md`](done.md). Deferred scope lives in [`outstanding.md`](outstanding.md).
@@ -17,7 +18,7 @@ Completed work is logged append-only in [`done.md`](done.md). Deferred scope liv
 
 | Phase | Status | Done | Progress | % | 🔄 WIP | ◻ TODO |
 |-------|--------|------|----------|---|--------|--------|
-| [20 · Reviews page & unified diff syntax highlighting](phase-20-reviews-page.md) | 🔄 WIP | 24/40 | `██████░░░░` | 60% | E F G | — |
+| [20 · Reviews page & unified diff syntax highlighting](phase-20-reviews-page.md) | 🔄 WIP | 31/44 | `███████░░░` | 70% | F G | — |
 | [19 · Dashboard, Actions and Tests as views](phase-19-dashboard-actions-tests.md) | 🔄 WIP | 73/76 | `██████████` | 96% | — | 3 manual checks |
 | [18 · Footer system monitor + repo diagnostics](phase-18-footer-monitor-diagnostics.md) | 🔄 WIP | 51/54 | `█████████░` | 94% | — | 3 manual checks |
 | [17 · Repositories workbench + forge](phase-17-repos-workbench.md) | 🔄 WIP | 46/48 | `█████████░` | 96% | — | 2 manual checks |
@@ -69,8 +70,12 @@ merge, kept in a new `gh-write.ts` so `gh-cli.ts`'s "strictly reads" comment sta
   integration mounted `PrDetail` beside the list — a resizable split matching `ActionsView`'s,
   with a new `reviews-store.ts` carrying a sidebar-selected PR number into the view
   (landed 2026-08-27)
-- ◻ **E** — inline diff-line comment threads, right-side (added/context) lines only for v1 — the
-  phase's highest-unknown piece
+- ✅ **E** — inline diff-line comment threads as *rows* in the diff, right-side (added/context)
+  lines only for v1 — the phase's highest-unknown piece, and two of its three unknowns turned out to
+  be API facts: threads are readable only over GraphQL (REST has no thread object, no `isResolved`
+  and no node id), and `gh api`'s `-F` type-guesses its variables. A thread that cannot be anchored —
+  outdated, file-level, left-side, or naming a line outside every hunk — renders in a collapsed
+  group above the diff rather than against whichever row carries that number now (landed 2026-08-27)
 - ◻ **F** — the phase's one deliberate write path: approve/request-changes/comment/merge (with a
   blast-radius confirm), in a new `gh-write.ts` kept separate from the read-only `gh-cli.ts`
 - ◻ **G** — reviewer re-request, draft→ready, re-run checks

@@ -1,4 +1,9 @@
-import type { ForgeCliStatus, ForgePull, ForgePullDetail } from '@midnite/git-shared';
+import type {
+  ForgeCliStatus,
+  ForgePull,
+  ForgePullDetail,
+  ForgeWriteResult,
+} from '@midnite/git-shared';
 import { SquareArrowOutUpRight } from 'lucide-react';
 import { useState } from 'react';
 import Markdown from 'react-markdown';
@@ -7,10 +12,14 @@ import remarkGfm from 'remark-gfm';
 import { IconButton } from '../../components/icon-button';
 import {
   openExternal,
+  useAddReviewComment,
   useForgePullComments,
   useForgePullDetail,
   useForgePullFiles,
   useForgePulls,
+  useForgePullThreads,
+  useReplyToReviewComment,
+  useSetThreadResolved,
 } from '../../services/queries';
 import { checksStatus, pullStatus, StatusPill } from '../forge/forge-status';
 import { ExternalLink } from '../markdown/external-link';
@@ -61,6 +70,27 @@ export function PrDetail({ repoId, number }: { repoId: string; number: number })
 
   const files = useForgePullFiles(repoId, number, tab === 'files');
   const comments = useForgePullComments(repoId, number, tab === 'conversation');
+  // Same tab gate as the patch it decorates: threads are only ever drawn on the
+  // Files tab, so a reader who opens a PR onto Checks pays for no GraphQL call.
+  const threads = useForgePullThreads(repoId, number, tab === 'files');
+
+  /*
+    The three writes, and one visible failure between them.
+
+    `error` collapses to whichever write last failed, because only one composer
+    can be open at a time and only one resolve can be in flight — so there is
+    never a second failure to lose. `busy` is the same union, and it is what
+    disables every control in the panel rather than each button tracking its own.
+  */
+  const addComment = useAddReviewComment(repoId, number);
+  const reply = useReplyToReviewComment(repoId, number);
+  const resolve = useSetThreadResolved(repoId, number);
+  const writes = [addComment, reply, resolve];
+  const busy = writes.some((write) => write.isPending);
+  const writeError =
+    writes
+      .map((write) => writeFailure(write.data))
+      .find((message): message is string => message !== null) ?? null;
 
   if (pull === null) {
     if (detailQuery.isLoading || list.isLoading) {
@@ -145,6 +175,25 @@ export function PrDetail({ repoId, number }: { repoId: string; number: number })
             error={files.data?.error ?? null}
             notReady={notReady(files.data?.cli)}
             pullUrl={pull.url}
+            threads={threads.data?.threads ?? []}
+            review={{
+              headSha: detail?.headSha ?? null,
+              /*
+                The two text-bearing writes answer whether they landed, so the
+                composer that holds the text can decide whether to close. A
+                fire-and-forget `mutate` here is what made a refused comment
+                disappear along with the paragraph somebody had just typed.
+                `mutateAsync` is safe to await because the mutation function
+                never throws — a refusal is an `ok: false` result.
+              */
+              onComment: async (input) => (await addComment.mutateAsync(input)).ok,
+              onReply: async (input) => (await reply.mutateAsync(input)).ok,
+              // Resolve carries no text, so there is nothing to lose and
+              // nothing to wait for — the panel re-reads its state either way.
+              onResolve: (input) => resolve.mutate(input),
+              busy,
+              error: writeError,
+            }}
           />
         ) : tab === 'conversation' ? (
           <PrConversation
@@ -247,6 +296,20 @@ function PrHeader({ pull, detail }: { pull: ForgePull; detail: ForgePullDetail |
  * can tell "no answer" from "the answer is none", and the hint is the command
  * that would fix it.
  */
+/**
+ * The sentence a refused write should show, if any.
+ *
+ * Three states, and they are not the same: `undefined` is "nothing has been
+ * attempted", `ok: true` is a write that landed, and `ok: false` with a null
+ * `error` is a machine that could not write at all — which the tab's own
+ * `notReady` line already says, so repeating it beside the composer would be the
+ * same news twice. Only `gh`'s actual message reaches the user from here.
+ */
+function writeFailure(result: ForgeWriteResult | undefined): string | null {
+  if (result === undefined || result.ok) return null;
+  return result.error;
+}
+
 function notReady(cli: ForgeCliStatus | undefined): string | null {
   if (cli === undefined || cli.reason === 'ready') return null;
   return cli.hint.length > 0 ? cli.hint : 'The GitHub CLI is not available.';

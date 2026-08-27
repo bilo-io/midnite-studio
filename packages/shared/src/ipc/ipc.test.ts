@@ -396,6 +396,65 @@ describe('forge schemas', () => {
     expect(detail.detail?.changedFiles).toBe(0);
   });
 
+  it('bounds every field of a review-comment request', () => {
+    const valid = {
+      repoId: 'r1',
+      number: 42,
+      commitId: 'a'.repeat(40),
+      path: 'src/app.tsx',
+      line: 12,
+      body: 'A note.',
+    };
+    // `side` defaults rather than being required — v1 writes only the right side.
+    expect(schemas.ForgeReviewCommentRequest.parse(valid).side).toBe('RIGHT');
+
+    // A short or upper-case sha is not a sha. GitHub anchors the comment to a
+    // commit, and a rejected one here beats a comment attached to whatever the
+    // API decides is current.
+    expect(() =>
+      schemas.ForgeReviewCommentRequest.parse({ ...valid, commitId: 'abc123' }),
+    ).toThrow();
+    expect(() =>
+      schemas.ForgeReviewCommentRequest.parse({ ...valid, commitId: 'A'.repeat(40) }),
+    ).toThrow();
+
+    // An empty comment is not a comment, and GitHub would reject it anyway.
+    expect(() => schemas.ForgeReviewCommentRequest.parse({ ...valid, body: '' })).toThrow();
+    // Line numbers are 1-based and positive.
+    expect(() => schemas.ForgeReviewCommentRequest.parse({ ...valid, line: 0 })).toThrow();
+    // LEFT is readable but not writable in v1 — the schema is where that holds.
+    expect(() => schemas.ForgeReviewCommentRequest.parse({ ...valid, side: 'LEFT' })).toThrow();
+  });
+
+  it('keeps a comment id digits-only and a thread id url-safe', () => {
+    // Both are spliced into a `gh` command line. `shellQuote` already makes
+    // that safe; rejecting the wrong shape here means main never has to rely on
+    // the quoting alone — the same rule `RunId` follows.
+    expect(() =>
+      schemas.ForgeReviewReplyRequest.parse({
+        repoId: 'r1',
+        number: 1,
+        commentId: '123; rm -rf /',
+        body: 'x',
+      }),
+    ).toThrow();
+
+    expect(() =>
+      schemas.ForgeResolveThreadRequest.parse({
+        repoId: 'r1',
+        threadId: "PRRT_'; echo '",
+        resolved: true,
+      }),
+    ).toThrow();
+    expect(
+      schemas.ForgeResolveThreadRequest.parse({
+        repoId: 'r1',
+        threadId: 'PRRT_kwDODKw3uc6ai8rw',
+        resolved: false,
+      }).resolved,
+    ).toBe(false);
+  });
+
   it('has a request schema for every forge channel', () => {
     // The same guard the pty/terminal table applies: a forge channel added
     // without a schema is unvalidated input reaching a subprocess.
@@ -410,6 +469,16 @@ describe('forge schemas', () => {
       forgePullDetail: ['ForgePullDetailRequest', 'ForgePullDetailResponse'],
       forgePullFiles: ['ForgePullFilesRequest', 'ForgePullFilesResponse'],
       forgePullComments: ['ForgePullCommentsRequest', 'ForgePullCommentsResponse'],
+      forgePullThreads: ['ForgePullThreadsRequest', 'ForgePullThreadsResponse'],
+      /*
+        The three writes (Phase 20 Theme E), and the reason this guard matters
+        more for them than for anything above: an unvalidated *read* returns
+        the wrong data, while an unvalidated write changes state on somebody's
+        pull request with a payload the renderer chose.
+      */
+      forgeReviewComment: ['ForgeReviewCommentRequest', 'ForgeReviewCommentResponse'],
+      forgeReviewReply: ['ForgeReviewReplyRequest', 'ForgeReviewReplyResponse'],
+      forgeResolveThread: ['ForgeResolveThreadRequest', 'ForgeResolveThreadResponse'],
     };
     const channelKeys = Object.keys(CHANNELS).filter((key) => key.startsWith('forge'));
     expect(channelKeys.sort()).toEqual(Object.keys(expected).sort());

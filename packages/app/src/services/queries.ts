@@ -8,10 +8,12 @@ import type {
   ForgePullDetailResult,
   ForgePullFilesResult,
   ForgePullsResult,
+  ForgePullThreadsResult,
   ForgeRunDetailResult,
   ForgeRunLogResult,
   ForgeRunsResult,
   ForgeWorkflowsResult,
+  ForgeWriteResult,
   Ref,
   Remote,
   RepoDescriptor,
@@ -126,6 +128,16 @@ export const keys = {
     ['repos', repoId, 'forge', 'pull-files', number] as const,
   forgePullComments: (repoId: string, number: number) =>
     ['repos', repoId, 'forge', 'pull-comments', number] as const,
+  /**
+   * One PR's inline threads.
+   *
+   * A fourth key beside the other three, not a widening of `pull-comments`: the
+   * Files tab reads this and the Conversation tab reads that, and sharing a key
+   * would make either tab's fetch serve the other's payload. It is the key a
+   * successful comment, reply or resolve invalidates.
+   */
+  forgePullThreads: (repoId: string, number: number) =>
+    ['repos', repoId, 'forge', 'pull-threads', number] as const,
   /** Whether `gh` is installed and signed in. Not repo-scoped — it is machine state. */
   forgeCli: ['forge', 'cli'] as const,
   /**
@@ -590,6 +602,102 @@ export function useForgePullComments(
 }
 
 /**
+ * One PR's inline review threads, fetched only while the Files tab is mounted.
+ *
+ * Same `enabled` discipline as the diff it decorates: a reader who opens a PR
+ * onto Conversation or Checks never pays for a GraphQL round trip about lines
+ * they are not looking at.
+ */
+export function useForgePullThreads(
+  repoId: string | null,
+  number: number | null,
+  enabled: boolean,
+) {
+  return useQuery<ForgePullThreadsResult>({
+    queryKey: keys.forgePullThreads(repoId ?? '', number ?? 0),
+    queryFn: async () => {
+      const api = bridge();
+      if (!api || !repoId || number === null) return EMPTY_PULL_THREADS;
+      return api.forge.pullThreads({ repoId, number });
+    },
+    enabled: enabled && repoId !== null && number !== null,
+    staleTime: FORGE_STALE_MS,
+  });
+}
+
+/*
+  ─── The three review writes (Phase 20 Theme E) ──────────────────────────────
+
+  All three share one success rule: invalidate the thread key for that PR, and
+  nothing else. A posted comment changes the threads and does not change the
+  listing, the detail or the patch — invalidating the whole `forge(repoId)`
+  prefix would re-spawn four subprocesses to redraw one panel.
+
+  None of them throws on a refused write. `ForgeWriteResult` carries `ok` and
+  `gh`'s own message, so the caller renders the failure next to the composer it
+  came from, with the text the user typed still in it.
+*/
+
+/** Start a new inline thread on a line of a PR's diff. */
+export function useAddReviewComment(repoId: string | null, number: number | null) {
+  const client = useQueryClient();
+  return useMutation({
+    mutationFn: async (input: {
+      commitId: string;
+      path: string;
+      line: number;
+      position?: number;
+      body: string;
+    }): Promise<ForgeWriteResult> => {
+      const api = bridge();
+      if (!api || !repoId || number === null) return NO_FORGE_WRITE;
+      return api.forge.reviewComment({ repoId, number, side: 'RIGHT', ...input });
+    },
+    onSuccess: (result) => {
+      if (result.ok) invalidateThreads(client, repoId, number);
+    },
+  });
+}
+
+/** Reply into an existing inline thread, keyed by a comment's REST id. */
+export function useReplyToReviewComment(repoId: string | null, number: number | null) {
+  const client = useQueryClient();
+  return useMutation({
+    mutationFn: async (input: { commentId: string; body: string }): Promise<ForgeWriteResult> => {
+      const api = bridge();
+      if (!api || !repoId || number === null) return NO_FORGE_WRITE;
+      return api.forge.reviewReply({ repoId, number, ...input });
+    },
+    onSuccess: (result) => {
+      if (result.ok) invalidateThreads(client, repoId, number);
+    },
+  });
+}
+
+/** Mark an inline thread resolved, or reopen it. */
+export function useSetThreadResolved(repoId: string | null, number: number | null) {
+  const client = useQueryClient();
+  return useMutation({
+    mutationFn: async (input: {
+      threadId: string;
+      resolved: boolean;
+    }): Promise<ForgeWriteResult> => {
+      const api = bridge();
+      if (!api || !repoId) return NO_FORGE_WRITE;
+      return api.forge.resolveThread({ repoId, ...input });
+    },
+    onSuccess: (result) => {
+      if (result.ok) invalidateThreads(client, repoId, number);
+    },
+  });
+}
+
+function invalidateThreads(client: QueryClient, repoId: string | null, number: number | null): void {
+  if (!repoId || number === null) return;
+  void client.invalidateQueries({ queryKey: keys.forgePullThreads(repoId, number) });
+}
+
+/**
  * The bridge-less answer, shaped like a repository with no GitHub remote.
  *
  * Under vitest/jsdom there is no preload; a component should render its "no
@@ -622,6 +730,15 @@ const EMPTY_PULL_DETAIL: ForgePullDetailResult = { cli: EMPTY_CLI, detail: null,
 // diff is empty, and `{files: []}` would render "no files changed" as a fact.
 const EMPTY_PULL_FILES: ForgePullFilesResult = { cli: EMPTY_CLI, files: null, error: null };
 const EMPTY_PULL_COMMENTS: ForgePullCommentsResult = { cli: EMPTY_CLI, comments: [], error: null };
+const EMPTY_PULL_THREADS: ForgePullThreadsResult = { cli: EMPTY_CLI, threads: [], error: null };
+/**
+ * A write with no bridge: `ok: false`, and no error to report.
+ *
+ * Nothing failed — under vitest/jsdom there is no preload, so nothing was
+ * attempted. An `error` string here would put a red message under a composer
+ * in every component test that happens to mount one.
+ */
+const NO_FORGE_WRITE: ForgeWriteResult = { ok: false, cli: EMPTY_CLI, error: null };
 
 /** Re-run the forge listings for one repo, on the user's say-so. */
 export function useRefreshForge(repoId: string | null) {

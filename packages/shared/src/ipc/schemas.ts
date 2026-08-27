@@ -15,10 +15,12 @@ import {
   ForgePullDetailResultSchema,
   ForgePullFilesResultSchema,
   ForgePullsResultSchema,
+  ForgePullThreadsResultSchema,
   ForgeRunDetailResultSchema,
   ForgeRunLogResultSchema,
   ForgeRunsResultSchema,
   ForgeWorkflowsResultSchema,
+  ForgeWriteResultSchema,
   GitOpResultSchema,
   GraphRowSchema,
   METRICS_MAX_INTERVAL_MS,
@@ -356,6 +358,82 @@ export const ForgePullFilesResponse = ForgePullFilesResultSchema;
 
 export const ForgePullCommentsRequest = ForgePullRequest;
 export const ForgePullCommentsResponse = ForgePullCommentsResultSchema;
+
+export const ForgePullThreadsRequest = ForgePullRequest;
+export const ForgePullThreadsResponse = ForgePullThreadsResultSchema;
+
+// --- forge writes (Phase 20 Theme E) ---------------------------------------
+
+/**
+ * How long a review comment is allowed to be.
+ *
+ * GitHub's own field takes far more, but a body arriving here is spliced into a
+ * JSON payload handed to a subprocess, and an unbounded string across IPC is a
+ * renderer's-choice allocation in main. 64KB is longer than any review comment
+ * anybody has written and short enough to be a bounded write.
+ */
+const ReviewBody = z.string().min(1, 'a comment needs a body').max(65_536);
+
+/**
+ * A full 40-char sha, and specifically the PR head the comment is written
+ * against.
+ *
+ * Required by GitHub, and worth stating why the app cannot omit it: a review
+ * comment is anchored to a commit, and posting one without `commit_id` attaches
+ * it to whatever the API decides is current — which, on a PR that was pushed to
+ * between the diff being read and the comment being written, is not the diff the
+ * reader was looking at.
+ */
+const HeadSha = z.string().regex(/^[0-9a-f]{40}$/, 'a commit sha is 40 lowercase hex digits');
+
+/**
+ * A new inline thread.
+ *
+ * `line` is the NEW-file line number, and `side` is `RIGHT` only — v1's scope.
+ * `position` is the legacy diff-offset form of the same anchor, sent alongside
+ * rather than instead of it: main tries the line-based request first and falls
+ * back to `position` only if the API rejects it, so a host that has not yet
+ * accepted the modern form still works. The renderer computes it because the
+ * renderer is what holds the parsed hunks — see `comment-anchors.ts`.
+ */
+export const ForgeReviewCommentRequest = ForgePullRequest.extend({
+  commitId: HeadSha,
+  path: z.string().min(1),
+  line: z.number().int().positive(),
+  /** `RIGHT` only in v1. A left-side anchor needs a second mapping — see the phase doc. */
+  side: z.literal('RIGHT').default('RIGHT'),
+  /** Legacy hunk-offset anchor, used only if the line-based form is refused. */
+  position: z.number().int().positive().optional(),
+  body: ReviewBody,
+});
+export const ForgeReviewCommentResponse = ForgeWriteResultSchema;
+
+/**
+ * A reply into an existing thread.
+ *
+ * Keyed by the REST comment id rather than the thread's node id, because the
+ * reply endpoint is `pulls/{n}/comments/{comment_id}/replies` and GraphQL has
+ * no equivalent mutation. Digits-only for the same reason `RunId` is: it is
+ * spliced into a command line, and it has exactly one legal shape.
+ */
+export const ForgeReviewReplyRequest = ForgePullRequest.extend({
+  commentId: z.string().regex(/^\d+$/, 'a comment id is digits only'),
+  body: ReviewBody,
+});
+export const ForgeReviewReplyResponse = ForgeWriteResultSchema;
+
+/**
+ * Resolve a thread, or reopen it.
+ *
+ * `resolved` is a target state rather than two channels, because that is what
+ * the UI has: one toggle. `threadId` is a GraphQL node id — opaque base64-ish
+ * text, so it is bounded by charset rather than by shape.
+ */
+export const ForgeResolveThreadRequest = RepoId.extend({
+  threadId: z.string().min(1).max(256).regex(/^[A-Za-z0-9_=-]+$/, 'a node id is url-safe base64'),
+  resolved: z.boolean(),
+});
+export const ForgeResolveThreadResponse = ForgeWriteResultSchema;
 
 // --- shell -----------------------------------------------------------------
 
