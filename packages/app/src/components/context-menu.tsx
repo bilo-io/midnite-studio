@@ -2,6 +2,8 @@ import { useEffect, useLayoutEffect, useRef, useState } from 'react';
 
 import { ChevronRight } from 'lucide-react';
 
+import type { IconComponent } from './icon-button';
+
 /**
  * A renderer-drawn context menu.
  *
@@ -14,6 +16,15 @@ import { ChevronRight } from 'lucide-react';
 /** Shared by leaf items and submenu parents. */
 type MenuEntryBase = {
   label: string;
+  /**
+   * Optional glyph ahead of the label.
+   *
+   * Optional, and deliberately not defaulted: a menu is either iconless or
+   * fully iconed, and a lone icon among plain rows reads as one item being
+   * singled out. The gutter is only reserved when at least one item in the
+   * menu asks for it — see `ContextMenu`.
+   */
+  icon?: IconComponent;
   disabled?: boolean;
   /** Reason the item is unavailable, shown on hover. */
   disabledReason?: string;
@@ -48,6 +59,12 @@ export function ContextMenu({
   const ref = useRef<HTMLDivElement>(null);
   const [placed, setPlaced] = useState(position);
   const [openSubmenu, setOpenSubmenu] = useState<number | null>(null);
+
+  /**
+   * One icon anywhere in the menu indents every row, so labels still line up
+   * under each other where a separator-divided group happens to be iconless.
+   */
+  const iconed = items.some((item) => item.type !== 'separator' && item.icon !== undefined);
 
   /**
    * Keep the menu inside the window.
@@ -90,7 +107,7 @@ export function ContextMenu({
     <div
       ref={ref}
       role="menu"
-      className="fixed z-50 min-w-[13rem] rounded-md border border-border bg-popover py-1 text-sm text-popover-foreground shadow-lg"
+      className="fixed z-50 min-w-[10rem] rounded-md border border-border bg-popover py-1 text-sm text-popover-foreground shadow-lg"
       style={{ left: placed.x, top: placed.y }}
     >
       {items.map((item, index) =>
@@ -100,6 +117,7 @@ export function ContextMenu({
           <MenuRow
             key={item.label}
             item={item}
+            iconed={iconed}
             open={openSubmenu === index}
             onOpenSubmenu={() => setOpenSubmenu('submenu' in item && item.submenu ? index : null)}
             onClose={onClose}
@@ -112,16 +130,20 @@ export function ContextMenu({
 
 function MenuRow({
   item,
+  iconed,
   open,
   onOpenSubmenu,
   onClose,
 }: {
   item: MenuEntry;
+  /** Whether this menu reserves an icon gutter — see `ContextMenu`. */
+  iconed: boolean;
   open: boolean;
   onOpenSubmenu: () => void;
   onClose: () => void;
 }) {
   const disabled = item.disabled ?? false;
+  const Icon = item.icon;
 
   return (
     <div className="relative" onMouseEnter={onOpenSubmenu}>
@@ -142,6 +164,13 @@ function MenuRow({
           item.danger ? 'text-destructive hover:bg-destructive/10' : 'hover:bg-accent'
         }`}
       >
+        {iconed ? (
+          Icon ? (
+            <Icon aria-hidden className="h-3.5 w-3.5 shrink-0 text-muted-foreground" />
+          ) : (
+            <span aria-hidden className="h-3.5 w-3.5 shrink-0" />
+          )
+        ) : null}
         <span className="flex-1 truncate">{item.label}</span>
         {item.submenu ? <ChevronRight aria-hidden className="h-3.5 w-3.5 shrink-0" /> : null}
       </button>
@@ -149,7 +178,7 @@ function MenuRow({
       {item.submenu && open ? (
         <div
           role="menu"
-          className="absolute left-full top-0 ml-px min-w-[11rem] rounded-md border border-border bg-popover py-1 shadow-lg"
+          className="absolute left-full top-0 ml-px min-w-[9rem] rounded-md border border-border bg-popover py-1 shadow-lg"
         >
           {item.submenu.map((sub, index) =>
             sub.type === 'separator' ? (

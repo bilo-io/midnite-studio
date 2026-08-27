@@ -22,6 +22,7 @@ import {
   X,
 } from 'lucide-react';
 import { AiOutlineDiff } from 'react-icons/ai';
+import { FaGitAlt } from 'react-icons/fa';
 import { GoRepo } from 'react-icons/go';
 
 import type { MenuItem } from '../../components/context-menu';
@@ -608,9 +609,15 @@ function RepoItem({
           irreversible-looking control one stray click from the pointer's
           resting place.
         */}
+        {/*
+          The Git logo, not a third ellipsis. This menu IS the git verbs —
+          fetch, pull, push, then the housekeeping around them — and the row
+          already carried two identical ellipses that said only "more" while
+          hiding which one held what.
+        */}
         <IconButton
-          icon={MoreVertical}
-          label={`Actions for ${repo.name}`}
+          icon={FaGitAlt}
+          label={`Git actions for ${repo.name}`}
           size="sm"
           onClick={(event) => {
             const rect = event.currentTarget.getBoundingClientRect();
