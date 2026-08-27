@@ -50,7 +50,7 @@ import {
  */
 
 const PROBE_TIMEOUT_MS = 8_000;
-const LIST_TIMEOUT_MS = 20_000;
+export const LIST_TIMEOUT_MS = 20_000;
 /**
  * Longer than a listing, because a log is not a listing.
  *
@@ -79,6 +79,12 @@ export function shellQuote(argument: string): string {
 /**
  * Run one command line in a login shell.
  *
+ * Exported for `gh-write.ts` alone. That module is the one deliberate write
+ * surface (Phase 20 Theme E) and it needs the same login shell, the same
+ * pager-and-colour environment and the same never-reject contract; giving it a
+ * second copy would be two shells that drift, and a `.zshrc` quirk fixed in one
+ * of them.
+ *
  * `output` is both streams interleaved — what every JSON caller wants, since
  * `parseJsonPayload` seeks past shell banners and `describeFailure` reads
  * whichever stream `gh` complained on. `stdout` and `stderr` are kept apart as
@@ -86,7 +92,7 @@ export function shellQuote(argument: string): string {
  * is no brace to seek to, so a `.zshrc` that prints on stderr would otherwise
  * end up interleaved into the log the user reads.
  */
-function runInShell(
+export function runInShell(
   command: string,
   timeoutMs: number,
   options: { combine?: boolean } = {},
@@ -191,7 +197,7 @@ export function invalidateGhProbe(): void {
   probeCache = null;
 }
 
-const slug = (forge: Forge): string => `${forge.owner}/${forge.repo}`;
+export const slug = (forge: Forge): string => `${forge.owner}/${forge.repo}`;
 
 /**
  * `--repo [HOST/]OWNER/REPO` — the only way these commands take a host.
@@ -504,7 +510,7 @@ export async function pullFiles(forge: Forge, number: number): Promise<ForgePull
  * same. Getting them the wrong way round fails only on GitHub Enterprise,
  * which is the configuration hardest to notice from here.
  */
-const apiHostFlag = (forge: Forge): string =>
+export const apiHostFlag = (forge: Forge): string =>
   forge.host === 'github.com' ? '' : ` --hostname ${shellQuote(forge.host)}`;
 
 /**

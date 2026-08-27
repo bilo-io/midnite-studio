@@ -1,10 +1,19 @@
-import type { FileChangeKind, FileDiff, StatusCode } from '@midnite/git-shared';
+import type {
+  FileChangeKind,
+  FileDiff,
+  ForgeReviewThread,
+  StatusCode,
+} from '@midnite/git-shared';
 import { ChevronRight } from 'lucide-react';
-import { useId } from 'react';
+import { useId, useState } from 'react';
 
 import { Counts } from '../../components/change-tree';
+import { positionForLine, threadsForFile } from '../diff/comment-anchors';
 import { DiffView } from '../diff/diff-view';
 import { StatusMark } from '../status/status-mark';
+import { CommentComposer } from './comment-composer';
+import { CommentThread } from './comment-thread';
+import { OutdatedThreads } from './outdated-threads';
 
 /**
  * One file of a pull request's diff.
@@ -25,12 +34,60 @@ export function PrFileAccordion({
   file,
   open,
   onToggle,
+  threads,
+  review,
 }: {
   file: FileDiff;
   open: boolean;
   onToggle: () => void;
+  /** Every inline thread on the pull request; this row picks out its own. */
+  threads: readonly ForgeReviewThread[];
+  /**
+   * The write half.
+   *
+   * `headSha` is nullable and gates **only** the new-comment gutter. A review
+   * comment is anchored to a commit, and posting one without `commit_id`
+   * attaches it to whatever the API decides is current rather than to the diff
+   * being read — so starting a thread waits for the sha, which arrives one
+   * fetch after the patch. Replying and resolving need no sha at all and are
+   * never gated on it: an existing thread already knows which commit it is on.
+   */
+  review: {
+    headSha: string | null;
+    /** Resolves true when the comment landed — see `pr-detail.tsx`'s note. */
+    onComment: (input: {
+      commitId: string;
+      path: string;
+      line: number;
+      position?: number;
+      body: string;
+    }) => Promise<boolean>;
+    /** Resolves true when the reply landed. */
+    onReply: (input: { commentId: string; body: string }) => Promise<boolean>;
+    onResolve: (input: { threadId: string; resolved: boolean }) => void;
+    busy: boolean;
+    error: string | null;
+  };
 }) {
   const bodyId = useId();
+
+  /*
+    One composer at a time, per file, and its line is the whole state.
+
+    Per file rather than per page because the accordion mounts one of these per
+    changed path and each owns its own diff; a page-level "which line is open"
+    would have to be keyed by path anyway, and would put a piece of one file's
+    UI state in a component that renders all of them.
+  */
+  const [composerLine, setComposerLine] = useState<number | null>(null);
+  /*
+    `file` passed as the third argument, not just its path: it is what lets a
+    thread anchored outside this diff's hunks fall into `unanchored` instead of
+    into a `byLine` key no row will ever match. See `threadsForFile`.
+  */
+  const { byLine, unanchored } = threadsForFile(threads, file.path, file);
+  // Hoisted so the narrowing holds inside the composer's own callback.
+  const headSha = review.headSha;
 
   return (
     <section className="border-b border-border/60 last:border-b-0">
@@ -59,6 +116,14 @@ export function PrFileAccordion({
 
       {open ? (
         <div id={bodyId} className="border-t border-border/40">
+          <OutdatedThreads
+            threads={unanchored}
+            onReply={review.onReply}
+            onResolve={review.onResolve}
+            busy={review.busy}
+            error={review.error}
+          />
+
           {/*
             No `onExpandContext`. Expanding context is a REFETCH with a wider
             `-U`, and `gh pr diff` has no per-file form to refetch — asking for
@@ -66,7 +131,71 @@ export function PrFileAccordion({
             Omitting the prop is what makes DiffView hide the expander rather
             than offer a button that cannot work.
           */}
-          <DiffView diff={file} inline />
+          <DiffView
+            diff={file}
+            inline
+            threads={byLine}
+            /*
+              `onComment` is the gate on the gutter affordance, and it is
+              undefined until there is a head sha to anchor a comment to — see
+              the `review` prop's note. A reader can still read every existing
+              thread in the meantime; only starting a new one waits.
+            */
+            {...(headSha === null ? {} : { onComment: setComposerLine })}
+            renderThread={(atLine, line) => (
+              <CommentThread
+                threads={atLine}
+                line={line}
+                onReply={review.onReply}
+                onResolve={review.onResolve}
+                busy={review.busy}
+                error={review.error}
+              />
+            )}
+            composer={
+              composerLine === null || headSha === null
+                ? null
+                : {
+                    line: composerLine,
+                    node: (
+                      <div className="border-y border-border/60 bg-muted/20 px-3 py-2">
+                        <CommentComposer
+                          label={`Comment on ${file.path} line ${composerLine}`}
+                          submitLabel="Add comment"
+                          busy={review.busy}
+                          error={review.error}
+                          onCancel={() => setComposerLine(null)}
+                          onSubmit={(body) => {
+                            /*
+                              `position` rides along as the fallback anchor. It
+                              is computed here because this is where the parsed
+                              hunks are; main sends the line-based form first
+                              and only retries with this if the API refuses it.
+                            */
+                            const position = positionForLine(file, composerLine);
+                            void review
+                              .onComment({
+                                commitId: headSha,
+                                path: file.path,
+                                line: composerLine,
+                                ...(position === null ? {} : { position }),
+                                body,
+                              })
+                              // Closed on success only. A refused write leaves
+                              // the box mounted with its text and the failure
+                              // under it — losing somebody's paragraph because
+                              // a token expired is the one outcome a composer
+                              // must never produce.
+                              .then((ok) => {
+                                if (ok) setComposerLine(null);
+                              });
+                          }}
+                        />
+                      </div>
+                    ),
+                  }
+            }
+          />
         </div>
       ) : null}
     </section>

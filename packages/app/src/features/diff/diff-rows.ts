@@ -1,5 +1,6 @@
-import type { DiffHunk, DiffLine, FileDiff } from '@midnite/git-shared';
+import type { DiffHunk, DiffLine, FileDiff, ForgeReviewThread } from '@midnite/git-shared';
 
+import type { ThreadsByLine } from './comment-anchors';
 import type { HighlightToken } from './line-highlight';
 
 /**
@@ -21,7 +22,20 @@ export type DiffRow =
       /** Lines of the file skipped since the previous hunk, or null before the first. */
       gap: number | null;
     }
-  | { kind: 'line'; line: DiffLine };
+  | { kind: 'line'; line: DiffLine }
+  /*
+    The two review rows (Phase 20 Theme E).
+
+    They are rows rather than absolutely-positioned overlays because the diff is
+    a *list*, and a thread has to push the code below it down — anchoring a
+    variable-height panel over a fixed row grid would either cover the next
+    lines or need a second layout pass to avoid them. Being rows also means the
+    virtualizer windows them like anything else; what it costs is dynamic
+    measurement, which is why `<DiffView>`'s virtualizer measures instead of
+    assuming `ROW_HEIGHT`.
+  */
+  | { kind: 'thread'; line: number; threads: readonly ForgeReviewThread[] }
+  | { kind: 'composer'; line: number };
 
 export function toDiffRows(diff: FileDiff): DiffRow[] {
   const rows: DiffRow[] = [];
@@ -152,4 +166,46 @@ export function mergeSegmentsWithTokens(
     });
   }
   return result;
+}
+
+/**
+ * Splice the review rows into a diff's row list.
+ *
+ * A thread row goes directly *after* the line it hangs off, and the composer
+ * after any thread already there — the reading order GitHub uses, and the one
+ * that keeps "reply to this" adjacent to what is being replied to.
+ *
+ * Pure, and separate from `toDiffRows`, for two reasons. Composer state changes
+ * on a click and threads arrive on their own fetch, so folding either into
+ * `toDiffRows` would make the whole row list rebuild on both; and the splice is
+ * exactly the kind of off-by-one that deserves a test with no DOM in it.
+ *
+ * With no threads and no open composer this returns `rows` itself, not a copy —
+ * so the Changes page and the commit inspector, which pass neither, pay nothing
+ * for this function existing.
+ */
+export function withCommentRows(
+  rows: readonly DiffRow[],
+  threads: ThreadsByLine | undefined,
+  composerLine: number | null,
+): readonly DiffRow[] {
+  if ((threads === undefined || threads.size === 0) && composerLine === null) return rows;
+
+  const out: DiffRow[] = [];
+  for (const row of rows) {
+    out.push(row);
+    if (row.kind !== 'line') continue;
+
+    const newNo = row.line.newNo;
+    // A deleted line has no new-file number, and v1 anchors only to the right
+    // side — so it can carry neither a thread nor a composer.
+    if (newNo === null) continue;
+
+    const atLine = threads?.get(newNo);
+    if (atLine !== undefined && atLine.length > 0) {
+      out.push({ kind: 'thread', line: newNo, threads: atLine });
+    }
+    if (composerLine === newNo) out.push({ kind: 'composer', line: newNo });
+  }
+  return out;
 }

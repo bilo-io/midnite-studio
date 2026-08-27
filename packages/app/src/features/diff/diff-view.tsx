@@ -3,15 +3,24 @@ import {
   DIFF_FULL_CONTEXT,
   type DiffLine,
   type FileDiff,
+  type ForgeReviewThread,
 } from '@midnite/git-shared';
 import { useTheme } from '@bilo-io/ui/theme';
-import { ChevronsUpDown, Columns2, Columns3 } from 'lucide-react';
+import { ChevronsUpDown, Columns2, Columns3, MessageSquarePlus } from 'lucide-react';
 import { useRef } from 'react';
 
 import { IconButton } from '../../components/icon-button';
 import { useUiStore } from '../../store/ui-store';
+import { isCommentableLine, type ThreadsByLine } from './comment-anchors';
 import { describeEmptyDiff } from './describe-empty';
-import { mergeSegmentsWithTokens, nextContext, toDiffRows, toSegments, type DiffRow } from './diff-rows';
+import {
+  mergeSegmentsWithTokens,
+  nextContext,
+  toDiffRows,
+  toSegments,
+  withCommentRows,
+  type DiffRow,
+} from './diff-rows';
 import { useLineHighlight } from './line-highlight';
 
 /**
@@ -30,12 +39,27 @@ import { useLineHighlight } from './line-highlight';
 
 const ROW_HEIGHT = 18;
 
+/**
+ * First-guess heights for the two variable rows.
+ *
+ * Only ever a guess: the virtualizer measures every rendered row (see
+ * `measureElement` below), so these decide the scrollbar's *initial* length and
+ * nothing about layout. They are set near the real thing anyway, because a wild
+ * estimate makes the scrollbar jump as rows come into view.
+ */
+const THREAD_ESTIMATE = 96;
+const COMPOSER_ESTIMATE = 132;
+
 export function DiffView({
   diff,
   isLoading = false,
   onExpandContext,
   emptyMessage,
   inline = false,
+  threads,
+  onComment,
+  renderThread,
+  composer = null,
 }: {
   diff: FileDiff | undefined;
   isLoading?: boolean;
@@ -60,6 +84,30 @@ export function DiffView({
    * own header, and a dozen stacked toolbars is a dozen rows of chrome.
    */
   inline?: boolean;
+
+  /*
+    ─── Review comments (Phase 20 Theme E) ──────────────────────────────────
+
+    Opt-in, and the gate is `threads` / `onComment` being present at all. This
+    is one component shared by the Reviews page, the Changes page and the Graph
+    page's commit inspector; only a pull request's diff has review threads, so a
+    working-tree diff must not grow a comment gutter by accident. With both
+    absent, not one extra element renders and every row measures at
+    `ROW_HEIGHT` — byte-for-byte today's output.
+
+    The two *content* props exist so this component knows nothing about the
+    forge. `features/diff` sits below `features/reviews`, and importing a thread
+    panel from there would invert that; instead Reviews hands the nodes down and
+    this file decides only where they sit in the row order.
+  */
+  /** Threads by new-file line — see `threadsForFile`. */
+  threads?: ThreadsByLine;
+  /** Enables the per-line gutter affordance. Called with the new-file line. */
+  onComment?: (line: number) => void;
+  /** The panel for the threads at one line. */
+  renderThread?: (threads: readonly ForgeReviewThread[], line: number) => React.ReactNode;
+  /** The open composer, if any, and the line it belongs to. */
+  composer?: { line: number; node: React.ReactNode } | null;
 }) {
   const showOldGutter = useUiStore((s) => s.diffShowOldGutter);
   const toggleOldGutter = useUiStore((s) => s.toggleDiffOldGutter);
@@ -69,14 +117,36 @@ export function DiffView({
   const { resolved } = useTheme();
   const dark = resolved === 'dark';
 
-  const rows = diff ? toDiffRows(diff) : [];
+  const rows = withCommentRows(diff ? toDiffRows(diff) : [], threads, composer?.line ?? null);
 
   const virtualizer = useVirtualizer({
     // Zero in inline mode: the hook must still be called unconditionally, but
     // it must not also do the work of measuring rows nothing will read.
     count: inline ? 0 : rows.length,
     getScrollElement: () => scrollRef.current,
-    estimateSize: () => ROW_HEIGHT,
+    /*
+      Per-index, because a thread panel is not 18px tall.
+
+      Code rows keep the exact constant they always had, so a diff with no
+      threads estimates to the identical total size — and the estimate is what
+      the scrollbar is built from before anything has been measured.
+    */
+    estimateSize: (index) => {
+      const row = rows[index];
+      if (row?.kind === 'thread') return THREAD_ESTIMATE;
+      if (row?.kind === 'composer') return COMPOSER_ESTIMATE;
+      return ROW_HEIGHT;
+    },
+    /*
+      Measure what is rendered.
+
+      This is the one concession the review rows cost the scroll path, and it is
+      bounded: `measureElement` runs on the *windowed* rows only — a few dozen —
+      never on the four thousand a capped diff can hold. A code row measures to
+      the same 18px it was estimated at, so the common case reflows nothing;
+      only the handful of thread and composer rows actually move the offsets.
+    */
+    measureElement: (element) => element.getBoundingClientRect().height,
     overscan: 24,
   });
 
@@ -112,17 +182,45 @@ export function DiffView({
           accordion list and make every other file scroll sideways with it.
         */}
         <div className="overflow-x-auto">
-          {rows.map((row, index) =>
-            row.kind === 'hunk' ? (
-              <div key={`h${index}`} className="flex w-max min-w-full">
-                <HunkHeader row={row} onExpand={onExpandContext} context={diff.contextLines} />
+          {rows.map((row, index) => {
+            /*
+              The review rows are `w-full`, not `w-max min-w-full`.
+
+              A code row is sized by its longest line so the tint and the gutter
+              bar extend past the viewport with the text. A thread panel is
+              prose: it should wrap to the pane, not add its own width to the
+              horizontal scroll and drag every code row sideways with it.
+            */
+            if (row.kind === 'thread') {
+              return (
+                <div key={`t${index}`} className="w-full">
+                  {renderThread?.(row.threads, row.line)}
+                </div>
+              );
+            }
+            if (row.kind === 'composer') {
+              return (
+                <div key={`c${index}`} className="w-full">
+                  {composer?.node}
+                </div>
+              );
+            }
+            return (
+              <div key={`r${index}`} className="flex w-max min-w-full">
+                {row.kind === 'hunk' ? (
+                  <HunkHeader row={row} onExpand={onExpandContext} context={diff.contextLines} />
+                ) : (
+                  <LineRow
+                    line={row.line}
+                    showOldGutter={showOldGutter}
+                    path={diff.path}
+                    dark={dark}
+                    onComment={onComment}
+                  />
+                )}
               </div>
-            ) : (
-              <div key={`l${index}`} className="flex w-max min-w-full">
-                <LineRow line={row.line} showOldGutter={showOldGutter} path={diff.path} dark={dark} />
-              </div>
-            ),
-          )}
+            );
+          })}
         </div>
 
         {diff.truncated ? (
@@ -178,19 +276,42 @@ export function DiffView({
           {virtualizer.getVirtualItems().map((item) => {
             const row = rows[item.index];
             if (!row) return null;
+            const review = row.kind === 'thread' || row.kind === 'composer';
             return (
               <div
                 key={item.key}
-                // `w-max min-w-full`, not `w-full`: on a line wider than the
+                /*
+                  `measureElement` + `data-index` is how the virtualizer learns
+                  a row's real height, and it is the reason there is no `height`
+                  in the style below any more: a measured row must be free to be
+                  as tall as its content, and a fixed height would report the
+                  estimate back as fact. Code rows still land on exactly
+                  `ROW_HEIGHT`, so the offsets they produce are unchanged.
+                */
+                ref={virtualizer.measureElement}
+                data-index={item.index}
+                // `w-max min-w-full` for code rows: on a line wider than the
                 // pane, a full-width row ends the tint and the 2px gutter bar at
-                // the viewport edge while the text scrolls on past them.
-                className="absolute left-0 top-0 flex w-max min-w-full"
-                style={{ height: item.size, transform: `translateY(${item.start}px)` }}
+                // the viewport edge while the text scrolls on past them. Review
+                // rows are prose and wrap to the pane instead — see the inline
+                // branch's note.
+                className={`absolute left-0 top-0 ${review ? 'w-full' : 'flex w-max min-w-full'}`}
+                style={{ transform: `translateY(${item.start}px)` }}
               >
                 {row.kind === 'hunk' ? (
                   <HunkHeader row={row} onExpand={onExpandContext} context={diff.contextLines} />
+                ) : row.kind === 'thread' ? (
+                  renderThread?.(row.threads, row.line)
+                ) : row.kind === 'composer' ? (
+                  composer?.node
                 ) : (
-                  <LineRow line={row.line} showOldGutter={showOldGutter} path={diff.path} dark={dark} />
+                  <LineRow
+                    line={row.line}
+                    showOldGutter={showOldGutter}
+                    path={diff.path}
+                    dark={dark}
+                    onComment={onComment}
+                  />
                 )}
               </div>
             );
@@ -259,14 +380,24 @@ function LineRow({
   showOldGutter,
   path,
   dark,
+  onComment,
 }: {
   line: DiffLine;
   showOldGutter: boolean;
   /** The file's own path, for grammar resolution — see `line-highlight.ts`. */
   path: string;
   dark: boolean;
+  /** Absent on every non-review surface, which is what hides the gutter. */
+  onComment?: (line: number) => void;
 }) {
   const style = ROW_STYLE[line.kind];
+  /*
+    Right-side lines only, per the phase's v1 scope: a deleted line needs
+    `side: LEFT` and a second position mapping this version does not build, so
+    it gets no affordance rather than one that would post to the wrong place.
+  */
+  const commentLine =
+    onComment !== undefined && isCommentableLine(line) ? line.newNo : null;
   // `null` while unhighlighted (no grammar, or still scheduled) — every piece
   // below then renders with no colour, exactly today's plain appearance.
   const tokens = useLineHighlight(path, line, dark);
@@ -285,9 +416,33 @@ function LineRow({
         {line.newNo ?? ''}
       </span>
 
-      <span className="w-3 shrink-0 select-none text-center text-muted-foreground/70" aria-hidden>
-        {MARKER[line.kind]}
-      </span>
+      {/*
+        The affordance replaces the marker column rather than adding a column of
+        its own. A gutter that appears on hover would reflow every line of the
+        diff sideways under the cursor; occupying the 12px the `+`/`−` glyph
+        already holds means hovering a row changes what that cell shows and
+        nothing about where anything sits.
+      */}
+      {commentLine !== null && onComment !== undefined ? (
+        <button
+          type="button"
+          onClick={() => onComment(commentLine)}
+          aria-label={`Comment on line ${commentLine}`}
+          className="group/gutter w-3 shrink-0 select-none text-center text-muted-foreground/70 hover:text-primary"
+        >
+          <span aria-hidden className="group-hover/gutter:hidden">
+            {MARKER[line.kind]}
+          </span>
+          <MessageSquarePlus
+            aria-hidden
+            className="mx-auto hidden h-3 w-3 group-hover/gutter:block"
+          />
+        </button>
+      ) : (
+        <span className="w-3 shrink-0 select-none text-center text-muted-foreground/70" aria-hidden>
+          {MARKER[line.kind]}
+        </span>
+      )}
 
       <span className="min-w-0 flex-1 whitespace-pre pr-3" data-selectable>
         {pieces.map((piece, i) => {

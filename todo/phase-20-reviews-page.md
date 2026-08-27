@@ -129,22 +129,71 @@ build on this one:
 - [x] Light/dark theme sync verified — the highlighter is already built with both themes per
       `code-preview.tsx`'s existing pattern, confirmed via `useTheme()` in `DiffView`
 
-### E — Inline diff-line comment threads (L)
+### E — Inline diff-line comment threads (L) ✅ DONE (2026-08-27)
 
-- [ ] New `ForgeReviewThread` / `ForgeReviewComment` domain types in
-      [`forge.ts`](../packages/shared/src/domain/forge.ts) — `path`, `line`, `side` (`'RIGHT'`
-      only, per the scope decision below), `commitId`, `body`, `author`, `resolved`
-- [ ] `mgit:forge:pull-comments` (Theme C) extended to also return inline threads, grouped by
-      file + line, alongside the top-level conversation
-- [ ] `DiffView` / `diff-rows.ts` gain a per-row comment affordance — a hoverable "add comment"
-      gutter icon, and where threads exist, an inline expandable thread panel between rows
-- [ ] Thread UI: reply and resolve (resolve calls the write module, Theme F) — no edit/delete of
-      others' comments, matching GitHub's own permission model
-- [ ] Scoped to right-side (added/context) lines only for v1 — left-side (deleted-line) comments
-      need a second diff-position mapping GitHub's API distinguishes by `side`, deferred (see
-      Decisions)
-- [ ] Highest-unknown theme in the phase — spike the diff-position mapping (new-file line number →
-      what `gh api` expects) before committing to the thread UI
+- [x] New `ForgeReviewThread` / `ForgeReviewComment` domain types in
+      [`forge.ts`](../packages/shared/src/domain/forge.ts), plus `ForgeThreadSide` and the
+      `ForgeWriteResult` envelope every write answers with. The thread carries **three** position
+      fields, not one — `line`, `originalLine`, `startLine` — because a thread can lose its
+      anchor, and collapsing them is how a comment gets pinned to code its author never saw
+- [x] **Read through GraphQL, on its own channel** — both departures from this theme's original
+      bullet, and both forced:
+      - REST `pulls/{n}/comments` returns a flat list with no thread object, **no `isResolved`**
+        and no thread node id. Resolution is a property of `PullRequestReviewThread`, a type REST
+        does not expose, and its node id is the only handle `resolveReviewThread` takes. So the
+        source is `repository.pullRequest.reviewThreads`, in a new
+        [`gh-graphql.ts`](../packages/desktop/src/main/forge/gh-graphql.ts) — the app's one
+        GraphQL read, kept out of `gh-cli.ts` so that file stays "one `gh` subcommand per function"
+      - a new `mgit:forge:pull-threads` channel rather than widening `pull-comments`: the
+        conversation is the Conversation tab's payload and the threads are the Files tab's, so one
+        channel would make each tab fetch the other's. Same split Theme C made for `pull-detail`
+- [x] `DiffView` / `diff-rows.ts` gain the affordance and the panel: `withCommentRows` splices
+      `thread` and `composer` rows into the flattened row list, and the gutter `+` **replaces the
+      `+`/`−` marker cell on hover** rather than adding a column — a gutter that appears would
+      reflow every line of the diff sideways under the cursor
+- [x] Thread UI: reply and resolve, no edit/delete of others' comments. Replies target the last
+      comment's **REST `databaseId`**, because the endpoint is
+      `pulls/{n}/comments/{id}/replies` and GraphQL has no equivalent mutation — which is why
+      `ForgeReviewComment` carries both ids
+- [x] Scoped to right-side (added/context) lines only for v1. A `del` row has no `newNo`, so it
+      carries neither a thread nor the affordance — `isCommentableLine` is the one gate, and
+      `withCommentRows` refuses to splice onto one even if asked
+- [x] The diff-position mapping, spiked first as this bullet asked. Verified against
+      `cli/cli#14200`: `line`/`originalLine`/`startLine` and `diffSide` live on the **thread**,
+      `databaseId` on the **comment**, and `diffSide` does not exist on
+      `PullRequestReviewComment` at all — the first thing the spike got wrong
+
+*Landed alongside, and worth naming:*
+
+- **`gh-write.ts` exists as of this theme** rather than waiting for F, carrying only E's three
+  calls (`addReviewComment`, `replyToReviewComment`, `setThreadResolved`) in a clearly-marked
+  section, plus `describeApiFailure`. `channels.ts`'s read-only-forge comment block now documents
+  the exception and its three bounds instead of going stale.
+- **The write body goes over stdin as JSON** (`printf %s '…' | gh api --input -`), never as `-f`
+  or `-F` flags: `-f line=42` posts the *string* `"42"` and is rejected, and `-F` would coerce a
+  body of `"true"` into a boolean. It also means no user-authored text reaches a command line.
+- **The composer closes on success, never on submit.** Found by the refused-write spec: closing on
+  submit lost the reader's paragraph whenever `gh` refused. `onComment`/`onReply` now resolve a
+  boolean and the box stays mounted with its text and `gh`'s own sentence under it.
+- **Outdated / file-level / left-side threads render in a collapsed group above the file's diff**,
+  stating the original line as prose. The alternative — anchoring to whatever row carries that
+  number now — is the one failure mode here that looks completely normal.
+
+*Found reviewing the slice before it landed, and both worth naming:*
+
+- **A fourth kind belongs in that collapsed group, and did not start there.** `isAnchored` cannot
+  see it: a reviewer who expands context on github.com can comment far outside any hunk, and the
+  thread comes back live, right-side and unresolved with a perfectly real `line` — while
+  `gh pr diff` fetches three lines of context. Keyed into `byLine` it matched no row and rendered
+  **nowhere**, which is the same harm as pinning one to the wrong line and rather harder to notice.
+  `threadsForFile` now takes the `FileDiff` and checks against `rightSideLines(diff)` — a `Set`
+  rather than a range test, because a diff is hunks *with gaps*: line 50 falling between rendered
+  hunks 10-12 and 90-92 does not make it renderable.
+- **`gh api graphql -F` type-guesses its variables** — the exact trap `gh-write.ts`'s `apiPost`
+  documents for REST bodies, which `gh-graphql.ts` then walked into: `-F name=2048` sends the
+  *integer* 2048 for a `String!` variable and GitHub refuses the whole query, for a repo name that
+  is neither unusual nor invalid. The `String!`/`ID!` variables take `-f`; `-F` is right only for
+  `number`, which really is an `Int!`.
 
 ### F — Review write actions: approve, request changes, comment, merge (L)
 
@@ -191,22 +240,41 @@ build on this one:
 
 ## Verification
 
-- [ ] `moon run :typecheck :lint :test` green
-- [ ] Boundary lint still passes: `git-engine` stays electron-free; `packages/app` reaches
+- [x] `moon run :typecheck :lint :test` green (Theme E)
+- [x] Boundary lint still passes: `git-engine` stays electron-free; `packages/app` reaches
       `gh-write.ts` only through `mgit:forge:*` IPC, never directly
-- [ ] `mock-bridge.ts` grows the new forge read/write handlers and `MockFixtures` for pull files,
-      comments, threads and review submission
-- [ ] Playwright: Reviews nav item hidden for a non-GitHub repo; the Reviews view narrows the
-      sidebar to Reviews + Worktrees with the "show all sections" escape hatch intact; PR list
-      filters by status and author; PR detail's three tabs render; syntax highlighting renders
-      identically in Reviews, Changes and Graph diffs of the same file
+- [x] `mock-bridge.ts` grows `pullThreads` and `writeError` fixtures plus the three write
+      handlers — and the writes **mutate the seeded threads** rather than stubbing, so an
+      `ok: true` that changed nothing cannot pass. Every call is recorded on `window.__mgitWrites`
+      so a spec can assert the *anchor* a comment was sent with, which the rendered result hides
+- [x] Playwright (Themes A–D): Reviews nav item hidden for a non-GitHub repo; the Reviews view
+      narrows the sidebar; PR list filters by status and author; PR detail's three tabs render;
+      highlighting renders identically across surfaces
+- [x] Playwright (Theme E, `e2e/review-threads.spec.ts`, 10 specs): a thread renders on its own
+      line; a resolved thread arrives collapsed; the gutter opens a composer for the clicked line
+      and the posted comment comes back; a deleted line offers no affordance; reply and resolve
+      round-trip; a refused write shows `gh`'s sentence and keeps the text; outdated and
+      file-level threads group above the diff; **and the Changes page diff grows no comment
+      gutter** — the assertion that the opt-in gate holds on the shared component
+- [x] Playwright (`e2e/diff-scroll-perf.spec.ts`): the virtualized path after `measureElement`.
+      A 4000-row diff mounts under 400 rows and stays under 400 through a 60-frame scripted
+      scroll — exact, and the assertion that would catch windowing breaking outright. A median
+      frame-gap ceiling rides behind it at a deliberately loose 100ms. **This reverses Theme D's
+      "no frame-timing assertion" call on purpose**: D's risk was `requestIdleCallback` work
+      landing between frames, which a threshold can only measure the machine for; E's risk is
+      structural (a measurement loop, or a virtualizer that stops windowing), which is exactly
+      what a row count catches
 - [ ] Playwright: approve / request-changes / comment flow against a mocked `gh-write`; merge
       confirm dialog shows the correct commit count and requires an explicit merge-method choice
-      before the Merge button enables
-- [ ] Unit tests: `gh-write.ts` command construction, PR-diff hunk parsing reusing
-      `diff-parser.ts`'s existing fixtures, inline-thread grouping by file + line
+      before the Merge button enables *(Theme F)*
+- [x] Unit tests: `gh-write.ts` command construction (15 specs, no subprocess — including that
+      the anchor retry fires only on an anchor rejection, and that an owner out of a
+      `.git/config` is quoted); `gh-graphql.ts` thread parsing (17 specs against payloads shaped
+      like the real response); `comment-anchors.ts` grouping and the legacy `position` mapping
+      (19 specs); `withCommentRows` splicing (7 specs)
 - [ ] **Open, for a human:** a real `gh pr review` / `gh pr merge` against a disposable test PR —
-      the write paths cannot be safely exercised against a mock alone
+      the write paths cannot be safely exercised against a mock alone. For Theme E specifically:
+      one real inline comment, one reply and one resolve
 - [ ] **Open, for a human:** syntax-highlighted diff scroll performance on a real PR with 100+
       changed files
 
@@ -237,12 +305,25 @@ build on this one:
 - **Resolved — the Reviews list fetches every PR state** (open/draft/merged/closed), not just open.
 - **Resolved — reuse the existing unified `DiffView`** rather than building a side-by-side layout.
 - **Resolved — reviewer re-request, draft→ready, and re-run-checks are in scope** (Theme G).
-- **Open — diff-position mapping for inline comments.** Recommendation: map by
-  `(file path, new-file line number)` directly to GitHub's `line` / `side: RIGHT` fields, sidestepping
-  the legacy diff-offset `position` field entirely — modern `gh api` accepts the line-based form.
+- **Resolved (Theme E, 2026-08-27) — both mappings ship, tried in order.** The modern
+  `line` + `side: RIGHT` form goes first, mapped straight off `DiffLine.newNo`. The legacy
+  `position` (a count of lines down from the file's first `@@`, with later `@@` headers and
+  deleted lines both counting) rides along as a fallback, computed in the renderer because that
+  is where the parsed hunks are. Main retries with it **only** when the failure text names an
+  anchor field — retrying every 422 would re-post on a rejection a different anchor cannot fix
+  (an empty body, a stale sha) and spend two writes against the user's rate limit.
 - **Open — review-body composer UX**, one box for all three actions vs. three separate forms.
   Recommendation: one composer, the event chosen by which button submits it — matches GitHub's own
   single-composer model and is less UI to build and keep in sync.
+- **Resolved (Theme E, 2026-08-27) — inline threads come from GraphQL, on their own channel.**
+  Both against this theme's own bullet, and both forced by the API: REST carries no thread object,
+  no resolved state and no thread node id, and the Files/Conversation tabs fetch independently.
+- **Resolved (Theme E, 2026-08-27) — a composer closes on success, never on submit.** Found by the
+  refused-write spec rather than by review. `onComment`/`onReply` resolve a boolean so the box that
+  holds the text decides whether to close.
+- **Resolved (Theme E, 2026-08-27) — write bodies go over stdin as JSON, not as `gh -f`/`-F`.**
+  `-f` stringifies every value (`line` becomes `"42"` and is rejected) and `-F` type-guesses (a
+  body of `"true"` becomes a boolean). It also keeps user-authored text off the command line.
 - **Open — whether `commentPull` supports editing or deleting your own prior comment.**
   Recommendation: no — matches the "no edit/delete of others'" scope decision in Theme E, and keeps
   the write surface to net-new actions only rather than a second CRUD surface.

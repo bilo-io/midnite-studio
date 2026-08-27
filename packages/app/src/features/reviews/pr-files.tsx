@@ -1,4 +1,4 @@
-import type { ForgePullFiles } from '@midnite/git-shared';
+import type { ForgePullFiles, ForgeReviewThread } from '@midnite/git-shared';
 import { useState } from 'react';
 
 import { openExternal } from '../../services/queries';
@@ -21,6 +21,8 @@ export function PrFiles({
   error,
   notReady,
   pullUrl,
+  threads,
+  review,
 }: {
   files: ForgePullFiles | null;
   isLoading: boolean;
@@ -29,6 +31,18 @@ export function PrFiles({
   notReady: string | null;
   /** Where to send a reader whose diff was capped. */
   pullUrl: string;
+  /**
+   * Every inline thread on the PR, unfiltered.
+   *
+   * Passed whole and split per file by each row rather than grouped once here,
+   * because the grouping is cheap and the alternative is a `Map<path, …>` that
+   * has to be rebuilt whenever either the patch or the threads refetch — two
+   * queries with different lifetimes. `threadsForFile` is a linear scan over a
+   * list bounded at 100.
+   */
+  threads: readonly ForgeReviewThread[];
+  /** The write half — see `PrFileAccordion`'s own note on `headSha`. */
+  review: React.ComponentProps<typeof PrFileAccordion>['review'];
 }) {
   /*
     Overrides, not the open set itself.
@@ -60,6 +74,8 @@ export function PrFiles({
             file={file}
             open={open}
             onToggle={() => setToggled((prev) => ({ ...prev, [key]: !open }))}
+            threads={threads}
+            review={review}
           />
         );
       })}

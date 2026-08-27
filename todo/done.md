@@ -2,6 +2,62 @@
 
 <!-- Append one entry per landed phase/PR: date, phase, PR link, one-line summary. -->
 
+## 2026-08-27 — Phase 20 · Theme E — inline review comment threads on the PR diff
+
+Landed on `feature/phase-20-inline-threads`, squash-merged locally — no PR link, no GitHub remote
+on this checkout. The phase's highest-unknown piece, and two of its three unknowns turned out to be
+API facts rather than design calls:
+
+- [x] `ForgeReviewThread` / `ForgeReviewComment` domain types plus `ForgeThreadSide` and the
+      `ForgeWriteResult` envelope. The thread carries **three** position fields — `line`,
+      `originalLine`, `startLine` — because a thread can lose its anchor, and collapsing them is
+      how a comment gets pinned to code its author never saw
+- [x] **Read through GraphQL, on its own channel**, both departures from the original bullet and
+      both forced: REST `pulls/{n}/comments` returns a flat list with no thread object, no
+      `isResolved` and no thread node id — resolution is a property of `PullRequestReviewThread`,
+      which REST does not expose, and its node id is the only handle `resolveReviewThread` takes.
+      New `gh-graphql.ts` is the app's one GraphQL read, kept out of `gh-cli.ts` so that file stays
+      one `gh` subcommand per function. `mgit:forge:pull-threads` is its own channel rather than a
+      widening of `pull-comments`: one key serving the Files and Conversation tabs would make
+      either tab's fetch serve the other's payload
+- [x] Threads render as **rows** in the diff, not overlays — the diff is a list and a thread has to
+      push the code below it down. The virtualizer now measures rather than assuming `ROW_HEIGHT`;
+      code rows still land on exactly 18px, so a diff with no threads reflows nothing
+- [x] The gutter affordance is opt-in on `threads`/`onComment` being present, because `DiffView` is
+      shared with the Changes page and the commit inspector — a working-tree diff must not grow a
+      comment gutter by accident. It replaces the `+`/`−` marker column rather than adding one, so
+      hovering changes what a cell shows and nothing about where anything sits
+- [x] `isCommentableLine` is the one gate on right-side-only v1, and `withCommentRows` refuses to
+      splice onto a deleted line even if asked
+- [x] The diff-position mapping, spiked first as the bullet asked. Verified against `cli/cli#14200`:
+      `line`/`originalLine`/`startLine` and `diffSide` live on the **thread**, `databaseId` on the
+      **comment**, and `diffSide` does not exist on `PullRequestReviewComment` at all — the first
+      thing the spike got wrong
+- [x] `gh-write.ts` exists as of this theme rather than waiting for F, carrying only E's three calls
+      plus `describeApiFailure`, so `gh-cli.ts`'s "strictly reads" comment stays literally true
+
+Found and fixed while reviewing the slice before it landed:
+
+- **A live thread anchored outside every hunk rendered nowhere at all.** `isAnchored` cannot see
+  this case: a reviewer who expands context on github.com can comment far outside any hunk, and the
+  thread comes back live, right-side and unresolved with a perfectly real `line`, while `gh pr diff`
+  fetches three lines of context. Keyed into `byLine` it matched no row and vanished — the same harm
+  as pinning one to the wrong line, and harder to notice. `threadsForFile` now takes the `FileDiff`
+  and checks the anchor against `rightSideLines(diff)`, a Set rather than a range test because a
+  diff is hunks with gaps: line 50 falling between rendered hunks 10-12 and 90-92 does not make it
+  renderable. Such threads join the collapsed group above the diff, which grew a fourth documented
+  kind
+- **`gh api graphql -F` type-guesses its variables**, which `gh-write.ts`'s own `apiPost` comment
+  warns about for REST bodies and `gh-graphql.ts` then did anyway: `-F name=2048` sends the *integer*
+  2048 for a `String!` variable and GitHub refuses the whole query — for a repo name that is neither
+  unusual nor invalid (`gabrielecirulli/2048`). The String!/ID! variables now use `-f`; `-F` is kept
+  only for `number`, which really is an `Int!`
+
+**Pre-existing on `main`, not this theme's:** four e2e failures — `repos-workbench.spec.ts`'s
+folded-repo trailing-edge test and three `terminal.spec.ts` session tests. Confirmed identical on a
+detached `main` worktree at `5ff0df8`, and they sit in the two areas the last two `main` commits
+touched. `229 passed` otherwise; the full vitest gate is green (599 app, 331 desktop).
+
 ## 2026-08-27 — Phase 20 · Themes A+B+C+D integration — the Reviews view gets its detail pane
 
 Landed on `feature/phase-20-reviews-shell`, on rebase onto `main` after Theme C merged separately

@@ -560,3 +560,138 @@ export type ForgePullCommentsResult = z.infer<typeof ForgePullCommentsResultSche
  * milliseconds rather than a stalled window.
  */
 export const PULL_PATCH_BYTE_CAP = 2 * 1024 * 1024;
+
+/*
+  ─── Inline review threads (Phase 20 Theme E) ──────────────────────────────
+
+  A pull request's *inline* discussion — the comments hanging off a line of the
+  diff, as opposed to the top-level conversation `ForgeComment` models. They are
+  a separate contract because they answer a different question: a
+  `ForgeComment` asks "what has been said about this PR", a thread asks "what
+  has been said about THIS LINE", and only the second one needs an anchor,
+  a resolved flag and a stable id to resolve against.
+
+  **Read through GraphQL, not REST.** The REST `pulls/{n}/comments` collection
+  returns review comments as a flat list chained by `in_reply_to_id`, with no
+  thread object and — the decisive gap — no resolved state at all. GitHub
+  exposes `isResolved` only on `PullRequestReviewThread`, and resolving one
+  takes that thread's node id. So the source has to be `reviewThreads`, which
+  also arrives already grouped and saves reconstructing the reply chains here.
+*/
+
+/**
+ * Which side of the diff a thread hangs off.
+ *
+ * `LEFT` is in the contract but not in this version's write path: commenting on
+ * a deleted line needs a second position mapping, and v1 is scoped to
+ * right-side (added/context) lines. It is still *read*, because a thread
+ * somebody else left on a deleted line exists whether this app can create one
+ * or not, and dropping it would hide real discussion.
+ */
+export const ForgeThreadSideSchema = z.enum(['RIGHT', 'LEFT']);
+export type ForgeThreadSide = z.infer<typeof ForgeThreadSideSchema>;
+
+/**
+ * One comment inside an inline thread.
+ *
+ * Two ids, and both are load-bearing. `id` is the GraphQL node id, which is
+ * what the resolve mutation and any future GraphQL write take. `databaseId` is
+ * the REST integer, and it is the *only* thing that can be used to reply: the
+ * reply endpoint is `POST pulls/{n}/comments/{comment_id}/replies`, which takes
+ * the REST id, and there is no GraphQL mutation for adding a reply to a thread.
+ * A shape carrying only one of them can either resolve or reply, never both.
+ */
+export const ForgeReviewCommentSchema = z.object({
+  /** GraphQL node id, e.g. `PRRC_kwDO…`. */
+  id: z.string(),
+  /** The REST integer id as a string — null when the forge withheld it. */
+  databaseId: z.string().nullable().default(null),
+  /** Login of whoever wrote it. Empty string when the forge withholds it. */
+  author: z.string().default(''),
+  /** Markdown, as authored. Rendered, never trusted as HTML. */
+  body: z.string().default(''),
+  createdAt: z.string(),
+  url: z.string().default(''),
+});
+export type ForgeReviewComment = z.infer<typeof ForgeReviewCommentSchema>;
+
+/**
+ * One inline thread: an anchor into the diff, plus its comments in order.
+ *
+ * **Three fields for one position, because a thread can lose its anchor.**
+ * `line` is where the thread sits in the diff *as it stands now*, and GitHub
+ * returns it as null once the line no longer exists there — after a force-push,
+ * or once a later commit rewrote the hunk. `originalLine` is where it was
+ * written and survives that. `startLine` is set only on a multi-line thread.
+ * Collapsing the three into one number is how a comment ends up pinned to
+ * unrelated code: confidently wrong, and in the direction that looks normal.
+ *
+ * `outdated` and `fileLevel` are the two reasons a thread has no line to render
+ * against, and they are separate flags because they are separate facts — an
+ * outdated thread had an anchor and lost it, a file-level thread never had one.
+ * Both route to the same collapsed group above the diff, which states the path
+ * and the original line as text rather than anchoring to a row it no longer
+ * describes.
+ */
+export const ForgeReviewThreadSchema = z.object({
+  /**
+   * The thread's GraphQL node id.
+   *
+   * Not decoration: `resolveReviewThread` / `unresolveReviewThread` take
+   * exactly this, and it is the reason the whole payload comes from GraphQL.
+   */
+  id: z.string(),
+  /** Repo-relative path of the file the thread hangs off. */
+  path: z.string(),
+  /** Where the thread sits in the current diff, or null once it no longer does. */
+  line: z.number().int().positive().nullable().default(null),
+  /** Where it was written. Survives the rewrite that nulls `line`. */
+  originalLine: z.number().int().positive().nullable().default(null),
+  /** First line of a multi-line thread; null for the single-line case. */
+  startLine: z.number().int().positive().nullable().default(null),
+  side: ForgeThreadSideSchema.default('RIGHT'),
+  resolved: z.boolean().default(false),
+  /** The anchor no longer exists in the diff — see the note above. */
+  outdated: z.boolean().default(false),
+  /** GitHub's `subjectType: FILE` — a comment on the file, not on any line. */
+  fileLevel: z.boolean().default(false),
+  /** Oldest first, as GraphQL returns them. An empty thread is dropped in main. */
+  comments: z.array(ForgeReviewCommentSchema).default([]),
+});
+export type ForgeReviewThread = z.infer<typeof ForgeReviewThreadSchema>;
+
+/**
+ * One PR's inline threads.
+ *
+ * Its own envelope on its own channel rather than a widening of
+ * `ForgePullCommentsResult`, for the reason Theme C gave when it split
+ * `pull-detail` out instead of growing `listPulls`: the conversation is read on
+ * the Conversation tab and the threads on the Files tab, and a combined channel
+ * would make each tab fetch the other's payload. An empty list is a normal
+ * answer — most pull requests carry no inline discussion at all.
+ */
+export const ForgePullThreadsResultSchema = z.object({
+  cli: ForgeCliStatusSchema,
+  threads: z.array(ForgeReviewThreadSchema).default([]),
+  error: z.string().nullable().default(null),
+});
+export type ForgePullThreadsResult = z.infer<typeof ForgePullThreadsResultSchema>;
+
+/**
+ * What a forge *write* answers with.
+ *
+ * A result, never a rejection — the same rule every read envelope in this file
+ * follows, and the same one `GitOpResult` follows for git writes: a failed
+ * approve is a sentence the UI renders, not an exception that unmounts the
+ * pane. `error` carries `gh`'s own text via `describeFailure`, because "the
+ * head sha is out of date" is actionable and "something went wrong" is not.
+ *
+ * `cli` rides along so a signed-out machine reports "run gh auth login"
+ * rather than a write that silently did nothing.
+ */
+export const ForgeWriteResultSchema = z.object({
+  ok: z.boolean(),
+  cli: ForgeCliStatusSchema,
+  error: z.string().nullable().default(null),
+});
+export type ForgeWriteResult = z.infer<typeof ForgeWriteResultSchema>;

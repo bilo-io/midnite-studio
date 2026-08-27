@@ -160,6 +160,31 @@ export type MidniteGitBridge = {
     pullComments: (
       req: In<typeof S.ForgePullCommentsRequest>,
     ) => Promise<z.infer<typeof S.ForgePullCommentsResponse>>;
+    /** One PR's inline threads, read through GraphQL — see `ForgeReviewThread`. */
+    pullThreads: (
+      req: In<typeof S.ForgePullThreadsRequest>,
+    ) => Promise<z.infer<typeof S.ForgePullThreadsResponse>>;
+
+    /*
+      The three writes (Phase 20 Theme E), and the only ones on this bridge.
+
+      They resolve `ForgeWriteResult` rather than rejecting, exactly as the
+      reads resolve an envelope: a refused approve belongs beside the button
+      that asked for it, not in an unhandled rejection that takes the composer
+      and its unsent text with it.
+    */
+    /** Start a new inline thread on a line of the PR's diff. */
+    reviewComment: (
+      req: In<typeof S.ForgeReviewCommentRequest>,
+    ) => Promise<z.infer<typeof S.ForgeReviewCommentResponse>>;
+    /** Reply into an existing inline thread. */
+    reviewReply: (
+      req: In<typeof S.ForgeReviewReplyRequest>,
+    ) => Promise<z.infer<typeof S.ForgeReviewReplyResponse>>;
+    /** Mark an inline thread resolved, or reopen it. */
+    resolveThread: (
+      req: In<typeof S.ForgeResolveThreadRequest>,
+    ) => Promise<z.infer<typeof S.ForgeResolveThreadResponse>>;
   };
 
   /**
