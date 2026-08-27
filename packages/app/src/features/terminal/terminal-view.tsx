@@ -6,7 +6,12 @@ import '@xterm/xterm/css/xterm.css';
 import { useCallback, useEffect, useRef, useState } from 'react';
 
 import { shouldEscapeTerminal } from '../../services/keybindings/use-keybindings';
-import { createShellLineState, detectActivity, trackShellCommand } from './activity-detect';
+import {
+  createActivityState,
+  createShellLineState,
+  detectActivity,
+  trackShellCommand,
+} from './activity-detect';
 import { useTerminalStore } from './terminal-store';
 import { useTerminalIpc } from './use-terminal-ipc';
 
@@ -94,6 +99,10 @@ export function TerminalView({
   // `{ stream: true }` is what keeps the trailing half from decoding as
   // replacement characters.
   const decoderRef = useRef<TextDecoder>(new TextDecoder());
+  // Where in Claude Code's repaint the stream currently is: the detector reads
+  // one frame, not one chunk, so it has to remember what it has been handed
+  // since the last frame ended.
+  const activityRef = useRef(createActivityState());
   // Input-side state for a shell session's last-typed command.
   const shellLineRef = useRef(createShellLineState());
 
@@ -104,7 +113,7 @@ export function TerminalView({
       // output is arbitrary program text and would false-positive constantly.
       if (session.kind !== 'agent') return;
       const text = decoderRef.current.decode(bytes, { stream: true });
-      const activity = detectActivity(text);
+      const activity = detectActivity(activityRef.current, text);
       if (activity) useTerminalStore.getState().setActivity(session.id, activity);
     },
     [session.id, session.kind],
