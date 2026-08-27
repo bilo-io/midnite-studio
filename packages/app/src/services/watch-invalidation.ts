@@ -60,6 +60,17 @@ export function invalidateForWatchKind(
       // A checkout changes the branch, the working tree, the ahead/behind
       // counts and potentially the set of reachable commits.
       void client.invalidateQueries({ queryKey: keys.repo(repoId) });
+      // And the repo LIST, which is where the worktree rows actually come from.
+      //
+      // `keys.repo(id)` is `['repos', id]`; the list is `['repos']`. Prefix
+      // matching runs one way only — invalidating the list catches the repo,
+      // but invalidating the repo never catches the list. The panel renders
+      // `repo.worktrees` off `useRepos()`, so with `staleTime: Infinity` the
+      // worktree rows could not refresh for the life of the process: a
+      // `worktree add`/`remove`/`prune` run in a terminal left the old rows on
+      // screen — including a pruned one still badged "detached missing" —
+      // until the app was restarted.
+      void client.invalidateQueries({ queryKey: keys.repos });
       return { restreamGraph: true };
 
     default:
