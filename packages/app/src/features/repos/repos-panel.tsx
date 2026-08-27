@@ -21,7 +21,6 @@ import { AiOutlineDiff } from 'react-icons/ai';
 
 import type { MenuItem } from '../../components/context-menu';
 import { ChangeCountPill } from '../../components/change-count-pill';
-import { bridge } from '../../services/bridge';
 import { SortableList, useSortableRow } from '../../components/sortable-list';
 import { useDialogs } from '../../components/dialog-host';
 import { IconButton } from '../../components/icon-button';
@@ -34,6 +33,7 @@ import {
   useForgeRuns,
   useRefs,
   useRemotes,
+  useReorderRepos,
   useRepos,
 } from '../../services/queries';
 import {
@@ -93,6 +93,7 @@ function sectionFilterLabel(sections: ViewSections): string {
 export function ReposPanel() {
   const { data: repos = [], isLoading } = useRepos();
   const { pickAndOpen, isPending } = usePickAndOpenRepo();
+  const reorderRepos = useReorderRepos();
   const [error, setError] = useState<string | null>(null);
   const sections = useViewSections();
 
@@ -181,10 +182,7 @@ export function ReposPanel() {
             registry's own Map, so clearing the browser store cannot leave the
             sidebar in an order the repo list disagrees with.
           */
-          <SortableList
-            ids={repos.map((repo) => repo.id)}
-            onReorder={(repoIds) => bridge()?.repos.reorder({ repoIds })}
-          >
+          <SortableList ids={repos.map((repo) => repo.id)} onReorder={reorderRepos}>
             {repos.map((repo, index) => (
               <RepoItem
                 key={repo.id}
