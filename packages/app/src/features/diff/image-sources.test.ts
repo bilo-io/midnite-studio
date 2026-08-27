@@ -1,7 +1,7 @@
-import type { FileDiff } from '@midnite/git-shared';
+import type { FileDiff, StatusCode, StatusEntry } from '@midnite/git-shared';
 import { describe, expect, it } from 'vitest';
 
-import { imageDiffSources } from './image-sources';
+import { differsFromHead, headToWorktreeImage, imageDiffSources } from './image-sources';
 
 const diff = (over: Partial<FileDiff> = {}): FileDiff => ({
   path: 'docs/shot.png',
@@ -90,5 +90,51 @@ describe('imageDiffSources — one-sided changes', () => {
     const sources = imageDiffSources(diff({ change: 'deleted' }), worktree);
     expect(sources?.after).toBeNull();
     expect(sources?.before).not.toBeNull();
+  });
+});
+
+describe('headToWorktreeImage — the Files view pairing', () => {
+  it('reads before from HEAD and after off disk', () => {
+    const sources = headToWorktreeImage({ repoId: 'r1' }, 'docs/shot.png');
+    expect(sources.before?.url).toBe('mgit-file://repo/r1/docs/shot.png?rev=HEAD');
+    expect(sources.after?.url).toBe('mgit-file://repo/r1/docs/shot.png');
+  });
+
+  it('carries the worktree, so a linked checkout compares against its own HEAD', () => {
+    const sources = headToWorktreeImage({ repoId: 'r1', worktreePath: '/wt/f' }, 'a.png');
+    expect(sources.before?.url).toBe('mgit-file://repo/r1/a.png?wt=%2Fwt%2Ff&rev=HEAD');
+    expect(sources.after?.url).toBe('mgit-file://repo/r1/a.png?wt=%2Fwt%2Ff');
+  });
+});
+
+describe('differsFromHead — whether a comparison is worth offering', () => {
+  const entry = (staged: StatusCode, unstaged: StatusCode): StatusEntry => ({
+    path: 'a.png',
+    origPath: null,
+    staged,
+    unstaged,
+    conflicted: false,
+    similarity: null,
+  });
+
+  it('says no for a path status never mentions — it matches HEAD', () => {
+    expect(differsFromHead(undefined)).toBe(false);
+  });
+
+  it.each([
+    ['edited in the worktree', entry('unmodified', 'modified')],
+    ['staged', entry('modified', 'unmodified')],
+    ['staged and edited again', entry('modified', 'modified')],
+    ['renamed', entry('renamed', 'unmodified')],
+  ])('says yes when %s', (_name, value) => {
+    expect(differsFromHead(value)).toBe(true);
+  });
+
+  it.each([
+    ['untracked', entry('untracked', 'untracked')],
+    ['ignored', entry('ignored', 'ignored')],
+    ['staged as a new file', entry('added', 'unmodified')],
+  ])('says no when %s — HEAD holds no pre-image', (_name, value) => {
+    expect(differsFromHead(value)).toBe(false);
   });
 });
