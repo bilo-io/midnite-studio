@@ -20,7 +20,7 @@ Completed work is logged append-only in [`done.md`](done.md). Deferred scope liv
 
 | Phase | Status | Done | Progress | % | 🔄 WIP | ◻ TODO |
 |-------|--------|------|----------|---|--------|--------|
-| [21 · Agent roster + terminal identity](phase-21-agent-roster-and-terminal-identity.md) | ◻ TODO | 0/46 | `░░░░░░░░░░` | 0% | — | A B C D E F |
+| [21 · Agent roster + terminal identity](phase-21-agent-roster-and-terminal-identity.md) | 🔄 WIP | 0/46 | `░░░░░░░░░░` | 0% | F | A B C D E |
 | [20 · Reviews page & unified diff syntax highlighting](phase-20-reviews-page.md) | 🔄 WIP | 42/44 | `██████████` | 95% | — | 2 manual checks |
 | [19 · Dashboard, Actions and Tests as views](phase-19-dashboard-actions-tests.md) | 🔄 WIP | 73/76 | `██████████` | 96% | — | 3 manual checks |
 | [18 · Footer system monitor + repo diagnostics](phase-18-footer-monitor-diagnostics.md) | 🔄 WIP | 51/54 | `█████████░` | 94% | — | 3 manual checks |
@@ -68,7 +68,7 @@ the header those two finally give something true to say.*
   resolver so the header's repo name and mark follow a `cd`
 - ◻ **E** — a process probe in main behind `pty:agent-changed`, so an agent started or quit by hand
   swaps the sidebar row's icon; reads process state and acts on nothing
-- ◻ **F** — the header loses the word "Terminal": a glyph, the status circle, then a `~`-collapsed
+- 🔄 **F** — the header loses the word "Terminal": a glyph, the status circle, then a `~`-collapsed
   path with the repo segment emphasised and left-truncation
 
 *Open: nothing claimed yet — A is the spine and lands first; B/C and D/E/F are then two independent
