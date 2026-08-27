@@ -359,12 +359,15 @@ test('Actions and Reviews list what gh reports, and open on GitHub', async ({ pa
   await expect(page.getByText('Approved')).toBeVisible();
   await expect(page.getByText('Checks failing')).toBeVisible();
 
+  // The row's body opens the Reviews VIEW (Phase 20 Theme A) — not a
+  // workbench tab, which is Phase 17's behaviour this replaces — and lands
+  // straight on the PR's own detail (Theme C's `PrDetail`), which the
+  // sidebar's selection carried across.
   await page.getByText('Line the table up').click();
-  await expect(page.getByRole('tab', { name: /#42 Line the table up/ })).toHaveAttribute(
-    'aria-selected',
-    'true',
-  );
+  await expect(page.getByRole('region', { name: 'Pull request #42' })).toBeVisible();
 
+  // "Open on GitHub" lives on the detail header now that Theme C gives PRs
+  // an in-app detail — the row itself selects rather than opening out.
   await page.getByRole('button', { name: 'Open #42 on GitHub' }).click();
   await expect
     .poll(() =>

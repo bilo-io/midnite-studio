@@ -4,13 +4,15 @@ import {
   type DiffLine,
   type FileDiff,
 } from '@midnite/git-shared';
+import { useTheme } from '@bilo-io/ui/theme';
 import { ChevronsUpDown, Columns2, Columns3 } from 'lucide-react';
 import { useRef } from 'react';
 
 import { IconButton } from '../../components/icon-button';
 import { useUiStore } from '../../store/ui-store';
 import { describeEmptyDiff } from './describe-empty';
-import { nextContext, toDiffRows, toSegments, type DiffRow } from './diff-rows';
+import { mergeSegmentsWithTokens, nextContext, toDiffRows, toSegments, type DiffRow } from './diff-rows';
+import { useLineHighlight } from './line-highlight';
 
 /**
  * The one diff renderer. Both the working-tree pane and the commit inspector
@@ -62,6 +64,10 @@ export function DiffView({
   const showOldGutter = useUiStore((s) => s.diffShowOldGutter);
   const toggleOldGutter = useUiStore((s) => s.toggleDiffOldGutter);
   const scrollRef = useRef<HTMLDivElement>(null);
+  // Same theme-sync rule `code-preview.tsx` already uses: the highlighter is
+  // built with both themes loaded, so this is a lookup, not a refetch.
+  const { resolved } = useTheme();
+  const dark = resolved === 'dark';
 
   const rows = diff ? toDiffRows(diff) : [];
 
@@ -113,7 +119,7 @@ export function DiffView({
               </div>
             ) : (
               <div key={`l${index}`} className="flex w-max min-w-full">
-                <LineRow line={row.line} showOldGutter={showOldGutter} />
+                <LineRow line={row.line} showOldGutter={showOldGutter} path={diff.path} dark={dark} />
               </div>
             ),
           )}
@@ -184,7 +190,7 @@ export function DiffView({
                 {row.kind === 'hunk' ? (
                   <HunkHeader row={row} onExpand={onExpandContext} context={diff.contextLines} />
                 ) : (
-                  <LineRow line={row.line} showOldGutter={showOldGutter} />
+                  <LineRow line={row.line} showOldGutter={showOldGutter} path={diff.path} dark={dark} />
                 )}
               </div>
             );
@@ -248,8 +254,23 @@ const ROW_STYLE: Record<DiffLine['kind'], { row: string; bar: string; span: stri
 
 const MARKER: Record<DiffLine['kind'], string> = { add: '+', del: '−', ctx: ' ' };
 
-function LineRow({ line, showOldGutter }: { line: DiffLine; showOldGutter: boolean }) {
+function LineRow({
+  line,
+  showOldGutter,
+  path,
+  dark,
+}: {
+  line: DiffLine;
+  showOldGutter: boolean;
+  /** The file's own path, for grammar resolution — see `line-highlight.ts`. */
+  path: string;
+  dark: boolean;
+}) {
   const style = ROW_STYLE[line.kind];
+  // `null` while unhighlighted (no grammar, or still scheduled) — every piece
+  // below then renders with no colour, exactly today's plain appearance.
+  const tokens = useLineHighlight(path, line, dark);
+  const pieces = mergeSegmentsWithTokens(toSegments(line), tokens);
 
   return (
     <div className={`flex w-full ${style.row}`} data-line-kind={line.kind}>
@@ -269,15 +290,35 @@ function LineRow({ line, showOldGutter }: { line: DiffLine; showOldGutter: boole
       </span>
 
       <span className="min-w-0 flex-1 whitespace-pre pr-3" data-selectable>
-        {toSegments(line).map((segment, i) =>
-          segment.changed ? (
-            <span key={i} className={`rounded-[2px] ${style.span}`}>
-              {segment.text}
+        {pieces.map((piece, i) => {
+          if (!piece.changed) {
+            return (
+              <span key={i} style={piece.color ? { color: piece.color } : undefined}>
+                {piece.text}
+              </span>
+            );
+          }
+          /*
+            A token boundary landing inside one changed diff segment splits it
+            into several adjacent pieces here — each still `changed`, each its
+            own <span> for the colour. Rounding every one of them on all four
+            corners would draw a visible seam where two touching pieces meet;
+            rounding only the outer edge of the whole run is what makes it
+            read as the one continuous mark it is.
+          */
+          const runStart = !pieces[i - 1]?.changed;
+          const runEnd = !pieces[i + 1]?.changed;
+          return (
+            <span
+              key={i}
+              data-diff-mark
+              className={`${style.span} ${runStart ? 'rounded-l-[2px]' : ''} ${runEnd ? 'rounded-r-[2px]' : ''}`.trim()}
+              style={piece.color ? { color: piece.color } : undefined}
+            >
+              {piece.text}
             </span>
-          ) : (
-            <span key={i}>{segment.text}</span>
-          ),
-        )}
+          );
+        })}
         {line.noNewline ? (
           <span className="ml-2 italic text-muted-foreground/60">no newline at end of file</span>
         ) : null}

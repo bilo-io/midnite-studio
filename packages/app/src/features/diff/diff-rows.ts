@@ -1,5 +1,7 @@
 import type { DiffHunk, DiffLine, FileDiff } from '@midnite/git-shared';
 
+import type { HighlightToken } from './line-highlight';
+
 /**
  * Flattening the hunk tree into one row list, because the view is virtualised.
  *
@@ -90,4 +92,64 @@ export function toSegments(line: DiffLine): DiffSegment[] {
   }
 
   return segments;
+}
+
+/** A diff segment with syntax colour composed in — the outer tint, the inner colour. */
+export type HighlightedSegment = { text: string; changed: boolean; color: string | null };
+
+/** Cumulative character offsets over a run of texts, for intersecting two partitions. */
+function withOffsets<T extends { text: string }>(
+  items: readonly T[],
+): (T & { start: number; end: number })[] {
+  let at = 0;
+  return items.map((item) => {
+    const start = at;
+    at += item.text.length;
+    return { ...item, start, end: at };
+  });
+}
+
+/**
+ * Intersect the intraline diff segments with syntax-highlight tokens.
+ *
+ * The two are independent partitions of the same line text — one cut at
+ * what changed, the other cut at what grammar rule matched — so the merged
+ * result is cut at every boundary either one draws, carrying `changed` from
+ * the segment side and `color` from the token side.
+ *
+ * `tokens === null` means "not highlighted yet, or this file has no
+ * grammar", and every piece keeps its segment's `changed` flag with no
+ * colour — exactly today's plain rendering, so a diff never looks wrong
+ * while its highlight is still loading in the background.
+ */
+export function mergeSegmentsWithTokens(
+  segments: readonly DiffSegment[],
+  tokens: readonly HighlightToken[] | null,
+): HighlightedSegment[] {
+  if (tokens === null) return segments.map((segment) => ({ ...segment, color: null }));
+
+  const segs = withOffsets(segments);
+  const toks = withOffsets(tokens);
+  const cuts = new Set<number>([0]);
+  for (const seg of segs) cuts.add(seg.end);
+  for (const tok of toks) cuts.add(tok.end);
+  const points = [...cuts].sort((a, b) => a - b);
+  const fullText = segments.map((segment) => segment.text).join('');
+
+  let si = 0;
+  let ti = 0;
+  const result: HighlightedSegment[] = [];
+  for (let i = 0; i < points.length - 1; i += 1) {
+    const start = points[i]!;
+    const end = points[i + 1]!;
+    if (start === end) continue;
+    while (segs[si] && segs[si]!.end <= start) si += 1;
+    while (toks[ti] && toks[ti]!.end <= start) ti += 1;
+    result.push({
+      text: fullText.slice(start, end),
+      changed: segs[si]?.changed ?? false,
+      color: toks[ti]?.color ?? null,
+    });
+  }
+  return result;
 }

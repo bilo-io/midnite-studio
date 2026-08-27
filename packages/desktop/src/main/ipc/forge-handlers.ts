@@ -91,7 +91,7 @@ export function registerForgeHandlers(): void {
     async (req) => {
       const forge = await githubForge(req.repoId);
       if (!forge) return { cli: noForgeStatus(), pulls: [], error: null };
-      return listPulls(forge, { limit: req.limit });
+      return listPulls(forge, { limit: req.limit, state: req.state });
     },
     (issue) => ({ cli: noForgeStatus(), pulls: [], error: issue }),
   );

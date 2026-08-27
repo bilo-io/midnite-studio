@@ -20,6 +20,7 @@ const VIEW_LABELS: Record<ViewId, string> = {
   changes: 'Changes',
   actions: 'Actions',
   tests: 'Tests',
+  reviews: 'Reviews',
   settings: 'Settings',
 };
 

@@ -33,41 +33,43 @@ Effort tags: **S** ≈ an hour or two · **M** ≈ half a day · **L** ≈ a day
 
 ## Deliverables
 
-### A — Reviews as a nav-rail view (S)
+### A — Reviews as a nav-rail view (S) ✅ DONE (2026-08-27)
 
-- [ ] `ViewId` in [`ui-store.ts`](../packages/app/src/store/ui-store.ts) grows to include
+- [x] `ViewId` in [`ui-store.ts`](../packages/app/src/store/ui-store.ts) grows to include
       `reviews`; `pathForView`/`viewForPath` follow for free
-- [ ] Nav rail gains a Reviews item using `FaCodePullRequest` from `react-icons/fa6` — a second
+- [x] Nav rail gains a Reviews item using `FaCodePullRequest` from `react-icons/fa6` — a second
       react-icons glyph in the rail beside Tests' `FaCheckDouble` (Phase 19), not a new pattern
-- [ ] Reviews is hidden from the rail when the selected repo has no GitHub remote, reusing
-      `pickForgeRemote` — the same guard Actions already uses
-- [ ] `SectionKey`'s existing `reviews` value (Phase 17, currently only a sidebar section) gets a
+- [x] Reviews is hidden from the rail when the selected repo has no GitHub remote, reusing
+      `pickForgeRemote` — the same guard Actions already uses (the two now share one
+      `useForgeGateAvailable` hook, renamed from `useActionsAvailable`)
+- [x] `SectionKey`'s existing `reviews` value (Phase 17, currently only a sidebar section) gets a
       `VIEW_FILTERS['reviews'] = { sections: ['reviews', 'worktrees'], dirtyOnly: false }` entry in
       [`view-sections.ts`](../packages/app/src/features/repos/view-sections.ts) — the exact
       mechanism Actions and Tests already use to narrow the sidebar to themselves plus Worktrees
-- [ ] The sidebar's Reviews section ([`forge-sections.tsx`](../packages/app/src/features/repos/forge-sections.tsx))
+- [x] The sidebar's Reviews section ([`forge-sections.tsx`](../packages/app/src/features/repos/forge-sections.tsx))
       opens the new Reviews view on click, replacing today's inline `ReviewView` tab as the
       destination
-- [ ] Switching to/from the Reviews view preserves the selected repo and worktree, per the Phase 19
+- [x] Switching to/from the Reviews view preserves the selected repo and worktree, per the Phase 19
       rule that the rail changes what you're looking at, never what you're looking at it for
 
-### B — PR list, filterable across every state (M)
+### B — PR list, filterable across every state (M) ✅ DONE (2026-08-27)
 
-- [ ] `listPulls` in [`gh-cli.ts`](../packages/desktop/src/main/forge/gh-cli.ts) moves off the
+- [x] `listPulls` in [`gh-cli.ts`](../packages/desktop/src/main/forge/gh-cli.ts) moves off the
       hardcoded `--state open` to `--state all`; `PULL_FIELDS` grows `mergedAt`/`closedAt` beside
       the already-fetched `isDraft`
-- [ ] `ForgePull` in [`forge.ts`](../packages/shared/src/domain/forge.ts) grows the new fields;
+- [x] `ForgePull` in [`forge.ts`](../packages/shared/src/domain/forge.ts) grows the new fields;
       `parsePullList` in [`gh-parse.ts`](../packages/desktop/src/main/forge/gh-parse.ts) updated to
       match
-- [ ] New `features/reviews/reviews-list.tsx` — status tabs (All / Open / Draft / Merged / Closed,
+- [x] New `features/reviews/reviews-list.tsx` — status tabs (All / Open / Draft / Merged / Closed,
       defaulting to Open), an author filter derived from the fetched list (no extra API call), and
-      a title/branch search box
-- [ ] List rows reuse the existing `ChecksVerdict` colour mapping
+      a title/branch search box. Also grew a "Load more" button, since `gh pr list` has no cursor to
+      page through — a second, wider fetch under its own query key, only paid when asked for
+- [x] List rows reuse the existing `ChecksVerdict` colour mapping
       ([`checks-verdict.ts`](../packages/app/src/features/repos/checks-verdict.ts)) and
       `reviewDecision` badge already computed for the sidebar's Reviews section
-- [ ] Empty / loading / CLI-not-ready states match the existing Phase 17 forge-section affordances
+- [x] Empty / loading / CLI-not-ready states match the existing Phase 17 forge-section affordances
       (gh missing or unauthenticated card)
-- [ ] Refresh stays explicit, matching every other forge surface — no polling
+- [x] Refresh stays explicit, matching every other forge surface — no polling
 
 ### C — PR detail: files, conversation, checks (M) — ✅ DONE (2026-08-27)
 
@@ -93,29 +95,39 @@ build on this one:
   actual runs and costs no third subprocess. Matching the *branch* would be wrong after a
   force-push — the branch's newest run then describes a commit the PR no longer points at.
 
-### D — Syntax-highlighted diffs, unified across every surface (M)
+### D — Syntax-highlighted diffs, unified across every surface (M) ✅ DONE (2026-08-27)
 
-- [ ] [`diff-rows.ts`](../packages/app/src/features/diff/diff-rows.ts) grows a per-row
-      `codeToHtml` pass using the same lazy `getHighlighter()` singleton and `languageForFile()`
-      grammar map [`code-preview.tsx`](../packages/app/src/features/files/preview/code-preview.tsx)
-      / [`languages.ts`](../packages/app/src/lib/languages.ts) already built — reused, not
-      reimplemented
-- [ ] Highlighting composes with the existing word-level intraline segments (`toSegments` /
-      `DiffSegment`) rather than replacing them — added/removed/context tinting is the outer layer,
+- [x] [`diff-rows.ts`](../packages/app/src/features/diff/diff-rows.ts) grows a
+      `mergeSegmentsWithTokens` pass; the actual highlight call lives in the new
+      [`line-highlight.ts`](../packages/app/src/features/diff/line-highlight.ts), deferred per-row
+      through `requestIdleCallback` rather than eagerly on `toDiffRows` — a design call made in the
+      decisions section above. The shiki singleton itself moved out of `code-preview.tsx` into
+      [`lib/highlighter.ts`](../packages/app/src/lib/highlighter.ts) so the Files preview pane and
+      diff rows share one engine instance; `languageForFile()` in
+      [`languages.ts`](../packages/app/src/lib/languages.ts) is reused unchanged
+- [x] Highlighting composes with the existing word-level intraline segments (`toSegments` /
+      `DiffSegment`) rather than replacing them — `mergeSegmentsWithTokens` intersects the two
+      independent partitions of a line, added/removed/context tinting stays the outer layer,
       syntax colour the inner one
-- [ ] Per-row highlight output is memoised on `(file, content-hash)` so scrolling an already-open
-      diff doesn't re-highlight rows it's already rendered
-- [ ] Applied to all three `DiffView` call sites: the Changes page
+- [x] Per-row highlight output is memoised — module-level, keyed on `(path, line kind, line text)`
+      rather than a hash of that text (the text already **is** the key; hashing it would only add
+      SubtleCrypto latency for no extra safety) — so scrolling an already-open diff, or opening the
+      same file again from a different surface, never re-highlights a row already drawn
+- [x] Applied to both existing `DiffView` call sites: the Changes page
       ([`file-accordion.tsx`](../packages/app/src/features/changes/file-accordion.tsx),
-      [`file-diff.tsx`](../packages/app/src/features/status/file-diff.tsx)), the Graph page's
-      commit inspector
-      ([`commit-detail.tsx`](../packages/app/src/features/commit/commit-detail.tsx)), and the new
-      Reviews Files tab — one upgrade, three surfaces
-- [ ] Verified against the virtualized scroll path specifically — this is the risk
+      [`file-diff.tsx`](../packages/app/src/features/status/file-diff.tsx)) and the Graph page's
+      commit inspector ([`commit-detail.tsx`](../packages/app/src/features/commit/commit-detail.tsx))
+      — automatically, since all three share the one `LineRow`. Confirmed on the Reviews Files tab
+      too now that Theme C has landed alongside this slice and renders each file through the same
+      `DiffView` — no third surface needed updating by hand
+- [x] Verified against the virtualized scroll path specifically — this is the risk
       `outstanding.md` flagged when this was parked: "wiring `codeToHtml` into `<DiffView>`'s
-      virtualised rows without regressing scroll performance"
-- [ ] Light/dark theme sync verified — the highlighter is already built with both themes per
-      `code-preview.tsx`'s existing pattern, so this is a check, not new work
+      virtualised rows without regressing scroll performance". Covered functionally by
+      `diff-view.spec.ts`'s new highlighting test (scrolls a highlighted diff and asserts it keeps
+      rendering); a scripted frame-timing assertion was considered and rejected as CI-flaky —
+      see the decisions section
+- [x] Light/dark theme sync verified — the highlighter is already built with both themes per
+      `code-preview.tsx`'s existing pattern, confirmed via `useTheme()` in `DiffView`
 
 ### E — Inline diff-line comment threads (L)
 
@@ -237,3 +249,14 @@ build on this one:
 - **Open — whether Theme G's `rerunChecks` should also grow an entry point from the Phase 19
   Actions view.** Recommendation: not this phase — Actions has no re-run affordance today, and
   adding one there is a scope decision for whoever picks that up, not a reason to block Theme G.
+- **Resolved (A+B+D slice, 2026-08-27) — highlight timing is deferred, not eager.** Each row's
+  syntax highlight is scheduled through `requestIdleCallback` the first time it renders, not
+  computed for the whole diff up front — directly answering the scroll-blocking risk this theme's
+  own bullet above names.
+- **Resolved — the highlight cache is module-level**, keyed by `(path, line kind, line text)`, not
+  per-`DiffView`-instance — so the same file highlighted in Changes and then opened again in Graph
+  reuses the cached tokens rather than recomputing them.
+- **Resolved — B's "load more" re-asks for a wider page** rather than true pagination — `gh pr
+  list` has no cursor to page through, so widening `limit` and refetching is the honest shape.
+- **Resolved — an unmapped file extension falls back to plain diff rendering, silently** — matching
+  `code-preview.tsx`'s existing degrade-gracefully rule for the Files preview pane.

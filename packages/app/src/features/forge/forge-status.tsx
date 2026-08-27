@@ -91,11 +91,17 @@ export function outcomeStatus(
 /**
  * A pull request's state in one word.
  *
- * Draft wins over everything: a draft that has failing checks is still a draft,
- * and leading with "Failing" would ask for attention the author has not
- * requested yet.
+ * Merged and closed win over everything: `reviewDecision`/`isDraft` describe
+ * a PR that is still open, and reading them for one that isn't is how a
+ * merged PR ends up rendering "Approved" — true of the review, but not the
+ * thing this pill is answering now that Phase 20 fetches every state, not
+ * just open. Draft wins next: a draft that has failing checks is still a
+ * draft, and leading with "Failing" would ask for attention the author has
+ * not requested yet.
  */
 export function pullStatus(pull: ForgePull): ForgeStatus {
+  if (pull.state === 'merged') return { tone: 'ok', label: 'Merged' };
+  if (pull.state === 'closed') return { tone: 'idle', label: 'Closed' };
   if (pull.isDraft) return { tone: 'idle', label: 'Draft' };
   switch (pull.reviewDecision) {
     case 'APPROVED':

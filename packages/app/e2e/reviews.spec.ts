@@ -305,10 +305,18 @@ test('a signed-out gh gets the fix-it hint, not a claim about the pull request',
     },
   });
 
-  await expect(page.getByText('Run `gh auth login` in a terminal.')).toBeVisible();
-  await expect(page.getByText('This pull request changes no files.')).toHaveCount(0);
+  /*
+    Scoped to the PR detail region: the sidebar's own Reviews section and the
+    Reviews view's list pane (Phase 20 A/B) carry the identical CLI hint text,
+    each independently reporting the same "gh is signed out" — this test is
+    about the DETAIL's own per-tab reporting specifically.
+  */
+  const detail = page.getByRole('region', { name: /^Pull request #42/ });
+
+  await expect(detail.getByText('Run `gh auth login` in a terminal.')).toBeVisible();
+  await expect(detail.getByText('This pull request changes no files.')).toHaveCount(0);
 
   await page.getByRole('tab', { name: 'Conversation', exact: true }).click();
-  await expect(page.getByText('Run `gh auth login` in a terminal.')).toBeVisible();
-  await expect(page.getByText('Nobody has commented on this pull request.')).toHaveCount(0);
+  await expect(detail.getByText('Run `gh auth login` in a terminal.')).toBeVisible();
+  await expect(detail.getByText('Nobody has commented on this pull request.')).toHaveCount(0);
 });

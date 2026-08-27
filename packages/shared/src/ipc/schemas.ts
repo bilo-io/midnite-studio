@@ -282,7 +282,17 @@ export const ForgeRunsRequest = ForgeListRequest.extend({
 });
 export const ForgeRunsResponse = ForgeRunsResultSchema;
 
-export const ForgePullsRequest = ForgeListRequest;
+/**
+ * `state` defaults to `open`, matching Phase 17's original contract: the
+ * sidebar's Reviews section and the dashboard's pulls widget both ask "what
+ * might I review right now", and reading `all` into those unfiltered would
+ * bury that under every merged and closed PR in the repository's history.
+ * The Reviews view (Phase 20 B) is the one caller that asks for `all`
+ * explicitly — its own status tabs are the filter.
+ */
+export const ForgePullsRequest = ForgeListRequest.extend({
+  state: z.enum(['open', 'closed', 'merged', 'all']).default('open'),
+});
 export const ForgePullsResponse = ForgePullsResultSchema;
 
 /**

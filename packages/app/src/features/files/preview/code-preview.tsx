@@ -1,22 +1,14 @@
 import { useEffect, useState } from 'react';
 
 import { useTheme } from '@bilo-io/ui/theme';
-import { createHighlighter, type Highlighter } from 'shiki';
+import type { Highlighter } from 'shiki';
+
+import { getHighlighter, HIGHLIGHT_THEME } from '../../../lib/highlighter';
 
 /**
- * shiki, as one lazy singleton. The highlighter is created with both themes
- * and NO grammars — `loadLanguage` pulls each grammar on first use, and Vite
- * code-splits every one, so the initial bundle carries the engine and nothing
- * else. Failures at any stage degrade to a plain <pre>: a preview that can't
- * colour code should still show it.
+ * Failures at any stage degrade to a plain <pre>: a preview that can't colour
+ * code should still show it.
  */
-let highlighterPromise: Promise<Highlighter> | null = null;
-const getHighlighter = (): Promise<Highlighter> =>
-  (highlighterPromise ??= createHighlighter({
-    themes: ['github-dark', 'github-light'],
-    langs: [],
-  }));
-
 async function highlight(code: string, lang: string | null, dark: boolean): Promise<string> {
   const highlighter = await getHighlighter();
   let language = lang;
@@ -29,7 +21,7 @@ async function highlight(code: string, lang: string | null, dark: boolean): Prom
   }
   return highlighter.codeToHtml(code, {
     lang: language ?? 'text',
-    theme: dark ? 'github-dark' : 'github-light',
+    theme: HIGHLIGHT_THEME(dark),
   });
 }
 
