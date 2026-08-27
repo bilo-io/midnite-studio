@@ -1,3 +1,4 @@
+import type { ForgePullScope } from '@midnite/git-shared';
 import { create } from 'zustand';
 
 /**
@@ -18,11 +19,34 @@ export type ReviewsState = {
   /** Explicit selection. Absent means "whatever the view auto-selects". */
   selectedPull: ByRepo<number>;
   selectPull: (repoId: string, number: number) => void;
+
+  /**
+   * Which of the Reviews view's scope groups are expanded.
+   *
+   * Not keyed by repo, unlike the selection above: "I care about what is
+   * awaiting my review" is a fact about the reader, not about the repository
+   * they happen to be looking at, and re-opening the same group after every
+   * repo switch would be a chore the sidebar's own sections do not impose.
+   *
+   * In the store rather than in `ReviewGroupSection`'s own state because the
+   * fold gates a `gh` subprocess: local state is torn down whenever the view
+   * unmounts, so a trip to Graph and back would collapse every group and make
+   * the reader pay for the same three listings again.
+   *
+   * Absent means closed. Every group starts that way — the whole point of the
+   * split is that arriving at the view costs nothing.
+   */
+  openGroups: Partial<Record<ForgePullScope, boolean>>;
+  toggleGroup: (scope: ForgePullScope) => void;
 };
 
 export const useReviewsStore = create<ReviewsState>((set) => ({
   selectedPull: {},
+  openGroups: {},
 
   selectPull: (repoId, number) =>
     set((state) => ({ selectedPull: { ...state.selectedPull, [repoId]: number } })),
+
+  toggleGroup: (scope) =>
+    set((state) => ({ openGroups: { ...state.openGroups, [scope]: !state.openGroups[scope] } })),
 }));

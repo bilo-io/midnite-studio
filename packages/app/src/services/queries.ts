@@ -7,6 +7,7 @@ import type {
   ForgePullCommentsResult,
   ForgePullDetailResult,
   ForgePullFilesResult,
+  ForgePullScope,
   ForgePullsResult,
   ForgeMergeMethod,
   ForgeReviewEvent,
@@ -90,8 +91,8 @@ export const keys = {
   forge: (repoId: string) => ['repos', repoId, 'forge'] as const,
   forgeRuns: (repoId: string, branch?: string) =>
     ['repos', repoId, 'forge', 'runs', branch ?? 'all'] as const,
-  forgePulls: (repoId: string, limit = 20, state = 'open') =>
-    ['repos', repoId, 'forge', 'pulls', limit, state] as const,
+  forgePulls: (repoId: string, limit = 20, state = 'open', scope: ForgePullScope = 'all') =>
+    ['repos', repoId, 'forge', 'pulls', limit, state, scope] as const,
   forgeIssues: (repoId: string, state: string) =>
     ['repos', repoId, 'forge', 'issues', state] as const,
   /**
@@ -527,19 +528,25 @@ export function useForgeWorkflows(repoId: string | null, enabled: boolean) {
  * cursor to page through, so the Reviews view's "Load more" is a second,
  * wider fetch under a new key — a subprocess only when the user actually
  * asks for more than the default page.
+ *
+ * `scope` is part of the key for the same reason `state` is: "my pull requests"
+ * and "every pull request" are two different `gh` calls with two different
+ * answers, and the Reviews groups show them side by side. Sharing a key would
+ * let whichever group expanded first serve its rows to the other two.
  */
 export function useForgePulls(
   repoId: string | null,
   enabled: boolean,
   limit = 20,
   state: 'open' | 'closed' | 'merged' | 'all' = 'open',
+  scope: ForgePullScope = 'all',
 ) {
   return useQuery<ForgePullsResult>({
-    queryKey: keys.forgePulls(repoId ?? '', limit, state),
+    queryKey: keys.forgePulls(repoId ?? '', limit, state, scope),
     queryFn: async () => {
       const api = bridge();
       if (!api || !repoId) return EMPTY_PULLS;
-      return api.forge.pulls({ repoId, limit, state });
+      return api.forge.pulls({ repoId, limit, state, scope });
     },
     enabled: enabled && repoId !== null,
     staleTime: FORGE_STALE_MS,

@@ -255,6 +255,9 @@ async function openPull(page: Page): Promise<void> {
   await page.goto('/');
   await expect(page.getByRole('heading', { name: 'Worktrees' })).toBeVisible();
   await page.getByRole('button', { name: 'Reviews', exact: true }).click();
+  // The section is a heading over three lazy scopes now — the rows live under
+  // one of them, and nothing is fetched until that one is opened.
+  await page.getByRole('button', { name: 'All Pull Requests', exact: true }).click();
   await page.getByText(pull.title, { exact: true }).click();
   await expect(page.getByRole('region', { name: 'Pull request #214' })).toBeVisible();
   await page.waitForTimeout(800);
