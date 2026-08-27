@@ -10,6 +10,7 @@
 export const COMMAND_IDS = [
   'terminal.toggle',
   'terminal.focus',
+  'repos.toggle',
   'repo.open',
   'repo.close',
   'view.refresh',
@@ -56,6 +57,14 @@ export const DEFAULT_KEYMAP: readonly KeyBinding[] = [
    */
   { command: 'terminal.toggle', chord: 'Ctrl+`', scope: 'global', label: 'Toggle Terminal' },
   { command: 'terminal.focus', chord: 'Mod+Shift+`', scope: 'app', label: 'Focus Terminal' },
+  /**
+   * Mod+b, the chord every editor with a left sidebar uses for exactly this
+   * (VS Code, Zed, Sublime) — so it is the one a user tries first. `app`
+   * scope, unlike the terminal toggle: showing the repository list while the
+   * terminal has focus is not something you reach for mid-command, and Ctrl+B
+   * is a readline motion the shell is entitled to keep.
+   */
+  { command: 'repos.toggle', chord: 'Mod+b', scope: 'app', label: 'Toggle Repositories' },
   { command: 'repo.open', chord: 'Mod+o', scope: 'app', label: 'Open Repository…' },
   { command: 'repo.close', chord: 'Mod+w', scope: 'app', label: 'Close Repository' },
   { command: 'view.refresh', chord: 'Mod+r', scope: 'app', label: 'Refresh' },
