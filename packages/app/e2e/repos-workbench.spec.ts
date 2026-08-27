@@ -351,13 +351,23 @@ test('Actions and Reviews list what gh reports, and open on GitHub', async ({ pa
   // Both sections start CLOSED and issue no query until opened: each one is a
   // `gh` subprocess and an API request against the user's rate limit.
   await page.getByRole('button', { name: 'Actions', exact: true }).click();
-  await expect(page.getByText('Failed')).toBeVisible();
+  /*
+    `getByRole('img', …)`, not `getByText`: a settled status renders as a bare
+    coloured glyph now, so its word survives only as the mark's accessible
+    name. Asserting on the name rather than on visible text is also the stronger
+    check — it fails if the pill loses the label a screen reader needs.
+
+    `exact`, because the branch-health dots in the same tree are also `img`s and
+    their names spell out "1 of 1 check failed" — a substring match picks up
+    three of them alongside the one pill this is about.
+  */
+  await expect(page.getByRole('img', { name: 'Failed', exact: true })).toBeVisible();
 
   await page.getByRole('button', { name: 'Reviews', exact: true }).click();
   await expect(page.getByText('Line the table up')).toBeVisible();
   // Draft/approval and the checks rollup are separate readings, both shown.
-  await expect(page.getByText('Approved')).toBeVisible();
-  await expect(page.getByText('Checks failing')).toBeVisible();
+  await expect(page.getByRole('img', { name: 'Approved', exact: true })).toBeVisible();
+  await expect(page.getByRole('img', { name: 'Checks failing', exact: true })).toBeVisible();
 
   // The row's body opens the Reviews VIEW (Phase 20 Theme A) — not a
   // workbench tab, which is Phase 17's behaviour this replaces — and lands

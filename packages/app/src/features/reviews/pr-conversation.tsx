@@ -1,10 +1,10 @@
-import type { ForgeComment, ForgeReviewState } from '@midnite/git-shared';
+import type { ForgeComment } from '@midnite/git-shared';
 import Markdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
 
 import { ExternalLink } from '../markdown/external-link';
 import { MARKDOWN_PROSE_CLASSES } from '../markdown/prose';
-import { StatusPill, type ForgeStatus } from '../forge/forge-status';
+import { reviewStatus, StatusPill } from '../forge/forge-status';
 
 /**
  * A pull request's top-level thread — discussion and review verdicts, merged.
@@ -16,7 +16,9 @@ import { StatusPill, type ForgeStatus } from '../forge/forge-status';
  * The two collections interleave by timestamp in main (`mergeConversation`),
  * so this component sorts nothing — it renders a sequence. A review's verdict
  * rides the same `StatusPill` the sidebar row uses, so "Approved" is the same
- * word and the same green in both places.
+ * mark and the same green in both places — and `reviewStatus` lives in
+ * `forge-status` alongside it rather than here, so it cannot drift into a
+ * second opinion about which glyph that is.
  */
 export function PrConversation({
   comments,
@@ -81,26 +83,6 @@ export function PrConversation({
       ))}
     </ol>
   );
-}
-
-/**
- * A review verdict in the shared status vocabulary.
- *
- * `DISMISSED` is `idle`, not a failure: a dismissed review is one that no
- * longer counts, and painting it red would keep asking for attention on
- * something already resolved.
- */
-function reviewStatus(state: ForgeReviewState): ForgeStatus {
-  switch (state) {
-    case 'APPROVED':
-      return { tone: 'ok', label: 'Approved' };
-    case 'CHANGES_REQUESTED':
-      return { tone: 'fail', label: 'Changes requested' };
-    case 'DISMISSED':
-      return { tone: 'idle', label: 'Dismissed' };
-    default:
-      return { tone: 'idle', label: 'Reviewed' };
-  }
 }
 
 function Note({

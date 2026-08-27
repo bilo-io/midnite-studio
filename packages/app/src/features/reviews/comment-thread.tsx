@@ -4,6 +4,7 @@ import { useState } from 'react';
 import Markdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
 
+import { RESOLVED_STATUS, StatusPill } from '../forge/forge-status';
 import { ExternalLink } from '../markdown/external-link';
 import { MARKDOWN_PROSE_CLASSES } from '../markdown/prose';
 import { CommentComposer } from './comment-composer';
@@ -120,11 +121,7 @@ function Thread({
           <span className="text-muted-foreground/70">
             {count === 1 ? '1 comment' : `${count} comments`}
           </span>
-          {thread.resolved ? (
-            <span className="rounded-full bg-success/15 px-1.5 py-px text-[10px] text-success">
-              Resolved
-            </span>
-          ) : null}
+          {thread.resolved ? <StatusPill status={RESOLVED_STATUS} /> : null}
         </button>
 
         <button
