@@ -49,6 +49,7 @@ import {
   type WorktreeStatuses,
 } from '../../services/use-status';
 import { useUiStore } from '../../store/ui-store';
+import { MidniteMenu } from '../agent/midnite-menu';
 import { SyncControls } from '../status/sync-controls';
 import { BranchDot } from './branch-dot';
 import { branchHealth, worktreeHealth, type BranchHealth } from './branch-health';
@@ -611,32 +612,25 @@ function RepoItem({
         <span aria-hidden className="h-4 w-px shrink-0 bg-border" />
 
         {/*
-          Two ellipses, not a row of standing icons. Install/Build/Test/Launch
-          used to sit here as four buttons ahead of the sync control — this repo's
-          own tooling, collapsed behind its own ellipsis so it reads as one
-          control rather than four, sits beside the repo's git/housekeeping
-          ellipsis. Always the main worktree: a folded row already reports the
-          repo's own state rather than any one checkout's, and these run at the
-          same "primary checkout" `primaryTarget` resolves everywhere else.
+          Three menus, three marks, and the order is midnite → git → ellipsis:
+          widest scope first. The midnite mark holds what you ask *this app* to
+          do with the repository, the Git logo holds what you ask *git*, and the
+          ellipsis holds the repository's own tooling — Install/Build/Test/Launch,
+          which used to stand here as four separate buttons ahead of the sync
+          control. Two identical ellipses came before all three, saying only
+          "more" while hiding which one held what.
+
+          Every one of them targets the main worktree: a folded row already
+          reports the repo's own state rather than any one checkout's, and these
+          run at the same "primary checkout" `primaryTarget` resolves everywhere
+          else.
         */}
-        <RepoLifecycleMenu
+        <MidniteMenu
           repoId={repo.id}
           repoName={repo.name}
           cwd={primaryTarget(repo).worktreePath ?? repo.path}
         />
 
-        {/*
-          The close action used to sit here as a bare X, which cost as much
-          width as the sync cluster now uses and put the panel's only
-          irreversible-looking control one stray click from the pointer's
-          resting place.
-        */}
-        {/*
-          The Git logo, not a third ellipsis. This menu IS the git verbs —
-          fetch, pull, push, then the housekeeping around them — and the row
-          already carried two identical ellipses that said only "more" while
-          hiding which one held what.
-        */}
         <IconButton
           icon={FaGitAlt}
           label={`Git actions for ${repo.name}`}
@@ -650,6 +644,12 @@ function RepoItem({
               clientY: event.clientY || rect.bottom,
             });
           }}
+        />
+
+        <RepoLifecycleMenu
+          repoId={repo.id}
+          repoName={repo.name}
+          cwd={primaryTarget(repo).worktreePath ?? repo.path}
         />
       </div>
 
