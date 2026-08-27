@@ -4,6 +4,7 @@ import { Collapse } from '@bilo-io/ui';
 import { ChevronRight } from 'lucide-react';
 
 import { IconButton, type IconComponent } from './icon-button';
+import { TREE_INDENT } from './tree-indent';
 
 /**
  * A labelled, optionally collapsible group of rows.
@@ -18,9 +19,6 @@ import { IconButton, type IconComponent } from './icon-button';
  * that last part every control in a collapsed section stays in the tab order,
  * reachable by keyboard and readable by a screen reader while invisible.
  */
-/** Tailwind can't build class names at runtime, so the map is spelled out. */
-const HEADER_INDENT = ['pl-3', 'pl-4', 'pl-8'] as const;
-
 export function TreeSection({
   title,
   count,
@@ -62,8 +60,10 @@ export function TreeSection({
   /**
    * How deep in a tree the heading sits — 0 is a top-level panel section, 1 a
    * repository's subsection, 2 a group inside one of those. Each step indents
-   * the chevron far enough that the heading lands left of its own rows, which
-   * is what makes the nesting readable without guide lines.
+   * the chevron far enough that the heading lands left of its own rows and
+   * right of the row that owns it, which is what makes the nesting readable
+   * without guide lines. `TREE_INDENT` holds the ladder both this and the rows
+   * are measured on.
    */
   depth?: 0 | 1 | 2;
   children: ReactNode;
@@ -101,7 +101,7 @@ export function TreeSection({
         Reviews (which do not), and the sidebar's section rhythm visibly
         stuttered. Pinning the row means an optional control cannot change it.
       */}
-      <header className={`flex h-7 items-center gap-1.5 pr-2 ${HEADER_INDENT[depth]}`}>
+      <header className={`flex h-7 items-center gap-1.5 pr-2 ${TREE_INDENT[depth]}`}>
         {collapsible ? (
           <button
             type="button"

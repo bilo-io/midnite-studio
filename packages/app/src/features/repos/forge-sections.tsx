@@ -15,6 +15,7 @@ import {
 import type { MenuItem } from '../../components/context-menu';
 import { useDialogs } from '../../components/dialog-host';
 import { IconButton } from '../../components/icon-button';
+import { TREE_INDENT } from '../../components/tree-indent';
 import { TreeSection } from '../../components/tree-section';
 import { cascadeStyle } from '../../lib/cascade';
 import {
@@ -215,7 +216,7 @@ function RunJobs({ repoId, runId }: { repoId: string; runId: string }) {
   if (jobs.length === 0) return <Note indent>No jobs in this run.</Note>;
 
   return (
-    <ul className="border-l border-border/60 pb-1 pl-2 ml-10">
+    <ul className="ml-14 border-l border-border/60 pb-1 pl-2">
       {jobs.map((job) => (
         <li key={job.id} className="flex items-center gap-1.5 py-0.5 pr-2 text-[12px]">
           <StatusPill status={jobStatus(job)} />
@@ -407,7 +408,9 @@ function Unavailable({
  */
 function EmptyIfNoRows({ children }: { children: React.ReactNode }) {
   return (
-    <p className="px-8 py-1.5 text-xs text-muted-foreground [&:not(:last-child)]:hidden">
+    <p
+      className={`${TREE_INDENT[2]} py-1.5 pr-2 text-xs text-muted-foreground [&:not(:last-child)]:hidden`}
+    >
       {children}
     </p>
   );
@@ -425,7 +428,7 @@ function Note({
 }) {
   return (
     <p
-      className={`${indent ? 'pl-12 pr-2' : 'px-8'} py-1.5 text-xs leading-relaxed ${
+      className={`${indent ? TREE_INDENT[3] : TREE_INDENT[2]} py-1.5 pr-2 text-xs leading-relaxed ${
         tone === 'destructive' ? 'text-destructive' : 'text-muted-foreground'
       }`}
     >
@@ -474,7 +477,13 @@ function ForgeRow({
         }}
         style={cascadeStyle(index)}
         className={`group flex animate-fade-in-up cascade-delay items-center gap-1.5 py-0.5 pr-2 text-[13px] transition-colors hover:bg-accent/30 ${
-          expand ? 'pl-4' : 'pl-8'
+          /*
+            A row with a disclosure chevron puts that chevron in the glyph
+            column, so it indents one rung shallower than a row whose leading
+            element is its status pill — both land their leading mark in the
+            same place.
+          */
+          expand ? TREE_INDENT[1] : TREE_INDENT[2]
         }`}
       >
         {expand ? (
