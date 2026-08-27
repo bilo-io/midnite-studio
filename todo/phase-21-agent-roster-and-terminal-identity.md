@@ -165,24 +165,30 @@ The spine: B–F all read off this contract, so it lands first.
       process tree: the fixtures are what make the matcher's `node …/cli.js` and wrapper-script
       cases reviewable, and they keep the test off the machine's actual processes.
 
-### F — The terminal header, rebuilt (S)
+### F — The terminal header, rebuilt (S) — ✅ DONE (2026-08-27)
 
-- [ ] The literal `<span>Terminal</span>` in the header strip goes; in its place a terminal glyph,
+- [x] The literal `<span>Terminal</span>` in the header strip goes; in its place a terminal glyph,
       then the status circle, then the path.
-- [ ] The status circle is the session list's own `StateDot`, lifted to a shared component rather
+- [x] The status circle is the session list's own `StateDot`, lifted to a shared component rather
       than reimplemented — the pulse is two CSS variables and a keyframe, and two copies of it
       would drift.
-- [ ] A `collapseHome` helper with unit tests, because the obvious implementation is wrong in a
+- [x] A `collapseHome` helper with unit tests, because the obvious implementation is wrong in a
       specific way: `/Users/bilolwabona` → `~`, `/Users/bilolwabona/Dev` → `~/Dev`, and
       `/Users/bilolwabonaX/Dev` → unchanged, since a prefix match on the home path without a
       boundary check rewrites a *different* user's home.
-- [ ] The repo/worktree segment renders in `text-foreground font-medium` with its ancestors in
+- [x] The repo/worktree segment renders in `text-foreground font-medium` with its ancestors in
       `text-muted-foreground/60` — the part you navigate by is the part that pops, and the split
-      point comes from Theme D's resolver.
-- [ ] The path truncates from the **left**, so a deep path keeps its tail. The header is a
+      point comes from Theme D's resolver — `resolve-repo-for-path.ts`, landed here because F needs
+      it; D feeds it `liveCwd` instead of the stored cwd. *As built, the emphasis covers the
+      checkout segment **and everything under it**, not the segment alone: the two-span split is
+      also what truncates the row from the left, and a third span for the descendants would give
+      the shrink algorithm a second thing to shrink. Outside a known repository the split still
+      happens — so a deep path keeps its tail there too — but neither half is emphasised, since
+      there is nothing for a bold segment to mean.*
+- [x] The path truncates from the **left**, so a deep path keeps its tail. The header is a
       `flex … min-w-0` row sharing a line with four buttons, and the default right-truncation would
       throw away the only informative end.
-- [ ] The `data-terminal-header` hit-test in [`e2e/terminal.spec.ts`](../packages/app/e2e/terminal.spec.ts)
+- [x] The `data-terminal-header` hit-test in [`e2e/terminal.spec.ts`](../packages/app/e2e/terminal.spec.ts)
       still passes across the strip's full width — the one thing that must stay true of this row is
       that nothing is ever painted over it, and that assertion predates this phase.
 
@@ -206,9 +212,9 @@ The spine: B–F all read off this contract, so it lands first.
       bridge already supplies.
 - [ ] Vitest (Theme A): every new roster field round-trips through `AgentDefinitionSchema`, and a
       malformed entry is dropped individually rather than taking the file with it.
-- [ ] Vitest (Themes D/F): `collapseHome` on home exactly, a child of home, a non-home path, and
+- [x] Vitest (Themes D/F): `collapseHome` on home exactly, a child of home, a non-home path, and
       the `/Users/bilolwabonaX` boundary case; `resolveRepoForPath` on nested worktrees and on a
-      path inside no repo.
+      path inside no repo. (2026-08-27, with Theme F.)
 - [ ] Vitest (Theme E): the argv matcher against fixture process listings — a bare `claude`, a
       `node …/cli.js` form, a wrapper script, and output containing an agent's name as an argument
       rather than as the command.

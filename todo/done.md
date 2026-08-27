@@ -2,6 +2,51 @@
 
 <!-- Append one entry per landed phase/PR: date, phase, PR link, one-line summary. -->
 
+## 2026-08-27 — Phase 21 · Theme F — the terminal header, rebuilt
+
+Landed on `feature/phase-21-terminal-header`, merged locally — no PR link, no GitHub remote on this
+checkout. The first of Phase 21's six themes to land, and the one independent of the roster work
+running in parallel on A/B/C.
+
+- [x] **The word "Terminal" is gone.** The strip read `Terminal  /Users/you/Dev/midnite-git/…` — a
+      label for the pane you are already looking at, then an un-collapsed path. It now leads with a
+      glyph in the width the word cost, then the status circle, then where the terminal actually is
+- [x] **`StateDot` lifted to `components/state-dot.tsx`.** The session list and the header draw the
+      same dot for the same session; the pulse is a keyframe plus two inline CSS variables, which
+      is exactly the pair that drifts once it exists twice. The header's dot reports the ACTIVE
+      session and reads idle when nothing is open — there is no process to be alive
+- [x] **`collapseHome`**, with the boundary check that is the whole reason it is a helper: a plain
+      prefix match rewrites `/Users/bilolwabonaX/Dev` as `~X/Dev`, silently claiming a different
+      user's home as yours, and the result reads plausibly enough to go unnoticed
+- [x] **`resolveRepoForPath`** — Theme D's deliverable, brought forward because F's repo-segment
+      emphasis needs the split point it returns. Longest-prefix, not first-wins: a linked worktree
+      lives *inside* its repository, so both roots prefix the same path and the repository is the
+      wrong answer. Separator-aware, so `/Dev/midnite-git-old` is not inside `/Dev/midnite-git`.
+      D feeds it `liveCwd` instead of the stored cwd; the helper itself is unchanged by that
+- [x] **The path is two spans** — dimmed ancestors, then the checkout you navigate by and
+      everything under it at full weight — and that same split is how it truncates from the LEFT.
+      The ancestor span is the flex child that shrinks (`min-w-0 truncate`) while the checkout span
+      refuses to (`shrink-0`), which puts the ellipsis at the front with no bidi tricks and no
+      measurement: `…/.worktrees/` + **`theme-f/packages/app`** rather than `/tmp/midnite-git/.wo…`
+- [x] **`homeDir` on the preload bridge**, a plain value beside the other preload constants rather
+      than a channel: it never changes for the life of the process, and the header needs it during
+      its first render. An async fetch would paint the raw path and then rewrite it. It has to
+      cross at all because the renderer may not import `node:os`/`node:path`
+- [x] **`data-terminal-header` hit-test still green** across the strip's full width — the one thing
+      that must stay true of this row, and an assertion that predates the phase
+- [x] **Three stale e2e locators repaired**, incidentally. They had been failing on `main` since
+      Phase 19 split the session row's label into a repo span and a session span: they looked for
+      the old single `Claude · midnite-git` string, and for the dim state on a flat list of every
+      `span.truncate` — where the repo span is muted at *both* densities and so says nothing about
+      whether the session is live
+
+Screenshots: `docs/screenshots/phase-21-terminal-header{,-narrow,-before,-before-narrow}.png` —
+the strip alone at two widths, clipped, because a full-window shot renders it 20px tall and the
+two-tone path unreadable.
+
+Still open on the phase: A/B/C in flight elsewhere, D (OSC 7 live cwd — its resolver now exists)
+and E (the process probe).
+
 ## 2026-08-27 — Phase 20 · Themes F + G — review write actions, and the consent switch in front of them
 
 Landed on `feature/phase-20-review-writes`, squash-merged locally — no PR link, no GitHub remote on

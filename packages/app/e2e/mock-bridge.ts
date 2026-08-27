@@ -392,6 +392,14 @@ export async function installMockBridge(page: Page, fixtures: MockFixtures): Pro
     });
 
     (window as unknown as { midniteGit: unknown }).midniteGit = {
+      /*
+        `/tmp` so the fixture repo at `/tmp/midnite-git` sits inside "home" and
+        the terminal header renders the `~`-collapsed path the specs assert on.
+        The real value is `os.homedir()`; what matters here is only that the
+        fixture cwd is under it.
+      */
+      homeDir: '/tmp',
+
       repos: {
         open: async () => ({ ok: true, repo }),
         list: async () => [repo],

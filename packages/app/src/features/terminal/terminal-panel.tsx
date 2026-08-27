@@ -1,15 +1,15 @@
 import { BUILTIN_AGENTS, type AgentDefinition } from '@midnite/git-shared';
 import { useQuery } from '@tanstack/react-query';
-import { ChevronDown, ChevronUp, List, Plus, X } from 'lucide-react';
 import { useEffect } from 'react';
 
 import { useDialogs } from '../../components/dialog-host';
-import { IconButton } from '../../components/icon-button';
 import type { MenuItem } from '../../components/context-menu';
 import { ResizeHandle } from '../../components/resizable/resize-handle';
 import { useResizable } from '../../components/resizable/use-resizable';
 import { bridge, hasBridge } from '../../services/bridge';
+import { useRepos } from '../../services/queries';
 import { DEFAULT_LAYOUT, LAYOUT_BOUNDS, useUiStore } from '../../store/ui-store';
+import { TerminalHeader } from './terminal-header';
 import { TerminalSessionList } from './terminal-session-list';
 import { useTerminalStore } from './terminal-store';
 import { TerminalView } from './terminal-view';
@@ -36,6 +36,8 @@ export function TerminalPanel({ cwd, repoId, repoName }: TerminalPanelProps) {
   const setLayout = useUiStore((s) => s.setLayout);
 
   const agents = useAgents();
+  // For the header's path: which registered checkout the cwd is standing in.
+  const { data: repos } = useRepos();
 
   /*
     The list sits left of the handle in DOM order regardless of dock side —
@@ -108,6 +110,11 @@ export function TerminalPanel({ cwd, repoId, repoName }: TerminalPanelProps) {
 
   const active = sessions.find((s) => s.id === activeId) ?? null;
   /*
+    The header's dot reports the ACTIVE session, so an idle default is the
+    honest reading when nothing is open — there is no process to be alive.
+  */
+  const activeState = useTerminalStore((s) => (activeId ? (s.states[activeId] ?? 'idle') : 'idle'));
+  /*
     A list of one session names nothing the header does not already say, so
     the toggle governs the list only once there is more than one — and says so
     on hover rather than sitting there dead with no explanation.
@@ -119,51 +126,15 @@ export function TerminalPanel({ cwd, repoId, repoName }: TerminalPanelProps) {
     // Named for the e2e suite: the panel's own box is what maximizing changes,
     // and its header, its list and its panes are all separately-sized children.
     <div data-terminal-panel className="flex h-full min-h-0 flex-col bg-background">
-      {/*
-        Named for the e2e suite as well: the one thing that must be true of this
-        strip is that nothing else in the window is ever drawn on top of it, and
-        that is asserted by hit-testing across its width.
-      */}
-      <div
-        data-terminal-header
-        className="flex shrink-0 items-center gap-2 border-b border-border px-3 py-1 text-xs text-muted-foreground"
-      >
-        <span>Terminal</span>
-        <span className="truncate" title={active?.cwd ?? cwd ?? undefined}>
-          {active?.cwd ?? cwd ?? 'no worktree selected'}
-        </span>
-
-        <div className="ml-auto flex items-center gap-0.5">
-          <IconButton
-            icon={List}
-            label={showList ? 'Hide session list' : 'Show session list'}
-            size="sm"
-            aria-pressed={showList}
-            {...(listable ? {} : { disabled: true, disabledReason: 'Only one session is open' })}
-            onClick={() => useUiStore.getState().toggleTerminalList()}
-          />
-          <IconButton
-            icon={Plus}
-            label="New terminal or agent"
-            size="sm"
-            aria-expanded={false}
-            onClick={showNewMenu}
-          />
-          <IconButton
-            icon={maximized ? ChevronDown : ChevronUp}
-            label={maximized ? 'Restore terminal height' : 'Expand terminal'}
-            size="sm"
-            aria-pressed={maximized}
-            onClick={() => useUiStore.getState().toggleTerminalMaximized()}
-          />
-          <IconButton
-            icon={X}
-            label="Hide terminal"
-            size="sm"
-            onClick={() => useUiStore.getState().setTerminalOpen(false)}
-          />
-        </div>
-      </div>
+      <TerminalHeader
+        path={active?.cwd ?? cwd}
+        state={activeState}
+        repos={repos}
+        listable={listable}
+        showList={showList}
+        maximized={maximized}
+        onNewMenu={showNewMenu}
+      />
 
       <div className={`flex min-h-0 flex-1 ${side === 'left' ? 'flex-row' : 'flex-row-reverse'}`}>
         {showList ? (

@@ -50,6 +50,19 @@ export type WindowChromeBridge = {
  * this is the API surface in full.
  */
 export type MidniteGitBridge = {
+  /**
+   * The user's home directory, as an absolute path.
+   *
+   * A constant for the life of the process, so it is a value rather than a
+   * channel — the terminal header `~`-collapses its path on first paint, and an
+   * async round-trip for a fact that never changes would show the un-collapsed
+   * path first and then rewrite it.
+   *
+   * The renderer may not import `node:path` or `node:os` (see the package
+   * boundaries in CLAUDE.md), which is the whole reason this crosses here.
+   */
+  homeDir: string;
+
   repos: {
     open: (req: In<typeof S.RepoOpenRequest>) => Promise<z.infer<typeof S.RepoOpenResponse>>;
     list: () => Promise<RepoDescriptor[]>;
