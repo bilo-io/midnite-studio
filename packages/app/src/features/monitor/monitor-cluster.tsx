@@ -4,6 +4,8 @@ import { useState, type ReactNode } from 'react';
 import { Popover } from '../../components/popover';
 import { useMetricsStore, type MetricPoint } from '../../store/metrics-store';
 import { useUiStore } from '../../store/ui-store';
+import { MetricDonut } from './metric-donut';
+import { isLevelMetric } from './metric-geometry';
 import { METRIC_LABELS, metricColor, metricGlow } from './metric-palette';
 import { MonitorFlyout } from './monitor-flyout';
 import { Sparkline } from './sparkline';
@@ -79,6 +81,21 @@ export function MonitorCluster() {
   );
 }
 
+/**
+ * One metric's readout, in whichever of the two forms it earns.
+ *
+ * A **rate** — CPU, RAM, GPU — is a dot, a percentage and a sparkline: the
+ * number is now, the line is the last few minutes, and the dot is what makes
+ * the pair findable at a glance in a 24px strip.
+ *
+ * A **level** — disk capacity — is a ring and a percentage, and no dot. Two
+ * changes, one reason: a sparkline of capacity is a flat line implying a trend
+ * that is not there (`isLevelMetric`, and the flyout's bar, make the same
+ * argument), and the ring is already a coloured mark in the metric's own hue,
+ * so a dot beside it would be the same identification twice. The ring takes
+ * the dot's place at the head of the readout rather than the sparkline's, so
+ * the column of percentages down the strip stays aligned.
+ */
 function MetricReadout({
   id,
   value,
@@ -89,6 +106,7 @@ function MetricReadout({
   points: readonly MetricPoint[];
 }) {
   const rounded = Math.round(value);
+  const level = isLevelMetric(id);
   return (
     <span
       className="flex items-center gap-1"
@@ -98,18 +116,22 @@ function MetricReadout({
       // an unlabelled graphic between them.
       aria-label={`${METRIC_LABELS[id]} ${rounded} percent`}
     >
-      <span
-        aria-hidden
-        className="h-2 w-2 shrink-0 rounded-full"
-        // Data colours, so inline rather than a token class — see
-        // metric-palette.ts. The glow is what makes a 2px dot read as lit
-        // rather than as a speck of dust on the screen.
-        style={{ backgroundColor: metricColor(id), boxShadow: metricGlow(id) }}
-      />
+      {level ? (
+        <MetricDonut id={id} percent={value} />
+      ) : (
+        <span
+          aria-hidden
+          className="h-2 w-2 shrink-0 rounded-full"
+          // Data colours, so inline rather than a token class — see
+          // metric-palette.ts. The glow is what makes a 2px dot read as lit
+          // rather than as a speck of dust on the screen.
+          style={{ backgroundColor: metricColor(id), boxShadow: metricGlow(id) }}
+        />
+      )}
       <span aria-hidden className="w-8 text-right tabular-nums">
         {rounded}%
       </span>
-      <Sparkline id={id} points={points} />
+      {level ? null : <Sparkline id={id} points={points} />}
     </span>
   );
 }
