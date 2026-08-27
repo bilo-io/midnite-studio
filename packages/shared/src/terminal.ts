@@ -63,6 +63,15 @@ export const TerminalSessionSchema = z
     agentId: z.string().min(1).optional(),
     /** Display label — the repo name, by default. */
     title: z.string(),
+    /**
+     * The session's own name, shown after the repo name in the terminal list.
+     *
+     * User-set only — an auto-detected title (from the shell's OSC title, or a
+     * shell session's last command) lives in the renderer's runtime state, not
+     * here, so a live guess is never written to disk as if the user had chosen
+     * it themselves.
+     */
+    name: z.string().min(1).optional(),
     cwd: z.string().min(1),
     /** The repo this session was opened against, for grouping and labelling. */
     repoId: z.string().min(1),

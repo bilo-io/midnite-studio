@@ -54,6 +54,7 @@ import {
   type SectionKey,
   type ViewSections,
 } from './view-sections';
+import { RepoLifecycleActions } from './repo-lifecycle-actions';
 import { primaryTarget, useRepoActions } from './use-repo-actions';
 
 /**
@@ -384,6 +385,21 @@ function RepoItem({
             )}
           </button>
         </Tooltip>
+
+        {/*
+          Install / Build / Test / Launch, ahead of the git-specific controls —
+          this repo's own tooling is a different kind of action from syncing or
+          the ellipsis menu, and the rule between them is what says so without
+          a heading. Always the main worktree: a folded row already reports the
+          repo's own state rather than any one checkout's, and these run at the
+          same "primary checkout" `primaryTarget` resolves everywhere else.
+        */}
+        <RepoLifecycleActions
+          repoId={repo.id}
+          repoName={repo.name}
+          cwd={primaryTarget(repo).worktreePath ?? repo.path}
+        />
+        <span aria-hidden className="h-4 w-px shrink-0 bg-border" />
 
         {/*
           The sync control, per repository. Syncing is a per-repo question, and

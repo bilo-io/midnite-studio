@@ -33,8 +33,10 @@ import { TestsView } from './features/tests/tests-view';
 import { DashboardView } from './features/dashboard/dashboard-view';
 import { FilesView } from './features/files/files-view';
 import { GraphView } from './features/graph/graph-view';
+import { RepoLifecycleActions } from './features/repos/repo-lifecycle-actions';
 import { ReposPanel } from './features/repos/repos-panel';
 import { useDefaultSelection } from './features/repos/use-default-selection';
+import { primaryTarget } from './features/repos/use-repo-actions';
 import { SettingsView } from './features/settings/settings-view';
 import { Workbench } from './features/workbench/workbench';
 import { SyncActions } from './features/status/sync-actions';
@@ -269,8 +271,8 @@ function Shell() {
   // The repo's own name labels its terminals; the path is the fallback for a
   // repo that has since been closed out from under a saved session.
   const { data: openRepos } = useRepos();
-  const selectedRepoName =
-    openRepos?.find((repo) => repo.id === selectedRepoId)?.name ?? 'terminal';
+  const selectedRepo = openRepos?.find((repo) => repo.id === selectedRepoId) ?? null;
+  const selectedRepoName = selectedRepo?.name ?? 'terminal';
   const layout = useUiStore((s) => s.layout);
   const setLayout = useUiStore((s) => s.setLayout);
   const navMode = useUiStore((s) => s.navMode);
@@ -417,6 +419,24 @@ function Shell() {
   const chrome = (
     <>
       <SyncActions />
+      {/*
+        Install / Build / Test / Launch for whichever checkout is selected —
+        the same cluster the sidebar shows per repository, aimed here at
+        "wherever you are" rather than "this repo's main worktree". Absent
+        with no repository selected: there is no checkout for a guessed
+        command to run against.
+      */}
+      {selectedRepo ? (
+        <>
+          <span aria-hidden className="h-4 w-px shrink-0 bg-border" />
+          <RepoLifecycleActions
+            repoId={selectedRepo.id}
+            repoName={selectedRepo.name}
+            cwd={selectedWorktreePath ?? primaryTarget(selectedRepo).worktreePath ?? selectedRepo.path}
+            {...(selectedWorktreePath ? { worktreePath: selectedWorktreePath } : {})}
+          />
+        </>
+      ) : null}
       <ThemeToggle />
     </>
   );

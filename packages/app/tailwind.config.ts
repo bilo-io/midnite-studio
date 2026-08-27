@@ -124,6 +124,21 @@ const config: Config = {
           from: { backgroundPosition: '0% 50%' },
           to: { backgroundPosition: '200% 50%' },
         },
+        /**
+         * A terminal session's connection dot, marking it live.
+         *
+         * `box-shadow` rather than `halo-breathe`'s separate scaled element: the
+         * dot is a plain circle with no room for a second layer underneath it in
+         * a text-height row, and at 6px the paint cost is negligible even though
+         * box-shadow is a main-thread property. The two colour stops
+         * (`--pulse-a`/`--pulse-b`) are set inline per state — emerald for open,
+         * amber for starting — because the ring is a state colour, not a theme
+         * token.
+         */
+        'dot-pulse': {
+          '0%, 100%': { boxShadow: '0 0 0 0 var(--pulse-a)' },
+          '70%': { boxShadow: '0 0 0 4px var(--pulse-b)' },
+        },
       },
       animation: {
         'fade-in': 'fade-in 160ms ease-in-out both',
@@ -147,6 +162,7 @@ const config: Config = {
          * starting position (see `ref-badge.tsx`).
          */
         'lane-sweep': 'lane-sweep 3600ms linear infinite',
+        'dot-pulse': 'dot-pulse 1800ms ease-out infinite',
       },
       transitionTimingFunction: {
         // Tailwind's default `transition` curve is cubic-bezier(0.4,0,0.2,1)
