@@ -323,6 +323,33 @@ case-insensitive **substring** match by default, and the new "Tests" sidebar tog
 unrelated `forge-issues.spec.ts` fixture whose CI job happens to be named `test` — fixed there with
 `exact: true`, the same guard the spec already used for "Actions".
 
+## 2026-08-26 — Phase 16 · Theme F (follow-up) — Coverage for the nav-mode lock
+
+Landed on `feature/nav-mode-coverage`. Theme F shipped the locked/unlocked rail and it works,
+but the behaviour itself was never asserted: the e2e only checked that the pin *appeared* once
+Appearance had locked the rail, and `navMode` was the one Theme F field with no store test at
+all — despite sitting in `partialize`, where a future edit could drop it silently.
+
+### What landed
+
+- [x] e2e — the pin's round trip, and the distinction that makes a lock a lock:
+      `auto` hover-expands as an overlay (`--nav-offset` stays `3.5rem`), `expanded` is the only
+      mode that moves content (`16rem`). The two rails render identically, so the custom property
+      `AppFrame` publishes is the only thing that can tell them apart
+- [x] e2e — unlocking lands on `auto`, never on `collapsed`: the pin is two-state by design, and
+      nothing had held it to that
+- [x] Three `ui-store.test.ts` cases — all three modes through `setNavMode`, the mode surviving a
+      restart, and a stored payload that predates the setting merging to `auto` rather than
+      booting someone into a rail they never locked
+
+### Worth remembering
+
+`openSettings` clicks the rail's own footer button, so the pointer is left sitting on the rail
+and `auto` holds it hover-expanded — the "no pin at rest" assertion failed until the test moved
+the mouse off first. A hover-driven rail makes the pointer's resting place part of the fixture.
+
+Tests: `app:test` 513 passed; full e2e 192 passed / 8 skipped. Gate green.
+
 ## 2026-08-26 — Phase 16 · Theme F — Grouped settings navigation + the side-navigation control
 
 Landed on `feature/sidebar-settings` (squash-merged — this repository still has no remote, so
