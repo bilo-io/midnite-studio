@@ -1,6 +1,6 @@
 # Midnite Git — Phase Index
 
-**Headline:** **[21](phase-21-agent-roster-and-terminal-identity.md)** is the newest frontier and its first three themes have landed: the terminal's one-entry agent roster has grown to four — Claude Code, Antigravity (`agy`), Codex and OpenClaude — each with its own brand mark resolved from roster data rather than a hard-coded component, behind a flat, iconned `+` menu that disables what is not installed and says why — the probe behind that resolving against the *login shell's* PATH, since `claude` and `agy` live where only an rc file puts them. Its live half is still ahead and is the more interesting one: OSC 7 cwd tracking and a process probe in main mean a terminal finally knows where it is and what is running in it, so the session list's icon and a rebuilt header — a glyph, the status circle, a `~`-collapsed path with the repo segment emphasised — follow a `cd` or an agent quit instead of reporting whichever menu item opened the session. Per-agent activity detection and a writable Settings ▸ Agents page are explicitly out, as are launcher-style "Open in <IDE>" entries. **[20](phase-20-reviews-page.md)** is the previous frontier and is now feature-complete:
+**Headline:** **[22](phase-22-stash-and-safety-net.md)** is the newest frontier and is planned but unstarted — the largest phase in the repo, and the one that closes the two gaps every earlier phase wrote into its margins. `git stash` appears nowhere in the codebase today and `refs/stash` is deliberately dropped by the ref parser; Phase 22 gives it an engine, a sidebar section, graph pseudo-rows, a readable diff and a verb in the Changes view. Then it builds the safety net three files have been promising in doc comments since Phase 7: the reflog read and browsable as a **History** rail view, an ops journal, the app's first toast primitive, and an undo that is honest about being ref-shaped — because the reflog records where refs pointed and nothing about the working tree. On the strength of that it reverses the MVP's flat no-force-push ban, `--force-with-lease` only and only in its explicit `=<ref>:<sha>` form, behind the blast-radius gate Phase 7 already built and a default-off switch. Interactive rebase, a command palette and undo for the sequencer's ops are explicitly out. **[21](phase-21-agent-roster-and-terminal-identity.md)** is the previous frontier and its first three themes have landed: the terminal's one-entry agent roster has grown to four — Claude Code, Antigravity (`agy`), Codex and OpenClaude — each with its own brand mark resolved from roster data rather than a hard-coded component, behind a flat, iconned `+` menu that disables what is not installed and says why — the probe behind that resolving against the *login shell's* PATH, since `claude` and `agy` live where only an rc file puts them. Its live half is still ahead and is the more interesting one: OSC 7 cwd tracking and a process probe in main mean a terminal finally knows where it is and what is running in it, so the session list's icon and a rebuilt header — a glyph, the status circle, a `~`-collapsed path with the repo segment emphasised — follow a `cd` or an agent quit instead of reporting whichever menu item opened the session. Per-agent activity detection and a writable Settings ▸ Agents page are explicitly out, as are launcher-style "Open in <IDE>" entries. **[20](phase-20-reviews-page.md)** is the previous frontier and is now feature-complete:
 a Reviews page joins the nav rail — a PR list filterable by state/author/search, beside a tabbed PR
 detail (Files/Conversation/Checks) — diffs across the whole app are syntax-highlighted through the
 one shared `DiffView`, inline comment threads hang off the diff's own lines, and the phase's
@@ -20,6 +20,7 @@ Completed work is logged append-only in [`done.md`](done.md). Deferred scope liv
 
 | Phase | Status | Done | Progress | % | 🔄 WIP | ◻ TODO |
 |-------|--------|------|----------|---|--------|--------|
+| [22 · Stash, the reflog, and writes you can take back](phase-22-stash-and-safety-net.md) | ◻ TODO | 0/70 | `░░░░░░░░░░` | 0% | — | A–H |
 | [21 · Agent roster + terminal identity](phase-21-agent-roster-and-terminal-identity.md) | 🔄 WIP | 31/46 | `███████░░░` | 67% | E | — |
 | [20 · Reviews page & unified diff syntax highlighting](phase-20-reviews-page.md) | 🔄 WIP | 43/45 | `██████████` | 96% | — | 2 manual checks |
 | [19 · Dashboard, Actions and Tests as views](phase-19-dashboard-actions-tests.md) | 🔄 WIP | 73/76 | `██████████` | 96% | — | 3 manual checks |
@@ -47,6 +48,35 @@ Completed work is logged append-only in [`done.md`](done.md). Deferred scope liv
 
 <!-- Each phase currently carries a single theme A = its full deliverables checklist. Split into
      lettered themes if a phase gets parallelised. -->
+
+### [Phase 22 — Stash, the reflog, and writes you can take back](phase-22-stash-and-safety-net.md)
+
+*The client can merge, rebase and review a pull request, and still cannot put work down for five
+minutes: `git stash` appears nowhere in the codebase, and `refs/stash` is deliberately dropped by
+the ref parser. A is the engine spine B–E read off; B–E are the four surfaces a stash shows up on
+(sidebar section, graph pseudo-rows, the inspector, the Changes view). F reverses the MVP's flat
+no-force-push ban, `--force-with-lease` only and only in its explicit form, behind the blast-radius
+gate Phase 7 already built. G and H are the safety net three files have been promising in doc
+comments since Phase 7 — the reflog finally read and browsable, and the app's first ops journal,
+first toast primitive and first undo.*
+
+- ◻ **A** — `commands/stash.ts` + `stash-parser.ts` on the write-queue idiom, `mgit:stash:*`
+  channels, and a `'stash-apply'` arm on `ConflictOpSchema` so a conflicted pop is a normal outcome.
+- ◻ **B** — a `'stashes'` `SectionKey` and a `TreeSection` in `RepoTree`, with a `StashRow`, a
+  heading action and a query key nested under `keys.repo(repoId)`.
+- ◻ **C** — stashes as graph pseudo-rows on the `UncommittedRow` precedent: dashed lane, dashed
+  ring, outside `GraphRowSchema` rather than smuggled in behind a fake sha.
+- ◻ **D** — a stash you can read: all three parts (tracked, index, untracked) through Phase 12's
+  hunk parser and the one shared `DiffView`, not just what `stash show -p` admits to.
+- ◻ **E** — stash from the Changes view: selected paths, `--keep-index` and `-u` as labelled
+  options rather than defaults chosen for the user.
+- ◻ **F** — force-push with a lease, explicit `=<ref>:<sha>` form only, behind
+  `countOrphanedCommits` and a default-off Settings switch — and the three written-down "there is
+  no force push" comments rewritten rather than deleted.
+- ◻ **G** — `commands/reflog.ts` and a **History** rail view: HEAD plus per-ref, each entry
+  checkout-able, with `.git/logs` joining the watcher for the first time.
+- ◻ **H** — the ops journal, the app's first toast primitive, and undo — ref-shaped only, because
+  the reflog records where refs pointed and nothing about the working tree.
 
 ### [Phase 21 — A plural agent roster, and a terminal that knows where it is](phase-21-agent-roster-and-terminal-identity.md)
 
