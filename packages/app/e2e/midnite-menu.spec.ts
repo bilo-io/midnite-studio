@@ -43,7 +43,7 @@ const ptyInputs = (page: Page) =>
 
 async function openMidniteMenu(page: Page): Promise<void> {
   await page.getByRole('button', { name: `Run a midnite skill on ${REPO}` }).click();
-  await expect(page.getByRole('menuitem', { name: 'Exec' })).toBeVisible();
+  await expect(page.getByRole('menuitem', { name: 'Execute Task' })).toBeVisible();
 }
 
 test('the row carries three menus, midnite first and the ellipsis last', async ({ page }) => {
@@ -75,21 +75,29 @@ test('the row carries three menus, midnite first and the ellipsis last', async (
   ]);
 });
 
-test('the menu offers the four agent verbs, each with its own glyph', async ({ page }) => {
+test('the menu offers the five agent verbs, each with its own glyph', async ({ page }) => {
   await open(page);
   await openMidniteMenu(page);
 
   const items = page.getByRole('menuitem');
-  await expect(items).toHaveText(['Exec', 'Brainstorm', 'Loop PR Review', 'Loop PR Feedback']);
-  // Iconed throughout, like every other menu the row opens — a menu of four
+  // The labels, not the ids — what the menu shows is a display layer over
+  // `AgentCommandId`, and this is the assertion that keeps the two apart.
+  await expect(items).toHaveText([
+    'Execute Task',
+    'Brainstorm Feature',
+    'Refine Plan',
+    'Loop PR Review',
+    'Loop PR Feedback',
+  ]);
+  // Iconed throughout, like every other menu the row opens — a menu of five
   // bare verbs would be the one place the app drops its glyphs.
-  await expect(items.locator('svg')).toHaveCount(4);
+  await expect(items.locator('svg')).toHaveCount(5);
 });
 
 test('an entry opens a Claude session with its skill typed, not run', async ({ page }) => {
   await open(page);
   await openMidniteMenu(page);
-  await page.getByRole('menuitem', { name: 'Exec' }).click();
+  await page.getByRole('menuitem', { name: 'Execute Task' }).click();
 
   await expect(page.locator('[data-terminal-panel]')).toBeVisible();
   await expect.poll(() => ptyInputs(page)).toEqual(["claude '/exec'"]);
@@ -106,7 +114,7 @@ test('pointing the entry at another skill in Settings changes what it sends', as
   await page.getByRole('button', { name: 'Settings' }).click();
   await page.getByRole('button', { name: 'Agent', exact: true }).click();
 
-  const field = page.getByRole('textbox', { name: 'Skill for Exec' });
+  const field = page.getByRole('textbox', { name: 'Skill for Execute Task' });
   await expect(field).toHaveValue('/exec');
   await field.fill('/exec-issue');
 
@@ -117,7 +125,7 @@ test('pointing the entry at another skill in Settings changes what it sends', as
 
   await page.getByRole('link', { name: 'Graph' }).click();
   await openMidniteMenu(page);
-  await page.getByRole('menuitem', { name: 'Exec' }).click();
+  await page.getByRole('menuitem', { name: 'Execute Task' }).click();
 
   await expect.poll(() => ptyInputs(page)).toEqual(["claude '/exec-issue'"]);
 });
