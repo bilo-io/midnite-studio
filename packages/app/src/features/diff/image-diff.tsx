@@ -28,13 +28,15 @@ const MODES: readonly { id: Mode; label: string; hint: string }[] = [
 ];
 
 /**
- * A checkerboard, so transparency reads as transparency.
+ * A checkerboard, so transparency reads as transparency. Exported because the
+ * Files preview shows the same pictures and must not sit them on a different
+ * ground.
  *
  * Without it a PNG with an alpha channel sits on the pane background and an
  * added transparent region looks like a solid dark shape — the exact detail an
  * image diff exists to show.
  */
-const CHECKS =
+export const IMAGE_CHECKERBOARD =
   'repeating-conic-gradient(rgb(255 255 255 / 0.06) 0% 25%, transparent 0% 50%) 50% / 16px 16px';
 
 export function ImageDiff({
@@ -121,7 +123,7 @@ export function ImageDiff({
           which the header states in numbers.
         */
         <div className={`flex ${frame} items-center justify-center p-2`}>
-          <div className="relative h-full w-full" style={{ background: CHECKS }}>
+          <div className="relative h-full w-full" style={{ background: IMAGE_CHECKERBOARD }}>
             <img
               src={before!.url}
               alt={`${before!.label} revision`}
@@ -193,7 +195,7 @@ function Pane({
       </figcaption>
       <div
         className="flex min-h-0 flex-1 items-center justify-center overflow-hidden rounded border border-border/60"
-        style={{ background: CHECKS }}
+        style={{ background: IMAGE_CHECKERBOARD }}
       >
         {failed ? (
           <Unavailable />
