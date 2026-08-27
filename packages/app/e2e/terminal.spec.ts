@@ -179,6 +179,57 @@ test.describe('terminal panel', () => {
   });
 
   /**
+   * The app column is exactly the viewport, so nothing can slide under the bar.
+   *
+   * It used to be one title bar TALLER: the column was pushed below the bar
+   * with a top margin AND sized `100vh - var(--titlebar-h)`, which is the bar's
+   * height twice over. `body { overflow: hidden }` hides that from the wheel,
+   * but not from the platform — `focus()` and `scrollIntoView()` scroll an
+   * overflow-hidden viewport quite happily, and clicking into a terminal
+   * focuses xterm's hidden textarea. One click, 48px, and the app sat under
+   * the bar with no gesture that could bring it back.
+   */
+  test('the document has nothing to scroll, so focus cannot shift the app', async ({ page }) => {
+    await open(page, { terminalSessions: RESTORED });
+    await toggleTerminal(page);
+    await page.getByRole('button', { name: 'Expand terminal' }).click();
+
+    const room = await page.evaluate(() => {
+      const de = document.documentElement;
+      return de.scrollHeight - de.clientHeight;
+    });
+    expect(room).toBe(0);
+
+    // And the guarantee stated as the symptom: scrolled at, hard, the
+    // terminal's own controls are still the thing under the pointer rather
+    // than the title bar drawn on top of them.
+    await page.evaluate(() => window.scrollTo(0, 400));
+
+    const header = page.locator('[data-terminal-header]');
+    const box = (await header.boundingBox())!;
+    const strays = await page.evaluate(
+      (points) =>
+        points
+          .map(({ x, y }) => {
+            const hit = document.elementFromPoint(x, y);
+            if (hit?.closest('[data-terminal-panel]')) return null;
+            return { x: Math.round(x), label: hit?.getAttribute('aria-label') ?? hit?.tagName ?? 'none' };
+          })
+          .filter((entry) => entry !== null),
+      Array.from({ length: 16 }, (_, at) => ({
+        x: box.x + ((at + 0.5) * box.width) / 16,
+        y: box.y + box.height / 2,
+      })),
+    );
+    expect(strays).toEqual([]);
+
+    // Clickable, not merely uncovered — the bug's actual cost was a maximized
+    // terminal you could not put back.
+    await page.getByRole('button', { name: 'Restore terminal height' }).click();
+    await expect(page.getByRole('columnheader', { name: 'Commit message' })).toBeVisible();
+  });
+
+  /**
    * The restore contract, which is the whole point of the phase: a session
    * outlives its pty, so it comes back as a row with scrollback and NO process
    * until you ask for one.
