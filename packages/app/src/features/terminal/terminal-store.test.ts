@@ -1,6 +1,6 @@
 import { beforeEach, describe, expect, it } from 'vitest';
 
-import { useTerminalStore } from './terminal-store';
+import { sessionLabel, useTerminalStore } from './terminal-store';
 
 /**
  * The store's own logic, with no bridge behind it.
@@ -146,5 +146,70 @@ describe('useTerminalStore', () => {
 
     expect(useTerminalStore.getState().states[a.id]).toBe('unavailable');
     expect(useTerminalStore.getState().errors[a.id]).toBe('node-pty missing');
+  });
+
+  describe('renameSession', () => {
+    it('sets a custom name that outranks the live guess', () => {
+      const a = open('a');
+      useTerminalStore.getState().setAutoName(a.id, 'git status');
+      useTerminalStore.getState().renameSession(a.id, 'Rebase onto main');
+
+      const session = useTerminalStore.getState().sessions.find((s) => s.id === a.id)!;
+      expect(session.name).toBe('Rebase onto main');
+      expect(sessionLabel(session, useTerminalStore.getState().autoNames[a.id])).toBe(
+        'Rebase onto main',
+      );
+    });
+
+    it('clears the custom name back to the live guess on an undefined rename', () => {
+      const a = open('a');
+      useTerminalStore.getState().setAutoName(a.id, 'git status');
+      useTerminalStore.getState().renameSession(a.id, 'Rebase onto main');
+      useTerminalStore.getState().renameSession(a.id, undefined);
+
+      const session = useTerminalStore.getState().sessions.find((s) => s.id === a.id)!;
+      expect(session.name).toBeUndefined();
+      expect(sessionLabel(session, useTerminalStore.getState().autoNames[a.id])).toBe(
+        'git status',
+      );
+    });
+  });
+
+  describe('setActivity', () => {
+    it('records and clears a session activity guess', () => {
+      const a = open('a');
+      useTerminalStore.getState().setActivity(a.id, 'thinking');
+      expect(useTerminalStore.getState().activity[a.id]).toBe('thinking');
+
+      useTerminalStore.getState().setActivity(a.id, undefined);
+      expect(useTerminalStore.getState().activity[a.id]).toBeUndefined();
+    });
+  });
+});
+
+describe('sessionLabel', () => {
+  const base = {
+    id: 's1',
+    kind: 'shell' as const,
+    title: 'midnite-git',
+    cwd: '/repos/midnite-git',
+    repoId: 'repo:midnite-git',
+    createdAt: 0,
+  };
+
+  it('prefers the persisted name over everything else', () => {
+    expect(sessionLabel({ ...base, name: 'Build' }, 'git log', 'Claude')).toBe('Build');
+  });
+
+  it('falls back to the live guess when there is no custom name', () => {
+    expect(sessionLabel(base, 'git log', 'Claude')).toBe('git log');
+  });
+
+  it('falls back to the agent label when nothing else is known', () => {
+    expect(sessionLabel(base, undefined, 'Claude')).toBe('Claude');
+  });
+
+  it('falls back to a plain "Terminal" for an unnamed shell', () => {
+    expect(sessionLabel(base, undefined)).toBe('Terminal');
   });
 });
