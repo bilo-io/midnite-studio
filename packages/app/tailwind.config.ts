@@ -139,6 +139,28 @@ const config: Config = {
           '0%, 100%': { boxShadow: '0 0 0 0 var(--pulse-a)' },
           '70%': { boxShadow: '0 0 0 4px var(--pulse-b)' },
         },
+        /**
+         * One dot of the "waiting on you" ellipsis. Three of them share the
+         * keyframe and are staggered by a negative `animation-delay`, so the
+         * wave is already mid-travel on the first frame instead of starting
+         * with all three at rest.
+         *
+         * Transform and opacity only, for the same reason `halo-breathe` uses
+         * them: this runs once per idle agent row, forever.
+         */
+        'dot-wave': {
+          '0%, 60%, 100%': { transform: 'translateY(0)', opacity: '0.35' },
+          '30%': { transform: 'translateY(-2px)', opacity: '1' },
+        },
+        /**
+         * The idle caret. A hard on/off with no in-between — a terminal cursor
+         * that fades is a terminal cursor that reads as a loading state, which
+         * is exactly the thing the other two glyphs here mean.
+         */
+        'caret-blink': {
+          '0%, 49%': { opacity: '1' },
+          '50%, 100%': { opacity: '0' },
+        },
       },
       animation: {
         'fade-in': 'fade-in 160ms ease-in-out both',
@@ -163,6 +185,10 @@ const config: Config = {
          */
         'lane-sweep': 'lane-sweep 3600ms linear infinite',
         'dot-pulse': 'dot-pulse 1800ms ease-out infinite',
+        'dot-wave': 'dot-wave 1200ms ease-in-out infinite',
+        // 1060ms rather than a round 1000ms so the caret and the wave beside it
+        // in the same list never settle into a shared beat.
+        'caret-blink': 'caret-blink 1060ms steps(1, end) infinite',
       },
       transitionTimingFunction: {
         // Tailwind's default `transition` curve is cubic-bezier(0.4,0,0.2,1)

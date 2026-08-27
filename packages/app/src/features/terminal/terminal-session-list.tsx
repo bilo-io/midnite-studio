@@ -1,6 +1,6 @@
 import type { AgentDefinition, TerminalSession } from '@midnite/git-shared';
 import { Terminal, X } from 'lucide-react';
-import { LuChevronRight, LuLoaderCircle, LuMessageCircleQuestion, LuPencil } from 'react-icons/lu';
+import { LuChevronRight, LuPencil } from 'react-icons/lu';
 
 import { useDialogs } from '../../components/dialog-host';
 import { IconButton } from '../../components/icon-button';
@@ -168,7 +168,12 @@ function SessionRow({
         </span>
       </button>
 
-      <ActivityIndicator activity={activity} />
+      {/*
+        Only a live agent gets one. A plain shell has no footer to read the
+        state off (see activity-detect.ts), and an exited row is a transcript
+        — a blinking caret on either would be an invented signal.
+      */}
+      {session.kind === 'agent' && live ? <ActivityIndicator activity={activity} /> : null}
 
       <IconButton
         icon={LuPencil}
@@ -192,30 +197,81 @@ function SessionRow({
 }
 
 /**
- * Whether a live agent looks to be generating or back waiting on you — a
- * second, distinct glyph beside the connection dot, which only ever says
- * whether the PROCESS is alive.
+ * Whether a live agent looks to be generating, back waiting on you, or simply
+ * sitting there — a second, distinct glyph beside the connection dot, which
+ * only ever says whether the PROCESS is alive.
+ *
+ * Three drawn shapes rather than three icons, because the state IS the motion:
+ * an arc going round is work in progress, an ellipsis rolling is a question
+ * left open, a caret ticking is a prompt with nobody at it. An icon has to be
+ * decoded; these are the same marks a terminal already uses for the same three
+ * things. The 14px slot is fixed so the row's connection dot does not shift
+ * sideways each time the glyph under it changes.
  */
 function ActivityIndicator({ activity }: { activity: SessionActivity | undefined }) {
-  if (activity === 'thinking') {
-    return (
-      <LuLoaderCircle
-        role="img"
-        aria-label="Thinking"
-        className="h-3 w-3 shrink-0 animate-spin text-muted-foreground"
-      />
-    );
-  }
-  if (activity === 'waiting') {
-    return (
-      <LuMessageCircleQuestion
-        role="img"
-        aria-label="Waiting for input"
-        className="h-3 w-3 shrink-0 text-amber-500"
-      />
-    );
-  }
-  return null;
+  return (
+    <span className="flex h-3 w-3.5 shrink-0 items-center justify-center">
+      {activity === 'thinking' ? (
+        <ThinkingSpinner />
+      ) : activity === 'waiting' ? (
+        <WaitingDots />
+      ) : (
+        <IdleCaret />
+      )}
+    </span>
+  );
+}
+
+/**
+ * The spinner, as a ring with one lit quadrant.
+ *
+ * Borders rather than an SVG or a glyph: at 12px a stroked arc is a single
+ * `border-t-*` on a circle, and rotating a bordered box is a compositor-only
+ * transform where an animated icon component is a React tree that re-renders.
+ */
+function ThinkingSpinner() {
+  return (
+    <span
+      role="img"
+      aria-label="Thinking"
+      className="size-3 animate-spin rounded-full border-[1.5px] border-muted-foreground/25 border-t-foreground"
+    />
+  );
+}
+
+/**
+ * "…" as three dots riding a wave, amber like the old question mark was: this
+ * is still the one state that wants something from you.
+ *
+ * The delays are negative so the wave is already halfway through on the first
+ * paint — a row that appears mid-answer should not have to wait a full cycle
+ * before it looks like it is waiting.
+ */
+const WAVE_DOTS = [0, 1, 2];
+
+function WaitingDots() {
+  return (
+    <span role="img" aria-label="Waiting for input" className="flex items-center gap-[1.5px]">
+      {WAVE_DOTS.map((index) => (
+        <span
+          key={index}
+          className="size-1 animate-dot-wave rounded-full bg-amber-500"
+          style={{ animationDelay: `${(index - 2) * 160}ms` }}
+        />
+      ))}
+    </span>
+  );
+}
+
+/** A prompt with nobody typing at it: the terminal's own caret, blinking. */
+function IdleCaret() {
+  return (
+    <span
+      role="img"
+      aria-label="Idle"
+      className="h-2.5 w-[2px] animate-caret-blink rounded-[1px] bg-muted-foreground/70"
+    />
+  );
 }
 
 /**
