@@ -3,6 +3,8 @@ import {
   mgitBlobUrl,
   mgitFileUrl,
   type FileDiff,
+  type StatusCode,
+  type StatusEntry,
 } from '@midnite/git-shared';
 
 import { previewKindForFile } from '../../lib/languages';
@@ -104,3 +106,43 @@ export function imageDiffSources(
         },
   };
 }
+
+/**
+ * HEAD against the file on disk — the pairing for a file BROWSER rather than a
+ * diff.
+ *
+ * The Files view has no staged/unstaged distinction to offer: it shows one
+ * checkout, and the question a reader has of a changed asset there is "how does
+ * this differ from what is committed". Both halves of a two-step change (staged,
+ * then edited again) fall inside that one comparison, which is why this does not
+ * take a `staged` flag.
+ */
+export function headToWorktreeImage(
+  target: { repoId: string; worktreePath?: string | undefined },
+  relPath: string,
+): ImageDiffSources {
+  return {
+    before: { url: mgitBlobUrl(target.repoId, 'HEAD', relPath, target.worktreePath), label: 'HEAD' },
+    after: {
+      url: mgitFileUrl('repo', target.repoId, relPath, target.worktreePath),
+      label: 'working tree',
+    },
+  };
+}
+
+/**
+ * Whether HEAD holds a version of this path that differs from the one on disk —
+ * the gate on offering a comparison at all.
+ *
+ * A path absent from status matches HEAD, so there is nothing to compare. An
+ * untracked or ignored file, and one staged as an addition, have no pre-image in
+ * HEAD at all: offering "compare" there would produce an empty before pane and
+ * read as a broken viewer rather than as a new file.
+ */
+export function differsFromHead(entry: StatusEntry | undefined): boolean {
+  if (!entry) return false;
+  if (entry.staged === 'added') return false;
+  return !NO_HEAD_SIDE.has(entry.staged) && !NO_HEAD_SIDE.has(entry.unstaged);
+}
+
+const NO_HEAD_SIDE = new Set<StatusCode>(['untracked', 'ignored']);
