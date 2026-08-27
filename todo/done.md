@@ -2045,3 +2045,33 @@ later is slow too, and zero skips the wrapper entirely so no existing spec chang
 `reviews-loading-shots.spec.ts` asserts each `sr-only` status and photographs seven states into
 `docs/screenshots/phase-20-reviews-loading/`. The shots settle animations first; without that
 they caught the shell mid-fade and came out as a washed-out grey page showing none of the work.
+
+## 2026-08-27 — The repositories panel gets a switch, in the footer and on Mod+B
+
+The panel that is always there is the one you cannot get out of the way. The repositories
+sidebar had a width the user could drag but no off state, so a 288px column of branch trees sat
+beside the graph whether or not the current task was about picking a repository.
+
+`Repos` now sits in the footer immediately left of `Terminal`, built as the same control: glyph,
+label, chord hint, `aria-pressed`, the accent-filled pressed state. Two toggles of the same kind
+read as one group, and the leading slot goes to the panel that is open by default. Its glyph is
+Octicons' `GoRepo` — the mark the panel's own header already wears, so button and panel are
+recognisably one object. Lucide, which the rest of this file uses, has no repository mark that
+is not a folder, and every folder variant in this app already means "worktree".
+
+The chord is `repos.toggle` / `Mod+b` in `DEFAULT_KEYMAP`: Cmd+B on macOS, Ctrl+B elsewhere, the
+binding every editor with a left sidebar uses and therefore the one a user tries first. Scope is
+`app`, not `global` — deliberately unlike the terminal toggle, because Ctrl+B is a readline
+motion the shell is entitled to keep while it owns the keyboard. The View menu gets the item from
+the same registry, so accelerator and menu item cannot drift.
+
+`Mod` is how the keymap spells "Cmd here, Ctrl there" — right for string comparison, meaningless
+printed on a button. `displayChord` renders the modifier the user's keyboard actually has, and
+both footer buttons go through it; the terminal's `Ctrl+`` passes through untouched.
+
+Hidden means unmounted, not zero-width. The panel streams a per-repository status and ref list,
+and a live column behind a dismissed view keeps paying for itself. `reposWidth` is separate
+layout state, so it returns the size it was. The resize handle unmounts with it: a splitter with
+nothing on its left edge is a drag target for an invisible thing. `reposOpen` persists beside the
+terminal chrome and defaults to open — it is the app's primary object list, and a fresh install
+whose first press REVEALED it would have started out looking broken.

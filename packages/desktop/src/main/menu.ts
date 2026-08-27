@@ -67,6 +67,7 @@ export function buildMenu(getWindow: () => BrowserWindow | null): Menu {
       submenu: [
         item('view.refresh'),
         { type: 'separator' },
+        item('repos.toggle'),
         item('terminal.toggle'),
         { type: 'separator' },
         { role: 'togglefullscreen' },
