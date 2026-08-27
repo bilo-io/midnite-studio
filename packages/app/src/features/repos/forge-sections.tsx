@@ -38,6 +38,7 @@ import {
   StatusPill,
   type ForgeStatus,
 } from '../forge/forge-status';
+import { REVIEW_GROUPS, type ReviewGroup } from '../reviews/review-groups';
 import type { SectionKey } from './view-sections';
 
 /**
@@ -198,7 +199,7 @@ function ActionsSection({ repoId, index }: { repoId: string; index: number }) {
 function RunJobs({ repoId, runId }: { repoId: string; runId: string }) {
   const { data, isFetching } = useForgeRunDetail(repoId, runId, true);
 
-  if (!data) return isFetching ? <Note indent>Reading the run…</Note> : null;
+  if (!data) return isFetching ? <Note depth={3}>Reading the run…</Note> : null;
 
   /*
     The same four empties the sections above distinguish, one level down.
@@ -209,12 +210,12 @@ function RunJobs({ repoId, runId }: { repoId: string; runId: string }) {
     rather than about the CLI.
   */
   if (data.cli.reason !== 'ready') {
-    return <Note indent>{data.cli.hint || 'The GitHub CLI is unavailable.'}</Note>;
+    return <Note depth={3}>{data.cli.hint || 'The GitHub CLI is unavailable.'}</Note>;
   }
-  if (data.error) return <Note indent tone="destructive">{data.error}</Note>;
+  if (data.error) return <Note depth={3} tone="destructive">{data.error}</Note>;
 
   const jobs = data.detail?.jobs ?? [];
-  if (jobs.length === 0) return <Note indent>No jobs in this run.</Note>;
+  if (jobs.length === 0) return <Note depth={3}>No jobs in this run.</Note>;
 
   return (
     <ul className="ml-14 border-l border-border/60 pb-1 pl-2">
@@ -307,21 +308,28 @@ function IssuesSection({ repoId, index }: { repoId: string; index: number }) {
   );
 }
 
+/**
+ * A repository's pull requests, split into the three questions a reviewer
+ * actually arrives with.
+ *
+ * The section itself now fetches nothing: it is a heading over three lazy
+ * groups (`REVIEW_GROUPS`), each of which is a `gh pr list` of its own and
+ * stays unasked until it is opened. That is the same rate-limit gate the
+ * section as a whole already applied, one level finer — three collapsed groups
+ * cost exactly what one collapsed section used to, and a reader who only ever
+ * opens "Awaiting My Review" never pays for the other two.
+ *
+ * Refresh stays on the section rather than repeating on each group, because
+ * `useRefreshForge` invalidates the repository's whole forge prefix anyway: a
+ * per-group button would claim a precision it does not have.
+ */
 function ReviewsSection({ repoId, index }: { repoId: string; index: number }) {
   const [open, setOpen] = useState(false);
-  const { data, isFetching } = useForgePulls(repoId, open);
   const refresh = useRefreshForge(repoId);
-  const selectRepo = useUiStore((s) => s.selectRepo);
-  const setActiveView = useUiStore((s) => s.setActiveView);
-  const selectPull = useReviewsStore((s) => s.selectPull);
-  const dialogs = useDialogs();
-
-  const pulls = data?.pulls ?? [];
 
   return (
     <TreeSection
       title="Reviews"
-      count={open ? pulls.length : undefined}
       icon={<GitPullRequest aria-hidden className="h-3 w-3 shrink-0 text-muted-foreground" />}
       collapsible
       open={open}
@@ -332,12 +340,66 @@ function ReviewsSection({ repoId, index }: { repoId: string; index: number }) {
         open ? { icon: RefreshCw, label: 'Refresh pull requests', onClick: refresh } : undefined
       }
     >
-      <Unavailable result={data} isFetching={isFetching} empty="No open pull requests." />
+      {REVIEW_GROUPS.map((group, i) => (
+        <ReviewsGroup
+          key={group.scope}
+          repoId={repoId}
+          group={group}
+          sectionOpen={open}
+          index={index + i}
+        />
+      ))}
+    </TreeSection>
+  );
+}
+
+/**
+ * One scoped pull-request listing, inside the Reviews section.
+ *
+ * `sectionOpen` is not decoration. `TreeSection` renders its children into a
+ * `<Collapse>`, which clips and `inert`s them but keeps them MOUNTED — so a
+ * group left open from a previous visit would keep issuing its `gh` subprocess
+ * while the section above it is shut. Both fold states have to agree before
+ * this is allowed to ask.
+ */
+function ReviewsGroup({
+  repoId,
+  group,
+  sectionOpen,
+  index,
+}: {
+  repoId: string;
+  group: ReviewGroup;
+  sectionOpen: boolean;
+  index: number;
+}) {
+  const [open, setOpen] = useState(false);
+  const { data, isFetching } = useForgePulls(repoId, sectionOpen && open, 20, 'open', group.scope);
+  const selectRepo = useUiStore((s) => s.selectRepo);
+  const setActiveView = useUiStore((s) => s.setActiveView);
+  const selectPull = useReviewsStore((s) => s.selectPull);
+  const dialogs = useDialogs();
+
+  const pulls = data?.pulls ?? [];
+
+  return (
+    <TreeSection
+      title={group.title}
+      /* No number until the fetch answers — "0" while it is out is a claim. */
+      count={open && data !== undefined ? pulls.length : undefined}
+      collapsible
+      open={open}
+      onToggle={() => setOpen((v) => !v)}
+      depth={2}
+      hideWhenEmpty={false}
+    >
+      <Unavailable result={data} isFetching={isFetching} empty={group.empty} depth={3} />
 
       {pulls.map((pull, i) => (
         <ForgeRow
           key={pull.number}
           index={i + index}
+          depth={3}
           status={pullStatus(pull)}
           extra={checksStatus(pull)}
           title={pull.title}
@@ -382,24 +444,31 @@ function Unavailable({
   result,
   isFetching,
   empty,
+  depth = 2,
 }: {
   result: { cli: { reason: string; hint: string }; error: string | null } | undefined;
   isFetching: boolean;
   empty: string;
+  /** Matches the rows this note stands in for — 3 inside a Reviews group. */
+  depth?: 2 | 3;
 }) {
   if (!result) {
-    return isFetching ? <Note>Asking GitHub…</Note> : null;
+    return isFetching ? <Note depth={depth}>Asking GitHub…</Note> : null;
   }
 
   if (result.cli.reason !== 'ready') {
-    return <Note>{result.cli.hint || 'The GitHub CLI is unavailable.'}</Note>;
+    return <Note depth={depth}>{result.cli.hint || 'The GitHub CLI is unavailable.'}</Note>;
   }
 
   if (result.error) {
-    return <Note tone="destructive">{result.error}</Note>;
+    return (
+      <Note depth={depth} tone="destructive">
+        {result.error}
+      </Note>
+    );
   }
 
-  return <EmptyIfNoRows>{empty}</EmptyIfNoRows>;
+  return <EmptyIfNoRows depth={depth}>{empty}</EmptyIfNoRows>;
 }
 
 /**
@@ -407,10 +476,10 @@ function Unavailable({
  * them. `TreeSection`'s children are a fragment, so this cannot know whether
  * any rows follow it — CSS can: the note hides itself whenever a row is present.
  */
-function EmptyIfNoRows({ children }: { children: React.ReactNode }) {
+function EmptyIfNoRows({ children, depth = 2 }: { children: React.ReactNode; depth?: 2 | 3 }) {
   return (
     <p
-      className={`${TREE_INDENT[2]} py-1.5 pr-2 text-xs text-muted-foreground [&:not(:last-child)]:hidden`}
+      className={`${TREE_INDENT[depth]} py-1.5 pr-2 text-xs text-muted-foreground [&:not(:last-child)]:hidden`}
     >
       {children}
     </p>
@@ -420,16 +489,20 @@ function EmptyIfNoRows({ children }: { children: React.ReactNode }) {
 function Note({
   children,
   tone = 'muted',
-  indent = false,
+  depth = 2,
 }: {
   children: React.ReactNode;
   tone?: 'muted' | 'destructive';
-  /** One level deeper — for a note that belongs to a row, not to a section. */
-  indent?: boolean;
+  /**
+   * Where the note sits on the tree's indent ladder — 2 for a note that belongs
+   * to a section, 3 for one that belongs to a row (a run's jobs) or to a group
+   * nested inside a section (the Reviews scopes).
+   */
+  depth?: 2 | 3;
 }) {
   return (
     <p
-      className={`${indent ? TREE_INDENT[3] : TREE_INDENT[2]} py-1.5 pr-2 text-xs leading-relaxed ${
+      className={`${TREE_INDENT[depth]} py-1.5 pr-2 text-xs leading-relaxed ${
         tone === 'destructive' ? 'text-destructive' : 'text-muted-foreground'
       }`}
     >
@@ -438,8 +511,22 @@ function Note({
   );
 }
 
+/**
+ * Two ladders, because a row's leading mark is not always the same element.
+ *
+ * `ROW_INDENT` is where a row whose first element is its status pill sits;
+ * `EXPANDABLE_INDENT` is one rung shallower, for a row that leads with a
+ * disclosure chevron — so both land their leading mark in the same column.
+ * Spelled as literal maps rather than `TREE_INDENT[depth - 1]` because
+ * `noUncheckedIndexedAccess` makes an arithmetic index `string | undefined`,
+ * and a Tailwind class that can be `undefined` is a silently unindented row.
+ */
+const ROW_INDENT = { 2: TREE_INDENT[2], 3: TREE_INDENT[3] } as const;
+const EXPANDABLE_INDENT = { 2: TREE_INDENT[1], 3: TREE_INDENT[2] } as const;
+
 function ForgeRow({
   index,
+  depth = 2,
   status,
   extra,
   title,
@@ -451,6 +538,8 @@ function ForgeRow({
   children,
 }: {
   index: number;
+  /** 2 for a row directly under a section, 3 for one inside a nested group. */
+  depth?: 2 | 3;
   /*
     `ForgeStatus`, not a re-spelled copy of its fields. The inline literal that
     used to sit here was already a duplicate of the exported type, and it broke
@@ -490,7 +579,7 @@ function ForgeRow({
             element is its status pill — both land their leading mark in the
             same place.
           */
-          expand ? TREE_INDENT[1] : TREE_INDENT[2]
+          expand ? EXPANDABLE_INDENT[depth] : ROW_INDENT[depth]
         }`}
       >
         {expand ? (
