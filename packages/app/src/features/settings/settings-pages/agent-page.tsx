@@ -1,7 +1,9 @@
 import { useEffect, useRef, useState } from 'react';
 
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
-import { LuRefreshCw } from 'react-icons/lu';
+import { LuBot, LuFolderTree, LuRefreshCw } from 'react-icons/lu';
+
+import { Accordion } from '@bilo-io/ui';
 
 import { CLAUDE_COMMANDS, type ClaudeInfo } from '@midnite/git-shared';
 
@@ -11,7 +13,6 @@ import { useUiStore } from '../../../store/ui-store';
 import { useTerminalStore } from '../../terminal/terminal-store';
 import { FileTree } from '../../files/file-tree';
 import { FilePreview } from '../../files/preview/file-preview';
-import { Field } from './controls';
 
 /**
  * The Agent page: what `~/.claude` holds, which Claude CLI is installed, and
@@ -31,17 +32,27 @@ export function AgentPage() {
   });
 
   return (
-    <div className="flex flex-col gap-5">
-      <Field label="Claude Code" hint="Detected through your login shell, the same way the terminal resolves it.">
-        <ClaudeCard
-          info={info}
-          onRefresh={() => void queryClient.invalidateQueries({ queryKey: ['claude-info'] })}
-        />
-      </Field>
+    <div className="flex flex-col gap-3">
+      <Accordion title="Claude Code" icon={<LuBot className="h-4 w-4" />} defaultOpen>
+        <div className="flex flex-col gap-2 p-3">
+          <p className="text-[11px] leading-relaxed text-muted-foreground">
+            Detected through your login shell, the same way the terminal resolves it.
+          </p>
+          <ClaudeCard
+            info={info}
+            onRefresh={() => void queryClient.invalidateQueries({ queryKey: ['claude-info'] })}
+          />
+        </div>
+      </Accordion>
 
-      <Field label="~/.claude" hint="Your agent's home folder — skills, projects, plans, settings. Read-only here.">
-        <ClaudeHomeTree />
-      </Field>
+      <Accordion title="~/.claude" icon={<LuFolderTree className="h-4 w-4" />} defaultOpen>
+        <div className="flex flex-col gap-2 p-3">
+          <p className="text-[11px] leading-relaxed text-muted-foreground">
+            Your agent's home folder — skills, projects, plans, settings. Read-only here.
+          </p>
+          <ClaudeHomeTree />
+        </div>
+      </Accordion>
     </div>
   );
 }
@@ -100,7 +111,12 @@ function ClaudeCard({ info, onRefresh }: { info: ClaudeInfo | undefined; onRefre
           </span>
         )}
         <span className="ml-auto">
-          <IconButton icon={LuRefreshCw} label="Re-check Claude version" size="sm" onClick={onRefresh} />
+          <IconButton
+            icon={LuRefreshCw}
+            label="Re-check Claude version"
+            size="sm"
+            onClick={onRefresh}
+          />
         </span>
       </div>
 

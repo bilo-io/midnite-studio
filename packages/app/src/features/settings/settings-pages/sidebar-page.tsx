@@ -1,3 +1,6 @@
+import { Accordion } from '@bilo-io/ui';
+import { LuFilter, LuPanelLeft } from 'react-icons/lu';
+
 import { useUiStore, VIEW_IDS, type NavMode, type ViewId } from '../../../store/ui-store';
 import { filtersByDefault, VIEW_FILTERS, type SectionKey } from '../../repos/view-sections';
 import { Choice, Field } from './controls';
@@ -114,43 +117,60 @@ export function SidebarPage() {
   const setNavMode = useUiStore((s) => s.setNavMode);
 
   return (
-    <div className="flex flex-col gap-4">
-      <Choice<NavMode>
-        label="Side navigation"
-        hint="Lock the nav open or closed, or let it stay collapsed and expand on hover."
-        value={navMode}
-        onChange={setNavMode}
-        options={[
-          ['auto', 'Auto', 'Collapsed; expands on hover'],
-          ['expanded', 'Locked open', 'Always expanded'],
-          ['collapsed', 'Locked closed', 'Always the icon bar — never expands, items show tooltips'],
-        ]}
-      />
-
-      <Field
-        label="What each view shows"
-        hint="Views that are a question about a subset — Changes, Actions, Tests — arrive narrowed to it; the rest start with the whole tree. This is the setting the panel's own filter button flips, one view at a time."
-      >
-        <div className="flex flex-col gap-1.5">
-          {VIEW_IDS.map((view) => (
-            <ViewRow key={view} view={view} />
-          ))}
+    <div className="flex flex-col gap-3">
+      <Accordion title="Navigation" icon={<LuPanelLeft className="h-4 w-4" />} defaultOpen>
+        <div className="p-3">
+          <Choice<NavMode>
+            label="Side navigation"
+            hint="Lock the nav open or closed, or let it stay collapsed and expand on hover."
+            value={navMode}
+            onChange={setNavMode}
+            options={[
+              ['auto', 'Auto', 'Collapsed; expands on hover'],
+              ['expanded', 'Locked open', 'Always expanded'],
+              [
+                'collapsed',
+                'Locked closed',
+                'Always the icon bar — never expands, items show tooltips',
+              ],
+            ]}
+          />
         </div>
-      </Field>
+      </Accordion>
 
-      <Field
-        label="Reset"
-        hint="Forget every per-view choice above and let each view decide again."
+      <Accordion
+        title="View filters"
+        icon={<LuFilter className="h-4 w-4" />}
+        count={Object.keys(overrides).length || undefined}
+        defaultOpen
       >
-        <button
-          type="button"
-          onClick={resetSectionFilters}
-          disabled={!anyOverride}
-          className="h-6 w-fit rounded-md border border-border px-2 text-xs text-muted-foreground transition-colors hover:bg-accent hover:text-foreground disabled:cursor-not-allowed disabled:opacity-50"
-        >
-          Reset to view defaults
-        </button>
-      </Field>
+        <div className="flex flex-col gap-4 p-3">
+          <Field
+            label="What each view shows"
+            hint="Views that are a question about a subset — Changes, Actions, Tests — arrive narrowed to it; the rest start with the whole tree. This is the setting the panel's own filter button flips, one view at a time."
+          >
+            <div className="flex flex-col gap-1.5">
+              {VIEW_IDS.map((view) => (
+                <ViewRow key={view} view={view} />
+              ))}
+            </div>
+          </Field>
+
+          <Field
+            label="Reset"
+            hint="Forget every per-view choice above and let each view decide again."
+          >
+            <button
+              type="button"
+              onClick={resetSectionFilters}
+              disabled={!anyOverride}
+              className="h-6 w-fit rounded-md border border-border px-2 text-xs text-muted-foreground transition-colors hover:bg-accent hover:text-foreground disabled:cursor-not-allowed disabled:opacity-50"
+            >
+              Reset to view defaults
+            </button>
+          </Field>
+        </div>
+      </Accordion>
     </div>
   );
 }
