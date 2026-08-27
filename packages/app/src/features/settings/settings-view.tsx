@@ -1,16 +1,7 @@
 import { Collapse } from '@bilo-io/ui';
-import type { IconType } from 'react-icons';
-import {
-  LuActivity,
-  LuBot,
-  LuChevronDown,
-  LuGitBranch,
-  LuPalette,
-  LuPanelLeft,
-  LuShieldCheck,
-  LuSquareTerminal,
-} from 'react-icons/lu';
+import { LuChevronDown } from 'react-icons/lu';
 
+import { SETTINGS_PAGE_ICON } from '../../components/nav-icons';
 import {
   SETTINGS_GROUPS,
   SETTINGS_PAGES,
@@ -43,33 +34,10 @@ const PAGE_CONTENT: Record<SettingsPageId, () => React.ReactNode> = {
   monitor: () => <MonitorPage />,
 };
 
-/**
- * A glyph per page, mirroring midnite's settings sidebar — which is what turns
- * a list of five words into something scannable at a glance.
- *
- * react-icons, like the nav rail: these are new icons, and the file had none
- * before, so there is no lucide-react neighbour here to match.
- *
- * Declared here rather than on `SETTINGS_PAGES` so the store stays a plain data
- * module — putting React components in it would make every consumer of a page
- * id pull an icon package in behind it.
- */
-const PAGE_ICON: Record<SettingsPageId, IconType> = {
-  appearance: LuPalette,
-  graph: LuGitBranch,
-  sidebar: LuPanelLeft,
-  terminal: LuSquareTerminal,
-  agent: LuBot,
-  // A shield rather than a git or comment glyph: this page is the permission in
-  // front of the review actions, not the actions themselves.
-  reviews: LuShieldCheck,
-  monitor: LuActivity,
-};
-
 function PageLink({ id, label }: { id: SettingsPageId; label: string }) {
   const page = useUiStore((s) => s.settingsPage);
   const setPage = useUiStore((s) => s.setSettingsPage);
-  const Icon = PAGE_ICON[id];
+  const Icon = SETTINGS_PAGE_ICON[id];
   const active = id === page;
   return (
     <button
