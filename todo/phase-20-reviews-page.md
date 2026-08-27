@@ -69,25 +69,29 @@ Effort tags: **S** ≈ an hour or two · **M** ≈ half a day · **L** ≈ a day
       (gh missing or unauthenticated card)
 - [ ] Refresh stays explicit, matching every other forge surface — no polling
 
-### C — PR detail: files, conversation, checks (M)
+### C — PR detail: files, conversation, checks (M) — ✅ DONE (2026-08-27)
 
-- [ ] New `mgit:forge:pull-files` channel (`repoId` + PR number) — `gh pr diff <number> --patch`
-      parsed by the **existing** hunk parser
-      ([`diff-parser.ts`](../packages/git-engine/src/parsers/diff-parser.ts)), reused rather than
-      reimplemented since a PR diff and a `git diff` hunk are the same shape
-- [ ] New `mgit:forge:pull-comments` channel — `gh api repos/{owner}/{repo}/issues/{number}/comments`
-      for the top-level conversation, parsed into a `ForgeComment` shape added to
-      [`forge.ts`](../packages/shared/src/domain/forge.ts)
-- [ ] `ReviewView` in [`forge-detail.tsx`](../packages/app/src/features/forge/forge-detail.tsx) is
-      rebuilt into a tabbed PR detail: **Files** (diff), **Conversation**, **Checks** — Checks
-      reuses the Phase 19 run-detail job tree, resolving the PR's `statusCheckRollup` to a run
-- [ ] Files tab renders each changed file through the existing `DiffView`, one per file, matching
-      the Changes page's accordion pattern
-      ([`file-accordion.tsx`](../packages/app/src/features/changes/file-accordion.tsx)) rather than
-      inventing a second layout
-- [ ] Conversation tab lists top-level comments read-only in this theme; posting arrives in Theme F
-- [ ] Handlers in [`forge-handlers.ts`](../packages/desktop/src/main/ipc/forge-handlers.ts) resolve
-      owner/repo/number in main; the renderer only ever sends `repoId` + PR number
+All six items landed; see [`done.md`](done.md) for the entry. Three notes for the themes that
+build on this one:
+
+- **The `--patch` flag in this theme's first bullet was wrong, and is not what shipped.**
+  `gh pr diff <n> --patch` requests GitHub's `.patch` media type, which is `git format-patch`
+  output: one mbox entry *per commit*, each with its own `From <sha>` header, subject, `---`
+  separator and diffstat. On a two-commit PR touching one file twice that file appears twice,
+  and every mbox header after the first is swallowed by the previous file's section as diff
+  body. Verified against `cli/cli#14255`: `--patch` yields 16 `diff --git` sections for 14
+  files; bare `gh pr diff` yields exactly 14. **Bare `gh pr diff` is the combined unified diff
+  the parser wants** — Theme E should read the same way.
+
+- **`mgit:forge:pull-detail` was added alongside** the two channels this theme specified. The
+  PR's head sha lives on no listing field, and the Checks tab is built on matching it — so
+  `gh pr view --json` became its own channel rather than a widening of `listPulls`, which
+  Theme B is rewriting. It carries the body, base branch, line counts and `mergeable` too,
+  which Themes F and G will want.
+- **Checks resolves by head sha, not `statusCheckRollup`.** The rollup names checks, not runs;
+  matching `ForgeRun.headSha` against the run listing the sidebar already caches finds the
+  actual runs and costs no third subprocess. Matching the *branch* would be wrong after a
+  force-push — the branch's newest run then describes a commit the PR no longer points at.
 
 ### D — Syntax-highlighted diffs, unified across every surface (M)
 

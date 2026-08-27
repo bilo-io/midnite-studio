@@ -6,6 +6,9 @@ import {
   type Forge,
   type ForgeCliStatus,
   type ForgeIssuesResult,
+  type ForgePullCommentsResult,
+  type ForgePullDetailResult,
+  type ForgePullFilesResult,
   type ForgePullsResult,
   type ForgeRunDetailResult,
   type ForgeRunLogResult,
@@ -19,6 +22,9 @@ import {
   listPulls,
   listRuns,
   listWorkflows,
+  pullComments,
+  pullDetail,
+  pullFiles,
   runDetail,
   runLog,
 } from '../forge/gh-cli';
@@ -88,6 +94,46 @@ export function registerForgeHandlers(): void {
       return listPulls(forge, { limit: req.limit });
     },
     (issue) => ({ cli: noForgeStatus(), pulls: [], error: issue }),
+  );
+
+  /*
+    The three pull-request detail channels. Each resolves owner/repo here from
+    `.git/config` exactly as its siblings do, so the only values the renderer
+    ever chooses are a `repoId` and a PR number the schema has already bounded
+    to a positive integer.
+  */
+
+  handle<typeof schemas.ForgePullDetailRequest, ForgePullDetailResult>(
+    CHANNELS.forgePullDetail,
+    schemas.ForgePullDetailRequest,
+    async (req) => {
+      const forge = await githubForge(req.repoId);
+      if (!forge) return { cli: noForgeStatus(), detail: null, error: null };
+      return pullDetail(forge, req.number);
+    },
+    (issue) => ({ cli: noForgeStatus(), detail: null, error: issue }),
+  );
+
+  handle<typeof schemas.ForgePullFilesRequest, ForgePullFilesResult>(
+    CHANNELS.forgePullFiles,
+    schemas.ForgePullFilesRequest,
+    async (req) => {
+      const forge = await githubForge(req.repoId);
+      if (!forge) return { cli: noForgeStatus(), files: null, error: null };
+      return pullFiles(forge, req.number);
+    },
+    (issue) => ({ cli: noForgeStatus(), files: null, error: issue }),
+  );
+
+  handle<typeof schemas.ForgePullCommentsRequest, ForgePullCommentsResult>(
+    CHANNELS.forgePullComments,
+    schemas.ForgePullCommentsRequest,
+    async (req) => {
+      const forge = await githubForge(req.repoId);
+      if (!forge) return { cli: noForgeStatus(), comments: [], error: null };
+      return pullComments(forge, req.number);
+    },
+    (issue) => ({ cli: noForgeStatus(), comments: [], error: issue }),
   );
 
   handle<typeof schemas.ForgeIssuesRequest, ForgeIssuesResult>(

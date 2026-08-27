@@ -106,6 +106,44 @@ export function parseUnifiedDiff(patch: string, opts: ParseDiffOptions): FileDif
 }
 
 /**
+ * Every file in a multi-file patch, in the order the patch listed them.
+ *
+ * `parseUnifiedDiff` above answers "what happened to *this* path" and throws
+ * the other sections away — right for `git diff -- <path>`, wrong for a whole
+ * pull request, where every section is the answer. Both run the same
+ * `parseSection`, so a PR diff and a local one agree about renames, combined
+ * hunks and the line cap by construction rather than by two parsers staying in
+ * step.
+ *
+ * `opts.fallbackPath` is only reached by a section whose headers named no path
+ * at all; sections are numbered into it so a malformed patch produces
+ * distinguishable rows instead of several files claiming one name.
+ *
+ * `maxLines` applies PER FILE here, not to the patch as a whole: a 300-file PR
+ * whose first file is a lockfile would otherwise exhaust the budget before the
+ * files a reviewer opened it for were ever parsed. The whole-patch ceiling is
+ * a byte cap applied by the caller before this is reached.
+ */
+export function parseMultiFileDiff(patch: string, opts: ParseDiffOptions): FileDiff[] {
+  const files: FileDiff[] = [];
+
+  for (const section of splitSections(patch)) {
+    // A trailing newline leaves one empty section; so does a patch that opens
+    // with blank lines. Neither is a file, and both would otherwise render as
+    // an empty diff under the fallback path.
+    if (section.every((line) => line.trim().length === 0)) continue;
+
+    const parsed = parseSection(section, {
+      ...opts,
+      fallbackPath: `${opts.fallbackPath}#${files.length + 1}`,
+    });
+    files.push(parsed);
+  }
+
+  return files;
+}
+
+/**
  * Split a patch at `diff --git` boundaries.
  *
  * Text before the first boundary is its own section so that a patch body with

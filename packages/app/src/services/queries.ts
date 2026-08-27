@@ -4,6 +4,9 @@ import type {
   DiagnosticsRun,
   DiagnosticsTrustStatus,
   ForgeIssuesResult,
+  ForgePullCommentsResult,
+  ForgePullDetailResult,
+  ForgePullFilesResult,
   ForgePullsResult,
   ForgeRunDetailResult,
   ForgeRunLogResult,
@@ -105,6 +108,23 @@ export const keys = {
   forgeRunLog: (repoId: string, runId: string, full: boolean) =>
     ['repos', repoId, 'forge', 'run-log', runId, full] as const,
   forgeWorkflows: (repoId: string) => ['repos', repoId, 'forge', 'workflows'] as const,
+  /**
+   * One opened pull request's three payloads.
+   *
+   * Keyed by PR number under the forge prefix, so the section's Refresh drops
+   * an open PR's detail along with the listing it was opened from — the same
+   * rule `forgeRunDetail` follows, and for the same reason: a re-fetched list
+   * beside a stale diff is the combination that would lie.
+   *
+   * Three keys rather than one, because they are three fetches: a reader who
+   * only ever opens the Files tab should never pay for the conversation.
+   */
+  forgePullDetail: (repoId: string, number: number) =>
+    ['repos', repoId, 'forge', 'pull-detail', number] as const,
+  forgePullFiles: (repoId: string, number: number) =>
+    ['repos', repoId, 'forge', 'pull-files', number] as const,
+  forgePullComments: (repoId: string, number: number) =>
+    ['repos', repoId, 'forge', 'pull-comments', number] as const,
   /** Whether `gh` is installed and signed in. Not repo-scoped — it is machine state. */
   forgeCli: ['forge', 'cli'] as const,
   /**
@@ -496,6 +516,63 @@ export function useForgePulls(repoId: string | null, enabled: boolean) {
 }
 
 /**
+ * One PR's metadata, fetched when it is opened and never for a list.
+ *
+ * `enabled` carries the same promise as its siblings — a human opened this
+ * pull request — because every one of these is a `gh` subprocess against the
+ * user's rate limit.
+ */
+export function useForgePullDetail(repoId: string | null, number: number | null, enabled = true) {
+  return useQuery<ForgePullDetailResult>({
+    queryKey: keys.forgePullDetail(repoId ?? '', number ?? 0),
+    queryFn: async () => {
+      const api = bridge();
+      if (!api || !repoId || number === null) return EMPTY_PULL_DETAIL;
+      return api.forge.pullDetail({ repoId, number });
+    },
+    enabled: enabled && repoId !== null && number !== null,
+    staleTime: FORGE_STALE_MS,
+  });
+}
+
+/**
+ * One PR's diff, fetched only while the Files tab is mounted.
+ *
+ * The heaviest payload in this file, so `enabled` is what the tab strip drives:
+ * a reader who opens a PR straight onto Conversation never fetches its patch.
+ */
+export function useForgePullFiles(repoId: string | null, number: number | null, enabled: boolean) {
+  return useQuery<ForgePullFilesResult>({
+    queryKey: keys.forgePullFiles(repoId ?? '', number ?? 0),
+    queryFn: async () => {
+      const api = bridge();
+      if (!api || !repoId || number === null) return EMPTY_PULL_FILES;
+      return api.forge.pullFiles({ repoId, number });
+    },
+    enabled: enabled && repoId !== null && number !== null,
+    staleTime: FORGE_STALE_MS,
+  });
+}
+
+/** One PR's conversation, fetched only while the Conversation tab is mounted. */
+export function useForgePullComments(
+  repoId: string | null,
+  number: number | null,
+  enabled: boolean,
+) {
+  return useQuery<ForgePullCommentsResult>({
+    queryKey: keys.forgePullComments(repoId ?? '', number ?? 0),
+    queryFn: async () => {
+      const api = bridge();
+      if (!api || !repoId || number === null) return EMPTY_PULL_COMMENTS;
+      return api.forge.pullComments({ repoId, number });
+    },
+    enabled: enabled && repoId !== null && number !== null,
+    staleTime: FORGE_STALE_MS,
+  });
+}
+
+/**
  * The bridge-less answer, shaped like a repository with no GitHub remote.
  *
  * Under vitest/jsdom there is no preload; a component should render its "no
@@ -523,6 +600,11 @@ const EMPTY_RUN_LOG: ForgeRunLogResult = {
   error: null,
 };
 const EMPTY_WORKFLOWS: ForgeWorkflowsResult = { cli: EMPTY_CLI, workflows: [], error: null };
+const EMPTY_PULL_DETAIL: ForgePullDetailResult = { cli: EMPTY_CLI, detail: null, error: null };
+// Not an empty `files` object: with no bridge there is no pull request whose
+// diff is empty, and `{files: []}` would render "no files changed" as a fact.
+const EMPTY_PULL_FILES: ForgePullFilesResult = { cli: EMPTY_CLI, files: null, error: null };
+const EMPTY_PULL_COMMENTS: ForgePullCommentsResult = { cli: EMPTY_CLI, comments: [], error: null };
 
 /** Re-run the forge listings for one repo, on the user's say-so. */
 export function useRefreshForge(repoId: string | null) {

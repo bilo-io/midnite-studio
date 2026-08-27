@@ -1,5 +1,7 @@
 import { z } from 'zod';
 
+import { FileDiffSchema } from './diff';
+
 /**
  * What a forge's CI and review surfaces have to say about a repository.
  *
@@ -396,3 +398,161 @@ export const ForgeWorkflowsResultSchema = z.object({
   error: z.string().nullable().default(null),
 });
 export type ForgeWorkflowsResult = z.infer<typeof ForgeWorkflowsResultSchema>;
+
+/*
+  ─── Pull-request detail (Phase 20 Theme C) ────────────────────────────────
+
+  Everything below serves ONE opened pull request, and none of it is on the
+  path that renders the sidebar's list. That separation is the whole design:
+  a PR's body, its diff and its conversation are three payloads that dwarf the
+  listing row they hang off, and folding any of them into `ForgePull` would
+  make expanding the Reviews section fetch every open PR's patch.
+*/
+
+/**
+ * What a submitted review said.
+ *
+ * `PENDING` is deliberately absent: a pending review is an unsubmitted draft
+ * visible only to its author, and giving the renderer an arm for it would mean
+ * drawing a verdict nobody has published.
+ */
+export const ForgeReviewStateSchema = z.enum([
+  'APPROVED',
+  'CHANGES_REQUESTED',
+  'COMMENTED',
+  'DISMISSED',
+]);
+export type ForgeReviewState = z.infer<typeof ForgeReviewStateSchema>;
+
+/**
+ * One entry in a pull request's top-level conversation.
+ *
+ * Two sources, one shape. GitHub keeps discussion comments and review
+ * submissions in different collections — `issues/{n}/comments` and
+ * `pulls/{n}/reviews` — but they interleave in one chronological thread on the
+ * PR page, and the reasoning attached to an "approved" is the half a reader
+ * most wants. Merging them here rather than in the renderer means the
+ * Conversation tab sorts one list instead of reconciling two.
+ *
+ * `kind` is what keeps them distinguishable: a review carries a verdict pill
+ * and a comment does not, and a discriminator is cheaper than inferring it
+ * from whether `reviewState` happens to be set.
+ */
+export const ForgeCommentKindSchema = z.enum(['comment', 'review']);
+export type ForgeCommentKind = z.infer<typeof ForgeCommentKindSchema>;
+
+export const ForgeCommentSchema = z.object({
+  /** The forge's own id, as a string — the same 2^53 caution as run ids. */
+  id: z.string(),
+  kind: ForgeCommentKindSchema,
+  /** Login of whoever wrote it. Empty string when the forge withholds it. */
+  author: z.string().default(''),
+  /** Markdown, as authored. Rendered, never trusted as HTML. */
+  body: z.string().default(''),
+  /** ISO 8601, and the only thing the merged thread sorts on. */
+  createdAt: z.string(),
+  url: z.string().default(''),
+  /** Set only when `kind` is `review` — a discussion comment has no verdict. */
+  reviewState: ForgeReviewStateSchema.nullable().default(null),
+});
+export type ForgeComment = z.infer<typeof ForgeCommentSchema>;
+
+/**
+ * One pull request, opened.
+ *
+ * Wraps `ForgePull` rather than extending it so the listing shape stays the
+ * single definition of what a row knows: a field that belongs on both would
+ * otherwise have to be added twice and could drift once.
+ */
+export const ForgePullDetailSchema = z.object({
+  /** The same row the list renders, so the detail header needs no second parse. */
+  pull: ForgePullSchema,
+  /** The PR description, as markdown. Empty when the author left it blank. */
+  body: z.string().default(''),
+  /**
+   * Full 40-char sha of the PR's head.
+   *
+   * Load-bearing for the Checks tab: a PR's runs are found by matching this
+   * against `ForgeRun.headSha` in the run listing the app already caches,
+   * which is why the tab costs no third subprocess.
+   */
+  headSha: z.string().nullable().default(null),
+  /** The branch being merged into. */
+  baseBranch: z.string().default(''),
+  additions: z.number().int().nonnegative().default(0),
+  deletions: z.number().int().nonnegative().default(0),
+  changedFiles: z.number().int().nonnegative().default(0),
+  createdAt: z.string().nullable().default(null),
+  updatedAt: z.string().nullable().default(null),
+  /**
+   * GitHub's mergeability word — `MERGEABLE`, `CONFLICTING`, `UNKNOWN` — kept
+   * as sent rather than narrowed to a boolean. `UNKNOWN` means GitHub has not
+   * finished computing it, which is a third answer and not a `false`.
+   */
+  mergeable: z.string().nullable().default(null),
+});
+export type ForgePullDetail = z.infer<typeof ForgePullDetailSchema>;
+
+/**
+ * A pull request's diff, already parsed into per-file hunks.
+ *
+ * Parsed in main by the same `diff-parser.ts` a `git diff` goes through — a PR
+ * patch and a local one are the same unified format, and a second parser would
+ * be a second set of edge cases to get the combined-diff and rename headers
+ * wrong in.
+ *
+ * **Capped by bytes, and it says so.** `gh pr diff --patch` on a PR that
+ * regenerated a lockfile is tens of megabytes; parsing that on the main
+ * process would stall the window and shipping it would stall the renderer.
+ * `truncated` plus `omittedFiles` is the same contract `ForgeRunLog` makes for
+ * logs: a silently short answer is the one outcome this shape refuses to
+ * produce.
+ */
+export const ForgePullFilesSchema = z.object({
+  files: z.array(FileDiffSchema).default([]),
+  /** True when the byte ceiling stopped the parse short of the whole patch. */
+  truncated: z.boolean().default(false),
+  /** How many files fell out. 0 when `truncated` is false. */
+  omittedFiles: z.number().int().nonnegative().default(0),
+  /** The whole patch's size in bytes, whatever was kept of it. */
+  totalBytes: z.number().int().nonnegative().default(0),
+});
+export type ForgePullFiles = z.infer<typeof ForgePullFilesSchema>;
+
+/** One PR's metadata. `detail` is null whenever `error` is set, and vice versa. */
+export const ForgePullDetailResultSchema = z.object({
+  cli: ForgeCliStatusSchema,
+  detail: ForgePullDetailSchema.nullable().default(null),
+  error: z.string().nullable().default(null),
+});
+export type ForgePullDetailResult = z.infer<typeof ForgePullDetailResultSchema>;
+
+/** One PR's parsed diff. */
+export const ForgePullFilesResultSchema = z.object({
+  cli: ForgeCliStatusSchema,
+  files: ForgePullFilesSchema.nullable().default(null),
+  error: z.string().nullable().default(null),
+});
+export type ForgePullFilesResult = z.infer<typeof ForgePullFilesResultSchema>;
+
+/**
+ * One PR's conversation, newest last.
+ *
+ * An empty list is a normal answer — most pull requests are merged without a
+ * word — so there is no `disabled`-style third state here to distinguish.
+ */
+export const ForgePullCommentsResultSchema = z.object({
+  cli: ForgeCliStatusSchema,
+  comments: z.array(ForgeCommentSchema).default([]),
+  error: z.string().nullable().default(null),
+});
+export type ForgePullCommentsResult = z.infer<typeof ForgePullCommentsResultSchema>;
+
+/**
+ * The byte ceiling main applies to a PR patch before parsing it.
+ *
+ * Two megabytes is roughly a 25k-line patch — larger than any review a person
+ * reads in one sitting, and small enough that parsing it is a few tens of
+ * milliseconds rather than a stalled window.
+ */
+export const PULL_PATCH_BYTE_CAP = 2 * 1024 * 1024;

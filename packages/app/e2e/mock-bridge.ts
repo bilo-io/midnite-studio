@@ -129,6 +129,28 @@ export type MockFixtures = {
     >;
     /** Workflow definitions, for the lazy `.yml` path lookup. */
     workflows?: unknown[];
+    /**
+     * `gh pr view` answers, keyed by PR number.
+     *
+     * Its own fixture rather than a widening of `pulls`, because that is what
+     * it is in the app: the listing row and the opened detail are two fetches,
+     * and a spec that seeded only `pulls` should still exercise the header's
+     * "listing first, detail fills in" path.
+     */
+    pullDetail?: Record<string, Record<string, unknown>>;
+    /**
+     * `gh pr diff --patch` answers, keyed by PR number — already parsed.
+     *
+     * `FileDiff[]` rather than a raw patch, because the real handler parses in
+     * main and the renderer never sees patch text. A fixture carrying a patch
+     * would be exercising a parser this package does not run.
+     */
+    pullFiles?: Record<
+      string,
+      { files?: unknown[]; truncated?: boolean; omittedFiles?: number; totalBytes?: number }
+    >;
+    /** The merged conversation, keyed by PR number, in the order it renders. */
+    pullComments?: Record<string, unknown[]>;
     error?: string | null;
   };
   /**
@@ -439,6 +461,52 @@ export async function installMockBridge(page: Page, fixtures: MockFixtures): Pro
         workflows: async () => ({
           cli: forgeCli(),
           workflows: data.forge?.workflows ?? [],
+          error: forgeError(),
+        }),
+        pullDetail: async (req: { number: number }) => {
+          const seeded = data.forge?.pullDetail?.[String(req.number)];
+          if (!seeded) return { cli: forgeCli(), detail: null, error: forgeError() };
+          // The listing row fills the `pull` half, exactly as the real parser
+          // does — a spec should not have to restate a PR it already listed.
+          const listed = (data.forge?.pulls ?? []).find(
+            (row) => (row as { number?: number }).number === req.number,
+          );
+          return {
+            cli: forgeCli(),
+            detail: {
+              pull: seeded['pull'] ?? listed,
+              body: seeded['body'] ?? '',
+              headSha: seeded['headSha'] ?? null,
+              baseBranch: seeded['baseBranch'] ?? '',
+              additions: seeded['additions'] ?? 0,
+              deletions: seeded['deletions'] ?? 0,
+              changedFiles: seeded['changedFiles'] ?? 0,
+              createdAt: seeded['createdAt'] ?? null,
+              updatedAt: seeded['updatedAt'] ?? null,
+              mergeable: seeded['mergeable'] ?? null,
+            },
+            error: null,
+          };
+        },
+        pullFiles: async (req: { number: number }) => {
+          const seeded = data.forge?.pullFiles?.[String(req.number)];
+          // No fixture is "no diff to show", not an empty one: `files: []`
+          // would render "this pull request changes no files" as a fact.
+          if (!seeded) return { cli: forgeCli(), files: null, error: forgeError() };
+          return {
+            cli: forgeCli(),
+            files: {
+              files: seeded.files ?? [],
+              truncated: seeded.truncated ?? false,
+              omittedFiles: seeded.omittedFiles ?? 0,
+              totalBytes: seeded.totalBytes ?? 0,
+            },
+            error: null,
+          };
+        },
+        pullComments: async (req: { number: number }) => ({
+          cli: forgeCli(),
+          comments: data.forge?.pullComments?.[String(req.number)] ?? [],
           error: forgeError(),
         }),
       },

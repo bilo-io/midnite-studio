@@ -1,15 +1,29 @@
 import { describe, expect, it } from 'vitest';
 
-import { describeFailure, logVerdict, repoFlag, shellQuote, stripShellPreamble } from './gh-cli';
+import { parseMultiFileDiff } from '@midnite/git-engine';
+
+import {
+  capPatch,
+  describeFailure,
+  logVerdict,
+  repoFlag,
+  shellQuote,
+  stripPatchPreamble,
+  stripShellPreamble,
+} from './gh-cli';
 import {
   LOG_FULL_MAX_BYTES,
   LOG_HEAD_BYTES,
   LOG_TAIL_BYTES,
   isAuthenticated,
   isIssuesDisabled,
+  mergeConversation,
+  parseIssueComments,
   parseIssueList,
   parseJsonPayload,
+  parsePullDetail,
   parsePullList,
+  parsePullReviews,
   parseRunDetail,
   parseRunList,
   parseRunLog,
@@ -664,5 +678,360 @@ describe('logVerdict', () => {
     );
     expect(verdict.log).toBeNull();
     expect(verdict.pending).toBe(true);
+  });
+});
+
+describe('parsePullDetail', () => {
+  const row = {
+    number: 42,
+    title: 'Add the Reviews page',
+    state: 'OPEN',
+    isDraft: false,
+    reviewDecision: 'APPROVED',
+    headRefName: 'feature/reviews',
+    author: { login: 'bilo' },
+    url: 'https://github.com/o/r/pull/42',
+    statusCheckRollup: [{ conclusion: 'SUCCESS' }],
+    body: 'Why this exists.',
+    headRefOid: 'a'.repeat(40),
+    baseRefName: 'main',
+    additions: 120,
+    deletions: 8,
+    changedFiles: 6,
+    createdAt: '2026-08-20T09:00:00Z',
+    updatedAt: '2026-08-21T09:00:00Z',
+    mergeable: 'MERGEABLE',
+  };
+
+  it('reuses the listing parser for the fields a row already has', () => {
+    const detail = parsePullDetail(row);
+    expect(detail?.pull.number).toBe(42);
+    expect(detail?.pull.headBranch).toBe('feature/reviews');
+    expect(detail?.pull.reviewDecision).toBe('APPROVED');
+    expect(detail?.pull.checks).toBe('passing');
+  });
+
+  it('maps headRefOid onto headSha, which is what the Checks tab matches on', () => {
+    // `gh pr view` calls it headRefOid; the run listing calls the same value
+    // headSha. Getting this wrong makes the Checks tab silently empty.
+    expect(parsePullDetail(row)?.headSha).toBe('a'.repeat(40));
+  });
+
+  it('carries the detail-only facts', () => {
+    const detail = parsePullDetail(row);
+    expect(detail?.body).toBe('Why this exists.');
+    expect(detail?.baseBranch).toBe('main');
+    expect(detail?.additions).toBe(120);
+    expect(detail?.deletions).toBe(8);
+    expect(detail?.changedFiles).toBe(6);
+    expect(detail?.mergeable).toBe('MERGEABLE');
+  });
+
+  it('defaults every withheld field rather than dropping the pull request', () => {
+    const detail = parsePullDetail({
+      number: 7,
+      title: 'Bare',
+      state: 'MERGED',
+      headRefName: 'x',
+      url: 'https://github.com/o/r/pull/7',
+    });
+    expect(detail?.pull.state).toBe('merged');
+    expect(detail?.body).toBe('');
+    expect(detail?.headSha).toBeNull();
+    expect(detail?.changedFiles).toBe(0);
+  });
+
+  it('returns null for a payload that is not a pull request', () => {
+    expect(parsePullDetail(null)).toBeNull();
+    expect(parsePullDetail([row])).toBeNull();
+    // No url — parsePullList drops such a row, and a detail with no pull above
+    // it has nothing to render against.
+    expect(parsePullDetail({ number: 1, title: 't', state: 'OPEN', headRefName: 'b' })).toBeNull();
+  });
+});
+
+describe('parseIssueComments', () => {
+  it('reads the REST snake_case shape', () => {
+    const [comment] = parseIssueComments([
+      {
+        id: 900,
+        user: { login: 'reviewer' },
+        body: 'One thought.',
+        created_at: '2026-08-20T10:00:00Z',
+        html_url: 'https://github.com/o/r/pull/42#issuecomment-900',
+      },
+    ]);
+    expect(comment).toMatchObject({
+      id: '900',
+      kind: 'comment',
+      author: 'reviewer',
+      body: 'One thought.',
+      reviewState: null,
+    });
+  });
+
+  it('drops a row with no id or no timestamp, and keeps its neighbours', () => {
+    const comments = parseIssueComments([
+      { id: 1, created_at: '2026-08-20T10:00:00Z' },
+      { user: { login: 'x' }, created_at: '2026-08-20T11:00:00Z' },
+      { id: 3 },
+      { id: 4, created_at: '2026-08-20T12:00:00Z' },
+    ]);
+    expect(comments.map((c) => c.id)).toEqual(['1', '4']);
+  });
+
+  it('answers empty for anything that is not a list', () => {
+    expect(parseIssueComments({ message: 'Not Found' })).toEqual([]);
+  });
+});
+
+describe('parsePullReviews', () => {
+  const review = (over: Record<string, unknown>): Record<string, unknown> => ({
+    id: 1,
+    user: { login: 'reviewer' },
+    state: 'APPROVED',
+    body: 'Looks right.',
+    submitted_at: '2026-08-21T10:00:00Z',
+    html_url: 'https://github.com/o/r/pull/42#pullrequestreview-1',
+    ...over,
+  });
+
+  it('keeps a verdict and the reasoning attached to it', () => {
+    const [approved] = parsePullReviews([review({})]);
+    expect(approved).toMatchObject({
+      kind: 'review',
+      reviewState: 'APPROVED',
+      body: 'Looks right.',
+      createdAt: '2026-08-21T10:00:00Z',
+    });
+  });
+
+  it('keeps an approval with no words — a real and common event', () => {
+    const [approved] = parsePullReviews([review({ body: '' })]);
+    expect(approved?.reviewState).toBe('APPROVED');
+    expect(approved?.body).toBe('');
+  });
+
+  it('drops a PENDING review, which its author has not published', () => {
+    expect(parsePullReviews([review({ state: 'PENDING' })])).toEqual([]);
+  });
+
+  it('drops a review with no submitted_at rather than sorting it to the top', () => {
+    // An empty-string createdAt sorts above every real timestamp, which would
+    // put an undated review at the head of a thread read chronologically.
+    expect(parsePullReviews([review({ submitted_at: undefined })])).toEqual([]);
+  });
+
+  it('drops a state this enum does not know rather than guessing a verdict', () => {
+    expect(parsePullReviews([review({ state: 'SOMETHING_NEW' })])).toEqual([]);
+  });
+
+  it('drops the empty COMMENTED shell around inline diff comments', () => {
+    // GitHub creates one per inline-comment batch; it carries no prose and no
+    // verdict, so rendering it is an author's name attached to nothing.
+    expect(parsePullReviews([review({ state: 'COMMENTED', body: '' })])).toEqual([]);
+    expect(parsePullReviews([review({ state: 'COMMENTED', body: 'a note' })])).toHaveLength(1);
+  });
+
+  it('normalises the state casing before the enum sees it', () => {
+    expect(parsePullReviews([review({ state: 'changes_requested' })])[0]?.reviewState).toBe(
+      'CHANGES_REQUESTED',
+    );
+  });
+});
+
+describe('mergeConversation', () => {
+  const at = (id: string, createdAt: string, kind: 'comment' | 'review') => ({
+    id,
+    kind,
+    author: 'x',
+    body: 'b',
+    createdAt,
+    url: '',
+    reviewState: null,
+  });
+
+  it('interleaves the two collections by time, not by source', () => {
+    // Concatenating would put every review after every comment, which is not
+    // the order either was written in.
+    const merged = mergeConversation(
+      [at('c1', '2026-08-20T10:00:00Z', 'comment'), at('c2', '2026-08-22T10:00:00Z', 'comment')],
+      [at('r1', '2026-08-21T10:00:00Z', 'review')],
+    );
+    expect(merged.map((entry) => entry.id)).toEqual(['c1', 'r1', 'c2']);
+  });
+
+  it('keeps input order for a tie, so the thread does not flicker', () => {
+    const merged = mergeConversation(
+      [at('c1', '2026-08-20T10:00:00Z', 'comment')],
+      [at('r1', '2026-08-20T10:00:00Z', 'review')],
+    );
+    expect(merged.map((entry) => entry.id)).toEqual(['c1', 'r1']);
+  });
+});
+
+describe('stripPatchPreamble', () => {
+  it('drops a shell banner printed above the patch', () => {
+    const text = ['direnv: loading', 'diff --git a/a.ts b/a.ts', '--- a/a.ts'].join('\n');
+    expect(stripPatchPreamble(text)).toBe('diff --git a/a.ts b/a.ts\n--- a/a.ts');
+  });
+
+  it('passes a patch through untouched when it already starts at the header', () => {
+    const text = 'diff --git a/a.ts b/a.ts\n--- a/a.ts';
+    expect(stripPatchPreamble(text)).toBe(text);
+  });
+
+  it('gives up rather than eating output it does not understand', () => {
+    // A header-less patch still parses; a heuristic that trimmed it would lose
+    // the only hunk in it.
+    const text = '@@ -1,1 +1,1 @@\n-a\n+b';
+    expect(stripPatchPreamble(text)).toBe(text);
+  });
+});
+
+describe('capPatch', () => {
+  const file = (name: string, lines: number): string =>
+    [
+      `diff --git a/${name} b/${name}`,
+      `--- a/${name}`,
+      `+++ b/${name}`,
+      `@@ -0,0 +1,${lines} @@`,
+      ...Array.from({ length: lines }, (_, i) => `+${name} line ${i} ${'x'.repeat(40)}`),
+    ].join('\n');
+
+  const bytes = (text: string): number => Buffer.byteLength(text, 'utf8');
+
+  it('returns a patch under the cap unchanged', () => {
+    const patch = file('a.ts', 3);
+    expect(capPatch(patch, 1_000_000)).toEqual({
+      patch,
+      truncated: false,
+      omittedFiles: 0,
+      totalBytes: bytes(patch),
+    });
+  });
+
+  it('cuts on a file boundary, never mid-hunk', () => {
+    // Half a hunk is not a diff: the parser would read the truncated tail as
+    // context and a file's last change would silently vanish.
+    const patch = [file('a.ts', 20), file('b.ts', 20), file('c.ts', 20)].join('\n');
+    const capped = capPatch(patch, 400);
+
+    expect(capped.truncated).toBe(true);
+    expect(capped.omittedFiles).toBeGreaterThan(0);
+    expect(capped.patch.split('\n').filter((l) => l.startsWith('diff --git ')).length).toBe(
+      3 - capped.omittedFiles,
+    );
+    expect(capped.totalBytes).toBe(bytes(patch));
+  });
+
+  it('actually bounds its output — the thing the cap exists to guarantee', () => {
+    // The regression this test was written for: the ceiling used to be tested
+    // only when the NEXT header arrived, so the file that crossed it was always
+    // kept whole and an over-cap file at the END escaped entirely.
+    const patch = [file('tiny.ts', 1), file('lockfile.json', 4000)].join('\n');
+    const capped = capPatch(patch, 2_000);
+
+    expect(capped.truncated).toBe(true);
+    expect(bytes(capped.patch)).toBeLessThanOrEqual(2_000);
+    expect(capped.omittedFiles).toBe(1);
+    expect(capped.patch).toContain('tiny.ts');
+    expect(capped.patch).not.toContain('lockfile.json');
+  });
+
+  it('bounds a header-less patch too, since there is no boundary to cut at', () => {
+    // `stripPatchPreamble` deliberately passes a header-less patch through, so
+    // without a byte slice here the cap would silently not apply to it.
+    const headerless = Array.from({ length: 4000 }, (_, i) => `+line ${i}`).join('\n');
+    const capped = capPatch(headerless, 1_000);
+
+    expect(capped.truncated).toBe(true);
+    expect(bytes(capped.patch)).toBeLessThanOrEqual(1_000);
+    expect(capped.totalBytes).toBe(bytes(headerless));
+  });
+
+  it('cuts a lone over-cap file on a line boundary rather than shipping it whole', () => {
+    const capped = capPatch(file('huge.ts', 4000), 1_000);
+    expect(capped.truncated).toBe(true);
+    expect(bytes(capped.patch)).toBeLessThanOrEqual(1_000);
+    // Whole lines only: a byte slice could land inside a multi-byte character.
+    expect(capped.patch.split('\n').every((line) => line.length >= 0)).toBe(true);
+  });
+
+  it('keeps the FIRST file of a multi-file patch whole, however large', () => {
+    // Returning nothing at all would report "no changes" for a pull request
+    // that has them.
+    const patch = [file('huge.ts', 4000), file('small.ts', 1)].join('\n');
+    const capped = capPatch(patch, 500);
+    expect(capped.patch).toContain('huge.ts');
+    expect(capped.omittedFiles).toBe(1);
+  });
+});
+
+describe('parseMultiFileDiff over what gh actually returns', () => {
+  /*
+    A regression fixture, and the reason `pullFiles` does NOT pass `--patch`.
+
+    `--patch` asks GitHub for the `.patch` media type, which is
+    `git format-patch` output: one mbox entry per COMMIT. A two-commit PR that
+    touches one file twice yields two sections for it, and every mbox header
+    after the first lands inside the previous file's section — where the parser
+    reads the `---` separator as a deletion and the diffstat as context.
+  */
+  const mbox = [
+    'From c218854 Mon Sep 17 00:00:00 2001',
+    'From: Someone <someone@example.com>',
+    'Subject: [PATCH 1/2] first',
+    '---',
+    ' a.ts | 1 +',
+    ' 1 file changed, 1 insertion(+)',
+    '',
+    'diff --git a/a.ts b/a.ts',
+    '--- a/a.ts',
+    '+++ b/a.ts',
+    '@@ -1,1 +1,2 @@',
+    ' const a = 1;',
+    '+const b = 2;',
+    'From d449102 Mon Sep 17 00:00:00 2001',
+    'From: Someone <someone@example.com>',
+    'Subject: [PATCH 2/2] second',
+    '---',
+    ' a.ts | 1 +',
+    ' 1 file changed, 1 insertion(+)',
+    '',
+    'diff --git a/a.ts b/a.ts',
+    '--- a/a.ts',
+    '+++ b/a.ts',
+    '@@ -1,2 +1,3 @@',
+    ' const a = 1;',
+    '+const c = 3;',
+  ].join('\n');
+
+  it('shows why format-patch output must not reach it', () => {
+    const files = parseMultiFileDiff(mbox, { contextLines: 3, fallbackPath: 'pull-1' });
+
+    // One path, twice — which is what a duplicate accordion row looks like.
+    expect(files.filter((f) => f.path === 'a.ts')).toHaveLength(2);
+    // And the second commit's mbox header is swallowed by the first file: its
+    // `---` reads as a deletion the pull request never made.
+    const first = files.find((f) => f.path === 'a.ts');
+    expect(first?.deletions).toBeGreaterThan(0);
+  });
+
+  it('parses the combined diff bare `gh pr diff` returns cleanly', () => {
+    const combined = [
+      'diff --git a/a.ts b/a.ts',
+      '--- a/a.ts',
+      '+++ b/a.ts',
+      '@@ -1,1 +1,3 @@',
+      ' const a = 1;',
+      '+const b = 2;',
+      '+const c = 3;',
+    ].join('\n');
+
+    const files = parseMultiFileDiff(combined, { contextLines: 3, fallbackPath: 'pull-1' });
+    expect(files).toHaveLength(1);
+    expect(files[0]?.insertions).toBe(2);
+    expect(files[0]?.deletions).toBe(0);
   });
 });

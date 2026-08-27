@@ -351,6 +351,51 @@ describe('forge schemas', () => {
     expect(old.event).toBeNull();
   });
 
+  it('bounds a pull-request number to a positive integer', () => {
+    // The value is spliced into the `gh` command line main builds. Rejecting
+    // anything else here means main never has to trust the quoting alone —
+    // the same rule `RunId`'s digits-only regex expresses for run ids.
+    expect(() => schemas.ForgePullDetailRequest.parse({ repoId: 'r', number: 42 })).not.toThrow();
+    expect(() => schemas.ForgePullFilesRequest.parse({ repoId: 'r', number: 0 })).toThrow();
+    expect(() => schemas.ForgePullFilesRequest.parse({ repoId: 'r', number: 1.5 })).toThrow();
+    expect(() =>
+      schemas.ForgePullCommentsRequest.parse({ repoId: 'r', number: '42; rm -rf /' }),
+    ).toThrow();
+  });
+
+  it('keeps "no diff" and "an empty diff" as different answers', () => {
+    // `files: null` is a pull request whose patch could not be read; a `files`
+    // object with an empty array is one that genuinely changes nothing. The UI
+    // says different things for each, so the envelope has to hold both.
+    const unread = schemas.ForgePullFilesResponse.parse({ cli: { reason: 'ready' } });
+    expect(unread.files).toBeNull();
+
+    const empty = schemas.ForgePullFilesResponse.parse({
+      cli: { reason: 'ready' },
+      files: { files: [] },
+    });
+    expect(empty.files?.files).toEqual([]);
+    expect(empty.files?.truncated).toBe(false);
+  });
+
+  it('defaults every withheld field of a PR detail rather than rejecting it', () => {
+    const detail = schemas.ForgePullDetailResponse.parse({
+      cli: { reason: 'ready' },
+      detail: {
+        pull: {
+          number: 7,
+          title: 'Bare',
+          state: 'open',
+          headBranch: 'b',
+          url: 'https://github.com/o/r/pull/7',
+        },
+      },
+    });
+    expect(detail.detail?.headSha).toBeNull();
+    expect(detail.detail?.body).toBe('');
+    expect(detail.detail?.changedFiles).toBe(0);
+  });
+
   it('has a request schema for every forge channel', () => {
     // The same guard the pty/terminal table applies: a forge channel added
     // without a schema is unvalidated input reaching a subprocess.
@@ -362,6 +407,9 @@ describe('forge schemas', () => {
       forgeRunDetail: ['ForgeRunDetailRequest', 'ForgeRunDetailResponse'],
       forgeRunLog: ['ForgeRunLogRequest', 'ForgeRunLogResponse'],
       forgeWorkflows: ['ForgeWorkflowsRequest', 'ForgeWorkflowsResponse'],
+      forgePullDetail: ['ForgePullDetailRequest', 'ForgePullDetailResponse'],
+      forgePullFiles: ['ForgePullFilesRequest', 'ForgePullFilesResponse'],
+      forgePullComments: ['ForgePullCommentsRequest', 'ForgePullCommentsResponse'],
     };
     const channelKeys = Object.keys(CHANNELS).filter((key) => key.startsWith('forge'));
     expect(channelKeys.sort()).toEqual(Object.keys(expected).sort());

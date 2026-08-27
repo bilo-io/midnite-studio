@@ -148,6 +148,18 @@ export type MidniteGitBridge = {
     workflows: (
       req: In<typeof S.ForgeWorkflowsRequest>,
     ) => Promise<z.infer<typeof S.ForgeWorkflowsResponse>>;
+    /** One PR's metadata — fetched when a pull request is opened, never for a list. */
+    pullDetail: (
+      req: In<typeof S.ForgePullDetailRequest>,
+    ) => Promise<z.infer<typeof S.ForgePullDetailResponse>>;
+    /** One PR's diff, parsed in main and capped by bytes. */
+    pullFiles: (
+      req: In<typeof S.ForgePullFilesRequest>,
+    ) => Promise<z.infer<typeof S.ForgePullFilesResponse>>;
+    /** One PR's conversation — discussion comments and review submissions, merged. */
+    pullComments: (
+      req: In<typeof S.ForgePullCommentsRequest>,
+    ) => Promise<z.infer<typeof S.ForgePullCommentsResponse>>;
   };
 
   /**

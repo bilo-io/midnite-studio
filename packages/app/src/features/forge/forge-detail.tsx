@@ -1,21 +1,20 @@
 import { SquareArrowOutUpRight } from 'lucide-react';
 
-import { openExternal, useForgePulls, useForgeRuns } from '../../services/queries';
-import { checksStatus, pullStatus, runStatus, StatusPill } from './forge-status';
+import { openExternal, useForgeRuns } from '../../services/queries';
+import { PrDetail } from '../reviews/pr-detail';
+import { runStatus, StatusPill } from './forge-status';
 
 /**
- * The tab bodies for a workflow run and a pull request.
+ * The tab body for a workflow run — a summary plus a way out.
  *
- * Deliberately a summary plus a way out, not a reimplementation of GitHub.
- * Job logs, review threads and the file-by-file conversation are the forge's
- * surface and they are excellent there; duplicating them would mean streaming
- * log channels, a comment model and a write path — for a git client whose
- * forge integration is explicitly read-only. What the tab is FOR is keeping
- * the answer to "did it pass / is it approved" in the window you are already
- * working in, without a browser round trip.
+ * Job logs live on GitHub from here; the Actions view (Phase 19) is where they
+ * are read in the app, and this tab is the sidebar's quick answer to "did it
+ * pass". It reads the same cached listing the sidebar rendered, so opening it
+ * costs no additional `gh` call.
  *
- * Both read from the same cached listing the sidebar rendered, so opening a
- * tab costs no additional `gh` call.
+ * The pull-request tab used to be the same shape, and no longer is: Phase 20
+ * Theme C gave it files, conversation and checks, which live under
+ * `features/reviews/`. `ReviewView` below is what remains of it here.
  */
 
 export function RunView({ repoId, runId }: { repoId: string; runId: string }) {
@@ -83,45 +82,16 @@ export function RunView({ repoId, runId }: { repoId: string; runId: string }) {
   );
 }
 
+/**
+ * The pull-request tab, which is now `PrDetail` (Phase 20 Theme C).
+ *
+ * Kept as a one-line delegation rather than deleted: the workbench tab strip
+ * opens reviews through this name, and the Reviews *view* being built beside it
+ * mounts the same `PrDetail`. Two entrances, one component — which is the point
+ * of the detail living under `features/reviews/` rather than in here.
+ */
 export function ReviewView({ repoId, number }: { repoId: string; number: number }) {
-  const { data, isLoading } = useForgePulls(repoId, true);
-  const pull = data?.pulls.find((candidate) => candidate.number === number);
-
-  if (isLoading && !pull) return <Empty>Reading pull requests…</Empty>;
-  if (!pull) {
-    return (
-      <Empty>
-        Pull request #{number} is no longer open. Refresh Reviews in the sidebar, or open it on
-        GitHub.
-      </Empty>
-    );
-  }
-
-  const checks = checksStatus(pull);
-
-  return (
-    <Detail
-      title={`#${pull.number} ${pull.title}`}
-      pills={
-        <>
-          <StatusPill status={pullStatus(pull)} />
-          {checks ? <StatusPill status={checks} /> : null}
-        </>
-      }
-      url={pull.url}
-      openLabel={`Open #${pull.number} on GitHub`}
-      facts={[
-        ['Branch', pull.headBranch],
-        ['Author', pull.author || '—'],
-        ['State', pull.state],
-      ]}
-    >
-      <p className="mt-6 text-xs text-muted-foreground">
-        Review threads and the diff conversation live on GitHub. To read the code itself, check the
-        branch out and use <span className="text-foreground">View all changes</span> in the sidebar.
-      </p>
-    </Detail>
-  );
+  return <PrDetail repoId={repoId} number={number} />;
 }
 
 function Detail({

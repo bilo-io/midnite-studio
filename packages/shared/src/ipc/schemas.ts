@@ -11,6 +11,9 @@ import {
   FileDiffSchema,
   ForgeCliStatusSchema,
   ForgeIssuesResultSchema,
+  ForgePullCommentsResultSchema,
+  ForgePullDetailResultSchema,
+  ForgePullFilesResultSchema,
   ForgePullsResultSchema,
   ForgeRunDetailResultSchema,
   ForgeRunLogResultSchema,
@@ -323,6 +326,26 @@ export const ForgeRunLogResponse = ForgeRunLogResultSchema;
 
 export const ForgeWorkflowsRequest = RepoId;
 export const ForgeWorkflowsResponse = ForgeWorkflowsResultSchema;
+
+/**
+ * A pull-request number.
+ *
+ * A positive integer by construction, which is what makes it safe to splice
+ * into the `gh` command line main builds — the same reasoning as `RunId`'s
+ * digits-only regex, expressed in the type the JSON payload already carries.
+ */
+const PullNumber = z.number().int().positive();
+
+const ForgePullRequest = RepoId.extend({ number: PullNumber });
+
+export const ForgePullDetailRequest = ForgePullRequest;
+export const ForgePullDetailResponse = ForgePullDetailResultSchema;
+
+export const ForgePullFilesRequest = ForgePullRequest;
+export const ForgePullFilesResponse = ForgePullFilesResultSchema;
+
+export const ForgePullCommentsRequest = ForgePullRequest;
+export const ForgePullCommentsResponse = ForgePullCommentsResultSchema;
 
 // --- shell -----------------------------------------------------------------
 
