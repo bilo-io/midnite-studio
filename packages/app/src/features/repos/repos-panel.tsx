@@ -47,6 +47,7 @@ import { BranchDot } from './branch-dot';
 import { branchHealth, worktreeHealth, type BranchHealth } from './branch-health';
 import { checksVerdict } from './checks-verdict';
 import { ForgeSections } from './forge-sections';
+import { TestsSection } from '../tests/tests-section';
 import {
   useViewSections,
   type RefSectionKey,
@@ -676,6 +677,7 @@ function RepoTree({
         index={worktrees.length}
         visible={sections.visible}
       />
+      <TestsSection repoId={repo.id} visible={sections.visible} />
     </div>
   );
 }

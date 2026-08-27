@@ -114,6 +114,40 @@ describe('diagnostics contract', () => {
   });
 });
 
+describe('tests contract', () => {
+  it('takes a repoId and nothing else on discover', () => {
+    expect(Object.keys(schemas.TestsDiscoverRequest.shape)).toEqual(['repoId']);
+  });
+
+  it('takes a repoId and a suiteId — never a command — on trustStatus, untrust, run and cancel', () => {
+    for (const schema of [
+      schemas.TestsTrustStatusRequest,
+      schemas.TestsUntrustRequest,
+      schemas.TestsRunRequest,
+    ]) {
+      expect(Object.keys(schema.shape).sort()).toEqual(['repoId', 'suiteId']);
+    }
+    expect(Object.keys(schemas.TestsCancelRequest.shape)).toEqual(['runId']);
+  });
+
+  it('carries a fingerprint on trust, never the run command itself', () => {
+    // What crosses on `trust` is a confirmation of the suite the prompt
+    // showed — main re-derives the actual argument vector from its own
+    // discovery pass, exactly as `diag-handlers.ts` does for a proposed
+    // linter. See tests-handlers.ts.
+    expect(Object.keys(schemas.TestsTrustRequest.shape).sort()).toEqual([
+      'fingerprint',
+      'repoId',
+      'suiteId',
+    ]);
+  });
+
+  it('run resolves with a run id immediately, not a finished result', () => {
+    const parsed = schemas.TestsRunResponse.parse({ ok: true, runId: 'r1' });
+    expect(parsed).toEqual({ ok: true, runId: 'r1' });
+  });
+});
+
 describe('request schemas', () => {
   it('applies the log stream defaults', () => {
     const parsed = schemas.LogStartRequest.parse({ repoId: 'r', requestId: 'q1' });

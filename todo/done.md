@@ -2,6 +2,55 @@
 
 <!-- Append one entry per landed phase/PR: date, phase, PR link, one-line summary. -->
 
+## 2026-08-27 — Phase 19 · Themes F+G — Tests discovery and execution
+
+Landed on `feature/phase-19-tests` (squash-merged locally — this checkout has no GitHub remote, so
+there is no PR link). The last two themes of Phase 19: the app looks at a repository's tests for
+the first time, discovering what it can run and — once trusted — running it.
+
+### What landed
+
+- [x] `git-engine/src/tests/` — `discover.ts` reads `package.json` scripts, a package's `moon.yml`
+      and the presence of `vitest.config.*`/`playwright.config.*`/`jest.config.*`/`cypress.config.*`
+      across the workspace (npm/yarn `workspaces`, `pnpm-workspace.yaml`, or a bare single package),
+      `classify.ts` sorts each candidate into unit/integration/smoke/e2e/lint/typecheck/other, and
+      `discovery-cache.ts` memoises per repo on a short TTL. A moon project's standard tasks
+      (`test`/`lint`/`typecheck`) route through `moon run <id>:<task>` rather than duplicating them
+      as `pnpm run` suites; everything else stays a plain package-manager script
+- [x] `shared/src/domain/tests.ts` + `mgit:tests:*` channels/schemas — discovery is `repoId`-only
+      like `diagDetect`; trust and run take a `suiteId` and (for `trust`) a fingerprint of what the
+      prompt showed, never a command — main always re-derives the argument vector itself
+- [x] `desktop/src/main/process-runner.ts` — the diagnostics runner's spawn/deadline/`SIGKILL`
+      engine, generalised out of `diagnostics/runner.ts` (now a thin eslint-shaped adapter over it,
+      unchanged behaviour, its existing test suite green untouched) so `testing/runner.ts` can reuse
+      it for suites. Also generalised: the kill signals the whole process group, not just the direct
+      child — a test runner's own worker processes have to die with it
+- [x] `desktop/src/main/testing/` — per-suite trust (`trust-store.ts`, widened from diagnostics'
+      one-grant-per-repo to a map, because a repo's `test` and `e2e` scripts are different
+      propositions), and `reporters.ts` reading vitest/jest's shared JSON shape and playwright's
+      `stats` + nested `suites` shape — both write one blob at close, not a stream, so the runner
+      streams raw stdout live for the output pane and parses the buffered blob once the process
+      exits. An unrecognised runner is `structured: false` plus exit code and raw output
+- [x] `features/tests/` — the Tests view (package → suite tree, suite detail with trust/run/cancel,
+      live output, results), a sidebar section grouped by kind, `tests-store.ts` (per-suite live
+      output and last-result-of-the-session), and `run-in-terminal.ts` (the `start-claude.ts`
+      posture — types the command, does not run it, no new trust surface)
+
+### One thing worth remembering
+
+**`getByRole` found a `<TreeSection>` row I expected `inert` to hide.** Phase 16's own done.md entry
+notes `<Collapse>` marks a folded section's content `inert`, which is what makes it actually
+invisible to Playwright rather than merely a `toHaveCount(0)`-shaped illusion. The sidebar's Tests
+section is folded by default and never toggled in the Tests-*view* specs, yet its suite rows still
+resolved as buttons and collided with the main pane's identically-named ones — a strict-mode
+violation, not a false pass, so it was caught immediately rather than shipped. Root cause not fully
+chased down (possibly a mount-timing race before the `inert` attribute lands); the fix was giving
+both panes `role="region"` landmarks and scoping every query through one, which is the more robust
+answer regardless of the cause. Also worth remembering: `getByRole('button', { name: 'test' })` is a
+case-insensitive **substring** match by default, and the new "Tests" sidebar toggle collided with an
+unrelated `forge-issues.spec.ts` fixture whose CI job happens to be named `test` — fixed there with
+`exact: true`, the same guard the spec already used for "Actions".
+
 ## 2026-08-26 — Phase 16 · Theme F — Grouped settings navigation + the side-navigation control
 
 Landed on `feature/sidebar-settings` (squash-merged — this repository still has no remote, so

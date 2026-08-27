@@ -165,13 +165,15 @@ test('expanding a run row shows its jobs, and only then fetches them', async ({ 
   await page.getByRole('button', { name: 'Actions', exact: true }).click();
   await expect(page.getByText('Failed')).toBeVisible();
   // Nothing has expanded yet, so nothing has been asked of `gh run view`.
-  await expect(page.getByRole('button', { name: 'test' })).toHaveCount(0);
+  // `exact: true` because the sidebar's own "Tests" section toggle otherwise
+  // substring-matches this job's name.
+  await expect(page.getByRole('button', { name: 'test', exact: true })).toHaveCount(0);
 
   await page.getByRole('button', { name: 'Jobs in CI #128' }).click();
 
   // The question the red dot leaves open: which job failed.
   await expect(page.getByRole('button', { name: 'typecheck' })).toBeVisible();
-  await expect(page.getByRole('button', { name: 'test' })).toBeVisible();
+  await expect(page.getByRole('button', { name: 'test', exact: true })).toBeVisible();
   await expect(page.getByText('1 steps')).toBeVisible();
 
   // Two verbs, two controls — the chevron peeks, the row body opens a tab. So

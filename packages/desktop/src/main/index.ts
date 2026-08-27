@@ -15,6 +15,7 @@ import { registerRemoteHandlers } from './ipc/remote-handlers';
 import { registerRepoHandlers } from './ipc/repo-handlers';
 import { registerStatsHandlers } from './ipc/stats-handlers';
 import { registerStatusHandlers } from './ipc/status-handlers';
+import { configureTests, registerTestsHandlers } from './ipc/tests-handlers';
 import { installMenu } from './menu';
 import { killAllPtys } from './pty-service';
 import { createTerminalStore } from './terminal-store';
@@ -26,6 +27,7 @@ import {
 import { configureRegistry, listRepos, openRepo, restoreRepos } from './repo-registry';
 import { reconcileWatchers, stopAllWatchers } from './watch-service';
 import { createTrustStore } from './diagnostics/trust-store';
+import { createTestTrustStore } from './testing/trust-store';
 import { createRepoStore } from './repo-store';
 import { LEGACY_APP_NAME, migrateLegacyRepoStore } from './userdata-migration';
 import { installMgitFileProtocol, registerMgitFileScheme } from './fs-protocol';
@@ -104,6 +106,7 @@ if (!app.requestSingleInstanceLock()) {
     registerClipboardHandlers();
     registerForgeHandlers();
     registerDiagHandlers();
+    registerTestsHandlers(getWindow);
     registerPtyHandlers(getWindow);
     const metrics = registerMetricsHandlers(getWindow);
     registerTerminalHandlers();
@@ -122,6 +125,7 @@ if (!app.requestSingleInstanceLock()) {
     configureRegistry(createRepoStore(userData));
     configureTerminals(createTerminalStore(userData), userData);
     configureDiagnostics(createTrustStore(userData));
+    configureTests(createTestTrustStore(userData));
     await restoreRepos();
     await openReposFromEnv();
 

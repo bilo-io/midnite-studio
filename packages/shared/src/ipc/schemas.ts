@@ -28,6 +28,9 @@ import {
   StatsWindowSchema,
   StatusCountsSchema,
   StatusResultSchema,
+  TestDiscoverySchema,
+  TestRunResultSchema,
+  TestTrustStatusSchema,
   WatchEventSchema,
   WorktreeSchema,
 } from '../domain';
@@ -697,6 +700,49 @@ export const StatsSummaryRequest = RepoId.extend({
   withChurn: z.boolean().default(false),
 });
 export const StatsSummaryResponse = RepoStatsSchema;
+
+// --- repository tests (Phase 19) --------------------------------------------
+// A `repoId` on every request; `run`/`trust` also carry a `suiteId`, never a
+// command. Main re-discovers and re-derives the argument vector itself — the
+// same rule diagnostics enforces for `diagRun` — so the renderer can never
+// name what gets executed.
+
+/** Runs nothing — reads package.json/moon.yml and config-file presence only. */
+export const TestsDiscoverRequest = RepoId;
+export const TestsDiscoverResponse = TestDiscoverySchema;
+
+export const TestsTrustStatusRequest = RepoId.extend({ suiteId: z.string().min(1) });
+export const TestsTrustStatusResponse = TestTrustStatusSchema;
+
+/**
+ * `fingerprint` is the suite's command fingerprint as the trust prompt showed
+ * it. Main re-discovers, finds the suite by id, and only records the grant if
+ * the live fingerprint still matches — the `isProposedCommand` check, reused
+ * for a suite instead of a proposed linter.
+ */
+export const TestsTrustRequest = RepoId.extend({
+  suiteId: z.string().min(1),
+  fingerprint: z.string().min(1),
+});
+export const TestsTrustResponse = TestTrustStatusSchema;
+
+export const TestsUntrustRequest = RepoId.extend({ suiteId: z.string().min(1) });
+export const TestsUntrustResponse = TestTrustStatusSchema;
+
+export const TestsRunRequest = RepoId.extend({ suiteId: z.string().min(1) });
+export const TestsRunResponse = z.discriminatedUnion('ok', [
+  z.object({ ok: z.literal(true), runId: z.string().min(1) }),
+  z.object({ ok: z.literal(false), reason: z.string() }),
+]);
+
+export const TestsCancelRequest = z.object({ runId: z.string().min(1) });
+
+export const TestsOutputEvent = z.object({ runId: z.string().min(1), chunk: z.string() });
+export const TestsResultEvent = z.object({
+  runId: z.string().min(1),
+  suiteId: z.string().min(1),
+  result: TestRunResultSchema,
+});
 
 // --- window chrome ---------------------------------------------------------
 

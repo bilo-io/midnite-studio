@@ -319,6 +319,34 @@ export type MidniteGitBridge = {
     summary: (req: In<typeof S.StatsSummaryRequest>) => Promise<RepoStats>;
   };
 
+  /**
+   * A repository's own test suites — discovered, trusted per suite, and run.
+   *
+   * `discover` is safe unprompted, like `diag.detect` — it reads the
+   * filesystem and executes nothing. `run` is the second surface in the app
+   * that spawns a repository's own binary; it resolves with a run id
+   * immediately rather than waiting for the process to exit, and the result
+   * arrives on `onOutput`/`onResult` — a suite can run for minutes and the
+   * Tests view has to show it working, not hang on one invoke.
+   */
+  tests: {
+    discover: (
+      req: In<typeof S.TestsDiscoverRequest>,
+    ) => Promise<z.infer<typeof S.TestsDiscoverResponse>>;
+    trustStatus: (
+      req: In<typeof S.TestsTrustStatusRequest>,
+    ) => Promise<z.infer<typeof S.TestsTrustStatusResponse>>;
+    /** Approve the exact suite the user was shown, by its current fingerprint. */
+    trust: (req: In<typeof S.TestsTrustRequest>) => Promise<z.infer<typeof S.TestsTrustResponse>>;
+    untrust: (
+      req: In<typeof S.TestsUntrustRequest>,
+    ) => Promise<z.infer<typeof S.TestsUntrustResponse>>;
+    run: (req: In<typeof S.TestsRunRequest>) => Promise<z.infer<typeof S.TestsRunResponse>>;
+    cancel: (req: In<typeof S.TestsCancelRequest>) => void;
+    onOutput: (handler: (e: z.infer<typeof S.TestsOutputEvent>) => void) => Unsubscribe;
+    onResult: (handler: (e: z.infer<typeof S.TestsResultEvent>) => void) => Unsubscribe;
+  };
+
   watch: {
     onEvent: (handler: (e: WatchEvent) => void) => Unsubscribe;
   };

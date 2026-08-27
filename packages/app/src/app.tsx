@@ -29,6 +29,7 @@ import { useResizable } from './components/resizable/use-resizable';
 import { ThemeToggle } from './components/theme-toggle';
 import { TitleBarNav } from './components/title-bar-nav';
 import { ActionsView } from './features/actions/actions-view';
+import { TestsView } from './features/tests/tests-view';
 import { DashboardView } from './features/dashboard/dashboard-view';
 import { FilesView } from './features/files/files-view';
 import { GraphView } from './features/graph/graph-view';
@@ -45,6 +46,7 @@ import { bridge } from './services/bridge';
 import { useKeybindings } from './services/keybindings/use-keybindings';
 import { useRemotes, useRepos } from './services/queries';
 import { useWatchInvalidation } from './services/watch-invalidation';
+import { useTestsStream } from './features/tests/use-tests-stream';
 import { useAppearanceSync } from './store/appearance-store';
 import {
   DEFAULT_LAYOUT,
@@ -302,6 +304,7 @@ function Shell() {
     }
   }, [activeView, actionsAvailable]);
   useWatchInvalidation(useUiStore((s) => s.selectedRepoId));
+  useTestsStream();
 
   /**
    * Every shortcut and every native menu item lands here, keyed by CommandId.
@@ -511,6 +514,8 @@ function Shell() {
               <Workbench />
             ) : activeView === 'actions' ? (
               <ActionsView />
+            ) : activeView === 'tests' ? (
+              <TestsView />
             ) : activeView === 'settings' ? (
               <SettingsView />
             ) : (
