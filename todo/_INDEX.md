@@ -16,7 +16,7 @@ Completed work is logged append-only in [`done.md`](done.md). Deferred scope liv
 
 | Phase | Status | Done | Progress | % | 🔄 WIP | ◻ TODO |
 |-------|--------|------|----------|---|--------|--------|
-| [20 · Reviews page & unified diff syntax highlighting](phase-20-reviews-page.md) | 🔄 WIP | 0/40 | `░░░░░░░░░░` | 0% | A B D | C E F G |
+| [20 · Reviews page & unified diff syntax highlighting](phase-20-reviews-page.md) | 🔄 WIP | 0/40 | `░░░░░░░░░░` | 0% | A B C D | E F G |
 | [19 · Dashboard, Actions and Tests as views](phase-19-dashboard-actions-tests.md) | 🔄 WIP | 73/76 | `██████████` | 96% | — | 3 manual checks |
 | [18 · Footer system monitor + repo diagnostics](phase-18-footer-monitor-diagnostics.md) | 🔄 WIP | 51/54 | `█████████░` | 94% | — | 3 manual checks |
 | [17 · Repositories workbench + forge](phase-17-repos-workbench.md) | 🔄 WIP | 46/48 | `█████████░` | 96% | — | 2 manual checks |
@@ -55,7 +55,7 @@ merge, kept in a new `gh-write.ts` so `gh-cli.ts`'s "strictly reads" comment sta
   Actions/Tests already established, hidden for repos with no GitHub remote
 - 🔄 **B** — PR list filterable across every state (open/draft/merged/closed) plus author and
   search, not just the open-only list Phase 17 fetches today
-- ◻ **C** — PR detail grows Files/Conversation/Checks tabs, reusing the existing hunk parser for
+- 🔄 **C** — PR detail grows Files/Conversation/Checks tabs, reusing the existing hunk parser for
   PR diffs rather than a second parser
 - 🔄 **D** — syntax highlighting wired into the one shared `DiffView`, reusing Phase 16's
   already-installed, theme-synced `shiki` highlighter, so Reviews/Changes/Graph render diffs
