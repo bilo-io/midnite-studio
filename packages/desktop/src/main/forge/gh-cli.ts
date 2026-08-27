@@ -7,6 +7,7 @@ import {
   type ForgePullCommentsResult,
   type ForgePullDetailResult,
   type ForgePullFilesResult,
+  type ForgePullScope,
   type ForgePullsResult,
   type ForgeRunDetail,
   type ForgeRunDetailResult,
@@ -117,6 +118,30 @@ export async function listRuns(
 }
 
 /**
+ * The `gh pr list` flags that narrow a listing to the signed-in user.
+ *
+ * `@me` rather than a login this process looked up: `gh` resolves it against
+ * whichever account is authenticated for that host, including an enterprise
+ * one, so the app never has to hold a username or notice that the user ran
+ * `gh auth switch` in the terminal beside it.
+ *
+ * `--author` is a real flag; "review requested from me" is not, and goes
+ * through `--search` — the same query `gh pr status` builds for its own
+ * requested-review block. Nothing here is user input, so nothing needs
+ * quoting beyond the literal colon `--search` expects as one argument.
+ */
+function pullScopeFlags(scope: ForgePullScope): string {
+  switch (scope) {
+    case 'mine':
+      return ' --author @me';
+    case 'review-requested':
+      return ` --search ${shellQuote('review-requested:@me')}`;
+    case 'all':
+      return '';
+  }
+}
+
+/**
  * `state` is the caller's choice, not a hardcoded `open` — the Reviews view
  * (Phase 20 B) asks for `all` and filters into status tabs of its own, while
  * every other caller (the sidebar section, the dashboard widget) keeps
@@ -124,16 +149,26 @@ export async function listRuns(
  * `open` after the fact would not do the same job: `--limit` counts PRs of
  * whichever state was asked for, so a caller that wants N *open* PRs has to
  * say so before the limit is applied, not after.
+ *
+ * `scope` is the same argument about the same `--limit`, one axis over: the
+ * Reviews groups ask for "mine" and "awaiting my review" as separate listings,
+ * and narrowing a repository-wide page down to the viewer afterwards would
+ * return N minus everyone else's rather than N of theirs. Both narrowings are
+ * therefore flags on the subprocess, never predicates in the renderer.
  */
 export async function listPulls(
   forge: Forge,
-  options: { limit: number; state: 'open' | 'closed' | 'merged' | 'all' },
+  options: {
+    limit: number;
+    state: 'open' | 'closed' | 'merged' | 'all';
+    scope?: ForgePullScope;
+  },
 ): Promise<ForgePullsResult> {
   const cli = await ghStatus();
   if (cli.reason !== 'ready') return { cli, pulls: [], error: null };
 
   const command =
-    `gh pr list ${repoFlag(forge)}` +
+    `gh pr list ${repoFlag(forge)}${pullScopeFlags(options.scope ?? 'all')}` +
     ` --state ${options.state} --limit ${options.limit} --json ${PULL_FIELDS}`;
 
   const result = await runInShell(command, LIST_TIMEOUT_MS);
