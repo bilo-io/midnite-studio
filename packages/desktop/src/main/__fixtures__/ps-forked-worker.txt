@@ -1,0 +1,4 @@
+    1     0 /sbin/launchd
+60000 59980 /bin/zsh -l
+60170 60000 claude
+60171 60000 claude

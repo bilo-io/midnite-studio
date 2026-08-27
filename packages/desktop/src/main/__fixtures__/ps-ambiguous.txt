@@ -1,0 +1,4 @@
+    1     0 /sbin/launchd
+60000 59980 /bin/zsh -l
+60150 60000 agy
+60151 60000 node /opt/homebrew/bin/codex

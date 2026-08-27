@@ -1,0 +1,5 @@
+    1     0 /sbin/launchd
+ 1149     1 /Applications/Antigravity IDE.app/Contents/Frameworks/Electron Framework.framework/Helpers/chrome_crashpad_handler --no-rate-limit --monitor-self-annotation=ptype=crashpad-handler
+59980     1 /Applications/Midnite Git.app/Contents/MacOS/Midnite Git
+60000 59980 /bin/zsh -l
+60014 60000 -zsh

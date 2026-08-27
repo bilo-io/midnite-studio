@@ -4,6 +4,8 @@ import { existsSync } from 'node:fs';
 import { EVENT_CHANNELS, SCROLLBACK_BYTES } from '@midnite/git-shared';
 import type { BrowserWindow } from 'electron';
 
+import type { AgentWatcher } from './agent-watcher';
+
 /**
  * The integrated terminal's backend.
  *
@@ -62,6 +64,21 @@ type Session = {
   /** Cleared once the shell's first output proves it is ready for input. */
   pendingInput: string | null;
 };
+
+/**
+ * Who to tell about output, so the live-agent probe knows when to look.
+ *
+ * Injected rather than imported: `terminal-service.ts` already imports this
+ * module for the scrollback, and the watcher needs the roster that lives behind
+ * it — reaching for it from here would close the cycle. Absent by default, so
+ * every test of this file that does not care about the probe gets no probe.
+ */
+let agentWatcher: AgentWatcher | null = null;
+
+/** Wired once at boot, from `index.ts`. `null` disables live-agent detection. */
+export function setAgentWatcher(watcher: AgentWatcher | null): void {
+  agentWatcher = watcher;
+}
 
 const sessions = new Map<string, Session>();
 
@@ -143,6 +160,14 @@ export function createPty(
     cwd: string;
     cols: number;
     rows: number;
+    /**
+     * The roster entry this session was opened for, when it was opened for one.
+     *
+     * Used for exactly one thing: seeding the live-agent watcher's last-known
+     * value, so an agent session does not report having no agent for the few
+     * hundred milliseconds between the shell starting and the command running.
+     */
+    agentId?: string | undefined;
     /** Typed in once the shell is up — see the deferred write in `onData` below. */
     initialInput?: string | undefined;
   },
@@ -191,6 +216,13 @@ export function createPty(
       // whose window is going away, still has history worth restoring.
       appendScrollback(options.sessionId, bytes);
 
+      /*
+        Every chunk pushes the live-agent probe back. What it is waiting for is
+        *silence*: an agent booting writes continuously and then stops at its
+        prompt, which is the moment its process tree is worth reading.
+      */
+      agentWatcher?.noteOutput(id);
+
       /**
        * Send the agent's command only once the shell has spoken.
        *
@@ -217,6 +249,10 @@ export function createPty(
 
     child.onExit(({ exitCode, signal }) => {
       sessions.delete(id);
+      // Before the send: a pending probe against a dead pid would resolve
+      // against whatever process inherited it, and the renderer drops the
+      // session's whole runtime state on this event regardless.
+      agentWatcher?.untrack(id);
       if (win.isDestroyed()) return;
       win.webContents.send(EVENT_CHANNELS.ptyExit, {
         ptyId: id,
@@ -231,6 +267,17 @@ export function createPty(
       pty: child,
       pendingInput: options.initialInput ?? null,
     });
+    /*
+      Seeded with what the session was OPENED for, and not probed here.
+
+      At this instant the tree is a login shell and nothing else — the agent's
+      command is typed in only once the shell prints a prompt (see the deferred
+      write above). A probe now would answer "nothing running" for a session
+      that is about to run one, and the row's mark would blink off and back on.
+      The declared id is the honest starting assumption; the first quiet probe
+      is what may contradict it.
+    */
+    agentWatcher?.track(id, child.pid, options.agentId ?? null);
     return { ok: true, ptyId: id };
   } catch (error) {
     return {
@@ -264,6 +311,7 @@ export function killPty(ptyId: string): void {
   const session = sessions.get(ptyId);
   if (!session) return;
   sessions.delete(ptyId);
+  agentWatcher?.untrack(ptyId);
   try {
     session.pty.kill();
   } catch {

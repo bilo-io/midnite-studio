@@ -765,6 +765,25 @@ export const PtyExitEvent = z.object({
   signal: z.number().int().optional(),
 });
 
+/**
+ * Which roster agent is running inside a pty right now, or none.
+ *
+ * `null` is a real answer, not an absence: it means main looked at the pty's
+ * process tree and found nothing it recognised — an agent that has quit, or a
+ * plain shell sitting at a prompt. That distinction is the whole reason the
+ * renderer keys this into a `Record<string, string | null>` where an absent key
+ * means *never probed*: a session that has not been looked at yet must keep
+ * showing the mark of the agent it was opened for, and only an explicit `null`
+ * may take that mark away.
+ *
+ * The event is emitted on a change only, so nothing arrives for a terminal
+ * whose contents are steady.
+ */
+export const PtyAgentChangedEvent = z.object({
+  ptyId: z.string().min(1),
+  agentId: z.string().min(1).nullable(),
+});
+
 // --- terminal sessions -----------------------------------------------------
 
 /**

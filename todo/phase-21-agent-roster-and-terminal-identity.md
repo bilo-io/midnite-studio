@@ -143,30 +143,80 @@ The spine: B–F all read off this contract, so it lands first.
 - [x] A shell that never emits OSC 7 (a bare `sh`, or a `zsh` without the hook) must degrade to
       exactly today's behaviour rather than to an empty header.
 
-### E — A terminal that knows what is running in it (M)
+### E — A terminal that knows what is running in it (M) — ✅ DONE (2026-08-27)
 
-- [ ] A probe in main, beside [`pty-service.ts`](../packages/desktop/src/main/pty-service.ts): walk
+- [x] A probe in main, beside [`pty-service.ts`](../packages/desktop/src/main/pty-service.ts): walk
       the descendants of a pty's pid and match their argv against the roster's commands, returning
-      the matched `agentId` or `null`. Reads process state and acts on nothing.
-- [ ] A `pty:agent-changed { ptyId, agentId | null }` event on the existing pty event channel —
+      the matched `agentId` or `null`. Reads process state and acts on nothing. *Landed as **two**
+      files rather than one, split along the line between reading and deciding: `agent-process.ts`
+      is the pure read (one `ps -axo pid=,ppid=,args=`, a parser, a depth-carrying descendant walk,
+      the matcher) and `agent-watcher.ts` is the cadence and the memory of what was last said. The
+      files table below said `agent-probe.ts` would hold both the install resolution and the process
+      match; that file is 200 lines of login-shell probing with a docblock about `PATH`, and a
+      process walk in it would have been two unrelated concerns sharing a name.*
+- [x] A `pty:agent-changed { ptyId, agentId | null }` event on the existing pty event channel —
       emitted only on a *change*, so an idle terminal produces no traffic.
-- [ ] `liveAgentId: Record<string, string | null>` in the terminal store, fed by that event through
+- [x] `liveAgentId: Record<string, string | null>` in the terminal store, fed by that event through
       [`use-terminal-ipc.ts`](../packages/app/src/features/terminal/use-terminal-ipc.ts) and added
-      to the `forget` tuple.
-- [ ] `SessionIcon` prefers `liveAgentId` over the stored `agentId` when the two disagree, so
+      to the `forget` tuple. *A deliberate tri-state, and the signature the doc already specified
+      turned out to be exactly right: key **absent** means never probed and falls back to the stored
+      `agentId`; `null` means probed and nothing recognised; a string wins. `pty:exit` clears it to
+      absent rather than `null`, because a revive re-runs the session's agent.*
+- [x] `SessionIcon` prefers `liveAgentId` over the stored `agentId` when the two disagree, so
       `$ codex` typed into a plain shell gives that row Codex's mark, and quitting an agent gives
       it the terminal glyph back. The stored `agentId` remains the fallback and the persisted
-      truth.
-- [ ] The header's mark follows the same live value, so Theme D and Theme E together mean the left
+      truth. *Read through one exported `resolveSessionAgentId`, so the three cases are a unit test
+      rather than a condition inlined in two components. `SessionRow` now takes two agents —
+      `agent` for the label, `runningAgent` for the mark — which is what keeps "icons only" true.*
+- [x] The header's mark follows the same live value, so Theme D and Theme E together mean the left
       of the header always names the *current* repo and the *current* agent.
-- [ ] The matcher keys on the roster's `command`, so it must survive the forms these four actually
+- [x] The matcher keys on the roster's `command`, so it must survive the forms these four actually
       take: a bare `agy` or `codex`, a `node …/cli.js` wrapper, and a shim script that `exec`s the
       real binary under a different argv[0]. Where a form cannot be matched confidently, return
       `null` — a wrong mark is worse than no mark, which is the same posture
-      `activity-detect.ts` arrived at the hard way.
-- [ ] Unit-test the argv→`agentId` matcher against captured fixture output rather than a live
+      `activity-detect.ts` arrived at the hard way. *Three rules and nothing beyond them: argv[0]'s
+      basename, a runtime's script argument, and a whole path **segment** of that argument.
+      Arguments are never scanned, which is the false positive the phase doc names as a required
+      test case. Segment matching is exact, so the npm layout
+      `…/@anthropic-ai/claude-code/cli.js` goes **unmatched** — `claude-code` is not `claude` — and
+      that is the honest outcome rather than an oversight. Checking the real process table on this
+      machine made the rules cheaper than expected: `claude` and `agy` are compiled binaries running
+      as a bare name, and `codex` is a `#!/usr/bin/env node` script, so rules 1 and 2 cover all
+      three installed agents. `probeTarget` is reused from `agent-probe.ts` rather than re-derived,
+      so the install probe and this one cannot disagree about the same roster entry.*
+- [x] Unit-test the argv→`agentId` matcher against captured fixture output rather than a live
       process tree: the fixtures are what make the matcher's `node …/cli.js` and wrapper-script
-      cases reviewable, and they keep the test off the machine's actual processes.
+      cases reviewable, and they keep the test off the machine's actual processes. *Eleven fixture
+      files under `packages/desktop/src/main/__fixtures__/`, with a README recording where the
+      command lines come from and why the pid padding is load-bearing. 34 matcher cases and 14
+      cadence cases.*
+
+**Two things the plan did not have, both found while building:**
+
+- The **cadence's open question is resolved as recommended** — event-driven, not a timer. A pty's
+  output resets its own quiet timer and the probe runs after 750ms of silence; one `ps` is shared
+  across ptys that go quiet together, with the in-flight promise cached rather than just the
+  result. A background session's icon can lag until it prints something, which is the cheap
+  failure the doc predicted.
+- **Nothing is probed at pty-open, and a `null` may only take away a mark some probe has seen.**
+  The doc's plan implied a probe on open; at that instant the tree is a login shell and nothing
+  else, since the agent's command is written only once the shell prints a prompt — so an open-time
+  probe answers "nothing running" for a session about to run Claude Code. Seeding the watcher with
+  the declared `agentId` fixes the obvious case; the *tests* found the residual one (a cold binary's
+  startup gap), and *self-review* found that the five-second grace window written for it was worse
+  than the disease. `npm i -g` installs Claude Code as
+  `node …/@anthropic-ai/claude-code/cli.js`, which the matcher deliberately leaves unmatched, so on
+  that machine the seed is never observed and the window would expire and strip Claude's mark off a
+  session where Claude Code is genuinely running — strictly worse than not probing. The rule is
+  permanent instead, which is what this doc's own Theme E text already asked for: "the stored
+  `agentId` remains the fallback and the persisted truth". The price is on the record: a session
+  opened for an agent that never started keeps its mark, over a `command not found` visible on the
+  screen beside it. A *different* agent is still reported at once — the guard stops a mark being
+  taken away, never corrected.
+- The watcher is **injected** into `pty-service` rather than imported by it. `terminal-service`
+  already imports `pty-service` for the scrollback, and the watcher needs the roster that lives
+  behind it, so a direct import would have closed a cycle. It also made the cadence testable
+  against a fake clock rather than a real 750ms wait.
 
 ### F — The terminal header, rebuilt (S) — ✅ DONE (2026-08-27)
 
@@ -208,11 +258,13 @@ The spine: B–F all read off this contract, so it lands first.
 
 ## Verification
 
-- [ ] `moon run :typecheck :lint :test` green.
-- [ ] Boundary lint clean: the icon registry lives in `app` and the probe lives in `desktop`, so
+- [x] `moon run :typecheck :lint :test` green. (2026-08-27 — 1751 tests.)
+- [x] Boundary lint clean: the icon registry lives in `app` and the probe lives in `desktop`, so
       nothing new crosses `shared ◀ git-engine ◀ desktop` / `shared ◀ app`. In particular `app`
       must not learn `node:path` for `collapseHome` — the helper is string work on a home path the
-      bridge already supplies.
+      bridge already supplies. (2026-08-27. Theme E's `basename` in `agent-process.ts` is
+      hand-rolled string work too, though it is in `desktop` and could have used `node:path` — a
+      POSIX `ps` path needs no platform awareness and one fewer import keeps the module pure.)
 - [x] Vitest (Theme A): every new roster field round-trips through `AgentDefinitionSchema`, and a
       malformed entry is dropped individually rather than taking the file with it.
       ✅ `shared/src/terminal.test.ts` (a table over the whole roster, both directions of
@@ -220,15 +272,23 @@ The spine: B–F all read off this contract, so it lands first.
 - [x] Vitest (Themes D/F): `collapseHome` on home exactly, a child of home, a non-home path, and
       the `/Users/bilolwabonaX` boundary case; `resolveRepoForPath` on nested worktrees and on a
       path inside no repo. (2026-08-27, with Theme F.)
-- [ ] Vitest (Theme E): the argv matcher against fixture process listings — a bare `claude`, a
+- [x] Vitest (Theme E): the argv matcher against fixture process listings — a bare `claude`, a
       `node …/cli.js` form, a wrapper script, and output containing an agent's name as an argument
-      rather than as the command.
-- [ ] Playwright (Themes B/C/F, `e2e/terminal.spec.ts`): the `+` menu lists five flat labels each
+      rather than as the command. ✅ `agent-process.test.ts` (34 cases over eleven fixtures,
+      including four separate false-positive shapes) plus `agent-watcher.test.ts` (14 cases driving
+      the debounce, the change-only rule, the shared snapshot and the seed's grace window off a
+      fake clock). (2026-08-27.)
+- [x] Playwright (Themes B/C/E/F, `e2e/terminal.spec.ts`): the `+` menu lists five flat labels each
       with a leading glyph; an uninstalled agent is disabled and states why; the header renders a
       glyph, a status circle and a `~`-prefixed path with no literal "Terminal"; the
-      `data-terminal-header` hit-test still passes across the full width.
-- [ ] Screenshot, per the visual-phase convention: the `+` menu open with all five items, and the
-      new header at a narrow panel width where the path is truncating.
+      `data-terminal-header` hit-test still passes across the full width. Theme E adds four:
+      a shell that takes on a running agent's mark, the header's glyph following the live value both
+      ways, an agent session keeping its mark until contradicted, and a probe result landing on one
+      session only. 25 specs green. (2026-08-27.)
+- [x] Screenshot, per the visual-phase convention: the `+` menu open with all five items, and the
+      new header at a narrow panel width where the path is truncating. Theme E adds a before/after
+      pair — `phase-21-live-agent-before.png` / `-after.png` — where two rows and the header are all
+      lying in the first and honest in the second. (2026-08-27.)
 - [ ] **Open, for a human:** `cd` between two real worktrees in a live terminal and watch the
       header's repo name and mark change — OSC 7 arrives from the user's actual shell config, which
       a mock bridge cannot emit.
@@ -296,10 +356,16 @@ The spine: B–F all read off this contract, so it lands first.
 - **Resolved — the header path emphasises the repo segment** and dims its ancestors, `~`-collapsed
   and left-truncating. A breadcrumb with chevrons and a monospace chip were both considered; the
   header is a one-line `py-1` strip already carrying four buttons, and neither earned the width.
-- **Open — the probe's cadence.** *Recommendation:* event-driven rather than a timer — on pty open
-  and exit, on a session becoming active, and once roughly 750ms after output goes quiet. A
-  background session's icon can then lag until you look at it, which is the cheap failure; a poll
-  across every open pty is a cost paid forever for a fact that changes a handful of times a day.
+- **Resolved — the probe's cadence is event-driven**, as recommended, with one correction the
+  recommendation did not anticipate. Output resets a per-pty quiet timer and the probe runs 750ms
+  after silence; `untrack` on exit and on kill; one `ps` shared across ptys that go quiet together.
+  But there is **no probe on pty open**: at that instant the tree is a login shell and nothing
+  else, because the agent's command is written only once the shell prints a prompt, so an open-time
+  probe reports "nothing running" for a session about to run Claude Code. The declared `agentId`
+  seeds the last-known value instead, and that seed is protected for five seconds against a probe
+  that has never observed it — see Theme E's notes. "On a session becoming active" was dropped as
+  redundant: a session the user just switched to is one they are about to type in, and typing
+  produces output.
 - **Resolved — where the OSC 7 emission comes from.** Handled if it arrives, silently ignored if
   not, exactly as recommended. The one-line hook is
   `precmd() { printf '\e]7;file://%s%s\a' "$HOST" "$PWD" }` for `zsh`; the Settings ▸ Terminal
@@ -310,7 +376,8 @@ The spine: B–F all read off this contract, so it lands first.
   beside `homeDir`. A parser comparing against the page's host would reject every payload the
   canonical emitters produce, and Theme D would silently do nothing on a correctly configured
   machine.
-- **Open — whether `liveAgentId` should override a stored `agentId` in the session *label* too**,
-  not just the icon. *Recommendation:* icon only, this phase. `sessionLabel` already resolves four
-  ways (`name` → `autoName` → `agentLabel` → `'Terminal'`) and Phase 19's notes show how quickly
-  that ordering gets subtle; a fifth input wants its own look.
+- **Resolved — icon only, as recommended.** `sessionLabel` still resolves its four ways
+  (`name` → `autoName` → `agentLabel` → `'Terminal'`) off the *stored* `agentId`, and the live value
+  reaches the marks alone. `SessionRow` takes two agent props to keep that split explicit rather
+  than implicit — `agent` for the label, `runningAgent` for the glyph — and an e2e spec asserts the
+  label does not move when the mark does, so a later change cannot quietly fold the two together.

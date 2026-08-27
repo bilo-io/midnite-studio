@@ -53,11 +53,27 @@ export function useTerminalIpc(session: TerminalSession, onData: (bytes: Uint8Ar
         through `resolveRepoForPath`, a repository it was never in.
       */
       store.setLiveCwd(session.id, undefined);
+      /*
+        And so does what was running in it. `undefined` restores *never probed*
+        rather than asserting `null`: a revived session re-runs its agent, and a
+        stale `null` would have the row show a terminal glyph over it until the
+        next probe landed.
+      */
+      store.setLiveAgentId(session.id, undefined);
+    });
+    /*
+      What is actually running in this pty, from main's process probe. Arrives
+      only on a change, so there is nothing to throttle here.
+    */
+    const offAgent = api.pty.onAgentChanged(({ ptyId: id, agentId }) => {
+      if (ptyIdRef.current !== id) return;
+      useTerminalStore.getState().setLiveAgentId(session.id, agentId);
     });
 
     return () => {
       offData();
       offExit();
+      offAgent();
     };
   }, [session.id]);
 

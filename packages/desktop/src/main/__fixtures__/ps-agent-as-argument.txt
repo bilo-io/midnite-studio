@@ -1,0 +1,6 @@
+    1     0 /sbin/launchd
+60000 59980 /bin/zsh -l
+60110 60000 git commit -m try codex instead
+60111 60000 vim codex.md
+60112 60000 grep -rn claude packages/app/src
+60113 60000 /Applications/Claude.app/Contents/Helpers/chrome-native-host chrome-extension://fcoeoabgfenejglbffodgkkbkcdhcgfn/

@@ -1,6 +1,11 @@
 import { beforeEach, describe, expect, it } from 'vitest';
 
-import { cleanAutoName, sessionLabel, useTerminalStore } from './terminal-store';
+import {
+  cleanAutoName,
+  resolveSessionAgentId,
+  sessionLabel,
+  useTerminalStore,
+} from './terminal-store';
 
 /**
  * The store's own logic, with no bridge behind it.
@@ -123,6 +128,9 @@ describe('useTerminalStore', () => {
       replay: { ...state.replay, [a.id]: new Uint8Array([1]) },
       errors: { ...state.errors, [a.id]: 'spawn failed' },
     }));
+    // A string rather than the tri-state's `null`, so the `!== undefined`
+    // assertions below mean what they say.
+    useTerminalStore.getState().setLiveAgentId(a.id, 'codex');
 
     const runtime = [
       'ptyIds',
@@ -133,6 +141,7 @@ describe('useTerminalStore', () => {
       'autoNames',
       'activity',
       'liveCwd',
+      'liveAgentId',
     ] as const;
 
     // Every map genuinely held something first, or the assertion below is vacuous.
@@ -286,6 +295,61 @@ describe('useTerminalStore', () => {
     });
   });
 
+  describe('setLiveAgentId', () => {
+    it('records what main says is running', () => {
+      const a = open('a');
+      useTerminalStore.getState().setLiveAgentId(a.id, 'codex');
+      expect(useTerminalStore.getState().liveAgentId[a.id]).toBe('codex');
+    });
+
+    /**
+     * The tri-state's whole point: `null` is an *answer*, so it has to be
+     * stored as a present key. Storing it as an absence would read as "never
+     * probed" and hand the row back the mark the probe just took away.
+     */
+    it('stores an explicit null as a present key, not as an absence', () => {
+      const a = open('a');
+      useTerminalStore.getState().setLiveAgentId(a.id, null);
+
+      expect(useTerminalStore.getState().liveAgentId[a.id]).toBeNull();
+      expect(a.id in useTerminalStore.getState().liveAgentId).toBe(true);
+    });
+
+    it('clears back to never-probed on undefined, for a pty that has exited', () => {
+      const a = open('a');
+      useTerminalStore.getState().setLiveAgentId(a.id, null);
+      useTerminalStore.getState().setLiveAgentId(a.id, undefined);
+
+      expect(a.id in useTerminalStore.getState().liveAgentId).toBe(false);
+    });
+
+    it.each([['codex'], [null]] as const)('is a no-op when %s is re-reported', (value) => {
+      const a = open('a');
+      useTerminalStore.getState().setLiveAgentId(a.id, value);
+      const first = useTerminalStore.getState().liveAgentId;
+
+      useTerminalStore.getState().setLiveAgentId(a.id, value);
+      expect(useTerminalStore.getState().liveAgentId).toBe(first);
+    });
+
+    it('is a no-op when clearing a session that was never probed', () => {
+      const a = open('a');
+      const first = useTerminalStore.getState().liveAgentId;
+
+      useTerminalStore.getState().setLiveAgentId(a.id, undefined);
+      expect(useTerminalStore.getState().liveAgentId).toBe(first);
+    });
+
+    it('never touches the session record, which stays the opened-for truth', () => {
+      const a = open('a');
+      useTerminalStore.getState().setLiveAgentId(a.id, 'codex');
+
+      const session = useTerminalStore.getState().sessions.find((s) => s.id === a.id)!;
+      expect(session.kind).toBe('shell');
+      expect(session.agentId).toBeUndefined();
+    });
+  });
+
   describe('setActivity', () => {
     it('records and clears a session activity guess', () => {
       const a = open('a');
@@ -322,6 +386,40 @@ describe('sessionLabel', () => {
 
   it('falls back to a plain "Terminal" for an unnamed shell', () => {
     expect(sessionLabel(base, undefined)).toBe('Terminal');
+  });
+});
+
+/**
+ * The three cases the tri-state exists for, read as the UI reads them.
+ *
+ * Absent is not `null`: the first is "nobody has looked", which must leave an
+ * agent session wearing the mark it was opened with, and the second is "looked,
+ * found nothing", which must take it away.
+ */
+describe('resolveSessionAgentId', () => {
+  it('falls back to the opened-for agent when nothing has been probed', () => {
+    expect(resolveSessionAgentId({ id: 's1', agentId: 'claude' }, {})).toBe('claude');
+  });
+
+  it('shows nothing for an unprobed plain shell', () => {
+    expect(resolveSessionAgentId({ id: 's1', agentId: undefined }, {})).toBeUndefined();
+  });
+
+  it('prefers what is running over what the session was opened for', () => {
+    expect(resolveSessionAgentId({ id: 's1', agentId: 'claude' }, { s1: 'codex' })).toBe('codex');
+  });
+
+  it('gives a plain shell the mark of the agent typed into it', () => {
+    expect(resolveSessionAgentId({ id: 's1', agentId: undefined }, { s1: 'codex' })).toBe('codex');
+  });
+
+  /** An agent that has quit: the row gets its terminal glyph back. */
+  it('takes the mark away when the probe found nothing running', () => {
+    expect(resolveSessionAgentId({ id: 's1', agentId: 'claude' }, { s1: null })).toBeUndefined();
+  });
+
+  it("reads only its own session's entry", () => {
+    expect(resolveSessionAgentId({ id: 's1', agentId: 'claude' }, { s2: null })).toBe('claude');
   });
 });
 

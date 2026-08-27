@@ -9,6 +9,7 @@ import { SortableList, useSortableRow } from '../../components/sortable-list';
 import { StateDot } from '../../components/state-dot';
 import { useUiStore } from '../../store/ui-store';
 import {
+  resolveSessionAgentId,
   sessionLabel,
   useTerminalStore,
   type SessionActivity,
@@ -32,6 +33,12 @@ export function TerminalSessionList({
   const dialogs = useDialogs();
   const sessions = useTerminalStore((s) => s.sessions);
   const activeId = useTerminalStore((s) => s.activeId);
+  /*
+    Subscribed once for the whole list rather than per row: the probe reports a
+    change for one session at a time, and the map is a stable reference between
+    those, so a row only re-renders when its own entry moves.
+  */
+  const liveAgentId = useTerminalStore((s) => s.liveAgentId);
   const side = useUiStore((s) => s.terminalSidebarSide);
 
   const border = side === 'left' ? 'border-r' : 'border-l';
@@ -75,6 +82,9 @@ export function TerminalSessionList({
             session={session}
             active={session.id === activeId}
             agent={agents.find((a) => a.id === session.agentId)}
+            runningAgent={agents.find(
+              (a) => a.id === resolveSessionAgentId(session, liveAgentId),
+            )}
           />
         ))}
       </SortableList>
@@ -86,10 +96,21 @@ function SessionRow({
   session,
   active,
   agent,
+  runningAgent,
 }: {
   session: TerminalSession;
   active: boolean;
+  /**
+   * The roster entry this session was *opened for*. Feeds the label only.
+   *
+   * Kept apart from `runningAgent` on purpose: the live probe drives icons and
+   * nothing else this phase. `sessionLabel` already resolves four ways and a
+   * fifth input into that ordering wants its own design pass — so a shell that
+   * is running Codex shows Codex's mark and keeps the name it had.
+   */
   agent: AgentDefinition | undefined;
+  /** What is *actually running*, from main's process probe. Drives the mark. */
+  runningAgent: AgentDefinition | undefined;
 }) {
   const dialogs = useDialogs();
   const state = useTerminalStore((s) => s.states[session.id] ?? 'idle');
@@ -154,7 +175,7 @@ function SessionRow({
         */
         onDoubleClick={rename}
       >
-        <SessionIcon agent={agent} live={live} />
+        <SessionIcon agent={runningAgent} live={live} />
         {/*
           The repo name, then the session's own name — "Claude · Claude" for
           every agent session (Phase 19's shape) said the same thing twice and
