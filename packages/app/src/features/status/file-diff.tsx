@@ -1,4 +1,6 @@
+import { useActiveWorktree } from '../../services/use-status';
 import { DiffView } from '../diff/diff-view';
+import { imageDiffSources } from '../diff/image-sources';
 import { useFileDiff } from '../diff/use-file-diff';
 
 /**
@@ -14,18 +16,31 @@ export function FileDiff({
   path,
   staged,
   oldPath,
+  worktreePath,
 }: {
   repoId: string;
   path: string;
   staged: boolean;
+  /** The checkout this path belongs to, when it is not the selected one. */
+  worktreePath?: string | undefined;
   /** `StatusEntry.origPath` — without it a renamed file diffs as wholly new. */
   oldPath?: string | null;
 }) {
+  /*
+    The same active-worktree fallback `useFileDiff` applies internally, made
+    explicit here because the image URLs need it too. Left implicit, a diff of
+    a linked worktree would be paired with the MAIN checkout's image — the diff
+    right, the picture from somewhere else.
+  */
+  const active = useActiveWorktree();
+  const checkout = worktreePath ?? active.worktreePath;
+
   const { diff, isLoading, expandContext } = useFileDiff({
     repoId,
     path,
     staged,
     ...(oldPath === undefined ? {} : { oldPath }),
+    ...(checkout === undefined ? {} : { worktreePath: checkout }),
   });
 
   return (
@@ -39,6 +54,12 @@ export function FileDiff({
           diff={diff}
           isLoading={isLoading}
           onExpandContext={expandContext}
+          images={imageDiffSources(diff, {
+            kind: 'worktree',
+            repoId,
+            staged,
+            ...(checkout === undefined ? {} : { worktreePath: checkout }),
+          })}
         />
       </div>
     </div>
