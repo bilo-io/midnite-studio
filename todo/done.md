@@ -2,6 +2,92 @@
 
 <!-- Append one entry per landed phase/PR: date, phase, PR link, one-line summary. -->
 
+## 2026-08-27 — Phase 21 · Themes A + B + C — a plural agent roster, and a `+` menu that says what it starts
+
+Landed on `feature/phase-21-roster-plural`, squash-merged locally — no PR link, no GitHub remote on
+this checkout. Phase 15 built the agent machinery around a roster with exactly one entry in it, and
+the renderer never held up its half of the *"adding one is an edit, not a release"* bargain. These
+three themes are the renderer finally keeping it.
+
+- [x] **The roster becomes plural.** `AgentDefinitionSchema` gains `icon` (a key into the renderer's
+      registry, defaulting to the agent's `id`) and `install` (the one-line hint a disabled menu row
+      shows instead of nothing), and `BUILTIN_AGENTS` grows from one entry to four real terminal
+      agents: Claude Code (`claude`), Antigravity (`agy` — the CLI, **not** the `antigravity-ide`
+      shim, which opens the IDE), Codex (`codex`) and OpenClaude (`openclaude`)
+- [x] **Whether a command exists on this machine is a SEPARATE type**, `AgentStatus`, keyed by id
+      and travelling beside the roster on `agent.list()`. Folding it onto `AgentDefinition` would
+      have meant `mergeAgents` validating a runtime fact and `agents.json` gaining two fields nobody
+      should ever write — the definition is config a user hand-edits, the status is a probe result
+      with a lifetime measured in seconds
+- [x] **`agentIdMatchesKind` guarded one id when it was written and now guards four**, so both its
+      invariants are re-asserted as a table over the whole roster. "True for all agents" and "true
+      for Claude" used to be the same sentence; a fifth entry can no longer be added half-wired
+- [x] **`login-shell.ts` extracted** from `claude-cli.ts` — `runInShell`, `loginShell` and
+      `parseWhichOutput`, previously owned outright by the Claude probe and now shared with the
+      roster's. The `-lic` trick is the load-bearing part and it now has one home
+- [x] **`agent-probe.ts`: the install probe, and its trap.** `claude` and `agy` both live in
+      `~/.local/bin`, which reaches the environment only through an interactive rc file — so an app
+      opened from Finder inherits launchd's bare PATH and a probe resolving against **Electron's**
+      environment would disable two agents that are sitting right there. The whole roster resolves
+      in ONE `-lic` shell, each `command -v` wrapped in per-agent frame markers: without them
+      `parseWhichOutput`'s "last path line wins" rule hands an rc-file banner's path to whichever
+      agent parsed last, and every agent resolves to the same wrong binary. Cached on a 30s TTL, so
+      `npm i -g` in the terminal next door un-greys its menu item without an app relaunch
+- [x] **A probe that cannot answer OMITS the agent** rather than reporting `installed: false`, and
+      the renderer reads absent as "assume it works". A slow rc file, a broken profile or a shell
+      killed mid-batch costs the user an explanation, never a working agent — the same fail-soft
+      posture `claude-cli.ts` already took
+- [x] **Three new marks beside `claude-icon.tsx`**, all hand-drawn originals with their provenance
+      in a doc comment. Antigravity is a Google trademark; OpenClaude publishes a **wordmark only**;
+      and OpenAI's hexagonal knot turns to mud at the 14px the session list draws at — which is the
+      failure Phase 19's spinner rewrite already paid for once. Codex is a `</>` instead:
+      unmistakably the coding agent, legible at a third of its design size, and nobody's logo
+- [x] **`AGENT_ICONS` + `resolveAgentIcon`** — the one place an `icon` key becomes a mark, plus a
+      curated allow-list of `react-icons/si` names so a user-added agent can ask for
+      `SiGooglegemini` without shipping an SVG. An allow-list rather than a dynamic lookup because
+      resolving an arbitrary name would mean importing the whole set to resolve *against*, and
+      CLAUDE.md forbids the root barrel for exactly that reason. An unrecognised key falls back to
+      lucide's `Terminal`: a typo in a hand-edited config should cost a glyph, not a row
+- [x] **`SessionIcon` resolves through the registry** instead of hard-coding `<ClaudeIcon>` for
+      *any* agent id — invisible while the roster had one entry, and about to put Claude's face on
+      Codex
+- [x] **The `+` menu goes flat and iconned**: New Terminal, a separator, then Claude Code /
+      Antigravity / Codex / OpenClaude. The `New Agent — ` prefix existed to disambiguate one entry
+      from a heading; with four named agents the label *is* the disambiguation. `MenuEntryBase`
+      gains `iconStyle` so an accent — roster data, a colour Tailwind has never seen — can reach the
+      row inline; a **disabled** row drops it, because a saturated brand colour under 40% opacity
+      reads as selected rather than unavailable
+- [x] **`buildNewSessionMenu` is pure and separate from the panel**, because the interesting part of
+      this menu is not how it is drawn but which rows are dead and why. Four cases, unit-tested:
+      everything installed, one missing (OpenClaude is the live example — the other three are on the
+      PATH of the machine this was written on), none installed, and no worktree selected, where the
+      worktree reason wins over every install hint
+- [x] **Found in passing, and fixed:** Phase 19 said in words that the repo name should shrink
+      before the session name — *"the part that actually tells two Claude sessions apart"* — and
+      wrote the opposite in CSS. The repo span was `shrink` (basis auto, content-sized until
+      something overflows), the name span `flex-1` (basis **zero**, leftovers only), so at the
+      list's default 176px the repo name rendered in full and the session name collapsed to one
+      letter and an ellipsis. With four agents in the roster that is the one half that cannot be
+      guessed
+- [x] **Three e2e specs had been red on `main`** since Phase 19 split the row in two: each matched
+      `span.truncate`, which silently began matching twice per row, so they asserted on whichever
+      span came first. `data-session-name` gives them a hook on the half they were always about.
+      All fourteen pass, plus four new ones — the flat menu naming four agents, the uninstalled one
+      disabled with its hint, an agent row carrying its own accent, and two agents from one roster
+      getting two different marks
+- [x] Screenshots: `docs/screenshots/phase-21-new-menu.png`, `phase-21-session-list.png` and
+      `phase-21-session-list-dark.png` — Theme B's "eyeball each mark at 14px, in both themes"
+
+*Deliberately not here:* per-agent activity detection (`activity-detect.ts` stays keyed to Claude
+Code's own chrome, so the three new agents show the idle caret), a writable Settings ▸ Agents page,
+and launcher-style entries. All three are recorded in the phase doc's *Not in this phase*.
+
+*Still open on Phase 21:* Themes D and E (OSC 7 live cwd, and the process probe) — F landed in
+parallel and this branch rebased onto it, so the `+` menu's four agents now hang off F's rebuilt
+header. Plus the three human passes: a real `cd` between worktrees, starting and quitting an agent
+by hand, and the packaged `.app` launched from Finder, which is the one check that catches the probe
+resolving PATH from Electron's environment instead of the shell's.
+
 ## 2026-08-27 — Phase 21 · Theme F — the terminal header, rebuilt
 
 Landed on `feature/phase-21-terminal-header`, merged locally — no PR link, no GitHub remote on this

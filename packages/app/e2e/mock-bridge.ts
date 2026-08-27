@@ -871,9 +871,54 @@ export async function installMockBridge(page: Page, fixtures: MockFixtures): Pro
         reorder: noop,
       },
       agent: {
+        /*
+          The real roster, plus a probe result that mirrors the machine this
+          phase was written on: three agents present, OpenClaude missing. The
+          harness needs a MISSING one to have anything to assert about the `+`
+          menu's disabled row — a roster where everything is installed exercises
+          exactly one of the menu builder's four cases.
+        */
         list: async () => ({
           agents: [
-            { id: 'claude', label: 'Claude', command: 'claude', args: [], accent: '#D97757' },
+            {
+              id: 'claude',
+              label: 'Claude Code',
+              command: 'claude',
+              args: [],
+              accent: '#D97757',
+              install: 'npm i -g @anthropic-ai/claude-code',
+            },
+            {
+              id: 'agy',
+              label: 'Antigravity',
+              command: 'agy',
+              args: [],
+              accent: '#4285F4',
+              icon: 'antigravity',
+              install: 'See antigravity.google/docs/cli for the Antigravity CLI',
+            },
+            {
+              id: 'codex',
+              label: 'Codex',
+              command: 'codex',
+              args: [],
+              accent: '#10A37F',
+              install: 'npm i -g @openai/codex',
+            },
+            {
+              id: 'openclaude',
+              label: 'OpenClaude',
+              command: 'openclaude',
+              args: [],
+              accent: '#8B5CF6',
+              install: 'npm i -g @gitlawb/openclaude',
+            },
+          ],
+          status: [
+            { id: 'claude', installed: true, resolvedPath: '/Users/e2e/.local/bin/claude' },
+            { id: 'agy', installed: true, resolvedPath: '/Users/e2e/.local/bin/agy' },
+            { id: 'codex', installed: true, resolvedPath: '/opt/homebrew/bin/codex' },
+            { id: 'openclaude', installed: false, resolvedPath: null },
           ],
         }),
         claudeInfo: async () => ({

@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 
-import { detectInstallMethod, parseClaudeVersion, parseWhichOutput } from './claude-cli';
+import { detectInstallMethod, parseClaudeVersion } from './claude-cli';
 
 describe('parseClaudeVersion', () => {
   it('finds the semver in typical output', () => {
@@ -22,18 +22,6 @@ describe('parseClaudeVersion', () => {
   it('returns null when nothing parses', () => {
     expect(parseClaudeVersion('command not found: claude')).toBeNull();
     expect(parseClaudeVersion('')).toBeNull();
-  });
-});
-
-describe('parseWhichOutput', () => {
-  it('takes the last absolute-path line, skipping banner noise', () => {
-    expect(parseWhichOutput('banner text\n/Users/x/.nvm/versions/node/v22/bin/claude\n')).toBe(
-      '/Users/x/.nvm/versions/node/v22/bin/claude',
-    );
-  });
-
-  it('returns null when no path appears', () => {
-    expect(parseWhichOutput('claude not found')).toBeNull();
   });
 });
 

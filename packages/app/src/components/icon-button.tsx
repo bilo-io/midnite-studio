@@ -1,17 +1,28 @@
-import type { ComponentType, MouseEventHandler, ReactNode } from 'react';
+import type { ComponentType, CSSProperties, MouseEventHandler, ReactNode } from 'react';
 
 import { Tooltip } from './tooltip';
 
 /**
- * A component taking `className` and `strokeWidth` — the shape both icon
- * families in the app already have.
+ * A component taking `className`, `strokeWidth` and `style` — the shape both
+ * icon families in the app already have, and the app's own hand-held marks
+ * along with them.
  *
  * Declared structurally rather than importing `LucideIcon` or react-icons'
  * `IconType` so this file has no opinion about which set it is handed. That is
  * load-bearing now that the two coexist: the nav rail is on react-icons and
  * most of the renderer is still on lucide, and neither had to be adapted.
+ *
+ * `style` is here for one reason: an agent's `accent` is roster data, which
+ * means it is a colour Tailwind has never seen and can only reach an icon
+ * inline. It was already being passed that way before this type admitted it —
+ * `SessionIcon` styled `ClaudeIcon` directly, which typechecked only because it
+ * named the concrete component rather than the registry it now resolves from.
  */
-export type IconComponent = ComponentType<{ className?: string; strokeWidth?: number }>;
+export type IconComponent = ComponentType<{
+  className?: string;
+  strokeWidth?: number;
+  style?: CSSProperties;
+}>;
 
 export type IconButtonProps = {
   icon: IconComponent;
