@@ -1,6 +1,6 @@
 import { beforeEach, describe, expect, it } from 'vitest';
 
-import { sessionLabel, useTerminalStore } from './terminal-store';
+import { cleanAutoName, sessionLabel, useTerminalStore } from './terminal-store';
 
 /**
  * The store's own logic, with no bridge behind it.
@@ -175,6 +175,23 @@ describe('useTerminalStore', () => {
     });
   });
 
+  describe('setAutoName', () => {
+    it('strips the agent spinner glyph out of the title it reports', () => {
+      const a = open('a');
+      useTerminalStore.getState().setAutoName(a.id, '\u2733 Claude Code');
+
+      expect(useTerminalStore.getState().autoNames[a.id]).toBe('Claude Code');
+    });
+
+    it('keeps the previous guess when a title is nothing but decoration', () => {
+      const a = open('a');
+      useTerminalStore.getState().setAutoName(a.id, 'Rebasing');
+      useTerminalStore.getState().setAutoName(a.id, '\u2733');
+
+      expect(useTerminalStore.getState().autoNames[a.id]).toBe('Rebasing');
+    });
+  });
+
   describe('setActivity', () => {
     it('records and clears a session activity guess', () => {
       const a = open('a');
@@ -211,5 +228,21 @@ describe('sessionLabel', () => {
 
   it('falls back to a plain "Terminal" for an unnamed shell', () => {
     expect(sessionLabel(base, undefined)).toBe('Terminal');
+  });
+});
+
+describe('cleanAutoName', () => {
+  it.each([
+    ['\u2733 Claude Code', 'Claude Code'],
+    ['\u2733 Icon updates and terminal tidying', 'Icon updates and terminal tidying'],
+    ['\u2728\uFE0F  Building', 'Building'],
+    ['pnpm test', 'pnpm test'],
+    ['feature/x \u2014 main', 'feature/x \u2014 main'],
+  ])('%s reads as %s', (title, expected) => {
+    expect(cleanAutoName(title)).toBe(expected);
+  });
+
+  it.each(['\u2733', '  ', '\u2733\uFE0F \u2728'])('has nothing to report for %s', (title) => {
+    expect(cleanAutoName(title)).toBeUndefined();
   });
 });

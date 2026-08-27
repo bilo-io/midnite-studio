@@ -186,7 +186,10 @@ export const DEFAULT_GRAPH_COLUMNS: GraphColumns = {
 export const LAYOUT_BOUNDS = {
   reposWidth: { min: 180, max: 560 },
   terminalHeight: { min: 120, max: 720 },
-  terminalListWidth: { min: 120, max: 360 },
+  // Up to 560, like the repos sidebar: an agent session's name is a summary
+  // of the task it was given ("Git actions dropdown icon buttons"), so this
+  // is the one list pane whose rows get longer the more useful they are.
+  terminalListWidth: { min: 120, max: 560 },
   detailWidth: { min: 280, max: 720 },
   changesListWidth: { min: 240, max: 720 },
   filesTreeWidth: { min: 200, max: 640 },
@@ -248,6 +251,14 @@ export type UiState = {
   terminalMaximized: boolean;
   /** Which edge of the terminal pane the session list docks to. */
   terminalSidebarSide: TerminalSidebarSide;
+  /**
+   * Whether the session list is shown beside the active terminal.
+   *
+   * Still only rendered past one session — a list of one names nothing the
+   * header does not — so this is the second half of that condition rather
+   * than a replacement for it.
+   */
+  terminalListOpen: boolean;
 
 
   layout: LayoutSizes;
@@ -339,6 +350,7 @@ export type UiState = {
   setTerminalOpen: (open: boolean) => void;
   toggleTerminalMaximized: () => void;
   setTerminalSidebarSide: (side: TerminalSidebarSide) => void;
+  toggleTerminalList: () => void;
 
   setLayout: <K extends keyof LayoutSizes>(key: K, value: number) => void;
   setGraphColumn: <K extends keyof GraphColumns>(key: K, value: number) => void;
@@ -417,6 +429,7 @@ export const useUiStore = create<UiState>()(
       terminalOpen: false,
       terminalMaximized: false,
       terminalSidebarSide: 'right',
+      terminalListOpen: true,
 
       layout: DEFAULT_LAYOUT,
       graphColumns: DEFAULT_GRAPH_COLUMNS,
@@ -471,6 +484,8 @@ export const useUiStore = create<UiState>()(
       toggleTerminalMaximized: () =>
         set((state) => ({ terminalMaximized: !state.terminalMaximized })),
       setTerminalSidebarSide: (terminalSidebarSide) => set({ terminalSidebarSide }),
+      toggleTerminalList: () =>
+        set((state) => ({ terminalListOpen: !state.terminalListOpen })),
 
       setLayout: (key, value) => set((state) => ({ layout: { ...state.layout, [key]: value } })),
       setGraphColumn: (key, value) =>
@@ -553,6 +568,7 @@ export const useUiStore = create<UiState>()(
         terminalOpen: state.terminalOpen,
         terminalMaximized: state.terminalMaximized,
         terminalSidebarSide: state.terminalSidebarSide,
+        terminalListOpen: state.terminalListOpen,
         hiddenMetrics: state.hiddenMetrics,
         metricsIdleIntervalMs: state.metricsIdleIntervalMs,
       }),
