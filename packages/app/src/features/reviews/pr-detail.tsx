@@ -27,6 +27,11 @@ import { MARKDOWN_PROSE_CLASSES } from '../markdown/prose';
 import { PrChecks } from './pr-checks';
 import { PrConversation } from './pr-conversation';
 import { PrFiles } from './pr-files';
+import {
+  PrDetailSkeleton,
+  PrHeaderMetaSkeleton,
+  PrOverviewSkeleton,
+} from './reviews-skeletons';
 import { ReviewActionBar } from './review-action-bar';
 
 /**
@@ -108,7 +113,7 @@ export function PrDetail({ repoId, number }: { repoId: string; number: number })
 
   if (pull === null) {
     if (detailQuery.isLoading || list.isLoading) {
-      return <Centered>Reading pull request #{number}…</Centered>;
+      return <PrDetailSkeleton />;
     }
     return (
       <Centered>
@@ -131,7 +136,7 @@ export function PrDetail({ repoId, number }: { repoId: string; number: number })
       aria-label={`Pull request #${pull.number}`}
       className="flex h-full min-h-0 min-w-0 flex-1 flex-col"
     >
-      <PrHeader pull={pull} detail={detail} />
+      <PrHeader pull={pull} detail={detail} loadingDetail={detailQuery.isLoading} />
 
       {/*
         Outside the tabpanel on purpose: these actions apply to the pull request,
@@ -258,7 +263,8 @@ function PrOverview({
   isLoading: boolean;
 }) {
   if (detail === null) {
-    return <Centered>{isLoading ? 'Reading the description…' : 'No description to show.'}</Centered>;
+    if (isLoading) return <PrOverviewSkeleton />;
+    return <Centered>No description to show.</Centered>;
   }
   if (detail.body.trim().length === 0) {
     return <Centered>This pull request has no description.</Centered>;
@@ -288,7 +294,16 @@ function PrOverview({
  * stays a fixed two rows however long the body is and the tabs sit directly
  * beneath it.
  */
-function PrHeader({ pull, detail }: { pull: ForgePull; detail: ForgePullDetail | null }) {
+function PrHeader({
+  pull,
+  detail,
+  loadingDetail,
+}: {
+  pull: ForgePull;
+  detail: ForgePullDetail | null;
+  /** Whether the fetch that fills in the base branch and the counts is still out. */
+  loadingDetail: boolean;
+}) {
   const checks = checksStatus(pull);
 
   return (
@@ -325,6 +340,14 @@ function PrHeader({ pull, detail }: { pull: ForgePull; detail: ForgePullDetail |
             <span className="text-success">+{detail.additions}</span>{' '}
             <span className="text-destructive">−{detail.deletions}</span>
           </span>
+        ) : loadingDetail ? (
+          /*
+            Bars, not nothing. This line renders from the cached listing row
+            while the detail fetch is out, so the base branch and the counts
+            arrive a beat later into a line that is already on screen — and
+            appearing from nothing shoves the rest of the row along with them.
+          */
+          <PrHeaderMetaSkeleton />
         ) : null}
         {/*
           `CONFLICTING` is the only mergeability worth a word here. `MERGEABLE`

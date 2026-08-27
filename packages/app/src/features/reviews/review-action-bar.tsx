@@ -14,6 +14,7 @@ import {
   useRequestReview,
   useReviewPull,
 } from '../../services/queries';
+import { Spinner } from '../../components/skeleton';
 import { useUiStore } from '../../store/ui-store';
 import { MergeDialog } from './merge-dialog';
 
@@ -242,13 +243,18 @@ export function ReviewActionBar({
               */
               disabled={busy || (composing !== 'APPROVE' && body.trim().length === 0)}
               onClick={submit}
-              className="rounded bg-primary px-2.5 py-1 text-[11px] font-medium text-primary-foreground transition-opacity hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-40"
+              className="inline-flex items-center gap-1.5 rounded bg-primary px-2.5 py-1 text-[11px] font-medium text-primary-foreground transition-opacity hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-40"
             >
-              {busy
-                ? 'Submitting…'
-                : composing === 'discussion'
-                  ? 'Comment'
-                  : EVENT_LABEL[composing]}
+              {busy ? (
+                <>
+                  <Spinner className="size-3 border-primary-foreground/30 border-r-primary-foreground border-t-primary-foreground" />
+                  Submitting…
+                </>
+              ) : composing === 'discussion' ? (
+                'Comment'
+              ) : (
+                EVENT_LABEL[composing]
+              )}
             </button>
           </div>
         </div>
@@ -380,9 +386,16 @@ function ReviewerPicker({
           type="button"
           disabled={pending || typed.length === 0}
           onClick={() => onSubmit(typed)}
-          className="rounded bg-primary px-2.5 py-1 text-[11px] font-medium text-primary-foreground transition-opacity hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-40"
+          className="inline-flex items-center gap-1.5 rounded bg-primary px-2.5 py-1 text-[11px] font-medium text-primary-foreground transition-opacity hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-40"
         >
-          {pending ? 'Requesting…' : 'Request'}
+          {pending ? (
+            <>
+              <Spinner className="size-3 border-primary-foreground/30 border-r-primary-foreground border-t-primary-foreground" />
+              Requesting…
+            </>
+          ) : (
+            'Request'
+          )}
         </button>
       </div>
     </div>
