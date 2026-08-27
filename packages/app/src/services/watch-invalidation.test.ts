@@ -73,7 +73,20 @@ describe('HEAD changes', () => {
     // genuinely has to be rebuilt.
     const result = run('head');
 
-    expect(invalidated).toEqual([['repos', 'repo-1']]);
+    expect(invalidated).toContainEqual(['repos', 'repo-1']);
     expect(result.restreamGraph).toBe(true);
+  });
+
+  it('invalidate the repo LIST too, which is what holds the worktree rows', () => {
+    // Prefix matching runs one way only. `['repos', 'repo-1']` does not match
+    // the list's `['repos']`, so invalidating the repo alone never refetched
+    // it — and the panel reads its worktree rows from `useRepos()`, under
+    // `staleTime: Infinity`. A `worktree add`/`remove`/`prune` run outside the
+    // app therefore could not reach the UI at all: the rows sat unchanged for
+    // the life of the process, a pruned worktree still listed and badged
+    // "detached missing", until the app was restarted.
+    run('head');
+
+    expect(invalidated).toContainEqual(['repos']);
   });
 });

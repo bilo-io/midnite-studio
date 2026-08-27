@@ -27,6 +27,11 @@ import { writeQueue } from '../exec/write-queue';
  *    Without it, staging a file emits a watch event, which refetches status,
  *    which is exactly the work the stage already did — and a `pull` would
  *    trigger a cascade of refetches while it is still running.
+ *
+ *    Suppression is scoped by arrival time, not by the window alone: an event
+ *    already waiting when the write began is not that write's echo, so it is
+ *    delivered rather than dropped. Blanket dropping silently lost external
+ *    changes that landed as a write started.
  */
 export type WatchEventHandler = (kind: WatchKind) => void;
 
@@ -49,10 +54,13 @@ export type RepoWatcherOptions = {
 
 export class RepoWatcher {
   private readonly watchers: FSWatcher[] = [];
-  private readonly pending = new Set<WatchKind>();
+  /** Each pending kind, against the time it was FIRST seen this window. */
+  private readonly pending = new Map<WatchKind, number>();
   private timer: NodeJS.Timeout | null = null;
   private stopped = false;
   private busyUntil = 0;
+  /** When the current own-write suppression window opened. */
+  private busySince = 0;
   private releaseQueueListener: (() => void) | null = null;
 
   private constructor(
@@ -100,9 +108,16 @@ export class RepoWatcher {
     const gitDir = gitDirResult.exitCode === 0 ? gitDirResult.stdout.trim() : join(repoPath, '.git');
 
     this.releaseQueueListener = writeQueue.onActivity((active) => {
+      const now = Date.now();
+      // Anchor the window at the transition that OPENED it, and leave it there
+      // across the busy/idle flips within one operation. `flush` needs a stable
+      // answer to "had this event already arrived before we started writing?",
+      // and re-anchoring on each flip would keep moving the line past events
+      // that were waiting before the write began.
+      if (now >= this.busyUntil) this.busySince = now;
       // Extend the suppression window on every transition, including the one
       // to idle — that is what covers the tail of git's own writes.
-      this.busyUntil = Date.now() + (active ? 60_000 : this.options.settleMs);
+      this.busyUntil = now + (active ? 60_000 : this.options.settleMs);
     });
 
     this.watchPath(join(gitDir, 'HEAD'), () => 'head');
@@ -140,7 +155,10 @@ export class RepoWatcher {
 
   private queue(kind: WatchKind): void {
     if (this.stopped) return;
-    this.pending.add(kind);
+    // First sighting wins. `flush` compares this against the start of the write
+    // window, and the answer it wants is "when did this kind start waiting?",
+    // not "when was it last re-reported".
+    if (!this.pending.has(kind)) this.pending.set(kind, Date.now());
 
     if (this.timer) clearTimeout(this.timer);
     this.timer = setTimeout(() => this.flush(), this.options.debounceMs);
@@ -150,12 +168,22 @@ export class RepoWatcher {
     this.timer = null;
     if (this.stopped) return;
 
-    const kinds = [...this.pending];
-    this.pending.clear();
-
     // Own-write suppression, applied at flush rather than at queue time: a write
     // can start after an event is queued but before the debounce fires.
-    if (Date.now() < this.busyUntil) return;
+    const suppressing = Date.now() < this.busyUntil;
+
+    const kinds: WatchKind[] = [];
+    for (const [kind, queuedAt] of this.pending) {
+      // Suppression exists to drop the echo of OUR OWN write — stage, event,
+      // refetch the status the stage already knew. An event that was queued
+      // before that write began cannot be that echo, so dropping it is pure
+      // loss: an external change (a prune, a checkout, a rebase from the
+      // integrated terminal) that happened to land just as the app started
+      // writing was discarded and never re-checked, leaving the UI stale until
+      // something unrelated moved. Deliver those; still drop the rest.
+      if (!suppressing || queuedAt < this.busySince) kinds.push(kind);
+    }
+    this.pending.clear();
 
     for (const kind of kinds) this.options.onEvent(kind);
   }
