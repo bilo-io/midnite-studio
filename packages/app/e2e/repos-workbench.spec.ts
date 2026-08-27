@@ -456,8 +456,22 @@ test('a folded repo hangs its branch and count off the trailing edge', async ({ 
   const row = page.locator('div.group').filter({ has: page.getByTestId('change-count') }).first();
   const pill = (await row.getByTestId('change-count').boundingBox())!;
   const sync = (await row.getByRole('button', { name: /^Fetch —/ }).boundingBox())!;
-  const box = (await row.boundingBox())!;
+  /*
+    Measured against the name button the summary lives in, NOT against the row.
+
+    `ml-auto` pins the branch-and-count group to the trailing edge of that
+    button, which is the whole claim — its x cannot depend on how long the
+    repository's name is. The row is the wrong ruler: it has since grown a
+    trailing cluster (the skill, git-actions and install/build/test/launch
+    controls) to the right of the sync button, so "past the row's midpoint"
+    now fails for a layout that is still exactly right.
+  */
+  const name = (await row
+    .getByTestId('change-count')
+    .locator('xpath=ancestor::button[1]')
+    .boundingBox())!;
 
   expect(pill.x + pill.width).toBeLessThanOrEqual(sync.x);
-  expect(pill.x).toBeGreaterThan(box.x + box.width / 2);
+  expect(pill.x + pill.width).toBeCloseTo(name.x + name.width, 0);
+  expect(pill.x).toBeGreaterThan(name.x + name.width / 2);
 });

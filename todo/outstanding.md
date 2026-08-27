@@ -47,6 +47,21 @@ Recorded here when a phase punts on something; pick these up post-MVP.
   Actions section, and shows nothing otherwise. The **local test run** producer
   (`moon run :test` per branch, cached by tip sha) is still unbuilt.
 
+- **Nothing runs `app:e2e` automatically.** The Playwright suite is out of `moon run :test` on
+  purpose — it needs a chromium download, which is a poor thing to make the gate depend on — but
+  the consequence showed up on 2026-08-27, when seventeen specs sat red on `main` across several
+  merges because no one ran them. The suite is fast (~3 minutes) and deterministic
+  (`retries: 0`, its own strict port). It wants a job of its own: a `moon run :e2e` step in CI
+  after `playwright install chromium`, or a pre-merge check. Until then, every `/exec` slice that
+  touches the renderer should run it by hand.
+
+- **Screenshot PNGs are not byte-reproducible.** A full `app:e2e` run rewrites roughly forty
+  committed images across every phase, and two identical runs of the same spec differ by ten or
+  twenty bytes — so `git status` after a suite run says nothing about whether a screenshot's
+  *content* changed. The practical rule is to commit only the shots belonging to the slice in hand
+  and `git checkout --` the rest. Fixing it properly means a deterministic encode (or comparing
+  decoded pixels rather than file bytes) before the shots specs write.
+
 - **Command palette** — the keybinding service's CommandId registry is designed to feed one.
 - **Submodules** — status/graph awareness.
 - **Windows/Linux targets** — packaging is macOS arm64 first; keybindings already use Ctrl+`

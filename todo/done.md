@@ -2,6 +2,51 @@
 
 <!-- Append one entry per landed phase/PR: date, phase, PR link, one-line summary. -->
 
+## 2026-08-27 — Phase 20 · follow-up — the Playwright suite is green again
+
+Landed on `feature/reviews-e2e-repair`, merged locally — no PR link, no GitHub remote on this
+checkout.
+
+Seventeen e2e specs were red on `main` against a product that was working. `app:e2e` sits outside
+the `moon run :test` gate deliberately (it needs a chromium download), so three deliberate product
+decisions moved out from under the specs and nothing re-read them.
+
+- [x] **A PR opens on Overview, not on Files.** `PrDetail` says why in its own comment — a PR read
+      for the first time answers "what is this?" before "what changed?". Thirteen specs asserted
+      the old default *implicitly*, by looking for diff text the moment the detail region
+      appeared, so the failure surfaced as thirteen unrelated-looking missing-element errors
+      rather than as one wrong default. `openPull` and `openFiles` now click through to Files.
+- [x] **The default is guarded by one test instead of thirteen.** A new spec asserts Overview is
+      selected on arrival and carries the description, so the next flip of that `useState` fails a
+      test that names the decision. The header test gives up its description assertion to it —
+      the header genuinely does not carry the description any more.
+- [x] **The three review scopes arrive folded** (`a62c23c`: "arriving at either surface costs
+      nothing"), so the Reviews view lists nothing until a group is opened and the shots spec's
+      "the view selects it on arrival" had become unreachable. It opens All Pull Requests first,
+      scoped through the `reviews-groups` testid — the repositories sidebar carries the same three
+      headings and is on screen too, which is what that testid was added for. Auto-select still
+      does the rest.
+- [x] **`repos-workbench.spec.ts`'s folded-row geometry re-anchored.** It asserted the change-count
+      pill sits past the midpoint of the *row*; it was failing at x=192 against 211.5 for a layout
+      that is still exactly right. The row was only ever a proxy for the name button that
+      `ml-auto` pins the pill to, and it stopped being a good one once the row grew a trailing
+      cluster (skill, git-actions, install/build/test/launch) to the right of the sync control.
+      Measured against the button, the pill's right edge (210.66) *is* the button's trailing edge
+      (96 + 114.66) — exact, not approximate.
+- [x] **Four screenshots regenerated**, the visible half of the same drift: the committed images
+      were of a Reviews view from before the scopes, the Overview tab and the footer's Repos
+      button existed. Only those four were committed — a full `app:e2e` run rewrites roughly forty
+      PNGs across every phase, but that churn is *encoder noise, not content*: two identical runs
+      of the same spec produce files differing by ten or twenty bytes. Anything a shots run leaves
+      dirty outside the slice being worked on should be discarded, not committed.
+
+Suite: **285 passed, 0 failed** (was 267 passed, 17 failed). `moon run :typecheck :lint :test`
+green. No product code changed — each failure was investigated first, and all three causes were
+the specs encoding a superseded decision rather than a regression.
+
+*Noted while landing: nothing runs `app:e2e` automatically, which is how seventeen specs stayed
+red across several merges. Worth a gate of its own — logged in `outstanding.md`.*
+
 ## 2026-08-27 — Phase 21 · Theme D — a terminal that knows where it is
 
 Landed on `feature/phase-21-live-cwd`, merged locally — no PR link, no GitHub remote on this

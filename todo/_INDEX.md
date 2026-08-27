@@ -21,7 +21,7 @@ Completed work is logged append-only in [`done.md`](done.md). Deferred scope liv
 | Phase | Status | Done | Progress | % | 🔄 WIP | ◻ TODO |
 |-------|--------|------|----------|---|--------|--------|
 | [21 · Agent roster + terminal identity](phase-21-agent-roster-and-terminal-identity.md) | 🔄 WIP | 31/46 | `███████░░░` | 67% | E | — |
-| [20 · Reviews page & unified diff syntax highlighting](phase-20-reviews-page.md) | 🔄 WIP | 42/44 | `██████████` | 95% | e2e repair | 2 manual checks |
+| [20 · Reviews page & unified diff syntax highlighting](phase-20-reviews-page.md) | 🔄 WIP | 43/45 | `██████████` | 96% | — | 2 manual checks |
 | [19 · Dashboard, Actions and Tests as views](phase-19-dashboard-actions-tests.md) | 🔄 WIP | 73/76 | `██████████` | 96% | — | 3 manual checks |
 | [18 · Footer system monitor + repo diagnostics](phase-18-footer-monitor-diagnostics.md) | 🔄 WIP | 51/54 | `█████████░` | 94% | — | 3 manual checks |
 | [17 · Repositories workbench + forge](phase-17-repos-workbench.md) | 🔄 WIP | 46/48 | `█████████░` | 96% | — | 2 manual checks |
@@ -129,6 +129,13 @@ merge, kept in a new `gh-write.ts` so `gh-cli.ts`'s "strictly reads" comment sta
   only on a run that failed. Re-run is the one write that evicts a cache: `gh run rerun` adds an
   attempt to the *same* run id, and main caches a completed run's tree permanently
   (landed 2026-08-27)
+- ✅ *(follow-up)* the Playwright suite is green again on `main` — seventeen specs (sixteen of this
+  phase's, one of Phase 17's) had gone red against a working product because `app:e2e` sits
+  outside the `:test` gate and nothing re-read them after three deliberate decisions moved: a PR
+  now opens on **Overview**, the three review scopes now arrive **folded**, and the repos row grew
+  a **trailing cluster** that broke a geometry proxy. No product code changed; the landing tab is
+  now guarded by one spec instead of thirteen, and four stale screenshots were regenerated
+  (285 passed, 0 failed — was 267/17) (landed 2026-08-27)
 
 ### [Phase 19 — Dashboard, Actions and Tests as views](phase-19-dashboard-actions-tests.md)
 

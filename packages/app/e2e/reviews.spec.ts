@@ -128,7 +128,41 @@ async function openPull(page: Page, data: MockFixtures): Promise<void> {
   await page.getByRole('button', { name: 'All Pull Requests', exact: true }).click();
   await page.getByText('Reviews page', { exact: true }).click();
   await expect(page.getByRole('region', { name: 'Pull request #42' })).toBeVisible();
+
+  /*
+    A PR opens on Overview, not on Files — see `PrDetail`'s own note: the first
+    question a PR answers is "what is this?", and the description used to sit in
+    the header. Every spec below is about a tab's contents, so the helper puts
+    the tab it is about on screen. The landing tab itself is asserted once, by
+    the test directly under this helper, so a future change to that default
+    fails one test that names the decision instead of all of them.
+  */
+  await page.getByRole('tab', { name: 'Files' }).click();
+  await expect(page.getByRole('tab', { name: 'Files' })).toHaveAttribute('aria-selected', 'true');
 }
+
+test('a pull request opens on Overview, showing what it is before what changed', async ({
+  page,
+}) => {
+  await installMockBridge(page, withPull());
+  await page.goto('/');
+  await expect(page.getByRole('heading', { name: 'Worktrees' })).toBeVisible();
+
+  await page.getByRole('button', { name: 'Reviews', exact: true }).click();
+  await page.getByRole('button', { name: 'All Pull Requests', exact: true }).click();
+  await page.getByText('Reviews page', { exact: true }).click();
+
+  await expect(page.getByRole('tab', { name: 'Overview' })).toHaveAttribute(
+    'aria-selected',
+    'true',
+  );
+  // The description the header used to carry is this tab's whole content.
+  await expect(
+    page
+      .getByRole('tabpanel', { name: 'Overview' })
+      .getByText(/reading a PR should not need a browser/),
+  ).toBeVisible();
+});
 
 test('the PR header reads from the listing, then fills in from the detail fetch', async ({
   page,
@@ -145,10 +179,14 @@ test('the PR header reads from the listing, then fills in from the detail fetch'
   */
   await expect(header.getByRole('img', { name: 'Approved', exact: true })).toBeVisible();
 
-  // The second fetch's half: base branch, line counts and the description.
+  /*
+    The second fetch's half: base branch and line counts. The description is
+    the third thing that fetch brings back, but it is no longer part of the
+    header — it is the Overview tab's whole content — so it is asserted by the
+    landing-tab test above rather than here.
+  */
   await expect(header.getByText(/wants to merge feature\/reviews into main/)).toBeVisible();
   await expect(header.getByText('2 files +120 −8')).toBeVisible();
-  await expect(header.getByText(/reading a PR should not need a browser/)).toBeVisible();
 });
 
 test('the Files tab renders each changed file through the shared DiffView', async ({ page }) => {
@@ -168,9 +206,6 @@ test('the Files tab renders each changed file through the shared DiffView', asyn
       },
     }),
   );
-
-  // Files is the tab a PR opens on — the code is what a review is about.
-  await expect(page.getByRole('tab', { name: 'Files' })).toHaveAttribute('aria-selected', 'true');
 
   await expect(page.getByText('src/app.tsx')).toBeVisible();
   await expect(page.getByText('docs/readme.md')).toBeVisible();

@@ -138,6 +138,13 @@ async function openFiles(page: Page, data: MockFixtures): Promise<void> {
   await page.getByRole('button', { name: 'All Pull Requests', exact: true }).click();
   await page.getByText('Reviews page', { exact: true }).click();
   await expect(page.getByRole('region', { name: 'Pull request #42' })).toBeVisible();
+
+  /*
+    A PR opens on Overview — `PrDetail` picks the tab that answers "what is
+    this?" before "what changed?". Threads live on the diff, so this helper is
+    not done until Files is the tab on screen.
+  */
+  await page.getByRole('tab', { name: 'Files' }).click();
   await expect(page.getByText('const b = 2;')).toBeVisible();
 }
 
