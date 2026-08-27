@@ -12,19 +12,11 @@ import { pickForgeRemote } from '@midnite/git-shared';
 import { QueryClient } from '@tanstack/react-query';
 import { ChevronLeft } from 'lucide-react';
 import type { IconType } from 'react-icons';
-import { FaCodePullRequest } from 'react-icons/fa6';
-import { GoBeaker } from 'react-icons/go';
-import {
-  LuDiff,
-  LuFolderTree,
-  LuGitBranch,
-  LuLayoutDashboard,
-  LuPlay,
-  LuSettings,
-} from 'react-icons/lu';
+import { LuSettings } from 'react-icons/lu';
 
 import { Brand, BrandMark, Wordmark } from './components/brand';
 import { DialogHost } from './components/dialog-host';
+import { VIEW_ICON } from './components/nav-icons';
 import { ResizeHandle } from './components/resizable/resize-handle';
 import { useResizable } from './components/resizable/use-resizable';
 import { ThemeToggle } from './components/theme-toggle';
@@ -141,23 +133,21 @@ type NavItem = { view: ViewId; label: string; icon: IconType };
 const PINNED_ITEM: NavItem = {
   view: 'dashboard',
   label: 'Dashboard',
-  icon: LuLayoutDashboard,
+  icon: VIEW_ICON.dashboard,
 };
 
+/*
+  Glyphs come from `components/nav-icons`, shared with the title bar's
+  breadcrumbs — including the deliberate second and third icon families for
+  Tests and Reviews, whose reasoning lives beside them there.
+*/
 const NAV_ITEMS: NavItem[] = [
-  { view: 'files', label: 'Files', icon: LuFolderTree },
-  { view: 'graph', label: 'Graph', icon: LuGitBranch },
-  { view: 'changes', label: 'Changes', icon: LuDiff },
-  { view: 'actions', label: 'Actions', icon: LuPlay },
-  // `GoBeaker` — Octicons, not Lucide. A second icon set in the rail is the
-  // point of `react-icons` (see CLAUDE.md): the beaker reads as "test suite"
-  // the way it does on GitHub, and taking the nearest match within one family
-  // is the thing the package exists to avoid.
-  { view: 'tests', label: 'Tests', icon: GoBeaker },
-  // `FaCodePullRequest` — react-icons' Font Awesome 6 set, a second glyph
-  // beside Tests' `GoBeaker`. Neither Lucide nor Octicons has a pull-request
-  // glyph that reads as one at rail size.
-  { view: 'reviews', label: 'Reviews', icon: FaCodePullRequest },
+  { view: 'files', label: 'Files', icon: VIEW_ICON.files },
+  { view: 'graph', label: 'Graph', icon: VIEW_ICON.graph },
+  { view: 'changes', label: 'Changes', icon: VIEW_ICON.changes },
+  { view: 'actions', label: 'Actions', icon: VIEW_ICON.actions },
+  { view: 'tests', label: 'Tests', icon: VIEW_ICON.tests },
+  { view: 'reviews', label: 'Reviews', icon: VIEW_ICON.reviews },
   // Settings is deliberately absent: it renders in the rail's FOOTER slot
   // (bottom-pinned, the way settings sit in VS Code/GitKraken), not among the
   // workspace views — see the `footer` in the nav config below.
@@ -457,6 +447,12 @@ function Shell() {
           />
         </>
       ) : null}
+      {/*
+        The theme toggle is an app preference, not one of the git actions beside
+        it, so it gets the same hairline the action clusters use between
+        themselves rather than sitting flush against the last of them.
+      */}
+      <span aria-hidden className="h-4 w-px shrink-0 bg-border" />
       <ThemeToggle />
     </>
   );
