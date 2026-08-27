@@ -2075,3 +2075,24 @@ layout state, so it returns the size it was. The resize handle unmounts with it:
 nothing on its left edge is a drag target for an invisible thing. `reposOpen` persists beside the
 terminal chrome and defaults to open — it is the app's primary object list, and a fresh install
 whose first press REVEALED it would have started out looking broken.
+
+## 2026-08-27 — The title bar gets a hairline, and the breadcrumbs get their glyphs
+
+Two small reads of the same strip. The `right` cluster ran the sync actions, a hairline, the
+per-checkout lifecycle actions, and then the theme toggle flush against the last of them — so a
+window preference sat inside the run of git commands as if it were a fifth one. It gets the same
+`h-4 w-px bg-border` rule the action clusters already use between themselves; the strip now reads
+as three groups rather than two-and-a-half.
+
+Every breadcrumb crumb now leads with an icon: `LuFolderGit2` for the repository, `LuGitBranch`
+for the branch, `LuGitCommitHorizontal` when HEAD is detached — a commit glyph, because that state
+is precisely standing on a commit rather than on a branch — and, for the last crumb, whichever
+glyph the nav rail or the settings sidebar already shows for that destination. The glyph is what
+says *what kind of thing* a name is once the strip has cut it to `midnite-…`, so truncation
+flipped with it: `shrink-0` on the icon, `truncate` on the label. A half-clipped icon reads as a
+rendering fault, a clipped repo name reads as a long repo name.
+
+The rail's and the settings sidebar's icon maps moved into `components/nav-icons.ts`, shared by
+all three surfaces rather than copied into the breadcrumb. One view wearing two different icons in
+two places is worse than either icon. `SETTINGS_PAGES` still carries no glyph — the store stays a
+plain data module, so nothing that only wants a page id pulls an icon package in behind it.
