@@ -145,9 +145,9 @@ export function Tooltip({
         containing block for `position: fixed` descendants AND opens a stacking
         context, which broke the bubble twice over: viewport coordinates were
         re-read as row-relative ones, so it landed a row's offset away from the
-        node it describes, and `z-60` could only outrank things inside that one
-        row, so every row painted after it covered it. `<body>` carries neither,
-        which is what `fixed` and the z-index were written against.
+        node it describes, and `z-tooltip` could only outrank things inside that
+        one row, so every row painted after it covered it. `<body>` carries
+        neither, which is what `fixed` and the z-index were written against.
       */}
       {open
         ? createPortal(
@@ -155,7 +155,7 @@ export function Tooltip({
               ref={bubbleRef}
               id={id}
               role="tooltip"
-              className="pointer-events-none fixed z-[60] max-w-xs animate-fade-in rounded-md border border-border bg-popover px-2 py-1 text-xs text-popover-foreground shadow-lg"
+              className="pointer-events-none fixed z-tooltip max-w-xs animate-fade-in rounded-md border border-border bg-popover px-2 py-1 text-xs text-popover-foreground shadow-lg"
               style={{ left: placed.x, top: placed.y }}
             >
               {label}

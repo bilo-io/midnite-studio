@@ -358,7 +358,7 @@ function SyncOverlay({
         crowded column, the chip after it. A translucent strip over a coloured
         rule is unreadable in exactly the case it exists for.
       */
-      className="fixed z-[60] flex -translate-y-1/2 items-center gap-0.5 rounded-[3px] border border-[hsl(var(--lane-h)_var(--lane-s)_var(--lane-l)/0.45)] bg-popover px-0.5 shadow-md animate-fade-in"
+      className="fixed z-popover flex -translate-y-1/2 items-center gap-0.5 rounded-[3px] border border-[hsl(var(--lane-h)_var(--lane-s)_var(--lane-l)/0.45)] bg-popover px-0.5 shadow-md animate-fade-in"
     >
       {actions.map((action) => (
         <IconButton
