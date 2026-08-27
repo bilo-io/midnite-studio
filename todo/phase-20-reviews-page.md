@@ -284,6 +284,30 @@ build on this one:
       one real inline comment, one reply and one resolve
 - [ ] **Open, for a human:** syntax-highlighted diff scroll performance on a real PR with 100+
       changed files
+- [x] *(follow-up, 2026-08-27)* **The Playwright suite is green again on `main`.** Sixteen of this
+      phase's specs plus one of Phase 17's had gone red against a product that was working, and
+      nothing caught it because `app:e2e` sits outside the `:test` gate by design (a chromium
+      download is a poor thing to make the gate depend on). Three stale assumptions, all of them
+      decisions this phase or its neighbours made deliberately and never went back to re-read the
+      specs for:
+      - **A PR opens on Overview, not on Files.** Thirteen specs asserted the old default
+        implicitly, by looking for diff text as soon as the detail region appeared. The two
+        helpers now click through to Files, and the landing tab is guarded by **one** new spec
+        that names the decision — so the next flip of that `useState` fails a test about the
+        default rather than every test that happened to depend on it. The header test loses its
+        description assertion in the same move: the description is Overview's whole content now.
+      - **The three review scopes arrive folded** (`a62c23c`), so the view lists nothing until a
+        group is opened and `review-threads-shots.spec.ts`'s "the view selects it on arrival" was
+        no longer reachable. It opens All Pull Requests first, scoped through the
+        `reviews-groups` testid that exists for exactly this collision with the sidebar's copy of
+        the same three headings.
+      - **`repos-workbench.spec.ts`'s folded-row geometry** measured "trailing edge" against the
+        *row*, which has since grown a trailing cluster (skill, git-actions,
+        install/build/test/launch) to the right of the sync control. Re-anchored to the name
+        button the pill actually lives in, where the numbers are exact rather than approximate.
+      Four screenshots regenerated with it — the committed images predated the scopes, the
+      Overview tab and the footer's Repos button. Suite: **285 passed, 0 failed** (was 267 passed,
+      17 failed).
 
 ## Not in this phase
 

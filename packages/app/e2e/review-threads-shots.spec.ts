@@ -210,9 +210,24 @@ async function openThreads(page: Page): Promise<void> {
     screen, which is what these images are of.
   */
   await page.getByRole('link', { name: 'Reviews' }).click();
-  // No click on the row: with one pull request in the list the view selects it
-  // on arrival (`aria-current="true"`), so the detail is already open.
+
+  /*
+    The three scopes arrive folded and fetch nothing until one is opened, so the
+    list is empty on arrival and there is nothing for the view to select. Open
+    All Pull Requests and the auto-select still does the rest: with one pull
+    request loaded the view marks it `aria-current="true"` without a click on
+    the row. Scoped through `reviews-groups`: the repositories sidebar carries
+    the same three headings and is on screen too, which is what that testid
+    exists for.
+  */
+  await page
+    .getByTestId('reviews-groups')
+    .getByRole('button', { name: 'All Pull Requests', exact: true })
+    .click();
   await expect(page.getByRole('region', { name: 'Pull request #131' })).toBeVisible();
+
+  // Threads hang off the diff, and a PR opens on Overview.
+  await page.getByRole('tab', { name: 'Files' }).click();
   await expect(page.getByTestId('comment-thread').first()).toBeVisible();
 
   /*
