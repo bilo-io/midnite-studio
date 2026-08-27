@@ -1,9 +1,9 @@
-import { METRIC_IDS, type MetricId } from '@midnite/git-shared';
+import { METRIC_IDS } from '@midnite/git-shared';
 
 import { useMetricsStore } from '../../store/metrics-store';
 import { formatUsage } from './format-bytes';
 import { ChartLegend, MetricChart, type ChartSeries } from './metric-chart';
-import { GAUGE_GEOMETRY } from './metric-geometry';
+import { GAUGE_GEOMETRY, TIMELINE_METRICS } from './metric-geometry';
 import { METRIC_LABELS, metricColor, metricFill } from './metric-palette';
 
 /**
@@ -23,8 +23,11 @@ export function MonitorFlyout() {
   const series = useMetricsStore((state) => state.series);
   const latest = useMetricsStore((state) => state.latest);
 
-  const timelines: MetricId[] = ['cpu', 'memory', 'gpu'];
-  const present = timelines.filter((id) => series[id].length > 0);
+  // The shared list, not a second copy: the footer cluster decides which
+  // metrics get a sparkline from the same table, and a metric that was a
+  // timeline in one strip and a level in the other would be a contradiction
+  // the user can see.
+  const present = TIMELINE_METRICS.filter((id) => series[id].length > 0);
 
   return (
     <div className="w-[300px] p-3">
@@ -66,11 +69,10 @@ export function MonitorFlyout() {
         here rather than showing a flat line at the bottom of a chart — the
         same rule the contract's optional fields encode.
       */}
-      {timelines.some((id) => series[id].length === 0) ? (
+      {TIMELINE_METRICS.some((id) => series[id].length === 0) ? (
         <p className="mt-2 text-[10px] text-muted-foreground">
           Not readable on this machine:{' '}
-          {timelines
-            .filter((id) => series[id].length === 0)
+          {TIMELINE_METRICS.filter((id) => series[id].length === 0)
             .map((id) => METRIC_LABELS[id])
             .join(', ')}
         </p>
