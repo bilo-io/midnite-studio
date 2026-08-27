@@ -15,7 +15,7 @@ import type { IconType } from 'react-icons';
 import { LuSettings } from 'react-icons/lu';
 
 import { Brand, BrandMark, Wordmark } from './components/brand';
-import { DialogHost } from './components/dialog-host';
+import { DialogHost, useDialogs } from './components/dialog-host';
 import { VIEW_ICON } from './components/nav-icons';
 import { ResizeHandle } from './components/resizable/resize-handle';
 import { useResizable } from './components/resizable/use-resizable';
@@ -315,6 +315,7 @@ function Shell() {
   useDefaultSelection();
 
   const forgeAvailable = useForgeGateAvailable(selectedRepoId);
+  const dialogs = useDialogs();
 
   /**
    * Never leave the user standing in a view the rail no longer offers.
@@ -345,6 +346,14 @@ function Shell() {
   useKeybindings({
     'terminal.toggle': () => useUiStore.getState().toggleTerminal(),
     'repos.toggle': () => useUiStore.getState().toggleRepos(),
+    // A placeholder, deliberately: the chord is reserved (see the keymap) and
+    // saying so out loud beats a keystroke that does nothing, which reads as a
+    // broken shortcut rather than an unbuilt feature.
+    'browser.open': () =>
+      dialogs.notify({
+        title: 'Browser',
+        body: 'The built-in browser is coming soon.',
+      }),
     'terminal.focus': () => useUiStore.getState().setTerminalOpen(true),
     'graph.focus': () => useUiStore.getState().setActiveView('graph'),
     'status.focus': () => useUiStore.getState().setActiveView('changes'),

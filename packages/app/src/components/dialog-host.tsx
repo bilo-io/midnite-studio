@@ -17,6 +17,14 @@ type MenuState = { position: MenuPosition; items: MenuItem[] } | null;
 type DialogApi = {
   openMenu: (event: { clientX: number; clientY: number }, items: MenuItem[]) => void;
   confirm: (request: ConfirmRequest) => void;
+  /**
+   * A modal with one button and nothing to decide — a notice.
+   *
+   * Shares the confirm's box rather than introducing a second dialog shape:
+   * the only difference is that there is no Cancel, because there is no
+   * alternative to acknowledging it.
+   */
+  notify: (notice: { title: string; body?: string; okLabel?: string }) => void;
   /** Replace the open confirm's blast radius once it has been counted. */
   setBlastRadius: (radius: ConfirmRequest['blastRadius']) => void;
   prompt: (request: PromptRequest) => void;
@@ -52,6 +60,20 @@ export function DialogHost({ children }: { children: ReactNode }) {
         // reads as two competing focus targets.
         setMenu(null);
         setConfirmRequest(request);
+      },
+      notify: ({ title, body, okLabel }) => {
+        setMenu(null);
+        setConfirmRequest({
+          title,
+          ...(body ? { body } : {}),
+          confirmLabel: okLabel ?? 'OK',
+          hideCancel: true,
+          // Explicitly null, not absent: absent means "still being counted"
+          // and would put a "Checking what this affects…" line under a notice
+          // that affects nothing.
+          blastRadius: null,
+          onConfirm: () => setConfirmRequest(null),
+        });
       },
       setBlastRadius: (blastRadius) =>
         setConfirmRequest((current) => (current ? { ...current, blastRadius } : current)),
