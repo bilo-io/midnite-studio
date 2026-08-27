@@ -12,7 +12,7 @@ import { pickForgeRemote } from '@midnite/git-shared';
 import { QueryClient } from '@tanstack/react-query';
 import { ChevronLeft } from 'lucide-react';
 import type { IconType } from 'react-icons';
-import { FaCheckDouble } from 'react-icons/fa';
+import { GoBeaker } from 'react-icons/go';
 import {
   LuDiff,
   LuFolderTree,
@@ -147,11 +147,11 @@ const NAV_ITEMS: NavItem[] = [
   { view: 'graph', label: 'Graph', icon: LuGitBranch },
   { view: 'changes', label: 'Changes', icon: LuDiff },
   { view: 'actions', label: 'Actions', icon: LuPlay },
-  // `FaCheckDouble` — Font Awesome, not Lucide. A second icon set in the rail
-  // is the point of `react-icons` (see CLAUDE.md): the double tick reads as
-  // "these passed" in a way no Lucide glyph does, and taking the nearest match
-  // within one family is the thing the package exists to avoid.
-  { view: 'tests', label: 'Tests', icon: FaCheckDouble },
+  // `GoBeaker` — Octicons, not Lucide. A second icon set in the rail is the
+  // point of `react-icons` (see CLAUDE.md): the beaker reads as "test suite"
+  // the way it does on GitHub, and taking the nearest match within one family
+  // is the thing the package exists to avoid.
+  { view: 'tests', label: 'Tests', icon: GoBeaker },
   // Settings is deliberately absent: it renders in the rail's FOOTER slot
   // (bottom-pinned, the way settings sit in VS Code/GitKraken), not among the
   // workspace views — see the `footer` in the nav config below.

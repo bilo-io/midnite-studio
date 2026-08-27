@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { FaCheckDouble } from 'react-icons/fa';
+import { GoBeaker } from 'react-icons/go';
 
 import type { TestSuiteKind } from '@midnite/git-shared';
 
@@ -57,7 +57,7 @@ export function TestsSection({
     <TreeSection
       title="Tests"
       count={open ? suites.length : undefined}
-      icon={<FaCheckDouble aria-hidden className="h-3 w-3 shrink-0 text-muted-foreground" />}
+      icon={<GoBeaker aria-hidden className="h-3 w-3 shrink-0 text-muted-foreground" />}
       collapsible
       open={open}
       onToggle={() => setOpen((v) => !v)}
