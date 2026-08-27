@@ -6,6 +6,7 @@ import { useForgeRunDetail, useForgeRuns, useRerunChecks } from '../../services/
 import { useUiStore } from '../../store/ui-store';
 import { RunDetail } from '../actions/run-detail';
 import { runStatus, StatusPill } from '../forge/forge-status';
+import { PrChecksSkeleton } from './reviews-skeletons';
 
 /**
  * A pull request's checks — the Actions view's own job tree, re-pointed.
@@ -76,7 +77,7 @@ export function PrChecks({
   const rerun = useRerunChecks(repoId);
 
   // "We are still asking" comes before every claim about what GitHub said.
-  if (loadingDetail && headSha === null) return <Note>Reading pull request detail…</Note>;
+  if (loadingDetail && headSha === null) return <PrChecksSkeleton />;
 
   if (headSha === null) {
     return (
@@ -90,7 +91,7 @@ export function PrChecks({
     return <Note>{runs.data.cli.hint}</Note>;
   }
   if (runs.data?.error != null) return <Note tone="destructive">{runs.data.error}</Note>;
-  if (runs.isLoading && matching.length === 0) return <Note>Reading workflow runs…</Note>;
+  if (runs.isLoading && matching.length === 0) return <PrChecksSkeleton />;
 
   if (active === null) {
     return (
