@@ -1753,3 +1753,34 @@ label is a summary of the task it was given, so these are the longest rows in th
 a `List` toggle in the terminal header, persisted as `terminalListOpen`. The toggle is
 explained-disabled below two sessions, since a list of one still names nothing the header
 does not.
+
+## 2026-08-27 — The thinking ring was spinning all along; nobody could see it
+
+The spinner appeared, correctly, the moment an agent started generating — and read as a
+static circle. Everything that could have stopped it was ruled out before anything was
+changed: `.animate-spin{animation:spin 1s linear infinite}` is in the built stylesheet with
+no later rule overriding it, the persisted appearance is `motion:"system"` with the OS
+`ReduceMotionEnabled` at 0 so the shell's universal reduced-motion reset never armed, and
+the packaged app in /Applications ships the exact bundle and CSS that was inspected. Driving
+a real tool-using Claude turn through `detectActivity` (138 pty chunks over 80s) produced one
+transition into `thinking` and then held, so the ring was never being remounted mid-turn
+either — a remount would have reset the rotation to 0° and frozen it in place, which was the
+obvious suspect and the wrong one. Sampled in a browser against the app's own stylesheet, the
+element reported `animationName: spin`, `playState: running`, and transforms stepping
+0° → 57° → 111° → 165° → 219° over 600ms.
+
+So the animation was running the entire time. What failed was the mark. One lit quadrant on a
+12px circle is a lone ~8px dash, and `border-[1.5px]` floors to a single device pixel below
+2× scale — Chromium's computed `borderTopWidth` comes back `1px`. A one-pixel dash going round
+once a second, in a sidebar nobody looks straight at, is not perceptible as motion; captured
+frame by frame off a paused animation it is plainly rotating, and at speed it is a ring
+sitting still.
+
+The fix is geometry, not motion: 14px, a 2px rim, and two adjacent borders lit rather than one,
+so a half ring sweeps instead of a dash creeping. Duration stays Tailwind's built-in 1s
+deliberately — a custom `spin 900ms` would rest on `@keyframes spin` still being emitted, and
+Tailwind only emits it while some other file uses the built-in utility.
+
+Left standing for next time: once `thinking` is seen, the state is sticky. In that same 80s
+probe the detector returned `thinking` 113 times and `waiting` never again after the turn
+ended, so a finished agent keeps its spinner until its next byte of output.

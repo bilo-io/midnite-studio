@@ -210,7 +210,7 @@ function SessionRow({
  */
 function ActivityIndicator({ activity }: { activity: SessionActivity | undefined }) {
   return (
-    <span className="flex h-3 w-3.5 shrink-0 items-center justify-center">
+    <span className="flex size-3.5 shrink-0 items-center justify-center">
       {activity === 'thinking' ? (
         <ThinkingSpinner />
       ) : activity === 'waiting' ? (
@@ -223,18 +223,34 @@ function ActivityIndicator({ activity }: { activity: SessionActivity | undefined
 }
 
 /**
- * The spinner, as a ring with one lit quadrant.
+ * The spinner, as a ring with a half-lit rim.
  *
- * Borders rather than an SVG or a glyph: at 12px a stroked arc is a single
- * `border-t-*` on a circle, and rotating a bordered box is a compositor-only
- * transform where an animated icon component is a React tree that re-renders.
+ * Borders rather than an SVG or a glyph: at this size a stroked arc is a couple
+ * of `border-*` colours on a circle, and rotating a bordered box is a
+ * compositor-only transform where an animated icon component is a React tree
+ * that re-renders.
+ *
+ * What the geometry has to earn, though, is legibility of the MOTION, and the
+ * first cut — 12px, `border-[1.5px]`, one lit quadrant — did not. The lit part
+ * came out as a lone ~8px dash one device pixel thick (Chromium floors a 1.5px
+ * border to 1px below 2× scale), and one small dash going round once a second,
+ * in a sidebar nobody is looking straight at, reads as a ring that is simply
+ * sitting there. Measured before touching it, frame by frame off a paused
+ * animation: the rotation was running the whole time and could not be seen.
+ *
+ * So 14px, a 2px rim, and two adjacent borders lit rather than one — a half
+ * ring sweeping, which is unmistakably moving at a glance and is still the same
+ * mark. Duration stays Tailwind's own 1s: `animate-spin` is the only animation
+ * here that does not need a keyframe of its own, and inventing one to shave
+ * 100ms off would make the mark depend on a `@keyframes spin` that Tailwind
+ * only emits while some other file still uses the built-in utility.
  */
 function ThinkingSpinner() {
   return (
     <span
       role="img"
       aria-label="Thinking"
-      className="size-3 animate-spin rounded-full border-[1.5px] border-muted-foreground/25 border-t-foreground"
+      className="size-3.5 animate-spin rounded-full border-2 border-muted-foreground/25 border-r-foreground border-t-foreground"
     />
   );
 }
