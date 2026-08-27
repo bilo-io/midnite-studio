@@ -18,36 +18,36 @@ Completed work is logged append-only in [`done.md`](done.md). Deferred scope liv
 
 <!-- Newest-first. Status: ✅ DONE · 🔄 WIP · ◻ TODO. Done = checked/total in-scope items; Progress = 10-cell bar. -->
 
-| Phase | Status | Done | Progress | % | 🔄 WIP | ◻ TODO |
-|-------|--------|------|----------|---|--------|--------|
-| [27 · The footer becomes a status bar, and the browser it makes room for](phase-27-status-bar-and-browser-panel.md) | ◻ TODO | 0/66 | `░░░░░░░░░░` | 0% | — | A–H |
-| [26 · Side by side, and the room to show it](phase-26-side-by-side-diffs.md) | ◻ TODO | 0/68 | `░░░░░░░░░░` | 0% | — | A–H |
-| [25 · Search everywhere, and the blame that explains it](phase-25-search-everywhere.md) | ◻ TODO | 0/75 | `░░░░░░░░░░` | 0% | — | A–F |
-| [24 · The explorer learns to write, and to search](phase-24-writable-explorer.md) | ◻ TODO | 0/53 | `░░░░░░░░░░` | 0% | — | A–G |
-| [23 · A command palette, and the registry that can feed it](phase-23-command-palette.md) | ◻ TODO | 0/55 | `░░░░░░░░░░` | 0% | — | A–H |
-| [22 · Stash, the reflog, and writes you can take back](phase-22-stash-and-safety-net.md) | ◻ TODO | 0/70 | `░░░░░░░░░░` | 0% | — | A–H |
-| [21 · Agent roster + terminal identity](phase-21-agent-roster-and-terminal-identity.md) | 🔄 WIP | 43/46 | `█████████░` | 93% | — | 3 manual checks |
-| [20 · Reviews page & unified diff syntax highlighting](phase-20-reviews-page.md) | 🔄 WIP | 43/45 | `██████████` | 96% | — | 2 manual checks |
-| [19 · Dashboard, Actions and Tests as views](phase-19-dashboard-actions-tests.md) | 🔄 WIP | 73/76 | `██████████` | 96% | — | 3 manual checks |
-| [18 · Footer system monitor + repo diagnostics](phase-18-footer-monitor-diagnostics.md) | 🔄 WIP | 51/54 | `█████████░` | 94% | — | 3 manual checks |
-| [17 · Repositories workbench + forge](phase-17-repos-workbench.md) | 🔄 WIP | 46/48 | `█████████░` | 96% | — | 2 manual checks |
-| [16 · Folder explorer, preview pane + settings pages](phase-16-explorer-and-settings-pages.md) | ✅ DONE | 41/41 | `██████████` | 100% | — | — |
-| [15 · Multi-terminal sessions + agents](phase-15-multi-terminal-sessions.md) | 🔄 WIP | 38/39 | `█████████░` | 97% | — | manual relaunch check |
-| [14 · Graph themes + avatars](phase-14-graph-themes.md) | ✅ DONE | 28/28 | `██████████` | 100% | — | — |
-| [13 · UI polish](phase-13-ui-polish.md) | ✅ DONE | 26/26 | `██████████` | 100% | — | — |
-| [12 · Commit inspector + live badges](phase-12-commit-inspector.md) | 🔄 WIP | 10/12 | `████████░░` | 83% | — | 2 manual checks |
-| [11 · Packaging + docs](phase-11-packaging.md) | ✅ DONE | 12/12 | `██████████` | 100% | — | — |
-| [10 · Watcher / live refresh](phase-10-watcher.md) | ✅ DONE | 9/9 | `██████████` | 100% | — | — |
-| [9 · Integrated terminal + keybindings](phase-9-terminal-and-keybindings.md) | ✅ DONE | 11/11 | `██████████` | 100% | — | — |
-| [8 · Drag-drop ops + conflicts](phase-8-drag-drop-ops.md) | ✅ DONE | 10/10 | `██████████` | 100% | — | — |
-| [7 · Graph interactions](phase-7-graph-interactions.md) | ✅ DONE | 10/10 | `██████████` | 100% | — | — |
-| [6 · Status / stage / commit / sync](phase-6-status-and-sync.md) | ✅ DONE | 11/11 | `██████████` | 100% | — | — |
-| [5 · Commit graph, read-only](phase-5-commit-graph.md) | ✅ DONE | 11/11 | `██████████` | 100% | — | — |
-| [4 · Repo open/list + worktree sidebar](phase-4-repos-and-worktrees.md) | ✅ DONE | 10/10 | `██████████` | 100% | — | — |
-| [3 · Electron shell boots](phase-3-electron-shell.md) | ✅ DONE | 15/15 | `██████████` | 100% | — | — |
-| [2 · Lane layout engine](phase-2-lane-layout.md) | ✅ DONE | 10/10 | `██████████` | 100% | — | — |
-| [1 · Shared contracts + git-engine parsers](phase-1-contracts-and-parsers.md) | ✅ DONE | 14/14 | `██████████` | 100% | — | — |
-| [0 · Scaffold](phase-0-scaffold.md) | ✅ DONE | 17/17 | `██████████` | 100% | — | — |
+| Phase | Status | Refined | Done | Progress | % | 🔄 WIP | ◻ TODO |
+|-------|--------|---------|------|----------|---|--------|--------|
+| [27 · The footer becomes a status bar, and the browser it makes room for](phase-27-status-bar-and-browser-panel.md) | ◻ TODO | — | 0/66 | `░░░░░░░░░░` | 0% | — | A–H |
+| [26 · Side by side, and the room to show it](phase-26-side-by-side-diffs.md) | ◻ TODO | — | 0/68 | `░░░░░░░░░░` | 0% | — | A–H |
+| [25 · Search everywhere, and the blame that explains it](phase-25-search-everywhere.md) | ◻ TODO | x1 | 0/101 | `░░░░░░░░░░` | 0% | — | A–F |
+| [24 · The explorer learns to write, and to search](phase-24-writable-explorer.md) | ◻ TODO | — | 0/53 | `░░░░░░░░░░` | 0% | — | A–G |
+| [23 · A command palette, and the registry that can feed it](phase-23-command-palette.md) | ◻ TODO | — | 0/55 | `░░░░░░░░░░` | 0% | — | A–H |
+| [22 · Stash, the reflog, and writes you can take back](phase-22-stash-and-safety-net.md) | ◻ TODO | — | 0/70 | `░░░░░░░░░░` | 0% | — | A–H |
+| [21 · Agent roster + terminal identity](phase-21-agent-roster-and-terminal-identity.md) | 🔄 WIP | — | 43/46 | `█████████░` | 93% | — | 3 manual checks |
+| [20 · Reviews page & unified diff syntax highlighting](phase-20-reviews-page.md) | 🔄 WIP | — | 43/45 | `██████████` | 96% | — | 2 manual checks |
+| [19 · Dashboard, Actions and Tests as views](phase-19-dashboard-actions-tests.md) | 🔄 WIP | — | 73/76 | `██████████` | 96% | — | 3 manual checks |
+| [18 · Footer system monitor + repo diagnostics](phase-18-footer-monitor-diagnostics.md) | 🔄 WIP | — | 51/54 | `█████████░` | 94% | — | 3 manual checks |
+| [17 · Repositories workbench + forge](phase-17-repos-workbench.md) | 🔄 WIP | — | 46/48 | `█████████░` | 96% | — | 2 manual checks |
+| [16 · Folder explorer, preview pane + settings pages](phase-16-explorer-and-settings-pages.md) | ✅ DONE | — | 41/41 | `██████████` | 100% | — | — |
+| [15 · Multi-terminal sessions + agents](phase-15-multi-terminal-sessions.md) | 🔄 WIP | — | 38/39 | `█████████░` | 97% | — | manual relaunch check |
+| [14 · Graph themes + avatars](phase-14-graph-themes.md) | ✅ DONE | — | 28/28 | `██████████` | 100% | — | — |
+| [13 · UI polish](phase-13-ui-polish.md) | ✅ DONE | — | 26/26 | `██████████` | 100% | — | — |
+| [12 · Commit inspector + live badges](phase-12-commit-inspector.md) | 🔄 WIP | — | 10/12 | `████████░░` | 83% | — | 2 manual checks |
+| [11 · Packaging + docs](phase-11-packaging.md) | ✅ DONE | — | 12/12 | `██████████` | 100% | — | — |
+| [10 · Watcher / live refresh](phase-10-watcher.md) | ✅ DONE | — | 9/9 | `██████████` | 100% | — | — |
+| [9 · Integrated terminal + keybindings](phase-9-terminal-and-keybindings.md) | ✅ DONE | — | 11/11 | `██████████` | 100% | — | — |
+| [8 · Drag-drop ops + conflicts](phase-8-drag-drop-ops.md) | ✅ DONE | — | 10/10 | `██████████` | 100% | — | — |
+| [7 · Graph interactions](phase-7-graph-interactions.md) | ✅ DONE | — | 10/10 | `██████████` | 100% | — | — |
+| [6 · Status / stage / commit / sync](phase-6-status-and-sync.md) | ✅ DONE | — | 11/11 | `██████████` | 100% | — | — |
+| [5 · Commit graph, read-only](phase-5-commit-graph.md) | ✅ DONE | — | 11/11 | `██████████` | 100% | — | — |
+| [4 · Repo open/list + worktree sidebar](phase-4-repos-and-worktrees.md) | ✅ DONE | — | 10/10 | `██████████` | 100% | — | — |
+| [3 · Electron shell boots](phase-3-electron-shell.md) | ✅ DONE | — | 15/15 | `██████████` | 100% | — | — |
+| [2 · Lane layout engine](phase-2-lane-layout.md) | ✅ DONE | — | 10/10 | `██████████` | 100% | — | — |
+| [1 · Shared contracts + git-engine parsers](phase-1-contracts-and-parsers.md) | ✅ DONE | — | 14/14 | `██████████` | 100% | — | — |
+| [0 · Scaffold](phase-0-scaffold.md) | ✅ DONE | — | 17/17 | `██████████` | 100% | — | — |
 
 ## Theme key
 
@@ -89,26 +89,35 @@ sources.*
 *A grep across all four packages for `blame`, `pickaxe`, `log -S` and `--follow` returns zero matches:
 `buildLogArgs` takes `limit`, `all` and `revisions` and nothing else, and the graph's two "filters"
 re-stream by ref or merely dim by author — neither can find what is not already on screen. A builds the
-searches git has that no other phase claims, B generalises `log-service.ts`'s single-active-stream into
-a registry that can carry a cancellable second consumer, C–D are the surfaces, E extracts the text filter
-the repo has now written twice, F moves Fetch off `Mod+Shift+F`. Quick-open is Phase 23's and `git grep`
-is Phase 24's — both are consumed or extended, neither is rebuilt.*
+searches git has, B generalises `log-service.ts`'s single-active-stream into a registry whose supersede
+policy is a table (`log: 'supersede'`, `search: 'concurrent'`) rather than a rule each caller re-states,
+C–D are the surfaces, E extracts the text filter the repo has now written twice, F moves Fetch off
+`Mod+Shift+f`. **Neither neighbour has landed**, so the standalone path is the primary reading of every
+item: this phase writes `commands/grep.ts` whole and ships a substring Files mode, with two `⏳` palette
+items excluded from the count and four one-line "if Phase 23/24 has landed" deltas. Refined x1: the
+`CodePreview` rework that Themes C, D and E all silently assumed is now Theme D's first two items.*
 
-- ◻ **A** — `commands/{search,blame}.ts` + `parsers/blame-parser.ts` net-new; `buildLogArgs` widened to
-  author/message/path/date/`-S`/`-G`; `--follow` with its one-pathspec rule; Phase 24's grep extended
-  with `rev`, context lines and a streaming `streamGrep`; the porcelain `previous` field kept because
-  reblame needs it.
-- ◻ **B** — `stream-registry.ts` lifted out of `log-service.ts` with a per-kind supersede policy,
-  `search-service.ts` allowing concurrent streams, `search*`/`blame*` channels, and a new exhaustive
-  prefix block in `ipc.test.ts`.
-- ◻ **C** — a `'search'` rail view with Commits/Content/Files modes, a virtualised shiki-highlighted
-  result list, a results/preview split, and a visible truncation marker instead of a silent cut.
-- ◻ **D** — a blame gutter in the Phase 16 preview sharing its scroll metrics, `-C -M` rename
-  following, and reblame with a real navigation stack.
+- ◻ **A** — `commands/{search,grep,blame}.ts` + `parsers/{grep,blame}-parser.ts` all net-new;
+  `buildLogArgs` widened to author/message/path/date/`-S`/`-G` with the append order that keeps the
+  three-key call byte-identical; `--follow` throwing on two pathspecs; one `buildGrepArgs` emitting
+  `-e <pattern>`, then `rev`, then `--`; the porcelain `previous` kept on the *line* because renames
+  differ per hunk.
+- ◻ **B** — `stream-registry.ts` lifted out of `log-service.ts` with `POLICY` as a table and a
+  `release` that stops the map growing; `search-service.ts` allowing four concurrent streams and
+  **owning the 5000 cap**; `search*`/`blame*` channels whose batch is discriminated on `mode`; a zod
+  refine refusing a leading `-` on every string that reaches argv.
+- ◻ **C** — a `'search'` rail view with Commits/Content/Files modes, the repo's first **measured**
+  virtualizer over an append-only row array, a results/preview split, four named empty/loading/error
+  states, a visible truncation row, and a footer readout while a stream is live.
+- ◻ **D** — `CodePreview` rewritten from one `codeToHtml` blob into per-line `data-line` rows from
+  `codeToTokens()`, which is what C's scroll-to-line and E's find bar need; a blame gutter as a
+  sibling grid column so alignment is structural; `-C -M`; reblame with an unpersisted per-file stack.
 - ◻ **E** — `components/filter-input.tsx` at last, retrofitted onto repos and reviews and given to the
-  Changes view; a `Mod+F` find bar; a graph-header box that dims and hands off.
-- ◻ **F** — Fetch to `Mod+Shift+R`, `search.open` on `Mod+Shift+F` and global-scoped, one new palette
-  source, and a Search settings page.
+  Changes view; a `Mod+f` find bar with case/regex toggles and wrapping navigation; a graph-header box
+  that dims, counts "{n} of {loaded} loaded", steps, and hands off.
+- ◻ **F** — Fetch to `Mod+Shift+r` (lowercase, like every chord in the keymap), `search.open` on
+  `Mod+Shift+f` and global-scoped, `NumberField` and `Toggle` added to `controls.tsx`, and a Search
+  settings page.
 
 ### [Phase 26 — Side by side, and the room to show it](phase-26-side-by-side-diffs.md)
 
