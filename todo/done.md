@@ -1724,3 +1724,32 @@ collapsed each item names itself in a portal tooltip. What was missing was the s
 home and any proof of that contract. The e2e now locks the rail closed, hovers a nav item,
 and asserts the tooltip appears — a tooltip only renders against a collapsed rail, so its
 visibility during a hover IS the assertion that the hover expanded nothing.
+
+## 2026-08-27 — The agent activity spinner reads a frame, not a chunk
+
+The spinner added a commit earlier never once appeared. `detectActivity` decided "thinking"
+by looking for `esc to interrupt`, and the strings in the shipped binary
+(`~/.local/share/claude/versions/2.1.247`) say that phrase now survives only in the retry
+banner — the live spinner row prints `✳ Kneading… (1m 38s · ↓ 4.5k tokens)`. Meanwhile the
+*waiting* marker it fell through to (`auto mode on` / `shift+tab to cycle`) is drawn on every
+repaint, generating or not, so every busy agent read as idle.
+
+Thinking is now keyed on the spinner row itself: the frame glyphs `✢ ✳ ✶ ✻ ✽` — taken from
+the binary's own frame arrays, with `·` and the ASCII `*` left out because a middle dot is
+the separator in every footer segment — followed by the verb's ellipsis, plus the
+`↓ N tokens` counter and the old interrupt hint for older builds.
+
+The footer's real job turned out to be a FRAME BOUNDARY, not a state: the spinner row is
+drawn above it, so a frame that reaches its footer with no spinner in it is what means
+"waiting". Detection therefore runs over the bytes since the last boundary rather than over
+one pty chunk — a repaint is a couple of kilobytes and macOS hands it over in pieces, so
+judged chunk by chunk the same frame said thinking and then waiting a millisecond later and
+the glyph flickered between the two for the length of the turn. `TerminalView` carries that
+state per session, beside the decoder it already kept for the same reason.
+
+Alongside it, the session list got the two things a list that now says something useful
+needs: a drag ceiling of 560 rather than 360 (matching the repos sidebar — an agent row's
+label is a summary of the task it was given, so these are the longest rows in the app), and
+a `List` toggle in the terminal header, persisted as `terminalListOpen`. The toggle is
+explained-disabled below two sessions, since a list of one still names nothing the header
+does not.
