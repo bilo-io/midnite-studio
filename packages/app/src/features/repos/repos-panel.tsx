@@ -31,6 +31,7 @@ import { SortableList, useSortableRow } from '../../components/sortable-list';
 import { useDialogs } from '../../components/dialog-host';
 import { IconButton } from '../../components/icon-button';
 import { Tooltip } from '../../components/tooltip';
+import { TREE_INDENT } from '../../components/tree-indent';
 import { TreeSection } from '../../components/tree-section';
 import { cascadeStyle } from '../../lib/cascade';
 import {
@@ -494,7 +495,15 @@ function RepoItem({
           grew by a few pixels the moment the first `git status` came back and
           every repo below it shifted down.
         */
-        className={`group flex h-8 items-center gap-1 px-2 text-sm transition-colors ${
+        /*
+          `pl-1`, not `pl-2`: this row is the ROOT of the tree below it, and the
+          grip ahead of the chevron already spends one indent step's worth of
+          width on something that is not nesting. Left at the panel's own 8px
+          gutter the chevron sat at 26px — further right than the Local/Remotes
+          headings underneath it, so a repository read as a sibling of its own
+          sections. The grip lives in the gutter, which is what gutters are for.
+        */
+        className={`group flex h-8 items-center gap-1 pl-1 pr-2 text-sm transition-colors ${
           selectedRepoId === repo.id ? 'bg-accent/60' : 'hover:bg-accent/30'
         }`}
       >
@@ -536,7 +545,20 @@ function RepoItem({
             onClick={() => selectRepo(repo.id)}
             className="flex min-w-0 flex-1 items-center gap-1.5 text-left"
           >
-            <span className="truncate font-medium">{repo.name}</span>
+            {/*
+              The selected repository's name takes the accent colour. The row's
+              `bg-accent/60` alone is a faint tint — at a glance a folded list
+              of eight repos reads as eight identical rows — and the accent is
+              the one colour in the theme that already means "this is the one
+              you picked", so the name says it in the place the eye lands.
+            */}
+            <span
+              className={`truncate font-medium ${
+                selectedRepoId === repo.id ? 'text-primary' : ''
+              }`}
+            >
+              {repo.name}
+            </span>
             {/*
               Folded, the row has to stand in for the whole tree below it, so it
               carries the branch and the repository's TOTAL uncommitted count.
@@ -1037,7 +1059,7 @@ function RefRow({
       }}
       style={cascadeStyle(index)}
       className={`group flex animate-fade-in-up cascade-delay items-center gap-1.5 py-0.5 pr-2 text-[13px] transition-colors hover:bg-accent/30 ${
-        depth === 2 ? 'pl-12' : 'pl-8'
+        depth === 2 ? TREE_INDENT[3] : TREE_INDENT[2]
       } ${elsewhere ? 'text-muted-foreground' : ''}`}
     >
       <Icon aria-hidden className="h-3 w-3 shrink-0 text-muted-foreground" />
@@ -1158,7 +1180,7 @@ function WorktreeRow({
         openMenu(event);
       }}
       style={cascadeStyle(index)}
-      className={`group flex animate-fade-in-up cascade-delay items-center gap-1.5 py-0.5 pl-8 pr-2 text-[13px] transition-colors ${
+      className={`group flex animate-fade-in-up cascade-delay items-center gap-1.5 py-0.5 ${TREE_INDENT[2]} pr-2 text-[13px] transition-colors ${
         active ? 'bg-accent/60' : 'hover:bg-accent/30'
       }`}
     >
