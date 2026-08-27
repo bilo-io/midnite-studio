@@ -144,6 +144,16 @@ const binaryDiff = fileDiff({
   binary: true,
 });
 
+/**
+ * A binary that is NOT an image, so the "no textual diff" sentence still has a
+ * case: the png above now renders the image viewer instead.
+ */
+const opaqueBinaryDiff = fileDiff({
+  path: 'packages/app/src/fonts/inter.woff2',
+  oldPath: 'packages/app/src/fonts/inter.woff2',
+  binary: true,
+});
+
 /** Capped, so the "more lines not shown" notice has something to report. */
 const truncatedDiff = fileDiff({
   path: 'pnpm-lock.yaml',
@@ -228,6 +238,12 @@ export const fixtures: MockFixtures = {
           insertions: 0,
           deletions: 0,
         },
+        {
+          path: 'packages/app/src/fonts/inter.woff2',
+          oldPath: null,
+          insertions: 0,
+          deletions: 0,
+        },
         { path: 'pnpm-lock.yaml', oldPath: null, insertions: 4000, deletions: 0 },
       ],
     },
@@ -262,6 +278,7 @@ export const fixtures: MockFixtures = {
     [`${SHA}:.github/workflows/ci.yml`]: gappedDiff,
     [`${SHA}:.github/workflows/ci.yml:12`]: gappedExpanded,
     [`${SHA}:docs/screenshots/phase-11-packaged-app.png`]: binaryDiff,
+    [`${SHA}:packages/app/src/fonts/inter.woff2`]: opaqueBinaryDiff,
     [`${SHA}:pnpm-lock.yaml`]: truncatedDiff,
     'wt:packages/desktop/src/main/window.ts': windowDiff,
   },
