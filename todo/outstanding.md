@@ -87,3 +87,12 @@ and disposing it first changes nothing. Reachable only through StrictMode's moun
 mount, so it fires for every pane opened under `moon run desktop:start` and never in a packaged
 build. Harmless beyond the console noise, and worth revisiting on the next xterm bump rather than
 worked around from outside the library.
+
+## Image diffs in a pull request
+
+The image viewer is wired into the Changes pane and the commit inspector, and not into the
+Reviews page. It needs a revision pair, and `ForgePullDetail` carries only `headSha` — there is
+no base sha in the shape, so there is nothing to read the "before" from. Two things would have
+to hold: the forge domain would need the base sha, and both objects would have to be in the
+local checkout, which for a fork's PR means a fetch first. Until then a binary image in a PR
+keeps the sentence, which is at least not misleading.
