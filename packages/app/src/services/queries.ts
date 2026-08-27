@@ -160,6 +160,42 @@ export function useRepos() {
   });
 }
 
+/**
+ * Apply a new id order to a list, dropping any id the list no longer has an
+ * entry for.
+ *
+ * A pure function so `useReorderRepos`'s optimistic write and its unit test
+ * share the one implementation.
+ */
+export function reorderByIds<T extends { id: string }>(items: readonly T[], ids: string[]): T[] {
+  const byId = new Map(items.map((item) => [item.id, item]));
+  return ids.flatMap((id) => {
+    const item = byId.get(id);
+    return item ? [item] : [];
+  });
+}
+
+/**
+ * Reorder the repo list, optimistically.
+ *
+ * `repos.reorder` is one-way (`ipcRenderer.send`, no response) — ordering is a
+ * preference, and the next drag rewrites the whole list anyway, so there is
+ * nothing worth a round trip. But that means nothing ever tells the `repos`
+ * query to refetch: without writing the new order into the cache here, the
+ * row a drag just moved snaps straight back the instant the drop settles,
+ * because `ids` in `ReposPanel` is read from a query result the IPC call
+ * never changes.
+ */
+export function useReorderRepos(): (repoIds: string[]) => void {
+  const client = useQueryClient();
+  return (repoIds: string[]) => {
+    client.setQueryData<RepoDescriptor[]>(keys.repos, (current) =>
+      current ? reorderByIds(current, repoIds) : current,
+    );
+    bridge()?.repos.reorder({ repoIds });
+  };
+}
+
 export function useRefs(repoId: string | null) {
   return useQuery<Ref[]>({
     queryKey: keys.refs(repoId ?? ''),
