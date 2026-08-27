@@ -54,7 +54,7 @@ import {
   type SectionKey,
   type ViewSections,
 } from './view-sections';
-import { RepoLifecycleActions } from './repo-lifecycle-actions';
+import { RepoLifecycleMenu } from './repo-lifecycle-actions';
 import { primaryTarget, useRepoActions } from './use-repo-actions';
 
 /**
@@ -385,21 +385,6 @@ function RepoItem({
         </Tooltip>
 
         {/*
-          Install / Build / Test / Launch, ahead of the git-specific controls —
-          this repo's own tooling is a different kind of action from syncing or
-          the ellipsis menu, and the rule between them is what says so without
-          a heading. Always the main worktree: a folded row already reports the
-          repo's own state rather than any one checkout's, and these run at the
-          same "primary checkout" `primaryTarget` resolves everywhere else.
-        */}
-        <RepoLifecycleActions
-          repoId={repo.id}
-          repoName={repo.name}
-          cwd={primaryTarget(repo).worktreePath ?? repo.path}
-        />
-        <span aria-hidden className="h-4 w-px shrink-0 bg-border" />
-
-        {/*
           The sync control, per repository. Syncing is a per-repo question, and
           answering it only for the selected one means opening each repo in turn
           to find out which needs attention. The counts stay visible at `↑0 ↓0`
@@ -416,12 +401,28 @@ function RepoItem({
             />
           </span>
         ) : null}
+        <span aria-hidden className="h-4 w-px shrink-0 bg-border" />
 
         {/*
-          One ellipsis rather than a row of per-repo buttons. The close action
-          used to sit here as a bare X, which cost as much width as the sync
-          cluster now uses and put the panel's only irreversible-looking control
-          one stray click from the pointer's resting place.
+          Two ellipses, not a row of standing icons. Install/Build/Test/Launch
+          used to sit here as four buttons ahead of the sync control — this repo's
+          own tooling, collapsed behind its own ellipsis so it reads as one
+          control rather than four, sits beside the repo's git/housekeeping
+          ellipsis. Always the main worktree: a folded row already reports the
+          repo's own state rather than any one checkout's, and these run at the
+          same "primary checkout" `primaryTarget` resolves everywhere else.
+        */}
+        <RepoLifecycleMenu
+          repoId={repo.id}
+          repoName={repo.name}
+          cwd={primaryTarget(repo).worktreePath ?? repo.path}
+        />
+
+        {/*
+          The close action used to sit here as a bare X, which cost as much
+          width as the sync cluster now uses and put the panel's only
+          irreversible-looking control one stray click from the pointer's
+          resting place.
         */}
         <IconButton
           icon={MoreVertical}
