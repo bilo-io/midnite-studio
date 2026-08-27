@@ -36,6 +36,7 @@ import {
   pullStatus,
   runStatus,
   StatusPill,
+  type ForgeStatus,
 } from '../forge/forge-status';
 import type { SectionKey } from './view-sections';
 
@@ -450,8 +451,14 @@ function ForgeRow({
   children,
 }: {
   index: number;
-  status: { tone: 'ok' | 'fail' | 'busy' | 'idle' | 'warn'; label: string };
-  extra?: { tone: 'ok' | 'fail' | 'busy' | 'idle' | 'warn'; label: string } | null;
+  /*
+    `ForgeStatus`, not a re-spelled copy of its fields. The inline literal that
+    used to sit here was already a duplicate of the exported type, and it broke
+    the moment a status grew a glyph — a row that draws a `StatusPill` has no
+    business describing the pill's own contract in a second place.
+  */
+  status: ForgeStatus;
+  extra?: ForgeStatus | null;
   title: string;
   subtitle: string;
   menu: MenuItem[];

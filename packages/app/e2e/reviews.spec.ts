@@ -134,7 +134,13 @@ test('the PR header reads from the listing, then fills in from the detail fetch'
 
   const header = page.getByRole('region', { name: 'Pull request #42' });
   await expect(header.getByRole('heading', { name: /#42 Reviews page/ })).toBeVisible();
-  await expect(header.getByText('Approved')).toBeVisible();
+  /*
+    `getByRole('img', …)`, not `getByText`: a settled status renders as a bare
+    coloured glyph now, so its word survives only as the mark's accessible
+    name. Asserting on the name rather than on visible text is also the stronger
+    check — it fails if the pill loses the label a screen reader needs.
+  */
+  await expect(header.getByRole('img', { name: 'Approved', exact: true })).toBeVisible();
 
   // The second fetch's half: base branch, line counts and the description.
   await expect(header.getByText(/wants to merge feature\/reviews into main/)).toBeVisible();
@@ -237,7 +243,7 @@ test('Conversation interleaves discussion and review verdicts', async ({ page })
   await expect(thread.getByText('Should this cache?')).toBeVisible();
   await expect(thread.getByText('Reads well now.')).toBeVisible();
   // A verdict rides the same pill the sidebar row uses.
-  await expect(thread.getByText('Approved')).toBeVisible();
+  await expect(thread.getByRole('img', { name: 'Approved', exact: true })).toBeVisible();
 });
 
 test('an empty conversation is a sentence, not a blank pane', async ({ page }) => {

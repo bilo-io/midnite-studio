@@ -163,7 +163,13 @@ test('expanding a run row shows its jobs, and only then fetches them', async ({ 
   });
 
   await page.getByRole('button', { name: 'Actions', exact: true }).click();
-  await expect(page.getByText('Failed')).toBeVisible();
+  /*
+    `getByRole('img', …)`, not `getByText`: a settled status renders as a bare
+    coloured glyph now, so its word survives only as the mark's accessible
+    name. Asserting on the name rather than on visible text is also the stronger
+    check — it fails if the pill loses the label a screen reader needs.
+  */
+  await expect(page.getByRole('img', { name: 'Failed', exact: true })).toBeVisible();
   // Nothing has expanded yet, so nothing has been asked of `gh run view`.
   // `exact: true` because the sidebar's own "Tests" section toggle otherwise
   // substring-matches this job's name.
@@ -214,7 +220,7 @@ test('a job with no steps renders as a job, not as an error', async ({ page }) =
 
   // `steps: []` is what GitHub sends for a job an `if:` declined to run.
   await expect(page.getByRole('button', { name: 'deploy' })).toBeVisible();
-  await expect(page.getByText('Skipped')).toBeVisible();
+  await expect(page.getByRole('img', { name: 'Skipped', exact: true })).toBeVisible();
   // No url means nothing to open — the row says so by being disabled rather
   // than by opening a link that goes nowhere.
   await expect(page.getByRole('button', { name: 'deploy' })).toBeDisabled();
