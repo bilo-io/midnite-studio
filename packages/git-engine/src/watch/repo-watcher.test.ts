@@ -63,11 +63,11 @@ describe('RepoWatcher', () => {
     await repo.cleanup();
   });
 
-  const startWatching = async (settleMs = 0) => {
+  const startWatching = async (settleMs = 0, debounceMs = 50) => {
     watcher = await RepoWatcher.start({
       repoPath: repo.path,
       onEvent: (kind) => events.push(kind),
-      debounceMs: 50,
+      debounceMs,
       settleMs,
     });
     // fs.watch registration is not instantaneous on macOS.
@@ -125,6 +125,34 @@ describe('RepoWatcher', () => {
     await wait(400);
 
     expect(events).toEqual([]);
+  });
+
+  it('still reports a change that was already waiting when our write began', async () => {
+    // The regression: suppression dropped everything pending once the queue went
+    // busy, including events that predated the write and so could not be its
+    // echo. An external change landing just as the app started writing vanished
+    // and was never re-checked — the UI stayed stale until something unrelated
+    // moved it. A pruned worktree stuck on screen badged "detached missing" is
+    // what this looked like in practice.
+    // A long debounce so the ordering under test is the ordering that happens:
+    // the external event has to be sitting in `pending`, unflushed, at the
+    // moment our write opens the suppression window. With the default 50ms the
+    // fs event can still be in flight when the queue goes busy, which tests
+    // nothing.
+    await startWatching(100, 400);
+
+    // External change first — queued, but the debounce has not fired yet...
+    await repo.writeFile('theirs.txt', 'external\n');
+    await wait(150);
+
+    // ...and now our own write opens the window, and stays open long enough
+    // that the flush lands inside it.
+    await writeQueue.run(repo.path, async () => {
+      await wait(400);
+    });
+    await wait(600);
+
+    expect(events).toContain('worktree');
   });
 
   it('reports again once the write queue has settled', async () => {
