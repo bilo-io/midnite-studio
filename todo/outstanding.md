@@ -61,6 +61,15 @@ Recorded here when a phase punts on something; pick these up post-MVP.
   directory will see extra `git status` calls.
 - **`load more` beyond the 50,000-commit cap.** The log stream reports `truncated` and the footer
   says so, but there is no control to extend the window yet.
+- **Launcher entries — "Open in Antigravity", "Open in VS Code", …** Deferred out of Phase 21 by
+  choice, once Antigravity turned out to ship a real terminal agent (`agy`) and the phase no longer
+  needed the concept to carry it. Opening an application in its own window is a different feature
+  from starting an agent in a pty: it belongs on the repo/worktree context menus Phase 17 built
+  rather than in the terminal's `+` menu, it has no place in the agent process probe or the activity
+  indicator, and it wants a per-editor "is it installed, and where" resolution of its own
+  (`antigravity-ide` lives inside `Antigravity IDE.app/Contents/Resources/app/bin/` and is not on
+  `PATH`). Phase 21's `AgentDefinition` deliberately has no `mode` field for it to reuse — that
+  field should be designed by the slice that actually needs it.
 
 ## xterm throws on unmount under the dev server
 
@@ -78,3 +87,12 @@ and disposing it first changes nothing. Reachable only through StrictMode's moun
 mount, so it fires for every pane opened under `moon run desktop:start` and never in a packaged
 build. Harmless beyond the console noise, and worth revisiting on the next xterm bump rather than
 worked around from outside the library.
+
+## Image diffs in a pull request
+
+The image viewer is wired into the Changes pane and the commit inspector, and not into the
+Reviews page. It needs a revision pair, and `ForgePullDetail` carries only `headSha` — there is
+no base sha in the shape, so there is nothing to read the "before" from. Two things would have
+to hold: the forge domain would need the base sha, and both objects would have to be in the
+local checkout, which for a fork's PR means a fetch first. Until then a binary image in a PR
+keeps the sentence, which is at least not misleading.

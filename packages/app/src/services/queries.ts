@@ -4,11 +4,18 @@ import type {
   DiagnosticsRun,
   DiagnosticsTrustStatus,
   ForgeIssuesResult,
+  ForgePullCommentsResult,
+  ForgePullDetailResult,
+  ForgePullFilesResult,
   ForgePullsResult,
+  ForgeMergeMethod,
+  ForgeReviewEvent,
+  ForgePullThreadsResult,
   ForgeRunDetailResult,
   ForgeRunLogResult,
   ForgeRunsResult,
   ForgeWorkflowsResult,
+  ForgeWriteResult,
   Ref,
   Remote,
   RepoDescriptor,
@@ -83,7 +90,8 @@ export const keys = {
   forge: (repoId: string) => ['repos', repoId, 'forge'] as const,
   forgeRuns: (repoId: string, branch?: string) =>
     ['repos', repoId, 'forge', 'runs', branch ?? 'all'] as const,
-  forgePulls: (repoId: string) => ['repos', repoId, 'forge', 'pulls'] as const,
+  forgePulls: (repoId: string, limit = 20, state = 'open') =>
+    ['repos', repoId, 'forge', 'pulls', limit, state] as const,
   forgeIssues: (repoId: string, state: string) =>
     ['repos', repoId, 'forge', 'issues', state] as const,
   /**
@@ -105,6 +113,33 @@ export const keys = {
   forgeRunLog: (repoId: string, runId: string, full: boolean) =>
     ['repos', repoId, 'forge', 'run-log', runId, full] as const,
   forgeWorkflows: (repoId: string) => ['repos', repoId, 'forge', 'workflows'] as const,
+  /**
+   * One opened pull request's three payloads.
+   *
+   * Keyed by PR number under the forge prefix, so the section's Refresh drops
+   * an open PR's detail along with the listing it was opened from — the same
+   * rule `forgeRunDetail` follows, and for the same reason: a re-fetched list
+   * beside a stale diff is the combination that would lie.
+   *
+   * Three keys rather than one, because they are three fetches: a reader who
+   * only ever opens the Files tab should never pay for the conversation.
+   */
+  forgePullDetail: (repoId: string, number: number) =>
+    ['repos', repoId, 'forge', 'pull-detail', number] as const,
+  forgePullFiles: (repoId: string, number: number) =>
+    ['repos', repoId, 'forge', 'pull-files', number] as const,
+  forgePullComments: (repoId: string, number: number) =>
+    ['repos', repoId, 'forge', 'pull-comments', number] as const,
+  /**
+   * One PR's inline threads.
+   *
+   * A fourth key beside the other three, not a widening of `pull-comments`: the
+   * Files tab reads this and the Conversation tab reads that, and sharing a key
+   * would make either tab's fetch serve the other's payload. It is the key a
+   * successful comment, reply or resolve invalidates.
+   */
+  forgePullThreads: (repoId: string, number: number) =>
+    ['repos', repoId, 'forge', 'pull-threads', number] as const,
   /** Whether `gh` is installed and signed in. Not repo-scoped — it is machine state. */
   forgeCli: ['forge', 'cli'] as const,
   /**
@@ -158,6 +193,42 @@ export function useRepos() {
     queryKey: keys.repos,
     queryFn: async () => (await bridge()?.repos.list()) ?? [],
   });
+}
+
+/**
+ * Apply a new id order to a list, dropping any id the list no longer has an
+ * entry for.
+ *
+ * A pure function so `useReorderRepos`'s optimistic write and its unit test
+ * share the one implementation.
+ */
+export function reorderByIds<T extends { id: string }>(items: readonly T[], ids: string[]): T[] {
+  const byId = new Map(items.map((item) => [item.id, item]));
+  return ids.flatMap((id) => {
+    const item = byId.get(id);
+    return item ? [item] : [];
+  });
+}
+
+/**
+ * Reorder the repo list, optimistically.
+ *
+ * `repos.reorder` is one-way (`ipcRenderer.send`, no response) — ordering is a
+ * preference, and the next drag rewrites the whole list anyway, so there is
+ * nothing worth a round trip. But that means nothing ever tells the `repos`
+ * query to refetch: without writing the new order into the cache here, the
+ * row a drag just moved snaps straight back the instant the drop settles,
+ * because `ids` in `ReposPanel` is read from a query result the IPC call
+ * never changes.
+ */
+export function useReorderRepos(): (repoIds: string[]) => void {
+  const client = useQueryClient();
+  return (repoIds: string[]) => {
+    client.setQueryData<RepoDescriptor[]>(keys.repos, (current) =>
+      current ? reorderByIds(current, repoIds) : current,
+    );
+    bridge()?.repos.reorder({ repoIds });
+  };
 }
 
 export function useRefs(repoId: string | null) {
@@ -446,16 +517,347 @@ export function useForgeWorkflows(repoId: string | null, enabled: boolean) {
   });
 }
 
-export function useForgePulls(repoId: string | null, enabled: boolean) {
+/**
+ * `state` defaults to `open` — the sidebar section and the dashboard widget
+ * both call this with no third/fourth argument and mean "what might I review
+ * right now", exactly as Phase 17 shipped. The Reviews view is the one
+ * caller that passes `'all'`, since its own status tabs do the filtering.
+ *
+ * `limit` grows the page rather than paging through one: `gh pr list` has no
+ * cursor to page through, so the Reviews view's "Load more" is a second,
+ * wider fetch under a new key — a subprocess only when the user actually
+ * asks for more than the default page.
+ */
+export function useForgePulls(
+  repoId: string | null,
+  enabled: boolean,
+  limit = 20,
+  state: 'open' | 'closed' | 'merged' | 'all' = 'open',
+) {
   return useQuery<ForgePullsResult>({
-    queryKey: keys.forgePulls(repoId ?? ''),
+    queryKey: keys.forgePulls(repoId ?? '', limit, state),
     queryFn: async () => {
       const api = bridge();
       if (!api || !repoId) return EMPTY_PULLS;
-      return api.forge.pulls({ repoId, limit: 20 });
+      return api.forge.pulls({ repoId, limit, state });
     },
     enabled: enabled && repoId !== null,
     staleTime: FORGE_STALE_MS,
+  });
+}
+
+/**
+ * One PR's metadata, fetched when it is opened and never for a list.
+ *
+ * `enabled` carries the same promise as its siblings — a human opened this
+ * pull request — because every one of these is a `gh` subprocess against the
+ * user's rate limit.
+ */
+export function useForgePullDetail(repoId: string | null, number: number | null, enabled = true) {
+  return useQuery<ForgePullDetailResult>({
+    queryKey: keys.forgePullDetail(repoId ?? '', number ?? 0),
+    queryFn: async () => {
+      const api = bridge();
+      if (!api || !repoId || number === null) return EMPTY_PULL_DETAIL;
+      return api.forge.pullDetail({ repoId, number });
+    },
+    enabled: enabled && repoId !== null && number !== null,
+    staleTime: FORGE_STALE_MS,
+  });
+}
+
+/**
+ * One PR's diff, fetched only while the Files tab is mounted.
+ *
+ * The heaviest payload in this file, so `enabled` is what the tab strip drives:
+ * a reader who opens a PR straight onto Conversation never fetches its patch.
+ */
+export function useForgePullFiles(repoId: string | null, number: number | null, enabled: boolean) {
+  return useQuery<ForgePullFilesResult>({
+    queryKey: keys.forgePullFiles(repoId ?? '', number ?? 0),
+    queryFn: async () => {
+      const api = bridge();
+      if (!api || !repoId || number === null) return EMPTY_PULL_FILES;
+      return api.forge.pullFiles({ repoId, number });
+    },
+    enabled: enabled && repoId !== null && number !== null,
+    staleTime: FORGE_STALE_MS,
+  });
+}
+
+/** One PR's conversation, fetched only while the Conversation tab is mounted. */
+export function useForgePullComments(
+  repoId: string | null,
+  number: number | null,
+  enabled: boolean,
+) {
+  return useQuery<ForgePullCommentsResult>({
+    queryKey: keys.forgePullComments(repoId ?? '', number ?? 0),
+    queryFn: async () => {
+      const api = bridge();
+      if (!api || !repoId || number === null) return EMPTY_PULL_COMMENTS;
+      return api.forge.pullComments({ repoId, number });
+    },
+    enabled: enabled && repoId !== null && number !== null,
+    staleTime: FORGE_STALE_MS,
+  });
+}
+
+/**
+ * One PR's inline review threads, fetched only while the Files tab is mounted.
+ *
+ * Same `enabled` discipline as the diff it decorates: a reader who opens a PR
+ * onto Conversation or Checks never pays for a GraphQL round trip about lines
+ * they are not looking at.
+ */
+export function useForgePullThreads(
+  repoId: string | null,
+  number: number | null,
+  enabled: boolean,
+) {
+  return useQuery<ForgePullThreadsResult>({
+    queryKey: keys.forgePullThreads(repoId ?? '', number ?? 0),
+    queryFn: async () => {
+      const api = bridge();
+      if (!api || !repoId || number === null) return EMPTY_PULL_THREADS;
+      return api.forge.pullThreads({ repoId, number });
+    },
+    enabled: enabled && repoId !== null && number !== null,
+    staleTime: FORGE_STALE_MS,
+  });
+}
+
+/*
+  ─── The three review writes (Phase 20 Theme E) ──────────────────────────────
+
+  All three share one success rule: invalidate the thread key for that PR, and
+  nothing else. A posted comment changes the threads and does not change the
+  listing, the detail or the patch — invalidating the whole `forge(repoId)`
+  prefix would re-spawn four subprocesses to redraw one panel.
+
+  None of them throws on a refused write. `ForgeWriteResult` carries `ok` and
+  `gh`'s own message, so the caller renders the failure next to the composer it
+  came from, with the text the user typed still in it.
+*/
+
+/** Start a new inline thread on a line of a PR's diff. */
+export function useAddReviewComment(repoId: string | null, number: number | null) {
+  const client = useQueryClient();
+  return useMutation({
+    mutationFn: async (input: {
+      commitId: string;
+      path: string;
+      line: number;
+      position?: number;
+      body: string;
+    }): Promise<ForgeWriteResult> => {
+      const api = bridge();
+      if (!api || !repoId || number === null) return NO_FORGE_WRITE;
+      return api.forge.reviewComment({ repoId, number, side: 'RIGHT', ...input });
+    },
+    onSuccess: (result) => {
+      if (result.ok) invalidateThreads(client, repoId, number);
+    },
+  });
+}
+
+/** Reply into an existing inline thread, keyed by a comment's REST id. */
+export function useReplyToReviewComment(repoId: string | null, number: number | null) {
+  const client = useQueryClient();
+  return useMutation({
+    mutationFn: async (input: { commentId: string; body: string }): Promise<ForgeWriteResult> => {
+      const api = bridge();
+      if (!api || !repoId || number === null) return NO_FORGE_WRITE;
+      return api.forge.reviewReply({ repoId, number, ...input });
+    },
+    onSuccess: (result) => {
+      if (result.ok) invalidateThreads(client, repoId, number);
+    },
+  });
+}
+
+/** Mark an inline thread resolved, or reopen it. */
+export function useSetThreadResolved(repoId: string | null, number: number | null) {
+  const client = useQueryClient();
+  return useMutation({
+    mutationFn: async (input: {
+      threadId: string;
+      resolved: boolean;
+    }): Promise<ForgeWriteResult> => {
+      const api = bridge();
+      if (!api || !repoId) return NO_FORGE_WRITE;
+      return api.forge.resolveThread({ repoId, ...input });
+    },
+    onSuccess: (result) => {
+      if (result.ok) invalidateThreads(client, repoId, number);
+    },
+  });
+}
+
+function invalidateThreads(client: QueryClient, repoId: string | null, number: number | null): void {
+  if (!repoId || number === null) return;
+  void client.invalidateQueries({ queryKey: keys.forgePullThreads(repoId, number) });
+}
+
+/*
+  ─── The six review write actions (Phase 20 Themes F and G) ──────────────────
+
+  Same envelope discipline as Theme E's three above: none of these throws, all
+  of them answer `ForgeWriteResult`, and the caller renders `gh`'s own sentence
+  beside the control that caused it.
+
+  Where they differ is what a success invalidates. A posted thread changes only
+  the threads; a *review* changes the PR's `reviewDecision`, which the listing
+  row and the detail header both draw, so those have to be re-read. The
+  invalidator below is scoped to that — the listing and the one PR's detail —
+  rather than the whole `forge(repoId)` prefix, which would also re-spawn the
+  runs, workflows and issues subprocesses for a state none of them reflect.
+
+  None of them is optimistic. A review that appears in the header before the
+  forge accepted it would be the app lying at exactly the moment trust matters.
+*/
+
+/**
+ * What a review verdict changed: this PR's own facts, and its row in the list.
+ *
+ * The *patch* is deliberately not invalidated. Approving a pull request does
+ * not alter its diff, and re-fetching a capped patch is the most expensive read
+ * in this file.
+ */
+function invalidatePullState(
+  client: QueryClient,
+  repoId: string | null,
+  number: number | null,
+): void {
+  if (!repoId) return;
+  if (number !== null) {
+    void client.invalidateQueries({ queryKey: keys.forgePullDetail(repoId, number) });
+  }
+  /*
+    Prefix-matched, not exact.
+
+    `keys.forgePulls` is keyed by limit AND state, and the list, the sidebar
+    section and the dashboard widget each ask with different values — so an
+    exact key would refresh whichever one happened to match and leave a stale
+    "Changes requested" pill in the other two.
+  */
+  void client.invalidateQueries({ queryKey: ['repos', repoId, 'forge', 'pulls'] });
+}
+
+/** Submit a review: approve, request changes, or comment. */
+export function useReviewPull(repoId: string | null, number: number | null) {
+  const client = useQueryClient();
+  return useMutation({
+    mutationFn: async (input: {
+      event: ForgeReviewEvent;
+      body: string;
+    }): Promise<ForgeWriteResult> => {
+      const api = bridge();
+      if (!api || !repoId || number === null) return NO_FORGE_WRITE;
+      return api.forge.pullReview({ repoId, number, ...input });
+    },
+    onSuccess: (result) => {
+      if (result.ok) invalidatePullState(client, repoId, number);
+    },
+  });
+}
+
+/**
+ * Post a top-level conversation comment.
+ *
+ * Invalidates the conversation rather than the PR's state, because that is what
+ * changed: a discussion comment carries no verdict, so the listing row's review
+ * pill is the same as it was.
+ */
+export function useCommentPull(repoId: string | null, number: number | null) {
+  const client = useQueryClient();
+  return useMutation({
+    mutationFn: async (input: { body: string }): Promise<ForgeWriteResult> => {
+      const api = bridge();
+      if (!api || !repoId || number === null) return NO_FORGE_WRITE;
+      return api.forge.pullComment({ repoId, number, ...input });
+    },
+    onSuccess: (result) => {
+      if (!result.ok || !repoId || number === null) return;
+      void client.invalidateQueries({ queryKey: keys.forgePullComments(repoId, number) });
+    },
+  });
+}
+
+/** Merge the pull request. The dialog confirms before this is reached. */
+export function useMergePull(repoId: string | null, number: number | null) {
+  const client = useQueryClient();
+  return useMutation({
+    mutationFn: async (input: { method: ForgeMergeMethod }): Promise<ForgeWriteResult> => {
+      const api = bridge();
+      if (!api || !repoId || number === null) return NO_FORGE_WRITE;
+      return api.forge.pullMerge({ repoId, number, ...input });
+    },
+    onSuccess: (result) => {
+      if (result.ok) invalidatePullState(client, repoId, number);
+    },
+  });
+}
+
+/** Ask one or more logins for a review — the same call re-asks an existing one. */
+export function useRequestReview(repoId: string | null, number: number | null) {
+  const client = useQueryClient();
+  return useMutation({
+    mutationFn: async (input: { reviewers: string[] }): Promise<ForgeWriteResult> => {
+      const api = bridge();
+      if (!api || !repoId || number === null) return NO_FORGE_WRITE;
+      return api.forge.pullRequestReview({ repoId, number, ...input });
+    },
+    onSuccess: (result) => {
+      if (result.ok) invalidatePullState(client, repoId, number);
+    },
+  });
+}
+
+/** Take a draft pull request out of draft. */
+export function useMarkPullReady(repoId: string | null, number: number | null) {
+  const client = useQueryClient();
+  return useMutation({
+    mutationFn: async (): Promise<ForgeWriteResult> => {
+      const api = bridge();
+      if (!api || !repoId || number === null) return NO_FORGE_WRITE;
+      return api.forge.pullReady({ repoId, number });
+    },
+    onSuccess: (result) => {
+      if (result.ok) invalidatePullState(client, repoId, number);
+    },
+  });
+}
+
+/**
+ * Re-run a workflow run, or only its failed jobs.
+ *
+ * Invalidates both the run listing and that run's detail, because `gh run rerun`
+ * adds an attempt to the *same* run id rather than creating a new one: the
+ * listing's status and conclusion go stale, and so does the job tree. Main
+ * evicts its own cache for the same reason — see `forgetRun` — since a query
+ * invalidation alone would re-fetch and be served the previous attempt.
+ *
+ * Both keys are prefix-matched, for the same reason as the pull listing:
+ * `keys.forgeRuns` is keyed by branch and `keys.forgeRunDetail` by run id, and
+ * the Checks tab asks per-branch while the Actions view asks for all.
+ */
+export function useRerunChecks(repoId: string | null) {
+  const client = useQueryClient();
+  return useMutation({
+    mutationFn: async (input: {
+      runId: string;
+      failedOnly: boolean;
+    }): Promise<ForgeWriteResult> => {
+      const api = bridge();
+      if (!api || !repoId) return NO_FORGE_WRITE;
+      return api.forge.runRerun({ repoId, ...input });
+    },
+    onSuccess: (result, input) => {
+      if (!result.ok || !repoId) return;
+      void client.invalidateQueries({ queryKey: ['repos', repoId, 'forge', 'runs'] });
+      void client.invalidateQueries({ queryKey: keys.forgeRunDetail(repoId, input.runId) });
+    },
   });
 }
 
@@ -487,6 +889,20 @@ const EMPTY_RUN_LOG: ForgeRunLogResult = {
   error: null,
 };
 const EMPTY_WORKFLOWS: ForgeWorkflowsResult = { cli: EMPTY_CLI, workflows: [], error: null };
+const EMPTY_PULL_DETAIL: ForgePullDetailResult = { cli: EMPTY_CLI, detail: null, error: null };
+// Not an empty `files` object: with no bridge there is no pull request whose
+// diff is empty, and `{files: []}` would render "no files changed" as a fact.
+const EMPTY_PULL_FILES: ForgePullFilesResult = { cli: EMPTY_CLI, files: null, error: null };
+const EMPTY_PULL_COMMENTS: ForgePullCommentsResult = { cli: EMPTY_CLI, comments: [], error: null };
+const EMPTY_PULL_THREADS: ForgePullThreadsResult = { cli: EMPTY_CLI, threads: [], error: null };
+/**
+ * A write with no bridge: `ok: false`, and no error to report.
+ *
+ * Nothing failed — under vitest/jsdom there is no preload, so nothing was
+ * attempted. An `error` string here would put a red message under a composer
+ * in every component test that happens to mount one.
+ */
+const NO_FORGE_WRITE: ForgeWriteResult = { ok: false, cli: EMPTY_CLI, error: null };
 
 /** Re-run the forge listings for one repo, on the user's say-so. */
 export function useRefreshForge(repoId: string | null) {

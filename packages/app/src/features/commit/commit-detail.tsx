@@ -15,6 +15,7 @@ import {
 } from '../../services/queries';
 import { LAYOUT_BOUNDS, useUiStore, type CommitFileView } from '../../store/ui-store';
 import { DiffView } from '../diff/diff-view';
+import { imageDiffSources } from '../diff/image-sources';
 import { useCommitFileDiff } from '../diff/use-file-diff';
 import { formatDate } from '../graph/graph-row';
 import { CommitMessage } from './commit-message';
@@ -309,6 +310,7 @@ export function CommitDetail({ repoId, sha }: { repoId: string; sha: string }) {
             diff={diff.diff}
             isLoading={diff.isLoading}
             onExpandContext={diff.expandContext}
+            images={imageDiffSources(diff.diff, { kind: 'commit', repoId, sha: data.sha })}
           />
         )}
       </div>

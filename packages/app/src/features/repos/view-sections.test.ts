@@ -103,8 +103,8 @@ describe('filterFor', () => {
 });
 
 describe('view ids', () => {
-  it('lists all seven, Dashboard first', () => {
-    expect(VIEW_IDS).toHaveLength(7);
+  it('lists all eight, Dashboard first', () => {
+    expect(VIEW_IDS).toHaveLength(8);
     expect(VIEW_IDS[0]).toBe('dashboard');
   });
 
@@ -125,6 +125,7 @@ describe('view ids', () => {
       changes: false,
       actions: false,
       tests: false,
+      reviews: false,
       settings: false,
     };
     for (const view of VIEW_IDS) seen[view] = true;

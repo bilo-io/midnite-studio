@@ -1,6 +1,6 @@
 import { BUILTIN_AGENTS, type AgentDefinition } from '@midnite/git-shared';
 import { useQuery } from '@tanstack/react-query';
-import { ChevronDown, ChevronUp, Plus, X } from 'lucide-react';
+import { ChevronDown, ChevronUp, List, Plus, X } from 'lucide-react';
 import { useEffect } from 'react';
 
 import { useDialogs } from '../../components/dialog-host';
@@ -31,6 +31,7 @@ export function TerminalPanel({ cwd, repoId, repoName }: TerminalPanelProps) {
   const pendingInput = useTerminalStore((s) => s.pendingInput);
   const maximized = useUiStore((s) => s.terminalMaximized);
   const side = useUiStore((s) => s.terminalSidebarSide);
+  const listOpen = useUiStore((s) => s.terminalListOpen);
   const layout = useUiStore((s) => s.layout);
   const setLayout = useUiStore((s) => s.setLayout);
 
@@ -106,19 +107,41 @@ export function TerminalPanel({ cwd, repoId, repoName }: TerminalPanelProps) {
   };
 
   const active = sessions.find((s) => s.id === activeId) ?? null;
-  const showList = sessions.length > 1;
+  /*
+    A list of one session names nothing the header does not already say, so
+    the toggle governs the list only once there is more than one — and says so
+    on hover rather than sitting there dead with no explanation.
+  */
+  const listable = sessions.length > 1;
+  const showList = listable && listOpen;
 
   return (
     // Named for the e2e suite: the panel's own box is what maximizing changes,
     // and its header, its list and its panes are all separately-sized children.
     <div data-terminal-panel className="flex h-full min-h-0 flex-col bg-background">
-      <div className="flex shrink-0 items-center gap-2 border-b border-border px-3 py-1 text-xs text-muted-foreground">
+      {/*
+        Named for the e2e suite as well: the one thing that must be true of this
+        strip is that nothing else in the window is ever drawn on top of it, and
+        that is asserted by hit-testing across its width.
+      */}
+      <div
+        data-terminal-header
+        className="flex shrink-0 items-center gap-2 border-b border-border px-3 py-1 text-xs text-muted-foreground"
+      >
         <span>Terminal</span>
         <span className="truncate" title={active?.cwd ?? cwd ?? undefined}>
           {active?.cwd ?? cwd ?? 'no worktree selected'}
         </span>
 
         <div className="ml-auto flex items-center gap-0.5">
+          <IconButton
+            icon={List}
+            label={showList ? 'Hide session list' : 'Show session list'}
+            size="sm"
+            aria-pressed={showList}
+            {...(listable ? {} : { disabled: true, disabledReason: 'Only one session is open' })}
+            onClick={() => useUiStore.getState().toggleTerminalList()}
+          />
           <IconButton
             icon={Plus}
             label="New terminal or agent"

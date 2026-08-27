@@ -11,11 +11,18 @@ import {
   FileDiffSchema,
   ForgeCliStatusSchema,
   ForgeIssuesResultSchema,
+  ForgeMergeMethodSchema,
+  ForgePullCommentsResultSchema,
+  ForgePullDetailResultSchema,
+  ForgePullFilesResultSchema,
   ForgePullsResultSchema,
+  ForgePullThreadsResultSchema,
+  ForgeReviewEventSchema,
   ForgeRunDetailResultSchema,
   ForgeRunLogResultSchema,
   ForgeRunsResultSchema,
   ForgeWorkflowsResultSchema,
+  ForgeWriteResultSchema,
   GitOpResultSchema,
   GraphRowSchema,
   METRICS_MAX_INTERVAL_MS,
@@ -279,7 +286,17 @@ export const ForgeRunsRequest = ForgeListRequest.extend({
 });
 export const ForgeRunsResponse = ForgeRunsResultSchema;
 
-export const ForgePullsRequest = ForgeListRequest;
+/**
+ * `state` defaults to `open`, matching Phase 17's original contract: the
+ * sidebar's Reviews section and the dashboard's pulls widget both ask "what
+ * might I review right now", and reading `all` into those unfiltered would
+ * bury that under every merged and closed PR in the repository's history.
+ * The Reviews view (Phase 20 B) is the one caller that asks for `all`
+ * explicitly — its own status tabs are the filter.
+ */
+export const ForgePullsRequest = ForgeListRequest.extend({
+  state: z.enum(['open', 'closed', 'merged', 'all']).default('open'),
+});
 export const ForgePullsResponse = ForgePullsResultSchema;
 
 /**
@@ -323,6 +340,183 @@ export const ForgeRunLogResponse = ForgeRunLogResultSchema;
 
 export const ForgeWorkflowsRequest = RepoId;
 export const ForgeWorkflowsResponse = ForgeWorkflowsResultSchema;
+
+/**
+ * A pull-request number.
+ *
+ * A positive integer by construction, which is what makes it safe to splice
+ * into the `gh` command line main builds — the same reasoning as `RunId`'s
+ * digits-only regex, expressed in the type the JSON payload already carries.
+ */
+const PullNumber = z.number().int().positive();
+
+const ForgePullRequest = RepoId.extend({ number: PullNumber });
+
+export const ForgePullDetailRequest = ForgePullRequest;
+export const ForgePullDetailResponse = ForgePullDetailResultSchema;
+
+export const ForgePullFilesRequest = ForgePullRequest;
+export const ForgePullFilesResponse = ForgePullFilesResultSchema;
+
+export const ForgePullCommentsRequest = ForgePullRequest;
+export const ForgePullCommentsResponse = ForgePullCommentsResultSchema;
+
+export const ForgePullThreadsRequest = ForgePullRequest;
+export const ForgePullThreadsResponse = ForgePullThreadsResultSchema;
+
+// --- forge writes (Phase 20 Themes E, F and G) -----------------------------
+
+/**
+ * How long any review body is allowed to be.
+ *
+ * GitHub's own field takes far more, but a body arriving here is spliced into a
+ * JSON payload handed to a subprocess, and an unbounded string across IPC is a
+ * renderer's-choice allocation in main. 64KB is longer than any review comment
+ * anybody has written and short enough to be a bounded write.
+ */
+export const FORGE_BODY_MAX = 65_536;
+
+/** The ceiling, with no floor — the floors differ per action and are set below. */
+const ForgeBody = z.string().max(FORGE_BODY_MAX);
+
+/** An inline comment or a reply: never empty, because an empty one says nothing. */
+const ReviewBody = ForgeBody.min(1, 'a comment needs a body');
+
+/**
+ * A full 40-char sha, and specifically the PR head the comment is written
+ * against.
+ *
+ * Required by GitHub, and worth stating why the app cannot omit it: a review
+ * comment is anchored to a commit, and posting one without `commit_id` attaches
+ * it to whatever the API decides is current — which, on a PR that was pushed to
+ * between the diff being read and the comment being written, is not the diff the
+ * reader was looking at.
+ */
+const HeadSha = z.string().regex(/^[0-9a-f]{40}$/, 'a commit sha is 40 lowercase hex digits');
+
+/**
+ * A new inline thread.
+ *
+ * `line` is the NEW-file line number, and `side` is `RIGHT` only — v1's scope.
+ * `position` is the legacy diff-offset form of the same anchor, sent alongside
+ * rather than instead of it: main tries the line-based request first and falls
+ * back to `position` only if the API rejects it, so a host that has not yet
+ * accepted the modern form still works. The renderer computes it because the
+ * renderer is what holds the parsed hunks — see `comment-anchors.ts`.
+ */
+export const ForgeReviewCommentRequest = ForgePullRequest.extend({
+  commitId: HeadSha,
+  path: z.string().min(1),
+  line: z.number().int().positive(),
+  /** `RIGHT` only in v1. A left-side anchor needs a second mapping — see the phase doc. */
+  side: z.literal('RIGHT').default('RIGHT'),
+  /** Legacy hunk-offset anchor, used only if the line-based form is refused. */
+  position: z.number().int().positive().optional(),
+  body: ReviewBody,
+});
+export const ForgeReviewCommentResponse = ForgeWriteResultSchema;
+
+/**
+ * A reply into an existing thread.
+ *
+ * Keyed by the REST comment id rather than the thread's node id, because the
+ * reply endpoint is `pulls/{n}/comments/{comment_id}/replies` and GraphQL has
+ * no equivalent mutation. Digits-only for the same reason `RunId` is: it is
+ * spliced into a command line, and it has exactly one legal shape.
+ */
+export const ForgeReviewReplyRequest = ForgePullRequest.extend({
+  commentId: z.string().regex(/^\d+$/, 'a comment id is digits only'),
+  body: ReviewBody,
+});
+export const ForgeReviewReplyResponse = ForgeWriteResultSchema;
+
+/**
+ * Resolve a thread, or reopen it.
+ *
+ * `resolved` is a target state rather than two channels, because that is what
+ * the UI has: one toggle. `threadId` is a GraphQL node id — opaque base64-ish
+ * text, so it is bounded by charset rather than by shape.
+ */
+export const ForgeResolveThreadRequest = RepoId.extend({
+  threadId: z.string().min(1).max(256).regex(/^[A-Za-z0-9_=-]+$/, 'a node id is url-safe base64'),
+  resolved: z.boolean(),
+});
+export const ForgeResolveThreadResponse = ForgeWriteResultSchema;
+
+/**
+ * A review submission.
+ *
+ * **`APPROVE` is the only bodiless verb**, and that split is GitHub's rather
+ * than ours: its review endpoint documents `body` as required when `event` is
+ * `REQUEST_CHANGES` *or* `COMMENT`, and rejects either without one. A bare
+ * approval is a normal thing to give; a comment-review with nothing said is not
+ * a review at all.
+ *
+ * Encoding the rule here means the composer's disabled Submit button and the
+ * contract agree, instead of the UI enforcing half of a rule and the user
+ * discovering the other half from a failed subprocess.
+ */
+export const ForgePullReviewRequest = ForgePullRequest.extend({
+  event: ForgeReviewEventSchema,
+  body: ForgeBody.default(''),
+}).refine((req) => req.event === 'APPROVE' || req.body.trim().length > 0, {
+  message: 'requesting changes or commenting needs a body',
+  path: ['body'],
+});
+export const ForgePullReviewResponse = ForgeWriteResultSchema;
+
+/** A top-level conversation comment. Empty is meaningless, so it is refused. */
+export const ForgePullCommentRequest = ForgePullRequest.extend({
+  body: ForgeBody.trim().min(1, 'a comment needs a body'),
+});
+export const ForgePullCommentResponse = ForgeWriteResultSchema;
+
+/**
+ * A merge.
+ *
+ * `method` has no default on purpose. Every other request in this file defaults
+ * generously, because a missing `limit` has an obviously right answer; a missing
+ * merge method does not, and picking one for the caller would mean the app could
+ * squash a history the user meant to preserve because a field went unset. The
+ * renderer's dialog leaves its picker unselected until a human chooses, and this
+ * is the same rule expressed in the contract.
+ */
+export const ForgePullMergeRequest = ForgePullRequest.extend({
+  method: ForgeMergeMethodSchema,
+});
+export const ForgePullMergeResponse = ForgeWriteResultSchema;
+
+/**
+ * A GitHub login, by its documented shape.
+ *
+ * Alphanumerics and single interior hyphens, 39 characters at most. Declared
+ * because these are the one write payload whose values come from a free-text
+ * field a user types — `shellQuote` already makes them inert, and a login that
+ * cannot exist should still never reach a subprocess.
+ */
+const Login = z.string().regex(/^[A-Za-z0-9](?:-?[A-Za-z0-9]){0,38}$/, 'not a GitHub login');
+
+/** Ask for reviews. Capped at fifteen, which is GitHub's own per-call ceiling. */
+export const ForgePullRequestReviewRequest = ForgePullRequest.extend({
+  reviewers: z.array(Login).min(1).max(15),
+});
+export const ForgePullRequestReviewResponse = ForgeWriteResultSchema;
+
+/** Draft → ready. Nothing to configure, so the PR is the whole payload. */
+export const ForgePullReadyRequest = ForgePullRequest;
+export const ForgePullReadyResponse = ForgeWriteResultSchema;
+
+/**
+ * Re-run a workflow run.
+ *
+ * `failedOnly` defaults to false — "re-run this run" is the unsurprising reading
+ * of the verb, and the narrower one is the opt-in.
+ */
+export const ForgeRunRerunRequest = RepoId.extend({
+  runId: RunId,
+  failedOnly: z.boolean().default(false),
+});
+export const ForgeRunRerunResponse = ForgeWriteResultSchema;
 
 // --- shell -----------------------------------------------------------------
 

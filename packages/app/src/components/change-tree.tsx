@@ -208,10 +208,17 @@ function FileRow<T extends ChangedFile>({
  * each row's digit widths — the thing that makes a file list scannable at all.
  * A zero is dimmed rather than hidden: a binary file changes with `+0 −0`, and an
  * absent number reads as missing data.
+ *
+ * The size is stated here rather than inherited. Every other `+n −n` in the app
+ * — the roll-up above a list, the diff toolbar — is 11px, but the two file
+ * accordions set a 13px row for the path, and inheriting it made the same pair
+ * of numbers a size larger in one place than in the next. `font-medium` buys
+ * back the weight the smaller size costs, so the counts still read as the
+ * numbers on the row rather than as its faintest text.
  */
 export function Counts({ insertions, deletions }: { insertions: number; deletions: number }) {
   return (
-    <span className="shrink-0 tabular-nums">
+    <span className="shrink-0 text-[11px] font-medium tabular-nums">
       <span className={insertions === 0 ? 'text-muted-foreground/50' : 'text-success'}>
         +{insertions}
       </span>{' '}

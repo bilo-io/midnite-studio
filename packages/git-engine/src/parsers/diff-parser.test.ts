@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 
-import { countDiffLines, parseUnifiedDiff } from './diff-parser';
+import { countDiffLines, parseMultiFileDiff, parseUnifiedDiff } from './diff-parser';
 
 const opts = { contextLines: 3, fallbackPath: 'fallback.ts' };
 
@@ -491,5 +491,88 @@ describe('intraline word diff', () => {
         expect(range.end).toBeGreaterThan(range.start);
       }
     }
+  });
+});
+
+describe('parseMultiFileDiff', () => {
+  const patch = [
+    'diff --git a/src/a.ts b/src/a.ts',
+    'index 1111111..2222222 100644',
+    '--- a/src/a.ts',
+    '+++ b/src/a.ts',
+    '@@ -1,2 +1,3 @@',
+    ' const a = 1;',
+    '+const b = 2;',
+    ' export { a };',
+    'diff --git a/src/old.ts b/src/new.ts',
+    'similarity index 90%',
+    'rename from src/old.ts',
+    'rename to src/new.ts',
+    'diff --git a/gone.ts b/gone.ts',
+    'deleted file mode 100644',
+    '--- a/gone.ts',
+    '+++ /dev/null',
+    '@@ -1,1 +0,0 @@',
+    '-was here',
+    '',
+  ].join('\n');
+
+  it('returns every section, in the order the patch listed them', () => {
+    const files = parseMultiFileDiff(patch, opts);
+    expect(files.map((file) => file.path)).toEqual(['src/a.ts', 'src/new.ts', 'gone.ts']);
+  });
+
+  it('classifies each section the way the single-file parser would', () => {
+    const [modified, renamed, deleted] = parseMultiFileDiff(patch, opts);
+
+    expect(modified?.change).toBe('modified');
+    expect(modified?.insertions).toBe(1);
+    expect(modified?.hunks).toHaveLength(1);
+
+    expect(renamed?.change).toBe('renamed');
+    expect(renamed?.oldPath).toBe('src/old.ts');
+
+    expect(deleted?.change).toBe('deleted');
+    expect(deleted?.deletions).toBe(1);
+  });
+
+  it('drops the empty trailing section a final newline leaves behind', () => {
+    // Every section is a file, so an empty one would render as a phantom diff
+    // under the fallback path.
+    expect(parseMultiFileDiff(patch, opts)).toHaveLength(3);
+    expect(parseMultiFileDiff('', opts)).toEqual([]);
+    expect(parseMultiFileDiff('\n\n', opts)).toEqual([]);
+  });
+
+  it('numbers the fallback path so header-less sections stay distinguishable', () => {
+    // A patch git emitted without `diff --git` headers is one section, and the
+    // suffix is what keeps two of them from claiming the same name.
+    const headerless = ['@@ -1,1 +1,1 @@', '-a', '+b'].join('\n');
+    const [only] = parseMultiFileDiff(headerless, opts);
+    expect(only?.path).toBe('fallback.ts#1');
+  });
+
+  it('applies the line cap per file, not across the patch', () => {
+    // A lockfile first would otherwise exhaust the budget before the files a
+    // reviewer opened the PR for were ever parsed.
+    const big = (name: string): string =>
+      [
+        `diff --git a/${name} b/${name}`,
+        '--- a/' + name,
+        '+++ b/' + name,
+        '@@ -1,0 +1,5 @@',
+        ...Array.from({ length: 5 }, (_, i) => `+line ${i}`),
+      ].join('\n');
+
+    const files = parseMultiFileDiff(`${big('first.ts')}\n${big('second.ts')}`, {
+      ...opts,
+      maxLines: 3,
+    });
+
+    expect(files).toHaveLength(2);
+    expect(files[0]?.truncated).toBe(true);
+    // The second file gets its own budget rather than inheriting an exhausted one.
+    expect(files[1]?.truncated).toBe(true);
+    expect(files[1]?.hunks[0]?.lines).toHaveLength(3);
   });
 });

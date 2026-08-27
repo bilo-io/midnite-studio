@@ -66,6 +66,60 @@ export const mgitFileUrl = (
   return `${MGIT_FILE_SCHEME}://${scope}/${encodeURIComponent(repoId ?? '-')}/${segments}${query}`;
 };
 
+
+/**
+ * Build a jailed URL for a file as it exists AT A REVISION, rather than in the
+ * checkout: `mgit-file://repo/<repoId>/<relPath>?rev=<rev>[&wt=…]`.
+ *
+ * Why the same scheme rather than an IPC payload: an image diff needs the
+ * *pre-image* bytes, which are not on disk anywhere. Streaming them through the
+ * protocol keeps the rule the Files preview already follows — media never
+ * crosses IPC as base64 — and `<img src>` needs a URL either way.
+ *
+ * `rev` is a git revision as git itself spells it, and the object main asks for
+ * is `<rev>:<relPath>`. A rev ending in `:` addresses the index, which is git's
+ * own syntax (`:path` is stage 0), so `MGIT_INDEX_REV` reads as the index side
+ * of an unstaged diff without a second URL shape.
+ */
+export const mgitBlobUrl = (
+  repoId: string,
+  rev: string,
+  relPath: string,
+  worktreePath?: string | null,
+): string => {
+  const base = mgitFileUrl('repo', repoId, relPath, worktreePath);
+  const separator = base.includes('?') ? '&' : '?';
+  return `${base}${separator}rev=${encodeURIComponent(rev)}`;
+};
+
+/** The index side of a diff — `git cat-file blob :path` is stage 0 of the index. */
+export const MGIT_INDEX_REV = ':';
+
+/**
+ * Ceiling on blob bytes the protocol will read out of git for one request.
+ *
+ * Higher than the text cap because this is what an image viewer displays, not
+ * something anyone reads in a pane, and a 20 MB PSD-sized PNG in a diff is
+ * unusual but not pathological. Past it the request 404s and the viewer says
+ * the file is too large rather than buffering it.
+ */
+export const MGIT_BLOB_MAX_BYTES = 32 * 1024 * 1024;
+
+/**
+ * Revisions the protocol will accept, as a whitelist rather than a blacklist.
+ *
+ * Everything the app actually asks for is a sha, `HEAD`, `<sha>^` or the index,
+ * so the permitted alphabet is narrow on purpose. A leading `-` is refused
+ * outright: `git cat-file` takes its object as a bare argument with no `--`
+ * terminator, so a rev that looks like a flag must never reach it.
+ */
+export const isSafeBlobRev = (rev: string): boolean =>
+  rev.length > 0 &&
+  rev.length <= 256 &&
+  !rev.startsWith('-') &&
+  !rev.includes('..') &&
+  /^[A-Za-z0-9._/^~@{}:-]+$/.test(rev);
+
 // --- Claude CLI (Agent settings page) ---------------------------------------
 
 /**

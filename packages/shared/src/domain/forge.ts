@@ -1,5 +1,7 @@
 import { z } from 'zod';
 
+import { FileDiffSchema } from './diff';
+
 /**
  * What a forge's CI and review surfaces have to say about a repository.
  *
@@ -164,6 +166,10 @@ export const ForgePullSchema = z.object({
   /** Login of whoever opened it. Empty string when the forge withholds it. */
   author: z.string().default(''),
   url: z.string(),
+  /** ISO 8601, or null — an open or closed-without-merging PR has no merge date. */
+  mergedAt: z.string().nullable().default(null),
+  /** ISO 8601, or null for a PR that is still open. Set on both closed and merged. */
+  closedAt: z.string().nullable().default(null),
 });
 export type ForgePull = z.infer<typeof ForgePullSchema>;
 
@@ -396,3 +402,360 @@ export const ForgeWorkflowsResultSchema = z.object({
   error: z.string().nullable().default(null),
 });
 export type ForgeWorkflowsResult = z.infer<typeof ForgeWorkflowsResultSchema>;
+
+/*
+  ─── Pull-request detail (Phase 20 Theme C) ────────────────────────────────
+
+  Everything below serves ONE opened pull request, and none of it is on the
+  path that renders the sidebar's list. That separation is the whole design:
+  a PR's body, its diff and its conversation are three payloads that dwarf the
+  listing row they hang off, and folding any of them into `ForgePull` would
+  make expanding the Reviews section fetch every open PR's patch.
+*/
+
+/**
+ * What a submitted review said.
+ *
+ * `PENDING` is deliberately absent: a pending review is an unsubmitted draft
+ * visible only to its author, and giving the renderer an arm for it would mean
+ * drawing a verdict nobody has published.
+ */
+export const ForgeReviewStateSchema = z.enum([
+  'APPROVED',
+  'CHANGES_REQUESTED',
+  'COMMENTED',
+  'DISMISSED',
+]);
+export type ForgeReviewState = z.infer<typeof ForgeReviewStateSchema>;
+
+/**
+ * One entry in a pull request's top-level conversation.
+ *
+ * Two sources, one shape. GitHub keeps discussion comments and review
+ * submissions in different collections — `issues/{n}/comments` and
+ * `pulls/{n}/reviews` — but they interleave in one chronological thread on the
+ * PR page, and the reasoning attached to an "approved" is the half a reader
+ * most wants. Merging them here rather than in the renderer means the
+ * Conversation tab sorts one list instead of reconciling two.
+ *
+ * `kind` is what keeps them distinguishable: a review carries a verdict pill
+ * and a comment does not, and a discriminator is cheaper than inferring it
+ * from whether `reviewState` happens to be set.
+ */
+export const ForgeCommentKindSchema = z.enum(['comment', 'review']);
+export type ForgeCommentKind = z.infer<typeof ForgeCommentKindSchema>;
+
+export const ForgeCommentSchema = z.object({
+  /** The forge's own id, as a string — the same 2^53 caution as run ids. */
+  id: z.string(),
+  kind: ForgeCommentKindSchema,
+  /** Login of whoever wrote it. Empty string when the forge withholds it. */
+  author: z.string().default(''),
+  /** Markdown, as authored. Rendered, never trusted as HTML. */
+  body: z.string().default(''),
+  /** ISO 8601, and the only thing the merged thread sorts on. */
+  createdAt: z.string(),
+  url: z.string().default(''),
+  /** Set only when `kind` is `review` — a discussion comment has no verdict. */
+  reviewState: ForgeReviewStateSchema.nullable().default(null),
+});
+export type ForgeComment = z.infer<typeof ForgeCommentSchema>;
+
+/**
+ * One pull request, opened.
+ *
+ * Wraps `ForgePull` rather than extending it so the listing shape stays the
+ * single definition of what a row knows: a field that belongs on both would
+ * otherwise have to be added twice and could drift once.
+ */
+export const ForgePullDetailSchema = z.object({
+  /** The same row the list renders, so the detail header needs no second parse. */
+  pull: ForgePullSchema,
+  /** The PR description, as markdown. Empty when the author left it blank. */
+  body: z.string().default(''),
+  /**
+   * Full 40-char sha of the PR's head.
+   *
+   * Load-bearing for the Checks tab: a PR's runs are found by matching this
+   * against `ForgeRun.headSha` in the run listing the app already caches,
+   * which is why the tab costs no third subprocess.
+   */
+  headSha: z.string().nullable().default(null),
+  /** The branch being merged into. */
+  baseBranch: z.string().default(''),
+  additions: z.number().int().nonnegative().default(0),
+  deletions: z.number().int().nonnegative().default(0),
+  changedFiles: z.number().int().nonnegative().default(0),
+  createdAt: z.string().nullable().default(null),
+  updatedAt: z.string().nullable().default(null),
+  /**
+   * GitHub's mergeability word — `MERGEABLE`, `CONFLICTING`, `UNKNOWN` — kept
+   * as sent rather than narrowed to a boolean. `UNKNOWN` means GitHub has not
+   * finished computing it, which is a third answer and not a `false`.
+   */
+  mergeable: z.string().nullable().default(null),
+  /**
+   * How many commits the PR would bring in — the merge confirm's blast radius.
+   *
+   * Read from `gh pr view --json commits` rather than a local
+   * `rev-list --count base..head`, which is what the destructive-op confirms
+   * elsewhere in the app use. The difference is that those count commits in the
+   * local object store; a pull request's head ref usually is not there at all —
+   * nothing fetches a contributor's branch just because it opened a PR — and
+   * `rev-list` against a missing ref reads as zero, which is the one number a
+   * blast radius must never be wrong about.
+   */
+  commitCount: z.number().int().nonnegative().default(0),
+  /**
+   * The newest few of those commits, for the confirm dialog's sample list.
+   *
+   * Capped in main (see `PULL_COMMIT_SAMPLE`), not here: the full array `gh`
+   * returns carries every commit's message and author, and shipping a
+   * 200-commit PR's worth of that across IPC to render three lines would be the
+   * whole payload for none of the value.
+   */
+  commits: z.array(z.object({ sha: z.string(), subject: z.string().default('') })).default([]),
+  /**
+   * Logins whose review has been requested and not yet given.
+   *
+   * Here rather than behind its own fetch because `gh pr view --json
+   * reviewRequests` is one more field on a call the detail header already makes
+   * — which is what lets Theme G's re-request picker offer real names without
+   * spending a subprocess on a collaborator listing.
+   */
+  reviewRequests: z.array(z.string()).default([]),
+});
+export type ForgePullDetail = z.infer<typeof ForgePullDetailSchema>;
+
+/**
+ * A pull request's diff, already parsed into per-file hunks.
+ *
+ * Parsed in main by the same `diff-parser.ts` a `git diff` goes through — a PR
+ * patch and a local one are the same unified format, and a second parser would
+ * be a second set of edge cases to get the combined-diff and rename headers
+ * wrong in.
+ *
+ * **Capped by bytes, and it says so.** `gh pr diff --patch` on a PR that
+ * regenerated a lockfile is tens of megabytes; parsing that on the main
+ * process would stall the window and shipping it would stall the renderer.
+ * `truncated` plus `omittedFiles` is the same contract `ForgeRunLog` makes for
+ * logs: a silently short answer is the one outcome this shape refuses to
+ * produce.
+ */
+export const ForgePullFilesSchema = z.object({
+  files: z.array(FileDiffSchema).default([]),
+  /** True when the byte ceiling stopped the parse short of the whole patch. */
+  truncated: z.boolean().default(false),
+  /** How many files fell out. 0 when `truncated` is false. */
+  omittedFiles: z.number().int().nonnegative().default(0),
+  /** The whole patch's size in bytes, whatever was kept of it. */
+  totalBytes: z.number().int().nonnegative().default(0),
+});
+export type ForgePullFiles = z.infer<typeof ForgePullFilesSchema>;
+
+/** One PR's metadata. `detail` is null whenever `error` is set, and vice versa. */
+export const ForgePullDetailResultSchema = z.object({
+  cli: ForgeCliStatusSchema,
+  detail: ForgePullDetailSchema.nullable().default(null),
+  error: z.string().nullable().default(null),
+});
+export type ForgePullDetailResult = z.infer<typeof ForgePullDetailResultSchema>;
+
+/** One PR's parsed diff. */
+export const ForgePullFilesResultSchema = z.object({
+  cli: ForgeCliStatusSchema,
+  files: ForgePullFilesSchema.nullable().default(null),
+  error: z.string().nullable().default(null),
+});
+export type ForgePullFilesResult = z.infer<typeof ForgePullFilesResultSchema>;
+
+/**
+ * One PR's conversation, newest last.
+ *
+ * An empty list is a normal answer — most pull requests are merged without a
+ * word — so there is no `disabled`-style third state here to distinguish.
+ */
+export const ForgePullCommentsResultSchema = z.object({
+  cli: ForgeCliStatusSchema,
+  comments: z.array(ForgeCommentSchema).default([]),
+  error: z.string().nullable().default(null),
+});
+export type ForgePullCommentsResult = z.infer<typeof ForgePullCommentsResultSchema>;
+
+/**
+ * The byte ceiling main applies to a PR patch before parsing it.
+ *
+ * Two megabytes is roughly a 25k-line patch — larger than any review a person
+ * reads in one sitting, and small enough that parsing it is a few tens of
+ * milliseconds rather than a stalled window.
+ */
+export const PULL_PATCH_BYTE_CAP = 2 * 1024 * 1024;
+
+/**
+ * How many of a PR's commits travel to the renderer for the merge confirm.
+ *
+ * Five, because the dialog lists a sample and then says "and N more" — the count
+ * is the number that matters, and the sample only has to make the count
+ * concrete enough to recognise.
+ */
+export const PULL_COMMIT_SAMPLE = 5;
+
+/*
+  ─── Inline review threads (Phase 20 Theme E) ──────────────────────────────
+
+  A pull request's *inline* discussion — the comments hanging off a line of the
+  diff, as opposed to the top-level conversation `ForgeComment` models. They are
+  a separate contract because they answer a different question: a
+  `ForgeComment` asks "what has been said about this PR", a thread asks "what
+  has been said about THIS LINE", and only the second one needs an anchor,
+  a resolved flag and a stable id to resolve against.
+
+  **Read through GraphQL, not REST.** The REST `pulls/{n}/comments` collection
+  returns review comments as a flat list chained by `in_reply_to_id`, with no
+  thread object and — the decisive gap — no resolved state at all. GitHub
+  exposes `isResolved` only on `PullRequestReviewThread`, and resolving one
+  takes that thread's node id. So the source has to be `reviewThreads`, which
+  also arrives already grouped and saves reconstructing the reply chains here.
+*/
+
+/**
+ * Which side of the diff a thread hangs off.
+ *
+ * `LEFT` is in the contract but not in this version's write path: commenting on
+ * a deleted line needs a second position mapping, and v1 is scoped to
+ * right-side (added/context) lines. It is still *read*, because a thread
+ * somebody else left on a deleted line exists whether this app can create one
+ * or not, and dropping it would hide real discussion.
+ */
+export const ForgeThreadSideSchema = z.enum(['RIGHT', 'LEFT']);
+export type ForgeThreadSide = z.infer<typeof ForgeThreadSideSchema>;
+
+/**
+ * One comment inside an inline thread.
+ *
+ * Two ids, and both are load-bearing. `id` is the GraphQL node id, which is
+ * what the resolve mutation and any future GraphQL write take. `databaseId` is
+ * the REST integer, and it is the *only* thing that can be used to reply: the
+ * reply endpoint is `POST pulls/{n}/comments/{comment_id}/replies`, which takes
+ * the REST id, and there is no GraphQL mutation for adding a reply to a thread.
+ * A shape carrying only one of them can either resolve or reply, never both.
+ */
+export const ForgeReviewCommentSchema = z.object({
+  /** GraphQL node id, e.g. `PRRC_kwDO…`. */
+  id: z.string(),
+  /** The REST integer id as a string — null when the forge withheld it. */
+  databaseId: z.string().nullable().default(null),
+  /** Login of whoever wrote it. Empty string when the forge withholds it. */
+  author: z.string().default(''),
+  /** Markdown, as authored. Rendered, never trusted as HTML. */
+  body: z.string().default(''),
+  createdAt: z.string(),
+  url: z.string().default(''),
+});
+export type ForgeReviewComment = z.infer<typeof ForgeReviewCommentSchema>;
+
+/**
+ * One inline thread: an anchor into the diff, plus its comments in order.
+ *
+ * **Three fields for one position, because a thread can lose its anchor.**
+ * `line` is where the thread sits in the diff *as it stands now*, and GitHub
+ * returns it as null once the line no longer exists there — after a force-push,
+ * or once a later commit rewrote the hunk. `originalLine` is where it was
+ * written and survives that. `startLine` is set only on a multi-line thread.
+ * Collapsing the three into one number is how a comment ends up pinned to
+ * unrelated code: confidently wrong, and in the direction that looks normal.
+ *
+ * `outdated` and `fileLevel` are the two reasons a thread has no line to render
+ * against, and they are separate flags because they are separate facts — an
+ * outdated thread had an anchor and lost it, a file-level thread never had one.
+ * Both route to the same collapsed group above the diff, which states the path
+ * and the original line as text rather than anchoring to a row it no longer
+ * describes.
+ */
+export const ForgeReviewThreadSchema = z.object({
+  /**
+   * The thread's GraphQL node id.
+   *
+   * Not decoration: `resolveReviewThread` / `unresolveReviewThread` take
+   * exactly this, and it is the reason the whole payload comes from GraphQL.
+   */
+  id: z.string(),
+  /** Repo-relative path of the file the thread hangs off. */
+  path: z.string(),
+  /** Where the thread sits in the current diff, or null once it no longer does. */
+  line: z.number().int().positive().nullable().default(null),
+  /** Where it was written. Survives the rewrite that nulls `line`. */
+  originalLine: z.number().int().positive().nullable().default(null),
+  /** First line of a multi-line thread; null for the single-line case. */
+  startLine: z.number().int().positive().nullable().default(null),
+  side: ForgeThreadSideSchema.default('RIGHT'),
+  resolved: z.boolean().default(false),
+  /** The anchor no longer exists in the diff — see the note above. */
+  outdated: z.boolean().default(false),
+  /** GitHub's `subjectType: FILE` — a comment on the file, not on any line. */
+  fileLevel: z.boolean().default(false),
+  /** Oldest first, as GraphQL returns them. An empty thread is dropped in main. */
+  comments: z.array(ForgeReviewCommentSchema).default([]),
+});
+export type ForgeReviewThread = z.infer<typeof ForgeReviewThreadSchema>;
+
+/**
+ * One PR's inline threads.
+ *
+ * Its own envelope on its own channel rather than a widening of
+ * `ForgePullCommentsResult`, for the reason Theme C gave when it split
+ * `pull-detail` out instead of growing `listPulls`: the conversation is read on
+ * the Conversation tab and the threads on the Files tab, and a combined channel
+ * would make each tab fetch the other's payload. An empty list is a normal
+ * answer — most pull requests carry no inline discussion at all.
+ */
+export const ForgePullThreadsResultSchema = z.object({
+  cli: ForgeCliStatusSchema,
+  threads: z.array(ForgeReviewThreadSchema).default([]),
+  error: z.string().nullable().default(null),
+});
+export type ForgePullThreadsResult = z.infer<typeof ForgePullThreadsResultSchema>;
+
+/*
+  ─── Review write actions (Phase 20 Themes F and G) ────────────────────────
+
+  The one deliberate write surface in this contract, and the reason `gh-cli.ts`
+  has a sibling: everything above is a listing that a stale cache can only
+  render wrongly, while everything below changes state on someone else's
+  server. Keeping the two apart in the contract is what makes the write surface
+  auditable in one place — six actions, all of them about reviewing a pull
+  request, none of them about creating, labelling or configuring one.
+*/
+
+/**
+ * What submitting a review says.
+ *
+ * GitHub's own three verbs, spelled as its API spells them. `PENDING` is absent
+ * for the same reason `ForgeReviewState` omits it: an unsubmitted draft is not
+ * an outcome this app can produce, since `gh pr review` submits.
+ */
+export const ForgeReviewEventSchema = z.enum(['APPROVE', 'REQUEST_CHANGES', 'COMMENT']);
+export type ForgeReviewEvent = z.infer<typeof ForgeReviewEventSchema>;
+
+/** The three shapes a merge can take, as `gh pr merge`'s own flags name them. */
+export const ForgeMergeMethodSchema = z.enum(['merge', 'squash', 'rebase']);
+export type ForgeMergeMethod = z.infer<typeof ForgeMergeMethodSchema>;
+
+/**
+ * What a forge *write* answers with.
+ *
+ * A result, never a rejection — the same rule every read envelope in this file
+ * follows, and the same one `GitOpResult` follows for git writes: a failed
+ * approve is a sentence the UI renders, not an exception that unmounts the
+ * pane. `error` carries `gh`'s own text via `describeFailure`, because "the
+ * head sha is out of date" is actionable and "something went wrong" is not.
+ *
+ * `cli` rides along so a signed-out machine reports "run gh auth login"
+ * rather than a write that silently did nothing.
+ */
+export const ForgeWriteResultSchema = z.object({
+  ok: z.boolean(),
+  cli: ForgeCliStatusSchema,
+  error: z.string().nullable().default(null),
+});
+export type ForgeWriteResult = z.infer<typeof ForgeWriteResultSchema>;

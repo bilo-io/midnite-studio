@@ -1,6 +1,16 @@
 # Midnite Git — Phase Index
 
-**Headline:** **[19](phase-19-dashboard-actions-tests.md)** is the newest frontier — the nav rail stops being three views and becomes the app's table of contents. Its forge half is now deep enough to triage from — issues in the sidebar, and a job tree under each failed run — and the **Dashboard has landed**: a `react-grid-layout` board of widgets over one repo's history, contributors, PRs, issues and runs, all scoped together by one author filter; an **Actions** view with job trees and logs; and a **Tests** view that discovers each repo's suites and — trusted per suite, riding the same runner 18's diagnostics generalised into `process-runner.ts` — runs them, with a live output stream and parsed pass/fail counts. Three manual passes remain, all needing a packaged app or a large real repository. **[18](phase-18-footer-monitor-diagnostics.md)** has landed both halves — the footer bar's empty right half is now a live system monitor (CPU/RAM/GPU/disk as dot, percentage and sparkline, opening into area-chart timelines over the app's first real popover primitive), and beside it per-repo lint counts gated behind an explicit per-repository trust prompt, because running a repo's own linter is the first arbitrary code execution this app does. Three human passes remain. **[17](phase-17-repos-workbench.md)** turns the repositories sidebar into a workbench — per-worktree change counts, menus on everything, a whole-checkout diff in a tab strip, and the app's first forge integration (Actions + Reviews through the user's own `gh`). The MVP (phases 0–11) is landed — the app packages, installs and runs from /Applications. **[12](phase-12-commit-inspector.md)** has landed **all six themes** — the commit graph is now a place you can read and act in: the inspector, real diffs, the remote model, ref badges that act, and rows that read at two densities; only two manual passes remain, both needing a packaged app or a real remote. Still open: **[14](phase-14-graph-themes.md)** makes the graph itself configurable, and **[15](phase-15-multi-terminal-sessions.md)** turns the single terminal into several — shells and coding agents, persisted across restarts. **[16](phase-16-explorer-and-settings-pages.md)** is **done** — a read-only Folder explorer with a preview pane, and Settings split into pages (including an Agent page into `~/.claude`), with both real-app manual passes signed off; a follow-up has since made that settings sidebar grouped and collapsible, and given Appearance the side-navigation control that reaches the rail's third mode. Post-MVP scope lives in [`outstanding.md`](outstanding.md).
+**Headline:** **[21](phase-21-agent-roster-and-terminal-identity.md)** is the newest frontier and is planned but unstarted: the terminal's one-entry agent roster grows to four — Claude Code, Antigravity (`agy`), Codex and OpenClaude — each with its own brand mark resolved from roster data rather than a hard-coded component, behind a flat, iconned `+` menu that disables what is not installed and says why. Its live half is the more interesting one: OSC 7 cwd tracking and a process probe in main mean a terminal finally knows where it is and what is running in it, so the session list's icon and a rebuilt header — a glyph, the status circle, a `~`-collapsed path with the repo segment emphasised — follow a `cd` or an agent quit instead of reporting whichever menu item opened the session. Per-agent activity detection and a writable Settings ▸ Agents page are explicitly out, as are launcher-style "Open in <IDE>" entries. **[20](phase-20-reviews-page.md)** is the previous frontier and is now feature-complete:
+a Reviews page joins the nav rail — a PR list filterable by state/author/search, beside a tabbed PR
+detail (Files/Conversation/Checks) — diffs across the whole app are syntax-highlighted through the
+one shared `DiffView`, inline comment threads hang off the diff's own lines, and the phase's
+deliberate reversal of the Phase 17/19 read-only-forge rule has landed: you can approve, request
+changes, comment (inline or top-level), merge behind a real blast-radius confirm, re-request a
+reviewer, take a PR out of draft and re-run checks without leaving the app — all of it behind one
+default-off Settings → Reviews switch that also lists what the app will never touch. Nine write
+channels, all served by `gh-write.ts`, with the primitives it shares with the reader extracted into
+`gh-shell.ts`. Two human passes remain, both needing a real remote. **[19](phase-19-dashboard-actions-tests.md)** is the previous *landed*
+frontier — the nav rail stops being three views and becomes the app's table of contents. Its forge half is now deep enough to triage from — issues in the sidebar, and a job tree under each failed run — and the **Dashboard has landed**: a `react-grid-layout` board of widgets over one repo's history, contributors, PRs, issues and runs, all scoped together by one author filter; an **Actions** view with job trees and logs; and a **Tests** view that discovers each repo's suites and — trusted per suite, riding the same runner 18's diagnostics generalised into `process-runner.ts` — runs them, with a live output stream and parsed pass/fail counts. Three manual passes remain, all needing a packaged app or a large real repository. **[18](phase-18-footer-monitor-diagnostics.md)** has landed both halves — the footer bar's empty right half is now a live system monitor (CPU/RAM/GPU/disk as dot, percentage and sparkline, opening into area-chart timelines over the app's first real popover primitive), and beside it per-repo lint counts gated behind an explicit per-repository trust prompt, because running a repo's own linter is the first arbitrary code execution this app does. Three human passes remain. **[17](phase-17-repos-workbench.md)** turns the repositories sidebar into a workbench — per-worktree change counts, menus on everything, a whole-checkout diff in a tab strip, and the app's first forge integration (Actions + Reviews through the user's own `gh`). The MVP (phases 0–11) is landed — the app packages, installs and runs from /Applications. **[12](phase-12-commit-inspector.md)** has landed **all six themes** — the commit graph is now a place you can read and act in: the inspector, real diffs, the remote model, ref badges that act, and rows that read at two densities; only two manual passes remain, both needing a packaged app or a real remote. Still open: **[14](phase-14-graph-themes.md)** makes the graph itself configurable, and **[15](phase-15-multi-terminal-sessions.md)** turns the single terminal into several — shells and coding agents, persisted across restarts. **[16](phase-16-explorer-and-settings-pages.md)** is **done** — a read-only Folder explorer with a preview pane, and Settings split into pages (including an Agent page into `~/.claude`), with both real-app manual passes signed off; a follow-up has since made that settings sidebar grouped and collapsible, and given Appearance the side-navigation control that reaches the rail's third mode. Post-MVP scope lives in [`outstanding.md`](outstanding.md).
 
 Completed work is logged append-only in [`done.md`](done.md). Deferred scope lives in [`outstanding.md`](outstanding.md).
 
@@ -10,6 +20,8 @@ Completed work is logged append-only in [`done.md`](done.md). Deferred scope liv
 
 | Phase | Status | Done | Progress | % | 🔄 WIP | ◻ TODO |
 |-------|--------|------|----------|---|--------|--------|
+| [21 · Agent roster + terminal identity](phase-21-agent-roster-and-terminal-identity.md) | ◻ TODO | 0/46 | `░░░░░░░░░░` | 0% | — | A B C D E F |
+| [20 · Reviews page & unified diff syntax highlighting](phase-20-reviews-page.md) | 🔄 WIP | 42/44 | `██████████` | 95% | — | 2 manual checks |
 | [19 · Dashboard, Actions and Tests as views](phase-19-dashboard-actions-tests.md) | 🔄 WIP | 73/76 | `██████████` | 96% | — | 3 manual checks |
 | [18 · Footer system monitor + repo diagnostics](phase-18-footer-monitor-diagnostics.md) | 🔄 WIP | 51/54 | `█████████░` | 94% | — | 3 manual checks |
 | [17 · Repositories workbench + forge](phase-17-repos-workbench.md) | 🔄 WIP | 46/48 | `█████████░` | 96% | — | 2 manual checks |
@@ -35,6 +47,76 @@ Completed work is logged append-only in [`done.md`](done.md). Deferred scope liv
 
 <!-- Each phase currently carries a single theme A = its full deliverables checklist. Split into
      lettered themes if a phase gets parallelised. -->
+
+### [Phase 21 — A plural agent roster, and a terminal that knows where it is](phase-21-agent-roster-and-terminal-identity.md)
+
+*Phase 15 built the agent machinery around a roster with one entry in it, and the renderer never
+held up its half of the "adding one is an edit, not a release" bargain. A is the contract every
+other theme reads off (`icon`, `mode`, `install`, four builtins); B and C are the two surfaces that
+stop hard-coding Claude (the session-list mark, the `+` menu); D and E are the live half — a
+terminal that knows where it is (OSC 7) and what is running in it (a process probe in main); F is
+the header those two finally give something true to say.*
+
+- ◻ **A** — `AgentDefinitionSchema` gains `icon` and `install`; `BUILTIN_AGENTS` grows to four real
+  terminal agents (Claude Code `claude`, Antigravity `agy`, Codex `codex`, OpenClaude `openclaude`)
+- ◻ **B** — three new local brand SVGs beside `claude-icon.tsx` plus an `AGENT_ICONS` registry, so
+  `SessionIcon` resolves a mark from the roster instead of hard-coding `<ClaudeIcon>`
+- ◻ **C** — the `+` menu goes flat and iconned (New Terminal / Claude Code / Antigravity / Codex /
+  OpenClaude), with a main-side install probe — resolving against the *login shell's* PATH, not
+  Electron's — disabling what is missing and saying why
+- ◻ **D** — OSC 7 live cwd tracking, `liveCwd` in the terminal store, and a cwd→repo/worktree
+  resolver so the header's repo name and mark follow a `cd`
+- ◻ **E** — a process probe in main behind `pty:agent-changed`, so an agent started or quit by hand
+  swaps the sidebar row's icon; reads process state and acts on nothing
+- ◻ **F** — the header loses the word "Terminal": a glyph, the status circle, then a `~`-collapsed
+  path with the repo segment emphasised and left-truncation
+
+*Open: nothing claimed yet — A is the spine and lands first; B/C and D/E/F are then two independent
+tracks.*
+
+### [Phase 20 — Reviews page & unified diff syntax highlighting](phase-20-reviews-page.md)
+
+*Reviews grows from a sidebar-section stub into a full nav-rail view, and diffs finally get syntax
+colour. A is the shell (same `VIEW_FILTERS` mechanism Actions/Tests already use); B and C are the
+two read surfaces (list, then detail); D is the highlighting pass shared by every diff surface in
+the app; E, F and G are the phase's one deliberate write path — approve/request-changes/comment/
+merge, kept in a new `gh-write.ts` so `gh-cli.ts`'s "strictly reads" comment stays true.*
+
+- ✅ **A** — Reviews joins the nav rail as a first-class view, reusing the `VIEW_FILTERS` mechanism
+  Actions/Tests already established, hidden for repos with no GitHub remote (landed 2026-08-27)
+- ✅ **B** — PR list filterable across every state (open/draft/merged/closed) plus author and
+  search, not just the open-only list Phase 17 fetches today; the sidebar section and dashboard
+  widget keep asking for open-only via a `state` request param (landed 2026-08-27)
+- ✅ **C** — PR detail grows Files/Conversation/Checks tabs, reusing the existing hunk parser for
+  PR diffs rather than a second parser — plus a `pull-detail` channel for the head sha no listing
+  carries, and Checks matching that sha against the cached run listing rather than costing a
+  third subprocess (landed 2026-08-27)
+- ✅ **D** — syntax highlighting wired into the one shared `DiffView`, reusing Phase 16's
+  already-installed, theme-synced `shiki` highlighter, so Reviews/Changes/Graph render diffs
+  identically; deferred per-row through `requestIdleCallback` and cached module-level so it never
+  competes with the virtualized scroll path (landed 2026-08-27)
+- *(follow-up)* A and B landed against `main` as it stood before Theme C existed; a rebase
+  integration mounted `PrDetail` beside the list — a resizable split matching `ActionsView`'s,
+  with a new `reviews-store.ts` carrying a sidebar-selected PR number into the view
+  (landed 2026-08-27)
+- ✅ **E** — inline diff-line comment threads as *rows* in the diff, right-side (added/context)
+  lines only for v1 — the phase's highest-unknown piece, and two of its three unknowns turned out to
+  be API facts: threads are readable only over GraphQL (REST has no thread object, no `isResolved`
+  and no node id), and `gh api`'s `-F` type-guesses its variables. A thread that cannot be anchored —
+  outdated, file-level, left-side, or naming a line outside every hunk — renders in a collapsed
+  group above the diff rather than against whichever row carries that number now (landed 2026-08-27)
+- ✅ **F** — the phase's one deliberate write path: approve/request-changes/comment/merge, in
+  `gh-write.ts` beside Theme E's three writes, with the primitives both need extracted into a new
+  `gh-shell.ts` so the write module no longer depends on the reader. The merge confirm's blast
+  radius comes from `gh pr view --json commits` rather than a local `rev-list --count` — a PR's head
+  ref usually is not in this checkout, and `rev-list` against a missing ref reads as zero. All of it
+  behind a default-off Settings → Reviews switch that also lists what the app never does
+  (landed 2026-08-27)
+- ✅ **G** — reviewer re-request off the detail's own `reviewRequests`, Draft → Ready that
+  disappears once flipped, and re-run on the Checks tab — two buttons, the failed-only one present
+  only on a run that failed. Re-run is the one write that evicts a cache: `gh run rerun` adds an
+  attempt to the *same* run id, and main caches a completed run's tree permanently
+  (landed 2026-08-27)
 
 ### [Phase 19 — Dashboard, Actions and Tests as views](phase-19-dashboard-actions-tests.md)
 

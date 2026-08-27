@@ -1,14 +1,19 @@
 import {
+  ForgeCommentSchema,
   ForgeIssueSchema,
   ForgeJobSchema,
+  ForgePullDetailSchema,
   ForgePullSchema,
   ForgeStepSchema,
   ForgeRunSchema,
   ForgeWorkflowSchema,
+  PULL_COMMIT_SAMPLE,
   type ForgeChecksRollup,
+  type ForgeComment,
   type ForgeIssue,
   type ForgeJob,
   type ForgePull,
+  type ForgePullDetail,
   type ForgeRun,
   type ForgeRunDetail,
   type ForgeRunLog,
@@ -83,6 +88,9 @@ const asTimestamp = (value: unknown): string | null => {
   if (text === null) return null;
   return text.startsWith('0001-01-01') ? null : text;
 };
+
+/** A `--json` field that should be a list, or an empty one if the forge omitted it. */
+const asArray = (value: unknown): unknown[] => (Array.isArray(value) ? value : []);
 
 /** `gh` sends `""` for an unfinished conclusion; the enum must not see it. */
 const asConclusion = (value: unknown): string | null => asString(value);
@@ -184,6 +192,179 @@ function asLabels(value: unknown): { name: string; color: string }[] {
     labels.push({ name, color: asString((raw as Record<string, unknown>)['color']) ?? '' });
   }
   return labels;
+}
+
+/**
+ * `gh pr view <n> --json number,title,…,body,headRefOid,baseRefName,…`
+ *
+ * The listing half is parsed by `parsePullList` rather than re-mapped: `gh pr
+ * view` returns exactly the `gh pr list` field names for the fields they share,
+ * and a second copy of that map is a second place for `headRefName` to be
+ * spelled wrong. Null when the row is not a pull request at all — a detail with
+ * no PR above it has nothing to render against, the same rule `parseRunDetail`
+ * follows.
+ */
+export function parsePullDetail(payload: unknown): ForgePullDetail | null {
+  if (typeof payload !== 'object' || payload === null || Array.isArray(payload)) return null;
+  const row = payload as Record<string, unknown>;
+
+  const [pull] = parsePullList([row]);
+  if (!pull) return null;
+
+  const parsed = ForgePullDetailSchema.safeParse({
+    pull,
+    body: asString(row['body']) ?? '',
+    // `headRefOid` is `gh pr view`'s name for the head sha; the run listing
+    // calls the same value `headSha`, which is what the Checks tab matches on.
+    headSha: asString(row['headRefOid']),
+    baseBranch: asString(row['baseRefName']) ?? '',
+    additions: asInt(row['additions']) ?? 0,
+    deletions: asInt(row['deletions']) ?? 0,
+    changedFiles: asInt(row['changedFiles']) ?? 0,
+    createdAt: asTimestamp(row['createdAt']),
+    updatedAt: asTimestamp(row['updatedAt']),
+    mergeable: asString(row['mergeable']),
+    // The count is every commit `gh` listed; the sample is only the newest few
+    // — see `parseCommitSample`. Counting here rather than in the renderer is
+    // what lets the wire carry five rows and still state fourteen.
+    commitCount: asArray(row['commits']).length,
+    commits: parseCommitSample(row['commits']),
+    reviewRequests: asArray(row['reviewRequests'])
+      .map(asLogin)
+      .filter((login) => login.length > 0),
+  });
+  return parsed.success ? parsed.data : null;
+}
+
+/**
+ * The newest few of `gh pr view --json commits`, for the merge confirm's sample.
+ *
+ * Three things happen here and each is load-bearing for that dialog:
+ *
+ * - **Reversed.** `gh` sends the commits oldest-first; a branch is recognised
+ *   by its tip, so the sample has to start there.
+ * - **Capped** at `PULL_COMMIT_SAMPLE`, *after* reversing, so a 200-commit PR
+ *   sends the five newest rather than the five oldest. The exact *count* is
+ *   taken from the uncapped array by the caller — the dialog states fourteen
+ *   while listing two, and that is the point.
+ * - **Sha-less rows dropped** rather than emitted as `{sha: ''}`, because the
+ *   dialog keys its list on the sha and renders an abbreviated one beside each
+ *   subject. A row with nothing to abbreviate is not a commit worth showing.
+ *
+ * `oid` is `gh`'s name for the sha and `messageHeadline` for the subject —
+ * neither matches what `git log` calls the same two values, which is why this
+ * mapping exists rather than the payload being passed through.
+ */
+export function parseCommitSample(value: unknown): { sha: string; subject: string }[] {
+  return [...asArray(value)]
+    .reverse()
+    .map((entry) => {
+      if (typeof entry !== 'object' || entry === null) return null;
+      const row = entry as Record<string, unknown>;
+      const sha = asString(row['oid']);
+      if (sha === null) return null;
+      return { sha, subject: asString(row['messageHeadline']) ?? '' };
+    })
+    .filter((commit): commit is { sha: string; subject: string } => commit !== null)
+    .slice(0, PULL_COMMIT_SAMPLE);
+}
+
+/**
+ * `gh api repos/{owner}/{repo}/issues/{n}/comments`
+ *
+ * The REST payload, not the GraphQL one `gh pr view` speaks, so the field names
+ * are snake_case here and camelCase everywhere else in this file. That is not
+ * an inconsistency to normalise away — it is which API answered.
+ */
+export function parseIssueComments(payload: unknown): ForgeComment[] {
+  if (!Array.isArray(payload)) return [];
+
+  const comments: ForgeComment[] = [];
+  for (const raw of payload) {
+    if (typeof raw !== 'object' || raw === null) continue;
+    const row = raw as Record<string, unknown>;
+
+    const id = asId(row['id']);
+    const createdAt = asString(row['created_at']);
+    if (id === null || createdAt === null) continue;
+
+    const parsed = ForgeCommentSchema.safeParse({
+      id,
+      kind: 'comment',
+      author: asLogin(row['user']),
+      body: asString(row['body']) ?? '',
+      createdAt,
+      url: asString(row['html_url']) ?? '',
+      reviewState: null,
+    });
+    if (parsed.success) comments.push(parsed.data);
+  }
+  return comments;
+}
+
+/**
+ * `gh api repos/{owner}/{repo}/pulls/{n}/reviews`
+ *
+ * Rows are dropped for four reasons, all deliberate:
+ *
+ * - **No `submitted_at`.** A review that never says when it was submitted
+ *   cannot take its place in a thread the reader follows chronologically; an
+ *   empty-string fallback would sort it above every real entry.
+ * - **`PENDING`.** An unsubmitted draft — publishing it into the thread would
+ *   show a verdict its author has not given.
+ * - **A `COMMENTED` review with an empty body.** The shell GitHub creates
+ *   around a batch of inline diff comments; it carries no prose and no verdict,
+ *   so rendering it produces an author's name attached to nothing. Those inline
+ *   comments are Theme E's subject, not this thread's.
+ * - **A state this enum does not know.** The file's standing rule: a row that
+ *   cannot be understood is dropped, never guessed at.
+ */
+export function parsePullReviews(payload: unknown): ForgeComment[] {
+  if (!Array.isArray(payload)) return [];
+
+  const reviews: ForgeComment[] = [];
+  for (const raw of payload) {
+    if (typeof raw !== 'object' || raw === null) continue;
+    const row = raw as Record<string, unknown>;
+
+    const id = asId(row['id']);
+    const state = asString(row['state'])?.toUpperCase() ?? null;
+    // A submitted review has `submitted_at`; `created_at` is absent on this
+    // resource, so there is no second field to fall back to.
+    const submittedAt = asString(row['submitted_at']);
+    if (id === null || state === null || submittedAt === null || state === 'PENDING') continue;
+
+    const body = asString(row['body']) ?? '';
+    if (state === 'COMMENTED' && body.length === 0) continue;
+
+    const parsed = ForgeCommentSchema.safeParse({
+      id,
+      kind: 'review',
+      author: asLogin(row['user']),
+      body,
+      createdAt: submittedAt,
+      url: asString(row['html_url']) ?? '',
+      reviewState: state,
+    });
+    if (parsed.success) reviews.push(parsed.data);
+  }
+  return reviews;
+}
+
+/**
+ * The two collections, interleaved into the one thread GitHub shows.
+ *
+ * Sorted by `createdAt` because that is the only ordering a reader can follow:
+ * the two REST endpoints each return their own ascending sequence, and
+ * concatenating them puts every review after every comment regardless of when
+ * either was written. Ties keep their input order, so a review submitted in the
+ * same second as a comment does not flicker between renders.
+ */
+export function mergeConversation(
+  comments: readonly ForgeComment[],
+  reviews: readonly ForgeComment[],
+): ForgeComment[] {
+  return [...comments, ...reviews].sort((a, b) => a.createdAt.localeCompare(b.createdAt));
 }
 
 /**
@@ -425,10 +606,13 @@ export function rollupChecks(payload: unknown): ForgeChecksRollup | null {
 }
 
 /**
- * `gh pr list --json number,title,state,isDraft,reviewDecision,headRefName,author,url,statusCheckRollup`
+ * `gh pr list --json number,title,state,isDraft,reviewDecision,headRefName,author,url,statusCheckRollup,mergedAt,closedAt`
  *
  * `state` arrives uppercase (`OPEN`); `reviewDecision` is `""` when nobody has
  * reviewed and no rule demands one — distinct from `REVIEW_REQUIRED`.
+ * `mergedAt`/`closedAt` are `null` for an open PR — `asTimestamp` also
+ * normalises GitHub's zero-time to `null`, though a merge/close date never
+ * carries it.
  */
 export function parsePullList(payload: unknown): ForgePull[] {
   if (!Array.isArray(payload)) return [];
@@ -448,6 +632,8 @@ export function parsePullList(payload: unknown): ForgePull[] {
       headBranch: asString(row['headRefName']) ?? '',
       author: asLogin(row['author']),
       url: asString(row['url']) ?? '',
+      mergedAt: asTimestamp(row['mergedAt']),
+      closedAt: asTimestamp(row['closedAt']),
     });
     if (parsed.success && parsed.data.url.length > 0) pulls.push(parsed.data);
   }

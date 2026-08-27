@@ -9,9 +9,20 @@ import type {
   Worktree,
 } from '@midnite/git-shared';
 import { forgeProjectUrl, pickForgeRemote } from '@midnite/git-shared';
+import {
+  ArrowDownToLine,
+  ArrowUpFromLine,
+  Copy,
+  ExternalLink,
+  FileDiff,
+  GitBranch,
+  RefreshCw,
+  X,
+} from 'lucide-react';
 
 import type { MenuItem } from '../../components/context-menu';
 import { useDialogs } from '../../components/dialog-host';
+import type { IconComponent } from '../../components/icon-button';
 import { validateRefName } from '../../components/prompt-dialog';
 import { bridge } from '../../services/bridge';
 import { openExternal, useCloseRepo, useRemoveWorktree } from '../../services/queries';
@@ -123,21 +134,31 @@ export function useRepoActions(
     [openTab, repo.id, setActiveView],
   );
 
-  /** "Open on GitHub", when the repo has a remote we can build a URL for. */
-  const forgeItems = useCallback((): MenuItem[] => {
-    const forge = pickForgeRemote(context.remotes)?.forge ?? null;
-    const url = forge ? forgeProjectUrl(forge) : null;
-    // Absent, not disabled: a local-path remote has no web page, and that is
-    // permanent rather than temporarily unavailable.
-    if (!forge || url === null) return [];
-    return [
-      { type: 'separator' },
-      {
-        label: `Open ${forge.owner}/${forge.repo} on ${forge.host}`,
-        onSelect: () => openExternal(url),
-      },
-    ];
-  }, [context.remotes]);
+  /**
+   * "Open on GitHub", when the repo has a remote we can build a URL for.
+   *
+   * The glyph is the caller's to supply, not this helper's: these items land in
+   * menus that are iconed and menus that are not, and a menu is one or the
+   * other — see `ContextMenu`. Passing nothing keeps the row bare.
+   */
+  const forgeItems = useCallback(
+    (icon?: IconComponent): MenuItem[] => {
+      const forge = pickForgeRemote(context.remotes)?.forge ?? null;
+      const url = forge ? forgeProjectUrl(forge) : null;
+      // Absent, not disabled: a local-path remote has no web page, and that is
+      // permanent rather than temporarily unavailable.
+      if (!forge || url === null) return [];
+      return [
+        { type: 'separator' },
+        {
+          label: `Open ${forge.owner}/${forge.repo} on ${forge.host}`,
+          icon,
+          onSelect: () => openExternal(url),
+        },
+      ];
+    },
+    [context.remotes],
+  );
 
   /** Create a worktree beside the repository, in a sibling directory. */
   const promptWorktree = useCallback(
@@ -457,9 +478,13 @@ export function useRepoActions(
       const sync = status ? syncAffordances(status.branch) : null;
       const syncItem = (
         op: 'fetch' | 'pull' | 'push',
+        icon: IconComponent,
         run: () => Promise<GitOpResult>,
       ): MenuItem => ({
+        // The label is the affordance's, which carries the count — "Pull 3" —
+        // so the glyph says only which direction the commits move.
         label: sync?.[op].label ?? op,
+        icon,
         disabled: !sync?.[op].enabled,
         disabledReason: sync?.[op].reason ?? 'Reading the repository…',
         onSelect: () => void run().then(report),
@@ -474,19 +499,32 @@ export function useRepoActions(
       const shown = switchable.slice(0, CHECKOUT_MENU_LIMIT);
       const main = repo.worktrees.find((worktree) => worktree.isMain);
 
+      /*
+        Iconed throughout, because the button that opens it is now the Git logo
+        rather than an ellipsis: the row promises "the git verbs" and the menu
+        should be scannable as verbs, not read line by line. `RefreshCw` is the
+        Sync button's own mark — fetch is what that button leads with — and the
+        two arrows say which way the commits travel. Close keeps the `X` it wore
+        when it stood in the row, so the one control that left the row is still
+        recognisable in here.
+      */
       return [
-        syncItem('fetch', () => fetch.mutateAsync()),
-        syncItem('pull', () => pull.mutateAsync()),
-        syncItem('push', () => push.mutateAsync({ setUpstream: status?.branch.upstream == null })),
+        syncItem('fetch', RefreshCw, () => fetch.mutateAsync()),
+        syncItem('pull', ArrowDownToLine, () => pull.mutateAsync()),
+        syncItem('push', ArrowUpFromLine, () =>
+          push.mutateAsync({ setUpstream: status?.branch.upstream == null }),
+        ),
         { type: 'separator' },
         {
           label: 'View all changes',
+          icon: FileDiff,
           disabled: main === undefined,
           disabledReason: 'This repository has no main worktree.',
           onSelect: () => main && viewAllChanges(main.path, repo.name),
         },
         {
           label: 'Switch primary checkout to',
+          icon: GitBranch,
           disabled: shown.length === 0,
           disabledReason:
             switchable.length === 0 && refs.length > 0
@@ -498,11 +536,12 @@ export function useRepoActions(
           })),
         },
         { type: 'separator' },
-        copyItem('path', repo.path),
-        ...forgeItems(),
+        copyItem('path', repo.path, Copy),
+        ...forgeItems(ExternalLink),
         { type: 'separator' },
         {
           label: `Close ${repo.name}…`,
+          icon: X,
           danger: true,
           onSelect: () =>
             dialogs.confirm({
@@ -574,7 +613,10 @@ const shortRemoteName = (name: string): string => name.slice(name.indexOf('/') +
  * `navigator.clipboard` is unavailable in a non-secure or headless context, and
  * a menu item is not the place to raise an error about the clipboard API.
  */
-const copyItem = (what: string, value: string): MenuItem => ({
+const copyItem = (what: string, value: string, icon?: IconComponent): MenuItem => ({
   label: `Copy ${what}`,
+  // Optional for the same reason `forgeItems` takes one: the iconless menus
+  // share this helper, and one glyph among bare rows singles that row out.
+  icon,
   onSelect: () => void navigator.clipboard?.writeText(value).catch(() => undefined),
 });

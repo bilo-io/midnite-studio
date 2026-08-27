@@ -100,10 +100,10 @@ const heading = (page: Page, name: string) =>
 const section = (page: Page, name: string) =>
   panel(page).getByRole('button', { name: new RegExp(`^${name}( \\d+)?$`) });
 
-test('the rail carries all seven views, Dashboard ungrouped above the rest', async ({ page }) => {
+test('the rail carries all eight views, Dashboard ungrouped above the rest', async ({ page }) => {
   await open(page);
 
-  for (const label of ['Dashboard', 'Files', 'Graph', 'Changes', 'Actions', 'Tests']) {
+  for (const label of ['Dashboard', 'Files', 'Graph', 'Changes', 'Actions', 'Tests', 'Reviews']) {
     await expect(rail(page, label)).toBeVisible();
   }
 
@@ -126,24 +126,36 @@ test('the rail carries all seven views, Dashboard ungrouped above the rest', asy
   // Read as hrefs, not text: the rail is collapsed to icons by default, so the
   // labels are not rendered and every `innerText` would come back empty.
   expect(hrefs[0]).toBe('/dashboard');
-  expect(hrefs).toEqual(['/dashboard', '/files', '/graph', '/changes', '/actions', '/tests']);
+  expect(hrefs).toEqual([
+    '/dashboard',
+    '/files',
+    '/graph',
+    '/changes',
+    '/actions',
+    '/tests',
+    '/reviews',
+  ]);
 });
 
 test('each view is reachable and none of them answers as the graph', async ({ page }) => {
   await open(page);
 
-  for (const label of ['Dashboard', 'Files', 'Changes', 'Actions', 'Tests', 'Graph']) {
+  for (const label of ['Dashboard', 'Files', 'Changes', 'Actions', 'Tests', 'Reviews', 'Graph']) {
     await rail(page, label).click();
     await expect(rail(page, label)).toHaveAttribute('aria-current', 'page');
   }
 });
 
-test('Actions is absent for a repository gh could never answer for', async ({ page }) => {
+test('Actions and Reviews are absent for a repository gh could never answer for', async ({
+  page,
+}) => {
   // A rail item that can only ever say "not applicable" is worse than no rail
-  // item — the same rule that already keeps the forge sections out of the tree.
+  // item — the same rule that already keeps the forge sections out of the
+  // tree, and the same `pickForgeRemote` gate Actions and Reviews both ask.
   await open(page, { ...base, remotes: [GITLAB_REMOTE], forge: undefined });
 
   await expect(rail(page, 'Actions')).toHaveCount(0);
+  await expect(rail(page, 'Reviews')).toHaveCount(0);
 
   // Everything else is untouched: the rule is about GitHub, not about remotes.
   await expect(rail(page, 'Tests')).toBeVisible();

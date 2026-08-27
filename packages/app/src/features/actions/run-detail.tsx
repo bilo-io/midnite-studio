@@ -99,7 +99,14 @@ export function RunDetail({
     <section aria-label="Run detail" className="flex min-h-0 flex-1 flex-col">
       <RunHeader repoId={repoId} run={run} />
 
-      <div className="max-h-[45%] shrink-0 overflow-y-auto border-b border-border">
+      {/*
+        Shrinkable, not `shrink-0`. The tree is capped at 45% of the pane and
+        scrolls inside that, so when the pane itself is short — a PR's Checks
+        tab under a tall header, or the terminal taken up to half the window —
+        the honest response is for the tree to give ground and keep scrolling,
+        not to hold its content height and push the log pane off the bottom.
+      */}
+      <div className="max-h-[45%] min-h-0 overflow-y-auto border-b border-border">
         {jobsError !== null ? (
           <p className="px-3 py-2 text-xs text-destructive">{jobsError}</p>
         ) : loadingJobs && jobs.length === 0 ? (
