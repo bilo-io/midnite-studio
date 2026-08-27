@@ -2219,3 +2219,37 @@ while its PR is in the filtered set: `PrDetail` fetches by number, so a PR chose
 has to survive arriving here with every group collapsed and nothing loaded for it to be "in". And
 an open group prints no count until its fetch answers — "All Pull Requests 0" for as long as `gh`
 takes, then changing its mind, is a claim rather than a reading.
+
+## 2026-08-27 — One click into a terminal slid the whole app under the title bar
+
+A maximized terminal lost its own header to the title bar, restore button and all, with no
+gesture that could bring it back. The repositories panel was clipped at the top by the same
+amount, and the nav rail — the one thing anchored to the viewport rather than laid out in
+flow — looked perfectly fine, which is what made it read as a terminal bug rather than a
+layout one.
+
+The app column was sized `100vh - var(--titlebar-h)` and pushed below the bar with a top
+margin of the same 48px. That sums to the viewport, which is why it measured correctly at
+rest — but a top margin on the first in-flow child collapses out through `<main>` and
+`#root`, neither of which has a border or padding to stop it. So the margin stopped being
+space inside the page and became the page's own offset: a 100vh document sitting 48px down,
+i.e. 48px taller than the window, with exactly one title bar's worth of scroll in it.
+
+`body { overflow: hidden }` keeps that away from the wheel but not from the platform:
+`focus()` and `scrollIntoView()` scroll an overflow-hidden viewport quite happily, and
+clicking into a terminal focuses xterm's hidden textarea. One click, 48px, and every control
+along the top of the column was behind a fixed bar at `z-60` that answered the clicks meant
+for it. Scrolling back was not on offer either — an overflow-hidden viewport takes no user
+gesture, only a programmatic one.
+
+The fix is padding rather than a margin: padding sits inside the border box, so the box is
+exactly `100vh` however tall the bar is and the document has nothing left to scroll. The
+framed window's chrome strip moved inside that box while it was open — as a sibling above it,
+its 40px added to a box already claiming the whole window, which is the same bug on the
+platforms macOS is not.
+
+Verified in the real window as well as the harness, against a copy of a live profile: the
+maximized terminal's restore button is what answers a click at its own coordinates, and
+`scrollTo(0, 400)` moves nothing. `terminal.spec.ts` states both — that the document has no
+room to scroll, and that scrolled at anyway, the panel's header is still the thing under the
+pointer across its whole width.
