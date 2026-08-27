@@ -4,7 +4,7 @@ import { LuChevronRight } from 'react-icons/lu';
 
 import { useDialogs } from '../../components/dialog-host';
 import { IconButton } from '../../components/icon-button';
-import { ClaudeIcon } from '../../components/icons/claude-icon';
+import { resolveAgentIcon } from '../../components/icons';
 import { SortableList, useSortableRow } from '../../components/sortable-list';
 import { StateDot } from '../../components/state-dot';
 import { useUiStore } from '../../store/ui-store';
@@ -163,7 +163,19 @@ function SessionRow({
           apart from being what truncates first.
         */}
         <span
-          className={`shrink truncate ${live ? 'text-muted-foreground' : 'text-muted-foreground/60'}`}
+          /*
+            Shrinks four times faster than the session name beside it. Phase 19
+            said this in words — "shrinking the repo name rather than the
+            session name keeps the part that actually tells two Claude sessions
+            apart from being what truncates first" — and then wrote the opposite
+            in CSS: this span was `shrink` (basis auto, so content-sized until
+            something overflows) while the name was `flex-1` (basis ZERO, so it
+            only ever got the leftovers). At the list's default 176px the repo
+            name rendered in full and the session name became a single letter
+            and an ellipsis, which is the one half that cannot be guessed —
+            especially now that there are four agents it could be naming.
+          */
+          className={`min-w-0 shrink-[4] truncate ${live ? 'text-muted-foreground' : 'text-muted-foreground/60'}`}
         >
           {session.title}
         </span>
@@ -171,7 +183,17 @@ function SessionRow({
           aria-hidden
           className="h-3 w-3 shrink-0 text-muted-foreground/50"
         />
-        <span className={`min-w-0 flex-1 truncate ${live ? '' : 'text-muted-foreground'}`}>
+        <span
+          /*
+            Named for the e2e suite. Phase 19 split this row into a repo name
+            AND a session name, both of them `truncate`, so a spec locator
+            written as `span.truncate` quietly began matching two spans per row
+            and asserting on whichever came first. A hook on the half that
+            carries the session's own identity is what stops that recurring.
+          */
+          data-session-name
+          className={`min-w-0 shrink truncate ${live ? '' : 'text-muted-foreground'}`}
+        >
           {name}
         </span>
       </button>
@@ -295,13 +317,22 @@ function IdleCaret() {
  * accent from the roster — so a Claude session is identifiable before the label
  * is read, which is the whole reason the list is scannable at a glance.
  */
+/**
+ * The row's mark: a terminal glyph, or the agent's own.
+ *
+ * Resolved through `AGENT_ICONS` rather than hard-coded. This used to render
+ * `<ClaudeIcon>` for *any* agent id, which was invisible while the roster had
+ * exactly one entry in it and would have put Claude's face on Codex the moment
+ * it had two.
+ */
 function SessionIcon({ agent, live }: { agent: AgentDefinition | undefined; live: boolean }) {
-  if (!agent) {
-    return <Terminal className={`size-3.5 shrink-0 ${live ? '' : 'opacity-50'}`} />;
-  }
+  const className = `size-3.5 shrink-0 ${live ? '' : 'opacity-50'}`;
+  if (!agent) return <Terminal className={className} />;
+
+  const Icon = resolveAgentIcon(agent);
   return (
-    <ClaudeIcon
-      className={`size-3.5 shrink-0 ${live ? '' : 'opacity-50'}`}
+    <Icon
+      className={className}
       // Inline because the accent is data from the roster, not a Tailwind class
       // — a user-added agent brings a colour Tailwind has never seen.
       style={{ color: agent.accent }}

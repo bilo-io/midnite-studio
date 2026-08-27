@@ -45,6 +45,7 @@ import {
 import { ClaudeInfoSchema, FsEntrySchema } from '../fs';
 import {
   AgentDefinitionSchema,
+  AgentStatusSchema,
   TerminalSessionKindSchema,
   TerminalSessionSchema,
   agentIdMatchesKind,
@@ -787,7 +788,19 @@ export const TerminalForgetRequest = z.object({ sessionId: z.string().min(1) });
 /** The full ordered id list, not a moved-from/moved-to pair — idempotent on replay. */
 export const TerminalReorderRequest = z.object({ sessionIds: z.array(z.string().min(1)) });
 
-export const AgentListResponse = z.object({ agents: z.array(AgentDefinitionSchema) });
+/**
+ * The roster, plus what main could learn about it on this machine.
+ *
+ * One response rather than two channels: `installed` is a fact *about* these
+ * objects, and a second round-trip would let the menu render a roster it has
+ * no status for. `status` is keyed by id rather than positional, and may be
+ * shorter than `agents` — an agent the probe could not answer for is simply
+ * absent, which the renderer reads as "assume it works".
+ */
+export const AgentListResponse = z.object({
+  agents: z.array(AgentDefinitionSchema),
+  status: z.array(AgentStatusSchema).default([]),
+});
 
 export const ClaudeInfoResponse = ClaudeInfoSchema;
 /**

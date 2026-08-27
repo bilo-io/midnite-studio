@@ -22,10 +22,16 @@ export type TerminalSessionKind = z.infer<typeof TerminalSessionKindSchema>;
 /**
  * A coding agent the `+` menu can start.
  *
- * `accent` is the agent's brand colour, applied to its icon in the session list
- * so a row is identifiable before you read it. It lives in the descriptor rather
- * than in the component because the roster is user-extensible — a hard-coded
- * switch in the renderer would mean a new agent needs a rebuild.
+ * `accent` is the agent's brand colour and `icon` is the key to its mark. Both
+ * live in the descriptor rather than in the component because the roster is
+ * user-extensible — a hard-coded switch in the renderer would mean a new agent
+ * needs a rebuild, which is exactly the bargain `BUILTIN_AGENTS` promises and
+ * the renderer spent a phase not keeping.
+ *
+ * Note what is *absent*: whether the command is actually on this machine. That
+ * is a runtime fact about the host, not a property of the roster, and it
+ * travels beside these objects as {@link AgentStatusSchema} — so this schema
+ * stays exactly the shape `agents.json` is validated against.
  */
 export const AgentDefinitionSchema = z.object({
   id: z.string().min(1),
@@ -35,8 +41,42 @@ export const AgentDefinitionSchema = z.object({
   args: z.array(z.string()).default([]),
   /** CSS colour for the agent's icon. */
   accent: z.string().min(1),
+  /**
+   * Key into the renderer's `AGENT_ICONS` registry. Absent means the agent's
+   * own `id`, which keeps the builtins from repeating themselves; an
+   * unrecognised key costs the user their glyph, not their row.
+   */
+  icon: z.string().min(1).optional(),
+  /**
+   * One-line hint shown as the `+` menu's `disabledReason` when the install
+   * probe cannot find `command` — e.g. `npm i -g @gitlawb/openclaude`. A
+   * session that would open and immediately print `command not found` becomes
+   * an explanation instead.
+   */
+  install: z.string().min(1).optional(),
 });
 export type AgentDefinition = z.infer<typeof AgentDefinitionSchema>;
+
+/**
+ * Whether an agent's command exists on *this* machine, resolved by main.
+ *
+ * Kept apart from {@link AgentDefinitionSchema} on purpose: the definition is
+ * config a user hand-edits, this is a probe result with a lifetime measured in
+ * seconds. Folding them into one object would mean `mergeAgents` validating a
+ * runtime fact, and `agents.json` gaining two fields nobody should write.
+ *
+ * `installed: false` is only ever asserted by a probe that *ran and answered*.
+ * A probe that could not answer at all omits the agent entirely, and the
+ * renderer treats an absent status as "assume it works" — a probe that failed
+ * must not disable an agent that is sitting right there on the PATH.
+ */
+export const AgentStatusSchema = z.object({
+  id: z.string().min(1),
+  installed: z.boolean(),
+  /** Absolute path the command resolved to, when it resolved at all. */
+  resolvedPath: z.string().min(1).nullable(),
+});
+export type AgentStatus = z.infer<typeof AgentStatusSchema>;
 
 /**
  * The agents that ship with the app.
@@ -45,7 +85,45 @@ export type AgentDefinition = z.infer<typeof AgentDefinitionSchema>;
  * merged by `id` — so adding one is an edit, not a release.
  */
 export const BUILTIN_AGENTS: readonly AgentDefinition[] = [
-  { id: 'claude', label: 'Claude', command: 'claude', args: [], accent: '#D97757' },
+  {
+    id: 'claude',
+    label: 'Claude Code',
+    command: 'claude',
+    args: [],
+    accent: '#D97757',
+    install: 'npm i -g @anthropic-ai/claude-code',
+  },
+  {
+    /*
+      `agy`, not `antigravity-ide`: the latter is a shim that opens the IDE,
+      which is not a thing a terminal session can host. The id follows the
+      command so a user reading `terminals.json` can tell what ran; the mark is
+      named separately because "agy" is not what the brand is called.
+    */
+    id: 'agy',
+    label: 'Antigravity',
+    command: 'agy',
+    args: [],
+    accent: '#4285F4',
+    icon: 'antigravity',
+    install: 'See antigravity.google/docs/cli for the Antigravity CLI',
+  },
+  {
+    id: 'codex',
+    label: 'Codex',
+    command: 'codex',
+    args: [],
+    accent: '#10A37F',
+    install: 'npm i -g @openai/codex',
+  },
+  {
+    id: 'openclaude',
+    label: 'OpenClaude',
+    command: 'openclaude',
+    args: [],
+    accent: '#8B5CF6',
+    install: 'npm i -g @gitlawb/openclaude',
+  },
 ] as const;
 
 /**

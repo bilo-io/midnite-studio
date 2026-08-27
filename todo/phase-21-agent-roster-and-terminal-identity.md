@@ -37,80 +37,80 @@ Effort tags: **S** ≈ an hour or two · **M** ≈ half a day · **L** ≈ a day
 
 ## Deliverables
 
-### A — The roster becomes plural (S)
+### A — The roster becomes plural (S) ✅ DONE (2026-08-27)
 
 The spine: B–F all read off this contract, so it lands first.
 
-- [ ] `AgentDefinitionSchema` in [`shared/src/terminal.ts`](../packages/shared/src/terminal.ts)
+- [x] `AgentDefinitionSchema` in [`shared/src/terminal.ts`](../packages/shared/src/terminal.ts)
       gains `icon: z.string().min(1).optional()` — a key into the renderer's icon registry, so a
       mark is roster data rather than a switch in a component, exactly as `accent` already is.
       Absent, it defaults to the agent's `id`, which keeps the four builtins from repeating
       themselves.
-- [ ] The same schema gains `install: z.string().min(1).optional()` — a one-line hint (`npm i -g
+- [x] The same schema gains `install: z.string().min(1).optional()` — a one-line hint (`npm i -g
       @gitlawb/openclaude`) shown as the `disabledReason` when Theme C's probe cannot find the
       command.
-- [ ] `BUILTIN_AGENTS` grows from one entry to four, all four of them real terminal agents:
+- [x] `BUILTIN_AGENTS` grows from one entry to four, all four of them real terminal agents:
       **Claude Code** (`claude`), **Antigravity** (`agy` — the
       [Antigravity CLI](https://antigravity.google/docs/cli/overview), *not* the `antigravity-ide`
       shim, which opens the IDE), **Codex** (`codex`), **OpenClaude** (`openclaude`) — each with its
       brand `accent`, its `icon` key and its `install` hint.
-- [ ] `mergeAgents` in [`agents-store.ts`](../packages/desktop/src/main/agents-store.ts) needs no
+- [x] `mergeAgents` in [`agents-store.ts`](../packages/desktop/src/main/agents-store.ts) needs no
       logic change, but [`agents-store.test.ts`](../packages/desktop/src/main/agents-store.test.ts)
       does: a case per new field, plus the existing "one typo'd agent must not cost the rest of the
       file" guarantee re-asserted now that an entry carries two more optional fields to typo.
-- [ ] `agentIdMatchesKind`'s two invariants are untouched by the new fields, but they now guard
+- [x] `agentIdMatchesKind`'s two invariants are untouched by the new fields, but they now guard
       four ids instead of one — re-assert both directions in a table test over the whole roster, so
       a future entry cannot be added half-wired.
 
-### B — Every agent gets its own mark (M)
+### B — Every agent gets its own mark (M) ✅ DONE (2026-08-27)
 
-- [ ] `codex-icon.tsx` in [`components/icons/`](../packages/app/src/components/icons/), matching
+- [x] `codex-icon.tsx` in [`components/icons/`](../packages/app/src/components/icons/), matching
       [`claude-icon.tsx`](../packages/app/src/components/icons/claude-icon.tsx)'s shape exactly:
       `viewBox="0 0 24 24"`, `fill="currentColor"`, `aria-hidden`, the structural `IconComponent`
       type, and a `strokeWidth` prop accepted and ignored.
-- [ ] `antigravity-icon.tsx`, same shape.
-- [ ] `openclaude-icon.tsx`, same shape — with a doc comment recording its provenance: the project
+- [x] `antigravity-icon.tsx`, same shape.
+- [x] `openclaude-icon.tsx`, same shape — with a doc comment recording its provenance: the project
       publishes a **wordmark only** (`docs/assets/openclaude-wordmark.png`), so this mark is
       derived from its glyph rather than copied from an official square asset. `INITIAL_PLAN.md`
       already establishes that a third-party asset's licence gets written down where the asset
       lands, not assumed.
-- [ ] A new `components/icons/index.ts` exporting an `AGENT_ICONS: Record<string, IconComponent>`
+- [x] A new `components/icons/index.ts` exporting an `AGENT_ICONS: Record<string, IconComponent>`
       map — the one place an `icon` key resolves. It also resolves react-icons names, so a
       user-added agent in `agents.json` can name `SiGooglegemini` without shipping an SVG.
-- [ ] `SessionIcon` resolves the roster's `icon` through that registry instead of hard-coding
+- [x] `SessionIcon` resolves the roster's `icon` through that registry instead of hard-coding
       `<ClaudeIcon>`. An unrecognised key falls back to lucide's `Terminal` rather than rendering
       nothing — a bad `agents.json` should cost the user their glyph, not their row.
-- [ ] Eyeball each mark at the 14px the session list actually draws it at, in both themes. This is
+- [x] Eyeball each mark at the 14px the session list actually draws it at, in both themes. This is
       the check the spinner rewrite in Phase 19 proves is not optional: geometry that reads fine
       at 24px lost its motion entirely at 14px, and a dense mark will lose its silhouette the
       same way.
 
-### C — The `+` menu says what it starts (M)
+### C — The `+` menu says what it starts (M) ✅ DONE (2026-08-27)
 
-- [ ] The menu in [`terminal-panel.tsx`](../packages/app/src/features/terminal/terminal-panel.tsx)
+- [x] The menu in [`terminal-panel.tsx`](../packages/app/src/features/terminal/terminal-panel.tsx)
       drops the `New Agent — ` prefix: the items read **New Terminal**, then a separator, then
       **Claude Code**, **Antigravity**, **Codex**, **OpenClaude**. The prefix existed to
       disambiguate one entry from a heading; with four named agents the label *is* the
       disambiguation.
-- [ ] `MenuItem` in [`context-menu.tsx`](../packages/app/src/components/context-menu.tsx) gains an
+- [x] `MenuItem` in [`context-menu.tsx`](../packages/app/src/components/context-menu.tsx) gains an
       optional leading `icon`, rendered at the row's left edge with the agent's `accent` applied
       inline (the same reason `SessionIcon` does it inline: a user's accent is a colour Tailwind
       has never seen). `New Terminal` takes lucide's `Terminal`, so the column is never ragged.
-- [ ] An install probe in main: one `which`-equivalent resolution per roster command, run once and
+- [x] An install probe in main: one `which`-equivalent resolution per roster command, run once and
       cached, surfaced by extending the existing `agent.list()` result with `installed: boolean`
       and `resolvedPath: string | null` rather than adding a second channel for a fact about the
       same objects.
-- [ ] The probe must resolve against the **login shell's** `PATH`, not Electron's. This is the
+- [x] The probe must resolve against the **login shell's** `PATH`, not Electron's. This is the
       trap, not a nicety: `claude` and `agy` both live in `~/.local/bin`, which reaches the
       environment only through the user's shell rc — so a `Midnite Git.app` opened from Finder
       inherits a `PATH` that has neither, and a naive probe would disable two installed agents on
       the machine this phase was written on. Resolve through a login shell (or read the same `PATH`
       the pty is given), and let the roster carry an optional candidate absolute path as the last
       resort.
-- [ ] A missing agent's menu item is `disabled` with its `install` hint as the `disabledReason` —
+- [x] A missing agent's menu item is `disabled` with its `install` hint as the `disabledReason` —
       reusing the mechanism the `+` menu already uses for *"No worktree selected"*, so a session
       that would open and immediately print `command not found` becomes an explanation instead.
-- [ ] Unit coverage for the menu builder: four agents present, one uninstalled (OpenClaude is the
+- [x] Unit coverage for the menu builder: four agents present, one uninstalled (OpenClaude is the
       live example — the other three are already on PATH here), none installed, and no worktree
       selected, where every item is disabled for a different reason.
 
@@ -210,8 +210,10 @@ The spine: B–F all read off this contract, so it lands first.
       nothing new crosses `shared ◀ git-engine ◀ desktop` / `shared ◀ app`. In particular `app`
       must not learn `node:path` for `collapseHome` — the helper is string work on a home path the
       bridge already supplies.
-- [ ] Vitest (Theme A): every new roster field round-trips through `AgentDefinitionSchema`, and a
+- [x] Vitest (Theme A): every new roster field round-trips through `AgentDefinitionSchema`, and a
       malformed entry is dropped individually rather than taking the file with it.
+      ✅ `shared/src/terminal.test.ts` (a table over the whole roster, both directions of
+      `agentIdMatchesKind`) plus three new drop-one-entry cases in `agents-store.test.ts`.
 - [x] Vitest (Themes D/F): `collapseHome` on home exactly, a child of home, a non-home path, and
       the `/Users/bilolwabonaX` boundary case; `resolveRepoForPath` on nested worktrees and on a
       path inside no repo. (2026-08-27, with Theme F.)

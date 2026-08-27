@@ -23,12 +23,28 @@ afterEach(async () => {
   dirs = [];
 });
 
-const codex: AgentDefinition = {
-  id: 'codex',
-  label: 'Codex',
-  command: 'codex',
+/**
+ * A user-added agent, deliberately NOT one of the builtins — `codex` sat here
+ * until the roster grew to four and it stopped being an unknown id, which is
+ * the whole point of the "appends an unknown id" case below.
+ */
+const aider: AgentDefinition = {
+  id: 'aider',
+  label: 'Aider',
+  command: 'aider',
   args: [],
-  accent: '#10A37F',
+  accent: '#14B8A6',
+};
+
+/** The same, carrying both fields Phase 21 added — a merge has to preserve them. */
+const gemini: AgentDefinition = {
+  id: 'gemini',
+  label: 'Gemini CLI',
+  command: 'gemini',
+  args: [],
+  accent: '#4285F4',
+  icon: 'SiGooglegemini',
+  install: 'npm i -g @google/gemini-cli',
 };
 
 describe('createAgentsStore', () => {
@@ -49,25 +65,25 @@ describe('createAgentsStore', () => {
 
   it('reads a bare array', async () => {
     const dir = await tempDir();
-    await writeAgents(dir, JSON.stringify([codex]));
+    await writeAgents(dir, JSON.stringify([aider]));
 
-    expect(await createAgentsStore(dir).load()).toContainEqual(codex);
+    expect(await createAgentsStore(dir).load()).toContainEqual(aider);
   });
 
   it('reads the { agents: [...] } form too', async () => {
     const dir = await tempDir();
-    await writeAgents(dir, JSON.stringify({ agents: [codex] }));
+    await writeAgents(dir, JSON.stringify({ agents: [aider] }));
 
-    expect(await createAgentsStore(dir).load()).toContainEqual(codex);
+    expect(await createAgentsStore(dir).load()).toContainEqual(aider);
   });
 });
 
 describe('mergeAgents', () => {
   it('appends an unknown id after the builtins', () => {
-    const merged = mergeAgents(BUILTIN_AGENTS, [codex]);
+    const merged = mergeAgents(BUILTIN_AGENTS, [aider]);
 
     expect(merged).toHaveLength(BUILTIN_AGENTS.length + 1);
-    expect(merged.at(-1)).toEqual(codex);
+    expect(merged.at(-1)).toEqual(aider);
   });
 
   /**
@@ -76,16 +92,16 @@ describe('mergeAgents', () => {
    */
   it('replaces a builtin by id, keeping its position', () => {
     const override = { ...BUILTIN_AGENTS[0]!, command: 'claude --dangerously-skip-permissions' };
-    const merged = mergeAgents(BUILTIN_AGENTS, [codex, override]);
+    const merged = mergeAgents(BUILTIN_AGENTS, [aider, override]);
 
     expect(merged[0]).toEqual(override);
     expect(merged).toHaveLength(BUILTIN_AGENTS.length + 1);
   });
 
   it('drops only the entries that fail the schema', () => {
-    const merged = mergeAgents(BUILTIN_AGENTS, [{ id: 'broken' }, codex, null, 'nope']);
+    const merged = mergeAgents(BUILTIN_AGENTS, [{ id: 'broken' }, aider, null, 'nope']);
 
-    expect(merged).toEqual([...BUILTIN_AGENTS, codex]);
+    expect(merged).toEqual([...BUILTIN_AGENTS, aider]);
   });
 
   it('ignores a shape that is not a roster at all', () => {
@@ -98,5 +114,47 @@ describe('mergeAgents', () => {
     const merged = mergeAgents([], [{ id: 'a', label: 'A', command: 'a', accent: '#fff' }]);
 
     expect(merged[0]?.args).toEqual([]);
+  });
+
+  /**
+   * `icon` and `install` are the two fields Phase 21 added, and they are what a
+   * user-added agent uses to bring its own mark and its own install hint. A
+   * merge that dropped either would leave the entry looking like a builtin the
+   * registry has never heard of.
+   */
+  it('carries a user entry\'s icon and install through the merge', () => {
+    const merged = mergeAgents(BUILTIN_AGENTS, [gemini]);
+
+    expect(merged.at(-1)).toEqual(gemini);
+  });
+
+  it('leaves icon and install absent when the entry omits them', () => {
+    const merged = mergeAgents([], [{ id: 'a', label: 'A', command: 'a', accent: '#fff' }]);
+
+    expect(merged[0]).not.toHaveProperty('icon');
+    expect(merged[0]).not.toHaveProperty('install');
+  });
+
+  it('lets an override add an icon to a builtin without touching the rest', () => {
+    const claude = BUILTIN_AGENTS[0]!;
+    const merged = mergeAgents(BUILTIN_AGENTS, [{ ...claude, icon: 'SiAnthropic' }]);
+
+    expect(merged[0]).toEqual({ ...claude, icon: 'SiAnthropic' });
+    expect(merged).toHaveLength(BUILTIN_AGENTS.length);
+  });
+
+  /**
+   * The original guarantee — one typo must not cost the rest of the file — now
+   * has two more optional fields to typo, and an optional field that fails its
+   * own constraint has to drop the ENTRY rather than silently parse without it.
+   */
+  it.each([
+    ['an empty icon', { icon: '' }],
+    ['an empty install', { install: '' }],
+    ['a non-string icon', { icon: 42 }],
+  ])('drops an entry with %s, keeping the others', (_name, bad) => {
+    const merged = mergeAgents(BUILTIN_AGENTS, [{ ...gemini, ...bad }, aider]);
+
+    expect(merged).toEqual([...BUILTIN_AGENTS, aider]);
   });
 });

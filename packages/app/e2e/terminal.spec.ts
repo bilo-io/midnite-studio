@@ -113,24 +113,56 @@ test.describe('terminal panel', () => {
     expect(new Set(calls.creates.map((c) => c.sessionId)).size).toBe(2);
   });
 
-  test('a Claude agent row carries the mark and its accent', async ({ page }) => {
+  /**
+   * The `+` menu is flat and iconned now: New Terminal, then the four agents by
+   * name. The `New Agent — ` prefix existed to disambiguate one entry from a
+   * heading; with four named agents the label IS the disambiguation.
+   */
+  test('the + menu names every agent in the roster', async ({ page }) => {
+    await open(page);
+    await toggleTerminal(page);
+    await page.getByRole('button', { name: 'New terminal or agent' }).click();
+
+    for (const label of ['New Terminal', 'Claude Code', 'Antigravity', 'Codex', 'OpenClaude']) {
+      await expect(page.getByRole('menuitem', { name: label, exact: true })).toBeVisible();
+    }
+    await expect(page.getByRole('menuitem', { name: /New Agent —/ })).toHaveCount(0);
+  });
+
+  /**
+   * The whole point of the install probe: a session that would open and
+   * immediately print `command not found` becomes an explanation instead. The
+   * mock bridge reports OpenClaude missing and the other three present, which
+   * mirrors the machine this phase was written on.
+   */
+  test('an uninstalled agent is disabled and says how to install it', async ({ page }) => {
+    await open(page);
+    await toggleTerminal(page);
+    await page.getByRole('button', { name: 'New terminal or agent' }).click();
+
+    const missing = page.getByRole('menuitem', { name: 'OpenClaude', exact: true });
+    await expect(missing).toBeDisabled();
+    await expect(missing).toHaveAttribute('title', 'npm i -g @gitlawb/openclaude');
+
+    // Only that one — a probe result must not cost the agents that ARE there.
+    await expect(page.getByRole('menuitem', { name: 'Codex', exact: true })).toBeEnabled();
+  });
+
+  test('an agent row carries its own mark and its own accent', async ({ page }) => {
     await open(page);
     await toggleTerminal(page);
 
     await page.getByRole('button', { name: 'New terminal or agent' }).click();
-    await page.getByRole('menuitem', { name: /New Agent — Claude/ }).click();
+    await page.getByRole('menuitem', { name: 'Claude Code', exact: true }).click();
 
     await expect(rows(page)).toHaveCount(2);
     /*
-      Phase 19 split the row's label in two — the repo name, then the session's
-      own name — so the old single `Claude · midnite-git` string no longer
-      exists anywhere in the DOM, and this assertion had been failing on `main`
-      ever since. Asserting the two spans separately is what that change
-      actually made true.
+      Visible, not merely present. The name span used to be `flex-1` against a
+      `shrink` repo name — basis zero against basis auto — so at the list's
+      default width it collapsed to nothing and the row named its repo twice
+      while saying nothing about which agent was running in it.
     */
-    const agentRow = page.locator('[data-session-row]').nth(1);
-    await expect(agentRow.locator('button span.truncate').first()).toHaveText('midnite-git');
-    await expect(agentRow.locator('button span.truncate').last()).toHaveText('Claude');
+    await expect(page.locator('[data-session-name]', { hasText: 'Claude Code' })).toBeVisible();
 
     // The accent comes from the roster, not from a switch in the component —
     // #D97757 is Claude's, and a mark painted in the default foreground means
@@ -138,11 +170,44 @@ test.describe('terminal panel', () => {
     // its first svg; the close button's is the other one.
     const accent = await page
       .locator('[data-session-row]')
-      .filter({ hasText: 'Claude' })
+      .filter({ hasText: 'Claude Code' })
       .locator('svg')
       .first()
       .evaluate((node) => getComputedStyle(node).color);
     expect(accent).toBe('rgb(217, 119, 87)');
+  });
+
+  /**
+   * The registry's reason for existing. Two agent rows, two DIFFERENT marks and
+   * two different accents — the version of `SessionIcon` this phase replaced
+   * would have painted both of them Claude's.
+   */
+  test('two agents from the same roster get different marks', async ({ page }) => {
+    await open(page);
+    await toggleTerminal(page);
+
+    for (const label of ['Claude Code', 'Codex']) {
+      await page.getByRole('button', { name: 'New terminal or agent' }).click();
+      await page.getByRole('menuitem', { name: label, exact: true }).click();
+    }
+
+    const markOf = async (label: string) =>
+      page
+        .locator('[data-session-row]')
+        .filter({ hasText: label })
+        .locator('svg')
+        .first()
+        .evaluate((node) => ({
+          color: getComputedStyle(node).color,
+          shape: node.innerHTML,
+        }));
+
+    const claude = await markOf('Claude Code');
+    const codex = await markOf('Codex');
+
+    expect(claude.color).toBe('rgb(217, 119, 87)');
+    expect(codex.color).toBe('rgb(16, 163, 127)');
+    expect(claude.shape).not.toBe(codex.shape);
   });
 
   test('the session list docks to either side', async ({ page }) => {
@@ -325,10 +390,13 @@ test.describe('terminal panel', () => {
 
     await expect(rows(page)).toHaveCount(3);
     // Dimmed: no pty was created for any of them, so every label is muted.
-    // The session-name span (`flex-1`) is the one that carries the state — its
-    // sibling repo-name span is muted at BOTH densities, so a match on it says
-    // nothing about whether the session is live.
-    const labels = page.locator('[data-session-row] span.flex-1');
+    /*
+      The session-name span is the one that carries the state — its sibling
+      repo-name span is muted whether the session is live or not, so a locator
+      matching BOTH (`span.truncate` did, once Phase 19 split the row in two)
+      asserts on whichever came first and proves nothing.
+    */
+    const labels = page.locator('[data-session-name]');
     for (let i = 0; i < 3; i += 1) {
       await expect(labels.nth(i)).toHaveClass(/text-muted-foreground/);
     }
@@ -433,7 +501,7 @@ test.describe('terminal panel', () => {
     expect(await titles()).toEqual([
       'midnite-git · Terminal',
       'other-repo · Terminal',
-      'midnite-git · Claude',
+      'midnite-git · Claude Code',
     ]);
 
     const first = (await page.locator('[data-session-row]').first().boundingBox())!;
@@ -448,7 +516,7 @@ test.describe('terminal panel', () => {
 
     expect(await titles()).toEqual([
       'other-repo · Terminal',
-      'midnite-git · Claude',
+      'midnite-git · Claude Code',
       'midnite-git · Terminal',
     ]);
   });

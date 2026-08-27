@@ -1,18 +1,17 @@
-import { BUILTIN_AGENTS, type AgentDefinition } from '@midnite/git-shared';
-import { useQuery } from '@tanstack/react-query';
+import { type AgentDefinition } from '@midnite/git-shared';
 import { useEffect } from 'react';
 
 import { useDialogs } from '../../components/dialog-host';
-import type { MenuItem } from '../../components/context-menu';
 import { ResizeHandle } from '../../components/resizable/resize-handle';
 import { useResizable } from '../../components/resizable/use-resizable';
-import { bridge, hasBridge } from '../../services/bridge';
 import { useRepos } from '../../services/queries';
 import { DEFAULT_LAYOUT, LAYOUT_BOUNDS, useUiStore } from '../../store/ui-store';
+import { buildNewSessionMenu } from './new-session-menu';
 import { TerminalHeader } from './terminal-header';
 import { TerminalSessionList } from './terminal-session-list';
 import { useTerminalStore } from './terminal-store';
 import { TerminalView } from './terminal-view';
+import { useAgents } from './use-agents';
 
 /**
  * The terminal pane: chrome, the session list, and every session's xterm.
@@ -35,7 +34,7 @@ export function TerminalPanel({ cwd, repoId, repoName }: TerminalPanelProps) {
   const layout = useUiStore((s) => s.layout);
   const setLayout = useUiStore((s) => s.setLayout);
 
-  const agents = useAgents();
+  const { agents, status } = useAgents();
   // For the header's path: which registered checkout the cwd is standing in.
   const { data: repos } = useRepos();
 
@@ -92,19 +91,13 @@ export function TerminalPanel({ cwd, repoId, repoName }: TerminalPanelProps) {
    */
   const showNewMenu = (event: React.MouseEvent<HTMLElement>) => {
     const rect = event.currentTarget.getBoundingClientRect();
-    const items: MenuItem[] = [
-      {
-        label: 'New Terminal',
-        onSelect: () => openNew(),
-        ...(cwd ? {} : { disabled: true, disabledReason: 'No worktree selected' }),
-      },
-      ...(agents.length > 0 ? [{ type: 'separator' as const }] : []),
-      ...agents.map((agent) => ({
-        label: `New Agent — ${agent.label}`,
-        onSelect: () => openNew(agent),
-        ...(cwd ? {} : { disabled: true, disabledReason: 'No worktree selected' }),
-      })),
-    ];
+    const items = buildNewSessionMenu({
+      agents,
+      status,
+      hasWorktree: Boolean(cwd),
+      onNewTerminal: () => openNew(),
+      onNewAgent: (agent) => openNew(agent),
+    });
     dialogs.openMenu({ clientX: rect.left, clientY: rect.bottom }, items);
   };
 
@@ -171,22 +164,6 @@ export type TerminalPanelProps = {
   repoId: string | null;
   repoName: string;
 };
-
-/**
- * The agent roster: builtins merged with the user's `agents.json`.
- *
- * Queried rather than imported so an edit to that file shows up on the next
- * launch without a rebuild. The builtins are the placeholder while it loads,
- * and the fallback when there is no bridge at all (jsdom, the e2e harness).
- */
-function useAgents(): AgentDefinition[] {
-  const { data } = useQuery({
-    queryKey: ['agents'],
-    queryFn: async () => (await bridge()?.agent.list())?.agents ?? [...BUILTIN_AGENTS],
-    enabled: hasBridge(),
-  });
-  return data ?? [...BUILTIN_AGENTS];
-}
 
 /**
  * What to type into an agent session once its shell is up.

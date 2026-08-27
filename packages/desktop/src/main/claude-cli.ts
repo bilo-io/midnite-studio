@@ -1,5 +1,3 @@
-import { spawn } from 'node:child_process';
-
 import type { BrowserWindow } from 'electron';
 
 import {
@@ -9,54 +7,22 @@ import {
   type ClaudeInstallMethod,
 } from '@midnite/git-shared';
 
+import { parseWhichOutput, runInShell } from './login-shell';
+
 /**
  * The Claude CLI, from the app's point of view: what version is installed,
  * how it got there, and running the matched update with streamed output.
  *
- * Probes run through a login+interactive shell (`-lic`) — the same trick
- * shell-path.ts uses and the reason Phase 15's agents type `claude` into a
- * shell instead of spawning the binary: nvm/asdf-managed installs only exist
- * on the PATH a real shell builds. Everything fails soft — a machine without
- * `claude` gets `installed: false`, never a rejection.
+ * Probes run through `login-shell.ts` — the `-lic` trick this file used to own
+ * outright, and the reason Phase 15's agents type `claude` into a shell instead
+ * of spawning the binary: nvm/asdf-managed installs only exist on the PATH a
+ * real shell builds. Phase 21's roster gave that trick a second caller
+ * (`agent-probe.ts`), which is why it moved. Everything still fails soft — a
+ * machine without `claude` gets `installed: false`, never a rejection.
  */
 
 const PROBE_TIMEOUT_MS = 8_000;
 const UPDATE_TIMEOUT_MS = 5 * 60_000;
-
-const loginShell = (): string =>
-  process.env['SHELL'] ?? (process.platform === 'darwin' ? '/bin/zsh' : '/bin/bash');
-
-/** Run one command line in a login shell, capturing combined output. */
-function runInShell(
-  command: string,
-  timeoutMs: number,
-  onChunk?: (chunk: string) => void,
-): Promise<{ output: string; exitCode: number | null }> {
-  return new Promise((resolvePromise) => {
-    const child = spawn(loginShell(), ['-lic', command], {
-      env: { ...process.env },
-      stdio: ['ignore', 'pipe', 'pipe'],
-    });
-    let output = '';
-    const collect = (data: Buffer): void => {
-      const text = data.toString('utf8');
-      output += text;
-      onChunk?.(text);
-    };
-    child.stdout.on('data', collect);
-    child.stderr.on('data', collect);
-
-    const timer = setTimeout(() => child.kill('SIGKILL'), timeoutMs);
-    child.on('error', () => {
-      clearTimeout(timer);
-      resolvePromise({ output, exitCode: null });
-    });
-    child.on('close', (code) => {
-      clearTimeout(timer);
-      resolvePromise({ output, exitCode: code });
-    });
-  });
-}
 
 /**
  * The version from `claude --version` output. The CLI prints
@@ -84,15 +50,6 @@ export function detectInstallMethod(binPath: string | null): ClaudeInstallMethod
   if (/\/(?:homebrew|Homebrew|Cellar|linuxbrew)\//.test(binPath)) return 'brew';
   if (/\/\.local\//.test(binPath)) return 'native';
   return 'unknown';
-}
-
-/** The last non-empty line that looks like an absolute path — shells print banners. */
-export function parseWhichOutput(output: string): string | null {
-  const lines = output
-    .split('\n')
-    .map((line) => line.trim())
-    .filter((line) => line.startsWith('/'));
-  return lines[lines.length - 1] ?? null;
 }
 
 export async function getClaudeInfo(timeoutMs = PROBE_TIMEOUT_MS): Promise<ClaudeInfo> {

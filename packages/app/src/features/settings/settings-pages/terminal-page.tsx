@@ -1,11 +1,7 @@
-import { useQuery } from '@tanstack/react-query';
-
 import { Accordion } from '@bilo-io/ui';
 import { LuBot, LuSquareTerminal } from 'react-icons/lu';
 
-import { BUILTIN_AGENTS, type AgentDefinition } from '@midnite/git-shared';
-
-import { bridge, hasBridge } from '../../../services/bridge';
+import { useAgents } from '../../terminal/use-agents';
 import { useUiStore, type TerminalSidebarSide } from '../../../store/ui-store';
 import { Choice, Field } from './controls';
 
@@ -17,12 +13,13 @@ import { Choice, Field } from './controls';
 export function TerminalPage() {
   const side = useUiStore((s) => s.terminalSidebarSide);
   const setSide = useUiStore((s) => s.setTerminalSidebarSide);
-  const { data } = useQuery({
-    queryKey: ['agents'],
-    queryFn: async () => (await bridge()?.agent.list())?.agents ?? [...BUILTIN_AGENTS],
-    enabled: hasBridge(),
-  });
-  const agents: AgentDefinition[] = data ?? [...BUILTIN_AGENTS];
+  /*
+    Through the shared hook, not a second `useQuery` on the same key. React
+    Query keys by KEY, not by query function — two `['agents']` observers with
+    differently-shaped `queryFn`s share whichever answer landed first, and the
+    loser destructures a shape it was never written for.
+  */
+  const { agents } = useAgents();
 
   return (
     <div className="flex flex-col gap-3">

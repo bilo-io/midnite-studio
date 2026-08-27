@@ -1,6 +1,7 @@
 import { CHANNELS, schemas } from '@midnite/git-shared';
 import { ipcMain } from 'electron';
 
+import { agentStatusWithin } from '../agent-probe';
 import {
   forgetTerminal,
   listAgents,
@@ -20,7 +21,19 @@ import { handleBare } from './handle';
  */
 export function registerTerminalHandlers(): void {
   handleBare(CHANNELS.terminalList, async () => ({ sessions: await listTerminals() }));
-  handleBare(CHANNELS.agentList, async () => ({ agents: await listAgents() }));
+  /*
+    The roster and what this machine has of it, in one answer. `status` may be
+    shorter than `agents`, or empty outright — a probe that could not resolve an
+    entry omits it rather than calling it missing, and one that has not answered
+    inside `FIRST_ANSWER_MS` ships nothing at all rather than making a file read
+    wait on a login shell. The renderer reads absent as "assume it works", so
+    every one of those degradations costs the menu an explanation and never an
+    item.
+  */
+  handleBare(CHANNELS.agentList, async () => {
+    const agents = await listAgents();
+    return { agents, status: await agentStatusWithin(agents) };
+  });
 
   ipcMain.on(CHANNELS.terminalSave, (_event, raw: unknown) => {
     const parsed = schemas.TerminalSaveRequest.safeParse(raw);

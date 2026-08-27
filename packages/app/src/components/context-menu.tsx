@@ -1,4 +1,4 @@
-import { useEffect, useLayoutEffect, useRef, useState } from 'react';
+import { useEffect, useLayoutEffect, useRef, useState, type CSSProperties } from 'react';
 
 import { ChevronRight } from 'lucide-react';
 
@@ -25,6 +25,15 @@ type MenuEntryBase = {
    * menu asks for it — see `ContextMenu`.
    */
   icon?: IconComponent;
+  /**
+   * Inline style for the icon, overriding its default muted tint.
+   *
+   * Inline is the only route open to it: the one caller is the terminal's `+`
+   * menu, painting each agent's `accent`, and an accent is roster data — a
+   * user-added agent brings a colour Tailwind has never seen. The same reason
+   * `SessionIcon` styles its mark inline rather than by class.
+   */
+  iconStyle?: CSSProperties;
   disabled?: boolean;
   /** Reason the item is unavailable, shown on hover. */
   disabledReason?: string;
@@ -166,7 +175,11 @@ function MenuRow({
       >
         {iconed ? (
           Icon ? (
-            <Icon aria-hidden className="h-3.5 w-3.5 shrink-0 text-muted-foreground" />
+            <Icon
+              aria-hidden
+              className="h-3.5 w-3.5 shrink-0 text-muted-foreground"
+              {...(item.iconStyle ? { style: item.iconStyle } : {})}
+            />
           ) : (
             <span aria-hidden className="h-3.5 w-3.5 shrink-0" />
           )
