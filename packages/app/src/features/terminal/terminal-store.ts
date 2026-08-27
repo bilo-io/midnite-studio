@@ -245,8 +245,10 @@ export const useTerminalStore = create<TerminalState>()((set, get) => ({
 
   setAutoName: (sessionId, name) =>
     set((state) => {
-      if (state.autoNames[sessionId] === name) return state;
-      return { autoNames: { ...state.autoNames, [sessionId]: name } };
+      const cleaned = cleanAutoName(name);
+      if (cleaned === undefined) return state;
+      if (state.autoNames[sessionId] === cleaned) return state;
+      return { autoNames: { ...state.autoNames, [sessionId]: cleaned } };
     }),
 
   setActivity: (sessionId, activity) =>
@@ -317,6 +319,45 @@ function dropKey(
   delete autoNames[sessionId];
   delete activity[sessionId];
   return { ptyIds, states, replay, errors, pendingInput, autoNames, activity };
+}
+
+/**
+ * Anything an agent's window title is decorating itself WITH rather than
+ * naming itself by: Claude Code's spinner asterisk (`✳`), the emoji and
+ * dingbats other CLIs reach for, and Nerd Font glyphs from the private use
+ * area.
+ *
+ * The joiners come first, as alternatives rather than class members. A
+ * variation selector or a ZWJ inside a character class is what
+ * `no-misleading-character-class` exists to catch — they combine with the
+ * neighbouring codepoint rather than standing as one — but they still have to
+ * be removed: strip the parts of a multi-codepoint emoji and the glue left
+ * behind renders as a stray box.
+ */
+const DECORATIVE_GLYPHS =
+  /\u{FE0E}|\u{FE0F}|\u{200D}|\u{20E3}|[\u{1F000}-\u{1FAFF}\u{2190}-\u{2BFF}\u{E000}-\u{F8FF}]/gu;
+
+/**
+ * A window title, reduced to the words in it.
+ *
+ * An agent's OSC title is written for a terminal tab, not for this list: Claude
+ * Code prefixes its own with the spinner glyph it animates in the TUI, which
+ * arrives here as a coloured emoji square sitting where an icon already is —
+ * the row's Claude mark says which agent this is, so the copy of it inside the
+ * label was only noise. Nerd Font powerline separators come through the private
+ * use area for the same reason and go the same way.
+ *
+ * Returns `undefined` when nothing legible survives, so a title that was ONLY
+ * decoration leaves the previous guess standing rather than blanking the row.
+ */
+export function cleanAutoName(name: string): string | undefined {
+  const stripped = name
+    .replace(DECORATIVE_GLYPHS, '')
+    // Collapse what the removal left behind — a stripped prefix leaves a
+    // leading space, and `✳ ✳ name` left two.
+    .replace(/\s+/g, ' ')
+    .trim();
+  return stripped === '' ? undefined : stripped;
 }
 
 /**
