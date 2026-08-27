@@ -156,24 +156,15 @@ function SessionRow({
       // A drag gesture needs a row to grab by; the close button and the label
       // are both inside it and neither is the drag handle.
       data-session-row
-      className={`group flex w-full items-center gap-1.5 px-2 py-1 text-xs ${
+      className={`group flex w-full cursor-pointer items-center gap-1.5 px-2 py-1.5 text-xs ${
         active ? 'bg-accent/60' : 'hover:bg-accent/30'
       } ${isDragging ? 'opacity-80' : ''}`}
       onContextMenu={showMenu}
+      onClick={() => useTerminalStore.getState().setActive(session.id)}
+      onDoubleClick={rename}
     >
-      <button
-        type="button"
+      <div
         className="flex min-w-0 flex-1 items-center gap-1 text-left"
-        onClick={() => useTerminalStore.getState().setActive(session.id)}
-        /*
-          The rename gesture, and now the only one on the row itself — a hover
-          pencil sat here too until it was removed. Double-click IS how a name
-          in a list gets edited (Finder, VS Code's tabs, a spreadsheet cell), so
-          the button was a second control for a thing the row already did, and
-          it cost the row width every session paid for and few needed. The
-          context menu keeps the discoverable, keyboard-reachable route.
-        */
-        onDoubleClick={rename}
       >
         <SessionIcon agent={runningAgent} live={live} />
         {/*
@@ -217,7 +208,7 @@ function SessionRow({
         >
           {name}
         </span>
-      </button>
+      </div>
 
       {/*
         Only a live agent gets one. A plain shell has no footer to read the
@@ -233,7 +224,10 @@ function SessionRow({
         label="Close terminal"
         size="sm"
         className="opacity-0 group-hover:opacity-100"
-        onClick={() => useTerminalStore.getState().closeSession(session.id)}
+        onClick={(event) => {
+          event.stopPropagation();
+          useTerminalStore.getState().closeSession(session.id);
+        }}
       />
     </div>
   );
