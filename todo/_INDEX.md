@@ -20,7 +20,7 @@ Completed work is logged append-only in [`done.md`](done.md). Deferred scope liv
 
 | Phase | Status | Refined | Done | Progress | % | 🔄 WIP | ◻ TODO |
 |-------|--------|---------|------|----------|---|--------|--------|
-| [27 · The footer becomes a status bar, and the browser it makes room for](phase-27-status-bar-and-browser-panel.md) | ◻ TODO | — | 0/66 | `░░░░░░░░░░` | 0% | — | A–H |
+| [27 · The footer becomes a status bar, and the browser it makes room for](phase-27-status-bar-and-browser-panel.md) | ◻ TODO | x1 | 0/89 | `░░░░░░░░░░` | 0% | — | A–H |
 | [26 · Side by side, and the room to show it](phase-26-side-by-side-diffs.md) | ◻ TODO | — | 0/68 | `░░░░░░░░░░` | 0% | — | A–H |
 | [25 · Search everywhere, and the blame that explains it](phase-25-search-everywhere.md) | ◻ TODO | x1 | 0/101 | `░░░░░░░░░░` | 0% | — | A–F |
 | [24 · The explorer learns to write, and to search](phase-24-writable-explorer.md) | ◻ TODO | — | 0/53 | `░░░░░░░░░░` | 0% | — | A–G |
@@ -57,32 +57,47 @@ Completed work is logged append-only in [`done.md`](done.md). Deferred scope liv
 ### [Phase 27 — The footer becomes a status bar, and the browser it makes room for](phase-27-status-bar-and-browser-panel.md)
 
 *The footer has been a 24px strip since Phase 9 and has never spanned the app: it is mounted as the last
-child of the content column, so it begins at the repositories panel's right edge. Moving it one level up
-is Theme A and is ten lines. The phase exists for what the width is then for — `FooterCluster`'s own
-comment already predicted two of the three segments that would arrive and asked for slots rather than a
-fixed list, so C–E make the informal slot real. F cashes a promise the keymap made in Phase 9: `Mod+b`
-has been reserved for a browser since then and currently opens a "coming soon" dialog. No git command,
-no IPC channel, no zod schema — `StatusResult.inProgress` and the existing mutations are the only
-sources.*
+child of the content column (`app.tsx:773`), so it begins at the repositories panel's right edge. Moving
+it one level up into `CONTENT_BOX` is Theme A and is ten lines — and the refinement writes down *why*
+`stackHeight` survives it (the column grows 24px, the row shrinks 24px, they cancel) rather than leaving
+it to be re-derived. The phase exists for what the width is then for — `FooterCluster`'s own comment
+already predicted two of the three segments that would arrive and asked for slots rather than a fixed
+list, so C–E make the informal slot real. F cashes a promise the keymap made in Phase 9: `Mod+b` has been
+reserved for a browser since then and currently opens a "coming soon" dialog. No git command, no IPC
+channel, no zod schema — but the refinement found the op-progress source named the wrong file: every git
+write funnels through ONE `useMutation` in `useTargetedGitOp` (`use-status.ts:262`), not through
+`queries.ts`, so D threads a required `opId` through 31 call sites instead.*
 
 - ◻ **A** — `<FooterBar />` moves out of the content column into `CONTENT_BOX`; `stackHeight` proved
-  still correct (it is measured, not computed) and the two now-false geometry comments rewritten.
+  still correct with the cancellation argument written down, the two now-false geometry comments
+  rewritten, plus the `data-testid` the bar has never had and the fix to `footer-monitor.spec.ts:222`,
+  which asserts a branch name the footer stopped rendering and **fails today**.
 - ◻ **B** — `features/status-bar/` at last: the file imports diagnostics, monitor and the ui-store and
-  the only terminal thing in it is one button. `FooterBar` → `StatusBar`, no compat shim.
-- ◻ **C** — static composition, not a registration store: `{id, zone, priority, El}`, three zones, and
-  the rule that a segment with nothing to say renders nothing — which is how the existing two behave.
-- ◻ **D** — five segments off state the app already has: active worktree, `useIsMutating` op progress,
-  `inProgress` mid-operation (the one sanctioned exception to the title-bar duplication rule), agent
-  count, and the test/checks verdict Phase 18 reserved a slot for and Phase 17 never filled.
-- ◻ **E** — measured two-stage overflow: labels → icons → a priority-ordered `…` popover, with
-  hysteresis so dragging the repos splitter does not flicker segments.
-- ◻ **F** — `browser.open` → `browser.toggle`, `browserOpen` persisted like `reposOpen`, and a chrome
-  stub with **no engine** sliding over the whole content row — leaving the bar visible, which is the
-  phase's own demonstration.
-- ◻ **G** — real targets, tooltips at `compact`, `aria-live` on progress and *never* on the monitor,
-  and a focus trap on the pane.
-- ◻ **H** — segment/overflow unit tests, a `status-bar.spec.ts` asserting the left edge that would have
-  failed before Theme A, a browser-pane spec, and the terminal-maximize regression guard.
+  the only terminal thing in it is one button. `FooterBar` → `StatusBar`, no compat shim, and
+  `chordFor`/`displayChord` come along as real exports — they are module-local today, not keymap ones.
+- ◻ **C** — static composition, not a registration store: `{id, zone, priority, El}`, three zones as a
+  `1fr_auto_1fr` grid so the centre cannot drift, and the rule that a segment with nothing to say
+  renders nothing — mapped with no wrapper element, or `gap-3` leaves a hole per absent segment.
+- ◻ **D** — five segments off state the app already has: active worktree, op progress from a threaded
+  `opId` (ranked, with `+N` when two run, silent on failure), `inProgress` mid-operation (the one
+  sanctioned exception to the title-bar duplication rule), the agent count — from `terminal-store`, not
+  the `use-agents` roster the doc wrongly named — and the tests/checks verdicts, now with the
+  aggregation rules they lacked: worst-of across suites, and the PR for the checked-out branch.
+- ◻ **E** — two-stage overflow measured from content rather than px breakpoints: labels → icons → a
+  priority-ordered `…` popover, with an asymmetric 24px hysteresis band so dragging the repos splitter
+  cannot flicker. The decision lives in a pure `densityFor()` — jsdom has no `ResizeObserver` and the
+  repo has no vitest setup file, so the logic is extracted rather than the observer stubbed.
+- ◻ **F** — `browser.open` → `browser.toggle` (three sites, and a native-menu item that does **not**
+  exist yet), `browserOpen` persisted like `reposOpen` but with no version bump — the store's custom
+  `merge` already fills a missing key — and a chrome stub with **no engine** sliding over the whole
+  content row, leaving the bar visible, which is the phase's own demonstration.
+- ◻ **G** — real targets, tooltips at `compact`, `aria-live` on progress and *never* on the monitor, and
+  a focus trap that this phase must **extract** (`use-focus-trap.ts`) rather than reuse: the popover's is
+  inlined around its own ref. Phase 23's Theme H shrinks to the retrofit.
+- ◻ **H** — pure-function unit tests (the repo has zero rendered-component tests), a `merge` rather than
+  `migrate` persistence test, a `status-bar.spec.ts` asserting the left edge that would have failed
+  before Theme A, a browser-pane spec, and the terminal-maximize regression guard the existing
+  height-only assertion never was.
 
 ### [Phase 25 — Search everywhere, and the blame that explains it](phase-25-search-everywhere.md)
 
