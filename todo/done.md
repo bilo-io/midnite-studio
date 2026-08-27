@@ -2,6 +2,57 @@
 
 <!-- Append one entry per landed phase/PR: date, phase, PR link, one-line summary. -->
 
+## 2026-08-27 — Phase 20 · Theme C — PR detail: files, conversation and checks
+
+Landed on `feature/phase-20-pr-detail` (squash-merged locally — this checkout has no GitHub
+remote, so there is no PR link). Phase 17 shipped the Reviews tab as a summary and a link out,
+and Phase 19 explicitly parked the rest; this is that parked work. Opening a pull request now
+shows its diff, its discussion and its CI verdict without leaving the window.
+
+### What landed
+
+- [x] New `mgit:forge:pull-files` channel (`repoId` + PR number) — **bare `gh pr diff`, not
+      `--patch`**: the phase doc named `--patch`, which asks GitHub for `git format-patch` output
+      (one mbox entry per commit, so a file touched twice appears twice and every mbox header
+      after the first is swallowed as diff body). Verified against `cli/cli#14255` — 16 sections
+      for 14 files with `--patch`, exactly 14 without. Parsed in main by git-engine's **existing**
+      hunk parser through a new `parseMultiFileDiff` entry point over the same `parseSection`, so
+      a PR diff and a `git diff` agree about renames, combined hunks and the line cap by
+      construction. Capped by bytes, preferring a file boundary (half a hunk is not a diff) but
+      falling back to a whole-line slice for the two shapes that have no boundary — a one-file
+      patch and a header-less one — because a cap that can be escaped is not a cap
+- [x] New `mgit:forge:pull-comments` channel — `issues/{n}/comments` and `pulls/{n}/reviews`
+      fetched concurrently and merged into one chronological thread in main, as a `ForgeComment`
+      with a `kind` discriminator. A `PENDING` review and the empty `COMMENTED` shell around
+      inline comments are both dropped: neither is a verdict anyone published
+- [x] New `mgit:forge:pull-detail` channel (beyond the theme's spec) — `gh pr view --json` for the
+      body, base branch, line counts, `mergeable` and the head sha, which no listing field carries
+      and the Checks tab is built on. Its own channel rather than a widening of `listPulls`, which
+      Theme B is rewriting
+- [x] `ReviewView` rebuilt into a tabbed PR detail under `app/src/features/reviews/` — **Files**,
+      **Conversation**, **Checks** — with `forge-detail.tsx`'s `ReviewView` reduced to a one-line
+      delegation so the Reviews *view* (Theme A) mounts the same component
+- [x] Files tab renders each changed file through the existing `DiffView`, first three expanded,
+      matching the Changes page's accordion row rather than inventing a second layout. No
+      `onExpandContext`: expanding context is a refetch, and `gh pr diff` has no per-file form
+- [x] Conversation tab lists the merged thread read-only, markdown-rendered with no `rehype-raw`,
+      review verdicts riding the same `StatusPill` the sidebar row uses
+- [x] Checks tab mounts the Phase 19 `RunDetail` unchanged, resolving the PR's **head sha** against
+      the cached run listing — no third subprocess, and correct after a force-push in a way
+      branch-matching would not be
+- [x] Handlers resolve owner/repo in main from `.git/config`; the renderer sends only a `repoId`
+      and a PR number the schema bounds to a positive integer before it reaches a command line
+- [x] Tests: `parseMultiFileDiff` (ordering, per-section classification, empty-section drop,
+      per-file line cap), `parsePullDetail`/`parseIssueComments`/`parsePullReviews`/
+      `mergeConversation`, `stripPatchPreamble` and `capPatch` under bare vitest; three new schema
+      guards in `ipc.test.ts`; seven Playwright specs in `reviews.spec.ts` plus a
+      `reviews-shots.spec.ts` producing the four committed screenshots
+
+### Open
+
+- The two human passes named in the phase's Verification list are Theme F's and D's, not this
+  one's. Nothing from Theme C is left for a human.
+
 ## 2026-08-27 — Phase 19 · Themes F+G — Tests discovery and execution
 
 Landed on `feature/phase-19-tests` (squash-merged locally — this checkout has no GitHub remote, so

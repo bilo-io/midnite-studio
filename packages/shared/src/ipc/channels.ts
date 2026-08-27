@@ -65,6 +65,22 @@ export const CHANNELS = {
   forgeRuns: 'mgit:forge:runs',
   /** Open pull requests for the repo's GitHub remote. */
   forgePulls: 'mgit:forge:pulls',
+  /*
+    The three channels below serve ONE opened pull request, and each is its own
+    call for the same reason `forgeWorkflows` is separate from `forgeRuns`: the
+    body, the patch and the conversation are payloads that dwarf the listing row
+    they hang off, and a combined channel would make opening a PR fetch all
+    three whichever tab the reader actually wanted.
+
+    All three take a `repoId` and a PR number. Owner and repo are resolved in
+    main from `.git/config`, never sent — see forge-handlers.ts.
+  */
+  /** One PR's metadata: body, head sha, base branch, line counts. */
+  forgePullDetail: 'mgit:forge:pull-detail',
+  /** One PR's diff, parsed into per-file hunks in main and capped by bytes. */
+  forgePullFiles: 'mgit:forge:pull-files',
+  /** One PR's top-level conversation — discussion comments and review submissions. */
+  forgePullComments: 'mgit:forge:pull-comments',
   /**
    * Issues for the repo's GitHub remote.
    *

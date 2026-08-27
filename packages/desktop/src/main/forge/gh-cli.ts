@@ -1,24 +1,34 @@
 import { spawn } from 'node:child_process';
 
-import type {
-  Forge,
-  ForgeCliStatus,
-  ForgeIssuesResult,
-  ForgePullsResult,
-  ForgeRunDetail,
-  ForgeRunDetailResult,
-  ForgeRunLog,
-  ForgeRunLogResult,
-  ForgeRunsResult,
-  ForgeWorkflowsResult,
+import { parseMultiFileDiff } from '@midnite/git-engine';
+import {
+  DIFF_DEFAULT_CONTEXT,
+  PULL_PATCH_BYTE_CAP,
+  type Forge,
+  type ForgeCliStatus,
+  type ForgeIssuesResult,
+  type ForgePullCommentsResult,
+  type ForgePullDetailResult,
+  type ForgePullFilesResult,
+  type ForgePullsResult,
+  type ForgeRunDetail,
+  type ForgeRunDetailResult,
+  type ForgeRunLog,
+  type ForgeRunLogResult,
+  type ForgeRunsResult,
+  type ForgeWorkflowsResult,
 } from '@midnite/git-shared';
 
 import {
   isAuthenticated,
   isIssuesDisabled,
+  mergeConversation,
+  parseIssueComments,
   parseIssueList,
   parseJsonPayload,
+  parsePullDetail,
   parsePullList,
+  parsePullReviews,
   parseRunDetail,
   parseRunList,
   parseRunLog,
@@ -216,6 +226,16 @@ const ISSUE_FIELDS = 'number,title,state,author,labels,assignees,updatedAt,creat
 const WORKFLOW_FIELDS = 'id,name,path,state';
 const PULL_FIELDS =
   'number,title,state,isDraft,reviewDecision,headRefName,author,url,statusCheckRollup';
+/*
+  `gh pr view --json` accepts every `pr list` field plus the ones only a single
+  PR has. `headRefOid` is the one that matters most here: it is the head sha the
+  Checks tab matches against `ForgeRun.headSha`, and no listing field carries
+  it. `body`, `additions`, `deletions` and `changedFiles` are the detail
+  header's own facts.
+*/
+const PULL_DETAIL_FIELDS =
+  `${PULL_FIELDS},body,headRefOid,baseRefName,additions,deletions,changedFiles,` +
+  'createdAt,updatedAt,mergeable';
 
 /** The longest an error message may be before it stops being one. */
 const FAILURE_MESSAGE_MAX = 300;
@@ -284,6 +304,256 @@ export async function listPulls(
     return { cli, pulls: [], error: describeFailure(result.output) };
   }
   return { cli, pulls: parsePullList(payload), error: null };
+}
+
+/**
+ * One pull request's own facts — the half a listing row does not carry.
+ *
+ * Paid only when a PR is opened. Everything the sidebar draws already came with
+ * `listPulls`, so this second subprocess buys the body, the head sha and the
+ * line counts, and nothing the list could have supplied.
+ */
+export async function pullDetail(forge: Forge, number: number): Promise<ForgePullDetailResult> {
+  const cli = await ghStatus();
+  if (cli.reason !== 'ready') return { cli, detail: null, error: null };
+
+  const command = `gh pr view ${number} ${repoFlag(forge)} --json ${PULL_DETAIL_FIELDS}`;
+
+  const result = await runInShell(command, LIST_TIMEOUT_MS);
+  const payload = parseJsonPayload(result.output);
+  const detail = payload === null ? null : parsePullDetail(payload);
+  if (detail === null) {
+    invalidateGhProbe();
+    return { cli, detail: null, error: describeFailure(result.output) };
+  }
+  return { cli, detail, error: null };
+}
+
+/**
+ * Drop whatever a login shell printed before the patch began.
+ *
+ * The JSON callers seek to the first brace; a patch has no brace to seek to, so
+ * the recognisable boundary is `diff --git`. Like `stripShellPreamble`, this
+ * gives up rather than guessing: a patch with no such header is passed through
+ * whole, because `parseMultiFileDiff` handles a header-less section and a
+ * heuristic that ate output it did not understand would silently lose files.
+ */
+export function stripPatchPreamble(text: string): string {
+  const lines = text.split('\n');
+  const first = lines.findIndex((line) => line.startsWith('diff --git '));
+  if (first <= 0) return text;
+  return lines.slice(first).join('\n');
+}
+
+/**
+ * Cut a patch down to a byte ceiling, preferring a file boundary.
+ *
+ * A boundary, because half a hunk is not a diff: the parser reads a truncated
+ * tail as ordinary body lines and renders a file whose last change silently
+ * vanished. Dropping whole trailing files and counting them is the honest
+ * version of the same cap.
+ *
+ * **But the ceiling is a ceiling.** Two shapes have no boundary to cut at — a
+ * one-file patch, and a header-less one, which `stripPatchPreamble` deliberately
+ * passes through untouched. For those the text is sliced by lines instead:
+ * a truncated diff that says `truncated` is bad, and shipping twenty-eight
+ * megabytes of regenerated lockfile through zod and over IPC is worse. The one
+ * carve-out kept is the FIRST file of a multi-file patch, which survives whole
+ * however large it is — returning nothing at all would report "no changes" for
+ * a pull request that has them.
+ *
+ * Pure, and exported, so the rule can be tested without a subprocess — getting
+ * it wrong is invisible in the UI, which is exactly the failure `ForgeRunLog`'s
+ * head-and-tail contract was written to rule out for logs.
+ */
+export function capPatch(
+  patch: string,
+  byteCap: number,
+): { patch: string; truncated: boolean; omittedFiles: number; totalBytes: number } {
+  const totalBytes = Buffer.byteLength(patch, 'utf8');
+  if (totalBytes <= byteCap) {
+    return { patch, truncated: false, omittedFiles: 0, totalBytes };
+  }
+
+  const lines = patch.split('\n');
+  // Byte cost of each line including the newline that rejoins it, so a prefix
+  // sum answers "how big is the patch up to here" without re-measuring.
+  const cost = lines.map((line) => Buffer.byteLength(line, 'utf8') + 1);
+  const headers: number[] = [];
+  lines.forEach((line, index) => {
+    if (line.startsWith('diff --git ')) headers.push(index);
+  });
+
+  if (headers.length <= 1) {
+    return { patch: sliceLinesToBytes(lines, cost, byteCap), truncated: true, omittedFiles: 0, totalBytes };
+  }
+
+  let bytes = 0;
+  let filesKept = 0;
+  for (let index = 0; index < headers.length; index += 1) {
+    const start = headers[index]!;
+    const end = headers[index + 1] ?? lines.length;
+    let size = 0;
+    for (let line = start; line < end; line += 1) size += cost[line]!;
+
+    // `index > 0` is the carve-out: the first file is always kept, so a
+    // single over-cap file at the head of a patch is still shown.
+    if (index > 0 && bytes + size > byteCap) break;
+    bytes += size;
+    filesKept = index + 1;
+  }
+
+  const cutAt = headers[filesKept] ?? lines.length;
+  return {
+    patch: lines.slice(0, cutAt).join('\n'),
+    truncated: true,
+    omittedFiles: headers.length - filesKept,
+    totalBytes,
+  };
+}
+
+/**
+ * The longest whole-line prefix of `lines` that fits in `byteCap`.
+ *
+ * Lines, not bytes, so the cut can never land inside a multi-byte character —
+ * a patch is arbitrary source text and slicing a UTF-8 sequence in half would
+ * produce a replacement character in the middle of somebody's code.
+ */
+function sliceLinesToBytes(lines: readonly string[], cost: readonly number[], byteCap: number): string {
+  let bytes = 0;
+  let count = 0;
+  for (let index = 0; index < lines.length; index += 1) {
+    if (bytes + cost[index]! > byteCap) break;
+    bytes += cost[index]!;
+    count = index + 1;
+  }
+  return lines.slice(0, count).join('\n');
+}
+
+/**
+ * A pull request's diff, parsed into per-file hunks here in main.
+ *
+ * Bare `gh pr diff`, and **not `--patch`.** They are different formats, and the
+ * flag that reads like "give me the real patch" is the wrong one: `--patch`
+ * requests GitHub's `.patch` media type, which is `git format-patch` output —
+ * one mbox entry PER COMMIT, each with its own `From <sha>` header, subject,
+ * message, `---` separator and diffstat before its own `diff --git` sections.
+ * On a two-commit PR that touches a file twice, the file appears twice, and
+ * every mbox header after the first lands inside the previous file's section
+ * where the parser reads it as diff body. Bare `gh pr diff` is the combined
+ * unified diff — every path exactly once — which is precisely the shape
+ * `parseMultiFileDiff` was written for.
+ *
+ * So it goes through git-engine's parser rather than a second one: renames,
+ * combined hunks and `\ No newline` are already solved there and would be
+ * re-solved slightly differently anywhere else.
+ *
+ * Not cached: unlike a finished run's log, an open PR's diff changes every time
+ * its author pushes, and a cache keyed on the PR number would show yesterday's
+ * patch under today's head sha with nothing saying so.
+ */
+export async function pullFiles(forge: Forge, number: number): Promise<ForgePullFilesResult> {
+  const cli = await ghStatus();
+  if (cli.reason !== 'ready') return { cli, files: null, error: null };
+
+  const command = `gh pr diff ${number} ${repoFlag(forge)}`;
+
+  // `combine: false` for the same reason the log call uses it: this payload is
+  // not JSON, so there is no brace to seek past and a `.zshrc` that greets on
+  // stderr would land inside the patch.
+  const result = await runInShell(command, LIST_TIMEOUT_MS, { combine: false });
+  if (result.exitCode !== 0) {
+    invalidateGhProbe();
+    return { cli, files: null, error: describeFailure(result.stderr) };
+  }
+
+  const patch = stripPatchPreamble(result.stdout);
+  const capped = capPatch(patch, PULL_PATCH_BYTE_CAP);
+  const files = parseMultiFileDiff(capped.patch, {
+    contextLines: DIFF_DEFAULT_CONTEXT,
+    fallbackPath: `pull-${number}`,
+  });
+
+  return {
+    cli,
+    files: {
+      files,
+      truncated: capped.truncated,
+      omittedFiles: capped.omittedFiles,
+      totalBytes: capped.totalBytes,
+    },
+    error: null,
+  };
+}
+
+/**
+ * `gh api` takes its host as `--hostname`, and only `gh api` does.
+ *
+ * The opposite of `repoFlag`'s rule, and the reason both exist: `gh pr view
+ * --hostname x` exits with `unknown flag`, while `gh api --repo x` does the
+ * same. Getting them the wrong way round fails only on GitHub Enterprise,
+ * which is the configuration hardest to notice from here.
+ */
+const apiHostFlag = (forge: Forge): string =>
+  forge.host === 'github.com' ? '' : ` --hostname ${shellQuote(forge.host)}`;
+
+/**
+ * How much of a conversation is worth reading in a git client.
+ *
+ * One page. A PR with more than a hundred comments is one whose discussion
+ * belongs on GitHub, and `--paginate` on a thread that long is several
+ * sequential API calls for prose nobody scrolls to in this window.
+ */
+const CONVERSATION_PAGE = 100;
+
+/**
+ * A pull request's top-level conversation, from both of GitHub's collections.
+ *
+ * Two calls, run concurrently. They are separate REST resources — discussion
+ * comments hang off the issue, review submissions off the pull — and neither
+ * endpoint can return the other's rows. A failure in either is reported rather
+ * than silently halving the thread.
+ */
+export async function pullComments(
+  forge: Forge,
+  number: number,
+): Promise<ForgePullCommentsResult> {
+  const cli = await ghStatus();
+  if (cli.reason !== 'ready') return { cli, comments: [], error: null };
+
+  const host = apiHostFlag(forge);
+  const api = (path: string): string =>
+    `gh api ${shellQuote(`repos/${slug(forge)}/${path}?per_page=${CONVERSATION_PAGE}`)}${host}`;
+
+  const [comments, reviews] = await Promise.all([
+    runInShell(api(`issues/${number}/comments`), LIST_TIMEOUT_MS),
+    runInShell(api(`pulls/${number}/reviews`), LIST_TIMEOUT_MS),
+  ]);
+
+  /*
+    Either failing is a failure, and the exit code is the only reliable signal.
+
+    `gh api` prints its ERROR BODY as JSON — `{"message":"Not Found",…}` — so a
+    404 parses perfectly well, and the parsers turn a non-array into an empty
+    list. Judging success by "did the payload parse" would report a pull request
+    the token cannot read as one nobody has commented on, and a rate-limited
+    reviews call as a PR with no verdicts. Both are silently wrong in the
+    direction that looks normal.
+  */
+  const failed = [comments, reviews].find((result) => result.exitCode !== 0);
+  if (failed !== undefined) {
+    invalidateGhProbe();
+    return { cli, comments: [], error: describeFailure(failed.output) };
+  }
+
+  return {
+    cli,
+    comments: mergeConversation(
+      parseIssueComments(parseJsonPayload(comments.output)),
+      parsePullReviews(parseJsonPayload(reviews.output)),
+    ),
+    error: null,
+  };
 }
 
 /**
