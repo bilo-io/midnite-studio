@@ -21,7 +21,7 @@ Completed work is logged append-only in [`done.md`](done.md). Deferred scope liv
 | Phase | Status | Done | Progress | % | 🔄 WIP | ◻ TODO |
 |-------|--------|------|----------|---|--------|--------|
 | [21 · Agent roster + terminal identity](phase-21-agent-roster-and-terminal-identity.md) | 🔄 WIP | 31/46 | `███████░░░` | 67% | E | — |
-| [20 · Reviews page & unified diff syntax highlighting](phase-20-reviews-page.md) | 🔄 WIP | 42/44 | `██████████` | 95% | — | 2 manual checks |
+| [20 · Reviews page & unified diff syntax highlighting](phase-20-reviews-page.md) | 🔄 WIP | 42/44 | `██████████` | 95% | e2e repair | 2 manual checks |
 | [19 · Dashboard, Actions and Tests as views](phase-19-dashboard-actions-tests.md) | 🔄 WIP | 73/76 | `██████████` | 96% | — | 3 manual checks |
 | [18 · Footer system monitor + repo diagnostics](phase-18-footer-monitor-diagnostics.md) | 🔄 WIP | 51/54 | `█████████░` | 94% | — | 3 manual checks |
 | [17 · Repositories workbench + forge](phase-17-repos-workbench.md) | 🔄 WIP | 46/48 | `█████████░` | 96% | — | 2 manual checks |
