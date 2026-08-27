@@ -1,12 +1,18 @@
 import type { AgentDefinition, TerminalSession } from '@midnite/git-shared';
 import { Terminal, X } from 'lucide-react';
+import { LuChevronRight, LuLoaderCircle, LuMessageCircleQuestion, LuPencil } from 'react-icons/lu';
 
 import { useDialogs } from '../../components/dialog-host';
 import { IconButton } from '../../components/icon-button';
 import { ClaudeIcon } from '../../components/icons/claude-icon';
 import { SortableList, useSortableRow } from '../../components/sortable-list';
 import { useUiStore } from '../../store/ui-store';
-import { useTerminalStore, type ConnectionState } from './terminal-store';
+import {
+  sessionLabel,
+  useTerminalStore,
+  type ConnectionState,
+  type SessionActivity,
+} from './terminal-store';
 
 /**
  * The list of open terminals, VS Code style.
@@ -85,10 +91,40 @@ function SessionRow({
   active: boolean;
   agent: AgentDefinition | undefined;
 }) {
+  const dialogs = useDialogs();
   const state = useTerminalStore((s) => s.states[session.id] ?? 'idle');
+  const activity = useTerminalStore((s) => s.activity[session.id]);
+  const autoName = useTerminalStore((s) => s.autoNames[session.id]);
   const { setNodeRef, style, attributes, listeners, isDragging } = useSortableRow(session.id);
 
   const live = state === 'open' || state === 'starting';
+  const name = sessionLabel(session, autoName, agent?.label);
+
+  const rename = () => {
+    dialogs.prompt({
+      title: 'Rename session',
+      label: 'Session name',
+      initialValue: name,
+      confirmLabel: 'Rename',
+      onConfirm: (value) => useTerminalStore.getState().renameSession(session.id, value),
+    });
+  };
+
+  const showMenu = (event: React.MouseEvent) => {
+    event.preventDefault();
+    dialogs.openMenu(event, [
+      { label: 'Rename session…', onSelect: rename },
+      // The prompt dialog itself cannot submit an empty value, so clearing a
+      // custom name back to the live guess is a separate, explicit action
+      // rather than "rename to nothing".
+      {
+        label: 'Reset to detected name',
+        disabled: session.name === undefined,
+        disabledReason: 'This session has no custom name.',
+        onSelect: () => useTerminalStore.getState().renameSession(session.id, undefined),
+      },
+    ]);
+  };
 
   return (
     <div
@@ -102,17 +138,45 @@ function SessionRow({
       className={`group flex w-full items-center gap-1.5 px-2 py-1 text-xs ${
         active ? 'bg-accent/60' : 'hover:bg-accent/30'
       } ${isDragging ? 'opacity-80' : ''}`}
+      onContextMenu={showMenu}
     >
       <button
         type="button"
-        className="flex min-w-0 flex-1 items-center gap-1.5 text-left"
+        className="flex min-w-0 flex-1 items-center gap-1 text-left"
         onClick={() => useTerminalStore.getState().setActive(session.id)}
+        onDoubleClick={rename}
       >
         <SessionIcon agent={agent} live={live} />
-        <span className={`truncate ${live ? '' : 'text-muted-foreground'}`}>
-          {agent ? `${agent.label} · ${session.title}` : session.title}
+        {/*
+          The repo name, then the session's own name — "Claude · Claude" for
+          every agent session (Phase 19's shape) said the same thing twice and
+          named neither session. Shrinking the repo name rather than the
+          session name keeps the part that actually tells two Claude sessions
+          apart from being what truncates first.
+        */}
+        <span
+          className={`shrink truncate ${live ? 'text-muted-foreground' : 'text-muted-foreground/60'}`}
+        >
+          {session.title}
+        </span>
+        <LuChevronRight
+          aria-hidden
+          className="h-3 w-3 shrink-0 text-muted-foreground/50"
+        />
+        <span className={`min-w-0 flex-1 truncate ${live ? '' : 'text-muted-foreground'}`}>
+          {name}
         </span>
       </button>
+
+      <ActivityIndicator activity={activity} />
+
+      <IconButton
+        icon={LuPencil}
+        label="Rename session"
+        size="sm"
+        className="opacity-0 group-hover:opacity-100"
+        onClick={rename}
+      />
 
       <StateDot state={state} />
 
@@ -125,6 +189,33 @@ function SessionRow({
       />
     </div>
   );
+}
+
+/**
+ * Whether a live agent looks to be generating or back waiting on you — a
+ * second, distinct glyph beside the connection dot, which only ever says
+ * whether the PROCESS is alive.
+ */
+function ActivityIndicator({ activity }: { activity: SessionActivity | undefined }) {
+  if (activity === 'thinking') {
+    return (
+      <LuLoaderCircle
+        role="img"
+        aria-label="Thinking"
+        className="h-3 w-3 shrink-0 animate-spin text-muted-foreground"
+      />
+    );
+  }
+  if (activity === 'waiting') {
+    return (
+      <LuMessageCircleQuestion
+        role="img"
+        aria-label="Waiting for input"
+        className="h-3 w-3 shrink-0 text-amber-500"
+      />
+    );
+  }
+  return null;
 }
 
 /**
@@ -146,10 +237,30 @@ function SessionIcon({ agent, live }: { agent: AgentDefinition | undefined; live
   );
 }
 
-/** Running, or a saved transcript with nothing behind it. */
+/**
+ * Running, or a saved transcript with nothing behind it.
+ *
+ * A live dot (open or starting) pulses via a `box-shadow` ring in its own
+ * colour — `--pulse-a`/`--pulse-b` set inline are the ring's near and far
+ * alpha, since a single `box-shadow` cannot itself animate between two
+ * rgba()s in a Tailwind keyframe (see `dot-pulse`, tailwind.config.ts).
+ */
 function StateDot({ state }: { state: ConnectionState }) {
-  if (state === 'open') return <span className="size-1.5 shrink-0 rounded-full bg-emerald-500" />;
-  if (state === 'starting')
-    return <span className="size-1.5 shrink-0 animate-pulse rounded-full bg-amber-500" />;
+  if (state === 'open') return <PulsingDot rgb="16 185 129" className="bg-emerald-500" />;
+  if (state === 'starting') return <PulsingDot rgb="245 158 11" className="bg-amber-500" />;
   return <span className="size-1.5 shrink-0 rounded-full bg-muted-foreground/40" />;
+}
+
+function PulsingDot({ rgb, className }: { rgb: string; className: string }) {
+  return (
+    <span
+      className={`size-1.5 shrink-0 animate-dot-pulse rounded-full ${className}`}
+      style={
+        {
+          '--pulse-a': `rgb(${rgb} / 0.65)`,
+          '--pulse-b': `rgb(${rgb} / 0)`,
+        } as React.CSSProperties
+      }
+    />
+  );
 }
