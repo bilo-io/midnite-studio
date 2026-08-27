@@ -133,6 +133,9 @@ async function openFiles(page: Page, data: MockFixtures): Promise<void> {
   await expect(page.getByRole('heading', { name: 'Worktrees' })).toBeVisible();
 
   await page.getByRole('button', { name: 'Reviews', exact: true }).click();
+  // The section is a heading over three lazy scopes now — the rows live under
+  // one of them, and nothing is fetched until that one is opened.
+  await page.getByRole('button', { name: 'All Pull Requests', exact: true }).click();
   await page.getByText('Reviews page', { exact: true }).click();
   await expect(page.getByRole('region', { name: 'Pull request #42' })).toBeVisible();
   await expect(page.getByText('const b = 2;')).toBeVisible();
