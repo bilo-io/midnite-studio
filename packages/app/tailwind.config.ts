@@ -74,6 +74,34 @@ const config: Config = {
         sm: 'calc(var(--radius) - 4px)',
       },
       /**
+       * The stacking order, named — because the numbers alone cannot be
+       * reasoned about locally.
+       *
+       * `@bilo-io/shell` puts its own chrome high: `<TitleBar>` is
+       * `fixed ... z-[60]` and `<DragRegion>` is `z-[70]`. Anything this app
+       * floats OVER that chrome therefore has to clear 70, and a hand-written
+       * `z-50` — the value that reads as "on top" in a plain Tailwind app — is
+       * silently BELOW the title bar. That is exactly how the breadcrumb and
+       * theme-toggle dropdowns ended up sliding under it.
+       *
+       * So overlays take these tokens, never a literal:
+       *   menu    — dropdowns and context menus anchored to a trigger
+       *   popover — richer anchored panels (Popover, the expanded ref badge)
+       *   dialog  — modals, whose backdrop is meant to dim the title bar too
+       *   tooltip — always last, including over a dialog's own controls
+       *
+       * The gaps are deliberate: a one-off layer can be slotted between two
+       * named ones without renumbering the scale, and the whole range stays
+       * under the shell's own `z-[200]` full-screen states (lock, screensaver),
+       * which are meant to cover the app entirely.
+       */
+      zIndex: {
+        menu: '80',
+        popover: '85',
+        dialog: '90',
+        tooltip: '95',
+      },
+      /**
        * The motion vocabulary. Two keyframes cover every animated entrance in
        * the app: a plain fade for containers, and a fade with a 3px rise for
        * list items, which reads as "arriving" without the travel being loud

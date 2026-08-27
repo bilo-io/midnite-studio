@@ -123,7 +123,7 @@ export function MultiSelectMenu({
           role="listbox"
           aria-multiselectable
           aria-label={label}
-          className="absolute left-0 top-full z-50 mt-1 w-72 animate-fade-in overflow-hidden rounded-md border border-border bg-popover text-popover-foreground shadow-lg"
+          className="absolute left-0 top-full z-menu mt-1 w-72 animate-fade-in overflow-hidden rounded-md border border-border bg-popover text-popover-foreground shadow-lg"
         >
           <div className="border-b border-border p-1.5">
             <input
