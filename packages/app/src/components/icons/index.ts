@@ -47,8 +47,8 @@ const LOCAL_ICONS: Record<string, IconComponent> = {
  * one-line edit, which is the same bargain the roster itself offers.
  *
  * Note there is no `SiOpenai`: react-icons 5.x does not ship one (`SiOpenaigym`
- * is a different project), which is half the reason `codex-icon.tsx` is drawn
- * here rather than borrowed.
+ * is a different project), which is why `codex-icon.tsx` carries OpenAI's mark
+ * as a local path instead of importing it.
  */
 const REACT_ICONS: Record<string, IconComponent> = {
   SiAnthropic,

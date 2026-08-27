@@ -2,6 +2,35 @@
 
 <!-- Append one entry per landed phase/PR: date, phase, PR link, one-line summary. -->
 
+## 2026-08-27 — Phase 21 follow-up — the agent marks are the real marks now
+
+Two of the four roster marks were hand-drawn originals, chosen over the brands' own artwork on a
+trademark-caution argument that the sibling Midnite app had already answered: it ships both logos
+from openly-licensed icon sets, and has done since its own agent picker existed. Antigravity's
+stand-in read as *a* rocket rather than as *that product*, and Codex's `</>` said "some coding
+agent" where every other row says which one.
+
+- [x] **`antigravity-icon.tsx` carries the real mark** — the artwork the sibling app serves at
+      `public/agent-logos/antigravity.svg`, from [lobe-icons](https://github.com/lobehub/lobe-icons)
+      (MIT). It is not a silhouette: eleven heavily blurred colour fields clipped to the peak
+      outline, which is where the Google-gradient wash comes from. So the component is two data
+      tables (`BLOBS`, `BLURS`) mapped into `<g>`/`<filter>` rather than forty lines of near-identical
+      JSX — the numbers *are* the asset, and a re-import from upstream stays a diff of digits.
+      `BLOBS[2]` and `BLOBS[3]` are the same path behind the same blur; that duplication is upstream
+      and it is load-bearing, because the blur leaves soft edges and compositing the green twice is
+      what gives that lobe its density
+- [x] **Mask and filter ids scoped with `useId`.** Ids in an inline SVG are document-global, and the
+      session list draws one mark per row — hard-coded ids would have every copy resolving its
+      `url(#…)` against the first one's `<defs>`
+- [x] **`codex-icon.tsx` carries OpenAI's knot**, the [simple-icons](https://github.com/simple-icons/simple-icons)
+      path (CC0, public domain) the sibling app uses. The old comment claimed the knot turns to mud
+      at 14px; rendered at 14/20/32/64 against both themes it plainly does not — the ring reads at
+      every size. `react-icons` 5.x still ships no `SiOpenai`, so the path lives in the repo
+- [x] **One API difference, documented where it bites.** Antigravity's mark carries its own colours
+      and so cannot take the agent's accent — a multi-colour logo has no single colour to override.
+      `style` is still accepted and applied so the component stays interchangeable with the tintable
+      marks; it simply has no visible effect on the fills
+
 ## 2026-08-27 — Phase 21 · Theme E — a terminal that knows what is running in it
 
 Landed on `feature/phase-21-live-agent`, merged locally — no PR link, no GitHub remote on this
