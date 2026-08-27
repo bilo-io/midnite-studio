@@ -2045,3 +2045,80 @@ later is slow too, and zero skips the wrapper entirely so no existing spec chang
 `reviews-loading-shots.spec.ts` asserts each `sr-only` status and photographs seven states into
 `docs/screenshots/phase-20-reviews-loading/`. The shots settle animations first; without that
 they caught the shell mid-fade and came out as a washed-out grey page showing none of the work.
+
+## 2026-08-27 — The repository row grows a third menu, behind the app's own mark
+
+The row's two menus become three, in the order midnite → git → ellipsis: widest scope first.
+The new one holds what you ask **this app** to do with the repository — **Exec**, **Brainstorm**,
+**Loop PR Review**, **Loop PR Feedback** — where the Git logo holds what you ask git and the
+ellipsis holds the repository's own tooling. Three marks rather than three ellipses, which is the
+same argument that replaced the second ellipsis with the Git logo in the first place.
+
+Each entry opens a fresh Claude session in the primary checkout and types its skill at the prompt
+**without a newline** — `startClaude`, reused rather than reimplemented, so this shares its posture
+with the Agent page's uninstall command and the test runner. Pressing Return is the confirmation, so
+a mis-clicked menu cannot set an agent loose on a repository, and the queued command is readable
+before it runs. That last part matters more here than anywhere else, because *what* each entry
+invokes is a setting.
+
+**The skills are configurable** (Settings → Agent → midnite menu, one field per entry, with a Reset
+that appears only once a value has drifted from its default). They have to be: a skill is a file in
+the user's `~/.claude`, not something this app ships — `/exec` and `/brainstorm` are this repo's own
+project skills, `/loop-pr-reviews` and `/loop-pr-feedback` are personal commands — and any of them
+can be renamed or forked without the app knowing. The values are whole prompts rather than bare
+skill names, so an entry can also carry arguments or a plain sentence. Free text rather than a
+picker over the skills found on disk, deliberately: enumerating them would catch a typo but refuse
+every legitimate value that is not a bare skill, and the failure mode of free text is a terminal
+showing you the wrong command before you press Return.
+
+`agentSkills` lives on `ui-store` beside the other persisted preferences, with the ids and defaults
+in the store and the labels and glyphs in `features/agent/agent-commands.ts` — the split
+`SETTINGS_PAGES` / `PAGE_ICON` already draws, so the store pulls no icon package in behind it. The
+persisted record is re-spread in `merge` for the reason `layout` is: a blob written before a fifth
+entry existed would otherwise leave that entry's skill `undefined`, which reaches the shell as the
+string "undefined".
+
+`components/icons/midnite-icon.tsx` is the mark as an SVG, and it is a *trace*, not a redraw.
+`brand.tsx` renders the same mark from `logo.png` and must keep doing so — that asset is
+deliberately opaque, a black crescent on a white ground, which is what lets one file sit on both
+themes. A toolbar glyph needs the opposite: it has to take the colour of its control, and a PNG
+cannot. So the disc, the ring and the crescent's two arcs were fitted as least-squares circles
+through the PNG's own edge pixels (r=465 and r=512 about the centre, r=297 and r=220 for the
+crescent, max residual under 3px on a 1024 canvas), and the crescent's hooked horns — which are
+not circular, and are why two circles alone will not do — are the traced outline simplified to 2px.
+Rasterising the result back agrees with the PNG on 98.9% of sampled pixels, every disagreement on an
+antialiased edge.
+
+It is **one `evenodd` path with four subpaths**, not two clipped groups, because the mark inverts
+across its own equator (top: filled disc, crescent knocked out; bottom: hairline ring, crescent
+filled) and clipping needs an `id` — which collides with every other inlined copy of itself on the
+page. Disc-512, disc-465, top-semicircle and crescent are chosen so the crossing count lands odd
+exactly on the ink; the table is in the file. The third subpath is a semicircle rather than a
+rectangle because a half-plane keeps toggling past the disc's edge and fills the top of the viewBox.
+
+`IconButton` gains a third tone, `brand`: resting in `--primary`, hover to plain foreground. A tone
+rather than a `className` because both halves are text colours — passing them in would put
+`text-primary` and the base `text-muted-foreground` in the same slot and leave the winner to
+whichever Tailwind emitted last. Note that `--primary` is only the accent hue while an accent is
+chosen (`html[data-accent]`); on the default accentless theme it is already the full-contrast
+colour, so the two states differ by the hover tint alone.
+
+**The sidebar's default width goes 288 → 312**, and that came out of looking at the folded row
+rather than out of taste. 288 was measured against a row with two menus; at that width a folded
+`midnite-git` was already spending its last pixels on the branch name, and a third control took the
+name's first character with it and pushed the change-count pill a third of a pixel into the sync
+button. The 24 is the new menu's own footprint. A persisted width still wins, so this moves only
+the installs that never dragged the panel.
+
+The e2e asserts the ordering as one list rather than three presence checks — all three controls
+existed before this change, in the wrong order, so a test that only looked for them would have
+passed then too — and follows a skill from the settings field through the store to the pty's
+`initialInput`, which is the one span no store test could cover. The store tests cover the half the
+browser cannot see cheaply: that one entry moves without disturbing the other three, that the whole
+record persists, and that `merge` refills an entry a stored payload predates instead of leaving it
+`undefined` — which would reach the shell as `claude 'undefined'`, a prompt rather than a crash.
+
+Known-red, and red before this too: `repos-workbench.spec.ts`'s folded-row test still fails its
+second assertion (`pill.x` past the row's midpoint) on `main` and here alike. The e2e suite is
+deliberately outside the `:test` gate; it stands at 20 failures on both sides of this change, with
+the four new ones green.

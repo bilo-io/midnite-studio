@@ -40,8 +40,26 @@ export type IconButtonProps = {
   busy?: boolean;
   /** Rendered after the icon — an ahead/behind count, a chevron. */
   children?: ReactNode;
-  /** `danger` tints hover destructive; `ghost` is the quiet toolbar default. */
-  tone?: 'ghost' | 'danger';
+  /**
+   * `danger` tints hover destructive; `ghost` is the quiet toolbar default.
+   *
+   * `brand` is the odd one out: it rests in `--primary` rather than the muted
+   * grey and goes to plain foreground under the pointer — the app's own mark
+   * behaving the way the mark does, coloured with the UI at rest and white on
+   * dark / black on light when you reach for it. `--primary` because that is
+   * already this app's word for "the accent": it is what the selected
+   * repository's name takes. With an accent chosen the two states are the
+   * accent and then the foreground; with the default accentless theme
+   * `--primary` IS the full-contrast colour, so they differ only by the hover
+   * tint — which is still the mark standing out from its two grey neighbours,
+   * and is the behaviour the accent picker exists to change.
+   *
+   * Deliberately a tone rather than a `className`: both halves are text
+   * colours, so passing them in would put `text-primary` and the base
+   * `text-muted-foreground` in the same slot and leave the winner to whichever
+   * Tailwind emitted last.
+   */
+  tone?: 'ghost' | 'danger' | 'brand';
   size?: 'sm' | 'md';
   tooltipSide?: 'top' | 'bottom';
   className?: string;
@@ -68,10 +86,12 @@ export function IconButton({
   // to say on hover, so it keeps the cheaper native `disabled`.
   const explained = inert && disabledReason !== undefined && !busy;
 
-  const hover =
+  const tint =
     tone === 'danger'
-      ? 'hover:bg-destructive/10 hover:text-destructive'
-      : 'hover:bg-accent hover:text-foreground';
+      ? 'text-muted-foreground hover:bg-destructive/10 hover:text-destructive'
+      : tone === 'brand'
+        ? 'text-primary hover:bg-accent hover:text-foreground'
+        : 'text-muted-foreground hover:bg-accent hover:text-foreground';
 
   return (
     <Tooltip label={explained ? `${label} — ${disabledReason}` : label} side={tooltipSide}>
@@ -85,7 +105,7 @@ export function IconButton({
         aria-disabled={explained || undefined}
         aria-label={label}
         aria-busy={busy || undefined}
-        className={`inline-flex shrink-0 items-center gap-1 rounded-md text-muted-foreground transition-colors ${hover} disabled:pointer-events-none disabled:opacity-40 ${
+        className={`inline-flex shrink-0 items-center gap-1 rounded-md transition-colors ${tint} disabled:pointer-events-none disabled:opacity-40 ${
           // Matches `disabled:opacity-40`, and drops the hover tint: an
           // aria-disabled button must not look live under the pointer.
           explained ? 'cursor-default opacity-40 hover:bg-transparent hover:text-muted-foreground' : ''
