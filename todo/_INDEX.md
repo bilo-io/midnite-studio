@@ -10,7 +10,7 @@ Completed work is logged append-only in [`done.md`](done.md). Deferred scope liv
 
 | Phase | Status | Done | Progress | % | 🔄 WIP | ◻ TODO |
 |-------|--------|------|----------|---|--------|--------|
-| [19 · Dashboard, Actions and Tests as views](phase-19-dashboard-actions-tests.md) | 🔄 WIP | 53/77 | `███████░░░` | 69% | — | F G |
+| [19 · Dashboard, Actions and Tests as views](phase-19-dashboard-actions-tests.md) | 🔄 WIP | 53/77 | `███████░░░` | 69% | F G | — |
 | [18 · Footer system monitor + repo diagnostics](phase-18-footer-monitor-diagnostics.md) | 🔄 WIP | 51/54 | `█████████░` | 94% | — | 3 manual checks |
 | [17 · Repositories workbench + forge](phase-17-repos-workbench.md) | 🔄 WIP | 46/48 | `█████████░` | 96% | — | 2 manual checks |
 | [16 · Folder explorer, preview pane + settings pages](phase-16-explorer-and-settings-pages.md) | ✅ DONE | 41/41 | `██████████` | 100% | — | — |
