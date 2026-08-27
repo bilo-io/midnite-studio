@@ -281,6 +281,7 @@ function NavLockToggle({
 
 function Shell() {
   const activeView = useUiStore((s) => s.activeView);
+  const reposOpen = useUiStore((s) => s.reposOpen);
   const terminalOpen = useUiStore((s) => s.terminalOpen);
   const terminalMaximized = useUiStore((s) => s.terminalMaximized);
   const selectedRepoId = useUiStore((s) => s.selectedRepoId);
@@ -334,6 +335,7 @@ function Shell() {
    */
   useKeybindings({
     'terminal.toggle': () => useUiStore.getState().toggleTerminal(),
+    'repos.toggle': () => useUiStore.getState().toggleRepos(),
     'terminal.focus': () => useUiStore.getState().setTerminalOpen(true),
     'graph.focus': () => useUiStore.getState().setActiveView('graph'),
     'status.focus': () => useUiStore.getState().setActiveView('changes'),
@@ -516,14 +518,27 @@ function Shell() {
           a screen reader announcing "complementary" twice with no way to tell
           which is the repository list.
         */}
-        <aside
-          aria-label="Repositories"
-          className={`shrink-0 ${repos.dragging ? '' : 'transition-[width] duration-150 ease-in-out'}`}
-          style={{ width: repos.current }}
-        >
-          <ReposPanel />
-        </aside>
-        <ResizeHandle resizable={repos} axis="x" label="Resize repositories sidebar" />
+        {/*
+          Unmounted when hidden, not merely zero-width: the panel streams a
+          per-repository status and ref list, and a hidden-but-live column would
+          keep paying for a view the user has dismissed. Its width is layout
+          state and survives independently, so it comes back the size it was.
+
+          The handle goes with it. A splitter with nothing on its left edge is
+          a drag target that resizes an invisible thing.
+        */}
+        {reposOpen ? (
+          <>
+            <aside
+              aria-label="Repositories"
+              className={`shrink-0 ${repos.dragging ? '' : 'transition-[width] duration-150 ease-in-out'}`}
+              style={{ width: repos.current }}
+            >
+              <ReposPanel />
+            </aside>
+            <ResizeHandle resizable={repos} axis="x" label="Resize repositories sidebar" />
+          </>
+        ) : null}
         <div className="flex min-w-0 flex-1 flex-col">
           {/*
             Keyed on the view so switching cross-fades rather than cutting.
