@@ -177,6 +177,8 @@ describe('parsePullList', () => {
     author: { login: 'bilo' },
     url: 'https://github.com/o/r/pull/42',
     statusCheckRollup: [{ status: 'COMPLETED', conclusion: 'SUCCESS' }],
+    mergedAt: null,
+    closedAt: null,
   };
 
   it('maps an open, approved PR', () => {
@@ -191,8 +193,24 @@ describe('parsePullList', () => {
         headBranch: 'fix/table',
         author: 'bilo',
         url: 'https://github.com/o/r/pull/42',
+        mergedAt: null,
+        closedAt: null,
       },
     ]);
+  });
+
+  it('carries a merged PR’s merge and close dates', () => {
+    const merged = parsePullList([
+      { ...pull, state: 'MERGED', mergedAt: '2026-08-20T10:00:00Z', closedAt: '2026-08-20T10:00:00Z' },
+    ])[0];
+    expect(merged?.mergedAt).toBe('2026-08-20T10:00:00Z');
+    expect(merged?.closedAt).toBe('2026-08-20T10:00:00Z');
+  });
+
+  it('turns GitHub’s zero-time merge date into an honest null', () => {
+    expect(
+      parsePullList([{ ...pull, mergedAt: '0001-01-01T00:00:00Z' }])[0]?.mergedAt,
+    ).toBeNull();
   });
 
   it('keeps "nobody reviewed" apart from "a review is required"', () => {

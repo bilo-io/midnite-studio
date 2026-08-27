@@ -86,7 +86,8 @@ export const keys = {
   forge: (repoId: string) => ['repos', repoId, 'forge'] as const,
   forgeRuns: (repoId: string, branch?: string) =>
     ['repos', repoId, 'forge', 'runs', branch ?? 'all'] as const,
-  forgePulls: (repoId: string) => ['repos', repoId, 'forge', 'pulls'] as const,
+  forgePulls: (repoId: string, limit = 20, state = 'open') =>
+    ['repos', repoId, 'forge', 'pulls', limit, state] as const,
   forgeIssues: (repoId: string, state: string) =>
     ['repos', repoId, 'forge', 'issues', state] as const,
   /**
@@ -502,13 +503,29 @@ export function useForgeWorkflows(repoId: string | null, enabled: boolean) {
   });
 }
 
-export function useForgePulls(repoId: string | null, enabled: boolean) {
+/**
+ * `state` defaults to `open` — the sidebar section and the dashboard widget
+ * both call this with no third/fourth argument and mean "what might I review
+ * right now", exactly as Phase 17 shipped. The Reviews view is the one
+ * caller that passes `'all'`, since its own status tabs do the filtering.
+ *
+ * `limit` grows the page rather than paging through one: `gh pr list` has no
+ * cursor to page through, so the Reviews view's "Load more" is a second,
+ * wider fetch under a new key — a subprocess only when the user actually
+ * asks for more than the default page.
+ */
+export function useForgePulls(
+  repoId: string | null,
+  enabled: boolean,
+  limit = 20,
+  state: 'open' | 'closed' | 'merged' | 'all' = 'open',
+) {
   return useQuery<ForgePullsResult>({
-    queryKey: keys.forgePulls(repoId ?? ''),
+    queryKey: keys.forgePulls(repoId ?? '', limit, state),
     queryFn: async () => {
       const api = bridge();
       if (!api || !repoId) return EMPTY_PULLS;
-      return api.forge.pulls({ repoId, limit: 20 });
+      return api.forge.pulls({ repoId, limit, state });
     },
     enabled: enabled && repoId !== null,
     staleTime: FORGE_STALE_MS,

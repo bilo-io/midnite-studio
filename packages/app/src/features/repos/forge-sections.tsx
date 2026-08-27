@@ -26,8 +26,8 @@ import {
   useRefreshForge,
 } from '../../services/queries';
 import { useActionsStore } from '../../store/actions-store';
+import { useReviewsStore } from '../../store/reviews-store';
 import { useUiStore } from '../../store/ui-store';
-import { useWorkbenchStore } from '../../store/workbench-store';
 import {
   checksStatus,
   issueStatus,
@@ -309,8 +309,9 @@ function ReviewsSection({ repoId, index }: { repoId: string; index: number }) {
   const [open, setOpen] = useState(false);
   const { data, isFetching } = useForgePulls(repoId, open);
   const refresh = useRefreshForge(repoId);
-  const openTab = useWorkbenchStore((s) => s.openTab);
+  const selectRepo = useUiStore((s) => s.selectRepo);
   const setActiveView = useUiStore((s) => s.setActiveView);
+  const selectPull = useReviewsStore((s) => s.selectPull);
   const dialogs = useDialogs();
 
   const pulls = data?.pulls ?? [];
@@ -341,15 +342,17 @@ function ReviewsSection({ repoId, index }: { repoId: string; index: number }) {
           subtitle={`#${pull.number} · ${pull.headBranch}`}
           menu={forgeRowMenu(pull.url, 'pull request')}
           dialogs={dialogs}
+          /*
+            The Reviews view, not a Changes tab — the same move Phase 19 made
+            for Actions runs (see ActionsSection's own row above). The repo
+            selection has to come first for the same reason: this row can be
+            clicked while a different repo is selected, and the Reviews view
+            follows `selectedRepoId`, not the row.
+          */
           onOpen={() => {
-            openTab({
-              kind: 'review',
-              repoId,
-              number: pull.number,
-              label: `#${pull.number} ${pull.title}`,
-              url: pull.url,
-            });
-            setActiveView('changes');
+            selectRepo(repoId);
+            selectPull(repoId, pull.number);
+            setActiveView('reviews');
           }}
         />
       ))}

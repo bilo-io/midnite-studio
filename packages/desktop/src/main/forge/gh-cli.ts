@@ -225,7 +225,8 @@ const RUN_DETAIL_FIELDS = `${RUN_FIELDS},jobs`;
 const ISSUE_FIELDS = 'number,title,state,author,labels,assignees,updatedAt,createdAt,url';
 const WORKFLOW_FIELDS = 'id,name,path,state';
 const PULL_FIELDS =
-  'number,title,state,isDraft,reviewDecision,headRefName,author,url,statusCheckRollup';
+  'number,title,state,isDraft,reviewDecision,headRefName,author,url,statusCheckRollup,' +
+  'mergedAt,closedAt';
 /*
   `gh pr view --json` accepts every `pr list` field plus the ones only a single
   PR has. `headRefOid` is the one that matters most here: it is the head sha the
@@ -286,16 +287,25 @@ export async function listRuns(
   return { cli, runs: parseRunList(payload), error: null };
 }
 
+/**
+ * `state` is the caller's choice, not a hardcoded `open` — the Reviews view
+ * (Phase 20 B) asks for `all` and filters into status tabs of its own, while
+ * every other caller (the sidebar section, the dashboard widget) keeps
+ * asking for `open`, exactly as Phase 17 shipped. Filtering `all` down to
+ * `open` after the fact would not do the same job: `--limit` counts PRs of
+ * whichever state was asked for, so a caller that wants N *open* PRs has to
+ * say so before the limit is applied, not after.
+ */
 export async function listPulls(
   forge: Forge,
-  options: { limit: number },
+  options: { limit: number; state: 'open' | 'closed' | 'merged' | 'all' },
 ): Promise<ForgePullsResult> {
   const cli = await ghStatus();
   if (cli.reason !== 'ready') return { cli, pulls: [], error: null };
 
   const command =
     `gh pr list ${repoFlag(forge)}` +
-    ` --state open --limit ${options.limit} --json ${PULL_FIELDS}`;
+    ` --state ${options.state} --limit ${options.limit} --json ${PULL_FIELDS}`;
 
   const result = await runInShell(command, LIST_TIMEOUT_MS);
   const payload = parseJsonPayload(result.output);

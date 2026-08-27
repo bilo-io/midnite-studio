@@ -1,7 +1,7 @@
 import type { DiffLine, FileDiff } from '@midnite/git-shared';
 import { describe, expect, it } from 'vitest';
 
-import { toDiffRows, toSegments } from './diff-rows';
+import { mergeSegmentsWithTokens, toDiffRows, toSegments } from './diff-rows';
 
 const line = (over: Partial<DiffLine> = {}): DiffLine => ({
   kind: 'ctx',
@@ -127,5 +127,58 @@ describe('toSegments', () => {
     );
     expect(render(segments)).toBe('abcdef');
     expect(segments.every((s) => s.changed)).toBe(true);
+  });
+});
+
+describe('mergeSegmentsWithTokens', () => {
+  const render = (pieces: ReturnType<typeof mergeSegmentsWithTokens>) =>
+    pieces.map((p) => p.text).join('');
+
+  it('keeps the segments unchanged, with no colour, when tokens are null', () => {
+    const segments = toSegments(line({ text: 'const a = 1;', ranges: [{ start: 10, end: 11 }] }));
+    expect(mergeSegmentsWithTokens(segments, null)).toEqual([
+      { text: 'const a = ', changed: false, color: null },
+      { text: '1', changed: true, color: null },
+      { text: ';', changed: false, color: null },
+    ]);
+  });
+
+  it('cuts at token boundaries that fall inside a segment', () => {
+    // One unchanged segment, two tokens splitting it in the middle.
+    const segments = toSegments(line({ text: 'const a' }));
+    const tokens = [
+      { text: 'const', color: '#ff0000' },
+      { text: ' a', color: '#00ff00' },
+    ];
+    expect(mergeSegmentsWithTokens(segments, tokens)).toEqual([
+      { text: 'const', changed: false, color: '#ff0000' },
+      { text: ' a', changed: false, color: '#00ff00' },
+    ]);
+  });
+
+  it('cuts at segment boundaries that fall inside a token', () => {
+    // One token spanning the whole line, one changed sub-range in the middle.
+    const segments = toSegments(line({ text: 'const a = 1;', ranges: [{ start: 10, end: 11 }] }));
+    const tokens = [{ text: 'const a = 1;', color: '#abcdef' }];
+    const pieces = mergeSegmentsWithTokens(segments, tokens);
+    expect(render(pieces)).toBe('const a = 1;');
+    expect(pieces.every((p) => p.color === '#abcdef')).toBe(true);
+    expect(pieces.find((p) => p.text === '1')?.changed).toBe(true);
+  });
+
+  it('never loses or duplicates a character when the two partitions disagree everywhere', () => {
+    const text = 'const timeout = 1500;';
+    const segments = toSegments(
+      line({ text, ranges: [{ start: 6, end: 13 }, { start: 16, end: 20 }] }),
+    );
+    const tokens = [
+      { text: 'const', color: '#1' },
+      { text: ' timeout', color: '#2' },
+      { text: ' = ', color: null },
+      { text: '1500', color: '#3' },
+      { text: ';', color: null },
+    ];
+    const pieces = mergeSegmentsWithTokens(segments, tokens);
+    expect(render(pieces)).toBe(text);
   });
 });

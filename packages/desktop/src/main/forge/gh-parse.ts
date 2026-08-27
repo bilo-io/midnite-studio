@@ -561,10 +561,13 @@ export function rollupChecks(payload: unknown): ForgeChecksRollup | null {
 }
 
 /**
- * `gh pr list --json number,title,state,isDraft,reviewDecision,headRefName,author,url,statusCheckRollup`
+ * `gh pr list --json number,title,state,isDraft,reviewDecision,headRefName,author,url,statusCheckRollup,mergedAt,closedAt`
  *
  * `state` arrives uppercase (`OPEN`); `reviewDecision` is `""` when nobody has
  * reviewed and no rule demands one — distinct from `REVIEW_REQUIRED`.
+ * `mergedAt`/`closedAt` are `null` for an open PR — `asTimestamp` also
+ * normalises GitHub's zero-time to `null`, though a merge/close date never
+ * carries it.
  */
 export function parsePullList(payload: unknown): ForgePull[] {
   if (!Array.isArray(payload)) return [];
@@ -584,6 +587,8 @@ export function parsePullList(payload: unknown): ForgePull[] {
       headBranch: asString(row['headRefName']) ?? '',
       author: asLogin(row['author']),
       url: asString(row['url']) ?? '',
+      mergedAt: asTimestamp(row['mergedAt']),
+      closedAt: asTimestamp(row['closedAt']),
     });
     if (parsed.success && parsed.data.url.length > 0) pulls.push(parsed.data);
   }

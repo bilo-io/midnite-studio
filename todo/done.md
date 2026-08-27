@@ -2,6 +2,58 @@
 
 <!-- Append one entry per landed phase/PR: date, phase, PR link, one-line summary. -->
 
+## 2026-08-27 — Phase 20 · Themes A+B+C+D integration — the Reviews view gets its detail pane
+
+Landed on `feature/phase-20-reviews-shell`, on rebase onto `main` after Theme C merged separately
+(`feature/phase-20-pr-detail`, squash-merged locally — no PR link, no GitHub remote on this
+checkout). Themes A/B/D built the Reviews view as a list-only pane against `main` as it stood
+before Theme C existed; Theme C's own commit message said the plan all along was for the Reviews
+*view* to mount the same `PrDetail` its workbench-tab route does. Rebasing surfaced that gap, so
+this integrates the two rather than landing them side by side unconnected:
+
+- [x] `ReviewsList` grows a resizable list-plus-detail split — the same shape `ActionsView`
+      already has — with a new `reviewsListWidth` in `ui-store.ts`'s `LayoutSizes`
+- [x] A row's click now **selects** the PR (mounting `PrDetail` on the right) rather than opening
+      it on GitHub directly; that action moved to `PrDetail`'s own header button, which already
+      existed for exactly this
+- [x] New `store/reviews-store.ts` (`selectedPull`, keyed by repo) — the same shape
+      `actions-store.ts`'s `selectedRun` uses, so the sidebar's Reviews section row can carry a
+      specific PR number into the view, the same way `ActionsSection` already carries a run id
+- [x] `ReviewsView`'s CLI-not-ready / error handling moved from a blanket early return into
+      `ReviewsList`'s own list pane — a PR already selected from the sidebar keeps showing its
+      `PrDetail` even when the listing itself can't refresh, since `PrDetail`'s three tabs already
+      report "not ready" per tab on their own. Theme C's own `reviews.spec.ts` caught this: its
+      signed-out-gh test expects the detail region to render regardless of the list's CLI status,
+      which the original list-only Theme A/B early return would have blocked entirely
+- [x] `gh-cli.ts`'s `listPulls` and the `forge.pulls` IPC contract both grow a `state` parameter
+      (default `open`) rather than the hardcoded `--state all` Theme B shipped alone — the
+      sidebar's Reviews section and the dashboard's pulls widget keep asking for open PRs only,
+      exactly as Phase 17/19 shipped; only the Reviews view's own list explicitly asks for `all`.
+      Caught in an independent code-review pass before the rebase: `--state all --limit N` meant N
+      most-recent-of-any-state, which could silently starve those two surfaces of real open PRs
+      on a repo where merges outpace opens
+- [x] `pullStatus()` reads merged/closed off `pull.state` before falling back to
+      `reviewDecision`/`isDraft` — also from that review pass, since a merged PR was rendering
+      "Approved" once B started fetching every state
+- [x] `LineRow` rounds only the outer edge of a run of adjacent `changed` diff pieces, not each one
+      independently — a syntax-highlight token boundary landing inside one diff segment no longer
+      draws a visible seam between two touching highlight boxes
+- [x] Status tabs moved to `@bilo-io/ui`'s `Tabs` (WAI-ARIA roving-tabindex) instead of a
+      hand-rolled tablist
+
+### One thing worth remembering
+
+**A parallel `/exec` loop landed Theme C on `main` while this session was mid-flight on A/B/D**,
+and Theme C's own commit message and `done.md` entry both said, in effect, "the Reviews view will
+mount this" — a forward reference to work this session hadn't written yet. The rebase's merge
+conflicts were all mechanical (the same fields added to `PULL_FIELDS`/`gh-cli.ts` from both sides);
+the real integration gap — a fully-built, tested `PrDetail` sitting unreachable because the
+sidebar's route into Reviews no longer created the workbench tab that used to mount it — only
+showed up by reading what Theme C actually shipped, not from any merge conflict. Worth remembering
+for the next phase split across parallel sessions: a clean rebase is not the same claim as a
+working merged result, and the two themes' own `done.md` entries are the place to check for a
+forward reference like this one before calling a rebase finished.
+
 ## 2026-08-27 — Phase 20 · Theme C — PR detail: files, conversation and checks
 
 Landed on `feature/phase-20-pr-detail` (squash-merged locally — this checkout has no GitHub
@@ -52,6 +104,59 @@ shows its diff, its discussion and its CI verdict without leaving the window.
 
 - The two human passes named in the phase's Verification list are Theme F's and D's, not this
   one's. Nothing from Theme C is left for a human.
+
+## 2026-08-27 — Phase 20 · Themes A, B, D — Reviews view shell + PR list + syntax-highlighted diffs
+
+Landed on `feature/phase-20-reviews-shell` (squash-merged locally — this checkout has no GitHub
+remote, so there is no PR link). The first slice of Phase 20: Reviews grows from a sidebar-section
+stub into a full nav-rail view with a real PR list, and every diff in the app gains syntax colour.
+Themes C, E, F, G are separate, later slices.
+
+### What landed
+
+- [x] **Theme A** — `reviews` joins `ViewId`/`VIEW_IDS`; the rail gets a `FaCodePullRequest` item
+      beside Tests' `FaCheckDouble`; `VIEW_FILTERS['reviews']` narrows the sidebar to Reviews +
+      Worktrees, the same mechanism Actions/Tests already use. Actions and Reviews now share one
+      `useForgeGateAvailable` gate (renamed from `useActionsAvailable`) since both ask the same
+      "does this repo have a GitHub remote" question. The sidebar's Reviews section row now routes
+      into the Reviews view instead of opening a workbench tab — the same move Phase 19 made for
+      Actions runs, and it leaves the old `ReviewView`/`'review'` workbench-tab kind in place
+      unrendered-but-reachable, exactly as Phase 19 did for `RunView`/`'run'`
+- [x] **Theme B** — `listPulls` moves off `--state open` to `--state all`; `ForgePull` grows
+      `mergedAt`/`closedAt`. `features/reviews/{reviews-view,reviews-list}.tsx`: status tabs
+      (All/Open/Draft/Merged/Closed), an author filter (`MultiSelectMenu`, reused), a search box,
+      all orthogonal (AND-combined), plus a "Load more" button — `gh pr list` has no cursor, so
+      widening `limit` and refetching is the honest shape. No detail pane yet (Theme C); a row's
+      click opens the PR on GitHub, matching the sidebar's own read-only Issues section
+- [x] **Theme D** — `features/diff/line-highlight.ts`: per-line shiki highlighting, deferred
+      through `requestIdleCallback` and cached module-level by `(path, line kind, line text)` —
+      mirroring `services/avatars.ts` — so it never competes with the virtualized scroll path
+      `outstanding.md` flagged as the risk when this was parked at Phase 12. `diff-rows.ts` grows
+      `mergeSegmentsWithTokens`, intersecting the highlight tokens with the existing intraline
+      diff segments as two independent partitions of the same line — syntax colour is the inner
+      layer, the add/del tint stays the outer one. The shiki singleton itself moved out of
+      `code-preview.tsx` into `lib/highlighter.ts` so the Files preview pane and diff rows share
+      one engine instance. Applies to Changes and the Graph commit inspector by construction (one
+      shared `LineRow`); Reviews' own diff surface gets it for free once Theme C lands
+
+### One thing worth remembering
+
+**shiki's instance `codeToTokensBase` does not auto-load a grammar**, despite its own type
+declaration sitting right next to a *different*, module-level shorthand that does. Calling it for
+a language shiki hadn't already loaded threw `Language 'typescript' not found` on every single
+line, silently — the catch block swallowed it and every row just stayed unhighlighted, which reads
+identically to "still scheduled" and cost real time to notice. The fix is the same on-demand
+`loadLanguage()`-then-highlight two-step `code-preview.tsx` already uses for `codeToHtml`; worth
+remembering that shiki's "shorthand" doc comments describe a sibling API, not the instance method
+they're attached next to.
+
+Also worth remembering for the next fixture author: the mock bridge stands in for the **preload**,
+which only ever hands the renderer already-parsed domain objects (`gh-parse.ts`'s job) — a forge
+fixture written in `gh`'s own raw JSON field names (`headRefName`, `author: {login}`) crashes the
+renderer with "Objects are not valid as a React child" the moment a component reads the parsed
+field name (`author` as a string) and gets the raw shape instead. `actions-view.spec.ts`'s `run()`
+builder already gets this right; a new builder should be checked against it before assuming the
+raw `gh --json` field names are the fixture's contract.
 
 ## 2026-08-27 — Phase 19 · Themes F+G — Tests discovery and execution
 

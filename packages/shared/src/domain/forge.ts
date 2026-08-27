@@ -166,6 +166,10 @@ export const ForgePullSchema = z.object({
   /** Login of whoever opened it. Empty string when the forge withholds it. */
   author: z.string().default(''),
   url: z.string(),
+  /** ISO 8601, or null — an open or closed-without-merging PR has no merge date. */
+  mergedAt: z.string().nullable().default(null),
+  /** ISO 8601, or null for a PR that is still open. Set on both closed and merged. */
+  closedAt: z.string().nullable().default(null),
 });
 export type ForgePull = z.infer<typeof ForgePullSchema>;
 

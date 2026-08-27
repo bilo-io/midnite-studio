@@ -12,6 +12,7 @@ import { pickForgeRemote } from '@midnite/git-shared';
 import { QueryClient } from '@tanstack/react-query';
 import { ChevronLeft } from 'lucide-react';
 import type { IconType } from 'react-icons';
+import { FaCodePullRequest } from 'react-icons/fa6';
 import { GoBeaker } from 'react-icons/go';
 import {
   LuDiff,
@@ -37,6 +38,7 @@ import { RepoLifecycleActions } from './features/repos/repo-lifecycle-actions';
 import { ReposPanel } from './features/repos/repos-panel';
 import { useDefaultSelection } from './features/repos/use-default-selection';
 import { primaryTarget } from './features/repos/use-repo-actions';
+import { ReviewsView } from './features/reviews/reviews-view';
 import { SettingsView } from './features/settings/settings-view';
 import { Workbench } from './features/workbench/workbench';
 import { SyncActions } from './features/status/sync-actions';
@@ -152,6 +154,10 @@ const NAV_ITEMS: NavItem[] = [
   // the way it does on GitHub, and taking the nearest match within one family
   // is the thing the package exists to avoid.
   { view: 'tests', label: 'Tests', icon: GoBeaker },
+  // `FaCodePullRequest` — react-icons' Font Awesome 6 set, a second glyph
+  // beside Tests' `GoBeaker`. Neither Lucide nor Octicons has a pull-request
+  // glyph that reads as one at rail size.
+  { view: 'reviews', label: 'Reviews', icon: FaCodePullRequest },
   // Settings is deliberately absent: it renders in the rail's FOOTER slot
   // (bottom-pinned, the way settings sit in VS Code/GitKraken), not among the
   // workspace views — see the `footer` in the nav config below.
@@ -161,16 +167,27 @@ const NAV_ITEMS: NavItem[] = [
 const ALL_NAV_ITEMS: NavItem[] = [PINNED_ITEM, ...NAV_ITEMS];
 
 /**
- * Whether the Actions view has anything it could ever show.
+ * Views that exist only because a repository has a GitHub remote — gated by
+ * the one `useForgeGateAvailable` check below, in the nav filter, and in the
+ * redirect effect that follows. One list rather than three separate literal
+ * comparisons, so a future forge-gated view (Theme C's PR detail among them)
+ * is one array entry, not three call sites to remember to update together.
+ */
+const FORGE_GATED_VIEWS: readonly ViewId[] = ['actions', 'reviews'];
+
+/**
+ * Whether the Actions and Reviews views have anything they could ever show.
  *
  * `gh` speaks GitHub only, so for a repository with a GitLab remote, a
- * local-path remote or no remote at all the view is permanently empty — and a
- * rail item that can only say "not applicable" is worse than no rail item. The
- * same rule already governs the sidebar's forge sections, and it is the same
- * `pickForgeRemote` both ask.
+ * local-path remote or no remote at all both views are permanently empty —
+ * and a rail item that can only say "not applicable" is worse than no rail
+ * item. The same rule already governs the sidebar's forge sections, and it is
+ * the same `pickForgeRemote` all three ask — Actions and Reviews share one
+ * answer because the question is about the repository's remote, not about
+ * which forge surface is asking.
  *
  * "Still loading" is deliberately NOT "no". It answers with whatever it last
- * knew until the remotes arrive, which matters more than it looks: the rail
+ * knew until the remotes arrive, which matters more than it looks: a rail
  * item disappearing is wired to a redirect, so a momentary "no" while switching
  * between two GitHub repositories would throw the user out of the very view
  * they are standing in and then put the item back a frame later.
@@ -180,7 +197,7 @@ const ALL_NAV_ITEMS: NavItem[] = [PINNED_ITEM, ...NAV_ITEMS];
  * query resolves. A cold "no" would be wrong for the same paint AND take the
  * view down with it.
  */
-function useActionsAvailable(repoId: string | null): boolean {
+function useForgeGateAvailable(repoId: string | null): boolean {
   const { data: remotes } = useRemotes(repoId);
   const lastKnown = useRef(false);
 
@@ -287,24 +304,25 @@ function Shell() {
   const hasUpstream = status?.branch.upstream != null;
   useDefaultSelection();
 
-  const actionsAvailable = useActionsAvailable(selectedRepoId);
+  const forgeAvailable = useForgeGateAvailable(selectedRepoId);
 
   /**
    * Never leave the user standing in a view the rail no longer offers.
    *
-   * Selecting a repository with no GitHub remote takes the Actions item away;
-   * without this the pane it named would stay mounted with no way back to it
-   * and no entry showing as current, which reads as the rail having lost its
-   * selection rather than as the view having gone.
+   * Selecting a repository with no GitHub remote takes the Actions and
+   * Reviews items away; without this the pane one of them named would stay
+   * mounted with no way back to it and no entry showing as current, which
+   * reads as the rail having lost its selection rather than as the view
+   * having gone.
    *
    * Graph is the fallback because it is the app's default view — the one a
    * launch already lands on.
    */
   useEffect(() => {
-    if (activeView === 'actions' && !actionsAvailable) {
+    if (FORGE_GATED_VIEWS.includes(activeView) && !forgeAvailable) {
       useUiStore.getState().setActiveView('graph');
     }
-  }, [activeView, actionsAvailable]);
+  }, [activeView, forgeAvailable]);
   useWatchInvalidation(useUiStore((s) => s.selectedRepoId));
   useTestsStream();
 
@@ -367,7 +385,7 @@ function Shell() {
         {
           key: 'workspace',
           items: NAV_ITEMS.filter(
-            (item) => item.view !== 'actions' || actionsAvailable,
+            (item) => !FORGE_GATED_VIEWS.includes(item.view) || forgeAvailable,
           ).map(navItem),
         },
       ],
@@ -408,7 +426,7 @@ function Shell() {
         </button>
       ),
     }),
-    [navMode, setNavMode, activeView, actionsAvailable, navItem],
+    [navMode, setNavMode, activeView, forgeAvailable, navItem],
   );
 
   // <TitleBar> renders nothing unless the bridge reports a frameless window, so
@@ -536,6 +554,8 @@ function Shell() {
               <ActionsView />
             ) : activeView === 'tests' ? (
               <TestsView />
+            ) : activeView === 'reviews' ? (
+              <ReviewsView />
             ) : activeView === 'settings' ? (
               <SettingsView />
             ) : (

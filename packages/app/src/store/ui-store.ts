@@ -44,6 +44,7 @@ export type ViewId =
   | 'changes'
   | 'actions'
   | 'tests'
+  | 'reviews'
   | 'settings';
 
 /** Every view, in rail order — the domain of the per-view maps below. */
@@ -54,6 +55,7 @@ export const VIEW_IDS: readonly ViewId[] = [
   'changes',
   'actions',
   'tests',
+  'reviews',
   'settings',
 ];
 
@@ -118,6 +120,8 @@ export type LayoutSizes = {
   actionsListWidth: number;
   /** The Tests view's suite tree, left of the suite detail. */
   testsListWidth: number;
+  /** The Reviews view's PR list, left of the PR detail (Phase 20 Theme C). */
+  reviewsListWidth: number;
 };
 
 /** Widths of the graph table's fixed-width columns. */
@@ -162,6 +166,9 @@ export const DEFAULT_LAYOUT: LayoutSizes = {
   // name, a branch and an age, and the branch is the part that truncates first.
   actionsListWidth: 360,
   testsListWidth: 320,
+  // A PR row carries two status pills, a title, a number, a branch and an
+  // author — the widest row of any list pane in the app.
+  reviewsListWidth: 380,
 };
 
 export const DEFAULT_GRAPH_COLUMNS: GraphColumns = {
@@ -190,6 +197,7 @@ export const LAYOUT_BOUNDS = {
   commitFilesHeight: { min: 80, max: 720 },
   actionsListWidth: { min: 240, max: 640 },
   testsListWidth: { min: 240, max: 640 },
+  reviewsListWidth: { min: 280, max: 640 },
 } as const;
 
 export const GRAPH_COLUMN_BOUNDS = {

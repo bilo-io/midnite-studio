@@ -55,7 +55,7 @@ test('the changed word inside a modified line is marked, and the rest is not', a
   await expect(added).toContainText('height: 880,');
 
   // Exactly one intraline span, and it covers the number rather than the line.
-  const marked = added.locator('span.rounded-\\[2px\\]');
+  const marked = added.locator('span[data-diff-mark]');
   await expect(marked).toHaveCount(1);
   await expect(marked).toHaveText('880');
 });
@@ -120,6 +120,34 @@ test('clicking the open file again closes its diff', async ({ page }) => {
 
   await page.getByRole('button', { name: /window\.ts/ }).click();
   await expect(page.getByText('Select a file to see what changed in it.')).toBeVisible();
+});
+
+test('syntax highlighting colours a line without disturbing the intraline diff mark', async ({
+  page,
+}) => {
+  await openCommit(page);
+  await page.getByRole('button', { name: /window\.ts/ }).click();
+  await expect(diff(page)).toBeVisible();
+
+  // Highlighting is scheduled through requestIdleCallback and lands
+  // asynchronously — Playwright's own auto-retrying `expect` is the wait.
+  const coloured = diff(page).locator('span[style*="color"]');
+  await expect(coloured.first()).toBeVisible();
+
+  // The existing intraline mark still renders, and still covers the same
+  // text — colour is an inner layer over it, not a replacement for it.
+  const added = lines(page, 'add').first();
+  const marked = added.locator('span[data-diff-mark]');
+  await expect(marked).toHaveCount(1);
+  await expect(marked).toHaveText('880');
+
+  // The diff itself is unchanged: same row counts as the un-highlighted
+  // assertion above, and the virtualized pane keeps scrolling without
+  // erroring now that every row also schedules a highlight.
+  await expect(lines(page, 'add')).toHaveCount(4);
+  await diff(page).hover();
+  await page.mouse.wheel(0, 200);
+  await expect(diff(page)).toBeVisible();
 });
 
 test('switching commits clears the selected file rather than carrying it over', async ({ page }) => {
