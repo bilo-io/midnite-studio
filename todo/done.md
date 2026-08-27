@@ -2190,3 +2190,32 @@ on the row that most needed them.
 
 `rename` itself is untouched; only the third way to reach it is gone. The `LuPencil` import went
 with it, and no test referenced the control.
+
+## 2026-08-27 — Reviews splits into three questions, and stops fetching until asked
+
+Both Reviews surfaces — the sidebar's per-repo section and the Reviews view's list pane — now sit
+behind three accordions: **My Requests**, **Awaiting My Review**, **All Pull Requests**. Nothing is
+fetched until one is expanded, which is the same rate-limit gate the forge sections have always
+applied, one level finer: three collapsed groups cost exactly what one collapsed section used to,
+and a reader who only ever opens "Awaiting My Review" never pays for the other two.
+
+Each group is its own `gh pr list`, not a filter over a shared page — `ForgePullScope` carries the
+reason. `--limit` counts the PRs `gh` matched, so a page of twenty narrowed to "mine" afterwards
+is twenty minus everyone else's rather than twenty of mine; the same argument `state` already made
+for itself. `mine` is `--author @me`, `review-requested` is `--search review-requested:@me` (the
+query `gh pr status` builds for its own block), and `@me` rather than a looked-up login so the app
+never holds a username or misses a `gh auth switch` in the terminal beside it. `scope` is part of
+the query key for the same reason `state` is: sharing one would let whichever group expanded first
+serve its rows to the other two.
+
+The view's toolbar stayed where it was and now filters ACROSS the groups: the groups answer
+"whose", the tabs and the search answer "which", and repeating either three times would be three
+places to set the same thing. The author menu is built from the union of what the expanded groups
+have loaded, deduplicated by PR number first — the same pull request is legitimately in two groups
+at once, and a tally that counted it twice would be a number the list can never match.
+
+Two things the split changed on purpose. The stored selection now wins outright rather than only
+while its PR is in the filtered set: `PrDetail` fetches by number, so a PR chosen in the sidebar
+has to survive arriving here with every group collapsed and nothing loaded for it to be "in". And
+an open group prints no count until its fetch answers — "All Pull Requests 0" for as long as `gh`
+takes, then changing its mind, is a claim rather than a reading.

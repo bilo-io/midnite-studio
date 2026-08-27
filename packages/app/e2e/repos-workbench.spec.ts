@@ -364,6 +364,9 @@ test('Actions and Reviews list what gh reports, and open on GitHub', async ({ pa
   await expect(page.getByRole('img', { name: 'Failed', exact: true })).toBeVisible();
 
   await page.getByRole('button', { name: 'Reviews', exact: true }).click();
+  // The section is a heading over three lazy scopes now — the rows live under
+  // one of them, and nothing is fetched until that one is opened.
+  await page.getByRole('button', { name: 'All Pull Requests', exact: true }).click();
   await expect(page.getByText('Line the table up')).toBeVisible();
   // Draft/approval and the checks rollup are separate readings, both shown.
   await expect(page.getByRole('img', { name: 'Approved', exact: true })).toBeVisible();

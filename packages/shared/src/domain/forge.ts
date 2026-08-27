@@ -174,6 +174,24 @@ export const ForgePullSchema = z.object({
 export type ForgePull = z.infer<typeof ForgePullSchema>;
 
 /**
+ * Which slice of a repository's pull requests a listing is asking for.
+ *
+ * A server-side filter rather than a predicate the renderer applies afterwards,
+ * and that is the whole point of the enum existing: `--limit` counts the PRs
+ * `gh` matched, so a page of twenty narrowed to "mine" after the fact is twenty
+ * minus everyone else's, not twenty of mine. The same argument `state` already
+ * makes for itself one field up.
+ *
+ * `review-requested` is the only one with no dedicated `gh pr list` flag — it
+ * goes through `--search review-requested:@me`, the query `gh pr status` uses
+ * for its own "Requesting a code review from you" block. GitHub resolves that
+ * to direct requests only; a review requested from a *team* you belong to does
+ * not match it, and there is no search qualifier that widens it.
+ */
+export const ForgePullScopeSchema = z.enum(['all', 'mine', 'review-requested']);
+export type ForgePullScope = z.infer<typeof ForgePullScopeSchema>;
+
+/**
  * Whether the `gh` CLI can answer at all, and why not when it can't.
  *
  * Modelled as a reason code plus a message rather than a bare boolean because
