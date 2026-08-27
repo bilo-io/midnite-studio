@@ -133,9 +133,9 @@ export function DiffView({
     <div className="flex h-full min-h-0 flex-col" data-testid="diff-view">
       <div className="flex shrink-0 items-center gap-1 border-b border-border px-2 py-1">
         <span className="mr-auto truncate text-[11px] text-muted-foreground">
-          <span className="text-success tabular-nums">+{diff.insertions}</span>
+          <span className="font-medium text-success tabular-nums">+{diff.insertions}</span>
           {' / '}
-          <span className="text-destructive tabular-nums">−{diff.deletions}</span>
+          <span className="font-medium text-destructive tabular-nums">−{diff.deletions}</span>
         </span>
 
         <IconButton
