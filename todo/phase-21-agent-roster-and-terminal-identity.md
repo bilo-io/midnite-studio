@@ -46,23 +46,21 @@ The spine: B–F all read off this contract, so it lands first.
       mark is roster data rather than a switch in a component, exactly as `accent` already is.
       Absent, it defaults to the agent's `id`, which keeps the four builtins from repeating
       themselves.
-- [ ] The same schema gains `mode: z.enum(['agent', 'launcher']).default('agent')`. A `launcher`
-      starts an application rather than an agent in the pty (Antigravity — see *Decisions*), and
-      the flag is what lets Theme E's probe and Phase 19's activity indicator both skip it
-      honestly instead of reporting a dead agent forever.
 - [ ] The same schema gains `install: z.string().min(1).optional()` — a one-line hint (`npm i -g
       @gitlawb/openclaude`) shown as the `disabledReason` when Theme C's probe cannot find the
       command.
-- [ ] `BUILTIN_AGENTS` grows from one entry to four: **Claude Code** (`claude`), **Antigravity**
-      (`antigravity-ide`, `mode: 'launcher'`), **Codex** (`codex`), **OpenClaude**
-      (`openclaude`) — each with its brand `accent` and its `icon` key.
+- [ ] `BUILTIN_AGENTS` grows from one entry to four, all four of them real terminal agents:
+      **Claude Code** (`claude`), **Antigravity** (`agy` — the
+      [Antigravity CLI](https://antigravity.google/docs/cli/overview), *not* the `antigravity-ide`
+      shim, which opens the IDE), **Codex** (`codex`), **OpenClaude** (`openclaude`) — each with its
+      brand `accent`, its `icon` key and its `install` hint.
 - [ ] `mergeAgents` in [`agents-store.ts`](../packages/desktop/src/main/agents-store.ts) needs no
       logic change, but [`agents-store.test.ts`](../packages/desktop/src/main/agents-store.test.ts)
       does: a case per new field, plus the existing "one typo'd agent must not cost the rest of the
-      file" guarantee re-asserted now that an entry has five optional-ish fields to typo.
-- [ ] `agentIdMatchesKind`'s two invariants still hold for a launcher session — it is `kind:
-      'agent'` with an `agentId`, so nothing in the refinement changes; add a test that says so
-      before Theme C starts opening them.
+      file" guarantee re-asserted now that an entry carries two more optional fields to typo.
+- [ ] `agentIdMatchesKind`'s two invariants are untouched by the new fields, but they now guard
+      four ids instead of one — re-assert both directions in a table test over the whole roster, so
+      a future entry cannot be added half-wired.
 
 ### B — Every agent gets its own mark (M)
 
@@ -102,17 +100,19 @@ The spine: B–F all read off this contract, so it lands first.
       cached, surfaced by extending the existing `agent.list()` result with `installed: boolean`
       and `resolvedPath: string | null` rather than adding a second channel for a fact about the
       same objects.
-- [ ] The probe falls back to a roster-supplied candidate absolute path when the bare command
-      misses — needed on day one, because Antigravity's only shim lives inside
-      `Antigravity IDE.app/Contents/Resources/app/bin/` and is not on `PATH`.
+- [ ] The probe must resolve against the **login shell's** `PATH`, not Electron's. This is the
+      trap, not a nicety: `claude` and `agy` both live in `~/.local/bin`, which reaches the
+      environment only through the user's shell rc — so a `Midnite Git.app` opened from Finder
+      inherits a `PATH` that has neither, and a naive probe would disable two installed agents on
+      the machine this phase was written on. Resolve through a login shell (or read the same `PATH`
+      the pty is given), and let the roster carry an optional candidate absolute path as the last
+      resort.
 - [ ] A missing agent's menu item is `disabled` with its `install` hint as the `disabledReason` —
       reusing the mechanism the `+` menu already uses for *"No worktree selected"*, so a session
       that would open and immediately print `command not found` becomes an explanation instead.
-- [ ] A `mode: 'launcher'` selection opens a session whose queued line is the launcher command,
-      typed and **not executed**, matching [`start-claude.ts`](../packages/app/src/features/terminal/start-claude.ts)'s
-      posture — the app hands over a command, the user's Return runs it.
-- [ ] Unit coverage for the menu builder: four agents present, one uninstalled, none installed, and
-      no worktree selected (where every item is disabled for a different reason).
+- [ ] Unit coverage for the menu builder: four agents present, one uninstalled (OpenClaude is the
+      live example — the other three are already on PATH here), none installed, and no worktree
+      selected, where every item is disabled for a different reason.
 
 ### D — A terminal that knows where it is (M)
 
@@ -156,9 +156,11 @@ The spine: B–F all read off this contract, so it lands first.
       truth.
 - [ ] The header's mark follows the same live value, so Theme D and Theme E together mean the left
       of the header always names the *current* repo and the *current* agent.
-- [ ] `mode: 'launcher'` entries are skipped by the probe and by the activity indicator — the
-      process they start is an app in its own window, not an agent in this pty, and reporting it as
-      exited the moment the IDE opens would be worse than reporting nothing.
+- [ ] The matcher keys on the roster's `command`, so it must survive the forms these four actually
+      take: a bare `agy` or `codex`, a `node …/cli.js` wrapper, and a shim script that `exec`s the
+      real binary under a different argv[0]. Where a form cannot be matched confidently, return
+      `null` — a wrong mark is worse than no mark, which is the same posture
+      `activity-detect.ts` arrived at the hard way.
 - [ ] Unit-test the argv→`agentId` matcher against captured fixture output rather than a live
       process tree: the fixtures are what make the matcher's `node …/cli.js` and wrapper-script
       cases reviewable, and they keep the test off the machine's actual processes.
@@ -219,9 +221,13 @@ The spine: B–F all read off this contract, so it lands first.
 - [ ] **Open, for a human:** `cd` between two real worktrees in a live terminal and watch the
       header's repo name and mark change — OSC 7 arrives from the user's actual shell config, which
       a mock bridge cannot emit.
-- [ ] **Open, for a human:** start and quit `codex` (and `openclaude`, once installed) inside an
-      existing shell session and watch the sidebar row's icon swap both ways — Theme E's probe reads
-      a real process tree, and a fixture proves the matcher but not the wiring.
+- [ ] **Open, for a human:** start and quit `codex` and `agy` inside an existing shell session and
+      watch the sidebar row's icon swap both ways — Theme E's probe reads a real process tree, and a
+      fixture proves the matcher but not the wiring.
+- [ ] **Open, for a human:** launch the packaged `.app` from Finder (not `moon run desktop:start`)
+      and confirm the `+` menu still shows Claude Code and Antigravity as installed — this is the
+      one check that catches Theme C resolving `PATH` from Electron's environment instead of the
+      shell's.
 
 ## Not in this phase
 
@@ -242,17 +248,28 @@ The spine: B–F all read off this contract, so it lands first.
   is mac-first through packaging, so a Windows/Linux argv path would be untestable speculation
   here. The matcher is pure and takes parsed rows, so a second platform is a new reader, not a
   rewrite.
+- **Launcher-mode entries ("Open in Antigravity", "Open in VS Code", …).** Worth doing, and
+  deliberately deferred to its own slice. Antigravity turned out to have a real terminal agent —
+  `agy` — so nothing in this phase needs the concept, and opening an application in its own window
+  is a different feature with a different home: it belongs on the repo/worktree context menus Phase
+  17 built, not in the terminal's `+` menu, and it wants no part of the process probe or the
+  activity glyph. Logged in [`outstanding.md`](outstanding.md).
 - **Acting on the probe.** No kill, no restart, no auto-spawn. The probe exists so the UI can stop
   lying about what is running; a button that stops an agent is a write path and wants its own
   confirm story.
 
 ## Decisions / open questions
 
-- **Resolved — Antigravity is a `launcher`, not an agent.** It ships as an IDE: the only CLI shim on
-  the machine is `antigravity-ide` inside `Antigravity IDE.app`, and it opens an app window rather
-  than running an agent in the pty. Rather than leave it out or let it read as a permanently-dead
-  agent, `mode: 'launcher'` on the roster entry makes the distinction explicit and exempts it from
-  the probe and the activity glyph.
+- **Resolved — Antigravity's terminal agent is `agy`.** The
+  [Antigravity CLI](https://antigravity.google/blog/introducing-google-antigravity-cli) installs with
+  `curl -fsSL https://antigravity.google/cli/install.sh | bash` and launches as `agy` — a real
+  terminal agent, so it is a plain roster entry like the other three. Not to be confused with
+  `antigravity-ide`, the VS Code-style shim inside `Antigravity IDE.app` that opens the graphical
+  IDE; that path is a launcher, and launchers are deferred (see *Not in this phase*).
+- **Resolved — no `mode: 'agent' | 'launcher'` field this phase.** It was in the plan only to carry
+  Antigravity; with `agy` in hand there is nothing for it to distinguish, and a contract field with
+  one hypothetical user is a field that gets designed wrong. It comes back with the launcher slice
+  that needs it.
 - **Resolved — "OpenClaude" is [`Gitlawb/openclaude`](https://github.com/Gitlawb/openclaude)**, a
   multi-provider terminal agent installed with `npm i -g @gitlawb/openclaude` and run as
   `openclaude`. Not to be confused with `opencode` (which is a different tool, and the one

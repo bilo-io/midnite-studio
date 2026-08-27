@@ -61,6 +61,15 @@ Recorded here when a phase punts on something; pick these up post-MVP.
   directory will see extra `git status` calls.
 - **`load more` beyond the 50,000-commit cap.** The log stream reports `truncated` and the footer
   says so, but there is no control to extend the window yet.
+- **Launcher entries — "Open in Antigravity", "Open in VS Code", …** Deferred out of Phase 21 by
+  choice, once Antigravity turned out to ship a real terminal agent (`agy`) and the phase no longer
+  needed the concept to carry it. Opening an application in its own window is a different feature
+  from starting an agent in a pty: it belongs on the repo/worktree context menus Phase 17 built
+  rather than in the terminal's `+` menu, it has no place in the agent process probe or the activity
+  indicator, and it wants a per-editor "is it installed, and where" resolution of its own
+  (`antigravity-ide` lives inside `Antigravity IDE.app/Contents/Resources/app/bin/` and is not on
+  `PATH`). Phase 21's `AgentDefinition` deliberately has no `mode` field for it to reuse — that
+  field should be designed by the slice that actually needs it.
 
 ## xterm throws on unmount under the dev server
 
