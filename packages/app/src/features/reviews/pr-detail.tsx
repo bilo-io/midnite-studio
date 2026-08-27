@@ -38,21 +38,34 @@ import { ReviewActionBar } from './review-action-bar';
  * verdict are the three things a reviewer needs open at once, and a browser
  * round trip for each is the whole friction the view removes.
  *
- * **Three tabs, three fetches, none of them speculative.** The detail query
- * runs as soon as the PR opens because every tab's header reads it; the patch
- * and the conversation are fetched only while their tab is mounted. A reader
- * who opens a PR to check whether CI passed never pulls its diff.
+ * **Four tabs, three fetches, none of them speculative.** The detail query
+ * runs as soon as the PR opens because every tab's header reads it — and it is
+ * also all Overview needs, so that tab costs nothing extra; the patch and the
+ * conversation are fetched only while their tab is mounted. A reader who opens
+ * a PR to check whether CI passed never pulls its diff.
+ *
+ * **The description is a tab, not a header.** It used to sit under the title in
+ * a 160px-tall scroller, which spent that height on every PR whether or not
+ * anyone was reading it and pushed the tabs and the review actions down the
+ * pane. As Overview it gets the whole panel when it is wanted and none of it
+ * when it is not, and the header collapses to the facts that fit on two lines.
  */
-export type PrTab = 'files' | 'conversation' | 'checks';
+export type PrTab = 'overview' | 'files' | 'conversation' | 'checks';
 
 const TABS: { id: PrTab; label: string }[] = [
+  { id: 'overview', label: 'Overview' },
   { id: 'files', label: 'Files' },
   { id: 'conversation', label: 'Conversation' },
   { id: 'checks', label: 'Checks' },
 ];
 
 export function PrDetail({ repoId, number }: { repoId: string; number: number }) {
-  const [tab, setTab] = useState<PrTab>('files');
+  /*
+    Overview opens first because it is what the header used to show: a PR read
+    for the first time answers "what is this?" before "what changed?", and the
+    description was always visible before this tab existed.
+  */
+  const [tab, setTab] = useState<PrTab>('overview');
 
   /*
     The listing is the fallback header, not the source of truth.
@@ -126,7 +139,7 @@ export function PrDetail({ repoId, number }: { repoId: string; number: number })
         open. Inside Conversation — GitHub's own placement — Merge would be
         hidden behind a tab.
       */}
-      <div className="shrink-0 px-3 pb-2">
+      <div className="shrink-0 px-3 py-2">
         <ReviewActionBar repoId={repoId} pull={pull} detail={detail} />
       </div>
 
@@ -179,7 +192,9 @@ export function PrDetail({ repoId, number }: { repoId: string; number: number })
           tab === 'checks' ? 'flex flex-col overflow-hidden' : 'overflow-y-auto'
         }`}
       >
-        {tab === 'files' ? (
+        {tab === 'overview' ? (
+          <PrOverview detail={detail} isLoading={detailQuery.isLoading} />
+        ) : tab === 'files' ? (
           <PrFiles
             files={files.data?.files ?? null}
             isLoading={files.isLoading}
@@ -227,18 +242,57 @@ export function PrDetail({ repoId, number }: { repoId: string; number: number })
 }
 
 /**
- * The PR's facts and its description.
+ * The description, given the whole panel.
+ *
+ * There is no fetch of its own: `detail` is the query the header already runs,
+ * so opening a PR onto Overview costs exactly what opening it onto any other
+ * tab costs. The three states are distinct on purpose — a PR whose body is
+ * genuinely empty must not read the same as one whose detail is still in
+ * flight, or the panel looks like it has answered when it has not.
+ */
+function PrOverview({
+  detail,
+  isLoading,
+}: {
+  detail: ForgePullDetail | null;
+  isLoading: boolean;
+}) {
+  if (detail === null) {
+    return <Centered>{isLoading ? 'Reading the description…' : 'No description to show.'}</Centered>;
+  }
+  if (detail.body.trim().length === 0) {
+    return <Centered>This pull request has no description.</Centered>;
+  }
+  return (
+    <div
+      data-selectable
+      className={`max-w-none px-4 py-3 text-sm leading-relaxed ${MARKDOWN_PROSE_CLASSES}`}
+    >
+      {/* No `rehype-raw` — see `CommitMessage`'s note on attacker-authored text. */}
+      <Markdown remarkPlugins={[remarkGfm]} components={{ a: ExternalLink }}>
+        {detail.body}
+      </Markdown>
+    </div>
+  );
+}
+
+/**
+ * The PR's facts — two lines, and no more.
  *
  * `detail` is optional throughout: the header renders from the cached listing
- * row the moment the PR opens, and fills in the base branch, line counts and
- * body as the second fetch lands. A header that waits for everything is a
- * header that is blank for the length of a subprocess.
+ * row the moment the PR opens, and fills in the base branch and line counts as
+ * the second fetch lands. A header that waits for everything is a header that
+ * is blank for the length of a subprocess.
+ *
+ * The description used to live here too; it is the Overview tab now, so this
+ * stays a fixed two rows however long the body is and the tabs sit directly
+ * beneath it.
  */
 function PrHeader({ pull, detail }: { pull: ForgePull; detail: ForgePullDetail | null }) {
   const checks = checksStatus(pull);
 
   return (
-    <header className="shrink-0 border-b border-border px-4 py-3">
+    <header className="shrink-0 border-b border-border px-4 py-2.5">
       <div className="flex min-w-0 items-center gap-2">
         <StatusPill status={pullStatus(pull)} />
         {checks ? <StatusPill status={checks} /> : null}
@@ -254,7 +308,7 @@ function PrHeader({ pull, detail }: { pull: ForgePull; detail: ForgePullDetail |
         />
       </div>
 
-      <p className="mt-1.5 flex flex-wrap items-center gap-x-3 gap-y-1 text-[11px] text-muted-foreground">
+      <p className="mt-1 flex flex-wrap items-center gap-x-3 gap-y-1 text-[11px] text-muted-foreground">
         <span data-selectable>
           {pull.author || 'someone'} wants to merge{' '}
           <span className="text-foreground">{pull.headBranch}</span>
@@ -282,18 +336,6 @@ function PrHeader({ pull, detail }: { pull: ForgePull; detail: ForgePullDetail |
           <span className="text-destructive">Conflicts with the base branch</span>
         ) : null}
       </p>
-
-      {detail !== null && detail.body.trim().length > 0 ? (
-        <div
-          data-selectable
-          className={`mt-2 max-h-40 max-w-none overflow-y-auto text-sm leading-relaxed ${MARKDOWN_PROSE_CLASSES}`}
-        >
-          {/* No `rehype-raw` — see `CommitMessage`'s note on attacker-authored text. */}
-          <Markdown remarkPlugins={[remarkGfm]} components={{ a: ExternalLink }}>
-            {detail.body}
-          </Markdown>
-        </div>
-      ) : null}
     </header>
   );
 }
