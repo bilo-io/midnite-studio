@@ -1,5 +1,7 @@
 import { useState } from 'react';
 
+import { Spinner } from '../../components/skeleton';
+
 /**
  * The one box every review comment is typed into.
  *
@@ -79,9 +81,17 @@ export function CommentComposer({
           // so the reason the button does nothing is visible before it is
           // pressed — and GitHub would reject it anyway.
           disabled={busy || trimmed.length === 0}
-          className="rounded bg-primary px-2 py-0.5 text-[11px] font-medium text-primary-foreground transition-opacity hover:opacity-90 disabled:opacity-50"
+          className="inline-flex items-center gap-1.5 rounded bg-primary px-2 py-0.5 text-[11px] font-medium text-primary-foreground transition-opacity hover:opacity-90 disabled:opacity-50"
         >
-          {busy ? 'Posting…' : submitLabel}
+          {busy ? (
+            <>
+              {/* Unlabelled: the word beside it already says what is happening. */}
+              <Spinner className="size-3 border-primary-foreground/30 border-r-primary-foreground border-t-primary-foreground" />
+              Posting…
+            </>
+          ) : (
+            submitLabel
+          )}
         </button>
         <button
           type="button"

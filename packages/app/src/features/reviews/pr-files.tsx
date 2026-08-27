@@ -3,6 +3,7 @@ import { useState } from 'react';
 
 import { openExternal } from '../../services/queries';
 import { PrFileAccordion } from './pr-file-accordion';
+import { PrFilesSkeleton } from './reviews-skeletons';
 
 /**
  * How many files open on arrival.
@@ -57,7 +58,7 @@ export function PrFiles({
   // Before any statement about the diff: whether we were able to ask.
   if (notReady !== null) return <Note>{notReady}</Note>;
   if (error !== null) return <Note tone="destructive">{error}</Note>;
-  if (isLoading && files === null) return <Note>Reading the diff…</Note>;
+  if (isLoading && files === null) return <PrFilesSkeleton />;
   if (files === null) return <Note>No diff to show for this pull request.</Note>;
   if (files.files.length === 0) {
     return <Note>This pull request changes no files.</Note>;

@@ -6,6 +6,7 @@ import { RefreshCw, Search, Users } from 'lucide-react';
 
 import { IconButton } from '../../components/icon-button';
 import { MultiSelectMenu, type MultiSelectOption } from '../../components/multi-select-menu';
+import { Spinner } from '../../components/skeleton';
 import { ResizeHandle } from '../../components/resizable/resize-handle';
 import { useResizable } from '../../components/resizable/use-resizable';
 import { cascadeStyle } from '../../lib/cascade';
@@ -13,6 +14,7 @@ import { DEFAULT_LAYOUT, LAYOUT_BOUNDS, useUiStore } from '../../store/ui-store'
 import { useReviewsStore } from '../../store/reviews-store';
 import { checksStatus, pullStatus, StatusPill } from '../forge/forge-status';
 import { PrDetail } from './pr-detail';
+import { PrDetailSkeleton, PullListSkeleton } from './reviews-skeletons';
 
 type StatusTab = 'all' | 'open' | 'draft' | 'merged' | 'closed';
 
@@ -150,7 +152,19 @@ export function ReviewsList({
             summarise={(n) => `${n} authors`}
           />
 
-          <IconButton icon={RefreshCw} label="Refresh pull requests" size="sm" onClick={onRefresh} />
+          {/*
+            The one spinner in this pane, and it is a spinner rather than a
+            skeleton because the rows behind it are still good: a refetch over a
+            listing already on screen must not blank it out. `IconButton` spins
+            its own glyph and blocks the second click for us.
+          */}
+          <IconButton
+            icon={RefreshCw}
+            label="Refresh pull requests"
+            size="sm"
+            busy={isFetching}
+            onClick={onRefresh}
+          />
         </div>
 
         <div className="relative shrink-0 border-b border-border px-2 py-1.5">
@@ -171,17 +185,24 @@ export function ReviewsList({
           </span>
         </div>
 
+        {/*
+          The order is the point: everything we can actually assert comes first,
+          and the skeleton is reached only once the pane has nothing true to say
+          yet. `rows.length === 0` separates the two silences a fetch can end
+          in — a repository with no pull requests, and filters that match none
+          of the ones it has — and neither of those is a loading state.
+        */}
         {cliHint !== null ? (
           <p className="px-3 py-3 text-xs text-muted-foreground">{cliHint}</p>
         ) : error !== null ? (
           <p className="px-3 py-3 text-xs text-destructive">{error}</p>
+        ) : isFetching && rows.length === 0 ? (
+          <PullListSkeleton />
         ) : filtered.length === 0 ? (
           <p className="px-3 py-3 text-xs text-muted-foreground">
-            {isFetching
-              ? 'Asking GitHub…'
-              : rows.length === 0
-                ? 'No pull requests yet.'
-                : 'No pull requests match these filters.'}
+            {rows.length === 0
+              ? 'No pull requests yet.'
+              : 'No pull requests match these filters.'}
           </p>
         ) : (
           <ul aria-label="Pull requests" className="min-h-0 flex-1 overflow-y-auto py-1">
@@ -203,7 +224,14 @@ export function ReviewsList({
                   disabled={isFetching}
                   className="w-full rounded-md border border-border py-1 text-xs text-muted-foreground transition-colors hover:bg-accent hover:text-foreground disabled:opacity-60"
                 >
-                  {isFetching ? 'Loading…' : 'Load more'}
+                  {isFetching ? (
+                    <span className="inline-flex items-center justify-center gap-1.5">
+                      <Spinner className="size-3" />
+                      Loading…
+                    </span>
+                  ) : (
+                    'Load more'
+                  )}
                 </button>
               </li>
             ) : null}
@@ -214,11 +242,20 @@ export function ReviewsList({
       <ResizeHandle resizable={list} axis="x" label="Resize the pull request list" />
 
       {selectedNumber === null ? (
-        <div className="grid min-h-0 flex-1 place-items-center p-8">
-          <p className="max-w-md text-center text-sm leading-relaxed text-muted-foreground">
-            {isFetching ? 'Asking GitHub…' : 'No pull requests to show for this repository.'}
-          </p>
-        </div>
+        /*
+          Mid-fetch this column is about to hold a pull request, so it shows the
+          shape of one; with the fetch done and still nothing selected, there is
+          genuinely nothing coming and it says so.
+        */
+        isFetching ? (
+          <PrDetailSkeleton />
+        ) : (
+          <div className="grid min-h-0 flex-1 place-items-center p-8">
+            <p className="max-w-md text-center text-sm leading-relaxed text-muted-foreground">
+              No pull requests to show for this repository.
+            </p>
+          </div>
+        )
       ) : (
         <PrDetail repoId={repoId} number={selectedNumber} />
       )}

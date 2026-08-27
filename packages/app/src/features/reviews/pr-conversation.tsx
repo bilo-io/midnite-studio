@@ -5,6 +5,7 @@ import remarkGfm from 'remark-gfm';
 import { ExternalLink } from '../markdown/external-link';
 import { MARKDOWN_PROSE_CLASSES } from '../markdown/prose';
 import { StatusPill, type ForgeStatus } from '../forge/forge-status';
+import { PrConversationSkeleton } from './reviews-skeletons';
 
 /**
  * A pull request's top-level thread — discussion and review verdicts, merged.
@@ -37,7 +38,7 @@ export function PrConversation({
     return <Note tone="destructive">{error}</Note>;
   }
   if (isLoading && comments.length === 0) {
-    return <Note>Reading the conversation…</Note>;
+    return <PrConversationSkeleton />;
   }
   if (comments.length === 0) {
     return <Note>Nobody has commented on this pull request.</Note>;

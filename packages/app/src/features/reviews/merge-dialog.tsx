@@ -2,6 +2,8 @@ import type { ForgeMergeMethod, ForgePullDetail } from '@midnite/git-shared';
 import { AlertTriangle } from 'lucide-react';
 import { useEffect, useRef, useState } from 'react';
 
+import { Spinner } from '../../components/skeleton';
+
 /**
  * The confirm in front of the one irreversible thing this app does.
  *
@@ -198,9 +200,21 @@ export function MergeDialog({
             onClick={() => {
               if (method !== null) onMerge(method);
             }}
-            className="rounded bg-destructive px-2.5 py-1 text-xs font-medium text-destructive-foreground transition-opacity hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-40"
+            className="inline-flex items-center gap-1.5 rounded bg-destructive px-2.5 py-1 text-xs font-medium text-destructive-foreground transition-opacity hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-40"
           >
-            {pending ? 'Merging…' : 'Merge'}
+            {pending ? (
+              <>
+                {/*
+                  The one write in the app worth watching spin: a merge is
+                  irreversible and `gh pr merge` is slow enough that a button
+                  which only dims reads as one that did not take the click.
+                */}
+                <Spinner className="size-3 border-destructive-foreground/30 border-r-destructive-foreground border-t-destructive-foreground" />
+                Merging…
+              </>
+            ) : (
+              'Merge'
+            )}
           </button>
         </footer>
       </div>
