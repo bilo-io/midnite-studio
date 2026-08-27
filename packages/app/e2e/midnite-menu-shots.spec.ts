@@ -44,6 +44,6 @@ test('the menu, open', async ({ page }) => {
 test('the Agent page, where each entry is pointed', async ({ page }) => {
   await page.getByRole('button', { name: 'Settings' }).click();
   await page.getByRole('button', { name: 'Agent', exact: true }).click();
-  await expect(page.getByRole('textbox', { name: 'Skill for Exec' })).toBeVisible();
+  await expect(page.getByRole('textbox', { name: 'Skill for Execute Task' })).toBeVisible();
   await shoot(page, 'settings-agent-skills');
 });

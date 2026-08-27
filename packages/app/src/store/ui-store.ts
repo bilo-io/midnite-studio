@@ -441,9 +441,9 @@ export type UiState = {
    * Which Claude skill each entry of the sidebar's midnite menu invokes.
    *
    * A setting rather than a constant because a skill is a *file in the user's
-   * `~/.claude`*, not something this app ships: `/exec` and `/brainstorm` are
-   * this repository's own project skills, `/loop-pr-reviews` and
-   * `/loop-pr-feedback` are personal commands, and any of the four can be
+   * `~/.claude`*, not something this app ships: `/exec`, `/brainstorm` and
+   * `/refine` are this repository's own project skills, `/loop-pr-reviews` and
+   * `/loop-pr-feedback` are personal commands, and any of the five can be
    * renamed, forked or replaced without the app knowing. Hard-coding them would
    * make the menu silently open a terminal on a command that no longer exists.
    *
@@ -456,14 +456,15 @@ export type UiState = {
 };
 
 /**
- * The four verbs the sidebar's midnite menu offers.
+ * The five verbs the sidebar's midnite menu offers.
  *
  * Ids, not labels or glyphs: those live with the menu in
  * `features/agent/agent-commands.ts`, the same split `SETTINGS_PAGES` and
  * `PAGE_ICON` already use, so this file stays a plain data module that pulls no
- * icon package in behind it.
+ * icon package in behind it. The ids are also the persisted keys, so they stay
+ * put while the labels the menu shows are free to be reworded.
  */
-export type AgentCommandId = 'exec' | 'brainstorm' | 'loopPrReview' | 'loopPrFeedback';
+export type AgentCommandId = 'exec' | 'brainstorm' | 'refine' | 'loopPrReview' | 'loopPrFeedback';
 
 /**
  * What each entry invokes out of the box — the skills this repo and its author
@@ -472,6 +473,7 @@ export type AgentCommandId = 'exec' | 'brainstorm' | 'loopPrReview' | 'loopPrFee
 export const DEFAULT_AGENT_SKILLS: Record<AgentCommandId, string> = {
   exec: '/exec',
   brainstorm: '/brainstorm',
+  refine: '/refine',
   loopPrReview: '/loop-pr-reviews',
   loopPrFeedback: '/loop-pr-feedback',
 };
@@ -717,7 +719,7 @@ export const useUiStore = create<UiState>()(
           sectionFilters: { ...current.sectionFilters, ...saved.sectionFilters },
           /*
             Re-spread for the reason the comment above gives, and one more: a
-            blob written before a fifth menu entry existed would otherwise
+            blob written before a later menu entry existed would otherwise
             replace the whole record and leave that entry's skill `undefined`,
             which reaches the terminal as the string "undefined".
           */
