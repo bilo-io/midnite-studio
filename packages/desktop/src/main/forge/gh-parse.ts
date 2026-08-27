@@ -7,6 +7,7 @@ import {
   ForgeStepSchema,
   ForgeRunSchema,
   ForgeWorkflowSchema,
+  PULL_COMMIT_SAMPLE,
   type ForgeChecksRollup,
   type ForgeComment,
   type ForgeIssue,
@@ -87,6 +88,9 @@ const asTimestamp = (value: unknown): string | null => {
   if (text === null) return null;
   return text.startsWith('0001-01-01') ? null : text;
 };
+
+/** A `--json` field that should be a list, or an empty one if the forge omitted it. */
+const asArray = (value: unknown): unknown[] => (Array.isArray(value) ? value : []);
 
 /** `gh` sends `""` for an unfinished conclusion; the enum must not see it. */
 const asConclusion = (value: unknown): string | null => asString(value);
@@ -220,8 +224,49 @@ export function parsePullDetail(payload: unknown): ForgePullDetail | null {
     createdAt: asTimestamp(row['createdAt']),
     updatedAt: asTimestamp(row['updatedAt']),
     mergeable: asString(row['mergeable']),
+    // The count is every commit `gh` listed; the sample is only the newest few
+    // — see `parseCommitSample`. Counting here rather than in the renderer is
+    // what lets the wire carry five rows and still state fourteen.
+    commitCount: asArray(row['commits']).length,
+    commits: parseCommitSample(row['commits']),
+    reviewRequests: asArray(row['reviewRequests'])
+      .map(asLogin)
+      .filter((login) => login.length > 0),
   });
   return parsed.success ? parsed.data : null;
+}
+
+/**
+ * The newest few of `gh pr view --json commits`, for the merge confirm's sample.
+ *
+ * Three things happen here and each is load-bearing for that dialog:
+ *
+ * - **Reversed.** `gh` sends the commits oldest-first; a branch is recognised
+ *   by its tip, so the sample has to start there.
+ * - **Capped** at `PULL_COMMIT_SAMPLE`, *after* reversing, so a 200-commit PR
+ *   sends the five newest rather than the five oldest. The exact *count* is
+ *   taken from the uncapped array by the caller — the dialog states fourteen
+ *   while listing two, and that is the point.
+ * - **Sha-less rows dropped** rather than emitted as `{sha: ''}`, because the
+ *   dialog keys its list on the sha and renders an abbreviated one beside each
+ *   subject. A row with nothing to abbreviate is not a commit worth showing.
+ *
+ * `oid` is `gh`'s name for the sha and `messageHeadline` for the subject —
+ * neither matches what `git log` calls the same two values, which is why this
+ * mapping exists rather than the payload being passed through.
+ */
+export function parseCommitSample(value: unknown): { sha: string; subject: string }[] {
+  return [...asArray(value)]
+    .reverse()
+    .map((entry) => {
+      if (typeof entry !== 'object' || entry === null) return null;
+      const row = entry as Record<string, unknown>;
+      const sha = asString(row['oid']);
+      if (sha === null) return null;
+      return { sha, subject: asString(row['messageHeadline']) ?? '' };
+    })
+    .filter((commit): commit is { sha: string; subject: string } => commit !== null)
+    .slice(0, PULL_COMMIT_SAMPLE);
 }
 
 /**

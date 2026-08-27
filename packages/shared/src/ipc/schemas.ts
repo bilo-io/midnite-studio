@@ -11,11 +11,13 @@ import {
   FileDiffSchema,
   ForgeCliStatusSchema,
   ForgeIssuesResultSchema,
+  ForgeMergeMethodSchema,
   ForgePullCommentsResultSchema,
   ForgePullDetailResultSchema,
   ForgePullFilesResultSchema,
   ForgePullsResultSchema,
   ForgePullThreadsResultSchema,
+  ForgeReviewEventSchema,
   ForgeRunDetailResultSchema,
   ForgeRunLogResultSchema,
   ForgeRunsResultSchema,
@@ -362,17 +364,23 @@ export const ForgePullCommentsResponse = ForgePullCommentsResultSchema;
 export const ForgePullThreadsRequest = ForgePullRequest;
 export const ForgePullThreadsResponse = ForgePullThreadsResultSchema;
 
-// --- forge writes (Phase 20 Theme E) ---------------------------------------
+// --- forge writes (Phase 20 Themes E, F and G) -----------------------------
 
 /**
- * How long a review comment is allowed to be.
+ * How long any review body is allowed to be.
  *
  * GitHub's own field takes far more, but a body arriving here is spliced into a
  * JSON payload handed to a subprocess, and an unbounded string across IPC is a
  * renderer's-choice allocation in main. 64KB is longer than any review comment
  * anybody has written and short enough to be a bounded write.
  */
-const ReviewBody = z.string().min(1, 'a comment needs a body').max(65_536);
+export const FORGE_BODY_MAX = 65_536;
+
+/** The ceiling, with no floor — the floors differ per action and are set below. */
+const ForgeBody = z.string().max(FORGE_BODY_MAX);
+
+/** An inline comment or a reply: never empty, because an empty one says nothing. */
+const ReviewBody = ForgeBody.min(1, 'a comment needs a body');
 
 /**
  * A full 40-char sha, and specifically the PR head the comment is written
@@ -434,6 +442,81 @@ export const ForgeResolveThreadRequest = RepoId.extend({
   resolved: z.boolean(),
 });
 export const ForgeResolveThreadResponse = ForgeWriteResultSchema;
+
+/**
+ * A review submission.
+ *
+ * **`APPROVE` is the only bodiless verb**, and that split is GitHub's rather
+ * than ours: its review endpoint documents `body` as required when `event` is
+ * `REQUEST_CHANGES` *or* `COMMENT`, and rejects either without one. A bare
+ * approval is a normal thing to give; a comment-review with nothing said is not
+ * a review at all.
+ *
+ * Encoding the rule here means the composer's disabled Submit button and the
+ * contract agree, instead of the UI enforcing half of a rule and the user
+ * discovering the other half from a failed subprocess.
+ */
+export const ForgePullReviewRequest = ForgePullRequest.extend({
+  event: ForgeReviewEventSchema,
+  body: ForgeBody.default(''),
+}).refine((req) => req.event === 'APPROVE' || req.body.trim().length > 0, {
+  message: 'requesting changes or commenting needs a body',
+  path: ['body'],
+});
+export const ForgePullReviewResponse = ForgeWriteResultSchema;
+
+/** A top-level conversation comment. Empty is meaningless, so it is refused. */
+export const ForgePullCommentRequest = ForgePullRequest.extend({
+  body: ForgeBody.trim().min(1, 'a comment needs a body'),
+});
+export const ForgePullCommentResponse = ForgeWriteResultSchema;
+
+/**
+ * A merge.
+ *
+ * `method` has no default on purpose. Every other request in this file defaults
+ * generously, because a missing `limit` has an obviously right answer; a missing
+ * merge method does not, and picking one for the caller would mean the app could
+ * squash a history the user meant to preserve because a field went unset. The
+ * renderer's dialog leaves its picker unselected until a human chooses, and this
+ * is the same rule expressed in the contract.
+ */
+export const ForgePullMergeRequest = ForgePullRequest.extend({
+  method: ForgeMergeMethodSchema,
+});
+export const ForgePullMergeResponse = ForgeWriteResultSchema;
+
+/**
+ * A GitHub login, by its documented shape.
+ *
+ * Alphanumerics and single interior hyphens, 39 characters at most. Declared
+ * because these are the one write payload whose values come from a free-text
+ * field a user types — `shellQuote` already makes them inert, and a login that
+ * cannot exist should still never reach a subprocess.
+ */
+const Login = z.string().regex(/^[A-Za-z0-9](?:-?[A-Za-z0-9]){0,38}$/, 'not a GitHub login');
+
+/** Ask for reviews. Capped at fifteen, which is GitHub's own per-call ceiling. */
+export const ForgePullRequestReviewRequest = ForgePullRequest.extend({
+  reviewers: z.array(Login).min(1).max(15),
+});
+export const ForgePullRequestReviewResponse = ForgeWriteResultSchema;
+
+/** Draft → ready. Nothing to configure, so the PR is the whole payload. */
+export const ForgePullReadyRequest = ForgePullRequest;
+export const ForgePullReadyResponse = ForgeWriteResultSchema;
+
+/**
+ * Re-run a workflow run.
+ *
+ * `failedOnly` defaults to false — "re-run this run" is the unsurprising reading
+ * of the verb, and the narrower one is the opt-in.
+ */
+export const ForgeRunRerunRequest = RepoId.extend({
+  runId: RunId,
+  failedOnly: z.boolean().default(false),
+});
+export const ForgeRunRerunResponse = ForgeWriteResultSchema;
 
 // --- shell -----------------------------------------------------------------
 

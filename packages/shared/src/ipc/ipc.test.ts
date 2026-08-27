@@ -455,6 +455,70 @@ describe('forge schemas', () => {
     ).toBe(false);
   });
 
+  it('allows only a bare approval, never a bodiless comment or refusal', () => {
+    // GitHub documents `body` as required for REQUEST_CHANGES *and* COMMENT, so
+    // the contract refuses both — and the composer's disabled Submit button
+    // agrees with it, rather than the user discovering the COMMENT half from a
+    // failed subprocess.
+    for (const event of ['REQUEST_CHANGES', 'COMMENT'] as const) {
+      expect(() =>
+        schemas.ForgePullReviewRequest.parse({ repoId: 'r1', number: 1, event, body: '   ' }),
+      ).toThrow();
+      expect(
+        schemas.ForgePullReviewRequest.parse({ repoId: 'r1', number: 1, event, body: 'said' })
+          .body,
+      ).toBe('said');
+    }
+    expect(
+      schemas.ForgePullReviewRequest.parse({ repoId: 'r1', number: 1, event: 'APPROVE' }).body,
+    ).toBe('');
+    // A discussion comment with nothing in it is meaningless, and that rule is
+    // ours rather than GitHub's — hence the separate schema and the trim.
+    expect(() =>
+      schemas.ForgePullCommentRequest.parse({ repoId: 'r1', number: 1, body: '  ' }),
+    ).toThrow();
+  });
+
+  it('never defaults a merge method', () => {
+    // Picking one for the caller would mean the app could squash a history the
+    // user meant to preserve because a field went unset.
+    expect(() => schemas.ForgePullMergeRequest.parse({ repoId: 'r1', number: 1 })).toThrow();
+    expect(
+      schemas.ForgePullMergeRequest.parse({ repoId: 'r1', number: 1, method: 'squash' }).method,
+    ).toBe('squash');
+  });
+
+  it('refuses a reviewer that could not be a GitHub login', () => {
+    expect(() =>
+      schemas.ForgePullRequestReviewRequest.parse({
+        repoId: 'r1',
+        number: 1,
+        reviewers: ["octo'; rm -rf /"],
+      }),
+    ).toThrow();
+    // An empty list is a request that asks nobody for anything.
+    expect(() =>
+      schemas.ForgePullRequestReviewRequest.parse({ repoId: 'r1', number: 1, reviewers: [] }),
+    ).toThrow();
+    expect(
+      schemas.ForgePullRequestReviewRequest.parse({
+        repoId: 'r1',
+        number: 1,
+        reviewers: ['octo-cat', 'hubot'],
+      }).reviewers,
+    ).toEqual(['octo-cat', 'hubot']);
+  });
+
+  it('re-runs every job unless the narrower flag is asked for', () => {
+    expect(
+      schemas.ForgeRunRerunRequest.parse({ repoId: 'r1', runId: '9001' }).failedOnly,
+    ).toBe(false);
+    // Same digits-only run id every read channel takes — it reaches a command line.
+    expect(() =>
+      schemas.ForgeRunRerunRequest.parse({ repoId: 'r1', runId: '9001; whoami' }),
+    ).toThrow();
+  });
+
   it('has a request schema for every forge channel', () => {
     // The same guard the pty/terminal table applies: a forge channel added
     // without a schema is unvalidated input reaching a subprocess.
@@ -471,14 +535,23 @@ describe('forge schemas', () => {
       forgePullComments: ['ForgePullCommentsRequest', 'ForgePullCommentsResponse'],
       forgePullThreads: ['ForgePullThreadsRequest', 'ForgePullThreadsResponse'],
       /*
-        The three writes (Phase 20 Theme E), and the reason this guard matters
-        more for them than for anything above: an unvalidated *read* returns
-        the wrong data, while an unvalidated write changes state on somebody's
-        pull request with a payload the renderer chose.
+        The nine writes (Phase 20 Themes E, F and G), and the reason this guard
+        matters more for them than for anything above: an unvalidated *read*
+        returns the wrong data, while an unvalidated write changes state on
+        somebody's pull request with a payload the renderer chose.
       */
       forgeReviewComment: ['ForgeReviewCommentRequest', 'ForgeReviewCommentResponse'],
       forgeReviewReply: ['ForgeReviewReplyRequest', 'ForgeReviewReplyResponse'],
       forgeResolveThread: ['ForgeResolveThreadRequest', 'ForgeResolveThreadResponse'],
+      forgePullReview: ['ForgePullReviewRequest', 'ForgePullReviewResponse'],
+      forgePullComment: ['ForgePullCommentRequest', 'ForgePullCommentResponse'],
+      forgePullMerge: ['ForgePullMergeRequest', 'ForgePullMergeResponse'],
+      forgePullRequestReview: [
+        'ForgePullRequestReviewRequest',
+        'ForgePullRequestReviewResponse',
+      ],
+      forgePullReady: ['ForgePullReadyRequest', 'ForgePullReadyResponse'],
+      forgeRunRerun: ['ForgeRunRerunRequest', 'ForgeRunRerunResponse'],
     };
     const channelKeys = Object.keys(CHANNELS).filter((key) => key.startsWith('forge'));
     expect(channelKeys.sort()).toEqual(Object.keys(expected).sort());

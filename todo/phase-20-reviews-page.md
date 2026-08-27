@@ -195,35 +195,42 @@ build on this one:
   is neither unusual nor invalid. The `String!`/`ID!` variables take `-f`; `-F` is right only for
   `number`, which really is an `Int!`.
 
-### F — Review write actions: approve, request changes, comment, merge (L)
+### F — Review write actions: approve, request changes, comment, merge (L) ✅ DONE (2026-08-27)
 
-- [ ] New `packages/desktop/src/main/forge/gh-write.ts` — the phase's one write module, kept
+- [x] New `packages/desktop/src/main/forge/gh-write.ts` — the phase's one write module, kept
       separate from `gh-cli.ts` so that file's "strictly reads" doc comment stays literally true.
       Exports `reviewPull(forge, number, event: 'APPROVE' | 'REQUEST_CHANGES' | 'COMMENT', body)`,
       `commentPull(forge, number, body)`, `mergePull(forge, number, method: 'merge' | 'squash' | 'rebase')`
-- [ ] [`channels.ts`](../packages/shared/src/ipc/channels.ts)'s read-only-forge comment block is
+- [x] [`channels.ts`](../packages/shared/src/ipc/channels.ts)'s read-only-forge comment block is
       updated to document this one deliberate exception, rather than silently going stale
-- [ ] PR detail action bar: Approve / Request changes / Comment, each opening a review-body
+- [x] PR detail action bar: Approve / Request changes / Comment, each opening a review-body
       composer (required for Request changes, per GitHub's own rule)
-- [ ] Merge gated behind a confirm dialog showing the blast radius (`rev-list --count` of commits
-      being merged in, mirroring the existing reset/rebase confirm pattern) and a
-      squash/merge/rebase picker
-- [ ] Every write action invalidates the relevant list/detail query on success, and surfaces
+- [x] Merge gated behind a confirm dialog showing the blast radius and a squash/merge/rebase
+      picker — **but the count comes from `gh pr view --json commits`, not `rev-list --count`.**
+      A PR's head ref usually is not in this checkout at all, and `rev-list` against a missing ref
+      reads as zero, which is the one number a blast radius must never be wrong about. The dialog
+      is its own component rather than the shared `ConfirmDialog`: that one asks a single question
+      whose answer is one click, and a merge asks two, the second changing what the first means
+- [x] Every write action invalidates the relevant list/detail query on success, and surfaces
       `gh`'s own failure text on error via the existing `describeFailure` pattern — never a generic
       toast
-- [ ] Unit tests over `gh-write.ts`'s command construction (`shellQuote`, flags) without a real
+- [x] Unit tests over `gh-write.ts`'s command construction (`shellQuote`, flags) without a real
       subprocess, matching `gh-cli.ts`'s existing test shape
 
-### G — Reviewer re-request, draft→ready, re-run checks (S)
+### G — Reviewer re-request, draft→ready, re-run checks (S) ✅ DONE (2026-08-27)
 
-- [ ] `gh-write.ts` grows `requestReview(forge, number, reviewers: string[])`,
+- [x] `gh-write.ts` grows `requestReview(forge, number, reviewers: string[])`,
       `markReady(forge, number)`, `rerunChecks(forge, runId)`
-- [ ] Reviewer picker sourced from `gh pr view --json reviewRequests` / repo collaborators where
+- [x] Reviewer picker sourced from `gh pr view --json reviewRequests` / repo collaborators where
       `gh` exposes it cheaply; falls back to a free-text GitHub-username field otherwise
-- [ ] Draft → Ready shows only on a PR whose `isDraft` is true, and disappears once flipped rather
+- [x] Draft → Ready shows only on a PR whose `isDraft` is true, and disappears once flipped rather
       than staying as a dead toggle
-- [ ] Re-run checks lives on the Reviews Checks tab; same `gh-write.ts` call the Actions view could
-      later reuse for its own re-run affordance, not a second implementation
+- [x] Re-run checks lives on the Reviews Checks tab — two buttons, with "Re-run failed jobs"
+      present only on a run that failed, because GitHub's API refuses `--failed` otherwise. Same
+      `gh-write.ts` call the Actions view could later reuse; no entry point added there, per the
+      open decision below. It is also the one write that evicts a cache: `gh run rerun` adds an
+      attempt to the *same* run id, and main caches a completed run's tree permanently — see
+      `forgetRun`
 
 ## Files this phase touches
 
@@ -264,7 +271,7 @@ build on this one:
       landing between frames, which a threshold can only measure the machine for; E's risk is
       structural (a measurement loop, or a virtualizer that stops windowing), which is exactly
       what a row count catches
-- [ ] Playwright: approve / request-changes / comment flow against a mocked `gh-write`; merge
+- [x] Playwright: approve / request-changes / comment flow against a mocked `gh-write`; merge
       confirm dialog shows the correct commit count and requires an explicit merge-method choice
       before the Merge button enables *(Theme F)*
 - [x] Unit tests: `gh-write.ts` command construction (15 specs, no subprocess — including that
@@ -312,9 +319,10 @@ build on this one:
   is where the parsed hunks are. Main retries with it **only** when the failure text names an
   anchor field — retrying every 422 would re-post on a rejection a different anchor cannot fix
   (an empty body, a stale sha) and spend two writes against the user's rate limit.
-- **Open — review-body composer UX**, one box for all three actions vs. three separate forms.
-  Recommendation: one composer, the event chosen by which button submits it — matches GitHub's own
-  single-composer model and is less UI to build and keep in sync.
+- **Resolved (F, 2026-08-27) — one composer**, the event chosen by which button submits it, and
+  the verb restated on the Submit button so it is never ambiguous what pressing it publishes.
+  Discuss is a fourth arm rather than a fourth event: `gh pr comment` and `gh pr review --comment`
+  land in different collections.
 - **Resolved (Theme E, 2026-08-27) — inline threads come from GraphQL, on their own channel.**
   Both against this theme's own bullet, and both forced by the API: REST carries no thread object,
   no resolved state and no thread node id, and the Files/Conversation tabs fetch independently.
@@ -324,12 +332,33 @@ build on this one:
 - **Resolved (Theme E, 2026-08-27) — write bodies go over stdin as JSON, not as `gh -f`/`-F`.**
   `-f` stringifies every value (`line` becomes `"42"` and is rejected) and `-F` type-guesses (a
   body of `"true"` becomes a boolean). It also keeps user-authored text off the command line.
-- **Open — whether `commentPull` supports editing or deleting your own prior comment.**
-  Recommendation: no — matches the "no edit/delete of others'" scope decision in Theme E, and keeps
-  the write surface to net-new actions only rather than a second CRUD surface.
-- **Open — whether Theme G's `rerunChecks` should also grow an entry point from the Phase 19
-  Actions view.** Recommendation: not this phase — Actions has no re-run affordance today, and
-  adding one there is a scope decision for whoever picks that up, not a reason to block Theme G.
+- **Resolved (F, 2026-08-27) — no editing or deleting any comment**, yours included. Matches
+  Theme E's scope decision and keeps the write surface to net-new actions rather than a second CRUD
+  surface. Stated on the Settings → Reviews page, in the list of what the app never does.
+- **Resolved (G, 2026-08-27) — no Actions-view entry point this phase.** The `gh-write.ts` call is
+  there for it to reuse; adding the affordance is a scope decision for whoever picks that up.
+- **Resolved (F, 2026-08-27) — the writes are gated behind one machine-wide Settings switch**,
+  off by default, on a new Settings → Reviews page. Not in the original theme text, and
+  deliberately **not** Phase 18's per-repository trust prompt: that consent is per-repo because
+  running a repo's own linter executes arbitrary code that repository chose, and consent for one
+  says nothing about another. Nothing here executes anyone's code — it calls the user's own
+  already-authenticated `gh`, against a repository they opened. So one switch is the honest weight:
+  a guard against the accidental Merge click and one screen listing what the app may and may not
+  change, and the page says so rather than implying a protection it does not give. The gate is at
+  the controls, not inside the mutations — a disabled button whose tooltip names the setting is
+  somewhere to go.
+
+- **Resolved (F, 2026-08-27) — `gh-shell.ts` holds the primitives both forge modules need.**
+  Theme E's `gh-write.ts` imported its spawn, quoting and probe from `gh-cli.ts`, which made the
+  reader a dependency of the writer. They now live in a third module imported by all three: two
+  probe caches would let the read path and the write path disagree about whether `gh` holds a
+  credential.
+
+- **Resolved (F, 2026-08-27) — `APPROVE` is the only bodiless review verb.** GitHub documents
+  `body` as required for `COMMENT` as well as `REQUEST_CHANGES` and refuses either without one, so
+  the theme's own bullet ("required for Request changes") was half the rule. The contract, the
+  Submit button and the composer's "(required)" hint all encode the full one.
+
 - **Resolved (A+B+D slice, 2026-08-27) — highlight timing is deferred, not eager.** Each row's
   syntax highlight is scheduled through `requestIdleCallback` the first time it renders, not
   computed for the whole diff up front — directly answering the scroll-blocking risk this theme's

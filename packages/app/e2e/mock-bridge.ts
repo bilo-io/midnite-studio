@@ -162,7 +162,7 @@ export type MockFixtures = {
      */
     pullThreads?: Record<string, unknown[]>;
     /**
-     * What the three write channels answer with.
+     * What the nine write channels answer with.
      *
      * Its own field rather than reusing `error`, because a *refused write* and a
      * *failed read* unlock different UI and a spec that could only reach one
@@ -519,6 +519,10 @@ export async function installMockBridge(page: Page, fixtures: MockFixtures): Pro
               createdAt: seeded['createdAt'] ?? null,
               updatedAt: seeded['updatedAt'] ?? null,
               mergeable: seeded['mergeable'] ?? null,
+              // Phase 20 F's blast radius, and G's reviewer suggestions.
+              commitCount: seeded['commitCount'] ?? 0,
+              commits: seeded['commits'] ?? [],
+              reviewRequests: seeded['reviewRequests'] ?? [],
             },
             error: null,
           };
@@ -551,7 +555,7 @@ export async function installMockBridge(page: Page, fixtures: MockFixtures): Pro
         }),
 
         /*
-          The three writes.
+          The writes.
 
           They mutate `data.forge.pullThreads` in the page's own copy of the
           fixture, so a spec can post a comment and then assert it renders — a
@@ -629,6 +633,40 @@ export async function installMockBridge(page: Page, fixtures: MockFixtures): Pro
             }
           }
           return writeResult(true);
+        },
+        /*
+          Themes F and G — the verdict, the merge and the nudges.
+
+          Deliberately thinner than Theme E's three above: those mutate the
+          seeded thread list so the UI updates the way a real write would, while
+          these change state the fixture does not model (a PR's reviewDecision, a
+          merge, a workflow attempt). What a spec can assert is the RECORDED
+          REQUEST — that the app sent the verb the user chose, with the body they
+          typed — plus how the UI behaves on refusal. Both are what these serve.
+        */
+        pullReview: async (req: Record<string, unknown>) => {
+          recordWrite('pullReview', req);
+          return writeResult(writeError() === null);
+        },
+        pullComment: async (req: Record<string, unknown>) => {
+          recordWrite('pullComment', req);
+          return writeResult(writeError() === null);
+        },
+        pullMerge: async (req: Record<string, unknown>) => {
+          recordWrite('pullMerge', req);
+          return writeResult(writeError() === null);
+        },
+        pullRequestReview: async (req: Record<string, unknown>) => {
+          recordWrite('pullRequestReview', req);
+          return writeResult(writeError() === null);
+        },
+        pullReady: async (req: Record<string, unknown>) => {
+          recordWrite('pullReady', req);
+          return writeResult(writeError() === null);
+        },
+        runRerun: async (req: Record<string, unknown>) => {
+          recordWrite('runRerun', req);
+          return writeResult(writeError() === null);
         },
       },
       /*

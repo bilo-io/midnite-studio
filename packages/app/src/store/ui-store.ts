@@ -64,7 +64,14 @@ export const VIEW_IDS: readonly ViewId[] = [
  * nav-rail sub-items: the rail stays view navigation, and settings pages are
  * one view's internal structure.
  */
-export type SettingsPageId = 'appearance' | 'graph' | 'sidebar' | 'terminal' | 'agent' | 'monitor';
+export type SettingsPageId =
+  | 'appearance'
+  | 'graph'
+  | 'sidebar'
+  | 'terminal'
+  | 'agent'
+  | 'reviews'
+  | 'monitor';
 
 /**
  * The categories the settings pages sort into, in UX priority order — the
@@ -95,6 +102,7 @@ export const SETTINGS_PAGES: { id: SettingsPageId; label: string; group: Setting
   { id: 'sidebar', label: 'Sidebar', group: 'general' },
   { id: 'terminal', label: 'Terminal', group: 'tools' },
   { id: 'agent', label: 'Agent', group: 'tools' },
+  { id: 'reviews', label: 'Reviews', group: 'tools' },
   { id: 'monitor', label: 'Monitor & Diagnostics', group: 'system' },
 ];
 
@@ -389,6 +397,27 @@ export type UiState = {
   /** Sampling cadence with the flyout closed. Opening it always escalates. */
   metricsIdleIntervalMs: number;
   setMetricsIdleInterval: (ms: number) => void;
+  /**
+   * Whether the Reviews view may act on a pull request (Phase 20 Themes F/G).
+   *
+   * Off until a human turns it on, in Settings → Reviews. One machine-wide
+   * switch, deliberately NOT Phase 18's per-repository trust prompt, and the
+   * difference is what is being consented to: running a repo's own linter
+   * executes arbitrary code that repository chose, so consent for one says
+   * nothing about another. Nothing behind this flag executes anyone's code — it
+   * calls the user's own already-authenticated `gh`, against a repository they
+   * opened, doing things they could equally type into a terminal.
+   *
+   * So this is a guard against the accidental click and a place to see in one
+   * screen what the app may change on your behalf — not a security boundary,
+   * and the page says so rather than implying a protection it does not give.
+   *
+   * The gate lives at the controls rather than inside the mutations: a disabled
+   * button whose tooltip names the setting is somewhere to go, while a mutation
+   * that silently refused would be a dead click with nothing to read.
+   */
+  forgeWritesEnabled: boolean;
+  setForgeWritesEnabled: (enabled: boolean) => void;
 };
 
 /**
@@ -412,6 +441,7 @@ type PersistedUi = Pick<
   | 'changesFileView'
   | 'hiddenMetrics'
   | 'metricsIdleIntervalMs'
+  | 'forgeWritesEnabled'
 >;
 
 export const useUiStore = create<UiState>()(
@@ -423,6 +453,8 @@ export const useUiStore = create<UiState>()(
       settingsPage: 'appearance',
       hiddenMetrics: [],
       metricsIdleIntervalMs: METRICS_IDLE_INTERVAL_MS,
+      // Default off. A fresh install cannot change anything on GitHub.
+      forgeWritesEnabled: false,
       selectedRepoId: null,
       selectedWorktreePath: null,
       selectedCommitSha: null,
@@ -522,6 +554,7 @@ export const useUiStore = create<UiState>()(
             : [...state.hiddenMetrics, id],
         })),
       setMetricsIdleInterval: (metricsIdleIntervalMs) => set({ metricsIdleIntervalMs }),
+      setForgeWritesEnabled: (forgeWritesEnabled) => set({ forgeWritesEnabled }),
     }),
     {
       name: 'midnite-git.ui',
@@ -571,6 +604,14 @@ export const useUiStore = create<UiState>()(
         terminalListOpen: state.terminalListOpen,
         hiddenMetrics: state.hiddenMetrics,
         metricsIdleIntervalMs: state.metricsIdleIntervalMs,
+        /*
+          Persisted, so consent survives a relaunch — a switch that reset on
+          every start would be a nag rather than a setting. It is one of the
+          few persisted fields whose *absence* is the safe reading: an older
+          stored blob has no such key, `false` is the initial value, and a
+          restored state therefore cannot arrive with writes silently on.
+        */
+        forgeWritesEnabled: state.forgeWritesEnabled,
       }),
 
       /**

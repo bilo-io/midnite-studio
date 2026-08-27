@@ -185,6 +185,37 @@ export type MidniteGitBridge = {
     resolveThread: (
       req: In<typeof S.ForgeResolveThreadRequest>,
     ) => Promise<z.infer<typeof S.ForgeResolveThreadResponse>>;
+    /*
+      Themes F and G — the verdict, the merge, and the three nudges.
+
+      All six answer `ForgeWriteResult` rather than throwing, so a refused
+      approve is a sentence the composer renders beside itself with the typed
+      body still in it. See the domain schema's own note.
+    */
+    /** Approve, request changes, or comment — the verb rides in `event`. */
+    pullReview: (
+      req: In<typeof S.ForgePullReviewRequest>,
+    ) => Promise<z.infer<typeof S.ForgePullReviewResponse>>;
+    /** A discussion comment, not a verdict-less review. See the channel doc. */
+    pullComment: (
+      req: In<typeof S.ForgePullCommentRequest>,
+    ) => Promise<z.infer<typeof S.ForgePullCommentResponse>>;
+    /** Merge. Confirmed in the renderer before it is ever reached. */
+    pullMerge: (
+      req: In<typeof S.ForgePullMergeRequest>,
+    ) => Promise<z.infer<typeof S.ForgePullMergeResponse>>;
+    /** Ask logins for a review — the same call re-asks an existing request. */
+    pullRequestReview: (
+      req: In<typeof S.ForgePullRequestReviewRequest>,
+    ) => Promise<z.infer<typeof S.ForgePullRequestReviewResponse>>;
+    /** Draft → ready. One-directional; there is no un-ready here. */
+    pullReady: (
+      req: In<typeof S.ForgePullReadyRequest>,
+    ) => Promise<z.infer<typeof S.ForgePullReadyResponse>>;
+    /** Re-run a workflow run, or only its failed jobs. */
+    runRerun: (
+      req: In<typeof S.ForgeRunRerunRequest>,
+    ) => Promise<z.infer<typeof S.ForgeRunRerunResponse>>;
   };
 
   /**

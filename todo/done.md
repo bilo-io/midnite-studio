@@ -2,6 +2,66 @@
 
 <!-- Append one entry per landed phase/PR: date, phase, PR link, one-line summary. -->
 
+## 2026-08-27 — Phase 20 · Themes F + G — review write actions, and the consent switch in front of them
+
+Landed on `feature/phase-20-review-writes`, squash-merged locally — no PR link, no GitHub remote on
+this checkout. The phase's one deliberate reversal of the Phase 17/19 read-only-forge rule, and the
+last of its seven themes.
+
+- [x] **Six writes in `gh-write.ts`**, beside Theme E's three: approve/request-changes/comment,
+      merge, reviewer re-request, draft→ready and run re-run. All six are plain `gh` subcommands
+      rather than `gh api` — Theme E reaches for the API because threads have no CLI verb, and
+      these have one. Command construction is split from the spawn, so each is a pure
+      `*Command(forge, …)` returning a string and the tests assert the exact command line — flags,
+      ordering, quoting — with no subprocess, network or repository. The failure modes worth
+      catching are all textual: a verb that becomes a value, a body that breaks out of its quoting,
+      a `--failed` nobody asked for, a method flag omitted so `gh` drops into an interactive prompt
+      and hangs on the timeout
+- [x] **`gh-shell.ts` extracted** — the spawn, quoting, both host flags, the availability probe and
+      the failure summary, previously in `gh-cli.ts` and imported from there by the write module.
+      Now a third module imported by `gh-cli`, `gh-write` and `gh-graphql` alike: two probe caches
+      would let the read path and the write path disagree about whether `gh` holds a credential,
+      and `gh-cli.ts`'s "strictly reads" comment is now true of its dependencies as well as its
+      calls
+- [x] **Contract**: six channels appended to the write block Theme E opened, so the whole write
+      surface is auditable in one screen and the read-only comment above it says nine rather than
+      going stale. Three rules encoded in the payloads rather than left to the UI — a merge method
+      never defaults, a reviewer must look like a GitHub login, and `APPROVE` is the only bodiless
+      verb. `ForgePullDetail` grows `commitCount`, a five-commit sample and `reviewRequests`, all
+      three riding the `gh pr view` the detail header already makes
+- [x] **The blast radius comes from GitHub, not `rev-list --count`** — a departure from the theme's
+      own bullet. A PR's head ref usually is not in this checkout at all, and `rev-list` against a
+      missing ref reads as zero, which is the one number a confirm dialog must never be wrong about
+- [x] **Action bar under the PR header**, outside the tabpanel because these actions apply to the
+      pull request rather than to one view of it — inside Conversation, GitHub's own placement,
+      Merge would be hidden behind a tab. One composer for all three verbs, the verb restated on
+      Submit. Merge has its own dialog rather than the shared `ConfirmDialog`: that one asks a
+      single question whose answer is one click, and a merge asks two, the second ("merge, squash
+      or rebase?") changing what the first one means. Nothing preselected, Merge disabled until a
+      human picks
+- [x] **Nothing optimistic.** Every action disables its control until `gh` answers, then either
+      invalidates the listing and detail — not the patch, which a verdict does not change — or
+      renders `gh`'s own sentence beside the control that caused it
+- [x] **A default-off Settings → Reviews switch** gates all of it, and lists what stays out: no PR
+      creation, no labels, no issue writes, no force-push, no branch deletion, no editing anyone's
+      comment. Not the phase doc's idea and deliberately not Phase 18's per-repo trust prompt —
+      nothing here executes anyone's code, so one machine-wide switch is the honest weight
+- [x] **Two bugs found in self-review, both about what GitHub actually does.** `gh run rerun` adds
+      an attempt to the *same* run id, and main caches a completed run's tree and logs permanently
+      — so re-running would refresh the listing, watch the run finish, and then serve the previous
+      attempt's failure for as long as the app stayed open; `forgetRun` now evicts it in the
+      handler, scoped by host and slug because run ids collide across repositories. And a
+      comment-review could be submitted empty, which GitHub refuses — `APPROVE` is now the only
+      bodiless verb everywhere
+- [x] **Tests**: 31 command-construction cases over `gh-write.ts`, five spawn-counting cases over
+      the cache eviction, four contract cases over the new payloads, and 13 Playwright cases over
+      the guards — consent, the required bodies, the merge count and method, the absent controls on
+      a draft/merged PR, `--failed` only on a failed run, and the recorded requests proving the app
+      sent the verb the user chose. Five committed screenshots
+
+Still open on the phase, both needing a human: a real `gh pr review` / `gh pr merge` against a
+disposable test PR, and syntax-highlighted diff scroll performance on a PR with 100+ changed files.
+
 ## 2026-08-27 — Phase 20 · Theme E — inline review comment threads on the PR diff
 
 Landed on `feature/phase-20-inline-threads`, squash-merged locally — no PR link, no GitHub remote

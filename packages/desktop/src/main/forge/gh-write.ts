@@ -1,4 +1,9 @@
-import type { Forge, ForgeWriteResult } from '@midnite/git-shared';
+import type {
+  Forge,
+  ForgeMergeMethod,
+  ForgeReviewEvent,
+  ForgeWriteResult,
+} from '@midnite/git-shared';
 
 import {
   apiHostFlag,
@@ -6,10 +11,11 @@ import {
   ghStatus,
   invalidateGhProbe,
   LIST_TIMEOUT_MS,
+  repoFlag,
   runInShell,
   shellQuote,
   slug,
-} from './gh-cli';
+} from './gh-shell';
 import { describeGraphqlFailure } from './gh-graphql';
 
 /**
@@ -39,6 +45,20 @@ import { describeGraphqlFailure } from './gh-graphql';
  * Three calls: start a thread on a line, reply into one, and resolve or reopen
  * one. Two go through REST and one through GraphQL, and that split is forced by
  * the API rather than chosen — see each function.
+ *
+ * ─── Themes F and G: the verdict, the merge, the nudges ────────────────────
+ *
+ * Six calls, and all six are plain `gh` subcommands rather than `gh api` — `gh
+ * pr review`, `gh pr comment`, `gh pr merge`, `gh pr edit`, `gh pr ready`, `gh
+ * run rerun`. Theme E reaches for the API because threads have no CLI verb;
+ * these do, and the CLI verb is the one that keeps working across API versions.
+ *
+ * **Command construction is separated from the spawn.** Each has a pure
+ * `*Command(forge, …)` returning a string, and the runner below hands that
+ * string to `runInShell`. That split is what makes the write surface testable at
+ * all: `gh-write.test.ts` asserts the exact command line — flags, ordering,
+ * quoting — with no subprocess, no network and no repository, which for a module
+ * whose whole job is to be trusted is the test worth having.
  */
 
 /**
@@ -259,3 +279,214 @@ const notReady = (cli: ForgeWriteResult['cli']): ForgeWriteResult => ({
   cli,
   error: null,
 });
+
+/*
+  ─── Themes F and G ─────────────────────────────────────────────────────────
+*/
+
+/**
+ * Longer than the reads' twenty seconds would be wrong, and shorter would be
+ * worse.
+ *
+ * A write is a POST GitHub processes rather than a listing it serves from cache,
+ * and a merge in particular waits on the far side actually creating a commit.
+ * Reusing the listing timeout is deliberate: the observed shape of a slow write
+ * is a slow *network*, which twenty seconds already accommodates, and a longer
+ * ceiling would only mean a user waits longer to be told the same thing.
+ */
+const WRITE_TIMEOUT_MS = LIST_TIMEOUT_MS;
+
+/**
+ * `--body` from a string the user typed, safely and without a temp file.
+ *
+ * `gh` also takes `--body-file`, which is what a shell script would reach for,
+ * and it is the wrong tool here: it would mean writing the user's review to
+ * disk, remembering to delete it, and having a half-written review survive a
+ * crash. `shellQuote` makes an arbitrary multi-line body — backticks, `$(…)`,
+ * embedded quotes and all — a single inert argv entry, which is the whole
+ * reason that function is load-bearing rather than decorative.
+ *
+ * An empty body produces no flag at all rather than `--body ''`: `gh pr review
+ * --approve --body ''` is accepted, but it publishes an approval carrying an
+ * empty comment, and a bare approval is what the user asked for.
+ */
+const bodyFlag = (body: string): string =>
+  body.trim().length > 0 ? ` --body ${shellQuote(body)}` : '';
+
+/**
+ * The flag each review verb spells itself with.
+ *
+ * `gh pr review` takes the verb as a flag, not as a value — there is no
+ * `--event APPROVE` — so the mapping has to exist somewhere. Here, as a total
+ * record over the contract's own enum, so adding a fourth event would fail to
+ * compile rather than silently produce a command with no verb in it.
+ */
+const REVIEW_FLAG: Record<ForgeReviewEvent, string> = {
+  APPROVE: '--approve',
+  REQUEST_CHANGES: '--request-changes',
+  COMMENT: '--comment',
+};
+
+/** `gh pr review <n> --repo … --approve|--request-changes|--comment [--body …]` */
+export function reviewCommand(
+  forge: Forge,
+  number: number,
+  event: ForgeReviewEvent,
+  body: string,
+): string {
+  return `gh pr review ${number} ${repoFlag(forge)} ${REVIEW_FLAG[event]}${bodyFlag(body)}`;
+}
+
+/**
+ * `gh pr comment <n> --repo … --body …`
+ *
+ * Not `gh pr review --comment`, which looks like the same thing and is not: a
+ * review-with-no-verdict lands in the PR's `reviews` collection with reviewer
+ * attribution, while this lands in `issues/{n}/comments` as ordinary
+ * discussion. `mergeConversation` merges both for reading, so the only place
+ * the difference is visible is the choice of which one to post — which is here.
+ */
+export function commentCommand(forge: Forge, number: number, body: string): string {
+  return `gh pr comment ${number} ${repoFlag(forge)} --body ${shellQuote(body)}`;
+}
+
+/**
+ * The flag each merge shape spells itself with.
+ *
+ * Total over `ForgeMergeMethod`, and never defaulted: `gh pr merge` with no
+ * method flag drops into an interactive prompt on a tty, and the login shell
+ * these run in is convincing enough that it would hang until the timeout killed
+ * it. The contract refuses a method-less request for that reason and this map is
+ * the other half of it.
+ */
+const MERGE_FLAG: Record<ForgeMergeMethod, string> = {
+  merge: '--merge',
+  squash: '--squash',
+  rebase: '--rebase',
+};
+
+/**
+ * `gh pr merge <n> --repo … --merge|--squash|--rebase`
+ *
+ * No `--delete-branch`, and that absence is deliberate. Deleting the head
+ * branch is a second destructive act with its own blast radius — a contributor's
+ * fork branch, or one someone else still has checked out — and folding it into
+ * the merge would mean a confirm dialog that counts commits while quietly also
+ * removing a ref. If the app grows that, it grows its own control and its own
+ * sentence in the confirm.
+ */
+export function mergeCommand(forge: Forge, number: number, method: ForgeMergeMethod): string {
+  return `gh pr merge ${number} ${repoFlag(forge)} ${MERGE_FLAG[method]}`;
+}
+
+/**
+ * `gh pr edit <n> --repo … --add-reviewer a --add-reviewer b`
+ *
+ * Repeated flags rather than one comma-joined value. `gh` accepts both, but a
+ * comma-joined list makes the quoting carry a separator the far side has to
+ * re-split, on the assumption that a login can never contain a comma — which is
+ * true today and is exactly the kind of reasoning that stops being true one API
+ * version later. One flag per reviewer has no such assumption in it.
+ *
+ * "Re-request" and "request" are the same call: GitHub has no separate verb for
+ * asking again, and adding a reviewer who is already requested re-asks them
+ * rather than erroring.
+ */
+export function requestReviewCommand(forge: Forge, number: number, reviewers: string[]): string {
+  const flags = reviewers.map((login) => ` --add-reviewer ${shellQuote(login)}`).join('');
+  return `gh pr edit ${number} ${repoFlag(forge)}${flags}`;
+}
+
+/**
+ * `gh pr ready <n> --repo …`
+ *
+ * One-directional on purpose. `gh pr ready --undo` exists and would turn a ready
+ * PR back into a draft; the app does not offer it, because the control that
+ * raised this is a button that disappears once the PR is no longer a draft, and
+ * a hidden path back would be a state change with no affordance.
+ */
+export function readyCommand(forge: Forge, number: number): string {
+  return `gh pr ready ${number} ${repoFlag(forge)}`;
+}
+
+/**
+ * `gh run rerun <id> --repo … [--failed]`
+ *
+ * The run id is `shellQuote`d even though the schema has already constrained it
+ * to digits — the same belt-and-braces the read side applies, and for the same
+ * reason: the guard that stops a value being a command is the quoting, and the
+ * schema is what stops it being a value that could not exist.
+ */
+export function rerunCommand(forge: Forge, runId: string, failedOnly: boolean): string {
+  return `gh run rerun ${shellQuote(runId)} ${repoFlag(forge)}${failedOnly ? ' --failed' : ''}`;
+}
+
+/**
+ * Run one CLI write, and report it the way every forge call reports itself.
+ *
+ * The probe comes first because a signed-out `gh` fails with a message about
+ * authentication that is true but unhelpful — the UI has a better sentence for
+ * that state, and this is where it gets the chance to use it.
+ *
+ * Unlike `apiPost`, this does NOT call `invalidateGhProbe` on failure. That call
+ * exists so a listing that failed on a stale credential re-probes; a *write*
+ * that failed may well have failed on a permission the user genuinely lacks
+ * (approving your own PR, merging without write access), and dropping the probe
+ * cache on every such refusal would mean two extra shell spawns each time
+ * someone is told no.
+ */
+async function runWrite(command: string): Promise<ForgeWriteResult> {
+  const cli = await ghStatus();
+  if (cli.reason !== 'ready') return notReady(cli);
+
+  const result = await runInShell(command, WRITE_TIMEOUT_MS);
+  if (result.exitCode === 0) return { cli, ok: true, error: null };
+  return { cli, ok: false, error: describeFailure(result.output) };
+}
+
+/** Submit a review: approve, request changes, or comment. */
+export function reviewPull(
+  forge: Forge,
+  number: number,
+  event: ForgeReviewEvent,
+  body: string,
+): Promise<ForgeWriteResult> {
+  return runWrite(reviewCommand(forge, number, event, body));
+}
+
+/** Post a top-level conversation comment. */
+export function commentPull(forge: Forge, number: number, body: string): Promise<ForgeWriteResult> {
+  return runWrite(commentCommand(forge, number, body));
+}
+
+/** Merge the pull request. The renderer confirms before this is ever reached. */
+export function mergePull(
+  forge: Forge,
+  number: number,
+  method: ForgeMergeMethod,
+): Promise<ForgeWriteResult> {
+  return runWrite(mergeCommand(forge, number, method));
+}
+
+/** Ask one or more logins for a review. */
+export function requestReview(
+  forge: Forge,
+  number: number,
+  reviewers: string[],
+): Promise<ForgeWriteResult> {
+  return runWrite(requestReviewCommand(forge, number, reviewers));
+}
+
+/** Take a draft pull request out of draft. */
+export function markReady(forge: Forge, number: number): Promise<ForgeWriteResult> {
+  return runWrite(readyCommand(forge, number));
+}
+
+/** Re-run a workflow run — every job, or only the failed ones. */
+export function rerunChecks(
+  forge: Forge,
+  runId: string,
+  failedOnly: boolean,
+): Promise<ForgeWriteResult> {
+  return runWrite(rerunCommand(forge, runId, failedOnly));
+}

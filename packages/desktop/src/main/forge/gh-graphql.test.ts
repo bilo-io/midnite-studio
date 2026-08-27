@@ -4,7 +4,7 @@ import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { describeGraphqlFailure, parseReviewThreads, pullThreads } from './gh-graphql';
 
 /*
-  `runInShell` mocked, the rest of `gh-cli` real — the same arrangement
+  `runInShell` mocked, the rest of `gh-shell` real — the same arrangement
   `gh-write.test.ts` documents, and for the same reason: `shellQuote` is half of
   what these assertions are about, so stubbing it would only prove the test
   agrees with itself about escaping.
@@ -19,8 +19,8 @@ const { runInShell } = vi.hoisted(() => ({
   >(),
 }));
 
-vi.mock('./gh-cli', async (importOriginal) => {
-  const actual = await importOriginal<typeof import('./gh-cli')>();
+vi.mock('./gh-shell', async (importOriginal) => {
+  const actual = await importOriginal<typeof import('./gh-shell')>();
   return {
     ...actual,
     runInShell,
