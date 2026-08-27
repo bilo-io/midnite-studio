@@ -108,6 +108,17 @@ export function TerminalPanel({ cwd, repoId, repoName }: TerminalPanelProps) {
   */
   const activeState = useTerminalStore((s) => (activeId ? (s.states[activeId] ?? 'idle') : 'idle'));
   /*
+    Where the active shell actually IS, when it has said so (OSC 7, Theme D),
+    falling back to where it was opened. The fallback is the whole degradation
+    path: macOS `zsh` emits nothing by default, and such a session must read
+    exactly as it did before this existed.
+
+    Nothing writes the live value back to the session — `terminals.json` keeps
+    the opened-at record, and the session keeps its stored `repoId` even when
+    the shell has wandered into another repository entirely.
+  */
+  const activeLiveCwd = useTerminalStore((s) => (activeId ? s.liveCwd[activeId] : undefined));
+  /*
     A list of one session names nothing the header does not already say, so
     the toggle governs the list only once there is more than one — and says so
     on hover rather than sitting there dead with no explanation.
@@ -120,7 +131,7 @@ export function TerminalPanel({ cwd, repoId, repoName }: TerminalPanelProps) {
     // and its header, its list and its panes are all separately-sized children.
     <div data-terminal-panel className="flex h-full min-h-0 flex-col bg-background">
       <TerminalHeader
-        path={active?.cwd ?? cwd}
+        path={activeLiveCwd ?? active?.cwd ?? cwd}
         state={activeState}
         repos={repos}
         listable={listable}

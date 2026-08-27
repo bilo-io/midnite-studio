@@ -1,4 +1,4 @@
-import { homedir } from 'node:os';
+import { homedir, hostname } from 'node:os';
 
 import { contextBridge, ipcRenderer } from 'electron';
 
@@ -80,6 +80,7 @@ const windowChrome: WindowChromeBridge = {
 const bridge: Pick<
   MidniteGitBridge,
   | 'homeDir'
+  | 'hostname'
   | 'repos'
   | 'log'
   | 'status'
@@ -107,6 +108,7 @@ const bridge: Pick<
     path. An async fetch would paint the raw path and then rewrite it.
   */
   homeDir: homedir(),
+  hostname: hostname(),
 
   repos: {
     open: (req) => call(CHANNELS.repoOpen, req),
