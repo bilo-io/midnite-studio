@@ -121,7 +121,16 @@ test.describe('terminal panel', () => {
     await page.getByRole('menuitem', { name: /New Agent — Claude/ }).click();
 
     await expect(rows(page)).toHaveCount(2);
-    await expect(page.getByText('Claude · midnite-git')).toBeVisible();
+    /*
+      Phase 19 split the row's label in two — the repo name, then the session's
+      own name — so the old single `Claude · midnite-git` string no longer
+      exists anywhere in the DOM, and this assertion had been failing on `main`
+      ever since. Asserting the two spans separately is what that change
+      actually made true.
+    */
+    const agentRow = page.locator('[data-session-row]').nth(1);
+    await expect(agentRow.locator('button span.truncate').first()).toHaveText('midnite-git');
+    await expect(agentRow.locator('button span.truncate').last()).toHaveText('Claude');
 
     // The accent comes from the roster, not from a switch in the component —
     // #D97757 is Claude's, and a mark painted in the default foreground means
@@ -158,6 +167,80 @@ test.describe('terminal panel', () => {
     await page.reload();
     await expect(page.getByRole('button', { name: 'New terminal or agent' })).toBeVisible();
     expect((await listBox()).x).toBeLessThan((await paneBox()).x);
+  });
+
+  /**
+   * The header, after Phase 21 Theme F.
+   *
+   * It used to open with the literal word "Terminal" — a label for the pane you
+   * are already looking at — followed by an un-collapsed absolute path that
+   * truncated from the right, throwing away the end that says where you are.
+   * What replaces it has to say three things instead: it is a terminal, the
+   * process is alive, and this is the checkout it is standing in.
+   */
+  test('the header names where the terminal is, not that it is a terminal', async ({ page }) => {
+    await open(page, { terminalSessions: RESTORED });
+    await toggleTerminal(page);
+
+    const header = page.locator('[data-terminal-header]');
+    await expect(header).toBeVisible();
+
+    // The word is gone. Asserted on the header's own text rather than the
+    // page's, because "New terminal or agent" is a button label inside it.
+    await expect(header).not.toContainText('Terminal');
+
+    // `~`-collapsed against the mock bridge's homeDir (`/tmp`), and split in
+    // two: dimmed ancestors, then the checkout at full weight.
+    const path = header.locator('[title="/tmp/midnite-git"]');
+    await expect(path).toHaveText('~/midnite-git');
+    await expect(path.locator('span').last()).toHaveText('midnite-git');
+
+    // A glyph and a status circle lead the row. The dot is the session list's
+    // own component, so a restored-but-not-revived session reads as idle: a
+    // plain muted dot with no pulse.
+    await expect(header.locator('svg').first()).toBeVisible();
+    await expect(header.locator('span.rounded-full')).toHaveClass(/bg-muted-foreground/);
+  });
+
+  /**
+   * The path is clipped by the header, not merely shrunk inside it.
+   *
+   * The tail span deliberately refuses to give up its width before the
+   * ancestors do — which, with no clipping box anywhere in this row, let a deep
+   * path under a long branch name run straight under the button cluster and out
+   * past the panel's right edge. The buttons stayed clickable (they are painted
+   * later), so the hit-test below never caught it.
+   */
+  test('a very deep path is clipped by the header rather than escaping it', async ({ page }) => {
+    const root = '/tmp/midnite-git/.worktrees/a-very-long-branch-name-that-will-not-fit';
+    await open(page, {
+      worktrees: [{ path: root, branch: 'feature/a-very-long-branch-name-that-will-not-fit' }],
+      terminalSessions: [
+        {
+          session: session('s-deep', {
+            cwd: `${root}/packages/app-shell/src/components/terminal`,
+          }),
+          scrollback: '$ \r\n',
+        },
+      ],
+    });
+    await toggleTerminal(page);
+    // Narrow, so the tail alone is wider than the room left by the buttons —
+    // at a full-width window it fits and nothing is proven.
+    await page.setViewportSize({ width: 460, height: 800 });
+    await page.waitForTimeout(300);
+
+    const header = page.locator('[data-terminal-header]');
+    const box = (await header.boundingBox())!;
+    // The TAIL span, not its container: a container with `min-w-0` reports the
+    // width it was shrunk to while its child paints straight through it, so
+    // measuring the wrapper is exactly how this bug hid.
+    const tail = (await header.locator('[title] > span').last().boundingBox())!;
+    const buttons = (await page.getByRole('button', { name: 'Hide terminal' }).boundingBox())!;
+
+    // Inside the header's own box, and clear of the controls it shares a line with.
+    expect(tail.x + tail.width).toBeLessThanOrEqual(box.x + box.width);
+    expect(tail.x + tail.width).toBeLessThanOrEqual(buttons.x);
   });
 
   test('maximize fills the window and restores', async ({ page }) => {
@@ -242,7 +325,10 @@ test.describe('terminal panel', () => {
 
     await expect(rows(page)).toHaveCount(3);
     // Dimmed: no pty was created for any of them, so every label is muted.
-    const labels = page.locator('[data-session-list] span.truncate');
+    // The session-name span (`flex-1`) is the one that carries the state — its
+    // sibling repo-name span is muted at BOTH densities, so a match on it says
+    // nothing about whether the session is live.
+    const labels = page.locator('[data-session-row] span.flex-1');
     for (let i = 0; i < 3; i += 1) {
       await expect(labels.nth(i)).toHaveClass(/text-muted-foreground/);
     }
@@ -331,9 +417,24 @@ test.describe('terminal panel', () => {
     await open(page, { terminalSessions: RESTORED });
     await toggleTerminal(page);
 
+    /*
+      One entry per row, not one per span: a row carries two labels since
+      Phase 19 (the repo, then the session), and a flat list of every span
+      reads as six unattributed strings that no reordering assertion can use.
+    */
     const titles = () =>
-      page.locator('[data-session-list] span.truncate').allTextContents();
-    expect(await titles()).toEqual(['midnite-git', 'other-repo', 'Claude · midnite-git']);
+      page.locator('[data-session-row]').evaluateAll((list) =>
+        list.map((row) =>
+          Array.from(row.querySelectorAll('button span.truncate'), (span) =>
+            span.textContent?.trim() ?? '',
+          ).join(' · '),
+        ),
+      );
+    expect(await titles()).toEqual([
+      'midnite-git · Terminal',
+      'other-repo · Terminal',
+      'midnite-git · Claude',
+    ]);
 
     const first = (await page.locator('[data-session-row]').first().boundingBox())!;
     const third = (await page.locator('[data-session-row]').nth(2).boundingBox())!;
@@ -345,7 +446,11 @@ test.describe('terminal panel', () => {
     await page.mouse.move(first.x + first.width / 2, third.y + third.height / 2, { steps: 8 });
     await page.mouse.up();
 
-    expect(await titles()).toEqual(['other-repo', 'Claude · midnite-git', 'midnite-git']);
+    expect(await titles()).toEqual([
+      'other-repo · Terminal',
+      'midnite-git · Claude',
+      'midnite-git · Terminal',
+    ]);
   });
 });
 
@@ -381,5 +486,58 @@ test.describe('phase 15 screenshots', () => {
     await page.getByRole('button', { name: 'Expand terminal' }).click();
     await page.waitForTimeout(300);
     await page.screenshot({ path: '../../docs/screenshots/phase-15-terminal-maximized.png' });
+  });
+});
+
+/**
+ * Phase 21 Theme F's own shots: the header strip alone, at two widths.
+ *
+ * Clipped to the strip rather than the window, because the change IS the strip
+ * — a full-app shot renders it 20px tall in a corner and the two-tone path,
+ * which is the entire point, is unreadable.
+ */
+test.describe('phase 21 screenshots', () => {
+  /*
+    A session standing deep inside a linked worktree, which is the case the
+    header was rebuilt for: the checkout you are in is `theme-f`, and it is
+    four segments from the end of a path that does not fit.
+  */
+  const DEEP = '/tmp/midnite-git/.worktrees/theme-f';
+  const DEEP_SESSIONS: MockFixtures['terminalSessions'] = [
+    {
+      session: session('s-deep', { title: 'midnite-git', cwd: `${DEEP}/packages/app` }),
+      scrollback: '$ pnpm test\r\n',
+    },
+  ];
+
+  test('the rebuilt terminal header, wide and truncating', async ({ page }) => {
+    await open(page, {
+      terminalSessions: DEEP_SESSIONS,
+      worktrees: [{ path: DEEP, branch: 'feature/theme-f' }],
+    });
+    await toggleTerminal(page);
+
+    // Revive it, so the shot shows the live dot rather than the idle one.
+    await page.locator('.xterm-screen').first().click();
+    await page.keyboard.press('Enter');
+    await expect.poll(async () => (await ptyCalls(page)).creates.length).toBe(1);
+    await page.waitForTimeout(200);
+
+    const header = page.locator('[data-terminal-header]');
+    // Wide: the whole path fits, `~`-collapsed, with the worktree and what is
+    // under it at full weight and its ancestors dimmed.
+    await expect(header.locator('[title]').first()).toHaveText(
+      '~/midnite-git/.worktrees/theme-f/packages/app',
+    );
+    await header.screenshot({ path: '../../docs/screenshots/phase-21-terminal-header.png' });
+
+    // Narrow enough that the ancestors have to give way — which is the whole
+    // reason the path truncates from the left rather than the right. The tail
+    // is what survives, and the tail is where you are.
+    await page.setViewportSize({ width: 640, height: 800 });
+    await page.waitForTimeout(300);
+    await header.screenshot({
+      path: '../../docs/screenshots/phase-21-terminal-header-narrow.png',
+    });
   });
 });

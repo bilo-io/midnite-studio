@@ -1,3 +1,5 @@
+import { homedir } from 'node:os';
+
 import { contextBridge, ipcRenderer } from 'electron';
 
 import {
@@ -77,6 +79,7 @@ const windowChrome: WindowChromeBridge = {
  */
 const bridge: Pick<
   MidniteGitBridge,
+  | 'homeDir'
   | 'repos'
   | 'log'
   | 'status'
@@ -98,6 +101,13 @@ const bridge: Pick<
   | 'windowChrome'
   | 'menu'
 > = {
+  /*
+    A plain value, not a channel: it never changes for the life of the process,
+    and the terminal header needs it during its first render to `~`-collapse a
+    path. An async fetch would paint the raw path and then rewrite it.
+  */
+  homeDir: homedir(),
+
   repos: {
     open: (req) => call(CHANNELS.repoOpen, req),
     list: () => call(CHANNELS.repoList),
