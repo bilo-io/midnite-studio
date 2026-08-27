@@ -1986,3 +1986,27 @@ is the opposite case: its URL does not change when the bytes do, so disk-served 
 revalidate, or a re-exported screenshot would sit next to today's "before" and look like the
 diff was wrong. Video and audio were left alone; they go through Chromium's range machinery,
 which is not worth disturbing for a staleness problem they do not have.
+
+## 2026-08-27 — The Files view compares an asset, not just displays it
+
+The image viewer landed in the diff surfaces first, which left the Files browser as the one
+place that shows a picture and cannot answer what changed in it. It has a `Compare` toggle now,
+on an image whose bytes differ from HEAD's: off is today's pane, on is the same `ImageDiff` the
+diff pane mounts — two-up, swipe, onion — over HEAD → the file on disk.
+
+That pairing is deliberately the only one offered here. A file browser has no staged/unstaged
+distinction to work with; it shows one checkout, and the question a reader has of a changed
+asset is how it differs from what is committed, which covers both halves of a staged-then-edited
+change in one comparison.
+
+The gate is `differsFromHead`, over the status entry the sidebar has already fetched for this
+checkout — so it costs a cache read, not a subprocess. A path status never mentions matches
+HEAD and offers nothing. Untracked, ignored, and staged-as-added are refused for a different
+reason: HEAD holds no pre-image, and a "compare" that opens an empty before pane reads as a
+broken viewer rather than as a new file.
+
+Two things the single-image pane gained on the way past: the checkerboard the viewer already
+used (an alpha channel on the plain pane background reads as a solid dark shape — exactly the
+detail worth seeing), and the natural dimensions in the header. Both come from the diff
+viewer's own module rather than a copy, so the two surfaces cannot drift on what a picture sits
+on.

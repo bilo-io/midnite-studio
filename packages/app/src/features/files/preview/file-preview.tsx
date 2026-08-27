@@ -7,6 +7,9 @@ import { mgitFileUrl } from '@midnite/git-shared';
 
 import { languageForFile, previewKindForFile } from '../../../lib/languages';
 import { bridge, hasBridge } from '../../../services/bridge';
+import { useRepoStatus } from '../../../services/use-status';
+import { IMAGE_CHECKERBOARD, ImageDiff } from '../../diff/image-diff';
+import { differsFromHead, headToWorktreeImage } from '../../diff/image-sources';
 import { fsScopeKey, type FsScopeInput } from '../file-tree';
 import { CodePreview } from './code-preview';
 import { MarkdownPreview } from './markdown-preview';
@@ -30,6 +33,29 @@ export function FilePreview({ scope, relPath }: FilePreviewProps) {
   const fileName = relPath.slice(relPath.lastIndexOf('/') + 1);
   const kind = previewKindForFile(fileName);
   const [showSource, setShowSource] = useState(false);
+  const [comparing, setComparing] = useState(false);
+  const [dims, setDims] = useState<{ width: number; height: number } | null>(null);
+
+  /*
+    Status, for one question only: does HEAD hold a different version of this
+    image? A changed asset is the case where a browser is not enough — you can
+    see what the picture is now and still not know what moved — so the pane
+    offers the same before/after the diff pane does, off the same `?rev=` URLs.
+
+    `useRepoStatus` is already fetched for this checkout by the sidebar and the
+    Changes panel, so this is a cache read rather than another subprocess. In
+    `claude-home` scope there is no repo and the query is disabled, which is why
+    the target is built with a null repoId rather than the hook being skipped.
+  */
+  const status = useRepoStatus(
+    scope.scope === 'repo'
+      ? { repoId: scope.repoId, ...(scope.worktreePath ? { worktreePath: scope.worktreePath } : {}) }
+      : { repoId: null },
+  );
+  const canCompare =
+    kind === 'image' &&
+    scope.scope === 'repo' &&
+    differsFromHead(status.data?.entries.find((entry) => entry.path === relPath));
 
   const wantsText = kind === 'text' || kind === 'markdown';
   const { data } = useQuery({
@@ -56,9 +82,24 @@ export function FilePreview({ scope, relPath }: FilePreviewProps) {
           {kind === 'text' && languageForFile(fileName) ? ` · ${languageForFile(fileName)}` : ''}
         </span>
       ) : null}
+      {kind === 'image' && dims && !comparing ? (
+        <span className="shrink-0 text-[10px] text-muted-foreground">
+          {dims.width}×{dims.height}
+        </span>
+      ) : null}
       <span className="ml-auto shrink-0 rounded border border-border px-1.5 py-0.5 text-[10px] text-muted-foreground">
         read-only
       </span>
+      {canCompare ? (
+        <button
+          type="button"
+          onClick={() => setComparing((value) => !value)}
+          aria-pressed={comparing}
+          className="shrink-0 rounded-md border border-border px-2 py-0.5 text-[10px] text-muted-foreground transition-colors hover:bg-accent"
+        >
+          {comparing ? 'Current' : 'Compare'}
+        </button>
+      ) : null}
       {kind === 'markdown' && data?.kind === 'text' ? (
         <button
           type="button"
@@ -77,9 +118,39 @@ export function FilePreview({ scope, relPath }: FilePreviewProps) {
       {header}
       <div className="flex min-h-0 flex-1 flex-col">
         {kind === 'image' ? (
-          <div className="flex min-h-0 flex-1 items-center justify-center overflow-auto p-4">
-            <img src={mediaUrl} alt={fileName} className="max-h-full max-w-full object-contain" />
-          </div>
+          comparing && scope.scope === 'repo' ? (
+            /*
+              The diff pane's viewer, unchanged: two-up, swipe and onion over
+              HEAD → the file on disk. Nothing about it is diff-specific, and a
+              second implementation here would drift from that one.
+            */
+            <ImageDiff
+              sources={headToWorktreeImage(
+                {
+                  repoId: scope.repoId,
+                  ...(scope.worktreePath ? { worktreePath: scope.worktreePath } : {}),
+                },
+                relPath,
+              )}
+            />
+          ) : (
+            <div
+              className="flex min-h-0 flex-1 items-center justify-center overflow-auto p-4"
+              style={{ background: IMAGE_CHECKERBOARD }}
+            >
+              <img
+                src={mediaUrl}
+                alt={fileName}
+                className="max-h-full max-w-full object-contain"
+                onLoad={(event) =>
+                  setDims({
+                    width: event.currentTarget.naturalWidth,
+                    height: event.currentTarget.naturalHeight,
+                  })
+                }
+              />
+            </div>
+          )
         ) : kind === 'video' ? (
           <div className="flex min-h-0 flex-1 items-center justify-center p-4">
             {/* Read-only preview surface; the media itself carries any captions. */}
