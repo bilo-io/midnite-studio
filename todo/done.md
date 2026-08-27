@@ -2253,3 +2253,25 @@ maximized terminal's restore button is what answers a click at its own coordinat
 `scrollTo(0, 400)` moves nothing. `terminal.spec.ts` states both — that the document has no
 room to scroll, and that scrolled at anyway, the panel's header is still the thing under the
 pointer across its whole width.
+
+## 2026-08-27 — The footer's disk readout becomes a ring
+
+Capacity was the one metric in the strip drawing a sparkline of a line that never moves. `disk.ts`
+and the flyout both already made the argument — a capacity line is flat for hours, so a timeline of
+it implies movement that is not there — and the flyout acted on it with a bar. The footer had not.
+
+Disk now draws a 12px donut: a muted track in its own hue at the sparkline's area alpha, and the
+used fraction as an arc from twelve o'clock. It replaces the DOT rather than the sparkline, and
+loses the sparkline entirely — the ring is already a coloured mark in the metric's hue, so a dot
+beside it would be the same identification twice, and putting the ring at the head keeps the column
+of percentages down the strip aligned.
+
+One `<circle>` with `stroke-dasharray`, not an arc path: an arc needs a large-arc flag that flips
+at exactly 50%, and getting it wrong draws the complement of the number you meant. The arithmetic
+lives in `ringGeometry` beside `linePath` and is tested there, including the half-stroke inset (a
+stroke straddles its path, so a circle at the outer radius paints half the ring outside the viewBox)
+and the clamp (120% wrapping past its own start would read as 20% — a smaller number than the one
+that was measured, which is the worst way to be wrong).
+
+`TIMELINE_METRICS` is now one list rather than two. The flyout had its own copy, and a metric that
+was a timeline in one strip and a level in the other is a contradiction the user can see.

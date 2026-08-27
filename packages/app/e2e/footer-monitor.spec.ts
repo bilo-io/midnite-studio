@@ -49,6 +49,30 @@ test.describe('footer monitor', () => {
     await expect(page.getByTestId('metric-cpu')).toHaveText(/45%/);
   });
 
+  test('disk is drawn as a ring, because capacity does not move', async ({ page }) => {
+    await open(page);
+
+    /*
+      The two forms, asserted against each other rather than in isolation.
+
+      A rate gets a sparkline — an area and a line — and a level gets a ring:
+      a muted track and the used arc over it. Checking only that disk has
+      circles would still pass if it had ALSO kept the flat line it is meant to
+      replace, which is exactly the regression worth catching.
+    */
+    const cpu = page.getByTestId('metric-cpu');
+    await expect(cpu.locator('svg path')).toHaveCount(2);
+    await expect(cpu.locator('svg circle')).toHaveCount(0);
+
+    const disk = page.getByTestId('metric-disk');
+    await expect(disk.locator('svg circle')).toHaveCount(2);
+    await expect(disk.locator('svg path')).toHaveCount(0);
+
+    // The percentage is still the accessible reading, ring or no ring.
+    await expect(disk).toHaveText(/72%/);
+    await expect(disk).toHaveAttribute('aria-label', /Disk 72 percent/);
+  });
+
   test('an unreadable GPU renders three readouts, not a zero', async ({ page }) => {
     // This is the state the whole optional-fields design exists for: a machine
     // whose GPU counter cannot be read must look different from one whose GPU

@@ -109,5 +109,36 @@ export function cadenceBreaks(
   return breaks;
 }
 
+/**
+ * The ring's geometry, for a level drawn as a donut.
+ *
+ * Here rather than inline in the component for the same reason `linePath` is:
+ * it is arithmetic with an off-by-half in it, and arithmetic that can be wrong
+ * should be testable without mounting anything.
+ *
+ * The half-stroke inset is the part worth stating. A stroke straddles its path,
+ * so a circle at the outer radius paints half the ring *outside* the viewBox
+ * and gets clipped — the ring would read as thinner at the edges than at the
+ * top, which looks like a rendering fault rather than a design.
+ *
+ * `dash` is `used × circumference`, which is why this is a dashed circle and
+ * not an arc path: an arc needs a large-arc flag that flips at exactly 50%, and
+ * getting it wrong draws the complement of the number you meant.
+ */
+export function ringGeometry(
+  percent: number,
+  geometry: { size: number; thickness: number },
+): { centre: number; radius: number; stroke: number; circumference: number; dash: number } {
+  const centre = geometry.size / 2;
+  const stroke = centre * geometry.thickness;
+  const radius = centre - stroke / 2;
+  const circumference = 2 * Math.PI * radius;
+  // A reading outside 0–100 is a bug upstream, but it must not draw a ring that
+  // wraps past its own start and reads as a smaller number than it is.
+  const used = Math.min(100, Math.max(0, percent)) / 100;
+
+  return { centre, radius, stroke, circumference, dash: round(used * circumference) };
+}
+
 /** Two decimals is well below a device pixel and keeps the `d` attribute short. */
 const round = (value: number): number => Math.round(value * 100) / 100;

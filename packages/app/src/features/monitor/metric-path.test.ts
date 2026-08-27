@@ -3,7 +3,7 @@ import { describe, expect, it } from 'vitest';
 import type { MetricPoint } from '../../store/metrics-store';
 import type { MetricGeometry } from './metric-geometry';
 import { CHART_GEOMETRY, SPARKLINE_GEOMETRY } from './metric-geometry';
-import { areaPath, cadenceBreaks, linePath, xFor, yFor } from './metric-path';
+import { areaPath, cadenceBreaks, linePath, ringGeometry, xFor, yFor } from './metric-path';
 
 /** Round numbers, so the assertions read as geometry rather than arithmetic. */
 const GEOMETRY: MetricGeometry = {
@@ -141,5 +141,44 @@ describe('cadenceBreaks', () => {
     ];
     expect(() => cadenceBreaks(duplicated, GEOMETRY)).not.toThrow();
     expect(cadenceBreaks(duplicated, GEOMETRY)).toEqual([]);
+  });
+});
+
+describe('ringGeometry', () => {
+  /** Round numbers, so the assertions read as geometry rather than arithmetic. */
+  const RING = { size: 20, thickness: 0.5 };
+
+  it('insets the stroked circle by half the stroke, so nothing clips', () => {
+    const { centre, stroke, radius } = ringGeometry(0, RING);
+
+    expect(centre).toBe(10);
+    expect(stroke).toBe(5);
+    // Not 10: at the outer radius half the ring paints outside the viewBox.
+    expect(radius).toBe(7.5);
+    // And the outer edge lands exactly on the box.
+    expect(radius + stroke / 2).toBe(centre);
+  });
+
+  it('dashes the used fraction of the circumference', () => {
+    const { circumference, dash } = ringGeometry(50, RING);
+
+    expect(circumference).toBeCloseTo(2 * Math.PI * 7.5);
+    expect(dash).toBeCloseTo(circumference / 2, 1);
+  });
+
+  it('draws nothing at 0 and the whole ring at 100', () => {
+    expect(ringGeometry(0, RING).dash).toBe(0);
+
+    const full = ringGeometry(100, RING);
+    expect(full.dash).toBeCloseTo(full.circumference, 1);
+  });
+
+  it('clamps a reading outside the domain rather than wrapping it', () => {
+    const full = ringGeometry(100, RING);
+
+    // 120% wrapping past its own start would read as 20% — a smaller number
+    // than the one that was measured, which is the worst way to be wrong.
+    expect(ringGeometry(120, RING).dash).toBe(full.dash);
+    expect(ringGeometry(-5, RING).dash).toBe(0);
   });
 });
