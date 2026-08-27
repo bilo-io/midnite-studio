@@ -1,6 +1,6 @@
 # Midnite Git — Phase Index
 
-**Headline:** **[22](phase-22-stash-and-safety-net.md)** is the newest frontier and is planned but unstarted — the largest phase in the repo, and the one that closes the two gaps every earlier phase wrote into its margins. `git stash` appears nowhere in the codebase today and `refs/stash` is deliberately dropped by the ref parser; Phase 22 gives it an engine, a sidebar section, graph pseudo-rows, a readable diff and a verb in the Changes view. Then it builds the safety net three files have been promising in doc comments since Phase 7: the reflog read and browsable as a **History** rail view, an ops journal, the app's first toast primitive, and an undo that is honest about being ref-shaped — because the reflog records where refs pointed and nothing about the working tree. On the strength of that it reverses the MVP's flat no-force-push ban, `--force-with-lease` only and only in its explicit `=<ref>:<sha>` form, behind the blast-radius gate Phase 7 already built and a default-off switch. Interactive rebase, a command palette and undo for the sequencer's ops are explicitly out. **[21](phase-21-agent-roster-and-terminal-identity.md)** is the previous frontier and is now feature-complete: the terminal's one-entry agent roster has grown to four — Claude Code, Antigravity (`agy`), Codex and OpenClaude — each with its own brand mark resolved from roster data rather than a hard-coded component, behind a flat, iconned `+` menu that disables what is not installed and says why — the probe behind that resolving against the *login shell's* PATH, since `claude` and `agy` live where only an rc file puts them. **Its live half has landed too, which completes the phase:** OSC 7 cwd tracking and a process probe in main mean a terminal finally knows where it is and what is running in it, so the session list's icon and a rebuilt header — a glyph, the status circle, a `~`-collapsed path with the repo segment emphasised — follow a `cd` or an agent quit instead of reporting whichever menu item opened the session. The probe reads `ps` and acts on nothing, matches argv by three deliberately narrow rules rather than scanning for a name anywhere, and never lets a `null` take away a mark it has not actually seen; three manual passes remain, all needing a real shell or a packaged app. Per-agent activity detection and a writable Settings ▸ Agents page are explicitly out, as are launcher-style "Open in <IDE>" entries. **[20](phase-20-reviews-page.md)** is the previous frontier and is now feature-complete:
+**Headline:** **[23](phase-23-command-palette.md)** is the newest frontier and is planned but unstarted — the palette the keymap module has named as its third dispatch source since Phase 9, and the registry surgery it needs first. Today `shared/src/keybindings.ts` holds fifteen command ids against thirteen chords, only nine of them have a handler at all, and `repo.open`, `repo.close` and `view.refresh` ship as live native menu items that do nothing — so Phase 23 reconciles the registry, lifts the handler literal out of `app.tsx` into a `useCommandHandlers()` runtime the keyboard, the native menu and the palette all read, then builds one `Mod+K` surface with a sigil grammar over commands, views, settings pages, repos, worktrees, sessions, agents, refs and files. It brings the workspace its first fuzzy matcher and its first matched-character highlighting, both hand-rolled, and extracts the repo's only working focus trap out of `popover.tsx` to retrofit two modal dialogs that have none. `Mod+Shift+P` is Pull and stays Pull. Destructive writes, user-editable keybindings, commit search and the Phase 22 journal source are explicitly out. **[22](phase-22-stash-and-safety-net.md)** is also planned but unstarted — the largest phase in the repo, and the one that closes the two gaps every earlier phase wrote into its margins. `git stash` appears nowhere in the codebase today and `refs/stash` is deliberately dropped by the ref parser; Phase 22 gives it an engine, a sidebar section, graph pseudo-rows, a readable diff and a verb in the Changes view. Then it builds the safety net three files have been promising in doc comments since Phase 7: the reflog read and browsable as a **History** rail view, an ops journal, the app's first toast primitive, and an undo that is honest about being ref-shaped — because the reflog records where refs pointed and nothing about the working tree. On the strength of that it reverses the MVP's flat no-force-push ban, `--force-with-lease` only and only in its explicit `=<ref>:<sha>` form, behind the blast-radius gate Phase 7 already built and a default-off switch. Interactive rebase, a command palette and undo for the sequencer's ops are explicitly out. **[21](phase-21-agent-roster-and-terminal-identity.md)** is the previous frontier and is now feature-complete: the terminal's one-entry agent roster has grown to four — Claude Code, Antigravity (`agy`), Codex and OpenClaude — each with its own brand mark resolved from roster data rather than a hard-coded component, behind a flat, iconned `+` menu that disables what is not installed and says why — the probe behind that resolving against the *login shell's* PATH, since `claude` and `agy` live where only an rc file puts them. **Its live half has landed too, which completes the phase:** OSC 7 cwd tracking and a process probe in main mean a terminal finally knows where it is and what is running in it, so the session list's icon and a rebuilt header — a glyph, the status circle, a `~`-collapsed path with the repo segment emphasised — follow a `cd` or an agent quit instead of reporting whichever menu item opened the session. The probe reads `ps` and acts on nothing, matches argv by three deliberately narrow rules rather than scanning for a name anywhere, and never lets a `null` take away a mark it has not actually seen; three manual passes remain, all needing a real shell or a packaged app. Per-agent activity detection and a writable Settings ▸ Agents page are explicitly out, as are launcher-style "Open in <IDE>" entries. **[20](phase-20-reviews-page.md)** is the previous frontier and is now feature-complete:
 a Reviews page joins the nav rail — a PR list filterable by state/author/search, beside a tabbed PR
 detail (Files/Conversation/Checks) — diffs across the whole app are syntax-highlighted through the
 one shared `DiffView`, inline comment threads hang off the diff's own lines, and the phase's
@@ -20,6 +20,7 @@ Completed work is logged append-only in [`done.md`](done.md). Deferred scope liv
 
 | Phase | Status | Done | Progress | % | 🔄 WIP | ◻ TODO |
 |-------|--------|------|----------|---|--------|--------|
+| [23 · A command palette, and the registry that can feed it](phase-23-command-palette.md) | ◻ TODO | 0/55 | `░░░░░░░░░░` | 0% | — | A–H |
 | [22 · Stash, the reflog, and writes you can take back](phase-22-stash-and-safety-net.md) | ◻ TODO | 0/70 | `░░░░░░░░░░` | 0% | — | A–H |
 | [21 · Agent roster + terminal identity](phase-21-agent-roster-and-terminal-identity.md) | 🔄 WIP | 43/46 | `█████████░` | 93% | — | 3 manual checks |
 | [20 · Reviews page & unified diff syntax highlighting](phase-20-reviews-page.md) | 🔄 WIP | 43/45 | `██████████` | 96% | — | 2 manual checks |
@@ -48,6 +49,36 @@ Completed work is logged append-only in [`done.md`](done.md). Deferred scope liv
 
 <!-- Each phase currently carries a single theme A = its full deliverables checklist. Split into
      lettered themes if a phase gets parallelised. -->
+
+### [Phase 23 — A command palette, and the registry that can feed it](phase-23-command-palette.md)
+
+*The keymap module has named "(later) a command palette" as dispatch source number three since
+Phase 9, and the registry cannot feed one as it stands: it lives in `shared/src/keybindings.ts` (not
+the `commands.ts` path two docs link to, which has never existed), `COMMAND_IDS` has fifteen entries
+against thirteen bindings, and only nine ids have a handler — `repo.open`, `repo.close` and
+`view.refresh` have live native menu items that do nothing. A fixes the registry, B lifts the handler
+map out of `app.tsx` into the dispatcher all three feeds share, C–D build the surface and the repo's
+first fuzzy matcher, E–F are the sources. `Mod+K` is free; `Mod+Shift+P` is Pull and stays Pull.*
+
+- ◻ **A** — reconcile the fifteen-ids/thirteen-bindings split, add a `group` union, add `palette.open`
+  (`Mod+k`, global scope so it escapes the terminal) and `palette.files` (`Mod+p`), fix the phantom
+  `commands.ts` links.
+- ◻ **B** — `useCommandHandlers(): CommandRuntime` with `enabled` + `disabledReason`, and the four
+  cheap dead commands finally wired; `op.*` left to Phase 22.
+- ◻ **C** — `palette.tsx` + `palette-host.tsx` on the `dialog-host.tsx` shape, a deliberately
+  unpersisted `palette-store.ts`, `z-dialog`, and the capture-phase short-circuit that stops `Mod+g`
+  firing out from under the input.
+- ◻ **D** — `fuzzy-match.ts` returning `{score, indices}`, the renderer's first matched-character
+  highlighting, and one ranking table so a repo name cannot bury a command.
+- ◻ **E** — the source-provider seam plus commands, views, settings pages, repos, worktrees, sessions
+  and agents; `VIEW_ICON`/`PAGE_ICON` reused rather than a third icon map.
+- ◻ **F** — branches and tags with two actions only (checkout, reveal in graph) behind an exported
+  `PALETTE_SAFE` allowlist with a test asserting no destructive id gets in.
+- ◻ **G** — the file finder: `mgit:fs:list-files` over `git ls-files -z --exclude-standard`, a
+  tip-sha-keyed index with an honest truncation notice, opening into the Phase 16 preview pane. Lands
+  last.
+- ◻ **H** — `use-focus-trap.ts` extracted from `popover.tsx`, the only working trap in the repo, and
+  retrofitted onto `ConfirmDialog` and `PromptDialog`, which have none.
 
 ### [Phase 22 — Stash, the reflog, and writes you can take back](phase-22-stash-and-safety-net.md)
 
