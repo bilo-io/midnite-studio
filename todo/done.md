@@ -2275,3 +2275,28 @@ that was measured, which is the worst way to be wrong).
 
 `TIMELINE_METRICS` is now one list rather than two. The flyout had its own copy, and a metric that
 was a timeline in one strip and a level in the other is a contradiction the user can see.
+
+## 2026-08-27 — Dropdowns stop sliding under the title bar
+
+The breadcrumb's repo switcher and the theme menu both opened from controls IN the title bar,
+and both were painted UNDER it. `@bilo-io/shell` draws `<TitleBar>` at `z-[60]`; every overlay
+this app owned was at `z-50`, `z-[60]` or `z-[70]` — numbers chosen against a plain Tailwind
+scale where 50 IS the top, and each one written in a file that could not see the shell's.
+
+Worst was any menu raised through `useDialogs().openMenu`, which places itself at the CURSOR:
+click a title-bar control and half the bar's height of menu is buried, so the first row was
+neither readable nor clickable. The theme menu overlapped by ~6px — its top row's upper half
+answered clicks as the title bar rather than as "Light".
+
+The numbers are now named in `tailwind.config.ts` — `z-menu` / `z-popover` / `z-dialog` /
+`z-tooltip` at 80/85/90/95, all clearing the shell's chrome, all under the shell's own `z-[200]`
+full-screen states. Named because the bug was not a wrong number, it was a number that could
+only be judged against a value published by another package: `z-menu` at a call site says which
+layer this is and leaves one place to check what that outranks. The dialogs moved with them —
+`fixed inset-0 z-50` left the title bar bright and live over a modal backdrop.
+
+`overlay-stacking.spec.ts` asserts it by hit-test, not by visibility. An occluded menu is
+`toBeVisible()`, correctly positioned and passes Playwright's actionability checks — which is
+how this survived a 250-spec suite. The probe is `elementFromPoint` at the centre of the menu's
+INTERSECTION with the title bar, and no intersection throws rather than passing quietly: an
+earlier draft probed the menu's centre, which sits below the bar, and passed against the bug.
