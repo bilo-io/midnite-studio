@@ -36,12 +36,7 @@ export function opLabel(keys: GitOpId[]): string | null {
  * at the far edge of the window would only repeat it.
  */
 export function OpProgressSegment() {
-  const keys = useMutationState({
-    filters: { mutationKey: ['git-op'], status: 'pending' },
-    select: (mutation) => mutation.options.mutationKey?.[1] as GitOpId | undefined,
-  }).filter((key): key is GitOpId => key !== undefined);
-
-  const label = opLabel(keys);
+  const label = useOpLabel();
   if (label === null) return null;
 
   return (
@@ -49,4 +44,31 @@ export function OpProgressSegment() {
       {label}
     </span>
   );
+}
+
+/**
+ * The `aria-live` half, mounted by `StatusBar` directly rather than through
+ * `STATUS_SEGMENTS` — see `InProgressLiveRegion`'s comment for why: at
+ * `collapsed` density `collapseFor` moves this segment's *entire* zone into
+ * `OverflowPopover`, which only mounts its children while the user has it
+ * open, so a live region living inside the segment itself would go silent
+ * in exactly the narrow-window state where the visual readout is hardest to
+ * notice.
+ */
+export function OpProgressLiveRegion() {
+  const label = useOpLabel();
+  return (
+    <span aria-live="polite" className="sr-only">
+      {label}
+    </span>
+  );
+}
+
+function useOpLabel(): string | null {
+  const keys = useMutationState({
+    filters: { mutationKey: ['git-op'], status: 'pending' },
+    select: (mutation) => mutation.options.mutationKey?.[1] as GitOpId | undefined,
+  }).filter((key): key is GitOpId => key !== undefined);
+
+  return opLabel(keys);
 }

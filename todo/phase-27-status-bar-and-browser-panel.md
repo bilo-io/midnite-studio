@@ -524,7 +524,7 @@ goes to 560 (`LAYOUT_BOUNDS.reposWidth`) and a narrow window plus eight segments
       `file-preview.tsx`'s `FallbackCard` — so the pane's "no engine yet" plate is a third call
       site rather than a fourth copy.
 
-### G — Targets, tooltips and live regions (S)
+### G — Targets, tooltips and live regions (S) — ✅ DONE (2026-08-28)
 
 **Built ahead of D and E, which were still in flight in sibling worktrees when this landed.** The
 three bullets below that name Theme D's five segments or Theme E's `compact`/`collapsed` density
@@ -542,8 +542,9 @@ of D or E — is unblocked and landed here.
       `status-bar.tsx`, and each zone maps `STATUS_SEGMENTS` in array order. The three toggles also
       gained an `aria-label` ("Toggle Repositories" / "Toggle Terminal" / "Toggle Browser") — their
       accessible name previously included the chord hint's visible text (e.g. "Repos ⌘G"), which is
-      technically a name but reads oddly to a screen reader; `title` keeps the chord for sighted
-      hover and existing `[title^="Toggle …"]` e2e locators are unaffected (2026-08-28).
+      technically a name but reads oddly to a screen reader; `title` kept the chord for sighted
+      hover at the time (2026-08-28). **Superseded below**: `title` is gone as of this theme's
+      Tooltip work, replaced by `data-testid`-based e2e locators.
 - [x] Segments that only report are not buttons and are not focus stops — already true of both
       right-zone segments that exist today: `DiagnosticsSegment` renders `<span>` for every report
       state and only its "enable" affordance is a `<button>`; `MonitorCluster` is itself a `Popover`
@@ -551,11 +552,33 @@ of D or E — is unblocked and landed here.
       yet**, so their button-vs-span split (per the doc's own description: worktree, agent count,
       mid-operation and both verdicts navigate and are buttons; op progress is a pure `<span>`) is
       that theme's to satisfy, not this one's (2026-08-28).
-- [ ] [`Tooltip`](../packages/app/src/components/tooltip.tsx) on icon-only segments in `compact`
-      density — **blocked on Theme E**, which has not landed `use-overflow.ts`/`densityFor()` yet;
-      there is no `compact` state to attach a tooltip's icon-only condition to today.
-- [ ] `aria-live="polite"` on the op-progress and mid-operation segments only — **blocked on Theme
-      D**, whose `op-progress` and `in-progress` segment ids do not exist yet.
+- [x] [`Tooltip`](../packages/app/src/components/tooltip.tsx) on icon-only segments in `compact`
+      density — D and E have since landed, unblocking this. Rather than threading a `density` prop
+      through `StatusSegment.El` (a nine-file change for three segments), `Tooltip` wraps
+      `ReposToggle`/`TerminalToggle`/`BrowserToggle` unconditionally, `side="top"` since the bar
+      sits at the window's bottom edge — the same call `OverflowPopover` already made. It only opens
+      on hover/focus, so it says nothing at `full` density where the inline label already does; the
+      native `title` it replaces is removed outright rather than kept alongside, or the two would
+      stack (`icon-button.tsx` never keeps both, for the same reason). Removing `title` cost three
+      e2e locators (`browser-pane.spec.ts`, `terminal.spec.ts`) that matched on
+      `[title^="Toggle …"]`; `ReposToggle` and `TerminalToggle` gained a `data-testid` (`repos-toggle`,
+      `terminal-toggle`, matching `BrowserToggle`'s existing one) and the specs now select on that
+      instead (2026-08-28).
+- [x] `aria-live="polite"` on the op-progress and mid-operation segments only — D has since landed,
+      unblocking this. Not placed directly on the visible button/span, which mounts from nothing
+      the moment an op starts: some screen readers only reliably announce a live-region *mutation*,
+      not a whole node inserted already carrying the attribute. Each segment instead exports a
+      second component (`OpProgressLiveRegion` / `InProgressLiveRegion`) rendering just an
+      `sr-only` `<span aria-live="polite">` of the same label.
+  - **Bug found in self-review and fixed: these live regions cannot live inside the segment
+    itself, or `collapsed` density silences them.** `collapseFor` moves an entire zone's segments
+    into `OverflowPopover` at `collapsed`, and `OverflowPopover` only mounts its children while the
+    user has it open — so a live region co-located with the visible segment would go silent in
+    exactly the narrow-window state where the visual readout is hardest to notice. Both
+    `*LiveRegion` components are instead mounted directly by `StatusBar`, as siblings of the three
+    zone `<div>`s rather than through `STATUS_SEGMENTS`, so they survive every density. `sr-only`
+    (`position: absolute`) keeps them out of the grid/flex layout regardless of where they sit
+    (2026-08-28).
 - [x] **Extract `use-focus-trap.ts` in this phase**, from `popover.tsx:150-179` plus the `FOCUSABLE`
       selector at `:219-220`: `export function useFocusTrap(ref: RefObject<HTMLElement | null>, active: boolean): void`.
       `Popover` now points at it verbatim (its own effect deleted, `FOCUSABLE` moved into the hook);
@@ -573,8 +596,10 @@ of D or E — is unblocked and landed here.
       so it is a `useEffect` keyed on `shown` whose cleanup — fired only when `shown` was true and
       then changes — looks up `[data-testid="browser-toggle"]` (new on `BrowserToggle`) and focuses
       it (2026-08-28).
-- [ ] The `…` overflow button is named for what it holds ("3 more"), not "More" — **blocked on
-      Theme E**, which has not built the overflow popover yet.
+- [x] The `…` overflow button is named for what it holds ("3 more"), not "More" — already true:
+      `OverflowPopover`'s `label={`${items.length} more`}` (landed with Theme E) becomes the
+      trigger's `aria-label` via `Popover`'s own `label` prop. Left unticked until now only because
+      Theme E landed before this bullet was revisited (2026-08-28).
 
 ### H — Tests (M)
 

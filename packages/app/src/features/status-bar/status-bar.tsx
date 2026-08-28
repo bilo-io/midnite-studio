@@ -1,6 +1,8 @@
 import { useRef } from 'react';
 
 import { collapseFor } from './density';
+import { InProgressLiveRegion } from './in-progress';
+import { OpProgressLiveRegion } from './op-progress';
 import { OverflowPopover } from './overflow-popover';
 import { STATUS_SEGMENTS, type StatusSegment, type StatusZone } from './segments';
 import { useOverflow } from './use-overflow';
@@ -72,6 +74,17 @@ export function StatusBar() {
       data-density={density}
       className="grid h-6 shrink-0 grid-cols-[1fr_auto_1fr] items-center border-t border-border bg-card/50 px-3 text-xs text-muted-foreground"
     >
+      {/*
+        Mounted directly here, not through `STATUS_SEGMENTS` — at `collapsed`
+        density `collapseFor` moves an entire zone's segments into
+        `OverflowPopover`, which only mounts its children while open, so a
+        live region living inside `op-progress`/`in-progress` themselves would
+        go silent in exactly the narrow-window state where the visual readout
+        is hardest to notice. Living here instead, the announcement survives
+        every density.
+      */}
+      <OpProgressLiveRegion />
+      <InProgressLiveRegion />
       <div
         data-testid="status-bar-left"
         className="flex items-center justify-self-start gap-3 whitespace-nowrap [&>*]:shrink-0"
