@@ -117,6 +117,21 @@ describe('navigation guarded by an open, dirty file editor (Phase 24 D)', () => 
     expect(useUiStore.getState().activeView).toBe('graph');
   });
 
+  it('setActiveView de-maximises the terminal when switching views', () => {
+    useUiStore.setState({ terminalMaximized: true, terminalOpen: true });
+    useUiStore.getState().setActiveView('changes');
+    expect(useUiStore.getState().activeView).toBe('changes');
+    expect(useUiStore.getState().terminalMaximized).toBe(false);
+    // Terminal remains open — only the maximised state is cleared.
+    expect(useUiStore.getState().terminalOpen).toBe(true);
+  });
+
+  it('setActiveView leaves terminalMaximized alone when already on the target view', () => {
+    useUiStore.setState({ terminalMaximized: true, terminalOpen: true, activeView: 'graph' });
+    useUiStore.getState().setActiveView('graph'); // same view — no-op
+    expect(useUiStore.getState().terminalMaximized).toBe(true);
+  });
+
   it('selectRepo and selectWorktree defer the same way', () => {
     openDirtyFile();
     useUiStore.getState().selectRepo('other-repo');

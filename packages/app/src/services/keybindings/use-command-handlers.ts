@@ -118,6 +118,7 @@ export function useCommandHandlers(): CommandRuntime {
         }
       : { enabled: false, disabledReason: NO_REPO, run: () => {} },
 
+    'view.graph': { enabled: true, run: () => useUiStore.getState().setActiveView('graph') },
     'graph.focus': { enabled: true, run: () => useUiStore.getState().setActiveView('graph') },
     'status.focus': { enabled: true, run: () => useUiStore.getState().setActiveView('changes') },
     'status.commit':

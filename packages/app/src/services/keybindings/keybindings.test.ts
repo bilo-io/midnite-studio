@@ -138,4 +138,10 @@ describe('the registry is palette-shaped', () => {
     expect(open && GLOBAL_CHORDS.includes(open.chord)).toBe(true);
     expect(files && GLOBAL_CHORDS.includes(files.chord)).toBe(false);
   });
+
+  it('binds Mod+Shift+g to view.graph', async () => {
+    const { DEFAULT_KEYMAP } = await import('@midnite/git-shared');
+    const binding = DEFAULT_KEYMAP.find((b) => b.chord === 'Mod+Shift+g');
+    expect(binding?.command).toBe('view.graph');
+  });
 });
