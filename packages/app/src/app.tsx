@@ -36,7 +36,7 @@ import { SettingsView } from './features/settings/settings-view';
 import { Workbench } from './features/workbench/workbench';
 import { SyncActions } from './features/status/sync-actions';
 import { useFetch, usePull, usePush, useStatus } from './services/use-status';
-import { FooterBar } from './features/terminal/footer-bar';
+import { StatusBar } from './features/status-bar/status-bar';
 import { TerminalPanel } from './features/terminal/terminal-panel';
 import { hslTokenToHex } from './lib/color';
 import { bridge } from './services/bridge';
@@ -644,10 +644,21 @@ function Shell() {
           ) : null}
           <div className="flex min-w-0 flex-1 flex-col">
             {/*
-              View, splitter and terminal share this box, and the footer does
-              not: the box is what a maximized terminal is measured against (see
-              `stackHeight`), so it has to be exactly the room those three have
-              between them — no footer, no title bar, nothing else's slice.
+              View, splitter and terminal share this box, but the status bar does
+              not: the bar is now a sibling of this *row*, inside CONTENT_BOX one
+              level up, so it spans the whole content area — repositories panel
+              included. This box is therefore exactly the room those three have
+              between them — no status bar, no title bar, nothing else's slice —
+              which is still the right measured target for a maximized terminal.
+
+              Why `stackHeight` survives the move: the stack is `flex-1` inside
+              this column, this column is `flex-1` inside the row, and the row is
+              `flex-1` inside CONTENT_BOX. Removing the 24px footer from the
+              column grows the stack by 24px; adding it under the row shrinks the
+              row — and therefore the column — by the same 24px. The two cancel
+              and `stack.clientHeight` is unchanged. The move is only safe because
+              the bar is `shrink-0 h-6` at both positions; if it ever becomes
+              flexible, this reasoning stops holding.
             */}
             <div ref={stackRef} className="flex min-h-0 flex-1 flex-col">
               {/*
@@ -769,10 +780,10 @@ function Shell() {
                 </>
               ) : null}
             </div>
-
-            <FooterBar />
           </div>
         </div>
+
+        <StatusBar />
       </div>
     </AppFrame>
   );

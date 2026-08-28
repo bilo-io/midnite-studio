@@ -21,7 +21,7 @@ Completed work is logged append-only in [`done.md`](done.md). Deferred scope liv
 | Phase | Status | Refined | Done | Progress | % | 🔄 WIP | ◻ TODO |
 |-------|--------|---------|------|----------|---|--------|--------|
 | [28 · Worktrees first, and the section tree that can say so](phase-28-sidebar-section-tree.md) | 🔄 WIP | 0/58 | `░░░░░░░░░░` | 0% | B, C | D–H |
-| [27 · The footer becomes a status bar, and the browser it makes room for](phase-27-status-bar-and-browser-panel.md) | 🔄 WIP | x1 | 0/89 | `░░░░░░░░░░` | 0% | A–C | D–H |
+| [27 · The footer becomes a status bar, and the browser it makes room for](phase-27-status-bar-and-browser-panel.md) | 🔄 WIP | x1 | 19/89 | `██░░░░░░░░` | 21% | — | D–H |
 | [26 · Side by side, and the room to show it](phase-26-side-by-side-diffs.md) | ◻ TODO | — | 0/68 | `░░░░░░░░░░` | 0% | — | A–H |
 | [25 · Search everywhere, and the blame that explains it](phase-25-search-everywhere.md) | ◻ TODO | x1 | 0/101 | `░░░░░░░░░░` | 0% | — | A–F |
 | [24 · The explorer learns to write, and to search](phase-24-writable-explorer.md) | 🔄 WIP | — | 7/54 | `█░░░░░░░░░` | 13% | B | C–G |
@@ -106,16 +106,18 @@ channel, no zod schema — but the refinement found the op-progress source named
 write funnels through ONE `useMutation` in `useTargetedGitOp` (`use-status.ts:262`), not through
 `queries.ts`, so D threads a required `opId` through 31 call sites instead.*
 
-- 🔄 **A** — `<FooterBar />` moves out of the content column into `CONTENT_BOX`; `stackHeight` proved
+- ✅ **A** — `<FooterBar />` moves out of the content column into `CONTENT_BOX`; `stackHeight` proved
   still correct with the cancellation argument written down, the two now-false geometry comments
   rewritten, plus the `data-testid` the bar has never had and the fix to `footer-monitor.spec.ts:222`,
-  which asserts a branch name the footer stopped rendering and **fails today**.
-- 🔄 **B** — `features/status-bar/` at last: the file imports diagnostics, monitor and the ui-store and
+  which asserted a branch name the footer stopped rendering (landed 2026-08-28)
+- ✅ **B** — `features/status-bar/` at last: the file imports diagnostics, monitor and the ui-store and
   the only terminal thing in it is one button. `FooterBar` → `StatusBar`, no compat shim, and
-  `chordFor`/`displayChord` come along as real exports — they are module-local today, not keymap ones.
-- 🔄 **C** — static composition, not a registration store: `{id, zone, priority, El}`, three zones as a
+  `chordFor`/`displayChord` come along as real exports — they are module-local today, not keymap ones
+  (landed 2026-08-28)
+- ✅ **C** — static composition, not a registration store: `{id, zone, priority, El}`, three zones as a
   `1fr_auto_1fr` grid so the centre cannot drift, and the rule that a segment with nothing to say
-  renders nothing — mapped with no wrapper element, or `gap-3` leaves a hole per absent segment.
+  renders nothing — mapped with no wrapper element, or `gap-3` leaves a hole per absent segment
+  (landed 2026-08-28)
 - ◻ **D** — five segments off state the app already has: active worktree, op progress from a threaded
   `opId` (ranked, with `+N` when two run, silent on failure), `inProgress` mid-operation (the one
   sanctioned exception to the title-bar duplication rule), the agent count — from `terminal-store`, not

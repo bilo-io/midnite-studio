@@ -22,6 +22,26 @@ keybindings bullet to `CLAUDE.md`/`AGENTS.md`/`GEMINI.md` naming the real regist
 - [x] `keybindings.test.ts` extended: every `CommandId` has a label/group, no two bindings share a
       chord, `Mod+Shift+p` still resolves to `sync.pull`, `palette.open` escapes the terminal and
       `palette.files` does not
+## 2026-08-28 — Phase 27 Themes A–C — the status bar spans the app, and becomes a zone grid
+
+`<StatusBar />` (formerly `FooterBar`) moves out of the content column into `CONTENT_BOX`, so the
+bar spans the full content area — repositories panel included — for the first time since Phase 9.
+`stackHeight` survives the move (the column grows 24px, the row shrinks 24px, they cancel), the two
+now-false geometry comments are rewritten, and `footer-monitor.spec.ts:222`'s stale branch-name
+assertion (dead since `1cafcae`) is deleted. The file gets its own home,
+`features/status-bar/`, with `chordFor`/`displayChord` as real exports in `chord-hint.ts` and no
+compat shim left behind. The bar itself becomes a static `{id, zone, priority, El}` composition —
+`STATUS_SEGMENTS` — rendered through a three-column `grid-cols-[1fr_auto_1fr]` rather than
+`ml-auto`/`mr-auto` flex siblings, with segments mapped directly (no wrapping element) so a `null`
+segment leaves no `gap-3` hole; `repos-toggle`/`terminal-toggle` become standalone components, and
+`FooterCluster` is retired now that the right zone's `justify-self-end` replaces its role.
+
+- [x] **A** — the move, `stackHeight` proof, rewritten comments, `data-testid="status-bar"`, the
+      `terminal.spec.ts` maximize-coverage assertion, and the T-junction border check
+- [x] **B** — `features/status-bar/status-bar.tsx`, `chord-hint.ts` with a `CommandId`-widened
+      `chordFor`, `footer-bar.tsx` deleted outright (no re-export shim)
+- [x] **C** — `segments.ts` (`STATUS_SEGMENTS`, gapped priorities), the three-zone grid, and
+      `segments.test.ts` + `e2e/status-bar.spec.ts` proving the empty-zone-leaves-no-gap rule
 
 ## 2026-08-28 — Phase 24 Theme A — the writable-filesystem contract
 

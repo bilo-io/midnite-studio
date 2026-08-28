@@ -78,16 +78,16 @@ Effort tags: **S** ≈ an hour or two · **M** ≈ half a day · **L** ≈ a day
 
 ## Deliverables
 
-### A — The move, and the measurement that must survive it (S)
+### A — The move, and the measurement that must survive it (S) — ✅ DONE (2026-08-28)
 
 Ten lines of JSX and one paragraph of reasoning that stops being true. Lands first; everything else
 assumes the new geometry.
 
-- [ ] `<FooterBar />` moves from `app.tsx:773` (last child of the content column at `app.tsx:645`) to
+- [x] `<FooterBar />` moves from `app.tsx:773` (last child of the content column at `app.tsx:645`) to
       a sibling of the content row inside `CONTENT_BOX` at `app.tsx:597` — closing `</div>` of the
       row is `app.tsx:775`, and the footer goes immediately after it, before `CONTENT_BOX`'s own
       close at `:776`.
-- [ ] Confirm `stackHeight` still measures correctly. It is `stack.clientHeight` off a
+- [x] Confirm `stackHeight` still measures correctly. It is `stack.clientHeight` off a
       `ResizeObserver` (`app.tsx:409–422`, observing the div at `app.tsx:652`), **measured rather
       than computed**, so the footer's slice is simply taken one box further out and the
       maximized-terminal target should be unchanged. Prove it rather than assume it — this is the one
@@ -101,27 +101,27 @@ assumes the new geometry.
   - The single consumer is `terminalTarget` at `app.tsx:429`
     (`terminalMaximized ? stackHeight : terminal.current`), read at `:752` and `:761`. Nothing else
     reads `stackHeight`, so that one expression is the whole blast radius of a mis-measurement.
-- [ ] Rewrite the now-false comment at `app.tsx:646–651` (*"View, splitter and terminal share this
+- [x] Rewrite the now-false comment at `app.tsx:646–651` (*"View, splitter and terminal share this
       box, and the footer does not… no footer, no title bar, nothing else's slice"*). The reason it
       gives is still right; the arrangement it describes is not — the footer is no longer this box's
       sibling, it is the row's, and the sentence should say which box it is now excluded from.
-- [ ] Rewrite the `footer-bar.tsx` header comment's geometry claims — *"the cluster is an `ml-auto`
+- [x] Rewrite the `footer-bar.tsx` header comment's geometry claims — *"the cluster is an `ml-auto`
       sibling, so filling the empty right half cost no repositioning"* and *"the entire right half
       has been empty"* in `monitor-cluster.tsx` — both describe a strip that no longer exists.
-- [ ] A maximized terminal still stops at the status bar's top edge and never covers it.
+- [x] A maximized terminal still stops at the status bar's top edge and never covers it.
       The assertion, in [`e2e/terminal.spec.ts`](../packages/app/e2e/terminal.spec.ts): with the
       terminal maximized, `frameBox.y + frameBox.height <= barBox.y + 1` where `frameBox` is
       `[data-terminal-frame]`'s bounding box and `barBox` is `[data-testid="status-bar"]`'s. The
       existing maximize test at `terminal.spec.ts:589` compares heights only (`toBeGreaterThan`,
       `toBeCloseTo`) and would pass with the bar completely covered — which is why this is a new
       assertion and not an existing one to lean on.
-- [ ] **`data-testid="status-bar"` on the `<footer>` element.** It has none today: every e2e spec
+- [x] **`data-testid="status-bar"` on the `<footer>` element.** It has none today: every e2e spec
       locates it as `page.locator('footer').filter({ hasText: 'Terminal' })`, which is both fragile
       and about to become wrong when Theme F adds a third toggle. This lands in Theme A because
       Theme A's own left-edge proof needs a selector to measure. The `hasText` locators in
       [`footer-monitor.spec.ts`](../packages/app/e2e/footer-monitor.spec.ts) (`:220`, `:240`) and
       [`diagnostics.spec.ts`](../packages/app/e2e/diagnostics.spec.ts) (`:72`) move to it.
-- [ ] **Fix `footer-monitor.spec.ts:222`, which fails today.** It asserts
+- [x] **Fix `footer-monitor.spec.ts:222`, which fails today.** It asserts
       `await expect(footer).toContainText('main')`, but the footer has rendered no branch name since
       `1cafcae refactor(footer): drop the git status the title bar already shows` — that commit
       touched only `footer-bar.tsx` and left the spec behind. It has gone unnoticed because
@@ -129,7 +129,7 @@ assumes the new geometry.
       (it needs a chromium download). Delete the assertion; the surrounding test is about the
       `ml-auto` cluster and does not need it. **This is a precondition, not a side quest** — Theme A
       cannot claim a green e2e run over a suite that is already red.
-- [ ] The bar's `border-t` now runs the full content width, including under the repositories panel.
+- [x] The bar's `border-t` now runs the full content width, including under the repositories panel.
       Check it against the panel's own right border at the junction — two borders meeting at a T is
       the visual bug this move can introduce. The rule: the `<aside>` at `app.tsx:624` carries no
       right border of its own (the `ResizeHandle` at `:642` draws that edge), so the T cannot form
@@ -137,17 +137,17 @@ assumes the new geometry.
       different boxes at different widths, and a maximized terminal puts them 24px apart. Verified by
       screenshot at both repositories-panel states, in both themes.
 
-### B — A home of its own (S)
+### B — A home of its own (S) — ✅ DONE (2026-08-28)
 
-- [ ] New `packages/app/src/features/status-bar/`. `footer-bar.tsx` moves there as `status-bar.tsx`
+- [x] New `packages/app/src/features/status-bar/`. `footer-bar.tsx` moves there as `status-bar.tsx`
       and `FooterBar` becomes `StatusBar`; the `<footer>` element and its `h-6` stay.
-- [ ] All import sites updated (`app.tsx` is the only one today). No re-export shim —
+- [x] All import sites updated (`app.tsx` is the only one today). No re-export shim —
       one mount point, so a compatibility alias would exist to serve nobody.
   - **`FooterBar` has exactly three references in the repo** and the rename is done when all three
     are gone: the import at `app.tsx:39`, the JSX at `app.tsx:773`, and the declaration at
     `footer-bar.tsx:44`. `grep -rn 'FooterBar' packages/*/src packages/app/e2e` returning nothing is
     the acceptance criterion — no e2e spec references the symbol, only the `<footer>` element.
-- [ ] **`chordFor` and `displayChord` move with the file**, into a new
+- [x] **`chordFor` and `displayChord` move with the file**, into a new
       `features/status-bar/chord-hint.ts`, and both are exported. They are module-local in
       `footer-bar.tsx` today (`:25` and `:39`) — *not* exports of the keymap, which is what a reader
       of Theme F would otherwise assume.
@@ -159,22 +159,22 @@ assumes the new geometry.
   - `displayChord(chord: string): string` moves verbatim, comment included. It is the only place the
     `Mod+` → `⌘`/`Ctrl+` and `Shift+` → `⇧` rendering exists, and Theme F's Browser toggle is its
     third caller.
-- [ ] `FooterCluster` moves out of `monitor-cluster.tsx` and is superseded by Theme C's zones;
+- [x] `FooterCluster` moves out of `monitor-cluster.tsx` and is superseded by Theme C's zones;
       `MonitorCluster` stays where it is and keeps its own file.
-- [ ] Test files follow: any `footer-*` unit test renames with its subject. `e2e/footer-monitor.spec.ts`
+- [x] Test files follow: any `footer-*` unit test renames with its subject. `e2e/footer-monitor.spec.ts`
       keeps its name (it tests the monitor, not the footer) but its selectors are checked against the
       new DOM.
 
-### C — Zones, priority, and a segment that can say nothing (M)
+### C — Zones, priority, and a segment that can say nothing (M) — ✅ DONE (2026-08-28)
 
 Static composition, not a registration store: a segment is a component with declared metadata, it
 owns its own hooks, and it returns `null` when it has nothing to report. This is exactly how
 `DiagnosticsSegment` and `MonitorCluster` already behave — the model is being written down, not
 invented.
 
-- [ ] `segments.ts`: `type StatusSegment = { id: string; zone: 'left' | 'center' | 'right'; priority: number; label: string; El: ComponentType }`
+- [x] `segments.ts`: `type StatusSegment = { id: string; zone: 'left' | 'center' | 'right'; priority: number; label: string; El: ComponentType }`
       and one exported `STATUS_SEGMENTS: StatusSegment[]`.
-- [ ] `status-bar.tsx` renders three zone containers as a **three-column grid**, not as
+- [x] `status-bar.tsx` renders three zone containers as a **three-column grid**, not as
       `mr-auto`/`ml-auto` siblings: `grid grid-cols-[1fr_auto_1fr]` on the `<footer>`, with
       `justify-self-start` / `justify-self-center` / `justify-self-end` on the three zone `<div>`s.
       A true centre that cannot drift as the left zone's text changes length, and the right zone
@@ -183,10 +183,10 @@ invented.
   - The empty middle column costs nothing and is the accepted price: both centre segments are
     absent most of the time, and `1fr_auto_1fr` collapses the `auto` track to zero width when the
     centre renders nothing, so the left and right zones are not pushed inward by an empty centre.
-- [ ] **Priority is the overflow order, not the visual order.** Within a zone, render order is the
+- [x] **Priority is the overflow order, not the visual order.** Within a zone, render order is the
       array's; `priority` decides who survives Theme E's collapse. Two numbers doing two jobs is the
       trap here — document it at the type.
-- [ ] A segment that renders `null` must take no space and leave no gap. Zone containers use `gap-3`,
+- [x] A segment that renders `null` must take no space and leave no gap. Zone containers use `gap-3`,
       so an empty child is invisible but a wrapper `<div>` around one is not — segments render
       themselves, the bar does not wrap them.
   - The rule stated as code: a zone maps `segments.map((s) => <s.El key={s.id} />)` — **no
@@ -197,9 +197,9 @@ invented.
     no agents, no test runs, no checks and a clean tree, and assert the left zone's `boundingBox()`
     width equals the width with only the three toggles rendered — not merely that the absent
     segments are `toHaveCount(0)`.
-- [ ] Existing controls become segments with no behaviour change: `repos-toggle`, `terminal-toggle`
+- [x] Existing controls become segments with no behaviour change: `repos-toggle`, `terminal-toggle`
       (left), `diagnostics`, `monitor` (right).
-- [ ] `segments.test.ts`: ids unique, priorities unique within a zone, every entry's `El` present.
+- [x] `segments.test.ts`: ids unique, priorities unique within a zone, every entry's `El` present.
       A duplicate id is a bug Theme E's overflow keying would otherwise surface as a React warning.
 
 ### D — The segments (L)
