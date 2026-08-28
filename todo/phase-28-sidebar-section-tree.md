@@ -198,24 +198,32 @@ that does.
       `useState` could not survive) and a full reload; a `RemoteGroup`'s own fold persists across a
       reload independently of `Remotes`.
 
-### E — The Branches heading earns itself (S)
+### E — The Branches heading earns itself (S) — ◐ PARTIAL (2026-08-28)
 
-- [ ] The `Branches` heading carries a combined count — local branches plus remote-tracking branches,
+- [x] The `Branches` heading carries a combined count — local branches plus remote-tracking branches,
       matching how each child already counts (`branches.length`, `remoteGroups.length`) rather than
-      inventing a third arithmetic.
-- [ ] A heading `⋮` menu for `branches` via a new arm in
+      inventing a third arithmetic. Landed as a pure, unit-tested `branchesCount()` plus a
+      `SECTION_COUNT` lookup table read by `renderSection`'s generic parent-wrapping branch.
+- [x] A heading `⋮` menu for `branches` via a new arm in
       [`use-repo-actions.ts`](../packages/app/src/features/repos/use-repo-actions.ts)'s `sectionMenu`.
       Because `RefSectionKey` stays narrow (Theme A), this is a **separate** `parentSectionMenu` rather
       than a widening of the ref-section union — the existing function has nothing to offer a section
       with no refs, and widening its parameter would replace a compile error with a menu that opens
       empty.
-- [ ] Menu contents: **New branch…** (the existing `local` action, unchanged), **Fetch all** and
+- [x] Menu contents: **New branch…** (the existing `local` action, unchanged), **Fetch all** and
       **Prune remote-tracking refs** — all three already exist as verbs elsewhere in
-      `use-repo-actions.ts`; none is new git.
-- [ ] `Forge` gets a count of its visible children and **no menu**: its four children have nothing in
-      common to act on, and a heading menu that only closes itself is furniture.
-- [ ] The parent heading's accessible name reads `Branches 12`, matching what `TreeSection` already
-      does for every other counted section.
+      `use-repo-actions.ts`; none is new git. The latter two both call the same `fetch` mutation, since
+      pruning is already the default on every fetch this app makes.
+- [ ] `Forge` gets a count of its visible children and **no menu** — **deferred to Theme F**, not
+      dropped. `forge` has no `TreeSection` heading to attach a count to yet: its `SECTION_BODY` entry
+      renders `<ForgeSections>`/`<TestsSection>` directly today, and the code comment on that entry is
+      explicit that Theme F is what "gives Forge a real nested heading." A count with nothing to sit
+      beside would be new UI this theme does not own; Theme F's own checklist inherits this bullet.
+- [x] The parent heading's accessible name reads `Branches 12`, matching what `TreeSection` already
+      does for every other counted section — `Branches` today renders as a non-collapsible heading
+      (no fold arrow of its own; only its children fold), so this is the count sitting beside the
+      title in the DOM rather than a single focusable name string, the same as it would read for any
+      other non-collapsible counted section.
 
 ### F — Forge sections get a parent (M)
 
@@ -229,6 +237,10 @@ that does.
       repo with **no remote at all**, which is the state this repository itself is in.
 - [ ] `Tests` under `Forge` is the one arguable membership: it is a repo capability, not a forge one.
       Recorded as an open decision below rather than settled silently.
+- [ ] **Inherited from Theme E:** once `Forge` gets a real nested `TreeSection` heading, give it a
+      count of its visible children and **no menu** — `SECTION_COUNT`/`SECTION_ACTIONS` in
+      [`repos-panel.tsx`](../packages/app/src/features/repos/repos-panel.tsx) already support a
+      `forge` entry; Theme E only left it unpopulated because there was no heading yet to attach it to.
 
 ### G — Settings ▸ Sidebar catches up (S)
 

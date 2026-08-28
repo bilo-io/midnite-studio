@@ -478,6 +478,43 @@ export function useRepoActions(
     [branchCreate, dialogs, fetch, forgeItems, promptWorktree, repo.path, report],
   );
 
+  /**
+   * A parent heading's own menu — `Branches` today, and where a future parent
+   * would join. Deliberately separate from `sectionMenu` rather than a
+   * widening of it: `RefSectionKey` has nothing to offer a section with no
+   * refs of its own, and a parent never has any. "Fetch all remotes" and
+   * "Prune remote-tracking refs" both run the same `fetch` op — pruning is
+   * already the default on every fetch this app makes, so there is no second
+   * git command to reach for; the two labels just name the one call by what a
+   * user is asking for.
+   */
+  const parentSectionMenu = useCallback(
+    (kind: 'branches'): MenuItem[] => {
+      if (kind !== 'branches') return [];
+      return [
+        {
+          label: 'New branch…',
+          onSelect: () =>
+            dialogs.prompt({
+              title: 'New branch',
+              label: 'Branch name',
+              confirmLabel: 'Create and check out',
+              validate: validateRefName,
+              onConfirm: (name) =>
+                void branchCreate.mutateAsync({ name, startPoint: 'HEAD' }).then(report),
+            }),
+        },
+        { type: 'separator' },
+        { label: 'Fetch all remotes', onSelect: () => void fetch.mutateAsync().then(report) },
+        {
+          label: 'Prune remote-tracking refs',
+          onSelect: () => void fetch.mutateAsync().then(report),
+        },
+      ];
+    },
+    [branchCreate, dialogs, fetch, report],
+  );
+
   /** Right-click on the repository header, and its ellipsis button. */
   const repoMenu = useCallback(
     (refs: readonly Ref[], status: StatusResult | undefined): MenuItem[] => {
@@ -581,7 +618,16 @@ export function useRepoActions(
     ],
   );
 
-  return { refMenu, repoMenu, worktreeMenu, sectionMenu, checkout, report, viewAllChanges };
+  return {
+    refMenu,
+    repoMenu,
+    worktreeMenu,
+    sectionMenu,
+    parentSectionMenu,
+    checkout,
+    report,
+    viewAllChanges,
+  };
 }
 
 /** Past this the submenu is a list that wants scrolling, which menus don't do. */

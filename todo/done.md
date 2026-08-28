@@ -2,6 +2,42 @@
 
 <!-- Append one entry per landed phase/PR: date, phase, PR link, one-line summary. -->
 
+## 2026-08-28 — Phase 28 Theme E — the Branches heading earns itself
+
+Merged locally on `feature/phase-28-e-branches-heading` — no PR link, no GitHub remote on this
+checkout. `PARTIAL`: four of five checklist items land; the fifth (Forge's count) is reassigned to
+Theme F rather than dropped — see below.
+
+- [x] The `Branches` heading carries a combined count — a new, unit-tested `branchesCount(branches,
+      remoteGroups)` in `repos-panel.tsx`, summing local branches and remote-tracking GROUPS (matching
+      the two numbers `Local`/`Remotes` already show on their own headings), read through a new
+      `SECTION_COUNT: Partial<Record<SectionKey, number>>` table that `renderSection`'s generic
+      parent-wrapping branch now passes to `TreeSection`'s `count` prop — a table rather than a
+      special case, parallel to the existing `SECTION_TITLE`/`SECTION_BODY` records and ready for a
+      future parent with no new branch in `renderSection`.
+- [x] A heading `⋮` menu for `branches`: `parentSectionMenu(kind: 'branches')` in
+      `use-repo-actions.ts`, deliberately separate from `sectionMenu` (which `RefSectionKey` keeps
+      narrow — a parent has no refs of its own) rather than a widening of it. A new
+      `parentHeadingAction()` builder in `repos-panel.tsx` mirrors the existing `headingAction()` but
+      calls `parentSectionMenu` instead, feeding a new `SECTION_ACTIONS` table read the same way as
+      `SECTION_COUNT`.
+- [x] Menu contents, in doc order with a separator after the first: **New branch…** (unchanged, reuses
+      `branchCreate`), **Fetch all remotes** and **Prune remote-tracking refs** — the latter two both
+      call the same `fetch.mutateAsync()`, since pruning is already the default on every fetch this app
+      makes and there is no second git command to reach for. Confirmed in review that today's "Fetch
+      all remotes" label is itself pre-existing shorthand — the op only fetches `origin` (the IPC
+      default), not literally every remote — and left as-is: fixing that is engine/IPC work outside
+      this theme's "no new git command" scope note, not a regression this change introduces.
+- [ ] `Forge` gets a count of its visible children and no menu — **reassigned to Theme F, not
+      dropped.** `forge`'s `SECTION_BODY` entry renders `<ForgeSections>`/`<TestsSection>` directly
+      today, with no `TreeSection` heading of its own to attach a count to; the surrounding code
+      comment already says Theme F is what gives Forge a real nested heading. `SECTION_COUNT`/
+      `SECTION_ACTIONS` support a `forge` entry the moment that heading exists — Theme F only needs to
+      populate it.
+- [x] The parent heading's accessible name reads `Branches 12` — `Branches` renders non-collapsible
+      today (only its children fold), so this is `TreeSection`'s existing count-beside-title rendering,
+      not a new pattern.
+
 ## 2026-08-28 — Phase 27 Theme G — the remaining targets, tooltips and live regions
 
 Merged locally on `feature/phase-27-g-tooltips` — no PR link, no GitHub remote on this checkout.

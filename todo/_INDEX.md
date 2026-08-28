@@ -20,7 +20,7 @@ Completed work is logged append-only in [`done.md`](done.md). Deferred scope liv
 
 | Phase | Status | Refined | Done | Progress | % | 🔄 WIP | ◻ TODO |
 |-------|--------|---------|------|----------|---|--------|--------|
-| [28 · Worktrees first, and the section tree that can say so](phase-28-sidebar-section-tree.md) | 🔄 WIP | 30/61 | `█████░░░░░` | 49% | E | F–H |
+| [28 · Worktrees first, and the section tree that can say so](phase-28-sidebar-section-tree.md) | 🔄 WIP | 34/61 | `██████░░░░` | 56% | — | F–H |
 | [27 · The footer becomes a status bar, and the browser it makes room for](phase-27-status-bar-and-browser-panel.md) | 🔄 WIP | x1 | 72/90 | `████████░░` | 80% | — | 18 verification items |
 | [26 · Side by side, and the room to show it](phase-26-side-by-side-diffs.md) | ◻ TODO | — | 0/68 | `░░░░░░░░░░` | 0% | — | A–H |
 | [25 · Search everywhere, and the blame that explains it](phase-25-search-everywhere.md) | ◻ TODO | x1 | 0/101 | `░░░░░░░░░░` | 0% | — | A–F |
@@ -85,11 +85,15 @@ hand-editing six files — which is exactly what Phase 22 Theme B is currently w
   folded in, and pruning on repo close — via a new `use-prune-closed-repos.ts` mounted from `Shell`,
   not `repo-lifecycle.ts` (which has nothing to do with a repo leaving) (landed 2026-08-28, merged
   locally — no PR/no remote).
-- ◻ **E** — the Branches heading earns itself: a combined count and a `parentSectionMenu` beside (not
-  widening) `sectionMenu`, since `RefSectionKey` stays narrow and a parent has no refs. Forge gets a
-  count and deliberately no menu.
+- ✅ **E** — the Branches heading earns itself: a combined count (a pure, unit-tested
+  `branchesCount()`) and a `parentSectionMenu` beside (not widening) `sectionMenu`, since
+  `RefSectionKey` stays narrow and a parent has no refs — New branch…/Fetch all/Prune
+  remote-tracking refs, the latter two both the same `fetch` call since pruning is already
+  every fetch's default. Forge's own count is deferred to Theme F: `forge` has no rendered
+  heading yet to attach one to (landed 2026-08-28, merged locally — no PR/no remote).
 - ◻ **F** — Actions/Reviews/Issues/Tests nest under a Forge parent, which hides entirely on a repo with
-  no forge remote — the parent rule doing its job rather than a new check.
+  no forge remote — the parent rule doing its job rather than a new check. Also gives Forge the
+  count Theme E left unpopulated.
 - ◻ **G** — Settings ▸ Sidebar catches up: `SECTION_LABELS` is a `Record<SectionKey, string>`, so the
   new keys are a compile error until done, and `describeFilter` reads the nesting.
 - ◻ **H** — reconciliation: rewrite the now-false `"'Local', not 'Branches'"` comment, document the
