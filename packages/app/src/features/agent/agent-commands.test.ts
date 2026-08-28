@@ -36,7 +36,7 @@ describe('AGENT_COMMANDS', () => {
       'Backlog Task',
     );
     expect(AGENT_COMMANDS.find((command) => command.id === 'refine')?.label).toBe('Refine Plan');
-    expect(DEFAULT_AGENT_SKILLS.refine).toBe('/refine');
+    expect(DEFAULT_AGENT_SKILLS.refine).toBe('/midnite-refine');
   });
 
   it('groups categories contiguously, in execute → pr → release → loops order', () => {

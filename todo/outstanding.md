@@ -52,7 +52,7 @@ Recorded here when a phase punts on something; pick these up post-MVP.
   the consequence showed up on 2026-08-27, when seventeen specs sat red on `main` across several
   merges because no one ran them. The suite is fast (~3 minutes) and deterministic
   (`retries: 0`, its own strict port). It wants a job of its own: a `moon run :e2e` step in CI
-  after `playwright install chromium`, or a pre-merge check. Until then, every `/exec` slice that
+  after `playwright install chromium`, or a pre-merge check. Until then, every `/midnite-exec` slice that
   touches the renderer should run it by hand.
 
 - **Screenshot PNGs are not byte-reproducible.** A full `app:e2e` run rewrites roughly forty

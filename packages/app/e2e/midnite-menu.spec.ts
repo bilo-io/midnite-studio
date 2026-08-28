@@ -115,7 +115,7 @@ test('an entry opens a Claude session with its skill typed, not run', async ({ p
   await page.getByRole('menuitem', { name: 'Backlog Task', exact: true }).click();
 
   await expect(page.locator('[data-terminal-panel]')).toBeVisible();
-  await expect.poll(() => ptyInputs(page)).toEqual(["claude '/exec-backlog'"]);
+  await expect.poll(() => ptyInputs(page)).toEqual(["claude '/midnite-exec'"]);
   // No trailing newline anywhere in this path. Pressing Return is the
   // confirmation, so a mis-clicked menu cannot set an agent loose on a repo.
   const inputs = await ptyInputs(page);
@@ -130,8 +130,8 @@ test('pointing the entry at another skill in Settings changes what it sends', as
   await page.getByRole('button', { name: 'Agent', exact: true }).click();
 
   const field = page.getByRole('textbox', { name: 'Skill for Backlog Task' });
-  await expect(field).toHaveValue('/exec-backlog');
-  await field.fill('/exec-issue');
+  await expect(field).toHaveValue('/midnite-exec');
+  await field.fill('/midnite-address-issue');
 
   // The reset link is the "this has drifted from the default" signal, so it
   // must appear exactly when the value has.
@@ -142,5 +142,23 @@ test('pointing the entry at another skill in Settings changes what it sends', as
   await openMidniteMenu(page);
   await page.getByRole('menuitem', { name: 'Backlog Task', exact: true }).click();
 
-  await expect.poll(() => ptyInputs(page)).toEqual(["claude '/exec-issue'"]);
+  await expect.poll(() => ptyInputs(page)).toEqual(["claude '/midnite-address-issue'"]);
+});
+
+test('switching the primary agent in Settings changes which binary and prefix the menu types', async ({
+  page,
+}) => {
+  await open(page);
+
+  await page.getByRole('button', { name: 'Settings' }).click();
+  await page.getByRole('button', { name: 'Agent', exact: true }).click();
+  await page.getByRole('button', { name: 'Codex' }).click();
+
+  await page.getByRole('link', { name: 'Graph' }).click();
+  await openMidniteMenu(page);
+  await page.getByRole('menuitem', { name: 'Backlog Task', exact: true }).click();
+
+  // Codex doesn't recognise `/name` for a custom skill, only `$name` — so the
+  // stored `/midnite-exec` prompt gets its prefix translated on the way out.
+  await expect.poll(() => ptyInputs(page)).toEqual(["codex '$midnite-exec'"]);
 });

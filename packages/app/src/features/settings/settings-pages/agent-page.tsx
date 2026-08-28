@@ -8,10 +8,12 @@ import { Accordion } from '@bilo-io/ui';
 import { CLAUDE_COMMANDS, type ClaudeInfo } from '@midnite/git-shared';
 
 import { IconButton } from '../../../components/icon-button';
+import { resolveAgentIcon } from '../../../components/icons';
 import { MidniteIcon } from '../../../components/icons/midnite-icon';
 import { bridge, hasBridge } from '../../../services/bridge';
 import { DEFAULT_AGENT_SKILLS, useUiStore } from '../../../store/ui-store';
 import { AGENT_COMMANDS } from '../../agent/agent-commands';
+import { useAgents } from '../../terminal/use-agents';
 import { useTerminalStore } from '../../terminal/terminal-store';
 import { FileTree } from '../../files/file-tree';
 import { FilePreview } from '../../files/preview/file-preview';
@@ -52,12 +54,14 @@ export function AgentPage() {
       <Accordion title="midnite menu" icon={<MidniteIcon className="h-4 w-4" />} defaultOpen>
         <div className="flex flex-col gap-4 p-3">
           <p className="text-[11px] leading-relaxed text-muted-foreground">
-            What each entry of the sidebar&rsquo;s midnite menu types at a fresh Claude session.
-            Point one somewhere else and the menu follows — a skill is a file in your{' '}
-            <code>~/.claude</code>, not something this app ships, so it can be renamed or forked
-            without the menu knowing. Anything Claude accepts works: a slash command, a slash
-            command with arguments, or a plain sentence.
+            What each entry of the sidebar&rsquo;s midnite menu types at a fresh session with the
+            agent below. Point a skill field somewhere else and the menu follows — a skill is a
+            file in your <code>~/.claude</code> (or its <code>.agents</code>/<code>.codex</code>{' '}
+            siblings), not something this app ships, so it can be renamed or forked without the
+            menu knowing. Anything the agent accepts works: a slash command, a slash command with
+            arguments, or a plain sentence.
           </p>
+          <PrimaryAgentPicker />
           <SkillFields />
         </div>
       </Accordion>
@@ -71,6 +75,53 @@ export function AgentPage() {
         </div>
       </Accordion>
     </div>
+  );
+}
+
+/**
+ * Which roster agent the midnite menu launches.
+ *
+ * Reads the same roster (`useAgents`) and install status the `+` new-terminal
+ * menu already does, so a row here and a row there can never disagree about
+ * what's installed. Absent status = unknown = assume installed, matching that
+ * menu's own rule — a probe that could not answer must not grey out a working
+ * agent. Selecting a row is instant (no confirm): unlike the skill fields, this
+ * choice has no destructive failure mode — worst case, the wrong binary name
+ * shows up typed-but-not-run in a fresh terminal, exactly like a wrong skill
+ * string does today.
+ */
+function PrimaryAgentPicker() {
+  const { agents, status } = useAgents();
+  const primaryAgent = useUiStore((s) => s.primaryAgent);
+  const setPrimaryAgent = useUiStore((s) => s.setPrimaryAgent);
+  const statusById = new Map(status.map((s) => [s.id, s]));
+
+  return (
+    <Field label="Primary agent" hint="Which agent the midnite menu opens a fresh session with.">
+      <div className="flex flex-wrap gap-1.5">
+        {agents.map((agent) => {
+          const Icon = resolveAgentIcon(agent);
+          const selected = agent.id === primaryAgent;
+          const missing = statusById.get(agent.id)?.installed === false;
+          return (
+            <button
+              key={agent.id}
+              type="button"
+              title={missing ? (agent.install ?? `${agent.command} was not found on your PATH`) : undefined}
+              onClick={() => setPrimaryAgent(agent.id)}
+              className={`flex h-7 items-center gap-1.5 rounded-md border px-2 text-xs transition-colors ${
+                selected
+                  ? 'border-primary bg-primary/10'
+                  : 'border-border text-muted-foreground hover:bg-accent hover:text-foreground'
+              } ${missing ? 'opacity-60' : ''}`}
+            >
+              <Icon aria-hidden className="h-3.5 w-3.5 shrink-0" style={{ color: agent.accent }} />
+              {agent.label}
+            </button>
+          );
+        })}
+      </div>
+    </Field>
   );
 }
 

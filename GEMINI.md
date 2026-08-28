@@ -1,4 +1,4 @@
-# Midnite Git — working notes for Claude
+# Midnite Git — working notes for Antigravity
 
 A GitKraken-inspired desktop git client. **Design source of truth:
 [`docs/INITIAL_PLAN.md`](docs/INITIAL_PLAN.md)** — read it before any non-trivial change; it
@@ -10,16 +10,16 @@ append-only landed log, `outstanding.md` is deliberately-deferred scope.
 
 ## Keep `CLAUDE.md`, `AGENTS.md` and `GEMINI.md` in sync
 
-This repo drives three coding agents — **Claude** (`CLAUDE.md`, this file), **Codex**
-(`AGENTS.md`), and **Antigravity** (`GEMINI.md`) — each reading its own convention file by its
-own naming rule, not this one. All three carry the *same* conventions, so a session started
-with any of them sees the same rules.
+This repo drives three coding agents — **Claude** (`CLAUDE.md`), **Codex** (`AGENTS.md`), and
+**Antigravity** (`GEMINI.md`, this file) — each reading its own convention file by its own
+naming rule, not this one. All three carry the *same* conventions, so a session started with
+any of them sees the same rules.
 
-**Whenever you edit this file, apply the same edit to `AGENTS.md` and `GEMINI.md`** — and the
+**Whenever you edit this file, apply the same edit to `CLAUDE.md` and `AGENTS.md`** — and the
 same the other way around: an edit landed in either of those two belongs in this file and the
-remaining one too. Keep prose agent-neutral (say "the agent" or "a session", not "Claude")
-except where the guidance is genuinely specific to one CLI's own behavior — that stays named,
-in the one file it actually applies to.
+remaining one too. Keep prose agent-neutral (say "the agent" or "a session", not
+"Antigravity") except where the guidance is genuinely specific to one CLI's own behavior —
+that stays named, in the one file it actually applies to.
 
 ## Where to work — ask before the first edit
 

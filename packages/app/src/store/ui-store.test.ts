@@ -32,6 +32,7 @@ const reset = () =>
     graphAuthorFilter: [],
     graphTheme: 'git-graph',
     agentSkills: DEFAULT_AGENT_SKILLS,
+    primaryAgent: 'claude',
   });
 
 describe('useUiStore', () => {
@@ -415,26 +416,26 @@ describe('the midnite menu\'s skills', () => {
   beforeEach(reset);
 
   it('points each entry at a default that Settings can move', () => {
-    expect(useUiStore.getState().agentSkills.execBacklog).toBe('/exec-backlog');
+    expect(useUiStore.getState().agentSkills.execBacklog).toBe('/midnite-exec');
 
-    useUiStore.getState().setAgentSkill('execBacklog', '/exec-issue');
+    useUiStore.getState().setAgentSkill('execBacklog', '/midnite-address-issue');
 
     // One entry moves; the other four are untouched.
     expect(useUiStore.getState().agentSkills).toEqual({
       ...DEFAULT_AGENT_SKILLS,
-      execBacklog: '/exec-issue',
+      execBacklog: '/midnite-address-issue',
     });
   });
 
   it('persists the whole record, so a launch reads back what was configured', () => {
-    useUiStore.getState().setAgentSkill('brainstorm', '/brainstorm --wide');
+    useUiStore.getState().setAgentSkill('brainstorm', '/midnite-brainstorm --wide');
 
     const saved = JSON.parse(localStorage.getItem('midnite-git.ui') ?? '{}') as {
       state: Record<string, unknown>;
     };
     expect(saved.state.agentSkills).toEqual({
       ...DEFAULT_AGENT_SKILLS,
-      brainstorm: '/brainstorm --wide',
+      brainstorm: '/midnite-brainstorm --wide',
     });
   });
 
@@ -446,11 +447,40 @@ describe('the midnite menu\'s skills', () => {
       shell as `claude 'undefined'`, a prompt rather than a crash.
     */
     const merged = useUiStore.persist.getOptions().merge?.(
-      { agentSkills: { execBacklog: '/exec-issue' } },
+      { agentSkills: { execBacklog: '/midnite-address-issue' } },
       useUiStore.getState(),
     ) as { agentSkills: Record<string, string> };
 
-    expect(merged.agentSkills.execBacklog).toBe('/exec-issue');
+    expect(merged.agentSkills.execBacklog).toBe('/midnite-address-issue');
     expect(merged.agentSkills.loopPrFeedback).toBe(DEFAULT_AGENT_SKILLS.loopPrFeedback);
+  });
+});
+
+describe('the primary agent', () => {
+  beforeEach(reset);
+
+  it('defaults to claude, and Settings can move it', () => {
+    expect(useUiStore.getState().primaryAgent).toBe('claude');
+
+    useUiStore.getState().setPrimaryAgent('codex');
+
+    expect(useUiStore.getState().primaryAgent).toBe('codex');
+  });
+
+  it('persists across a reload', () => {
+    useUiStore.getState().setPrimaryAgent('agy');
+
+    const saved = JSON.parse(localStorage.getItem('midnite-git.ui') ?? '{}') as {
+      state: Record<string, unknown>;
+    };
+    expect(saved.state.primaryAgent).toBe('agy');
+  });
+
+  it('falls back to the default when the stored payload predates the field', () => {
+    const merged = useUiStore.persist.getOptions().merge?.({}, useUiStore.getState()) as {
+      primaryAgent: string;
+    };
+
+    expect(merged.primaryAgent).toBe('claude');
   });
 });
