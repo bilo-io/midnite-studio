@@ -90,6 +90,29 @@ async function emitAgentChanged(
   expect(delivered, `pty:agent-changed was not delivered to ${ptyId}: ${agentId}`).toBe(true);
 }
 
+/**
+ * Say that main's activity detector just changed its guess for a pty — the
+ * Theme F/G channel. `null` is the detector's real "nothing to say" answer.
+ */
+async function emitActivity(
+  page: Page,
+  activity: 'thinking' | 'waiting' | 'idle' | null,
+  ptyId = 'pty-1',
+): Promise<void> {
+  const delivered = await page.evaluate(
+    ({ id, act }) => {
+      const notify = (
+        window as unknown as {
+          __mgitPtyActivity: (p: string, a: 'thinking' | 'waiting' | 'idle' | null) => boolean;
+        }
+      ).__mgitPtyActivity;
+      return notify(id, act);
+    },
+    { id: ptyId, act: activity },
+  );
+  expect(delivered, `pty:activity was not delivered to ${ptyId}: ${activity}`).toBe(true);
+}
+
 const panel = (page: Page) => page.locator('[data-terminal-panel]');
 /** The session list's rows. `IconButton` renders its label twice, so count these. */
 const rows = (page: Page) => page.locator('[data-session-row]');
@@ -346,6 +369,63 @@ test.describe('terminal panel', () => {
       the name it had — it did not silently become "Codex".
     */
     await expect(row.locator('[data-session-name]')).not.toHaveText('Codex');
+  });
+
+  /**
+   * Phase 30 Theme F: the reported bug, checked end to end — the gate used to
+   * read `session.kind`, which a plain shell never satisfies, so a shell
+   * running an agent by hand never got the spinner even though its icon and
+   * accent (above) already came from the same probe.
+   */
+  test('a shell running an agent gets the activity indicator', async ({ page }) => {
+    await open(page);
+    await toggleTerminal(page);
+    await page.getByRole('button', { name: 'New terminal or agent' }).click();
+    await page.getByRole('menuitem', { name: 'New Terminal', exact: true }).click();
+    await expect(rows(page)).toHaveCount(2);
+    await expect.poll(async () => (await ptyCalls(page)).creates.length).toBe(2);
+
+    const row = rows(page).first();
+    await expect(row.locator('[data-activity]')).toHaveCount(0);
+
+    await emitAgentChanged(page, 'claude');
+    await emitActivity(page, 'thinking');
+
+    await expect(row.locator('[data-activity]')).toHaveAttribute('data-activity', 'thinking');
+    await expect(page.getByTestId('status-segment-agent-count')).toHaveText('1 agent');
+  });
+
+  /**
+   * The bug, precisely: the shell's reduced-motion reset pins `caret-blink`'s
+   * held final frame (`opacity: 0`) and `dot-wave`'s (`opacity: 0.35`) instead
+   * of removing the animation, so the idle caret rendered fully invisible and
+   * the waiting dots rendered dimmed to a third.
+   */
+  test('the activity glyphs survive reduced motion', async ({ page }) => {
+    await open(page);
+    await toggleTerminal(page);
+    // The session list — and so the activity glyph inside it — renders only
+    // past one session; a list of one is chrome that explains nothing.
+    await page.getByRole('button', { name: 'New terminal or agent' }).click();
+    await page.getByRole('menuitem', { name: 'New Terminal', exact: true }).click();
+    await expect(rows(page)).toHaveCount(2);
+    await expect.poll(async () => (await ptyCalls(page)).creates.length).toBe(2);
+    await emitAgentChanged(page, 'claude');
+    await emitActivity(page, 'idle');
+
+    const glyph = page.locator("[data-activity='idle'] > span");
+    await expect(glyph).toHaveCount(1);
+
+    await page.evaluate(() => {
+      document.documentElement.dataset.motion = 'reduced';
+    });
+
+    await expect
+      .poll(() => glyph.evaluate((node) => getComputedStyle(node).animationName))
+      .toBe('none');
+    await expect
+      .poll(() => glyph.evaluate((node) => getComputedStyle(node).opacity))
+      .toBe('1');
   });
 
   /**
@@ -900,6 +980,37 @@ test.describe('terminal panel', () => {
     // looking the same on screen.
     expect(after.kills).toEqual([]);
     expect(after.creates).toEqual(before.creates);
+  });
+
+  /**
+   * Phase 30 Theme G: detection moved to main precisely because
+   * `app.tsx`'s `terminalReveal.mounted` unmounts every `TerminalView` on a
+   * collapse — which is exactly when the status bar's agent count is the
+   * only thing still looking. This fails today for the mount-boundary
+   * reason the theme names, if the guess were still computed in the view.
+   */
+  test('activity survives the panel being collapsed', async ({ page }) => {
+    await open(page);
+    await toggleTerminal(page);
+    // The session list — and so the row's `[data-activity]` hook — renders
+    // only past one session.
+    await page.getByRole('button', { name: 'New terminal or agent' }).click();
+    await page.getByRole('menuitem', { name: 'New Terminal', exact: true }).click();
+    await expect(rows(page)).toHaveCount(2);
+    await expect.poll(async () => (await ptyCalls(page)).creates.length).toBe(2);
+    await emitAgentChanged(page, 'claude');
+    await emitActivity(page, 'thinking');
+    await expect(page.getByTestId('status-segment-agent-count')).toHaveText('1 agent');
+
+    await page.getByRole('button', { name: 'Hide terminal' }).click();
+    await expect(page.getByRole('button', { name: 'New terminal or agent' })).toHaveCount(0);
+    await expect(page.getByTestId('status-segment-agent-count')).toHaveText('1 agent');
+
+    await toggleTerminal(page);
+    await expect(rows(page).first().locator('[data-activity]')).toHaveAttribute(
+      'data-activity',
+      'thinking',
+    );
   });
 
   /**

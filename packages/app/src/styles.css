@@ -191,6 +191,23 @@
   }
 }
 
+/* Phase 30 Theme F — the terminal's activity glyphs, under reduced motion.
+ * `@bilo-io/shell/appearance.css` forces `animation-duration: 0.001ms
+ * !important` AND `animation-fill-mode: forwards !important` on every element
+ * under `html[data-motion='reduced']`, which pins each keyframe to its own
+ * FINAL frame rather than removing it: `caret-blink`'s 100% is `opacity: 0`,
+ * so the idle caret rendered fully invisible; `dot-wave`'s 100% is
+ * `opacity: 0.35`, so the waiting dots rendered dimmed to a third. Only the
+ * spinner survived, because its final frame (`rotate(360deg)`) looks like its
+ * first. Removing the animation outright — rather than overriding each held
+ * property — is what lets every glyph fall back to the static appearance its
+ * own base classes already describe; `data-motion='full'` and the unset
+ * default are untouched, since this selector can only match under 'reduced'. */
+html[data-motion='reduced'] [data-activity],
+html[data-motion='reduced'] [data-activity] * {
+  animation-name: none !important;
+}
+
 [data-density='compact'] .status-label,
 [data-density='collapsed'] .status-label {
   display: none;

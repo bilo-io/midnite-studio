@@ -2,6 +2,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 import {
   cleanAutoName,
+  isAgentRow,
   resolveSessionAgentId,
   sessionLabel,
   sessionPhase,
@@ -362,6 +363,21 @@ describe('useTerminalStore', () => {
       useTerminalStore.getState().setActivity(a.id, undefined);
       expect(useTerminalStore.getState().activity[a.id]).toBeUndefined();
     });
+
+    it('accepts the widened idle arm', () => {
+      const a = open('a');
+      useTerminalStore.getState().setActivity(a.id, 'idle');
+      expect(useTerminalStore.getState().activity[a.id]).toBe('idle');
+    });
+
+    it('stamps and clears activityAt alongside activity', () => {
+      const a = open('a');
+      useTerminalStore.getState().setActivity(a.id, 'thinking');
+      expect(useTerminalStore.getState().activityAt[a.id]).toBeTypeOf('number');
+
+      useTerminalStore.getState().setActivity(a.id, undefined);
+      expect(useTerminalStore.getState().activityAt[a.id]).toBeUndefined();
+    });
   });
 
   /**
@@ -496,6 +512,28 @@ describe('resolveSessionAgentId', () => {
 
   it("reads only its own session's entry", () => {
     expect(resolveSessionAgentId({ id: 's1', agentId: 'claude' }, { s2: null })).toBe('claude');
+  });
+});
+
+describe('isAgentRow', () => {
+  it('is true for a session opened for an agent, unprobed', () => {
+    expect(isAgentRow({ id: 's1', agentId: 'claude' }, {})).toBe(true);
+  });
+
+  it('is false for a plain shell, unprobed', () => {
+    expect(isAgentRow({ id: 's1', agentId: undefined }, {})).toBe(false);
+  });
+
+  it('is true for a plain shell the probe found running an agent', () => {
+    expect(isAgentRow({ id: 's1', agentId: undefined }, { s1: 'claude' })).toBe(true);
+  });
+
+  it('is false for an agent session the probe found has quit', () => {
+    expect(isAgentRow({ id: 's1', agentId: 'claude' }, { s1: null })).toBe(false);
+  });
+
+  it("does not leak another session's probe entry", () => {
+    expect(isAgentRow({ id: 's1', agentId: undefined }, { s2: 'claude' })).toBe(false);
   });
 });
 

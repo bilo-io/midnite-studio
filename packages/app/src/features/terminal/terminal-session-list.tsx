@@ -8,8 +8,10 @@ import { IconButton } from '../../components/icon-button';
 import { resolveAgentIcon } from '../../components/icons';
 import { SortableList, useSortableRow } from '../../components/sortable-list';
 import { StateDot } from '../../components/state-dot';
+import { Spinner } from '../../components/skeleton';
 import { useUiStore } from '../../store/ui-store';
 import {
+  isAgentRow,
   resolveSessionAgentId,
   sessionLabel,
   sessionPhase,
@@ -163,6 +165,7 @@ export function TerminalSessionList({
             runningAgent={agents.find(
               (a) => a.id === resolveSessionAgentId(session, liveAgentId),
             )}
+            isAgentRow={isAgentRow(session, liveAgentId)}
           />
         ))}
       </SortableList>
@@ -175,6 +178,7 @@ function SessionRow({
   active,
   agent,
   runningAgent,
+  isAgentRow: rowIsAgent,
 }: {
   session: TerminalSession;
   active: boolean;
@@ -189,6 +193,8 @@ function SessionRow({
   agent: AgentDefinition | undefined;
   /** What is *actually running*, from main's process probe. Drives the mark. */
   runningAgent: AgentDefinition | undefined;
+  /** `isAgentRow(session, liveAgentId)` — gates the activity glyph. */
+  isAgentRow: boolean;
 }) {
   const dialogs = useDialogs();
   const state = useTerminalStore((s) => s.states[session.id] ?? 'idle');
@@ -311,11 +317,13 @@ function SessionRow({
       </div>
 
       {/*
-        Only a live agent gets one. A plain shell has no footer to read the
-        state off (see activity-detect.ts), and an exited row is a transcript
-        — a blinking caret on either would be an invented signal.
+        Only a live agent gets one — gated on what is *running*
+        (`isAgentRow`), not on what the session was opened as, so a plain
+        shell running an agent typed by hand gets the glyph too. An exited
+        row is a transcript — a blinking caret on it would be an invented
+        signal.
       */}
-      {session.kind === 'agent' && live ? <ActivityIndicator activity={activity} /> : null}
+      {rowIsAgent && live ? <ActivityIndicator activity={activity} /> : null}
 
       <StateDot state={phase === 'asleep' ? 'asleep' : state} />
 
@@ -344,61 +352,40 @@ function SessionRow({
 }
 
 /**
- * Whether a live agent looks to be generating, back waiting on you, or simply
- * sitting there — a second, distinct glyph beside the connection dot, which
+ * Whether a live agent looks to be generating, back waiting on you, idle, or
+ * simply unknown — a second, distinct glyph beside the connection dot, which
  * only ever says whether the PROCESS is alive.
  *
- * Three drawn shapes rather than three icons, because the state IS the motion:
+ * Four drawn shapes rather than four icons, because the state IS the motion:
  * an arc going round is work in progress, an ellipsis rolling is a question
- * left open, a caret ticking is a prompt with nobody at it. An icon has to be
- * decoded; these are the same marks a terminal already uses for the same three
- * things. The 14px slot is fixed so the row's connection dot does not shift
- * sideways each time the glyph under it changes.
+ * left open, a caret ticking is a prompt with nobody at it, and a dim static
+ * dot is "live, and the detector has not spoken" — a real fourth state, not a
+ * synonym for idle. Drawing that unspoken case as a confident idle caret is
+ * what let the detector sit broken from Claude Code 2.1.x onward without
+ * anyone noticing; a quiet, visibly-unsure mark is what would have surfaced it
+ * on day one. An icon has to be decoded; these are the same marks a terminal
+ * already uses for the same things. The 14px slot is fixed so the row's
+ * connection dot does not shift sideways each time the glyph under it changes.
+ *
+ * `data-activity` is the hook Playwright and the reduced-motion CSS rule both
+ * need — the sibling of `data-phase` above it.
  */
-function ActivityIndicator({ activity }: { activity: SessionActivity | undefined }) {
-  return (
-    <span className="flex size-3.5 shrink-0 items-center justify-center">
-      {activity === 'thinking' ? (
-        <ThinkingSpinner />
-      ) : activity === 'waiting' ? (
-        <WaitingDots />
-      ) : (
-        <IdleCaret />
-      )}
-    </span>
-  );
-}
-
-/**
- * The spinner, as a ring with a half-lit rim.
- *
- * Borders rather than an SVG or a glyph: at this size a stroked arc is a couple
- * of `border-*` colours on a circle, and rotating a bordered box is a
- * compositor-only transform where an animated icon component is a React tree
- * that re-renders.
- *
- * What the geometry has to earn, though, is legibility of the MOTION, and the
- * first cut — 12px, `border-[1.5px]`, one lit quadrant — did not. The lit part
- * came out as a lone ~8px dash one device pixel thick (Chromium floors a 1.5px
- * border to 1px below 2× scale), and one small dash going round once a second,
- * in a sidebar nobody is looking straight at, reads as a ring that is simply
- * sitting there. Measured before touching it, frame by frame off a paused
- * animation: the rotation was running the whole time and could not be seen.
- *
- * So 14px, a 2px rim, and two adjacent borders lit rather than one — a half
- * ring sweeping, which is unmistakably moving at a glance and is still the same
- * mark. Duration stays Tailwind's own 1s: `animate-spin` is the only animation
- * here that does not need a keyframe of its own, and inventing one to shave
- * 100ms off would make the mark depend on a `@keyframes spin` that Tailwind
- * only emits while some other file still uses the built-in utility.
- */
-function ThinkingSpinner() {
+export function ActivityIndicator({ activity }: { activity: SessionActivity | undefined }) {
   return (
     <span
-      role="img"
-      aria-label="Thinking"
-      className="size-3.5 animate-spin rounded-full border-2 border-muted-foreground/25 border-r-foreground border-t-foreground"
-    />
+      data-activity={activity ?? 'unknown'}
+      className="flex size-3.5 shrink-0 items-center justify-center"
+    >
+      {activity === 'thinking' ? (
+        <Spinner label="Thinking" />
+      ) : activity === 'waiting' ? (
+        <WaitingDots />
+      ) : activity === 'idle' ? (
+        <IdleCaret />
+      ) : (
+        <UnknownDot />
+      )}
+    </span>
   );
 }
 
@@ -433,6 +420,23 @@ function IdleCaret() {
       role="img"
       aria-label="Idle"
       className="h-2.5 w-[2px] animate-caret-blink rounded-[1px] bg-muted-foreground/70"
+    />
+  );
+}
+
+/**
+ * "Live, and the detector has not spoken" — a real fourth state, deliberately
+ * the quietest mark in the slot: a 4px dot at 35% opacity, smaller than the
+ * `StateDot` beside it (`size-1.5`) so the pair never reads as two connection
+ * dots. Shown for an agent with no marker set at all, or one main's detector
+ * has explicitly said `null` about — never a guess.
+ */
+function UnknownDot() {
+  return (
+    <span
+      role="img"
+      aria-label="Activity unknown"
+      className="size-1 rounded-full bg-muted-foreground/35"
     />
   );
 }

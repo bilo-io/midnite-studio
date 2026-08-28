@@ -1,4 +1,4 @@
-import type { TerminalSession, TerminalSessionKind } from '@midnite/git-shared';
+import type { SessionActivity, TerminalSession, TerminalSessionKind } from '@midnite/git-shared';
 import { create } from 'zustand';
 
 import { bridge } from '../../services/bridge';
@@ -42,12 +42,18 @@ export function sessionPhase(
 /**
  * What a live agent session appears to be doing, guessed from its own output.
  *
- * There is no channel that tells the app this directly — an agent CLI is just
- * a process writing bytes — so it is inferred from the same markers a human
- * reads off the screen: the "esc to interrupt" hint means it is generating,
- * and the prompt box reappearing means it is back waiting on you.
+ * Re-exported rather than declared here: the guess is made in MAIN now (Theme
+ * G), at the single `pty:data` send site, so the status bar's agent count
+ * stays right while the terminal panel is collapsed and every `TerminalView`
+ * is unmounted. `SessionActivity` crosses the wire, so it lives in
+ * `@midnite/git-shared` beside `TerminalSessionSchema` — this re-export means
+ * no renderer import has to change.
+ *
+ * `undefined` means "live, and the detector has not spoken" — a fourth thing
+ * to draw, distinct from `'idle'`. Nothing sets `'idle'` here directly; it
+ * only ever arrives from main's decay clock.
  */
-export type SessionActivity = 'thinking' | 'waiting';
+export type { SessionActivity };
 
 export type NewSessionRequest = {
   kind: TerminalSessionKind;
@@ -108,6 +114,13 @@ type TerminalState = {
   autoNames: Record<string, string>;
   /** What a live agent session looks to be doing right now; absent otherwise. */
   activity: Record<string, SessionActivity>;
+  /**
+   * `Date.now()` at the last `setActivity` call that set a value (not the
+   * ones that clear it) — read only by the Settings ▸ Terminal ▸ Agent
+   * activity readout for its "last seen Ns ago" column, so a stuck detector
+   * is diagnosable without a console.
+   */
+  activityAt: Record<string, number>;
   /**
    * Where a session's shell actually is, from the OSC 7 sequence it emits on
    * `cd` — as opposed to `session.cwd`, which is where it was opened.
@@ -256,6 +269,7 @@ export const useTerminalStore = create<TerminalState>()((set, get) => ({
   pendingInput: {},
   autoNames: {},
   activity: {},
+  activityAt: {},
   liveCwd: {},
   liveAgentId: {},
   foregroundCommand: {},
@@ -496,9 +510,15 @@ export const useTerminalStore = create<TerminalState>()((set, get) => ({
     set((state) => {
       if (state.activity[sessionId] === activity) return state;
       const next = { ...state.activity };
-      if (activity === undefined) delete next[sessionId];
-      else next[sessionId] = activity;
-      return { activity: next };
+      const nextAt = { ...state.activityAt };
+      if (activity === undefined) {
+        delete next[sessionId];
+        delete nextAt[sessionId];
+      } else {
+        next[sessionId] = activity;
+        nextAt[sessionId] = Date.now();
+      }
+      return { activity: next, activityAt: nextAt };
     }),
 
   bindPty: (sessionId, ptyId) =>
@@ -553,6 +573,7 @@ function dropKey(
   | 'pendingInput'
   | 'autoNames'
   | 'activity'
+  | 'activityAt'
   | 'liveCwd'
   | 'liveAgentId'
   | 'foregroundCommand'
@@ -565,6 +586,7 @@ function dropKey(
   const pendingInput = { ...state.pendingInput };
   const autoNames = { ...state.autoNames };
   const activity = { ...state.activity };
+  const activityAt = { ...state.activityAt };
   const liveCwd = { ...state.liveCwd };
   const liveAgentId = { ...state.liveAgentId };
   const foregroundCommand = { ...state.foregroundCommand };
@@ -576,6 +598,7 @@ function dropKey(
   delete pendingInput[sessionId];
   delete autoNames[sessionId];
   delete activity[sessionId];
+  delete activityAt[sessionId];
   delete liveCwd[sessionId];
   delete liveAgentId[sessionId];
   delete foregroundCommand[sessionId];
@@ -588,6 +611,7 @@ function dropKey(
     pendingInput,
     autoNames,
     activity,
+    activityAt,
     liveCwd,
     liveAgentId,
     foregroundCommand,
@@ -612,6 +636,21 @@ export function resolveSessionAgentId(
   // Absent means never probed — not "probed and found nothing".
   if (!(session.id in liveAgentId)) return session.agentId;
   return liveAgentId[session.id] ?? undefined;
+}
+
+/**
+ * Whether a row should be drawn as an agent row — the activity glyph, the
+ * agent count — gated on what is **running**, not on what the session was
+ * **opened as**. `session.kind` is fixed at creation; the `ps` probe already
+ * reports the truth through `liveAgentId`, so typing `claude` into a plain
+ * shell gets the same treatment as a session opened for it. One predicate so
+ * the row, the view and the status-bar count cannot drift apart again.
+ */
+export function isAgentRow(
+  session: Pick<TerminalSession, 'id' | 'agentId'>,
+  liveAgentId: Record<string, string | null>,
+): boolean {
+  return resolveSessionAgentId(session, liveAgentId) !== undefined;
 }
 
 /**
