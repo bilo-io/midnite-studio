@@ -53,88 +53,106 @@ Effort tags: **S** ≈ an hour or two · **M** ≈ half a day · **L** ≈ a day
 
 ## Deliverables
 
-### A — The section tree becomes data (M)
+### A — The section tree becomes data (M) ✅ DONE (2026-08-28)
 
 Pure, DOM-free and testable, in the module that already claims to own this. Everything else reads off
 this shape, so it lands first.
 
-- [ ] `SectionKey` in [`view-sections.ts`](../packages/app/src/features/repos/view-sections.ts) gains
+- [x] `SectionKey` in [`view-sections.ts`](../packages/app/src/features/repos/view-sections.ts) gains
       `'branches'`, `'forge'` and `'stashes'`. `RefSectionKey` is **unchanged** — a parent has no refs
       and `sectionMenu` has nothing to build from one, which is the same reason the narrower union
       exists at all.
-- [ ] `SectionNode` type: `{ key: SectionKey; children?: readonly SectionNode[] }`, and
+- [x] `SectionNode` type: `{ key: SectionKey; children?: readonly SectionNode[] }`, and
       `SECTION_TREE: readonly SectionNode[]` as the single ordered declaration —
       `worktrees`, `branches → [local, remotes]`, `tags`, `stashes`, `forge → [actions, reviews,
       issues, tests]`.
-- [ ] `ALL_SECTIONS` is **derived** from `SECTION_TREE` by a `flattenSections()` walk rather than
+- [x] `ALL_SECTIONS` is **derived** from `SECTION_TREE` by a `flattenSections()` walk rather than
       hand-written, so the two can no longer disagree. Its doc comment stops being aspirational.
-- [ ] `parentOf(key): SectionKey | null` and `childrenOf(key): readonly SectionKey[]` as exported
+- [x] `parentOf(key): SectionKey | null` and `childrenOf(key): readonly SectionKey[]` as exported
       lookups built once from the tree, so no consumer walks it by hand.
-- [ ] `VIEW_FILTERS` reworked so a filter may name a parent and mean its subtree: `sections:
+- [x] `VIEW_FILTERS` reworked so a filter may name a parent and mean its subtree: `sections:
       ['worktrees']` keeps meaning exactly what it means today, and `expandFilter(sections)` resolves
       a named parent to itself plus its descendants before `visible()` consults it. The
       `WORK_IN_PROGRESS` and `UNFILTERED` constants keep their current meaning — `UNFILTERED` is now
       `ALL_SECTIONS` including the parents, which is what makes a parent visible at all.
-- [ ] `useViewSections().visible(key)` unchanged in signature. Its behaviour for a **parent** is new
+      `expandFilter` also walks a named leaf's ancestors, not just a named parent's descendants —
+      otherwise today's leaf-only entries (`actions`, `reviews`, `issues`, `tests`) could never make
+      `Forge` answer "admitted" once Theme F nests a heading over them.
+- [x] `useViewSections().visible(key)` unchanged in signature. Its behaviour for a **parent** is new
       and is the load-bearing rule: a parent is visible when the filter admits it **and** at least one
       child is visible. A parent whose children are all filtered away does not render an empty
-      heading.
-- [ ] Vitest in [`view-sections.test.ts`](../packages/app/src/features/repos/view-sections.test.ts):
+      heading. The rule (`isSectionVisible`) recurses through `childrenOf` rather than assuming one
+      level of nesting, and is exported as a pure function so it needs no React to test.
+- [x] Vitest in [`view-sections.test.ts`](../packages/app/src/features/repos/view-sections.test.ts):
       `ALL_SECTIONS` equals the flattened tree; every `SectionKey` appears exactly once in
       `SECTION_TREE`; `parentOf` round-trips against `childrenOf`; a filter naming `branches` admits
       `local` and `remotes`; a filter naming only `worktrees` hides `branches`; the existing per-view
-      expectations still hold unmodified.
+      expectations still hold unmodified (25 tests, up from 15).
+- [x] *(incidental, forced by the type change)* `SECTION_LABELS` in
+      [`sidebar-page.tsx`](../packages/app/src/features/settings/settings-pages/sidebar-page.tsx) —
+      Theme G's own record — gained placeholder entries for `branches`/`forge`/`stashes` because it is
+      `Record<SectionKey, string>` and the widened union made it a compile error otherwise. Theme G
+      still owns making `describeNarrowed` read the nesting; these three labels never render today
+      since no `VIEW_FILTERS` entry names a parent.
 
-### B — The indent ladder gets a fifth rung (S)
+### B — The indent ladder gets a fifth rung (S) ✅ DONE (2026-08-28)
 
 Small, mechanical, and it must land before C or the nesting has nowhere to go.
 
-- [ ] [`tree-indent.ts`](../packages/app/src/components/tree-indent.ts): `TREE_INDENT` gains a fifth
+- [x] [`tree-indent.ts`](../packages/app/src/components/tree-indent.ts): `TREE_INDENT` gains a fifth
       entry (`pl-17`, keeping the 12px step), and its table comment is rewritten for the new ladder —
       `0` panel sections, `1` a repository's top-level sections, `2` a nested section, `3` their rows
       and a group heading, `4` a group's own rows.
-- [ ] [`tree-section.tsx`](../packages/app/src/components/tree-section.tsx): the `depth` prop widens
+- [x] [`tree-section.tsx`](../packages/app/src/components/tree-section.tsx): the `depth` prop widens
       from `0 | 1 | 2` to `0 | 1 | 2 | 3`, and its doc comment follows the new ladder. Nothing else in
       the component changes — it already indexes `TREE_INDENT` by depth.
-- [ ] `RemoteGroup` in [`repos-panel.tsx`](../packages/app/src/features/repos/repos-panel.tsx) moves
+- [x] `RemoteGroup` in [`repos-panel.tsx`](../packages/app/src/features/repos/repos-panel.tsx) moves
       from `depth={2}` to `depth={3}`, and the `RefRow`s inside it from `3` to `4`.
-- [ ] Local branch `RefRow`s move from `depth={2}` to `depth={3}`; `WorktreeRow` and the Tags rows
+- [x] Local branch `RefRow`s move from `depth={2}` to `depth={3}`; `WorktreeRow` and the Tags rows
       stay at `2`, because their sections stay at depth 1.
-- [ ] The nested run groups in
+- [x] The nested run groups in
       [`forge-sections.tsx`](../packages/app/src/features/repos/forge-sections.tsx) and their `Note`
-      rows each shift one rung once Theme F nests them — grep for every literal `depth={`, there are
-      about a dozen, and none of them should be guessed.
-- [ ] Confirm the deepest row (`origin/some/long/branch-name` at depth 4) still reads at the panel's
-      minimum width from [`LAYOUT_BOUNDS`](../packages/app/src/store/ui-store.ts) before committing to
-      the 12px step; if it does not, the fallback is a tightened step for rung 4 only, recorded as a
-      decision rather than a silent change.
+      rows are left at their current rung — Theme F, not this slice, is what nests them under Forge,
+      and `SECTION_BODY['forge']` (Theme C) mounts them exactly as before until then.
+- [x] Confirmed the deepest row (`origin/some-long-branch-name` at depth 4) at the panel's true
+      180px `LAYOUT_BOUNDS.reposWidth.min` (dragged the real splitter, not a simulated width): it
+      truncates with an ellipsis exactly like every shallower row already does at that width — the
+      12px step introduces no new breakage, so no rung-4-only tightening is needed.
+- [x] **Bug found and fixed**: `pl-17` is not a Tailwind default-scale utility (the scale jumps
+      `14 → 16 → 20`, skipping `17`), so it silently generated no CSS — depth-4 rows (a remote's
+      branches) rendered flush left, outside the tree's indentation entirely, escaping their
+      collapsible container visually. Fixed by adding `spacing: { 17: '4.25rem' }` to
+      `tailwind.config.ts`'s `theme.extend`, continuing the existing +12px step. Caught via a
+      Playwright screenshot with a real `origin` remote group — not by the vitest suite, which never
+      renders real CSS.
 
-### C — `RepoTree` renders from the tree (M)
+### C — `RepoTree` renders from the tree (M) ✅ DONE (2026-08-28)
 
 The theme that deletes the coincidence. Four hand-written blocks become one recursive renderer that
 cannot render a section the declaration does not contain.
 
-- [ ] A `renderSection(node: SectionNode)` walk inside `RepoTree`
+- [x] A `renderSection(node: SectionNode)` walk inside `RepoTree`
       ([`repos-panel.tsx`](../packages/app/src/features/repos/repos-panel.tsx)) driven by
       `SECTION_TREE`, replacing the four literal `<TreeSection>` blocks and their source order.
-- [ ] A `SECTION_BODY` map from leaf `SectionKey` to the renderer for its rows, so each section's body
-      keeps the code it has today — the extraction is a move, not a rewrite. `stashes` maps to `null`
+- [x] A `SECTION_BODY` map from leaf `SectionKey` to the renderer for its rows, so each section's body
+      keeps the code it has today — the extraction is a move, not a rewrite. `stashes` has no entry
       and renders nothing (see the scope guardrail).
-- [ ] `SECTION_TITLE` widens from `Record<RefSectionKey, string>` to `Record<SectionKey, string>` and
+- [x] `SECTION_TITLE` widens from `Record<RefSectionKey, string>` to `Record<SectionKey, string>` and
       gains `Branches`, `Stashes` and `Forge`. Its exhaustive `Record` is what makes a forgotten label
       a compile error rather than an `undefined` heading.
-- [ ] A parent `TreeSection` renders its children as its `children`, at `depth + 1`, and passes
+- [x] A parent `TreeSection` renders its children as its `children`, at `depth + 1`, and passes
       `hideWhenEmpty={false}` down to nothing — emptiness is still each leaf's own business, and a
       parent's own visibility comes from Theme A's `visible()` rule.
-- [ ] Worktrees renders first, and its section is otherwise **unchanged** — same `WorktreeRow`, same
+- [x] Worktrees renders first, and its section is otherwise **unchanged** — same `WorktreeRow`, same
       `worktreeHealth`, same counts, same menu. The promotion is positional only.
-- [ ] `ForgeSections` and `TestsSection` keep their own components and are mounted **by** the walk
+- [x] `ForgeSections` and `TestsSection` keep their own components and are mounted **by** the walk
       rather than after it, so their position is declared in the same place as everything else.
-      `ForgeSections`' `index` prop (currently `worktrees.length`) is recomputed from the walk rather
-      than passed the old positional guess.
-- [ ] Vitest in [`repos-panel.test.ts`](../packages/app/src/features/repos/repos-panel.test.ts): the
-      rendered heading order matches `flattenSections(SECTION_TREE)` filtered by visibility — a test
-      that fails if anyone ever re-adds a literal block.
+      `ForgeSections`' `index` prop (`worktrees.length` before) is now `forgeIndex`, recomputed from
+      `ALL_SECTIONS`' own order rather than a positional guess.
+- [x] Vitest in [`repos-panel.test.ts`](../packages/app/src/features/repos/repos-panel.test.ts) (moved
+      to `.test.tsx` — the first RTL-rendered test in this file): the rendered heading order matches
+      the flattened, visibility-filtered tree, Worktrees first, and a parent (`Branches`) disappears
+      entirely once every child is filtered away.
 
 ### D — Folds survive (M)
 

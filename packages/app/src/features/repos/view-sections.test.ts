@@ -3,11 +3,33 @@ import { describe, expect, it } from 'vitest';
 import { VIEW_IDS, type ViewId } from '../../store/ui-store';
 import {
   ALL_SECTIONS,
+  childrenOf,
   filterFor,
   filtersByDefault,
+  isSectionVisible,
+  parentOf,
+  SECTION_TREE,
   UNFILTERED,
   VIEW_FILTERS,
+  type SectionKey,
+  type SectionNode,
+  type ViewFilter,
 } from './view-sections';
+
+/**
+ * Every `SectionNode` in `SECTION_TREE`, parents and leaves alike, walked
+ * once — an independent re-implementation of the module's own flatten, so
+ * this test actually checks `ALL_SECTIONS` against the tree rather than
+ * against itself.
+ */
+function walk(nodes: readonly SectionNode[]): SectionKey[] {
+  const keys: SectionKey[] = [];
+  for (const node of nodes) {
+    keys.push(node.key);
+    if (node.children) keys.push(...walk(node.children));
+  }
+  return keys;
+}
 
 describe('filtersByDefault', () => {
   it('narrows the views that ARE a question about a subset', () => {
@@ -130,5 +152,94 @@ describe('view ids', () => {
     };
     for (const view of VIEW_IDS) seen[view] = true;
     expect(Object.values(seen).every(Boolean)).toBe(true);
+  });
+});
+
+describe('SECTION_TREE', () => {
+  const ALL_KEYS: readonly SectionKey[] = [
+    'local',
+    'remotes',
+    'tags',
+    'worktrees',
+    'branches',
+    'stashes',
+    'forge',
+    'actions',
+    'reviews',
+    'issues',
+    'tests',
+  ];
+
+  it('is the source ALL_SECTIONS is flattened from — no second, disagreeing answer', () => {
+    expect(ALL_SECTIONS).toEqual(walk(SECTION_TREE));
+  });
+
+  it('lists Worktrees first', () => {
+    expect(ALL_SECTIONS[0]).toBe('worktrees');
+  });
+
+  it('names every SectionKey exactly once', () => {
+    for (const key of ALL_KEYS) {
+      expect(ALL_SECTIONS.filter((k) => k === key)).toHaveLength(1);
+    }
+    expect(ALL_SECTIONS).toHaveLength(ALL_KEYS.length);
+  });
+});
+
+describe('parentOf / childrenOf', () => {
+  it('round-trip: every child of a parent names that parent back', () => {
+    for (const key of ALL_SECTIONS) {
+      for (const child of childrenOf(key)) {
+        expect(parentOf(child)).toBe(key);
+      }
+    }
+  });
+
+  it('gives Branches its two children and Forge its four', () => {
+    expect(childrenOf('branches')).toEqual(['local', 'remotes']);
+    expect(childrenOf('forge')).toEqual(['actions', 'reviews', 'issues', 'tests']);
+  });
+
+  it('has no children for a leaf, and no parent for a top-level section', () => {
+    expect(childrenOf('worktrees')).toEqual([]);
+    expect(parentOf('worktrees')).toBeNull();
+    expect(parentOf('branches')).toBeNull();
+  });
+});
+
+describe('isSectionVisible', () => {
+  const NAMES_BRANCHES: ViewFilter = { sections: ['branches'], dirtyOnly: false };
+  const NAMES_ONLY_WORKTREES: ViewFilter = { sections: ['worktrees'], dirtyOnly: false };
+
+  it('a filter naming a parent admits its children', () => {
+    expect(isSectionVisible(NAMES_BRANCHES, 'local')).toBe(true);
+    expect(isSectionVisible(NAMES_BRANCHES, 'remotes')).toBe(true);
+    expect(isSectionVisible(NAMES_BRANCHES, 'branches')).toBe(true);
+  });
+
+  it('a filter naming only worktrees hides branches, and everything under it', () => {
+    expect(isSectionVisible(NAMES_ONLY_WORKTREES, 'branches')).toBe(false);
+    expect(isSectionVisible(NAMES_ONLY_WORKTREES, 'local')).toBe(false);
+    expect(isSectionVisible(NAMES_ONLY_WORKTREES, 'remotes')).toBe(false);
+  });
+
+  it('a parent whose every child is filtered away is not visible itself', () => {
+    // 'branches' is reachable only through its own children in `expandFilter`,
+    // so a filter that names neither it nor a child never admits it.
+    expect(isSectionVisible(NAMES_ONLY_WORKTREES, 'branches')).toBe(false);
+  });
+
+  it("today's leaf-only forge filters still admit Forge once it is nested", () => {
+    // VIEW_FILTERS.actions never names 'forge' directly; naming a child must
+    // still let the (not-yet-rendered) parent answer "admitted".
+    expect(isSectionVisible(VIEW_FILTERS.actions, 'forge')).toBe(true);
+    expect(isSectionVisible(VIEW_FILTERS.actions, 'actions')).toBe(true);
+    expect(isSectionVisible(VIEW_FILTERS.actions, 'reviews')).toBe(false);
+  });
+
+  it('the unfiltered view admits every parent and every leaf', () => {
+    for (const key of ALL_SECTIONS) {
+      expect(isSectionVisible(UNFILTERED, key)).toBe(true);
+    }
   });
 });

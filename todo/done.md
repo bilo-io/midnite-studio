@@ -30,6 +30,37 @@ The cheapest theme in the phase — and the one place the doc's own suggested re
       badges and the no-entry-no-badge case, with a screenshot at
       `docs/screenshots/phase-24-f/status-badges.png`
 
+## 2026-08-28 — Phase 28 Themes B+C — `RepoTree` renders from the tree
+
+Landed on `feature/phase-28-section-tree`, merged locally — no PR link, no GitHub remote on this
+checkout. Themes B and C were built together in the same branch as Theme A, above.
+
+Theme B gave the indent ladder its fifth rung (`TREE_INDENT` gains `pl-17`, `TreeSection.depth`
+widens to `0|1|2|3`) for the depth Remotes' `origin` groups now sit at. Theme C then rewrote
+`RepoTree`'s four hand-written `<TreeSection>` blocks into one `renderSection(node, depth)` walk
+driven by `SECTION_TREE` — a section the declaration does not contain cannot render, and Worktrees
+renders first.
+
+- [x] `TREE_INDENT`/`TreeSection.depth` widened one rung; `RemoteGroup`, its `RefRow`s, and local-
+      branch `RefRow`s shift one rung deeper; `WorktreeRow` and Tags stay at their existing depth
+- [x] **Bug found and fixed in review**: `pl-17` is not a Tailwind default-scale utility (the scale
+      jumps `14 → 16 → 20`), so it silently generated no CSS — depth-4 rows rendered flush left,
+      escaping their collapsible container. Fixed with `spacing: { 17: '4.25rem' }` in
+      `tailwind.config.ts`, continuing the existing +12px step. Caught by a Playwright screenshot
+      against a real `origin` remote group, not by vitest, which never renders real CSS
+- [x] Confirmed the deepest row still reads at the panel's true 180px minimum width (dragged the
+      real splitter): it truncates exactly like every shallower row already does there, so no
+      rung-4-only tightening was needed
+- [x] `renderSection`/`SECTION_BODY` walk replaces the four literal blocks; `SECTION_TITLE` widens
+      to an exhaustive `Record<SectionKey, string>`; `ForgeSections`' `index` prop now derives from
+      `ALL_SECTIONS`' own order instead of the old `worktrees.length` positional guess
+- [x] `repos-panel.test.ts` → `.test.tsx` (first RTL-rendered test in this file): rendered heading
+      order matches the flattened, visibility-filtered tree, and `Branches` disappears entirely
+      once every child section is filtered away
+
+`moon run :typecheck :lint :test` green across all four projects (758 app tests). Visual change —
+screenshot at `docs/screenshots/phase-28-sidebar-section-tree/sidebar-after.png`.
+
 ## 2026-08-28 — Phase 23 Theme B — useCommandHandlers, one dispatcher for keyboard/menu/palette
 
 The keymap's own doc comment had promised this hook since Phase 9; it was never written, and
@@ -186,6 +217,36 @@ inspector diff, Changes view) read off this contract next.
       earlier, unrelated merge) surfaced as a phantom `stash-apply` conflict on files the pop never
       touched. Now diffs `conflictedPaths()` before/after and only reports newly introduced paths,
       with a regression test.
+## 2026-08-28 — Phase 28 · Theme A — the section tree becomes data
+
+Landed on `feature/phase-28-section-tree`, merged locally — no PR link, no GitHub remote on this
+checkout.
+
+`view-sections.ts` exported `ALL_SECTIONS` under a comment claiming it was "every section, in the
+order the tree renders them" — untrue since Phase 17, since `RepoTree` renders four literal
+`<TreeSection>` blocks that happen to agree with it by coincidence. The order is now data:
+`SECTION_TREE` is the single declaration (`worktrees`, `branches → [local, remotes]`, `tags`,
+`stashes` reserved for Phase 22, `forge → [actions, reviews, issues, tests]`), `ALL_SECTIONS` is a
+pre-order flatten of it rather than hand-written, and `parentOf`/`childrenOf` are lookup `Map`s
+built once from the tree at module load.
+
+- [x] `SectionKey` widened with `branches`, `forge`, `stashes`; `RefSectionKey` stays the four ref
+      sections, unchanged, since a parent has no refs for `sectionMenu` to build from
+- [x] `expandFilter` resolves a filter's named sections symmetrically — naming a parent admits its
+      children, and naming a child admits its ancestors — so every existing `VIEW_FILTERS` entry
+      keeps meaning exactly what it means today with zero edits, while still letting `Forge` answer
+      "admitted" once Theme F nests a heading over Actions/Reviews/Issues/Tests
+- [x] `isSectionVisible` (the pure core behind `useViewSections().visible`) recurses through
+      `childrenOf` — a parent is visible iff the filter admits it and at least one child is visible
+      — generically, not hard-coded to one level of nesting
+- [x] `view-sections.test.ts` grew from 15 to 25 tests, all pre-existing assertions untouched; the
+      new ones cover the flatten/round-trip/parent-visibility rules the doc's Theme A bullet lists
+- [x] `sidebar-page.tsx`'s `SECTION_LABELS` (Theme G's record) got three placeholder entries so the
+      widened `SectionKey` didn't leave `moon run :typecheck` red between Theme A landing and Theme G
+      giving them real behaviour
+
+`moon run :typecheck :lint :test` green across all five projects (748 app tests, 463 desktop, 392
+git-engine) at the time Theme A landed. No visual change; no screenshots.
 
 ## 2026-08-27 — Phase 21 follow-up — the agent marks are the real marks now
 

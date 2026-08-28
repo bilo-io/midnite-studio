@@ -20,7 +20,7 @@ Completed work is logged append-only in [`done.md`](done.md). Deferred scope liv
 
 | Phase | Status | Refined | Done | Progress | % | 🔄 WIP | ◻ TODO |
 |-------|--------|---------|------|----------|---|--------|--------|
-| [28 · Worktrees first, and the section tree that can say so](phase-28-sidebar-section-tree.md) | 🔄 WIP | 0/58 | `░░░░░░░░░░` | 0% | B, C | D–H |
+| [28 · Worktrees first, and the section tree that can say so](phase-28-sidebar-section-tree.md) | 🔄 WIP | 22/60 | `████░░░░░░` | 37% | — | D–H |
 | [27 · The footer becomes a status bar, and the browser it makes room for](phase-27-status-bar-and-browser-panel.md) | 🔄 WIP | x1 | 19/89 | `██░░░░░░░░` | 21% | F | D, E, G, H |
 | [26 · Side by side, and the room to show it](phase-26-side-by-side-diffs.md) | ◻ TODO | — | 0/68 | `░░░░░░░░░░` | 0% | — | A–H |
 | [25 · Search everywhere, and the blame that explains it](phase-25-search-everywhere.md) | ◻ TODO | x1 | 0/101 | `░░░░░░░░░░` | 0% | — | A–F |
@@ -68,16 +68,18 @@ parent owning two labelled children is not one. No git command, no IPC channel, 
 and `git-engine` are untouched. Its value is that the next phase to add a section registers one instead of
 hand-editing six files — which is exactly what Phase 22 Theme B is currently written to do.*
 
-- ◻ **A** — `SECTION_TREE` as the single ordered declaration (`worktrees`, `branches → [local,
+- ✅ **A** — `SECTION_TREE` as the single ordered declaration (`worktrees`, `branches → [local,
   remotes]`, `tags`, `stashes`, `forge → [actions, reviews, issues, tests]`); `ALL_SECTIONS` derived by
   flattening rather than hand-written; `VIEW_FILTERS` learns to name a parent and mean its subtree; a
-  parent is visible only when at least one child is.
-- ◻ **B** — the indent ladder gets a fifth rung: `TREE_INDENT` gains `pl-17` and `TreeSection.depth`
-  widens to `0|1|2|3`, because nesting Remotes pushes its `origin` groups to depth 4 — about a dozen
-  literal `depth={}` values shift one rung each and none should be guessed.
-- ◻ **C** — `RepoTree` renders from the tree: one `renderSection` walk plus a `SECTION_BODY` map
+  parent is visible only when at least one child is (landed 2026-08-28, merged locally — no PR/no
+  remote).
+- ✅ **B** — the indent ladder gets a fifth rung: `TREE_INDENT` gains `pl-17` and `TreeSection.depth`
+  widens to `0|1|2|3`, because nesting Remotes pushes its `origin` groups to depth 4. Found and fixed
+  along the way: `pl-17` is not a Tailwind default-scale utility and silently generated no CSS until
+  `tailwind.config.ts` gained `spacing: { 17: '4.25rem' }` (landed 2026-08-28, merged locally).
+- ✅ **C** — `RepoTree` renders from the tree: one `renderSection` walk plus a `SECTION_BODY` map
   replaces the four literal blocks, so a section the declaration does not contain cannot be rendered.
-  Worktrees lands first and is otherwise byte-identical.
+  Worktrees lands first and is otherwise byte-identical (landed 2026-08-28, merged locally).
 - ◻ **D** — folds survive: `collapsedRepoSections` joins the ui-store beside `collapsedNavSections` and
   `collapsedSettingsGroups`, per repo, `version: 2 → 3` with a migrate, `RemoteGroup`'s bare `useState`
   folded in, and pruning on repo close.

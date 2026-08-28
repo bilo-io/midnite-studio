@@ -29,6 +29,13 @@ const config: Config = {
   ],
   theme: {
     extend: {
+      spacing: {
+        // Tailwind's default scale has no `17` — it jumps 14 → 16 → 20 — so
+        // `pl-17` (`TREE_INDENT`'s rung 4, Phase 28 Theme B) would silently
+        // generate no CSS without this. 4.25rem = 68px continues the ladder's
+        // +12px step past `pl-14` (56px) the same way `pl-11`/`pl-14` do.
+        17: '4.25rem',
+      },
       colors: {
         border: 'hsl(var(--border))',
         input: 'hsl(var(--input))',
