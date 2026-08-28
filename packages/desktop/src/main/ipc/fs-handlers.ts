@@ -12,8 +12,10 @@ import { handle } from './handle';
 type ListResponse = z.infer<typeof schemas.FsListDirResponse>;
 type ReadResponse = z.infer<typeof schemas.FsReadFileResponse>;
 
-/** NUL anywhere in the first 8 KB marks a file binary — the classic sniff. */
-const SNIFF_BYTES = 8 * 1024;
+/** NUL anywhere in the first 8 KB marks a file binary — the classic sniff.
+ *  Exported so `fs-write-handlers.ts` re-sniffs an overwrite target with the
+ *  exact same threshold rather than a second tunable that can drift. */
+export const SNIFF_BYTES = 8 * 1024;
 
 /**
  * The read-only fs surface. Two invokes, no writes — see shared/src/fs.ts for
