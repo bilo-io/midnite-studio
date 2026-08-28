@@ -1,7 +1,7 @@
 import { act, renderHook } from '@testing-library/react';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
-import { REVEAL_MS, useReveal, useSettled } from './use-reveal';
+import { REVEAL_MS, useReveal, useRevealSize } from './use-reveal';
 
 /** Both animation frames the entrance waits for, plus whatever they schedule. */
 const frames = async () => {
@@ -137,39 +137,166 @@ describe('useReveal', () => {
   });
 });
 
-describe('useSettled', () => {
-  it('starts settled, so nothing animates on the first paint', () => {
-    const { result } = renderHook(() => useSettled('normal', 100));
-    expect(result.current).toBe(true);
-  });
-
-  it('unsettles in the same render as the change, and settles again after', async () => {
-    const { result, rerender } = renderHook(({ value }) => useSettled(value, 100), {
-      initialProps: { value: 'normal' },
+describe('useRevealSize', () => {
+  it('produces the same settled style shape for both axes', () => {
+    // Settled (the resting state, which an already-open panel starts in) —
+    // transitionProperty is 'none' here, exactly like an already-open panel
+    // that has never been toggled. See the next test for the armed shape.
+    const { result: x } = renderHook(() =>
+      useRevealSize({ open: true, size: 240, axis: 'x' }),
+    );
+    expect(x.current.style).toEqual({
+      width: 240,
+      transitionProperty: 'none',
+      transitionDuration: `${REVEAL_MS}ms`,
+      transitionTimingFunction: 'ease-in-out',
     });
 
-    rerender({ value: 'maximized' });
-    expect(result.current).toBe(false);
-
-    await after(99);
-    expect(result.current).toBe(false);
-
-    await after(1);
-    expect(result.current).toBe(true);
+    const { result: y } = renderHook(() =>
+      useRevealSize({ open: true, size: 300, axis: 'y' }),
+    );
+    expect(y.current.style).toEqual({
+      height: 300,
+      transitionProperty: 'none',
+      transitionDuration: `${REVEAL_MS}ms`,
+      transitionTimingFunction: 'ease-in-out',
+    });
   });
 
-  it('restarts its wait when the value changes again mid-flight', async () => {
-    const { result, rerender } = renderHook(({ value }) => useSettled(value, 100), {
-      initialProps: { value: 'a' },
-    });
+  /**
+   * The transition is armed only for the length of a genuine toggle — not
+   * left permanently on the way the removed `useSettled`'s conditional CLASS
+   * never was either. A permanently-armed `transitionProperty` would animate
+   * every subsequent value change regardless of what caused it, which is
+   * exactly the bug the maximized-terminal case below exists to avoid.
+   */
+  it('arms the transition only while unsettled, and drops it once settled again', async () => {
+    const { result, rerender } = renderHook(
+      ({ open }: { open: boolean }) => useRevealSize({ open, size: 200, axis: 'y' }),
+      { initialProps: { open: true } },
+    );
+    expect(result.current.style.transitionProperty).toBe('none');
 
-    rerender({ value: 'b' });
-    await after(80);
-    rerender({ value: 'c' });
-    await after(80);
-    expect(result.current).toBe(false);
+    rerender({ open: false });
+    expect(result.current.settled).toBe(false);
+    expect(result.current.style.transitionProperty).toBe('height');
 
-    await after(20);
-    expect(result.current).toBe(true);
+    await after(REVEAL_MS + 50);
+    expect(result.current.settled).toBe(true);
+    expect(result.current.style.transitionProperty).toBe('none');
+  });
+
+  it('is simply there and settled when it starts open, with no entrance to play', () => {
+    const { result } = renderHook(() => useRevealSize({ open: true, size: 200, axis: 'y' }));
+    expect(result.current.mounted).toBe(true);
+    expect(result.current.shown).toBe(true);
+    expect(result.current.settled).toBe(true);
+    expect(result.current.settleCount).toBe(0);
+  });
+
+  it('settles once per open/close toggle and once per target-size change', async () => {
+    const { result, rerender } = renderHook(
+      ({ open, size }: { open: boolean; size: number }) =>
+        useRevealSize({ open, size, axis: 'y' }),
+      { initialProps: { open: true, size: 200 } },
+    );
+
+    rerender({ open: false, size: 200 });
+    expect(result.current.settled).toBe(false);
+    await after(REVEAL_MS + 50);
+    expect(result.current.settled).toBe(true);
+    expect(result.current.settleCount).toBe(1);
+
+    rerender({ open: true, size: 200 });
+    await after(REVEAL_MS + 50);
+    expect(result.current.settleCount).toBe(2);
+
+    // Open the whole time — a target-size change alone (restore ↔ maximize).
+    rerender({ open: true, size: 400 });
+    expect(result.current.settled).toBe(false);
+    await after(REVEAL_MS + 50);
+    expect(result.current.settled).toBe(true);
+    expect(result.current.settleCount).toBe(3);
+  });
+
+  it('applies no transition while dragging, and stays settled', () => {
+    const { result } = renderHook(() =>
+      useRevealSize({ open: true, size: 200, axis: 'x', dragging: true }),
+    );
+    expect(result.current.style.transitionProperty).toBe('none');
+    expect(result.current.settled).toBe(true);
+  });
+
+  it('animates a drag release to whatever the drag landed on', async () => {
+    const { result, rerender } = renderHook(
+      ({ size, dragging }: { size: number; dragging: boolean }) =>
+        useRevealSize({ open: true, size, axis: 'x', dragging }),
+      { initialProps: { size: 200, dragging: true } },
+    );
+
+    rerender({ size: 280, dragging: true });
+    expect(result.current.settled).toBe(true);
+
+    rerender({ size: 280, dragging: false });
+    expect(result.current.settled).toBe(false);
+    await after(REVEAL_MS + 50);
+    expect(result.current.settled).toBe(true);
+  });
+
+  /**
+   * The regression this hook replaced `useSettled` for. `terminalTarget`
+   * tracks the window's own live height while the terminal is maximized —
+   * a native window resize changes `size` on every tick with no accompanying
+   * open/maximize toggle. Keying settle on the default `${open}:${size}`
+   * would re-arm the transition on every tick, for as long as the window
+   * kept moving, and the terminal's bottom edge would visibly trail the
+   * window edge by `motionMs()`. `animateKey` is the caller's way to say
+   * "only THIS changing means a real toggle" — a live size change with no
+   * change to the key must apply instantly, at any size.
+   */
+  it('ignores a size change alone when animateKey excludes it, applying it instantly', () => {
+    const { result, rerender } = renderHook(
+      ({ size, maximized }: { size: number; maximized: boolean }) =>
+        useRevealSize({
+          open: true,
+          size,
+          axis: 'y',
+          animateKey: `true:${maximized}`,
+        }),
+      { initialProps: { size: 600, maximized: true } },
+    );
+    expect(result.current.settled).toBe(true);
+
+    // A live window-resize tick: `size` changes, `maximized` does not.
+    rerender({ size: 640, maximized: true });
+    expect(result.current.settled).toBe(true);
+    expect(result.current.style.transitionProperty).toBe('none');
+    expect(result.current.style.height).toBe(640);
+
+    // The discrete toggle `animateKey` actually names DOES still arm it.
+    rerender({ size: 200, maximized: false });
+    expect(result.current.settled).toBe(false);
+    expect(result.current.style.transitionProperty).toBe('height');
+  });
+
+  it('collapses to zero duration under reduced motion, settling on the slack alone', async () => {
+    document.documentElement.dataset['motion'] = 'reduced';
+    try {
+      const { result, rerender } = renderHook(
+        ({ open }: { open: boolean }) => useRevealSize({ open, size: 200, axis: 'y' }),
+        { initialProps: { open: true } },
+      );
+      expect(result.current.style.transitionDuration).toBe('0ms');
+
+      rerender({ open: false });
+      expect(result.current.settled).toBe(false);
+      await after(49);
+      expect(result.current.settled).toBe(false);
+      await after(1);
+      expect(result.current.settled).toBe(true);
+      expect(result.current.settleCount).toBe(1);
+    } finally {
+      delete document.documentElement.dataset['motion'];
+    }
   });
 });

@@ -4,6 +4,7 @@ import { useEffect } from 'react';
 import { useDialogs } from '../../components/dialog-host';
 import { ResizeHandle } from '../../components/resizable/resize-handle';
 import { useResizable } from '../../components/resizable/use-resizable';
+import { useRevealSize } from '../../components/use-reveal';
 import { useRepos } from '../../services/queries';
 import { DEFAULT_LAYOUT, LAYOUT_BOUNDS, useUiStore } from '../../store/ui-store';
 import { buildNewSessionMenu } from './new-session-menu';
@@ -22,7 +23,7 @@ import { useAgents } from './use-agents';
  * unmount-when-hidden rule — which existed because a hidden shell had no UI to
  * see or stop it. The session list is that UI.
  */
-export function TerminalPanel({ cwd, repoId, repoName }: TerminalPanelProps) {
+export function TerminalPanel({ cwd, repoId, repoName, fitSignal }: TerminalPanelProps) {
   const dialogs = useDialogs();
   const sessions = useTerminalStore((s) => s.sessions);
   const activeId = useTerminalStore((s) => s.activeId);
@@ -135,6 +136,17 @@ export function TerminalPanel({ cwd, repoId, repoName }: TerminalPanelProps) {
   */
   const listable = sessions.length > 1;
   const showList = listable && listOpen;
+  /*
+    Width-tweened rather than `{showList ? … : null}`: the toggle can flip on
+    `sessions.length` crossing 1, not just a click, and either way the rows
+    should be clipped as the box shrinks rather than reflow mid-toggle.
+  */
+  const listTween = useRevealSize<HTMLDivElement>({
+    open: showList,
+    size: list.current,
+    axis: 'x',
+    dragging: list.dragging,
+  });
 
   return (
     // Named for the e2e suite: the panel's own box is what maximizing changes,
@@ -152,9 +164,17 @@ export function TerminalPanel({ cwd, repoId, repoName }: TerminalPanelProps) {
       />
 
       <div className={`flex min-h-0 flex-1 ${side === 'left' ? 'flex-row' : 'flex-row-reverse'}`}>
-        {showList ? (
+        {listTween.mounted ? (
           <>
-            <TerminalSessionList agents={agents} width={list.current} />
+            <div
+              ref={listTween.ref}
+              className="shrink-0 overflow-hidden"
+              style={listTween.style}
+            >
+              <div className="h-full" style={{ width: list.current }}>
+                <TerminalSessionList agents={agents} width={list.current} />
+              </div>
+            </div>
             <ResizeHandle resizable={list} axis="x" label="Resize terminal sessions" />
           </>
         ) : null}
@@ -167,6 +187,7 @@ export function TerminalPanel({ cwd, repoId, repoName }: TerminalPanelProps) {
               session={session}
               active={session.id === activeId}
               initialInput={pendingInput[session.id] ?? agentInput(agents, session.agentId)}
+              fitSignal={fitSignal}
             />
           ))}
 
@@ -185,6 +206,8 @@ export type TerminalPanelProps = {
   cwd: string | null;
   repoId: string | null;
   repoName: string;
+  /** Bumped once per settled reveal tween — fits and repaints every open xterm. */
+  fitSignal: number;
 };
 
 /**

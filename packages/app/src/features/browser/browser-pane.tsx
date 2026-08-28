@@ -5,6 +5,7 @@ import { GoArrowLeft, GoArrowRight, GoSync, GoX } from 'react-icons/go';
 import { EmptyState } from '../../components/empty-state';
 import { IconButton } from '../../components/icon-button';
 import { useFocusTrap } from '../../components/use-focus-trap';
+import { motionMs } from '../../components/use-reveal';
 import { useUiStore } from '../../store/ui-store';
 
 /**
@@ -60,9 +61,10 @@ export function BrowserPane({ shown }: { shown: boolean }) {
       // same content row — a local ordering, not the global menu/popover/
       // dialog/tooltip scale in tailwind.config.ts, which is for layers
       // portalled to document.body and unrelated to this row's own stacking.
-      className={`absolute inset-0 z-20 flex flex-col bg-background outline-none transition-opacity duration-200 ${
+      className={`absolute inset-0 z-20 flex flex-col bg-background outline-none transition-opacity ${
         shown ? 'pointer-events-auto opacity-100' : 'pointer-events-none opacity-0'
       }`}
+      style={{ transitionDuration: `${motionMs()}ms` }}
     >
       <div className="flex h-9 shrink-0 items-center gap-2 border-b border-border px-3">
         <IconButton icon={GoArrowLeft} label="Back" disabled size="sm" />
