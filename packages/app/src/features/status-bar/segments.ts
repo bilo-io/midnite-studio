@@ -9,6 +9,7 @@ import { InProgressSegment } from './in-progress';
 import { OpProgressSegment } from './op-progress';
 import { ReposToggle } from './repos-toggle';
 import { TerminalToggle } from './terminal-toggle';
+import { TestVerdictSegment } from './test-verdict';
 
 export type StatusZone = 'left' | 'center' | 'right';
 
@@ -63,4 +64,8 @@ export const STATUS_SEGMENTS: StatusSegment[] = [
   { id: 'agent-count', zone: 'right', priority: 5, label: 'Live agents', El: AgentCountSegment },
   { id: 'diagnostics', zone: 'right', priority: 10, label: 'Diagnostics', El: DiagnosticsSegment },
   { id: 'monitor', zone: 'right', priority: 20, label: 'System monitor', El: MonitorCluster },
+  // The two verdicts sit at the window's outer corner, the highest-attention
+  // position, and outrank diagnostics/monitor at collapse time — a failing
+  // test outranks a CPU readout.
+  { id: 'test-verdict', zone: 'right', priority: 30, label: 'Test verdict', El: TestVerdictSegment },
 ];
