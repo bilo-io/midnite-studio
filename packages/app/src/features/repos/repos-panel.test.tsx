@@ -1,4 +1,4 @@
-import type { Ref, RepoDescriptor } from '@midnite/git-shared';
+import type { Ref, Remote, RepoDescriptor } from '@midnite/git-shared';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { cleanup, render, screen } from '@testing-library/react';
 import { afterEach, describe, expect, it } from 'vitest';
@@ -168,7 +168,14 @@ describe('RepoTree', () => {
     toggle: () => {},
   };
 
-  function renderTree(sections: ViewSections) {
+  const githubRemote: Remote = {
+    name: 'origin',
+    fetchUrl: 'https://github.com/acme/repo.git',
+    pushUrl: 'https://github.com/acme/repo.git',
+    forge: { host: 'github.com', owner: 'acme', repo: 'repo', kind: 'github' },
+  };
+
+  function renderTree(sections: ViewSections, remotes: Remote[] = []) {
     const client = new QueryClient();
     return render(
       <QueryClientProvider client={client}>
@@ -176,7 +183,7 @@ describe('RepoTree', () => {
           <RepoTree
             repo={repo}
             refs={refs}
-            remotes={[]}
+            remotes={remotes}
             statuses={statuses}
             sections={sections}
             refMenu={() => []}
@@ -204,11 +211,18 @@ describe('RepoTree', () => {
 
     const headings = screen.getAllByRole('heading', { level: 3 }).map((h) => h.textContent);
 
-    // 'origin' is RemoteGroup's own heading, nested inside Remotes. Forge/
-    // Actions/Reviews/Issues are absent (no GitHub remote); Tests always
-    // mounts (TestsSection has no remote gate) and sits where 'forge' does in
-    // SECTION_TREE, since Theme F — not this slice — is what gives Forge its
-    // own nested heading.
+    // 'origin' is RemoteGroup's own heading, nested inside Remotes. Forge is
+    // absent entirely — this fixture has no remote at all, so `hasGithubForge`
+    // is false and the whole subtree (Actions/Reviews/Issues/Tests included)
+    // is skipped before the walk ever reaches it (Phase 28 Theme F).
+    expect(headings).toEqual(['Worktrees', 'Branches', 'Local', 'Remotes', 'origin', 'Tags']);
+  });
+
+  it('nests Actions/Reviews/Issues/Tests under a Forge heading when the repo has a GitHub remote', () => {
+    renderTree(unfiltered, [githubRemote]);
+
+    const headings = screen.getAllByRole('heading', { level: 3 }).map((h) => h.textContent);
+
     expect(headings).toEqual([
       'Worktrees',
       'Branches',
@@ -216,8 +230,45 @@ describe('RepoTree', () => {
       'Remotes',
       'origin',
       'Tags',
+      'Forge',
+      'Actions',
+      'Reviews',
+      // Reviews' own three scoped groups (`REVIEW_GROUPS`) are TreeSections
+      // one rung deeper, not rows — they nest under Reviews the same way
+      // 'origin' nests under Remotes.
+      'My Requests',
+      'Awaiting My Review',
+      'All Pull Requests',
+      'Issues',
       'Tests',
     ]);
+  });
+
+  it('gives Forge a count of its visible children, not a sum across them', () => {
+    renderTree(unfiltered, [githubRemote]);
+
+    // All four of Actions/Reviews/Issues/Tests are visible in the unfiltered
+    // view — none of them has fetched anything yet (each is closed by
+    // default), so a count of *items* would be unanswerable; a count of
+    // *sections* is 4 regardless.
+    const heading = screen.getByRole('heading', { level: 3, name: 'Forge' });
+    expect(heading.parentElement?.textContent).toBe('Forge4');
+  });
+
+  it('narrows Forge to only its admitted children in a filtered view', () => {
+    const actionsOnly: ViewSections = {
+      visible: (key: SectionKey) => key === 'worktrees' || key === 'actions' || key === 'forge',
+      dirtyOnly: false,
+      filtered: true,
+      toggle: () => {},
+    };
+    renderTree(actionsOnly, [githubRemote]);
+
+    const headings = screen.getAllByRole('heading', { level: 3 }).map((h) => h.textContent);
+    expect(headings).toEqual(['Worktrees', 'Forge', 'Actions']);
+
+    const heading = screen.getByRole('heading', { level: 3, name: 'Forge' });
+    expect(heading.parentElement?.textContent).toBe('Forge1');
   });
 
   it('gives the Branches heading a combined local+remote-group count', () => {
