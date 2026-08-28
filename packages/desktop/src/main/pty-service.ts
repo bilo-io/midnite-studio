@@ -95,7 +95,7 @@ export function notifyActivityDisabled(agentId: string): void {
   }
 }
 
-function disposeActivity(ptyId: string): void {
+export function disposeActivity(ptyId: string): void {
   activityTracking.get(ptyId)?.clock.dispose();
   activityTracking.delete(ptyId);
 }
@@ -106,7 +106,7 @@ function disposeActivity(ptyId: string): void {
  * marker set — an agent with none, or a plain shell, is left entirely alone
  * rather than emitting a manufactured `null`.
  */
-function noteActivity(ptyId: string, bytes: Uint8Array): void {
+export function noteActivity(ptyId: string, bytes: Uint8Array): void {
   if (!activityDetector) return;
   const agentId = agentWatcher?.currentAgentId(ptyId) ?? null;
   if (!agentId || !activityDetector.hasDetector(agentId)) return;
@@ -123,6 +123,14 @@ function noteActivity(ptyId: string, bytes: Uint8Array): void {
       agentId,
     };
     activityTracking.set(ptyId, entry);
+  } else if (entry.agentId !== agentId) {
+    /*
+      A different agent is running in this pty now — a plain shell that ran
+      one agent, exited it, and started another. Judging the new run's first
+      chunks against the previous run's leftover frame buffer would credit or
+      blame the wrong agent's output; start detection fresh instead.
+    */
+    entry.state = createActivityState();
   }
   entry.agentId = agentId;
 

@@ -32,14 +32,27 @@ export const SessionActivitySchema = z.enum(['thinking', 'waiting', 'idle']);
 export type SessionActivity = z.infer<typeof SessionActivitySchema>;
 
 /**
+ * The classic catastrophic-backtracking shape: a quantified group nested
+ * inside another quantifier — `(a+)+`, `(a*)*`, `([a-z]+)+$`. A length cap and
+ * a per-call time budget both help *after* a slow match has already started,
+ * but main's activity detector runs synchronously on the pty data hot path —
+ * one call into a truly exponential pattern can hang the whole process before
+ * either defense gets a chance to react. This heuristic cannot catch every
+ * ReDoS shape (that is undecidable in general), but it catches the one the
+ * detector's own time-budget test is modelled on.
+ */
+const NESTED_QUANTIFIER = /\([^()]*[+*][^()]*\)[+*]/;
+
+/**
  * A regular expression an agent's roster entry supplies, compiled at load time
  * rather than trusted as a literal.
  *
  * `agents.json` is a file a user hand-edits, and a pattern that reaches
  * `RegExp` unchecked is either a crash (invalid syntax) or a hang (catastrophic
- * backtracking against live pty output). The length cap and the compile check
- * both run at *parse* time, so a malformed entry is rejected the same way every
- * other bad field in this file is — before it ever reaches a hot path.
+ * backtracking against live pty output). The length cap, the compile check and
+ * the nested-quantifier refusal all run at *parse* time, so a malformed or
+ * dangerous entry is rejected the same way every other bad field in this file
+ * is — before it ever reaches a hot path.
  */
 export const RegexSource = z
   .string()
@@ -55,7 +68,10 @@ export const RegexSource = z
       }
     },
     { message: 'not a valid regular expression' },
-  );
+  )
+  .refine((source) => !NESTED_QUANTIFIER.test(source), {
+    message: 'looks like a catastrophic-backtracking pattern (a quantifier nested inside another)',
+  });
 
 /**
  * A coding agent the `+` menu can start.

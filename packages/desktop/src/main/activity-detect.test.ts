@@ -157,6 +157,28 @@ describe('createActivityClock', () => {
     expect(changes).toEqual(['thinking']);
   });
 
+  /**
+   * A session whose very first real detection is 'waiting' (no 'thinking'
+   * before it, e.g. an agent already sitting at its prompt by the time the
+   * pane is revealed) must decay on its OWN 60s, not the 70s a thinking->
+   * waiting->idle climb would take — the two legs are independent, not a
+   * fixed total measured from whenever detection started.
+   */
+  it("decays a session that starts as 'waiting' to idle after 60s, not 70s", () => {
+    let now = 0;
+    const changes: string[] = [];
+    const clock = createActivityClock({ now: () => now, onChange: (a) => changes.push(a) });
+
+    clock.saw('waiting');
+    now = 59_000;
+    clock.tick();
+    expect(changes).toEqual(['waiting']);
+
+    now = 60_000;
+    clock.tick();
+    expect(changes).toEqual(['waiting', 'idle']);
+  });
+
   it('never decays past idle, and never fires after dispose', () => {
     let now = 0;
     const changes: string[] = [];
