@@ -1,6 +1,12 @@
-import { EVENT_CHANNELS, SCROLLBACK_BYTES } from '@midnite/git-shared';
+import { EVENT_CHANNELS, SCROLLBACK_BYTES, type SessionActivity } from '@midnite/git-shared';
 import type { BrowserWindow } from 'electron';
 
+import {
+  createActivityClock,
+  createActivityState,
+  type ActivityDetector,
+  type ActivityState,
+} from './activity-detect';
 import type { AgentWatcher } from './agent-watcher';
 import {
   createBrokerClient,
@@ -39,6 +45,90 @@ export function setAgentWatcher(watcher: AgentWatcher | null): void {
 
 export function setWindowProvider(provider: () => BrowserWindow | null): void {
   getWindowThunk = provider;
+}
+
+// --- activity detection (Theme G) ------------------------------------------
+
+let activityDetector: ActivityDetector | null = null;
+
+type ActivityTracking = {
+  decoder: TextDecoder;
+  state: ActivityState;
+  clock: ReturnType<typeof createActivityClock>;
+  /** The agent this ptyId was last seen running, refreshed every chunk. */
+  agentId: string | null;
+};
+
+const activityTracking = new Map<string, ActivityTracking>();
+
+function emitActivity(ptyId: string, activity: SessionActivity | null): void {
+  const win = getWindowThunk();
+  if (win && !win.isDestroyed()) {
+    win.webContents.send(EVENT_CHANNELS.ptyActivity, { ptyId, activity });
+  }
+}
+
+/**
+ * Install the roster's compiled activity detector.
+ *
+ * A `null` agentId disable notification tells every pty currently running
+ * that agent, rather than leaving their last guess stuck: without it, a
+ * detector that trips its time budget mid-session would leave a spinner
+ * turning forever for exactly the reason this phase exists.
+ */
+export function setActivityDetector(detector: ActivityDetector | null): void {
+  activityDetector = detector;
+}
+
+/** One shared 1s tick drives every tracked pty's decay clock — not a timer each. */
+export function tickActivityClocks(): void {
+  for (const entry of activityTracking.values()) entry.clock.tick();
+}
+
+/** Wired as `createActivityDetector`'s `onDisabled` from `index.ts`. */
+export function notifyActivityDisabled(agentId: string): void {
+  for (const [ptyId, entry] of activityTracking) {
+    if (entry.agentId !== agentId) continue;
+    entry.clock.dispose();
+    activityTracking.delete(ptyId);
+    emitActivity(ptyId, null);
+  }
+}
+
+function disposeActivity(ptyId: string): void {
+  activityTracking.get(ptyId)?.clock.dispose();
+  activityTracking.delete(ptyId);
+}
+
+/**
+ * Read one chunk of pty output for its activity guess. A no-op unless a
+ * detector is installed and the pty is currently running an agent with a
+ * marker set — an agent with none, or a plain shell, is left entirely alone
+ * rather than emitting a manufactured `null`.
+ */
+function noteActivity(ptyId: string, bytes: Uint8Array): void {
+  if (!activityDetector) return;
+  const agentId = agentWatcher?.currentAgentId(ptyId) ?? null;
+  if (!agentId || !activityDetector.hasDetector(agentId)) return;
+
+  let entry = activityTracking.get(ptyId);
+  if (!entry) {
+    entry = {
+      decoder: new TextDecoder(),
+      state: createActivityState(),
+      clock: createActivityClock({
+        now: Date.now,
+        onChange: (activity) => emitActivity(ptyId, activity),
+      }),
+      agentId,
+    };
+    activityTracking.set(ptyId, entry);
+  }
+  entry.agentId = agentId;
+
+  const text = entry.decoder.decode(bytes, { stream: true });
+  const activity = activityDetector.guess(agentId, entry.state, text);
+  if (activity) entry.clock.saw(activity);
 }
 
 type SessionInfo = {
@@ -133,6 +223,7 @@ export async function initPtyService(deps: {
       appendScrollback(sessionId, bytes);
     }
     agentWatcher?.noteOutput(ptyId);
+    noteActivity(ptyId, bytes);
 
     const win = getWindowThunk();
     if (win && !win.isDestroyed()) {
@@ -144,6 +235,7 @@ export async function initPtyService(deps: {
     sessions.delete(ptyId);
     sessionIdByPty.delete(ptyId);
     agentWatcher?.untrack(ptyId);
+    disposeActivity(ptyId);
 
     const win = getWindowThunk();
     if (win && !win.isDestroyed()) {
@@ -212,12 +304,14 @@ export async function createPty(options: {
   const inprocRes = inprocCreatePty(
     options,
     (ptyId, bytes) => {
+      noteActivity(ptyId, bytes);
       const win = getWindowThunk();
       if (win && !win.isDestroyed()) {
         win.webContents.send(EVENT_CHANNELS.ptyData, { ptyId, data: bytes });
       }
     },
     (ptyId, exitCode, signal) => {
+      disposeActivity(ptyId);
       const win = getWindowThunk();
       if (win && !win.isDestroyed()) {
         win.webContents.send(EVENT_CHANNELS.ptyExit, {
@@ -283,6 +377,7 @@ export function killPty(ptyId: string): void {
   sessions.delete(ptyId);
   sessionIdByPty.delete(ptyId);
   agentWatcher?.untrack(ptyId);
+  disposeActivity(ptyId);
 
   if (brokerClient && brokerClient.getStatus().mode === 'broker' && brokerClient.isAlive()) {
     void brokerClient.killPty(ptyId);

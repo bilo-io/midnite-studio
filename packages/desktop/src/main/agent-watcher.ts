@@ -79,6 +79,14 @@ export type AgentWatcher = {
   noteOutput: (ptyId: string) => void;
   /** The pty is gone. Cancels any pending probe; emits nothing. */
   untrack: (ptyId: string) => void;
+  /**
+   * The best-known answer to "what agent is running in this pty right now" —
+   * the seed if never observed, `null` if none, an id if one is running.
+   *
+   * Reads the same `lastKnown` a probe writes; used by the activity detector
+   * to pick which agent's markers apply to a chunk, without a second probe.
+   */
+  currentAgentId: (ptyId: string) => string | null;
 };
 
 export type AgentWatcherDeps = {
@@ -246,6 +254,8 @@ export function createAgentWatcher(deps: AgentWatcherDeps): AgentWatcher {
       entry?.pending?.cancel();
       tracked.delete(ptyId);
     },
+
+    currentAgentId: (ptyId) => tracked.get(ptyId)?.lastKnown ?? null,
   };
 }
 

@@ -1,0 +1,5 @@
+Read 1 file (42 lines)
+
+  1  import { z } from 'zod';
+  2
+main *2 ?1 · Opus 5 · high thinking · ctx 6%

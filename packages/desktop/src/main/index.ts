@@ -3,6 +3,7 @@ import { dirname, join } from 'node:path';
 import { EVENT_CHANNELS } from '@midnite/git-shared';
 import { BrowserWindow, app } from 'electron';
 
+import { createActivityDetector } from './activity-detect';
 import { createAgentWatcher, realAgentWatcherDeps } from './agent-watcher';
 import { registerClaudeHandlers } from './ipc/claude-handlers';
 import { configureDiagnostics, registerDiagHandlers } from './ipc/diag-handlers';
@@ -22,7 +23,14 @@ import { registerStatusHandlers } from './ipc/status-handlers';
 import { configureTests, registerTestsHandlers } from './ipc/tests-handlers';
 import { defaultLogger, type Logger } from './log';
 import { installMenu } from './menu';
-import { detachAll, initPtyService, setAgentWatcher } from './pty-service';
+import {
+  detachAll,
+  initPtyService,
+  notifyActivityDisabled,
+  setActivityDetector,
+  setAgentWatcher,
+  tickActivityClocks,
+} from './pty-service';
 import { createTerminalStore } from './terminal-store';
 import {
   configureTerminals,
@@ -191,6 +199,21 @@ if (!app.requestSingleInstanceLock()) {
     });
     configureRegistry(createRepoStore(userData));
     configureTerminals(createTerminalStore(userData), userData);
+    /*
+      One compile of the roster's activity markers for the life of the
+      process — `agents.json` "reloads on next launch" already (Settings ▸
+      Terminal's own hint), so compiling once here costs nothing a relaunch
+      would not already have paid. The shared 1s tick drives every tracked
+      pty's decay clock rather than a timer each.
+    */
+    setActivityDetector(
+      createActivityDetector(await listAgents(), {
+        now: Date.now,
+        log: defaultLogger,
+        onDisabled: notifyActivityDisabled,
+      }),
+    );
+    setInterval(tickActivityClocks, 1000).unref();
     configureDiagnostics(createTrustStore(userData));
     configureTests(createTestTrustStore(userData));
     await restoreRepos();

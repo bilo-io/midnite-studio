@@ -476,4 +476,38 @@ describe('createAgentWatcher', () => {
       expect(h.emittedCommands).toEqual([{ ptyId: 'pty-1', command: 'pnpm dev' }]);
     });
   });
+
+  describe('currentAgentId', () => {
+    it('returns null for a pty never tracked', () => {
+      const h = harness();
+      const watcher = createAgentWatcher(h.deps);
+      expect(watcher.currentAgentId('pty-1')).toBeNull();
+    });
+
+    it('returns the seed before any probe has run', () => {
+      const h = harness();
+      const watcher = createAgentWatcher(h.deps);
+      watcher.track('pty-1', SHELL_PID, 'claude');
+      expect(watcher.currentAgentId('pty-1')).toBe('claude');
+    });
+
+    it('returns what a probe observed, once one has run', async () => {
+      const h = harness(withCodex);
+      const watcher = createAgentWatcher(h.deps);
+      watcher.track('pty-1', SHELL_PID, null);
+      watcher.noteOutput('pty-1');
+      h.clock.advance(QUIET_MS);
+      await settle();
+
+      expect(watcher.currentAgentId('pty-1')).toBe('codex');
+    });
+
+    it('forgets a pty once it is untracked', () => {
+      const h = harness();
+      const watcher = createAgentWatcher(h.deps);
+      watcher.track('pty-1', SHELL_PID, 'claude');
+      watcher.untrack('pty-1');
+      expect(watcher.currentAgentId('pty-1')).toBeNull();
+    });
+  });
 });
