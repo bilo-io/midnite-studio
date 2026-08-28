@@ -15,7 +15,7 @@ import type { IconType } from 'react-icons';
 import { LuSettings } from 'react-icons/lu';
 
 import { Brand, BrandMark, Wordmark } from './components/brand';
-import { DialogHost, useDialogs } from './components/dialog-host';
+import { DialogHost } from './components/dialog-host';
 import { VIEW_ICON } from './components/nav-icons';
 import { ResizeHandle } from './components/resizable/resize-handle';
 import { useResizable } from './components/resizable/use-resizable';
@@ -35,11 +35,11 @@ import { ReviewsView } from './features/reviews/reviews-view';
 import { SettingsView } from './features/settings/settings-view';
 import { Workbench } from './features/workbench/workbench';
 import { SyncActions } from './features/status/sync-actions';
-import { useFetch, usePull, usePush, useStatus } from './services/use-status';
 import { StatusBar } from './features/status-bar/status-bar';
 import { TerminalPanel } from './features/terminal/terminal-panel';
 import { hslTokenToHex } from './lib/color';
 import { bridge } from './services/bridge';
+import { useCommandHandlers } from './services/keybindings/use-command-handlers';
 import { useKeybindings } from './services/keybindings/use-keybindings';
 import { useRemotes, useRepos } from './services/queries';
 import { useWatchInvalidation } from './services/watch-invalidation';
@@ -307,15 +307,9 @@ function Shell() {
   const collapsedNavSections = useUiStore((s) => s.collapsedNavSections);
   const toggleNavSection = useUiStore((s) => s.toggleNavSection);
 
-  const fetch = useFetch();
-  const pull = usePull();
-  const push = usePush();
-  const { data: status } = useStatus();
-  const hasUpstream = status?.branch.upstream != null;
   useDefaultSelection();
 
   const forgeAvailable = useForgeGateAvailable(selectedRepoId);
-  const dialogs = useDialogs();
 
   /**
    * Never leave the user standing in a view the rail no longer offers.
@@ -337,35 +331,9 @@ function Shell() {
   useWatchInvalidation(useUiStore((s) => s.selectedRepoId));
   useTestsStream();
 
-  /**
-   * Every shortcut and every native menu item lands here, keyed by CommandId.
-   * The handlers object is rebuilt each render and the hook depends on it —
-   * cheap, and it keeps the handlers closing over current state rather than a
-   * stale snapshot.
-   */
-  useKeybindings({
-    'terminal.toggle': () => useUiStore.getState().toggleTerminal(),
-    'repos.toggle': () => useUiStore.getState().toggleRepos(),
-    // A placeholder, deliberately: the chord is reserved (see the keymap) and
-    // saying so out loud beats a keystroke that does nothing, which reads as a
-    // broken shortcut rather than an unbuilt feature.
-    'browser.open': () =>
-      dialogs.notify({
-        title: 'Browser',
-        body: 'The built-in browser is coming soon.',
-      }),
-    'terminal.focus': () => useUiStore.getState().setTerminalOpen(true),
-    'graph.focus': () => useUiStore.getState().setActiveView('graph'),
-    'status.focus': () => useUiStore.getState().setActiveView('changes'),
-    // Declared in the keymap and wired into the native menu since Phase 9, but
-    // never given a handler — the accelerators and the menu items were inert.
-    // No scope: the title-bar cluster and its accelerators act on whatever is
-    // checked out, which is what they have always meant. The ref badges pass a
-    // scope instead — see `SyncScope` in use-status.
-    'sync.fetch': () => void fetch.mutateAsync({}),
-    'sync.pull': () => void pull.mutateAsync({}),
-    'sync.push': () => void push.mutateAsync({ setUpstream: !hasUpstream }),
-  });
+  // Every shortcut, every native menu item and (Theme C+) the palette dispatch
+  // through this one runtime, keyed by CommandId — see use-command-handlers.ts.
+  useKeybindings(useCommandHandlers());
 
   const repos = useResizable({
     size: layout.reposWidth,

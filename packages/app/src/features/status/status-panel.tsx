@@ -1,4 +1,4 @@
-import { useMemo, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 
 import type { StatusEntry } from '@midnite/git-shared';
 
@@ -25,6 +25,7 @@ import {
   type CommitFileView,
 } from '../../store/ui-store';
 import { TreeSection } from '../../components/tree-section';
+import { useCommitBoxStore, type CommitBoxHandle } from '../../store/commit-box-store';
 import { FileDiff } from './file-diff';
 import { StatusMark } from './status-mark';
 
@@ -53,6 +54,7 @@ export function StatusPanel() {
   const counts = useStatusCounts(target);
   const [message, setMessage] = useState('');
   const [error, setError] = useState('');
+  const textareaRef = useRef<HTMLTextAreaElement>(null);
   // `origPath` rides along because rename detection needs both sides of the
   // pathspec — without it a renamed file diffs as a brand-new file.
   const [selectedPath, setSelectedPath] = useState<{
@@ -101,10 +103,6 @@ export function StatusPanel() {
     [entries, counts],
   );
 
-  if (!repoId || !status) {
-    return <Empty>Select a repository to see its changes.</Empty>;
-  }
-
   const busy = stage.isPending || unstage.isPending || discard.isPending || commit.isPending;
 
   const onCommit = async () => {
@@ -116,6 +114,30 @@ export function StatusPanel() {
       setError(result.kind === 'error' ? result.message : 'The commit conflicted.');
     }
   };
+
+  const canSubmit = !busy && message.trim().length > 0 && staged.length > 0;
+
+  /**
+   * The seam `status.commit` (Mod+Enter) calls through — see
+   * `commit-box-store.ts`. Registered above the `!repoId || !status` guard,
+   * because hooks cannot follow a conditional return; it is harmless to
+   * register while empty, since the command that would call it is disabled
+   * for exactly the same reason.
+   */
+  const runRef = useRef<() => void>(() => {});
+  runRef.current = () => {
+    textareaRef.current?.focus();
+    if (canSubmit) void onCommit();
+  };
+  useEffect(() => {
+    const handle: CommitBoxHandle = { run: () => runRef.current() };
+    useCommitBoxStore.getState().register(handle);
+    return () => useCommitBoxStore.getState().unregister(handle);
+  }, []);
+
+  if (!repoId || !status) {
+    return <Empty>Select a repository to see its changes.</Empty>;
+  }
 
   const toggleDir = (side: 'staged' | 'unstaged', path: string) =>
     setCollapsed((current) => {
@@ -242,6 +264,7 @@ export function StatusPanel() {
 
         <div className="shrink-0 border-t border-border p-2">
           <textarea
+            ref={textareaRef}
             value={message}
             onChange={(event) => setMessage(event.target.value)}
             placeholder="Commit message"
@@ -251,7 +274,7 @@ export function StatusPanel() {
           <button
             type="button"
             onClick={() => void onCommit()}
-            disabled={busy || message.trim().length === 0 || staged.length === 0}
+            disabled={!canSubmit}
             className="mt-1.5 w-full rounded-md bg-primary px-2 py-1.5 text-sm font-medium text-primary-foreground transition-opacity disabled:opacity-40"
           >
             Commit {staged.length > 0 ? `${staged.length} file${staged.length === 1 ? '' : 's'}` : ''}

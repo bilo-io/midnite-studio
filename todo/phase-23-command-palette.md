@@ -79,30 +79,32 @@ Lands first; every other theme reads off it.
       every `CommandId` has a label; no two bindings share a chord; `Mod+Shift+p` still resolves to
       `sync.pull`; `palette.open` is in `GLOBAL_CHORDS` and `palette.files` is not.
 
-### B — `useCommandHandlers()` — one dispatcher, three feeds (M)
+### B — `useCommandHandlers()` — one dispatcher, three feeds (M) ✅ DONE (landed 2026-08-28)
 
 The keymap's doc comment describes this hook; it just was never written.
 
-- [ ] New `packages/app/src/services/keybindings/use-command-handlers.ts` exporting
+- [x] New `packages/app/src/services/keybindings/use-command-handlers.ts` exporting
       `useCommandHandlers(): CommandRuntime`, where `CommandRuntime` is
       `Record<CommandId, { run: () => void; enabled: boolean; disabledReason?: string }>`. Move the
       inline handler literal out of [`app.tsx`](../packages/app/src/app.tsx) verbatim first, then
       extend it — the object is deliberately rebuilt every render so it closes over current state,
       and that property has to survive the move.
-- [ ] Wire `repo.open` and `repo.close`. Both have keymap entries (`Mod+o`, `Mod+w`) **and** live
+- [x] Wire `repo.open` and `repo.close`. Both have keymap entries (`Mod+o`, `Mod+w`) **and** live
       native menu items and currently do nothing; `useRepos` and the repos panel already hold
       everything the handlers need.
-- [ ] Wire `view.refresh` (`Mod+r`) onto the react-query invalidation the watcher already drives
+- [x] Wire `view.refresh` (`Mod+r`) onto the react-query invalidation the watcher already drives
       through [`watch-invalidation.ts`](../packages/app/src/services/watch-invalidation.ts), so the
       manual refresh and the automatic one cannot drift apart.
-- [ ] Wire `status.commit` (`Mod+Enter`) to focus-and-submit the commit box, matching what the
-      Changes view does on click rather than reaching past it.
-- [ ] Give every entry `enabled` + `disabledReason`, following
+- [x] Wire `status.commit` (`Mod+Enter`) to focus-and-submit the commit box, matching what the
+      Changes view does on click rather than reaching past it. Threaded through a new
+      `commit-box-store.ts` — the one imperative seam between the global command and `StatusPanel`'s
+      own local commit-box state, which stays where it was rather than lifting into the store.
+- [x] Give every entry `enabled` + `disabledReason`, following
       [`icon-button.tsx`](../packages/app/src/components/icon-button.tsx)'s habit of appending the
       reason to the tooltip: with no repo open, `sync.*` and `status.*` are present-but-unavailable
       and say why, instead of being absent (a command that disappears teaches nothing) or failing
       silently (which is what happens today).
-- [ ] `app.tsx` ends the theme thinner than it started: `useKeybindings(runtime)`,
+- [x] `app.tsx` ends the theme thinner than it started: `useKeybindings(runtime)`,
       `bridge()?.menu.onCommand` and the palette all read the one runtime, and `op.abort` /
       `op.continue` remain deliberately unwired with a comment pointing at
       [Phase 22](phase-22-stash-and-safety-net.md), which owns operation state.
