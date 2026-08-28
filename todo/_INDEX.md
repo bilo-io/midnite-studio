@@ -20,7 +20,7 @@ Completed work is logged append-only in [`done.md`](done.md). Deferred scope liv
 
 | Phase | Status | Refined | Done | Progress | % | 🔄 WIP | ◻ TODO |
 |-------|--------|---------|------|----------|---|--------|--------|
-| [30 · A terminal that survives you](phase-30-terminal-hardening.md) | 🔄 WIP | x1 | 28/63 | `████░░░░░░` | 44% | D | C |
+| [30 · A terminal that survives you](phase-30-terminal-hardening.md) | 🔄 WIP | x1 | 28/63 | `████░░░░░░` | 44% | C, D | — |
 | [29 · Markdown slides, everywhere markdown already renders](phase-29-markdown-slides-viewer.md) | ✅ DONE | — | 21/21 | `██████████` | 100% | — | — |
 | [28 · Worktrees first, and the section tree that can say so](phase-28-sidebar-section-tree.md) | 🔄 WIP | — | 59/62 | `██████████` | 95% | — | 3 verification items |
 | [27 · The footer becomes a status bar, and the browser it makes room for](phase-27-status-bar-and-browser-panel.md) | 🔄 WIP | x1 | 72/90 | `████████░░` | 80% | — | 18 verification items |
@@ -83,7 +83,7 @@ the end.*
   logs and reloads (no `did-finish-load` — the `webContents` survives a reload). A minimal `log.ts`
   seam lands ahead of Theme C's broker client, which will redirect it. The dev-only HMR manual check
   stays open (landed 2026-08-28, merged locally — no PR/no remote).
-- ◻ **C** — the session broker: a third esbuild output run under `ELECTRON_RUN_AS_NODE`, asar-unpacked
+- 🔄 **C** — the session broker: a third esbuild output run under `ELECTRON_RUN_AS_NODE`, asar-unpacked
   beside a whole-unpacked node-pty; `[u8 type][u32 len]` frames over `<userData>/broker/<v>[-dev].sock`
   (0600) with `hello`/`list`/`attach`/`kill` frozen so version skew stays readable; `env` in every
   `create`; 2 s/5 s timeouts then fail-soft (`MGIT_PTY_INPROC=1`); `before-quit` and
