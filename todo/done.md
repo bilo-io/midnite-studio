@@ -2,6 +2,31 @@
 
 <!-- Append one entry per landed phase/PR: date, phase, PR link, one-line summary. -->
 
+## 2026-08-28 — Phase 27 Theme G — the remaining targets, tooltips and live regions
+
+Merged locally on `feature/phase-27-g-tooltips` — no PR link, no GitHub remote on this checkout.
+Closes out Theme G now that D and E have both landed and unblocked its three remaining bullets.
+
+- [x] `Tooltip` on the three icon-only toggles (`ReposToggle`/`TerminalToggle`/`BrowserToggle`),
+      mounted unconditionally rather than gated on `compact` density — it only opens on hover/focus,
+      so it says nothing while the inline label is already visible at `full`. `side="top"`, matching
+      `OverflowPopover`'s own call for a bar pinned to the window's bottom edge. The native `title`
+      it replaces is removed outright (kept-both would stack two tooltips), which cost three e2e
+      locators keyed on `[title^="Toggle …"]`; `ReposToggle`/`TerminalToggle` gained a
+      `data-testid` (matching `BrowserToggle`'s existing one) and `terminal.spec.ts`/
+      `browser-pane.spec.ts` now select on that instead.
+- [x] `aria-live="polite"` on `op-progress`/`in-progress`, each as a second exported component
+      (`OpProgressLiveRegion`/`InProgressLiveRegion`) rendering just an `sr-only` span — not on the
+      visible button/span itself, which mounts from nothing the moment an op starts and risks the
+      announcement some screen readers only fire on a mutation to an already-present region.
+      **Bug found in self-review and fixed:** these can't live *inside* the segment either — at
+      `collapsed` density `collapseFor` moves a whole zone into `OverflowPopover`, which only mounts
+      its children while open, so a co-located live region would go silent in exactly the
+      narrow-window state where the visual readout matters most. Both are mounted directly by
+      `StatusBar` instead, outside `STATUS_SEGMENTS` entirely.
+- [x] The `…` overflow button's "N more" naming (checklist item only — `OverflowPopover` already
+      had it from Theme E; just ticked).
+
 ## 2026-08-28 — Phase 27 Theme E — status bar overflow
 
 Merged locally on `feature/phase-27-e-overflow` — no PR link, no GitHub remote on this checkout.

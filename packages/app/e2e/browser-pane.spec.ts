@@ -21,7 +21,7 @@ test('the toggle opens the pane over the repositories panel, and the bar stays h
   const reposAside = page.getByRole('complementary', { name: 'Repositories' });
   await expect(reposAside).toBeVisible();
 
-  await page.locator('[title^="Toggle browser"]').click();
+  await page.locator('[data-testid="browser-toggle"]').click();
 
   const pane = page.getByRole('textbox', { name: 'Address' });
   await expect(pane).toBeVisible();
@@ -33,7 +33,7 @@ test('the toggle opens the pane over the repositories panel, and the bar stays h
   await expect(statusBar).toBeVisible();
   // Hit-testable, not merely uncovered: click a bar control while the pane is
   // open and assert it acted, rather than asserting visibility alone.
-  const terminalToggle = page.locator('[title^="Toggle terminal"]');
+  const terminalToggle = page.locator('[data-testid="terminal-toggle"]');
   await terminalToggle.click();
   await expect(page.getByRole('button', { name: 'Expand terminal' })).toBeVisible();
 });
@@ -45,7 +45,7 @@ test('closing the pane restores clicks to the content beneath it immediately, no
   await page.goto('/');
   await expect(page.getByRole('columnheader', { name: 'Commit message' })).toBeVisible();
 
-  const toggle = page.locator('[title^="Toggle browser"]');
+  const toggle = page.locator('[data-testid="browser-toggle"]');
   await toggle.click();
   await expect(page.getByRole('textbox', { name: 'Address' })).toBeVisible();
 
@@ -67,13 +67,13 @@ test('Escape closes the pane, and it reopens with the same state on reload', asy
   await page.goto('/');
   await expect(page.getByRole('columnheader', { name: 'Commit message' })).toBeVisible();
 
-  await page.locator('[title^="Toggle browser"]').click();
+  await page.locator('[data-testid="browser-toggle"]').click();
   await expect(page.getByRole('textbox', { name: 'Address' })).toBeVisible();
 
   await page.keyboard.press('Escape');
   await expect(page.getByRole('textbox', { name: 'Address' })).toHaveCount(0);
 
-  await page.locator('[title^="Toggle browser"]').click();
+  await page.locator('[data-testid="browser-toggle"]').click();
   await expect(page.getByRole('textbox', { name: 'Address' })).toBeVisible();
   await page.reload();
   await expect(page.getByRole('columnheader', { name: 'Commit message' })).toBeVisible();
@@ -87,7 +87,7 @@ test('the pane traps Tab between its two focusable controls and restores focus t
   await page.goto('/');
   await expect(page.getByRole('columnheader', { name: 'Commit message' })).toBeVisible();
 
-  const toggle = page.locator('[title^="Toggle browser"]');
+  const toggle = page.locator('[data-testid="browser-toggle"]');
   await toggle.click();
 
   const address = page.getByRole('textbox', { name: 'Address' });
@@ -118,7 +118,7 @@ test('the URL field is inert: Enter neither navigates nor clears the field, and 
   await page.goto('/');
   await expect(page.getByRole('columnheader', { name: 'Commit message' })).toBeVisible();
 
-  await page.locator('[title^="Toggle browser"]').click();
+  await page.locator('[data-testid="browser-toggle"]').click();
   await expect(page.getByText('No web engine yet.')).toBeVisible();
 
   const address = page.getByRole('textbox', { name: 'Address' });

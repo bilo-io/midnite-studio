@@ -632,7 +632,7 @@ test.describe('terminal panel', () => {
     await open(page, { terminalSessions: RESTORED });
 
     const frame = '[data-terminal-frame]';
-    const toggle = '[title^="Toggle terminal"]';
+    const toggle = '[data-testid="terminal-toggle"]';
 
     const opening = await slide(page, toggle, frame, 'height');
     const shown = opening[opening.length - 1];
@@ -673,7 +673,7 @@ test.describe('terminal panel', () => {
     await open(page);
 
     const sidebar = 'aside[aria-label="Repositories"]';
-    const toggle = '[title^="Toggle repositories"]';
+    const toggle = '[data-testid="repos-toggle"]';
 
     const closing = await slide(page, toggle, sidebar, 'width');
     /*
