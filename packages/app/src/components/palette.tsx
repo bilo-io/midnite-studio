@@ -327,30 +327,35 @@ export function Palette() {
                     aria-disabled={item.disabled}
                     onMouseEnter={() => setSelectedIndex(row.flatIndex)}
                     onClick={() => runSelectedItem(row.flatIndex)}
-                    className={`absolute left-0 top-0 flex w-full animate-fade-in-up cascade-delay items-center justify-between gap-3 rounded-md px-2.5 text-sm ${
-                      !item.disabled ? 'cursor-pointer' : 'cursor-default opacity-50'
-                    } ${selected ? 'bg-accent text-foreground' : 'text-foreground'}`}
-                    style={{ ...style, ...cascadeStyle(row.flatIndex), height: 38 }}
+                    className="absolute left-0 top-0 w-full"
+                    style={{ ...style, height: 38 }}
                     title={item.disabled ? item.disabledReason : undefined}
                   >
-                    <div className="flex min-w-0 items-center gap-2.5 truncate">
-                      {Icon && <Icon className="h-4 w-4 shrink-0 text-muted-foreground" />}
-                      <span className="truncate">{highlightMatches(item.label, labelIndices)}</span>
-                      {item.detail && (
-                        <span className="truncate text-xs text-muted-foreground">
-                          {highlightMatches(item.detail, detailIndices ?? [])}
+                    <div
+                      className={`flex h-full w-full animate-fade-in-up cascade-delay items-center justify-between gap-3 rounded-md px-2.5 text-sm ${
+                        !item.disabled ? 'cursor-pointer' : 'cursor-default opacity-50'
+                      } ${selected ? 'bg-accent text-foreground' : 'text-foreground'}`}
+                      style={cascadeStyle(row.flatIndex)}
+                    >
+                      <div className="flex min-w-0 items-center gap-2.5 truncate">
+                        {Icon && <Icon className="h-4 w-4 shrink-0 text-muted-foreground" />}
+                        <span className="truncate">{highlightMatches(item.label, labelIndices)}</span>
+                        {item.detail && (
+                          <span className="truncate text-xs text-muted-foreground">
+                            {highlightMatches(item.detail, detailIndices ?? [])}
+                          </span>
+                        )}
+                      </div>
+                      {item.chord ? (
+                        <span className="shrink-0 font-mono text-xs text-muted-foreground">
+                          {displayChord(item.chord)}
                         </span>
-                      )}
+                      ) : item.disabled ? (
+                        <span className="shrink-0 truncate text-xs text-muted-foreground">
+                          {item.disabledReason}
+                        </span>
+                      ) : null}
                     </div>
-                    {item.chord ? (
-                      <span className="shrink-0 font-mono text-xs text-muted-foreground">
-                        {displayChord(item.chord)}
-                      </span>
-                    ) : item.disabled ? (
-                      <span className="shrink-0 truncate text-xs text-muted-foreground">
-                        {item.disabledReason}
-                      </span>
-                    ) : null}
                   </div>
                 );
               })}
