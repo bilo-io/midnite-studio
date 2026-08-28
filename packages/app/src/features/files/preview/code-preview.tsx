@@ -81,20 +81,26 @@ export function CodePreview({
   }, [html, highlightLine]);
 
   if (html === null) {
-    // The plain-text fallback has no per-line spans of its own — wrap each
-    // line so `highlightLine` still has something to scroll to and flash.
-    const lines = content.split('\n');
+    // The plain-text fallback has no per-line spans of its own to scroll to
+    // and flash — but only build them when a search result actually needs
+    // one. Plain text otherwise, so copying a selection across lines keeps
+    // real `\n`s rather than depending on the browser to invent one at every
+    // block-level boundary.
     return (
       <pre
         ref={preRef}
         className="overflow-auto p-3 font-mono text-xs leading-relaxed"
         data-selectable
       >
-        {lines.map((line, i) => (
-          <span key={i} data-line className="block">
-            {line}
-          </span>
-        ))}
+        {highlightLine === undefined
+          ? content
+          : content
+              .split('\n')
+              .map((line, i) => (
+                <span key={i} data-line className="block">
+                  {line}
+                </span>
+              ))}
       </pre>
     );
   }
