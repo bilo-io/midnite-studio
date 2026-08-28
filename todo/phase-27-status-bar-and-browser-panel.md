@@ -610,13 +610,22 @@ in H blocks on H.
 
 Most of the vitest half turned out to already be landed alongside the themes that needed the
 testable seam (E's `density.test.ts`, F's `ui-store.test.ts` cases) — this theme's actual new work
-was the four segments' absent-case predicate tests, the `live` metadata field `segments.test.ts`
-needed, and the whole of the e2e half: `status-bar.spec.ts`'s two new specs (the left-edge invariant
-and the narrowing/overflow-popover test), the `footer-monitor.spec.ts` shots gate, and a light+dark
-screenshot pass for the new bar states the Verification checklist calls for. Theme G — the
-remaining accessibility items (`Tooltip` in compact density, `aria-live`, the overflow button's
-name) — was already claimed and in flight in a sibling worktree by the time this theme started, so
-it stays untouched here.
+was the four segments' absent-case predicate tests and the whole of the e2e half:
+`status-bar.spec.ts`'s two new specs (the left-edge invariant and the narrowing/overflow-popover
+test), the `footer-monitor.spec.ts` shots gate, and a light+dark screenshot pass for the new bar
+states the Verification checklist calls for. Theme G — the remaining accessibility items (`Tooltip`
+in compact density, `aria-live`, the overflow button's name) — was already claimed and in flight in
+a sibling worktree by the time this theme started, so it stays untouched here.
+
+**A `live` metadata field on `StatusSegment` was tried and reverted.** H first added
+`live?: boolean` so `segments.test.ts` could assert "exactly `op-progress` and `in-progress` carry
+`live: true`", reasoning Theme G would read it to drive `aria-live`. By the time G actually landed
+(rebased in after H's own work), it had built `OpProgressLiveRegion`/`InProgressLiveRegion` as two
+components `StatusBar` mounts directly as siblings of the three zones — **not** through
+`STATUS_SEGMENTS` at all, because `collapseFor` removes a zone's segments from the DOM entirely at
+`collapsed` density and a live region living inside the segment would go silent exactly when the
+visual readout is hardest to notice. The `live` field had no reader left, so it and its test
+assertion were removed rather than kept as metadata nothing consumes.
 
 **The two constraints that shape every vitest item below.** `packages/app/vitest.config.ts` declares
 **no `setupFiles`** (and no package in the repo does), the environment is `jsdom`, and **jsdom has no
@@ -624,11 +633,9 @@ it stays untouched here.
 the three files using `@testing-library/react` all use `renderHook`. So: test pure functions and
 hooks, not rendered components.
 
-- [x] Vitest (C): `segments.test.ts` — unique ids, unique per-zone priorities, zone sorting, and
-      that exactly `op-progress` and `in-progress` carry `live: true`. All assertions against the
-      exported `STATUS_SEGMENTS` array; no rendering. The `live` field itself is metadata-only here —
-      it exists so this assertion has something to check — and Theme G is the one that reads it to
-      wire the actual `aria-live` attribute (landed 2026-08-28).
+- [x] Vitest (C): `segments.test.ts` — unique ids, unique per-zone priorities, zone sorting. All
+      assertions against the exported `STATUS_SEGMENTS` array; no rendering. (A fourth assertion
+      about a `live` field was added and then removed — see the note above.)
 - [x] Vitest (E): `density.test.ts` — `densityFor()` called directly with width triples.
       `full → compact` at `available < fullWidth`; `compact → collapsed` at
       `available < compactWidth`; **hysteresis** proved by asserting that
