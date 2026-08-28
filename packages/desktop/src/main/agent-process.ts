@@ -47,6 +47,13 @@ const exec = promisify(execFile);
 export type ProcessRow = {
   pid: number;
   ppid: number;
+  /**
+   * `ps`'s STAT column, e.g. `S+`, `Ss`, `R+`. The `+` flag marks a process
+   * in its terminal's foreground process group — what {@link foregroundOf}
+   * reads to say what the user is actually running, as opposed to scanning
+   * argv for a name.
+   */
+  stat: string;
   /** The full command line, space-joined, exactly as `ps` printed it. */
   args: string;
 };
@@ -79,7 +86,7 @@ export const PS_TIMEOUT_MS = 3_000;
  */
 export async function readProcessRows(): Promise<ProcessRow[] | null> {
   try {
-    const { stdout } = await exec('ps', ['-axo', 'pid=,ppid=,args='], {
+    const { stdout } = await exec('ps', ['-axo', 'pid=,ppid=,stat=,args='], {
       timeout: PS_TIMEOUT_MS,
       maxBuffer: PS_MAX_BUFFER,
     });
@@ -90,22 +97,29 @@ export async function readProcessRows(): Promise<ProcessRow[] | null> {
 }
 
 /**
- * `  1234  1200 /bin/zsh -l` → `{ pid: 1234, ppid: 1200, args: '/bin/zsh -l' }`.
+ * `  1234  1200 S+   /bin/zsh -l` → `{ pid: 1234, ppid: 1200, stat: 'S+', args: '/bin/zsh -l' }`.
  *
  * Header-suppressed `ps` pads its numeric columns with leading spaces, so the
  * leading `\s*` is load-bearing rather than defensive. A line that does not
- * start with two integers is skipped rather than guessed at — a wrapped argv or
- * a stray banner has no pid, and inventing one would attach a real command line
- * to the wrong parent.
+ * start with two integers and a STAT token is skipped rather than guessed
+ * at — a wrapped argv or a stray banner has no pid, and inventing one would
+ * attach a real command line to the wrong parent. Four columns, always: a
+ * parser that tolerated three (pre-Theme-E output with no STAT) would be a
+ * trap the next column change springs the same way.
  */
 export function parsePsOutput(output: string): ProcessRow[] {
   const rows: ProcessRow[] = [];
   for (const line of output.split('\n')) {
-    const match = /^\s*(\d+)\s+(\d+)\s+(.*)$/.exec(line);
+    const match = /^\s*(\d+)\s+(\d+)\s+(\S+)\s+(.*)$/.exec(line);
     if (!match) continue;
-    const args = match[3]?.trim() ?? '';
+    const args = match[4]?.trim() ?? '';
     if (args === '') continue;
-    rows.push({ pid: Number(match[1]), ppid: Number(match[2]), args });
+    rows.push({
+      pid: Number(match[1]),
+      ppid: Number(match[2]),
+      stat: match[3] ?? '',
+      args,
+    });
   }
   return rows;
 }
@@ -349,4 +363,47 @@ export function matchRunningAgent(
   if (best === null) return null;
   // More than one distinct agent at the winning depth: no confident answer.
   return best.ids.size === 1 ? ([...best.ids][0] ?? null) : null;
+}
+
+/**
+ * The process actually holding the terminal's foreground right now, for
+ * naming — as opposed to {@link matchRunningAgent}'s "which roster entry is
+ * this", which the shell auto-namer has no use for.
+ *
+ * Every descendant carrying the `+` flag is a candidate: a shell at its own
+ * prompt carries it too (excluded automatically, since `descendantsOf` never
+ * includes the root itself), and a pipeline's every member does (`git log |
+ * less` marks both). **Resolved — the last one by pid wins**: a shell forks a
+ * pipeline's members left to right, so the highest pid is the rightmost
+ * command — `less` in that example, which is what the user is actually
+ * looking at. `null` when nothing in the tree is in the foreground, which
+ * reads as "back at a bare prompt".
+ */
+export function foregroundOf(rows: readonly ProcessRow[], rootPid: number): ProcessRow | null {
+  let best: ProcessRow | null = null;
+  for (const { row } of descendantsOf(rows, rootPid)) {
+    if (!row.stat.includes('+')) continue;
+    if (best === null || row.pid > best.pid) best = row;
+  }
+  return best;
+}
+
+/** How long a shell's auto-name can run before it is truncated. */
+const COMMAND_LABEL_MAX = 40;
+
+/**
+ * `/usr/local/bin/pnpm dev` → `'pnpm dev'`.
+ *
+ * `argv[0]` is reduced to its basename — the label is for a session-list row,
+ * not a shell prompt — and the rest of the line rides along unchanged. A line
+ * past {@link COMMAND_LABEL_MAX} is cut short with a trailing `…` rather than
+ * wrapping or reflowing the row.
+ */
+export function commandLabel(args: string): string {
+  const tokens = args.trim().split(/\s+/).filter((token) => token !== '');
+  const argv0 = tokens[0];
+  const full = [argv0 === undefined ? '' : basename(argv0), ...tokens.slice(1)].join(' ');
+  return full.length <= COMMAND_LABEL_MAX
+    ? full
+    : `${full.slice(0, COMMAND_LABEL_MAX - 1)}…`;
 }

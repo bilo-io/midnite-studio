@@ -69,13 +69,29 @@ export function useTerminalIpc(session: TerminalSession, onData: (bytes: Uint8Ar
       if (ptyIdRef.current !== id) return;
       useTerminalStore.getState().setLiveAgentId(session.id, agentId);
     });
+    /*
+      What the shell's foreground process is, from main's `ps stat` probe
+      (Theme E) — replacing the keystroke-reconstruction naming that got
+      arrow-key sequences wrong. A non-null command also names a SHELL
+      session; an agent's name comes from its own OSC title instead, so this
+      never touches `autoNames` for one. `null` updates only `foregroundCommand`
+      (read by the row's close-confirm) — a bare-prompt answer holds the
+      session's displayed name rather than clearing it.
+    */
+    const offCommand = api.pty.onCommandChanged(({ ptyId: id, command }) => {
+      if (ptyIdRef.current !== id) return;
+      const store = useTerminalStore.getState();
+      store.setForegroundCommand(session.id, command);
+      if (command && session.kind === 'shell') store.setAutoName(session.id, command);
+    });
 
     return () => {
       offData();
       offExit();
       offAgent();
+      offCommand();
     };
-  }, [session.id]);
+  }, [session.id, session.kind]);
 
   /**
    * Start a shell for this session. Safe to call repeatedly — a live one wins.

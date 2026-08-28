@@ -50,20 +50,21 @@ function fakeClock() {
   };
 }
 
-const shellOnly: ProcessRow[] = [{ pid: SHELL_PID, ppid: 1, args: '/bin/zsh -l' }];
+const shellOnly: ProcessRow[] = [{ pid: SHELL_PID, ppid: 1, stat: 'Ss+', args: '/bin/zsh -l' }];
 const withClaude: ProcessRow[] = [
   ...shellOnly,
-  { pid: 60_041, ppid: SHELL_PID, args: 'claude' },
+  { pid: 60_041, ppid: SHELL_PID, stat: 'S+', args: 'claude' },
 ];
 const withCodex: ProcessRow[] = [
   ...shellOnly,
-  { pid: 60_072, ppid: SHELL_PID, args: 'node /opt/homebrew/bin/codex' },
+  { pid: 60_072, ppid: SHELL_PID, stat: 'S+', args: 'node /opt/homebrew/bin/codex' },
 ];
 
 type Harness = {
   deps: AgentWatcherDeps;
   clock: ReturnType<typeof fakeClock>;
   emitted: { ptyId: string; agentId: string | null }[];
+  emittedCommands: { ptyId: string; command: string | null }[];
   /** What the next `ps` read returns. `null` models a read that failed. */
   setRows: (rows: ProcessRow[] | null) => void;
   reads: () => number;
@@ -72,12 +73,14 @@ type Harness = {
 function harness(initial: ProcessRow[] | null = shellOnly): Harness {
   const clock = fakeClock();
   const emitted: { ptyId: string; agentId: string | null }[] = [];
+  const emittedCommands: { ptyId: string; command: string | null }[] = [];
   let rows = initial;
   let reads = 0;
 
   return {
     clock,
     emitted,
+    emittedCommands,
     setRows: (next) => {
       rows = next;
     },
@@ -89,6 +92,7 @@ function harness(initial: ProcessRow[] | null = shellOnly): Harness {
       },
       listRoster: () => Promise.resolve(BUILTIN_AGENTS),
       emit: (event) => emitted.push(event),
+      emitCommand: (event) => emittedCommands.push(event),
       setTimer: clock.setTimer,
       now: clock.now,
     },
@@ -400,5 +404,76 @@ describe('createAgentWatcher', () => {
 
     expect(h.reads()).toBe(0);
     expect(h.emitted).toEqual([]);
+  });
+
+  describe('foreground command (Theme E)', () => {
+    const withPnpm: ProcessRow[] = [
+      ...shellOnly,
+      { pid: 60_220, ppid: SHELL_PID, stat: 'S+', args: 'pnpm dev' },
+    ];
+
+    it('reports a foreground command off the same snapshot as the agent probe', async () => {
+      const h = harness(withPnpm);
+      const watcher = createAgentWatcher(h.deps);
+
+      watcher.track('pty-1', SHELL_PID, null);
+      watcher.noteOutput('pty-1');
+      h.clock.advance(QUIET_MS);
+      await settle();
+
+      expect(h.emittedCommands).toEqual([{ ptyId: 'pty-1', command: 'pnpm dev' }]);
+      // One `ps` read served both answers.
+      expect(h.reads()).toBe(1);
+    });
+
+    it('reports null once the shell returns to a bare prompt', async () => {
+      const h = harness(withPnpm);
+      const watcher = createAgentWatcher(h.deps);
+
+      watcher.track('pty-1', SHELL_PID, null);
+      watcher.noteOutput('pty-1');
+      h.clock.advance(QUIET_MS);
+      await settle();
+
+      h.setRows(shellOnly);
+      watcher.noteOutput('pty-1');
+      h.clock.advance(QUIET_MS);
+      await settle();
+
+      expect(h.emittedCommands).toEqual([
+        { ptyId: 'pty-1', command: 'pnpm dev' },
+        { ptyId: 'pty-1', command: null },
+      ]);
+    });
+
+    it('says nothing again when the command has not changed', async () => {
+      const h = harness(withPnpm);
+      const watcher = createAgentWatcher(h.deps);
+
+      watcher.track('pty-1', SHELL_PID, null);
+      watcher.noteOutput('pty-1');
+      h.clock.advance(QUIET_MS);
+      await settle();
+
+      watcher.noteOutput('pty-1');
+      h.clock.advance(QUIET_MS);
+      await settle();
+
+      expect(h.emittedCommands).toEqual([{ ptyId: 'pty-1', command: 'pnpm dev' }]);
+    });
+
+    it('has no grace window: a lost match reports null immediately, unlike agentId', async () => {
+      const h = harness(withPnpm);
+      const watcher = createAgentWatcher(h.deps);
+
+      // Seeded with a declared agent — the agentId side would hold this
+      // through an unrecognised form, but the command side has no such rule.
+      watcher.track('pty-1', SHELL_PID, 'claude');
+      watcher.noteOutput('pty-1');
+      h.clock.advance(QUIET_MS);
+      await settle();
+
+      expect(h.emittedCommands).toEqual([{ ptyId: 'pty-1', command: 'pnpm dev' }]);
+    });
   });
 });

@@ -1,11 +1,6 @@
 import { describe, expect, it } from 'vitest';
 
-import {
-  createActivityState,
-  createShellLineState,
-  detectActivity,
-  trackShellCommand,
-} from './activity-detect';
+import { createActivityState, detectActivity } from './activity-detect';
 
 /** The footer Claude Code draws under its input box on EVERY repaint. */
 const FOOTER = '\u23F5\u23F5 auto mode on (shift+tab to cycle) \u00B7 \u2190 for agents';
@@ -65,43 +60,5 @@ describe('detectActivity', () => {
   it('is not fooled by the middle dots a powerline footer is full of', () => {
     const state = createActivityState();
     expect(detectActivity(state, 'main *2 ?1 \u00B7 Opus 5 \u00B7 high thinking \u00B7 ctx 6%')).toBeUndefined();
-  });
-});
-
-describe('trackShellCommand', () => {
-  it('reports the command word once Enter is typed', () => {
-    const state = createShellLineState();
-    trackShellCommand(state, 'pnpm ');
-    const finished = trackShellCommand(state, 'install\r');
-    expect(finished).toBe('pnpm');
-  });
-
-  it('honours backspace before the line is submitted', () => {
-    const state = createShellLineState();
-    trackShellCommand(state, 'gt status');
-    // Nine backspaces clears every character just typed, "gt status" included.
-    trackShellCommand(state, '\x7f'.repeat(9));
-    const finished = trackShellCommand(state, 'git status\r');
-    expect(finished).toBe('git');
-  });
-
-  it('reports nothing for an empty line', () => {
-    const state = createShellLineState();
-    expect(trackShellCommand(state, '\r')).toBeNull();
-  });
-
-  it('skips escape sequences, such as an up-arrow history recall, wholesale', () => {
-    const state = createShellLineState();
-    // Up-arrow: ESC [ A
-    trackShellCommand(state, '\x1b[A');
-    const finished = trackShellCommand(state, '\r');
-    expect(finished).toBeNull();
-  });
-
-  it('carries a partial line across chunks', () => {
-    const state = createShellLineState();
-    trackShellCommand(state, 'moon ru');
-    const finished = trackShellCommand(state, 'n :test\r');
-    expect(finished).toBe('moon');
   });
 });
