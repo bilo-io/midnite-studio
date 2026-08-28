@@ -1,7 +1,7 @@
 import { z } from 'zod';
 
 import {
-  ConflictOpSchema,
+  InProgressOpSchema,
   DiagnosticsCandidateSchema,
   DiagnosticsCommandSchema,
   DiagnosticsRunSchema,
@@ -33,6 +33,8 @@ import {
   RemoteSchema,
   RepoDescriptorSchema,
   RepoStatsSchema,
+  StashDropResultSchema,
+  StashEntrySchema,
   StatsWindowSchema,
   StatusCountsSchema,
   StatusResultSchema,
@@ -695,7 +697,12 @@ export const PushRequest = OpBase.extend({
   tags: z.boolean().default(false),
 });
 
-export const AbortRequest = OpBase.extend({ op: ConflictOpSchema });
+/**
+ * `InProgressOpSchema`, not `ConflictOpSchema` — abort/continue operate on a
+ * sequencer state (`MERGE_HEAD`, `rebase-merge`, …), and a stash conflict, the
+ * one `ConflictOp` a sequencer never produces, has none of those to resume.
+ */
+export const AbortRequest = OpBase.extend({ op: InProgressOpSchema });
 export const ContinueRequest = AbortRequest;
 
 export const BlastRadiusRequest = OpBase.extend({
@@ -717,6 +724,39 @@ export const BlastRadiusResponse = z.object({
 });
 
 export const OpResponse = GitOpResultSchema;
+
+// --- stash -------------------------------------------------------------------
+
+export const StashListRequest = OpBase;
+export const StashListResponse = z.array(StashEntrySchema);
+
+/**
+ * A selector for one entry, everywhere but `push` — `stash@{n}`, exactly as
+ * `listStashes` returns it and as every stash op accepts it back.
+ */
+const StashSelector = z.string().min(1);
+
+export const StashPushRequest = OpBase.extend({
+  message: z.string().optional(),
+  keepIndex: z.boolean().default(false),
+  includeUntracked: z.boolean().default(false),
+  /** Scope the stash to these paths. Omitted means the whole working tree. */
+  paths: z.array(z.string()).optional(),
+});
+
+export const StashPopRequest = OpBase.extend({ selector: StashSelector });
+export const StashApplyRequest = OpBase.extend({ selector: StashSelector });
+export const StashDropRequest = OpBase.extend({ selector: StashSelector });
+/**
+ * Widened over the plain `GitOpResult` every other op returns — see
+ * `CHANNELS.opStashDrop`.
+ */
+export const StashDropResponse = StashDropResultSchema;
+
+export const StashBranchRequest = OpBase.extend({
+  name: z.string().min(1),
+  selector: StashSelector,
+});
 
 // --- pty -------------------------------------------------------------------
 

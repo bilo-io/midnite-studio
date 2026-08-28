@@ -8,6 +8,8 @@ import type {
   Remote,
   RepoDescriptor,
   RepoStats,
+  StashDropResult,
+  StashEntry,
   StatusCounts,
   StatusResult,
   WatchEvent,
@@ -297,6 +299,18 @@ export type MidniteGitBridge = {
     blastRadius: (
       req: In<typeof S.BlastRadiusRequest>,
     ) => Promise<z.infer<typeof S.BlastRadiusResponse>>;
+  };
+
+  /** `git stash`. Read and write share one group — the domain is too small
+   *  to split the way `repos`/`ops` are. */
+  stash: {
+    list: (req: In<typeof S.StashListRequest>) => Promise<StashEntry[]>;
+    push: (req: In<typeof S.StashPushRequest>) => Promise<GitOpResult>;
+    pop: (req: In<typeof S.StashPopRequest>) => Promise<GitOpResult>;
+    apply: (req: In<typeof S.StashApplyRequest>) => Promise<GitOpResult>;
+    /** Its own result type — a drop carries the sha it just made unreachable. */
+    drop: (req: In<typeof S.StashDropRequest>) => Promise<StashDropResult>;
+    branch: (req: In<typeof S.StashBranchRequest>) => Promise<GitOpResult>;
   };
 
   pty: {

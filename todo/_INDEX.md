@@ -26,7 +26,7 @@ Completed work is logged append-only in [`done.md`](done.md). Deferred scope liv
 | [25 · Search everywhere, and the blame that explains it](phase-25-search-everywhere.md) | ◻ TODO | x1 | 0/101 | `░░░░░░░░░░` | 0% | — | A–F |
 | [24 · The explorer learns to write, and to search](phase-24-writable-explorer.md) | 🔄 WIP | — | 7/54 | `█░░░░░░░░░` | 13% | B | C–G |
 | [23 · A command palette, and the registry that can feed it](phase-23-command-palette.md) | 🔄 WIP | — | 4/55 | `█░░░░░░░░░` | 7% | — | B–H |
-| [22 · Stash, the reflog, and writes you can take back](phase-22-stash-and-safety-net.md) | 🔄 WIP | — | 0/70 | `░░░░░░░░░░` | 0% | A | B–H |
+| [22 · Stash, the reflog, and writes you can take back](phase-22-stash-and-safety-net.md) | 🔄 WIP | — | 10/70 | `█░░░░░░░░░` | 14% | — | B–H |
 | [21 · Agent roster + terminal identity](phase-21-agent-roster-and-terminal-identity.md) | 🔄 WIP | — | 43/46 | `█████████░` | 93% | — | 3 manual checks |
 | [20 · Reviews page & unified diff syntax highlighting](phase-20-reviews-page.md) | 🔄 WIP | — | 43/45 | `██████████` | 96% | — | 2 manual checks |
 | [19 · Dashboard, Actions and Tests as views](phase-19-dashboard-actions-tests.md) | 🔄 WIP | — | 73/76 | `██████████` | 96% | — | 3 manual checks |
@@ -275,8 +275,9 @@ gate Phase 7 already built. G and H are the safety net three files have been pro
 comments since Phase 7 — the reflog finally read and browsable, and the app's first ops journal,
 first toast primitive and first undo.*
 
-- ◻ **A** — `commands/stash.ts` + `stash-parser.ts` on the write-queue idiom, `mgit:stash:*`
-  channels, and a `'stash-apply'` arm on `ConflictOpSchema` so a conflicted pop is a normal outcome.
+- ✅ **A** — `commands/stash.ts` + `stash-parser.ts` on the write-queue idiom, `mgit:stash:*`
+  channels, and a `'stash-apply'` arm on `ConflictOpSchema` so a conflicted pop is a normal outcome
+  (landed 2026-08-28)
 - ◻ **B** — a `'stashes'` `SectionKey` and a `TreeSection` in `RepoTree`, with a `StashRow`, a
   heading action and a query key nested under `keys.repo(repoId)`.
 - ◻ **C** — stashes as graph pseudo-rows on the `UncommittedRow` precedent: dashed lane, dashed

@@ -8,6 +8,7 @@ export * from './refs-ops';
 export * from './remotes';
 export * from './sequencer';
 export * from './stage';
+export * from './stash';
 export * from './status';
 export * from './status-counts';
 export * from './sync';

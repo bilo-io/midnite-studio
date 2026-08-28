@@ -1,5 +1,7 @@
 import type { Commit } from '@midnite/git-shared';
 
+import { chunkNulRecords } from './nul-record-chunker';
+
 /**
  * Field separator inside a record. NUL, never whitespace: commit subjects
  * contain literally anything, and author names contain spaces.
@@ -109,41 +111,12 @@ export function parseLog(payload: string): Commit[] {
  * Peel whole records off a chunk, returning the unconsumed tail so a streaming
  * caller can prepend it to the next chunk.
  *
- * A record is the text up to its 8th NUL; that 8th NUL is the separator before
- * the next record and is consumed here.
- *
- * The separator has to be consumed *explicitly* — counting tokens from
- * `split('\x00')` looks equivalent and is not. When a chunk boundary lands
- * exactly between a record's last field and the following separator, the split
- * approach leaves an empty remainder and the next chunk then begins with a
- * leading NUL, producing a phantom empty first field. Every subsequent field
- * shifts by one and the rest of the stream is silently misparsed — a real
- * hazard at 64KB chunk boundaries over tens of thousands of commits, and
- * invisible because the corrupted records fail the sha check and are dropped.
+ * A record is the text up to its 8th NUL; that 8th NUL is the separator
+ * before the next record and is consumed here. The boundary-safety reasoning
+ * — why this can't just be a `split('\x00')` — lives on
+ * {@link chunkNulRecords}, which this delegates to; `git stash list` shares
+ * the same framing with a different field count and reuses it too.
  */
 export function chunkRecords(payload: string): { records: string[]; remainder: string } {
-  const records: string[] = [];
-  let start = 0;
-
-  for (;;) {
-    // Walk forward to the FIELD_COUNT-th NUL at or after `start`.
-    let cursor = start;
-    let found = -1;
-    for (let n = 0; n < FIELD_COUNT; n += 1) {
-      const next = payload.indexOf(FIELD, cursor);
-      if (next < 0) {
-        found = -1;
-        break;
-      }
-      cursor = next + 1;
-      found = next;
-    }
-
-    if (found < 0) break;
-
-    records.push(payload.slice(start, found));
-    start = found + 1;
-  }
-
-  return { records, remainder: payload.slice(start) };
+  return chunkNulRecords(payload, FIELD_COUNT);
 }
