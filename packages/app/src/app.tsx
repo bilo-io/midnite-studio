@@ -23,6 +23,7 @@ import { REVEAL_HOLD_MS, useReveal, useSettled } from './components/use-reveal';
 import { ThemeToggle } from './components/theme-toggle';
 import { TitleBarNav } from './components/title-bar-nav';
 import { ActionsView } from './features/actions/actions-view';
+import { BrowserPane } from './features/browser/browser-pane';
 import { TestsView } from './features/tests/tests-view';
 import { DashboardView } from './features/dashboard/dashboard-view';
 import { FilesView } from './features/files/files-view';
@@ -293,6 +294,7 @@ function Shell() {
   const reposOpen = useUiStore((s) => s.reposOpen);
   const terminalOpen = useUiStore((s) => s.terminalOpen);
   const terminalMaximized = useUiStore((s) => s.terminalMaximized);
+  const browserOpen = useUiStore((s) => s.browserOpen);
   const selectedRepoId = useUiStore((s) => s.selectedRepoId);
   const selectedWorktreePath = useUiStore((s) => s.selectedWorktreePath);
   // The repo's own name labels its terminals; the path is the fallback for a
@@ -363,6 +365,7 @@ function Shell() {
   */
   const reposReveal = useReveal(reposOpen);
   const terminalReveal = useReveal(terminalOpen);
+  const browserReveal = useReveal(browserOpen);
 
   /**
    * The terminal's height while maximized, measured rather than `flex-1`.
@@ -569,7 +572,7 @@ function Shell() {
           </div>
         ) : null}
 
-        <div className="flex min-h-0 flex-1">
+        <div className="relative flex min-h-0 flex-1">
           {/*
             Named, because it is not the only complementary landmark on the page —
             AppFrame's nav rail is an `<aside>` too, and two unlabelled ones leave
@@ -749,6 +752,8 @@ function Shell() {
               ) : null}
             </div>
           </div>
+
+          {browserReveal.mounted ? <BrowserPane shown={browserReveal.shown} /> : null}
         </div>
 
         <StatusBar />
