@@ -115,9 +115,13 @@ export function registerRepoHandlers(getWindow: () => BrowserWindow | null): voi
   handle(
     CHANNELS.logCancel,
     schemas.LogCancelRequest,
-    ({ requestId }) => cancelLog(requestId),
+    ({ requestId }) => {
+      const win = getWindow();
+      if (win) cancelLog(win, requestId);
+    },
     () => undefined,
   );
+
 
   /**
    * One commit in full, or null.

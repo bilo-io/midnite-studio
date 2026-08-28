@@ -2,7 +2,16 @@
 
 <!-- Append one entry per landed phase/PR: date, phase, PR link, one-line summary. -->
 
+## 2026-08-28 — Phase 25 Themes A, B, C — Search in engine, stream registry & contract, Search view
+
+Landed on `feature/p25-abc` — PR ready. Phase 25 delivers git search everywhere (commit pickaxe, git grep at any revision, blame parser & reader), a shared per-window stream registry with concurrency policies, and the primary Search view with virtualized results and live previewing.
+
+- [x] **A — Search in the engine.** Widened `buildLogArgs` (`grep`, `author`, `since`, `until`, `paths`, `pickaxeString`, `pickaxeRegex`, `regexp`, `ignoreCase`), `--follow` single pathspec validation, `streamCommitSearch`, `readGrep` & `streamGrep` with context line parsing, `readBlame` with porcelain format parsing and `previous` tracking, `GrepHit`, `BlameLine`, `BlameCommit`, and `BlameResult` domain schemas.
+- [x] **B — The stream registry, and the search contract.** Extracted `stream-registry.ts` with supersede and concurrent policies and per-window teardown; refactored `log-service.ts`; built `search-service.ts` with 5,000 cap and max 4 ceiling per window; `mgit:search:*` and `mgit:blame:*` IPC channels and schemas; bridge updates and mock-bridge test harness.
+- [x] **C — The Search view.** Added `search` to `ViewId` and navigation rail; created `search-store.ts` managing `commits`, `content`, and `files` modes; built `use-search.ts` hook with 250ms debouncing and in-flight cancellation; created `search-view.tsx` with resizable split, virtualized results list (`@tanstack/react-virtual`), commit inspector and file preview integration; refactored `CodePreview` line structure with line-by-line tokenization and scroll targeting.
+
 ## 2026-08-28 — Phase 30 Themes F, G — the activity indicator that never span, and a detector that can be wrong out loud
+
 
 Merged locally on `feature/p30-fg` — no PR link, no GitHub remote on this checkout. Phase 30 is
 now feature-complete — all seven themes (A–G) have landed; only the "Open, for a human" manual

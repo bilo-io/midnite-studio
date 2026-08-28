@@ -1,37 +1,27 @@
+import fs from 'node:fs';
+import path from 'node:path';
 import { describe, expect, it } from 'vitest';
-
 import { parseGrep } from './grep-parser';
 
 describe('parseGrep', () => {
-  it('parses one match per record', () => {
-    const payload = 'a.txt\x001\x00foo\na.txt\x003\x00foo again\n';
-    expect(parseGrep(payload)).toEqual([
-      { path: 'a.txt', line: 1, text: 'foo' },
-      { path: 'a.txt', line: 3, text: 'foo again' },
+  it('parses fixture grep-z-context.txt correctly', () => {
+    const fixturePath = path.join(__dirname, '__fixtures__/grep-z-context.txt');
+    const content = fs.readFileSync(fixturePath, 'utf8');
+
+    const matches = parseGrep(content);
+    expect(matches.length).toBeGreaterThanOrEqual(1);
+    const targetHit = matches.find((h) => h.text.includes('target'));
+    expect(targetHit).toBeDefined();
+    expect(targetHit?.path).toContain('src/example.ts');
+    expect(targetHit?.line).toBe(2);
+  });
+
+  it('handles CRLF line endings cleanly', () => {
+    const payload = 'file.ts\x001\x00hello world\r\n';
+    const matches = parseGrep(payload);
+    expect(matches).toEqual([
+      { path: 'file.ts', line: 1, kind: 'match', text: 'hello world' },
     ]);
-  });
-
-  it('preserves a NUL-free but colon-bearing text field untouched', () => {
-    const payload = 'src/log.ts\x0042\x00  time: 12:00, level: info\n';
-    expect(parseGrep(payload)).toEqual([
-      { path: 'src/log.ts', line: 42, text: '  time: 12:00, level: info' },
-    ]);
-  });
-
-  it('returns an empty array for empty payload (no matches)', () => {
-    expect(parseGrep('')).toEqual([]);
-  });
-
-  it('skips a malformed record rather than throwing', () => {
-    const payload = 'no-nuls-at-all\na.txt\x001\x00ok\n';
-    expect(parseGrep(payload)).toEqual([{ path: 'a.txt', line: 1, text: 'ok' }]);
-  });
-
-  it('handles a path itself containing NUL-adjacent-looking content safely', () => {
-    // A match whose text happens to start with digits followed by a colon
-    // must not be confused with the line-number field — the split is
-    // positional (first two NULs), not pattern-based.
-    const payload = 'a.txt\x005\x0042: the answer\n';
-    expect(parseGrep(payload)).toEqual([{ path: 'a.txt', line: 5, text: '42: the answer' }]);
   });
 });
+

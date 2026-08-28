@@ -11,6 +11,7 @@ import {
   LuPalette,
   LuPanelLeft,
   LuPlay,
+  LuSearch,
   LuSettings,
   LuShieldCheck,
   LuSquareTerminal,
@@ -32,6 +33,7 @@ import type { SettingsPageId, ViewId } from '../store/ui-store';
 export const VIEW_ICON: Record<ViewId, IconType> = {
   dashboard: LuLayoutDashboard,
   files: LuFolderTree,
+  search: LuSearch,
   graph: LuGitBranch,
   changes: LuDiff,
   actions: LuPlay,
@@ -46,6 +48,7 @@ export const VIEW_ICON: Record<ViewId, IconType> = {
   reviews: FaCodePullRequest,
   settings: LuSettings,
 };
+
 
 /**
  * A glyph per settings page, mirroring midnite's settings sidebar — which is

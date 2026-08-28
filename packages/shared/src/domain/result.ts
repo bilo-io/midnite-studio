@@ -54,25 +54,33 @@ export const GitOpFailureSchema = z.discriminatedUnion('kind', [
 ]);
 
 export const GitOpResultSchema = z.union([z.object({ ok: z.literal(true) }), GitOpFailureSchema]);
-export type GitOpResult = z.infer<typeof GitOpResultSchema>;
+export type GitOpResult<T = void> =
+  | (T extends void ? { ok: true } : { ok: true; value: T })
+  | z.infer<typeof GitOpFailureSchema>;
 
-export const ok = (): GitOpResult => ({ ok: true });
+export const GitOpResultOf = <T extends z.ZodTypeAny>(schema: T) =>
+  z.union([z.object({ ok: z.literal(true), value: schema }), GitOpFailureSchema]);
 
-export const conflict = (op: ConflictOp, files: string[]): GitOpResult => ({
+
+export const ok = <T = void>(value?: T): GitOpResult<T> =>
+  (value === undefined ? { ok: true } : { ok: true, value }) as GitOpResult<T>;
+
+export const conflict = <T = void>(op: ConflictOp, files: string[]): GitOpResult<T> => ({
   ok: false,
   kind: 'conflict',
   op,
   files,
 });
 
-export const failure = (
+export const failure = <T = void>(
   message: string,
   stderr?: string,
   code?: 'stale-write',
-): GitOpResult => ({
+): GitOpResult<T> => ({
   ok: false,
   kind: 'error',
   message,
   ...(stderr === undefined ? {} : { stderr }),
   ...(code === undefined ? {} : { code }),
 });
+

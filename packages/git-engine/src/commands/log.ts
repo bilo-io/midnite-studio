@@ -10,6 +10,26 @@ export type LogOptions = {
   all?: boolean;
   /** Extra revision arguments (e.g. a single branch). */
   revisions?: readonly string[];
+  /** Search commit messages. */
+  grep?: readonly string[];
+  /** Filter by author. */
+  author?: readonly string[];
+  /** Commits since date/timestamp. */
+  since?: string;
+  /** Commits until date/timestamp. */
+  until?: string;
+  /** Limit history to specific paths. */
+  paths?: readonly string[];
+  /** Pickaxe string search (-S). */
+  pickaxeString?: string;
+  /** Pickaxe regex search (-G). */
+  pickaxeRegex?: string;
+  /** Enable extended regex for grep/author. */
+  regexp?: boolean;
+  /** Case insensitive matching. */
+  ignoreCase?: boolean;
+  /** Follow renames across history (requires exactly one path). */
+  follow?: boolean;
 };
 
 /**
@@ -25,6 +45,10 @@ export type LogOptions = {
  * mistaken for a local `main`.
  */
 export function buildLogArgs(options: LogOptions = {}): string[] {
+  if (options.follow && options.paths?.length !== 1) {
+    throw new RangeError('--follow requires exactly one pathspec');
+  }
+
   const args = [
     'log',
     '--topo-order',
@@ -32,11 +56,37 @@ export function buildLogArgs(options: LogOptions = {}): string[] {
     `--pretty=format:${LOG_FORMAT}`,
     '-z',
   ];
-  if (options.all) args.push('--all');
+
+  if (options.all && !options.follow) args.push('--all');
   if (options.limit !== undefined) args.push(`-n${options.limit}`);
+
+  if (options.follow) args.push('--follow');
+  if (options.grep?.length) {
+    for (const g of options.grep) {
+      args.push(`--grep=${g}`);
+    }
+    if (options.grep.length > 1) {
+      args.push('--all-match');
+    }
+  }
+  if (options.author?.length) {
+    for (const a of options.author) {
+      args.push(`--author=${a}`);
+    }
+  }
+  if (options.since !== undefined) args.push(`--since=${options.since}`);
+  if (options.until !== undefined) args.push(`--until=${options.until}`);
+  if (options.pickaxeString !== undefined) args.push(`-S${options.pickaxeString}`);
+  if (options.pickaxeRegex !== undefined) args.push(`-G${options.pickaxeRegex}`);
+  if (options.regexp) args.push('--extended-regexp');
+  if (options.ignoreCase) args.push('--regexp-ignore-case');
+
   if (options.revisions?.length) args.push(...options.revisions);
+  if (options.paths?.length) args.push('--', ...options.paths);
+
   return args;
 }
+
 
 /** Read the whole log into memory. Fine for tests and small ranges. */
 export async function readLog(repoPath: string, options: LogOptions = {}): Promise<Commit[]> {

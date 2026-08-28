@@ -25,6 +25,7 @@ import { Choice, Field } from './controls';
 const VIEW_LABELS: Record<ViewId, string> = {
   dashboard: 'Dashboard',
   files: 'Files',
+  search: 'Search',
   graph: 'Graph',
   changes: 'Changes',
   actions: 'Actions',
@@ -32,6 +33,7 @@ const VIEW_LABELS: Record<ViewId, string> = {
   reviews: 'Reviews',
   settings: 'Settings',
 };
+
 
 /**
  * The sidebar's own section headings, reused as the filter's vocabulary.

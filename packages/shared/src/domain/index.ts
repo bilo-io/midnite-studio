@@ -1,3 +1,4 @@
+export * from './blame';
 export * from './commit';
 export * from './diagnostics';
 export * from './diff';
@@ -7,6 +8,7 @@ export * from './ref';
 export * from './remote';
 export * from './repo';
 export * from './result';
+export * from './search';
 export * from './stash';
 export * from './stats';
 export * from './status';

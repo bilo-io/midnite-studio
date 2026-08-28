@@ -25,6 +25,7 @@ import type { IconComponent } from '../../components/icon-button';
 const VIEW_LABELS: Record<ViewId, string> = {
   dashboard: 'Dashboard',
   files: 'Files',
+  search: 'Search Everywhere',
   graph: 'Commit Graph',
   changes: 'Changes',
   actions: 'Actions & CI',
@@ -36,6 +37,7 @@ const VIEW_LABELS: Record<ViewId, string> = {
 const VIEW_KEYWORDS: Record<ViewId, string> = {
   dashboard: 'overview summary metrics home',
   files: 'tree folder file explorer code',
+  search: 'search grep find commits messages files',
   graph: 'git history commits branches log',
   changes: 'diff staging uncommitted status stage commit',
   actions: 'ci workflow runs jobs pipelines github',
@@ -43,6 +45,7 @@ const VIEW_KEYWORDS: Record<ViewId, string> = {
   reviews: 'prs pull requests review comments',
   settings: 'preferences config theme options',
 };
+
 
 export function createCommandSource(
   runtime: CommandRuntime,
