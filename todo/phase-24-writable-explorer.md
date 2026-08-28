@@ -207,27 +207,34 @@ The largest theme, and the only one that adds a dependency.
 - [ ] Editing is refused, visibly, for binary files, files past `FS_TEXT_CAP_BYTES`, and anything
       the read returned as `too-large`. The fallback card says which.
 
-### E — Find in files (M)
+### E — Find in files (M) — ✅ DONE (2026-08-28)
 
-- [ ] New [`git-engine/src/commands/grep.ts`](../packages/git-engine/src/commands/grep.ts) —
+- [x] New [`git-engine/src/commands/grep.ts`](../packages/git-engine/src/commands/grep.ts) —
       `git grep -z -n -I --no-color`, NUL-delimited like everything else, modelled on
       [`ignore.ts`](../packages/git-engine/src/commands/ignore.ts)'s batched single call. Plain
       Node over `execGit`, no `electron`, exported from
       [`commands/index.ts`](../packages/git-engine/src/commands/index.ts).
-- [ ] New `parsers/grep-parser.ts` with a pure `parseGrep(payload)` and its own unit tests, per the
+- [x] New `parsers/grep-parser.ts` with a pure `parseGrep(payload)` and its own unit tests, per the
       repo's split between the command that spawns and the parser that is testable without one.
-- [ ] Options that matter and nothing else: case sensitivity, whole word, and fixed-string vs
+- [x] Options that matter and nothing else: case sensitivity, whole word, and fixed-string vs
       regular expression (`-F` / `-E`). Result and per-file caps, with the cap **stated in the UI**
-      when it bites — a truncated result list that does not say so is a lie.
-- [ ] One read channel (`mgit:fs:search`) and its handler, calling git-engine from
+      when it bites — a truncated result list that does not say so is a lie. Per-file cap (50) is
+      `-m` itself; the 2,000-total cap is enforced in the handler and reported as `truncated`.
+- [x] One read channel (`mgit:fs:search`) and its handler, calling git-engine from
       `desktop/src/main/ipc/` — never shelling out to git from `desktop` directly, which nothing in
-      the repo does today.
-- [ ] A search panel above the tree in
+      the repo does today. Its own `fs-search-handlers.ts` rather than joining `fs-handlers.ts`:
+      that file's reads are plain `node:fs` confined by `fs-scope.ts`; this one's trust boundary is
+      `resolveWorkdir`, the one every git-op handler already crosses.
+- [x] A search panel above the tree in
       [`files-view.tsx`](../packages/app/src/features/files/files-view.tsx): a query input, results
       grouped by file with matched-line context, and a click that opens the file in the preview
       **at the line**. Reuse the resizable split that is already there rather than adding a third
-      pane.
-- [ ] `git grep` searches tracked content only. Say so in the empty state when a query returns
+      pane. Split into an always-mounted `SearchBar` (the query has to stay typeable at zero
+      length) and a `SearchResults` list that replaces `FileTree` only while a query is active.
+      "At the line" reuses Shiki's own per-line `<span class="line">` wrapping to scroll and
+      flash the match — the real per-line row model is Phase 25 D's rewrite of `CodePreview`, not
+      this phase's.
+- [x] `git grep` searches tracked content only. Say so in the empty state when a query returns
       nothing — "no tracked file matches" is a different fact from "no match", and the difference is
       the whole reason the untracked case is out of scope.
 

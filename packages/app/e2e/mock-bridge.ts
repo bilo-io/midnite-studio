@@ -245,6 +245,14 @@ export type MockFixtures = {
     | { kind: 'error'; message: string }
   >;
   /**
+   * `fs.search` results (Phase 24 Theme E), one fixed answer per spec — the
+   * mock does not actually run `git grep` over `fsFiles`' fixture text, since
+   * a spec's search query is fully under its own control anyway.
+   */
+  fsSearchResult?:
+    | { ok: true; matches: { path: string; line: number; text: string }[]; truncated: boolean }
+    | { ok: false; message: string };
+  /**
    * The samples `metrics.onSample` pushes, in order, one per entry.
    *
    * **Omit a metric to reach the "unreadable on this machine" state** — that is
@@ -1043,6 +1051,7 @@ export async function installMockBridge(page: Page, fixtures: MockFixtures): Pro
           }
           return { ok: true as const, fileCount, totalBytes, truncated: false };
         },
+        search: async () => data.fsSearchResult ?? { ok: true as const, matches: [], truncated: false },
       },
       /*
         The diagnostics group.

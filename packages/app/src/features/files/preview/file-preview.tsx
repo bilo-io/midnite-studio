@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 
 import { useQuery } from '@tanstack/react-query';
 import { LuFileQuestion } from 'react-icons/lu';
@@ -29,12 +29,19 @@ import { MarkdownPreview } from './markdown-preview';
 export type FilePreviewProps = {
   scope: FsScopeInput;
   relPath: string;
+  /** A find-in-files result's line, to scroll to and briefly highlight. */
+  targetLine?: number;
 };
 
-export function FilePreview({ scope, relPath }: FilePreviewProps) {
+export function FilePreview({ scope, relPath, targetLine }: FilePreviewProps) {
   const fileName = relPath.slice(relPath.lastIndexOf('/') + 1);
   const kind = previewKindForFile(fileName);
-  const [showSource, setShowSource] = useState(false);
+  // A search hit into a markdown file has nothing to scroll to in the
+  // rendered view — force the source view so `targetLine` means something.
+  const [showSource, setShowSource] = useState(targetLine !== undefined);
+  useEffect(() => {
+    if (targetLine !== undefined) setShowSource(true);
+  }, [targetLine]);
   const [comparing, setComparing] = useState(false);
   const [dims, setDims] = useState<{ width: number; height: number } | null>(null);
 
@@ -173,7 +180,11 @@ export function FilePreview({ scope, relPath }: FilePreviewProps) {
           kind === 'markdown' && !showSource ? (
             <MarkdownPreview content={data.content} />
           ) : (
-            <CodePreview content={data.content} language={languageForFile(fileName)} />
+            <CodePreview
+              content={data.content}
+              language={languageForFile(fileName)}
+              highlightLine={targetLine}
+            />
           )
         ) : (
           <FallbackCard fileName={fileName} result={data} />

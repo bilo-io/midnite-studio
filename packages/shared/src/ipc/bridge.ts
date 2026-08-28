@@ -392,6 +392,8 @@ export type MidniteGitBridge = {
     dirStats: (
       req: In<typeof S.FsDirStatsRequest>,
     ) => Promise<z.infer<typeof S.FsDirStatsResponse>>;
+    /** `git grep` over the tracked working tree — see `FS_SEARCH_MAX_MATCHES`. */
+    search: (req: In<typeof S.FsSearchRequest>) => Promise<z.infer<typeof S.FsSearchResponse>>;
   };
 
   /**
