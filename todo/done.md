@@ -2,6 +2,44 @@
 
 <!-- Append one entry per landed phase/PR: date, phase, PR link, one-line summary. -->
 
+## 2026-08-28 — Phase 24 Theme E — find in files
+
+Built on `feature/phase-24-e-find-in-files`, not yet merged — no PR link, no GitHub remote on
+this checkout (`git remote -v` is empty; the session was told to stop at a local branch rather
+than merge or push). `git grep` over the tracked working tree, surfaced as a search panel that
+replaces the Files tree while a query is active.
+
+- [x] `packages/git-engine/src/commands/grep.ts` + `parsers/grep-parser.ts` — `git grep -z -n -I
+      --no-color [-i] [-w] [-F|-E] -m <cap> -e <query>`, modelled on `ignore.ts`'s batched single
+      call; exit 0/1 are both `ok` (matches / no matches), anything else surfaces `stderr` as the
+      error message (most commonly a malformed regex in `mode: 'regex'`).
+- [x] `mgit:fs:search` — its own `fs-search-handlers.ts` rather than joining `fs-handlers.ts`:
+      that module's reads are plain `node:fs` confined by `fs-scope.ts`; this one's trust boundary
+      is `resolveWorkdir`, the same one every git-op handler already crosses. Per-file cap (50) is
+      git's own `-m`; the 2,000-total cap is enforced after parsing and reported as `truncated`.
+- [x] `use-file-search.ts` — debounced (300ms), soft-cancelled via a generation counter rather than
+      a killed subprocess (no per-search process registry exists yet; that's Phase 25's
+      `stream-registry.ts`, built for concurrent *streams*, a different problem). Found and fixed
+      in review: the hook's own `setState({status:'loading'})` re-renders `FilesView`, which built
+      a fresh `{repoId, worktreePath}` object literal every render — depending on that object
+      (not its two primitive fields) in the effect's deps meant every loading-state render
+      cancelled the debounce timer that render itself had just started, so a search could never
+      complete.
+- [x] `search-panel.tsx`'s `SearchBar` (always mounted — the query has to stay typeable at zero
+      length) and `SearchResults` (replaces `FileTree` only while a query is active) — grouped by
+      file, case/whole-word/regex as local icon-toggle buttons (`Aa`/`ab`/`.*`, no shared `Toggle`
+      control exists until Phase 25 F), client-side re-highlight of the literal query in its own
+      result line (skipped in `regex` mode, where there is no literal text to find), and a
+      "tracked content only" empty state distinct from an ordinary no-match.
+- [x] "Opens the file in the preview at the line" reuses Shiki's own per-line `<span class="line">`
+      wrapping (and a `data-line`-wrapped fallback for the un-highlighted plain-`<pre>` path) to
+      scroll the match into view and flash it via a CSS `@keyframes` fade — not a new per-line row
+      model, which is Phase 25 D's rewrite of `CodePreview`, not this phase's. A markdown file
+      opened from a result forces the source view, since the rendered view has nothing to scroll to.
+- [x] `packages/app/e2e/files-search.spec.ts` — grouped results replace the tree and clicking one
+      opens-at-line with the highlight visible, the tracked-content-only empty state, a malformed
+      regex surfacing as a search error, and the truncation notice.
+
 ## 2026-08-28 — Phase 23 Theme C — the palette surface
 
 Merged locally on `feature/phase-23-c-palette-surface` — no PR link, no GitHub remote on this

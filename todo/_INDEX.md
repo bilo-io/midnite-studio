@@ -25,7 +25,7 @@ Completed work is logged append-only in [`done.md`](done.md). Deferred scope liv
 | [27 · The footer becomes a status bar, and the browser it makes room for](phase-27-status-bar-and-browser-panel.md) | 🔄 WIP | x1 | 72/90 | `████████░░` | 80% | — | 18 verification items |
 | [26 · Side by side, and the room to show it](phase-26-side-by-side-diffs.md) | ◻ TODO | — | 0/68 | `░░░░░░░░░░` | 0% | — | A–H |
 | [25 · Search everywhere, and the blame that explains it](phase-25-search-everywhere.md) | ◻ TODO | x1 | 0/101 | `░░░░░░░░░░` | 0% | — | A–F |
-| [24 · The explorer learns to write, and to search](phase-24-writable-explorer.md) | 🔄 WIP | — | 26/55 | `█████░░░░░` | 47% | E | D, G |
+| [24 · The explorer learns to write, and to search](phase-24-writable-explorer.md) | 🔄 WIP | — | 32/55 | `██████░░░░` | 58% | — | D, G |
 | [23 · A command palette, and the registry that can feed it](phase-23-command-palette.md) | 🔄 WIP | — | 17/55 | `███░░░░░░░` | 31% | — | D–H |
 | [22 · Stash, the reflog, and writes you can take back](phase-22-stash-and-safety-net.md) | 🔄 WIP | — | 10/70 | `█░░░░░░░░░` | 14% | — | B–H |
 | [21 · Agent roster + terminal identity](phase-21-agent-roster-and-terminal-identity.md) | 🔄 WIP | — | 43/46 | `█████████░` | 93% | — | 3 manual checks |
@@ -275,8 +275,10 @@ write scope, so `agent-page.tsx` stays read-only without knowing writes exist.*
 - ◻ **D** — the preview pane becomes an editor: CodeMirror 6 (the app's first editor dependency),
   dirty state, `Cmd+S` through the command registry, an unsaved guard, and a stale-write refusal
   that offers to reload rather than picking a side.
-- ◻ **E** — find in files: `git grep -z` in git-engine with a pure parser beside it, one read
-  channel, and a results panel that opens a file at the line. Tracked content only, said out loud.
+- ✅ **E** — find in files: `git grep -z` in git-engine with a pure parser beside it, one read
+  channel, and a results panel that opens a file at the line via Shiki's own per-line spans.
+  Tracked content only, said out loud (built on `feature/phase-24-e-find-in-files`, not yet
+  merged — no PR/no remote)
 - ✅ **F** — status badges on tree rows: a `Map` join on a path convention that already matches
   byte-for-byte, off a status cache the sidebar has already fetched, with a directory rollup that
   turned out to need its own literal-ancestor walk rather than `build-change-tree.ts`'s
