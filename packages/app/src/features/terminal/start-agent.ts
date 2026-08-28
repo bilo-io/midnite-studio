@@ -48,9 +48,8 @@ export function startAgent({
   // Queued input beats the roster's own start command (see `agentInput` in
   // <TerminalPanel>), so this replaces the bare command an agent session would
   // otherwise open with rather than racing it.
-  useTerminalStore
-    .getState()
-    .queueInput(session.id, `${command} ${shellQuote(toAgentPrompt(prompt, agentId))}`);
+  const words = [command, ...agentInvocationArgs(agentId), shellQuote(toAgentPrompt(prompt, agentId))];
+  useTerminalStore.getState().queueInput(session.id, words.join(' '));
 }
 
 /**
@@ -69,6 +68,29 @@ export function toAgentPrompt(prompt: string, agentId: string): string {
   return prompt.replace(/(^|\s)\/(\S+)/g, (_match, boundary: string, name: string) =>
     `${boundary}$${name}`,
   );
+}
+
+/**
+ * The flags a roster agent needs, beyond its command and the prompt, to treat
+ * that prompt as a one-shot instruction rather than free text at its own
+ * native REPL.
+ *
+ * Claude and OpenClaude take the prompt as a bare positional and start their
+ * usual interactive session with it queued as the first message, so neither
+ * needs anything here. Antigravity's `agy` only runs a prompt non-interactively
+ * behind `-p`; Codex only does it behind its `exec` subcommand. Both still land
+ * inside the same typed-not-executed queued input as every other agent — this
+ * only changes which words precede the quoted prompt.
+ */
+export function agentInvocationArgs(agentId: string): string[] {
+  switch (agentId) {
+    case 'agy':
+      return ['-p'];
+    case 'codex':
+      return ['exec'];
+    default:
+      return [];
+  }
 }
 
 /**
