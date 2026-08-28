@@ -45,40 +45,45 @@ Effort tags: **S** ≈ an hour or two · **M** ≈ half a day · **L** ≈ a day
 
 ## Deliverables
 
-### A — The write contract (M)
+### A — The write contract (M) — ✅ DONE (2026-08-28)
 
 Lands first; every other theme reads off it.
 
-- [ ] Widen [`shared/src/fs.ts`](../packages/shared/src/fs.ts) with the write half of the contract:
-      an `FsWriteScope` that is `FsRepoScope` **only** — `claude-home` is not a member, so a write
-      into `~/.claude` fails zod parsing at the boundary rather than being refused by a handler that
-      someone can later "fix". Add `FS_WRITE_CAP_BYTES` (the write ceiling, distinct from the read
-      cap) and an `FsVersion` = `{ mtimeMs, size }`.
-- [ ] Rewrite the module's header comment. It currently asserts no write channel exists; it should
-      now say what the write channels *are* and what still holds — repo scope only, relative paths
-      only, the jail confines the parent, and failures are data. **The comment is load-bearing
-      documentation, not decoration: leaving it stale is the failure mode this theme exists to
-      avoid.** Same for the block above the fs entries in
+- [x] Widened [`shared/src/fs.ts`](../packages/shared/src/fs.ts) with the write half of the
+      contract: `FsWriteScopeSchema` is `z.literal('repo')` — `claude-home` is not a member, so a
+      write into `~/.claude` fails zod parsing at the boundary rather than being refused by a
+      handler that someone can later "fix". Added `FS_WRITE_CAP_BYTES` (same ceiling as the read
+      cap, deliberately — one number instead of two that can drift) and `FsVersionSchema` /
+      `FsVersion` = `{ mtimeMs, size }`.
+- [x] Rewrote the module's header comment to say what the write channels *are* and what still
+      holds — repo scope only, relative paths only, the jail confines the parent, and failures are
+      data. Same for the block above the fs entries in
       [`channels.ts`](../packages/shared/src/ipc/channels.ts) and the one above `fs:` in
       [`bridge.ts`](../packages/shared/src/ipc/bridge.ts).
-- [ ] Four new channels in [`channels.ts`](../packages/shared/src/ipc/channels.ts) —
+- [x] Four new channels in [`channels.ts`](../packages/shared/src/ipc/channels.ts) —
       `fsWriteFile: 'mgit:fs:write-file'`, `fsCreate: 'mgit:fs:create'`, `fsRename: 'mgit:fs:rename'`,
-      `fsDelete: 'mgit:fs:delete'` — with request/response schemas in
-      [`schemas.ts`](../packages/shared/src/ipc/schemas.ts). Responses use
-      [`GitOpResult`](../packages/shared/src/domain/result.ts) through `handleOp`, because it is the
-      only envelope in the repo with a "never throws, a bad outcome is data" precedent and it gives
-      `failure(message, stderr)` for free.
-- [ ] Decide and record how a **stale write** rides that envelope. `GitOpResult`'s conflict arm is
-      git-specific — `ConflictOp` is merge/rebase/cherry-pick/revert — so a file that changed on
-      disk is not a `kind: 'conflict'`. It ships as `kind: 'error'` with a message the UI can match
-      on, and the schema does **not** grow a fs-shaped arm for one case.
-- [ ] `FsReadFileResponse`'s `text` arm carries `FsVersion`. `fsWriteFile` sends it back and main
-      refuses when it has moved — the cheap guard against a `git checkout` or an external editor
-      landing between load and save. Hashing was considered and rejected: it costs a pass over
-      every read up to 1.5 MB to catch a case (touch-without-change) that does not lose data.
-- [ ] `fs.writeFile` / `create` / `rename` / `delete` on the preload bridge
-      ([`preload/index.ts`](../packages/desktop/src/preload/index.ts)) — `'fs'` is already in the
-      namespace union, so this is four entries and no new surface.
+      `fsDelete: 'mgit:fs:delete'` — with request schemas in
+      [`schemas.ts`](../packages/shared/src/ipc/schemas.ts) built on `FsWriteScopeSchema`.
+      `fsRename` carries independent `fromRelPath`/`toRelPath` (a general move; the UI only offers
+      same-directory rename today) and `fsCreate` takes `kind: 'file' | 'directory'`. Responses are
+      plain [`GitOpResult`](../packages/shared/src/domain/result.ts), the same envelope `handleOp`
+      returns everywhere else.
+- [x] Decided how a **stale write** rides that envelope: `GitOpResult`'s error arm gained an
+      optional `code: 'stale-write'` discriminant rather than growing `ConflictOp` (which stays
+      merge/rebase/cherry-pick/revert) a fs-shaped member. `failure()` takes the code as an
+      optional third argument.
+- [x] `FsReadFileResponse`'s `text` arm now carries `FsVersion`; `fs-handlers.ts`'s read handler
+      fills it from the `fstat` it already has. `fsWriteFile` requires `expectedVersion` and main
+      will refuse when it has moved (Theme B implements the actual refusal).
+- [x] `fs.writeFile` / `create` / `rename` / `delete` added to the preload bridge
+      ([`preload/index.ts`](../packages/desktop/src/preload/index.ts)) — `'fs'` was already in the
+      namespace union, so this was four entries and no new surface.
+- [x] Vitest in `ipc.test.ts`: every write request accepts repo scope and refuses `claude-home`;
+      empty/NUL relPaths rejected; `fsCreate`'s kind is exactly `file | directory`; `fsRename`
+      carries `fromRelPath`/`toRelPath`, not a bare `relPath`; a stale write parses as
+      `{ok:false, code:'stale-write'}` and does not fit `ConflictOp`.
+
+*No jail, no main-process write handlers, no UI yet — that's Themes B and C.*
 
 ### B — The jail learns to write (M)
 

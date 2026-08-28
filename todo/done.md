@@ -2,6 +2,35 @@
 
 <!-- Append one entry per landed phase/PR: date, phase, PR link, one-line summary. -->
 
+## 2026-08-28 — Phase 24 Theme A — the writable-filesystem contract
+
+Widens the read-only Phase 16 fs contract with the write half everything else in the phase reads
+off: four `mgit:fs:*` write channels, an `FsWriteScope` that excludes `claude-home` so a write into
+`~/.claude` fails zod parsing at the boundary, and an `FsVersion` token on file reads so a save can
+prove the file has not moved underneath it. Shared contract + preload wiring only — no jail, no
+main-process handlers, no UI (Themes B and C).
+
+- [x] **`FsWriteScopeSchema`** in `shared/src/fs.ts` — a `z.literal('repo')`, narrower than the read
+      `FsScopeSchema`, so `claude-home` cannot be expressed in a write request at all
+- [x] **`FsVersionSchema`** (`{mtimeMs, size}`) and `FS_WRITE_CAP_BYTES` (same ceiling as the read
+      cap, deliberately) added to `shared/src/fs.ts`; the module's header comment rewritten from
+      asserting no write channel exists to stating what the write channels are and what still holds
+- [x] **Four channels** — `fsWriteFile`, `fsCreate`, `fsRename`, `fsDelete` — with request schemas in
+      `schemas.ts` built on `FsWriteScopeSchema`, never `FsRepoScope`'s scope union; `fsRename` takes
+      independent `fromRelPath`/`toRelPath` (a general move, not name-only) and `fsCreate` takes a
+      `kind: 'file' | 'directory'` so Theme C's two menu entries need no second channel
+- [x] **A stale write rides `GitOpResult`'s ordinary error arm** with a new optional
+      `code: 'stale-write'` discriminant (`domain/result.ts`) rather than growing `ConflictOp` a
+      fs-shaped member; `failure()` takes the code as an optional third argument
+- [x] **`FsReadFileResponse`'s `text` arm now carries `FsVersion`**, and `fs-handlers.ts`'s read
+      handler fills it from the `fstat` it already has
+- [x] **Preload bridge** (`packages/desktop/src/preload/index.ts`) gains the four `fs.*` write
+      entries; `bridge.ts`'s type and doc comment rewritten to match
+- [x] Vitest: every write request accepts repo scope and refuses `claude-home`; empty and
+      NUL-bearing `relPath`s rejected; `fsCreate`'s kind is exactly `file | directory`; `fsRename`
+      carries `fromRelPath`/`toRelPath` and no bare `relPath`; a stale write parses as
+      `{ok:false, code:'stale-write'}` and does **not** fit `ConflictOp`
+
 ## 2026-08-27 — Phase 21 follow-up — the agent marks are the real marks now
 
 Two of the four roster marks were hand-drawn originals, chosen over the brands' own artwork on a

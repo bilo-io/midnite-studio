@@ -231,11 +231,22 @@ export const CHANNELS = {
   /** Run the method-matched update command; resolves when it exits. */
   agentClaudeUpdate: 'mgit:agent:claude-update',
 
-  // --- read-only filesystem (Phase 16) --------------------------------------
-  // Strictly reads. There is no write/rename/delete channel on purpose: the
-  // file browser being unable to edit is enforced here, not in the UI.
+  // --- filesystem (Phase 16 reads, Phase 24 writes) -------------------------
+  // Reads are scope: repo | claude-home, exactly as before. The four write
+  // channels below are repo scope ONLY — `FsWriteScopeSchema` has no
+  // `claude-home` member, so a write naming it fails zod parsing at the
+  // boundary rather than being refused by a handler someone could later "fix".
+  // Every one goes through `fs-scope-write.ts`'s jail, never `confineToRoot`.
   fsListDir: 'mgit:fs:list-dir',
   fsReadFile: 'mgit:fs:read-file',
+  /** Overwrite an existing file's content. Refuses on a moved `FsVersion`. */
+  fsWriteFile: 'mgit:fs:write-file',
+  /** New file or folder. The parent is confined; the final segment is not resolved. */
+  fsCreate: 'mgit:fs:create',
+  /** Rename or move within the repo. Both endpoints are confined independently. */
+  fsRename: 'mgit:fs:rename',
+  /** Trash, not `unlink` — recoverable in the Finder. */
+  fsDelete: 'mgit:fs:delete',
 
   // --- system metrics (Phase 18) -------------------------------------------
   // One-way `send`s, not `invoke`s: neither has anything to report back, and

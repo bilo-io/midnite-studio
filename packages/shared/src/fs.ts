@@ -1,18 +1,32 @@
 import { z } from 'zod';
 
 /**
- * The read-only filesystem browser contract (Phase 16).
+ * The filesystem browser contract (Phase 16 reads, Phase 24 writes).
  *
- * Two scopes exist and only two: a repository checkout, and `~/.claude` for the
- * Agent settings page. The renderer never sends an absolute path — every
- * request is `scope + relPath` and main joins, resolves and confines it. There
- * is deliberately no write/rename/delete channel: "read-only" is a property of
- * this contract, not of whichever buttons the UI happens to render.
+ * Two scopes exist for browsing: a repository checkout, and `~/.claude` for
+ * the Agent settings page. The renderer never sends an absolute path — every
+ * request is `scope + relPath` and main joins, resolves and confines it.
+ *
+ * Writing is narrower on purpose (`FsWriteScopeSchema` below): repo only,
+ * relative paths only, and the jail confines the *parent* of a write rather
+ * than the write's own target — a create has no existing target to confine.
+ * A stale write (the file moved since it was read) is reported through
+ * `GitOpResult`'s ordinary error arm with `code: 'stale-write'`, not a
+ * fs-shaped failure arm of its own; see `domain/result.ts`.
  */
 
 /** Where a browse request is rooted. `repo` resolves through the repo registry. */
 export const FsScopeSchema = z.enum(['repo', 'claude-home']);
 export type FsScope = z.infer<typeof FsScopeSchema>;
+
+/**
+ * Where a WRITE request may be rooted. Narrower than {@link FsScopeSchema} —
+ * `claude-home` is not a member, so a write naming it fails zod parsing at the
+ * IPC boundary rather than being refused by a handler someone could later
+ * "fix". Every fs write channel's request schema is built on this scope.
+ */
+export const FsWriteScopeSchema = z.literal('repo');
+export type FsWriteScope = z.infer<typeof FsWriteScopeSchema>;
 
 export const FsEntrySchema = z.object({
   name: z.string().min(1),
@@ -34,6 +48,30 @@ export type FsEntry = z.infer<typeof FsEntrySchema>;
  * what anyone reads in a side pane.
  */
 export const FS_TEXT_CAP_BYTES = 1.5 * 1024 * 1024;
+
+/**
+ * Cap on bytes a write may cross IPC with. Same ceiling as the read cap,
+ * deliberately: if the editor could load a file for editing, it can save it
+ * back at the same size, rather than tracking two numbers that can drift.
+ */
+export const FS_WRITE_CAP_BYTES = FS_TEXT_CAP_BYTES;
+
+/**
+ * A cheap version token for optimistic-concurrency writes: `mtimeMs` and
+ * `size` from the read that preceded the edit. `fsWriteFile` sends it back,
+ * and main refuses when a `fstat` at write time disagrees — the guard against
+ * a `git checkout` or an external editor landing between load and save.
+ *
+ * A content hash was considered and rejected: it costs a pass over every read
+ * up to `FS_TEXT_CAP_BYTES` to catch touch-without-change, a case that loses
+ * nothing, while `mtimeMs`/`size` already catch the case that does (something
+ * else wrote the file).
+ */
+export const FsVersionSchema = z.object({
+  mtimeMs: z.number(),
+  size: z.number().int().nonnegative(),
+});
+export type FsVersion = z.infer<typeof FsVersionSchema>;
 
 /**
  * The custom protocol media bytes stream through. Registered in main with the

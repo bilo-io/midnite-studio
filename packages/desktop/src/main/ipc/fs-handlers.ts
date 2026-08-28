@@ -103,7 +103,12 @@ async function readFileCapped(
 
     const bytes = await readFile(file);
     if (bytes.subarray(0, SNIFF_BYTES).includes(0)) return { kind: 'binary', size: info.size };
-    return { kind: 'text', content: bytes.toString('utf8'), size: info.size };
+    return {
+      kind: 'text',
+      content: bytes.toString('utf8'),
+      size: info.size,
+      version: { mtimeMs: info.mtimeMs, size: info.size },
+    };
   } catch (error) {
     return { kind: 'error', message: error instanceof Error ? error.message : String(error) };
   }
