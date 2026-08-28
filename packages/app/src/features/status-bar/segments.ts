@@ -4,6 +4,7 @@ import { DiagnosticsSegment } from '../diagnostics/diagnostics-segment';
 import { MonitorCluster } from '../monitor/monitor-cluster';
 import { ActiveWorktreeSegment } from './active-worktree';
 import { BrowserToggle } from './browser-toggle';
+import { InProgressSegment } from './in-progress';
 import { OpProgressSegment } from './op-progress';
 import { ReposToggle } from './repos-toggle';
 import { TerminalToggle } from './terminal-toggle';
@@ -52,6 +53,9 @@ export const STATUS_SEGMENTS: StatusSegment[] = [
     El: ActiveWorktreeSegment,
   },
   { id: 'op-progress', zone: 'center', priority: 10, label: 'Operation progress', El: OpProgressSegment },
+  // Outranks op-progress: a rebase you have forgotten you are mid-way through
+  // is the single most expensive thing this bar can tell you.
+  { id: 'in-progress', zone: 'center', priority: 20, label: 'Mid-operation', El: InProgressSegment },
   { id: 'diagnostics', zone: 'right', priority: 10, label: 'Diagnostics', El: DiagnosticsSegment },
   { id: 'monitor', zone: 'right', priority: 20, label: 'System monitor', El: MonitorCluster },
 ];
