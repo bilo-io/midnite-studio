@@ -2,6 +2,45 @@
 
 <!-- Append one entry per landed phase/PR: date, phase, PR link, one-line summary. -->
 
+## 2026-08-28 — Phase 23 Theme C — the palette surface
+
+Merged locally on `feature/phase-23-c-palette-surface` — no PR link, no GitHub remote on this
+checkout. Themes A and B (the registry reconciliation and `useCommandHandlers()`) had already
+landed; this theme builds the `Mod+K` surface they were built to feed.
+
+- [x] `packages/app/src/store/palette-store.ts` — non-persisted zustand store (`isOpen`, `mode`,
+      `query`, `selectedIndex`), plus the pure, colocated-tested `parsePaletteQuery`,
+      `matchesQuery`, `filterCommands`, `groupCommands` and `chordOf` helpers. `open()` refuses to
+      fire while a *visible* `role="dialog"` element exists — a bare `querySelector` false-positives
+      on `@bilo-io/shell`'s `AppFrame`, which keeps its own mobile nav dialog in the DOM at every
+      viewport width (`display: none` below its breakpoint, not unmounted), caught by an e2e run
+      against the real shell before it shipped.
+- [x] `packages/app/src/components/palette.tsx` — the modal itself: a bespoke overlay (not
+      `ConfirmDialog`'s shell — no header/footer/buttons to reuse), `useFocusTrap` from Theme H's
+      prerequisite extraction, `@tanstack/react-virtual` over a flattened
+      heading-then-commands row list, group headings, resolved chords via the status bar's existing
+      `displayChord`, and a disabled command's reason shown in place of a chord. Filtering is a
+      naive substring match (Theme D replaces it with real fuzzy scoring); every mode besides
+      `commands`/`all` renders a placeholder rather than a second component ahead of its own theme.
+- [x] `packages/app/src/components/palette-host.tsx` — mounted once in `app.tsx` around `Shell`,
+      exposing `usePalette(): { open, close }` backed by the zustand store rather than a Context,
+      since `use-keybindings.ts` needs to read `isOpen` outside the render cycle.
+- [x] The palette-open short-circuit in `use-keybindings.ts`: while open, only `palette.open` and
+      `palette.files` still resolve as bound chords; everything else falls through to the search
+      input untouched. Verified in `use-keybindings.test.ts` and end-to-end (`Mod+g` typed into the
+      palette no longer toggles the repositories panel).
+- [x] `palette.open` (`Mod+K`) and `palette.files` (`Mod+P`) wired live in `use-command-handlers.ts`
+      — no longer the "coming soon" stub Theme B shipped. A `⌘K` button leads the title bar's action
+      cluster as the one visible entry point.
+- [x] `packages/app/e2e/palette.spec.ts` — open/close, typing narrows across groups, arrow+Enter
+      runs a command and closes the palette, a disabled command shows its reason and does not run,
+      the terminal-escape guard, and the title-bar button restoring focus on close.
+
+**Bug found and fixed before merging:** the focus-restore-on-close effect captured
+`document.activeElement` *inside* an effect that ran after `useFocusTrap`'s own effect had already
+moved focus onto the palette's container — so it always "restored" focus to the palette itself.
+Moved the capture into the `useRef` lazy initializer, which runs during render, before any effect.
+
 ## 2026-08-28 — Phase 28 Theme E — the Branches heading earns itself
 
 Merged locally on `feature/phase-28-e-branches-heading` — no PR link, no GitHub remote on this

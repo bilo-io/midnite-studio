@@ -69,13 +69,22 @@ describe('useCommandHandlers — no repo open', () => {
     }
   });
 
-  it('leaves op.abort, op.continue and the palette commands disabled, with a reason', () => {
+  it('leaves op.abort and op.continue disabled, with a reason', () => {
     const { result } = withProviders(new QueryClient());
     const runtime = result.current;
 
-    for (const id of ['op.abort', 'op.continue', 'palette.open', 'palette.files'] as const) {
+    for (const id of ['op.abort', 'op.continue'] as const) {
       expect(runtime[id].enabled).toBe(false);
       expect(runtime[id].disabledReason?.length).toBeGreaterThan(0);
+    }
+  });
+
+  it('enables the palette commands with nothing selected — Theme C built the surface', () => {
+    const { result } = withProviders(new QueryClient());
+    const runtime = result.current;
+
+    for (const id of ['palette.open', 'palette.files'] as const) {
+      expect(runtime[id].enabled).toBe(true);
     }
   });
 });

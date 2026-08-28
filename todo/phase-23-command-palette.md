@@ -109,34 +109,43 @@ The keymap's doc comment describes this hook; it just was never written.
       `op.continue` remain deliberately unwired with a comment pointing at
       [Phase 22](phase-22-stash-and-safety-net.md), which owns operation state.
 
-### C — The surface (M)
+### C — The surface (M) ✅ DONE (landed 2026-08-28)
 
-- [ ] New `packages/app/src/store/palette-store.ts` on the house zustand shape — `create<T>()(…)`,
+- [x] New `packages/app/src/store/palette-store.ts` on the house zustand shape — `create<T>()(…)`,
       colocated test, pure helpers exported for testing — and **deliberately not persisted**, with
       the justification comment this repo expects on a new store: palette state is ephemeral per
       open, and a query string that survives a restart is a bug wearing a feature's clothes.
-      (Frecency is the one thing that *should* persist; see the open question.)
-- [ ] New `packages/app/src/components/palette.tsx`: a centred modal surface at `z-dialog`, a
+      Frecency was left out of this theme rather than built (see the open question) — sorting is
+      group/label order only for now.
+- [x] New `packages/app/src/components/palette.tsx`: a centred modal surface at `z-dialog`, a
       single search input, a virtualised-if-it-needs-to-be result list with group headings, the
       resolved chord rendered on the right of each command row, and `animate-fade-in` plus the
-      standard item fade-and-rise — all of it inert under `html[data-motion='reduced']`.
-- [ ] New `packages/app/src/components/palette-host.tsx` shaped after
+      standard item fade-and-rise — all of it inert under `html[data-motion='reduced']`. Filtering
+      is a naive case-insensitive substring match for this theme; Theme D replaces it with real
+      fuzzy scoring and matched-character highlighting. Every mode besides `commands`/`all` (`refs`,
+      `views`, `files`, `journal`) renders a one-line "arrives in Theme X" placeholder — one
+      component, no second one invented ahead of its source landing.
+- [x] New `packages/app/src/components/palette-host.tsx` shaped after
       [`dialog-host.tsx`](../packages/app/src/components/dialog-host.tsx): mounted once in
       `app.tsx`, owning open/closed state, exposing an imperative `usePalette(): PaletteApi`
-      (`open(mode?)`, `close()`). It is the same pattern
+      (`open(mode?)`, `close()`). Unlike `DialogHost`, the open/closed bit itself lives in
+      `palette-store.ts` (zustand), not local `useState` behind a Context — `use-keybindings.ts`
+      has to read it from outside the render cycle entirely. It is the same pattern
       [Phase 22 Theme H](phase-22-stash-and-safety-net.md) plans for `toast-host.tsx`; whichever
       lands first sets the precedent for the third global surface.
-- [ ] A palette-open short-circuit at the top of `onKeyDown` in
+- [x] A palette-open short-circuit at the top of `onKeyDown` in
       [`use-keybindings.ts`](../packages/app/src/services/keybindings/use-keybindings.ts). The
       listener is on the **capture** phase with `stopPropagation()` — deliberately, so terminal-aimed
       keystrokes are seen — which means that without this guard, typing `Mod+g` or `Mod+r` into the
       palette input fires those commands out from under it. While the palette is open only
       `palette.*` and `Escape` resolve.
-- [ ] Pure `parsePaletteQuery(input): { mode, needle }` with its own test: a leading `>` narrows to
+- [x] Pure `parsePaletteQuery(input): { mode, needle }` with its own test: a leading `>` narrows to
       commands, `@` to refs, `:` to views and settings pages, `#` reserved-and-documented for a
-      future journal source, and a bare string searches everything. `palette.files` opens with the
-      file mode already set rather than inventing a second component.
-- [ ] Escape ordering, written down rather than left informal: `Popover` calls `stopPropagation()` on
+      future journal source, and a bare string searches everything. `palette.files` pins `mode:
+      'files'` via `open('files')` rather than a query sigil — there is no fifth sigil character in
+      the grammar, the finder is reached by chord, not by typing one — and that pin stays sticky
+      while a non-sigil query fills in around it, reverting to `'all'` only once the query is cleared.
+- [x] Escape ordering, written down rather than left informal: `Popover` calls `stopPropagation()` on
       its Escape and the two dialogs do not, so a palette opened over a dialog needs a stated rule.
       The palette closes on Escape and stops propagation; it refuses to open while a modal dialog is
       up, which is one line and removes the whole nesting question.
