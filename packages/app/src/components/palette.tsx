@@ -26,6 +26,7 @@ const GROUP_LABEL: Record<CommandGroup, string> = {
   graph: 'Graph',
   operation: 'Operation',
   palette: 'Palette',
+  files: 'Files',
 };
 
 /** Every mode besides the two Theme C actually has data for. Kept in one

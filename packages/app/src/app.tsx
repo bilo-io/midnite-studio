@@ -30,6 +30,7 @@ import { BrowserPane } from './features/browser/browser-pane';
 import { TestsView } from './features/tests/tests-view';
 import { DashboardView } from './features/dashboard/dashboard-view';
 import { FilesView } from './features/files/files-view';
+import { FileEditorGuard } from './features/files/preview/file-editor-guard';
 import { GraphView } from './features/graph/graph-view';
 import { RepoLifecycleActions } from './features/repos/repo-lifecycle-actions';
 import { ReposPanel } from './features/repos/repos-panel';
@@ -50,6 +51,7 @@ import { useRemotes, useRepos } from './services/queries';
 import { useWatchInvalidation } from './services/watch-invalidation';
 import { useTestsStream } from './features/tests/use-tests-stream';
 import { useAppearanceSync } from './store/appearance-store';
+import { useFileEditorStore } from './store/file-editor-store';
 import {
   DEFAULT_LAYOUT,
   LAYOUT_BOUNDS,
@@ -839,12 +841,40 @@ function useWindowBackgroundSync(): void {
   }, [sync]);
 }
 
+/**
+ * Blocks closing the window while a file has unsaved edits.
+ *
+ * `beforeunload` can only refuse synchronously, and the guard dialog's
+ * Save/Discard is async — so this prevents the close, opens the same
+ * `pendingNav` dialog every other guarded navigation uses, and on
+ * resolution flips `allowClose` and re-issues `window.close()` rather than
+ * trying to un-refuse the original event.
+ */
+function useUnsavedCloseGuard(): void {
+  useEffect(() => {
+    const onBeforeUnload = (event: BeforeUnloadEvent) => {
+      const editor = useFileEditorStore.getState();
+      if (editor.allowClose) return;
+      if (!editor.target || editor.content === editor.savedContent) return;
+      event.preventDefault();
+      event.returnValue = '';
+      editor.guardNavigation(() => {
+        useFileEditorStore.setState({ allowClose: true });
+        window.close();
+      });
+    };
+    window.addEventListener('beforeunload', onBeforeUnload);
+    return () => window.removeEventListener('beforeunload', onBeforeUnload);
+  }, []);
+}
+
 export function App() {
   useWindowBackgroundSync();
   useMotionPreference();
   // The user's own appearance preferences, applied over the OS-derived motion
   // default above — an explicit `full`/`reduced` choice outranks the media query.
   useAppearanceSync();
+  useUnsavedCloseGuard();
   return (
     <ShellProviders queryClient={queryClient}>
       <DialogHost>
@@ -852,6 +882,7 @@ export function App() {
           <Shell />
         </PaletteHost>
       </DialogHost>
+      <FileEditorGuard />
     </ShellProviders>
   );
 }

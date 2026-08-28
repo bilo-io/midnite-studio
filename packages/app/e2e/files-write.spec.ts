@@ -76,7 +76,7 @@ test('New File creates an inline row, pre-filled and selected, that becomes a re
 
   // Created, selected and opened in the preview immediately.
   await expect(page.getByRole('treeitem', { name: /^notes\.md$/ })).toBeVisible();
-  await expect(page.getByText('read-only')).toBeVisible();
+  await expect(page.getByRole('button', { name: 'Edit' })).toBeVisible();
 });
 
 test('creating a name that collides with a sibling shows an inline error and does not create it', async ({

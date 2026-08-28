@@ -65,8 +65,9 @@ test('typing a query replaces the tree with grouped results; clicking one opens 
 
   await page.getByText('function foo() {').click();
 
-  // The preview opened on the right file …
-  await expect(page.getByText('read-only')).toBeVisible();
+  // The preview opened on the right file, in read mode (Phase 24 D's Edit
+  // toggle in place of the old static "read-only" label) …
+  await expect(page.getByRole('button', { name: 'Edit' })).toBeVisible();
   // … and the matched line scrolled into view and flashed.
   const hitLine = page.locator('.code-preview-hit');
   await expect(hitLine).toBeVisible();

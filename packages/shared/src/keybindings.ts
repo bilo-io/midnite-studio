@@ -28,7 +28,8 @@ export type CommandGroup =
   | 'status'
   | 'graph'
   | 'operation'
-  | 'palette';
+  | 'palette'
+  | 'files';
 
 /**
  * Where a command is allowed to fire. The terminal swallows almost every
@@ -110,6 +111,7 @@ export const COMMANDS = [
    */
   { id: 'palette.open', label: 'Command Palette', group: 'palette', chord: 'Mod+k', scope: 'global' },
   { id: 'palette.files', label: 'Go to File…', group: 'palette', chord: 'Mod+p' },
+  { id: 'file.save', label: 'Save File', group: 'files', chord: 'Mod+s' },
 ] as const satisfies readonly CommandDescriptorInput[];
 
 export type CommandDescriptor = (typeof COMMANDS)[number];

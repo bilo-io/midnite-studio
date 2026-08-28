@@ -9,6 +9,7 @@ import {
   type GraphDensity,
   type GraphThemeId,
 } from '../features/graph/graph-themes';
+import { useFileEditorStore } from './file-editor-store';
 
 /**
  * Collapse/expand/lock behaviour of the nav rail, mirroring `AppFrame`'s
@@ -629,38 +630,51 @@ export const useUiStore = create<UiState>()(
       commitMetaOpen: true,
       changesFileView: 'list',
 
+      // Guarded: leaving Files with an unsaved edit open waits on the editor's
+      // own Save/Discard/Cancel dialog rather than losing the edit silently.
       setActiveView: (view) =>
-        set((state) => {
-          if (view === state.activeView) return {};
-          const viewHistory = [...state.viewHistory.slice(0, state.viewHistoryIndex + 1), view];
-          return { activeView: view, viewHistory, viewHistoryIndex: viewHistory.length - 1 };
-        }),
+        useFileEditorStore.getState().guardNavigation(() =>
+          set((state) => {
+            if (view === state.activeView) return {};
+            const viewHistory = [...state.viewHistory.slice(0, state.viewHistoryIndex + 1), view];
+            return { activeView: view, viewHistory, viewHistoryIndex: viewHistory.length - 1 };
+          }),
+        ),
+      // The title bar's Back/Forward buttons change `activeView` exactly like
+      // `setActiveView` does, so they carry the same guard.
       goBack: () =>
-        set((state) => {
-          if (state.viewHistoryIndex <= 0) return {};
-          const viewHistoryIndex = state.viewHistoryIndex - 1;
-          return { activeView: state.viewHistory[viewHistoryIndex], viewHistoryIndex };
-        }),
+        useFileEditorStore.getState().guardNavigation(() =>
+          set((state) => {
+            if (state.viewHistoryIndex <= 0) return {};
+            const viewHistoryIndex = state.viewHistoryIndex - 1;
+            return { activeView: state.viewHistory[viewHistoryIndex], viewHistoryIndex };
+          }),
+        ),
       goForward: () =>
-        set((state) => {
-          if (state.viewHistoryIndex >= state.viewHistory.length - 1) return {};
-          const viewHistoryIndex = state.viewHistoryIndex + 1;
-          return { activeView: state.viewHistory[viewHistoryIndex], viewHistoryIndex };
-        }),
+        useFileEditorStore.getState().guardNavigation(() =>
+          set((state) => {
+            if (state.viewHistoryIndex >= state.viewHistory.length - 1) return {};
+            const viewHistoryIndex = state.viewHistoryIndex + 1;
+            return { activeView: state.viewHistory[viewHistoryIndex], viewHistoryIndex };
+          }),
+        ),
       setSettingsPage: (settingsPage) => set({ settingsPage }),
       // Switching repo invalidates every selection scoped to the old one — the
       // ref filter included: refs are per-repo, so carrying `refs/heads/feat-x`
       // into a repo that has no such branch yields an empty graph that looks
       // like missing history.
       selectRepo: (selectedRepoId) =>
-        set({
-          selectedRepoId,
-          selectedWorktreePath: null,
-          selectedCommitSha: null,
-          graphRefFilter: [],
-          graphAuthorFilter: [],
-        }),
-      selectWorktree: (selectedWorktreePath) => set({ selectedWorktreePath }),
+        useFileEditorStore.getState().guardNavigation(() =>
+          set({
+            selectedRepoId,
+            selectedWorktreePath: null,
+            selectedCommitSha: null,
+            graphRefFilter: [],
+            graphAuthorFilter: [],
+          }),
+        ),
+      selectWorktree: (selectedWorktreePath) =>
+        useFileEditorStore.getState().guardNavigation(() => set({ selectedWorktreePath })),
       selectCommit: (selectedCommitSha) => set({ selectedCommitSha }),
       toggleRepos: () => set((state) => ({ reposOpen: !state.reposOpen })),
       setReposOpen: (reposOpen) => set({ reposOpen }),

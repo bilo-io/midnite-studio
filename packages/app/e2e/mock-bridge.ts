@@ -237,10 +237,15 @@ export type MockFixtures = {
     string,
     Array<{ name: string; kind: 'file' | 'dir' | 'symlink'; size: number; isIgnored: boolean }>
   >;
-  /** File reads for the preview pane, keyed the same way. */
+  /**
+   * File reads for the preview pane, keyed the same way. `version` defaults
+   * to `{ mtimeMs: 1, size: content.length }` when omitted — only the
+   * Phase 24 D editor spec, which drives a real write/stale-write round
+   * trip, needs to seed one explicitly.
+   */
   fsFiles?: Record<
     string,
-    | { kind: 'text'; content: string; size: number }
+    | { kind: 'text'; content: string; size: number; version?: { mtimeMs: number; size: number } }
     | { kind: 'binary' | 'too-large'; size: number }
     | { kind: 'error'; message: string }
   >;
@@ -983,7 +988,41 @@ export async function installMockBridge(page: Page, fixtures: MockFixtures): Pro
         },
         readFile: async (req: { scope: string; relPath: string }) => {
           const key = `${req.scope === 'repo' ? 'repo' : 'claude'}:${req.relPath}`;
-          return data.fsFiles?.[key] ?? { kind: 'error', message: 'no fixture for ' + key };
+          const entry = data.fsFiles?.[key];
+          if (!entry) return { kind: 'error', message: 'no fixture for ' + key };
+          if (entry.kind !== 'text') return entry;
+          return { ...entry, version: entry.version ?? { mtimeMs: 1, size: entry.content.length } };
+        },
+        // Phase 24 D: overwrites the fixture's own content/version in place —
+        // mirroring `writeFile`'s real `fstat` check lets a spec drive a
+        // genuine stale-write round trip rather than a fixed `{ok:true}`.
+        writeFile: async (req: {
+          relPath: string;
+          content: string;
+          expectedVersion: { mtimeMs: number; size: number };
+        }) => {
+          const key = `repo:${req.relPath}`;
+          const entry = data.fsFiles?.[key];
+          if (!entry || entry.kind !== 'text') return { ok: false, message: 'no fixture for ' + key };
+          const current = entry.version ?? { mtimeMs: 1, size: entry.content.length };
+          if (
+            current.mtimeMs !== req.expectedVersion.mtimeMs ||
+            current.size !== req.expectedVersion.size
+          ) {
+            return {
+              ok: false,
+              kind: 'error',
+              message: 'the file changed on disk since it was last read',
+              code: 'stale-write',
+            };
+          }
+          data.fsFiles![key] = {
+            kind: 'text',
+            content: req.content,
+            size: req.content.length,
+            version: { mtimeMs: current.mtimeMs + 1, size: req.content.length },
+          };
+          return { ok: true as const };
         },
         /*
           The four writes below mutate `data.fsDirs`/`data.fsFiles` in place
@@ -1417,6 +1456,21 @@ export async function installMockBridge(page: Page, fixtures: MockFixtures): Pro
       creates: [] as { ptyId: string; sessionId: string }[],
       inputs: [] as { ptyId: string; data: string }[],
       kills: [] as string[],
+    };
+
+    /*
+      A spec's way to simulate an external edit landing on disk between a
+      file's read and its save — the only way to drive a genuine stale-write
+      round trip through `writeFile`'s own version check (Phase 24 D).
+    */
+    (window as unknown as { __mgitStaleFile: (relPath: string) => void }).__mgitStaleFile = (
+      relPath,
+    ) => {
+      const key = `repo:${relPath}`;
+      const entry = data.fsFiles?.[key];
+      if (!entry || entry.kind !== 'text') return;
+      const version = entry.version ?? { mtimeMs: 1, size: entry.content.length };
+      data.fsFiles![key] = { ...entry, version: { mtimeMs: version.mtimeMs + 100, size: version.size } };
     };
 
     (window as unknown as { __mgitOps: unknown }).__mgitOps = opCalls;

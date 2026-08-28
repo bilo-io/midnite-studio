@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { lazy, Suspense, useEffect, useState } from 'react';
 
 import { useQuery } from '@tanstack/react-query';
 import { LuFileQuestion } from 'react-icons/lu';
@@ -10,17 +10,25 @@ import { languageForFile, previewKindForFile } from '../../../lib/languages';
 import { bridge, hasBridge } from '../../../services/bridge';
 import { keys } from '../../../services/queries';
 import { useRepoStatus } from '../../../services/use-status';
+import { useFileEditorStore } from '../../../store/file-editor-store';
 import { IMAGE_CHECKERBOARD, ImageDiff } from '../../diff/image-diff';
 import { differsFromHead, headToWorktreeImage } from '../../diff/image-sources';
 import { type FsScopeInput } from '../file-tree';
 import { CodePreview } from './code-preview';
 import { MarkdownPreview } from './markdown-preview';
 
+// Code-split: CodeMirror is the one dependency this theme adds, and every
+// other Files-view load (the common case — most opens never click Edit)
+// should not pay to parse it.
+const CodeEditor = lazy(() => import('./code-editor').then((m) => ({ default: m.CodeEditor })));
+
 /**
  * The right-hand pane of the Files view: one file, rendered the best way its
- * type allows, read-only throughout. Media never crosses IPC — those render
- * straight off `mgit-file://` (see fs-protocol.ts); only text comes through
- * `fs:readFile`, capped and sniffed in main.
+ * type allows. Opens read-only; a repo-scope text file gets an Edit toggle
+ * into a real `CodeEditor` (Phase 24 D) — `claude-home` and every non-text
+ * kind stay read-only, with no toggle offered at all. Media never crosses
+ * IPC — those render straight off `mgit-file://` (see fs-protocol.ts); only
+ * text comes through `fs:readFile`, capped and sniffed in main.
  *
  * The component keys off a content DESCRIPTOR (scope + relPath), not a raw
  * path — the seam that later lets the commit inspector mount it against a
@@ -44,6 +52,11 @@ export function FilePreview({ scope, relPath, targetLine }: FilePreviewProps) {
   }, [targetLine]);
   const [comparing, setComparing] = useState(false);
   const [dims, setDims] = useState<{ width: number; height: number } | null>(null);
+  const [editing, setEditing] = useState(false);
+  const dirty = useFileEditorStore((s) => s.target !== null && s.content !== s.savedContent);
+  const saving = useFileEditorStore((s) => s.saving);
+  const staleWrite = useFileEditorStore((s) => s.staleWrite);
+  const saveError = useFileEditorStore((s) => s.saveError);
 
   /*
     Status, for one question only: does HEAD hold a different version of this
@@ -73,6 +86,33 @@ export function FilePreview({ scope, relPath, targetLine }: FilePreviewProps) {
     enabled: hasBridge() && wantsText,
   });
 
+  // Editing is repo scope only — `claude-home` cannot be expressed in
+  // `FsWriteScopeSchema` — and refused, visibly, for anything the read did
+  // not come back as plain text (binary, too-large, error).
+  const canEdit = scope.scope === 'repo' && data?.kind === 'text';
+  const editorKey =
+    scope.scope === 'repo' ? `${scope.repoId}:${scope.worktreePath ?? ''}:${relPath}` : null;
+
+  // Opens/closes the store's editor target on the read↔edit transition only —
+  // a background query refetch (e.g. the watcher noticing an external change)
+  // must not clobber a buffer the user is actively typing into.
+  useEffect(() => {
+    if (!editing || scope.scope !== 'repo' || data?.kind !== 'text' || !editorKey) return;
+    useFileEditorStore
+      .getState()
+      .openFile(
+        { repoId: scope.repoId, worktreePath: scope.worktreePath, relPath, key: editorKey },
+        data.content,
+        data.version,
+      );
+    return () => useFileEditorStore.getState().closeFile(editorKey);
+    // Deliberately keyed on `editing` alone — see the comment above.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [editing]);
+
+  const exitEditing = () =>
+    useFileEditorStore.getState().guardNavigation(() => setEditing(false));
+
   const mediaUrl = mgitFileUrl(
     scope.scope,
     scope.scope === 'repo' ? scope.repoId : null,
@@ -96,9 +136,44 @@ export function FilePreview({ scope, relPath, targetLine }: FilePreviewProps) {
           {dims.width}×{dims.height}
         </span>
       ) : null}
-      <span className="ml-auto shrink-0 rounded border border-border px-1.5 py-0.5 text-[10px] text-muted-foreground">
-        read-only
-      </span>
+      {editing && dirty ? (
+        <span className="shrink-0 text-[10px] font-medium text-muted-foreground" title="Unsaved changes">
+          ●
+        </span>
+      ) : null}
+      {canEdit ? (
+        editing ? (
+          <>
+            <button
+              type="button"
+              onClick={() => void useFileEditorStore.getState().save()}
+              disabled={!dirty || saving}
+              className="ml-auto shrink-0 rounded-md border border-border px-2 py-0.5 text-[10px] text-muted-foreground transition-colors hover:bg-accent disabled:opacity-50"
+            >
+              {saving ? 'Saving…' : 'Save'}
+            </button>
+            <button
+              type="button"
+              onClick={exitEditing}
+              className="shrink-0 rounded-md border border-border px-2 py-0.5 text-[10px] text-muted-foreground transition-colors hover:bg-accent"
+            >
+              Done
+            </button>
+          </>
+        ) : (
+          <button
+            type="button"
+            onClick={() => setEditing(true)}
+            className="ml-auto shrink-0 rounded-md border border-border px-2 py-0.5 text-[10px] text-muted-foreground transition-colors hover:bg-accent"
+          >
+            Edit
+          </button>
+        )
+      ) : (
+        <span className="ml-auto shrink-0 rounded border border-border px-1.5 py-0.5 text-[10px] text-muted-foreground">
+          read-only
+        </span>
+      )}
       {canCompare ? (
         <button
           type="button"
@@ -109,7 +184,7 @@ export function FilePreview({ scope, relPath, targetLine }: FilePreviewProps) {
           {comparing ? 'Current' : 'Compare'}
         </button>
       ) : null}
-      {kind === 'markdown' && data?.kind === 'text' ? (
+      {kind === 'markdown' && data?.kind === 'text' && !editing ? (
         <button
           type="button"
           onClick={() => setShowSource((value) => !value)}
@@ -121,6 +196,29 @@ export function FilePreview({ scope, relPath, targetLine }: FilePreviewProps) {
       ) : null}
     </div>
   );
+
+  const staleWriteBanner =
+    editing && staleWrite ? (
+      <div className="flex shrink-0 items-center gap-2 border-b border-destructive/40 bg-destructive/10 px-3 py-1.5 text-xs text-destructive">
+        <span className="flex-1">
+          {saveError ?? 'This file changed on disk since it was last read.'}
+        </span>
+        <button
+          type="button"
+          onClick={() => void useFileEditorStore.getState().reloadFromDisk()}
+          className="shrink-0 rounded-md border border-destructive/40 px-2 py-0.5 font-medium transition-colors hover:bg-destructive/20"
+        >
+          Reload
+        </button>
+        <button
+          type="button"
+          onClick={() => useFileEditorStore.getState().dismissStaleWrite()}
+          className="shrink-0 rounded-md border border-destructive/40 px-2 py-0.5 transition-colors hover:bg-destructive/20"
+        >
+          Keep editing
+        </button>
+      </div>
+    ) : null;
 
   return (
     <div className="flex min-h-0 min-w-0 flex-1 flex-col">
@@ -177,7 +275,16 @@ export function FilePreview({ scope, relPath, targetLine }: FilePreviewProps) {
         ) : !data ? (
           <p className="p-4 text-xs text-muted-foreground">Loading…</p>
         ) : data.kind === 'text' ? (
-          kind === 'markdown' && !showSource ? (
+          editing ? (
+            <>
+              {staleWriteBanner}
+              <Suspense
+                fallback={<p className="p-4 text-xs text-muted-foreground">Loading editor…</p>}
+              >
+                <CodeEditor fileName={fileName} />
+              </Suspense>
+            </>
+          ) : kind === 'markdown' && !showSource ? (
             <MarkdownPreview content={data.content} />
           ) : (
             <CodePreview

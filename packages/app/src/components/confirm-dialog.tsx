@@ -44,6 +44,13 @@ export type ConfirmRequest = {
    */
   hideCancel?: boolean;
   onConfirm: () => void;
+  /**
+   * A third way out, between Cancel and the primary action — Discard beside
+   * Save/Cancel on the unsaved-changes guard, the only caller today. Absent
+   * everywhere else, which keeps every existing two-button confirm unchanged.
+   */
+  secondaryLabel?: string;
+  onSecondary?: () => void;
 };
 
 export function ConfirmDialog({
@@ -157,6 +164,15 @@ export function ConfirmDialog({
                 Cancel
               </button>
             )}
+            {request.secondaryLabel ? (
+              <button
+                type="button"
+                onClick={request.onSecondary}
+                className="rounded-md border border-border px-3 py-1.5 text-sm text-muted-foreground transition-colors hover:bg-accent hover:text-foreground"
+              >
+                {request.secondaryLabel}
+              </button>
+            ) : null}
             <button
               ref={confirmRef}
               type="button"

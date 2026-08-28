@@ -2,6 +2,45 @@
 
 <!-- Append one entry per landed phase/PR: date, phase, PR link, one-line summary. -->
 
+## 2026-08-28 — Phase 24 Theme D — the preview pane becomes an editor
+
+Merged locally on `feature/phase-24-d-editor` — no PR link, no GitHub remote on this checkout.
+Phase 24 is now feature-complete: all seven themes (A–G) have landed.
+
+- [x] CodeMirror 6 added to `packages/app/package.json` only, as hand-picked
+      `@codemirror/{state,view,commands,language,language-data,autocomplete,search}` extensions
+      rather than the bundled `basicSetup` meta-package. Language grammar resolved by filename via
+      `@codemirror/language-data`'s `LanguageDescription.matchFilename`; a hand-rolled
+      `EditorView.theme()` off the app's own CSS tokens matches both themes with no second
+      dependency. `code-editor.tsx` is `React.lazy`-loaded from `file-preview.tsx` — found in
+      review, a static import cost every Files-view load several seconds of cold Vite compile for a
+      bundle only an actual Edit click needs.
+- [x] `features/files/preview/code-editor.tsx` beside `code-preview.tsx`: the preview keeps shiki
+      for read mode, the editor owns edit mode, both highlighters stay in the app.
+- [x] Edit mode entered explicitly; `file-preview.tsx`'s literal `read-only` badge is now the
+      toggle, rendering `read-only` only for what has genuinely no write channel (`claude-home`,
+      non-text results).
+- [x] Dirty state and a new `file.save` `CommandId` (group `files`, chord `Mod+s`), wired through
+      `useCommandHandlers()` off a new `file-editor-store.ts` — the same registered-handle shape
+      `commit-box-store.ts` established for `status.commit`.
+- [x] A centralised unsaved-changes guard: `ui-store`'s `setActiveView`/`selectRepo`/
+      `selectWorktree`/`goBack`/`goForward` all defer through `file-editor-store.guardNavigation`
+      rather than each call site rolling its own check, and a `beforeunload` listener in `app.tsx`
+      does the same for closing the window. `confirm-dialog.tsx` gained an optional
+      `secondaryLabel`/`onSecondary` for the three-way Save/Discard/Cancel prompt
+      (`file-editor-guard.tsx`, mounted once from `app.tsx`).
+- [x] Stale-write handling via an inline banner (Reload / Keep editing) rather than a silent
+      overwrite or discard; editing refused, visibly, for binary/too-large/error read results.
+- Found and fixed in self-review: the guard dialog left `blastRadius` `undefined`, which
+  `ConfirmDialog` reads as "still being counted" and renders "Checking what this affects…" forever
+  — fixed to the explicit `null` the delete confirm already established.
+- Tests: `file-editor-store.test.ts` (new, 12 cases), `use-command-handlers.test.ts` gained a
+  `file.save` describe block, `ui-store.test.ts` gained a guarded-navigation describe block, and a
+  new `e2e/files-editor.spec.ts` (5 Playwright cases) covers the Edit toggle, the dirty indicator,
+  the Save/Discard/Cancel guard on both Cancel and Discard, and the stale-write banner. Three
+  existing specs (`files-view`, `files-write`, `files-search`) updated for the read-only badge
+  becoming the Edit toggle.
+
 ## 2026-08-28 — Phase 24 Theme G — fs invalidation, live
 
 Merged locally on `feature/phase-24-g-fs-invalidation` — no PR link, no GitHub remote on this
