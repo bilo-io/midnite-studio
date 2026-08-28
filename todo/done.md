@@ -2,6 +2,27 @@
 
 <!-- Append one entry per landed phase/PR: date, phase, PR link, one-line summary. -->
 
+## 2026-08-28 — Phase 23 Theme B — useCommandHandlers, one dispatcher for keyboard/menu/palette
+
+The keymap's own doc comment had promised this hook since Phase 9; it was never written, and
+`repo.open`/`repo.close`/`view.refresh` shipped as live native menu items that did nothing.
+
+- [x] `use-command-handlers.ts` exports `useCommandHandlers(): CommandRuntime` —
+      `Record<CommandId, {run, enabled, disabledReason?}>` — rebuilt every render so it closes over
+      current state; the inline handler literal moved out of `app.tsx` verbatim, then extended
+- [x] `repo.open`/`repo.close`/`view.refresh` wired — the three ids with a keymap entry *and* a live
+      native menu item that had done nothing since Phase 9
+- [x] `status.commit` (`Mod+Enter`) focuses-and-submits the commit box through a new
+      `commit-box-store.ts`, the one imperative seam into `StatusPanel`'s own local commit state,
+      which stays where it was rather than lifting into a store
+- [x] Every entry carries `enabled` + `disabledReason`: with no repo open, `sync.*` and `status.*`
+      say why instead of disappearing or failing silently
+- [x] `use-keybindings.ts` takes the `CommandRuntime` directly rather than a handler map — a
+      disabled entry is treated as unbound (falls through to the browser default) — and `app.tsx`
+      ends the theme thinner, with `op.abort`/`op.continue` left deliberately unwired for Phase 22
+- [x] 7 new Vitest cases in `use-command-handlers.test.ts` covering the no-repo/repo-selected matrix
+      and the `sync.*`/`status.commit` disabled-reason wiring
+
 ## 2026-08-28 — Phase 24 Theme B — the jail learns to write
 
 The load-bearing theme of the phase: `fs-scope-write.ts` confines a write's *parent* (never its

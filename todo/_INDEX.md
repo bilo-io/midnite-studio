@@ -25,7 +25,7 @@ Completed work is logged append-only in [`done.md`](done.md). Deferred scope liv
 | [26 · Side by side, and the room to show it](phase-26-side-by-side-diffs.md) | ◻ TODO | — | 0/68 | `░░░░░░░░░░` | 0% | — | A–H |
 | [25 · Search everywhere, and the blame that explains it](phase-25-search-everywhere.md) | ◻ TODO | x1 | 0/101 | `░░░░░░░░░░` | 0% | — | A–F |
 | [24 · The explorer learns to write, and to search](phase-24-writable-explorer.md) | 🔄 WIP | — | 14/54 | `███░░░░░░░` | 26% | F | C, D, E, G |
-| [23 · A command palette, and the registry that can feed it](phase-23-command-palette.md) | 🔄 WIP | — | 4/55 | `█░░░░░░░░░` | 7% | B | C–H |
+| [23 · A command palette, and the registry that can feed it](phase-23-command-palette.md) | 🔄 WIP | — | 11/55 | `██░░░░░░░░` | 20% | — | C–H |
 | [22 · Stash, the reflog, and writes you can take back](phase-22-stash-and-safety-net.md) | 🔄 WIP | — | 10/70 | `█░░░░░░░░░` | 14% | — | B–H |
 | [21 · Agent roster + terminal identity](phase-21-agent-roster-and-terminal-identity.md) | 🔄 WIP | — | 43/46 | `█████████░` | 93% | — | 3 manual checks |
 | [20 · Reviews page & unified diff syntax highlighting](phase-20-reviews-page.md) | 🔄 WIP | — | 43/45 | `██████████` | 96% | — | 2 manual checks |
@@ -249,8 +249,8 @@ first fuzzy matcher, E–F are the sources. `Mod+K` is free; `Mod+Shift+P` is Pu
 - ✅ **A** — reconcile the fifteen-ids/thirteen-bindings split, add a `group` union, add `palette.open`
   (`Mod+k`, global scope so it escapes the terminal) and `palette.files` (`Mod+p`), fix the phantom
   `commands.ts` links (landed 2026-08-28)
-- ◻ **B** — `useCommandHandlers(): CommandRuntime` with `enabled` + `disabledReason`, and the four
-  cheap dead commands finally wired; `op.*` left to Phase 22.
+- ✅ **B** — `useCommandHandlers(): CommandRuntime` with `enabled` + `disabledReason`, and the four
+  cheap dead commands finally wired; `op.*` left to Phase 22 (landed 2026-08-28)
 - ◻ **C** — `palette.tsx` + `palette-host.tsx` on the `dialog-host.tsx` shape, a deliberately
   unpersisted `palette-store.ts`, `z-dialog`, and the capture-phase short-circuit that stops `Mod+g`
   firing out from under the input.
