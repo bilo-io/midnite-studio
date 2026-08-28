@@ -947,6 +947,8 @@ test.describe('terminal panel', () => {
   test('sessions drag into a new order', async ({ page }) => {
     await open(page, { terminalSessions: RESTORED });
     await toggleTerminal(page);
+    await expect(rows(page)).toHaveCount(3);
+    await page.waitForTimeout(250);
 
     /*
       One entry per row, not one per span: a row carries two labels since
@@ -956,7 +958,7 @@ test.describe('terminal panel', () => {
     const titles = () =>
       page.locator('[data-session-row]').evaluateAll((list) =>
         list.map((row) =>
-          Array.from(row.querySelectorAll('button span.truncate'), (span) =>
+          Array.from(row.querySelectorAll('span.truncate'), (span) =>
             span.textContent?.trim() ?? '',
           ).join(' · '),
         ),
@@ -967,14 +969,12 @@ test.describe('terminal panel', () => {
       'midnite-git · Claude',
     ]);
 
-    const first = (await page.locator('[data-session-row]').first().boundingBox())!;
-    const third = (await page.locator('[data-session-row]').nth(2).boundingBox())!;
-
-    await page.mouse.move(first.x + first.width / 2, first.y + first.height / 2);
+    await page.locator('[data-session-row]').first().hover();
     await page.mouse.down();
     // Past the 6px constraint, then down in steps so dnd-kit sees movement.
     await page.mouse.move(first.x + first.width / 2, first.y + first.height / 2 + 10);
-    await page.mouse.move(first.x + first.width / 2, third.y + third.height / 2, { steps: 8 });
+    await page.mouse.move(first.x + first.width / 2, third.y + third.height - 2, { steps: 15 });
+    await page.waitForTimeout(100);
     await page.mouse.up();
 
     expect(await titles()).toEqual([
@@ -1166,5 +1166,106 @@ test.describe('phase 21 screenshots', () => {
     await list.screenshot({
       path: '../../docs/screenshots/phase-21-live-agent-after.png',
     });
+  });
+
+  /**
+   * Phase 30 Theme D: Honest session states.
+   */
+  test('sleeping a session keeps its row and marks it asleep', async ({ page }) => {
+    await open(page);
+    await toggleTerminal(page);
+
+    await page.getByRole('button', { name: 'New terminal or agent' }).click();
+    await page.getByRole('menuitem', { name: 'Claude', exact: true }).click();
+    await expect(rows(page)).toHaveCount(2);
+
+    // Sleep the active Claude session via context menu
+    await rows(page).last().click({ button: 'right' });
+    await page.getByRole('menuitem', { name: 'Sleep session' }).click();
+
+    await expect.poll(async () => (await ptyCalls(page)).kills.length).toBeGreaterThan(0);
+    await expect(rows(page).last()).toHaveAttribute('data-phase', 'asleep');
+  });
+
+  test('an ended pane shows the EndedStrip and button starts a shell', async ({ page }) => {
+    await open(page, {
+      terminalSessions: [
+        {
+          session: {
+            id: 's-ended',
+            kind: 'shell',
+            title: 'repo',
+            cwd: '/tmp/midnite-git',
+            repoId: 'repo:midnite-git',
+            createdAt: 0,
+          },
+          scrollback: 'Finished build.\n',
+        },
+      ],
+    });
+    await toggleTerminal(page);
+
+    const strip = page.locator('[data-ended-strip]');
+    await expect(strip).toBeVisible();
+    await expect(strip).toContainText('Session ended');
+
+    await page.getByRole('button', { name: 'Start new shell here' }).click();
+    await expect.poll(async () => (await ptyCalls(page)).creates.length).toBe(1);
+    await expect(strip).not.toBeVisible();
+  });
+
+  test("Resume sends the roster's resume args for an agent", async ({ page }) => {
+    await open(page, {
+      terminalSessions: [
+        {
+          session: {
+            id: 's-agent-ended',
+            kind: 'agent',
+            agentId: 'claude',
+            title: 'repo',
+            cwd: '/tmp/midnite-git',
+            repoId: 'repo:midnite-git',
+            createdAt: 0,
+          },
+          scrollback: 'Agent conversation done.\n',
+        },
+      ],
+    });
+    await toggleTerminal(page);
+
+    const resumeBtn = page.getByRole('button', { name: 'Resume conversation' });
+    await expect(resumeBtn).toBeVisible();
+    await resumeBtn.click();
+
+    await expect.poll(async () => (await ptyCalls(page)).creates.length).toBe(1);
+    const create = (await ptyCalls(page)).creates[0] as { initialInput?: string };
+    expect(create.initialInput).toBe('claude --continue\r');
+  });
+
+  test('the version-skew banner allows restarting legacy sessions', async ({ page }) => {
+    await open(page, {
+      terminalSessions: [
+        {
+          session: {
+            id: 's-legacy',
+            kind: 'shell',
+            title: 'legacy-repo',
+            cwd: '/tmp/midnite-git',
+            repoId: 'repo:midnite-git',
+            createdAt: 0,
+          },
+          legacy: true,
+        },
+      ],
+    });
+    await toggleTerminal(page);
+
+    const alert = page.getByRole('alert');
+    await expect(alert).toBeVisible();
+    await expect(alert).toContainText('From a previous version');
+
+    await page.getByRole('button', { name: 'Restart' }).click();
+    await expect.poll(async () => (await ptyCalls(page)).creates.length).toBe(1);
+    await expect(alert).not.toBeVisible();
   });
 });

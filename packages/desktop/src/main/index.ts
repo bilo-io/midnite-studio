@@ -22,7 +22,7 @@ import { registerStatusHandlers } from './ipc/status-handlers';
 import { configureTests, registerTestsHandlers } from './ipc/tests-handlers';
 import { defaultLogger, type Logger } from './log';
 import { installMenu } from './menu';
-import { killAllPtys, setAgentWatcher } from './pty-service';
+import { detachAll, initPtyService, setAgentWatcher } from './pty-service';
 import { createTerminalStore } from './terminal-store';
 import {
   configureTerminals,
@@ -182,6 +182,13 @@ if (!app.requestSingleInstanceLock()) {
     // Must run before the store is read: the rename to "Midnite Git" moved
     // userData, and the user's repository list is still under the old name.
     await migrateLegacyRepoStore(join(dirname(userData), LEGACY_APP_NAME), userData);
+    await initPtyService({
+      userDataDir: userData,
+      appVersion: app.getVersion(),
+      isPackaged: app.isPackaged,
+      getWindow,
+      log: (msg) => defaultLogger(msg),
+    });
     configureRegistry(createRepoStore(userData));
     configureTerminals(createTerminalStore(userData), userData);
     configureDiagnostics(createTrustStore(userData));
@@ -239,22 +246,21 @@ if (!app.requestSingleInstanceLock()) {
     stopAllWatchers();
 
     if (flushed) {
-      killAllPtys();
+      detachAll();
       return;
     }
 
     event.preventDefault();
     void shutdownTerminals().finally(() => {
       flushed = true;
-      // Ptys are children, not detached processes: without this a shell is
-      // orphaned per window per launch, and on macOS those outlive the app.
-      killAllPtys();
+      // Detach from broker without killing background sessions
+      detachAll();
       app.quit();
     });
   });
 
   app.on('window-all-closed', () => {
-    killAllPtys();
+    detachAll();
     stopAllWatchers();
     // macOS apps conventionally stay alive with no windows; everywhere else,
     // closing the last window quits.

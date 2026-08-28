@@ -33,6 +33,8 @@ type FilesState = {
   toggleDir: (relPath: string) => void;
   expandDirs: (relPaths: string[]) => void;
   selectFile: (relPath: string | null) => void;
+  /** Selects a file and ensures all its parent directories are expanded. */
+  revealFile: (relPath: string) => void;
   startRename: (relPath: string, initialName: string) => void;
   /** Also force-expands `parentPath` so the new inline row is visible immediately. */
   startCreate: (parentPath: string, entryKind: 'file' | 'directory', initialName: string) => void;
@@ -68,6 +70,21 @@ export const useFilesStore = create<FilesState>()((set, get) => ({
     }),
 
   selectFile: (selectedPath) => set({ selectedPath }),
+
+  revealFile: (relPath) =>
+    set((state) => {
+      const parts = relPath.split('/');
+      if (parts.length <= 1) {
+        return { selectedPath: relPath };
+      }
+      const newExpanded = { ...state.expanded };
+      let acc = '';
+      for (const part of parts.slice(0, -1)) {
+        acc = acc ? `${acc}/${part}` : part;
+        newExpanded[acc] = true;
+      }
+      return { selectedPath: relPath, expanded: newExpanded };
+    }),
 
   startRename: (relPath, initialName) =>
     set({ editing: { kind: 'rename', relPath, initialName } }),

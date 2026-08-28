@@ -18,6 +18,28 @@ import { bridge } from '../../services/bridge';
 export type ConnectionState = 'idle' | 'starting' | 'open' | 'exited' | 'unavailable';
 
 /**
+ * Derived honest lifecycle phase of a terminal session across process and sleep states.
+ *
+ * - `live`: process is running or starting up (`open`, `starting`, `idle`).
+ * - `asleep`: deliberately put to sleep (process killed, transcript kept) or legacy broker session.
+ * - `ended`: process has exited, backend unavailable, or restored without live process.
+ */
+export type SessionPhase = 'live' | 'asleep' | 'ended';
+
+/**
+ * Derive the honest session phase for a session given its persisted flags and runtime connection state.
+ */
+export function sessionPhase(
+  session: Pick<TerminalSession, 'asleep'> & { legacy?: boolean },
+  state: ConnectionState | undefined,
+): SessionPhase {
+  if (session.legacy) return 'asleep';
+  if (session.asleep === true) return 'asleep';
+  if (state === 'open' || state === 'starting' || state === 'idle') return 'live';
+  return 'ended';
+}
+
+/**
  * What a live agent session appears to be doing, guessed from its own output.
  *
  * There is no channel that tells the app this directly — an agent CLI is just
@@ -42,21 +64,24 @@ type TerminalState = {
   activeId: string | null;
   /** False until `hydrate()` has heard back from main, so the UI can wait. */
   hydrated: boolean;
-  /**
-   * How many sessions the last `hydrate()` bound to a live pty — a reload or
-   * relaunch that found processes still running, rather than a cold restore.
-   *
-   * Renderer-only, never persisted. Read by the status-bar "Reattached N
-   * sessions" note (Phase 30 Theme C); until that theme lands nothing renders
-   * it, but `hydrate()` sets it on every launch regardless.
-   */
+  /** How many sessions the last `hydrate()` bound to a live pty. */
   reattachedCount: number;
   /** `Date.now()` at the `hydrate()` that produced `reattachedCount`. */
   reattachedAt: number;
+  /** Whether the reattached note badge was dismissed by the user. */
+  reattachedDismissed: boolean;
+  /** Backend broker status (broker vs fail-soft inproc). */
+  broker: { mode: 'broker' | 'inproc'; reason?: string };
+  /** Whether the legacy sessions banner has been dismissed for this launch. */
+  legacyBannerDismissed: boolean;
+  /** Legacy session markers keyed by sessionId. */
+  legacy: Record<string, boolean>;
 
   /** Live pty per session; absent means the session has no process. */
   ptyIds: Record<string, string>;
   states: Record<string, ConnectionState>;
+  /** Exit code received on process exit, per session. Cleared by bindPty. */
+  exitCodes: Record<string, number>;
   /**
    * Bytes to replay into a session's xterm on first mount.
    *
@@ -155,6 +180,15 @@ type TerminalState = {
   /** Consumed on pty creation — one paste per queue, never on a revive. */
   clearPendingInput: (sessionId: string) => void;
   closeSession: (sessionId: string) => void;
+  /**
+   * Put a live session to sleep: kills its pty process, marks the session asleep,
+   * sets connection state to 'exited', and persists asleep: true in terminals.json.
+   */
+  sleepSession: (sessionId: string) => void;
+  /**
+   * Clears the asleep flag on revive / wakeup.
+   */
+  awakeSession: (sessionId: string) => void;
   setActive: (sessionId: string) => void;
   /** Same as `setActive`, but keeps keyboard focus in the session list. */
   setActiveFromListNav: (sessionId: string) => void;
@@ -186,7 +220,10 @@ type TerminalState = {
    * bare prompt.
    */
   setForegroundCommand: (sessionId: string, command: string | null) => void;
+  setExitCode: (sessionId: string, exitCode: number) => void;
 
+  dismissReattachedNote: () => void;
+  dismissLegacyBanner: () => void;
   bindPty: (sessionId: string, ptyId: string) => void;
   unbindPty: (sessionId: string) => void;
   setState: (sessionId: string, state: ConnectionState, error?: string) => void;
@@ -207,8 +244,13 @@ export const useTerminalStore = create<TerminalState>()((set, get) => ({
   hydrated: false,
   reattachedCount: 0,
   reattachedAt: 0,
+  reattachedDismissed: false,
+  broker: { mode: 'broker' },
+  legacyBannerDismissed: false,
+  legacy: {},
   ptyIds: {},
   states: {},
+  exitCodes: {},
   replay: {},
   errors: {},
   pendingInput: {},
@@ -219,6 +261,9 @@ export const useTerminalStore = create<TerminalState>()((set, get) => ({
   foregroundCommand: {},
   focusSignal: 0,
   suppressAutoFocus: false,
+
+  dismissReattachedNote: () => set({ reattachedDismissed: true }),
+  dismissLegacyBanner: () => set({ legacyBannerDismissed: true }),
 
   /**
    * Load the saved sessions. Spawns nothing.
@@ -236,7 +281,9 @@ export const useTerminalStore = create<TerminalState>()((set, get) => ({
       return;
     }
 
-    const { sessions } = await api.terminal.list();
+    const res = await api.terminal.list();
+    const sessions = res.sessions;
+    const broker = res.broker ?? { mode: 'broker' };
 
     /*
       Merged, never replaced.
@@ -250,14 +297,22 @@ export const useTerminalStore = create<TerminalState>()((set, get) => ({
       empty list.
     */
     set((state) => {
-      const restored = sessions.map((entry) => entry.session);
+      const restored = sessions.map((entry) => ({
+        ...entry.session,
+        ...(entry.legacy ? { legacy: true } : {}),
+      }));
       const live = state.sessions.filter((open) => !restored.some((s) => s.id === open.id));
       const liveEntries = sessions.flatMap((e) =>
         e.live ? [{ sessionId: e.session.id, ptyId: e.live.ptyId }] : [],
       );
+      const legacyMap = Object.fromEntries(
+        sessions.filter((e) => e.legacy).map((e) => [e.session.id, true]),
+      );
 
       return {
         hydrated: true,
+        broker,
+        legacy: { ...state.legacy, ...legacyMap },
         sessions: [...restored, ...live],
         // A session opened by hand outranks the restored list for focus: the
         // user asked for it seconds ago, and the saved ones have no process.
@@ -325,6 +380,31 @@ export const useTerminalStore = create<TerminalState>()((set, get) => ({
       ...dropKey(get(), sessionId),
     });
     if (remaining.length === 0) set({ activeId: null });
+  },
+
+  sleepSession: (sessionId) => {
+    const { ptyIds, sessions } = get();
+    const ptyId = ptyIds[sessionId];
+    if (ptyId) bridge()?.pty.kill({ ptyId });
+    const session = sessions.find((s) => s.id === sessionId);
+    if (!session) return;
+    const nextSession: TerminalSession = { ...session, asleep: true };
+    get().unbindPty(sessionId);
+    get().setState(sessionId, 'exited');
+    set((state) => ({
+      sessions: state.sessions.map((s) => (s.id === sessionId ? nextSession : s)),
+    }));
+    bridge()?.terminal.save({ session: nextSession });
+  },
+
+  awakeSession: (sessionId) => {
+    const session = get().sessions.find((s) => s.id === sessionId);
+    if (!session || !session.asleep) return;
+    const nextSession: TerminalSession = { ...session, asleep: false };
+    set((state) => ({
+      sessions: state.sessions.map((s) => (s.id === sessionId ? nextSession : s)),
+    }));
+    bridge()?.terminal.save({ session: nextSession });
   },
 
   setActive: (activeId) => set({ activeId }),
@@ -409,6 +489,9 @@ export const useTerminalStore = create<TerminalState>()((set, get) => ({
       return { foregroundCommand: { ...state.foregroundCommand, [sessionId]: command } };
     }),
 
+  setExitCode: (sessionId, exitCode) =>
+    set((state) => ({ exitCodes: { ...state.exitCodes, [sessionId]: exitCode } })),
+
   setActivity: (sessionId, activity) =>
     set((state) => {
       if (state.activity[sessionId] === activity) return state;
@@ -425,7 +508,9 @@ export const useTerminalStore = create<TerminalState>()((set, get) => ({
       // run did before it.
       const replay = { ...state.replay };
       delete replay[sessionId];
-      return { ptyIds: { ...state.ptyIds, [sessionId]: ptyId }, replay };
+      const exitCodes = { ...state.exitCodes };
+      delete exitCodes[sessionId];
+      return { ptyIds: { ...state.ptyIds, [sessionId]: ptyId }, replay, exitCodes };
     }),
 
   unbindPty: (sessionId) =>
@@ -462,6 +547,7 @@ function dropKey(
   TerminalState,
   | 'ptyIds'
   | 'states'
+  | 'exitCodes'
   | 'replay'
   | 'errors'
   | 'pendingInput'
@@ -473,6 +559,7 @@ function dropKey(
 > {
   const ptyIds = { ...state.ptyIds };
   const states = { ...state.states };
+  const exitCodes = { ...state.exitCodes };
   const replay = { ...state.replay };
   const errors = { ...state.errors };
   const pendingInput = { ...state.pendingInput };
@@ -483,6 +570,7 @@ function dropKey(
   const foregroundCommand = { ...state.foregroundCommand };
   delete ptyIds[sessionId];
   delete states[sessionId];
+  delete exitCodes[sessionId];
   delete replay[sessionId];
   delete errors[sessionId];
   delete pendingInput[sessionId];
@@ -494,6 +582,7 @@ function dropKey(
   return {
     ptyIds,
     states,
+    exitCodes,
     replay,
     errors,
     pendingInput,

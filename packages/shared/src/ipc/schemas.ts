@@ -879,9 +879,20 @@ export const RestoredTerminalSession = z.object({
       rows: z.number().int().positive(),
     })
     .nullable(),
+  /**
+   * Set when this session belongs to an older broker protocol version.
+   * Derived at runtime by main when listing terminals from legacy brokers.
+   */
+  legacy: z.boolean().optional(),
 });
 export const TerminalListResponse = z.object({
   sessions: z.array(RestoredTerminalSession),
+  broker: z
+    .object({
+      mode: z.enum(['broker', 'inproc']),
+      reason: z.string().optional(),
+    })
+    .optional(),
 });
 
 export const TerminalSaveRequest = z.object({ session: TerminalSessionSchema });
