@@ -2,6 +2,42 @@
 
 <!-- Append one entry per landed phase/PR: date, phase, PR link, one-line summary. -->
 
+## 2026-08-28 — Phase 30 Themes F, G — the activity indicator that never span, and a detector that can be wrong out loud
+
+Merged locally on `feature/p30-fg` — no PR link, no GitHub remote on this checkout. Phase 30 is
+now feature-complete — all seven themes (A–G) have landed; only the "Open, for a human" manual
+passes remain, all needing a real shell or a packaged app.
+
+- [x] **F — the activity indicator that never span.** `isAgentRow(session, liveAgentId)` (an
+      exported `terminal-store.ts` predicate) replaces `session.kind === 'agent'` at the three
+      sites that gate the glyph, the view's write path, and the status-bar count — the reported
+      bug, where an agent started by typing its name in a shell got the icon and accent from the
+      `ps` probe but never the spinner, because the gate still read the creation-time `kind`.
+      `SessionActivity` gains `'idle'`; `ActivityIndicator` grows a fourth arm — `undefined` draws
+      a quiet `UnknownDot` rather than a confident idle caret, which is what let the detector sit
+      broken from Claude Code 2.1.x onward without anyone noticing. One
+      `html[data-motion='reduced'] [data-activity]` rule removes the animation outright rather than
+      letting the shell's own reset pin each glyph to its held final frame (idle's was
+      `opacity: 0` — fully invisible; waiting's was dimmed to a third). `ThinkingSpinner` is gone in
+      favour of the shared `skeleton.tsx` `Spinner`, geometry rationale moved with it.
+- [x] **G — a detector that can be wrong out loud.** Detection moves out of `TerminalView` into
+      `pty-service.ts`'s single `ptyData` send site (both the broker and inproc-fallback paths), so
+      the status bar's agent count stays right while the terminal panel is collapsed and every view
+      is unmounted. `AgentDefinitionSchema.activity` (`RegexSource`-guarded `thinking`/`frameEnd`
+      markers) makes per-agent detection roster data — only `claude` ships a set, compiled once at
+      boot rather than per chunk. A shared 1s `createActivityClock` decays `thinking` →10s→
+      `waiting` →60s→ `idle`, finally producing `'idle'` and expiring a stale guess instead of
+      leaving it spinning forever. A per-agent time budget (three consecutive calls over 2ms)
+      disables a runaway pattern for the process and notifies every session running that agent
+      with an explicit `null`, rather than a silently stuck spinner. `mgit:pty:activity`
+      (`PtyActivityEvent`, change-only) carries the guess to `use-terminal-ipc.ts`, mounted per
+      session rather than per view. Four hand-authored fixtures (no live packaged app to capture
+      from) pin the `claude` marker pair against real-shaped output, including the narrow-width
+      case that dropped the `(1m 38s · ↓ 4.5k tokens)` parenthetical entirely. A new **Agent
+      activity** section on the Terminal settings page (`activityRows`, a pure helper) reads the
+      renderer store only — no new channel — with a one-second tick so "last seen Ns ago" actually
+      ticks.
+
 ## 2026-08-28 — Phase 23 Themes F, G, H — refs source, file finder, focus-trap retrofit
 
 Merged locally on `main` (commit `3a28ac6`) — no PR link, no GitHub remote on this checkout.

@@ -588,14 +588,14 @@ that pty.
       wiring gains the second `webContents.send`. Mock bridge: `__mgitPtyCommand(ptyId, command)`
       beside `__mgitPtyAgent` (`mock-bridge.ts:1502-1508`).
 
-### F — The indicator that never span (M)
+### F — The indicator that never span (M) — ✅ DONE (2026-08-28, merged locally — no PR/no remote; the two "Open, for a human" manual passes stay open, needing macOS Reduce Motion and a real shell)
 
 The reported defect and the three things around it that share a cause: an activity glyph is decided
 by what the session was *opened as*, drawn with an animation that a reduced-motion machine freezes,
 and rendered identically whether the detector said "idle" or never said anything at all.
 Renderer-only; nothing here needs the broker.
 
-- [ ] The gate reads what is **running**, not what the session was **opened as**.
+- [x] The gate reads what is **running**, not what the session was **opened as**.
       - `session.kind` is fixed at creation, but Phase 21's `ps` probe already reports the truth
         through `liveAgentId` and
         [`resolveSessionAgentId(session, liveAgentId)`](../packages/app/src/features/terminal/terminal-store.ts)
@@ -619,7 +619,7 @@ Renderer-only; nothing here needs the broker.
         `sessionPhase(session, state) === 'live'` clause is untouched.
       - Acceptance: an e2e session with `kind: 'shell'` for which `__mgitPtyAgent(ptyId, 'claude')`
         has fired renders `[data-activity]` on its row; the status bar counts it.
-- [ ] `SessionActivity` gains `'idle'`, so `undefined` can stop meaning it.
+- [x] `SessionActivity` gains `'idle'`, so `undefined` can stop meaning it.
       - [`terminal-store.ts:50`](../packages/app/src/features/terminal/terminal-store.ts):
         `export type SessionActivity = 'thinking' | 'waiting' | 'idle';`. `activity` (`:109`),
         `setActivity` (`:202`, `:478`) and the `dropSessionState` delete (`:490`) are unchanged —
@@ -628,7 +628,7 @@ Renderer-only; nothing here needs the broker.
         draw, not a synonym for idle. Nothing emits `'idle'` until Theme G's decay ladder; that is
         deliberate and stated rather than churning the file twice, and the vitest below covers the
         `'idle'` arm so it is not untested dead code.
-- [ ] `ActivityIndicator` (`terminal-session-list.tsx:356`) grows the fourth arm and the test hook.
+- [x] `ActivityIndicator` (`terminal-session-list.tsx:356`) grows the fourth arm and the test hook.
       - The outer fixed-width span gains `data-activity={activity ?? 'unknown'}` — the sibling of
         Theme D's `data-phase` at `:253`, and the only hook Playwright and the reduced-motion CSS
         below need. The `flex size-3.5 shrink-0 items-center justify-center` slot is unchanged: the
@@ -643,7 +643,7 @@ Renderer-only; nothing here needs the broker.
         has silently regressed once already (see `activity-detect.ts`'s own note that from 2.1.x
         onward thinking "was never once detected"). Drawing that state as a confident *idle* is what
         hid it; drawing it as a visibly-unsure dot is what would have surfaced it on day one.
-- [ ] Under `html[data-motion='reduced']` all four glyphs stay legible and stay **different**.
+- [x] Under `html[data-motion='reduced']` all four glyphs stay legible and stay **different**.
       - The bug, precisely: `@bilo-io/shell/appearance.css` forces
         `animation-duration: 0.001ms !important` **and** `animation-fill-mode: forwards !important`
         on every element, so each keyframe is pinned to its own final frame. `caret-blink`'s `100%`
@@ -661,7 +661,7 @@ Renderer-only; nothing here needs the broker.
         [`tailwind.config.ts:214`](../packages/app/tailwind.config.ts) writes down as the house
         habit ("styled to stand on its own rather than to be a keyframe's starting position").
       - `data-motion='full'` and the unset default are untouched; this rule cannot fire for them.
-- [ ] `ThinkingSpinner` is deleted; the row uses the shared `Spinner`.
+- [x] `ThinkingSpinner` is deleted; the row uses the shared `Spinner`.
       - `terminal-session-list.tsx:393`'s className is **byte-identical** to
         [`components/skeleton.tsx:61`](../packages/app/src/components/skeleton.tsx)'s —
         `size-3.5 animate-spin rounded-full border-2 border-muted-foreground/25 border-r-foreground border-t-foreground`
@@ -677,7 +677,7 @@ Renderer-only; nothing here needs the broker.
       - Acceptance: `grep -rn 'ThinkingSpinner' packages/app/src` returns nothing, and
         `grep -rn 'animate-spin rounded-full border-2' packages/app/src` returns exactly one line,
         in `skeleton.tsx`.
-- [ ] Accessibility: the slot is labelled, and it never interrupts.
+- [x] Accessibility: the slot is labelled, and it never interrupts.
       - Each arm keeps its own `role="img"` + `aria-label` — *Thinking*, *Waiting for input*
         (unchanged, `:414`), *Idle* (unchanged, `:431`), *Activity unknown*. **No `role="status"`,
         no `aria-live`**: an agent mid-turn repaints several times a second, so a live region here
@@ -686,7 +686,7 @@ Renderer-only; nothing here needs the broker.
       - Vitest asserts the four labels; the absence of a live region is asserted too
         (`expect(container.querySelector('[aria-live]')).toBeNull()`), because "we deliberately did
         not" is exactly the kind of decision a later change undoes by accident.
-- [ ] Vitest — the gate, as a pure function.
+- [x] Vitest — the gate, as a pure function.
       - Extract `isAgentRow(session, liveAgentId): boolean` beside `resolveSessionAgentId` in
         `terminal-store.ts` (one line, `resolveSessionAgentId(...) !== undefined`) so all three call
         sites share one testable predicate rather than three copies of a comparison.
@@ -697,14 +697,14 @@ Renderer-only; nothing here needs the broker.
         session's entry does not leak.
       - `agent-count.test.ts` gains a case: a `kind:'shell'` session with `liveAgentId['s1'] = 'claude'`
         and `states['s1'] = 'open'` counts as 1.
-- [ ] Vitest — the indicator's four arms and the reduced-motion classes.
+- [x] Vitest — the indicator's four arms and the reduced-motion classes.
       - New [`terminal-session-list.test.tsx`](../packages/app/src/features/terminal/terminal-session-list.test.tsx)
         (net-new; the file has no test today) rendering `ActivityIndicator` alone via RTL:
         `data-activity` is `thinking`/`waiting`/`idle`/`unknown` for the four inputs; the four
         `aria-label`s are present; no `[aria-live]` anywhere in the subtree.
       - The CSS rule itself is not unit-testable — it is asserted by the Playwright case below and
         by the human pass in Verification.
-- [ ] Playwright — the defect, end to end.
+- [x] Playwright — the defect, end to end.
       - [`e2e/terminal.spec.ts`](../packages/app/e2e/terminal.spec.ts) gains
         `'a shell running an agent gets the activity indicator'`: open a `kind: 'shell'` session,
         fire `__mgitPtyAgent(ptyId, 'claude')`, feed a chunk containing `✳ Kneading…`, then
@@ -714,17 +714,17 @@ Renderer-only; nothing here needs the broker.
         `document.documentElement.dataset.motion = 'reduced'`, then assert the computed
         `animationName` of `[data-activity='idle'] > span` is `'none'` and its computed `opacity`
         is `'1'` — the two things that are wrong today.
-- [ ] Screenshots per the visual convention: the four glyphs side by side in one list, light and
+- [x] Screenshots per the visual convention: the four glyphs side by side in one list, light and
       dark, at the default density; and the same four with `data-motion='reduced'` set, which is the
       frame that proves they are still four distinct marks.
 
-### G — A detector that can be wrong out loud (L)
+### G — A detector that can be wrong out loud (L) — ✅ DONE (2026-08-28, merged locally — no PR/no remote; the one "Open, for a human" manual pass stays open, needing an agent mid-turn in a packaged app)
 
 Theme F makes the indicator *reachable* and *honest about not knowing*. This makes the thing behind
 it survive a collapsed panel, a second agent CLI, and a TUI that changes under it. Lands after F;
 **independent of C** — the one site it hooks survives C's rewrite untouched.
 
-- [ ] Detection moves out of the renderer into main.
+- [x] Detection moves out of the renderer into main.
       - Why it must: `setActivity` is called from exactly one place,
         [`terminal-view.tsx:146`](../packages/app/src/features/terminal/terminal-view.tsx), inside
         the view — and [`app.tsx:734`](../packages/app/src/app.tsx)'s `terminalReveal.mounted`
@@ -746,7 +746,7 @@ it survive a collapsed panel, a second agent CLI, and a TUI that changes under i
       - Per-pty state: `ActivityState` (`createActivityState()`) is held in `pty-service.ts`'s
         existing `sessions` map entry rather than a second map, so `sessions.delete(id)` in
         `onExit` (`:254`) already disposes it.
-- [ ] The `mgit:pty:activity` event, modelled on `ptyAgentChanged` in every particular.
+- [x] The `mgit:pty:activity` event, modelled on `ptyAgentChanged` in every particular.
       - `EVENT_CHANNELS.ptyActivity = 'mgit:pty:activity'` in
         [`channels.ts`](../packages/shared/src/ipc/channels.ts) beside `ptyCommandChanged`;
         `PtyActivityEvent = z.object({ ptyId: z.string().min(1), activity: SessionActivitySchema.nullable() })`
@@ -769,7 +769,7 @@ it survive a collapsed panel, a second agent CLI, and a TUI that changes under i
         the *waiting* glyph asks.
       - Mock bridge: `__mgitPtyActivity(ptyId, activity)` beside `__mgitPtyAgent`
         (`mock-bridge.ts:1502-1508`).
-- [ ] Markers become roster data, so a second agent CLI does not need a release.
+- [x] Markers become roster data, so a second agent CLI does not need a release.
       - `AgentDefinitionSchema` (`terminal.ts:36-57`) gains
         `activity: z.object({ thinking: RegexSource, frameEnd: RegexSource }).optional()`, beside
         `install` and Theme D's `resume` — roster data, the same shape decision, for the same reason.
@@ -783,7 +783,7 @@ it survive a collapsed panel, a second agent CLI, and a TUI that changes under i
         exactly as `resume`'s is.
       - This closes the deferral: per-agent detection stops being "its own slice" and becomes a
         table anyone can extend from `agents.json`.
-- [ ] `RegexSource` — a user-supplied pattern that cannot take the app down.
+- [x] `RegexSource` — a user-supplied pattern that cannot take the app down.
       - `const RegexSource = z.string().min(1).max(200).refine((s) => { try { new RegExp(s, 'i'); return true; } catch { return false; } }, 'not a valid regular expression')`
         in `terminal.ts`. A 200-char cap and a compile check at **parse** time, so a malformed
         `agents.json` is rejected where every other malformed field is.
@@ -802,7 +802,7 @@ it survive a collapsed panel, a second agent CLI, and a TUI that changes under i
       - Vitest: a source of 201 chars fails to parse; `'([a-z]+)+$'` against a pathological 8000-char
         buffer trips the budget on the third call and the fourth call returns `null` without
         evaluating the regex.
-- [ ] A guess expires. **Resolved — `thinking` →10 s→ `waiting` →60 s→ `idle`.**
+- [x] A guess expires. **Resolved — `thinking` →10 s→ `waiting` →60 s→ `idle`.**
       - Today `detectActivity` returns `undefined` for most chunks and the caller keeps its last
         answer *forever*: a killed agent, or a marker that stopped matching, leaves a spinner
         turning until the session is closed.
@@ -817,7 +817,7 @@ it survive a collapsed panel, a second agent CLI, and a TUI that changes under i
       - This is what finally produces `'idle'`, making F's `IdleCaret` arm reachable.
       - Vitest with fake timers: `saw('thinking')` then 9 s → no change; 10 s → `'waiting'`; 69 s →
         no change; 70 s → `'idle'`; a `saw('thinking')` at 9.5 s restarts the ladder.
-- [ ] Observability: one log line, and a readout that does not need devtools.
+- [x] Observability: one log line, and a readout that does not need devtools.
       - Through the [`log.ts`](../packages/desktop/src/main/log.ts) `Logger` seam Theme B landed —
         no second logger. Lines: `[activity] no frame boundary for <agentId> in <n>kB — markers may be stale`
         (once per session, after 64 kB of output with zero `frameEnd` matches — the exact shape of
@@ -832,7 +832,7 @@ it survive a collapsed panel, a second agent CLI, and a TUI that changes under i
       - Pure helper `activityRows(sessions, states, activity, liveAgentId, now): ActivityRow[]`
         exported from the page and tested; the component is the table around it. The existing
         `sidebar-page.test.ts` is the precedent for testing a settings page's pure half.
-- [ ] The detector is pinned to real output, so a TUI change fails a **test**.
+- [x] The detector is pinned to real output, so a TUI change fails a **test**.
       - `packages/desktop/src/main/__fixtures__/activity/` (net-new): `claude-thinking.txt`,
         `claude-waiting.txt`, `claude-narrow.txt` (the width at which the `(1m 38s · ↓ 4.5k tokens)`
         parenthetical is dropped entirely — the case that broke it before) and
@@ -843,7 +843,7 @@ it survive a collapsed panel, a second agent CLI, and a TUI that changes under i
         document intent; the fixtures document reality.
       - Also asserts the split-chunk property the module exists for: `claude-thinking.txt` fed in
         three arbitrary slices yields the same answer as fed whole.
-- [ ] Vitest and Playwright for the move itself.
+- [x] Vitest and Playwright for the move itself.
       - `ipc.test.ts`: the `ptyActivity` row, valid (`'thinking'`, `null`) and invalid (`'busy'`).
       - `terminal-store.test.ts`: `setActivity(id, undefined)` clears the key (already covered at
         `:355-362`) — extended to assert `'idle'` is accepted by the widened union.
@@ -851,7 +851,7 @@ it survive a collapsed panel, a second agent CLI, and a TUI that changes under i
         `__mgitPtyActivity(ptyId, 'thinking')`, collapse with `Ctrl+\``, and assert the status-bar
         agent count still reads `1 agent`; reveal, and the row's `data-activity` is still
         `thinking` — the assertion that fails today for the mount-boundary reason above.
-- [ ] Boundary check: `packages/app` loses its `activity-detect.ts` import and gains no node builtin;
+- [x] Boundary check: `packages/app` loses its `activity-detect.ts` import and gains no node builtin;
       `packages/desktop` gains it; `shared` gains `SessionActivitySchema` and one channel. The
       existing eslint groups cover this without a new rule — the item is here so the executor
       confirms rather than assumes.
@@ -906,24 +906,24 @@ it survive a collapsed panel, a second agent CLI, and a TUI that changes under i
       `commandLabel('/usr/local/bin/pnpm dev')` → `'pnpm dev'`, a 60-char argv → 40 chars ending `…`;
       the `ps-node-wrapper.txt` guard still passes; `ipc.test.ts` — `ptyCommandChanged` row rejects an
       empty-string command.
-- [ ] Vitest (F): `isAgentRow` five rows — `kind:'agent'` unprobed → true, `kind:'shell'` unprobed →
+- [x] Vitest (F): `isAgentRow` five rows — `kind:'agent'` unprobed → true, `kind:'shell'` unprobed →
       false, `kind:'shell'` probed `'claude'` → true, `kind:'agent'` probed `null` → false, another
       session's entry does not leak. `agent-count.test.ts` — a `kind:'shell'` session with
       `liveAgentId['s1'] = 'claude'` and `states['s1'] = 'open'` counts as 1.
       `terminal-session-list.test.tsx` — `ActivityIndicator` renders `data-activity` of
       `thinking`/`waiting`/`idle`/`unknown` for the four inputs, carries the four `aria-label`s, and
       contains no `[aria-live]` element.
-- [ ] Shell (F): `grep -rn 'ThinkingSpinner' packages/app/src` returns nothing, and
+- [x] Shell (F): `grep -rn 'ThinkingSpinner' packages/app/src` returns nothing, and
       `grep -rn 'animate-spin rounded-full border-2' packages/app/src` returns exactly one line, in
       `components/skeleton.tsx`.
-- [ ] Playwright (F): `'a shell running an agent gets the activity indicator'` — a `kind: 'shell'`
+- [x] Playwright (F): `'a shell running an agent gets the activity indicator'` — a `kind: 'shell'`
       session with `__mgitPtyAgent(ptyId, 'claude')` fired and a `✳ Kneading…` chunk fed shows
       `data-activity="thinking"` on its row and `1 agent` in the status bar.
       `'the activity glyphs survive reduced motion'` — with
       `document.documentElement.dataset.motion = 'reduced'`, the computed `animationName` of
       `[data-activity='idle'] > span` is `'none'` and its computed `opacity` is `'1'` (both are
       wrong today: `caret-blink`'s held final frame is `opacity: 0`).
-- [ ] Vitest (G): the four `__fixtures__/activity/*.txt` yield
+- [x] Vitest (G): the four `__fixtures__/activity/*.txt` yield
       `thinking`/`waiting`/`thinking`/`undefined`, and `claude-thinking.txt` fed in three arbitrary
       slices yields the same answer as fed whole. `RegexSource` — 201 chars fails to parse, an
       uncompilable source fails to parse. The time budget — `'([a-z]+)+$'` over a pathological
@@ -932,11 +932,11 @@ it survive a collapsed panel, a second agent CLI, and a TUI that changes under i
       unchanged, 70 s → `idle`, and a detection at 9.5 s restarts the ladder.
       `activityRows` for the settings readout. `ipc.test.ts` — the `ptyActivity` row, valid
       (`'thinking'`, `null`) and invalid (`'busy'`, empty `ptyId`).
-- [ ] Playwright (G): `'activity survives the panel being collapsed'` — fire
+- [x] Playwright (G): `'activity survives the panel being collapsed'` — fire
       `__mgitPtyActivity(ptyId, 'thinking')`, collapse with `Ctrl+\``, and the status bar still
       reads `1 agent`; reveal, and the row's `data-activity` is still `thinking`. This fails today
       for the mount-boundary reason the theme names.
-- [ ] Screenshots (F): the four glyphs side by side in one session list, light and dark, at the
+- [x] Screenshots (F): the four glyphs side by side in one session list, light and dark, at the
       default density; and the same four with `data-motion='reduced'` set — the frame that proves
       they are still four distinct marks rather than one invisible one and two dimmed ones.
 - [x] Screenshots, per the visual-phase convention: the ended strip with both buttons; a slept row
