@@ -94,6 +94,9 @@ const panel = (page: Page) => page.locator('[data-terminal-panel]');
 /** The session list's rows. `IconButton` renders its label twice, so count these. */
 const rows = (page: Page) => page.locator('[data-session-row]');
 
+/** The reveal tween's own duration (`REVEAL_MS` in `use-reveal.ts`), plus slack. */
+const SETTLE_WAIT_MS = 300;
+
 /**
  * What crossed the bridge.
  *
@@ -111,6 +114,8 @@ const ptyCalls = (page: Page) =>
           creates: { ptyId: string; sessionId: string }[];
           inputs: { ptyId: string; data: string }[];
           kills: string[];
+          resizes: { ptyId: string; cols: number; rows: number }[];
+          snapshots: string[];
         };
       }).__mgitPty,
   );
@@ -592,8 +597,10 @@ test.describe('terminal panel', () => {
 
     const height = async () => (await panel(page).boundingBox())!.height;
     const normal = await height();
+    const resizesBefore = (await ptyCalls(page)).resizes.length;
 
     await page.getByRole('button', { name: 'Expand terminal' }).click();
+    await page.waitForTimeout(SETTLE_WAIT_MS);
     const tall = await height();
     expect(tall).toBeGreaterThan(normal);
     // The graph is what it takes the room from.
@@ -609,8 +616,53 @@ test.describe('terminal panel', () => {
     }
 
     await page.getByRole('button', { name: 'Restore terminal height' }).click();
+    await page.waitForTimeout(SETTLE_WAIT_MS);
     expect(await height()).toBeCloseTo(normal, 0);
     await expect(page.getByRole('columnheader', { name: 'Commit message' })).toBeVisible();
+
+    // One SIGWINCH per toggle, not one per frame of the tween.
+    const resizesAfter = (await ptyCalls(page)).resizes.length;
+    expect(resizesAfter - resizesBefore).toBeLessThanOrEqual(2);
+  });
+
+  /**
+   * The regression Phase 30 Theme A's `useRevealSize` was built to avoid: a
+   * maximized terminal tracks the window's own height (`stackHeight`), and
+   * keying its settle on that live value (rather than the discrete
+   * maximize/restore TOGGLE) would re-arm the CSS transition on every resize
+   * tick — the OUTER `data-terminal-frame` box (the one the transition is
+   * actually on; the inner content is pinned and unaffected) visibly
+   * trailing the window edge by up to `motionMs()` instead of tracking it
+   * immediately.
+   */
+  test('resizing the window while maximized applies instantly, not eased over the tween', async ({
+    page,
+  }) => {
+    await open(page, { terminalSessions: RESTORED });
+    await toggleTerminal(page);
+    await page.getByRole('button', { name: 'Expand terminal' }).click();
+    await page.waitForTimeout(SETTLE_WAIT_MS);
+
+    const frame = page.locator('[data-terminal-frame]');
+    const before = (await frame.boundingBox())!.height;
+
+    const viewport = page.viewportSize();
+    const grownBy = 80;
+    await page.setViewportSize({
+      width: viewport?.width ?? 1280,
+      height: (viewport?.height ?? 800) + grownBy,
+    });
+    // Well inside one `motionMs()` tween (200ms): a genuinely instant apply
+    // reaches (most of) the new height by here; an eased one is still only a
+    // fraction of the way through it.
+    await page.waitForTimeout(60);
+
+    const after = (await frame.boundingBox())!.height;
+    // Some slack for the stack's own layout (title bar, footer) not growing
+    // pixel-for-pixel with the window, but a still-easing frame would be
+    // nowhere close to this — 200ms at ease-in-out has covered well under
+    // half its distance by 60ms in.
+    expect(after - before).toBeGreaterThan(grownBy * 0.6);
   });
 
   /**
@@ -778,6 +830,49 @@ test.describe('terminal panel', () => {
     await expect(labels.nth(0)).not.toHaveClass(/text-muted-foreground/);
     await expect(labels.nth(1)).toHaveClass(/text-muted-foreground/);
     expect((await ptyCalls(page)).creates.map((c) => c.sessionId)).toEqual(['s-1']);
+  });
+
+  /**
+   * Phase 30 Theme B: a reload rebinds to a still-live pty instead of leaving
+   * it exited, the way `RESTORED`'s cold sessions come back above.
+   */
+  test('a reload keeps live sessions live', async ({ page }) => {
+    const withLive: MockFixtures['terminalSessions'] = [
+      {
+        session: session('s-1', { title: 'midnite-git' }),
+        scrollback: '$ git status\r\nOn branch main\r\n',
+        live: { ptyId: 'pty-1', pid: 4001, cols: 80, rows: 24 },
+      },
+      {
+        session: session('s-2', { title: 'other-repo', cwd: '/tmp/other-repo' }),
+        scrollback: '$ ls\r\ndocs\r\n',
+        live: { ptyId: 'pty-2', pid: 4002, cols: 80, rows: 24 },
+      },
+    ];
+    await open(page, { terminalSessions: withLive });
+    await toggleTerminal(page);
+    await expect(rows(page)).toHaveCount(2);
+
+    const labels = page.locator('[data-session-name]');
+    for (let i = 0; i < 2; i += 1) {
+      await expect(labels.nth(i)).not.toHaveClass(/text-muted-foreground/);
+    }
+
+    await page.reload();
+    await expect(page.getByRole('button', { name: 'New terminal or agent' })).toBeVisible();
+    await expect(rows(page)).toHaveCount(2);
+
+    // Rebound, not revived: no new pty, and the live buffer was read from
+    // each row rather than replaying the saved (pre-reload) transcript. React
+    // 18 StrictMode double-invokes the mount effect in dev (the server this
+    // suite runs against), so a snapshot may be asked for twice per row —
+    // the PTY it named is the thing to assert on, not the call count.
+    const after = await ptyCalls(page);
+    expect(after.creates).toEqual([]);
+    expect(new Set(after.snapshots)).toEqual(new Set(['pty-1', 'pty-2']));
+    for (let i = 0; i < 2; i += 1) {
+      await expect(labels.nth(i)).not.toHaveClass(/text-muted-foreground/);
+    }
   });
 
   /**

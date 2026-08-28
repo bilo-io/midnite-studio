@@ -208,9 +208,11 @@ const bridge: Pick<
     input: (req) => ipcRenderer.send(CHANNELS.ptyInput, req),
     resize: (req) => ipcRenderer.send(CHANNELS.ptyResize, req),
     kill: (req) => ipcRenderer.send(CHANNELS.ptyKill, req),
+    snapshot: (req) => call(CHANNELS.ptySnapshot, req),
     onData: (handler) => subscribe(EVENT_CHANNELS.ptyData, handler),
     onExit: (handler) => subscribe(EVENT_CHANNELS.ptyExit, handler),
     onAgentChanged: (handler) => subscribe(EVENT_CHANNELS.ptyAgentChanged, handler),
+    onCommandChanged: (handler) => subscribe(EVENT_CHANNELS.ptyCommandChanged, handler),
   },
   terminal: {
     list: () => call(CHANNELS.terminalList),

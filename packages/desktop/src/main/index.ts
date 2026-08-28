@@ -20,6 +20,7 @@ import { registerRepoHandlers } from './ipc/repo-handlers';
 import { registerStatsHandlers } from './ipc/stats-handlers';
 import { registerStatusHandlers } from './ipc/status-handlers';
 import { configureTests, registerTestsHandlers } from './ipc/tests-handlers';
+import { defaultLogger, type Logger } from './log';
 import { installMenu } from './menu';
 import { killAllPtys, setAgentWatcher } from './pty-service';
 import { createTerminalStore } from './terminal-store';
@@ -65,6 +66,30 @@ async function openReposFromEnv(): Promise<void> {
   for (const path of list.split(':').filter((p) => p.length > 0)) {
     await openRepo(path);
   }
+}
+
+/**
+ * A crashed or killed renderer heals through the same path as a menu reload.
+ *
+ * Nothing observed renderer lifecycle before this (Phase 30 Theme B) — a
+ * crash left a blank window with every pty still alive in main, which is
+ * exactly the bug this phase overturns for a reload and quit alike. The
+ * `webContents` survives the reload, so the closure-captured `win` that
+ * `createPty` sends events through keeps working with no further wiring; the
+ * renderer's own `hydrate()` rebinds to the still-live ptys once it comes
+ * back up.
+ *
+ * `did-finish-load` is deliberately NOT subscribed anywhere: nothing needed
+ * re-arming after an ordinary reload, since the `webContents` object itself
+ * never changed.
+ */
+function bindRenderProcessGone(win: BrowserWindow, log: Logger): void {
+  win.webContents.on('render-process-gone', (_event, details) => {
+    log(`[renderer] gone reason=${details.reason} exit=${details.exitCode}`);
+    if (details.reason === 'clean-exit') return;
+    if (win.isDestroyed()) return;
+    win.webContents.reload();
+  });
 }
 
 /**
@@ -124,12 +149,21 @@ if (!app.requestSingleInstanceLock()) {
     */
     setAgentWatcher(
       createAgentWatcher(
-        realAgentWatcherDeps(listAgents, (event) => {
-          const win = getWindow();
-          if (win && !win.isDestroyed()) {
-            win.webContents.send(EVENT_CHANNELS.ptyAgentChanged, event);
-          }
-        }),
+        realAgentWatcherDeps(
+          listAgents,
+          (event) => {
+            const win = getWindow();
+            if (win && !win.isDestroyed()) {
+              win.webContents.send(EVENT_CHANNELS.ptyAgentChanged, event);
+            }
+          },
+          (event) => {
+            const win = getWindow();
+            if (win && !win.isDestroyed()) {
+              win.webContents.send(EVENT_CHANNELS.ptyCommandChanged, event);
+            }
+          },
+        ),
       ),
     );
     const metrics = registerMetricsHandlers(getWindow);
@@ -163,6 +197,7 @@ if (!app.requestSingleInstanceLock()) {
     // outright rather than spending an `ioreg` spawn every few seconds on a
     // footer nobody can see.
     bindMetricsToWindow(metrics, mainWindow);
+    bindRenderProcessGone(mainWindow, defaultLogger);
 
     // Periodic scrollback flush, so a crash or a force-quit still leaves
     // something to restore rather than only the last clean exit.
@@ -186,6 +221,7 @@ if (!app.requestSingleInstanceLock()) {
         // the visibility listeners the first one was given. Without this the
         // sampler never pauses again for the rest of the session.
         bindMetricsToWindow(metrics, mainWindow);
+        bindRenderProcessGone(mainWindow, defaultLogger);
       }
     });
   });
