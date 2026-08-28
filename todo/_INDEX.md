@@ -149,10 +149,10 @@ write funnels through ONE `useMutation` in `useTargetedGitOp` (`use-status.ts:26
   E (2026-08-28). Still open: `Tooltip` at `compact` density and naming the `…` overflow button —
   both unblocked now that D and E have landed. Phase 23's Theme H shrinks to the retrofit, updated
   there.
-- ✅ **H** — pure-function absent-case tests for the four Theme D segments, a `live` metadata field on
-  `StatusSegment`, `status-bar.spec.ts`'s left-edge and narrowing/overflow-popover specs, the
-  `footer-monitor.spec.ts` shots gate, and a light+dark screenshot pass for the phase's new bar
-  states — most of the rest (density/merge/partialize tests, the terminal-maximize guard) turned
+- ✅ **H** — pure-function absent-case tests for the four Theme D segments, `status-bar.spec.ts`'s
+  left-edge and narrowing/overflow-popover specs, the `footer-monitor.spec.ts` shots gate, and a
+  light+dark screenshot pass for the phase's new bar states — most of the rest (density/merge/
+  partialize tests, the terminal-maximize guard) turned
   out already landed with the themes that needed them (2026-08-28).
 
 ### [Phase 25 — Search everywhere, and the blame that explains it](phase-25-search-everywhere.md)

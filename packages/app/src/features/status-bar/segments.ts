@@ -26,13 +26,6 @@ export type StatusSegment = {
   priority: number;
   label: string;
   El: ComponentType;
-  /**
-   * Marks a segment whose text changes while mounted, rather than only on
-   * mount/unmount — `op-progress` and `in-progress` are the two, and Theme
-   * G's `aria-live="polite"` wiring reads this metadata rather than a second
-   * hardcoded list.
-   */
-  live?: boolean;
 };
 
 /**
@@ -62,24 +55,10 @@ export const STATUS_SEGMENTS: StatusSegment[] = [
     label: 'Active worktree',
     El: ActiveWorktreeSegment,
   },
-  {
-    id: 'op-progress',
-    zone: 'center',
-    priority: 10,
-    label: 'Operation progress',
-    El: OpProgressSegment,
-    live: true,
-  },
+  { id: 'op-progress', zone: 'center', priority: 10, label: 'Operation progress', El: OpProgressSegment },
   // Outranks op-progress: a rebase you have forgotten you are mid-way through
   // is the single most expensive thing this bar can tell you.
-  {
-    id: 'in-progress',
-    zone: 'center',
-    priority: 20,
-    label: 'Mid-operation',
-    El: InProgressSegment,
-    live: true,
-  },
+  { id: 'in-progress', zone: 'center', priority: 20, label: 'Mid-operation', El: InProgressSegment },
   // Rendered before diagnostics; lowest priority of the right zone's five —
   // the least critical of the new readouts, collapsing before diagnostics,
   // the monitor, and both verdicts.
