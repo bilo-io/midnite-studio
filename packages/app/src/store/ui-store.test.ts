@@ -1,6 +1,7 @@
 import { beforeEach, describe, expect, it } from 'vitest';
 
 import { toggleRepoSection } from '../features/repos/view-sections';
+import { useFileEditorStore } from './file-editor-store';
 import {
   DEFAULT_AGENT_SKILLS,
   DEFAULT_GRAPH_COLUMNS,
@@ -74,6 +75,55 @@ describe('useUiStore', () => {
     expect(useUiStore.getState().reposOpen).toBe(false);
     useUiStore.getState().toggleRepos();
     expect(useUiStore.getState().reposOpen).toBe(true);
+  });
+});
+
+describe('navigation guarded by an open, dirty file editor (Phase 24 D)', () => {
+  beforeEach(() => {
+    useFileEditorStore.setState({
+      target: null,
+      content: '',
+      savedContent: '',
+      version: null,
+      pendingNav: null,
+    });
+    useUiStore.setState({
+      activeView: 'files',
+      selectedRepoId: null,
+      selectedWorktreePath: null,
+    });
+  });
+
+  const openDirtyFile = () => {
+    useFileEditorStore.getState().openFile({ repoId: 'r1', relPath: 'a.ts', key: 'a' }, 'x', {
+      mtimeMs: 1,
+      size: 1,
+    });
+    useFileEditorStore.getState().edit('x edited');
+  };
+
+  it('setActiveView applies immediately with no dirty editor open', () => {
+    useUiStore.getState().setActiveView('graph');
+    expect(useUiStore.getState().activeView).toBe('graph');
+  });
+
+  it('setActiveView defers until the guard resolves when a file is dirty', () => {
+    openDirtyFile();
+    useUiStore.getState().setActiveView('graph');
+    expect(useUiStore.getState().activeView).toBe('files'); // unchanged — still waiting
+    expect(useFileEditorStore.getState().pendingNav).not.toBeNull();
+
+    useFileEditorStore.getState().resolvePendingDiscard();
+    expect(useUiStore.getState().activeView).toBe('graph');
+  });
+
+  it('selectRepo and selectWorktree defer the same way', () => {
+    openDirtyFile();
+    useUiStore.getState().selectRepo('other-repo');
+    expect(useUiStore.getState().selectedRepoId).toBeNull();
+
+    useFileEditorStore.getState().resolvePendingDiscard();
+    expect(useUiStore.getState().selectedRepoId).toBe('other-repo');
   });
 });
 

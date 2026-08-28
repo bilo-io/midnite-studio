@@ -7,6 +7,7 @@ import { IconButton } from '../../components/icon-button';
 import { ResizeHandle } from '../../components/resizable/resize-handle';
 import { useResizable } from '../../components/resizable/use-resizable';
 import { keys, useRepos } from '../../services/queries';
+import { useFileEditorStore } from '../../store/file-editor-store';
 import { DEFAULT_LAYOUT, LAYOUT_BOUNDS, useUiStore } from '../../store/ui-store';
 import { FileTree, type FsScopeInput } from './file-tree';
 import { FilePreview } from './preview/file-preview';
@@ -117,10 +118,12 @@ export function FilesView() {
               state={search.state}
               query={search.query.trim()}
               options={search.options}
-              onOpenResult={(path, line) => {
-                selectFile(path);
-                setTargetLine(line);
-              }}
+              onOpenResult={(path, line) =>
+                useFileEditorStore.getState().guardNavigation(() => {
+                  selectFile(path);
+                  setTargetLine(line);
+                })
+              }
             />
           ) : (
             <FileTree
@@ -128,10 +131,12 @@ export function FilesView() {
               expanded={expanded}
               selectedPath={selectedPath}
               onToggleDir={toggleDir}
-              onSelectFile={(path) => {
-                selectFile(path);
-                setTargetLine(null);
-              }}
+              onSelectFile={(path) =>
+                useFileEditorStore.getState().guardNavigation(() => {
+                  selectFile(path);
+                  setTargetLine(null);
+                })
+              }
               writable
             />
           )}

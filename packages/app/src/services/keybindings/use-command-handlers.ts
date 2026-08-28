@@ -6,6 +6,7 @@ import { useDialogs } from '../../components/dialog-host';
 import { useGraphStore } from '../../features/graph/graph-store';
 import { syncAffordances } from '../../features/status/sync-availability';
 import { useCommitBoxStore } from '../../store/commit-box-store';
+import { useFileEditorStore } from '../../store/file-editor-store';
 import { usePaletteStore } from '../../store/palette-store';
 import { useUiStore } from '../../store/ui-store';
 import { useWorkbenchStore } from '../../store/workbench-store';
@@ -60,7 +61,18 @@ export function useCommandHandlers(): CommandRuntime {
 
   const onWorkingTree = activeView === 'changes' && workbenchActiveTabId === null;
 
+  const editorTarget = useFileEditorStore((s) => s.target);
+  const editorDirty = useFileEditorStore((s) => s.target !== null && s.content !== s.savedContent);
+
   return {
+    'file.save': editorTarget
+      ? {
+          enabled: editorDirty,
+          ...(editorDirty ? {} : { disabledReason: 'No unsaved changes' }),
+          run: () => void useFileEditorStore.getState().save(),
+        }
+      : { enabled: false, disabledReason: 'No file open for editing', run: () => {} },
+
     'terminal.toggle': { enabled: true, run: () => useUiStore.getState().toggleTerminal() },
     'terminal.focus': { enabled: true, run: () => useUiStore.getState().setTerminalOpen(true) },
     'repos.toggle': { enabled: true, run: () => useUiStore.getState().toggleRepos() },

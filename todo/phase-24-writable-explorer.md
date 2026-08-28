@@ -175,37 +175,61 @@ The load-bearing theme. Everything a write can do wrong, it does wrong here.
       silently never repainted — fixed by returning a copy per read.
       Screenshots: `docs/screenshots/phase-24-c/{context-menu,inline-create,delete-confirm}.png`.
 
-### D — The preview pane becomes an editor (L)
+### D — The preview pane becomes an editor (L) — ✅ DONE (2026-08-28)
 
 The largest theme, and the only one that adds a dependency.
 
-- [ ] Add **CodeMirror 6** to [`packages/app/package.json`](../packages/app/package.json) — and only
-      there. Phase 16's decision log records "shiki over highlight.js/CodeMirror", but that was a
-      call about *previewing*; nothing in it argued CodeMirror is wrong for an editor, because
-      Phase 16 had no editor. The alternative considered here was a raw `<textarea>` over the shiki
-      render — there is precedent for raw textareas in
+- [x] Added **CodeMirror 6** to [`packages/app/package.json`](../packages/app/package.json) — and
+      only there, as hand-picked `@codemirror/{state,view,commands,language,language-data,
+      autocomplete,search}` extensions rather than the bundled `basicSetup` meta-package, the same
+      call the fuzzy matcher and the hand-drawn chart made elsewhere in this repo. Phase 16's
+      decision log records "shiki over highlight.js/CodeMirror", but that was a call about
+      *previewing*; nothing in it argued CodeMirror is wrong for an editor, because Phase 16 had no
+      editor. The alternative considered here was a raw `<textarea>` over the shiki render — there
+      is precedent for raw textareas in
       [`status-panel.tsx`](../packages/app/src/features/status/status-panel.tsx) and
       [`comment-composer.tsx`](../packages/app/src/features/reviews/comment-composer.tsx) — and it
       was rejected because re-highlighting a whole file per keystroke fights the 200 KB cap the
       preview already has, and because line numbers and bracket matching are the minimum bar for a
-      thing calling itself an editor.
-- [ ] New `features/files/preview/code-editor.tsx` beside `code-preview.tsx`. The preview keeps
+      thing calling itself an editor. Language grammar comes from `@codemirror/language-data`'s
+      `LanguageDescription.matchFilename`, resolved by filename rather than reusing
+      `languages.ts`'s shiki-id table — the two highlighters have no shared vocabulary for a grammar
+      name. **Code-split**: `code-editor.tsx` is `React.lazy`-loaded from `file-preview.tsx`, found
+      in review — a static import pulled the whole CM6 graph into every Files-view load, editing or
+      not, and cost multiple seconds on a cold Vite dev-server compile.
+- [x] New `features/files/preview/code-editor.tsx` beside `code-preview.tsx`. The preview keeps
       shiki for read mode; the editor owns edit mode. **Both highlighters stay in the app** — see
-      the decision at the foot of this doc.
-- [ ] Edit mode is entered explicitly, and `file-preview.tsx`'s literal `read-only` badge becomes
-      the toggle rather than a label that has quietly stopped being true.
-- [ ] Dirty state, and `Cmd+S` routed through the `CommandId` registry rather than a bare keydown —
-      by the time this lands, [Phase 23](phase-23-command-palette.md) has made that registry the one
-      dispatch path, so a new command belongs in it and gets a palette row for free.
-- [ ] An unsaved-changes guard on: selecting another file, switching repo or worktree, leaving the
-      Files view, and closing the window. Use
-      [`confirm-dialog.tsx`](../packages/app/src/components/confirm-dialog.tsx); Save / Discard /
-      Cancel, with Cancel as the safe default.
-- [ ] Stale-write handling that is honest. When main refuses on a moved `FsVersion`, say the file
-      changed on disk and offer to reload — **do not** silently overwrite and do not silently
-      discard. This is the one place a wrong answer loses work the user typed.
-- [ ] Editing is refused, visibly, for binary files, files past `FS_TEXT_CAP_BYTES`, and anything
-      the read returned as `too-large`. The fallback card says which.
+      the decision at the foot of this doc. A hand-rolled `EditorView.theme()` reading the app's own
+      `hsl(var(--background))`-style CSS tokens, rather than a community theme package, so the
+      editor matches the app's palette exactly in both themes with no second dependency.
+- [x] Edit mode is entered explicitly, and `file-preview.tsx`'s literal `read-only` badge becomes
+      the toggle rather than a label that has quietly stopped being true — `read-only` now renders
+      only for what genuinely has no write channel (`claude-home`, non-text results).
+- [x] Dirty state, and `Cmd+S` routed through the `CommandId` registry rather than a bare keydown —
+      a new `file.save` command (group `files`, chord `Mod+s`) reads `file-editor-store`'s
+      `target`/dirty state in `useCommandHandlers()`, the same way `status.commit` reads
+      `commit-box-store`'s registered handle.
+- [x] An unsaved-changes guard on: selecting another file, switching repo or worktree, leaving the
+      Files view (including the title bar's Back/Forward), and closing the window. Centralised
+      rather than scattered per call site: `ui-store`'s `setActiveView`/`selectRepo`/
+      `selectWorktree`/`goBack`/`goForward` all defer through a new `file-editor-store.guardNavigation`,
+      which — when the open file is dirty — parks the real state change in `pendingNav` instead of
+      applying it. A `beforeunload` listener in `app.tsx` does the same for closing the window,
+      re-issuing `window.close()` once the guard resolves. [`confirm-dialog.tsx`](../packages/app/src/components/confirm-dialog.tsx)
+      gained an optional `secondaryLabel`/`onSecondary` pair for the three-way Save / Discard /
+      Cancel prompt (`file-editor-guard.tsx`, mounted once from `app.tsx`), with Cancel — its
+      existing built-in button — as the safe default.
+- [x] Stale-write handling that is honest. When main refuses on a moved `FsVersion`, an inline
+      banner above the editor says the file changed on disk and offers Reload (re-reads and adopts
+      the new content/version) or Keep editing (dismisses the banner, edits untouched) — **never**
+      a silent overwrite or a silent discard.
+- [x] Editing is refused, visibly, for binary files, files past `FS_TEXT_CAP_BYTES`, and anything
+      the read returned as `too-large` — the Edit toggle itself does not render for a non-text
+      result; the existing `FallbackCard` states which.
+
+Found and fixed in self-review: the guard dialog's `blastRadius` was left `undefined`, which
+`ConfirmDialog` reads as "still being counted" and renders "Checking what this affects…" forever —
+fixed to the explicit `null` the delete confirm already established for a warnings-only dialog.
 
 ### E — Find in files (M) — ✅ DONE (2026-08-28)
 

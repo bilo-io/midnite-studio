@@ -93,7 +93,10 @@ test('selecting a code file shows the read-only highlighted preview', async ({ p
   await page.getByRole('treeitem', { name: /^src$/ }).click();
   await page.getByRole('treeitem', { name: /main\.ts/ }).click();
 
-  await expect(page.getByText('read-only')).toBeVisible();
+  // Opens in read mode, with an explicit toggle into editing (Phase 24 D) —
+  // not a static "read-only" label, which now only appears for what has no
+  // write channel to begin with (e.g. claude-home).
+  await expect(page.getByRole('button', { name: 'Edit' })).toBeVisible();
   await expect(page.getByText('const answer = 42;')).toBeVisible();
   await page.waitForTimeout(400);
   await page.screenshot({ path: '../../docs/screenshots/phase-16/files-code.png' });

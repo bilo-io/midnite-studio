@@ -2,12 +2,13 @@ import { createElement } from 'react';
 
 import { renderHook } from '@testing-library/react';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
-import { beforeEach, describe, expect, it } from 'vitest';
+import { beforeEach, describe, expect, it, vi } from 'vitest';
 
 import type { BranchStatus, StatusResult } from '@midnite/git-shared';
 
 import { DialogHost } from '../../components/dialog-host';
 import { keys } from '../queries';
+import { useFileEditorStore } from '../../store/file-editor-store';
 import { useUiStore } from '../../store/ui-store';
 import { useWorkbenchStore } from '../../store/workbench-store';
 import { useCommandHandlers } from './use-command-handlers';
@@ -39,6 +40,13 @@ const withProviders = (client: QueryClient) =>
 beforeEach(() => {
   useUiStore.setState({ selectedRepoId: null, selectedWorktreePath: null, activeView: 'graph' });
   useWorkbenchStore.setState({ tabs: [], activeTabId: null });
+  useFileEditorStore.setState({
+    target: null,
+    content: '',
+    savedContent: '',
+    version: null,
+    pendingNav: null,
+  });
 });
 
 describe('useCommandHandlers — no repo open', () => {
@@ -86,6 +94,41 @@ describe('useCommandHandlers — no repo open', () => {
     for (const id of ['palette.open', 'palette.files'] as const) {
       expect(runtime[id].enabled).toBe(true);
     }
+  });
+});
+
+describe('useCommandHandlers — file.save', () => {
+  it('disables file.save with no file open for editing', () => {
+    const { result } = withProviders(new QueryClient());
+    expect(result.current['file.save'].enabled).toBe(false);
+    expect(result.current['file.save'].disabledReason).toBe('No file open for editing');
+  });
+
+  it('disables file.save with a clean open file', () => {
+    useFileEditorStore.getState().openFile(
+      { repoId: REPO_ID, relPath: 'a.ts', key: 'a' },
+      'content',
+      { mtimeMs: 1, size: 7 },
+    );
+    const { result } = withProviders(new QueryClient());
+    expect(result.current['file.save'].enabled).toBe(false);
+    expect(result.current['file.save'].disabledReason).toBe('No unsaved changes');
+  });
+
+  it('enables file.save once the open file is dirty, and its run() saves it', () => {
+    useFileEditorStore.getState().openFile(
+      { repoId: REPO_ID, relPath: 'a.ts', key: 'a' },
+      'content',
+      { mtimeMs: 1, size: 7 },
+    );
+    useFileEditorStore.getState().edit('content, edited');
+    const { result } = withProviders(new QueryClient());
+    expect(result.current['file.save'].enabled).toBe(true);
+
+    const save = vi.fn().mockResolvedValue({ ok: true });
+    useFileEditorStore.setState({ save });
+    result.current['file.save'].run();
+    expect(save).toHaveBeenCalledOnce();
   });
 });
 
