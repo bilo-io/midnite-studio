@@ -402,6 +402,10 @@ export type MidniteGitBridge = {
     ) => Promise<z.infer<typeof S.FsDirStatsResponse>>;
     /** `git grep` over the tracked working tree — see `FS_SEARCH_MAX_MATCHES`. */
     search: (req: In<typeof S.FsSearchRequest>) => Promise<z.infer<typeof S.FsSearchResponse>>;
+    /** List tracked and untracked files via `git ls-files` (capped at 20 000) — Phase 23 Theme G. */
+    listFiles: (
+      req: In<typeof S.FsListFilesRequest>,
+    ) => Promise<z.infer<typeof S.FsListFilesResponse>>;
   };
 
   /**

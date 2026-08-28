@@ -1,15 +1,24 @@
-import type { AgentDefinition, CommandDescriptor, RepoDescriptor, TerminalSession, Worktree } from '@midnite/git-shared';
+import type {
+  AgentDefinition,
+  CommandDescriptor,
+  Ref,
+  RepoDescriptor,
+  TerminalSession,
+  Worktree,
+} from '@midnite/git-shared';
 import { COMMANDS } from '@midnite/git-shared';
-import { LuFolder, LuGitBranch, LuSquareTerminal } from 'react-icons/lu';
+import { LuFile, LuFolder, LuGitBranch, LuGitCommitHorizontal, LuSquareTerminal, LuTag } from 'react-icons/lu';
 
 import { resolveAgentIcon } from '../../components/icons';
 import { SETTINGS_PAGE_ICON, VIEW_ICON } from '../../components/nav-icons';
 import { COMMAND_ICONS } from '../../features/palette/command-icons';
+import { isPaletteSafe } from '../../features/palette/safety';
 import { startAgent } from '../../features/terminal/start-agent';
 import { useTerminalStore } from '../../features/terminal/terminal-store';
 import type { CommandRuntime } from '../../services/keybindings/use-command-handlers';
 import { useUiStore, VIEW_IDS, SETTINGS_PAGES, type ViewId } from '../../store/ui-store';
 import { chordOf } from '../../store/palette-store';
+import { useFilesStore } from '../../features/files/files-store';
 import type { PaletteItem, PaletteSource } from './source';
 import type { IconComponent } from '../../components/icon-button';
 
@@ -42,26 +51,28 @@ export function createCommandSource(
   return {
     key: 'commands',
     items: () => {
-      return COMMANDS.map((cmd: CommandDescriptor): PaletteItem => {
-        const entry = runtime[cmd.id];
-        const chord = chordOf(cmd);
-        const icon = COMMAND_ICONS[cmd.id];
+      return COMMANDS.filter((cmd) => isPaletteSafe(cmd.id)).map(
+        (cmd: CommandDescriptor): PaletteItem => {
+          const entry = runtime[cmd.id];
+          const chord = chordOf(cmd);
+          const icon = COMMAND_ICONS[cmd.id];
 
-        return {
-          id: `command:${cmd.id}`,
-          label: cmd.label,
-          group: 'Commands',
-          icon,
-          chord,
-          disabled: !entry?.enabled,
-          disabledReason: entry?.disabledReason,
-          run: () => {
-            if (!entry?.enabled) return;
-            onSelect();
-            entry.run();
-          },
-        };
-      });
+          return {
+            id: `command:${cmd.id}`,
+            label: cmd.label,
+            group: 'Commands',
+            icon,
+            chord,
+            disabled: !entry?.enabled,
+            disabledReason: entry?.disabledReason,
+            run: () => {
+              if (!entry?.enabled) return;
+              onSelect();
+              entry.run();
+            },
+          };
+        },
+      );
     },
   };
 }
@@ -196,3 +207,117 @@ export function createTerminalSource(
     },
   };
 }
+
+export function createRefsSource(
+  refs: Ref[],
+  onSelect: () => void,
+  onCheckout: (ref: Ref) => void,
+  onReveal: (ref: Ref) => void,
+): PaletteSource {
+  return {
+    key: 'refs',
+    items: () => {
+      const items: PaletteItem[] = [];
+
+      for (const ref of refs) {
+        if (ref.kind === 'head') continue;
+
+        let group = 'Local Branches';
+        let icon: IconComponent = LuGitBranch;
+        if (ref.kind === 'remoteBranch') {
+          group = 'Remote Branches';
+        } else if (ref.kind === 'tag') {
+          group = 'Tags';
+          icon = LuTag;
+        }
+
+        let detail: string | undefined;
+        if (ref.upstream) {
+          const parts: string[] = [ref.upstream.name];
+          if (ref.upstream.ahead > 0) parts.push(`↑${ref.upstream.ahead}`);
+          if (ref.upstream.behind > 0) parts.push(`↓${ref.upstream.behind}`);
+          if (ref.upstream.gone) parts.push('[gone]');
+          detail = parts.join(' ');
+        } else if (ref.worktreePath) {
+          detail = `checked out in ${ref.worktreePath}`;
+        }
+
+        // Action 1: Check out
+        items.push({
+          id: `ref:checkout:${ref.fullName}`,
+          label: `Checkout: ${ref.name}`,
+          group,
+          icon,
+          detail,
+          keywords: `checkout switch branch ${ref.name}`,
+          run: () => {
+            onSelect();
+            onCheckout(ref);
+          },
+        });
+
+        // Action 2: Reveal in graph
+        items.push({
+          id: `ref:reveal:${ref.fullName}`,
+          label: `Reveal in Graph: ${ref.name}`,
+          group,
+          icon: LuGitCommitHorizontal,
+          detail: `Commit ${ref.sha.slice(0, 7)}`,
+          keywords: `reveal find graph commit ${ref.name}`,
+          run: () => {
+            onSelect();
+            onReveal(ref);
+          },
+        });
+      }
+
+      return items;
+    },
+  };
+}
+
+export function createFilesSource(
+  files: string[],
+  onSelect: () => void,
+): PaletteSource {
+  return {
+    key: 'files',
+    items: () => {
+      return files.map((relPath): PaletteItem => {
+        const lastSlash = relPath.lastIndexOf('/');
+        const name = lastSlash >= 0 ? relPath.slice(lastSlash + 1) : relPath;
+        const dir = lastSlash >= 0 ? relPath.slice(0, lastSlash) : '';
+
+        return {
+          id: `file:${relPath}`,
+          label: relPath,
+          group: 'Files',
+          icon: LuFile,
+          detail: dir.length > 0 ? dir : undefined,
+          keywords: name,
+          run: () => {
+            onSelect();
+            // Switch to files view
+            useUiStore.getState().setActiveView('files');
+
+            // Expand all ancestor directories in files tree
+            if (dir.length > 0) {
+              const segments = dir.split('/');
+              const ancestors: string[] = [];
+              let current = '';
+              for (const seg of segments) {
+                current = current.length > 0 ? `${current}/${seg}` : seg;
+                ancestors.push(current);
+              }
+              useFilesStore.getState().expandDirs(ancestors);
+            }
+
+            // Select file in preview pane
+            useFilesStore.getState().selectFile(relPath);
+          },
+        };
+      });
+    },
+  };
+}
+

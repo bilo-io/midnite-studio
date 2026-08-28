@@ -267,6 +267,12 @@ export type MockFixtures = {
     | { ok: true; matches: { path: string; line: number; text: string }[]; truncated: boolean }
     | { ok: false; message: string };
   /**
+   * `fs.listFiles` results (Phase 23 Theme G). If omitted, defaults to extracting file keys from `fsFiles` or empty.
+   */
+  fsListFilesResult?:
+    | { ok: true; files: string[]; truncated: boolean }
+    | { ok: false; message: string };
+  /**
    * The samples `metrics.onSample` pushes, in order, one per entry.
    *
    * **Omit a metric to reach the "unreadable on this machine" state** — that is
@@ -1132,6 +1138,14 @@ export async function installMockBridge(page: Page, fixtures: MockFixtures): Pro
           return { ok: true as const, fileCount, totalBytes, truncated: false };
         },
         search: async () => data.fsSearchResult ?? { ok: true as const, matches: [], truncated: false },
+        listFiles: async () => {
+          if (data.fsListFilesResult) return data.fsListFilesResult;
+          if (data.fsFiles) {
+            const files = Object.keys(data.fsFiles).map((k) => k.replace(/^repo:/, ''));
+            return { ok: true as const, files, truncated: false };
+          }
+          return { ok: true as const, files: [], truncated: false };
+        },
       },
       /*
         The diagnostics group.

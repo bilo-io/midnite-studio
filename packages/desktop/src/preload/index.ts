@@ -237,6 +237,7 @@ const bridge: Pick<
     delete: (req) => call(CHANNELS.fsDelete, req),
     dirStats: (req) => call(CHANNELS.fsDirStats, req),
     search: (req) => call(CHANNELS.fsSearch, req),
+    listFiles: (req) => call(CHANNELS.fsListFiles, req),
   },
   metrics: {
     // `send`, not `invoke`, like `pty.input`: neither verb has an answer worth

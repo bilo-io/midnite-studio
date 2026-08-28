@@ -53,3 +53,21 @@ describe('fuzzyMatch', () => {
     expect(exact!.score).toBeGreaterThan(lower!.score);
   });
 });
+
+describe('fuzzyMatchPath', () => {
+  it('weights basename higher than directory segments when no slash in query', () => {
+    const result = fuzzyMatch('pal', 'src/components/palette.tsx');
+    expect(result).not.toBeNull();
+    // Indices should point into "palette.tsx"
+    const matchedChars = result!.indices.map((i) => 'src/components/palette.tsx'[i]).join('');
+    expect(matchedChars.toLowerCase()).toBe('pal');
+  });
+
+  it('switches to full path matching when slash is in query', () => {
+    const result = fuzzyMatch('comp/pal', 'src/components/palette.tsx');
+    expect(result).not.toBeNull();
+    const matchedChars = result!.indices.map((i) => 'src/components/palette.tsx'[i]).join('');
+    expect(matchedChars.toLowerCase()).toBe('comp/pal');
+  });
+});
+

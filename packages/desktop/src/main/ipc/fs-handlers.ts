@@ -4,7 +4,7 @@ import { join } from 'node:path';
 
 import type { z } from 'zod';
 
-import { checkIgnored } from '@midnite/git-engine';
+import { checkIgnored, listFiles } from '@midnite/git-engine';
 import {
   CHANNELS,
   FS_DIR_STATS_WALK_CAP,
@@ -14,12 +14,14 @@ import {
 } from '@midnite/git-shared';
 
 import { confineToRoot, resolveScopeRoot } from '../fs-scope';
+import { resolveWorkdir } from '../repo-registry';
 import { handle } from './handle';
 
 type ListResponse = z.infer<typeof schemas.FsListDirResponse>;
 type ReadResponse = z.infer<typeof schemas.FsReadFileResponse>;
 type DirStatsResponse = z.infer<typeof schemas.FsDirStatsResponse>;
 type ShowItemResponse = z.infer<typeof schemas.ShowItemInFolderResponse>;
+type ListFilesResponse = z.infer<typeof schemas.FsListFilesResponse>;
 
 /** NUL anywhere in the first 8 KB marks a file binary — the classic sniff.
  *  Exported so `fs-write-handlers.ts` re-sniffs an overwrite target with the
@@ -28,11 +30,8 @@ export const SNIFF_BYTES = 8 * 1024;
 
 /**
  * The read-only fs surface: listing, reading, a directory's blast-radius
- * stats and the Finder hand-off. None of these write — the two Phase 24
- * write-shaped verbs (`dirStats`, `showItemInFolder`) both feed the delete
- * confirm and the context menu without mutating anything, which is why they
- * live beside the reader rather than in `fs-write-handlers.ts`. Every path is
- * confined by `confineToRoot` before any fs call touches it.
+ * stats, the Finder hand-off, and repository-wide file listing. None of these write.
+ * Every path is confined by `confineToRoot` before any fs call touches it.
  */
 export function registerFsHandlers(): void {
   handle<typeof schemas.FsListDirRequest, ListResponse>(
@@ -60,6 +59,13 @@ export function registerFsHandlers(): void {
     CHANNELS.shellShowItemInFolder,
     schemas.ShowItemInFolderRequest,
     (req) => showItemInFolder(req),
+    (issue) => ({ ok: false, message: issue }),
+  );
+
+  handle<typeof schemas.FsListFilesRequest, ListFilesResponse>(
+    CHANNELS.fsListFiles,
+    schemas.FsListFilesRequest,
+    (req) => listRepoFiles(req),
     (issue) => ({ ok: false, message: issue }),
   );
 }
@@ -201,4 +207,21 @@ async function showItemInFolder(
 
   shell.showItemInFolder(target);
   return { ok: true };
+}
+
+/**
+ * List all tracked and untracked files via `git ls-files` for the command palette (Phase 23 Theme G).
+ */
+async function listRepoFiles(
+  req: z.output<typeof schemas.FsListFilesRequest>,
+): Promise<ListFilesResponse> {
+  const cwd = await resolveWorkdir(req.repoId, req.worktreePath);
+  if (!cwd) return { ok: false, message: 'That repository is no longer open.' };
+
+  const result = await listFiles(cwd);
+  return {
+    ok: true,
+    files: result.files,
+    truncated: result.truncated,
+  };
 }

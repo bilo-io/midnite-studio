@@ -198,6 +198,12 @@ export const keys = {
    */
   fsRepo: (repoId: string) => ['fs', 'repo', repoId] as const,
   /**
+   * The repo's tracked and untracked file paths via `git ls-files` (Phase 23 Theme G).
+   * Cached per repo and tip SHA so commit / checkout auto-invalidates.
+   */
+  repoFiles: (repoId: string, tipSha?: string | null, worktreePath?: string) =>
+    ['repos', repoId, 'files-index', worktreePath ?? 'main', tipSha ?? 'HEAD'] as const,
+  /**
    * The fs browse/write scope prefix (Phase 16 reads, Phase 24 writes) — also
    * what a manual refresh invalidates. Outside the `repos` prefix on purpose:
    * `claude-home` scope has no `repoId` to nest under, and a repo close should
@@ -1267,3 +1273,28 @@ export function useRunTestSuite(repoId: string | null) {
 export function useCancelTestRun() {
   return (runId: string) => bridge()?.tests.cancel({ runId });
 }
+
+/**
+ * Tracked and untracked file paths via `git ls-files` (Phase 23 Theme G).
+ * Indexed per repo and tip SHA so commit / checkout auto-invalidates.
+ */
+export function useRepoFiles(
+  repoId: string | null,
+  tipSha?: string | null,
+  worktreePath?: string,
+  options?: { enabled?: boolean },
+) {
+  return useQuery({
+    queryKey: repoId ? keys.repoFiles(repoId, tipSha, worktreePath) : ['repos', 'none', 'files-index'],
+    queryFn: async () => {
+      if (!repoId) return { files: [], truncated: false };
+      const api = bridge();
+      if (!api) return { files: [], truncated: false };
+      const res = await api.fs.listFiles({ repoId, worktreePath });
+      return res.ok ? { files: res.files, truncated: res.truncated } : { files: [], truncated: false };
+    },
+    enabled: Boolean(repoId && (options?.enabled ?? true)),
+    staleTime: Infinity,
+  });
+}
+
