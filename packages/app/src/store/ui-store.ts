@@ -284,7 +284,14 @@ export type UiState = {
    * than a replacement for it.
    */
   terminalListOpen: boolean;
-
+  /**
+   * Whether the browser pane covers the content row.
+   *
+   * A flat boolean like `reposOpen`/`terminalOpen`, not a per-repo flag: the
+   * pane holds no per-repo state (no engine, nothing loaded) to protect, so
+   * there is nothing for a repo switch to disagree about.
+   */
+  browserOpen: boolean;
 
   layout: LayoutSizes;
   graphColumns: GraphColumns;
@@ -378,6 +385,8 @@ export type UiState = {
   toggleTerminalMaximized: () => void;
   setTerminalSidebarSide: (side: TerminalSidebarSide) => void;
   toggleTerminalList: () => void;
+  toggleBrowser: () => void;
+  setBrowserOpen: (open: boolean) => void;
 
   setLayout: <K extends keyof LayoutSizes>(key: K, value: number) => void;
   setGraphColumn: <K extends keyof GraphColumns>(key: K, value: number) => void;
@@ -539,6 +548,12 @@ type PersistedUi = Pick<
   | 'commitFileView'
   | 'commitMetaOpen'
   | 'changesFileView'
+  | 'reposOpen'
+  | 'terminalOpen'
+  | 'terminalMaximized'
+  | 'terminalSidebarSide'
+  | 'terminalListOpen'
+  | 'browserOpen'
   | 'hiddenMetrics'
   | 'metricsIdleIntervalMs'
   | 'forgeWritesEnabled'
@@ -567,6 +582,7 @@ export const useUiStore = create<UiState>()(
       terminalMaximized: false,
       terminalSidebarSide: 'right',
       terminalListOpen: true,
+      browserOpen: false,
 
       layout: DEFAULT_LAYOUT,
       graphColumns: DEFAULT_GRAPH_COLUMNS,
@@ -625,6 +641,8 @@ export const useUiStore = create<UiState>()(
       setTerminalSidebarSide: (terminalSidebarSide) => set({ terminalSidebarSide }),
       toggleTerminalList: () =>
         set((state) => ({ terminalListOpen: !state.terminalListOpen })),
+      toggleBrowser: () => set((state) => ({ browserOpen: !state.browserOpen })),
+      setBrowserOpen: (browserOpen) => set({ browserOpen }),
 
       setLayout: (key, value) => set((state) => ({ layout: { ...state.layout, [key]: value } })),
       setGraphColumn: (key, value) =>
@@ -687,7 +705,7 @@ export const useUiStore = create<UiState>()(
        * not changed: a filter surviving a restart would present a truncated
        * history as the whole truth.
        */
-      partialize: (state) => ({
+      partialize: (state): PersistedUi => ({
         layout: state.layout,
         graphColumns: state.graphColumns,
         navMode: state.navMode,
@@ -713,6 +731,14 @@ export const useUiStore = create<UiState>()(
         terminalMaximized: state.terminalMaximized,
         terminalSidebarSide: state.terminalSidebarSide,
         terminalListOpen: state.terminalListOpen,
+        /*
+          No `version` bump for this key: the custom `merge` below already
+          spreads a persisted payload over the current defaults, so a blob
+          written before `browserOpen` existed picks it up from the initial
+          state (`false`) automatically — the same argument `forgeWritesEnabled`
+          makes just below.
+        */
+        browserOpen: state.browserOpen,
         hiddenMetrics: state.hiddenMetrics,
         metricsIdleIntervalMs: state.metricsIdleIntervalMs,
         /*

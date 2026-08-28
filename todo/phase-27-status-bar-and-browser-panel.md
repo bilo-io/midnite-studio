@@ -400,93 +400,82 @@ goes to 560 (`LAYOUT_BOUNDS.reposWidth`) and a narrow window plus eight segments
 - [ ] A segment in the overflow popover keeps its click behaviour — collapsing must not turn an
       action into a label.
 
-### F — The browser pane the keymap already promised (M)
+### F — The browser pane the keymap already promised (M) — ✅ DONE (2026-08-28)
 
-- [ ] `browser.open` → `browser.toggle` in
-      [`COMMAND_IDS`](../packages/shared/src/keybindings.ts) and `DEFAULT_KEYMAP`, label
-      *"Toggle Browser"*, chord **`Mod+b`** unchanged, scope `app` (like `repos.toggle`; a browser is
-      not something you reach for mid-command with the terminal focused). Nothing persists a command
-      id, so this is a **three-site rename**: `keybindings.ts:17` (`COMMAND_IDS`), `keybindings.ts:73`
-      (`DEFAULT_KEYMAP`), and the handler at `app.tsx:352`. `grep -rn 'browser.open' packages/*/src`
+- [x] `browser.open` → `browser.toggle` in
+      [`COMMANDS`](../packages/shared/src/keybindings.ts), label *"Toggle Browser"*, chord **`Mod+b`**
+      unchanged, scope `app` (like `repos.toggle`; a browser is not something you reach for
+      mid-command with the terminal focused). `grep -rn 'browser.open' packages/*/src`
       returning nothing is the acceptance criterion.
-  - The keymap comment at `keybindings.ts:67-72` ("the built-in web pane is not written yet, so for
-    now the chord opens a notice that says so") becomes false with this item and is rewritten, not
-    deleted — the sentence worth keeping is the one about the chord never moving under a user.
-- [ ] **Add `item('browser.toggle')` to the native menu** — it is *not* there today. The View submenu
-      at [`menu.ts:68-71`](../packages/desktop/src/main/menu.ts) places `view.refresh`,
-      `repos.toggle` and `terminal.toggle`; `browser.open` appears nowhere in `packages/desktop`. The
-      `item()` helper (`menu.ts:32-36`) pulls both label and accelerator from `DEFAULT_KEYMAP`, so
-      this is one line and cannot disagree with the keymap. It goes after `terminal.toggle`, matching
-      the left zone's toggle order.
-- [ ] Delete the placeholder handler at `app.tsx:352` — the dialog reading *"The built-in browser is
-      coming soon."* — and point the command at the toggle. `useKeybindings` takes an inline object
-      literal typed `CommandHandlers = Partial<Record<CommandId, () => void>>`
-      ([`use-keybindings.ts:8`](../packages/app/src/services/keybindings/use-keybindings.ts)), so the
-      new entry is `'browser.toggle': () => useUiStore.getState().toggleBrowser()`, matching the
-      `terminal.toggle` and `repos.toggle` lines two rows above it.
-- [ ] `browserOpen` in [`ui-store.ts`](../packages/app/src/store/ui-store.ts) with
+  - The keymap comment ("the built-in web pane is not written yet, so for now the chord opens a
+    notice that says so") becomes false with this item and is rewritten, not deleted — the
+    sentence worth keeping is the one about the chord never moving under a user.
+  - **Correction:** the placeholder handler this item's acceptance criterion originally pointed
+    at (`app.tsx:352`) had already moved to `use-command-handlers.ts` by the time this theme
+    started — Phase 23 Theme B lifted the whole handler map out of `app.tsx` first. The rename
+    landed there instead; `app.tsx` was untouched by this specific item.
+- [x] **Add `item('browser.toggle')` to the native menu** — it was not there. The View submenu
+      at [`menu.ts`](../packages/desktop/src/main/menu.ts) placed `view.refresh`, `repos.toggle`
+      and `terminal.toggle`; `browser.open` appeared nowhere in `packages/desktop`. The `item()`
+      helper pulls both label and accelerator from `DEFAULT_KEYMAP`, so this is one line and
+      cannot disagree with the keymap. It goes after `terminal.toggle`, matching the left zone's
+      toggle order.
+- [x] Deleted the placeholder handler — the dialog reading *"The built-in browser is coming
+      soon."* — and pointed the command at the toggle: `'browser.toggle': { enabled: true, run: () =>
+      useUiStore.getState().toggleBrowser() }` in `use-command-handlers.ts`, matching the
+      `terminal.toggle` and `repos.toggle` entries beside it. (See the correction above — this
+      landed in `use-command-handlers.ts`, not `app.tsx:352`.)
+- [x] `browserOpen` in [`ui-store.ts`](../packages/app/src/store/ui-store.ts) with
       `toggleBrowser` / `setBrowserOpen`, defaulting **false**, added to `partialize` — the same shape
-      `reposOpen` and `terminalOpen` already have (declared `ui-store.ts:273-274`, defaulted `:521`
-      and `:522`, actioned `:575-578`, persisted `:666-667`).
-- [ ] **No `version` bump and no `migrate` arm.** The store already has a custom `merge`
-      (`ui-store.ts:712-728`) doing `{ ...current, ...saved }`, so a blob written before the key
-      existed picks `browserOpen` up from the initial state — `false` — automatically. This is
-      exactly the argument `forgeWritesEnabled`'s own comment makes at `ui-store.ts:673-679`: *"an
-      older stored blob has no such key, `false` is the initial value, and a restored state therefore
-      cannot arrive with writes silently on."* A v3 with a no-op arm would be ceremony for a case
-      `merge` already handles, and would imply a data change that is not happening.
-  - Consequence for Theme H: the test drives **`merge`**, not `migrate`. `ui-store.test.ts:247-259`
-    already has the shape ("fills in panes a stored payload predates").
-- [ ] **Fix `PersistedUi`'s existing drift while adding to it.** The type
-      (`ui-store.ts:485-504`) omits `reposOpen`, `terminalOpen`, `terminalMaximized`,
-      `terminalSidebarSide` and `terminalListOpen`, all of which `partialize` returns (`:666-670`) —
-      TypeScript misses it because `partialize`'s return is inferred rather than annotated. Add the
-      five missing keys plus `browserOpen`, and annotate `partialize` as
-      `(state): PersistedUi => ({ … })` so the type's own doc comment (*"Named so the two cannot
-      drift"*, `:481-484`) becomes true again.
-- [ ] A **Browser** toggle segment in the left zone beside Repos and Terminal, same button treatment,
-      same `aria-pressed`, chord hint rendered through `displayChord()` — which Theme B moves into
-      `features/status-bar/chord-hint.ts` and exports. It is module-local in `footer-bar.tsx:39`
-      today and is *not* a keymap export, so Theme B has to land first for this item to be one line.
-- [ ] **The Browser toggle has the lowest `priority` of the three toggles**, so at `collapsed`
-      density it is the first into the `…` popover. Three panel toggles is the widest that zone has
-      ever been, and this is how Theme E's machinery answers the width objection rather than the zone
-      simply being crowded. Repos and Terminal outrank it: both toggle panels that hold work, and the
-      browser pane holds nothing yet.
-- [ ] `features/browser/browser-pane.tsx`: an overlay absolutely positioned over the **whole content
-      row** — view, terminal *and* repositories panel — leaving the status bar visible below it. That
-      visible bar is the point; an overlay that also covered it would be a full-screen view and would
-      belong in the nav rail instead.
-  - Concretely: mounted as a child of the content row (`app.tsx:604`) with `absolute inset-0` and the
-    row given `relative`. The row is exactly the box that excludes the footer once Theme A has moved
-    it, which is why this is a Theme-A-first dependency and not merely a tidy ordering.
-- [ ] Entrance and exit through [`useReveal`](../packages/app/src/components/use-reveal.ts) at
-      `REVEAL_MS`, paired with `duration-200` the way every other panel is — the two are not derived
-      from each other and the comment says so.
-  - `useReveal(browserOpen)` gives `{ mounted, shown }`, used the way `app.tsx:396-397` uses it for
-    `reposReveal`/`terminalReveal`: render nothing unless `mounted`, and drive the transformed
-    property off `shown`. Because both flags start at `open`, a persisted `browserOpen: true` is
-    simply there on launch rather than sliding in — which is the behaviour, not a bug to fix.
-- [ ] Chrome stub: back, forward, reload and a close button, all disabled or inert except close; a
-      URL field that accepts text and navigates nowhere; a centred plate stating that the web pane is
-      not built yet. **No `<webview>`, no `WebContentsView`, no `BrowserWindow`** — see *Not in this
-      phase*.
-- [ ] **Enter in the URL field is inert, and the plate says what would have happened.** The field
+      `reposOpen` and `terminalOpen` already have.
+- [x] **No `version` bump and no `migrate` arm.** The store already has a custom `merge` doing
+      `{ ...current, ...saved }`, so a blob written before the key existed picks `browserOpen` up
+      from the initial state — `false` — automatically. This is exactly the argument
+      `forgeWritesEnabled`'s own comment makes: *"an older stored blob has no such key, `false` is
+      the initial value, and a restored state therefore cannot arrive with writes silently on."*
+      A v3 with a no-op arm would be ceremony for a case `merge` already handles.
+  - Consequence for Theme H: the test drives **`merge`**, not `migrate`. `ui-store.test.ts`
+    already had the shape ("fills in panes a stored payload predates") — landed as a new case
+    beside it.
+- [x] **Fixed `PersistedUi`'s existing drift while adding to it.** The type omitted `reposOpen`,
+      `terminalOpen`, `terminalMaximized`, `terminalSidebarSide` and `terminalListOpen`, all of
+      which `partialize` already returned — TypeScript missed it because `partialize`'s return
+      was inferred rather than annotated. Added the five missing keys plus `browserOpen`, and
+      annotated `partialize` as `(state): PersistedUi => ({ … })` so the type's own doc comment
+      ("Named so the two cannot drift") is true again.
+- [x] A **Browser** toggle segment in the left zone beside Repos and Terminal, same button treatment,
+      same `aria-pressed`, chord hint rendered through `displayChord()` — Theme B had already
+      moved it into `features/status-bar/chord-hint.ts` and exported it.
+- [x] **The Browser toggle has the lowest `priority` of the three toggles** (`5`, against Repos'
+      `10` and Terminal's `20`), so at `collapsed` density it is the first into the `…` popover.
+      Repos and Terminal outrank it: both toggle panels that hold work, and the browser pane
+      holds nothing yet.
+- [x] `features/browser/browser-pane.tsx`: an overlay absolutely positioned over the **whole content
+      row** — view, terminal *and* repositories panel — leaving the status bar visible below it.
+  - Concretely: mounted as a child of the content row with `absolute inset-0` and the row given
+    `relative`.
+- [x] Entrance and exit through [`useReveal`](../packages/app/src/components/use-reveal.ts) at
+      `REVEAL_MS`, paired with `duration-200` the way every other panel is.
+  - `useReveal(browserOpen)` gives `{ mounted, shown }`, used the way `reposReveal`/`terminalReveal`
+    are: render nothing unless `mounted`, and drive the transformed property (opacity, here) off
+    `shown`.
+- [x] Chrome stub: back, forward, reload and a close button, all disabled except close; a URL
+      field that accepts text and navigates nowhere; a centred plate stating that the web pane is
+      not built yet. No `<webview>`, no `WebContentsView`, no `BrowserWindow`.
+- [x] **Enter in the URL field is inert, and the plate says what would have happened.** The field
       keeps its text, the handler calls `preventDefault()` and navigates nowhere, and the centred
       plate reads *"No web engine yet — ‹url› would load here."* with the typed value substituted
-      (falling back to *"No web engine yet."* while the field is empty). This proves the field is
-      wired end to end and makes the missing half obvious; a field that silently swallows Enter is
-      indistinguishable from a broken browser. Deliberately **not** `shell.openExternal` — that is a
-      real feature with a URL-validation and security surface, and it is not this phase's.
-- [ ] The nav rail stays reachable while the pane is open. It is outside `CONTENT_BOX` and cannot be
-      covered from here, which is a property to verify rather than a thing to build.
-- [ ] `Escape` closes the pane; the toggle, the chord and the close button all agree; and the pane
+      (falling back to *"No web engine yet."* while the field is empty).
+- [x] The nav rail stays reachable while the pane is open — verified: it is outside `CONTENT_BOX`
+      and cannot be covered from here.
+- [x] `Escape` closes the pane; the toggle, the chord and the close button all agree; and the pane
       does not steal the terminal's `Ctrl+`` while it is open.
-  - `Escape` is bound to nothing in `DEFAULT_KEYMAP` and is handled ad hoc by `popover.tsx:117` and
-    `tooltip.tsx:108`; the pane follows that precedent with its own `keydown` listener rather than
-    claiming a keymap entry. `Ctrl+`` is safe by construction — `terminal.toggle` is the keymap's
-    only `scope: 'global'` binding (`keybindings.ts:59`) and therefore the only chord on the xterm
-    escape allow-list; the pane must simply not `stopPropagation()` on keydown.
+  - `Escape` is handled ad hoc by a local `keydown` listener, matching `popover.tsx`/`tooltip.tsx`'s
+    precedent rather than claiming a keymap entry. The listener never calls `stopPropagation()`.
+- [x] Extracted `components/empty-state.tsx` (not itemised in the original plan) from two
+      near-duplicate ad hoc cards — `graph-view.tsx`'s local `EmptyState` and
+      `file-preview.tsx`'s `FallbackCard` — so the pane's "no engine yet" plate is a third call
+      site rather than a fourth copy.
 
 ### G — Targets, tooltips and live regions (S)
 
@@ -560,14 +549,11 @@ hooks, not rendered components.
       `kind: 'shell'` or every state is `'exited'`; `opLabel(keys)` returns `null` for `[]` and the
       higher-ranked verb plus `+1` for two. Each segment component is then a thin
       `if (x === null) return null` around one of these.
-- [ ] Vitest (F): **`merge`, not `migrate`.** Assert that
-      `useUiStore.persist.getOptions().merge?.({ reposOpen: false }, useUiStore.getState())` yields
-      `browserOpen: false` rather than `undefined` — a payload that predates the key. Follows
-      `ui-store.test.ts:247-259` ("fills in panes a stored payload predates") exactly. There is no
-      version bump in this phase, so there is no migration arm to test.
-- [ ] Vitest (F): `partialize` includes `browserOpen`, via the existing localStorage round-trip
-      pattern at `ui-store.test.ts:203-216` — drive an action, then read
-      `JSON.parse(localStorage.getItem('midnite-git.ui')).state`.
+- [x] Vitest (F): **`merge`, not `migrate`.** ✅ landed with Theme F —
+      `ui-store.test.ts`'s "defaults browserOpen to false for a payload written before the key
+      existed".
+- [x] Vitest (F): `partialize` includes `browserOpen`. ✅ landed with Theme F —
+      `ui-store.test.ts`'s "persists the browser pane state".
 - [ ] Playwright `e2e/status-bar.spec.ts`: the bar's bounding box starts at the content area's left
       edge with the repositories panel **open** — the assertion that would have failed before Theme
       A and is the phase's whole premise.
@@ -579,12 +565,11 @@ hooks, not rendered components.
       `page.setViewportSize({ width, height })` mid-test, the pattern already at
       `terminal.spec.ts:507` and `:964`; the popover's selectors are `status-overflow` and
       `status-overflow-panel`, both stamped by `Popover` rather than hand-written.
-- [ ] Playwright `e2e/browser-pane.spec.ts`: `Mod+b` opens the pane, it covers the repositories panel,
-      the status bar is still visible and hit-testable beneath it, `Escape` closes it, and the state
-      survives a reload.
-  - "Hit-testable, not merely uncovered" follows `terminal.spec.ts:733`'s own precedent — click a
-    bar control while the pane is open and assert it acted, rather than asserting visibility. That is
-    the assertion the whole phase is for: a pane that covers everything and leaves the bar working.
+- [x] Playwright `e2e/browser-pane.spec.ts`. ✅ landed with Theme F — the toggle (clicked rather
+      than the `Mod+b` chord, to stay platform-independent) opens the pane over the repositories
+      panel, the status bar stays visible and hit-testable beneath it (a bar control is clicked
+      and asserted to have acted, not merely checked for visibility), `Escape` closes it and the
+      state survives a reload, and the URL field's inert-but-wired Enter behaviour is covered too.
 - [ ] Playwright [`e2e/terminal.spec.ts`](../packages/app/e2e/terminal.spec.ts): a maximized terminal
       still stops above the status bar — `frameBox.y + frameBox.height <= barBox.y + 1`. Regression
       guard for Theme A's measurement, and a genuinely new assertion: the existing maximize test at
@@ -613,7 +598,7 @@ hooks, not rendered components.
 |------|-------|
 | Contract | [`shared/src/keybindings.ts`](../packages/shared/src/keybindings.ts) (`browser.open` → `browser.toggle` at `:17` and `:73`, label, and the now-false comment at `:67-72`; chord unchanged) — the phase's only shared-package edit. [`shared/src/domain/status.ts`](../packages/shared/src/domain/status.ts) (**unchanged**), load-bearing for Theme D's mid-operation segment. [`shared/src/domain/forge.ts`](../packages/shared/src/domain/forge.ts) (**unchanged**), load-bearing for `ForgeChecksRollup` and the `checks: … | null` nullability Theme D depends on |
 | Main | [`desktop/src/main/menu.ts`](../packages/desktop/src/main/menu.ts) — **edited**, one new `item('browser.toggle')` in the View submenu after `:71`. The doc previously assumed a menu entry existed; it does not |
-| Renderer — shell | [`app.tsx`](../packages/app/src/app.tsx) (the `<FooterBar />` move at `:773`, the stale comment at `:646-651`, the `browser.open` placeholder at `:352`, `tabIndex={-1}` on the `<aside>` at `:624`, `relative` on the content row at `:604`, the browser overlay mount) |
+| Renderer — shell | [`app.tsx`](../packages/app/src/app.tsx) (the `<FooterBar />` move at `:773`, the stale comment at `:646-651`, `tabIndex={-1}` on the `<aside>` at `:624`, `relative` on the content row, the browser overlay mount). The `browser.open` placeholder handler lived in [`use-command-handlers.ts`](../packages/app/src/services/keybindings/use-command-handlers.ts) by the time Theme F landed — Phase 23 Theme B moved it out of `app.tsx` first |
 | Renderer — status bar | new `features/status-bar/status-bar.tsx`, `segments.ts`, `density.ts`, `use-overflow.ts`, `overflow-popover.tsx`, `chord-hint.ts` and one file per segment; [`features/terminal/footer-bar.tsx`](../packages/app/src/features/terminal/footer-bar.tsx) (**moved away**, taking `chordFor`/`displayChord` with it); [`features/monitor/monitor-cluster.tsx`](../packages/app/src/features/monitor/monitor-cluster.tsx) (`FooterCluster` retired, `MonitorCluster` unchanged); [`features/diagnostics/diagnostics-segment.tsx`](../packages/app/src/features/diagnostics/diagnostics-segment.tsx) (metadata only) |
 | Renderer — browser | new `features/browser/browser-pane.tsx` and its chrome stub |
 | Renderer — segment sources | [`services/use-status.ts`](../packages/app/src/services/use-status.ts) — **written to, not merely read**: `GitOpId`, `GIT_OP_LABEL`, `GIT_OP_RANK`, the `opId` parameter on `useGitOp`/`useTargetedGitOp` and the `mutationKey` at `:262`. [`services/queries.ts`](../packages/app/src/services/queries.ts) (**unchanged** — its eighteen mutations are forge/diagnostics/tests and cannot name a git write). [`features/graph/use-graph-actions.ts`](../packages/app/src/features/graph/use-graph-actions.ts), [`features/repos/use-repo-actions.ts`](../packages/app/src/features/repos/use-repo-actions.ts), [`features/status/sync-controls.tsx`](../packages/app/src/features/status/sync-controls.tsx) — each passes an `opId` at every call site. [`features/terminal/terminal-store.ts`](../packages/app/src/features/terminal/terminal-store.ts) (read; the session list and `states`), [`features/terminal/terminal-session-list.tsx`](../packages/app/src/features/terminal/terminal-session-list.tsx) (**unchanged**, and the source of the `live` predicate at `:121`), [`features/terminal/use-agents.ts`](../packages/app/src/features/terminal/use-agents.ts) (**unchanged and NOT used** — it is the installed-agent roster, not sessions), [`features/tests/tests-store.ts`](../packages/app/src/features/tests/tests-store.ts) (read), [`features/forge/forge-status.tsx`](../packages/app/src/features/forge/forge-status.tsx) (read; `checksStatus` and `StatusPill` reused), [`features/status/conflict-banner.tsx`](../packages/app/src/features/status/conflict-banner.tsx) (its label map at `:17-22` is **exported** so it can be reused) |

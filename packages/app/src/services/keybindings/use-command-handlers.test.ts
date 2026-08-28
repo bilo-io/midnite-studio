@@ -60,7 +60,7 @@ describe('useCommandHandlers — no repo open', () => {
       'terminal.toggle',
       'terminal.focus',
       'repos.toggle',
-      'browser.open',
+      'browser.toggle',
       'repo.open',
       'graph.focus',
       'status.focus',
