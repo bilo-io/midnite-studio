@@ -1,12 +1,39 @@
 import { useUiStore, type ViewId } from '../../store/ui-store';
 
 /**
+ * The sidebar's section tree, end to end (Phase 28).
+ *
+ * `SECTION_TREE` below is the single ordered declaration of what the tree
+ * renders and which node owns which. `RepoTree` (`repos-panel.tsx`) walks it
+ * with one recursive `renderSection`, so a section this file does not
+ * declare cannot appear in the sidebar by accident. The load-bearing rule is
+ * `isVisibleIn`'s: a leaf is visible when the active view's filter admits
+ * it; a parent is visible when the filter admits it **and** at least one
+ * child is. `Branches` and `Forge` are the two parents today — they own
+ * children and render a count, but have no data, no query and no empty
+ * state that is not simply "every child is empty".
+ *
+ * `RefSectionKey` stayed narrower than `SectionKey`: it is only the sections
+ * whose heading menu is built from a repo's refs, and a parent has no refs
+ * of its own to offer one (see its own doc comment).
+ *
+ * **Adding a section** costs three edits, all made compile errors until
+ * done by their `Record<SectionKey, …>` return type: a node in
+ * `SECTION_TREE` below, a label in `SECTION_TITLE` and `SECTION_LABELS`
+ * (`repos-panel.tsx`, `sidebar-page.tsx`), and a body in `SECTION_BODY`
+ * (`repos-panel.tsx`) if it is a leaf. A parent needs none of the last —
+ * `renderSection`'s generic wrapping branch renders it once it has no body
+ * and at least one child.
+ */
+
+/**
  * A section of a repository's subtree in the sidebar.
  *
- * `actions` and `reviews` are here even though `ForgeSections` renders them:
- * the point of one union is that "which sections does this view show" has a
- * single answer, and a forge section that decided its own visibility would be a
- * second one that could disagree.
+ * `actions`, `reviews`, `issues` and `tests` are here even though each
+ * renders itself (`forge-sections.tsx`, `tests-section.tsx`): the point of
+ * one union is that "which sections does this view show" has a single
+ * answer, and a section that decided its own visibility would be a second
+ * one that could disagree.
  *
  * `branches` and `forge` are parents, not sections with rows of their own —
  * see `SECTION_TREE`. `stashes` is a reserved leaf: it exists in the
