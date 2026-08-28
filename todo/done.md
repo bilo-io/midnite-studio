@@ -52,6 +52,40 @@ main-process handlers, no UI (Themes B and C).
       carries `fromRelPath`/`toRelPath` and no bare `relPath`; a stale write parses as
       `{ok:false, code:'stale-write'}` and does **not** fit `ConflictOp`
 
+## 2026-08-28 — Phase 22 · Theme A — stash in the engine
+
+Landed on `feature/phase-22-stash-engine`, merged locally — no PR link, no GitHub remote on this
+checkout. `git stash` appears nowhere else in the codebase yet — Themes B–E (sidebar, graph rows,
+inspector diff, Changes view) read off this contract next.
+
+- [x] `stash-parser.ts`: `STASH_FORMAT` (`%gd%x00%H%x00%P%x00%gs%x00%at%x00%an%x00%ae`),
+      `parseStashRecord` and `parseStashList`, NUL-delimited like `log-parser.ts`. The NUL-boundary
+      chunking walk both parsers need was pulled out into a shared `chunkNulRecords()` (self-review
+      finding) rather than living as two independent copies of the same chunk-boundary-safety fix.
+- [x] `StashEntrySchema` in `shared/src/domain/stash.ts` — `{selector, sha, parents, message,
+      authoredAt, author}`, with `parents` distinguishing a two-parent stash from a three-parent
+      (`-u`) one.
+- [x] `stash.ts` in git-engine: `listStashes`, `stashPush` (message/keepIndex/includeUntracked/
+      paths), `stashApply`/`stashPop` (returning the `conflict('stash-apply', …)` arm on a real
+      conflict — see the self-review fix below), `stashDrop` (capturing the recovered sha for a
+      future undo) and `stashBranch`, all through the write queue.
+- [x] `'stash-apply'` joins `ConflictOpSchema`. `AbortRequest`/`ContinueRequest` were switched from
+      `ConflictOpSchema` to the narrower `InProgressOpSchema` in the same change — abort/continue
+      operate on sequencer state a stash conflict never has, and the wider enum would otherwise
+      have let one through.
+- [x] The `mgit:stash:*` IPC contract end to end: `CHANNELS`, `OpBase`-shaped request schemas,
+      the `stash` group on `MidniteGitBridge`, preload wiring, and handlers in
+      `status-handlers.ts`. `opStashDrop` carries its own `StashDropResult` — `{ok:true,
+      recoveredSha?}` — rather than reusing the plain `GitOpResult` every other op returns, so
+      Theme H's undo has a typed field to read from day one.
+- [x] `stash.integration.test.ts` and `stash-parser.test.ts` against a scratch repo and hand-built
+      fixtures.
+- [x] **Self-review fix**: `applyOrPop` was comparing `conflictedPaths()` only *after* the op, so a
+      stale/invalid selector on a working tree that already had unrelated unmerged paths (from an
+      earlier, unrelated merge) surfaced as a phantom `stash-apply` conflict on files the pop never
+      touched. Now diffs `conflictedPaths()` before/after and only reports newly introduced paths,
+      with a regression test.
+
 ## 2026-08-27 — Phase 21 follow-up — the agent marks are the real marks now
 
 Two of the four roster marks were hand-drawn originals, chosen over the brands' own artwork on a

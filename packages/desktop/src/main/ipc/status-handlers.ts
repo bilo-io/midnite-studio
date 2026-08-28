@@ -3,12 +3,18 @@ import {
   discardPaths,
   fetch,
   getStatus,
+  listStashes,
   pull,
   push,
   readCommitFileDiff,
   readFileDiff,
   readStatusCounts,
   stagePaths,
+  stashApply,
+  stashBranch,
+  stashDrop,
+  stashPop,
+  stashPush,
   unstagePaths,
 } from '@midnite/git-engine';
 import {
@@ -18,6 +24,7 @@ import {
   schemas,
   type FileDiff,
   type GitOpResult,
+  type StashEntry,
 } from '@midnite/git-shared';
 
 import { resolveWorkdir } from '../repo-registry';
@@ -140,6 +147,60 @@ export function registerStatusHandlers(): void {
         tags: req.tags,
       }),
     ),
+  );
+
+  handle(
+    CHANNELS.stashList,
+    schemas.StashListRequest,
+    async (req): Promise<StashEntry[]> => {
+      const cwd = await resolveWorkdir(req.repoId, req.worktreePath);
+      return cwd ? listStashes(cwd) : [];
+    },
+    () => [],
+  );
+
+  handleOp(
+    CHANNELS.opStashPush,
+    schemas.StashPushRequest,
+    inWorkdir((cwd, req) =>
+      stashPush(cwd, {
+        ...(req.message === undefined ? {} : { message: req.message }),
+        keepIndex: req.keepIndex,
+        includeUntracked: req.includeUntracked,
+        ...(req.paths === undefined ? {} : { paths: req.paths }),
+      }),
+    ),
+  );
+  handleOp(
+    CHANNELS.opStashPop,
+    schemas.StashPopRequest,
+    inWorkdir((cwd, req) => stashPop(cwd, req.selector)),
+  );
+  handleOp(
+    CHANNELS.opStashApply,
+    schemas.StashApplyRequest,
+    inWorkdir((cwd, req) => stashApply(cwd, req.selector)),
+  );
+
+  // Not `handleOp`: a drop's success arm carries an optional `recoveredSha`,
+  // which `handleOp`'s `GitOpResult`-only signature can't express. `failure()`
+  // still returns a plain `GitOpResult`, which is one arm of the wider
+  // `StashDropResult` union, so it's a valid `onInvalid` here.
+  handle(
+    CHANNELS.opStashDrop,
+    schemas.StashDropRequest,
+    async (req) => {
+      const cwd = await resolveWorkdir(req.repoId, req.worktreePath);
+      if (!cwd) return failure('That repository is no longer open.');
+      return stashDrop(cwd, req.selector);
+    },
+    (issue) => failure(issue),
+  );
+
+  handleOp(
+    CHANNELS.opStashBranch,
+    schemas.StashBranchRequest,
+    inWorkdir((cwd, req) => stashBranch(cwd, req.name, req.selector)),
   );
 }
 

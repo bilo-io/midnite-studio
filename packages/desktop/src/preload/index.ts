@@ -89,6 +89,7 @@ const bridge: Pick<
   | 'shell'
   | 'clipboard'
   | 'ops'
+  | 'stash'
   | 'pty'
   | 'terminal'
   | 'agent'
@@ -190,6 +191,14 @@ const bridge: Pick<
     abort: (req) => call(CHANNELS.opAbort, req),
     continue: (req) => call(CHANNELS.opContinue, req),
     blastRadius: (req) => call(CHANNELS.opBlastRadius, req),
+  },
+  stash: {
+    list: (req) => call(CHANNELS.stashList, req),
+    push: (req) => call(CHANNELS.opStashPush, req),
+    pop: (req) => call(CHANNELS.opStashPop, req),
+    apply: (req) => call(CHANNELS.opStashApply, req),
+    drop: (req) => call(CHANNELS.opStashDrop, req),
+    branch: (req) => call(CHANNELS.opStashBranch, req),
   },
   pty: {
     create: (req) => call(CHANNELS.ptyCreate, req),

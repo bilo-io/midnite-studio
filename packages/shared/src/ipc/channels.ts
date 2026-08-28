@@ -209,6 +209,21 @@ export const CHANNELS = {
   /** Blast radius for a destructive op — `rev-list --count` of orphaned commits. */
   opBlastRadius: 'mgit:op:blast-radius',
 
+  // --- stash -----------------------------------------------------------------
+  /** Every stash entry for one checkout, newest first — same shape `for-each-ref` gets. */
+  stashList: 'mgit:stash:list',
+  opStashPush: 'mgit:stash:push',
+  opStashPop: 'mgit:stash:pop',
+  opStashApply: 'mgit:stash:apply',
+  /**
+   * Drop a stash entry. Its own response shape, not the plain `GitOpResult`
+   * every other op returns — a drop captures the sha it just made
+   * unreachable, so a later undo has an anchor to `git stash store` back
+   * from. See `StashDropResultSchema`.
+   */
+  opStashDrop: 'mgit:stash:drop',
+  opStashBranch: 'mgit:stash:branch',
+
   // --- pty -----------------------------------------------------------------
   // `pty:*` owns the *process*; `terminal:*` below owns the durable *record*.
   // A session outlives its pty (that is the whole point of restoring one), so

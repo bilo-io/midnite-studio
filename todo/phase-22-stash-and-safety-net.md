@@ -44,31 +44,31 @@ Effort tags: **S** ≈ an hour or two · **M** ≈ half a day · **L** ≈ a day
 
 ## Deliverables
 
-### A — Stash in the engine (M)
+### A — Stash in the engine (M) ✅ DONE (2026-08-28)
 
 The spine: B–E all read off this contract, so it lands first.
 
-- [ ] `packages/git-engine/src/parsers/stash-parser.ts`, following
+- [x] `packages/git-engine/src/parsers/stash-parser.ts`, following
       [`log-parser.ts`](../packages/git-engine/src/parsers/log-parser.ts)'s rule that *the parser
       owns the format string*: `export const STASH_FORMAT` built from `%gd` (the `stash@{n}`
       selector), `%H`, `%P`, `%gs`, `%at`, `%an`, `%ae` joined on `%x00`, with a `FIELD_COUNT`
       guard and `export function parseStashRecord(record: string): StashEntry | null`. Records come
       from `git stash list -z --format=STASH_FORMAT`.
-- [ ] `StashEntrySchema` in [`shared/src/domain/`](../packages/shared/src/domain/) — `{ selector,
+- [x] `StashEntrySchema` in [`shared/src/domain/`](../packages/shared/src/domain/) — `{ selector,
       sha, parents, message, authoredAt, author }`. `parents` is load-bearing and not decoration: a
       stash commit has `^1` = HEAD at stash time, `^2` = the index state, and `^3` = the untracked
       files *only when `-u` was used*, and Theme D reads all three. A two-parent stash and a
       three-parent stash are different objects and the type must be able to tell them apart.
-- [ ] `packages/git-engine/src/commands/stash.ts` — reads and writes in one module, since the
+- [x] `packages/git-engine/src/commands/stash.ts` — reads and writes in one module, since the
       domain is small (contrast `refs.ts`/`refs-ops.ts`). `listStashes(worktreePath)` on the read
       side; `stashPush`, `stashPop`, `stashApply`, `stashDrop`, `stashBranch` on the write side,
       each returning `GitOpResult` through the module-local
       `const run = (p, args) => writeQueue.run(p, () => execGit(p, args, { write: true }))` idiom
       that every other write module defines.
-- [ ] `stashPush(worktreePath, { message?, keepIndex?, includeUntracked?, paths? })` — `paths`
+- [x] `stashPush(worktreePath, { message?, keepIndex?, includeUntracked?, paths? })` — `paths`
       appended after `--`, which is what Theme E needs and what makes `git stash push` the right
       subcommand rather than the older `git stash save`.
-- [ ] **A pop can conflict, and the contract cannot currently say so.** `ConflictOpSchema` in
+- [x] **A pop can conflict, and the contract cannot currently say so.** `ConflictOpSchema` in
       [`result.ts`](../packages/shared/src/domain/result.ts) is
       `z.enum(['merge','rebase','cherry-pick','revert'])`; `stashPop`/`stashApply` need a
       `'stash-apply'` arm added to it, and every exhaustive switch over `ConflictOp` in the renderer
@@ -76,22 +76,22 @@ The spine: B–E all read off this contract, so it lands first.
       [`sequencer.ts`](../packages/git-engine/src/commands/sequencer.ts)'s rule that exit code alone
       is not enough — on non-zero, call `conflictedPaths()` and return `conflict('stash-apply', files)`
       when it is non-empty.
-- [ ] A conflicted `pop` **must not drop the stash**, which is git's own behaviour and worth
+- [x] A conflicted `pop` **must not drop the stash**, which is git's own behaviour and worth
       asserting: after a conflicted pop the entry is still in `stash list`, and the app must not
       imply otherwise.
-- [ ] `stashDrop` captures the dropped commit sha from stderr *before* returning, so Theme H has an
+- [x] `stashDrop` captures the dropped commit sha from stderr *before* returning, so Theme H has an
       anchor to restore from (`git stash store`). A dropped stash is unreachable, not gone.
-- [ ] Failure messages go through `gitErrorLine(stderr)` — exported, slightly oddly, from
+- [x] Failure messages go through `gitErrorLine(stderr)` — exported, slightly oddly, from
       [`worktree-ops.ts`](../packages/git-engine/src/commands/worktree-ops.ts) — the same way
       refs-ops, sequencer and sync already do.
-- [ ] Contract wiring: `mgit:stash:list` in `CHANNELS` plus `opStashPush`/`opStashPop`/
+- [x] Contract wiring: `mgit:stash:list` in `CHANNELS` plus `opStashPush`/`opStashPop`/
       `opStashApply`/`opStashDrop`/`opStashBranch`; `OpBase.extend(…)` request schemas and
       `OpResponse` in [`schemas.ts`](../packages/shared/src/ipc/schemas.ts); the `ops` block in
       [`bridge.ts`](../packages/shared/src/ipc/bridge.ts); the preload entries in
       [`preload/index.ts`](../packages/desktop/src/preload/index.ts); and handlers registered with
       `handleOp` behind the local `inWorkdir()` wrapper in
       [`ipc/status-handlers.ts`](../packages/desktop/src/main/ipc/status-handlers.ts).
-- [ ] Integration coverage in `stash.integration.test.ts` against a scratch repo, matching the
+- [x] Integration coverage in `stash.integration.test.ts` against a scratch repo, matching the
       `*.integration.test.ts` convention: push with and without `-u`, `--keep-index`, a path-scoped
       push, pop clean, pop conflicted, drop, and `stash branch`.
 

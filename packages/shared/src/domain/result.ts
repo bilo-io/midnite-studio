@@ -9,7 +9,7 @@ import { z } from 'zod';
  * `Error: Error invoking remote method ...` string with the real stderr lost.
  * Everything therefore comes back as this discriminated union.
  */
-export const ConflictOpSchema = z.enum(['merge', 'rebase', 'cherry-pick', 'revert']);
+export const ConflictOpSchema = z.enum(['merge', 'rebase', 'cherry-pick', 'revert', 'stash-apply']);
 export type ConflictOp = z.infer<typeof ConflictOpSchema>;
 
 /**
@@ -20,8 +20,12 @@ export type ConflictOp = z.infer<typeof ConflictOpSchema>;
  * Nesting keeps the wire shape exactly as specified — `{ok:false, kind:…}` —
  * while still giving zod a single-key fast path within each level, and TypeScript
  * narrows through both keys just the same.
+ *
+ * Exported (unlike the union it feeds) so a channel that needs to widen the
+ * success arm — `stashDrop`'s recovered sha — can still compose the same
+ * failure shape rather than redeclare it.
  */
-const GitOpFailureSchema = z.discriminatedUnion('kind', [
+export const GitOpFailureSchema = z.discriminatedUnion('kind', [
   z.object({
     ok: z.literal(false),
     kind: z.literal('conflict'),
