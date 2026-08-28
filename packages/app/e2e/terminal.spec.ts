@@ -888,6 +888,61 @@ test.describe('terminal panel', () => {
       'midnite-git · Terminal',
     ]);
   });
+
+  /**
+   * The list had no keyboard story at all before this: selection was
+   * mouse/drag-only. Up/down now walks the rows, and the arrow pointing at the
+   * terminal pane (left, docked right by default) hands focus over to it.
+   */
+  test('arrow keys walk the session list and hand focus to the terminal', async ({ page }) => {
+    await open(page, { terminalSessions: RESTORED });
+    await toggleTerminal(page);
+    await expect(rows(page)).toHaveCount(3);
+
+    const isActive = async (index: number) =>
+      ((await rows(page).nth(index).getAttribute('class')) ?? '').includes('bg-accent/60');
+
+    // Restored with nothing live: the first row is active by default.
+    await rows(page).first().click();
+    expect(await isActive(0)).toBe(true);
+
+    await page.keyboard.press('ArrowDown');
+    expect(await isActive(1)).toBe(true);
+    expect(await isActive(0)).toBe(false);
+
+    await page.keyboard.press('ArrowDown');
+    expect(await isActive(2)).toBe(true);
+
+    // Clamps at the end rather than wrapping.
+    await page.keyboard.press('ArrowDown');
+    expect(await isActive(2)).toBe(true);
+
+    await page.keyboard.press('ArrowUp');
+    expect(await isActive(1)).toBe(true);
+
+    // Docked right (the default): the pane is to the LEFT of the list, so
+    // that is the key that hands focus over to it.
+    await page.keyboard.press('ArrowLeft');
+    await expect
+      .poll(() =>
+        page.evaluate(() => document.activeElement?.classList.contains('xterm-helper-textarea')),
+      )
+      .toBe(true);
+
+    // And reversed once the list is docked left — the pane is now on the
+    // RIGHT, so the key that reaches it flips too.
+    await rows(page).first().click();
+    await page.locator('[data-session-list]').click({ button: 'right' });
+    await page.getByRole('menuitem', { name: 'Move to left' }).click();
+
+    await rows(page).nth(1).click();
+    await page.keyboard.press('ArrowRight');
+    await expect
+      .poll(() =>
+        page.evaluate(() => document.activeElement?.classList.contains('xterm-helper-textarea')),
+      )
+      .toBe(true);
+  });
 });
 
 /**

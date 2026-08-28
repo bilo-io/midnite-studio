@@ -396,9 +396,20 @@ export function TerminalView({
   }, []);
 
   // Focus follows selection, so switching sessions leaves you able to type.
+  // `focusSignal` also refires this when the session list asks to move focus
+  // into an ALREADY-active session — see terminal-store's own comment on it.
+  // `suppressAutoFocus` is the one case that skips it: the session list's own
+  // arrow-key navigation, which changes the active session but wants to stay
+  // in the list until an explicit sideways arrow hands focus over.
+  const focusSignal = useTerminalStore((s) => s.focusSignal);
   useEffect(() => {
-    if (active && ready) termRef.current?.focus();
-  }, [active, ready]);
+    if (!active || !ready) return;
+    if (useTerminalStore.getState().suppressAutoFocus) {
+      useTerminalStore.getState().clearSuppressAutoFocus();
+      return;
+    }
+    termRef.current?.focus();
+  }, [active, ready, focusSignal]);
 
   return (
     <div
