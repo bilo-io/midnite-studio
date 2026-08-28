@@ -4,6 +4,7 @@ import { DiagnosticsSegment } from '../diagnostics/diagnostics-segment';
 import { MonitorCluster } from '../monitor/monitor-cluster';
 import { ActiveWorktreeSegment } from './active-worktree';
 import { BrowserToggle } from './browser-toggle';
+import { OpProgressSegment } from './op-progress';
 import { ReposToggle } from './repos-toggle';
 import { TerminalToggle } from './terminal-toggle';
 
@@ -50,6 +51,7 @@ export const STATUS_SEGMENTS: StatusSegment[] = [
     label: 'Active worktree',
     El: ActiveWorktreeSegment,
   },
+  { id: 'op-progress', zone: 'center', priority: 10, label: 'Operation progress', El: OpProgressSegment },
   { id: 'diagnostics', zone: 'right', priority: 10, label: 'Diagnostics', El: DiagnosticsSegment },
   { id: 'monitor', zone: 'right', priority: 20, label: 'System monitor', El: MonitorCluster },
 ];
