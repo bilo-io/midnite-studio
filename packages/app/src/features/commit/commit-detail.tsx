@@ -282,19 +282,31 @@ export function CommitDetail({ repoId, sha }: { repoId: string; sha: string }) {
         </div>
       ) : null}
 
-      <div className="flex shrink-0 items-center border-y border-border px-3 py-1.5">
-        <ChangeTotals
-          fileCount={data.files.length}
-          insertions={insertions}
-          deletions={deletions}
-        />
-      </div>
+      {/*
+        The all-changes view carries these totals in its own header, beside the
+        expand/collapse-all buttons — two single-purpose rows stacked on top of
+        each other read as a layout bug, and both are one line's worth of text.
+      */}
+      {showAll && data.files.length > 0 ? null : (
+        <div className="flex shrink-0 items-center border-y border-border px-3 py-1.5">
+          <ChangeTotals
+            fileCount={data.files.length}
+            insertions={insertions}
+            deletions={deletions}
+          />
+        </div>
+      )}
 
       {data.files.length === 0 ? (
         <p className="px-3 py-2 text-xs text-muted-foreground">This commit changed no files.</p>
       ) : showAll ? (
         <div className="min-h-0 flex-1">
-          <CommitAllChanges repoId={repoId} sha={data.sha} files={data.files} />
+          <CommitAllChanges
+            repoId={repoId}
+            sha={data.sha}
+            files={data.files}
+            totals={{ fileCount: data.files.length, insertions, deletions }}
+          />
         </div>
       ) : (
         <>

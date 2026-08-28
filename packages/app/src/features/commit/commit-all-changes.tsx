@@ -2,7 +2,7 @@ import { ChevronRight, ChevronsDownUp, ChevronsUpDown } from 'lucide-react';
 import { useId, useMemo, useState } from 'react';
 
 import type { ChangedFile } from '../../components/build-change-tree';
-import { Counts } from '../../components/change-tree';
+import { ChangeTotals, Counts } from '../../components/change-tree';
 import { IconButton } from '../../components/icon-button';
 import {
   EXPAND_ALL_LIMIT,
@@ -31,10 +31,17 @@ export function CommitAllChanges({
   repoId,
   sha,
   files,
+  totals,
 }: {
   repoId: string;
   sha: string;
   files: readonly CommitFile[];
+  /**
+   * Shown at the left of the header, so the "how big is this commit" answer
+   * and the expand/collapse-all controls share one line instead of stacking
+   * two thin bars — the same shape as `ChangesAccordion`'s header.
+   */
+  totals: { fileCount: number; insertions: number; deletions: number };
 }) {
   const [expanded, setExpanded] = useState<ExpansionState>(NOTHING_EXPANDED);
 
@@ -44,7 +51,9 @@ export function CommitAllChanges({
 
   return (
     <div className="flex h-full min-h-0 flex-col">
-      <header className="flex shrink-0 items-center justify-end gap-1 border-b border-border px-2 py-1">
+      <header className="flex shrink-0 items-center gap-2 border-y border-border px-3 py-1.5">
+        <ChangeTotals {...totals} className="mr-auto" />
+
         <IconButton
           icon={ChevronsUpDown}
           label={withheld > 0 ? `Expand the first ${EXPAND_ALL_LIMIT} files` : 'Expand all files'}
