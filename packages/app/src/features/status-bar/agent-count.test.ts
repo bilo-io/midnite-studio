@@ -39,6 +39,15 @@ describe('agentCount', () => {
     expect(agentCount(sessions, states)).toBe(2);
   });
 
+  it('does not count a slept agent session', () => {
+    const sessions = [
+      session({ id: 'a', kind: 'agent', agentId: 'claude', asleep: true }),
+      session({ id: 'b', kind: 'agent', agentId: 'codex' }),
+    ];
+    const states: Record<string, ConnectionState> = { a: 'open', b: 'open' };
+    expect(agentCount(sessions, states)).toBe(1);
+  });
+
   it('treats a missing state as not live', () => {
     const sessions = [session({ id: 'a', kind: 'agent', agentId: 'claude' })];
     expect(agentCount(sessions, {})).toBe(0);
