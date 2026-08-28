@@ -1,12 +1,11 @@
 import { lazy, Suspense, useEffect, useState } from 'react';
 
 import { useQuery } from '@tanstack/react-query';
-import { LuFileQuestion, LuPresentation } from 'react-icons/lu';
+import { LuFileQuestion } from 'react-icons/lu';
 
 import { mgitFileUrl } from '@midnite/git-shared';
 
 import { EmptyState } from '../../../components/empty-state';
-import { IconButton } from '../../../components/icon-button';
 import { languageForFile, previewKindForFile } from '../../../lib/languages';
 import { bridge, hasBridge } from '../../../services/bridge';
 import { keys } from '../../../services/queries';
@@ -14,7 +13,7 @@ import { useRepoStatus } from '../../../services/use-status';
 import { useFileEditorStore } from '../../../store/file-editor-store';
 import { IMAGE_CHECKERBOARD, ImageDiff } from '../../diff/image-diff';
 import { differsFromHead, headToWorktreeImage } from '../../diff/image-sources';
-import { useSlidesStore } from '../../slides/slides-store';
+import { PresentButton } from '../../slides/present-button';
 import { type FsScopeInput } from '../file-tree';
 import { CodePreview } from './code-preview';
 import { MarkdownPreview } from './markdown-preview';
@@ -196,12 +195,7 @@ export function FilePreview({ scope, relPath, targetLine }: FilePreviewProps) {
           >
             {showSource ? 'Rendered' : 'Source'}
           </button>
-          <IconButton
-            icon={LuPresentation}
-            label="Present as slides"
-            size="sm"
-            onClick={() => useSlidesStore.getState().present({ content: data.content, label: fileName })}
-          />
+          <PresentButton source={{ content: data.content, label: fileName }} />
         </>
       ) : null}
     </div>
