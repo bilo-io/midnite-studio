@@ -165,6 +165,7 @@ const bridge: Pick<
     // `invoke`, not `send`: the renderer needs to know a URL was refused, and
     // a one-way send would make a blocked link indistinguishable from a slow one.
     openExternal: (req) => call(CHANNELS.shellOpenExternal, req),
+    showItemInFolder: (req) => call(CHANNELS.shellShowItemInFolder, req),
   },
   clipboard: {
     // Also `invoke`: the copy button's checkmark is a claim that the text is on
@@ -232,6 +233,7 @@ const bridge: Pick<
     create: (req) => call(CHANNELS.fsCreate, req),
     rename: (req) => call(CHANNELS.fsRename, req),
     delete: (req) => call(CHANNELS.fsDelete, req),
+    dirStats: (req) => call(CHANNELS.fsDirStats, req),
   },
   metrics: {
     // `send`, not `invoke`, like `pty.input`: neither verb has an answer worth

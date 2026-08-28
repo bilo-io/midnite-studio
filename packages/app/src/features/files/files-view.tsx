@@ -96,6 +96,7 @@ export function FilesView() {
             selectedPath={selectedPath}
             onToggleDir={toggleDir}
             onSelectFile={selectFile}
+            writable
           />
         </div>
       </div>

@@ -247,17 +247,24 @@ export type MidniteGitBridge = {
   };
 
   /**
-   * Hand-offs to the OS. Deliberately one method wide.
+   * Hand-offs to the OS.
    *
    * `openExternal` is protocol-restricted in the schema AND re-checked in the
    * handler — see OPEN_EXTERNAL_PROTOCOLS. Resolves `{ok:false}` on a refused
    * URL rather than rejecting, so a bad link in a commit message is a no-op
-   * rather than an unhandled rejection in the renderer.
+   * rather than an unhandled rejection in the renderer. `showItemInFolder` is
+   * the other hand-off (Phase 24): repo-scoped rather than protocol-scoped,
+   * so the jail is `FsRepoScope` plus `fs-scope.ts`'s `confineToRoot` instead
+   * of a URL allowlist.
    */
   shell: {
     openExternal: (
       req: In<typeof S.OpenExternalRequest>,
     ) => Promise<z.infer<typeof S.OpenExternalResponse>>;
+    /** Reveal a file or folder in the OS file manager (Finder). */
+    showItemInFolder: (
+      req: In<typeof S.ShowItemInFolderRequest>,
+    ) => Promise<z.infer<typeof S.ShowItemInFolderResponse>>;
   };
 
   /**
@@ -381,6 +388,10 @@ export type MidniteGitBridge = {
     rename: (req: In<typeof S.FsRenameRequest>) => Promise<GitOpResult>;
     /** Through the OS Trash, not `unlink` — recoverable in the Finder. */
     delete: (req: In<typeof S.FsDeleteRequest>) => Promise<GitOpResult>;
+    /** File count + total bytes for a directory, capped — see `FS_DIR_STATS_WALK_CAP`. */
+    dirStats: (
+      req: In<typeof S.FsDirStatsRequest>,
+    ) => Promise<z.infer<typeof S.FsDirStatsResponse>>;
   };
 
   /**

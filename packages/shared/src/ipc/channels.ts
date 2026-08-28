@@ -177,6 +177,13 @@ export const CHANNELS = {
    */
   shellOpenExternal: 'mgit:shell:open-external',
   /**
+   * Reveal a repo-scoped path in the OS file manager. Repo scope only, the same
+   * jail `fs-handlers.ts` confines every read through — this is a read, not a
+   * write, but it still crosses into `~/.claude` if it were let to, which is why
+   * it takes the narrower `FsRepoScope` rather than a bare absolute path.
+   */
+  shellShowItemInFolder: 'mgit:shell:show-item-in-folder',
+  /**
    * Put text on the system clipboard.
    *
    * Goes through main rather than `navigator.clipboard`: the packaged app loads
@@ -262,6 +269,12 @@ export const CHANNELS = {
   fsRename: 'mgit:fs:rename',
   /** Trash, not `unlink` — recoverable in the Finder. */
   fsDelete: 'mgit:fs:delete',
+  /**
+   * A directory's file count and total bytes, for a delete confirm's blast
+   * radius. Bounded by `FS_DIR_STATS_WALK_CAP` — a truncated flag says so
+   * rather than the count silently understating a huge tree.
+   */
+  fsDirStats: 'mgit:fs:dir-stats',
 
   // --- system metrics (Phase 18) -------------------------------------------
   // One-way `send`s, not `invoke`s: neither has anything to report back, and

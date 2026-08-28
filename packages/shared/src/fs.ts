@@ -57,6 +57,14 @@ export const FS_TEXT_CAP_BYTES = 1.5 * 1024 * 1024;
 export const FS_WRITE_CAP_BYTES = FS_TEXT_CAP_BYTES;
 
 /**
+ * Ceiling on entries a directory-stats walk will count for a delete confirm's
+ * blast radius. A `node_modules`-sized tree exists to be deleted quickly, not
+ * counted exactly — past the cap the walk stops and reports `truncated: true`
+ * rather than costing the confirm dialog a multi-second stat pass.
+ */
+export const FS_DIR_STATS_WALK_CAP = 10_000;
+
+/**
  * A cheap version token for optimistic-concurrency writes: `mtimeMs` and
  * `size` from the read that preceded the edit. `fsWriteFile` sends it back,
  * and main refuses when a `fstat` at write time disagrees — the guard against

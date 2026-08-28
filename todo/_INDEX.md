@@ -24,7 +24,7 @@ Completed work is logged append-only in [`done.md`](done.md). Deferred scope liv
 | [27 · The footer becomes a status bar, and the browser it makes room for](phase-27-status-bar-and-browser-panel.md) | 🔄 WIP | x1 | 62/90 | `███████░░░` | 69% | H | — |
 | [26 · Side by side, and the room to show it](phase-26-side-by-side-diffs.md) | ◻ TODO | — | 0/68 | `░░░░░░░░░░` | 0% | — | A–H |
 | [25 · Search everywhere, and the blame that explains it](phase-25-search-everywhere.md) | ◻ TODO | x1 | 0/101 | `░░░░░░░░░░` | 0% | — | A–F |
-| [24 · The explorer learns to write, and to search](phase-24-writable-explorer.md) | 🔄 WIP | — | 18/54 | `███░░░░░░░` | 33% | C | D, E, G |
+| [24 · The explorer learns to write, and to search](phase-24-writable-explorer.md) | 🔄 WIP | — | 26/55 | `█████░░░░░` | 47% | — | D, E, G |
 | [23 · A command palette, and the registry that can feed it](phase-23-command-palette.md) | 🔄 WIP | — | 11/55 | `██░░░░░░░░` | 20% | — | C–H |
 | [22 · Stash, the reflog, and writes you can take back](phase-22-stash-and-safety-net.md) | 🔄 WIP | — | 10/70 | `█░░░░░░░░░` | 14% | — | B–H |
 | [21 · Agent roster + terminal identity](phase-21-agent-roster-and-terminal-identity.md) | 🔄 WIP | — | 43/46 | `█████████░` | 93% | — | 3 manual checks |
@@ -234,9 +234,13 @@ write scope, so `agent-page.tsx` stays read-only without knowing writes exist.*
   refusal that is a gate rather than the cosmetic `isIgnored` hint, and a TOCTOU-safe write through
   a descriptor. `fs-scope-write.ts` sits beside `fs-scope.ts` the way `gh-write.ts` sits beside
   `gh-cli.ts` (landed 2026-08-28)
-- ◻ **C** — mutations in the tree: the tree's first `onContextMenu`, a `writable` opt-in prop,
-  inline rename, and `shell.trashItem()` delete behind a confirm that counts the uncommitted work
-  it is about to bin.
+- ✅ **C** — mutations in the tree: the tree's first `onContextMenu` (plus a hover ellipsis, one
+  shared `openMenu`), a `writable` opt-in prop, inline create/rename validated client-side before
+  the round trip, and delete behind a confirm naming a directory's real file count/size (a new
+  capped `mgit:fs:dir-stats` walk) and how many are uncommitted (joined off Theme F's own status
+  index). New read-only `mgit:shell:show-item-in-folder` channel for Reveal. Found and fixed: the
+  e2e mock's `listDir` handed out the live `fsDirs` array by reference, so react-query's structural
+  sharing saw "unchanged" after a mutation and silently never repainted (landed 2026-08-28)
 - ◻ **D** — the preview pane becomes an editor: CodeMirror 6 (the app's first editor dependency),
   dirty state, `Cmd+S` through the command registry, an unsaved guard, and a stale-write refusal
   that offers to reload rather than picking a side.

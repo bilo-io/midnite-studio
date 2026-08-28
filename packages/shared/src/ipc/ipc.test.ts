@@ -324,6 +324,41 @@ describe('fs write contract (Phase 24)', () => {
   });
 });
 
+describe('fs read-only reads for the delete confirm + reveal (Phase 24 Theme C)', () => {
+  const base = { scope: 'repo' as const, repoId: 'r', relPath: 'a.ts' };
+
+  it('FsDirStatsRequest and ShowItemInFolderRequest are repo-scoped like the writes', () => {
+    expect(() => schemas.FsDirStatsRequest.parse(base)).not.toThrow();
+    expect(() => schemas.FsDirStatsRequest.parse({ ...base, scope: 'claude-home' })).toThrow();
+    expect(() => schemas.ShowItemInFolderRequest.parse(base)).not.toThrow();
+    expect(() => schemas.ShowItemInFolderRequest.parse({ ...base, scope: 'claude-home' })).toThrow();
+  });
+
+  it('FsDirStatsRequest allows an empty relPath — the scope root itself', () => {
+    expect(() => schemas.FsDirStatsRequest.parse({ ...base, relPath: '' })).not.toThrow();
+  });
+
+  it('FsDirStatsResponse carries a truncated flag on its ok arm', () => {
+    const parsed = schemas.FsDirStatsResponse.parse({
+      ok: true,
+      fileCount: 3,
+      totalBytes: 100,
+      truncated: false,
+    });
+    expect(parsed).toMatchObject({ fileCount: 3, truncated: false });
+    expect(() =>
+      schemas.FsDirStatsResponse.parse({ ok: true, fileCount: 3, totalBytes: 100 }),
+    ).toThrow();
+  });
+
+  it('ShowItemInFolderResponse is a hand-off outcome, not a GitOpResult', () => {
+    expect(schemas.ShowItemInFolderResponse.parse({ ok: false, message: 'nope' })).toMatchObject({
+      ok: false,
+    });
+    expect(schemas.ShowItemInFolderResponse.parse({ ok: true })).toEqual({ ok: true });
+  });
+});
+
 describe('OpenExternalRequest', () => {
   it.each(['https://github.com/o/r', 'http://localhost:3000/x', 'mailto:dev@example.com'])(
     'accepts %s',
