@@ -134,6 +134,58 @@ keybindings bullet to `CLAUDE.md`/`AGENTS.md`/`GEMINI.md` naming the real regist
 - [x] `keybindings.test.ts` extended: every `CommandId` has a label/group, no two bindings share a
       chord, `Mod+Shift+p` still resolves to `sync.pull`, `palette.open` escapes the terminal and
       `palette.files` does not
+## 2026-08-28 — Phase 27 Theme F — the browser pane the keymap already promised
+
+Cashes the `Mod+b` promise Phase 9's keymap made: `browser.open` → `browser.toggle`, its
+"coming soon" dialog handler replaced with a real toggle, and a native View-menu item added
+(there was none). `features/browser/browser-pane.tsx` is a chrome stub with no engine —
+disabled back/forward/reload, a functional close, and a URL field that accepts text and
+navigates nowhere, proven wired end to end by the centred plate substituting the typed value
+on Enter rather than silently swallowing it. Mounted `absolute inset-0` over the content row
+(the repositories panel and the view/terminal column alike, `relative` added to their shared
+parent), so the status bar stays visible *and hit-testable* beneath it — the phase's own
+demonstration that Theme A's move made the bar full-width. `Escape` closes the pane without
+`stopPropagation`, so it never steals the terminal's global `Ctrl+`` chord. `browserOpen`
+joins `ui-store` beside `reposOpen`/`terminalOpen` with no version bump — the existing custom
+`merge` already back-fills a key an older payload predates — which also meant fixing
+`PersistedUi`'s pre-existing drift (it was missing five keys `partialize` already returned).
+A third `BrowserToggle` segment joins the status bar's left zone, its own lowest `priority` of
+the three toggles for Theme E's future overflow order. Along the way, extracted a shared
+`EmptyState` (`components/empty-state.tsx`) from two near-duplicate ad hoc cards
+(`graph-view.tsx`, `file-preview.tsx`'s `FallbackCard`) so the pane's plate is a third call
+site rather than a fourth copy.
+
+- [x] `browser.open` → `browser.toggle` in `COMMANDS` (`shared/src/keybindings.ts`), label
+      "Toggle Browser", chord `Mod+b` unchanged, scope `app`; the now-false keymap comment
+      rewritten. The placeholder handler moved to `use-command-handlers.ts` in Phase 23 Theme
+      B, so that is where the rename and the real `toggleBrowser()` call landed, not
+      `app.tsx:352`
+- [x] `item('browser.toggle')` added to the native View submenu (`menu.ts`), after
+      `terminal.toggle`
+- [x] `browserOpen` / `toggleBrowser` / `setBrowserOpen` in `ui-store.ts`, defaulting `false`,
+      added to `partialize` with no `version` bump and no `migrate` arm — `merge` already
+      handles a predating payload
+- [x] `PersistedUi`'s drift fixed: the five keys `partialize` already returned
+      (`reposOpen`/`terminalOpen`/`terminalMaximized`/`terminalSidebarSide`/`terminalListOpen`)
+      plus `browserOpen` added to the type, and `partialize` annotated `(state): PersistedUi`
+      so the annotation cannot silently drift again
+- [x] `BrowserToggle` segment (left zone, `priority: 5` — lowest of the three toggles, since
+      Repos and Terminal both toggle panels that hold work and the browser pane holds nothing
+      yet), `GoGlobe` from `react-icons/go` alongside `GoRepo`'s Octicons precedent
+- [x] `features/browser/browser-pane.tsx`: `absolute inset-0` over the content row (`relative`
+      added to its container), `useReveal`-driven opacity transition at `REVEAL_MS`, a chrome
+      stub with disabled back/forward/reload and a working close, and a URL field whose Enter
+      is inert but substitutes the typed value into the centred plate
+  - `Escape` closes it via a local `keydown` listener with no `stopPropagation`, matching the
+    `popover.tsx`/`tooltip.tsx` precedent rather than claiming a keymap entry
+- [x] `components/empty-state.tsx` extracted; `graph-view.tsx`'s local `EmptyState` and
+      `file-preview.tsx`'s `FallbackCard` both rebuilt on it
+- [x] `use-command-handlers.test.ts` updated for the rename; new `ui-store.test.ts` cases for
+      persistence and the pre-existing-payload merge fallback; new
+      `e2e/browser-pane.spec.ts` — the toggle covering the repositories panel with the bar
+      staying hit-testable beneath it, `Escape` closing it and the state surviving a reload,
+      and the URL field's inert-but-wired Enter behaviour
+
 ## 2026-08-28 — Phase 27 Themes A–C — the status bar spans the app, and becomes a zone grid
 
 `<StatusBar />` (formerly `FooterBar`) moves out of the content column into `CONTENT_BOX`, so the

@@ -65,14 +65,7 @@ export function useCommandHandlers(): CommandRuntime {
     'terminal.toggle': { enabled: true, run: () => useUiStore.getState().toggleTerminal() },
     'terminal.focus': { enabled: true, run: () => useUiStore.getState().setTerminalOpen(true) },
     'repos.toggle': { enabled: true, run: () => useUiStore.getState().toggleRepos() },
-    // A placeholder, deliberately: the chord is reserved (see the keymap) and
-    // saying so out loud beats a keystroke that does nothing, which reads as a
-    // broken shortcut rather than an unbuilt feature.
-    'browser.open': {
-      enabled: true,
-      run: () =>
-        dialogs.notify({ title: 'Browser', body: 'The built-in browser is coming soon.' }),
-    },
+    'browser.toggle': { enabled: true, run: () => useUiStore.getState().toggleBrowser() },
 
     'repo.open': {
       enabled: true,

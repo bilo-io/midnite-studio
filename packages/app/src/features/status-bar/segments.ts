@@ -2,6 +2,7 @@ import type { ComponentType } from 'react';
 
 import { DiagnosticsSegment } from '../diagnostics/diagnostics-segment';
 import { MonitorCluster } from '../monitor/monitor-cluster';
+import { BrowserToggle } from './browser-toggle';
 import { ReposToggle } from './repos-toggle';
 import { TerminalToggle } from './terminal-toggle';
 
@@ -32,8 +33,13 @@ export type StatusSegment = {
  * slot in between existing ones without renumbering the zone.
  */
 export const STATUS_SEGMENTS: StatusSegment[] = [
+  // Rendered last (array order), but the lowest `priority` of the three
+  // toggles — Repos and Terminal both toggle panels that hold work, and the
+  // browser pane holds nothing yet, so it is the first into Theme E's
+  // overflow popover.
   { id: 'repos-toggle', zone: 'left', priority: 10, label: 'Repositories', El: ReposToggle },
   { id: 'terminal-toggle', zone: 'left', priority: 20, label: 'Terminal', El: TerminalToggle },
+  { id: 'browser-toggle', zone: 'left', priority: 5, label: 'Browser', El: BrowserToggle },
   { id: 'diagnostics', zone: 'right', priority: 10, label: 'Diagnostics', El: DiagnosticsSegment },
   { id: 'monitor', zone: 'right', priority: 20, label: 'System monitor', El: MonitorCluster },
 ];

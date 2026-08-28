@@ -5,6 +5,7 @@ import { LuFileQuestion } from 'react-icons/lu';
 
 import { mgitFileUrl } from '@midnite/git-shared';
 
+import { EmptyState } from '../../../components/empty-state';
 import { languageForFile, previewKindForFile } from '../../../lib/languages';
 import { bridge, hasBridge } from '../../../services/bridge';
 import { useRepoStatus } from '../../../services/use-status';
@@ -189,17 +190,18 @@ function FallbackCard({
   result: { kind: 'binary' | 'too-large'; size: number } | { kind: 'error'; message: string };
 }) {
   return (
-    <div className="flex flex-1 flex-col items-center justify-center gap-2 p-6 text-center">
-      <LuFileQuestion aria-hidden className="h-10 w-10 text-muted-foreground/60" />
-      <p className="text-sm font-medium">{fileName}</p>
-      <p className="max-w-sm text-xs text-muted-foreground">
-        {result.kind === 'error'
+    <EmptyState
+      icon={LuFileQuestion}
+      title={fileName}
+      bodySize="xs"
+      body={
+        result.kind === 'error'
           ? result.message
           : result.kind === 'binary'
             ? `Binary file · ${formatSize(result.size)} — no preview for this type yet.`
-            : `Too large to preview · ${formatSize(result.size)}.`}
-      </p>
-    </div>
+            : `Too large to preview · ${formatSize(result.size)}.`
+      }
+    />
   );
 }
 

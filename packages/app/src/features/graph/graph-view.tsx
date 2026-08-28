@@ -3,6 +3,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useVirtualizer } from '@tanstack/react-virtual';
 
 import { useDialogs } from '../../components/dialog-host';
+import { EmptyState } from '../../components/empty-state';
 import { ResizeHandle } from '../../components/resizable/resize-handle';
 import { useResizable } from '../../components/resizable/use-resizable';
 import { useRefs } from '../../services/queries';
@@ -364,11 +365,3 @@ const EMPTY_REFS: never[] = [];
  */
 const MAX_GUTTER_LANES = 12;
 
-function EmptyState({ title, body }: { title: string; body: string }) {
-  return (
-    <div className="flex h-full flex-col items-center justify-center gap-2 text-center">
-      <p className="text-sm font-medium">{title}</p>
-      {body ? <p className="max-w-sm text-sm text-muted-foreground">{body}</p> : null}
-    </div>
-  );
-}
