@@ -20,6 +20,44 @@ export const TerminalSessionKindSchema = z.enum(['shell', 'agent']);
 export type TerminalSessionKind = z.infer<typeof TerminalSessionKindSchema>;
 
 /**
+ * What a live agent session appears to be doing, guessed from its own output.
+ *
+ * There is no channel that tells the app this directly — an agent CLI is just a
+ * process writing bytes to a pty — so it is inferred from the same markers a
+ * human reads off the screen. Crosses the wire (`mgit:pty:activity`), which is
+ * why it lives here rather than in the renderer's own `terminal-store.ts` —
+ * that module re-exports this type so no renderer import has to change.
+ */
+export const SessionActivitySchema = z.enum(['thinking', 'waiting', 'idle']);
+export type SessionActivity = z.infer<typeof SessionActivitySchema>;
+
+/**
+ * A regular expression an agent's roster entry supplies, compiled at load time
+ * rather than trusted as a literal.
+ *
+ * `agents.json` is a file a user hand-edits, and a pattern that reaches
+ * `RegExp` unchecked is either a crash (invalid syntax) or a hang (catastrophic
+ * backtracking against live pty output). The length cap and the compile check
+ * both run at *parse* time, so a malformed entry is rejected the same way every
+ * other bad field in this file is — before it ever reaches a hot path.
+ */
+export const RegexSource = z
+  .string()
+  .min(1)
+  .max(200)
+  .refine(
+    (source) => {
+      try {
+        new RegExp(source, 'i');
+        return true;
+      } catch {
+        return false;
+      }
+    },
+    { message: 'not a valid regular expression' },
+  );
+
+/**
  * A coding agent the `+` menu can start.
  *
  * `accent` is the agent's brand colour and `icon` is the key to its mark. Both
@@ -62,6 +100,24 @@ export const AgentDefinitionSchema = z.object({
    * an explanation instead.
    */
   install: z.string().min(1).optional(),
+  /**
+   * Two markers this agent's own TUI prints, used to guess whether it is
+   * thinking or waiting on you — see main's `activity-detect.ts`. Roster data
+   * beside `resume` and `install`, for the same reason: a second agent CLI
+   * needs an `agents.json` entry, not a release.
+   *
+   * Absent means no detector. A missing marker set is never guessed at — an
+   * agent with no `activity` draws the honest "unknown" mark rather than a
+   * borrowed pattern that would silently misreport.
+   */
+  activity: z
+    .object({
+      /** Matches while the agent is generating — a spinner glyph, a token counter. */
+      thinking: RegexSource,
+      /** Matches the agent's frame-ending footer — the mode line, a shortcut hint. */
+      frameEnd: RegexSource,
+    })
+    .optional(),
 });
 export type AgentDefinition = z.infer<typeof AgentDefinitionSchema>;
 
@@ -101,6 +157,22 @@ export const BUILTIN_AGENTS: readonly AgentDefinition[] = [
     resume: ['--continue'],
     accent: '#D97757',
     install: 'npm i -g @anthropic-ai/claude-code',
+    /*
+      Two independent tells, because Claude Code's spinner row grows and
+      shrinks with the width it is given and with how long the turn has run:
+      the spinner glyph (`✢✳✶✻✽`) followed by a verb ending in an ellipsis, the
+      `↓ 4.5k tokens` counter, or "esc to interrupt" — any one is enough. The
+      frame-end marker is the mode footer printed on EVERY repaint, generating
+      or not, so it is read as a boundary first and "waiting" only when no
+      spinner tell appears before it in the same frame — see
+      `activity-detect.ts` for why keying on "esc to interrupt" alone left
+      thinking undetected from Claude Code 2.1.x onward.
+    */
+    activity: {
+      thinking:
+        '[\\u2722\\u2733\\u2736\\u273B\\u273D][^\\n]{0,200}\\u2026|\\u2193[^\\n]{0,40}tokens|esc to interrupt',
+      frameEnd: 'shift\\+tab to cycle|auto mode on|\\? for shortcuts',
+    },
   },
   {
     /*

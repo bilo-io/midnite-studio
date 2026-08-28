@@ -1043,6 +1043,15 @@ describe('terminal and pty schemas', () => {
       ],
     },
     {
+      name: 'PtyActivityEvent',
+      schema: schemas.PtyActivityEvent,
+      valid: { ptyId: 'p1', activity: 'thinking' },
+      invalid: [
+        ['an unrecognised activity value', { ptyId: 'p1', activity: 'busy' }],
+        ['no ptyId', { activity: null }],
+      ],
+    },
+    {
       name: 'TerminalListResponse',
       schema: schemas.TerminalListResponse,
       valid: {
@@ -1139,6 +1148,18 @@ describe('terminal and pty schemas', () => {
     expect('agentId' in parsed).toBe(true);
   });
 
+  /**
+   * `null` is the wire's explicit "the detector has nothing to say" — no
+   * marker set for the running agent, or one disabled after tripping its time
+   * budget — which the renderer draws as the quiet "unknown" mark.
+   */
+  it('carries a null activity as a real answer, not an absence', () => {
+    const parsed = schemas.PtyActivityEvent.parse({ ptyId: 'p1', activity: null });
+
+    expect(parsed.activity).toBeNull();
+    expect('activity' in parsed).toBe(true);
+  });
+
   it('defaults an agent pty to no initial input', () => {
     // `initialInput` is what makes an agent session an agent session; it must
     // stay absent rather than becoming '' when nobody sets it.
@@ -1182,6 +1203,7 @@ describe('terminal and pty schemas', () => {
       ptyExit: ['PtyExitEvent'],
       ptyAgentChanged: ['PtyAgentChangedEvent'],
       ptyCommandChanged: ['PtyCommandChangedEvent'],
+      ptyActivity: ['PtyActivityEvent'],
       terminalList: ['TerminalListResponse'],
       terminalSave: ['TerminalSaveRequest'],
       terminalForget: ['TerminalForgetRequest'],

@@ -351,6 +351,11 @@ export type MidniteGitBridge = {
     onCommandChanged: (
       handler: (e: z.infer<typeof S.PtyCommandChangedEvent>) => void,
     ) => Unsubscribe;
+    /**
+     * A live pty's guessed activity changed — see {@link S.PtyActivityEvent}.
+     * Mounted per session and does not unmount with the terminal panel.
+     */
+    onActivity: (handler: (e: z.infer<typeof S.PtyActivityEvent>) => void) => Unsubscribe;
   };
 
   /**
