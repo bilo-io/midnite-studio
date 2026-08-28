@@ -601,12 +601,22 @@ of D or E — is unblocked and landed here.
       trigger's `aria-label` via `Popover`'s own `label` prop. Left unticked until now only because
       Theme E landed before this bullet was revisited (2026-08-28).
 
-### H — Tests (M)
+### H — Tests (M) — ✅ DONE (2026-08-28)
 
 Re-tagged from S: the vitest half now needs a testable seam that does not exist yet, and the e2e half
 has a red spec to clear before it can claim anything. The pre-work that Theme A owns — the
 `data-testid` and the already-broken `'main'` assertion — is listed there, not here, so that nothing
 in H blocks on H.
+
+Most of the vitest half turned out to already be landed alongside the themes that needed the
+testable seam (E's `density.test.ts`, F's `ui-store.test.ts` cases) — this theme's actual new work
+was the four segments' absent-case predicate tests, the `live` metadata field `segments.test.ts`
+needed, and the whole of the e2e half: `status-bar.spec.ts`'s two new specs (the left-edge invariant
+and the narrowing/overflow-popover test), the `footer-monitor.spec.ts` shots gate, and a light+dark
+screenshot pass for the new bar states the Verification checklist calls for. Theme G — the
+remaining accessibility items (`Tooltip` in compact density, `aria-live`, the overflow button's
+name) — was already claimed and in flight in a sibling worktree by the time this theme started, so
+it stays untouched here.
 
 **The two constraints that shape every vitest item below.** `packages/app/vitest.config.ts` declares
 **no `setupFiles`** (and no package in the repo does), the environment is `jsdom`, and **jsdom has no
@@ -614,68 +624,88 @@ in H blocks on H.
 the three files using `@testing-library/react` all use `renderHook`. So: test pure functions and
 hooks, not rendered components.
 
-- [ ] Vitest (C): `segments.test.ts` — unique ids, unique per-zone priorities, zone sorting, and
+- [x] Vitest (C): `segments.test.ts` — unique ids, unique per-zone priorities, zone sorting, and
       that exactly `op-progress` and `in-progress` carry `live: true`. All assertions against the
-      exported `STATUS_SEGMENTS` array; no rendering.
-- [ ] Vitest (E): `density.test.ts` — `densityFor()` called directly with width triples.
+      exported `STATUS_SEGMENTS` array; no rendering. The `live` field itself is metadata-only here —
+      it exists so this assertion has something to check — and Theme G is the one that reads it to
+      wire the actual `aria-live` attribute (landed 2026-08-28).
+- [x] Vitest (E): `density.test.ts` — `densityFor()` called directly with width triples.
       `full → compact` at `available < fullWidth`; `compact → collapsed` at
       `available < compactWidth`; **hysteresis** proved by asserting that
       `densityFor({available: fullWidth + 1, …}, 'compact') === 'compact'` while
       `densityFor({available: fullWidth + 24, …}, 'compact') === 'full'`; and a 1px oscillation
-      across the boundary returning a stable value on every call.
+      across the boundary returning a stable value on every call. Landed with Theme E itself
+      (2026-08-28).
   - **Testing `densityFor` and not `use-overflow.ts` is the point of extracting it.** A hook test
       would need `vi.stubGlobal('ResizeObserver', …)` and a hand-driven fake observer for logic that
       has nothing to do with observation. The hook keeps the `typeof ResizeObserver === 'undefined'`
       guard (`app.tsx:418`'s pattern) and is covered by the Playwright items instead.
-- [ ] Vitest (E): the collapse selector — given a zone's segments and a density, the ids that stay
-      and the ids that move to the popover, asserted priority-ascending. Also pure.
-- [ ] Vitest (D): each new segment's absent case, as **pure predicate functions rather than rendered
+- [x] Vitest (E): the collapse selector — given a zone's segments and a density, the ids that stay
+      and the ids that move to the popover, asserted priority-ascending. Also pure. Landed with
+      Theme E itself, in `density.test.ts` (2026-08-28).
+- [x] Vitest (D): each new segment's absent case, as **pure predicate functions rather than rendered
       components** — `testVerdict(results)` returns `null` for `{}`, for all-`ok:false`, and a fail
       for one `ok:true, failed:1`; `agentCount(sessions, states)` returns `0` when every session is
       `kind: 'shell'` or every state is `'exited'`; `opLabel(keys)` returns `null` for `[]` and the
       higher-ranked verb plus `+1` for two. Each segment component is then a thin
-      `if (x === null) return null` around one of these.
+      `if (x === null) return null` around one of these. A fourth, `findPrForBranch(pulls, head)` in
+      `checks-verdict.tsx`, gets the same coverage for the fifth Theme D segment even though the doc
+      names only three (2026-08-28).
 - [x] Vitest (F): **`merge`, not `migrate`.** ✅ landed with Theme F —
       `ui-store.test.ts`'s "defaults browserOpen to false for a payload written before the key
       existed".
 - [x] Vitest (F): `partialize` includes `browserOpen`. ✅ landed with Theme F —
       `ui-store.test.ts`'s "persists the browser pane state".
-- [ ] Playwright `e2e/status-bar.spec.ts`: the bar's bounding box starts at the content area's left
+- [x] Playwright `e2e/status-bar.spec.ts`: the bar's bounding box starts at the content area's left
       edge with the repositories panel **open** — the assertion that would have failed before Theme
-      A and is the phase's whole premise.
+      A and is the phase's whole premise. Asserted open, shut (the aside unmounts entirely, so the
+      invariant is really "the bar's `x` never moves"), and after driving the splitter's own
+      keyboard `End` key to its 560px max — `role="separator"` accepts `Home`/`End` alongside the
+      arrow keys, which reaches "mid-slide" without a synthesised pointer drag (2026-08-28).
   - Concretely: `barBox.x <= asideBox.x + 1`, where `bar` is `[data-testid="status-bar"]` (added in
     Theme A) and `aside` is `aside[aria-label="Repositories"]`. Asserted with the panel open, shut,
     and after dragging the splitter — the doc's *"open, shut, and mid-slide"* verification line.
-- [ ] Playwright `e2e/status-bar.spec.ts`: narrowing the window drives `compact` then `collapsed`,
-      and the collapsed segments are all present inside the `…` popover. Uses
-      `page.setViewportSize({ width, height })` mid-test, the pattern already at
-      `terminal.spec.ts:507` and `:964`; the popover's selectors are `status-overflow` and
-      `status-overflow-panel`, both stamped by `Popover` rather than hand-written.
+- [x] Playwright `e2e/status-bar.spec.ts`: narrowing the window drives `compact` then `collapsed`,
+      and the collapsed segments are all present inside the `…` popover — plus a click-through check
+      the doc didn't ask for by name but Theme E's own decisions call for: a segment collapsed into
+      the popover keeps its click behaviour rather than becoming an inert label. Six segments
+      (three toggles, diagnostics, monitor, checks-verdict) push the `compact → collapsed` threshold
+      to ~790px of viewport width, comfortably clear of `@bilo-io/shell`'s own `md:` (768px)
+      breakpoint, so real `page.setViewportSize()` narrowing (the pattern already at
+      `terminal.spec.ts:507` and `:964`) never contends with the shell's mobile chrome. The
+      overflow trigger's accessible name is `"11 more"` — `collapseFor` moves every
+      `STATUS_SEGMENTS` entry into the popover at `collapsed`, not only the ones with something to
+      say right now (2026-08-28).
 - [x] Playwright `e2e/browser-pane.spec.ts`. ✅ landed with Theme F — the toggle (clicked rather
       than the `Mod+b` chord, to stay platform-independent) opens the pane over the repositories
       panel, the status bar stays visible and hit-testable beneath it (a bar control is clicked
       and asserted to have acted, not merely checked for visibility), `Escape` closes it and the
       state survives a reload, and the URL field's inert-but-wired Enter behaviour is covered too.
-- [ ] Playwright [`e2e/terminal.spec.ts`](../packages/app/e2e/terminal.spec.ts): a maximized terminal
+- [x] Playwright [`e2e/terminal.spec.ts`](../packages/app/e2e/terminal.spec.ts): a maximized terminal
       still stops above the status bar — `frameBox.y + frameBox.height <= barBox.y + 1`. Regression
       guard for Theme A's measurement, and a genuinely new assertion: the existing maximize test at
       `:589` compares heights relatively (`toBeGreaterThan`, `toBeCloseTo`) and would pass with the
-      bar entirely covered.
-- [ ] [`e2e/footer-monitor.spec.ts`](../packages/app/e2e/footer-monitor.spec.ts) passes with selector
+      bar entirely covered. Already landed with Theme A itself, inline in the existing "maximize
+      fills the window and restores" test rather than a separate one.
+- [x] [`e2e/footer-monitor.spec.ts`](../packages/app/e2e/footer-monitor.spec.ts) passes with selector
       updates only — no behavioural change to the monitor in this phase. **This is only true once
       Theme A has removed the `toContainText('main')` assertion at `:222`, which fails today.** Its
       keyboard assertions on the flyout (`:108-123`) double as the regression guard for Theme G's
-      `useFocusTrap` extraction.
-- [ ] **`footer-monitor.spec.ts:236` regenerates five committed PNGs on every run**, not just under
+      `useFocusTrap` extraction. Already true as of Theme A.
+- [x] **`footer-monitor.spec.ts:236` regenerates five committed PNGs on every run**, not just under
       `MGIT_SHOTS` — unlike `shots.spec.ts:178`, it is ungated. Two of them (`footer-before.png`,
       `footer-cluster.png`) are element shots of the footer and will change the moment Theme A lands.
       Review and commit them deliberately rather than letting a test run rewrite `docs/screenshots/`
       as a side effect; consider gating that block behind `MGIT_SHOTS` like every other shot block.
-- [ ] Committed screenshots regenerated where the footer is in frame
+      Gated (2026-08-28).
+- [x] Committed screenshots regenerated where the footer is in frame
       ([`e2e/shots.spec.ts`](../packages/app/e2e/shots.spec.ts) and friends). Expect churn: the bar
       moves in every full-window shot. `shots.spec.ts`'s four shots are viewport (not `fullPage`)
       captures at 1440×820, so the bar is incidentally in frame in all four; they are gated behind
-      `MGIT_SHOTS=1` and are light-theme only. Dark shots follow the
+      `MGIT_SHOTS=1` and are light-theme only. Regenerated and verified (2026-08-28) — the wider
+      repo has other ungated shot specs whose images also drifted once Theme A moved the bar, but
+      those are a separate, unverified sweep left for whoever next touches each of those views
+      rather than blindly regenerated here. Dark shots follow the
       `document.documentElement.classList.add('dark')` pattern at `actions-shots.spec.ts:92-97`.
 
 ## Files this phase touches
