@@ -29,7 +29,7 @@ Completed work is logged append-only in [`done.md`](done.md). Deferred scope liv
 
 | [24 · The explorer learns to write, and to search](phase-24-writable-explorer.md) | ✅ DONE | — | 43/55 | `████████░░` | 78% | — | — |
 | [23 · A command palette, and the registry that can feed it](phase-23-command-palette.md) | ✅ DONE | — | 42/55 | `████████░░` | 76% | — | — |
-| [22 · Stash, the reflog, and writes you can take back](phase-22-stash-and-safety-net.md) | 🔄 WIP | — | 10/70 | `█░░░░░░░░░` | 14% | B, C, D, E | F–H |
+| [22 · Stash, the reflog, and writes you can take back](phase-22-stash-and-safety-net.md) | 🔄 WIP | — | 45/70 | `██████░░░░` | 64% | — | F–H |
 | [21 · Agent roster + terminal identity](phase-21-agent-roster-and-terminal-identity.md) | 🔄 WIP | — | 43/46 | `█████████░` | 93% | — | 3 manual checks |
 | [20 · Reviews page & unified diff syntax highlighting](phase-20-reviews-page.md) | 🔄 WIP | — | 43/45 | `██████████` | 96% | — | 2 manual checks |
 | [19 · Dashboard, Actions and Tests as views](phase-19-dashboard-actions-tests.md) | 🔄 WIP | — | 73/76 | `██████████` | 96% | — | 3 manual checks |
@@ -418,14 +418,14 @@ first toast primitive and first undo.*
 - ✅ **A** — `commands/stash.ts` + `stash-parser.ts` on the write-queue idiom, `mgit:stash:*`
   channels, and a `'stash-apply'` arm on `ConflictOpSchema` so a conflicted pop is a normal outcome
   (landed 2026-08-28)
-- ◻ **B** — a `'stashes'` `SectionKey` and a `TreeSection` in `RepoTree`, with a `StashRow`, a
-  heading action and a query key nested under `keys.repo(repoId)`.
-- ◻ **C** — stashes as graph pseudo-rows on the `UncommittedRow` precedent: dashed lane, dashed
-  ring, outside `GraphRowSchema` rather than smuggled in behind a fake sha.
-- ◻ **D** — a stash you can read: all three parts (tracked, index, untracked) through Phase 12's
-  hunk parser and the one shared `DiffView`, not just what `stash show -p` admits to.
-- ◻ **E** — stash from the Changes view: selected paths, `--keep-index` and `-u` as labelled
-  options rather than defaults chosen for the user.
+- ✅ **B** — a `'stashes'` `SectionKey` and a `TreeSection` in `RepoTree`, with a `StashRow`, a
+  heading action and a query key nested under `keys.repo(repoId)` (landed 2026-08-28).
+- ✅ **C** — stashes as graph pseudo-rows on the `UncommittedRow` precedent: dashed lane, dashed
+  ring, outside `GraphRowSchema` rather than smuggled in behind a fake sha (landed 2026-08-28).
+- ✅ **D** — a stash you can read: all three parts (tracked, index, untracked) through Phase 12's
+  hunk parser and the one shared `DiffView`, not just what `stash show -p` admits to (landed 2026-08-28).
+- ✅ **E** — stash from the Changes view: selected paths, `--keep-index` and `-u` as labelled
+  options rather than defaults chosen for the user (landed 2026-08-28).
 - ◻ **F** — force-push with a lease, explicit `=<ref>:<sha>` form only, behind
   `countOrphanedCommits` and a default-off Settings switch — and the three written-down "there is
   no force push" comments rewritten rather than deleted.

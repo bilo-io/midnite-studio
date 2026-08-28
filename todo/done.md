@@ -4,11 +4,19 @@
 
 ## 2026-08-28 — Phase 25 Themes A, B, C — Search in engine, stream registry & contract, Search view
 
-Landed on `feature/p25-abc` — PR ready. Phase 25 delivers git search everywhere (commit pickaxe, git grep at any revision, blame parser & reader), a shared per-window stream registry with concurrency policies, and the primary Search view with virtualized results and live previewing.
+Landed on `main`. Phase 25 delivers git search everywhere (commit pickaxe, git grep at any revision, blame parser & reader), a shared per-window stream registry with concurrency policies, and the primary Search view with virtualized results and live previewing.
 
 - [x] **A — Search in the engine.** Widened `buildLogArgs` (`grep`, `author`, `since`, `until`, `paths`, `pickaxeString`, `pickaxeRegex`, `regexp`, `ignoreCase`), `--follow` single pathspec validation, `streamCommitSearch`, `readGrep` & `streamGrep` with context line parsing, `readBlame` with porcelain format parsing and `previous` tracking, `GrepHit`, `BlameLine`, `BlameCommit`, and `BlameResult` domain schemas.
 - [x] **B — The stream registry, and the search contract.** Extracted `stream-registry.ts` with supersede and concurrent policies and per-window teardown; refactored `log-service.ts`; built `search-service.ts` with 5,000 cap and max 4 ceiling per window; `mgit:search:*` and `mgit:blame:*` IPC channels and schemas; bridge updates and mock-bridge test harness.
 - [x] **C — The Search view.** Added `search` to `ViewId` and navigation rail; created `search-store.ts` managing `commits`, `content`, and `files` modes; built `use-search.ts` hook with 250ms debouncing and in-flight cancellation; created `search-view.tsx` with resizable split, virtualized results list (`@tanstack/react-virtual`), commit inspector and file preview integration; refactored `CodePreview` line structure with line-by-line tokenization and scroll targeting.
+
+## 2026-08-28 — Phase 22 Themes B, C, D, E — Stash in sidebar, graph pseudo-rows, inspector, and Changes view
+
+- [x] **B — Stashes in the sidebar.** `stashes` section in `SECTION_TREE` and `RefSectionKey`; `StashRow` component with relative timestamp and action menu (apply, pop, drop with confirm, branch from stash, copy sha); heading action to create stash with message prompt and options (`--include-untracked`, `--keep-index`); `hideWhenEmpty` on `TreeSection`; query key `keys.stashes(repoId)` invalidated on watcher `'refs'` event.
+- [x] **C — Stashes in the graph.** `StashPseudoRow` and `StashRows` components mounted above the grid scroller in `GraphView` beneath `UncommittedRow`; dashed ring node and dashed lane matching `headRow` colour and lane; collapse with overflow link to sidebar when > 2 stashes; selecting a stash opens it in the inspector.
+- [x] **D — A stash you can read.** Commit detail inspector integrates stash selectors with a stash badge and action buttons (apply, branch, drop) in the header, rendering the stash commit and diffs via `DiffView`.
+- [x] **E — Stash from the Changes view.** Changes panel header gains a Stash button; prompts for optional message with checkboxes for `--include-untracked` and `--keep-index`; disabled when there are no changes to stash.
+
 
 ## 2026-08-28 — Phase 30 Themes F, G — the activity indicator that never span, and a detector that can be wrong out loud
 
