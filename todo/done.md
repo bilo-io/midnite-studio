@@ -2,6 +2,53 @@
 
 <!-- Append one entry per landed phase/PR: date, phase, PR link, one-line summary. -->
 
+## 2026-08-28 — Phase 30 Themes A, B, E — a terminal that survives a reload, and names itself honestly
+
+Merged locally on `feature/p30-abe` — no PR link, no GitHub remote on this checkout. Themes C
+(session broker) and D (honest session states) are still open; a batch of three later.
+
+- [x] **A — the blank pane, and panels that interpolate.** A failing `terminal-reveal.spec.ts`
+      landed first, red for the two named reasons (no `pty.snapshot`, no fit-once-at-settle), then
+      green: a new `mgit:pty:snapshot` invoke lets a remounted live session replay main's CURRENT
+      ring buffer instead of the disk-restored transcript, gated by a new `replay-gate.ts` so
+      output arriving mid-fetch is held and released in order rather than lost or reordered.
+      `use-reveal.ts`'s `useReveal`/`useSettled` pair is replaced by one `useRevealSize` primitive
+      that the terminal frame, its session list, and the repos aside all now share — one duration
+      source (`motionMs()`, reduced-motion aware), one settle race (`transitionend` vs a timeout),
+      and a `fitSignal` counter that fits + repaints the shell exactly once per settled tween
+      instead of once per animation frame. `safeFit` gained a last-sent-size dedupe so a
+      StrictMode-doubled or redundant fit never re-sends an unchanged resize. Found in review and
+      fixed before landing: the primitive's `transitionProperty` was armed whenever not dragging
+      (not gated on `settled`), which would have re-armed the terminal's CSS transition on every
+      native window-resize tick while maximized — the exact "trailing the window edge" bug the
+      removed `useSettled` was built to avoid; fixed by gating the transition on `settled` and
+      adding an `animateKey` escape hatch so the maximized terminal keys its settle on the
+      open/maximize TOGGLE rather than the live-tracked window height. `duration-literal.test.ts`
+      stands guard on the doc's own "exactly one `duration-200` literal left, on the nav chevron"
+      invariant via `import.meta.glob` rather than `node:fs` (the renderer package boundary).
+- [x] **B — reattach after a renderer reload.** `terminal:list` answers `live: {ptyId, pid, cols,
+      rows} | null` per session; `hydrate()` binds a live row straight to `'open'` with no replay
+      entry (the snapshot channel above reads the ring buffer instead), and tracks a new
+      `reattachedCount`/`reattachedAt` pair ahead of Theme C's status-bar note. Main's
+      `render-process-gone` now logs and reloads the window on anything but a clean exit, healing
+      through the same rebind path as a menu reload, behind a new minimal `log.ts` seam Theme C's
+      broker client will redirect rather than re-invent. The dev-only "HMR no longer strands
+      shells" manual check stays open.
+- [x] **E — naming from the process tree.** `trackShellCommand`'s keystroke reconstruction —
+      wrong by construction under zsh's application-cursor mode (an arrow key's `ESC O A` decoded
+      as a literal `A`, naming sessions `BAAAA`) — is deleted outright. `ProcessRow` gains a `stat`
+      column, `foregroundOf` picks a pty's foreground process by the last `+`-flagged member by
+      pid (so `git log | less` names `less`, the rightmost command), and `commandLabel` turns it
+      into a truncated row name. A new `pty:command-changed` event carries it to the renderer off
+      the same `ps` snapshot the agent probe already reads, with no grace window (unlike the agent
+      match, a shell's name has nothing to protect against a matcher that cannot recognise a
+      form). All eleven existing `ps-*.txt` fixtures gained a `stat` column by hand; four new ones
+      cover a single foreground process, a pipeline, a bare prompt and a background job.
+- Pre-existing, unrelated e2e flake confirmed against unmodified `main` before this batch started:
+  `terminal.spec.ts`'s "sessions drag into a new order" (a `@dnd-kit` pointer-drag timing issue),
+  plus five specs in `forge-issues.spec.ts`, `nav-shell.spec.ts`, `repos-workbench.spec.ts`,
+  `reviews-loading-shots.spec.ts` and `tests-view.spec.ts`. None touch terminal code.
+
 ## 2026-08-28 — Phase 29 Theme E — command registry entry for present-as-slides
 
 Merged locally on `feature/p29-e` — no PR link, no GitHub remote on this checkout. Phase 29 is now

@@ -62,9 +62,9 @@ Effort tags: **S** ≈ an hour or two · **M** ≈ half a day · **L** ≈ a day
 
 ## Deliverables
 
-### A — The blank pane, and panels that interpolate (M)
+### A — The blank pane, and panels that interpolate (M) — ✅ DONE (2026-08-28, merged locally — no PR/no remote)
 
-- [ ] Reproduce blank-on-reveal as a failing Playwright spec first: open a session, collapse with
+- [x] Reproduce blank-on-reveal as a failing Playwright spec first: open a session, collapse with
       `Ctrl+\``, reveal, and assert the pane's bridge traffic shows a snapshot write **without** a
       resize having been sent per frame — the mock bridge in
       [`e2e/mock-bridge.ts`](../packages/app/e2e/mock-bridge.ts) publishes pty traffic on
@@ -80,7 +80,7 @@ Effort tags: **S** ≈ an hour or two · **M** ≈ half a day · **L** ≈ a day
         not exist (cause 1), and the resize count after reveal is whatever the `ResizeObserver` at
         `terminal-view.tsx:344-348` happens to fire (cause 2). It depends on the `resizes`/`snapshots`
         recorders in the last item of this theme, which lands with it.
-- [ ] Fix cause 1: a remounted view for a **live** session writes main's current ring buffer before
+- [x] Fix cause 1: a remounted view for a **live** session writes main's current ring buffer before
       attaching to the stream. **Resolved — a `mgit:pty:snapshot` invoke** (Theme B owns the
       channel), not bytes on `terminal:list`. Same `\x1b[0m`-prefixed, newline-trimmed slice
       `trimScrollback()` in [`terminal-store.ts:136`](../packages/desktop/src/main/terminal-store.ts)
@@ -100,7 +100,7 @@ Effort tags: **S** ≈ an hour or two · **M** ≈ half a day · **L** ≈ a day
         because a missed `onExit` there would leave the row live forever.
       - Vitest: `replay-gate.test.ts` — chunks held during the gate come out after the snapshot in
         order; nothing is held once open; `release` twice is a no-op.
-- [ ] Fix cause 2: the reveal primitive exposes `settled` and a `settleCount` that increments each
+- [x] Fix cause 2: the reveal primitive exposes `settled` and a `settleCount` that increments each
       time a tween finishes; [`terminal-view.tsx`](../packages/app/src/features/terminal/terminal-view.tsx)
       runs `safeFit()` + `term.refresh(0, rows - 1)` when it changes.
       - Correction to the original text: `use-reveal.ts` has **no** `transitionend` today — entrance
@@ -113,7 +113,7 @@ Effort tags: **S** ≈ an hour or two · **M** ≈ half a day · **L** ≈ a day
         `<TerminalView fitSignal>`; an effect on `[fitSignal]` runs `safeFit()` (which already sends
         the resize at `:251-252`) then `termRef.current.refresh(0, termRef.current.rows - 1)`.
         `TerminalPanelProps` (`terminal-panel.tsx:184-188`) gains `fitSignal: number`.
-- [ ] `use-reveal.ts` grows into a **size tween**:
+- [x] `use-reveal.ts` grows into a **size tween**:
       `useRevealSize({ open, size, axis, dragging = false }: { open: boolean; size: number; axis: 'x' | 'y'; dragging?: boolean })`
       → `{ ref: RefObject<HTMLElement>, mounted: boolean, shown: boolean, settled: boolean, settleCount: number, style: CSSProperties }`.
       - `style` is exactly `{ [axis === 'x' ? 'width' : 'height']: shown ? size : 0, transitionProperty: dragging ? 'none' : (axis === 'x' ? 'width' : 'height'), transitionDuration: \`${motionMs()}ms\`, transitionTimingFunction: 'ease-in-out' }`.
@@ -130,7 +130,7 @@ Effort tags: **S** ≈ an hour or two · **M** ≈ half a day · **L** ≈ a day
         (`grep -rn "useSettled\|REVEAL_HOLD_MS" packages/app/src` returns nothing).
       - Vitest `use-reveal.test.ts` gains: `style` shape for both axes; `settleCount` increments once
         per open→closed and once per size change; `dragging` yields `transitionProperty: 'none'`.
-- [ ] Terminal: closed ↔ `layout.terminalHeight` ↔ maximized all interpolate.
+- [x] Terminal: closed ↔ `layout.terminalHeight` ↔ maximized all interpolate.
       - `app.tsx:410` `terminalTarget` stays; `:428 useSettled(...)` → `terminalTween =
         useRevealSize({ open: terminalOpen, size: terminalTarget, axis: 'y', dragging: terminal.dragging })`
         where `terminal` is the `useResizable` at `:362-369`.
@@ -141,21 +141,21 @@ Effort tags: **S** ≈ an hour or two · **M** ≈ half a day · **L** ≈ a day
       - `covering && settled ? 'hidden' : ''` at `:697` reads `terminalTween.settled`; the vertical
         `ResizeHandle` stays unmounted while maximized (`:736-738`, unchanged). `terminalMaximized`
         is a top-level ui-store field (`ui-store.ts:277`), not `layout.*`.
-- [ ] Session list: the `{showList ? (<>…</>) : null}` fragment at `terminal-panel.tsx:155-160` becomes
+- [x] Session list: the `{showList ? (<>…</>) : null}` fragment at `terminal-panel.tsx:155-160` becomes
       a width tween 0 ↔ `list.current` (`layout.terminalListWidth`), inner list pinned at full width
       (the repos pattern) so rows are clipped rather than reflowed — including when the toggle is
       `sessions.length` crossing 1 (`listable` at `:136`), not a click.
       - `listTween = useRevealSize({ open: showList, size: list.current, axis: 'x', dragging: list.dragging })`;
         render `{listTween.mounted ? (<><div ref={listTween.ref} style={listTween.style} className="shrink-0 overflow-hidden"><div style={{ width: list.current }}><TerminalSessionList agents={agents} width={list.current} /></div></div><ResizeHandle resizable={list} axis="x" label="Resize terminal sessions" /></>) : null}`.
       - The `ResizeHandle` sits outside the tweened box so the drag target does not shrink mid-tween.
-- [ ] Repos aside: already width-tweened at `app.tsx:617-643`; rehomed on the primitive
+- [x] Repos aside: already width-tweened at `app.tsx:617-643`; rehomed on the primitive
       (`reposTween = useRevealSize({ open: reposOpen, size: repos.current, axis: 'x', dragging: repos.dragging })`)
       so all panels share one duration constant, keeping the inner-pinned-width `<div style={{ width: repos.current }}>` at `:637`.
-- [ ] Browser pane: `<BrowserPane shown={browserReveal.shown} />` at `app.tsx:784` — same curve,
+- [x] Browser pane: `<BrowserPane shown={browserReveal.shown} />` at `app.tsx:784` — same curve,
       same duration source. It tweens **opacity**, not size (`browser-pane.tsx:63-65`), so it keeps
       `useReveal(browserOpen)` and swaps its `duration-200` literal for
       `style={{ transitionDuration: \`${motionMs()}ms\` }}`.
-- [ ] `REVEAL_MS` is the only source of the duration: every reveal-related Tailwind `duration-200`
+- [x] `REVEAL_MS` is the only source of the duration: every reveal-related Tailwind `duration-200`
       becomes `style.transitionDuration` off `motionMs()`. The file's own comment at `use-reveal.ts:3-10`
       says the two are "paired by hand" today; after this they cannot drift.
       - Call sites: `app.tsx:633` (repos), `:760` (terminal), `browser-pane.tsx:63`, and the new
@@ -163,7 +163,7 @@ Effort tags: **S** ≈ an hour or two · **M** ≈ half a day · **L** ≈ a day
         is **not** a reveal and keeps its literal — say so in the comment that replaces `:3-10`.
       - Verified by shell, not vitest: `grep -rn 'duration-200' packages/app/src` prints exactly one
         line, `app.tsx`'s chevron.
-- [ ] `html[data-motion='reduced']` collapses every tween to 0 ms, and `settled` still fires so the
+- [x] `html[data-motion='reduced']` collapses every tween to 0 ms, and `settled` still fires so the
       fit-at-end path runs.
       - The attribute is written by `applyMotion` from `@bilo-io/shell` (`app.tsx:810`,
         `appearance-store.ts:120`), never by this repo. `use-reveal.ts` exports
@@ -173,19 +173,19 @@ Effort tags: **S** ≈ an hour or two · **M** ≈ half a day · **L** ≈ a day
         moves `settled`/`settleCount`.
       - Vitest `use-reveal.test.ts`: with `document.documentElement.dataset.motion = 'reduced'`,
         `style.transitionDuration === '0ms'` and `settleCount` reaches 1 after `vi.advanceTimersByTime(50)`.
-- [ ] The e2e mock bridge learns to record what this theme asserts on. `ptyCalls` at
+- [x] The e2e mock bridge learns to record what this theme asserts on. `ptyCalls` at
       `mock-bridge.ts:1455-1459` gains `resizes: { ptyId: string; cols: number; rows: number }[]`
       (the `resize: noop` at `:871` becomes a push) and `snapshots: string[]` (pushed by the new
       `pty.snapshot` mock, which answers with the bytes it has fed to that pty so far — the mock keeps a
       per-pty `Uint8Array[]` log alongside `ptySessions`). The `__mgitPty` type in
       `terminal.spec.ts:106-115` widens to match. Without this, the first item cannot assert anything.
 
-### B — Reattach after a renderer reload (M)
+### B — Reattach after a renderer reload (M) — ✅ DONE (2026-08-28, merged locally — no PR/no remote; the HMR dev-only manual check stays open)
 
 The substrate for C: the renderer must be able to *rebind* to a pty it did not create, whoever owns
 that pty.
 
-- [ ] `terminal:list` returns, per session, `live: { ptyId, pid, cols, rows } | null` — main already
+- [x] `terminal:list` returns, per session, `live: { ptyId, pid, cols, rows } | null` — main already
       holds `sessionId ↔ ptyId` in `pty-service.ts`'s `sessions` map (`:83`, keyed by **ptyId**, each
       `Session` carrying `sessionId`). Schema in [`ipc/schemas.ts`](../packages/shared/src/ipc/schemas.ts);
       the `ipc.test.ts` every-channel guard gets its row.
@@ -200,7 +200,7 @@ that pty.
         unchanged (no new channel here).
       - Mock: `data.terminalSessions[]` entries accept `live?: { ptyId, pid, cols, rows }` and the
         `terminal.list` mock at `mock-bridge.ts:902-907` passes it through (defaulting `null`).
-- [ ] `hydrate()` in [`terminal-store.ts:199-241`](../packages/app/src/features/terminal/terminal-store.ts)
+- [x] `hydrate()` in [`terminal-store.ts:199-241`](../packages/app/src/features/terminal/terminal-store.ts)
       binds a live `ptyId` (`ptyIds[id] = live.ptyId`, `states[id] = 'open'`) instead of leaving the row
       `'exited'`; a live row gets **no** `replay` entry — the view fetches the snapshot itself (A) —
       so "what the shell printed while nobody was watching" comes from the ring buffer, not the disk log.
@@ -210,7 +210,7 @@ that pty.
         `'binds a live row without creating a pty'` (mock `terminal.list` → one live entry; assert
         `ptyIds`, `states[id] === 'open'`, `replay[id]` undefined, `pty.create` never called) and
         `'marks a dead row exited with its replay'` (today's behaviour, now asserted).
-- [ ] `terminal-view.tsx`'s mount path distinguishes **rebind** from **revive**: a live session
+- [x] `terminal-view.tsx`'s mount path distinguishes **rebind** from **revive**: a live session
       replays the snapshot and attaches — no `REVIVE_HINT`, no spawn on Enter — and re-sends `resize`
       so the shell's columns match the new xterm.
       - The branch is A's `stateRef.current === 'open'` test in `openWhenSized`; the resize is the one
@@ -219,7 +219,7 @@ that pty.
         screen on.
       - The `onData` handler at `:306-325` is unchanged: `'open'` forwards keystrokes, so Enter on a
         rebound session types into the live shell.
-- [ ] Main subscribes `webContents` `render-process-gone` in
+- [x] Main subscribes `webContents` `render-process-gone` in
       [`index.ts`](../packages/desktop/src/main/index.ts) — today nothing observes renderer lifecycle,
       and `window-chrome.ts:84-89`'s reload IPC is one of the ways in.
       - **Resolved — log, keep ptys, and `win.webContents.reload()`** unless `details.reason === 'clean-exit'`.
@@ -231,14 +231,14 @@ that pty.
         closure-captured `win` in `createPty` keeps delivering (`pty-service.ts:246-261`). Theme C
         moves the send site to the `getWindow()` thunk anyway.
       - Not testable under desktop vitest (imports `electron`); verified by a human line below.
-- [ ] Vitest: the two `hydrate` cases above. Playwright: `terminal.spec.ts` gains
+- [x] Vitest: the two `hydrate` cases above. Playwright: `terminal.spec.ts` gains
       `'a reload keeps live sessions live'` — `data.terminalSessions` with two `live` entries,
       `page.reload()`, then `__mgitPty.creates.length === 0`, `snapshots.length === 2`, and both rows
       carry `data-phase="live"` (Theme D's attribute; until D lands, assert the absence of the dimmed
       class instead).
 - [ ] Dev: HMR of `terminal-view.tsx` no longer strands shells — the `moon run desktop:start` pain that
       motivated the theme, checked by hand once.
-- [ ] The `mgit:pty:snapshot` channel A's fix consumes: `CHANNELS.ptySnapshot = 'mgit:pty:snapshot'` in
+- [x] The `mgit:pty:snapshot` channel A's fix consumes: `CHANNELS.ptySnapshot = 'mgit:pty:snapshot'` in
       [`ipc/channels.ts`](../packages/shared/src/ipc/channels.ts) beside `ptyKill` (`:241`);
       `PtySnapshotRequest = z.object({ ptyId: z.string().min(1) })` in `schemas.ts`; the response is
       `{ bytes: Uint8Array }`, unvalidated like `ptyData` (`z.instanceof(Uint8Array)` is the only
@@ -521,12 +521,12 @@ that pty.
 - [ ] Screenshots per the visual convention (see Verification): the ended strip, a slept row beside a
       live one, the launch note, the skew banner — light and dark, at the default density.
 
-### E — Naming from the process tree (M — re-tagged from S: a channel, a `ps` column and fifteen fixtures)
+### E — Naming from the process tree (M — re-tagged from S: a channel, a `ps` column and fifteen fixtures) — ✅ DONE (2026-08-28, merged locally — no PR/no remote)
 
-- [ ] Delete `trackShellCommand`, `ShellLineState`, `createShellLineState` (`activity-detect.ts:102-116`)
+- [x] Delete `trackShellCommand`, `ShellLineState`, `createShellLineState` (`activity-detect.ts:102-116`)
       and `describe('trackShellCommand')` (`activity-detect.test.ts:71-101`); the `shellLineRef` at
       `terminal-view.tsx:118` and its use at `:312-313` go with them.
-- [ ] `agent-watcher.ts` reports the shell's **foreground process** beside the matched agent: `ps`
+- [x] `agent-watcher.ts` reports the shell's **foreground process** beside the matched agent: `ps`
       runs `-axo pid=,ppid=,args=` today (`agent-process.ts:82-85`); adding `stat=` gives the `+` flag
       that marks the foreground process group, so "what the user is running" is a column, not a
       heuristic over children.
@@ -541,7 +541,7 @@ that pty.
       - The probe in `agent-watcher.ts:184-188` computes `command = fg ? commandLabel(fg.args) : null`
         alongside `agentId`, same 750 ms quiet cadence (`QUIET_MS`, `:46`) and the shared 250 ms
         snapshot (`ROWS_TTL_MS`, `:63`), change-only, through a second dep `emitCommand`.
-- [ ] `setAutoName` for shell sessions is fed from that event — basename plus args, truncated — and
+- [x] `setAutoName` for shell sessions is fed from that event — basename plus args, truncated — and
       **held** after the command exits until the next one. `onTitleChange` (OSC 0/2) stays the fallback
       for a bare prompt; agent sessions keep their title-based naming.
       - `commandLabel(args: string): string` (exported from `agent-process.ts`, pure): split on
@@ -555,13 +555,13 @@ that pty.
       - Shells now also subscribe `term.onTitleChange` (today agent-only, `terminal-view.tsx:174-180`),
         but a title applies only while `foregroundCommand[id]` has **never** been non-null for the
         session — a held command name outranks a later prompt title.
-- [ ] Vitest against `__fixtures__` listings (all eleven existing files gain a `stat` column by hand —
+- [x] Vitest against `__fixtures__` listings (all eleven existing files gain a `stat` column by hand —
       `Ss`/`S`/`S+` — since the parser no longer accepts three): `ps-foreground-single.txt` (zsh →
       `pnpm dev` `S+` → `'pnpm dev'`); `ps-foreground-pipeline.txt` (`git log` pid 501 `S+`, `less`
       pid 502 `S+` → `'less'`); `ps-bare-prompt.txt` (only the `zsh` row, `Ss+` → `null`);
       `ps-background-job.txt` (`sleep 100` `S`, no `+` → `null`); the existing
       `ps-node-wrapper.txt` false-positive guard keeps passing.
-- [ ] The `pty:command-changed` event: `EVENT_CHANNELS.ptyCommandChanged = 'mgit:pty:command-changed'`
+- [x] The `pty:command-changed` event: `EVENT_CHANNELS.ptyCommandChanged = 'mgit:pty:command-changed'`
       beside `ptyAgentChanged` (`channels.ts:378`);
       `PtyCommandChangedEvent = z.object({ ptyId: z.string().min(1), command: z.string().min(1).nullable() })`
       in `schemas.ts` after `PtyAgentChangedEvent` (`:829-832`); `ipc.test.ts` `expected` gains
@@ -593,18 +593,18 @@ that pty.
 - [ ] Boundary lint clean: the broker imports no `electron` (the new eslint group fires on an
       `import 'electron'` added to `broker/index.ts` and is then removed); `app` learns no node
       builtin; `shared` gains fields and channels only.
-- [ ] `grep -rn 'duration-200' packages/app/src` prints exactly one line (`app.tsx`'s nav chevron).
-- [ ] Vitest (A): `use-reveal.test.ts` — `style` for both axes; `settleCount` +1 per open→closed and
+- [x] `grep -rn 'duration-200' packages/app/src` prints exactly one line (`app.tsx`'s nav chevron).
+- [x] Vitest (A): `use-reveal.test.ts` — `style` for both axes; `settleCount` +1 per open→closed and
       per size change; `dragging` → `transitionProperty: 'none'`; reduced motion → `'0ms'` and
       `settleCount` reaches 1 after 50 ms. `replay-gate.test.ts` — held chunks come out in order after
       release; nothing held once open.
-- [ ] Playwright (A): `terminal-reveal.spec.ts` — collapse, reveal, `snapshots` equals `[ptyId]`,
+- [x] Playwright (A): `terminal-reveal.spec.ts` — collapse, reveal, `snapshots` equals `[ptyId]`,
       `resizes` grew by exactly 1; maximize ↔ restore and the session-list toggle each produce a single
       `resize` on the wire after the tween, never one per frame.
-- [ ] Vitest (B): `terminal-store.test.ts` `hydrate` — a live row binds with `states[id] === 'open'`,
+- [x] Vitest (B): `terminal-store.test.ts` `hydrate` — a live row binds with `states[id] === 'open'`,
       no `replay`, no `pty.create`; a dead row is `'exited'` with its replay. `ipc.test.ts` — the
       `TerminalListResponse` row with `live` and `live: null`; `ptySnapshot` in `expected`.
-- [ ] Playwright (B): reload the page with two live sessions; both rebind, `creates.length === 0`,
+- [x] Playwright (B): reload the page with two live sessions; both rebind, `creates.length === 0`,
       `snapshots.length === 2`.
 - [ ] Vitest (C): `protocol.test.ts`, `server.test.ts`, `broker-client.test.ts` as specified in the
       theme, plus `pty-service`'s unchanged surface exercised against a fake `spawnPty` through the
@@ -615,7 +615,7 @@ that pty.
       `terminalSaves.at(-1).asleep === true`; an ended pane shows `role="status"` *Session ended* and
       Enter grows `creates` by 1; Resume's `initialInput` equals the roster's resume join; the skew
       banner's **Restart** yields one `kill` + one `create` per legacy row.
-- [ ] Vitest (E): `parsePsOutput` on a four-column line; `foregroundOf` over the four new fixtures
+- [x] Vitest (E): `parsePsOutput` on a four-column line; `foregroundOf` over the four new fixtures
       (single → `pnpm dev`, pipeline → `less`, bare prompt → `null`, background → `null`);
       `commandLabel('/usr/local/bin/pnpm dev')` → `'pnpm dev'`, a 60-char argv → 40 chars ending `…`;
       the `ps-node-wrapper.txt` guard still passes; `ipc.test.ts` — `ptyCommandChanged` row rejects an
