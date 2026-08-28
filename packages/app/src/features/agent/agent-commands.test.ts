@@ -36,4 +36,22 @@ describe('AGENT_COMMANDS', () => {
     expect(AGENT_COMMANDS.find((command) => command.id === 'refine')?.label).toBe('Refine Plan');
     expect(DEFAULT_AGENT_SKILLS.refine).toBe('/refine');
   });
+
+  it('groups categories contiguously, in agent → release → loops order', () => {
+    // The menu and the settings page each draw one divider per category
+    // *change*, so a category that reappears after the list has moved past it
+    // would draw a second divider for the same group instead of one.
+    const categories = AGENT_COMMANDS.map((command) => command.category);
+    const closed = new Set<string>();
+    const order: string[] = [];
+    let current: string | undefined;
+    for (const category of categories) {
+      if (category === current) continue;
+      expect(closed.has(category)).toBe(false);
+      if (current !== undefined) closed.add(current);
+      current = category;
+      order.push(category);
+    }
+    expect(order).toEqual(['agent', 'release', 'loops']);
+  });
 });

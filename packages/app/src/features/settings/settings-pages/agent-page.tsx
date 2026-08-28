@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from 'react';
+import { Fragment, useEffect, useRef, useState } from 'react';
 
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { LuBot, LuFolderTree, LuRefreshCw } from 'react-icons/lu';
@@ -87,41 +87,51 @@ export function AgentPage() {
  *
  * The reset link appears only where the value has drifted from the default, so
  * the row stays quiet for anyone who never changed it.
+ *
+ * A divider falls between categories, echoing the menu's own separators, so
+ * the two never disagree about where one group ends and the next begins.
  */
 function SkillFields() {
   const skills = useUiStore((s) => s.agentSkills);
   const setSkill = useUiStore((s) => s.setAgentSkill);
 
+  let lastCategory: string | undefined;
+
   return (
     <div className="flex flex-col gap-3">
-      {AGENT_COMMANDS.map(({ id, label, icon: Icon, hint }) => {
+      {AGENT_COMMANDS.map(({ id, label, icon: Icon, hint, category }) => {
+        const showDivider = lastCategory !== undefined && category !== lastCategory;
+        lastCategory = category;
         const value = skills[id];
         const dirty = value !== DEFAULT_AGENT_SKILLS[id];
         return (
-          <Field key={id} label={label} hint={hint}>
-            <div className="flex items-center gap-2">
-              {/* The menu's own glyph, so a field and its entry are the same thing. */}
-              <Icon aria-hidden className="h-3.5 w-3.5 shrink-0 text-muted-foreground" />
-              <input
-                type="text"
-                value={value}
-                spellCheck={false}
-                placeholder={DEFAULT_AGENT_SKILLS[id]}
-                aria-label={`Skill for ${label}`}
-                onChange={(event) => setSkill(id, event.target.value)}
-                className="h-7 min-w-0 flex-1 rounded border border-input bg-background px-2 font-mono text-xs outline-none focus-visible:border-primary"
-              />
-              {dirty ? (
-                <button
-                  type="button"
-                  onClick={() => setSkill(id, DEFAULT_AGENT_SKILLS[id])}
-                  className="h-7 shrink-0 rounded-md border border-border px-2 text-[11px] text-muted-foreground transition-colors hover:bg-accent hover:text-foreground"
-                >
-                  Reset
-                </button>
-              ) : null}
-            </div>
-          </Field>
+          <Fragment key={id}>
+            {showDivider ? <hr className="border-border" /> : null}
+            <Field label={label} hint={hint}>
+              <div className="flex items-center gap-2">
+                {/* The menu's own glyph, so a field and its entry are the same thing. */}
+                <Icon aria-hidden className="h-3.5 w-3.5 shrink-0 text-muted-foreground" />
+                <input
+                  type="text"
+                  value={value}
+                  spellCheck={false}
+                  placeholder={DEFAULT_AGENT_SKILLS[id]}
+                  aria-label={`Skill for ${label}`}
+                  onChange={(event) => setSkill(id, event.target.value)}
+                  className="h-7 min-w-0 flex-1 rounded border border-input bg-background px-2 font-mono text-xs outline-none focus-visible:border-primary"
+                />
+                {dirty ? (
+                  <button
+                    type="button"
+                    onClick={() => setSkill(id, DEFAULT_AGENT_SKILLS[id])}
+                    className="h-7 shrink-0 rounded-md border border-border px-2 text-[11px] text-muted-foreground transition-colors hover:bg-accent hover:text-foreground"
+                  >
+                    Reset
+                  </button>
+                ) : null}
+              </div>
+            </Field>
+          </Fragment>
         );
       })}
     </div>

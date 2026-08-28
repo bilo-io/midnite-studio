@@ -441,11 +441,14 @@ export type UiState = {
    * Which Claude skill each entry of the sidebar's midnite menu invokes.
    *
    * A setting rather than a constant because a skill is a *file in the user's
-   * `~/.claude`*, not something this app ships: `/exec`, `/brainstorm` and
-   * `/refine` are this repository's own project skills, `/loop-pr-reviews` and
-   * `/loop-pr-feedback` are personal commands, and any of the five can be
-   * renamed, forked or replaced without the app knowing. Hard-coding them would
-   * make the menu silently open a terminal on a command that no longer exists.
+   * `~/.claude`*, not something this app ships: `/exec`, `/brainstorm`,
+   * `/refine`, `/release-prep` and `/release-complete` are this repository's
+   * own project skills, `/loop-pr-reviews` and `/loop-pr-feedback` are
+   * personal commands, and `/loop /exec` / `/loop /brainstorm` wrap the
+   * generic `/loop` skill around two of the entries above — any of them can be
+   * renamed, forked or replaced without the app knowing. Hard-coding them
+   * would make the menu silently open a terminal on a command that no longer
+   * exists.
    *
    * The values are whole prompts, not bare skill names, so a caller can point
    * an entry at anything Claude accepts — `/exec`, `/exec --dry-run`, or a plain
@@ -456,7 +459,8 @@ export type UiState = {
 };
 
 /**
- * The five verbs the sidebar's midnite menu offers.
+ * The verbs the sidebar's midnite menu offers, grouped into the menu's three
+ * categories: agent tasks, release tasks, then loops.
  *
  * Ids, not labels or glyphs: those live with the menu in
  * `features/agent/agent-commands.ts`, the same split `SETTINGS_PAGES` and
@@ -464,7 +468,16 @@ export type UiState = {
  * icon package in behind it. The ids are also the persisted keys, so they stay
  * put while the labels the menu shows are free to be reworded.
  */
-export type AgentCommandId = 'exec' | 'brainstorm' | 'refine' | 'loopPrReview' | 'loopPrFeedback';
+export type AgentCommandId =
+  | 'exec'
+  | 'brainstorm'
+  | 'refine'
+  | 'releasePrep'
+  | 'releaseComplete'
+  | 'loopPrReview'
+  | 'loopPrFeedback'
+  | 'loopExec'
+  | 'loopBrainstorm';
 
 /**
  * What each entry invokes out of the box — the skills this repo and its author
@@ -474,8 +487,12 @@ export const DEFAULT_AGENT_SKILLS: Record<AgentCommandId, string> = {
   exec: '/exec',
   brainstorm: '/brainstorm',
   refine: '/refine',
+  releasePrep: '/release-prep',
+  releaseComplete: '/release-complete',
   loopPrReview: '/loop-pr-reviews',
   loopPrFeedback: '/loop-pr-feedback',
+  loopExec: '/loop /exec',
+  loopBrainstorm: '/loop /brainstorm',
 };
 
 /**
