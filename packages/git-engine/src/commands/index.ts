@@ -3,6 +3,7 @@ export * from './commit';
 export * from './diff';
 export * from './grep';
 export * from './ignore';
+export * from './list-files';
 export * from './log';
 export * from './refs';
 export * from './refs-ops';

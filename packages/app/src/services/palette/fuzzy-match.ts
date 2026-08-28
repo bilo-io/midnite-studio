@@ -158,3 +158,44 @@ export function fuzzyMatch(needle: string, haystack: string): FuzzyMatchResult |
   if (!bestIndices) return null;
   return { score: bestScore, indices: bestIndices };
 }
+
+/**
+ * Path-tuned fuzzy matching for file finder (Phase 23 Theme G).
+ *
+ * Weighting:
+ * - If needle contains a slash ('/'), matches against the full relative path.
+ * - Otherwise, matches against the filename/basename first with a 1.5x boost,
+ *   falling back to full path matching if no basename match exists.
+ */
+export function fuzzyMatchPath(needle: string, path: string): FuzzyMatchResult | null {
+  if (needle.length === 0) {
+    return { score: 0, indices: [] };
+  }
+
+  const hasSlash = needle.includes('/');
+  if (hasSlash) {
+    return fuzzyMatch(needle, path);
+  }
+
+  const lastSlash = path.lastIndexOf('/');
+  if (lastSlash === -1) {
+    return fuzzyMatch(needle, path);
+  }
+
+  const basename = path.slice(lastSlash + 1);
+  const baseMatch = fuzzyMatch(needle, basename);
+
+  if (baseMatch) {
+    // Offset indices to match the full path string
+    const offset = lastSlash + 1;
+    const adjustedIndices = baseMatch.indices.map((idx) => idx + offset);
+    return {
+      score: baseMatch.score * 1.5,
+      indices: adjustedIndices,
+    };
+  }
+
+  // Fallback: match anywhere in path
+  return fuzzyMatch(needle, path);
+}
+

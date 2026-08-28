@@ -1060,6 +1060,20 @@ export const ShowItemInFolderResponse = z.object({
   message: z.string().optional(),
 });
 
+export const FsListFilesRequest = z.object({
+  repoId: z.string().min(1),
+  worktreePath: z.string().optional(),
+});
+
+export const FsListFilesResponse = z.discriminatedUnion('ok', [
+  z.object({
+    ok: z.literal(true),
+    files: z.array(z.string()),
+    truncated: z.boolean(),
+  }),
+  z.object({ ok: z.literal(false), message: z.string() }),
+]);
+
 // --- system metrics (Phase 18) ---------------------------------------------
 
 export const MetricsStartRequest = z.object({

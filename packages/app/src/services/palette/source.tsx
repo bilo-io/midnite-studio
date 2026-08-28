@@ -1,7 +1,7 @@
 import type { ReactNode } from 'react';
 
 import type { IconComponent } from '../../components/icon-button';
-import { fuzzyMatch } from './fuzzy-match';
+import { fuzzyMatch, fuzzyMatchPath } from './fuzzy-match';
 
 export type PaletteItem = {
   id: string;
@@ -16,7 +16,16 @@ export type PaletteItem = {
   run: () => void;
 };
 
-export type PaletteSourceKey = 'commands' | 'views' | 'settings' | 'repos' | 'worktrees' | 'sessions' | 'agents';
+export type PaletteSourceKey =
+  | 'commands'
+  | 'views'
+  | 'settings'
+  | 'repos'
+  | 'worktrees'
+  | 'refs'
+  | 'files'
+  | 'sessions'
+  | 'agents';
 
 export type PaletteSource = {
   key: PaletteSourceKey;
@@ -33,6 +42,8 @@ export const SOURCE_WEIGHTS: Record<PaletteSourceKey, number> = {
   settings: 1.05,
   repos: 1.0,
   worktrees: 0.95,
+  refs: 1.0,
+  files: 0.9,
   sessions: 0.9,
   agents: 1.0,
 };
@@ -46,7 +57,7 @@ export type ScoredPaletteItem = {
 
 /**
  * Scores a palette item against a query needle.
- * Checks label first, then keywords and detail.
+ * Checks label first (using fuzzyMatchPath for file sources), then keywords and detail.
  */
 export function scorePaletteItem(
   item: PaletteItem,
@@ -61,7 +72,8 @@ export function scorePaletteItem(
     };
   }
 
-  const labelMatch = fuzzyMatch(needle, item.label);
+  const labelMatch =
+    sourceKey === 'files' ? fuzzyMatchPath(needle, item.label) : fuzzyMatch(needle, item.label);
   let bestScore = labelMatch ? labelMatch.score : -1;
   const labelIndices = labelMatch ? labelMatch.indices : [];
   let detailIndices: number[] | undefined;

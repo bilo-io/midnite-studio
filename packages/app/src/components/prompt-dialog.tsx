@@ -1,5 +1,7 @@
 import { useEffect, useRef, useState } from 'react';
 
+import { useFocusTrap } from './use-focus-trap';
+
 /**
  * Single-line text prompt — new branch name, new tag name, rename.
  *
@@ -27,9 +29,12 @@ export function PromptDialog({
   onCancel: () => void;
 }) {
   const [value, setValue] = useState(request.initialValue ?? '');
+  const containerRef = useRef<HTMLFormElement>(null);
   const inputRef = useRef<HTMLInputElement>(null);
   const error = value.length > 0 ? (request.validate?.(value) ?? null) : null;
   const empty = value.trim().length === 0;
+
+  useFocusTrap(containerRef, true);
 
   useEffect(() => {
     inputRef.current?.select();
@@ -56,6 +61,8 @@ export function PromptDialog({
       }}
     >
       <form
+        ref={containerRef}
+        tabIndex={-1}
         className="w-full max-w-md rounded-lg border border-border bg-popover p-4 shadow-xl"
         onSubmit={(event) => {
           event.preventDefault();

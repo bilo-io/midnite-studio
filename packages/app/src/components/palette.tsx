@@ -3,13 +3,14 @@ import { useCallback, useEffect, useMemo, useRef } from 'react';
 import { useVirtualizer } from '@tanstack/react-virtual';
 import { Search } from 'lucide-react';
 
-import { useRepos, useWorktrees } from '../services/queries';
+import { useRepoFiles, useRepos, useRefs, useWorktrees } from '../services/queries';
 import { useAgents } from '../features/terminal/use-agents';
 import { useTerminalStore } from '../features/terminal/terminal-store';
 import { useUiStore } from '../store/ui-store';
 import { displayChord } from '../features/status-bar/chord-hint';
 import { cascadeStyle } from '../lib/cascade';
 import { useCommandHandlers } from '../services/keybindings/use-command-handlers';
+import { useGitOp } from '../services/use-status';
 import {
   highlightMatches,
   scorePaletteItem,
@@ -18,6 +19,8 @@ import {
 } from '../services/palette/source';
 import {
   createCommandSource,
+  createFilesSource,
+  createRefsSource,
   createReposSource,
   createTerminalSource,
   createViewsSource,
@@ -26,8 +29,6 @@ import { parsePaletteQuery, usePaletteStore, type PaletteMode } from '../store/p
 import { useFocusTrap } from './use-focus-trap';
 
 const MODE_PLACEHOLDER: Partial<Record<PaletteMode, string>> = {
-  refs: 'Branch and ref search arrives in Theme F.',
-  files: 'The file finder arrives in Theme G.',
   journal: 'Reserved for the ops journal — see Phase 22 Theme H.',
 };
 
@@ -72,7 +73,9 @@ export function Palette() {
   // Navigation data sources
   const reposQuery = useRepos();
   const selectedRepoId = useUiStore((s) => s.selectedRepoId);
+  const selectedWorktreePath = useUiStore((s) => s.selectedWorktreePath);
   const worktreesQuery = useWorktrees(selectedRepoId);
+  const refsQuery = useRefs(selectedRepoId);
   const { agents } = useAgents();
   const sessions = useTerminalStore((s) => s.sessions);
 
@@ -82,6 +85,38 @@ export function Palette() {
     [repos, selectedRepoId],
   );
   const worktrees = useMemo(() => worktreesQuery.data ?? [], [worktreesQuery.data]);
+  const refs = useMemo(() => refsQuery.data ?? [], [refsQuery.data]);
+
+  // Head/tip SHA of active worktree or main
+  const tipSha = useMemo(() => {
+    const headRef = refs.find((r) => r.isHead);
+    return headRef?.sha ?? null;
+  }, [refs]);
+
+  const filesQuery = useRepoFiles(
+    selectedRepoId,
+    tipSha,
+    selectedWorktreePath ?? undefined,
+    { enabled: mode === 'all' || mode === 'files' },
+  );
+  const files = useMemo(() => filesQuery.data?.files ?? [], [filesQuery.data]);
+  const filesTruncated = filesQuery.data?.truncated ?? false;
+
+  const checkoutOp = useGitOp<{ target: string; detach?: boolean }>('checkout', (api, args, ctx) =>
+    api.ops.checkout({ ...ctx, target: args.target, detach: args.detach ?? false }),
+  );
+
+  const handleCheckout = useCallback(
+    (ref: { name: string }) => {
+      checkoutOp.mutate({ target: ref.name });
+    },
+    [checkoutOp],
+  );
+
+  const handleReveal = useCallback((ref: { sha: string }) => {
+    useUiStore.getState().setActiveView('graph');
+    useUiStore.getState().selectCommit(ref.sha);
+  }, []);
 
   const containerRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLInputElement>(null);
@@ -118,13 +153,37 @@ export function Palette() {
       list.push(createReposSource(repos, worktrees, activeRepo?.id ?? null, close));
     }
 
+    // Refs source (branches, tags)
+    if ((mode === 'all' || mode === 'refs') && selectedRepoId) {
+      list.push(createRefsSource(refs, close, handleCheckout, handleReveal));
+    }
+
+    // Files source
+    if ((mode === 'all' || mode === 'files') && selectedRepoId) {
+      list.push(createFilesSource(files, close));
+    }
+
     // Sessions & Agents source
     if (mode === 'all') {
       list.push(createTerminalSource(sessions, agents, activeRepo, close));
     }
 
     return list;
-  }, [mode, runtime, close, repos, worktrees, activeRepo, sessions, agents]);
+  }, [
+    mode,
+    runtime,
+    close,
+    repos,
+    worktrees,
+    activeRepo,
+    selectedRepoId,
+    refs,
+    handleCheckout,
+    handleReveal,
+    files,
+    sessions,
+    agents,
+  ]);
 
   const scoredResults = useMemo(() => {
     const results: ScoredPaletteItem[] = [];
@@ -298,6 +357,11 @@ export function Palette() {
             </div>
           )}
         </div>
+        {filesTruncated && (mode === 'all' || mode === 'files') && (
+          <div className="border-t border-border px-3 py-1.5 text-xs text-muted-foreground">
+            Results capped at 20,000 files. Refine your search query.
+          </div>
+        )}
       </div>
     </div>
   );

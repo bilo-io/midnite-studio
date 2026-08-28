@@ -31,6 +31,7 @@ type FilesState = {
   /** Reset if the checkout changed; no-op otherwise. */
   ensureScope: (scopeKey: string) => void;
   toggleDir: (relPath: string) => void;
+  expandDirs: (relPaths: string[]) => void;
   selectFile: (relPath: string | null) => void;
   startRename: (relPath: string, initialName: string) => void;
   /** Also force-expands `parentPath` so the new inline row is visible immediately. */
@@ -54,6 +55,15 @@ export const useFilesStore = create<FilesState>()((set, get) => ({
       const expanded = { ...state.expanded };
       if (expanded[relPath]) delete expanded[relPath];
       else expanded[relPath] = true;
+      return { expanded };
+    }),
+
+  expandDirs: (relPaths) =>
+    set((state) => {
+      const expanded = { ...state.expanded };
+      for (const p of relPaths) {
+        if (p.length > 0) expanded[p] = true;
+      }
       return { expanded };
     }),
 

@@ -2,6 +2,8 @@ import { useEffect, useRef } from 'react';
 
 import { AlertTriangle } from 'lucide-react';
 
+import { useFocusTrap } from './use-focus-trap';
+
 /**
  * Confirmation for a destructive operation, with its blast radius.
  *
@@ -60,7 +62,10 @@ export function ConfirmDialog({
   request: ConfirmRequest;
   onCancel: () => void;
 }) {
+  const containerRef = useRef<HTMLDivElement>(null);
   const confirmRef = useRef<HTMLButtonElement>(null);
+
+  useFocusTrap(containerRef, true);
 
   useEffect(() => {
     const onKeyDown = (event: KeyboardEvent) => {
@@ -92,6 +97,8 @@ export function ConfirmDialog({
         header tint and the glyph move that signal to the top.
       */}
       <div
+        ref={containerRef}
+        tabIndex={-1}
         className={`w-full max-w-md overflow-hidden rounded-lg border bg-popover shadow-xl ${
           request.danger ? 'border-destructive/60 ring-1 ring-destructive/25' : 'border-border'
         }`}

@@ -287,6 +287,8 @@ export const CHANNELS = {
   fsDirStats: 'mgit:fs:dir-stats',
   /** `git grep` over the tracked working tree — repo scope only, read-only. */
   fsSearch: 'mgit:fs:search',
+  /** List tracked and untracked repository files via `git ls-files` — Phase 23 Theme G. */
+  fsListFiles: 'mgit:fs:list-files',
 
   // --- system metrics (Phase 18) -------------------------------------------
   // One-way `send`s, not `invoke`s: neither has anything to report back, and
