@@ -6,6 +6,7 @@ import { LuFolderTree, LuRefreshCw } from 'react-icons/lu';
 import { IconButton } from '../../components/icon-button';
 import { ResizeHandle } from '../../components/resizable/resize-handle';
 import { useResizable } from '../../components/resizable/use-resizable';
+import { bridge } from '../../services/bridge';
 import { keys, useRepos } from '../../services/queries';
 import { useFileEditorStore } from '../../store/file-editor-store';
 import { DEFAULT_LAYOUT, LAYOUT_BOUNDS, useUiStore } from '../../store/ui-store';
@@ -33,6 +34,7 @@ export function FilesView() {
   const selectedPath = useFilesStore((s) => s.selectedPath);
   const toggleDir = useFilesStore((s) => s.toggleDir);
   const selectFile = useFilesStore((s) => s.selectFile);
+  const revealFile = useFilesStore((s) => s.revealFile);
   const ensureScope = useFilesStore((s) => s.ensureScope);
 
   // The line a search result was opened at — cleared on an ordinary tree
@@ -65,8 +67,31 @@ export function FilesView() {
   // starts a clean browse instead of carrying stale relPaths across.
   const scopeKey = scope ? JSON.stringify(keys.fs(scope)) : null;
   useEffect(() => {
-    if (scopeKey) ensureScope(scopeKey);
-  }, [scopeKey, ensureScope]);
+    if (scopeKey) {
+      ensureScope(scopeKey);
+      if (scope) {
+        void bridge()
+          ?.fs.listDir({ ...scope, relPath: '' })
+          .then((res) => {
+            if (!res.ok) return;
+            const hasReadme = res.entries.some(
+              (entry) => entry.kind === 'file' && entry.name.toLowerCase() === 'readme.md',
+            );
+            if (hasReadme) {
+              const current = useFilesStore.getState();
+              if (current.scopeKey === scopeKey && current.selectedPath === null) {
+                const readmeEntry = res.entries.find(
+                  (entry) => entry.kind === 'file' && entry.name.toLowerCase() === 'readme.md',
+                );
+                if (readmeEntry) {
+                  current.selectFile(readmeEntry.name);
+                }
+              }
+            }
+          });
+      }
+    }
+  }, [scopeKey, scope, ensureScope]);
 
   const tree = useResizable({
     size: layout.filesTreeWidth,
@@ -151,6 +176,12 @@ export function FilesView() {
           scope={scope}
           relPath={selectedPath}
           targetLine={targetLine ?? undefined}
+          onNavigate={(relPath) =>
+            useFileEditorStore.getState().guardNavigation(() => {
+              revealFile(relPath);
+              setTargetLine(null);
+            })
+          }
         />
       ) : (
         <div className="flex min-w-0 flex-1 items-center justify-center p-6">
