@@ -350,8 +350,9 @@ export type MidniteGitBridge = {
   };
 
   /**
-   * Read-only filesystem browsing (Phase 16). No write methods exist — the
-   * file explorer's inability to edit is a property of this contract.
+   * Filesystem browsing (Phase 16) plus writes (Phase 24). The four write
+   * methods are repo scope only — `claude-home` is not expressible in their
+   * request types — and every one resolves to a `GitOpResult`, never rejects.
    */
   fs: {
     listDir: (
@@ -360,6 +361,12 @@ export type MidniteGitBridge = {
     readFile: (
       req: In<typeof S.FsReadFileRequest>,
     ) => Promise<z.infer<typeof S.FsReadFileResponse>>;
+    /** Overwrite an existing file. Refuses (`code: 'stale-write'`) on a moved `FsVersion`. */
+    writeFile: (req: In<typeof S.FsWriteFileRequest>) => Promise<GitOpResult>;
+    create: (req: In<typeof S.FsCreateRequest>) => Promise<GitOpResult>;
+    rename: (req: In<typeof S.FsRenameRequest>) => Promise<GitOpResult>;
+    /** Through the OS Trash, not `unlink` — recoverable in the Finder. */
+    delete: (req: In<typeof S.FsDeleteRequest>) => Promise<GitOpResult>;
   };
 
   /**

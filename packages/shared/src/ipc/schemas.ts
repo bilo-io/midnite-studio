@@ -42,7 +42,7 @@ import {
   WatchEventSchema,
   WorktreeSchema,
 } from '../domain';
-import { ClaudeInfoSchema, FsEntrySchema } from '../fs';
+import { ClaudeInfoSchema, FsEntrySchema, FsVersionSchema, FsWriteScopeSchema } from '../fs';
 import {
   AgentDefinitionSchema,
   AgentStatusSchema,
@@ -861,7 +861,13 @@ export const FsReadFileRequest = z.discriminatedUnion('scope', [FsRepoScope, FsC
  * as a fallback card. Only a jail rejection or a read failure is `error`.
  */
 export const FsReadFileResponse = z.discriminatedUnion('kind', [
-  z.object({ kind: z.literal('text'), content: z.string(), size: z.number().int().nonnegative() }),
+  z.object({
+    kind: z.literal('text'),
+    content: z.string(),
+    size: z.number().int().nonnegative(),
+    /** So a later save can prove the file has not moved underneath it. */
+    version: FsVersionSchema,
+  }),
   z.object({ kind: z.literal('binary'), size: z.number().int().nonnegative() }),
   z.object({ kind: z.literal('too-large'), size: z.number().int().nonnegative() }),
   z.object({ kind: z.literal('error'), message: z.string() }),
@@ -869,6 +875,53 @@ export const FsReadFileResponse = z.discriminatedUnion('kind', [
 
 /** Likewise the whole order, so a dropped message cannot leave a half-applied swap. */
 export const RepoReorderRequest = z.object({ repoIds: z.array(z.string().min(1)) });
+
+// --- writable filesystem (Phase 24) -----------------------------------------
+// Repo scope only, built on `FsWriteScopeSchema` rather than `FsRepoScope`'s
+// `scope` union — `claude-home` cannot be expressed here, so a write into
+// `~/.claude` fails zod parsing before any handler runs. Every response is a
+// plain `GitOpResult` through `handleOp`, per the repo's "never throws, a bad
+// outcome is data" rule; a stale write arrives as `{ok:false, kind:'error',
+// code:'stale-write'}` rather than a fs-shaped failure arm of its own.
+
+const FsWriteScopeBase = z.object({
+  scope: FsWriteScopeSchema,
+  repoId: z.string().min(1),
+  /** A linked worktree's checkout; omitted means the main worktree. */
+  worktreePath: z.string().optional(),
+});
+
+/**
+ * A relative path naming a write's own target. Non-empty and NUL-free at the
+ * schema level — real path safety (traversal, symlinks, `.git/`) is entirely
+ * `fs-scope-write.ts`'s job, so there is exactly one place that logic lives;
+ * this is shape validation only, and "empty string is the root" (as reads
+ * allow) makes no sense for a write, since nothing here can write the root.
+ */
+const FsWriteRelPath = z
+  .string()
+  .min(1)
+  .refine((s) => !s.includes('\0'), 'relPath must not contain NUL');
+
+const FsWriteRepoScope = FsWriteScopeBase.extend({ relPath: FsWriteRelPath });
+
+export const FsWriteFileRequest = FsWriteRepoScope.extend({
+  content: z.string(),
+  /** The `FsVersion` the caller last read. Main refuses when `fstat` disagrees. */
+  expectedVersion: FsVersionSchema,
+});
+
+export const FsCreateRequest = FsWriteRepoScope.extend({
+  kind: z.enum(['file', 'directory']),
+});
+
+/** Cross-directory moves are in scope; the UI only offers same-directory rename today. */
+export const FsRenameRequest = FsWriteScopeBase.extend({
+  fromRelPath: FsWriteRelPath,
+  toRelPath: FsWriteRelPath,
+});
+
+export const FsDeleteRequest = FsWriteRepoScope;
 
 // --- system metrics (Phase 18) ---------------------------------------------
 

@@ -219,6 +219,10 @@ const bridge: Pick<
   fs: {
     listDir: (req) => call(CHANNELS.fsListDir, req),
     readFile: (req) => call(CHANNELS.fsReadFile, req),
+    writeFile: (req) => call(CHANNELS.fsWriteFile, req),
+    create: (req) => call(CHANNELS.fsCreate, req),
+    rename: (req) => call(CHANNELS.fsRename, req),
+    delete: (req) => call(CHANNELS.fsDelete, req),
   },
   metrics: {
     // `send`, not `invoke`, like `pty.input`: neither verb has an answer worth

@@ -36,6 +36,16 @@ const GitOpFailureSchema = z.discriminatedUnion('kind', [
     message: z.string(),
     /** Raw stderr, kept for the "details" disclosure. */
     stderr: z.string().optional(),
+    /**
+     * A machine-matchable reason, for the callers that need to render one
+     * error differently from the rest rather than parsing `message`.
+     *
+     * `'stale-write'` is the fs write channels' (Phase 24) only user today: the
+     * file changed on disk since the caller's `FsVersion` was read. It rides
+     * the ordinary error arm rather than growing `ConflictOp` a fs-shaped
+     * member — a stale write is not a git conflict.
+     */
+    code: z.literal('stale-write').optional(),
   }),
 ]);
 
@@ -51,9 +61,14 @@ export const conflict = (op: ConflictOp, files: string[]): GitOpResult => ({
   files,
 });
 
-export const failure = (message: string, stderr?: string): GitOpResult => ({
+export const failure = (
+  message: string,
+  stderr?: string,
+  code?: 'stale-write',
+): GitOpResult => ({
   ok: false,
   kind: 'error',
   message,
   ...(stderr === undefined ? {} : { stderr }),
+  ...(code === undefined ? {} : { code }),
 });

@@ -216,6 +216,114 @@ describe('request schemas', () => {
   });
 });
 
+describe('fs write contract (Phase 24)', () => {
+  const base = { scope: 'repo' as const, repoId: 'r', relPath: 'a.ts' };
+  const version = { mtimeMs: 1, size: 2 };
+
+  it('reads carry an FsVersion on the text arm', () => {
+    const parsed = schemas.FsReadFileResponse.parse({
+      kind: 'text',
+      content: 'x',
+      size: 1,
+      version,
+    });
+    expect(parsed).toMatchObject({ version });
+  });
+
+  it('every write request accepts repo scope and refuses claude-home', () => {
+    expect(() =>
+      schemas.FsWriteFileRequest.parse({ ...base, content: 'x', expectedVersion: version }),
+    ).not.toThrow();
+    expect(() =>
+      schemas.FsWriteFileRequest.parse({
+        ...base,
+        scope: 'claude-home',
+        content: 'x',
+        expectedVersion: version,
+      }),
+    ).toThrow();
+
+    expect(() => schemas.FsCreateRequest.parse({ ...base, kind: 'file' })).not.toThrow();
+    expect(() =>
+      schemas.FsCreateRequest.parse({ ...base, scope: 'claude-home', kind: 'file' }),
+    ).toThrow();
+
+    expect(() =>
+      schemas.FsRenameRequest.parse({
+        scope: 'repo',
+        repoId: 'r',
+        fromRelPath: 'a.ts',
+        toRelPath: 'b.ts',
+      }),
+    ).not.toThrow();
+    expect(() =>
+      schemas.FsRenameRequest.parse({
+        scope: 'claude-home',
+        repoId: 'r',
+        fromRelPath: 'a.ts',
+        toRelPath: 'b.ts',
+      }),
+    ).toThrow();
+
+    expect(() => schemas.FsDeleteRequest.parse(base)).not.toThrow();
+    expect(() => schemas.FsDeleteRequest.parse({ ...base, scope: 'claude-home' })).toThrow();
+  });
+
+  it('rejects an empty relPath on every write request', () => {
+    expect(() =>
+      schemas.FsWriteFileRequest.parse({ ...base, relPath: '', content: 'x', expectedVersion: version }),
+    ).toThrow();
+    expect(() => schemas.FsCreateRequest.parse({ ...base, relPath: '', kind: 'file' })).toThrow();
+    expect(() => schemas.FsDeleteRequest.parse({ ...base, relPath: '' })).toThrow();
+    expect(() =>
+      schemas.FsRenameRequest.parse({ scope: 'repo', repoId: 'r', fromRelPath: '', toRelPath: 'b.ts' }),
+    ).toThrow();
+  });
+
+  it('rejects a NUL byte in a write relPath', () => {
+    expect(() =>
+      schemas.FsWriteFileRequest.parse({
+        ...base,
+        relPath: 'a\0.ts',
+        content: 'x',
+        expectedVersion: version,
+      }),
+    ).toThrow();
+  });
+
+  it('constrains fsCreate to file or directory', () => {
+    expect(schemas.FsCreateRequest.parse({ ...base, kind: 'directory' }).kind).toBe('directory');
+    expect(() => schemas.FsCreateRequest.parse({ ...base, kind: 'symlink' })).toThrow();
+  });
+
+  it('fsRename carries independent from/to paths, not a single relPath', () => {
+    expect(Object.keys(schemas.FsRenameRequest.shape)).toEqual(
+      expect.arrayContaining(['fromRelPath', 'toRelPath']),
+    );
+    expect(Object.keys(schemas.FsRenameRequest.shape)).not.toContain('relPath');
+  });
+
+  it('requires an expectedVersion to overwrite a file', () => {
+    expect(() => schemas.FsWriteFileRequest.parse({ ...base, content: 'x' })).toThrow();
+  });
+
+  it('reports a stale write as a GitOpResult error with a matchable code', () => {
+    const result = schemas.OpResponse.parse({
+      ok: false,
+      kind: 'error',
+      message: 'the file changed on disk',
+      code: 'stale-write',
+    });
+    expect(result).toMatchObject({ ok: false, code: 'stale-write' });
+  });
+
+  it('does not grow ConflictOp for a stale write', () => {
+    expect(() =>
+      schemas.OpResponse.parse({ ok: false, kind: 'conflict', op: 'stale-write', files: [] }),
+    ).toThrow();
+  });
+});
+
 describe('OpenExternalRequest', () => {
   it.each(['https://github.com/o/r', 'http://localhost:3000/x', 'mailto:dev@example.com'])(
     'accepts %s',
