@@ -113,7 +113,23 @@ export type MidniteGitBridge = {
     onDone: (handler: (e: z.infer<typeof S.LogDoneEvent>) => void) => Unsubscribe;
   };
 
+  search: {
+    start: (
+      req: In<typeof S.SearchStartRequest>,
+    ) => Promise<z.infer<typeof S.SearchStartResponse>>;
+    cancel: (req: In<typeof S.SearchCancelRequest>) => Promise<void>;
+    onBatch: (handler: (e: z.infer<typeof S.SearchBatchEvent>) => void) => Unsubscribe;
+    onDone: (handler: (e: z.infer<typeof S.SearchDoneEvent>) => void) => Unsubscribe;
+  };
+
+  blame: {
+    read: (
+      req: In<typeof S.BlameReadRequest>,
+    ) => Promise<z.infer<typeof S.BlameReadResponse>>;
+  };
+
   status: {
+
     get: (req: In<typeof S.StatusGetRequest>) => Promise<StatusResult>;
     /**
      * Per-path `+n −n` for the same checkout `get` describes.

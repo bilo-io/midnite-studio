@@ -1,15 +1,18 @@
 import { useEffect, useRef, useState } from 'react';
 
 import { useTheme } from '@bilo-io/ui/theme';
-import type { Highlighter } from 'shiki';
+import type { Highlighter, ThemedToken } from 'shiki';
 
 import { getHighlighter, HIGHLIGHT_THEME } from '../../../lib/highlighter';
 
 /**
- * Failures at any stage degrade to a plain <pre>: a preview that can't colour
- * code should still show it.
+ * Tokenize lines via shiki.
  */
-async function highlight(code: string, lang: string | null, dark: boolean): Promise<string> {
+async function tokenizeLines(
+  code: string,
+  lang: string | null,
+  dark: boolean,
+): Promise<ThemedToken[][] | null> {
   const highlighter = await getHighlighter();
   let language = lang;
   if (language && !highlighter.getLoadedLanguages().includes(language)) {
@@ -19,17 +22,20 @@ async function highlight(code: string, lang: string | null, dark: boolean): Prom
       language = null;
     }
   }
-  return highlighter.codeToHtml(code, {
-    lang: language ?? 'text',
-    theme: HIGHLIGHT_THEME(dark),
+  if (!language) {
+    return null;
+  }
+  const theme = HIGHLIGHT_THEME(dark);
+  const result = highlighter.codeToTokens(code, {
+    lang: language as Parameters<Highlighter['codeToTokens']>[1]['lang'],
+    theme,
   });
+  return result.tokens;
+
 }
 
 /**
- * Above this, skip highlighting entirely and fall back to the plain <pre>.
- * The IPC cap (1.5 MB) is about what may cross the boundary; this one is
- * about the render thread — shiki tokenizes synchronously and a minified
- * bundle would freeze the UI and inject a span-per-token DOM.
+ * Above this, skip highlighting entirely and fall back to the plain lines.
  */
 const HIGHLIGHT_CAP_BYTES = 200 * 1024;
 
@@ -37,82 +43,95 @@ export function CodePreview({
   content,
   language,
   highlightLine,
+  showGutter = true,
 }: {
   content: string;
   language: string | null;
   /** A find-in-files result's 1-based line — scrolled into view and flashed. */
   highlightLine?: number;
+  showGutter?: boolean;
 }) {
   const { resolved } = useTheme();
   const dark = resolved === 'dark';
-  const [html, setHtml] = useState<string | null>(null);
+  const [tokens, setTokens] = useState<ThemedToken[][] | null>(null);
   const tooBigToHighlight = content.length > HIGHLIGHT_CAP_BYTES;
   const containerRef = useRef<HTMLDivElement>(null);
-  const preRef = useRef<HTMLPreElement>(null);
+
+  const rawLines = content.split('\n');
+
 
   useEffect(() => {
     let cancelled = false;
-    setHtml(null);
+    setTokens(null);
     if (tooBigToHighlight) return;
-    highlight(content, language, dark)
+    tokenizeLines(content, language, dark)
       .then((result) => {
-        if (!cancelled) setHtml(result);
+        if (!cancelled) setTokens(result);
       })
       .catch(() => {
-        if (!cancelled) setHtml(null);
+        if (!cancelled) setTokens(null);
       });
     return () => {
       cancelled = true;
     };
   }, [content, language, dark, tooBigToHighlight]);
 
-  // Shiki wraps every rendered source line in its own `<span class="line">`,
-  // in order — the seam this reuses rather than a real per-line row model
-  // (that's Phase 25 D's rewrite of this component, not this phase's).
   useEffect(() => {
     if (highlightLine === undefined) return;
-    const root = html !== null ? containerRef.current : preRef.current;
-    const lines = root?.querySelectorAll<HTMLElement>(html !== null ? '.line' : 'span[data-line]');
-    const target = lines?.[highlightLine - 1];
+    const root = containerRef.current;
+    const target = root?.querySelector<HTMLElement>(`[data-line="${highlightLine}"]`);
     if (!target) return;
     target.scrollIntoView({ block: 'center' });
     target.classList.add('code-preview-hit');
     return () => target.classList.remove('code-preview-hit');
-  }, [html, highlightLine]);
-
-  if (html === null) {
-    // The plain-text fallback has no per-line spans of its own to scroll to
-    // and flash — but only build them when a search result actually needs
-    // one. Plain text otherwise, so copying a selection across lines keeps
-    // real `\n`s rather than depending on the browser to invent one at every
-    // block-level boundary.
-    return (
-      <pre
-        ref={preRef}
-        className="overflow-auto p-3 font-mono text-xs leading-relaxed"
-        data-selectable
-      >
-        {highlightLine === undefined
-          ? content
-          : content
-              .split('\n')
-              .map((line, i) => (
-                <span key={i} data-line className="block">
-                  {line}
-                </span>
-              ))}
-      </pre>
-    );
-  }
+  }, [tokens, highlightLine]);
 
   return (
     <div
       ref={containerRef}
-      className="code-preview min-h-0 overflow-auto text-xs [&_pre]:!bg-transparent [&_pre]:p-3"
+      className="code-preview min-h-0 flex-1 overflow-auto font-mono text-xs leading-relaxed select-text p-2"
       data-selectable
-      // shiki's output is generated markup over OUR text content — the exact
-      // use dangerouslySetInnerHTML exists for. No user HTML passes through.
-      dangerouslySetInnerHTML={{ __html: html }}
-    />
+    >
+      <div className="flex flex-col min-w-fit">
+        {rawLines.map((lineText, idx) => {
+          const lineNum = idx + 1;
+          const lineTokens = tokens?.[idx];
+          const isHighlighted = lineNum === highlightLine;
+
+          return (
+            <div
+              key={lineNum}
+              data-line={lineNum}
+              className={`flex items-start px-2 py-0.5 rounded-sm ${
+                isHighlighted ? 'bg-accent/20 code-preview-hit' : 'hover:bg-muted/30'
+              }`}
+            >
+              {showGutter && (
+                <span
+                  className="w-10 flex-shrink-0 text-right pr-4 text-muted-foreground select-none font-mono opacity-50"
+                  aria-hidden="true"
+                >
+                  {lineNum}
+                </span>
+              )}
+              <span className="flex-1 whitespace-pre font-mono">
+                {lineTokens ? (
+                  lineTokens.map((token, tIdx) => (
+                    <span
+                      key={tIdx}
+                      style={{ color: token.color, fontStyle: token.fontStyle === 1 ? 'italic' : undefined }}
+                    >
+                      {token.content}
+                    </span>
+                  ))
+                ) : (
+                  lineText || '\u00A0'
+                )}
+              </span>
+            </div>
+          );
+        })}
+      </div>
+    </div>
   );
 }

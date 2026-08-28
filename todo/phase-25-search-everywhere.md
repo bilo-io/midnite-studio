@@ -79,7 +79,7 @@ The spine. B–F all read off these three commands, so it lands first, and it la
 tests against `TempRepo` because the only honest way to pin a git output format is to make git emit
 it.
 
-- [ ] Widen `buildLogArgs` in [`commands/log.ts`](../packages/git-engine/src/commands/log.ts) from
+- [x] Widen `buildLogArgs` in [`commands/log.ts`](../packages/git-engine/src/commands/log.ts) from
       `{ limit, all, revisions }` to also carry `grep`, `author`, `since`, `until`, `paths`,
       `pickaxeString` (`-S`), `pickaxeRegex` (`-G`), `regexp` and `ignoreCase`. Every new key is
       optional and the existing three-key call sites must produce byte-identical argv — assert that
@@ -95,7 +95,7 @@ it.
   - `grep` and `author` are **repeatable**: type both as `readonly string[]`, emit one flag per
     element, and emit `--all-match` alongside when `grep.length > 1` — git ORs multiple `--grep`
     by default, and a two-term query the user typed as two terms means AND.
-- [ ] `--follow` support for path-scoped history, with its two real constraints written into the
+- [x] `--follow` support for path-scoped history, with its two real constraints written into the
       type rather than discovered later: git accepts `--follow` for **exactly one** pathspec, and it
       does not combine dependably with `--all`. Model it as `follow: true` being legal only when
       `paths.length === 1`, and have the arg builder drop `--all` when it is set.
@@ -104,7 +104,7 @@ it.
     git will misread. It is a pure function in git-engine, so throwing is testable and never
     crosses IPC; the boundary that stops it ever being reached is
     `SearchStartRequest`'s refine in Theme B.
-- [ ] `streamCommitSearch(repoPath, options, onBatch, batchSize)` in a new
+- [x] `streamCommitSearch(repoPath, options, onBatch, batchSize)` in a new
       `packages/git-engine/src/commands/search.ts`, returning the existing `LogStream` shape
       (`{ done: Promise<{total, error?}>, cancel(): void }`) so B has one contract to serve. It is
       `streamLog` with a wider arg builder and a cap, and it reuses `LOG_FORMAT`, `chunkRecords`
@@ -118,7 +118,7 @@ it.
   - No cap logic lives here. The stream emits until git exits or `cancel()` is called; **the cap is
     Theme B's** (see the resolved decision). This is what keeps the engine free of a policy the
     renderer configures.
-- [ ] Write `packages/git-engine/src/parsers/grep-parser.ts` with **context lines** from the start.
+- [x] Write `packages/git-engine/src/parsers/grep-parser.ts` with **context lines** from the start.
       `parseGrep(payload)` handles `git grep -z -n -I --no-color` match lines; `-C<n>` adds
       context lines, which git separates differently from matches, so the parsed shape is
       `{ path, line, kind: 'match' | 'context', text }` with `kind` defaulting to `'match'`.
@@ -133,7 +133,7 @@ it.
     guess.
   - *If Phase 24 has landed:* the file exists with a `{path, line, text}` shape and buffered call
     sites. Add `kind` with a `'match'` default and leave every call site untouched.
-- [ ] `streamGrep(repoPath, options, onBatch, batchSize)` alongside a buffered `readGrep` in a new
+- [x] `streamGrep(repoPath, options, onBatch, batchSize)` alongside a buffered `readGrep` in a new
       `commands/grep.ts` — same argv builder, on
       `spawnGit` with a `cancel()`, emitting parsed hits in batches. The buffered version ships too,
       because an explorer panel does not need a stream and should not pay for one.
@@ -149,13 +149,13 @@ it.
     inherit a different default from the one the Settings page shows.
   - `batchSize` defaults to `BATCH_SIZE` (500) exported from Theme B's registry, so grep batches and
     log batches are the same size and there is one number to tune.
-- [ ] **Grep at any revision**, which is the one genuinely new git capability in this theme: `rev` is
+- [x] **Grep at any revision**, which is the one genuinely new git capability in this theme: `rev` is
       placed before the `--` pathspec separator. It is a change to argv order, not a new command —
       and it is what lets a content search answer a question about code that no longer exists.
   - Position is load-bearing and is asserted directly:
     `expect(buildGrepArgs({...opts, rev: 'v1.2.0', paths: ['src']}).slice(-4)).toEqual(['-e', 'foo', 'v1.2.0', '--'])`
     — a `rev` after `--` is read as a pathspec and returns nothing, silently.
-- [ ] `packages/git-engine/src/parsers/blame-parser.ts` for `git blame --porcelain`: the
+- [x] `packages/git-engine/src/parsers/blame-parser.ts` for `git blame --porcelain`: the
       `<sha> <origLine> <finalLine> [<numLines>]` header, the key/value block that follows it, and
       the `\t`-prefixed content line. The format's defining trick is that a commit's metadata block
       appears **once** and later hunks from the same commit carry the header alone — so the parser
@@ -168,7 +168,7 @@ it.
   - The uncommitted case is git's own and passes through untouched: a working-tree line blames to
     sha `0000000000000000000000000000000000000000` with summary `Not Committed Yet`. The parser
     does not special-case it; the gutter renders it as *Uncommitted* in Theme D.
-- [ ] `readBlame(worktreePath, { relPath, rev?, followRenames })` in a new
+- [x] `readBlame(worktreePath, { relPath, rev?, followRenames })` in a new
       `packages/git-engine/src/commands/blame.ts`. `followRenames` emits `-C -M`; it is off by
       default because it is materially slower on large files, and the setting in Theme F is what
       turns it on. Buffered `execGit` is correct here — blame is bounded by one file — and that is
@@ -178,13 +178,13 @@ it.
   - A non-zero exit is a normal outcome, not a throw: a path git has never tracked exits 128 with
     `no such path … in HEAD`. Return `{ ok: false, message }` and let Theme B turn it into the
     `GitOpResult` the gutter renders as an error strip.
-- [ ] The porcelain `previous <sha> <filename>` field is parsed and kept, not dropped. It is the
+- [x] The porcelain `previous <sha> <filename>` field is parsed and kept, not dropped. It is the
       only thing that makes **reblame** possible in Theme D, and it also carries the pre-rename path,
       which is the answer whenever `-C -M` has actually done something.
   - It lands on the **line**, not on the commit table: `previous` differs per hunk when a file has
     been renamed more than once in its history, so hanging it off the commit would lose the second
     rename. `BlameLine.previous` is `{ sha: string; path: string } | null`.
-- [ ] `GrepHitSchema`, `BlameLineSchema`, `BlameCommitSchema` and `BlameResultSchema` in a new
+- [x] `GrepHitSchema`, `BlameLineSchema`, `BlameCommitSchema` and `BlameResultSchema` in a new
       `shared/src/domain/search.ts` and
       `shared/src/domain/blame.ts`, exported through
       [`domain/index.ts`](../packages/shared/src/domain/index.ts). `BlameResult` carries the commit
@@ -200,10 +200,10 @@ it.
     inspector and the dashboard already share. The mode lives on the *batch*, not on each hit
     (Theme B), so a per-hit discriminator would be a tag repeated five thousand times to say
     something the envelope already said once.
-- [ ] Export the new commands and parsers from
+- [x] Export the new commands and parsers from
       [`commands/index.ts`](../packages/git-engine/src/commands/index.ts) and
       [`parsers/index.ts`](../packages/git-engine/src/parsers/index.ts).
-- [ ] `grep-parser.test.ts` and `blame-parser.test.ts`, in the house style of
+- [x] `grep-parser.test.ts` and `blame-parser.test.ts`, in the house style of
       [`status-parser.test.ts`](../packages/git-engine/src/parsers/status-parser.test.ts) with a
       local NUL-joining helper; plus `search.integration.test.ts`, `grep.integration.test.ts` and
       `blame.integration.test.ts` driving real git through
@@ -216,12 +216,13 @@ it.
     round-trip); a **binary** file present in the tree (excluded by `-I`, and the run does not
     fail); and a **pattern beginning with `-`** (`-Wall`, which `-e` must make searchable).
 
+
 ### B — The stream registry, and the search contract (M)
 
 The refactor half of this theme touches the working graph stream, so it lands as its own commit with
 its own green gate before the search channels arrive on top of it.
 
-- [ ] Lift the private machinery of [`log-service.ts`](../packages/desktop/src/main/log-service.ts)
+- [x] Lift the private machinery of [`log-service.ts`](../packages/desktop/src/main/log-service.ts)
       into a new `packages/desktop/src/main/stream-registry.ts` — a `requestId`-keyed
       `Map<string, RegisteredStream>` scoped per `BrowserWindow`, with window-teardown cleanup.
       `BATCH_SIZE = 500` and the `requestId` tagging that lets the renderer drop late batches from a
@@ -244,7 +245,7 @@ its own green gate before the search channels arrive on top of it.
   - `release` is how a *naturally finished* stream leaves the map without being cancelled. Without
     it the map grows for the life of the window and `countOf` climbs until every search is refused
     by the ceiling — the bug this API shape exists to make impossible to write.
-- [ ] The supersede policy is **a table in the registry module**, not a rule each caller re-states:
+- [x] The supersede policy is **a table in the registry module**, not a rule each caller re-states:
       ```ts
       export const POLICY: Record<StreamKind, 'supersede' | 'concurrent'> = {
         log: 'supersede',
@@ -254,7 +255,7 @@ its own green gate before the search channels arrive on top of it.
       `register` reads it: on `'supersede'` it calls `cancelKind(win, stream.kind)` before inserting,
       on `'concurrent'` it inserts. A search must never cancel the graph's stream and vice versa, and
       that sentence is now one line of data a test can assert directly.
-- [ ] `log-service.ts` becomes a consumer and keeps its **single-active-log** semantics unchanged:
+- [x] `log-service.ts` becomes a consumer and keeps its **single-active-log** semantics unchanged:
       `startLog` registers with `kind: 'log'`, and `POLICY.log === 'supersede'` is what supersedes the
       previous log. The module-level `let active` goes; `cancelLog(requestId?)` becomes
       `cancel(win, requestId)` / `cancelKind(win, 'log')`.
@@ -263,11 +264,11 @@ its own green gate before the search channels arrive on top of it.
   - `startLog` still needs its own `active`-equivalent to hold the `LaneLayoutSession` and the
     running `total` across batches. Keep those in the closure the registry entry's `cancel` already
     captures rather than reintroducing a module-level variable.
-- [ ] `packages/desktop/src/main/search-service.ts` on the registry — `startCommitSearch`,
+- [x] `packages/desktop/src/main/search-service.ts` on the registry — `startCommitSearch`,
       `startGrep`, `cancelSearch(win, requestId?)`. Unlike log, **concurrent searches are allowed**
       (the Search view can run a commits query and a content query from one submit), so its policy is
       cancel-by-id — `cancelSearch` with no id calls `cancelKind(win, 'search')`.
-- [ ] **The result cap is enforced here**, in `search-service.ts`, and nowhere else. The service
+- [x] **The result cap is enforced here**, in `search-service.ts`, and nowhere else. The service
       counts hits as it forwards them; on reaching `cap` it calls the stream's `cancel()`, sends
       `searchDone` with `truncated: true`, and forwards nothing further.
   - `cap` rides on the request (`SearchStartRequest.cap`, default 5000) rather than being a
@@ -279,7 +280,7 @@ its own green gate before the search channels arrive on top of it.
   - This is deliberately *not* in git-engine (which stays policy-free) and *not* in the renderer
     (which cannot stop the child process). The service is the only layer that both knows the cap
     and holds the `cancel()`.
-- [ ] A **per-window ceiling of 4 concurrent searches**, so a held-down key cannot spawn processes
+- [x] A **per-window ceiling of 4 concurrent searches**, so a held-down key cannot spawn processes
       without bound. `startCommitSearch` / `startGrep` check `countOf(win, 'search') >= SEARCH_CEILING`
       and refuse with `failure('Too many searches running — cancel one first.')` rather than queueing.
   - Four, because one submit can legitimately start two (commits + content) and a user who submits
@@ -287,18 +288,18 @@ its own green gate before the search channels arrive on top of it.
     is the signal.
   - Refusing rather than queueing: a queued search runs against a query the user has already
     replaced, which is the exact confidently-wrong answer this phase is built to avoid.
-- [ ] **Repo switch and window teardown both cancel everything.** The renderer calls
+- [x] **Repo switch and window teardown both cancel everything.** The renderer calls
       `search.cancel({ repoId })` with no `requestId` when `selectedRepoId` changes; main's
       `win.once('closed')` calls `cancelAll(win)`. A half-consumed grep of the repo you just left is
       the leak this phase is most likely to ship.
-- [ ] New channels in [`ipc/channels.ts`](../packages/shared/src/ipc/channels.ts) under the
+- [x] New channels in [`ipc/channels.ts`](../packages/shared/src/ipc/channels.ts) under the
       `mgit:` namespace: `searchStart` (`mgit:search:start`), `searchCancel` (`mgit:search:cancel`),
       `blameRead` (`mgit:blame:read`) as invokes, and `searchBatch` (`mgit:search:batch`),
       `searchDone` (`mgit:search:done`) in `EVENT_CHANNELS`. One `searchStart` carrying a
       discriminated `mode` rather than two near-identical channels, and the renderer routes on
       `requestId` exactly as [`graph-store.ts`](../packages/app/src/features/graph/graph-store.ts)
       already does.
-- [ ] The request/response schemas in [`ipc/schemas.ts`](../packages/shared/src/ipc/schemas.ts),
+- [x] The request/response schemas in [`ipc/schemas.ts`](../packages/shared/src/ipc/schemas.ts),
       extending the shared `RepoId` base like every other request:
   - `SearchStartRequest` is a discriminated union on `mode`, so a commits query cannot carry
     `contextLines` and a content query cannot carry `since`:
@@ -321,24 +322,24 @@ its own green gate before the search channels arrive on top of it.
     `{ requestId, mode: 'commits', commits: Commit[] }` | `{ requestId, mode: 'content', hits: GrepHit[] }`.
   - `SearchDoneEvent = { requestId, mode, total: number, truncated: boolean, error?: string }` —
     the same shape `LogDoneEvent` has, so the renderer's done-handling is one pattern.
-- [ ] `search` and `blame` groups on `MidniteGitBridge` in
+- [x] `search` and `blame` groups on `MidniteGitBridge` in
       [`ipc/bridge.ts`](../packages/shared/src/ipc/bridge.ts), with
       `search: { start, cancel, onBatch, onDone }` mirroring the `log` group exactly and
       `blame: { read }`.
-- [ ] `packages/desktop/src/main/ipc/search-handlers.ts` with `registerSearchHandlers(win)`, using
+- [x] `packages/desktop/src/main/ipc/search-handlers.ts` with `registerSearchHandlers(win)`, using
       `handleOp()` / `handle()` from [`ipc/handle.ts`](../packages/desktop/src/main/ipc/handle.ts) so
       an invalid payload resolves with a fallback rather than rejecting; registered in the
       `registerFooHandlers()` block in [`main/index.ts`](../packages/desktop/src/main/index.ts).
-- [ ] Wire both groups into the preload `Pick<MidniteGitBridge, …>` in
+- [x] Wire both groups into the preload `Pick<MidniteGitBridge, …>` in
       [`preload/index.ts`](../packages/desktop/src/preload/index.ts) — naming the groups there is
       what makes an unimplemented method a compile error rather than a runtime `undefined`.
-- [ ] A `search*` / `blame*` block in [`ipc.test.ts`](../packages/shared/src/ipc/ipc.test.ts). The
+- [x] A `search*` / `blame*` block in [`ipc.test.ts`](../packages/shared/src/ipc/ipc.test.ts). The
       existing coverage tests are exhaustive per channel-name prefix
       (`expect(channelKeys.sort()).toEqual(Object.keys(expected).sort())`, e.g. `ipc.test.ts:556`)
       and a new prefix is not covered by any of them, so this is a new block, not an added line. It
       must filter across **both** `CHANNELS` and `EVENT_CHANNELS`, as the metrics block at
       `ipc.test.ts:620` does, because two of the five channels are events.
-- [ ] `search` and `blame` on [`e2e/mock-bridge.ts`](../packages/app/e2e/mock-bridge.ts), with
+- [x] `search` and `blame` on [`e2e/mock-bridge.ts`](../packages/app/e2e/mock-bridge.ts), with
       `MockFixtures` gaining seedable hit lists and a blame table — every e2e spec breaks without it,
       and Theme C's spec is written against it.
   - The fixture keys, matching the `fsDirs` / `fsFiles` convention already in the file:
@@ -347,7 +348,7 @@ its own green gate before the search channels arrive on top of it.
   - `search.start` must **emit batches asynchronously** (a `queueMicrotask` per batch, and more than
     one batch when the seeded list exceeds `BATCH_SIZE`), or the spec that asserts "a second query
     cancels the first" passes vacuously against a bridge that resolves everything synchronously.
-- [ ] `stream-registry.test.ts`: two concurrent `'search'` registrations cancel independently,
+- [x] `stream-registry.test.ts`: two concurrent `'search'` registrations cancel independently,
       registering a second `'log'` cancels the first, registering a `'search'` does **not** cancel a
       live `'log'`, `cancelAll` empties the map on window teardown, `release` decrements `countOf`,
       and a cancelled stream's late batch is not forwarded.
@@ -357,23 +358,23 @@ its own green gate before the search channels arrive on top of it.
 Depends on **D's first two items** for the *scroll to the hit's line* behaviour; everything else here
 is independent of D.
 
-- [ ] `'search'` added to the `ViewId` union, `VIEW_IDS`, `pathForView` and `viewForPath` in
+- [x] `'search'` added to the `ViewId` union, `VIEW_IDS`, `pathForView` and `viewForPath` in
       [`store/ui-store.ts`](../packages/app/src/store/ui-store.ts), plus every per-view `Record`
       keyed by `ViewId` in that file — the type errors are the checklist.
   - Position: immediately after `'files'` in **both** the union and `VIEW_IDS`, because `VIEW_IDS`
     is rail order and the two must agree.
   - `pathForView` is `` `/${view}` `` and `viewForPath` searches `VIEW_IDS`, so both are satisfied by
     the array edit alone — no third place to change.
-- [ ] `SEARCH` in `VIEW_ICON` in [`components/nav-icons.ts`](../packages/app/src/components/nav-icons.ts)
+- [x] `SEARCH` in `VIEW_ICON` in [`components/nav-icons.ts`](../packages/app/src/components/nav-icons.ts)
       (`LuSearch`, matching the file's `react-icons/lu` family) and an entry in `NAV_ITEMS` in
       [`app.tsx`](../packages/app/src/app.tsx):164, placed directly under Files since content search
       and the explorer answer adjacent questions. It is **not** added to `FORGE_GATED_VIEWS`
       ([`app.tsx`](../packages/app/src/app.tsx):185): search needs no `gh` and must stay reachable
       when the forge is absent.
-- [ ] `packages/app/src/features/search/search-view.tsx` rendered from the `activeView === …` chain
+- [x] `packages/app/src/features/search/search-view.tsx` rendered from the `activeView === …` chain
       in [`app.tsx`](../packages/app/src/app.tsx):690, replacing the `<Placeholder>` fallthrough for
       the new id.
-- [ ] `packages/app/src/features/search/search-store.ts` — **one** zustand store on the house
+- [x] `packages/app/src/features/search/search-store.ts` — **one** zustand store on the house
       `create<T>()(persist(…))` shape, with `partialize` keeping only the query shape and leaving
       results behind. Results are stream state and must not be rehydrated from disk on relaunch as
       though they were still true.
@@ -392,7 +393,7 @@ is independent of D.
     `partialize` the reader has to trust once.
   - `results`, `requestId`, `status` and `truncated` are plain fields outside `partialize`. A test
     asserts a rehydrate leaves `results` empty.
-- [ ] A query bar with mode tabs — **Commits · Content · Files** — where Files lists paths from a
+- [x] A query bar with mode tabs — **Commits · Content · Files** — where Files lists paths from a
       `git ls-files -z --exclude-standard` read of its own. Modifier toggles (regex, case, whole
       word) live beside the input; the commits mode adds author, path and date-range fields drawn
       with the existing `MultiSelectMenu` from
@@ -404,7 +405,7 @@ is independent of D.
     `matchesTerms` so the Files tab and the repos panel agree on what a two-term query means.
   - *If Phase 23 has landed:* delete the local list and delegate to its file source, and swap
     `matchesTerms` for its `fuzzyMatch` in this mode only.
-- [ ] Debounced submit with **explicit cancellation of the in-flight `requestId`** on every new
+- [x] Debounced submit with **explicit cancellation of the in-flight `requestId`** on every new
       query. This is the single place this phase can leak processes, and it is worth writing the
       cancel first and the query second.
   - **250 ms**, matching nothing else in the app because nothing else in the app debounces a
@@ -412,7 +413,7 @@ is independent of D.
     letter, and it is a module constant `DEBOUNCE_MS` so the e2e spec can reason about it.
   - The order is not negotiable and is what the spec asserts: `cancel(previousRequestId)` →
     `crypto.randomUUID()` → `start(...)`. Cancelling after starting is how you reach the ceiling.
-- [ ] A **measured** virtualised results list on `useVirtualizer` from `@tanstack/react-virtual`,
+- [x] A **measured** virtualised results list on `useVirtualizer` from `@tanstack/react-virtual`,
       the house virtualiser, grouped by file for content hits and flat for commit hits. Content hit
       lines are highlighted through the existing `getHighlighter()` in
       [`lib/highlighter.ts`](../packages/app/src/lib/highlighter.ts) with the language resolved by
@@ -433,7 +434,7 @@ is independent of D.
     "grouped in arrival order", which for `git grep` is path order anyway.
   - `overscan: 24` matches both existing virtualizers; `estimateSize: () => 22` is the pre-measure
     guess only — 22px is a monospace line at `text-xs leading-relaxed` plus its row padding.
-- [ ] Matched-range emphasis on each hit. Commit and content hits are literal or regex matches and
+- [x] Matched-range emphasis on each hit. Commit and content hits are literal or regex matches and
       their ranges come from the query, not from a fuzzy score: an exported
       `matchRanges(text: string, query: string, opts: { regexp: boolean; ignoreCase: boolean }): [number, number][]`
       in `features/search/match-ranges.ts`, rendered as `<mark>` spans.
@@ -445,7 +446,7 @@ is independent of D.
     instead of blanking the view while git is still deciding.
   - *If Phase 23 has landed:* the Files mode's ranges come from its `fuzzyMatch`'s `indices`
     instead. Two match models, one visual treatment.
-- [ ] A results/preview split on `useResizable` with its width persisted in the `layout` slice of
+- [x] A results/preview split on `useResizable` with its width persisted in the `layout` slice of
       [`ui-store.ts`](../packages/app/src/store/ui-store.ts), alongside `filesTreeWidth`. Selecting a
       content hit opens the file in the Phase 16 preview scrolled to the line; selecting a commit hit
       opens the Phase 12 inspector via `selectCommit(sha)`.
@@ -457,14 +458,14 @@ is independent of D.
   - Scrolling to the line is `scrollPreviewToLine(container, line)` from Theme D — a
     `[data-line="N"]` query plus `scrollIntoView({ block: 'center' })`. It cannot be written before
     D's first two items land, because today's preview has no `data-line`.
-- [ ] The truncation marker: when the cap is hit, the list ends in an explicit row reading
+- [x] The truncation marker: when the cap is hit, the list ends in an explicit row reading
       **“Stopped at {cap} results — narrow the query.”** with the cap's current value interpolated,
       and a “Change the limit” link opening the Search settings page. A silent cut is the one failure
       mode of this view that produces a confidently wrong answer.
   - It is a real row in the flattened array (`{ kind: 'truncated' }`), not a footer outside the
     scroller, so it is reached by scrolling to the end exactly like the last hit — a banner pinned
     above the fold is one a user scrolling results never reads.
-- [ ] An empty state that distinguishes four cases, with the literal copy fixed here so two
+- [x] An empty state that distinguishes four cases, with the literal copy fixed here so two
       executors write the same view:
   - **No query yet** — “Search this repository.” / “Commits by message, author or content · file
     contents at any revision · file names.”
@@ -473,11 +474,12 @@ is independent of D.
   - **No matches** — “No matches for “{query}”.” / “Try another mode, or clear the filters.”
   - **Failed** — “git could not run this search.” above `stderr`'s first line in a `<pre>`, because
     an invalid regex is the most common way this view will fail and git already explains it well.
-- [ ] Accessibility on a list that arrives asynchronously: the scroller is `role="list"` with rows
+- [x] Accessibility on a list that arrives asynchronously: the scroller is `role="list"` with rows
       `role="listitem"`; the result count is a separate `aria-live="polite" aria-atomic="true"`
       element; and **the live count is throttled to one update per 500 ms** while streaming, so a
       screen reader announces progress rather than being flooded by a batch every few milliseconds.
       The final count and the truncation state are always announced.
+
   - Focus order: query input → mode tabs → modifier toggles → results scroller. `ArrowDown` from
     the input moves focus into the list without submitting; `Escape` in the list returns focus to
     the input. `Enter` on a row does what a click does.

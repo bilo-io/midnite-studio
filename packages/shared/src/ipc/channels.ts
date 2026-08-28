@@ -36,7 +36,13 @@ export const CHANNELS = {
   logStart: 'mgit:log:start',
   logCancel: 'mgit:log:cancel',
 
+  // --- search stream & blame -----------------------------------------------
+  searchStart: 'mgit:search:start',
+  searchCancel: 'mgit:search:cancel',
+  blameRead: 'mgit:blame:read',
+
   // --- status --------------------------------------------------------------
+
   statusGet: 'mgit:status:get',
   /**
    * Per-path line counts for a checkout — `git diff --numstat`, both sides.
@@ -374,7 +380,12 @@ export const EVENT_CHANNELS = {
   logBatch: 'mgit:log:batch',
   /** The log stream finished (or was cancelled). */
   logDone: 'mgit:log:done',
+  /** A batch of search hits (commits or content) for an in-flight search stream. */
+  searchBatch: 'mgit:search:batch',
+  /** The search stream finished (or was cancelled / truncated). */
+  searchDone: 'mgit:search:done',
   /** Something changed on disk — see WatchEvent.kind. */
+
   watchEvent: 'mgit:watch:event',
   /** Raw pty output, as a Uint8Array (structured clone — never base64). */
   ptyData: 'mgit:pty:data',

@@ -125,10 +125,11 @@ describe('filterFor', () => {
 });
 
 describe('view ids', () => {
-  it('lists all eight, Dashboard first', () => {
-    expect(VIEW_IDS).toHaveLength(8);
+  it('lists all nine, Dashboard first', () => {
+    expect(VIEW_IDS).toHaveLength(9);
     expect(VIEW_IDS[0]).toBe('dashboard');
   });
+
 
   it('has no duplicates', () => {
     expect(new Set(VIEW_IDS).size).toBe(VIEW_IDS.length);
@@ -143,6 +144,7 @@ describe('view ids', () => {
     const seen: Record<ViewId, boolean> = {
       dashboard: false,
       files: false,
+      search: false,
       graph: false,
       changes: false,
       actions: false,
@@ -152,6 +154,7 @@ describe('view ids', () => {
     };
     for (const view of VIEW_IDS) seen[view] = true;
     expect(Object.values(seen).every(Boolean)).toBe(true);
+
   });
 });
 

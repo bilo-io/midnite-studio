@@ -29,15 +29,18 @@ describe('readGrep', () => {
     expect(result).toEqual({
       ok: true,
       matches: [
-        { path: 'a.txt', line: 1, text: 'foo' },
-        { path: 'a.txt', line: 3, text: 'FOO again' },
+        { path: 'a.txt', line: 1, kind: 'match', text: 'foo' },
+        { path: 'a.txt', line: 3, kind: 'match', text: 'FOO again' },
       ],
     });
   });
 
   it('respects caseSensitive', async () => {
     const result = await readGrep(repo.path, { ...OPTS, query: 'foo', caseSensitive: true });
-    expect(result).toEqual({ ok: true, matches: [{ path: 'a.txt', line: 1, text: 'foo' }] });
+    expect(result).toEqual({
+      ok: true,
+      matches: [{ path: 'a.txt', line: 1, kind: 'match', text: 'foo' }],
+    });
   });
 
   it('respects wholeWord', async () => {
@@ -62,8 +65,11 @@ describe('readGrep', () => {
     await repo.commitFile('d.txt', 'a.b\nadb\n', 'd');
     const result = await readGrep(repo.path, { ...OPTS, query: 'a.b', mode: 'fixed' });
     expect(result.ok).toBe(true);
-    expect(result.ok && result.matches).toEqual([{ path: 'd.txt', line: 1, text: 'a.b' }]);
+    expect(result.ok && result.matches).toEqual([
+      { path: 'd.txt', line: 1, kind: 'match', text: 'a.b' },
+    ]);
   });
+
 
   it('surfaces a malformed regex as an error rather than throwing', async () => {
     const result = await readGrep(repo.path, { ...OPTS, query: '(unterminated', mode: 'regex' });

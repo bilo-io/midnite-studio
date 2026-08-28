@@ -41,6 +41,7 @@ export type CommitFileView = 'tree' | 'list';
 export type ViewId =
   | 'dashboard'
   | 'files'
+  | 'search'
   | 'graph'
   | 'changes'
   | 'actions'
@@ -52,6 +53,7 @@ export type ViewId =
 export const VIEW_IDS: readonly ViewId[] = [
   'dashboard',
   'files',
+  'search',
   'graph',
   'changes',
   'actions',
@@ -59,6 +61,7 @@ export const VIEW_IDS: readonly ViewId[] = [
   'reviews',
   'settings',
 ];
+
 
 /**
  * The pages the Settings view splits into (Phase 16). An inner sidebar, not
@@ -131,7 +134,10 @@ export type LayoutSizes = {
   testsListWidth: number;
   /** The Reviews view's PR list, left of the PR detail (Phase 20 Theme C). */
   reviewsListWidth: number;
+  /** The Search view's results list, left of the detail preview (Phase 25 Theme C). */
+  searchResultsWidth: number;
 };
+
 
 /** Widths of the graph table's fixed-width columns. */
 export type GraphColumns = {
@@ -184,6 +190,7 @@ export const DEFAULT_LAYOUT: LayoutSizes = {
   // A PR row carries two status pills, a title, a number, a branch and an
   // author — the widest row of any list pane in the app.
   reviewsListWidth: 380,
+  searchResultsWidth: 420,
 };
 
 export const DEFAULT_GRAPH_COLUMNS: GraphColumns = {
@@ -216,7 +223,9 @@ export const LAYOUT_BOUNDS = {
   actionsListWidth: { min: 240, max: 640 },
   testsListWidth: { min: 240, max: 640 },
   reviewsListWidth: { min: 280, max: 640 },
+  searchResultsWidth: { min: 280, max: 900 },
 } as const;
+
 
 export const GRAPH_COLUMN_BOUNDS = {
   branchTag: { min: 100, max: 400 },
