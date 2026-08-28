@@ -110,6 +110,11 @@ explanatory messages. If a boundary rule fires, the fix is an IPC channel, not a
   `IconButton`, `Tooltip` and the context menus accept either family with no change.
 - **`Ctrl+`` toggles the terminal on every platform.** macOS reserves `Cmd+`` for window
   cycling — do not take it.
+- **The command registry is [`shared/src/keybindings.ts`](packages/shared/src/keybindings.ts),
+  not `commands.ts`** (that path has never existed). `COMMANDS` is the single source of truth —
+  every `CommandId`, label, palette `group` and optional chord — with `COMMAND_IDS`,
+  `DEFAULT_KEYMAP` and `GLOBAL_CHORDS` all derived from it. `Mod+k` opens the command palette and
+  joins `Ctrl+`` as the second chord that escapes the terminal; `Mod+Shift+p` stays `sync.pull`.
 
 ## Phase workflow
 

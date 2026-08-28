@@ -62,7 +62,6 @@ Recorded here when a phase punts on something; pick these up post-MVP.
   and `git checkout --` the rest. Fixing it properly means a deterministic encode (or comparing
   decoded pixels rather than file bytes) before the shots specs write.
 
-- **Command palette** — the keybinding service's CommandId registry is designed to feed one.
 - **Submodules** — status/graph awareness.
 - **Windows/Linux targets** — packaging is macOS arm64 first; keybindings already use Ctrl+`
   everywhere so no rebind needed.
