@@ -55,6 +55,7 @@ import {
 import {
   AgentDefinitionSchema,
   AgentStatusSchema,
+  SessionActivitySchema,
   TerminalSessionKindSchema,
   TerminalSessionSchema,
   agentIdMatchesKind,
@@ -848,6 +849,20 @@ export const PtyAgentChangedEvent = z.object({
 export const PtyCommandChangedEvent = z.object({
   ptyId: z.string().min(1),
   command: z.string().min(1).nullable(),
+});
+
+/**
+ * A live pty's guessed activity changed, from main's process-tree-adjacent
+ * output detector.
+ *
+ * `null` is the explicit "detector has nothing to say" — no marker set for
+ * the running agent, or one that tripped its time budget and was disabled —
+ * which the renderer draws as the quiet "unknown" mark rather than a stale
+ * guess. Emitted on a change only, same contract as `PtyAgentChangedEvent`.
+ */
+export const PtyActivityEvent = z.object({
+  ptyId: z.string().min(1),
+  activity: SessionActivitySchema.nullable(),
 });
 
 // --- terminal sessions -----------------------------------------------------

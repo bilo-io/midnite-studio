@@ -4,6 +4,8 @@ import {
   AgentDefinitionSchema,
   AgentStatusSchema,
   BUILTIN_AGENTS,
+  RegexSource,
+  SessionActivitySchema,
   TerminalSessionSchema,
   type AgentDefinition,
 } from './terminal';
@@ -110,6 +112,64 @@ describe('AgentDefinitionSchema', () => {
   ])('rejects an empty %s', (field, value) => {
     expect(AgentDefinitionSchema.safeParse({ ...minimal, [field]: value }).success).toBe(false);
   });
+
+  it('leaves activity absent rather than inventing it', () => {
+    expect(AgentDefinitionSchema.parse(minimal).activity).toBeUndefined();
+  });
+
+  it('parses a valid activity marker pair', () => {
+    const parsed = AgentDefinitionSchema.parse({
+      ...minimal,
+      activity: { thinking: 'thinking', frameEnd: 'done' },
+    });
+    expect(parsed.activity).toEqual({ thinking: 'thinking', frameEnd: 'done' });
+  });
+
+  it('rejects an activity marker that is not a valid regular expression', () => {
+    expect(
+      AgentDefinitionSchema.safeParse({
+        ...minimal,
+        activity: { thinking: '(unclosed', frameEnd: 'done' },
+      }).success,
+    ).toBe(false);
+  });
+
+  it('carries only claude with an activity marker set among the builtins', () => {
+    const withActivity = BUILTIN_AGENTS.filter((a) => a.activity !== undefined).map((a) => a.id);
+    expect(withActivity).toEqual(['claude']);
+  });
+});
+
+describe('RegexSource', () => {
+  it('accepts an ordinary pattern', () => {
+    expect(RegexSource.safeParse('[a-z]+').success).toBe(true);
+  });
+
+  it('rejects a pattern that does not compile', () => {
+    expect(RegexSource.safeParse('(unclosed').success).toBe(false);
+  });
+
+  it('rejects an empty string', () => {
+    expect(RegexSource.safeParse('').success).toBe(false);
+  });
+
+  it('rejects a source over 200 characters', () => {
+    expect(RegexSource.safeParse('a'.repeat(201)).success).toBe(false);
+  });
+
+  it('accepts a source at exactly 200 characters', () => {
+    expect(RegexSource.safeParse('a'.repeat(200)).success).toBe(true);
+  });
+});
+
+describe('SessionActivitySchema', () => {
+  it.each(['thinking', 'waiting', 'idle'])('accepts %s', (value) => {
+    expect(SessionActivitySchema.safeParse(value).success).toBe(true);
+  });
+
+  it('rejects an unrecognised value', () => {
+    expect(SessionActivitySchema.safeParse('busy').success).toBe(false);
+  });
 });
 
 /**
@@ -169,6 +229,7 @@ const _typed: AgentDefinition = {
   accent: '#000000',
   icon: 'x',
   install: 'npm i -g x',
+  activity: { thinking: 'thinking', frameEnd: 'done' },
 };
 void _typed;
 

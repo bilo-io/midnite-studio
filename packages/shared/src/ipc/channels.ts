@@ -396,6 +396,15 @@ export const EVENT_CHANNELS = {
    * change, so a session's auto-name survives the command finishing.
    */
   ptyCommandChanged: 'mgit:pty:command-changed',
+  /**
+   * A live pty's guessed activity changed — thinking, waiting, idle, or `null`
+   * for "the detector has nothing to say" (no marker set, or disabled).
+   *
+   * Emitted from main's single `ptyData` send site rather than from the
+   * renderer, so the status bar's agent count stays right while the terminal
+   * panel is collapsed and every `TerminalView` is unmounted.
+   */
+  ptyActivity: 'mgit:pty:activity',
   /** Window maximized/fullscreen state changed, for the frameless TitleBar. */
   windowStateChanged: 'mgit:window:state-changed',
   /** A native-menu item fired — carries a CommandId, dispatched like a keybinding. */
