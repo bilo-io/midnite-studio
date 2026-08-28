@@ -3,6 +3,7 @@ import { useEffect, useMemo, useRef, useState } from 'react';
 import type { StatusEntry } from '@midnite/git-shared';
 
 import { List, ListTree, Minus, Plus, Undo2 } from 'lucide-react';
+import { AiOutlineDiff } from 'react-icons/ai';
 
 import { buildChangeTree, flattenBySize, type ChangedFile } from '../../components/build-change-tree';
 import { ChangeTotals, ChangeTree, Counts } from '../../components/change-tree';
@@ -26,6 +27,7 @@ import {
 } from '../../store/ui-store';
 import { TreeSection } from '../../components/tree-section';
 import { useCommitBoxStore, type CommitBoxHandle } from '../../store/commit-box-store';
+import { ChangesAccordion } from '../changes/changes-accordion';
 import { FileDiff } from './file-diff';
 import { StatusMark } from './status-mark';
 
@@ -62,6 +64,8 @@ export function StatusPanel() {
     staged: boolean;
     origPath: string | null;
   } | null>(null);
+  /** Right pane shows every changed file at once instead of one selection. */
+  const [viewingAll, setViewingAll] = useState(false);
   /*
     Collapsed directories, per side.
 
@@ -188,6 +192,19 @@ export function StatusPanel() {
         */}
         <div className="flex shrink-0 items-center gap-2 border-b border-border py-1 pl-3 pr-2">
           <ChangeTotals {...total} className="mr-auto" />
+          <IconButton
+            icon={AiOutlineDiff}
+            label="View all changes"
+            size="sm"
+            aria-pressed={viewingAll}
+            className={viewingAll ? 'bg-accent text-foreground' : ''}
+            disabled={entries.length === 0}
+            disabledReason="No changes to view."
+            onClick={() => {
+              setSelectedPath(null);
+              setViewingAll(true);
+            }}
+          />
           <ViewToggle view={fileView} onChange={setFileView} />
         </div>
 
@@ -209,9 +226,10 @@ export function StatusPanel() {
               collapsed={collapsed.staged}
               onToggleDir={(path) => toggleDir('staged', path)}
               selectedPath={selectedPath?.staged ? selectedPath.path : null}
-              onSelect={(row) =>
-                setSelectedPath({ path: row.path, staged: true, origPath: row.oldPath })
-              }
+              onSelect={(row) => {
+                setViewingAll(false);
+                setSelectedPath({ path: row.path, staged: true, origPath: row.oldPath });
+              }}
               busy={busy}
               actionsFor={(row) => [
                 { icon: Minus, title: 'Unstage', onClick: () => unstage.mutate([row.path]) },
@@ -236,9 +254,10 @@ export function StatusPanel() {
               collapsed={collapsed.unstaged}
               onToggleDir={(path) => toggleDir('unstaged', path)}
               selectedPath={selectedPath && !selectedPath.staged ? selectedPath.path : null}
-              onSelect={(row) =>
-                setSelectedPath({ path: row.path, staged: false, origPath: row.oldPath })
-              }
+              onSelect={(row) => {
+                setViewingAll(false);
+                setSelectedPath({ path: row.path, staged: false, origPath: row.oldPath });
+              }}
               busy={busy}
               actionsFor={(row) => [
                 {
@@ -284,7 +303,15 @@ export function StatusPanel() {
       <ResizeHandle resizable={list} axis="x" label="Resize file list" />
 
       <div className="min-w-0 flex-1">
-        {selectedPath ? (
+        {viewingAll ? (
+          <ChangesAccordion
+            repoId={repoId}
+            worktreePath={target.worktreePath}
+            entries={entries}
+            counts={counts}
+            totals={total}
+          />
+        ) : selectedPath ? (
           <FileDiff
             repoId={repoId}
             path={selectedPath.path}

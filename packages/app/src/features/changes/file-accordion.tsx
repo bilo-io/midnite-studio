@@ -27,8 +27,13 @@ export function FileAccordion({
   onToggle,
 }: {
   repoId: string;
-  /** The checkout being read — never the globally selected one. */
-  worktreePath: string;
+  /**
+   * The checkout being read. Omitted falls back to the globally selected
+   * worktree — right for the Changes panel's own "view all" toggle, which is
+   * by definition looking at the selection; a caller addressing a checkout by
+   * name (the sidebar's all-changes tab) always passes this explicitly.
+   */
+  worktreePath?: string;
   entry: StatusEntry;
   /**
    * `+n −n` for this file, from the view's one numstat rather than from the
@@ -95,7 +100,7 @@ function FileAccordionBody({
   entry,
 }: {
   repoId: string;
-  worktreePath: string;
+  worktreePath?: string;
   entry: StatusEntry;
 }) {
   /*
@@ -109,10 +114,10 @@ function FileAccordionBody({
   */
   const { diff, isLoading, expandContext } = useFileDiff({
     repoId,
-    worktreePath,
     path: entry.path,
     staged: entry.unstaged === 'unmodified',
     ...(entry.origPath ? { oldPath: entry.origPath } : {}),
+    ...(worktreePath ? { worktreePath } : {}),
   });
 
   /*
@@ -130,8 +135,8 @@ function FileAccordionBody({
         images={imageDiffSources(diff, {
           kind: 'worktree',
           repoId,
-          worktreePath,
           staged: entry.unstaged === 'unmodified',
+          ...(worktreePath ? { worktreePath } : {}),
         })}
       />
     </div>

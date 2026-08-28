@@ -32,6 +32,35 @@ const entry = (
  * and 40 unstaged, so every total below can only be right by reading the two
  * sides separately.
  */
+/** A trivial one-hunk diff, keyed by path so each test file gets its own. */
+const diffFor = (path: string) => ({
+  path,
+  oldPath: path,
+  change: 'modified',
+  binary: false,
+  oldMode: null,
+  newMode: null,
+  hunks: [
+    {
+      heading: '@@ -1,2 +1,2 @@',
+      oldStart: 1,
+      oldLines: 2,
+      newStart: 1,
+      newLines: 2,
+      lines: [
+        { kind: 'del', oldNo: 1, newNo: null, text: 'const a = 1;', ranges: [], noNewline: false },
+        { kind: 'add', oldNo: null, newNo: 1, text: 'const a = 2;', ranges: [], noNewline: false },
+      ],
+    },
+  ],
+  insertions: 1,
+  deletions: 1,
+  contextLines: 3,
+  combined: false,
+  truncated: false,
+  droppedLines: 0,
+});
+
 const base: MockFixtures = {
   ...fixtures,
   statusEntries: [
@@ -44,6 +73,11 @@ const base: MockFixtures = {
     'unstaged:src/a.ts': { insertions: 40, deletions: 4 },
     'unstaged:src/nested/b.ts': { insertions: 2, deletions: 0 },
     'unstaged:README.md': { insertions: 7, deletions: 0 },
+  },
+  diffs: {
+    'wt:src/a.ts': diffFor('src/a.ts'),
+    'wt:src/nested/b.ts': diffFor('src/nested/b.ts'),
+    'wt:README.md': diffFor('README.md'),
   },
 };
 
@@ -147,4 +181,52 @@ test('the staging buttons still act on the row they sit on', async ({ page }) =>
   expect(ops).toHaveLength(1);
   expect(ops[0]?.op).toBe('stage');
   expect(ops[0]?.args.paths).toEqual(['src/nested/b.ts']);
+});
+
+test('View all changes shows every file, collapsed, with the panel totals at the top', async ({
+  page,
+}) => {
+  await open(page);
+
+  await page.getByRole('button', { name: 'View all changes', exact: true }).click();
+
+  // Same roll-up the panel already carries above the lists, now heading the
+  // right pane too — no second, possibly-disagreeing total.
+  await expect(page.getByTestId('change-totals')).toHaveCount(2);
+  await expect(page.getByTestId('change-totals').nth(1)).toContainText('3 files');
+  await expect(page.getByTestId('change-totals').nth(1)).toContainText('+54');
+  await expect(page.getByTestId('change-totals').nth(1)).toContainText('−5');
+
+  // Collapsed by default — this is a summary, not an eagerly-fetched wall of
+  // diffs.
+  await expect(page.getByTestId('diff-view')).toHaveCount(0);
+  const accordionRow = (pattern: string | RegExp) =>
+    page.locator('button[aria-expanded]').filter({ hasText: pattern });
+  await expect(accordionRow('README.md')).toBeVisible();
+
+  // The staged-then-edited file is one row here, unlike the two it gets on the
+  // left — there is nothing to stage in this view.
+  await expect(accordionRow(/a\.ts/)).toHaveCount(1);
+
+  await page.getByRole('button', { name: 'Expand all files' }).click();
+  await expect(page.getByTestId('diff-view')).toHaveCount(3);
+});
+
+test('picking a file switches the pane back to its single diff, and back again', async ({
+  page,
+}) => {
+  await open(page);
+
+  await row(page, 'README.md').click();
+  await expect(page.getByTestId('diff-view')).toHaveCount(1);
+
+  await page.getByRole('button', { name: 'View all changes', exact: true }).click();
+  await expect(page.getByTestId('diff-view')).toHaveCount(0);
+  await expect(
+    page.locator('button[aria-expanded]').filter({ hasText: 'README.md' }),
+  ).toBeVisible();
+
+  await row(page, 'src/nested/b.ts').click();
+  await expect(page.getByTestId('diff-view')).toHaveCount(1);
+  await expect(page.getByText('Select a file to see its diff.')).toHaveCount(0);
 });
