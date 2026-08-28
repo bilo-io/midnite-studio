@@ -1,16 +1,25 @@
+import { shell } from 'electron';
 import { readFile, readdir, stat } from 'node:fs/promises';
 import { join } from 'node:path';
 
 import type { z } from 'zod';
 
 import { checkIgnored } from '@midnite/git-engine';
-import { CHANNELS, FS_TEXT_CAP_BYTES, schemas, type FsEntry } from '@midnite/git-shared';
+import {
+  CHANNELS,
+  FS_DIR_STATS_WALK_CAP,
+  FS_TEXT_CAP_BYTES,
+  schemas,
+  type FsEntry,
+} from '@midnite/git-shared';
 
 import { confineToRoot, resolveScopeRoot } from '../fs-scope';
 import { handle } from './handle';
 
 type ListResponse = z.infer<typeof schemas.FsListDirResponse>;
 type ReadResponse = z.infer<typeof schemas.FsReadFileResponse>;
+type DirStatsResponse = z.infer<typeof schemas.FsDirStatsResponse>;
+type ShowItemResponse = z.infer<typeof schemas.ShowItemInFolderResponse>;
 
 /** NUL anywhere in the first 8 KB marks a file binary — the classic sniff.
  *  Exported so `fs-write-handlers.ts` re-sniffs an overwrite target with the
@@ -18,9 +27,12 @@ type ReadResponse = z.infer<typeof schemas.FsReadFileResponse>;
 export const SNIFF_BYTES = 8 * 1024;
 
 /**
- * The read-only fs surface. Two invokes, no writes — see shared/src/fs.ts for
- * why the absence of write channels is the point. Every path is confined by
- * `confineToRoot` before any fs call touches it.
+ * The read-only fs surface: listing, reading, a directory's blast-radius
+ * stats and the Finder hand-off. None of these write — the two Phase 24
+ * write-shaped verbs (`dirStats`, `showItemInFolder`) both feed the delete
+ * confirm and the context menu without mutating anything, which is why they
+ * live beside the reader rather than in `fs-write-handlers.ts`. Every path is
+ * confined by `confineToRoot` before any fs call touches it.
  */
 export function registerFsHandlers(): void {
   handle<typeof schemas.FsListDirRequest, ListResponse>(
@@ -35,6 +47,20 @@ export function registerFsHandlers(): void {
     schemas.FsReadFileRequest,
     (req) => readFileCapped(req),
     (issue) => ({ kind: 'error', message: issue }),
+  );
+
+  handle<typeof schemas.FsDirStatsRequest, DirStatsResponse>(
+    CHANNELS.fsDirStats,
+    schemas.FsDirStatsRequest,
+    (req) => dirStats(req),
+    (issue) => ({ ok: false, message: issue }),
+  );
+
+  handle<typeof schemas.ShowItemInFolderRequest, ShowItemResponse>(
+    CHANNELS.shellShowItemInFolder,
+    schemas.ShowItemInFolderRequest,
+    (req) => showItemInFolder(req),
+    (issue) => ({ ok: false, message: issue }),
   );
 }
 
@@ -114,4 +140,65 @@ async function readFileCapped(
   } catch (error) {
     return { kind: 'error', message: error instanceof Error ? error.message : String(error) };
   }
+}
+
+/**
+ * Walk a confined directory counting files and bytes, for a delete confirm's
+ * blast radius. A breadth-first queue rather than recursion so the cap check
+ * can stop mid-walk without unwinding a call stack, and a single `readdir`
+ * per directory rather than a second `stat` per entry — `Dirent` alone is
+ * enough to keep or descend; only files need their size.
+ */
+async function dirStats(req: z.output<typeof schemas.FsDirStatsRequest>): Promise<DirStatsResponse> {
+  const root = await resolveScopeRoot(req);
+  if (!root) return { ok: false, message: 'unknown scope root' };
+  const start = await confineToRoot(root, req.relPath);
+  if (!start) return { ok: false, message: 'path is outside the allowed root' };
+
+  let fileCount = 0;
+  let totalBytes = 0;
+  let truncated = false;
+  const queue = [start];
+
+  try {
+    while (queue.length > 0 && !truncated) {
+      const dir = queue.shift()!;
+      const dirents = await readdir(dir, { withFileTypes: true });
+      for (const dirent of dirents) {
+        if (dirent.isDirectory()) {
+          queue.push(join(dir, dirent.name));
+          continue;
+        }
+        if (fileCount >= FS_DIR_STATS_WALK_CAP) {
+          truncated = true;
+          break;
+        }
+        fileCount += 1;
+        if (dirent.isFile()) {
+          try {
+            totalBytes += (await stat(join(dir, dirent.name))).size;
+          } catch {
+            // Raced a delete of its own — a short-by-one byte count beats
+            // dropping the whole walk over one entry.
+          }
+        }
+      }
+    }
+    return { ok: true, fileCount, totalBytes, truncated };
+  } catch (error) {
+    return { ok: false, message: error instanceof Error ? error.message : String(error) };
+  }
+}
+
+/** Reveal a confined path in the OS file manager. Read-only: nothing here mutates the target. */
+async function showItemInFolder(
+  req: z.output<typeof schemas.ShowItemInFolderRequest>,
+): Promise<ShowItemResponse> {
+  const root = await resolveScopeRoot(req);
+  if (!root) return { ok: false, message: 'unknown scope root' };
+  const target = await confineToRoot(root, req.relPath);
+  if (!target) return { ok: false, message: 'path is outside the allowed root' };
+
+  shell.showItemInFolder(target);
+  return { ok: true };
 }

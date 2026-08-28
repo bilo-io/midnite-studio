@@ -313,6 +313,16 @@ export async function installMockBridge(page: Page, fixtures: MockFixtures): Pro
     const unsubscribe = () => noop;
     const ok = async () => ({ ok: true as const });
 
+    /** relPath helpers for the fs write mocks — mirrors `parentOf`/`joinRelPath` in `use-file-actions.ts`. */
+    const parentDirOf = (relPath: string): string => {
+      const index = relPath.lastIndexOf('/');
+      return index === -1 ? '' : relPath.slice(0, index);
+    };
+    const baseNameOf = (relPath: string): string => {
+      const index = relPath.lastIndexOf('/');
+      return index === -1 ? relPath : relPath.slice(index + 1);
+    };
+
     const worktree = {
       id: 'repo-1:/tmp/midnite-git',
       repoId: 'repo-1',
@@ -767,6 +777,10 @@ export async function installMockBridge(page: Page, fixtures: MockFixtures): Pro
           externalUrls.push(req.url);
           return { ok: true as const };
         },
+        showItemInFolder: async (req: { relPath: string }) => {
+          revealedPaths.push(req.relPath);
+          return { ok: true as const };
+        },
       },
       /*
         Recorded rather than stubbed, for the same reason as openExternal: the
@@ -950,11 +964,84 @@ export async function installMockBridge(page: Page, fixtures: MockFixtures): Pro
         listDir: async (req: { scope: string; relPath: string }) => {
           const key = `${req.scope === 'repo' ? 'repo' : 'claude'}:${req.relPath}`;
           const entries = data.fsDirs?.[key];
-          return entries ? { ok: true, entries } : { ok: false, message: 'no fixture for ' + key };
+          // A fresh copy, not the live array: Theme C's create/rename/delete
+          // mutate `data.fsDirs` in place, and react-query's structural
+          // sharing treats a same-reference array as "unchanged data" and
+          // skips notifying subscribers — so a stale write silently never
+          // repaints unless every read hands out a new identity.
+          return entries
+            ? { ok: true, entries: entries.slice() }
+            : { ok: false, message: 'no fixture for ' + key };
         },
         readFile: async (req: { scope: string; relPath: string }) => {
           const key = `${req.scope === 'repo' ? 'repo' : 'claude'}:${req.relPath}`;
           return data.fsFiles?.[key] ?? { kind: 'error', message: 'no fixture for ' + key };
+        },
+        /*
+          The four writes below mutate `data.fsDirs`/`data.fsFiles` in place
+          rather than returning a fixed `{ok:true}` — per the Phase 20 rule
+          ("mocked writes must mutate seeded state"), a create/rename/delete
+          spec re-queries the same `fsDirs` fixture the tree already reads, so
+          a write that changed nothing is a write a spec can actually catch.
+        */
+        create: async (req: { relPath: string; kind: 'file' | 'directory' }) => {
+          const parent = parentDirOf(req.relPath);
+          const name = baseNameOf(req.relPath);
+          const dir = data.fsDirs?.[`repo:${parent}`];
+          if (!dir) return { ok: false, message: 'no fixture for repo:' + parent };
+          if (dir.some((entry) => entry.name === name)) {
+            return { ok: false, message: 'already exists' };
+          }
+          dir.push({ name, kind: req.kind === 'directory' ? 'dir' : 'file', size: 0, isIgnored: false });
+          if (req.kind === 'directory') {
+            data.fsDirs![`repo:${req.relPath}`] = [];
+          } else {
+            data.fsFiles = data.fsFiles ?? {};
+            data.fsFiles[`repo:${req.relPath}`] = { kind: 'text', content: '', size: 0 };
+          }
+          return { ok: true as const };
+        },
+        rename: async (req: { fromRelPath: string; toRelPath: string }) => {
+          const fromDir = data.fsDirs?.[`repo:${parentDirOf(req.fromRelPath)}`];
+          const toDir = data.fsDirs?.[`repo:${parentDirOf(req.toRelPath)}`];
+          if (!fromDir || !toDir) return { ok: false, message: 'no fixture' };
+          const fromName = baseNameOf(req.fromRelPath);
+          const index = fromDir.findIndex((entry) => entry.name === fromName);
+          if (index === -1) return { ok: false, message: 'not found' };
+          const toName = baseNameOf(req.toRelPath);
+          if (toDir.some((entry) => entry.name === toName)) {
+            return { ok: false, message: 'destination already exists' };
+          }
+          const [entry] = fromDir.splice(index, 1);
+          toDir.push({ ...entry, name: toName });
+          return { ok: true as const };
+        },
+        delete: async (req: { relPath: string }) => {
+          const dir = data.fsDirs?.[`repo:${parentDirOf(req.relPath)}`];
+          if (!dir) return { ok: false, message: 'no fixture' };
+          const name = baseNameOf(req.relPath);
+          const index = dir.findIndex((entry) => entry.name === name);
+          if (index === -1) return { ok: false, message: 'not found' };
+          dir.splice(index, 1);
+          return { ok: true as const };
+        },
+        dirStats: async (req: { relPath: string }) => {
+          let fileCount = 0;
+          let totalBytes = 0;
+          const queue = [req.relPath];
+          while (queue.length > 0) {
+            const current = queue.shift()!;
+            const entries = data.fsDirs?.[`repo:${current}`] ?? [];
+            for (const entry of entries) {
+              if (entry.kind === 'dir') {
+                queue.push(current.length > 0 ? `${current}/${entry.name}` : entry.name);
+              } else {
+                fileCount += 1;
+                totalBytes += entry.size;
+              }
+            }
+          }
+          return { ok: true as const, fileCount, totalBytes, truncated: false };
         },
       },
       /*
@@ -1160,6 +1247,9 @@ export async function installMockBridge(page: Page, fixtures: MockFixtures): Pro
     var ptyCount = 0;
     // eslint-disable-next-line no-var
     var externalUrls: string[] = [];
+    /** `shell.showItemInFolder` calls (Phase 24 Theme C), recorded like `externalUrls`. */
+    // eslint-disable-next-line no-var
+    var revealedPaths: string[] = [];
     // eslint-disable-next-line no-var
     var metricsHandlers: Array<(sample: unknown) => void> = [];
     /** Every start/stop, so a spec can assert the cadence actually escalated. */
@@ -1356,6 +1446,7 @@ export async function installMockBridge(page: Page, fixtures: MockFixtures): Pro
     };
     (window as unknown as { __mgitTerminalSaves: unknown }).__mgitTerminalSaves = terminalSaves;
     (window as unknown as { __mgitExternalUrls: unknown }).__mgitExternalUrls = externalUrls;
+    (window as unknown as { __mgitRevealedPaths: unknown }).__mgitRevealedPaths = revealedPaths;
     (window as unknown as { __mgitClipboard: unknown }).__mgitClipboard = clipboardWrites;
     (window as unknown as { __mgitMetrics: unknown }).__mgitMetrics = metricsCalls;
     (window as unknown as { __mgitDiagRuns: unknown }).__mgitDiagRuns = () => diagRuns;

@@ -135,33 +135,45 @@ The load-bearing theme. Everything a write can do wrong, it does wrong here.
       refused binary overwrite, a refused oversized write, and rename/delete/create collision and
       symlink refusals.
 
-### C — Mutations in the tree (M)
+### C — Mutations in the tree (M) — ✅ DONE (2026-08-28)
 
-- [ ] `file-tree.tsx` grows its first `onContextMenu`. The machinery is well-worn — see
-      [`graph-row.tsx`](../packages/app/src/features/graph/graph-row.tsx),
-      [`repos-panel.tsx`](../packages/app/src/features/repos/repos-panel.tsx) and
-      [`terminal-session-list.tsx`](../packages/app/src/features/terminal/terminal-session-list.tsx)
-      — but there is no `useContextMenu` hook and each caller holds its own `{ position, target }`
-      state. Follow the local pattern; do not invent a shared hook for the fourth caller.
-- [ ] A `writable?: boolean` prop on `FileTree`, defaulting **false**. `agent-page.tsx` mounts the
-      same tree on the `claude-home` scope and must keep every affordance it has today, without
-      needing to know that write channels now exist.
-- [ ] Menu entries: New File, New Folder, Rename, Delete, plus Reveal in Finder and Copy Relative
+- [x] `file-tree.tsx` grows its first `onContextMenu`, plus a hover ellipsis (`repos-panel.tsx`'s
+      shared-`openMenu`-closure pattern) — both feed the one `useDialogs().openMenu`, no
+      new context-menu hook. A right-click on empty tree space (now `h-full`, matching a real
+      file explorer's clickable background) opens a root menu.
+- [x] A `writable?: boolean` prop on `FileTree`, defaulting **false**. `agent-page.tsx`'s
+      `claude-home` tree is unchanged at its call site and wires no menu at all, asserted in
+      `files-write.spec.ts`.
+- [x] Menu entries: New File, New Folder, Rename, Delete, plus Reveal in Finder and Copy Relative
       Path (both free, both wanted, neither a write). Directory rows and file rows get different
-      sets; the root row gets New File / New Folder only.
-- [ ] Rename is **inline on the row**, not a dialog — the row becomes an input, `Enter` commits,
-      `Escape` reverts, and the name is validated against the same rules Theme B enforces so the
-      user sees the refusal before the round trip.
-- [ ] Delete goes through [`confirm-dialog.tsx`](../packages/app/src/components/confirm-dialog.tsx)
-      with a real blast radius, per the Phase 7 pattern and `CLAUDE.md`'s rule: the file count and
-      total size for a directory, and **how many of them are uncommitted** — read off the same
-      status cache Theme F joins against. "3 files, 2 with unsaved changes to Git" is the sentence
-      that stops the wrong delete; "Are you sure?" is not.
-- [ ] Every mutation invalidates its own fs subtree on success. Do not invalidate the whole `['fs']`
-      root — each directory in `file-tree.tsx` holds its own `useQuery` and expansion *is* mounting,
-      so a broad invalidation collapses and refetches the visible tree for a one-file rename.
-- [ ] A created file is selected and opened in the preview immediately. Creating a file you then
-      have to find is a worse version of the same action.
+      sets; the root row gets New File / New Folder only. Reveal needed a new read-only
+      `mgit:shell:show-item-in-folder` channel (`FsRepoScope`-scoped, confined through the same
+      jail as every other fs read) — no such channel existed.
+- [x] Rename is **inline on the row**, not a dialog — the row becomes an input (`data-testid`
+      `inline-name-input`), `Enter` commits, `Escape` reverts, blur commits-or-cancels with a
+      `settledRef` guard against double-firing. `validateEntryName` (empty / `/` / `.`, `..`,
+      `.git` / sibling collision) runs client-side against the directory's already-loaded
+      listing before any round trip. New File/Folder reuses the same inline row, pre-filled
+      (`Untitled` / `New Folder`) and pre-selected so typing replaces it, and auto-expands a
+      collapsed target directory.
+- [x] Delete goes through `confirm-dialog.tsx`'s `warnings` line (not the commit-shaped
+      `blastRadius` field — that one had to be pinned `null` explicitly, or the dialog reads its
+      `undefined` as "still counting" and never stops saying so): a file's warning is "unsaved
+      changes to Git" when it has one; a directory's is `dirStats` (new `mgit:fs:dir-stats` read,
+      a capped breadth-first walk, `FS_DIR_STATS_WALK_CAP`) joined with an uncommitted count
+      filtered out of the same `statusIndex.byPath` Theme F already builds — no second status
+      fetch.
+- [x] Every mutation invalidates only its own fs subtree (`[...fsScopeKey(scope), 'dir', parent]`).
+- [x] A created file is selected and opened in the preview immediately.
+- [x] `use-file-actions.ts` (new): every verb above, plus `validateEntryName`/`joinRelPath`/
+      `parentOf`; `fs-scope-key.ts` split out of `file-tree.tsx` to keep the two files from
+      importing each other. Vitest for the pure helpers and the `files-store.ts` editing state;
+      desktop unit tests for `dirStats`/`showItemInFolder`; a new `files-write.spec.ts` (12
+      Playwright cases) plus schema coverage in `ipc.test.ts`. Found and fixed along the way: the
+      e2e mock bridge's `listDir` handed out the *live* `fsDirs` array by reference, so
+      react-query's structural-sharing equality check saw "no change" after a mutation and
+      silently never repainted — fixed by returning a copy per read.
+      Screenshots: `docs/screenshots/phase-24-c/{context-menu,inline-create,delete-confirm}.png`.
 
 ### D — The preview pane becomes an editor (L)
 

@@ -876,7 +876,10 @@ export const ClaudeUpdateDataEvent = z.object({ chunk: z.string() });
 // Scoped, relative paths only: the renderer never names an absolute path, and
 // main confines every join to the scope's root (repo checkout or ~/.claude).
 
-const FsRepoScope = z.object({
+/** Exported: Theme C's dir-stats and reveal-in-Finder reads are repo-scoped
+ *  reads with no `claude-home` arm, so they reuse this shape directly rather
+ *  than `FsListDirRequest`'s wider discriminated union. */
+export const FsRepoScope = z.object({
   scope: z.literal('repo'),
   repoId: z.string().min(1),
   /** A linked worktree's checkout; omitted means the main worktree. */
@@ -962,6 +965,33 @@ export const FsRenameRequest = FsWriteScopeBase.extend({
 });
 
 export const FsDeleteRequest = FsWriteRepoScope;
+
+/**
+ * A directory's file count and total bytes, for the delete confirm's blast
+ * radius. `FsRepoScope`, not `FsWriteRepoScope` — this never touches disk. The
+ * uncommitted half of the blast radius is joined client-side against the
+ * status cache the tree already holds; main only counts what the filesystem
+ * itself knows.
+ */
+export const FsDirStatsRequest = FsRepoScope;
+export const FsDirStatsResponse = z.discriminatedUnion('ok', [
+  z.object({
+    ok: z.literal(true),
+    fileCount: z.number().int().nonnegative(),
+    totalBytes: z.number().int().nonnegative(),
+    /** The walk stopped at `FS_DIR_STATS_WALK_CAP` — the counts are a floor, not exact. */
+    truncated: z.boolean(),
+  }),
+  z.object({ ok: z.literal(false), message: z.string() }),
+]);
+
+/** Reveal a repo-scoped path in the OS file manager. See `CHANNELS.shellShowItemInFolder`. */
+export const ShowItemInFolderRequest = FsRepoScope;
+/** Mirrors `OpenExternalResponse` — a hand-off outcome, not a `GitOpResult`. */
+export const ShowItemInFolderResponse = z.object({
+  ok: z.boolean(),
+  message: z.string().optional(),
+});
 
 // --- system metrics (Phase 18) ---------------------------------------------
 

@@ -135,6 +135,57 @@ stay open in the phase doc, annotated as blocked rather than silently skipped.
       the Escape-triggered focus restore; `e2e/footer-monitor.spec.ts`'s toggle-name assertion
       updated for the new `aria-label`.
 
+## 2026-08-28 — Phase 24 Theme C — mutations in the tree
+
+Merged locally — no PR, no GitHub remote on this checkout. The Folder explorer's file tree gets
+its first context menu, inline create/rename, and delete behind a real blast-radius confirm.
+
+- [x] `file-tree.tsx`'s row is now a `<div role="treeitem">` (was a bare `<button>`) so it can carry
+      both a right-click handler and a hover-visible ellipsis `IconButton` feeding the same
+      `useDialogs().openMenu` — matching `repos-panel.tsx`'s shared-closure pattern rather than a
+      new context-menu hook. The row's own accessible name is pinned via `aria-label={entry.name}`,
+      because the always-mounted ellipsis button's "Actions for X" label would otherwise fold into
+      the row's computed name and break every existing `getByRole('treeitem', {name})` query in the
+      suite. The tree container itself grew `h-full` and its own root-level `onContextMenu`, so
+      right-clicking the empty area below the last row offers New File/New Folder — a real file
+      explorer's background is clickable too.
+- [x] New `features/files/use-file-actions.ts`: `startCreate`/`startRename`/`commitEdit`/
+      `requestDelete`/`reveal`/`copyRelativePath`, plus the pure `validateEntryName`/`joinRelPath`/
+      `parentOf` helpers. Name validation (empty, `/`, `.`/`..`/`.git`, sibling collision) runs
+      against the directory's already-loaded listing before any round trip reaches
+      `fs-scope-write.ts`'s server-side copy of the same rules.
+- [x] New `features/files/fs-scope-key.ts`: `FsScopeInput`/`fsScopeKey` split out of `file-tree.tsx`
+      (which re-exports them for existing callers) so `use-file-actions.ts` can depend on the scope
+      shape without the two files importing each other.
+- [x] `files-store.ts` gains `editing: EditingEntry | null` (`rename` or `create`, one at a time,
+      like the dialog host's own menu/confirm/prompt) and `startCreate` force-expands a collapsed
+      target directory so the new inline row is visible immediately — the same rule the doc already
+      applied to a created file's preview.
+- [x] Delete's blast radius is a `confirm-dialog.tsx` `warnings` line, not the commit-shaped
+      `blastRadius` field — which had to be pinned `blastRadius: null` explicitly, since `undefined`
+      reads to the dialog as "still being counted" and it never stops saying so. A directory's
+      count/size comes from a new capped breadth-first walk (`mgit:fs:dir-stats`,
+      `FS_DIR_STATS_WALK_CAP = 10_000`, read-only, `fs-handlers.ts`); the uncommitted count is a
+      filter over the same `statusIndex.byPath` Theme F already builds, not a second status fetch.
+- [x] Reveal in Finder needed a channel that didn't exist: `mgit:shell:show-item-in-folder`,
+      `FsRepoScope`-scoped and confined through `fs-scope.ts`'s read jail (`confineToRoot`) exactly
+      like every other fs read — it never mutates, so it lives beside `listDir`/`readFile` in
+      `fs-handlers.ts` rather than in `fs-write-handlers.ts`.
+- [x] Vitest: `use-file-actions.test.ts` (validation + path helpers), `files-store.test.ts` (the new
+      editing state), `fs-handlers.test.ts` (new — `dirStats` and `showItemInFolder` against a real
+      temp directory, mocking only `electron` and `repo-registry`), plus schema coverage for
+      `FsDirStatsRequest`/`ShowItemInFolderRequest` in `ipc.test.ts`.
+- [x] New `e2e/files-write.spec.ts` (12 Playwright cases): the menu's contents per row kind, root
+      vs. row targeting, create/rename/delete end to end, the collision-refuses-before-round-trip
+      case, auto-expand on create, Reveal/Copy recording, the hover-ellipsis parity case, and the
+      `claude-home` tree's continued silence. Found and fixed along the way: the mock bridge's
+      `listDir` returned the *live* `fsDirs` array by reference, so a create/rename/delete's
+      in-place mutation left every cached read pointing at the same object identity —
+      react-query's structural-sharing equality saw "unchanged data" and never notified the
+      subscribed component, so the row silently never left the screen despite the mock's own state
+      being correct. Fixed by returning `entries.slice()` on every read. Screenshots at
+      `docs/screenshots/phase-24-c/{context-menu,inline-create,delete-confirm}.png`.
+
 ## 2026-08-28 — Phase 24 Theme F — status badges on tree rows
 
 The cheapest theme in the phase — and the one place the doc's own suggested reuse

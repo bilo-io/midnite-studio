@@ -1,30 +1,40 @@
-import { useMemo } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
-import { LuChevronRight } from 'react-icons/lu';
+import {
+  LuChevronRight,
+  LuCopy,
+  LuEllipsisVertical,
+  LuExternalLink,
+  LuFilePlus,
+  LuFolderPlus,
+  LuPencil,
+  LuTrash2,
+} from 'react-icons/lu';
 
 import type { FsEntry } from '@midnite/git-shared';
 
+import type { MenuItem } from '../../components/context-menu';
+import { useDialogs } from '../../components/dialog-host';
+import { IconButton } from '../../components/icon-button';
 import { bridge, hasBridge } from '../../services/bridge';
 import { useRepoStatus } from '../../services/use-status';
 import { StatusMark } from '../status/status-mark';
 import { FileIcon, FolderIcon } from './file-icons';
 import { resolveFileStatusIndex, type FileStatusIndex } from './file-status';
+import { useFileActions, validateEntryName, type FileActions } from './use-file-actions';
+import { fsScopeKey, type FsScopeInput } from './fs-scope-key';
 
 /**
  * A listing request minus its relPath — the tree threads this through every
  * level. Two callers own it: the Files view (repo scope) and the Agent
  * settings page (claude-home scope), which is why expansion/selection arrive
- * as props rather than being read from the files store here.
+ * as props rather than being read from the files store here. Re-exported
+ * from `fs-scope-key.ts`, which also holds `fsScopeKey` — split out so
+ * `use-file-actions.ts` can depend on the scope shape without importing this
+ * file, which imports `use-file-actions.ts` back.
  */
-export type FsScopeInput =
-  | { scope: 'repo'; repoId: string; worktreePath?: string }
-  | { scope: 'claude-home' };
-
-/** Stable query-key prefix for one scope — also what a refresh invalidates. */
-export const fsScopeKey = (scope: FsScopeInput): readonly unknown[] =>
-  scope.scope === 'repo'
-    ? (['fs', 'repo', scope.repoId, scope.worktreePath ?? null] as const)
-    : (['fs', 'claude-home'] as const);
+export type { FsScopeInput };
+export { fsScopeKey };
 
 export type FileTreeProps = {
   scope: FsScopeInput;
@@ -32,19 +42,51 @@ export type FileTreeProps = {
   selectedPath: string | null;
   onToggleDir: (relPath: string) => void;
   onSelectFile: (relPath: string) => void;
+  /**
+   * Enables the context menu, inline create/rename and delete. Defaults
+   * false, so `agent-page.tsx`'s `claude-home` tree keeps exactly the
+   * affordances it has today without knowing write channels now exist at
+   * all — `useFileActions` still runs underneath it, but nothing ever calls
+   * into it.
+   */
+  writable?: boolean;
 };
 
 /**
  * The lazy tree: each directory queries its own listing on first expand and
  * never before, so `node_modules` costs nothing until opened on purpose.
- * Read-only by construction — rows have no rename/delete affordance and the
- * bridge has no channel that could serve one.
+ * Read-only unless `writable`: New File/Folder, inline rename, delete (with a
+ * blast-radius confirm) and the two free entries — Reveal in Finder, Copy
+ * Relative Path — all live behind that one prop (Phase 24 Theme C).
  */
 export function FileTree(props: FileTreeProps) {
   const statusIndex = useFileStatusIndex(props.scope);
+  const actions = useFileActions(props.scope, statusIndex);
+  const writable = props.writable ?? false;
+  const dialogs = useDialogs();
+
   return (
-    <div role="tree" aria-label="Files" className="py-1 text-xs">
-      <DirectoryChildren {...props} statusIndex={statusIndex} relPath="" depth={0} />
+    <div
+      role="tree"
+      aria-label="Files"
+      className="h-full py-1 text-xs"
+      onContextMenu={
+        writable
+          ? (event) => {
+              event.preventDefault();
+              dialogs.openMenu(event, rootMenuItems(actions));
+            }
+          : undefined
+      }
+    >
+      <DirectoryChildren
+        {...props}
+        writable={writable}
+        actions={writable ? actions : undefined}
+        statusIndex={statusIndex}
+        relPath=""
+        depth={0}
+      />
     </div>
   );
 }
@@ -61,6 +103,32 @@ function useFileStatusIndex(scope: FsScopeInput): FileStatusIndex | undefined {
   return useMemo(() => resolveFileStatusIndex(data, isPlaceholderData), [data, isPlaceholderData]);
 }
 
+const rootMenuItems = (actions: FileActions): MenuItem[] => [
+  { label: 'New File', icon: LuFilePlus, onSelect: () => actions.startCreate('', 'file') },
+  { label: 'New Folder', icon: LuFolderPlus, onSelect: () => actions.startCreate('', 'directory') },
+];
+
+const freeMenuItems = (relPath: string, actions: FileActions): MenuItem[] => [
+  { type: 'separator' },
+  { label: 'Reveal in Finder', icon: LuExternalLink, onSelect: () => actions.reveal(relPath) },
+  { label: 'Copy Relative Path', icon: LuCopy, onSelect: () => actions.copyRelativePath(relPath) },
+];
+
+const dirMenuItems = (entry: FsEntry, relPath: string, actions: FileActions): MenuItem[] => [
+  { label: 'New File', icon: LuFilePlus, onSelect: () => actions.startCreate(relPath, 'file') },
+  { label: 'New Folder', icon: LuFolderPlus, onSelect: () => actions.startCreate(relPath, 'directory') },
+  { type: 'separator' },
+  { label: 'Rename', icon: LuPencil, onSelect: () => actions.startRename(entry, relPath) },
+  { label: 'Delete', icon: LuTrash2, danger: true, onSelect: () => actions.requestDelete(entry, relPath) },
+  ...freeMenuItems(relPath, actions),
+];
+
+const fileMenuItems = (entry: FsEntry, relPath: string, actions: FileActions): MenuItem[] => [
+  { label: 'Rename', icon: LuPencil, onSelect: () => actions.startRename(entry, relPath) },
+  { label: 'Delete', icon: LuTrash2, danger: true, onSelect: () => actions.requestDelete(entry, relPath) },
+  ...freeMenuItems(relPath, actions),
+];
+
 function DirectoryChildren({
   scope,
   relPath,
@@ -70,12 +138,21 @@ function DirectoryChildren({
   onToggleDir,
   onSelectFile,
   statusIndex,
-}: FileTreeProps & { relPath: string; depth: number; statusIndex: FileStatusIndex | undefined }) {
+  writable,
+  actions,
+}: FileTreeProps & {
+  relPath: string;
+  depth: number;
+  statusIndex: FileStatusIndex | undefined;
+  actions: FileActions | undefined;
+}) {
   const { data } = useQuery({
     queryKey: [...fsScopeKey(scope), 'dir', relPath],
     queryFn: async () => bridge()!.fs.listDir({ ...scope, relPath }),
     enabled: hasBridge(),
   });
+
+  const creatingHere = actions?.editing?.kind === 'create' && actions.editing.parentPath === relPath;
 
   if (!data) {
     return (
@@ -91,13 +168,15 @@ function DirectoryChildren({
       </p>
     );
   }
-  if (data.entries.length === 0) {
+  if (data.entries.length === 0 && !creatingHere) {
     return (
       <p className="px-3 py-1 italic text-muted-foreground" style={indent(depth)}>
         empty
       </p>
     );
   }
+
+  const siblingNames = data.entries.map((entry) => entry.name);
 
   return (
     <>
@@ -113,8 +192,21 @@ function DirectoryChildren({
           onToggleDir={onToggleDir}
           onSelectFile={onSelectFile}
           statusIndex={statusIndex}
+          writable={writable}
+          actions={actions}
+          siblingNames={siblingNames}
         />
       ))}
+      {creatingHere && actions?.editing?.kind === 'create' ? (
+        <CreateRow
+          depth={depth + 1}
+          entryKind={actions.editing.entryKind}
+          initialName={actions.editing.initialName}
+          siblingNames={siblingNames}
+          onCommit={(name) => actions.commitEdit(name)}
+          onCancel={() => actions.cancelEdit()}
+        />
+      ) : null}
     </>
   );
 }
@@ -124,16 +216,23 @@ function TreeRow({
   relPath,
   depth,
   statusIndex,
+  writable,
+  actions,
+  siblingNames,
   ...tree
 }: FileTreeProps & {
   entry: FsEntry;
   relPath: string;
   depth: number;
   statusIndex: FileStatusIndex | undefined;
+  actions: FileActions | undefined;
+  siblingNames: readonly string[];
 }) {
+  const dialogs = useDialogs();
   const isDir = entry.kind === 'dir';
   const isOpen = isDir && tree.expanded[relPath] === true;
   const isSelected = tree.selectedPath === relPath;
+  const renaming = actions?.editing?.kind === 'rename' && actions.editing.relPath === relPath;
   // A dimmed, gitignored row already says "not part of the repo" — a status
   // badge on top would double-signal the same fact, and in practice never
   // fires anyway: an ignored path has no `StatusEntry` to match.
@@ -143,19 +242,51 @@ function TreeRow({
       ? statusIndex?.dirRollup.get(relPath)
       : statusIndex?.byPath.get(relPath);
 
+  const activate = () => (isDir ? tree.onToggleDir(relPath) : tree.onSelectFile(relPath));
+
+  const openMenu = (at: { clientX: number; clientY: number }) => {
+    if (!actions) return;
+    dialogs.openMenu(at, isDir ? dirMenuItems(entry, relPath, actions) : fileMenuItems(entry, relPath, actions));
+  };
+
   return (
     <>
-      <button
-        type="button"
+      <div
         role="treeitem"
+        tabIndex={renaming ? -1 : 0}
         aria-expanded={isDir ? isOpen : undefined}
         aria-selected={isSelected}
-        onClick={() => (isDir ? tree.onToggleDir(relPath) : tree.onSelectFile(relPath))}
-        className={`flex w-full items-center gap-1.5 px-3 py-[3px] text-left transition-colors hover:bg-accent ${
-          isSelected ? 'bg-primary/10 text-foreground' : ''
-        } ${entry.isIgnored ? 'opacity-45' : ''}`}
+        // Pinned rather than left to content: the writable row's hover
+        // ellipsis is a real (not aria-hidden) descendant button whose own
+        // "Actions for X" label would otherwise fold into this row's
+        // accessible name too, and every existing query for this tree
+        // matches on the bare entry name.
+        aria-label={renaming ? undefined : entry.name}
+        onClick={renaming ? undefined : activate}
+        onKeyDown={
+          renaming
+            ? undefined
+            : (event) => {
+                if (event.key === 'Enter' || event.key === ' ') {
+                  event.preventDefault();
+                  activate();
+                }
+              }
+        }
+        onContextMenu={
+          writable
+            ? (event) => {
+                event.preventDefault();
+                event.stopPropagation();
+                openMenu(event);
+              }
+            : undefined
+        }
+        className={`group flex w-full items-center gap-1.5 px-3 py-[3px] text-left transition-colors hover:bg-accent ${
+          renaming ? 'cursor-default' : 'cursor-pointer'
+        } ${isSelected ? 'bg-primary/10 text-foreground' : ''} ${entry.isIgnored ? 'opacity-45' : ''}`}
         style={indent(depth)}
-        title={entry.isIgnored ? `${entry.name} — gitignored` : entry.name}
+        title={renaming ? undefined : entry.isIgnored ? `${entry.name} — gitignored` : entry.name}
       >
         {isDir ? (
           <LuChevronRight
@@ -169,15 +300,139 @@ function TreeRow({
         )}
         {isDir ? <FolderIcon open={isOpen} /> : <FileIcon name={entry.name} />}
         {badge ? <StatusMark code={badge.code} conflicted={badge.conflicted} /> : null}
-        <span className="truncate">{entry.name}</span>
-        {entry.kind === 'symlink' ? (
+        {renaming ? (
+          <InlineNameInput
+            initialName={entry.name}
+            siblingNames={siblingNames.filter((name) => name !== entry.name)}
+            onCommit={(name) => actions?.commitEdit(name)}
+            onCancel={() => actions?.cancelEdit()}
+          />
+        ) : (
+          <span className="truncate">{entry.name}</span>
+        )}
+        {!renaming && entry.kind === 'symlink' ? (
           <span className="ml-auto shrink-0 text-[10px] text-muted-foreground">link</span>
         ) : null}
-      </button>
+        {!renaming && writable ? (
+          <span className="ml-auto flex shrink-0 items-center opacity-0 transition-opacity group-focus-within:opacity-100 group-hover:opacity-100">
+            <IconButton
+              icon={LuEllipsisVertical}
+              label={`Actions for ${entry.name}`}
+              size="sm"
+              onClick={(event) => {
+                event.stopPropagation();
+                const rect = event.currentTarget.getBoundingClientRect();
+                openMenu({ clientX: event.clientX || rect.left, clientY: event.clientY || rect.bottom });
+              }}
+            />
+          </span>
+        ) : null}
+      </div>
       {isOpen ? (
-        <DirectoryChildren {...tree} statusIndex={statusIndex} relPath={relPath} depth={depth + 1} />
+        <DirectoryChildren
+          {...tree}
+          statusIndex={statusIndex}
+          writable={writable}
+          actions={actions}
+          relPath={relPath}
+          depth={depth + 1}
+        />
       ) : null}
     </>
+  );
+}
+
+/** The virtual row a New File/New Folder starts as — same indent and icon slot as a real row, an input where the name goes. */
+function CreateRow({
+  depth,
+  entryKind,
+  initialName,
+  siblingNames,
+  onCommit,
+  onCancel,
+}: {
+  depth: number;
+  entryKind: 'file' | 'directory';
+  initialName: string;
+  siblingNames: readonly string[];
+  onCommit: (name: string) => void;
+  onCancel: () => void;
+}) {
+  return (
+    <div className="flex w-full items-center gap-1.5 px-3 py-[3px]" style={indent(depth)}>
+      <span className="w-3 shrink-0" />
+      {entryKind === 'directory' ? <FolderIcon open={false} /> : <FileIcon name={initialName} />}
+      <InlineNameInput
+        initialName={initialName}
+        siblingNames={siblingNames}
+        onCommit={onCommit}
+        onCancel={onCancel}
+      />
+    </div>
+  );
+}
+
+/** Shared by rename and create — an autofocused, pre-selected `<input>` validated against `validateEntryName` before Enter or blur is allowed to commit. */
+function InlineNameInput({
+  initialName,
+  siblingNames,
+  onCommit,
+  onCancel,
+}: {
+  initialName: string;
+  siblingNames: readonly string[];
+  onCommit: (name: string) => void;
+  onCancel: () => void;
+}) {
+  const [value, setValue] = useState(initialName);
+  const inputRef = useRef<HTMLInputElement>(null);
+  // Guards against a duplicate commit/cancel firing again on the blur that
+  // follows Enter/Escape unmounting this input.
+  const settledRef = useRef(false);
+
+  useEffect(() => {
+    inputRef.current?.focus();
+    inputRef.current?.select();
+  }, []);
+
+  const error = validateEntryName(value, siblingNames);
+
+  const commit = () => {
+    if (settledRef.current) return;
+    settledRef.current = true;
+    if (error) onCancel();
+    else onCommit(value);
+  };
+  const cancel = () => {
+    if (settledRef.current) return;
+    settledRef.current = true;
+    onCancel();
+  };
+
+  return (
+    <span className="flex min-w-0 flex-1 items-center gap-1.5">
+      <input
+        ref={inputRef}
+        value={value}
+        onChange={(event) => setValue(event.target.value)}
+        onClick={(event) => event.stopPropagation()}
+        onKeyDown={(event) => {
+          event.stopPropagation();
+          if (event.key === 'Enter') {
+            event.preventDefault();
+            commit();
+          } else if (event.key === 'Escape') {
+            event.preventDefault();
+            cancel();
+          }
+        }}
+        onBlur={commit}
+        aria-invalid={error !== null}
+        data-testid="inline-name-input"
+        className="min-w-0 flex-1 rounded border border-primary/60 bg-background px-1 py-0 text-xs text-foreground outline-none"
+      />
+      {error ? <span className="shrink-0 text-[10px] text-destructive">{error}</span> : null}
+    </span>
   );
 }
 
