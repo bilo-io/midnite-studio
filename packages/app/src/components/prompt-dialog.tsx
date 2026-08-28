@@ -10,15 +10,22 @@ import { useFocusTrap } from './use-focus-trap';
  * and "that branch name is invalid" is exactly what this needs to say before
  * git gets a chance to.
  */
+export type PromptOption = {
+  id: string;
+  label: string;
+  defaultChecked?: boolean;
+};
+
 export type PromptRequest = {
   title: string;
   label: string;
   initialValue?: string;
   confirmLabel: string;
   placeholder?: string;
+  options?: PromptOption[];
   /** Returns an error message, or null when the value is acceptable. */
   validate?: (value: string) => string | null;
-  onConfirm: (value: string) => void;
+  onConfirm: (value: string, optionsState?: Record<string, boolean>) => void;
 };
 
 export function PromptDialog({
@@ -29,6 +36,15 @@ export function PromptDialog({
   onCancel: () => void;
 }) {
   const [value, setValue] = useState(request.initialValue ?? '');
+  const [optionsState, setOptionsState] = useState<Record<string, boolean>>(() => {
+    const initial: Record<string, boolean> = {};
+    if (request.options) {
+      for (const opt of request.options) {
+        initial[opt.id] = opt.defaultChecked ?? false;
+      }
+    }
+    return initial;
+  });
   const containerRef = useRef<HTMLFormElement>(null);
   const inputRef = useRef<HTMLInputElement>(null);
   const error = value.length > 0 ? (request.validate?.(value) ?? null) : null;
@@ -47,7 +63,7 @@ export function PromptDialog({
 
   const submit = () => {
     if (empty || error) return;
-    request.onConfirm(value.trim());
+    request.onConfirm(value.trim(), optionsState);
   };
 
   return (
@@ -83,6 +99,24 @@ export function PromptDialog({
           className="mt-1 w-full rounded-md border border-input bg-background px-2 py-1.5 text-sm outline-none focus:ring-1 focus:ring-ring"
         />
         {error ? <p className="mt-1.5 text-xs text-destructive">{error}</p> : null}
+
+        {request.options && request.options.length > 0 ? (
+          <div className="mt-3 flex flex-col gap-2">
+            {request.options.map((opt) => (
+              <label key={opt.id} className="flex items-center gap-2 text-xs text-foreground cursor-pointer">
+                <input
+                  type="checkbox"
+                  checked={optionsState[opt.id] ?? false}
+                  onChange={(e) =>
+                    setOptionsState((prev) => ({ ...prev, [opt.id]: e.target.checked }))
+                  }
+                  className="rounded border-border text-primary focus:ring-ring"
+                />
+                <span>{opt.label}</span>
+              </label>
+            ))}
+          </div>
+        ) : null}
 
         <div className="mt-4 flex justify-end gap-2">
           <button

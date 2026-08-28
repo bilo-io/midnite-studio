@@ -21,6 +21,7 @@ import type {
   Remote,
   RepoDescriptor,
   RepoStats,
+  StashEntry,
   StatsWindow,
   TestDiscovery,
   TestTrustStatus,
@@ -53,6 +54,7 @@ export const keys = {
   repo: (repoId: string) => ['repos', repoId] as const,
   refs: (repoId: string) => ['repos', repoId, 'refs'] as const,
   worktrees: (repoId: string) => ['repos', repoId, 'worktrees'] as const,
+  stashes: (repoId: string) => ['repos', repoId, 'stashes'] as const,
   /**
    * A repo's configured remotes.
    *
@@ -277,6 +279,18 @@ export function useWorktrees(repoId: string | null) {
   return useQuery<Worktree[]>({
     queryKey: keys.worktrees(repoId ?? ''),
     queryFn: async () => (repoId ? ((await bridge()?.repos.worktrees({ repoId })) ?? []) : []),
+    enabled: repoId !== null,
+  });
+}
+
+export function useStashes(repoId: string | null, worktreePath?: string) {
+  return useQuery<StashEntry[]>({
+    queryKey: keys.stashes(repoId ?? ''),
+    queryFn: async () =>
+      repoId
+        ? ((await bridge()?.stash.list({ repoId, ...(worktreePath ? { worktreePath } : {}) })) ??
+          [])
+        : [],
     enabled: repoId !== null,
   });
 }

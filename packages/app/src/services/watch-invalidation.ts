@@ -56,6 +56,7 @@ export function invalidateForWatchKind(
 
     case 'refs':
       void client.invalidateQueries({ queryKey: keys.refs(repoId) });
+      void client.invalidateQueries({ queryKey: keys.stashes(repoId) });
       void client.invalidateQueries({ queryKey: keys.status(repoId), exact: false });
       // Statistics are an `--all` traversal, so every figure in the dashboard
       // depends on the ref set: a commit or a fetch changes the contributor

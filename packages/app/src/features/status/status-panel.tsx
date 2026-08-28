@@ -1,12 +1,12 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
 
 import type { StatusEntry } from '@midnite/git-shared';
-
-import { List, ListTree, Minus, Plus, Undo2 } from 'lucide-react';
+import { Archive, List, ListTree, Minus, Plus, Undo2 } from 'lucide-react';
 import { AiOutlineDiff } from 'react-icons/ai';
 
 import { buildChangeTree, flattenBySize, type ChangedFile } from '../../components/build-change-tree';
 import { ChangeTotals, ChangeTree, Counts } from '../../components/change-tree';
+import { useDialogs } from '../../components/dialog-host';
 import { IconButton, type IconComponent } from '../../components/icon-button';
 import { ResizeHandle } from '../../components/resizable/resize-handle';
 import { useResizable } from '../../components/resizable/use-resizable';
@@ -17,6 +17,7 @@ import {
   useStage,
   useStatus,
   useStatusCounts,
+  useTargetedGitOp,
   useUnstage,
 } from '../../services/use-status';
 import {
@@ -81,10 +82,46 @@ export function StatusPanel() {
     unstaged: ReadonlySet<string>;
   }>({ staged: EMPTY_SET, unstaged: EMPTY_SET });
 
+  const dialogs = useDialogs();
   const stage = useStage();
   const unstage = useUnstage();
   const discard = useDiscard();
   const commit = useCommit();
+
+  const stash = useTargetedGitOp<{
+    message?: string;
+    keepIndex?: boolean;
+    includeUntracked?: boolean;
+    paths?: string[];
+  }>(target, 'stash-push', (api, args, ctx) => api.stash.push({ ...ctx, ...args }));
+
+  const promptStash = () => {
+    if (entries.length === 0) return;
+    const pathsToStash = selectedPath ? [selectedPath.path] : undefined;
+    dialogs.prompt({
+      title: pathsToStash ? `Stash ${pathsToStash[0]}` : 'Stash changes',
+      label: 'Message (optional)',
+      confirmLabel: 'Stash',
+      placeholder: 'e.g. WIP on feature',
+      options: [
+        { id: 'includeUntracked', label: 'Include untracked files (-u)', defaultChecked: false },
+        { id: 'keepIndex', label: 'Keep staged changes staged (--keep-index)', defaultChecked: false },
+      ],
+      onConfirm: (msg, optionsState) => {
+        void stash
+          .mutateAsync({
+            message: msg || undefined,
+            includeUntracked: optionsState?.includeUntracked,
+            keepIndex: optionsState?.keepIndex,
+            paths: pathsToStash,
+          })
+          .then((res) => {
+            if (!res.ok && res.kind === 'error') setError(res.message);
+            else setError('');
+          });
+      },
+    });
+  };
 
   const list = useResizable({
     size: listWidth,
@@ -208,6 +245,14 @@ export function StatusPanel() {
         */}
         <div className="flex shrink-0 items-center gap-2 border-b border-border py-1 pl-3 pr-2">
           <ChangeTotals {...total} className="mr-auto" />
+          <IconButton
+            icon={Archive}
+            label={selectedPath ? `Stash ${selectedPath.path}…` : 'Stash changes…'}
+            size="sm"
+            disabled={entries.length === 0 || busy}
+            disabledReason={entries.length === 0 ? 'No changes to stash.' : 'A git operation is running.'}
+            onClick={promptStash}
+          />
           <IconButton
             icon={AiOutlineDiff}
             label="View all changes"

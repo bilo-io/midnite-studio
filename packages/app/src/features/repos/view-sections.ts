@@ -61,7 +61,7 @@ export type SectionKey =
  * A parent has no refs either, which is the same reason `branches` and
  * `forge` are not here.
  */
-export type RefSectionKey = 'local' | 'remotes' | 'tags' | 'worktrees';
+export type RefSectionKey = 'local' | 'remotes' | 'tags' | 'worktrees' | 'stashes';
 
 /**
  * One node of the sidebar's section tree: a leaf, or a parent owning children.
