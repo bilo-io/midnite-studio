@@ -22,4 +22,9 @@ describe('STATUS_SEGMENTS', () => {
       expect(segment.El).toBeDefined();
     }
   });
+
+  it('marks exactly op-progress and in-progress as live', () => {
+    const liveIds = STATUS_SEGMENTS.filter((s) => s.live).map((s) => s.id);
+    expect(new Set(liveIds)).toEqual(new Set(['op-progress', 'in-progress']));
+  });
 });
