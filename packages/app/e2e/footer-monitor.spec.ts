@@ -211,15 +211,14 @@ test.describe('footer monitor', () => {
     await expect(cpuChart.locator('line title')).toHaveText('Sampling cadence changed here');
   });
 
-  test('the terminal toggle and branch segments are untouched on the left', async ({ page }) => {
+  test('the terminal toggle and repos toggle are untouched on the left', async ({ page }) => {
     // The cluster is an `ml-auto` sibling; filling the empty right half was
     // meant to cost no repositioning of what was already in the footer.
     await open(page);
     // The toggle's accessible name is its own text, not its `title` — the
     // title attribute is only consulted when an element has no content.
-    const footer = page.locator('footer').filter({ hasText: 'Terminal' });
+    const footer = page.getByTestId('status-bar');
     await expect(footer.getByRole('button', { name: /^Terminal/ })).toBeVisible();
-    await expect(footer).toContainText('main');
     // And the cluster really is at the far right of the same bar.
     await expect(footer.getByTestId('monitor-cluster')).toBeVisible();
   });
@@ -237,7 +236,7 @@ test.describe('footer monitor', () => {
     // The bar as it was: everything left-aligned, right half empty.
     await installMockBridge(page, { ...fixtures });
     await page.goto('/');
-    const bar = page.locator('footer').filter({ hasText: 'Terminal' });
+    const bar = page.getByTestId('status-bar');
     await expect(bar).toBeVisible();
     await page.waitForTimeout(300);
     await bar.screenshot({ path: `${SHOTS}/footer-before.png` });

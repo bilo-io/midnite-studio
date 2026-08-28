@@ -71,7 +71,7 @@ const ROWS = [
 async function open(page: Page, over: Partial<MockFixtures>): Promise<void> {
   await installMockBridge(page, { ...fixtures, ...over });
   await page.goto('/');
-  await expect(page.locator('footer').filter({ hasText: 'Terminal' })).toBeVisible();
+  await expect(page.getByTestId('status-bar')).toBeVisible();
 }
 
 test.describe('diagnostics segment', () => {

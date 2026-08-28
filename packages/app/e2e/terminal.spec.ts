@@ -599,6 +599,15 @@ test.describe('terminal panel', () => {
     // The graph is what it takes the room from.
     await expect(page.getByRole('columnheader', { name: 'Commit message' })).toHaveCount(0);
 
+    // The status bar must never be covered by the terminal frame — it is now a
+    // sibling of the content row, outside the terminal's containing box, so the
+    // only way it could be covered is a z-index or absolute-position regression.
+    const frameBox = await page.locator('[data-terminal-frame]').boundingBox();
+    const barBox = await page.getByTestId('status-bar').boundingBox();
+    if (frameBox && barBox) {
+      expect(frameBox.y + frameBox.height).toBeLessThanOrEqual(barBox.y + 1);
+    }
+
     await page.getByRole('button', { name: 'Restore terminal height' }).click();
     expect(await height()).toBeCloseTo(normal, 0);
     await expect(page.getByRole('columnheader', { name: 'Commit message' })).toBeVisible();

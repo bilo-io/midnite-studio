@@ -1,5 +1,5 @@
 import { METRIC_IDS, type MetricId } from '@midnite/git-shared';
-import { useState, type ReactNode } from 'react';
+import { useState } from 'react';
 
 import { Popover } from '../../components/popover';
 import { useMetricsStore, type MetricPoint } from '../../store/metrics-store';
@@ -10,25 +10,6 @@ import { METRIC_LABELS, metricColor, metricGlow } from './metric-palette';
 import { MonitorFlyout } from './monitor-flyout';
 import { Sparkline } from './sparkline';
 import { useMetricsStream } from './use-metrics-stream';
-
-/**
- * The footer's right-hand cluster.
- *
- * The footer has been the same 24px strip since Phase 9: every segment is a
- * left-aligned flex child under one `gap-3`, with no `ml-auto` anywhere, so the
- * entire right half has been empty. `ml-auto` here is the whole layout change —
- * nothing existing has to move.
- *
- * **A container that takes slots, not a fixed list of four metrics.** Theme F's
- * diagnostics segment and Phase 17's checks-verdict indicator are both headed
- * for this strip, and each would otherwise arrive as a restructuring of
- * whatever was here first. Children render to the LEFT of the monitor, which
- * puts the machine's vitals hard against the window edge where they stay in the
- * same place as things are added.
- */
-export function FooterCluster({ children }: { children?: ReactNode }) {
-  return <div className="ml-auto flex items-center gap-3">{children}</div>;
-}
 
 /**
  * Dot, percentage and sparkline per metric, opening into the timeline flyout.
