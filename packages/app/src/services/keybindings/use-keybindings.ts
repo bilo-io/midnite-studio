@@ -3,6 +3,7 @@ import { useEffect } from 'react';
 import { DEFAULT_KEYMAP, GLOBAL_CHORDS } from '@midnite/git-shared';
 
 import { bridge } from '../bridge';
+import { usePaletteStore } from '../../store/palette-store';
 import { chordFromEvent } from './chord';
 import type { CommandRuntime } from './use-command-handlers';
 
@@ -22,6 +23,20 @@ export function useKeybindings(runtime: CommandRuntime): void {
       const chord = chordFromEvent(event);
       const binding = DEFAULT_KEYMAP.find((b) => b.chord === chord);
       if (!binding) return;
+
+      // The palette owns the keyboard while open: only its own chords (to
+      // re-focus it, or re-pin the file mode) still resolve here. Every other
+      // bound chord falls through untouched, so typing "Mod+g" into the
+      // search input does not toggle the repos panel out from under it.
+      // `getState()`, not a subscription — this effect must not re-run every
+      // time the palette opens or closes.
+      if (
+        usePaletteStore.getState().isOpen &&
+        binding.command !== 'palette.open' &&
+        binding.command !== 'palette.files'
+      ) {
+        return;
+      }
 
       const entry = runtime[binding.command];
       // Disabled is treated as unbound: the keystroke falls through to

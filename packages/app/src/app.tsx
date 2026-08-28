@@ -10,19 +10,22 @@ import {
 } from '@bilo-io/shell';
 import { pickForgeRemote } from '@midnite/git-shared';
 import { QueryClient } from '@tanstack/react-query';
-import { ChevronLeft } from 'lucide-react';
+import { ChevronLeft, Command as CommandIcon } from 'lucide-react';
 import type { IconType } from 'react-icons';
 import { LuSettings } from 'react-icons/lu';
 
 import { Brand, BrandMark, Wordmark } from './components/brand';
 import { DialogHost } from './components/dialog-host';
 import { VIEW_ICON } from './components/nav-icons';
+import { IconButton } from './components/icon-button';
+import { PaletteHost, usePalette } from './components/palette-host';
 import { ResizeHandle } from './components/resizable/resize-handle';
 import { useResizable } from './components/resizable/use-resizable';
 import { REVEAL_HOLD_MS, useReveal, useSettled } from './components/use-reveal';
 import { ThemeToggle } from './components/theme-toggle';
 import { TitleBarNav } from './components/title-bar-nav';
 import { ActionsView } from './features/actions/actions-view';
+import { chordFor, displayChord } from './features/status-bar/chord-hint';
 import { BrowserPane } from './features/browser/browser-pane';
 import { TestsView } from './features/tests/tests-view';
 import { DashboardView } from './features/dashboard/dashboard-view';
@@ -185,6 +188,8 @@ const ALL_NAV_ITEMS: NavItem[] = [PINNED_ITEM, ...NAV_ITEMS];
  * is one array entry, not three call sites to remember to update together.
  */
 const FORGE_GATED_VIEWS: readonly ViewId[] = ['actions', 'reviews'];
+
+const paletteChord = chordFor('palette.open', 'Mod+k');
 
 /**
  * Whether the Actions and Reviews views have anything they could ever show.
@@ -485,8 +490,22 @@ function Shell() {
   // native frame.
   const windowChrome = bridge()?.windowChrome ?? null;
 
+  const palette = usePalette();
+
   const chrome = (
     <>
+      {/*
+        The one entry point a keyboard shortcut nobody has been told about
+        does not provide. Leads the cluster rather than sitting inside it:
+        opening the palette is not a repo action or a preference, it is the
+        way into every other action.
+      */}
+      <IconButton
+        icon={CommandIcon}
+        label={`Command Palette (${displayChord(paletteChord)})`}
+        onClick={() => palette.open()}
+      />
+      <span aria-hidden className="h-4 w-px shrink-0 bg-border" />
       <SyncActions />
       {/*
         Install / Build / Test / Launch for whichever checkout is selected —
@@ -829,7 +848,9 @@ export function App() {
   return (
     <ShellProviders queryClient={queryClient}>
       <DialogHost>
-        <Shell />
+        <PaletteHost>
+          <Shell />
+        </PaletteHost>
       </DialogHost>
     </ShellProviders>
   );

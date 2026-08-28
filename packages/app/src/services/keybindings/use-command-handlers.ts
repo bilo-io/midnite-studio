@@ -6,6 +6,7 @@ import { useDialogs } from '../../components/dialog-host';
 import { useGraphStore } from '../../features/graph/graph-store';
 import { syncAffordances } from '../../features/status/sync-availability';
 import { useCommitBoxStore } from '../../store/commit-box-store';
+import { usePaletteStore } from '../../store/palette-store';
 import { useUiStore } from '../../store/ui-store';
 import { useWorkbenchStore } from '../../store/workbench-store';
 import { useCloseRepo, usePickAndOpenRepo, useRepos } from '../queries';
@@ -31,9 +32,7 @@ const NO_REPO = 'Open a repository first';
  * repo is selected, what the branch looks like) rather than a stale snapshot
  * taken once. `op.abort`/`op.continue` are present, per `CommandRuntime` being
  * a total map over `CommandId`, but stay disabled: Phase 22 owns operation
- * state and wiring them here would collide with the larger phase for two
- * rows. `palette.open`/`palette.files` are likewise present-but-disabled until
- * Theme C builds the surface they open.
+ * state and wiring them here would collide with the larger phase for two rows.
  */
 export function useCommandHandlers(): CommandRuntime {
   const dialogs = useDialogs();
@@ -138,17 +137,10 @@ export function useCommandHandlers(): CommandRuntime {
     'op.abort': { enabled: false, disabledReason: 'Coming in Phase 22', run: () => {} },
     'op.continue': { enabled: false, disabledReason: 'Coming in Phase 22', run: () => {} },
 
-    // Theme C builds the surface these open; until then they are visible and
-    // honestly unavailable rather than silently inert.
-    'palette.open': {
-      enabled: false,
-      disabledReason: 'Command palette coming soon',
-      run: () => {},
-    },
-    'palette.files': {
-      enabled: false,
-      disabledReason: 'Command palette coming soon',
-      run: () => {},
-    },
+    'palette.open': { enabled: true, run: () => usePaletteStore.getState().open() },
+    // Pins the mode rather than typing a sigil for it: there is no file sigil
+    // in the query grammar (see `parsePaletteQuery`), because the finder is
+    // reached by chord, not by typing '?' or similar.
+    'palette.files': { enabled: true, run: () => usePaletteStore.getState().open('files') },
   };
 }
