@@ -34,6 +34,9 @@ asar: true
 asarUnpack:
   # Native modules cannot be loaded from inside an asar.
   - '**/*.node'
+  # The broker script runs under ELECTRON_RUN_AS_NODE outside the asar.
+  - 'dist/bundle/broker.js'
+  - '**/node_modules/node-pty/**'
   # dugite's bundled git — 42MB of real executables that must exist on disk.
   # dugite resolves them relative to its own __dirname and already rewrites an
   # `app.asar` segment to `app.asar.unpacked`, so unpacking here is all it needs.

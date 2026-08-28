@@ -215,8 +215,8 @@ export function agentIdMatchesKind(
 /**
  * How much output is kept per session, in bytes.
  *
- * Sized to hold a few thousand lines — enough that a restored agent session
- * still shows the conversation that produced the state you left it in, and small
- * enough that a dozen of them cost a few megabytes on disk rather than hundreds.
+ * Sized to hold 1 MB — enough that a restored agent session still shows the
+ * conversation that produced the state you left it in, and the buffer now lives
+ * in the detached broker process.
  */
-export const SCROLLBACK_BYTES = 256 * 1024;
+export const SCROLLBACK_BYTES = 1024 * 1024;
