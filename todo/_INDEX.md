@@ -24,7 +24,7 @@ Completed work is logged append-only in [`done.md`](done.md). Deferred scope liv
 | [27 · The footer becomes a status bar, and the browser it makes room for](phase-27-status-bar-and-browser-panel.md) | 🔄 WIP | x1 | 19/89 | `██░░░░░░░░` | 21% | — | D–H |
 | [26 · Side by side, and the room to show it](phase-26-side-by-side-diffs.md) | ◻ TODO | — | 0/68 | `░░░░░░░░░░` | 0% | — | A–H |
 | [25 · Search everywhere, and the blame that explains it](phase-25-search-everywhere.md) | ◻ TODO | x1 | 0/101 | `░░░░░░░░░░` | 0% | — | A–F |
-| [24 · The explorer learns to write, and to search](phase-24-writable-explorer.md) | 🔄 WIP | — | 7/54 | `█░░░░░░░░░` | 13% | B | C–G |
+| [24 · The explorer learns to write, and to search](phase-24-writable-explorer.md) | 🔄 WIP | — | 14/54 | `███░░░░░░░` | 26% | — | C–G |
 | [23 · A command palette, and the registry that can feed it](phase-23-command-palette.md) | 🔄 WIP | — | 4/55 | `█░░░░░░░░░` | 7% | B | C–H |
 | [22 · Stash, the reflog, and writes you can take back](phase-22-stash-and-safety-net.md) | 🔄 WIP | — | 10/70 | `█░░░░░░░░░` | 14% | — | B–H |
 | [21 · Agent roster + terminal identity](phase-21-agent-roster-and-terminal-identity.md) | 🔄 WIP | — | 43/46 | `█████████░` | 93% | — | 3 manual checks |
@@ -217,10 +217,10 @@ write scope, so `agent-page.tsx` stays read-only without knowing writes exist.*
 - ✅ **A** — the write contract: four `mgit:fs:*` write channels on the `GitOpResult` envelope, an
   `FsVersion` token on the read, and the four "there is deliberately no write channel" comments
   rewritten rather than left stale (landed 2026-08-28)
-- ◻ **B** — the jail learns to write: `confineParent()`, symlink-final-segment refusal, a `.git/`
+- ✅ **B** — the jail learns to write: `confineParent()`, symlink-final-segment refusal, a `.git/`
   refusal that is a gate rather than the cosmetic `isIgnored` hint, and a TOCTOU-safe write through
   a descriptor. `fs-scope-write.ts` sits beside `fs-scope.ts` the way `gh-write.ts` sits beside
-  `gh-cli.ts`.
+  `gh-cli.ts` (landed 2026-08-28)
 - ◻ **C** — mutations in the tree: the tree's first `onContextMenu`, a `writable` opt-in prop,
   inline rename, and `shell.trashItem()` delete behind a confirm that counts the uncommitted work
   it is about to bin.

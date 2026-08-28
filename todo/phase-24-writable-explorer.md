@@ -85,45 +85,55 @@ Lands first; every other theme reads off it.
 
 *No jail, no main-process write handlers, no UI yet — that's Themes B and C.*
 
-### B — The jail learns to write (M)
+### B — The jail learns to write (M) — ✅ DONE (2026-08-28)
 
 The load-bearing theme. Everything a write can do wrong, it does wrong here.
 
-- [ ] New `desktop/src/main/fs-scope-write.ts` beside
+- [x] New `desktop/src/main/fs-scope-write.ts` beside
       [`fs-scope.ts`](../packages/desktop/src/main/fs-scope.ts), following the
       [`gh-write.ts`](../packages/desktop/src/main/forge/gh-write.ts) precedent — a separate module
-      with its own bounds comment, so the reader module's claim about itself stays true. Export
-      `confineParent(root, relPath)`: `joinWithin` the whole path, then `realpath` the **parent**
-      and require it under the real root, and return `{ dir, name }` with the final segment
-      unresolved. Refuse a final segment that is `.`, `..`, empty, contains a separator, or is
-      `.git`.
-- [ ] Refuse a **symlink as the final segment** of any write, create, rename or delete. `confineToRoot`
-      resolves the link and hands back its target — harmless for a read, and for a write it silently
-      rewrites whatever the link points at. `lstat().isSymbolicLink()` is the check; a dangling link
-      must fail as "not a regular file", not as "not allowed", or the message lies.
-- [ ] Refuse any path under `.git/` outright, at any depth. `isIgnored` marks it in listings today
-      and that flag is **cosmetic** — it is a hint to the renderer, never a gate.
-- [ ] Close the TOCTOU window. Between confinement and the write, the path can be swapped for a
-      symlink. Use `open(path, 'wx')` for create and `open(path, 'r+')` + `fstat` for overwrite,
-      compare the `fstat` against the caller's `FsVersion`, and write through the descriptor —
-      never re-resolve the path by name after checking it. **Nothing in the repo does this today;
-      this is the theme's real work.**
-- [ ] New `desktop/src/main/ipc/fs-write-handlers.ts` with `registerFsWriteHandlers()`, mirroring
-      how [`fs-handlers.ts`](../packages/desktop/src/main/ipc/fs-handlers.ts) is laid out. Delete
-      goes through Electron's `shell.trashItem()` — macOS Trash, recoverable in Finder — not
-      `unlink`. Enforce `FS_WRITE_CAP_BYTES` and refuse to overwrite a file the renderer never
-      loaded as text.
-- [ ] Decide the write-queue question explicitly and write the answer down in the module comment.
-      Git writes serialise through
-      [`write-queue.ts`](../packages/git-engine/src/exec/write-queue.ts), whose `onActivity` also
-      suppresses the watcher's echo. A plain fs write bypasses both, so a save bounces back as a
-      `worktree` watch event. *Recommendation:* leave it outside the queue — that is exactly how an
-      external editor behaves and the queue exists for `index.lock`, not for file bytes — and let
-      Theme G handle the echo.
-- [ ] Unit tests beside [`fs-scope.test.ts`](../packages/desktop/src/main/fs-scope.test.ts):
-      `confineParent` over `..` traversal, absolute paths, a `C:\` string, NUL, an empty final
-      segment, a symlinked parent pointing out of the root, a symlinked final segment, `.git/config`,
-      and a name that is a separator.
+      with its own bounds comment. `confineParent(root, relPath)` shape-checks the whole path with
+      `joinWithin` first (absolute paths, a `C:\` drive string, `..` traversal, NUL — the same guard
+      the read jail applies, so a single-segment relPath with nothing to split on still gets it),
+      then `realpath`s the **parent** and requires it under the real root, returning `{ dir, name }`
+      with the final segment unresolved. Refuses a final segment that is `.`, `..`, empty, contains
+      a separator, or is `.git` — and requires the immediate parent to already exist (no
+      `mkdir -p`; nothing in the UI ever produces a multi-segment new path).
+- [x] Refuses a **symlink as the final segment** of write, rename and delete via
+      `isSymlinkTarget()` (`lstat().isSymbolicLink()`, a dangling link included). Create refuses the
+      same case for free — `O_CREAT | O_EXCL` fails outright if anything, symlink included, already
+      sits at the target.
+- [x] Refuses any path under `.git/` outright, at any depth (`hasGitSegment`), not just as a final
+      segment.
+- [x] Closes the TOCTOU window by writing through a descriptor rather than re-resolving the path by
+      name: `open(path, O_CREAT | O_EXCL | O_WRONLY)` for create, `open(path, O_RDWR | O_NOFOLLOW)`
+      for overwrite (stronger than a bare `'r+'` — the open call itself refuses a symlink swapped in
+      after confinement), `fstat` compared against the caller's `FsVersion`, write through the same
+      handle. A new directory has no descriptor to open through, so `createDirectory` closes the
+      narrower residual race with `mkdir` (which already refuses `EEXIST`) plus an immediate
+      `lstat` re-check.
+- [x] New `desktop/src/main/ipc/fs-write-handlers.ts` with `registerFsWriteHandlers()`, mirroring
+      how [`fs-handlers.ts`](../packages/desktop/src/main/ipc/fs-handlers.ts) is laid out (and now
+      exports the shared `SNIFF_BYTES` constant so the two files can't drift on the binary-sniff
+      threshold). Delete goes through Electron's `shell.trashItem()` — macOS Trash, recoverable in
+      Finder — not `unlink`. Enforces `FS_WRITE_CAP_BYTES` and re-sniffs the on-disk bytes for a
+      NUL before overwriting, refusing a binary target the renderer could not really have loaded as
+      text. Rename refuses a destination that already exists (fail closed, no silent `mv`-style
+      clobber); a shared `describeFsError()` maps `ENOENT`/`EACCES`/`EEXIST`/etc. to one message
+      table across all four handlers.
+- [x] Decided the write-queue question and wrote it down in the module comment: fs writes stay
+      **outside** `write-queue.ts` — that queue exists to serialise writers racing on
+      `index.lock`, and a plain file write never touches it, exactly like an external editor
+      saving the same file. The consequence (the watcher's own write-echo) is left for Theme G.
+- [x] Unit tests beside [`fs-scope.test.ts`](../packages/desktop/src/main/fs-scope.test.ts), in new
+      `fs-scope-write.test.ts` (39 cases) and `ipc/fs-write-handlers.test.ts` (16 cases):
+      `confineParent` over `..` traversal, absolute paths, a `C:\` string, NUL, an empty/separator
+      final segment, a symlinked parent pointing out of the root, `.git` at any depth and as a final
+      segment; `isSymlinkTarget` on a real file, a symlink, and a dangling symlink; `createFile`/
+      `openForOverwrite` refusing a pre-existing symlink; and, at the handler level, an overwrite
+      refusing on a stale `FsVersion` with `{ok:false, code:'stale-write'}` rather than a throw, a
+      refused binary overwrite, a refused oversized write, and rename/delete/create collision and
+      symlink refusals.
 
 ### C — Mutations in the tree (M)
 

@@ -2,6 +2,38 @@
 
 <!-- Append one entry per landed phase/PR: date, phase, PR link, one-line summary. -->
 
+## 2026-08-28 — Phase 24 Theme B — the jail learns to write
+
+The load-bearing theme of the phase: `fs-scope-write.ts` confines a write's *parent* (never its
+own target, which a create doesn't have yet) and closes the create/overwrite race by writing
+through a descriptor rather than re-resolving the path by name, instead of `fs-scope.ts`'s
+symlink-following `confineToRoot`, which is correct for a read and wrong for a write.
+
+- [x] **`confineParent(root, relPath)`** shape-checks the whole path first (absolute, a `C:\` drive
+      string, `..` traversal, NUL), then `realpath`s the parent and requires it under the real
+      root, returning `{dir, name}` with the final segment left unresolved. Refuses `.`/`..`/empty/
+      separator-bearing/`.git` final segments and requires the immediate parent to already exist —
+      no `mkdir -p`, since nothing in the UI ever produces a multi-segment new path
+- [x] **A symlink at the final segment is always refused** — `isSymlinkTarget()` for
+      write/rename/delete, and `O_CREAT | O_EXCL` closes the same case for create by construction
+- [x] **`.git` refused at any depth**, not just as a final segment (`hasGitSegment`)
+- [x] **The TOCTOU window closes at the descriptor**: `open(..., O_CREAT | O_EXCL | O_WRONLY)` for
+      create, `open(..., O_RDWR | O_NOFOLLOW)` for overwrite — stronger than a bare `'r+'`, since
+      `O_NOFOLLOW` itself refuses a symlink swapped in after confinement — `fstat` compared against
+      the caller's `FsVersion`, write through the same handle. `createDirectory` (no descriptor to
+      open through) closes the narrower residual race with `mkdir`'s own `EEXIST` plus an immediate
+      `lstat` re-check
+- [x] **`fs-write-handlers.ts`** wires all four channels through the jail: overwrite re-sniffs the
+      on-disk bytes for a NUL before truncating (the version check alone can't catch a file that was
+      always binary), rename refuses a destination collision (fail closed, no silent `mv`-style
+      clobber), delete goes through `shell.trashItem()`, and a shared `describeFsError()` maps
+      `ENOENT`/`EACCES`/`EEXIST`/etc. to one message table across all four handlers
+- [x] **Decided the write-queue question**: fs writes stay outside `write-queue.ts` (that queue
+      serialises writers racing on `index.lock`; a plain file write never touches it), leaving the
+      watcher's write-echo for Theme G
+- [x] 55 new Vitest cases across `fs-scope-write.test.ts` and `ipc/fs-write-handlers.test.ts`,
+      including the stale-write refusal riding `{ok:false, code:'stale-write'}` rather than a throw
+
 ## 2026-08-28 — Phase 23 Theme A — the registry becomes palette-shaped
 
 Reconciles the 15-id/13-binding split that made the registry unable to feed a palette. One
