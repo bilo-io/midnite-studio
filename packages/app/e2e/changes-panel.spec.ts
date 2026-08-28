@@ -230,3 +230,39 @@ test('picking a file switches the pane back to its single diff, and back again',
   await expect(page.getByTestId('diff-view')).toHaveCount(1);
   await expect(page.getByText('Select a file to see its diff.')).toHaveCount(0);
 });
+
+/**
+ * The commit box: an empty message costs no vertical space (no button, one
+ * line of textarea), and both come back once there is something to commit.
+ */
+test('the commit button only appears once a message is typed', async ({ page }) => {
+  await open(page);
+  const commitButton = page.getByRole('button', { name: /^Commit/ });
+  await expect(commitButton).toHaveCount(0);
+
+  await page.getByPlaceholder('Commit message').fill('fix: something');
+  await expect(commitButton).toBeVisible();
+
+  await page.getByPlaceholder('Commit message').fill('');
+  await expect(commitButton).toHaveCount(0);
+});
+
+test('the commit textarea grows with content and shrinks back after committing', async ({
+  page,
+}) => {
+  await open(page);
+  const textarea = page.getByPlaceholder('Commit message');
+  const oneLineHeight = await textarea.evaluate((el) => el.getBoundingClientRect().height);
+
+  await textarea.fill('line one\nline two\nline three\nline four');
+  const grownHeight = await textarea.evaluate((el) => el.getBoundingClientRect().height);
+  expect(grownHeight).toBeGreaterThan(oneLineHeight);
+
+  // `src/a.ts` is staged in the base fixture, so a non-empty message alone
+  // satisfies `canSubmit`.
+  await page.getByRole('button', { name: /^Commit/ }).click();
+
+  await expect(page.getByRole('button', { name: /^Commit/ })).toHaveCount(0);
+  const shrunkHeight = await textarea.evaluate((el) => el.getBoundingClientRect().height);
+  expect(shrunkHeight).toBeLessThan(grownHeight);
+});

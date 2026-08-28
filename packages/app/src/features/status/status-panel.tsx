@@ -31,6 +31,9 @@ import { ChangesAccordion } from '../changes/changes-accordion';
 import { FileDiff } from './file-diff';
 import { StatusMark } from './status-mark';
 
+/** Cap on the commit message textarea's autogrow, past which it scrolls. */
+const COMMIT_TEXTAREA_MAX_HEIGHT = 160;
+
 /**
  * The changes panel: staged/unstaged lists, a commit box, and the sync bar.
  *
@@ -120,6 +123,19 @@ export function StatusPanel() {
   };
 
   const canSubmit = !busy && message.trim().length > 0 && staged.length > 0;
+
+  /**
+   * Autogrow: starts at one line-height and expands with content up to
+   * `COMMIT_TEXTAREA_MAX_HEIGHT`, past which it scrolls. Re-measures on every
+   * `message` change, so it also collapses back to one line once `onCommit`
+   * clears the message.
+   */
+  useEffect(() => {
+    const textarea = textareaRef.current;
+    if (!textarea) return;
+    textarea.style.height = 'auto';
+    textarea.style.height = `${Math.min(textarea.scrollHeight, COMMIT_TEXTAREA_MAX_HEIGHT)}px`;
+  }, [message]);
 
   /**
    * The seam `status.commit` (Mod+Enter) calls through — see
@@ -287,17 +303,19 @@ export function StatusPanel() {
             value={message}
             onChange={(event) => setMessage(event.target.value)}
             placeholder="Commit message"
-            rows={3}
-            className="w-full resize-none rounded-md border border-input bg-background px-2 py-1.5 text-sm outline-none focus:ring-1 focus:ring-ring"
+            rows={1}
+            className="w-full resize-none overflow-y-auto rounded-md border border-input bg-background px-2 py-1.5 text-sm outline-none focus:ring-1 focus:ring-ring"
           />
-          <button
-            type="button"
-            onClick={() => void onCommit()}
-            disabled={!canSubmit}
-            className="mt-1.5 w-full rounded-md bg-primary px-2 py-1.5 text-sm font-medium text-primary-foreground transition-opacity disabled:opacity-40"
-          >
-            Commit {staged.length > 0 ? `${staged.length} file${staged.length === 1 ? '' : 's'}` : ''}
-          </button>
+          {message.length > 0 ? (
+            <button
+              type="button"
+              onClick={() => void onCommit()}
+              disabled={!canSubmit}
+              className="mt-1.5 w-full rounded-md bg-primary px-2 py-1.5 text-sm font-medium text-primary-foreground transition-opacity disabled:opacity-40"
+            >
+              Commit {staged.length > 0 ? `${staged.length} file${staged.length === 1 ? '' : 's'}` : ''}
+            </button>
+          ) : null}
         </div>
       </div>
       <ResizeHandle resizable={list} axis="x" label="Resize file list" />
