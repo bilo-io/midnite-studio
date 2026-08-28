@@ -1,7 +1,5 @@
 import { useState } from 'react';
 
-import type { Remote } from '@midnite/git-shared';
-import { pickForgeRemote } from '@midnite/git-shared';
 import {
   ChevronDown,
   ChevronRight,
@@ -39,57 +37,32 @@ import {
   type ForgeStatus,
 } from '../forge/forge-status';
 import { REVIEW_GROUPS, type ReviewGroup } from '../reviews/review-groups';
-import type { SectionKey } from './view-sections';
 
 /**
- * A repository's CI runs and open pull requests, in the sidebar tree.
+ * A repository's CI runs, in the sidebar tree — one of Forge's four children
+ * (Phase 28 Theme F), rendered by `RepoTree`'s generic section walk exactly
+ * like `TestsSection`, rather than through the opaque pair this file used to
+ * export as `ForgeSections`. `RepoTree` has already decided the repo has a
+ * GitHub remote before this ever mounts, so there is no gate here — see
+ * `hasGithubForge` at its one call site.
  *
- * Both sections are lazy on their own fold state: an unopened section issues no
- * query, and a query is a `gh` subprocess plus an API request against the
- * user's rate limit. That is a stronger gate than the rest of the tree needs —
- * refs cost a local `for-each-ref` — and it is why these default to CLOSED
- * while Local and Worktrees default to open.
- *
- * Absent entirely for a repository with no GitHub remote. `gh` speaks GitHub
- * only, so for a GitLab or local-path remote there is nothing here that could
- * ever load; the same reasoning keeps the forge link off a `RemoteGroup` it
- * cannot resolve. A section that is permanently empty is not a section.
+ * Lazy on its own fold state: an unopened section issues no query, and a
+ * query is a `gh` subprocess plus an API request against the user's rate
+ * limit. That is a stronger gate than the rest of the tree needs — refs cost
+ * a local `for-each-ref` — and it is why this defaults to CLOSED while Local
+ * and Worktrees default to open.
  */
-export function ForgeSections({
+export function ActionsSection({
   repoId,
-  remotes,
   index,
-  visible,
+  depth,
 }: {
   repoId: string;
-  remotes: readonly Remote[];
-  /** Cascade offset, so these animate in with the rest of the tree. */
+  /** Cascade offset, so this animates in with the rest of the tree. */
   index: number;
-  /**
-   * Whether the active view shows a given section, from the one table in
-   * `view-sections.ts`.
-   *
-   * Passed in rather than read from the store here so that "which sections does
-   * this view show" has exactly one answer. A forge section that consulted the
-   * view itself would be a second answer, free to disagree with the tree above
-   * it — and the two would drift the first time a view was added to only one of
-   * them.
-   */
-  visible: (key: SectionKey) => boolean;
+  /** The generic walk's own depth for this node — `2`, since Forge sits at 1. */
+  depth: 1 | 2;
 }) {
-  const forge = pickForgeRemote(remotes)?.forge ?? null;
-  if (forge?.kind !== 'github') return null;
-
-  return (
-    <>
-      {visible('actions') ? <ActionsSection repoId={repoId} index={index} /> : null}
-      {visible('reviews') ? <ReviewsSection repoId={repoId} index={index + 1} /> : null}
-      {visible('issues') ? <IssuesSection repoId={repoId} index={index + 2} /> : null}
-    </>
-  );
-}
-
-function ActionsSection({ repoId, index }: { repoId: string; index: number }) {
   const [open, setOpen] = useState(false);
   const selectRun = useActionsStore((s) => s.selectRun);
   const selectRepo = useUiStore((s) => s.selectRepo);
@@ -116,7 +89,7 @@ function ActionsSection({ repoId, index }: { repoId: string; index: number }) {
       collapsible
       open={open}
       onToggle={() => setOpen((v) => !v)}
-      depth={1}
+      depth={depth}
       // A section that hid itself when empty could never show the "gh is not
       // signed in" card, which is the one state the user can actually fix.
       hideWhenEmpty={false}
@@ -130,12 +103,18 @@ function ActionsSection({ repoId, index }: { repoId: string; index: number }) {
           : undefined
       }
     >
-      <Unavailable result={data} isFetching={isFetching} empty="No workflow runs yet." />
+      <Unavailable
+        result={data}
+        isFetching={isFetching}
+        empty="No workflow runs yet."
+        depth={(depth + 1) as 2 | 3}
+      />
 
       {runs.map((run, i) => (
         <ForgeRow
           key={run.id}
           index={i + index}
+          depth={(depth + 1) as 2 | 3}
           status={runStatus(run)}
           title={run.name}
           subtitle={[run.headBranch ?? 'detached', run.event].filter(Boolean).join(' · ')}
@@ -181,7 +160,9 @@ function ActionsSection({ repoId, index }: { repoId: string; index: number }) {
             setActiveView('actions');
           }}
         >
-          {expandedRun === run.id ? <RunJobs repoId={repoId} runId={run.id} /> : null}
+          {expandedRun === run.id ? (
+            <RunJobs repoId={repoId} runId={run.id} depth={(depth + 2) as 3 | 4} />
+          ) : null}
         </ForgeRow>
       ))}
     </TreeSection>
@@ -196,10 +177,19 @@ function ActionsSection({ repoId, index }: { repoId: string; index: number }) {
  * already being asked: the red dot says the run failed, and this says which job.
  * Fetched only while the row is expanded, for the usual subprocess reason.
  */
-function RunJobs({ repoId, runId }: { repoId: string; runId: string }) {
+function RunJobs({
+  repoId,
+  runId,
+  depth,
+}: {
+  repoId: string;
+  runId: string;
+  /** One rung deeper than the run row it hangs off. */
+  depth: 3 | 4;
+}) {
   const { data, isFetching } = useForgeRunDetail(repoId, runId, true);
 
-  if (!data) return isFetching ? <Note depth={3}>Reading the run…</Note> : null;
+  if (!data) return isFetching ? <Note depth={depth}>Reading the run…</Note> : null;
 
   /*
     The same four empties the sections above distinguish, one level down.
@@ -210,15 +200,15 @@ function RunJobs({ repoId, runId }: { repoId: string; runId: string }) {
     rather than about the CLI.
   */
   if (data.cli.reason !== 'ready') {
-    return <Note depth={3}>{data.cli.hint || 'The GitHub CLI is unavailable.'}</Note>;
+    return <Note depth={depth}>{data.cli.hint || 'The GitHub CLI is unavailable.'}</Note>;
   }
-  if (data.error) return <Note depth={3} tone="destructive">{data.error}</Note>;
+  if (data.error) return <Note depth={depth} tone="destructive">{data.error}</Note>;
 
   const jobs = data.detail?.jobs ?? [];
-  if (jobs.length === 0) return <Note depth={3}>No jobs in this run.</Note>;
+  if (jobs.length === 0) return <Note depth={depth}>No jobs in this run.</Note>;
 
   return (
-    <ul className="ml-14 border-l border-border/60 pb-1 pl-2">
+    <ul className={`${depth === 4 ? 'ml-17' : 'ml-14'} border-l border-border/60 pb-1 pl-2`}>
       {jobs.map((job) => (
         <li key={job.id} className="flex items-center gap-1.5 py-0.5 pr-2 text-[12px]">
           <StatusPill status={jobStatus(job)} />
@@ -254,7 +244,15 @@ function RunJobs({ repoId, runId }: { repoId: string; runId: string }) {
  * siblings and for exactly the same reason: opening it costs a `gh` subprocess
  * and a request against the user's rate limit.
  */
-function IssuesSection({ repoId, index }: { repoId: string; index: number }) {
+export function IssuesSection({
+  repoId,
+  index,
+  depth,
+}: {
+  repoId: string;
+  index: number;
+  depth: 1 | 2;
+}) {
   const [open, setOpen] = useState(false);
   const { data, isFetching } = useForgeIssues(repoId, open);
   const refresh = useRefreshForge(repoId);
@@ -270,7 +268,7 @@ function IssuesSection({ repoId, index }: { repoId: string; index: number }) {
       collapsible
       open={open}
       onToggle={() => setOpen((v) => !v)}
-      depth={1}
+      depth={depth}
       hideWhenEmpty={false}
       action={open ? { icon: RefreshCw, label: 'Refresh issues', onClick: refresh } : undefined}
     >
@@ -281,15 +279,21 @@ function IssuesSection({ repoId, index }: { repoId: string; index: number }) {
         own and not a message — the dashboard reads it to drop the widget.
       */}
       {data?.disabled ? (
-        <Note>Issues are turned off for this repository.</Note>
+        <Note depth={(depth + 1) as 2 | 3}>Issues are turned off for this repository.</Note>
       ) : (
-        <Unavailable result={data} isFetching={isFetching} empty="No open issues." />
+        <Unavailable
+          result={data}
+          isFetching={isFetching}
+          empty="No open issues."
+          depth={(depth + 1) as 2 | 3}
+        />
       )}
 
       {issues.map((issue, i) => (
         <ForgeRow
           key={issue.number}
           index={i + index}
+          depth={(depth + 1) as 2 | 3}
           status={issueStatus(issue)}
           title={issue.title}
           subtitle={[
@@ -323,7 +327,15 @@ function IssuesSection({ repoId, index }: { repoId: string; index: number }) {
  * `useRefreshForge` invalidates the repository's whole forge prefix anyway: a
  * per-group button would claim a precision it does not have.
  */
-function ReviewsSection({ repoId, index }: { repoId: string; index: number }) {
+export function ReviewsSection({
+  repoId,
+  index,
+  depth,
+}: {
+  repoId: string;
+  index: number;
+  depth: 1 | 2;
+}) {
   const [open, setOpen] = useState(false);
   const refresh = useRefreshForge(repoId);
 
@@ -334,7 +346,7 @@ function ReviewsSection({ repoId, index }: { repoId: string; index: number }) {
       collapsible
       open={open}
       onToggle={() => setOpen((v) => !v)}
-      depth={1}
+      depth={depth}
       hideWhenEmpty={false}
       action={
         open ? { icon: RefreshCw, label: 'Refresh pull requests', onClick: refresh } : undefined
@@ -347,6 +359,7 @@ function ReviewsSection({ repoId, index }: { repoId: string; index: number }) {
           group={group}
           sectionOpen={open}
           index={index + i}
+          depth={(depth + 1) as 2 | 3}
         />
       ))}
     </TreeSection>
@@ -367,11 +380,13 @@ function ReviewsGroup({
   group,
   sectionOpen,
   index,
+  depth,
 }: {
   repoId: string;
   group: ReviewGroup;
   sectionOpen: boolean;
   index: number;
+  depth: 2 | 3;
 }) {
   const [open, setOpen] = useState(false);
   const { data, isFetching } = useForgePulls(repoId, sectionOpen && open, 20, 'open', group.scope);
@@ -390,16 +405,21 @@ function ReviewsGroup({
       collapsible
       open={open}
       onToggle={() => setOpen((v) => !v)}
-      depth={2}
+      depth={depth}
       hideWhenEmpty={false}
     >
-      <Unavailable result={data} isFetching={isFetching} empty={group.empty} depth={3} />
+      <Unavailable
+        result={data}
+        isFetching={isFetching}
+        empty={group.empty}
+        depth={(depth + 1) as 3 | 4}
+      />
 
       {pulls.map((pull, i) => (
         <ForgeRow
           key={pull.number}
           index={i + index}
-          depth={3}
+          depth={(depth + 1) as 3 | 4}
           status={pullStatus(pull)}
           extra={checksStatus(pull)}
           title={pull.title}
@@ -444,13 +464,13 @@ function Unavailable({
   result,
   isFetching,
   empty,
-  depth = 2,
+  depth,
 }: {
   result: { cli: { reason: string; hint: string }; error: string | null } | undefined;
   isFetching: boolean;
   empty: string;
-  /** Matches the rows this note stands in for — 3 inside a Reviews group. */
-  depth?: 2 | 3;
+  /** Matches the rows this note stands in for — one rung deeper inside a Reviews group. */
+  depth: 2 | 3 | 4;
 }) {
   if (!result) {
     return isFetching ? <Note depth={depth}>Asking GitHub…</Note> : null;
@@ -476,7 +496,7 @@ function Unavailable({
  * them. `TreeSection`'s children are a fragment, so this cannot know whether
  * any rows follow it — CSS can: the note hides itself whenever a row is present.
  */
-function EmptyIfNoRows({ children, depth = 2 }: { children: React.ReactNode; depth?: 2 | 3 }) {
+function EmptyIfNoRows({ children, depth }: { children: React.ReactNode; depth: 2 | 3 | 4 }) {
   return (
     <p
       className={`${TREE_INDENT[depth]} py-1.5 pr-2 text-xs text-muted-foreground [&:not(:last-child)]:hidden`}
@@ -489,16 +509,17 @@ function EmptyIfNoRows({ children, depth = 2 }: { children: React.ReactNode; dep
 function Note({
   children,
   tone = 'muted',
-  depth = 2,
+  depth,
 }: {
   children: React.ReactNode;
   tone?: 'muted' | 'destructive';
   /**
-   * Where the note sits on the tree's indent ladder — 2 for a note that belongs
-   * to a section, 3 for one that belongs to a row (a run's jobs) or to a group
-   * nested inside a section (the Reviews scopes).
+   * Where the note sits on the tree's indent ladder — one rung deeper for a
+   * note that belongs to a row (a run's jobs) or to a group nested inside a
+   * section (the Reviews scopes) than for one that belongs to the section
+   * itself.
    */
-  depth?: 2 | 3;
+  depth: 2 | 3 | 4;
 }) {
   return (
     <p
@@ -521,12 +542,12 @@ function Note({
  * `noUncheckedIndexedAccess` makes an arithmetic index `string | undefined`,
  * and a Tailwind class that can be `undefined` is a silently unindented row.
  */
-const ROW_INDENT = { 2: TREE_INDENT[2], 3: TREE_INDENT[3] } as const;
-const EXPANDABLE_INDENT = { 2: TREE_INDENT[1], 3: TREE_INDENT[2] } as const;
+const ROW_INDENT = { 2: TREE_INDENT[2], 3: TREE_INDENT[3], 4: TREE_INDENT[4] } as const;
+const EXPANDABLE_INDENT = { 2: TREE_INDENT[1], 3: TREE_INDENT[2], 4: TREE_INDENT[3] } as const;
 
 function ForgeRow({
   index,
-  depth = 2,
+  depth,
   status,
   extra,
   title,
@@ -538,8 +559,8 @@ function ForgeRow({
   children,
 }: {
   index: number;
-  /** 2 for a row directly under a section, 3 for one inside a nested group. */
-  depth?: 2 | 3;
+  /** One rung deeper for a row inside a nested group (a Reviews scope) than for one directly under a section. */
+  depth: 2 | 3 | 4;
   /*
     `ForgeStatus`, not a re-spelled copy of its fields. The inline literal that
     used to sit here was already a duplicate of the exported type, and it broke

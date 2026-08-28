@@ -21,7 +21,7 @@ Completed work is logged append-only in [`done.md`](done.md). Deferred scope liv
 | Phase | Status | Refined | Done | Progress | % | 🔄 WIP | ◻ TODO |
 |-------|--------|---------|------|----------|---|--------|--------|
 | [29 · Markdown slides, everywhere markdown already renders](phase-29-markdown-slides-viewer.md) | ◻ TODO | — | 0/21 | `░░░░░░░░░░` | 0% | — | A–E |
-| [28 · Worktrees first, and the section tree that can say so](phase-28-sidebar-section-tree.md) | 🔄 WIP | — | 34/61 | `██████░░░░` | 56% | F, G | H |
+| [28 · Worktrees first, and the section tree that can say so](phase-28-sidebar-section-tree.md) | 🔄 WIP | — | 59/62 | `██████████` | 95% | — | 3 verification items |
 | [27 · The footer becomes a status bar, and the browser it makes room for](phase-27-status-bar-and-browser-panel.md) | 🔄 WIP | x1 | 72/90 | `████████░░` | 80% | — | 18 verification items |
 | [26 · Side by side, and the room to show it](phase-26-side-by-side-diffs.md) | ◻ TODO | — | 0/68 | `░░░░░░░░░░` | 0% | — | A–H |
 | [25 · Search everywhere, and the blame that explains it](phase-25-search-everywhere.md) | ◻ TODO | x1 | 0/101 | `░░░░░░░░░░` | 0% | — | A–F |
@@ -113,16 +113,23 @@ hand-editing six files — which is exactly what Phase 22 Theme B is currently w
   `branchesCount()`) and a `parentSectionMenu` beside (not widening) `sectionMenu`, since
   `RefSectionKey` stays narrow and a parent has no refs — New branch…/Fetch all/Prune
   remote-tracking refs, the latter two both the same `fetch` call since pruning is already
-  every fetch's default. Forge's own count is deferred to Theme F: `forge` has no rendered
-  heading yet to attach one to (landed 2026-08-28, merged locally — no PR/no remote).
-- ◻ **F** — Actions/Reviews/Issues/Tests nest under a Forge parent, which hides entirely on a repo with
-  no forge remote — the parent rule doing its job rather than a new check. Also gives Forge the
-  count Theme E left unpopulated.
-- ◻ **G** — Settings ▸ Sidebar catches up: `SECTION_LABELS` is a `Record<SectionKey, string>`, so the
-  new keys are a compile error until done, and `describeFilter` reads the nesting.
-- ◻ **H** — reconciliation: rewrite the now-false `"'Local', not 'Branches'"` comment, document the
-  three exhaustive `Record`s an adder must fill, and record that Phase 22 Theme B now registers against
-  the reserved `stashes` slot. Phase 22's own doc is not edited here.
+  every fetch's default. Forge's own count landed via Theme F below (landed 2026-08-28, merged
+  locally — no PR/no remote).
+- ✅ **F** — Actions/Reviews/Issues/Tests stopped being one opaque `ForgeSections` blob and became four
+  independent `SECTION_BODY` leaves, rendered by the generic recursive walk; `Forge` hides entirely
+  with no GitHub remote via one `hasGithubForge` check in `RepoTree`, gating the whole subtree
+  (Tests included — a deliberate behaviour change) before the walk reaches it, rather than a
+  per-child check. Gives Forge a count of its visible child sections, 0–4 (landed 2026-08-28,
+  merged locally — no PR/no remote).
+- ✅ **G** — Settings ▸ Sidebar catches up: a new `summarizeSections()` pure helper collapses a fully
+  admitted parent's children to the parent's own name in `describeNarrowed`; `SECTION_LABELS` was
+  already complete from Theme A (landed 2026-08-28, merged locally — no PR/no remote).
+- ✅ **H** — reconciliation: `view-sections.ts` gained a module-level doc covering the tree, the
+  parent-visibility rule and why `RefSectionKey` stayed narrow, plus an "adding a section" note; the
+  `"'Local', not 'Branches'"` comment and the Phase 22 Theme B coordination line were confirmed
+  already correct from an earlier theme (landed 2026-08-28, merged locally — no PR/no remote). Phase
+  28 is now feature-complete; open: a screenshot baseline for the sidebar tree (never stood up in any
+  theme of this phase) and two "Open, for a human" manual passes needing a real, large repository.
 
 ### [Phase 27 — The footer becomes a status bar, and the browser it makes room for](phase-27-status-bar-and-browser-panel.md)
 
