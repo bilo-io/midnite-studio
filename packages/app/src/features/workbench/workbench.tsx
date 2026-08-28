@@ -1,6 +1,3 @@
-import { useEffect } from 'react';
-
-import { useRepos } from '../../services/queries';
 import { useUiStore } from '../../store/ui-store';
 import { useWorkbenchStore } from '../../store/workbench-store';
 import { AllChangesView } from '../changes/all-changes-view';
@@ -20,32 +17,19 @@ import { TabStrip } from './tab-strip';
  * The working-tree tab is not in the store and cannot be closed: it follows
  * whatever the sidebar has selected, it is where the commit box lives, and a
  * strip that can be emptied to nothing is a view with no content.
+ *
+ * A closed repository's tabs are pruned by `usePruneClosedRepos`, mounted
+ * once from `Shell` rather than here — this component only renders while the
+ * Changes view is active, and a repo closed while looking at the Graph should
+ * not have to wait for that.
  */
 export function Workbench() {
   const tabs = useWorkbenchStore((s) => s.tabs);
   const activeTabId = useWorkbenchStore((s) => s.activeTabId);
   const focusTab = useWorkbenchStore((s) => s.focusTab);
   const closeTab = useWorkbenchStore((s) => s.closeTab);
-  const closeRepoTabs = useWorkbenchStore((s) => s.closeRepoTabs);
 
   const selectedWorktreePath = useUiStore((s) => s.selectedWorktreePath);
-  const { data: repos } = useRepos();
-
-  /**
-   * A closed repository takes its tabs with it.
-   *
-   * Driven off the repo list rather than the close mutation, because a repo can
-   * also leave the list without anyone clicking Close — a failed restore, a
-   * registry rewrite. Reconciling against the truth covers both; hooking the
-   * mutation would cover one and look like it covered both.
-   */
-  useEffect(() => {
-    if (!repos) return;
-    const open = new Set(repos.map((repo) => repo.id));
-    for (const tab of useWorkbenchStore.getState().tabs) {
-      if (!open.has(tab.repoId)) closeRepoTabs(tab.repoId);
-    }
-  }, [repos, closeRepoTabs]);
 
   const active = tabs.find((tab) => tab.id === activeTabId) ?? null;
 

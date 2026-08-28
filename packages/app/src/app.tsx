@@ -31,6 +31,7 @@ import { GraphView } from './features/graph/graph-view';
 import { RepoLifecycleActions } from './features/repos/repo-lifecycle-actions';
 import { ReposPanel } from './features/repos/repos-panel';
 import { useDefaultSelection } from './features/repos/use-default-selection';
+import { usePruneClosedRepos } from './features/repos/use-prune-closed-repos';
 import { primaryTarget } from './features/repos/use-repo-actions';
 import { ReviewsView } from './features/reviews/reviews-view';
 import { SettingsView } from './features/settings/settings-view';
@@ -310,6 +311,7 @@ function Shell() {
   const toggleNavSection = useUiStore((s) => s.toggleNavSection);
 
   useDefaultSelection();
+  usePruneClosedRepos();
 
   const forgeAvailable = useForgeGateAvailable(selectedRepoId);
 

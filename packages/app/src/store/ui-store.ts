@@ -306,6 +306,25 @@ export type UiState = {
    */
   collapsedSettingsGroups: string[];
   /**
+   * Which of a repo's sidebar sections are folded shut, by repo id.
+   *
+   * Same closed-set inversion as `collapsedNavSections`, one level down: a
+   * section added later starts open with no migration, and a repo opened for
+   * the first time has no entry at all rather than an explicit empty one —
+   * that's what lets {@link pruneRepoSections} tell "closed everything" apart
+   * from "never had an opinion".
+   *
+   * The value type is `string[]`, not `SectionKey[]`: `RemoteGroup`'s own fold
+   * state joins this map too, under a composite `remotes:<name>` key that is
+   * not a member of `SectionKey`. Callers that only ever pass a real
+   * `SectionKey` get that guarantee from `toggleRepoSection` in
+   * `features/repos/view-sections.ts`, which wraps the untyped
+   * {@link toggleRepoSectionKey} below — kept here rather than typed against
+   * `SectionKey` directly because `view-sections.ts` already imports from this
+   * store, and the reverse import would cycle.
+   */
+  collapsedRepoSections: Record<string, string[]>;
+  /**
    * Per-view override of whether the repositories sidebar is narrowed to what
    * the view is about — the "Show all sections" escape hatch.
    *
@@ -393,6 +412,15 @@ export type UiState = {
   setNavMode: (mode: NavMode) => void;
   toggleSettingsGroup: (key: SettingsGroupId) => void;
   toggleNavSection: (key: string) => void;
+  /**
+   * The untyped primitive: any string key, for `RemoteGroup`'s composite
+   * `remotes:<name>` keys as well as real `SectionKey`s. Prefer
+   * `toggleRepoSection` (`features/repos/view-sections.ts`) at a normal
+   * `SectionKey` call site — this exists for the one caller that cannot use it.
+   */
+  toggleRepoSectionKey: (repoId: string, key: string) => void;
+  /** Drops a repo's entry entirely once it leaves the workspace. */
+  pruneRepoSections: (repoId: string) => void;
   /** Flip one view's sidebar between "what this view needs" and the whole tree. */
   setSectionFilter: (view: ViewId, filtered: boolean) => void;
   /**
@@ -540,6 +568,7 @@ type PersistedUi = Pick<
   | 'navMode'
   | 'collapsedNavSections'
   | 'collapsedSettingsGroups'
+  | 'collapsedRepoSections'
   | 'sectionFilters'
   | 'diffShowOldGutter'
   | 'graphTheme'
@@ -589,6 +618,7 @@ export const useUiStore = create<UiState>()(
       navMode: 'auto',
       collapsedNavSections: [],
       collapsedSettingsGroups: [],
+      collapsedRepoSections: {},
       sectionFilters: {},
       graphTheme: DEFAULT_GRAPH_THEME,
       graphDensity: DEFAULT_GRAPH_DENSITY,
@@ -660,6 +690,24 @@ export const useUiStore = create<UiState>()(
             ? state.collapsedSettingsGroups.filter((k) => k !== key)
             : [...state.collapsedSettingsGroups, key],
         })),
+      toggleRepoSectionKey: (repoId, key) =>
+        set((state) => {
+          const closed = state.collapsedRepoSections[repoId] ?? [];
+          return {
+            collapsedRepoSections: {
+              ...state.collapsedRepoSections,
+              [repoId]: closed.includes(key)
+                ? closed.filter((k) => k !== key)
+                : [...closed, key],
+            },
+          };
+        }),
+      pruneRepoSections: (repoId) =>
+        set((state) => {
+          if (!(repoId in state.collapsedRepoSections)) return {};
+          const { [repoId]: _dropped, ...rest } = state.collapsedRepoSections;
+          return { collapsedRepoSections: rest };
+        }),
       setSectionFilter: (view, filtered) =>
         set((state) => ({ sectionFilters: { ...state.sectionFilters, [view]: filtered } })),
       resetSectionFilters: () => set({ sectionFilters: {} }),
@@ -686,12 +734,15 @@ export const useUiStore = create<UiState>()(
     }),
     {
       name: 'midnite-git.ui',
+      // 3 — `collapsedRepoSections` is new (Phase 28 Theme D); a v2 payload has
+      // no such key, and the migration below supplies `{}` for it.
+      //
       // 2 — `graphColumns.author` was retired when the avatar took over naming
       // the author, and `branchTag` took its place in the table. The `classic`
       // style has since brought the column back, but NOT the migration: a width
       // last chosen before Phase 14 is two schema versions stale, and the
       // current default is a better guess than it is.
-      version: 2,
+      version: 3,
       /**
        * Geometry and chrome preferences persist; everything about *this
        * session* does not.
@@ -711,6 +762,7 @@ export const useUiStore = create<UiState>()(
         navMode: state.navMode,
         collapsedNavSections: state.collapsedNavSections,
         collapsedSettingsGroups: state.collapsedSettingsGroups,
+        collapsedRepoSections: state.collapsedRepoSections,
         /*
           Persisted alongside `collapsedNavSections`, and for the same reason:
           both are the shape the user has arranged the sidebar into, not a
@@ -760,15 +812,22 @@ export const useUiStore = create<UiState>()(
        * no longer about a key with no column behind it — it is about a value
        * chosen for a table that had different neighbouring columns and a 26px
        * row. The merge below refills it from the defaults.
+       *
+       * v2 → v3: supply `{}` for `collapsedRepoSections`, which did not exist
+       * yet. An empty map reads as "no repo has folded anything", the correct
+       * default for a key with no prior opinion.
        */
       migrate: (persisted, version) => {
-        if (version >= 2) return persisted as PersistedUi;
         const state = (persisted ?? {}) as Record<string, unknown> & {
           graphColumns?: Record<string, number>;
+          collapsedRepoSections?: Record<string, string[]>;
         };
-        if (state.graphColumns) {
+        if (version < 2 && state.graphColumns) {
           const { author: _retired, ...rest } = state.graphColumns;
           state.graphColumns = rest;
+        }
+        if (version < 3) {
+          state.collapsedRepoSections = {};
         }
         return state as PersistedUi;
       },

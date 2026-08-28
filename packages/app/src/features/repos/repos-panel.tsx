@@ -59,6 +59,7 @@ import { TestsSection } from '../tests/tests-section';
 import {
   ALL_SECTIONS,
   SECTION_TREE,
+  toggleRepoSection,
   useViewSections,
   type RefSectionKey,
   type SectionKey,
@@ -697,26 +698,40 @@ const SECTION_TITLE: Record<SectionKey, string> = {
   tests: 'Tests',
 };
 
+/** A stable empty array, so a repo with no folds never re-renders on it. */
+const NO_CLOSED_SECTIONS: readonly string[] = [];
+
 /**
- * Fold state for a repo's subsections.
+ * Fold state for a repo's subsections, persisted in the ui-store keyed by
+ * repo id (`collapsedRepoSections`).
  *
  * Held as the set of *closed* sections so a section defaults to open without
  * having to be listed — a repo the user just opened should show its tree, and
- * a section they folded away should stay folded while the repo stays expanded.
+ * a section they folded away should stay folded across repo switches and
+ * restarts alike.
  */
-function useSectionToggles() {
-  const [closed, setClosed] = useState<ReadonlySet<SectionKey>>(() => new Set());
+function useSectionToggles(repoId: string) {
+  const closed = useUiStore((s) => s.collapsedRepoSections[repoId] ?? NO_CLOSED_SECTIONS);
+  const toggleKey = useUiStore((s) => s.toggleRepoSectionKey);
 
-  return (key: SectionKey) => ({
+  const section = (key: SectionKey) => ({
     collapsible: true,
-    open: !closed.has(key),
-    onToggle: () =>
-      setClosed((prev) => {
-        const next = new Set(prev);
-        if (!next.delete(key)) next.add(key);
-        return next;
-      }),
+    open: !closed.includes(key),
+    onToggle: () => toggleRepoSection(repoId, key),
   });
+
+  /**
+   * `RemoteGroup`'s own fold, one composite key per remote (`remotes:origin`)
+   * rather than a `SectionKey` — there is one `remotes` section but many
+   * remotes, each with its own fold. Joins the same map as `section` above so
+   * pruning and persistence both cover it for free.
+   */
+  const remoteGroup = (name: string) => {
+    const key = `remotes:${name}`;
+    return { open: !closed.includes(key), onToggle: () => toggleKey(repoId, key) };
+  };
+
+  return { section, remoteGroup };
 }
 
 export function RepoTree({
@@ -743,7 +758,7 @@ export function RepoTree({
   onCheckout: (ref: Ref) => void;
 }) {
   const [showAllTags, setShowAllTags] = useState(false);
-  const section = useSectionToggles();
+  const { section, remoteGroup } = useSectionToggles(repo.id);
   const dialogs = useDialogs();
 
   const { branches, remotes: remoteGroups, tags } = useMemo(() => partitionRefs(refs), [refs]);
@@ -912,6 +927,7 @@ export function RepoTree({
             forge={forgeByName.get(group.name) ?? null}
             menu={refMenu}
             depth={(depth + 1) as 2 | 3}
+            {...remoteGroup(group.name)}
           />
         ))}
       </TreeSection>
@@ -1037,6 +1053,8 @@ function RemoteGroup({
   forge,
   menu,
   depth,
+  open,
+  onToggle,
 }: {
   name: string;
   refs: Ref[];
@@ -1044,8 +1062,10 @@ function RemoteGroup({
   menu: (ref: Ref) => MenuItem[];
   /** This group heading's own rung; its refs render one rung deeper. */
   depth: 2 | 3;
+  /** Fold state, lifted to the ui-store — see `useSectionToggles`'s `remoteGroup`. */
+  open: boolean;
+  onToggle: () => void;
 }) {
-  const [open, setOpen] = useState(true);
   const projectUrl = forge ? forgeProjectUrl(forge) : null;
 
   return (
@@ -1055,7 +1075,7 @@ function RemoteGroup({
       icon={<Cloud aria-hidden className="h-3 w-3 shrink-0 text-muted-foreground" />}
       collapsible
       open={open}
-      onToggle={() => setOpen((v) => !v)}
+      onToggle={onToggle}
       depth={depth}
       action={
         projectUrl === null || forge === null

@@ -20,7 +20,7 @@ Completed work is logged append-only in [`done.md`](done.md). Deferred scope liv
 
 | Phase | Status | Refined | Done | Progress | % | 🔄 WIP | ◻ TODO |
 |-------|--------|---------|------|----------|---|--------|--------|
-| [28 · Worktrees first, and the section tree that can say so](phase-28-sidebar-section-tree.md) | 🔄 WIP | 22/60 | `████░░░░░░` | 37% | D, E | F–H |
+| [28 · Worktrees first, and the section tree that can say so](phase-28-sidebar-section-tree.md) | 🔄 WIP | 30/61 | `█████░░░░░` | 49% | E | F–H |
 | [27 · The footer becomes a status bar, and the browser it makes room for](phase-27-status-bar-and-browser-panel.md) | 🔄 WIP | x1 | 62/90 | `███████░░░` | 69% | H | — |
 | [26 · Side by side, and the room to show it](phase-26-side-by-side-diffs.md) | ◻ TODO | — | 0/68 | `░░░░░░░░░░` | 0% | — | A–H |
 | [25 · Search everywhere, and the blame that explains it](phase-25-search-everywhere.md) | ◻ TODO | x1 | 0/101 | `░░░░░░░░░░` | 0% | — | A–F |
@@ -80,9 +80,11 @@ hand-editing six files — which is exactly what Phase 22 Theme B is currently w
 - ✅ **C** — `RepoTree` renders from the tree: one `renderSection` walk plus a `SECTION_BODY` map
   replaces the four literal blocks, so a section the declaration does not contain cannot be rendered.
   Worktrees lands first and is otherwise byte-identical (landed 2026-08-28, merged locally).
-- ◻ **D** — folds survive: `collapsedRepoSections` joins the ui-store beside `collapsedNavSections` and
+- ✅ **D** — folds survive: `collapsedRepoSections` joins the ui-store beside `collapsedNavSections` and
   `collapsedSettingsGroups`, per repo, `version: 2 → 3` with a migrate, `RemoteGroup`'s bare `useState`
-  folded in, and pruning on repo close.
+  folded in, and pruning on repo close — via a new `use-prune-closed-repos.ts` mounted from `Shell`,
+  not `repo-lifecycle.ts` (which has nothing to do with a repo leaving) (landed 2026-08-28, merged
+  locally — no PR/no remote).
 - ◻ **E** — the Branches heading earns itself: a combined count and a `parentSectionMenu` beside (not
   widening) `sectionMenu`, since `RefSectionKey` stays narrow and a parent has no refs. Forge gets a
   count and deliberately no menu.

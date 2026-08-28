@@ -27,6 +27,36 @@ Closes out Theme G now that D and E have both landed and unblocked its three rem
 - [x] The `…` overflow button's "N more" naming (checklist item only — `OverflowPopover` already
       had it from Theme E; just ticked).
 
+## 2026-08-28 — Phase 28 Theme D — sidebar folds survive
+
+Merged locally on `feature/phase-28-d-fold-persist` — no PR link, no GitHub remote on this checkout.
+
+`useSectionToggles()` was a per-`RepoTree` `useState`, forgetting every fold the moment a repo
+collapsed and re-expanded (which unmounts `RepoTree` outright) or the app restarted. Its closed-key
+set moves into `ui-store`'s new `collapsedRepoSections: Record<string, string[]>`, keyed by repo id,
+the same closed-set inversion `collapsedNavSections`/`collapsedSettingsGroups` already use.
+`toggleRepoSection(repoId, key: SectionKey)` is a typed wrapper in `view-sections.ts` — not on the
+store itself, since `ui-store.ts` importing `SectionKey` from `view-sections.ts` would cycle back
+(that module already imports `useUiStore`) — over the store's untyped `toggleRepoSectionKey`.
+`RemoteGroup`'s own bare `useState(true)` is gone too: its fold joins the same map under a composite
+`remotes:<name>` key, via `useSectionToggles(repoId)`'s second return, `remoteGroup(name)`.
+
+- [x] `collapsedRepoSections` in the persist union, `partialize`, and a `version: 2 → 3` migration
+      supplying `{}` for an older payload
+- [x] **Pruning went somewhere other than the doc named.** `repo-lifecycle.ts` guesses
+      install/build/test/launch shell commands and has nothing to do with a repo leaving the
+      workspace — the real precedent was `workbench.tsx`'s own `useEffect` reconciling `useRepos()`
+      against its tabs. Extracted into `use-prune-closed-repos.ts`, which now prunes both the
+      workbench tabs and `collapsedRepoSections` from one place, mounted once from `Shell`
+      (`app.tsx`) instead of living inside `Workbench` — which only renders for the Changes view, so
+      a repo closed while looking at the Graph used to keep stale state around unpruned until the
+      user happened to visit Changes
+- [x] `ui-store.test.ts`: eight new cases under `describe('repo section folds')` — round-trip,
+      per-repo independence, the composite `RemoteGroup` key, pruning (including the no-op case),
+      persistence, and the v2 → v3 migration
+- [x] `e2e/repo-section-folds.spec.ts` (new): a folded `Remotes` section survives collapsing and
+      re-expanding the repo row and a full reload; a `RemoteGroup`'s own fold persists independently
+
 ## 2026-08-28 — Phase 27 Theme E — status bar overflow
 
 Merged locally on `feature/phase-27-e-overflow` — no PR link, no GitHub remote on this checkout.
