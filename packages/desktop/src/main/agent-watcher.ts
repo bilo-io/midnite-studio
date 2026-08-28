@@ -1,6 +1,12 @@
 import type { AgentDefinition } from '@midnite/git-shared';
 
-import { matchRunningAgent, readProcessRows, type ProcessRow } from './agent-process';
+import {
+  commandLabel,
+  foregroundOf,
+  matchRunningAgent,
+  readProcessRows,
+  type ProcessRow,
+} from './agent-process';
 
 /**
  * When to look at a pty's process tree, and what to tell the renderer.
@@ -82,6 +88,13 @@ export type AgentWatcherDeps = {
   listRoster: () => Promise<readonly AgentDefinition[]>;
   /** Send the change to the renderer. Called only when the answer differs. */
   emit: (event: { ptyId: string; agentId: string | null }) => void;
+  /**
+   * Send a foreground-command change to the renderer. Called only when the
+   * answer differs — same change-only contract as {@link emit}, same
+   * QUIET_MS/ROWS_TTL_MS cadence, and read off the SAME `ps` snapshot rather
+   * than a second read.
+   */
+  emitCommand: (event: { ptyId: string; command: string | null }) => void;
   /** `setTimeout`, as a seam — a test drives the debounce rather than waiting. */
   setTimer: (fn: () => void, ms: number) => Timer;
   /** `Date.now`, as a seam for the shared-read TTL. */
@@ -103,6 +116,13 @@ type Tracked = {
    */
   observed: boolean;
   pending: Timer | null;
+  /**
+   * The foreground command last sent, or `null` for "never probed / at a
+   * bare prompt". Unlike `lastKnown`, there is no seed and no grace window —
+   * a shell's own naming has nothing to protect against a matcher that
+   * cannot recognise a form, since it names whatever `ps` actually shows.
+   */
+  lastCommand: string | null;
 };
 
 export function createAgentWatcher(deps: AgentWatcherDeps): AgentWatcher {
@@ -142,6 +162,19 @@ export function createAgentWatcher(deps: AgentWatcherDeps): AgentWatcher {
     // Re-read: the pty can exit while the process table is being read.
     const still = tracked.get(ptyId);
     if (!still) return;
+
+    /*
+      The foreground command, off the SAME snapshot rather than a second `ps`
+      read — change-only, and with none of the agentId grace window below: a
+      shell's name has nothing to protect, since it names whatever `ps`
+      actually shows rather than guessing at a roster match.
+    */
+    const fg = foregroundOf(rows, still.pid);
+    const command = fg ? commandLabel(fg.args) : null;
+    if (command !== still.lastCommand) {
+      still.lastCommand = command;
+      deps.emitCommand({ ptyId, command });
+    }
 
     const agentId = matchRunningAgent(rows, still.pid, roster);
     if (agentId === still.lastKnown) {
@@ -190,7 +223,13 @@ export function createAgentWatcher(deps: AgentWatcherDeps): AgentWatcher {
 
   return {
     track: (ptyId, pid, declaredAgentId) => {
-      tracked.set(ptyId, { pid, lastKnown: declaredAgentId, observed: false, pending: null });
+      tracked.set(ptyId, {
+        pid,
+        lastKnown: declaredAgentId,
+        observed: false,
+        pending: null,
+        lastCommand: null,
+      });
     },
 
     noteOutput: (ptyId) => {
@@ -214,11 +253,13 @@ export function createAgentWatcher(deps: AgentWatcherDeps): AgentWatcher {
 export function realAgentWatcherDeps(
   listRoster: () => Promise<readonly AgentDefinition[]>,
   emit: (event: { ptyId: string; agentId: string | null }) => void,
+  emitCommand: (event: { ptyId: string; command: string | null }) => void,
 ): AgentWatcherDeps {
   return {
     readRows: readProcessRows,
     listRoster,
     emit,
+    emitCommand,
     setTimer: (fn, ms) => {
       const handle = setTimeout(fn, ms);
       // Bookkeeping about what is on screen must never hold the process open.

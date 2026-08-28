@@ -5,7 +5,9 @@ import { BUILTIN_AGENTS, type AgentDefinition } from '@midnite/git-shared';
 import { describe, expect, it } from 'vitest';
 
 import {
+  commandLabel,
   descendantsOf,
+  foregroundOf,
   matchAgentInArgv,
   matchRunningAgent,
   parsePsOutput,
@@ -38,16 +40,16 @@ const agentOf = (name: string, rosterOverride?: readonly AgentDefinition[]): str
 
 describe('parsePsOutput', () => {
   it("reads the leading-space padding header-suppressed ps actually emits", () => {
-    const parsed = parsePsOutput('    1     0 /sbin/launchd\n60000 59980 /bin/zsh -l\n');
+    const parsed = parsePsOutput('    1     0 Ss  /sbin/launchd\n60000 59980 S+  /bin/zsh -l\n');
 
     expect(parsed).toEqual([
-      { pid: 1, ppid: 0, args: '/sbin/launchd' },
-      { pid: 60_000, ppid: 59_980, args: '/bin/zsh -l' },
+      { pid: 1, ppid: 0, stat: 'Ss', args: '/sbin/launchd' },
+      { pid: 60_000, ppid: 59_980, stat: 'S+', args: '/bin/zsh -l' },
     ]);
   });
 
-  it('keeps the spaces inside a command line, splitting only the two pid columns', () => {
-    const [row] = parsePsOutput('60072 60000 node /opt/homebrew/bin/codex --model gpt-5');
+  it('keeps the spaces inside a command line, splitting only the three leading columns', () => {
+    const [row] = parsePsOutput('60072 60000 S+  node /opt/homebrew/bin/codex --model gpt-5');
 
     expect(row?.args).toBe('node /opt/homebrew/bin/codex --model gpt-5');
   });
@@ -58,11 +60,23 @@ describe('parsePsOutput', () => {
    * ends up wearing an agent's mark.
    */
   it('skips a line that does not start with two integers', () => {
-    expect(parsePsOutput('not a process row\n  60000 59980 /bin/zsh\n')).toHaveLength(1);
+    expect(parsePsOutput('not a process row\n  60000 59980 S+  /bin/zsh\n')).toHaveLength(1);
   });
 
   it('skips a row with a pid but no command line at all', () => {
-    expect(parsePsOutput('60000 59980   \n')).toEqual([]);
+    expect(parsePsOutput('60000 59980 S+     \n')).toEqual([]);
+  });
+
+  /**
+   * Four columns, always — the parser does not tolerate the pre-Theme-E
+   * three-column shape. A parser that guessed its column count is a trap the
+   * next column change springs the same way.
+   */
+  it('reads exactly four columns, never guessing a missing STAT', () => {
+    // No stat token at all: "60000" "59980" "/bin/zsh" would otherwise be
+    // read as pid/ppid/stat with an empty args, and dropped as a row with no
+    // command line — which is the correct, if easy to get wrong, outcome.
+    expect(parsePsOutput('60000 59980 /bin/zsh\n')).toEqual([]);
   });
 });
 
@@ -298,5 +312,46 @@ describe('matchRunningAgent', () => {
 
   it('finds nothing when the roster is empty', () => {
     expect(agentOf('ps-bare-agent', [])).toBeNull();
+  });
+});
+
+describe('foregroundOf', () => {
+  it('names the single foreground process under the pty', () => {
+    const fg = foregroundOf(rows('ps-foreground-single'), SHELL_PID);
+    expect(fg?.args).toBe('pnpm dev');
+  });
+
+  /**
+   * A shell forks a pipeline's members left to right, so the highest pid is
+   * the rightmost command — `less`, in `git log | less`, which is what the
+   * user is actually looking at.
+   */
+  it('names the last member of a pipeline by pid, not the first', () => {
+    const fg = foregroundOf(rows('ps-foreground-pipeline'), SHELL_PID);
+    expect(fg?.args).toBe('less');
+  });
+
+  it('is null at a bare prompt, with nothing else in the tree', () => {
+    expect(foregroundOf(rows('ps-bare-prompt'), SHELL_PID)).toBeNull();
+  });
+
+  it('is null for a background job with no + in its STAT', () => {
+    expect(foregroundOf(rows('ps-background-job'), SHELL_PID)).toBeNull();
+  });
+});
+
+describe('commandLabel', () => {
+  it('reduces argv[0] to its basename and keeps the rest', () => {
+    expect(commandLabel('/usr/local/bin/pnpm dev')).toBe('pnpm dev');
+  });
+
+  it('passes a bare command through unchanged', () => {
+    expect(commandLabel('less')).toBe('less');
+  });
+
+  it('truncates a long line to 40 characters ending in an ellipsis', () => {
+    const label = commandLabel(`/usr/bin/git ${'a'.repeat(60)}`);
+    expect(label).toHaveLength(40);
+    expect(label.endsWith('…')).toBe(true);
   });
 });

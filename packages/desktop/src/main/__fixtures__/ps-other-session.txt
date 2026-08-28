@@ -1,4 +1,4 @@
-    1     0 /sbin/launchd
-60000 59980 /bin/zsh -l
-61000 59980 /bin/zsh -l
-61041 61000 claude
+    1     0 S+  /sbin/launchd
+60000 59980 S+  /bin/zsh -l
+61000 59980 S+  /bin/zsh -l
+61041 61000 S+  claude

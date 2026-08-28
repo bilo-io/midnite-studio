@@ -1,0 +1,2 @@
+    1     0 Ss  /sbin/launchd
+60000 59980 Ss+  /bin/zsh -l
