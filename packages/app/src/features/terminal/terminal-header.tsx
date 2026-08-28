@@ -1,14 +1,15 @@
 import type { AgentDefinition, RepoDescriptor } from '@midnite/git-shared';
-import { ChevronDown, ChevronUp, List, Plus, Terminal, X } from 'lucide-react';
+import { ChevronDown, ChevronUp, List, Plus, Terminal, TriangleAlert, X } from 'lucide-react';
 
 import { IconButton } from '../../components/icon-button';
 import { resolveAgentIcon } from '../../components/icons';
 import { StateDot } from '../../components/state-dot';
+import { Tooltip } from '../../components/tooltip';
 import { bridge } from '../../services/bridge';
 import { useUiStore } from '../../store/ui-store';
 import { splitHeaderPath } from './header-path';
 import { resolveRepoForPath } from './resolve-repo-for-path';
-import type { ConnectionState } from './terminal-store';
+import { useTerminalStore, type ConnectionState } from './terminal-store';
 
 export type TerminalHeaderProps = {
   /** The active session's cwd, falling back to the selected worktree. */
@@ -49,6 +50,8 @@ export function TerminalHeader({
   maximized,
   onNewMenu,
 }: TerminalHeaderProps) {
+  const broker = useTerminalStore((s) => s.broker);
+
   return (
     /*
       Named for the e2e suite: the one thing that must be true of this strip is
@@ -62,6 +65,14 @@ export function TerminalHeader({
       <HeaderMark agent={agent} />
       <StateDot state={state} />
       <HeaderPath path={path} repos={repos} />
+
+      {broker.mode === 'inproc' && broker.reason ? (
+        <Tooltip label={`Sessions will not survive quit — ${broker.reason}`}>
+          <div className="flex items-center text-amber-500" tabIndex={0} role="status">
+            <TriangleAlert className="h-3.5 w-3.5" />
+          </div>
+        </Tooltip>
+      ) : null}
 
       {/* `ml-auto` and shrink-0: the path is the only thing that gives ground. */}
       <div className="ml-auto flex shrink-0 items-center gap-0.5">

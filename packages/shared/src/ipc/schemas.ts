@@ -887,6 +887,12 @@ export const RestoredTerminalSession = z.object({
 });
 export const TerminalListResponse = z.object({
   sessions: z.array(RestoredTerminalSession),
+  broker: z
+    .object({
+      mode: z.enum(['broker', 'inproc']),
+      reason: z.string().optional(),
+    })
+    .optional(),
 });
 
 export const TerminalSaveRequest = z.object({ session: TerminalSessionSchema });

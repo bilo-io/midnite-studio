@@ -44,3 +44,10 @@ await build({
   entryPoints: [resolve(root, 'src/preload/index.ts')],
   outfile: resolve(root, 'dist/bundle/preload.js'),
 });
+
+await build({
+  ...common,
+  entryPoints: [resolve(root, 'src/broker/index.ts')],
+  outfile: resolve(root, 'dist/bundle/broker.js'),
+});
+

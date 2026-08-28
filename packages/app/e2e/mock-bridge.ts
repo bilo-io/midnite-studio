@@ -931,6 +931,7 @@ export async function installMockBridge(page: Page, fixtures: MockFixtures): Pro
       */
       terminal: {
         list: async () => ({
+          broker: { mode: 'broker' as const },
           sessions: (data.terminalSessions ?? []).map((entry) => {
             const live = entry.live ?? null;
             // A live row's pty must already exist in the fake process table —

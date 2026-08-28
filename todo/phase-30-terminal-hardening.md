@@ -252,9 +252,9 @@ that pty.
         like `ptyCreate` (`:17`): `{ bytes: trimScrollback(readScrollback(sessionIdOf(ptyId)), SCROLLBACK_BYTES) }`;
         an unknown `ptyId` answers `{ bytes: new Uint8Array(0) }`, never throws.
 
-### C — The session broker (L)
+#### C — The session broker (L) — ✅ DONE (2026-08-28)
 
-- [ ] `packages/desktop/src/broker/` — a standalone entry built beside `main` and `preload`, spawned
+- [x] `packages/desktop/src/broker/` — a standalone entry built beside `main` and `preload`, spawned
       as `process.execPath` with `ELECTRON_RUN_AS_NODE=1`, `detached: true`, `stdio` to a log file,
       `.unref()`. Same binary ⇒ same ABI ⇒ `moon run desktop:rebuild-native` stays the whole native
       story. **Resolved — a third esbuild output, asar-unpacked.**
@@ -276,7 +276,7 @@ that pty.
       - Inside the broker: `require(join(__dirname, '..', '..', 'node_modules', 'node-pty'))` resolved
         against the unpacked directory; a failure is fatal to the broker (exit code 3) and main's
         fail-soft path takes over.
-- [ ] Protocol over a unix domain socket at
+- [x] Protocol over a unix domain socket at
       `join(userData, 'broker', \`${app.getVersion()}${app.isPackaged ? '' : '-dev'}.sock\`)`:
       length-prefixed frames, a `hello` handshake carrying `{ protocol, appVersion, pid }`. Namespaced
       by version **and** a `-dev` suffix because `app.setName('Midnite Git')` (`index.ts:85`) makes the
@@ -303,7 +303,7 @@ that pty.
         `chmod 0600` immediately after `listen`, the pidfile `<same>.pid` written `0600`. Same trust
         boundary as `terminals.json` and `scrollback/*.bin` in the same directory, which already hold
         every transcript; a shared-secret token was considered and rejected (Decisions).
-- [ ] The broker owns what `pty-service.ts` owns today: spawn (`$SHELL -l` via `resolveShell()`
+- [x] The broker owns what `pty-service.ts` owns today: spawn (`$SHELL -l` via `resolveShell()`
       `:146-152`, `name: 'xterm-256color'`), write, resize, kill, the per-session ring buffer
       (`scrollbackBySession` `:92`, `appendScrollback` `:103-114` with its `× 2` slack), `initialInput`
       deferred to the first output chunk (`:226-244`), and the 15 s disk flush. `terminal-store.ts`
@@ -319,7 +319,7 @@ that pty.
         the broker, which now owns the bytes; the **metadata** debounce (`SAVE_DEBOUNCE_MS = 1_000`,
         `:29`, `terminals.json`) stays in main, which owns the rows. `flushScrollback()` in main becomes
         a `flush` verb to the broker.
-- [ ] `pty-service.ts` becomes the broker's client behind an **unchanged exported surface** —
+- [x] `pty-service.ts` becomes the broker's client behind an **unchanged exported surface** —
       `isPidAlive`, `setAgentWatcher`, `readScrollback`, `seedScrollback`, `scrollbackSessionIds`,
       `dropScrollback`, `CreateResult`, `writePty`, `resizePty`, `killPty`, `ptySessionCount`, plus
       B's `livePtyFor` — so [`pty-handlers.ts`](../packages/desktop/src/main/ipc/pty-handlers.ts),
@@ -333,11 +333,11 @@ that pty.
       - `readScrollback(sessionId)` (`:117`) becomes async-backed by a `snapshot` verb with a 200 ms
         in-main cache per `sessionId`, so B's `pty:snapshot` handler and `listTerminals()` do not
         each round-trip.
-- [ ] `SCROLLBACK_BYTES` in [`shared/src/terminal.ts:206`](../packages/shared/src/terminal.ts) rises
+- [x] `SCROLLBACK_BYTES` in [`shared/src/terminal.ts:206`](../packages/shared/src/terminal.ts) rises
       from `256 * 1024` to `1024 * 1024` per session — **resolved, 1 MB** — the buffer no longer lives
       in a process the renderer can restart. `appendScrollback`'s live cap becomes 2 MB; `trimScrollback`
       still writes ≤ 1 MB + 4 to disk. Thirty sessions are 30 MB in the broker, 60 MB worst case.
-- [ ] Lifecycle: main connects on boot, spawning a broker if the socket is dead (stale file → unlink →
+- [x] Lifecycle: main connects on boot, spawning a broker if the socket is dead (stale file → unlink →
       spawn); the broker **exits itself when its last session is killed**; a pidfile beside the socket
       plus `hello` makes "is one already running for this version" answerable. `SIGTERM` flushes and
       lets the ptys die with it.
@@ -352,7 +352,7 @@ that pty.
         only the OS or the user sends it.
       - Two mains of the same version cannot race: `requestSingleInstanceLock()` (`index.ts`) already
         forbids it; dev and packaged differ by `-dev`.
-- [ ] `before-quit` in `index.ts:201-218` **detaches** — `shutdownTerminals()` (metadata flush), then
+- [x] `before-quit` in `index.ts:201-218` **detaches** — `shutdownTerminals()` (metadata flush), then
       `brokerClient.disconnect()` — instead of `killAllPtys()`; `window-all-closed` (`:220-226`)
       likewise: today it kills every pty when the window closes on darwin while the app stays alive,
       so closing the window and reopening from the Dock resurrected dead rows. After this, `activate`
@@ -360,7 +360,7 @@ that pty.
       "processes die on quit" contract is overturned here; its open manual check (*"`ps` shows no
       surviving shells"*, [`phase-15-multi-terminal-sessions.md:143`](phase-15-multi-terminal-sessions.md))
       gets a one-line *superseded by Phase 30* note and is left unticked.
-- [ ] Launch note: after `hydrate`, a status-bar segment reads *Reattached N sessions* for 4 s.
+- [x] Launch note: after `hydrate`, a status-bar segment reads *Reattached N sessions* for 4 s.
       Phase 27 landed `STATUS_SEGMENTS` as **static composition** (`segments.ts:41`, entries
       `{ id, zone, priority, label, El }`), not a registration store — so this is a permanent entry
       whose `El` renders `null` almost always.
@@ -374,7 +374,7 @@ that pty.
         keyframe (`tailwind.config.ts:201`). No dialog, no confirm on quit.
       - Pure helper `noteText(count: number): string | null` tested in `reattached-note.test.ts`
         (`0 → null`, `1 → 'Reattached 1 session'`, `3 → 'Reattached 3 sessions'`).
-- [ ] Version skew: a broker whose `protocol` does not match is **left running**; its sessions list as
+- [x] Version skew: a broker whose `protocol` does not match is **left running**; its sessions list as
       asleep behind a banner (*From a previous version — restart sessions?*) while the new broker starts
       on its own socket. Nothing is killed until the user chooses.
       - Main enumerates `<userData>/broker/*.sock` other than its own at boot; for each, connect +
@@ -390,7 +390,7 @@ that pty.
         dropped with the ended strip's *Start new shell here* offered.
       - A legacy broker with zero sessions needs no action: main disconnects from it after an empty
         `list`, and the last-client rule exits it.
-- [ ] Fail-soft: if the broker cannot be spawned or the socket handshake fails, today's in-main pty
+- [x] Fail-soft: if the broker cannot be spawned or the socket handshake fails, today's in-main pty
       path is used and the reason reaches the user.
       - The in-process implementation is extracted verbatim to
         [`main/inproc-pty.ts`](../packages/desktop/src/main/inproc-pty.ts); `pty-service.ts` is a
@@ -401,7 +401,7 @@ that pty.
         `TriangleAlert` (lucide-react, matching the file) with tooltip
         *Sessions will not survive quit — ${reason}* while `mode === 'inproc'` and `reason` is set.
         The existing `unavailable` state's message is reserved for "in-process also failed".
-- [ ] Vitest against an in-process broker on a temp socket:
+- [x] Vitest against an in-process broker on a temp socket:
       - [`broker/protocol.test.ts`](../packages/desktop/src/broker/protocol.test.ts): a control frame
         split across three `push`es decodes once; two frames in one chunk decode as two; a data frame's
         first 36 bytes round-trip as the `ptyId`; a `payloadLength` larger than 16 MB is rejected.
@@ -416,12 +416,12 @@ that pty.
       - [`main/broker-client.test.ts`](../packages/desktop/src/main/broker-client.test.ts) with fake
         timers: no `hello` within 2 s → `spawn` dep called once; no connect within 5 s after spawn →
         `mode: 'inproc'` with `reason`; `hello` mismatch → `legacyBrokers.size === 1` and a fresh spawn.
-- [ ] Boundary: the broker imports node-pty and `node:net` and nothing from `electron` — it is a Node
+- [x] Boundary: the broker imports node-pty and `node:net` and nothing from `electron` — it is a Node
       program that happens to run under Electron's binary. [`eslint.config.mjs`](../eslint.config.mjs)
       gains a group `{ files: ['packages/desktop/src/broker/**/*.ts'], ...deny([NO_ELECTRON]) }`
       after the `packages/app/src/**` group (`:98`) — desktop has no boundary group today, this is its
       first.
-- [ ] Observability: every lifecycle decision is one log line, through an injectable
+- [x] Observability: every lifecycle decision is one log line, through an injectable
       `log: (message: string) => void` on `BrokerClientDeps` (the `metrics/gpu.ts:69` shape, default
       `console.warn`, since main has no logger) — `[broker] spawned pid=N socket=…`,
       `[broker] connected protocol=N sessions=N`, `[broker] stale socket unlinked`,

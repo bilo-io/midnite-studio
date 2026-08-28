@@ -1,6 +1,6 @@
 import type { AgentDefinition, TerminalSession } from '@midnite/git-shared';
 import { Moon, Terminal, X } from 'lucide-react';
-import { useState } from 'react';
+
 import { LuChevronRight } from 'react-icons/lu';
 
 import { useDialogs } from '../../components/dialog-host';
@@ -35,8 +35,7 @@ export function TerminalSessionList({
   const dialogs = useDialogs();
   const sessions = useTerminalStore((s) => s.sessions);
   const activeId = useTerminalStore((s) => s.activeId);
-  const [dismissLegacy, setDismissLegacy] = useState(false);
-  const hasLegacy = sessions.some((s) => (s as { legacy?: boolean }).legacy);
+
   /*
     Subscribed once for the whole list rather than per row: the probe reports a
     change for one session at a time, and the map is a stable reference between
@@ -92,6 +91,12 @@ export function TerminalSessionList({
     }
   };
 
+  const legacy = useTerminalStore((s) => s.legacy);
+  const legacyBannerDismissed = useTerminalStore((s) => s.legacyBannerDismissed);
+  const dismissLegacyBanner = useTerminalStore((s) => s.dismissLegacyBanner);
+
+  const hasLegacy = Object.values(legacy).some(Boolean);
+
   return (
     <div
       /*
@@ -106,40 +111,38 @@ export function TerminalSessionList({
       onContextMenu={showDockMenu}
       onKeyDown={onKeyDown}
     >
-      {hasLegacy && !dismissLegacy ? (
+      {hasLegacy && !legacyBannerDismissed ? (
         <div
           role="alert"
-          className="m-2 rounded border border-amber-500/30 bg-amber-500/10 p-2 text-xs"
+          className="mx-2 my-1 rounded border border-amber-500/30 bg-amber-500/10 p-2 text-xs text-amber-200"
         >
-          <p className="font-medium text-amber-200">
-            From a previous version — restart sessions?
-          </p>
-          <div className="mt-2 flex gap-2">
+          <p className="font-medium">From a previous version — restart sessions?</p>
+          <div className="mt-1.5 flex gap-2">
             <button
               type="button"
               onClick={() => {
-                const legacySessions = sessions.filter(
-                  (s) => (s as { legacy?: boolean }).legacy,
-                );
-                for (const s of legacySessions) {
-                  useTerminalStore.getState().closeSession(s.id);
-                  useTerminalStore.getState().openSession({
-                    kind: s.kind,
-                    ...(s.agentId ? { agentId: s.agentId } : {}),
-                    title: s.title,
-                    cwd: s.cwd,
-                    repoId: s.repoId,
-                    ...(s.name ? { name: s.name } : {}),
-                  });
+                const store = useTerminalStore.getState();
+                for (const session of sessions) {
+                  if (legacy[session.id]) {
+                    store.closeSession(session.id);
+                    store.openSession({
+                      kind: session.kind,
+                      agentId: session.agentId,
+                      title: session.title,
+                      cwd: session.cwd,
+                      repoId: session.repoId,
+                    });
+                  }
                 }
+                dismissLegacyBanner();
               }}
-              className="rounded bg-amber-500/20 px-2 py-0.5 font-medium text-amber-200 hover:bg-amber-500/30"
+              className="rounded bg-amber-600 px-2 py-0.5 font-medium text-white hover:bg-amber-500"
             >
               Restart
             </button>
             <button
               type="button"
-              onClick={() => setDismissLegacy(true)}
+              onClick={dismissLegacyBanner}
               className="rounded px-2 py-0.5 text-muted-foreground hover:text-foreground"
             >
               Dismiss
@@ -147,7 +150,6 @@ export function TerminalSessionList({
           </div>
         </div>
       ) : null}
-
       <SortableList
         ids={sessions.map((s) => s.id)}
         onReorder={(ids) => useTerminalStore.getState().reorder(ids)}
@@ -251,7 +253,7 @@ function SessionRow({
       // are both inside it and neither is the drag handle.
       data-session-row
       data-phase={phase}
-      className={`group flex w-full cursor-pointer items-center gap-1.5 px-2 py-1.5 text-xs ${
+      className={`group flex w-full cursor-pointer select-none items-center gap-1.5 px-2 py-1.5 text-xs ${
         active ? 'bg-accent/60' : 'hover:bg-accent/30'
       } ${isDragging ? 'opacity-80' : ''} ${phase !== 'live' ? 'opacity-60' : ''}`}
       onContextMenu={showMenu}

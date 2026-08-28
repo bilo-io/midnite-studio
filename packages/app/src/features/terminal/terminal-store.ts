@@ -64,17 +64,18 @@ type TerminalState = {
   activeId: string | null;
   /** False until `hydrate()` has heard back from main, so the UI can wait. */
   hydrated: boolean;
-  /**
-   * How many sessions the last `hydrate()` bound to a live pty — a reload or
-   * relaunch that found processes still running, rather than a cold restore.
-   *
-   * Renderer-only, never persisted. Read by the status-bar "Reattached N
-   * sessions" note (Phase 30 Theme C); until that theme lands nothing renders
-   * it, but `hydrate()` sets it on every launch regardless.
-   */
+  /** How many sessions the last `hydrate()` bound to a live pty. */
   reattachedCount: number;
   /** `Date.now()` at the `hydrate()` that produced `reattachedCount`. */
   reattachedAt: number;
+  /** Whether the reattached note badge was dismissed by the user. */
+  reattachedDismissed: boolean;
+  /** Backend broker status (broker vs fail-soft inproc). */
+  broker: { mode: 'broker' | 'inproc'; reason?: string };
+  /** Whether the legacy sessions banner has been dismissed for this launch. */
+  legacyBannerDismissed: boolean;
+  /** Legacy session markers keyed by sessionId. */
+  legacy: Record<string, boolean>;
 
   /** Live pty per session; absent means the session has no process. */
   ptyIds: Record<string, string>;
@@ -221,6 +222,8 @@ type TerminalState = {
   setForegroundCommand: (sessionId: string, command: string | null) => void;
   setExitCode: (sessionId: string, exitCode: number) => void;
 
+  dismissReattachedNote: () => void;
+  dismissLegacyBanner: () => void;
   bindPty: (sessionId: string, ptyId: string) => void;
   unbindPty: (sessionId: string) => void;
   setState: (sessionId: string, state: ConnectionState, error?: string) => void;
@@ -241,6 +244,10 @@ export const useTerminalStore = create<TerminalState>()((set, get) => ({
   hydrated: false,
   reattachedCount: 0,
   reattachedAt: 0,
+  reattachedDismissed: false,
+  broker: { mode: 'broker' },
+  legacyBannerDismissed: false,
+  legacy: {},
   ptyIds: {},
   states: {},
   exitCodes: {},
@@ -254,6 +261,9 @@ export const useTerminalStore = create<TerminalState>()((set, get) => ({
   foregroundCommand: {},
   focusSignal: 0,
   suppressAutoFocus: false,
+
+  dismissReattachedNote: () => set({ reattachedDismissed: true }),
+  dismissLegacyBanner: () => set({ legacyBannerDismissed: true }),
 
   /**
    * Load the saved sessions. Spawns nothing.
@@ -271,7 +281,9 @@ export const useTerminalStore = create<TerminalState>()((set, get) => ({
       return;
     }
 
-    const { sessions } = await api.terminal.list();
+    const res = await api.terminal.list();
+    const sessions = res.sessions;
+    const broker = res.broker ?? { mode: 'broker' };
 
     /*
       Merged, never replaced.
@@ -293,9 +305,14 @@ export const useTerminalStore = create<TerminalState>()((set, get) => ({
       const liveEntries = sessions.flatMap((e) =>
         e.live ? [{ sessionId: e.session.id, ptyId: e.live.ptyId }] : [],
       );
+      const legacyMap = Object.fromEntries(
+        sessions.filter((e) => e.legacy).map((e) => [e.session.id, true]),
+      );
 
       return {
         hydrated: true,
+        broker,
+        legacy: { ...state.legacy, ...legacyMap },
         sessions: [...restored, ...live],
         // A session opened by hand outranks the restored list for focus: the
         // user asked for it seconds ago, and the saved ones have no process.
