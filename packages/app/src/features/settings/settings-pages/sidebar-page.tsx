@@ -2,7 +2,13 @@ import { Accordion } from '@bilo-io/ui';
 import { LuFilter, LuPanelLeft } from 'react-icons/lu';
 
 import { useUiStore, VIEW_IDS, type NavMode, type ViewId } from '../../../store/ui-store';
-import { filtersByDefault, VIEW_FILTERS, type SectionKey } from '../../repos/view-sections';
+import {
+  ALL_SECTIONS,
+  childrenOf,
+  filtersByDefault,
+  VIEW_FILTERS,
+  type SectionKey,
+} from '../../repos/view-sections';
 import { Choice, Field } from './controls';
 
 /**
@@ -30,12 +36,13 @@ const VIEW_LABELS: Record<ViewId, string> = {
 /**
  * The sidebar's own section headings, reused as the filter's vocabulary.
  *
- * `branches`, `forge` and `stashes` are placeholders here: `SectionKey`
- * widened in Phase 28 Theme A, and `Record<SectionKey, string>` makes an
- * incomplete label map a compile error rather than an `undefined` string. No
- * `VIEW_FILTERS` entry names a parent yet, so these three never render today.
- * Theme G is what makes `describeNarrowed` read the nesting these labels
- * imply.
+ * `branches`, `forge` and `stashes` are placeholders in the sense that
+ * `SectionKey` widened for them in Phase 28 Theme A before any `VIEW_FILTERS`
+ * entry named one directly — `Record<SectionKey, string>` makes an incomplete
+ * label map a compile error rather than an `undefined` string. `stashes` has
+ * no row anywhere on this page yet: Phase 22 is what gives it a body to
+ * describe. `branches` and `forge` are used by `describeNarrowed` below,
+ * which reads the nesting these labels imply.
  */
 const SECTION_LABELS: Record<SectionKey, string> = {
   local: 'Local',
@@ -52,13 +59,39 @@ const SECTION_LABELS: Record<SectionKey, string> = {
 };
 
 /**
+ * Collapses a set of leaf sections to parent names wherever every one of a
+ * parent's children is present — "Branches", not "Local and Remotes" — and
+ * leaves a section naming only some of a parent's children exactly as given.
+ * Order-preserving against `ALL_SECTIONS`, so the result reads in tree order
+ * regardless of the input's own order.
+ *
+ * A pure function of `SectionKey`s rather than of `ViewId` so it is testable
+ * against inputs `VIEW_FILTERS` does not happen to produce today — no entry
+ * currently names every child of a parent, which is exactly the case this
+ * exists for.
+ */
+export function summarizeSections(sections: readonly SectionKey[]): readonly SectionKey[] {
+  const admitted = new Set(sections);
+  for (const key of ALL_SECTIONS) {
+    const children = childrenOf(key);
+    if (children.length > 0 && children.every((child) => admitted.has(child))) {
+      children.forEach((child) => admitted.delete(child));
+      admitted.add(key);
+    }
+  }
+  return ALL_SECTIONS.filter((key) => admitted.has(key));
+}
+
+/**
  * What "narrowed" means for one view, in the sidebar's own section names —
  * spelt out from `VIEW_FILTERS` rather than written by hand, so a view whose
  * narrowing changes cannot leave a stale description here.
  */
 function describeNarrowed(view: ViewId): string {
   const filter = VIEW_FILTERS[view];
-  const names = filter.sections.map((key) => SECTION_LABELS[key]).join(' and ');
+  const names = summarizeSections(filter.sections)
+    .map((key) => SECTION_LABELS[key])
+    .join(' and ');
   return filter.dirtyOnly ? `${names} only, and only checkouts with changes` : `${names} only`;
 }
 
