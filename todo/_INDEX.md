@@ -21,7 +21,7 @@ Completed work is logged append-only in [`done.md`](done.md). Deferred scope liv
 | Phase | Status | Refined | Done | Progress | % | 🔄 WIP | ◻ TODO |
 |-------|--------|---------|------|----------|---|--------|--------|
 | [28 · Worktrees first, and the section tree that can say so](phase-28-sidebar-section-tree.md) | 🔄 WIP | 22/60 | `████░░░░░░` | 37% | — | D–H |
-| [27 · The footer becomes a status bar, and the browser it makes room for](phase-27-status-bar-and-browser-panel.md) | 🔄 WIP | x1 | 37/90 | `████░░░░░░` | 41% | D, E | G, H |
+| [27 · The footer becomes a status bar, and the browser it makes room for](phase-27-status-bar-and-browser-panel.md) | 🔄 WIP | x1 | 37/90 | `████░░░░░░` | 41% | D, E, G | H |
 | [26 · Side by side, and the room to show it](phase-26-side-by-side-diffs.md) | ◻ TODO | — | 0/68 | `░░░░░░░░░░` | 0% | — | A–H |
 | [25 · Search everywhere, and the blame that explains it](phase-25-search-everywhere.md) | ◻ TODO | x1 | 0/101 | `░░░░░░░░░░` | 0% | — | A–F |
 | [24 · The explorer learns to write, and to search](phase-24-writable-explorer.md) | 🔄 WIP | — | 18/54 | `███░░░░░░░` | 33% | — | C, D, E, G |
