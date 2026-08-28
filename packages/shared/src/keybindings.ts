@@ -82,12 +82,12 @@ export const COMMANDS = [
    */
   { id: 'repos.toggle', label: 'Toggle Repositories', group: 'view', chord: 'Mod+g' },
   /**
-   * Mod+b is where a browser will live — the built-in web pane is not written
-   * yet, so for now the chord opens a notice that says so. Claiming it early
-   * costs nothing and means the shortcut will not move under a user once the
-   * pane lands.
+   * Mod+b toggles the browser pane — a chrome stub with no engine yet, but a
+   * real panel rather than a notice. `app` scope, like `repos.toggle`: a
+   * browser is not something you reach for mid-command with the terminal
+   * focused.
    */
-  { id: 'browser.open', label: 'Browser', group: 'view', chord: 'Mod+b' },
+  { id: 'browser.toggle', label: 'Toggle Browser', group: 'view', chord: 'Mod+b' },
   { id: 'repo.open', label: 'Open Repository…', group: 'repository', chord: 'Mod+o' },
   { id: 'repo.close', label: 'Close Repository', group: 'repository', chord: 'Mod+w' },
   { id: 'view.refresh', label: 'Refresh', group: 'view', chord: 'Mod+r' },
