@@ -297,7 +297,7 @@ export function StatusPanel() {
           ) : null}
         </div>
 
-        <div className="shrink-0 border-t border-border p-2">
+        <div className="flex shrink-0 flex-col gap-1.5 border-t border-border p-2">
           <textarea
             ref={textareaRef}
             value={message}
@@ -311,7 +311,7 @@ export function StatusPanel() {
               type="button"
               onClick={() => void onCommit()}
               disabled={!canSubmit}
-              className="mt-1.5 w-full rounded-md bg-primary px-2 py-1.5 text-sm font-medium text-primary-foreground transition-opacity disabled:opacity-40"
+              className="w-full rounded-md bg-primary px-2 py-1.5 text-sm font-medium text-primary-foreground transition-opacity disabled:opacity-40"
             >
               Commit {staged.length > 0 ? `${staged.length} file${staged.length === 1 ? '' : 's'}` : ''}
             </button>

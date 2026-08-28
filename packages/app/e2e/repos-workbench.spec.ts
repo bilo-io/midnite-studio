@@ -498,3 +498,28 @@ test('a folded repo hangs its branch and count off the trailing edge', async ({ 
   expect(pill.x + pill.width).toBeCloseTo(name.x + name.width, 0);
   expect(pill.x).toBeGreaterThan(name.x + name.width / 2);
 });
+
+test('commit message input has equal inset on all sides when empty', async ({ page }) => {
+  await open(page);
+  await goToChanges(page);
+
+  const textarea = page.getByPlaceholder('Commit message');
+  await expect(textarea).toBeVisible();
+
+  const container = textarea.locator('xpath=ancestor::div[1]');
+  const textareaBox = (await textarea.boundingBox())!;
+  const containerBox = (await container.boundingBox())!;
+
+  const left = textareaBox.x - containerBox.x;
+  const right = containerBox.x + containerBox.width - (textareaBox.x + textareaBox.width);
+  const top = textareaBox.y - containerBox.y;
+  const bottom = containerBox.y + containerBox.height - (textareaBox.y + textareaBox.height);
+
+  expect(Math.abs(left - right)).toBeLessThanOrEqual(1.5);
+  expect(Math.abs(top - bottom)).toBeLessThanOrEqual(1.5);
+  expect(Math.abs(left - top)).toBeLessThanOrEqual(1.5);
+
+  if (process.env.MGIT_SHOTS) {
+    await page.screenshot({ path: '/tmp/changes-commit-input.png' });
+  }
+});
