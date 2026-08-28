@@ -4,6 +4,7 @@ import type { CommandId } from '@midnite/git-shared';
 
 import { useDialogs } from '../../components/dialog-host';
 import { useGraphStore } from '../../features/graph/graph-store';
+import { useSlidesStore } from '../../features/slides/slides-store';
 import { syncAffordances } from '../../features/status/sync-availability';
 import { useCommitBoxStore } from '../../store/commit-box-store';
 import { useFileEditorStore } from '../../store/file-editor-store';
@@ -63,6 +64,8 @@ export function useCommandHandlers(): CommandRuntime {
 
   const editorTarget = useFileEditorStore((s) => s.target);
   const editorDirty = useFileEditorStore((s) => s.target !== null && s.content !== s.savedContent);
+
+  const activeMarkdown = useSlidesStore((s) => s.activeMarkdown);
 
   return {
     'file.save': editorTarget
@@ -154,5 +157,9 @@ export function useCommandHandlers(): CommandRuntime {
     // in the query grammar (see `parsePaletteQuery`), because the finder is
     // reached by chord, not by typing '?' or similar.
     'palette.files': { enabled: true, run: () => usePaletteStore.getState().open('files') },
+
+    'markdown.presentAsSlides': activeMarkdown
+      ? { enabled: true, run: () => useSlidesStore.getState().presentActive() }
+      : { enabled: false, disabledReason: 'No markdown in view', run: () => {} },
   };
 }

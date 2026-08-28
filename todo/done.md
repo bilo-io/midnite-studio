@@ -2,6 +2,20 @@
 
 <!-- Append one entry per landed phase/PR: date, phase, PR link, one-line summary. -->
 
+## 2026-08-28 — Phase 29 Theme E — command registry entry for present-as-slides
+
+Merged locally on `feature/p29-e` — no PR link, no GitHub remote on this checkout. Phase 29 is now
+feature-complete: all five themes (A–E) have landed.
+
+- [x] **E — command registry entry.** `markdown.presentAsSlides` added to `COMMANDS` in
+      `shared/src/keybindings.ts`, unbound (no chord), grouped under `'view'` since the command
+      fires from both Files preview and Reviews descriptions, not `'files'` alone. A
+      `useCommandHandlers()` arm reads `useSlidesStore().activeMarkdown`: enabled with a `run`
+      calling `presentActive()` when set, `{ enabled: false, disabledReason: 'No markdown in
+      view' }` otherwise — the same reactive shape every other conditional command already uses.
+      Tested in `use-command-handlers.test.ts` with a spy on `presentActive` proving `run()`
+      delegates rather than re-deriving content itself.
+
 ## 2026-08-28 — Phase 29 Themes A–D — markdown slides, everywhere markdown already renders
 
 Merged locally on `feature/p29-abcd` — no PR link, no GitHub remote on this checkout. Phase 29 is
