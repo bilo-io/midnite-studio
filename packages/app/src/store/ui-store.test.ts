@@ -22,6 +22,7 @@ const reset = () =>
     terminalOpen: false,
     terminalMaximized: false,
     terminalSidebarSide: 'right',
+    browserOpen: false,
     layout: DEFAULT_LAYOUT,
     graphColumns: DEFAULT_GRAPH_COLUMNS,
     navMode: 'auto',
@@ -256,6 +257,28 @@ describe('persistence', () => {
 
     expect(merged.layout.reposWidth).toBe(300);
     expect(merged.layout.terminalHeight).toBe(DEFAULT_LAYOUT.terminalHeight);
+  });
+
+  it('persists the browser pane state', () => {
+    useUiStore.getState().toggleBrowser();
+
+    const saved = JSON.parse(localStorage.getItem('midnite-git.ui') ?? '{}') as {
+      state: Record<string, unknown>;
+    };
+
+    expect(saved.state.browserOpen).toBe(true);
+  });
+
+  it('defaults browserOpen to false for a payload written before the key existed', () => {
+    // No version bump for this key: `merge` already spreads a persisted
+    // payload over the defaults, so an older blob with no `browserOpen` key
+    // picks it up from the initial state rather than arriving `undefined`.
+    const merged = useUiStore.persist.getOptions().merge?.(
+      { reposOpen: false },
+      useUiStore.getState(),
+    ) as { browserOpen: boolean };
+
+    expect(merged.browserOpen).toBe(false);
   });
 });
 
