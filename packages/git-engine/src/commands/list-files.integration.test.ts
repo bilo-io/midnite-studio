@@ -3,7 +3,7 @@ import { join } from 'node:path';
 
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 
-import { listFiles, LIST_FILES_MAX } from './list-files';
+import { listFiles } from './list-files';
 import { TempRepo } from '../testing/temp-repo';
 
 describe('listFiles integration', () => {
