@@ -14,6 +14,7 @@ export function TerminalToggle() {
       type="button"
       onClick={toggleTerminal}
       title={`Toggle terminal (${displayChord(terminalChord)})`}
+      aria-label="Toggle Terminal"
       aria-pressed={terminalOpen}
       className={`rounded px-1.5 transition-colors hover:bg-accent hover:text-foreground ${
         terminalOpen ? 'bg-accent text-foreground' : ''

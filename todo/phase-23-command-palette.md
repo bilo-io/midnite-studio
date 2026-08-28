@@ -249,15 +249,20 @@ one that can slip without costing the phase its point.
 - [ ] Scoring tuned for paths: the basename weighted above the directory segments, and a `/` in the
       needle switching to a path-aware match, so `src/pal/pal` finds what you meant.
 
-### H — The focus trap, extracted and retrofitted (S)
+### H — The focus trap, retrofitted (S)
 
-[`popover.tsx`](../packages/app/src/components/popover.tsx) is the **only** component in the repo
-with a real focus trap — a `FOCUSABLE` selector, a wrapping Tab cycle, and focus restored to the
-trigger on Escape. `ConfirmDialog` and `PromptDialog` have none; they `autoFocus` one control and
-let Tab walk out into the app behind them.
+**Shrunk, not dropped: the extraction landed under Phase 27 Theme G**, whose browser pane needed
+`use-focus-trap.ts` before this phase existed to build it. `popover.tsx`'s inline trap — a
+`FOCUSABLE` selector, a wrapping Tab cycle, and focus restored to the trigger on Escape — is now
+[`components/use-focus-trap.ts`](../packages/app/src/components/use-focus-trap.ts), with no
+behaviour change to `Popover` itself. `ConfirmDialog` and `PromptDialog` still have none; they
+`autoFocus` one control and let Tab walk out into the app behind them, which is what this theme
+now exists to fix.
 
-- [ ] Extract `packages/app/src/components/use-focus-trap.ts` from `popover.tsx` with no behaviour
-      change, and a test that Tab wraps in both directions and focus is restored on close.
+- [x] Extract `packages/app/src/components/use-focus-trap.ts` from `popover.tsx` with no behaviour
+      change. ✅ landed as Phase 27 Theme G (2026-08-28) — `Popover` and the browser pane both
+      consume it; `footer-monitor.spec.ts`'s existing flyout keyboard assertions are the regression
+      guard. A dedicated `use-focus-trap.test.ts` covering both Tab directions is still open.
 - [ ] `palette.tsx` consumes it rather than growing a third copy.
 - [ ] Retrofit [`confirm-dialog.tsx`](../packages/app/src/components/confirm-dialog.tsx) and
       [`prompt-dialog.tsx`](../packages/app/src/components/prompt-dialog.tsx). Both are modal and

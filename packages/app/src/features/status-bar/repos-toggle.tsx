@@ -20,6 +20,7 @@ export function ReposToggle() {
       type="button"
       onClick={toggleRepos}
       title={`Toggle repositories (${displayChord(reposChord)})`}
+      aria-label="Toggle Repositories"
       aria-pressed={reposOpen}
       className={`rounded px-1.5 transition-colors hover:bg-accent hover:text-foreground ${
         reposOpen ? 'bg-accent text-foreground' : ''

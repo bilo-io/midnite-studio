@@ -9,6 +9,8 @@ import {
 } from 'react';
 import { createPortal } from 'react-dom';
 
+import { useFocusTrap } from './use-focus-trap';
+
 /**
  * A click-toggled panel anchored to its trigger.
  *
@@ -140,43 +142,12 @@ export function Popover({
     };
   }, [open, close, setOpen]);
 
-  /**
-   * Keep Tab inside the panel while it is open.
-   *
-   * A panel that lets Tab walk out from under it is worse than one with no
-   * keyboard support at all: focus lands on controls the user cannot see,
-   * behind a surface that is still on screen.
-   */
-  useEffect(() => {
-    if (!open) return;
-    const panel = panelRef.current;
-    if (!panel) return;
-
-    const onKeyDown = (event: KeyboardEvent) => {
-      if (event.key !== 'Tab') return;
-      const focusable = panel.querySelectorAll<HTMLElement>(FOCUSABLE);
-      const first = focusable[0];
-      const last = focusable[focusable.length - 1];
-      // Nothing focusable inside: hold focus on the panel rather than letting
-      // Tab escape into the document behind it.
-      if (!first || !last) {
-        event.preventDefault();
-        panel.focus();
-        return;
-      }
-      if (event.shiftKey && document.activeElement === first) {
-        event.preventDefault();
-        last.focus();
-      } else if (!event.shiftKey && document.activeElement === last) {
-        event.preventDefault();
-        first.focus();
-      }
-    };
-
-    panel.focus();
-    panel.addEventListener('keydown', onKeyDown);
-    return () => panel.removeEventListener('keydown', onKeyDown);
-  }, [open]);
+  // Keep Tab inside the panel while it is open. A panel that lets Tab walk
+  // out from under it is worse than one with no keyboard support at all:
+  // focus lands on controls the user cannot see, behind a surface that is
+  // still on screen. Extracted to `use-focus-trap.ts` (Phase 27 Theme G) so
+  // a non-Popover overlay (the browser pane) can reuse it verbatim.
+  useFocusTrap(panelRef, open);
 
   return (
     <>
@@ -215,9 +186,6 @@ export function Popover({
     </>
   );
 }
-
-const FOCUSABLE =
-  'a[href], button:not([disabled]), input:not([disabled]), select:not([disabled]), textarea:not([disabled]), [tabindex]:not([tabindex="-1"])';
 
 const clamp = (value: number, min: number, max: number): number =>
   Math.min(Math.max(value, min), Math.max(min, max));

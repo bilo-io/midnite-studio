@@ -215,10 +215,11 @@ test.describe('footer monitor', () => {
     // The cluster is an `ml-auto` sibling; filling the empty right half was
     // meant to cost no repositioning of what was already in the footer.
     await open(page);
-    // The toggle's accessible name is its own text, not its `title` — the
-    // title attribute is only consulted when an element has no content.
+    // The toggle's accessible name is an explicit `aria-label` (Phase 27
+    // Theme G) rather than its visible text, which also carries the chord
+    // hint — a screen reader announcing "Terminal Ctrl+`" reads oddly.
     const footer = page.getByTestId('status-bar');
-    await expect(footer.getByRole('button', { name: /^Terminal/ })).toBeVisible();
+    await expect(footer.getByRole('button', { name: 'Toggle Terminal' })).toBeVisible();
     // And the cluster really is at the far right of the same bar.
     await expect(footer.getByTestId('monitor-cluster')).toBeVisible();
   });

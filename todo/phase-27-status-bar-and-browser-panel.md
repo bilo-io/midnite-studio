@@ -479,41 +479,55 @@ goes to 560 (`LAYOUT_BOUNDS.reposWidth`) and a narrow window plus eight segments
 
 ### G — Targets, tooltips and live regions (S)
 
-- [ ] Every segment that navigates or toggles is a `<button>` with an accessible name, reachable by
+**Built ahead of D and E, which were still in flight in sibling worktrees when this landed.** The
+three bullets below that name Theme D's five segments or Theme E's `compact`/`collapsed` density
+and overflow popover are genuinely blocked on those themes' output and stay open — there is
+nothing yet to attach `aria-live` to, no `compact` density to show a `Tooltip` in, and no `…`
+button to name. Everything else — the five segments that exist today (Repos/Terminal/Browser
+toggles, diagnostics, monitor), and the focus-trap extraction the browser pane needed regardless
+of D or E — is unblocked and landed here.
+
+- [x] Every segment that navigates or toggles is a `<button>` with an accessible name, reachable by
       keyboard in visual order across the three zones. Grid column order is DOM order here — the
       three zone `<div>`s are declared left, centre, right — so tab order follows the eye with no
       `tabindex` juggling. Do not reorder the zones visually with `order-*`, which would silently
-      break that.
-- [ ] Segments that only report are not buttons and are not focus stops. Of Theme D's five, the
-      worktree, agent count, mid-operation and both verdicts navigate and are therefore buttons; op
-      progress is the only pure readout and is a `<span>`.
+      break that. Verified against today's five segments: no `order-*` utility anywhere in
+      `status-bar.tsx`, and each zone maps `STATUS_SEGMENTS` in array order. The three toggles also
+      gained an `aria-label` ("Toggle Repositories" / "Toggle Terminal" / "Toggle Browser") — their
+      accessible name previously included the chord hint's visible text (e.g. "Repos ⌘G"), which is
+      technically a name but reads oddly to a screen reader; `title` keeps the chord for sighted
+      hover and existing `[title^="Toggle …"]` e2e locators are unaffected (2026-08-28).
+- [x] Segments that only report are not buttons and are not focus stops — already true of both
+      right-zone segments that exist today: `DiagnosticsSegment` renders `<span>` for every report
+      state and only its "enable" affordance is a `<button>`; `MonitorCluster` is itself a `Popover`
+      trigger, correctly a button since it opens something. **Theme D's five segments are not built
+      yet**, so their button-vs-span split (per the doc's own description: worktree, agent count,
+      mid-operation and both verdicts navigate and are buttons; op progress is a pure `<span>`) is
+      that theme's to satisfy, not this one's (2026-08-28).
 - [ ] [`Tooltip`](../packages/app/src/components/tooltip.tsx) on icon-only segments in `compact`
-      density — an icon with no label and no tooltip is a control nobody can identify.
-  - `Tooltip` takes `{ label, side?, children }` and **clones a single focusable child rather than
-    wrapping it** (`tooltip.tsx:30-40`), so it adds no element to the zone and cannot reintroduce the
-    `gap-3` hole Theme C rules out. `side="top"` — the bar is at the window's bottom edge and a
-    `bottom` bubble would be clipped.
-- [ ] `aria-live="polite"` on the op-progress and mid-operation segments only. The monitor must
-      **not** be live: a CPU readout announcing itself every second is unusable with a screen reader
-      on, which is the whole reason this is a per-segment decision and not a bar-level one.
-  - Stated as a testable rule rather than an intention: `segments.test.ts` asserts that exactly the
-    ids `op-progress` and `in-progress` carry `live: true` in `STATUS_SEGMENTS`, and that
-    `monitor` and `diagnostics` do not. Making liveness a field on the segment record — rather than
-    a prop typed at each call site — is what makes it assertable at all.
-- [ ] **Extract `use-focus-trap.ts` in this phase**, from `popover.tsx:150-179` plus the `FOCUSABLE`
+      density — **blocked on Theme E**, which has not landed `use-overflow.ts`/`densityFor()` yet;
+      there is no `compact` state to attach a tooltip's icon-only condition to today.
+- [ ] `aria-live="polite"` on the op-progress and mid-operation segments only — **blocked on Theme
+      D**, whose `op-progress` and `in-progress` segment ids do not exist yet.
+- [x] **Extract `use-focus-trap.ts` in this phase**, from `popover.tsx:150-179` plus the `FOCUSABLE`
       selector at `:219-220`: `export function useFocusTrap(ref: RefObject<HTMLElement | null>, active: boolean): void`.
-      Point `Popover` at it — its behaviour must not change, and `e2e/footer-monitor.spec.ts`'s
-      keyboard assertions on the monitor flyout are the regression guard that it did not.
+      `Popover` now points at it verbatim (its own effect deleted, `FOCUSABLE` moved into the hook);
+      behaviour is unchanged and `e2e/footer-monitor.spec.ts`'s keyboard assertions on the monitor
+      flyout are the regression guard that it did not (2026-08-28).
   - The doc previously said the pane "reuses the popover's" trap. It cannot: the trap is an inline
     `useEffect` closed over `Popover`'s own `panelRef` and `open`, and there is no `use-focus-trap`
     file in the repo. A non-`Popover` overlay has no way to reach it without this extraction.
-  - **Phase 23 Theme H shrinks rather than disappears.** It claimed this extraction; it now inherits
-    a done extraction and keeps the retrofit onto `ConfirmDialog` and `PromptDialog`, which have no
-    trap today. Update that item's wording when this lands so the two docs do not both claim it.
-- [ ] The browser pane traps focus while open and restores it to the toggle on close — `useFocusTrap`
-      for the first half, and a `triggerRef.current?.focus()` on close for the second, which is the
-      separate half `popover.tsx:80-83` already does and the half that is easiest to forget.
-- [ ] The `…` overflow button is named for what it holds ("3 more"), not "More".
+  - **Phase 23 Theme H shrinks rather than disappears** — updated there: it now inherits a done
+    extraction and keeps only the retrofit onto `ConfirmDialog` and `PromptDialog`.
+- [x] The browser pane traps focus while open and restores it to the toggle on close —
+      `useFocusTrap(containerRef, shown)` on the pane's own outer `<div>` (given `tabIndex={-1}`,
+      `role="dialog"`, `aria-label="Browser"`) for the first half; the second half cannot reuse
+      `popover.tsx:80-83` directly (the trigger lives in a sibling component, not a shared `close()`),
+      so it is a `useEffect` keyed on `shown` whose cleanup — fired only when `shown` was true and
+      then changes — looks up `[data-testid="browser-toggle"]` (new on `BrowserToggle`) and focuses
+      it (2026-08-28).
+- [ ] The `…` overflow button is named for what it holds ("3 more"), not "More" — **blocked on
+      Theme E**, which has not built the overflow popover yet.
 
 ### H — Tests (M)
 

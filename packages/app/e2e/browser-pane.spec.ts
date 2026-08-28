@@ -80,6 +80,37 @@ test('Escape closes the pane, and it reopens with the same state on reload', asy
   await expect(page.getByRole('textbox', { name: 'Address' })).toBeVisible();
 });
 
+test('the pane traps Tab between its two focusable controls and restores focus to the toggle on Escape', async ({
+  page,
+}) => {
+  await installMockBridge(page, { ...fixtures });
+  await page.goto('/');
+  await expect(page.getByRole('columnheader', { name: 'Commit message' })).toBeVisible();
+
+  const toggle = page.locator('[title^="Toggle browser"]');
+  await toggle.click();
+
+  const address = page.getByRole('textbox', { name: 'Address' });
+  const close = page.getByRole('button', { name: 'Close browser' });
+  await expect(address).toBeVisible();
+  // Back/Forward/Reload are `disabled` (not merely `aria-disabled`), so they
+  // are excluded from the trap's FOCUSABLE query — Address and Close are the
+  // pane's only two stops. Activation focuses the pane's own container first
+  // (matching Popover's trap verbatim), so the first Tab enters the pane.
+  await page.keyboard.press('Tab');
+  await expect(address).toBeFocused();
+  await page.keyboard.press('Tab');
+  await expect(close).toBeFocused();
+  await page.keyboard.press('Tab');
+  await expect(address).toBeFocused();
+  await page.keyboard.press('Shift+Tab');
+  await expect(close).toBeFocused();
+
+  await page.keyboard.press('Escape');
+  await expect(address).toHaveCount(0);
+  await expect(toggle).toBeFocused();
+});
+
 test('the URL field is inert: Enter neither navigates nor clears the field, and the plate says so', async ({
   page,
 }) => {
