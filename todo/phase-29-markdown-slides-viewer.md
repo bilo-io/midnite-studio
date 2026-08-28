@@ -44,82 +44,88 @@ Effort tags: **S** ≈ an hour or two · **M** ≈ half a day · **L** ≈ a day
 
 ## Deliverables
 
-### A — The deck engine (M)
+### A — The deck engine (M) — ✅ DONE (2026-08-28, merged locally — no PR/no remote)
 
 Pure, DOM-free and testable, in a new `features/slides/` directory. Everything else renders off its
 output, so it lands first.
 
-- [ ] `packages/app/src/features/slides/deck-parser.ts`: a headings-only tokenizer/parser ported from
+- [x] `packages/app/src/features/slides/deck-parser.ts`: a headings-only tokenizer/parser ported from
       midnite's `markdownToDeck` — an h1 becomes a cover/title slide, every h2–h6 starts a new slide,
       and paragraphs/list items/code fences/GFM tables under a heading become an ordered array of
       "steps". No `---` splitting, matching the crib exactly.
-- [ ] `DeckSlide` / `DeckStep` types exported alongside the parser. No zod schema — this never
+- [x] `DeckSlide` / `DeckStep` types exported alongside the parser. No zod schema — this never
       crosses the IPC boundary, it is renderer-only data derived from a string the caller already
       has.
-- [ ] Each step's inline formatting (bold/italic/code/links) is a raw markdown fragment rendered
+- [x] Each step's inline formatting (bold/italic/code/links) is a raw markdown fragment rendered
       through the app's existing `react-markdown` + `remark-gfm` pipeline per step, **not** midnite's
       hand-rolled `formatInline`/`dangerouslySetInnerHTML` — the app already depends on both and
       `markdown-preview.tsx` proves the pattern works.
-- [ ] A doc with no headings at all parses to a single slide holding the whole content — the
+- [x] A doc with no headings at all parses to a single slide holding the whole content — the
       substrate for the "present always shows" guardrail.
-- [ ] Vitest in `deck-parser.test.ts`: h1-only doc → one cover slide; three h2s → three slides;
+- [x] Vitest in `deck-parser.test.ts`: h1-only doc → one cover slide; three h2s → three slides;
       nested h3–h6 all start new slides too (not just h2); a heading-less doc → one slide; GFM tables
       and code fences under a heading land as steps in source order.
 
-### B — The deck presenter (L)
+### B — The deck presenter (L) — ✅ DONE (2026-08-28, merged locally — no PR/no remote)
 
-- [ ] `packages/app/src/features/slides/deck.tsx`: renders one `DeckSlide` at a time — a typewriter
+- [x] `packages/app/src/features/slides/deck.tsx`: renders one `DeckSlide` at a time — a typewriter
       reveal for the title, then a step-by-step bullet reveal for its steps, a rebuild of midnite's
       reveal-state machine operating over React-rendered markdown fragments rather than `innerHTML`
       slicing (there is no `sliceHtml`/`visibleLen` equivalent needed once steps are real React
       nodes, not strings being typed out character-by-character — confirm this simplification holds
       once built, since it is the one real fidelity gap against the crib; see Decisions below).
-- [ ] Keyboard: arrows/space/enter advance a step then a slide; Backspace/PageUp reverses; Home/End
+- [x] Keyboard: arrows/space/enter advance a step then a slide; Backspace/PageUp reverses; Home/End
       jump to the first/last slide; `?` toggles a help overlay listing every shortcut; `Escape`
       closes the modal (not the OS Fullscreen API — see the scope guardrail).
-- [ ] A slide-position rail (dots or an "N / total" readout), the visual half of midnite's
+- [x] A slide-position rail (dots or an "N / total" readout), the visual half of midnite's
       `deck-rail.tsx` — no drag-reorder, since nothing here is being authored.
-- [ ] `packages/app/src/features/slides/help-overlay.tsx`: the `?`-triggered shortcut list, styled to
+- [x] `packages/app/src/features/slides/help-overlay.tsx`: the `?`-triggered shortcut list, styled to
       the app's own overlay conventions rather than midnite's.
-- [ ] Code fences inside a slide render through shiki (matching `code-preview.tsx`'s highlighter
+- [x] Code fences inside a slide render through shiki (matching `code-preview.tsx`'s highlighter
       instance), confirmed in Theme A but re-verified here against real multi-line fences at
       presentation size.
 
-### C — The fullscreen host (S)
+### C — The fullscreen host (S) — ✅ DONE (2026-08-28, merged locally — no PR/no remote)
 
-- [ ] `packages/app/src/features/slides/slides-store.ts`: a small Zustand store —
+- [x] `packages/app/src/features/slides/slides-store.ts`: a small Zustand store —
       `deck: { content: string; label?: string } | null` (the currently open deck; `null` is closed)
       and `activeMarkdown: { content: string; label?: string } | null` (whichever markdown surface is
       currently in view, kept live by Theme D). `present(source)` opens the deck directly from a
       source (a button click); `presentActive()` opens it from `activeMarkdown` (used when there was
       no click to hand content directly — Theme E); `close()`.
-- [ ] `packages/app/src/features/slides/slides-modal.tsx`: the `fixed inset-0 z-dialog` convention
+- [x] `packages/app/src/features/slides/slides-modal.tsx`: the `fixed inset-0 z-dialog` convention
       already shared by `confirm-dialog.tsx` / `prompt-dialog.tsx` / `merge-dialog.tsx`, mounted once
       from [`app.tsx`](../packages/app/src/app.tsx) beside the existing `<DialogHost>` — reads `deck`
       off the store and renders nothing while it is `null`.
-- [ ] Reuses the existing [`use-focus-trap.ts`](../packages/app/src/components/use-focus-trap.ts)
+- [x] Reuses the existing [`use-focus-trap.ts`](../packages/app/src/components/use-focus-trap.ts)
       (already extracted, already used by `popover.tsx`) rather than a fourth hand-rolled trap.
-- [ ] Deliberately **not** folded into `DialogHost`'s own API — that host's whole point is "only one
+- [x] Deliberately **not** folded into `DialogHost`'s own API — that host's whole point is "only one
       of confirm/prompt/menu open at a time," and a fullscreen deck is a different shape than any of
       the three it already arbitrates between.
 
-### D — Wired into every markdown surface (M)
+### D — Wired into every markdown surface (M) — ✅ DONE (2026-08-28, merged locally — no PR/no remote)
 
-- [ ] `markdown-preview.tsx` / `file-preview.tsx`: a "Present" icon button in the shared preview
+- [x] `markdown-preview.tsx` / `file-preview.tsx`: a "Present" icon button in the shared preview
       header, beside the existing show-source toggle, calling
       `present({ content: rawMarkdown, label: fileName })`. A mount-time effect also sets
       `activeMarkdown` so Theme E's command works without a click.
-- [ ] `pr-detail.tsx`: the same button beside the PR/review description body, with the same
+- [x] `pr-detail.tsx`: the same button beside the PR/review description body, with the same
       `activeMarkdown` effect.
-- [ ] `comment-thread.tsx`: the same button per comment/reply — always shown, per the "present always
+- [x] `comment-thread.tsx`: the same button per comment/reply — always shown, per the "present always
       shows" guardrail — but does **not** claim `activeMarkdown`. A thread can hold many short
       markdown bodies visible at once; only the two description-level surfaces are unambiguous
       enough to be "the" markdown a keyboard-invoked command should target. Recorded as a resolved
       decision below.
-- [ ] Icon: a `react-icons/lu` glyph (`LuPresentation`, or the nearest actual match in the set) via
+- [x] Icon: a `react-icons/lu` glyph (`LuPresentation`, or the nearest actual match in the set) via
       the existing `IconComponent` / `IconButton` primitives
       ([`icon-button.tsx`](../packages/app/src/components/icon-button.tsx)), per the repo's icon
       convention.
+
+*Themes A–D have landed (2026-08-28) — the viewer is feature-complete end to end: Present opens a
+fullscreen deck from Files preview, a PR/review description, or a comment body, with the full
+typewriter/keyboard/help-overlay presentation and shiki-highlighted code fences. Only Theme E
+remains — the unbound `CommandId` registry entry, which has no user-visible effect until Phase 23's
+palette exists to read it.*
 
 ### E — Command registry entry (S)
 
@@ -208,13 +214,37 @@ output, so it lands first.
   command targets; a comment thread's button always works by click, but never claims the global
   slot. *Rationale:* a PR can show dozens of comment bodies at once, and none of them is
   unambiguously "the" markdown a bodiless command invocation should mean.
-- **Open — does the typewriter/reveal state machine actually need porting once steps are real React
-  nodes?** Midnite's `sliceHtml`/`visibleLen` exist because it types out raw HTML strings
-  character-by-character; rendering each step as markdown from the start may make a simpler
-  reveal-by-step (no per-character typing, just a fade-or-appear per step) both easier to build and
-  indistinguishable in practice. *Recommendation:* prototype the simpler version first in Theme B;
-  only chase the literal typewriter effect if the simpler reveal reads as noticeably worse.
-- **Open — what happens if Files preview and a PR description are both visible at once (e.g. split
-  panes), and both have set `activeMarkdown`?** *Recommendation:* last-mounted/updated wins — a
-  single global slot, accepted as a niche edge case rather than something worth a stack or a
-  z-order tiebreak.
+- **Resolved — the literal character-by-character typewriter is ported for the title only.**
+  `use-title-typewriter.ts` rebuilds the crib's `sliceHtml`/`visibleLen` timing (not the string
+  slicing itself — the title is plain text throughout) with a lazily-initialized `typed`/`done`
+  pair rather than a `useState(true)` default corrected a tick later by the first effect: a keydown
+  landing in that gap used to read a title that was visually mid-type as already `done`. Steps do
+  NOT get this treatment — they are real `react-markdown` fragments (Theme A), so there is no
+  `innerHTML` left to slice; a step reveals as a whole unit.
+- **Resolved — last-mounted/updated wins for `activeMarkdown`.** A single global slot in
+  `slides-store.ts`; no stack, no z-order tiebreak, per the original recommendation.
+- **Resolved — the deck parser walks a real mdast tree** (`remark-parse` + `remark-gfm`, the same
+  GFM flavour `MarkdownPreview` already renders with) rather than a hand-rolled line tokenizer.
+  `unified`/`remark-parse`/`mdast-util-to-string`/`@types/mdast` added to `packages/app`'s direct
+  dependencies (all were already present transitively via `react-markdown`, pinned to the versions
+  already resolved in `pnpm-lock.yaml`). Each step keeps the node's own source substring (sliced by
+  its mdast `position`) rather than a rendered string, which is what lets steps render through
+  `react-markdown` unchanged.
+- **Resolved — a list contributes one step per item, matching the crib exactly** (`markdownToDeck`'s
+  own `list` case calls `addStep` once per item, not once for the whole list) — everything else
+  (paragraph, code, table) is one whole-block step, nested sub-lists included in their parent item's
+  step.
+- **Resolved — keyboard handling is a bubble-phase `window` listener**, matching
+  `ConfirmDialog`'s own pattern, reading a "latest values" ref rather than re-subscribing on every
+  `nav`/`title` change — a re-subscribing effect cannot guarantee the new closure is live before the
+  browser's next keydown, which is exactly the class of bug a second one (below) turned out to be.
+- **Found and fixed during Theme B:** `useDeckNav`'s `next`/`prev` reducer cases forced `instant`
+  to a fixed value on *every* dispatch, including a bare "reveal another step on the same slide" —
+  which never touches the title. Since the presenter's typewriter effect keys its restart on
+  `[title, instant]`, flipping `instant` with no title change retriggered an already-finished
+  typewriter mid-reveal. Fixed so `instant` changes only on an actual slide change forward/backward;
+  a step reveal leaves it untouched. Caught by `e2e/slides.spec.ts`, not by the vitest suite (both
+  were exercising the reducer's return value, not the cross-hook effect it was meant to avoid
+  re-triggering) — the regression is now also covered directly in `use-deck-nav.test.ts`.
+- **Resolved — Present's icon is `LuPresentation`** (confirmed present in the pinned `react-icons`
+  version before committing to it, per the phase's own icon convention).
