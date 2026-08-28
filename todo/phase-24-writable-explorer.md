@@ -262,23 +262,21 @@ The cheapest theme in the phase; the join already exists in miniature.
       asserting the collapsed-directory rollup, the per-file badges, and the "no entry → no badge"
       case, with a screenshot at `docs/screenshots/phase-24-f/status-badges.png`.
 
-### G — fs invalidation, live (S)
+### G — fs invalidation, live (S) — ✅ DONE (2026-08-28, merged locally — no PR/no remote)
 
-- [ ] Move the fs query keys out of `file-tree.tsx` and into
-      [`services/queries.ts`](../packages/app/src/services/queries.ts) beside `keys.status` /
-      `keys.refs` / `keys.stats`, where every other key in the app lives. They were never registered
-      there, which is precisely why the next item has never worked.
-- [ ] Teach [`watch-invalidation.ts`](../packages/app/src/services/watch-invalidation.ts) to
-      invalidate `['fs', …]` on a `worktree` event. Phase 16 called watcher-driven tree refresh a
-      stretch and set manual refresh as the bar; that was defensible for a viewer and is not
-      defensible for an app that writes.
-- [ ] Suppress the echo. Every write in Themes C and D fires a `worktree` event of its own, and the
-      naive wiring makes a save invalidate the file being edited underneath the cursor. The
-      per-repo write queue's `onActivity` suppression is the existing pattern
-      ([`write-queue.ts`](../packages/git-engine/src/exec/write-queue.ts)) — mirror its shape rather
-      than debouncing and hoping.
-- [ ] Keep the manual refresh button. A watcher that misses an event is a watcher; a UI with no way
-      to ask again is a bug report.
+- [x] Moved the fs query keys out of the standalone `fs-scope-key.ts` and into
+      [`services/queries.ts`](../packages/app/src/services/queries.ts) as `keys.fs`/`keys.fsRepo`,
+      beside `keys.status` / `keys.refs` / `keys.stats`.
+- [x] Taught [`watch-invalidation.ts`](../packages/app/src/services/watch-invalidation.ts) to
+      invalidate `keys.fsRepo(repoId)` on a `worktree` event — a coarser prefix than `keys.fs`
+      itself, since the watcher only ever learns a `repoId`, never which worktree changed.
+- [x] Suppressed the echo with a new `fs-activity.ts`, mirroring `write-queue.ts`'s `onActivity`
+      shape but keyed per `repoId` (a write in one repo cannot suppress another's watcher — unlike
+      the write queue's own global broadcast) and with its own 150ms settle window, shorter than
+      the write queue's 300ms since a plain file write has no `index.lock`-style tail. Wrapped
+      through `fs-write-handlers.ts` at registration, one choke point, so the four handlers stay
+      plain functions a unit test can call directly.
+- [x] Kept the manual refresh button in `files-view.tsx`, untouched.
 
 ## Files this phase touches
 

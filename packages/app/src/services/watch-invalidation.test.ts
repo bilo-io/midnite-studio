@@ -24,15 +24,24 @@ beforeEach(() => {
 const run = (kind: WatchKind) => invalidateForWatchKind(client, 'repo-1', kind);
 
 describe('worktree and index changes', () => {
-  it('refresh status only', () => {
-    for (const kind of ['worktree', 'index'] as const) {
-      invalidated = [];
-      const result = run(kind);
+  it('index changes refresh status only', () => {
+    const result = run('index');
 
-      expect(invalidated).toHaveLength(1);
-      expect(invalidated[0]?.slice(0, 3)).toEqual(['repos', 'repo-1', 'status']);
-      expect(result.restreamGraph).toBe(false);
-    }
+    expect(invalidated).toHaveLength(1);
+    expect(invalidated[0]?.slice(0, 3)).toEqual(['repos', 'repo-1', 'status']);
+    expect(result.restreamGraph).toBe(false);
+  });
+
+  it('worktree changes refresh status AND the fs cache (Phase 24)', () => {
+    // A tracked file can change on disk from outside the app (an external
+    // editor, `mv` in the integrated terminal) or from the Files view's own
+    // writes — either way the tree and preview have to catch up without a
+    // manual refresh.
+    const result = run('worktree');
+
+    expect(invalidated).toContainEqual(['repos', 'repo-1', 'status', 'main']);
+    expect(invalidated).toContainEqual(['fs', 'repo', 'repo-1']);
+    expect(result.restreamGraph).toBe(false);
   });
 
   it('never re-stream the graph', () => {

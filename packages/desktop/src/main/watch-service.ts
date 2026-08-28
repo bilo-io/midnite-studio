@@ -21,6 +21,7 @@ export async function watchRepo(
 
   const watcher = await RepoWatcher.start({
     repoPath,
+    repoId,
     onEvent: (kind: WatchKind) => {
       if (win.isDestroyed()) return;
       win.webContents.send(EVENT_CHANNELS.watchEvent, { repoId, kind, at: Date.now() });

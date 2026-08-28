@@ -31,6 +31,16 @@ import { useMutation, useQuery, useQueryClient, type QueryClient } from '@tansta
 import { bridge } from './bridge';
 
 /**
+ * Where an fs browse/write request is rooted — a repository checkout, or
+ * `~/.claude` for the Agent settings page. Moved here (out of
+ * `features/files/fs-scope-key.ts`) so `keys.fs` can live beside the rest of
+ * the query keys rather than a scope-key builder living apart from them.
+ */
+export type FsScopeInput =
+  | { scope: 'repo'; repoId: string; worktreePath?: string }
+  | { scope: 'claude-home' };
+
+/**
  * TanStack Query keys, in one place.
  *
  * Every key is a prefix-able tuple so the watcher (Phase 10) can invalidate a
@@ -180,6 +190,23 @@ export const keys = {
   testsDiscover: (repoId: string) => ['repos', repoId, 'tests', 'discover'] as const,
   testsTrust: (repoId: string, suiteId: string) =>
     ['repos', repoId, 'tests', 'trust', suiteId] as const,
+  /**
+   * A repo's whole fs cache, across every worktree — coarser than {@link
+   * keys.fs}, which pins one worktree. The watcher only ever learns a
+   * `repoId`, never which worktree changed, so a `worktree` event invalidates
+   * this prefix rather than guessing a worktreePath.
+   */
+  fsRepo: (repoId: string) => ['fs', 'repo', repoId] as const,
+  /**
+   * The fs browse/write scope prefix (Phase 16 reads, Phase 24 writes) — also
+   * what a manual refresh invalidates. Outside the `repos` prefix on purpose:
+   * `claude-home` scope has no `repoId` to nest under, and a repo close should
+   * not drop the Agent settings page's own tree cache.
+   */
+  fs: (scope: FsScopeInput) =>
+    scope.scope === 'repo'
+      ? ([...keys.fsRepo(scope.repoId), scope.worktreePath ?? null] as const)
+      : (['fs', 'claude-home'] as const),
 };
 
 /**

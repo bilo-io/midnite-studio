@@ -2,6 +2,7 @@ import { shell } from 'electron';
 import { rename as renamePath } from 'node:fs/promises';
 import type { z } from 'zod';
 
+import { withFsActivity } from '@midnite/git-engine';
 import { CHANNELS, FS_WRITE_CAP_BYTES, failure, ok, schemas, type GitOpResult } from '@midnite/git-shared';
 
 import { resolveScopeRoot } from '../fs-scope';
@@ -26,15 +27,26 @@ import { SNIFF_BYTES } from './fs-handlers';
  * Deliberately outside `write-queue.ts`: that queue exists to serialise
  * writers racing on `index.lock`, and a plain file write never touches it —
  * an external editor saving the same file behaves exactly like this, no
- * queue involved. The consequence is the watcher's own write-echo problem,
- * left for Theme G to suppress the same way `write-queue.ts`'s `onActivity`
- * already does for git writes.
+ * queue involved. The consequence was the watcher's own write-echo problem;
+ * Theme G closes it with `fs-activity.ts`, the same `onActivity` shape
+ * `write-queue.ts` uses for git writes. Wrapped here at registration, one
+ * choke point, rather than inside each handler — so `writeFile`/`create`/
+ * `rename`/`deleteEntry` stay plain functions a unit test can call directly
+ * with no activity tracker involved at all.
  */
 export function registerFsWriteHandlers(): void {
-  handleOp(CHANNELS.fsWriteFile, schemas.FsWriteFileRequest, writeFile);
-  handleOp(CHANNELS.fsCreate, schemas.FsCreateRequest, create);
-  handleOp(CHANNELS.fsRename, schemas.FsRenameRequest, rename);
-  handleOp(CHANNELS.fsDelete, schemas.FsDeleteRequest, deleteEntry);
+  handleOp(CHANNELS.fsWriteFile, schemas.FsWriteFileRequest, (req) =>
+    withFsActivity(req.repoId, () => writeFile(req)),
+  );
+  handleOp(CHANNELS.fsCreate, schemas.FsCreateRequest, (req) =>
+    withFsActivity(req.repoId, () => create(req)),
+  );
+  handleOp(CHANNELS.fsRename, schemas.FsRenameRequest, (req) =>
+    withFsActivity(req.repoId, () => rename(req)),
+  );
+  handleOp(CHANNELS.fsDelete, schemas.FsDeleteRequest, (req) =>
+    withFsActivity(req.repoId, () => deleteEntry(req)),
+  );
 }
 
 /** Exported for direct unit testing — `registerFsWriteHandlers` is main's own entry point. */

@@ -17,24 +17,22 @@ import type { MenuItem } from '../../components/context-menu';
 import { useDialogs } from '../../components/dialog-host';
 import { IconButton } from '../../components/icon-button';
 import { bridge, hasBridge } from '../../services/bridge';
+import { keys, type FsScopeInput } from '../../services/queries';
 import { useRepoStatus } from '../../services/use-status';
 import { StatusMark } from '../status/status-mark';
 import { FileIcon, FolderIcon } from './file-icons';
 import { resolveFileStatusIndex, type FileStatusIndex } from './file-status';
 import { useFileActions, validateEntryName, type FileActions } from './use-file-actions';
-import { fsScopeKey, type FsScopeInput } from './fs-scope-key';
 
 /**
  * A listing request minus its relPath — the tree threads this through every
  * level. Two callers own it: the Files view (repo scope) and the Agent
  * settings page (claude-home scope), which is why expansion/selection arrive
  * as props rather than being read from the files store here. Re-exported
- * from `fs-scope-key.ts`, which also holds `fsScopeKey` — split out so
- * `use-file-actions.ts` can depend on the scope shape without importing this
- * file, which imports `use-file-actions.ts` back.
+ * from `services/queries.ts`, which also holds `keys.fs` — the scope shape
+ * lives there so every fs query key stays beside `keys.status`/`keys.refs`.
  */
 export type { FsScopeInput };
-export { fsScopeKey };
 
 export type FileTreeProps = {
   scope: FsScopeInput;
@@ -147,7 +145,7 @@ function DirectoryChildren({
   actions: FileActions | undefined;
 }) {
   const { data } = useQuery({
-    queryKey: [...fsScopeKey(scope), 'dir', relPath],
+    queryKey: [...keys.fs(scope), 'dir', relPath],
     queryFn: async () => bridge()!.fs.listDir({ ...scope, relPath }),
     enabled: hasBridge(),
   });

@@ -2,6 +2,36 @@
 
 <!-- Append one entry per landed phase/PR: date, phase, PR link, one-line summary. -->
 
+## 2026-08-28 — Phase 24 Theme G — fs invalidation, live
+
+Merged locally on `feature/phase-24-g-fs-invalidation` — no PR link, no GitHub remote on this
+checkout.
+
+- [x] The fs query keys move out of the standalone `fs-scope-key.ts` and into
+      `services/queries.ts` as `keys.fs`/`keys.fsRepo`, beside `keys.status`/`keys.refs`/
+      `keys.stats` — the four call sites (`file-tree.tsx`, `files-view.tsx`, `use-file-actions.ts`,
+      `file-preview.tsx`) import directly from there now.
+- [x] `watch-invalidation.ts` invalidates `keys.fsRepo(repoId)` on a `worktree` event — the coarser
+      repo-wide prefix, not the per-worktree `keys.fs`, since the watcher only ever learns a
+      `repoId` and never which linked worktree changed.
+- [x] A new `packages/git-engine/src/exec/fs-activity.ts` closes the echo problem
+      `fs-write-handlers.ts`'s own doc comment predicted: it mirrors `write-queue.ts`'s
+      `onActivity`/begin/end shape, but keyed per `repoId` — a write in one repo cannot suppress
+      another's watcher, unlike the write queue's own global broadcast — and with its own 150ms
+      settle window (vs. the write queue's 300ms; a plain file write has no `index.lock`-style
+      tail). `RepoWatcher` gained a required `repoId` option to filter the signal down to its own
+      repo, and its `flush()` now ORs two independent suppression windows, with the fs one applied
+      only to `worktree`-classified events. `fs-write-handlers.ts` wraps its four handlers through
+      the tracker at `registerFsWriteHandlers()`, one choke point, so `writeFile`/`create`/
+      `rename`/`deleteEntry` stay plain functions the existing unit tests call directly with no
+      activity tracker involved.
+- [x] The manual refresh button in `files-view.tsx` is untouched.
+- Tests: `fs-activity.test.ts` (new, 6 cases), four new `RepoWatcher` cases mirroring the
+  write-queue suppression suite (own-fs-write suppression, a pending external event surviving a
+  concurrent fs write, re-arming after settle, and per-repo isolation), and
+  `watch-invalidation.test.ts` split its combined worktree/index case in two once `worktree` grew
+  a second invalidation.
+
 ## 2026-08-28 — Phase 23 Theme C — the palette surface
 
 Merged locally on `feature/phase-23-c-palette-surface` — no PR link, no GitHub remote on this

@@ -41,6 +41,15 @@ export function invalidateForWatchKind(
 ): { restreamGraph: boolean } {
   switch (kind) {
     case 'worktree':
+      void client.invalidateQueries({ queryKey: keys.status(repoId), exact: false });
+      // The Files view has read-write access as of Phase 24: a file created,
+      // renamed, deleted or saved anywhere but through this app — an external
+      // editor, a terminal `mv` — has to show up in the tree without a manual
+      // refresh. Own-write echoes are dropped upstream in `RepoWatcher` via
+      // `fs-activity.ts`, the same shape `write-queue.ts` uses for git writes.
+      void client.invalidateQueries({ queryKey: keys.fsRepo(repoId), exact: false });
+      return { restreamGraph: false };
+
     case 'index':
       void client.invalidateQueries({ queryKey: keys.status(repoId), exact: false });
       return { restreamGraph: false };
