@@ -88,6 +88,8 @@ export function agentInvocationArgs(agentId: string): string[] {
       return ['-p'];
     case 'codex':
       return ['exec'];
+    case 'opencode':
+      return ['--prompt'];
     default:
       return [];
   }

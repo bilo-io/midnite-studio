@@ -2,19 +2,32 @@ import { BUILTIN_AGENTS } from '@midnite/git-shared';
 import { Terminal } from 'lucide-react';
 import { describe, expect, it } from 'vitest';
 
-import { AGENT_ICONS, AntigravityIcon, ClaudeIcon, CodexIcon, OpenClaudeIcon } from './index';
+import {
+  AGENT_ICONS,
+  AntigravityIcon,
+  ClaudeIcon,
+  CodexIcon,
+  OpenClaudeIcon,
+  OpenCodeIcon,
+} from './index';
 import { resolveAgentIcon } from './index';
 
 /**
- * The registry is the one thing standing between a four-agent roster and four
- * copies of Claude's mark, so "every builtin resolves to a DIFFERENT component"
+ * The registry is the one thing standing between an agent roster and
+ * multiple copies of Claude's mark, so "every builtin resolves to a DIFFERENT component"
  * is the assertion that actually matters here.
  */
 describe('resolveAgentIcon', () => {
   it('gives every builtin its own mark', () => {
     const marks = BUILTIN_AGENTS.map((agent) => resolveAgentIcon(agent));
 
-    expect(marks).toEqual([ClaudeIcon, AntigravityIcon, CodexIcon, OpenClaudeIcon]);
+    expect(marks).toEqual([
+      ClaudeIcon,
+      AntigravityIcon,
+      CodexIcon,
+      OpenClaudeIcon,
+      OpenCodeIcon,
+    ]);
     expect(new Set(marks).size).toBe(BUILTIN_AGENTS.length);
   });
 

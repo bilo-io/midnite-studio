@@ -222,6 +222,15 @@ export const BUILTIN_AGENTS: readonly AgentDefinition[] = [
     accent: '#8B5CF6',
     install: 'npm i -g @gitlawb/openclaude',
   },
+  {
+    id: 'opencode',
+    label: 'OpenCode',
+    command: 'opencode',
+    args: [],
+    resume: ['--continue'],
+    accent: '#03B000',
+    install: 'npm i -g opencode-ai',
+  },
 ] as const;
 
 /**

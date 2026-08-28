@@ -1017,12 +1017,22 @@ export async function installMockBridge(page: Page, fixtures: MockFixtures): Pro
               accent: '#8B5CF6',
               install: 'npm i -g @gitlawb/openclaude',
             },
+            {
+              id: 'opencode',
+              label: 'OpenCode',
+              command: 'opencode',
+              args: [],
+              resume: ['--continue'],
+              accent: '#03B000',
+              install: 'npm i -g opencode-ai',
+            },
           ],
           status: [
             { id: 'claude', installed: true, resolvedPath: '/Users/e2e/.local/bin/claude' },
             { id: 'agy', installed: true, resolvedPath: '/Users/e2e/.local/bin/agy' },
             { id: 'codex', installed: true, resolvedPath: '/opt/homebrew/bin/codex' },
             { id: 'openclaude', installed: false, resolvedPath: null },
+            { id: 'opencode', installed: true, resolvedPath: '/opt/homebrew/bin/opencode' },
           ],
         }),
         claudeInfo: async () => ({

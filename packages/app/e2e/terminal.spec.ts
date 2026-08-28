@@ -241,7 +241,7 @@ test.describe('terminal panel', () => {
     await toggleTerminal(page);
     await page.getByRole('button', { name: 'New terminal or agent' }).click();
 
-    for (const label of ['New Terminal', 'Claude', 'Antigravity', 'Codex', 'OpenClaude']) {
+    for (const label of ['New Terminal', 'Claude', 'Antigravity', 'Codex', 'OpenClaude', 'OpenCode']) {
       await expect(page.getByRole('menuitem', { name: label, exact: true })).toBeVisible();
     }
     await expect(page.getByRole('menuitem', { name: /New Agent —/ })).toHaveCount(0);

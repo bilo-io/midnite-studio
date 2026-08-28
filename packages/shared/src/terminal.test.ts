@@ -19,8 +19,14 @@ import { AgentListResponse } from './ipc/schemas';
  * roster, which is what stops a fifth entry being added half-wired.
  */
 describe('BUILTIN_AGENTS', () => {
-  it('ships the four terminal agents the + menu offers', () => {
-    expect(BUILTIN_AGENTS.map((a) => a.id)).toEqual(['claude', 'agy', 'codex', 'openclaude']);
+  it('ships the terminal agents the + menu offers', () => {
+    expect(BUILTIN_AGENTS.map((a) => a.id)).toEqual([
+      'claude',
+      'agy',
+      'codex',
+      'openclaude',
+      'opencode',
+    ]);
   });
 
   it.each(BUILTIN_AGENTS.map((agent) => [agent.id, agent] as const))(
@@ -99,11 +105,13 @@ describe('AgentDefinitionSchema', () => {
     const codex = BUILTIN_AGENTS.find((a) => a.id === 'codex');
     const agy = BUILTIN_AGENTS.find((a) => a.id === 'agy');
     const openclaude = BUILTIN_AGENTS.find((a) => a.id === 'openclaude');
+    const opencode = BUILTIN_AGENTS.find((a) => a.id === 'opencode');
 
     expect(claude?.resume).toEqual(['--continue']);
     expect(codex?.resume).toEqual(['resume', '--last']);
     expect(agy?.resume).toBeUndefined();
     expect(openclaude?.resume).toBeUndefined();
+    expect(opencode?.resume).toEqual(['--continue']);
   });
 
   it.each([
