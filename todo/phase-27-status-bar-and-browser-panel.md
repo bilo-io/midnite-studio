@@ -202,12 +202,22 @@ invented.
 - [x] `segments.test.ts`: ids unique, priorities unique within a zone, every entry's `El` present.
       A duplicate id is a bug Theme E's overflow keying would otherwise surface as a React warning.
 
-### D — The segments (L)
+### D — The segments (L) — ✅ DONE (2026-08-28, merged locally — no PR/no remote)
 
 Five new readouts, all reading state the app already has. None fetches anything the app was not
 already fetching, and none adds an IPC channel.
 
-- [ ] **Active repo / worktree** (left, after the toggles). The checkout the sidebar selection points
+Landed as planned, with the pure rollup functions (`opLabel`, `testVerdict`, `agentCount`,
+`findPrForBranch`) extracted alongside their segments rather than left inline — the seam Theme H's
+own doc asks for arrives with the segment instead of as a later refactor. `GIT_OP_RANK` collapsed
+the doc's three tiers into numeric ranks (`100`/`50`/`40`/`30`/`10`) rather than a fourth lookup
+table, since a `Record<GitOpId, number>` sorts the same way a tier lookup would. The right zone's
+final render order is agent-count, diagnostics, monitor, test-verdict, checks-verdict — the two new
+verdicts sit at the outer edge rather than between diagnostics and monitor — and `priority` follows
+actionability rather than render position: the two verdicts and the mid-operation segment outrank
+the toggles, diagnostics and the monitor at Theme E's future collapse time.
+
+- [x] **Active repo / worktree** (left, after the toggles). The checkout the sidebar selection points
       at, via [`useActiveWorktree()`](../packages/app/src/services/use-status.ts) — the same source
       `DiagnosticsSegment` already follows, and for the reason its comment gives: *"Several tabs can
       point at different repositories, so the two genuinely disagree."* Makes the bar's own scope
@@ -220,10 +230,10 @@ already fetching, and none adds an IPC channel.
     panel. "Focuses" means moving DOM focus to the `<aside aria-label="Repositories">` at
     `app.tsx:624`, which needs a `tabIndex={-1}` it does not have today — add it. A click that only
     opens the panel leaves the keyboard where it was and reads as a no-op to anyone not on a mouse.
-- [ ] **Background op progress** (centre). An indeterminate spinner plus a verb — "Fetching…",
+- [x] **Background op progress** (centre). An indeterminate spinner plus a verb — "Fetching…",
       "Pushing…", "Rebasing…" — driven by TanStack Query's `useIsMutating`. Indeterminate on purpose:
       git reports no percentage through the current channels and a fake bar is a lie about progress.
-- [ ] **The op label comes from an `opId` threaded through `useGitOp`, not from `queries.ts`.**
+- [x] **The op label comes from an `opId` threaded through `useGitOp`, not from `queries.ts`.**
       Every git write in the app funnels through a *single* `useMutation`, inside `useTargetedGitOp`
       at [`use-status.ts:262`](../packages/app/src/services/use-status.ts). `queries.ts`'s eighteen
       mutations are forge, diagnostics and test-run work, and none of them can ever say "Fetching…".
@@ -245,7 +255,7 @@ already fetching, and none adds an IPC channel.
     [`use-repo-actions.ts`](../packages/app/src/features/repos/use-repo-actions.ts) (9),
     [`sync-controls.tsx`](../packages/app/src/features/status/sync-controls.tsx) (3) and
     [`conflict-banner.tsx`](../packages/app/src/features/status/conflict-banner.tsx) (2).
-- [ ] **Two operations at once: rank them, and say how many.**
+- [x] **Two operations at once: rank them, and say how many.**
       `useIsMutating({ mutationKey: ['git-op'] })` gives the count and `useMutationState` gives the
       running keys. Render the highest-ranked verb and append `+N` when the count exceeds one —
       "Rebasing… +1".
@@ -258,12 +268,12 @@ already fetching, and none adds an IPC channel.
     silent during those would read as nothing happening. The verb is what is running in the app.
   - On repo switch mid-flight the segment keeps rendering: the mutation is still in flight and still
     counted, and cancelling it is not on offer. The label is app-scoped, so it does not lie.
-- [ ] **A failed op clears silently.** When the mutation settles `{ok:false}` the segment simply
+- [x] **A failed op clears silently.** When the mutation settles `{ok:false}` the segment simply
       stops rendering — no red state, no held message. The bar is a progress indicator, not an error
       channel: `sync-controls.tsx`, `ConflictBanner` and the dialogs already render `GitOpResult`
       failures at the surface the user invoked them from, and a second report at the far edge of the
       window is the anti-duplication rule again. A toast is Phase 22 Theme H's, and this is not one.
-- [ ] **Mid-operation state** (centre, higher priority than op progress). `merge` / `rebase` /
+- [x] **Mid-operation state** (centre, higher priority than op progress). `merge` / `rebase` /
       `cherry-pick` / `revert` from `StatusResult.inProgress` —
       [`InProgressOpSchema`](../packages/shared/src/domain/status.ts) already exists and
       [`ConflictBanner`](../packages/app/src/features/status/conflict-banner.tsx) already has the
@@ -284,7 +294,7 @@ already fetching, and none adds an IPC channel.
     than by rule, and would stay silent for a real mid-rebase repo during the first fetch.
   - Click is `useUiStore.getState().setActiveView('changes')` (`ui-store.ts:542`) — `'changes'` is a
     real `ViewId` member (`ui-store.ts:44`).
-- [ ] **Agent count** (right, left of diagnostics). Live agent sessions from
+- [x] **Agent count** (right, left of diagnostics). Live agent sessions from
       [`terminal-store.ts`](../packages/app/src/features/terminal/terminal-store.ts) — a count only
       visible today if the terminal panel is open. Zero agents renders nothing.
   - **Not from [`use-agents.ts`](../packages/app/src/features/terminal/use-agents.ts).** That hook
@@ -302,7 +312,7 @@ already fetching, and none adds an IPC channel.
     `useUiStore.getState().setTerminalOpen(true)`, then
     `useTerminalStore.getState().setActive(id)` on the first live agent session — and
     `toggleTerminalList()` only if `terminalListOpen` is false, so an open list is not closed.
-- [ ] **Test verdict** (right). A **worst-of rollup across the repo's suites**, from
+- [x] **Test verdict** (right). A **worst-of rollup across the repo's suites**, from
       [`tests-store.ts`](../packages/app/src/features/tests/tests-store.ts) — the indicator
       `FooterCluster`'s comment reserved a slot for in Phase 18 and Phase 17 never filled. Click is
       `setActiveView('tests')`.
@@ -317,7 +327,7 @@ already fetching, and none adds an IPC channel.
   - `results[repoId]` is `undefined` before any run and the store is deliberately unpersisted
     (`tests-store.ts:4-13`), so a fresh launch renders nothing. That is correct and must not be
     "fixed" into a grey placeholder.
-- [ ] **Checks verdict** (right, beside the test verdict). The checks rollup for **the PR on the
+- [x] **Checks verdict** (right, beside the test verdict). The checks rollup for **the PR on the
       currently checked-out branch**, from
       [`forge-status.tsx`](../packages/app/src/features/forge/forge-status.tsx). Click is
       `setActiveView('actions')`. Both `'tests'` and `'actions'` are real `ViewId` members
@@ -335,7 +345,7 @@ already fetching, and none adds an IPC channel.
     `data === undefined` (equivalently `isPending`) is. The query is also gated
     `enabled && repoId !== null`, so a repo with no GitHub remote never fetches and the segment
     never renders.
-- [ ] **Absent is not zero, everywhere.** A repo whose tests have never run, whose checks have not
+- [x] **Absent is not zero, everywhere.** A repo whose tests have never run, whose checks have not
       been fetched, or whose status is still `isPlaceholderData` shows *nothing* — never a green
       tick. `DiagnosticsSegment`'s comment states the trap and the reason: *"'Clean' is a claim; you
       have to have looked."*
