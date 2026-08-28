@@ -21,7 +21,7 @@ Completed work is logged append-only in [`done.md`](done.md). Deferred scope liv
 | Phase | Status | Refined | Done | Progress | % | 🔄 WIP | ◻ TODO |
 |-------|--------|---------|------|----------|---|--------|--------|
 | [28 · Worktrees first, and the section tree that can say so](phase-28-sidebar-section-tree.md) | 🔄 WIP | 22/60 | `████░░░░░░` | 37% | — | D–H |
-| [27 · The footer becomes a status bar, and the browser it makes room for](phase-27-status-bar-and-browser-panel.md) | 🔄 WIP | x1 | 41/90 | `█████░░░░░` | 46% | D, E | G (partial, 3 items blocked on D/E), H |
+| [27 · The footer becomes a status bar, and the browser it makes room for](phase-27-status-bar-and-browser-panel.md) | 🔄 WIP | x1 | 51/90 | `██████░░░░` | 57% | E | G (partial, blocked on E), H |
 | [26 · Side by side, and the room to show it](phase-26-side-by-side-diffs.md) | ◻ TODO | — | 0/68 | `░░░░░░░░░░` | 0% | — | A–H |
 | [25 · Search everywhere, and the blame that explains it](phase-25-search-everywhere.md) | ◻ TODO | x1 | 0/101 | `░░░░░░░░░░` | 0% | — | A–F |
 | [24 · The explorer learns to write, and to search](phase-24-writable-explorer.md) | 🔄 WIP | — | 18/54 | `███░░░░░░░` | 33% | C | D, E, G |
@@ -120,11 +120,14 @@ write funnels through ONE `useMutation` in `useTargetedGitOp` (`use-status.ts:26
   `1fr_auto_1fr` grid so the centre cannot drift, and the rule that a segment with nothing to say
   renders nothing — mapped with no wrapper element, or `gap-3` leaves a hole per absent segment
   (landed 2026-08-28)
-- ◻ **D** — five segments off state the app already has: active worktree, op progress from a threaded
+- ✅ **D** — five segments off state the app already has: active worktree, op progress from a threaded
   `opId` (ranked, with `+N` when two run, silent on failure), `inProgress` mid-operation (the one
   sanctioned exception to the title-bar duplication rule), the agent count — from `terminal-store`, not
   the `use-agents` roster the doc wrongly named — and the tests/checks verdicts, now with the
   aggregation rules they lacked: worst-of across suites, and the PR for the checked-out branch.
+  Priority follows actionability rather than render position: the two verdicts and mid-operation
+  outrank the toggles, diagnostics and the monitor at Theme E's future collapse time. Unblocks two of
+  Theme G's three remaining items (landed 2026-08-28, merged locally — no PR/no remote)
 - ◻ **E** — two-stage overflow measured from content rather than px breakpoints: labels → icons → a
   priority-ordered `…` popover, with an asymmetric 24px hysteresis band so dragging the repos splitter
   cannot flicker. The decision lives in a pure `densityFor()` — jsdom has no `ResizeObserver` and the
@@ -136,8 +139,8 @@ write funnels through ONE `useMutation` in `useTargetedGitOp` (`use-status.ts:26
   which is the phase's own demonstration (landed 2026-08-28)
 - 🔄 **G** — `use-focus-trap.ts` extracted from Popover and retrofitted onto the browser pane, plus
   the button/keyboard-order audit of today's five segments — all landed and none of it needed D or
-  E (2026-08-28). Still open, genuinely blocked on those two themes: `Tooltip` at `compact` density,
-  `aria-live` on Theme D's op-progress/mid-operation segments, and naming the `…` overflow button.
+  E (2026-08-28). Still open, now blocked only on E: `Tooltip` at `compact` density and naming the
+  `…` overflow button — `aria-live` on the op-progress/mid-operation segments unblocked by D landing.
   Phase 23's Theme H shrinks to the retrofit, updated there.
 - ◻ **H** — pure-function unit tests (the repo has zero rendered-component tests), a `merge` rather than
   `migrate` persistence test, a `status-bar.spec.ts` asserting the left edge that would have failed
