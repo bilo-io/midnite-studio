@@ -21,7 +21,7 @@ Completed work is logged append-only in [`done.md`](done.md). Deferred scope liv
 | Phase | Status | Refined | Done | Progress | % | 🔄 WIP | ◻ TODO |
 |-------|--------|---------|------|----------|---|--------|--------|
 | [28 · Worktrees first, and the section tree that can say so](phase-28-sidebar-section-tree.md) | 🔄 WIP | 30/61 | `█████░░░░░` | 49% | E | F–H |
-| [27 · The footer becomes a status bar, and the browser it makes room for](phase-27-status-bar-and-browser-panel.md) | 🔄 WIP | x1 | 62/90 | `███████░░░` | 69% | H | — |
+| [27 · The footer becomes a status bar, and the browser it makes room for](phase-27-status-bar-and-browser-panel.md) | 🔄 WIP | x1 | 72/90 | `████████░░` | 80% | — | 18 verification items |
 | [26 · Side by side, and the room to show it](phase-26-side-by-side-diffs.md) | ◻ TODO | — | 0/68 | `░░░░░░░░░░` | 0% | — | A–H |
 | [25 · Search everywhere, and the blame that explains it](phase-25-search-everywhere.md) | ◻ TODO | x1 | 0/101 | `░░░░░░░░░░` | 0% | — | A–F |
 | [24 · The explorer learns to write, and to search](phase-24-writable-explorer.md) | 🔄 WIP | — | 26/55 | `█████░░░░░` | 47% | — | D, E, G |
@@ -149,10 +149,11 @@ write funnels through ONE `useMutation` in `useTargetedGitOp` (`use-status.ts:26
   E (2026-08-28). Still open: `Tooltip` at `compact` density and naming the `…` overflow button —
   both unblocked now that D and E have landed. Phase 23's Theme H shrinks to the retrofit, updated
   there.
-- ◻ **H** — pure-function unit tests (the repo has zero rendered-component tests), a `merge` rather than
-  `migrate` persistence test, a `status-bar.spec.ts` asserting the left edge that would have failed
-  before Theme A, a browser-pane spec, and the terminal-maximize regression guard the existing
-  height-only assertion never was.
+- ✅ **H** — pure-function absent-case tests for the four Theme D segments, a `live` metadata field on
+  `StatusSegment`, `status-bar.spec.ts`'s left-edge and narrowing/overflow-popover specs, the
+  `footer-monitor.spec.ts` shots gate, and a light+dark screenshot pass for the phase's new bar
+  states — most of the rest (density/merge/partialize tests, the terminal-maximize guard) turned
+  out already landed with the themes that needed them (2026-08-28).
 
 ### [Phase 25 — Search everywhere, and the blame that explains it](phase-25-search-everywhere.md)
 
