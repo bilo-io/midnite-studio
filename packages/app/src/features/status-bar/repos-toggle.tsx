@@ -27,8 +27,8 @@ export function ReposToggle() {
       }`}
     >
       <GoRepo aria-hidden className="mr-1 inline h-3.5 w-3.5 align-[-2px]" />
-      Repos
-      <span className="ml-1.5 opacity-60">{displayChord(reposChord)}</span>
+      <span className="status-label">Repos</span>
+      <span className="status-label ml-1.5 opacity-60">{displayChord(reposChord)}</span>
     </button>
   );
 }
