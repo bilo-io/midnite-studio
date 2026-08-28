@@ -6,9 +6,9 @@ import { LuFolderTree, LuRefreshCw } from 'react-icons/lu';
 import { IconButton } from '../../components/icon-button';
 import { ResizeHandle } from '../../components/resizable/resize-handle';
 import { useResizable } from '../../components/resizable/use-resizable';
-import { useRepos } from '../../services/queries';
+import { keys, useRepos } from '../../services/queries';
 import { DEFAULT_LAYOUT, LAYOUT_BOUNDS, useUiStore } from '../../store/ui-store';
-import { FileTree, fsScopeKey, type FsScopeInput } from './file-tree';
+import { FileTree, type FsScopeInput } from './file-tree';
 import { FilePreview } from './preview/file-preview';
 import { useFilesStore } from './files-store';
 
@@ -46,7 +46,7 @@ export function FilesView() {
 
   // Expansion and selection are per-checkout; switching repo or worktree
   // starts a clean browse instead of carrying stale relPaths across.
-  const scopeKey = scope ? JSON.stringify(fsScopeKey(scope)) : null;
+  const scopeKey = scope ? JSON.stringify(keys.fs(scope)) : null;
   useEffect(() => {
     if (scopeKey) ensureScope(scopeKey);
   }, [scopeKey, ensureScope]);
@@ -85,7 +85,7 @@ export function FilesView() {
               icon={LuRefreshCw}
               label="Refresh file tree"
               size="sm"
-              onClick={() => void queryClient.invalidateQueries({ queryKey: fsScopeKey(scope) })}
+              onClick={() => void queryClient.invalidateQueries({ queryKey: keys.fs(scope) })}
             />
           </span>
         </div>

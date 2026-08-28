@@ -2,6 +2,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 import type { WatchKind } from '@midnite/git-shared';
 
+import { withFsActivity } from '../exec/fs-activity';
 import { writeQueue } from '../exec/write-queue';
 import { TempRepo } from '../testing/temp-repo';
 import { RepoWatcher, isNoise } from './repo-watcher';
@@ -63,12 +64,14 @@ describe('RepoWatcher', () => {
     await repo.cleanup();
   });
 
-  const startWatching = async (settleMs = 0, debounceMs = 50) => {
+  const startWatching = async (settleMs = 0, debounceMs = 50, fsSettleMs = 0) => {
     watcher = await RepoWatcher.start({
       repoPath: repo.path,
+      repoId: repo.path,
       onEvent: (kind) => events.push(kind),
       debounceMs,
       settleMs,
+      fsSettleMs,
     });
     // fs.watch registration is not instantaneous on macOS.
     await wait(150);
@@ -166,6 +169,63 @@ describe('RepoWatcher', () => {
 
     // An external change after the settle window is a real event again.
     await repo.writeFile('b.txt', 'theirs\n');
+    await wait(400);
+
+    expect(events).toContain('worktree');
+  });
+
+  it('suppresses events produced by our own fs writes (Phase 24)', async () => {
+    // The same loop as the write-queue case, for a plain fs write: save →
+    // watch event → refetch the tree that the save already updated.
+    await startWatching(0, 50, 200);
+
+    await withFsActivity(repo.path, async () => {
+      await repo.writeFile('a.txt', 'written by the fs write path\n');
+      await wait(120);
+    });
+    await wait(400);
+
+    expect(events).toEqual([]);
+  });
+
+  it('still reports a change queued before an fs write opened its window', async () => {
+    await startWatching(0, 400, 100);
+
+    await repo.writeFile('theirs.txt', 'external\n');
+    await wait(150);
+
+    await withFsActivity(repo.path, async () => {
+      await wait(400);
+    });
+    await wait(600);
+
+    expect(events).toContain('worktree');
+  });
+
+  it('reports again once fs activity has settled', async () => {
+    await startWatching(0, 50, 100);
+
+    await withFsActivity(repo.path, async () => {
+      await repo.writeFile('a.txt', 'ours\n');
+    });
+    await wait(400);
+    events.length = 0;
+
+    await repo.writeFile('b.txt', 'theirs\n');
+    await wait(400);
+
+    expect(events).toContain('worktree');
+  });
+
+  it("ignores another repo's fs activity", async () => {
+    // Scoped per repoId (unlike the write queue's global broadcast): a write
+    // in some other repo must not suppress this watcher's events.
+    await startWatching(0, 50, 60_000);
+
+    await withFsActivity('a-completely-different-repo', async () => {
+      await repo.writeFile('a.txt', 'unrelated repo is busy\n');
+      await wait(200);
+    });
     await wait(400);
 
     expect(events).toContain('worktree');

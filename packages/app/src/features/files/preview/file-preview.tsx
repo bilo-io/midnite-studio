@@ -8,10 +8,11 @@ import { mgitFileUrl } from '@midnite/git-shared';
 import { EmptyState } from '../../../components/empty-state';
 import { languageForFile, previewKindForFile } from '../../../lib/languages';
 import { bridge, hasBridge } from '../../../services/bridge';
+import { keys } from '../../../services/queries';
 import { useRepoStatus } from '../../../services/use-status';
 import { IMAGE_CHECKERBOARD, ImageDiff } from '../../diff/image-diff';
 import { differsFromHead, headToWorktreeImage } from '../../diff/image-sources';
-import { fsScopeKey, type FsScopeInput } from '../file-tree';
+import { type FsScopeInput } from '../file-tree';
 import { CodePreview } from './code-preview';
 import { MarkdownPreview } from './markdown-preview';
 
@@ -60,7 +61,7 @@ export function FilePreview({ scope, relPath }: FilePreviewProps) {
 
   const wantsText = kind === 'text' || kind === 'markdown';
   const { data } = useQuery({
-    queryKey: [...fsScopeKey(scope), 'file', relPath],
+    queryKey: [...keys.fs(scope), 'file', relPath],
     queryFn: async () => bridge()!.fs.readFile({ ...scope, relPath }),
     enabled: hasBridge() && wantsText,
   });

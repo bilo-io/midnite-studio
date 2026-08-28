@@ -3,6 +3,7 @@ import { basename, join, sep } from 'node:path';
 
 import type { WatchKind } from '@midnite/git-shared';
 
+import { fsActivity } from '../exec/fs-activity';
 import { execGit } from '../exec/git-exec';
 import { writeQueue } from '../exec/write-queue';
 
@@ -22,22 +23,30 @@ import { writeQueue } from '../exec/write-queue';
  *    which would include every loose object git writes during a commit.
  * 2. **Debounce.** A single `git commit` touches the index, HEAD, refs and the
  *    worktree within a few milliseconds. One event out the far side, not four.
- * 3. **Own-write suppression.** Every write this app makes goes through the
- *    write queue, and events produced while the queue is busy are dropped.
- *    Without it, staging a file emits a watch event, which refetches status,
- *    which is exactly the work the stage already did — and a `pull` would
- *    trigger a cascade of refetches while it is still running.
+ * 3. **Own-write suppression.** Every git write this app makes goes through
+ *    the write queue, and events produced while the queue is busy are
+ *    dropped. Without it, staging a file emits a watch event, which refetches
+ *    status, which is exactly the work the stage already did — and a `pull`
+ *    would trigger a cascade of refetches while it is still running.
  *
  *    Suppression is scoped by arrival time, not by the window alone: an event
  *    already waiting when the write began is not that write's echo, so it is
  *    delivered rather than dropped. Blanket dropping silently lost external
  *    changes that landed as a write started.
+ *
+ *    A plain fs write (Phase 24 — create/rename/delete/save through the
+ *    Files view) never touches `write-queue.ts`, so it gets its own,
+ *    independent suppression window off `fs-activity.ts`, scoped to this
+ *    watcher's own `repoId` and applied only to `worktree`-classified events
+ *    — an fs write can never touch `.git/HEAD`, `.git/index` or refs.
  */
 export type WatchEventHandler = (kind: WatchKind) => void;
 
 export type RepoWatcherOptions = {
   /** Absolute path to the main worktree. */
   repoPath: string;
+  /** Which repo this watcher belongs to — how it filters `fs-activity.ts` events down to its own. */
+  repoId: string;
   onEvent: WatchEventHandler;
   /**
    * How long to wait for the storm to settle. 200ms is long enough to collapse
@@ -50,6 +59,13 @@ export type RepoWatcherOptions = {
    * dropping only *while* busy leaves a tail that reads as an external change.
    */
   settleMs?: number;
+  /**
+   * The same grace period, for `fs-activity.ts` instead of the write queue.
+   * Shorter than {@link settleMs} on purpose: a plain file write has no
+   * `index.lock`-style tail the way a git write does, so recovery can be
+   * snappier.
+   */
+  fsSettleMs?: number;
 };
 
 export class RepoWatcher {
@@ -61,7 +77,11 @@ export class RepoWatcher {
   private busyUntil = 0;
   /** When the current own-write suppression window opened. */
   private busySince = 0;
+  /** The same pair, for `fs-activity.ts` — independent of the git write queue's window. */
+  private fsBusyUntil = 0;
+  private fsBusySince = 0;
   private releaseQueueListener: (() => void) | null = null;
+  private releaseFsActivityListener: (() => void) | null = null;
 
   private constructor(
     private readonly options: Required<Omit<RepoWatcherOptions, 'onEvent'>> & {
@@ -72,9 +92,11 @@ export class RepoWatcher {
   static async start(options: RepoWatcherOptions): Promise<RepoWatcher> {
     const watcher = new RepoWatcher({
       repoPath: options.repoPath,
+      repoId: options.repoId,
       onEvent: options.onEvent,
       debounceMs: options.debounceMs ?? 200,
       settleMs: options.settleMs ?? 300,
+      fsSettleMs: options.fsSettleMs ?? 150,
     });
     await watcher.attach();
     return watcher;
@@ -85,6 +107,7 @@ export class RepoWatcher {
     if (this.timer) clearTimeout(this.timer);
     this.timer = null;
     this.releaseQueueListener?.();
+    this.releaseFsActivityListener?.();
     for (const watcher of this.watchers) {
       try {
         watcher.close();
@@ -118,6 +141,13 @@ export class RepoWatcher {
       // Extend the suppression window on every transition, including the one
       // to idle — that is what covers the tail of git's own writes.
       this.busyUntil = now + (active ? 60_000 : this.options.settleMs);
+    });
+
+    this.releaseFsActivityListener = fsActivity.onActivity((repoId, active) => {
+      if (repoId !== this.options.repoId) return;
+      const now = Date.now();
+      if (now >= this.fsBusyUntil) this.fsBusySince = now;
+      this.fsBusyUntil = now + (active ? 60_000 : this.options.fsSettleMs);
     });
 
     this.watchPath(join(gitDir, 'HEAD'), () => 'head');
@@ -170,7 +200,9 @@ export class RepoWatcher {
 
     // Own-write suppression, applied at flush rather than at queue time: a write
     // can start after an event is queued but before the debounce fires.
-    const suppressing = Date.now() < this.busyUntil;
+    const now = Date.now();
+    const gitSuppressing = now < this.busyUntil;
+    const fsSuppressing = now < this.fsBusyUntil;
 
     const kinds: WatchKind[] = [];
     for (const [kind, queuedAt] of this.pending) {
@@ -181,7 +213,12 @@ export class RepoWatcher {
       // integrated terminal) that happened to land just as the app started
       // writing was discarded and never re-checked, leaving the UI stale until
       // something unrelated moved. Deliver those; still drop the rest.
-      if (!suppressing || queuedAt < this.busySince) kinds.push(kind);
+      const droppedByGit = gitSuppressing && queuedAt >= this.busySince;
+      // fs writes (Phase 24) never touch `.git/HEAD`, `.git/index` or refs, so
+      // their echo can only ever be a `worktree` event — a `head`/`index`/
+      // `refs` event during an fs write is a real, concurrent git change.
+      const droppedByFs = kind === 'worktree' && fsSuppressing && queuedAt >= this.fsBusySince;
+      if (!droppedByGit && !droppedByFs) kinds.push(kind);
     }
     this.pending.clear();
 

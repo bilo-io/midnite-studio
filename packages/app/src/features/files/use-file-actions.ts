@@ -4,9 +4,8 @@ import type { FsEntry, GitOpResult } from '@midnite/git-shared';
 
 import { useDialogs } from '../../components/dialog-host';
 import { bridge } from '../../services/bridge';
-import { copyText } from '../../services/queries';
+import { copyText, keys, type FsScopeInput } from '../../services/queries';
 import { formatBytes } from '../monitor/format-bytes';
-import { fsScopeKey, type FsScopeInput } from './fs-scope-key';
 import { type FileStatusIndex } from './file-status';
 import { useFilesStore, type EditingEntry } from './files-store';
 
@@ -74,7 +73,7 @@ export function useFileActions(scope: FsScopeInput, statusIndex: FileStatusIndex
   const repoBase = repoBaseOf(scope);
 
   const invalidateDir = (parentPath: string) =>
-    queryClient.invalidateQueries({ queryKey: [...fsScopeKey(scope), 'dir', parentPath] });
+    queryClient.invalidateQueries({ queryKey: [...keys.fs(scope), 'dir', parentPath] });
 
   const startRename = (entry: FsEntry, relPath: string) => startRenameInStore(relPath, entry.name);
   const startCreate = (parentPath: string, entryKind: 'file' | 'directory') =>
