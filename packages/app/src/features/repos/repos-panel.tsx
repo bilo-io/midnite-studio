@@ -1053,6 +1053,7 @@ export function RepoTree({
           depth={depth}
           hideWhenEmpty={false}
           action={SECTION_ACTIONS[node.key]}
+          {...section(node.key)}
         >
           {node.children.map((child) => renderSection(child, (depth + 1) as 1 | 2))}
         </TreeSection>
