@@ -37,13 +37,13 @@ test('the row, closed — three marks rather than three ellipses', async ({ page
 
 test('the menu, open', async ({ page }) => {
   await page.getByRole('button', { name: `Run a midnite skill on ${REPO}` }).click();
-  await expect(page.getByRole('menuitem', { name: 'Loop PR Feedback' })).toBeVisible();
+  await expect(page.getByRole('menuitem', { name: 'Loop: PR Feedback' })).toBeVisible();
   await shoot(page, 'menu-open');
 });
 
 test('the Agent page, where each entry is pointed', async ({ page }) => {
   await page.getByRole('button', { name: 'Settings' }).click();
   await page.getByRole('button', { name: 'Agent', exact: true }).click();
-  await expect(page.getByRole('textbox', { name: 'Skill for Execute Task' })).toBeVisible();
+  await expect(page.getByRole('textbox', { name: 'Skill for Backlog Task' })).toBeVisible();
   await shoot(page, 'settings-agent-skills');
 });

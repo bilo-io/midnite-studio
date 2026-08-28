@@ -415,14 +415,14 @@ describe('the midnite menu\'s skills', () => {
   beforeEach(reset);
 
   it('points each entry at a default that Settings can move', () => {
-    expect(useUiStore.getState().agentSkills.exec).toBe('/exec');
+    expect(useUiStore.getState().agentSkills.execBacklog).toBe('/exec-backlog');
 
-    useUiStore.getState().setAgentSkill('exec', '/exec-issue');
+    useUiStore.getState().setAgentSkill('execBacklog', '/exec-issue');
 
     // One entry moves; the other four are untouched.
     expect(useUiStore.getState().agentSkills).toEqual({
       ...DEFAULT_AGENT_SKILLS,
-      exec: '/exec-issue',
+      execBacklog: '/exec-issue',
     });
   });
 
@@ -446,11 +446,11 @@ describe('the midnite menu\'s skills', () => {
       shell as `claude 'undefined'`, a prompt rather than a crash.
     */
     const merged = useUiStore.persist.getOptions().merge?.(
-      { agentSkills: { exec: '/exec-issue' } },
+      { agentSkills: { execBacklog: '/exec-issue' } },
       useUiStore.getState(),
     ) as { agentSkills: Record<string, string> };
 
-    expect(merged.agentSkills.exec).toBe('/exec-issue');
+    expect(merged.agentSkills.execBacklog).toBe('/exec-issue');
     expect(merged.agentSkills.loopPrFeedback).toBe(DEFAULT_AGENT_SKILLS.loopPrFeedback);
   });
 });
