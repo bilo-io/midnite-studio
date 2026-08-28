@@ -1,10 +1,14 @@
+import { useMemo } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { LuChevronRight } from 'react-icons/lu';
 
 import type { FsEntry } from '@midnite/git-shared';
 
 import { bridge, hasBridge } from '../../services/bridge';
+import { useRepoStatus } from '../../services/use-status';
+import { StatusMark } from '../status/status-mark';
 import { FileIcon, FolderIcon } from './file-icons';
+import { resolveFileStatusIndex, type FileStatusIndex } from './file-status';
 
 /**
  * A listing request minus its relPath — the tree threads this through every
@@ -37,11 +41,24 @@ export type FileTreeProps = {
  * bridge has no channel that could serve one.
  */
 export function FileTree(props: FileTreeProps) {
+  const statusIndex = useFileStatusIndex(props.scope);
   return (
     <div role="tree" aria-label="Files" className="py-1 text-xs">
-      <DirectoryChildren {...props} relPath="" depth={0} />
+      <DirectoryChildren {...props} statusIndex={statusIndex} relPath="" depth={0} />
     </div>
   );
+}
+
+/**
+ * Repo scope only — `claude-home` has no `repoId`, so `useRepoStatus` stays
+ * permanently disabled for it and `isPlaceholderData` never clears, which is
+ * exactly the "no index" result `agent-page.tsx`'s tree needs without either
+ * side having to know the other exists.
+ */
+function useFileStatusIndex(scope: FsScopeInput): FileStatusIndex | undefined {
+  const target = scope.scope === 'repo' ? { repoId: scope.repoId, worktreePath: scope.worktreePath } : { repoId: null };
+  const { data, isPlaceholderData } = useRepoStatus(target);
+  return useMemo(() => resolveFileStatusIndex(data, isPlaceholderData), [data, isPlaceholderData]);
 }
 
 function DirectoryChildren({
@@ -52,7 +69,8 @@ function DirectoryChildren({
   selectedPath,
   onToggleDir,
   onSelectFile,
-}: FileTreeProps & { relPath: string; depth: number }) {
+  statusIndex,
+}: FileTreeProps & { relPath: string; depth: number; statusIndex: FileStatusIndex | undefined }) {
   const { data } = useQuery({
     queryKey: [...fsScopeKey(scope), 'dir', relPath],
     queryFn: async () => bridge()!.fs.listDir({ ...scope, relPath }),
@@ -94,6 +112,7 @@ function DirectoryChildren({
           selectedPath={selectedPath}
           onToggleDir={onToggleDir}
           onSelectFile={onSelectFile}
+          statusIndex={statusIndex}
         />
       ))}
     </>
@@ -104,11 +123,25 @@ function TreeRow({
   entry,
   relPath,
   depth,
+  statusIndex,
   ...tree
-}: FileTreeProps & { entry: FsEntry; relPath: string; depth: number }) {
+}: FileTreeProps & {
+  entry: FsEntry;
+  relPath: string;
+  depth: number;
+  statusIndex: FileStatusIndex | undefined;
+}) {
   const isDir = entry.kind === 'dir';
   const isOpen = isDir && tree.expanded[relPath] === true;
   const isSelected = tree.selectedPath === relPath;
+  // A dimmed, gitignored row already says "not part of the repo" — a status
+  // badge on top would double-signal the same fact, and in practice never
+  // fires anyway: an ignored path has no `StatusEntry` to match.
+  const badge = entry.isIgnored
+    ? undefined
+    : isDir
+      ? statusIndex?.dirRollup.get(relPath)
+      : statusIndex?.byPath.get(relPath);
 
   return (
     <>
@@ -135,12 +168,15 @@ function TreeRow({
           <span className="w-3 shrink-0" />
         )}
         {isDir ? <FolderIcon open={isOpen} /> : <FileIcon name={entry.name} />}
+        {badge ? <StatusMark code={badge.code} conflicted={badge.conflicted} /> : null}
         <span className="truncate">{entry.name}</span>
         {entry.kind === 'symlink' ? (
           <span className="ml-auto shrink-0 text-[10px] text-muted-foreground">link</span>
         ) : null}
       </button>
-      {isOpen ? <DirectoryChildren {...tree} relPath={relPath} depth={depth + 1} /> : null}
+      {isOpen ? (
+        <DirectoryChildren {...tree} statusIndex={statusIndex} relPath={relPath} depth={depth + 1} />
+      ) : null}
     </>
   );
 }

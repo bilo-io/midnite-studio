@@ -33,7 +33,9 @@ const filesFixtures: MockFixtures = {
   },
   /*
     `shot.png` is modified against HEAD and `fresh.png` is untracked — the two
-    sides of the Compare gate. The preview reads status for exactly this.
+    sides of the Compare gate. `src/main.ts` is modified too, so a Theme F spec
+    can assert the rollup badge on `src` before it's ever expanded. The preview
+    reads status for the first two; the tree badges read all three.
   */
   statusEntries: [
     {
@@ -49,6 +51,14 @@ const filesFixtures: MockFixtures = {
       origPath: null,
       staged: 'untracked',
       unstaged: 'untracked',
+      conflicted: false,
+      similarity: null,
+    },
+    {
+      path: 'src/main.ts',
+      origPath: null,
+      staged: 'unmodified',
+      unstaged: 'modified',
       conflicted: false,
       similarity: null,
     },
@@ -154,4 +164,31 @@ test('an untracked image offers no comparison — HEAD holds no pre-image', asyn
   // file, which is what makes the absent button mean something.
   await expect(page.getByRole('img', { name: 'fresh.png' })).toBeVisible();
   await expect(page.getByRole('button', { name: 'Compare' })).toHaveCount(0);
+});
+
+test('status badges mark changed rows, including a rollup on the collapsed directory (Phase 24 F)', async ({
+  page,
+}) => {
+  await openFiles(page);
+
+  const shot = page.getByRole('treeitem', { name: /^shot\.png$/ });
+  await expect(shot.getByText('M', { exact: true })).toBeVisible();
+
+  const fresh = page.getByRole('treeitem', { name: /^fresh\.png$/ });
+  await expect(fresh.getByText('U', { exact: true })).toBeVisible();
+
+  // `src` hasn't been expanded yet — this "M" is the rollup off `src/main.ts`.
+  const src = page.getByRole('treeitem', { name: /^src$/ });
+  await expect(src.getByText('M', { exact: true })).toBeVisible();
+
+  await src.click();
+  const mainTs = page.getByRole('treeitem', { name: /^main\.ts$/ });
+  await expect(mainTs.getByText('M', { exact: true })).toBeVisible();
+
+  // README.md has no status entry at all — no badge, not a false "clean" one.
+  const readme = page.getByRole('treeitem', { name: /^README\.md$/ });
+  await expect(readme.getByText('M', { exact: true })).toHaveCount(0);
+
+  await page.waitForTimeout(200);
+  await page.screenshot({ path: '../../docs/screenshots/phase-24-f/status-badges.png' });
 });
