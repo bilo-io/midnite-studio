@@ -21,8 +21,8 @@ export function TerminalToggle() {
       }`}
     >
       <SquareTerminal aria-hidden className="mr-1 inline h-3.5 w-3.5 align-[-2px]" />
-      Terminal
-      <span className="ml-1.5 opacity-60">{displayChord(terminalChord)}</span>
+      <span className="status-label">Terminal</span>
+      <span className="status-label ml-1.5 opacity-60">{displayChord(terminalChord)}</span>
     </button>
   );
 }

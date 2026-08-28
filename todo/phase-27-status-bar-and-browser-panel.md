@@ -355,18 +355,18 @@ the toggles, diagnostics and the monitor at Theme E's future collapse time.
     which declare none. Using the wrong one for the wrong query is silent and reads as a bug in the
     repo, not in the bar.
 
-### E — Overflow (M)
+### E — Overflow (M) — ✅ DONE (2026-08-28)
 
 The bar is wider than it was, which is not the same as being wide enough — the repositories panel
 goes to 560 (`LAYOUT_BOUNDS.reposWidth`) and a narrow window plus eight segments still clips.
 
-- [ ] **`densityFor()` — a pure function, and the whole of the logic.** Declared in
+- [x] **`densityFor()` — a pure function, and the whole of the logic.** Declared in
       `features/status-bar/density.ts` and exported:
       `export type Density = 'full' | 'compact' | 'collapsed'` and
       `export function densityFor(m: { available: number; fullWidth: number; compactWidth: number }, current: Density): Density`.
       No DOM, no hook, no observer — every threshold, the hysteresis band and the collapse order are
       decided here, which is what makes them testable at all (see Theme H).
-- [ ] `use-overflow.ts`: a `ResizeObserver` on the bar element that measures, calls `densityFor`, and
+- [x] `use-overflow.ts`: a `ResizeObserver` on the bar element that measures, calls `densityFor`, and
       returns the `Density`. A thin wrapper by design — it owns the measuring, not the deciding.
   - Follows the one existing model in the repo, `app.tsx:411-422`: `useLayoutEffect`, ref guard, one
     measurement **before** the observer is attached (so the first paint is already correct), the
@@ -375,7 +375,16 @@ goes to 560 (`LAYOUT_BOUNDS.reposWidth`) and a narrow window plus eight segments
   - **Observes the bar, not the window.** The window is cheaper and wrong: the repositories panel
     goes to 560px (`LAYOUT_BOUNDS.reposWidth`, `ui-store.ts:201`) and the browser pane can cover the
     row entirely, so the window's width stops predicting the bar's the moment either moves.
-- [ ] **Thresholds are content-measured, not px constants.** There are no magic numbers: measure each
+  - **Bug found and fixed in review: a sticky collapse.** `collapsed` removes a zone's segments from
+    the DOM, and re-measuring `scrollWidth` off a DOM that has already lost them understates the true
+    want — it converges on `available` itself, so the restore hysteresis (`available >= compactWidth
+    + 24`) becomes unsatisfiable and the bar never comes back. Confirmed live: a real resize genuinely
+    passes through a narrower intermediate width before settling (Chromium reports it, it is not a
+    test artifact), so this fires on an ordinary shrink, not just a contrived one. Fixed by caching the
+    last `fullWidth`/`compactWidth` reading taken while every segment was still mounted (i.e. not
+    `collapsed`) and reusing it for the decision while collapsed, instead of re-deriving from the
+    reduced DOM.
+- [x] **Thresholds are content-measured, not px constants.** There are no magic numbers: measure each
       zone's `scrollWidth` (what the segments *want*) against the bar's `clientWidth` (what there
       *is*). `full` while the sum fits; `compact` when it does not; `collapsed` when it still does not
       after the labels are dropped. This is what "an em-based guess breaks at a different zoom or
@@ -384,15 +393,29 @@ goes to 560 (`LAYOUT_BOUNDS.reposWidth`) and a narrow window plus eight segments
   - `fullWidth` and `compactWidth` are measured off the rendered zones. Measure `compactWidth` by
     reading `scrollWidth` while the `compact` classes are applied — one extra layout read per resize,
     not per frame, which at a 24px bar is not a budget worth defending.
-- [ ] `compact`: segments drop their text for icon-only. The two toggles already carry their chord
-      hint as a trailing `<span>`; that goes first, then the label.
-- [ ] `collapsed`: lowest-priority segments per zone move into a single `…` button opening a
-      [`Popover`](../packages/app/src/components/popover.tsx) that lists them vertically with their
-      labels restored. Reuses the primitive Phase 18 built for the monitor flyout.
-  - Pass `testId="status-overflow"`; `Popover` stamps `data-testid` on the trigger (`:190`) and
-    derives `status-overflow-panel` for the portalled panel (`:206`), so Theme H's selectors come
-    free and are not hand-written.
-- [ ] **Hysteresis: an asymmetric 24px band, no timer.** Collapse the instant the content overflows,
+  - **Bug found and fixed in review: a default flex row never actually overflows.** A zone's children
+    shrink and their text wraps by default, which keeps `scrollWidth === clientWidth` always — the
+    browser silently squeezes content instead of ever presenting an overflow to measure. Fixed with
+    `whitespace-nowrap [&>*]:shrink-0` on each zone container (`status-bar.tsx`), so a genuine shortage
+    of room shows up as real overflow.
+- [x] `compact`: segments drop their text for icon-only, via one `.status-label` CSS class
+      (`styles.css`) gated on `data-density` on the `<footer>` — not a `density` prop threaded through
+      every segment. A segment opts in once by wrapping its trailing text, and Theme D's future
+      segments earn the same compact styling for free (Q1/Q3 decisions).
+- [x] `collapsed`: **the whole of a zone's segments** move into the one shared `…` button
+      (`OverflowPopover`) — not a per-zone button (Q2). `collapseFor` (co-located in `density.ts`, Q5)
+      is deliberately all-or-nothing per zone rather than a partial subset: it is a pure function with
+      no access to per-segment widths (those live in the DOM), and a zone whose icon-only content does
+      not fit has no principled halfway point to stop at. `priority` still orders the popover list,
+      ascending. Opens a [`Popover`](../packages/app/src/components/popover.tsx), controlled so it can
+      auto-close the instant density improves past `collapsed` (Q4) rather than keep listing segments
+      that are rendered inline again.
+  - `testId="status-overflow"`; `Popover` stamps `data-testid` on the trigger and derives
+    `status-overflow-panel` for the portalled panel, so Theme H's selectors come free.
+  - The popover renders each collapsed segment through its own live `El`, not a static label — the
+    panel is portalled to `document.body`, outside the `<footer data-density>` element `.status-label`
+    matches against, so a segment's label and click behaviour both come back with no override needed.
+- [x] **Hysteresis: an asymmetric 24px band, no timer.** Collapse the instant the content overflows,
       but only restore once there is **24px more** room than the restore actually needs — i.e. going
       `compact → full` requires `available >= fullWidth + 24`, while `full → compact` requires only
       `available < fullWidth`. The same band applies to `collapsed ↔ compact`.
@@ -403,12 +426,26 @@ goes to 560 (`LAYOUT_BOUNDS.reposWidth`) and a narrow window plus eight segments
   - 24px is one `h-6` bar height, chosen so the band is legible in the code rather than arbitrary.
     `current` is a parameter of `densityFor` precisely so the band can be asymmetric; a pure function
     of width alone cannot express hysteresis.
-- [ ] `use-overflow.test.ts`: density transitions at each threshold, hysteresis holds across a
-      one-pixel oscillation, and the collapse order is priority-ascending within each zone. All three
-      are assertions against `densityFor` and the collapse selector — pure calls, no DOM. Spelled out
-      in Theme H, which also says why the hook itself is not what gets tested.
-- [ ] A segment in the overflow popover keeps its click behaviour — collapsing must not turn an
-      action into a label.
+- [x] `density.test.ts`: density transitions at each threshold in both directions, hysteresis holds
+      across a one-pixel oscillation, a direct multi-level jump (`full` straight to `collapsed` and
+      back) resolves in one call, and `collapseFor`'s order is priority-ascending. All pure calls, no
+      DOM — `use-overflow.ts` itself is left to the Playwright suite (Theme H), per the doc's own
+      reasoning: jsdom has no `ResizeObserver` and no test file in this repo stubs one.
+- [x] A segment in the overflow popover keeps its click behaviour — collapsing must not turn an
+      action into a label. Satisfied by rendering the live component rather than a label: the three
+      toggles read only global store state (no local state to lose across a collapse/restore
+      remount), so this holds for Theme E's segments without further work. Flagged for Theme D: a
+      future segment with genuine local UI state (e.g. an own open/closed flag) would reset that state
+      if its zone collapses and restores while the segment is mounted only inside the popover —
+      something Theme D should design around rather than something this phase needed to solve for
+      segments that do not exist yet.
+  - **Verified manually, not by the Theme H e2e spec.** Reaching `compact`/`collapsed` today needs a
+    bar width under ~500px, which — with only three toggle segments before Theme D lands — is below
+    `@bilo-io/shell`'s `md:` breakpoint (768px), where the shell's own mobile bottom-tab-bar overlays
+    this row and can steal a Playwright pointer click. That breakpoint is unreachable in the packaged
+    app (`desktop/src/main/window.ts` sets `minWidth: 900`) and unrelated to this phase; Theme H's own
+    `e2e/status-bar.spec.ts` will need either a taller fullWidth (once Theme D's segments land) or a
+    programmatic click to route around it.
 
 ### F — The browser pane the keymap already promised (M) — ✅ DONE (2026-08-28)
 
@@ -623,7 +660,7 @@ hooks, not rendered components.
 | Contract | [`shared/src/keybindings.ts`](../packages/shared/src/keybindings.ts) (`browser.open` → `browser.toggle` at `:17` and `:73`, label, and the now-false comment at `:67-72`; chord unchanged) — the phase's only shared-package edit. [`shared/src/domain/status.ts`](../packages/shared/src/domain/status.ts) (**unchanged**), load-bearing for Theme D's mid-operation segment. [`shared/src/domain/forge.ts`](../packages/shared/src/domain/forge.ts) (**unchanged**), load-bearing for `ForgeChecksRollup` and the `checks: … | null` nullability Theme D depends on |
 | Main | [`desktop/src/main/menu.ts`](../packages/desktop/src/main/menu.ts) — **edited**, one new `item('browser.toggle')` in the View submenu after `:71`. The doc previously assumed a menu entry existed; it does not |
 | Renderer — shell | [`app.tsx`](../packages/app/src/app.tsx) (the `<FooterBar />` move at `:773`, the stale comment at `:646-651`, `tabIndex={-1}` on the `<aside>` at `:624`, `relative` on the content row, the browser overlay mount). The `browser.open` placeholder handler lived in [`use-command-handlers.ts`](../packages/app/src/services/keybindings/use-command-handlers.ts) by the time Theme F landed — Phase 23 Theme B moved it out of `app.tsx` first |
-| Renderer — status bar | new `features/status-bar/status-bar.tsx`, `segments.ts`, `density.ts`, `use-overflow.ts`, `overflow-popover.tsx`, `chord-hint.ts` and one file per segment; [`features/terminal/footer-bar.tsx`](../packages/app/src/features/terminal/footer-bar.tsx) (**moved away**, taking `chordFor`/`displayChord` with it); [`features/monitor/monitor-cluster.tsx`](../packages/app/src/features/monitor/monitor-cluster.tsx) (`FooterCluster` retired, `MonitorCluster` unchanged); [`features/diagnostics/diagnostics-segment.tsx`](../packages/app/src/features/diagnostics/diagnostics-segment.tsx) (metadata only) |
+| Renderer — status bar | new `features/status-bar/status-bar.tsx`, `segments.ts`, `density.ts`, `use-overflow.ts`, `overflow-popover.tsx`, `chord-hint.ts` and one file per segment; [`features/terminal/footer-bar.tsx`](../packages/app/src/features/terminal/footer-bar.tsx) (**moved away**, taking `chordFor`/`displayChord` with it); [`features/monitor/monitor-cluster.tsx`](../packages/app/src/features/monitor/monitor-cluster.tsx) (`FooterCluster` retired, `MonitorCluster` unchanged); [`features/diagnostics/diagnostics-segment.tsx`](../packages/app/src/features/diagnostics/diagnostics-segment.tsx) (metadata only); [`styles.css`](../packages/app/src/styles.css) — **edited** for Theme E, one `.status-label` rule gated on `[data-density]`; `repos-toggle.tsx`/`terminal-toggle.tsx`/`browser-toggle.tsx` each wrap their trailing text in that class |
 | Renderer — browser | new `features/browser/browser-pane.tsx` and its chrome stub |
 | Renderer — segment sources | [`services/use-status.ts`](../packages/app/src/services/use-status.ts) — **written to, not merely read**: `GitOpId`, `GIT_OP_LABEL`, `GIT_OP_RANK`, the `opId` parameter on `useGitOp`/`useTargetedGitOp` and the `mutationKey` at `:262`. [`services/queries.ts`](../packages/app/src/services/queries.ts) (**unchanged** — its eighteen mutations are forge/diagnostics/tests and cannot name a git write). [`features/graph/use-graph-actions.ts`](../packages/app/src/features/graph/use-graph-actions.ts), [`features/repos/use-repo-actions.ts`](../packages/app/src/features/repos/use-repo-actions.ts), [`features/status/sync-controls.tsx`](../packages/app/src/features/status/sync-controls.tsx) — each passes an `opId` at every call site. [`features/terminal/terminal-store.ts`](../packages/app/src/features/terminal/terminal-store.ts) (read; the session list and `states`), [`features/terminal/terminal-session-list.tsx`](../packages/app/src/features/terminal/terminal-session-list.tsx) (**unchanged**, and the source of the `live` predicate at `:121`), [`features/terminal/use-agents.ts`](../packages/app/src/features/terminal/use-agents.ts) (**unchanged and NOT used** — it is the installed-agent roster, not sessions), [`features/tests/tests-store.ts`](../packages/app/src/features/tests/tests-store.ts) (read), [`features/forge/forge-status.tsx`](../packages/app/src/features/forge/forge-status.tsx) (read; `checksStatus` and `StatusPill` reused), [`features/status/conflict-banner.tsx`](../packages/app/src/features/status/conflict-banner.tsx) (its label map at `:17-22` is **exported** so it can be reused) |
 | Store | [`store/ui-store.ts`](../packages/app/src/store/ui-store.ts) — `browserOpen`, `toggleBrowser`, `setBrowserOpen`, `partialize`, and `PersistedUi`'s five pre-existing omissions fixed. **No `version` bump and no `migrate` arm**: the custom `merge` at `:712` already fills a missing key from the defaults |
@@ -841,3 +878,24 @@ hooks, not rendered components.
   `toContainText('main')` assertion, because A's own left-edge proof needs a selector and a green
   suite. Theme H carries the new specs. Nothing in H blocks on H, and the phase's stated landing
   order survives contact.
+- **Resolved — `data-density` on the `<footer>` plus a `.status-label` CSS class, not a `density`
+  prop threaded through every segment.** A segment opts in once by wrapping its trailing text; no
+  segment (present or Theme D's future five) has to accept or branch on a prop to earn compact
+  styling. The trade is that `collapsed` cannot be expressed the same way (removing a segment
+  entirely is not a CSS concern), which is why `collapseFor` exists as a separate, JS-level step.
+- **Resolved — one shared `…` overflow button for the whole bar, not one per zone.** Matches the
+  doc's own singular `status-overflow` testId. A zone's segments still collapse independently of the
+  other zones' (`collapseFor` runs per zone), they just land in one popover rather than each zone
+  growing its own trigger and panel to manage.
+- **Resolved — `collapsed` is all-or-nothing per zone, not a partial subset.** `collapseFor` has no
+  per-segment widths to reason about — those live in the DOM, and it is a pure function — so there is
+  no principled point to stop removing at once icon-only content no longer fits. `priority` still
+  orders the popover list (ascending), so a future partial-collapse could read the same order without
+  a second sort, but nothing in this phase implements one.
+- **Resolved — the overflow popover auto-closes the instant density improves past `collapsed`.**
+  Rather than behaving like every other `Popover` (closes only on click-outside/Escape/re-toggle), a
+  widening bar closes it immediately so it can never keep listing segments that are already back in
+  the bar itself.
+- **Resolved — `collapseFor` is co-located in `density.ts`, not a separate file.** Both are pure
+  functions over the same `Density`/`priority` concepts; one file answers "how does overflow decide
+  anything."

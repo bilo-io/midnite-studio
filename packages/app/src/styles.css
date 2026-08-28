@@ -160,3 +160,15 @@
     transition: none !important;
   }
 }
+
+/* Phase 27 Theme E — status bar overflow. `data-density` lives on the bar's
+ * own `<footer>` (features/status-bar/status-bar.tsx), driven by the pure
+ * `densityFor()`; `.status-label` is the one class a segment opts a piece of
+ * text into to have it drop at `compact`/`collapsed`, rather than every
+ * segment growing its own density prop. `OverflowPopover`'s panel renders
+ * through a portal outside this element, so a collapsed segment's label
+ * comes back there with no override needed. */
+[data-density='compact'] .status-label,
+[data-density='collapsed'] .status-label {
+  display: none;
+}

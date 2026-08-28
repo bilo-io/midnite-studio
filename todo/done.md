@@ -2,6 +2,42 @@
 
 <!-- Append one entry per landed phase/PR: date, phase, PR link, one-line summary. -->
 
+## 2026-08-28 — Phase 27 Theme E — status bar overflow
+
+Merged locally on `feature/phase-27-e-overflow` — no PR link, no GitHub remote on this checkout.
+
+`densityFor()` (`features/status-bar/density.ts`) is the whole of the full/compact/collapsed
+decision — pure, no DOM — with an asymmetric 24px hysteresis band so a splitter drag can't flicker
+across the boundary. `use-overflow.ts` measures the bar's own `clientWidth`/`scrollWidth` (not the
+window) via the same `useLayoutEffect` + `ResizeObserver` shape `app.tsx`'s `stackHeight` already
+uses. `compact` hides a segment's trailing text through one `.status-label` CSS class gated on
+`data-density` on the `<footer>`, rather than a `density` prop every segment has to accept — so
+Theme D's segments earn compact styling for free by using the same class. `collapsed` moves a
+zone's segments, all-or-nothing, into one shared `…` popover (`OverflowPopover`), auto-closing the
+instant density improves past `collapsed`; the popover renders each segment's live component rather
+than a static label (portalled outside the `data-density` scope, so its own label and click
+behaviour both come back for free).
+
+- [x] `density.ts` / `density.test.ts`: `densityFor` and the co-located `collapseFor`, 14 pure-call
+      cases covering both hysteresis directions, a multi-level jump in one call, a 1px oscillation,
+      and priority-ascending collapse order
+- [x] **Bug found and fixed: a sticky collapse.** Re-measuring `scrollWidth` off an already-collapsed
+      DOM (segments removed) understates the true want and converges on `available`, making the
+      restore hysteresis unsatisfiable — the bar would get stuck collapsed forever after one dip
+      through a narrower intermediate width during a real resize. Fixed by caching the last
+      trustworthy `fullWidth`/`compactWidth` reading (taken while every segment was still mounted)
+      and reusing it during `collapsed` rather than re-deriving from the reduced DOM
+- [x] **Bug found and fixed: a default flex row never overflows.** Zone children shrink and wrap by
+      default, so `scrollWidth === clientWidth` always — fixed with `whitespace-nowrap
+      [&>*]:shrink-0` on each zone container so a genuine shortage of room becomes measurable overflow
+      instead of silently clipped text
+- [x] `overflow-popover.tsx`: the single shared trigger + controlled `Popover`, `status-overflow` /
+      `status-overflow-panel` testIds free from `Popover` itself
+- [x] `repos-toggle.tsx`/`terminal-toggle.tsx`/`browser-toggle.tsx`: trailing label and chord-hint
+      text wrapped in `.status-label`; `styles.css` gains the one CSS rule
+- [x] `status-bar.tsx`: wired `useOverflow` + `collapseFor` per zone, `data-density` on the `<footer>`,
+      the `OverflowPopover` mount in the right zone
+
 ## 2026-08-28 — Phase 27 Theme D — the five segments, and the opId that names them
 
 Landed on `feature/phase-27-status-segments`, merged locally — no PR link, no GitHub remote on

@@ -22,8 +22,8 @@ export function BrowserToggle() {
       }`}
     >
       <GoGlobe aria-hidden className="mr-1 inline h-3.5 w-3.5 align-[-2px]" />
-      Browser
-      <span className="ml-1.5 opacity-60">{displayChord(browserChord)}</span>
+      <span className="status-label">Browser</span>
+      <span className="status-label ml-1.5 opacity-60">{displayChord(browserChord)}</span>
     </button>
   );
 }
