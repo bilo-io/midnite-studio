@@ -21,7 +21,12 @@
       "@types/react-dom": "^19.0.0"
     },
     "peerDependencyRules": {
-      "ignoreMissing": ["next-intl"]
+      "ignoreMissing": [
+        "next-intl"
+      ]
+    },
+    "patchedDependencies": {
+      "node-pty@1.1.0": "patches/node-pty@1.1.0.patch"
     }
   },
   "devDependencies": {
