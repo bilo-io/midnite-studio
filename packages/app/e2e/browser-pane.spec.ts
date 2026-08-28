@@ -38,6 +38,30 @@ test('the toggle opens the pane over the repositories panel, and the bar stays h
   await expect(page.getByRole('button', { name: 'Expand terminal' })).toBeVisible();
 });
 
+test('closing the pane restores clicks to the content beneath it immediately, not after the exit transition', async ({
+  page,
+}) => {
+  await installMockBridge(page, { ...fixtures });
+  await page.goto('/');
+  await expect(page.getByRole('columnheader', { name: 'Commit message' })).toBeVisible();
+
+  const toggle = page.locator('[title^="Toggle browser"]');
+  await toggle.click();
+  await expect(page.getByRole('textbox', { name: 'Address' })).toBeVisible();
+
+  // Close and, with no wait, click something the pane was covering — the
+  // repositories filter, inside the content row the pane overlays. The exit
+  // transition (useReveal's REVEAL_MS) keeps the pane mounted for 200ms after
+  // `shown` flips false; a tight per-action timeout means this only passes if
+  // the overlay stops intercepting pointer events the instant it starts
+  // fading, not once it finishes unmounting.
+  await toggle.click();
+  const filter = page.getByPlaceholder('Filter repos…');
+  await filter.click({ timeout: 150 });
+  await filter.fill('nothing-matches');
+  await expect(filter).toHaveValue('nothing-matches');
+});
+
 test('Escape closes the pane, and it reopens with the same state on reload', async ({ page }) => {
   await installMockBridge(page, { ...fixtures });
   await page.goto('/');

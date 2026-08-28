@@ -3,6 +3,7 @@ import { useEffect, useState, type FormEvent } from 'react';
 import { GoArrowLeft, GoArrowRight, GoSync, GoX } from 'react-icons/go';
 
 import { EmptyState } from '../../components/empty-state';
+import { IconButton } from '../../components/icon-button';
 import { useUiStore } from '../../store/ui-store';
 
 /**
@@ -36,20 +37,18 @@ export function BrowserPane({ shown }: { shown: boolean }) {
 
   return (
     <div
+      // z-20: one rung above the terminal frame's z-10 (app.tsx) within this
+      // same content row — a local ordering, not the global menu/popover/
+      // dialog/tooltip scale in tailwind.config.ts, which is for layers
+      // portalled to document.body and unrelated to this row's own stacking.
       className={`absolute inset-0 z-20 flex flex-col bg-background transition-opacity duration-200 ${
-        shown ? 'opacity-100' : 'opacity-0'
+        shown ? 'pointer-events-auto opacity-100' : 'pointer-events-none opacity-0'
       }`}
     >
       <div className="flex h-9 shrink-0 items-center gap-2 border-b border-border px-3">
-        <button type="button" disabled aria-label="Back" className="rounded p-1 opacity-40">
-          <GoArrowLeft aria-hidden className="h-4 w-4" />
-        </button>
-        <button type="button" disabled aria-label="Forward" className="rounded p-1 opacity-40">
-          <GoArrowRight aria-hidden className="h-4 w-4" />
-        </button>
-        <button type="button" disabled aria-label="Reload" className="rounded p-1 opacity-40">
-          <GoSync aria-hidden className="h-4 w-4" />
-        </button>
+        <IconButton icon={GoArrowLeft} label="Back" disabled size="sm" />
+        <IconButton icon={GoArrowRight} label="Forward" disabled size="sm" />
+        <IconButton icon={GoSync} label="Reload" disabled size="sm" />
         <form onSubmit={onSubmit} className="min-w-0 flex-1">
           <input
             type="text"
@@ -60,14 +59,12 @@ export function BrowserPane({ shown }: { shown: boolean }) {
             className="w-full rounded border border-border bg-card px-2 py-1 text-xs outline-none focus-visible:ring-1 focus-visible:ring-ring"
           />
         </form>
-        <button
-          type="button"
+        <IconButton
+          icon={GoX}
+          label="Close browser"
+          size="sm"
           onClick={() => useUiStore.getState().setBrowserOpen(false)}
-          aria-label="Close browser"
-          className="rounded p-1 hover:bg-accent hover:text-foreground"
-        >
-          <GoX aria-hidden className="h-4 w-4" />
-        </button>
+        />
       </div>
       <div className="min-h-0 flex-1">
         <EmptyState

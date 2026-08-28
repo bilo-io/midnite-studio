@@ -193,6 +193,7 @@ function FallbackCard({
     <EmptyState
       icon={LuFileQuestion}
       title={fileName}
+      bodySize="xs"
       body={
         result.kind === 'error'
           ? result.message
