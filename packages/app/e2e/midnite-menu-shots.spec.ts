@@ -37,7 +37,7 @@ test('the row, closed — three marks rather than three ellipses', async ({ page
 
 test('the menu, open', async ({ page }) => {
   await page.getByRole('button', { name: `Run a midnite skill on ${REPO}` }).click();
-  await expect(page.getByRole('menuitem', { name: 'Loop: PR Feedback' })).toBeVisible();
+  await expect(page.getByRole('menuitem', { name: 'Loops' })).toBeVisible();
   await shoot(page, 'menu-open');
 });
 

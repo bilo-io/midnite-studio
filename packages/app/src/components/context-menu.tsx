@@ -188,35 +188,53 @@ function MenuRow({
         {item.submenu ? <ChevronRight aria-hidden className="h-3.5 w-3.5 shrink-0" /> : null}
       </button>
 
-      {item.submenu && open ? (
-        <div
-          role="menu"
-          className="absolute left-full top-0 ml-px min-w-[9rem] rounded-md border border-border bg-popover py-1 shadow-lg"
-        >
-          {item.submenu.map((sub, index) =>
-            sub.type === 'separator' ? (
-              <hr key={`sub-sep-${index}`} className="my-1 border-border" />
-            ) : (
-              <button
-                key={sub.label}
-                type="button"
-                role="menuitem"
-                disabled={sub.disabled}
-                title={sub.disabled ? sub.disabledReason : undefined}
-                onClick={() => {
-                  sub.onSelect?.();
-                  onClose();
-                }}
-                className={`flex w-full px-3 py-1 text-left transition-colors disabled:opacity-40 ${
-                  sub.danger ? 'text-destructive hover:bg-destructive/10' : 'hover:bg-accent'
-                }`}
-              >
-                {sub.label}
-              </button>
-            ),
-          )}
-        </div>
-      ) : null}
+      {item.submenu && open ? (() => {
+        const subIconed = item.submenu.some(
+          (sub) => sub.type !== 'separator' && sub.icon !== undefined,
+        );
+        return (
+          <div
+            role="menu"
+            className="absolute left-full top-0 ml-px min-w-[9rem] rounded-md border border-border bg-popover py-1 shadow-lg"
+          >
+            {item.submenu.map((sub, index) => {
+              if (sub.type === 'separator') {
+                return <hr key={`sub-sep-${index}`} className="my-1 border-border" />;
+              }
+              const SubIcon = sub.icon;
+              return (
+                <button
+                  key={sub.label}
+                  type="button"
+                  role="menuitem"
+                  disabled={sub.disabled}
+                  title={sub.disabled ? sub.disabledReason : undefined}
+                  onClick={() => {
+                    sub.onSelect?.();
+                    onClose();
+                  }}
+                  className={`flex w-full items-center gap-2 px-3 py-1 text-left transition-colors disabled:cursor-not-allowed disabled:opacity-40 ${
+                    sub.danger ? 'text-destructive hover:bg-destructive/10' : 'hover:bg-accent'
+                  }`}
+                >
+                  {subIconed ? (
+                    SubIcon ? (
+                      <SubIcon
+                        aria-hidden
+                        className="h-3.5 w-3.5 shrink-0 text-muted-foreground"
+                        {...(sub.iconStyle ? { style: sub.iconStyle } : {})}
+                      />
+                    ) : (
+                      <span aria-hidden className="h-3.5 w-3.5 shrink-0" />
+                    )
+                  ) : null}
+                  <span className="flex-1 truncate">{sub.label}</span>
+                </button>
+              );
+            })}
+          </div>
+        );
+      })() : null}
     </div>
   );
 }
