@@ -103,6 +103,29 @@ type TerminalState = {
    * the user asked for.
    */
   liveAgentId: Record<string, string | null>;
+  /**
+   * Bumped to move keyboard focus into the active session's xterm without
+   * changing which session is active.
+   *
+   * `setActive` alone does not do this: `TerminalView`'s focus effect only
+   * fires when `active`/`ready` themselves change, so re-selecting the
+   * already-active row (the session list's own "focus the panel" arrow key)
+   * would otherwise be a no-op. A counter is the plainest thing to add to that
+   * effect's dependency list that means "focus again" regardless of value.
+   */
+  focusSignal: number;
+  /**
+   * True for one render after the session list's own arrow-key navigation
+   * changes `activeId`, so `TerminalView`'s focus-follows-selection effect
+   * knows to skip stealing focus back out of the list.
+   *
+   * That effect (`if (active && ready) termRef.current?.focus()`) exists so a
+   * *click* on a different row leaves you able to type immediately — but the
+   * list's own up/down navigation wants the opposite: stay in the list until
+   * an explicit sideways arrow hands focus to the pane. Consumed by the effect
+   * the moment it sees it true, so it never leaks into the next real click.
+   */
+  suppressAutoFocus: boolean;
 
   hydrate: () => Promise<void>;
   openSession: (request: NewSessionRequest) => TerminalSession;
@@ -111,6 +134,12 @@ type TerminalState = {
   clearPendingInput: (sessionId: string) => void;
   closeSession: (sessionId: string) => void;
   setActive: (sessionId: string) => void;
+  /** Same as `setActive`, but keeps keyboard focus in the session list. */
+  setActiveFromListNav: (sessionId: string) => void;
+  /** Consumes `suppressAutoFocus` once `TerminalView`'s effect has seen it. */
+  clearSuppressAutoFocus: () => void;
+  /** Moves keyboard focus into the active session's terminal. See `focusSignal`. */
+  focusActiveSession: () => void;
   reorder: (sessionIds: string[]) => void;
   /** The user's own name for a session — persisted. `undefined` clears it. */
   renameSession: (sessionId: string, name: string | undefined) => void;
@@ -156,6 +185,8 @@ export const useTerminalStore = create<TerminalState>()((set, get) => ({
   activity: {},
   liveCwd: {},
   liveAgentId: {},
+  focusSignal: 0,
+  suppressAutoFocus: false,
 
   /**
    * Load the saved sessions. Spawns nothing.
@@ -248,6 +279,12 @@ export const useTerminalStore = create<TerminalState>()((set, get) => ({
   },
 
   setActive: (activeId) => set({ activeId }),
+
+  setActiveFromListNav: (activeId) => set({ activeId, suppressAutoFocus: true }),
+
+  clearSuppressAutoFocus: () => set({ suppressAutoFocus: false }),
+
+  focusActiveSession: () => set((state) => ({ focusSignal: state.focusSignal + 1 })),
 
   queueInput: (sessionId, input) =>
     set((state) => ({ pendingInput: { ...state.pendingInput, [sessionId]: input } })),
