@@ -21,7 +21,7 @@ import { IconButton } from './components/icon-button';
 import { PaletteHost, usePalette } from './components/palette-host';
 import { ResizeHandle } from './components/resizable/resize-handle';
 import { useResizable } from './components/resizable/use-resizable';
-import { REVEAL_HOLD_MS, useReveal, useSettled } from './components/use-reveal';
+import { useReveal, useRevealSize } from './components/use-reveal';
 import { ThemeToggle } from './components/theme-toggle';
 import { TitleBarNav } from './components/title-bar-nav';
 import { ActionsView } from './features/actions/actions-view';
@@ -368,15 +368,6 @@ function Shell() {
     ...LAYOUT_BOUNDS.terminalHeight,
   });
 
-  /*
-    Both toggles are animated, so both panels outlive the flag that hides them:
-    `mounted` keeps them in the tree for the length of the exit, and `shown` is
-    what the width and the height below actually follow.
-  */
-  const reposReveal = useReveal(reposOpen);
-  const terminalReveal = useReveal(terminalOpen);
-  const browserReveal = useReveal(browserOpen);
-
   /**
    * The terminal's height while maximized, measured rather than `flex-1`.
    *
@@ -410,22 +401,42 @@ function Shell() {
   const terminalTarget = terminalMaximized ? stackHeight : terminal.current;
 
   /*
+    All three size-tweened panels (repos, terminal, its session list — the
+    latter in `terminal-panel.tsx`) share this one primitive, so they cannot
+    drift on duration, easing or the reduced-motion rule. The browser pane is
+    NOT one of these: it tweens opacity, not a size, and keeps `useReveal`.
+  */
+  const reposTween = useRevealSize({
+    open: reposOpen,
+    size: repos.current,
+    axis: 'x',
+    dragging: repos.dragging,
+  });
+  const terminalTween = useRevealSize<HTMLDivElement>({
+    open: terminalOpen,
+    size: terminalTarget,
+    axis: 'y',
+    dragging: terminal.dragging,
+    /*
+      NOT the default `${open}:${size}` key: `terminalTarget` tracks the
+      window's own live height while maximized (`stackHeight`, via the
+      `ResizeObserver` above), and keying settle on it would re-arm the
+      transition on every resize tick for as long as the window kept moving —
+      the terminal's bottom edge trailing the window edge by `motionMs()`.
+      Keying on the discrete open/maximize TOGGLE instead is what makes a
+      live window resize apply instantly, at any size, exactly as it did
+      before this hook existed.
+    */
+    animateKey: `${terminalOpen}:${terminalMaximized}`,
+  });
+  const browserReveal = useReveal(browserOpen);
+
+  /*
     A maximized terminal covers the view — and only a terminal that is actually
     open covers anything, which is why hiding one that was left maximized hands
     the room straight back rather than blanking the column.
   */
   const covering = terminalOpen && terminalMaximized;
-
-  /**
-   * Whether the terminal is mid-toggle, and so whether its height animates.
-   *
-   * Armed by a change of STATE, not by every change of height, and that is the
-   * point: maximized, the height tracks the window, and easing towards each new
-   * window height would leave the panel's top edge trailing the window edge the
-   * user is dragging by a fifth of a second. The same shortcut covers the
-   * resize handle, whose whole job is to put the edge under the pointer.
-   */
-  const settled = useSettled(`${terminalOpen}:${terminalMaximized}`, REVEAL_HOLD_MS);
 
   const navItem = useCallback(
     (item: NavItem) => ({
@@ -614,9 +625,10 @@ function Shell() {
             splitter with nothing on its left edge is a drag target that resizes
             an invisible thing.
           */}
-          {reposReveal.mounted ? (
+          {reposTween.mounted ? (
             <>
               <aside
+                ref={reposTween.ref}
                 aria-label="Repositories"
                 // Focus target for the status bar's active-worktree segment —
                 // a click that only opens the panel and leaves the keyboard
@@ -629,10 +641,8 @@ function Shell() {
                   repository tree — rows re-truncating, the toolbar re-wrapping —
                   which reads as the sidebar rebuilding rather than moving.
                 */
-                className={`shrink-0 overflow-hidden ${
-                  repos.dragging ? '' : 'transition-[width] duration-200 ease-in-out'
-                }`}
-                style={{ width: reposReveal.shown ? repos.current : 0 }}
+                className="shrink-0 overflow-hidden"
+                style={reposTween.style}
               >
                 <div className="h-full" style={{ width: repos.current }}>
                   <ReposPanel />
@@ -694,7 +704,7 @@ function Shell() {
                   remember.
                 */
                 className={`min-h-0 flex-1 overflow-hidden animate-fade-in ${
-                  covering && settled ? 'hidden' : ''
+                  covering && terminalTween.settled ? 'hidden' : ''
                 }`}
               >
                 {activeView === 'dashboard' ? (
@@ -731,12 +741,13 @@ function Shell() {
                 the resize handle goes with it — there is nothing left to resize
                 against.
               */}
-              {terminalReveal.mounted ? (
+              {terminalTween.mounted ? (
                 <>
                   {terminalMaximized ? null : (
                     <ResizeHandle resizable={terminal} axis="y" label="Resize terminal" />
                   )}
                   <div
+                    ref={terminalTween.ref}
                     // Named for the e2e suite: this box, not the panel inside it,
                     // is the one that animates between the three heights.
                     data-terminal-frame
@@ -756,10 +767,8 @@ function Shell() {
                       a frame behind. This way the shell is told its new size once,
                       at the start, and what moves is only the window onto it.
                     */
-                    className={`relative z-10 shrink-0 overflow-hidden border-t border-border ${
-                      settled ? '' : 'transition-[height] duration-200 ease-in-out'
-                    }`}
-                    style={{ height: terminalReveal.shown ? terminalTarget : 0 }}
+                    className="relative z-10 shrink-0 overflow-hidden border-t border-border"
+                    style={terminalTween.style}
                   >
                     {/*
                       Top-anchored, which is what keeps the promise the header's
@@ -773,6 +782,7 @@ function Shell() {
                         cwd={selectedWorktreePath}
                         repoId={selectedRepoId}
                         repoName={selectedRepoName}
+                        fitSignal={terminalTween.settleCount}
                       />
                     </div>
                   </div>
