@@ -1,4 +1,4 @@
-import { useMemo, useState } from 'react';
+import { Fragment, useMemo, useState, type ReactNode } from 'react';
 
 import type { Ref, Remote, RepoDescriptor, StatusResult, Worktree } from '@midnite/git-shared';
 import { forgeProjectUrl } from '@midnite/git-shared';
@@ -57,9 +57,12 @@ import { checksVerdict } from './checks-verdict';
 import { ForgeSections } from './forge-sections';
 import { TestsSection } from '../tests/tests-section';
 import {
+  ALL_SECTIONS,
+  SECTION_TREE,
   useViewSections,
   type RefSectionKey,
   type SectionKey,
+  type SectionNode,
   type ViewSections,
 } from './view-sections';
 import { RepoLifecycleMenu } from './repo-lifecycle-actions';
@@ -674,11 +677,24 @@ function RepoItem({
 /** Beyond this a tag list stops being a list and becomes a wall. */
 const TAG_PREVIEW = 50;
 
-const SECTION_TITLE: Record<RefSectionKey, string> = {
+/**
+ * Every section's heading text, keyed by the full `SectionKey` — a compile
+ * error rather than an `undefined` heading the moment a new key joins
+ * `SECTION_TREE` without one. `branches` and `forge` are parent headings;
+ * `stashes` is labelled here even though nothing renders it yet (Phase 22).
+ */
+const SECTION_TITLE: Record<SectionKey, string> = {
   local: 'Local',
   remotes: 'Remotes',
   tags: 'Tags',
   worktrees: 'Worktrees',
+  branches: 'Branches',
+  stashes: 'Stashes',
+  forge: 'Forge',
+  actions: 'Actions',
+  reviews: 'Reviews',
+  issues: 'Issues',
+  tests: 'Tests',
 };
 
 /**
@@ -703,7 +719,7 @@ function useSectionToggles() {
   });
 }
 
-function RepoTree({
+export function RepoTree({
   repo,
   refs,
   remotes,
@@ -787,127 +803,184 @@ function RepoTree({
     count,
   });
 
-  return (
-    <div className="pb-1">
-      {/*
-        Each section asks the view table for itself. One gate over the whole
-        group would be smaller, but the Actions view wants Worktrees without
-        Local and the Changes view wants neither — the sections are independent
-        answers and have to be filtered as such.
-      */}
-      {sections.visible('local') ? (
-        /*
-          "Local", not "Branches": the section below it is remote branches too,
-          and a heading that only says "Branches" leaves the reader to work out
-          which of the two they are looking at.
-        */
-        <TreeSection
-          title="Local"
-          count={branches.length}
-          depth={1}
-          {...section('local')}
-          action={headingAction('local', branches.length)}
-        >
-          {branches.map((ref, i) => (
-            <RefRow
-              key={ref.fullName}
-              refItem={ref}
-              icon={GitBranch}
-              index={i}
-              health={branchHealth({
-                ref,
-                status: liveStatus(ref, statuses, repo),
-                checks: checksVerdict(cachedRuns?.runs, ref.sha),
-              })}
-              changed={ref.worktreePath ? changedOf(ref.worktreePath) : 0}
-              conflicted={ref.worktreePath ? conflictedOf(ref.worktreePath) : 0}
-              menu={refMenu}
-              onCheckout={onCheckout}
-              onViewAllChanges={onViewAllChanges}
-            />
-          ))}
-        </TreeSection>
-      ) : null}
+  /**
+   * How many rows Forge's `cascadeStyle` entrance animation should count as
+   * already having played, so its rows keep staggering in sequence rather than
+   * all restarting at 0. Derived from `ALL_SECTIONS`' own order — the same
+   * declaration the tree renders from — rather than a positional guess, so a
+   * future reordering of what comes before Forge cannot leave this stale the
+   * way `worktrees.length` was when Worktrees was fourth, not first.
+   */
+  const rowsBeforeForge: Partial<Record<SectionKey, number>> = {
+    worktrees: visibleWorktrees.length,
+    local: branches.length,
+    remotes: remoteGroups.reduce((sum, group) => sum + group.refs.length, 0),
+    tags: visibleTags.length,
+  };
+  const forgeIndex = ALL_SECTIONS.slice(0, ALL_SECTIONS.indexOf('forge'))
+    .filter((key) => sections.visible(key))
+    .reduce((sum, key) => sum + (rowsBeforeForge[key] ?? 0), 0);
 
-      {sections.visible('remotes') ? (
-        <TreeSection
-          title="Remotes"
-          count={remoteGroups.length}
-          depth={1}
-          {...section('remotes')}
-          action={headingAction('remotes', remoteGroups.length)}
-        >
-          {remoteGroups.map((group) => (
-            <RemoteGroup
-              key={group.name}
-              name={group.name}
-              refs={group.refs}
-              forge={forgeByName.get(group.name) ?? null}
-              menu={refMenu}
-            />
-          ))}
-        </TreeSection>
-      ) : null}
+  /**
+   * A leaf's own renderer, keyed by `SectionKey` — a move, not a rewrite: each
+   * body is the same JSX the four literal blocks used to hold. `branches` has
+   * none, which is what tells `renderSection` to wrap its children in a
+   * generic parent heading instead; `stashes` has none either, and no children
+   * to recurse into, so it renders nothing until Phase 22 registers a body
+   * here. `forge` is the one entry that stands for a whole subtree at once —
+   * `ForgeSections`/`TestsSection` keep deciding their own four children's
+   * visibility internally, exactly as today, until Theme F gives Forge a real
+   * nested heading.
+   */
+  const SECTION_BODY: Partial<Record<SectionKey, (depth: 1 | 2) => ReactNode>> = {
+    worktrees: (depth) => (
+      <TreeSection
+        title="Worktrees"
+        count={visibleWorktrees.length}
+        depth={depth}
+        {...section('worktrees')}
+        action={headingAction('worktrees', visibleWorktrees.length)}
+      >
+        {visibleWorktrees.map((worktree, i) => (
+          <WorktreeRow
+            key={worktree.id}
+            repo={repo}
+            worktree={worktree}
+            index={i}
+            // Every checkout now speaks for itself. This used to be
+            // `isMain`-only — the primary's status was the only one fetched,
+            // so attributing it to a linked worktree would have reported the
+            // wrong directory's dirt. The invariant survives; the data caught
+            // up.
+            health={worktreeHealth(statuses.byPath.get(worktree.path))}
+            changed={changedOf(worktree.path)}
+            conflicted={conflictedOf(worktree.path)}
+            menu={worktreeMenu}
+            onViewAllChanges={onViewAllChanges}
+          />
+        ))}
+      </TreeSection>
+    ),
+    local: (depth) => (
+      /*
+        "Local", not "Branches" — the parent heading now says "Branches" for
+        the whole pair, and this child still says which HALF of it a row
+        belongs to. `repos-panel.tsx`'s old comment argued against a rename;
+        this is a parent, not one, and both children stay exactly as labelled.
+      */
+      <TreeSection
+        title="Local"
+        count={branches.length}
+        depth={depth}
+        {...section('local')}
+        action={headingAction('local', branches.length)}
+      >
+        {branches.map((ref, i) => (
+          <RefRow
+            key={ref.fullName}
+            refItem={ref}
+            icon={GitBranch}
+            index={i}
+            depth={(depth + 1) as 2 | 3}
+            health={branchHealth({
+              ref,
+              status: liveStatus(ref, statuses, repo),
+              checks: checksVerdict(cachedRuns?.runs, ref.sha),
+            })}
+            changed={ref.worktreePath ? changedOf(ref.worktreePath) : 0}
+            conflicted={ref.worktreePath ? conflictedOf(ref.worktreePath) : 0}
+            menu={refMenu}
+            onCheckout={onCheckout}
+            onViewAllChanges={onViewAllChanges}
+          />
+        ))}
+      </TreeSection>
+    ),
+    remotes: (depth) => (
+      <TreeSection
+        title="Remotes"
+        count={remoteGroups.length}
+        depth={depth}
+        {...section('remotes')}
+        action={headingAction('remotes', remoteGroups.length)}
+      >
+        {remoteGroups.map((group) => (
+          <RemoteGroup
+            key={group.name}
+            name={group.name}
+            refs={group.refs}
+            forge={forgeByName.get(group.name) ?? null}
+            menu={refMenu}
+            depth={(depth + 1) as 2 | 3}
+          />
+        ))}
+      </TreeSection>
+    ),
+    tags: (depth) => (
+      <TreeSection
+        title="Tags"
+        count={tags.length}
+        depth={depth}
+        {...section('tags')}
+        action={
+          tags.length > TAG_PREVIEW
+            ? {
+                label: showAllTags ? 'Show fewer' : `Show all ${tags.length}`,
+                onClick: () => setShowAllTags((v) => !v),
+              }
+            : undefined
+        }
+      >
+        {visibleTags.map((ref, i) => (
+          <RefRow
+            key={ref.fullName}
+            refItem={ref}
+            icon={Tag}
+            index={i}
+            depth={(depth + 1) as 2 | 3}
+            menu={refMenu}
+          />
+        ))}
+      </TreeSection>
+    ),
+    forge: () => (
+      <>
+        <ForgeSections
+          repoId={repo.id}
+          remotes={remotes}
+          index={forgeIndex}
+          visible={sections.visible}
+        />
+        <TestsSection repoId={repo.id} visible={sections.visible} />
+      </>
+    ),
+  };
 
-      {sections.visible('tags') ? (
-        <TreeSection
-          title="Tags"
-          count={tags.length}
-          depth={1}
-          {...section('tags')}
-          action={
-            tags.length > TAG_PREVIEW
-              ? {
-                  label: showAllTags ? 'Show fewer' : `Show all ${tags.length}`,
-                  onClick: () => setShowAllTags((v) => !v),
-                }
-              : undefined
-          }
-        >
-          {visibleTags.map((ref, i) => (
-            <RefRow key={ref.fullName} refItem={ref} icon={Tag} index={i} menu={refMenu} />
-          ))}
+  /**
+   * The walk that deletes the coincidence: `SECTION_TREE` is the only thing
+   * that decides what renders and in what order now, so a section the
+   * declaration does not contain cannot appear here by accident. A node with
+   * its own `SECTION_BODY` entry renders that (a leaf's rows, or Forge's
+   * opaque pair); a childless node with none renders nothing (the reserved
+   * `stashes` slot); anything else is a parent wrapping its own recursively
+   * rendered children one rung deeper — `Branches` today, matching the load-
+   * bearing visibility rule Theme A already gives it via `sections.visible`.
+   */
+  function renderSection(node: SectionNode, depth: 1 | 2): ReactNode {
+    if (!sections.visible(node.key)) return null;
+    const body = SECTION_BODY[node.key];
+    if (body) return <Fragment key={node.key}>{body(depth)}</Fragment>;
+    if (node.children && node.children.length > 0) {
+      return (
+        <TreeSection key={node.key} title={SECTION_TITLE[node.key]} depth={depth} hideWhenEmpty={false}>
+          {node.children.map((child) => renderSection(child, (depth + 1) as 1 | 2))}
         </TreeSection>
-      ) : null}
+      );
+    }
+    return null;
+  }
 
-      {sections.visible('worktrees') ? (
-        <TreeSection
-          title="Worktrees"
-          count={visibleWorktrees.length}
-          depth={1}
-          {...section('worktrees')}
-          action={headingAction('worktrees', visibleWorktrees.length)}
-        >
-          {visibleWorktrees.map((worktree, i) => (
-            <WorktreeRow
-              key={worktree.id}
-              repo={repo}
-              worktree={worktree}
-              index={i}
-              // Every checkout now speaks for itself. This used to be
-              // `isMain`-only — the primary's status was the only one fetched,
-              // so attributing it to a linked worktree would have reported the
-              // wrong directory's dirt. The invariant survives; the data caught
-              // up.
-              health={worktreeHealth(statuses.byPath.get(worktree.path))}
-              changed={changedOf(worktree.path)}
-              conflicted={conflictedOf(worktree.path)}
-              menu={worktreeMenu}
-              onViewAllChanges={onViewAllChanges}
-            />
-          ))}
-        </TreeSection>
-      ) : null}
-
-      <ForgeSections
-        repoId={repo.id}
-        remotes={remotes}
-        index={worktrees.length}
-        visible={sections.visible}
-      />
-      <TestsSection repoId={repo.id} visible={sections.visible} />
-    </div>
-  );
+  return <div className="pb-1">{SECTION_TREE.map((node) => renderSection(node, 1))}</div>;
 }
 
 /**
@@ -963,11 +1036,14 @@ function RemoteGroup({
   refs,
   forge,
   menu,
+  depth,
 }: {
   name: string;
   refs: Ref[];
   forge: Remote['forge'];
   menu: (ref: Ref) => MenuItem[];
+  /** This group heading's own rung; its refs render one rung deeper. */
+  depth: 2 | 3;
 }) {
   const [open, setOpen] = useState(true);
   const projectUrl = forge ? forgeProjectUrl(forge) : null;
@@ -980,7 +1056,7 @@ function RemoteGroup({
       collapsible
       open={open}
       onToggle={() => setOpen((v) => !v)}
-      depth={2}
+      depth={depth}
       action={
         projectUrl === null || forge === null
           ? undefined
@@ -992,7 +1068,14 @@ function RemoteGroup({
       }
     >
       {refs.map((ref, i) => (
-        <RefRow key={ref.fullName} refItem={ref} icon={GitBranch} index={i} depth={2} menu={menu} />
+        <RefRow
+          key={ref.fullName}
+          refItem={ref}
+          icon={GitBranch}
+          index={i}
+          depth={(depth + 1) as 3 | 4}
+          menu={menu}
+        />
       ))}
     </TreeSection>
   );
@@ -1010,7 +1093,7 @@ function RefRow({
   refItem,
   icon: Icon,
   index,
-  depth = 1,
+  depth,
   health,
   changed = 0,
   conflicted = 0,
@@ -1021,7 +1104,8 @@ function RefRow({
   refItem: Ref;
   icon: typeof GitBranch;
   index: number;
-  depth?: number;
+  /** The `TREE_INDENT` rung this row renders at — see `tree-indent.ts`'s ladder. */
+  depth: 2 | 3 | 4;
   health?: BranchHealth;
   changed?: number;
   conflicted?: number;
@@ -1058,9 +1142,7 @@ function RefRow({
         openMenu(event);
       }}
       style={cascadeStyle(index)}
-      className={`group flex animate-fade-in-up cascade-delay items-center gap-1.5 py-0.5 pr-2 text-[13px] transition-colors hover:bg-accent/30 ${
-        depth === 2 ? TREE_INDENT[3] : TREE_INDENT[2]
-      } ${elsewhere ? 'text-muted-foreground' : ''}`}
+      className={`group flex animate-fade-in-up cascade-delay items-center gap-1.5 py-0.5 pr-2 text-[13px] transition-colors hover:bg-accent/30 ${TREE_INDENT[depth]} ${elsewhere ? 'text-muted-foreground' : ''}`}
     >
       <Icon aria-hidden className="h-3 w-3 shrink-0 text-muted-foreground" />
       <span className="truncate">{shortName(refItem)}</span>

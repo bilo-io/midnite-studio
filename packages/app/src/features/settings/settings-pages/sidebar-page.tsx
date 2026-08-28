@@ -27,12 +27,24 @@ const VIEW_LABELS: Record<ViewId, string> = {
   settings: 'Settings',
 };
 
-/** The sidebar's own section headings, reused as the filter's vocabulary. */
+/**
+ * The sidebar's own section headings, reused as the filter's vocabulary.
+ *
+ * `branches`, `forge` and `stashes` are placeholders here: `SectionKey`
+ * widened in Phase 28 Theme A, and `Record<SectionKey, string>` makes an
+ * incomplete label map a compile error rather than an `undefined` string. No
+ * `VIEW_FILTERS` entry names a parent yet, so these three never render today.
+ * Theme G is what makes `describeNarrowed` read the nesting these labels
+ * imply.
+ */
 const SECTION_LABELS: Record<SectionKey, string> = {
   local: 'Local',
   remotes: 'Remotes',
   tags: 'Tags',
   worktrees: 'Worktrees',
+  branches: 'Branches',
+  forge: 'Forge',
+  stashes: 'Stashes',
   actions: 'Actions',
   reviews: 'Reviews',
   issues: 'Issues',

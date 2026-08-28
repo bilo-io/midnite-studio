@@ -59,13 +59,14 @@ export function TreeSection({
   hideWhenEmpty?: boolean;
   /**
    * How deep in a tree the heading sits — 0 is a top-level panel section, 1 a
-   * repository's subsection, 2 a group inside one of those. Each step indents
-   * the chevron far enough that the heading lands left of its own rows and
-   * right of the row that owns it, which is what makes the nesting readable
-   * without guide lines. `TREE_INDENT` holds the ladder both this and the rows
-   * are measured on.
+   * repository's top-level subsection, 2 a section nested inside one of those
+   * (Local/Remotes under Branches), 3 a group heading nested inside THAT (the
+   * `origin` heading under Remotes). Each step indents the chevron far enough
+   * that the heading lands left of its own rows and right of the row that owns
+   * it, which is what makes the nesting readable without guide lines.
+   * `TREE_INDENT` holds the ladder both this and the rows are measured on.
    */
-  depth?: 0 | 1 | 2;
+  depth?: 0 | 1 | 2 | 3;
   children: ReactNode;
 }) {
   const bodyId = useId();
