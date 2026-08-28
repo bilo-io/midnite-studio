@@ -1,3 +1,4 @@
+import { COMMANDS, DEFAULT_KEYMAP, GLOBAL_CHORDS } from '@midnite/git-shared';
 import { describe, expect, it, vi } from 'vitest';
 
 import { chordFromEvent } from './chord';
@@ -38,53 +39,52 @@ describe('chordFromEvent on macOS', () => {
 
   it('orders modifiers canonically', () => {
     withPlatform('MacIntel', () => {
-      expect(
-        chordFromEvent(event({ key: 'p', metaKey: true, altKey: true, shiftKey: true })),
-      ).toBe('Mod+Alt+Shift+p');
-    });
-  });
-});
-
-describe('chordFromEvent on other platforms', () => {
-  it('reports Ctrl as Mod', () => {
-    withPlatform('Win32', () => {
-      expect(chordFromEvent(event({ key: 'o', ctrlKey: true }))).toBe('Mod+o');
-    });
-  });
-
-  it('does not emit both Mod and Ctrl for one key', () => {
-    // Emitting `Mod+Ctrl+o` here would never match any binding.
-    withPlatform('Win32', () => {
-      expect(chordFromEvent(event({ key: 'o', ctrlKey: true }))).not.toContain('Ctrl');
-    });
-  });
-});
-
-describe('key normalisation', () => {
-  it('lowercases printable keys so shift state cannot fork a binding', () => {
-    withPlatform('Win32', () => {
-      expect(chordFromEvent(event({ key: 'F', ctrlKey: true, shiftKey: true }))).toBe(
-        'Mod+Shift+f',
+      expect(chordFromEvent(event({ key: 'a', metaKey: true, shiftKey: true, altKey: true }))).toBe(
+        'Mod+Alt+Shift+a',
       );
     });
   });
 
-  it('keeps named keys as-is', () => {
-    withPlatform('Win32', () => {
-      expect(chordFromEvent(event({ key: 'Enter', ctrlKey: true }))).toBe('Mod+Enter');
+  it('drops dead Mod when not accompanied by a primary key', () => {
+    withPlatform('MacIntel', () => {
+      expect(chordFromEvent(event({ key: 'Meta', metaKey: true }))).toBeNull();
     });
   });
 
-  it('handles a bare key with no modifiers', () => {
-    withPlatform('Win32', () => {
+  it('handles lowercase-normalised key names', () => {
+    withPlatform('MacIntel', () => {
+      expect(chordFromEvent(event({ key: 'K', metaKey: true }))).toBe('Mod+k');
+    });
+  });
+});
+
+describe('chordFromEvent on Linux / Windows', () => {
+  it('reports Ctrl as Mod', () => {
+    withPlatform('Linux x86_64', () => {
+      expect(chordFromEvent(event({ key: 'o', ctrlKey: true }))).toBe('Mod+o');
+    });
+  });
+
+  it('reports Meta literally', () => {
+    withPlatform('Linux x86_64', () => {
+      expect(chordFromEvent(event({ key: 'o', metaKey: true }))).toBe('Meta+o');
+    });
+  });
+});
+
+describe('chordFromEvent special keys', () => {
+  it('preserves Enter, Backspace, Tab, Escape case', () => {
+    withPlatform('MacIntel', () => {
+      expect(chordFromEvent(event({ key: 'Enter' }))).toBe('Enter');
+      expect(chordFromEvent(event({ key: 'Backspace' }))).toBe('Backspace');
+      expect(chordFromEvent(event({ key: 'Tab' }))).toBe('Tab');
       expect(chordFromEvent(event({ key: 'Escape' }))).toBe('Escape');
     });
   });
 });
 
 describe('the keymap matches real keystrokes', () => {
-  it('Ctrl+` on macOS resolves to the terminal toggle binding', async () => {
-    const { DEFAULT_KEYMAP } = await import('@midnite/git-shared');
+  it('Ctrl+` on macOS resolves to the terminal toggle binding', () => {
     withPlatform('MacIntel', () => {
       const chord = chordFromEvent(event({ key: '`', ctrlKey: true }));
       const binding = DEFAULT_KEYMAP.find((b) => b.chord === chord);
@@ -103,16 +103,14 @@ describe('the keymap matches real keystrokes', () => {
 });
 
 describe('the registry is palette-shaped', () => {
-  it('gives every CommandId a label and a group', async () => {
-    const { COMMANDS } = await import('@midnite/git-shared');
+  it('gives every CommandId a label and a group', () => {
     for (const c of COMMANDS) {
       expect(c.label.length).toBeGreaterThan(0);
       expect(c.group.length).toBeGreaterThan(0);
     }
   });
 
-  it('lists op.abort and op.continue with no chord, not silently dropped', async () => {
-    const { COMMANDS } = await import('@midnite/git-shared');
+  it('lists op.abort and op.continue with no chord, not silently dropped', () => {
     const abort = COMMANDS.find((c) => c.id === 'op.abort') as { chord?: string } | undefined;
     const cont = COMMANDS.find((c) => c.id === 'op.continue') as { chord?: string } | undefined;
     expect(abort?.chord).toBeUndefined();
