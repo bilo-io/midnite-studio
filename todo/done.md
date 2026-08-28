@@ -2,6 +2,34 @@
 
 <!-- Append one entry per landed phase/PR: date, phase, PR link, one-line summary. -->
 
+## 2026-08-28 — Phase 27 Theme G (partial) — the focus trap, extracted, and the a11y that didn't need D/E
+
+Landed on `feature/phase-27-g-a11y`, merged locally — no PR link, no GitHub remote on this
+checkout. Built alongside sibling worktrees carrying Themes D and E, still in flight — three of
+Theme G's items name segments or overflow density those themes haven't landed yet (aria-live on
+`op-progress`/`in-progress`, `Tooltip` in `compact` density, naming the `…` overflow button) and
+stay open in the phase doc, annotated as blocked rather than silently skipped.
+
+- [x] `components/use-focus-trap.ts`: `useFocusTrap(ref, active)` extracted verbatim from
+      `popover.tsx`'s inline Tab-wrap effect (`FOCUSABLE` selector included), with no behaviour
+      change to `Popover` — `e2e/footer-monitor.spec.ts`'s existing flyout keyboard assertions are
+      the regression guard. Phase 23 Theme H's identical claim shrinks to a retrofit note pointing
+      here.
+- [x] `features/browser/browser-pane.tsx` retrofitted onto the new hook: the pane's own container
+      (`tabIndex={-1}`, `role="dialog"`, `aria-label="Browser"`) traps Tab across its two real
+      controls (Address, Close — Back/Forward/Reload are natively `disabled` and excluded), and a
+      `shown`-keyed effect restores focus to `[data-testid="browser-toggle"]` on close, since the
+      toggle lives in a sibling component and cannot share `Popover`'s own `close()`.
+- [x] Verified the bar's five existing segments already satisfy Theme G's button/report-only split
+      (`DiagnosticsSegment` and `MonitorCluster` were already correct) and its keyboard-order rule
+      (no `order-*` anywhere in `status-bar.tsx`; DOM order already matches array order).
+- [x] The three toggle buttons (Repos/Terminal/Browser) gained an explicit `aria-label` — their
+      accessible name previously included the chord hint's visible text (e.g. "Repos ⌘G"), which
+      reads oddly to a screen reader; `title` keeps the chord for sighted hover.
+- [x] New Playwright case in `e2e/browser-pane.spec.ts` covering the Tab-wrap in both directions and
+      the Escape-triggered focus restore; `e2e/footer-monitor.spec.ts`'s toggle-name assertion
+      updated for the new `aria-label`.
+
 ## 2026-08-28 — Phase 24 Theme F — status badges on tree rows
 
 The cheapest theme in the phase — and the one place the doc's own suggested reuse

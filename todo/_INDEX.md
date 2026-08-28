@@ -21,7 +21,7 @@ Completed work is logged append-only in [`done.md`](done.md). Deferred scope liv
 | Phase | Status | Refined | Done | Progress | % | 🔄 WIP | ◻ TODO |
 |-------|--------|---------|------|----------|---|--------|--------|
 | [28 · Worktrees first, and the section tree that can say so](phase-28-sidebar-section-tree.md) | 🔄 WIP | 22/60 | `████░░░░░░` | 37% | — | D–H |
-| [27 · The footer becomes a status bar, and the browser it makes room for](phase-27-status-bar-and-browser-panel.md) | 🔄 WIP | x1 | 37/90 | `████░░░░░░` | 41% | D, E, G | H |
+| [27 · The footer becomes a status bar, and the browser it makes room for](phase-27-status-bar-and-browser-panel.md) | 🔄 WIP | x1 | 41/90 | `█████░░░░░` | 46% | D, E | G (partial, 3 items blocked on D/E), H |
 | [26 · Side by side, and the room to show it](phase-26-side-by-side-diffs.md) | ◻ TODO | — | 0/68 | `░░░░░░░░░░` | 0% | — | A–H |
 | [25 · Search everywhere, and the blame that explains it](phase-25-search-everywhere.md) | ◻ TODO | x1 | 0/101 | `░░░░░░░░░░` | 0% | — | A–F |
 | [24 · The explorer learns to write, and to search](phase-24-writable-explorer.md) | 🔄 WIP | — | 18/54 | `███░░░░░░░` | 33% | C | D, E, G |
@@ -134,9 +134,11 @@ write funnels through ONE `useMutation` in `useTargetedGitOp` (`use-status.ts:26
   already fills a missing key, which also meant fixing `PersistedUi`'s pre-existing drift — and
   a chrome stub with **no engine** sliding over the whole content row, leaving the bar visible,
   which is the phase's own demonstration (landed 2026-08-28)
-- ◻ **G** — real targets, tooltips at `compact`, `aria-live` on progress and *never* on the monitor, and
-  a focus trap that this phase must **extract** (`use-focus-trap.ts`) rather than reuse: the popover's is
-  inlined around its own ref. Phase 23's Theme H shrinks to the retrofit.
+- 🔄 **G** — `use-focus-trap.ts` extracted from Popover and retrofitted onto the browser pane, plus
+  the button/keyboard-order audit of today's five segments — all landed and none of it needed D or
+  E (2026-08-28). Still open, genuinely blocked on those two themes: `Tooltip` at `compact` density,
+  `aria-live` on Theme D's op-progress/mid-operation segments, and naming the `…` overflow button.
+  Phase 23's Theme H shrinks to the retrofit, updated there.
 - ◻ **H** — pure-function unit tests (the repo has zero rendered-component tests), a `merge` rather than
   `migrate` persistence test, a `status-bar.spec.ts` asserting the left edge that would have failed
   before Theme A, a browser-pane spec, and the terminal-maximize regression guard the existing

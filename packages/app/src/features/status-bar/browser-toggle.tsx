@@ -12,8 +12,10 @@ export function BrowserToggle() {
   return (
     <button
       type="button"
+      data-testid="browser-toggle"
       onClick={toggleBrowser}
       title={`Toggle browser (${displayChord(browserChord)})`}
+      aria-label="Toggle Browser"
       aria-pressed={browserOpen}
       className={`rounded px-1.5 transition-colors hover:bg-accent hover:text-foreground ${
         browserOpen ? 'bg-accent text-foreground' : ''

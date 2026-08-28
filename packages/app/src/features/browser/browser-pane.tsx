@@ -1,9 +1,10 @@
-import { useEffect, useState, type FormEvent } from 'react';
+import { useEffect, useRef, useState, type FormEvent } from 'react';
 
 import { GoArrowLeft, GoArrowRight, GoSync, GoX } from 'react-icons/go';
 
 import { EmptyState } from '../../components/empty-state';
 import { IconButton } from '../../components/icon-button';
+import { useFocusTrap } from '../../components/use-focus-trap';
 import { useUiStore } from '../../store/ui-store';
 
 /**
@@ -19,6 +20,9 @@ import { useUiStore } from '../../store/ui-store';
 export function BrowserPane({ shown }: { shown: boolean }) {
   const [url, setUrl] = useState('');
   const [submitted, setSubmitted] = useState('');
+  const containerRef = useRef<HTMLDivElement>(null);
+
+  useFocusTrap(containerRef, shown);
 
   useEffect(() => {
     const onKeyDown = (event: KeyboardEvent) => {
@@ -30,6 +34,17 @@ export function BrowserPane({ shown }: { shown: boolean }) {
     return () => window.removeEventListener('keydown', onKeyDown);
   }, []);
 
+  // Restore focus to the toggle the moment the pane stops being shown —
+  // Escape, the close button, or Mod+b again all funnel through `shown`
+  // flipping false, matching the half of Popover's close() this pane cannot
+  // share directly (its trigger lives in a sibling component).
+  useEffect(() => {
+    if (!shown) return;
+    return () => {
+      document.querySelector<HTMLButtonElement>('[data-testid="browser-toggle"]')?.focus();
+    };
+  }, [shown]);
+
   const onSubmit = (event: FormEvent) => {
     event.preventDefault();
     setSubmitted(url);
@@ -37,11 +52,15 @@ export function BrowserPane({ shown }: { shown: boolean }) {
 
   return (
     <div
+      ref={containerRef}
+      tabIndex={-1}
+      role="dialog"
+      aria-label="Browser"
       // z-20: one rung above the terminal frame's z-10 (app.tsx) within this
       // same content row — a local ordering, not the global menu/popover/
       // dialog/tooltip scale in tailwind.config.ts, which is for layers
       // portalled to document.body and unrelated to this row's own stacking.
-      className={`absolute inset-0 z-20 flex flex-col bg-background transition-opacity duration-200 ${
+      className={`absolute inset-0 z-20 flex flex-col bg-background outline-none transition-opacity duration-200 ${
         shown ? 'pointer-events-auto opacity-100' : 'pointer-events-none opacity-0'
       }`}
     >
