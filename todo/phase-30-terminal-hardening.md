@@ -430,9 +430,9 @@ that pty.
       `<userData>/broker/<version>[-dev].log` (opened `'a'`, the `logFd` in the spawn), truncated to
       its last 1 MB on broker start; each line is `${new Date().toISOString()} ${message}`.
 
-### D — Honest session states: live, asleep, ended (M)
+### D — Honest session states: live, asleep, ended (M) — ✅ DONE (2026-08-28, feature/p30-d)
 
-- [ ] A derived `SessionPhase = 'live' | 'asleep' | 'ended'` in `terminal-store.ts` over the process
+- [x] A derived `SessionPhase = 'live' | 'asleep' | 'ended'` in `terminal-store.ts` over the process
       states: live = pty bound; asleep = deliberately slept (transcript kept, no process); ended = the
       process exited or was lost. One exported `sessionPhase()` so the row, the header and the
       status-bar count read the same answer.
@@ -444,7 +444,7 @@ that pty.
       - Rows render `data-phase={phase}` for tests and CSS; the dimmed treatment is `opacity-60` on
         `!== 'live'`.
       - Vitest `terminal-store.test.ts` `describe('sessionPhase')`: the seven rows of that table.
-- [ ] The ended banner: `REVIVE_HINT` (`terminal-view.tsx:75`, a dim line in the scrollback, invisible
+- [x] The ended banner: `REVIVE_HINT` (`terminal-view.tsx:75`, a dim line in the scrollback, invisible
       under a long transcript) is replaced by an overlay strip at the foot of the pane — *Session ended ·
       exit N* with **Start new shell here** and, for agent rows, **Resume conversation**. Enter still
       starts a new shell (`:323-324`, unchanged); the transcript stays readable behind the strip.
@@ -458,7 +458,7 @@ that pty.
         `use-terminal-ipc.ts:44-63` (which drops `exitCode` today) and cleared by `bindPty`.
       - The strip does not steal focus when a session ends under the user; its two buttons are in
         the Tab order after xterm's textarea (DOM order). Primary = *Start new shell here*.
-- [ ] `AgentDefinitionSchema` (`terminal.ts:36-57`) gains **`resume: z.array(z.string()).optional()`**
+- [x] `AgentDefinitionSchema` (`terminal.ts:36-57`) gains **`resume: z.array(z.string()).optional()`**
       — **resolved, args not a command line** — roster data beside `install`; absent means no Resume
       button, never a guess.
       - `BUILTIN_AGENTS`: `claude` → `['--continue']`, `codex` → `['resume', '--last']`; `agy` and
@@ -469,7 +469,7 @@ that pty.
         the schema's doc comment.
       - `terminal.test.ts` gains: `resume` parses as an array, rejects a string, and is absent on
         `agy`.
-- [ ] **Sleep**: a context-menu action that kills the process and keeps the row and transcript
+- [x] **Sleep**: a context-menu action that kills the process and keeps the row and transcript
       (dimmed, a moon glyph beside the `StateDot`). Click/Enter revives via the existing
       spawn-at-`session.cwd` path; an agent with a `resume` revives through it rather than cold.
       - **Resolved — `asleep: z.boolean().optional()` on `TerminalSessionSchema`** (`terminal.ts:136-158`),
@@ -485,7 +485,7 @@ that pty.
         `Moon` from `lucide-react`, matching the file's `Terminal, X` import (`:2`) — not `LuMoon`.
       - Glyph: `<Moon className="h-3 w-3 text-muted-foreground" aria-label="Asleep" />` between the
         `SessionIcon` and the name when `phase === 'asleep'`.
-- [ ] The **row** `X` confirms through `useDialogs().confirm` when a foreground process is running,
+- [x] The **row** `X` confirms through `useDialogs().confirm` when a foreground process is running,
       naming the command (Theme E supplies it); a bare prompt closes without asking. The header `X`
       (`terminal-header.tsx:90-95`, *Hide terminal*) only hides and never kills — unchanged.
       - Site: the `IconButton icon={X} label="Close terminal"` at `terminal-session-list.tsx:252-261`.
@@ -494,31 +494,31 @@ that pty.
         (`ConfirmRequest`, `confirm-dialog.tsx:20`; `confirmLabel` is required); otherwise
         `closeSession(id)` directly. `closeSession` (`terminal-store.ts:135`) keeps its `pty.kill` +
         `terminal.forget` body.
-- [ ] Row glyph and `StateDot` distinguish the three phases; the `live` predicate at
+- [x] Row glyph and `StateDot` distinguish the three phases; the `live` predicate at
       [`terminal-session-list.tsx:151`](../packages/app/src/features/terminal/terminal-session-list.tsx)
       and the copy of it at [`agent-count.tsx:6`](../packages/app/src/features/status-bar/agent-count.tsx)
       are both re-expressed as `sessionPhase(session, state) === 'live'`.
       - [`components/state-dot.tsx`](../packages/app/src/components/state-dot.tsx): `DotState` gains
-        `'asleep'` — a static `bg-muted-foreground/50` dot, no pulse; the row passes
+      - `'asleep'` — a static `bg-muted-foreground/50` dot, no pulse; the row passes
         `state={phase === 'asleep' ? 'asleep' : state}`.
       - `agentCount(sessions, states)` keeps its signature; it now reads `session.asleep` through
         `sessionPhase`, so a slept agent is not counted.
-- [ ] Vitest for the phase derivation table; Playwright in `terminal.spec.ts`:
+- [x] Vitest for the phase derivation table; Playwright in `terminal.spec.ts`:
       `'sleeping a session keeps its row and transcript'` (`__mgitPty.kills.length === 1`, the row
       still present with `data-phase="asleep"`, `terminalSaves.at(-1).asleep === true`);
       `'an ended pane shows the strip and Enter starts a shell'` (`getByRole('status')` contains
       `Session ended`, then Enter → `creates.length` grows by 1);
       `'Resume sends the roster's resume args and nothing else'` (`creates.at(-1).initialInput ===
       agentInput({ ...claude, args: ['--continue'] })`).
-- [ ] The version-skew banner (Theme C) is this theme's UI: rendered by `terminal-session-list.tsx`
+- [x] The version-skew banner (Theme C) is this theme's UI: rendered by `terminal-session-list.tsx`
       above the rows when any `legacy` row exists, `role="alert"`, two buttons, copy as C specifies;
       its Playwright case seeds `data.terminalSessions[].legacy = true` and asserts **Restart** yields
       one `kill` and one `create` per legacy row and the banner is gone.
-- [ ] Accessibility of the new surfaces: the ended strip and the launch note are `role="status"`
+- [x] Accessibility of the new surfaces: the ended strip and the launch note are `role="status"`
       (announced, not interrupting); the skew banner is `role="alert"`; the Moon glyph has
       `aria-label="Asleep"`; `data-phase` on rows gives Playwright and CSS one hook. No new chord in
       this phase — Sleep and Resume are menu and strip actions only; palette entries are Phase 23's.
-- [ ] Screenshots per the visual convention (see Verification): the ended strip, a slept row beside a
+- [x] Screenshots per the visual convention (see Verification): the ended strip, a slept row beside a
       live one, the launch note, the skew banner — light and dark, at the default density.
 
 ### E — Naming from the process tree (M — re-tagged from S: a channel, a `ps` column and fifteen fixtures) — ✅ DONE (2026-08-28, merged locally — no PR/no remote)
