@@ -2,6 +2,7 @@ import type { TerminalSession } from '@midnite/git-shared';
 
 import { useUiStore } from '../../store/ui-store';
 import {
+  isAgentRow,
   sessionPhase,
   useTerminalStore,
   type ConnectionState,
@@ -11,15 +12,19 @@ import {
  * How many agent sessions are live, given the session list and their
  * connection states. Pure so it is testable without the store.
  *
- * Expressed via `sessionPhase(session, state) === 'live'`, so an asleep or
- * ended agent is not counted.
+ * Gated on `isAgentRow` — what is **running** — rather than `session.kind`,
+ * so a plain shell running an agent typed by hand counts too. Expressed via
+ * `sessionPhase(session, state) === 'live'`, so an asleep or ended agent is
+ * not counted.
  */
 export function agentCount(
   sessions: readonly TerminalSession[],
   states: Record<string, ConnectionState | undefined>,
+  liveAgentId: Record<string, string | null>,
 ): number {
   return sessions.filter(
-    (session) => session.kind === 'agent' && sessionPhase(session, states[session.id]) === 'live',
+    (session) =>
+      isAgentRow(session, liveAgentId) && sessionPhase(session, states[session.id]) === 'live',
   ).length;
 }
 
@@ -32,7 +37,7 @@ export function agentCount(
  * with how many are running.
  */
 export function AgentCountSegment() {
-  const count = useTerminalStore((s) => agentCount(s.sessions, s.states));
+  const count = useTerminalStore((s) => agentCount(s.sessions, s.states, s.liveAgentId));
 
   if (count === 0) return null;
 
@@ -45,7 +50,7 @@ export function AgentCountSegment() {
         const terminal = useTerminalStore.getState();
         const firstLive = terminal.sessions.find(
           (session) =>
-            session.kind === 'agent' &&
+            isAgentRow(session, terminal.liveAgentId) &&
             sessionPhase(session, terminal.states[session.id]) === 'live',
         );
         if (firstLive) terminal.setActive(firstLive.id);

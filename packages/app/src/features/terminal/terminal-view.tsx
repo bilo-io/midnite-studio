@@ -7,7 +7,6 @@ import { useCallback, useEffect, useRef, useState } from 'react';
 
 import { bridge } from '../../services/bridge';
 import { shouldEscapeTerminal } from '../../services/keybindings/use-keybindings';
-import { createActivityState, detectActivity } from './activity-detect';
 import { EndedStrip } from './ended-banner';
 import { parseOsc7 } from './parse-osc7';
 import { createReplayGate } from './replay-gate';
@@ -116,15 +115,6 @@ export function TerminalView({
    */
   const lastSentRef = useRef<{ cols: number; rows: number } | null>(null);
 
-  // Output-side state for the activity guess: a persistent decoder because a
-  // multi-byte UTF-8 character can land split across two pty chunks, and
-  // `{ stream: true }` is what keeps the trailing half from decoding as
-  // replacement characters.
-  const decoderRef = useRef<TextDecoder>(new TextDecoder());
-  // Where in Claude Code's repaint the stream currently is: the detector reads
-  // one frame, not one chunk, so it has to remember what it has been handed
-  // since the last frame ended.
-  const activityRef = useRef(createActivityState());
   /**
    * Holds output that arrives while a live-rebind snapshot is in flight.
    *
@@ -135,18 +125,18 @@ export function TerminalView({
    */
   const replayGateRef = useRef<ReturnType<typeof createReplayGate> | null>(null);
 
-  const writeToTerm = useCallback(
-    (bytes: Uint8Array) => {
-      termRef.current?.write(bytes);
-      // Only an agent has a status footer worth reading; a plain shell's own
-      // output is arbitrary program text and would false-positive constantly.
-      if (session.kind !== 'agent') return;
-      const text = decoderRef.current.decode(bytes, { stream: true });
-      const activity = detectActivity(activityRef.current, text);
-      if (activity) useTerminalStore.getState().setActivity(session.id, activity);
-    },
-    [session.id, session.kind],
-  );
+  /*
+    Phase 30 Theme G: the activity guess itself moved to main, at
+    `pty-service.ts`'s single `ptyData` send site — mounting the detector
+    inside this view meant it went dark the moment `app.tsx`'s
+    `terminalReveal.mounted` unmounted every `TerminalView` on a collapse,
+    which is exactly when the status bar's agent count is the only thing
+    still looking. `use-terminal-ipc.ts`'s `onActivity` subscription is
+    mounted per session and does not unmount with the panel.
+  */
+  const writeToTerm = useCallback((bytes: Uint8Array) => {
+    termRef.current?.write(bytes);
+  }, []);
 
   const write = useCallback(
     (bytes: Uint8Array) => {

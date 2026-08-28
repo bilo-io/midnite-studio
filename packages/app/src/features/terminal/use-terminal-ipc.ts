@@ -85,12 +85,24 @@ export function useTerminalIpc(session: TerminalSession, onData: (bytes: Uint8Ar
       store.setForegroundCommand(session.id, command);
       if (command && session.kind === 'shell') store.setAutoName(session.id, command);
     });
+    /*
+      The activity guess itself, from main's single `ptyData` send site
+      (Theme G) — never computed here. `activity: null` is the detector's
+      explicit "nothing to say" (no marker set, or one disabled after
+      tripping its time budget); `setActivity`'s own `undefined` clears it
+      back to that same "not spoken" state the row draws as the unknown mark.
+    */
+    const offActivity = api.pty.onActivity(({ ptyId: id, activity }) => {
+      if (ptyIdRef.current !== id) return;
+      useTerminalStore.getState().setActivity(session.id, activity ?? undefined);
+    });
 
     return () => {
       offData();
       offExit();
       offAgent();
       offCommand();
+      offActivity();
     };
   }, [session.id, session.kind]);
 

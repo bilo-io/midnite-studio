@@ -49,9 +49,28 @@ export function Skeleton({
 /**
  * A half ring, sweeping.
  *
- * Same construction as the terminal's own thinking mark and for the reason
- * recorded there: two adjacent borders lit rather than one, so the rotation is
- * legible at 14px instead of being a rim that looks static.
+ * Borders rather than an SVG or a glyph: at this size a stroked arc is a
+ * couple of `border-*` colours on a circle, and rotating a bordered box is a
+ * compositor-only transform where an animated icon component is a React tree
+ * that re-renders.
+ *
+ * What the geometry has to earn, though, is legibility of the MOTION, and the
+ * first cut — 12px, `border-[1.5px]`, one lit quadrant — did not, when this
+ * was still the terminal's own duplicate of this mark. The lit part came out as a
+ * lone ~8px dash one device pixel thick (Chromium floors a 1.5px border to
+ * 1px below 2× scale), and one small dash going round once a second, in a
+ * sidebar nobody is looking straight at, reads as a ring that is simply
+ * sitting there. Measured before touching it, frame by frame off a paused
+ * animation: the rotation was running the whole time and could not be seen.
+ *
+ * So 14px, a 2px rim, and two adjacent borders lit rather than one — a half
+ * ring sweeping, which is unmistakably moving at a glance and is still the
+ * same mark. Duration stays Tailwind's own 1s: `animate-spin` is the only
+ * animation here that does not need a keyframe of its own, and inventing one
+ * to shave 100ms off would make the mark depend on a `@keyframes spin` that
+ * Tailwind only emits while some other file still uses the built-in utility.
+ * The terminal's session list uses this one directly now rather than a
+ * byte-identical duplicate of its own.
  *
  * `label` is for a spinner that stands alone. Beside text that already says
  * what is happening ("Posting…"), leave it off — the default is `aria-hidden`,

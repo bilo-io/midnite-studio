@@ -15,18 +15,18 @@ const session = (overrides: Partial<TerminalSession> & { id: string }): Terminal
 
 describe('agentCount', () => {
   it('is zero with no sessions', () => {
-    expect(agentCount([], {})).toBe(0);
+    expect(agentCount([], {}, {})).toBe(0);
   });
 
   it('is zero when every session is a shell, agents or not', () => {
     const sessions = [session({ id: 'a', kind: 'shell' })];
-    expect(agentCount(sessions, { a: 'open' })).toBe(0);
+    expect(agentCount(sessions, { a: 'open' }, {})).toBe(0);
   });
 
   it('is zero when every agent session has exited', () => {
     const sessions = [session({ id: 'a', kind: 'agent', agentId: 'claude' })];
     const states: Record<string, ConnectionState> = { a: 'exited' };
-    expect(agentCount(sessions, states)).toBe(0);
+    expect(agentCount(sessions, states, {})).toBe(0);
   });
 
   it('counts an agent session that is open or starting', () => {
@@ -36,7 +36,7 @@ describe('agentCount', () => {
       session({ id: 'c', kind: 'shell' }),
     ];
     const states: Record<string, ConnectionState> = { a: 'open', b: 'starting', c: 'open' };
-    expect(agentCount(sessions, states)).toBe(2);
+    expect(agentCount(sessions, states, {})).toBe(2);
   });
 
   it('does not count a slept agent session', () => {
@@ -45,11 +45,18 @@ describe('agentCount', () => {
       session({ id: 'b', kind: 'agent', agentId: 'codex' }),
     ];
     const states: Record<string, ConnectionState> = { a: 'open', b: 'open' };
-    expect(agentCount(sessions, states)).toBe(1);
+    expect(agentCount(sessions, states, {})).toBe(1);
   });
 
   it('treats a missing state as not live', () => {
     const sessions = [session({ id: 'a', kind: 'agent', agentId: 'claude' })];
-    expect(agentCount(sessions, {})).toBe(0);
+    expect(agentCount(sessions, {}, {})).toBe(0);
+  });
+
+  /** Phase 30 Theme F: the reported bug, as a unit case. */
+  it('counts a plain shell the probe found running an agent', () => {
+    const sessions = [session({ id: 's1', kind: 'shell' })];
+    const states: Record<string, ConnectionState> = { s1: 'open' };
+    expect(agentCount(sessions, states, { s1: 'claude' })).toBe(1);
   });
 });

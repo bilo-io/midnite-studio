@@ -929,6 +929,14 @@ export async function installMockBridge(page: Page, fixtures: MockFixtures): Pro
             commandHandlers.splice(commandHandlers.indexOf(handler), 1);
           };
         },
+        onActivity: (
+          handler: (e: { ptyId: string; activity: 'thinking' | 'waiting' | 'idle' | null }) => void,
+        ) => {
+          activityHandlers.push(handler);
+          return () => {
+            activityHandlers.splice(activityHandlers.indexOf(handler), 1);
+          };
+        },
       },
       /*
         Restored sessions come from the fixture, and the roster is the builtin
@@ -1434,6 +1442,11 @@ export async function installMockBridge(page: Page, fixtures: MockFixtures): Pro
     /** Every command-changed subscription, for Theme E's naming-from-process-tree tests. */
     // eslint-disable-next-line no-var
     var commandHandlers: Array<(e: { ptyId: string; command: string | null }) => void> = [];
+    /** Every activity subscription, for Theme F/G's activity-indicator tests. */
+    // eslint-disable-next-line no-var
+    var activityHandlers: Array<
+      (e: { ptyId: string; activity: 'thinking' | 'waiting' | 'idle' | null }) => void
+    > = [];
     /** What has been written to each pty so far, for `pty.snapshot` to answer with. */
     // eslint-disable-next-line no-var
     var outputLog: Record<string, Uint8Array[]> = {};
@@ -1591,6 +1604,18 @@ export async function installMockBridge(page: Page, fixtures: MockFixtures): Pro
     ): boolean => {
       if (!(ptyId in ptySessions)) return false;
       for (const handler of commandHandlers) handler({ ptyId, command });
+      return true;
+    };
+    /**
+     * A spec's way to say "main's activity detector just changed its guess" —
+     * Theme F/G's path, same reporting contract as `__mgitPtyAgent`.
+     */
+    (window as unknown as { __mgitPtyActivity: unknown }).__mgitPtyActivity = (
+      ptyId: string,
+      activity: 'thinking' | 'waiting' | 'idle' | null,
+    ): boolean => {
+      if (!(ptyId in ptySessions)) return false;
+      for (const handler of activityHandlers) handler({ ptyId, activity });
       return true;
     };
     (window as unknown as { __mgitTerminalSaves: unknown }).__mgitTerminalSaves = terminalSaves;
