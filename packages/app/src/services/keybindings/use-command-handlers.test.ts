@@ -72,6 +72,7 @@ describe('useCommandHandlers — no repo open', () => {
       'repos.toggle',
       'browser.toggle',
       'repo.open',
+      'view.graph',
       'graph.focus',
       'status.focus',
     ] as const) {

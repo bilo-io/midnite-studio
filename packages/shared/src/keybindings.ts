@@ -92,6 +92,12 @@ export const COMMANDS = [
   { id: 'repo.open', label: 'Open Repository…', group: 'repository', chord: 'Mod+o' },
   { id: 'repo.close', label: 'Close Repository', group: 'repository', chord: 'Mod+w' },
   { id: 'view.refresh', label: 'Refresh', group: 'view', chord: 'Mod+r' },
+  /**
+   * Mod+Shift+g navigates to the Graph view from anywhere. `app` scope like
+   * `repos.toggle`: you rarely need this while mid-command with the terminal
+   * focused, and it must not conflict with the terminal's own Ctrl+G binding.
+   */
+  { id: 'view.graph', label: 'Go to Graph', group: 'graph', chord: 'Mod+Shift+g' },
   { id: 'graph.focus', label: 'Focus Graph', group: 'graph', chord: 'Mod+1' },
   { id: 'status.focus', label: 'Focus Changes', group: 'status', chord: 'Mod+2' },
   { id: 'status.commit', label: 'Commit', group: 'status', chord: 'Mod+Enter' },

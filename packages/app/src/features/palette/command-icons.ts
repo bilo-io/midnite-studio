@@ -29,6 +29,7 @@ export const COMMAND_ICONS: Record<CommandId, IconType> = {
   'repo.open': LuFolderOpen,
   'repo.close': LuX,
   'view.refresh': LuRefreshCw,
+  'view.graph': LuGitBranch,
   'graph.focus': LuGitBranch,
   'status.focus': LuGitCommitHorizontal,
   'status.commit': LuGitCommitHorizontal,

@@ -632,12 +632,23 @@ export const useUiStore = create<UiState>()(
 
       // Guarded: leaving Files with an unsaved edit open waits on the editor's
       // own Save/Discard/Cancel dialog rather than losing the edit silently.
+      //
+      // De-maximises the terminal when navigating: a maximised terminal covers
+      // the entire content area, so any view switch that leaves it maximised
+      // would land on a blank screen. The terminal stays open (visible as the
+      // normal-height panel) so the session is not disrupted — only the
+      // fullscreen state is cleared.
       setActiveView: (view) =>
         useFileEditorStore.getState().guardNavigation(() =>
           set((state) => {
             if (view === state.activeView) return {};
             const viewHistory = [...state.viewHistory.slice(0, state.viewHistoryIndex + 1), view];
-            return { activeView: view, viewHistory, viewHistoryIndex: viewHistory.length - 1 };
+            return {
+              activeView: view,
+              viewHistory,
+              viewHistoryIndex: viewHistory.length - 1,
+              ...(state.terminalMaximized ? { terminalMaximized: false } : {}),
+            };
           }),
         ),
       // The title bar's Back/Forward buttons change `activeView` exactly like
