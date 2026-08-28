@@ -2,6 +2,59 @@
 
 <!-- Append one entry per landed phase/PR: date, phase, PR link, one-line summary. -->
 
+## 2026-08-28 — Phase 29 Themes A–D — markdown slides, everywhere markdown already renders
+
+Merged locally on `feature/p29-abcd` — no PR link, no GitHub remote on this checkout. Phase 29 is
+now feature-complete for viewing: only Theme E (an unbound `CommandId` registry entry, waiting on
+Phase 23's palette) remains.
+
+- [x] **A — the deck engine.** `features/slides/deck-parser.ts`: a headings-only deck built by
+      walking a real mdast tree (`remark-parse` + `remark-gfm` — the same GFM flavour
+      `MarkdownPreview` already renders with) rather than a hand-rolled line tokenizer, a
+      deliberate deviation from the doc's literal "ported from midnite's `markdownToDeck`" text —
+      an h1 is a cover slide, every heading after it starts a new slide, and each step keeps the
+      node's own source substring (sliced by its mdast `position`) so it renders through
+      `react-markdown` unchanged rather than as pre-rendered HTML. A list contributes one step
+      *per item*, matching the crib exactly. `unified`/`remark-parse`/`mdast-util-to-string`/
+      `@types/mdast` added to `packages/app`'s direct dependencies — all were already present
+      transitively via `react-markdown`, pinned to the versions already resolved in
+      `pnpm-lock.yaml`.
+- [x] **B — the deck presenter.** `use-deck-nav.ts` is the reveal-state machine (a `useReducer`,
+      unit-tested directly); `use-title-typewriter.ts` ports the crib's character-by-character
+      title effect — steps do NOT get this treatment, since they are real `react-markdown`
+      fragments now and there is no `innerHTML` left to slice, so a step reveals as a whole unit.
+      Full keyboard set (arrows/space/enter/pagedown/pageup/Home/End/`?`/Escape) via a bubble-phase
+      `window` listener matching `ConfirmDialog`'s pattern, reading a "latest values" ref rather
+      than re-subscribing on every `nav`/`title` change. Code fences render through the app's own
+      shiki instance (`slide-code.tsx`), matching `code-preview.tsx`'s highlighter.
+  - **Two bugs found chasing a flaky e2e spec, both in the reveal-state machine, not the test:**
+    (1) `useTitleTypewriter`'s `done` state defaulted to `true` via a bare `useState(true)`, correct
+    only once the first effect ran — a keydown landing in that gap read a title that was visually
+    mid-type as already finished. Fixed with a lazily-initialized `typed`/`done` pair computed from
+    `instant`/`title` at mount, no async gap. (2) `useDeckNav`'s `next`/`prev` reducer forced
+    `instant` to a fixed value on *every* dispatch, including a bare "reveal another step on the
+    same slide" — which never touches the title. Since the presenter's typewriter effect restarts
+    on `[title, instant]`, flipping `instant` with no title change retriggered an already-finished
+    typewriter mid-reveal. Fixed so `instant` changes only on an actual slide change; a step reveal
+    leaves it untouched. Both are now covered directly in `use-deck-nav.test.ts` and
+    `use-title-typewriter.test.ts`, not just observed via the e2e spec that caught them.
+- [x] **C — the fullscreen host.** `slides-store.ts` (zustand: `deck`, `activeMarkdown`,
+      `present`/`presentActive`/`close`/`setActiveMarkdown`) and `slides-modal.tsx` on the
+      `confirm-dialog.tsx`/`prompt-dialog.tsx`/`merge-dialog.tsx` `z-dialog` convention, mounted
+      once from `app.tsx` beside `<DialogHost>`, reusing the existing `use-focus-trap.ts`.
+- [x] **D — wired into every markdown surface.** A "Present as slides" `IconButton` (`LuPresentation`)
+      beside the source/rendered toggle in `file-preview.tsx`'s header, beside a PR/review
+      description body in `pr-detail.tsx`'s `PrOverview`, and on every comment body in
+      `comment-thread.tsx` (always shown, even for a one-line comment). Only the two
+      description-level surfaces claim `activeMarkdown`, via a mount-effect in `MarkdownPreview`
+      and `PrOverview` respectively, cleared on unmount — a comment thread's button always works
+      by click but never claims the global slot. `e2e/slides.spec.ts` (4 specs: Files navigation
+      end to end, the help overlay, Escape closing the deck, and presenting from a PR description)
+      plus `e2e/slides-shots.spec.ts` (6 committed light/dark screenshots under
+      `docs/screenshots/phase-29-slides/`).
+- Tests: `deck-parser.test.ts` (8), `use-deck-nav.test.ts` (9), `use-title-typewriter.test.ts` (6),
+  4 new Playwright specs plus 6 committed screenshots (light+dark × trigger/mid-presentation/help).
+
 ## 2026-08-28 — Phase 24 Theme D — the preview pane becomes an editor
 
 Merged locally on `feature/phase-24-d-editor` — no PR link, no GitHub remote on this checkout.

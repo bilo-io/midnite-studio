@@ -39,6 +39,7 @@ import { usePruneClosedRepos } from './features/repos/use-prune-closed-repos';
 import { primaryTarget } from './features/repos/use-repo-actions';
 import { ReviewsView } from './features/reviews/reviews-view';
 import { SettingsView } from './features/settings/settings-view';
+import { SlidesModal } from './features/slides/slides-modal';
 import { Workbench } from './features/workbench/workbench';
 import { SyncActions } from './features/status/sync-actions';
 import { StatusBar } from './features/status-bar/status-bar';
@@ -883,6 +884,7 @@ export function App() {
         </PaletteHost>
       </DialogHost>
       <FileEditorGuard />
+      <SlidesModal />
     </ShellProviders>
   );
 }
