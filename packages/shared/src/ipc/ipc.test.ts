@@ -1227,3 +1227,62 @@ describe('terminal and pty schemas', () => {
     for (const key of UNVALIDATED_BY_DESIGN) expect(all).toContain(key);
   });
 });
+
+describe('search and blame channels and schemas', () => {
+  it('covers every search and blame channel', () => {
+    const expected: Record<string, boolean> = {
+      searchStart: true,
+      searchCancel: true,
+      blameRead: true,
+      searchBatch: true,
+      searchDone: true,
+    };
+
+    const channelKeys = [...Object.keys(CHANNELS), ...Object.keys(EVENT_CHANNELS)].filter(
+      (key) => key.startsWith('search') || key.startsWith('blame'),
+    );
+
+    expect(channelKeys.sort()).toEqual(Object.keys(expected).sort());
+  });
+
+  it('validates SearchStartRequest refines against leading "-" and path escapes', () => {
+    // Valid commits request
+    expect(
+      schemas.SearchStartRequest.parse({
+        repoId: 'r1',
+        mode: 'commits',
+        requestId: 'req-1',
+        query: {
+          grep: ['refactor'],
+          author: ['Alice'],
+        },
+      }),
+    ).toBeDefined();
+
+    // Invalid flag starting with '-'
+    expect(() =>
+      schemas.SearchStartRequest.parse({
+        repoId: 'r1',
+        mode: 'commits',
+        requestId: 'req-1',
+        query: {
+          grep: ['--bad-flag'],
+        },
+      }),
+    ).toThrow();
+
+    // Invalid path containing '..'
+    expect(() =>
+      schemas.SearchStartRequest.parse({
+        repoId: 'r1',
+        mode: 'content',
+        requestId: 'req-1',
+        query: {
+          pattern: 'foo',
+          paths: ['../outside'],
+        },
+      }),
+    ).toThrow();
+  });
+});
+

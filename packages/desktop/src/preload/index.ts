@@ -83,8 +83,11 @@ const bridge: Pick<
   | 'hostname'
   | 'repos'
   | 'log'
+  | 'search'
+  | 'blame'
   | 'status'
   | 'remotes'
+
   | 'forge'
   | 'shell'
   | 'clipboard'
@@ -129,7 +132,17 @@ const bridge: Pick<
     onBatch: (handler) => subscribe(EVENT_CHANNELS.logBatch, handler),
     onDone: (handler) => subscribe(EVENT_CHANNELS.logDone, handler),
   },
+  search: {
+    start: (req) => call(CHANNELS.searchStart, req),
+    cancel: (req) => call(CHANNELS.searchCancel, req),
+    onBatch: (handler) => subscribe(EVENT_CHANNELS.searchBatch, handler),
+    onDone: (handler) => subscribe(EVENT_CHANNELS.searchDone, handler),
+  },
+  blame: {
+    read: (req) => call(CHANNELS.blameRead, req),
+  },
   status: {
+
     get: (req) => call(CHANNELS.statusGet, req),
     counts: (req) => call(CHANNELS.statusCounts, req),
     commitDetail: (req) => call(CHANNELS.commitDetail, req),

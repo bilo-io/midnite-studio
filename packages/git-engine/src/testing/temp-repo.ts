@@ -1,6 +1,6 @@
-import { mkdtemp, realpath, rm, writeFile } from 'node:fs/promises';
+import { mkdir, mkdtemp, realpath, rm, writeFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
-import { join } from 'node:path';
+import { dirname, join } from 'node:path';
 
 import { execGit } from '../exec/git-exec';
 
@@ -60,7 +60,9 @@ export class TempRepo {
   }
 
   async writeFile(relative: string, contents: string): Promise<void> {
-    await writeFile(join(this.path, relative), contents, 'utf8');
+    const fullPath = join(this.path, relative);
+    await mkdir(dirname(fullPath), { recursive: true });
+    await writeFile(fullPath, contents, 'utf8');
   }
 
   /** Write, stage and commit in one step — the common case in these tests. */
@@ -70,15 +72,23 @@ export class TempRepo {
     return this.commit(message);
   }
 
-  async commit(message: string, extraArgs: string[] = []): Promise<string> {
+  async commit(message: string, extraArgs: string[] | { author?: string } = []): Promise<string> {
+    const args: string[] = [];
+    if (Array.isArray(extraArgs)) {
+      args.push(...extraArgs);
+    } else if (extraArgs.author) {
+      args.push(`--author=${extraArgs.author}`);
+    }
+
     // `-F -` via stdin: a message with quotes or newlines needs no escaping.
-    await execGit(this.path, ['commit', '-F', '-', ...extraArgs], {
+    await execGit(this.path, ['commit', '-F', '-', ...args], {
       write: true,
       throwOnError: true,
       stdin: message,
     });
     return this.head();
   }
+
 
   async head(): Promise<string> {
     return (await this.git(['rev-parse', 'HEAD'])).trim();

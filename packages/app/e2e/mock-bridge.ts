@@ -309,12 +309,20 @@ export type MockFixtures = {
    * "closes" — a spec drives the run and reads the result off the live stream,
    * exactly as the real bridge does.
    */
-  tests?: {
-    packages?: unknown[];
-    trusted?: string[];
-    runResult?: unknown;
+  /**
+   * Search fixtures (Phase 25).
+   */
+  search?: {
+    commits?: unknown[];
+    contentHits?: unknown[];
+    error?: string;
   };
+  /**
+   * Blame fixtures (Phase 25), keyed by `${relPath}` or `${rev}:${relPath}`.
+   */
+  blame?: Record<string, unknown>;
 };
+
 
 export async function installMockBridge(page: Page, fixtures: MockFixtures): Promise<void> {
   await page.addInitScript((data: MockFixtures) => {
@@ -489,7 +497,70 @@ export async function installMockBridge(page: Page, fixtures: MockFixtures): Pro
           return () => doneHandlers.splice(doneHandlers.indexOf(handler), 1);
         },
       },
+      search: {
+        start: async (req: { mode: 'commits' | 'content'; requestId: string }) => {
+          setTimeout(() => {
+            if (req.mode === 'commits') {
+              const commits = data.search?.commits ?? [];
+              for (const handler of searchBatchHandlers) {
+                handler({ requestId: req.requestId, mode: 'commits', commits });
+              }
+              for (const handler of searchDoneHandlers) {
+                handler({
+                  requestId: req.requestId,
+                  mode: 'commits',
+                  total: commits.length,
+                  truncated: false,
+                  ...(data.search?.error ? { error: data.search.error } : {}),
+                });
+              }
+            } else {
+              const hits = data.search?.contentHits ?? [];
+              for (const handler of searchBatchHandlers) {
+                handler({ requestId: req.requestId, mode: 'content', hits });
+              }
+              for (const handler of searchDoneHandlers) {
+                handler({
+                  requestId: req.requestId,
+                  mode: 'content',
+                  total: hits.length,
+                  truncated: false,
+                  ...(data.search?.error ? { error: data.search.error } : {}),
+                });
+              }
+            }
+          }, 0);
+          return { ok: true as const, value: { started: true as const } };
+        },
+        cancel: async () => undefined,
+        onBatch: (handler: (e: unknown) => void) => {
+          searchBatchHandlers.push(handler);
+          return () => searchBatchHandlers.splice(searchBatchHandlers.indexOf(handler), 1);
+        },
+        onDone: (handler: (e: unknown) => void) => {
+          searchDoneHandlers.push(handler);
+          return () => searchDoneHandlers.splice(searchDoneHandlers.indexOf(handler), 1);
+        },
+      },
+      blame: {
+        read: async (req: { relPath: string; rev?: string }) => {
+          const key = req.rev ? `${req.rev}:${req.relPath}` : req.relPath;
+          const fixture = data.blame?.[key] ?? data.blame?.[req.relPath];
+          if (fixture) {
+            return { ok: true as const, value: fixture };
+          }
+          return {
+            ok: true as const,
+            value: {
+              path: req.relPath,
+              commits: {},
+              lines: [],
+            },
+          };
+        },
+      },
       status: {
+
         get: async (req: { worktreePath?: string }) => ({
           branch: {
             head: 'main',
@@ -1354,6 +1425,11 @@ export async function installMockBridge(page: Page, fixtures: MockFixtures): Pro
     var batchHandlers: Array<(e: unknown) => void> = [];
     // eslint-disable-next-line no-var
     var doneHandlers: Array<(e: unknown) => void> = [];
+    // eslint-disable-next-line no-var
+    var searchBatchHandlers: Array<(e: unknown) => void> = [];
+    // eslint-disable-next-line no-var
+    var searchDoneHandlers: Array<(e: unknown) => void> = [];
+
 
     // Published on `window` so a test can read the ops back, and clear the
     // array between gestures.

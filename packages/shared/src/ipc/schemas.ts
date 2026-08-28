@@ -1,6 +1,8 @@
 import { z } from 'zod';
 
 import {
+  BlameResultSchema,
+  CommitSchema,
   InProgressOpSchema,
   DiagnosticsCandidateSchema,
   DiagnosticsCommandSchema,
@@ -18,12 +20,15 @@ import {
   ForgePullScopeSchema,
   ForgePullsResultSchema,
   ForgePullThreadsResultSchema,
+  GrepHitSchema,
+
   ForgeReviewEventSchema,
   ForgeRunDetailResultSchema,
   ForgeRunLogResultSchema,
   ForgeRunsResultSchema,
   ForgeWorkflowsResultSchema,
   ForgeWriteResultSchema,
+  GitOpResultOf,
   GitOpResultSchema,
   GraphRowSchema,
   METRICS_MAX_INTERVAL_MS,
@@ -144,6 +149,101 @@ export const LogDoneEvent = z.object({
   /** Set when the stream died; the UI shows this instead of an empty graph. */
   error: z.string().optional(),
 });
+
+// --- search stream & blame -------------------------------------------------
+
+const SafeArgvString = z
+  .string()
+  .refine((v) => !v.startsWith('-'), 'must not begin with "-"');
+
+const SafePathspecString = SafeArgvString.refine(
+  (p) => !p.startsWith('/') && !p.includes('..'),
+  'must be a repo-relative path without ".."',
+);
+
+export const CommitsSearchQuerySchema = z.object({
+  grep: z.array(SafeArgvString).optional(),
+  author: z.array(SafeArgvString).optional(),
+  since: SafeArgvString.optional(),
+  until: SafeArgvString.optional(),
+  paths: z.array(SafePathspecString).optional(),
+  pickaxeString: SafeArgvString.optional(),
+  pickaxeRegex: SafeArgvString.optional(),
+  regexp: z.boolean().default(false),
+  ignoreCase: z.boolean().default(false),
+});
+export type CommitsSearchQuery = z.infer<typeof CommitsSearchQuerySchema>;
+
+export const ContentSearchQuerySchema = z.object({
+  pattern: SafeArgvString,
+  rev: SafeArgvString.optional(),
+  paths: z.array(SafePathspecString).optional(),
+  regexp: z.boolean().default(false),
+  ignoreCase: z.boolean().default(false),
+  wordMatch: z.boolean().default(false),
+  contextLines: z.number().int().nonnegative().default(0),
+});
+export type ContentSearchQuery = z.infer<typeof ContentSearchQuerySchema>;
+
+export const SearchStartRequest = z.discriminatedUnion('mode', [
+  RepoId.extend({
+    mode: z.literal('commits'),
+    requestId: z.string().min(1),
+    cap: z.number().int().positive().default(5000),
+    query: CommitsSearchQuerySchema,
+  }),
+  RepoId.extend({
+    mode: z.literal('content'),
+    requestId: z.string().min(1),
+    cap: z.number().int().positive().default(5000),
+    query: ContentSearchQuerySchema,
+  }),
+]);
+export type SearchStartRequest = z.infer<typeof SearchStartRequest>;
+
+export const SearchStartResponse = GitOpResultOf(z.object({ started: z.literal(true) }));
+export type SearchStartResponse = z.infer<typeof SearchStartResponse>;
+
+export const SearchCancelRequest = RepoId.extend({
+  requestId: z.string().optional(),
+});
+export type SearchCancelRequest = z.infer<typeof SearchCancelRequest>;
+
+export const BlameReadRequest = RepoId.extend({
+  relPath: SafePathspecString,
+  rev: SafeArgvString.optional(),
+  followRenames: z.boolean().default(false),
+  worktreePath: z.string().optional(),
+});
+export type BlameReadRequest = z.infer<typeof BlameReadRequest>;
+
+export const BlameReadResponse = GitOpResultOf(BlameResultSchema);
+export type BlameReadResponse = z.infer<typeof BlameReadResponse>;
+
+
+export const SearchBatchEvent = z.discriminatedUnion('mode', [
+  z.object({
+    requestId: z.string(),
+    mode: z.literal('commits'),
+    commits: z.array(CommitSchema),
+  }),
+  z.object({
+    requestId: z.string(),
+    mode: z.literal('content'),
+    hits: z.array(GrepHitSchema),
+  }),
+]);
+export type SearchBatchEvent = z.infer<typeof SearchBatchEvent>;
+
+export const SearchDoneEvent = z.object({
+  requestId: z.string(),
+  mode: z.enum(['commits', 'content']),
+  total: z.number().int().nonnegative(),
+  truncated: z.boolean(),
+  error: z.string().optional(),
+});
+export type SearchDoneEvent = z.infer<typeof SearchDoneEvent>;
+
 
 // --- status / detail -------------------------------------------------------
 

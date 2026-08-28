@@ -38,7 +38,9 @@ import { useDefaultSelection } from './features/repos/use-default-selection';
 import { usePruneClosedRepos } from './features/repos/use-prune-closed-repos';
 import { primaryTarget } from './features/repos/use-repo-actions';
 import { ReviewsView } from './features/reviews/reviews-view';
+import { SearchView } from './features/search/search-view';
 import { SettingsView } from './features/settings/settings-view';
+
 import { SlidesModal } from './features/slides/slides-modal';
 import { Workbench } from './features/workbench/workbench';
 import { SyncActions } from './features/status/sync-actions';
@@ -170,12 +172,14 @@ const PINNED_ITEM: NavItem = {
 */
 const NAV_ITEMS: NavItem[] = [
   { view: 'files', label: 'Files', icon: VIEW_ICON.files },
+  { view: 'search', label: 'Search', icon: VIEW_ICON.search },
   { view: 'reviews', label: 'Reviews', icon: VIEW_ICON.reviews },
   { view: 'graph', label: 'Graph', icon: VIEW_ICON.graph },
   { view: 'changes', label: 'Changes', icon: VIEW_ICON.changes },
   { view: 'actions', label: 'Actions', icon: VIEW_ICON.actions },
   { view: 'tests', label: 'Tests', icon: VIEW_ICON.tests },
   // Settings is deliberately absent: it renders in the rail's FOOTER slot
+
   // (bottom-pinned, the way settings sit in VS Code/GitKraken), not among the
   // workspace views — see the `footer` in the nav config below.
 ];
@@ -711,6 +715,8 @@ function Shell() {
                   <DashboardView />
                 ) : activeView === 'files' ? (
                   <FilesView />
+                ) : activeView === 'search' ? (
+                  <SearchView />
                 ) : activeView === 'graph' ? (
                   <GraphView />
                 ) : activeView === 'changes' ? (
@@ -726,6 +732,7 @@ function Shell() {
                 ) : (
                   <Placeholder view={activeView} />
                 )}
+
               </div>
 
               {/*

@@ -30,6 +30,7 @@ import { SETTINGS_PAGE_ICON, VIEW_ICON } from './nav-icons';
 const VIEW_LABELS: Record<ViewId, string> = {
   dashboard: 'Dashboard',
   files: 'Files',
+  search: 'Search',
   graph: 'Graph',
   changes: 'Changes',
   actions: 'Actions',
@@ -37,6 +38,7 @@ const VIEW_LABELS: Record<ViewId, string> = {
   reviews: 'Reviews',
   settings: 'Settings',
 };
+
 
 function HistoryButtons() {
   const canGoBack = useUiStore((s) => s.viewHistoryIndex > 0);

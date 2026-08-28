@@ -3,6 +3,8 @@ export type GrepMatch = {
   path: string;
   /** 1-based line number, matching every other line-number surface in the app. */
   line: number;
+  /** Kind of hit: match or context. */
+  kind: 'match' | 'context';
   /** The matched line's full text, no trailing newline. */
   text: string;
 };
@@ -32,9 +34,13 @@ export function parseGrep(payload: string): GrepMatch[] {
 
     const path = record.slice(0, firstNul);
     const line = Number(record.slice(firstNul + 1, secondNul));
-    const text = record.slice(secondNul + 1);
+    let text = record.slice(secondNul + 1);
+    if (text.endsWith('\r')) {
+      text = text.slice(0, -1);
+    }
     if (!Number.isFinite(line)) continue;
-    matches.push({ path, line, text });
+    matches.push({ path, line, kind: 'match', text });
   }
   return matches;
 }
+
