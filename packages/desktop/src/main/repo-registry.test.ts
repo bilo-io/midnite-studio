@@ -150,13 +150,26 @@ describe('resolveWorkdir', () => {
     expect(await resolveWorkdir(opened.repo.id, linked)).toBe(linked);
   });
 
-  it('ignores a path that is not one of the repo\'s worktrees', async () => {
+  it('returns null for a path that is not one of the repo\'s worktrees', async () => {
     // The value arrives from the renderer; honouring it unchecked would run git
-    // writes in an arbitrary directory.
+    // writes in an arbitrary directory. Falling back to the main worktree would
+    // silently run the call there and hand back its data mislabeled as the
+    // requested worktree's — null lets callers report "gone" instead.
     const opened = await openRepo(repoPath);
     if (!opened.ok) throw new Error('open failed');
 
-    expect(await resolveWorkdir(opened.repo.id, '/etc')).toBe(repoPath);
+    expect(await resolveWorkdir(opened.repo.id, '/etc')).toBeNull();
+  });
+
+  it('returns null for a worktree that has since been removed', async () => {
+    const linked = join(scratch, 'wt-removed');
+    await git(repoPath, ['worktree', 'add', '-b', 'removed', linked]);
+    const opened = await openRepo(repoPath);
+    if (!opened.ok) throw new Error('open failed');
+    expect(await resolveWorkdir(opened.repo.id, linked)).toBe(linked);
+
+    await git(repoPath, ['worktree', 'remove', linked]);
+    expect(await resolveWorkdir(opened.repo.id, linked)).toBeNull();
   });
 
   it('returns null for an unknown repo', async () => {
