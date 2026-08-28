@@ -27,7 +27,7 @@ Completed work is logged append-only in [`done.md`](done.md). Deferred scope liv
 | [26 · Side by side, and the room to show it](phase-26-side-by-side-diffs.md) | ◻ TODO | — | 0/68 | `░░░░░░░░░░` | 0% | — | A–H |
 | [25 · Search everywhere, and the blame that explains it](phase-25-search-everywhere.md) | ◻ TODO | x1 | 0/101 | `░░░░░░░░░░` | 0% | — | A–F |
 | [24 · The explorer learns to write, and to search](phase-24-writable-explorer.md) | ✅ DONE | — | 43/55 | `████████░░` | 78% | — | — |
-| [23 · A command palette, and the registry that can feed it](phase-23-command-palette.md) | 🔄 WIP | — | 28/55 | `█████░░░░░` | 51% | F–H | — |
+| [23 · A command palette, and the registry that can feed it](phase-23-command-palette.md) | ✅ DONE | — | 42/55 | `████████░░` | 76% | — | — |
 | [22 · Stash, the reflog, and writes you can take back](phase-22-stash-and-safety-net.md) | 🔄 WIP | — | 10/70 | `█░░░░░░░░░` | 14% | — | B–H |
 | [21 · Agent roster + terminal identity](phase-21-agent-roster-and-terminal-identity.md) | 🔄 WIP | — | 43/46 | `█████████░` | 93% | — | 3 manual checks |
 | [20 · Reviews page & unified diff syntax highlighting](phase-20-reviews-page.md) | 🔄 WIP | — | 43/45 | `██████████` | 96% | — | 2 manual checks |
@@ -389,13 +389,16 @@ first fuzzy matcher, E–F are the sources. `Mod+K` is free; `Mod+Shift+P` is Pu
   highlighting, and one ranking table so a repo name cannot bury a command (landed 2026-08-28).
 - ✅ **E** — the source-provider seam plus commands, views, settings pages, repos, worktrees, sessions
   and agents; `VIEW_ICON`/`PAGE_ICON` reused rather than a third icon map (landed 2026-08-28).
-- ◻ **F** — branches and tags with two actions only (checkout, reveal in graph) behind an exported
-  `PALETTE_SAFE` allowlist with a test asserting no destructive id gets in.
-- ◻ **G** — the file finder: `mgit:fs:list-files` over `git ls-files -z --exclude-standard`, a
-  tip-sha-keyed index with an honest truncation notice, opening into the Phase 16 preview pane. Lands
-  last.
-- ◻ **H** — `use-focus-trap.ts` extracted from `popover.tsx`, the only working trap in the repo, and
-  retrofitted onto `ConfirmDialog` and `PromptDialog`, which have none.
+- ✅ **F** — branches and tags with two actions only (checkout, reveal in graph) behind an exported
+  `PALETTE_SAFE` allowlist with a test asserting no destructive id gets in (landed 2026-08-28,
+  merged locally — no PR/no remote; recovered from an interrupted session).
+- ✅ **G** — the file finder: `mgit:fs:list-files` over `git ls-files -z --exclude-standard`, a
+  tip-sha-keyed index with an honest truncation notice, opening into the Phase 16 preview pane
+  (landed 2026-08-28, merged locally — no PR/no remote; recovered from an interrupted session).
+- ✅ **H** — `use-focus-trap.ts` extracted from `popover.tsx`, the only working trap in the repo, and
+  retrofitted onto `ConfirmDialog` and `PromptDialog`, which have none (landed 2026-08-28, merged
+  locally — no PR/no remote; recovered from an interrupted session). Phase 23 is now
+  feature-complete — all eight themes (A–H) have landed.
 
 ### [Phase 22 — Stash, the reflog, and writes you can take back](phase-22-stash-and-safety-net.md)
 

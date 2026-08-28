@@ -2,6 +2,33 @@
 
 <!-- Append one entry per landed phase/PR: date, phase, PR link, one-line summary. -->
 
+## 2026-08-28 — Phase 23 Themes F, G, H — refs source, file finder, focus-trap retrofit
+
+Merged locally on `main` (commit `3a28ac6`) — no PR link, no GitHub remote on this checkout.
+Recovered from an interrupted session: this work was built and committed to the
+`feature/p23-fgh` worktree but never gated or merged while three other loops landed on `main`.
+Cleanup pass: verified the diff against every F/G/H checklist item, ran `moon run :typecheck
+:lint :test` green on `main` post-merge, updated trackers, tore down the stray worktree. Phase 23
+is now feature-complete — all eight themes (A–H) landed.
+
+- [x] **F — the refs source, and the safe-writes line.** `createRefsSource` off `useRefs(repoId)`
+      grouped local/remote/tag with upstream `detail`; exactly two actions per ref (checkout
+      through the write queue, reveal in graph); an exported `PALETTE_SAFE: readonly CommandId[]`
+      allowlist in `features/palette/safety.ts` gating the command source, with
+      `palette-safety.test.ts` asserting no operation/reset-family id is in it; repo-scoped sources
+      simply absent (not empty-rendered) with no repo open.
+- [x] **G — the file finder.** `mgit:fs:list-files` channel + `FsListFilesRequest`/`Response`
+      schemas + bridge entry; `git-engine/src/commands/list-files.ts` over `git ls-files -z
+      --cached --others --exclude-standard` capped at `LIST_FILES_MAX = 20_000` with a `truncated`
+      flag; main handler + preload passthrough; `useRepoFiles` cached per repo and tip sha via a
+      new `keys.repoFiles` query key; `createFilesSource` opens the Phase 16 preview pane and
+      expands ancestor directories in the explorer on select; `fuzzyMatchPath` (basename-first with
+      a 1.5x boost, full-path match when the needle contains `/`) wired into `scorePaletteItem` for
+      the `files` source specifically.
+- [x] **H — the focus trap, retrofitted.** `ConfirmDialog` and `PromptDialog` both gain a
+      `containerRef` + `useFocusTrap(containerRef, true)`, matching the extraction that had already
+      landed under Phase 27 Theme G; `palette.tsx` already consumed the shared hook.
+
 ## 2026-08-28 — Phase 30 Theme C — detached session broker
 
 Merged locally on `feature/p30-c` — no PR link, no GitHub remote on this checkout. All five themes now landed; only human manual checks remain.
