@@ -60,6 +60,34 @@ export function TerminalSessionList({
     ]);
   };
 
+  /**
+   * Up/down moves the active session; the arrow pointing at the terminal pane
+   * hands focus over to it. Which key that is depends on the dock side — the
+   * pane is always on the OTHER side from the list, never a fixed direction.
+   *
+   * Left/right in the other direction is deliberately not handled here: that
+   * key belongs to the shell (cursor movement, agent UIs) once focus is
+   * actually in the terminal, not to this list.
+   */
+  const onKeyDown = (event: React.KeyboardEvent<HTMLDivElement>) => {
+    if (sessions.length === 0) return;
+    const index = sessions.findIndex((s) => s.id === activeId);
+
+    if (event.key === 'ArrowDown' || event.key === 'ArrowUp') {
+      event.preventDefault();
+      const delta = event.key === 'ArrowDown' ? 1 : -1;
+      const next = sessions[Math.min(Math.max(index + delta, 0), sessions.length - 1)];
+      if (next) useTerminalStore.getState().setActiveFromListNav(next.id);
+      return;
+    }
+
+    const towardPanel = side === 'left' ? 'ArrowRight' : 'ArrowLeft';
+    if (event.key === towardPanel) {
+      event.preventDefault();
+      useTerminalStore.getState().focusActiveSession();
+    }
+  };
+
   return (
     <div
       /*
@@ -68,9 +96,11 @@ export function TerminalSessionList({
         which SIDE this one sits on is exactly what the docking test asserts.
       */
       data-session-list
-      className={`shrink-0 overflow-y-auto ${border} border-border py-1`}
+      tabIndex={0}
+      className={`shrink-0 overflow-y-auto ${border} border-border py-1 outline-none focus-visible:ring-1 focus-visible:ring-inset focus-visible:ring-ring`}
       style={{ width }}
       onContextMenu={showDockMenu}
+      onKeyDown={onKeyDown}
     >
       <SortableList
         ids={sessions.map((s) => s.id)}
