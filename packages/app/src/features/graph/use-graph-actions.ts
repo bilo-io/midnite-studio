@@ -28,31 +28,32 @@ export function useGraphActions(onError: (message: string) => void) {
   const dialogs = useDialogs();
   const { repoId, worktreePath } = useActiveWorktree();
 
-  const checkout = useGitOp<{ target: string; detach?: boolean }>((api, args, ctx) =>
+  const checkout = useGitOp<{ target: string; detach?: boolean }>('checkout', (api, args, ctx) =>
     api.ops.checkout({ ...ctx, target: args.target, detach: args.detach ?? false }),
   );
   const branchCreate = useGitOp<{ name: string; startPoint: string; checkout: boolean }>(
+    'branch-create',
     (api, args, ctx) => api.ops.branchCreate({ ...ctx, ...args }),
   );
-  const branchDelete = useGitOp<{ name: string; force: boolean }>((api, args, ctx) =>
+  const branchDelete = useGitOp<{ name: string; force: boolean }>('branch-delete', (api, args, ctx) =>
     api.ops.branchDelete({ ...ctx, ...args }),
   );
-  const branchRename = useGitOp<{ from: string; to: string }>((api, args, ctx) =>
+  const branchRename = useGitOp<{ from: string; to: string }>('branch-rename', (api, args, ctx) =>
     api.ops.branchRename({ ...ctx, ...args }),
   );
-  const tagCreate = useGitOp<{ name: string; target: string }>((api, args, ctx) =>
+  const tagCreate = useGitOp<{ name: string; target: string }>('tag-create', (api, args, ctx) =>
     api.ops.tagCreate({ ...ctx, ...args }),
   );
-  const resetTo = useGitOp<{ target: string; mode: 'soft' | 'mixed' | 'hard' }>((api, args, ctx) =>
+  const resetTo = useGitOp<{ target: string; mode: 'soft' | 'mixed' | 'hard' }>('reset', (api, args, ctx) =>
     api.ops.reset({ ...ctx, ...args }),
   );
-  const mergeBranch = useGitOp<{ source: string }>((api, args, ctx) =>
+  const mergeBranch = useGitOp<{ source: string }>('merge', (api, args, ctx) =>
     api.ops.merge({ ...ctx, source: args.source, noFastForward: false }),
   );
-  const rebaseOnto = useGitOp<{ onto: string }>((api, args, ctx) =>
+  const rebaseOnto = useGitOp<{ onto: string }>('rebase', (api, args, ctx) =>
     api.ops.rebase({ ...ctx, onto: args.onto }),
   );
-  const cherryPickCommits = useGitOp<{ shas: string[] }>((api, args, ctx) =>
+  const cherryPickCommits = useGitOp<{ shas: string[] }>('cherry-pick', (api, args, ctx) =>
     api.ops.cherryPick({ ...ctx, shas: args.shas }),
   );
 

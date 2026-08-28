@@ -45,9 +45,9 @@ export function SyncControls({
 }) {
   const dialogs = useDialogs();
 
-  const fetch = useTargetedGitOp<void>(target, (api, _args, ctx) => api.ops.fetch({ ...ctx }));
-  const pull = useTargetedGitOp<void>(target, (api, _args, ctx) => api.ops.pull({ ...ctx }));
-  const push = useTargetedGitOp<{ setUpstream: boolean }>(target, (api, args, ctx) =>
+  const fetch = useTargetedGitOp<void>(target, 'fetch', (api, _args, ctx) => api.ops.fetch({ ...ctx }));
+  const pull = useTargetedGitOp<void>(target, 'pull', (api, _args, ctx) => api.ops.pull({ ...ctx }));
+  const push = useTargetedGitOp<{ setUpstream: boolean }>(target, 'push', (api, args, ctx) =>
     api.ops.push({ ...ctx, setUpstream: args.setUpstream }),
   );
 

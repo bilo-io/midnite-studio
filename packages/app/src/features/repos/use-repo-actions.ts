@@ -90,27 +90,33 @@ export function useRepoActions(
 
   const checkout = useTargetedGitOp<{ target: string; detach?: boolean }>(
     target,
+    'checkout',
     (api, args, ctx) =>
       api.ops.checkout({ ...ctx, target: args.target, detach: args.detach ?? false }),
   );
   const branchCreate = useTargetedGitOp<{ name: string; startPoint: string }>(
     target,
+    'branch-create',
     (api, args, ctx) => api.ops.branchCreate({ ...ctx, ...args, checkout: true }),
   );
   const branchDelete = useTargetedGitOp<{ name: string; force: boolean }>(
     target,
+    'branch-delete',
     (api, args, ctx) => api.ops.branchDelete({ ...ctx, ...args }),
   );
-  const branchRename = useTargetedGitOp<{ from: string; to: string }>(target, (api, args, ctx) =>
-    api.ops.branchRename({ ...ctx, ...args }),
+  const branchRename = useTargetedGitOp<{ from: string; to: string }>(
+    target,
+    'branch-rename',
+    (api, args, ctx) => api.ops.branchRename({ ...ctx, ...args }),
   );
   const worktreeAdd = useTargetedGitOp<{ path: string; branch: string; createBranch: boolean }>(
     target,
+    'worktree-add',
     (api, args, ctx) => api.repos.worktreeAdd({ repoId: ctx.repoId, ...args }),
   );
-  const fetch = useTargetedGitOp<void>(target, (api, _args, ctx) => api.ops.fetch({ ...ctx }));
-  const pull = useTargetedGitOp<void>(target, (api, _args, ctx) => api.ops.pull({ ...ctx }));
-  const push = useTargetedGitOp<{ setUpstream: boolean }>(target, (api, args, ctx) =>
+  const fetch = useTargetedGitOp<void>(target, 'fetch', (api, _args, ctx) => api.ops.fetch({ ...ctx }));
+  const pull = useTargetedGitOp<void>(target, 'pull', (api, _args, ctx) => api.ops.pull({ ...ctx }));
+  const push = useTargetedGitOp<{ setUpstream: boolean }>(target, 'push', (api, args, ctx) =>
     api.ops.push({ ...ctx, setUpstream: args.setUpstream }),
   );
 
