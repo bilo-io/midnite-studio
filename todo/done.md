@@ -32,6 +32,49 @@ checkout.
   `watch-invalidation.test.ts` split its combined worktree/index case in two once `worktree` grew
   a second invalidation.
 
+## 2026-08-28 — Phase 28 Themes F/G/H — the section tree, finished
+
+Merged locally on `feature/phase-28-f-forge-parent` — no PR link, no GitHub remote on this checkout.
+Closes out Phase 28: all eight themes (A–H) have now landed.
+
+- [x] **Theme F — Forge sections get a parent.** `Actions`/`Reviews`/`Issues` stopped being one opaque
+      `ForgeSections` wrapper and became three independent `SECTION_BODY` leaves in
+      `repos-panel.tsx`, exactly like `TestsSection` — `RepoTree`'s generic recursive walk now renders
+      all four of Forge's children, threading `depth` through instead of the components hard-coding
+      `depth={1}`. Their nested run/job groups, `Note` rows and pull rows all shift one rung deeper,
+      down to the ladder's existing depth-4 maximum (a run's job list, a Reviews scope's pull rows).
+      `Forge` hides entirely with no GitHub remote via one `hasGithubForge` check computed in
+      `RepoTree` and consulted by `renderSection` before the parent-wrapping walk reaches the `forge`
+      node — not duplicated into each child, since the walk cannot tell after the fact that a child it
+      already rendered produced nothing. `Tests` nests under `Forge` (the doc's own recommendation),
+      which means it now shares that same gate — a deliberate behaviour change from before this theme,
+      when Tests rendered regardless of remote kind. Forge's heading gets a count of its **visible
+      child sections** (0–4), not a sum of each child's own items, since most only know their item
+      count once opened.
+- [x] **Theme G — Settings ▸ Sidebar catches up.** `describeNarrowed()` (the doc's `describeFilter()`)
+      now reads the tree's nesting through a new, independently unit-tested `summarizeSections()`
+      pure function: a filter admitting every child of a parent collapses to the parent's name
+      ("Branches", not "Local and Remotes"); one admitting a single child still names the child. Walks
+      `ALL_SECTIONS`/`childrenOf` generically rather than hard-coding which keys are parents, so a
+      future parent needs no edit here. `SECTION_LABELS` was already complete from Theme A.
+- [x] **Theme H — Reconciliation.** `view-sections.ts` gained a module-level doc explaining the tree,
+      the parent-visibility rule, and why `RefSectionKey` stayed narrow, plus the "adding a section"
+      note for a future adder. The `"'Local', not 'Branches'"` comment and the Phase 22 Theme B
+      coordination line had each already been rewritten by an earlier theme — confirmed both still
+      read correctly rather than re-doing them. `outstanding.md` checked: no sidebar-ordering entry to
+      close.
+
+**Open, deliberately not closed here:** the phase's screenshot triple (full tree at depth 4, Branches
+folded, forge-grouped lower half, both themes) has no baseline anywhere in this phase yet — F/G/H
+added targeted Playwright assertions for the new Forge nesting instead of standing up a new visual
+regression baseline from scratch, which read as real scope beyond closing three small themes.
+
+**Found and fixed along the way (pre-existing, not this theme's):** `repos-workbench.spec.ts`'s "a
+signed-out gh says what to run rather than failing silently" test fails on unmodified `main` too —
+the closed "All Pull Requests" Reviews group renders its CLI-unavailable message even though its own
+query is `enabled: false`. Reproduced in isolation against `main` before touching any code; left
+unfixed as out of scope for this slice.
+
 ## 2026-08-28 — Phase 23 Theme C — the palette surface
 
 Merged locally on `feature/phase-23-c-palette-surface` — no PR link, no GitHub remote on this

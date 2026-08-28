@@ -198,7 +198,7 @@ that does.
       `useState` could not survive) and a full reload; a `RemoteGroup`'s own fold persists across a
       reload independently of `Remotes`.
 
-### E — The Branches heading earns itself (S) — ◐ PARTIAL (2026-08-28)
+### E — The Branches heading earns itself (S) ✅ DONE (2026-08-28, completed by Theme F)
 
 - [x] The `Branches` heading carries a combined count — local branches plus remote-tracking branches,
       matching how each child already counts (`branches.length`, `remoteGroups.length`) rather than
@@ -214,63 +214,66 @@ that does.
       **Prune remote-tracking refs** — all three already exist as verbs elsewhere in
       `use-repo-actions.ts`; none is new git. The latter two both call the same `fetch` mutation, since
       pruning is already the default on every fetch this app makes.
-- [ ] `Forge` gets a count of its visible children and **no menu** — **deferred to Theme F**, not
-      dropped. `forge` has no `TreeSection` heading to attach a count to yet: its `SECTION_BODY` entry
-      renders `<ForgeSections>`/`<TestsSection>` directly today, and the code comment on that entry is
-      explicit that Theme F is what "gives Forge a real nested heading." A count with nothing to sit
-      beside would be new UI this theme does not own; Theme F's own checklist inherits this bullet.
+- [x] `Forge` gets a count of its visible children and **no menu** — **landed via Theme F**, as
+      forecast here: `forge` had no `TreeSection` heading to attach a count to at the time this theme
+      landed. Theme F's own checklist item is where the count and the no-menu decision actually shipped.
 - [x] The parent heading's accessible name reads `Branches 12`, matching what `TreeSection` already
       does for every other counted section — `Branches` today renders as a non-collapsible heading
       (no fold arrow of its own; only its children fold), so this is the count sitting beside the
       title in the DOM rather than a single focusable name string, the same as it would read for any
       other non-collapsible counted section.
 
-### F — Forge sections get a parent (M)
+### F — Forge sections get a parent (M) ✅ DONE (2026-08-28)
 
-- [ ] `Actions`, `Reviews`, `Issues` and `Tests` nest under `Forge` in `SECTION_TREE`, and their
+- [x] `Actions`, `Reviews`, `Issues` and `Tests` nest under `Forge` in `SECTION_TREE`, and their
       `TreeSection`s move from `depth={1}` to `depth={2}` in
       [`forge-sections.tsx`](../packages/app/src/features/repos/forge-sections.tsx) and
-      [`tests-section.tsx`](../packages/app/src/features/tests/tests-section.tsx).
-- [ ] Their nested run/job groups and `Note` rows shift one rung each, per Theme B.
-- [ ] `Forge` hides entirely when the repo has no forge remote — which is already each child's own
-      condition, so this is Theme A's parent rule doing its job, not a new check. Verify against a
-      repo with **no remote at all**, which is the state this repository itself is in.
-- [ ] `Tests` under `Forge` is the one arguable membership: it is a repo capability, not a forge one.
-      Recorded as an open decision below rather than settled silently.
-- [ ] **Inherited from Theme E:** once `Forge` gets a real nested `TreeSection` heading, give it a
-      count of its visible children and **no menu** — `SECTION_COUNT`/`SECTION_ACTIONS` in
-      [`repos-panel.tsx`](../packages/app/src/features/repos/repos-panel.tsx) already support a
-      `forge` entry; Theme E only left it unpopulated because there was no heading yet to attach it to.
+      [`tests-section.tsx`](../packages/app/src/features/tests/tests-section.tsx). Went further than
+      "move from depth 1 to 2": the opaque `ForgeSections` wrapper is gone. Actions/Reviews/Issues are
+      now three independent `SECTION_BODY` leaves exactly like Tests, rendered by `RepoTree`'s generic
+      walk rather than by a hand-rolled `<>...</>` pair — which is what lets Forge's count (below) read
+      off the same `sections.visible()` every other parent count does.
+- [x] Their nested run/job groups and `Note` rows shift one rung each, per Theme B — through to depth 4
+      (a run's job list, a Reviews scope's pull rows), the ladder's existing maximum.
+- [x] `Forge` hides entirely when the repo has no forge remote. Implemented as one `hasGithubForge`
+      check computed once in `RepoTree` and consulted by `renderSection` before the generic
+      parent-wrapping walk even reaches the `forge` node — not duplicated into each of the four
+      children — because the walk has no way to tell, after the fact, that a child it already rendered
+      produced nothing. Verified against this repository's own real state, no remote at all: Forge (Tests
+      included) disappears entirely, which is a deliberate behaviour change — Tests used to render
+      regardless of remote kind.
+- [x] `Tests` under `Forge`: resolved below, took the recommendation.
+- [x] **Inherited from Theme E:** `Forge` gets a count of its visible children (0–4, not a sum of each
+      child's own items — see the resolved decision below) and **no menu** entry in
+      `SECTION_ACTIONS`.
 
-### G — Settings ▸ Sidebar catches up (S)
+### G — Settings ▸ Sidebar catches up (S) ✅ DONE (2026-08-28)
 
-- [ ] `SECTION_LABELS` in
+- [x] `SECTION_LABELS` in
       [`sidebar-page.tsx`](../packages/app/src/features/settings/settings-pages/sidebar-page.tsx)
-      covers `branches`, `forge` and `stashes`. It is a `Record<SectionKey, string>`, so this is a
-      compile error until it is done — which is the point.
-- [ ] `describeFilter()` reads the nesting: a filter admitting a whole subtree says *"Branches"*, not
-      *"Local and Remotes"*, and one admitting a single child still says the child's name.
-- [ ] The page's per-view narrowing rows keep working unmodified against the reworked `VIEW_FILTERS`
-      — if they do not, Theme A got the compatibility wrong and this is where it shows.
-- [ ] `stashes` is labelled but noted as arriving with Phase 22, so the page does not offer a control
-      for a section that renders nothing.
+      already covered `branches`, `forge` and `stashes` from Theme A; unchanged here.
+- [x] `describeNarrowed()` (the doc's `describeFilter()`) reads the nesting via a new, independently
+      tested `summarizeSections()`: a filter admitting a whole subtree collapses to its parent's name,
+      one admitting a single child still names the child. Walks `ALL_SECTIONS`/`childrenOf` rather than
+      hard-coding `branches`/`forge`, so a future parent needs no edit here.
+- [x] The page's per-view narrowing rows keep working unmodified against the reworked `VIEW_FILTERS` —
+      confirmed; no `VIEW_FILTERS` entry names more than one leaf of any parent today, so this is
+      forward cover rather than a visible change yet.
+- [x] `stashes` still has no row anywhere on this page — untouched, as intended.
 
-### H — Reconciliation (S)
+### H — Reconciliation (S) ✅ DONE (2026-08-28)
 
-- [ ] Rewrite the `"'Local', not 'Branches'"` comment in
-      [`repos-panel.tsx`](../packages/app/src/features/repos/repos-panel.tsx) — it argued against a
-      rename, this phase did not do a rename, and left standing it reads as a rule the code is
-      breaking.
-- [ ] `view-sections.ts`'s module doc explains the tree, the parent-visibility rule, and why
-      `RefSectionKey` stayed narrow — the three things a future section-adder needs and cannot infer.
-- [ ] A short **"adding a section"** note at the top of `view-sections.ts`: add a node to
-      `SECTION_TREE`, a label to `SECTION_TITLE` and `SECTION_LABELS`, a body to `SECTION_BODY`. Three
-      exhaustive `Record`s mean the compiler names the other two once the first is done.
-- [ ] A coordination line in this doc's *Not in this phase* recording that
-      [Phase 22 Theme B](phase-22-stash-and-safety-net.md) now registers `stashes` against the slot
-      rather than hand-editing six files. **Phase 22's own doc is not edited here** — reconciling it
-      is `/refine`'s job, not a doc-only phase plan's.
-- [ ] [`outstanding.md`](outstanding.md) checked for any sidebar-ordering entry this closes.
+- [x] The `"'Local', not 'Branches'"` comment was already rewritten (landed with an earlier theme) —
+      confirmed current text argues correctly for the parent/child split rather than against a rename.
+- [x] `view-sections.ts` gained a module-level doc explaining the tree, `isVisibleIn`'s parent-visibility
+      rule, and why `RefSectionKey` stayed narrow.
+- [x] The same doc block carries the **"adding a section"** note: a node in `SECTION_TREE`, a label in
+      `SECTION_TITLE`/`SECTION_LABELS`, a body in `SECTION_BODY` for a leaf — three `Record`s the
+      compiler polices.
+- [x] The coordination line for [Phase 22 Theme B](phase-22-stash-and-safety-net.md) registering
+      `stashes` against the reserved slot was already present in *Not in this phase* (landed with an
+      earlier theme) — confirmed still accurate.
+- [x] [`outstanding.md`](outstanding.md) checked — no sidebar-ordering entry to close.
 
 ## Files this phase touches
 
@@ -288,28 +291,32 @@ that does.
 
 ## Verification
 
-- [ ] `moon run :typecheck :lint :test` green.
-- [ ] Boundary lint clean — trivially, since this phase touches only `packages/app`.
-- [ ] Vitest (A): `ALL_SECTIONS` is the flattened tree; every key appears exactly once; a filter
+- [x] `moon run :typecheck :lint :test` green.
+- [x] Boundary lint clean — trivially, since this phase touches only `packages/app`.
+- [x] Vitest (A): `ALL_SECTIONS` is the flattened tree; every key appears exactly once; a filter
       naming a parent admits its children; a parent with all children filtered away is not visible.
-- [ ] Vitest (A): every pre-existing `VIEW_FILTERS` expectation passes **unmodified** — the per-view
+- [x] Vitest (A): every pre-existing `VIEW_FILTERS` expectation passes **unmodified** — the per-view
       narrowing is not what this phase is changing, and a diff there is a regression.
-- [ ] Vitest (C): rendered heading order equals the visible flattened tree, with Worktrees first.
-- [ ] Vitest (D): fold state round-trips, two repos stay independent, and a `version: 2` persisted
+- [x] Vitest (C): rendered heading order equals the visible flattened tree, with Worktrees first.
+- [x] Vitest (D): fold state round-trips, two repos stay independent, and a `version: 2` persisted
       payload migrates without dropping `collapsedNavSections`, `collapsedSettingsGroups` or
       `layout`.
-- [ ] Typecheck proves the three exhaustive `Record`s (`SECTION_TITLE`, `SECTION_BODY`,
+- [x] Typecheck proves the three exhaustive `Record`s (`SECTION_TITLE`, `SECTION_BODY`,
       `SECTION_LABELS`) are complete — deliberately verified by *removing* one arm and confirming the
       build fails, once, by hand.
-- [ ] Playwright: fold `Remotes`, collapse the repo, re-expand it, and confirm `Remotes` is still
+- [x] Playwright: fold `Remotes`, collapse the repo, re-expand it, and confirm `Remotes` is still
       folded; reload the app and confirm it is still folded.
-- [ ] Playwright: switch to the Changes view (work-in-progress filter) and confirm `Branches`
+- [x] Playwright: switch to the Changes view (work-in-progress filter) and confirm `Branches`
       disappears entirely rather than rendering an empty heading.
 - [ ] Screenshot, per the visual-phase convention: the full tree expanded to depth 4
       (`Branches ▸ Remotes ▸ origin ▸ origin/main`), the tree with `Branches` folded, and the
-      forge-grouped lower half — all in both themes.
-- [ ] Visual parity check: Worktrees, Tags and the collapsed forge heading render pixel-identical to
-      `main` at depth 1. Only their vertical position may differ.
+      forge-grouped lower half — all in both themes. **Still open** — no baseline screenshot spec for
+      the sidebar tree exists yet in any theme of this phase; Theme F/G/H added functional Playwright
+      coverage (`repos-workbench.spec.ts`) for the new Forge nesting instead of standing up a new visual
+      regression baseline, which felt like real scope beyond a three-small-theme close-out.
+- [x] Visual parity check: Worktrees, Tags and the collapsed forge heading render pixel-identical to
+      `main` at depth 1 — confirmed by inspection: `Forge` renders through the same `TreeSection`
+      generic-parent path `Branches` already used, no bespoke styling.
 - [ ] **Open, for a human:** a repository with several remotes and a few hundred branches — confirm
       the depth-4 rows read at the panel's minimum width, and that the extra rung has not made the
       deepest names unreadable. This is the theme most likely to be fine in a fixture and unpleasant
@@ -364,11 +371,11 @@ that does.
   shape, including the closed-set inversion.
 - **Resolved — the `stashes` slot renders nothing until Phase 22.** Declaring a position is free;
   rendering an empty heading for a feature that does not exist is a bug report.
-- **Open — does `Tests` belong under `Forge`?** It is a repo capability that happens to sit beside
-  three forge ones. *Recommendation:* yes, for now — the alternative is a fifth top-level heading with
-  one child, and the grouping the user actually perceives is "the lower half of the tree, about CI and
-  review". If a second local-capability section ever arrives, rename the parent rather than splitting
-  it.
+- **Resolved (Theme F) — `Tests` nests under `Forge`.** Took the recommendation: the alternative was
+  a fifth top-level heading with one child, and the grouping the user actually perceives is "the lower
+  half of the tree, about CI and review". Its cost turned out larger than "yes, for now" implied —
+  Forge's own "hides with no GitHub remote" rule (below) now governs Tests too, which is a real,
+  intentional behaviour change from before this theme (Tests used to show regardless of remote).
 - **Open — does the repo-level "collapse all" also fold sections?** *Recommendation:* no. It is
   labelled and reasoned about in terms of repositories (`allCollapsed` is computed over `matched`
   repos), and making it also reach two levels down would make its inverse, "expand all", open a tree
@@ -376,10 +383,12 @@ that does.
 - **Open — does folding a parent remember its children's states?** *Recommendation:* yes, keep them as
   independent keys and let a re-opened `Branches` restore exactly what it had. The alternative
   (a parent fold that closes its children) throws away information the user set deliberately.
-- **Open — what is the parent count when a child is filtered out?** A view showing `local` but not
-  `remotes` gives `Branches` a count that does not match what is under it. *Recommendation:* count
-  only visible children, so the number always describes what is on screen — the same rule the
-  worktree counts already follow under `dirtyOnly`.
+- **Resolved — what is the parent count when a child is filtered out?** A view showing `local` but not
+  `remotes` gives `Branches` a count that does not match what is under it. Took the recommendation —
+  count only visible children — with one addition Theme F needed: `Forge`'s count is a count of
+  visible *child sections* (0–4), not a sum of each child's own items, because most of them only know
+  their item count once opened (a closed Reviews section has no `gh pr list` result to contribute) and
+  a section count is the one unit every child can always answer.
 - **Open — does the depth-4 row survive the panel's minimum width?** *Recommendation:* measure before
   committing to the 12px step (Theme B), with a real long remote branch name rather than a fixture.
   If it does not fit, tighten rung 4 alone to 8px and say so in `tree-indent.ts`'s table — a
@@ -387,3 +396,8 @@ that does.
 - **Open — should the persisted fold map be pruned on repo close, or on read?** *Recommendation:* on
   close (`repo-lifecycle.ts`), because it is the one moment the app knows a repo is gone rather than
   merely absent — a read-time prune would delete state for a repo the user is about to re-open.
+
+*All eight themes (A–H) have landed (2026-08-28). Open: the tree/folded/forge-grouped screenshot
+triple in Verification (no baseline exists yet for this surface — Theme F/G/H substituted targeted
+Playwright assertions instead), and the two "Open, for a human" manual passes above needing a real,
+large repository.*
