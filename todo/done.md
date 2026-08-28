@@ -2,6 +2,50 @@
 
 <!-- Append one entry per landed phase/PR: date, phase, PR link, one-line summary. -->
 
+## 2026-08-28 — Phase 27 Theme D — the five segments, and the opId that names them
+
+Landed on `feature/phase-27-status-segments`, merged locally — no PR link, no GitHub remote on
+this checkout. Built alongside sibling worktrees carrying Themes E and G; unblocks two of Theme
+G's three items left annotated as blocked (`aria-live` on `op-progress`/`in-progress`).
+
+- [x] `GitOpId`, `GIT_OP_LABEL` and `GIT_OP_RANK` in `use-status.ts`, with `opId` made a
+      **required** parameter on `useGitOp`/`useTargetedGitOp` so the compiler enumerates every
+      call site: 7 in `use-status.ts` itself, 9 in `use-graph-actions.ts`, 8 in
+      `use-repo-actions.ts`, 3 in `sync-controls.tsx`, 2 in `conflict-banner.tsx` (whose
+      `LABEL` map is now exported as `INPROGRESS_LABEL` for the mid-operation segment to reuse).
+      `mutationKey: ['git-op', opId]` threaded onto the one shared `useMutation`.
+- [x] `features/status-bar/active-worktree.tsx`: the sidebar-selected checkout, left zone after
+      the toggles; renders the worktree's basename or the repo name, nothing when unselected.
+      Click opens the repositories panel and moves DOM focus to it — needed `tabIndex={-1}` added
+      to the `<aside>` in `app.tsx`, which had none.
+- [x] `features/status-bar/op-progress.tsx`: an indeterminate readout off `useMutationState` over
+      the `['git-op']` key, not filtered to the active worktree. `opLabel()` is a pure function
+      (highest-ranked verb, `+N` for the rest) so the rollup is testable with no query client.
+      Clears silently on failure — the invoking surface already reports it.
+- [x] `features/status-bar/in-progress.tsx`: `merge`/`rebase`/`cherry-pick`/`revert` from
+      `StatusResult.inProgress`, reusing `INPROGRESS_LABEL` rather than a second map. The bar's
+      one sanctioned anti-duplication exception. Collapses the status query's placeholder before
+      reading it. Click navigates to Changes.
+- [x] `features/status-bar/agent-count.tsx`: live agent sessions off `terminal-store.ts` (never
+      `use-agents.ts`'s installed roster). `agentCount()` is a pure predicate copying
+      `terminal-session-list.tsx`'s `live` rule rather than extracting it. Click opens the
+      terminal, activates the first live agent session, opens the session list only if shut.
+- [x] `features/status-bar/test-verdict.tsx`: a worst-of rollup across `tests-store.ts` —
+      `testVerdict()` is pure: a suite that ran with failures wins, an all-could-not-run repo
+      renders nothing rather than a false clean state, otherwise the suites that ran clean are
+      counted. Click navigates to Tests.
+- [x] `features/status-bar/checks-verdict.tsx`: the checks rollup for the PR on the checked-out
+      branch, reusing `forge-status.tsx`'s `checksStatus`/`StatusPill`. `findPrForBranch()` is a
+      pure match against `headBranch`. Gated on `pickForgeRemote` so a repo with no GitHub remote
+      never fetches; no match (the common case) renders nothing. Click navigates to Actions.
+- [x] `segments.ts` registers all six with priority following actionability rather than render
+      position: the two verdicts and mid-operation outrank the toggles, diagnostics and the
+      monitor at Theme E's future collapse time; the right zone's render order puts the two new
+      verdicts at the outer edge, after the monitor.
+- [x] `moon run :typecheck :lint :test` green across all five packages; the existing
+      `status-bar.spec.ts`, `footer-monitor.spec.ts`, `browser-pane.spec.ts` and the
+      `terminal.spec.ts` maximize regression all still pass unmodified.
+
 ## 2026-08-28 — Phase 27 Theme G (partial) — the focus trap, extracted, and the a11y that didn't need D/E
 
 Landed on `feature/phase-27-g-a11y`, merged locally — no PR link, no GitHub remote on this
