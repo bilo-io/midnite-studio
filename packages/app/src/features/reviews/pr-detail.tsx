@@ -7,11 +7,11 @@ import type {
 import { SquareArrowOutUpRight } from 'lucide-react';
 import { useEffect, useState } from 'react';
 import Markdown from 'react-markdown';
-import { LuPresentation } from 'react-icons/lu';
 import remarkGfm from 'remark-gfm';
 
 import { IconButton } from '../../components/icon-button';
 import { useSlidesStore } from '../slides/slides-store';
+import { PresentButton } from '../slides/present-button';
 import {
   openExternal,
   useAddReviewComment,
@@ -285,13 +285,7 @@ function PrOverview({
   }
   return (
     <div className="px-4 py-3">
-      <IconButton
-        icon={LuPresentation}
-        label="Present as slides"
-        size="sm"
-        className="mb-1"
-        onClick={() => useSlidesStore.getState().present({ content: body, label: `PR #${number}` })}
-      />
+      <PresentButton source={{ content: body, label: `PR #${number}` }} className="mb-1" />
       <div data-selectable className={`max-w-none text-sm leading-relaxed ${MARKDOWN_PROSE_CLASSES}`}>
         {/* No `rehype-raw` — see `CommitMessage`'s note on attacker-authored text. */}
         <Markdown remarkPlugins={[remarkGfm]} components={{ a: ExternalLink }}>

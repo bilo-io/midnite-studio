@@ -2,11 +2,9 @@ import type { ForgeReviewComment, ForgeReviewThread } from '@midnite/git-shared'
 import { Check, CornerDownRight, Undo2 } from 'lucide-react';
 import { useState } from 'react';
 import Markdown from 'react-markdown';
-import { LuPresentation } from 'react-icons/lu';
 import remarkGfm from 'remark-gfm';
 
-import { IconButton } from '../../components/icon-button';
-import { useSlidesStore } from '../slides/slides-store';
+import { PresentButton } from '../slides/present-button';
 import { RESOLVED_STATUS, StatusPill } from '../forge/forge-status';
 import { ExternalLink } from '../markdown/external-link';
 import { MARKDOWN_PROSE_CLASSES } from '../markdown/prose';
@@ -216,15 +214,7 @@ function CommentBody({ comment }: { comment: ForgeReviewComment }) {
           keyboard-invoked command should target (Phase 29's resolved
           decision) — only the two description-level surfaces do that.
         */}
-        <IconButton
-          icon={LuPresentation}
-          label="Present as slides"
-          size="sm"
-          className="ml-auto"
-          onClick={() =>
-            useSlidesStore.getState().present({ content: comment.body, label: 'Comment' })
-          }
-        />
+        <PresentButton source={{ content: comment.body, label: 'Comment' }} className="ml-auto" />
       </div>
       <div
         data-selectable
