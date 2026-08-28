@@ -8,6 +8,7 @@ import { BrowserToggle } from './browser-toggle';
 import { ChecksVerdictSegment } from './checks-verdict';
 import { InProgressSegment } from './in-progress';
 import { OpProgressSegment } from './op-progress';
+import { ReattachedNote } from './reattached-note';
 import { ReposToggle } from './repos-toggle';
 import { TerminalToggle } from './terminal-toggle';
 import { TestVerdictSegment } from './test-verdict';
@@ -54,6 +55,13 @@ export const STATUS_SEGMENTS: StatusSegment[] = [
     priority: 30,
     label: 'Active worktree',
     El: ActiveWorktreeSegment,
+  },
+  {
+    id: 'reattached-note',
+    zone: 'left',
+    priority: 40,
+    label: 'Reattached sessions',
+    El: ReattachedNote,
   },
   { id: 'op-progress', zone: 'center', priority: 10, label: 'Operation progress', El: OpProgressSegment },
   // Outranks op-progress: a rebase you have forgotten you are mid-way through

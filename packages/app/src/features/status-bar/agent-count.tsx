@@ -1,24 +1,26 @@
 import type { TerminalSession } from '@midnite/git-shared';
 
 import { useUiStore } from '../../store/ui-store';
-import { useTerminalStore, type ConnectionState } from '../terminal/terminal-store';
-
-const isLive = (state: ConnectionState | undefined) => state === 'open' || state === 'starting';
+import {
+  sessionPhase,
+  useTerminalStore,
+  type ConnectionState,
+} from '../terminal/terminal-store';
 
 /**
  * How many agent sessions are live, given the session list and their
  * connection states. Pure so it is testable without the store.
  *
- * The `live` predicate is copied from `terminal-session-list.tsx`, the only
- * other place it exists, rather than extracted there — the row needs the
- * boolean and this needs the count.
+ * Expressed via `sessionPhase(session, state) === 'live'`, so an asleep or
+ * ended agent is not counted.
  */
 export function agentCount(
   sessions: readonly TerminalSession[],
   states: Record<string, ConnectionState | undefined>,
 ): number {
-  return sessions.filter((session) => session.kind === 'agent' && isLive(states[session.id]))
-    .length;
+  return sessions.filter(
+    (session) => session.kind === 'agent' && sessionPhase(session, states[session.id]) === 'live',
+  ).length;
 }
 
 /**
@@ -42,7 +44,9 @@ export function AgentCountSegment() {
         useUiStore.getState().setTerminalOpen(true);
         const terminal = useTerminalStore.getState();
         const firstLive = terminal.sessions.find(
-          (session) => session.kind === 'agent' && isLive(terminal.states[session.id]),
+          (session) =>
+            session.kind === 'agent' &&
+            sessionPhase(session, terminal.states[session.id]) === 'live',
         );
         if (firstLive) terminal.setActive(firstLive.id);
         // Only if the list is shut — an already-open list is not closed.

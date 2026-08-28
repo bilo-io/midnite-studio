@@ -4,6 +4,7 @@ import {
   cleanAutoName,
   resolveSessionAgentId,
   sessionLabel,
+  sessionPhase,
   useTerminalStore,
 } from './terminal-store';
 
@@ -513,3 +514,79 @@ describe('cleanAutoName', () => {
     expect(cleanAutoName(title)).toBeUndefined();
   });
 });
+
+describe('sessionPhase', () => {
+  it('returns asleep for legacy broker sessions', () => {
+    expect(sessionPhase({ asleep: false, legacy: true }, 'open')).toBe('asleep');
+  });
+
+  it('returns asleep when session is flagged asleep regardless of connection state', () => {
+    expect(sessionPhase({ asleep: true }, 'open')).toBe('asleep');
+    expect(sessionPhase({ asleep: true }, 'exited')).toBe('asleep');
+    expect(sessionPhase({ asleep: true }, undefined)).toBe('asleep');
+  });
+
+  it('returns live when connection state is open, starting, or idle', () => {
+    expect(sessionPhase({ asleep: false }, 'open')).toBe('live');
+    expect(sessionPhase({ asleep: false }, 'starting')).toBe('live');
+    expect(sessionPhase({ asleep: false }, 'idle')).toBe('live');
+    expect(sessionPhase({}, 'open')).toBe('live');
+  });
+
+  it('returns ended when connection state is exited, unavailable, or undefined', () => {
+    expect(sessionPhase({ asleep: false }, 'exited')).toBe('ended');
+    expect(sessionPhase({ asleep: false }, 'unavailable')).toBe('ended');
+    expect(sessionPhase({ asleep: false }, undefined)).toBe('ended');
+    expect(sessionPhase({}, undefined)).toBe('ended');
+  });
+});
+
+describe('sleepSession and awakeSession', () => {
+  beforeEach(reset);
+
+  it('sleeps a session: sets asleep true, connection state exited, unbinds pty', () => {
+    const s = open('work');
+    useTerminalStore.getState().bindPty(s.id, 'pty-99');
+    useTerminalStore.getState().setState(s.id, 'open');
+
+    useTerminalStore.getState().sleepSession(s.id);
+
+    const state = useTerminalStore.getState();
+    const updated = state.sessions.find((entry) => entry.id === s.id);
+    expect(updated?.asleep).toBe(true);
+    expect(state.states[s.id]).toBe('exited');
+    expect(state.ptyIds[s.id]).toBeUndefined();
+    expect(sessionPhase(updated!, state.states[s.id])).toBe('asleep');
+  });
+
+  it('awakes an asleep session: clears asleep flag', () => {
+    const s = open('work');
+    useTerminalStore.getState().sleepSession(s.id);
+    expect(useTerminalStore.getState().sessions.find((entry) => entry.id === s.id)?.asleep).toBe(
+      true,
+    );
+
+    useTerminalStore.getState().awakeSession(s.id);
+    expect(useTerminalStore.getState().sessions.find((entry) => entry.id === s.id)?.asleep).toBe(
+      false,
+    );
+  });
+});
+
+describe('exitCodes tracking', () => {
+  beforeEach(reset);
+
+  it('records exitCode and clears it on bindPty or closeSession', () => {
+    const s = open('work');
+    useTerminalStore.getState().setExitCode(s.id, 137);
+    expect(useTerminalStore.getState().exitCodes[s.id]).toBe(137);
+
+    useTerminalStore.getState().bindPty(s.id, 'pty-new');
+    expect(useTerminalStore.getState().exitCodes[s.id]).toBeUndefined();
+
+    useTerminalStore.getState().setExitCode(s.id, 1);
+    useTerminalStore.getState().closeSession(s.id);
+    expect(useTerminalStore.getState().exitCodes[s.id]).toBeUndefined();
+  });
+});
+

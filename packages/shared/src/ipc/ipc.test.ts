@@ -1052,8 +1052,10 @@ describe('terminal and pty schemas', () => {
             session,
             scrollback: new Uint8Array(),
             live: { ptyId: 'p1', pid: 123, cols: 80, rows: 24 },
+            legacy: true,
           },
         ],
+        broker: { mode: 'broker' },
       },
       invalid: [
         // Scrollback crosses as raw pty bytes via structured clone, never as a
@@ -1063,6 +1065,7 @@ describe('terminal and pty schemas', () => {
         ['session missing its cwd', { sessions: [{ session: { ...session, cwd: undefined }, scrollback: new Uint8Array(), live: null }] }],
         ['no live key at all', { sessions: [{ session, scrollback: new Uint8Array() }] }],
         ['live.pid zero', { sessions: [{ session, scrollback: new Uint8Array(), live: { ptyId: 'p1', pid: 0, cols: 80, rows: 24 } }] }],
+        ['unknown broker mode', { sessions: [], broker: { mode: 'detached' } }],
       ],
     },
     {

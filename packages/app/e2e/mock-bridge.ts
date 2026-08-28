@@ -237,6 +237,8 @@ export type MockFixtures = {
      * shape `hydrate()` binds against.
      */
     live?: { ptyId: string; pid: number; cols: number; rows: number } | null;
+    /** Whether this session belongs to a legacy broker protocol version. */
+    legacy?: boolean;
   }[];
   /**
    * Directory listings for the Files view and the Agent page's ~/.claude
@@ -935,6 +937,7 @@ export async function installMockBridge(page: Page, fixtures: MockFixtures): Pro
       */
       terminal: {
         list: async () => ({
+          broker: { mode: 'broker' as const },
           sessions: (data.terminalSessions ?? []).map((entry) => {
             const live = entry.live ?? null;
             // A live row's pty must already exist in the fake process table —
@@ -949,6 +952,7 @@ export async function installMockBridge(page: Page, fixtures: MockFixtures): Pro
               session: entry.session,
               scrollback: encode(entry.scrollback ?? ''),
               live,
+              legacy: entry.legacy,
             };
           }),
         }),
@@ -975,6 +979,7 @@ export async function installMockBridge(page: Page, fixtures: MockFixtures): Pro
               label: 'Claude',
               command: 'claude',
               args: [],
+              resume: ['--continue'],
               accent: '#D97757',
               install: 'npm i -g @anthropic-ai/claude-code',
             },
@@ -992,6 +997,7 @@ export async function installMockBridge(page: Page, fixtures: MockFixtures): Pro
               label: 'Codex',
               command: 'codex',
               args: [],
+              resume: ['resume', '--last'],
               accent: '#10A37F',
               install: 'npm i -g @openai/codex',
             },

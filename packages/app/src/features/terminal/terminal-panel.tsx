@@ -131,10 +131,12 @@ export function TerminalPanel({ cwd, repoId, repoName, fitSignal }: TerminalPane
     : undefined;
   /*
     A list of one session names nothing the header does not already say, so
-    the toggle governs the list only once there is more than one — and says so
-    on hover rather than sitting there dead with no explanation.
+    the toggle governs the list only once there is more than one — or when a
+    legacy session needs the skew banner — and says so on hover rather than
+    sitting there dead with no explanation.
   */
-  const listable = sessions.length > 1;
+  const hasLegacy = sessions.some((s) => (s as { legacy?: boolean }).legacy);
+  const listable = sessions.length > 1 || hasLegacy;
   const showList = listable && listOpen;
   /*
     Width-tweened rather than `{showList ? … : null}`: the toggle can flip on
@@ -186,7 +188,7 @@ export function TerminalPanel({ cwd, repoId, repoName, fitSignal }: TerminalPane
               key={session.id}
               session={session}
               active={session.id === activeId}
-              initialInput={pendingInput[session.id] ?? agentInput(agents, session.agentId)}
+              initialInput={pendingInput[session.id] ?? agentInitialInput(agents, session.agentId)}
               fitSignal={fitSignal}
             />
           ))}
@@ -216,9 +218,13 @@ export type TerminalPanelProps = {
  * A trailing `\r` because this is a keystroke, not an argv: the shell needs the
  * Return to run the line.
  */
-function agentInput(agents: AgentDefinition[], agentId?: string): string | undefined {
+export function agentInput(agent: { command: string; args?: readonly string[] | string[] }): string {
+  return `${[agent.command, ...(agent.args ?? [])].join(' ')}\r`;
+}
+
+export function agentInitialInput(agents: AgentDefinition[], agentId?: string): string | undefined {
   if (!agentId) return undefined;
   const agent = agents.find((a) => a.id === agentId);
   if (!agent) return undefined;
-  return `${[agent.command, ...agent.args].join(' ')}\r`;
+  return agentInput(agent);
 }

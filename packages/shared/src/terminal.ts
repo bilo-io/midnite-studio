@@ -39,6 +39,14 @@ export const AgentDefinitionSchema = z.object({
   /** Typed into a login shell, not passed to `pty.spawn`. */
   command: z.string().min(1),
   args: z.array(z.string()).default([]),
+  /**
+   * CLI arguments passed to resume a previous conversation on revive.
+   *
+   * Roster data beside `args`; absent means no Resume button is offered.
+   * Merging via `agents.json` replaces a builtin whole, so an override
+   * that wants `resume` must restate `id`, `label`, `command`, `accent`, etc.
+   */
+  resume: z.array(z.string()).optional(),
   /** CSS colour for the agent's icon. */
   accent: z.string().min(1),
   /**
@@ -90,6 +98,7 @@ export const BUILTIN_AGENTS: readonly AgentDefinition[] = [
     label: 'Claude',
     command: 'claude',
     args: [],
+    resume: ['--continue'],
     accent: '#D97757',
     install: 'npm i -g @anthropic-ai/claude-code',
   },
@@ -113,6 +122,7 @@ export const BUILTIN_AGENTS: readonly AgentDefinition[] = [
     label: 'Codex',
     command: 'codex',
     args: [],
+    resume: ['resume', '--last'],
     accent: '#10A37F',
     install: 'npm i -g @openai/codex',
   },
@@ -154,6 +164,12 @@ export const TerminalSessionSchema = z
     /** The repo this session was opened against, for grouping and labelling. */
     repoId: z.string().min(1),
     createdAt: z.number().int().nonnegative(),
+    /**
+     * Whether this session was deliberately put to sleep (process killed,
+     * transcript kept). Persisted in `terminals.json` so a slept row survives
+     * a reload or relaunch as asleep, not ended.
+     */
+    asleep: z.boolean().optional(),
   })
   .superRefine(agentIdMatchesKind);
 export type TerminalSession = z.infer<typeof TerminalSessionSchema>;
@@ -199,8 +215,8 @@ export function agentIdMatchesKind(
 /**
  * How much output is kept per session, in bytes.
  *
- * Sized to hold a few thousand lines — enough that a restored agent session
- * still shows the conversation that produced the state you left it in, and small
- * enough that a dozen of them cost a few megabytes on disk rather than hundreds.
+ * Sized to hold 1 MB — enough that a restored agent session still shows the
+ * conversation that produced the state you left it in, and the buffer now lives
+ * in the detached broker process.
  */
-export const SCROLLBACK_BYTES = 256 * 1024;
+export const SCROLLBACK_BYTES = 1024 * 1024;

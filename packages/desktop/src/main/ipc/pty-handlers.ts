@@ -1,7 +1,14 @@
 import { CHANNELS, SCROLLBACK_BYTES, schemas } from '@midnite/git-shared';
 import { ipcMain, type BrowserWindow } from 'electron';
 
-import { createPty, killPty, readScrollback, resizePty, sessionIdFor, writePty } from '../pty-service';
+import {
+  createPty,
+  fetchScrollbackSnapshot,
+  killPty,
+  resizePty,
+  sessionIdFor,
+  writePty,
+} from '../pty-service';
 import { trimScrollback } from '../terminal-store';
 import { handle } from './handle';
 
@@ -13,14 +20,12 @@ import { handle } from './handle';
  * every keystroke and every resize frame, and a round-trip per keystroke would
  * add latency to typing for no benefit — there is nothing to report back.
  */
-export function registerPtyHandlers(getWindow: () => BrowserWindow | null): void {
+export function registerPtyHandlers(_getWindow: () => BrowserWindow | null): void {
   handle(
     CHANNELS.ptyCreate,
     schemas.PtyCreateRequest,
-    (req) => {
-      const win = getWindow();
-      if (!win) return { ok: false as const, message: 'No window.' };
-      return createPty(win, req);
+    async (req) => {
+      return createPty(req);
     },
     (issue) => ({ ok: false as const, message: issue }),
   );
@@ -43,10 +48,11 @@ export function registerPtyHandlers(getWindow: () => BrowserWindow | null): void
   handle(
     CHANNELS.ptySnapshot,
     schemas.PtySnapshotRequest,
-    ({ ptyId }) => {
+    async ({ ptyId }) => {
       const sessionId = sessionIdFor(ptyId);
       if (!sessionId) return { bytes: new Uint8Array(0) };
-      return { bytes: trimScrollback(readScrollback(sessionId), SCROLLBACK_BYTES) };
+      const bytes = await fetchScrollbackSnapshot(sessionId);
+      return { bytes: trimScrollback(bytes, SCROLLBACK_BYTES) };
     },
     () => ({ bytes: new Uint8Array(0) }),
   );

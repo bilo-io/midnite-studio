@@ -2,6 +2,36 @@
 
 <!-- Append one entry per landed phase/PR: date, phase, PR link, one-line summary. -->
 
+## 2026-08-28 — Phase 30 Theme C — detached session broker
+
+Merged locally on `feature/p30-c` — no PR link, no GitHub remote on this checkout. All five themes now landed; only human manual checks remain.
+
+- [x] **C — the session broker.** Standalone `broker/index.ts` entry built by esbuild and spawned as
+      `process.execPath ELECTRON_RUN_AS_NODE=1 --unref`, asar-unpacked beside node-pty.
+      Binary wire protocol: `[u8 type][u32 BE len][payload]` with 0x00 = control JSON, 0x01 = pty stream;
+      frozen core verbs (`hello`, `list`, `attach`, `kill`) for cross-version safety; versioned
+      (`create`, `resize`, `snapshot`, `detach`). Unix domain socket at
+      `<userData>/broker/<v>[-dev].sock` (0600). `pty-service.ts` refactored into a facade choosing
+      between the broker client and the in-process fallback (`MGIT_PTY_INPROC=1`, fail-soft on spawn/handshake
+      timeout). Scrollback buffer raised to 1 MB per session. `before-quit` and `window-all-closed` detach
+      (never kill); `activate` after close/hide rebinds live sessions through `hydrate`. 4 s
+      *Reattached N sessions* status-bar segment. Legacy broker detection with per-socket `hello` scan;
+      version-skew sessions appear asleep behind the banner already implemented by Theme D. Full unit tests
+      for `protocol.ts`, `server.ts`, and `broker-client.ts` against injected `spawnPty` and fake timers;
+      `reattached-note.test.ts` for `noteText`.
+
+## 2026-08-28 — Phase 30 Theme D — honest session states: live, asleep, ended
+
+Merged locally on `feature/p30-d` — no PR link, no GitHub remote on this checkout.
+
+- [x] **D — honest session states: live, asleep, ended.** Pure derived `sessionPhase(session, state)`
+      over `ConnectionState` and persisted `asleep: boolean` flag, aligning row styling (`data-phase`,
+      `opacity-60`), header status dot, and status bar agent count (`'asleep'` `DotState` with static
+      `bg-muted-foreground/50`). `EndedStrip` bottom overlay banner with "Start new shell here" and
+      "Resume conversation" (consuming agent `resume` args e.g. `['--continue']` for Claude, `['resume', '--last']`
+      for Codex). Sleep session action in context menu, close session confirm dialog on active foreground command,
+      and legacy version-skew alert banner in the session list. Full unit test suites and Playwright E2E specs.
+
 ## 2026-08-28 — Phase 23 Themes D, E — fuzzy matching, matched character highlighting & navigation providers
 
 Merged locally on `main` — no PR link, no GitHub remote on this checkout. Themes F, G, H remain open.

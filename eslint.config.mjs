@@ -119,6 +119,14 @@ export default tseslint.config(
     ]),
   },
 
+  // --- Boundary: broker ------------------------------------------------------
+  // The broker is a Node process running under ELECTRON_RUN_AS_NODE and never
+  // imports Electron modules.
+  {
+    files: ['packages/desktop/src/broker/**/*.ts'],
+    rules: deny([NO_ELECTRON]),
+  },
+
   // Dependency-free CJS/MJS scripts: require() + console ok.
   {
     files: ['**/*.cjs', '**/*.mjs'],

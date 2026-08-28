@@ -53,4 +53,22 @@ describe('files-store editing state', () => {
     useFilesStore.getState().ensureScope('repo:2');
     expect(useFilesStore.getState().editing).toBeNull();
   });
+
+  it('revealFile selects a root file without expanding extra dirs', () => {
+    useFilesStore.getState().revealFile('README.md');
+    const state = useFilesStore.getState();
+    expect(state.selectedPath).toBe('README.md');
+    expect(state.expanded).toEqual({});
+  });
+
+  it('revealFile selects a nested file and expands all ancestor directories', () => {
+    useFilesStore.getState().revealFile('packages/app/src/main.tsx');
+    const state = useFilesStore.getState();
+    expect(state.selectedPath).toBe('packages/app/src/main.tsx');
+    expect(state.expanded).toEqual({
+      packages: true,
+      'packages/app': true,
+      'packages/app/src': true,
+    });
+  });
 });
