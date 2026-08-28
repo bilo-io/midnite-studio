@@ -2,6 +2,18 @@
 
 <!-- Append one entry per landed phase/PR: date, phase, PR link, one-line summary. -->
 
+## 2026-08-28 — Phase 30 Theme D — honest session states: live, asleep, ended
+
+Merged locally on `feature/p30-d` — no PR link, no GitHub remote on this checkout. Theme C (session broker) remains open.
+
+- [x] **D — honest session states: live, asleep, ended.** Pure derived `sessionPhase(session, state)`
+      over `ConnectionState` and persisted `asleep: boolean` flag, aligning row styling (`data-phase`,
+      `opacity-60`), header status dot, and status bar agent count (`'asleep'` `DotState` with static
+      `bg-muted-foreground/50`). `EndedStrip` bottom overlay banner with "Start new shell here" and
+      "Resume conversation" (consuming agent `resume` args e.g. `['--continue']` for Claude, `['resume', '--last']`
+      for Codex). Sleep session action in context menu, close session confirm dialog on active foreground command,
+      and legacy version-skew alert banner in the session list. Full unit test suites and Playwright E2E specs.
+
 ## 2026-08-28 — Phase 23 Themes D, E — fuzzy matching, matched character highlighting & navigation providers
 
 Merged locally on `main` — no PR link, no GitHub remote on this checkout. Themes F, G, H remain open.

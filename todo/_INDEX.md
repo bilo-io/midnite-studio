@@ -20,7 +20,7 @@ Completed work is logged append-only in [`done.md`](done.md). Deferred scope liv
 
 | Phase | Status | Refined | Done | Progress | % | 🔄 WIP | ◻ TODO |
 |-------|--------|---------|------|----------|---|--------|--------|
-| [30 · A terminal that survives you](phase-30-terminal-hardening.md) | 🔄 WIP | x1 | 28/63 | `████░░░░░░` | 44% | C, D | — |
+| [30 · A terminal that survives you](phase-30-terminal-hardening.md) | 🔄 WIP | x1 | 37/63 | `█████░░░░░` | 59% | C | — |
 | [29 · Markdown slides, everywhere markdown already renders](phase-29-markdown-slides-viewer.md) | ✅ DONE | — | 21/21 | `██████████` | 100% | — | — |
 | [28 · Worktrees first, and the section tree that can say so](phase-28-sidebar-section-tree.md) | 🔄 WIP | — | 59/62 | `██████████` | 95% | — | 3 verification items |
 | [27 · The footer becomes a status bar, and the browser it makes room for](phase-27-status-bar-and-browser-panel.md) | 🔄 WIP | x1 | 72/90 | `████████░░` | 80% | — | 18 verification items |
@@ -88,10 +88,10 @@ the end.*
   (0600) with `hello`/`list`/`attach`/`kill` frozen so version skew stays readable; `env` in every
   `create`; 2 s/5 s timeouts then fail-soft (`MGIT_PTY_INPROC=1`); `before-quit` and
   `window-all-closed` detach; a 4 s *Reattached N sessions* segment.
-- ◻ **D** — honest session states: `sessionPhase()` over a persisted `asleep` flag × `ConnectionState`,
+- ✅ **D** — honest session states: `sessionPhase()` over a persisted `asleep` flag × `ConnectionState`,
   an `EndedStrip` (`role="status"`, *exit N* from a new `exitCodes` map) with *Start new shell here* and
   *Resume conversation* (roster `resume: string[]`), Sleep in the row menu (lucide `Moon`), the **row**
-  `X` confirming when a foreground command runs, `DotState` gains `'asleep'`.
+  `X` confirming when a foreground command runs, `DotState` gains `'asleep'` (landed 2026-08-28, feature/p30-d).
 - ✅ **E** — naming from the process tree: delete `trackShellCommand`; `ps` gains `stat=` (four columns,
   fixtures hand-edited), `foregroundOf` picks the last `+` member by pid, `commandLabel` truncates at
   40, `pty:command-changed` holds the name after exit, OSC title only before any command
