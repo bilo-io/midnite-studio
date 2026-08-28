@@ -233,15 +233,99 @@ export function useWorktreeStatuses(
 }
 
 /**
+ * Every git write in the app, named for the status bar's op-progress segment.
+ *
+ * A string-literal union rather than an open string: adding an operation
+ * without deciding what the bar calls it is a compile error, not a silent
+ * "undefined in progress".
+ */
+export type GitOpId =
+  | 'fetch'
+  | 'pull'
+  | 'push'
+  | 'merge'
+  | 'rebase'
+  | 'cherry-pick'
+  | 'revert'
+  | 'checkout'
+  | 'reset'
+  | 'stage'
+  | 'unstage'
+  | 'discard'
+  | 'commit'
+  | 'branch-create'
+  | 'branch-delete'
+  | 'branch-rename'
+  | 'tag-create'
+  | 'worktree-add'
+  | 'abort'
+  | 'continue';
+
+/** The present participle the op-progress segment renders while one runs. */
+export const GIT_OP_LABEL: Record<GitOpId, string> = {
+  fetch: 'Fetching…',
+  pull: 'Pulling…',
+  push: 'Pushing…',
+  merge: 'Merging…',
+  rebase: 'Rebasing…',
+  'cherry-pick': 'Cherry-picking…',
+  revert: 'Reverting…',
+  checkout: 'Checking out…',
+  reset: 'Resetting…',
+  stage: 'Staging…',
+  unstage: 'Unstaging…',
+  discard: 'Discarding…',
+  commit: 'Committing…',
+  'branch-create': 'Creating branch…',
+  'branch-delete': 'Deleting branch…',
+  'branch-rename': 'Renaming branch…',
+  'tag-create': 'Creating tag…',
+  'worktree-add': 'Adding worktree…',
+  abort: 'Aborting…',
+  continue: 'Continuing…',
+};
+
+/**
+ * Which verb wins when two ops are in flight at once.
+ *
+ * History rewrites outrank network, which outranks index work — a 30-second
+ * rebase must not be visually stomped by a 200ms fetch that happened to start
+ * later.
+ */
+export const GIT_OP_RANK: Record<GitOpId, number> = {
+  rebase: 100,
+  merge: 100,
+  'cherry-pick': 100,
+  revert: 100,
+  reset: 100,
+  push: 50,
+  pull: 50,
+  fetch: 50,
+  stage: 10,
+  unstage: 10,
+  discard: 10,
+  commit: 10,
+  checkout: 30,
+  'branch-create': 30,
+  'branch-delete': 30,
+  'branch-rename': 30,
+  'tag-create': 30,
+  'worktree-add': 30,
+  abort: 40,
+  continue: 40,
+};
+
+/**
  * Wrap a git operation so it invalidates the repo afterwards and never rejects.
  *
  * The result is data, not an exception — a conflict is an expected outcome the
  * UI renders — so callers read `result.ok` instead of catching.
  */
 export function useGitOp<TArgs>(
+  opId: GitOpId,
   run: (api: NonNullable<ReturnType<typeof bridge>>, args: TArgs, ctx: { repoId: string; worktreePath?: string }) => Promise<GitOpResult>,
 ) {
-  return useTargetedGitOp(useActiveWorktree(), run);
+  return useTargetedGitOp(useActiveWorktree(), opId, run);
 }
 
 /**
@@ -255,11 +339,13 @@ export function useGitOp<TArgs>(
  */
 export function useTargetedGitOp<TArgs>(
   { repoId, worktreePath }: StatusTarget,
+  opId: GitOpId,
   run: (api: NonNullable<ReturnType<typeof bridge>>, args: TArgs, ctx: { repoId: string; worktreePath?: string }) => Promise<GitOpResult>,
 ) {
   const client = useQueryClient();
 
   return useMutation<GitOpResult, never, TArgs>({
+    mutationKey: ['git-op', opId],
     mutationFn: async (args: TArgs) => {
       const api = bridge();
       if (!api || !repoId) {
@@ -274,16 +360,16 @@ export function useTargetedGitOp<TArgs>(
 }
 
 export const useStage = () =>
-  useGitOp<string[]>((api, paths, ctx) => api.ops.stage({ ...ctx, paths }));
+  useGitOp<string[]>('stage', (api, paths, ctx) => api.ops.stage({ ...ctx, paths }));
 
 export const useUnstage = () =>
-  useGitOp<string[]>((api, paths, ctx) => api.ops.unstage({ ...ctx, paths }));
+  useGitOp<string[]>('unstage', (api, paths, ctx) => api.ops.unstage({ ...ctx, paths }));
 
 export const useDiscard = () =>
-  useGitOp<string[]>((api, paths, ctx) => api.ops.discard({ ...ctx, paths }));
+  useGitOp<string[]>('discard', (api, paths, ctx) => api.ops.discard({ ...ctx, paths }));
 
 export const useCommit = () =>
-  useGitOp<{ message: string; amend?: boolean }>((api, args, ctx) =>
+  useGitOp<{ message: string; amend?: boolean }>('commit', (api, args, ctx) =>
     api.ops.commit({ ...ctx, message: args.message, amend: args.amend ?? false }),
   );
 
@@ -302,12 +388,12 @@ export const useCommit = () =>
 export type SyncScope = { remote?: string; branch?: string };
 
 export const useFetch = () =>
-  useGitOp<SyncScope>((api, args, ctx) =>
+  useGitOp<SyncScope>('fetch', (api, args, ctx) =>
     api.ops.fetch({ ...ctx, ...(args.remote ? { remote: args.remote } : {}) }),
   );
 
 export const usePull = () =>
-  useGitOp<SyncScope>((api, args, ctx) =>
+  useGitOp<SyncScope>('pull', (api, args, ctx) =>
     api.ops.pull({
       ...ctx,
       ...(args.remote ? { remote: args.remote } : {}),
@@ -316,7 +402,7 @@ export const usePull = () =>
   );
 
 export const usePush = () =>
-  useGitOp<SyncScope & { setUpstream: boolean }>((api, args, ctx) =>
+  useGitOp<SyncScope & { setUpstream: boolean }>('push', (api, args, ctx) =>
     api.ops.push({
       ...ctx,
       setUpstream: args.setUpstream,

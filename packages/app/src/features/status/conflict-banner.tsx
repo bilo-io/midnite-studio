@@ -14,7 +14,11 @@ import { useGitOp } from '../../services/use-status';
  * Continue is disabled while anything is still unmerged, with the count shown,
  * because clicking it in that state can only produce an error.
  */
-const LABEL: Record<InProgressOp, string> = {
+/**
+ * Exported so the status bar's mid-operation segment can render the exact
+ * same word rather than a second map that could drift from this one.
+ */
+export const INPROGRESS_LABEL: Record<InProgressOp, string> = {
   merge: 'Merge',
   rebase: 'Rebase',
   'cherry-pick': 'Cherry-pick',
@@ -30,8 +34,10 @@ export function ConflictBanner({
 }) {
   const op = status.inProgress;
 
-  const abortOp = useGitOp<InProgressOp>((api, value, ctx) => api.ops.abort({ ...ctx, op: value }));
-  const continueOp = useGitOp<InProgressOp>((api, value, ctx) =>
+  const abortOp = useGitOp<InProgressOp>('abort', (api, value, ctx) =>
+    api.ops.abort({ ...ctx, op: value }),
+  );
+  const continueOp = useGitOp<InProgressOp>('continue', (api, value, ctx) =>
     api.ops.continue({ ...ctx, op: value }),
   );
 
@@ -50,7 +56,7 @@ export function ConflictBanner({
   return (
     <div className="shrink-0 border-b border-destructive/40 bg-destructive/10 px-3 py-2">
       <div className="flex items-center gap-2">
-        <span className="text-xs font-semibold text-destructive">{LABEL[op]} in progress</span>
+        <span className="text-xs font-semibold text-destructive">{INPROGRESS_LABEL[op]} in progress</span>
         <span className="text-xs text-muted-foreground">
           {conflicted.length > 0
             ? `${conflicted.length} file${conflicted.length === 1 ? '' : 's'} still conflicted`
