@@ -1,7 +1,7 @@
 import { Fragment, useMemo, useState, type ReactNode } from 'react';
 
 import type { Ref, Remote, RepoDescriptor, StatusResult, Worktree } from '@midnite/git-shared';
-import { forgeProjectUrl } from '@midnite/git-shared';
+import { forgeProjectUrl, pickForgeRemote } from '@midnite/git-shared';
 import {
   ArrowRightLeft,
   ChevronRight,
@@ -54,7 +54,7 @@ import { SyncControls } from '../status/sync-controls';
 import { BranchDot } from './branch-dot';
 import { branchHealth, worktreeHealth, type BranchHealth } from './branch-health';
 import { checksVerdict } from './checks-verdict';
-import { ForgeSections } from './forge-sections';
+import { ActionsSection, IssuesSection, ReviewsSection } from './forge-sections';
 import { TestsSection } from '../tests/tests-section';
 import {
   ALL_SECTIONS,
@@ -707,6 +707,9 @@ const SECTION_TITLE: Record<SectionKey, string> = {
   tests: 'Tests',
 };
 
+/** Forge's four children, in the order `SECTION_TREE` declares them (Phase 28 Theme F). */
+const FORGE_CHILDREN: readonly SectionKey[] = ['actions', 'reviews', 'issues', 'tests'];
+
 /** A stable empty array, so a repo with no folds never re-renders on it. */
 const NO_CLOSED_SECTIONS: readonly string[] = [];
 
@@ -779,6 +782,17 @@ export function RepoTree({
     [remotes],
   );
 
+  /**
+   * Whether Forge's whole subtree has anything to say — `gh` speaks GitHub
+   * only, so Actions/Reviews/Issues/Tests are all, uniformly, a question about
+   * a GitHub remote this repo does not have without one. Computed once here
+   * rather than inside each child (Theme F): the generic parent-wrapping walk
+   * in `renderSection` has no way to tell, after the fact, whether a child it
+   * rendered actually produced content, so the forge node is skipped before
+   * the walk ever reaches it.
+   */
+  const hasGithubForge = pickForgeRemote(remotes)?.forge?.kind === 'github';
+
   // The main worktree is listed alongside the linked ones: git models it as a
   // worktree too, so the list is uniform with the primary checkout flagged.
   const worktrees = useMemo(
@@ -844,15 +858,19 @@ export function RepoTree({
 
   /**
    * A parent heading's count and action, keyed by `SectionKey` and read by
-   * `renderSection`'s generic parent-wrapping branch below. Only `branches`
-   * has an entry today — its count matches what `Local` and `Remotes`
-   * already show on their own headings rather than inventing a third
-   * arithmetic. `forge`'s count arrives with Theme F, once its children
-   * render through this same walk instead of the opaque pair `SECTION_BODY`
-   * gives it today.
+   * `renderSection`'s generic parent-wrapping branch below. `branches`'s count
+   * matches what `Local` and `Remotes` already show on their own headings
+   * rather than inventing a third arithmetic; `forge`'s (Theme F) is simpler
+   * still — how many of its four children the active view currently shows,
+   * 0–4, since most of them only know their own item count once opened (a
+   * closed Reviews section has no `gh pr list` result to contribute) and a
+   * count of visible *sections* is the one unit every child can always answer.
+   * `forge` gets no `SECTION_ACTIONS` entry: unlike `Branches`, it has no
+   * heading-level verb to offer.
    */
   const SECTION_COUNT: Partial<Record<SectionKey, number>> = {
     branches: branchesCount(branches, remoteGroups),
+    forge: FORGE_CHILDREN.filter((key) => sections.visible(key)).length,
   };
   const SECTION_ACTIONS: Partial<Record<SectionKey, ReturnType<typeof parentHeadingAction>>> = {
     branches: parentHeadingAction('branches'),
@@ -878,14 +896,14 @@ export function RepoTree({
 
   /**
    * A leaf's own renderer, keyed by `SectionKey` — a move, not a rewrite: each
-   * body is the same JSX the four literal blocks used to hold. `branches` has
-   * none, which is what tells `renderSection` to wrap its children in a
-   * generic parent heading instead; `stashes` has none either, and no children
-   * to recurse into, so it renders nothing until Phase 22 registers a body
-   * here. `forge` is the one entry that stands for a whole subtree at once —
-   * `ForgeSections`/`TestsSection` keep deciding their own four children's
-   * visibility internally, exactly as today, until Theme F gives Forge a real
-   * nested heading.
+   * body is the same JSX the four literal blocks used to hold. `branches` and
+   * `forge` have none, which is what tells `renderSection` to wrap their
+   * children in a generic parent heading instead; `stashes` has none either,
+   * and no children to recurse into, so it renders nothing until Phase 22
+   * registers a body here. Forge's four (Theme F) are leaves exactly like
+   * Worktrees/Local/Remotes/Tags above them — `renderSection` gates their
+   * visibility and passes their `depth` the same way, so none of them checks
+   * its own visibility anymore.
    */
   const SECTION_BODY: Partial<Record<SectionKey, (depth: 1 | 2) => ReactNode>> = {
     worktrees: (depth) => (
@@ -999,31 +1017,31 @@ export function RepoTree({
         ))}
       </TreeSection>
     ),
-    forge: () => (
-      <>
-        <ForgeSections
-          repoId={repo.id}
-          remotes={remotes}
-          index={forgeIndex}
-          visible={sections.visible}
-        />
-        <TestsSection repoId={repo.id} visible={sections.visible} />
-      </>
-    ),
+    actions: (depth) => <ActionsSection repoId={repo.id} index={forgeIndex} depth={depth} />,
+    reviews: (depth) => <ReviewsSection repoId={repo.id} index={forgeIndex + 1} depth={depth} />,
+    issues: (depth) => <IssuesSection repoId={repo.id} index={forgeIndex + 2} depth={depth} />,
+    tests: (depth) => <TestsSection repoId={repo.id} depth={depth} />,
   };
 
   /**
    * The walk that deletes the coincidence: `SECTION_TREE` is the only thing
    * that decides what renders and in what order now, so a section the
    * declaration does not contain cannot appear here by accident. A node with
-   * its own `SECTION_BODY` entry renders that (a leaf's rows, or Forge's
-   * opaque pair); a childless node with none renders nothing (the reserved
-   * `stashes` slot); anything else is a parent wrapping its own recursively
-   * rendered children one rung deeper — `Branches` today, matching the load-
-   * bearing visibility rule Theme A already gives it via `sections.visible`.
+   * its own `SECTION_BODY` entry renders that (a leaf's rows); a childless
+   * node with none renders nothing (the reserved `stashes` slot); anything
+   * else is a parent wrapping its own recursively rendered children one rung
+   * deeper — `Branches` and `Forge`, matching the load-bearing visibility rule
+   * Theme A already gives them via `sections.visible`.
+   *
+   * `forge` gets one more gate before that: `gh` speaks GitHub only, so
+   * without a GitHub remote none of its four children — Tests included, since
+   * it is nested here rather than left as a fifth top-level section (Theme
+   * F's own open decision) — has anything to say, and the generic
+   * parent-wrapping branch below has no way to know that after the fact.
    */
   function renderSection(node: SectionNode, depth: 1 | 2): ReactNode {
     if (!sections.visible(node.key)) return null;
+    if (node.key === 'forge' && !hasGithubForge) return null;
     const body = SECTION_BODY[node.key];
     if (body) return <Fragment key={node.key}>{body(depth)}</Fragment>;
     if (node.children && node.children.length > 0) {
