@@ -65,6 +65,28 @@ export const FS_WRITE_CAP_BYTES = FS_TEXT_CAP_BYTES;
 export const FS_DIR_STATS_WALK_CAP = 10_000;
 
 /**
+ * `git grep` mode and result caps for the Files view's find-in-files panel
+ * (Phase 24 Theme E). Tracked content only — `git grep` never sees an
+ * untracked file, and the empty state says so explicitly rather than reading
+ * as an ordinary no-match.
+ */
+export const FsSearchModeSchema = z.enum(['fixed', 'regex']);
+export type FsSearchMode = z.infer<typeof FsSearchModeSchema>;
+
+/** Per-file cap, enforced natively by git's own `-m`. */
+export const FS_SEARCH_MAX_MATCHES_PER_FILE = 50;
+
+/** Total-response cap, enforced after parsing — `-m` only bounds one file. */
+export const FS_SEARCH_MAX_MATCHES = 2000;
+
+export const GrepMatchSchema = z.object({
+  path: z.string().min(1),
+  line: z.number().int().positive(),
+  text: z.string(),
+});
+export type GrepMatch = z.infer<typeof GrepMatchSchema>;
+
+/**
  * A cheap version token for optimistic-concurrency writes: `mtimeMs` and
  * `size` from the read that preceded the edit. `fsWriteFile` sends it back,
  * and main refuses when a `fstat` at write time disagrees — the guard against

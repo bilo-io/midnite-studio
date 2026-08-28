@@ -44,7 +44,14 @@ import {
   WatchEventSchema,
   WorktreeSchema,
 } from '../domain';
-import { ClaudeInfoSchema, FsEntrySchema, FsVersionSchema, FsWriteScopeSchema } from '../fs';
+import {
+  ClaudeInfoSchema,
+  FsEntrySchema,
+  FsSearchModeSchema,
+  FsVersionSchema,
+  FsWriteScopeSchema,
+  GrepMatchSchema,
+} from '../fs';
 import {
   AgentDefinitionSchema,
   AgentStatusSchema,
@@ -987,6 +994,31 @@ export const FsDirStatsResponse = z.discriminatedUnion('ok', [
 
 /** Reveal a repo-scoped path in the OS file manager. See `CHANNELS.shellShowItemInFolder`. */
 export const ShowItemInFolderRequest = FsRepoScope;
+
+/**
+ * Find in files (Phase 24 Theme E): `git grep` over the checkout, repo scope
+ * only — there is no `claude-home` arm, unlike `FsRepoScope`, because a
+ * search has no `relPath` to be widened by. `caseSensitive`/`wholeWord`
+ * default the way most code search does: case-insensitive, whole-word off.
+ */
+export const FsSearchRequest = z.object({
+  repoId: z.string().min(1),
+  worktreePath: z.string().optional(),
+  query: z.string().min(1),
+  mode: FsSearchModeSchema.default('fixed'),
+  caseSensitive: z.boolean().default(false),
+  wholeWord: z.boolean().default(false),
+});
+export const FsSearchResponse = z.discriminatedUnion('ok', [
+  z.object({
+    ok: z.literal(true),
+    matches: z.array(GrepMatchSchema),
+    /** Hit `FS_SEARCH_MAX_MATCHES` after parsing — the list is a floor, not exact. */
+    truncated: z.boolean(),
+  }),
+  /** Most commonly a malformed regex in `mode: 'regex'` — surfaced verbatim from git. */
+  z.object({ ok: z.literal(false), message: z.string() }),
+]);
 /** Mirrors `OpenExternalResponse` — a hand-off outcome, not a `GitOpResult`. */
 export const ShowItemInFolderResponse = z.object({
   ok: z.boolean(),

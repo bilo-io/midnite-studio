@@ -1,6 +1,7 @@
 export * from './blob';
 export * from './commit';
 export * from './diff';
+export * from './grep';
 export * from './ignore';
 export * from './log';
 export * from './refs';
