@@ -150,53 +150,53 @@ The keymap's doc comment describes this hook; it just was never written.
       The palette closes on Escape and stops propagation; it refuses to open while a modal dialog is
       up, which is one line and removes the whole nesting question.
 
-### D — `fuzzy-match.ts` (S/M)
+### D — `fuzzy-match.ts` (S/M) ✅ DONE (landed 2026-08-28)
 
 There is **no fuzzy library anywhere in the workspace** and no character-level match highlighting
 in the renderer. Both are net-new, and both are small.
 
-- [ ] New `packages/app/src/services/palette/fuzzy-match.ts` — `fuzzyMatch(needle, haystack):
+- [x] New `packages/app/src/services/palette/fuzzy-match.ts` — `fuzzyMatch(needle, haystack):
       { score: number; indices: number[] } | null`. Subsequence matching with bonuses for a match at
       a word boundary, at the start of the string, and for consecutive runs; case-insensitive with a
       tie-break favouring an exact-case hit. Roughly sixty lines, hand-rolled on the same reasoning
       as [`lane-colors.ts`](../packages/git-engine/src/layout/lane-colors.ts) and Phase 18's
       hand-drawn chart: a dependency here buys less than it costs, and returning `indices` is what
       makes highlighting fall out for free.
-- [ ] Matched-character highlighting in the result row, driven by those `indices`. The first `<mark>`
+- [x] Matched-character highlighting in the result row, driven by those `indices`. The first `<mark>`
       in the renderer — the only existing "highlight" is Shiki in
       [`line-highlight.ts`](../packages/app/src/features/diff/line-highlight.ts) — so it gets a
       theme token, not a browser default.
-- [ ] A `keywords?: string` field on the palette item, following the precedent already sitting in
+- [x] A `keywords?: string` field on the palette item, following the precedent already sitting in
       [`multi-select-menu.tsx`](../packages/app/src/components/multi-select-menu.tsx), whose
       `MultiSelectOption` has had exactly this field for exactly this reason. It is how `Mod+Shift+u`
       is findable by typing "push" and how the Actions view is findable by typing "CI".
-- [ ] Ranking across sources: score within a source, then a per-source weight so a repo name cannot
+- [x] Ranking across sources: score within a source, then a per-source weight so a repo name cannot
       bury the command you were reaching for, then a frecency nudge for recently-run items. The
       weights live in one exported table with a comment, not scattered through the sources.
-- [ ] `fuzzy-match.test.ts`: acronym matches (`gsp` → "Graph: sync push"), consecutive-run scoring
+- [x] `fuzzy-match.test.ts`: acronym matches (`gsp` → "Graph: sync push"), consecutive-run scoring
       beating scattered, a non-match returning `null`, and `indices` always ascending and in range —
       the invariant the highlighter depends on.
 
-### E — Navigation providers (M)
+### E — Navigation providers (M) ✅ DONE (landed 2026-08-28)
 
-- [ ] New `packages/app/src/services/palette/source.ts` — the interface every source implements:
+- [x] New `packages/app/src/services/palette/source.ts` — the interface every source implements:
       `{ id, label, group, icon?: IconComponent, keywords?, detail?, chord?, run(): void }` plus a
       `PaletteSource = { key, items(): PaletteItem[] }`. This is the seam that keeps the palette
       independent of [Phase 22](phase-22-stash-and-safety-net.md): a `journalSource` drops in later
       with no change to the palette itself.
-- [ ] The command source, over Theme B's runtime — every `CommandId`, its label, its group, its
+- [x] The command source, over Theme B's runtime — every `CommandId`, its label, its group, its
       chord, and its `disabledReason` when unavailable.
-- [ ] The views and settings source. Reuse `VIEW_ICON` and `PAGE_ICON` from
+- [x] The views and settings source. Reuse `VIEW_ICON` and `PAGE_ICON` from
       [`nav-icons.ts`](../packages/app/src/components/nav-icons.ts) — **do not build a third map**;
       that file's comment warns that duplicating it lets surfaces drift, and "the same view wearing
       two different icons is worse than either icon". `SETTINGS_PAGES` in
       [`ui-store.ts`](../packages/app/src/store/ui-store.ts) already carries `{id, label, group}`,
       so the settings half is nearly free.
-- [ ] The repos and worktrees source, off `useRepos` / `useWorktrees` in
+- [x] The repos and worktrees source, off `useRepos` / `useWorktrees` in
       [`queries.ts`](../packages/app/src/services/queries.ts) — both already react-query cached, so
       no IPC. A worktree row shows its checked-out branch as `detail` and its status pill count if
       Phase 17's counts are already loaded, and never fetches to fill a palette row.
-- [ ] The terminal sessions and agent roster source, off
+- [x] The terminal sessions and agent roster source, off
       [`terminal-store.ts`](../packages/app/src/features/terminal/terminal-store.ts) and
       [`use-agents.ts`](../packages/app/src/features/terminal/use-agents.ts): switch to a session by
       name, or start a new agent session. Agent items carry their roster accent through
@@ -204,7 +204,7 @@ in the renderer. Both are net-new, and both are small.
       [`icon-button.tsx`](../packages/app/src/components/icon-button.tsx) rather than importing one
       family's icon type. [`agent-commands.ts`](../packages/app/src/features/agent/agent-commands.ts)
       already has `{id, label, icon, hint}` and is the shape to mirror.
-- [ ] Command icons: a new `app`-side `Record<CommandId, IconComponent>` in the palette folder,
+- [x] Command icons: a new `app`-side `Record<CommandId, IconComponent>` in the palette folder,
       react-icons per-set imports (`react-icons/lu`, never the root barrel), following
       [`CLAUDE.md`](../CLAUDE.md)'s rule that new icons come from react-icons while `lucide-react`
       stays where it already is.

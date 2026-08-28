@@ -1,66 +1,63 @@
 import { useCallback, useEffect, useMemo, useRef } from 'react';
 
-import { COMMANDS, type CommandDescriptor, type CommandGroup } from '@midnite/git-shared';
 import { useVirtualizer } from '@tanstack/react-virtual';
 import { Search } from 'lucide-react';
 
+import { useRepos, useWorktrees } from '../services/queries';
+import { useAgents } from '../features/terminal/use-agents';
+import { useTerminalStore } from '../features/terminal/terminal-store';
+import { useUiStore } from '../store/ui-store';
 import { displayChord } from '../features/status-bar/chord-hint';
 import { cascadeStyle } from '../lib/cascade';
 import { useCommandHandlers } from '../services/keybindings/use-command-handlers';
 import {
-  chordOf,
-  filterCommands,
-  groupCommands,
-  parsePaletteQuery,
-  usePaletteStore,
-  type PaletteMode,
-} from '../store/palette-store';
+  highlightMatches,
+  scorePaletteItem,
+  type PaletteSource,
+  type ScoredPaletteItem,
+} from '../services/palette/source';
+import {
+  createCommandSource,
+  createReposSource,
+  createTerminalSource,
+  createViewsSource,
+} from '../services/palette/providers';
+import { parsePaletteQuery, usePaletteStore, type PaletteMode } from '../store/palette-store';
 import { useFocusTrap } from './use-focus-trap';
 
-const GROUP_LABEL: Record<CommandGroup, string> = {
-  repository: 'Repository',
-  view: 'View',
-  sync: 'Sync',
-  terminal: 'Terminal',
-  status: 'Status',
-  graph: 'Graph',
-  operation: 'Operation',
-  palette: 'Palette',
-  files: 'Files',
-};
-
-/** Every mode besides the two Theme C actually has data for. Kept in one
- * place so adding a source later is a one-line change here, not a new
- * component — see the phase doc's "one surface" resolution. */
 const MODE_PLACEHOLDER: Partial<Record<PaletteMode, string>> = {
-  refs: 'Branch and ref search arrives in Theme E.',
-  views: 'View and settings search arrives in Theme E.',
+  refs: 'Branch and ref search arrives in Theme F.',
   files: 'The file finder arrives in Theme G.',
   journal: 'Reserved for the ops journal — see Phase 22 Theme H.',
 };
 
 type FlatRow =
-  | { kind: 'heading'; group: CommandGroup }
-  | { kind: 'command'; command: CommandDescriptor; flatIndex: number };
+  | { kind: 'heading'; group: string }
+  | { kind: 'item'; scored: ScoredPaletteItem; flatIndex: number };
 
-function buildFlatRows(groups: [CommandGroup, CommandDescriptor[]][]): FlatRow[] {
+function buildFlatRows(scoredItems: ScoredPaletteItem[]): FlatRow[] {
   const rows: FlatRow[] = [];
+  const groups = new Map<string, ScoredPaletteItem[]>();
+
+  for (const s of scoredItems) {
+    const grp = s.item.group;
+    const bucket = groups.get(grp);
+    if (bucket) bucket.push(s);
+    else groups.set(grp, [s]);
+  }
+
   let flatIndex = 0;
-  for (const [group, commands] of groups) {
+  for (const [group, items] of groups) {
     rows.push({ kind: 'heading', group });
-    for (const command of commands) rows.push({ kind: 'command', command, flatIndex: flatIndex++ });
+    for (const scored of items) {
+      rows.push({ kind: 'item', scored, flatIndex: flatIndex++ });
+    }
   }
   return rows;
 }
 
 /**
- * The `Mod+K` surface. One component for every sigil mode, per the phase
- * doc's "one surface with a sigil grammar" — a mode with no source yet
- * renders a placeholder rather than gaining a second component when its
- * theme lands.
- *
- * Rendered only while `usePaletteStore` reports open (see `palette-host.tsx`),
- * so every hook here can assume it is mounted for exactly one open session.
+ * The `Mod+K` surface with fuzzy search, match highlighting and cross-source navigation.
  */
 export function Palette() {
   const query = usePaletteStore((s) => s.query);
@@ -72,13 +69,23 @@ export function Palette() {
 
   const runtime = useCommandHandlers();
 
+  // Navigation data sources
+  const reposQuery = useRepos();
+  const selectedRepoId = useUiStore((s) => s.selectedRepoId);
+  const worktreesQuery = useWorktrees(selectedRepoId);
+  const { agents } = useAgents();
+  const sessions = useTerminalStore((s) => s.sessions);
+
+  const repos = useMemo(() => reposQuery.data ?? [], [reposQuery.data]);
+  const activeRepo = useMemo(
+    () => repos.find((r) => r.id === selectedRepoId) ?? null,
+    [repos, selectedRepoId],
+  );
+  const worktrees = useMemo(() => worktreesQuery.data ?? [], [worktreesQuery.data]);
+
   const containerRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLInputElement>(null);
   const scrollRef = useRef<HTMLDivElement>(null);
-  // Captured during render, in the lazy initializer — not in an effect. By the
-  // time any effect runs (including `useFocusTrap`'s, which moves focus onto
-  // the container), whatever opened the palette has already lost it, so an
-  // effect-based capture would record the container itself instead.
   const previouslyFocused = useRef<HTMLElement | null>(
     typeof document === 'undefined' ? null : (document.activeElement as HTMLElement | null),
   );
@@ -91,24 +98,65 @@ export function Palette() {
     return () => restoreTo?.focus();
   }, []);
 
-  const showsCommands = mode === 'all' || mode === 'commands';
   const { needle } = parsePaletteQuery(query);
 
-  const results = useMemo(
-    () => (showsCommands ? filterCommands(COMMANDS, needle) : []),
-    [showsCommands, needle],
-  );
-  const groups = useMemo(() => groupCommands(results), [results]);
-  const flatRows = useMemo(() => buildFlatRows(groups), [groups]);
+  const sources = useMemo<PaletteSource[]>(() => {
+    const list: PaletteSource[] = [];
+
+    // Commands source
+    if (mode === 'all' || mode === 'commands') {
+      list.push(createCommandSource(runtime, close));
+    }
+
+    // Views & Settings source
+    if (mode === 'all' || mode === 'views') {
+      list.push(createViewsSource(close));
+    }
+
+    // Repos & Worktrees source
+    if (mode === 'all') {
+      list.push(createReposSource(repos, worktrees, activeRepo?.id ?? null, close));
+    }
+
+    // Sessions & Agents source
+    if (mode === 'all') {
+      list.push(createTerminalSource(sessions, agents, activeRepo, close));
+    }
+
+    return list;
+  }, [mode, runtime, close, repos, worktrees, activeRepo, sessions, agents]);
+
+  const scoredResults = useMemo(() => {
+    const results: ScoredPaletteItem[] = [];
+
+    for (const source of sources) {
+      const items = source.items();
+      for (const item of items) {
+        const scored = scorePaletteItem(item, needle, source.key);
+        if (scored) {
+          results.push(scored);
+        }
+      }
+    }
+
+    // Sort by score descending (highest rank first)
+    if (needle) {
+      results.sort((a, b) => b.score - a.score);
+    }
+
+    return results;
+  }, [sources, needle]);
+
+  const flatRows = useMemo(() => buildFlatRows(scoredResults), [scoredResults]);
 
   const rowIndexForSelection = flatRows.findIndex(
-    (row) => row.kind === 'command' && row.flatIndex === selectedIndex,
+    (row) => row.kind === 'item' && row.flatIndex === selectedIndex,
   );
 
   const virtualizer = useVirtualizer({
     count: flatRows.length,
     getScrollElement: () => scrollRef.current,
-    estimateSize: (index) => (flatRows[index]?.kind === 'heading' ? 28 : 36),
+    estimateSize: (index) => (flatRows[index]?.kind === 'heading' ? 28 : 38),
     overscan: 8,
   });
 
@@ -116,49 +164,38 @@ export function Palette() {
     if (rowIndexForSelection >= 0) virtualizer.scrollToIndex(rowIndexForSelection, { align: 'auto' });
   }, [rowIndexForSelection, virtualizer]);
 
-  // Takes the row's own index rather than reading `selectedIndex` from the
-  // closure: a click handler that first calls `setSelectedIndex` and then this
-  // would run the PREVIOUS selection, since the store update has not re-run
-  // this render yet when the very next line executes.
-  const runCommand = useCallback(
+  const runSelectedItem = useCallback(
     (flatIndex: number) => {
-      const row = flatRows.find((r) => r.kind === 'command' && r.flatIndex === flatIndex);
-      if (!row || row.kind !== 'command') return;
-      const entry = runtime[row.command.id];
-      if (!entry.enabled) return;
-      close();
-      entry.run();
+      const row = flatRows.find((r) => r.kind === 'item' && r.flatIndex === flatIndex);
+      if (!row || row.kind !== 'item') return;
+      if (row.scored.item.disabled) return;
+      row.scored.item.run();
     },
-    [close, flatRows, runtime],
+    [flatRows],
   );
 
   useEffect(() => {
     const onKeyDown = (event: KeyboardEvent) => {
       if (event.key === 'Escape') {
-        // Popover's own Escape handling stops propagation; ConfirmDialog's
-        // does not, and the phase doc calls that an inconsistency worth
-        // fixing rather than repeating. The palette follows Popover: it is
-        // the topmost surface whenever it is open, so nothing beneath it
-        // should also react to the same keystroke.
         event.stopPropagation();
         close();
         return;
       }
-      if (!showsCommands || results.length === 0) return;
+      if (scoredResults.length === 0) return;
       if (event.key === 'ArrowDown') {
         event.preventDefault();
-        setSelectedIndex(Math.min(selectedIndex + 1, results.length - 1));
+        setSelectedIndex(Math.min(selectedIndex + 1, scoredResults.length - 1));
       } else if (event.key === 'ArrowUp') {
         event.preventDefault();
         setSelectedIndex(Math.max(selectedIndex - 1, 0));
       } else if (event.key === 'Enter') {
         event.preventDefault();
-        runCommand(selectedIndex);
+        runSelectedItem(selectedIndex);
       }
     };
     window.addEventListener('keydown', onKeyDown);
     return () => window.removeEventListener('keydown', onKeyDown);
-  }, [close, results.length, runCommand, selectedIndex, setSelectedIndex, showsCommands]);
+  }, [close, scoredResults.length, runSelectedItem, selectedIndex, setSelectedIndex]);
 
   const placeholder = MODE_PLACEHOLDER[mode];
 
@@ -193,19 +230,19 @@ export function Palette() {
             spellCheck={false}
           />
         </div>
-        <div ref={scrollRef} id="palette-results" role="listbox" className="max-h-80 overflow-auto p-1">
+        <div ref={scrollRef} id="palette-results" role="listbox" className="max-h-96 overflow-auto p-1">
           {placeholder ? (
             <p className="px-3 py-6 text-center text-sm text-muted-foreground">{placeholder}</p>
-          ) : results.length === 0 ? (
+          ) : scoredResults.length === 0 ? (
             <p className="px-3 py-6 text-center text-sm text-muted-foreground">
-              No matching commands.
+              No matching items found.
             </p>
           ) : (
             <div className="relative w-full" style={{ height: virtualizer.getTotalSize() }}>
-              {virtualizer.getVirtualItems().map((item) => {
-                const row = flatRows[item.index];
+              {virtualizer.getVirtualItems().map((vItem) => {
+                const row = flatRows[vItem.index];
                 if (!row) return null;
-                const style = { transform: `translateY(${item.start}px)` } as const;
+                const style = { transform: `translateY(${vItem.start}px)` } as const;
 
                 if (row.kind === 'heading') {
                   return (
@@ -214,36 +251,45 @@ export function Palette() {
                       className="absolute left-0 top-0 w-full px-2.5 pt-2 text-xs font-medium uppercase tracking-wide text-muted-foreground"
                       style={style}
                     >
-                      {GROUP_LABEL[row.group]}
+                      {row.group}
                     </div>
                   );
                 }
 
-                const entry = runtime[row.command.id];
+                const { item, labelIndices, detailIndices } = row.scored;
                 const selected = row.flatIndex === selectedIndex;
-                const chord = chordOf(row.command);
+                const Icon = item.icon;
+
                 return (
                   <div
-                    key={row.command.id}
+                    key={item.id}
                     role="option"
                     aria-selected={selected}
-                    aria-disabled={!entry.enabled}
+                    aria-disabled={item.disabled}
                     onMouseEnter={() => setSelectedIndex(row.flatIndex)}
-                    onClick={() => runCommand(row.flatIndex)}
+                    onClick={() => runSelectedItem(row.flatIndex)}
                     className={`absolute left-0 top-0 flex w-full animate-fade-in-up cascade-delay items-center justify-between gap-3 rounded-md px-2.5 text-sm ${
-                      entry.enabled ? 'cursor-pointer' : 'cursor-default opacity-50'
+                      !item.disabled ? 'cursor-pointer' : 'cursor-default opacity-50'
                     } ${selected ? 'bg-accent text-foreground' : 'text-foreground'}`}
-                    style={{ ...style, ...cascadeStyle(row.flatIndex), height: 36 }}
-                    title={!entry.enabled ? entry.disabledReason : undefined}
+                    style={{ ...style, ...cascadeStyle(row.flatIndex), height: 38 }}
+                    title={item.disabled ? item.disabledReason : undefined}
                   >
-                    <span className="truncate">{row.command.label}</span>
-                    {chord ? (
+                    <div className="flex min-w-0 items-center gap-2.5 truncate">
+                      {Icon && <Icon className="h-4 w-4 shrink-0 text-muted-foreground" />}
+                      <span className="truncate">{highlightMatches(item.label, labelIndices)}</span>
+                      {item.detail && (
+                        <span className="truncate text-xs text-muted-foreground">
+                          {highlightMatches(item.detail, detailIndices ?? [])}
+                        </span>
+                      )}
+                    </div>
+                    {item.chord ? (
                       <span className="shrink-0 font-mono text-xs text-muted-foreground">
-                        {displayChord(chord)}
+                        {displayChord(item.chord)}
                       </span>
-                    ) : !entry.enabled ? (
+                    ) : item.disabled ? (
                       <span className="shrink-0 truncate text-xs text-muted-foreground">
-                        {entry.disabledReason}
+                        {item.disabledReason}
                       </span>
                     ) : null}
                   </div>
