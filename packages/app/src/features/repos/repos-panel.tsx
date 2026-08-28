@@ -456,8 +456,16 @@ function RepoItem({
   }, [statuses.byPath]);
 
   const actions = useRepoActions(repo, onError, { changedByWorktree, remotes });
-  const { refMenu, repoMenu, worktreeMenu, sectionMenu, checkout, report, viewAllChanges } =
-    actions;
+  const {
+    refMenu,
+    repoMenu,
+    worktreeMenu,
+    sectionMenu,
+    parentSectionMenu,
+    checkout,
+    report,
+    viewAllChanges,
+  } = actions;
 
   const openRepoMenu = (at: { clientX: number; clientY: number }) =>
     dialogs.openMenu(at, repoMenu(refs, loaded));
@@ -667,6 +675,7 @@ function RepoItem({
           refMenu={refMenu}
           worktreeMenu={worktreeMenu}
           sectionMenu={sectionMenu}
+          parentSectionMenu={parentSectionMenu}
           onViewAllChanges={viewAllChanges}
           onCheckout={(ref) => void checkout.mutateAsync({ target: ref.name }).then(report)}
         />
@@ -743,6 +752,7 @@ export function RepoTree({
   refMenu,
   worktreeMenu,
   sectionMenu,
+  parentSectionMenu,
   onViewAllChanges,
   onCheckout,
 }: {
@@ -754,6 +764,7 @@ export function RepoTree({
   refMenu: (ref: Ref) => MenuItem[];
   worktreeMenu: (worktree: Worktree) => MenuItem[];
   sectionMenu: (kind: RefSectionKey, refs: readonly Ref[]) => MenuItem[];
+  parentSectionMenu: (kind: 'branches') => MenuItem[];
   onViewAllChanges: (worktreePath: string, label: string) => void;
   onCheckout: (ref: Ref) => void;
 }) {
@@ -817,6 +828,35 @@ export function RepoTree({
     },
     count,
   });
+
+  /** The equivalent of `headingAction` for a parent heading — `sectionMenu`'s
+   * `refs` argument has nothing to give a parent, so this calls
+   * `parentSectionMenu` instead. */
+  const parentHeadingAction = (kind: 'branches') => ({
+    icon: MoreVertical,
+    label: `${SECTION_TITLE[kind]} section actions`,
+    onClick: () => {
+      const items = parentSectionMenu(kind);
+      if (items.length === 0) return;
+      dialogs.openMenu(lastPointer(), items);
+    },
+  });
+
+  /**
+   * A parent heading's count and action, keyed by `SectionKey` and read by
+   * `renderSection`'s generic parent-wrapping branch below. Only `branches`
+   * has an entry today — its count matches what `Local` and `Remotes`
+   * already show on their own headings rather than inventing a third
+   * arithmetic. `forge`'s count arrives with Theme F, once its children
+   * render through this same walk instead of the opaque pair `SECTION_BODY`
+   * gives it today.
+   */
+  const SECTION_COUNT: Partial<Record<SectionKey, number>> = {
+    branches: branchesCount(branches, remoteGroups),
+  };
+  const SECTION_ACTIONS: Partial<Record<SectionKey, ReturnType<typeof parentHeadingAction>>> = {
+    branches: parentHeadingAction('branches'),
+  };
 
   /**
    * How many rows Forge's `cascadeStyle` entrance animation should count as
@@ -988,7 +1028,14 @@ export function RepoTree({
     if (body) return <Fragment key={node.key}>{body(depth)}</Fragment>;
     if (node.children && node.children.length > 0) {
       return (
-        <TreeSection key={node.key} title={SECTION_TITLE[node.key]} depth={depth} hideWhenEmpty={false}>
+        <TreeSection
+          key={node.key}
+          title={SECTION_TITLE[node.key]}
+          count={SECTION_COUNT[node.key]}
+          depth={depth}
+          hideWhenEmpty={false}
+          action={SECTION_ACTIONS[node.key]}
+        >
           {node.children.map((child) => renderSection(child, (depth + 1) as 1 | 2))}
         </TreeSection>
       );
@@ -1357,6 +1404,20 @@ function WorktreeRow({
       </span>
     </div>
   );
+}
+
+/**
+ * The `Branches` parent heading's count — local branches plus remote-tracking
+ * groups, matching the two numbers `Local` and `Remotes` already show on
+ * their own headings (`branches.length`, `remoteGroups.length`) rather than
+ * inventing a third arithmetic (e.g. every remote-tracking ref, which neither
+ * child counts).
+ */
+export function branchesCount(
+  branches: readonly Ref[],
+  remoteGroups: readonly { name: string; refs: Ref[] }[],
+): number {
+  return branches.length + remoteGroups.length;
 }
 
 /** `origin/feat/x` displays as `feat/x` under its `origin` group. */

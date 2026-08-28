@@ -5,7 +5,7 @@ import { afterEach, describe, expect, it } from 'vitest';
 
 import { DialogHost } from '../../components/dialog-host';
 import type { WorktreeStatuses } from '../../services/use-status';
-import { matchesRepoQuery, partitionRefs, RepoTree } from './repos-panel';
+import { branchesCount, matchesRepoQuery, partitionRefs, RepoTree } from './repos-panel';
 import { ALL_SECTIONS, type SectionKey, type ViewSections } from './view-sections';
 
 const ref = (partial: Partial<Ref> & Pick<Ref, 'name' | 'kind'>): Ref => ({
@@ -73,6 +73,25 @@ describe('partitionRefs', () => {
 
   it('returns empty sections for a repo with no refs', () => {
     expect(partitionRefs([])).toEqual({ branches: [], remotes: [], tags: [] });
+  });
+});
+
+describe('branchesCount', () => {
+  it('sums local branches and remote groups, not every remote-tracking ref', () => {
+    const { branches, remotes } = partitionRefs([
+      ref({ name: 'main', kind: 'localBranch' }),
+      ref({ name: 'feat', kind: 'localBranch' }),
+      ref({ name: 'origin/main', kind: 'remoteBranch' }),
+      ref({ name: 'origin/feat', kind: 'remoteBranch' }),
+      ref({ name: 'upstream/main', kind: 'remoteBranch' }),
+    ]);
+
+    // 2 local branches + 2 remote GROUPS (origin, upstream) — not 2 + 3 refs.
+    expect(branchesCount(branches, remotes)).toBe(4);
+  });
+
+  it('is zero for a repo with no branches and no remotes', () => {
+    expect(branchesCount([], [])).toBe(0);
   });
 });
 
@@ -163,6 +182,7 @@ describe('RepoTree', () => {
             refMenu={() => []}
             worktreeMenu={() => []}
             sectionMenu={() => []}
+            parentSectionMenu={() => []}
             onViewAllChanges={() => {}}
             onCheckout={() => {}}
           />
@@ -198,6 +218,15 @@ describe('RepoTree', () => {
       'Tags',
       'Tests',
     ]);
+  });
+
+  it('gives the Branches heading a combined local+remote-group count', () => {
+    renderTree(unfiltered);
+
+    // The fixture has 1 local branch ('main') and 1 remote group ('origin') —
+    // 2, not 1 (local) + 1 (the single 'origin/main' ref it groups).
+    const heading = screen.getByRole('heading', { level: 3, name: 'Branches' });
+    expect(heading.parentElement?.textContent).toBe('Branches2');
   });
 
   it('hides Branches entirely when every child section is filtered away', () => {
