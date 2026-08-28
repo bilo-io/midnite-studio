@@ -146,3 +146,25 @@ test('Mod+K opens the palette while the terminal has focus', async ({ page }) =>
   await page.keyboard.press('Meta+k');
   await expect(palette(page)).toBeVisible();
 });
+
+test('fuzzy search matches acronyms and renders mark tags', async ({ page }) => {
+  await open(page);
+  await page.keyboard.press('Meta+k');
+  await search(page).fill('tt');
+
+  const row = palette(page).getByRole('option', { name: /Toggle Terminal/ });
+  await expect(row).toBeVisible();
+  const marks = row.locator('mark');
+  await expect(marks).toHaveCount(2);
+});
+
+test('palette navigates to views and settings', async ({ page }) => {
+  await open(page);
+  await page.keyboard.press('Meta+k');
+  await search(page).fill('Settings: Appearance');
+  await page.keyboard.press('Enter');
+
+  await expect(palette(page)).toBeHidden();
+  await expect(page.getByRole('heading', { name: 'Appearance' })).toBeVisible();
+});
+

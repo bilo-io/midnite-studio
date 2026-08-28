@@ -2,6 +2,21 @@
 
 <!-- Append one entry per landed phase/PR: date, phase, PR link, one-line summary. -->
 
+## 2026-08-28 — Phase 23 Themes D, E — fuzzy matching, matched character highlighting & navigation providers
+
+Merged locally on `main` — no PR link, no GitHub remote on this checkout. Themes F, G, H remain open.
+
+- [x] **D — fuzzy-match.ts & character match highlighting.** Hand-rolled `fuzzyMatch(needle, haystack)`
+      returning `{ score, indices } | null` with prefix, word boundary, and consecutive run bonuses,
+      and gap penalties. `<mark>` tags styled with Tailwind theme tokens (`bg-primary/20 text-foreground`)
+      in `highlightMatches`. Keywords and detail matching support, cross-source scoring weights
+      in `SOURCE_WEIGHTS`, and complete unit tests covering acronym matches, boundary scoring, and sorted indices.
+- [x] **E — Navigation providers.** Unified `PaletteSource` / `PaletteItem` provider interface in `source.tsx`.
+      Four providers in `providers.ts`: `createCommandSource` (with `COMMAND_ICONS` react-icons per-set map),
+      `createViewsSource` (views and settings pages via `VIEW_ICON` and `SETTINGS_PAGE_ICON`), `createReposSource`
+      (repositories and worktrees via `useRepos`/`useWorktrees`), and `createTerminalSource` (switch active sessions
+      and start agent sessions via `useAgents`/`resolveAgentIcon`/`startAgent`). Tested with unit tests and Playwright e2e specs.
+
 ## 2026-08-28 — Phase 30 Themes A, B, E — a terminal that survives a reload, and names itself honestly
 
 Merged locally on `feature/p30-abe` — no PR link, no GitHub remote on this checkout. Themes C
