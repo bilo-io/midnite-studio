@@ -409,9 +409,32 @@ test('a repo with no GitHub remote grows no forge sections at all', async ({ pag
   await open(page, { ...base, remotes: [] });
 
   // Absent, not empty: `gh` speaks GitHub only, so there is nothing here that
-  // could ever load. A permanently empty section is not a section.
+  // could ever load. A permanently empty section is not a section. Forge
+  // itself — and Tests nested under it, Phase 28 Theme F — disappears too:
+  // the whole subtree is gated on the same GitHub remote at once, rather than
+  // each child deciding on its own.
+  await expect(page.getByRole('heading', { name: 'Forge' })).toHaveCount(0);
   await expect(page.getByRole('heading', { name: 'Actions' })).toHaveCount(0);
   await expect(page.getByRole('heading', { name: 'Reviews' })).toHaveCount(0);
+  await expect(page.getByRole('heading', { name: 'Issues' })).toHaveCount(0);
+  await expect(page.getByRole('heading', { name: 'Tests' })).toHaveCount(0);
+});
+
+test('a GitHub remote nests Actions/Reviews/Issues/Tests under one Forge heading, counted', async ({
+  page,
+}) => {
+  await open(page);
+
+  const forge = page.getByRole('heading', { name: 'Forge', exact: true });
+  await expect(forge).toBeVisible();
+  // All four children are visible in the unfiltered tree — a count of
+  // *sections*, not of items each child has not fetched yet (they are all
+  // closed by default).
+  await expect(forge.locator('xpath=ancestor::header[1]')).toHaveText('Forge4');
+
+  for (const title of ['Actions', 'Reviews', 'Issues', 'Tests']) {
+    await expect(page.getByRole('heading', { name: title, exact: true })).toBeVisible();
+  }
 });
 
 test('the section headings share one height, whether or not they carry an action', async ({
