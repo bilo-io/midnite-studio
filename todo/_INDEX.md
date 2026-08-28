@@ -20,7 +20,7 @@ Completed work is logged append-only in [`done.md`](done.md). Deferred scope liv
 
 | Phase | Status | Refined | Done | Progress | % | 🔄 WIP | ◻ TODO |
 |-------|--------|---------|------|----------|---|--------|--------|
-| [30 · A terminal that survives you](phase-30-terminal-hardening.md) | 🔄 WIP | x2 | 57/91 | `██████░░░░` | 63% | F, G | — |
+| [30 · A terminal that survives you](phase-30-terminal-hardening.md) | 🔄 WIP | x2 | 82/91 | `█████████░` | 90% | — | 9 manual checks |
 | [29 · Markdown slides, everywhere markdown already renders](phase-29-markdown-slides-viewer.md) | ✅ DONE | — | 21/21 | `██████████` | 100% | — | — |
 | [28 · Worktrees first, and the section tree that can say so](phase-28-sidebar-section-tree.md) | 🔄 WIP | — | 59/62 | `██████████` | 95% | — | 3 verification items |
 | [27 · The footer becomes a status bar, and the browser it makes room for](phase-27-status-bar-and-browser-panel.md) | 🔄 WIP | x1 | 72/90 | `████████░░` | 80% | — | 18 verification items |
@@ -101,19 +101,22 @@ stops the moment the panel is collapsed.*
   fixtures hand-edited), `foregroundOf` picks the last `+` member by pid, `commandLabel` truncates at
   40, `pty:command-changed` holds the name after exit, OSC title only before any command
   (landed 2026-08-28, merged locally — no PR/no remote).
-- ◻ **F** — the indicator that never span: the activity gate moves off the creation-time
+- ✅ **F** — the indicator that never span: the activity gate moves off the creation-time
   `session.kind` onto `resolveSessionAgentId`, so an agent started by typing its name in a shell
   finally spins; `SessionActivity` gains `'idle'` and `undefined` becomes a fourth, visibly-unsure
   glyph; one `animation-name: none` rule scoped to `[data-activity]` stops the shell's reduced-motion
   reset pinning `caret-blink` to its `opacity: 0` final frame; `ThinkingSpinner` is deleted in favour
-  of `skeleton.tsx`'s byte-identical `Spinner`. Labelled, never announced. Renderer-only, after D.
-- ◻ **G** — a detector that can be wrong out loud: detection moves to `pty-service.ts`'s single
+  of `skeleton.tsx`'s byte-identical `Spinner`. Labelled, never announced. Renderer-only, after D
+  (landed 2026-08-28, merged locally — no PR/no remote).
+- ✅ **G** — a detector that can be wrong out loud: detection moves to `pty-service.ts`'s single
   `ptyData` send (a collapsed panel unmounts every `TerminalView`, which is exactly when the status
   bar's count is the only thing looking) behind a new `mgit:pty:activity` event; markers become
   `AgentDefinitionSchema.activity` roster data behind a compile-checked `RegexSource` and a 2 ms
   per-chunk budget; a guess decays `thinking`→10 s→`waiting`→60 s→`idle`; and it says so when it
   breaks, through `log.ts` and an **Agent activity** readout on the Terminal settings page.
-  Independent of C.
+  Independent of C (landed 2026-08-28, merged locally — no PR/no remote). **Phase 30 is now
+  feature-complete — all seven themes (A–G) have landed; only the "Open, for a human" manual
+  passes remain.**
 
 ### [Phase 29 — Markdown slides, everywhere markdown already renders](phase-29-markdown-slides-viewer.md)
 
