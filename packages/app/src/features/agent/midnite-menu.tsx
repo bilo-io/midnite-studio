@@ -36,7 +36,16 @@ export function MidniteMenu({
   const dialogs = useDialogs();
   const skills = useUiStore((s) => s.agentSkills);
 
-  const items: MenuItem[] = AGENT_COMMANDS.map(({ id, label, icon }) => {
+  const items: MenuItem[] = [];
+  let lastCategory: string | undefined;
+  for (const { id, label, icon, category } of AGENT_COMMANDS) {
+    // A category change draws one divider — never before the first entry, and
+    // never doubled when a category is a single row (release-prep is not).
+    if (lastCategory !== undefined && category !== lastCategory) {
+      items.push({ type: 'separator' });
+    }
+    lastCategory = category;
+
     /*
       `?? DEFAULT` against the types, not with them: the store's `merge` refills
       a missing entry and a test holds it to that, but this store is
@@ -45,7 +54,7 @@ export function MidniteMenu({
       would take the whole sidebar down rather than one menu row.
     */
     const skill = (skills[id] ?? DEFAULT_AGENT_SKILLS[id]).trim();
-    return {
+    items.push({
       label,
       icon,
       // A cleared field is a real state — the setting takes any prompt, so it
@@ -55,8 +64,8 @@ export function MidniteMenu({
         ? { disabled: true, disabledReason: 'no skill set in Settings → Agent' }
         : {}),
       onSelect: () => startClaude({ repoId, cwd, title: label, prompt: skill }),
-    };
-  });
+    });
+  }
 
   return (
     <IconButton
