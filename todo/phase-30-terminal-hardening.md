@@ -269,7 +269,7 @@ that pty.
         like `ptyCreate` (`:17`): `{ bytes: trimScrollback(readScrollback(sessionIdOf(ptyId)), SCROLLBACK_BYTES) }`;
         an unknown `ptyId` answers `{ bytes: new Uint8Array(0) }`, never throws.
 
-#### C — The session broker (L) — ✅ DONE (2026-08-28)
+### C — The session broker (L) — ✅ DONE (2026-08-28)
 
 - [x] `packages/desktop/src/broker/` — a standalone entry built beside `main` and `preload`, spawned
       as `process.execPath` with `ELECTRON_RUN_AS_NODE=1`, `detached: true`, `stdio` to a log file,
@@ -906,9 +906,6 @@ it survive a collapsed panel, a second agent CLI, and a TUI that changes under i
       `commandLabel('/usr/local/bin/pnpm dev')` → `'pnpm dev'`, a 60-char argv → 40 chars ending `…`;
       the `ps-node-wrapper.txt` guard still passes; `ipc.test.ts` — `ptyCommandChanged` row rejects an
       empty-string command.
-<<<<<<< Updated upstream
-- [x] Screenshots, per the visual-phase convention: the ended strip with both buttons; a slept row
-=======
 - [ ] Vitest (F): `isAgentRow` five rows — `kind:'agent'` unprobed → true, `kind:'shell'` unprobed →
       false, `kind:'shell'` probed `'claude'` → true, `kind:'agent'` probed `null` → false, another
       session's entry does not leak. `agent-count.test.ts` — a `kind:'shell'` session with
@@ -942,8 +939,7 @@ it survive a collapsed panel, a second agent CLI, and a TUI that changes under i
 - [ ] Screenshots (F): the four glyphs side by side in one session list, light and dark, at the
       default density; and the same four with `data-motion='reduced'` set — the frame that proves
       they are still four distinct marks rather than one invisible one and two dimmed ones.
-- [ ] Screenshots, per the visual-phase convention: the ended strip with both buttons; a slept row
->>>>>>> Stashed changes
+- [x] Screenshots, per the visual-phase convention: the ended strip with both buttons; a slept row
       beside a live one; the *Reattached N sessions* note; the skew banner; a mid-tween frame of
       maximize (content clipped, not reflowed) — both themes.
 - [ ] **Open, for a human:** quit and relaunch the **packaged** app (from Finder, not a dev shell) with
