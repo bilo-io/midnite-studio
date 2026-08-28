@@ -1,11 +1,12 @@
 import { lazy, Suspense, useEffect, useState } from 'react';
 
 import { useQuery } from '@tanstack/react-query';
-import { LuFileQuestion } from 'react-icons/lu';
+import { LuFileQuestion, LuPresentation } from 'react-icons/lu';
 
 import { mgitFileUrl } from '@midnite/git-shared';
 
 import { EmptyState } from '../../../components/empty-state';
+import { IconButton } from '../../../components/icon-button';
 import { languageForFile, previewKindForFile } from '../../../lib/languages';
 import { bridge, hasBridge } from '../../../services/bridge';
 import { keys } from '../../../services/queries';
@@ -13,6 +14,7 @@ import { useRepoStatus } from '../../../services/use-status';
 import { useFileEditorStore } from '../../../store/file-editor-store';
 import { IMAGE_CHECKERBOARD, ImageDiff } from '../../diff/image-diff';
 import { differsFromHead, headToWorktreeImage } from '../../diff/image-sources';
+import { useSlidesStore } from '../../slides/slides-store';
 import { type FsScopeInput } from '../file-tree';
 import { CodePreview } from './code-preview';
 import { MarkdownPreview } from './markdown-preview';
@@ -185,14 +187,22 @@ export function FilePreview({ scope, relPath, targetLine }: FilePreviewProps) {
         </button>
       ) : null}
       {kind === 'markdown' && data?.kind === 'text' && !editing ? (
-        <button
-          type="button"
-          onClick={() => setShowSource((value) => !value)}
-          aria-pressed={showSource}
-          className="shrink-0 rounded-md border border-border px-2 py-0.5 text-[10px] text-muted-foreground transition-colors hover:bg-accent"
-        >
-          {showSource ? 'Rendered' : 'Source'}
-        </button>
+        <>
+          <button
+            type="button"
+            onClick={() => setShowSource((value) => !value)}
+            aria-pressed={showSource}
+            className="shrink-0 rounded-md border border-border px-2 py-0.5 text-[10px] text-muted-foreground transition-colors hover:bg-accent"
+          >
+            {showSource ? 'Rendered' : 'Source'}
+          </button>
+          <IconButton
+            icon={LuPresentation}
+            label="Present as slides"
+            size="sm"
+            onClick={() => useSlidesStore.getState().present({ content: data.content, label: fileName })}
+          />
+        </>
       ) : null}
     </div>
   );
@@ -285,7 +295,7 @@ export function FilePreview({ scope, relPath, targetLine }: FilePreviewProps) {
               </Suspense>
             </>
           ) : kind === 'markdown' && !showSource ? (
-            <MarkdownPreview content={data.content} />
+            <MarkdownPreview content={data.content} label={fileName} />
           ) : (
             <CodePreview
               content={data.content}

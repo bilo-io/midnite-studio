@@ -5,11 +5,13 @@ import type {
   ForgeWriteResult,
 } from '@midnite/git-shared';
 import { SquareArrowOutUpRight } from 'lucide-react';
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import Markdown from 'react-markdown';
+import { LuPresentation } from 'react-icons/lu';
 import remarkGfm from 'remark-gfm';
 
 import { IconButton } from '../../components/icon-button';
+import { useSlidesStore } from '../slides/slides-store';
 import {
   openExternal,
   useAddReviewComment,
@@ -198,7 +200,7 @@ export function PrDetail({ repoId, number }: { repoId: string; number: number })
         }`}
       >
         {tab === 'overview' ? (
-          <PrOverview detail={detail} isLoading={detailQuery.isLoading} />
+          <PrOverview detail={detail} isLoading={detailQuery.isLoading} number={pull.number} />
         ) : tab === 'files' ? (
           <PrFiles
             files={files.data?.files ?? null}
@@ -258,26 +260,44 @@ export function PrDetail({ repoId, number }: { repoId: string; number: number })
 function PrOverview({
   detail,
   isLoading,
+  number,
 }: {
   detail: ForgePullDetail | null;
   isLoading: boolean;
+  number: number;
 }) {
+  // Claims `activeMarkdown` only once there is a real body to present — an
+  // empty-description PR has nothing worth the palette's future command
+  // targeting. Cleared on unmount, matching `MarkdownPreview`'s own rule.
+  const body = detail !== null && detail.body.trim().length > 0 ? detail.body : null;
+  useEffect(() => {
+    if (body === null) return;
+    useSlidesStore.getState().setActiveMarkdown({ content: body, label: `PR #${number}` });
+    return () => useSlidesStore.getState().setActiveMarkdown(null);
+  }, [body, number]);
+
   if (detail === null) {
     if (isLoading) return <PrOverviewSkeleton />;
     return <Centered>No description to show.</Centered>;
   }
-  if (detail.body.trim().length === 0) {
+  if (body === null) {
     return <Centered>This pull request has no description.</Centered>;
   }
   return (
-    <div
-      data-selectable
-      className={`max-w-none px-4 py-3 text-sm leading-relaxed ${MARKDOWN_PROSE_CLASSES}`}
-    >
-      {/* No `rehype-raw` — see `CommitMessage`'s note on attacker-authored text. */}
-      <Markdown remarkPlugins={[remarkGfm]} components={{ a: ExternalLink }}>
-        {detail.body}
-      </Markdown>
+    <div className="px-4 py-3">
+      <IconButton
+        icon={LuPresentation}
+        label="Present as slides"
+        size="sm"
+        className="mb-1"
+        onClick={() => useSlidesStore.getState().present({ content: body, label: `PR #${number}` })}
+      />
+      <div data-selectable className={`max-w-none text-sm leading-relaxed ${MARKDOWN_PROSE_CLASSES}`}>
+        {/* No `rehype-raw` — see `CommitMessage`'s note on attacker-authored text. */}
+        <Markdown remarkPlugins={[remarkGfm]} components={{ a: ExternalLink }}>
+          {body}
+        </Markdown>
+      </div>
     </div>
   );
 }

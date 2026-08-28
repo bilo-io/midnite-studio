@@ -2,8 +2,11 @@ import type { ForgeReviewComment, ForgeReviewThread } from '@midnite/git-shared'
 import { Check, CornerDownRight, Undo2 } from 'lucide-react';
 import { useState } from 'react';
 import Markdown from 'react-markdown';
+import { LuPresentation } from 'react-icons/lu';
 import remarkGfm from 'remark-gfm';
 
+import { IconButton } from '../../components/icon-button';
+import { useSlidesStore } from '../slides/slides-store';
 import { RESOLVED_STATUS, StatusPill } from '../forge/forge-status';
 import { ExternalLink } from '../markdown/external-link';
 import { MARKDOWN_PROSE_CLASSES } from '../markdown/prose';
@@ -205,6 +208,23 @@ function CommentBody({ comment }: { comment: ForgeReviewComment }) {
         <span className="text-muted-foreground/70 tabular-nums">
           {comment.createdAt.slice(0, 10)}
         </span>
+        {/*
+          Always shown, even for a one-line comment — a one-slide deck is a
+          valid deck, not an error state to special-case around. Does NOT
+          claim `activeMarkdown`: a thread can hold many short bodies visible
+          at once, and none of them is unambiguously "the" markdown a
+          keyboard-invoked command should target (Phase 29's resolved
+          decision) — only the two description-level surfaces do that.
+        */}
+        <IconButton
+          icon={LuPresentation}
+          label="Present as slides"
+          size="sm"
+          className="ml-auto"
+          onClick={() =>
+            useSlidesStore.getState().present({ content: comment.body, label: 'Comment' })
+          }
+        />
       </div>
       <div
         data-selectable
