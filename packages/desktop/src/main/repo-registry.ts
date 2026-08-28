@@ -122,8 +122,13 @@ export function getRepo(repoId: string): RepoEntry | undefined {
  *
  * Every op carries an optional `worktreePath`, because worktrees have
  * independent indexes and HEADs — staging in one must not stage in another.
- * Unset means the main worktree. A path outside the repo is ignored rather than
- * trusted: it arrives from the renderer.
+ * Unset means the main worktree. A `worktreePath` that isn't one of the repo's
+ * current worktrees resolves to `null` rather than falling back to the main
+ * worktree — it arrives from the renderer, so it may be untrusted, but it may
+ * also be a worktree that existed a moment ago and was since removed (e.g. by
+ * `git worktree remove` run outside the app). Falling back silently would run
+ * the call against the wrong worktree and hand back that worktree's real data
+ * mislabeled as the requested one's; `null` lets callers report "gone" instead.
  */
 export async function resolveWorkdir(
   repoId: string,
@@ -134,7 +139,7 @@ export async function resolveWorkdir(
   if (!worktreePath) return entry.path;
 
   const worktrees = await listWorktrees(entry.path, repoId);
-  return worktrees.some((w) => w.path === worktreePath) ? worktreePath : entry.path;
+  return worktrees.some((w) => w.path === worktreePath) ? worktreePath : null;
 }
 
 export async function listRepos(): Promise<RepoDescriptor[]> {
