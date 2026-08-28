@@ -1,5 +1,6 @@
 import { beforeEach, describe, expect, it } from 'vitest';
 
+import { toggleRepoSection } from '../features/repos/view-sections';
 import {
   DEFAULT_AGENT_SKILLS,
   DEFAULT_GRAPH_COLUMNS,
@@ -28,6 +29,7 @@ const reset = () =>
     navMode: 'auto',
     collapsedNavSections: [],
     collapsedSettingsGroups: [],
+    collapsedRepoSections: {},
     sectionFilters: {},
     graphRefFilter: [],
     graphAuthorFilter: [],
@@ -386,6 +388,74 @@ describe('grouped settings navigation', () => {
 
     expect(merged.collapsedSettingsGroups).toEqual(['tools']);
     expect(merged.collapsedSettingsGroups).not.toContain('general');
+  });
+});
+
+describe('repo section folds', () => {
+  beforeEach(reset);
+
+  it('toggles a section shut and open again', () => {
+    toggleRepoSection('repo-a', 'tags');
+    expect(useUiStore.getState().collapsedRepoSections['repo-a']).toEqual(['tags']);
+
+    toggleRepoSection('repo-a', 'tags');
+    expect(useUiStore.getState().collapsedRepoSections['repo-a']).toEqual([]);
+  });
+
+  it('holds independent sets per repo', () => {
+    toggleRepoSection('repo-a', 'tags');
+    toggleRepoSection('repo-b', 'worktrees');
+
+    expect(useUiStore.getState().collapsedRepoSections['repo-a']).toEqual(['tags']);
+    expect(useUiStore.getState().collapsedRepoSections['repo-b']).toEqual(['worktrees']);
+  });
+
+  it('closing a parent section does not write anything to its children', () => {
+    toggleRepoSection('repo-a', 'branches');
+
+    expect(useUiStore.getState().collapsedRepoSections['repo-a']).toEqual(['branches']);
+  });
+
+  it("joins RemoteGroup's composite keys in the same map", () => {
+    // Not a `SectionKey` — the untyped primitive is the only way in.
+    useUiStore.getState().toggleRepoSectionKey('repo-a', 'remotes:origin');
+    expect(useUiStore.getState().collapsedRepoSections['repo-a']).toEqual(['remotes:origin']);
+  });
+
+  it('drops a repo’s entry entirely once it is pruned', () => {
+    toggleRepoSection('repo-a', 'tags');
+    toggleRepoSection('repo-b', 'tags');
+
+    useUiStore.getState().pruneRepoSections('repo-a');
+
+    expect(useUiStore.getState().collapsedRepoSections).not.toHaveProperty('repo-a');
+    expect(useUiStore.getState().collapsedRepoSections['repo-b']).toEqual(['tags']);
+  });
+
+  it('is a no-op pruning a repo with no entry', () => {
+    const before = useUiStore.getState().collapsedRepoSections;
+    useUiStore.getState().pruneRepoSections('repo-never-opened');
+    expect(useUiStore.getState().collapsedRepoSections).toBe(before);
+  });
+
+  it('persists the fold map, keyed by repo', () => {
+    toggleRepoSection('repo-a', 'tags');
+
+    const saved = JSON.parse(localStorage.getItem('midnite-git.ui') ?? '{}') as {
+      state: Record<string, unknown>;
+    };
+    expect(saved.state.collapsedRepoSections).toEqual({ 'repo-a': ['tags'] });
+  });
+
+  it('migrates a v2 payload to an empty fold map without losing sibling keys', () => {
+    const migrate = useUiStore.persist.getOptions().migrate;
+    const migrated = migrate?.(
+      { collapsedNavSections: ['workspace'], graphColumns: { branchTag: 200 } },
+      2,
+    ) as { collapsedNavSections: string[]; collapsedRepoSections: Record<string, string[]> };
+
+    expect(migrated.collapsedRepoSections).toEqual({});
+    expect(migrated.collapsedNavSections).toEqual(['workspace']);
   });
 });
 

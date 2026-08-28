@@ -154,34 +154,49 @@ cannot render a section the declaration does not contain.
       the flattened, visibility-filtered tree, Worktrees first, and a parent (`Branches`) disappears
       entirely once every child is filtered away.
 
-### D — Folds survive (M)
+### D — Folds survive (M) — ✅ DONE (2026-08-28)
 
 `useSectionToggles()` is a per-`RepoTree` `useState` of *closed* keys, deliberately scoped "while the
 repo stays expanded". Re-parenting is the moment to fix it: the keys are changing anyway, and a
 five-level tree that forgets its shape on every repo collapse is meaningfully worse than a flat one
 that does.
 
-- [ ] `collapsedRepoSections: Record<string, SectionKey[]>` joins `UiState` in
+- [x] `collapsedRepoSections: Record<string, string[]>` joins `UiState` in
       [`ui-store.ts`](../packages/app/src/store/ui-store.ts), keyed by repo id, holding *closed*
       sections — same inversion, same reason, as the `collapsedNavSections` and
-      `collapsedSettingsGroups` it sits beside.
-- [ ] `toggleRepoSection(repoId, key)` action, written in the same shape as the two existing togglers
-      so the three read as one pattern rather than three.
-- [ ] `collapsedRepoSections` added to the `PersistedUi` union and to `partialize`, and the persist
+      `collapsedSettingsGroups` it sits beside. Value type is `string[]` from the start (not
+      `SectionKey[]`), for the reason the `RemoteGroup` bullet below gives.
+- [x] `toggleRepoSection(repoId, key: SectionKey)`, but not on the store: it lives in
+      [`view-sections.ts`](../packages/app/src/features/repos/view-sections.ts) as a typed wrapper
+      around the store's untyped `toggleRepoSectionKey(repoId, key: string)`, because `ui-store.ts`
+      cannot import `SectionKey` without a cycle (`view-sections.ts` already imports `useUiStore`).
+      `pruneRepoSections(repoId)` joins it on the store.
+- [x] `collapsedRepoSections` added to the `PersistedUi` union and to `partialize`, and the persist
       `version` bumped `2 → 3` with a `migrate` arm that supplies `{}` for a v2 payload. The union
       type exists precisely so this cannot be half-done.
-- [ ] `useSectionToggles()` reads and writes the store instead of local state, and takes the repo id
-      it has never needed before.
-- [ ] `RemoteGroup`'s bare `useState(true)` joins the same map under a composite key
-      (`remotes:origin`), so folding `origin` is remembered like everything else in the tree. Its
-      per-remote keys are not `SectionKey`s — widen the stored value to `string[]` and keep
-      `SectionKey` the type at the *call* sites.
-- [ ] Pruning: a repo removed from the workspace has its entry dropped, so the persisted map does not
-      accumulate entries for repositories that no longer exist. `repo-lifecycle.ts` is where a repo
-      leaves.
-- [ ] Vitest on the store: toggling twice returns to the initial state; two repo ids hold independent
-      sets; a v2 persisted payload migrates without losing the other keys; closing a parent does not
-      write anything to its children.
+- [x] `useSectionToggles(repoId)` reads and writes the store instead of local state, and now takes
+      the repo id it never needed before. Returns `{ section, remoteGroup }`: `section(key)` is the
+      typed getter the four `SectionKey` call sites already used; `remoteGroup(name)` is `RemoteGroup`'s
+      own, over the composite key below.
+- [x] `RemoteGroup`'s bare `useState(true)` is gone — `open`/`onToggle` are now props, computed by
+      `RepoTree` via `useSectionToggles`'s `remoteGroup(name)` against the composite key
+      (`remotes:origin`), so folding `origin` is remembered like everything else in the tree.
+- [x] Pruning: **not `repo-lifecycle.ts`** — that file guesses install/build/test/launch commands
+      and has nothing to do with a repo leaving. The real precedent was `workbench.tsx`'s own
+      `useEffect` reconciling `useRepos()` against its tabs; extracted into a new
+      `use-prune-closed-repos.ts` that prunes both `workbench-store`'s tabs and
+      `collapsedRepoSections` from one place, mounted once from `Shell` (`app.tsx`) rather than
+      from `Workbench` — which only renders while the Changes view is active, so a repo closed
+      while looking at the Graph used to keep its tabs and folds around unpruned.
+- [x] Vitest on the store (`ui-store.test.ts`, `describe('repo section folds')`): toggling twice
+      returns to the initial state; two repo ids hold independent sets; a composite `RemoteGroup`
+      key joins the same map; pruning drops one repo's entry without touching another's, and is a
+      no-op for a repo with none; the fold map persists; a v2 persisted payload migrates to an
+      empty fold map without dropping `collapsedNavSections`.
+- [x] Playwright (`e2e/repo-section-folds.spec.ts`, new): folding `Remotes` survives collapsing and
+      re-expanding the repo row (which unmounts `RepoTree` outright — the regression a per-mount
+      `useState` could not survive) and a full reload; a `RemoteGroup`'s own fold persists across a
+      reload independently of `Remotes`.
 
 ### E — The Branches heading earns itself (S)
 
