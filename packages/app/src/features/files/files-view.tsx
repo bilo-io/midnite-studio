@@ -1,4 +1,4 @@
-import { useEffect, useMemo } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 
 import { useQueryClient } from '@tanstack/react-query';
 import { LuFolderTree, LuRefreshCw } from 'react-icons/lu';
@@ -11,6 +11,8 @@ import { DEFAULT_LAYOUT, LAYOUT_BOUNDS, useUiStore } from '../../store/ui-store'
 import { FileTree, fsScopeKey, type FsScopeInput } from './file-tree';
 import { FilePreview } from './preview/file-preview';
 import { useFilesStore } from './files-store';
+import { SearchBar, SearchResults } from './search-panel';
+import { useFileSearch } from './use-file-search';
 
 /**
  * The Files view: the active checkout as a lazy tree on the left, a
@@ -32,6 +34,13 @@ export function FilesView() {
   const selectFile = useFilesStore((s) => s.selectFile);
   const ensureScope = useFilesStore((s) => s.ensureScope);
 
+  // The line a search result was opened at — cleared on an ordinary tree
+  // click, so browsing away from a search hit never leaves a stale
+  // highlight behind. Not in `files-store`: it is meaningless outside this
+  // one open-and-scroll gesture, unlike `selectedPath`, which the store owns
+  // because switching checkouts has to reset it.
+  const [targetLine, setTargetLine] = useState<number | null>(null);
+
   const scope: FsScopeInput | null = useMemo(
     () =>
       selectedRepoId
@@ -43,6 +52,13 @@ export function FilesView() {
         : null,
     [selectedRepoId, selectedWorktreePath],
   );
+
+  const search = useFileSearch(
+    selectedRepoId
+      ? { repoId: selectedRepoId, ...(selectedWorktreePath ? { worktreePath: selectedWorktreePath } : {}) }
+      : null,
+  );
+  const searching = search.query.trim().length > 0;
 
   // Expansion and selection are per-checkout; switching repo or worktree
   // starts a clean browse instead of carrying stale relPaths across.
@@ -89,22 +105,48 @@ export function FilesView() {
             />
           </span>
         </div>
+        <SearchBar
+          query={search.query}
+          setQuery={search.setQuery}
+          options={search.options}
+          setOptions={search.setOptions}
+        />
         <div className="min-h-0 flex-1 overflow-auto">
-          <FileTree
-            scope={scope}
-            expanded={expanded}
-            selectedPath={selectedPath}
-            onToggleDir={toggleDir}
-            onSelectFile={selectFile}
-            writable
-          />
+          {searching ? (
+            <SearchResults
+              state={search.state}
+              query={search.query.trim()}
+              options={search.options}
+              onOpenResult={(path, line) => {
+                selectFile(path);
+                setTargetLine(line);
+              }}
+            />
+          ) : (
+            <FileTree
+              scope={scope}
+              expanded={expanded}
+              selectedPath={selectedPath}
+              onToggleDir={toggleDir}
+              onSelectFile={(path) => {
+                selectFile(path);
+                setTargetLine(null);
+              }}
+              writable
+            />
+          )}
         </div>
       </div>
 
       <ResizeHandle resizable={tree} axis="x" label="Resize file tree" />
 
       {selectedPath ? (
-        <FilePreview key={`${scopeKey}:${selectedPath}`} scope={scope} relPath={selectedPath} />
+        <FilePreview
+          key={`${scopeKey}:${selectedPath}`}
+          scope={scope}
+          relPath={selectedPath}
+          targetLine={targetLine ?? undefined}
+        />
       ) : (
         <div className="flex min-w-0 flex-1 items-center justify-center p-6">
           <p className="text-xs text-muted-foreground">Select a file to preview it.</p>
