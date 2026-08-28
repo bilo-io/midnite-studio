@@ -469,14 +469,20 @@ export type UiState = {
  * put while the labels the menu shows are free to be reworded.
  */
 export type AgentCommandId =
-  | 'exec'
+  | 'execBacklog'
+  | 'execAdhoc'
+  | 'addressIssue'
   | 'brainstorm'
   | 'refine'
+  | 'prReview'
+  | 'prFeedback'
   | 'releasePrep'
   | 'releaseComplete'
   | 'loopPrReview'
   | 'loopPrFeedback'
-  | 'loopExec'
+  | 'loopExecBacklog'
+  | 'loopExecAdhoc'
+  | 'loopAddressIssue'
   | 'loopBrainstorm';
 
 /**
@@ -484,14 +490,20 @@ export type AgentCommandId =
  * actually have. Settings → Agent can point any of them somewhere else.
  */
 export const DEFAULT_AGENT_SKILLS: Record<AgentCommandId, string> = {
-  exec: '/exec',
+  execBacklog: '/exec-backlog',
+  execAdhoc: '/exec-adhoc',
+  addressIssue: '/address-issue',
   brainstorm: '/brainstorm',
   refine: '/refine',
+  prReview: '/pr-review',
+  prFeedback: '/pr-feedback',
   releasePrep: '/release-prep',
   releaseComplete: '/release-complete',
-  loopPrReview: '/loop-pr-reviews',
-  loopPrFeedback: '/loop-pr-feedback',
-  loopExec: '/loop /exec',
+  loopPrReview: '/loop /pr-review',
+  loopPrFeedback: '/loop /pr-feedback',
+  loopExecBacklog: '/loop /exec-backlog',
+  loopExecAdhoc: '/loop /exec-adhoc',
+  loopAddressIssue: '/loop /address-issue',
   loopBrainstorm: '/loop /brainstorm',
 };
 

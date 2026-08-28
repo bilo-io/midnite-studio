@@ -43,8 +43,8 @@ const ptyInputs = (page: Page) =>
 
 async function openMidniteMenu(page: Page): Promise<void> {
   await page.getByRole('button', { name: `Run a midnite skill on ${REPO}` }).click();
-  // Exact: "Loop: Execute Task" also contains "Execute Task" as a substring.
-  await expect(page.getByRole('menuitem', { name: 'Execute Task', exact: true })).toBeVisible();
+  // Exact: "Loop: Backlog Task" also contains "Backlog Task" as a substring.
+  await expect(page.getByRole('menuitem', { name: 'Backlog Task', exact: true })).toBeVisible();
 }
 
 test('the row carries three menus, midnite first and the ellipsis last', async ({ page }) => {
@@ -76,7 +76,7 @@ test('the row carries three menus, midnite first and the ellipsis last', async (
   ]);
 });
 
-test('the menu offers the nine agent verbs, each with its own glyph, grouped into three categories', async ({
+test('the menu offers the fifteen agent verbs, each with its own glyph, grouped into four categories', async ({
   page,
 }) => {
   await open(page);
@@ -86,30 +86,36 @@ test('the menu offers the nine agent verbs, each with its own glyph, grouped int
   // The labels, not the ids — what the menu shows is a display layer over
   // `AgentCommandId`, and this is the assertion that keeps the two apart.
   await expect(items).toHaveText([
-    'Execute Task',
+    'Backlog Task',
+    'Adhoc Task',
+    'Address Issue',
     'Brainstorm',
     'Refine Plan',
+    'PR Review',
+    'PR Feedback',
     'Release Prep',
     'Release Complete',
-    'Loop PR Review',
-    'Loop PR Feedback',
-    'Loop: Execute Task',
+    'Loop: PR Review',
+    'Loop: PR Feedback',
+    'Loop: Backlog Task',
+    'Loop: Adhoc Task',
+    'Loop: Address Issue',
     'Loop: Brainstorm',
   ]);
-  // Iconed throughout, like every other menu the row opens — a menu of nine
+  // Iconed throughout, like every other menu the row opens — a menu of fifteen
   // bare verbs would be the one place the app drops its glyphs.
-  await expect(items.locator('svg')).toHaveCount(9);
-  // Three categories, so two dividers: agent | release | loops.
-  await expect(page.getByRole('menu').locator('hr')).toHaveCount(2);
+  await expect(items.locator('svg')).toHaveCount(15);
+  // Four categories, so three dividers: execute | pr | release | loops.
+  await expect(page.getByRole('menu').locator('hr')).toHaveCount(3);
 });
 
 test('an entry opens a Claude session with its skill typed, not run', async ({ page }) => {
   await open(page);
   await openMidniteMenu(page);
-  await page.getByRole('menuitem', { name: 'Execute Task', exact: true }).click();
+  await page.getByRole('menuitem', { name: 'Backlog Task', exact: true }).click();
 
   await expect(page.locator('[data-terminal-panel]')).toBeVisible();
-  await expect.poll(() => ptyInputs(page)).toEqual(["claude '/exec'"]);
+  await expect.poll(() => ptyInputs(page)).toEqual(["claude '/exec-backlog'"]);
   // No trailing newline anywhere in this path. Pressing Return is the
   // confirmation, so a mis-clicked menu cannot set an agent loose on a repo.
   const inputs = await ptyInputs(page);
@@ -123,8 +129,8 @@ test('pointing the entry at another skill in Settings changes what it sends', as
   await page.getByRole('button', { name: 'Settings' }).click();
   await page.getByRole('button', { name: 'Agent', exact: true }).click();
 
-  const field = page.getByRole('textbox', { name: 'Skill for Execute Task' });
-  await expect(field).toHaveValue('/exec');
+  const field = page.getByRole('textbox', { name: 'Skill for Backlog Task' });
+  await expect(field).toHaveValue('/exec-backlog');
   await field.fill('/exec-issue');
 
   // The reset link is the "this has drifted from the default" signal, so it
@@ -134,7 +140,7 @@ test('pointing the entry at another skill in Settings changes what it sends', as
 
   await page.getByRole('link', { name: 'Graph' }).click();
   await openMidniteMenu(page);
-  await page.getByRole('menuitem', { name: 'Execute Task', exact: true }).click();
+  await page.getByRole('menuitem', { name: 'Backlog Task', exact: true }).click();
 
   await expect.poll(() => ptyInputs(page)).toEqual(["claude '/exec-issue'"]);
 });

@@ -29,15 +29,17 @@ describe('AGENT_COMMANDS', () => {
   });
 
   it('keeps the labels a display layer, free of the ids they render', () => {
-    // "Execute Task" over `exec`, "Refine Plan" over `refine`: the menu reads as
+    // "Backlog Task" over `execBacklog`, "Refine Plan" over `refine`: the menu reads as
     // verb phrases while the persisted keys stay short. Asserted so a later
     // rename of one cannot quietly drag the other with it.
-    expect(AGENT_COMMANDS.find((command) => command.id === 'exec')?.label).toBe('Execute Task');
+    expect(AGENT_COMMANDS.find((command) => command.id === 'execBacklog')?.label).toBe(
+      'Backlog Task',
+    );
     expect(AGENT_COMMANDS.find((command) => command.id === 'refine')?.label).toBe('Refine Plan');
     expect(DEFAULT_AGENT_SKILLS.refine).toBe('/refine');
   });
 
-  it('groups categories contiguously, in agent → release → loops order', () => {
+  it('groups categories contiguously, in execute → pr → release → loops order', () => {
     // The menu and the settings page each draw one divider per category
     // *change*, so a category that reappears after the list has moved past it
     // would draw a second divider for the same group instead of one.
@@ -52,6 +54,6 @@ describe('AGENT_COMMANDS', () => {
       current = category;
       order.push(category);
     }
-    expect(order).toEqual(['agent', 'release', 'loops']);
+    expect(order).toEqual(['execute', 'pr', 'release', 'loops']);
   });
 });
