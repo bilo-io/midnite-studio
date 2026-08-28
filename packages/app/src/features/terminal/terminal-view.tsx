@@ -8,9 +8,12 @@ import { useCallback, useEffect, useRef, useState } from 'react';
 import { bridge } from '../../services/bridge';
 import { shouldEscapeTerminal } from '../../services/keybindings/use-keybindings';
 import { createActivityState, detectActivity } from './activity-detect';
+import { EndedStrip } from './ended-banner';
 import { parseOsc7 } from './parse-osc7';
 import { createReplayGate } from './replay-gate';
-import { useTerminalStore } from './terminal-store';
+import { agentInput } from './terminal-panel';
+import { sessionPhase, useTerminalStore } from './terminal-store';
+import { useAgents } from './use-agents';
 import { useTerminalIpc } from './use-terminal-ipc';
 
 /**
@@ -66,9 +69,6 @@ const LIGHT_THEME = {
 } as const;
 
 const isDark = (): boolean => document.documentElement.classList.contains('dark');
-
-/** Shown under a restored transcript, in place of the prompt that is not there. */
-const REVIVE_HINT = '\r\n\x1b[2m[session ended] Press Enter to start a new shell here.\x1b[0m\r\n';
 
 /**
  * DEC private-mode resets, written after a restored transcript.
@@ -403,7 +403,6 @@ export function TerminalView({
         if (replay && replay.length > 0) {
           term.write(replay);
           term.write(RESET_MODES);
-          term.write(REVIVE_HINT);
         }
       }
 
@@ -514,6 +513,11 @@ export function TerminalView({
   // arrow-key navigation, which changes the active session but wants to stay
   // in the list until an explicit sideways arrow hands focus over.
   const focusSignal = useTerminalStore((s) => s.focusSignal);
+  const exitCode = useTerminalStore((s) => s.exitCodes[session.id]);
+  const { agents } = useAgents();
+  const agent = session.kind === 'agent' ? agents.find((a) => a.id === session.agentId) : undefined;
+  const phase = sessionPhase(session, connectionState);
+
   useEffect(() => {
     if (!active || !ready) return;
     if (useTerminalStore.getState().suppressAutoFocus) {
@@ -537,6 +541,27 @@ export function TerminalView({
       <div className="min-h-0 flex-1 p-1">
         <div ref={containerRef} className="h-full w-full" />
       </div>
+
+      {phase === 'ended' ? (
+        <EndedStrip
+          exitCode={exitCode}
+          resume={agent?.resume}
+          onStartShell={() => {
+            if (termRef.current) {
+              void start(termRef.current.cols, termRef.current.rows, undefined);
+            }
+          }}
+          onResume={() => {
+            if (termRef.current && agent && agent.resume) {
+              void start(
+                termRef.current.cols,
+                termRef.current.rows,
+                agentInput({ ...agent, args: agent.resume }),
+              );
+            }
+          }}
+        />
+      ) : null}
     </div>
   );
 }
