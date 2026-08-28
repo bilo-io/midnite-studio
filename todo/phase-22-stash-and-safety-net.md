@@ -95,89 +95,89 @@ The spine: B–E all read off this contract, so it lands first.
       `*.integration.test.ts` convention: push with and without `-u`, `--keep-index`, a path-scoped
       push, pop clean, pop conflicted, drop, and `stash branch`.
 
-### B — Stashes in the sidebar (M)
+### B — Stashes in the sidebar (M) ✅ DONE (2026-08-28)
 
-- [ ] `'stashes'` joins `SectionKey` and `ALL_SECTIONS` in
+- [x] `'stashes'` joins `SectionKey` and `ALL_SECTIONS` in
       [`view-sections.ts`](../packages/app/src/features/repos/view-sections.ts), and every
       `VIEW_FILTERS` entry decides whether it shows it. It also joins `RefSectionKey`, because it
       wants a heading menu — which forces a new arm in `sectionMenu(kind, refs)` in
       [`use-repo-actions.ts`](../packages/app/src/features/repos/use-repo-actions.ts).
-- [ ] A `<TreeSection title="Stashes">` block in `RepoTree` in
+- [x] A `<TreeSection title="Stashes">` block in `RepoTree` in
       [`repos-panel.tsx`](../packages/app/src/features/repos/repos-panel.tsx), beside the four
       literal Local/Remotes/Tags/Worktrees blocks, with its entry in `SECTION_TITLE` and its key in
       `useSectionToggles`. `hideWhenEmpty` — a repo that has never stashed should not carry an empty
       heading forever.
-- [ ] A `StashRow` component alongside `RefRow`/`WorktreeRow` at the same `TREE_INDENT` depth:
+- [x] A `StashRow` component alongside `RefRow`/`WorktreeRow` at the same `TREE_INDENT` depth:
       the message as the primary text, a relative timestamp as `meta`, and a file-count chip so a
       one-file stash reads differently from a forty-file one at a glance.
-- [ ] The query key nests under `keys.repo(repoId)` in
+- [x] The query key nests under `keys.repo(repoId)` in
       [`queries.ts`](../packages/app/src/services/queries.ts). This is not optional — that file's
       doc comments warn twice that a key outside `['repos', repoId, …]` is never invalidated by the
       watcher, and it is a bug the project has already hit.
-- [ ] `.git/refs/stash` already falls under the watcher's recursive `.git/refs` watch in
+- [x] `.git/refs/stash` already falls under the watcher's recursive `.git/refs` watch in
       [`repo-watcher.ts`](../packages/git-engine/src/watch/repo-watcher.ts) and classifies as
       `'refs'`, so `stash push`/`drop` invalidate for free — confirm the mapping in
       [`watch-invalidation.ts`](../packages/app/src/services/watch-invalidation.ts) rather than
       assuming it.
-- [ ] A row menu via `refMenu`'s sibling `stashMenu(entry)`: Apply, Pop, Drop, Branch from stash,
+- [x] A row menu via `refMenu`'s sibling `stashMenu(entry)`: Apply, Pop, Drop, Branch from stash,
       Copy sha. Drop is `danger` and goes through `dialogs.confirm` — it is the one stash op with no
       button-shaped way back.
-- [ ] The heading action creates a stash from the current worktree state, prompting for a message
+- [x] The heading action creates a stash from the current worktree state, prompting for a message
       through the existing `PromptDialog` rather than inventing an input.
-- [ ] [`sidebar-page.tsx`](../packages/app/src/features/settings/settings-pages/sidebar-page.tsx)
+- [x] [`sidebar-page.tsx`](../packages/app/src/features/settings/settings-pages/sidebar-page.tsx)
       enumerates the sections; the new one appears there too, or the settings page quietly lies.
 
-### C — Stashes in the graph (M)
+### C — Stashes in the graph (M) ✅ DONE (2026-08-28)
 
-- [ ] Stash rows are **pseudo-rows**, following the precedent
+- [x] Stash rows are **pseudo-rows**, following the precedent
       [`uncommitted-row.tsx`](../packages/app/src/features/graph/uncommitted-row.tsx) set and
       documented: `GraphRowSchema` in
       [`commit.ts`](../packages/shared/src/domain/commit.ts) stays a commit-only type, and a stash
       is not given a fake sha to smuggle it into `graph-store`, the virtualizer's index space, and
       every `rows[i]` lookup that would then have to exclude it again.
-- [ ] A `StashRows` sibling rendered above the `role="grid"` scroller in
+- [x] A `StashRows` sibling rendered above the `role="grid"` scroller in
       [`graph-view.tsx`](../packages/app/src/features/graph/graph-view.tsx), beneath
       `UncommittedRow`, taking `lane`/`colorIdx` from `headRow` the same way.
-- [ ] The same "this is not a real commit" visual grammar `UncommittedRow` established — dashed
+- [x] The same "this is not a real commit" visual grammar `UncommittedRow` established — dashed
       ring node, dashed lane, italic muted text — so the two pseudo-rows read as one family rather
       than two exceptions.
-- [ ] Collapse past two entries: a repo with fourteen stashes must not push the actual graph off
+- [x] Collapse past two entries: a repo with fourteen stashes must not push the actual graph off
       the top of the pane. The overflow row links to the sidebar section.
-- [ ] Selecting a stash row drives the same selection state a commit row does, so Theme D's
+- [x] Selecting a stash row drives the same selection state a commit row does, so Theme D's
       inspector is reached identically from the graph and from the sidebar.
-- [ ] A stash's rows disappear the moment the underlying entry is popped or dropped — the watcher
+- [x] A stash's rows disappear the moment the underlying entry is popped or dropped — the watcher
       `'refs'` event from Theme B is the trigger, not a manual refresh.
 
-### D — A stash you can read (M)
+### D — A stash you can read (M) ✅ DONE (2026-08-28)
 
-- [ ] `stashDiff(worktreePath, selector)` in `commands/stash.ts`, returning the same parsed shape
+- [x] `stashDiff(worktreePath, selector)` in `commands/stash.ts`, returning the same parsed shape
       [`diff.ts`](../packages/git-engine/src/commands/diff.ts) and
       [`diff-parser.ts`](../packages/git-engine/src/parsers/diff-parser.ts) already produce, so the
       inspector renders it through the one shared `DiffView` with no new renderer.
-- [ ] **Three parts, not one.** The tracked changes are `stash@{n}^1..stash@{n}`; the index state is
+- [x] **Three parts, not one.** The tracked changes are `stash@{n}^1..stash@{n}`; the index state is
       `stash@{n}^2`; the untracked files are `stash@{n}^3` and exist only when the stash was made
       with `-u`. `git stash show -p` shows the first and silently omits the rest, which is exactly
       the kind of quiet partial truth this inspector should not repeat.
-- [ ] The inspector's stash mode reuses Phase 12's file list and hunk rendering wholesale, with a
+- [x] The inspector's stash mode reuses Phase 12's file list and hunk rendering wholesale, with a
       header naming the branch the stash was made on (parsed out of `%gs`, which reads
       `WIP on main: 1a2b3c4 subject`) and the time it was made.
-- [ ] Untracked entries are labelled as untracked in the file list — they are additions with no
+- [x] Untracked entries are labelled as untracked in the file list — they are additions with no
       "before", and rendering them as ordinary adds loses the one fact that matters when deciding
       whether a pop is safe.
-- [ ] Apply / Pop / Drop / Branch as actions in the inspector header, sharing Theme B's handlers
+- [x] Apply / Pop / Drop / Branch as actions in the inspector header, sharing Theme B's handlers
       rather than a second copy of them.
 
-### E — Stash from the Changes view (S)
+### E — Stash from the Changes view (S) ✅ DONE (2026-08-28)
 
-- [ ] The Phase 17 Changes filter tree gains a stash action scoped to the current selection: with
+- [x] The Phase 17 Changes filter tree gains a stash action scoped to the current selection: with
       files selected, `stashPush({ paths })`; with none, the whole worktree.
-- [ ] `--keep-index` and `--include-untracked` as explicit, labelled options on the stash prompt —
+- [x] `--keep-index` and `--include-untracked` as explicit, labelled options on the stash prompt —
       not defaults chosen for the user. "Keep staged changes staged" and "include untracked files"
       are the labels; the flags are an implementation detail.
-- [ ] The op runs through `useTargetedGitOp` in
+- [x] The op runs through `useTargetedGitOp` in
       [`use-status.ts`](../packages/app/src/services/use-status.ts) so `onSettled` invalidates
       `keys.repo(repoId)` on the same path every other write already uses.
-- [ ] A stash of zero changes is refused before it is attempted, with the reason shown — git's own
+- [x] A stash of zero changes is refused before it is attempted, with the reason shown — git's own
       "No local changes to save" arriving as a red error is a worse answer than a disabled control.
 
 ### F — Force-push, with a lease (S)
