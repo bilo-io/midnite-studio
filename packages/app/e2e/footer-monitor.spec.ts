@@ -234,6 +234,10 @@ test.describe('footer monitor', () => {
    * drifting, disk flat (because capacity is).
    */
   test('screenshots', async ({ page }) => {
+    // Ungated, this rewrote five committed PNGs on every `app:e2e` run, not
+    // just an explicit regeneration — the same reason `shots.spec.ts` gates
+    // its own block.
+    test.skip(!process.env.MGIT_SHOTS, 'set MGIT_SHOTS=1 to regenerate');
     // The bar as it was: everything left-aligned, right half empty.
     await installMockBridge(page, { ...fixtures });
     await page.goto('/');

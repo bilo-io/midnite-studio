@@ -57,6 +57,41 @@ store itself, since `ui-store.ts` importing `SectionKey` from `view-sections.ts`
 - [x] `e2e/repo-section-folds.spec.ts` (new): a folded `Remotes` section survives collapsing and
       re-expanding the repo row and a full reload; a `RemoteGroup`'s own fold persists independently
 
+## 2026-08-28 — Phase 27 Theme H — the tests the status bar's five themes had been landing without
+
+Merged locally on `feature/phase-27-h-tests` — no PR link, no GitHub remote on this checkout.
+
+Most of the vitest half was already covered by the themes that needed the testable seam in the
+first place (Theme E's `density.test.ts`, Theme F's `ui-store.test.ts` merge/partialize cases) —
+this theme's real work was the four segments' pure-predicate absent-case tests and the whole e2e
+half. Also tried and reverted: a `live?: boolean` metadata field on `StatusSegment`, added on the
+guess that Theme G would read it to drive `aria-live`. G landed (rebased in after this branch was
+built) with `OpProgressLiveRegion`/`InProgressLiveRegion` mounted directly by `StatusBar` instead —
+`collapseFor` removes a zone's segments from the DOM entirely at `collapsed` density, so a live
+region has to live outside `STATUS_SEGMENTS` to survive it. The field had no reader left, so it and
+its test assertion came back out rather than staying as unused metadata.
+
+- [x] `op-progress.test.ts`, `test-verdict.test.ts`, `agent-count.test.ts`: absent-case coverage for
+      `opLabel`/`testVerdict`/`agentCount`, plus a bonus `checks-verdict.test.ts` for
+      `findPrForBranch` — the doc named only three of Theme D's five segments, but the fourth
+      pure predicate deserved the same coverage as the other three
+- [x] `e2e/status-bar.spec.ts`: two new specs — the bar's left edge never moves with the
+      repositories panel (open/shut/mid-slide, the last reached via the splitter's own keyboard
+      `End` key rather than a synthesised pointer drag), and narrowing drives `compact` then
+      `collapsed` with a click-through check that a segment collapsed into the overflow popover
+      keeps its click behaviour. Six seeded segments push the collapse threshold to ~790px,
+      comfortably clear of `@bilo-io/shell`'s 768px `md:` breakpoint, so real viewport narrowing
+      never contends with the shell's mobile chrome
+- [x] `footer-monitor.spec.ts`'s ungated `screenshots` test now skips without `MGIT_SHOTS=1`,
+      matching every other shot spec's own gate
+- [x] New `e2e/status-bar-shots.spec.ts` (gated): light+dark captures of the states the phase's
+      Verification checklist named and nothing had captured yet — full, repos-shut, `compact`,
+      `collapsed`, the overflow popover open, and the browser pane open
+- [x] `shots.spec.ts`'s four committed screenshots regenerated and visually verified — the bar
+      moved into every one of them. Left deliberately unswept: several *other* ungated shot specs
+      elsewhere in the repo also drifted once Theme A moved the bar, but verifying each one is
+      outside what this theme could responsibly check in one pass
+
 ## 2026-08-28 — Phase 27 Theme E — status bar overflow
 
 Merged locally on `feature/phase-27-e-overflow` — no PR link, no GitHub remote on this checkout.
