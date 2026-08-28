@@ -20,7 +20,7 @@ Completed work is logged append-only in [`done.md`](done.md). Deferred scope liv
 
 | Phase | Status | Refined | Done | Progress | % | 🔄 WIP | ◻ TODO |
 |-------|--------|---------|------|----------|---|--------|--------|
-| [30 · A terminal that survives you](phase-30-terminal-hardening.md) | ◻ TODO | — | 0/50 | `░░░░░░░░░░` | 0% | — | A–E |
+| [30 · A terminal that survives you](phase-30-terminal-hardening.md) | ◻ TODO | x1 | 0/63 | `░░░░░░░░░░` | 0% | — | A–E |
 | [29 · Markdown slides, everywhere markdown already renders](phase-29-markdown-slides-viewer.md) | ✅ DONE | — | 21/21 | `██████████` | 100% | — | — |
 | [28 · Worktrees first, and the section tree that can say so](phase-28-sidebar-section-tree.md) | 🔄 WIP | — | 59/62 | `██████████` | 95% | — | 3 verification items |
 | [27 · The footer becomes a status bar, and the browser it makes room for](phase-27-status-bar-and-browser-panel.md) | 🔄 WIP | x1 | 72/90 | `████████░░` | 80% | — | 18 verification items |
@@ -70,18 +70,26 @@ row, which becomes an honest live/asleep/ended state with an agent-resume button
 panel gets the same 200 ms ease-in-out size tween through one primitive, fitting the terminal once at
 the end.*
 
-- ◻ **A** — the blank pane and panels that interpolate: a failing reveal spec first, then a live-session
-  snapshot on remount and `fit`+`refresh` on `transitionend`; `useRevealSize` tweens terminal
-  closed↔height↔maximized, the session list, the repos aside and the browser pane off one `REVEAL_MS`.
-- ◻ **B** — reattach after a renderer reload: `terminal:list` reports each session's live pty, `hydrate`
-  rebinds instead of reviving, main handles `did-finish-load`/`render-process-gone`.
-- ◻ **C** — the session broker: `desktop/src/broker/` over a version-namespaced unix socket, `pty-service`
-  as its client behind an unchanged surface, exits with its last session, `before-quit` detaches; a
-  "Reattached N sessions" note on launch; version skew leaves the old broker readable.
-- ◻ **D** — honest session states: `SessionPhase` live/asleep/ended, an ended strip with *Start new shell*
-  and *Resume conversation* (roster `resume`), a Sleep action, `X` confirming when busy.
-- ◻ **E** — naming from the process tree: delete `trackShellCommand`; the `ps` watcher reports the `+`
-  foreground process as `pty:command-changed`, OSC title as fallback.
+- ◻ **A** — the blank pane and panels that interpolate: a failing `terminal-reveal.spec.ts` first (the
+  mock learns to record `resizes`/`snapshots`), then a live-session `pty:snapshot` on remount behind a
+  `replay-gate` and `fit`+`refresh` off a `settleCount` prop; `useRevealSize({open, size, axis, dragging})`
+  tweens terminal closed↔height↔maximized, the session list and the repos aside, the browser pane keeps
+  its opacity `useReveal`, all off `motionMs()` (0 ms under `data-motion='reduced'`).
+- ◻ **B** — reattach after a renderer reload: `live: {ptyId, pid, cols, rows} | null` on `terminal:list`,
+  `hydrate` binds `'open'` instead of `'exited'`, a `mgit:pty:snapshot` invoke, `render-process-gone`
+  logs and reloads (no `did-finish-load` — the `webContents` survives a reload).
+- ◻ **C** — the session broker: a third esbuild output run under `ELECTRON_RUN_AS_NODE`, asar-unpacked
+  beside a whole-unpacked node-pty; `[u8 type][u32 len]` frames over `<userData>/broker/<v>[-dev].sock`
+  (0600) with `hello`/`list`/`attach`/`kill` frozen so version skew stays readable; `env` in every
+  `create`; 2 s/5 s timeouts then fail-soft (`MGIT_PTY_INPROC=1`); `before-quit` and
+  `window-all-closed` detach; a 4 s *Reattached N sessions* segment.
+- ◻ **D** — honest session states: `sessionPhase()` over a persisted `asleep` flag × `ConnectionState`,
+  an `EndedStrip` (`role="status"`, *exit N* from a new `exitCodes` map) with *Start new shell here* and
+  *Resume conversation* (roster `resume: string[]`), Sleep in the row menu (lucide `Moon`), the **row**
+  `X` confirming when a foreground command runs, `DotState` gains `'asleep'`.
+- ◻ **E** — naming from the process tree: delete `trackShellCommand`; `ps` gains `stat=` (four columns,
+  fixtures hand-edited), `foregroundOf` picks the last `+` member by pid, `commandLabel` truncates at
+  40, `pty:command-changed` holds the name after exit, OSC title only before any command.
 
 ### [Phase 29 — Markdown slides, everywhere markdown already renders](phase-29-markdown-slides-viewer.md)
 
