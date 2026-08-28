@@ -10,8 +10,10 @@ import { InProgressSegment } from './in-progress';
 import { OpProgressSegment } from './op-progress';
 import { ReattachedNote } from './reattached-note';
 import { ReposToggle } from './repos-toggle';
+import { SearchProgressSegment } from './search-progress';
 import { TerminalToggle } from './terminal-toggle';
 import { TestVerdictSegment } from './test-verdict';
+
 
 export type StatusZone = 'left' | 'center' | 'right';
 
@@ -63,8 +65,10 @@ export const STATUS_SEGMENTS: StatusSegment[] = [
     label: 'Reattached sessions',
     El: ReattachedNote,
   },
+  { id: 'search-progress', zone: 'center', priority: 5, label: 'Search progress', El: SearchProgressSegment },
   { id: 'op-progress', zone: 'center', priority: 10, label: 'Operation progress', El: OpProgressSegment },
   // Outranks op-progress: a rebase you have forgotten you are mid-way through
+
   // is the single most expensive thing this bar can tell you.
   { id: 'in-progress', zone: 'center', priority: 20, label: 'Mid-operation', El: InProgressSegment },
   // Rendered before diagnostics; lowest priority of the right zone's five —

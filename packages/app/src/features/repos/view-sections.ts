@@ -180,6 +180,7 @@ export const UNFILTERED: ViewFilter = { sections: ALL_SECTIONS, dirtyOnly: false
 export const VIEW_FILTERS: Record<ViewId, ViewFilter> = {
   dashboard: WORK_IN_PROGRESS,
   files: WORK_IN_PROGRESS,
+  search: WORK_IN_PROGRESS,
   graph: WORK_IN_PROGRESS,
   changes: WORK_IN_PROGRESS,
   actions: { sections: ['actions', 'worktrees'], dirtyOnly: false },
@@ -187,6 +188,7 @@ export const VIEW_FILTERS: Record<ViewId, ViewFilter> = {
   reviews: { sections: ['reviews', 'worktrees'], dirtyOnly: false },
   settings: WORK_IN_PROGRESS,
 };
+
 
 /**
  * The views that arrive already narrowed.

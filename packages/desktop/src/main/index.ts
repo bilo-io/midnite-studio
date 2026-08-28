@@ -18,6 +18,7 @@ import { registerRefHandlers } from './ipc/ref-handlers';
 import { registerClipboardHandlers } from './ipc/clipboard-handlers';
 import { registerRemoteHandlers } from './ipc/remote-handlers';
 import { registerRepoHandlers } from './ipc/repo-handlers';
+import { registerSearchHandlers } from './ipc/search-handlers';
 import { registerStatsHandlers } from './ipc/stats-handlers';
 import { registerStatusHandlers } from './ipc/status-handlers';
 import { configureTests, registerTestsHandlers } from './ipc/tests-handlers';
@@ -137,6 +138,7 @@ if (!app.requestSingleInstanceLock()) {
   void app.whenReady().then(async () => {
     registerWindowChrome(getWindow);
     registerRepoHandlers(getWindow);
+    registerSearchHandlers(getWindow);
     registerStatusHandlers();
     registerStatsHandlers();
     registerRefHandlers();
