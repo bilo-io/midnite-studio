@@ -438,24 +438,37 @@ export type UiState = {
   forgeWritesEnabled: boolean;
   setForgeWritesEnabled: (enabled: boolean) => void;
   /**
-   * Which Claude skill each entry of the sidebar's midnite menu invokes.
+   * Which skill each entry of the sidebar's midnite menu invokes.
    *
    * A setting rather than a constant because a skill is a *file in the user's
-   * `~/.claude`*, not something this app ships: `/exec`, `/brainstorm`,
-   * `/refine`, `/release-prep` and `/release-complete` are this repository's
-   * own project skills, `/loop-pr-reviews` and `/loop-pr-feedback` are
-   * personal commands, and `/loop /exec` / `/loop /brainstorm` wrap the
-   * generic `/loop` skill around two of the entries above — any of them can be
-   * renamed, forked or replaced without the app knowing. Hard-coding them
-   * would make the menu silently open a terminal on a command that no longer
-   * exists.
+   * `~/.claude`* (or its `.agents`/`.codex` siblings)*, not something this app
+   * ships: `/midnite-exec`, `/midnite-brainstorm`, `/midnite-refine`,
+   * `/midnite-release-prep` and `/midnite-release-complete` are this
+   * repository's own project skills, `/loop-pr-reviews` and `/loop-pr-feedback`
+   * are personal commands, and `/loop /midnite-exec` / `/loop /midnite-brainstorm`
+   * wrap the generic `/loop` skill around two of the entries above — any of
+   * them can be renamed, forked or replaced without the app knowing.
+   * Hard-coding them would make the menu silently open a terminal on a command
+   * that no longer exists.
    *
    * The values are whole prompts, not bare skill names, so a caller can point
-   * an entry at anything Claude accepts — `/exec`, `/exec --dry-run`, or a plain
-   * sentence — and the menu keeps working.
+   * an entry at anything the agent accepts — `/midnite-exec`,
+   * `/midnite-exec --dry-run`, or a plain sentence — and the menu keeps
+   * working. Stored with the Claude/Antigravity `/name` prefix; when
+   * {@link primaryAgent} is Codex, `startAgent` (`features/terminal/
+   * start-agent.ts`) rewrites the leading `/` of each token to Codex's `$name`
+   * convention before typing it in — the setting itself never needs to know.
    */
   agentSkills: Record<AgentCommandId, string>;
   setAgentSkill: (id: AgentCommandId, skill: string) => void;
+  /**
+   * The agent the midnite menu launches — an id from the roster
+   * (`BUILTIN_AGENTS` in `@midnite/git-shared`, e.g. `'claude'`, `'agy'`,
+   * `'codex'`), not a closed union: the roster is user-extensible via
+   * `agents.json`, and this setting just names one of its entries.
+   */
+  primaryAgent: string;
+  setPrimaryAgent: (id: string) => void;
 };
 
 /**
@@ -490,21 +503,21 @@ export type AgentCommandId =
  * actually have. Settings → Agent can point any of them somewhere else.
  */
 export const DEFAULT_AGENT_SKILLS: Record<AgentCommandId, string> = {
-  execBacklog: '/exec-backlog',
-  execAdhoc: '/exec-adhoc',
-  addressIssue: '/address-issue',
-  brainstorm: '/brainstorm',
-  refine: '/refine',
+  execBacklog: '/midnite-exec',
+  execAdhoc: '/midnite-exec-adhoc',
+  addressIssue: '/midnite-address-issue',
+  brainstorm: '/midnite-brainstorm',
+  refine: '/midnite-refine',
   prReview: '/pr-review',
   prFeedback: '/pr-feedback',
-  releasePrep: '/release-prep',
-  releaseComplete: '/release-complete',
+  releasePrep: '/midnite-release-prep',
+  releaseComplete: '/midnite-release-complete',
   loopPrReview: '/loop /pr-review',
   loopPrFeedback: '/loop /pr-feedback',
-  loopExecBacklog: '/loop /exec-backlog',
-  loopExecAdhoc: '/loop /exec-adhoc',
-  loopAddressIssue: '/loop /address-issue',
-  loopBrainstorm: '/loop /brainstorm',
+  loopExecBacklog: '/loop /midnite-exec',
+  loopExecAdhoc: '/loop /midnite-exec-adhoc',
+  loopAddressIssue: '/loop /midnite-address-issue',
+  loopBrainstorm: '/loop /midnite-brainstorm',
 };
 
 /**
@@ -530,6 +543,7 @@ type PersistedUi = Pick<
   | 'metricsIdleIntervalMs'
   | 'forgeWritesEnabled'
   | 'agentSkills'
+  | 'primaryAgent'
 >;
 
 export const useUiStore = create<UiState>()(
@@ -544,6 +558,7 @@ export const useUiStore = create<UiState>()(
       // Default off. A fresh install cannot change anything on GitHub.
       forgeWritesEnabled: false,
       agentSkills: DEFAULT_AGENT_SKILLS,
+      primaryAgent: 'claude',
       selectedRepoId: null,
       selectedWorktreePath: null,
       selectedCommitSha: null,
@@ -649,6 +664,7 @@ export const useUiStore = create<UiState>()(
       setForgeWritesEnabled: (forgeWritesEnabled) => set({ forgeWritesEnabled }),
       setAgentSkill: (id, skill) =>
         set((state) => ({ agentSkills: { ...state.agentSkills, [id]: skill } })),
+      setPrimaryAgent: (id) => set({ primaryAgent: id }),
     }),
     {
       name: 'midnite-git.ui',
@@ -708,6 +724,7 @@ export const useUiStore = create<UiState>()(
         */
         forgeWritesEnabled: state.forgeWritesEnabled,
         agentSkills: state.agentSkills,
+        primaryAgent: state.primaryAgent,
       }),
 
       /**
