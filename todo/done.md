@@ -2,6 +2,34 @@
 
 <!-- Append one entry per landed phase/PR: date, phase, PR link, one-line summary. -->
 
+## 2026-08-28 — Phase 24 Theme F — status badges on tree rows
+
+The cheapest theme in the phase — and the one place the doc's own suggested reuse
+(`build-change-tree.ts`) turned out to be the wrong tool once checked against how
+`file-tree.tsx` actually mounts directories.
+
+- [x] `features/files/file-status.ts`: `buildFileStatusIndex(entries)` joins `StatusEntry` by
+      path (byte-identical, no normalisation) into `byPath`, and separately walks every changed
+      path's literal ancestors into a worst-status-wins `dirRollup` — deliberately **not** built
+      from `build-change-tree.ts`'s `DirNode` tree, because that module collapses a single-child
+      directory chain into one row for the Changes panel, which would leave an intermediate
+      `file-tree.tsx` directory level (mounted individually, lazily) with no rollup entry even
+      when its subtree has changes
+- [x] `resolveFileStatusIndex(data, isPlaceholderData)` returns `undefined` while status hasn't
+      actually answered, so a row never renders "no badge" as a false claim of "clean" — the same
+      honesty rule `useAllChangesTotals` already follows in `use-status.ts`
+- [x] `file-tree.tsx`'s `TreeRow` renders the existing `StatusMark` glyph (reused, not a second
+      colour table) right after the folder/file icon, for both files (`byPath`) and directories
+      (`dirRollup`); a gitignored row (`entry.isIgnored`) never gets one — the dimming already
+      says "not part of the repo", and no `StatusEntry` would match such a path anyway since
+      `getStatus` runs with `--ignored=no`
+- [x] Ten new Vitest cases in `file-status.test.ts` (the join, all seven achievable `StatusCode`
+      values, a conflicted override, the literal-ancestor rollup vs `build-change-tree.ts`'s
+      chain-collapse, worst-of-siblings, and the placeholder-vs-real distinction); a new
+      Playwright case in `files-view.spec.ts` covering the collapsed-directory rollup, per-file
+      badges and the no-entry-no-badge case, with a screenshot at
+      `docs/screenshots/phase-24-f/status-badges.png`
+
 ## 2026-08-28 — Phase 23 Theme B — useCommandHandlers, one dispatcher for keyboard/menu/palette
 
 The keymap's own doc comment had promised this hook since Phase 9; it was never written, and

@@ -24,7 +24,7 @@ Completed work is logged append-only in [`done.md`](done.md). Deferred scope liv
 | [27 · The footer becomes a status bar, and the browser it makes room for](phase-27-status-bar-and-browser-panel.md) | 🔄 WIP | x1 | 19/89 | `██░░░░░░░░` | 21% | F | D, E, G, H |
 | [26 · Side by side, and the room to show it](phase-26-side-by-side-diffs.md) | ◻ TODO | — | 0/68 | `░░░░░░░░░░` | 0% | — | A–H |
 | [25 · Search everywhere, and the blame that explains it](phase-25-search-everywhere.md) | ◻ TODO | x1 | 0/101 | `░░░░░░░░░░` | 0% | — | A–F |
-| [24 · The explorer learns to write, and to search](phase-24-writable-explorer.md) | 🔄 WIP | — | 14/54 | `███░░░░░░░` | 26% | F | C, D, E, G |
+| [24 · The explorer learns to write, and to search](phase-24-writable-explorer.md) | 🔄 WIP | — | 18/54 | `███░░░░░░░` | 33% | — | C, D, E, G |
 | [23 · A command palette, and the registry that can feed it](phase-23-command-palette.md) | 🔄 WIP | — | 11/55 | `██░░░░░░░░` | 20% | — | C–H |
 | [22 · Stash, the reflog, and writes you can take back](phase-22-stash-and-safety-net.md) | 🔄 WIP | — | 10/70 | `█░░░░░░░░░` | 14% | — | B–H |
 | [21 · Agent roster + terminal identity](phase-21-agent-roster-and-terminal-identity.md) | 🔄 WIP | — | 43/46 | `█████████░` | 93% | — | 3 manual checks |
@@ -229,9 +229,10 @@ write scope, so `agent-page.tsx` stays read-only without knowing writes exist.*
   that offers to reload rather than picking a side.
 - ◻ **E** — find in files: `git grep -z` in git-engine with a pure parser beside it, one read
   channel, and a results panel that opens a file at the line. Tracked content only, said out loud.
-- ◻ **F** — status badges on tree rows: a `Map` join on a path convention that already matches
-  byte-for-byte, off a status cache the sidebar has already fetched, with a directory rollup reusing
-  `build-change-tree.ts`.
+- ✅ **F** — status badges on tree rows: a `Map` join on a path convention that already matches
+  byte-for-byte, off a status cache the sidebar has already fetched, with a directory rollup that
+  turned out to need its own literal-ancestor walk rather than `build-change-tree.ts`'s
+  chain-collapsing tree (PR-local, landed 2026-08-28)
 - ◻ **G** — fs invalidation, live: the fs query keys move into `services/queries.ts` where they were
   never registered, the watcher learns `['fs', …]`, and a write's own echo is suppressed so a save
   does not invalidate the buffer under the cursor.

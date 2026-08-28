@@ -219,28 +219,36 @@ The largest theme, and the only one that adds a dependency.
       nothing — "no tracked file matches" is a different fact from "no match", and the difference is
       the whole reason the untracked case is out of scope.
 
-### F — Status badges on tree rows (S)
+### F — Status badges on tree rows (S) — ✅ DONE (2026-08-28)
 
 The cheapest theme in the phase; the join already exists in miniature.
 
-- [ ] Join `StatusEntry` against tree rows by path. `StatusEntry.path` is documented in
+- [x] Join `StatusEntry` against tree rows by path. `StatusEntry.path` is documented in
       [`shared/src/domain/status.ts`](../packages/shared/src/domain/status.ts) as "repo-relative,
       forward-slashed, already unquoted" — byte-identical to how `file-tree.tsx` builds `relPath`.
-      **No normalisation is needed, and none should be added**; a normalising helper here would
-      paper over the day the two conventions diverge.
-- [ ] Read it off the existing cache. `useRepoStatus` is already fetched by the sidebar and the
-      Changes panel, and
-      [`file-preview.tsx`](../packages/app/src/features/files/preview/file-preview.tsx) already does
-      exactly this lookup for one question. A per-row badge costs a `Map` get, not a subprocess.
-- [ ] Colour by `StatusCode`, which is a ten-value enum — modified, added, deleted, renamed,
-      conflicted, untracked, ignored are all distinguishable, so the badge distinguishes them rather
-      than collapsing to "changed". Respect `isPlaceholderData`: an empty status that has not loaded
-      must not render as "clean", per the honesty rule already written into
+      No normalisation added; new `features/files/file-status.ts` keys `byPath` straight off
+      `entry.path`.
+- [x] Read it off the existing cache: `useRepoStatus` inside a new `useFileStatusIndex` in
+      `file-tree.tsx`, mirroring the single-path lookup
+      [`file-preview.tsx`](../packages/app/src/features/files/preview/file-preview.tsx) already
+      does. A per-row badge costs a `Map` get, not a subprocess.
+- [x] Colour by `StatusCode` via the existing `StatusMark`/`primaryCode` — reused rather than a
+      second glyph table. `isPlaceholderData` is respected: `resolveFileStatusIndex` returns
+      `undefined` while status hasn't actually answered yet, so a row never renders a false
+      "clean" (no-badge) state, matching the honesty rule in
       [`use-status.ts`](../packages/app/src/services/use-status.ts).
-- [ ] Directory rollup. `entries` is flat, so the aggregate is built here —
-      [`build-change-tree.ts`](../packages/app/src/components/build-change-tree.ts) already turns
-      changed paths into a path tree for the Changes panel and is the thing to reuse, not
-      reimplement with a prefix scan.
+- [x] Directory rollup — **not** via `build-change-tree.ts`. That module collapses a single-child
+      directory chain into one row for the Changes panel, but `file-tree.tsx` lists every literal
+      fs level individually (lazy, one `listDir` per directory), so a collapsed intermediate level
+      would resolve to no rollup entry at all. `file-status.ts` instead walks every changed path's
+      literal ancestors once, building a worst-status-wins `Map<dirPath, StatusBadge>` that matches
+      `file-tree.tsx`'s own directory granularity exactly.
+      Decision recorded: gitignored rows (`entry.isIgnored`) never render a badge — the existing
+      dimming already signals "not part of the repo", and in practice no `StatusEntry` would match
+      such a path anyway (`getStatus` runs with `--ignored=no`).
+      Ten new Vitest cases in `file-status.test.ts`; a Playwright case in `files-view.spec.ts`
+      asserting the collapsed-directory rollup, the per-file badges, and the "no entry → no badge"
+      case, with a screenshot at `docs/screenshots/phase-24-f/status-badges.png`.
 
 ### G — fs invalidation, live (S)
 
