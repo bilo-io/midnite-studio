@@ -1,4 +1,4 @@
-import { beforeEach, describe, expect, it } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 import {
   cleanAutoName,
@@ -131,6 +131,7 @@ describe('useTerminalStore', () => {
     // A string rather than the tri-state's `null`, so the `!== undefined`
     // assertions below mean what they say.
     useTerminalStore.getState().setLiveAgentId(a.id, 'codex');
+    store.setForegroundCommand(a.id, 'pnpm dev');
 
     const runtime = [
       'ptyIds',
@@ -142,6 +143,7 @@ describe('useTerminalStore', () => {
       'activity',
       'liveCwd',
       'liveAgentId',
+      'foregroundCommand',
     ] as const;
 
     // Every map genuinely held something first, or the assertion below is vacuous.
@@ -358,6 +360,79 @@ describe('useTerminalStore', () => {
 
       useTerminalStore.getState().setActivity(a.id, undefined);
       expect(useTerminalStore.getState().activity[a.id]).toBeUndefined();
+    });
+  });
+
+  /**
+   * Phase 30 Theme B: a saved row whose pty survived — a reload, or (Theme C)
+   * a relaunch that reattached to the broker — binds straight to `'open'`
+   * instead of the cold-restore `'exited'` path.
+   */
+  describe('hydrate', () => {
+    const session = (id: string) => ({
+      id,
+      kind: 'shell' as const,
+      title: 'midnite-git',
+      cwd: '/repos/midnite-git',
+      repoId: 'repo:midnite-git',
+      createdAt: 1_787_000_000,
+    });
+
+    const mockBridge = (
+      sessions: {
+        session: ReturnType<typeof session>;
+        scrollback: Uint8Array;
+        live: { ptyId: string; pid: number; cols: number; rows: number } | null;
+      }[],
+      ptyCreate: () => void,
+    ) => {
+      (window as unknown as { midniteGit: unknown }).midniteGit = {
+        terminal: { list: () => Promise.resolve({ sessions }) },
+        pty: { create: ptyCreate },
+      };
+    };
+
+    afterEach(() => {
+      delete (window as unknown as { midniteGit?: unknown }).midniteGit;
+    });
+
+    it('binds a live row without creating a pty', async () => {
+      const ptyCreate = vi.fn();
+      mockBridge(
+        [
+          {
+            session: session('s-1'),
+            scrollback: new Uint8Array(),
+            live: { ptyId: 'pty-1', pid: 123, cols: 80, rows: 24 },
+          },
+        ],
+        ptyCreate,
+      );
+
+      await useTerminalStore.getState().hydrate();
+
+      const state = useTerminalStore.getState();
+      expect(state.ptyIds['s-1']).toBe('pty-1');
+      expect(state.states['s-1']).toBe('open');
+      expect(state.replay['s-1']).toBeUndefined();
+      expect(state.reattachedCount).toBe(1);
+      expect(ptyCreate).not.toHaveBeenCalled();
+    });
+
+    it('marks a dead row exited with its replay', async () => {
+      const scrollback = new TextEncoder().encode('$ git status\r\n');
+      mockBridge(
+        [{ session: session('s-2'), scrollback, live: null }],
+        vi.fn(),
+      );
+
+      await useTerminalStore.getState().hydrate();
+
+      const state = useTerminalStore.getState();
+      expect(state.ptyIds['s-2']).toBeUndefined();
+      expect(state.states['s-2']).toBe('exited');
+      expect(state.replay['s-2']).toEqual(scrollback);
+      expect(state.reattachedCount).toBe(0);
     });
   });
 });

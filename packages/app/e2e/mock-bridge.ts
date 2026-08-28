@@ -228,7 +228,16 @@ export type MockFixtures = {
    * `Uint8Array` the contract requires on the way in; a fixture file should not
    * have to spell out byte arrays.
    */
-  terminalSessions?: { session: Record<string, unknown>; scrollback?: string }[];
+  terminalSessions?: {
+    session: Record<string, unknown>;
+    scrollback?: string;
+    /**
+     * A pty that survived a reload — Theme B's rebind path. Absent/undefined
+     * means dead, same as `null`; a spec that wants a live row supplies the
+     * shape `hydrate()` binds against.
+     */
+    live?: { ptyId: string; pid: number; cols: number; rows: number } | null;
+  }[];
   /**
    * Directory listings for the Files view and the Agent page's ~/.claude
    * tree, keyed `repo:<relPath>` / `claude:<relPath>` ('' is the root).
@@ -868,7 +877,21 @@ export async function installMockBridge(page: Page, fixtures: MockFixtures): Pro
           ptyCalls.inputs.push(req);
           feed(req.ptyId, req.data);
         },
-        resize: noop,
+        resize: (req: { ptyId: string; cols: number; rows: number }) => {
+          ptyCalls.resizes.push(req);
+        },
+        snapshot: async (req: { ptyId: string }) => {
+          ptyCalls.snapshots.push(req.ptyId);
+          const chunks = outputLog[req.ptyId] ?? [];
+          const total = chunks.reduce((sum, chunk) => sum + chunk.length, 0);
+          const bytes = new Uint8Array(total);
+          let offset = 0;
+          for (const chunk of chunks) {
+            bytes.set(chunk, offset);
+            offset += chunk.length;
+          }
+          return { bytes };
+        },
         kill: (req: { ptyId: string }) => {
           ptyCalls.kills.push(req.ptyId);
           delete ptySessions[req.ptyId];
@@ -892,6 +915,12 @@ export async function installMockBridge(page: Page, fixtures: MockFixtures): Pro
             agentHandlers.splice(agentHandlers.indexOf(handler), 1);
           };
         },
+        onCommandChanged: (handler: (e: { ptyId: string; command: string | null }) => void) => {
+          commandHandlers.push(handler);
+          return () => {
+            commandHandlers.splice(commandHandlers.indexOf(handler), 1);
+          };
+        },
       },
       /*
         Restored sessions come from the fixture, and the roster is the builtin
@@ -900,10 +929,22 @@ export async function installMockBridge(page: Page, fixtures: MockFixtures): Pro
       */
       terminal: {
         list: async () => ({
-          sessions: (data.terminalSessions ?? []).map((entry) => ({
-            session: entry.session,
-            scrollback: encode(entry.scrollback ?? ''),
-          })),
+          sessions: (data.terminalSessions ?? []).map((entry) => {
+            const live = entry.live ?? null;
+            // A live row's pty must already exist in the fake process table —
+            // it "survived" whatever this launch is rebinding after — so a
+            // subsequent snapshot/input/resize against its ptyId behaves like
+            // a real rebind rather than a silent no-op on an unknown id.
+            if (live) {
+              ptySessions[live.ptyId] = String(entry.session['id'] ?? '');
+              outputLog[live.ptyId] ??= [encode(entry.scrollback ?? '')];
+            }
+            return {
+              session: entry.session,
+              scrollback: encode(entry.scrollback ?? ''),
+              live,
+            };
+          }),
         }),
         // Recorded, not dropped: "the wandered-into path is never persisted"
         // is only assertable against what the app actually tried to save.
@@ -1370,6 +1411,12 @@ export async function installMockBridge(page: Page, fixtures: MockFixtures): Pro
     /** Which session each live pty belongs to — a killed pty is deleted, not flagged. */
     // eslint-disable-next-line no-var
     var ptySessions: Record<string, string> = {};
+    /** Every command-changed subscription, for Theme E's naming-from-process-tree tests. */
+    // eslint-disable-next-line no-var
+    var commandHandlers: Array<(e: { ptyId: string; command: string | null }) => void> = [];
+    /** What has been written to each pty so far, for `pty.snapshot` to answer with. */
+    // eslint-disable-next-line no-var
+    var outputLog: Record<string, Uint8Array[]> = {};
 
     /**
      * A coloured prompt, escape sequences and all.
@@ -1398,7 +1445,9 @@ export async function installMockBridge(page: Page, fixtures: MockFixtures): Pro
       // A killed pty is silent, the way a dead process is: writing after kill
       // would let a spec pass against output no real terminal could produce.
       if (!(ptyId in ptySessions)) return;
-      const event = { ptyId, data: encode(text) };
+      const bytes = encode(text);
+      (outputLog[ptyId] ??= []).push(bytes);
+      const event = { ptyId, data: bytes };
       for (const handler of dataHandlers) handler(event);
     };
 
@@ -1456,6 +1505,10 @@ export async function installMockBridge(page: Page, fixtures: MockFixtures): Pro
       creates: [] as { ptyId: string; sessionId: string }[],
       inputs: [] as { ptyId: string; data: string }[],
       kills: [] as string[],
+      /** One entry per `pty.resize` call — asserts a tween fits once, not per frame. */
+      resizes: [] as { ptyId: string; cols: number; rows: number }[],
+      /** One ptyId per `pty.snapshot` call — a reveal replaying live output, not the disk log. */
+      snapshots: [] as string[],
     };
 
     /*
@@ -1505,6 +1558,19 @@ export async function installMockBridge(page: Page, fixtures: MockFixtures): Pro
     ): boolean => {
       if (!(ptyId in ptySessions)) return false;
       for (const handler of agentHandlers) handler({ ptyId, agentId });
+      return true;
+    };
+    /**
+     * A spec's way to say "the process probe just saw the foreground command
+     * change" — Theme E's naming-from-process-tree path, same reporting
+     * contract as `__mgitPtyAgent`.
+     */
+    (window as unknown as { __mgitPtyCommand: unknown }).__mgitPtyCommand = (
+      ptyId: string,
+      command: string | null,
+    ): boolean => {
+      if (!(ptyId in ptySessions)) return false;
+      for (const handler of commandHandlers) handler({ ptyId, command });
       return true;
     };
     (window as unknown as { __mgitTerminalSaves: unknown }).__mgitTerminalSaves = terminalSaves;

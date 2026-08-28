@@ -42,6 +42,17 @@ type TerminalState = {
   activeId: string | null;
   /** False until `hydrate()` has heard back from main, so the UI can wait. */
   hydrated: boolean;
+  /**
+   * How many sessions the last `hydrate()` bound to a live pty — a reload or
+   * relaunch that found processes still running, rather than a cold restore.
+   *
+   * Renderer-only, never persisted. Read by the status-bar "Reattached N
+   * sessions" note (Phase 30 Theme C); until that theme lands nothing renders
+   * it, but `hydrate()` sets it on every launch regardless.
+   */
+  reattachedCount: number;
+  /** `Date.now()` at the `hydrate()` that produced `reattachedCount`. */
+  reattachedAt: number;
 
   /** Live pty per session; absent means the session has no process. */
   ptyIds: Record<string, string>;
@@ -104,6 +115,17 @@ type TerminalState = {
    */
   liveAgentId: Record<string, string | null>;
   /**
+   * The shell's foreground process, named from the process tree (Theme E),
+   * not reconstructed from keystrokes.
+   *
+   * `null` means "probed, and the shell is back at a bare prompt" — read by
+   * the row's `X` confirm to decide whether a foreground command is running.
+   * Naming (`autoNames`, via `setAutoName`) is a separate, HELD concern: a
+   * `null` here never clears a session's auto-name, it only means nothing new
+   * to name it after. Absent means never probed.
+   */
+  foregroundCommand: Record<string, string | null>;
+  /**
    * Bumped to move keyboard focus into the active session's xterm without
    * changing which session is active.
    *
@@ -157,6 +179,13 @@ type TerminalState = {
    * which is what a pty exit does — the answer belonged to a dead process.
    */
   setLiveAgentId: (sessionId: string, agentId: string | null | undefined) => void;
+  /**
+   * From `pty:command-changed`. A non-null command also updates the
+   * session's auto-name for a shell; `null` updates only this map, so the
+   * displayed name is held rather than cleared when the shell returns to a
+   * bare prompt.
+   */
+  setForegroundCommand: (sessionId: string, command: string | null) => void;
 
   bindPty: (sessionId: string, ptyId: string) => void;
   unbindPty: (sessionId: string) => void;
@@ -176,6 +205,8 @@ export const useTerminalStore = create<TerminalState>()((set, get) => ({
   sessions: [],
   activeId: null,
   hydrated: false,
+  reattachedCount: 0,
+  reattachedAt: 0,
   ptyIds: {},
   states: {},
   replay: {},
@@ -185,6 +216,7 @@ export const useTerminalStore = create<TerminalState>()((set, get) => ({
   activity: {},
   liveCwd: {},
   liveAgentId: {},
+  foregroundCommand: {},
   focusSignal: 0,
   suppressAutoFocus: false,
 
@@ -220,6 +252,9 @@ export const useTerminalStore = create<TerminalState>()((set, get) => ({
     set((state) => {
       const restored = sessions.map((entry) => entry.session);
       const live = state.sessions.filter((open) => !restored.some((s) => s.id === open.id));
+      const liveEntries = sessions.flatMap((e) =>
+        e.live ? [{ sessionId: e.session.id, ptyId: e.live.ptyId }] : [],
+      );
 
       return {
         hydrated: true,
@@ -229,13 +264,27 @@ export const useTerminalStore = create<TerminalState>()((set, get) => ({
         activeId: live.length > 0 ? state.activeId : (restored[0]?.id ?? null),
         states: {
           ...Object.fromEntries(restored.map((s) => [s.id, 'exited' as const])),
+          // A live row binds straight to 'open' — it survived whatever
+          // happened to the renderer, and there is no process to revive.
+          ...Object.fromEntries(liveEntries.map((e) => [e.sessionId, 'open' as const])),
           ...state.states,
+        },
+        ptyIds: {
+          ...Object.fromEntries(liveEntries.map((e) => [e.sessionId, e.ptyId])),
+          ...state.ptyIds,
         },
         replay: Object.fromEntries(
           sessions
-            .filter((e) => e.scrollback.length > 0)
+            // A live row gets no replay entry: `terminal-view.tsx`'s mount
+            // fetches the ring buffer itself (`pty:snapshot`, Theme A) rather
+            // than replaying the disk-restored transcript this array holds —
+            // that transcript predates whatever the still-running pty has
+            // printed since.
+            .filter((e) => e.live === null && e.scrollback.length > 0)
             .map((e) => [e.session.id, e.scrollback]),
         ),
+        reattachedCount: liveEntries.length,
+        reattachedAt: liveEntries.length > 0 ? Date.now() : state.reattachedAt,
       };
     });
   },
@@ -354,6 +403,12 @@ export const useTerminalStore = create<TerminalState>()((set, get) => ({
       return { liveAgentId: next };
     }),
 
+  setForegroundCommand: (sessionId, command) =>
+    set((state) => {
+      if (state.foregroundCommand[sessionId] === command) return state;
+      return { foregroundCommand: { ...state.foregroundCommand, [sessionId]: command } };
+    }),
+
   setActivity: (sessionId, activity) =>
     set((state) => {
       if (state.activity[sessionId] === activity) return state;
@@ -414,6 +469,7 @@ function dropKey(
   | 'activity'
   | 'liveCwd'
   | 'liveAgentId'
+  | 'foregroundCommand'
 > {
   const ptyIds = { ...state.ptyIds };
   const states = { ...state.states };
@@ -424,6 +480,7 @@ function dropKey(
   const activity = { ...state.activity };
   const liveCwd = { ...state.liveCwd };
   const liveAgentId = { ...state.liveAgentId };
+  const foregroundCommand = { ...state.foregroundCommand };
   delete ptyIds[sessionId];
   delete states[sessionId];
   delete replay[sessionId];
@@ -433,6 +490,7 @@ function dropKey(
   delete activity[sessionId];
   delete liveCwd[sessionId];
   delete liveAgentId[sessionId];
+  delete foregroundCommand[sessionId];
   return {
     ptyIds,
     states,
@@ -443,6 +501,7 @@ function dropKey(
     activity,
     liveCwd,
     liveAgentId,
+    foregroundCommand,
   };
 }
 

@@ -239,6 +239,16 @@ export const CHANNELS = {
   ptyInput: 'mgit:pty:input',
   ptyResize: 'mgit:pty:resize',
   ptyKill: 'mgit:pty:kill',
+  /**
+   * The current ring-buffer contents for a live pty, trimmed the same way a
+   * restart's scrollback is.
+   *
+   * Its own invoke rather than bytes on `terminal:list`: the list answers once
+   * at boot for every session, while a snapshot is needed per reveal for
+   * exactly one — keeping the firehose out of the list keeps `hydrate` cheap
+   * and a later reveal never sees a stale boot-time copy.
+   */
+  ptySnapshot: 'mgit:pty:snapshot',
 
   // --- terminal sessions ---------------------------------------------------
   /** Restore: every saved session plus its replayable scrollback. */
@@ -376,6 +386,14 @@ export const EVENT_CHANNELS = {
    * idle terminal produces no traffic at all.
    */
   ptyAgentChanged: 'mgit:pty:agent-changed',
+  /**
+   * The shell's foreground process changed — a command started or finished.
+   *
+   * `command: null` means the shell is back at a bare prompt with nothing in
+   * the foreground; a non-null value is held by the renderer until the next
+   * change, so a session's auto-name survives the command finishing.
+   */
+  ptyCommandChanged: 'mgit:pty:command-changed',
   /** Window maximized/fullscreen state changed, for the frameless TitleBar. */
   windowStateChanged: 'mgit:window:state-changed',
   /** A native-menu item fired — carries a CommandId, dispatched like a keybinding. */

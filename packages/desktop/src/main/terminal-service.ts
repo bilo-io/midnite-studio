@@ -3,6 +3,7 @@ import type { AgentDefinition, TerminalSession } from '@midnite/git-shared';
 import { createAgentsStore, type AgentsStore } from './agents-store';
 import {
   dropScrollback,
+  livePtyFor,
   readScrollback,
   scrollbackSessionIds,
   seedScrollback,
@@ -50,20 +51,25 @@ export function configureTerminals(terminalStore: TerminalStore, userDataDir: st
  * makes reopening the app with a dozen saved terminals free.
  */
 export async function listTerminals(): Promise<
-  { session: TerminalSession; scrollback: Uint8Array }[]
+  {
+    session: TerminalSession;
+    scrollback: Uint8Array;
+    live: { ptyId: string; pid: number; cols: number; rows: number } | null;
+  }[]
 > {
   if (sessions.length === 0) sessions = await store.load();
 
   return Promise.all(
     sessions.map(async (session) => {
+      const live = livePtyFor(session.id);
       // Prefer what this launch has already produced: a revived session's live
       // buffer is a superset of the file it was seeded from.
-      const live = readScrollback(session.id);
-      if (live.length > 0) return { session, scrollback: live };
+      const runtime = readScrollback(session.id);
+      if (runtime.length > 0) return { session, scrollback: runtime, live };
 
       const saved = await store.readScrollback(session.id);
       seedScrollback(session.id, saved);
-      return { session, scrollback: saved };
+      return { session, scrollback: saved, live };
     }),
   );
 }

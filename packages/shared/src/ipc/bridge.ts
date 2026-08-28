@@ -325,6 +325,10 @@ export type MidniteGitBridge = {
     input: (req: In<typeof S.PtyInputRequest>) => void;
     resize: (req: In<typeof S.PtyResizeRequest>) => void;
     kill: (req: In<typeof S.PtyKillRequest>) => void;
+    /** The current ring-buffer contents for a live pty — see the channel's own doc. */
+    snapshot: (
+      req: In<typeof S.PtySnapshotRequest>,
+    ) => Promise<z.infer<typeof S.PtySnapshotResponse>>;
     /**
      * Terminal output. Bytes cross the boundary as a `Uint8Array` via structured
      * clone — no base64 round-trip (the app is in-process; only a WebSocket path
@@ -342,6 +346,10 @@ export type MidniteGitBridge = {
      */
     onAgentChanged: (
       handler: (e: z.infer<typeof S.PtyAgentChangedEvent>) => void,
+    ) => Unsubscribe;
+    /** The shell's foreground process changed — see the channel's own doc. */
+    onCommandChanged: (
+      handler: (e: z.infer<typeof S.PtyCommandChangedEvent>) => void,
     ) => Unsubscribe;
   };
 

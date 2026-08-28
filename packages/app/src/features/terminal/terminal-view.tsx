@@ -7,13 +7,9 @@ import { useCallback, useEffect, useRef, useState } from 'react';
 
 import { bridge } from '../../services/bridge';
 import { shouldEscapeTerminal } from '../../services/keybindings/use-keybindings';
-import {
-  createActivityState,
-  createShellLineState,
-  detectActivity,
-  trackShellCommand,
-} from './activity-detect';
+import { createActivityState, detectActivity } from './activity-detect';
 import { parseOsc7 } from './parse-osc7';
+import { createReplayGate } from './replay-gate';
 import { useTerminalStore } from './terminal-store';
 import { useTerminalIpc } from './use-terminal-ipc';
 
@@ -94,16 +90,31 @@ export function TerminalView({
   session,
   active,
   initialInput,
+  fitSignal,
 }: {
   session: TerminalSession;
   active: boolean;
   /** Typed in when this session first starts — the agent's command. */
   initialInput?: string | undefined;
+  /** Bumped once a reveal tween settles — fits and repaints, once, at the end. */
+  fitSignal: number;
 }) {
   const containerRef = useRef<HTMLDivElement>(null);
   const termRef = useRef<Terminal | null>(null);
   const fitRef = useRef<FitAddon | null>(null);
   const [ready, setReady] = useState(false);
+  /**
+   * The last size actually sent to the shell, so `safeFit` can skip a resize
+   * that would repeat it.
+   *
+   * The two-nested-box tween pins this component's own container at its
+   * final size for the length of a reveal — only the ANCESTOR's clip region
+   * grows — so both the ResizeObserver (on mount) and the settle-triggered
+   * `fitSignal` effect below can end up calling `safeFit` for the same
+   * dimensions. Sending the SIGWINCH once per genuine size change, not once
+   * per caller, is the guardrail this dedupes against.
+   */
+  const lastSentRef = useRef<{ cols: number; rows: number } | null>(null);
 
   // Output-side state for the activity guess: a persistent decoder because a
   // multi-byte UTF-8 character can land split across two pty chunks, and
@@ -114,10 +125,17 @@ export function TerminalView({
   // one frame, not one chunk, so it has to remember what it has been handed
   // since the last frame ended.
   const activityRef = useRef(createActivityState());
-  // Input-side state for a shell session's last-typed command.
-  const shellLineRef = useRef(createShellLineState());
+  /**
+   * Holds output that arrives while a live-rebind snapshot is in flight.
+   *
+   * `null` means "nothing to gate" — the ordinary revive/replay path, where
+   * every chunk writes straight through. Set to a fresh, closed gate only for
+   * the live-rebind branch in `openWhenSized`, and released once that
+   * snapshot has been written — see the mount effect below.
+   */
+  const replayGateRef = useRef<ReturnType<typeof createReplayGate> | null>(null);
 
-  const write = useCallback(
+  const writeToTerm = useCallback(
     (bytes: Uint8Array) => {
       termRef.current?.write(bytes);
       // Only an agent has a status footer worth reading; a plain shell's own
@@ -128,6 +146,18 @@ export function TerminalView({
       if (activity) useTerminalStore.getState().setActivity(session.id, activity);
     },
     [session.id, session.kind],
+  );
+
+  const write = useCallback(
+    (bytes: Uint8Array) => {
+      const gate = replayGateRef.current;
+      if (gate && !gate.open) {
+        gate.hold(bytes);
+        return;
+      }
+      writeToTerm(bytes);
+    },
+    [writeToTerm],
   );
 
   const { connectionState, error, start, sendInput, sendResize } = useTerminalIpc(session, write);
@@ -143,6 +173,59 @@ export function TerminalView({
   initialInputRef.current = initialInput;
   const stateRef = useRef(connectionState);
   stateRef.current = connectionState;
+
+  /**
+   * Whether the process probe has EVER named a foreground command for this
+   * shell session — not just its current answer, which goes back to `null`
+   * at a bare prompt.
+   *
+   * Read at call-time inside the mount effect's `onTitleChange` handler
+   * (below): once the process tree has spoken for a session, a held command
+   * name outranks whatever the prompt's own OSC title says next — a title
+   * update is only trusted before the probe has ever had anything to say.
+   */
+  const foregroundCommand = useTerminalStore((s) => s.foregroundCommand[session.id]);
+  const sawForegroundCommandRef = useRef(false);
+  if (foregroundCommand) sawForegroundCommandRef.current = true;
+
+  /**
+   * Fit and send one resize, only if the container currently measures.
+   *
+   * Hoisted to component scope (rather than declared inside the mount effect)
+   * so `fitSignal`'s own effect below can call the same function the mount
+   * effect and the `ResizeObserver` use — every fit path in this component is
+   * this one function.
+   */
+  const safeFit = useCallback(() => {
+    const el = containerRef.current;
+    if (!fitRef.current || !termRef.current || !el) return;
+    if (el.clientWidth === 0 || el.clientHeight === 0) return;
+    try {
+      fitRef.current.fit();
+      const { cols, rows } = termRef.current;
+      const last = lastSentRef.current;
+      if (last && last.cols === cols && last.rows === rows) return;
+      lastSentRef.current = { cols, rows };
+      sendResizeRef.current(cols, rows);
+    } catch {
+      // Container stopped being measurable mid-fit.
+    }
+  }, []);
+
+  /**
+   * Fit and repaint once a reveal tween settles.
+   *
+   * A tween resizes the CONTAINER continuously without a `ResizeObserver`
+   * firing per frame (the two-nested-box trick — the outer box animates, the
+   * inner one is pinned at its final size throughout), so nothing else calls
+   * `safeFit` while the animation runs. This is what tells the shell its new
+   * size exactly once, at the end, rather than never.
+   */
+  useEffect(() => {
+    safeFit();
+    const term = termRef.current;
+    if (term) term.refresh(0, term.rows - 1);
+  }, [fitSignal, safeFit]);
 
   useEffect(() => {
     const container = containerRef.current;
@@ -164,20 +247,21 @@ export function TerminalView({
     });
 
     /**
-     * An agent's own idea of its session name, when it sets one.
+     * A session's own idea of its name, from the OSC 0/2 "set window title"
+     * sequence xterm parses out of the byte stream itself.
      *
-     * xterm parses the OSC 0/2 "set window title" sequence out of the byte
-     * stream itself and fires this regardless of whether anything on screen
-     * looks like a terminal tab — it costs nothing to listen for on a session
-     * that never sends one, which degrades to the roster label fallback.
+     * An agent always trusts it — it is the CLI's own chrome. A shell trusts
+     * it only until the process probe has named a real foreground command at
+     * least once (Theme E): a held command name is a better answer than
+     * whatever a prompt's own title escape says next, and reverting to the
+     * title on every bare-prompt repaint would fight the hold.
      */
-    const titleSub =
-      session.kind === 'agent'
-        ? term.onTitleChange((title) => {
-            const trimmed = title.trim();
-            if (trimmed) useTerminalStore.getState().setAutoName(session.id, trimmed);
-          })
-        : null;
+    const titleSub = term.onTitleChange((title) => {
+      const trimmed = title.trim();
+      if (!trimmed) return;
+      if (session.kind === 'shell' && sawForegroundCommandRef.current) return;
+      useTerminalStore.getState().setAutoName(session.id, trimmed);
+    });
 
     /**
      * Where the shell actually is, from the OSC 7 sequence it emits on `cd`.
@@ -243,19 +327,16 @@ export function TerminalView({
     const fit = new FitAddon();
     term.loadAddon(fit);
 
-    const safeFit = () => {
-      const el = containerRef.current;
-      if (!fitRef.current || !termRef.current || !el) return;
-      if (el.clientWidth === 0 || el.clientHeight === 0) return;
-      try {
-        fitRef.current.fit();
-        sendResizeRef.current(termRef.current.cols, termRef.current.rows);
-      } catch {
-        // Container stopped being measurable mid-fit.
-      }
-    };
-
     let dataSub: { dispose: () => void } | null = null;
+    /**
+     * Set once this effect's own cleanup runs, so an in-flight snapshot
+     * request from a torn-down instance never writes into (or releases the
+     * gate of) a `term` this cleanup already disposed. StrictMode's dev-only
+     * mount→cleanup→remount does exactly this to every effect once; without
+     * the guard, the throwaway instance's response would land on an already-
+     * disposed xterm.
+     */
+    let cancelled = false;
 
     const openWhenSized = () => {
       if (termRef.current) return;
@@ -278,21 +359,52 @@ export function TerminalView({
       safeFit();
 
       /**
-       * Replay a restored transcript before anything else is written.
+       * A live session replays main's CURRENT ring buffer, not the saved
+       * transcript — the reason the pane used to come up blank on reveal. A
+       * remount builds a NEW xterm with an empty screen regardless of which
+       * branch runs, so re-writing on every mount is correct, not a doubling:
+       * each mount writes exactly once.
        *
-       * Read, not consumed. A remount builds a NEW xterm with an empty screen,
-       * so re-writing it is what the transcript is for — the doubling this used
-       * to guard against can only happen within one terminal, and each mount
-       * writes exactly once. Taking it destructively meant the second mount saw
-       * nothing to replay, which under StrictMode is every mount: the pane came
-       * up blank, and the auto-start below read "no replay" as "brand new" and
-       * revived a shell the user never asked for.
+       * `stateRef.current === 'open'` here means the store already has this
+       * session bound to a live pty from BEFORE this mount — a remount after
+       * the panel was fully hidden and shown again, or (Theme B) after a
+       * renderer reload rebinds `hydrate()` straight to `'open'`. Either way
+       * there is a process to ask, and `peekReplay` would answer with the
+       * disk-restored transcript from whenever the app last booted, not what
+       * that process has printed since.
        */
-      const replay = useTerminalStore.getState().peekReplay(session.id);
-      if (replay && replay.length > 0) {
-        term.write(replay);
-        term.write(RESET_MODES);
-        term.write(REVIVE_HINT);
+      if (stateRef.current === 'open') {
+        const ptyId = useTerminalStore.getState().ptyIds[session.id];
+        const gate = createReplayGate();
+        replayGateRef.current = gate;
+        const api = bridge();
+        if (ptyId && api) {
+          void api.pty.snapshot({ ptyId }).then(({ bytes }) => {
+            if (cancelled) return;
+            if (bytes.length > 0) {
+              term.write(bytes);
+              term.write(RESET_MODES);
+            }
+            gate.release(writeToTerm);
+          });
+        } else {
+          gate.release(writeToTerm);
+        }
+      } else {
+        /**
+         * Replay a restored transcript before anything else is written.
+         *
+         * Read, not consumed. Taking it destructively meant a second mount
+         * under StrictMode saw nothing to replay, and the auto-start below
+         * read "no replay" as "brand new" and revived a shell the user never
+         * asked for.
+         */
+        const replay = useTerminalStore.getState().peekReplay(session.id);
+        if (replay && replay.length > 0) {
+          term.write(replay);
+          term.write(RESET_MODES);
+          term.write(REVIVE_HINT);
+        }
       }
 
       /**
@@ -306,12 +418,11 @@ export function TerminalView({
       dataSub = term.onData((data) => {
         if (stateRef.current === 'open') {
           sendInputRef.current(data);
-          // A plain shell has no title escape of its own, so the best guess
-          // at what it is doing is the last thing the user typed at it.
-          if (session.kind === 'shell') {
-            const command = trackShellCommand(shellLineRef.current, data);
-            if (command) useTerminalStore.getState().setAutoName(session.id, command);
-          } else {
+          // A shell's name now comes from the process tree (Theme E), not
+          // from reconstructing a command line out of keystrokes — zsh's
+          // application-cursor mode made that reconstruction wrong by
+          // construction (an arrow key's `ESC O A` decoded as literal `A`).
+          if (session.kind !== 'shell') {
             // Typing at an agent answers the question the "waiting" glyph is
             // asking, so the glyph drops back to idle on the first keystroke
             // rather than sitting there until the next footer repaint proves
@@ -368,6 +479,7 @@ export function TerminalView({
     document.addEventListener('visibilitychange', onVisibilityChange);
 
     return () => {
+      cancelled = true;
       observer.disconnect();
       document.removeEventListener('visibilitychange', onVisibilityChange);
       if (cwdTimer) clearTimeout(cwdTimer);

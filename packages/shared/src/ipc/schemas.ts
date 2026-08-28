@@ -806,6 +806,14 @@ export const PtyResizeRequest = z.object({
   rows: z.number().int().positive(),
 });
 export const PtyKillRequest = z.object({ ptyId: z.string() });
+/**
+ * The full ring-buffer contents for a live pty, trimmed the same way a
+ * restart's scrollback file is. An unknown `ptyId` answers empty rather than
+ * throwing — the pty may have exited between the renderer asking and this
+ * resolving.
+ */
+export const PtySnapshotRequest = z.object({ ptyId: z.string().min(1) });
+export const PtySnapshotResponse = z.object({ bytes: z.instanceof(Uint8Array) });
 export const PtyExitEvent = z.object({
   ptyId: z.string(),
   exitCode: z.number().int(),
@@ -831,6 +839,17 @@ export const PtyAgentChangedEvent = z.object({
   agentId: z.string().min(1).nullable(),
 });
 
+/**
+ * The shell's foreground process changed, from the `ps stat` `+` flag.
+ *
+ * `command: null` means the shell is back at a bare prompt — held by the
+ * renderer's auto-namer, which never overwrites a name with a null.
+ */
+export const PtyCommandChangedEvent = z.object({
+  ptyId: z.string().min(1),
+  command: z.string().min(1).nullable(),
+});
+
 // --- terminal sessions -----------------------------------------------------
 
 /**
@@ -844,6 +863,22 @@ export const PtyAgentChangedEvent = z.object({
 export const RestoredTerminalSession = z.object({
   session: TerminalSessionSchema,
   scrollback: z.instanceof(Uint8Array),
+  /**
+   * The still-running process behind this row, if any.
+   *
+   * `null` is a restored row with no live shell — today's only case. A
+   * non-null value means the pty survived whatever happened to the renderer
+   * (a reload, a crash) and `hydrate()` should bind to it rather than mark
+   * the row exited.
+   */
+  live: z
+    .object({
+      ptyId: z.string().min(1),
+      pid: z.number().int().positive(),
+      cols: z.number().int().positive(),
+      rows: z.number().int().positive(),
+    })
+    .nullable(),
 });
 export const TerminalListResponse = z.object({
   sessions: z.array(RestoredTerminalSession),

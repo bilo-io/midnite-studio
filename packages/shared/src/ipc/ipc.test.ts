@@ -1005,6 +1005,12 @@ describe('terminal and pty schemas', () => {
       invalid: [['no ptyId', {}]],
     },
     {
+      name: 'PtySnapshotRequest',
+      schema: schemas.PtySnapshotRequest,
+      valid: { ptyId: 'p1' },
+      invalid: [['no ptyId', {}], ['empty ptyId', { ptyId: '' }]],
+    },
+    {
       name: 'PtyExitEvent',
       schema: schemas.PtyExitEvent,
       valid: { ptyId: 'p1', exitCode: 0 },
@@ -1026,15 +1032,37 @@ describe('terminal and pty schemas', () => {
       ],
     },
     {
+      name: 'PtyCommandChangedEvent',
+      schema: schemas.PtyCommandChangedEvent,
+      valid: { ptyId: 'p1', command: 'pnpm dev' },
+      invalid: [
+        ['no command at all', { ptyId: 'p1' }],
+        // An empty string is not "back at the prompt" — that is `null`.
+        ['an empty command', { ptyId: 'p1', command: '' }],
+        ['no ptyId', { command: null }],
+      ],
+    },
+    {
       name: 'TerminalListResponse',
       schema: schemas.TerminalListResponse,
-      valid: { sessions: [{ session, scrollback: new Uint8Array([0x24, 0x20]) }] },
+      valid: {
+        sessions: [
+          { session, scrollback: new Uint8Array([0x24, 0x20]), live: null },
+          {
+            session,
+            scrollback: new Uint8Array(),
+            live: { ptyId: 'p1', pid: 123, cols: 80, rows: 24 },
+          },
+        ],
+      },
       invalid: [
         // Scrollback crosses as raw pty bytes via structured clone, never as a
         // string — decoding it anywhere but xterm mangles escape sequences.
-        ['scrollback as a string', { sessions: [{ session, scrollback: '$ ' }] }],
-        ['scrollback as a number array', { sessions: [{ session, scrollback: [36, 32] }] }],
-        ['session missing its cwd', { sessions: [{ session: { ...session, cwd: undefined }, scrollback: new Uint8Array() }] }],
+        ['scrollback as a string', { sessions: [{ session, scrollback: '$ ', live: null }] }],
+        ['scrollback as a number array', { sessions: [{ session, scrollback: [36, 32], live: null }] }],
+        ['session missing its cwd', { sessions: [{ session: { ...session, cwd: undefined }, scrollback: new Uint8Array(), live: null }] }],
+        ['no live key at all', { sessions: [{ session, scrollback: new Uint8Array() }] }],
+        ['live.pid zero', { sessions: [{ session, scrollback: new Uint8Array(), live: { ptyId: 'p1', pid: 0, cols: 80, rows: 24 } }] }],
       ],
     },
     {
@@ -1147,8 +1175,10 @@ describe('terminal and pty schemas', () => {
       ptyInput: ['PtyInputRequest'],
       ptyResize: ['PtyResizeRequest'],
       ptyKill: ['PtyKillRequest'],
+      ptySnapshot: ['PtySnapshotRequest'],
       ptyExit: ['PtyExitEvent'],
       ptyAgentChanged: ['PtyAgentChangedEvent'],
+      ptyCommandChanged: ['PtyCommandChangedEvent'],
       terminalList: ['TerminalListResponse'],
       terminalSave: ['TerminalSaveRequest'],
       terminalForget: ['TerminalForgetRequest'],

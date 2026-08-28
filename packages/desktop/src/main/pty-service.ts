@@ -63,6 +63,9 @@ type Session = {
   pty: IPty;
   /** Cleared once the shell's first output proves it is ready for input. */
   pendingInput: string | null;
+  /** Kept in step by `resizePty` — what `livePtyFor` reports back to a rebind. */
+  cols: number;
+  rows: number;
 };
 
 /**
@@ -266,6 +269,8 @@ export function createPty(
       sessionId: options.sessionId,
       pty: child,
       pendingInput: options.initialInput ?? null,
+      cols: options.cols,
+      rows: options.rows,
     });
     /*
       Seeded with what the session was OPENED for, and not probed here.
@@ -294,11 +299,30 @@ export function writePty(ptyId: string, data: string): void {
 export function resizePty(ptyId: string, cols: number, rows: number): void {
   const session = sessions.get(ptyId);
   if (!session) return;
+  session.cols = Math.max(1, cols);
+  session.rows = Math.max(1, rows);
   try {
-    session.pty.resize(Math.max(1, cols), Math.max(1, rows));
+    session.pty.resize(session.cols, session.rows);
   } catch {
     // The pty can exit between the renderer measuring and this call landing.
   }
+}
+
+/** The durable row a live pty belongs to, for the snapshot handler. */
+export function sessionIdFor(ptyId: string): string | undefined {
+  return sessions.get(ptyId)?.sessionId;
+}
+
+/** The live process behind a session's row, if it has one — for `terminal:list`. */
+export function livePtyFor(
+  sessionId: string,
+): { ptyId: string; pid: number; cols: number; rows: number } | null {
+  for (const [ptyId, session] of sessions) {
+    if (session.sessionId === sessionId) {
+      return { ptyId, pid: session.pty.pid, cols: session.cols, rows: session.rows };
+    }
+  }
+  return null;
 }
 
 /**

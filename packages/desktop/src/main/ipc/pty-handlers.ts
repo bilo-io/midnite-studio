@@ -1,7 +1,8 @@
-import { CHANNELS, schemas } from '@midnite/git-shared';
+import { CHANNELS, SCROLLBACK_BYTES, schemas } from '@midnite/git-shared';
 import { ipcMain, type BrowserWindow } from 'electron';
 
-import { createPty, killPty, resizePty, writePty } from '../pty-service';
+import { createPty, killPty, readScrollback, resizePty, sessionIdFor, writePty } from '../pty-service';
+import { trimScrollback } from '../terminal-store';
 import { handle } from './handle';
 
 /**
@@ -38,4 +39,15 @@ export function registerPtyHandlers(getWindow: () => BrowserWindow | null): void
     const parsed = schemas.PtyKillRequest.safeParse(raw);
     if (parsed.success) killPty(parsed.data.ptyId);
   });
+
+  handle(
+    CHANNELS.ptySnapshot,
+    schemas.PtySnapshotRequest,
+    ({ ptyId }) => {
+      const sessionId = sessionIdFor(ptyId);
+      if (!sessionId) return { bytes: new Uint8Array(0) };
+      return { bytes: trimScrollback(readScrollback(sessionId), SCROLLBACK_BYTES) };
+    },
+    () => ({ bytes: new Uint8Array(0) }),
+  );
 }
