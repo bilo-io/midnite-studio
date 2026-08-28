@@ -8,6 +8,7 @@ import { registerClaudeHandlers } from './ipc/claude-handlers';
 import { configureDiagnostics, registerDiagHandlers } from './ipc/diag-handlers';
 import { registerForgeHandlers } from './ipc/forge-handlers';
 import { registerFsHandlers } from './ipc/fs-handlers';
+import { registerFsSearchHandlers } from './ipc/fs-search-handlers';
 import { registerFsWriteHandlers } from './ipc/fs-write-handlers';
 import { bindMetricsToWindow, registerMetricsHandlers } from './ipc/metrics-handlers';
 import { registerPtyHandlers } from './ipc/pty-handlers';
@@ -135,6 +136,7 @@ if (!app.requestSingleInstanceLock()) {
     registerTerminalHandlers();
     registerFsHandlers();
     registerFsWriteHandlers();
+    registerFsSearchHandlers();
     registerClaudeHandlers(getWindow);
     installMgitFileProtocol();
     installMenu(getWindow);

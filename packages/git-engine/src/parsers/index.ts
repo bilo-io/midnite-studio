@@ -1,4 +1,5 @@
 export * from './diff-parser';
+export * from './grep-parser';
 export * from './log-parser';
 export * from './refs-parser';
 export * from './remote-url';

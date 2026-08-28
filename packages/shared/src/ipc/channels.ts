@@ -275,6 +275,8 @@ export const CHANNELS = {
    * rather than the count silently understating a huge tree.
    */
   fsDirStats: 'mgit:fs:dir-stats',
+  /** `git grep` over the tracked working tree — repo scope only, read-only. */
+  fsSearch: 'mgit:fs:search',
 
   // --- system metrics (Phase 18) -------------------------------------------
   // One-way `send`s, not `invoke`s: neither has anything to report back, and
