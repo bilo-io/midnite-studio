@@ -14,6 +14,7 @@ const filesFixtures: MockFixtures = {
   fsDirs: {
     'repo:': [
       { name: 'src', kind: 'dir', size: 0, isIgnored: false },
+      { name: 'docs', kind: 'dir', size: 0, isIgnored: false },
       { name: 'node_modules', kind: 'dir', size: 0, isIgnored: true },
       { name: 'README.md', kind: 'file', size: 120, isIgnored: false },
       { name: 'logo.bin', kind: 'file', size: 2048, isIgnored: false },
@@ -21,12 +22,18 @@ const filesFixtures: MockFixtures = {
       { name: 'fresh.png', kind: 'file', size: 4096, isIgnored: false },
     ],
     'repo:src': [{ name: 'main.ts', kind: 'file', size: 64, isIgnored: false }],
+    'repo:docs': [{ name: 'ARCH.md', kind: 'file', size: 80, isIgnored: false }],
   },
   fsFiles: {
     'repo:README.md': {
       kind: 'text',
-      content: '# Midnite\n\nA **git client**. See [the site](https://example.com).',
+      content: '# Midnite\n\nA **git client**. See [the site](https://example.com) and [Architecture doc](docs/ARCH.md).',
       size: 120,
+    },
+    'repo:docs/ARCH.md': {
+      kind: 'text',
+      content: '# Architecture\n\nDetails of the architecture. Back to [README](../README.md).',
+      size: 80,
     },
     'repo:src/main.ts': { kind: 'text', content: 'const answer = 42;\n', size: 64 },
     'repo:logo.bin': { kind: 'binary', size: 2048 },
@@ -102,26 +109,48 @@ test('selecting a code file shows the read-only highlighted preview', async ({ p
   await page.screenshot({ path: '../../docs/screenshots/phase-16/files-code.png' });
 });
 
-test('markdown renders, and the toggle reveals the source', async ({ page }) => {
+test('files view automatically renders README.md on root browse', async ({ page }) => {
   await openFiles(page);
 
-  await page.getByRole('treeitem', { name: /README\.md/ }).click();
+  // README.md is auto-selected and rendered in the preview pane
+  await expect(page.getByRole('treeitem', { name: /^README\.md$/ })).toHaveAttribute('aria-selected', 'true');
+  await expect(page.getByText('git client', { exact: true })).toBeVisible();
+});
+
+test('markdown renders, toggles source, and navigates internal relative links', async ({ page }) => {
+  await openFiles(page);
+
   // Rendered: the strong tag exists, the literal asterisks don't.
   await expect(page.getByText('git client', { exact: true })).toBeVisible();
   await expect(page.getByText('**git client**')).toHaveCount(0);
 
-  // Links are live now that Phase 12 E has landed, and route through the
-  // guarded `shell:open-external` channel rather than navigating this window —
-  // which, in a `file://` SPA with no browser chrome, would be one-way.
-  const link = page.getByRole('link', { name: 'the site' });
-  await expect(link).toBeVisible();
-  await link.click();
-  await expect(page.getByRole('button', { name: 'Source' })).toBeVisible();
+  // External link routes to openExternal
+  const extLink = page.getByRole('link', { name: 'the site' });
+  await expect(extLink).toBeVisible();
+  await extLink.click();
   expect(
     await page.evaluate(
       () => (window as never as { __mgitExternalUrls: string[] }).__mgitExternalUrls,
     ),
   ).toHaveLength(1);
+
+  // Internal relative link navigates to docs/ARCH.md and expands docs directory in tree
+  const archLink = page.getByRole('link', { name: 'Architecture doc' });
+  await expect(archLink).toBeVisible();
+  await archLink.click();
+
+  // Now preview shows ARCH.md content and docs folder is expanded with ARCH.md selected
+  await expect(page.getByText('Details of the architecture.')).toBeVisible();
+  await expect(page.getByRole('treeitem', { name: /^ARCH\.md$/ })).toBeVisible();
+  await expect(page.getByRole('treeitem', { name: /^ARCH\.md$/ })).toHaveAttribute('aria-selected', 'true');
+
+  // Clicking relative link back to README navigates back to README.md
+  const readmeLink = page.getByRole('link', { name: 'README' });
+  await expect(readmeLink).toBeVisible();
+  await readmeLink.click();
+
+  await expect(page.getByText('git client', { exact: true })).toBeVisible();
+  await expect(page.getByRole('treeitem', { name: /^README\.md$/ })).toHaveAttribute('aria-selected', 'true');
 
   await page.getByRole('button', { name: 'Source' }).click();
   await expect(page.getByText(/\*\*git client\*\*/)).toBeVisible();

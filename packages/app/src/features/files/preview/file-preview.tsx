@@ -40,9 +40,11 @@ export type FilePreviewProps = {
   relPath: string;
   /** A find-in-files result's line, to scroll to and briefly highlight. */
   targetLine?: number;
+  /** Navigate to another file (e.g. from a relative markdown link). */
+  onNavigate?: (relPath: string) => void;
 };
 
-export function FilePreview({ scope, relPath, targetLine }: FilePreviewProps) {
+export function FilePreview({ scope, relPath, targetLine, onNavigate }: FilePreviewProps) {
   const fileName = relPath.slice(relPath.lastIndexOf('/') + 1);
   const kind = previewKindForFile(fileName);
   // A search hit into a markdown file has nothing to scroll to in the
@@ -289,7 +291,12 @@ export function FilePreview({ scope, relPath, targetLine }: FilePreviewProps) {
               </Suspense>
             </>
           ) : kind === 'markdown' && !showSource ? (
-            <MarkdownPreview content={data.content} label={fileName} />
+            <MarkdownPreview
+              content={data.content}
+              label={fileName}
+              currentRelPath={relPath}
+              onNavigate={onNavigate}
+            />
           ) : (
             <CodePreview
               content={data.content}
