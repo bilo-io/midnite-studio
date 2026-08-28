@@ -209,56 +209,56 @@ in the renderer. Both are net-new, and both are small.
       [`CLAUDE.md`](../CLAUDE.md)'s rule that new icons come from react-icons while `lucide-react`
       stays where it already is.
 
-### F — The refs source, and the safe-writes line (M)
+### F — The refs source, and the safe-writes line (M) ✅ DONE (landed 2026-08-28)
 
-- [ ] The branches-and-tags source off `useRefs(repoId)`, grouped local / remote / tag, with the
+- [x] The branches-and-tags source off `useRefs(repoId)`, grouped local / remote / tag, with the
       upstream relationship as `detail` where Phase 12's remote model already knows it.
-- [ ] Two actions per ref, and only two: **check out** (through the existing repo actions, which go
+- [x] Two actions per ref, and only two: **check out** (through the existing repo actions, which go
       through the per-repo write queue like every other write) and **reveal in graph** (scroll and
       select the row, reusing what the sidebar ref tree already does). Delete, rename, reset and
       merge are reachable from the ref badge menu in the graph and are deliberately not here.
-- [ ] An explicit exported `PALETTE_SAFE: readonly CommandId[]` allowlist — not a denylist. A new
+- [x] An explicit exported `PALETTE_SAFE: readonly CommandId[]` allowlist — not a denylist. A new
       destructive command added in a later phase is absent from the palette by default, which is the
       failure mode you want; a denylist makes the same mistake the other way round and does it
       silently.
-- [ ] `palette-safety.test.ts` asserting the allowlist contains no command whose id is in the
+- [x] `palette-safety.test.ts` asserting the allowlist contains no command whose id is in the
       operation or reset families, in the string-shape style
       [`gh-write.test.ts`](../packages/desktop/src/main/forge/gh-write.test.ts) uses to assert
       `--undo` never appears. The test is the guardrail; the comment above the list explains it to
       whoever is tempted to extend it.
-- [ ] Honest empty states: with no repo open the palette still opens and still lists views, settings
+- [x] Honest empty states: with no repo open the palette still opens and still lists views, settings
       and `repo.open`, with the repo-scoped sources absent rather than rendered empty.
 
-### G — The file finder (L)
+### G — The file finder (L) ✅ DONE (landed 2026-08-28)
 
 **Land last, after A–F are green.** This is the only theme that crosses all four packages, and the
 one that can slip without costing the phase its point.
 
-- [ ] `mgit:fs:list-files` in [`channels.ts`](../packages/shared/src/ipc/channels.ts), with request
+- [x] `mgit:fs:list-files` in [`channels.ts`](../packages/shared/src/ipc/channels.ts), with request
       and response schemas beside the existing `FsListDirRequest` in
       [`schemas.ts`](../packages/shared/src/ipc/schemas.ts) and an entry in
       [`bridge.ts`](../packages/shared/src/ipc/bridge.ts). It takes `{ repoId }` and returns
       repo-relative paths plus a `truncated` flag — the renderer never sends or receives an absolute
       path, which is a property of the fs contract and not a habit.
-- [ ] New `packages/git-engine/src/commands/list-files.ts` over `git ls-files -z --cached --others
+- [x] New `packages/git-engine/src/commands/list-files.ts` over `git ls-files -z --cached --others
       --exclude-standard`. NUL-delimited per the project-wide rule, and `.gitignore` respected for
       free by `--exclude-standard` — which is the actual reason to use `ls-files` rather than walking
       the tree with `fs`. `ls-files` already has two internal callers
       ([`diff.ts`](../packages/git-engine/src/commands/diff.ts),
       [`status-counts.ts`](../packages/git-engine/src/commands/status-counts.ts)); this is the first
       one with a channel.
-- [ ] Main handler beside the existing fs handlers, and the preload passthrough in
+- [x] Main handler beside the existing fs handlers, and the preload passthrough in
       [`preload/index.ts`](../packages/desktop/src/preload/index.ts).
-- [ ] The renderer file source: one index per repo, fetched on first file-mode open and cached under
+- [x] The renderer file source: one index per repo, fetched on first file-mode open and cached under
       a key that includes the repo tip sha, so a commit or checkout invalidates it without a watcher
       subscription. A hard cap (**20 000 paths**) with the `truncated` flag surfaced in the palette
       footer — a finder that silently stops finding is worse than one that says it stopped.
-- [ ] Selecting a file opens it in the Phase 16 preview pane and reveals it in the folder explorer,
+- [x] Selecting a file opens it in the Phase 16 preview pane and reveals it in the folder explorer,
       expanding the ancestors the way clicking through would.
-- [ ] Scoring tuned for paths: the basename weighted above the directory segments, and a `/` in the
+- [x] Scoring tuned for paths: the basename weighted above the directory segments, and a `/` in the
       needle switching to a path-aware match, so `src/pal/pal` finds what you meant.
 
-### H — The focus trap, retrofitted (S)
+### H — The focus trap, retrofitted (S) ✅ DONE (landed 2026-08-28)
 
 **Shrunk, not dropped: the extraction landed under Phase 27 Theme G**, whose browser pane needed
 `use-focus-trap.ts` before this phase existed to build it. `popover.tsx`'s inline trap — a
@@ -271,12 +271,18 @@ now exists to fix.
 - [x] Extract `packages/app/src/components/use-focus-trap.ts` from `popover.tsx` with no behaviour
       change. ✅ landed as Phase 27 Theme G (2026-08-28) — `Popover` and the browser pane both
       consume it; `footer-monitor.spec.ts`'s existing flyout keyboard assertions are the regression
-      guard. A dedicated `use-focus-trap.test.ts` covering both Tab directions is still open.
-- [ ] `palette.tsx` consumes it rather than growing a third copy.
-- [ ] Retrofit [`confirm-dialog.tsx`](../packages/app/src/components/confirm-dialog.tsx) and
+      guard, plus a dedicated `use-focus-trap.test.ts` covering both Tab directions.
+- [x] `palette.tsx` consumes it rather than growing a third copy.
+- [x] Retrofit [`confirm-dialog.tsx`](../packages/app/src/components/confirm-dialog.tsx) and
       [`prompt-dialog.tsx`](../packages/app/src/components/prompt-dialog.tsx). Both are modal and
       both are load-bearing — Phase 7's blast-radius gate is a `ConfirmDialog` — so the retrofit is
       last in the theme and each keeps its existing `autoFocus` target as the trap's initial focus.
+
+*Phase 23 is now feature-complete — all eight themes (A–H) have landed. Recovered from an
+interrupted session: F/G/H sat built but uncommitted in the `feature/p23-fgh` worktree while three
+other loops landed on `main`; the pre-push gate (`moon run :typecheck :lint :test`) is green on
+`main` post-merge. Open: the Verification section's screenshot pass, the `palette.spec.ts` e2e
+coverage for the refs/files sources specifically, and the three "Open, for a human" manual checks.*
 
 ## Files this phase touches
 
