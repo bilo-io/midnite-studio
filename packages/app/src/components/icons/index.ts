@@ -5,6 +5,7 @@ import {
   SiGooglegemini,
   SiMistralai,
   SiOllama,
+  SiOpencode,
 } from 'react-icons/si';
 
 import type { IconComponent } from '../icon-button';
@@ -27,12 +28,13 @@ import { OpenClaudeIcon } from './openclaude-icon';
  * opinion, and fronting both is this module's entire job.
  */
 
-/** The four builtins' own marks, keyed as `AgentDefinition.icon ?? id`. */
+/** The five builtins' own marks, keyed as `AgentDefinition.icon ?? id`. */
 const LOCAL_ICONS: Record<string, IconComponent> = {
   claude: ClaudeIcon,
   antigravity: AntigravityIcon,
   codex: CodexIcon,
   openclaude: OpenClaudeIcon,
+  opencode: SiOpencode,
 };
 
 /**
@@ -56,6 +58,7 @@ const REACT_ICONS: Record<string, IconComponent> = {
   SiGooglegemini,
   SiMistralai,
   SiOllama,
+  SiOpencode,
 };
 
 export const AGENT_ICONS: Readonly<Record<string, IconComponent>> = {
@@ -87,4 +90,4 @@ export function resolveAgentIcon(agent: { id: string; icon?: string }): IconComp
   return Object.hasOwn(AGENT_ICONS, key) ? (AGENT_ICONS[key] as IconComponent) : Terminal;
 }
 
-export { AntigravityIcon, ClaudeIcon, CodexIcon, OpenClaudeIcon };
+export { AntigravityIcon, ClaudeIcon, CodexIcon, OpenClaudeIcon, SiOpencode as OpenCodeIcon };

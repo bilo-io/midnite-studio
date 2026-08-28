@@ -31,4 +31,8 @@ describe('agentInvocationArgs', () => {
   it('runs Codex non-interactively behind its exec subcommand', () => {
     expect(agentInvocationArgs('codex')).toEqual(['exec']);
   });
+
+  it('runs OpenCode with --prompt for its initial message', () => {
+    expect(agentInvocationArgs('opencode')).toEqual(['--prompt']);
+  });
 });

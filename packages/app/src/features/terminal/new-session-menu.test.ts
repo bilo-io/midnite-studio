@@ -2,13 +2,19 @@ import { BUILTIN_AGENTS, type AgentStatus } from '@midnite/git-shared';
 import { Terminal } from 'lucide-react';
 import { describe, expect, it, vi } from 'vitest';
 
-import { AntigravityIcon, ClaudeIcon, CodexIcon, OpenClaudeIcon } from '../../components/icons';
+import {
+  AntigravityIcon,
+  ClaudeIcon,
+  CodexIcon,
+  OpenClaudeIcon,
+  OpenCodeIcon,
+} from '../../components/icons';
 import { buildNewSessionMenu } from './new-session-menu';
 
 /**
  * Four cases, and each one greys the menu out for a different reason:
  * everything installed, one agent missing (OpenClaude is the live example —
- * the other three are on the PATH of the machine this was written on), nothing
+ * the other four are on the PATH of the machine this was written on), nothing
  * installed, and no worktree selected, where every row is dead for a reason
  * that has nothing to do with what is installed.
  */
@@ -50,13 +56,14 @@ describe('buildNewSessionMenu — everything installed', () => {
       'Antigravity',
       'Codex',
       'OpenClaude',
+      'OpenCode',
     ]);
   });
 
   /**
    * The `New Agent — ` prefix existed to disambiguate one entry from a heading.
-   * With four named agents the label IS the disambiguation, and the prefix
-   * would just be four copies of the same two words.
+   * With five named agents the label IS the disambiguation, and the prefix
+   * would just be five copies of the same two words.
    */
   it('drops the "New Agent —" prefix', () => {
     for (const r of rows(build())) expect(r.label).not.toContain('New Agent');
@@ -67,18 +74,20 @@ describe('buildNewSessionMenu — everything installed', () => {
     expect(row(build(), 'New Terminal')?.icon).toBe(Terminal);
   });
 
-  it('resolves each agent to its own mark rather than to Claude four times', () => {
+  it('resolves each agent to its own mark rather than to Claude multiple times', () => {
     const items = build();
 
     expect(row(items, 'Claude')?.icon).toBe(ClaudeIcon);
     expect(row(items, 'Antigravity')?.icon).toBe(AntigravityIcon);
     expect(row(items, 'Codex')?.icon).toBe(CodexIcon);
     expect(row(items, 'OpenClaude')?.icon).toBe(OpenClaudeIcon);
+    expect(row(items, 'OpenCode')?.icon).toBe(OpenCodeIcon);
   });
 
   it('paints a live row in the agent brand accent', () => {
     expect(row(build(), 'Claude')?.iconStyle).toEqual({ color: '#D97757' });
     expect(row(build(), 'Codex')?.iconStyle).toEqual({ color: '#10A37F' });
+    expect(row(build(), 'OpenCode')?.iconStyle).toEqual({ color: '#03B000' });
   });
 
   it('leaves every row enabled', () => {
