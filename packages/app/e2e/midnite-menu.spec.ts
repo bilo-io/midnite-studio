@@ -76,16 +76,15 @@ test('the row carries three menus, midnite first and the ellipsis last', async (
   ]);
 });
 
-test('the menu offers the fifteen agent verbs, each with its own glyph, grouped into four categories', async ({
+test('the menu offers the fifteen agent verbs, each with its own glyph, with loops in a submenu', async ({
   page,
 }) => {
   await open(page);
   await openMidniteMenu(page);
 
-  const items = page.getByRole('menuitem');
-  // The labels, not the ids — what the menu shows is a display layer over
-  // `AgentCommandId`, and this is the assertion that keeps the two apart.
-  await expect(items).toHaveText([
+  const topItems = page.getByRole('menu').first().getByRole('menuitem');
+  // The top level menu offers 9 standard actions plus the Loops submenu item
+  await expect(topItems).toHaveText([
     'Backlog Task',
     'Adhoc Task',
     'Address Issue',
@@ -95,6 +94,13 @@ test('the menu offers the fifteen agent verbs, each with its own glyph, grouped 
     'PR Feedback',
     'Release Prep',
     'Release Complete',
+    'Loops',
+  ]);
+
+  // Hover over 'Loops' to open its submenu
+  await page.getByRole('menuitem', { name: 'Loops' }).hover();
+  const subMenu = page.getByRole('menu').nth(1);
+  await expect(subMenu.getByRole('menuitem')).toHaveText([
     'Loop: PR Review',
     'Loop: PR Feedback',
     'Loop: Backlog Task',
@@ -102,11 +108,12 @@ test('the menu offers the fifteen agent verbs, each with its own glyph, grouped 
     'Loop: Address Issue',
     'Loop: Brainstorm',
   ]);
-  // Iconed throughout, like every other menu the row opens — a menu of fifteen
-  // bare verbs would be the one place the app drops its glyphs.
-  await expect(items.locator('svg')).toHaveCount(15);
-  // Four categories, so three dividers: execute | pr | release | loops.
-  await expect(page.getByRole('menu').locator('hr')).toHaveCount(3);
+
+  // Iconed throughout - 9 flat-item icons, the Loops row's own icon *and* its
+  // chevron (it is both an entry and a submenu opener), and 6 submenu icons.
+  await expect(page.getByRole('menuitem').locator('svg')).toHaveCount(17);
+  // Four categories, so three dividers on top level menu: execute | pr | release | loops.
+  await expect(page.getByRole('menu').first().locator('hr')).toHaveCount(3);
 });
 
 test('an entry opens a Claude session with its skill typed, not run', async ({ page }) => {

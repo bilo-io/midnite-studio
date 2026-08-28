@@ -1,4 +1,5 @@
 import { BUILTIN_AGENTS } from '@midnite/git-shared';
+import { LuRepeat } from 'react-icons/lu';
 
 import type { MenuItem } from '../../components/context-menu';
 import { useDialogs } from '../../components/dialog-host';
@@ -50,15 +51,10 @@ export function MidniteMenu({
     (BUILTIN_AGENTS[0] as (typeof BUILTIN_AGENTS)[number]);
 
   const items: MenuItem[] = [];
+  const loopSubmenuItems: MenuItem[] = [];
   let lastCategory: string | undefined;
-  for (const { id, label, icon, category } of AGENT_COMMANDS) {
-    // A category change draws one divider — never before the first entry, and
-    // never doubled when a category is a single row (release-prep is not).
-    if (lastCategory !== undefined && category !== lastCategory) {
-      items.push({ type: 'separator' });
-    }
-    lastCategory = category;
 
+  for (const { id, label, icon, category } of AGENT_COMMANDS) {
     /*
       `?? DEFAULT` against the types, not with them: the store's `merge` refills
       a missing entry and a test holds it to that, but this store is
@@ -67,7 +63,7 @@ export function MidniteMenu({
       would take the whole sidebar down rather than one menu row.
     */
     const skill = (skills[id] ?? DEFAULT_AGENT_SKILLS[id]).trim();
-    items.push({
+    const menuItem: MenuItem = {
       label,
       icon,
       // A cleared field is a real state — the setting takes any prompt, so it
@@ -79,6 +75,29 @@ export function MidniteMenu({
         : {}),
       onSelect: () =>
         startAgent({ repoId, cwd, title: label, prompt: skill, agentId: agent.id, command: agent.command }),
+    };
+
+    if (category === 'loops') {
+      loopSubmenuItems.push(menuItem);
+    } else {
+      // A category change draws one divider — never before the first entry, and
+      // never doubled when a category is a single row (release-prep is not).
+      if (lastCategory !== undefined && category !== lastCategory) {
+        items.push({ type: 'separator' });
+      }
+      lastCategory = category;
+      items.push(menuItem);
+    }
+  }
+
+  if (loopSubmenuItems.length > 0) {
+    if (lastCategory !== undefined) {
+      items.push({ type: 'separator' });
+    }
+    items.push({
+      label: 'Loops',
+      icon: LuRepeat,
+      submenu: loopSubmenuItems,
     });
   }
 
