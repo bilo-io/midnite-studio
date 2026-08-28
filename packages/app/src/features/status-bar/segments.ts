@@ -5,6 +5,7 @@ import { MonitorCluster } from '../monitor/monitor-cluster';
 import { ActiveWorktreeSegment } from './active-worktree';
 import { AgentCountSegment } from './agent-count';
 import { BrowserToggle } from './browser-toggle';
+import { ChecksVerdictSegment } from './checks-verdict';
 import { InProgressSegment } from './in-progress';
 import { OpProgressSegment } from './op-progress';
 import { ReposToggle } from './repos-toggle';
@@ -68,4 +69,11 @@ export const STATUS_SEGMENTS: StatusSegment[] = [
   // position, and outrank diagnostics/monitor at collapse time — a failing
   // test outranks a CPU readout.
   { id: 'test-verdict', zone: 'right', priority: 30, label: 'Test verdict', El: TestVerdictSegment },
+  {
+    id: 'checks-verdict',
+    zone: 'right',
+    priority: 40,
+    label: 'Checks verdict',
+    El: ChecksVerdictSegment,
+  },
 ];
