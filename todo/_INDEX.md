@@ -20,7 +20,11 @@ Completed work is logged append-only in [`done.md`](done.md). Deferred scope liv
 
 | Phase | Status | Refined | Done | Progress | % | 🔄 WIP | ◻ TODO |
 |-------|--------|---------|------|----------|---|--------|--------|
+<<<<<<< Updated upstream
 | [30 · A terminal that survives you](phase-30-terminal-hardening.md) | 🔄 WIP | x1 | 63/63 | `██████████` | 100% | — | A,B,C,D,E |
+=======
+| [30 · A terminal that survives you](phase-30-terminal-hardening.md) | 🔄 WIP | x2 | 38/91 | `████░░░░░░` | 42% | C | F, G |
+>>>>>>> Stashed changes
 | [29 · Markdown slides, everywhere markdown already renders](phase-29-markdown-slides-viewer.md) | ✅ DONE | — | 21/21 | `██████████` | 100% | — | — |
 | [28 · Worktrees first, and the section tree that can say so](phase-28-sidebar-section-tree.md) | 🔄 WIP | — | 59/62 | `██████████` | 95% | — | 3 verification items |
 | [27 · The footer becomes a status bar, and the browser it makes room for](phase-27-status-bar-and-browser-panel.md) | 🔄 WIP | x1 | 72/90 | `████████░░` | 80% | — | 18 verification items |
@@ -68,7 +72,11 @@ untouched — no tmux, no `ZDOTDIR` shim, no `TERM` change. Three reported defec
 blank pane on reveal, the `BAAAA` auto-names from keystroke reconstruction, and the ambiguous dimmed
 row, which becomes an honest live/asleep/ended state with an agent-resume button. Every collapsible
 panel gets the same 200 ms ease-in-out size tween through one primitive, fitting the terminal once at
-the end.*
+the end. Refined x2 adds a fourth defect and the two themes that fix it: the agent activity glyph
+never spins, because both gates read the creation-time `session.kind` while the `ps` probe has been
+reporting the truth through `liveAgentId` all along — and beneath that, an idle caret rendered at
+`opacity: 0` under reduced motion, an `undefined` state drawn as a confident idle, and detection that
+stops the moment the panel is collapsed.*
 
 - ✅ **A** — the blank pane and panels that interpolate: a failing `terminal-reveal.spec.ts` first (the
   mock learns to record `resizes`/`snapshots`), then a live-session `pty:snapshot` on remount behind a
@@ -97,6 +105,19 @@ the end.*
   fixtures hand-edited), `foregroundOf` picks the last `+` member by pid, `commandLabel` truncates at
   40, `pty:command-changed` holds the name after exit, OSC title only before any command
   (landed 2026-08-28, merged locally — no PR/no remote).
+- ◻ **F** — the indicator that never span: the activity gate moves off the creation-time
+  `session.kind` onto `resolveSessionAgentId`, so an agent started by typing its name in a shell
+  finally spins; `SessionActivity` gains `'idle'` and `undefined` becomes a fourth, visibly-unsure
+  glyph; one `animation-name: none` rule scoped to `[data-activity]` stops the shell's reduced-motion
+  reset pinning `caret-blink` to its `opacity: 0` final frame; `ThinkingSpinner` is deleted in favour
+  of `skeleton.tsx`'s byte-identical `Spinner`. Labelled, never announced. Renderer-only, after D.
+- ◻ **G** — a detector that can be wrong out loud: detection moves to `pty-service.ts`'s single
+  `ptyData` send (a collapsed panel unmounts every `TerminalView`, which is exactly when the status
+  bar's count is the only thing looking) behind a new `mgit:pty:activity` event; markers become
+  `AgentDefinitionSchema.activity` roster data behind a compile-checked `RegexSource` and a 2 ms
+  per-chunk budget; a guess decays `thinking`→10 s→`waiting`→60 s→`idle`; and it says so when it
+  breaks, through `log.ts` and an **Agent activity** readout on the Terminal settings page.
+  Independent of C.
 
 ### [Phase 29 — Markdown slides, everywhere markdown already renders](phase-29-markdown-slides-viewer.md)
 

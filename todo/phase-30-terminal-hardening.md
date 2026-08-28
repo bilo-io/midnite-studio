@@ -1,6 +1,6 @@
 # Phase 30 — A terminal that survives you
 
-**Refined: x1** · 2026-08-28 · UI/UX, visual design, accessibility, empty/loading/error states, concurrency, edge cases, persistence, testing, security, performance, observability, file map, acceptance criteria, sequencing
+**Refined: x2** · 2026-08-28 · UI/UX, visual design, accessibility, empty/loading/error states, concurrency, edge cases, persistence, testing, security, performance, observability, file map, acceptance criteria, sequencing, agent activity, motion fallbacks, out-of-scope tightening
 
 Phase 15 made terminal sessions durable in exactly one sense: the *transcript* survives, the
 *process* does not. `terminals.json` and `scrollback/<id>.bin` come back on the next launch as dimmed
@@ -10,7 +10,7 @@ item asks a human to confirm `ps` shows **no** surviving shells after a relaunch
 design this phase overturns. A coding agent mid-conversation, a dev server, a `git rebase -i` half
 way through: none of them should die because the window reloaded or the app was quit.
 
-Three defects reported against the current terminal are fixed on the way, each with a cause the
+Four defects reported against the current terminal are fixed on the way, each with a cause the
 code already names:
 
 - **Blank pane on reveal.** Collapsing the terminal unmounts it (`terminalReveal.mounted` at
@@ -32,6 +32,19 @@ code already names:
   an arrow arrives as `ESC O A`; the skipper ends its escape on the `O` and the `A`/`B` lands in the
   buffer. A perfect parser would still be wrong — recalling `pnpm dev` from history never types
   those characters — so the approach is replaced, not repaired.
+- **The agent activity glyph never spins.** Two gates decide who gets one, and both read
+  `session.kind` — fixed at the moment a session is created — while Phase 21's `ps` probe already
+  reports what is *actually* running through `liveAgentId` and `resolveSessionAgentId`
+  ([`terminal-store.ts:591`](../packages/app/src/features/terminal/terminal-store.ts)). Typing
+  `claude` in an ordinary shell therefore gets the Claude icon and its accent — the list already
+  computes `runningAgent` off the probe at
+  [`terminal-session-list.tsx:115-117`](../packages/app/src/features/terminal/terminal-session-list.tsx) —
+  and never the spinner. Beneath that sit three more: the shell's reduced-motion reset pins every
+  keyframe to its final frame, and `caret-blink`'s is `opacity: 0`, so the idle glyph is *invisible*
+  on a Reduce-Motion machine; `activity === undefined` draws the same confident caret as a genuinely
+  idle agent, which is what hid the detector's own 2.1.x regression; and detection only runs inside
+  a mounted `TerminalView`, so it stops entirely while the panel is collapsed — the one situation
+  the status bar's agent count exists for.
 
 **Builds on.** Phase 9 (the pty service, `safeFit`, deferred `term.open()`), Phase 13
 (`useReveal`/`useSettled` in [`use-reveal.ts`](../packages/app/src/components/use-reveal.ts), the
@@ -56,7 +69,11 @@ in-main ptys, so the renderer's rebind path is proven before the process that ow
 **C after B**, and it must land whole — a half-landed C (client without broker, or broker without
 `before-quit` detaching) leaves quit killing shells the UI says are live. **D after B** (it reads
 `live` and the snapshot path) and after E for the `X`-confirm's command name; D's Sleep/Resume do
-not need C. A run that has landed A+B+E without C is a coherent, shippable state.
+not need C. A run that has landed A+B+E without C is a coherent, shippable state. **F after D** —
+it edits the rows and the count D has just rewritten around `sessionPhase`, and it needs nothing
+else; F is renderer-only and lands alone. **G after F** and **independent of C**: the one site it
+hooks (`pty-service.ts`'s single `ptyData` send) survives C's rewrite untouched, so the two can be
+built in either order or at once.
 
 Effort tags: **S** ≈ an hour or two · **M** ≈ half a day · **L** ≈ a day plus.
 
@@ -571,19 +588,288 @@ that pty.
       wiring gains the second `webContents.send`. Mock bridge: `__mgitPtyCommand(ptyId, command)`
       beside `__mgitPtyAgent` (`mock-bridge.ts:1502-1508`).
 
+### F — The indicator that never span (M)
+
+The reported defect and the three things around it that share a cause: an activity glyph is decided
+by what the session was *opened as*, drawn with an animation that a reduced-motion machine freezes,
+and rendered identically whether the detector said "idle" or never said anything at all.
+Renderer-only; nothing here needs the broker.
+
+- [ ] The gate reads what is **running**, not what the session was **opened as**.
+      - `session.kind` is fixed at creation, but Phase 21's `ps` probe already reports the truth
+        through `liveAgentId` and
+        [`resolveSessionAgentId(session, liveAgentId)`](../packages/app/src/features/terminal/terminal-store.ts)
+        (`terminal-store.ts:591`). The list component already selects `liveAgentId` (`:45`) and
+        already computes `runningAgent` off it (`:115-117`) — so typing `claude` in a plain shell
+        gets the Claude icon and its accent, and **never** the spinner. That is the reported bug: the
+        data is present, the gate reads the wrong field.
+      - Three sites, all becoming `resolveSessionAgentId(session, liveAgentId) !== undefined`:
+        [`terminal-session-list.tsx:316`](../packages/app/src/features/terminal/terminal-session-list.tsx)
+        (`session.kind === 'agent' && live` → `isAgentRow && live`, `isAgentRow` computed beside
+        `phase` at `:199`), [`terminal-view.tsx:143`](../packages/app/src/features/terminal/terminal-view.tsx)
+        (`if (session.kind !== 'agent') return;`), and
+        [`agent-count.tsx:22`](../packages/app/src/features/status-bar/agent-count.tsx).
+      - `terminal-view.tsx` does not select `liveAgentId` today. It gains
+        `const agentId = useTerminalStore((s) => resolveSessionAgentId(session, s.liveAgentId));`
+        and `writeToTerm`'s dep array (`:148`, today `[session.id, session.kind]`) becomes
+        `[session.id, agentId]`, so the probe changing its mind re-arms the callback.
+      - `agentCount` keeps its `(sessions, states)` signature and gains a third parameter
+        `liveAgentId: Record<string, string | null>` — it is a pure function with its own test and
+        the store selector at `agent-count.tsx:35` supplies it. Theme D's
+        `sessionPhase(session, state) === 'live'` clause is untouched.
+      - Acceptance: an e2e session with `kind: 'shell'` for which `__mgitPtyAgent(ptyId, 'claude')`
+        has fired renders `[data-activity]` on its row; the status bar counts it.
+- [ ] `SessionActivity` gains `'idle'`, so `undefined` can stop meaning it.
+      - [`terminal-store.ts:50`](../packages/app/src/features/terminal/terminal-store.ts):
+        `export type SessionActivity = 'thinking' | 'waiting' | 'idle';`. `activity` (`:109`),
+        `setActivity` (`:202`, `:478`) and the `dropSessionState` delete (`:490`) are unchanged —
+        the union widens, the plumbing does not.
+      - **`undefined` now means "live, and the detector has not spoken"**, which is a fourth thing to
+        draw, not a synonym for idle. Nothing emits `'idle'` until Theme G's decay ladder; that is
+        deliberate and stated rather than churning the file twice, and the vitest below covers the
+        `'idle'` arm so it is not untested dead code.
+- [ ] `ActivityIndicator` (`terminal-session-list.tsx:356`) grows the fourth arm and the test hook.
+      - The outer fixed-width span gains `data-activity={activity ?? 'unknown'}` — the sibling of
+        Theme D's `data-phase` at `:253`, and the only hook Playwright and the reduced-motion CSS
+        below need. The `flex size-3.5 shrink-0 items-center justify-center` slot is unchanged: the
+        14px reservation is what stops the `StateDot` shifting sideways.
+      - Arms: `'thinking'` → `<Spinner label="Thinking" />`; `'waiting'` → `<WaitingDots />`;
+        `'idle'` → `<IdleCaret />`; `undefined` → new `<UnknownDot />`.
+      - `function UnknownDot()` beside `IdleCaret` (`:428`):
+        `<span role="img" aria-label="Activity unknown" className="size-1 rounded-full bg-muted-foreground/35" />`
+        — a 4px dot at 35%, deliberately the quietest mark in the slot. It is smaller than the
+        `StateDot` beside it (`size-1.5`) so the pair never reads as two connection dots.
+      - Rationale, for the comment that goes above it: the detector is keyed to one CLI's chrome and
+        has silently regressed once already (see `activity-detect.ts`'s own note that from 2.1.x
+        onward thinking "was never once detected"). Drawing that state as a confident *idle* is what
+        hid it; drawing it as a visibly-unsure dot is what would have surfaced it on day one.
+- [ ] Under `html[data-motion='reduced']` all four glyphs stay legible and stay **different**.
+      - The bug, precisely: `@bilo-io/shell/appearance.css` forces
+        `animation-duration: 0.001ms !important` **and** `animation-fill-mode: forwards !important`
+        on every element, so each keyframe is pinned to its own final frame. `caret-blink`'s `100%`
+        is `opacity: 0` — **`IdleCaret` renders completely invisible**. `dot-wave`'s `100%` is
+        `opacity: 0.35` — the waiting dots render dimmed to a third. Only the spinner survives, and
+        only because its final frame is `rotate(360deg)`, which looks like its first.
+      - Fix: one rule in [`styles.css`](../packages/app/src/styles.css), beside the existing
+        `.code-preview-hit` reduced-motion block (`:187-192`) it copies the idiom from —
+        `html[data-motion='reduced'] [data-activity], html[data-motion='reduced'] [data-activity] * { animation-name: none !important; }`.
+        Removing the animation, rather than overriding each held property, is what lets every glyph
+        fall back to the static appearance its own base classes already describe.
+      - Result, stated so it can be checked: thinking = a half-lit 14px ring, waiting = three amber
+        dots at full opacity, idle = a solid 2px caret bar, unknown = a 4px dim dot. Four distinct
+        **shapes**, not four colours — the same rule `ref-badge.tsx`'s halo follows and that
+        [`tailwind.config.ts:214`](../packages/app/tailwind.config.ts) writes down as the house
+        habit ("styled to stand on its own rather than to be a keyframe's starting position").
+      - `data-motion='full'` and the unset default are untouched; this rule cannot fire for them.
+- [ ] `ThinkingSpinner` is deleted; the row uses the shared `Spinner`.
+      - `terminal-session-list.tsx:393`'s className is **byte-identical** to
+        [`components/skeleton.tsx:61`](../packages/app/src/components/skeleton.tsx)'s —
+        `size-3.5 animate-spin rounded-full border-2 border-muted-foreground/25 border-r-foreground border-t-foreground`
+        — and `Spinner` already takes a `label` and sets `role="img"` from it. The call becomes
+        `<Spinner label="Thinking" />`; `ThinkingSpinner` and its 20-line comment go.
+      - The comment does not go with it: the measured geometry rationale (14px over 12px, a 2px rim
+        over `border-[1.5px]` because Chromium floors it below 2×, two lit borders over one) moves
+        **into** `skeleton.tsx` above `Spinner`, since that is now where the mark lives. Deleting it
+        would lose the only record of why the first cut was invisible.
+      - Direction is `features/ → components/`, never the reverse — the same rule
+        [`state-dot.tsx`](../packages/app/src/components/state-dot.tsx) states in its own header for
+        `DotState`.
+      - Acceptance: `grep -rn 'ThinkingSpinner' packages/app/src` returns nothing, and
+        `grep -rn 'animate-spin rounded-full border-2' packages/app/src` returns exactly one line,
+        in `skeleton.tsx`.
+- [ ] Accessibility: the slot is labelled, and it never interrupts.
+      - Each arm keeps its own `role="img"` + `aria-label` — *Thinking*, *Waiting for input*
+        (unchanged, `:414`), *Idle* (unchanged, `:431`), *Activity unknown*. **No `role="status"`,
+        no `aria-live`**: an agent mid-turn repaints several times a second, so a live region here
+        would make a screen reader narrate continuously for as long as the turn runs. The state is
+        read on focus, as part of the row's accessible name.
+      - Vitest asserts the four labels; the absence of a live region is asserted too
+        (`expect(container.querySelector('[aria-live]')).toBeNull()`), because "we deliberately did
+        not" is exactly the kind of decision a later change undoes by accident.
+- [ ] Vitest — the gate, as a pure function.
+      - Extract `isAgentRow(session, liveAgentId): boolean` beside `resolveSessionAgentId` in
+        `terminal-store.ts` (one line, `resolveSessionAgentId(...) !== undefined`) so all three call
+        sites share one testable predicate rather than three copies of a comparison.
+      - `terminal-store.test.ts` `describe('isAgentRow')`, five rows mirroring
+        `resolveSessionAgentId`'s existing cases (`:476-497`): `kind:'agent'` never probed → true;
+        `kind:'shell'` never probed → false; `kind:'shell'` probed `'claude'` → true;
+        `kind:'agent'` probed `null` → **false** (the agent exited, the shell remains); another
+        session's entry does not leak.
+      - `agent-count.test.ts` gains a case: a `kind:'shell'` session with `liveAgentId['s1'] = 'claude'`
+        and `states['s1'] = 'open'` counts as 1.
+- [ ] Vitest — the indicator's four arms and the reduced-motion classes.
+      - New [`terminal-session-list.test.tsx`](../packages/app/src/features/terminal/terminal-session-list.test.tsx)
+        (net-new; the file has no test today) rendering `ActivityIndicator` alone via RTL:
+        `data-activity` is `thinking`/`waiting`/`idle`/`unknown` for the four inputs; the four
+        `aria-label`s are present; no `[aria-live]` anywhere in the subtree.
+      - The CSS rule itself is not unit-testable — it is asserted by the Playwright case below and
+        by the human pass in Verification.
+- [ ] Playwright — the defect, end to end.
+      - [`e2e/terminal.spec.ts`](../packages/app/e2e/terminal.spec.ts) gains
+        `'a shell running an agent gets the activity indicator'`: open a `kind: 'shell'` session,
+        fire `__mgitPtyAgent(ptyId, 'claude')`, feed a chunk containing `✳ Kneading…`, then
+        `await expect(row.locator('[data-activity]')).toHaveAttribute('data-activity', 'thinking')`
+        and the status-bar count reads `1 agent`.
+      - And `'the activity glyphs survive reduced motion'`: set
+        `document.documentElement.dataset.motion = 'reduced'`, then assert the computed
+        `animationName` of `[data-activity='idle'] > span` is `'none'` and its computed `opacity`
+        is `'1'` — the two things that are wrong today.
+- [ ] Screenshots per the visual convention: the four glyphs side by side in one list, light and
+      dark, at the default density; and the same four with `data-motion='reduced'` set, which is the
+      frame that proves they are still four distinct marks.
+
+### G — A detector that can be wrong out loud (L)
+
+Theme F makes the indicator *reachable* and *honest about not knowing*. This makes the thing behind
+it survive a collapsed panel, a second agent CLI, and a TUI that changes under it. Lands after F;
+**independent of C** — the one site it hooks survives C's rewrite untouched.
+
+- [ ] Detection moves out of the renderer into main.
+      - Why it must: `setActivity` is called from exactly one place,
+        [`terminal-view.tsx:146`](../packages/app/src/features/terminal/terminal-view.tsx), inside
+        the view — and [`app.tsx:734`](../packages/app/src/app.tsx)'s `terminalReveal.mounted`
+        unmounts every view when the panel is collapsed. So the status-bar agent count, the one
+        readout that exists *because* the panel may be shut
+        (`agent-count.tsx`'s own doc comment says so), goes stale the moment it is the only thing
+        looking.
+      - Where: [`pty-service.ts:250`](../packages/desktop/src/main/pty-service.ts) — the single
+        `win.webContents.send(EVENT_CHANNELS.ptyData, …)` site, immediately before the send.
+        **Resolved — not in the broker**: this site survives Theme C untouched (C only swaps the
+        closure-captured `win` for the `getWindow()` thunk), so G neither waits on C nor puts
+        renderer-shaped TUI parsing inside a Node daemon.
+      - [`activity-detect.ts`](../packages/app/src/features/terminal/activity-detect.ts) and its
+        test **move** to `packages/desktop/src/main/activity-detect.ts` (a `git mv`; the module
+        imports nothing but its own types). `SessionActivity` moves the other way, to
+        [`shared/src/terminal.ts`](../packages/shared/src/terminal.ts) beside `TerminalSessionSchema`,
+        because it now crosses the wire; `terminal-store.ts:50` re-exports it so no renderer import
+        changes.
+      - Per-pty state: `ActivityState` (`createActivityState()`) is held in `pty-service.ts`'s
+        existing `sessions` map entry rather than a second map, so `sessions.delete(id)` in
+        `onExit` (`:254`) already disposes it.
+- [ ] The `mgit:pty:activity` event, modelled on `ptyAgentChanged` in every particular.
+      - `EVENT_CHANNELS.ptyActivity = 'mgit:pty:activity'` in
+        [`channels.ts`](../packages/shared/src/ipc/channels.ts) beside `ptyCommandChanged`;
+        `PtyActivityEvent = z.object({ ptyId: z.string().min(1), activity: SessionActivitySchema.nullable() })`
+        in [`schemas.ts`](../packages/shared/src/ipc/schemas.ts) after `PtyCommandChangedEvent`,
+        where `SessionActivitySchema = z.enum(['thinking', 'waiting', 'idle'])`. `null` is the
+        explicit "detector has nothing to say" that F draws as the unknown dot.
+      - **Change-only**, like the agent probe: main holds the last emitted value per ptyId and sends
+        only on a transition, so a repainting TUI does not put an IPC message on the wire per chunk.
+      - `ipc.test.ts` `expected` gains `ptyActivity: ['PtyActivityEvent']` and `CASES` its row
+        (invalid: `activity: 'busy'`, and an empty-string `ptyId`).
+      - Preload [`index.ts`](../packages/desktop/src/preload/index.ts):
+        `onActivity: (handler) => subscribe(EVENT_CHANNELS.ptyActivity, handler)`;
+        [`bridge.ts`](../packages/shared/src/ipc/bridge.ts) `pty.onActivity`.
+      - Renderer: [`use-terminal-ipc.ts`](../packages/app/src/features/terminal/use-terminal-ipc.ts)
+        subscribes it beside `onAgentChanged` (`:68`) and calls
+        `setActivity(session.id, activity ?? undefined)`. **This hook is mounted per session and does
+        not unmount with the panel**, which is the whole point. `terminal-view.tsx`'s
+        `writeToTerm` detection block (`:141-147`), `activityRef`, and the `detectActivity` import
+        (`:10`) are deleted; the keystroke reset at `:429` stays — typing still answers the question
+        the *waiting* glyph asks.
+      - Mock bridge: `__mgitPtyActivity(ptyId, activity)` beside `__mgitPtyAgent`
+        (`mock-bridge.ts:1502-1508`).
+- [ ] Markers become roster data, so a second agent CLI does not need a release.
+      - `AgentDefinitionSchema` (`terminal.ts:36-57`) gains
+        `activity: z.object({ thinking: RegexSource, frameEnd: RegexSource }).optional()`, beside
+        `install` and Theme D's `resume` — roster data, the same shape decision, for the same reason.
+      - `BUILTIN_AGENTS`: `claude` carries today's two sources verbatim (the `SPINNER_FRAMES` class
+        with `↓ … tokens` and `esc to interrupt`; `shift+tab to cycle|auto mode on|\? for shortcuts`).
+        `codex`, `agy` and `openclaude` get **none** — an absent `activity` means no detector, which
+        F draws as the unknown dot. **A missing marker set is never guessed at**, which is the same
+        rule `resume` follows.
+      - `mergeAgents` (`agents-store.ts:50-64`) replaces a builtin whole, so an `agents.json`
+        override supplying `activity` must restate the rest — documented in the schema's doc comment
+        exactly as `resume`'s is.
+      - This closes the deferral: per-agent detection stops being "its own slice" and becomes a
+        table anyone can extend from `agents.json`.
+- [ ] `RegexSource` — a user-supplied pattern that cannot take the app down.
+      - `const RegexSource = z.string().min(1).max(200).refine((s) => { try { new RegExp(s, 'i'); return true; } catch { return false; } }, 'not a valid regular expression')`
+        in `terminal.ts`. A 200-char cap and a compile check at **parse** time, so a malformed
+        `agents.json` is rejected where every other malformed field is.
+      - Compiled **once**, in `mergeAgents`, into a non-exported
+        `Map<agentId, { thinking: RegExp; frameEnd: RegExp }>` — never `new RegExp` per chunk. A
+        compile that throws despite the refine (a different flag path) drops that agent's detector
+        and logs; it never throws into the pty data path.
+      - Per-chunk time budget: `detectActivity` is wrapped so main measures each call with
+        `performance.now()`. **Three consecutive calls over 2 ms** disable that agent's detector for
+        the life of the process, emit `activity: null` for its sessions, and log
+        `[activity] detector for <agentId> disabled after <n>ms — pattern too slow`. The cap on
+        input is already `MAX_FRAME_CHARS` (8000); the budget is what defends against catastrophic
+        backtracking a length cap cannot.
+      - Three consecutive rather than one, so a single GC pause or a cold JIT does not disable a
+        working detector.
+      - Vitest: a source of 201 chars fails to parse; `'([a-z]+)+$'` against a pathological 8000-char
+        buffer trips the budget on the third call and the fourth call returns `null` without
+        evaluating the regex.
+- [ ] A guess expires. **Resolved — `thinking` →10 s→ `waiting` →60 s→ `idle`.**
+      - Today `detectActivity` returns `undefined` for most chunks and the caller keeps its last
+        answer *forever*: a killed agent, or a marker that stopped matching, leaves a spinner
+        turning until the session is closed.
+      - `createActivityClock({ now, onChange }): { saw(activity): void; tick(): void; dispose(): void }`
+        in the moved `activity-detect.ts`, driven by one shared 1 s `setInterval` in `pty-service.ts`
+        for **all** sessions — not a timer per pty.
+      - The ladder, stated as the table it is: last detection `thinking` and ≥10 s of silence →
+        `waiting`; `waiting` and ≥60 s of silence → `idle`; `idle` decays no further. Any detection
+        resets the clock. 10 s because an agent mid-turn repaints its spinner row several times a
+        second, so ten seconds of nothing means the turn ended, not that work paused; 60 s because a
+        prompt left unanswered for a minute is a prompt nobody is at.
+      - This is what finally produces `'idle'`, making F's `IdleCaret` arm reachable.
+      - Vitest with fake timers: `saw('thinking')` then 9 s → no change; 10 s → `'waiting'`; 69 s →
+        no change; 70 s → `'idle'`; a `saw('thinking')` at 9.5 s restarts the ladder.
+- [ ] Observability: one log line, and a readout that does not need devtools.
+      - Through the [`log.ts`](../packages/desktop/src/main/log.ts) `Logger` seam Theme B landed —
+        no second logger. Lines: `[activity] no frame boundary for <agentId> in <n>kB — markers may be stale`
+        (once per session, after 64 kB of output with zero `frameEnd` matches — the exact shape of
+        the 2.1.x regression), `[activity] detector for <agentId> disabled …` (above), and
+        `[activity] <ptyId> <from> → <to>` behind `MGIT_ACTIVITY_DEBUG=1` only.
+      - A live readout on [`settings-pages/terminal-page.tsx`](../packages/app/src/features/settings/settings-pages/terminal-page.tsx),
+        under a new **Agent activity** section: one row per live agent session — the session name,
+        its current activity, and *last seen Ns ago* — plus a single line naming which agents have a
+        detector at all. It reads the renderer store only (`activity`, `liveAgentId`, `sessions`);
+        no new channel. A marker change becomes diagnosable by a user, not only by whoever opens a
+        console.
+      - Pure helper `activityRows(sessions, states, activity, liveAgentId, now): ActivityRow[]`
+        exported from the page and tested; the component is the table around it. The existing
+        `sidebar-page.test.ts` is the precedent for testing a settings page's pure half.
+- [ ] The detector is pinned to real output, so a TUI change fails a **test**.
+      - `packages/desktop/src/main/__fixtures__/activity/` (net-new): `claude-thinking.txt`,
+        `claude-waiting.txt`, `claude-narrow.txt` (the width at which the `(1m 38s · ↓ 4.5k tokens)`
+        parenthetical is dropped entirely — the case that broke it before) and
+        `claude-transcript.txt` (plain output that must say nothing either way), each captured from a
+        real session with escapes intact and committed byte-for-byte.
+      - `activity-detect.test.ts` runs the `claude` marker pair over all four and asserts
+        `thinking`/`waiting`/`thinking`/`undefined`. The existing hand-written cases stay — they
+        document intent; the fixtures document reality.
+      - Also asserts the split-chunk property the module exists for: `claude-thinking.txt` fed in
+        three arbitrary slices yields the same answer as fed whole.
+- [ ] Vitest and Playwright for the move itself.
+      - `ipc.test.ts`: the `ptyActivity` row, valid (`'thinking'`, `null`) and invalid (`'busy'`).
+      - `terminal-store.test.ts`: `setActivity(id, undefined)` clears the key (already covered at
+        `:355-362`) — extended to assert `'idle'` is accepted by the widened union.
+      - Playwright `terminal.spec.ts` `'activity survives the panel being collapsed'`: fire
+        `__mgitPtyActivity(ptyId, 'thinking')`, collapse with `Ctrl+\``, and assert the status-bar
+        agent count still reads `1 agent`; reveal, and the row's `data-activity` is still
+        `thinking` — the assertion that fails today for the mount-boundary reason above.
+- [ ] Boundary check: `packages/app` loses its `activity-detect.ts` import and gains no node builtin;
+      `packages/desktop` gains it; `shared` gains `SessionActivitySchema` and one channel. The
+      existing eslint groups cover this without a new rule — the item is here so the executor
+      confirms rather than assumes.
+
 ## Files this phase touches
 
 | Area | Files |
 |------|-------|
-| Contract | [`shared/src/terminal.ts`](../packages/shared/src/terminal.ts) (`SCROLLBACK_BYTES`, `AgentDefinitionSchema.resume`, `TerminalSessionSchema.asleep`), [`ipc/channels.ts`](../packages/shared/src/ipc/channels.ts) (`ptySnapshot`, `ptyCommandChanged`), [`ipc/schemas.ts`](../packages/shared/src/ipc/schemas.ts) (`live`/`legacy` on `RestoredTerminalSession`, `broker` on `TerminalListResponse`, `PtySnapshotRequest`, `PtyCommandChangedEvent`), [`ipc/bridge.ts`](../packages/shared/src/ipc/bridge.ts) (`pty.snapshot`, `pty.onCommandChanged`), [`shared/src/terminal.test.ts`](../packages/shared/src/terminal.test.ts), [`ipc/ipc.test.ts`](../packages/shared/src/ipc/ipc.test.ts). `git-engine` is untouched. |
-| Main — new | `desktop/src/broker/{index.ts, protocol.ts, server.ts, terminal-store.ts (moved)}`, `desktop/src/broker/{protocol,server}.test.ts`; `desktop/src/main/broker-client.ts` + `broker-client.test.ts`; `desktop/src/main/inproc-pty.ts` (today's `pty-service` body, extracted) |
-| Main — changed | [`pty-service.ts`](../packages/desktop/src/main/pty-service.ts) (facade over broker/inproc, `livePtyFor`, `detachAll`, `createPty` drops `win`), [`terminal-service.ts`](../packages/desktop/src/main/terminal-service.ts) (`live`/`legacy`/`broker` in `listTerminals`, flush moves out), [`terminal-store.ts`](../packages/desktop/src/main/terminal-store.ts) (**moves** to `broker/`), [`agent-watcher.ts`](../packages/desktop/src/main/agent-watcher.ts) + [`agent-process.ts`](../packages/desktop/src/main/agent-process.ts) (`stat` column, `foregroundOf`, `commandLabel`), [`index.ts`](../packages/desktop/src/main/index.ts) (`before-quit`, `window-all-closed`, `render-process-gone`, second emitter), [`ipc/pty-handlers.ts`](../packages/desktop/src/main/ipc/pty-handlers.ts) (`ptySnapshot`), [`ipc/terminal-handlers.ts`](../packages/desktop/src/main/ipc/terminal-handlers.ts), [`preload/index.ts`](../packages/desktop/src/preload/index.ts) (`snapshot`, `onCommandChanged`) |
+| Contract | [`shared/src/terminal.ts`](../packages/shared/src/terminal.ts) (`SCROLLBACK_BYTES`, `AgentDefinitionSchema.resume`, `TerminalSessionSchema.asleep`), [`ipc/channels.ts`](../packages/shared/src/ipc/channels.ts) (`ptySnapshot`, `ptyCommandChanged`), [`ipc/schemas.ts`](../packages/shared/src/ipc/schemas.ts) (`live`/`legacy` on `RestoredTerminalSession`, `broker` on `TerminalListResponse`, `PtySnapshotRequest`, `PtyCommandChangedEvent`), [`ipc/bridge.ts`](../packages/shared/src/ipc/bridge.ts) (`pty.snapshot`, `pty.onCommandChanged`), [`shared/src/terminal.test.ts`](../packages/shared/src/terminal.test.ts), [`ipc/ipc.test.ts`](../packages/shared/src/ipc/ipc.test.ts). Theme G adds `SessionActivity` + `SessionActivitySchema` and `RegexSource` to `terminal.ts` (moved **in** from the renderer), `AgentDefinitionSchema.activity`, `ptyActivity` to `channels.ts`, `PtyActivityEvent` to `schemas.ts` and `pty.onActivity` to `bridge.ts`. `git-engine` is untouched. |
+| Main — new | `desktop/src/broker/{index.ts, protocol.ts, server.ts, terminal-store.ts (moved)}`, `desktop/src/broker/{protocol,server}.test.ts`; `desktop/src/main/broker-client.ts` + `broker-client.test.ts`; `desktop/src/main/inproc-pty.ts` (today's `pty-service` body, extracted); `desktop/src/main/activity-detect.ts` + `activity-detect.test.ts` (**moved** from `app/src/features/terminal/`, Theme G) and `desktop/src/main/__fixtures__/activity/*.txt` (four, net-new) |
+| Main — changed | [`pty-service.ts`](../packages/desktop/src/main/pty-service.ts) (facade over broker/inproc, `livePtyFor`, `detachAll`, `createPty` drops `win`), [`terminal-service.ts`](../packages/desktop/src/main/terminal-service.ts) (`live`/`legacy`/`broker` in `listTerminals`, flush moves out), [`terminal-store.ts`](../packages/desktop/src/main/terminal-store.ts) (**moves** to `broker/`), [`agent-watcher.ts`](../packages/desktop/src/main/agent-watcher.ts) + [`agent-process.ts`](../packages/desktop/src/main/agent-process.ts) (`stat` column, `foregroundOf`, `commandLabel`), [`index.ts`](../packages/desktop/src/main/index.ts) (`before-quit`, `window-all-closed`, `render-process-gone`, second emitter), [`ipc/pty-handlers.ts`](../packages/desktop/src/main/ipc/pty-handlers.ts) (`ptySnapshot`), [`ipc/terminal-handlers.ts`](../packages/desktop/src/main/ipc/terminal-handlers.ts), [`preload/index.ts`](../packages/desktop/src/preload/index.ts) (`snapshot`, `onCommandChanged`, `onActivity`). Theme G also adds the detection call, the per-agent compiled-marker map, the time budget and the shared 1 s decay tick to [`pty-service.ts`](../packages/desktop/src/main/pty-service.ts) at its single `ptyData` send site, and the `activity` merge to [`agents-store.ts`](../packages/desktop/src/main/agents-store.ts) |
 | Main — build | [`scripts/bundle.mjs`](../packages/desktop/scripts/bundle.mjs) (third entry), [`electron-builder.yml`](../packages/desktop/electron-builder.yml) (`asarUnpack` for `broker.js` + `node-pty/**`), [`scripts/start-electron.mjs`](../packages/desktop/scripts/start-electron.mjs) (**unchanged** — its `ELECTRON_RUN_AS_NODE` delete is load-bearing), [`window.ts`](../packages/desktop/src/main/window.ts) (**unchanged** — `:60`'s sibling-of-main rule is what `brokerScript()` copies) |
 | Renderer — motion | [`components/use-reveal.ts`](../packages/app/src/components/use-reveal.ts) + [`use-reveal.test.ts`](../packages/app/src/components/use-reveal.test.ts), [`app.tsx`](../packages/app/src/app.tsx) (repos aside, terminal frame, browser pane, `fitSignal`), [`features/browser/browser-pane.tsx`](../packages/app/src/features/browser/browser-pane.tsx), [`store/ui-store.ts`](../packages/app/src/store/ui-store.ts) (**unchanged** — `terminalMaximized` and `layout.*` are read as they are) |
-| Renderer — terminal | [`terminal-panel.tsx`](../packages/app/src/features/terminal/terminal-panel.tsx), [`terminal-header.tsx`](../packages/app/src/features/terminal/terminal-header.tsx) (inproc warning), [`terminal-view.tsx`](../packages/app/src/features/terminal/terminal-view.tsx), [`terminal-store.ts`](../packages/app/src/features/terminal/terminal-store.ts) (`sessionPhase`, `sleepSession`, `exitCodes`, `foregroundCommand`, `reattachedCount`), [`use-terminal-ipc.ts`](../packages/app/src/features/terminal/use-terminal-ipc.ts), [`terminal-session-list.tsx`](../packages/app/src/features/terminal/terminal-session-list.tsx), [`activity-detect.ts`](../packages/app/src/features/terminal/activity-detect.ts) + [`activity-detect.test.ts`](../packages/app/src/features/terminal/activity-detect.test.ts), new `ended-banner.tsx`, new `replay-gate.ts` + `replay-gate.test.ts`, [`components/state-dot.tsx`](../packages/app/src/components/state-dot.tsx) (`'asleep'`) |
-| Renderer — status bar | [`status-bar/segments.ts`](../packages/app/src/features/status-bar/segments.ts), [`status-bar/agent-count.tsx`](../packages/app/src/features/status-bar/agent-count.tsx), new `reattached-note.tsx` + `reattached-note.test.ts` |
-| Roster | [`agents-store.ts`](../packages/desktop/src/main/agents-store.ts) (**unchanged** — its whole-record override rule is documented, not altered) |
-| Tests | the files above, plus [`terminal-store.test.ts`](../packages/app/src/features/terminal/terminal-store.test.ts) (`hydrate`, `sessionPhase`), [`agent-process.test.ts`](../packages/desktop/src/main/agent-process.test.ts) + `__fixtures__/` (eleven edited, four new), [`e2e/mock-bridge.ts`](../packages/app/e2e/mock-bridge.ts) (`resizes`, `snapshots`, `live`, `legacy`, `pty.snapshot`, `__mgitPtyCommand`), [`e2e/terminal.spec.ts`](../packages/app/e2e/terminal.spec.ts), new `e2e/terminal-reveal.spec.ts` |
+| Renderer — terminal | [`terminal-panel.tsx`](../packages/app/src/features/terminal/terminal-panel.tsx), [`terminal-header.tsx`](../packages/app/src/features/terminal/terminal-header.tsx) (inproc warning), [`terminal-view.tsx`](../packages/app/src/features/terminal/terminal-view.tsx), [`terminal-store.ts`](../packages/app/src/features/terminal/terminal-store.ts) (`sessionPhase`, `sleepSession`, `exitCodes`, `foregroundCommand`, `reattachedCount`), [`use-terminal-ipc.ts`](../packages/app/src/features/terminal/use-terminal-ipc.ts), [`terminal-session-list.tsx`](../packages/app/src/features/terminal/terminal-session-list.tsx), [`activity-detect.ts`](../packages/app/src/features/terminal/activity-detect.ts) + [`activity-detect.test.ts`](../packages/app/src/features/terminal/activity-detect.test.ts), new `ended-banner.tsx`, new `replay-gate.ts` + `replay-gate.test.ts`, [`components/state-dot.tsx`](../packages/app/src/components/state-dot.tsx) (`'asleep'`), new [`terminal-session-list.test.tsx`](../packages/app/src/features/terminal/terminal-session-list.test.tsx) (net-new, Theme F) |
+| Renderer — status bar | [`status-bar/segments.ts`](../packages/app/src/features/status-bar/segments.ts), [`status-bar/agent-count.tsx`](../packages/app/src/features/status-bar/agent-count.tsx) (Theme F: the `liveAgentId` predicate) + [`agent-count.test.ts`](../packages/app/src/features/status-bar/agent-count.test.ts), new `reattached-note.tsx` + `reattached-note.test.ts` |
+| Renderer — activity (F, G) | [`components/skeleton.tsx`](../packages/app/src/components/skeleton.tsx) (`Spinner` becomes the one spinner; the geometry comment moves here), [`styles.css`](../packages/app/src/styles.css) (the `[data-activity]` reduced-motion rule), [`settings-pages/terminal-page.tsx`](../packages/app/src/features/settings/settings-pages/terminal-page.tsx) (the **Agent activity** readout) + a new `terminal-page.test.ts` for `activityRows`, [`tailwind.config.ts`](../packages/app/tailwind.config.ts) (**unchanged** — `caret-blink` and `dot-wave` keep their keyframes; the fallback removes the animation rather than editing it) |
+| Roster | [`agents-store.ts`](../packages/desktop/src/main/agents-store.ts) — **unchanged through E**, its whole-record override rule documented rather than altered; Theme G compiles each agent's `activity` markers once inside `mergeAgents` and the rule is documented again for the new field |
+| Tests | the files above, plus [`terminal-store.test.ts`](../packages/app/src/features/terminal/terminal-store.test.ts) (`hydrate`, `sessionPhase`), [`agent-process.test.ts`](../packages/desktop/src/main/agent-process.test.ts) + `__fixtures__/` (eleven edited, four new), [`e2e/mock-bridge.ts`](../packages/app/e2e/mock-bridge.ts) (`resizes`, `snapshots`, `live`, `legacy`, `pty.snapshot`, `__mgitPtyCommand`), [`e2e/terminal.spec.ts`](../packages/app/e2e/terminal.spec.ts), new `e2e/terminal-reveal.spec.ts`; Theme G adds `__mgitPtyActivity` to the mock bridge beside `__mgitPtyAgent` |
 | Lint | [`eslint.config.mjs`](../eslint.config.mjs) (a `packages/desktop/src/broker/**` group) |
 | Docs | [`phase-15-multi-terminal-sessions.md`](phase-15-multi-terminal-sessions.md) (the superseded manual check gets a note), [`outstanding.md`](outstanding.md) (window-bounds entry — see Not in this phase) |
 
@@ -620,7 +906,44 @@ that pty.
       `commandLabel('/usr/local/bin/pnpm dev')` → `'pnpm dev'`, a 60-char argv → 40 chars ending `…`;
       the `ps-node-wrapper.txt` guard still passes; `ipc.test.ts` — `ptyCommandChanged` row rejects an
       empty-string command.
+<<<<<<< Updated upstream
 - [x] Screenshots, per the visual-phase convention: the ended strip with both buttons; a slept row
+=======
+- [ ] Vitest (F): `isAgentRow` five rows — `kind:'agent'` unprobed → true, `kind:'shell'` unprobed →
+      false, `kind:'shell'` probed `'claude'` → true, `kind:'agent'` probed `null` → false, another
+      session's entry does not leak. `agent-count.test.ts` — a `kind:'shell'` session with
+      `liveAgentId['s1'] = 'claude'` and `states['s1'] = 'open'` counts as 1.
+      `terminal-session-list.test.tsx` — `ActivityIndicator` renders `data-activity` of
+      `thinking`/`waiting`/`idle`/`unknown` for the four inputs, carries the four `aria-label`s, and
+      contains no `[aria-live]` element.
+- [ ] Shell (F): `grep -rn 'ThinkingSpinner' packages/app/src` returns nothing, and
+      `grep -rn 'animate-spin rounded-full border-2' packages/app/src` returns exactly one line, in
+      `components/skeleton.tsx`.
+- [ ] Playwright (F): `'a shell running an agent gets the activity indicator'` — a `kind: 'shell'`
+      session with `__mgitPtyAgent(ptyId, 'claude')` fired and a `✳ Kneading…` chunk fed shows
+      `data-activity="thinking"` on its row and `1 agent` in the status bar.
+      `'the activity glyphs survive reduced motion'` — with
+      `document.documentElement.dataset.motion = 'reduced'`, the computed `animationName` of
+      `[data-activity='idle'] > span` is `'none'` and its computed `opacity` is `'1'` (both are
+      wrong today: `caret-blink`'s held final frame is `opacity: 0`).
+- [ ] Vitest (G): the four `__fixtures__/activity/*.txt` yield
+      `thinking`/`waiting`/`thinking`/`undefined`, and `claude-thinking.txt` fed in three arbitrary
+      slices yields the same answer as fed whole. `RegexSource` — 201 chars fails to parse, an
+      uncompilable source fails to parse. The time budget — `'([a-z]+)+$'` over a pathological
+      8000-char buffer trips on the third call and the fourth returns `null` without evaluating.
+      `createActivityClock` with fake timers — `thinking` at 9 s unchanged, 10 s → `waiting`, 69 s
+      unchanged, 70 s → `idle`, and a detection at 9.5 s restarts the ladder.
+      `activityRows` for the settings readout. `ipc.test.ts` — the `ptyActivity` row, valid
+      (`'thinking'`, `null`) and invalid (`'busy'`, empty `ptyId`).
+- [ ] Playwright (G): `'activity survives the panel being collapsed'` — fire
+      `__mgitPtyActivity(ptyId, 'thinking')`, collapse with `Ctrl+\``, and the status bar still
+      reads `1 agent`; reveal, and the row's `data-activity` is still `thinking`. This fails today
+      for the mount-boundary reason the theme names.
+- [ ] Screenshots (F): the four glyphs side by side in one session list, light and dark, at the
+      default density; and the same four with `data-motion='reduced'` set — the frame that proves
+      they are still four distinct marks rather than one invisible one and two dimmed ones.
+- [ ] Screenshots, per the visual-phase convention: the ended strip with both buttons; a slept row
+>>>>>>> Stashed changes
       beside a live one; the *Reattached N sessions* note; the skew banner; a mid-tween frame of
       maximize (content clipped, not reflowed) — both themes.
 - [ ] **Open, for a human:** quit and relaunch the **packaged** app (from Finder, not a dev shell) with
@@ -637,6 +960,16 @@ that pty.
       row is named `pnpm --version`, never `AAAAA`; then `git log | less` names the row `less`.
 - [ ] **Open, for a human:** open the terminal panel, collapse it, wait a minute with a `while sleep 1;
       do date; done` running, reveal — the minute of output is there before any keypress.
+- [ ] **Open, for a human (F):** turn on macOS *System Settings › Accessibility › Display › Reduce
+      motion*, open a session list holding one agent in each of the four states, and confirm all
+      four glyphs are still visible and still distinguishable from one another. The idle caret is
+      the one to check — it renders at `opacity: 0` today.
+- [ ] **Open, for a human (F):** open a plain shell session, type `claude`, and watch the row: the
+      icon changes to Claude's *and* the spinner appears, within one `ps` probe cadence (750 ms).
+      This is the reported defect, checked the way it was reported.
+- [ ] **Open, for a human (G):** with an agent mid-turn, collapse the terminal with `Ctrl+\`` and
+      confirm the status bar's agent count is still right a minute later; then open *Settings ›
+      Terminal › Agent activity* and confirm the row's *last seen* is ticking, not frozen.
 
 ## Not in this phase
 
@@ -645,8 +978,21 @@ that pty.
 - **A shell-integration shim (`ZDOTDIR`).** It would give exact command lines, exit codes and cwd,
   and replace the OSC 7 hook Phase 21 asks the user to add by hand — but it injects into zsh startup,
   and the phase's first guardrail is that it does not. The process tree gives Theme E what it needs.
-- **Per-agent activity detection.** `activity-detect.ts` stays keyed to Claude Code's chrome; Codex
-  and Antigravity rows still show the idle caret. Deferred from Phase 21 and still its own slice.
+- **Marker sets for Codex, Antigravity and openclaude.** Theme G makes per-agent detection
+  *possible* — the markers become roster data on `AgentDefinitionSchema.activity` and anyone can add
+  a set from `agents.json` — but only `claude` ships with one. Writing and pinning fixtures for
+  three more TUIs is a slice per CLI, not a line in this phase. An agent with no marker set draws
+  Theme F's unknown dot, which is the honest answer rather than a borrowed guess. (This entry
+  previously read "per-agent activity detection is out of scope" and was routinely misread as also
+  covering the `session.kind`-versus-`liveAgentId` gate bug. It never did: that bug is Theme F.)
+- **A structured activity protocol.** No OSC sequence, no agent-side reporting API, no shell
+  integration — the detector still reads the same pixels a human would. An agreed protocol is the
+  right long-term answer and needs the agent CLIs to ship it first.
+- **Detection inside the broker.** Theme G hooks `pty-service.ts`'s single `ptyData` send site,
+  which is on main's side of the broker boundary. Moving TUI parsing into a detached Node daemon
+  would couple it to Theme C landing whole and buys nothing while a client is always attached.
+- **A per-session activity history or timeline.** The Settings readout shows the current state and
+  how long ago it changed; a scrollback of state transitions is a different feature.
 - **A LaunchAgent / always-resident broker.** The broker lives exactly as long as its sessions do.
 - **Sleeping automatically** (idle timeouts, RAM pressure). Sleep is a user action; a heuristic that
   kills a shell you were about to type into is worse than the RAM it saves.
@@ -735,3 +1081,52 @@ that pty.
 - **Resolved — 2 s to `hello`, 5 s to a spawned broker, then fail-soft; `MGIT_PTY_INPROC=1` forces
   the in-process path.** The numbers are generous for a local socket and short enough that a broken
   broker costs one visible pause, not a hung boot.
+- **Resolved — an activity indicator is gated on `resolveSessionAgentId`, not on `session.kind`.**
+  `kind` records what the user *asked for* at creation; the `ps` probe records what is *running*.
+  The row already draws its icon and accent from the probe, so gating the glyph on `kind` made two
+  parts of the same row disagree — and made the spinner unreachable for the commonest case, an agent
+  started by typing its name in a shell. One exported `isAgentRow` predicate so the row, the view
+  and the status-bar count cannot drift apart again.
+- **Resolved — `undefined` activity gets its own mark, and it is the quietest one.** "Live, and the
+  detector has not spoken" is a fourth state, not a synonym for idle. Drawing it as a confident idle
+  caret is precisely what let the detector sit broken from Claude Code 2.1.x onward without anyone
+  noticing; a 4px dot at 35% says *unsure* without competing with the connection dot beside it.
+- **Resolved — reduced motion removes the animation rather than overriding what it holds.** The
+  shell's reset forces `animation-fill-mode: forwards !important`, which pins each glyph to its own
+  final keyframe — `opacity: 0` for `caret-blink`, `0.35` for `dot-wave`. One
+  `animation-name: none !important` rule scoped to `[data-activity]` lets all four fall back to the
+  static appearance their base classes already describe, and keeps the keyframes themselves
+  untouched for the `full` path. Four distinct **shapes**, never four colours.
+- **Resolved — one spinner, and it lives in `components/skeleton.tsx`.** The terminal's
+  `ThinkingSpinner` and the shared `Spinner` had byte-identical class strings; the measured geometry
+  rationale moves to the survivor rather than being deleted with the duplicate. `features/ →
+  components/`, never the reverse — the direction `state-dot.tsx` states in its own header.
+- **Resolved — labelled, never announced.** Each glyph keeps `role="img"` + `aria-label`; there is
+  no `aria-live` region. An agent repaints several times a second, so a live region here would make
+  a screen reader narrate for the length of every turn. The vitest asserts the *absence* of the live
+  region, because a deliberate omission is what a later change undoes by accident.
+- **Resolved — detection runs in main, at `pty-service.ts`'s single `ptyData` send.** It cannot stay
+  in `TerminalView`: `app.tsx`'s `terminalReveal.mounted` unmounts every view when the panel is
+  collapsed, which is exactly when the status bar's agent count is the only thing looking. The site
+  chosen survives Theme C untouched — C swaps a captured `win` for a `getWindow()` thunk — so G
+  neither waits on the broker nor puts TUI parsing inside a Node daemon.
+- **Resolved — activity markers are roster data, guarded by a schema and a time budget.** Putting
+  the two regex sources on `AgentDefinitionSchema.activity` matches `install` and `resume` and means
+  a new CLI needs an `agents.json` entry rather than a release. The cost is a user-authored pattern
+  in a hot path, so: ≤200 chars and must compile, checked at parse; compiled once in `mergeAgents`,
+  never per chunk; and three consecutive calls over 2 ms disable that detector for the process and
+  say so. Three consecutive rather than one, so a GC pause cannot disable a working detector.
+- **Resolved — `thinking` decays to `waiting` after 10 s, `waiting` to `idle` after 60 s.** Today a
+  guess stands forever, so a killed agent leaves a spinner turning. Ten seconds because an agent
+  mid-turn repaints its spinner row several times a second; sixty because a prompt nobody has
+  answered in a minute is a prompt nobody is at. One shared 1 s tick for every session, not a timer
+  per pty. This ladder is also what finally *produces* `'idle'`, making Theme F's caret reachable.
+- **Resolved — the detector reports its own doubt in two places.** A log line through Theme B's
+  `log.ts` seam for whoever has a console, and an **Agent activity** readout on the Terminal
+  settings page for whoever does not. The readout reads the renderer store only and needs no
+  channel. A detector pinned to one CLI's chrome *will* break again; the question this resolves is
+  whether it breaks loudly.
+- **Resolved — fixtures are captured from real sessions, not written by hand.** The existing
+  hand-written cases stay and document intent; four byte-for-byte captures — including the narrow
+  width at which the `(1m 38s · ↓ 4.5k tokens)` parenthetical vanishes, the case that broke it
+  before — document reality, so the next TUI change fails a test instead of the UI.
