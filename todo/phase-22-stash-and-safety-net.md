@@ -343,8 +343,9 @@ history mechanism *and* the first surface it can announce itself on. Land it las
   here. Their inverse is a reset the user should choose with a blast radius in front of them, and
   wiring that to a toast button is how you delete someone's afternoon.
 - **A command palette.** The `CommandId` registry in
-  [`commands.ts`](../packages/app/src/services/keybindings/commands.ts) is the obvious data source
-  and the journal would be a good second one, but the palette is its own surface and its own phase.
+  [`shared/src/keybindings.ts`](../packages/shared/src/keybindings.ts) is the obvious data source
+  and the journal would be a good second one, but the palette is [Phase 23](phase-23-command-palette.md)'s
+  own surface, which stays independent of this phase via its provider seam (Theme E).
 - **Side-by-side diff** for stashes or anything else — the shared `DiffView` stays unified, as it
   has since Phase 12.
 - **Reflog expiry, pruning or rewriting.** The History view reads and checks out. `reflog expire`,

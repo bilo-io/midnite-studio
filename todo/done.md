@@ -2,6 +2,27 @@
 
 <!-- Append one entry per landed phase/PR: date, phase, PR link, one-line summary. -->
 
+## 2026-08-28 — Phase 23 Theme A — the registry becomes palette-shaped
+
+Reconciles the 15-id/13-binding split that made the registry unable to feed a palette. One
+`COMMANDS` array in `shared/src/keybindings.ts` is now the single source of truth — every
+`CommandId` carries a `label` and a `group`, with `chord`/`scope` optional so `op.abort` and
+`op.continue` are first-class unbound palette rows instead of vanishing. `COMMAND_IDS`,
+`DEFAULT_KEYMAP` and `GLOBAL_CHORDS` all derive from it. Adds `palette.open` (`Mod+k`, global
+scope) and `palette.files` (`Mod+p`); `Mod+Shift+p` stays `sync.pull`. Fixes the phantom
+`commands.ts` link in `phase-22`'s scope list and the stale `outstanding.md` entry; adds a
+keybindings bullet to `CLAUDE.md`/`AGENTS.md`/`GEMINI.md` naming the real registry path.
+
+- [x] `COMMANDS` single-source-of-truth array with explicit `group` field (not derived from the
+      `id` prefix — `status.focus` and `status.commit` land in different groups on purpose)
+- [x] `palette.open` (`Mod+k`, `scope: 'global'`) and `palette.files` (`Mod+p`) added to the
+      registry
+- [x] Phantom `commands.ts` links fixed in `phase-22` and `outstanding.md`; `CLAUDE.md` /
+      `AGENTS.md` / `GEMINI.md` gain a keybindings bullet naming `shared/src/keybindings.ts`
+- [x] `keybindings.test.ts` extended: every `CommandId` has a label/group, no two bindings share a
+      chord, `Mod+Shift+p` still resolves to `sync.pull`, `palette.open` escapes the terminal and
+      `palette.files` does not
+
 ## 2026-08-28 — Phase 24 Theme A — the writable-filesystem contract
 
 Widens the read-only Phase 16 fs contract with the write half everything else in the phase reads

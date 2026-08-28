@@ -25,7 +25,7 @@ Completed work is logged append-only in [`done.md`](done.md). Deferred scope liv
 | [26 · Side by side, and the room to show it](phase-26-side-by-side-diffs.md) | ◻ TODO | — | 0/68 | `░░░░░░░░░░` | 0% | — | A–H |
 | [25 · Search everywhere, and the blame that explains it](phase-25-search-everywhere.md) | ◻ TODO | x1 | 0/101 | `░░░░░░░░░░` | 0% | — | A–F |
 | [24 · The explorer learns to write, and to search](phase-24-writable-explorer.md) | 🔄 WIP | — | 7/54 | `█░░░░░░░░░` | 13% | — | B–G |
-| [23 · A command palette, and the registry that can feed it](phase-23-command-palette.md) | 🔄 WIP | — | 0/55 | `░░░░░░░░░░` | 0% | A | B–H |
+| [23 · A command palette, and the registry that can feed it](phase-23-command-palette.md) | 🔄 WIP | — | 4/55 | `█░░░░░░░░░` | 7% | — | B–H |
 | [22 · Stash, the reflog, and writes you can take back](phase-22-stash-and-safety-net.md) | 🔄 WIP | — | 0/70 | `░░░░░░░░░░` | 0% | A | B–H |
 | [21 · Agent roster + terminal identity](phase-21-agent-roster-and-terminal-identity.md) | 🔄 WIP | — | 43/46 | `█████████░` | 93% | — | 3 manual checks |
 | [20 · Reviews page & unified diff syntax highlighting](phase-20-reviews-page.md) | 🔄 WIP | — | 43/45 | `██████████` | 96% | — | 2 manual checks |
@@ -244,9 +244,9 @@ against thirteen bindings, and only nine ids have a handler — `repo.open`, `re
 map out of `app.tsx` into the dispatcher all three feeds share, C–D build the surface and the repo's
 first fuzzy matcher, E–F are the sources. `Mod+K` is free; `Mod+Shift+P` is Pull and stays Pull.*
 
-- ◻ **A** — reconcile the fifteen-ids/thirteen-bindings split, add a `group` union, add `palette.open`
+- ✅ **A** — reconcile the fifteen-ids/thirteen-bindings split, add a `group` union, add `palette.open`
   (`Mod+k`, global scope so it escapes the terminal) and `palette.files` (`Mod+p`), fix the phantom
-  `commands.ts` links.
+  `commands.ts` links (landed 2026-08-28)
 - ◻ **B** — `useCommandHandlers(): CommandRuntime` with `enabled` + `disabledReason`, and the four
   cheap dead commands finally wired; `op.*` left to Phase 22.
 - ◻ **C** — `palette.tsx` + `palette-host.tsx` on the `dialog-host.tsx` shape, a deliberately

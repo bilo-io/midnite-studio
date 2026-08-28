@@ -53,29 +53,29 @@ Effort tags: **S** ≈ an hour or two · **M** ≈ half a day · **L** ≈ a day
 
 ## Deliverables
 
-### A — The registry becomes palette-shaped (S)
+### A — The registry becomes palette-shaped (S) ✅ DONE (landed 2026-08-28)
 
 Lands first; every other theme reads off it.
 
-- [ ] Reconcile the fifteen-ids / thirteen-bindings split in
+- [x] Reconcile the fifteen-ids / thirteen-bindings split in
       [`shared/src/keybindings.ts`](../packages/shared/src/keybindings.ts). One list becomes the
       source of truth and the other is derived: every `CommandId` gets a `label` and an optional
       `chord`, so an unbound command (`op.abort`, `op.continue`) is a first-class palette row with
       no shortcut rather than an entry that vanishes. Keep `GLOBAL_CHORDS` derived from
       `scope === 'global'` — it is what lets a chord escape xterm and it must not become hand-listed.
-- [ ] Add `group` to the command record as a plain string literal union (`'repository' | 'view' |
+- [x] Add `group` to the command record as a plain string literal union (`'repository' | 'view' |
       'sync' | 'terminal' | 'status' | 'graph' | 'operation'`), with a comment recording that the
       alternative — deriving the group from the `id` prefix before the dot — was rejected because
       those prefixes are consistent by habit, not by contract, and a palette that regroups itself
       when someone renames an id is a palette with a trap in it.
-- [ ] Add `palette.open` (`Mod+k`) and `palette.files` (`Mod+p`) to `COMMAND_IDS` and the keymap.
+- [x] Add `palette.open` (`Mod+k`) and `palette.files` (`Mod+p`) to `COMMAND_IDS` and the keymap.
       `palette.open` is **`scope: 'global'`** — it joins `Ctrl+\`` as the second chord that escapes
       the terminal, because a palette you cannot open while a shell has focus is half a palette.
-- [ ] Fix the phantom `commands.ts` link in [`outstanding.md`](outstanding.md) and in
+- [x] Fix the phantom `commands.ts` link in [`outstanding.md`](outstanding.md) and in
       [`phase-22`](phase-22-stash-and-safety-net.md)'s "Not in this phase" list — both point at a
       path that has never existed. Note the real location in
       [`CLAUDE.md`](../CLAUDE.md)'s keybindings bullet while we are there.
-- [ ] Extend [`keybindings.test.ts`](../packages/app/src/services/keybindings/keybindings.test.ts):
+- [x] Extend [`keybindings.test.ts`](../packages/app/src/services/keybindings/keybindings.test.ts):
       every `CommandId` has a label; no two bindings share a chord; `Mod+Shift+p` still resolves to
       `sync.pull`; `palette.open` is in `GLOBAL_CHORDS` and `palette.files` is not.
 

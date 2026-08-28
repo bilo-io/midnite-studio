@@ -101,3 +101,41 @@ describe('the keymap matches real keystrokes', () => {
     });
   });
 });
+
+describe('the registry is palette-shaped', () => {
+  it('gives every CommandId a label and a group', async () => {
+    const { COMMANDS } = await import('@midnite/git-shared');
+    for (const c of COMMANDS) {
+      expect(c.label.length).toBeGreaterThan(0);
+      expect(c.group.length).toBeGreaterThan(0);
+    }
+  });
+
+  it('lists op.abort and op.continue with no chord, not silently dropped', async () => {
+    const { COMMANDS } = await import('@midnite/git-shared');
+    const abort = COMMANDS.find((c) => c.id === 'op.abort') as { chord?: string } | undefined;
+    const cont = COMMANDS.find((c) => c.id === 'op.continue') as { chord?: string } | undefined;
+    expect(abort?.chord).toBeUndefined();
+    expect(cont?.chord).toBeUndefined();
+  });
+
+  it('never binds two commands to the same chord', async () => {
+    const { DEFAULT_KEYMAP } = await import('@midnite/git-shared');
+    const chords = DEFAULT_KEYMAP.map((b) => b.chord);
+    expect(new Set(chords).size).toBe(chords.length);
+  });
+
+  it('keeps Mod+Shift+p as sync.pull', async () => {
+    const { DEFAULT_KEYMAP } = await import('@midnite/git-shared');
+    const binding = DEFAULT_KEYMAP.find((b) => b.chord === 'Mod+Shift+p');
+    expect(binding?.command).toBe('sync.pull');
+  });
+
+  it('lets palette.open escape the terminal, and keeps palette.files from doing so', async () => {
+    const { GLOBAL_CHORDS, DEFAULT_KEYMAP } = await import('@midnite/git-shared');
+    const open = DEFAULT_KEYMAP.find((b) => b.command === 'palette.open');
+    const files = DEFAULT_KEYMAP.find((b) => b.command === 'palette.files');
+    expect(open && GLOBAL_CHORDS.includes(open.chord)).toBe(true);
+    expect(files && GLOBAL_CHORDS.includes(files.chord)).toBe(false);
+  });
+});
