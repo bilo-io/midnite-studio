@@ -594,6 +594,10 @@ function Shell() {
             <>
               <aside
                 aria-label="Repositories"
+                // Focus target for the status bar's active-worktree segment —
+                // a click that only opens the panel and leaves the keyboard
+                // where it was reads as a no-op to anyone not on a mouse.
+                tabIndex={-1}
                 /*
                   The animated box is the aside; the panel inside keeps its full
                   width and is clipped. Reflowing the panel itself would turn
