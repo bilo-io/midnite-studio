@@ -7,7 +7,7 @@
  * `ConnectionState` is assignable to it, and the compiler says so at every call
  * site.
  */
-export type DotState = 'idle' | 'starting' | 'open' | 'exited' | 'unavailable';
+export type DotState = 'idle' | 'starting' | 'open' | 'exited' | 'unavailable' | 'asleep';
 
 /**
  * Running, or a saved transcript with nothing behind it.
@@ -24,6 +24,9 @@ export type DotState = 'idle' | 'starting' | 'open' | 'exited' | 'unavailable';
 export function StateDot({ state }: { state: DotState }) {
   if (state === 'open') return <PulsingDot rgb="16 185 129" className="bg-emerald-500" />;
   if (state === 'starting') return <PulsingDot rgb="245 158 11" className="bg-amber-500" />;
+  if (state === 'asleep') {
+    return <span className="size-1.5 shrink-0 rounded-full bg-muted-foreground/50" />;
+  }
   return <span className="size-1.5 shrink-0 rounded-full bg-muted-foreground/40" />;
 }
 

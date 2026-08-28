@@ -74,10 +74,34 @@ describe('BUILTIN_AGENTS', () => {
 describe('AgentDefinitionSchema', () => {
   const minimal = { id: 'a', label: 'A', command: 'a', accent: '#ffffff' };
 
-  it('leaves icon and install absent rather than inventing them', () => {
+  it('leaves icon, install, and resume absent rather than inventing them', () => {
     const parsed = AgentDefinitionSchema.parse(minimal);
     expect(parsed.icon).toBeUndefined();
     expect(parsed.install).toBeUndefined();
+    expect(parsed.resume).toBeUndefined();
+  });
+
+  it('parses resume as an array of strings', () => {
+    const parsed = AgentDefinitionSchema.parse({ ...minimal, resume: ['--continue'] });
+    expect(parsed.resume).toEqual(['--continue']);
+  });
+
+  it('rejects resume when passed as a string instead of an array', () => {
+    expect(
+      AgentDefinitionSchema.safeParse({ ...minimal, resume: '--continue' as unknown }).success,
+    ).toBe(false);
+  });
+
+  it('verifies resume configuration on builtin agents', () => {
+    const claude = BUILTIN_AGENTS.find((a) => a.id === 'claude');
+    const codex = BUILTIN_AGENTS.find((a) => a.id === 'codex');
+    const agy = BUILTIN_AGENTS.find((a) => a.id === 'agy');
+    const openclaude = BUILTIN_AGENTS.find((a) => a.id === 'openclaude');
+
+    expect(claude?.resume).toEqual(['--continue']);
+    expect(codex?.resume).toEqual(['resume', '--last']);
+    expect(agy?.resume).toBeUndefined();
+    expect(openclaude?.resume).toBeUndefined();
   });
 
   it.each([
@@ -121,6 +145,18 @@ describe('agentIdMatchesKind, over the whole roster', () => {
 
   it('accepts a plain shell', () => {
     expect(TerminalSessionSchema.safeParse({ ...base, kind: 'shell' }).success).toBe(true);
+  });
+
+  it('accepts asleep: true or asleep: false or undefined', () => {
+    expect(
+      TerminalSessionSchema.safeParse({ ...base, kind: 'shell', asleep: true }).success,
+    ).toBe(true);
+    expect(
+      TerminalSessionSchema.safeParse({ ...base, kind: 'shell', asleep: false }).success,
+    ).toBe(true);
+    expect(
+      TerminalSessionSchema.safeParse({ ...base, kind: 'shell' }).success,
+    ).toBe(true);
   });
 });
 

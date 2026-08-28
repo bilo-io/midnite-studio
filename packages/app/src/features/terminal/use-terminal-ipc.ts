@@ -41,9 +41,10 @@ export function useTerminalIpc(session: TerminalSession, onData: (bytes: Uint8Ar
     const offData = api.pty.onData(({ ptyId: id, data }) => {
       if (ptyIdRef.current === id) onDataRef.current(data);
     });
-    const offExit = api.pty.onExit(({ ptyId: id }) => {
+    const offExit = api.pty.onExit(({ ptyId: id, exitCode }) => {
       if (ptyIdRef.current !== id) return;
       const store = useTerminalStore.getState();
+      store.setExitCode(session.id, exitCode);
       store.unbindPty(session.id);
       store.setState(session.id, 'exited');
       /*
@@ -121,6 +122,7 @@ export function useTerminalIpc(session: TerminalSession, onData: (bytes: Uint8Ar
       */
       if (store.states[session.id] === 'starting') return;
 
+      store.awakeSession(session.id);
       store.setState(session.id, 'starting');
       const result = await api.pty.create({
         sessionId: session.id,

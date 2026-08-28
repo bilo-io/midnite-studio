@@ -1,5 +1,6 @@
 import type { AgentDefinition, TerminalSession } from '@midnite/git-shared';
-import { Terminal, X } from 'lucide-react';
+import { Moon, Terminal, X } from 'lucide-react';
+import { useState } from 'react';
 import { LuChevronRight } from 'react-icons/lu';
 
 import { useDialogs } from '../../components/dialog-host';
@@ -11,6 +12,7 @@ import { useUiStore } from '../../store/ui-store';
 import {
   resolveSessionAgentId,
   sessionLabel,
+  sessionPhase,
   useTerminalStore,
   type SessionActivity,
 } from './terminal-store';
@@ -33,6 +35,8 @@ export function TerminalSessionList({
   const dialogs = useDialogs();
   const sessions = useTerminalStore((s) => s.sessions);
   const activeId = useTerminalStore((s) => s.activeId);
+  const [dismissLegacy, setDismissLegacy] = useState(false);
+  const hasLegacy = sessions.some((s) => (s as { legacy?: boolean }).legacy);
   /*
     Subscribed once for the whole list rather than per row: the probe reports a
     change for one session at a time, and the map is a stable reference between
@@ -102,6 +106,48 @@ export function TerminalSessionList({
       onContextMenu={showDockMenu}
       onKeyDown={onKeyDown}
     >
+      {hasLegacy && !dismissLegacy ? (
+        <div
+          role="alert"
+          className="m-2 rounded border border-amber-500/30 bg-amber-500/10 p-2 text-xs"
+        >
+          <p className="font-medium text-amber-200">
+            From a previous version — restart sessions?
+          </p>
+          <div className="mt-2 flex gap-2">
+            <button
+              type="button"
+              onClick={() => {
+                const legacySessions = sessions.filter(
+                  (s) => (s as { legacy?: boolean }).legacy,
+                );
+                for (const s of legacySessions) {
+                  useTerminalStore.getState().closeSession(s.id);
+                  useTerminalStore.getState().openSession({
+                    kind: s.kind,
+                    ...(s.agentId ? { agentId: s.agentId } : {}),
+                    title: s.title,
+                    cwd: s.cwd,
+                    repoId: s.repoId,
+                    ...(s.name ? { name: s.name } : {}),
+                  });
+                }
+              }}
+              className="rounded bg-amber-500/20 px-2 py-0.5 font-medium text-amber-200 hover:bg-amber-500/30"
+            >
+              Restart
+            </button>
+            <button
+              type="button"
+              onClick={() => setDismissLegacy(true)}
+              className="rounded px-2 py-0.5 text-muted-foreground hover:text-foreground"
+            >
+              Dismiss
+            </button>
+          </div>
+        </div>
+      ) : null}
+
       <SortableList
         ids={sessions.map((s) => s.id)}
         onReorder={(ids) => useTerminalStore.getState().reorder(ids)}
@@ -146,9 +192,12 @@ function SessionRow({
   const state = useTerminalStore((s) => s.states[session.id] ?? 'idle');
   const activity = useTerminalStore((s) => s.activity[session.id]);
   const autoName = useTerminalStore((s) => s.autoNames[session.id]);
+  const foregroundCommand = useTerminalStore((s) => s.foregroundCommand[session.id]);
+  const side = useUiStore((s) => s.terminalSidebarSide);
   const { setNodeRef, style, attributes, listeners, isDragging } = useSortableRow(session.id);
 
-  const live = state === 'open' || state === 'starting';
+  const phase = sessionPhase(session, state);
+  const live = phase === 'live';
   const name = sessionLabel(session, autoName, agent?.label);
 
   const rename = () => {
@@ -163,6 +212,7 @@ function SessionRow({
 
   const showMenu = (event: React.MouseEvent) => {
     event.preventDefault();
+    event.stopPropagation();
     dialogs.openMenu(event, [
       { label: 'Rename session…', onSelect: rename },
       // The prompt dialog itself cannot submit an empty value, so clearing a
@@ -173,6 +223,20 @@ function SessionRow({
         disabled: session.name === undefined,
         disabledReason: 'This session has no custom name.',
         onSelect: () => useTerminalStore.getState().renameSession(session.id, undefined),
+      },
+      { type: 'separator' },
+      {
+        label: 'Sleep session',
+        icon: Moon,
+        disabled: phase !== 'live',
+        disabledReason: 'Only a live session can be slept.',
+        onSelect: () => useTerminalStore.getState().sleepSession(session.id),
+      },
+      { type: 'separator' },
+      {
+        label: side === 'left' ? 'Move to right' : 'Move to left',
+        onSelect: () =>
+          useUiStore.getState().setTerminalSidebarSide(side === 'left' ? 'right' : 'left'),
       },
     ]);
   };
@@ -186,9 +250,10 @@ function SessionRow({
       // A drag gesture needs a row to grab by; the close button and the label
       // are both inside it and neither is the drag handle.
       data-session-row
+      data-phase={phase}
       className={`group flex w-full cursor-pointer items-center gap-1.5 px-2 py-1.5 text-xs ${
         active ? 'bg-accent/60' : 'hover:bg-accent/30'
-      } ${isDragging ? 'opacity-80' : ''}`}
+      } ${isDragging ? 'opacity-80' : ''} ${phase !== 'live' ? 'opacity-60' : ''}`}
       onContextMenu={showMenu}
       onClick={() => useTerminalStore.getState().setActive(session.id)}
       onDoubleClick={rename}
@@ -197,6 +262,9 @@ function SessionRow({
         className="flex min-w-0 flex-1 items-center gap-1 text-left"
       >
         <SessionIcon agent={runningAgent} live={live} />
+        {phase === 'asleep' ? (
+          <Moon className="h-3 w-3 shrink-0 text-muted-foreground" aria-label="Asleep" />
+        ) : null}
         {/*
           The repo name, then the session's own name — "Claude · Claude" for
           every agent session (Phase 19's shape) said the same thing twice and
@@ -247,7 +315,7 @@ function SessionRow({
       */}
       {session.kind === 'agent' && live ? <ActivityIndicator activity={activity} /> : null}
 
-      <StateDot state={state} />
+      <StateDot state={phase === 'asleep' ? 'asleep' : state} />
 
       <IconButton
         icon={X}
@@ -256,7 +324,17 @@ function SessionRow({
         className="opacity-0 group-hover:opacity-100"
         onClick={(event) => {
           event.stopPropagation();
-          useTerminalStore.getState().closeSession(session.id);
+          if (phase === 'live' && foregroundCommand) {
+            dialogs.confirm({
+              title: 'Close this session?',
+              body: `${foregroundCommand} is still running and will be killed.`,
+              confirmLabel: 'Close session',
+              danger: true,
+              onConfirm: () => useTerminalStore.getState().closeSession(session.id),
+            });
+          } else {
+            useTerminalStore.getState().closeSession(session.id);
+          }
         }}
       />
     </div>
