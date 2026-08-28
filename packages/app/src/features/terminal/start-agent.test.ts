@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 
-import { toAgentPrompt } from './start-agent';
+import { agentInvocationArgs, toAgentPrompt } from './start-agent';
 
 describe('toAgentPrompt', () => {
   it('leaves the prompt untouched for Claude and Antigravity — both read /name directly', () => {
@@ -15,5 +15,20 @@ describe('toAgentPrompt', () => {
 
   it('leaves a plain-sentence prompt untouched for any agent', () => {
     expect(toAgentPrompt('fix the flaky retry test', 'codex')).toBe('fix the flaky retry test');
+  });
+});
+
+describe('agentInvocationArgs', () => {
+  it('adds nothing for Claude and OpenClaude — the prompt is their first interactive message', () => {
+    expect(agentInvocationArgs('claude')).toEqual([]);
+    expect(agentInvocationArgs('openclaude')).toEqual([]);
+  });
+
+  it('runs Antigravity non-interactively behind -p', () => {
+    expect(agentInvocationArgs('agy')).toEqual(['-p']);
+  });
+
+  it('runs Codex non-interactively behind its exec subcommand', () => {
+    expect(agentInvocationArgs('codex')).toEqual(['exec']);
   });
 });

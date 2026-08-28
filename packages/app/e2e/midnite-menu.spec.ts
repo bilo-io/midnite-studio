@@ -167,5 +167,6 @@ test('switching the primary agent in Settings changes which binary and prefix th
 
   // Codex doesn't recognise `/name` for a custom skill, only `$name` — so the
   // stored `/midnite-exec` prompt gets its prefix translated on the way out.
-  await expect.poll(() => ptyInputs(page)).toEqual(["codex '$midnite-exec'"]);
+  // It also only runs a prompt non-interactively behind `exec`.
+  await expect.poll(() => ptyInputs(page)).toEqual(["codex exec '$midnite-exec'"]);
 });
