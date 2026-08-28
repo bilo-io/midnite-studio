@@ -1,4 +1,4 @@
-import { Check, ChevronDown, ChevronRight, Copy, List, ListTree } from 'lucide-react';
+import { Check, ChevronDown, ChevronRight, Copy, List, ListTree, Rows3 } from 'lucide-react';
 import { useCallback, useEffect, useId, useMemo, useRef, useState } from 'react';
 
 import { buildChangeTree, flattenBySize } from '../../components/build-change-tree';
@@ -18,6 +18,7 @@ import { DiffView } from '../diff/diff-view';
 import { imageDiffSources } from '../diff/image-sources';
 import { useCommitFileDiff } from '../diff/use-file-diff';
 import { formatDate } from '../graph/graph-row';
+import { CommitAllChanges } from './commit-all-changes';
 import { CommitMessage } from './commit-message';
 
 /**
@@ -60,6 +61,7 @@ export function CommitDetail({ repoId, sha }: { repoId: string; sha: string }) {
     sha,
     file: null,
     collapsedDirs: EMPTY_SET,
+    showAll: false,
   });
 
   /**
@@ -78,7 +80,8 @@ export function CommitDetail({ repoId, sha }: { repoId: string; sha: string }) {
   const stale = state.sha !== sha;
   const selected = stale ? null : state.file;
   const collapsedDirs = stale ? EMPTY_SET : state.collapsedDirs;
-  if (stale) setState({ sha, file: null, collapsedDirs: EMPTY_SET });
+  const showAll = stale ? false : state.showAll;
+  if (stale) setState({ sha, file: null, collapsedDirs: EMPTY_SET, showAll: false });
 
   /**
    * Clicking the open file again closes the diff.
@@ -86,6 +89,9 @@ export function CommitDetail({ repoId, sha }: { repoId: string; sha: string }) {
    * Kept from the Phase 5 pane: in a 384px panel the diff is most of the height,
    * and being able to put it away is how you see the rest of a large commit's
    * file list without switching commits and back.
+   *
+   * Also drops out of `showAll`: picking one file is picking it out of the rest,
+   * and the two views cannot both be answering "what do I look at" at once.
    */
   const toggleFile = useCallback(
     (file: { path: string; oldPath: string | null }) => {
@@ -93,10 +99,28 @@ export function CommitDetail({ repoId, sha }: { repoId: string; sha: string }) {
         ...current,
         sha,
         file: current.sha === sha && current.file?.path === file.path ? null : file,
+        showAll: false,
       }));
     },
     [sha],
   );
+
+  /** Tree/list stays a single-file affordance — selecting either exits `showAll`. */
+  const selectFileView = useCallback(
+    (view: CommitFileView) => {
+      setFileView(view);
+      setState((current) => ({ ...current, sha, showAll: false }));
+    },
+    [sha, setFileView],
+  );
+
+  const toggleShowAll = useCallback(() => {
+    setState((current) => ({
+      ...current,
+      sha,
+      showAll: current.sha === sha ? !current.showAll : true,
+    }));
+  }, [sha]);
 
   const diff = useCommitFileDiff({
     repoId,
@@ -184,7 +208,7 @@ export function CommitDetail({ repoId, sha }: { repoId: string; sha: string }) {
         the tree/list toggle. Pinned rather than scrolled, because it now also
         carries the control that reveals everything below it.
       */}
-      <div className="flex shrink-0 items-start gap-1 py-2 pl-1 pr-2">
+      <div className="flex shrink-0 items-center gap-1 py-2 pl-1 pr-2">
         <button
           type="button"
           onClick={toggleMeta}
@@ -194,7 +218,7 @@ export function CommitDetail({ repoId, sha }: { repoId: string; sha: string }) {
           // hidden — see the note on the block itself.
           {...(metaOpen ? { 'aria-controls': metaId } : {})}
           aria-label={metaOpen ? 'Hide the commit details' : 'Show the commit details'}
-          className="mt-0.5 shrink-0 rounded p-0.5 text-muted-foreground transition-colors hover:bg-accent/40 hover:text-foreground"
+          className="shrink-0 rounded p-0.5 text-muted-foreground transition-colors hover:bg-accent/40 hover:text-foreground"
         >
           {metaOpen ? (
             <ChevronDown className="h-3 w-3" strokeWidth={2.5} />
@@ -222,7 +246,12 @@ export function CommitDetail({ repoId, sha }: { repoId: string; sha: string }) {
         </p>
         <CopySha sha={data.sha} />
         <div className="flex shrink-0 items-center">
-          <ViewToggle view={fileView} onChange={setFileView} />
+          <ViewToggle
+            view={fileView}
+            onChange={selectFileView}
+            showAll={showAll}
+            onToggleAll={toggleShowAll}
+          />
         </div>
       </div>
 
@@ -261,59 +290,65 @@ export function CommitDetail({ repoId, sha }: { repoId: string; sha: string }) {
         />
       </div>
 
-      {/*
-        `maxHeight` as well as `height`, and it is not belt-and-braces: the
-        bounds in the store are absolute pixels, so a 720px request in a short
-        window would collapse BOTH neighbours to nothing — and, being persisted,
-        would still be collapsed on the next launch, with only a zero-height
-        handle left to drag back. A share of the pane keeps the message above
-        and the diff below on screen whatever the drag asks for.
-      */}
-      <div
-        className="min-h-0 shrink-0 overflow-auto"
-        style={{ height: files.current, maxHeight: '60%' }}
-        data-testid="commit-file-pane"
-      >
-        {data.files.length === 0 ? (
-          <p className="px-3 py-2 text-xs text-muted-foreground">
-            This commit changed no files.
-          </p>
-        ) : fileView === 'tree' ? (
-          <ChangeTree
-            nodes={tree}
-            selection={{ path: selected?.path ?? null, onSelect: toggleFile }}
-            collapsed={collapsedDirs}
-            onToggleDir={toggleDir}
-            testId="commit-files"
-          />
-        ) : (
-          <ChangeTree
-            nodes={list}
-            selection={{ path: selected?.path ?? null, onSelect: toggleFile }}
-            collapsed={EMPTY_SET}
-            onToggleDir={toggleDir}
-            flat
-            testId="commit-files"
-          />
-        )}
-      </div>
+      {data.files.length === 0 ? (
+        <p className="px-3 py-2 text-xs text-muted-foreground">This commit changed no files.</p>
+      ) : showAll ? (
+        <div className="min-h-0 flex-1">
+          <CommitAllChanges repoId={repoId} sha={data.sha} files={data.files} />
+        </div>
+      ) : (
+        <>
+          {/*
+            `maxHeight` as well as `height`, and it is not belt-and-braces: the
+            bounds in the store are absolute pixels, so a 720px request in a
+            short window would collapse BOTH neighbours to nothing — and, being
+            persisted, would still be collapsed on the next launch, with only a
+            zero-height handle left to drag back. A share of the pane keeps the
+            message above and the diff below on screen whatever the drag asks for.
+          */}
+          <div
+            className="min-h-0 shrink-0 overflow-auto"
+            style={{ height: files.current, maxHeight: '60%' }}
+            data-testid="commit-file-pane"
+          >
+            {fileView === 'tree' ? (
+              <ChangeTree
+                nodes={tree}
+                selection={{ path: selected?.path ?? null, onSelect: toggleFile }}
+                collapsed={collapsedDirs}
+                onToggleDir={toggleDir}
+                testId="commit-files"
+              />
+            ) : (
+              <ChangeTree
+                nodes={list}
+                selection={{ path: selected?.path ?? null, onSelect: toggleFile }}
+                collapsed={EMPTY_SET}
+                onToggleDir={toggleDir}
+                flat
+                testId="commit-files"
+              />
+            )}
+          </div>
 
-      <ResizeHandle resizable={files} axis="y" label="Resize the commit file list" />
+          <ResizeHandle resizable={files} axis="y" label="Resize the commit file list" />
 
-      <div className="min-h-0 flex-1">
-        {selected === null ? (
-          <p className="p-3 text-xs text-muted-foreground">
-            Select a file to see what changed in it.
-          </p>
-        ) : (
-          <DiffView
-            diff={diff.diff}
-            isLoading={diff.isLoading}
-            onExpandContext={diff.expandContext}
-            images={imageDiffSources(diff.diff, { kind: 'commit', repoId, sha: data.sha })}
-          />
-        )}
-      </div>
+          <div className="min-h-0 flex-1">
+            {selected === null ? (
+              <p className="p-3 text-xs text-muted-foreground">
+                Select a file to see what changed in it.
+              </p>
+            ) : (
+              <DiffView
+                diff={diff.diff}
+                isLoading={diff.isLoading}
+                onExpandContext={diff.expandContext}
+                images={imageDiffSources(diff.diff, { kind: 'commit', repoId, sha: data.sha })}
+              />
+            )}
+          </div>
+        </>
+      )}
     </div>
   );
 }
@@ -328,6 +363,8 @@ type CommitViewState = {
   sha: string;
   file: { path: string; oldPath: string | null } | null;
   collapsedDirs: ReadonlySet<string>;
+  /** Whether the file pane and single-file diff are replaced by `CommitAllChanges`. */
+  showAll: boolean;
 };
 
 /** Neither is ever mutated, so one module-level instance avoids a render loop. */
@@ -378,13 +415,24 @@ function CopySha({ sha }: { sha: string }) {
   );
 }
 
-/** Tree ⇄ list, as a two-button radio group rather than a toggle. */
+/**
+ * Tree ⇄ list ⇄ all, as a three-button radio group rather than a toggle.
+ *
+ * Tree and list are two layouts of the same "pick one file" picker, so they
+ * share `view`; "view all changes" replaces that picker with every file's
+ * diff at once, so it is a separate `showAll` flag rather than a third
+ * `CommitFileView` value — picking tree or list is also how you leave it.
+ */
 function ViewToggle({
   view,
   onChange,
+  showAll,
+  onToggleAll,
 }: {
   view: CommitFileView;
   onChange: (view: CommitFileView) => void;
+  showAll: boolean;
+  onToggleAll: () => void;
 }) {
   return (
     <>
@@ -392,17 +440,25 @@ function ViewToggle({
         icon={ListTree}
         label="Group the files by folder"
         size="sm"
-        aria-pressed={view === 'tree'}
-        className={view === 'tree' ? 'bg-accent text-foreground' : ''}
+        aria-pressed={!showAll && view === 'tree'}
+        className={!showAll && view === 'tree' ? 'bg-accent text-foreground' : ''}
         onClick={() => onChange('tree')}
       />
       <IconButton
         icon={List}
         label="List the files by how much changed"
         size="sm"
-        aria-pressed={view === 'list'}
-        className={view === 'list' ? 'bg-accent text-foreground' : ''}
+        aria-pressed={!showAll && view === 'list'}
+        className={!showAll && view === 'list' ? 'bg-accent text-foreground' : ''}
         onClick={() => onChange('list')}
+      />
+      <IconButton
+        icon={Rows3}
+        label={showAll ? 'Back to one file at a time' : 'View all changes at once'}
+        size="sm"
+        aria-pressed={showAll}
+        className={showAll ? 'bg-accent text-foreground' : ''}
+        onClick={onToggleAll}
       />
     </>
   );
