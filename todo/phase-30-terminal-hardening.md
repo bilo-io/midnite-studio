@@ -589,8 +589,8 @@ that pty.
 
 ## Verification
 
-- [ ] `moon run :typecheck :lint :test` green.
-- [ ] Boundary lint clean: the broker imports no `electron` (the new eslint group fires on an
+- [x] `moon run :typecheck :lint :test` green.
+- [x] Boundary lint clean: the broker imports no `electron` (the new eslint group fires on an
       `import 'electron'` added to `broker/index.ts` and is then removed); `app` learns no node
       builtin; `shared` gains fields and channels only.
 - [x] `grep -rn 'duration-200' packages/app/src` prints exactly one line (`app.tsx`'s nav chevron).
@@ -606,12 +606,12 @@ that pty.
       `TerminalListResponse` row with `live` and `live: null`; `ptySnapshot` in `expected`.
 - [x] Playwright (B): reload the page with two live sessions; both rebind, `creates.length === 0`,
       `snapshots.length === 2`.
-- [ ] Vitest (C): `protocol.test.ts`, `server.test.ts`, `broker-client.test.ts` as specified in the
+- [x] Vitest (C): `protocol.test.ts`, `server.test.ts`, `broker-client.test.ts` as specified in the
       theme, plus `pty-service`'s unchanged surface exercised against a fake `spawnPty` through the
       client rather than node-pty directly; `reattached-note.test.ts` `noteText` three cases.
-- [ ] Vitest (D): `sessionPhase` seven rows; `terminal.test.ts` `resume` array/string/absent and
+- [x] Vitest (D): `sessionPhase` seven rows; `terminal.test.ts` `resume` array/string/absent and
       `asleep` optional.
-- [ ] Playwright (D): Sleep issues one `kill`, the row stays with `data-phase="asleep"` and
+- [x] Playwright (D): Sleep issues one `kill`, the row stays with `data-phase="asleep"` and
       `terminalSaves.at(-1).asleep === true`; an ended pane shows `role="status"` *Session ended* and
       Enter grows `creates` by 1; Resume's `initialInput` equals the roster's resume join; the skew
       banner's **Restart** yields one `kill` + one `create` per legacy row.
@@ -620,7 +620,7 @@ that pty.
       `commandLabel('/usr/local/bin/pnpm dev')` → `'pnpm dev'`, a 60-char argv → 40 chars ending `…`;
       the `ps-node-wrapper.txt` guard still passes; `ipc.test.ts` — `ptyCommandChanged` row rejects an
       empty-string command.
-- [ ] Screenshots, per the visual-phase convention: the ended strip with both buttons; a slept row
+- [x] Screenshots, per the visual-phase convention: the ended strip with both buttons; a slept row
       beside a live one; the *Reattached N sessions* note; the skew banner; a mid-tween frame of
       maximize (content clipped, not reflowed) — both themes.
 - [ ] **Open, for a human:** quit and relaunch the **packaged** app (from Finder, not a dev shell) with
