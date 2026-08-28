@@ -123,23 +123,28 @@ output, so it lands first.
 
 *Themes A–D have landed (2026-08-28) — the viewer is feature-complete end to end: Present opens a
 fullscreen deck from Files preview, a PR/review description, or a comment body, with the full
-typewriter/keyboard/help-overlay presentation and shiki-highlighted code fences. Only Theme E
-remains — the unbound `CommandId` registry entry, which has no user-visible effect until Phase 23's
-palette exists to read it.*
+typewriter/keyboard/help-overlay presentation and shiki-highlighted code fences. Theme E below adds
+the unbound `CommandId` registry entry, which has no user-visible effect until Phase 23's palette
+exists to read it.*
 
-### E — Command registry entry (S)
+### E — Command registry entry (S) — ✅ DONE (2026-08-28, merged locally — no PR/no remote)
 
-- [ ] A new `CommandId` (`markdown.presentAsSlides`, a label, a palette `group`) added to `COMMANDS`
+- [x] A new `CommandId` (`markdown.presentAsSlides`, a label, a palette `group`) added to `COMMANDS`
       in [`shared/src/keybindings.ts`](../packages/shared/src/keybindings.ts) — no chord bound.
       Phase 23's palette UI is not built yet, and every obvious free chord is already scarce; this is
       a registry entry waiting for a surface, the same position `repo.open`/`repo.close` were in
-      before Phase 23 Theme B gave them handlers.
-- [ ] A `useCommandHandlers()` arm reading `useSlidesStore().activeMarkdown`, following the exact
+      before Phase 23 Theme B gave them handlers. Grouped under `'view'` (surface-agnostic display
+      toggles), not `'files'` — the command fires from Reviews descriptions too, not just Files.
+- [x] A `useCommandHandlers()` arm reading `useSlidesStore().activeMarkdown`, following the exact
       reactive shape every other conditional command already uses: enabled with a `run` calling
       `presentActive()` when `activeMarkdown` is set, `{ enabled: false, disabledReason: 'No
       markdown in view' }` otherwise.
-- [ ] A test on the handler arm: toggling `activeMarkdown` flips `enabled`, and `run()` calls
-      `presentActive()` rather than re-deriving or re-fetching content itself.
+- [x] A test on the handler arm: toggling `activeMarkdown` flips `enabled`, and `run()` calls
+      `presentActive()` rather than re-deriving or re-fetching content itself — asserted with a spy
+      on `presentActive` directly, in `use-command-handlers.test.ts` beside the other command arms.
+
+*Phase 29 is now feature-complete — all five themes (A–E) have landed. Open: the screenshot pass
+and the three "Open, for a human" manual checks under Verification below.*
 
 ## Files this phase touches
 

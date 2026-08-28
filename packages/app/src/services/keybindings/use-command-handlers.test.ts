@@ -7,6 +7,7 @@ import { beforeEach, describe, expect, it, vi } from 'vitest';
 import type { BranchStatus, StatusResult } from '@midnite/git-shared';
 
 import { DialogHost } from '../../components/dialog-host';
+import { useSlidesStore } from '../../features/slides/slides-store';
 import { keys } from '../queries';
 import { useFileEditorStore } from '../../store/file-editor-store';
 import { useUiStore } from '../../store/ui-store';
@@ -47,6 +48,7 @@ beforeEach(() => {
     version: null,
     pendingNav: null,
   });
+  useSlidesStore.setState({ deck: null, activeMarkdown: null });
 });
 
 describe('useCommandHandlers — no repo open', () => {
@@ -174,5 +176,23 @@ describe('useCommandHandlers — a repo is selected', () => {
     expect(result.current['sync.pull'].enabled).toBe(true);
     expect(result.current['sync.push'].enabled).toBe(false);
     expect(result.current['sync.push'].disabledReason).toBe('Nothing to push.');
+  });
+});
+
+describe('useCommandHandlers — markdown.presentAsSlides', () => {
+  it('disables it with no active markdown surface in view', () => {
+    const { result } = withProviders(new QueryClient());
+    expect(result.current['markdown.presentAsSlides'].enabled).toBe(false);
+    expect(result.current['markdown.presentAsSlides'].disabledReason).toBe('No markdown in view');
+  });
+
+  it('enables it once a surface sets activeMarkdown, and run() delegates to presentActive()', () => {
+    useSlidesStore.setState({ activeMarkdown: { content: '# Title', label: 'a.md' } });
+    const { result } = withProviders(new QueryClient());
+    expect(result.current['markdown.presentAsSlides'].enabled).toBe(true);
+
+    const presentActive = vi.spyOn(useSlidesStore.getState(), 'presentActive');
+    result.current['markdown.presentAsSlides'].run();
+    expect(presentActive).toHaveBeenCalledOnce();
   });
 });
