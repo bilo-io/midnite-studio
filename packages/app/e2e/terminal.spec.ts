@@ -1080,6 +1080,9 @@ test.describe('terminal panel', () => {
       'midnite-git · Claude',
     ]);
 
+    const first = (await page.locator('[data-session-row]').first().boundingBox())!;
+    const third = (await page.locator('[data-session-row]').nth(2).boundingBox())!;
+
     await page.locator('[data-session-row]').first().hover();
     await page.mouse.down();
     // Past the 6px constraint, then down in steps so dnd-kit sees movement.

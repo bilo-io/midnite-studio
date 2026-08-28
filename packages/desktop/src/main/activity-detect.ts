@@ -78,7 +78,10 @@ export function detectActivity(
 
   state.frame = current.slice(-MAX_FRAME_CHARS);
   if (framed) state.bytesSinceBoundary = 0;
-  else state.bytesSinceBoundary += text.length;
+  // Buffer.byteLength, not text.length (UTF-16 code units) — the field and
+  // the 64kB threshold are both named for what actually arrives on the wire,
+  // and CJK output or multi-byte glyphs would otherwise undercount against it.
+  else state.bytesSinceBoundary += Buffer.byteLength(text, 'utf8');
 
   // The frame still being drawn wins: it is the newer of the two, so an agent
   // that has just been given something to do says so on the first repaint
@@ -112,35 +115,47 @@ const WAITING_TO_IDLE_MS = 60_000;
  * closed.
  *
  * One shared clock drives every tracked pty (`tick()` on a single 1s
- * interval) rather than a timer each — `saw()` restarts the ladder from
- * whichever rung the last real detection reported, and `onChange` fires only
- * when the rung actually changes.
+ * interval) rather than a timer each. Each threshold is measured from when
+ * the CURRENT rung was entered — whether by a real detection (`saw()`) or by
+ * the previous decay step — not from the original detection: a session whose
+ * very first guess is `'waiting'` (no `'thinking'` before it) still decays to
+ * `'idle'` after 60s of its own silence, not 70s borrowed from the
+ * thinking→waiting leg it never climbed. `onChange` fires only when the rung
+ * actually changes.
  */
 export function createActivityClock(opts: {
   now: () => number;
   onChange: (activity: SessionActivity) => void;
 }): { saw: (activity: SessionActivity) => void; tick: () => void; dispose: () => void } {
   let current: SessionActivity | null = null;
-  let lastSeenAt = 0;
+  let enteredAt = 0;
   let disposed = false;
 
   const set = (next: SessionActivity) => {
-    if (disposed || current === next) return;
-    current = next;
-    opts.onChange(next);
+    if (disposed) return;
+    if (current !== next) {
+      current = next;
+      opts.onChange(next);
+    }
   };
 
   return {
     saw: (activity) => {
       if (disposed) return;
-      lastSeenAt = opts.now();
+      // Any detection resets the clock, even a repeated one — a chatty
+      // "still thinking" chunk should push the decay out just as much as the
+      // first.
+      enteredAt = opts.now();
       set(activity);
     },
     tick: () => {
       if (disposed || current === null || current === 'idle') return;
-      const quiet = opts.now() - lastSeenAt;
-      if (current === 'thinking' && quiet >= THINKING_TO_WAITING_MS) set('waiting');
-      if (current === 'waiting' && quiet >= THINKING_TO_WAITING_MS + WAITING_TO_IDLE_MS) {
+      const quiet = opts.now() - enteredAt;
+      if (current === 'thinking' && quiet >= THINKING_TO_WAITING_MS) {
+        enteredAt = opts.now();
+        set('waiting');
+      } else if (current === 'waiting' && quiet >= WAITING_TO_IDLE_MS) {
+        enteredAt = opts.now();
         set('idle');
       }
     },

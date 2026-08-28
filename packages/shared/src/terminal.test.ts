@@ -160,6 +160,16 @@ describe('RegexSource', () => {
   it('accepts a source at exactly 200 characters', () => {
     expect(RegexSource.safeParse('a'.repeat(200)).success).toBe(true);
   });
+
+  it('rejects the classic catastrophic-backtracking shape', () => {
+    expect(RegexSource.safeParse('([a-z]+)+$').success).toBe(false);
+    expect(RegexSource.safeParse('(a*)*').success).toBe(false);
+  });
+
+  it('accepts an ordinary quantifier that is not nested inside another', () => {
+    expect(RegexSource.safeParse('[a-z]+ done').success).toBe(true);
+    expect(RegexSource.safeParse('(foo|bar)+').success).toBe(true);
+  });
 });
 
 describe('SessionActivitySchema', () => {
