@@ -348,6 +348,17 @@ export type UiState = {
    * decisions, and one flag for both would make each undo the other.
    */
   sectionFilters: Partial<Record<ViewId, boolean>>;
+  /** Ordered list of user-created repo groups. */
+  repoGroups: RepoGroup[];
+  /**
+   * Maps each repo id to the group it belongs to.
+   *
+   * A repo absent from this map is ungrouped — it renders in the flat list
+   * above the groups, which is the default for every repo the user has opened.
+   */
+  repoGroupMembership: Record<string, string>;
+  /** Group ids that are collapsed (same closed-set inversion as repo folds). */
+  collapsedRepoGroups: string[];
   /** Which of the graph styles is drawn. A preference, so it persists. */
   graphTheme: GraphThemeId;
   /**
@@ -442,6 +453,13 @@ export type UiState = {
    * default would freeze today's answer forever.
    */
   resetSectionFilters: () => void;
+  createRepoGroup: (name: string) => string;
+  renameRepoGroup: (groupId: string, name: string) => void;
+  deleteRepoGroup: (groupId: string) => void;
+  reorderRepoGroups: (ids: string[]) => void;
+  assignRepoToGroup: (repoId: string, groupId: string) => void;
+  removeRepoFromGroup: (repoId: string) => void;
+  toggleRepoGroup: (groupId: string) => void;
   setGraphTheme: (theme: GraphThemeId) => void;
   setGraphDensity: (density: GraphDensity) => void;
   setGraphRefFilter: (refs: string[]) => void;
@@ -546,6 +564,21 @@ export type AgentCommandId =
   | 'loopBrainstorm';
 
 /**
+ * A user-created group in the repositories sidebar.
+ *
+ * The group lives in `repoGroups`; which repos belong to it is recorded by
+ * adding the repo id to `repoGroupMembership`. That split keeps the membership
+ * map cheap to update (one key per repo rather than rewriting the whole groups
+ * array every time a repo is added) and lets the panel quickly ask "which group
+ * is repo X in?" without scanning every group.
+ */
+export type RepoGroup = {
+  /** Stable UUID, never re-used. */
+  id: string;
+  name: string;
+};
+
+/**
  * What each entry invokes out of the box — the skills this repo and its author
  * actually have. Settings → Agent can point any of them somewhere else.
  */
@@ -598,6 +631,9 @@ type PersistedUi = Pick<
   | 'forgeWritesEnabled'
   | 'agentSkills'
   | 'primaryAgent'
+  | 'repoGroups'
+  | 'repoGroupMembership'
+  | 'collapsedRepoGroups'
 >;
 
 export const useUiStore = create<UiState>()(
@@ -630,6 +666,9 @@ export const useUiStore = create<UiState>()(
       collapsedSettingsGroups: [],
       collapsedRepoSections: {},
       sectionFilters: {},
+      repoGroups: [],
+      repoGroupMembership: {},
+      collapsedRepoGroups: [],
       graphTheme: DEFAULT_GRAPH_THEME,
       graphDensity: DEFAULT_GRAPH_DENSITY,
       graphRefFilter: [],
@@ -745,6 +784,48 @@ export const useUiStore = create<UiState>()(
       setSectionFilter: (view, filtered) =>
         set((state) => ({ sectionFilters: { ...state.sectionFilters, [view]: filtered } })),
       resetSectionFilters: () => set({ sectionFilters: {} }),
+      createRepoGroup: (name) => {
+        const id = `grp-${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 7)}`;
+        set((state) => ({ repoGroups: [...state.repoGroups, { id, name }] }));
+        return id;
+      },
+      renameRepoGroup: (groupId, name) =>
+        set((state) => ({
+          repoGroups: state.repoGroups.map((g) => (g.id === groupId ? { ...g, name } : g)),
+        })),
+      deleteRepoGroup: (groupId) =>
+        set((state) => {
+          const next: Record<string, string> = {};
+          for (const [repoId, gid] of Object.entries(state.repoGroupMembership)) {
+            if (gid !== groupId) next[repoId] = gid;
+          }
+          return {
+            repoGroups: state.repoGroups.filter((g) => g.id !== groupId),
+            repoGroupMembership: next,
+            collapsedRepoGroups: state.collapsedRepoGroups.filter((id) => id !== groupId),
+          };
+        }),
+      reorderRepoGroups: (ids) =>
+        set((state) => ({
+          repoGroups: ids
+            .map((id) => state.repoGroups.find((g) => g.id === id))
+            .filter((g): g is RepoGroup => g !== undefined),
+        })),
+      assignRepoToGroup: (repoId, groupId) =>
+        set((state) => ({
+          repoGroupMembership: { ...state.repoGroupMembership, [repoId]: groupId },
+        })),
+      removeRepoFromGroup: (repoId) =>
+        set((state) => {
+          const { [repoId]: _removed, ...rest } = state.repoGroupMembership;
+          return { repoGroupMembership: rest };
+        }),
+      toggleRepoGroup: (groupId) =>
+        set((state) => ({
+          collapsedRepoGroups: state.collapsedRepoGroups.includes(groupId)
+            ? state.collapsedRepoGroups.filter((id) => id !== groupId)
+            : [...state.collapsedRepoGroups, groupId],
+        })),
       setGraphTheme: (graphTheme) => set({ graphTheme }),
       setGraphDensity: (graphDensity) => set({ graphDensity }),
       setGraphRefFilter: (graphRefFilter) => set({ graphRefFilter }),
@@ -768,6 +849,7 @@ export const useUiStore = create<UiState>()(
     }),
     {
       name: 'midnite-git.ui',
+      // 4 — `repoGroups`, `repoGroupMembership`, `collapsedRepoGroups` are new.
       // 3 — `collapsedRepoSections` is new (Phase 28 Theme D); a v2 payload has
       // no such key, and the migration below supplies `{}` for it.
       //
@@ -776,7 +858,7 @@ export const useUiStore = create<UiState>()(
       // style has since brought the column back, but NOT the migration: a width
       // last chosen before Phase 14 is two schema versions stale, and the
       // current default is a better guess than it is.
-      version: 3,
+      version: 4,
       /**
        * Geometry and chrome preferences persist; everything about *this
        * session* does not.
@@ -837,6 +919,9 @@ export const useUiStore = create<UiState>()(
         forgeWritesEnabled: state.forgeWritesEnabled,
         agentSkills: state.agentSkills,
         primaryAgent: state.primaryAgent,
+        repoGroups: state.repoGroups,
+        repoGroupMembership: state.repoGroupMembership,
+        collapsedRepoGroups: state.collapsedRepoGroups,
       }),
 
       /**
@@ -850,11 +935,17 @@ export const useUiStore = create<UiState>()(
        * v2 → v3: supply `{}` for `collapsedRepoSections`, which did not exist
        * yet. An empty map reads as "no repo has folded anything", the correct
        * default for a key with no prior opinion.
+       *
+       * v3 → v4: supply empty defaults for `repoGroups`, `repoGroupMembership`,
+       * and `collapsedRepoGroups`.
        */
       migrate: (persisted, version) => {
         const state = (persisted ?? {}) as Record<string, unknown> & {
           graphColumns?: Record<string, number>;
           collapsedRepoSections?: Record<string, string[]>;
+          repoGroups?: unknown[];
+          repoGroupMembership?: Record<string, string>;
+          collapsedRepoGroups?: string[];
         };
         if (version < 2 && state.graphColumns) {
           const { author: _retired, ...rest } = state.graphColumns;
@@ -862,6 +953,11 @@ export const useUiStore = create<UiState>()(
         }
         if (version < 3) {
           state.collapsedRepoSections = {};
+        }
+        if (version < 4) {
+          state.repoGroups = [];
+          state.repoGroupMembership = {};
+          state.collapsedRepoGroups = [];
         }
         return state as PersistedUi;
       },
@@ -889,6 +985,7 @@ export const useUiStore = create<UiState>()(
             which reaches the terminal as the string "undefined".
           */
           agentSkills: { ...current.agentSkills, ...saved.agentSkills },
+          repoGroupMembership: { ...current.repoGroupMembership, ...saved.repoGroupMembership },
         };
       },
     },

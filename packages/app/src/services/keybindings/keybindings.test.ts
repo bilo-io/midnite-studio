@@ -1,4 +1,4 @@
-import { COMMANDS, DEFAULT_KEYMAP, GLOBAL_CHORDS } from '@midnite/git-shared';
+import { COMMANDS, DEFAULT_KEYMAP } from '@midnite/git-shared';
 import { describe, expect, it, vi } from 'vitest';
 
 import { chordFromEvent } from './chord';

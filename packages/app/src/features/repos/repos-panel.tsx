@@ -67,6 +67,7 @@ import {
   type ViewSections,
 } from './view-sections';
 import { RepoLifecycleMenu } from './repo-lifecycle-actions';
+import { NewGroupButton, RepoGroupItem, SortableGroupList } from './repo-groups';
 import { primaryTarget, useRepoActions } from './use-repo-actions';
 
 /**
@@ -142,6 +143,35 @@ function useRepoFolds() {
 }
 
 /**
+ * How repos are distributed across user groups.
+ *
+ * Returns the groups in their stored order, each paired with the repos that
+ * belong to it; and the flat list of repos that belong to no group.
+ * Both lists respect the current filter query — only matched repos appear.
+ */
+function useGroupedRepos(repos: readonly RepoDescriptor[], query: string) {
+  const repoGroups = useUiStore((s) => s.repoGroups);
+  const repoGroupMembership = useUiStore((s) => s.repoGroupMembership);
+
+  const matched = useMemo(
+    () => repos.filter((repo) => matchesRepoQuery(repo, query)),
+    [repos, query],
+  );
+
+  const grouped = useMemo(() => {
+    const memberSet = new Set(Object.keys(repoGroupMembership));
+    const ungrouped = matched.filter((repo) => !memberSet.has(repo.id));
+    const groups = repoGroups.map((group) => ({
+      group,
+      repos: matched.filter((repo) => repoGroupMembership[repo.id] === group.id),
+    }));
+    return { ungrouped, groups };
+  }, [matched, repoGroups, repoGroupMembership]);
+
+  return { matched, ...grouped };
+}
+
+/**
  * The repositories sidebar, modelled on VS Code's SCM view crossed with
  * GitKraken's ref tree.
  *
@@ -164,21 +194,18 @@ export function ReposPanel() {
   const { data: repos = [], isLoading } = useRepos();
   const { pickAndOpen, isPending } = usePickAndOpenRepo();
   const reorderRepos = useReorderRepos();
+  const reorderRepoGroups = useUiStore((s) => s.reorderRepoGroups);
   const [error, setError] = useState<string | null>(null);
   const [query, setQuery] = useState('');
   const sections = useViewSections();
   const folds = useRepoFolds();
+  const { matched, ungrouped, groups } = useGroupedRepos(repos, query);
 
   const onOpen = async () => {
     setError(null);
     const result = await pickAndOpen();
     if (result && !result.ok) setError(result.message);
   };
-
-  const matched = useMemo(
-    () => repos.filter((repo) => matchesRepoQuery(repo, query)),
-    [repos, query],
-  );
 
   /*
     "All collapsed" is asked of what is ON SCREEN, not of the registry — and so
@@ -278,6 +305,7 @@ export function ReposPanel() {
             */
             className={sections.filtered ? 'text-primary' : ''}
           />
+          <NewGroupButton />
           <IconButton
             icon={FolderPlus}
             label="Open a repository…"
@@ -354,36 +382,62 @@ export function ReposPanel() {
             filter reads names and paths.
           </p>
         ) : (
-          /*
-            Order is the user's, and it lives in `repos.json` alongside the
-            repo list itself — not in localStorage. A drag reorders the
-            registry's own Map, so clearing the browser store cannot leave the
-            sidebar in an order the repo list disagrees with.
+          <>
+            {/*
+              Ungrouped repos — same SortableList behaviour as before.
 
-            `ids` is the FULL registry even while the filter is narrowing what
-            renders, and that is load-bearing rather than lazy: `onReorder`
-            takes the whole new order and `reorderByIds` keeps only the ids it
-            is handed, so handing it the filtered list would drop every hidden
-            repository out of the registry's order. With the complete list here,
-            a drag between two visible rows moves the dragged repo to the other
-            one's real index and leaves the hidden ones exactly where they were.
-          */
-          <SortableList ids={repos.map((repo) => repo.id)} onReorder={reorderRepos}>
-            {matched.map((repo, index) => (
-              <RepoItem
-                key={repo.id}
-                repo={repo}
-                first={index === 0}
-                index={index}
-                sections={sections}
-                expanded={!folds.collapsed(repo.id)}
-                onToggleExpanded={() => folds.toggle(repo.id)}
-                // '' clears a stale message on the next successful op, so an
-                // error from two operations ago cannot sit there looking current.
-                onError={(message) => setError(message || null)}
-              />
-            ))}
-          </SortableList>
+              `ids` is the FULL registry even while the filter is narrowing what
+              renders, and that is load-bearing rather than lazy: `onReorder`
+              takes the whole new order and `reorderByIds` keeps only the ids it
+              is handed, so handing it the filtered list would drop every hidden
+              repository out of the registry's order. With the complete list here,
+              a drag between two visible rows moves the dragged repo to the other
+              one's real index and leaves the hidden ones exactly where they were.
+            */}
+            <SortableList ids={repos.map((repo) => repo.id)} onReorder={reorderRepos}>
+              {ungrouped.map((repo, index) => (
+                <RepoItem
+                  key={repo.id}
+                  repo={repo}
+                  first={index === 0}
+                  index={index}
+                  sections={sections}
+                  expanded={!folds.collapsed(repo.id)}
+                  onToggleExpanded={() => folds.toggle(repo.id)}
+                  // '' clears a stale message on the next successful op, so an
+                  // error from two operations ago cannot sit there looking current.
+                  onError={(message) => setError(message || null)}
+                />
+              ))}
+            </SortableList>
+
+            {/* Grouped repos — one collapsible section per group */}
+            {groups.length > 0 ? (
+              <SortableGroupList
+                groups={groups.map((g) => g.group)}
+                onReorder={reorderRepoGroups}
+              >
+                {groups.map(({ group, repos: groupRepos }) => (
+                  <RepoGroupItem key={group.id} group={group} repos={groupRepos}>
+                    <SortableList ids={repos.map((repo) => repo.id)} onReorder={reorderRepos}>
+                      {groupRepos.map((repo, index) => (
+                        <RepoItem
+                          key={repo.id}
+                          repo={repo}
+                          first={index === 0}
+                          index={index}
+                          sections={sections}
+                          expanded={!folds.collapsed(repo.id)}
+                          onToggleExpanded={() => folds.toggle(repo.id)}
+                          onError={(message) => setError(message || null)}
+                        />
+                      ))}
+                    </SortableList>
+                  </RepoGroupItem>
+                ))}
+              </SortableGroupList>
+            ) : null}
+          </>
         )}
       </div>
     </div>
@@ -412,6 +466,11 @@ function RepoItem({
   const selectedRepoId = useUiStore((s) => s.selectedRepoId);
   const selectRepo = useUiStore((s) => s.selectRepo);
   const drag = useSortableRow(repo.id);
+  const repoGroups = useUiStore((s) => s.repoGroups);
+  const repoGroupMembership = useUiStore((s) => s.repoGroupMembership);
+  const assignRepoToGroup = useUiStore((s) => s.assignRepoToGroup);
+  const removeRepoFromGroup = useUiStore((s) => s.removeRepoFromGroup);
+  const currentGroupId = repoGroupMembership[repo.id];
 
   /**
    * Refs are fetched per repo, but only while it is expanded.
@@ -467,8 +526,26 @@ function RepoItem({
     viewAllChanges,
   } = actions;
 
-  const openRepoMenu = (at: { clientX: number; clientY: number }) =>
-    dialogs.openMenu(at, repoMenu(refs, loaded));
+  const openRepoMenu = (at: { clientX: number; clientY: number }) => {
+    const gitItems = repoMenu(refs, loaded);
+    const groupItems: MenuItem[] = [
+      ...(repoGroups.length > 0
+        ? repoGroups
+            .filter((g) => g.id !== currentGroupId)
+            .map((g) => ({
+              label: `Move to "${g.name}"`,
+              onSelect: () => assignRepoToGroup(repo.id, g.id),
+            }))
+        : []),
+      ...(currentGroupId !== undefined
+        ? [{ label: 'Remove from group', onSelect: () => removeRepoFromGroup(repo.id) }]
+        : []),
+    ];
+    dialogs.openMenu(at, [
+      ...gitItems,
+      ...(groupItems.length > 0 ? [{ type: 'separator' as const }, ...groupItems] : []),
+    ]);
+  };
 
   /*
     A repo with nothing changed drops out of the filtered tree — but never
