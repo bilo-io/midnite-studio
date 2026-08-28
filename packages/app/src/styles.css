@@ -168,6 +168,29 @@
  * segment growing its own density prop. `OverflowPopover`'s panel renders
  * through a portal outside this element, so a collapsed segment's label
  * comes back there with no override needed. */
+/* Phase 24 Theme E — a find-in-files result scrolls its line into view and
+ * flashes it, so the click has somewhere visible to land. Shiki wraps every
+ * rendered line in `<span class="line">`, one per source line in order — the
+ * hook this reuses rather than a second per-line DOM the phase after this one
+ * (25 D) is what actually rebuilds `CodePreview` around. */
+.code-preview-hit {
+  animation: code-preview-hit-fade 1500ms ease-out forwards;
+}
+@keyframes code-preview-hit-fade {
+  from {
+    background-color: hsl(var(--primary) / 0.25);
+  }
+  to {
+    background-color: transparent;
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .code-preview-hit {
+    animation: none;
+    background-color: hsl(var(--primary) / 0.25);
+  }
+}
+
 [data-density='compact'] .status-label,
 [data-density='collapsed'] .status-label {
   display: none;
