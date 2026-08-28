@@ -213,6 +213,7 @@ const bridge: Pick<
     onExit: (handler) => subscribe(EVENT_CHANNELS.ptyExit, handler),
     onAgentChanged: (handler) => subscribe(EVENT_CHANNELS.ptyAgentChanged, handler),
     onCommandChanged: (handler) => subscribe(EVENT_CHANNELS.ptyCommandChanged, handler),
+    onActivity: (handler) => subscribe(EVENT_CHANNELS.ptyActivity, handler),
   },
   terminal: {
     list: () => call(CHANNELS.terminalList),
