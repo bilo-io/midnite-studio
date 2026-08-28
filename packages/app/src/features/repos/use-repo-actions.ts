@@ -30,6 +30,7 @@ import { useTargetedGitOp, type StatusTarget } from '../../services/use-status';
 import { useUiStore } from '../../store/ui-store';
 import { useWorkbenchStore } from '../../store/workbench-store';
 import { syncAffordances } from '../status/sync-availability';
+import type { RefSectionKey } from './view-sections';
 
 /**
  * The sidebar's menus, for one repository.
@@ -119,6 +120,11 @@ export function useRepoActions(
   const push = useTargetedGitOp<{ setUpstream: boolean }>(target, 'push', (api, args, ctx) =>
     api.ops.push({ ...ctx, setUpstream: args.setUpstream }),
   );
+  const stashPush = useTargetedGitOp<{
+    message?: string;
+    keepIndex?: boolean;
+    includeUntracked?: boolean;
+  }>(target, 'stash-push', (api, args, ctx) => api.stash.push({ ...ctx, ...args }));
 
   const report = useCallback(
     (result: GitOpResult) => {
@@ -428,14 +434,14 @@ export function useRepoActions(
 
   /** Right-click on a subsection heading, and its hover ellipsis. */
   const sectionMenu = useCallback(
-    (kind: 'local' | 'remotes' | 'tags' | 'worktrees', refs: readonly Ref[]): MenuItem[] => {
+    (kind: RefSectionKey, refs: readonly Ref[]): MenuItem[] => {
       if (kind === 'worktrees') {
         const free = refs.filter(
           (ref) => ref.kind === 'localBranch' && ref.worktreePath === null && !ref.isHead,
         );
         return [
           {
-            label: 'New worktree from branch',
+            label: 'New worktree…',
             disabled: free.length === 0,
             disabledReason:
               refs.length === 0
@@ -473,9 +479,37 @@ export function useRepoActions(
         ];
       }
 
+      if (kind === 'stashes') {
+        return [
+          {
+            label: 'Stash changes…',
+            onSelect: () =>
+              dialogs.prompt({
+                title: 'Stash changes',
+                label: 'Message (optional)',
+                confirmLabel: 'Stash',
+                placeholder: 'e.g. WIP on feature',
+                options: [
+                  { id: 'includeUntracked', label: 'Include untracked files (-u)', defaultChecked: false },
+                  { id: 'keepIndex', label: 'Keep staged changes staged (--keep-index)', defaultChecked: false },
+                ],
+                onConfirm: (message, optionsState) => {
+                  void stashPush
+                    .mutateAsync({
+                      message: message || undefined,
+                      includeUntracked: optionsState?.includeUntracked,
+                      keepIndex: optionsState?.keepIndex,
+                    })
+                    .then(report);
+                },
+              }),
+          },
+        ];
+      }
+
       return [copyItem('path', repo.path)];
     },
-    [branchCreate, dialogs, fetch, forgeItems, promptWorktree, repo.path, report],
+    [branchCreate, dialogs, fetch, forgeItems, promptWorktree, repo.path, report, stashPush],
   );
 
   /**

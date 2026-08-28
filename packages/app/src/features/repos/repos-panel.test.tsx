@@ -1,4 +1,4 @@
-import type { Ref, Remote, RepoDescriptor } from '@midnite/git-shared';
+import type { Ref, Remote, RepoDescriptor, StashEntry } from '@midnite/git-shared';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { cleanup, render, screen } from '@testing-library/react';
 import { afterEach, describe, expect, it } from 'vitest';
@@ -175,7 +175,11 @@ describe('RepoTree', () => {
     forge: { host: 'github.com', owner: 'acme', repo: 'repo', kind: 'github' },
   };
 
-  function renderTree(sections: ViewSections, remotes: Remote[] = []) {
+  function renderTree(
+    sections: ViewSections,
+    remotes: Remote[] = [],
+    stashes: StashEntry[] = [],
+  ) {
     const client = new QueryClient();
     return render(
       <QueryClientProvider client={client}>
@@ -184,6 +188,7 @@ describe('RepoTree', () => {
             repo={repo}
             refs={refs}
             remotes={remotes}
+            stashes={stashes}
             statuses={statuses}
             sections={sections}
             refMenu={() => []}
@@ -293,5 +298,29 @@ describe('RepoTree', () => {
 
     const headings = screen.getAllByRole('heading', { level: 3 }).map((h) => h.textContent);
     expect(headings).toEqual(['Worktrees']);
+  });
+
+  it('renders Stashes section when stashes are present and hides it when empty', () => {
+    const stashEntry = {
+      selector: 'stash@{0}',
+      sha: '1122334455667788990011223344556677889900',
+      parents: ['aa', 'bb'],
+      message: 'WIP on main: test stash',
+      authoredAt: 1700000000,
+      author: { name: 'Alice', email: 'alice@example.com' },
+    };
+
+    // When empty: no Stashes heading
+    renderTree(unfiltered, [], []);
+    let headings = screen.getAllByRole('heading', { level: 3 }).map((h) => h.textContent);
+    expect(headings).not.toContain('Stashes');
+
+    cleanup();
+
+    // When stashes present: Stashes heading appears
+    renderTree(unfiltered, [], [stashEntry]);
+    headings = screen.getAllByRole('heading', { level: 3 }).map((h) => h.textContent);
+    expect(headings).toContain('Stashes');
+    expect(screen.getByText('WIP on main: test stash')).toBeDefined();
   });
 });

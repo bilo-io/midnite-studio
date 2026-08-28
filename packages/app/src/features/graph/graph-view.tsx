@@ -6,7 +6,7 @@ import { useDialogs } from '../../components/dialog-host';
 import { EmptyState } from '../../components/empty-state';
 import { ResizeHandle } from '../../components/resizable/resize-handle';
 import { useResizable } from '../../components/resizable/use-resizable';
-import { useRefs } from '../../services/queries';
+import { useRefs, useStashes } from '../../services/queries';
 import { useStatus } from '../../services/use-status';
 import { ConflictBanner } from '../status/conflict-banner';
 import { DEFAULT_LAYOUT, LAYOUT_BOUNDS, useUiStore } from '../../store/ui-store';
@@ -24,6 +24,8 @@ import {
   minLaneWidth,
 } from './graph-themes';
 import { useRefsBySha } from './ref-badge';
+import { StashRows } from './stash-rows';
+import { useStashActions } from '../stash/use-stash-actions';
 import { UncommittedRow, hasUncommittedWork } from './uncommitted-row';
 import { useGraphActions } from './use-graph-actions';
 import { useGraphStream } from './use-graph-stream';
@@ -65,6 +67,7 @@ export function GraphView() {
 
   const { data: refs = [] } = useRefs(repoId);
   const refsBySha = useRefsBySha(refs);
+  const { data: stashes = [] } = useStashes(repoId);
 
   const { data: status } = useStatus();
   const currentBranch = status?.branch.head ?? null;
@@ -72,6 +75,11 @@ export function GraphView() {
   const [opError, setOpError] = useState('');
   const { commitMenu, refMenu, dropMenu, checkoutRef, report, syncFor, runSync, syncing } =
     useGraphActions(setOpError);
+  const stashActions = useStashActions(
+    repoId ?? '',
+    undefined,
+    setOpError,
+  );
 
   /**
    * A drop opens a menu at the pointer rather than acting.
@@ -272,6 +280,24 @@ export function GraphView() {
             onSelect={() => setActiveView('changes')}
           />
         ) : null}
+
+        <StashRows
+          stashes={stashes}
+          theme={theme}
+          gutterWidth={paintedGutter}
+          laneWidth={laneWidth}
+          colorIdx={headRow?.colorIdx ?? 0}
+          lane={headRow?.lane ?? 0}
+          selectedSha={selectedSha}
+          onSelectStash={(entry) => selectCommit(entry.sha)}
+          onContextMenu={(event, entry) => {
+            event.preventDefault();
+            dialogs.openMenu(
+              { clientX: event.clientX, clientY: event.clientY },
+              stashActions.stashMenu(entry),
+            );
+          }}
+        />
 
         {/*
           Keyed on requestId so the list fades in ONCE per stream — on a repo

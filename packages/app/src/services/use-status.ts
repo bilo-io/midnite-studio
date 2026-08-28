@@ -258,6 +258,11 @@ export type GitOpId =
   | 'branch-rename'
   | 'tag-create'
   | 'worktree-add'
+  | 'stash-push'
+  | 'stash-pop'
+  | 'stash-apply'
+  | 'stash-drop'
+  | 'stash-branch'
   | 'abort'
   | 'continue';
 
@@ -281,6 +286,11 @@ export const GIT_OP_LABEL: Record<GitOpId, string> = {
   'branch-rename': 'Renaming branch…',
   'tag-create': 'Creating tag…',
   'worktree-add': 'Adding worktree…',
+  'stash-push': 'Stashing changes…',
+  'stash-pop': 'Popping stash…',
+  'stash-apply': 'Applying stash…',
+  'stash-drop': 'Dropping stash…',
+  'stash-branch': 'Branching from stash…',
   abort: 'Aborting…',
   continue: 'Continuing…',
 };
@@ -311,6 +321,11 @@ export const GIT_OP_RANK: Record<GitOpId, number> = {
   'branch-rename': 30,
   'tag-create': 30,
   'worktree-add': 30,
+  'stash-push': 30,
+  'stash-pop': 30,
+  'stash-apply': 30,
+  'stash-drop': 30,
+  'stash-branch': 30,
   abort: 40,
   continue: 40,
 };
@@ -321,11 +336,11 @@ export const GIT_OP_RANK: Record<GitOpId, number> = {
  * The result is data, not an exception — a conflict is an expected outcome the
  * UI renders — so callers read `result.ok` instead of catching.
  */
-export function useGitOp<TArgs>(
+export function useGitOp<TArgs, TResult extends GitOpResult = GitOpResult>(
   opId: GitOpId,
-  run: (api: NonNullable<ReturnType<typeof bridge>>, args: TArgs, ctx: { repoId: string; worktreePath?: string }) => Promise<GitOpResult>,
+  run: (api: NonNullable<ReturnType<typeof bridge>>, args: TArgs, ctx: { repoId: string; worktreePath?: string }) => Promise<TResult>,
 ) {
-  return useTargetedGitOp(useActiveWorktree(), opId, run);
+  return useTargetedGitOp<TArgs, TResult>(useActiveWorktree(), opId, run);
 }
 
 /**
@@ -337,19 +352,19 @@ export function useGitOp<TArgs>(
  * `worktreePath` targets the primary checkout, which is what
  * `resolveWorkdir` in main falls back to.
  */
-export function useTargetedGitOp<TArgs>(
+export function useTargetedGitOp<TArgs, TResult extends GitOpResult = GitOpResult>(
   { repoId, worktreePath }: StatusTarget,
   opId: GitOpId,
-  run: (api: NonNullable<ReturnType<typeof bridge>>, args: TArgs, ctx: { repoId: string; worktreePath?: string }) => Promise<GitOpResult>,
+  run: (api: NonNullable<ReturnType<typeof bridge>>, args: TArgs, ctx: { repoId: string; worktreePath?: string }) => Promise<TResult>,
 ) {
   const client = useQueryClient();
 
-  return useMutation<GitOpResult, never, TArgs>({
+  return useMutation<TResult, never, TArgs>({
     mutationKey: ['git-op', opId],
     mutationFn: async (args: TArgs) => {
       const api = bridge();
       if (!api || !repoId) {
-        return { ok: false, kind: 'error', message: 'No repository selected.' };
+        return { ok: false, kind: 'error', message: 'No repository selected.' } as TResult;
       }
       return run(api, args, { repoId, ...(worktreePath ? { worktreePath } : {}) });
     },

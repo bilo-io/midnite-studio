@@ -1,6 +1,6 @@
 import { Fragment, useMemo, useState, type ReactNode } from 'react';
 
-import type { Ref, Remote, RepoDescriptor, StatusResult, Worktree } from '@midnite/git-shared';
+import type { Ref, Remote, RepoDescriptor, StashEntry, StatusResult, Worktree } from '@midnite/git-shared';
 import { forgeProjectUrl, pickForgeRemote } from '@midnite/git-shared';
 import {
   ArrowRightLeft,
@@ -42,6 +42,7 @@ import {
   useRemotes,
   useReorderRepos,
   useRepos,
+  useStashes,
 } from '../../services/queries';
 import {
   useRepoStatus,
@@ -51,6 +52,8 @@ import {
 import { useUiStore } from '../../store/ui-store';
 import { MidniteMenu } from '../agent/midnite-menu';
 import { SyncControls } from '../status/sync-controls';
+import { StashRow } from '../stash/stash-row';
+import { useStashActions } from '../stash/use-stash-actions';
 import { BranchDot } from './branch-dot';
 import { branchHealth, worktreeHealth, type BranchHealth } from './branch-health';
 import { checksVerdict } from './checks-verdict';
@@ -422,6 +425,7 @@ function RepoItem({
    */
   const { data: refs = [] } = useRefs(expanded ? repo.id : null);
   const { data: remotes = [] } = useRemotes(expanded ? repo.id : null);
+  const { data: stashes = [] } = useStashes(expanded ? repo.id : null);
 
   /**
    * Status, on the other hand, is fetched whether the repo is expanded or not:
@@ -670,6 +674,7 @@ function RepoItem({
           repo={repo}
           refs={refs}
           remotes={remotes}
+          stashes={stashes}
           statuses={statuses}
           sections={sections}
           refMenu={refMenu}
@@ -678,6 +683,7 @@ function RepoItem({
           parentSectionMenu={parentSectionMenu}
           onViewAllChanges={viewAllChanges}
           onCheckout={(ref) => void checkout.mutateAsync({ target: ref.name }).then(report)}
+          onError={onError}
         />
       ) : null}
     </section>
@@ -750,6 +756,7 @@ export function RepoTree({
   repo,
   refs,
   remotes,
+  stashes = [],
   statuses,
   sections,
   refMenu,
@@ -758,10 +765,12 @@ export function RepoTree({
   parentSectionMenu,
   onViewAllChanges,
   onCheckout,
+  onError,
 }: {
   repo: RepoDescriptor;
   refs: Ref[];
   remotes: Remote[];
+  stashes?: StashEntry[];
   statuses: WorktreeStatuses;
   sections: ViewSections;
   refMenu: (ref: Ref) => MenuItem[];
@@ -770,10 +779,18 @@ export function RepoTree({
   parentSectionMenu: (kind: 'branches') => MenuItem[];
   onViewAllChanges: (worktreePath: string, label: string) => void;
   onCheckout: (ref: Ref) => void;
+  onError?: (message: string) => void;
 }) {
   const [showAllTags, setShowAllTags] = useState(false);
   const { section, remoteGroup } = useSectionToggles(repo.id);
   const dialogs = useDialogs();
+  const stashActions = useStashActions(
+    repo.id,
+    primaryTarget(repo).worktreePath,
+    onError ?? (() => undefined),
+  );
+  const selectCommit = useUiStore((s) => s.selectCommit);
+  const selectRepo = useUiStore((s) => s.selectRepo);
 
   const { branches, remotes: remoteGroups, tags } = useMemo(() => partitionRefs(refs), [refs]);
 
@@ -889,6 +906,7 @@ export function RepoTree({
     local: branches.length,
     remotes: remoteGroups.reduce((sum, group) => sum + group.refs.length, 0),
     tags: visibleTags.length,
+    stashes: stashes.length,
   };
   const forgeIndex = ALL_SECTIONS.slice(0, ALL_SECTIONS.indexOf('forge'))
     .filter((key) => sections.visible(key))
@@ -1013,6 +1031,30 @@ export function RepoTree({
             index={i}
             depth={(depth + 1) as 2 | 3}
             menu={refMenu}
+          />
+        ))}
+      </TreeSection>
+    ),
+    stashes: (depth) => (
+      <TreeSection
+        title="Stashes"
+        count={stashes.length}
+        depth={depth}
+        hideWhenEmpty
+        {...section('stashes')}
+        action={headingAction('stashes', stashes.length)}
+      >
+        {stashes.map((entry, i) => (
+          <StashRow
+            key={entry.selector}
+            entry={entry}
+            index={i}
+            depth={(depth + 1) as 2 | 3}
+            menu={stashActions.stashMenu}
+            onSelect={(e) => {
+              if (useUiStore.getState().selectedRepoId !== repo.id) selectRepo(repo.id);
+              selectCommit(e.sha);
+            }}
           />
         ))}
       </TreeSection>

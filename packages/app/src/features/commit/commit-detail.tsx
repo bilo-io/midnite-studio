@@ -1,4 +1,4 @@
-import { Check, ChevronDown, ChevronRight, Copy, List, ListTree, Rows3 } from 'lucide-react';
+import { Archive, Check, ChevronDown, ChevronRight, Copy, GitBranch, List, ListTree, Play, Rows3, Trash2 } from 'lucide-react';
 import { useCallback, useEffect, useId, useMemo, useRef, useState } from 'react';
 
 import { buildChangeTree, flattenBySize } from '../../components/build-change-tree';
@@ -12,12 +12,14 @@ import {
   resolveRevision,
   useCommitDetail,
   useRemotes,
+  useStashes,
 } from '../../services/queries';
 import { LAYOUT_BOUNDS, useUiStore, type CommitFileView } from '../../store/ui-store';
 import { DiffView } from '../diff/diff-view';
 import { imageDiffSources } from '../diff/image-sources';
 import { useCommitFileDiff } from '../diff/use-file-diff';
 import { formatDate } from '../graph/graph-row';
+import { useStashActions } from '../stash/use-stash-actions';
 import { CommitAllChanges } from './commit-all-changes';
 import { CommitMessage } from './commit-message';
 
@@ -39,9 +41,16 @@ import { CommitMessage } from './commit-message';
 export function CommitDetail({ repoId, sha }: { repoId: string; sha: string }) {
   const { data, isLoading } = useCommitDetail(repoId, sha);
   const { data: remotes } = useRemotes(repoId);
+  const { data: stashes = [] } = useStashes(repoId);
   const selectCommit = useUiStore((s) => s.selectCommit);
   const fileView = useUiStore((s) => s.commitFileView);
   const setFileView = useUiStore((s) => s.setCommitFileView);
+
+  const stashEntry = useMemo(
+    () => stashes.find((s) => s.sha === sha || (data?.sha && s.sha === data.sha)),
+    [stashes, sha, data?.sha],
+  );
+  const stashActions = useStashActions(repoId, undefined, () => undefined);
   /*
     Open ⇄ closed is a preference, like the tree/list choice beside it: you are
     either reading commits or scanning diffs, and you keep doing the one you
@@ -238,12 +247,40 @@ export function CommitDetail({ repoId, sha }: { repoId: string; sha: string }) {
           gutter is also the usual shape for an accordion header — the control
           is left of the content it opens, not inset with it.
         */}
+        {stashEntry ? (
+          <span className="inline-flex shrink-0 items-center gap-1 rounded bg-primary/10 px-1.5 py-0.5 text-[11px] font-mono text-primary">
+            <Archive className="h-3 w-3" />
+            {stashEntry.selector}
+          </span>
+        ) : null}
         <p
           className="min-w-0 flex-1 break-all font-mono text-[11px] leading-tight text-muted-foreground"
           data-selectable
         >
           {data.sha}
         </p>
+        {stashEntry ? (
+          <div className="flex shrink-0 items-center gap-1 mr-1">
+            <IconButton
+              icon={Play}
+              label={`Apply ${stashEntry.selector}`}
+              size="sm"
+              onClick={() => void stashActions.apply.mutateAsync({ selector: stashEntry.selector })}
+            />
+            <IconButton
+              icon={GitBranch}
+              label={`Branch from ${stashEntry.selector}…`}
+              size="sm"
+              onClick={() => stashActions.promptBranchFromStash(stashEntry)}
+            />
+            <IconButton
+              icon={Trash2}
+              label={`Drop ${stashEntry.selector}…`}
+              size="sm"
+              onClick={() => stashActions.confirmDrop(stashEntry)}
+            />
+          </div>
+        ) : null}
         <CopySha sha={data.sha} />
         <div className="flex shrink-0 items-center">
           <ViewToggle
