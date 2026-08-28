@@ -267,7 +267,11 @@ function GraphRowInner({
           dimmed ? 'opacity-40' : ''
         }`}
       >
-        <span className="min-w-0 flex-1 truncate">{row.commit.subject}</span>
+        <span
+          className={`min-w-0 flex-1 truncate ${selected ? '' : 'text-muted-foreground'}`}
+        >
+          <CommitSubject subject={row.commit.subject} />
+        </span>
       </div>
 
       {/*
@@ -405,6 +409,39 @@ const REF_CHIP_CAP = 2;
 const EMPTY_REFS: readonly Ref[] = [];
 
 export const CommitGraphRow = memo(GraphRowInner);
+
+/**
+ * A subject rendered as conventional-commit type/scope, bolded, then the rest.
+ *
+ * `git log`, not the app, decides whether a subject looks like `feat(x): ...` —
+ * so this only bolds up to the first colon when one is present, and falls back
+ * to plain text for anything else (merge subjects, fixups, a bare sentence).
+ */
+function CommitSubject({ subject }: { subject: string }) {
+  const prefix = conventionalPrefix(subject);
+  if (prefix === null) return <>{subject}</>;
+
+  return (
+    <>
+      <span className="font-semibold">{subject.slice(0, prefix.length)}</span>
+      {subject.slice(prefix.length)}
+    </>
+  );
+}
+
+/**
+ * The `type(scope):` lead of a conventional-commit subject, colon included, or
+ * `null` when the subject doesn't start with one.
+ *
+ * Exported for the unit test rather than inlined into `CommitSubject`, since
+ * "what counts as a conventional prefix" is the one piece of logic here worth
+ * pinning down independently of rendering.
+ */
+export function conventionalPrefix(subject: string): string | null {
+  const colon = subject.indexOf(':');
+  if (colon <= 0) return null;
+  return subject.slice(0, colon + 1);
+}
 
 /**
  * Relative for anything under a week, absolute beyond it.
