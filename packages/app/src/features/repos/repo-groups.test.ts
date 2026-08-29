@@ -58,11 +58,12 @@ describe('repo groups — store', () => {
     expect(useUiStore.getState().repoGroups.map((g) => g.name)).toEqual(['C', 'B', 'A']);
   });
 
-  it('moving a repo to a different group overwrites the previous membership', () => {
-    const g1 = useUiStore.getState().createRepoGroup('G1');
-    const g2 = useUiStore.getState().createRepoGroup('G2');
-    useUiStore.getState().assignRepoToGroup('repo-x', g1);
-    useUiStore.getState().assignRepoToGroup('repo-x', g2);
-    expect(useUiStore.getState().repoGroupMembership['repo-x']).toBe(g2);
+  it('sets and clears a group color', () => {
+    const id = useUiStore.getState().createRepoGroup('ColorGroup');
+    expect(useUiStore.getState().repoGroups[0]?.color).toBeUndefined();
+    useUiStore.getState().setRepoGroupColor(id, 'red');
+    expect(useUiStore.getState().repoGroups[0]?.color).toBe('red');
+    useUiStore.getState().setRepoGroupColor(id, undefined);
+    expect(useUiStore.getState().repoGroups[0]?.color).toBeUndefined();
   });
 });

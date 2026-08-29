@@ -1,4 +1,4 @@
-import { type ReactNode } from 'react';
+import { type CSSProperties, type ReactNode } from 'react';
 
 import {
   DndContext,
@@ -10,7 +10,7 @@ import {
 } from '@dnd-kit/core';
 import { restrictToParentElement, restrictToVerticalAxis } from '@dnd-kit/modifiers';
 import { SortableContext, verticalListSortingStrategy } from '@dnd-kit/sortable';
-import { ChevronRight, FolderPlus, GripVertical, MoreVertical, Pencil, Trash2 } from 'lucide-react';
+import { ChevronRight, FolderPlus, GripVertical, MoreVertical, Palette, Pencil, Trash2 } from 'lucide-react';
 
 import { Collapse } from '@bilo-io/ui';
 import type { RepoDescriptor } from '@midnite/git-shared';
@@ -20,6 +20,83 @@ import { IconButton } from '../../components/icon-button';
 import { useSortableRow } from '../../components/sortable-list';
 import type { RepoGroup } from '../../store/ui-store';
 import { useUiStore } from '../../store/ui-store';
+
+export type RepoGroupColorDef = {
+  id: string;
+  label: string;
+  swatch: string;
+  pillClass: string;
+};
+
+export const REPO_GROUP_COLORS: readonly RepoGroupColorDef[] = [
+  {
+    id: 'red',
+    label: 'Red',
+    swatch: '#ef4444',
+    pillClass: 'bg-red-500/20 text-red-600 dark:text-red-400 border border-red-500/30',
+  },
+  {
+    id: 'orange',
+    label: 'Orange',
+    swatch: '#f97316',
+    pillClass: 'bg-orange-500/20 text-orange-600 dark:text-orange-400 border border-orange-500/30',
+  },
+  {
+    id: 'yellow',
+    label: 'Yellow',
+    swatch: '#eab308',
+    pillClass: 'bg-yellow-500/20 text-yellow-600 dark:text-yellow-400 border border-yellow-500/30',
+  },
+  {
+    id: 'green',
+    label: 'Green',
+    swatch: '#10b981',
+    pillClass: 'bg-emerald-500/20 text-emerald-600 dark:text-emerald-400 border border-emerald-500/30',
+  },
+  {
+    id: 'cyan',
+    label: 'Cyan',
+    swatch: '#06b6d4',
+    pillClass: 'bg-cyan-500/20 text-cyan-600 dark:text-cyan-400 border border-cyan-500/30',
+  },
+  {
+    id: 'blue',
+    label: 'Blue',
+    swatch: '#3b82f6',
+    pillClass: 'bg-blue-500/20 text-blue-600 dark:text-blue-400 border border-blue-500/30',
+  },
+  {
+    id: 'purple',
+    label: 'Purple',
+    swatch: '#a855f7',
+    pillClass: 'bg-purple-500/20 text-purple-600 dark:text-purple-400 border border-purple-500/30',
+  },
+  {
+    id: 'pink',
+    label: 'Pink',
+    swatch: '#ec4899',
+    pillClass: 'bg-pink-500/20 text-pink-600 dark:text-pink-400 border border-pink-500/30',
+  },
+];
+
+function ColorGlyph({ style }: { style?: CSSProperties }) {
+  return (
+    <span
+      aria-hidden
+      className="h-3 w-3 rounded-full shrink-0 border border-black/10 dark:border-white/10"
+      style={{ backgroundColor: 'currentColor', ...style }}
+    />
+  );
+}
+
+function NoneGlyph() {
+  return (
+    <span
+      aria-hidden
+      className="h-3 w-3 rounded-full shrink-0 border border-dashed border-muted-foreground/60 bg-transparent"
+    />
+  );
+}
 
 // ── Group accordion header ────────────────────────────────────────────────────
 
@@ -36,8 +113,11 @@ export function RepoGroupHeader({
 }) {
   const drag = useSortableRow(group.id);
   const renameGroup = useUiStore((s) => s.renameRepoGroup);
+  const setRepoGroupColor = useUiStore((s) => s.setRepoGroupColor);
   const deleteGroup = useUiStore((s) => s.deleteRepoGroup);
   const dialogs = useDialogs();
+
+  const colorDef = REPO_GROUP_COLORS.find((c) => c.id === group.color);
 
   const openMenu = (at: { clientX: number; clientY: number }) => {
     dialogs.openMenu(at, [
@@ -53,6 +133,23 @@ export function RepoGroupHeader({
             onConfirm: (name) => renameGroup(group.id, name),
           });
         },
+      },
+      {
+        label: 'Group Color',
+        icon: Palette,
+        submenu: [
+          {
+            label: 'None',
+            icon: NoneGlyph,
+            onSelect: () => setRepoGroupColor(group.id, undefined),
+          },
+          ...REPO_GROUP_COLORS.map((c) => ({
+            label: c.label,
+            icon: ColorGlyph,
+            iconStyle: { color: c.swatch },
+            onSelect: () => setRepoGroupColor(group.id, c.id),
+          })),
+        ],
       },
       {
         label: 'Delete group',
@@ -95,9 +192,17 @@ export function RepoGroupHeader({
             open ? 'rotate-90' : ''
           }`}
         />
-        <span className="text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">
-          {group.name}
-        </span>
+        {colorDef ? (
+          <span
+            className={`inline-flex items-center rounded px-1.5 py-0.5 text-[10px] font-semibold uppercase tracking-wide ${colorDef.pillClass}`}
+          >
+            {group.name}
+          </span>
+        ) : (
+          <span className="text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">
+            {group.name}
+          </span>
+        )}
         <span className="text-[11px] tabular-nums text-muted-foreground/70">{repoCount}</span>
       </button>
 
