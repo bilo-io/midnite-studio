@@ -1,10 +1,11 @@
 import { useState } from 'react';
 import { MoreVertical } from 'lucide-react';
-import { LuFlaskConical, LuHammer, LuPackage, LuRocket } from 'react-icons/lu';
+import { LuFlaskConical, LuFolder, LuFolderInput, LuFolderPlus, LuHammer, LuPackage, LuRocket } from 'react-icons/lu';
 
 import type { MenuItem } from '../../components/context-menu';
 import { useDialogs } from '../../components/dialog-host';
 import { IconButton } from '../../components/icon-button';
+import { useUiStore } from '../../store/ui-store';
 import { runLifecycleAction, type LifecycleAction } from './repo-lifecycle';
 
 const ACTIONS: { action: LifecycleAction; icon: typeof LuPackage; label: string }[] = [
@@ -89,6 +90,10 @@ export function RepoLifecycleMenu({
   worktreePath?: string;
 }) {
   const dialogs = useDialogs();
+  const repoGroups = useUiStore((s) => s.repoGroups);
+  const currentGroupId = useUiStore((s) => s.repoGroupMembership[repoId]);
+  const createRepoGroup = useUiStore((s) => s.createRepoGroup);
+  const assignRepoToGroup = useUiStore((s) => s.assignRepoToGroup);
 
   const run = (action: LifecycleAction) => {
     void runLifecycleAction(action, {
@@ -99,17 +104,50 @@ export function RepoLifecycleMenu({
     });
   };
 
+  const promptNewGroup = () => {
+    dialogs.prompt({
+      title: 'New repo group',
+      label: 'Group name',
+      confirmLabel: 'Create',
+      onConfirm: (name) => assignRepoToGroup(repoId, createRepoGroup(name)),
+    });
+  };
+
+  const addToGroup: MenuItem = {
+    label: 'Add to group',
+    icon: LuFolderInput,
+    submenu: [
+      { label: '+ New group', icon: LuFolderPlus, onSelect: promptNewGroup },
+      ...(repoGroups.length > 0
+        ? [
+            { type: 'separator' as const },
+            ...repoGroups
+              .filter((group) => group.id !== currentGroupId)
+              .map((group) => ({
+                label: group.name,
+                icon: LuFolder,
+                onSelect: () => assignRepoToGroup(repoId, group.id),
+              })),
+          ]
+        : []),
+    ],
+  };
+
   /*
     The same four glyphs the standing-button variant uses. A menu of four bare
     verbs made the icons the ellipsis had replaced unrecoverable — carrying them
     into the rows keeps "Build" recognisable at a glance and keeps this menu and
     the title bar's cluster saying the same thing in the same marks.
   */
-  const items: MenuItem[] = ACTIONS.map(({ action, icon, label }) => ({
-    label,
-    icon,
-    onSelect: () => run(action),
-  }));
+  const items: MenuItem[] = [
+    addToGroup,
+    { type: 'separator' },
+    ...ACTIONS.map(({ action, icon, label }) => ({
+      label,
+      icon,
+      onSelect: () => run(action),
+    })),
+  ];
 
   return (
     <IconButton

@@ -9,6 +9,7 @@ import {
   LuGitBranch,
   LuGitCommitHorizontal,
   LuRotateCw,
+  LuZap,
 } from 'react-icons/lu';
 
 import { bridge } from '../services/bridge';
@@ -73,8 +74,13 @@ function ReloadButton() {
   const dialogs = useDialogs();
 
   const items: MenuItem[] = [
-    { label: 'Reload', onSelect: () => bridge()?.window.reload(false) },
-    { label: 'Hard Reload', onSelect: () => bridge()?.window.reload(true), danger: true },
+    { label: 'Reload', icon: LuRotateCw, onSelect: () => bridge()?.window.reload(false) },
+    {
+      label: 'Hard Reload',
+      icon: LuZap,
+      onSelect: () => bridge()?.window.reload(true),
+      danger: true,
+    },
   ];
 
   return (
@@ -140,6 +146,7 @@ function useBreadcrumbs(): Crumb[] {
                 others.map(
                   (other): MenuItem => ({
                     label: other.name,
+                    icon: LuFolderGit2,
                     onSelect: () => useUiStore.getState().selectRepo(other.id),
                   }),
                 ),

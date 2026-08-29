@@ -4,6 +4,8 @@ import {
   ChevronDown,
   ChevronRight,
   CircleDot,
+  Copy,
+  ExternalLink,
   GitPullRequest,
   MoreVertical,
   Play,
@@ -445,9 +447,10 @@ function ReviewsGroup({
 }
 
 const forgeRowMenu = (url: string, what: string): MenuItem[] => [
-  { label: `Open ${what} on GitHub`, onSelect: () => openExternal(url) },
+  { label: `Open ${what} on GitHub`, icon: ExternalLink, onSelect: () => openExternal(url) },
   {
     label: 'Copy link',
+    icon: Copy,
     onSelect: () => void navigator.clipboard?.writeText(url).catch(() => undefined),
   },
 ];

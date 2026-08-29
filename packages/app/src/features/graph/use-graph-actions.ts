@@ -1,6 +1,24 @@
 import { useCallback, useMemo, useState } from 'react';
 
 import type { GitOpResult, GraphRow, Ref, Remote } from '@midnite/git-shared';
+import {
+  AlertTriangle,
+  ArrowDownToLine,
+  ArrowRightLeft,
+  ArrowUpFromLine,
+  Circle,
+  CircleDot,
+  GitBranchPlus,
+  GitCommit,
+  GitCompare,
+  GitMerge,
+  Pencil,
+  RefreshCw,
+  RotateCcw,
+  Tag,
+  Trash2,
+  UploadCloud,
+} from 'lucide-react';
 
 import { useDialogs } from '../../components/dialog-host';
 import { validateRefName } from '../../components/prompt-dialog';
@@ -156,6 +174,7 @@ export function useGraphActions(onError: (message: string) => void) {
       return [
         {
           label: 'Create branch here…',
+          icon: GitBranchPlus,
           onSelect: () =>
             dialogs.prompt({
               title: `New branch at ${short}`,
@@ -169,6 +188,7 @@ export function useGraphActions(onError: (message: string) => void) {
         },
         {
           label: 'Create tag here…',
+          icon: Tag,
           onSelect: () =>
             dialogs.prompt({
               title: `New tag at ${short}`,
@@ -182,25 +202,30 @@ export function useGraphActions(onError: (message: string) => void) {
         { type: 'separator' },
         {
           label: `Checkout ${short} (detached)`,
+          icon: ArrowRightLeft,
           onSelect: () =>
             void checkout.mutateAsync({ target: sha, detach: true }).then(report),
         },
         { type: 'separator' },
         {
           label: `Reset ${currentBranch ?? 'HEAD'} to here`,
+          icon: RotateCcw,
           disabled: currentBranch === null,
           disabledReason: 'HEAD is detached — there is no branch to move.',
           submenu: [
             {
               label: 'Soft — keep changes staged',
+              icon: Circle,
               onSelect: () => void resetTo.mutateAsync({ target: sha, mode: 'soft' }).then(report),
             },
             {
               label: 'Mixed — keep changes unstaged',
+              icon: CircleDot,
               onSelect: () => void resetTo.mutateAsync({ target: sha, mode: 'mixed' }).then(report),
             },
             {
               label: 'Hard — discard changes',
+              icon: AlertTriangle,
               danger: true,
               // The only menu item that can destroy uncommitted work AND
               // orphan commits, so it is the one that must never fire directly.
@@ -239,6 +264,7 @@ export function useGraphActions(onError: (message: string) => void) {
       const items: MenuItem[] = [
         {
           label: `Checkout ${ref.name}`,
+          icon: ArrowRightLeft,
           disabled: isCurrent || elsewhere,
           disabledReason: isCurrent
             ? 'Already checked out here.'
@@ -257,9 +283,16 @@ export function useGraphActions(onError: (message: string) => void) {
       const sync = syncFor(ref, currentBranch);
       if (sync.length > 0) {
         items.push({ type: 'separator' });
+        const syncIcon = {
+          fetch: RefreshCw,
+          pull: ArrowDownToLine,
+          push: ArrowUpFromLine,
+          publish: UploadCloud,
+        };
         for (const action of sync) {
           items.push({
             label: action.label,
+            icon: syncIcon[action.kind],
             disabled: action.disabled,
             ...(action.disabledReason ? { disabledReason: action.disabledReason } : {}),
             onSelect: () => runSync(ref, action),
@@ -272,6 +305,7 @@ export function useGraphActions(onError: (message: string) => void) {
           { type: 'separator' },
           {
             label: 'Rename…',
+            icon: Pencil,
             onSelect: () =>
               dialogs.prompt({
                 title: `Rename ${ref.name}`,
@@ -285,6 +319,7 @@ export function useGraphActions(onError: (message: string) => void) {
           },
           {
             label: `Delete ${ref.name}`,
+            icon: Trash2,
             danger: true,
             disabled: isCurrent,
             disabledReason: 'You cannot delete the branch you are on.',
@@ -328,6 +363,7 @@ export function useGraphActions(onError: (message: string) => void) {
         return [
           {
             label: `Cherry-pick ${source.sha.slice(0, 7)} onto ${target.name}`,
+            icon: GitCommit,
             disabled: target.name !== currentBranch,
             disabledReason: `Check out ${target.name} first — a cherry-pick applies to the current branch.`,
             onSelect: () =>
@@ -342,12 +378,14 @@ export function useGraphActions(onError: (message: string) => void) {
       return [
         {
           label: `Merge ${sourceName} into ${target.name}`,
+          icon: GitMerge,
           disabled: !targetIsCurrent,
           disabledReason: `Check out ${target.name} first — a merge brings changes into the current branch.`,
           onSelect: () => void mergeBranch.mutateAsync({ source: sourceName }).then(report),
         },
         {
           label: `Rebase ${target.name} onto ${sourceName}`,
+          icon: GitCompare,
           disabled: !targetIsCurrent,
           disabledReason: `Check out ${target.name} first — a rebase replays the current branch.`,
           onSelect: () => void rebaseOnto.mutateAsync({ onto: sourceName }).then(report),
