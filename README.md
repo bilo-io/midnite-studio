@@ -10,7 +10,7 @@ live branch and sync state in the footer. The crescent and the wordmark face are
 app's own.</sub>
 
 **Design source of truth:** [`docs/INITIAL_PLAN.md`](docs/INITIAL_PLAN.md).
-**Progress tracker:** [`todo/`](todo/) — one checklist per phase, an append-only
+**Progress tracker:** [`todo/`](todo/) (see the [index](todo/_INDEX.md)) — one checklist per phase, an append-only
 [`done.md`](todo/done.md), and deliberately-deferred scope in
 [`outstanding.md`](todo/outstanding.md).
 
