@@ -10,7 +10,7 @@ import {
 } from '@dnd-kit/core';
 import { restrictToParentElement, restrictToVerticalAxis } from '@dnd-kit/modifiers';
 import { SortableContext, verticalListSortingStrategy } from '@dnd-kit/sortable';
-import { ChevronRight, GripVertical, MoreVertical, Pencil, Plus, Trash2 } from 'lucide-react';
+import { ChevronRight, FolderPlus, GripVertical, MoreVertical, Pencil, Trash2 } from 'lucide-react';
 
 import { Collapse } from '@bilo-io/ui';
 import type { RepoDescriptor } from '@midnite/git-shared';
@@ -45,8 +45,13 @@ export function RepoGroupHeader({
         label: 'Rename group…',
         icon: Pencil,
         onSelect: () => {
-          const name = window.prompt('Group name', group.name)?.trim();
-          if (name) renameGroup(group.id, name);
+          dialogs.prompt({
+            title: 'Rename group',
+            label: 'Group name',
+            initialValue: group.name,
+            confirmLabel: 'Rename',
+            onConfirm: (name) => renameGroup(group.id, name),
+          });
         },
       },
       {
@@ -193,15 +198,20 @@ export function RepoGroupItem({
 
 export function NewGroupButton() {
   const createGroup = useUiStore((s) => s.createRepoGroup);
+  const dialogs = useDialogs();
 
   return (
     <IconButton
-      icon={Plus}
+      icon={FolderPlus}
       label="New repo group"
       size="sm"
       onClick={() => {
-        const name = window.prompt('Group name')?.trim();
-        if (name) createGroup(name);
+        dialogs.prompt({
+          title: 'New repo group',
+          label: 'Group name',
+          confirmLabel: 'Create',
+          onConfirm: (name) => createGroup(name),
+        });
       }}
     />
   );
