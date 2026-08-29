@@ -33,11 +33,14 @@ export function NotificationBell() {
               {unreadCount}
             </span>
           )}
-          <span className="status-label ml-1.5">Notifications</span>
         </div>
       }
     >
       <div className="flex flex-col gap-2">
+        <div className="flex items-center gap-2 border-b border-border pb-2 text-xs font-semibold text-foreground">
+          <LuBell aria-hidden className="h-3.5 w-3.5" />
+          <span>Notifications</span>
+        </div>
         {toasts.length === 0 ? (
           <div className="p-4 text-center text-sm text-muted-foreground">
             No notifications

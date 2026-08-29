@@ -14,15 +14,20 @@ export function AssistantMenu() {
       align="end"
       label="Midnite Assistant"
       testId="assistant-menu"
-      panelClassName="w-[400px] h-[300px] p-4 flex items-center justify-center text-muted-foreground"
+      panelClassName="w-[400px] h-[300px] p-4 text-muted-foreground flex flex-col"
       trigger={
-        <>
-          <MidniteIcon aria-hidden className="h-3.5 w-3.5" />
-          <span className="status-label ml-1.5">Assistant</span>
-        </>
+        <MidniteIcon aria-hidden className="h-3.5 w-3.5" />
       }
     >
-      <div>Midnite Assistant Menu (Blank for now)</div>
+      <div className="flex h-full flex-col">
+        <div className="flex shrink-0 items-center gap-2 border-b border-border pb-2 text-xs font-semibold text-foreground">
+          <MidniteIcon aria-hidden className="h-3.5 w-3.5" />
+          <span>Assistant</span>
+        </div>
+        <div className="flex flex-1 items-center justify-center">
+          Midnite Assistant Menu (Blank for now)
+        </div>
+      </div>
     </Popover>
   );
 }

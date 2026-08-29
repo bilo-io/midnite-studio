@@ -13,6 +13,7 @@ import { OpProgressSegment } from './op-progress';
 import { ReattachedNote } from './reattached-note';
 import { ReposToggle } from './repos-toggle';
 import { SearchProgressSegment } from './search-progress';
+import { RightDelimiterSegment } from './right-delimiter';
 import { TerminalToggle } from './terminal-toggle';
 import { TestVerdictSegment } from './test-verdict';
 
@@ -78,6 +79,13 @@ export const STATUS_SEGMENTS: StatusSegment[] = [
   { id: 'agent-count', zone: 'right', priority: 5, label: 'Live agents', El: AgentCountSegment },
   { id: 'diagnostics', zone: 'right', priority: 10, label: 'Diagnostics', El: DiagnosticsSegment },
   { id: 'monitor', zone: 'right', priority: 20, label: 'System monitor', El: MonitorCluster },
+  {
+    id: 'right-delimiter',
+    zone: 'right',
+    priority: 25,
+    label: 'Delimiter',
+    El: RightDelimiterSegment,
+  },
   // The two verdicts sit at the window's outer corner, the highest-attention
   // position, and outrank diagnostics/monitor at collapse time — a failing
   // test outranks a CPU readout.
