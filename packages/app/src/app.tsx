@@ -9,7 +9,7 @@ import {
   type NavLinkComponent,
 } from '@bilo-io/shell';
 import { pickForgeRemote } from '@midnite/git-shared';
-import { QueryClient } from '@tanstack/react-query';
+import { QueryClient, useQueryClient } from '@tanstack/react-query';
 import { ChevronLeft, Command as CommandIcon } from 'lucide-react';
 import type { IconType } from 'react-icons';
 import { LuSettings } from 'react-icons/lu';
@@ -50,7 +50,7 @@ import { hslTokenToHex } from './lib/color';
 import { bridge } from './services/bridge';
 import { useCommandHandlers } from './services/keybindings/use-command-handlers';
 import { useKeybindings } from './services/keybindings/use-keybindings';
-import { useRemotes, useRepos } from './services/queries';
+import { keys, useRemotes, useRepos } from './services/queries';
 import { useWatchInvalidation } from './services/watch-invalidation';
 import { useTestsStream } from './features/tests/use-tests-stream';
 import { useAppearanceSync } from './store/appearance-store';
@@ -237,6 +237,26 @@ function useForgeGateAvailable(repoId: string | null): boolean {
   return lastKnown.current;
 }
 
+function useAutoFetch() {
+  const autoFetchIntervalMs = useUiStore((s) => s.autoFetchIntervalMs);
+  const { data: repos } = useRepos();
+  const client = useQueryClient();
+
+  useEffect(() => {
+    if (!autoFetchIntervalMs || autoFetchIntervalMs < 10000 || !repos || repos.length === 0) return;
+
+    const interval = setInterval(() => {
+      const api = bridge();
+      if (!api) return;
+      Promise.all(repos.map((repo) => api.ops.fetch({ repoId: repo.id, worktreePath: repo.path })))
+        .then(() => Promise.all(repos.map((repo) => client.invalidateQueries({ queryKey: keys.repo(repo.id) }))))
+        .catch(() => {});
+    }, autoFetchIntervalMs);
+
+    return () => clearInterval(interval);
+  }, [autoFetchIntervalMs, repos, client]);
+}
+
 function Placeholder({ view }: { view: ViewId }) {
   const label = ALL_NAV_ITEMS.find((i) => i.view === view)?.label ?? view;
   const selectedRepoId = useUiStore((s) => s.selectedRepoId);
@@ -346,6 +366,7 @@ function Shell() {
   }, [activeView, forgeAvailable]);
   useWatchInvalidation(useUiStore((s) => s.selectedRepoId));
   useTestsStream();
+  useAutoFetch();
 
   // Every shortcut, every native menu item and (Theme C+) the palette dispatch
   // through this one runtime, keyed by CommandId — see use-command-handlers.ts.

@@ -1,5 +1,6 @@
 import type { BranchStatus, GitOpResult } from '@midnite/git-shared';
 import { RefreshCw } from 'lucide-react';
+import { IoCloudUploadOutline } from "react-icons/io5";
 
 import { useDialogs } from '../../components/dialog-host';
 import { IconButton } from '../../components/icon-button';
@@ -121,7 +122,7 @@ export function SyncControls({
 
   return (
     <IconButton
-      icon={RefreshCw}
+      icon={plan.label === 'Publish branch' ? IoCloudUploadOutline : RefreshCw}
       size={size}
       busy={busy}
       // Both halves of the tooltip and the accessible name: the label alone
