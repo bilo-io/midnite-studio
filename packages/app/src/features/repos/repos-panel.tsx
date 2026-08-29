@@ -1,4 +1,7 @@
 import { Fragment, useMemo, useState, type ReactNode } from 'react';
+import { useMutation, useQueryClient } from '@tanstack/react-query';
+import { bridge } from '../../services/bridge';
+import { keys } from '../../services/queries';
 
 import type { Ref, Remote, RepoDescriptor, StatusResult, Worktree } from '@midnite/git-shared';
 import { forgeProjectUrl, pickForgeRemote } from '@midnite/git-shared';
@@ -8,6 +11,7 @@ import {
   ChevronsDownUp,
   ChevronsUpDown,
   Cloud,
+  CloudDownload,
   FolderCheck,
   FolderGit2,
   FolderInput,
@@ -202,6 +206,18 @@ export function ReposPanel() {
   const sections = useViewSections();
   const folds = useRepoFolds();
   const { matched, ungrouped, groups } = useGroupedRepos(repos, query);
+  const client = useQueryClient();
+
+  const fetchAll = useMutation({
+    mutationFn: async () => {
+      const api = bridge();
+      if (!api) return;
+      await Promise.all(matched.map((repo) => api.ops.fetch({ repoId: repo.id, worktreePath: repo.path })));
+    },
+    onSettled: async () => {
+      await Promise.all(matched.map((repo) => client.invalidateQueries({ queryKey: keys.repo(repo.id) })));
+    },
+  });
 
   const onOpen = async () => {
     setError(null);
@@ -270,6 +286,17 @@ export function ReposPanel() {
                   !allCollapsed,
                 )
               }
+            />
+          ) : null}
+          {repos.length > 0 ? (
+            <IconButton
+              icon={CloudDownload}
+              label="Fetch all listed repositories"
+              size="sm"
+              busy={fetchAll.isPending}
+              disabled={matched.length === 0}
+              disabledReason="No repository matches the filter."
+              onClick={() => fetchAll.mutate()}
             />
           ) : null}
           {/*

@@ -1,5 +1,5 @@
 import { Accordion } from '@bilo-io/ui';
-import { LuFilter, LuPanelLeft } from 'react-icons/lu';
+import { LuFilter, LuPanelLeft, LuRefreshCw } from 'react-icons/lu';
 
 import { useUiStore, VIEW_IDS, type NavMode, type ViewId } from '../../../store/ui-store';
 import {
@@ -162,6 +162,8 @@ export function SidebarPage() {
   */
   const navMode = useUiStore((s) => s.navMode);
   const setNavMode = useUiStore((s) => s.setNavMode);
+  const autoFetchIntervalMs = useUiStore((s) => s.autoFetchIntervalMs);
+  const setAutoFetchIntervalMs = useUiStore((s) => s.setAutoFetchIntervalMs);
 
   return (
     <div className="flex flex-col gap-3">
@@ -215,6 +217,40 @@ export function SidebarPage() {
             >
               Reset to view defaults
             </button>
+          </Field>
+        </div>
+      </Accordion>
+
+      <Accordion title="Repository Sync" icon={<LuRefreshCw className="h-4 w-4" />} defaultOpen>
+        <div className="p-3">
+          <Field
+            label="Auto fetch interval"
+            hint="Fetch all listed repositories automatically. Range is 10s to 10m."
+          >
+            <div className="flex items-center gap-4">
+              <input
+                type="range"
+                min="10"
+                max="600"
+                step="1"
+                value={autoFetchIntervalMs ? Math.round(autoFetchIntervalMs / 1000) : 60}
+                onChange={(e) => setAutoFetchIntervalMs(parseInt(e.target.value) * 1000)}
+                className="flex-1"
+              />
+              <input
+                type="number"
+                min="10"
+                max="600"
+                value={autoFetchIntervalMs ? Math.round(autoFetchIntervalMs / 1000) : 60}
+                onChange={(e) => {
+                  const val = parseInt(e.target.value);
+                  if (isNaN(val)) return;
+                  setAutoFetchIntervalMs(Math.max(10, Math.min(600, val)) * 1000);
+                }}
+                className="w-20 rounded-md border border-border bg-background px-2 py-1 text-xs"
+              />
+              <span className="text-xs text-muted-foreground">seconds</span>
+            </div>
           </Field>
         </div>
       </Accordion>

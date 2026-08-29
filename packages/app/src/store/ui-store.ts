@@ -478,6 +478,9 @@ export type UiState = {
    */
   hiddenMetrics: MetricId[];
   toggleMetric: (id: MetricId) => void;
+
+  autoFetchIntervalMs: number | null;
+  setAutoFetchIntervalMs: (ms: number | null) => void;
   /** Sampling cadence with the flyout closed. Opening it always escalates. */
   metricsIdleIntervalMs: number;
   setMetricsIdleInterval: (ms: number) => void;
@@ -627,6 +630,7 @@ type PersistedUi = Pick<
   | 'terminalListOpen'
   | 'browserOpen'
   | 'hiddenMetrics'
+  | 'autoFetchIntervalMs'
   | 'metricsIdleIntervalMs'
   | 'forgeWritesEnabled'
   | 'agentSkills'
@@ -644,6 +648,7 @@ export const useUiStore = create<UiState>()(
       viewHistoryIndex: 0,
       settingsPage: 'appearance',
       hiddenMetrics: [],
+      autoFetchIntervalMs: 60000,
       metricsIdleIntervalMs: METRICS_IDLE_INTERVAL_MS,
       // Default off. A fresh install cannot change anything on GitHub.
       forgeWritesEnabled: false,
@@ -841,6 +846,7 @@ export const useUiStore = create<UiState>()(
             ? state.hiddenMetrics.filter((entry) => entry !== id)
             : [...state.hiddenMetrics, id],
         })),
+      setAutoFetchIntervalMs: (autoFetchIntervalMs) => set({ autoFetchIntervalMs }),
       setMetricsIdleInterval: (metricsIdleIntervalMs) => set({ metricsIdleIntervalMs }),
       setForgeWritesEnabled: (forgeWritesEnabled) => set({ forgeWritesEnabled }),
       setAgentSkill: (id, skill) =>
@@ -908,6 +914,7 @@ export const useUiStore = create<UiState>()(
         */
         browserOpen: state.browserOpen,
         hiddenMetrics: state.hiddenMetrics,
+        autoFetchIntervalMs: state.autoFetchIntervalMs,
         metricsIdleIntervalMs: state.metricsIdleIntervalMs,
         /*
           Persisted, so consent survives a relaunch — a switch that reset on
