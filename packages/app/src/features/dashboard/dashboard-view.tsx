@@ -1,13 +1,27 @@
 import { useMemo, useState } from 'react';
 
 import { pickForgeRemote, type StatsWindow } from '@midnite/git-shared';
-import { LayoutGrid, RefreshCw, Users } from 'lucide-react';
+import {
+  Activity,
+  ArrowDown,
+  ArrowUp,
+  Calendar,
+  CircleDot,
+  GitPullRequest,
+  HeartPulse,
+  LayoutGrid,
+  Play,
+  RefreshCw,
+  RotateCcw,
+  Trash2,
+  Users,
+} from 'lucide-react';
 import GridLayout, { useContainerWidth, type LayoutItem } from 'react-grid-layout';
 
 import { BrandMark } from '../../components/brand';
 import type { MenuItem } from '../../components/context-menu';
 import { useDialogs } from '../../components/dialog-host';
-import { IconButton } from '../../components/icon-button';
+import { IconButton, type IconComponent } from '../../components/icon-button';
 import { MultiSelectMenu } from '../../components/multi-select-menu';
 import {
   useForgeIssues,
@@ -58,6 +72,17 @@ const WINDOW_LABELS: Record<StatsWindow, string> = {
   '90d': 'Last 90 days',
   '1y': 'Last year',
   all: 'All time',
+};
+
+/** One glyph per widget, for the board's own "add/remove widget" menu. */
+const WIDGET_ICON: Record<WidgetId, IconComponent> = {
+  calendar: Calendar,
+  contributors: Users,
+  activity: Activity,
+  pulls: GitPullRequest,
+  issues: CircleDot,
+  runs: Play,
+  health: HeartPulse,
 };
 
 export function DashboardView() {
@@ -143,11 +168,12 @@ export function DashboardView() {
   const boardMenu: MenuItem[] = [
     ...availableWidgets(hasForge).map((spec) => ({
       label: `${onBoard.has(spec.id) ? '✓ ' : ''}${spec.title}`,
+      icon: WIDGET_ICON[spec.id],
       onSelect: () =>
         onBoard.has(spec.id) ? removeWidget(repoId, spec.id) : addWidget(repoId, spec.id),
     })),
     { type: 'separator' as const },
-    { label: 'Reset layout', onSelect: () => resetLayout(repoId) },
+    { label: 'Reset layout', icon: RotateCcw, onSelect: () => resetLayout(repoId) },
   ];
 
   const ordered = inReadingOrder(board.layout);
@@ -156,16 +182,23 @@ export function DashboardView() {
     return [
       {
         label: 'Move up',
+        icon: ArrowUp,
         onSelect: () => moveWidget(repoId, id, -1),
         disabled: index <= 0,
       },
       {
         label: 'Move down',
+        icon: ArrowDown,
         onSelect: () => moveWidget(repoId, id, 1),
         disabled: index === -1 || index >= ordered.length - 1,
       },
       { type: 'separator' as const },
-      { label: 'Remove widget', onSelect: () => removeWidget(repoId, id), danger: true },
+      {
+        label: 'Remove widget',
+        icon: Trash2,
+        onSelect: () => removeWidget(repoId, id),
+        danger: true,
+      },
     ];
   };
 

@@ -1,5 +1,5 @@
 import type { AgentDefinition, TerminalSession } from '@midnite/git-shared';
-import { Moon, Terminal, X } from 'lucide-react';
+import { Moon, PanelLeft, PanelRight, Pencil, RotateCcw, Terminal, X } from 'lucide-react';
 
 import { LuChevronRight } from 'react-icons/lu';
 
@@ -59,6 +59,7 @@ export function TerminalSessionList({
     dialogs.openMenu(event, [
       {
         label: side === 'left' ? 'Move to right' : 'Move to left',
+        icon: side === 'left' ? PanelRight : PanelLeft,
         onSelect: () =>
           useUiStore.getState().setTerminalSidebarSide(side === 'left' ? 'right' : 'left'),
       },
@@ -222,12 +223,13 @@ function SessionRow({
     event.preventDefault();
     event.stopPropagation();
     dialogs.openMenu(event, [
-      { label: 'Rename session…', onSelect: rename },
+      { label: 'Rename session…', icon: Pencil, onSelect: rename },
       // The prompt dialog itself cannot submit an empty value, so clearing a
       // custom name back to the live guess is a separate, explicit action
       // rather than "rename to nothing".
       {
         label: 'Reset to detected name',
+        icon: RotateCcw,
         disabled: session.name === undefined,
         disabledReason: 'This session has no custom name.',
         onSelect: () => useTerminalStore.getState().renameSession(session.id, undefined),
@@ -243,6 +245,7 @@ function SessionRow({
       { type: 'separator' },
       {
         label: side === 'left' ? 'Move to right' : 'Move to left',
+        icon: side === 'left' ? PanelRight : PanelLeft,
         onSelect: () =>
           useUiStore.getState().setTerminalSidebarSide(side === 'left' ? 'right' : 'left'),
       },

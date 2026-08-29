@@ -10,6 +10,8 @@ import {
   Cloud,
   FolderCheck,
   FolderGit2,
+  FolderInput,
+  FolderMinus,
   FolderX,
   GitBranch,
   GripVertical,
@@ -534,11 +536,18 @@ function RepoItem({
             .filter((g) => g.id !== currentGroupId)
             .map((g) => ({
               label: `Move to "${g.name}"`,
+              icon: FolderInput,
               onSelect: () => assignRepoToGroup(repo.id, g.id),
             }))
         : []),
       ...(currentGroupId !== undefined
-        ? [{ label: 'Remove from group', onSelect: () => removeRepoFromGroup(repo.id) }]
+        ? [
+            {
+              label: 'Remove from group',
+              icon: FolderMinus,
+              onSelect: () => removeRepoFromGroup(repo.id),
+            },
+          ]
         : []),
     ];
     dialogs.openMenu(at, [

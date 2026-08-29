@@ -11,12 +11,20 @@ import type {
 import { forgeProjectUrl, pickForgeRemote } from '@midnite/git-shared';
 import {
   ArrowDownToLine,
+  ArrowRightLeft,
   ArrowUpFromLine,
   Copy,
   ExternalLink,
   FileDiff,
+  FolderOpen,
+  FolderSymlink,
   GitBranch,
+  GitBranchPlus,
+  Pencil,
   RefreshCw,
+  Scissors,
+  Tag,
+  Trash2,
   X,
 } from 'lucide-react';
 
@@ -241,6 +249,7 @@ export function useRepoActions(
   const checkoutItem = useCallback(
     (ref: Ref): MenuItem => ({
       label: `Switch primary checkout to ${ref.name}`,
+      icon: ArrowRightLeft,
       disabled: ref.isHead || ref.worktreePath !== null,
       disabledReason: ref.isHead
         ? 'Already the primary checkout.'
@@ -263,6 +272,7 @@ export function useRepoActions(
   const deleteBranchItem = useCallback(
     (ref: Ref): MenuItem => ({
       label: `Delete ${ref.name}…`,
+      icon: Trash2,
       danger: true,
       disabled: ref.isHead,
       disabledReason: 'You cannot delete the branch that is checked out.',
@@ -293,6 +303,7 @@ export function useRepoActions(
           checkoutItem(ref),
           {
             label: 'View all changes',
+            icon: FileDiff,
             // The button and the menu item agree on when this is possible: a
             // branch that is not checked out anywhere has no working tree to
             // read, and this phase deliberately adds no branch-vs-base diff.
@@ -302,6 +313,7 @@ export function useRepoActions(
           },
           {
             label: `Rename ${ref.name}…`,
+            icon: Pencil,
             onSelect: () =>
               dialogs.prompt({
                 title: `Rename ${ref.name}`,
@@ -315,6 +327,7 @@ export function useRepoActions(
           },
           {
             label: 'Create worktree from this branch…',
+            icon: FolderSymlink,
             // git refuses to check one branch out twice, so a branch that
             // already lives somewhere cannot seed a second worktree.
             disabled: checkoutPath !== null,
@@ -322,7 +335,7 @@ export function useRepoActions(
             onSelect: () => promptWorktree(ref.name, false),
           },
           { type: 'separator' },
-          copyItem('branch name', ref.name),
+          copyItem('branch name', ref.name, Copy),
           { type: 'separator' },
           deleteBranchItem(ref),
         ];
@@ -335,6 +348,7 @@ export function useRepoActions(
             // HEAD, which is never what clicking a remote branch means. A local
             // branch starting there is.
             label: `Create local branch from ${ref.name}…`,
+            icon: GitBranchPlus,
             onSelect: () =>
               dialogs.prompt({
                 title: `New branch from ${ref.name}`,
@@ -348,11 +362,12 @@ export function useRepoActions(
           },
           {
             label: 'Create worktree from this branch…',
+            icon: FolderSymlink,
             onSelect: () => promptWorktree(shortRemoteName(ref.name), true),
           },
           { type: 'separator' },
-          copyItem('branch name', ref.name),
-          ...forgeItems(),
+          copyItem('branch name', ref.name, Copy),
+          ...forgeItems(ExternalLink),
         ];
       }
 
@@ -367,11 +382,12 @@ export function useRepoActions(
       return [
         {
           label: `Check out ${ref.name} (detached)`,
+          icon: Tag,
           onSelect: () =>
             void checkout.mutateAsync({ target: ref.name, detach: true }).then(report),
         },
         { type: 'separator' },
-        copyItem('tag name', ref.name),
+        copyItem('tag name', ref.name, Copy),
       ];
     },
     [
@@ -397,12 +413,14 @@ export function useRepoActions(
       return [
         {
           label: 'View all changes',
+          icon: FileDiff,
           disabled: changed === 0,
           disabledReason: 'This checkout has no uncommitted changes.',
           onSelect: () => viewAllChanges(worktree.path, label),
         },
         {
           label: 'Show in Files view',
+          icon: FolderOpen,
           onSelect: () => {
             useUiStore.getState().selectRepo(repo.id);
             useUiStore.getState().selectWorktree(worktree.path);
@@ -410,10 +428,11 @@ export function useRepoActions(
           },
         },
         { type: 'separator' },
-        copyItem('path', worktree.path),
+        copyItem('path', worktree.path, Copy),
         { type: 'separator' },
         {
           label: `Remove worktree ${label}…`,
+          icon: Trash2,
           danger: true,
           // git itself refuses to remove the main worktree, so offering it
           // would only ever produce an error message.
@@ -436,6 +455,7 @@ export function useRepoActions(
         return [
           {
             label: 'New worktree from branch',
+            icon: FolderSymlink,
             disabled: free.length === 0,
             disabledReason:
               refs.length === 0
@@ -443,6 +463,7 @@ export function useRepoActions(
                 : 'Every local branch is already checked out somewhere.',
             submenu: free.slice(0, CHECKOUT_MENU_LIMIT).map((ref) => ({
               label: ref.name,
+              icon: GitBranch,
               onSelect: () => promptWorktree(ref.name, false),
             })),
           },
@@ -453,6 +474,7 @@ export function useRepoActions(
         return [
           {
             label: 'New branch…',
+            icon: GitBranchPlus,
             onSelect: () =>
               dialogs.prompt({
                 title: 'New branch',
@@ -468,12 +490,16 @@ export function useRepoActions(
 
       if (kind === 'remotes') {
         return [
-          { label: 'Fetch all remotes', onSelect: () => void fetch.mutateAsync().then(report) },
-          ...forgeItems(),
+          {
+            label: 'Fetch all remotes',
+            icon: RefreshCw,
+            onSelect: () => void fetch.mutateAsync().then(report),
+          },
+          ...forgeItems(ExternalLink),
         ];
       }
 
-      return [copyItem('path', repo.path)];
+      return [copyItem('path', repo.path, Copy)];
     },
     [branchCreate, dialogs, fetch, forgeItems, promptWorktree, repo.path, report],
   );
@@ -494,6 +520,7 @@ export function useRepoActions(
       return [
         {
           label: 'New branch…',
+          icon: GitBranchPlus,
           onSelect: () =>
             dialogs.prompt({
               title: 'New branch',
@@ -505,9 +532,14 @@ export function useRepoActions(
             }),
         },
         { type: 'separator' },
-        { label: 'Fetch all remotes', onSelect: () => void fetch.mutateAsync().then(report) },
+        {
+          label: 'Fetch all remotes',
+          icon: RefreshCw,
+          onSelect: () => void fetch.mutateAsync().then(report),
+        },
         {
           label: 'Prune remote-tracking refs',
+          icon: Scissors,
           onSelect: () => void fetch.mutateAsync().then(report),
         },
       ];
@@ -575,6 +607,7 @@ export function useRepoActions(
               : 'Expand the repository to load its branches.',
           submenu: shown.map((ref) => ({
             label: ref.name,
+            icon: ArrowRightLeft,
             onSelect: () => void checkout.mutateAsync({ target: ref.name }).then(report),
           })),
         },
