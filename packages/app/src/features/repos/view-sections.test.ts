@@ -145,11 +145,14 @@ describe('view ids', () => {
       dashboard: false,
       files: false,
       search: false,
+      tests: false,
       graph: false,
       changes: false,
       actions: false,
-      tests: false,
       reviews: false,
+      councils: false,
+      workflows: false,
+      sessions: false,
       settings: false,
     };
     for (const view of VIEW_IDS) seen[view] = true;

@@ -170,22 +170,32 @@ const PINNED_ITEM: NavItem = {
   breadcrumbs — including the deliberate second and third icon families for
   Tests and Reviews, whose reasoning lives beside them there.
 */
-const NAV_ITEMS: NavItem[] = [
+const WORKSPACE_NAV_ITEMS: NavItem[] = [
   { view: 'files', label: 'Files', icon: VIEW_ICON.files },
   { view: 'search', label: 'Search', icon: VIEW_ICON.search },
-  { view: 'reviews', label: 'Reviews', icon: VIEW_ICON.reviews },
+  { view: 'tests', label: 'Tests', icon: VIEW_ICON.tests },
+];
+
+const GIT_NAV_ITEMS: NavItem[] = [
   { view: 'graph', label: 'Graph', icon: VIEW_ICON.graph },
   { view: 'changes', label: 'Changes', icon: VIEW_ICON.changes },
   { view: 'actions', label: 'Actions', icon: VIEW_ICON.actions },
-  { view: 'tests', label: 'Tests', icon: VIEW_ICON.tests },
-  // Settings is deliberately absent: it renders in the rail's FOOTER slot
+  { view: 'reviews', label: 'Reviews', icon: VIEW_ICON.reviews },
+];
 
-  // (bottom-pinned, the way settings sit in VS Code/GitKraken), not among the
-  // workspace views — see the `footer` in the nav config below.
+const AGENT_NAV_ITEMS: NavItem[] = [
+  { view: 'councils', label: 'Councils', icon: VIEW_ICON.councils },
+  { view: 'workflows', label: 'Workflows', icon: VIEW_ICON.workflows },
+  { view: 'sessions', label: 'Sessions', icon: VIEW_ICON.sessions },
 ];
 
 /** Every rail item, pinned included — the label lookup the Placeholder needs. */
-const ALL_NAV_ITEMS: NavItem[] = [PINNED_ITEM, ...NAV_ITEMS];
+const ALL_NAV_ITEMS: NavItem[] = [
+  PINNED_ITEM,
+  ...WORKSPACE_NAV_ITEMS,
+  ...GIT_NAV_ITEMS,
+  ...AGENT_NAV_ITEMS,
+];
 
 /**
  * Views that exist only because a repository has a GitHub remote — gated by
@@ -479,7 +489,22 @@ function Shell() {
       sections: [
         {
           key: 'workspace',
-          items: NAV_ITEMS.filter(
+          title: 'Workspace',
+          items: WORKSPACE_NAV_ITEMS.filter(
+            (item) => !FORGE_GATED_VIEWS.includes(item.view) || forgeAvailable,
+          ).map(navItem),
+        },
+        {
+          key: 'git',
+          title: 'Git',
+          items: GIT_NAV_ITEMS.filter(
+            (item) => !FORGE_GATED_VIEWS.includes(item.view) || forgeAvailable,
+          ).map(navItem),
+        },
+        {
+          key: 'agents',
+          title: 'Agents',
+          items: AGENT_NAV_ITEMS.filter(
             (item) => !FORGE_GATED_VIEWS.includes(item.view) || forgeAvailable,
           ).map(navItem),
         },

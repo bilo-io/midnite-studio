@@ -186,6 +186,9 @@ export const VIEW_FILTERS: Record<ViewId, ViewFilter> = {
   actions: { sections: ['actions', 'worktrees'], dirtyOnly: false },
   tests: { sections: ['tests', 'worktrees'], dirtyOnly: false },
   reviews: { sections: ['reviews', 'worktrees'], dirtyOnly: false },
+  councils: WORK_IN_PROGRESS,
+  workflows: WORK_IN_PROGRESS,
+  sessions: WORK_IN_PROGRESS,
   settings: WORK_IN_PROGRESS,
 };
 
