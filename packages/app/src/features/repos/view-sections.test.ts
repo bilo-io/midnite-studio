@@ -125,8 +125,8 @@ describe('filterFor', () => {
 });
 
 describe('view ids', () => {
-  it('lists all nine, Dashboard first', () => {
-    expect(VIEW_IDS).toHaveLength(9);
+  it('lists all twelve, Dashboard first', () => {
+    expect(VIEW_IDS).toHaveLength(12);
     expect(VIEW_IDS[0]).toBe('dashboard');
   });
 

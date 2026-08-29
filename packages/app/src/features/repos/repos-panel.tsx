@@ -208,6 +208,8 @@ export function ReposPanel() {
   const { matched, ungrouped, groups } = useGroupedRepos(repos, query);
   const client = useQueryClient();
 
+  const [fetchingGroupIds, setFetchingGroupIds] = useState<ReadonlySet<string>>(() => new Set());
+
   const fetchAll = useMutation({
     mutationFn: async () => {
       const api = bridge();
@@ -218,6 +220,28 @@ export function ReposPanel() {
       await Promise.all(matched.map((repo) => client.invalidateQueries({ queryKey: keys.repo(repo.id) })));
     },
   });
+
+  const fetchGroupRepos = async (groupId: string, targetRepos: readonly RepoDescriptor[]) => {
+    if (targetRepos.length === 0 || fetchingGroupIds.has(groupId)) return;
+    setFetchingGroupIds((prev) => new Set(prev).add(groupId));
+    try {
+      const api = bridge();
+      if (api) {
+        await Promise.all(
+          targetRepos.map((repo) => api.ops.fetch({ repoId: repo.id, worktreePath: repo.path })),
+        );
+      }
+    } finally {
+      await Promise.all(
+        targetRepos.map((repo) => client.invalidateQueries({ queryKey: keys.repo(repo.id) })),
+      );
+      setFetchingGroupIds((prev) => {
+        const next = new Set(prev);
+        next.delete(groupId);
+        return next;
+      });
+    }
+  };
 
   const onOpen = async () => {
     setError(null);
@@ -446,24 +470,43 @@ export function ReposPanel() {
                 groups={groups.map((g) => g.group)}
                 onReorder={reorderRepoGroups}
               >
-                {groups.map(({ group, repos: groupRepos }) => (
-                  <RepoGroupItem key={group.id} group={group} repos={groupRepos}>
-                    <SortableList ids={repos.map((repo) => repo.id)} onReorder={reorderRepos}>
-                      {groupRepos.map((repo, index) => (
-                        <RepoItem
-                          key={repo.id}
-                          repo={repo}
-                          first={index === 0}
-                          index={index}
-                          sections={sections}
-                          expanded={!folds.collapsed(repo.id)}
-                          onToggleExpanded={() => folds.toggle(repo.id)}
-                          onError={(message) => setError(message || null)}
-                        />
-                      ))}
-                    </SortableList>
-                  </RepoGroupItem>
-                ))}
+                {groups.map(({ group, repos: groupRepos }) => {
+                  const groupAllCollapsed =
+                    groupRepos.length > 0 && groupRepos.every((repo) => folds.collapsed(repo.id));
+                  const isFetchingGroup = fetchingGroupIds.has(group.id);
+
+                  return (
+                    <RepoGroupItem
+                      key={group.id}
+                      group={group}
+                      repos={groupRepos}
+                      allCollapsed={groupAllCollapsed}
+                      onToggleCollapseAll={() =>
+                        folds.setAll(
+                          groupRepos.map((repo) => repo.id),
+                          !groupAllCollapsed,
+                        )
+                      }
+                      onFetchAll={() => fetchGroupRepos(group.id, groupRepos)}
+                      isFetching={isFetchingGroup}
+                    >
+                      <SortableList ids={repos.map((repo) => repo.id)} onReorder={reorderRepos}>
+                        {groupRepos.map((repo, index) => (
+                          <RepoItem
+                            key={repo.id}
+                            repo={repo}
+                            first={index === 0}
+                            index={index}
+                            sections={sections}
+                            expanded={!folds.collapsed(repo.id)}
+                            onToggleExpanded={() => folds.toggle(repo.id)}
+                            onError={(message) => setError(message || null)}
+                          />
+                        ))}
+                      </SortableList>
+                    </RepoGroupItem>
+                  );
+                })}
               </SortableGroupList>
             ) : null}
           </>
