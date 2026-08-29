@@ -10,13 +10,25 @@ import {
 } from '@dnd-kit/core';
 import { restrictToParentElement, restrictToVerticalAxis } from '@dnd-kit/modifiers';
 import { SortableContext, verticalListSortingStrategy } from '@dnd-kit/sortable';
-import { ChevronRight, FolderPlus, GripVertical, MoreVertical, Palette, Pencil, Trash2 } from 'lucide-react';
+import {
+  ChevronRight,
+  ChevronsDownUp,
+  ChevronsUpDown,
+  CloudDownload,
+  FolderPlus,
+  GripVertical,
+  MoreVertical,
+  Palette,
+  Pencil,
+  Trash2,
+} from 'lucide-react';
 
 import { Collapse } from '@bilo-io/ui';
 import type { RepoDescriptor } from '@midnite/git-shared';
 
 import { useDialogs } from '../../components/dialog-host';
 import { IconButton } from '../../components/icon-button';
+import { Spinner } from '../../components/skeleton';
 import { useSortableRow } from '../../components/sortable-list';
 import type { RepoGroup } from '../../store/ui-store';
 import { useUiStore } from '../../store/ui-store';
@@ -105,11 +117,19 @@ export function RepoGroupHeader({
   repoCount,
   open,
   onToggle,
+  onToggleCollapseAll,
+  allCollapsed,
+  onFetchAll,
+  isFetching,
 }: {
   group: RepoGroup;
   repoCount: number;
   open: boolean;
   onToggle: () => void;
+  onToggleCollapseAll?: () => void;
+  allCollapsed?: boolean;
+  onFetchAll?: () => void;
+  isFetching?: boolean;
 }) {
   const drag = useSortableRow(group.id);
   const renameGroup = useUiStore((s) => s.renameRepoGroup);
@@ -206,6 +226,47 @@ export function RepoGroupHeader({
         <span className="text-[11px] tabular-nums text-muted-foreground/70">{repoCount}</span>
       </button>
 
+      {/* Group Collapse / Expand All toggle */}
+      {onToggleCollapseAll ? (
+        <IconButton
+          icon={allCollapsed ? ChevronsUpDown : ChevronsDownUp}
+          label={
+            allCollapsed
+              ? `Expand all repositories in ${group.name}`
+              : `Collapse all repositories in ${group.name}`
+          }
+          size="sm"
+          disabled={repoCount === 0}
+          disabledReason="No repositories in this group"
+          className="opacity-0 transition-opacity group-hover:opacity-100 focus-visible:opacity-100"
+          onClick={(event) => {
+            event.stopPropagation();
+            onToggleCollapseAll();
+          }}
+        />
+      ) : null}
+
+      {/* Group Fetch All button */}
+      {onFetchAll ? (
+        <IconButton
+          icon={isFetching ? Spinner : CloudDownload}
+          label={`Fetch all repositories in ${group.name}`}
+          size="sm"
+          busy={isFetching}
+          disabled={repoCount === 0}
+          disabledReason="No repositories in this group"
+          className={
+            isFetching
+              ? 'opacity-100'
+              : 'opacity-0 transition-opacity group-hover:opacity-100 focus-visible:opacity-100'
+          }
+          onClick={(event) => {
+            event.stopPropagation();
+            onFetchAll();
+          }}
+        />
+      ) : null}
+
       {/* Context menu ellipsis */}
       <IconButton
         icon={MoreVertical}
@@ -272,10 +333,18 @@ export function SortableGroupList({
 export function RepoGroupItem({
   group,
   repos,
+  onToggleCollapseAll,
+  allCollapsed,
+  onFetchAll,
+  isFetching,
   children,
 }: {
   group: RepoGroup;
   repos: RepoDescriptor[];
+  onToggleCollapseAll?: () => void;
+  allCollapsed?: boolean;
+  onFetchAll?: () => void;
+  isFetching?: boolean;
   children: ReactNode;
 }) {
   const collapsed = useUiStore((s) => s.collapsedRepoGroups.includes(group.id));
@@ -291,6 +360,10 @@ export function RepoGroupItem({
         repoCount={repos.length}
         open={open}
         onToggle={() => toggleRepoGroup(group.id)}
+        onToggleCollapseAll={onToggleCollapseAll}
+        allCollapsed={allCollapsed}
+        onFetchAll={onFetchAll}
+        isFetching={isFetching}
       />
       <Collapse open={open} id={bodyId} aria-label={group.name}>
         {children}
