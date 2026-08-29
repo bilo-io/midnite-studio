@@ -4,9 +4,11 @@ import { DiagnosticsSegment } from '../diagnostics/diagnostics-segment';
 import { MonitorCluster } from '../monitor/monitor-cluster';
 import { ActiveWorktreeSegment } from './active-worktree';
 import { AgentCountSegment } from './agent-count';
+import { AssistantMenu } from './assistant-menu';
 import { BrowserToggle } from './browser-toggle';
 import { ChecksVerdictSegment } from './checks-verdict';
 import { InProgressSegment } from './in-progress';
+import { NotificationBell } from './notification-bell';
 import { OpProgressSegment } from './op-progress';
 import { ReattachedNote } from './reattached-note';
 import { ReposToggle } from './repos-toggle';
@@ -68,7 +70,6 @@ export const STATUS_SEGMENTS: StatusSegment[] = [
   { id: 'search-progress', zone: 'center', priority: 5, label: 'Search progress', El: SearchProgressSegment },
   { id: 'op-progress', zone: 'center', priority: 10, label: 'Operation progress', El: OpProgressSegment },
   // Outranks op-progress: a rebase you have forgotten you are mid-way through
-
   // is the single most expensive thing this bar can tell you.
   { id: 'in-progress', zone: 'center', priority: 20, label: 'Mid-operation', El: InProgressSegment },
   // Rendered before diagnostics; lowest priority of the right zone's five —
@@ -88,4 +89,6 @@ export const STATUS_SEGMENTS: StatusSegment[] = [
     label: 'Checks verdict',
     El: ChecksVerdictSegment,
   },
+  { id: 'notification-bell', zone: 'right', priority: 50, label: 'Notifications', El: NotificationBell },
+  { id: 'assistant-menu', zone: 'right', priority: 60, label: 'Midnite Assistant', El: AssistantMenu },
 ];
