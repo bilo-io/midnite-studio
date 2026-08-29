@@ -10,12 +10,12 @@ import {
   Cloud,
   FolderCheck,
   FolderGit2,
-  FolderPlus,
   FolderX,
   GitBranch,
   GripVertical,
   ListFilter,
   MoreVertical,
+  Plus,
   Search,
   SquareArrowOutUpRight,
   Tag,
@@ -307,7 +307,7 @@ export function ReposPanel() {
           />
           <NewGroupButton />
           <IconButton
-            icon={FolderPlus}
+            icon={Plus}
             label="Open a repository…"
             size="sm"
             disabled={isPending}
