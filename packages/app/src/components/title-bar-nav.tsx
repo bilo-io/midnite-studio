@@ -32,11 +32,14 @@ const VIEW_LABELS: Record<ViewId, string> = {
   dashboard: 'Dashboard',
   files: 'Files',
   search: 'Search',
+  tests: 'Tests',
   graph: 'Graph',
   changes: 'Changes',
   actions: 'Actions',
-  tests: 'Tests',
   reviews: 'Reviews',
+  councils: 'Councils',
+  workflows: 'Workflows',
+  sessions: 'Sessions',
   settings: 'Settings',
 };
 

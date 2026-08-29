@@ -7,6 +7,7 @@ import {
   LuDiff,
   LuFolderTree,
   LuGitBranch,
+  LuHistory,
   LuLayoutDashboard,
   LuPalette,
   LuPanelLeft,
@@ -15,6 +16,8 @@ import {
   LuSettings,
   LuShieldCheck,
   LuSquareTerminal,
+  LuUsers,
+  LuWorkflow,
 } from 'react-icons/lu';
 
 import type { SettingsPageId, ViewId } from '../store/ui-store';
@@ -34,18 +37,14 @@ export const VIEW_ICON: Record<ViewId, IconType> = {
   dashboard: LuLayoutDashboard,
   files: LuFolderTree,
   search: LuSearch,
+  tests: GoBeaker,
   graph: LuGitBranch,
   changes: LuDiff,
   actions: LuPlay,
-  // `GoBeaker` — Octicons, not Lucide. A second icon set here is the point of
-  // `react-icons` (see CLAUDE.md): the beaker reads as "test suite" the way it
-  // does on GitHub, and taking the nearest match within one family is the thing
-  // the package exists to avoid.
-  tests: GoBeaker,
-  // `FaCodePullRequest` — react-icons' Font Awesome 6 set, a third family
-  // beside Tests' `GoBeaker`. Neither Lucide nor Octicons has a pull-request
-  // glyph that reads as one at rail size.
   reviews: FaCodePullRequest,
+  councils: LuUsers,
+  workflows: LuWorkflow,
+  sessions: LuHistory,
   settings: LuSettings,
 };
 

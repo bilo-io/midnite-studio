@@ -31,6 +31,9 @@ const VIEW_LABELS: Record<ViewId, string> = {
   actions: 'Actions & CI',
   tests: 'Tests',
   reviews: 'Reviews',
+  councils: 'Agent Councils',
+  workflows: 'Agent Workflows',
+  sessions: 'Agent Sessions',
   settings: 'Settings',
 };
 
@@ -43,7 +46,10 @@ const VIEW_KEYWORDS: Record<ViewId, string> = {
   actions: 'ci workflow runs jobs pipelines github',
   tests: 'suites runner unit e2e pass fail',
   reviews: 'prs pull requests review comments',
-  settings: 'preferences config theme options',
+  councils: 'agents council teams debate',
+  workflows: 'agent workflow pipeline automation',
+  sessions: 'agent session history transcripts',
+  settings: 'preferences configuration options theme',
 };
 
 

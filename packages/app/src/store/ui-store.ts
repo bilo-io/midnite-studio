@@ -42,11 +42,14 @@ export type ViewId =
   | 'dashboard'
   | 'files'
   | 'search'
+  | 'tests'
   | 'graph'
   | 'changes'
   | 'actions'
-  | 'tests'
   | 'reviews'
+  | 'councils'
+  | 'workflows'
+  | 'sessions'
   | 'settings';
 
 /** Every view, in rail order — the domain of the per-view maps below. */
@@ -54,11 +57,14 @@ export const VIEW_IDS: readonly ViewId[] = [
   'dashboard',
   'files',
   'search',
+  'tests',
   'graph',
   'changes',
   'actions',
-  'tests',
   'reviews',
+  'councils',
+  'workflows',
+  'sessions',
   'settings',
 ];
 
