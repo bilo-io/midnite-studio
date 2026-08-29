@@ -455,6 +455,7 @@ export type UiState = {
   resetSectionFilters: () => void;
   createRepoGroup: (name: string) => string;
   renameRepoGroup: (groupId: string, name: string) => void;
+  setRepoGroupColor: (groupId: string, color?: string) => void;
   deleteRepoGroup: (groupId: string) => void;
   reorderRepoGroups: (ids: string[]) => void;
   assignRepoToGroup: (repoId: string, groupId: string) => void;
@@ -579,6 +580,7 @@ export type RepoGroup = {
   /** Stable UUID, never re-used. */
   id: string;
   name: string;
+  color?: string;
 };
 
 /**
@@ -797,6 +799,10 @@ export const useUiStore = create<UiState>()(
       renameRepoGroup: (groupId, name) =>
         set((state) => ({
           repoGroups: state.repoGroups.map((g) => (g.id === groupId ? { ...g, name } : g)),
+        })),
+      setRepoGroupColor: (groupId, color) =>
+        set((state) => ({
+          repoGroups: state.repoGroups.map((g) => (g.id === groupId ? { ...g, color } : g)),
         })),
       deleteRepoGroup: (groupId) =>
         set((state) => {

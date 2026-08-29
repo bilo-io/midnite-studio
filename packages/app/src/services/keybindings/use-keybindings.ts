@@ -80,5 +80,6 @@ export function useKeybindings(runtime: CommandRuntime): void {
  * outranks the shell.
  */
 export function shouldEscapeTerminal(event: KeyboardEvent): boolean {
-  return GLOBAL_CHORDS.includes(chordFromEvent(event));
+  const chord = chordFromEvent(event);
+  return chord !== null && GLOBAL_CHORDS.includes(chord);
 }

@@ -28,7 +28,11 @@ export type ChordEvent = {
  * "Ctrl, even on a Mac" — the terminal toggle — is produced as `Ctrl+…`,
  * because on macOS Ctrl is *not* the Mod key and so is reported literally.
  */
-export function chordFromEvent(event: ChordEvent): string {
+const MODIFIER_KEYS = new Set(['Control', 'Meta', 'Alt', 'Shift']);
+
+export function chordFromEvent(event: ChordEvent): string | null {
+  if (MODIFIER_KEYS.has(event.key)) return null;
+
   const mac = isMac();
   const parts: string[] = [];
 
@@ -37,6 +41,7 @@ export function chordFromEvent(event: ChordEvent): string {
   // On macOS, Ctrl is a distinct modifier from Mod and must be reported; on
   // other platforms Ctrl IS Mod and reporting both would never match.
   if (mac && event.ctrlKey) parts.push('Ctrl');
+  if (!mac && event.metaKey) parts.push('Meta');
   if (event.altKey) parts.push('Alt');
   if (event.shiftKey) parts.push('Shift');
 
