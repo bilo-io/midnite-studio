@@ -70,7 +70,7 @@ export function ResizeHandle({
         aria-hidden
         className={`pointer-events-none absolute bg-border transition-colors group-hover:bg-primary/50 group-focus-visible:bg-primary ${
           resizable.dragging ? '!bg-primary' : ''
-        } ${vertical ? 'inset-y-0 left-1/2 w-px -translate-x-1/2' : 'inset-x-0 top-1/2 h-px -translate-y-1/2'}`}
+        } ${vertical ? 'inset-y-0 left-1/2 w-[2px] -translate-x-1/2' : 'inset-x-0 top-1/2 h-[2px] -translate-y-1/2'}`}
       />
     </div>
   );
