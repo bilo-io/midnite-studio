@@ -328,28 +328,31 @@ function SessionRow({
       */}
       {rowIsAgent && live ? <ActivityIndicator activity={activity} /> : null}
 
-      <StateDot state={phase === 'asleep' ? 'asleep' : state} />
-
-      <IconButton
-        icon={X}
-        label="Close terminal"
-        size="sm"
-        className="opacity-0 group-hover:opacity-100"
-        onClick={(event) => {
-          event.stopPropagation();
-          if (phase === 'live' && foregroundCommand) {
-            dialogs.confirm({
-              title: 'Close this session?',
-              body: `${foregroundCommand} is still running and will be killed.`,
-              confirmLabel: 'Close session',
-              danger: true,
-              onConfirm: () => useTerminalStore.getState().closeSession(session.id),
-            });
-          } else {
-            useTerminalStore.getState().closeSession(session.id);
-          }
-        }}
-      />
+      <div className="relative flex h-6 w-6 shrink-0 items-center justify-center">
+        <span aria-hidden className="pointer-events-none absolute flex items-center justify-center transition-opacity group-hover:opacity-0">
+          <StateDot state={phase === 'asleep' ? 'asleep' : state} />
+        </span>
+        <IconButton
+          icon={X}
+          label="Close terminal"
+          size="sm"
+          className="opacity-0 transition-opacity group-hover:opacity-100"
+          onClick={(event) => {
+            event.stopPropagation();
+            if (phase === 'live' && foregroundCommand) {
+              dialogs.confirm({
+                title: 'Close this session?',
+                body: `${foregroundCommand} is still running and will be killed.`,
+                confirmLabel: 'Close session',
+                danger: true,
+                onConfirm: () => useTerminalStore.getState().closeSession(session.id),
+              });
+            } else {
+              useTerminalStore.getState().closeSession(session.id);
+            }
+          }}
+        />
+      </div>
     </div>
   );
 }
