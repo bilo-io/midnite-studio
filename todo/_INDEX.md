@@ -6,7 +6,8 @@
 - **[Phase 29 · Markdown Slides Viewer](phase-29-markdown-slides-viewer.md)** (100% · 21/21) — Landed; fullscreen headings-based slide presenter integrated across Files preview, PR descriptions, and comment threads.
 - **[Phase 28 · Sidebar Section Tree](phase-28-sidebar-section-tree.md)** (95% · 59/62) — Feature-complete; data-driven sidebar tree placing Worktrees first, nested Branches (`local`/`remotes`), and Forge parents.
 - **[Phase 27 · Status Bar & Browser Panel](phase-27-status-bar-and-browser-panel.md)** (80% · 72/90) — Full-width 3-zone status bar with density-based overflow popover and browser stub pane.
-- **[Phase 25 · Search Everywhere](phase-25-search-everywhere.md)** (100% · 101/101) & **[Phase 26 · Side-by-Side Diffs](phase-26-side-by-side-diffs.md)** (50% · 34/68) — Active frontiers for history search, blame, and split diffs. Themes A–H landed.
+- **[Phase 25 · Search Everywhere](phase-25-search-everywhere.md)** (100% · 101/101) & **[Phase 26 · Side-by-Side Diffs](phase-26-side-by-side-diffs.md)** (100% · 68/68) — Landed; complete side-by-side diff support with virtualized accordions, split views, left-side review comments, and full-width commit workbench tabs.
+
 
 
 Completed work is logged append-only in [`done.md`](done.md). Deferred scope lives in [`outstanding.md`](outstanding.md).
@@ -22,7 +23,8 @@ Completed work is logged append-only in [`done.md`](done.md). Deferred scope liv
 | [29 · Markdown slides, everywhere markdown already renders](phase-29-markdown-slides-viewer.md) | ✅ DONE | — | 21/21 | `██████████` | 100% | — | — |
 | [28 · Worktrees first, and the section tree that can say so](phase-28-sidebar-section-tree.md) | 🔄 WIP | — | 59/62 | `██████████` | 95% | — | 3 verification items |
 | [27 · The footer becomes a status bar, and the browser it makes room for](phase-27-status-bar-and-browser-panel.md) | 🔄 WIP | x1 | 72/90 | `████████░░` | 80% | — | 18 verification items |
-| [26 · Side by side, and the room to show it](phase-26-side-by-side-diffs.md) | 🔄 WIP | — | 34/68 | `█████░░░░░` | 50% | D | — |
+| [26 · Side by side, and the room to show it](phase-26-side-by-side-diffs.md) | ✅ DONE | — | 68/68 | `██████████` | 100% | — | — |
+
 
 | [25 · Search everywhere, and the blame that explains it](phase-25-search-everywhere.md) | ✅ DONE | x1 | 101/101 | `██████████` | 100% | — | — |
 | [24 · The explorer learns to write, and to search](phase-24-writable-explorer.md) | ✅ DONE | — | 43/55 | `████████░░` | 78% | — | — |

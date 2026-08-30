@@ -143,28 +143,29 @@ and [`pr-file-accordion.tsx`](../packages/app/src/features/reviews/pr-file-accor
 every row of every expanded file into one page scroller. Split doubles the per-row DOM, which turns
 a tolerable cost into the phase's main performance risk.
 
-- [ ] Decide and record the mechanism before writing it: a per-file virtualizer inside each
+- [x] Decide and record the mechanism before writing it: a per-file virtualizer inside each
       accordion body, or one virtualizer at the page level over a flattened
       (file-header + row) list. *Recommendation:* per-file, because the page-level flattening has to
       re-derive itself on every expand/collapse and the accordion header is sticky.
-- [ ] `inline` mode gains a virtualizer using the page scroller as its `getScrollElement`, so files
+- [x] `inline` mode gains a virtualizer using the page scroller as its `getScrollElement`, so files
       still lay out in one continuous flow rather than becoming a stack of independently scrolling
       boxes.
-- [ ] Variable-height rows keep working: `measureElement` must survive threads and composers being
+- [x] Variable-height rows keep working: `measureElement` must survive threads and composers being
       injected mid-list, which is the reason the pane-mode virtualizer already uses it.
-- [ ] The horizontal scroller stays **per file** as it is today (`overflow-x-auto` + `w-max
+- [x] The horizontal scroller stays **per file** as it is today (`overflow-x-auto` + `w-max
       min-w-full`), so one very wide file does not make every other file scroll.
-- [ ] Collapsing a file releases its rows; expanding restores scroll position rather than jumping.
-- [ ] Revisit `EXPAND_ALL_LIMIT` / `withheldByCap` in
+- [x] Collapsing a file releases its rows; expanding restores scroll position rather than jumping.
+- [x] Revisit `EXPAND_ALL_LIMIT` / `withheldByCap` in
       [`expansion.ts`](../packages/app/src/features/changes/expansion.ts) — the cap exists because
       expanding everything renders everything, which stops being true here. Relax it with a
       measured number, or write down why it stays.
-- [ ] Extend [`e2e/diff-scroll-perf.spec.ts`](../packages/app/e2e/diff-scroll-perf.spec.ts) with a
+- [x] Extend [`e2e/diff-scroll-perf.spec.ts`](../packages/app/e2e/diff-scroll-perf.spec.ts) with a
       split case. The existing spec asserts *exact* rendered row counts against `ROW_COUNT = 4000`
       and will need its own expectation for pairs — do not loosen the unified assertion to make one
       number fit both.
-- [ ] A second perf case for the accordions: a many-file diff expanded in split, asserting the DOM
+- [x] A second perf case for the accordions: a many-file diff expanded in split, asserting the DOM
       row count stays bounded rather than growing with the file.
+
 
 ### E — A toolbar for the accordion surfaces (S)
 
