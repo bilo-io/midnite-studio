@@ -228,6 +228,14 @@ export const CHANNELS = {
   opContinue: 'mstudio:op:continue',
   /** Blast radius for a destructive op — `rev-list --count` of orphaned commits. */
   opBlastRadius: 'mstudio:op:blast-radius',
+  cliStatus: 'mstudio:cli:status',
+  cliInstall: 'mstudio:cli:install',
+  cliUninstall: 'mstudio:cli:uninstall',
+  updateCheck: 'mstudio:update:check',
+  updateDownload: 'mstudio:update:download',
+  updateRestart: 'mstudio:update:restart',
+  updateSetChannel: 'mstudio:update:set-channel',
+  systemHealth: 'mstudio:system:health',
 
   // --- stash -----------------------------------------------------------------
   /** Every stash entry for one checkout, newest first — same shape `for-each-ref` gets. */
@@ -291,6 +299,7 @@ export const CHANNELS = {
   browserSetVisible: 'mstudio:browser:set-visible',
   /** Which tab is on top — only one view is ever attached-and-visible. */
   browserActivate: 'mstudio:browser:activate',
+  browserDevtools: 'mstudio:browser:devtools',
   browserClearData: 'mstudio:browser:clear-data',
 
   // --- filesystem (Phase 16 reads, Phase 24 writes) -------------------------
@@ -457,6 +466,8 @@ export const EVENT_CHANNELS = {
   testsResult: 'mstudio:tests:result',
   /** A discriminated-union chrome event for one browser tab — see BrowserEventSchema. */
   browserEvent: 'mstudio:browser:event',
+  updateState: 'mstudio:update:state',
+  deepLink: 'mstudio:protocol:deep-link',
 } as const;
 
 /**

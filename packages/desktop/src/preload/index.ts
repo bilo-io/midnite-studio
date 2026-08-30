@@ -107,6 +107,10 @@ const bridge: Pick<
   | 'window'
   | 'windowChrome'
   | 'menu'
+  | 'cli'
+  | 'update'
+  | 'systemHealth'
+  | 'protocol'
 > = {
   /*
     A plain value, not a channel: it never changes for the life of the process,
@@ -258,6 +262,7 @@ const bridge: Pick<
     setBounds: (req) => ipcRenderer.send(CHANNELS.browserSetBounds, req),
     setVisible: (req) => ipcRenderer.send(CHANNELS.browserSetVisible, req),
     activate: (req) => ipcRenderer.send(CHANNELS.browserActivate, req),
+    devtools: (req) => ipcRenderer.send(CHANNELS.browserDevtools, req),
     clearData: () => call(CHANNELS.browserClearData),
     onEvent: (handler) => subscribe(EVENT_CHANNELS.browserEvent, handler),
   },
@@ -322,6 +327,22 @@ const bridge: Pick<
   },
   menu: {
     onCommand: (handler) => subscribe(EVENT_CHANNELS.menuCommand, handler),
+  },
+  cli: {
+    status: () => call(CHANNELS.cliStatus),
+    install: (req) => call(CHANNELS.cliInstall, req),
+    uninstall: () => call(CHANNELS.cliUninstall),
+  },
+  update: {
+    check: () => ipcRenderer.send(CHANNELS.updateCheck),
+    download: () => ipcRenderer.send(CHANNELS.updateDownload),
+    restart: () => ipcRenderer.send(CHANNELS.updateRestart),
+    setChannel: (req) => ipcRenderer.send(CHANNELS.updateSetChannel, req),
+    onState: (handler) => subscribe(EVENT_CHANNELS.updateState, handler),
+  },
+  systemHealth: () => call(CHANNELS.systemHealth),
+  protocol: {
+    onDeepLink: (handler) => subscribe(EVENT_CHANNELS.deepLink, handler),
   },
   windowChrome,
 };

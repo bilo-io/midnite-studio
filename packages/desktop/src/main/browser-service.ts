@@ -198,6 +198,16 @@ export function stopBrowserTab(tabId: string): void {
   tabs.get(tabId)?.view.webContents.stop();
 }
 
+export function toggleBrowserDevTools(tabId: string, mode: 'detach' | 'embed' = 'detach'): void {
+  const wc = tabs.get(tabId)?.view.webContents;
+  if (!wc) return;
+  if (wc.isDevToolsOpened()) {
+    wc.closeDevTools();
+  } else {
+    wc.openDevTools({ mode: mode === 'detach' ? 'detach' : 'bottom' });
+  }
+}
+
 export function setBrowserBounds(tabId: string, bounds: BrowserBounds): void {
   tabs.get(tabId)?.view.setBounds(bounds);
 }

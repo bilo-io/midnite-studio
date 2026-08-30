@@ -109,9 +109,27 @@ export function BrowserPane({ shown }: { shown: boolean }) {
       <BrowserTabStrip />
 
       <div className="flex h-9 shrink-0 items-center gap-2 border-b border-border px-3">
-        <IconButton icon={GoArrowLeft} label="Back" disabled size="sm" />
-        <IconButton icon={GoArrowRight} label="Forward" disabled size="sm" />
-        <IconButton icon={GoSync} label="Reload" disabled size="sm" />
+        <IconButton
+          icon={GoArrowLeft}
+          label="Back"
+          disabled={!activeTab?.canGoBack}
+          size="sm"
+          onClick={() => activeTab && bridge()?.browser.back({ tabId: activeTab.id })}
+        />
+        <IconButton
+          icon={GoArrowRight}
+          label="Forward"
+          disabled={!activeTab?.canGoForward}
+          size="sm"
+          onClick={() => activeTab && bridge()?.browser.forward({ tabId: activeTab.id })}
+        />
+        <IconButton
+          icon={GoSync}
+          label="Reload"
+          disabled={!activeTab || activeTab.kind !== 'page'}
+          size="sm"
+          onClick={() => activeTab && bridge()?.browser.reload({ tabId: activeTab.id })}
+        />
         <form onSubmit={onSubmit} className="min-w-0 flex-1">
           <input
             ref={addressRef}
@@ -125,6 +143,15 @@ export function BrowserPane({ shown }: { shown: boolean }) {
             className="w-full rounded border border-border bg-card px-2 py-1 text-xs outline-none focus-visible:ring-1 focus-visible:ring-ring"
           />
         </form>
+        <button
+          type="button"
+          title="Toggle DevTools (detached / embedded)"
+          disabled={!activeTab || activeTab.kind !== 'page'}
+          onClick={() => activeTab && bridge()?.browser.devtools({ tabId: activeTab.id, mode: 'detach' })}
+          className="rounded px-2 py-1 text-xs font-mono border border-border bg-card text-muted-foreground hover:text-foreground disabled:opacity-50"
+        >
+          DevTools
+        </button>
         <IconButton
           icon={GoX}
           label="Close browser"

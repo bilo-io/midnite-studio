@@ -416,6 +416,7 @@ export type MidniteStudioBridge = {
     setBounds: (req: In<typeof S.BrowserSetBoundsRequest>) => void;
     setVisible: (req: In<typeof S.BrowserSetVisibleRequest>) => void;
     activate: (req: In<typeof S.BrowserActivateRequest>) => void;
+    devtools: (req: In<typeof S.BrowserDevtoolsRequest>) => void;
     /** Wipes the `persist:browser` partition's storage and cache. */
     clearData: () => Promise<z.infer<typeof S.BrowserClearDataResponse>>;
     onEvent: (handler: (e: z.infer<typeof S.BrowserEventPayload>) => void) => Unsubscribe;
@@ -559,6 +560,26 @@ export type MidniteStudioBridge = {
   /** Native menu items dispatch the same CommandIds as the keybinding service. */
   menu: {
     onCommand: (handler: (id: CommandId) => void) => Unsubscribe;
+  };
+
+  cli: {
+    status: () => Promise<z.infer<typeof S.CliStatusResponse>>;
+    install: (req: In<typeof S.CliInstallRequest>) => Promise<z.infer<typeof S.CliInstallResponse>>;
+    uninstall: () => Promise<z.infer<typeof S.CliUninstallResponse>>;
+  };
+
+  update: {
+    check: () => void;
+    download: () => void;
+    restart: () => void;
+    setChannel: (req: In<typeof S.UpdateSetChannelRequest>) => void;
+    onState: (handler: (state: z.infer<typeof S.UpdateStateSchema>) => void) => Unsubscribe;
+  };
+
+  systemHealth: () => Promise<z.infer<typeof S.SystemHealthResponse>>;
+
+  protocol: {
+    onDeepLink: (handler: (e: z.infer<typeof S.DeepLinkEventSchema>) => void) => Unsubscribe;
   };
 
   window: {

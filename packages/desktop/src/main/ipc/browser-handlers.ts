@@ -14,6 +14,7 @@ import {
   setBrowserBounds,
   setBrowserVisible,
   stopBrowserTab,
+  toggleBrowserDevTools,
 } from '../browser-service';
 import { handle, handleBare } from './handle';
 
@@ -81,6 +82,11 @@ export function registerBrowserHandlers(getWindow: () => BrowserWindow | null): 
   ipcMain.on(CHANNELS.browserActivate, (_event, raw: unknown) => {
     const parsed = schemas.BrowserActivateRequest.safeParse(raw);
     if (parsed.success) activateBrowserTab(parsed.data.tabId);
+  });
+
+  ipcMain.on(CHANNELS.browserDevtools, (_event, raw: unknown) => {
+    const parsed = schemas.BrowserDevtoolsRequest.safeParse(raw);
+    if (parsed.success) toggleBrowserDevTools(parsed.data.tabId, parsed.data.mode);
   });
 
   handleBare(CHANNELS.browserClearData, async () => {
