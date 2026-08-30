@@ -18,7 +18,7 @@ from `~/Dev/midnite-ui/packages/docs/tailwind.config.ts`.
 - [x] `app/index.html` — inline `themeInitScript` from `@bilo-io/ui/theme`
 - [x] `app/tailwind.config.ts` — token→hsl map + `darkMode: ['class']` + content globs incl. `./node_modules/@bilo-io/{ui,shell}/dist/**/*.js` (**missing a glob silently drops layout classes**)
 - [x] `app/src/styles.css` — `@bilo-io/ui/styles`, `@bilo-io/shell/appearance.css`, tailwind directives
-- [x] `app/src/app.tsx` — ThemeProvider + ShellProviders (`@tanstack/react-query@^5`) + AppFrame (linkComponent adapter) + TitleBar wired to `window.midniteGit.windowChrome`
+- [x] `app/src/app.tsx` — ThemeProvider + ShellProviders (`@tanstack/react-query@^5`) + AppFrame (linkComponent adapter) + TitleBar wired to `window.midniteStudio.windowChrome`
 - [x] `desktop` moon task `start` — build main+preload, run `electron .` concurrently with `app:dev`
 
 ## Verification

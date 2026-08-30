@@ -10,7 +10,7 @@ import { createAgentsStore, mergeAgents } from './agents-store';
 let dirs: string[] = [];
 
 const tempDir = async (): Promise<string> => {
-  const dir = await mkdtemp(join(tmpdir(), 'mgit-agents-'));
+  const dir = await mkdtemp(join(tmpdir(), 'mstudio-agents-'));
   dirs.push(dir);
   return dir;
 };

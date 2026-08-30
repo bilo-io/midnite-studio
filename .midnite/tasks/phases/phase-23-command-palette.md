@@ -234,7 +234,7 @@ in the renderer. Both are net-new, and both are small.
 **Land last, after A–F are green.** This is the only theme that crosses all four packages, and the
 one that can slip without costing the phase its point.
 
-- [x] `mgit:fs:list-files` in [`channels.ts`](../packages/shared/src/ipc/channels.ts), with request
+- [x] `mstudio:fs:list-files` in [`channels.ts`](../packages/shared/src/ipc/channels.ts), with request
       and response schemas beside the existing `FsListDirRequest` in
       [`schemas.ts`](../packages/shared/src/ipc/schemas.ts) and an entry in
       [`bridge.ts`](../packages/shared/src/ipc/bridge.ts). It takes `{ repoId }` and returns
@@ -290,7 +290,7 @@ coverage for the refs/files sources specifically, and the three "Open, for a hum
 |------|-------|
 | Contract | [`shared/src/keybindings.ts`](../packages/shared/src/keybindings.ts) (the registry — reconciled, `group` added, still data-only), [`ipc/channels.ts`](../packages/shared/src/ipc/channels.ts), [`ipc/schemas.ts`](../packages/shared/src/ipc/schemas.ts), [`ipc/bridge.ts`](../packages/shared/src/ipc/bridge.ts) (all three for Theme G only) |
 | git-engine | new `commands/list-files.ts`, [`commands/index.ts`](../packages/git-engine/src/commands/index.ts) |
-| Main | new fs handler beside the existing `mgit:fs:*` handlers, [`preload/index.ts`](../packages/desktop/src/preload/index.ts), [`main/menu.ts`](../packages/desktop/src/main/menu.ts) (a View ▸ Command Palette item on the new command id) |
+| Main | new fs handler beside the existing `mstudio:fs:*` handlers, [`preload/index.ts`](../packages/desktop/src/preload/index.ts), [`main/menu.ts`](../packages/desktop/src/main/menu.ts) (a View ▸ Command Palette item on the new command id) |
 | Renderer — dispatch | new [`services/keybindings/use-command-handlers.ts`](../packages/app/src/services/keybindings/use-command-handlers.ts), [`services/keybindings/use-keybindings.ts`](../packages/app/src/services/keybindings/use-keybindings.ts), [`services/keybindings/chord.ts`](../packages/app/src/services/keybindings/chord.ts) (unchanged; load-bearing), [`app.tsx`](../packages/app/src/app.tsx) (ends thinner than it started) |
 | Renderer — palette | new `services/palette/source.ts`, new `services/palette/fuzzy-match.ts`, new `services/palette/command-icons.ts`, new `services/palette/sources/` (commands, views, repos, refs, sessions, files), new [`components/palette.tsx`](../packages/app/src/components/palette.tsx), new `components/palette-host.tsx`, new [`store/palette-store.ts`](../packages/app/src/store/palette-store.ts) |
 | Renderer — shared | new [`components/use-focus-trap.ts`](../packages/app/src/components/use-focus-trap.ts), [`components/popover.tsx`](../packages/app/src/components/popover.tsx), [`components/confirm-dialog.tsx`](../packages/app/src/components/confirm-dialog.tsx), [`components/prompt-dialog.tsx`](../packages/app/src/components/prompt-dialog.tsx), [`components/dialog-host.tsx`](../packages/app/src/components/dialog-host.tsx) (the shape the host copies), [`components/nav-icons.ts`](../packages/app/src/components/nav-icons.ts) (reused, not extended), [`components/icon-button.tsx`](../packages/app/src/components/icon-button.tsx) (`IconComponent`, unchanged) |
@@ -303,7 +303,7 @@ coverage for the refs/files sources specifically, and the three "Open, for a hum
 - [ ] `moon run :typecheck :lint :test` green.
 - [ ] Boundary lint clean, and asserted deliberately for this phase: `shared/src/keybindings.ts`
       still imports nothing and holds no function-typed field; the palette and every source live
-      entirely in `app` and reach main only through `window.midniteGit`; `list-files` is plain Node
+      entirely in `app` and reach main only through `window.midniteStudio`; `list-files` is plain Node
       in git-engine and imports no `electron`.
 - [ ] Vitest (A): every `CommandId` resolves to a label and a group; chords are unique;
       `Mod+Shift+p` is still `sync.pull`; `palette.open` escapes the terminal and `palette.files`

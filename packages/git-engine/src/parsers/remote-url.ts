@@ -130,7 +130,7 @@ function splitHostAndPath(url: string): { host: string; path: string } | null {
  * `decodeURIComponent` THROWS a `URIError` on a malformed escape, and `%` is a
  * legal character in a repository name — `100%uptime.git` is a real shape. An
  * uncaught throw here does not merely lose one remote: it escapes `listRemotes`
- * and rejects the whole `mgit:remotes:list` call, so one oddly-named repo takes
+ * and rejects the whole `mstudio:remotes:list` call, so one oddly-named repo takes
  * out the forge links for every remote in that repository.
  */
 function decodePath(pathname: string): string {

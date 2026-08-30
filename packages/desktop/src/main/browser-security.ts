@@ -55,7 +55,7 @@ export type OnlyHttpAllowed = { allowed: boolean; blockedScheme?: string };
 /**
  * `will-navigate`/`will-redirect` policy: only `http:`/`https:` proceed.
  *
- * `file:`, `mgit-file:`, `javascript:`, `data:` and every custom scheme are
+ * `file:`, `mstudio-file:`, `javascript:`, `data:` and every custom scheme are
  * refused — a page loaded in the browser tab has no reason to reach any of
  * them, and the renderer's own scheme staying unreachable from here is the
  * whole point of the separate `persist:browser` partition.

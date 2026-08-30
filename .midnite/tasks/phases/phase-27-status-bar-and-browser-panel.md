@@ -739,7 +739,7 @@ hooks, not rendered components.
       `footer-monitor.spec.ts:222` went red unnoticed in the first place.
 - [x] Boundary lint clean. This phase adds nothing to `git-engine`, and the one `desktop` edit is a
       menu entry naming an existing `CommandId`. Nothing in the renderer reaches past
-      `window.midniteGit` — the browser pane in particular touches no Electron API, which is the main
+      `window.midniteStudio` — the browser pane in particular touches no Electron API, which is the main
       reason it is a stub this phase.
 - [x] The status bar's left edge sits at the content area's left edge with the repositories panel
       open, shut, and mid-slide — asserted as `barBox.x <= asideBox.x + 1` in `e2e/status-bar.spec.ts`.

@@ -33,7 +33,7 @@ approves, closes, comments or re-runs, and the app links out for any state chang
 can never cause a write. Every new channel takes a **`repoId`, never a path**. All repository
 statistics are computed in **git-engine**, which stays electron-free — `packages/app` may not
 import it, so the calendar and contributor maths reach the renderer only through
-`mgit:stats:*`. All log parsing is **NUL-delimited** (`-z` / `%x00`); author names and commit
+`mstudio:stats:*`. All log parsing is **NUL-delimited** (`-z` / `%x00`); author names and commit
 subjects contain newlines and this phase reads a year of both. The dashboard is **one repository at
 a time**, following the sidebar selection, exactly as the Phase 18 diagnostics segment does — there
 is no cross-repo roll-up here. Executing a repository's own test runner (Theme G) is the same
@@ -111,7 +111,7 @@ shell — and is left open.*
 - [x] New `shared/src/domain/stats.ts` — `CalendarDay`, `ContributorStat`, `ActivityEntry`,
       `RepoHealth`, and a `RepoStats` envelope. Every field zod-schema'd like the rest of the
       contract
-- [x] New `mgit:stats:summary` channel taking `{ repoId, window }`, returning the envelope.
+- [x] New `mstudio:stats:summary` channel taking `{ repoId, window }`, returning the envelope.
       A single fetch, not seven — the widgets slice one payload
 - [x] Unit tests over fixture `git log` output: the timezone bucketing, the mailmap/email
       aggregation, `--numstat` parsing with renames and binary files (`-`/`-` counts), and the
@@ -136,7 +136,7 @@ shell — and is left open.*
 - [x] New domain types in [`forge.ts`](../packages/shared/src/domain/forge.ts): `ForgeIssue`,
       `ForgeIssueState`, `ForgeJob`, `ForgeStep`, `ForgeRunDetail`, `ForgeRunLog`, each with the
       `{cli, items, error}` envelope the existing results use
-- [x] New channels `mgit:forge:issues`, `mgit:forge:run-detail`, `mgit:forge:run-log`, documented
+- [x] New channels `mstudio:forge:issues`, `mstudio:forge:run-detail`, `mstudio:forge:run-log`, documented
       in [`channels.ts`](../packages/shared/src/ipc/channels.ts) under the same read-only comment
       block
 - [x] `listRuns` grows an optional **`workflow` filter** (`gh run list --workflow <file>`) and the
@@ -208,7 +208,7 @@ shell — and is left open.*
       `@tanstack/react-virtual`, and honest about truncation: a visible "log truncated — open in
       GitHub" affordance, never a silently short log
 - [x] **"Open in GitHub"** on the run, on each job, and on the workflow file itself, through the
-      guarded `mgit:shell:open-external` channel. Anything that would *change* a run — re-run,
+      guarded `mstudio:shell:open-external` channel. Anything that would *change* a run — re-run,
       cancel, approve — links out; it is not built here
 - [x] Refresh is **explicit**, matching the existing forge sections. Polling a run to completion is
       a subprocess every few seconds against a rate-limited API and is deliberately not done
@@ -228,7 +228,7 @@ shell — and is left open.*
       tree of package → suite rather than one flat list. This repo is itself the test case — four
       packages, moon tasks, vitest configs and a Playwright e2e project
 - [x] New `shared/src/domain/tests.ts` (`TestSuite`, `TestSuiteKind`, `TestDiscovery`) and a
-      `mgit:tests:discover` channel taking a `repoId`, cached like Theme B (`discovery-cache.ts`,
+      `mstudio:tests:discover` channel taking a `repoId`, cached like Theme B (`discovery-cache.ts`,
       TTL + `invalidate(repoId)`). **Not yet wired into the Phase 10 watcher** — same gap Theme B's
       own `invalidateStats` already has on `main`; a config-file edit is picked up within the
       cache's TTL rather than instantly
@@ -254,7 +254,7 @@ shell — and is left open.*
       shape, and `playwright`'s `stats` + nested `suites` shape — parsed into pass/fail/skip counts
       and per-test failures (`desktop/src/main/testing/reporters.ts`). Unknown runners fall back to
       **exit code plus raw output** (`structured: false`), which is still a useful answer
-- [x] `mgit:tests:run` (invoke, returning a run id) and `mgit:tests:output`/`mgit:tests:result`
+- [x] `mstudio:tests:run` (invoke, returning a run id) and `mstudio:tests:output`/`mstudio:tests:result`
       one-way streams for live output and completion, mirroring the Phase 18 sample-stream shape.
       Trust is granted **per suite**, not per repo (`desktop/src/main/testing/trust-store.ts`) — a
       repo's `test` and `e2e` scripts are different propositions and approving one must not
@@ -284,7 +284,7 @@ shell — and is left open.*
 
 - [x] `moon run :typecheck :lint :test` green
 - [x] Boundary lint still passes: `packages/app` imports nothing from `git-engine` — the stats and
-      discovery modules are reachable only through `mgit:stats:*` and `mgit:tests:*`
+      discovery modules are reachable only through `mstudio:stats:*` and `mstudio:tests:*`
 - [x] `mock-bridge.ts` grows `stats`, `tests` and the three new `forge` handlers, with
       `MockFixtures` fields for each, commented with the state they unlock. The `tests.output`
       stream needs a **live handler array and a real splice teardown**, not an inert `unsubscribe`

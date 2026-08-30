@@ -403,14 +403,14 @@ describe('useTerminalStore', () => {
       }[],
       ptyCreate: () => void,
     ) => {
-      (window as unknown as { midniteGit: unknown }).midniteGit = {
+      (window as unknown as { midniteStudio: unknown }).midniteStudio = {
         terminal: { list: () => Promise.resolve({ sessions }) },
         pty: { create: ptyCreate },
       };
     };
 
     afterEach(() => {
-      delete (window as unknown as { midniteGit?: unknown }).midniteGit;
+      delete (window as unknown as { midniteStudio?: unknown }).midniteStudio;
     });
 
     it('binds a live row without creating a pty', async () => {

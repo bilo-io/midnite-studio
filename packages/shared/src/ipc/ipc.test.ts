@@ -24,9 +24,9 @@ describe('channels', () => {
     expect(new Set(all).size).toBe(all.length);
   });
 
-  it('namespaces every channel under mgit:', () => {
+  it('namespaces every channel under mstudio:', () => {
     for (const name of [...Object.values(CHANNELS), ...Object.values(EVENT_CHANNELS)]) {
-      expect(name.startsWith('mgit:')).toBe(true);
+      expect(name.startsWith('mstudio:')).toBe(true);
     }
   });
 });

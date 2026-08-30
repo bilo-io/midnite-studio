@@ -9,11 +9,11 @@ Crib: `~/Dev/midnite/packages/gateway/src/terminal/spawner/pty-spawner.ts` (lazy
 
 ## Deliverables
 
-- [x] `desktop/src/main/pty-service.ts` — sessions keyed by `ptyId`; spawns the user's login shell with shell-path-fixed PATH; cwd = selected worktree; data → `mgit:pty:data` as `Uint8Array` (structured clone, **no base64**); kill on window close; lazy fail-soft node-pty load degrades to "terminal unavailable"
+- [x] `desktop/src/main/pty-service.ts` — sessions keyed by `ptyId`; spawns the user's login shell with shell-path-fixed PATH; cwd = selected worktree; data → `mstudio:pty:data` as `Uint8Array` (structured clone, **no base64**); kill on window close; lazy fail-soft node-pty load degrades to "terminal unavailable"
 - [x] node-pty electron-rebuild wired as postinstall or `desktop:rebuild-native` moon task (**single ABI** — node-pty lives only in main); `scripts/fix-node-pty.cjs` chmod in place
 - [x] `app/src/features/terminal/{terminal-panel.tsx,live-terminal.tsx,use-terminal-ipc.ts}` — xterm + fit addon; `use-terminal-ipc` returns `{connectionState, sendInput, sendResize}`; deferred `term.open()` until the container has size
 - [x] `app/src/services/keybindings/{commands.ts,keybinding-service.ts,use-keybindings.ts}` — CommandId registry (from `shared/src/keybindings.ts`), context keys (`terminalFocus`), **allow-list of chords escaping xterm** via `attachCustomKeyEventHandler` (Ctrl+` at minimum)
-- [x] `desktop/src/main/menu.ts` — View → Toggle Terminal accelerator `` Ctrl+` `` dispatching the same CommandId over `mgit:menu:command`; macOS Edit roles present
+- [x] `desktop/src/main/menu.ts` — View → Toggle Terminal accelerator `` Ctrl+` `` dispatching the same CommandId over `mstudio:menu:command`; macOS Edit roles present
 - [x] `app/src/components/footer-bar.tsx` — terminal toggle button + branch/status indicators
 
 ## Verification

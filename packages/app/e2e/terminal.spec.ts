@@ -51,8 +51,8 @@ async function toggleTerminal(page: Page): Promise<void> {
  */
 async function emitOsc7(page: Page, payload: string): Promise<void> {
   const delivered = await page.evaluate((text) => {
-    const write = (window as unknown as { __mgitPtyWrite: (id: string, data: string) => boolean })
-      .__mgitPtyWrite;
+    const write = (window as unknown as { __mstudioPtyWrite: (id: string, data: string) => boolean })
+      .__mstudioPtyWrite;
     return write('pty-1', `\u001b]7;${text}\u0007`);
   }, payload);
   // The hook no-ops on an unknown pty id. Without this, a spec whose pty
@@ -78,8 +78,8 @@ async function emitAgentChanged(
   const delivered = await page.evaluate(
     ({ id, agent }) => {
       const notify = (
-        window as unknown as { __mgitPtyAgent: (p: string, a: string | null) => boolean }
-      ).__mgitPtyAgent;
+        window as unknown as { __mstudioPtyAgent: (p: string, a: string | null) => boolean }
+      ).__mstudioPtyAgent;
       return notify(id, agent);
     },
     { id: ptyId, agent: agentId },
@@ -103,9 +103,9 @@ async function emitActivity(
     ({ id, act }) => {
       const notify = (
         window as unknown as {
-          __mgitPtyActivity: (p: string, a: 'thinking' | 'waiting' | 'idle' | null) => boolean;
+          __mstudioPtyActivity: (p: string, a: 'thinking' | 'waiting' | 'idle' | null) => boolean;
         }
-      ).__mgitPtyActivity;
+      ).__mstudioPtyActivity;
       return notify(id, act);
     },
     { id: ptyId, act: activity },
@@ -133,14 +133,14 @@ const ptyCalls = (page: Page) =>
   page.evaluate(
     () =>
       (window as unknown as {
-        __mgitPty: {
+        __mstudioPty: {
           creates: { ptyId: string; sessionId: string }[];
           inputs: { ptyId: string; data: string }[];
           kills: string[];
           resizes: { ptyId: string; cols: number; rows: number }[];
           snapshots: string[];
         };
-      }).__mgitPty,
+      }).__mstudioPty,
   );
 
 /**
@@ -642,8 +642,8 @@ test.describe('terminal panel', () => {
       of the two it has since been told about.
     */
     const saved = await page.evaluate(
-      () => (window as unknown as { __mgitTerminalSaves: { id: string; cwd: string }[] })
-        .__mgitTerminalSaves,
+      () => (window as unknown as { __mstudioTerminalSaves: { id: string; cwd: string }[] })
+        .__mstudioTerminalSaves,
     );
     expect(saved.length).toBeGreaterThan(0);
     expect(saved.map((s) => s.cwd)).toEqual(saved.map(() => '/tmp/midnite-git'));

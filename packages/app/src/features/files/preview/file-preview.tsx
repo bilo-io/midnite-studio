@@ -3,7 +3,7 @@ import { lazy, Suspense, useEffect, useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { LuFileQuestion } from 'react-icons/lu';
 
-import { mgitFileUrl } from '@midnite/studio-shared';
+import { mstudioFileUrl } from '@midnite/studio-shared';
 
 import { EmptyState } from '../../../components/empty-state';
 import { languageForFile, previewKindForFile } from '../../../lib/languages';
@@ -29,7 +29,7 @@ const CodeEditor = lazy(() => import('./code-editor').then((m) => ({ default: m.
  * type allows. Opens read-only; a repo-scope text file gets an Edit toggle
  * into a real `CodeEditor` (Phase 24 D) — `claude-home` and every non-text
  * kind stay read-only, with no toggle offered at all. Media never crosses
- * IPC — those render straight off `mgit-file://` (see fs-protocol.ts); only
+ * IPC — those render straight off `mstudio-file://` (see fs-protocol.ts); only
  * text comes through `fs:readFile`, capped and sniffed in main.
  *
  * The component keys off a content DESCRIPTOR (scope + relPath), not a raw
@@ -121,7 +121,7 @@ export function FilePreview({ scope, relPath, targetLine, onNavigate }: FilePrev
   const exitEditing = () =>
     useFileEditorStore.getState().guardNavigation(() => setEditing(false));
 
-  const mediaUrl = mgitFileUrl(
+  const mediaUrl = mstudioFileUrl(
     scope.scope,
     scope.scope === 'repo' ? scope.repoId : null,
     relPath,

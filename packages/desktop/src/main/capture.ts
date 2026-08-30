@@ -13,60 +13,60 @@ import { Menu, type BrowserWindow } from 'electron';
  * anywhere the app can boot.
  *
  * Dev tooling, opt-in through the environment; nothing runs unless
- * `MGIT_CAPTURE` names a target file.
+ * `MSTUDIO_CAPTURE` names a target file.
  *
- *   MGIT_CAPTURE=/tmp/shot.png MGIT_CAPTURE_EXIT=1 moon run desktop:start-built
+ *   MSTUDIO_CAPTURE=/tmp/shot.png MSTUDIO_CAPTURE_EXIT=1 moon run desktop:start-built
  *
  * Two knobs exist because they are what the phase checklists actually ask to be
  * verified, and neither state is reachable from outside the app:
  *
- *   MGIT_CAPTURE_THEME=light|dark   force the theme before capturing
- *   MGIT_CAPTURE_FULLSCREEN=1       capture in fullscreen, where macOS hides the
+ *   MSTUDIO_CAPTURE_THEME=light|dark   force the theme before capturing
+ *   MSTUDIO_CAPTURE_FULLSCREEN=1       capture in fullscreen, where macOS hides the
  *                                   traffic lights and the title bar must
  *                                   collapse its left clearance
- *   MGIT_EVAL=<js expression>       evaluate in the renderer and log the JSON
+ *   MSTUDIO_EVAL=<js expression>       evaluate in the renderer and log the JSON
  *                                   result — for checking layout/DOM state that
  *                                   a screenshot can only hint at
- *   MGIT_TYPE=<text>                type real key events into the focused
+ *   MSTUDIO_TYPE=<text>                type real key events into the focused
  *                                   element (`\n` sends Return). Synthetic DOM
  *                                   KeyboardEvents do not drive xterm, so this
  *                                   is the only way to exercise the terminal's
  *                                   true path: OS event → xterm → IPC → pty
- *   MGIT_KEYS=<json>                send chords as real input events, e.g.
+ *   MSTUDIO_KEYS=<json>                send chords as real input events, e.g.
  *                                   `[{"keyCode":"`","modifiers":["control"]}]`
  *                                   — the only way to test a shortcut against
  *                                   xterm's own key handling
- *   MGIT_EVAL_AFTER=<js expression> a second eval, run AFTER the typing and the
- *                                   chords. MGIT_EVAL sets the scene; this one
+ *   MSTUDIO_EVAL_AFTER=<js expression> a second eval, run AFTER the typing and the
+ *                                   chords. MSTUDIO_EVAL sets the scene; this one
  *                                   asserts what the input did.
  *
- *   MGIT_DUMP_MENU=1                log the native application menu. The menu
+ *   MSTUDIO_DUMP_MENU=1                log the native application menu. The menu
  *                                   is OS chrome, invisible to both the DOM and
  *                                   a page screenshot, so this is the only way
  *                                   to check that (say) the Edit roles Cmd+C/V
  *                                   depend on are actually registered.
  *
- * Order: theme/fullscreen → MGIT_EVAL → MGIT_TYPE → MGIT_KEYS → MGIT_EVAL_AFTER
+ * Order: theme/fullscreen → MSTUDIO_EVAL → MSTUDIO_TYPE → MSTUDIO_KEYS → MSTUDIO_EVAL_AFTER
  * → capture.
  */
 export function maybeCapture(win: BrowserWindow): void {
-  const target = process.env['MGIT_CAPTURE'];
+  const target = process.env['MSTUDIO_CAPTURE'];
   if (!target) return;
 
   // Give the renderer a beat past first paint: fonts, the theme class and any
   // entry transition all land after `ready-to-show`, and capturing before they
   // do produces a screenshot of a half-styled app.
-  const delayMs = Number.parseInt(process.env['MGIT_CAPTURE_DELAY_MS'] ?? '1500', 10);
+  const delayMs = Number.parseInt(process.env['MSTUDIO_CAPTURE_DELAY_MS'] ?? '1500', 10);
 
   win.once('ready-to-show', () => {
     setTimeout(() => {
       void (async () => {
         try {
           await applyCaptureState(win);
-          await runEval(win, 'MGIT_EVAL');
+          await runEval(win, 'MSTUDIO_EVAL');
           await runType(win);
           await runKeys(win);
-          await runEval(win, 'MGIT_EVAL_AFTER');
+          await runEval(win, 'MSTUDIO_EVAL_AFTER');
           dumpMenu();
           const image = await win.webContents.capturePage();
           await mkdir(dirname(target), { recursive: true });
@@ -77,7 +77,7 @@ export function maybeCapture(win: BrowserWindow): void {
           // eslint-disable-next-line no-console -- ditto
           console.error('[capture] failed', error);
         } finally {
-          if (process.env['MGIT_CAPTURE_EXIT'] === '1') {
+          if (process.env['MSTUDIO_CAPTURE_EXIT'] === '1') {
             const { app } = await import('electron');
             app.quit();
           }
@@ -89,7 +89,7 @@ export function maybeCapture(win: BrowserWindow): void {
 
 /** Put the window into the state being screenshotted, and let it settle. */
 async function applyCaptureState(win: BrowserWindow): Promise<void> {
-  const theme = process.env['MGIT_CAPTURE_THEME'];
+  const theme = process.env['MSTUDIO_CAPTURE_THEME'];
   if (theme === 'light' || theme === 'dark') {
     // Drive it exactly the way the ThemeProvider does — write the stored
     // preference and flip the class — so the screenshot shows the real token
@@ -103,7 +103,7 @@ async function applyCaptureState(win: BrowserWindow): Promise<void> {
     );
   }
 
-  if (process.env['MGIT_CAPTURE_FULLSCREEN'] === '1' && !win.isFullScreen()) {
+  if (process.env['MSTUDIO_CAPTURE_FULLSCREEN'] === '1' && !win.isFullScreen()) {
     const entered = new Promise<void>((resolve) => win.once('enter-full-screen', () => resolve()));
     win.setFullScreen(true);
     await entered;
@@ -150,7 +150,7 @@ async function runEval(win: BrowserWindow, variable: string): Promise<void> {
 }
 
 /**
- * Type `MGIT_TYPE` into the focused element as real input events.
+ * Type `MSTUDIO_TYPE` into the focused element as real input events.
  *
  * `webContents.sendInputEvent` goes in above the DOM, the way a keyboard does,
  * so xterm's own key handling runs. A synthetic `KeyboardEvent` dispatched from
@@ -158,7 +158,7 @@ async function runEval(win: BrowserWindow, variable: string): Promise<void> {
  * input pipeline, so a dispatched event changes nothing.
  */
 async function runType(win: BrowserWindow): Promise<void> {
-  const text = process.env['MGIT_TYPE'];
+  const text = process.env['MSTUDIO_TYPE'];
   if (!text) return;
 
   for (const char of text.replace(/\\n/g, '\n')) {
@@ -189,19 +189,19 @@ async function runType(win: BrowserWindow): Promise<void> {
   }
 
   // Let the shell run and the output stream back.
-  await new Promise((resolve) => setTimeout(resolve, Number(process.env['MGIT_TYPE_WAIT_MS'] ?? 2500)));
+  await new Promise((resolve) => setTimeout(resolve, Number(process.env['MSTUDIO_TYPE_WAIT_MS'] ?? 2500)));
 }
 
 /**
- * Send chords from `MGIT_KEYS` as real input events.
+ * Send chords from `MSTUDIO_KEYS` as real input events.
  *
- * Separate from MGIT_TYPE because a shortcut has to be tested *against* xterm's
+ * Separate from MSTUDIO_TYPE because a shortcut has to be tested *against* xterm's
  * key handling, not through it: the question is whether the chord escapes the
  * terminal to reach the app, and only a genuine modifier-bearing event answers
  * it.
  */
 async function runKeys(win: BrowserWindow): Promise<void> {
-  const raw = process.env['MGIT_KEYS'];
+  const raw = process.env['MSTUDIO_KEYS'];
   if (!raw) return;
 
   const chords = JSON.parse(raw) as { keyCode: string; modifiers?: string[] }[];
@@ -216,7 +216,7 @@ async function runKeys(win: BrowserWindow): Promise<void> {
 
 /** Log the native application menu — invisible to the DOM and to a screenshot. */
 function dumpMenu(): void {
-  if (process.env['MGIT_DUMP_MENU'] !== '1') return;
+  if (process.env['MSTUDIO_DUMP_MENU'] !== '1') return;
   const menu = Menu.getApplicationMenu();
   if (!menu) return;
 

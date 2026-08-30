@@ -22,16 +22,16 @@ const open = async (page: Page, data: MockFixtures = base): Promise<void> => {
 
 type OpCall = { op: string; args: unknown };
 const ops = (page: Page) =>
-  page.evaluate(() => (window as unknown as { __mgitOps: OpCall[] }).__mgitOps);
+  page.evaluate(() => (window as unknown as { __mstudioOps: OpCall[] }).__mstudioOps);
 
 const ptyCreates = (page: Page) =>
   page.evaluate(
     () =>
       (
         window as unknown as {
-          __mgitPty: { creates: { agentId?: string; initialInput?: string }[] };
+          __mstudioPty: { creates: { agentId?: string; initialInput?: string }[] };
         }
-      ).__mgitPty.creates,
+      ).__mstudioPty.creates,
   );
 
 /** The title bar's cluster, which is where the button is at `md`. */

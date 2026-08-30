@@ -86,7 +86,7 @@ Track sub-tasks with TodoWrite — one group per theme in the batch.
 - Follow `CLAUDE.md` (shared = the IPC contract; zod-validate every IPC payload; `app` never imports git-engine/electron; `git-engine` stays electron-free and unit-testable).
 - **Tests ship with the change, not after:**
   - Logic → Vitest at the right layer (pure parsers/layout in `git-engine`; RTL for `app` components).
-  - **Visual or flow change → add/extend the Playwright suite** (specs under `packages/app/e2e/`, running against the Vite dev server with a mocked `window.midniteGit` bridge; scaffold a minimal `playwright.config.ts` if none exists yet) so the new/updated feature is genuinely covered.
+  - **Visual or flow change → add/extend the Playwright suite** (specs under `packages/app/e2e/`, running against the Vite dev server with a mocked `window.midniteStudio` bridge; scaffold a minimal `playwright.config.ts` if none exists yet) so the new/updated feature is genuinely covered.
 - Small conventional commits, each ending with the required `Co-Authored-By` trailer.
 
 ## 5 · Screenshots — whenever the change is visual

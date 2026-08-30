@@ -6,7 +6,7 @@ destructive ops.
 ## Deliverables
 
 - [x] `git-engine/src/commands/{checkout,branch,tag,reset}.ts` + error mapping: dirty-tree checkout block, branch-checked-out-in-another-worktree block
-- [x] IPC handlers `mgit:op:{checkout,branch-create,tag-create,reset}`
+- [x] IPC handlers `mstudio:op:{checkout,branch-create,tag-create,reset}`
 - [x] `app/src/components/context-menu.tsx` — renderer-drawn, token-styled popover (not native `Menu.popup`; keeps state/testing in React)
 - [x] `app/src/features/graph/graph-context-menu.tsx`:
   - commit row: create branch here, create tag, checkout (detached), cherry-pick onto current (lands Phase 8), reset current branch here (soft/mixed/hard submenu)

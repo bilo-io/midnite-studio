@@ -40,9 +40,9 @@ describe('checkNavigationUrl', () => {
       blockedScheme: 'javascript:',
     });
     expect(checkNavigationUrl('data:text/html,hi')).toEqual({ allowed: false, blockedScheme: 'data:' });
-    expect(checkNavigationUrl('mgit-file://repo/x')).toEqual({
+    expect(checkNavigationUrl('mstudio-file://repo/x')).toEqual({
       allowed: false,
-      blockedScheme: 'mgit-file:',
+      blockedScheme: 'mstudio-file:',
     });
   });
 

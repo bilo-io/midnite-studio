@@ -87,14 +87,14 @@ type WriteCall = { channel: string; request: Record<string, unknown> };
 /**
  * Every write the app has sent, in order.
  *
- * `mock-bridge.ts` records each one on `window.__mgitWrites` — see its
+ * `mock-bridge.ts` records each one on `window.__mstudioWrites` — see its
  * `recordWrite`. Reading the request rather than the rendered result is the
  * whole point: an approval and a comment look the same on screen until you look
  * at which verb was sent, and the verb is the thing worth asserting.
  */
 const recorded = (page: Page): Promise<WriteCall[]> =>
   page.evaluate(
-    () => (window as unknown as { __mgitWrites?: WriteCall[] }).__mgitWrites ?? [],
+    () => (window as unknown as { __mstudioWrites?: WriteCall[] }).__mstudioWrites ?? [],
   );
 
 /**

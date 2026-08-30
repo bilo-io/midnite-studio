@@ -49,16 +49,16 @@ and inherits the app's tokens, theme, density and motion settings for nothing.
 
 **Builds on.** Phase 9 (the `CommandId` registry and `Mod+b`), Phase 13 (`useResizable`, `useReveal`
 / `motionMs()`, persisted `LayoutSizes`), Phase 16 (`Popover` as the overlay primitive, the settings
-pages, the `mgit:` fs-protocol and its path jail), Phase 17 (the `gh`-backed forge and the workbench
+pages, the `mstudio:` fs-protocol and its path jail), Phase 17 (the `gh`-backed forge and the workbench
 tab strip), Phase 20 (the Reviews view and its PR links), Phase 19 (the Actions view), Phase 23 (the
 palette and `PALETTE_SAFE`), Phase 27 (the full-width status bar, the pane shell, `useFocusTrap`,
 `browserOpen`), Phase 28 (`tree-section.tsx`), Phase 30 (`stream-registry.ts` as the main→renderer
 event-push pattern).
 
-**Scope guardrails.** **The embedded views never get a preload.** No `window.midniteGit`, no channel
+**Scope guardrails.** **The embedded views never get a preload.** No `window.midniteStudio`, no channel
 constants, no bridge — a page loaded from the network must have no path to the IPC surface, and the
 cheapest way to guarantee that is to hand it nothing. **The browser session is its own partition**
-(`persist:browser`), separate from the renderer's default session, so the `mgit:` protocol registered
+(`persist:browser`), separate from the renderer's default session, so the `mstudio:` protocol registered
 in [`fs-protocol.ts`](../packages/desktop/src/main/fs-protocol.ts) is not reachable from a web page.
 **No git command, no git-engine change.** This phase adds no git subprocess; `packages/git-engine`
 is untouched end to end. **Browser IPC follows the existing envelope discipline** — ops return the
@@ -85,7 +85,7 @@ still disabled.
       (`x`/`y`/`width`/`height`), and `BrowserNavError` (`code`, `description`, `validatedUrl`).
       Exported from [`domain/index.ts`](../packages/shared/src/domain/index.ts) alongside the other
       domains. zod only — the package imports no other workspace package.
-- [x] `mgit:browser:*` channel constants in
+- [x] `mstudio:browser:*` channel constants in
       [`ipc/channels.ts`](../packages/shared/src/ipc/channels.ts), grouped and commented in the style
       of the `pty:*` / `terminal:*` split at `:248–271`: `browserCreate`, `browserClose`,
       `browserNavigate`, `browserBack`, `browserForward`, `browserReload`, `browserStop`,
@@ -94,7 +94,7 @@ still disabled.
 - [x] Payload schemas in [`ipc/schemas.ts`](../packages/shared/src/ipc/schemas.ts) and the method
       signatures on the preload bridge type in [`ipc/bridge.ts`](../packages/shared/src/ipc/bridge.ts).
       Every op returns the `GitOpResult` envelope, never throws.
-- [x] A single **event** channel `mgit:browser:event` carrying a discriminated union
+- [x] A single **event** channel `mstudio:browser:event` carrying a discriminated union
       (`navigated` | `title` | `favicon` | `loading` | `failed` | `destroyed`), pushed main→renderer.
       Reuse the [`stream-registry.ts`](../packages/desktop/src/main/stream-registry.ts) subscription
       pattern rather than adding a second event mechanism.
@@ -130,18 +130,18 @@ week before its policy is the incident Phase 27 named.
       "open as new tab" event, so `target="_blank"` and `window.open` behave the way a browser user
       expects rather than spawning an unmanaged `BrowserWindow`.
 - [x] A `will-navigate` / `will-redirect` policy allowing **only** `http:` and `https:`. `file:`,
-      `mgit:`, `javascript:`, `data:` and every custom scheme are blocked and reported as a
+      `mstudio:`, `javascript:`, `data:` and every custom scheme are blocked and reported as a
       `BrowserNavError` the pane renders.
-- [x] Prove the `mgit:` protocol is registered on the **default** session only — read
+- [x] Prove the `mstudio:` protocol is registered on the **default** session only — read
       [`fs-protocol.ts`](../packages/desktop/src/main/fs-protocol.ts), confirm the registration
-      target, and add a test asserting a `persist:browser` view cannot resolve an `mgit:` URL. If it
+      target, and add a test asserting a `persist:browser` view cannot resolve an `mstudio:` URL. If it
       is currently registered on `protocol` globally rather than per-session, fixing that is part of
       this theme.
 - [x] `certificate-error` is **not** blanket-accepted: the default (reject) stands, and the failure
       renders as an error page. No "proceed anyway" affordance this phase.
 - [x] `session.on('will-download')` cancels and surfaces a one-line notice naming the file — downloads
       are out of scope, and cancelling loudly beats dropping silently.
-- [x] Confirm no embedded view can reach the bridge: a test that evaluates `typeof window.midniteGit`
+- [x] Confirm no embedded view can reach the bridge: a test that evaluates `typeof window.midniteStudio`
       in an embedded view's `webContents` and asserts `'undefined'`.
 - [x] Rewrite the now-false comment at [`window.ts:64–66`](../packages/desktop/src/main/window.ts)
       (*"the renderer only ever loads local content"*). It stays true of the renderer and becomes
@@ -385,7 +385,7 @@ What makes it the browser of a git client rather than a browser that happens to 
   the error page and the (invisible, native) view.
 - [`packages/shared/src/ipc/channels.ts`](../packages/shared/src/ipc/channels.ts),
   [`schemas.ts`](../packages/shared/src/ipc/schemas.ts),
-  [`bridge.ts`](../packages/shared/src/ipc/bridge.ts) — the `mgit:browser:*` surface.
+  [`bridge.ts`](../packages/shared/src/ipc/bridge.ts) — the `mstudio:browser:*` surface.
 - [`packages/shared/src/keybindings.ts`](../packages/shared/src/keybindings.ts) — browser-scoped
   chords and the new palette commands.
 - [`packages/desktop/src/main/window.ts`](../packages/desktop/src/main/window.ts) — the corrected
@@ -424,8 +424,8 @@ What makes it the browser of a git client rather than a browser that happens to 
 - [ ] Unit: `preview-deploy.ts` positives and suffix-boundary negatives; `dev-server.ts` port
       extraction.
 - [ ] Unit: `browser-service` lifecycle against a fake view.
-- [ ] Security: a test asserting `typeof window.midniteGit === 'undefined'` inside an embedded view.
-- [ ] Security: a test asserting an `mgit:` URL does not resolve from the `persist:browser` partition.
+- [ ] Security: a test asserting `typeof window.midniteStudio === 'undefined'` inside an embedded view.
+- [ ] Security: a test asserting an `mstudio:` URL does not resolve from the `persist:browser` partition.
 - [ ] Security: a test asserting every permission request and permission check is denied.
 - [ ] e2e: `browser-pane.spec.ts` rewritten — open the pane, open a tab against a local fixture
       server, navigate, back/forward, close, reopen, and assert tab-strip semantics.

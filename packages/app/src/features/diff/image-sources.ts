@@ -1,7 +1,7 @@
 import {
-  MGIT_INDEX_REV,
-  mgitBlobUrl,
-  mgitFileUrl,
+  MSTUDIO_INDEX_REV,
+  mstudioBlobUrl,
+  mstudioFileUrl,
   type FileDiff,
   type StatusCode,
   type StatusEntry,
@@ -10,7 +10,7 @@ import {
 import { previewKindForFile } from '../../lib/languages';
 
 /**
- * Which bytes an image diff should show on each side, as `mgit-file://` URLs.
+ * Which bytes an image diff should show on each side, as `mstudio-file://` URLs.
  *
  * Pure, and in the renderer rather than main, because it is only URL arithmetic
  * over a diff the renderer already has — and because the two callers ask the
@@ -76,10 +76,10 @@ export function imageDiffSources(
       before: added
         ? null
         : {
-            url: mgitBlobUrl(target.repoId, parentRev, oldPath),
+            url: mstudioBlobUrl(target.repoId, parentRev, oldPath),
             label: parentLabel,
           },
-      after: deleted ? null : { url: mgitBlobUrl(target.repoId, target.sha, diff.path), label: short },
+      after: deleted ? null : { url: mstudioBlobUrl(target.repoId, target.sha, diff.path), label: short },
     };
   }
 
@@ -87,23 +87,23 @@ export function imageDiffSources(
   const { repoId, worktreePath, staged } = target;
   if (staged) {
     return {
-      before: added ? null : { url: mgitBlobUrl(repoId, 'HEAD', oldPath, worktreePath), label: 'HEAD' },
+      before: added ? null : { url: mstudioBlobUrl(repoId, 'HEAD', oldPath, worktreePath), label: 'HEAD' },
       after: deleted
         ? null
-        : { url: mgitBlobUrl(repoId, MGIT_INDEX_REV, diff.path, worktreePath), label: 'staged' },
+        : { url: mstudioBlobUrl(repoId, MSTUDIO_INDEX_REV, diff.path, worktreePath), label: 'staged' },
     };
   }
 
   return {
     before: added
       ? null
-      : { url: mgitBlobUrl(repoId, MGIT_INDEX_REV, oldPath, worktreePath), label: 'index' },
+      : { url: mstudioBlobUrl(repoId, MSTUDIO_INDEX_REV, oldPath, worktreePath), label: 'index' },
     after: deleted
       ? null
       : {
           // The unstaged "after" is the file on disk, which the protocol already
           // serves — no reason to route it through the object database.
-          url: mgitFileUrl('repo', repoId, diff.path, worktreePath),
+          url: mstudioFileUrl('repo', repoId, diff.path, worktreePath),
           label: 'working tree',
         },
   };
@@ -124,9 +124,9 @@ export function headToWorktreeImage(
   relPath: string,
 ): ImageDiffSources {
   return {
-    before: { url: mgitBlobUrl(target.repoId, 'HEAD', relPath, target.worktreePath), label: 'HEAD' },
+    before: { url: mstudioBlobUrl(target.repoId, 'HEAD', relPath, target.worktreePath), label: 'HEAD' },
     after: {
-      url: mgitFileUrl('repo', target.repoId, relPath, target.worktreePath),
+      url: mstudioFileUrl('repo', target.repoId, relPath, target.worktreePath),
       label: 'working tree',
     },
   };

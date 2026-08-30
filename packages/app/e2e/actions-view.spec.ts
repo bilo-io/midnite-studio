@@ -298,7 +298,7 @@ test('every stateful verb links out instead of being reimplemented', async ({ pa
   await detail(page).getByRole('button', { name: '.github/workflows/ci.yml' }).click();
 
   const opened = await page.evaluate(
-    () => (window as unknown as { __mgitExternalUrls: string[] }).__mgitExternalUrls,
+    () => (window as unknown as { __mstudioExternalUrls: string[] }).__mstudioExternalUrls,
   );
   expect(opened).toContain('https://github.com/bilo-io/midnite-git/actions/runs/2');
   expect(opened).toContain('https://github.com/bilo-io/midnite-git/actions/runs/1/job/11');

@@ -10,7 +10,7 @@ import { createBrokerClient } from './broker-client';
 
 describe('broker client', () => {
   it('connects to an existing broker server and performs handshake', async () => {
-    const tmp = mkdtempSync(join(tmpdir(), 'mgit-broker-client-'));
+    const tmp = mkdtempSync(join(tmpdir(), 'mstudio-broker-client-'));
     const socketPath = join(tmp, 'broker', '0.12.0-dev.sock');
 
     const broker = createBrokerServer({
@@ -37,7 +37,7 @@ describe('broker client', () => {
   });
 
   it('falls back to inproc mode when broker cannot be spawned or reached', async () => {
-    const tmp = mkdtempSync(join(tmpdir(), 'mgit-broker-client-'));
+    const tmp = mkdtempSync(join(tmpdir(), 'mstudio-broker-client-'));
 
     const mockSpawn = vi.fn(() => {
       const ee = new EventEmitter();
@@ -62,9 +62,9 @@ describe('broker client', () => {
     expect(mockSpawn).toHaveBeenCalled();
   });
 
-  it('falls back to inproc immediately when MGIT_PTY_INPROC=1 is set', async () => {
-    const tmp = mkdtempSync(join(tmpdir(), 'mgit-broker-client-'));
-    process.env['MGIT_PTY_INPROC'] = '1';
+  it('falls back to inproc immediately when MSTUDIO_PTY_INPROC=1 is set', async () => {
+    const tmp = mkdtempSync(join(tmpdir(), 'mstudio-broker-client-'));
+    process.env['MSTUDIO_PTY_INPROC'] = '1';
 
     const client = createBrokerClient({
       userDataDir: tmp,
@@ -76,9 +76,9 @@ describe('broker client', () => {
 
     expect(client.getStatus()).toEqual({
       mode: 'inproc',
-      reason: 'MGIT_PTY_INPROC=1',
+      reason: 'MSTUDIO_PTY_INPROC=1',
     });
 
-    delete process.env['MGIT_PTY_INPROC'];
+    delete process.env['MSTUDIO_PTY_INPROC'];
   });
 });

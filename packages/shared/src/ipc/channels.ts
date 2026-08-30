@@ -3,23 +3,23 @@
  * renderer's types. A channel string is never written as a literal anywhere else
  * — a typo in one of the three places is otherwise a silent no-op at runtime.
  *
- * Naming: `mgit:<domain>:<verb>`. Request/response channels go through
+ * Naming: `mstudio:<domain>:<verb>`. Request/response channels go through
  * `ipcRenderer.invoke` / `ipcMain.handle`; stream channels are one-way
  * `webContents.send` pushes and are grouped under EVENT_CHANNELS.
  */
 export const CHANNELS = {
   // --- repositories --------------------------------------------------------
-  repoOpen: 'mgit:repo:open',
+  repoOpen: 'mstudio:repo:open',
   /** Native directory picker; resolves to null when the user cancels. */
-  repoPickDirectory: 'mgit:repo:pick-directory',
-  repoList: 'mgit:repo:list',
-  repoClose: 'mgit:repo:close',
-  repoRefs: 'mgit:repo:refs',
-  repoWorktrees: 'mgit:repo:worktrees',
-  repoWorktreeAdd: 'mgit:repo:worktree-add',
-  repoWorktreeRemove: 'mgit:repo:worktree-remove',
+  repoPickDirectory: 'mstudio:repo:pick-directory',
+  repoList: 'mstudio:repo:list',
+  repoClose: 'mstudio:repo:close',
+  repoRefs: 'mstudio:repo:refs',
+  repoWorktrees: 'mstudio:repo:worktrees',
+  repoWorktreeAdd: 'mstudio:repo:worktree-add',
+  repoWorktreeRemove: 'mstudio:repo:worktree-remove',
   /** User-defined sidebar order; re-persisted to `repos.json`. */
-  repoReorder: 'mgit:repo:reorder',
+  repoReorder: 'mstudio:repo:reorder',
   /**
    * Resolve an abbreviated revision to its full 40-char commit sha.
    *
@@ -30,27 +30,27 @@ export const CHANNELS = {
    * resolved sha too, but only after fetching a whole commit's worth of data
    * for a reference that might not resolve at all.
    */
-  repoRevParse: 'mgit:repo:rev-parse',
+  repoRevParse: 'mstudio:repo:rev-parse',
 
   // --- log stream ----------------------------------------------------------
-  logStart: 'mgit:log:start',
-  logCancel: 'mgit:log:cancel',
+  logStart: 'mstudio:log:start',
+  logCancel: 'mstudio:log:cancel',
 
   // --- search stream & blame -----------------------------------------------
-  searchStart: 'mgit:search:start',
-  searchCancel: 'mgit:search:cancel',
-  blameRead: 'mgit:blame:read',
+  searchStart: 'mstudio:search:start',
+  searchCancel: 'mstudio:search:cancel',
+  blameRead: 'mstudio:blame:read',
 
   // --- rebase --------------------------------------------------------------
-  rebaseStart: 'mgit:rebase:start',
-  rebaseContinue: 'mgit:rebase:continue',
-  rebaseAbort: 'mgit:rebase:abort',
-  rebaseSkip: 'mgit:rebase:skip',
-  rebaseStatus: 'mgit:rebase:status',
+  rebaseStart: 'mstudio:rebase:start',
+  rebaseContinue: 'mstudio:rebase:continue',
+  rebaseAbort: 'mstudio:rebase:abort',
+  rebaseSkip: 'mstudio:rebase:skip',
+  rebaseStatus: 'mstudio:rebase:status',
 
   // --- status --------------------------------------------------------------
 
-  statusGet: 'mgit:status:get',
+  statusGet: 'mstudio:status:get',
   /**
    * Per-path line counts for a checkout — `git diff --numstat`, both sides.
    *
@@ -58,15 +58,15 @@ export const CHANNELS = {
    * sidebar's, once per checkout per repository, and it must stay one
    * subprocess. Only the panels that render numbers pay for the numbers.
    */
-  statusCounts: 'mgit:status:counts',
-  commitDetail: 'mgit:commit:detail',
+  statusCounts: 'mstudio:status:counts',
+  commitDetail: 'mstudio:commit:detail',
   /** A path's diff in the worktree or the index. */
-  fileDiff: 'mgit:file:diff',
+  fileDiff: 'mstudio:file:diff',
   /** A path's diff *inside a commit* — the worktree-scoped one can't answer this. */
-  commitFileDiff: 'mgit:commit:file-diff',
+  commitFileDiff: 'mstudio:commit:file-diff',
 
   // --- remotes -------------------------------------------------------------
-  remotesList: 'mgit:remotes:list',
+  remotesList: 'mstudio:remotes:list',
 
   // --- forge (GitHub, via the user's own `gh` CLI) --------------------------
   //
@@ -87,11 +87,11 @@ export const CHANNELS = {
   //    resolved in main from `.git/config`, so the renderer never chooses what
   //    a subprocess is pointed at.
   /** Is `gh` installed and authenticated? Probed through a login shell. */
-  forgeCliStatus: 'mgit:forge:cli-status',
+  forgeCliStatus: 'mstudio:forge:cli-status',
   /** Recent workflow runs for the repo's GitHub remote. */
-  forgeRuns: 'mgit:forge:runs',
+  forgeRuns: 'mstudio:forge:runs',
   /** Open pull requests for the repo's GitHub remote. */
-  forgePulls: 'mgit:forge:pulls',
+  forgePulls: 'mstudio:forge:pulls',
   /*
     The three channels below serve ONE opened pull request, and each is its own
     call for the same reason `forgeWorkflows` is separate from `forgeRuns`: the
@@ -103,11 +103,11 @@ export const CHANNELS = {
     main from `.git/config`, never sent — see forge-handlers.ts.
   */
   /** One PR's metadata: body, head sha, base branch, line counts. */
-  forgePullDetail: 'mgit:forge:pull-detail',
+  forgePullDetail: 'mstudio:forge:pull-detail',
   /** One PR's diff, parsed into per-file hunks in main and capped by bytes. */
-  forgePullFiles: 'mgit:forge:pull-files',
+  forgePullFiles: 'mstudio:forge:pull-files',
   /** One PR's top-level conversation — discussion comments and review submissions. */
-  forgePullComments: 'mgit:forge:pull-comments',
+  forgePullComments: 'mstudio:forge:pull-comments',
   /**
    * One PR's *inline* threads — the comments hanging off lines of the diff.
    *
@@ -121,7 +121,7 @@ export const CHANNELS = {
    * `reviewThreads` carries the resolved flag and the thread id a resolve
    * needs. See `ForgeReviewThread`.
    */
-  forgePullThreads: 'mgit:forge:pull-threads',
+  forgePullThreads: 'mstudio:forge:pull-threads',
 
   // --- forge writes (Phase 20 Themes E, F and G) ---------------------------
   //
@@ -131,11 +131,11 @@ export const CHANNELS = {
   //
   // Theme E — inline threads:
   /** Start a new inline thread on a line of the PR's diff. */
-  forgeReviewComment: 'mgit:forge:review-comment',
+  forgeReviewComment: 'mstudio:forge:review-comment',
   /** Add a reply to an existing inline thread. */
-  forgeReviewReply: 'mgit:forge:review-reply',
+  forgeReviewReply: 'mstudio:forge:review-reply',
   /** Mark an inline thread resolved, or reopen it. */
-  forgeResolveThread: 'mgit:forge:resolve-thread',
+  forgeResolveThread: 'mstudio:forge:resolve-thread',
   // Themes F and G — the review verdict, the merge, and the three nudges:
   /**
    * Submit a review: approve, request changes, or comment.
@@ -144,7 +144,7 @@ export const CHANNELS = {
    * `event` — `gh pr review` takes the verb as a flag, and three channels would
    * be three names for one command line.
    */
-  forgePullReview: 'mgit:forge:pull-review',
+  forgePullReview: 'mstudio:forge:pull-review',
   /**
    * Add a top-level comment to the conversation.
    *
@@ -153,15 +153,15 @@ export const CHANNELS = {
    * *review* that happens to carry no verdict. They land in different
    * collections and the Conversation tab renders them differently.
    */
-  forgePullComment: 'mgit:forge:pull-comment',
+  forgePullComment: 'mstudio:forge:pull-comment',
   /** Merge the pull request. The one irreversible call in this contract. */
-  forgePullMerge: 'mgit:forge:pull-merge',
+  forgePullMerge: 'mstudio:forge:pull-merge',
   /** Ask one or more logins for a review. */
-  forgePullRequestReview: 'mgit:forge:pull-request-review',
+  forgePullRequestReview: 'mstudio:forge:pull-request-review',
   /** Take a draft pull request out of draft. */
-  forgePullReady: 'mgit:forge:pull-ready',
+  forgePullReady: 'mstudio:forge:pull-ready',
   /** Re-run a workflow run — every job, or only the failed ones. */
-  forgeRunRerun: 'mgit:forge:run-rerun',
+  forgeRunRerun: 'mstudio:forge:run-rerun',
   /**
    * Issues for the repo's GitHub remote.
    *
@@ -169,11 +169,11 @@ export const CHANNELS = {
    * `gh issue list` exits non-zero for it, and that exit is a configuration
    * the UI states, not a fault it reports.
    */
-  forgeIssues: 'mgit:forge:issues',
+  forgeIssues: 'mstudio:forge:issues',
   /** One run's job/step tree. Cached in main once the run has completed. */
-  forgeRunDetail: 'mgit:forge:run-detail',
+  forgeRunDetail: 'mstudio:forge:run-detail',
   /** One run's (or job's) log, capped head-and-tail unless `full` is asked for. */
-  forgeRunLog: 'mgit:forge:run-log',
+  forgeRunLog: 'mstudio:forge:run-log',
   /**
    * The repo's workflow definitions, for their file paths.
    *
@@ -181,21 +181,21 @@ export const CHANNELS = {
    * workflow id the run list already carries, so this second subprocess is
    * paid only when something needs to link to a `.yml`.
    */
-  forgeWorkflows: 'mgit:forge:workflows',
+  forgeWorkflows: 'mstudio:forge:workflows',
 
   // --- shell ---------------------------------------------------------------
   /**
    * Hand a URL to the OS browser. Protocol-restricted at both ends — see the
    * schema's refine and the main handler's re-check.
    */
-  shellOpenExternal: 'mgit:shell:open-external',
+  shellOpenExternal: 'mstudio:shell:open-external',
   /**
    * Reveal a repo-scoped path in the OS file manager. Repo scope only, the same
    * jail `fs-handlers.ts` confines every read through — this is a read, not a
    * write, but it still crosses into `~/.claude` if it were let to, which is why
    * it takes the narrower `FsRepoScope` rather than a bare absolute path.
    */
-  shellShowItemInFolder: 'mgit:shell:show-item-in-folder',
+  shellShowItemInFolder: 'mstudio:shell:show-item-in-folder',
   /**
    * Put text on the system clipboard.
    *
@@ -205,53 +205,53 @@ export const CHANNELS = {
    * `moon run desktop:start` and silently fails in the shipped dmg is the worst
    * shape this could take.
    */
-  clipboardWriteText: 'mgit:clipboard:write-text',
+  clipboardWriteText: 'mstudio:clipboard:write-text',
 
   // --- mutating operations -------------------------------------------------
-  opCheckout: 'mgit:op:checkout',
-  opBranchCreate: 'mgit:op:branch-create',
-  opBranchDelete: 'mgit:op:branch-delete',
-  opBranchRename: 'mgit:op:branch-rename',
-  opTagCreate: 'mgit:op:tag-create',
-  opMerge: 'mgit:op:merge',
-  opRebase: 'mgit:op:rebase',
-  opCherryPick: 'mgit:op:cherry-pick',
-  opReset: 'mgit:op:reset',
-  opStage: 'mgit:op:stage',
-  opUnstage: 'mgit:op:unstage',
-  opDiscard: 'mgit:op:discard',
-  opCommit: 'mgit:op:commit',
-  opFetch: 'mgit:op:fetch',
-  opPull: 'mgit:op:pull',
-  opPush: 'mgit:op:push',
-  opAbort: 'mgit:op:abort',
-  opContinue: 'mgit:op:continue',
+  opCheckout: 'mstudio:op:checkout',
+  opBranchCreate: 'mstudio:op:branch-create',
+  opBranchDelete: 'mstudio:op:branch-delete',
+  opBranchRename: 'mstudio:op:branch-rename',
+  opTagCreate: 'mstudio:op:tag-create',
+  opMerge: 'mstudio:op:merge',
+  opRebase: 'mstudio:op:rebase',
+  opCherryPick: 'mstudio:op:cherry-pick',
+  opReset: 'mstudio:op:reset',
+  opStage: 'mstudio:op:stage',
+  opUnstage: 'mstudio:op:unstage',
+  opDiscard: 'mstudio:op:discard',
+  opCommit: 'mstudio:op:commit',
+  opFetch: 'mstudio:op:fetch',
+  opPull: 'mstudio:op:pull',
+  opPush: 'mstudio:op:push',
+  opAbort: 'mstudio:op:abort',
+  opContinue: 'mstudio:op:continue',
   /** Blast radius for a destructive op — `rev-list --count` of orphaned commits. */
-  opBlastRadius: 'mgit:op:blast-radius',
+  opBlastRadius: 'mstudio:op:blast-radius',
 
   // --- stash -----------------------------------------------------------------
   /** Every stash entry for one checkout, newest first — same shape `for-each-ref` gets. */
-  stashList: 'mgit:stash:list',
-  opStashPush: 'mgit:stash:push',
-  opStashPop: 'mgit:stash:pop',
-  opStashApply: 'mgit:stash:apply',
+  stashList: 'mstudio:stash:list',
+  opStashPush: 'mstudio:stash:push',
+  opStashPop: 'mstudio:stash:pop',
+  opStashApply: 'mstudio:stash:apply',
   /**
    * Drop a stash entry. Its own response shape, not the plain `GitOpResult`
    * every other op returns — a drop captures the sha it just made
    * unreachable, so a later undo has an anchor to `git stash store` back
    * from. See `StashDropResultSchema`.
    */
-  opStashDrop: 'mgit:stash:drop',
-  opStashBranch: 'mgit:stash:branch',
+  opStashDrop: 'mstudio:stash:drop',
+  opStashBranch: 'mstudio:stash:branch',
 
   // --- pty -----------------------------------------------------------------
   // `pty:*` owns the *process*; `terminal:*` below owns the durable *record*.
   // A session outlives its pty (that is the whole point of restoring one), so
   // conflating the two would tie a saved row to a pid that no longer exists.
-  ptyCreate: 'mgit:pty:create',
-  ptyInput: 'mgit:pty:input',
-  ptyResize: 'mgit:pty:resize',
-  ptyKill: 'mgit:pty:kill',
+  ptyCreate: 'mstudio:pty:create',
+  ptyInput: 'mstudio:pty:input',
+  ptyResize: 'mstudio:pty:resize',
+  ptyKill: 'mstudio:pty:kill',
   /**
    * The current ring-buffer contents for a live pty, trimmed the same way a
    * restart's scrollback is.
@@ -261,37 +261,37 @@ export const CHANNELS = {
    * exactly one — keeping the firehose out of the list keeps `hydrate` cheap
    * and a later reveal never sees a stale boot-time copy.
    */
-  ptySnapshot: 'mgit:pty:snapshot',
+  ptySnapshot: 'mstudio:pty:snapshot',
 
   // --- terminal sessions ---------------------------------------------------
   /** Restore: every saved session plus its replayable scrollback. */
-  terminalList: 'mgit:terminal:list',
-  terminalSave: 'mgit:terminal:save',
-  terminalForget: 'mgit:terminal:forget',
-  terminalReorder: 'mgit:terminal:reorder',
+  terminalList: 'mstudio:terminal:list',
+  terminalSave: 'mstudio:terminal:save',
+  terminalForget: 'mstudio:terminal:forget',
+  terminalReorder: 'mstudio:terminal:reorder',
   /** Built-in agents merged with the user's `agents.json`. */
-  agentList: 'mgit:agent:list',
+  agentList: 'mstudio:agent:list',
   /** Installed Claude CLI: version + install method, probed via a login shell. */
-  agentClaudeInfo: 'mgit:agent:claude-info',
+  agentClaudeInfo: 'mstudio:agent:claude-info',
   /** Run the method-matched update command; resolves when it exits. */
-  agentClaudeUpdate: 'mgit:agent:claude-update',
+  agentClaudeUpdate: 'mstudio:agent:claude-update',
 
   // --- browser (Phase 32) ---------------------------------------------------
   // A `WebContentsView` per tab, owned by `browser-service.ts`. Chrome state
   // (nav, title, favicon, loading) pushes over the single `browserEvent`
   // channel below rather than one channel per kind — see BrowserEventSchema.
-  browserCreate: 'mgit:browser:create',
-  browserClose: 'mgit:browser:close',
-  browserNavigate: 'mgit:browser:navigate',
-  browserBack: 'mgit:browser:back',
-  browserForward: 'mgit:browser:forward',
-  browserReload: 'mgit:browser:reload',
-  browserStop: 'mgit:browser:stop',
-  browserSetBounds: 'mgit:browser:set-bounds',
-  browserSetVisible: 'mgit:browser:set-visible',
+  browserCreate: 'mstudio:browser:create',
+  browserClose: 'mstudio:browser:close',
+  browserNavigate: 'mstudio:browser:navigate',
+  browserBack: 'mstudio:browser:back',
+  browserForward: 'mstudio:browser:forward',
+  browserReload: 'mstudio:browser:reload',
+  browserStop: 'mstudio:browser:stop',
+  browserSetBounds: 'mstudio:browser:set-bounds',
+  browserSetVisible: 'mstudio:browser:set-visible',
   /** Which tab is on top — only one view is ever attached-and-visible. */
-  browserActivate: 'mgit:browser:activate',
-  browserClearData: 'mgit:browser:clear-data',
+  browserActivate: 'mstudio:browser:activate',
+  browserClearData: 'mstudio:browser:clear-data',
 
   // --- filesystem (Phase 16 reads, Phase 24 writes) -------------------------
   // Reads are scope: repo | claude-home, exactly as before. The four write
@@ -299,26 +299,26 @@ export const CHANNELS = {
   // `claude-home` member, so a write naming it fails zod parsing at the
   // boundary rather than being refused by a handler someone could later "fix".
   // Every one goes through `fs-scope-write.ts`'s jail, never `confineToRoot`.
-  fsListDir: 'mgit:fs:list-dir',
-  fsReadFile: 'mgit:fs:read-file',
+  fsListDir: 'mstudio:fs:list-dir',
+  fsReadFile: 'mstudio:fs:read-file',
   /** Overwrite an existing file's content. Refuses on a moved `FsVersion`. */
-  fsWriteFile: 'mgit:fs:write-file',
+  fsWriteFile: 'mstudio:fs:write-file',
   /** New file or folder. The parent is confined; the final segment is not resolved. */
-  fsCreate: 'mgit:fs:create',
+  fsCreate: 'mstudio:fs:create',
   /** Rename or move within the repo. Both endpoints are confined independently. */
-  fsRename: 'mgit:fs:rename',
+  fsRename: 'mstudio:fs:rename',
   /** Trash, not `unlink` — recoverable in the Finder. */
-  fsDelete: 'mgit:fs:delete',
+  fsDelete: 'mstudio:fs:delete',
   /**
    * A directory's file count and total bytes, for a delete confirm's blast
    * radius. Bounded by `FS_DIR_STATS_WALK_CAP` — a truncated flag says so
    * rather than the count silently understating a huge tree.
    */
-  fsDirStats: 'mgit:fs:dir-stats',
+  fsDirStats: 'mstudio:fs:dir-stats',
   /** `git grep` over the tracked working tree — repo scope only, read-only. */
-  fsSearch: 'mgit:fs:search',
+  fsSearch: 'mstudio:fs:search',
   /** List tracked and untracked repository files via `git ls-files` — Phase 23 Theme G. */
-  fsListFiles: 'mgit:fs:list-files',
+  fsListFiles: 'mstudio:fs:list-files',
 
   // --- system metrics (Phase 18) -------------------------------------------
   // One-way `send`s, not `invoke`s: neither has anything to report back, and
@@ -327,8 +327,8 @@ export const CHANNELS = {
   // as a re-arm rather than a second sampler — see metrics-service.ts.
   //
   // No `repoId` and no path: these read the machine, not a repository.
-  metricsStart: 'mgit:metrics:start',
-  metricsStop: 'mgit:metrics:stop',
+  metricsStart: 'mstudio:metrics:start',
+  metricsStop: 'mstudio:metrics:stop',
 
   // --- repo diagnostics (Phase 18) -----------------------------------------
   // The one place this app runs a binary out of a directory the user merely
@@ -342,15 +342,15 @@ export const CHANNELS = {
   // cannot name what gets executed. Same rule as forge-handlers.ts, and it
   // matters more here.
   /** Is diagnostics enabled for this repo, and does the grant still apply? */
-  diagTrustStatus: 'mgit:diag:trust-status',
+  diagTrustStatus: 'mstudio:diag:trust-status',
   /** Record a grant for a command the user has just been shown. */
-  diagTrust: 'mgit:diag:trust',
+  diagTrust: 'mstudio:diag:trust',
   /** Revoke. The configured command survives; the grant does not. */
-  diagUntrust: 'mgit:diag:untrust',
+  diagUntrust: 'mstudio:diag:untrust',
   /** What the detector registry can propose for this repo. Runs nothing. */
-  diagDetect: 'mgit:diag:detect',
+  diagDetect: 'mstudio:diag:detect',
   /** Run the trusted command and parse its output. Manual, never automatic. */
-  diagRun: 'mgit:diag:run',
+  diagRun: 'mstudio:diag:run',
 
   // --- repository statistics (Phase 19) ------------------------------------
   /**
@@ -362,7 +362,7 @@ export const CHANNELS = {
    * which on a large repository is the difference between a dashboard that
    * opens and one that hangs.
    */
-  statsSummary: 'mgit:stats:summary',
+  statsSummary: 'mstudio:stats:summary',
 
   // --- repository tests (Phase 19) ------------------------------------------
   // Discovery runs no repo-local code — it reads package.json/moon.yml and
@@ -371,49 +371,49 @@ export const CHANNELS = {
   // same trust policy, granted per SUITE rather than per repo — see
   // desktop/src/main/testing/, which states the policy in full.
   /** Suites this checkout declares. Runs nothing; safe unprompted. */
-  testsDiscover: 'mgit:tests:discover',
+  testsDiscover: 'mstudio:tests:discover',
   /** Is this suite trusted to run, and does the grant still apply? */
-  testsTrustStatus: 'mgit:tests:trust-status',
+  testsTrustStatus: 'mstudio:tests:trust-status',
   /** Record a grant for a suite the user has just been shown. */
-  testsTrust: 'mgit:tests:trust',
+  testsTrust: 'mstudio:tests:trust',
   /** Revoke. Re-discovering and re-trusting is one click. */
-  testsUntrust: 'mgit:tests:untrust',
+  testsUntrust: 'mstudio:tests:untrust',
   /** Spawn a trusted suite. Resolves with a run id immediately — see `testsOutput`. */
-  testsRun: 'mgit:tests:run',
+  testsRun: 'mstudio:tests:run',
   /** Kill an in-flight run's whole process tree. */
-  testsCancel: 'mgit:tests:cancel',
+  testsCancel: 'mstudio:tests:cancel',
 
   // --- window chrome -------------------------------------------------------
-  windowMinimize: 'mgit:window:minimize',
-  windowMaximizeToggle: 'mgit:window:maximize-toggle',
-  windowClose: 'mgit:window:close',
-  windowState: 'mgit:window:state',
+  windowMinimize: 'mstudio:window:minimize',
+  windowMaximizeToggle: 'mstudio:window:maximize-toggle',
+  windowClose: 'mstudio:window:close',
+  windowState: 'mstudio:window:state',
   /** Renderer → main: retint the native window backing to match the theme. */
-  windowSetBackground: 'mgit:window:set-background',
+  windowSetBackground: 'mstudio:window:set-background',
   /**
    * Renderer → main: reload the window. Payload is `hard: boolean` — `false`
    * mirrors a browser's plain refresh (`webContents.reload`), `true` mirrors
    * a hard refresh that bypasses the HTTP cache (`webContents.reloadIgnoringCache`).
    */
-  windowReload: 'mgit:window:reload',
+  windowReload: 'mstudio:window:reload',
 } as const;
 
 /** One-way pushes from main → renderer (`webContents.send`). */
 export const EVENT_CHANNELS = {
   /** A batch of laid-out graph rows for an in-flight log stream. */
-  logBatch: 'mgit:log:batch',
+  logBatch: 'mstudio:log:batch',
   /** The log stream finished (or was cancelled). */
-  logDone: 'mgit:log:done',
+  logDone: 'mstudio:log:done',
   /** A batch of search hits (commits or content) for an in-flight search stream. */
-  searchBatch: 'mgit:search:batch',
+  searchBatch: 'mstudio:search:batch',
   /** The search stream finished (or was cancelled / truncated). */
-  searchDone: 'mgit:search:done',
+  searchDone: 'mstudio:search:done',
   /** Something changed on disk — see WatchEvent.kind. */
 
-  watchEvent: 'mgit:watch:event',
+  watchEvent: 'mstudio:watch:event',
   /** Raw pty output, as a Uint8Array (structured clone — never base64). */
-  ptyData: 'mgit:pty:data',
-  ptyExit: 'mgit:pty:exit',
+  ptyData: 'mstudio:pty:data',
+  ptyExit: 'mstudio:pty:exit',
   /**
    * What is actually running inside a pty changed — an agent started or quit.
    *
@@ -422,7 +422,7 @@ export const EVENT_CHANNELS = {
    * other keystroke until the process exists. Emitted only on a *change*, so an
    * idle terminal produces no traffic at all.
    */
-  ptyAgentChanged: 'mgit:pty:agent-changed',
+  ptyAgentChanged: 'mstudio:pty:agent-changed',
   /**
    * The shell's foreground process changed — a command started or finished.
    *
@@ -430,7 +430,7 @@ export const EVENT_CHANNELS = {
    * the foreground; a non-null value is held by the renderer until the next
    * change, so a session's auto-name survives the command finishing.
    */
-  ptyCommandChanged: 'mgit:pty:command-changed',
+  ptyCommandChanged: 'mstudio:pty:command-changed',
   /**
    * A live pty's guessed activity changed — thinking, waiting, idle, or `null`
    * for "the detector has nothing to say" (no marker set, or disabled).
@@ -439,24 +439,24 @@ export const EVENT_CHANNELS = {
    * renderer, so the status bar's agent count stays right while the terminal
    * panel is collapsed and every `TerminalView` is unmounted.
    */
-  ptyActivity: 'mgit:pty:activity',
+  ptyActivity: 'mstudio:pty:activity',
   /** Window maximized/fullscreen state changed, for the frameless TitleBar. */
-  windowStateChanged: 'mgit:window:state-changed',
+  windowStateChanged: 'mstudio:window:state-changed',
   /** A native-menu item fired — carries a CommandId, dispatched like a keybinding. */
-  menuCommand: 'mgit:menu:command',
+  menuCommand: 'mstudio:menu:command',
   /** stdout/stderr chunks from an in-flight Claude CLI update. */
-  agentClaudeUpdateData: 'mgit:agent:claude-update-data',
+  agentClaudeUpdateData: 'mstudio:agent:claude-update-data',
   /**
    * One reading of CPU/RAM/GPU/disk. A metric the machine cannot report is
    * OMITTED from the payload rather than sent as zero — see MetricSample.
    */
-  metricsSample: 'mgit:metrics:sample',
+  metricsSample: 'mstudio:metrics:sample',
   /** Live stdout/stderr chunks from an in-flight suite run — `{runId, chunk}`. */
-  testsOutput: 'mgit:tests:output',
+  testsOutput: 'mstudio:tests:output',
   /** A run finished (or was cancelled) — `{runId, suiteId, result}`. */
-  testsResult: 'mgit:tests:result',
+  testsResult: 'mstudio:tests:result',
   /** A discriminated-union chrome event for one browser tab — see BrowserEventSchema. */
-  browserEvent: 'mgit:browser:event',
+  browserEvent: 'mstudio:browser:event',
 } as const;
 
 /**
@@ -469,7 +469,7 @@ export const EVENT_CHANNELS = {
  * the window-creation logic gains a condition (a setting, a platform, a debug
  * flag) — and the symptom is an app-drawn title bar stacked on a native one.
  */
-export const WINDOW_FRAMELESS_ARG = '--mgit-frameless=';
+export const WINDOW_FRAMELESS_ARG = '--mstudio-frameless=';
 
 export type ChannelName = (typeof CHANNELS)[keyof typeof CHANNELS];
 export type EventChannelName = (typeof EVENT_CHANNELS)[keyof typeof EVENT_CHANNELS];

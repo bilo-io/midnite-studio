@@ -9,7 +9,7 @@ import { installMockBridge, type MockFixtures } from './mock-bridge';
  * densities, the overflow popover open, and the browser pane open — each in
  * both themes, following `actions-shots.spec.ts`'s dark pattern.
  *
- * Gated behind `MGIT_SHOTS`, like `shots.spec.ts` and `dashboard-shots.spec.ts` —
+ * Gated behind `MSTUDIO_SHOTS`, like `shots.spec.ts` and `dashboard-shots.spec.ts` —
  * these are new committed images, not an existing set a normal run must keep
  * passing, so they should not regenerate silently on every `app:e2e`.
  */
@@ -57,7 +57,7 @@ async function land(page: Page): Promise<void> {
 }
 
 test.describe('status bar screenshots', () => {
-  test.skip(!process.env.MGIT_SHOTS, 'set MGIT_SHOTS=1 to regenerate');
+  test.skip(!process.env.MSTUDIO_SHOTS, 'set MSTUDIO_SHOTS=1 to regenerate');
 
   for (const theme of ['light', 'dark'] as const) {
     test(theme, async ({ page }) => {

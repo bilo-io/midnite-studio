@@ -76,7 +76,7 @@ export function CodePreview({
 
   useEffect(() => {
     if (!showBlame || !repoId || !relPath || blameResult) return;
-    window.midniteGit?.blame
+    window.midniteStudio?.blame
       .read({ repoId, relPath, followRenames: true })
       .then((res) => {
         if (res.ok) {

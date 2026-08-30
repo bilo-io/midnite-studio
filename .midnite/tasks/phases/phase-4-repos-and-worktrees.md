@@ -7,7 +7,7 @@ under their main repo, selection drives the main area.
 
 - [x] `desktop/src/main/repo-registry.ts` — `repoId → git-engine instance` map; `git rev-parse --git-dir` validation; a worktree path resolves to its main repo (handle `.git`-as-file gitdir pointers)
 - [x] `desktop/src/main/repo-store.ts` — persisted opened paths in `app.getPath('userData')/repos.json`
-- [x] IPC handlers: `mgit:repo:{open,open-dialog,list,close,refs,worktrees,worktree-add,worktree-remove}` (zod-validated)
+- [x] IPC handlers: `mstudio:repo:{open,open-dialog,list,close,refs,worktrees,worktree-add,worktree-remove}` (zod-validated)
 - [x] Preload: `repo` bridge section
 - [x] `app/src/features/repos/{repos-panel.tsx,repo-item.tsx,use-repos.ts}` — Query-driven list; worktrees nested via ui Collapse/Accordion; open button → native dialog; worktree add/remove actions (remove gated by a confirm)
 - [x] `app/src/state/ui-store.ts` — `selectedRepoId` (a worktree is selectable as the active context)

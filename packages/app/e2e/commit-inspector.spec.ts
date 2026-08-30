@@ -48,8 +48,8 @@ const identities = (page: Page) => page.getByTestId('commit-identities');
 /** A directory row, matched exactly so a nested file's path cannot satisfy it. */
 const dir = (page: Page, path: string) =>
   files(page).getByRole('button', { name: path, exact: true });
-const clipboard = (page: Page) => page.evaluate(() => (window as never as { __mgitClipboard: string[] }).__mgitClipboard);
-const externals = (page: Page) => page.evaluate(() => (window as never as { __mgitExternalUrls: string[] }).__mgitExternalUrls);
+const clipboard = (page: Page) => page.evaluate(() => (window as never as { __mstudioClipboard: string[] }).__mstudioClipboard);
+const externals = (page: Page) => page.evaluate(() => (window as never as { __mstudioExternalUrls: string[] }).__mstudioExternalUrls);
 
 // --- Theme A: the rendered message ----------------------------------------
 

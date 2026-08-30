@@ -385,7 +385,7 @@ test('Actions and Reviews list what gh reports, and open on GitHub', async ({ pa
   await expect
     .poll(() =>
       page.evaluate(
-        () => (window as unknown as { __mgitExternalUrls: string[] }).__mgitExternalUrls,
+        () => (window as unknown as { __mstudioExternalUrls: string[] }).__mstudioExternalUrls,
       ),
     )
     .toContain('https://github.com/bilo-io/midnite-git/pull/42');
@@ -519,7 +519,7 @@ test('commit message input has equal inset on all sides when empty', async ({ pa
   expect(Math.abs(top - bottom)).toBeLessThanOrEqual(1.5);
   expect(Math.abs(left - top)).toBeLessThanOrEqual(1.5);
 
-  if (process.env.MGIT_SHOTS) {
+  if (process.env.MSTUDIO_SHOTS) {
     await page.screenshot({ path: '/tmp/changes-commit-input.png' });
   }
 });

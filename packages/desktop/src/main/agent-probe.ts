@@ -55,8 +55,8 @@ export const PROBE_TTL_MS = 30_000;
  * `parseWhichOutput`'s "last path line wins" rule would hand every agent the
  * same answer.
  */
-const frameStart = (id: string): string => `__MGIT_AGENT_${id}_START__`;
-const frameEnd = (id: string): string => `__MGIT_AGENT_${id}_END__`;
+const frameStart = (id: string): string => `__MSTUDIO_AGENT_${id}_START__`;
+const frameEnd = (id: string): string => `__MSTUDIO_AGENT_${id}_END__`;
 
 /**
  * The id is embedded in a shell string, so it has to be a shell-safe token.

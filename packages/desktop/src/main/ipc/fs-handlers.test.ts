@@ -24,7 +24,7 @@ describe('fs read handlers — dirStats + showItemInFolder (Phase 24 Theme C)', 
   let root: string;
 
   beforeAll(async () => {
-    root = await realpath(await mkdtemp(join(tmpdir(), 'mgit-fs-handlers-')));
+    root = await realpath(await mkdtemp(join(tmpdir(), 'mstudio-fs-handlers-')));
   });
 
   afterAll(async () => {
@@ -91,7 +91,7 @@ describe('fs read handlers — dirStats + showItemInFolder (Phase 24 Theme C)', 
 
     it('refuses a symlink whose target lands outside the root', async () => {
       resolveWorkdir.mockResolvedValue(root);
-      const outside = await mkdtemp(join(tmpdir(), 'mgit-fs-handlers-outside-'));
+      const outside = await mkdtemp(join(tmpdir(), 'mstudio-fs-handlers-outside-'));
       await symlink(outside, join(root, 'escape-link'));
       const { showItemInFolderForTest } = await importHandlers();
       const result = await showItemInFolderForTest({ ...base, relPath: 'escape-link' });

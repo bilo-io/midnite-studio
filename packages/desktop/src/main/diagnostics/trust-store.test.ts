@@ -16,7 +16,7 @@ const command: DiagnosticsCommand = {
 
 let dir: string;
 beforeEach(async () => {
-  dir = await mkdtemp(join(tmpdir(), 'mgit-trust-'));
+  dir = await mkdtemp(join(tmpdir(), 'mstudio-trust-'));
 });
 
 describe('statusFor', () => {

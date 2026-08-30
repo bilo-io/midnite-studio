@@ -231,7 +231,7 @@ export const useSearchStore = create<SearchState>()(
       cancelSearch: () => {
         const { inFlight } = get();
         if (inFlight) {
-          window.midniteGit?.search.cancel({ repoId: 'current', requestId: inFlight.requestId });
+          window.midniteStudio?.search.cancel({ repoId: 'current', requestId: inFlight.requestId });
           set({ inFlight: null });
         }
       },

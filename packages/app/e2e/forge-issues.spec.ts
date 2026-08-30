@@ -87,7 +87,7 @@ test('Issues lists what gh reports, and each row links out', async ({ page }) =>
   await expect
     .poll(() =>
       page.evaluate(
-        () => (window as unknown as { __mgitExternalUrls: string[] }).__mgitExternalUrls,
+        () => (window as unknown as { __mstudioExternalUrls: string[] }).__mstudioExternalUrls,
       ),
     )
     .toContain('https://github.com/bilo-io/midnite-git/issues/42');

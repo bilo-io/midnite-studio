@@ -123,7 +123,7 @@ test('a binary IMAGE gets the viewer rather than the sentence', async ({ page })
   await openCommit(page);
   await page.getByRole('button', { name: /phase-11-packaged-app\.png/ }).click();
 
-  // The bytes come from `mgit-file://`, which does not exist in a browser — so
+  // The bytes come from `mstudio-file://`, which does not exist in a browser — so
   // this asserts the viewer's chrome, which is what the renderer owns: both
   // revisions named, and the compare modes offered.
   const viewer = page.getByTestId('image-diff');
