@@ -180,13 +180,21 @@ export function RepoGroupHeader({
     ]);
   };
 
+  const bgStyle = colorDef
+    ? ({
+        '--group-bg': `${colorDef.swatch}20`,
+        '--group-bg-hover': `${colorDef.swatch}40`,
+        backgroundColor: 'var(--group-bg)',
+      } as CSSProperties)
+    : undefined;
+
   return (
     <div
       ref={drag.setNodeRef}
-      style={drag.style}
-      className={`group flex h-7 items-center gap-1 border-t border-border/60 bg-background px-1 pr-2 ${
-        drag.isDragging ? 'opacity-80' : ''
-      }`}
+      style={{ ...drag.style, ...bgStyle }}
+      className={`group flex h-7 items-center gap-1 border-t border-border/60 ${
+        colorDef ? 'transition-colors hover:bg-[var(--group-bg-hover)]' : 'bg-background'
+      } px-1 pr-2 ${drag.isDragging ? 'opacity-80' : ''}`}
     >
       {/* Drag handle */}
       <span
@@ -212,17 +220,13 @@ export function RepoGroupHeader({
             open ? 'rotate-90' : ''
           }`}
         />
-        {colorDef ? (
-          <span
-            className={`inline-flex items-center rounded px-1.5 py-0.5 text-[10px] font-semibold uppercase tracking-wide ${colorDef.pillClass}`}
-          >
-            {group.name}
-          </span>
-        ) : (
-          <span className="text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">
-            {group.name}
-          </span>
-        )}
+        <span
+          className={`text-[11px] font-semibold uppercase tracking-wide ${
+            colorDef ? 'text-foreground' : 'text-muted-foreground'
+          }`}
+        >
+          {group.name}
+        </span>
         <span className="text-[11px] tabular-nums text-muted-foreground/70">{repoCount}</span>
       </button>
 

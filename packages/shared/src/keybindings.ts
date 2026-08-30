@@ -75,7 +75,14 @@ export const COMMANDS = [
     chord: 'Ctrl+`',
     scope: 'global',
   },
-  { id: 'terminal.focus', label: 'Focus Terminal', group: 'terminal', chord: 'Mod+Shift+`' },
+  {
+    id: 'terminal.toggleHalfMaximized',
+    label: 'Toggle Terminal Half / Full Height',
+    group: 'terminal',
+    chord: 'Mod+Shift+`',
+    scope: 'global',
+  },
+  { id: 'terminal.focus', label: 'Focus Terminal', group: 'terminal' },
   /**
    * Mod+g ("G" for Git). `app` scope, unlike the terminal toggle: showing the
    * repository list while the terminal has focus is not something you reach

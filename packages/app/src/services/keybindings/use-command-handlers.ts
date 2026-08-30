@@ -79,6 +79,10 @@ export function useCommandHandlers(): CommandRuntime {
       : { enabled: false, disabledReason: 'No file open for editing', run: () => {} },
 
     'terminal.toggle': { enabled: true, run: () => useUiStore.getState().toggleTerminal() },
+    'terminal.toggleHalfMaximized': {
+      enabled: true,
+      run: () => useUiStore.getState().toggleTerminalHalfMaximized(),
+    },
     'terminal.focus': { enabled: true, run: () => useUiStore.getState().setTerminalOpen(true) },
     'repos.toggle': { enabled: true, run: () => useUiStore.getState().toggleRepos() },
     'browser.toggle': { enabled: true, run: () => useUiStore.getState().toggleBrowser() },

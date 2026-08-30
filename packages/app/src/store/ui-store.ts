@@ -448,6 +448,7 @@ export type UiState = {
   toggleTerminal: () => void;
   setTerminalOpen: (open: boolean) => void;
   toggleTerminalMaximized: () => void;
+  toggleTerminalHalfMaximized: () => void;
   setTerminalSidebarSide: (side: TerminalSidebarSide) => void;
   toggleTerminalList: () => void;
   toggleBrowser: () => void;
@@ -785,6 +786,13 @@ export const useUiStore = create<UiState>()(
       setTerminalOpen: (terminalOpen) => set({ terminalOpen }),
       toggleTerminalMaximized: () =>
         set((state) => ({ terminalMaximized: !state.terminalMaximized })),
+      toggleTerminalHalfMaximized: () =>
+        set((state) => {
+          if (!state.terminalOpen) {
+            return { terminalOpen: true, terminalMaximized: false };
+          }
+          return { terminalMaximized: !state.terminalMaximized };
+        }),
       setTerminalSidebarSide: (terminalSidebarSide) => set({ terminalSidebarSide }),
       toggleTerminalList: () =>
         set((state) => ({ terminalListOpen: !state.terminalListOpen })),

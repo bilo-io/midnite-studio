@@ -16,12 +16,12 @@ export function ActiveWorktreeSegment() {
   const { repoId, worktreePath } = useActiveWorktree();
   const repos = useRepos();
 
-  if (repoId === null) return null;
+  if (repoId === null || !worktreePath) return null;
 
   const repo = repos.data?.find((entry) => entry.id === repoId);
   if (!repo) return null;
 
-  const label = worktreePath ? basename(worktreePath) : repo.name;
+  const label = basename(worktreePath);
 
   return (
     <button
