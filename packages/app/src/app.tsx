@@ -24,6 +24,7 @@ import { useResizable } from './components/resizable/use-resizable';
 import { useReveal, useRevealSize } from './components/use-reveal';
 import { ThemeToggle } from './components/theme-toggle';
 import { TitleBarNav } from './components/title-bar-nav';
+import { OnboardingModal } from './features/onboarding/onboarding-modal';
 import { ActionsView } from './features/actions/actions-view';
 import { chordFor, displayChord } from './features/status-bar/chord-hint';
 import { BrowserPane } from './features/browser/browser-pane';
@@ -944,6 +945,7 @@ export function App() {
       <DialogHost>
         <PaletteHost>
           <Shell />
+          <OnboardingModal />
         </PaletteHost>
       </DialogHost>
       <FileEditorGuard />
