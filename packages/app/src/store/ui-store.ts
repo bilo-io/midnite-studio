@@ -698,6 +698,7 @@ type PersistedUi = Pick<
   | 'updatesAutoCheck'
   | 'updateChannel'
   | 'onboardedAt'
+  | 'showOnboarding'
   | 'inactivityTimeoutS'
   | 'cycleDurationS'
   | 'requirePasscode'
@@ -1004,6 +1005,11 @@ export const useUiStore = create<UiState>()(
         updatesAutoCheck: state.updatesAutoCheck,
         updateChannel: state.updateChannel,
         onboardedAt: state.onboardedAt,
+        /* Persisted for the same reason `onboardedAt` is: the welcome modal is
+         * a full-screen `inset-0` overlay, so a default of `true` that is never
+         * written down means it is re-raised over the whole app on every single
+         * launch — and the only way past it is to dismiss it again. */
+        showOnboarding: state.showOnboarding,
         inactivityTimeoutS: state.inactivityTimeoutS,
         cycleDurationS: state.cycleDurationS,
         requirePasscode: state.requirePasscode,
