@@ -28,10 +28,10 @@ afterEach(async () => {
  * until the roster grew to four and it stopped being an unknown id, which is
  * the whole point of the "appends an unknown id" case below.
  */
-const aider: AgentDefinition = {
-  id: 'aider',
-  label: 'Aider',
-  command: 'aider',
+const roo: AgentDefinition = {
+  id: 'roo',
+  label: 'Roo Code',
+  command: 'roo',
   args: [],
   accent: '#14B8A6',
 };
@@ -65,25 +65,25 @@ describe('createAgentsStore', () => {
 
   it('reads a bare array', async () => {
     const dir = await tempDir();
-    await writeAgents(dir, JSON.stringify([aider]));
+    await writeAgents(dir, JSON.stringify([roo]));
 
-    expect(await createAgentsStore(dir).load()).toContainEqual(aider);
+    expect(await createAgentsStore(dir).load()).toContainEqual(roo);
   });
 
   it('reads the { agents: [...] } form too', async () => {
     const dir = await tempDir();
-    await writeAgents(dir, JSON.stringify({ agents: [aider] }));
+    await writeAgents(dir, JSON.stringify({ agents: [roo] }));
 
-    expect(await createAgentsStore(dir).load()).toContainEqual(aider);
+    expect(await createAgentsStore(dir).load()).toContainEqual(roo);
   });
 });
 
 describe('mergeAgents', () => {
   it('appends an unknown id after the builtins', () => {
-    const merged = mergeAgents(BUILTIN_AGENTS, [aider]);
+    const merged = mergeAgents(BUILTIN_AGENTS, [roo]);
 
     expect(merged).toHaveLength(BUILTIN_AGENTS.length + 1);
-    expect(merged.at(-1)).toEqual(aider);
+    expect(merged.at(-1)).toEqual(roo);
   });
 
   /**
@@ -92,16 +92,16 @@ describe('mergeAgents', () => {
    */
   it('replaces a builtin by id, keeping its position', () => {
     const override = { ...BUILTIN_AGENTS[0]!, command: 'claude --dangerously-skip-permissions' };
-    const merged = mergeAgents(BUILTIN_AGENTS, [aider, override]);
+    const merged = mergeAgents(BUILTIN_AGENTS, [roo, override]);
 
     expect(merged[0]).toEqual(override);
     expect(merged).toHaveLength(BUILTIN_AGENTS.length + 1);
   });
 
   it('drops only the entries that fail the schema', () => {
-    const merged = mergeAgents(BUILTIN_AGENTS, [{ id: 'broken' }, aider, null, 'nope']);
+    const merged = mergeAgents(BUILTIN_AGENTS, [{ id: 'broken' }, roo, null, 'nope']);
 
-    expect(merged).toEqual([...BUILTIN_AGENTS, aider]);
+    expect(merged).toEqual([...BUILTIN_AGENTS, roo]);
   });
 
   it('ignores a shape that is not a roster at all', () => {
@@ -153,8 +153,8 @@ describe('mergeAgents', () => {
     ['an empty install', { install: '' }],
     ['a non-string icon', { icon: 42 }],
   ])('drops an entry with %s, keeping the others', (_name, bad) => {
-    const merged = mergeAgents(BUILTIN_AGENTS, [{ ...gemini, ...bad }, aider]);
+    const merged = mergeAgents(BUILTIN_AGENTS, [{ ...gemini, ...bad }, roo]);
 
-    expect(merged).toEqual([...BUILTIN_AGENTS, aider]);
+    expect(merged).toEqual([...BUILTIN_AGENTS, roo]);
   });
 });

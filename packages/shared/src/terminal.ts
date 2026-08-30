@@ -231,6 +231,43 @@ export const BUILTIN_AGENTS: readonly AgentDefinition[] = [
     accent: '#03B000',
     install: 'npm i -g opencode-ai',
   },
+  {
+    id: 'kilo',
+    label: 'Kilo Code',
+    command: 'kilo',
+    args: [],
+    resume: ['--continue'],
+    accent: '#FF5500',
+    install: 'npm i -g @kilocode/cli',
+  },
+  {
+    id: 'aider',
+    label: 'Aider',
+    command: 'aider',
+    args: [],
+    resume: ['--restore-chat-history'],
+    accent: '#D93838',
+    install: 'pip install -U aider-chat',
+  },
+  {
+    id: 'cursor',
+    label: 'Cursor',
+    command: 'cursor',
+    args: [],
+    accent: '#0066FF',
+    icon: 'SiCursor',
+    install: 'curl -fsSL https://cursor.com/install.sh | sh',
+  },
+  {
+    id: 'cline',
+    label: 'Cline',
+    command: 'cline',
+    args: [],
+    resume: ['--continue'],
+    accent: '#5F52FF',
+    icon: 'SiCline',
+    install: 'npm i -g cline',
+  },
 ] as const;
 
 /**

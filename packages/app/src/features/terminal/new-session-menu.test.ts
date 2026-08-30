@@ -57,6 +57,10 @@ describe('buildNewSessionMenu — everything installed', () => {
       'Codex',
       'OpenClaude',
       'OpenCode',
+      'Kilo Code',
+      'Aider',
+      'Cursor',
+      'Cline',
     ]);
   });
 
@@ -139,13 +143,13 @@ describe('buildNewSessionMenu — one agent uninstalled', () => {
   });
 
   it('falls back to a sentence when a user-added agent has no install hint', () => {
-    const custom = { id: 'aider', label: 'Aider', command: 'aider', args: [], accent: '#14B8A6' };
+    const custom = { id: 'custom-agent', label: 'Custom Agent', command: 'custom-agent', args: [], accent: '#14B8A6' };
     const items = build({
       agents: [custom],
-      status: [{ id: 'aider', installed: false, resolvedPath: null }],
+      status: [{ id: 'custom-agent', installed: false, resolvedPath: null }],
     });
 
-    expect(row(items, 'Aider')?.disabledReason).toContain('aider');
+    expect(row(items, 'Custom Agent')?.disabledReason).toContain('custom-agent');
   });
 });
 
