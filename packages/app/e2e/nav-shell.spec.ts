@@ -107,9 +107,10 @@ test('the rail carries all eight views, Dashboard ungrouped above the rest', asy
     await expect(rail(page, label)).toBeVisible();
   }
 
-  // Settings is a footer BUTTON, not a workspace link — it is pinned to the
-  // bottom of the rail the way settings sit in VS Code and GitKraken.
+  // Settings and Lock screen are footer BUTTONs, not workspace links — they sit at
+  // the bottom of the rail.
   await expect(page.getByRole('button', { name: 'Settings' })).toBeVisible();
+  await expect(page.getByRole('button', { name: 'Lock screen' })).toBeVisible();
   await expect(rail(page, 'Settings')).toHaveCount(0);
 
   /*
