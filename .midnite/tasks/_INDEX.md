@@ -20,8 +20,8 @@ Completed work is logged append-only in [`done.md`](done.md). Deferred scope liv
 
 | Phase | Status | Refined | Done | Progress | % | 🔄 WIP | ◻ TODO |
 |-------|--------|---------|------|----------|---|--------|--------|
-| [33 · Application Installation, CLI Tool & Desktop Integration](phases/phase-33-installable-app-and-cli-integration.md) | 🔄 WIP | x1 | 18/44 | `████░░░░░░` | 41% | A, B, C, D | — |
-| [32 · The browser gets an engine, and the tabs to fill it](phases/phase-32-browser-engine-and-tabs.md) | 🔄 WIP | — | 45/99 | `█████░░░░░` | 45% | E, F | G, H, I |
+| [33 · Application Installation, CLI Tool & Desktop Integration](phases/phase-33-installable-app-and-cli-integration.md) | 🔄 WIP | x1 | 35/44 | `████████░░` | 80% | — | E |
+| [32 · The browser gets an engine, and the tabs to fill it](phases/phase-32-browser-engine-and-tabs.md) | 🔄 WIP | — | 61/99 | `██████░░░░` | 61% | — | G, H, I |
 | [31 · Interactive Rebase Builder & Graph Sequence Editor](phases/phase-31-interactive-rebase.md) | ✅ DONE | — | 18/18 | `██████████` | 100% | — | — |
 | [30 · A terminal that survives you](phases/phase-30-terminal-hardening.md) | ✅ DONE | x2 | 91/91 | `██████████` | 100% | — | — |
 | [29 · Markdown slides, everywhere markdown already renders](phases/phase-29-markdown-slides-viewer.md) | ✅ DONE | — | 21/21 | `██████████` | 100% | — | — |
@@ -68,10 +68,10 @@ first-run setup onboarding. Written throughout against the **Midnite Studio rena
 prerequisite: every identifier this phase creates is a name. Sequencing is C → B (the CLI is a thin
 wrapper over the protocol), with A and D independent and E last.*
 
-- ◻ **A** — Polished DMG Package & macOS Desktop Integration. `dmg:` window layout + @1x/@2x PNG artwork, hardened-runtime entitlements, `protocols:` registration, an env-gated `afterSign` notarize hook, and a `verify-dist` gate asserting `codesign --verify` / `hdiutil verify`.
-- ◻ **B** — `midnite-studio` CLI Binary & System PATH Symlinking. A POSIX `sh` wrapper execing `open` on the URL scheme, `mstudio:cli:*` channels behind `GitOpResultOf`, a `/usr/local/bin` → `~/.local/bin` fallback that never uses sudo, zsh/bash/fish completions, and the CLI Integration settings page.
-- ◻ **C** — `midnite-studio://` Custom Protocol Handler & Deep-Link Dispatch. The single-instance lock already exists — this adds `open-url`, argv forwarding, a pure `parseDeepLink` that returns `null` on hostile input, and a jail rule: a known repo opens silently, any other path needs consent.
-- ◻ **D** — Auto-Updater Service & Update Status Banner. `electron-updater` behind one coalesced `UpdateState` push, a `manualInstall` flag so an ad-hoc-signed build still detects updates, `feedChannelFor` mapping stable → `latest`, a `publish:` block, and a status-bar pill that is `toast-store`'s first caller.
+- ✅ **A** — Polished DMG Package & macOS Desktop Integration. `dmg:` window layout + @1x/@2x PNG artwork, hardened-runtime entitlements, `protocols:` registration, an env-gated `afterSign` notarize hook, and a `verify-dist` gate asserting `codesign --verify` / `hdiutil verify`. (2026-08-30)
+- ✅ **B** — `midnite-studio` CLI Binary & System PATH Symlinking. A POSIX `sh` wrapper execing `open` on the URL scheme, `mstudio:cli:*` channels behind `GitOpResultOf`, a `/usr/local/bin` → `~/.local/bin` fallback that never uses sudo, zsh/bash/fish completions, and the CLI Integration settings page. (2026-08-30)
+- ✅ **C** — `midnite-studio://` Custom Protocol Handler & Deep-Link Dispatch. The single-instance lock already exists — this adds `open-url`, argv forwarding, a pure `parseDeepLink` that returns `null` on hostile input, and a jail rule: a known repo opens silently, any other path needs consent. (2026-08-30)
+- ✅ **D** — Auto-Updater Service & Update Status Banner. `electron-updater` behind one coalesced `UpdateState` push, a `manualInstall` flag so an ad-hoc-signed build still detects updates, `feedChannelFor` mapping stable → `latest`, a `publish:` block, and a status-bar pill that is `toast-store`'s first caller. (2026-08-30)
 - ◻ **E** — First-Run Onboarding & System Health. `onboardedAt` seeded by the shared `version < 5` migration, a focus-trapped first-run modal, and one `HealthChecklist` shared by the modal and a System Health settings page.
 
 ### [Phase 32 — The browser gets an engine, and the tabs to fill it](phases/phase-32-browser-engine-and-tabs.md)
@@ -88,8 +88,8 @@ above the DOM demands.*
 - ✅ **B** — Permissions denied, navigation policy, no preload on embedded views, clear browsing data. (2026-08-30)
 - ✅ **C** — Tab store and strip: drag-reorder, context menu, browser-scoped chords. (2026-08-30)
 - ✅ **D** — Tab groups, manual (named, coloured, collapsible) and repo-derived. (2026-08-30)
-- ◻ **E** — Occlusion registry and bounds choreography — every overlay must outrank the native layer.
-- ◻ **F** — The new-tab page: `BrandMark` hero, shortcut tiles, repo-derived tiles, recents.
+- ✅ **E** — Occlusion registry and bounds choreography — every overlay must outrank the native layer. (2026-08-30)
+- ✅ **F** — The new-tab page: `BrandMark` hero, shortcut tiles, repo-derived tiles, recents. (2026-08-30)
 - ◻ **G** — Real chrome: back/forward/reload, URL-vs-search resolution, find-in-page, zoom, errors.
 - ◻ **H** — Dev powers: detached DevTools, dev-server detection, responsive width presets.
 - ◻ **I** — Forge in place: links open in-app by default, `originRepoId` routing, preview deploys.
