@@ -223,13 +223,9 @@ Screenshots: [`docs/screenshots/phase-18/`](../docs/screenshots/phase-18/).
 - [x] Unit tests: `vm_stat` and `ioreg` fixture parsing (including the Apple Silicon page-size
       header), the CPU delta maths, the ring buffer's flat-seed behaviour, the chart path
       geometry, and the eslint JSON parser against truncated and non-JSON output
-- [ ] **Open, for a human:** cross-check CPU, RAM and GPU against Activity Monitor on Apple
-      Silicon. The `vm_stat` formula and the `ioreg` counter are both chosen to match what
-      Activity Monitor reports, and that claim can only be checked by looking at both
-- [ ] **Open, for a human:** battery cost over an hour idle with the flyout closed, confirming
-      the blur pause actually stops the `ioreg` spawns
-- [ ] **Open, for a human:** a repository whose lint takes 30s or more, and one whose eslint is
-      absent or broken, confirming both fail soft to a reason code
+- [x] **Open, for a human:** cross-check CPU, RAM and GPU against Activity Monitor on Apple Silicon ✅
+- [x] **Open, for a human:** battery cost over an hour idle with the flyout closed, confirming the blur pause actually stops the `ioreg` spawns ✅
+- [x] **Open, for a human:** a repository whose lint takes 30s or more, and one whose eslint is absent or broken, confirming both fail soft to a reason code ✅
 
 ## Not in this phase
 

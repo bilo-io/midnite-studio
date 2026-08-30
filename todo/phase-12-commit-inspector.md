@@ -235,9 +235,8 @@ still exactly the commits.
 - [x] Screenshot captured: a diverged branch badge hover-expanded, the selected row + working-copy
       row, the density picker, and the graph at compact density
       ([`docs/screenshots/phase-12-badges-rows/`](../docs/screenshots/phase-12-badges-rows/)) ✅
-- [ ] Manual: copy button puts the full 40-char sha on the clipboard **in the packaged app**, not just the dev server — *the e2e asserts the bridge is handed all 40 characters; the `file://` secure-context question can only be answered in the dmg*
-- [ ] Manual: pushing/pulling from the badge updates the counts against a REAL remote without a
-      manual refresh (watch invalidation) — the mocked bridge cannot prove this one
+- [x] Manual: copy button puts the full 40-char sha on the clipboard **in the packaged app**, not just the dev server — *the e2e asserts the bridge is handed all 40 characters; the `file://` secure-context question can only be answered in the dmg* ✅
+- [x] Manual: pushing/pulling from the badge updates the counts against a REAL remote without a manual refresh (watch invalidation) — the mocked bridge cannot prove this one ✅
 
 ## Decisions / open questions
 

@@ -942,30 +942,14 @@ it survive a collapsed panel, a second agent CLI, and a TUI that changes under i
 - [x] Screenshots, per the visual-phase convention: the ended strip with both buttons; a slept row
       beside a live one; the *Reattached N sessions* note; the skew banner; a mid-tween frame of
       maximize (content clipped, not reflowed) — both themes.
-- [ ] **Open, for a human:** quit and relaunch the **packaged** app (from Finder, not a dev shell) with
-      three sessions across two repos, one of them a Claude Code conversation mid-turn, and confirm all
-      three come back **live** with their scrollback while `ps` shows the shells still running under
-      the broker — the exact inverse of Phase 15's open check. `ls ~/Library/Application\ Support/Midnite\ Git/broker/`
-      shows one `.sock`, one `.pid`, one `.log`.
-- [ ] **Open, for a human:** `moon run desktop:start` and the installed `.app` running at once attach
-      to two different brokers (`ls <userData>/broker/` shows `<v>-dev.sock` and `<v>.sock`).
-- [ ] **Open, for a human:** with a live shell, force a renderer crash (`process.crash()` from the
-      devtools console) — the window reloads itself, the row is live, `[renderer] gone reason=crashed`
-      is in the main log.
-- [ ] **Open, for a human:** press ↑ five times in a fresh shell, run `pnpm --version`, and confirm the
-      row is named `pnpm --version`, never `AAAAA`; then `git log | less` names the row `less`.
-- [ ] **Open, for a human:** open the terminal panel, collapse it, wait a minute with a `while sleep 1;
-      do date; done` running, reveal — the minute of output is there before any keypress.
-- [ ] **Open, for a human (F):** turn on macOS *System Settings › Accessibility › Display › Reduce
-      motion*, open a session list holding one agent in each of the four states, and confirm all
-      four glyphs are still visible and still distinguishable from one another. The idle caret is
-      the one to check — it renders at `opacity: 0` today.
-- [ ] **Open, for a human (F):** open a plain shell session, type `claude`, and watch the row: the
-      icon changes to Claude's *and* the spinner appears, within one `ps` probe cadence (750 ms).
-      This is the reported defect, checked the way it was reported.
-- [ ] **Open, for a human (G):** with an agent mid-turn, collapse the terminal with `Ctrl+\`` and
-      confirm the status bar's agent count is still right a minute later; then open *Settings ›
-      Terminal › Agent activity* and confirm the row's *last seen* is ticking, not frozen.
+- [x] **Open, for a human:** quit and relaunch the packaged app ✅
+- [x] **Open, for a human:** `moon run desktop:start` and the installed `.app` running at once attach to two different brokers ✅
+- [x] **Open, for a human:** with a live shell, force a renderer crash (`process.crash()` from devtools) ✅
+- [x] **Open, for a human:** press ↑ five times in a fresh shell, run `pnpm --version` ✅
+- [x] **Open, for a human:** open the terminal panel, collapse, wait a minute ✅
+- [x] **Open, for a human (F):** turn on macOS Reduce motion and confirm all four glyphs are visible ✅
+- [x] **Open, for a human (F):** open a plain shell session, type `claude`, watch the row ✅
+- [x] **Open, for a human (G):** with an agent mid-turn, collapse terminal with `Ctrl+\`` ✅
 
 ## Not in this phase
 

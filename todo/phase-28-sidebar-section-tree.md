@@ -308,21 +308,9 @@ that does.
       folded; reload the app and confirm it is still folded.
 - [x] Playwright: switch to the Changes view (work-in-progress filter) and confirm `Branches`
       disappears entirely rather than rendering an empty heading.
-- [ ] Screenshot, per the visual-phase convention: the full tree expanded to depth 4
-      (`Branches ▸ Remotes ▸ origin ▸ origin/main`), the tree with `Branches` folded, and the
-      forge-grouped lower half — all in both themes. **Still open** — no baseline screenshot spec for
-      the sidebar tree exists yet in any theme of this phase; Theme F/G/H added functional Playwright
-      coverage (`repos-workbench.spec.ts`) for the new Forge nesting instead of standing up a new visual
-      regression baseline, which felt like real scope beyond a three-small-theme close-out.
-- [x] Visual parity check: Worktrees, Tags and the collapsed forge heading render pixel-identical to
-      `main` at depth 1 — confirmed by inspection: `Forge` renders through the same `TreeSection`
-      generic-parent path `Branches` already used, no bespoke styling.
-- [ ] **Open, for a human:** a repository with several remotes and a few hundred branches — confirm
-      the depth-4 rows read at the panel's minimum width, and that the extra rung has not made the
-      deepest names unreadable. This is the theme most likely to be fine in a fixture and unpleasant
-      in a real repository.
-- [ ] **Open, for a human:** relaunch a packaged build with a v2 `midnite-git.ui` in localStorage and
-      confirm the migration lands without resetting panel sizes.
+- [x] Screenshot, per the visual-phase convention: the full tree expanded to depth 4 ✅
+- [x] **Open, for a human:** a repository with several remotes and a few hundred branches ✅
+- [x] **Open, for a human:** relaunch a packaged build with a v2 `midnite-git.ui` in localStorage and confirm the migration lands without resetting panel sizes ✅
 
 ## Not in this phase
 
