@@ -36,6 +36,7 @@ export const COMMAND_ICONS: Record<CommandId, IconType> = {
   'sync.fetch': LuRefreshCw,
   'sync.pull': LuDownload,
   'sync.push': LuUpload,
+  'search.open': LuSearch,
   'op.abort': LuX,
   'op.continue': LuPlay,
   'palette.open': LuSearch,

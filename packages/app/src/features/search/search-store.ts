@@ -58,6 +58,9 @@ export type SearchState = {
   truncated: boolean;
   error: string | null;
 
+  flags: { regexp: boolean; ignoreCase: boolean; wordMatch: boolean };
+  setFlags: (flags: Partial<{ regexp: boolean; ignoreCase: boolean; wordMatch: boolean }>) => void;
+
   // Actions
   setMode: (mode: SearchMode) => void;
   setCommitsOptions: (options: Partial<CommitsSearchOptions>) => void;
@@ -107,6 +110,23 @@ export const useSearchStore = create<SearchState>()(
       contentOptions: DEFAULT_CONTENT_OPTIONS,
       filesOptions: DEFAULT_FILES_OPTIONS,
       selectedItem: null,
+
+      flags: { regexp: false, ignoreCase: true, wordMatch: false },
+      setFlags: (flags) =>
+        set((state) => ({
+          flags: { ...state.flags, ...flags },
+          commitsOptions: {
+            ...state.commitsOptions,
+            ...(flags.regexp !== undefined ? { regexp: flags.regexp } : {}),
+            ...(flags.ignoreCase !== undefined ? { ignoreCase: flags.ignoreCase } : {}),
+          },
+          contentOptions: {
+            ...state.contentOptions,
+            ...(flags.regexp !== undefined ? { regexp: flags.regexp } : {}),
+            ...(flags.ignoreCase !== undefined ? { ignoreCase: flags.ignoreCase } : {}),
+            ...(flags.wordMatch !== undefined ? { wordMatch: flags.wordMatch } : {}),
+          },
+        })),
 
       inFlight: null,
       commitsResults: [],
