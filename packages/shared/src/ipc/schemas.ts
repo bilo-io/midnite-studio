@@ -1350,6 +1350,10 @@ export const BrowserSetVisibleRequest = z.object({
   visible: z.boolean(),
 });
 export const BrowserActivateRequest = z.object({ tabId: z.string().min(1) });
+export const BrowserDevtoolsRequest = z.object({
+  tabId: z.string().min(1),
+  mode: z.enum(['detach', 'embed']).default('detach'),
+});
 /** No payload: clears the whole `persist:browser` partition's storage and cache. */
 export const BrowserClearDataResponse = GitOpResultSchema;
 
@@ -1395,3 +1399,44 @@ export type LogDoneEventPayload = z.infer<typeof LogDoneEvent>;
 export type WindowState = z.infer<typeof WindowStateSchema>;
 export type CommitDetail = z.infer<typeof CommitDetailResponse>;
 export type BlastRadius = z.infer<typeof BlastRadiusResponse>;
+
+// --- cli (Phase 33) --------------------------------------------------------
+export const CliStatusResponse = z.object({
+  installed: z.boolean(),
+  path: z.string().nullable(),
+  target: z.string().nullable(),
+  managed: z.boolean(),
+});
+export const CliInstallRequest = z.object({ target: z.enum(['auto', 'user']).default('auto') });
+export const CliInstallResponse = GitOpResultOf(CliStatusResponse);
+export const CliUninstallResponse = GitOpResultOf(CliStatusResponse);
+
+// --- updates (Phase 33) ----------------------------------------------------
+export const UpdateChannelSchema = z.enum(['stable', 'beta']);
+export const UpdateSetChannelRequest = z.object({ channel: UpdateChannelSchema });
+export const UpdateStateSchema = z.object({
+  phase: z.enum(['idle', 'checking', 'available', 'downloading', 'downloaded', 'error']),
+  version: z.string().nullable(),
+  percent: z.number().nullable(),
+  error: z.string().nullable(),
+  manualInstall: z.boolean().optional(),
+});
+
+// --- system health (Phase 33) ----------------------------------------------
+export const SystemHealthResponse = z.object({
+  git: z.object({ path: z.string().nullable(), version: z.string().nullable() }),
+  shell: z.string().nullable(),
+  sshAgent: z.object({ running: z.boolean(), keys: z.number() }),
+  cli: CliStatusResponse,
+});
+
+// --- deep link (Phase 33) --------------------------------------------------
+export const DeepLinkSchema = z.discriminatedUnion('kind', [
+  z.object({ kind: z.literal('open'), repo: z.string() }),
+  z.object({ kind: z.literal('clone'), url: z.string() }),
+]);
+export const DeepLinkEventSchema = z.object({
+  link: DeepLinkSchema,
+  known: z.boolean(),
+});
+

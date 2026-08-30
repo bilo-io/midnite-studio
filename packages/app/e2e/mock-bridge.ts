@@ -1182,6 +1182,7 @@ export async function installMockBridge(page: Page, fixtures: MockFixtures): Pro
         setBounds: noop,
         setVisible: noop,
         activate: noop,
+        devtools: noop,
         clearData: ok,
         onEvent: (handler: (e: unknown) => void) => {
           browserEventHandlers.push(handler);
@@ -1189,6 +1190,27 @@ export async function installMockBridge(page: Page, fixtures: MockFixtures): Pro
             browserEventHandlers.splice(browserEventHandlers.indexOf(handler), 1);
           };
         },
+      },
+      cli: {
+        status: async () => ({ installed: false, path: null, target: null, managed: false }),
+        install: async () => ({ ok: true as const, value: { installed: true, path: '/usr/local/bin/midnite-studio', target: '/usr/local/bin/midnite-studio', managed: true } }),
+        uninstall: async () => ({ ok: true as const, value: { installed: false, path: null, target: null, managed: false } }),
+      },
+      update: {
+        check: noop,
+        download: noop,
+        restart: noop,
+        setChannel: noop,
+        onState: unsubscribe,
+      },
+      systemHealth: async () => ({
+        git: { path: '/usr/bin/git', version: 'git version 2.39.5' },
+        shell: '/bin/zsh',
+        sshAgent: { running: true, keys: 1 },
+        cli: { installed: false, path: null, target: null, managed: false },
+      }),
+      protocol: {
+        onDeepLink: unsubscribe,
       },
       fs: {
         listDir: async (req: { scope: string; relPath: string }) => {
