@@ -350,14 +350,14 @@ What makes it the browser of a git client rather than a browser that happens to 
       [`pr-detail.tsx`](../packages/app/src/features/reviews/pr-detail.tsx) open in-app, carrying the
       PR's repo as `originRepoId`.
 - [ ] Actions integration: a workflow run's `details_url` opens in-app from the Actions view.
-- [ ] `features/browser/preview-deploy.ts` — a **pure** matcher over a check run's `details_url` and PR
+- [x] `features/browser/preview-deploy.ts` — a **pure** matcher over a check run's `details_url` and PR
       comment bodies, against a host-suffix allowlist (`vercel.app`, `netlify.app`, `pages.dev`,
       `surge.sh`, `render.com`, `fly.dev`, …). Returns candidates, not a verdict.
 - [ ] An "Open preview" affordance in the Reviews view when the matcher finds exactly one candidate; a
       small menu when it finds several; nothing when it finds none. Say in the code comment that this
       is a heuristic over an allowlist and will miss self-hosted preview hosts — a false negative is
       an absent button, which is the right failure.
-- [ ] Unit-test the matcher against fixture check-run and comment payloads, including the negatives
+- [x] Unit-test the matcher against fixture check-run and comment payloads, including the negatives
       (a `vercel.app` substring inside a longer host must not match; matching is on suffix
       boundaries).
 

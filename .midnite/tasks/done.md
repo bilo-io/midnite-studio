@@ -2,6 +2,11 @@
 
 <!-- Append one entry per landed phase/PR: date, phase, PR link, one-line summary. -->
 
+## 2026-08-30 — Phase 32 Theme I & Phase 33 Theme E — Preview Deploy Matcher & First-Run Onboarding Modal
+
+- [x] **Phase 32 Theme I**: Implemented `packages/app/src/features/browser/preview-deploy.ts` matching preview URLs (Vercel, Netlify, Pages.dev, Surge, Render, Fly.dev) with full test coverage in `preview-deploy.test.ts`.
+- [x] **Phase 33 Theme E**: Implemented `packages/desktop/src/main/system-health.ts` for system health probes with `system-health.test.ts`, mounted `<OnboardingModal />` in `app.tsx`, and registered `CliPage`, `UpdatesPage`, and `HealthPage` in `settings-view.tsx`.
+
 ## 2026-08-30 — Phase 32 (E,F,G,H) & Phase 33 (A,B,C,D) — WebContentsView Controls, PATH Symlink Helpers & Update State
 
 - [x] **Phase 32 (Themes E, F, G, H)**: Added DevTools support (`detach`/`bottom`) to `browser-service.ts`, wired Back/Forward/Reload and DevTools toggle buttons in `browser-pane.tsx`, created input resolver `resolve-input.ts` turning typed text into URLs or search engine queries with vitest coverage.
