@@ -866,9 +866,22 @@ describe('keybindings', () => {
     expect(new Set(commands).size).toBe(commands.length);
   });
 
-  it('binds every chord at most once', () => {
-    const chords = DEFAULT_KEYMAP.map((b) => b.chord);
-    expect(new Set(chords).size).toBe(chords.length);
+  it('binds every chord at most once, except a browser.* command deliberately sharing one with an app-wide command', () => {
+    // Phase 32 Theme C: the browser's own tab chords (Mod+w, Mod+1…Mod+9)
+    // intentionally reuse chords repo.close/graph.focus/status.focus already
+    // own — `use-keybindings.ts` resolves the collision by preferring the
+    // `browser.*` reading only while the pane is open. Any OTHER duplicate
+    // is a real mistake this test still catches.
+    const byChord = new Map<string, string[]>();
+    for (const binding of DEFAULT_KEYMAP) {
+      byChord.set(binding.chord, [...(byChord.get(binding.chord) ?? []), binding.command]);
+    }
+    for (const [chord, commands] of byChord) {
+      if (commands.length === 1) continue;
+      expect(commands, `chord ${chord} bound to ${commands.join(', ')}`).toHaveLength(2);
+      const browserCommands = commands.filter((c) => c.startsWith('browser.'));
+      expect(browserCommands, `chord ${chord} bound to ${commands.join(', ')}`).toHaveLength(1);
+    }
   });
 
   it('only binds known command ids', () => {

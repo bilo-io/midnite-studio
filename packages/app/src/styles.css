@@ -60,6 +60,19 @@
     --cal-2: 158 55% 62%;
     --cal-3: 158 65% 46%;
     --cal-4: 158 72% 34%;
+
+    /* The browser's eight manual-group colours (features/browser/tab-group.tsx).
+     * A named palette, not a ramp — there is no ordering between them, unlike
+     * --cal-*. Deliberately clear of the graph lane hues and --cal's teal-green,
+     * so a coloured tab group can never be misread as either. */
+    --tab-group-1: 0 65% 55%; /* red */
+    --tab-group-2: 28 75% 55%; /* orange */
+    --tab-group-3: 48 85% 50%; /* amber */
+    --tab-group-4: 145 55% 42%; /* green */
+    --tab-group-5: 195 60% 42%; /* cyan */
+    --tab-group-6: 215 70% 55%; /* blue */
+    --tab-group-7: 265 55% 55%; /* purple */
+    --tab-group-8: 330 60% 60%; /* pink */
   }
 
   .dark {
@@ -77,6 +90,17 @@
     --cal-2: 158 50% 38%;
     --cal-3: 158 60% 52%;
     --cal-4: 158 68% 66%;
+
+    /* Lifted for contrast against a near-black background, same reasoning as
+     * --health-warn above. */
+    --tab-group-1: 0 70% 65%;
+    --tab-group-2: 28 80% 65%;
+    --tab-group-3: 48 85% 60%;
+    --tab-group-4: 145 55% 55%;
+    --tab-group-5: 195 60% 60%;
+    --tab-group-6: 215 75% 68%;
+    --tab-group-7: 265 60% 68%;
+    --tab-group-8: 330 65% 70%;
   }
 
   html,

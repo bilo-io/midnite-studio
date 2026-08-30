@@ -3,7 +3,7 @@
 **Headlines:**
 
 - **[Phase 33 · Application Installation, CLI Tool & Desktop Integration](phases/phase-33-installable-app-and-cli-integration.md)** (0% · 0/19) — Planned, not started. Adds a macOS DMG installer package with custom layout, `midnite-git` CLI tool installer + shell completions, `midnite-git://` deep-linking protocol scheme, auto-updater pipeline, and first-run setup onboarding.
-- **[Phase 32 · The browser gets an engine](phases/phase-32-browser-engine-and-tabs.md)** (0% · 0/99) — Planned, not started; the new frontier. Fills the Phase 27 browser stub with a real `WebContentsView` engine, tabs and tab groups, a Midnite-branded new-tab page, and the security policy Phase 27 made a precondition.
+- **[Phase 32 · The browser gets an engine](phases/phase-32-browser-engine-and-tabs.md)** (39% · 39/99) — Active frontier. Themes A–D landed: a real `WebContentsView` engine on its own no-preload partition, the `mgit:browser:*` contract, the security policy Phase 27 made a precondition, and tabs with both kinds of group. E–I (occlusion, new-tab page, real chrome, dev powers, forge-in-place) remain.
 - **[Phase 30 · Terminal Hardening](phases/phase-30-terminal-hardening.md)** (90% · 82/91) — Active frontier; detached session broker lets terminal/agent sessions survive app restarts and window reloads. Implementation themes A–G landed; 9 manual verification checks open.
 - **[Phase 29 · Markdown Slides Viewer](phases/phase-29-markdown-slides-viewer.md)** (100% · 21/21) — Landed; fullscreen headings-based slide presenter integrated across Files preview, PR descriptions, and comment threads.
 - **[Phase 28 · Sidebar Section Tree](phases/phase-28-sidebar-section-tree.md)** (95% · 59/62) — Feature-complete; data-driven sidebar tree placing Worktrees first, nested Branches (`local`/`remotes`), and Forge parents.
@@ -21,7 +21,7 @@ Completed work is logged append-only in [`done.md`](done.md). Deferred scope liv
 | Phase | Status | Refined | Done | Progress | % | 🔄 WIP | ◻ TODO |
 |-------|--------|---------|------|----------|---|--------|--------|
 | [33 · Application Installation, CLI Tool & Desktop Integration](phases/phase-33-installable-app-and-cli-integration.md) | ◻ TODO | — | 0/19 | `░░░░░░░░░░` | 0% | — | A B C D E |
-| [32 · The browser gets an engine, and the tabs to fill it](phases/phase-32-browser-engine-and-tabs.md) | 🔄 WIP | — | 0/99 | `░░░░░░░░░░` | 0% | A B C D | E F G H I |
+| [32 · The browser gets an engine, and the tabs to fill it](phases/phase-32-browser-engine-and-tabs.md) | 🔄 WIP | — | 39/99 | `████░░░░░░` | 39% | — | E F G H I |
 | [31 · Interactive Rebase Builder & Graph Sequence Editor](phases/phase-31-interactive-rebase.md) | ✅ DONE | — | 18/18 | `██████████` | 100% | — | — |
 | [30 · A terminal that survives you](phases/phase-30-terminal-hardening.md) | ✅ DONE | x2 | 91/91 | `██████████` | 100% | — | — |
 | [29 · Markdown slides, everywhere markdown already renders](phases/phase-29-markdown-slides-viewer.md) | ✅ DONE | — | 21/21 | `██████████` | 100% | — | — |
@@ -80,10 +80,10 @@ with no preload, tabs and groups modelled on the workbench strip, a React new-ta
 Midnite mark and Google/YouTube/Figma tiles, and the occlusion choreography a native layer painting
 above the DOM demands.*
 
-- 🔄 **A** — `WebContentsView` host in main, the `mgit:browser:*` channel contract, per-tab lifecycle.
-- 🔄 **B** — Permissions denied, navigation policy, no preload on embedded views, clear browsing data.
-- 🔄 **C** — Tab store and strip: drag-reorder, context menu, browser-scoped chords.
-- 🔄 **D** — Tab groups, manual (named, coloured, collapsible) and repo-derived.
+- ✅ **A** — `WebContentsView` host in main, the `mgit:browser:*` channel contract, per-tab lifecycle. (2026-08-30)
+- ✅ **B** — Permissions denied, navigation policy, no preload on embedded views, clear browsing data. (2026-08-30)
+- ✅ **C** — Tab store and strip: drag-reorder, context menu, browser-scoped chords. (2026-08-30)
+- ✅ **D** — Tab groups, manual (named, coloured, collapsible) and repo-derived. (2026-08-30)
 - ◻ **E** — Occlusion registry and bounds choreography — every overlay must outrank the native layer.
 - ◻ **F** — The new-tab page: `BrandMark` hero, shortcut tiles, repo-derived tiles, recents.
 - ◻ **G** — Real chrome: back/forward/reload, URL-vs-search resolution, find-in-page, zoom, errors.

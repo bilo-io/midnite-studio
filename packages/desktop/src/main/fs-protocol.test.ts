@@ -1,10 +1,16 @@
 import { describe, expect, it, vi } from 'vitest';
 
-import { resolveBlobRequest } from './fs-protocol';
+import { protocol, session } from 'electron';
+
+import { installMgitFileProtocol, resolveBlobRequest } from './fs-protocol';
 
 // The module reaches for `electron` at import time; nothing under test here
 // touches it, so a stub keeps this a plain unit test.
-vi.mock('electron', () => ({ net: {}, protocol: { handle: vi.fn(), registerSchemesAsPrivileged: vi.fn() } }));
+vi.mock('electron', () => ({
+  net: {},
+  protocol: { handle: vi.fn(), registerSchemesAsPrivileged: vi.fn() },
+  session: { fromPartition: vi.fn(() => ({ protocol: { handle: vi.fn() } })) },
+}));
 
 // `vi.hoisted` because the mock factory is hoisted above these lines.
 const { resolveWorkdir } = vi.hoisted(() => ({ resolveWorkdir: vi.fn() }));
@@ -48,5 +54,17 @@ describe('resolveBlobRequest (the ?rev= half of the scheme)', () => {
     await expect(resolveBlobRequest('mgit-file://repo/nope/a.png?rev=HEAD')).resolves.toEqual({
       kind: 'invalid',
     });
+  });
+});
+
+describe('scheme registration scope (Phase 32 Theme B)', () => {
+  it('registers mgit-file on the default session only, never on a named partition', () => {
+    installMgitFileProtocol();
+
+    // The module-level `protocol` IS `session.defaultSession.protocol`; a
+    // `persist:browser` view therefore has no handler for the scheme, which
+    // is what keeps the renderer's media path unreachable from a remote page.
+    expect(protocol.handle).toHaveBeenCalledWith('mgit-file', expect.any(Function));
+    expect(session.fromPartition).not.toHaveBeenCalled();
   });
 });

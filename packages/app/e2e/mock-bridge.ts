@@ -439,6 +439,16 @@ export async function installMockBridge(page: Page, fixtures: MockFixtures): Pro
       droppedLines: 0,
     });
 
+    /*
+      Phase 32: a fake WebContentsView engine. No real page ever loads under
+      Playwright's own Chromium — the renderer here is what's under test, not
+      an embedded one — so `create` just records the tab existed and answers
+      `ok: true`; nav state and chrome events stay whatever the store already
+      holds unless a spec pushes one through `onEvent`'s handler list itself.
+    */
+    const browserTabIds = new Set<string>();
+    const browserEventHandlers: ((e: unknown) => void)[] = [];
+
     (window as unknown as { midniteGit: unknown }).midniteGit = {
       /*
         `/tmp` so the fixture repo at `/tmp/midnite-git` sits inside "home" and
@@ -1115,6 +1125,30 @@ export async function installMockBridge(page: Page, fixtures: MockFixtures): Pro
         claudeUpdate: async () => ({ ok: true as const, exitCode: 0 }),
         onClaudeUpdateData: unsubscribe,
       },
+      browser: {
+        create: async (req: { tabId: string; url: string }) => {
+          browserTabIds.add(req.tabId);
+          return { ok: true as const };
+        },
+        close: (req: { tabId: string }) => {
+          browserTabIds.delete(req.tabId);
+        },
+        navigate: noop,
+        back: noop,
+        forward: noop,
+        reload: noop,
+        stop: noop,
+        setBounds: noop,
+        setVisible: noop,
+        activate: noop,
+        clearData: ok,
+        onEvent: (handler: (e: unknown) => void) => {
+          browserEventHandlers.push(handler);
+          return () => {
+            browserEventHandlers.splice(browserEventHandlers.indexOf(handler), 1);
+          };
+        },
+      },
       fs: {
         listDir: async (req: { scope: string; relPath: string }) => {
           const key = `${req.scope === 'repo' ? 'repo' : 'claude'}:${req.relPath}`;
@@ -1704,6 +1738,15 @@ export async function installMockBridge(page: Page, fixtures: MockFixtures): Pro
       for (const handler of activityHandlers) handler({ ptyId, activity });
       return true;
     };
+    /**
+     * Push a `mgit:browser:event` the way main would (Phase 32 Theme A) —
+     * a spec's only way to make a mocked engine crash, rename a page or
+     * refuse a download, since no real `WebContentsView` exists here.
+     */
+    (window as unknown as { __mgitBrowserEvent: unknown }).__mgitBrowserEvent = (event: unknown) => {
+      for (const handler of [...browserEventHandlers]) handler(event);
+    };
+    (window as unknown as { __mgitBrowserTabs: unknown }).__mgitBrowserTabs = () => [...browserTabIds];
     (window as unknown as { __mgitTerminalSaves: unknown }).__mgitTerminalSaves = terminalSaves;
     (window as unknown as { __mgitExternalUrls: unknown }).__mgitExternalUrls = externalUrls;
     (window as unknown as { __mgitRevealedPaths: unknown }).__mgitRevealedPaths = revealedPaths;

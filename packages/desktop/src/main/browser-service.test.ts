@@ -1,0 +1,320 @@
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
+
+import {
+  activateBrowserTab,
+  closeBrowserTab,
+  createBrowserTab,
+  destroyAllBrowserTabs,
+  resetBrowserServiceForTests,
+} from './browser-service';
+
+/**
+ * `browser-service.ts` is the only file that constructs a `WebContentsView`,
+ * so testing its lifecycle means faking one — following the same
+ * `vi.mock('electron', ...)` pattern `fs-write-handlers.test.ts` uses for
+ * `shell.trashItem`.
+ */
+
+/**
+ * Hoisted: `vi.mock`'s factory below is hoisted above every import AND every
+ * top-level `class`/`const`, so anything the factory closes over has to be
+ * declared inside `vi.hoisted` too, or it throws "Cannot access before
+ * initialization" the moment the mock factory runs.
+ */
+const { FakeWebContentsView, fakeSessions, makeFakeSession } = vi.hoisted(() => {
+  class FakeWebContents {
+    destroyed = false;
+    handlers = new Map<string, ((...args: unknown[]) => void)[]>();
+    navigationHistory = {
+      canGoBack: vi.fn(() => false),
+      canGoForward: vi.fn(() => false),
+      goBack: vi.fn(),
+      goForward: vi.fn(),
+    };
+    loadURL = vi.fn(async () => undefined);
+    reload = vi.fn();
+    stop = vi.fn();
+    setWindowOpenHandler = vi.fn();
+    on(event: string, handler: (...args: unknown[]) => void): this {
+      const list = this.handlers.get(event) ?? [];
+      list.push(handler);
+      this.handlers.set(event, list);
+      return this;
+    }
+    isDestroyed(): boolean {
+      return this.destroyed;
+    }
+    close = vi.fn(() => {
+      this.destroyed = true;
+    });
+  }
+
+  class FakeWebContentsView {
+    webContents = new FakeWebContents();
+    visible = true;
+    bounds: unknown = null;
+    options: Record<string, unknown>;
+    constructor(options: Record<string, unknown> = {}) {
+      this.options = options;
+    }
+    setVisible = vi.fn((v: boolean) => {
+      this.visible = v;
+    });
+    setBounds = vi.fn((b: unknown) => {
+      this.bounds = b;
+    });
+  }
+
+  function makeFakeSession() {
+    const handlers = new Map<string, ((...args: unknown[]) => void)[]>();
+    return {
+      setPermissionRequestHandler: vi.fn(),
+      setPermissionCheckHandler: vi.fn(),
+      handlers,
+      on: vi.fn((event: string, handler: (...args: unknown[]) => void) => {
+        const list = handlers.get(event) ?? [];
+        list.push(handler);
+        handlers.set(event, list);
+      }),
+      clearStorageData: vi.fn(async () => undefined),
+      clearCache: vi.fn(async () => undefined),
+    };
+  }
+
+  const fakeSessions = new Map<string, ReturnType<typeof makeFakeSession>>();
+
+  return { FakeWebContents, FakeWebContentsView, fakeSessions, makeFakeSession };
+});
+
+vi.mock('electron', () => ({
+  WebContentsView: FakeWebContentsView,
+  session: {
+    fromPartition: vi.fn((name: string) => {
+      const existing = fakeSessions.get(name);
+      if (existing) return existing;
+      const created = makeFakeSession();
+      fakeSessions.set(name, created);
+      return created;
+    }),
+  },
+  shell: { openExternal: vi.fn() },
+}));
+
+/** The hoisted class is a value binding, so its instance type needs naming explicitly. */
+type FakeView = InstanceType<typeof FakeWebContentsView>;
+
+function fakeWindow() {
+  return {
+    isDestroyed: () => false,
+    contentView: { addChildView: vi.fn(), removeChildView: vi.fn() },
+    webContents: { send: vi.fn(), isDestroyed: () => false } as unknown,
+  } as unknown as import('electron').BrowserWindow;
+}
+
+describe('browser-service lifecycle', () => {
+  beforeEach(() => {
+    resetBrowserServiceForTests();
+    fakeSessions.clear();
+  });
+  afterEach(() => vi.clearAllMocks());
+
+  it('creates a view, attaches it hidden, and loads the url', () => {
+    const win = fakeWindow();
+    createBrowserTab(win, 'tab-1', 'https://example.com');
+
+    expect(win.contentView.addChildView).toHaveBeenCalledTimes(1);
+    const view = (win.contentView.addChildView as ReturnType<typeof vi.fn>).mock
+      .calls[0]?.[0] as FakeView;
+    expect(view.setVisible).toHaveBeenCalledWith(false);
+    expect(view.webContents.loadURL).toHaveBeenCalledWith('https://example.com');
+  });
+
+  it('is idempotent: creating the same tab id twice does not attach a second view', () => {
+    const win = fakeWindow();
+    createBrowserTab(win, 'tab-1', 'https://example.com');
+    createBrowserTab(win, 'tab-1', 'https://elsewhere.example');
+
+    expect(win.contentView.addChildView).toHaveBeenCalledTimes(1);
+  });
+
+  it('activate shows the target tab and hides every other tracked one', () => {
+    const win = fakeWindow();
+    createBrowserTab(win, 'a', 'https://a.example');
+    createBrowserTab(win, 'b', 'https://b.example');
+
+    activateBrowserTab('b');
+
+    const viewA = (win.contentView.addChildView as ReturnType<typeof vi.fn>).mock.calls[0]?.[0] as FakeView;
+    const viewB = (win.contentView.addChildView as ReturnType<typeof vi.fn>).mock.calls[1]?.[0] as FakeView;
+    expect(viewA.visible).toBe(false);
+    expect(viewB.visible).toBe(true);
+  });
+
+  it('close destroys the view and detaches it from the window', () => {
+    const win = fakeWindow();
+    createBrowserTab(win, 'tab-1', 'https://example.com');
+    const view = (win.contentView.addChildView as ReturnType<typeof vi.fn>).mock
+      .calls[0]?.[0] as FakeView;
+
+    closeBrowserTab('tab-1');
+
+    expect(win.contentView.removeChildView).toHaveBeenCalledWith(view);
+    expect(view.webContents.close).toHaveBeenCalledTimes(1);
+  });
+
+  it('closing a tab that was never created is a no-op', () => {
+    expect(() => closeBrowserTab('never-existed')).not.toThrow();
+  });
+
+  it('quit (destroyAllBrowserTabs) tears every tracked tab down', () => {
+    const win = fakeWindow();
+    createBrowserTab(win, 'a', 'https://a.example');
+    createBrowserTab(win, 'b', 'https://b.example');
+
+    destroyAllBrowserTabs();
+
+    expect(win.contentView.removeChildView).toHaveBeenCalledTimes(2);
+  });
+
+  it('configures the persist:browser session to deny every permission, exactly once regardless of tab count', () => {
+    const win = fakeWindow();
+    createBrowserTab(win, 'a', 'https://a.example');
+    createBrowserTab(win, 'b', 'https://b.example');
+
+    const browserSession = fakeSessions.get('persist:browser');
+    expect(browserSession?.setPermissionRequestHandler).toHaveBeenCalledTimes(1);
+    expect(browserSession?.setPermissionCheckHandler).toHaveBeenCalledTimes(1);
+  });
+
+  it('gives the view no preload and a sandboxed, partitioned session', () => {
+    const win = fakeWindow();
+    createBrowserTab(win, 'tab-1', 'https://example.com');
+    const view = (win.contentView.addChildView as ReturnType<typeof vi.fn>).mock
+      .calls[0]?.[0] as FakeView;
+
+    const webPreferences = view.options['webPreferences'] as Record<string, unknown>;
+    expect(webPreferences['partition']).toBe('persist:browser');
+    expect(webPreferences['sandbox']).toBe(true);
+    expect(webPreferences['contextIsolation']).toBe(true);
+    expect(webPreferences['nodeIntegration']).toBe(false);
+    expect(webPreferences['preload']).toBeUndefined();
+  });
+});
+
+describe('navigation policy (Theme B)', () => {
+  beforeEach(() => {
+    resetBrowserServiceForTests();
+    fakeSessions.clear();
+  });
+  afterEach(() => vi.clearAllMocks());
+
+  function createAndGetView(): { win: ReturnType<typeof fakeWindow>; view: FakeView } {
+    const win = fakeWindow();
+    createBrowserTab(win, 'tab-1', 'https://example.com');
+    const view = (win.contentView.addChildView as ReturnType<typeof vi.fn>).mock
+      .calls[0]?.[0] as FakeView;
+    return { win, view };
+  }
+
+  it('blocks a will-navigate to a non-http(s) scheme and pushes a failed event', () => {
+    const { win, view } = createAndGetView();
+    const willNavigate = view.webContents.handlers.get('will-navigate')?.[0];
+    const details = { url: 'file:///etc/passwd', preventDefault: vi.fn() };
+
+    willNavigate?.(details);
+
+    expect(details.preventDefault).toHaveBeenCalledTimes(1);
+    expect(win.webContents.send).toHaveBeenCalledWith(
+      expect.any(String),
+      expect.objectContaining({ kind: 'failed', tabId: 'tab-1' }),
+    );
+  });
+
+  it('lets an http(s) will-navigate proceed', () => {
+    const { view } = createAndGetView();
+    const willNavigate = view.webContents.handlers.get('will-navigate')?.[0];
+    const details = { url: 'https://elsewhere.example', preventDefault: vi.fn() };
+
+    willNavigate?.(details);
+
+    expect(details.preventDefault).not.toHaveBeenCalled();
+  });
+
+  it('denies every window-open request, and hands an http(s) one back as "open as new tab"', () => {
+    const { win, view } = createAndGetView();
+    expect(view.webContents.setWindowOpenHandler).toHaveBeenCalledTimes(1);
+    const handler = (view.webContents.setWindowOpenHandler as ReturnType<typeof vi.fn>).mock.calls[0]?.[0] as (
+      details: unknown,
+    ) => { action: string };
+
+    expect(handler({ url: 'https://opened.example' })).toEqual({ action: 'deny' });
+    expect(win.webContents.send).toHaveBeenCalledWith(
+      expect.any(String),
+      { kind: 'open-tab', tabId: 'tab-1', url: 'https://opened.example' },
+    );
+  });
+
+  it('denies a window-open to a blocked scheme WITHOUT offering to reopen it as a tab', () => {
+    const { win, view } = createAndGetView();
+    const handler = (view.webContents.setWindowOpenHandler as ReturnType<typeof vi.fn>).mock.calls[0]?.[0] as (
+      details: unknown,
+    ) => { action: string };
+
+    expect(handler({ url: 'file:///etc/passwd' })).toEqual({ action: 'deny' });
+    expect(win.webContents.send).not.toHaveBeenCalled();
+  });
+
+  it('surfaces did-fail-load on the main frame as a failed event, ignoring ERR_ABORTED', () => {
+    const { win, view } = createAndGetView();
+    const onFail = view.webContents.handlers.get('did-fail-load')?.[0];
+
+    onFail?.(undefined, -3, 'net::ERR_ABORTED', 'https://example.com', true);
+    expect(win.webContents.send).not.toHaveBeenCalled();
+
+    onFail?.(undefined, -105, 'net::ERR_NAME_NOT_RESOLVED', 'https://bad.example', true);
+    expect(win.webContents.send).toHaveBeenCalledWith(
+      expect.any(String),
+      expect.objectContaining({ kind: 'failed', tabId: 'tab-1' }),
+    );
+  });
+
+  it('surfaces a render-process-gone crash as destroyed, but not a clean exit', () => {
+    const { win, view } = createAndGetView();
+    const onGone = view.webContents.handlers.get('render-process-gone')?.[0];
+
+    onGone?.(undefined, { reason: 'clean-exit' });
+    expect(win.webContents.send).not.toHaveBeenCalled();
+
+    onGone?.(undefined, { reason: 'crashed' });
+    expect(win.webContents.send).toHaveBeenCalledWith(
+      expect.any(String),
+      { kind: 'destroyed', tabId: 'tab-1', reason: 'crashed' },
+    );
+  });
+
+  it('surfaces an unresponsive view as tab state too, distinguishable from a crash', () => {
+    const { win, view } = createAndGetView();
+
+    view.webContents.handlers.get('unresponsive')?.[0]?.();
+
+    expect(win.webContents.send).toHaveBeenCalledWith(
+      expect.any(String),
+      { kind: 'destroyed', tabId: 'tab-1', reason: 'unresponsive' },
+    );
+  });
+
+  it('cancels a download and names the file back to the tab that asked for it', () => {
+    const { win, view } = createAndGetView();
+    const browserSession = fakeSessions.get('persist:browser');
+    const onDownload = browserSession?.handlers.get('will-download')?.[0];
+    const item = { getFilename: () => 'ubuntu.iso', cancel: vi.fn() };
+
+    onDownload?.(undefined, item, view.webContents);
+
+    expect(item.cancel).toHaveBeenCalledTimes(1);
+    expect(win.webContents.send).toHaveBeenCalledWith(
+      expect.any(String),
+      { kind: 'download-blocked', tabId: 'tab-1', filename: 'ubuntu.iso' },
+    );
+  });
+});

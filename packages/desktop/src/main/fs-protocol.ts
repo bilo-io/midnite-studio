@@ -15,6 +15,14 @@ import { confineToRoot, joinWithin, resolveScopeRoot, type FsScopeRequest } from
  *
  * Same jail as the fs channels: scope root + `confineToRoot`, so a crafted
  * URL cannot read outside a repo checkout or `~/.claude`.
+ *
+ * **Default session only.** `protocol.handle` on the module-level `protocol`
+ * object registers against `session.defaultSession`, never against a named
+ * partition — so a `WebContentsView` on Phase 32's `persist:browser`
+ * partition (`main/browser-service.ts`) cannot resolve an `mgit-file:` URL
+ * at all, and the renderer's media path stays unreachable from a remote
+ * page. Phase 32 Theme B depends on that staying true; `fs-protocol.test.ts`
+ * asserts it.
  */
 
 /**

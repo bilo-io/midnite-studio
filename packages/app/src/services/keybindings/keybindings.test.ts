@@ -117,10 +117,23 @@ describe('the registry is palette-shaped', () => {
     expect(cont?.chord).toBeUndefined();
   });
 
-  it('never binds two commands to the same chord', async () => {
+  it('never binds two commands to the same chord, except a browser.* command deliberately sharing one', async () => {
+    // Phase 32 Theme C: the browser's own tab chords intentionally reuse
+    // chords repo.close/graph.focus/status.focus already own —
+    // `use-keybindings.ts` prefers the `browser.*` reading only while the
+    // pane is open. See the identical, fuller-commented assertion in
+    // `@midnite/git-shared`'s own ipc.test.ts.
     const { DEFAULT_KEYMAP } = await import('@midnite/git-shared');
-    const chords = DEFAULT_KEYMAP.map((b) => b.chord);
-    expect(new Set(chords).size).toBe(chords.length);
+    const byChord = new Map<string, string[]>();
+    for (const binding of DEFAULT_KEYMAP) {
+      byChord.set(binding.chord, [...(byChord.get(binding.chord) ?? []), binding.command]);
+    }
+    for (const [chord, commands] of byChord) {
+      if (commands.length === 1) continue;
+      expect(commands, `chord ${chord} bound to ${commands.join(', ')}`).toHaveLength(2);
+      const browserCommands = commands.filter((c) => c.startsWith('browser.'));
+      expect(browserCommands, `chord ${chord} bound to ${commands.join(', ')}`).toHaveLength(1);
+    }
   });
 
   it('keeps Mod+Shift+p as sync.pull', async () => {

@@ -276,6 +276,23 @@ export const CHANNELS = {
   /** Run the method-matched update command; resolves when it exits. */
   agentClaudeUpdate: 'mgit:agent:claude-update',
 
+  // --- browser (Phase 32) ---------------------------------------------------
+  // A `WebContentsView` per tab, owned by `browser-service.ts`. Chrome state
+  // (nav, title, favicon, loading) pushes over the single `browserEvent`
+  // channel below rather than one channel per kind — see BrowserEventSchema.
+  browserCreate: 'mgit:browser:create',
+  browserClose: 'mgit:browser:close',
+  browserNavigate: 'mgit:browser:navigate',
+  browserBack: 'mgit:browser:back',
+  browserForward: 'mgit:browser:forward',
+  browserReload: 'mgit:browser:reload',
+  browserStop: 'mgit:browser:stop',
+  browserSetBounds: 'mgit:browser:set-bounds',
+  browserSetVisible: 'mgit:browser:set-visible',
+  /** Which tab is on top — only one view is ever attached-and-visible. */
+  browserActivate: 'mgit:browser:activate',
+  browserClearData: 'mgit:browser:clear-data',
+
   // --- filesystem (Phase 16 reads, Phase 24 writes) -------------------------
   // Reads are scope: repo | claude-home, exactly as before. The four write
   // channels below are repo scope ONLY — `FsWriteScopeSchema` has no
@@ -438,6 +455,8 @@ export const EVENT_CHANNELS = {
   testsOutput: 'mgit:tests:output',
   /** A run finished (or was cancelled) — `{runId, suiteId, result}`. */
   testsResult: 'mgit:tests:result',
+  /** A discriminated-union chrome event for one browser tab — see BrowserEventSchema. */
+  browserEvent: 'mgit:browser:event',
 } as const;
 
 /**

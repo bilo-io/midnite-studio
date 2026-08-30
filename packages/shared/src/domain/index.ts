@@ -1,4 +1,5 @@
 export * from './blame';
+export * from './browser';
 export * from './commit';
 export * from './diagnostics';
 export * from './diff';

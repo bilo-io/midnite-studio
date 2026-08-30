@@ -4,6 +4,7 @@ import { DEFAULT_KEYMAP, GLOBAL_CHORDS } from '@midnite/git-shared';
 
 import { bridge } from '../bridge';
 import { usePaletteStore } from '../../store/palette-store';
+import { useUiStore } from '../../store/ui-store';
 import { chordFromEvent } from './chord';
 import type { CommandRuntime } from './use-command-handlers';
 
@@ -21,7 +22,21 @@ export function useKeybindings(runtime: CommandRuntime): void {
   useEffect(() => {
     const onKeyDown = (event: KeyboardEvent) => {
       const chord = chordFromEvent(event);
-      const binding = DEFAULT_KEYMAP.find((b) => b.chord === chord);
+      if (chord === null) return;
+
+      // A chord can carry TWO bindings — the browser's own tab commands
+      // (Theme C) deliberately reuse Mod+w/Mod+1/Mod+2, which already mean
+      // repo.close/graph.focus/status.focus app-wide. While the pane is
+      // open the browser reading wins; otherwise the app-wide one does. Two
+      // real commands can never share a chord OUTSIDE this one carve-out —
+      // `getState()`, not a subscription, so the effect need not re-run on
+      // every browser open/close.
+      const candidates = DEFAULT_KEYMAP.filter((b) => b.chord === chord);
+      const browserOpen = useUiStore.getState().browserOpen;
+      const binding = browserOpen
+        ? (candidates.find((b) => b.command.startsWith('browser.')) ??
+          candidates.find((b) => !b.command.startsWith('browser.')))
+        : candidates.find((b) => !b.command.startsWith('browser.'));
       if (!binding) return;
 
       // The palette owns the keyboard while open: only its own chords (to
