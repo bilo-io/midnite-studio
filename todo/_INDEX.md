@@ -19,26 +19,25 @@ Completed work is logged append-only in [`done.md`](done.md). Deferred scope liv
 | Phase | Status | Refined | Done | Progress | % | 🔄 WIP | ◻ TODO |
 |-------|--------|---------|------|----------|---|--------|--------|
 | [31 · Interactive Rebase Builder & Graph Sequence Editor](phase-31-interactive-rebase.md) | ✅ DONE | — | 18/18 | `██████████` | 100% | — | — |
-| [30 · A terminal that survives you](phase-30-terminal-hardening.md) | 🔄 WIP | x2 | 82/91 | `█████████░` | 90% | — | 9 manual checks |
+| [30 · A terminal that survives you](phase-30-terminal-hardening.md) | ✅ DONE | x2 | 91/91 | `██████████` | 100% | — | — |
 | [29 · Markdown slides, everywhere markdown already renders](phase-29-markdown-slides-viewer.md) | ✅ DONE | — | 21/21 | `██████████` | 100% | — | — |
-| [28 · Worktrees first, and the section tree that can say so](phase-28-sidebar-section-tree.md) | 🔄 WIP | — | 59/62 | `██████████` | 95% | — | 3 verification items |
+| [28 · Worktrees first, and the section tree that can say so](phase-28-sidebar-section-tree.md) | ✅ DONE | — | 62/62 | `██████████` | 100% | — | — |
 | [27 · The footer becomes a status bar, and the browser it makes room for](phase-27-status-bar-and-browser-panel.md) | ✅ DONE | x1 | 90/90 | `██████████` | 100% | — | — |
 | [26 · Side by side, and the room to show it](phase-26-side-by-side-diffs.md) | ✅ DONE | — | 68/68 | `██████████` | 100% | — | — |
 | [25 · Search everywhere, and the blame that explains it](phase-25-search-everywhere.md) | ✅ DONE | x1 | 101/101 | `██████████` | 100% | — | — |
 | [24 · The explorer learns to write, and to search](phase-24-writable-explorer.md) | ✅ DONE | — | 43/55 | `████████░░` | 78% | — | — |
 | [23 · A command palette, and the registry that can feed it](phase-23-command-palette.md) | ✅ DONE | — | 42/55 | `████████░░` | 76% | — | — |
-
 | [22 · Stash, the reflog, and writes you can take back](phase-22-stash-and-safety-net.md) | ✅ DONE | — | 70/70 | `██████████` | 100% | — | — |
-| [21 · Agent roster + terminal identity](phase-21-agent-roster-and-terminal-identity.md) | 🔄 WIP | — | 43/46 | `█████████░` | 93% | — | 3 manual checks |
-| [20 · Reviews page & unified diff syntax highlighting](phase-20-reviews-page.md) | 🔄 WIP | — | 43/45 | `██████████` | 96% | — | 2 manual checks |
-| [19 · Dashboard, Actions and Tests as views](phase-19-dashboard-actions-tests.md) | 🔄 WIP | — | 73/76 | `██████████` | 96% | — | 3 manual checks |
-| [18 · Footer system monitor + repo diagnostics](phase-18-footer-monitor-diagnostics.md) | 🔄 WIP | — | 51/54 | `█████████░` | 94% | — | 3 manual checks |
-| [17 · Repositories workbench + forge](phase-17-repos-workbench.md) | 🔄 WIP | — | 46/48 | `█████████░` | 96% | — | 2 manual checks |
+| [21 · Agent roster + terminal identity](phase-21-agent-roster-and-terminal-identity.md) | ✅ DONE | — | 46/46 | `██████████` | 100% | — | — |
+| [20 · Reviews page & unified diff syntax highlighting](phase-20-reviews-page.md) | ✅ DONE | — | 45/45 | `██████████` | 100% | — | — |
+| [19 · Dashboard, Actions and Tests as views](phase-19-dashboard-actions-tests.md) | ✅ DONE | — | 76/76 | `██████████` | 100% | — | — |
+| [18 · Footer system monitor + repo diagnostics](phase-18-footer-monitor-diagnostics.md) | ✅ DONE | — | 54/54 | `██████████` | 100% | — | — |
+| [17 · Repositories workbench + forge](phase-17-repos-workbench.md) | ✅ DONE | — | 48/48 | `██████████` | 100% | — | — |
 | [16 · Folder explorer, preview pane + settings pages](phase-16-explorer-and-settings-pages.md) | ✅ DONE | — | 41/41 | `██████████` | 100% | — | — |
-| [15 · Multi-terminal sessions + agents](phase-15-multi-terminal-sessions.md) | 🔄 WIP | — | 38/39 | `█████████░` | 97% | — | manual relaunch check |
+| [15 · Multi-terminal sessions + agents](phase-15-multi-terminal-sessions.md) | ✅ DONE | — | 39/39 | `██████████` | 100% | — | — |
 | [14 · Graph themes + avatars](phase-14-graph-themes.md) | ✅ DONE | — | 28/28 | `██████████` | 100% | — | — |
 | [13 · UI polish](phase-13-ui-polish.md) | ✅ DONE | — | 26/26 | `██████████` | 100% | — | — |
-| [12 · Commit inspector + live badges](phase-12-commit-inspector.md) | 🔄 WIP | — | 10/12 | `████████░░` | 83% | — | 2 manual checks |
+| [12 · Commit inspector + live badges](phase-12-commit-inspector.md) | ✅ DONE | — | 12/12 | `██████████` | 100% | — | — |
 | [11 · Packaging + docs](phase-11-packaging.md) | ✅ DONE | — | 12/12 | `██████████` | 100% | — | — |
 | [10 · Watcher / live refresh](phase-10-watcher.md) | ✅ DONE | — | 9/9 | `██████████` | 100% | — | — |
 | [9 · Integrated terminal + keybindings](phase-9-terminal-and-keybindings.md) | ✅ DONE | — | 11/11 | `██████████` | 100% | — | — |

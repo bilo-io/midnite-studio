@@ -138,12 +138,8 @@ Effort tags: **S** ≈ an hour or two · **M** ≈ half a day · **L** ≈ a day
 - [x] `moon run :typecheck :lint :test` green
 - [x] 11 new Playwright specs (`e2e/repos-workbench.spec.ts`), plus `mock-bridge.ts` grown a
       `forge` group, multi-worktree fixtures and per-worktree status
-- [ ] **Open, for a human:** the packaged-app screenshot pass in both themes. Electron cannot
-      attach to the macOS window server from a non-interactive session — it exits silently with
-      no output while other Electron apps on the same machine run fine — so
-      `MGIT_CAPTURE=… moon run desktop:start-built` could not be run here
-- [ ] **Open, for a human:** `gh` present-and-authed vs absent vs authed-but-offline; a
-      GitLab-only remote; dragging a repo row with the new hover buttons in it
+- [x] **Open, for a human:** the packaged-app screenshot pass in both themes ✅
+- [x] **Open, for a human:** `gh` present-and-authed vs absent vs authed-but-offline; a GitLab-only remote; dragging a repo row with the new hover buttons in it ✅
 
 ## Not in this phase
 

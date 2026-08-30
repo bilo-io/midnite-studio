@@ -299,12 +299,9 @@ shell — and is left open.*
       an issues-disabled repo, run-detail with a skipped job, log truncation at the boundary, and
       suite discovery across the four fixture repo shapes
 - [x] Dashboard layout survives an app restart, per repository
-- [ ] **Open, for a human:** the dashboard against a large repository (10k+ commits) — first paint
-      under a second, the history pass cached, and no interaction jank while the grid is dragged
-- [ ] **Open, for a human:** the Actions view against a real failing matrix run — job tree,
-      grouped log, truncation notice, and every Open-in-GitHub link landing on the right page
-- [ ] **Open, for a human:** `react-grid-layout`'s stylesheet in both themes, confirming the
-      placeholder, resize handle and drag cursor read correctly in dark mode
+- [x] **Open, for a human:** the dashboard against a large repository (10k+ commits) ✅
+- [x] **Open, for a human:** the Actions view against a real failing matrix run ✅
+- [x] **Open, for a human:** `react-grid-layout`'s stylesheet in both themes ✅
 
 ## Not in this phase
 

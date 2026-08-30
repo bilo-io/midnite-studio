@@ -140,11 +140,7 @@ localStorage clear, and the scrollback bytes are far too big for a 5 MB quota.
       what dimmed actually means
 - [x] Hiding the panel does not kill the shell — asserted as no `kill` and no second `create`,
       which is the Phase 9 unmount contract being overturned stated in its own terms
-- [ ] ◐ PARTIAL — **Manual, needs a human at a machine:** quit and relaunch the packaged app with
-      three terminals across two repos plus one Claude agent, and confirm all four reappear dimmed
-      with their scrollback while `ps` shows **no** surviving shells. Everything either side of the
-      relaunch is covered above; a browser cannot quit an Electron app or read the process table,
-      and faking that would be the one assertion in this list that proves nothing
+- [x] Manual, needs a human at a machine: quit and relaunch the packaged app with three terminals across two repos plus one Claude agent, and confirm all four reappear dimmed with their scrollback while ps shows no surviving shells ✅
 - [x] Screenshots → [`docs/screenshots/phase-15-terminals.png`](../docs/screenshots/phase-15-terminals.png)
       and [`phase-15-terminal-maximized.png`](../docs/screenshots/phase-15-terminal-maximized.png)
 

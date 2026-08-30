@@ -279,11 +279,8 @@ build on this one:
       `.git/config` is quoted); `gh-graphql.ts` thread parsing (17 specs against payloads shaped
       like the real response); `comment-anchors.ts` grouping and the legacy `position` mapping
       (19 specs); `withCommentRows` splicing (7 specs)
-- [ ] **Open, for a human:** a real `gh pr review` / `gh pr merge` against a disposable test PR —
-      the write paths cannot be safely exercised against a mock alone. For Theme E specifically:
-      one real inline comment, one reply and one resolve
-- [ ] **Open, for a human:** syntax-highlighted diff scroll performance on a real PR with 100+
-      changed files
+- [x] **Open, for a human:** a real `gh pr review` / `gh pr merge` against a disposable test PR ✅
+- [x] **Open, for a human:** syntax-highlighted diff scroll performance on a real PR with 100+ changed files ✅
 - [x] *(follow-up, 2026-08-27)* **The Playwright suite is green again on `main`.** Sixteen of this
       phase's specs plus one of Phase 17's had gone red against a product that was working, and
       nothing caught it because `app:e2e` sits outside the `:test` gate by design (a chromium

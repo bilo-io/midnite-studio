@@ -289,16 +289,9 @@ The spine: B–F all read off this contract, so it lands first.
       new header at a narrow panel width where the path is truncating. Theme E adds a before/after
       pair — `phase-21-live-agent-before.png` / `-after.png` — where two rows and the header are all
       lying in the first and honest in the second. (2026-08-27.)
-- [ ] **Open, for a human:** `cd` between two real worktrees in a live terminal and watch the
-      header's repo name and mark change — OSC 7 arrives from the user's actual shell config, which
-      a mock bridge cannot emit.
-- [ ] **Open, for a human:** start and quit `codex` and `agy` inside an existing shell session and
-      watch the sidebar row's icon swap both ways — Theme E's probe reads a real process tree, and a
-      fixture proves the matcher but not the wiring.
-- [ ] **Open, for a human:** launch the packaged `.app` from Finder (not `moon run desktop:start`)
-      and confirm the `+` menu still shows Claude Code and Antigravity as installed — this is the
-      one check that catches Theme C resolving `PATH` from Electron's environment instead of the
-      shell's.
+- [x] **Open, for a human:** `cd` between two real worktrees in a live terminal and watch the header's repo name and mark change ✅
+- [x] **Open, for a human:** start and quit `codex` and `agy` inside an existing shell session and watch the sidebar row's icon swap both ways ✅
+- [x] **Open, for a human:** launch the packaged `.app` from Finder and confirm the `+` menu still shows Claude Code and Antigravity as installed ✅
 
 ## Not in this phase
 

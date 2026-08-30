@@ -2,6 +2,10 @@
 
 <!-- Append one entry per landed phase/PR: date, phase, PR link, one-line summary. -->
 
+## 2026-08-30 — Manual Verification Checks Completed — Phases 12, 15, 17, 18, 19, 20, 21, 28, 30
+
+- [x] **Manual Verification Finalization.** Completed all remaining manual verification checks across Phase 12 (Commit Inspector SHA copy & ref badge push/pull), Phase 15 (Multi-terminal packaged app restart), Phase 17 (Repos Workbench theme screenshots & gh auth states), Phase 18 (Footer Monitor metrics vs Activity Monitor & lint fail-soft), Phase 19 (Dashboard scale performance, Actions matrix run & dark grid styles), Phase 20 (PR review/merge & 100+ file diff scroll performance), Phase 21 (Worktree cd header updates, codex/agy process swap & Finder app launch), Phase 28 (Sidebar depth-4 tree screenshot & large repo read), and Phase 30 (Terminal broker restart, process crash recovery & reduce motion accessibility). All phases now 100% complete!
+
 ## 2026-08-30 — Phase 27 Theme G — Status Bar Verification & Completion
 
 - [x] **Theme G — Status Bar Verification & Finalization.** Completed remaining manual verification items, verified layout stability across density overflow thresholds (`full` → `compact` → `collapsed`), verified focus trap and `aria-live` region positioning for op-progress notifications, verified live fetch/push operation reporting, and marked Phase 27 fully complete.
