@@ -21,7 +21,7 @@ Completed work is logged append-only in [`done.md`](done.md). Deferred scope liv
 | Phase | Status | Refined | Done | Progress | % | 🔄 WIP | ◻ TODO |
 |-------|--------|---------|------|----------|---|--------|--------|
 | [33 · Application Installation, CLI Tool & Desktop Integration](phase-33-installable-app-and-cli-integration.md) | ◻ TODO | — | 0/19 | `░░░░░░░░░░` | 0% | — | A B C D E |
-| [32 · The browser gets an engine, and the tabs to fill it](phase-32-browser-engine-and-tabs.md) | ◻ TODO | — | 0/99 | `░░░░░░░░░░` | 0% | — | A B C D E F G H I |
+| [32 · The browser gets an engine, and the tabs to fill it](phase-32-browser-engine-and-tabs.md) | 🔄 WIP | — | 0/99 | `░░░░░░░░░░` | 0% | A B C D | E F G H I |
 | [31 · Interactive Rebase Builder & Graph Sequence Editor](phase-31-interactive-rebase.md) | ✅ DONE | — | 18/18 | `██████████` | 100% | — | — |
 | [30 · A terminal that survives you](phase-30-terminal-hardening.md) | ✅ DONE | x2 | 91/91 | `██████████` | 100% | — | — |
 | [29 · Markdown slides, everywhere markdown already renders](phase-29-markdown-slides-viewer.md) | ✅ DONE | — | 21/21 | `██████████` | 100% | — | — |
@@ -80,10 +80,10 @@ with no preload, tabs and groups modelled on the workbench strip, a React new-ta
 Midnite mark and Google/YouTube/Figma tiles, and the occlusion choreography a native layer painting
 above the DOM demands.*
 
-- ◻ **A** — `WebContentsView` host in main, the `mgit:browser:*` channel contract, per-tab lifecycle.
-- ◻ **B** — Permissions denied, navigation policy, no preload on embedded views, clear browsing data.
-- ◻ **C** — Tab store and strip: drag-reorder, context menu, browser-scoped chords.
-- ◻ **D** — Tab groups, manual (named, coloured, collapsible) and repo-derived.
+- 🔄 **A** — `WebContentsView` host in main, the `mgit:browser:*` channel contract, per-tab lifecycle.
+- 🔄 **B** — Permissions denied, navigation policy, no preload on embedded views, clear browsing data.
+- 🔄 **C** — Tab store and strip: drag-reorder, context menu, browser-scoped chords.
+- 🔄 **D** — Tab groups, manual (named, coloured, collapsible) and repo-derived.
 - ◻ **E** — Occlusion registry and bounds choreography — every overlay must outrank the native layer.
 - ◻ **F** — The new-tab page: `BrandMark` hero, shortcut tiles, repo-derived tiles, recents.
 - ◻ **G** — Real chrome: back/forward/reload, URL-vs-search resolution, find-in-page, zoom, errors.
