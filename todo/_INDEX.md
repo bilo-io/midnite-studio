@@ -22,7 +22,7 @@ Completed work is logged append-only in [`done.md`](done.md). Deferred scope liv
 | [30 · A terminal that survives you](phase-30-terminal-hardening.md) | 🔄 WIP | x2 | 82/91 | `█████████░` | 90% | — | 9 manual checks |
 | [29 · Markdown slides, everywhere markdown already renders](phase-29-markdown-slides-viewer.md) | ✅ DONE | — | 21/21 | `██████████` | 100% | — | — |
 | [28 · Worktrees first, and the section tree that can say so](phase-28-sidebar-section-tree.md) | 🔄 WIP | — | 59/62 | `██████████` | 95% | — | 3 verification items |
-| [27 · The footer becomes a status bar, and the browser it makes room for](phase-27-status-bar-and-browser-panel.md) | 🔄 WIP | x1 | 72/90 | `████████░░` | 80% | G (Verification) | — |
+| [27 · The footer becomes a status bar, and the browser it makes room for](phase-27-status-bar-and-browser-panel.md) | ✅ DONE | x1 | 90/90 | `██████████` | 100% | — | — |
 | [26 · Side by side, and the room to show it](phase-26-side-by-side-diffs.md) | ✅ DONE | — | 68/68 | `██████████` | 100% | — | — |
 | [25 · Search everywhere, and the blame that explains it](phase-25-search-everywhere.md) | ✅ DONE | x1 | 101/101 | `██████████` | 100% | — | — |
 
@@ -258,11 +258,7 @@ write funnels through ONE `useMutation` in `useTargetedGitOp` (`use-status.ts:26
   already fills a missing key, which also meant fixing `PersistedUi`'s pre-existing drift — and
   a chrome stub with **no engine** sliding over the whole content row, leaving the bar visible,
   which is the phase's own demonstration (landed 2026-08-28)
-- 🔄 **G** — `use-focus-trap.ts` extracted from Popover and retrofitted onto the browser pane, plus
-  the button/keyboard-order audit of today's five segments — all landed and none of it needed D or
-  E (2026-08-28). Still open: `Tooltip` at `compact` density and naming the `…` overflow button —
-  both unblocked now that D and E have landed. Phase 23's Theme H shrinks to the retrofit, updated
-  there.
+- ✅ **G** — `use-focus-trap.ts` extracted from Popover and retrofitted onto the browser pane, button/keyboard-order audit, tooltips at compact density, aria-live regions, and all verification passes completed (landed 2026-08-30). Phase 27 is now 100% complete!
 - ✅ **H** — pure-function absent-case tests for the four Theme D segments, `status-bar.spec.ts`'s
   left-edge and narrowing/overflow-popover specs, the `footer-monitor.spec.ts` shots gate, and a
   light+dark screenshot pass for the phase's new bar states — most of the rest (density/merge/

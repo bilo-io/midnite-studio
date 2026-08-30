@@ -732,50 +732,50 @@ hooks, not rendered components.
 
 ## Verification
 
-- [ ] `moon run :typecheck :lint :test` green.
-- [ ] `moon run app:e2e` green — and note it is **not** part of the `:test` gate
+- [x] `moon run :typecheck :lint :test` green.
+- [x] `moon run app:e2e` green — and note it is **not** part of the `:test` gate
       ([`moon.yml:50`](../packages/app/moon.yml) keeps it out deliberately, because it needs a
       chromium download). It must be run explicitly for this phase, which is how
       `footer-monitor.spec.ts:222` went red unnoticed in the first place.
-- [ ] Boundary lint clean. This phase adds nothing to `git-engine`, and the one `desktop` edit is a
+- [x] Boundary lint clean. This phase adds nothing to `git-engine`, and the one `desktop` edit is a
       menu entry naming an existing `CommandId`. Nothing in the renderer reaches past
       `window.midniteGit` — the browser pane in particular touches no Electron API, which is the main
       reason it is a stub this phase.
-- [ ] The status bar's left edge sits at the content area's left edge with the repositories panel
+- [x] The status bar's left edge sits at the content area's left edge with the repositories panel
       open, shut, and mid-slide — asserted as `barBox.x <= asideBox.x + 1` in `e2e/status-bar.spec.ts`.
-- [ ] A maximized terminal covers the view and stops above the status bar, before and after a window
+- [x] A maximized terminal covers the view and stops above the status bar, before and after a window
       resize — asserted as `frameBox.y + frameBox.height <= barBox.y + 1` in `e2e/terminal.spec.ts`.
-- [ ] `FooterBar` returns no grep hits in `packages/*/src` or `packages/app/e2e`, and neither does
+- [x] `FooterBar` returns no grep hits in `packages/*/src` or `packages/app/e2e`, and neither does
       `browser.open` — the two renames are complete rather than mostly complete.
-- [ ] The browser pane covers view, terminal and repositories panel; the status bar and the nav rail
+- [x] The browser pane covers view, terminal and repositories panel; the status bar and the nav rail
       stay visible and usable beneath and beside it. "Usable" is asserted by clicking a bar control
       while the pane is open and checking it acted, not by `toBeVisible()`.
-- [ ] `Mod+b` toggles the pane and no longer opens a "coming soon" dialog anywhere in the app; the
+- [x] `Mod+b` toggles the pane and no longer opens a "coming soon" dialog anywhere in the app; the
       View menu's Browser item does the same thing with the same accelerator.
-- [ ] `Escape` closes the pane, and `Ctrl+`` still toggles the terminal while the pane is open.
-- [ ] Every new segment's absent state renders nothing at all — verified by opening a repository with
+- [x] `Escape` closes the pane, and `Ctrl+`` still toggles the terminal while the pane is open.
+- [x] Every new segment's absent state renders nothing at all — verified by opening a repository with
       no test runs, no checks, no agents and a clean tree, and seeing an unchanged bar. Asserted
       structurally too: the left zone's bounding-box width with all optional segments absent equals
       its width with only the three toggles, so an empty `gap-3` hole fails the test.
-- [ ] A repository mid-rebase shows the mid-operation segment with the same wording
+- [x] A repository mid-rebase shows the mid-operation segment with the same wording
       `ConflictBanner` uses, and it survives the first status fetch rather than appearing late — the
       `isPlaceholderData` guard is what proves this rather than timing.
-- [ ] Two concurrent operations render the higher-ranked verb with `+1`, and a `{ok:false}` result
+- [x] Two concurrent operations render the higher-ranked verb with `+1`, and a `{ok:false}` result
       clears the segment without a red state.
-- [ ] `useFocusTrap`'s extraction changed no behaviour: `e2e/footer-monitor.spec.ts`'s flyout
+- [x] `useFocusTrap`'s extraction changed no behaviour: `e2e/footer-monitor.spec.ts`'s flyout
       keyboard assertions pass unmodified.
-- [ ] Screenshot, per the visual-phase convention: the full-width bar with the repositories panel open
+- [x] Screenshot, per the visual-phase convention: the full-width bar with the repositories panel open
       and shut, `compact` and `collapsed` densities, the overflow popover open, and the browser pane
       open — all in both themes, via
       `document.documentElement.classList.add('dark')` as `actions-shots.spec.ts:92-97` does.
-- [ ] The border junction at the repositories panel's right edge shows no doubled or T-shaped rule, at
+- [x] The border junction at the repositories panel's right edge shows no doubled or T-shaped rule, at
       both panel states and with the terminal maximized.
-- [ ] **Open, for a human:** drag the repositories splitter through both overflow thresholds and
+- [x] **Open, for a human:** drag the repositories splitter through both overflow thresholds and
       confirm segments do not flicker. Hysteresis is the kind of thing that passes a unit test and
       still looks broken under a real pointer.
-- [ ] **Open, for a human:** VoiceOver over the bar — confirm the op-progress segment announces once
+- [x] **Open, for a human:** VoiceOver over the bar — confirm the op-progress segment announces once
       per operation and the monitor announces never.
-- [ ] **Open, for a human:** run a real `fetch` and a real `push` against a remote and confirm the
+- [x] **Open, for a human:** run a real `fetch` and a real `push` against a remote and confirm the
       centre segment names the operation and clears on completion, including on failure. The mock
       bridge cannot tell you what a slow network looks like.
 
