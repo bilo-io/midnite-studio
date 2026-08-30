@@ -73,11 +73,15 @@ describe('isAnchored', () => {
   it.each([
     ['outdated', { outdated: true }],
     ['file-level', { fileLevel: true }],
-    ['left-side', { side: 'LEFT' as const }],
     ['line-less', { line: null }],
   ])('rejects a %s thread', (_label, over) => {
     expect(isAnchored(thread(over))).toBe(false);
   });
+
+  it('accepts a live left-side thread', () => {
+    expect(isAnchored(thread({ side: 'LEFT' }))).toBe(true);
+  });
+
 
   it('rejects an outdated thread even when a line came back anyway', () => {
     // The combination exists, and `line` is the field that must not be trusted:
@@ -152,18 +156,20 @@ describe('threadsForFile', () => {
   });
 
   it('routes every unanchorable thread to the second group, never to a line', () => {
-    const { byLine, unanchored } = threadsForFile(
+    const { byLine, leftByLine, unanchored } = threadsForFile(
       [
         thread({ id: 'outdated', outdated: true, line: null, originalLine: 40 }),
         thread({ id: 'file', fileLevel: true, line: null }),
-        thread({ id: 'left', side: 'LEFT' }),
+        thread({ id: 'left', side: 'LEFT', line: 10 }),
       ],
       'src/app.tsx',
     );
 
     expect(byLine.size).toBe(0);
-    expect(unanchored.map((t) => t.id)).toEqual(['outdated', 'file', 'left']);
+    expect(leftByLine.get(10)?.map((t) => t.id)).toEqual(['left']);
+    expect(unanchored.map((t) => t.id)).toEqual(['outdated', 'file']);
   });
+
   /*
     ─── The anchor a diff does not contain ────────────────────────────────────
 
@@ -297,16 +303,21 @@ describe('positionForLine', () => {
 });
 
 describe('isCommentableLine', () => {
-  it('accepts added and context lines', () => {
-    expect(isCommentableLine({ kind: 'add', newNo: 3 })).toBe(true);
-    expect(isCommentableLine({ kind: 'ctx', newNo: 3 })).toBe(true);
+  it('accepts added and context lines on right side', () => {
+    expect(isCommentableLine({ kind: 'add', oldNo: null, newNo: 3 }, 'right')).toBe(true);
+    expect(isCommentableLine({ kind: 'ctx', oldNo: 3, newNo: 3 }, 'right')).toBe(true);
   });
 
-  it('refuses a deleted line — v1 maps no left side', () => {
-    expect(isCommentableLine({ kind: 'del', newNo: null })).toBe(false);
+  it('accepts deleted lines on left side', () => {
+    expect(isCommentableLine({ kind: 'del', oldNo: 3, newNo: null }, 'left')).toBe(true);
   });
 
-  it('refuses any line with no new-file number, whatever its kind says', () => {
-    expect(isCommentableLine({ kind: 'ctx', newNo: null })).toBe(false);
+  it('refuses deleted lines on right side', () => {
+    expect(isCommentableLine({ kind: 'del', oldNo: 3, newNo: null }, 'right')).toBe(false);
+  });
+
+  it('refuses added lines on left side', () => {
+    expect(isCommentableLine({ kind: 'add', oldNo: null, newNo: 3 }, 'left')).toBe(false);
   });
 });
+

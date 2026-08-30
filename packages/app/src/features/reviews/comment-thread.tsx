@@ -119,10 +119,14 @@ function Thread({
           className="flex min-w-0 flex-1 items-center gap-2 text-left hover:text-foreground"
         >
           <span className="truncate font-medium">{first?.author || 'someone'}</span>
+          <span className="rounded bg-muted px-1 text-[10px] font-mono text-muted-foreground">
+            {thread.side} L{thread.line}
+          </span>
           <span className="text-muted-foreground/70">
             {count === 1 ? '1 comment' : `${count} comments`}
           </span>
           {thread.resolved ? <StatusPill status={RESOLVED_STATUS} /> : null}
+
         </button>
 
         <button

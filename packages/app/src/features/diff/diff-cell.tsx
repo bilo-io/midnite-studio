@@ -2,7 +2,9 @@ import type { DiffLine, SplitCell } from '@midnite/git-shared';
 import { MessageSquarePlus } from 'lucide-react';
 
 import { mergeSegmentsWithTokens, toSegments } from './diff-rows';
+import { isCommentableLine } from './comment-anchors';
 import { useLineHighlight } from './line-highlight';
+
 
 
 const ROW_STYLE: Record<DiffLine['kind'], { row: string; bar: string; span: string }> = {
@@ -53,9 +55,11 @@ export function DiffCell({
   const kind = line.kind as DiffLine['kind'];
   const style = ROW_STYLE[kind];
   const lineNo = side === 'left' ? line.oldNo : line.newNo;
-  const commentLine = onComment !== undefined && side === 'right' ? line.newNo : null;
+  const isCommentable = isCommentableLine({ kind, oldNo: line.oldNo, newNo: line.newNo }, side);
+  const commentLine = onComment !== undefined && isCommentable ? lineNo : null;
 
   const pieces = mergeSegmentsWithTokens(toSegments(line), tokens);
+
 
 
   return (

@@ -217,7 +217,9 @@ export function parsePullDetail(payload: unknown): ForgePullDetail | null {
     // `headRefOid` is `gh pr view`'s name for the head sha; the run listing
     // calls the same value `headSha`, which is what the Checks tab matches on.
     headSha: asString(row['headRefOid']),
+    baseSha: asString(row['baseRefOid']),
     baseBranch: asString(row['baseRefName']) ?? '',
+
     additions: asInt(row['additions']) ?? 0,
     deletions: asInt(row['deletions']) ?? 0,
     changedFiles: asInt(row['changedFiles']) ?? 0,

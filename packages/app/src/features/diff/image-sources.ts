@@ -42,7 +42,8 @@ export type ImageDiffTarget =
       /** The staged half (HEAD → index) rather than the unstaged one (index → checkout). */
       staged: boolean;
     }
-  | { kind: 'commit'; repoId: string; sha: string };
+  | { kind: 'commit'; repoId: string; sha: string; parentSha?: string };
+
 
 /**
  * Sources for a diff, or `null` when an image viewer is not the right answer.
@@ -69,18 +70,19 @@ export function imageDiffSources(
 
   if (target.kind === 'commit') {
     const short = target.sha.slice(0, 7);
+    const parentRev = target.parentSha ?? `${target.sha}^`;
+    const parentLabel = target.parentSha ? target.parentSha.slice(0, 7) : `${short}^`;
     return {
       before: added
         ? null
         : {
-            // `sha^` is the first parent, matching the `--first-parent` diff the
-            // commit inspector already asked git for.
-            url: mgitBlobUrl(target.repoId, `${target.sha}^`, oldPath),
-            label: `${short}^`,
+            url: mgitBlobUrl(target.repoId, parentRev, oldPath),
+            label: parentLabel,
           },
       after: deleted ? null : { url: mgitBlobUrl(target.repoId, target.sha, diff.path), label: short },
     };
   }
+
 
   const { repoId, worktreePath, staged } = target;
   if (staged) {

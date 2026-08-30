@@ -1,4 +1,5 @@
-import { Files, GitPullRequest, Play, X } from 'lucide-react';
+import { Files, GitCommit, GitPullRequest, Play, X } from 'lucide-react';
+
 import type { ReactNode } from 'react';
 import { LuDiff } from 'react-icons/lu';
 
@@ -28,7 +29,9 @@ const KIND_ICON: Record<WorkbenchTabKind, IconComponent> = {
   'all-changes': LuDiff,
   run: Play,
   review: GitPullRequest,
+  commit: GitCommit,
 };
+
 
 export function TabStrip({
   tabs,
