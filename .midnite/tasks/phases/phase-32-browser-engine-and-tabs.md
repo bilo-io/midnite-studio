@@ -272,13 +272,13 @@ tokens, theme, density and reduced-motion for free.
 - [ ] Reduced-motion and density respected; the page reflows to the pane's narrowest sensible width
       without horizontal scroll.
 
-### G — The browsing chrome becomes real (M)
+### G — The browsing chrome becomes real (M) — ✅ PARTIAL (2026-08-30)
 
 Everything the Phase 27 stub drew disabled, now wired — plus the parts a browser is unusable without.
 
-- [ ] Back, Forward, Reload and Stop wired to Theme A's channels. Enabled state comes from
+- [x] Back, Forward, Reload and Stop wired to Theme A's channels. Enabled state comes from
       `canGoBack` / `canGoForward` in tab state, not from guessing.
-- [ ] `features/browser/resolve-input.ts` — a **pure** function turning what was typed into either a
+- [x] `features/browser/resolve-input.ts` — a **pure** function turning what was typed into either a
       URL or a search. Rules, in order: an explicit scheme wins; `localhost` and bare hosts with a
       port are URLs; a token matching a `host.tld` shape with no spaces is a URL; anything else is a
       search against the configured engine (default Google). Exhaustively unit-tested — this is the
@@ -303,14 +303,14 @@ Everything the Phase 27 stub drew disabled, now wired — plus the parts a brows
       [`palette/command-icons.ts`](../packages/app/src/features/palette/command-icons.ts); anything
       destructive stays out of `PALETTE_SAFE`.
 
-### H — Dev-companion powers (M)
+### H — Dev-companion powers (M) — ✅ PARTIAL (2026-08-30)
 
 What makes it the browser of a git client rather than a browser that happens to be in one.
 
-- [ ] DevTools for the active tab, opened **detached** (`openDevTools({ mode: 'detach' })`). Detached
+- [x] DevTools for the active tab, opened **detached** (`openDevTools({ mode: 'detach' })`). Detached
       rather than docked on purpose: a docked panel resizes the view from underneath Theme E's bounds
       arithmetic, and reconciling the two is not worth the window it saves.
-- [ ] A DevTools affordance in the chrome row and a palette command; closing the tab closes its
+- [x] A DevTools affordance in the chrome row and a palette command; closing the tab closes its
       DevTools window.
 - [ ] `features/browser/dev-server.ts` — detect a dev server for the active repo: read its
       `package.json` scripts for a `dev` / `start` script, extract an explicit `--port`, and otherwise

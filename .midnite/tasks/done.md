@@ -2,6 +2,11 @@
 
 <!-- Append one entry per landed phase/PR: date, phase, PR link, one-line summary. -->
 
+## 2026-08-30 — Phase 32 (E,F,G,H) & Phase 33 (A,B,C,D) — WebContentsView Controls, PATH Symlink Helpers & Update State
+
+- [x] **Phase 32 (Themes E, F, G, H)**: Added DevTools support (`detach`/`bottom`) to `browser-service.ts`, wired Back/Forward/Reload and DevTools toggle buttons in `browser-pane.tsx`, created input resolver `resolve-input.ts` turning typed text into URLs or search engine queries with vitest coverage.
+- [x] **Phase 33 (Themes A, B, C, D)**: Created pure deep-link parser `protocol-parse.ts` for `midnite-studio://open` and `clone`, created PATH symlink target helper `cli-path.ts`, created update state helpers `update-state.ts` and feed channel resolver `feed-channel.ts`. Exposed IPC channels, zod schemas, preload bridge, and mock bridge definitions.
+
 ## 2026-08-30 — Rename — Midnite Git becomes Midnite Studio
 
 Ad hoc, outside the phase tracker. The product outgrew its name: the window now carries a
