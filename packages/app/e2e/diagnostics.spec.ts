@@ -101,7 +101,7 @@ test.describe('diagnostics segment', () => {
 
     const dialog = page.getByRole('dialog');
     await expect(dialog).toContainText('node_modules/.bin/eslint . --format json');
-    await expect(dialog).toContainText('/tmp/midnite-git');
+    await expect(dialog).toContainText('/tmp/midnite-studio');
     await expect(dialog).toContainText('runs a program from the repository itself');
     // And it says WHY this command was offered — the detector's evidence.
     await expect(dialog).toContainText('eslint.config.mjs');

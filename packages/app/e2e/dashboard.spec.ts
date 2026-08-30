@@ -15,13 +15,13 @@ import { installMockBridge, type MockFixtures } from './mock-bridge';
  * own choosing.
  */
 
-const MAIN = '/tmp/midnite-git';
+const MAIN = '/tmp/midnite-studio';
 
 const GITHUB_REMOTE = {
   name: 'origin',
-  fetchUrl: 'git@github.com:bilo-io/midnite-git.git',
-  pushUrl: 'git@github.com:bilo-io/midnite-git.git',
-  forge: { host: 'github.com', owner: 'bilo-io', repo: 'midnite-git', kind: 'github' },
+  fetchUrl: 'git@github.com:bilo-io/midnite-studio.git',
+  pushUrl: 'git@github.com:bilo-io/midnite-studio.git',
+  forge: { host: 'github.com', owner: 'bilo-io', repo: 'midnite-studio', kind: 'github' },
 };
 
 /**
@@ -33,9 +33,9 @@ const GITHUB_REMOTE = {
  */
 const GITLAB_REMOTE = {
   name: 'origin',
-  fetchUrl: 'git@gitlab.com:bilo-io/midnite-git.git',
-  pushUrl: 'git@gitlab.com:bilo-io/midnite-git.git',
-  forge: { host: 'gitlab.com', owner: 'bilo-io', repo: 'midnite-git', kind: 'gitlab' },
+  fetchUrl: 'git@gitlab.com:bilo-io/midnite-studio.git',
+  pushUrl: 'git@gitlab.com:bilo-io/midnite-studio.git',
+  forge: { host: 'gitlab.com', owner: 'bilo-io', repo: 'midnite-studio', kind: 'gitlab' },
 };
 
 const localRef = (name: string, over: Record<string, unknown> = {}) => ({
@@ -143,7 +143,7 @@ const base: MockFixtures = {
         checks: 'passing',
         headBranch: 'feature/dashboard',
         author: 'bilo',
-        url: 'https://github.com/bilo-io/midnite-git/pull/7',
+        url: 'https://github.com/bilo-io/midnite-studio/pull/7',
       },
     ],
     issues: [
@@ -157,7 +157,7 @@ const base: MockFixtures = {
         updatedAt: '2026-08-20T09:00:00Z',
         createdAt: '2026-08-14T11:30:00Z',
         comments: 2,
-        url: 'https://github.com/bilo-io/midnite-git/issues/12',
+        url: 'https://github.com/bilo-io/midnite-studio/issues/12',
       },
     ],
   },

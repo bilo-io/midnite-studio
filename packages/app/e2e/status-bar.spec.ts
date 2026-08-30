@@ -36,9 +36,9 @@ test('the left zone footprint is unaffected by what the right zone renders', asy
 
 const GITHUB_REMOTE = {
   name: 'origin',
-  fetchUrl: 'git@github.com:bilo-io/midnite-git.git',
-  pushUrl: 'git@github.com:bilo-io/midnite-git.git',
-  forge: { host: 'github.com', owner: 'bilo-io', repo: 'midnite-git', kind: 'github' },
+  fetchUrl: 'git@github.com:bilo-io/midnite-studio.git',
+  pushUrl: 'git@github.com:bilo-io/midnite-studio.git',
+  forge: { host: 'github.com', owner: 'bilo-io', repo: 'midnite-studio', kind: 'github' },
 };
 
 /** A checks-verdict segment for the checked-out branch (`main`, per the fixture). */

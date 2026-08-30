@@ -22,9 +22,6 @@ qualifier became Studio and the pitch broadened with it.
 - [x] **Docs + phase 33.** README/`CLAUDE.md`/`AGENTS.md`/`GEMINI.md` ledes broadened; the planned
       CLI binary and deep-link scheme become `midnite-studio` / `midnite-studio://`.
 
-Repo-name fixtures (`bilo-io/midnite-git`, `/tmp/midnite-git`, `~/midnite-git`) deliberately keep
-the old spelling — they describe this repository, whose git remote and directory name are a
-separate decision from the app's.
 
 ## 2026-08-30 — Phase 32 Themes A–D — The browser gets a real engine, tabs and groups
 

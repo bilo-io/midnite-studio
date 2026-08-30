@@ -250,7 +250,7 @@ describe('pullThreads', () => {
   const forge = (over: Partial<Forge> = {}): Forge => ({
     host: 'github.com',
     owner: 'bilo-io',
-    repo: 'midnite-git',
+    repo: 'midnite-studio',
     kind: 'github',
     ...over,
   });

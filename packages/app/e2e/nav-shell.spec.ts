@@ -14,8 +14,8 @@ import { installMockBridge, type MockFixtures } from './mock-bridge';
  * does not quietly drop the checkout you were looking at.
  */
 
-const MAIN = '/tmp/midnite-git';
-const FEATURE = '/tmp/midnite-git-feature';
+const MAIN = '/tmp/midnite-studio';
+const FEATURE = '/tmp/midnite-studio-feature';
 
 const entry = (path: string) => ({
   path,
@@ -39,9 +39,9 @@ const localRef = (name: string, over: Record<string, unknown> = {}) => ({
 
 const GITHUB_REMOTE = {
   name: 'origin',
-  fetchUrl: 'git@github.com:bilo-io/midnite-git.git',
-  pushUrl: 'git@github.com:bilo-io/midnite-git.git',
-  forge: { host: 'github.com', owner: 'bilo-io', repo: 'midnite-git', kind: 'github' },
+  fetchUrl: 'git@github.com:bilo-io/midnite-studio.git',
+  pushUrl: 'git@github.com:bilo-io/midnite-studio.git',
+  forge: { host: 'github.com', owner: 'bilo-io', repo: 'midnite-studio', kind: 'github' },
 };
 
 /**
@@ -53,9 +53,9 @@ const GITHUB_REMOTE = {
  */
 const GITLAB_REMOTE = {
   name: 'origin',
-  fetchUrl: 'git@gitlab.com:bilo-io/midnite-git.git',
-  pushUrl: 'git@gitlab.com:bilo-io/midnite-git.git',
-  forge: { host: 'gitlab.com', owner: 'bilo-io', repo: 'midnite-git', kind: 'gitlab' },
+  fetchUrl: 'git@gitlab.com:bilo-io/midnite-studio.git',
+  pushUrl: 'git@gitlab.com:bilo-io/midnite-studio.git',
+  forge: { host: 'gitlab.com', owner: 'bilo-io', repo: 'midnite-studio', kind: 'gitlab' },
 };
 
 /** A GitHub repo with two checkouts, one of them dirty. */

@@ -166,9 +166,9 @@ const FIXTURES: MockFixtures = {
   remotes: [
     {
       name: 'origin',
-      fetchUrl: 'https://github.com/bilo-io/midnite-git.git',
-      pushUrl: 'https://github.com/bilo-io/midnite-git.git',
-      forge: { host: 'github.com', owner: 'bilo-io', repo: 'midnite-git', kind: 'github' },
+      fetchUrl: 'https://github.com/bilo-io/midnite-studio.git',
+      pushUrl: 'https://github.com/bilo-io/midnite-studio.git',
+      forge: { host: 'github.com', owner: 'bilo-io', repo: 'midnite-studio', kind: 'github' },
     },
   ],
   statusEntries: DIRTY,

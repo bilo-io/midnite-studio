@@ -14,14 +14,14 @@ import { installMockBridge, type MockFixtures } from './mock-bridge';
  * you scroll, and that nothing here can change a run on the forge.
  */
 
-const MAIN = '/tmp/midnite-git';
+const MAIN = '/tmp/midnite-studio';
 
 const REMOTES = [
   {
     name: 'origin',
-    fetchUrl: 'git@github.com:bilo-io/midnite-git.git',
-    pushUrl: 'git@github.com:bilo-io/midnite-git.git',
-    forge: { host: 'github.com', owner: 'bilo-io', repo: 'midnite-git', kind: 'github' },
+    fetchUrl: 'git@github.com:bilo-io/midnite-studio.git',
+    pushUrl: 'git@github.com:bilo-io/midnite-studio.git',
+    forge: { host: 'github.com', owner: 'bilo-io', repo: 'midnite-studio', kind: 'github' },
   },
 ];
 
@@ -38,7 +38,7 @@ const run = (over: Record<string, unknown>) => ({
   workflowId: '900',
   workflowName: 'CI',
   ...over,
-  url: `https://github.com/bilo-io/midnite-git/actions/runs/${String(over['id'])}`,
+  url: `https://github.com/bilo-io/midnite-studio/actions/runs/${String(over['id'])}`,
 });
 
 const job = (over: Record<string, unknown>) => ({
@@ -48,7 +48,7 @@ const job = (over: Record<string, unknown>) => ({
   completedAt: '2026-08-26T10:01:00Z',
   steps: [],
   ...over,
-  url: `https://github.com/bilo-io/midnite-git/actions/runs/1/job/${String(over['id'])}`,
+  url: `https://github.com/bilo-io/midnite-studio/actions/runs/1/job/${String(over['id'])}`,
 });
 
 /**
@@ -300,12 +300,12 @@ test('every stateful verb links out instead of being reimplemented', async ({ pa
   const opened = await page.evaluate(
     () => (window as unknown as { __mstudioExternalUrls: string[] }).__mstudioExternalUrls,
   );
-  expect(opened).toContain('https://github.com/bilo-io/midnite-git/actions/runs/2');
-  expect(opened).toContain('https://github.com/bilo-io/midnite-git/actions/runs/1/job/11');
+  expect(opened).toContain('https://github.com/bilo-io/midnite-studio/actions/runs/2');
+  expect(opened).toContain('https://github.com/bilo-io/midnite-studio/actions/runs/1/job/11');
   // The workflow file's path comes from the lazy `gh workflow list` lookup —
   // no run-list field carries it.
   expect(opened).toContain(
-    'https://github.com/bilo-io/midnite-git/blob/main/.github/workflows/ci.yml',
+    'https://github.com/bilo-io/midnite-studio/blob/main/.github/workflows/ci.yml',
   );
 });
 
