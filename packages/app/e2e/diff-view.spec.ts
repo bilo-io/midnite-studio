@@ -78,6 +78,19 @@ test('the old line-number column is off by default and toggles on', async ({ pag
   await expect(page.getByRole('button', { name: 'Hide original line numbers' })).toBeVisible();
 });
 
+test('toggling side-by-side diff switches rendering layout', async ({ page }) => {
+  await openCommit(page);
+  await page.getByRole('button', { name: /window\.ts/ }).click();
+
+  const toggle = page.getByRole('button', { name: 'Switch to side-by-side diff' });
+  await expect(toggle).toBeVisible();
+  await toggle.click();
+
+  await expect(page.getByRole('button', { name: 'Switch to unified diff' })).toBeVisible();
+  await expect(lines(page, 'add')).toHaveCount(1); // 1 side-by-side split row containing add
+});
+
+
 test('a gap between hunks offers an expander, and expanding refetches at wider context', async ({
   page,
 }) => {

@@ -20,6 +20,8 @@
       "@midnite/git-shared": ["../shared/src/index.ts"]
     }
   },
+
+
   "include": ["src/**/*", "vite.config.ts", "vitest.config.ts", "tailwind.config.ts"],
   "exclude": ["dist", "node_modules"]
 }
