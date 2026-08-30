@@ -6,8 +6,8 @@ import type { RepoDescriptor } from '@midnite/studio-shared';
  * `root` is the *matched* checkout — a linked worktree when the path is inside
  * one, the repository root otherwise — because a worktree is what you navigate
  * by even though `repoId`/`repoName` still name the repository it belongs to.
- * `~/Dev/midnite-git/.worktrees/foo/packages` resolves to the `foo` worktree,
- * not to `midnite-git`.
+ * `~/Dev/midnite-studio/.worktrees/foo/packages` resolves to the `foo` worktree,
+ * not to `midnite-studio`.
  */
 export type ResolvedRepoPath = {
   repoId: string;
@@ -25,8 +25,8 @@ export type ResolvedRepoPath = {
  * the same path and the shorter one is the wrong answer. The same rule keeps
  * two repositories whose paths nest from collapsing into each other.
  *
- * The match is separator-aware — `/Dev/midnite-git-old` is not inside
- * `/Dev/midnite-git`, and a plain `startsWith` says it is.
+ * The match is separator-aware — `/Dev/midnite-studio-old` is not inside
+ * `/Dev/midnite-studio`, and a plain `startsWith` says it is.
  */
 export function resolveRepoForPath(
   path: string | null | undefined,

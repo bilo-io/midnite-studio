@@ -18,9 +18,9 @@ const OUT = '../../docs/screenshots/phase-27-status-bar';
 
 const GITHUB_REMOTE = {
   name: 'origin',
-  fetchUrl: 'git@github.com:bilo-io/midnite-git.git',
-  pushUrl: 'git@github.com:bilo-io/midnite-git.git',
-  forge: { host: 'github.com', owner: 'bilo-io', repo: 'midnite-git', kind: 'github' },
+  fetchUrl: 'git@github.com:bilo-io/midnite-studio.git',
+  pushUrl: 'git@github.com:bilo-io/midnite-studio.git',
+  forge: { host: 'github.com', owner: 'bilo-io', repo: 'midnite-studio', kind: 'github' },
 };
 
 const FAILING_PR = {

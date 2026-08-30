@@ -37,7 +37,7 @@ vi.mock('./gh-shell', async (importOriginal) => {
   };
 });
 
-const FORGE: Forge = { host: 'github.com', owner: 'bilo-io', repo: 'midnite-git', kind: 'github' };
+const FORGE: Forge = { host: 'github.com', owner: 'bilo-io', repo: 'midnite-studio', kind: 'github' };
 
 /** A completed run — the only kind that gets cached. */
 const COMPLETED = {
@@ -47,7 +47,7 @@ const COMPLETED = {
   conclusion: 'failure',
   headBranch: 'feature/writes',
   createdAt: '2026-08-27T09:00:00Z',
-  url: 'https://github.com/bilo-io/midnite-git/actions/runs/9001',
+  url: 'https://github.com/bilo-io/midnite-studio/actions/runs/9001',
   jobs: [
     {
       databaseId: 21,
@@ -56,7 +56,7 @@ const COMPLETED = {
       conclusion: 'failure',
       startedAt: '2026-08-27T09:00:10Z',
       completedAt: '2026-08-27T09:04:00Z',
-      url: 'https://github.com/bilo-io/midnite-git/actions/runs/9001/job/21',
+      url: 'https://github.com/bilo-io/midnite-studio/actions/runs/9001/job/21',
       steps: [],
     },
   ],

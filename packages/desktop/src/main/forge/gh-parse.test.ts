@@ -35,7 +35,7 @@ import {
 
 describe('shellQuote', () => {
   it('wraps a plain argument', () => {
-    expect(shellQuote('bilo-io/midnite-git')).toBe(`'bilo-io/midnite-git'`);
+    expect(shellQuote('bilo-io/midnite-studio')).toBe(`'bilo-io/midnite-studio'`);
   });
 
   it('neutralises every expansion a shell has', () => {
