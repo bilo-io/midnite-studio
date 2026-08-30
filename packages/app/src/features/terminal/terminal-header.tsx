@@ -33,7 +33,7 @@ export type TerminalHeaderProps = {
 /**
  * The terminal panel's top strip.
  *
- * It used to read `Terminal  /Users/you/Dev/midnite-studio` — a word that names
+ * It used to read `Terminal  /Users/you/Dev/midnite-git` — a word that names
  * the pane you are already looking at, then a path with nothing to grab onto.
  * It now says the three things the pane cannot say for itself: that it is a
  * terminal (a glyph, in the width the word used to cost), whether the process

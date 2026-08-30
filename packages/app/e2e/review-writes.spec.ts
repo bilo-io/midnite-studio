@@ -16,14 +16,14 @@ import { installMockBridge, type MockFixtures } from './mock-bridge';
  * test PR; no mock can answer it.
  */
 
-const MAIN = '/tmp/midnite-studio';
+const MAIN = '/tmp/midnite-git';
 
 const REMOTES = [
   {
     name: 'origin',
-    fetchUrl: 'git@github.com:bilo-io/midnite-studio.git',
-    pushUrl: 'git@github.com:bilo-io/midnite-studio.git',
-    forge: { host: 'github.com', owner: 'bilo-io', repo: 'midnite-studio', kind: 'github' },
+    fetchUrl: 'git@github.com:bilo-io/midnite-git.git',
+    pushUrl: 'git@github.com:bilo-io/midnite-git.git',
+    forge: { host: 'github.com', owner: 'bilo-io', repo: 'midnite-git', kind: 'github' },
   },
 ];
 
@@ -48,7 +48,7 @@ const OPEN_PULL = {
   author: 'bilo',
   mergedAt: null,
   closedAt: null,
-  url: 'https://github.com/bilo-io/midnite-studio/pull/201',
+  url: 'https://github.com/bilo-io/midnite-git/pull/201',
 };
 
 /** Fourteen commits, of which the wire carries five — see `PULL_COMMIT_SAMPLE`. */
@@ -385,7 +385,7 @@ test('re-run offers failed-only only on a run that failed', async ({ page }) => 
     headSha: 'c'.repeat(40),
     createdAt: '2026-08-27T09:00:00Z',
     updatedAt: '2026-08-27T09:05:00Z',
-    url: 'https://github.com/bilo-io/midnite-studio/actions/runs/9001',
+    url: 'https://github.com/bilo-io/midnite-git/actions/runs/9001',
     event: 'pull_request',
     ...over,
   });

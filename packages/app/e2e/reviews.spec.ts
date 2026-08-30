@@ -13,14 +13,14 @@ import { installMockBridge, type MockFixtures } from './mock-bridge';
  * than all three loading on arrival.
  */
 
-const MAIN = '/tmp/midnite-studio';
+const MAIN = '/tmp/midnite-git';
 
 const REMOTES = [
   {
     name: 'origin',
-    fetchUrl: 'git@github.com:bilo-io/midnite-studio.git',
-    pushUrl: 'git@github.com:bilo-io/midnite-studio.git',
-    forge: { host: 'github.com', owner: 'bilo-io', repo: 'midnite-studio', kind: 'github' },
+    fetchUrl: 'git@github.com:bilo-io/midnite-git.git',
+    pushUrl: 'git@github.com:bilo-io/midnite-git.git',
+    forge: { host: 'github.com', owner: 'bilo-io', repo: 'midnite-git', kind: 'github' },
   },
 ];
 
@@ -35,7 +35,7 @@ const pull = {
   checks: 'passing',
   headBranch: 'feature/reviews',
   author: 'bilo',
-  url: 'https://github.com/bilo-io/midnite-studio/pull/42',
+  url: 'https://github.com/bilo-io/midnite-git/pull/42',
 };
 
 const pullDetail = {
@@ -92,7 +92,7 @@ const run = {
   headBranch: 'feature/reviews',
   headSha: HEAD_SHA,
   createdAt: '2026-08-26T10:00:00Z',
-  url: 'https://github.com/bilo-io/midnite-studio/actions/runs/1',
+  url: 'https://github.com/bilo-io/midnite-git/actions/runs/1',
   event: 'pull_request',
   workflowId: '900',
   workflowName: 'CI',
@@ -243,7 +243,7 @@ test('a capped diff says how much it dropped and offers the forge', async ({ pag
         () => (window as unknown as { __mstudioExternalUrls: string[] }).__mstudioExternalUrls,
       ),
     )
-    .toContain('https://github.com/bilo-io/midnite-studio/pull/42');
+    .toContain('https://github.com/bilo-io/midnite-git/pull/42');
 });
 
 test('Conversation interleaves discussion and review verdicts', async ({ page }) => {
@@ -305,7 +305,7 @@ test('Checks resolves the head sha to a run and shows its job tree', async ({ pa
               conclusion: 'failure',
               startedAt: '2026-08-26T10:00:10Z',
               completedAt: '2026-08-26T10:01:00Z',
-              url: 'https://github.com/bilo-io/midnite-studio/actions/runs/1/job/10',
+              url: 'https://github.com/bilo-io/midnite-git/actions/runs/1/job/10',
               steps: [],
             },
           ],
@@ -408,7 +408,7 @@ test('the terminal header is never painted over by a squeezed detail pane', asyn
               conclusion: 'failure',
               startedAt: '2026-08-26T10:00:10Z',
               completedAt: '2026-08-26T10:01:00Z',
-              url: 'https://github.com/bilo-io/midnite-studio/actions/runs/1/job/10',
+              url: 'https://github.com/bilo-io/midnite-git/actions/runs/1/job/10',
               steps: [],
             },
           ],

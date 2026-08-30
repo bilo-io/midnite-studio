@@ -29,7 +29,7 @@ describe('listRemotes', () => {
 
   it('reads several remotes and derives each forge', async () => {
     const repo = await makeRepo();
-    await repo.git(['remote', 'add', 'origin', 'git@github.com:bilo-io/midnite-studio.git']);
+    await repo.git(['remote', 'add', 'origin', 'git@github.com:bilo-io/midnite-git.git']);
     await repo.git(['remote', 'add', 'mirror', 'https://gitlab.com/bilo/midnite.git']);
 
     const remotes = await listRemotes(repo.path);
@@ -37,10 +37,10 @@ describe('listRemotes', () => {
     expect(remotes).toHaveLength(2);
     expect(remotes.find((r) => r.name === 'origin')).toEqual({
       name: 'origin',
-      fetchUrl: 'git@github.com:bilo-io/midnite-studio.git',
+      fetchUrl: 'git@github.com:bilo-io/midnite-git.git',
       // No pushurl set, so it falls back to the fetch URL — git's own rule.
-      pushUrl: 'git@github.com:bilo-io/midnite-studio.git',
-      forge: { host: 'github.com', owner: 'bilo-io', repo: 'midnite-studio', kind: 'github' },
+      pushUrl: 'git@github.com:bilo-io/midnite-git.git',
+      forge: { host: 'github.com', owner: 'bilo-io', repo: 'midnite-git', kind: 'github' },
     });
     expect(remotes.find((r) => r.name === 'mirror')?.forge?.kind).toBe('gitlab');
   });

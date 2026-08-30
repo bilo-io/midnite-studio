@@ -55,11 +55,11 @@ describe('palette providers', () => {
   it('creates repos and worktrees source', () => {
     const onSelect = vi.fn();
     const repos: RepoDescriptor[] = [
-      { id: 'r1', name: 'midnite-studio', path: '/dev/midnite-studio', headRef: 'main', worktrees: [] },
+      { id: 'r1', name: 'midnite-git', path: '/dev/midnite-git', headRef: 'main', worktrees: [] },
     ];
     const worktrees: Worktree[] = [
       {
-        path: '/dev/midnite-studio/.worktrees/feat',
+        path: '/dev/midnite-git/.worktrees/feat',
         branch: 'feature/palette',
         headSha: 'abc',
         id: 'wt1',
@@ -74,14 +74,14 @@ describe('palette providers', () => {
     expect(source.key).toBe('repos');
 
     const items = source.items();
-    expect(items.find((i) => i.id === 'repo:r1')?.label).toBe('midnite-studio');
-    expect(items.find((i) => i.id === 'worktree:/dev/midnite-studio/.worktrees/feat')?.label).toBe('feature/palette');
+    expect(items.find((i) => i.id === 'repo:r1')?.label).toBe('midnite-git');
+    expect(items.find((i) => i.id === 'worktree:/dev/midnite-git/.worktrees/feat')?.label).toBe('feature/palette');
   });
 
   it('creates terminal sessions and agent roster source', () => {
     const onSelect = vi.fn();
     const sessions: TerminalSession[] = [
-      { id: 's1', title: 'zsh', kind: 'shell', cwd: '/dev/midnite-studio', repoId: 'r1', createdAt: Date.now() },
+      { id: 's1', title: 'zsh', kind: 'shell', cwd: '/dev/midnite-git', repoId: 'r1', createdAt: Date.now() },
     ];
     const agents: AgentDefinition[] = [
       { id: 'claude', label: 'Claude Code', command: 'claude', args: [], accent: '#f00' },

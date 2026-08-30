@@ -96,7 +96,7 @@ describe('branchesCount', () => {
 });
 
 describe('matchesRepoQuery', () => {
-  const repo = { name: 'midnite-studio', path: '/Users/x/Dev/midnite-studio' };
+  const repo = { name: 'midnite-git', path: '/Users/x/Dev/midnite-git' };
 
   it('keeps everything for an empty or whitespace-only query', () => {
     // The box starts empty and stays empty most of the time; a filter that
@@ -107,7 +107,7 @@ describe('matchesRepoQuery', () => {
 
   it('matches the name case-insensitively on a partial', () => {
     expect(matchesRepoQuery(repo, 'MIDN')).toBe(true);
-    expect(matchesRepoQuery(repo, 'nite-s')).toBe(true);
+    expect(matchesRepoQuery(repo, 'nite-g')).toBe(true);
   });
 
   it('matches on the path, not just the name', () => {
@@ -118,8 +118,8 @@ describe('matchesRepoQuery', () => {
   });
 
   it('requires every whitespace-separated term to match, in any order', () => {
-    expect(matchesRepoQuery(repo, 'studio dev')).toBe(true);
-    expect(matchesRepoQuery(repo, 'dev studio')).toBe(true);
+    expect(matchesRepoQuery(repo, 'git dev')).toBe(true);
+    expect(matchesRepoQuery(repo, 'dev git')).toBe(true);
     expect(matchesRepoQuery(repo, 'dev nope')).toBe(false);
   });
 

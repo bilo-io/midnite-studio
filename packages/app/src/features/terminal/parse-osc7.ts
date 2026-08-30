@@ -32,7 +32,7 @@ export function parseOsc7(payload: string, hostname?: string | null): string | n
   /*
     A `..` segment is refused rather than resolved. `$PWD` is normally already
     normalised, so this is rare — but `resolveRepoForPath` matches on string
-    prefixes, and `/Dev/midnite-studio/../other` prefix-matches `midnite-studio` and
+    prefixes, and `/Dev/midnite-git/../other` prefix-matches `midnite-git` and
     would label the header with a repository the shell has just left. Refusing
     costs that session its live path; guessing costs it the truth.
   */

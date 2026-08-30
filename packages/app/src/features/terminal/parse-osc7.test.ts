@@ -6,7 +6,7 @@ const HOST = 'bilos-mac.local';
 
 describe('parseOsc7', () => {
   it('accepts the empty host', () => {
-    expect(parseOsc7('file:///Users/x/Dev/midnite-studio', HOST)).toBe('/Users/x/Dev/midnite-studio');
+    expect(parseOsc7('file:///Users/x/Dev/midnite-git', HOST)).toBe('/Users/x/Dev/midnite-git');
   });
 
   it('accepts localhost', () => {
@@ -26,7 +26,7 @@ describe('parseOsc7', () => {
   */
   it('rejects another machine', () => {
     expect(parseOsc7('file://build-server/var/www', HOST)).toBeNull();
-    expect(parseOsc7('file://build-server/Users/x/Dev/midnite-studio', HOST)).toBeNull();
+    expect(parseOsc7('file://build-server/Users/x/Dev/midnite-git', HOST)).toBeNull();
   });
 
   it('rejects a remote host when this machine has no name to compare', () => {
@@ -73,12 +73,12 @@ describe('parseOsc7', () => {
 
   /*
     Refused rather than resolved. `resolveRepoForPath` matches on string
-    prefixes, so `/Dev/midnite-studio/../other` would prefix-match `midnite-studio`
+    prefixes, so `/Dev/midnite-git/../other` would prefix-match `midnite-git`
     and label the header with a repository the shell has just left.
   */
   it('rejects a path with a `..` segment rather than mislabelling it', () => {
     expect(parseOsc7('file://localhost/../etc', HOST)).toBeNull();
-    expect(parseOsc7('file:///Users/x/Dev/midnite-studio/../other', HOST)).toBeNull();
+    expect(parseOsc7('file:///Users/x/Dev/midnite-git/../other', HOST)).toBeNull();
     expect(parseOsc7('file:///Users/x/Dev/..', HOST)).toBeNull();
     // …but a directory whose NAME merely contains dots is fine.
     expect(parseOsc7('file:///Users/x/..config/a..b', HOST)).toBe('/Users/x/..config/a..b');

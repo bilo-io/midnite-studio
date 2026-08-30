@@ -12,14 +12,14 @@ import { installMockBridge, type MockFixtures } from './mock-bridge';
  * or that expanding a run row costs a fetch only once someone expands it.
  */
 
-const MAIN = '/tmp/midnite-studio';
+const MAIN = '/tmp/midnite-git';
 
 const REMOTES = [
   {
     name: 'origin',
-    fetchUrl: 'git@github.com:bilo-io/midnite-studio.git',
-    pushUrl: 'git@github.com:bilo-io/midnite-studio.git',
-    forge: { host: 'github.com', owner: 'bilo-io', repo: 'midnite-studio', kind: 'github' },
+    fetchUrl: 'git@github.com:bilo-io/midnite-git.git',
+    pushUrl: 'git@github.com:bilo-io/midnite-git.git',
+    forge: { host: 'github.com', owner: 'bilo-io', repo: 'midnite-git', kind: 'github' },
   },
 ];
 
@@ -32,7 +32,7 @@ const issue = (over: Record<string, unknown> = {}) => ({
   assignees: [],
   createdAt: '2026-08-01T09:00:00Z',
   updatedAt: '2026-08-20T09:00:00Z',
-  url: 'https://github.com/bilo-io/midnite-studio/issues/42',
+  url: 'https://github.com/bilo-io/midnite-git/issues/42',
   ...over,
 });
 
@@ -44,7 +44,7 @@ const run = {
   headBranch: 'main',
   headSha: 'a'.repeat(40),
   createdAt: '2026-08-26T10:00:00Z',
-  url: 'https://github.com/bilo-io/midnite-studio/actions/runs/1',
+  url: 'https://github.com/bilo-io/midnite-git/actions/runs/1',
   event: 'push',
   workflowId: '900',
   workflowName: 'CI',
@@ -90,7 +90,7 @@ test('Issues lists what gh reports, and each row links out', async ({ page }) =>
         () => (window as unknown as { __mstudioExternalUrls: string[] }).__mstudioExternalUrls,
       ),
     )
-    .toContain('https://github.com/bilo-io/midnite-studio/issues/42');
+    .toContain('https://github.com/bilo-io/midnite-git/issues/42');
 });
 
 test('a repo with issues turned off says so, and does not look broken', async ({ page }) => {
@@ -134,7 +134,7 @@ test('expanding a run row shows its jobs, and only then fetches them', async ({ 
               conclusion: 'success',
               startedAt: '2026-08-26T10:00:10Z',
               completedAt: '2026-08-26T10:01:00Z',
-              url: 'https://github.com/bilo-io/midnite-studio/actions/runs/1/job/10',
+              url: 'https://github.com/bilo-io/midnite-git/actions/runs/1/job/10',
               steps: [
                 {
                   number: 1,
@@ -153,7 +153,7 @@ test('expanding a run row shows its jobs, and only then fetches them', async ({ 
               conclusion: 'failure',
               startedAt: '2026-08-26T10:00:10Z',
               completedAt: '2026-08-26T10:04:00Z',
-              url: 'https://github.com/bilo-io/midnite-studio/actions/runs/1/job/11',
+              url: 'https://github.com/bilo-io/midnite-git/actions/runs/1/job/11',
               steps: [],
             },
           ],
