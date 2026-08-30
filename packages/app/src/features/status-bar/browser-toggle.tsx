@@ -25,7 +25,9 @@ export function BrowserToggle() {
       >
         <GoGlobe aria-hidden className="mr-1 inline h-3.5 w-3.5 align-[-2px]" />
         <span className="status-label">Browser</span>
-        <span className="status-label ml-1.5 opacity-60">{displayChord(browserChord)}</span>
+        <span className="status-label ml-1.5 opacity-80">
+          ⌘<span className="text-[13px] font-bold">B</span>
+        </span>
       </button>
     </Tooltip>
   );

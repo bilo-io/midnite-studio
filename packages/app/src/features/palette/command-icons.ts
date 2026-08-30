@@ -23,6 +23,7 @@ import {
  */
 export const COMMAND_ICONS: Record<CommandId, IconType> = {
   'terminal.toggle': LuSquareTerminal,
+  'terminal.toggleHalfMaximized': LuSquareTerminal,
   'terminal.focus': LuSquareTerminal,
   'repos.toggle': LuPanelLeft,
   'browser.toggle': LuGlobe,

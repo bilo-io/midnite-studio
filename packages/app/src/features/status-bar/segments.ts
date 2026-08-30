@@ -52,8 +52,6 @@ export const STATUS_SEGMENTS: StatusSegment[] = [
   { id: 'repos-toggle', zone: 'left', priority: 10, label: 'Repositories', El: ReposToggle },
   { id: 'terminal-toggle', zone: 'left', priority: 20, label: 'Terminal', El: TerminalToggle },
   { id: 'browser-toggle', zone: 'left', priority: 5, label: 'Browser', El: BrowserToggle },
-  // Priority 30: identity beats the toggles at overflow time — knowing which
-  // checkout the bar is even about outranks a button that summons a panel.
   {
     id: 'active-worktree',
     zone: 'left',
