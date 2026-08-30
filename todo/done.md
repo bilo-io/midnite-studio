@@ -2,6 +2,10 @@
 
 <!-- Append one entry per landed phase/PR: date, phase, PR link, one-line summary. -->
 
+## 2026-08-30 — Phase 27 Theme G — Status Bar Verification & Completion
+
+- [x] **Theme G — Status Bar Verification & Finalization.** Completed remaining manual verification items, verified layout stability across density overflow thresholds (`full` → `compact` → `collapsed`), verified focus trap and `aria-live` region positioning for op-progress notifications, verified live fetch/push operation reporting, and marked Phase 27 fully complete.
+
 ## 2026-08-30 — Phase 26 Themes E–H — Sticky DiffToolbar, Left-side Review Comments, Full-width Commit Tab & PR Image Diffs
 
 - [x] **Theme D — Virtualized Accordions.** Implemented per-file virtualization in `InlineDiffBody` for inline diff accordions; relaxed `EXPAND_ALL_LIMIT` to 100 in `expansion.ts`; added split scroll perf test cases.
