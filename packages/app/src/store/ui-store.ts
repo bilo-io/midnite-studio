@@ -387,6 +387,11 @@ export type UiState = {
    * "which line is this in HEAD".
    */
   diffShowOldGutter: boolean;
+  /** Layout preference for diff rendering: unified (single column) or split (side-by-side) */
+  diffLayout: 'unified' | 'split';
+  setDiffLayout: (layout: 'unified' | 'split') => void;
+  toggleDiffLayout: () => void;
+
   /**
    * How the commit inspector lists a commit's files.
    *
@@ -625,7 +630,9 @@ type PersistedUi = Pick<
   | 'collapsedRepoSections'
   | 'sectionFilters'
   | 'diffShowOldGutter'
+  | 'diffLayout'
   | 'graphTheme'
+
   | 'graphDensity'
   | 'settingsPage'
   | 'commitFileView'
@@ -687,6 +694,8 @@ export const useUiStore = create<UiState>()(
       graphRefFilter: [],
       graphAuthorFilter: [],
       diffShowOldGutter: false,
+      diffLayout: 'unified',
+
       commitFileView: 'tree',
       commitMetaOpen: true,
       changesFileView: 'list',
@@ -849,6 +858,10 @@ export const useUiStore = create<UiState>()(
       setGraphAuthorFilter: (graphAuthorFilter) => set({ graphAuthorFilter }),
       toggleDiffOldGutter: () =>
         set((state) => ({ diffShowOldGutter: !state.diffShowOldGutter })),
+      setDiffLayout: (diffLayout) => set({ diffLayout }),
+      toggleDiffLayout: () =>
+        set((state) => ({ diffLayout: state.diffLayout === 'split' ? 'unified' : 'split' })),
+
       setCommitFileView: (commitFileView) => set({ commitFileView }),
       toggleCommitMeta: () => set((state) => ({ commitMetaOpen: !state.commitMetaOpen })),
       setChangesFileView: (changesFileView) => set({ changesFileView }),
@@ -906,6 +919,8 @@ export const useUiStore = create<UiState>()(
         */
         sectionFilters: state.sectionFilters,
         diffShowOldGutter: state.diffShowOldGutter,
+        diffLayout: state.diffLayout,
+
         graphTheme: state.graphTheme,
         graphDensity: state.graphDensity,
         settingsPage: state.settingsPage,

@@ -3,6 +3,11 @@ import type { DiffHunk, DiffLine, FileDiff, ForgeReviewThread } from '@midnite/g
 import type { ThreadsByLine } from './comment-anchors';
 import type { HighlightToken } from './line-highlight';
 
+export { canSplit, toSplitRows } from './split-diff-rows';
+
+
+
+
 /**
  * Flattening the hunk tree into one row list, because the view is virtualised.
  *
