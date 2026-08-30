@@ -5,13 +5,13 @@ A GitKraken-inspired desktop git client. **Design source of truth:
 carries the architecture, IPC contract, data model, and the verified research constraints
 (licensing, registry auth, native-module ABI) that every phase assumes.
 
-**Progress tracker: [`todo/`](todo/)** — `_INDEX.md` is the phase table, `done.md` is the
+**Progress tracker: [`.midnite/todo/`](.midnite/todo/)** — `_INDEX.md` is the phase table, `done.md` is the
 append-only landed log, `outstanding.md` is deliberately-deferred scope.
 
 ## Keep `CLAUDE.md`, `AGENTS.md` and `GEMINI.md` in sync
 
 This repo drives three coding agents — **Claude** (`CLAUDE.md`), **Codex** (`AGENTS.md`), and
-**Antigravity** (`GEMINI.md`, this file) — each reading its own convention file by its own
+**Antigravity** (`GEMINI.md`) — each reading its own convention file by its own
 naming rule, not this one. All three carry the *same* conventions, so a session started with
 any of them sees the same rules.
 
@@ -118,6 +118,6 @@ explanatory messages. If a boundary rule fires, the fix is an IPC channel, not a
 
 ## Phase workflow
 
-One phase per PR where practical. Work the checklist in `todo/phase-N-*.md`, leave
-`moon run :typecheck :lint :test` green, append an entry to `todo/done.md`, and update the
-table in `todo/_INDEX.md`.
+One phase per PR where practical. Work the checklist in `.midnite/todo/phase-N-*.md`, leave
+`moon run :typecheck :lint :test` green, append an entry to `.midnite/todo/done.md`, and update the
+table in `.midnite/todo/_INDEX.md`.
