@@ -24,7 +24,7 @@ Completed work is logged append-only in [`done.md`](done.md). Deferred scope liv
 | [26 · Side by side, and the room to show it](phase-26-side-by-side-diffs.md) | 🔄 WIP | — | 34/68 | `█████░░░░░` | 50% | E–H | — |
 
 
-| [25 · Search everywhere, and the blame that explains it](phase-25-search-everywhere.md) | 🔄 WIP | x1 | 48/101 | `█████░░░░░` | 48% | D–F | — |
+| [25 · Search everywhere, and the blame that explains it](phase-25-search-everywhere.md) | ✅ DONE | x1 | 101/101 | `██████████` | 100% | — | — |
 | [24 · The explorer learns to write, and to search](phase-24-writable-explorer.md) | ✅ DONE | — | 43/55 | `████████░░` | 78% | — | — |
 | [23 · A command palette, and the registry that can feed it](phase-23-command-palette.md) | ✅ DONE | — | 42/55 | `████████░░` | 76% | — | — |
 | [22 · Stash, the reflog, and writes you can take back](phase-22-stash-and-safety-net.md) | ✅ DONE | — | 70/70 | `██████████` | 100% | — | — |
@@ -281,27 +281,27 @@ item: this phase writes `commands/grep.ts` whole and ships a substring Files mod
 items excluded from the count and four one-line "if Phase 23/24 has landed" deltas. Refined x1: the
 `CodePreview` rework that Themes C, D and E all silently assumed is now Theme D's first two items.*
 
-- ◻ **A** — `commands/{search,grep,blame}.ts` + `parsers/{grep,blame}-parser.ts` all net-new;
+- ✅ **A** — `commands/{search,grep,blame}.ts` + `parsers/{grep,blame}-parser.ts` all net-new;
   `buildLogArgs` widened to author/message/path/date/`-S`/`-G` with the append order that keeps the
   three-key call byte-identical; `--follow` throwing on two pathspecs; one `buildGrepArgs` emitting
   `-e <pattern>`, then `rev`, then `--`; the porcelain `previous` kept on the *line* because renames
-  differ per hunk.
-- ◻ **B** — `stream-registry.ts` lifted out of `log-service.ts` with `POLICY` as a table and a
+  differ per hunk. (landed 2026-08-28)
+- ✅ **B** — `stream-registry.ts` lifted out of `log-service.ts` with `POLICY` as a table and a
   `release` that stops the map growing; `search-service.ts` allowing four concurrent streams and
   **owning the 5000 cap**; `search*`/`blame*` channels whose batch is discriminated on `mode`; a zod
-  refine refusing a leading `-` on every string that reaches argv.
-- ◻ **C** — a `'search'` rail view with Commits/Content/Files modes, the repo's first **measured**
+  refine refusing a leading `-` on every string that reaches argv. (landed 2026-08-28)
+- ✅ **C** — a `'search'` rail view with Commits/Content/Files modes, the repo's first **measured**
   virtualizer over an append-only row array, a results/preview split, four named empty/loading/error
-  states, a visible truncation row, and a footer readout while a stream is live.
-- ◻ **D** — `CodePreview` rewritten from one `codeToHtml` blob into per-line `data-line` rows from
+  states, a visible truncation row, and a footer readout while a stream is live. (landed 2026-08-28)
+- ✅ **D** — `CodePreview` rewritten from one `codeToHtml` blob into per-line `data-line` rows from
   `codeToTokens()`, which is what C's scroll-to-line and E's find bar need; a blame gutter as a
-  sibling grid column so alignment is structural; `-C -M`; reblame with an unpersisted per-file stack.
-- ◻ **E** — `components/filter-input.tsx` at last, retrofitted onto repos and reviews and given to the
+  sibling grid column so alignment is structural; `-C -M`; reblame with an unpersisted per-file stack. (landed 2026-08-30)
+- ✅ **E** — `components/filter-input.tsx` at last, retrofitted onto repos and reviews and given to the
   Changes view; a `Mod+f` find bar with case/regex toggles and wrapping navigation; a graph-header box
-  that dims, counts "{n} of {loaded} loaded", steps, and hands off.
-- ◻ **F** — Fetch to `Mod+Shift+r` (lowercase, like every chord in the keymap), `search.open` on
+  that dims, counts "{n} of {loaded} loaded", steps, and hands off. (landed 2026-08-30)
+- ✅ **F** — Fetch to `Mod+Shift+r` (lowercase, like every chord in the keymap), `search.open` on
   `Mod+Shift+f` and global-scoped, `NumberField` and `Toggle` added to `controls.tsx`, and a Search
-  settings page.
+  settings page. (landed 2026-08-30)
 
 ### [Phase 26 — Side by side, and the room to show it](phase-26-side-by-side-diffs.md)
 

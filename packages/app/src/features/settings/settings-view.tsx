@@ -13,6 +13,7 @@ import { AppearancePage } from './settings-pages/appearance-page';
 import { GraphPage } from './settings-pages/graph-page';
 import { MonitorPage } from './settings-pages/monitor-page';
 import { ReviewsPage } from './settings-pages/reviews-page';
+import { SearchSettingsPage } from './settings-pages/search-page';
 import { SidebarPage } from './settings-pages/sidebar-page';
 import { TerminalPage } from './settings-pages/terminal-page';
 
@@ -28,6 +29,7 @@ const PAGE_CONTENT: Record<SettingsPageId, () => React.ReactNode> = {
   appearance: () => <AppearancePage />,
   graph: () => <GraphPage />,
   sidebar: () => <SidebarPage />,
+  search: () => <SearchSettingsPage />,
   terminal: () => <TerminalPage />,
   agent: () => <AgentPage />,
   reviews: () => <ReviewsPage />,
