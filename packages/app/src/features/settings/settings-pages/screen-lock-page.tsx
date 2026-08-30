@@ -4,7 +4,7 @@ import { LuClock, LuLock } from 'react-icons/lu';
 
 import { useUiStore } from '../../../store/ui-store';
 import { PasscodeSetupDialog } from '../../screensaver/passcode-pad';
-import { Choice, Field } from './controls';
+import { Field } from './controls';
 
 export const INACTIVITY_MIN_S = 60;
 export const INACTIVITY_MAX_S = 14400;
@@ -62,6 +62,8 @@ export function ScreenLockPage() {
   const setRequirePasscode = useUiStore((s) => s.setRequirePasscode);
   const setPasscode = useUiStore((s) => s.setPasscode);
   const setPasscodeOnlyWhenLocked = useUiStore((s) => s.setPasscodeOnlyWhenLocked);
+  const setScreensaverOpen = useUiStore((s) => s.setScreensaverOpen);
+  const lockScreen = useUiStore((s) => s.lockScreen);
 
   const [setup, setSetup] = useState<'enable' | 'change' | null>(null);
   const hasPasscode = !!passcode;
@@ -220,6 +222,23 @@ export function ScreenLockPage() {
           </div>
         </div>
       </Accordion>
+
+      <div className="flex items-center justify-end gap-2 pt-2">
+        <button
+          type="button"
+          onClick={() => setScreensaverOpen(true, false)}
+          className="rounded border border-border bg-card px-3 py-1.5 text-xs font-medium hover:bg-accent"
+        >
+          Start screensaver
+        </button>
+        <button
+          type="button"
+          onClick={() => lockScreen()}
+          className="rounded bg-primary px-3 py-1.5 text-xs font-medium text-primary-foreground hover:bg-primary/90"
+        >
+          Lock screen now
+        </button>
+      </div>
 
       {setup ? (
         <PasscodeSetupDialog

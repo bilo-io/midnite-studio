@@ -576,6 +576,11 @@ export type UiState = {
   setPasscode: (code: string | null) => void;
   passcodeOnlyWhenLocked: boolean;
   setPasscodeOnlyWhenLocked: (onlyWhenLocked: boolean) => void;
+
+  screensaverOpen: boolean;
+  screensaverLocked: boolean;
+  setScreensaverOpen: (open: boolean, locked?: boolean) => void;
+  lockScreen: () => void;
 };
 
 /**
@@ -717,6 +722,11 @@ export const useUiStore = create<UiState>()(
       setPasscode: (passcode) => set({ passcode }),
       passcodeOnlyWhenLocked: false,
       setPasscodeOnlyWhenLocked: (passcodeOnlyWhenLocked) => set({ passcodeOnlyWhenLocked }),
+      screensaverOpen: false,
+      screensaverLocked: false,
+      setScreensaverOpen: (screensaverOpen, screensaverLocked = false) =>
+        set({ screensaverOpen, screensaverLocked }),
+      lockScreen: () => set({ screensaverOpen: true, screensaverLocked: true }),
       selectedRepoId: null,
       selectedWorktreePath: null,
       selectedCommitSha: null,
@@ -1006,6 +1016,11 @@ export const useUiStore = create<UiState>()(
         repoGroups: state.repoGroups,
         repoGroupMembership: state.repoGroupMembership,
         collapsedRepoGroups: state.collapsedRepoGroups,
+        inactivityTimeoutS: state.inactivityTimeoutS,
+        cycleDurationS: state.cycleDurationS,
+        requirePasscode: state.requirePasscode,
+        passcode: state.passcode,
+        passcodeOnlyWhenLocked: state.passcodeOnlyWhenLocked,
       }),
 
       /**
