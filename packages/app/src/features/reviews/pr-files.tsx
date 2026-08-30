@@ -23,8 +23,12 @@ export function PrFiles({
   notReady,
   pullUrl,
   threads,
+  repoId,
+  worktreePath,
+  baseSha,
   review,
 }: {
+
   files: ForgePullFiles | null;
   isLoading: boolean;
   error: string | null;
@@ -42,9 +46,13 @@ export function PrFiles({
    * list bounded at 100.
    */
   threads: readonly ForgeReviewThread[];
+  repoId?: string;
+  worktreePath?: string;
+  baseSha?: string | null;
   /** The write half — see `PrFileAccordion`'s own note on `headSha`. */
   review: React.ComponentProps<typeof PrFileAccordion>['review'];
 }) {
+
   /*
     Overrides, not the open set itself.
 
@@ -76,8 +84,12 @@ export function PrFiles({
             open={open}
             onToggle={() => setToggled((prev) => ({ ...prev, [key]: !open }))}
             threads={threads}
+            repoId={repoId}
+            worktreePath={worktreePath}
+            baseSha={baseSha}
             review={review}
           />
+
         );
       })}
 

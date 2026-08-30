@@ -28,15 +28,11 @@ export type ThreadsByLine = Map<number, ForgeReviewThread[]>;
 
 /** Is this thread still pinned to a line the current diff actually renders? */
 export function isAnchored(thread: ForgeReviewThread): boolean {
-  return !thread.outdated && !thread.fileLevel && thread.side === 'RIGHT' && thread.line !== null;
+  return !thread.outdated && !thread.fileLevel && thread.line !== null;
 }
 
 /**
  * Every new-file line the diff actually renders on its right side.
- *
- * The set `threadsForFile` checks a thread's anchor against. A `Set` rather than
- * a range test because a diff is hunks with gaps between them: line 200 being
- * below the highest rendered line does not mean it is rendered.
  */
 export function rightSideLines(diff: FileDiff): Set<number> {
   const lines = new Set<number>();
@@ -49,31 +45,31 @@ export function rightSideLines(diff: FileDiff): Set<number> {
 }
 
 /**
- * The threads for one file, split into the two groups that render differently.
- *
- * `path` matching is exact against `ForgeReviewThread.path`, which GitHub
- * reports as the *new* path — the same one `FileDiff.path` carries, so a
- * renamed file's threads follow the rename without a second lookup.
- *
- * **Pass `diff` wherever the diff is in hand**, which is every rendering caller.
- * A thread can be live, right-side and unresolved and still name a line this
- * diff does not contain: a reviewer who expands context on github.com can
- * comment well outside any hunk, and `gh pr diff` fetches three lines of
- * context. `line` alone cannot tell those apart, so without the set the thread
- * is keyed into `byLine`, no row ever matches it, and it renders **nowhere** —
- * a real review comment silently missing, which is the same harm as pinning one
- * to the wrong line. With the set it joins `unanchored` and states its line as
- * prose, like an outdated thread. Omitting `diff` skips the check, for callers
- * grouping threads before a diff has arrived.
+ * Every old-file line the diff actually renders on its left side.
+ */
+export function leftSideLines(diff: FileDiff): Set<number> {
+  const lines = new Set<number>();
+  for (const hunk of diff.hunks) {
+    for (const line of hunk.lines) {
+      if (line.kind !== 'add' && line.oldNo !== null) lines.add(line.oldNo);
+    }
+  }
+  return lines;
+}
+
+/**
+ * The threads for one file, split by side into right and left thread maps.
  */
 export function threadsForFile(
   threads: readonly ForgeReviewThread[],
   path: string,
   diff?: FileDiff,
-): { byLine: ThreadsByLine; unanchored: ForgeReviewThread[] } {
+): { byLine: ThreadsByLine; leftByLine: ThreadsByLine; unanchored: ForgeReviewThread[] } {
   const byLine: ThreadsByLine = new Map();
+  const leftByLine: ThreadsByLine = new Map();
   const unanchored: ForgeReviewThread[] = [];
-  const rendered = diff === undefined ? null : rightSideLines(diff);
+  const rightRendered = diff === undefined ? null : rightSideLines(diff);
+  const leftRendered = diff === undefined ? null : leftSideLines(diff);
 
   for (const thread of threads) {
     if (thread.path !== path) continue;
@@ -81,54 +77,42 @@ export function threadsForFile(
       unanchored.push(thread);
       continue;
     }
-    // `isAnchored` has already established this is non-null; the local keeps
-    // that fact visible to the type checker without a non-null assertion.
     const line = thread.line;
     if (line === null) continue;
+
+    const isLeft = thread.side === 'LEFT';
+    const rendered = isLeft ? leftRendered : rightRendered;
     if (rendered !== null && !rendered.has(line)) {
       unanchored.push(thread);
       continue;
     }
-    const existing = byLine.get(line);
+
+    const targetMap = isLeft ? leftByLine : byLine;
+    const existing = targetMap.get(line);
     if (existing) existing.push(thread);
-    else byLine.set(line, [thread]);
+    else targetMap.set(line, [thread]);
   }
 
-  return { byLine, unanchored };
+  return { byLine, leftByLine, unanchored };
 }
 
 /**
- * GitHub's legacy `position` for a new-file line — the fallback anchor.
- *
- * Defined by the API as "the number of lines down from the first `@@` hunk
- * header in the file", where the line immediately below that header is 1. Three
- * details that are easy to get wrong and are all deliberate here:
- *
- * - **Later `@@` headers count.** The position keeps increasing through
- *   subsequent hunks, and each header consumes one. Only the *first* header is
- *   the origin rather than a counted line.
- * - **Deleted lines count too.** Position is an offset into the patch text, not
- *   into the new file, so a `-` line advances it even though it has no `newNo`.
- * - **Blank and context lines count.** Everything in the patch body does.
- *
- * Returns null when the line is not in the diff at all — a line outside every
- * hunk has no position, and inventing one would anchor a comment to whatever
- * text happens to sit at that offset.
- *
- * This is only ever sent if the modern `line` + `side` form is refused; see
- * `addReviewComment`. It is computed here rather than in main because the parsed
- * hunks live here, and re-deriving them in main would mean re-fetching the patch.
+ * GitHub's legacy `position` for a line — the fallback anchor.
  */
-export function positionForLine(diff: FileDiff, newNo: number): number | null {
+export function positionForLine(
+  diff: FileDiff,
+  lineNo: number,
+  side: 'LEFT' | 'RIGHT' = 'RIGHT',
+): number | null {
   let position = 0;
 
   for (const [hunkIndex, hunk] of diff.hunks.entries()) {
-    // Every hunk header but the first is itself a counted line.
     if (hunkIndex > 0) position += 1;
 
     for (const line of hunk.lines) {
       position += 1;
-      if (line.kind !== 'del' && line.newNo === newNo) return position;
+      if (side === 'RIGHT' && line.kind !== 'del' && line.newNo === lineNo) return position;
+      if (side === 'LEFT' && line.kind !== 'add' && line.oldNo === lineNo) return position;
     }
   }
 
@@ -137,11 +121,15 @@ export function positionForLine(diff: FileDiff, newNo: number): number | null {
 
 /**
  * Whether a line can be commented on at all.
- *
- * Right-side only for v1: an added or context line, which is exactly the set
- * that has a `newNo`. A deleted line needs `side: LEFT` and the left-side
- * position mapping this version does not build, so it gets no gutter affordance
- * rather than one that would post to the wrong place.
+ * Context lines resolve to RIGHT side per user decision.
  */
-export const isCommentableLine = (line: { kind: string; newNo: number | null }): boolean =>
-  line.kind !== 'del' && line.newNo !== null;
+export const isCommentableLine = (
+  line: { kind: string; oldNo: number | null; newNo: number | null },
+  side: 'left' | 'right' = 'right',
+): boolean => {
+  if (side === 'left') {
+    return line.kind === 'del' && line.oldNo !== null;
+  }
+  return line.kind !== 'del' && line.newNo !== null;
+};
+

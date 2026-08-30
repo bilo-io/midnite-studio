@@ -499,7 +499,13 @@ export const ForgePullDetailSchema = z.object({
    * which is why the tab costs no third subprocess.
    */
   headSha: z.string().nullable().default(null),
+  /**
+   * Full 40-char sha of the PR's base commit.
+   * Required for image diffs and base-relative comparisons.
+   */
+  baseSha: z.string().nullable().default(null),
   /** The branch being merged into. */
+
   baseBranch: z.string().default(''),
   additions: z.number().int().nonnegative().default(0),
   deletions: z.number().int().nonnegative().default(0),

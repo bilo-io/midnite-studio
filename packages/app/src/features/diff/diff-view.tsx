@@ -1,21 +1,21 @@
 import { useVirtualizer } from '@tanstack/react-virtual';
 import {
-  DIFF_FULL_CONTEXT,
-
   type FileDiff,
   type ForgeReviewThread,
   type SplitDiffRow,
 } from '@midnite/git-shared';
+
 import { useTheme } from '@bilo-io/ui/theme';
-import { ChevronsUpDown, Columns2, Columns3 } from 'lucide-react';
 import { useRef } from 'react';
 
-import { IconButton } from '../../components/icon-button';
 import { useUiStore } from '../../store/ui-store';
+
 import { type ThreadsByLine } from './comment-anchors';
 import { describeEmptyDiff } from './describe-empty';
 import { DiffCell } from './diff-cell';
+import { DiffToolbar } from './diff-toolbar';
 import {
+
   canSplit,
   nextContext,
   toDiffRows,
@@ -65,11 +65,13 @@ export function DiffView({
   emptyMessage,
   inline = false,
   threads,
+  leftThreads,
   onComment,
   renderThread,
   composer = null,
   images = null,
 }: {
+
   diff: FileDiff | undefined;
   isLoading?: boolean;
   /**
@@ -109,9 +111,9 @@ export function DiffView({
     panel from there would invert that; instead Reviews hands the nodes down and
     this file decides only where they sit in the row order.
   */
-  /** Threads by new-file line — see `threadsForFile`. */
   threads?: ThreadsByLine;
-  /** Enables the per-line gutter affordance. Called with the new-file line. */
+  leftThreads?: ThreadsByLine;
+  /** Enables the per-line gutter affordance. Called with the line. */
   onComment?: (line: number) => void;
   /** The panel for the threads at one line. */
   renderThread?: (threads: readonly ForgeReviewThread[], line: number) => React.ReactNode;
@@ -131,9 +133,8 @@ export function DiffView({
   images?: ImageDiffSources | null;
 }) {
   const showOldGutter = useUiStore((s) => s.diffShowOldGutter);
-  const toggleOldGutter = useUiStore((s) => s.toggleDiffOldGutter);
   const diffLayoutPref = useUiStore((s) => s.diffLayout);
-  const toggleDiffLayout = useUiStore((s) => s.toggleDiffLayout);
+
 
   const scrollRef = useRef<HTMLDivElement>(null);
   const { resolved } = useTheme();
@@ -142,7 +143,13 @@ export function DiffView({
   const effectiveLayout = diff && canSplit(diff) ? diffLayoutPref : 'unified';
   const isSplit = effectiveLayout === 'split';
 
-  const unifiedRows = withCommentRows(diff ? toDiffRows(diff) : [], threads, composer?.line ?? null);
+  const unifiedRows = withCommentRows(
+    diff ? toDiffRows(diff) : [],
+    threads,
+    composer?.line ?? null,
+    leftThreads,
+  );
+
   const splitRows = diff && isSplit ? toSplitRows(diff) : [];
   const rows = isSplit ? splitRows : unifiedRows;
 
@@ -174,9 +181,8 @@ export function DiffView({
     );
   }
 
-  const canExpandAll = diff.contextLines < DIFF_FULL_CONTEXT && onExpandContext !== undefined;
-
   if (inline) {
+
     return (
       <div className="font-mono text-[11px] leading-[18px]" data-testid="diff-view">
         {diff.combined ? (
@@ -261,40 +267,10 @@ export function DiffView({
 
   return (
     <div className="flex h-full min-h-0 flex-col" data-testid="diff-view">
-      <div className="flex shrink-0 items-center gap-1 border-b border-border px-2 py-1">
-        <span className="mr-auto truncate text-[11px] text-muted-foreground">
-          <span className="font-medium text-success tabular-nums">+{diff.insertions}</span>
-          {' / '}
-          <span className="font-medium text-destructive tabular-nums">−{diff.deletions}</span>
-        </span>
-
-        {canSplit(diff) ? (
-          <IconButton
-            icon={Columns2}
-            label={isSplit ? 'Switch to unified diff' : 'Switch to side-by-side diff'}
-            aria-pressed={isSplit}
-            size="sm"
-            onClick={toggleDiffLayout}
-          />
-        ) : null}
-
-        <IconButton
-          icon={showOldGutter ? Columns3 : Columns2}
-          label={showOldGutter ? 'Hide original line numbers' : 'Show original line numbers'}
-          aria-pressed={showOldGutter}
-          size="sm"
-          onClick={toggleOldGutter}
-        />
-
-        {canExpandAll ? (
-          <IconButton
-            icon={ChevronsUpDown}
-            label="Show the whole file"
-            size="sm"
-            onClick={() => onExpandContext(DIFF_FULL_CONTEXT)}
-          />
-        ) : null}
+      <div className="flex shrink-0 items-center justify-between border-b border-border px-2 py-1">
+        <DiffToolbar diff={diff} onExpandContext={onExpandContext} />
       </div>
+
 
       {diff.combined ? (
         <p className="shrink-0 border-b border-border bg-destructive/10 px-3 py-1.5 text-[11px] text-muted-foreground">
