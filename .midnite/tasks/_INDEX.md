@@ -2,13 +2,13 @@
 
 **Headlines:**
 
-- **[Phase 33 · Application Installation, CLI Tool & Desktop Integration](phase-33-installable-app-and-cli-integration.md)** (0% · 0/19) — Planned, not started. Adds a macOS DMG installer package with custom layout, `midnite-git` CLI tool installer + shell completions, `midnite-git://` deep-linking protocol scheme, auto-updater pipeline, and first-run setup onboarding.
-- **[Phase 32 · The browser gets an engine](phase-32-browser-engine-and-tabs.md)** (0% · 0/99) — Planned, not started; the new frontier. Fills the Phase 27 browser stub with a real `WebContentsView` engine, tabs and tab groups, a Midnite-branded new-tab page, and the security policy Phase 27 made a precondition.
-- **[Phase 30 · Terminal Hardening](phase-30-terminal-hardening.md)** (90% · 82/91) — Active frontier; detached session broker lets terminal/agent sessions survive app restarts and window reloads. Implementation themes A–G landed; 9 manual verification checks open.
-- **[Phase 29 · Markdown Slides Viewer](phase-29-markdown-slides-viewer.md)** (100% · 21/21) — Landed; fullscreen headings-based slide presenter integrated across Files preview, PR descriptions, and comment threads.
-- **[Phase 28 · Sidebar Section Tree](phase-28-sidebar-section-tree.md)** (95% · 59/62) — Feature-complete; data-driven sidebar tree placing Worktrees first, nested Branches (`local`/`remotes`), and Forge parents.
-- **[Phase 27 · Status Bar & Browser Panel](phase-27-status-bar-and-browser-panel.md)** (80% · 72/90) — Full-width 3-zone status bar with density-based overflow popover and browser stub pane.
-- **[Phase 25 · Search Everywhere](phase-25-search-everywhere.md)** (100% · 101/101) & **[Phase 26 · Side-by-Side Diffs](phase-26-side-by-side-diffs.md)** (100% · 68/68) — Landed; complete side-by-side diff support with virtualized accordions, split views, left-side review comments, and full-width commit workbench tabs.
+- **[Phase 33 · Application Installation, CLI Tool & Desktop Integration](phases/phase-33-installable-app-and-cli-integration.md)** (0% · 0/19) — Planned, not started. Adds a macOS DMG installer package with custom layout, `midnite-git` CLI tool installer + shell completions, `midnite-git://` deep-linking protocol scheme, auto-updater pipeline, and first-run setup onboarding.
+- **[Phase 32 · The browser gets an engine](phases/phase-32-browser-engine-and-tabs.md)** (0% · 0/99) — Planned, not started; the new frontier. Fills the Phase 27 browser stub with a real `WebContentsView` engine, tabs and tab groups, a Midnite-branded new-tab page, and the security policy Phase 27 made a precondition.
+- **[Phase 30 · Terminal Hardening](phases/phase-30-terminal-hardening.md)** (90% · 82/91) — Active frontier; detached session broker lets terminal/agent sessions survive app restarts and window reloads. Implementation themes A–G landed; 9 manual verification checks open.
+- **[Phase 29 · Markdown Slides Viewer](phases/phase-29-markdown-slides-viewer.md)** (100% · 21/21) — Landed; fullscreen headings-based slide presenter integrated across Files preview, PR descriptions, and comment threads.
+- **[Phase 28 · Sidebar Section Tree](phases/phase-28-sidebar-section-tree.md)** (95% · 59/62) — Feature-complete; data-driven sidebar tree placing Worktrees first, nested Branches (`local`/`remotes`), and Forge parents.
+- **[Phase 27 · Status Bar & Browser Panel](phases/phase-27-status-bar-and-browser-panel.md)** (80% · 72/90) — Full-width 3-zone status bar with density-based overflow popover and browser stub pane.
+- **[Phase 25 · Search Everywhere](phases/phase-25-search-everywhere.md)** (100% · 101/101) & **[Phase 26 · Side-by-Side Diffs](phases/phase-26-side-by-side-diffs.md)** (100% · 68/68) — Landed; complete side-by-side diff support with virtualized accordions, split views, left-side review comments, and full-width commit workbench tabs.
 
 
 
@@ -20,47 +20,47 @@ Completed work is logged append-only in [`done.md`](done.md). Deferred scope liv
 
 | Phase | Status | Refined | Done | Progress | % | 🔄 WIP | ◻ TODO |
 |-------|--------|---------|------|----------|---|--------|--------|
-| [33 · Application Installation, CLI Tool & Desktop Integration](phase-33-installable-app-and-cli-integration.md) | ◻ TODO | — | 0/19 | `░░░░░░░░░░` | 0% | — | A B C D E |
-| [32 · The browser gets an engine, and the tabs to fill it](phase-32-browser-engine-and-tabs.md) | 🔄 WIP | — | 0/99 | `░░░░░░░░░░` | 0% | A B C D | E F G H I |
-| [31 · Interactive Rebase Builder & Graph Sequence Editor](phase-31-interactive-rebase.md) | ✅ DONE | — | 18/18 | `██████████` | 100% | — | — |
-| [30 · A terminal that survives you](phase-30-terminal-hardening.md) | ✅ DONE | x2 | 91/91 | `██████████` | 100% | — | — |
-| [29 · Markdown slides, everywhere markdown already renders](phase-29-markdown-slides-viewer.md) | ✅ DONE | — | 21/21 | `██████████` | 100% | — | — |
-| [28 · Worktrees first, and the section tree that can say so](phase-28-sidebar-section-tree.md) | ✅ DONE | — | 62/62 | `██████████` | 100% | — | — |
-| [27 · The footer becomes a status bar, and the browser it makes room for](phase-27-status-bar-and-browser-panel.md) | ✅ DONE | x1 | 90/90 | `██████████` | 100% | — | — |
-| [26 · Side by side, and the room to show it](phase-26-side-by-side-diffs.md) | ✅ DONE | — | 68/68 | `██████████` | 100% | — | — |
-| [25 · Search everywhere, and the blame that explains it](phase-25-search-everywhere.md) | ✅ DONE | x1 | 101/101 | `██████████` | 100% | — | — |
-| [24 · The explorer learns to write, and to search](phase-24-writable-explorer.md) | ✅ DONE | — | 43/55 | `████████░░` | 78% | — | — |
-| [23 · A command palette, and the registry that can feed it](phase-23-command-palette.md) | ✅ DONE | — | 42/55 | `████████░░` | 76% | — | — |
-| [22 · Stash, the reflog, and writes you can take back](phase-22-stash-and-safety-net.md) | ✅ DONE | — | 70/70 | `██████████` | 100% | — | — |
-| [21 · Agent roster + terminal identity](phase-21-agent-roster-and-terminal-identity.md) | ✅ DONE | — | 46/46 | `██████████` | 100% | — | — |
-| [20 · Reviews page & unified diff syntax highlighting](phase-20-reviews-page.md) | ✅ DONE | — | 45/45 | `██████████` | 100% | — | — |
-| [19 · Dashboard, Actions and Tests as views](phase-19-dashboard-actions-tests.md) | ✅ DONE | — | 76/76 | `██████████` | 100% | — | — |
-| [18 · Footer system monitor + repo diagnostics](phase-18-footer-monitor-diagnostics.md) | ✅ DONE | — | 54/54 | `██████████` | 100% | — | — |
-| [17 · Repositories workbench + forge](phase-17-repos-workbench.md) | ✅ DONE | — | 48/48 | `██████████` | 100% | — | — |
-| [16 · Folder explorer, preview pane + settings pages](phase-16-explorer-and-settings-pages.md) | ✅ DONE | — | 41/41 | `██████████` | 100% | — | — |
-| [15 · Multi-terminal sessions + agents](phase-15-multi-terminal-sessions.md) | ✅ DONE | — | 39/39 | `██████████` | 100% | — | — |
-| [14 · Graph themes + avatars](phase-14-graph-themes.md) | ✅ DONE | — | 28/28 | `██████████` | 100% | — | — |
-| [13 · UI polish](phase-13-ui-polish.md) | ✅ DONE | — | 26/26 | `██████████` | 100% | — | — |
-| [12 · Commit inspector + live badges](phase-12-commit-inspector.md) | ✅ DONE | — | 12/12 | `██████████` | 100% | — | — |
-| [11 · Packaging + docs](phase-11-packaging.md) | ✅ DONE | — | 12/12 | `██████████` | 100% | — | — |
-| [10 · Watcher / live refresh](phase-10-watcher.md) | ✅ DONE | — | 9/9 | `██████████` | 100% | — | — |
-| [9 · Integrated terminal + keybindings](phase-9-terminal-and-keybindings.md) | ✅ DONE | — | 11/11 | `██████████` | 100% | — | — |
-| [8 · Drag-drop ops + conflicts](phase-8-drag-drop-ops.md) | ✅ DONE | — | 10/10 | `██████████` | 100% | — | — |
-| [7 · Graph interactions](phase-7-graph-interactions.md) | ✅ DONE | — | 10/10 | `██████████` | 100% | — | — |
-| [6 · Status / stage / commit / sync](phase-6-status-and-sync.md) | ✅ DONE | — | 11/11 | `██████████` | 100% | — | — |
-| [5 · Commit graph, read-only](phase-5-commit-graph.md) | ✅ DONE | — | 11/11 | `██████████` | 100% | — | — |
-| [4 · Repo open/list + worktree sidebar](phase-4-repos-and-worktrees.md) | ✅ DONE | — | 10/10 | `██████████` | 100% | — | — |
-| [3 · Electron shell boots](phase-3-electron-shell.md) | ✅ DONE | — | 15/15 | `██████████` | 100% | — | — |
-| [2 · Lane layout engine](phase-2-lane-layout.md) | ✅ DONE | — | 10/10 | `██████████` | 100% | — | — |
-| [1 · Shared contracts + git-engine parsers](phase-1-contracts-and-parsers.md) | ✅ DONE | — | 14/14 | `██████████` | 100% | — | — |
-| [0 · Scaffold](phase-0-scaffold.md) | ✅ DONE | — | 17/17 | `██████████` | 100% | — | — |
+| [33 · Application Installation, CLI Tool & Desktop Integration](phases/phase-33-installable-app-and-cli-integration.md) | ◻ TODO | — | 0/19 | `░░░░░░░░░░` | 0% | — | A B C D E |
+| [32 · The browser gets an engine, and the tabs to fill it](phases/phase-32-browser-engine-and-tabs.md) | 🔄 WIP | — | 0/99 | `░░░░░░░░░░` | 0% | A B C D | E F G H I |
+| [31 · Interactive Rebase Builder & Graph Sequence Editor](phases/phase-31-interactive-rebase.md) | ✅ DONE | — | 18/18 | `██████████` | 100% | — | — |
+| [30 · A terminal that survives you](phases/phase-30-terminal-hardening.md) | ✅ DONE | x2 | 91/91 | `██████████` | 100% | — | — |
+| [29 · Markdown slides, everywhere markdown already renders](phases/phase-29-markdown-slides-viewer.md) | ✅ DONE | — | 21/21 | `██████████` | 100% | — | — |
+| [28 · Worktrees first, and the section tree that can say so](phases/phase-28-sidebar-section-tree.md) | ✅ DONE | — | 62/62 | `██████████` | 100% | — | — |
+| [27 · The footer becomes a status bar, and the browser it makes room for](phases/phase-27-status-bar-and-browser-panel.md) | ✅ DONE | x1 | 90/90 | `██████████` | 100% | — | — |
+| [26 · Side by side, and the room to show it](phases/phase-26-side-by-side-diffs.md) | ✅ DONE | — | 68/68 | `██████████` | 100% | — | — |
+| [25 · Search everywhere, and the blame that explains it](phases/phase-25-search-everywhere.md) | ✅ DONE | x1 | 101/101 | `██████████` | 100% | — | — |
+| [24 · The explorer learns to write, and to search](phases/phase-24-writable-explorer.md) | ✅ DONE | — | 43/55 | `████████░░` | 78% | — | — |
+| [23 · A command palette, and the registry that can feed it](phases/phase-23-command-palette.md) | ✅ DONE | — | 42/55 | `████████░░` | 76% | — | — |
+| [22 · Stash, the reflog, and writes you can take back](phases/phase-22-stash-and-safety-net.md) | ✅ DONE | — | 70/70 | `██████████` | 100% | — | — |
+| [21 · Agent roster + terminal identity](phases/phase-21-agent-roster-and-terminal-identity.md) | ✅ DONE | — | 46/46 | `██████████` | 100% | — | — |
+| [20 · Reviews page & unified diff syntax highlighting](phases/phase-20-reviews-page.md) | ✅ DONE | — | 45/45 | `██████████` | 100% | — | — |
+| [19 · Dashboard, Actions and Tests as views](phases/phase-19-dashboard-actions-tests.md) | ✅ DONE | — | 76/76 | `██████████` | 100% | — | — |
+| [18 · Footer system monitor + repo diagnostics](phases/phase-18-footer-monitor-diagnostics.md) | ✅ DONE | — | 54/54 | `██████████` | 100% | — | — |
+| [17 · Repositories workbench + forge](phases/phase-17-repos-workbench.md) | ✅ DONE | — | 48/48 | `██████████` | 100% | — | — |
+| [16 · Folder explorer, preview pane + settings pages](phases/phase-16-explorer-and-settings-pages.md) | ✅ DONE | — | 41/41 | `██████████` | 100% | — | — |
+| [15 · Multi-terminal sessions + agents](phases/phase-15-multi-terminal-sessions.md) | ✅ DONE | — | 39/39 | `██████████` | 100% | — | — |
+| [14 · Graph themes + avatars](phases/phase-14-graph-themes.md) | ✅ DONE | — | 28/28 | `██████████` | 100% | — | — |
+| [13 · UI polish](phases/phase-13-ui-polish.md) | ✅ DONE | — | 26/26 | `██████████` | 100% | — | — |
+| [12 · Commit inspector + live badges](phases/phase-12-commit-inspector.md) | ✅ DONE | — | 12/12 | `██████████` | 100% | — | — |
+| [11 · Packaging + docs](phases/phase-11-packaging.md) | ✅ DONE | — | 12/12 | `██████████` | 100% | — | — |
+| [10 · Watcher / live refresh](phases/phase-10-watcher.md) | ✅ DONE | — | 9/9 | `██████████` | 100% | — | — |
+| [9 · Integrated terminal + keybindings](phases/phase-9-terminal-and-keybindings.md) | ✅ DONE | — | 11/11 | `██████████` | 100% | — | — |
+| [8 · Drag-drop ops + conflicts](phases/phase-8-drag-drop-ops.md) | ✅ DONE | — | 10/10 | `██████████` | 100% | — | — |
+| [7 · Graph interactions](phases/phase-7-graph-interactions.md) | ✅ DONE | — | 10/10 | `██████████` | 100% | — | — |
+| [6 · Status / stage / commit / sync](phases/phase-6-status-and-sync.md) | ✅ DONE | — | 11/11 | `██████████` | 100% | — | — |
+| [5 · Commit graph, read-only](phases/phase-5-commit-graph.md) | ✅ DONE | — | 11/11 | `██████████` | 100% | — | — |
+| [4 · Repo open/list + worktree sidebar](phases/phase-4-repos-and-worktrees.md) | ✅ DONE | — | 10/10 | `██████████` | 100% | — | — |
+| [3 · Electron shell boots](phases/phase-3-electron-shell.md) | ✅ DONE | — | 15/15 | `██████████` | 100% | — | — |
+| [2 · Lane layout engine](phases/phase-2-lane-layout.md) | ✅ DONE | — | 10/10 | `██████████` | 100% | — | — |
+| [1 · Shared contracts + git-engine parsers](phases/phase-1-contracts-and-parsers.md) | ✅ DONE | — | 14/14 | `██████████` | 100% | — | — |
+| [0 · Scaffold](phases/phase-0-scaffold.md) | ✅ DONE | — | 17/17 | `██████████` | 100% | — | — |
 
 ## Theme key
 
 <!-- Each phase currently carries a single theme A = its full deliverables checklist. Split into
      lettered themes if a phase gets parallelised. -->
 
-### [Phase 33 — Application Installation, CLI Tool & Desktop Integration](phase-33-installable-app-and-cli-integration.md)
+### [Phase 33 — Application Installation, CLI Tool & Desktop Integration](phases/phase-33-installable-app-and-cli-integration.md)
 
 *Production-grade macOS DMG installer, `midnite-git` CLI binary symlinking into PATH with shell completions, custom `midnite-git://` protocol handling, background auto-updater service, and first-run setup onboarding.*
 
@@ -70,7 +70,7 @@ Completed work is logged append-only in [`done.md`](done.md). Deferred scope liv
 - ◻ **D** — Auto-Updater Service & Update Status Banner.
 - ◻ **E** — First-Run Installation Onboarding & System Setup Checklist.
 
-### [Phase 32 — The browser gets an engine, and the tabs to fill it](phase-32-browser-engine-and-tabs.md)
+### [Phase 32 — The browser gets an engine, and the tabs to fill it](phases/phase-32-browser-engine-and-tabs.md)
 
 *Phase 27 Theme F shipped a browser with no browser in it — chrome drawn disabled over a "No web
 engine yet" plate — and attached a condition to the engine: embedding remote content is a
@@ -90,7 +90,7 @@ above the DOM demands.*
 - ◻ **H** — Dev powers: detached DevTools, dev-server detection, responsive width presets.
 - ◻ **I** — Forge in place: links open in-app by default, `originRepoId` routing, preview deploys.
 
-### [Phase 31 — Interactive Rebase Builder & Graph Sequence Editor](phase-31-interactive-rebase.md)
+### [Phase 31 — Interactive Rebase Builder & Graph Sequence Editor](phases/phase-31-interactive-rebase.md)
 
 *Visual drag-and-drop rebase sequence planner (pick, reword, squash, drop, fixup) backed by a custom GIT_SEQUENCE_EDITOR helper binary.*
 
@@ -99,7 +99,7 @@ above the DOM demands.*
 - ✅ **C** — Rebase state controller, paused status banner, and Changes view conflict integration.
 - ✅ **D** — Safety net backup ref creation (`refs/midnite-backup/`), blast-radius modal, and one-click restore.
 
-### [Phase 30 — A terminal that survives you](phase-30-terminal-hardening.md)
+### [Phase 30 — A terminal that survives you](phases/phase-30-terminal-hardening.md)
 
 *Phase 15 made the terminal's transcript durable and its process deliberately mortal — `before-quit`
 kills every pty, a reload orphans them, and rows come back dimmed with a "press Enter for a new
@@ -160,7 +160,7 @@ stops the moment the panel is collapsed.*
   feature-complete — all seven themes (A–G) have landed; only the "Open, for a human" manual
   passes remain.**
 
-### [Phase 29 — Markdown slides, everywhere markdown already renders](phase-29-markdown-slides-viewer.md)
+### [Phase 29 — Markdown slides, everywhere markdown already renders](phases/phase-29-markdown-slides-viewer.md)
 
 *Files preview, PR/Review descriptions and comment threads all render markdown today through the same
 `react-markdown` + `remark-gfm` pipeline, and none of them offers more than a scrolling `.prose` block.
@@ -191,7 +191,7 @@ persistence — this is a read-only view over markdown a surface already has.*
   shape (landed 2026-08-28, merged locally — no PR/no remote). Phase 29 is now feature-complete —
   all five themes (A–E) have landed.
 
-### [Phase 28 — Worktrees first, and the section tree that can say so](phase-28-sidebar-section-tree.md)
+### [Phase 28 — Worktrees first, and the section tree that can say so](phases/phase-28-sidebar-section-tree.md)
 
 *`view-sections.ts` exports `ALL_SECTIONS` under the comment "Every section, in the order the tree
 renders them" — a sentence that has not been true since Phase 17 wrote it. The order it declares matches
@@ -243,7 +243,7 @@ hand-editing six files — which is exactly what Phase 22 Theme B is currently w
   28 is now feature-complete; open: a screenshot baseline for the sidebar tree (never stood up in any
   theme of this phase) and two "Open, for a human" manual passes needing a real, large repository.
 
-### [Phase 27 — The footer becomes a status bar, and the browser it makes room for](phase-27-status-bar-and-browser-panel.md)
+### [Phase 27 — The footer becomes a status bar, and the browser it makes room for](phases/phase-27-status-bar-and-browser-panel.md)
 
 *The footer has been a 24px strip since Phase 9 and has never spanned the app: it is mounted as the last
 child of the content column (`app.tsx:773`), so it begins at the repositories panel's right edge. Moving
@@ -298,7 +298,7 @@ write funnels through ONE `useMutation` in `useTargetedGitOp` (`use-status.ts:26
   partialize tests, the terminal-maximize guard) turned
   out already landed with the themes that needed them (2026-08-28).
 
-### [Phase 25 — Search everywhere, and the blame that explains it](phase-25-search-everywhere.md)
+### [Phase 25 — Search everywhere, and the blame that explains it](phases/phase-25-search-everywhere.md)
 
 *A grep across all four packages for `blame`, `pickaxe`, `log -S` and `--follow` returns zero matches:
 `buildLogArgs` takes `limit`, `all` and `revisions` and nothing else, and the graph's two "filters"
@@ -333,7 +333,7 @@ items excluded from the count and four one-line "if Phase 23/24 has landed" delt
   `Mod+Shift+f` and global-scoped, `NumberField` and `Toggle` added to `controls.tsx`, and a Search
   settings page. (landed 2026-08-30)
 
-### [Phase 26 — Side by side, and the room to show it](phase-26-side-by-side-diffs.md)
+### [Phase 26 — Side by side, and the room to show it](phases/phase-26-side-by-side-diffs.md)
 
 *Four phases have deferred side-by-side diff with the same two reasons — no full-width surface, and
 don't fork the renderer — and both have quietly stopped being true: Phase 17's workbench gives
@@ -354,7 +354,7 @@ newly possible. Only H touches a contract.*
   `diffShowOldGutter`, with a `ResizeObserver` fallback that never rewrites the preference (landed 2026-08-30, PR #1).
 - ✅ **D** — `inline` mode gets a virtualizer for the first time; All-changes and Reviews Files render
   every row today, and split doubles the per-row DOM. Brings `EXPAND_ALL_LIMIT` back up for review (landed 2026-08-30, PR #1).
-| [26 · Side by side, and the room to show it](phase-26-side-by-side-diffs.md) | ✅ DONE | — | 68/68 | `██████████` | 100% | — | — |
+| [26 · Side by side, and the room to show it](phases/phase-26-side-by-side-diffs.md) | ✅ DONE | — | 68/68 | `██████████` | 100% | — | — |
 
 - ✅ **E** — a `DiffToolbar` the accordion surfaces can mount, with actions a surface cannot perform
   omitted rather than dead — `PrFiles` has one `gh pr diff` in memory and cannot refetch at `-U` (landed 2026-08-30).
@@ -365,7 +365,7 @@ newly possible. Only H touches a contract.*
 - ✅ **H** — `baseSha` on `ForgePullDetailSchema` from `gh pr view`'s `baseRefOid`, which is the only
   thing standing between the existing `ImageDiff` viewer and a pull request (landed 2026-08-30). Phase 26 is now feature-complete — all eight themes (A–H) have landed.
 
-### [Phase 24 — The explorer learns to write, and to search](phase-24-writable-explorer.md)
+### [Phase 24 — The explorer learns to write, and to search](phases/phase-24-writable-explorer.md)
 
 *Phase 16 shipped the Folder explorer read-only **by contract** — four doc comments assert that no
 write channel exists — and this phase makes all four false deliberately, rewriting them in the same
@@ -409,7 +409,7 @@ write scope, so `agent-page.tsx` stays read-only without knowing writes exist.*
   settle — suppresses the echo of the app's own fs writes (landed 2026-08-28, merged locally — no
   PR/no remote).
 
-### [Phase 23 — A command palette, and the registry that can feed it](phase-23-command-palette.md)
+### [Phase 23 — A command palette, and the registry that can feed it](phases/phase-23-command-palette.md)
 
 *The keymap module has named "(later) a command palette" as dispatch source number three since
 Phase 9, and the registry cannot feed one as it stands: it lives in `shared/src/keybindings.ts` (not
@@ -442,7 +442,7 @@ first fuzzy matcher, E–F are the sources. `Mod+K` is free; `Mod+Shift+P` is Pu
   locally — no PR/no remote; recovered from an interrupted session). Phase 23 is now
   feature-complete — all eight themes (A–H) have landed.
 
-### [Phase 22 — Stash, the reflog, and writes you can take back](phase-22-stash-and-safety-net.md)
+### [Phase 22 — Stash, the reflog, and writes you can take back](phases/phase-22-stash-and-safety-net.md)
 
 *The client can merge, rebase and review a pull request, and still cannot put work down for five
 minutes: `git stash` appears nowhere in the codebase, and `refs/stash` is deliberately dropped by
@@ -472,7 +472,7 @@ first toast primitive and first undo.*
 - ✅ **H** — the ops journal, the app's first toast primitive, and undo — ref-shaped only, because
   the reflog records where refs pointed and nothing about the working tree. (landed 2026-08-30)
 
-### [Phase 21 — A plural agent roster, and a terminal that knows where it is](phase-21-agent-roster-and-terminal-identity.md)
+### [Phase 21 — A plural agent roster, and a terminal that knows where it is](phases/phase-21-agent-roster-and-terminal-identity.md)
 
 *Phase 15 built the agent machinery around a roster with one entry in it, and the renderer never
 held up its half of the "adding one is an edit, not a release" bargain. A is the contract every
@@ -516,7 +516,7 @@ packaged app: `cd` between two worktrees and watch the header follow (D), start 
 `agy` inside a shell and watch the row's icon swap both ways (E), and launch the packaged `.app`
 from Finder to confirm the install probe still reads the login shell's PATH (C).*
 
-### [Phase 20 — Reviews page & unified diff syntax highlighting](phase-20-reviews-page.md)
+### [Phase 20 — Reviews page & unified diff syntax highlighting](phases/phase-20-reviews-page.md)
 
 *Reviews grows from a sidebar-section stub into a full nav-rail view, and diffs finally get syntax
 colour. A is the shell (same `VIEW_FILTERS` mechanism Actions/Tests already use); B and C are the
@@ -567,7 +567,7 @@ merge, kept in a new `gh-write.ts` so `gh-cli.ts`'s "strictly reads" comment sta
   now guarded by one spec instead of thirteen, and four stale screenshots were regenerated
   (285 passed, 0 failed — was 267/17) (landed 2026-08-27)
 
-### [Phase 19 — Dashboard, Actions and Tests as views](phase-19-dashboard-actions-tests.md)
+### [Phase 19 — Dashboard, Actions and Tests as views](phases/phase-19-dashboard-actions-tests.md)
 
 *The nav rail becomes the app's table of contents. A is the shell every other theme renders into;
 B and C are the two data layers (local history, and a deeper `gh`); D, E and F are the three
@@ -603,7 +603,7 @@ surfaces; G is the one piece that waits on someone else.*
 against a real failing matrix run, and `react-grid-layout`'s stylesheet in both themes. All seven
 themes are otherwise landed.*
 
-### [Phase 18 — Footer system monitor + repo diagnostics](phase-18-footer-monitor-diagnostics.md)
+### [Phase 18 — Footer system monitor + repo diagnostics](phases/phase-18-footer-monitor-diagnostics.md)
 
 *The footer's empty right half becomes the app's live-state strip. A and B are the spine — C, D
 and F all read the sample stream they push; E is the trust boundary F prompts through.*
@@ -631,7 +631,7 @@ landing D: `graph-themes.spec.ts` has twelve pre-existing failures on `main` (a 
 `link`/`button` locator for Settings, plus cross-test ordering the timeout was masking) —
 Phase 14's, not this phase's.*
 
-### [Phase 17 — Repositories workbench + forge](phase-17-repos-workbench.md)
+### [Phase 17 — Repositories workbench + forge](phases/phase-17-repos-workbench.md)
 
 *The sidebar stops being a read-mostly tree. A is the spine — B, C and the "View all changes"
 buttons all read the per-checkout status it fetches; E is the surface D and F open into.*
@@ -652,7 +652,7 @@ buttons all read the per-checkout status it fetches; E is the surface D and F op
 *Open: two manual passes — the packaged-app screenshots (Electron will not start in a
 non-interactive session) and the `gh`-availability matrix.*
 
-### [Phase 16 — Folder explorer, preview pane + settings pages](phase-16-explorer-and-settings-pages.md)
+### [Phase 16 — Folder explorer, preview pane + settings pages](phases/phase-16-explorer-and-settings-pages.md)
 
 *The app grows real pages: a read-only Folder view with a preview pane, and Settings split into four pages behind an inner sidebar — including an Agent page into `~/.claude`. B is the spine (the fs IPC + path jail); C/D/E all read through it; A is independent chrome.*
 
@@ -669,7 +669,7 @@ phase is complete.*
   System, one glyph per page), and Appearance gains the side-navigation control that exposes the
   rail's third mode (merged 2026-08-26)
 
-### [Phase 15 — Multi-terminal sessions + agents](phase-15-multi-terminal-sessions.md)
+### [Phase 15 — Multi-terminal sessions + agents](phases/phase-15-multi-terminal-sessions.md)
 
 *Several terminals at once — shells and coding agents — in a VS Code-style sidebar, surviving a restart with their scrollback. A is the spine: B/C/D all render what A persists. E is independent and also covers the repos sidebar.*
 
@@ -683,7 +683,7 @@ phase is complete.*
   `agentId`/`kind` pairing the schema documented but never enforced. One manual item is left for a
   human: quit, relaunch, and confirm `ps` shows no surviving shells
 
-### [Phase 12 — Commit inspector + live badges](phase-12-commit-inspector.md)
+### [Phase 12 — Commit inspector + live badges](phases/phase-12-commit-inspector.md)
 
 *Phase 5's detail stub is now a real inspector, its badges are controls, and its rows read at two densities. **All six themes have landed**; two manual passes remain, both needing a packaged app or a real remote.*
 
@@ -694,7 +694,7 @@ phase is complete.*
 - ✅ **E** — `Remote` domain type, `listRemotes`, ssh/https URL normaliser, guarded `shell:open-external` (2026-08-26)
 - ✅ **F** — graph row polish: lane-accent selection bar, a CVD-safe palette (+ the `laneInk` bug it exposed), badge width cap, row density, working-copy row (2026-08-26)
 
-### [Phase 14 — Graph themes + avatars](phase-14-graph-themes.md)
+### [Phase 14 — Graph themes + avatars](phases/phase-14-graph-themes.md)
 
 *Four selectable graph styles, avatars in the commit bubble, and the Settings view to hold the picker. A is the spine — B/C/D all render through it.*
 
@@ -704,7 +704,7 @@ phase is complete.*
 - ✅ **D** — author filter (dim, never remove); shared multi-select menu
 - ✅ **E** — Settings view + live style picker, plus the shell's appearance runtime
 
-### [Phase 13 — UI polish](phase-13-ui-polish.md)
+### [Phase 13 — UI polish](phases/phase-13-ui-polish.md)
 
 - ✅ **A** — lucide, motion keyframes, applyMotion, Tooltip, IconButton, cascade
 - ✅ **B** — use-resizable + ResizeHandle, persisted ui-store, four resizable panes
@@ -714,51 +714,51 @@ phase is complete.*
 - ✅ **F** — graph column headers, resizable columns, multi-select branch filter
 - ✅ **G** — cascading fade-in, view cross-fade, once-per-stream graph fade
 
-### [Phase 11 — Packaging + docs](phase-11-packaging.md)
+### [Phase 11 — Packaging + docs](phases/phase-11-packaging.md)
 
 - ✅ **A** — electron-builder arm64, afterpack/install-local scripts, CI workflow, README/docs final
 
-### [Phase 10 — Watcher / live refresh](phase-10-watcher.md)
+### [Phase 10 — Watcher / live refresh](phases/phase-10-watcher.md)
 
 - ✅ **A** — fs.watch repo watcher, own-write suppression, kind→invalidation map
 
-### [Phase 9 — Integrated terminal + keybindings](phase-9-terminal-and-keybindings.md)
+### [Phase 9 — Integrated terminal + keybindings](phases/phase-9-terminal-and-keybindings.md)
 
 - ✅ **A** — pty-service (node-pty in main), xterm panel, Ctrl+` keybinding service + menu + footer bar
 
-### [Phase 8 — Drag-drop ops + conflicts](phase-8-drag-drop-ops.md)
+### [Phase 8 — Drag-drop ops + conflicts](phases/phase-8-drag-drop-ops.md)
 
 - ✅ **A** — merge/rebase/cherry-pick + sequencer, @dnd-kit gestures, conflict banner
 
-### [Phase 7 — Graph interactions](phase-7-graph-interactions.md)
+### [Phase 7 — Graph interactions](phases/phase-7-graph-interactions.md)
 
 - ✅ **A** — context menus, checkout, branch/tag create, blast-radius-gated reset/delete
 
-### [Phase 6 — Status / stage / commit / sync](phase-6-status-and-sync.md)
+### [Phase 6 — Status / stage / commit / sync](phases/phase-6-status-and-sync.md)
 
 - ✅ **A** — stage/unstage/discard/commit, ahead-behind chips, fetch/pull/push (no force)
 
-### [Phase 5 — Commit graph, read-only](phase-5-commit-graph.md)
+### [Phase 5 — Commit graph, read-only](phases/phase-5-commit-graph.md)
 
 - ✅ **A** — streaming log service, virtualized SVG rows, ref badges, detail stub
 
-### [Phase 4 — Repo open/list + worktree sidebar](phase-4-repos-and-worktrees.md)
+### [Phase 4 — Repo open/list + worktree sidebar](phases/phase-4-repos-and-worktrees.md)
 
 - ✅ **A** — repo registry + persistence, VSCode-style sidebar with nested worktrees, add/remove
 
-### [Phase 3 — Electron shell boots](phase-3-electron-shell.md)
+### [Phase 3 — Electron shell boots](phases/phase-3-electron-shell.md)
 
 - ✅ **A** — frameless window, AppFrame/TitleBar/theme on @bilo-io/ui+shell, preload windowChrome bridge
 
-### [Phase 2 — Lane layout engine](phase-2-lane-layout.md)
+### [Phase 2 — Lane layout engine](phases/phase-2-lane-layout.md)
 
 - ✅ **A** — straight-lane layout with recycling, LaneLayoutSession streaming, stable colors
 
-### [Phase 1 — Shared contracts + git-engine parsers](phase-1-contracts-and-parsers.md)
+### [Phase 1 — Shared contracts + git-engine parsers](phases/phase-1-contracts-and-parsers.md)
 
 - ✅ **A** — zod domain/IPC contracts, dugite exec + write queue, NUL-delimited parsers, smoke script
 
-### [Phase 0 — Scaffold](phase-0-scaffold.md)
+### [Phase 0 — Scaffold](phases/phase-0-scaffold.md)
 
 - ✅ **A** — proto/moon/pnpm skeleton, four packages, boundary lint rules, GH Packages auth proven
 
