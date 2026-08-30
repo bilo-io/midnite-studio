@@ -1,4 +1,4 @@
-import type { CommandId } from '@midnite/git-shared';
+import type { CommandId } from '@midnite/studio-shared';
 
 /**
  * Explicit allowlist of command IDs safe to execute from the Command Palette.

@@ -2,8 +2,8 @@ import { shell } from 'electron';
 import { rename as renamePath } from 'node:fs/promises';
 import type { z } from 'zod';
 
-import { withFsActivity } from '@midnite/git-engine';
-import { CHANNELS, FS_WRITE_CAP_BYTES, failure, ok, schemas, type GitOpResult } from '@midnite/git-shared';
+import { withFsActivity } from '@midnite/studio-git-engine';
+import { CHANNELS, FS_WRITE_CAP_BYTES, failure, ok, schemas, type GitOpResult } from '@midnite/studio-shared';
 
 import { resolveScopeRoot } from '../fs-scope';
 import {

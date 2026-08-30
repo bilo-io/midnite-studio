@@ -1,7 +1,7 @@
 import {
   METRICS_ACTIVE_INTERVAL_MS,
   METRICS_IDLE_INTERVAL_MS,
-} from '@midnite/git-shared';
+} from '@midnite/studio-shared';
 import { useEffect } from 'react';
 
 import { bridge } from '../../services/bridge';

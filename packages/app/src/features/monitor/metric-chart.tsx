@@ -1,4 +1,4 @@
-import type { MetricId } from '@midnite/git-shared';
+import type { MetricId } from '@midnite/studio-shared';
 
 import type { MetricPoint } from '../../store/metrics-store';
 import { CHART_GEOMETRY, type MetricGeometry } from './metric-geometry';

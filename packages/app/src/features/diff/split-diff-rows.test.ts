@@ -1,4 +1,4 @@
-import type { DiffHunk } from '@midnite/git-shared';
+import type { DiffHunk } from '@midnite/studio-shared';
 import { describe, expect, it } from 'vitest';
 
 import { canSplit, toSplitRows } from './split-diff-rows';

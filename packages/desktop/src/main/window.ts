@@ -3,7 +3,7 @@ import { join } from 'node:path';
 
 import { BrowserWindow, app, shell } from 'electron';
 
-import { WINDOW_FRAMELESS_ARG } from '@midnite/git-shared';
+import { WINDOW_FRAMELESS_ARG } from '@midnite/studio-shared';
 
 import { maybeCapture } from './capture';
 import { attachWindowChrome, windowFrameless } from './window-chrome';
@@ -60,7 +60,7 @@ export function createWindow(): BrowserWindow {
       preload: join(__dirname, 'preload.js'),
       contextIsolation: true,
       nodeIntegration: false,
-      // The preload requires `@midnite/git-shared` for the channel constants,
+      // The preload requires `@midnite/studio-shared` for the channel constants,
       // which a sandboxed preload cannot do (it only gets a polyfilled subset of
       // require). contextIsolation + nodeIntegration:false remain the actual
       // security boundary for THIS window's own renderer, which still only

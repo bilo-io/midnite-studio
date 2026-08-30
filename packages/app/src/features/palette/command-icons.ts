@@ -1,4 +1,4 @@
-import type { CommandId } from '@midnite/git-shared';
+import type { CommandId } from '@midnite/studio-shared';
 import type { IconType } from 'react-icons';
 import {
   LuDownload,

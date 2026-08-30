@@ -1,7 +1,7 @@
 import { create } from 'zustand';
 import { persist } from 'zustand/middleware';
 
-import type { StatsWindow } from '@midnite/git-shared';
+import type { StatsWindow } from '@midnite/studio-shared';
 
 import { DEFAULT_LAYOUT, type WidgetId } from '../features/dashboard/widget-ids';
 

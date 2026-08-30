@@ -2,7 +2,7 @@
  * Manual smoke check: point the engine at a real repository and print what the
  * parsers made of it.
  *
- *   pnpm --filter @midnite/git-engine smoke ~/Dev/midnite
+ *   pnpm --filter @midnite/studio-git-engine smoke ~/Dev/midnite
  *
  * Unit tests prove the parsers handle the shapes we thought of; this is how you
  * find the ones we didn't, on a repo with years of real history, worktrees,

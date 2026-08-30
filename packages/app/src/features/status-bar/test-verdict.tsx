@@ -1,4 +1,4 @@
-import type { TestRunResult } from '@midnite/git-shared';
+import type { TestRunResult } from '@midnite/studio-shared';
 
 import { useActiveWorktree } from '../../services/use-status';
 import { useUiStore } from '../../store/ui-store';

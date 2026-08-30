@@ -1,6 +1,6 @@
 import { clipboard } from 'electron';
 
-import { CHANNELS, schemas } from '@midnite/git-shared';
+import { CHANNELS, schemas } from '@midnite/studio-shared';
 
 import { handle } from './handle';
 

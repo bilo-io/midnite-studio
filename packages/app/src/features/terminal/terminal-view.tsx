@@ -1,4 +1,4 @@
-import type { TerminalSession } from '@midnite/git-shared';
+import type { TerminalSession } from '@midnite/studio-shared';
 import { FitAddon } from '@xterm/addon-fit';
 import { WebglAddon } from '@xterm/addon-webgl';
 import { Terminal } from '@xterm/xterm';

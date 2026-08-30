@@ -1,6 +1,6 @@
 import { useMemo } from 'react';
 
-import type { RepoStats } from '@midnite/git-shared';
+import type { RepoStats } from '@midnite/studio-shared';
 
 import { localDayKey, newestFirst } from '../dashboard-derive';
 import { AuthorAvatar } from './author-avatar';

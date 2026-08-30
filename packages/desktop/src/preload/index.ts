@@ -10,7 +10,7 @@ import {
   type MidniteGitBridge,
   type Unsubscribe,
   type WindowChromeBridge,
-} from '@midnite/git-shared';
+} from '@midnite/studio-shared';
 
 /**
  * The preload: the entire surface the renderer can see.

@@ -1,5 +1,5 @@
 import { ArrowDown, ArrowUp, Check, Cloud, GitBranch, Tag } from 'lucide-react';
-import type { Ref } from '@midnite/git-shared';
+import type { Ref } from '@midnite/studio-shared';
 import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
 

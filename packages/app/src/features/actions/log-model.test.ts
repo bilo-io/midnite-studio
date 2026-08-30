@@ -1,4 +1,4 @@
-import { isLogGapMarker, logGapMarker } from '@midnite/git-shared';
+import { isLogGapMarker, logGapMarker } from '@midnite/studio-shared';
 import { describe, expect, it } from 'vitest';
 
 import {
@@ -234,7 +234,7 @@ describe('the review’s findings, kept fixed', () => {
 describe('the gap marker contract', () => {
   it('is recognised by the reader, for every count the writer can produce', () => {
     // The writer lives in `packages/desktop`, the reader here. They share one
-    // definition in `@midnite/git-shared` precisely so this cannot drift — and
+    // definition in `@midnite/studio-shared` precisely so this cannot drift — and
     // this is the assertion that says so out loud.
     for (const omitted of [0, 1, 999, 4_211, 1_000_000]) {
       expect(isLogGapMarker(logGapMarker(omitted))).toBe(true);

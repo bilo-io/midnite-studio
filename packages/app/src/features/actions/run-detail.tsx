@@ -1,6 +1,6 @@
 import { useMemo, useState } from 'react';
 
-import type { ForgeJob, ForgeRun } from '@midnite/git-shared';
+import type { ForgeJob, ForgeRun } from '@midnite/studio-shared';
 import { ChevronDown, ChevronRight, SquareArrowOutUpRight } from 'lucide-react';
 
 import { IconButton } from '../../components/icon-button';

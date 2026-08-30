@@ -1,4 +1,4 @@
-import { EVENT_CHANNELS, SCROLLBACK_BYTES, type SessionActivity } from '@midnite/git-shared';
+import { EVENT_CHANNELS, SCROLLBACK_BYTES, type SessionActivity } from '@midnite/studio-shared';
 import type { BrowserWindow } from 'electron';
 
 import {

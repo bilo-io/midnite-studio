@@ -49,7 +49,7 @@ gathered commits (this is exactly what its unit tests pin):
   | `fix`-only | **patch** | bump only the changed packages |
   | docs/chore/refactor/test only | **none** | no release |
 
-- **Changed packages** (only matters for `patch`) = map the `git diff` paths onto the repo's `package.json` list (root; `@midnite/git-*` = `packages/*`).
+- **Changed packages** (only matters for `patch`) = map the `git diff` paths onto the repo's `package.json` list (root; `@midnite/studio-*` = `packages/*`).
 - **Next versions** = `planVersionBump(current, { level, changedPackages })`, where `current` is read from every `package.json`.
 
 If the version helpers have been ported into `packages/shared`, build shared once and

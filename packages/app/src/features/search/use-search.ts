@@ -1,6 +1,6 @@
 import { useEffect, useRef } from 'react';
 
-import type { Commit, GrepHit } from '@midnite/git-shared';
+import type { Commit, GrepHit } from '@midnite/studio-shared';
 
 import { useSearchStore } from './search-store';
 

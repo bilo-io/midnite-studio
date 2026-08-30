@@ -3,7 +3,7 @@ import type {
   ForgeMergeMethod,
   ForgeReviewEvent,
   ForgeWriteResult,
-} from '@midnite/git-shared';
+} from '@midnite/studio-shared';
 
 import {
   apiHostFlag,

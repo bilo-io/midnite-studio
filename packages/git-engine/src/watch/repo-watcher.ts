@@ -1,7 +1,7 @@
 import { watch, type FSWatcher } from 'node:fs';
 import { basename, join, sep } from 'node:path';
 
-import type { WatchKind } from '@midnite/git-shared';
+import type { WatchKind } from '@midnite/studio-shared';
 
 import { fsActivity } from '../exec/fs-activity';
 import { execGit } from '../exec/git-exec';

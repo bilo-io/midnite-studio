@@ -1,4 +1,4 @@
-import type { AgentDefinition, RepoDescriptor } from '@midnite/git-shared';
+import type { AgentDefinition, RepoDescriptor } from '@midnite/studio-shared';
 import { ChevronDown, ChevronUp, List, Plus, Terminal, TriangleAlert, X } from 'lucide-react';
 
 import { IconButton } from '../../components/icon-button';

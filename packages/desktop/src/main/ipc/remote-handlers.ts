@@ -1,7 +1,7 @@
 import { shell } from 'electron';
 
-import { listRemotes } from '@midnite/git-engine';
-import { CHANNELS, schemas, type Remote } from '@midnite/git-shared';
+import { listRemotes } from '@midnite/studio-git-engine';
+import { CHANNELS, schemas, type Remote } from '@midnite/studio-shared';
 
 import { resolveWorkdir } from '../repo-registry';
 import { handle } from './handle';

@@ -1,7 +1,7 @@
 import { create } from 'zustand';
 
-import type { FsVersion, GitOpResult } from '@midnite/git-shared';
-import { ok } from '@midnite/git-shared';
+import type { FsVersion, GitOpResult } from '@midnite/studio-shared';
+import { ok } from '@midnite/studio-shared';
 
 import { bridge } from '../services/bridge';
 

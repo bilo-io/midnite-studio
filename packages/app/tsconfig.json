@@ -17,7 +17,7 @@
       "@/*": ["./src/*"],
       // Same source-not-dist resolution the Vite alias uses, so the
       // typechecker and the bundler can never disagree about the contract.
-      "@midnite/git-shared": ["../shared/src/index.ts"]
+      "@midnite/studio-shared": ["../shared/src/index.ts"]
     }
   },
 

@@ -27,7 +27,7 @@ export default defineConfig({
        * strictly better: real ESM, tree-shaking, and no way to build against a
        * stale dist. `shared` is zod-only, so nothing here reaches for Node.
        */
-      '@midnite/git-shared': fileURLToPath(new URL('../shared/src/index.ts', import.meta.url)),
+      '@midnite/studio-shared': fileURLToPath(new URL('../shared/src/index.ts', import.meta.url)),
     },
   },
 

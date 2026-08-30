@@ -4,14 +4,14 @@ import { join } from 'node:path';
 
 import type { z } from 'zod';
 
-import { checkIgnored, listFiles } from '@midnite/git-engine';
+import { checkIgnored, listFiles } from '@midnite/studio-git-engine';
 import {
   CHANNELS,
   FS_DIR_STATS_WALK_CAP,
   FS_TEXT_CAP_BYTES,
   schemas,
   type FsEntry,
-} from '@midnite/git-shared';
+} from '@midnite/studio-shared';
 
 import { confineToRoot, resolveScopeRoot } from '../fs-scope';
 import { resolveWorkdir } from '../repo-registry';

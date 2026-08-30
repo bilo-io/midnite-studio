@@ -1,6 +1,6 @@
 import { useEffect } from 'react';
 
-import { DEFAULT_KEYMAP, GLOBAL_CHORDS } from '@midnite/git-shared';
+import { DEFAULT_KEYMAP, GLOBAL_CHORDS } from '@midnite/studio-shared';
 
 import { bridge } from '../bridge';
 import { usePaletteStore } from '../../store/palette-store';

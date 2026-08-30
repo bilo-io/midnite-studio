@@ -6,7 +6,7 @@ import {
   commandFingerprint,
   type DiagnosticsCommand,
   type DiagnosticsTrustStatus,
-} from '@midnite/git-shared';
+} from '@midnite/studio-shared';
 
 /**
  * Which repositories may run their own tooling, and what they are allowed to run.

@@ -1,5 +1,5 @@
-import type { ForgeRun } from '@midnite/git-shared';
-import { ForgeRunSchema } from '@midnite/git-shared';
+import type { ForgeRun } from '@midnite/studio-shared';
+import { ForgeRunSchema } from '@midnite/studio-shared';
 import { describe, expect, it } from 'vitest';
 
 import { checksVerdict } from './checks-verdict';

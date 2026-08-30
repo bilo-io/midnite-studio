@@ -1,4 +1,4 @@
-import type { TestFailure } from '@midnite/git-shared';
+import type { TestFailure } from '@midnite/studio-shared';
 
 /**
  * Reading a test runner's own JSON output — never a shell, never a guess.

@@ -1,4 +1,4 @@
-import { CHANNELS, SCROLLBACK_BYTES, schemas } from '@midnite/git-shared';
+import { CHANNELS, SCROLLBACK_BYTES, schemas } from '@midnite/studio-shared';
 import { ipcMain, type BrowserWindow } from 'electron';
 
 import {

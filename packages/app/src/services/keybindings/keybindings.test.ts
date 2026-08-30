@@ -1,4 +1,4 @@
-import { COMMANDS, DEFAULT_KEYMAP } from '@midnite/git-shared';
+import { COMMANDS, DEFAULT_KEYMAP } from '@midnite/studio-shared';
 import { describe, expect, it, vi } from 'vitest';
 
 import { chordFromEvent } from './chord';
@@ -122,8 +122,8 @@ describe('the registry is palette-shaped', () => {
     // chords repo.close/graph.focus/status.focus already own —
     // `use-keybindings.ts` prefers the `browser.*` reading only while the
     // pane is open. See the identical, fuller-commented assertion in
-    // `@midnite/git-shared`'s own ipc.test.ts.
-    const { DEFAULT_KEYMAP } = await import('@midnite/git-shared');
+    // `@midnite/studio-shared`'s own ipc.test.ts.
+    const { DEFAULT_KEYMAP } = await import('@midnite/studio-shared');
     const byChord = new Map<string, string[]>();
     for (const binding of DEFAULT_KEYMAP) {
       byChord.set(binding.chord, [...(byChord.get(binding.chord) ?? []), binding.command]);
@@ -137,13 +137,13 @@ describe('the registry is palette-shaped', () => {
   });
 
   it('keeps Mod+Shift+p as sync.pull', async () => {
-    const { DEFAULT_KEYMAP } = await import('@midnite/git-shared');
+    const { DEFAULT_KEYMAP } = await import('@midnite/studio-shared');
     const binding = DEFAULT_KEYMAP.find((b) => b.chord === 'Mod+Shift+p');
     expect(binding?.command).toBe('sync.pull');
   });
 
   it('lets palette.open escape the terminal, and keeps palette.files from doing so', async () => {
-    const { GLOBAL_CHORDS, DEFAULT_KEYMAP } = await import('@midnite/git-shared');
+    const { GLOBAL_CHORDS, DEFAULT_KEYMAP } = await import('@midnite/studio-shared');
     const open = DEFAULT_KEYMAP.find((b) => b.command === 'palette.open');
     const files = DEFAULT_KEYMAP.find((b) => b.command === 'palette.files');
     expect(open && GLOBAL_CHORDS.includes(open.chord)).toBe(true);
@@ -151,7 +151,7 @@ describe('the registry is palette-shaped', () => {
   });
 
   it('binds Mod+Shift+g to view.graph', async () => {
-    const { DEFAULT_KEYMAP } = await import('@midnite/git-shared');
+    const { DEFAULT_KEYMAP } = await import('@midnite/studio-shared');
     const binding = DEFAULT_KEYMAP.find((b) => b.chord === 'Mod+Shift+g');
     expect(binding?.command).toBe('view.graph');
   });

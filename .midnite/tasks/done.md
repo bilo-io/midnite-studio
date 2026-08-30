@@ -1914,7 +1914,7 @@ windows that were never adjacent**:
 - The gap marker main splices in has no `job<TAB>step<TAB>` prefix, so the parser filed it under
   `preamble`, which nothing renders. A capped log read as a complete one. It is a `gap` node now,
   always visible and never foldable, and `logGapMarker`/`isLogGapMarker` moved into
-  `@midnite/git-shared` so the writer and the reader share one definition — with a round-trip
+  `@midnite/studio-shared` so the writer and the reader share one definition — with a round-trip
   test that says so rather than two regexes agreeing by luck.
 - Folding ran over the concatenation, so the head window's dangling `##[group]` absorbed every
   tail line — including the failure the log was opened for — under the wrong header, where

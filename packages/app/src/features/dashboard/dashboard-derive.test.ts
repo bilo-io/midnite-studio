@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 
-import type { RepoStats } from '@midnite/git-shared';
+import type { RepoStats } from '@midnite/studio-shared';
 
 import { byCommits, calendarWeeks, levelFor, newestFirst, scopeStats } from './dashboard-derive';
 

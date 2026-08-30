@@ -1,6 +1,6 @@
 import { useMemo } from 'react';
 
-import type { RepoStats } from '@midnite/git-shared';
+import type { RepoStats } from '@midnite/studio-shared';
 
 import { calendarColor } from '../calendar-palette';
 import { calendarWeeks, type CalendarCell } from '../dashboard-derive';

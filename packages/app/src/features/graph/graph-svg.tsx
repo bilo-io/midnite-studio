@@ -1,4 +1,4 @@
-import type { GraphRow } from '@midnite/git-shared';
+import type { GraphRow } from '@midnite/studio-shared';
 
 import { CommitAvatar } from './commit-avatar';
 import {

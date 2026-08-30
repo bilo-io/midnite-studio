@@ -1,4 +1,4 @@
-import type { Diagnostic, DiagnosticsRun } from '@midnite/git-shared';
+import type { Diagnostic, DiagnosticsRun } from '@midnite/studio-shared';
 
 /**
  * The problems themselves, as `file:line` with rule and message.

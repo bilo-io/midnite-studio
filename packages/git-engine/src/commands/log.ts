@@ -1,4 +1,4 @@
-import type { Commit } from '@midnite/git-shared';
+import type { Commit } from '@midnite/studio-shared';
 
 import { execGit, spawnGit } from '../exec/git-exec';
 import { LOG_FORMAT, chunkRecords, parseLog, parseLogRecord } from '../parsers/log-parser';

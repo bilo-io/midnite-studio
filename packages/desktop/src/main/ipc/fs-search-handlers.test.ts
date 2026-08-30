@@ -6,7 +6,7 @@ const { resolveWorkdir, readGrep } = vi.hoisted(() => ({
 }));
 vi.mock('electron', () => ({ ipcMain: { handle: vi.fn() } }));
 vi.mock('../repo-registry', () => ({ resolveWorkdir }));
-vi.mock('@midnite/git-engine', () => ({ readGrep }));
+vi.mock('@midnite/studio-git-engine', () => ({ readGrep }));
 
 const base = { repoId: 'r1', query: 'foo', mode: 'fixed' as const, caseSensitive: false, wholeWord: false };
 
@@ -75,7 +75,7 @@ type SearchResult =
   | { ok: false; message: string };
 
 async function importSearchHandler() {
-  const { CHANNELS } = await import('@midnite/git-shared');
+  const { CHANNELS } = await import('@midnite/studio-shared');
   const { registerFsSearchHandlers } = await import('./fs-search-handlers');
   const ipcMain = (await import('electron')).ipcMain as unknown as { handle: ReturnType<typeof vi.fn> };
   ipcMain.handle.mockClear();

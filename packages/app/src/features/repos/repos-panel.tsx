@@ -3,8 +3,8 @@ import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { bridge } from '../../services/bridge';
 import { keys } from '../../services/queries';
 
-import type { Ref, Remote, RepoDescriptor, StatusResult, Worktree } from '@midnite/git-shared';
-import { forgeProjectUrl, pickForgeRemote } from '@midnite/git-shared';
+import type { Ref, Remote, RepoDescriptor, StatusResult, Worktree } from '@midnite/studio-shared';
+import { forgeProjectUrl, pickForgeRemote } from '@midnite/studio-shared';
 import {
   ArrowRightLeft,
   ChevronRight,

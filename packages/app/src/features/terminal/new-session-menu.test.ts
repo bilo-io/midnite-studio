@@ -1,4 +1,4 @@
-import { BUILTIN_AGENTS, type AgentStatus } from '@midnite/git-shared';
+import { BUILTIN_AGENTS, type AgentStatus } from '@midnite/studio-shared';
 import { Terminal } from 'lucide-react';
 import { describe, expect, it, vi } from 'vitest';
 

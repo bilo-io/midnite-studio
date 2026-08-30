@@ -3,7 +3,7 @@ import type {
   FileDiff,
   ForgeReviewThread,
   StatusCode,
-} from '@midnite/git-shared';
+} from '@midnite/studio-shared';
 import { ChevronRight } from 'lucide-react';
 import { useId, useState } from 'react';
 

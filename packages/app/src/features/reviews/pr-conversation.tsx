@@ -1,4 +1,4 @@
-import type { ForgeComment } from '@midnite/git-shared';
+import type { ForgeComment } from '@midnite/studio-shared';
 import Markdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
 

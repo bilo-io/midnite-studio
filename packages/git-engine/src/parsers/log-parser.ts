@@ -1,4 +1,4 @@
-import type { Commit } from '@midnite/git-shared';
+import type { Commit } from '@midnite/studio-shared';
 
 import { chunkNulRecords } from './nul-record-chunker';
 

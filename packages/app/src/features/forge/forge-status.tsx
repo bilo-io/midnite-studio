@@ -4,7 +4,7 @@ import type {
   ForgePull,
   ForgeReviewState,
   ForgeRun,
-} from '@midnite/git-shared';
+} from '@midnite/studio-shared';
 import {
   Ban,
   Check,

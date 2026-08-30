@@ -1,6 +1,6 @@
 import { useMemo, useState } from 'react';
 
-import type { ChangeCounts, StatusEntry } from '@midnite/git-shared';
+import type { ChangeCounts, StatusEntry } from '@midnite/studio-shared';
 
 import { ChevronsDownUp, ChevronsUpDown } from 'lucide-react';
 

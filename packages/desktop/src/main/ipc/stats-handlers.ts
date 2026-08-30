@@ -1,5 +1,5 @@
-import { CHANNELS, schemas, type RepoStats } from '@midnite/git-shared';
-import { computeStats, invalidateStats } from '@midnite/git-engine';
+import { CHANNELS, schemas, type RepoStats } from '@midnite/studio-shared';
+import { computeStats, invalidateStats } from '@midnite/studio-git-engine';
 
 import { resolveWorkdir } from '../repo-registry';
 import { handle } from './handle';

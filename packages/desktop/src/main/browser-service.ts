@@ -1,6 +1,6 @@
 import { WebContentsView, session, shell, type BrowserWindow } from 'electron';
 
-import { EVENT_CHANNELS, type BrowserBounds, type BrowserEvent } from '@midnite/git-shared';
+import { EVENT_CHANNELS, type BrowserBounds, type BrowserEvent } from '@midnite/studio-shared';
 
 import { cancelDownload, checkNavigationUrl, denyAllPermissions } from './browser-security';
 import { defaultLogger } from './log';

@@ -1,4 +1,4 @@
-import { BUILTIN_AGENTS, type AgentDefinition, type AgentStatus } from '@midnite/git-shared';
+import { BUILTIN_AGENTS, type AgentDefinition, type AgentStatus } from '@midnite/studio-shared';
 import { useQuery } from '@tanstack/react-query';
 
 import { bridge, hasBridge } from '../../services/bridge';

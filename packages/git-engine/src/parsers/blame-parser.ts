@@ -1,4 +1,4 @@
-import type { BlameCommit, BlameLine, BlameResult } from '@midnite/git-shared';
+import type { BlameCommit, BlameLine, BlameResult } from '@midnite/studio-shared';
 
 /**
  * Parse `git blame --porcelain` output into BlameResult.

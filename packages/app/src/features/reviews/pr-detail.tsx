@@ -3,7 +3,7 @@ import type {
   ForgePull,
   ForgePullDetail,
   ForgeWriteResult,
-} from '@midnite/git-shared';
+} from '@midnite/studio-shared';
 import { SquareArrowOutUpRight } from 'lucide-react';
 import { useEffect, useState } from 'react';
 import Markdown from 'react-markdown';

@@ -41,7 +41,7 @@ Screenshots: [dark](../docs/screenshots/phase-3-shell-dark.png) ·
   and fails in the editor, which is a horrible thing to debug. `scripts/start-electron.mjs`
   strips the variable — a moon task can set env vars but not unset them.
 - **`sandbox: false` is required** (contextIsolation and nodeIntegration are unchanged). The
-  preload requires `@midnite/git-shared` for the channel constants, and a sandboxed preload only
+  preload requires `@midnite/studio-shared` for the channel constants, and a sandboxed preload only
   gets a polyfilled subset of `require`.
 - **The frameless flag is single-sourced** from main's window options via
   `additionalArguments`, never re-derived in the preload from `process.platform`. A second

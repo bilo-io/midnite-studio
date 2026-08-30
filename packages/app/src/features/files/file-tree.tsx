@@ -11,7 +11,7 @@ import {
   LuTrash2,
 } from 'react-icons/lu';
 
-import type { FsEntry } from '@midnite/git-shared';
+import type { FsEntry } from '@midnite/studio-shared';
 
 import type { MenuItem } from '../../components/context-menu';
 import { useDialogs } from '../../components/dialog-host';

@@ -1,4 +1,4 @@
-import type { Ref, StatusEntry, StatusResult } from '@midnite/git-shared';
+import type { Ref, StatusEntry, StatusResult } from '@midnite/studio-shared';
 import { describe, expect, it } from 'vitest';
 
 import { branchHealth, worktreeHealth } from './branch-health';

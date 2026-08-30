@@ -14,7 +14,7 @@
  * modelled as a different visible-rows array over the same parsed tree.
  */
 
-import { isLogGapMarker } from '@midnite/git-shared';
+import { isLogGapMarker } from '@midnite/studio-shared';
 
 /** One entry of a job's log: a plain line, a foldable group, or the splice. */
 export type LogNode =

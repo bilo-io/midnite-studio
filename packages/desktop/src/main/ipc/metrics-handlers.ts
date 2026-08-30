@@ -1,4 +1,4 @@
-import { CHANNELS, EVENT_CHANNELS, schemas } from '@midnite/git-shared';
+import { CHANNELS, EVENT_CHANNELS, schemas } from '@midnite/studio-shared';
 import { ipcMain, type BrowserWindow } from 'electron';
 
 import { createMetricsService, type MetricsService } from '../metrics/metrics-service';

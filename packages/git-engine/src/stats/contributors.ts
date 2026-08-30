@@ -1,4 +1,4 @@
-import type { ContributorStat } from '@midnite/git-shared';
+import type { ContributorStat } from '@midnite/studio-shared';
 
 import type { HistoryCommit } from './commit-history';
 

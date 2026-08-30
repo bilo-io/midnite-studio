@@ -1,4 +1,4 @@
-import type { TestRunResult, TestSuite } from '@midnite/git-shared';
+import type { TestRunResult, TestSuite } from '@midnite/studio-shared';
 
 import { runProcess, type ProcessSink, type RunProcessDeps } from '../process-runner';
 import { parseStructuredResult } from './reporters';

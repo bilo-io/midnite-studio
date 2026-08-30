@@ -1,4 +1,4 @@
-import { BUILTIN_AGENTS } from '@midnite/git-shared';
+import { BUILTIN_AGENTS } from '@midnite/studio-shared';
 import { LuRepeat } from 'react-icons/lu';
 
 import type { MenuItem } from '../../components/context-menu';

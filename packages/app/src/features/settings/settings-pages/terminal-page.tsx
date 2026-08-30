@@ -1,4 +1,4 @@
-import type { AgentDefinition, SessionActivity, TerminalSession } from '@midnite/git-shared';
+import type { AgentDefinition, SessionActivity, TerminalSession } from '@midnite/studio-shared';
 import { Accordion } from '@bilo-io/ui';
 import { useEffect, useState } from 'react';
 import { LuActivity, LuBot, LuSquareTerminal } from 'react-icons/lu';

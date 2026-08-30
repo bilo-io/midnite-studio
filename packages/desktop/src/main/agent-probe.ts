@@ -1,4 +1,4 @@
-import type { AgentDefinition, AgentStatus } from '@midnite/git-shared';
+import type { AgentDefinition, AgentStatus } from '@midnite/studio-shared';
 
 import { parseWhichOutput, runInShell } from './login-shell';
 

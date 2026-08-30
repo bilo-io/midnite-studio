@@ -5,7 +5,7 @@ import {
   EVENT_CHANNELS,
   type ClaudeInfo,
   type ClaudeInstallMethod,
-} from '@midnite/git-shared';
+} from '@midnite/studio-shared';
 
 import { parseWhichOutput, runInShell } from './login-shell';
 

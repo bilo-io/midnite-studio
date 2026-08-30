@@ -3,7 +3,7 @@ import {
   METRICS_MAX_INTERVAL_MS,
   METRICS_MIN_INTERVAL_MS,
   type MetricSample,
-} from '@midnite/git-shared';
+} from '@midnite/studio-shared';
 
 import { createCpuProbe, loadAverage1 } from './cpu';
 import { probeDisk, type DiskReading } from './disk';

@@ -1,6 +1,6 @@
 import { BrowserWindow, ipcMain } from 'electron';
 
-import { CHANNELS, EVENT_CHANNELS } from '@midnite/git-shared';
+import { CHANNELS, EVENT_CHANNELS } from '@midnite/studio-shared';
 
 /**
  * Window chrome for the app-drawn title bar.

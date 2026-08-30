@@ -1,4 +1,4 @@
-import type { Ref } from '@midnite/git-shared';
+import type { Ref } from '@midnite/studio-shared';
 
 import { ResizeHandle } from '../../components/resizable/resize-handle';
 import { useResizable, type Resizable } from '../../components/resizable/use-resizable';

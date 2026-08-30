@@ -1,4 +1,4 @@
-import type { MetricId } from '@midnite/git-shared';
+import type { MetricId } from '@midnite/studio-shared';
 
 import type { MetricPoint } from '../../store/metrics-store';
 import { SPARKLINE_GEOMETRY } from './metric-geometry';

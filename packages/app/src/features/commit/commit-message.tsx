@@ -1,5 +1,5 @@
-import type { Remote } from '@midnite/git-shared';
-import { forgeIssueUrl, pickForgeRemote } from '@midnite/git-shared';
+import type { Remote } from '@midnite/studio-shared';
+import { forgeIssueUrl, pickForgeRemote } from '@midnite/studio-shared';
 import { useMemo, type ComponentPropsWithoutRef, type ReactNode } from 'react';
 import Markdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';

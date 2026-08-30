@@ -1,4 +1,4 @@
-import type { FileDiff } from '@midnite/git-shared';
+import type { FileDiff } from '@midnite/studio-shared';
 import { describe, expect, it } from 'vitest';
 
 import { describeEmptyDiff } from './describe-empty';

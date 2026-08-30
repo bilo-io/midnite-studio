@@ -2,7 +2,7 @@ import { mkdtemp, readFile, writeFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 
-import { commandFingerprint, type DiagnosticsCommand } from '@midnite/git-shared';
+import { commandFingerprint, type DiagnosticsCommand } from '@midnite/studio-shared';
 import { beforeEach, describe, expect, it } from 'vitest';
 
 import { createTrustStore, parseTrustState, statusFor } from './trust-store';
