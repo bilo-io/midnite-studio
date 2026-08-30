@@ -2,6 +2,10 @@
 
 <!-- Append one entry per landed phase/PR: date, phase, PR link, one-line summary. -->
 
+## 2026-08-30 — Screensaver Lockscreen & Host Integration
+
+- [x] **Adhoc Lockscreen**: Ported and completed the lockscreen screensaver from `midnite` to `midnite-studio`. Added `Spinner` rAF orbit/ellipsis animation with mode-based tinting, expanded title word lists for active/waiting/idle modes, CSS sheen and pill shimmer keyframes, and full keyboard/passcode host integration.
+
 ## 2026-08-30 — Phase 33 Themes A, B, C, D & Phase 32 Themes E, F — Package DMG, CLI Binary, Auto-Updater & Occlusion / New Tab Page
 
 - [x] **Phase 33 Theme A — Polished DMG Package & macOS Integration**: Added `dmg`, `protocols`, `publish`, `entitlements`, `entitlementsInherit`, `afterSign` notarize hook, and `Midnite Studio` identity to `electron-builder.yml`. Created `verify-dist.mjs` asserting DMG/ZIP existence, 50MB+ size, strict codesign verification, `hdiutil` verification, and `Info.plist` URL schemes.
