@@ -139,3 +139,18 @@ test('scrolling it stays windowed and does not stall', async ({ page }) => {
   const median = sorted[Math.floor(sorted.length / 2)] ?? 0;
   expect(median).toBeLessThan(100);
 });
+
+test('a 4000-line diff in split mode stays windowed and bounded', async ({ page }) => {
+  await openBigDiff(page);
+
+  // Toggle split mode
+  const splitToggle = page.getByRole('button', { name: /split/i });
+  if (await splitToggle.isVisible()) {
+    await splitToggle.click();
+  }
+
+  const mounted = await renderedRows(page);
+  expect(mounted).toBeGreaterThan(0);
+  expect(mounted).toBeLessThan(400);
+});
+
