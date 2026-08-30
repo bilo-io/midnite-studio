@@ -694,6 +694,7 @@ type PersistedUi = Pick<
   | 'primaryAgent'
   | 'repoGroups'
   | 'repoGroupMembership'
+  | 'collapsedRepoGroups'
   | 'updatesAutoCheck'
   | 'updateChannel'
   | 'onboardedAt'
