@@ -82,7 +82,9 @@ export function Popover({
    */
   const close = useCallback(() => {
     setOpen(false);
-    triggerRef.current?.focus();
+    // `preventScroll` for the same reason as the focus trap's: returning focus
+    // is a keyboard courtesy, not a licence to move the viewport under the user.
+    triggerRef.current?.focus({ preventScroll: true });
   }, [setOpen]);
 
   /** Position against the trigger, clamped to the viewport. */
@@ -131,7 +133,14 @@ export function Popover({
       if (triggerRef.current?.contains(target)) return;
       setOpen(false);
     };
-    const onScroll = () => setOpen(false);
+    // Scrolling *inside* the panel is the user reading it, not the anchor
+    // moving out from under it — the notifications list is `overflow-y-auto`
+    // and would otherwise dismiss itself on its own first wheel event.
+    const onScroll = (event: Event) => {
+      const target = event.target as Node | null;
+      if (target && panelRef.current?.contains(target)) return;
+      setOpen(false);
+    };
 
     window.addEventListener('keydown', onKeyDown);
     window.addEventListener('pointerdown', onPointerDown, true);

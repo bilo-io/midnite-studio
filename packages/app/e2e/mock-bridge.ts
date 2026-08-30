@@ -321,19 +321,55 @@ export type MockFixtures = {
    * Blame fixtures (Phase 25), keyed by `${relPath}` or `${rev}:${relPath}`.
    */
   blame?: Record<string, unknown>;
+  /**
+   * Leave the profile untouched, so the app boots into onboarding.
+   *
+   * Every other spec is seeded as already-onboarded — see `installMockBridge`.
+   */
+  firstRun?: boolean;
 };
 
 
 export async function installMockBridge(page: Page, fixtures: MockFixtures): Promise<void> {
-  // Seed onboardedAt so the FirstRunModal never intercepts clicks in e2e tests.
-  await page.addInitScript(() => {
-    try {
-      const item = localStorage.getItem('midnite-studio.ui');
-      const parsed = item ? JSON.parse(item) : { state: {} };
-      parsed.state = { ...parsed.state, onboardedAt: '2026-01-01T00:00:00.000Z', showOnboarding: false };
-      localStorage.setItem('midnite-studio.ui', JSON.stringify(parsed));
-    } catch {}
-  });
+  /*
+    Seed the app as already-onboarded, unless a spec asks for a first run.
+
+    Both onboarding surfaces — `FirstRunModal` (gated on the persisted
+    `onboardedAt`) and `OnboardingModal` (gated on `showOnboarding`) — are
+    full-screen `fixed inset-0` overlays. A fresh profile is what every spec
+    gets, so without this every click in the suite lands on a welcome modal
+    instead of the app, and the failure reads as "the element is there but
+    something intercepts pointer events" rather than as onboarding.
+
+    Written straight into the persist key rather than driven through the UI:
+    dismissing two modals at the top of fifty specs is fifty chances to forget,
+    and onboarding is not what any of them is testing. The spec that does test
+    it passes `firstRun: true` and gets the untouched fresh profile.
+
+    Merged into whatever is already stored rather than replacing it, because an
+    init script runs again on every navigation: overwriting the key wholesale
+    would wipe the persisted UI state on `page.reload()`, and "survives a
+    reload" is what a dozen specs assert. `version` is stamped only when there
+    is nothing to merge into, so a fresh profile skips the store's `migrate`
+    rather than being walked through five upgrades it never needed.
+  */
+  if (!fixtures.firstRun) {
+    await page.addInitScript(() => {
+      try {
+        const stored = localStorage.getItem('midnite-studio.ui');
+        const persisted = stored ? JSON.parse(stored) : { version: 5 };
+        persisted.state = {
+          ...persisted.state,
+          onboardedAt: '2026-01-01T00:00:00.000Z',
+          showOnboarding: false,
+        };
+        localStorage.setItem('midnite-studio.ui', JSON.stringify(persisted));
+      } catch {
+        /* A profile this test cannot parse is one the app will discard too. */
+      }
+    });
+  }
+
   await page.addInitScript((data: MockFixtures) => {
     /*
       Every method on an api object, held for `forgeLatencyMs` before it

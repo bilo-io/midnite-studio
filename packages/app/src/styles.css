@@ -274,33 +274,33 @@ section.bg-card\/60 {
 }
 
 /* ---------------------------------------------------------------------------
- * Gradient & Pulse halo styles (copied from midnite UI tokens)
+ * Gradient glow — the *deltas* to @bilo-io/ui's `.gradient-border`, which is
+ * imported at the top of this file (tokens.css). Deliberately not a second
+ * copy of it. What used to sit here was exactly that, and both ways it failed
+ * were invisible on the page it was written for:
+ *
+ *  - It restated `position: relative`. This block is unlayered CSS sitting
+ *    after `@tailwind utilities`, so at equal specificity it beats a utility —
+ *    and every panel wearing `fixed gradient-border` quietly became
+ *    `position: relative`. Its `style={{ left, top }}` then meant offsets from
+ *    a static position at the end of <body> rather than viewport coordinates:
+ *    the panel mounted about a viewport below the fold, the document grew a
+ *    scroll range, and the focus trap's `.focus()` scrolled to reveal it —
+ *    which the Popover's own scroll-to-dismiss listener read as the user
+ *    scrolling away. That is the panel that flashes and vanishes. The imported
+ *    copy never had the problem, because it lands *before* the utilities.
+ *  - It had drifted from upstream's `::after` to `::before`, so the two copies
+ *    painted two halos and only one of them was the one being tuned here.
+ *
+ * Everything below therefore overrides upstream in place — same selectors,
+ * same pseudo-element — and never restates `position` or `isolation`.
  * ------------------------------------------------------------------------- */
-@property --gradient-angle {
-  syntax: '<angle>';
-  initial-value: 0deg;
-  inherits: false;
-}
 
-@keyframes gradient-border-spin {
-  to {
-    --gradient-angle: 360deg;
-  }
-}
-
-@keyframes gradient-border-glow-pulse {
-  0%,
-  100% {
-    opacity: 0.5;
-  }
-  50% {
-    opacity: 0.9;
-  }
-}
-
+/* A popover is not a card. Upstream fills the padding box with `--card`; these
+ * surfaces are `bg-popover`, and the two diverge in every theme. Only the two
+ * background longhands are restated, so upstream's border-width transition and
+ * spin animation stay in force. */
 .gradient-border {
-  position: relative;
-  border: 1px solid transparent;
   background-image:
     linear-gradient(hsl(var(--popover, var(--card))), hsl(var(--popover, var(--card)))),
     conic-gradient(
@@ -320,7 +320,12 @@ section.bg-card\/60 {
 .gradient-border:focus-within,
 .gradient-border--hover:hover,
 .gradient-border--always {
+  /* 1.5px, not upstream's 2px: these are 300-400px panels sitting on app
+   * chrome, not full-width cards, and 2px reads as a selection outline. */
   border-width: 1.5px;
+  /* `border-border` is on every panel's class list and would otherwise paint an
+   * opaque line straight over the conic gradient the border box exists to
+   * show. */
   border-color: transparent !important;
   background-image:
     linear-gradient(hsl(var(--popover, var(--card))), hsl(var(--popover, var(--card)))),
@@ -336,49 +341,44 @@ section.bg-card\/60 {
     );
   background-origin: border-box;
   background-clip: padding-box, border-box;
-  animation: gradient-border-spin 4s linear infinite;
 }
 
-.gradient-border::before {
-  content: '';
-  position: absolute;
+/*
+ * The halo, as a ring rather than a wash.
+ *
+ * A negative `z-index` cannot put this behind its host. Upstream gives
+ * `.gradient-border` an `isolation: isolate`, and every panel here owns a
+ * stacking context anyway from `position: fixed` plus `z-popover`/`z-menu` —
+ * and inside a stacking context, negative-z children paint *after* the host's
+ * own background. So the blurred conic landed on top of the popover fill and
+ * turned the panel into a rainbow smear with unreadable text.
+ *
+ * Masking the host's own box out of the halo is what makes paint order stop
+ * mattering: `padding: 6px` against `inset: -6px` makes this pseudo's content
+ * box exactly the host's border box, and `mask-composite: exclude` subtracts
+ * it, so every pixel that survives lies outside the panel. The hard inner edge
+ * that leaves sits underneath the host's own gradient border and is never
+ * visible. The negative z-index stays as belt and braces.
+ *
+ * Tighter than upstream's -12px/26px too — a desktop panel opening 20px from
+ * the window edge cannot afford a halo that reaches past it.
+ */
+.gradient-border::after {
   inset: -6px;
-  border-radius: inherit;
-  background: conic-gradient(
-    from var(--gradient-angle),
-    #f43f5e,
-    #f59e0b,
-    #10b981,
-    #3b82f6,
-    #8b5cf6,
-    #ec4899,
-    #f43f5e
-  );
+  padding: 6px;
   filter: blur(14px);
-  opacity: 0;
+  mask:
+    linear-gradient(#000 0 0) content-box,
+    linear-gradient(#000 0 0);
+  mask-composite: exclude;
   transition: opacity 0.3s ease-out;
-  pointer-events: none;
   z-index: -1;
 }
 
-.gradient-border:focus-within::before,
-.gradient-border--hover:hover::before,
-.gradient-border--always::before {
+.gradient-border:focus-within::after,
+.gradient-border--hover:hover::after,
+.gradient-border--always::after {
   opacity: 0.65;
-  animation:
-    gradient-border-spin 4s linear infinite,
-    gradient-border-glow-pulse 2.6s ease-in-out infinite;
-}
-
-@media (prefers-reduced-motion: reduce) {
-  html:not([data-motion='full']) .gradient-border:focus-within,
-  html:not([data-motion='full']) .gradient-border:focus-within::after,
-  html:not([data-motion='full']) .gradient-border--hover:hover,
-  html:not([data-motion='full']) .gradient-border--hover:hover::after,
-  html:not([data-motion='full']) .gradient-border--always,
-  html:not([data-motion='full']) .gradient-border--always::after {
-    animation: none;
-  }
 }
 
 /* Screensaver / Lockscreen Title Sheen & Tint Glow */
