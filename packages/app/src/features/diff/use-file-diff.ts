@@ -1,5 +1,5 @@
 import { useQuery } from '@tanstack/react-query';
-import { DIFF_DEFAULT_CONTEXT, type FileDiff } from '@midnite/git-shared';
+import { DIFF_DEFAULT_CONTEXT, type FileDiff } from '@midnite/studio-shared';
 import { useCallback, useState } from 'react';
 
 import { bridge } from '../../services/bridge';

@@ -1,4 +1,4 @@
-import type { TestSuite } from '@midnite/git-shared';
+import type { TestSuite } from '@midnite/studio-shared';
 
 import { useTerminalStore } from '../terminal/terminal-store';
 import { useUiStore } from '../../store/ui-store';

@@ -1,4 +1,4 @@
-import type { BranchStatus, GitOpResult } from '@midnite/git-shared';
+import type { BranchStatus, GitOpResult } from '@midnite/studio-shared';
 import { RefreshCw } from 'lucide-react';
 import { IoCloudUploadOutline } from "react-icons/io5";
 

@@ -85,7 +85,7 @@ build on this one:
   files; bare `gh pr diff` yields exactly 14. **Bare `gh pr diff` is the combined unified diff
   the parser wants** — Theme E should read the same way.
 
-- **`mgit:forge:pull-detail` was added alongside** the two channels this theme specified. The
+- **`mstudio:forge:pull-detail` was added alongside** the two channels this theme specified. The
   PR's head sha lives on no listing field, and the Checks tab is built on matching it — so
   `gh pr view --json` became its own channel rather than a widening of `listPulls`, which
   Theme B is rewriting. It carries the body, base branch, line counts and `mergeable` too,
@@ -144,7 +144,7 @@ build on this one:
         source is `repository.pullRequest.reviewThreads`, in a new
         [`gh-graphql.ts`](../packages/desktop/src/main/forge/gh-graphql.ts) — the app's one
         GraphQL read, kept out of `gh-cli.ts` so that file stays "one `gh` subcommand per function"
-      - a new `mgit:forge:pull-threads` channel rather than widening `pull-comments`: the
+      - a new `mstudio:forge:pull-threads` channel rather than widening `pull-comments`: the
         conversation is the Conversation tab's payload and the threads are the Files tab's, so one
         channel would make each tab fetch the other's. Same split Theme C made for `pull-detail`
 - [x] `DiffView` / `diff-rows.ts` gain the affordance and the panel: `withCommentRows` splices
@@ -249,10 +249,10 @@ build on this one:
 
 - [x] `moon run :typecheck :lint :test` green (Theme E)
 - [x] Boundary lint still passes: `git-engine` stays electron-free; `packages/app` reaches
-      `gh-write.ts` only through `mgit:forge:*` IPC, never directly
+      `gh-write.ts` only through `mstudio:forge:*` IPC, never directly
 - [x] `mock-bridge.ts` grows `pullThreads` and `writeError` fixtures plus the three write
       handlers — and the writes **mutate the seeded threads** rather than stubbing, so an
-      `ok: true` that changed nothing cannot pass. Every call is recorded on `window.__mgitWrites`
+      `ok: true` that changed nothing cannot pass. Every call is recorded on `window.__mstudioWrites`
       so a spec can assert the *anchor* a comment was sent with, which the rendered result hides
 - [x] Playwright (Themes A–D): Reviews nav item hidden for a non-GitHub repo; the Reviews view
       narrows the sidebar; PR list filters by status and author; PR detail's three tabs render;

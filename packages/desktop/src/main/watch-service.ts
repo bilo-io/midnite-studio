@@ -1,5 +1,5 @@
-import { RepoWatcher } from '@midnite/git-engine';
-import { EVENT_CHANNELS, type WatchKind } from '@midnite/git-shared';
+import { RepoWatcher } from '@midnite/studio-git-engine';
+import { EVENT_CHANNELS, type WatchKind } from '@midnite/studio-shared';
 import type { BrowserWindow } from 'electron';
 
 /**

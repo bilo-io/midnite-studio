@@ -1,4 +1,4 @@
-import { DEFAULT_KEYMAP, type CommandId } from '@midnite/git-shared';
+import { DEFAULT_KEYMAP, type CommandId } from '@midnite/studio-shared';
 
 import { isMac } from '../../services/keybindings/chord';
 

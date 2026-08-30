@@ -1,4 +1,4 @@
-import type { BranchStatus, StatusCode, StatusEntry, StatusResult } from '@midnite/git-shared';
+import type { BranchStatus, StatusCode, StatusEntry, StatusResult } from '@midnite/studio-shared';
 
 /**
  * Parser for `git status --porcelain=v2 -z --branch --untracked-files=all`.

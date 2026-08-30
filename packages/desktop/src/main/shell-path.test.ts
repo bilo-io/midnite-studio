@@ -8,7 +8,7 @@ import { mergePath, parseShellPathOutput } from './shell-path';
  */
 describe('parseShellPathOutput', () => {
   it('extracts the PATH between the markers', () => {
-    expect(parseShellPathOutput('__MGIT_PATH_START__/opt/homebrew/bin:/usr/bin__MGIT_PATH_END__')).toBe(
+    expect(parseShellPathOutput('__MSTUDIO_PATH_START__/opt/homebrew/bin:/usr/bin__MSTUDIO_PATH_END__')).toBe(
       '/opt/homebrew/bin:/usr/bin',
     );
   });
@@ -19,7 +19,7 @@ describe('parseShellPathOutput', () => {
     const output = [
       'Last login: Mon Aug 25',
       'nvm: using node 22',
-      '__MGIT_PATH_START__/usr/local/bin__MGIT_PATH_END__',
+      '__MSTUDIO_PATH_START__/usr/local/bin__MSTUDIO_PATH_END__',
       '',
     ].join('\n');
 
@@ -28,14 +28,14 @@ describe('parseShellPathOutput', () => {
 
   it('takes the last occurrence when a profile echoes the command line', () => {
     const output =
-      'printf __MGIT_PATH_START__${PATH}__MGIT_PATH_END__\n__MGIT_PATH_START__/real/path__MGIT_PATH_END__';
+      'printf __MSTUDIO_PATH_START__${PATH}__MSTUDIO_PATH_END__\n__MSTUDIO_PATH_START__/real/path__MSTUDIO_PATH_END__';
     expect(parseShellPathOutput(output)).toBe('/real/path');
   });
 
   it('returns null when the markers are missing or the value is empty', () => {
     expect(parseShellPathOutput('some broken profile output')).toBeNull();
-    expect(parseShellPathOutput('__MGIT_PATH_START__   __MGIT_PATH_END__')).toBeNull();
-    expect(parseShellPathOutput('__MGIT_PATH_START__/no/end/marker')).toBeNull();
+    expect(parseShellPathOutput('__MSTUDIO_PATH_START__   __MSTUDIO_PATH_END__')).toBeNull();
+    expect(parseShellPathOutput('__MSTUDIO_PATH_START__/no/end/marker')).toBeNull();
   });
 });
 

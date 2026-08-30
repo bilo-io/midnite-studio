@@ -1,4 +1,4 @@
-import type { TerminalSession } from '@midnite/git-shared';
+import type { TerminalSession } from '@midnite/studio-shared';
 import { useCallback, useEffect, useRef } from 'react';
 
 import { bridge } from '../../services/bridge';

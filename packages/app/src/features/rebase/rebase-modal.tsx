@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { RebaseAction, RebaseEntry, RebaseSequencePlan } from '@midnite/git-shared';
+import { RebaseAction, RebaseEntry, RebaseSequencePlan } from '@midnite/studio-shared';
 import { LuMoveUp, LuMoveDown, LuTrash2, LuPlay, LuRotateCcw, LuPencil, LuTerminal } from 'react-icons/lu';
 
 export type RebaseModalProps = {

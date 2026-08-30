@@ -1,4 +1,4 @@
-import type { GrepHit } from '@midnite/git-shared';
+import type { GrepHit } from '@midnite/studio-shared';
 
 import { execGit, spawnGit } from '../exec/git-exec';
 import { type GrepMatch, parseGrep } from '../parsers/grep-parser';

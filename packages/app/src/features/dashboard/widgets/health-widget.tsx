@@ -1,6 +1,6 @@
 import { MetricDial, RadialGauge } from '@bilo-io/ui';
 
-import type { RepoStats } from '@midnite/git-shared';
+import type { RepoStats } from '@midnite/studio-shared';
 
 import { formatBytes } from '../../monitor/format-bytes';
 import { StatTile, WidgetState } from '../widget-frame';

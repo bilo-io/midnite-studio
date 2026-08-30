@@ -1,5 +1,5 @@
 import { create } from 'zustand';
-import { BlameResult } from '@midnite/git-shared';
+import { BlameResult } from '@midnite/studio-shared';
 
 export interface BlameState {
   blameByFile: Record<string, boolean>;

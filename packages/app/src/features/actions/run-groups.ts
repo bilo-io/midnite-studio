@@ -1,4 +1,4 @@
-import type { ForgeRun } from '@midnite/git-shared';
+import type { ForgeRun } from '@midnite/studio-shared';
 
 /**
  * Runs, sectioned by the workflow that produced them.

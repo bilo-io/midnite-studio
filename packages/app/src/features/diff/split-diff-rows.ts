@@ -1,4 +1,4 @@
-import type { DiffHunk, DiffLine, FileDiff, SplitCell, SplitDiffRow } from '@midnite/git-shared';
+import type { DiffHunk, DiffLine, FileDiff, SplitCell, SplitDiffRow } from '@midnite/studio-shared';
 
 export type { SplitCell, SplitDiffRow };
 

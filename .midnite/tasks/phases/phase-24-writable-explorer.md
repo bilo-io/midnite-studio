@@ -5,7 +5,7 @@
 [`shared/src/fs.ts`](../packages/shared/src/fs.ts) is the strongest of them: "There is deliberately
 no write/rename/delete channel: 'read-only' is a property of this contract, not of whichever buttons
 the UI happens to render." [`channels.ts`](../packages/shared/src/ipc/channels.ts) repeats it above
-the two `mgit:fs:*` entries, [`bridge.ts`](../packages/shared/src/ipc/bridge.ts) repeats it above
+the two `mstudio:fs:*` entries, [`bridge.ts`](../packages/shared/src/ipc/bridge.ts) repeats it above
 `fs: { listDir, readFile }`, and
 [`file-tree.tsx`](../packages/app/src/features/files/file-tree.tsx) closes the loop from the other
 end — "read-only by construction — rows have no rename/delete affordance and the bridge has no
@@ -61,8 +61,8 @@ Lands first; every other theme reads off it.
       [`channels.ts`](../packages/shared/src/ipc/channels.ts) and the one above `fs:` in
       [`bridge.ts`](../packages/shared/src/ipc/bridge.ts).
 - [x] Four new channels in [`channels.ts`](../packages/shared/src/ipc/channels.ts) —
-      `fsWriteFile: 'mgit:fs:write-file'`, `fsCreate: 'mgit:fs:create'`, `fsRename: 'mgit:fs:rename'`,
-      `fsDelete: 'mgit:fs:delete'` — with request schemas in
+      `fsWriteFile: 'mstudio:fs:write-file'`, `fsCreate: 'mstudio:fs:create'`, `fsRename: 'mstudio:fs:rename'`,
+      `fsDelete: 'mstudio:fs:delete'` — with request schemas in
       [`schemas.ts`](../packages/shared/src/ipc/schemas.ts) built on `FsWriteScopeSchema`.
       `fsRename` carries independent `fromRelPath`/`toRelPath` (a general move; the UI only offers
       same-directory rename today) and `fsCreate` takes `kind: 'file' | 'directory'`. Responses are
@@ -147,7 +147,7 @@ The load-bearing theme. Everything a write can do wrong, it does wrong here.
 - [x] Menu entries: New File, New Folder, Rename, Delete, plus Reveal in Finder and Copy Relative
       Path (both free, both wanted, neither a write). Directory rows and file rows get different
       sets; the root row gets New File / New Folder only. Reveal needed a new read-only
-      `mgit:shell:show-item-in-folder` channel (`FsRepoScope`-scoped, confined through the same
+      `mstudio:shell:show-item-in-folder` channel (`FsRepoScope`-scoped, confined through the same
       jail as every other fs read) — no such channel existed.
 - [x] Rename is **inline on the row**, not a dialog — the row becomes an input (`data-testid`
       `inline-name-input`), `Enter` commits, `Escape` reverts, blur commits-or-cancels with a
@@ -159,7 +159,7 @@ The load-bearing theme. Everything a write can do wrong, it does wrong here.
 - [x] Delete goes through `confirm-dialog.tsx`'s `warnings` line (not the commit-shaped
       `blastRadius` field — that one had to be pinned `null` explicitly, or the dialog reads its
       `undefined` as "still counting" and never stops saying so): a file's warning is "unsaved
-      changes to Git" when it has one; a directory's is `dirStats` (new `mgit:fs:dir-stats` read,
+      changes to Git" when it has one; a directory's is `dirStats` (new `mstudio:fs:dir-stats` read,
       a capped breadth-first walk, `FS_DIR_STATS_WALK_CAP`) joined with an uncommitted count
       filtered out of the same `statusIndex.byPath` Theme F already builds — no second status
       fetch.
@@ -244,7 +244,7 @@ fixed to the explicit `null` the delete confirm already established for a warnin
       regular expression (`-F` / `-E`). Result and per-file caps, with the cap **stated in the UI**
       when it bites — a truncated result list that does not say so is a lie. Per-file cap (50) is
       `-m` itself; the 2,000-total cap is enforced in the handler and reported as `truncated`.
-- [x] One read channel (`mgit:fs:search`) and its handler, calling git-engine from
+- [x] One read channel (`mstudio:fs:search`) and its handler, calling git-engine from
       `desktop/src/main/ipc/` — never shelling out to git from `desktop` directly, which nothing in
       the repo does today. Its own `fs-search-handlers.ts` rather than joining `fs-handlers.ts`:
       that file's reads are plain `node:fs` confined by `fs-scope.ts`; this one's trust boundary is
@@ -315,7 +315,7 @@ The cheapest theme in the phase; the join already exists in miniature.
 |------|-------|
 | Contract | [`shared/src/fs.ts`](../packages/shared/src/fs.ts) (write scope, `FsVersion`, `FS_WRITE_CAP_BYTES`, header rewritten), [`ipc/channels.ts`](../packages/shared/src/ipc/channels.ts), [`ipc/schemas.ts`](../packages/shared/src/ipc/schemas.ts), [`ipc/bridge.ts`](../packages/shared/src/ipc/bridge.ts), [`domain/result.ts`](../packages/shared/src/domain/result.ts) (read, not changed) |
 | Main — fs write | new `main/fs-scope-write.ts`, new `main/ipc/fs-write-handlers.ts`, [`main/fs-scope.ts`](../packages/desktop/src/main/fs-scope.ts) (unchanged; load-bearing), [`main/ipc/fs-handlers.ts`](../packages/desktop/src/main/ipc/fs-handlers.ts) (version token on the read), [`main/ipc/handle.ts`](../packages/desktop/src/main/ipc/handle.ts), [`main/index.ts`](../packages/desktop/src/main/index.ts) (register), [`preload/index.ts`](../packages/desktop/src/preload/index.ts) |
-| Main — search | new `main/ipc/fs-search-handler.ts` (or the entry beside the existing `mgit:fs:*` handlers) |
+| Main — search | new `main/ipc/fs-search-handler.ts` (or the entry beside the existing `mstudio:fs:*` handlers) |
 | git-engine | new [`commands/grep.ts`](../packages/git-engine/src/commands/grep.ts), new `parsers/grep-parser.ts`, [`commands/index.ts`](../packages/git-engine/src/commands/index.ts), [`exec/git-exec.ts`](../packages/git-engine/src/exec/git-exec.ts) (unchanged) |
 | Renderer — files | [`features/files/file-tree.tsx`](../packages/app/src/features/files/file-tree.tsx) (context menu, `writable`, badges, inline rename), [`features/files/files-view.tsx`](../packages/app/src/features/files/files-view.tsx) (search panel), [`features/files/files-store.ts`](../packages/app/src/features/files/files-store.ts) (dirty + edit mode), [`features/files/file-icons.tsx`](../packages/app/src/features/files/file-icons.tsx), new `features/files/use-file-actions.ts`, new `features/files/file-search.tsx` |
 | Renderer — preview | [`preview/file-preview.tsx`](../packages/app/src/features/files/preview/file-preview.tsx) (the `read-only` badge becomes a toggle), [`preview/code-preview.tsx`](../packages/app/src/features/files/preview/code-preview.tsx) (read mode, unchanged), new `preview/code-editor.tsx`, [`lib/languages.ts`](../packages/app/src/lib/languages.ts) (a CodeMirror language map beside `LANG_BY_EXT`), [`lib/highlighter.ts`](../packages/app/src/lib/highlighter.ts) (unchanged) |
@@ -331,7 +331,7 @@ The cheapest theme in the phase; the join already exists in miniature.
 - [ ] Boundary lint clean, and asserted deliberately for this phase: `shared/src/fs.ts` still imports
       only zod and no workspace package; `commands/grep.ts` and `parsers/grep-parser.ts` import no
       `electron`; `packages/app` imports no `node:fs`, no git-engine and no desktop, and reaches
-      every write through `window.midniteGit`; CodeMirror appears in `packages/app/package.json`
+      every write through `window.midniteStudio`; CodeMirror appears in `packages/app/package.json`
       and nowhere else.
 - [ ] Vitest (B): `confineParent` refuses `..` traversal, absolute paths, a `C:\` string, NUL, an
       empty or separator-bearing final segment, a symlinked parent that resolves out of root, a

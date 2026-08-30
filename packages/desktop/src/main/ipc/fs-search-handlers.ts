@@ -1,12 +1,12 @@
 import type { z } from 'zod';
 
-import { readGrep } from '@midnite/git-engine';
+import { readGrep } from '@midnite/studio-git-engine';
 import {
   CHANNELS,
   FS_SEARCH_MAX_MATCHES,
   FS_SEARCH_MAX_MATCHES_PER_FILE,
   schemas,
-} from '@midnite/git-shared';
+} from '@midnite/studio-shared';
 
 import { resolveWorkdir } from '../repo-registry';
 import { handle } from './handle';

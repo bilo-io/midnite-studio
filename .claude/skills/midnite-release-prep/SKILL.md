@@ -5,11 +5,11 @@ argument-hint: "[major | minor | patch]   (optional — override the auto-detect
 allowed-tools: Bash, Read, Edit, Write, AskUserQuestion, Agent
 ---
 
-Prepare a Midnite Git release: the read-mostly, reversible half of the two-step flow.
+Prepare a Midnite Studio release: the read-mostly, reversible half of the two-step flow.
 Ends with a `release/vX.Y.Z` branch holding the changelog + version bumps as a draft,
 ready for `/midnite-release-complete`. **Never tags, never pushes to `main`, nothing irreversible.**
 
-> ⚠️ **Ported from midnite — release infra doesn't exist here yet.** Midnite Git has no
+> ⚠️ **Ported from midnite — release infra doesn't exist here yet.** Midnite Studio has no
 > `docs/RELEASING.md`, no `packages/shared/src/{version,release}.ts` helpers, no
 > `root:version-check` task, and no release workflow (packaging lands in Phase 11;
 > the updater is post-MVP). On first use, either port those helpers from
@@ -49,7 +49,7 @@ gathered commits (this is exactly what its unit tests pin):
   | `fix`-only | **patch** | bump only the changed packages |
   | docs/chore/refactor/test only | **none** | no release |
 
-- **Changed packages** (only matters for `patch`) = map the `git diff` paths onto the repo's `package.json` list (root; `@midnite/git-*` = `packages/*`).
+- **Changed packages** (only matters for `patch`) = map the `git diff` paths onto the repo's `package.json` list (root; `@midnite/studio-*` = `packages/*`).
 - **Next versions** = `planVersionBump(current, { level, changedPackages })`, where `current` is read from every `package.json`.
 
 If the version helpers have been ported into `packages/shared`, build shared once and

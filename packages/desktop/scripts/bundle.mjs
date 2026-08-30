@@ -5,8 +5,8 @@
  * The alternative — shipping `dist/` plus a pnpm `node_modules` — does not
  * survive electron-builder. pnpm links workspace packages as symlinks into
  * sibling directories, electron-builder follows them into the asar, and the
- * build dies on paths outside the app root. Inlining `@midnite/git-shared` and
- * `@midnite/git-engine` (both plain TypeScript) removes the problem at the
+ * build dies on paths outside the app root. Inlining `@midnite/studio-shared` and
+ * `@midnite/studio-git-engine` (both plain TypeScript) removes the problem at the
  * source and shrinks the asar to two files.
  *
  * Three things stay external:

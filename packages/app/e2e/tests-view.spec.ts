@@ -13,12 +13,12 @@ import { installMockBridge, type MockFixtures } from './mock-bridge';
  * running one actually renders what the live stream sends back.
  */
 
-const MAIN = '/tmp/midnite-git';
+const MAIN = '/tmp/midnite-studio';
 
 const unitSuite = {
   id: 'packages/app::test',
   package: 'packages/app',
-  packageName: '@midnite/git-app',
+  packageName: '@midnite/studio-app',
   name: 'test',
   kind: 'unit',
   source: 'package.json',
@@ -42,7 +42,7 @@ const base: MockFixtures = {
   statusByWorktree: { [MAIN]: [] },
   tests: {
     packages: [
-      { path: 'packages/app', name: '@midnite/git-app', suites: [unitSuite, e2eSuite] },
+      { path: 'packages/app', name: '@midnite/studio-app', suites: [unitSuite, e2eSuite] },
     ],
   },
 };
@@ -70,7 +70,7 @@ test('the Tests view lists suites by package and shows the selected one\'s comma
   await open(page);
 
   await page.getByRole('link', { name: 'Tests' }).click();
-  await expect(suites(page).getByText('@midnite/git-app')).toBeVisible();
+  await expect(suites(page).getByText('@midnite/studio-app')).toBeVisible();
   await expect(suites(page).getByRole('button', { name: /^test/ })).toBeVisible();
   await expect(suites(page).getByRole('button', { name: /^e2e/ })).toBeVisible();
 

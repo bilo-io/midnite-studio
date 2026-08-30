@@ -9,11 +9,11 @@ Crib: `~/Dev/midnite/packages/gateway/src/terminal/spawner/pty-spawner.ts` (lazy
 
 ## Deliverables
 
-- [x] `desktop/src/main/pty-service.ts` — sessions keyed by `ptyId`; spawns the user's login shell with shell-path-fixed PATH; cwd = selected worktree; data → `mgit:pty:data` as `Uint8Array` (structured clone, **no base64**); kill on window close; lazy fail-soft node-pty load degrades to "terminal unavailable"
+- [x] `desktop/src/main/pty-service.ts` — sessions keyed by `ptyId`; spawns the user's login shell with shell-path-fixed PATH; cwd = selected worktree; data → `mstudio:pty:data` as `Uint8Array` (structured clone, **no base64**); kill on window close; lazy fail-soft node-pty load degrades to "terminal unavailable"
 - [x] node-pty electron-rebuild wired as postinstall or `desktop:rebuild-native` moon task (**single ABI** — node-pty lives only in main); `scripts/fix-node-pty.cjs` chmod in place
 - [x] `app/src/features/terminal/{terminal-panel.tsx,live-terminal.tsx,use-terminal-ipc.ts}` — xterm + fit addon; `use-terminal-ipc` returns `{connectionState, sendInput, sendResize}`; deferred `term.open()` until the container has size
 - [x] `app/src/services/keybindings/{commands.ts,keybinding-service.ts,use-keybindings.ts}` — CommandId registry (from `shared/src/keybindings.ts`), context keys (`terminalFocus`), **allow-list of chords escaping xterm** via `attachCustomKeyEventHandler` (Ctrl+` at minimum)
-- [x] `desktop/src/main/menu.ts` — View → Toggle Terminal accelerator `` Ctrl+` `` dispatching the same CommandId over `mgit:menu:command`; macOS Edit roles present
+- [x] `desktop/src/main/menu.ts` — View → Toggle Terminal accelerator `` Ctrl+` `` dispatching the same CommandId over `mstudio:menu:command`; macOS Edit roles present
 - [x] `app/src/components/footer-bar.tsx` — terminal toggle button + branch/status indicators
 
 ## Verification
@@ -42,7 +42,7 @@ the footer showing `main · 1 changed` for the same worktree.
   because Electron main `require()`s it, and Rollup cannot see named exports through that interop
   — so the first value import (`DEFAULT_KEYMAP`) failed the production build with "not exported
   by ../shared/dist/index.js" while `vite dev` was perfectly happy. A dev/prod split is the worst
-  kind to find late. Vite, vitest and the app's tsconfig now all resolve `@midnite/git-shared` to
+  kind to find late. Vite, vitest and the app's tsconfig now all resolve `@midnite/studio-shared` to
   its **source**: the renderer is bundled anyway, so it gets real ESM, tree-shaking, and no way to
   build against a stale dist.
 - **The keybinding listener must be capture-phase.** xterm attaches its own handler to a hidden
@@ -63,7 +63,7 @@ the footer showing `main · 1 changed` for the same worktree.
 - **Switching worktree starts a new shell rather than `cd`-ing.** The user may be mid-command;
   rewriting their shell's state underneath them is worse than a fresh prompt.
 - **`app.setName('midnite-git')`** — Electron takes the name from package.json, so the menu bar,
-  the About dialog and `~/Library/Application Support` all read `@midnite/git-desktop` without it.
+  the About dialog and `~/Library/Application Support` all read `@midnite/studio-desktop` without it.
 - **`GIT_TERMINAL_PROMPT=1` in the pty env**, undoing the engine's read-path hygiene: this is an
   interactive shell, where the user genuinely may want git to prompt them.
 - node-pty is main-process-only, so `electron-rebuild` is a single ABI and

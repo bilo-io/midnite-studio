@@ -1,9 +1,11 @@
-# Midnite Git
+# Midnite Studio
 
-A GitKraken-inspired desktop git client. Plain Electron + typed IPC, a Vite + React renderer, and
-the published [`@bilo-io/ui`](https://github.com/bilo-io/midnite-ui) design system.
+A desktop workspace for the whole loop around a repository: a GitKraken-inspired git
+client at its centre, with an integrated terminal and agent roster, an embedded browser, and
+the forge (PRs, checks, reviews) in the same window. Plain Electron + typed IPC, a Vite + React
+renderer, and the published [`@bilo-io/ui`](https://github.com/bilo-io/midnite-ui) design system.
 
-![Midnite Git](docs/screenshots/midnite-git.png)
+![Midnite Studio](docs/screenshots/midnite-studio.png)
 
 <sub>Running `~/Dev/midnite` — linked worktrees nested under their repository, 2,376 commits,
 live branch and sync state in the footer. The crescent and the wordmark face are the midnite
@@ -62,7 +64,7 @@ moon run desktop:start-built        # Electron against the built renderer (file:
 moon run desktop:rebuild-native     # node-pty for Electron's ABI, after an Electron bump
 moon run desktop:dist               # macOS arm64 dmg + zip → packages/desktop/release
 moon run desktop:install-local      # ditto the .app into /Applications
-pnpm --filter @midnite/git-engine smoke ~/some/repo   # parse a real repo, print the lanes
+pnpm --filter @midnite/studio-git-engine smoke ~/some/repo   # parse a real repo, print the lanes
 ```
 
 ## How it is put together
@@ -75,9 +77,9 @@ shared ◀ desktop
 
 | Package | Role |
 |---|---|
-| [`packages/shared`](packages/shared) | The wire contract: domain zod schemas, `mgit:*` channel constants, per-channel payload schemas, the preload bridge type, the CommandId registry. zod only — no other workspace package, never `electron`. |
+| [`packages/shared`](packages/shared) | The wire contract: domain zod schemas, `mstudio:*` channel constants, per-channel payload schemas, the preload bridge type, the CommandId registry. zod only — no other workspace package, never `electron`. |
 | [`packages/git-engine`](packages/git-engine) | Everything that touches git, as plain Node/TS: dugite exec, the per-repo write queue, NUL-delimited parsers, commands, the lane layout, the watcher. Never imports `electron`, so it stays testable under bare vitest. |
-| [`packages/app`](packages/app) | The renderer. Reaches the main process only through `window.midniteGit`. |
+| [`packages/app`](packages/app) | The renderer. Reaches the main process only through `window.midniteStudio`. |
 | [`packages/desktop`](packages/desktop) | Electron main + preload. The only package allowed to import `electron` and `node-pty`. |
 
 Those arrows are enforced by [`eslint.config.mjs`](eslint.config.mjs), not by convention: each

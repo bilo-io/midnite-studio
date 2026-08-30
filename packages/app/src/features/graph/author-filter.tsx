@@ -1,6 +1,6 @@
 import { useMemo } from 'react';
 
-import type { GraphRow } from '@midnite/git-shared';
+import type { GraphRow } from '@midnite/studio-shared';
 import { Users } from 'lucide-react';
 
 import { MultiSelectMenu, type MultiSelectOption } from '../../components/multi-select-menu';

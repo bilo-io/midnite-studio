@@ -176,7 +176,7 @@ test('the staging buttons still act on the row they sit on', async ({ page }) =>
   await page.getByRole('button', { name: 'Stage src/nested/b.ts' }).click();
 
   const ops = await page.evaluate(
-    () => (window as unknown as { __mgitOps: { op: string; args: { paths: string[] } }[] }).__mgitOps,
+    () => (window as unknown as { __mstudioOps: { op: string; args: { paths: string[] } }[] }).__mstudioOps,
   );
   expect(ops).toHaveLength(1);
   expect(ops[0]?.op).toBe('stage');

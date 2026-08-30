@@ -1,4 +1,4 @@
-import type { GraphRow, Ref } from '@midnite/git-shared';
+import type { GraphRow, Ref } from '@midnite/studio-shared';
 import { memo } from 'react';
 
 import { Tooltip } from '../../components/tooltip';

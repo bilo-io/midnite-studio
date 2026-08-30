@@ -1,7 +1,7 @@
 import { renderHook } from '@testing-library/react';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
-import { COMMAND_IDS, type CommandId } from '@midnite/git-shared';
+import { COMMAND_IDS, type CommandId } from '@midnite/studio-shared';
 
 import { usePaletteStore } from '../../store/palette-store';
 import { useKeybindings } from './use-keybindings';

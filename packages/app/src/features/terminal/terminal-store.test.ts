@@ -389,9 +389,9 @@ describe('useTerminalStore', () => {
     const session = (id: string) => ({
       id,
       kind: 'shell' as const,
-      title: 'midnite-git',
-      cwd: '/repos/midnite-git',
-      repoId: 'repo:midnite-git',
+      title: 'midnite-studio',
+      cwd: '/repos/midnite-studio',
+      repoId: 'repo:midnite-studio',
       createdAt: 1_787_000_000,
     });
 
@@ -403,14 +403,14 @@ describe('useTerminalStore', () => {
       }[],
       ptyCreate: () => void,
     ) => {
-      (window as unknown as { midniteGit: unknown }).midniteGit = {
+      (window as unknown as { midniteStudio: unknown }).midniteStudio = {
         terminal: { list: () => Promise.resolve({ sessions }) },
         pty: { create: ptyCreate },
       };
     };
 
     afterEach(() => {
-      delete (window as unknown as { midniteGit?: unknown }).midniteGit;
+      delete (window as unknown as { midniteStudio?: unknown }).midniteStudio;
     });
 
     it('binds a live row without creating a pty', async () => {
@@ -458,9 +458,9 @@ describe('sessionLabel', () => {
   const base = {
     id: 's1',
     kind: 'shell' as const,
-    title: 'midnite-git',
-    cwd: '/repos/midnite-git',
-    repoId: 'repo:midnite-git',
+    title: 'midnite-studio',
+    cwd: '/repos/midnite-studio',
+    repoId: 'repo:midnite-studio',
     createdAt: 0,
   };
 

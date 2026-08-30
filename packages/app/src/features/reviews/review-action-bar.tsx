@@ -3,7 +3,7 @@ import type {
   ForgePull,
   ForgePullDetail,
   ForgeReviewEvent,
-} from '@midnite/git-shared';
+} from '@midnite/studio-shared';
 import { Check, GitMerge, MessageSquare, Send, UserPlus, X } from 'lucide-react';
 import { useState } from 'react';
 

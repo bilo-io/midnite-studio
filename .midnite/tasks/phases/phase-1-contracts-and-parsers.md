@@ -6,9 +6,9 @@ See INITIAL_PLAN.md → "IPC contract", "Data model", "Git exec conventions".
 ## Deliverables
 
 - [x] `shared/src/domain/*.ts` — zod schemas + inferred types: `RepoDescriptor`, `Worktree`, `Ref`, `Commit`, `GraphRow`, `StatusEntry`, `StatusResult`, `WatchEvent`, `GitOpResult`
-- [x] `shared/src/ipc/channels.ts` — every `mgit:*` channel as a const (single module for main/preload/renderer)
+- [x] `shared/src/ipc/channels.ts` — every `mstudio:*` channel as a const (single module for main/preload/renderer)
 - [x] `shared/src/ipc/schemas.ts` — zod for every invoke payload/response + stream event
-- [x] `shared/src/ipc/bridge.ts` — `MidniteGitBridge` type + `declare global` for `window.midniteGit`
+- [x] `shared/src/ipc/bridge.ts` — `MidniteStudioBridge` type + `declare global` for `window.midniteStudio`
 - [x] `shared/src/keybindings.ts` — `CommandId` union + default keymap
 - [x] `git-engine/src/exec/git-exec.ts` — dugite wrapper `execGit(repoPath, args, opts)`; read env `LC_ALL=C`, `GIT_OPTIONAL_LOCKS=0`, `GIT_TERMINAL_PROMPT=0`; binary abstracted so a settings flag can later switch to system git
 - [x] `git-engine/src/exec/write-queue.ts` — per-repo promise-chain serialization (index.lock)

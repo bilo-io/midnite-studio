@@ -1,4 +1,4 @@
-import type { TestSuiteKind } from '@midnite/git-shared';
+import type { TestSuiteKind } from '@midnite/studio-shared';
 
 /**
  * What kind of suite a script or task is — config file first, script-name

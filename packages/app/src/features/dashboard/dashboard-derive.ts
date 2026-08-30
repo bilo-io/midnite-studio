@@ -1,4 +1,4 @@
-import type { ActivityEntry, ContributorStat, RepoStats } from '@midnite/git-shared';
+import type { ActivityEntry, ContributorStat, RepoStats } from '@midnite/studio-shared';
 
 /**
  * The board-wide author filter, and the calendar's geometry.

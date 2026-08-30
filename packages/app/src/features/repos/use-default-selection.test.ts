@@ -4,7 +4,7 @@ import { cleanup, renderHook } from '@testing-library/react';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 
-import type { RepoDescriptor, Worktree } from '@midnite/git-shared';
+import type { RepoDescriptor, Worktree } from '@midnite/studio-shared';
 
 import { keys } from '../../services/queries';
 import { useUiStore } from '../../store/ui-store';

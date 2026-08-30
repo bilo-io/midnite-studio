@@ -1,4 +1,4 @@
-import type { SessionActivity, TerminalSession, TerminalSessionKind } from '@midnite/git-shared';
+import type { SessionActivity, TerminalSession, TerminalSessionKind } from '@midnite/studio-shared';
 import { create } from 'zustand';
 
 import { bridge } from '../../services/bridge';
@@ -46,7 +46,7 @@ export function sessionPhase(
  * G), at the single `pty:data` send site, so the status bar's agent count
  * stays right while the terminal panel is collapsed and every `TerminalView`
  * is unmounted. `SessionActivity` crosses the wire, so it lives in
- * `@midnite/git-shared` beside `TerminalSessionSchema` — this re-export means
+ * `@midnite/studio-shared` beside `TerminalSessionSchema` — this re-export means
  * no renderer import has to change.
  *
  * `undefined` means "live, and the detector has not spoken" — a fourth thing

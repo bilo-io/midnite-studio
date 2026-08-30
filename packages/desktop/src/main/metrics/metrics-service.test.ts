@@ -1,5 +1,5 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
-import type { MetricSample } from '@midnite/git-shared';
+import type { MetricSample } from '@midnite/studio-shared';
 
 import { DISK_REFRESH_EVERY_TICKS, createMetricsService } from './metrics-service';
 

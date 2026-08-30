@@ -36,7 +36,7 @@ export type LinkifyOptions = {
  * without any work. `commit-message.tsx` maps `button` to the control that reads
  * this attribute.
  */
-export const SHA_ATTR = 'data-mgit-sha';
+export const SHA_ATTR = 'data-mstudio-sha';
 
 /**
  * A rehype plugin turning references in text into elements.

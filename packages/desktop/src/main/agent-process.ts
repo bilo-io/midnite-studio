@@ -1,7 +1,7 @@
 import { execFile } from 'node:child_process';
 import { promisify } from 'node:util';
 
-import type { AgentDefinition } from '@midnite/git-shared';
+import type { AgentDefinition } from '@midnite/studio-shared';
 
 import { probeTarget } from './agent-probe';
 

@@ -1,6 +1,6 @@
 import { basename, join, relative, sep } from 'node:path';
 
-import type { TestPackage, TestSuite } from '@midnite/git-shared';
+import type { TestPackage, TestSuite } from '@midnite/studio-shared';
 
 import { classifySuite, isCandidateScript, type PresentConfigs } from './classify';
 import { realTestsFs, safeJsonParse, type TestsFs } from './fs';

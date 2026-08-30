@@ -5,7 +5,7 @@ import { LuBot, LuFolderTree, LuRefreshCw } from 'react-icons/lu';
 
 import { Accordion } from '@bilo-io/ui';
 
-import { CLAUDE_COMMANDS, type ClaudeInfo } from '@midnite/git-shared';
+import { CLAUDE_COMMANDS, type ClaudeInfo } from '@midnite/studio-shared';
 
 import { IconButton } from '../../../components/icon-button';
 import { resolveAgentIcon } from '../../../components/icons';

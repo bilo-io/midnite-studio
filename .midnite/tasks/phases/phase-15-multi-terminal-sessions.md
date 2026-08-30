@@ -103,8 +103,8 @@ localStorage clear, and the scrollback bytes are far too big for a 5 MB quota.
       and keyboard a11y live in one place. Match graph-dnd's `PointerSensor`
       `activationConstraint: { distance: 6 }`: the repo row already has three overlapping click
       targets (chevron, select, close) and a 0-distance drag would swallow them
-- [x] Terminal order → `mgit:terminal:reorder`, persisted as `terminals.json` array order
-- [x] Repo order → new `mgit:repo:reorder` mutating the registry `Map` and re-persisting. Order
+- [x] Terminal order → `mstudio:terminal:reorder`, persisted as `terminals.json` array order
+- [x] Repo order → new `mstudio:repo:reorder` mutating the registry `Map` and re-persisting. Order
       stays where the repo list already lives (`repos.json` `paths` order) rather than splitting
       into localStorage
 - [x] Compose drag listeners **through** `Tooltip`, which clones its child and carries `assignRef`
@@ -128,7 +128,7 @@ localStorage clear, and the scrollback bytes are far too big for a 5 MB quota.
 - [x] `e2e/mock-bridge.ts` — `pty.create` returns the `ok: true` discriminant, and the mock is now
       a **fake pty that talks back**: it writes a coloured prompt, echoes keystrokes with
       backspace, answers a short transcript, and refuses to write after `kill`. Sessions are
-      seeded through `terminalSessions`, and the pty's traffic is published on `window.__mgitPty`
+      seeded through `terminalSessions`, and the pty's traffic is published on `window.__mstudioPty`
       — xterm paints through the WebGL addon, so its contents are canvas pixels and what crossed
       the bridge is both reachable and the more precise thing to assert
 - [x] Specs for a second terminal, sidebar switching (incl. surviving a reload) and drag reorder

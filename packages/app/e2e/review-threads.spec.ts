@@ -14,15 +14,15 @@ import { installMockBridge, type MockFixtures } from './mock-bridge';
  * a `ok: true` that changed nothing would otherwise pass.
  */
 
-const MAIN = '/tmp/midnite-git';
+const MAIN = '/tmp/midnite-studio';
 const HEAD_SHA = 'a'.repeat(40);
 
 const REMOTES = [
   {
     name: 'origin',
-    fetchUrl: 'git@github.com:bilo-io/midnite-git.git',
-    pushUrl: 'git@github.com:bilo-io/midnite-git.git',
-    forge: { host: 'github.com', owner: 'bilo-io', repo: 'midnite-git', kind: 'github' },
+    fetchUrl: 'git@github.com:bilo-io/midnite-studio.git',
+    pushUrl: 'git@github.com:bilo-io/midnite-studio.git',
+    forge: { host: 'github.com', owner: 'bilo-io', repo: 'midnite-studio', kind: 'github' },
   },
 ];
 
@@ -35,7 +35,7 @@ const pull = {
   checks: null,
   headBranch: 'feature/reviews',
   author: 'bilo',
-  url: 'https://github.com/bilo-io/midnite-git/pull/42',
+  url: 'https://github.com/bilo-io/midnite-studio/pull/42',
 };
 
 /** A `FileDiff` as main would have parsed it — the shape the renderer receives. */
@@ -150,7 +150,7 @@ async function openFiles(page: Page, data: MockFixtures): Promise<void> {
 
 const writes = (page: Page) =>
   page.evaluate(
-    () => (window as unknown as { __mgitWrites?: unknown[] }).__mgitWrites ?? [],
+    () => (window as unknown as { __mstudioWrites?: unknown[] }).__mstudioWrites ?? [],
   );
 
 test('an existing thread renders on the line it was written against', async ({ page }) => {

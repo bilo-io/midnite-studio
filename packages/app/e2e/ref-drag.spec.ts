@@ -158,7 +158,7 @@ async function dragOnto(page: Page, from: Locator, to: Locator): Promise<void> {
 type OpCall = { op: string; args: Record<string, unknown> };
 
 const opsCalled = (page: Page): Promise<OpCall[]> =>
-  page.evaluate(() => (window as unknown as { __mgitOps: OpCall[] }).__mgitOps);
+  page.evaluate(() => (window as unknown as { __mstudioOps: OpCall[] }).__mstudioOps);
 
 /**
  * Waits for exactly `expected` ops to have been called, and returns them.

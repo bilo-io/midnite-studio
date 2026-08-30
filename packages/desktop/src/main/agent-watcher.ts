@@ -1,4 +1,4 @@
-import type { AgentDefinition } from '@midnite/git-shared';
+import type { AgentDefinition } from '@midnite/studio-shared';
 
 import {
   commandLabel,

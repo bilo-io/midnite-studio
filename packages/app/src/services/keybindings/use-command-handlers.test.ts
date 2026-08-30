@@ -4,7 +4,7 @@ import { renderHook } from '@testing-library/react';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
-import type { BranchStatus, StatusResult } from '@midnite/git-shared';
+import type { BranchStatus, StatusResult } from '@midnite/studio-shared';
 
 import { DialogHost } from '../../components/dialog-host';
 import { useSlidesStore } from '../../features/slides/slides-store';

@@ -1,4 +1,4 @@
-import { pickForgeRemote, type ForgePull } from '@midnite/git-shared';
+import { pickForgeRemote, type ForgePull } from '@midnite/studio-shared';
 
 import { useForgePulls, useRemotes } from '../../services/queries';
 import { useActiveWorktree, useRepoStatus } from '../../services/use-status';

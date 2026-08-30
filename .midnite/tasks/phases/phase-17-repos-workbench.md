@@ -105,7 +105,7 @@ Effort tags: **S** ≈ an hour or two · **M** ≈ half a day · **L** ≈ a day
 - [x] `shared/src/domain/forge.ts` — `ForgeRun`, `ForgePull`, `ForgeCliStatus`, and the
       `{cli, items, error}` envelope that keeps "no runs yet" and "gh is signed out" different
       answers at every layer
-- [x] `mgit:forge:{cli-status,runs,pulls}` + schemas (listings capped so a sidebar section
+- [x] `mstudio:forge:{cli-status,runs,pulls}` + schemas (listings capped so a sidebar section
       cannot spawn an unbounded call) + bridge group + preload + `ipc.test.ts` coverage
 - [x] `desktop/src/main/forge/gh-cli.ts` — `$SHELL -lic`, the `claude-cli.ts` pattern, so a
       Homebrew/mise-managed `gh` resolves. `GH_PAGER=cat` (an interactive shell convinces `gh`

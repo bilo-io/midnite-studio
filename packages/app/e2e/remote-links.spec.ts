@@ -8,7 +8,7 @@ import { installMockBridge, type MockFixtures } from './mock-bridge';
  *
  * The unit tests cover the URL grammar and the protocol allow-list. What only
  * the app can show is that the two ever meet: that a remote listed by
- * `mgit:remotes:list` is matched to the ref group of the same name, and that
+ * `mstudio:remotes:list` is matched to the ref group of the same name, and that
  * clicking the control hands `shell.openExternal` the URL for *that* remote.
  * A button wired to the wrong remote looks identical from the outside.
  */
@@ -43,14 +43,14 @@ const REFS = [
 const REMOTES = [
   {
     name: 'origin',
-    fetchUrl: 'git@github.com:bilo-io/midnite-git.git',
-    pushUrl: 'git@github.com:bilo-io/midnite-git.git',
-    forge: { host: 'github.com', owner: 'bilo-io', repo: 'midnite-git', kind: 'github' },
+    fetchUrl: 'git@github.com:bilo-io/midnite-studio.git',
+    pushUrl: 'git@github.com:bilo-io/midnite-studio.git',
+    forge: { host: 'github.com', owner: 'bilo-io', repo: 'midnite-studio', kind: 'github' },
   },
   {
     name: 'backup',
-    fetchUrl: '/Volumes/backup/midnite-git.git',
-    pushUrl: '/Volumes/backup/midnite-git.git',
+    fetchUrl: '/Volumes/backup/midnite-studio.git',
+    pushUrl: '/Volumes/backup/midnite-studio.git',
     forge: null,
   },
 ];
@@ -64,18 +64,18 @@ async function openSidebar(page: Page, data: MockFixtures = withRemotes): Promis
 }
 
 const externalUrls = (page: Page) =>
-  page.evaluate(() => (window as unknown as { __mgitExternalUrls: string[] }).__mgitExternalUrls);
+  page.evaluate(() => (window as unknown as { __mstudioExternalUrls: string[] }).__mstudioExternalUrls);
 
 test('a github remote offers a link to its project page', async ({ page }) => {
   await openSidebar(page);
 
-  const link = page.getByRole('button', { name: 'Open bilo-io/midnite-git on github.com' });
+  const link = page.getByRole('button', { name: 'Open bilo-io/midnite-studio on github.com' });
   await expect(link).toBeVisible();
   await link.click();
 
   // https, not the ssh URL the remote was configured with: the web page and the
   // clone URL are different things, and only one of them opens in a browser.
-  await expect.poll(() => externalUrls(page)).toEqual(['https://github.com/bilo-io/midnite-git']);
+  await expect.poll(() => externalUrls(page)).toEqual(['https://github.com/bilo-io/midnite-studio']);
 });
 
 test('a remote with no forge offers no link at all', async ({ page }) => {

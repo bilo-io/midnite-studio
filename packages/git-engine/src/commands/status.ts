@@ -1,7 +1,7 @@
 import { access, readFile } from 'node:fs/promises';
 import { join } from 'node:path';
 
-import type { InProgressOp, StatusResult } from '@midnite/git-shared';
+import type { InProgressOp, StatusResult } from '@midnite/studio-shared';
 
 import { execGit } from '../exec/git-exec';
 import { parseStatus } from '../parsers/status-parser';

@@ -1,6 +1,10 @@
-# Midnite Git — working notes for Codex
+# Midnite Studio — working notes for Codex
 
-A GitKraken-inspired desktop git client. **Design source of truth:
+A desktop workspace for the whole loop around a repository: a GitKraken-inspired git client at
+its centre, with an integrated terminal and agent roster, an embedded browser, and the forge
+(PRs, checks, reviews) in the same window.
+
+**Design source of truth:
 [`docs/INITIAL_PLAN.md`](docs/INITIAL_PLAN.md)** — read it before any non-trivial change; it
 carries the architecture, IPC contract, data model, and the verified research constraints
 (licensing, registry auth, native-module ABI) that every phase assumes.
@@ -24,7 +28,7 @@ in the one file it actually applies to.
 ## Where to work — ask before the first edit
 
 **At the start of every session, and again at the start of every new task, ask the user
-whether to work in the primary checkout (`/Users/bilolwabona/Dev/midnite-git`) or in a
+whether to work in the primary checkout (`/Users/bilolwabona/Dev/midnite-studio`) or in a
 worktree — and say that a worktree is the default.** Ask before the first file edit or
 branch switch, not after. The prompt is one line, e.g. _"Worktree (default) or the primary
 checkout for this one?"_.
@@ -78,7 +82,7 @@ shared ◀ desktop
 - **`packages/git-engine`** — everything that touches git, as plain Node/TS. **Never imports
   `electron`**, so parsers/layout/commands stay testable under bare vitest.
 - **`packages/app`** — the renderer. Reaches the main process *only* through
-  `window.midniteGit`; may not import git-engine, desktop, electron, or node builtins.
+  `window.midniteStudio`; may not import git-engine, desktop, electron, or node builtins.
 - **`packages/desktop`** — Electron main + preload. The only package allowed to import
   `electron` and `node-pty`.
 

@@ -24,12 +24,12 @@ const ptyCalls = (page: Page) =>
   page.evaluate(
     () =>
       (window as unknown as {
-        __mgitPty: {
+        __mstudioPty: {
           creates: { ptyId: string; sessionId: string }[];
           resizes: { ptyId: string; cols: number; rows: number }[];
           snapshots: string[];
         };
-      }).__mgitPty,
+      }).__mstudioPty,
   );
 
 async function open(page: Page, over: Partial<MockFixtures> = {}): Promise<void> {

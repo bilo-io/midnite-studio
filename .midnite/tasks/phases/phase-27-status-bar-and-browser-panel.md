@@ -154,7 +154,7 @@ assumes the new geometry.
   - `chordFor` is currently typed
     `(command: 'terminal.toggle' | 'repos.toggle', fallback: string): string` — a hardcoded union
     that Theme F's Browser toggle cannot pass. Widen the parameter to `CommandId` from
-    [`@midnite/git-shared`](../packages/shared/src/keybindings.ts); the body
+    [`@midnite/studio-shared`](../packages/shared/src/keybindings.ts); the body
     (`DEFAULT_KEYMAP.find((b) => b.command === command)?.chord ?? fallback`) is unchanged.
   - `displayChord(chord: string): string` moves verbatim, comment included. It is the only place the
     `Mod+` → `⌘`/`Ctrl+` and `Shift+` → `⇧` rendering exists, and Theme F's Browser toggle is its
@@ -739,7 +739,7 @@ hooks, not rendered components.
       `footer-monitor.spec.ts:222` went red unnoticed in the first place.
 - [x] Boundary lint clean. This phase adds nothing to `git-engine`, and the one `desktop` edit is a
       menu entry naming an existing `CommandId`. Nothing in the renderer reaches past
-      `window.midniteGit` — the browser pane in particular touches no Electron API, which is the main
+      `window.midniteStudio` — the browser pane in particular touches no Electron API, which is the main
       reason it is a stub this phase.
 - [x] The status bar's left edge sits at the content area's left edge with the repositories panel
       open, shut, and mid-slide — asserted as `barBox.x <= asideBox.x + 1` in `e2e/status-bar.spec.ts`.

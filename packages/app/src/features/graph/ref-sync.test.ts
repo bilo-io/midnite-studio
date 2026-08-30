@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 
-import type { Ref } from '@midnite/git-shared';
+import type { Ref } from '@midnite/studio-shared';
 
 import { badgeActions, defaultRemote, splitUpstream, syncActions } from './ref-sync';
 

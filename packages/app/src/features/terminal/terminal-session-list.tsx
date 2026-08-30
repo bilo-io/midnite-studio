@@ -1,4 +1,4 @@
-import type { AgentDefinition, TerminalSession } from '@midnite/git-shared';
+import type { AgentDefinition, TerminalSession } from '@midnite/studio-shared';
 import { Moon, PanelLeft, PanelRight, Pencil, RotateCcw, Terminal, X } from 'lucide-react';
 
 import { LuChevronRight } from 'react-icons/lu';

@@ -47,11 +47,11 @@ export type WindowChromeBridge = {
 };
 
 /**
- * Everything the preload exposes on `window.midniteGit`. This type is the
+ * Everything the preload exposes on `window.midniteStudio`. This type is the
  * renderer's only view of the main process — it may not import `electron`, so
  * this is the API surface in full.
  */
-export type MidniteGitBridge = {
+export type MidniteStudioBridge = {
   /**
    * The user's home directory, as an absolute path.
    *
@@ -584,6 +584,6 @@ declare global {
      * typed as optional so a plain-browser vitest/jsdom run can assert on its
      * absence instead of crashing at import time.
      */
-    midniteGit?: MidniteGitBridge;
+    midniteStudio?: MidniteStudioBridge;
   }
 }

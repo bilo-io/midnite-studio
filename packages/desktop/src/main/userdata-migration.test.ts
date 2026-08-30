@@ -4,7 +4,7 @@ import { join } from 'node:path';
 
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 
-import { migrateLegacyRepoStore } from './userdata-migration';
+import { migrateAnyLegacyRepoStore, migrateLegacyRepoStore } from './userdata-migration';
 
 /**
  * The migration against real directories. It carries no `electron` import — the
@@ -18,9 +18,9 @@ describe('migrateLegacyRepoStore', () => {
   const REPOS = '{"version":1,"paths":["/tmp/one"]}\n';
 
   beforeEach(async () => {
-    root = await mkdtemp(join(tmpdir(), 'midnite-git-test-'));
+    root = await mkdtemp(join(tmpdir(), 'midnite-studio-test-'));
     legacy = join(root, 'midnite-git');
-    current = join(root, 'Midnite Git');
+    current = join(root, 'Midnite Studio');
   });
 
   afterEach(async () => {
@@ -69,3 +69,39 @@ async function writeFileIn(directory: string, contents: string): Promise<void> {
   await mkdir(directory, { recursive: true });
   await writeFile(join(directory, 'repos.json'), contents, 'utf8');
 }
+
+describe('migrateAnyLegacyRepoStore (the rename chain)', () => {
+  it('takes the newest legacy name that actually has data', async () => {
+    const root = await mkdtemp(join(tmpdir(), 'midnite-studio-test-'));
+    const current = join(root, 'Midnite Studio');
+    // Both prior names present: the pre-"Midnite Git" one holds a stale list.
+    for (const [name, body] of [
+      ['Midnite Git', '[{"id":"newer"}]'],
+      ['midnite-git', '[{"id":"older"}]'],
+    ] as const) {
+      await mkdir(join(root, name), { recursive: true });
+      await writeFile(join(root, name, 'repos.json'), body);
+    }
+
+    const used = await migrateAnyLegacyRepoStore((name) => join(root, name), current);
+
+    expect(used).toBe('Midnite Git');
+    expect(await readFile(join(current, 'repos.json'), 'utf8')).toBe('[{"id":"newer"}]');
+  });
+
+  it('falls through to the oldest name when the newer one has nothing', async () => {
+    const root = await mkdtemp(join(tmpdir(), 'midnite-studio-test-'));
+    const current = join(root, 'Midnite Studio');
+    await mkdir(join(root, 'midnite-git'), { recursive: true });
+    await writeFile(join(root, 'midnite-git', 'repos.json'), '[{"id":"oldest"}]');
+
+    expect(await migrateAnyLegacyRepoStore((name) => join(root, name), current)).toBe('midnite-git');
+  });
+
+  it('reports null on a clean install, where no legacy directory exists', async () => {
+    const root = await mkdtemp(join(tmpdir(), 'midnite-studio-test-'));
+    expect(
+      await migrateAnyLegacyRepoStore((name) => join(root, name), join(root, 'Midnite Studio')),
+    ).toBeNull();
+  });
+});

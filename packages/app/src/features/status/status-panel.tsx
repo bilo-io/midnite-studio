@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
 
-import type { StatusEntry } from '@midnite/git-shared';
+import type { StatusEntry } from '@midnite/studio-shared';
 
 import { List, ListTree, Minus, Plus, Undo2 } from 'lucide-react';
 import { AiOutlineDiff } from 'react-icons/ai';

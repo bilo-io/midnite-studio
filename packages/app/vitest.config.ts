@@ -9,7 +9,7 @@ export default defineConfig({
     alias: {
       // Mirrors vite.config.ts — tests must resolve the contract the same way
       // the bundle does, or they exercise a different module.
-      '@midnite/git-shared': fileURLToPath(new URL('../shared/src/index.ts', import.meta.url)),
+      '@midnite/studio-shared': fileURLToPath(new URL('../shared/src/index.ts', import.meta.url)),
     },
   },
   test: {

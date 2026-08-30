@@ -5,7 +5,7 @@ import {
   commandLine,
   type DiagnosticsCommand,
   type DiagnosticsRun,
-} from '@midnite/git-shared';
+} from '@midnite/studio-shared';
 
 import { ConfirmDialog, type ConfirmRequest } from '../../components/confirm-dialog';
 import { Popover } from '../../components/popover';

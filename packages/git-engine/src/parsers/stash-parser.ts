@@ -1,4 +1,4 @@
-import type { StashEntry } from '@midnite/git-shared';
+import type { StashEntry } from '@midnite/studio-shared';
 
 import { chunkNulRecords } from './nul-record-chunker';
 

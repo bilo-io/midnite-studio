@@ -8,7 +8,7 @@ import {
   type NavConfig,
   type NavLinkComponent,
 } from '@bilo-io/shell';
-import { pickForgeRemote } from '@midnite/git-shared';
+import { pickForgeRemote } from '@midnite/studio-shared';
 import { QueryClient, useQueryClient } from '@tanstack/react-query';
 import { ChevronLeft, Command as CommandIcon } from 'lucide-react';
 import type { IconType } from 'react-icons';

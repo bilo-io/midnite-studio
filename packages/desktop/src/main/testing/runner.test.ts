@@ -1,4 +1,4 @@
-import type { TestSuite } from '@midnite/git-shared';
+import type { TestSuite } from '@midnite/studio-shared';
 import { describe, expect, it, vi } from 'vitest';
 
 import type { SpawnFn, SpawnedProcess } from '../process-runner';
@@ -7,7 +7,7 @@ import { runTestSuite } from './runner';
 const suite: TestSuite = {
   id: 'app::test',
   package: 'packages/app',
-  packageName: '@midnite/git-app',
+  packageName: '@midnite/studio-app',
   name: 'test',
   kind: 'unit',
   source: 'package.json',

@@ -7,10 +7,10 @@ import {
   EVENT_CHANNELS,
   WINDOW_FRAMELESS_ARG,
   type DesktopPlatform,
-  type MidniteGitBridge,
+  type MidniteStudioBridge,
   type Unsubscribe,
   type WindowChromeBridge,
-} from '@midnite/git-shared';
+} from '@midnite/studio-shared';
 
 /**
  * The preload: the entire surface the renderer can see.
@@ -23,7 +23,7 @@ import {
  *    arrives twice, every watch event triggers two refetches. The bug then
  *    disappears in production, which is the worst possible failure mode.
  *
- * 2. **The exposed object is typed as `MidniteGitBridge`.** `exposeInMainWorld`
+ * 2. **The exposed object is typed as `MidniteStudioBridge`.** `exposeInMainWorld`
  *    types its API parameter as `any`, so an inline literal is structurally
  *    unchecked: misspell a method and typecheck, the main-process tests and the
  *    renderer's own types all stay green while the call is `undefined` at
@@ -78,7 +78,7 @@ const windowChrome: WindowChromeBridge = {
  * only discovers at the moment of the call.
  */
 const bridge: Pick<
-  MidniteGitBridge,
+  MidniteStudioBridge,
   | 'homeDir'
   | 'hostname'
   | 'repos'
@@ -327,7 +327,7 @@ const bridge: Pick<
 };
 
 try {
-  contextBridge.exposeInMainWorld('midniteGit', bridge);
+  contextBridge.exposeInMainWorld('midniteStudio', bridge);
 } catch {
   // contextIsolation disabled, or already exposed — nothing to do.
 }

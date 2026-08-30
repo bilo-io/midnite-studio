@@ -5,14 +5,14 @@ argument-hint: "[optional: phase number or task hint]"
 allowed-tools: Bash, Read, Edit, Write, Glob, Grep, AskUserQuestion, TodoWrite, Agent, ToolSearch
 ---
 
-End-to-end "execute a phase slice" for **Midnite Git**.
+End-to-end "execute a phase slice" for **Midnite Studio**.
 
 **Conversation style — enforced.** Be terse to save time and tokens. No preamble, no recap of these instructions, no narrating what you're *about* to do. Report results, not intentions; bullets over prose. Stay silent on no-op stages. Spend tokens on code, diffs, and decisions — not commentary.
 
 ## Respect
 - `CLAUDE.md` = conventions (package boundaries — `shared ◀ git-engine ◀ desktop`, `shared ◀ app`; commit style; pre-push gate). Re-read the relevant bits before coding. `docs/INITIAL_PLAN.md` is the design source of truth.
 - `todo/` = tracker: **`_INDEX.md` (the roll-up you scan first — phase status, progress, `🔄 WIP`/`◻ TODO` themes)**, `phase-N-*.md` (open checklist per phase), `done.md` (append-only, newest first), `open-decisions.md`, `outstanding.md`; rules in `todo/README.md`. Markers: `- [ ]` open · `- [x]`/`✅` done · `◐ PARTIAL` · `⏳ deferred` · `❌ OUT OF SCOPE`. Never pick `deferred`/`OUT OF SCOPE` unless told. `_INDEX.md` is the source of truth for what's claimed/in-flight — keep it current (Stages 2.7 + 10).
-- Parallel work → git worktrees in the repo-root **`.worktrees/<branch>/`** dir (git-ignored; **never** under `.git/` — that path gets pruned by parallel `git worktree` runs and Vite denies `.git/**`); keep the primary checkout (`/Users/bilolwabona/Dev/midnite-git`) as home base.
+- Parallel work → git worktrees in the repo-root **`.worktrees/<branch>/`** dir (git-ignored; **never** under `.git/` — that path gets pruned by parallel `git worktree` runs and Vite denies `.git/**`); keep the primary checkout (`/Users/bilolwabona/Dev/midnite-studio`) as home base.
 - **`.worktrees/` is outside `.git/`, so the full `moon run :test` runs fine inside the worktree** — no need to hop back to the primary checkout.
 
 ## 1 · Scan
@@ -86,7 +86,7 @@ Track sub-tasks with TodoWrite — one group per theme in the batch.
 - Follow `CLAUDE.md` (shared = the IPC contract; zod-validate every IPC payload; `app` never imports git-engine/electron; `git-engine` stays electron-free and unit-testable).
 - **Tests ship with the change, not after:**
   - Logic → Vitest at the right layer (pure parsers/layout in `git-engine`; RTL for `app` components).
-  - **Visual or flow change → add/extend the Playwright suite** (specs under `packages/app/e2e/`, running against the Vite dev server with a mocked `window.midniteGit` bridge; scaffold a minimal `playwright.config.ts` if none exists yet) so the new/updated feature is genuinely covered.
+  - **Visual or flow change → add/extend the Playwright suite** (specs under `packages/app/e2e/`, running against the Vite dev server with a mocked `window.midniteStudio` bridge; scaffold a minimal `playwright.config.ts` if none exists yet) so the new/updated feature is genuinely covered.
 - Small conventional commits, each ending with the required `Co-Authored-By` trailer.
 
 ## 5 · Screenshots — whenever the change is visual

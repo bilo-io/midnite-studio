@@ -16,7 +16,7 @@ import { installMockBridge } from './mock-bridge';
  * store test could only ever check one of.
  */
 
-const REPO = 'midnite-git';
+const REPO = 'midnite-studio';
 
 async function open(page: Page): Promise<void> {
   await installMockBridge(page, fixtures);
@@ -36,9 +36,9 @@ const ptyInputs = (page: Page) =>
     () =>
       (
         window as unknown as {
-          __mgitPty: { creates: { sessionId: string; initialInput?: string }[] };
+          __mstudioPty: { creates: { sessionId: string; initialInput?: string }[] };
         }
-      ).__mgitPty.creates.map((create) => create.initialInput),
+      ).__mstudioPty.creates.map((create) => create.initialInput),
   );
 
 async function openMidniteMenu(page: Page): Promise<void> {

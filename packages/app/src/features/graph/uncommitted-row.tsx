@@ -1,4 +1,4 @@
-import type { StatusResult } from '@midnite/git-shared';
+import type { StatusResult } from '@midnite/studio-shared';
 
 import {
   RAIL_WIDTH,

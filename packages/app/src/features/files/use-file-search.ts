@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from 'react';
 
-import type { FsSearchMode, GrepMatch } from '@midnite/git-shared';
+import type { FsSearchMode, GrepMatch } from '@midnite/studio-shared';
 
 import { bridge, hasBridge } from '../../services/bridge';
 

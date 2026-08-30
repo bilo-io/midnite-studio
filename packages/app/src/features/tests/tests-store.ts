@@ -1,4 +1,4 @@
-import type { TestRunResult } from '@midnite/git-shared';
+import type { TestRunResult } from '@midnite/studio-shared';
 import { create } from 'zustand';
 
 /**

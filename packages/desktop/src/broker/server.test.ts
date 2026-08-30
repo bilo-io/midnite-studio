@@ -78,7 +78,7 @@ async function connectAndSend(
 
 describe('broker server', () => {
   it('rejects hello with protocol mismatch and closes the socket', async () => {
-    const tmp = mkdtempSync(join(tmpdir(), 'mgit-broker-test-'));
+    const tmp = mkdtempSync(join(tmpdir(), 'mstudio-broker-test-'));
     const socketPath = join(tmp, 'b.sock');
 
     const broker = createBrokerServer({
@@ -131,7 +131,7 @@ describe('broker server', () => {
   });
 
   it('unlinks pre-existing dead socket file and listens cleanly', async () => {
-    const tmp = mkdtempSync(join(tmpdir(), 'mgit-broker-test-'));
+    const tmp = mkdtempSync(join(tmpdir(), 'mstudio-broker-test-'));
     const socketPath = join(tmp, 'dead.sock');
     writeFileSync(socketPath, 'dead');
 
@@ -171,7 +171,7 @@ describe('broker server', () => {
   });
 
   it('sets socket and pidfile permissions to 0600', async () => {
-    const tmp = mkdtempSync(join(tmpdir(), 'mgit-broker-test-'));
+    const tmp = mkdtempSync(join(tmpdir(), 'mstudio-broker-test-'));
     const socketPath = join(tmp, 'perms.sock');
 
     const broker = createBrokerServer({
@@ -191,7 +191,7 @@ describe('broker server', () => {
   });
 
   it('resolves closed promise when idle after last session is killed and no clients connected', async () => {
-    const tmp = mkdtempSync(join(tmpdir(), 'mgit-broker-test-'));
+    const tmp = mkdtempSync(join(tmpdir(), 'mstudio-broker-test-'));
     const socketPath = join(tmp, 'idle.sock');
 
     const fake = createFakePty(5555);
@@ -240,7 +240,7 @@ describe('broker server', () => {
   });
 
   it('emits exit exactly once and no data frames after kill', async () => {
-    const tmp = mkdtempSync(join(tmpdir(), 'mgit-broker-test-'));
+    const tmp = mkdtempSync(join(tmpdir(), 'mstudio-broker-test-'));
     const socketPath = join(tmp, 'kill.sock');
 
     const fake = createFakePty(7777);

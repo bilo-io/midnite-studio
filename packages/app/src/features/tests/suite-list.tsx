@@ -1,4 +1,4 @@
-import type { TestPackage, TestSuiteKind } from '@midnite/git-shared';
+import type { TestPackage, TestSuiteKind } from '@midnite/studio-shared';
 
 /** One letter per kind, in a fixed palette — the same "small, calm dot" idiom
  *  the forge status pills use, kept text-only since seven kinds is too many

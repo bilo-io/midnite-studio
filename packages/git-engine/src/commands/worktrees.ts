@@ -1,4 +1,4 @@
-import type { Worktree } from '@midnite/git-shared';
+import type { Worktree } from '@midnite/studio-shared';
 
 import { execGit } from '../exec/git-exec';
 import { parseWorktrees } from '../parsers/worktree-parser';

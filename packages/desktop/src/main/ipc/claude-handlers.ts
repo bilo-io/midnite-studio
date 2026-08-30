@@ -1,6 +1,6 @@
 import type { BrowserWindow } from 'electron';
 
-import { CHANNELS } from '@midnite/git-shared';
+import { CHANNELS } from '@midnite/studio-shared';
 
 import { getClaudeInfo, runClaudeUpdate } from '../claude-cli';
 import { handleBare } from './handle';

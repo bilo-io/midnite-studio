@@ -1,9 +1,9 @@
-# Midnite Git — Phase Index
+# Midnite Studio — Phase Index
 
 **Headlines:**
 
 - **[Phase 33 · Application Installation, CLI Tool & Desktop Integration](phases/phase-33-installable-app-and-cli-integration.md)** (0% · 0/44) — Planned, not started. Adds a macOS DMG installer package with custom layout, `midnite-studio` CLI tool installer + shell completions, `midnite-studio://` deep-linking protocol scheme, auto-updater pipeline, and first-run setup onboarding. Written against the **Midnite Studio rename**, which is its prerequisite.
-- **[Phase 32 · The browser gets an engine](phases/phase-32-browser-engine-and-tabs.md)** (39% · 39/99) — Active frontier. Themes A–D landed: a real `WebContentsView` engine on its own no-preload partition, the `mgit:browser:*` contract, the security policy Phase 27 made a precondition, and tabs with both kinds of group. E–I (occlusion, new-tab page, real chrome, dev powers, forge-in-place) remain.
+- **[Phase 32 · The browser gets an engine](phases/phase-32-browser-engine-and-tabs.md)** (39% · 39/99) — Active frontier. Themes A–D landed: a real `WebContentsView` engine on its own no-preload partition, the `mstudio:browser:*` contract, the security policy Phase 27 made a precondition, and tabs with both kinds of group. E–I (occlusion, new-tab page, real chrome, dev powers, forge-in-place) remain.
 - **[Phase 30 · Terminal Hardening](phases/phase-30-terminal-hardening.md)** (90% · 82/91) — Active frontier; detached session broker lets terminal/agent sessions survive app restarts and window reloads. Implementation themes A–G landed; 9 manual verification checks open.
 - **[Phase 29 · Markdown Slides Viewer](phases/phase-29-markdown-slides-viewer.md)** (100% · 21/21) — Landed; fullscreen headings-based slide presenter integrated across Files preview, PR descriptions, and comment threads.
 - **[Phase 28 · Sidebar Section Tree](phases/phase-28-sidebar-section-tree.md)** (95% · 59/62) — Feature-complete; data-driven sidebar tree placing Worktrees first, nested Branches (`local`/`remotes`), and Forge parents.
@@ -69,7 +69,7 @@ prerequisite: every identifier this phase creates is a name. Sequencing is C →
 wrapper over the protocol), with A and D independent and E last.*
 
 - ◻ **A** — Polished DMG Package & macOS Desktop Integration. `dmg:` window layout + @1x/@2x PNG artwork, hardened-runtime entitlements, `protocols:` registration, an env-gated `afterSign` notarize hook, and a `verify-dist` gate asserting `codesign --verify` / `hdiutil verify`.
-- ◻ **B** — `midnite-studio` CLI Binary & System PATH Symlinking. A POSIX `sh` wrapper execing `open` on the URL scheme, `mgit:cli:*` channels behind `GitOpResultOf`, a `/usr/local/bin` → `~/.local/bin` fallback that never uses sudo, zsh/bash/fish completions, and the CLI Integration settings page.
+- ◻ **B** — `midnite-studio` CLI Binary & System PATH Symlinking. A POSIX `sh` wrapper execing `open` on the URL scheme, `mstudio:cli:*` channels behind `GitOpResultOf`, a `/usr/local/bin` → `~/.local/bin` fallback that never uses sudo, zsh/bash/fish completions, and the CLI Integration settings page.
 - ◻ **C** — `midnite-studio://` Custom Protocol Handler & Deep-Link Dispatch. The single-instance lock already exists — this adds `open-url`, argv forwarding, a pure `parseDeepLink` that returns `null` on hostile input, and a jail rule: a known repo opens silently, any other path needs consent.
 - ◻ **D** — Auto-Updater Service & Update Status Banner. `electron-updater` behind one coalesced `UpdateState` push, a `manualInstall` flag so an ad-hoc-signed build still detects updates, `feedChannelFor` mapping stable → `latest`, a `publish:` block, and a status-bar pill that is `toast-store`'s first caller.
 - ◻ **E** — First-Run Onboarding & System Health. `onboardedAt` seeded by the shared `version < 5` migration, a focus-trapped first-run modal, and one `HealthChecklist` shared by the modal and a System Health settings page.
@@ -84,7 +84,7 @@ with no preload, tabs and groups modelled on the workbench strip, a React new-ta
 Midnite mark and Google/YouTube/Figma tiles, and the occlusion choreography a native layer painting
 above the DOM demands.*
 
-- ✅ **A** — `WebContentsView` host in main, the `mgit:browser:*` channel contract, per-tab lifecycle. (2026-08-30)
+- ✅ **A** — `WebContentsView` host in main, the `mstudio:browser:*` channel contract, per-tab lifecycle. (2026-08-30)
 - ✅ **B** — Permissions denied, navigation policy, no preload on embedded views, clear browsing data. (2026-08-30)
 - ✅ **C** — Tab store and strip: drag-reorder, context menu, browser-scoped chords. (2026-08-30)
 - ✅ **D** — Tab groups, manual (named, coloured, collapsible) and repo-derived. (2026-08-30)
@@ -129,14 +129,14 @@ stops the moment the panel is collapsed.*
   re-armed the CSS transition on every native window-resize tick while maximized — fixed with a
   `settled` gate and an `animateKey` escape hatch (landed 2026-08-28, merged locally — no PR/no remote).
 - ✅ **B** — reattach after a renderer reload: `live: {ptyId, pid, cols, rows} | null` on `terminal:list`,
-  `hydrate` binds `'open'` instead of `'exited'`, a `mgit:pty:snapshot` invoke, `render-process-gone`
+  `hydrate` binds `'open'` instead of `'exited'`, a `mstudio:pty:snapshot` invoke, `render-process-gone`
   logs and reloads (no `did-finish-load` — the `webContents` survives a reload). A minimal `log.ts`
   seam lands ahead of Theme C's broker client, which will redirect it. The dev-only HMR manual check
   stays open (landed 2026-08-28, merged locally — no PR/no remote).
 - ✅ **C** — the session broker: a third esbuild output run under `ELECTRON_RUN_AS_NODE`, asar-unpacked
   beside a whole-unpacked node-pty; `[u8 type][u32 len]` frames over `<userData>/broker/<v>[-dev].sock`
   (0600) with `hello`/`list`/`attach`/`kill` frozen so version skew stays readable; `env` in every
-  `create`; 2 s/5 s timeouts then fail-soft (`MGIT_PTY_INPROC=1`); `before-quit` and
+  `create`; 2 s/5 s timeouts then fail-soft (`MSTUDIO_PTY_INPROC=1`); `before-quit` and
   `window-all-closed` detach; a 4 s *Reattached N sessions* segment
   (landed 2026-08-28, feature/p30-c).
 - ✅ **D** — honest session states: `sessionPhase()` over a persisted `asleep` flag × `ConnectionState`,
@@ -156,7 +156,7 @@ stops the moment the panel is collapsed.*
   (landed 2026-08-28, merged locally — no PR/no remote).
 - ✅ **G** — a detector that can be wrong out loud: detection moves to `pty-service.ts`'s single
   `ptyData` send (a collapsed panel unmounts every `TerminalView`, which is exactly when the status
-  bar's count is the only thing looking) behind a new `mgit:pty:activity` event; markers become
+  bar's count is the only thing looking) behind a new `mstudio:pty:activity` event; markers become
   `AgentDefinitionSchema.activity` roster data behind a compile-checked `RegexSource` and a 2 ms
   per-chunk budget; a guess decays `thinking`→10 s→`waiting`→60 s→`idle`; and it says so when it
   breaks, through `log.ts` and an **Agent activity** readout on the Terminal settings page.
@@ -378,7 +378,7 @@ voice. A is the contract, B is the jail (a create cannot be authorised today, be
 the three things Phase 16 named as later work. Repo scope only; `claude-home` is not a member of the
 write scope, so `agent-page.tsx` stays read-only without knowing writes exist.*
 
-- ✅ **A** — the write contract: four `mgit:fs:*` write channels on the `GitOpResult` envelope, an
+- ✅ **A** — the write contract: four `mstudio:fs:*` write channels on the `GitOpResult` envelope, an
   `FsVersion` token on the read, and the four "there is deliberately no write channel" comments
   rewritten rather than left stale (landed 2026-08-28)
 - ✅ **B** — the jail learns to write: `confineParent()`, symlink-final-segment refusal, a `.git/`
@@ -388,8 +388,8 @@ write scope, so `agent-page.tsx` stays read-only without knowing writes exist.*
 - ✅ **C** — mutations in the tree: the tree's first `onContextMenu` (plus a hover ellipsis, one
   shared `openMenu`), a `writable` opt-in prop, inline create/rename validated client-side before
   the round trip, and delete behind a confirm naming a directory's real file count/size (a new
-  capped `mgit:fs:dir-stats` walk) and how many are uncommitted (joined off Theme F's own status
-  index). New read-only `mgit:shell:show-item-in-folder` channel for Reveal. Found and fixed: the
+  capped `mstudio:fs:dir-stats` walk) and how many are uncommitted (joined off Theme F's own status
+  index). New read-only `mstudio:shell:show-item-in-folder` channel for Reveal. Found and fixed: the
   e2e mock's `listDir` handed out the live `fsDirs` array by reference, so react-query's structural
   sharing saw "unchanged" after a mutation and silently never repainted (landed 2026-08-28)
 - ✅ **D** — the preview pane becomes an editor: CodeMirror 6 (the app's first editor dependency,
@@ -438,7 +438,7 @@ first fuzzy matcher, E–F are the sources. `Mod+K` is free; `Mod+Shift+P` is Pu
 - ✅ **F** — branches and tags with two actions only (checkout, reveal in graph) behind an exported
   `PALETTE_SAFE` allowlist with a test asserting no destructive id gets in (landed 2026-08-28,
   merged locally — no PR/no remote; recovered from an interrupted session).
-- ✅ **G** — the file finder: `mgit:fs:list-files` over `git ls-files -z --exclude-standard`, a
+- ✅ **G** — the file finder: `mstudio:fs:list-files` over `git ls-files -z --exclude-standard`, a
   tip-sha-keyed index with an honest truncation notice, opening into the Phase 16 preview pane
   (landed 2026-08-28, merged locally — no PR/no remote; recovered from an interrupted session).
 - ✅ **H** — `use-focus-trap.ts` extracted from `popover.tsx`, the only working trap in the repo, and
@@ -457,7 +457,7 @@ gate Phase 7 already built. G and H are the safety net three files have been pro
 comments since Phase 7 — the reflog finally read and browsable, and the app's first ops journal,
 first toast primitive and first undo.*
 
-- ✅ **A** — `commands/stash.ts` + `stash-parser.ts` on the write-queue idiom, `mgit:stash:*`
+- ✅ **A** — `commands/stash.ts` + `stash-parser.ts` on the write-queue idiom, `mstudio:stash:*`
   channels, and a `'stash-apply'` arm on `ConflictOpSchema` so a conflicted pop is a normal outcome
   (landed 2026-08-28)
 - ✅ **B** — a `'stashes'` `SectionKey` and a `TreeSection` in `RepoTree`, with a `StashRow`, a
@@ -614,7 +614,7 @@ and F all read the sample stream they push; E is the trust boundary F prompts th
 
 - ✅ **A** — darwin metric probes in main (`vm_stat`, `ioreg`, `os.cpus()` deltas, `statfs`), each
   a pure parser behind a thin `execFile`, with a self-disabling GPU probe (landed 2026-08-26)
-- ✅ **B** — `mgit:metrics:*` contract: an all-optional `MetricSample`, a one-way sample stream,
+- ✅ **B** — `mstudio:metrics:*` contract: an all-optional `MetricSample`, a one-way sample stream,
   and an adaptive sampler that stops on window blur (landed 2026-08-26)
 - ✅ **C** — metrics store with a time-windowed, flat-seeded buffer, a data-colour palette,
   geometry-as-data, and a hand-rolled area chart + sparkline with a cadence-change rule
@@ -650,7 +650,7 @@ buttons all read the per-checkout status it fetches; E is the surface D and F op
   expand/collapse all with a stated cap
 - ✅ **E** — the workbench tab strip; the Changes view becomes a tabbed content area with a
   permanent working-tree tab
-- ✅ **F** — `mgit:forge:*` over the user's own `gh` CLI: Actions and Reviews sections, run and
+- ✅ **F** — `mstudio:forge:*` over the user's own `gh` CLI: Actions and Reviews sections, run and
   PR tabs, and the `ChecksVerdict` producer that `outstanding.md` had been waiting for
 
 *Open: two manual passes — the packaged-app screenshots (Electron will not start in a
@@ -661,7 +661,7 @@ non-interactive session) and the `gh`-availability matrix.*
 *The app grows real pages: a read-only Folder view with a preview pane, and Settings split into four pages behind an inner sidebar — including an Agent page into `~/.claude`. B is the spine (the fs IPC + path jail); C/D/E all read through it; A is independent chrome.*
 
 - ✅ **A** — nav rail regrouped (Folder above Graph, Settings pinned bottom) + the settings page shell (merged 2026-08-26)
-- ✅ **B** — read-only `mgit:fs:*` IPC with a path-confinement jail (repo root + `~/.claude`) and a jailed `mgit-file://` protocol (merged 2026-08-26)
+- ✅ **B** — read-only `mstudio:fs:*` IPC with a path-confinement jail (repo root + `~/.claude`) and a jailed `mstudio-file://` protocol (merged 2026-08-26)
 - ✅ **C** — lazy repo file tree, dotfiles shown, gitignored dimmed and collapsed (merged 2026-08-26)
 - ✅ **D** — preview pane: shiki code, rendered markdown w/ source toggle, images/PDF/media, fallback card (merged 2026-08-26)
 - ✅ **E** — Agent settings page: `~/.claude` tree + preview, Claude version card, Update streams / Uninstall pastes into the terminal (merged 2026-08-26)
@@ -694,7 +694,7 @@ phase is complete.*
 - ✅ **A** — markdown + linkify commit bodies: clickable SHAs, URLs, `#123`, emails, trailer styling (2026-08-26)
 - ✅ **B** — inspector rebuild: sha header + copy button, tree ⇄ list toggle, parent navigation, `stat` dropped from the wire, `repo:rev-parse` + `clipboard:write-text` channels (2026-08-26)
 - ✅ **C** — ref badges as controls: `isHead` glow, hover-expand pull/push with real-count tooltips, branch-scoped sync in the context menu (2026-08-26)
-- ✅ **D** — real diffs: `mgit:commit:file-diff` channel, hunk parser, one restrained `<DiffView>` shared with the status panel (branch `feature/phase-12-diffs`)
+- ✅ **D** — real diffs: `mstudio:commit:file-diff` channel, hunk parser, one restrained `<DiffView>` shared with the status panel (branch `feature/phase-12-diffs`)
 - ✅ **E** — `Remote` domain type, `listRemotes`, ssh/https URL normaliser, guarded `shell:open-external` (2026-08-26)
 - ✅ **F** — graph row polish: lane-accent selection bar, a CVD-safe palette (+ the `laneInk` bug it exposed), badge width cap, row density, working-copy row (2026-08-26)
 

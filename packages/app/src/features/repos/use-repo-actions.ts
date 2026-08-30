@@ -7,8 +7,8 @@ import type {
   RepoDescriptor,
   StatusResult,
   Worktree,
-} from '@midnite/git-shared';
-import { forgeProjectUrl, pickForgeRemote } from '@midnite/git-shared';
+} from '@midnite/studio-shared';
+import { forgeProjectUrl, pickForgeRemote } from '@midnite/studio-shared';
 import {
   ArrowDownToLine,
   ArrowRightLeft,

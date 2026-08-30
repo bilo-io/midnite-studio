@@ -1,4 +1,4 @@
-import type { Ref, StatusResult } from '@midnite/git-shared';
+import type { Ref, StatusResult } from '@midnite/studio-shared';
 
 /**
  * The red/amber/green reading behind a branch's status dot.

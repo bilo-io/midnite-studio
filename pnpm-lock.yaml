@@ -89,7 +89,7 @@ importers:
       '@dnd-kit/utilities':
         specifier: ^3.2.2
         version: 3.2.2(react@19.2.8)
-      '@midnite/git-shared':
+      '@midnite/studio-shared':
         specifier: workspace:*
         version: link:../shared
       '@tanstack/react-query':
@@ -205,13 +205,13 @@ importers:
       '@electron/rebuild':
         specifier: ^3.7.0
         version: 3.7.2
-      '@midnite/git-app':
+      '@midnite/studio-app':
         specifier: workspace:*
         version: link:../app
-      '@midnite/git-engine':
+      '@midnite/studio-git-engine':
         specifier: workspace:*
         version: link:../git-engine
-      '@midnite/git-shared':
+      '@midnite/studio-shared':
         specifier: workspace:*
         version: link:../shared
       '@types/node':
@@ -235,7 +235,7 @@ importers:
 
   packages/git-engine:
     dependencies:
-      '@midnite/git-shared':
+      '@midnite/studio-shared':
         specifier: workspace:*
         version: link:../shared
       dugite:

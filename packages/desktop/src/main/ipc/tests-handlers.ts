@@ -1,6 +1,6 @@
 import { randomUUID } from 'node:crypto';
 
-import { computeTestDiscovery } from '@midnite/git-engine';
+import { computeTestDiscovery } from '@midnite/studio-git-engine';
 import {
   CHANNELS,
   EVENT_CHANNELS,
@@ -9,7 +9,7 @@ import {
   type TestDiscovery,
   type TestSuite,
   type TestTrustStatus,
-} from '@midnite/git-shared';
+} from '@midnite/studio-shared';
 import { ipcMain, type BrowserWindow } from 'electron';
 
 import { resolveWorkdir } from '../repo-registry';

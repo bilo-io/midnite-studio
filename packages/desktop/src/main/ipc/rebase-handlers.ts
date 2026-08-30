@@ -4,8 +4,8 @@ import {
   getRebaseStatus,
   skipRebase,
   startInteractiveRebase,
-} from '@midnite/git-engine';
-import { CHANNELS, failure, schemas } from '@midnite/git-shared';
+} from '@midnite/studio-git-engine';
+import { CHANNELS, failure, schemas } from '@midnite/studio-shared';
 import { getRepo } from '../repo-registry';
 import { handle, handleOp } from './handle';
 

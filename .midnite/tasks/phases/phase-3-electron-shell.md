@@ -18,7 +18,7 @@ from `~/Dev/midnite-ui/packages/docs/tailwind.config.ts`.
 - [x] `app/index.html` — inline `themeInitScript` from `@bilo-io/ui/theme`
 - [x] `app/tailwind.config.ts` — token→hsl map + `darkMode: ['class']` + content globs incl. `./node_modules/@bilo-io/{ui,shell}/dist/**/*.js` (**missing a glob silently drops layout classes**)
 - [x] `app/src/styles.css` — `@bilo-io/ui/styles`, `@bilo-io/shell/appearance.css`, tailwind directives
-- [x] `app/src/app.tsx` — ThemeProvider + ShellProviders (`@tanstack/react-query@^5`) + AppFrame (linkComponent adapter) + TitleBar wired to `window.midniteGit.windowChrome`
+- [x] `app/src/app.tsx` — ThemeProvider + ShellProviders (`@tanstack/react-query@^5`) + AppFrame (linkComponent adapter) + TitleBar wired to `window.midniteStudio.windowChrome`
 - [x] `desktop` moon task `start` — build main+preload, run `electron .` concurrently with `app:dev`
 
 ## Verification
@@ -41,7 +41,7 @@ Screenshots: [dark](../docs/screenshots/phase-3-shell-dark.png) ·
   and fails in the editor, which is a horrible thing to debug. `scripts/start-electron.mjs`
   strips the variable — a moon task can set env vars but not unset them.
 - **`sandbox: false` is required** (contextIsolation and nodeIntegration are unchanged). The
-  preload requires `@midnite/git-shared` for the channel constants, and a sandboxed preload only
+  preload requires `@midnite/studio-shared` for the channel constants, and a sandboxed preload only
   gets a polyfilled subset of `require`.
 - **The frameless flag is single-sourced** from main's window options via
   `additionalArguments`, never re-derived in the preload from `process.platform`. A second

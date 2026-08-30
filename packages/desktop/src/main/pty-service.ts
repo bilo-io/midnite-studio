@@ -1,4 +1,4 @@
-import { EVENT_CHANNELS, SCROLLBACK_BYTES, type SessionActivity } from '@midnite/git-shared';
+import { EVENT_CHANNELS, SCROLLBACK_BYTES, type SessionActivity } from '@midnite/studio-shared';
 import type { BrowserWindow } from 'electron';
 
 import {
@@ -288,7 +288,7 @@ export async function createPty(options: {
       ...options,
       env: {
         ...process.env,
-        TERM_PROGRAM: 'midnite-git',
+        TERM_PROGRAM: 'midnite-studio',
         GIT_TERMINAL_PROMPT: '1',
       } as Record<string, string>,
     });

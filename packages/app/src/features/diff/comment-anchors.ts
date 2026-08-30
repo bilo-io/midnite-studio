@@ -1,4 +1,4 @@
-import type { FileDiff, ForgeReviewThread } from '@midnite/git-shared';
+import type { FileDiff, ForgeReviewThread } from '@midnite/studio-shared';
 
 /**
  * Where an inline thread belongs in a rendered diff, and how a new one names

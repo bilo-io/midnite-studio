@@ -89,7 +89,7 @@ describe('discoverTests — a moon workspace (this repo\'s own shape)', () => {
       [join(ROOT, 'pnpm-workspace.yaml')]: "packages:\n  - 'packages/*'\n",
       [join(ROOT, 'package.json')]: JSON.stringify({ name: 'root', scripts: {} }),
       [join(ROOT, 'packages/engine/package.json')]: JSON.stringify({
-        name: '@midnite/git-engine',
+        name: '@midnite/studio-git-engine',
         scripts: { test: 'vitest run', typecheck: 'tsc --noEmit', smoke: 'tsx scripts/smoke.ts' },
       }),
       [join(ROOT, 'packages/engine/moon.yml')]: [

@@ -101,7 +101,7 @@ test.describe('diagnostics segment', () => {
 
     const dialog = page.getByRole('dialog');
     await expect(dialog).toContainText('node_modules/.bin/eslint . --format json');
-    await expect(dialog).toContainText('/tmp/midnite-git');
+    await expect(dialog).toContainText('/tmp/midnite-studio');
     await expect(dialog).toContainText('runs a program from the repository itself');
     // And it says WHY this command was offered — the detector's evidence.
     await expect(dialog).toContainText('eslint.config.mjs');
@@ -116,7 +116,7 @@ test.describe('diagnostics segment', () => {
     await expect(page.getByRole('dialog')).toHaveCount(0);
     await expect(page.getByTestId('diagnostics-enable')).toBeVisible();
     // Nothing was executed on a prompt the user declined.
-    expect(await page.evaluate(() => (window as never as { __mgitDiagRuns: () => number }).__mgitDiagRuns())).toBe(0);
+    expect(await page.evaluate(() => (window as never as { __mstudioDiagRuns: () => number }).__mstudioDiagRuns())).toBe(0);
   });
 
   test('confirming runs it, and the segment becomes counts', async ({ page }) => {
@@ -207,7 +207,7 @@ test.describe('diagnostics segment', () => {
       await page.getByTestId('diagnostics-segment').click();
       await page.keyboard.press('Escape');
     }
-    expect(await page.evaluate(() => (window as never as { __mgitDiagRuns: () => number }).__mgitDiagRuns())).toBe(1);
+    expect(await page.evaluate(() => (window as never as { __mstudioDiagRuns: () => number }).__mstudioDiagRuns())).toBe(1);
   });
 
   test('Re-run measures again, on demand', async ({ page }) => {
@@ -216,7 +216,7 @@ test.describe('diagnostics segment', () => {
     await page.getByRole('button', { name: 'Re-run' }).click();
 
     await expect
-      .poll(() => page.evaluate(() => (window as never as { __mgitDiagRuns: () => number }).__mgitDiagRuns()))
+      .poll(() => page.evaluate(() => (window as never as { __mstudioDiagRuns: () => number }).__mstudioDiagRuns()))
       .toBe(2);
   });
 

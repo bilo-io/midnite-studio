@@ -6,7 +6,7 @@ The GitKraken signature gestures, with a conflict banner + abort/continue flow.
 
 - [x] `git-engine/src/commands/{merge,rebase,cherry-pick}.ts` — conflicts map to `GitOpResult { kind: 'conflict', files, op }`
 - [x] `git-engine/src/commands/sequencer.ts` — detects in-progress state (`MERGE_HEAD`, `rebase-merge/`, `CHERRY_PICK_HEAD`), exposes `abort` / `continue`; feeds `StatusResult.inProgress`
-- [x] IPC handlers `mgit:op:{merge,rebase,cherry-pick,abort,continue}`
+- [x] IPC handlers `mstudio:op:{merge,rebase,cherry-pick,abort,continue}`
 - [x] `app/src/features/graph/dnd/{drag-context.tsx,branch-drag.ts,commit-drag.ts,drop-menu.tsx}` — **@dnd-kit**: drag branch badge → branch badge opens drop-menu ("Merge X into Y" / "Rebase X onto Y"); drag commit row → branch badge = cherry-pick (confirmed)
 - [x] `app/src/features/conflicts/conflict-banner.tsx` — shown while `status.inProgress` non-null: conflicted file list, Abort / Continue (Continue disabled while conflicts remain)
 - [x] Interactive rebase noted in `outstanding.md` (`GIT_SEQUENCE_EDITOR` helper), not built here

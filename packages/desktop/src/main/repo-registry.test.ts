@@ -2,7 +2,7 @@ import { mkdtemp, realpath, rm } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 
-import { execGit } from '@midnite/git-engine';
+import { execGit } from '@midnite/studio-git-engine';
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 
 import {
@@ -31,7 +31,7 @@ const git = async (cwd: string, args: string[]): Promise<void> => {
 };
 
 beforeEach(async () => {
-  scratch = await realpath(await mkdtemp(join(tmpdir(), 'mgit-registry-')));
+  scratch = await realpath(await mkdtemp(join(tmpdir(), 'mstudio-registry-')));
   repoPath = join(scratch, 'project');
 
   await git(scratch, ['init', '--initial-branch=main', repoPath]);

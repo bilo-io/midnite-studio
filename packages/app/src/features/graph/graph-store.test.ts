@@ -1,4 +1,4 @@
-import type { Commit, GraphRow } from '@midnite/git-shared';
+import type { Commit, GraphRow } from '@midnite/studio-shared';
 import { beforeEach, describe, expect, it } from 'vitest';
 
 import { useGraphStore } from './graph-store';

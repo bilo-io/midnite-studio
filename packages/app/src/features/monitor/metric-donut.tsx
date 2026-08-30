@@ -1,4 +1,4 @@
-import type { MetricId } from '@midnite/git-shared';
+import type { MetricId } from '@midnite/studio-shared';
 
 import { DONUT_GEOMETRY } from './metric-geometry';
 import { metricColor, metricFill } from './metric-palette';

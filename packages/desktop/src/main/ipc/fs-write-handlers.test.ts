@@ -33,7 +33,7 @@ describe('fs write handlers (Phase 24 Theme B)', () => {
 
   beforeAll(async () => {
     // realpath'd: macOS's tmpdir is itself a symlink (/var → /private/var).
-    root = await realpath(await mkdtemp(join(tmpdir(), 'mgit-write-handlers-')));
+    root = await realpath(await mkdtemp(join(tmpdir(), 'mstudio-write-handlers-')));
   });
 
   afterAll(async () => {

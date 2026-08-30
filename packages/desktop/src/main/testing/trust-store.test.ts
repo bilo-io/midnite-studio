@@ -9,7 +9,7 @@ let dir: string;
 let store: TestTrustStore;
 
 beforeEach(async () => {
-  dir = await mkdtemp(join(tmpdir(), 'mgit-tests-trust-'));
+  dir = await mkdtemp(join(tmpdir(), 'mstudio-tests-trust-'));
   store = createTestTrustStore(dir);
 });
 
