@@ -20,7 +20,7 @@ End-to-end "fix a reported issue" for **Midnite Git**, driven by the repo's issu
 - `CLAUDE.md` = conventions (package boundaries — `shared ◀ git-engine ◀ desktop`, `shared ◀ app`; commit style; pre-push gate). `docs/INITIAL_PLAN.md` is the design source of truth. Re-read the relevant bits before coding.
 - Parallel work → git worktrees in the repo-root **`.worktrees/<branch>/`** dir (git-ignored; **never** under `.git/` — that path gets pruned by parallel `git worktree` runs and Vite denies `.git/**`). Keep the primary checkout (`/Users/bilolwabona/Dev/midnite-git`) as home base; all multi-file work happens in the worktree.
 - **Every writing tool call must be rooted at the worktree path** — absolute paths rooted at the primary checkout silently edit the wrong tree, and the local gate then passes on stale code.
-- `todo/` is the *roadmap* tracker and is **not** the driver here — the issue board is. Only touch `todo/` if the fix happens to close out an existing phase item, and say so if it does.
+- `.midnite/tasks/` is the *roadmap* tracker and is **not** the driver here — the issue board is. Only touch `.midnite/tasks/` if the fix happens to close out an existing phase item, and say so if it does.
 
 ## 1 · Scan the board
 

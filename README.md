@@ -10,9 +10,9 @@ live branch and sync state in the footer. The crescent and the wordmark face are
 app's own.</sub>
 
 **Design source of truth:** [`docs/INITIAL_PLAN.md`](docs/INITIAL_PLAN.md).
-**Progress tracker:** [`.midnite/todo/`](.midnite/todo/) (see the [index](.midnite/todo/_INDEX.md)) — one checklist per phase, an append-only
-[`done.md`](.midnite/todo/done.md), and deliberately-deferred scope in
-[`outstanding.md`](.midnite/todo/outstanding.md).
+**Progress tracker:** [`.midnite/tasks/`](.midnite/tasks/) (see the [index](.midnite/tasks/_INDEX.md)) — one checklist per phase, an append-only
+[`done.md`](.midnite/tasks/done.md), and deliberately-deferred scope in
+[`outstanding.md`](.midnite/tasks/outstanding.md).
 
 ## What it does
 
@@ -113,6 +113,6 @@ Developer ID certificate in `CSC_LINK` + `CSC_KEY_PASSWORD`, electron-builder si
 
 ## Contributing
 
-Work phase by phase from [`.midnite/todo/`](.midnite/todo/). Every change leaves
+Work phase by phase from [`.midnite/tasks/`](.midnite/tasks/). Every change leaves
 `moon run :typecheck :lint :test` green; visual changes get a screenshot in
 [`docs/screenshots/`](docs/screenshots).

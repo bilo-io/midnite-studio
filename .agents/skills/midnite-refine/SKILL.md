@@ -1,12 +1,12 @@
 ---
 name: midnite-refine
-description: Deepen an existing, uncompleted todo/ phase doc — pick the phase, choose which areas to expand via option sheets, resolve the open decisions, then rewrite the doc to a standard any model can execute. Stamps "Refined: xN" on the doc and the index.
+description: Deepen an existing, uncompleted .midnite/tasks/ phase doc — pick the phase, choose which areas to expand via option sheets, resolve the open decisions, then rewrite the doc to a standard any model can execute. Stamps "Refined: xN" on the doc and the index.
 ---
 
 **Invoke with:** [optional: phase number, or an area hint, e.g. '24' or '26 perf+testing']
 
 You are running the **refine** workflow for **Midnite Git**. It takes one *existing, uncompleted*
-`todo/phase-N-*.md` and makes it **deeper**, not longer for its own sake — the goal is a plan whose
+`.midnite/tasks/phases/phase-N-*.md` and makes it **deeper**, not longer for its own sake — the goal is a plan whose
 every item can be built by a model with no access to this conversation.
 
 `/midnite-brainstorm` invents a phase. `/midnite-exec` builds a slice of one. **`/midnite-refine` sits between them** and is
@@ -34,16 +34,16 @@ only to vagueness.
 
 ## Context you must respect
 
-- Phase plans live in **`todo/`** (not `docs/todo/`). [`todo/_INDEX.md`](../../../todo/_INDEX.md) is
-  the roll-up, [`todo/done.md`](../../../todo/done.md) is the append-only landed log,
-  [`todo/outstanding.md`](../../../todo/outstanding.md) is deferred scope.
+- Phase plans live in **`.midnite/tasks/`** (not `docs/todo/`). [`.midnite/tasks/_INDEX.md`](../../../.midnite/tasks/_INDEX.md) is
+  the roll-up, [`.midnite/tasks/done.md`](../../../.midnite/tasks/done.md) is the append-only landed log,
+  [`.midnite/tasks/outstanding.md`](../../../.midnite/tasks/outstanding.md) is deferred scope.
   [`docs/INITIAL_PLAN.md`](../../../docs/INITIAL_PLAN.md) is the design source of truth.
 - **House style** (read the doc you are refining before changing a word of it): `# Phase N — Title`,
   a framing prose section (builds-on + scope guardrails + effort-tag legend), `## Deliverables` split
   into lettered `### A — Theme (S|M|L)` sections of `- [ ]` items, `## Files this phase touches`
   (a table), `## Verification`, `## Not in this phase`, `## Decisions / open questions`. Recent docs
-  ([phase-25](../../../todo/phase-25-search-everywhere.md),
-  [phase-26](../../../todo/phase-26-side-by-side-diffs.md)) are the reference depth.
+  ([phase-25](../../../.midnite/tasks/phases/phase-25-search-everywhere.md),
+  [phase-26](../../../.midnite/tasks/phases/phase-26-side-by-side-diffs.md)) are the reference depth.
 - Respect `CLAUDE.md` boundaries (`shared ◀ git-engine ◀ desktop`, `shared ◀ app`; git-engine is
   electron-free; the renderer only reaches main via `window.midniteGit`; NUL-delimited parsing; the
   per-repo write queue; `GitOpResult` envelopes). A refinement that would need a boundary exception
@@ -56,7 +56,7 @@ only to vagueness.
 
 ## 🔭 Stage 1 — Find the refineable phases
 
-Read **[`todo/_INDEX.md`](../../../todo/_INDEX.md)** only. Do **not** read every phase doc; the index
+Read **[`.midnite/tasks/_INDEX.md`](../../../.midnite/tasks/_INDEX.md)** only. Do **not** read every phase doc; the index
 is what replaces that.
 
 A phase is **refineable** if it has open (`- [ ]`) in-scope items — i.e. Status is `◻ TODO` or
@@ -194,7 +194,7 @@ changes, loop back to Stage 6.
 
 ## 📝 Stage 8 — Rewrite the doc
 
-Edit `todo/phase-N-<slug>.md` **in place**, preserving its voice and its structure.
+Edit `.midnite/tasks/phases/phase-N-<slug>.md` **in place**, preserving its voice and its structure.
 
 **Rules of the rewrite**
 
@@ -244,12 +244,12 @@ count — leaves every progress number wrong.
 
    ```bash
    # header + separator, then every phase row
-   sed -i '' -E 's/^\| Phase \| Status \|/| Phase | Status | Refined |/' todo/_INDEX.md
-   sed -i '' -E 's/^\|-------\|--------\|/|-------|--------|---------|/' todo/_INDEX.md
-   sed -i '' -E 's/^\| (\[[0-9]+ · [^|]*) \| ([^|]*) \|/| \1 | \2 | — |/' todo/_INDEX.md
+   sed -i '' -E 's/^\| Phase \| Status \|/| Phase | Status | Refined |/' .midnite/tasks/_INDEX.md
+   sed -i '' -E 's/^\|-------\|--------\|/|-------|--------|---------|/' .midnite/tasks/_INDEX.md
+   sed -i '' -E 's/^\| (\[[0-9]+ · [^|]*) \| ([^|]*) \|/| \1 | \2 | — |/' .midnite/tasks/_INDEX.md
    ```
 
-   **Then `git diff todo/_INDEX.md` and check every row has the same cell count** before going on —
+   **Then `git diff .midnite/tasks/_INDEX.md` and check every row has the same cell count** before going on —
    a mangled table is worse than no column. Set this phase's cell to `x1` (or `x2`, …), matching the
    doc's stamp exactly.
 3. **Theme key.** Rewrite the affected `- ◻ **X** — …` one-liners so they describe what the theme now
@@ -260,12 +260,12 @@ count — leaves every progress number wrong.
 5. **Drift guard — run it, it must print nothing:**
 
    ```bash
-   for f in todo/phase-*.md; do n=${f#todo/phase-}; n=${n%%-*}; \
-     grep -qE "^\| \[$n ·" todo/_INDEX.md || echo "DRIFT: phase $n absent from _INDEX.md"; done
+   for f in .midnite/tasks/phases/phase-*.md; do n=${f#.midnite/tasks/phases/phase-}; n=${n%%-*}; \
+     grep -qE "^\| \[$n ·" .midnite/tasks/_INDEX.md || echo "DRIFT: phase $n absent from _INDEX.md"; done
    # and: every stamped doc must carry a matching index cell
-   for f in todo/phase-*.md; do n=${f#todo/phase-}; n=${n%%-*}; \
+   for f in .midnite/tasks/phases/phase-*.md; do n=${f#.midnite/tasks/phases/phase-}; n=${n%%-*}; \
      s=$(grep -m1 -oE '^\*\*Refined: x[0-9]+\*\*' "$f" | grep -oE 'x[0-9]+'); \
-     if [ -n "$s" ] && ! grep -E "^\| \[$n ·" todo/_INDEX.md | grep -q "| $s |"; then \
+     if [ -n "$s" ] && ! grep -E "^\| \[$n ·" .midnite/tasks/_INDEX.md | grep -q "| $s |"; then \
        echo "DRIFT: phase $n stamped $s but index disagrees"; fi; done
    ```
 
@@ -277,7 +277,7 @@ Doc-only, source-of-truth change — same landing path as `/midnite-brainstorm`.
    files and other loops' work):
 
    ```bash
-   git add todo/phase-N-<slug>.md todo/_INDEX.md
+   git add .midnite/tasks/phases/phase-N-<slug>.md .midnite/tasks/_INDEX.md
    git commit -m "docs: refine phase-N <slug> (xN) — <areas>
 
    Co-Authored-By: Claude <noreply@anthropic.com>"

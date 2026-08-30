@@ -7,14 +7,14 @@ description: Bootstrap a brand-new project repo from scratch — ask ~10 questio
 
 You are running the **setup** workflow: an interactive, human-in-the-loop session that **bootstraps a brand-new project repository** from nothing. You ask the user **~10 questions** — first about the **repo shape + stack**, then (the majority) about the **product's context** — and then scaffold the repo so it's immediately workable with the `brainstorm` and `exec` skills.
 
-This skill is modelled on how **midnite** itself is laid out (moon + proto monorepo, `.claude/` skills + subagents, a `todo/` phase tracker). The output is a *seed*, not a finished product — one MVP phase doc per app, connected where the apps depend on each other, ready for `/exec` to pick up.
+This skill is modelled on how **midnite** itself is laid out (moon + proto monorepo, `.claude/` skills + subagents, a `.midnite/tasks/` phase tracker). The output is a *seed*, not a finished product — one MVP phase doc per app, connected where the apps depend on each other, ready for `/exec` to pick up.
 
 ## Context you must respect
 - **Do not scaffold anything until the user has answered the questions and confirmed the blueprint (Stage 4).** This is a one-human-in-the-loop bootstrap, not an autonomous build.
 - The **target** is a *new* repo, not midnite-git. Never write into the midnite-git tree except to *read* the source `brainstorm`/`exec` skills you copy out. Resolve the target dir in Stage 0.
 - Keep the question count to **~10** — terse, mostly **a direct question to the user** (it batches up to 4 per call, always offers **"Other"**, and supports `multiSelect` for checkbox-style picks). Always invite the user to extend/replace any option.
 - **Tailor everything to the answers.** Don't ask theming/i18n/look-and-feel questions if there's no frontend app; don't ask the API-language question if there's no API. Don't scaffold a mobile phase doc if there's no mobile app.
-- The skills you copy (`brainstorm`, `exec`) assume a `todo/` tracker (`_INDEX.md`, `phase-N-*.md`, `done.md`, `README.md`) and a `CLAUDE.md` of conventions — so you **must** generate those too, or the copied skills won't have anything to run against.
+- The skills you copy (`brainstorm`, `exec`) assume a `.midnite/tasks/` tracker (`_INDEX.md`, `phase-N-*.md`, `done.md`, `README.md`) and a `CLAUDE.md` of conventions — so you **must** generate those too, or the copied skills won't have anything to run against.
 
 ---
 
@@ -66,7 +66,7 @@ Create sub-tasks with a running task list, then write everything. Tailor every f
 - **Monorepo**: scaffold moon + proto like midnite — `.prototools` (pin node + pnpm), `.moon/{workspace,toolchain,tasks}.yml`, root `package.json` (pnpm workspace), `packages/<app>/` per chosen app with a minimal `moon.yml` declaring `dependsOn` for the cross-app edges (e.g. webapp/website depend on `shared`; nothing imports another app's internals). Include a `packages/shared/` for cross-app contracts (zod schemas/types) when there's an API + a client.
 - **Single repo**: a flat layout for the one app's stack.
 
-**b. README.md** — at the repo root. Cover: what the project is, the stack, the repo layout, common commands (moon/pnpm if monorepo), and a **"Working with Claude Code"** section that **documents the `brainstorm` and `exec` skills** (what each does, when to use it, the `todo/` flow they drive) and the generated subagents.
+**b. README.md** — at the repo root. Cover: what the project is, the stack, the repo layout, common commands (moon/pnpm if monorepo), and a **"Working with Claude Code"** section that **documents the `brainstorm` and `exec` skills** (what each does, when to use it, the `.midnite/tasks/` flow they drive) and the generated subagents.
 
 **c. `.claude/`**
 - **Copy the `brainstorm` and `exec` skills verbatim** into `<target>/.claude/skills/brainstorm/SKILL.md` and `<target>/.claude/skills/exec/SKILL.md`. Source them from this `setup` skill's siblings — for this install, `/Users/bilolwabona/Dev/midnite-git/.claude/skills/{midnite-brainstorm,midnite-exec}/SKILL.md` — but **strip the `midnite-` prefix on the way out**: the target repo isn't Midnite Git, so its copies keep the plain `name: brainstorm` / `name: exec` frontmatter, not the source's `midnite-` names. After copying, lightly adapt any **hard-coded midnite paths** (e.g. the primary-checkout path, package names in examples) to the new repo, but keep the workflow intact.
@@ -76,11 +76,11 @@ Create sub-tasks with a running task list, then write everything. Tailor every f
 
 **d. `CLAUDE.md`** — a tailored conventions doc for the new repo, in midnite's spirit but for *this* stack: project overview, repo layout, **package boundaries** (the one-way dependency graph for the chosen apps), code style, the git/PR + worktree workflow, testing layers, and the "shared is the contract" rule (if there's a shared package). Don't copy midnite's verbatim — write it for the apps that exist.
 
-**e. `todo/` tracker** — so the copied skills have something to drive:
-- `todo/README.md` (the conventions the skills expect: markers, where `done.md` lives, phase-file naming).
-- `todo/_INDEX.md` (the roll-up `exec` scans first — one row per phase, Status/Done/Progress, a Theme key).
-- `todo/done.md` (empty append-only log, newest-first).
-- **One phase doc per app**: `todo/phase-1-<appA>.md`, `phase-2-<appB>.md`, … each in the **house style** the `brainstorm` skill describes: `# Phase N — <App> MVP`, framing blockquotes (what it builds on + scope guardrails + an S/M/L legend), **Themes** with `- [ ]` checklist items + S/M/L tags, a **Files this phase touches** map, a **Verification** checklist, and a **Decisions / open questions** section. Fold the Stage 2 context into the right app (pricing/legal/socials/i18n/theming/look-and-feel land in the website/webapp docs; API contracts in the API doc).
+**e. `.midnite/tasks/` tracker** — so the copied skills have something to drive:
+- `.midnite/tasks/README.md` (the conventions the skills expect: markers, where `done.md` lives, phase-file naming).
+- `.midnite/tasks/_INDEX.md` (the roll-up `exec` scans first — one row per phase, Status/Done/Progress, a Theme key).
+- `.midnite/tasks/done.md` (empty append-only log, newest-first).
+- **One phase doc per app**: `.midnite/tasks/phases/phase-1-<appA>.md`, `phase-2-<appB>.md`, … each in the **house style** the `brainstorm` skill describes: `# Phase N — <App> MVP`, framing blockquotes (what it builds on + scope guardrails + an S/M/L legend), **Themes** with `- [ ]` checklist items + S/M/L tags, a **Files this phase touches** map, a **Verification** checklist, and a **Decisions / open questions** section. Fold the Stage 2 context into the right app (pricing/legal/socials/i18n/theming/look-and-feel land in the website/webapp docs; API contracts in the API doc).
 - **Connect the docs for an MVP**: explicitly cross-link where apps depend on each other — e.g. the **website** links to the **webapp** (sign-up/app CTA) and the **docs**; the **webapp** consumes the **API** via the `shared` contract; **mobile** shares the same `shared` API client; **docs** documents both. Note these as dependencies in each doc's blockquote and in `_INDEX.md`.
 
 ## 🎁 Stage 6 — Wrap up
