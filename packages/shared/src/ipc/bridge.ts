@@ -157,6 +157,17 @@ export type MidniteGitBridge = {
   };
 
   /**
+   * Interactive rebase sequence planner & execution controls.
+   */
+  rebase: {
+    start: (req: In<typeof S.RebaseStartRequest>) => Promise<GitOpResult>;
+    continue: (req: In<typeof S.RebaseContinueRequest>) => Promise<GitOpResult>;
+    abort: (req: In<typeof S.RebaseAbortRequest>) => Promise<GitOpResult>;
+    skip: (req: In<typeof S.RebaseSkipRequest>) => Promise<GitOpResult>;
+    status: (req: In<typeof S.RebaseStatusRequest>) => Promise<z.infer<typeof S.RebaseStatusResponse>>;
+  };
+
+  /**
    * Configured remotes, with each URL already normalised into a `forge`.
    *
    * Its own group rather than a member of `repos` because it is read on a
