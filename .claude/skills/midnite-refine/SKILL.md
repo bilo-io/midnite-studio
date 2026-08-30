@@ -45,7 +45,7 @@ only to vagueness.
   ([phase-25](../../../todo/phase-25-search-everywhere.md),
   [phase-26](../../../todo/phase-26-side-by-side-diffs.md)) are the reference depth.
 - Respect `CLAUDE.md` boundaries (`shared ◀ git-engine ◀ desktop`, `shared ◀ app`; git-engine is
-  electron-free; the renderer only reaches main via `window.midniteGit`; NUL-delimited parsing; the
+  electron-free; the renderer only reaches main via `window.midniteStudio`; NUL-delimited parsing; the
   per-repo write queue; `GitOpResult` envelopes). A refinement that would need a boundary exception
   is wrong — refine it into an IPC channel instead.
 - **Never tick a box.** Everything you write stays `- [ ]`. Never touch `done.md`.

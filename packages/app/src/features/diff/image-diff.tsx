@@ -13,7 +13,7 @@ import type { ImageDiffSources, ImageSide } from './image-sources';
  * geometry (a shifted element lines up or it doesn't), onion for tone and
  * colour, where a slow fade shows a shift that side-by-side hides.
  *
- * Bytes come from `mgit-file://` — see `image-sources.ts` for the revision
+ * Bytes come from `mstudio-file://` — see `image-sources.ts` for the revision
  * pairing and `fs-protocol.ts` for the jail. Nothing here fetches; the browser
  * does, which is what keeps a 20 MB PNG off the IPC channel and out of React
  * state.

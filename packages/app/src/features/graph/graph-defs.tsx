@@ -3,7 +3,7 @@ import type { GraphTheme } from './graph-themes';
 import { laneColors } from './lane-colors';
 
 /** Stable id for the avatar clip of a given style. */
-export const avatarClipId = (theme: GraphTheme): string => `mgit-avatar-clip-${theme.id}`;
+export const avatarClipId = (theme: GraphTheme): string => `mstudio-avatar-clip-${theme.id}`;
 
 /**
  * The SVG definitions every row in the list shares.
@@ -32,7 +32,7 @@ export function GraphDefs({ theme }: { theme: GraphTheme }) {
           ? laneColors(theme.palette).map((color, index) => (
               <marker
                 key={index}
-                id={`mgit-arrow-${index}-${theme.id}`}
+                id={`mstudio-arrow-${index}-${theme.id}`}
                 viewBox="0 0 8 8"
                 refX={7}
                 refY={4}

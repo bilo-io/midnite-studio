@@ -3,7 +3,7 @@ import { defineConfig, devices } from '@playwright/test';
 /**
  * Browser-driven tests for the renderer.
  *
- * These run against the Vite dev server with a *mocked* `window.midniteGit`
+ * These run against the Vite dev server with a *mocked* `window.midniteStudio`
  * (see e2e/mock-bridge.ts) rather than against Electron. The renderer's only
  * route to the main process is that bridge, so replacing it is enough to drive
  * every UI path deterministically — and it keeps the suite runnable in CI
@@ -18,10 +18,10 @@ import { defineConfig, devices } from '@playwright/test';
  *
  * Overridable because 5273 is contended the same way 5173 is, just less often:
  * two worktrees running the suite at once collide, and `strictPort` correctly
- * turns that into a hard error. `MGIT_E2E_PORT=5274 pnpm e2e` is the way out,
+ * turns that into a hard error. `MSTUDIO_E2E_PORT=5274 pnpm e2e` is the way out,
  * rather than either session killing the other's server.
  */
-const PORT = Number(process.env.MGIT_E2E_PORT ?? 5273);
+const PORT = Number(process.env.MSTUDIO_E2E_PORT ?? 5273);
 
 export default defineConfig({
   testDir: './e2e',

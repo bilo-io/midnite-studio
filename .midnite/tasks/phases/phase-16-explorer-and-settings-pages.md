@@ -44,7 +44,7 @@ Effort tags: **S** ≈ an hour or two · **M** ≈ half a day · **L** ≈ a day
 
 ### B — Read-only fs IPC + path jail (M) ✅ DONE (merged to main, 2026-08-26)
 
-- [x] `shared/src/ipc/{channels,schemas,bridge}.ts` — new `mgit:fs:*` group (all invoke):
+- [x] `shared/src/ipc/{channels,schemas,bridge}.ts` — new `mstudio:fs:*` group (all invoke):
       `fs:list-dir` → entries `{name, kind: 'file'|'dir'|'symlink', size, isIgnored}`,
       `fs:read-file` → `{kind: 'text', content, language?} | {kind: 'binary'|'too-large', size}`.
       Requests carry a scope discriminant — `{scope: 'repo', repoId, relPath}` or
@@ -58,7 +58,7 @@ Effort tags: **S** ≈ an hour or two · **M** ≈ half a day · **L** ≈ a day
       `claude-home` scope skips it (not a repo)
 - [x] Text cap ~1.5 MB and a binary sniff (NUL byte in the first 8 KB) before `content`
       crosses IPC; images/PDF/media bytes **never** cross IPC — register a custom
-      `mgit-file://` protocol in main (`protocol.handle`) enforcing the same jail, so
+      `mstudio-file://` protocol in main (`protocol.handle`) enforcing the same jail, so
       `<img>`/`<video>`/PDF stream straight from disk with range support and no base64
 - [x] `fs-handlers.test.ts` — the jail table-test: `../` escape, absolute path, symlink out of
       root, and the happy path per scope; sniff and cap cases
@@ -90,7 +90,7 @@ Effort tags: **S** ≈ an hour or two · **M** ≈ half a day · **L** ≈ a day
 - [x] Markdown renders via `react-markdown` + `remark-gfm` (the dependency
       [Phase 12 Theme A](phase-12-commit-inspector.md) already plans — same versions) with a
       **source ⇄ rendered toggle** in the preview header
-- [x] Media through `mgit-file://`: `<img>` (png/jpg/gif/svg/webp), `<video>`/`<audio>` for
+- [x] Media through `mstudio-file://`: `<img>` (png/jpg/gif/svg/webp), `<video>`/`<audio>` for
       av media, PDF in an `<iframe>` on Chromium's built-in viewer — verify the viewer works
       under the renderer's sandbox/CSP early, it is the riskiest integration here; if it
       won't, show the fallback card rather than fighting it this phase
@@ -160,8 +160,8 @@ had always carried was reachable from nowhere in the UI.*
 - [`packages/app/src/store/ui-store.ts`](../packages/app/src/store/ui-store.ts) — `ViewId`, `settingsPage`, layout keys
 - [`packages/app/src/features/settings/settings-view.tsx`](../packages/app/src/features/settings/settings-view.tsx) — becomes the page shell (+ new `settings-pages/`)
 - `packages/app/src/features/files/` — **new**: view, tree, store, `preview/`
-- [`packages/shared/src/ipc/channels.ts`](../packages/shared/src/ipc/channels.ts) (+ `schemas.ts`, `bridge.ts`) — `mgit:fs:*`, `agent:claude-*`
-- `packages/desktop/src/main/ipc/fs-handlers.ts` — **new**: jail + handlers + `mgit-file://` protocol
+- [`packages/shared/src/ipc/channels.ts`](../packages/shared/src/ipc/channels.ts) (+ `schemas.ts`, `bridge.ts`) — `mstudio:fs:*`, `agent:claude-*`
+- `packages/desktop/src/main/ipc/fs-handlers.ts` — **new**: jail + handlers + `mstudio-file://` protocol
 - [`packages/git-engine/src`](../packages/git-engine/src) — batched `check-ignore` lister
 - [`todo/outstanding.md`](outstanding.md) — re-note diff highlighting as unblocked once shiki lands
 

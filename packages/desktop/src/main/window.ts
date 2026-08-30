@@ -9,7 +9,7 @@ import { maybeCapture } from './capture';
 import { attachWindowChrome, windowFrameless } from './window-chrome';
 
 /** Vite's dev server, matching `strictPort: true` in packages/app/vite.config.ts. */
-const DEV_SERVER_URL = process.env['MGIT_RENDERER_URL'] ?? 'http://localhost:5173';
+const DEV_SERVER_URL = process.env['MSTUDIO_RENDERER_URL'] ?? 'http://localhost:5173';
 
 /**
  * Where the built renderer lives.
@@ -97,7 +97,7 @@ export function createWindow(): BrowserWindow {
 }
 
 async function loadRenderer(win: BrowserWindow): Promise<void> {
-  if (!app.isPackaged && process.env['MGIT_USE_BUILT_RENDERER'] !== '1') {
+  if (!app.isPackaged && process.env['MSTUDIO_USE_BUILT_RENDERER'] !== '1') {
     await win.loadURL(DEV_SERVER_URL);
     win.webContents.openDevTools({ mode: 'detach' });
     return;

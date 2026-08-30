@@ -40,7 +40,7 @@ Effort tags: **S** ≈ an hour or two · **M** ≈ half a day · **L** ≈ a day
 ## Deliverables
 
 **Themes A, B, C and D landed 2026-08-26** — the metrics half of the phase, end to end:
-probes in main, the `mgit:metrics:*` stream, the store and the hand-rolled chart, and the
+probes in main, the `mstudio:metrics:*` stream, the store and the hand-rolled chart, and the
 footer cluster with the app's first popover primitive. E and F (diagnostics) are untouched.
 Screenshots: [`docs/screenshots/phase-18/`](../docs/screenshots/phase-18/).
 
@@ -77,14 +77,14 @@ Screenshots: [`docs/screenshots/phase-18/`](../docs/screenshots/phase-18/).
 - [x] [`shared/src/domain/metrics.ts`](../packages/shared/src/domain/metrics.ts) — `MetricSample`
       with **every metric optional**, so "not readable on this machine" and "0%" stay different
       answers all the way to the chart
-- [x] `mgit:metrics:start` / `mgit:metrics:stop` on `CHANNELS`, `mgit:metrics:sample` on
+- [x] `mstudio:metrics:start` / `mstudio:metrics:stop` on `CHANNELS`, `mstudio:metrics:sample` on
       `EVENT_CHANNELS` — the [`channels.ts`](../packages/shared/src/ipc/channels.ts) split between
       `invoke` request/response and one-way `webContents.send` pushes
 - [x] Schemas + `ipc.test.ts` coverage
 - [x] A `metrics` bridge group whose subscription returns `Unsubscribe`, for the StrictMode
       double-mount reason [`bridge.ts`](../packages/shared/src/ipc/bridge.ts) documents
 - [x] Preload: `subscribe()` for the sample stream, and `ipcRenderer.send` — not `invoke` — for
-      start/stop, matching `pty.input`. **Add `metrics` to the exposed `Pick<MidniteGitBridge, …>`
+      start/stop, matching `pty.input`. **Add `metrics` to the exposed `Pick<MidniteStudioBridge, …>`
       union**, which is what makes a half-wired group a compile error
 - [x] `registerMetricsHandlers(getWindow)` called from
       [`main/index.ts`](../packages/desktop/src/main/index.ts), following
@@ -163,7 +163,7 @@ Screenshots: [`docs/screenshots/phase-18/`](../docs/screenshots/phase-18/).
 - [x] `desktop/src/main/diagnostics/parse-eslint.ts` — a **total** parser over
       `eslint --format json`, dropping a row it cannot understand rather than guessing, like
       `gh-parse.ts`. Never throws
-- [x] `mgit:diag:{trust-status,trust,untrust,detect,run}` + schemas + bridge group + preload +
+- [x] `mstudio:diag:{trust-status,trust,untrust,detect,run}` + schemas + bridge group + preload +
       `ipc.test.ts`. Everything fails soft to a reason code: `untrusted`, `no-command`,
       `not-installed`, `timed-out`, `parse-failed`
 - [x] Detection **proposes** a command from a discovered eslint config, and never invents one. A

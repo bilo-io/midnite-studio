@@ -240,7 +240,7 @@ test('a capped diff says how much it dropped and offers the forge', async ({ pag
   await expect
     .poll(() =>
       page.evaluate(
-        () => (window as unknown as { __mgitExternalUrls: string[] }).__mgitExternalUrls,
+        () => (window as unknown as { __mstudioExternalUrls: string[] }).__mstudioExternalUrls,
       ),
     )
     .toContain('https://github.com/bilo-io/midnite-git/pull/42');

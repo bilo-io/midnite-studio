@@ -2,7 +2,7 @@
   "name": "@midnite/studio-app",
   "version": "0.1.0",
   "private": true,
-  "description": "Renderer: Vite + React SPA. Talks to the main process only through window.midniteGit.",
+  "description": "Renderer: Vite + React SPA. Talks to the main process only through window.midniteStudio.",
   "type": "module",
   "scripts": {
     "dev": "vite",

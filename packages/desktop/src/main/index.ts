@@ -65,7 +65,7 @@ let mainWindow: BrowserWindow | null = null;
 const getWindow = (): BrowserWindow | null => mainWindow;
 
 /**
- * Open repositories named by `MGIT_OPEN_REPOS` (a colon-separated path list).
+ * Open repositories named by `MSTUDIO_OPEN_REPOS` (a colon-separated path list).
  *
  * Dev/verification seam: the only other way into a populated sidebar is the
  * native folder dialog, which a screenshot or smoke run can't drive. Paths go
@@ -73,7 +73,7 @@ const getWindow = (): BrowserWindow | null => mainWindow;
  * path rather than a fixture.
  */
 async function openReposFromEnv(): Promise<void> {
-  const list = process.env['MGIT_OPEN_REPOS'];
+  const list = process.env['MSTUDIO_OPEN_REPOS'];
   if (!list) return;
   for (const path of list.split(':').filter((p) => p.length > 0)) {
     await openRepo(path);

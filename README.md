@@ -75,9 +75,9 @@ shared ◀ desktop
 
 | Package | Role |
 |---|---|
-| [`packages/shared`](packages/shared) | The wire contract: domain zod schemas, `mgit:*` channel constants, per-channel payload schemas, the preload bridge type, the CommandId registry. zod only — no other workspace package, never `electron`. |
+| [`packages/shared`](packages/shared) | The wire contract: domain zod schemas, `mstudio:*` channel constants, per-channel payload schemas, the preload bridge type, the CommandId registry. zod only — no other workspace package, never `electron`. |
 | [`packages/git-engine`](packages/git-engine) | Everything that touches git, as plain Node/TS: dugite exec, the per-repo write queue, NUL-delimited parsers, commands, the lane layout, the watcher. Never imports `electron`, so it stays testable under bare vitest. |
-| [`packages/app`](packages/app) | The renderer. Reaches the main process only through `window.midniteGit`. |
+| [`packages/app`](packages/app) | The renderer. Reaches the main process only through `window.midniteStudio`. |
 | [`packages/desktop`](packages/desktop) | Electron main + preload. The only package allowed to import `electron` and `node-pty`. |
 
 Those arrows are enforced by [`eslint.config.mjs`](eslint.config.mjs), not by convention: each

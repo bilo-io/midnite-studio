@@ -9,7 +9,7 @@ import { createRepoStore, parseStoredState } from './repo-store';
 let dirs: string[] = [];
 
 const tempDir = async (): Promise<string> => {
-  const dir = await mkdtemp(join(tmpdir(), 'mgit-store-'));
+  const dir = await mkdtemp(join(tmpdir(), 'mstudio-store-'));
   dirs.push(dir);
   return dir;
 };

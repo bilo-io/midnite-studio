@@ -183,13 +183,13 @@ test('Reveal in Finder and Copy Relative Path record the row they were called on
   await page.getByRole('treeitem', { name: /README\.md/ }).click({ button: 'right' });
   await page.getByRole('menuitem', { name: 'Reveal in Finder' }).click();
   expect(
-    await page.evaluate(() => (window as never as { __mgitRevealedPaths: string[] }).__mgitRevealedPaths),
+    await page.evaluate(() => (window as never as { __mstudioRevealedPaths: string[] }).__mstudioRevealedPaths),
   ).toEqual(['README.md']);
 
   await page.getByRole('treeitem', { name: /README\.md/ }).click({ button: 'right' });
   await page.getByRole('menuitem', { name: 'Copy Relative Path' }).click();
   expect(
-    await page.evaluate(() => (window as never as { __mgitClipboard: string[] }).__mgitClipboard),
+    await page.evaluate(() => (window as never as { __mstudioClipboard: string[] }).__mstudioClipboard),
   ).toEqual(['README.md']);
 });
 

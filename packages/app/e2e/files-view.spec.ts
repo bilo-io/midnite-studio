@@ -130,7 +130,7 @@ test('markdown renders, toggles source, and navigates internal relative links', 
   await extLink.click();
   expect(
     await page.evaluate(
-      () => (window as never as { __mgitExternalUrls: string[] }).__mgitExternalUrls,
+      () => (window as never as { __mstudioExternalUrls: string[] }).__mstudioExternalUrls,
     ),
   ).toHaveLength(1);
 
@@ -175,7 +175,7 @@ test('a changed image offers the before/after comparison the diff pane gives', a
   await expect(compare).toBeVisible();
   await compare.click();
 
-  // The bytes come from `mgit-file://`, which does not exist in a browser, so
+  // The bytes come from `mstudio-file://`, which does not exist in a browser, so
   // this asserts the viewer's chrome — both revisions named, modes offered.
   const viewer = page.getByTestId('image-diff');
   await expect(viewer.getByTestId('image-before')).toBeVisible();

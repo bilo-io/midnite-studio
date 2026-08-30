@@ -78,7 +78,7 @@ shared ◀ desktop
 - **`packages/git-engine`** — everything that touches git, as plain Node/TS. **Never imports
   `electron`**, so parsers/layout/commands stay testable under bare vitest.
 - **`packages/app`** — the renderer. Reaches the main process *only* through
-  `window.midniteGit`; may not import git-engine, desktop, electron, or node builtins.
+  `window.midniteStudio`; may not import git-engine, desktop, electron, or node builtins.
 - **`packages/desktop`** — Electron main + preload. The only package allowed to import
   `electron` and `node-pty`.
 

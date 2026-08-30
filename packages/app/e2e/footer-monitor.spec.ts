@@ -139,7 +139,7 @@ test.describe('footer monitor', () => {
     await open(page);
     const cadences = async () =>
       page.evaluate(
-        () => (window as unknown as { __mgitMetrics: { intervalMs: number }[] }).__mgitMetrics,
+        () => (window as unknown as { __mstudioMetrics: { intervalMs: number }[] }).__mstudioMetrics,
       );
 
     expect((await cadences()).at(-1)?.intervalMs).toBe(5_000);
@@ -200,8 +200,8 @@ test.describe('footer monitor', () => {
       real stream uses.
     */
     await page.evaluate((start: number) => {
-      const push = (window as unknown as { __mgitPushMetric: (s: unknown) => void })
-        .__mgitPushMetric;
+      const push = (window as unknown as { __mstudioPushMetric: (s: unknown) => void })
+        .__mstudioPushMetric;
       for (let index = 1; index <= 5; index += 1) {
         push({ at: start + 10_000 + index * 5_000, cpu: 60, memory: 55, gpu: 30, disk: 72 });
       }
@@ -237,7 +237,7 @@ test.describe('footer monitor', () => {
     // Ungated, this rewrote five committed PNGs on every `app:e2e` run, not
     // just an explicit regeneration — the same reason `shots.spec.ts` gates
     // its own block.
-    test.skip(!process.env.MGIT_SHOTS, 'set MGIT_SHOTS=1 to regenerate');
+    test.skip(!process.env.MSTUDIO_SHOTS, 'set MSTUDIO_SHOTS=1 to regenerate');
     // The bar as it was: everything left-aligned, right half empty.
     await installMockBridge(page, { ...fixtures });
     await page.goto('/');

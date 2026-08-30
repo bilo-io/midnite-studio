@@ -112,7 +112,7 @@ tasks:
     command: 'node scripts/start-electron.mjs'
     preset: 'server'
     env:
-      MGIT_USE_BUILT_RENDERER: '1'
+      MSTUDIO_USE_BUILT_RENDERER: '1'
     deps:
       - '~:bundle'
       - 'app:build'

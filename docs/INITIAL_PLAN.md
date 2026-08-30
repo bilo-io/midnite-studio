@@ -41,7 +41,7 @@ todo/                      # _INDEX.md, done.md, outstanding.md, phase-N-*.md
 packages/
   shared/       # @midnite/studio-shared — zod-only contract layer (domain types, IPC channels+schemas, bridge type, CommandId/keymap)
   git-engine/   # @midnite/studio-git-engine — pure Node/TS, NO electron imports: dugite exec + write queue, parsers, commands, lane layout, watcher
-  app/          # @midnite/studio-app — Vite + React renderer; talks only to window.midniteGit
+  app/          # @midnite/studio-app — Vite + React renderer; talks only to window.midniteStudio
   desktop/      # @midnite/studio-desktop — Electron main + preload, node-pty, menus, packaging
 ```
 
@@ -52,7 +52,7 @@ Dependency graph (eslint `no-restricted-imports` boundary rules, midnite-style):
 
 ### IPC contract (in `shared/src/ipc/`)
 
-- Channel constants prefixed `mgit:` in `channels.ts` (one module imported by main, preload, renderer types): `repo:*` (open/list/close/refs/worktrees/worktree-add/worktree-remove), `log:start|cancel` + `log:batch|done` events, `status:get`, `op:*` (checkout, branch-create, tag-create, merge, rebase, cherry-pick, reset, stage, unstage, discard, commit, fetch, pull, push, abort, continue), `watch:event`, `pty:*` (create/input/resize/kill + data/exit events), `window:*` chrome, `menu:command`.
+- Channel constants prefixed `mstudio:` in `channels.ts` (one module imported by main, preload, renderer types): `repo:*` (open/list/close/refs/worktrees/worktree-add/worktree-remove), `log:start|cancel` + `log:batch|done` events, `status:get`, `op:*` (checkout, branch-create, tag-create, merge, rebase, cherry-pick, reset, stage, unstage, discard, commit, fetch, pull, push, abort, continue), `watch:event`, `pty:*` (create/input/resize/kill + data/exit events), `window:*` chrome, `menu:command`.
 - **`invoke`/`handle`** for request/response; **`webContents.send`** for streams. Every handler zod-validates its payload; ops return a discriminated envelope (never throw across IPC):
 
 ```ts
@@ -62,8 +62,8 @@ type GitOpResult =
   | { ok: false; kind: 'error'; message: string; stderr?: string };
 ```
 
-- **Streaming log**: `invoke('mgit:log:start', {repoId, requestId})` → main runs `git log --all --topo-order -z`, parses + lane-lays incrementally, emits `log:batch {requestId, rows}` (~500 rows/batch) then `log:done`. `requestId` discards stale streams on repo switch. PTY data crosses as `Uint8Array` via structured clone — **no base64** (unlike midnite's WS path).
-- Preload builds a typed `window.midniteGit: MidniteGitBridge` (`bridge.ts`), every subscription returning an unsubscribe fn; `frameless` flag via `additionalArguments`; `windowChrome` implements `@bilo-io/shell`'s `WindowChromeBridge`.
+- **Streaming log**: `invoke('mstudio:log:start', {repoId, requestId})` → main runs `git log --all --topo-order -z`, parses + lane-lays incrementally, emits `log:batch {requestId, rows}` (~500 rows/batch) then `log:done`. `requestId` discards stale streams on repo switch. PTY data crosses as `Uint8Array` via structured clone — **no base64** (unlike midnite's WS path).
+- Preload builds a typed `window.midniteStudio: MidniteStudioBridge` (`bridge.ts`), every subscription returning an unsubscribe fn; `frameless` flag via `additionalArguments`; `windowChrome` implements `@bilo-io/shell`'s `WindowChromeBridge`.
 
 ### Data model (zod in `shared/src/domain/`)
 
@@ -104,7 +104,7 @@ Repo skeleton: all root config files above, four packages with `package.json`/`t
 
 ### Phase 5 — Commit graph, read-only (virtualized SVG)
 
-`desktop/src/main/log-service.ts` (streaming + cancellation); `app/src/features/graph/` — @tanstack/react-virtual list, fixed-height per-row `<svg>` drawing node + edges from `GraphRow`, subject/author/date columns, ref badges joined by sha; commit detail pane stub (`mgit:commit:detail` → `git show --stat`).
+`desktop/src/main/log-service.ts` (streaming + cancellation); `app/src/features/graph/` — @tanstack/react-virtual list, fixed-height per-row `<svg>` drawing node + edges from `GraphRow`, subject/author/date columns, ref badges joined by sha; commit detail pane stub (`mstudio:commit:detail` → `git show --stat`).
 **Verify:** stream-reducer unit tests (stale requestId discard); midnite's full history scrolls at 60fps; lane topology visually matches `git log --graph`. Screenshot.
 
 ### Phase 6 — Status / stage / commit / sync panel

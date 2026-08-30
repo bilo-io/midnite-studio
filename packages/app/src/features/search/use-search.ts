@@ -21,7 +21,7 @@ export function useSearch(repoId: string | null, worktreePath?: string | null) {
 
   // Subscribe to search events across the bridge
   useEffect(() => {
-    const bridge = window.midniteGit;
+    const bridge = window.midniteStudio;
     if (!bridge) return;
 
     const unsubs = [
@@ -49,7 +49,7 @@ export function useSearch(repoId: string | null, worktreePath?: string | null) {
       return;
     }
 
-    const bridge = window.midniteGit;
+    const bridge = window.midniteStudio;
     if (!bridge) return;
 
     const timer = setTimeout(async () => {

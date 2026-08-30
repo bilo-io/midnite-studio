@@ -9,7 +9,7 @@ import { installMockBridge, type MockFixtures } from './mock-bridge';
  * the same mocked bridge the rest of the suite uses so the picture is
  * reproducible rather than whatever happened to be in someone's repo that day.
  *
- * Run with `MGIT_SHOTS=1`; skipped otherwise, so the normal suite stays fast
+ * Run with `MSTUDIO_SHOTS=1`; skipped otherwise, so the normal suite stays fast
  * and does not rewrite committed images on every run.
  */
 /**
@@ -175,7 +175,7 @@ const FIXTURES: MockFixtures = {
 };
 
 test.describe('screenshots', () => {
-  test.skip(!process.env.MGIT_SHOTS, 'set MGIT_SHOTS=1 to regenerate');
+  test.skip(!process.env.MSTUDIO_SHOTS, 'set MSTUDIO_SHOTS=1 to regenerate');
 
   test.use({ viewport: { width: 1440, height: 820 } });
 

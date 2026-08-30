@@ -19,8 +19,8 @@ import { spawnSync } from 'node:child_process';
  */
 
 /** Wrapped around `$PATH` so profile noise (motd, nvm banners) can't corrupt the parse. */
-const MARKER_START = '__MGIT_PATH_START__';
-const MARKER_END = '__MGIT_PATH_END__';
+const MARKER_START = '__MSTUDIO_PATH_START__';
+const MARKER_END = '__MSTUDIO_PATH_END__';
 
 /**
  * How long to wait for the login shell before shipping without the fix. Bounds

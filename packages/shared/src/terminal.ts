@@ -24,7 +24,7 @@ export type TerminalSessionKind = z.infer<typeof TerminalSessionKindSchema>;
  *
  * There is no channel that tells the app this directly — an agent CLI is just a
  * process writing bytes to a pty — so it is inferred from the same markers a
- * human reads off the screen. Crosses the wire (`mgit:pty:activity`), which is
+ * human reads off the screen. Crosses the wire (`mstudio:pty:activity`), which is
  * why it lives here rather than in the renderer's own `terminal-store.ts` —
  * that module re-exports this type so no renderer import has to change.
  */

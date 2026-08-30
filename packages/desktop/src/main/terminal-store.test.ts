@@ -10,7 +10,7 @@ import { createTerminalStore, parseStoredSessions, trimScrollback } from './term
 let dirs: string[] = [];
 
 const tempDir = async (): Promise<string> => {
-  const dir = await mkdtemp(join(tmpdir(), 'mgit-terminals-'));
+  const dir = await mkdtemp(join(tmpdir(), 'mstudio-terminals-'));
   dirs.push(dir);
   return dir;
 };

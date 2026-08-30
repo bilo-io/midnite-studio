@@ -7,7 +7,7 @@ or an external shell.
 
 - [x] `git-engine/src/watch/repo-watcher.ts` — fs.watch on `.git/HEAD`, `.git/refs/` (recursive), `.git/index`, `packed-refs`, each worktree's gitdir, and the working tree root; classify → `WatchEvent.kind` (`refs|index|worktree|head`); 200ms debounce
 - [x] **Suppress-during-own-write** — flag driven by the write queue so the app's own ops don't double-refresh mid-operation
-- [x] `desktop/src/main/watch-service.ts` — one watcher per open repo → `mgit:watch:event`
+- [x] `desktop/src/main/watch-service.ts` — one watcher per open repo → `mstudio:watch:event`
 - [x] `app/src/services/watch-invalidation.ts` — kind → action map: `refs`/`head` → invalidate refs + re-stream log (fresh requestId); `index`/`worktree` → invalidate status
 - [x] Remove the Phase 6 manual-invalidation-only paths where the watcher now covers them
 

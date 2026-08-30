@@ -84,7 +84,7 @@ The spine: B–E all read off this contract, so it lands first.
 - [x] Failure messages go through `gitErrorLine(stderr)` — exported, slightly oddly, from
       [`worktree-ops.ts`](../packages/git-engine/src/commands/worktree-ops.ts) — the same way
       refs-ops, sequencer and sync already do.
-- [x] Contract wiring: `mgit:stash:list` in `CHANNELS` plus `opStashPush`/`opStashPop`/
+- [x] Contract wiring: `mstudio:stash:list` in `CHANNELS` plus `opStashPush`/`opStashPop`/
       `opStashApply`/`opStashDrop`/`opStashBranch`; `OpBase.extend(…)` request schemas and
       `OpResponse` in [`schemas.ts`](../packages/shared/src/ipc/schemas.ts); the `ops` block in
       [`bridge.ts`](../packages/shared/src/ipc/bridge.ts); the preload entries in
@@ -302,7 +302,7 @@ history mechanism *and* the first surface it can announce itself on. Land it las
 - [ ] `moon run :typecheck :lint :test` green.
 - [ ] Boundary lint clean: the stash and reflog commands are plain Node in git-engine and import no
       `electron`; the journal and toasts live entirely in `app` and reach main only through
-      `window.midniteGit`.
+      `window.midniteStudio`.
 - [ ] Vitest (A): `parseStashRecord` on a two-parent stash, a three-parent `-u` stash, a message
       containing a colon, and a truncated record returning `null`.
 - [ ] Vitest integration (A): the full stash lifecycle against a scratch repo, including a

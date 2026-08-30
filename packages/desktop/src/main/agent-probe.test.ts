@@ -31,7 +31,7 @@ const ROSTER = [agent('claude'), agent('agy'), agent('codex'), agent('openclaude
 
 /** What one framed answer looks like coming back out of the shell. */
 const frame = (id: string, body: string): string =>
-  `\n__MGIT_AGENT_${id}_START__\n${body}\n__MGIT_AGENT_${id}_END__\n`;
+  `\n__MSTUDIO_AGENT_${id}_START__\n${body}\n__MSTUDIO_AGENT_${id}_END__\n`;
 
 describe('buildProbeScript', () => {
   it('resolves the whole roster in one command line', () => {
@@ -45,8 +45,8 @@ describe('buildProbeScript', () => {
   it('frames each answer so an interleaved banner cannot be misread as a path', () => {
     const script = buildProbeScript([agent('claude')]);
 
-    expect(script).toContain('__MGIT_AGENT_claude_START__');
-    expect(script).toContain('__MGIT_AGENT_claude_END__');
+    expect(script).toContain('__MSTUDIO_AGENT_claude_START__');
+    expect(script).toContain('__MSTUDIO_AGENT_claude_END__');
   });
 
   /**
@@ -86,7 +86,7 @@ describe('buildProbeScript', () => {
   it('skips an agent whose id is not a shell-safe token', () => {
     const script = buildProbeScript([agent("bad'id"), agent('claude')]);
 
-    expect(script).toContain('__MGIT_AGENT_claude_START__');
+    expect(script).toContain('__MSTUDIO_AGENT_claude_START__');
     expect(script).not.toContain('bad');
   });
 
@@ -137,7 +137,7 @@ describe('parseProbeOutput', () => {
    * them may grey out a menu item.
    */
   it('omits an agent whose frame never arrived, rather than calling it missing', () => {
-    const output = frame('claude', '/Users/x/.local/bin/claude') + '\n__MGIT_AGENT_agy_START__\n';
+    const output = frame('claude', '/Users/x/.local/bin/claude') + '\n__MSTUDIO_AGENT_agy_START__\n';
 
     expect(parseProbeOutput(output, ROSTER)).toEqual([
       { id: 'claude', installed: true, resolvedPath: '/Users/x/.local/bin/claude' },

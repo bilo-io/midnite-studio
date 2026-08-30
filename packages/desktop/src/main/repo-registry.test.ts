@@ -31,7 +31,7 @@ const git = async (cwd: string, args: string[]): Promise<void> => {
 };
 
 beforeEach(async () => {
-  scratch = await realpath(await mkdtemp(join(tmpdir(), 'mgit-registry-')));
+  scratch = await realpath(await mkdtemp(join(tmpdir(), 'mstudio-registry-')));
   repoPath = join(scratch, 'project');
 
   await git(scratch, ['init', '--initial-branch=main', repoPath]);

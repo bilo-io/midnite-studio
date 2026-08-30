@@ -136,7 +136,7 @@ export function GraphSvg({
          */
         const arrow =
           theme.arrowheads && edge.type === 'branch'
-            ? `url(#mgit-arrow-${edge.colorIdx % LANE_COLOR_COUNT}-${theme.id})`
+            ? `url(#mstudio-arrow-${edge.colorIdx % LANE_COLOR_COUNT}-${theme.id})`
             : undefined;
 
         // The tip stops at the face, not under it.

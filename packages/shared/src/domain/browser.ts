@@ -76,7 +76,7 @@ export const BrowserTabGroupSchema = z.object({
 export type BrowserTabGroup = z.infer<typeof BrowserTabGroupSchema>;
 
 /**
- * Chrome events pushed main → renderer over the single `mgit:browser:event`
+ * Chrome events pushed main → renderer over the single `mstudio:browser:event`
  * channel, discriminated on `kind` — the same nesting trick
  * `GitOpFailureSchema` uses so every arm can share `tabId` without zod's
  * `discriminatedUnion` seeing two arms with the same literal.

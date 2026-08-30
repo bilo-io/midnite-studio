@@ -3,7 +3,7 @@ import type { Page } from '@playwright/test';
 /**
  * A stand-in for the preload bridge, installed before any app code runs.
  *
- * The renderer reaches the main process *only* through `window.midniteGit`, so
+ * The renderer reaches the main process *only* through `window.midniteStudio`, so
  * replacing that object is enough to drive the whole UI from a test — no
  * Electron, no real repository, no git binary. Fixtures go in as plain data and
  * come back through the same call signatures the preload exposes.
@@ -57,7 +57,7 @@ export type MockFixtures = {
   statusEntries: unknown[];
   /** Refs the sidebar and the BRANCH / TAG column render. */
   refs?: unknown[];
-  /** Configured remotes, as `mgit:remotes:list` returns them (forge pre-derived). */
+  /** Configured remotes, as `mstudio:remotes:list` returns them (forge pre-derived). */
   remotes?: unknown[];
   /**
    * Overrides merged over the default `status.get` branch — ahead/behind, a
@@ -97,7 +97,7 @@ export type MockFixtures = {
    * for. A path with no entry answers zero, exactly as the real handler does.
    */
   statusCounts?: Record<string, { insertions: number; deletions: number }>;
-  /** `mgit:forge:*` answers. Absent means a repo with no GitHub remote. */
+  /** `mstudio:forge:*` answers. Absent means a repo with no GitHub remote. */
   forge?: {
     cli?: { reason: 'ready' | 'not-installed' | 'not-authenticated'; hint?: string };
     runs?: unknown[];
@@ -201,7 +201,7 @@ export type MockFixtures = {
     error?: string | null;
   };
   /**
-   * `mgit:stats:summary` — everything the dashboard draws.
+   * `mstudio:stats:summary` — everything the dashboard draws.
    *
    * Merged over an all-zero envelope, so a spec sets only the arrays its
    * widgets read. **Absent means a repository with no history**, which is the
@@ -416,8 +416,8 @@ export async function installMockBridge(page: Page, fixtures: MockFixtures): Pro
      * read the request itself.
      */
     const recordWrite = (channel: string, request: unknown): void => {
-      const store = (window as unknown as { __mgitWrites?: unknown[] });
-      store.__mgitWrites = [...(store.__mgitWrites ?? []), { channel, request }];
+      const store = (window as unknown as { __mstudioWrites?: unknown[] });
+      store.__mstudioWrites = [...(store.__mstudioWrites ?? []), { channel, request }];
     };
 
     // Diff lookups fall back to a well-formed empty FileDiff rather than
@@ -449,7 +449,7 @@ export async function installMockBridge(page: Page, fixtures: MockFixtures): Pro
     const browserTabIds = new Set<string>();
     const browserEventHandlers: ((e: unknown) => void)[] = [];
 
-    (window as unknown as { midniteGit: unknown }).midniteGit = {
+    (window as unknown as { midniteStudio: unknown }).midniteStudio = {
       /*
         `/tmp` so the fixture repo at `/tmp/midnite-git` sits inside "home" and
         the terminal header renders the `~`-collapsed path the specs assert on.
@@ -747,7 +747,7 @@ export async function installMockBridge(page: Page, fixtures: MockFixtures): Pro
           rather than as a stub: `queries.ts` invalidates the thread key on
           success, and the refetch has to come back different.
 
-          Every call is also recorded on `window.__mgitWrites` so a spec can
+          Every call is also recorded on `window.__mstudioWrites` so a spec can
           assert the *anchor* — that a comment on line 12 was sent as line 12,
           with the head sha and a position — which no amount of re-reading the
           list can show.
@@ -1710,7 +1710,7 @@ export async function installMockBridge(page: Page, fixtures: MockFixtures): Pro
       file's read and its save — the only way to drive a genuine stale-write
       round trip through `writeFile`'s own version check (Phase 24 D).
     */
-    (window as unknown as { __mgitStaleFile: (relPath: string) => void }).__mgitStaleFile = (
+    (window as unknown as { __mstudioStaleFile: (relPath: string) => void }).__mstudioStaleFile = (
       relPath,
     ) => {
       const key = `repo:${relPath}`;
@@ -1720,8 +1720,8 @@ export async function installMockBridge(page: Page, fixtures: MockFixtures): Pro
       data.fsFiles![key] = { ...entry, version: { mtimeMs: version.mtimeMs + 100, size: version.size } };
     };
 
-    (window as unknown as { __mgitOps: unknown }).__mgitOps = opCalls;
-    (window as unknown as { __mgitPty: unknown }).__mgitPty = ptyCalls;
+    (window as unknown as { __mstudioOps: unknown }).__mstudioOps = opCalls;
+    (window as unknown as { __mstudioPty: unknown }).__mstudioPty = ptyCalls;
     /*
       A spec's way to make the fake shell say something arbitrary — an escape
       sequence the app is supposed to react to, rather than a command the mock
@@ -1729,7 +1729,7 @@ export async function installMockBridge(page: Page, fixtures: MockFixtures): Pro
       handler is a real sequence arriving on `pty:data` and being parsed by the
       xterm the app actually built.
     */
-    (window as unknown as { __mgitPtyWrite: unknown }).__mgitPtyWrite = (
+    (window as unknown as { __mstudioPtyWrite: unknown }).__mstudioPtyWrite = (
       ptyId: string,
       data: string,
     ): boolean => {
@@ -1742,11 +1742,11 @@ export async function installMockBridge(page: Page, fixtures: MockFixtures): Pro
     };
     /*
       A spec's way to say "main's probe just noticed this". Reports whether the
-      pty existed, for the same reason `__mgitPtyWrite` does: a spec whose pty
+      pty existed, for the same reason `__mstudioPtyWrite` does: a spec whose pty
       numbering shifted would otherwise assert against an event that was never
       delivered and pass for the wrong reason.
     */
-    (window as unknown as { __mgitPtyAgent: unknown }).__mgitPtyAgent = (
+    (window as unknown as { __mstudioPtyAgent: unknown }).__mstudioPtyAgent = (
       ptyId: string,
       agentId: string | null,
     ): boolean => {
@@ -1757,9 +1757,9 @@ export async function installMockBridge(page: Page, fixtures: MockFixtures): Pro
     /**
      * A spec's way to say "the process probe just saw the foreground command
      * change" — Theme E's naming-from-process-tree path, same reporting
-     * contract as `__mgitPtyAgent`.
+     * contract as `__mstudioPtyAgent`.
      */
-    (window as unknown as { __mgitPtyCommand: unknown }).__mgitPtyCommand = (
+    (window as unknown as { __mstudioPtyCommand: unknown }).__mstudioPtyCommand = (
       ptyId: string,
       command: string | null,
     ): boolean => {
@@ -1769,9 +1769,9 @@ export async function installMockBridge(page: Page, fixtures: MockFixtures): Pro
     };
     /**
      * A spec's way to say "main's activity detector just changed its guess" —
-     * Theme F/G's path, same reporting contract as `__mgitPtyAgent`.
+     * Theme F/G's path, same reporting contract as `__mstudioPtyAgent`.
      */
-    (window as unknown as { __mgitPtyActivity: unknown }).__mgitPtyActivity = (
+    (window as unknown as { __mstudioPtyActivity: unknown }).__mstudioPtyActivity = (
       ptyId: string,
       activity: 'thinking' | 'waiting' | 'idle' | null,
     ): boolean => {
@@ -1780,20 +1780,20 @@ export async function installMockBridge(page: Page, fixtures: MockFixtures): Pro
       return true;
     };
     /**
-     * Push a `mgit:browser:event` the way main would (Phase 32 Theme A) —
+     * Push a `mstudio:browser:event` the way main would (Phase 32 Theme A) —
      * a spec's only way to make a mocked engine crash, rename a page or
      * refuse a download, since no real `WebContentsView` exists here.
      */
-    (window as unknown as { __mgitBrowserEvent: unknown }).__mgitBrowserEvent = (event: unknown) => {
+    (window as unknown as { __mstudioBrowserEvent: unknown }).__mstudioBrowserEvent = (event: unknown) => {
       for (const handler of [...browserEventHandlers]) handler(event);
     };
-    (window as unknown as { __mgitBrowserTabs: unknown }).__mgitBrowserTabs = () => [...browserTabIds];
-    (window as unknown as { __mgitTerminalSaves: unknown }).__mgitTerminalSaves = terminalSaves;
-    (window as unknown as { __mgitExternalUrls: unknown }).__mgitExternalUrls = externalUrls;
-    (window as unknown as { __mgitRevealedPaths: unknown }).__mgitRevealedPaths = revealedPaths;
-    (window as unknown as { __mgitClipboard: unknown }).__mgitClipboard = clipboardWrites;
-    (window as unknown as { __mgitMetrics: unknown }).__mgitMetrics = metricsCalls;
-    (window as unknown as { __mgitDiagRuns: unknown }).__mgitDiagRuns = () => diagRuns;
+    (window as unknown as { __mstudioBrowserTabs: unknown }).__mstudioBrowserTabs = () => [...browserTabIds];
+    (window as unknown as { __mstudioTerminalSaves: unknown }).__mstudioTerminalSaves = terminalSaves;
+    (window as unknown as { __mstudioExternalUrls: unknown }).__mstudioExternalUrls = externalUrls;
+    (window as unknown as { __mstudioRevealedPaths: unknown }).__mstudioRevealedPaths = revealedPaths;
+    (window as unknown as { __mstudioClipboard: unknown }).__mstudioClipboard = clipboardWrites;
+    (window as unknown as { __mstudioMetrics: unknown }).__mstudioMetrics = metricsCalls;
+    (window as unknown as { __mstudioDiagRuns: unknown }).__mstudioDiagRuns = () => diagRuns;
     /*
       A hook for the scripted cadence change.
 
@@ -1803,7 +1803,7 @@ export async function installMockBridge(page: Page, fixtures: MockFixtures): Pro
       pushes the second half itself, at the wider spacing, through the same
       handler array the real stream uses.
     */
-    (window as unknown as { __mgitPushMetric: unknown }).__mgitPushMetric = (sample: unknown) => {
+    (window as unknown as { __mstudioPushMetric: unknown }).__mstudioPushMetric = (sample: unknown) => {
       for (const handler of metricsHandlers) handler(sample);
     };
   }, fixtures);

@@ -11,7 +11,7 @@ import { installMockBridge, type MockFixtures } from './mock-bridge';
  * the picture is reproducible rather than whatever happened to be in someone's
  * repo that day.
  *
- * Run with `MGIT_SHOTS=1`; skipped otherwise, so the normal suite stays fast
+ * Run with `MSTUDIO_SHOTS=1`; skipped otherwise, so the normal suite stays fast
  * and does not rewrite committed images on every run.
  */
 const OUT = '../../docs/screenshots/phase-19-dashboard';
@@ -271,7 +271,7 @@ async function openDashboard(page: Page): Promise<void> {
 }
 
 test.describe('dashboard screenshots', () => {
-  test.skip(!process.env.MGIT_SHOTS, 'set MGIT_SHOTS=1 to regenerate');
+  test.skip(!process.env.MSTUDIO_SHOTS, 'set MSTUDIO_SHOTS=1 to regenerate');
   test.use({ viewport: { width: 1600, height: 1100 } });
 
   test('the board, light', async ({ page }) => {

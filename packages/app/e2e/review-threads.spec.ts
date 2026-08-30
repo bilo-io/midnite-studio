@@ -150,7 +150,7 @@ async function openFiles(page: Page, data: MockFixtures): Promise<void> {
 
 const writes = (page: Page) =>
   page.evaluate(
-    () => (window as unknown as { __mgitWrites?: unknown[] }).__mgitWrites ?? [],
+    () => (window as unknown as { __mstudioWrites?: unknown[] }).__mstudioWrites ?? [],
   );
 
 test('an existing thread renders on the line it was written against', async ({ page }) => {

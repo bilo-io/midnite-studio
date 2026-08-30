@@ -3,7 +3,7 @@
  *
  * Every user-triggerable action is a CommandId, and *nothing* dispatches a
  * keystroke directly. Three sources feed the same dispatcher: the renderer's
- * key handler, the native menu (`mgit:menu:command`), and the command
+ * key handler, the native menu (`mstudio:menu:command`), and the command
  * palette. One registry means a menu item and its shortcut can never drift,
  * and the palette gets its contents for free — including the two ids below
  * that have no chord at all: `op.abort` and `op.continue` are declared here

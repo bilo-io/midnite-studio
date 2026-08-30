@@ -108,10 +108,10 @@ export type FsVersion = z.infer<typeof FsVersionSchema>;
  * same path jail as the fs channels; images/video/PDF never cross IPC as
  * payloads (no base64, and the protocol keeps range requests so video seeks).
  */
-export const MGIT_FILE_SCHEME = 'mgit-file';
+export const MSTUDIO_FILE_SCHEME = 'mstudio-file';
 
 /**
- * Build a jailed media URL: `mgit-file://<scope>/<repoId|->/<relPath>[?wt=…]`.
+ * Build a jailed media URL: `mstudio-file://<scope>/<repoId|->/<relPath>[?wt=…]`.
  *
  * The repoId slot is `-` for the claude-home scope so the URL shape stays
  * fixed-width and the protocol handler parses one format, not two. Segments
@@ -119,7 +119,7 @@ export const MGIT_FILE_SCHEME = 'mgit-file';
  * worktree's checkout rides in `?wt=` and is validated in main against the
  * repo's real worktree list, exactly like the fs channels' `worktreePath`.
  */
-export const mgitFileUrl = (
+export const mstudioFileUrl = (
   scope: FsScope,
   repoId: string | null,
   relPath: string,
@@ -131,13 +131,13 @@ export const mgitFileUrl = (
     .map((segment) => encodeURIComponent(segment))
     .join('/');
   const query = worktreePath ? `?wt=${encodeURIComponent(worktreePath)}` : '';
-  return `${MGIT_FILE_SCHEME}://${scope}/${encodeURIComponent(repoId ?? '-')}/${segments}${query}`;
+  return `${MSTUDIO_FILE_SCHEME}://${scope}/${encodeURIComponent(repoId ?? '-')}/${segments}${query}`;
 };
 
 
 /**
  * Build a jailed URL for a file as it exists AT A REVISION, rather than in the
- * checkout: `mgit-file://repo/<repoId>/<relPath>?rev=<rev>[&wt=…]`.
+ * checkout: `mstudio-file://repo/<repoId>/<relPath>?rev=<rev>[&wt=…]`.
  *
  * Why the same scheme rather than an IPC payload: an image diff needs the
  * *pre-image* bytes, which are not on disk anywhere. Streaming them through the
@@ -146,22 +146,22 @@ export const mgitFileUrl = (
  *
  * `rev` is a git revision as git itself spells it, and the object main asks for
  * is `<rev>:<relPath>`. A rev ending in `:` addresses the index, which is git's
- * own syntax (`:path` is stage 0), so `MGIT_INDEX_REV` reads as the index side
+ * own syntax (`:path` is stage 0), so `MSTUDIO_INDEX_REV` reads as the index side
  * of an unstaged diff without a second URL shape.
  */
-export const mgitBlobUrl = (
+export const mstudioBlobUrl = (
   repoId: string,
   rev: string,
   relPath: string,
   worktreePath?: string | null,
 ): string => {
-  const base = mgitFileUrl('repo', repoId, relPath, worktreePath);
+  const base = mstudioFileUrl('repo', repoId, relPath, worktreePath);
   const separator = base.includes('?') ? '&' : '?';
   return `${base}${separator}rev=${encodeURIComponent(rev)}`;
 };
 
 /** The index side of a diff — `git cat-file blob :path` is stage 0 of the index. */
-export const MGIT_INDEX_REV = ':';
+export const MSTUDIO_INDEX_REV = ':';
 
 /**
  * Ceiling on blob bytes the protocol will read out of git for one request.
@@ -171,7 +171,7 @@ export const MGIT_INDEX_REV = ':';
  * unusual but not pathological. Past it the request 404s and the viewer says
  * the file is too large rather than buffering it.
  */
-export const MGIT_BLOB_MAX_BYTES = 32 * 1024 * 1024;
+export const MSTUDIO_BLOB_MAX_BYTES = 32 * 1024 * 1024;
 
 /**
  * Revisions the protocol will accept, as a whitelist rather than a blacklist.
