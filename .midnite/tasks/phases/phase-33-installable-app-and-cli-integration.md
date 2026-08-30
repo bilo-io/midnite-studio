@@ -331,7 +331,7 @@
     [`toast-store.ts`](../../../packages/app/src/store/toast-store.ts), which nothing calls today;
     the bell in the status bar already renders whatever it holds.
 
-### Theme E — First-Run Onboarding & System Health (S/M/L: M)
+### Theme E — First-Run Onboarding & System Health (S/M/L: M) — ✅ DONE (2026-08-30)
 
 - [ ] Add `onboardedAt: string | null` to `ui-store`.
   - Added to `UiState`, `PersistedUi` and `partialize`; default `null`.

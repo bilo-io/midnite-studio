@@ -2,6 +2,13 @@
 
 <!-- Append one entry per landed phase/PR: date, phase, PR link, one-line summary. -->
 
+## 2026-08-30 — Phase 32 Themes G, H, I & Phase 33 Theme E — Real Browser Chrome, Dev Powers, Forge Links & First-Run Onboarding
+
+- [x] **Phase 32 Theme G — Real Browser Chrome**: Added `FindBar` bottom drawer component, wired `resolveInput` URL/search engine resolution on address bar submit, find-in-page IPC channels (`browserFind`/`browserFindStop`), and zoom/navigation error page integration.
+- [x] **Phase 32 Theme H — Dev Powers**: Added responsive viewport width presets (Mobile 390px, Tablet 834px, Laptop 1280px, Full) to `BrowserPane`, detached DevTools toggle, and dev-server port probing.
+- [x] **Phase 32 Theme I — Forge In Place**: Implemented strict regex preview deploy URL matcher in `preview-deploy.ts` and in-app link handling settings/routing.
+- [x] **Phase 33 Theme E — First-Run Onboarding & System Health**: Created `HealthChecklist` component, `FirstRunModal` with focus trap, and integrated system health diagnostics across settings and onboarding.
+
 ## 2026-08-30 — Screensaver Lockscreen & Host Integration
 
 - [x] **Adhoc Lockscreen**: Ported and completed the lockscreen screensaver from `midnite` to `midnite-studio`. Added `Spinner` rAF orbit/ellipsis animation with mode-based tinting, expanded title word lists for active/waiting/idle modes, CSS sheen and pill shimmer keyframes, and full keyboard/passcode host integration.

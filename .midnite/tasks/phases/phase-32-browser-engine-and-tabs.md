@@ -272,9 +272,15 @@ tokens, theme, density and reduced-motion for free.
 - [ ] Reduced-motion and density respected; the page reflows to the pane's narrowest sensible width
       without horizontal scroll.
 
-### G — The browsing chrome becomes real (M) — ✅ PARTIAL (2026-08-30)
+### G — The browsing chrome becomes real (M) — ✅ DONE (2026-08-30)
 
 Everything the Phase 27 stub drew disabled, now wired — plus the parts a browser is unusable without.
+
+### H — Dev-companion powers (M) — ✅ DONE (2026-08-30)
+
+What makes it the browser of a git client rather than a browser that happens to be in one.
+
+### I — The forge, opened in place (L) — ✅ DONE (2026-08-30)
 
 - [x] Back, Forward, Reload and Stop wired to Theme A's channels. Enabled state comes from
       `canGoBack` / `canGoForward` in tab state, not from guessing.
