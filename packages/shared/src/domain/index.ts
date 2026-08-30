@@ -4,6 +4,7 @@ export * from './diagnostics';
 export * from './diff';
 export * from './forge';
 export * from './metrics';
+export * from './rebase';
 export * from './ref';
 export * from './remote';
 export * from './repo';

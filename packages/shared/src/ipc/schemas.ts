@@ -36,6 +36,7 @@ import {
   MetricSampleSchema,
   RefSchema,
   RemoteSchema,
+  RebaseSequencePlanSchema,
   RepoDescriptorSchema,
   RepoStatsSchema,
   StashDropResultSchema,
@@ -1319,6 +1320,34 @@ export const WindowStateSchema = z.object({
 });
 
 // --- watch -----------------------------------------------------------------
+
+export const RebaseStartRequest = RepoId.extend({
+  targetRef: z.string().min(1),
+  plan: RebaseSequencePlanSchema,
+});
+export const RebaseStartResponse = GitOpResultSchema;
+
+export const RebaseContinueRequest = RepoId;
+export const RebaseContinueResponse = GitOpResultSchema;
+
+export const RebaseAbortRequest = RepoId;
+export const RebaseAbortResponse = GitOpResultSchema;
+
+export const RebaseSkipRequest = RepoId;
+export const RebaseSkipResponse = GitOpResultSchema;
+
+export const RebaseStatusStateSchema = z.object({
+  inProgress: z.boolean(),
+  currentStep: z.number().int().optional(),
+  totalSteps: z.number().int().optional(),
+  headSha: z.string().optional(),
+  ontoSha: z.string().optional(),
+  pausedReason: z.enum(['conflict', 'edit', 'break']).optional(),
+  backupRef: z.string().optional(),
+});
+export const RebaseStatusRequest = RepoId;
+export const RebaseStatusResponse = RebaseStatusStateSchema;
+export type RebaseStatusState = z.infer<typeof RebaseStatusStateSchema>;
 
 export const WatchEventPayload = WatchEventSchema;
 

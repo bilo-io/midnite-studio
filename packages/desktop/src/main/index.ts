@@ -15,6 +15,7 @@ import { bindMetricsToWindow, registerMetricsHandlers } from './ipc/metrics-hand
 import { registerPtyHandlers } from './ipc/pty-handlers';
 import { registerTerminalHandlers } from './ipc/terminal-handlers';
 import { registerRefHandlers } from './ipc/ref-handlers';
+import { registerRebaseHandlers } from './ipc/rebase-handlers';
 import { registerClipboardHandlers } from './ipc/clipboard-handlers';
 import { registerRemoteHandlers } from './ipc/remote-handlers';
 import { registerRepoHandlers } from './ipc/repo-handlers';
@@ -141,6 +142,7 @@ if (!app.requestSingleInstanceLock()) {
     registerSearchHandlers(getWindow);
     registerStatusHandlers();
     registerStatsHandlers();
+    registerRebaseHandlers();
     registerRefHandlers();
     registerRemoteHandlers();
     registerClipboardHandlers();

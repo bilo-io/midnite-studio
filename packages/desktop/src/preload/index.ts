@@ -85,6 +85,7 @@ const bridge: Pick<
   | 'log'
   | 'search'
   | 'blame'
+  | 'rebase'
   | 'status'
   | 'remotes'
 
@@ -140,6 +141,13 @@ const bridge: Pick<
   },
   blame: {
     read: (req) => call(CHANNELS.blameRead, req),
+  },
+  rebase: {
+    start: (req) => call(CHANNELS.rebaseStart, req),
+    continue: (req) => call(CHANNELS.rebaseContinue, req),
+    abort: (req) => call(CHANNELS.rebaseAbort, req),
+    skip: (req) => call(CHANNELS.rebaseSkip, req),
+    status: (req) => call(CHANNELS.rebaseStatus, req),
   },
   status: {
 
