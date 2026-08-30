@@ -362,9 +362,9 @@ export async function installMockBridge(page: Page, fixtures: MockFixtures): Pro
     };
 
     const worktree = {
-      id: 'repo-1:/tmp/midnite-studio',
+      id: 'repo-1:/tmp/midnite-git',
       repoId: 'repo-1',
-      path: '/tmp/midnite-studio',
+      path: '/tmp/midnite-git',
       branch: 'main',
       headSha: 'a'.repeat(40),
       locked: false,
@@ -386,8 +386,8 @@ export async function installMockBridge(page: Page, fixtures: MockFixtures): Pro
 
     const repo = {
       id: 'repo-1',
-      name: 'midnite-studio',
-      path: '/tmp/midnite-studio',
+      name: 'midnite-git',
+      path: '/tmp/midnite-git',
       headRef: 'main',
       worktrees: allWorktrees,
     };
@@ -451,7 +451,7 @@ export async function installMockBridge(page: Page, fixtures: MockFixtures): Pro
 
     (window as unknown as { midniteStudio: unknown }).midniteStudio = {
       /*
-        `/tmp` so the fixture repo at `/tmp/midnite-studio` sits inside "home" and
+        `/tmp` so the fixture repo at `/tmp/midnite-git` sits inside "home" and
         the terminal header renders the `~`-collapsed path the specs assert on.
         The real value is `os.homedir()`; what matters here is only that the
         fixture cwd is under it.
@@ -1620,7 +1620,7 @@ export async function installMockBridge(page: Page, fixtures: MockFixtures): Pro
      * ASCII would quietly stop testing that.
      */
     // eslint-disable-next-line no-var
-    var PROMPT = '\x1b[32m➜\x1b[0m \x1b[36mmidnite-studio\x1b[0m $ ';
+    var PROMPT = '\x1b[32m➜\x1b[0m \x1b[36mmidnite-git\x1b[0m $ ';
 
     /** Canned answers, keyed by the line typed. Anything else gets a not-found. */
     // eslint-disable-next-line no-var
@@ -1628,7 +1628,7 @@ export async function installMockBridge(page: Page, fixtures: MockFixtures): Pro
       'git status': 'On branch main\r\nnothing to commit, working tree clean\r\n',
       ls: 'CLAUDE.md  README.md  docs  packages  todo\r\n',
       claude: '\x1b[38;2;217;119;87m✻\x1b[0m Welcome to Claude Code\r\n',
-      pwd: '/tmp/midnite-studio\r\n',
+      pwd: '/tmp/midnite-git\r\n',
     };
 
     // eslint-disable-next-line no-var

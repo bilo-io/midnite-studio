@@ -13,14 +13,14 @@ import { installMockBridge, type MockFixtures } from './mock-bridge';
  * view actually compose — the same split `actions-view.spec.ts` draws.
  */
 
-const MAIN = '/tmp/midnite-studio';
+const MAIN = '/tmp/midnite-git';
 
 const REMOTES = [
   {
     name: 'origin',
-    fetchUrl: 'git@github.com:bilo-io/midnite-studio.git',
-    pushUrl: 'git@github.com:bilo-io/midnite-studio.git',
-    forge: { host: 'github.com', owner: 'bilo-io', repo: 'midnite-studio', kind: 'github' },
+    fetchUrl: 'git@github.com:bilo-io/midnite-git.git',
+    pushUrl: 'git@github.com:bilo-io/midnite-git.git',
+    forge: { host: 'github.com', owner: 'bilo-io', repo: 'midnite-git', kind: 'github' },
   },
 ];
 
@@ -42,7 +42,7 @@ const pull = (over: Record<string, unknown>) => ({
   mergedAt: null,
   closedAt: null,
   ...over,
-  url: `https://github.com/bilo-io/midnite-studio/pull/${String(over['number'])}`,
+  url: `https://github.com/bilo-io/midnite-git/pull/${String(over['number'])}`,
 });
 
 /**

@@ -8,20 +8,20 @@ import { parseRemoteUrl } from './remote-url';
  * per-case `it` hides that — the table makes a disagreement between two rows
  * that should match visible at a glance.
  */
-const GITHUB = { host: 'github.com', owner: 'bilo-io', repo: 'midnite-studio', kind: 'github' };
+const GITHUB = { host: 'github.com', owner: 'bilo-io', repo: 'midnite-git', kind: 'github' };
 
 describe('parseRemoteUrl', () => {
   it.each([
-    ['scp-like with user', 'git@github.com:bilo-io/midnite-studio.git', GITHUB],
-    ['scp-like without user', 'github.com:bilo-io/midnite-studio.git', GITHUB],
-    ['scp-like without .git', 'git@github.com:bilo-io/midnite-studio', GITHUB],
-    ['https', 'https://github.com/bilo-io/midnite-studio.git', GITHUB],
-    ['https without .git', 'https://github.com/bilo-io/midnite-studio', GITHUB],
-    ['https with trailing slash', 'https://github.com/bilo-io/midnite-studio/', GITHUB],
-    ['ssh:// with explicit port', 'ssh://git@github.com:22/bilo-io/midnite-studio.git', GITHUB],
-    ['ssh:// without port', 'ssh://git@github.com/bilo-io/midnite-studio.git', GITHUB],
-    ['git://', 'git://github.com/bilo-io/midnite-studio.git', GITHUB],
-    ['surrounding whitespace', '  git@github.com:bilo-io/midnite-studio.git\n', GITHUB],
+    ['scp-like with user', 'git@github.com:bilo-io/midnite-git.git', GITHUB],
+    ['scp-like without user', 'github.com:bilo-io/midnite-git.git', GITHUB],
+    ['scp-like without .git', 'git@github.com:bilo-io/midnite-git', GITHUB],
+    ['https', 'https://github.com/bilo-io/midnite-git.git', GITHUB],
+    ['https without .git', 'https://github.com/bilo-io/midnite-git', GITHUB],
+    ['https with trailing slash', 'https://github.com/bilo-io/midnite-git/', GITHUB],
+    ['ssh:// with explicit port', 'ssh://git@github.com:22/bilo-io/midnite-git.git', GITHUB],
+    ['ssh:// without port', 'ssh://git@github.com/bilo-io/midnite-git.git', GITHUB],
+    ['git://', 'git://github.com/bilo-io/midnite-git.git', GITHUB],
+    ['surrounding whitespace', '  git@github.com:bilo-io/midnite-git.git\n', GITHUB],
   ])('normalises %s', (_label, url, expected) => {
     expect(parseRemoteUrl(url)).toEqual(expected);
   });

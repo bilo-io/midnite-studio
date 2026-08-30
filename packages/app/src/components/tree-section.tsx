@@ -48,7 +48,7 @@ export function TreeSection({
    *
    * With an `icon` it renders as an `IconButton`, so the label becomes the
    * tooltip and the accessible name rather than visible text — which is what a
-   * heading needs when the label is a sentence ("Open bilo-io/midnite-studio on
+   * heading needs when the label is a sentence ("Open bilo-io/midnite-git on
    * github.com") that would otherwise push the row's own title out of view.
    */
   action?: { label: string; onClick: () => void; icon?: IconComponent };

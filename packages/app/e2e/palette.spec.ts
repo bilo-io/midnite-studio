@@ -11,7 +11,7 @@ import { installMockBridge, type MockFixtures } from './mock-bridge';
  * firing out from under the search input.
  */
 
-const MAIN = '/tmp/midnite-studio';
+const MAIN = '/tmp/midnite-git';
 
 const localRef = (name: string, over: Record<string, unknown> = {}) => ({
   name,

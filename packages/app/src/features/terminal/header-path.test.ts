@@ -4,13 +4,13 @@ import { splitHeaderPath } from './header-path';
 import type { ResolvedRepoPath } from './resolve-repo-for-path';
 
 const HOME = '/Users/bilolwabona';
-const at = (root: string): ResolvedRepoPath => ({ repoId: 'r1', repoName: 'midnite-studio', root });
+const at = (root: string): ResolvedRepoPath => ({ repoId: 'r1', repoName: 'midnite-git', root });
 
 describe('splitHeaderPath', () => {
   it('splits at the repository root, `~`-collapsing the ancestors', () => {
-    expect(splitHeaderPath(`${HOME}/Dev/midnite-studio`, HOME, at(`${HOME}/Dev/midnite-studio`))).toEqual({
+    expect(splitHeaderPath(`${HOME}/Dev/midnite-git`, HOME, at(`${HOME}/Dev/midnite-git`))).toEqual({
       head: '~/Dev/',
-      tail: 'midnite-studio',
+      tail: 'midnite-git',
       emphasised: true,
     });
   });
@@ -18,26 +18,26 @@ describe('splitHeaderPath', () => {
   it('keeps everything below the checkout in the tail', () => {
     expect(
       splitHeaderPath(
-        `${HOME}/Dev/midnite-studio/packages/app`,
+        `${HOME}/Dev/midnite-git/packages/app`,
         HOME,
-        at(`${HOME}/Dev/midnite-studio`),
+        at(`${HOME}/Dev/midnite-git`),
       ),
-    ).toEqual({ head: '~/Dev/', tail: 'midnite-studio/packages/app', emphasised: true });
+    ).toEqual({ head: '~/Dev/', tail: 'midnite-git/packages/app', emphasised: true });
   });
 
   it('splits at the nested worktree, not the repository containing it', () => {
-    const root = `${HOME}/Dev/midnite-studio/.worktrees/theme-f`;
+    const root = `${HOME}/Dev/midnite-git/.worktrees/theme-f`;
     expect(splitHeaderPath(`${root}/packages/app`, HOME, at(root))).toEqual({
-      head: '~/Dev/midnite-studio/.worktrees/',
+      head: '~/Dev/midnite-git/.worktrees/',
       tail: 'theme-f/packages/app',
       emphasised: true,
     });
   });
 
   it('leaves a path outside home uncollapsed', () => {
-    expect(splitHeaderPath('/tmp/midnite-studio/pkg', HOME, at('/tmp/midnite-studio'))).toEqual({
+    expect(splitHeaderPath('/tmp/midnite-git/pkg', HOME, at('/tmp/midnite-git'))).toEqual({
       head: '/tmp/',
-      tail: 'midnite-studio/pkg',
+      tail: 'midnite-git/pkg',
       emphasised: true,
     });
   });
@@ -46,13 +46,13 @@ describe('splitHeaderPath', () => {
     The case the naive `path.length - splitAt` arithmetic gets wrong: a
     dotfiles repository registered AT the home directory. Slicing the collapsed
     string from the right by a length measured on the raw one splits
-    `~/Dev/midnite-studio` into `~/Dev/m` + `idnite-git` — an emphasis boundary in
+    `~/Dev/midnite-git` into `~/Dev/m` + `idnite-git` — an emphasis boundary in
     the middle of a word, and left-truncation then eating into the repo name.
   */
   it('does not split mid-word when the checkout IS the home directory', () => {
-    expect(splitHeaderPath(`${HOME}/Dev/midnite-studio`, HOME, at(HOME))).toEqual({
+    expect(splitHeaderPath(`${HOME}/Dev/midnite-git`, HOME, at(HOME))).toEqual({
       head: '',
-      tail: '~/Dev/midnite-studio',
+      tail: '~/Dev/midnite-git',
       emphasised: true,
     });
   });
@@ -95,15 +95,15 @@ describe('splitHeaderPath', () => {
   });
 
   it('passes the path through when home is unknown', () => {
-    expect(splitHeaderPath(`${HOME}/Dev/midnite-studio`, null, at(`${HOME}/Dev/midnite-studio`))).toEqual(
-      { head: '/Users/bilolwabona/Dev/', tail: 'midnite-studio', emphasised: true },
+    expect(splitHeaderPath(`${HOME}/Dev/midnite-git`, null, at(`${HOME}/Dev/midnite-git`))).toEqual(
+      { head: '/Users/bilolwabona/Dev/', tail: 'midnite-git', emphasised: true },
     );
   });
 
   it('reassembles to the collapsed path in every case', () => {
     const cases: Array<[string, ResolvedRepoPath | null]> = [
-      [`${HOME}/Dev/midnite-studio/packages/app`, at(`${HOME}/Dev/midnite-studio`)],
-      [`${HOME}/Dev/midnite-studio`, at(HOME)],
+      [`${HOME}/Dev/midnite-git/packages/app`, at(`${HOME}/Dev/midnite-git`)],
+      [`${HOME}/Dev/midnite-git`, at(HOME)],
       [`${HOME}/Downloads/x`, null],
       ['/tmp/a/b', at('/tmp')],
       ['/tmp/a/b', at('/')],

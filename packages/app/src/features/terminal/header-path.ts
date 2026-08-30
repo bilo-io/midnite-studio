@@ -23,7 +23,7 @@ export type HeaderPathParts = {
  * the right. That distinction is the whole reason this is a tested function:
  * the tempting `path.length - splitAt` arithmetic assumes `~` never eats into
  * the tail, and a repository registered at the home directory breaks exactly
- * that assumption — `/Users/you` as a root splits `~/Dev/midnite-studio` into
+ * that assumption — `/Users/you` as a root splits `~/Dev/midnite-git` into
  * `~/Dev/m` + `idnite-git`, a boundary in the middle of a word.
  */
 export function splitHeaderPath(
@@ -54,7 +54,7 @@ export function splitHeaderPath(
 
 /**
  * Index of the last path segment's first character — where `…/Dev/` ends and
- * `midnite-studio` begins.
+ * `midnite-git` begins.
  *
  * String work rather than `node:path`: the renderer may not import node
  * builtins (see the package boundaries in CLAUDE.md).

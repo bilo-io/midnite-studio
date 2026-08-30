@@ -20,9 +20,9 @@ const HEAD_SHA = 'c0ffee'.padEnd(40, '0');
 const REMOTES = [
   {
     name: 'origin',
-    fetchUrl: 'git@github.com:bilo-io/midnite-studio.git',
-    pushUrl: 'git@github.com:bilo-io/midnite-studio.git',
-    forge: { host: 'github.com', owner: 'bilo-io', repo: 'midnite-studio', kind: 'github' },
+    fetchUrl: 'git@github.com:bilo-io/midnite-git.git',
+    pushUrl: 'git@github.com:bilo-io/midnite-git.git',
+    forge: { host: 'github.com', owner: 'bilo-io', repo: 'midnite-git', kind: 'github' },
   },
 ];
 
@@ -35,7 +35,7 @@ const pull = {
   checks: 'failing',
   headBranch: 'feature/phase-20-pr-detail',
   author: 'bilo',
-  url: 'https://github.com/bilo-io/midnite-studio/pull/128',
+  url: 'https://github.com/bilo-io/midnite-git/pull/128',
 };
 
 const line = (
@@ -84,7 +84,7 @@ const run = {
   createdAt: '2026-08-27T09:40:00Z',
   startedAt: '2026-08-27T09:40:05Z',
   updatedAt: '2026-08-27T09:44:18Z',
-  url: 'https://github.com/bilo-io/midnite-studio/actions/runs/4211',
+  url: 'https://github.com/bilo-io/midnite-git/actions/runs/4211',
   event: 'pull_request',
   workflowId: '900',
   workflowName: 'CI',
@@ -105,7 +105,7 @@ const data: MockFixtures = {
   ...fixtures,
   remotes: REMOTES,
   statusEntries: [],
-  statusByWorktree: { '/tmp/midnite-studio': [] },
+  statusByWorktree: { '/tmp/midnite-git': [] },
   forge: {
     cli: { reason: 'ready' },
     pulls: [pull],
@@ -209,7 +209,7 @@ const data: MockFixtures = {
             conclusion: 'success',
             startedAt: '2026-08-27T09:40:10Z',
             completedAt: '2026-08-27T09:41:40Z',
-            url: 'https://github.com/bilo-io/midnite-studio/actions/runs/4211/job/10',
+            url: 'https://github.com/bilo-io/midnite-git/actions/runs/4211/job/10',
             steps: [step(1, 'Set up job', 'success'), step(2, 'moon run :typecheck', 'success')],
           },
           {
@@ -219,7 +219,7 @@ const data: MockFixtures = {
             conclusion: 'failure',
             startedAt: '2026-08-27T09:40:10Z',
             completedAt: '2026-08-27T09:44:12Z',
-            url: 'https://github.com/bilo-io/midnite-studio/actions/runs/4211/job/11',
+            url: 'https://github.com/bilo-io/midnite-git/actions/runs/4211/job/11',
             steps: [
               step(1, 'Set up job', 'success'),
               step(2, 'pnpm install', 'success'),

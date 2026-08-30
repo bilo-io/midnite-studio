@@ -11,13 +11,13 @@ describe('collapseHome', () => {
 
   it('collapses a child of home', () => {
     expect(collapseHome(`${HOME}/Dev`, HOME)).toBe('~/Dev');
-    expect(collapseHome(`${HOME}/Dev/midnite-studio/.worktrees/x`, HOME)).toBe(
-      '~/Dev/midnite-studio/.worktrees/x',
+    expect(collapseHome(`${HOME}/Dev/midnite-git/.worktrees/x`, HOME)).toBe(
+      '~/Dev/midnite-git/.worktrees/x',
     );
   });
 
   it('leaves a path outside home alone', () => {
-    expect(collapseHome('/tmp/midnite-studio', HOME)).toBe('/tmp/midnite-studio');
+    expect(collapseHome('/tmp/midnite-git', HOME)).toBe('/tmp/midnite-git');
     expect(collapseHome('/', HOME)).toBe('/');
   });
 

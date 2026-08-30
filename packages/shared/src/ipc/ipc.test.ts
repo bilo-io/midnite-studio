@@ -941,7 +941,7 @@ describe('terminal and pty schemas', () => {
   const session = {
     id: 's1',
     kind: 'shell' as const,
-    title: 'midnite-studio',
+    title: 'midnite-git',
     cwd: '/repo',
     repoId: 'r1',
     createdAt: 0,
