@@ -51,91 +51,92 @@ Effort tags: **S** ≈ an hour or two · **M** ≈ half a day · **L** ≈ a day
 
 ## Deliverables
 
-### A — The split row model (M)
+### A — The split row model (M) ✅ DONE (PR #1, 2026-08-30)
 
 Pure, DOM-free and testable, sitting beside `toDiffRows` in the same module. Everything else reads
 off this shape, so it lands first.
 
-- [ ] `SplitRow` union in [`diff-rows.ts`](../packages/app/src/features/diff/diff-rows.ts):
+- [x] `SplitRow` union in [`diff-rows.ts`](../packages/app/src/features/diff/diff-rows.ts):
       `{kind:'hunk'}` (spans both columns, carries the same `gap` and heading as today),
       `{kind:'pair', left: DiffLine | null, right: DiffLine | null}`, plus the existing
       `{kind:'thread'}` and `{kind:'composer'}` re-used verbatim — threads span both columns, so
       they need no split-specific variant.
-- [ ] `toSplitRows(diff: FileDiff): SplitRow[]` — walks hunks in order; a `ctx` line becomes a pair
+- [x] `toSplitRows(diff: FileDiff): SplitRow[]` — walks hunks in order; a `ctx` line becomes a pair
       with the *same* line on both sides (each keeping its own `oldNo`/`newNo`), and a run of
       deletions immediately followed by additions is paired positionally.
-- [ ] `pairRun(dels: DiffLine[], adds: DiffLine[]): SplitRow[]` as its own export: rows
+- [x] `pairRun(dels: DiffLine[], adds: DiffLine[]): SplitRow[]` as its own export: rows
       `0..min(n,m)-1` sit side by side, the remainder gets `null` opposite. This is deliberately the
       same positional rule as `pairLines` in
       [`diff-parser.ts`](../packages/git-engine/src/parsers/diff-parser.ts) — add a test that
       asserts the correspondence directly, so a future change to one is caught against the other.
-- [ ] `canSplit(diff: FileDiff): boolean` — `false` for `combined` (a conflict diff has three sides
+- [x] `canSplit(diff: FileDiff): boolean` — `false` for `combined` (a conflict diff has three sides
       and no honest two-column reading), for `binary`, and for a diff with no hunks. The call sites
       never branch on `combined` themselves.
-- [ ] `withCommentRows` generalised to take either row list, or a `withSplitCommentRows` sibling —
+- [x] `withCommentRows` generalised to take either row list, or a `withSplitCommentRows` sibling —
       threads insert *after* the pair whose `right.newNo` (or, from Theme F, `left.oldNo`) they are
       anchored to.
-- [ ] An exported `splitRowKey(row, index)` so the virtualizer and React both key on something
+- [x] An exported `splitRowKey(row, index)` so the virtualizer and React both key on something
       stable across a context expansion, rather than on the array index.
-- [ ] Vitest in [`diff-rows.test.ts`](../packages/app/src/features/diff/diff-rows.test.ts): a
+- [x] Vitest in [`diff-rows.test.ts`](../packages/app/src/features/diff/diff-rows.test.ts): a
       balanced 3-for-3 run, an unbalanced 5-for-2 and 2-for-5, a pure addition against an empty
       file, a pure deletion, a hunk gap, and a `combined` diff returning `canSplit === false`.
 
-### B — One cell, two layouts (M)
+### B — One cell, two layouts (M) ✅ DONE (PR #1, 2026-08-30)
 
 The theme that makes the "there is one diff renderer" guardrail structurally true rather than a
 promise. No user-visible change lands here; unified must look byte-identical afterwards.
 
-- [ ] Extract the body of `LineRow` in
+- [x] Extract the body of `LineRow` in
       [`diff-view.tsx`](../packages/app/src/features/diff/diff-view.tsx) into a `DiffCell` —
       the 2px kind bar, the line-number gutter, the marker column, and the text with its
       `data-diff-mark` intraline spans and merged shiki tokens.
-- [ ] `DiffCell` takes an explicit `gutter: 'old' | 'new' | 'both'` prop instead of reading
+- [x] `DiffCell` takes an explicit `gutter: 'old' | 'new' | 'both'` prop instead of reading
       `diffShowOldGutter` itself: unified passes `'both'` or `'new'`, split passes `'old'` on the
       left and `'new'` on the right. The store read moves up to `DiffView`.
-- [ ] A `null` cell renders as a filler — the kind bar and gutter drawn empty at the same
+- [x] A `null` cell renders as a filler — the kind bar and gutter drawn empty at the same
       `ROW_HEIGHT`, so a one-sided run does not collapse the row it is opposite.
-- [ ] `useLineHighlight` in
+- [x] `useLineHighlight` in
       [`line-highlight.ts`](../packages/app/src/features/diff/line-highlight.ts) is called from
       `DiffCell`, unchanged. Its cache key is already content-keyed
       (`${dark}${path}${kind}${text}`), so a line highlighted on the left in split is free on the
       right in unified — confirm that with a test rather than assuming it.
-- [ ] `LineRow` becomes a thin unified wrapper over one `DiffCell`; `mergeSegmentsWithTokens` and
+- [x] `LineRow` becomes a thin unified wrapper over one `DiffCell`; `mergeSegmentsWithTokens` and
       `toSegments` are untouched and stay in `diff-rows.ts`.
-- [ ] Confirm no visual regression: the existing
+- [x] Confirm no visual regression: the existing
       [`e2e/diff-view.spec.ts`](../packages/app/e2e/diff-view.spec.ts) passes unmodified, and the
       committed unified screenshots do not change.
 
-### C — Two columns, and the toggle (M)
+### C — Two columns, and the toggle (M) ✅ DONE (PR #1, 2026-08-30)
 
-- [ ] A `SplitBody` inside `diff-view.tsx` mounting `toSplitRows` through the existing
+- [x] A `SplitBody` inside `diff-view.tsx` mounting `toSplitRows` through the existing
       `useVirtualizer`, with the same `ROW_HEIGHT = 18`, `THREAD_ESTIMATE`, `COMPOSER_ESTIMATE`,
       `measureElement` and `overscan: 24`. A pair row is one virtual item, not two.
-- [ ] **Locked horizontal scroll**: one scroller drives both columns, so the same column offset is
+- [x] **Locked horizontal scroll**: one scroller drives both columns, so the same column offset is
       the same column offset on both sides. Implemented as a single `overflow-x-auto` wrapping a
       two-column grid — not two scrollers synchronised by an event handler, which fights the
       virtualizer and drifts on momentum scroll.
-- [ ] `diffLayout: 'unified' | 'split'` in
+- [x] `diffLayout: 'unified' | 'split'` in
       [`ui-store.ts`](../packages/app/src/store/ui-store.ts) beside `diffShowOldGutter`, with
       `setDiffLayout`, added to **both** the `PersistedUi` type and `partialize` (the type exists
       precisely so those two cannot drift), and a `version: 3` `migrate` arm defaulting existing
       users to `'unified'`.
-- [ ] A toolbar toggle in `DiffView` next to the old-gutter button, using `react-icons` per
+- [x] A toolbar toggle in `DiffView` next to the old-gutter button, using `react-icons` per
       [`CLAUDE.md`](../CLAUDE.md) — and read the file first: `diff-view.tsx` currently imports
       `Columns2`/`Columns3` from `lucide-react`, so match the family already in the file rather
       than mixing.
-- [ ] Auto-fallback: a `ResizeObserver` on the diff body, below a threshold the surface renders
+- [x] Auto-fallback: a `ResizeObserver` on the diff body, below a threshold the surface renders
       unified regardless of the preference, and the toggle shows *why* rather than appearing broken.
       The preference is never rewritten by the fallback.
-- [ ] The centre divider: a 1px rule between columns, and per-column `min-w-0` so a long line
+- [x] The centre divider: a 1px rule between columns, and per-column `min-w-0` so a long line
       scrolls rather than pushing its neighbour off-screen.
-- [ ] `describeEmptyDiff` and the truncation footer (`truncated`, `droppedLines`) render the same in
+- [x] `describeEmptyDiff` and the truncation footer (`truncated`, `droppedLines`) render the same in
       both layouts — they are file-level, not row-level, and should not be re-implemented.
-- [ ] Playwright `e2e/diff-split.spec.ts`: toggle to split, assert both gutters are present with the
+- [x] Playwright `e2e/diff-split.spec.ts`: toggle to split, assert both gutters are present with the
       right numbers on an unbalanced hunk, assert one-sided rows have a blank opposite, and assert
       the layout survives a reload (persistence).
 
-### D — The accordions learn to virtualize (L)
+### D — The accordions learn to virtualize (L) ✅ DONE (PR #1, 2026-08-30)
+
 
 `inline` mode has no virtualizer at all — [`file-accordion.tsx`](../packages/app/src/features/changes/file-accordion.tsx)
 and [`pr-file-accordion.tsx`](../packages/app/src/features/reviews/pr-file-accordion.tsx) render
