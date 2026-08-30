@@ -84,6 +84,6 @@ jobs:
 
       - uses: actions/upload-artifact@v4
         with:
-          name: midnite-git-macos-arm64
+          name: midnite-studio-macos-arm64
           path: packages/desktop/release/*.dmg
           if-no-files-found: error

@@ -2,7 +2,7 @@
 
 **Refined: x1** · 2026-08-28 · UI/UX, visual design, accessibility, empty/loading/error states, data model & IPC, concurrency, edge cases, persistence, performance, testing, observability, security, sequencing, file-map, acceptance criteria, out-of-scope
 
-Twenty-four phases in, Midnite Git can stream a hundred thousand commits, highlight every diff in
+Twenty-four phases in, Midnite Studio can stream a hundred thousand commits, highlight every diff in
 the app with shiki, browse a repo's files in a preview pane and review a pull request without
 leaving the window — and it cannot answer *when did this line get here*, or *which commit deleted
 that function*. A grep across all four packages for `blame`, `pickaxe`, `log -S`, `--pickaxe` and

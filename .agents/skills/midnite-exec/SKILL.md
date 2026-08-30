@@ -5,14 +5,14 @@ description: Pick one or more unblocked .midnite/tasks/ themes across up to 4 ph
 
 **Invoke with:** [optional: phase number or task hint]
 
-End-to-end "execute a phase slice" for **Midnite Git**.
+End-to-end "execute a phase slice" for **Midnite Studio**.
 
 **Conversation style — enforced.** Be terse to save time and tokens. No preamble, no recap of these instructions, no narrating what you're *about* to do. Report results, not intentions; bullets over prose. Stay silent on no-op stages. Spend tokens on code, diffs, and decisions — not commentary.
 
 ## Respect
 - `CLAUDE.md` = conventions (package boundaries — `shared ◀ git-engine ◀ desktop`, `shared ◀ app`; commit style; pre-push gate). Re-read the relevant bits before coding. `docs/INITIAL_PLAN.md` is the design source of truth.
 - `.midnite/tasks/` = tracker: **`_INDEX.md` (the roll-up you scan first — phase status, progress, `🔄 WIP`/`◻ TODO` themes)**, `phase-N-*.md` (open checklist per phase), `done.md` (append-only, newest first), `open-decisions.md`, `outstanding.md`; rules in `.midnite/tasks/README.md`. Markers: `- [ ]` open · `- [x]`/`✅` done · `◐ PARTIAL` · `⏳ deferred` · `❌ OUT OF SCOPE`. Never pick `deferred`/`OUT OF SCOPE` unless told. `_INDEX.md` is the source of truth for what's claimed/in-flight — keep it current (Stages 2.7 + 10).
-- Parallel work → git worktrees in the repo-root **`.worktrees/<branch>/`** dir (git-ignored; **never** under `.git/` — that path gets pruned by parallel `git worktree` runs and Vite denies `.git/**`); keep the primary checkout (`/Users/bilolwabona/Dev/midnite-git`) as home base.
+- Parallel work → git worktrees in the repo-root **`.worktrees/<branch>/`** dir (git-ignored; **never** under `.git/` — that path gets pruned by parallel `git worktree` runs and Vite denies `.git/**`); keep the primary checkout (`/Users/bilolwabona/Dev/midnite-studio`) as home base.
 - **`.worktrees/` is outside `.git/`, so the full `moon run :test` runs fine inside the worktree** — no need to hop back to the primary checkout.
 
 ## 1 · Scan

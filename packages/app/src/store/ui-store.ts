@@ -11,6 +11,8 @@ import {
 } from '../features/graph/graph-themes';
 import { useFileEditorStore } from './file-editor-store';
 
+import { adoptRenamedPersistKey } from './persist-rename';
+
 /**
  * Collapse/expand/lock behaviour of the nav rail, mirroring `AppFrame`'s
  * `navMode` prop.
@@ -659,6 +661,12 @@ type PersistedUi = Pick<
   | 'collapsedRepoGroups'
 >;
 
+/**
+ * Pre-rename state, adopted before the store hydrates — see
+ * `persist-rename.ts` for why this cannot be a zustand `migrate`.
+ */
+adoptRenamedPersistKey('midnite-studio.ui', 'midnite-studio.ui');
+
 export const useUiStore = create<UiState>()(
   persist(
     (set) => ({
@@ -883,7 +891,7 @@ export const useUiStore = create<UiState>()(
       setPrimaryAgent: (id) => set({ primaryAgent: id }),
     }),
     {
-      name: 'midnite-git.ui',
+      name: 'midnite-studio.ui',
       // 4 — `repoGroups`, `repoGroupMembership`, `collapsedRepoGroups` are new.
       // 3 — `collapsedRepoSections` is new (Phase 28 Theme D); a v2 payload has
       // no such key, and the migration below supplies `{}` for it.

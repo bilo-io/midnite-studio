@@ -165,7 +165,7 @@ shell — and is left open.*
       and its data dependency (`stats` | `forge` | `both`), so the board can render, list and gate
       widgets from one table rather than a switch statement
 - [x] Layout persisted **per repository** in `ui-store` under the existing
-      `midnite-git.ui` key, with a shared default applied to any repo not yet customised, plus
+      `midnite-studio.ui` key, with a shared default applied to any repo not yet customised, plus
       **Reset layout** and an add/remove-widget menu
 - [x] Widgets whose data source is unavailable **remove themselves from the picker** rather than
       rendering an error tile — no GitHub remote means no PRs, issues or runs widget at all

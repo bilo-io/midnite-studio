@@ -1,6 +1,6 @@
 # Phase 23 — A command palette, and the registry that can finally feed it
 
-Twenty-two phases in, Midnite Git has fifteen named commands, thirteen keyboard chords, a native
+Twenty-two phases in, Midnite Studio has fifteen named commands, thirteen keyboard chords, a native
 menu that dispatches by command id, and no way to reach any of it by typing. The keymap module's own
 doc comment has been promising the missing surface since Phase 9 — it names "(later) a command
 palette" as dispatch source number three, beside the window keydown listener and the native menu —

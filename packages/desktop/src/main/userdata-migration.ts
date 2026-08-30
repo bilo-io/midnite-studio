@@ -3,20 +3,25 @@ import { copyFile, mkdir } from 'node:fs/promises';
 import { join } from 'node:path';
 
 /**
- * The name `app.setName` used before the display-name rename to "Midnite Git".
+ * Every name `app.setName` has used before the current one, newest first.
  *
  * On macOS `app.getPath('userData')` is `~/Library/Application Support/<app
  * name>`, so renaming the app silently moves the data directory: the user's
  * open-repository list is still on disk, just under a path nothing reads any
  * more. That reads as "the app forgot my repos" rather than as a rename.
+ *
+ * A list, not one name, because there have now been two renames — the
+ * display-name change to "Midnite Git", then the product rename to "Midnite
+ * Studio". Someone who skipped a version has their data under the oldest of
+ * these, and newest-first ordering means the freshest list wins.
  */
-export const LEGACY_APP_NAME = 'midnite-git';
+export const LEGACY_APP_NAMES = ['Midnite Git', 'midnite-git'] as const;
 
 /** The only file worth carrying over; everything else in userData is Chromium cache. */
 const FILE_NAME = 'repos.json';
 
 /**
- * Copy the persisted repository list out of the pre-rename userData directory.
+ * Copy the persisted repository list out of a pre-rename userData directory.
  *
  * Copy, not move: leaving the legacy directory intact means a downgrade to an
  * older build still finds its data, and the cost is one small JSON file.
@@ -48,4 +53,21 @@ export async function migrateLegacyRepoStore(
     // unreadable data dir. All three mean "boot normally with what's there".
     return false;
   }
+}
+
+/**
+ * Try every legacy name in turn, stopping at the first that yields data.
+ *
+ * `COPYFILE_EXCL` inside `migrateLegacyRepoStore` already makes a second
+ * successful copy impossible, so stopping early is about not doing pointless
+ * filesystem work rather than about correctness.
+ */
+export async function migrateAnyLegacyRepoStore(
+  legacyDirectoryFor: (name: string) => string,
+  currentDirectory: string,
+): Promise<string | null> {
+  for (const name of LEGACY_APP_NAMES) {
+    if (await migrateLegacyRepoStore(legacyDirectoryFor(name), currentDirectory)) return name;
+  }
+  return null;
 }

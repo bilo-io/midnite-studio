@@ -6,7 +6,7 @@
  * **Repo-local binaries execute only for repositories the user has explicitly
  * trusted, and the prompt names the command.**
  *
- * This module is the first place Midnite Git runs a program that belongs to the
+ * This module is the first place Midnite Studio runs a program that belongs to the
  * repository rather than to us. Everything else that spawns is one of three
  * things: the bundled git, a binary found on the PATH a login shell builds
  * (`gh`, `claude`), or the user's own shell at their explicit request in the

@@ -36,9 +36,9 @@ const REFS = [
 const REMOTES = [
   {
     name: 'origin',
-    fetchUrl: 'git@github.com:bilo-io/midnite-git.git',
-    pushUrl: 'git@github.com:bilo-io/midnite-git.git',
-    forge: { host: 'github.com', owner: 'bilo-io', repo: 'midnite-git', kind: 'github' },
+    fetchUrl: 'git@github.com:bilo-io/midnite-studio.git',
+    pushUrl: 'git@github.com:bilo-io/midnite-studio.git',
+    forge: { host: 'github.com', owner: 'bilo-io', repo: 'midnite-studio', kind: 'github' },
   },
 ];
 
@@ -63,10 +63,10 @@ test('folding Remotes survives collapsing and re-expanding the repo, and a reloa
 
   // Collapsing the repo row unmounts `RepoTree` outright — the regression a
   // per-mount `useState` could not survive.
-  await panel(page).getByRole('button', { name: 'Collapse midnite-git' }).click();
+  await panel(page).getByRole('button', { name: 'Collapse midnite-studio' }).click();
   await expect(heading(page, 'Remotes')).toHaveCount(0);
 
-  await panel(page).getByRole('button', { name: 'Expand midnite-git' }).click();
+  await panel(page).getByRole('button', { name: 'Expand midnite-studio' }).click();
   await expect(heading(page, 'Remotes')).toBeVisible();
   await expect(section(page, 'Remotes')).toHaveAttribute('aria-expanded', 'false');
 

@@ -36,13 +36,13 @@ export function BrandMark({ className = 'h-5 w-5' }: { className?: string }) {
 }
 
 /**
- * "Midnite Git" — the brand face for the name, the UI face for the qualifier.
+ * "Midnite Studio" — the brand face for the name, the UI face for the qualifier.
  *
  * The two words are weighted differently on purpose: `Midnite` is the brand and
  * is set in Quick Kiss, the same face the midnite app uses for its own wordmark
- * (`WORDMARK_LOGO_FONT` there). `Git` says which of its apps this is, so it stays
- * in the UI face — setting both in the display face would read as one made-up
- * word.
+ * (`WORDMARK_LOGO_FONT` there). `Studio` says which of its apps this is, so it
+ * stays in the UI face — setting both in the display face would read as one
+ * made-up word.
  *
  * Matches the display name everywhere else: electron-builder's `productName`,
  * `app.setName`, and the document title.
@@ -51,7 +51,7 @@ export function Wordmark({ className = '' }: { className?: string }) {
   return (
     <span className={`select-none whitespace-nowrap leading-none ${className}`}>
       <span className="font-brand text-[1.35em] tracking-wide">Midnite</span>
-      <span className="ml-1.5 font-medium text-muted-foreground">Git</span>
+      <span className="ml-1.5 font-medium text-muted-foreground">Studio</span>
     </span>
   );
 }

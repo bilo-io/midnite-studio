@@ -16,8 +16,8 @@ import { installMockBridge, type MockFixtures } from './mock-bridge';
 const session = (id: string, over: Record<string, unknown> = {}) => ({
   id,
   kind: 'shell',
-  title: 'midnite-git',
-  cwd: '/tmp/midnite-git',
+  title: 'midnite-studio',
+  cwd: '/tmp/midnite-studio',
   repoId: 'repo-1',
   createdAt: 1_787_000_000,
   ...over,

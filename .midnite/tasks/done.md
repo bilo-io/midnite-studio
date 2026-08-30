@@ -2820,7 +2820,7 @@ midnite itself uses, which is also what makes one asset work on both themes.
 ## 2026-08-25 — Phase 13 · UI polish
 
 Resizable panels (sidebar, terminal, commit detail, changes list) with geometry persisted in
-`midnite-git.ui`; a full per-repo ref tree (Branches · Remotes · Tags · Worktrees) replacing the
+`midnite-studio.ui`; a full per-repo ref tree (Branches · Remotes · Tags · Worktrees) replacing the
 worktree-only sidebar, with `FolderGit2` distinguishing a checkout from a branch; a lockable nav
 rail; the theme toggle and an icon-only fetch/pull/push cluster moved into the title bar (with a
 framed-window fallback, since `<TitleBar>` renders nothing off darwin); graph column headers with

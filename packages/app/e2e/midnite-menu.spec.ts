@@ -16,7 +16,7 @@ import { installMockBridge } from './mock-bridge';
  * store test could only ever check one of.
  */
 
-const REPO = 'midnite-git';
+const REPO = 'midnite-studio';
 
 async function open(page: Page): Promise<void> {
   await installMockBridge(page, fixtures);

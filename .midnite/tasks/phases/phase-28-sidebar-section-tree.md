@@ -310,7 +310,7 @@ that does.
       disappears entirely rather than rendering an empty heading.
 - [x] Screenshot, per the visual-phase convention: the full tree expanded to depth 4 ✅
 - [x] **Open, for a human:** a repository with several remotes and a few hundred branches ✅
-- [x] **Open, for a human:** relaunch a packaged build with a v2 `midnite-git.ui` in localStorage and confirm the migration lands without resetting panel sizes ✅
+- [x] **Open, for a human:** relaunch a packaged build with a v2 `midnite-studio.ui` in localStorage and confirm the migration lands without resetting panel sizes ✅
 
 ## Not in this phase
 

@@ -1,17 +1,17 @@
-appId: io.bilo.midnite-git
+appId: io.bilo.midnite-studio
 # The user-visible app name — the .app bundle, the macOS menu bar, the Dock.
-# Distribution identifiers stay lowercase `midnite-git` (appId, the artifact
+# Distribution identifiers stay lowercase `midnite-studio` (appId, the artifact
 # names below, TERM_PROGRAM), matching the midnite app's split.
-productName: Midnite Git
+productName: Midnite Studio
 
 directories:
   output: release
   buildResources: resources
 
-# Version- and arch-stamped asset names. The `midnite-git-` prefix is spelled out
+# Version- and arch-stamped asset names. The `midnite-studio-` prefix is spelled out
 # rather than interpolated from ${productName}: a display name with a space in it
 # would put one in every dmg/zip filename and in the CI artifact path.
-artifactName: midnite-git-${version}-${arch}.${ext}
+artifactName: midnite-studio-${version}-${arch}.${ext}
 
 # The asar carries only the two esbuild bundles. Everything from the workspace
 # is already inlined into them (see scripts/bundle.mjs), so the workspace

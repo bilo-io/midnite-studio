@@ -16,13 +16,13 @@ import { installMockBridge, type MockFixtures } from './mock-bridge';
  */
 const OUT = '../../docs/screenshots/phase-19-dashboard';
 
-const MAIN = '/tmp/midnite-git';
+const MAIN = '/tmp/midnite-studio';
 
 const GITHUB_REMOTE = {
   name: 'origin',
-  fetchUrl: 'git@github.com:bilo-io/midnite-git.git',
-  pushUrl: 'git@github.com:bilo-io/midnite-git.git',
-  forge: { host: 'github.com', owner: 'bilo-io', repo: 'midnite-git', kind: 'github' },
+  fetchUrl: 'git@github.com:bilo-io/midnite-studio.git',
+  pushUrl: 'git@github.com:bilo-io/midnite-studio.git',
+  forge: { host: 'github.com', owner: 'bilo-io', repo: 'midnite-studio', kind: 'github' },
 };
 
 const localRef = (name: string, over: Record<string, unknown> = {}) => ({
@@ -164,7 +164,7 @@ const shots: MockFixtures = {
         checks: 'passing',
         headBranch: 'feature/phase-19-dashboard',
         author: 'bilo',
-        url: 'https://github.com/bilo-io/midnite-git/pull/41',
+        url: 'https://github.com/bilo-io/midnite-studio/pull/41',
       },
       {
         number: 40,
@@ -175,7 +175,7 @@ const shots: MockFixtures = {
         checks: 'pending',
         headBranch: 'feature/phase-18-diagnostics',
         author: 'bilo',
-        url: 'https://github.com/bilo-io/midnite-git/pull/40',
+        url: 'https://github.com/bilo-io/midnite-studio/pull/40',
       },
     ],
     issues: [
@@ -192,7 +192,7 @@ const shots: MockFixtures = {
         updatedAt: '2026-08-20T09:00:00Z',
         createdAt: '2026-08-14T11:30:00Z',
         comments: 4,
-        url: 'https://github.com/bilo-io/midnite-git/issues/37',
+        url: 'https://github.com/bilo-io/midnite-studio/issues/37',
       },
       {
         number: 33,
@@ -204,7 +204,7 @@ const shots: MockFixtures = {
         updatedAt: '2026-08-18T16:20:00Z',
         createdAt: '2026-08-18T16:20:00Z',
         comments: 0,
-        url: 'https://github.com/bilo-io/midnite-git/issues/33',
+        url: 'https://github.com/bilo-io/midnite-studio/issues/33',
       },
     ],
     runs: [
@@ -216,7 +216,7 @@ const shots: MockFixtures = {
         headBranch: 'main',
         headSha: 'a'.repeat(40),
         createdAt: '2026-08-26T07:40:00Z',
-        url: 'https://github.com/bilo-io/midnite-git/actions/runs/9901',
+        url: 'https://github.com/bilo-io/midnite-studio/actions/runs/9901',
       },
       {
         id: '9900',
@@ -228,7 +228,7 @@ const shots: MockFixtures = {
         headBranch: 'feature/phase-19-dashboard',
         headSha: 'b'.repeat(40),
         createdAt: '2026-08-26T07:10:00Z',
-        url: 'https://github.com/bilo-io/midnite-git/actions/runs/9900',
+        url: 'https://github.com/bilo-io/midnite-studio/actions/runs/9900',
       },
       {
         id: '9899',
@@ -238,7 +238,7 @@ const shots: MockFixtures = {
         headBranch: 'main',
         headSha: 'c'.repeat(40),
         createdAt: '2026-08-25T18:02:00Z',
-        url: 'https://github.com/bilo-io/midnite-git/actions/runs/9899',
+        url: 'https://github.com/bilo-io/midnite-studio/actions/runs/9899',
       },
     ],
   },

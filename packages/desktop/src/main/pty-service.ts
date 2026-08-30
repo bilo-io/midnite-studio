@@ -288,7 +288,7 @@ export async function createPty(options: {
       ...options,
       env: {
         ...process.env,
-        TERM_PROGRAM: 'midnite-git',
+        TERM_PROGRAM: 'midnite-studio',
         GIT_TERMINAL_PROMPT: '1',
       } as Record<string, string>,
     });

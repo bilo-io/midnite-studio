@@ -14,7 +14,7 @@ import { installMockBridge } from './mock-bridge';
 /** Relative to `packages/app`, Playwright's cwd — hence the `../../`. */
 const OUT = '../../docs/screenshots/midnite-menu';
 
-const REPO = 'midnite-git';
+const REPO = 'midnite-studio';
 
 test.beforeEach(async ({ page }) => {
   test.skip(!process.env.MSTUDIO_SHOTS, 'set MSTUDIO_SHOTS=1 to regenerate');

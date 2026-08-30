@@ -1,9 +1,11 @@
-# Midnite Git
+# Midnite Studio
 
-A GitKraken-inspired desktop git client. Plain Electron + typed IPC, a Vite + React renderer, and
-the published [`@bilo-io/ui`](https://github.com/bilo-io/midnite-ui) design system.
+A desktop workspace for the whole loop around a repository: a GitKraken-inspired git
+client at its centre, with an integrated terminal and agent roster, an embedded browser, and
+the forge (PRs, checks, reviews) in the same window. Plain Electron + typed IPC, a Vite + React
+renderer, and the published [`@bilo-io/ui`](https://github.com/bilo-io/midnite-ui) design system.
 
-![Midnite Git](docs/screenshots/midnite-git.png)
+![Midnite Studio](docs/screenshots/midnite-studio.png)
 
 <sub>Running `~/Dev/midnite` — linked worktrees nested under their repository, 2,376 commits,
 live branch and sync state in the footer. The crescent and the wordmark face are the midnite
