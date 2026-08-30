@@ -2,6 +2,30 @@
 
 <!-- Append one entry per landed phase/PR: date, phase, PR link, one-line summary. -->
 
+## 2026-08-30 — Rename — Midnite Git becomes Midnite Studio
+
+Ad hoc, outside the phase tracker. The product outgrew its name: the window now carries a
+terminal and agent roster, an embedded browser and the forge alongside the git client, so the
+qualifier became Studio and the pitch broadened with it.
+
+- [x] **Display + distribution identity.** `app.setName`, electron-builder `productName`/`appId`
+      (`io.bilo.midnite-studio`)/`artifactName`, the `.app` bundle, the document title, and the
+      wordmark's second word. `install-local.mjs` now clears both former bundle names.
+- [x] **Workspace packages.** `@midnite/git*` → `@midnite/studio` (root), `-shared`, `-app`,
+      `-desktop`, and `-git-engine`, which keeps its own domain word.
+- [x] **Internal wire identifiers.** `mgit:` → `mstudio:` channels, `mgit-file:` → `mstudio-file:`,
+      `window.midniteGit` → `window.midniteStudio`, `MGIT_*` → `MSTUDIO_*` dev seams.
+- [x] **State continuity.** `userdata-migration.ts` now walks a chain of former app names
+      (`app.setName` moves `userData` on macOS), and every persisted zustand store adopts its
+      pre-rename `localStorage` key before it hydrates — `persist-rename.ts`, which cannot be a
+      zustand `migrate`: the key itself changed, so the store sees no stored value at all.
+- [x] **Docs + phase 33.** README/`CLAUDE.md`/`AGENTS.md`/`GEMINI.md` ledes broadened; the planned
+      CLI binary and deep-link scheme become `midnite-studio` / `midnite-studio://`.
+
+Repo-name fixtures (`bilo-io/midnite-git`, `/tmp/midnite-git`, `~/midnite-git`) deliberately keep
+the old spelling — they describe this repository, whose git remote and directory name are a
+separate decision from the app's.
+
 ## 2026-08-30 — Phase 32 Themes A–D — The browser gets a real engine, tabs and groups
 
 Merged to `main` locally (this repo has no git remote, so no PR link). Phase 27 shipped browser
