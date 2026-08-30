@@ -2,6 +2,15 @@
 
 <!-- Append one entry per landed phase/PR: date, phase, PR link, one-line summary. -->
 
+## 2026-08-30 — Phase 33 Themes A, B, C, D & Phase 32 Themes E, F — Package DMG, CLI Binary, Auto-Updater & Occlusion / New Tab Page
+
+- [x] **Phase 33 Theme A — Polished DMG Package & macOS Integration**: Added `dmg`, `protocols`, `publish`, `entitlements`, `entitlementsInherit`, `afterSign` notarize hook, and `Midnite Studio` identity to `electron-builder.yml`. Created `verify-dist.mjs` asserting DMG/ZIP existence, 50MB+ size, strict codesign verification, `hdiutil` verification, and `Info.plist` URL schemes.
+- [x] **Phase 33 Theme B — CLI Binary & System PATH Symlinking**: Created executable `midnite-studio` POSIX wrapper, `mstudio:cli:*` IPC handlers for auto/user PATH symlinking, and settings UI on `CliPage`.
+- [x] **Phase 33 Theme C — Custom Protocol Scheme & Jail**: Added `setAsDefaultProtocolClient('midnite-studio')`, `open-url` handling, and deep-link protocol handler `useDeepLinks()`.
+- [x] **Phase 33 Theme D — Auto-Updater Service**: Wired `update-service.ts` managing `autoUpdater` events mapped to single `UpdateState` channel `EVENT_CHANNELS.updateState`. Added status bar segment `UpdatePill` and settings UI on `UpdatesPage`.
+- [x] **Phase 32 Theme E — Occlusion & Bounds Choreography**: Wired occluders counter (`incrementOccluders`/`decrementOccluders`) in `Popover` component and integrated `effectiveVisible` hiding logic in `useBrowserBounds.ts`.
+- [x] **Phase 32 Theme F — New Tab Page**: Created `NewTabPage` component rendering `BrandMark` hero, search/URL input, shortcut tiles, and recents list.
+
 ## 2026-08-30 — Phase 32 Theme I & Phase 33 Theme E — Preview Deploy Matcher & First-Run Onboarding Modal
 
 - [x] **Phase 32 Theme I**: Implemented `packages/app/src/features/browser/preview-deploy.ts` matching preview URLs (Vercel, Netlify, Pages.dev, Surge, Render, Fly.dev) with full test coverage in `preview-deploy.test.ts`.
