@@ -22,8 +22,7 @@ Completed work is logged append-only in [`done.md`](done.md). Deferred scope liv
 | [29 · Markdown slides, everywhere markdown already renders](phase-29-markdown-slides-viewer.md) | ✅ DONE | — | 21/21 | `██████████` | 100% | — | — |
 | [28 · Worktrees first, and the section tree that can say so](phase-28-sidebar-section-tree.md) | 🔄 WIP | — | 59/62 | `██████████` | 95% | — | 3 verification items |
 | [27 · The footer becomes a status bar, and the browser it makes room for](phase-27-status-bar-and-browser-panel.md) | 🔄 WIP | x1 | 72/90 | `████████░░` | 80% | — | 18 verification items |
-| [26 · Side by side, and the room to show it](phase-26-side-by-side-diffs.md) | 🔄 WIP | — | 34/68 | `█████░░░░░` | 50% | D | — |
-
+| [26 · Side by side, and the room to show it](phase-26-side-by-side-diffs.md) | ✅ DONE | — | 68/68 | `██████████` | 100% | — | — |
 | [25 · Search everywhere, and the blame that explains it](phase-25-search-everywhere.md) | ✅ DONE | x1 | 101/101 | `██████████` | 100% | — | — |
 | [24 · The explorer learns to write, and to search](phase-24-writable-explorer.md) | ✅ DONE | — | 43/55 | `████████░░` | 78% | — | — |
 | [23 · A command palette, and the registry that can feed it](phase-23-command-palette.md) | ✅ DONE | — | 42/55 | `████████░░` | 76% | — | — |
@@ -324,16 +323,16 @@ newly possible. Only H touches a contract.*
   `diffShowOldGutter`, with a `ResizeObserver` fallback that never rewrites the preference (landed 2026-08-30, PR #1).
 - ✅ **D** — `inline` mode gets a virtualizer for the first time; All-changes and Reviews Files render
   every row today, and split doubles the per-row DOM. Brings `EXPAND_ALL_LIMIT` back up for review (landed 2026-08-30, PR #1).
+| [26 · Side by side, and the room to show it](phase-26-side-by-side-diffs.md) | ✅ DONE | — | 68/68 | `██████████` | 100% | — | — |
 
-- ◻ **E** — a `DiffToolbar` the accordion surfaces can mount, with actions a surface cannot perform
-  omitted rather than dead — `PrFiles` has one `gh pr diff` in memory and cannot refetch at `-U`.
-- ◻ **F** — LEFT-side comment anchoring: `leftSideLines`, a per-side `ThreadsByLine`, a `del` line
-  made commentable, and threads still rendered as full-width rows with a LEFT/RIGHT badge.
-- ◻ **G** — a `commit` arm on `WorkbenchTab` so the inspector has a full-width home; the 720px graph
-  dock is untouched and stays the quick-look panel.
-- ◻ **H** — `baseSha` on `ForgePullDetailSchema` from `gh pr view`'s `baseRefOid`, which is the only
-  thing standing between the existing `ImageDiff` viewer and a pull request. Fork PRs get an
-  explicit "fetch to compare" rather than implicit network.
+- ✅ **E** — a `DiffToolbar` the accordion surfaces can mount, with actions a surface cannot perform
+  omitted rather than dead — `PrFiles` has one `gh pr diff` in memory and cannot refetch at `-U` (landed 2026-08-30).
+- ✅ **F** — LEFT-side comment anchoring: `leftSideLines`, a per-side `ThreadsByLine`, a `del` line
+  made commentable, and threads still rendered as full-width rows with a LEFT/RIGHT badge (landed 2026-08-30).
+- ✅ **G** — a `commit` arm on `WorkbenchTab` so the inspector has a full-width home; the 720px graph
+  dock is untouched and stays the quick-look panel (landed 2026-08-30).
+- ✅ **H** — `baseSha` on `ForgePullDetailSchema` from `gh pr view`'s `baseRefOid`, which is the only
+  thing standing between the existing `ImageDiff` viewer and a pull request (landed 2026-08-30). Phase 26 is now feature-complete — all eight themes (A–H) have landed.
 
 ### [Phase 24 — The explorer learns to write, and to search](phase-24-writable-explorer.md)
 

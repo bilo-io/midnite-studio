@@ -166,97 +166,97 @@ a tolerable cost into the phase's main performance risk.
 - [ ] A second perf case for the accordions: a many-file diff expanded in split, asserting the DOM
       row count stays bounded rather than growing with the file.
 
-### E — A toolbar for the accordion surfaces (S)
+### E — A toolbar for the accordion surfaces (S) ✅ DONE (2026-08-30)
 
 Pane mode has a toolbar; `inline` mode has never had one, so All-changes and Reviews Files have no
 context expansion, no gutter toggle and nowhere to put the layout switch.
 
-- [ ] A shared `DiffToolbar` extracted from `DiffView`'s pane-mode header — `+n / −m`, the old-gutter
+- [x] A shared `DiffToolbar` extracted from `DiffView`'s pane-mode header — `+n / −m`, the old-gutter
       toggle, the new layout toggle, and "show whole file" — taking its actions as props.
-- [ ] `inline` mode renders it in the per-file accordion header, which is already sticky in
+- [x] `inline` mode renders it in the per-file accordion header, which is already sticky in
       `pr-file-accordion.tsx`.
-- [ ] Actions absent on a surface are **omitted, not disabled-with-no-reason**: `PrFiles` has the
+- [x] Actions absent on a surface are **omitted, not disabled-with-no-reason**: `PrFiles` has the
       whole patch in memory from one `gh pr diff` and cannot refetch at a larger `-U`, so context
       expansion does not appear there at all.
-- [ ] The layout toggle in a file header flips the global preference, matching every other diff
+- [x] The layout toggle in a file header flips the global preference, matching every other diff
       control — it is not a per-file override.
-- [ ] Pane mode keeps its current header exactly; this is an extraction, and a diff of the rendered
+- [x] Pane mode keeps its current header exactly; this is an extraction, and a diff of the rendered
       pane-mode toolbar should be empty.
 
-### F — Comments on the left side (L)
+### F — Comments on the left side (L) ✅ DONE (2026-08-30)
 
 Phase 20 shipped right-side-only on purpose (`isCommentableLine` requires `newNo !== null`), and
 said so. Split view makes the deleted side a first-class column, at which point "you cannot comment
 on the thing you are looking at" reads as a bug.
 
-- [ ] `leftSideLines(diff): Set<number>` in
+- [x] `leftSideLines(diff): Set<number>` in
       [`comment-anchors.ts`](../packages/app/src/features/diff/comment-anchors.ts), the `oldNo`
       mirror of `rightSideLines`.
-- [ ] `isAnchored` widened to accept `side === 'LEFT'`, and `threadsForFile` returning threads
+- [x] `isAnchored` widened to accept `side === 'LEFT'`, and `threadsForFile` returning threads
       keyed by side — a `ThreadsByLine` per side rather than one map, because line 40 on the left
       and line 40 on the right are different anchors.
-- [ ] `isCommentableLine` widened: a `del` line with a non-null `oldNo` is commentable on the LEFT.
+- [x] `isCommentableLine` widened: a `del` line with a non-null `oldNo` is commentable on the LEFT.
       A `ctx` line has both numbers and must resolve to exactly one side — pick RIGHT, and test it.
-- [ ] `positionForLine` gains a `side` argument for the legacy diff-offset fallback, which is only
+- [x] `positionForLine` gains a `side` argument for the legacy diff-offset fallback, which is only
       sent when GitHub refuses `line`+`side`.
-- [ ] The composer opens against `{path, line, side}`; the write path through
+- [x] The composer opens against `{path, line, side}`; the write path through
       `forgeReviewComment` already carries `side` in `ForgeThreadSideSchema` — confirm `gh-write.ts`
       sends it rather than defaulting.
-- [ ] A thread renders as a **full-width row below its pair**, spanning both columns and pushing the
+- [x] A thread renders as a **full-width row below its pair**, spanning both columns and pushing the
       row down, exactly as `withCommentRows` does in unified today. Its header shows a LEFT/RIGHT
       badge and the old-or-new line number, so the anchor is never ambiguous once the row no longer
       sits under one column.
-- [ ] Left-side threads that were previously bucketed into
+- [x] Left-side threads that were previously bucketed into
       [`outdated-threads.tsx`](../packages/app/src/features/reviews/outdated-threads.tsx)'s
       above-the-diff list now anchor inline where they can. `outdated` and `fileLevel` threads stay
       in that list — those are genuinely unanchorable, not merely left-side.
-- [ ] Vitest in
+- [x] Vitest in
       [`comment-anchors.test.ts`](../packages/app/src/features/diff/comment-anchors.test.ts): a
       LEFT thread on a deleted line, a LEFT thread whose line has since been removed from the diff
       (falls through to unanchored), a `ctx` line resolving RIGHT, and both maps built from one
       mixed thread list.
 
-### G — A commit is a workbench tab (M)
+### G — A commit is a workbench tab (M) ✅ DONE (2026-08-30)
 
-- [ ] A `commit` arm on the `WorkbenchTab` union in
+- [x] A `commit` arm on the `WorkbenchTab` union in
       [`workbench-store.ts`](../packages/app/src/store/workbench-store.ts), beside
       `all-changes | run | review`, carrying `{repoId, sha, worktreePath?}`.
-- [ ] `CommitDetail` in
+- [x] `CommitDetail` in
       [`commit-detail.tsx`](../packages/app/src/features/commit/commit-detail.tsx) rendered at
       full width in the tab, reusing `ChangeTree` and the same `DiffView` — the panel and the tab
       are two mounts of one component, not two components.
-- [ ] The tab title is the abbreviated sha plus the subject, truncated the way the review tab
+- [x] The tab title is the abbreviated sha plus the subject, truncated the way the review tab
       already truncates.
-- [ ] An "Open in tab" verb: on the inspector header, and in the graph row context menu built by
+- [x] An "Open in tab" verb: on the inspector header, and in the graph row context menu built by
       [`use-graph-actions.ts`](../packages/app/src/features/graph/use-graph-actions.ts).
-- [ ] The dock is unchanged — `detailWidth` keeps its 720 cap and the inspector stays the quick-look
+- [x] The dock is unchanged — `detailWidth` keeps its 720 cap and the inspector stays the quick-look
       panel. This theme adds a destination; it does not move the inspector.
-- [ ] Opening the same commit twice focuses the existing tab rather than adding a second, matching
+- [x] Opening the same commit twice focuses the existing tab rather than adding a second, matching
       the review tab's behaviour.
-- [ ] `commitFilesHeight` (the inspector's file-list/diff split) needs a full-width counterpart, or
+- [x] `commitFilesHeight` (the inspector's file-list/diff split) needs a full-width counterpart, or
       the tab lays the file tree out beside the diff rather than above it. Decide once and write it
       down; a tree that is 200px tall and 1400px wide is neither.
 
-### H — Image diffs in a pull request (S)
+### H — Image diffs in a pull request (S) ✅ DONE (2026-08-30)
 
 The one contract change in the phase, and a documented gap in
 [`outstanding.md`](outstanding.md): the `ImageDiff` viewer works in Changes and the commit inspector
 but not in Reviews, because `ForgePullDetailSchema` carries `headSha` and no base sha at all.
 
-- [ ] `baseSha` added to `ForgePullDetailSchema` in
+- [x] `baseSha` added to `ForgePullDetailSchema` in
       [`shared/src/domain/forge.ts`](../packages/shared/src/domain/forge.ts), and populated from
       `gh pr view`'s `baseRefOid` in
       [`gh-cli.ts`](../packages/desktop/src/main/forge/gh-cli.ts).
-- [ ] `imageDiffSources` in
+- [x] `imageDiffSources` in
       [`image-sources.ts`](../packages/app/src/features/diff/image-sources.ts) reached from
       `PrFileAccordion` with `{baseSha, headSha}`, so `ImageDiff`'s existing two-up / swipe / onion
       modes light up on a PR with no new component.
-- [ ] Both blobs must be in the local checkout, which is not guaranteed — a fork PR needs a fetch
+- [x] Both blobs must be in the local checkout, which is not guaranteed — a fork PR needs a fetch
       first. Show an explicit **"fetch to compare"** affordance rather than fetching implicitly;
       opening a pull request should not start network traffic the user did not ask for.
-- [ ] A binary non-image file in a PR keeps its existing "binary file" treatment; this theme widens
+- [x] A binary non-image file in a PR keeps its existing "binary file" treatment; this theme widens
       what is *shown*, not what is *parsed*.
-- [ ] `outstanding.md` loses the "image diffs in a pull request" entry, and the stale "syntax
+- [x] `outstanding.md` loses the "image diffs in a pull request" entry, and the stale "syntax
       highlighting inside diff lines" entry beside it — that landed in Phase 20 Theme D and the list
       never caught up.
 
