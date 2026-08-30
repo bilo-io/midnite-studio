@@ -2,6 +2,14 @@
 
 <!-- Append one entry per landed phase/PR: date, phase, PR link, one-line summary. -->
 
+## 2026-08-30 — Phase 31 Themes A–D & Phase 22 Themes F–H — Interactive Rebase Builder & Safety Net
+
+- [x] **Phase 31 Theme A — `GIT_SEQUENCE_EDITOR` Helper & Wire Contract.** `RebaseAction`, `RebaseEntry`, `RebaseSequencePlan` schemas; IPC channels; `rebase-editor.ts` sequence parser/formatter; `startInteractiveRebase`, `continueRebase`, `abortRebase`, `skipRebase` commands; unit tests.
+- [x] **Phase 31 Theme B — Interactive Rebase Sequence Editor Overlay.** `rebase-modal.tsx` drawer overlay with commit re-ordering, action selector dropdowns, subject edit inputs, and exec command options.
+- [x] **Phase 31 Theme C — Rebase State Controller & Conflict Banner.** `use-rebase-status.ts` state hook; `rebase-banner.tsx` header banner for paused/conflict rebase states with Continue, Skip, and Abort controls.
+- [x] **Phase 31 Theme D — Safety Net Backup & One-Click Restore.** Automated `refs/midnite-backup/` creation; blast radius confirmation; one-click pre-rebase restore support.
+- [x] **Phase 22 Themes F–H — Force-push with lease, Reflog, & Safety Net.** `--force-with-lease` support; reflog parser and status state; ops journal store tracking ref mutations.
+
 ## 2026-08-28 — Phase 25 Themes A, B, C — Search in engine, stream registry & contract, Search view
 
 Landed on `main`. Phase 25 delivers git search everywhere (commit pickaxe, git grep at any revision, blame parser & reader), a shared per-window stream registry with concurrency policies, and the primary Search view with virtualized results and live previewing.
