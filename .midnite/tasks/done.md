@@ -2,6 +2,10 @@
 
 <!-- Append one entry per landed phase/PR: date, phase, PR link, one-line summary. -->
 
+## 2026-08-30 — Screensaver Lockscreen & Host Integration
+
+- [x] **Adhoc Lockscreen**: Ported and completed the lockscreen screensaver from `midnite` to `midnite-studio`. Added `Spinner` rAF orbit/ellipsis animation with mode-based tinting, expanded title word lists for active/waiting/idle modes, CSS sheen and pill shimmer keyframes, and full keyboard/passcode host integration.
+
 ## 2026-08-30 — Phase 32 Theme I & Phase 33 Theme E — Preview Deploy Matcher & First-Run Onboarding Modal
 
 - [x] **Phase 32 Theme I**: Implemented `packages/app/src/features/browser/preview-deploy.ts` matching preview URLs (Vercel, Netlify, Pages.dev, Surge, Render, Fly.dev) with full test coverage in `preview-deploy.test.ts`.
