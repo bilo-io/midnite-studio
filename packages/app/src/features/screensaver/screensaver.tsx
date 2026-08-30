@@ -114,7 +114,7 @@ export function Screensaver({
 }) {
   const { data: openRepos } = useRepos();
   const selectedRepoId = useUiStore((s) => s.selectedRepoId);
-  const { data: myPullsData } = useForgePulls(selectedRepoId, true, 50, 'open', 'created');
+  const { data: myPullsData } = useForgePulls(selectedRepoId, true, 50, 'open', 'mine');
   const { data: teamPullsData } = useForgePulls(selectedRepoId, true, 50, 'open', 'all');
 
   const requirePasscode = useUiStore((s) => s.requirePasscode);

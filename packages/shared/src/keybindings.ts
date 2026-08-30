@@ -117,6 +117,8 @@ export const COMMANDS = [
   { id: 'repo.open', label: 'Open Repository…', group: 'repository', chord: 'Mod+o' },
   { id: 'repo.close', label: 'Close Repository', group: 'repository', chord: 'Mod+w' },
   { id: 'view.refresh', label: 'Refresh', group: 'view', chord: 'Mod+r' },
+  { id: 'app.lock', label: 'Lock Screen', group: 'view', chord: 'Mod+Alt+l' },
+  { id: 'app.screensaver', label: 'Start Screensaver', group: 'view' },
   /**
    * Mod+Shift+g navigates to the Graph view from anywhere. `app` scope like
    * `repos.toggle`: you rarely need this while mid-command with the terminal
