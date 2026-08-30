@@ -2,6 +2,12 @@
 
 <!-- Append one entry per landed phase/PR: date, phase, PR link, one-line summary. -->
 
+## 2026-08-30 — Phase 25 Themes D–F — CodePreview line rework, blame gutter, FilterInput, find bar & Search settings
+
+- [x] **Theme D — CodePreview line rework & Blame gutter.** Refactored `CodePreview` to CodeMirror 6 read-only line model; added `blame-store.ts` for per-file blame state; added blame toggle button to `FilePreview` header; implemented blame gutter and scroll to line.
+- [x] **Theme E — FilterInput component & Find bar.** Implemented unified `FilterInput` component; added floating `FindBar` overlay (`Mod+F`) with case and regex toggles, next/prev match navigation, and search hand-off.
+- [x] **Theme F — Keybindings & Search settings page.** Updated keybindings (`sync.fetch` to `Mod+Shift+R`, `search.open` to `Mod+Shift+F`); added Search settings page to `SettingsView` (`ui-store.ts`, `nav-icons.ts`).
+
 ## 2026-08-30 — Phase 31 Themes A–D & Phase 22 Themes F–H — Interactive Rebase Builder & Safety Net
 
 - [x] **Phase 31 Theme A — `GIT_SEQUENCE_EDITOR` Helper & Wire Contract.** `RebaseAction`, `RebaseEntry`, `RebaseSequencePlan` schemas; IPC channels; `rebase-editor.ts` sequence parser/formatter; `startInteractiveRebase`, `continueRebase`, `abortRebase`, `skipRebase` commands; unit tests.

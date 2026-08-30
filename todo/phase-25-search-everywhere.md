@@ -498,7 +498,7 @@ is independent of D.
       query cancels the first, the truncation marker appears at the cap, and an invalid pattern shows
       the error state rather than an empty list.
 
-### D — Blame (L)
+### D — Blame (L) ✅ DONE (PR #1, 2026-08-30)
 
 **The first two items are a prerequisite for Theme C's scroll-to-line and Theme E's find bar**, and
 land before either. Everything after them is blame proper.
@@ -586,7 +586,7 @@ land before either. Everything after them is blame proper.
       and clears on repo switch; and `blame-lines.test.ts` over the run-grouping that turns per-line
       records into bands.
 
-### E — Inline entry points, and the filter input the repo keeps rewriting (M)
+#### E — Inline entry points, and the filter input the repo keeps rewriting (M) ✅ DONE (PR #1, 2026-08-30)
 
 The find bar depends on **D's first two items**.
 
