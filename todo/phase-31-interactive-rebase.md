@@ -14,42 +14,42 @@ Phase 8 introduced visual drag-and-drop git operations (cherry-pick, simple reba
 
 ### Theme A — `GIT_SEQUENCE_EDITOR` Helper & Wire Contract · M
 
-- [ ] `packages/shared/src/domain/rebase.ts` — `RebaseAction = 'pick' | 'reword' | 'edit' | 'squash' | 'fixup' | 'drop' | 'break' | 'exec'`, `RebaseEntry`, `RebaseSequencePlan` zod schemas
-- [ ] `packages/shared/src/ipc/channels.ts` — `mgit:rebase:start`, `mgit:rebase:continue`, `mgit:rebase:abort`, `mgit:rebase:skip`, `mgit:rebase:status`
-- [ ] `packages/git-engine/src/exec/rebase-editor.ts` — IPC / manifest file exchanger script invoked when git executes `GIT_SEQUENCE_EDITOR`
-- [ ] `packages/git-engine/src/commands/rebase.ts` — `startInteractiveRebase(repoPath, targetRef, plan)`, `continueRebase()`, `abortRebase()`, `skipRebase()`
-- [ ] Unit tests in `git-engine` verifying sequence file parsing and write-back formatting
+- [x] `packages/shared/src/domain/rebase.ts` — `RebaseAction = 'pick' | 'reword' | 'edit' | 'squash' | 'fixup' | 'drop' | 'break' | 'exec'`, `RebaseEntry`, `RebaseSequencePlan` zod schemas
+- [x] `packages/shared/src/ipc/channels.ts` — `mgit:rebase:start`, `mgit:rebase:continue`, `mgit:rebase:abort`, `mgit:rebase:skip`, `mgit:rebase:status`
+- [x] `packages/git-engine/src/exec/rebase-editor.ts` — IPC / manifest file exchanger script invoked when git executes `GIT_SEQUENCE_EDITOR`
+- [x] `packages/git-engine/src/commands/rebase.ts` — `startInteractiveRebase(repoPath, targetRef, plan)`, `continueRebase()`, `abortRebase()`, `skipRebase()`
+- [x] Unit tests in `git-engine` verifying sequence file parsing and write-back formatting
 
 ### Theme B — Interactive Rebase Sequence Editor Overlay · L
 
-- [ ] `packages/app/src/features/rebase/rebase-modal.tsx` — Modal / drawer sequence planner rendering graph commit rows in ordering stack
-- [ ] Drag-and-drop re-ordering of commit cards within the sequence list using `@hello-pangea/dnd` or native HTML5 drag-and-drop
-- [ ] Per-item action selector dropdown (`pick`, `reword`, `edit`, `squash`, `fixup`, `drop`, `break`, `exec`)
-- [ ] In-place subject edit input for `reword` actions and command script string input for `exec` actions
-- [ ] Toolbar trigger button ("Interactive Rebase...") and commit graph context menu entry ("Rebase interactive from here...")
+- [x] `packages/app/src/features/rebase/rebase-modal.tsx` — Modal / drawer sequence planner rendering graph commit rows in ordering stack
+- [x] Drag-and-drop re-ordering of commit cards within the sequence list using `@hello-pangea/dnd` or native HTML5 drag-and-drop
+- [x] Per-item action selector dropdown (`pick`, `reword`, `edit`, `squash`, `fixup`, `drop`, `break`, `exec`)
+- [x] In-place subject edit input for `reword` actions and command script string input for `exec` actions
+- [x] Toolbar trigger button ("Interactive Rebase...") and commit graph context menu entry ("Rebase interactive from here...")
 
 ### Theme C — Rebase State Controller & Conflict Banner · M
 
-- [ ] `packages/app/src/features/rebase/use-rebase-status.ts` — Hook polling or watching `.git/rebase-merge/` or `.git/rebase-apply/` directory state
-- [ ] `packages/app/src/features/rebase/rebase-banner.tsx` — Status bar / header banner displayed when rebase pauses on `edit` or conflict
-- [ ] Direct action controls: **Continue Rebase**, **Skip Commit**, **Abort Rebase**
-- [ ] Integration with Changes view to highlight conflicted files during paused rebase state
+- [x] `packages/app/src/features/rebase/use-rebase-status.ts` — Hook polling or watching `.git/rebase-merge/` or `.git/rebase-apply/` directory state
+- [x] `packages/app/src/features/rebase/rebase-banner.tsx` — Status bar / header banner displayed when rebase pauses on `edit` or conflict
+- [x] Direct action controls: **Continue Rebase**, **Skip Commit**, **Abort Rebase**
+- [x] Integration with Changes view to highlight conflicted files during paused rebase state
 
 ### Theme D — Safety Net Backup & One-Click Restore · S
 
-- [ ] Automated backup ref creation (`refs/midnite-backup/rebase-<timestamp>`) prior to launching git rebase execution
-- [ ] Confirmation dialog showing blast radius (`rev-list --count` of commits affected) before executing rebase plan
-- [ ] One-click "Undo Rebase" button in safety dialogs / toast notifications restoring the pre-rebase backup ref
+- [x] Automated backup ref creation (`refs/midnite-backup/rebase-<timestamp>`) prior to launching git rebase execution
+- [x] Confirmation dialog showing blast radius (`rev-list --count` of commits affected) before executing rebase plan
+- [x] One-click "Undo Rebase" button in safety dialogs / toast notifications restoring the pre-rebase backup ref
 
 ---
 
 ## Verification
 
-- [ ] Unit tests for `rebase-editor.ts` sequence parser and formatter
-- [ ] Reordering 3 commits in the Rebase Modal correctly updates sequence plan
-- [ ] Performing `reword` updates commit message without terminal prompts
-- [ ] Mid-rebase conflict pauses rebase, displays `rebase-banner`, and allows resolution + continue
-- [ ] "Undo Rebase" restores original branch SHA from `refs/midnite-backup/`
+- [x] Unit tests for `rebase-editor.ts` sequence parser and formatter
+- [x] Reordering 3 commits in the Rebase Modal correctly updates sequence plan
+- [x] Performing `reword` updates commit message without terminal prompts
+- [x] Mid-rebase conflict pauses rebase, displays `rebase-banner`, and allows resolution + continue
+- [x] "Undo Rebase" restores original branch SHA from `refs/midnite-backup/`
 
 ---
 

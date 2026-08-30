@@ -41,6 +41,13 @@ export const CHANNELS = {
   searchCancel: 'mgit:search:cancel',
   blameRead: 'mgit:blame:read',
 
+  // --- rebase --------------------------------------------------------------
+  rebaseStart: 'mgit:rebase:start',
+  rebaseContinue: 'mgit:rebase:continue',
+  rebaseAbort: 'mgit:rebase:abort',
+  rebaseSkip: 'mgit:rebase:skip',
+  rebaseStatus: 'mgit:rebase:status',
+
   // --- status --------------------------------------------------------------
 
   statusGet: 'mgit:status:get',

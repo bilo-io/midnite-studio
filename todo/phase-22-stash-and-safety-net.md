@@ -180,70 +180,70 @@ The spine: B–E all read off this contract, so it lands first.
 - [x] A stash of zero changes is refused before it is attempted, with the reason shown — git's own
       "No local changes to save" arriving as a red error is a worse answer than a disabled control.
 
-### F — Force-push, with a lease (S)
+### F — Force-push, with a lease (S) ✅ DONE (2026-08-30)
 
-- [ ] **This theme deliberately reverses a written-down rule.** `CLAUDE.md` says *"No force-push
+- [x] **This theme deliberately reverses a written-down rule.** `CLAUDE.md` says *"No force-push
       anywhere in the MVP"*; [`sync.ts`](../packages/git-engine/src/commands/sync.ts)'s module
       header, `PushRequest`'s doc comment in `schemas.ts`, and
       [`sync-controls.tsx`](../packages/app/src/features/status/sync-controls.tsx)'s header
       (*"There is no force-push button, and no menu that could become one"*) all say the same thing
       in three places. All four get edited, and each edit says what replaced the ban — a note that
       only reads "removed" is how a safety rule quietly becomes an accident.
-- [ ] `PushOptions` gains `forceWithLease?: { ref: string; expect: string }`. The **bare**
+- [x] `PushOptions` gains `forceWithLease?: { ref: string; expect: string }`. The **bare**
       `--force-with-lease` is not offered: it leases against the remote-tracking ref, which a
       background fetch can silently refresh into agreement, turning the safety net into a no-op.
       Only the explicit `--force-with-lease=<ref>:<sha>` form is built.
-- [ ] `expect` is read at the moment of the confirm, from the remote-tracking ref, and travels with
+- [x] `expect` is read at the moment of the confirm, from the remote-tracking ref, and travels with
       the request — so the sha the user was shown a blast radius for is the sha the lease checks.
-- [ ] The gate is the existing one, not a new one: `countOrphanedCommits(worktreePath, query)` in
+- [x] The gate is the existing one, not a new one: `countOrphanedCommits(worktreePath, query)` in
       `refs-ops.ts` with `movingRef` set to the remote-tracking ref, fed into `dialogs.confirm`'s
       tri-state `blastRadius` through `setBlastRadius`, exactly as
       [`use-graph-actions.ts`](../packages/app/src/features/graph/use-graph-actions.ts) does for
       hard reset. `danger: true`, and the confirm label names the branch.
-- [ ] A rejected lease is its own outcome, not a generic failure: `describePushFailure(stderr)`
+- [x] A rejected lease is its own outcome, not a generic failure: `describePushFailure(stderr)`
       gains a `stale info` arm reading *"Someone else pushed to this branch since you last fetched.
       Fetch and look before forcing."*
-- [ ] The entry point is the **per-ref badge menu** in
+- [x] The entry point is the **per-ref badge menu** in
       [`ref-sync.ts`](../packages/app/src/features/graph/ref-sync.ts) / `use-graph-actions.ts`,
       offered only when a plain push has already been rejected as non-fast-forward. It is never a
       button in the title bar's `SyncControls`, whose whole design is one un-modal click.
-- [ ] Behind a default-off `Settings ▸ Repositories ▸ Allow force-push (with lease)` switch,
+- [x] Behind a default-off `Settings ▸ Repositories ▸ Allow force-push (with lease)` switch,
       following Phase 20's precedent of gating a reversal of a stated rule on an explicit opt-in
       that also lists what the app will still never do (`--force`, `--delete`, force to a protected
       default branch).
 
-### G — The reflog, read and browsable (M)
+### G — The reflog, read and browsable (M) ✅ DONE (2026-08-30)
 
-- [ ] `packages/git-engine/src/commands/reflog.ts` + `parsers/reflog-parser.ts` owning its own
+- [x] `packages/git-engine/src/commands/reflog.ts` + `parsers/reflog-parser.ts` owning its own
       `REFLOG_FORMAT` (`%gd`, `%gD`, `%H`, `%gs`, `%gt`, `%gn`) read via
       `git reflog show --format=… -z`. `readReflog(worktreePath, { ref?, limit })` — `ref` absent
       means `HEAD`.
-- [ ] `%gs` is a human sentence, not a structure (`checkout: moving from main to feature/x`,
+- [x] `%gs` is a human sentence, not a structure (`checkout: moving from main to feature/x`,
       `commit (amend):`, `reset: moving to HEAD~2`). Parse it into a `ReflogAction` enum on a
       best-effort basis for the icon and filter, and **always keep the raw subject** as the
       displayed text. A mis-parse must degrade to a plain row, never to a wrong verb.
-- [ ] A **History** view joins the nav rail beside Dashboard / Actions / Tests / Reviews, on Phase
+- [x] A **History** view joins the nav rail beside Dashboard / Actions / Tests / Reviews, on Phase
       19's view-scoped navigation shell: a ref selector (HEAD plus every local branch), a
       time-ordered list, an action filter, and the old→new sha pair per entry.
-- [ ] Each entry is checkout-able and copy-able — `checkout(sha, { detach: true })` through the
+- [x] Each entry is checkout-able and copy-able — `checkout(sha, { detach: true })` through the
       existing op, behind the ordinary detached-HEAD warning. That is the whole recovery story for
       anything Theme H cannot undo, and it is why this theme is worth having even standing alone.
-- [ ] The list states the expiry rule where the user can see it: git prunes unreachable reflog
+- [x] The list states the expiry rule where the user can see it: git prunes unreachable reflog
       entries at 30 days and reachable ones at 90 by default, so "it is in the reflog" is a
       time-limited promise and the UI should not imply otherwise.
-- [ ] **`.git/logs` is not watched today.** `repo-watcher.ts` watches `.git/refs` and `packed-refs`;
+- [x] **`.git/logs` is not watched today.** `repo-watcher.ts` watches `.git/refs` and `packed-refs`;
       a reflog-only change fires nothing. Add `.git/logs` to the watch set — riding the existing
       `'refs'` `WatchKind` rather than growing
       [`WatchKindSchema`](../packages/shared/src/domain/watch.ts), unless the invalidation fan-out
       proves too broad in practice (see *Decisions*).
-- [ ] Own-write suppression must cover it: every op the app runs writes a reflog entry, so without
+- [x] Own-write suppression must cover it: every op the app runs writes a reflog entry, so without
       suppression the History view would refresh on its own writes in a loop. The `writeQueue`
       `onActivity` subscription already in the watcher is the mechanism; verify, do not assume.
-- [ ] Unit tests for the parser against captured real `reflog show` output — including a subject
+- [x] Unit tests for the parser against captured real `reflog show` output — including a subject
       containing a colon and one containing a newline-adjacent branch name, which is why the read
       is `-z`.
 
-### H — The ops journal, toasts, and undo (L)
+### H — The ops journal, toasts, and undo (L) ✅ DONE (2026-08-30)
 
 The largest theme, and the only one with no existing pattern to copy: this builds the app's first
 history mechanism *and* the first surface it can announce itself on. Land it last.
