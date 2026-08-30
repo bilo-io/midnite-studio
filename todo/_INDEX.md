@@ -16,6 +16,7 @@ Completed work is logged append-only in [`done.md`](done.md). Deferred scope liv
 
 | Phase | Status | Refined | Done | Progress | % | 🔄 WIP | ◻ TODO |
 |-------|--------|---------|------|----------|---|--------|--------|
+| [31 · Interactive Rebase Builder & Graph Sequence Editor](phase-31-interactive-rebase.md) | ◻ TODO | — | 0/18 | `░░░░░░░░░░` | 0% | — | A–D |
 | [30 · A terminal that survives you](phase-30-terminal-hardening.md) | 🔄 WIP | x2 | 82/91 | `█████████░` | 90% | — | 9 manual checks |
 | [29 · Markdown slides, everywhere markdown already renders](phase-29-markdown-slides-viewer.md) | ✅ DONE | — | 21/21 | `██████████` | 100% | — | — |
 | [28 · Worktrees first, and the section tree that can say so](phase-28-sidebar-section-tree.md) | 🔄 WIP | — | 59/62 | `██████████` | 95% | — | 3 verification items |
@@ -52,6 +53,15 @@ Completed work is logged append-only in [`done.md`](done.md). Deferred scope liv
 
 <!-- Each phase currently carries a single theme A = its full deliverables checklist. Split into
      lettered themes if a phase gets parallelised. -->
+
+### [Phase 31 — Interactive Rebase Builder & Graph Sequence Editor](phase-31-interactive-rebase.md)
+
+*Visual drag-and-drop rebase sequence planner (pick, reword, squash, drop, fixup) backed by a custom GIT_SEQUENCE_EDITOR helper binary.*
+
+- ◻ **A** — `GIT_SEQUENCE_EDITOR` helper script, IPC channel schemas, and `git-engine` rebase commands.
+- ◻ **B** — Interactive Rebase Sequence Editor Overlay modal, commit drag-reorder, and action pickers.
+- ◻ **C** — Rebase state controller, paused status banner, and Changes view conflict integration.
+- ◻ **D** — Safety net backup ref creation (`refs/midnite-backup/`), blast-radius modal, and one-click restore.
 
 ### [Phase 30 — A terminal that survives you](phase-30-terminal-hardening.md)
 
