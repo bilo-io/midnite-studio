@@ -325,6 +325,15 @@ export type MockFixtures = {
 
 
 export async function installMockBridge(page: Page, fixtures: MockFixtures): Promise<void> {
+  // Seed onboardedAt so the FirstRunModal never intercepts clicks in e2e tests.
+  await page.addInitScript(() => {
+    try {
+      const item = localStorage.getItem('midnite-studio.ui');
+      const parsed = item ? JSON.parse(item) : { state: {} };
+      parsed.state = { ...parsed.state, onboardedAt: '2026-01-01T00:00:00.000Z', showOnboarding: false };
+      localStorage.setItem('midnite-studio.ui', JSON.stringify(parsed));
+    } catch {}
+  });
   await page.addInitScript((data: MockFixtures) => {
     /*
       Every method on an api object, held for `forgeLatencyMs` before it
