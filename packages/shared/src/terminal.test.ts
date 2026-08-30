@@ -26,6 +26,10 @@ describe('BUILTIN_AGENTS', () => {
       'codex',
       'openclaude',
       'opencode',
+      'kilo',
+      'aider',
+      'cursor',
+      'cline',
     ]);
   });
 
@@ -106,12 +110,20 @@ describe('AgentDefinitionSchema', () => {
     const agy = BUILTIN_AGENTS.find((a) => a.id === 'agy');
     const openclaude = BUILTIN_AGENTS.find((a) => a.id === 'openclaude');
     const opencode = BUILTIN_AGENTS.find((a) => a.id === 'opencode');
+    const kilo = BUILTIN_AGENTS.find((a) => a.id === 'kilo');
+    const aider = BUILTIN_AGENTS.find((a) => a.id === 'aider');
+    const cursor = BUILTIN_AGENTS.find((a) => a.id === 'cursor');
+    const cline = BUILTIN_AGENTS.find((a) => a.id === 'cline');
 
     expect(claude?.resume).toEqual(['--continue']);
     expect(codex?.resume).toEqual(['resume', '--last']);
     expect(agy?.resume).toBeUndefined();
     expect(openclaude?.resume).toBeUndefined();
     expect(opencode?.resume).toEqual(['--continue']);
+    expect(kilo?.resume).toEqual(['--continue']);
+    expect(aider?.resume).toEqual(['--restore-chat-history']);
+    expect(cursor?.resume).toBeUndefined();
+    expect(cline?.resume).toEqual(['--continue']);
   });
 
   it.each([

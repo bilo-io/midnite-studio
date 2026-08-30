@@ -4,13 +4,16 @@ import { describe, expect, it } from 'vitest';
 
 import {
   AGENT_ICONS,
+  AiderIcon,
   AntigravityIcon,
   ClaudeIcon,
   CodexIcon,
+  KiloIcon,
   OpenClaudeIcon,
   OpenCodeIcon,
 } from './index';
 import { resolveAgentIcon } from './index';
+import { SiCline, SiCursor } from 'react-icons/si';
 
 /**
  * The registry is the one thing standing between an agent roster and
@@ -27,6 +30,10 @@ describe('resolveAgentIcon', () => {
       CodexIcon,
       OpenClaudeIcon,
       OpenCodeIcon,
+      KiloIcon,
+      AiderIcon,
+      SiCursor,
+      SiCline,
     ]);
     expect(new Set(marks).size).toBe(BUILTIN_AGENTS.length);
   });
@@ -49,7 +56,7 @@ describe('resolveAgentIcon', () => {
   });
 
   it('falls back to a terminal glyph for a key it has never heard of', () => {
-    expect(resolveAgentIcon({ id: 'aider' })).toBe(Terminal);
+    expect(resolveAgentIcon({ id: 'unknown-agent' })).toBe(Terminal);
     expect(resolveAgentIcon({ id: 'x', icon: 'SiNotAThing' })).toBe(Terminal);
   });
 

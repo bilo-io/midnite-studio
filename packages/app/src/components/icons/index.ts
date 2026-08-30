@@ -1,6 +1,8 @@
 import { Terminal } from 'lucide-react';
 import {
   SiAnthropic,
+  SiCline,
+  SiCursor,
   SiGithubcopilot,
   SiGooglegemini,
   SiMistralai,
@@ -9,9 +11,11 @@ import {
 } from 'react-icons/si';
 
 import type { IconComponent } from '../icon-button';
+import { AiderIcon } from './aider-icon';
 import { AntigravityIcon } from './antigravity-icon';
 import { ClaudeIcon } from './claude-icon';
 import { CodexIcon } from './codex-icon';
+import { KiloIcon } from './kilo-icon';
 import { OpenClaudeIcon } from './openclaude-icon';
 
 /**
@@ -28,13 +32,17 @@ import { OpenClaudeIcon } from './openclaude-icon';
  * opinion, and fronting both is this module's entire job.
  */
 
-/** The five builtins' own marks, keyed as `AgentDefinition.icon ?? id`. */
+/** The builtins' own marks, keyed as `AgentDefinition.icon ?? id`. */
 const LOCAL_ICONS: Record<string, IconComponent> = {
   claude: ClaudeIcon,
   antigravity: AntigravityIcon,
   codex: CodexIcon,
   openclaude: OpenClaudeIcon,
   opencode: SiOpencode,
+  kilo: KiloIcon,
+  aider: AiderIcon,
+  cursor: SiCursor,
+  cline: SiCline,
 };
 
 /**
@@ -54,6 +62,8 @@ const LOCAL_ICONS: Record<string, IconComponent> = {
  */
 const REACT_ICONS: Record<string, IconComponent> = {
   SiAnthropic,
+  SiCline,
+  SiCursor,
   SiGithubcopilot,
   SiGooglegemini,
   SiMistralai,
@@ -90,4 +100,12 @@ export function resolveAgentIcon(agent: { id: string; icon?: string }): IconComp
   return Object.hasOwn(AGENT_ICONS, key) ? (AGENT_ICONS[key] as IconComponent) : Terminal;
 }
 
-export { AntigravityIcon, ClaudeIcon, CodexIcon, OpenClaudeIcon, SiOpencode as OpenCodeIcon };
+export {
+  AiderIcon,
+  AntigravityIcon,
+  ClaudeIcon,
+  CodexIcon,
+  KiloIcon,
+  OpenClaudeIcon,
+  SiOpencode as OpenCodeIcon,
+};
