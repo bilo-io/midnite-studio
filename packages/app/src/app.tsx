@@ -12,7 +12,7 @@ import { pickForgeRemote } from '@midnite/studio-shared';
 import { QueryClient, useQueryClient } from '@tanstack/react-query';
 import { ChevronLeft, Command as CommandIcon } from 'lucide-react';
 import type { IconType } from 'react-icons';
-import { LuSettings } from 'react-icons/lu';
+import { LuFile, LuSettings } from 'react-icons/lu';
 
 import { Brand, BrandMark, Wordmark } from './components/brand';
 import { DialogHost } from './components/dialog-host';
@@ -570,8 +570,13 @@ function Shell() {
       */}
       <IconButton
         icon={CommandIcon}
-        label={`Command Palette (${displayChord(paletteChord)})`}
+        label={`Command Palette (${displayChord(paletteChord)}) — Search commands, view actions, and shortcuts`}
         onClick={() => palette.open()}
+      />
+      <IconButton
+        icon={LuFile}
+        label={`Go to File (${displayChord(chordFor('palette.files', 'Mod+p'))}) — Quick search and open files by name`}
+        onClick={() => palette.open('files')}
       />
       <span aria-hidden className="h-4 w-px shrink-0 bg-border" />
       <SyncActions />

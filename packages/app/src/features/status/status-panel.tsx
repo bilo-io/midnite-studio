@@ -298,14 +298,16 @@ export function StatusPanel() {
         </div>
 
         <div className="flex shrink-0 flex-col gap-1.5 border-t border-border p-2">
-          <textarea
-            ref={textareaRef}
-            value={message}
-            onChange={(event) => setMessage(event.target.value)}
-            placeholder="Commit message"
-            rows={1}
-            className="w-full resize-none overflow-y-auto rounded-md border border-input bg-background px-2 py-1.5 text-sm outline-none focus:ring-1 focus:ring-ring"
-          />
+          <div className="gradient-border rounded-md">
+            <textarea
+              ref={textareaRef}
+              value={message}
+              onChange={(event) => setMessage(event.target.value)}
+              placeholder="Commit message"
+              rows={1}
+              className="w-full resize-none overflow-y-auto rounded-md border-0 bg-background px-2 py-1.5 text-sm outline-none"
+            />
+          </div>
           {message.length > 0 ? (
             <button
               type="button"

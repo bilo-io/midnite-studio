@@ -116,7 +116,7 @@ export function ContextMenu({
     <div
       ref={ref}
       role="menu"
-      className="fixed z-menu min-w-[10rem] rounded-md border border-border bg-popover py-1 text-sm text-popover-foreground shadow-lg"
+      className="fixed z-menu min-w-[10rem] gradient-border gradient-border--always rounded-md border border-border bg-popover py-1 text-sm text-popover-foreground shadow-lg"
       style={{ left: placed.x, top: placed.y }}
     >
       {items.map((item, index) =>

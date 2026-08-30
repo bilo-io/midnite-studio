@@ -181,7 +181,7 @@ export function Popover({
               aria-label={label}
               tabIndex={-1}
               data-testid={testId ? `${testId}-panel` : undefined}
-              className={`fixed z-popover animate-fade-in rounded-md border border-border bg-popover text-popover-foreground shadow-xl outline-none ${panelClassName}`}
+              className={`fixed z-popover animate-fade-in gradient-border gradient-border--always rounded-md border border-border bg-popover text-popover-foreground shadow-xl outline-none ${panelClassName}`}
               style={{ left: placed.x, top: placed.y }}
             >
               {children}

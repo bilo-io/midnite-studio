@@ -110,7 +110,7 @@ export function ThemeToggle() {
               ref={menuRef}
               role="menu"
               aria-label="Theme"
-              className="fixed z-menu min-w-[10rem] animate-fade-in rounded-md border border-border bg-popover py-1 text-sm text-popover-foreground shadow-lg"
+              className="fixed z-menu min-w-[10rem] animate-fade-in gradient-border gradient-border--always rounded-md border border-border bg-popover py-1 text-sm text-popover-foreground shadow-lg"
               style={{ left: placed.x, top: placed.y }}
             >
               {OPTIONS.map(({ value, label, Icon }) => (
