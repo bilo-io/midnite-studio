@@ -20,7 +20,8 @@ import { create } from 'zustand';
 export type WorkbenchTab =
   | { kind: 'all-changes'; id: string; repoId: string; worktreePath: string; label: string }
   | { kind: 'run'; id: string; repoId: string; runId: string; label: string; url: string }
-  | { kind: 'review'; id: string; repoId: string; number: number; label: string; url: string };
+  | { kind: 'review'; id: string; repoId: string; number: number; label: string; url: string }
+  | { kind: 'commit'; id: string; repoId: string; sha: string; label: string; worktreePath?: string };
 
 export type WorkbenchTabKind = WorkbenchTab['kind'];
 
@@ -54,8 +55,11 @@ export const tabId = (tab: NewWorkbenchTab): string => {
       return `run:${tab.repoId}:${tab.runId}`;
     case 'review':
       return `review:${tab.repoId}:${tab.number}`;
+    case 'commit':
+      return `commit:${tab.repoId}:${tab.sha}`;
   }
 };
+
 
 /** `null` selects the permanent working-tree tab. */
 export type WorkbenchState = {

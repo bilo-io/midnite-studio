@@ -193,8 +193,15 @@ export function withCommentRows(
   rows: readonly DiffRow[],
   threads: ThreadsByLine | undefined,
   composerLine: number | null,
+  leftThreads?: ThreadsByLine,
 ): readonly DiffRow[] {
-  if ((threads === undefined || threads.size === 0) && composerLine === null) return rows;
+  if (
+    (threads === undefined || threads.size === 0) &&
+    (leftThreads === undefined || leftThreads.size === 0) &&
+    composerLine === null
+  ) {
+    return rows;
+  }
 
   const out: DiffRow[] = [];
   for (const row of rows) {
@@ -202,15 +209,25 @@ export function withCommentRows(
     if (row.kind !== 'line') continue;
 
     const newNo = row.line.newNo;
-    // A deleted line has no new-file number, and v1 anchors only to the right
-    // side — so it can carry neither a thread nor a composer.
-    if (newNo === null) continue;
+    const oldNo = row.line.oldNo;
 
-    const atLine = threads?.get(newNo);
-    if (atLine !== undefined && atLine.length > 0) {
-      out.push({ kind: 'thread', line: newNo, threads: atLine });
+    // Right-side threads (for additions or context)
+    if (newNo !== null) {
+      const atLine = threads?.get(newNo);
+      if (atLine !== undefined && atLine.length > 0) {
+        out.push({ kind: 'thread', line: newNo, threads: atLine });
+      }
+      if (composerLine === newNo) out.push({ kind: 'composer', line: newNo });
     }
-    if (composerLine === newNo) out.push({ kind: 'composer', line: newNo });
+
+    // Left-side threads (for deletions)
+    if (oldNo !== null && row.line.kind === 'del') {
+      const leftAtLine = leftThreads?.get(oldNo);
+      if (leftAtLine !== undefined && leftAtLine.length > 0) {
+        out.push({ kind: 'thread', line: oldNo, threads: leftAtLine });
+      }
+    }
   }
   return out;
 }
+

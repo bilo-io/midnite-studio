@@ -9,7 +9,11 @@ import { useId, useState } from 'react';
 
 import { Counts } from '../../components/change-tree';
 import { positionForLine, threadsForFile } from '../diff/comment-anchors';
+import { DiffToolbar } from '../diff/diff-toolbar';
 import { DiffView } from '../diff/diff-view';
+import { imageDiffSources } from '../diff/image-sources';
+
+
 import { StatusMark } from '../status/status-mark';
 import { CommentComposer } from './comment-composer';
 import { CommentThread } from './comment-thread';
@@ -35,6 +39,9 @@ export function PrFileAccordion({
   open,
   onToggle,
   threads,
+  repoId,
+  worktreePath,
+  baseSha,
   review,
 }: {
   file: FileDiff;
@@ -42,7 +49,11 @@ export function PrFileAccordion({
   onToggle: () => void;
   /** Every inline thread on the pull request; this row picks out its own. */
   threads: readonly ForgeReviewThread[];
+  repoId?: string;
+  worktreePath?: string;
+  baseSha?: string | null;
   /**
+
    * The write half.
    *
    * `headSha` is nullable and gates **only** the new-comment gutter. A review
@@ -85,7 +96,8 @@ export function PrFileAccordion({
     thread anchored outside this diff's hunks fall into `unanchored` instead of
     into a `byLine` key no row will ever match. See `threadsForFile`.
   */
-  const { byLine, unanchored } = threadsForFile(threads, file.path, file);
+  const { byLine, leftByLine, unanchored } = threadsForFile(threads, file.path, file);
+
   // Hoisted so the narrowing holds inside the composer's own callback.
   const headSha = review.headSha;
 
@@ -112,7 +124,10 @@ export function PrFileAccordion({
           </span>
           <Counts insertions={file.insertions} deletions={file.deletions} />
         </button>
+
+        {open ? <DiffToolbar diff={file} showStats={false} /> : null}
       </header>
+
 
       {open ? (
         <div id={bodyId} className="border-t border-border/40">
@@ -135,7 +150,21 @@ export function PrFileAccordion({
             diff={file}
             inline
             threads={byLine}
+            leftThreads={leftByLine}
+
+            images={
+              repoId && headSha && (baseSha || file.oldPath)
+                ? imageDiffSources(file, {
+                    kind: 'commit',
+                    repoId,
+                    sha: headSha,
+                    parentSha: baseSha ?? undefined,
+                    ...(worktreePath ? { worktreePath } : {}),
+                  })
+                : null
+            }
             /*
+
               `onComment` is the gate on the gutter affordance, and it is
               undefined until there is a head sha to anchor a comment to — see
               the `review` prop's note. A reader can still read every existing
