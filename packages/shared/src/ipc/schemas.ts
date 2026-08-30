@@ -1354,6 +1354,12 @@ export const BrowserDevtoolsRequest = z.object({
   tabId: z.string().min(1),
   mode: z.enum(['detach', 'embed']).default('detach'),
 });
+export const BrowserFindRequest = z.object({
+  tabId: z.string().min(1),
+  text: z.string().min(1),
+  forward: z.boolean().default(true),
+});
+export const BrowserFindStopRequest = z.object({ tabId: z.string().min(1) });
 /** No payload: clears the whole `persist:browser` partition's storage and cache. */
 export const BrowserClearDataResponse = GitOpResultSchema;
 

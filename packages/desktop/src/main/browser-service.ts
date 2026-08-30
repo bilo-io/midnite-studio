@@ -208,6 +208,18 @@ export function toggleBrowserDevTools(tabId: string, mode: 'detach' | 'embed' = 
   }
 }
 
+export function findInBrowserTab(tabId: string, text: string, forward = true): void {
+  const wc = tabs.get(tabId)?.view.webContents;
+  if (!wc) return;
+  wc.findInPage(text, { forward, findNext: true });
+}
+
+export function stopFindInBrowserTab(tabId: string): void {
+  const wc = tabs.get(tabId)?.view.webContents;
+  if (!wc) return;
+  wc.stopFindInPage('clearSelection');
+}
+
 export function setBrowserBounds(tabId: string, bounds: BrowserBounds): void {
   tabs.get(tabId)?.view.setBounds(bounds);
 }

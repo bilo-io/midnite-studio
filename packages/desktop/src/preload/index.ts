@@ -263,6 +263,8 @@ const bridge: Pick<
     setVisible: (req) => ipcRenderer.send(CHANNELS.browserSetVisible, req),
     activate: (req) => ipcRenderer.send(CHANNELS.browserActivate, req),
     devtools: (req) => ipcRenderer.send(CHANNELS.browserDevtools, req),
+    find: (req) => ipcRenderer.send(CHANNELS.browserFind, req),
+    findStop: (req) => ipcRenderer.send(CHANNELS.browserFindStop, req),
     clearData: () => call(CHANNELS.browserClearData),
     onEvent: (handler) => subscribe(EVENT_CHANNELS.browserEvent, handler),
   },

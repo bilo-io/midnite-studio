@@ -8,12 +8,14 @@ import {
   clearBrowserData,
   closeBrowserTab,
   createBrowserTab,
+  findInBrowserTab,
   forwardBrowserTab,
   navigateBrowserTab,
   reloadBrowserTab,
   setBrowserBounds,
   setBrowserVisible,
   stopBrowserTab,
+  stopFindInBrowserTab,
   toggleBrowserDevTools,
 } from '../browser-service';
 import { handle, handleBare } from './handle';
@@ -87,6 +89,16 @@ export function registerBrowserHandlers(getWindow: () => BrowserWindow | null): 
   ipcMain.on(CHANNELS.browserDevtools, (_event, raw: unknown) => {
     const parsed = schemas.BrowserDevtoolsRequest.safeParse(raw);
     if (parsed.success) toggleBrowserDevTools(parsed.data.tabId, parsed.data.mode);
+  });
+
+  ipcMain.on(CHANNELS.browserFind, (_event, raw: unknown) => {
+    const parsed = schemas.BrowserFindRequest.safeParse(raw);
+    if (parsed.success) findInBrowserTab(parsed.data.tabId, parsed.data.text, parsed.data.forward);
+  });
+
+  ipcMain.on(CHANNELS.browserFindStop, (_event, raw: unknown) => {
+    const parsed = schemas.BrowserFindStopRequest.safeParse(raw);
+    if (parsed.success) stopFindInBrowserTab(parsed.data.tabId);
   });
 
   handleBare(CHANNELS.browserClearData, async () => {

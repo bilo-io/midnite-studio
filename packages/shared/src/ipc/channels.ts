@@ -300,6 +300,8 @@ export const CHANNELS = {
   /** Which tab is on top — only one view is ever attached-and-visible. */
   browserActivate: 'mstudio:browser:activate',
   browserDevtools: 'mstudio:browser:devtools',
+  browserFind: 'mstudio:browser:find',
+  browserFindStop: 'mstudio:browser:find-stop',
   browserClearData: 'mstudio:browser:clear-data',
 
   // --- filesystem (Phase 16 reads, Phase 24 writes) -------------------------
