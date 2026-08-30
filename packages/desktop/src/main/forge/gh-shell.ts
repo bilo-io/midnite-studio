@@ -1,6 +1,6 @@
 import { spawn } from 'node:child_process';
 
-import { type Forge, type ForgeCliStatus } from '@midnite/git-shared';
+import { type Forge, type ForgeCliStatus } from '@midnite/studio-shared';
 
 import { isAuthenticated } from './gh-parse';
 

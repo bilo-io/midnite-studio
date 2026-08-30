@@ -1,6 +1,6 @@
 import { ChevronDown, ChevronRight } from 'lucide-react';
 
-import type { ForgeRun } from '@midnite/git-shared';
+import type { ForgeRun } from '@midnite/studio-shared';
 
 import { cascadeStyle } from '../../lib/cascade';
 import { useActionsStore } from '../../store/actions-store';

@@ -1,4 +1,4 @@
-import type { ForgePullScope } from '@midnite/git-shared';
+import type { ForgePullScope } from '@midnite/studio-shared';
 
 /**
  * The three questions a reviewer actually arrives with, in the order they

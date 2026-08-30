@@ -1,4 +1,4 @@
-import type { ForgeReviewComment, ForgeReviewThread } from '@midnite/git-shared';
+import type { ForgeReviewComment, ForgeReviewThread } from '@midnite/studio-shared';
 import { Check, CornerDownRight, Undo2 } from 'lucide-react';
 import { useState } from 'react';
 import Markdown from 'react-markdown';

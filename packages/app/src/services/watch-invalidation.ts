@@ -1,6 +1,6 @@
 import { useEffect } from 'react';
 
-import type { WatchKind } from '@midnite/git-shared';
+import type { WatchKind } from '@midnite/studio-shared';
 import { useQueryClient, type QueryClient } from '@tanstack/react-query';
 
 import { useGraphStore } from '../features/graph/graph-store';

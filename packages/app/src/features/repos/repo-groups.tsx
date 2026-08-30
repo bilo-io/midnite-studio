@@ -24,7 +24,7 @@ import {
 } from 'lucide-react';
 
 import { Collapse } from '@bilo-io/ui';
-import type { RepoDescriptor } from '@midnite/git-shared';
+import type { RepoDescriptor } from '@midnite/studio-shared';
 
 import { useDialogs } from '../../components/dialog-host';
 import { IconButton } from '../../components/icon-button';

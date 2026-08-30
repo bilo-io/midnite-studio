@@ -1,5 +1,5 @@
 import React from 'react';
-import { RebaseStatusState } from '@midnite/git-shared';
+import { RebaseStatusState } from '@midnite/studio-shared';
 import { LuTriangleAlert, LuCheck, LuFastForward, LuX } from 'react-icons/lu';
 
 export type RebaseBannerProps = {

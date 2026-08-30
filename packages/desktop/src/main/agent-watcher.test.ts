@@ -1,4 +1,4 @@
-import { BUILTIN_AGENTS } from '@midnite/git-shared';
+import { BUILTIN_AGENTS } from '@midnite/studio-shared';
 import { describe, expect, it } from 'vitest';
 
 import type { ProcessRow } from './agent-process';

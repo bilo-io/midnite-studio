@@ -1,4 +1,4 @@
-import type { DiffHunk, DiffLine, FileDiff, ForgeReviewThread } from '@midnite/git-shared';
+import type { DiffHunk, DiffLine, FileDiff, ForgeReviewThread } from '@midnite/studio-shared';
 
 import type { ThreadsByLine } from './comment-anchors';
 import type { HighlightToken } from './line-highlight';

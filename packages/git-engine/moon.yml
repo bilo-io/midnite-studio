@@ -6,7 +6,7 @@ dependsOn:
   - 'shared'
 
 tasks:
-  # tsc --noEmit resolves @midnite/git-shared through a project reference but does
+  # tsc --noEmit resolves @midnite/studio-shared through a project reference but does
   # not build it, so build upstream deps first.
   typecheck:
     deps:

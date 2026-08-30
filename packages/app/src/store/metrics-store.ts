@@ -1,4 +1,4 @@
-import { METRIC_IDS, type MetricId, type MetricSample } from '@midnite/git-shared';
+import { METRIC_IDS, type MetricId, type MetricSample } from '@midnite/studio-shared';
 import { create } from 'zustand';
 
 /**

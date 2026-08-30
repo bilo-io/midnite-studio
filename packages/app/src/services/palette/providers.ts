@@ -5,8 +5,8 @@ import type {
   RepoDescriptor,
   TerminalSession,
   Worktree,
-} from '@midnite/git-shared';
-import { COMMANDS } from '@midnite/git-shared';
+} from '@midnite/studio-shared';
+import { COMMANDS } from '@midnite/studio-shared';
 import { LuFile, LuFolder, LuGitBranch, LuGitCommitHorizontal, LuSquareTerminal, LuTag } from 'react-icons/lu';
 
 import { resolveAgentIcon } from '../../components/icons';

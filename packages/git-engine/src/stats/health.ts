@@ -1,5 +1,5 @@
-import type { RepoHealth } from '@midnite/git-shared';
-import { STALE_BRANCH_DAYS } from '@midnite/git-shared';
+import type { RepoHealth } from '@midnite/studio-shared';
+import { STALE_BRANCH_DAYS } from '@midnite/studio-shared';
 
 import { execGit } from '../exec/git-exec';
 

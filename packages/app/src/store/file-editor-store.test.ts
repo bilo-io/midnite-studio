@@ -1,6 +1,6 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
-import type { FsVersion, MidniteGitBridge } from '@midnite/git-shared';
+import type { FsVersion, MidniteGitBridge } from '@midnite/studio-shared';
 
 import { useFileEditorStore } from './file-editor-store';
 

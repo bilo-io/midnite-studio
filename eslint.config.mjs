@@ -72,7 +72,7 @@ export default tseslint.config(
     rules: deny([
       NO_ELECTRON,
       {
-        group: ['@midnite/git-*'],
+        group: ['@midnite/studio-*'],
         message:
           'packages/shared is the leaf of the dependency graph — it may depend on zod and nothing else in the workspace.',
       },
@@ -85,7 +85,7 @@ export default tseslint.config(
     rules: deny([
       NO_ELECTRON,
       {
-        group: ['@midnite/git-app', '@midnite/git-app/*', '@midnite/git-desktop', '@midnite/git-desktop/*'],
+        group: ['@midnite/studio-app', '@midnite/studio-app/*', '@midnite/studio-desktop', '@midnite/studio-desktop/*'],
         message: 'git-engine sits below app/desktop in the dependency graph.',
       },
     ]),
@@ -104,10 +104,10 @@ export default tseslint.config(
       },
       {
         group: [
-          '@midnite/git-engine',
-          '@midnite/git-engine/*',
-          '@midnite/git-desktop',
-          '@midnite/git-desktop/*',
+          '@midnite/studio-git-engine',
+          '@midnite/studio-git-engine/*',
+          '@midnite/studio-desktop',
+          '@midnite/studio-desktop/*',
         ],
         message:
           'The renderer never imports the git engine directly — git runs in the main process. Add an IPC channel in packages/shared/src/ipc instead.',

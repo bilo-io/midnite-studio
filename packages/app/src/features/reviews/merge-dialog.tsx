@@ -1,4 +1,4 @@
-import type { ForgeMergeMethod, ForgePullDetail } from '@midnite/git-shared';
+import type { ForgeMergeMethod, ForgePullDetail } from '@midnite/studio-shared';
 import { AlertTriangle } from 'lucide-react';
 import { useEffect, useRef, useState } from 'react';
 

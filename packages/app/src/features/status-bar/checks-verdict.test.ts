@@ -1,4 +1,4 @@
-import type { ForgePull } from '@midnite/git-shared';
+import type { ForgePull } from '@midnite/studio-shared';
 import { describe, expect, it } from 'vitest';
 
 import { findPrForBranch } from './checks-verdict';

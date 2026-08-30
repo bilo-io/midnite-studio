@@ -5,7 +5,7 @@ import {
   type FileChangeKind,
   type FileDiff,
   type IntralineRange,
-} from '@midnite/git-shared';
+} from '@midnite/studio-shared';
 
 /**
  * Unified-diff parser.

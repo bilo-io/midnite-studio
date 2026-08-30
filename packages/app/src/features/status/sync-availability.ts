@@ -1,4 +1,4 @@
-import type { BranchStatus } from '@midnite/git-shared';
+import type { BranchStatus } from '@midnite/studio-shared';
 
 /**
  * Which of fetch/pull/push can actually do something, and what to call them.

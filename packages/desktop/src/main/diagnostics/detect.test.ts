@@ -1,6 +1,6 @@
 import { join } from 'node:path';
 
-import type { DiagnosticsCandidate, DiagnosticsCommand } from '@midnite/git-shared';
+import type { DiagnosticsCandidate, DiagnosticsCommand } from '@midnite/studio-shared';
 import { describe, expect, it } from 'vitest';
 
 import {

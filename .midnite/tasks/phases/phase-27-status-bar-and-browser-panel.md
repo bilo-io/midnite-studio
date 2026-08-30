@@ -154,7 +154,7 @@ assumes the new geometry.
   - `chordFor` is currently typed
     `(command: 'terminal.toggle' | 'repos.toggle', fallback: string): string` — a hardcoded union
     that Theme F's Browser toggle cannot pass. Widen the parameter to `CommandId` from
-    [`@midnite/git-shared`](../packages/shared/src/keybindings.ts); the body
+    [`@midnite/studio-shared`](../packages/shared/src/keybindings.ts); the body
     (`DEFAULT_KEYMAP.find((b) => b.command === command)?.chord ?? fallback`) is unchanged.
   - `displayChord(chord: string): string` moves verbatim, comment included. It is the only place the
     `Mod+` → `⌘`/`Ctrl+` and `Shift+` → `⇧` rendering exists, and Theme F's Browser toggle is its

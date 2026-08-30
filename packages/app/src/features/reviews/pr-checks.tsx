@@ -1,4 +1,4 @@
-import type { ForgeRun } from '@midnite/git-shared';
+import type { ForgeRun } from '@midnite/studio-shared';
 import { RefreshCw } from 'lucide-react';
 import { useMemo, useState } from 'react';
 

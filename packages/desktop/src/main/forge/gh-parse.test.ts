@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 
-import { parseMultiFileDiff } from '@midnite/git-engine';
+import { parseMultiFileDiff } from '@midnite/studio-git-engine';
 
 import {
   capPatch,

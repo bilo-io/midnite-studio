@@ -1,6 +1,6 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
-import type { WatchKind } from '@midnite/git-shared';
+import type { WatchKind } from '@midnite/studio-shared';
 
 import { withFsActivity } from '../exec/fs-activity';
 import { writeQueue } from '../exec/write-queue';

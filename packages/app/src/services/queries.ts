@@ -25,7 +25,7 @@ import type {
   TestDiscovery,
   TestTrustStatus,
   Worktree,
-} from '@midnite/git-shared';
+} from '@midnite/studio-shared';
 import { useMutation, useQuery, useQueryClient, type QueryClient } from '@tanstack/react-query';
 
 import { bridge } from './bridge';

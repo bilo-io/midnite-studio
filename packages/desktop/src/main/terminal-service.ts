@@ -1,4 +1,4 @@
-import type { AgentDefinition, TerminalSession } from '@midnite/git-shared';
+import type { AgentDefinition, TerminalSession } from '@midnite/studio-shared';
 
 import { createAgentsStore, type AgentsStore } from './agents-store';
 import {

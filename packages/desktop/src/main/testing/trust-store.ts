@@ -1,7 +1,7 @@
 import { readFile, writeFile } from 'node:fs/promises';
 import { join } from 'node:path';
 
-import type { TestTrustStatus } from '@midnite/git-shared';
+import type { TestTrustStatus } from '@midnite/studio-shared';
 
 /**
  * Which suites a repository may run — one grant per *suite*, not per repo.

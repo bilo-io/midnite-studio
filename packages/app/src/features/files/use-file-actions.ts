@@ -1,6 +1,6 @@
 import { useQueryClient } from '@tanstack/react-query';
 
-import type { FsEntry, GitOpResult } from '@midnite/git-shared';
+import type { FsEntry, GitOpResult } from '@midnite/studio-shared';
 
 import { useDialogs } from '../../components/dialog-host';
 import { bridge } from '../../services/bridge';

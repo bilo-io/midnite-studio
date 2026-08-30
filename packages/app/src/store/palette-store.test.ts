@@ -1,6 +1,6 @@
 import { beforeEach, describe, expect, it } from 'vitest';
 
-import type { CommandDescriptor } from '@midnite/git-shared';
+import type { CommandDescriptor } from '@midnite/studio-shared';
 
 import { filterCommands, groupCommands, matchesQuery, parsePaletteQuery, usePaletteStore } from './palette-store';
 

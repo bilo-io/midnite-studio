@@ -1,7 +1,7 @@
 import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
 
-import { BUILTIN_AGENTS } from '@midnite/git-shared';
+import { BUILTIN_AGENTS } from '@midnite/studio-shared';
 import { describe, expect, it, vi } from 'vitest';
 
 import {

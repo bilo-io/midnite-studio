@@ -1,4 +1,4 @@
-import type { Commit, GraphRow } from '@midnite/git-shared';
+import type { Commit, GraphRow } from '@midnite/studio-shared';
 import { describe, expect, it } from 'vitest';
 
 import { colorForSha } from './colors';

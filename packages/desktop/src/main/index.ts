@@ -1,6 +1,6 @@
 import { dirname, join } from 'node:path';
 
-import { EVENT_CHANNELS } from '@midnite/git-shared';
+import { EVENT_CHANNELS } from '@midnite/studio-shared';
 import { BrowserWindow, app } from 'electron';
 
 import { createActivityDetector } from './activity-detect';
@@ -56,7 +56,7 @@ import { registerWindowChrome } from './window-chrome';
 /**
  * Electron main entry point.
  *
- * Owns everything the renderer cannot: git (through @midnite/git-engine),
+ * Owns everything the renderer cannot: git (through @midnite/studio-git-engine),
  * node-pty, the filesystem, and the native window. The renderer reaches all of
  * it through the typed bridge in ../preload.
  */
@@ -112,7 +112,7 @@ function bindRenderProcessGone(win: BrowserWindow, log: Logger): void {
 /**
  * Electron derives the app name from package.json, which here is the scoped
  * workspace name — so the macOS menu bar, the About dialog and `~/Library/
- * Application Support` all read "@midnite/git-desktop". Set it before anything
+ * Application Support` all read "@midnite/studio-desktop". Set it before anything
  * reads it, which includes `app.getPath('userData')`.
  *
  * This is the display name, matching electron-builder's `productName`. It has a

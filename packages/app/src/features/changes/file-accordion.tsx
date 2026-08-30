@@ -1,4 +1,4 @@
-import type { ChangeCounts, StatusEntry } from '@midnite/git-shared';
+import type { ChangeCounts, StatusEntry } from '@midnite/studio-shared';
 import { ChevronRight } from 'lucide-react';
 import { useId } from 'react';
 

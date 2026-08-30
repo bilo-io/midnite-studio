@@ -1,5 +1,5 @@
 {
-  "name": "@midnite/git",
+  "name": "@midnite/studio",
   "version": "0.1.0",
   "private": true,
   "description": "A GitKraken-inspired desktop git client — Electron + typed IPC, Vite + React renderer",

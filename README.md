@@ -62,7 +62,7 @@ moon run desktop:start-built        # Electron against the built renderer (file:
 moon run desktop:rebuild-native     # node-pty for Electron's ABI, after an Electron bump
 moon run desktop:dist               # macOS arm64 dmg + zip → packages/desktop/release
 moon run desktop:install-local      # ditto the .app into /Applications
-pnpm --filter @midnite/git-engine smoke ~/some/repo   # parse a real repo, print the lanes
+pnpm --filter @midnite/studio-git-engine smoke ~/some/repo   # parse a real repo, print the lanes
 ```
 
 ## How it is put together

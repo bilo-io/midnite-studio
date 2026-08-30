@@ -1,4 +1,4 @@
-import type { ForgeReviewThread } from '@midnite/git-shared';
+import type { ForgeReviewThread } from '@midnite/studio-shared';
 import { ChevronRight, History } from 'lucide-react';
 import { useId, useState } from 'react';
 

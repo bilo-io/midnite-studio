@@ -1,4 +1,4 @@
-import type { AgentDefinition, RepoDescriptor, TerminalSession, Worktree } from '@midnite/git-shared';
+import type { AgentDefinition, RepoDescriptor, TerminalSession, Worktree } from '@midnite/studio-shared';
 import { describe, expect, it, vi } from 'vitest';
 
 import type { CommandRuntime } from '../../services/keybindings/use-command-handlers';

@@ -1,4 +1,4 @@
-import type { ChurnStats } from '@midnite/git-shared';
+import type { ChurnStats } from '@midnite/studio-shared';
 
 import type { HistoryCommit } from './commit-history';
 

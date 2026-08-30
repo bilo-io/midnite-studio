@@ -1,4 +1,4 @@
-import type { RepoDescriptor } from '@midnite/git-shared';
+import type { RepoDescriptor } from '@midnite/studio-shared';
 
 /**
  * Which registered checkout a path is standing in.

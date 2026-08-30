@@ -1,4 +1,4 @@
-import type { BlameResult, GitOpResult } from '@midnite/git-shared';
+import type { BlameResult, GitOpResult } from '@midnite/studio-shared';
 
 import { execGit } from '../exec/git-exec';
 import { parseBlame } from '../parsers/blame-parser';

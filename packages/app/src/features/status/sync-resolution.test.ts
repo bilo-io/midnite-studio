@@ -1,4 +1,4 @@
-import type { BranchStatus } from '@midnite/git-shared';
+import type { BranchStatus } from '@midnite/studio-shared';
 import { describe, expect, it } from 'vitest';
 
 import { syncResolution } from './sync-resolution';

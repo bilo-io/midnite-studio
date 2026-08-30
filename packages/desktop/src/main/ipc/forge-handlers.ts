@@ -1,4 +1,4 @@
-import { listRemotes } from '@midnite/git-engine';
+import { listRemotes } from '@midnite/studio-git-engine';
 import {
   CHANNELS,
   pickForgeRemote,
@@ -16,7 +16,7 @@ import {
   type ForgeRunsResult,
   type ForgeWorkflowsResult,
   type ForgeWriteResult,
-} from '@midnite/git-shared';
+} from '@midnite/studio-shared';
 
 import {
   listIssues,

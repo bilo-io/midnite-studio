@@ -1,4 +1,4 @@
-import type { TestPackage } from '@midnite/git-shared';
+import type { TestPackage } from '@midnite/studio-shared';
 
 import { discoverTests, type DiscoverTestsOptions } from './discover';
 import { createDiscoveryCache, type DiscoveryCache } from './discovery-cache';

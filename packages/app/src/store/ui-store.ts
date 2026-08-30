@@ -1,7 +1,7 @@
 import { create } from 'zustand';
 import { persist } from 'zustand/middleware';
 
-import { METRICS_IDLE_INTERVAL_MS, type MetricId } from '@midnite/git-shared';
+import { METRICS_IDLE_INTERVAL_MS, type MetricId } from '@midnite/studio-shared';
 
 import {
   DEFAULT_GRAPH_DENSITY,
@@ -547,7 +547,7 @@ export type UiState = {
   setAgentSkill: (id: AgentCommandId, skill: string) => void;
   /**
    * The agent the midnite menu launches — an id from the roster
-   * (`BUILTIN_AGENTS` in `@midnite/git-shared`, e.g. `'claude'`, `'agy'`,
+   * (`BUILTIN_AGENTS` in `@midnite/studio-shared`, e.g. `'claude'`, `'agy'`,
    * `'codex'`), not a closed union: the roster is user-extensible via
    * `agents.json`, and this setting just names one of its entries.
    */

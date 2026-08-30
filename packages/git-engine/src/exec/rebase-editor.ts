@@ -1,6 +1,6 @@
 import * as fs from 'fs';
 import * as path from 'path';
-import { RebaseEntry, RebaseSequencePlan } from '@midnite/git-shared';
+import { RebaseEntry, RebaseSequencePlan } from '@midnite/studio-shared';
 
 /**
  * Parses git-rebase-todo sequence format into RebaseEntry list.

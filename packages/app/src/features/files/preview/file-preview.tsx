@@ -3,7 +3,7 @@ import { lazy, Suspense, useEffect, useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { LuFileQuestion } from 'react-icons/lu';
 
-import { mgitFileUrl } from '@midnite/git-shared';
+import { mgitFileUrl } from '@midnite/studio-shared';
 
 import { EmptyState } from '../../../components/empty-state';
 import { languageForFile, previewKindForFile } from '../../../lib/languages';

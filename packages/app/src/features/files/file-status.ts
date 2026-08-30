@@ -1,4 +1,4 @@
-import type { StatusCode, StatusEntry, StatusResult } from '@midnite/git-shared';
+import type { StatusCode, StatusEntry, StatusResult } from '@midnite/studio-shared';
 
 import { primaryCode } from '../status/status-mark';
 

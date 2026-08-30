@@ -1,6 +1,6 @@
 import { useMemo, useState } from 'react';
 
-import { pickForgeRemote, type StatsWindow } from '@midnite/git-shared';
+import { pickForgeRemote, type StatsWindow } from '@midnite/studio-shared';
 import {
   Activity,
   ArrowDown,

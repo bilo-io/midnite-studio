@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 
-import type { StatusEntry, StatusResult } from '@midnite/git-shared';
+import type { StatusEntry, StatusResult } from '@midnite/studio-shared';
 
 import { buildFileStatusIndex, resolveFileStatusIndex } from './file-status';
 

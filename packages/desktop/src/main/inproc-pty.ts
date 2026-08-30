@@ -1,7 +1,7 @@
 import { randomUUID } from 'node:crypto';
 import { existsSync } from 'node:fs';
 
-import { SCROLLBACK_BYTES } from '@midnite/git-shared';
+import { SCROLLBACK_BYTES } from '@midnite/studio-shared';
 
 import type { AgentWatcher } from './agent-watcher';
 

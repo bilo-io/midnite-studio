@@ -1,6 +1,6 @@
 import { ipcMain, type BrowserWindow } from 'electron';
 
-import { CHANNELS, ok, schemas } from '@midnite/git-shared';
+import { CHANNELS, ok, schemas } from '@midnite/studio-shared';
 
 import {
   activateBrowserTab,

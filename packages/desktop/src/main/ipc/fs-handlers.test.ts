@@ -5,7 +5,7 @@ import { join } from 'node:path';
 import { afterAll, afterEach, beforeAll, describe, expect, it, vi } from 'vitest';
 
 // Imported dynamically below, after the mocks are in place — `fs-handlers.ts`
-// pulls in `@midnite/git-engine` at module scope, and only `dirStats`/
+// pulls in `@midnite/studio-git-engine` at module scope, and only `dirStats`/
 // `showItemInFolder` are under test here (the read-only stats + reveal pair
 // Theme C added beside the existing `listDir`/`readFileCapped`).
 const { resolveWorkdir, showItemInFolder: showItemInFolderMock } = vi.hoisted(() => ({
@@ -111,7 +111,7 @@ describe('fs read handlers — dirStats + showItemInFolder (Phase 24 Theme C)', 
  * instead of widening the module's public surface for tests alone.
  */
 async function importHandlers() {
-  const { CHANNELS } = await import('@midnite/git-shared');
+  const { CHANNELS } = await import('@midnite/studio-shared');
   const { registerFsHandlers } = await import('./fs-handlers');
   const ipcMain = (await import('electron')).ipcMain as unknown as { handle: ReturnType<typeof vi.fn> };
   ipcMain.handle.mockClear();

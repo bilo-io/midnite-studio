@@ -1,4 +1,4 @@
-import type { GraphRow } from '@midnite/git-shared';
+import type { GraphRow } from '@midnite/studio-shared';
 import { describe, expect, it } from 'vitest';
 
 import { summariseAuthors } from './author-filter';

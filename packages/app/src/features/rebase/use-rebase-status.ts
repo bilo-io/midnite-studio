@@ -1,5 +1,5 @@
 import { useState, useEffect, useCallback } from 'react';
-import { RebaseStatusState } from '@midnite/git-shared';
+import { RebaseStatusState } from '@midnite/studio-shared';
 
 export function useRebaseStatus(repoId: string | null) {
   const [status, setStatus] = useState<RebaseStatusState>({ inProgress: false });

@@ -1,4 +1,4 @@
-import { parseMultiFileDiff } from '@midnite/git-engine';
+import { parseMultiFileDiff } from '@midnite/studio-git-engine';
 import {
   DIFF_DEFAULT_CONTEXT,
   PULL_PATCH_BYTE_CAP,
@@ -15,7 +15,7 @@ import {
   type ForgeRunLogResult,
   type ForgeRunsResult,
   type ForgeWorkflowsResult,
-} from '@midnite/git-shared';
+} from '@midnite/studio-shared';
 
 import {
   isIssuesDisabled,

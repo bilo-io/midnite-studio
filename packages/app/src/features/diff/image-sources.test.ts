@@ -1,4 +1,4 @@
-import type { FileDiff, StatusCode, StatusEntry } from '@midnite/git-shared';
+import type { FileDiff, StatusCode, StatusEntry } from '@midnite/studio-shared';
 import { describe, expect, it } from 'vitest';
 
 import { differsFromHead, headToWorktreeImage, imageDiffSources } from './image-sources';

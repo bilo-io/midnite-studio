@@ -1,7 +1,7 @@
 import { create } from 'zustand';
 import { persist } from 'zustand/middleware';
 
-import type { Commit, GrepHit } from '@midnite/git-shared';
+import type { Commit, GrepHit } from '@midnite/studio-shared';
 
 export type SearchMode = 'commits' | 'content' | 'files';
 

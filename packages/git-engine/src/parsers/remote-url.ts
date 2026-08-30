@@ -1,4 +1,4 @@
-import type { Forge, ForgeKind } from '@midnite/git-shared';
+import type { Forge, ForgeKind } from '@midnite/studio-shared';
 
 /**
  * Normalise a git remote URL into `{host, owner, repo, kind}`.

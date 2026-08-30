@@ -1,5 +1,5 @@
 {
-  "name": "@midnite/git-desktop",
+  "name": "@midnite/studio-desktop",
   "version": "0.1.0",
   "private": true,
   "description": "Electron main + preload: owns git (via git-engine) and node-pty, exposes typed IPC.",
@@ -19,9 +19,9 @@
   },
   "devDependencies": {
     "@electron/rebuild": "^3.7.0",
-    "@midnite/git-app": "workspace:*",
-    "@midnite/git-engine": "workspace:*",
-    "@midnite/git-shared": "workspace:*",
+    "@midnite/studio-app": "workspace:*",
+    "@midnite/studio-git-engine": "workspace:*",
+    "@midnite/studio-shared": "workspace:*",
     "@types/node": "^22.10.2",
     "electron": "^33.2.0",
     "electron-builder": "^25.1.8",

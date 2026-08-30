@@ -2,8 +2,8 @@ import { pathToFileURL } from 'node:url';
 
 import { net, protocol } from 'electron';
 
-import { readBlob } from '@midnite/git-engine';
-import { isSafeBlobRev, MGIT_BLOB_MAX_BYTES, MGIT_FILE_SCHEME } from '@midnite/git-shared';
+import { readBlob } from '@midnite/studio-git-engine';
+import { isSafeBlobRev, MGIT_BLOB_MAX_BYTES, MGIT_FILE_SCHEME } from '@midnite/studio-shared';
 
 import { confineToRoot, joinWithin, resolveScopeRoot, type FsScopeRequest } from './fs-scope';
 

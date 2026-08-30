@@ -3,7 +3,7 @@ import {
   schemas,
   type DiagnosticsRun,
   type DiagnosticsTrustStatus,
-} from '@midnite/git-shared';
+} from '@midnite/studio-shared';
 
 import { detectCandidates, isProposedCommand } from '../diagnostics/detect';
 import { runDiagnostics } from '../diagnostics/runner';

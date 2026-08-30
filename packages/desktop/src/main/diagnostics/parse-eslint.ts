@@ -1,6 +1,6 @@
 import { relative, sep } from 'node:path';
 
-import { DIAGNOSTICS_ROW_CAP, type Diagnostic } from '@midnite/git-shared';
+import { DIAGNOSTICS_ROW_CAP, type Diagnostic } from '@midnite/studio-shared';
 
 /**
  * `eslint --format json`, parsed as it arrives.

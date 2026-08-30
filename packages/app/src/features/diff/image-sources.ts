@@ -5,7 +5,7 @@ import {
   type FileDiff,
   type StatusCode,
   type StatusEntry,
-} from '@midnite/git-shared';
+} from '@midnite/studio-shared';
 
 import { previewKindForFile } from '../../lib/languages';
 

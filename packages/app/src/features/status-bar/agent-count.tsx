@@ -1,4 +1,4 @@
-import type { TerminalSession } from '@midnite/git-shared';
+import type { TerminalSession } from '@midnite/studio-shared';
 
 import { useUiStore } from '../../store/ui-store';
 import {

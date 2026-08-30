@@ -9,7 +9,7 @@ export default defineConfig({
   },
   resolve: {
     alias: {
-      '@midnite/git-shared': new URL('../shared/src/index.ts', import.meta.url).pathname,
+      '@midnite/studio-shared': new URL('../shared/src/index.ts', import.meta.url).pathname,
     },
   },
 });

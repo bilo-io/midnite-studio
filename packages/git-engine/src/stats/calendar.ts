@@ -1,4 +1,4 @@
-import type { CalendarDay } from '@midnite/git-shared';
+import type { CalendarDay } from '@midnite/studio-shared';
 
 import type { HistoryCommit } from './commit-history';
 

@@ -1,5 +1,5 @@
-import type { ConflictOp, GitOpResult, InProgressOp } from '@midnite/git-shared';
-import { failure, ok } from '@midnite/git-shared';
+import type { ConflictOp, GitOpResult, InProgressOp } from '@midnite/studio-shared';
+import { failure, ok } from '@midnite/studio-shared';
 
 import { execGit } from '../exec/git-exec';
 import { writeQueue } from '../exec/write-queue';

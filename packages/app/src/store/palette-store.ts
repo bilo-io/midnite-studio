@@ -1,6 +1,6 @@
 import { create } from 'zustand';
 
-import type { CommandDescriptor, CommandGroup } from '@midnite/git-shared';
+import type { CommandDescriptor, CommandGroup } from '@midnite/studio-shared';
 
 /**
  * A deliberate second store rather than a slice of `ui-store`: an open palette,

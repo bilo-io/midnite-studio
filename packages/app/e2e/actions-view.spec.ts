@@ -113,7 +113,7 @@ const base: MockFixtures = {
           line('test (ubuntu-latest)', '##[endgroup]'),
           // Where main spliced out the middle.
           //
-          // Written out rather than imported from `@midnite/git-shared`:
+          // Written out rather than imported from `@midnite/studio-shared`:
           // Playwright loads specs as ESM and the shared package resolves to
           // CJS there, so a named import fails at collection time. That the
           // real writer and the real reader agree on this shape is asserted in

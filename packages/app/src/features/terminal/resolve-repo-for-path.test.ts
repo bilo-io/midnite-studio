@@ -1,4 +1,4 @@
-import type { RepoDescriptor, Worktree } from '@midnite/git-shared';
+import type { RepoDescriptor, Worktree } from '@midnite/studio-shared';
 import { describe, expect, it } from 'vitest';
 
 import { resolveRepoForPath } from './resolve-repo-for-path';

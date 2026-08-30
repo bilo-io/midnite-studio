@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
 
 import { Tabs, type TabOption } from '@bilo-io/ui';
-import type { ForgePull, ForgePullScope } from '@midnite/git-shared';
+import type { ForgePull, ForgePullScope } from '@midnite/studio-shared';
 import { RefreshCw, Search, Users } from 'lucide-react';
 
 import { IconButton } from '../../components/icon-button';

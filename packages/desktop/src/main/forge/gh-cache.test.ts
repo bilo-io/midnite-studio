@@ -1,4 +1,4 @@
-import type { Forge } from '@midnite/git-shared';
+import type { Forge } from '@midnite/studio-shared';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
 import { clearForgeRunCache, forgetRun, runDetail, runLog } from './gh-cli';

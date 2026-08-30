@@ -2,7 +2,7 @@ import {
   STATS_WINDOW_DAYS,
   type RepoStats,
   type StatsWindow,
-} from '@midnite/git-shared';
+} from '@midnite/studio-shared';
 
 import { execGit } from '../exec/git-exec';
 import { buildCalendar } from './calendar';

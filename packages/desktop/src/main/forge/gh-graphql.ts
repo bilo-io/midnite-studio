@@ -3,7 +3,7 @@ import {
   type Forge,
   type ForgePullThreadsResult,
   type ForgeReviewThread,
-} from '@midnite/git-shared';
+} from '@midnite/studio-shared';
 
 import {
   apiHostFlag,
