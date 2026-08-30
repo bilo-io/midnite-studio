@@ -9,7 +9,7 @@ import { installMockBridge, type MockFixtures } from './mock-bridge';
  * the same mocked bridge the rest of the suite uses so the picture is
  * reproducible rather than whatever happened to be in someone's repo that day.
  *
- * Run with `MGIT_SHOTS=1`; skipped otherwise, so the normal suite stays fast
+ * Run with `MSTUDIO_SHOTS=1`; skipped otherwise, so the normal suite stays fast
  * and does not rewrite committed images on every run.
  */
 /**
@@ -166,16 +166,16 @@ const FIXTURES: MockFixtures = {
   remotes: [
     {
       name: 'origin',
-      fetchUrl: 'https://github.com/bilo-io/midnite-git.git',
-      pushUrl: 'https://github.com/bilo-io/midnite-git.git',
-      forge: { host: 'github.com', owner: 'bilo-io', repo: 'midnite-git', kind: 'github' },
+      fetchUrl: 'https://github.com/bilo-io/midnite-studio.git',
+      pushUrl: 'https://github.com/bilo-io/midnite-studio.git',
+      forge: { host: 'github.com', owner: 'bilo-io', repo: 'midnite-studio', kind: 'github' },
     },
   ],
   statusEntries: DIRTY,
 };
 
 test.describe('screenshots', () => {
-  test.skip(!process.env.MGIT_SHOTS, 'set MGIT_SHOTS=1 to regenerate');
+  test.skip(!process.env.MSTUDIO_SHOTS, 'set MSTUDIO_SHOTS=1 to regenerate');
 
   test.use({ viewport: { width: 1440, height: 820 } });
 

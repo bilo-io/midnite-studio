@@ -7,7 +7,7 @@ import {
   METRIC_IDS,
   commandLine,
   type MetricId,
-} from '@midnite/git-shared';
+} from '@midnite/studio-shared';
 
 import {
   useDiagTrust,

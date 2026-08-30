@@ -1,7 +1,7 @@
 import { mkdir, readFile, rm, writeFile } from 'node:fs/promises';
 import { join } from 'node:path';
 
-import { SCROLLBACK_BYTES, type TerminalSession } from '@midnite/git-shared';
+import { SCROLLBACK_BYTES, type TerminalSession } from '@midnite/studio-shared';
 
 /**
  * Terminal sessions and their output, persisted across launches.

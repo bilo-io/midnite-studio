@@ -2,13 +2,13 @@ import { pathToFileURL } from 'node:url';
 
 import { net, protocol } from 'electron';
 
-import { readBlob } from '@midnite/git-engine';
-import { isSafeBlobRev, MGIT_BLOB_MAX_BYTES, MGIT_FILE_SCHEME } from '@midnite/git-shared';
+import { readBlob } from '@midnite/studio-git-engine';
+import { isSafeBlobRev, MSTUDIO_BLOB_MAX_BYTES, MSTUDIO_FILE_SCHEME } from '@midnite/studio-shared';
 
 import { confineToRoot, joinWithin, resolveScopeRoot, type FsScopeRequest } from './fs-scope';
 
 /**
- * `mgit-file://<scope>/<repoId|->/<relPath>` — how media bytes reach the
+ * `mstudio-file://<scope>/<repoId|->/<relPath>` — how media bytes reach the
  * renderer. Images, video, audio and PDFs never cross IPC as payloads; the
  * protocol streams them from disk through `net.fetch`, which keeps range
  * requests (video seeking) and backpressure for free.
@@ -19,7 +19,7 @@ import { confineToRoot, joinWithin, resolveScopeRoot, type FsScopeRequest } from
  * **Default session only.** `protocol.handle` on the module-level `protocol`
  * object registers against `session.defaultSession`, never against a named
  * partition — so a `WebContentsView` on Phase 32's `persist:browser`
- * partition (`main/browser-service.ts`) cannot resolve an `mgit-file:` URL
+ * partition (`main/browser-service.ts`) cannot resolve an `mstudio-file:` URL
  * at all, and the renderer's media path stays unreachable from a remote
  * page. Phase 32 Theme B depends on that staying true; `fs-protocol.test.ts`
  * asserts it.
@@ -31,7 +31,7 @@ import { confineToRoot, joinWithin, resolveScopeRoot, type FsScopeRequest } from
  */
 export function registerMgitFileScheme(): void {
   protocol.registerSchemesAsPrivileged([
-    { scheme: MGIT_FILE_SCHEME, privileges: { stream: true, supportFetchAPI: true } },
+    { scheme: MSTUDIO_FILE_SCHEME, privileges: { stream: true, supportFetchAPI: true } },
   ]);
 }
 
@@ -60,14 +60,14 @@ const MIME_BY_EXT: Record<string, string> = {
 
 /** After `whenReady`, before the window loads anything that renders media. */
 export function installMgitFileProtocol(): void {
-  protocol.handle(MGIT_FILE_SCHEME, async (request) => {
+  protocol.handle(MSTUDIO_FILE_SCHEME, async (request) => {
     // A `?rev=` request asks for the file as it was at a revision, which is an
     // object-database read rather than a disk read — see `resolveBlobRequest`.
     const blob = await resolveBlobRequest(request.url);
     if (blob.kind === 'invalid') return new Response('not found', { status: 404 });
     if (blob.kind === 'blob') {
       const read = await readBlob(blob.repoPath, blob.rev, blob.relPath, {
-        maxBytes: MGIT_BLOB_MAX_BYTES,
+        maxBytes: MSTUDIO_BLOB_MAX_BYTES,
       });
       if (!read.ok) {
         return new Response(read.reason, { status: read.reason === 'too-large' ? 413 : 404 });

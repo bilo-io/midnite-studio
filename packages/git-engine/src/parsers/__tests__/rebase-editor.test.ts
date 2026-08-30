@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { formatRebaseTodo, parseRebaseTodo } from '../../exec/rebase-editor';
-import { RebaseEntry } from '@midnite/git-shared';
+import { RebaseEntry } from '@midnite/studio-shared';
 
 describe('rebase-editor', () => {
   it('parses git-rebase-todo formatted text correctly', () => {

@@ -1,7 +1,7 @@
 import { create } from 'zustand';
 import { persist } from 'zustand/middleware';
 
-import { METRICS_IDLE_INTERVAL_MS, type MetricId } from '@midnite/git-shared';
+import { METRICS_IDLE_INTERVAL_MS, type MetricId } from '@midnite/studio-shared';
 
 import {
   DEFAULT_GRAPH_DENSITY,
@@ -10,6 +10,8 @@ import {
   type GraphThemeId,
 } from '../features/graph/graph-themes';
 import { useFileEditorStore } from './file-editor-store';
+
+import { adoptRenamedPersistKey } from './persist-rename';
 
 /**
  * Collapse/expand/lock behaviour of the nav rail, mirroring `AppFrame`'s
@@ -547,7 +549,7 @@ export type UiState = {
   setAgentSkill: (id: AgentCommandId, skill: string) => void;
   /**
    * The agent the midnite menu launches — an id from the roster
-   * (`BUILTIN_AGENTS` in `@midnite/git-shared`, e.g. `'claude'`, `'agy'`,
+   * (`BUILTIN_AGENTS` in `@midnite/studio-shared`, e.g. `'claude'`, `'agy'`,
    * `'codex'`), not a closed union: the roster is user-extensible via
    * `agents.json`, and this setting just names one of its entries.
    */
@@ -658,6 +660,12 @@ type PersistedUi = Pick<
   | 'repoGroupMembership'
   | 'collapsedRepoGroups'
 >;
+
+/**
+ * Pre-rename state, adopted before the store hydrates — see
+ * `persist-rename.ts` for why this cannot be a zustand `migrate`.
+ */
+adoptRenamedPersistKey('midnite-studio.ui', 'midnite-studio.ui');
 
 export const useUiStore = create<UiState>()(
   persist(
@@ -883,7 +891,7 @@ export const useUiStore = create<UiState>()(
       setPrimaryAgent: (id) => set({ primaryAgent: id }),
     }),
     {
-      name: 'midnite-git.ui',
+      name: 'midnite-studio.ui',
       // 4 — `repoGroups`, `repoGroupMembership`, `collapsedRepoGroups` are new.
       // 3 — `collapsedRepoSections` is new (Phase 28 Theme D); a v2 payload has
       // no such key, and the migration below supplies `{}` for it.

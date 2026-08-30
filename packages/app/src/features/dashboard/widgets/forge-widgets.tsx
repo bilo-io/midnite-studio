@@ -1,6 +1,6 @@
 import { useMemo } from 'react';
 
-import type { ForgeIssue, ForgePull, ForgeRun } from '@midnite/git-shared';
+import type { ForgeIssue, ForgePull, ForgeRun } from '@midnite/studio-shared';
 
 import { openExternal } from '../../../services/queries';
 import { checksStatus, pullStatus, runStatus, StatusPill } from '../../forge/forge-status';

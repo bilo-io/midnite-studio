@@ -1,4 +1,4 @@
-import type { AgentDefinition, SessionActivity } from '@midnite/git-shared';
+import type { AgentDefinition, SessionActivity } from '@midnite/studio-shared';
 
 /** Enough to hold one repaint; a frame is a couple of kilobytes of escapes. */
 const MAX_FRAME_CHARS = 8000;

@@ -1,4 +1,4 @@
-import type { FileDiff, StatusCode, StatusEntry } from '@midnite/git-shared';
+import type { FileDiff, StatusCode, StatusEntry } from '@midnite/studio-shared';
 import { describe, expect, it } from 'vitest';
 
 import { differsFromHead, headToWorktreeImage, imageDiffSources } from './image-sources';
@@ -45,27 +45,27 @@ describe('imageDiffSources — the revision pairing', () => {
     const sources = imageDiffSources(diff(), worktree);
     // The index side comes out of the object database; the working-tree side is
     // the file on disk, which needs no `rev` at all.
-    expect(sources?.before?.url).toBe('mgit-file://repo/r1/docs/shot.png?rev=%3A');
-    expect(sources?.after?.url).toBe('mgit-file://repo/r1/docs/shot.png');
+    expect(sources?.before?.url).toBe('mstudio-file://repo/r1/docs/shot.png?rev=%3A');
+    expect(sources?.after?.url).toBe('mstudio-file://repo/r1/docs/shot.png');
     expect([sources?.before?.label, sources?.after?.label]).toEqual(['index', 'working tree']);
   });
 
   it('diffs HEAD against the index when staged', () => {
     const sources = imageDiffSources(diff(), { ...worktree, staged: true });
-    expect(sources?.before?.url).toBe('mgit-file://repo/r1/docs/shot.png?rev=HEAD');
-    expect(sources?.after?.url).toBe('mgit-file://repo/r1/docs/shot.png?rev=%3A');
+    expect(sources?.before?.url).toBe('mstudio-file://repo/r1/docs/shot.png?rev=HEAD');
+    expect(sources?.after?.url).toBe('mstudio-file://repo/r1/docs/shot.png?rev=%3A');
   });
 
   it('carries the worktree through, so a linked checkout is not paired with main', () => {
     const sources = imageDiffSources(diff(), { ...worktree, worktreePath: '/wt/feature' });
     expect(sources?.before?.url).toContain('?wt=%2Fwt%2Ffeature&rev=');
-    expect(sources?.after?.url).toBe('mgit-file://repo/r1/docs/shot.png?wt=%2Fwt%2Ffeature');
+    expect(sources?.after?.url).toBe('mstudio-file://repo/r1/docs/shot.png?wt=%2Fwt%2Ffeature');
   });
 
   it('diffs a commit against its first parent', () => {
     const sources = imageDiffSources(diff(), { kind: 'commit', repoId: 'r1', sha: 'abcdef1234' });
-    expect(sources?.before?.url).toBe('mgit-file://repo/r1/docs/shot.png?rev=abcdef1234%5E');
-    expect(sources?.after?.url).toBe('mgit-file://repo/r1/docs/shot.png?rev=abcdef1234');
+    expect(sources?.before?.url).toBe('mstudio-file://repo/r1/docs/shot.png?rev=abcdef1234%5E');
+    expect(sources?.after?.url).toBe('mstudio-file://repo/r1/docs/shot.png?rev=abcdef1234');
     expect([sources?.before?.label, sources?.after?.label]).toEqual(['abcdef1^', 'abcdef1']);
   });
 
@@ -96,14 +96,14 @@ describe('imageDiffSources — one-sided changes', () => {
 describe('headToWorktreeImage — the Files view pairing', () => {
   it('reads before from HEAD and after off disk', () => {
     const sources = headToWorktreeImage({ repoId: 'r1' }, 'docs/shot.png');
-    expect(sources.before?.url).toBe('mgit-file://repo/r1/docs/shot.png?rev=HEAD');
-    expect(sources.after?.url).toBe('mgit-file://repo/r1/docs/shot.png');
+    expect(sources.before?.url).toBe('mstudio-file://repo/r1/docs/shot.png?rev=HEAD');
+    expect(sources.after?.url).toBe('mstudio-file://repo/r1/docs/shot.png');
   });
 
   it('carries the worktree, so a linked checkout compares against its own HEAD', () => {
     const sources = headToWorktreeImage({ repoId: 'r1', worktreePath: '/wt/f' }, 'a.png');
-    expect(sources.before?.url).toBe('mgit-file://repo/r1/a.png?wt=%2Fwt%2Ff&rev=HEAD');
-    expect(sources.after?.url).toBe('mgit-file://repo/r1/a.png?wt=%2Fwt%2Ff');
+    expect(sources.before?.url).toBe('mstudio-file://repo/r1/a.png?wt=%2Fwt%2Ff&rev=HEAD');
+    expect(sources.after?.url).toBe('mstudio-file://repo/r1/a.png?wt=%2Fwt%2Ff');
   });
 });
 

@@ -1,7 +1,7 @@
 import { randomUUID } from 'node:crypto';
 import { existsSync } from 'node:fs';
 
-import { SCROLLBACK_BYTES } from '@midnite/git-shared';
+import { SCROLLBACK_BYTES } from '@midnite/studio-shared';
 
 import type { AgentWatcher } from './agent-watcher';
 
@@ -119,7 +119,7 @@ export function inprocCreatePty(
       cwd: options.cwd,
       env: {
         ...process.env,
-        TERM_PROGRAM: 'midnite-git',
+        TERM_PROGRAM: 'midnite-studio',
         GIT_TERMINAL_PROMPT: '1',
       } as Record<string, string>,
     });

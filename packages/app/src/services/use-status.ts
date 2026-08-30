@@ -4,7 +4,7 @@ import type {
   RepoDescriptor,
   StatusResult,
   Worktree,
-} from '@midnite/git-shared';
+} from '@midnite/studio-shared';
 import { useMemo } from 'react';
 import { useMutation, useQueries, useQuery, useQueryClient } from '@tanstack/react-query';
 

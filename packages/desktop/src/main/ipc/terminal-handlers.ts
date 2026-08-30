@@ -1,4 +1,4 @@
-import { CHANNELS, schemas } from '@midnite/git-shared';
+import { CHANNELS, schemas } from '@midnite/studio-shared';
 import { ipcMain } from 'electron';
 
 import { agentStatusWithin } from '../agent-probe';

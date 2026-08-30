@@ -1,4 +1,4 @@
-import type { ForgeRun } from '@midnite/git-shared';
+import type { ForgeRun } from '@midnite/studio-shared';
 
 import type { ChecksVerdict } from './branch-health';
 

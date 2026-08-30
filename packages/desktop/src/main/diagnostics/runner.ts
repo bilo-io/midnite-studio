@@ -1,4 +1,4 @@
-import type { DiagnosticsCommand, DiagnosticsRun } from '@midnite/git-shared';
+import type { DiagnosticsCommand, DiagnosticsRun } from '@midnite/studio-shared';
 
 import { runProcess, type ProcessSink, type RunProcessDeps, type SpawnFn } from '../process-runner';
 import { createEslintStream, type DiagnosticsSink } from './parse-eslint';

@@ -16,7 +16,7 @@ import {
   stashPop,
   stashPush,
   unstagePaths,
-} from '@midnite/git-engine';
+} from '@midnite/studio-git-engine';
 import {
   CHANNELS,
   DIFF_DEFAULT_CONTEXT,
@@ -25,7 +25,7 @@ import {
   type FileDiff,
   type GitOpResult,
   type StashEntry,
-} from '@midnite/git-shared';
+} from '@midnite/studio-shared';
 
 import { resolveWorkdir } from '../repo-registry';
 import { handle, handleOp } from './handle';

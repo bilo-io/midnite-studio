@@ -1,4 +1,4 @@
-import { METRIC_IDS, type MetricId } from '@midnite/git-shared';
+import { METRIC_IDS, type MetricId } from '@midnite/studio-shared';
 import { useState } from 'react';
 
 import { Popover } from '../../components/popover';

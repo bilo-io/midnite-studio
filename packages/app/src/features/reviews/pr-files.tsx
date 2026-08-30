@@ -1,4 +1,4 @@
-import type { ForgePullFiles, ForgeReviewThread } from '@midnite/git-shared';
+import type { ForgePullFiles, ForgeReviewThread } from '@midnite/studio-shared';
 import { useState } from 'react';
 
 import { openExternal } from '../../services/queries';

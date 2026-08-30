@@ -15,8 +15,8 @@ import { installMockBridge, type MockFixtures } from './mock-bridge';
  * away.
  */
 
-const MAIN = '/tmp/midnite-git';
-const FEATURE = '/tmp/midnite-git-feature';
+const MAIN = '/tmp/midnite-studio';
+const FEATURE = '/tmp/midnite-studio-feature';
 
 const entry = (path: string, unstaged = 'modified') => ({
   path,
@@ -85,9 +85,9 @@ const diffFor = (path: string) => ({
 const REMOTES = [
   {
     name: 'origin',
-    fetchUrl: 'git@github.com:bilo-io/midnite-git.git',
-    pushUrl: 'git@github.com:bilo-io/midnite-git.git',
-    forge: { host: 'github.com', owner: 'bilo-io', repo: 'midnite-git', kind: 'github' },
+    fetchUrl: 'git@github.com:bilo-io/midnite-studio.git',
+    pushUrl: 'git@github.com:bilo-io/midnite-studio.git',
+    forge: { host: 'github.com', owner: 'bilo-io', repo: 'midnite-studio', kind: 'github' },
   },
 ];
 
@@ -308,7 +308,7 @@ test('the working-tree tab cannot be closed', async ({ page }) => {
   await expect(page.getByRole('button', { name: 'Close feature/x' })).toBeVisible();
   // A strip you can empty to nothing is a view with no content.
   await expect(
-    page.getByRole('button', { name: /^Close (Working tree|midnite-git)$/ }),
+    page.getByRole('button', { name: /^Close (Working tree|midnite-studio)$/ }),
   ).toHaveCount(0);
 
   await page.getByRole('button', { name: 'Close feature/x' }).click();
@@ -329,7 +329,7 @@ test('Actions and Reviews list what gh reports, and open on GitHub', async ({ pa
           headBranch: 'feature/x',
           headSha: 'a'.repeat(40),
           createdAt: '2026-08-26T10:00:00Z',
-          url: 'https://github.com/bilo-io/midnite-git/actions/runs/1',
+          url: 'https://github.com/bilo-io/midnite-studio/actions/runs/1',
         },
       ],
       pulls: [
@@ -342,7 +342,7 @@ test('Actions and Reviews list what gh reports, and open on GitHub', async ({ pa
           checks: 'failing',
           headBranch: 'feature/x',
           author: 'bilo',
-          url: 'https://github.com/bilo-io/midnite-git/pull/42',
+          url: 'https://github.com/bilo-io/midnite-studio/pull/42',
         },
       ],
     },
@@ -385,10 +385,10 @@ test('Actions and Reviews list what gh reports, and open on GitHub', async ({ pa
   await expect
     .poll(() =>
       page.evaluate(
-        () => (window as unknown as { __mgitExternalUrls: string[] }).__mgitExternalUrls,
+        () => (window as unknown as { __mstudioExternalUrls: string[] }).__mstudioExternalUrls,
       ),
     )
-    .toContain('https://github.com/bilo-io/midnite-git/pull/42');
+    .toContain('https://github.com/bilo-io/midnite-studio/pull/42');
 });
 
 test('a signed-out gh says what to run rather than failing silently', async ({ page }) => {
@@ -468,7 +468,7 @@ test('the section headings share one height, whether or not they carry an action
 test('a folded repo hangs its branch and count off the trailing edge', async ({ page }) => {
   await open(page);
 
-  await page.locator('button[aria-label="Collapse midnite-git"]').click();
+  await page.locator('button[aria-label="Collapse midnite-studio"]').click();
   await expect(page.getByRole('heading', { name: 'Worktrees' })).toHaveCount(0);
 
   /*
@@ -519,7 +519,7 @@ test('commit message input has equal inset on all sides when empty', async ({ pa
   expect(Math.abs(top - bottom)).toBeLessThanOrEqual(1.5);
   expect(Math.abs(left - top)).toBeLessThanOrEqual(1.5);
 
-  if (process.env.MGIT_SHOTS) {
+  if (process.env.MSTUDIO_SHOTS) {
     await page.screenshot({ path: '/tmp/changes-commit-input.png' });
   }
 });

@@ -1,5 +1,5 @@
-import type { GitOpResult } from '@midnite/git-shared';
-import { failure, ok } from '@midnite/git-shared';
+import type { GitOpResult } from '@midnite/studio-shared';
+import { failure, ok } from '@midnite/studio-shared';
 
 import { execGit } from '../exec/git-exec';
 import { writeQueue } from '../exec/write-queue';

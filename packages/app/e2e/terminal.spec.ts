@@ -17,8 +17,8 @@ import { installMockBridge, type MockFixtures } from './mock-bridge';
 const session = (id: string, over: Record<string, unknown> = {}) => ({
   id,
   kind: 'shell',
-  title: 'midnite-git',
-  cwd: '/tmp/midnite-git',
+  title: 'midnite-studio',
+  cwd: '/tmp/midnite-studio',
   repoId: 'repo-1',
   createdAt: 1_787_000_000,
   ...over,
@@ -26,10 +26,10 @@ const session = (id: string, over: Record<string, unknown> = {}) => ({
 
 /** Two restored shells and one restored Claude agent — the manual case, seeded. */
 const RESTORED: MockFixtures['terminalSessions'] = [
-  { session: session('s-1', { title: 'midnite-git' }), scrollback: '$ git status\r\nOn branch main\r\n' },
+  { session: session('s-1', { title: 'midnite-studio' }), scrollback: '$ git status\r\nOn branch main\r\n' },
   { session: session('s-2', { title: 'other-repo', cwd: '/tmp/other-repo' }), scrollback: '$ ls\r\ndocs\r\n' },
   {
-    session: session('s-3', { kind: 'agent', agentId: 'claude', title: 'midnite-git' }),
+    session: session('s-3', { kind: 'agent', agentId: 'claude', title: 'midnite-studio' }),
     scrollback: '[38;2;217;119;87m✻[0m Welcome to Claude Code\r\n',
   },
 ];
@@ -51,8 +51,8 @@ async function toggleTerminal(page: Page): Promise<void> {
  */
 async function emitOsc7(page: Page, payload: string): Promise<void> {
   const delivered = await page.evaluate((text) => {
-    const write = (window as unknown as { __mgitPtyWrite: (id: string, data: string) => boolean })
-      .__mgitPtyWrite;
+    const write = (window as unknown as { __mstudioPtyWrite: (id: string, data: string) => boolean })
+      .__mstudioPtyWrite;
     return write('pty-1', `\u001b]7;${text}\u0007`);
   }, payload);
   // The hook no-ops on an unknown pty id. Without this, a spec whose pty
@@ -78,8 +78,8 @@ async function emitAgentChanged(
   const delivered = await page.evaluate(
     ({ id, agent }) => {
       const notify = (
-        window as unknown as { __mgitPtyAgent: (p: string, a: string | null) => boolean }
-      ).__mgitPtyAgent;
+        window as unknown as { __mstudioPtyAgent: (p: string, a: string | null) => boolean }
+      ).__mstudioPtyAgent;
       return notify(id, agent);
     },
     { id: ptyId, agent: agentId },
@@ -103,9 +103,9 @@ async function emitActivity(
     ({ id, act }) => {
       const notify = (
         window as unknown as {
-          __mgitPtyActivity: (p: string, a: 'thinking' | 'waiting' | 'idle' | null) => boolean;
+          __mstudioPtyActivity: (p: string, a: 'thinking' | 'waiting' | 'idle' | null) => boolean;
         }
-      ).__mgitPtyActivity;
+      ).__mstudioPtyActivity;
       return notify(id, act);
     },
     { id: ptyId, act: activity },
@@ -133,14 +133,14 @@ const ptyCalls = (page: Page) =>
   page.evaluate(
     () =>
       (window as unknown as {
-        __mgitPty: {
+        __mstudioPty: {
           creates: { ptyId: string; sessionId: string }[];
           inputs: { ptyId: string; data: string }[];
           kills: string[];
           resizes: { ptyId: string; cols: number; rows: number }[];
           snapshots: string[];
         };
-      }).__mgitPty,
+      }).__mstudioPty,
   );
 
 /**
@@ -553,9 +553,9 @@ test.describe('terminal panel', () => {
 
     // `~`-collapsed against the mock bridge's homeDir (`/tmp`), and split in
     // two: dimmed ancestors, then the checkout at full weight.
-    const path = header.locator('[title="/tmp/midnite-git"]');
-    await expect(path).toHaveText('~/midnite-git');
-    await expect(path.locator('span').last()).toHaveText('midnite-git');
+    const path = header.locator('[title="/tmp/midnite-studio"]');
+    await expect(path).toHaveText('~/midnite-studio');
+    await expect(path.locator('span').last()).toHaveText('midnite-studio');
 
     // A glyph and a status circle lead the row. The dot is the session list's
     // own component, so a restored-but-not-revived session reads as idle: a
@@ -574,7 +574,7 @@ test.describe('terminal panel', () => {
    * later), so the hit-test below never caught it.
    */
   test('a very deep path is clipped by the header rather than escaping it', async ({ page }) => {
-    const root = '/tmp/midnite-git/.worktrees/a-very-long-branch-name-that-will-not-fit';
+    const root = '/tmp/midnite-studio/.worktrees/a-very-long-branch-name-that-will-not-fit';
     await open(page, {
       worktrees: [{ path: root, branch: 'feature/a-very-long-branch-name-that-will-not-fit' }],
       terminalSessions: [
@@ -614,17 +614,17 @@ test.describe('terminal panel', () => {
    * the parser refuses, both look exactly like "no `cd` happened".
    */
   test('the header follows a cd into a sibling worktree', async ({ page }) => {
-    const sibling = '/tmp/midnite-git/.worktrees/theme-d';
+    const sibling = '/tmp/midnite-studio/.worktrees/theme-d';
     await open(page, { worktrees: [{ path: sibling, branch: 'feature/theme-d' }] });
     await toggleTerminal(page);
     await expect.poll(async () => (await ptyCalls(page)).creates.length).toBe(1);
 
     const path = page.locator('[data-terminal-header] [title]').first();
-    await expect(path).toHaveText('~/midnite-git');
+    await expect(path).toHaveText('~/midnite-studio');
 
     // `cd` into the sibling worktree, announced the way a configured shell does.
     await emitOsc7(page, `file://localhost${sibling}`);
-    await expect(path).toHaveText('~/midnite-git/.worktrees/theme-d');
+    await expect(path).toHaveText('~/midnite-studio/.worktrees/theme-d');
     // The emphasis follows too: the worktree is the checkout you navigate by.
     await expect(path.locator('span').last()).toHaveText('theme-d');
 
@@ -642,11 +642,11 @@ test.describe('terminal panel', () => {
       of the two it has since been told about.
     */
     const saved = await page.evaluate(
-      () => (window as unknown as { __mgitTerminalSaves: { id: string; cwd: string }[] })
-        .__mgitTerminalSaves,
+      () => (window as unknown as { __mstudioTerminalSaves: { id: string; cwd: string }[] })
+        .__mstudioTerminalSaves,
     );
     expect(saved.length).toBeGreaterThan(0);
-    expect(saved.map((s) => s.cwd)).toEqual(saved.map(() => '/tmp/midnite-git'));
+    expect(saved.map((s) => s.cwd)).toEqual(saved.map(() => '/tmp/midnite-studio'));
   });
 
   /**
@@ -659,7 +659,7 @@ test.describe('terminal panel', () => {
     await expect.poll(async () => (await ptyCalls(page)).creates.length).toBe(1);
 
     const path = page.locator('[data-terminal-header] [title]').first();
-    await expect(path).toHaveText('~/midnite-git');
+    await expect(path).toHaveText('~/midnite-studio');
 
     // Ordinary output, including an escape sequence that is not OSC 7, and a
     // malformed OSC 7 that the parser must refuse rather than half-accept.
@@ -668,7 +668,7 @@ test.describe('terminal panel', () => {
     await emitOsc7(page, 'not-a-uri');
     await page.waitForTimeout(200);
 
-    await expect(path).toHaveText('~/midnite-git');
+    await expect(path).toHaveText('~/midnite-studio');
   });
 
   test('maximize fills the window and restores', async ({ page }) => {
@@ -919,7 +919,7 @@ test.describe('terminal panel', () => {
   test('a reload keeps live sessions live', async ({ page }) => {
     const withLive: MockFixtures['terminalSessions'] = [
       {
-        session: session('s-1', { title: 'midnite-git' }),
+        session: session('s-1', { title: 'midnite-studio' }),
         scrollback: '$ git status\r\nOn branch main\r\n',
         live: { ptyId: 'pty-1', pid: 4001, cols: 80, rows: 24 },
       },
@@ -1075,9 +1075,9 @@ test.describe('terminal panel', () => {
         ),
       );
     expect(await titles()).toEqual([
-      'midnite-git · Terminal',
+      'midnite-studio · Terminal',
       'other-repo · Terminal',
-      'midnite-git · Claude',
+      'midnite-studio · Claude',
     ]);
 
     const first = (await page.locator('[data-session-row]').first().boundingBox())!;
@@ -1093,8 +1093,8 @@ test.describe('terminal panel', () => {
 
     expect(await titles()).toEqual([
       'other-repo · Terminal',
-      'midnite-git · Claude',
-      'midnite-git · Terminal',
+      'midnite-studio · Claude',
+      'midnite-studio · Terminal',
     ]);
   });
 
@@ -1202,10 +1202,10 @@ test.describe('phase 21 screenshots', () => {
     header was rebuilt for: the checkout you are in is `theme-f`, and it is
     four segments from the end of a path that does not fit.
   */
-  const DEEP = '/tmp/midnite-git/.worktrees/theme-f';
+  const DEEP = '/tmp/midnite-studio/.worktrees/theme-f';
   const DEEP_SESSIONS: MockFixtures['terminalSessions'] = [
     {
-      session: session('s-deep', { title: 'midnite-git', cwd: `${DEEP}/packages/app` }),
+      session: session('s-deep', { title: 'midnite-studio', cwd: `${DEEP}/packages/app` }),
       scrollback: '$ pnpm test\r\n',
     },
   ];
@@ -1227,7 +1227,7 @@ test.describe('phase 21 screenshots', () => {
     // Wide: the whole path fits, `~`-collapsed, with the worktree and what is
     // under it at full weight and its ancestors dimmed.
     await expect(header.locator('[title]').first()).toHaveText(
-      '~/midnite-git/.worktrees/theme-f/packages/app',
+      '~/midnite-studio/.worktrees/theme-f/packages/app',
     );
     await header.screenshot({ path: '../../docs/screenshots/phase-21-terminal-header.png' });
 
@@ -1309,8 +1309,8 @@ test.describe('phase 21 screenshots', () => {
             id: 's-ended',
             kind: 'shell',
             title: 'repo',
-            cwd: '/tmp/midnite-git',
-            repoId: 'repo:midnite-git',
+            cwd: '/tmp/midnite-studio',
+            repoId: 'repo:midnite-studio',
             createdAt: 0,
           },
           scrollback: 'Finished build.\n',
@@ -1337,8 +1337,8 @@ test.describe('phase 21 screenshots', () => {
             kind: 'agent',
             agentId: 'claude',
             title: 'repo',
-            cwd: '/tmp/midnite-git',
-            repoId: 'repo:midnite-git',
+            cwd: '/tmp/midnite-studio',
+            repoId: 'repo:midnite-studio',
             createdAt: 0,
           },
           scrollback: 'Agent conversation done.\n',
@@ -1364,8 +1364,8 @@ test.describe('phase 21 screenshots', () => {
             id: 's-legacy',
             kind: 'shell',
             title: 'legacy-repo',
-            cwd: '/tmp/midnite-git',
-            repoId: 'repo:midnite-git',
+            cwd: '/tmp/midnite-studio',
+            repoId: 'repo:midnite-studio',
             createdAt: 0,
           },
           legacy: true,

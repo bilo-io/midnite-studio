@@ -1,4 +1,4 @@
-import type { MetricId } from '@midnite/git-shared';
+import type { MetricId } from '@midnite/studio-shared';
 
 /**
  * How each metric is drawn, and at what size — as data.

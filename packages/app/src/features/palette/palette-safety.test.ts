@@ -1,4 +1,4 @@
-import { COMMANDS } from '@midnite/git-shared';
+import { COMMANDS } from '@midnite/studio-shared';
 import { describe, expect, it } from 'vitest';
 
 import { PALETTE_SAFE, isPaletteSafe } from './safety';

@@ -100,12 +100,12 @@ const FIXTURES: MockFixtures = {
   remotes: [
     {
       name: 'origin',
-      fetchUrl: 'https://github.com/bilo-io/midnite-git.git',
-      pushUrl: 'https://github.com/bilo-io/midnite-git.git',
+      fetchUrl: 'https://github.com/bilo-io/midnite-studio.git',
+      pushUrl: 'https://github.com/bilo-io/midnite-studio.git',
       forge: {
         host: 'github.com',
         owner: 'bilo-io',
-        repo: 'midnite-git',
+        repo: 'midnite-studio',
         kind: 'github',
       },
     },
@@ -227,7 +227,7 @@ test.describe('ref badge sync controls', () => {
     await chip(page, 'feature/ahead').hover();
     await syncButton(page, 'feature/ahead', 'Push 3 commits to origin/feature/ahead').click();
 
-    const ops = await page.evaluate(() => (window as never as { __mgitOps: unknown[] }).__mgitOps);
+    const ops = await page.evaluate(() => (window as never as { __mstudioOps: unknown[] }).__mstudioOps);
     expect(ops).toContainEqual(
       expect.objectContaining({
         op: 'push',
@@ -254,7 +254,7 @@ test.describe('ref badge sync controls', () => {
     // actionability check would otherwise refuse to click it. The point of the
     // click is that the HANDLER is inert, not that the element is unreachable.
     await pull.click({ force: true });
-    const ops = await page.evaluate(() => (window as never as { __mgitOps: unknown[] }).__mgitOps);
+    const ops = await page.evaluate(() => (window as never as { __mstudioOps: unknown[] }).__mstudioOps);
     expect(ops.filter((op) => (op as { op: string }).op === 'pull')).toHaveLength(0);
   });
 

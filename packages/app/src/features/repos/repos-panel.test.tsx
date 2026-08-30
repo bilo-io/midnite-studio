@@ -1,4 +1,4 @@
-import type { Ref, Remote, RepoDescriptor } from '@midnite/git-shared';
+import type { Ref, Remote, RepoDescriptor } from '@midnite/studio-shared';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { cleanup, render, screen } from '@testing-library/react';
 import { afterEach, describe, expect, it } from 'vitest';
@@ -96,7 +96,7 @@ describe('branchesCount', () => {
 });
 
 describe('matchesRepoQuery', () => {
-  const repo = { name: 'midnite-git', path: '/Users/x/Dev/midnite-git' };
+  const repo = { name: 'midnite-studio', path: '/Users/x/Dev/midnite-studio' };
 
   it('keeps everything for an empty or whitespace-only query', () => {
     // The box starts empty and stays empty most of the time; a filter that
@@ -107,7 +107,7 @@ describe('matchesRepoQuery', () => {
 
   it('matches the name case-insensitively on a partial', () => {
     expect(matchesRepoQuery(repo, 'MIDN')).toBe(true);
-    expect(matchesRepoQuery(repo, 'nite-g')).toBe(true);
+    expect(matchesRepoQuery(repo, 'nite-s')).toBe(true);
   });
 
   it('matches on the path, not just the name', () => {
@@ -118,8 +118,8 @@ describe('matchesRepoQuery', () => {
   });
 
   it('requires every whitespace-separated term to match, in any order', () => {
-    expect(matchesRepoQuery(repo, 'git dev')).toBe(true);
-    expect(matchesRepoQuery(repo, 'dev git')).toBe(true);
+    expect(matchesRepoQuery(repo, 'studio dev')).toBe(true);
+    expect(matchesRepoQuery(repo, 'dev studio')).toBe(true);
     expect(matchesRepoQuery(repo, 'dev nope')).toBe(false);
   });
 

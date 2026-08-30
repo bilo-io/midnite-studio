@@ -5,7 +5,7 @@ argument-hint: "<a description of the adhoc task to build>"
 allowed-tools: Bash, Read, Edit, Write, Glob, Grep, AskUserQuestion, TodoWrite, Agent, ToolSearch
 ---
 
-End-to-end "execute a described task" for **Midnite Git**, for work that isn't a `todo/phase-N-*.md`
+End-to-end "execute a described task" for **Midnite Studio**, for work that isn't a `todo/phase-N-*.md`
 item — a bug someone just mentioned, a small feature sketched in chat, a cleanup nobody wrote down.
 **[`/midnite-exec`](../midnite-exec/SKILL.md) picks from the backlog; this skill takes a task you
 already have in mind** and runs the same build → PR → CI → merge machinery against it, minus every
@@ -16,7 +16,7 @@ step that assumes a phase doc exists.
 ## Respect
 - `CLAUDE.md` = conventions (package boundaries — `shared ◀ git-engine ◀ desktop`, `shared ◀ app`; commit style; pre-push gate). Re-read the relevant bits before coding. `docs/INITIAL_PLAN.md` is the design source of truth.
 - `todo/` is **not** the driver here, the same posture [`/midnite-address-issue`](../midnite-address-issue/SKILL.md) takes: only touch it if the task happens to close out an existing phase item, and say so if it does. **Never claim a theme in `todo/_INDEX.md`, never touch `done.md`** — this work isn't phase-tracked.
-- Parallel work → git worktrees in the repo-root **`.worktrees/<branch>/`** dir (git-ignored; **never** under `.git/`); keep the primary checkout (`/Users/bilolwabona/Dev/midnite-git`) as home base.
+- Parallel work → git worktrees in the repo-root **`.worktrees/<branch>/`** dir (git-ignored; **never** under `.git/`); keep the primary checkout (`/Users/bilolwabona/Dev/midnite-studio`) as home base.
 
 ## 0 · Get the task
 If `$ARGUMENTS` describes a concrete task, that's the seed. If it's empty or too vague to build from

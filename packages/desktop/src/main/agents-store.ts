@@ -1,7 +1,7 @@
 import { readFile } from 'node:fs/promises';
 import { join } from 'node:path';
 
-import { AgentDefinitionSchema, BUILTIN_AGENTS, type AgentDefinition } from '@midnite/git-shared';
+import { AgentDefinitionSchema, BUILTIN_AGENTS, type AgentDefinition } from '@midnite/studio-shared';
 
 /**
  * The roster of coding agents the terminal's `+` menu can start.

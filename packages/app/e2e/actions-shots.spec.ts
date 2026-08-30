@@ -16,17 +16,17 @@ import { installMockBridge, type MockFixtures } from './mock-bridge';
 const OUT = '../../docs/screenshots/phase-19-actions';
 const ESC = String.fromCharCode(27);
 
-const REMOTES = [{ name: 'origin', fetchUrl: 'git@github.com:bilo-io/midnite-git.git', pushUrl: 'git@github.com:bilo-io/midnite-git.git', forge: { host: 'github.com', owner: 'bilo-io', repo: 'midnite-git', kind: 'github' } }];
-const run = (o: Record<string, unknown>) => ({ name: 'CI', status: 'completed', conclusion: 'success', headBranch: 'main', headSha: 'a'.repeat(40), createdAt: '2026-08-26T10:00:00Z', startedAt: '2026-08-26T10:00:00Z', updatedAt: '2026-08-26T10:04:12Z', event: 'push', workflowId: '900', workflowName: 'CI', ...o, url: `https://github.com/bilo-io/midnite-git/actions/runs/${String(o['id'])}` });
+const REMOTES = [{ name: 'origin', fetchUrl: 'git@github.com:bilo-io/midnite-studio.git', pushUrl: 'git@github.com:bilo-io/midnite-studio.git', forge: { host: 'github.com', owner: 'bilo-io', repo: 'midnite-studio', kind: 'github' } }];
+const run = (o: Record<string, unknown>) => ({ name: 'CI', status: 'completed', conclusion: 'success', headBranch: 'main', headSha: 'a'.repeat(40), createdAt: '2026-08-26T10:00:00Z', startedAt: '2026-08-26T10:00:00Z', updatedAt: '2026-08-26T10:04:12Z', event: 'push', workflowId: '900', workflowName: 'CI', ...o, url: `https://github.com/bilo-io/midnite-studio/actions/runs/${String(o['id'])}` });
 const step = (n: number, name: string, c: string) => ({ number: n, name, status: 'completed', conclusion: c, startedAt: '2026-08-26T10:00:10Z', completedAt: '2026-08-26T10:01:40Z' });
-const job = (o: Record<string, unknown>) => ({ status: 'completed', conclusion: 'success', startedAt: '2026-08-26T10:00:10Z', completedAt: '2026-08-26T10:03:50Z', steps: [], ...o, url: `https://github.com/bilo-io/midnite-git/actions/runs/2/job/${String(o['id'])}` });
+const job = (o: Record<string, unknown>) => ({ status: 'completed', conclusion: 'success', startedAt: '2026-08-26T10:00:10Z', completedAt: '2026-08-26T10:03:50Z', steps: [], ...o, url: `https://github.com/bilo-io/midnite-studio/actions/runs/2/job/${String(o['id'])}` });
 const line = (j: string, t: string) => `${j}\tRun tests\t2026-08-26T10:00:39.7297973Z ${t}`;
 
 const data: MockFixtures = {
   ...fixtures,
   remotes: REMOTES,
   statusEntries: [],
-  statusByWorktree: { '/tmp/midnite-git': [] },
+  statusByWorktree: { '/tmp/midnite-studio': [] },
   forge: {
     cli: { reason: 'ready' },
     runs: [
@@ -50,7 +50,7 @@ const data: MockFixtures = {
       '2': {
         lines: [
           line('test (ubuntu-latest, node-22)', '##[group]Run actions/checkout@v4'),
-          line('test (ubuntu-latest, node-22)', 'Syncing repository: bilo-io/midnite-git'),
+          line('test (ubuntu-latest, node-22)', 'Syncing repository: bilo-io/midnite-studio'),
           line('test (ubuntu-latest, node-22)', '##[endgroup]'),
           line('test (ubuntu-latest, node-22)', '##[group]Run pnpm vitest run'),
           line('test (ubuntu-latest, node-22)', `${ESC}[32m ✓ ${ESC}[0msrc/features/actions/ansi.test.ts (13 tests)`),

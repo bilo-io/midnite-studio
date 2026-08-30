@@ -16,14 +16,14 @@ import { installMockBridge, type MockFixtures } from './mock-bridge';
  * test PR; no mock can answer it.
  */
 
-const MAIN = '/tmp/midnite-git';
+const MAIN = '/tmp/midnite-studio';
 
 const REMOTES = [
   {
     name: 'origin',
-    fetchUrl: 'git@github.com:bilo-io/midnite-git.git',
-    pushUrl: 'git@github.com:bilo-io/midnite-git.git',
-    forge: { host: 'github.com', owner: 'bilo-io', repo: 'midnite-git', kind: 'github' },
+    fetchUrl: 'git@github.com:bilo-io/midnite-studio.git',
+    pushUrl: 'git@github.com:bilo-io/midnite-studio.git',
+    forge: { host: 'github.com', owner: 'bilo-io', repo: 'midnite-studio', kind: 'github' },
   },
 ];
 
@@ -48,7 +48,7 @@ const OPEN_PULL = {
   author: 'bilo',
   mergedAt: null,
   closedAt: null,
-  url: 'https://github.com/bilo-io/midnite-git/pull/201',
+  url: 'https://github.com/bilo-io/midnite-studio/pull/201',
 };
 
 /** Fourteen commits, of which the wire carries five — see `PULL_COMMIT_SAMPLE`. */
@@ -87,14 +87,14 @@ type WriteCall = { channel: string; request: Record<string, unknown> };
 /**
  * Every write the app has sent, in order.
  *
- * `mock-bridge.ts` records each one on `window.__mgitWrites` — see its
+ * `mock-bridge.ts` records each one on `window.__mstudioWrites` — see its
  * `recordWrite`. Reading the request rather than the rendered result is the
  * whole point: an approval and a comment look the same on screen until you look
  * at which verb was sent, and the verb is the thing worth asserting.
  */
 const recorded = (page: Page): Promise<WriteCall[]> =>
   page.evaluate(
-    () => (window as unknown as { __mgitWrites?: WriteCall[] }).__mgitWrites ?? [],
+    () => (window as unknown as { __mstudioWrites?: WriteCall[] }).__mstudioWrites ?? [],
   );
 
 /**
@@ -116,7 +116,7 @@ async function openPull(
   if (options.writes === true) {
     await page.addInitScript(() => {
       window.localStorage.setItem(
-        'midnite-git.ui',
+        'midnite-studio.ui',
         JSON.stringify({ state: { forgeWritesEnabled: true }, version: 2 }),
       );
     });
@@ -165,7 +165,7 @@ test('the Settings switch is what turns the actions on', async ({ page }) => {
     .getByRole('button', { name: 'Reviews' })
     .click();
   const consent = page.getByRole('checkbox', {
-    name: /Allow Midnite Git to act on pull requests/,
+    name: /Allow Midnite Studio to act on pull requests/,
   });
   await expect(consent).not.toBeChecked();
   await consent.check();
@@ -385,7 +385,7 @@ test('re-run offers failed-only only on a run that failed', async ({ page }) => 
     headSha: 'c'.repeat(40),
     createdAt: '2026-08-27T09:00:00Z',
     updatedAt: '2026-08-27T09:05:00Z',
-    url: 'https://github.com/bilo-io/midnite-git/actions/runs/9001',
+    url: 'https://github.com/bilo-io/midnite-studio/actions/runs/9001',
     event: 'pull_request',
     ...over,
   });

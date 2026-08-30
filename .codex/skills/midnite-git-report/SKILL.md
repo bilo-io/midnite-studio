@@ -5,7 +5,7 @@ description: Git activity report for the repo over a day/week/month — merged P
 
 **Invoke with:** [today | yesterday | YYYY-MM-DD | this-week | this-month | YYYY-MM-DD..YYYY-MM-DD]
 
-A git activity + phase-progress report for **Midnite Git** over a chosen window.
+A git activity + phase-progress report for **Midnite Studio** over a chosen window.
 
 **Style:** terse — lead with the report, don't narrate the gathering.
 
@@ -92,7 +92,7 @@ A bundled, data-driven template lives at `.codex/skills/midnite-git-report/pdf-t
    ```bash
    "/Applications/Google Chrome.app/Contents/MacOS/Google Chrome" \
      --headless=new --disable-gpu --no-pdf-header-footer --virtual-time-budget=3000 \
-     --print-to-pdf="$HOME/Desktop/midnite-git-git-report-$END.pdf" \
+     --print-to-pdf="$HOME/Desktop/midnite-studio-git-report-$END.pdf" \
      "file://$TMP/git-report-$END.html"
    ```
    If Chrome isn't at that path, detect a Chromium/Edge binary; if none exists, say so and skip the PDF — **never fail the report over it**.

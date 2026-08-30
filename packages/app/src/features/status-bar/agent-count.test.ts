@@ -1,4 +1,4 @@
-import type { TerminalSession } from '@midnite/git-shared';
+import type { TerminalSession } from '@midnite/studio-shared';
 import { describe, expect, it } from 'vitest';
 
 import type { ConnectionState } from '../terminal/terminal-store';

@@ -15,7 +15,7 @@ Phase 8 introduced visual drag-and-drop git operations (cherry-pick, simple reba
 ### Theme A — `GIT_SEQUENCE_EDITOR` Helper & Wire Contract · M
 
 - [x] `packages/shared/src/domain/rebase.ts` — `RebaseAction = 'pick' | 'reword' | 'edit' | 'squash' | 'fixup' | 'drop' | 'break' | 'exec'`, `RebaseEntry`, `RebaseSequencePlan` zod schemas
-- [x] `packages/shared/src/ipc/channels.ts` — `mgit:rebase:start`, `mgit:rebase:continue`, `mgit:rebase:abort`, `mgit:rebase:skip`, `mgit:rebase:status`
+- [x] `packages/shared/src/ipc/channels.ts` — `mstudio:rebase:start`, `mstudio:rebase:continue`, `mstudio:rebase:abort`, `mstudio:rebase:skip`, `mstudio:rebase:status`
 - [x] `packages/git-engine/src/exec/rebase-editor.ts` — IPC / manifest file exchanger script invoked when git executes `GIT_SEQUENCE_EDITOR`
 - [x] `packages/git-engine/src/commands/rebase.ts` — `startInteractiveRebase(repoPath, targetRef, plan)`, `continueRebase()`, `abortRebase()`, `skipRebase()`
 - [x] Unit tests in `git-engine` verifying sequence file parsing and write-back formatting

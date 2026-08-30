@@ -1,4 +1,4 @@
-import { METRIC_IDS } from '@midnite/git-shared';
+import { METRIC_IDS } from '@midnite/studio-shared';
 
 import { useMetricsStore } from '../../store/metrics-store';
 import { formatUsage } from './format-bytes';

@@ -1,6 +1,6 @@
 import { useCallback, useMemo, useState } from 'react';
 
-import type { GitOpResult, GraphRow, Ref, Remote } from '@midnite/git-shared';
+import type { GitOpResult, GraphRow, Ref, Remote } from '@midnite/studio-shared';
 import {
   AlertTriangle,
   ArrowDownToLine,

@@ -1,5 +1,5 @@
 /**
- * @midnite/git-shared — the single wire contract between the Electron main
+ * @midnite/studio-shared — the single wire contract between the Electron main
  * process and the renderer. Zod schemas double as runtime validators (every IPC
  * handler parses its payload) and as the source of the TypeScript types.
  *

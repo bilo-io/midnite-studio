@@ -1,7 +1,7 @@
 import { useState } from 'react';
 import { GoBeaker } from 'react-icons/go';
 
-import type { TestSuiteKind } from '@midnite/git-shared';
+import type { TestSuiteKind } from '@midnite/studio-shared';
 
 import { TREE_INDENT } from '../../components/tree-indent';
 import { TreeSection } from '../../components/tree-section';

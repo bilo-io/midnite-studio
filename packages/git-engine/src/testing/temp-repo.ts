@@ -20,7 +20,7 @@ export class TempRepo {
     // realpath, not the raw mkdtemp result: on macOS `/var` is a symlink to
     // `/private/var`, and git reports the resolved path — so every path
     // assertion would otherwise fail on a cosmetic prefix difference.
-    const dir = await realpath(await mkdtemp(join(tmpdir(), 'midnite-git-test-')));
+    const dir = await realpath(await mkdtemp(join(tmpdir(), 'midnite-studio-test-')));
     const args = ['init', `--initial-branch=${options.initialBranch ?? 'main'}`];
     if (options.bare) args.push('--bare');
     args.push(dir);

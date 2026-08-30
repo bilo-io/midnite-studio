@@ -29,9 +29,9 @@ const HEAD_SHA = 'c0ffee'.padEnd(40, '0');
 const REMOTES = [
   {
     name: 'origin',
-    fetchUrl: 'git@github.com:bilo-io/midnite-git.git',
-    pushUrl: 'git@github.com:bilo-io/midnite-git.git',
-    forge: { host: 'github.com', owner: 'bilo-io', repo: 'midnite-git', kind: 'github' },
+    fetchUrl: 'git@github.com:bilo-io/midnite-studio.git',
+    pushUrl: 'git@github.com:bilo-io/midnite-studio.git',
+    forge: { host: 'github.com', owner: 'bilo-io', repo: 'midnite-studio', kind: 'github' },
   },
 ];
 
@@ -44,7 +44,7 @@ const pull = {
   checks: 'passing',
   headBranch: 'feature/reviews-loading',
   author: 'bilo',
-  url: 'https://github.com/bilo-io/midnite-git/pull/128',
+  url: 'https://github.com/bilo-io/midnite-studio/pull/128',
 };
 
 /**
@@ -70,7 +70,7 @@ const data: MockFixtures = {
   forgeLatencyMs: LATENCY,
   remotes: REMOTES,
   statusEntries: [],
-  statusByWorktree: { '/tmp/midnite-git': [] },
+  statusByWorktree: { '/tmp/midnite-studio': [] },
   forge: {
     cli: { reason: 'ready' },
     pulls: [pull, second],

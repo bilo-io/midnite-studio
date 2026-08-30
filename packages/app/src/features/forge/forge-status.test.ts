@@ -1,5 +1,5 @@
-import type { ForgePull } from '@midnite/git-shared';
-import { ForgePullSchema } from '@midnite/git-shared';
+import type { ForgePull } from '@midnite/studio-shared';
+import { ForgePullSchema } from '@midnite/studio-shared';
 import { describe, expect, it } from 'vitest';
 
 import { pullStatus } from './forge-status';

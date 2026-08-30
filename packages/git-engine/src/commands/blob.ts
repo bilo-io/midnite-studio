@@ -5,7 +5,7 @@ import { spawnGit } from '../exec/git-exec';
  *
  * Exists for the image diff: the pre-image of a changed PNG is not on disk
  * anywhere, so the only way to show "before" is to ask git for the object. The
- * `mgit-file://` protocol handler streams the result to an `<img>`; nothing here
+ * `mstudio-file://` protocol handler streams the result to an `<img>`; nothing here
  * knows about Electron, which is why it lives in the engine.
  *
  * `spawnGit` rather than `execGit`: dugite hands stdout back as a *string*,

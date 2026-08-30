@@ -20,7 +20,7 @@ import {
   type ForgeStep,
   type ForgeWorkflow,
   logGapMarker,
-} from '@midnite/git-shared';
+} from '@midnite/studio-shared';
 
 /**
  * Turning `gh --json` output into the app's own shapes.

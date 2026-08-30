@@ -289,8 +289,8 @@ export function createBrokerClient(deps: BrokerClientDeps): BrokerClient {
   }
 
   async function connectOrSpawn(): Promise<boolean> {
-    if (process.env['MGIT_PTY_INPROC'] === '1') {
-      status = { mode: 'inproc', reason: 'MGIT_PTY_INPROC=1' };
+    if (process.env['MSTUDIO_PTY_INPROC'] === '1') {
+      status = { mode: 'inproc', reason: 'MSTUDIO_PTY_INPROC=1' };
       return false;
     }
 

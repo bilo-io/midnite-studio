@@ -23,9 +23,9 @@ import { installMockBridge, type MockFixtures } from './mock-bridge';
 const REMOTES = [
   {
     name: 'origin',
-    fetchUrl: 'git@github.com:bilo-io/midnite-git.git',
-    pushUrl: 'git@github.com:bilo-io/midnite-git.git',
-    forge: { host: 'github.com', owner: 'bilo-io', repo: 'midnite-git', kind: 'github' },
+    fetchUrl: 'git@github.com:bilo-io/midnite-studio.git',
+    pushUrl: 'git@github.com:bilo-io/midnite-studio.git',
+    forge: { host: 'github.com', owner: 'bilo-io', repo: 'midnite-studio', kind: 'github' },
   },
 ];
 
@@ -48,8 +48,8 @@ const identities = (page: Page) => page.getByTestId('commit-identities');
 /** A directory row, matched exactly so a nested file's path cannot satisfy it. */
 const dir = (page: Page, path: string) =>
   files(page).getByRole('button', { name: path, exact: true });
-const clipboard = (page: Page) => page.evaluate(() => (window as never as { __mgitClipboard: string[] }).__mgitClipboard);
-const externals = (page: Page) => page.evaluate(() => (window as never as { __mgitExternalUrls: string[] }).__mgitExternalUrls);
+const clipboard = (page: Page) => page.evaluate(() => (window as never as { __mstudioClipboard: string[] }).__mstudioClipboard);
+const externals = (page: Page) => page.evaluate(() => (window as never as { __mstudioExternalUrls: string[] }).__mstudioExternalUrls);
 
 // --- Theme A: the rendered message ----------------------------------------
 
@@ -92,7 +92,7 @@ test('#123 resolves against the forge remote', async ({ page }) => {
   await openCommit(page);
 
   await message(page).getByRole('link', { name: '#123' }).click();
-  expect(await externals(page)).toEqual(['https://github.com/bilo-io/midnite-git/issues/123']);
+  expect(await externals(page)).toEqual(['https://github.com/bilo-io/midnite-studio/issues/123']);
 });
 
 test('#123 stays plain text in a repo with no forge remote', async ({ page }) => {

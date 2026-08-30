@@ -3,13 +3,13 @@ import { join } from 'node:path';
 
 import { BrowserWindow, app, shell } from 'electron';
 
-import { WINDOW_FRAMELESS_ARG } from '@midnite/git-shared';
+import { WINDOW_FRAMELESS_ARG } from '@midnite/studio-shared';
 
 import { maybeCapture } from './capture';
 import { attachWindowChrome, windowFrameless } from './window-chrome';
 
 /** Vite's dev server, matching `strictPort: true` in packages/app/vite.config.ts. */
-const DEV_SERVER_URL = process.env['MGIT_RENDERER_URL'] ?? 'http://localhost:5173';
+const DEV_SERVER_URL = process.env['MSTUDIO_RENDERER_URL'] ?? 'http://localhost:5173';
 
 /**
  * Where the built renderer lives.
@@ -60,7 +60,7 @@ export function createWindow(): BrowserWindow {
       preload: join(__dirname, 'preload.js'),
       contextIsolation: true,
       nodeIntegration: false,
-      // The preload requires `@midnite/git-shared` for the channel constants,
+      // The preload requires `@midnite/studio-shared` for the channel constants,
       // which a sandboxed preload cannot do (it only gets a polyfilled subset of
       // require). contextIsolation + nodeIntegration:false remain the actual
       // security boundary for THIS window's own renderer, which still only
@@ -97,7 +97,7 @@ export function createWindow(): BrowserWindow {
 }
 
 async function loadRenderer(win: BrowserWindow): Promise<void> {
-  if (!app.isPackaged && process.env['MGIT_USE_BUILT_RENDERER'] !== '1') {
+  if (!app.isPackaged && process.env['MSTUDIO_USE_BUILT_RENDERER'] !== '1') {
     await win.loadURL(DEV_SERVER_URL);
     win.webContents.openDevTools({ mode: 'detach' });
     return;

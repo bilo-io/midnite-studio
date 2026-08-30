@@ -1,6 +1,6 @@
 import { dirname, join } from 'node:path';
 
-import { EVENT_CHANNELS } from '@midnite/git-shared';
+import { EVENT_CHANNELS } from '@midnite/studio-shared';
 import { BrowserWindow, app } from 'electron';
 
 import { createActivityDetector } from './activity-detect';
@@ -47,7 +47,7 @@ import { reconcileWatchers, stopAllWatchers } from './watch-service';
 import { createTrustStore } from './diagnostics/trust-store';
 import { createTestTrustStore } from './testing/trust-store';
 import { createRepoStore } from './repo-store';
-import { LEGACY_APP_NAME, migrateLegacyRepoStore } from './userdata-migration';
+import { migrateAnyLegacyRepoStore } from './userdata-migration';
 import { installMgitFileProtocol, registerMgitFileScheme } from './fs-protocol';
 import { ensureLoginShellPath } from './shell-path';
 import { createWindow } from './window';
@@ -56,7 +56,7 @@ import { registerWindowChrome } from './window-chrome';
 /**
  * Electron main entry point.
  *
- * Owns everything the renderer cannot: git (through @midnite/git-engine),
+ * Owns everything the renderer cannot: git (through @midnite/studio-git-engine),
  * node-pty, the filesystem, and the native window. The renderer reaches all of
  * it through the typed bridge in ../preload.
  */
@@ -65,7 +65,7 @@ let mainWindow: BrowserWindow | null = null;
 const getWindow = (): BrowserWindow | null => mainWindow;
 
 /**
- * Open repositories named by `MGIT_OPEN_REPOS` (a colon-separated path list).
+ * Open repositories named by `MSTUDIO_OPEN_REPOS` (a colon-separated path list).
  *
  * Dev/verification seam: the only other way into a populated sidebar is the
  * native folder dialog, which a screenshot or smoke run can't drive. Paths go
@@ -73,7 +73,7 @@ const getWindow = (): BrowserWindow | null => mainWindow;
  * path rather than a fixture.
  */
 async function openReposFromEnv(): Promise<void> {
-  const list = process.env['MGIT_OPEN_REPOS'];
+  const list = process.env['MSTUDIO_OPEN_REPOS'];
   if (!list) return;
   for (const path of list.split(':').filter((p) => p.length > 0)) {
     await openRepo(path);
@@ -112,14 +112,14 @@ function bindRenderProcessGone(win: BrowserWindow, log: Logger): void {
 /**
  * Electron derives the app name from package.json, which here is the scoped
  * workspace name — so the macOS menu bar, the About dialog and `~/Library/
- * Application Support` all read "@midnite/git-desktop". Set it before anything
+ * Application Support` all read "@midnite/studio-desktop". Set it before anything
  * reads it, which includes `app.getPath('userData')`.
  *
- * This is the display name, matching electron-builder's `productName`. It has a
- * space in it, which means `userData` moved when the app was renamed from
- * `midnite-git` — see ./userdata-migration.
+ * This is the display name, matching electron-builder's `productName`. It has
+ * moved twice — `midnite-git`, then `Midnite Git` — and `userData` moved with
+ * it each time, which is what ./userdata-migration carries across.
  */
-app.setName('Midnite Git');
+app.setName('Midnite Studio');
 
 if (!app.requestSingleInstanceLock()) {
   app.quit();
@@ -194,9 +194,10 @@ if (!app.requestSingleInstanceLock()) {
     // on mount, and an empty answer there shows the empty state for a frame
     // even though repos are about to appear.
     const userData = app.getPath('userData');
-    // Must run before the store is read: the rename to "Midnite Git" moved
-    // userData, and the user's repository list is still under the old name.
-    await migrateLegacyRepoStore(join(dirname(userData), LEGACY_APP_NAME), userData);
+    // Must run before the store is read: each rename ("Midnite Studio", then
+    // "Midnite Studio") moved userData, and the user's repository list is
+    // still under whichever name they last launched.
+    await migrateAnyLegacyRepoStore((name) => join(dirname(userData), name), userData);
     await initPtyService({
       userDataDir: userData,
       appVersion: app.getVersion(),

@@ -1,4 +1,4 @@
-import type { BranchStatus, ConflictOp } from '@midnite/git-shared';
+import type { BranchStatus, ConflictOp } from '@midnite/studio-shared';
 
 import type { SyncStep } from './sync-availability';
 

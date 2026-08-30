@@ -60,7 +60,7 @@ Three contract changes came with it: `CommitDetailResponse` gained `parents`, `s
 `author` and `committer` and lost `stat` — and with `stat`, one of the three `git show`
 invocations per selection; `readCommitDetail` returns **null** for a sha the repo does not have,
 rather than the empty-but-well-formed record that conflated "repo closed" with "no such commit";
-and a new `mgit:repo:rev-parse` channel resolves an abbreviation *before* it becomes a selection,
+and a new `mstudio:repo:rev-parse` channel resolves an abbreviation *before* it becomes a selection,
 because the selection is also what the graph highlights and what the diff key is built from.
 
 Beyond the plan, three of the four review findings were about *when* rather than *what*:
@@ -221,7 +221,7 @@ still exactly the commits.
 ## Verification
 
 - [x] `moon run :typecheck :lint :test` green; no boundary-lint exception added anywhere ✅ (715 unit tests + the e2e suite)
-- [x] **A renderer test harness exists.** ✅ DONE — Playwright driving the real app against a mocked `window.midniteGit` ([`packages/app/e2e/`](../packages/app/e2e/), `moon run app:e2e`), chosen over an RTL/jsdom harness because the bridge *is* the renderer's only route to main, so replacing it covers every UI path without Electron, a repo or a git binary. `@testing-library/react` remains unused; drop it or adopt it when a non-visual component needs a unit test.
+- [x] **A renderer test harness exists.** ✅ DONE — Playwright driving the real app against a mocked `window.midniteStudio` ([`packages/app/e2e/`](../packages/app/e2e/), `moon run app:e2e`), chosen over an RTL/jsdom harness because the bridge *is* the renderer's only route to main, so replacing it covers every UI path without Electron, a repo or a git binary. `@testing-library/react` remains unused; drop it or adopt it when a non-visual component needs a unit test.
 - [x] Unit tests: linkify matcher (incl. the false-positive cases), diff hunk parser (rename/binary/mode-only/no-EOL/empty), remote URL normaliser (ssh/https/self-hosted) ✅ — plus the rehype plugin's ancestor rule, the trailer splitter and the file-tree collapse
 - [x] Integration test for `readCommitDetail`'s new fields and the commit-scoped file diff, using [`TempRepo`](../packages/git-engine/src/testing/temp-repo.ts) ✅ — merge commits, root commits, unknown shas and annotated-tag peeling
 - [x] Click a parent SHA in a commit body → the sidebar follows, **including for a commit below the loaded graph window** ✅ — covered by [`commit-inspector.spec.ts`](../packages/app/e2e/commit-inspector.spec.ts); the fixture graph holds one row and the linkified target is not it
@@ -247,7 +247,7 @@ still exactly the commits.
 2. **Markdown + linkify, not linkify alone** — resolved. Accepted cost: a runtime dependency and the rule that raw HTML in commit messages stays inert (no `rehype-raw`).
 3. **`#123` links are in scope**, which is why Theme E exists — resolved. Worth noting E is ~5 files across all four packages for one link type; its real payoff is the "open commit/branch/PR on the forge" verbs that become trivial afterwards.
 4. **`stat` gets dropped from `CommitDetailResponse`** rather than left unused. — *resolved in Theme B: the field is gone, and so is the `git show --stat` invocation that produced it.*
-5. **Clipboard via Electron's `clipboard` module**, not `navigator.clipboard`, because the packaged app is a `file://` origin and may not be a secure context. — *resolved in Theme B: `mgit:clipboard:write-text`, write-only (no `readText`, so renderer code cannot observe whatever the user last copied anywhere).*
+5. **Clipboard via Electron's `clipboard` module**, not `navigator.clipboard`, because the packaged app is a `file://` origin and may not be a secure context. — *resolved in Theme B: `mstudio:clipboard:write-text`, write-only (no `readText`, so renderer code cannot observe whatever the user last copied anywhere).*
 6. **No syntax highlighting inside diff lines** — *resolved, deferred.* Word-level intraline marking landed instead, which is what actually distinguishes a one-token edit from a rewrite.
 7. **No side-by-side diff** — *resolved, deferred.* The inspector is a narrow panel; split view earns its keep only in a full-width diff surface, which does not exist yet.
 8. **Navigation history (back/forward through selected commits)** — deliberately left out. Add it if clicking parents proves disorienting in use; it would register in the Phase 9 keybinding registry. — *deferred*

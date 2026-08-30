@@ -2,7 +2,7 @@ import fs from 'node:fs/promises';
 import path from 'node:path';
 import { describe, expect, it } from 'vitest';
 
-import type { Commit, GrepHit } from '@midnite/git-shared';
+import type { Commit, GrepHit } from '@midnite/studio-shared';
 import { TempRepo } from '../testing/temp-repo';
 import { buildLogArgs } from './log';
 import { streamCommitSearch } from './search';

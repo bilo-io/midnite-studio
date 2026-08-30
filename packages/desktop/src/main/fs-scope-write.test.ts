@@ -22,8 +22,8 @@ describe('confineParent (the writable half of the jail)', () => {
   beforeAll(async () => {
     // realpath'd up front — macOS's tmpdir is itself a symlink (/var → /private/var),
     // and confineParent compares against the REAL root, so the fixture must too.
-    root = await realpath(await mkdtemp(join(tmpdir(), 'mgit-write-jail-')));
-    outside = await realpath(await mkdtemp(join(tmpdir(), 'mgit-write-outside-')));
+    root = await realpath(await mkdtemp(join(tmpdir(), 'mstudio-write-jail-')));
+    outside = await realpath(await mkdtemp(join(tmpdir(), 'mstudio-write-outside-')));
     await mkdir(join(root, 'sub'));
     await writeFileFixture(join(root, 'sub', 'existing.txt'), 'ok');
     await symlink(outside, join(root, 'evil-dir'));
@@ -74,7 +74,7 @@ describe('isSymlinkTarget / targetExists', () => {
   let root: string;
 
   beforeAll(async () => {
-    root = await mkdtemp(join(tmpdir(), 'mgit-write-target-'));
+    root = await mkdtemp(join(tmpdir(), 'mstudio-write-target-'));
     await writeFileFixture(join(root, 'real.txt'), 'hello');
     await symlink(join(root, 'real.txt'), join(root, 'alias.txt'));
     await symlink(join(root, 'nope.txt'), join(root, 'dangling.txt'));
@@ -110,7 +110,7 @@ describe('createFile / openForOverwrite (the descriptor-level TOCTOU guards)', (
   let root: string;
 
   beforeAll(async () => {
-    root = await mkdtemp(join(tmpdir(), 'mgit-write-create-'));
+    root = await mkdtemp(join(tmpdir(), 'mstudio-write-create-'));
     await writeFileFixture(join(root, 'existing.txt'), 'hi');
     await symlink(join(root, 'existing.txt'), join(root, 'alias.txt'));
   });
@@ -152,7 +152,7 @@ describe('createDirectory', () => {
   let root: string;
 
   beforeAll(async () => {
-    root = await mkdtemp(join(tmpdir(), 'mgit-write-mkdir-'));
+    root = await mkdtemp(join(tmpdir(), 'mstudio-write-mkdir-'));
     await writeFileFixture(join(root, 'existing.txt'), 'hi');
   });
 

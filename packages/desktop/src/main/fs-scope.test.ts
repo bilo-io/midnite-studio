@@ -37,8 +37,8 @@ describe('confineToRoot (the symlink half)', () => {
   let outside: string;
 
   beforeAll(async () => {
-    root = await mkdtemp(join(tmpdir(), 'mgit-jail-'));
-    outside = await mkdtemp(join(tmpdir(), 'mgit-outside-'));
+    root = await mkdtemp(join(tmpdir(), 'mstudio-jail-'));
+    outside = await mkdtemp(join(tmpdir(), 'mstudio-outside-'));
     await mkdir(join(root, 'sub'));
     await writeFile(join(root, 'sub', 'inside.txt'), 'ok');
     await writeFile(join(outside, 'secret.txt'), 'no');

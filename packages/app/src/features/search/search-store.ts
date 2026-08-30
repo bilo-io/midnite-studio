@@ -1,7 +1,9 @@
 import { create } from 'zustand';
 import { persist } from 'zustand/middleware';
 
-import type { Commit, GrepHit } from '@midnite/git-shared';
+import type { Commit, GrepHit } from '@midnite/studio-shared';
+
+import { adoptRenamedPersistKey } from '../../store/persist-rename';
 
 export type SearchMode = 'commits' | 'content' | 'files';
 
@@ -101,6 +103,12 @@ const DEFAULT_CONTENT_OPTIONS: ContentSearchOptions = {
 const DEFAULT_FILES_OPTIONS: FilesSearchOptions = {
   query: '',
 };
+
+/**
+ * Pre-rename state, adopted before the store hydrates — see
+ * `persist-rename.ts` for why this cannot be a zustand `migrate`.
+ */
+adoptRenamedPersistKey('midnite-studio:search-store', 'midnite-studio:search-store');
 
 export const useSearchStore = create<SearchState>()(
   persist(
@@ -231,7 +239,7 @@ export const useSearchStore = create<SearchState>()(
       cancelSearch: () => {
         const { inFlight } = get();
         if (inFlight) {
-          window.midniteGit?.search.cancel({ repoId: 'current', requestId: inFlight.requestId });
+          window.midniteStudio?.search.cancel({ repoId: 'current', requestId: inFlight.requestId });
           set({ inFlight: null });
         }
       },
@@ -250,7 +258,7 @@ export const useSearchStore = create<SearchState>()(
       },
     }),
     {
-      name: 'midnite-git:search-store',
+      name: 'midnite-studio:search-store',
       partialize: (state) => ({
         mode: state.mode,
         commitsOptions: state.commitsOptions,

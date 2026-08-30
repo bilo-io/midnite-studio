@@ -15,7 +15,7 @@ import globals from 'globals';
  * - `git-engine` is plain Node/TS so it stays vitest-testable outside Electron —
  *   it must never import `electron`.
  * - `app` is the renderer: it talks to the main process ONLY through
- *   `window.midniteGit`, so it must never import git-engine, desktop or electron.
+ *   `window.midniteStudio`, so it must never import git-engine, desktop or electron.
  *
  * Enforced with `no-restricted-imports` rather than a boundaries plugin so the
  * rule set stays dependency-free and the message explains the *why* at the
@@ -72,7 +72,7 @@ export default tseslint.config(
     rules: deny([
       NO_ELECTRON,
       {
-        group: ['@midnite/git-*'],
+        group: ['@midnite/studio-*'],
         message:
           'packages/shared is the leaf of the dependency graph — it may depend on zod and nothing else in the workspace.',
       },
@@ -85,7 +85,7 @@ export default tseslint.config(
     rules: deny([
       NO_ELECTRON,
       {
-        group: ['@midnite/git-app', '@midnite/git-app/*', '@midnite/git-desktop', '@midnite/git-desktop/*'],
+        group: ['@midnite/studio-app', '@midnite/studio-app/*', '@midnite/studio-desktop', '@midnite/studio-desktop/*'],
         message: 'git-engine sits below app/desktop in the dependency graph.',
       },
     ]),
@@ -100,14 +100,14 @@ export default tseslint.config(
       {
         group: ['electron', 'electron/*'],
         message:
-          'The renderer has no node integration. Reach the main process through `window.midniteGit` (see packages/shared/src/ipc/bridge.ts).',
+          'The renderer has no node integration. Reach the main process through `window.midniteStudio` (see packages/shared/src/ipc/bridge.ts).',
       },
       {
         group: [
-          '@midnite/git-engine',
-          '@midnite/git-engine/*',
-          '@midnite/git-desktop',
-          '@midnite/git-desktop/*',
+          '@midnite/studio-git-engine',
+          '@midnite/studio-git-engine/*',
+          '@midnite/studio-desktop',
+          '@midnite/studio-desktop/*',
         ],
         message:
           'The renderer never imports the git engine directly — git runs in the main process. Add an IPC channel in packages/shared/src/ipc instead.',

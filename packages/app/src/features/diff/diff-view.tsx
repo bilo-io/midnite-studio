@@ -3,7 +3,7 @@ import {
   type FileDiff,
   type ForgeReviewThread,
   type SplitDiffRow,
-} from '@midnite/git-shared';
+} from '@midnite/studio-shared';
 
 import { useTheme } from '@bilo-io/ui/theme';
 import { useRef } from 'react';

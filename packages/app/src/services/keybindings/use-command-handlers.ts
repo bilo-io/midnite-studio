@@ -1,6 +1,6 @@
 import { useQueryClient } from '@tanstack/react-query';
 
-import type { CommandId } from '@midnite/git-shared';
+import type { CommandId } from '@midnite/studio-shared';
 
 import { useDialogs } from '../../components/dialog-host';
 import { useGraphStore } from '../../features/graph/graph-store';

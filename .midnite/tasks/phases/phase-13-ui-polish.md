@@ -21,7 +21,7 @@ and the sidebar listed only worktrees. This phase makes the app feel deliberate.
 
 - [x] `components/resizable/{use-resizable.ts,resize-handle.tsx}` — pointer capture, `edge`
       inversion, keyboard nudge, double-click reset, `role="separator"`
-- [x] `ui-store` wrapped in `persist` (`midnite-git.ui`) with a field-wise `merge`
+- [x] `ui-store` wrapped in `persist` (`midnite-studio.ui`) with a field-wise `merge`
 - [x] Four panes resizable: repos sidebar, terminal, commit detail, changes file list
 
 ### C — Sidebar

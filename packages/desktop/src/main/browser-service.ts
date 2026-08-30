@@ -1,6 +1,6 @@
 import { WebContentsView, session, shell, type BrowserWindow } from 'electron';
 
-import { EVENT_CHANNELS, type BrowserBounds, type BrowserEvent } from '@midnite/git-shared';
+import { EVENT_CHANNELS, type BrowserBounds, type BrowserEvent } from '@midnite/studio-shared';
 
 import { cancelDownload, checkNavigationUrl, denyAllPermissions } from './browser-security';
 import { defaultLogger } from './log';
@@ -70,7 +70,7 @@ export function createBrowserTab(win: BrowserWindow, tabId: string, url: string)
       partition: PARTITION,
       contextIsolation: true,
       nodeIntegration: false,
-      // No preload: an embedded page must have no path to window.midniteGit,
+      // No preload: an embedded page must have no path to window.midniteStudio,
       // and the cheapest way to guarantee that is to hand it nothing.
       sandbox: true,
     },

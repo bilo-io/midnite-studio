@@ -7,7 +7,7 @@ import {
   type DiagnosticsCandidate,
   type DiagnosticsCommand,
   type DiagnosticsEcosystem,
-} from '@midnite/git-shared';
+} from '@midnite/studio-shared';
 
 /**
  * Working out what a repository could be linted with — and proposing it.

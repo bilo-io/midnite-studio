@@ -1,7 +1,7 @@
 import { readFile, stat } from 'node:fs/promises';
 import { join } from 'node:path';
 
-import type { ChangeCounts, StatusCounts } from '@midnite/git-shared';
+import type { ChangeCounts, StatusCounts } from '@midnite/studio-shared';
 
 import { execGit } from '../exec/git-exec';
 import { parseNumstat } from './log';

@@ -109,7 +109,7 @@ test('a stale write on Save offers Reload rather than overwriting or discarding 
 
   // Simulate an external change landing on disk after the read.
   await page.evaluate(() => {
-    (window as unknown as { __mgitStaleFile: (relPath: string) => void }).__mgitStaleFile('a.ts');
+    (window as unknown as { __mstudioStaleFile: (relPath: string) => void }).__mstudioStaleFile('a.ts');
   });
 
   await page.locator('.cm-content').click();

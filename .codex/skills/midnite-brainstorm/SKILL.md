@@ -5,7 +5,7 @@ description: Interactively brainstorm a brand-new todo/ phase — scan existing 
 
 **Invoke with:** [optional: a topic/theme to seed the new phase, e.g. 'mobile app' or 'observability']
 
-You are running the **brainstorm** workflow for the **Midnite Git** repo: an interactive, human-in-the-loop session that lands a **new `todo/phase-N-*.md`** plan. It's a back-and-forth — propose, let the user steer, refine over a few rounds, then write the doc. **Do not write the phase file until the user has converged on a direction** (Stage 5).
+You are running the **brainstorm** workflow for the **Midnite Studio** repo: an interactive, human-in-the-loop session that lands a **new `todo/phase-N-*.md`** plan. It's a back-and-forth — propose, let the user steer, refine over a few rounds, then write the doc. **Do not write the phase file until the user has converged on a direction** (Stage 5).
 
 ## Context you must respect
 

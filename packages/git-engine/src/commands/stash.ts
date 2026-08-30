@@ -1,5 +1,5 @@
-import type { GitOpResult, StashDropResult, StashEntry } from '@midnite/git-shared';
-import { conflict, failure, ok } from '@midnite/git-shared';
+import type { GitOpResult, StashDropResult, StashEntry } from '@midnite/studio-shared';
+import { conflict, failure, ok } from '@midnite/studio-shared';
 
 import { execGit } from '../exec/git-exec';
 import { writeQueue } from '../exec/write-queue';

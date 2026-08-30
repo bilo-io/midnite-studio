@@ -1,4 +1,4 @@
-import type { StatusEntry } from '@midnite/git-shared';
+import type { StatusEntry } from '@midnite/studio-shared';
 
 /**
  * The one-letter code git prints for a path's state, in the app's colours.

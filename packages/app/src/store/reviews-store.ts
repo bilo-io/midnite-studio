@@ -1,4 +1,4 @@
-import type { ForgePullScope } from '@midnite/git-shared';
+import type { ForgePullScope } from '@midnite/studio-shared';
 import { create } from 'zustand';
 
 /**

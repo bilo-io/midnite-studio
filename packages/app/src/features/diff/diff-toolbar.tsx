@@ -1,4 +1,4 @@
-import { DIFF_FULL_CONTEXT, type FileDiff } from '@midnite/git-shared';
+import { DIFF_FULL_CONTEXT, type FileDiff } from '@midnite/studio-shared';
 import { ChevronsUpDown, Columns2, Columns3 } from 'lucide-react';
 
 import { IconButton } from '../../components/icon-button';

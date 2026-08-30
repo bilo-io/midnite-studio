@@ -1,6 +1,8 @@
 import { create } from 'zustand';
 import { persist } from 'zustand/middleware';
 
+import { adoptRenamedPersistKey } from './persist-rename';
+
 /**
  * The browser's tabs and groups (Phase 32 Theme C/D).
  *
@@ -156,6 +158,12 @@ type BrowserState = {
   /** Closes every tab in a manual OR derived group, addressed by its effective id. */
   closeTabsInGroup: (targetGroupId: string) => void;
 };
+
+/**
+ * Pre-rename state, adopted before the store hydrates — see
+ * `persist-rename.ts` for why this cannot be a zustand `migrate`.
+ */
+adoptRenamedPersistKey('midnite-studio.browser', 'midnite-studio.browser');
 
 export const useBrowserStore = create<BrowserState>()(
   persist(
@@ -353,7 +361,7 @@ export const useBrowserStore = create<BrowserState>()(
         }),
     }),
     {
-      name: 'midnite-git.browser',
+      name: 'midnite-studio.browser',
       version: 1,
       partialize: (state) => ({
         activeTabId: state.activeTabId,

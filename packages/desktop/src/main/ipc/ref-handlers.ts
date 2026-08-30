@@ -11,8 +11,8 @@ import {
   rebase,
   renameBranch,
   reset,
-} from '@midnite/git-engine';
-import { CHANNELS, failure, schemas, type GitOpResult } from '@midnite/git-shared';
+} from '@midnite/studio-git-engine';
+import { CHANNELS, failure, schemas, type GitOpResult } from '@midnite/studio-shared';
 
 import { resolveWorkdir } from '../repo-registry';
 import { handle, handleOp } from './handle';

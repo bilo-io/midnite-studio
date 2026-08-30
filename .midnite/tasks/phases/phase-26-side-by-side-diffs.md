@@ -278,7 +278,7 @@ but not in Reviews, because `ForgePullDetailSchema` carries `headSha` and no bas
 
 - [ ] `moon run :typecheck :lint :test` green.
 - [ ] Boundary lint clean — this phase adds nothing to git-engine and nothing to the renderer that
-      reaches past `window.midniteGit`; the only main-process change is Theme H's `baseRefOid`.
+      reaches past `window.midniteStudio`; the only main-process change is Theme H's `baseRefOid`.
 - [ ] Vitest (A): `pairRun` on balanced, unbalanced-both-ways, pure-add and pure-delete runs, and an
       explicit assertion that its pairing matches `pairLines`'s.
 - [ ] Vitest (A): `canSplit` returns `false` for a `combined` diff, a `binary` diff and a

@@ -7,17 +7,17 @@ import { installMockBridge } from './mock-bridge';
  * The screenshots for the midnite menu — the row's three marks, the menu open,
  * and the Agent page's skill fields.
  *
- * Run with `MGIT_SHOTS=1`; skipped otherwise, so the normal suite stays fast and
+ * Run with `MSTUDIO_SHOTS=1`; skipped otherwise, so the normal suite stays fast and
  * does not rewrite committed images on every run.
  */
 
 /** Relative to `packages/app`, Playwright's cwd — hence the `../../`. */
 const OUT = '../../docs/screenshots/midnite-menu';
 
-const REPO = 'midnite-git';
+const REPO = 'midnite-studio';
 
 test.beforeEach(async ({ page }) => {
-  test.skip(!process.env.MGIT_SHOTS, 'set MGIT_SHOTS=1 to regenerate');
+  test.skip(!process.env.MSTUDIO_SHOTS, 'set MSTUDIO_SHOTS=1 to regenerate');
   await installMockBridge(page, fixtures);
   await page.goto('/');
   await expect(page.getByRole('columnheader', { name: 'Commit message' })).toBeVisible();

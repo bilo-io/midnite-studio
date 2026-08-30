@@ -1,21 +1,21 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
-import type { FsVersion, MidniteGitBridge } from '@midnite/git-shared';
+import type { FsVersion, MidniteStudioBridge } from '@midnite/studio-shared';
 
 import { useFileEditorStore } from './file-editor-store';
 
 const TARGET = { repoId: 'r1', relPath: 'src/a.ts', key: 'r1::src/a.ts' };
 const V1: FsVersion = { mtimeMs: 1, size: 5 };
 
-function mockBridge(overrides: Partial<MidniteGitBridge['fs']> = {}) {
+function mockBridge(overrides: Partial<MidniteStudioBridge['fs']> = {}) {
   const fs = {
     writeFile: vi.fn().mockResolvedValue({ ok: true }),
     readFile: vi.fn().mockResolvedValue({ kind: 'text', content: 'hello', size: 5, version: V1 }),
     ...overrides,
   };
-  (window as unknown as { midniteGit: Partial<MidniteGitBridge> }).midniteGit = {
+  (window as unknown as { midniteStudio: Partial<MidniteStudioBridge> }).midniteStudio = {
     fs,
-  } as unknown as MidniteGitBridge;
+  } as unknown as MidniteStudioBridge;
   return fs;
 }
 
@@ -32,7 +32,7 @@ describe('file-editor-store', () => {
       pendingNav: null,
       allowClose: false,
     });
-    delete (window as { midniteGit?: unknown }).midniteGit;
+    delete (window as { midniteStudio?: unknown }).midniteStudio;
   });
 
   it('openFile seeds content and savedContent from the same read, so a fresh open is never dirty', () => {

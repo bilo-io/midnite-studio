@@ -1,4 +1,4 @@
-import type { DiffLine, SplitCell } from '@midnite/git-shared';
+import type { DiffLine, SplitCell } from '@midnite/studio-shared';
 import { MessageSquarePlus } from 'lucide-react';
 
 import { mergeSegmentsWithTokens, toSegments } from './diff-rows';

@@ -1,4 +1,4 @@
-import { DIFF_DEFAULT_CONTEXT, type FileDiff } from '@midnite/git-shared';
+import { DIFF_DEFAULT_CONTEXT, type FileDiff } from '@midnite/studio-shared';
 
 import { execGit } from '../exec/git-exec';
 import { parseUnifiedDiff } from '../parsers/diff-parser';

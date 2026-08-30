@@ -1,4 +1,4 @@
-import type { TestRunResult } from '@midnite/git-shared';
+import type { TestRunResult } from '@midnite/studio-shared';
 import { describe, expect, it } from 'vitest';
 
 import { testVerdict } from './test-verdict';

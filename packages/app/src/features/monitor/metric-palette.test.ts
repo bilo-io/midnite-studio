@@ -1,4 +1,4 @@
-import { METRIC_IDS } from '@midnite/git-shared';
+import { METRIC_IDS } from '@midnite/studio-shared';
 import { describe, expect, it } from 'vitest';
 
 import { METRIC_LABELS, metricColor, metricFill, metricGlow, metricHsl, metricMuted } from './metric-palette';

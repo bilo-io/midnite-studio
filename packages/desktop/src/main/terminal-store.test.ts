@@ -2,7 +2,7 @@ import { mkdtemp, rm, writeFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 
-import { SCROLLBACK_BYTES, type TerminalSession } from '@midnite/git-shared';
+import { SCROLLBACK_BYTES, type TerminalSession } from '@midnite/studio-shared';
 import { afterEach, describe, expect, it } from 'vitest';
 
 import { createTerminalStore, parseStoredSessions, trimScrollback } from './terminal-store';
@@ -10,7 +10,7 @@ import { createTerminalStore, parseStoredSessions, trimScrollback } from './term
 let dirs: string[] = [];
 
 const tempDir = async (): Promise<string> => {
-  const dir = await mkdtemp(join(tmpdir(), 'mgit-terminals-'));
+  const dir = await mkdtemp(join(tmpdir(), 'mstudio-terminals-'));
   dirs.push(dir);
   return dir;
 };

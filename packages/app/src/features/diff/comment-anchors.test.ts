@@ -1,4 +1,4 @@
-import type { DiffLine, FileDiff, ForgeReviewThread } from '@midnite/git-shared';
+import type { DiffLine, FileDiff, ForgeReviewThread } from '@midnite/studio-shared';
 import { describe, expect, it } from 'vitest';
 
 import {

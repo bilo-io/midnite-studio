@@ -1,4 +1,4 @@
-import type { Remote } from '@midnite/git-shared';
+import type { Remote } from '@midnite/studio-shared';
 
 import { execGit } from '../exec/git-exec';
 import { parseRemoteUrl } from '../parsers/remote-url';

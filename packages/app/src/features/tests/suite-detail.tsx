@@ -1,6 +1,6 @@
 import { Play, Square, Terminal } from 'lucide-react';
 
-import { testSuiteFingerprint, type TestRunResult, type TestSuite } from '@midnite/git-shared';
+import { testSuiteFingerprint, type TestRunResult, type TestSuite } from '@midnite/studio-shared';
 
 import { IconButton } from '../../components/icon-button';
 import {

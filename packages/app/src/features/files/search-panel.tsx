@@ -2,7 +2,7 @@ import { Fragment, useMemo } from 'react';
 
 import { LuSearch, LuX } from 'react-icons/lu';
 
-import type { GrepMatch } from '@midnite/git-shared';
+import type { GrepMatch } from '@midnite/studio-shared';
 
 import { EmptyState } from '../../components/empty-state';
 import { FileIcon } from './file-icons';

@@ -1,6 +1,6 @@
 import * as fs from 'fs';
 import * as path from 'path';
-import { GitOpResult, RebaseSequencePlan, RebaseStatusState } from '@midnite/git-shared';
+import { GitOpResult, RebaseSequencePlan, RebaseStatusState } from '@midnite/studio-shared';
 import { execGit } from '../exec/git-exec';
 import { writeQueue } from '../exec/write-queue';
 import { conflictedPaths } from './status';

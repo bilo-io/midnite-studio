@@ -2,7 +2,7 @@ import { mkdtemp, rm, writeFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 
-import { BUILTIN_AGENTS, type AgentDefinition } from '@midnite/git-shared';
+import { BUILTIN_AGENTS, type AgentDefinition } from '@midnite/studio-shared';
 import { afterEach, describe, expect, it } from 'vitest';
 
 import { createAgentsStore, mergeAgents } from './agents-store';
@@ -10,7 +10,7 @@ import { createAgentsStore, mergeAgents } from './agents-store';
 let dirs: string[] = [];
 
 const tempDir = async (): Promise<string> => {
-  const dir = await mkdtemp(join(tmpdir(), 'mgit-agents-'));
+  const dir = await mkdtemp(join(tmpdir(), 'mstudio-agents-'));
   dirs.push(dir);
   return dir;
 };

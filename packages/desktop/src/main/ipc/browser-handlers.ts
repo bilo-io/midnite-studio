@@ -1,6 +1,6 @@
 import { ipcMain, type BrowserWindow } from 'electron';
 
-import { CHANNELS, ok, schemas } from '@midnite/git-shared';
+import { CHANNELS, ok, schemas } from '@midnite/studio-shared';
 
 import {
   activateBrowserTab,
@@ -18,7 +18,7 @@ import {
 import { handle, handleBare } from './handle';
 
 /**
- * Registers the `mgit:browser:*` channels over `browser-service.ts`.
+ * Registers the `mstudio:browser:*` channels over `browser-service.ts`.
  *
  * `create` is the one request/response call (the renderer needs to know a
  * view failed to spin up); everything else is a one-way `ipcMain.on`, same

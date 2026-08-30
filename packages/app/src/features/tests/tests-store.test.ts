@@ -1,6 +1,6 @@
 import { describe, expect, it, beforeEach } from 'vitest';
 
-import type { TestRunResult } from '@midnite/git-shared';
+import type { TestRunResult } from '@midnite/studio-shared';
 import { activeRunId, useTestsStore } from './tests-store';
 
 const okResult: TestRunResult = {

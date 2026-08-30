@@ -18,7 +18,7 @@ vi.mock('./repo-registry', () => ({ resolveWorkdir }));
 
 describe('resolveBlobRequest (the ?rev= half of the scheme)', () => {
   it('passes on a plain media request, leaving it to the disk path', async () => {
-    await expect(resolveBlobRequest('mgit-file://repo/r1/docs/a.png')).resolves.toEqual({
+    await expect(resolveBlobRequest('mstudio-file://repo/r1/docs/a.png')).resolves.toEqual({
       kind: 'none',
     });
     expect(resolveWorkdir).not.toHaveBeenCalled();
@@ -26,24 +26,24 @@ describe('resolveBlobRequest (the ?rev= half of the scheme)', () => {
 
   it('resolves a rev request to the repo workdir', async () => {
     resolveWorkdir.mockResolvedValueOnce('/repos/one');
-    await expect(resolveBlobRequest('mgit-file://repo/r1/docs/a%20b.png?rev=HEAD')).resolves.toEqual(
+    await expect(resolveBlobRequest('mstudio-file://repo/r1/docs/a%20b.png?rev=HEAD')).resolves.toEqual(
       { kind: 'blob', repoPath: '/repos/one', rev: 'HEAD', relPath: 'docs/a b.png' },
     );
   });
 
   it('keeps the index rev, which is how an unstaged before-side is addressed', async () => {
     resolveWorkdir.mockResolvedValueOnce('/repos/one');
-    const result = await resolveBlobRequest('mgit-file://repo/r1/a.png?rev=%3A');
+    const result = await resolveBlobRequest('mstudio-file://repo/r1/a.png?rev=%3A');
     expect(result).toMatchObject({ kind: 'blob', rev: ':' });
   });
 
   it.each([
-    ['a flag-shaped rev', 'mgit-file://repo/r1/a.png?rev=--upload-pack%3Devil'],
-    ['a rev with a range', 'mgit-file://repo/r1/a.png?rev=HEAD..evil'],
-    ['a rev with a space and semicolon', 'mgit-file://repo/r1/a.png?rev=HEAD%3B%20rm'],
-    ['a traversing path', 'mgit-file://repo/r1/..%2F..%2Fetc%2Fpasswd?rev=HEAD'],
-    ['the wrong scope', 'mgit-file://claude-home/-/a.png?rev=HEAD'],
-    ['no path at all', 'mgit-file://repo/r1?rev=HEAD'],
+    ['a flag-shaped rev', 'mstudio-file://repo/r1/a.png?rev=--upload-pack%3Devil'],
+    ['a rev with a range', 'mstudio-file://repo/r1/a.png?rev=HEAD..evil'],
+    ['a rev with a space and semicolon', 'mstudio-file://repo/r1/a.png?rev=HEAD%3B%20rm'],
+    ['a traversing path', 'mstudio-file://repo/r1/..%2F..%2Fetc%2Fpasswd?rev=HEAD'],
+    ['the wrong scope', 'mstudio-file://claude-home/-/a.png?rev=HEAD'],
+    ['no path at all', 'mstudio-file://repo/r1?rev=HEAD'],
   ])('refuses %s — and refuses it as invalid, never as a disk read', async (_name, url) => {
     resolveWorkdir.mockResolvedValue('/repos/one');
     await expect(resolveBlobRequest(url)).resolves.toEqual({ kind: 'invalid' });
@@ -51,20 +51,20 @@ describe('resolveBlobRequest (the ?rev= half of the scheme)', () => {
 
   it('refuses a repo the registry does not know', async () => {
     resolveWorkdir.mockResolvedValueOnce(null);
-    await expect(resolveBlobRequest('mgit-file://repo/nope/a.png?rev=HEAD')).resolves.toEqual({
+    await expect(resolveBlobRequest('mstudio-file://repo/nope/a.png?rev=HEAD')).resolves.toEqual({
       kind: 'invalid',
     });
   });
 });
 
 describe('scheme registration scope (Phase 32 Theme B)', () => {
-  it('registers mgit-file on the default session only, never on a named partition', () => {
+  it('registers mstudio-file on the default session only, never on a named partition', () => {
     installMgitFileProtocol();
 
     // The module-level `protocol` IS `session.defaultSession.protocol`; a
     // `persist:browser` view therefore has no handler for the scheme, which
     // is what keeps the renderer's media path unreachable from a remote page.
-    expect(protocol.handle).toHaveBeenCalledWith('mgit-file', expect.any(Function));
+    expect(protocol.handle).toHaveBeenCalledWith('mstudio-file', expect.any(Function));
     expect(session.fromPartition).not.toHaveBeenCalled();
   });
 });

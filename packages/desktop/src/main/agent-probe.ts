@@ -1,4 +1,4 @@
-import type { AgentDefinition, AgentStatus } from '@midnite/git-shared';
+import type { AgentDefinition, AgentStatus } from '@midnite/studio-shared';
 
 import { parseWhichOutput, runInShell } from './login-shell';
 
@@ -13,7 +13,7 @@ import { parseWhichOutput, runInShell } from './login-shell';
  *
  * Resolving against **Electron's** PATH would be wrong on the machine this was
  * written on. `claude` and `agy` both live in `~/.local/bin`, which reaches the
- * environment only through an interactive rc file — so a `Midnite Git.app`
+ * environment only through an interactive rc file — so a `Midnite Studio.app`
  * opened from Finder inherits launchd's bare PATH and a naive probe would
  * disable two agents that are sitting right there. Everything goes through
  * `login-shell.ts`'s `-lic` shell instead, which is also the shell the pty will
@@ -42,7 +42,7 @@ export const PROBE_TIMEOUT_MS = 8_000;
  * per open; short enough that `npm i -g @gitlawb/openclaude` in the terminal
  * next door un-greys its menu item without quitting the app. That second half
  * is the reason this is a TTL and not a permanent memo: installing an agent
- * *from inside Midnite Git* is the likeliest way this fact ever changes.
+ * *from inside Midnite Studio* is the likeliest way this fact ever changes.
  */
 export const PROBE_TTL_MS = 30_000;
 
@@ -55,8 +55,8 @@ export const PROBE_TTL_MS = 30_000;
  * `parseWhichOutput`'s "last path line wins" rule would hand every agent the
  * same answer.
  */
-const frameStart = (id: string): string => `__MGIT_AGENT_${id}_START__`;
-const frameEnd = (id: string): string => `__MGIT_AGENT_${id}_END__`;
+const frameStart = (id: string): string => `__MSTUDIO_AGENT_${id}_START__`;
+const frameEnd = (id: string): string => `__MSTUDIO_AGENT_${id}_END__`;
 
 /**
  * The id is embedded in a shell string, so it has to be a shell-safe token.

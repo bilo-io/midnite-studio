@@ -5,13 +5,13 @@ argument-hint: "(run on the release/vX.Y.Z branch that /midnite-release-prep pre
 allowed-tools: Bash, Read, Edit, AskUserQuestion, Agent
 ---
 
-Execute a prepped Midnite Git release: the irreversible half of the two-step flow.
+Execute a prepped Midnite Studio release: the irreversible half of the two-step flow.
 Runs **after** a human has reviewed the `release/vX.Y.Z` branch that
 [`/midnite-release-prep`](../midnite-release-prep/SKILL.md) left. Tags, pushes, merges to `main`, and
 cuts a GitHub Release — so it **stops for explicit confirmation before the first
 irreversible step** and refuses to run if preconditions aren't met.
 
-> ⚠️ **Ported from midnite — release infra doesn't exist here yet.** Midnite Git has no
+> ⚠️ **Ported from midnite — release infra doesn't exist here yet.** Midnite Studio has no
 > `packages/shared/src/{version,release}.ts` helpers, no `root:version-check` task, and
 > no tag-triggered release workflow (packaging lands in Phase 11; the updater is
 > post-MVP). Port the helpers from `~/Dev/midnite/packages/shared/src/` or apply the

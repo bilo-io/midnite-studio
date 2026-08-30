@@ -1,6 +1,6 @@
 import type { BrowserWindow } from 'electron';
 
-import { CHANNELS, failure, schemas } from '@midnite/git-shared';
+import { CHANNELS, failure, schemas } from '@midnite/studio-shared';
 
 import { getRepo } from '../repo-registry';
 import { cancelSearch, readBlame, startCommitSearch, startGrep } from '../search-service';

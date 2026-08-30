@@ -1,4 +1,4 @@
-import type { DiagnosticsCommand } from '@midnite/git-shared';
+import type { DiagnosticsCommand } from '@midnite/studio-shared';
 import { describe, expect, it, vi } from 'vitest';
 
 import { runDiagnostics, type SpawnFn, type SpawnedProcess } from './runner';

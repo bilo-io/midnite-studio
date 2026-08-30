@@ -1,4 +1,4 @@
-import type { Forge } from '@midnite/git-shared';
+import type { Forge } from '@midnite/studio-shared';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
 import { parseCommitSample } from './gh-parse';
@@ -68,7 +68,7 @@ vi.mock('./gh-shell', async (importOriginal) => {
   };
 });
 
-const FORGE: Forge = { host: 'github.com', owner: 'bilo-io', repo: 'midnite-git', kind: 'github' };
+const FORGE: Forge = { host: 'github.com', owner: 'bilo-io', repo: 'midnite-studio', kind: 'github' };
 
 const ok = { output: '{}', stdout: '{}', stderr: '', exitCode: 0 };
 const fail = (output: string) => ({ output, stdout: output, stderr: output, exitCode: 1 });
@@ -105,7 +105,7 @@ describe('addReviewComment', () => {
     expect(result.ok).toBe(true);
     expect(runInShell).toHaveBeenCalledTimes(1);
     expect(runInShell.mock.calls[0]?.[0]).toContain(
-      "gh api --method POST 'repos/bilo-io/midnite-git/pulls/42/comments'",
+      "gh api --method POST 'repos/bilo-io/midnite-studio/pulls/42/comments'",
     );
     // The modern form only. Sending both would let GitHub choose which anchor
     // wins, and the two disagree the moment the diff is not the whole file.
@@ -190,7 +190,7 @@ describe('addReviewComment', () => {
 
     const command = runInShell.mock.calls[0]?.[0] ?? '';
     // Every quote is closed, escaped and reopened — the shell sees one argument.
-    expect(command).toContain(`'repos/o'\\''; rm -rf /; echo '\\''/midnite-git/pulls/42/comments'`);
+    expect(command).toContain(`'repos/o'\\''; rm -rf /; echo '\\''/midnite-studio/pulls/42/comments'`);
   });
 
   it('adds --hostname for an enterprise host, and not for github.com', async () => {
@@ -216,7 +216,7 @@ describe('replyToReviewComment', () => {
 
     expect(result.ok).toBe(true);
     expect(runInShell.mock.calls[0]?.[0]).toContain(
-      "'repos/bilo-io/midnite-git/pulls/42/comments/2345678/replies'",
+      "'repos/bilo-io/midnite-studio/pulls/42/comments/2345678/replies'",
     );
     // The reply endpoint takes a body and nothing else — no anchor, because the
     // thread it lands in already has one.
@@ -293,19 +293,19 @@ describe('describeApiFailure', () => {
   command construction from the spawn.
 */
 
-const forge: Forge = { kind: 'github', host: 'github.com', owner: 'bilo-io', repo: 'midnite-git' };
+const forge: Forge = { kind: 'github', host: 'github.com', owner: 'bilo-io', repo: 'midnite-studio' };
 const enterprise: Forge = { kind: 'github', host: 'ghe.example.com', owner: 'acme', repo: 'app' };
 
 describe('reviewCommand', () => {
   it('spells each event as its own flag, not as a value', () => {
     expect(reviewCommand(forge, 7, 'APPROVE', '')).toBe(
-      "gh pr review 7 --repo 'bilo-io/midnite-git' --approve",
+      "gh pr review 7 --repo 'bilo-io/midnite-studio' --approve",
     );
     expect(reviewCommand(forge, 7, 'REQUEST_CHANGES', 'needs work')).toBe(
-      "gh pr review 7 --repo 'bilo-io/midnite-git' --request-changes --body 'needs work'",
+      "gh pr review 7 --repo 'bilo-io/midnite-studio' --request-changes --body 'needs work'",
     );
     expect(reviewCommand(forge, 7, 'COMMENT', 'looks fine')).toBe(
-      "gh pr review 7 --repo 'bilo-io/midnite-git' --comment --body 'looks fine'",
+      "gh pr review 7 --repo 'bilo-io/midnite-studio' --comment --body 'looks fine'",
     );
   });
 
@@ -321,7 +321,7 @@ describe('reviewCommand', () => {
     // Every `'` the body carried is closed, escaped and reopened, so nothing in
     // it can end the quoting and become a second command.
     expect(command).toBe(
-      `gh pr review 1 --repo 'bilo-io/midnite-git' --comment --body ` +
+      `gh pr review 1 --repo 'bilo-io/midnite-studio' --comment --body ` +
         `''\\''; rm -rf ~; echo '\\'''`,
     );
     expect(command.split(' --body ')[1]?.startsWith("'")).toBe(true);
@@ -344,7 +344,7 @@ describe('commentCommand', () => {
     // `gh pr comment`, not `gh pr review --comment` — different collections,
     // different attribution. See the doc comment on commentCommand.
     expect(commentCommand(forge, 12, 'ping')).toBe(
-      "gh pr comment 12 --repo 'bilo-io/midnite-git' --body 'ping'",
+      "gh pr comment 12 --repo 'bilo-io/midnite-studio' --body 'ping'",
     );
   });
 });
@@ -355,7 +355,7 @@ describe('mergeCommand', () => {
     // these run in is tty-ish enough that it would hang until the timeout.
     for (const method of ['merge', 'squash', 'rebase'] as const) {
       expect(mergeCommand(forge, 9, method)).toBe(
-        `gh pr merge 9 --repo 'bilo-io/midnite-git' --${method}`,
+        `gh pr merge 9 --repo 'bilo-io/midnite-studio' --${method}`,
       );
     }
   });
@@ -369,7 +369,7 @@ describe('mergeCommand', () => {
 describe('requestReviewCommand', () => {
   it('repeats the flag rather than comma-joining logins', () => {
     expect(requestReviewCommand(forge, 4, ['octocat', 'hubot'])).toBe(
-      "gh pr edit 4 --repo 'bilo-io/midnite-git' --add-reviewer 'octocat' --add-reviewer 'hubot'",
+      "gh pr edit 4 --repo 'bilo-io/midnite-studio' --add-reviewer 'octocat' --add-reviewer 'hubot'",
     );
   });
 
@@ -381,7 +381,7 @@ describe('requestReviewCommand', () => {
 describe('readyCommand', () => {
   it('has no --undo path', () => {
     const command = readyCommand(forge, 5);
-    expect(command).toBe("gh pr ready 5 --repo 'bilo-io/midnite-git'");
+    expect(command).toBe("gh pr ready 5 --repo 'bilo-io/midnite-studio'");
     expect(command).not.toContain('--undo');
   });
 });
@@ -389,10 +389,10 @@ describe('readyCommand', () => {
 describe('rerunCommand', () => {
   it('adds --failed only when asked', () => {
     expect(rerunCommand(forge, '123456', false)).toBe(
-      "gh run rerun '123456' --repo 'bilo-io/midnite-git'",
+      "gh run rerun '123456' --repo 'bilo-io/midnite-studio'",
     );
     expect(rerunCommand(forge, '123456', true)).toBe(
-      "gh run rerun '123456' --repo 'bilo-io/midnite-git' --failed",
+      "gh run rerun '123456' --repo 'bilo-io/midnite-studio' --failed",
     );
   });
 });

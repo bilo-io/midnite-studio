@@ -4,12 +4,12 @@ The centerpiece: full `--all` graph with colored lanes and ref badges, virtualiz
 
 ## Deliverables
 
-- [x] `desktop/src/main/log-service.ts` — streaming: `git log --all --topo-order -z`, parse + lane-layout incrementally in main, emit `mgit:log:batch {requestId, rows}` (~500 rows/batch) then `mgit:log:done`; cancellation via requestId map; initial cap `-n 50000` + "load more"
+- [x] `desktop/src/main/log-service.ts` — streaming: `git log --all --topo-order -z`, parse + lane-layout incrementally in main, emit `mstudio:log:batch {requestId, rows}` (~500 rows/batch) then `mstudio:log:done`; cancellation via requestId map; initial cap `-n 50000` + "load more"
 - [x] `app/src/features/graph/graph-store.ts` — per-repo Zustand store (`rows`, `loading`, `requestId`); stale-requestId batches discarded
 - [x] `app/src/features/graph/use-graph-stream.ts` — start/cancel + batch reducer
 - [x] `app/src/features/graph/{graph-view.tsx,graph-row.tsx,graph-svg.tsx}` — `@tanstack/react-virtual` list; fixed-height per-row `<svg>` drawing node + edges from `GraphRow.edges`; subject/author/date columns
 - [x] `app/src/features/graph/ref-badge.tsx` — branch/tag/HEAD badges joined by sha from the `refs` query
-- [x] `app/src/features/commit/commit-detail.tsx` — detail pane stub via `mgit:commit:detail` (`git show --stat`) + `git-engine/src/commands/show.ts`
+- [x] `app/src/features/commit/commit-detail.tsx` — detail pane stub via `mstudio:commit:detail` (`git show --stat`) + `git-engine/src/commands/show.ts`
 
 ## Verification
 

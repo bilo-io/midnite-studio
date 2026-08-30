@@ -2,7 +2,7 @@
 
 **Refined: x1** · 2026-08-28 · UI/UX, visual design, accessibility, empty/loading/error states, data model & IPC, concurrency, edge cases, persistence, performance, testing, observability, security, sequencing, file-map, acceptance criteria, out-of-scope
 
-Twenty-four phases in, Midnite Git can stream a hundred thousand commits, highlight every diff in
+Twenty-four phases in, Midnite Studio can stream a hundred thousand commits, highlight every diff in
 the app with shiki, browse a repo's files in a preview pane and review a pull request without
 leaving the window — and it cannot answer *when did this line get here*, or *which commit deleted
 that function*. A grep across all four packages for `blame`, `pickaxe`, `log -S`, `--pickaxe` and
@@ -30,7 +30,7 @@ consumer can use without stealing the graph's stream out from under it.
 
 **Neither neighbour has landed, and this phase is written for that.** As of this refinement,
 `services/palette/fuzzy-match.ts`, `commands/grep.ts`, `parsers/grep-parser.ts` and an
-`mgit:fs:search` channel **do not exist** — [Phase 23](phase-23-command-palette.md) and
+`mstudio:fs:search` channel **do not exist** — [Phase 23](phase-23-command-palette.md) and
 [Phase 24](phase-24-writable-explorer.md) are both `◻ TODO` at 0%. So the **standalone path is the
 primary reading of every item below**, not a fallback clause at the end of one: this phase writes
 `commands/grep.ts` and `parsers/grep-parser.ts` whole, ships a Files mode that lists paths from its
@@ -293,9 +293,9 @@ its own green gate before the search channels arrive on top of it.
       `win.once('closed')` calls `cancelAll(win)`. A half-consumed grep of the repo you just left is
       the leak this phase is most likely to ship.
 - [x] New channels in [`ipc/channels.ts`](../packages/shared/src/ipc/channels.ts) under the
-      `mgit:` namespace: `searchStart` (`mgit:search:start`), `searchCancel` (`mgit:search:cancel`),
-      `blameRead` (`mgit:blame:read`) as invokes, and `searchBatch` (`mgit:search:batch`),
-      `searchDone` (`mgit:search:done`) in `EVENT_CHANNELS`. One `searchStart` carrying a
+      `mstudio:` namespace: `searchStart` (`mstudio:search:start`), `searchCancel` (`mstudio:search:cancel`),
+      `blameRead` (`mstudio:blame:read`) as invokes, and `searchBatch` (`mstudio:search:batch`),
+      `searchDone` (`mstudio:search:done`) in `EVENT_CHANNELS`. One `searchStart` carrying a
       discriminated `mode` rather than two near-identical channels, and the renderer routes on
       `requestId` exactly as [`graph-store.ts`](../packages/app/src/features/graph/graph-store.ts)
       already does.
@@ -322,7 +322,7 @@ its own green gate before the search channels arrive on top of it.
     `{ requestId, mode: 'commits', commits: Commit[] }` | `{ requestId, mode: 'content', hits: GrepHit[] }`.
   - `SearchDoneEvent = { requestId, mode, total: number, truncated: boolean, error?: string }` —
     the same shape `LogDoneEvent` has, so the renderer's done-handling is one pattern.
-- [x] `search` and `blame` groups on `MidniteGitBridge` in
+- [x] `search` and `blame` groups on `MidniteStudioBridge` in
       [`ipc/bridge.ts`](../packages/shared/src/ipc/bridge.ts), with
       `search: { start, cancel, onBatch, onDone }` mirroring the `log` group exactly and
       `blame: { read }`.
@@ -330,7 +330,7 @@ its own green gate before the search channels arrive on top of it.
       `handleOp()` / `handle()` from [`ipc/handle.ts`](../packages/desktop/src/main/ipc/handle.ts) so
       an invalid payload resolves with a fallback rather than rejecting; registered in the
       `registerFooHandlers()` block in [`main/index.ts`](../packages/desktop/src/main/index.ts).
-- [x] Wire both groups into the preload `Pick<MidniteGitBridge, …>` in
+- [x] Wire both groups into the preload `Pick<MidniteStudioBridge, …>` in
       [`preload/index.ts`](../packages/desktop/src/preload/index.ts) — naming the groups there is
       what makes an unimplemented method a compile error rather than a runtime `undefined`.
 - [x] A `search*` / `blame*` block in [`ipc.test.ts`](../packages/shared/src/ipc/ipc.test.ts). The
@@ -731,7 +731,7 @@ The find bar depends on **D's first two items**.
 | Renderer — shell | [`app.tsx`](../packages/app/src/app.tsx) (`NAV_ITEMS`:164, the render chain:690, the handler literal; `FORGE_GATED_VIEWS`:185 **unchanged** — search is not gated), [`store/ui-store.ts`](../packages/app/src/store/ui-store.ts) (`ViewId`, `VIEW_IDS`, `SettingsPageId`, `SETTINGS_PAGES`, `LayoutSizes`, `DEFAULT_LAYOUT`, `LAYOUT_BOUNDS`; **`version` stays 2**), [`components/nav-icons.ts`](../packages/app/src/components/nav-icons.ts), [`services/queries.ts`](../packages/app/src/services/queries.ts) (`keys.blame`), [`services/watch-invalidation.ts`](../packages/app/src/services/watch-invalidation.ts), [`features/terminal/footer-bar.tsx`](../packages/app/src/features/terminal/footer-bar.tsx) (one new `FooterCluster` child) |
 | Renderer — shared | **new** `components/filter-input.tsx`, [`features/repos/repos-panel.tsx`](../packages/app/src/features/repos/repos-panel.tsx), [`features/reviews/reviews-list.tsx`](../packages/app/src/features/reviews/reviews-list.tsx), [`features/changes/all-changes-view.tsx`](../packages/app/src/features/changes/all-changes-view.tsx), [`features/graph/graph-header.tsx`](../packages/app/src/features/graph/graph-header.tsx), [`features/graph/author-filter.tsx`](../packages/app/src/features/graph/author-filter.tsx) (**unchanged** — the dimming precedent the graph box copies) |
 | Settings | **new** `features/settings/settings-pages/search-page.tsx`, [`settings-pages/controls.tsx`](../packages/app/src/features/settings/settings-pages/controls.tsx) (`NumberField`, `Toggle`), [`features/settings/settings-view.tsx`](../packages/app/src/features/settings/settings-view.tsx) |
-| Neighbour seams | **None are required.** Phase 23 (`services/palette/`) and Phase 24 (`commands/grep.ts`, `mgit:fs:search`) do not exist on disk today; the two `⏳` items in Theme F and the four *If Phase 23/24 has landed* bullets are the entire optional surface, and each names its own file |
+| Neighbour seams | **None are required.** Phase 23 (`services/palette/`) and Phase 24 (`commands/grep.ts`, `mstudio:fs:search`) do not exist on disk today; the two `⏳` items in Theme F and the four *If Phase 23/24 has landed* bullets are the entire optional surface, and each names its own file |
 | Docs | [`CLAUDE.md`](../CLAUDE.md) (the new chords, and Fetch's move), [`docs/INITIAL_PLAN.md`](../docs/INITIAL_PLAN.md), [`todo/outstanding.md`](outstanding.md) (search and blame come off the list) |
 | Tests | **new** `grep-parser.test.ts`, `blame-parser.test.ts`, `search.integration.test.ts`, `grep.integration.test.ts`, `blame.integration.test.ts`, `stream-registry.test.ts`, `filter-input.test.ts`, `match-ranges.test.ts`, `blame-store.test.ts`, `blame-lines.test.ts`, `code-preview.test.tsx`, `e2e/search-view.spec.ts`, `e2e/blame.spec.ts`; edited [`ipc.test.ts`](../packages/shared/src/ipc/ipc.test.ts), [`keybindings.test.ts`](../packages/app/src/services/keybindings/keybindings.test.ts), [`e2e/settings-pages.spec.ts`](../packages/app/e2e/settings-pages.spec.ts), [`e2e/mock-bridge.ts`](../packages/app/e2e/mock-bridge.ts) |
 
@@ -739,7 +739,7 @@ The find bar depends on **D's first two items**.
 
 - [ ] `moon run :typecheck :lint :test` green.
 - [ ] Boundary lint clean: `search.ts`, `grep.ts` and `blame.ts` are plain Node in git-engine and
-      import no `electron`; the Search view reaches main only through `window.midniteGit`.
+      import no `electron`; the Search view reaches main only through `window.midniteStudio`.
 - [ ] Vitest (A): `expect(buildLogArgs({ limit: 100, all: true, revisions: ['main'] }))` equals the
       exact array the function returns today — **byte-identical**, element for element. The
       regression that would silently change the graph.
@@ -875,7 +875,7 @@ The find bar depends on **D's first two items**.
 
 - **Resolved — the standalone path is the primary path, because neither neighbour has landed.**
   At the time of this refinement Phase 23 and Phase 24 are both `◻ TODO` at 0%, and
-  `fuzzy-match.ts`, `commands/grep.ts`, `parsers/grep-parser.ts` and `mgit:fs:search` are absent
+  `fuzzy-match.ts`, `commands/grep.ts`, `parsers/grep-parser.ts` and `mstudio:fs:search` are absent
   from the tree. The doc previously wrote the additive case as primary and the standalone case as a
   trailing clause, which made an executor check a dependency on every second item for an answer
   that is the same every time. Inverted: this phase writes grep whole, ships a substring Files mode,

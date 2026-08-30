@@ -4,7 +4,7 @@ import { mkdir, writeFile } from 'node:fs/promises';
 import * as net from 'node:net';
 import { dirname, join } from 'node:path';
 
-import { SCROLLBACK_BYTES } from '@midnite/git-shared';
+import { SCROLLBACK_BYTES } from '@midnite/studio-shared';
 
 import {
   createFrameDecoder,
@@ -327,7 +327,7 @@ export function createBrokerServer(options: BrokerServerOptions): BrokerServer {
             cwd,
             env: {
               ...env,
-              TERM_PROGRAM: 'midnite-git',
+              TERM_PROGRAM: 'midnite-studio',
               GIT_TERMINAL_PROMPT: '1',
             },
           });

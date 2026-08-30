@@ -85,20 +85,20 @@ Effort tags: **S** ≈ an hour or two · **M** ≈ half a day · **L** ≈ a day
       `Ctrl+\``, reveal, and assert the pane's bridge traffic shows a snapshot write **without** a
       resize having been sent per frame — the mock bridge in
       [`e2e/mock-bridge.ts`](../packages/app/e2e/mock-bridge.ts) publishes pty traffic on
-      `window.__mgitPty`, so "what reached xterm" is assertable even though the WebGL canvas is not.
+      `window.__mstudioPty`, so "what reached xterm" is assertable even though the WebGL canvas is not.
       - Spec file: net-new [`e2e/terminal-reveal.spec.ts`](../packages/app/e2e/terminal-reveal.spec.ts),
         test `'revealing a live session replays its buffer with one resize, not one per frame'`.
       - Steps: open one shell (`Ctrl+\``, as `terminal.spec.ts:164` does) → note
-        `__mgitPty.resizes.length` → toggle collapse → `await expect(page.locator('[data-terminal-frame]')).toHaveCount(0)`
+        `__mstudioPty.resizes.length` → toggle collapse → `await expect(page.locator('[data-terminal-frame]')).toHaveCount(0)`
         → toggle reveal → `await expect(page.locator('[data-terminal-frame]')).toHaveCount(1)` →
-        wait `REVEAL_MS + 100` ms → assert `__mgitPty.snapshots` equals `[liveptyId]` and
+        wait `REVEAL_MS + 100` ms → assert `__mstudioPty.snapshots` equals `[liveptyId]` and
         `resizes.length` grew by **exactly 1**.
       - It is red today for two reasons the fixes below remove one each: `bridge.pty.snapshot` does
         not exist (cause 1), and the resize count after reveal is whatever the `ResizeObserver` at
         `terminal-view.tsx:344-348` happens to fire (cause 2). It depends on the `resizes`/`snapshots`
         recorders in the last item of this theme, which lands with it.
 - [x] Fix cause 1: a remounted view for a **live** session writes main's current ring buffer before
-      attaching to the stream. **Resolved — a `mgit:pty:snapshot` invoke** (Theme B owns the
+      attaching to the stream. **Resolved — a `mstudio:pty:snapshot` invoke** (Theme B owns the
       channel), not bytes on `terminal:list`. Same `\x1b[0m`-prefixed, newline-trimmed slice
       `trimScrollback()` in [`terminal-store.ts:136`](../packages/desktop/src/main/terminal-store.ts)
       already produces, for the same mid-CSI reason — main applies `trimScrollback(ring, SCROLLBACK_BYTES)`
@@ -194,7 +194,7 @@ Effort tags: **S** ≈ an hour or two · **M** ≈ half a day · **L** ≈ a day
       `mock-bridge.ts:1455-1459` gains `resizes: { ptyId: string; cols: number; rows: number }[]`
       (the `resize: noop` at `:871` becomes a push) and `snapshots: string[]` (pushed by the new
       `pty.snapshot` mock, which answers with the bytes it has fed to that pty so far — the mock keeps a
-      per-pty `Uint8Array[]` log alongside `ptySessions`). The `__mgitPty` type in
+      per-pty `Uint8Array[]` log alongside `ptySessions`). The `__mstudioPty` type in
       `terminal.spec.ts:106-115` widens to match. Without this, the first item cannot assert anything.
 
 ### B — Reattach after a renderer reload (M) — ✅ DONE (2026-08-28, merged locally — no PR/no remote; the HMR dev-only manual check stays open)
@@ -250,12 +250,12 @@ that pty.
       - Not testable under desktop vitest (imports `electron`); verified by a human line below.
 - [x] Vitest: the two `hydrate` cases above. Playwright: `terminal.spec.ts` gains
       `'a reload keeps live sessions live'` — `data.terminalSessions` with two `live` entries,
-      `page.reload()`, then `__mgitPty.creates.length === 0`, `snapshots.length === 2`, and both rows
+      `page.reload()`, then `__mstudioPty.creates.length === 0`, `snapshots.length === 2`, and both rows
       carry `data-phase="live"` (Theme D's attribute; until D lands, assert the absence of the dimmed
       class instead).
 - [ ] Dev: HMR of `terminal-view.tsx` no longer strands shells — the `moon run desktop:start` pain that
       motivated the theme, checked by hand once.
-- [x] The `mgit:pty:snapshot` channel A's fix consumes: `CHANNELS.ptySnapshot = 'mgit:pty:snapshot'` in
+- [x] The `mstudio:pty:snapshot` channel A's fix consumes: `CHANNELS.ptySnapshot = 'mstudio:pty:snapshot'` in
       [`ipc/channels.ts`](../packages/shared/src/ipc/channels.ts) beside `ptyKill` (`:241`);
       `PtySnapshotRequest = z.object({ ptyId: z.string().min(1) })` in `schemas.ts`; the response is
       `{ bytes: Uint8Array }`, unvalidated like `ptyData` (`z.instanceof(Uint8Array)` is the only
@@ -296,7 +296,7 @@ that pty.
 - [x] Protocol over a unix domain socket at
       `join(userData, 'broker', \`${app.getVersion()}${app.isPackaged ? '' : '-dev'}.sock\`)`:
       length-prefixed frames, a `hello` handshake carrying `{ protocol, appVersion, pid }`. Namespaced
-      by version **and** a `-dev` suffix because `app.setName('Midnite Git')` (`index.ts:85`) makes the
+      by version **and** a `-dev` suffix because `app.setName('Midnite Studio')` (`index.ts:85`) makes the
       dev server and the installed app share `userData`, and two builds attaching to one broker is the
       first bug this design would otherwise ship.
       - Frame layout, in net-new [`broker/protocol.ts`](../packages/desktop/src/broker/protocol.ts):
@@ -313,7 +313,7 @@ that pty.
       - Replies: `{ t: 'reply', id, ok: true, … } | { t: 'reply', id, ok: false, code: 'protocol' | 'unknown-pty' | 'spawn-failed', message }`
         — the `GitOpResult` habit, over the socket. Unsolicited: `{ t: 'exit', ptyId, exitCode, signal? }`
         and data frames.
-      - macOS caps `sun_path` at 104 bytes; `~/Library/Application Support/Midnite Git/broker/0.12.0-dev.sock`
+      - macOS caps `sun_path` at 104 bytes; `~/Library/Application Support/Midnite Studio/broker/0.12.0-dev.sock`
         is ~75. `broker-client` asserts `Buffer.byteLength(path) < 104` and otherwise fails soft
         with reason `'socket path too long'`.
       - **Resolved — filesystem permissions are the auth.** `broker/` is created `0700`, the socket
@@ -327,7 +327,7 @@ that pty.
       moves with it — it already takes a directory and imports no `electron`, which is what makes the
       move a `git mv` to `broker/terminal-store.ts` (its test moves too).
       - **Resolved — main sends the full `env` in every `create` frame.** The broker never computes an
-        environment: `pty-service.ts` keeps building `{ ...process.env, TERM_PROGRAM: 'midnite-git', GIT_TERMINAL_PROMPT: '1' }`
+        environment: `pty-service.ts` keeps building `{ ...process.env, TERM_PROGRAM: 'midnite-studio', GIT_TERMINAL_PROMPT: '1' }`
         (`:192-200`, `PATH` already fixed by `ensureLoginShellPath()` at `index.ts:99`) and ships it.
         A broker started by v1.2 spawns v1.3's env once v1.3 connects, and the Phase 21 `PATH` lesson
         stays in one file.
@@ -521,7 +521,7 @@ that pty.
       - `agentCount(sessions, states)` keeps its signature; it now reads `session.asleep` through
         `sessionPhase`, so a slept agent is not counted.
 - [x] Vitest for the phase derivation table; Playwright in `terminal.spec.ts`:
-      `'sleeping a session keeps its row and transcript'` (`__mgitPty.kills.length === 1`, the row
+      `'sleeping a session keeps its row and transcript'` (`__mstudioPty.kills.length === 1`, the row
       still present with `data-phase="asleep"`, `terminalSaves.at(-1).asleep === true`);
       `'an ended pane shows the strip and Enter starts a shell'` (`getByRole('status')` contains
       `Session ended`, then Enter → `creates.length` grows by 1);
@@ -578,15 +578,15 @@ that pty.
       pid 502 `S+` → `'less'`); `ps-bare-prompt.txt` (only the `zsh` row, `Ss+` → `null`);
       `ps-background-job.txt` (`sleep 100` `S`, no `+` → `null`); the existing
       `ps-node-wrapper.txt` false-positive guard keeps passing.
-- [x] The `pty:command-changed` event: `EVENT_CHANNELS.ptyCommandChanged = 'mgit:pty:command-changed'`
+- [x] The `pty:command-changed` event: `EVENT_CHANNELS.ptyCommandChanged = 'mstudio:pty:command-changed'`
       beside `ptyAgentChanged` (`channels.ts:378`);
       `PtyCommandChangedEvent = z.object({ ptyId: z.string().min(1), command: z.string().min(1).nullable() })`
       in `schemas.ts` after `PtyAgentChangedEvent` (`:829-832`); `ipc.test.ts` `expected` gains
       `ptyCommandChanged: ['PtyCommandChangedEvent']` and a `CASES` row (invalid: empty string
       command); preload `onCommandChanged: (handler) => subscribe(EVENT_CHANNELS.ptyCommandChanged, handler)`
       at `preload/index.ts:211-213`; `bridge.ts` `pty.onCommandChanged`; the `index.ts:126-133`
-      wiring gains the second `webContents.send`. Mock bridge: `__mgitPtyCommand(ptyId, command)`
-      beside `__mgitPtyAgent` (`mock-bridge.ts:1502-1508`).
+      wiring gains the second `webContents.send`. Mock bridge: `__mstudioPtyCommand(ptyId, command)`
+      beside `__mstudioPtyAgent` (`mock-bridge.ts:1502-1508`).
 
 ### F — The indicator that never span (M) — ✅ DONE (2026-08-28, merged locally — no PR/no remote; the two "Open, for a human" manual passes stay open, needing macOS Reduce Motion and a real shell)
 
@@ -617,7 +617,7 @@ Renderer-only; nothing here needs the broker.
         `liveAgentId: Record<string, string | null>` — it is a pure function with its own test and
         the store selector at `agent-count.tsx:35` supplies it. Theme D's
         `sessionPhase(session, state) === 'live'` clause is untouched.
-      - Acceptance: an e2e session with `kind: 'shell'` for which `__mgitPtyAgent(ptyId, 'claude')`
+      - Acceptance: an e2e session with `kind: 'shell'` for which `__mstudioPtyAgent(ptyId, 'claude')`
         has fired renders `[data-activity]` on its row; the status bar counts it.
 - [x] `SessionActivity` gains `'idle'`, so `undefined` can stop meaning it.
       - [`terminal-store.ts:50`](../packages/app/src/features/terminal/terminal-store.ts):
@@ -707,7 +707,7 @@ Renderer-only; nothing here needs the broker.
 - [x] Playwright — the defect, end to end.
       - [`e2e/terminal.spec.ts`](../packages/app/e2e/terminal.spec.ts) gains
         `'a shell running an agent gets the activity indicator'`: open a `kind: 'shell'` session,
-        fire `__mgitPtyAgent(ptyId, 'claude')`, feed a chunk containing `✳ Kneading…`, then
+        fire `__mstudioPtyAgent(ptyId, 'claude')`, feed a chunk containing `✳ Kneading…`, then
         `await expect(row.locator('[data-activity]')).toHaveAttribute('data-activity', 'thinking')`
         and the status-bar count reads `1 agent`.
       - And `'the activity glyphs survive reduced motion'`: set
@@ -746,8 +746,8 @@ it survive a collapsed panel, a second agent CLI, and a TUI that changes under i
       - Per-pty state: `ActivityState` (`createActivityState()`) is held in `pty-service.ts`'s
         existing `sessions` map entry rather than a second map, so `sessions.delete(id)` in
         `onExit` (`:254`) already disposes it.
-- [x] The `mgit:pty:activity` event, modelled on `ptyAgentChanged` in every particular.
-      - `EVENT_CHANNELS.ptyActivity = 'mgit:pty:activity'` in
+- [x] The `mstudio:pty:activity` event, modelled on `ptyAgentChanged` in every particular.
+      - `EVENT_CHANNELS.ptyActivity = 'mstudio:pty:activity'` in
         [`channels.ts`](../packages/shared/src/ipc/channels.ts) beside `ptyCommandChanged`;
         `PtyActivityEvent = z.object({ ptyId: z.string().min(1), activity: SessionActivitySchema.nullable() })`
         in [`schemas.ts`](../packages/shared/src/ipc/schemas.ts) after `PtyCommandChangedEvent`,
@@ -767,7 +767,7 @@ it survive a collapsed panel, a second agent CLI, and a TUI that changes under i
         `writeToTerm` detection block (`:141-147`), `activityRef`, and the `detectActivity` import
         (`:10`) are deleted; the keystroke reset at `:429` stays — typing still answers the question
         the *waiting* glyph asks.
-      - Mock bridge: `__mgitPtyActivity(ptyId, activity)` beside `__mgitPtyAgent`
+      - Mock bridge: `__mstudioPtyActivity(ptyId, activity)` beside `__mstudioPtyAgent`
         (`mock-bridge.ts:1502-1508`).
 - [x] Markers become roster data, so a second agent CLI does not need a release.
       - `AgentDefinitionSchema` (`terminal.ts:36-57`) gains
@@ -848,7 +848,7 @@ it survive a collapsed panel, a second agent CLI, and a TUI that changes under i
       - `terminal-store.test.ts`: `setActivity(id, undefined)` clears the key (already covered at
         `:355-362`) — extended to assert `'idle'` is accepted by the widened union.
       - Playwright `terminal.spec.ts` `'activity survives the panel being collapsed'`: fire
-        `__mgitPtyActivity(ptyId, 'thinking')`, collapse with `Ctrl+\``, and assert the status-bar
+        `__mstudioPtyActivity(ptyId, 'thinking')`, collapse with `Ctrl+\``, and assert the status-bar
         agent count still reads `1 agent`; reveal, and the row's `data-activity` is still
         `thinking` — the assertion that fails today for the mount-boundary reason above.
 - [x] Boundary check: `packages/app` loses its `activity-detect.ts` import and gains no node builtin;
@@ -869,7 +869,7 @@ it survive a collapsed panel, a second agent CLI, and a TUI that changes under i
 | Renderer — status bar | [`status-bar/segments.ts`](../packages/app/src/features/status-bar/segments.ts), [`status-bar/agent-count.tsx`](../packages/app/src/features/status-bar/agent-count.tsx) (Theme F: the `liveAgentId` predicate) + [`agent-count.test.ts`](../packages/app/src/features/status-bar/agent-count.test.ts), new `reattached-note.tsx` + `reattached-note.test.ts` |
 | Renderer — activity (F, G) | [`components/skeleton.tsx`](../packages/app/src/components/skeleton.tsx) (`Spinner` becomes the one spinner; the geometry comment moves here), [`styles.css`](../packages/app/src/styles.css) (the `[data-activity]` reduced-motion rule), [`settings-pages/terminal-page.tsx`](../packages/app/src/features/settings/settings-pages/terminal-page.tsx) (the **Agent activity** readout) + a new `terminal-page.test.ts` for `activityRows`, [`tailwind.config.ts`](../packages/app/tailwind.config.ts) (**unchanged** — `caret-blink` and `dot-wave` keep their keyframes; the fallback removes the animation rather than editing it) |
 | Roster | [`agents-store.ts`](../packages/desktop/src/main/agents-store.ts) — **unchanged through E**, its whole-record override rule documented rather than altered; Theme G compiles each agent's `activity` markers once inside `mergeAgents` and the rule is documented again for the new field |
-| Tests | the files above, plus [`terminal-store.test.ts`](../packages/app/src/features/terminal/terminal-store.test.ts) (`hydrate`, `sessionPhase`), [`agent-process.test.ts`](../packages/desktop/src/main/agent-process.test.ts) + `__fixtures__/` (eleven edited, four new), [`e2e/mock-bridge.ts`](../packages/app/e2e/mock-bridge.ts) (`resizes`, `snapshots`, `live`, `legacy`, `pty.snapshot`, `__mgitPtyCommand`), [`e2e/terminal.spec.ts`](../packages/app/e2e/terminal.spec.ts), new `e2e/terminal-reveal.spec.ts`; Theme G adds `__mgitPtyActivity` to the mock bridge beside `__mgitPtyAgent` |
+| Tests | the files above, plus [`terminal-store.test.ts`](../packages/app/src/features/terminal/terminal-store.test.ts) (`hydrate`, `sessionPhase`), [`agent-process.test.ts`](../packages/desktop/src/main/agent-process.test.ts) + `__fixtures__/` (eleven edited, four new), [`e2e/mock-bridge.ts`](../packages/app/e2e/mock-bridge.ts) (`resizes`, `snapshots`, `live`, `legacy`, `pty.snapshot`, `__mstudioPtyCommand`), [`e2e/terminal.spec.ts`](../packages/app/e2e/terminal.spec.ts), new `e2e/terminal-reveal.spec.ts`; Theme G adds `__mstudioPtyActivity` to the mock bridge beside `__mstudioPtyAgent` |
 | Lint | [`eslint.config.mjs`](../eslint.config.mjs) (a `packages/desktop/src/broker/**` group) |
 | Docs | [`phase-15-multi-terminal-sessions.md`](phase-15-multi-terminal-sessions.md) (the superseded manual check gets a note), [`outstanding.md`](outstanding.md) (window-bounds entry — see Not in this phase) |
 
@@ -917,7 +917,7 @@ it survive a collapsed panel, a second agent CLI, and a TUI that changes under i
       `grep -rn 'animate-spin rounded-full border-2' packages/app/src` returns exactly one line, in
       `components/skeleton.tsx`.
 - [x] Playwright (F): `'a shell running an agent gets the activity indicator'` — a `kind: 'shell'`
-      session with `__mgitPtyAgent(ptyId, 'claude')` fired and a `✳ Kneading…` chunk fed shows
+      session with `__mstudioPtyAgent(ptyId, 'claude')` fired and a `✳ Kneading…` chunk fed shows
       `data-activity="thinking"` on its row and `1 agent` in the status bar.
       `'the activity glyphs survive reduced motion'` — with
       `document.documentElement.dataset.motion = 'reduced'`, the computed `animationName` of
@@ -933,7 +933,7 @@ it survive a collapsed panel, a second agent CLI, and a TUI that changes under i
       `activityRows` for the settings readout. `ipc.test.ts` — the `ptyActivity` row, valid
       (`'thinking'`, `null`) and invalid (`'busy'`, empty `ptyId`).
 - [x] Playwright (G): `'activity survives the panel being collapsed'` — fire
-      `__mgitPtyActivity(ptyId, 'thinking')`, collapse with `Ctrl+\``, and the status bar still
+      `__mstudioPtyActivity(ptyId, 'thinking')`, collapse with `Ctrl+\``, and the status bar still
       reads `1 agent`; reveal, and the row's `data-activity` is still `thinking`. This fails today
       for the mount-boundary reason the theme names.
 - [x] Screenshots (F): the four glyphs side by side in one session list, light and dark, at the

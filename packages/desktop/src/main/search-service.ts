@@ -4,14 +4,14 @@ import {
   streamGrep,
   type CommitSearchOptions,
   type GrepOptions,
-} from '@midnite/git-engine';
+} from '@midnite/studio-git-engine';
 import {
   EVENT_CHANNELS,
   failure,
   type Commit,
   type GitOpResult,
   type GrepHit,
-} from '@midnite/git-shared';
+} from '@midnite/studio-shared';
 import type { BrowserWindow } from 'electron';
 
 import {

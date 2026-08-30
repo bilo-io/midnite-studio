@@ -8,7 +8,7 @@ import { spawn } from 'node:child_process';
  * four, and `agent-probe.ts` needs exactly the same trick for exactly the same
  * reason — so it lives here rather than in either caller.
  *
- * The reason is `-lic`: login AND interactive. A `Midnite Git.app` opened from
+ * The reason is `-lic`: login AND interactive. A `Midnite Studio.app` opened from
  * Finder inherits launchd's bare PATH, and the two agents this phase was
  * written against (`claude`, `agy`) both live in `~/.local/bin`, which reaches
  * the environment only through an interactive rc file. `shell-path.ts` folds

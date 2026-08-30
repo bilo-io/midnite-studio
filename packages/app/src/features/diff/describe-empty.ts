@@ -1,4 +1,4 @@
-import type { FileDiff } from '@midnite/git-shared';
+import type { FileDiff } from '@midnite/studio-shared';
 
 /**
  * Why a diff has nothing to show.

@@ -8,8 +8,8 @@ Merged to `main` locally (this repo has no git remote, so no PR link). Phase 27 
 chrome over a "no engine yet" plate and attached a security condition to the engine; this slice
 fills the body and pays that condition in the same change.
 
-- [x] **Theme A — Engine + contract.** `shared/src/domain/browser.ts` (tab state, bounds, nav error, the `mgit:browser:event` union), the `mgit:browser:*` channels/schemas/bridge methods, and `desktop/src/main/browser-service.ts` — the only file that constructs a `WebContentsView`, one per tab on `persist:browser`, created lazily and destroyed on close/window-close/quit. `render-process-gone` and `unresponsive` surface as tab state with a reload affordance instead of a blank rectangle.
-- [x] **Theme B — Security policy.** Both permission handlers deny everything; navigation is http(s)-only on `will-navigate`/`will-redirect`; `window.open` is refused and handed back as "open as new tab"; downloads cancel and name the file in the notification bell; certificate errors keep the default reject; embedded views get no preload and `sandbox: true`. `mgit-file:` is documented and tested as default-session-only, so a `persist:browser` view cannot resolve it. A Browser settings page clears the partition behind a confirm.
+- [x] **Theme A — Engine + contract.** `shared/src/domain/browser.ts` (tab state, bounds, nav error, the `mstudio:browser:event` union), the `mstudio:browser:*` channels/schemas/bridge methods, and `desktop/src/main/browser-service.ts` — the only file that constructs a `WebContentsView`, one per tab on `persist:browser`, created lazily and destroyed on close/window-close/quit. `render-process-gone` and `unresponsive` surface as tab state with a reload affordance instead of a blank rectangle.
+- [x] **Theme B — Security policy.** Both permission handlers deny everything; navigation is http(s)-only on `will-navigate`/`will-redirect`; `window.open` is refused and handed back as "open as new tab"; downloads cancel and name the file in the notification bell; certificate errors keep the default reject; embedded views get no preload and `sandbox: true`. `mstudio-file:` is documented and tested as default-session-only, so a `persist:browser` view cannot resolve it. A Browser settings page clears the partition behind a confirm.
 - [x] **Theme C — Tab model + strip.** `app/src/store/browser-store.ts` (pure reducers: open/close/close-others/close-to-right/reorder/duplicate/reopen-closed/nth/cycle), persisted as URLs and titles only — a restored tab mounts no view until activated. `features/browser/tab-strip.tsx` mirrors the workbench strip's `role="tablist"` semantics, with favicons (Midnite mark for a blank tab, globe for a page with none), a loading spinner, drag-reorder, a right-click menu, and browser-scoped chords that beat their app-wide twins (`Mod+w`, `Mod+1`…`Mod+9`) only while the pane is open.
 - [x] **Theme D — Tab groups.** Manual groups (create from a tab's menu, inline rename, eight-colour palette as `--tab-group-*` tokens with a `.dark` set, collapse, ungroup-keeping-tabs, close-with-confirm above three tabs) and repo-derived groups (implicit, coloured deterministically from the repo id, gone when their last tab closes). Assigning a group relocates the tab so a group stays one contiguous run.
 
@@ -51,7 +51,7 @@ fills the body and pays that condition in the same change.
 Landed on `main`. Phase 25 delivers git search everywhere (commit pickaxe, git grep at any revision, blame parser & reader), a shared per-window stream registry with concurrency policies, and the primary Search view with virtualized results and live previewing.
 
 - [x] **A — Search in the engine.** Widened `buildLogArgs` (`grep`, `author`, `since`, `until`, `paths`, `pickaxeString`, `pickaxeRegex`, `regexp`, `ignoreCase`), `--follow` single pathspec validation, `streamCommitSearch`, `readGrep` & `streamGrep` with context line parsing, `readBlame` with porcelain format parsing and `previous` tracking, `GrepHit`, `BlameLine`, `BlameCommit`, and `BlameResult` domain schemas.
-- [x] **B — The stream registry, and the search contract.** Extracted `stream-registry.ts` with supersede and concurrent policies and per-window teardown; refactored `log-service.ts`; built `search-service.ts` with 5,000 cap and max 4 ceiling per window; `mgit:search:*` and `mgit:blame:*` IPC channels and schemas; bridge updates and mock-bridge test harness.
+- [x] **B — The stream registry, and the search contract.** Extracted `stream-registry.ts` with supersede and concurrent policies and per-window teardown; refactored `log-service.ts`; built `search-service.ts` with 5,000 cap and max 4 ceiling per window; `mstudio:search:*` and `mstudio:blame:*` IPC channels and schemas; bridge updates and mock-bridge test harness.
 - [x] **C — The Search view.** Added `search` to `ViewId` and navigation rail; created `search-store.ts` managing `commits`, `content`, and `files` modes; built `use-search.ts` hook with 250ms debouncing and in-flight cancellation; created `search-view.tsx` with resizable split, virtualized results list (`@tanstack/react-virtual`), commit inspector and file preview integration; refactored `CodePreview` line structure with line-by-line tokenization and scroll targeting.
 
 ## 2026-08-28 — Phase 22 Themes B, C, D, E — Stash in sidebar, graph pseudo-rows, inspector, and Changes view
@@ -90,7 +90,7 @@ passes remain, all needing a real shell or a packaged app.
       `waiting` →60s→ `idle`, finally producing `'idle'` and expiring a stale guess instead of
       leaving it spinning forever. A per-agent time budget (three consecutive calls over 2ms)
       disables a runaway pattern for the process and notifies every session running that agent
-      with an explicit `null`, rather than a silently stuck spinner. `mgit:pty:activity`
+      with an explicit `null`, rather than a silently stuck spinner. `mstudio:pty:activity`
       (`PtyActivityEvent`, change-only) carries the guess to `use-terminal-ipc.ts`, mounted per
       session rather than per view. Four hand-authored fixtures (no live packaged app to capture
       from) pin the `claude` marker pair against real-shaped output, including the narrow-width
@@ -114,7 +114,7 @@ is now feature-complete — all eight themes (A–H) landed.
       allowlist in `features/palette/safety.ts` gating the command source, with
       `palette-safety.test.ts` asserting no operation/reset-family id is in it; repo-scoped sources
       simply absent (not empty-rendered) with no repo open.
-- [x] **G — the file finder.** `mgit:fs:list-files` channel + `FsListFilesRequest`/`Response`
+- [x] **G — the file finder.** `mstudio:fs:list-files` channel + `FsListFilesRequest`/`Response`
       schemas + bridge entry; `git-engine/src/commands/list-files.ts` over `git ls-files -z
       --cached --others --exclude-standard` capped at `LIST_FILES_MAX = 20_000` with a `truncated`
       flag; main handler + preload passthrough; `useRepoFiles` cached per repo and tip sha via a
@@ -178,7 +178,7 @@ Merged locally on `feature/p30-abe` — no PR link, no GitHub remote on this che
 
 - [x] **A — the blank pane, and panels that interpolate.** A failing `terminal-reveal.spec.ts`
       landed first, red for the two named reasons (no `pty.snapshot`, no fit-once-at-settle), then
-      green: a new `mgit:pty:snapshot` invoke lets a remounted live session replay main's CURRENT
+      green: a new `mstudio:pty:snapshot` invoke lets a remounted live session replay main's CURRENT
       ring buffer instead of the disk-restored transcript, gated by a new `replay-gate.ts` so
       output arriving mid-fetch is held and released in order rather than lost or reordered.
       `use-reveal.ts`'s `useReveal`/`useSettled` pair is replaced by one `useRevealSize` primitive
@@ -406,7 +406,7 @@ the Files tree while a query is active.
       --no-color [-i] [-w] [-F|-E] -m <cap> -e <query>`, modelled on `ignore.ts`'s batched single
       call; exit 0/1 are both `ok` (matches / no matches), anything else surfaces `stderr` as the
       error message (most commonly a malformed regex in `mode: 'regex'`).
-- [x] `mgit:fs:search` — its own `fs-search-handlers.ts` rather than joining `fs-handlers.ts`:
+- [x] `mstudio:fs:search` — its own `fs-search-handlers.ts` rather than joining `fs-handlers.ts`:
       that module's reads are plain `node:fs` confined by `fs-scope.ts`; this one's trust boundary
       is `resolveWorkdir`, the same one every git-op handler already crosses. Per-file cap (50) is
       git's own `-m`; the 2,000-total cap is enforced after parsing and reported as `truncated`.
@@ -735,10 +735,10 @@ its first context menu, inline create/rename, and delete behind a real blast-rad
 - [x] Delete's blast radius is a `confirm-dialog.tsx` `warnings` line, not the commit-shaped
       `blastRadius` field — which had to be pinned `blastRadius: null` explicitly, since `undefined`
       reads to the dialog as "still being counted" and it never stops saying so. A directory's
-      count/size comes from a new capped breadth-first walk (`mgit:fs:dir-stats`,
+      count/size comes from a new capped breadth-first walk (`mstudio:fs:dir-stats`,
       `FS_DIR_STATS_WALK_CAP = 10_000`, read-only, `fs-handlers.ts`); the uncommitted count is a
       filter over the same `statusIndex.byPath` Theme F already builds, not a second status fetch.
-- [x] Reveal in Finder needed a channel that didn't exist: `mgit:shell:show-item-in-folder`,
+- [x] Reveal in Finder needed a channel that didn't exist: `mstudio:shell:show-item-in-folder`,
       `FsRepoScope`-scoped and confined through `fs-scope.ts`'s read jail (`confineToRoot`) exactly
       like every other fs read — it never mutates, so it lives beside `listDir`/`readFile` in
       `fs-handlers.ts` rather than in `fs-write-handlers.ts`.
@@ -965,7 +965,7 @@ segment leaves no `gap-3` hole; `repos-toggle`/`terminal-toggle` become standalo
 ## 2026-08-28 — Phase 24 Theme A — the writable-filesystem contract
 
 Widens the read-only Phase 16 fs contract with the write half everything else in the phase reads
-off: four `mgit:fs:*` write channels, an `FsWriteScope` that excludes `claude-home` so a write into
+off: four `mstudio:fs:*` write channels, an `FsWriteScope` that excludes `claude-home` so a write into
 `~/.claude` fails zod parsing at the boundary, and an `FsVersion` token on file reads so a save can
 prove the file has not moved underneath it. Shared contract + preload wiring only — no jail, no
 main-process handlers, no UI (Themes B and C).
@@ -1012,8 +1012,8 @@ inspector diff, Changes view) read off this contract next.
       `ConflictOpSchema` to the narrower `InProgressOpSchema` in the same change — abort/continue
       operate on sequencer state a stash conflict never has, and the wider enum would otherwise
       have let one through.
-- [x] The `mgit:stash:*` IPC contract end to end: `CHANNELS`, `OpBase`-shaped request schemas,
-      the `stash` group on `MidniteGitBridge`, preload wiring, and handlers in
+- [x] The `mstudio:stash:*` IPC contract end to end: `CHANNELS`, `OpBase`-shaped request schemas,
+      the `stash` group on `MidniteStudioBridge`, preload wiring, and handlers in
       `status-handlers.ts`. `opStashDrop` carries its own `StashDropResult` — `{ok:true,
       recoveredSha?}` — rather than reusing the plain `GitOpResult` every other op returns, so
       Theme H's undo has a typed field to read from day one.
@@ -1250,7 +1250,7 @@ worktree left the header naming the directory you started in. The shell already 
       macOS `zsh` emits nothing by default, and such a session reads exactly as it did before this
       existed. The session keeps its stored `repoId` throughout — an unrecognised directory is not
       evidence that the session changed repositories
-- [x] **e2e drives a real escape sequence** through a new `__mgitPtyWrite` hook rather than poking
+- [x] **e2e drives a real escape sequence** through a new `__mstudioPtyWrite` hook rather than poking
       the store, because the thing that can silently fail is the xterm registration itself. The
       hook reports whether the pty existed, so a spec whose pty numbering shifts fails instead of
       passing on negative assertions about a sequence that was never delivered. `terminal.save` is
@@ -1467,7 +1467,7 @@ API facts rather than design calls:
       `isResolved` and no thread node id — resolution is a property of `PullRequestReviewThread`,
       which REST does not expose, and its node id is the only handle `resolveReviewThread` takes.
       New `gh-graphql.ts` is the app's one GraphQL read, kept out of `gh-cli.ts` so that file stays
-      one `gh` subcommand per function. `mgit:forge:pull-threads` is its own channel rather than a
+      one `gh` subcommand per function. `mstudio:forge:pull-threads` is its own channel rather than a
       widening of `pull-comments`: one key serving the Files and Conversation tabs would make
       either tab's fetch serve the other's payload
 - [x] Threads render as **rows** in the diff, not overlays — the diff is a list and a thread has to
@@ -1569,7 +1569,7 @@ shows its diff, its discussion and its CI verdict without leaving the window.
 
 ### What landed
 
-- [x] New `mgit:forge:pull-files` channel (`repoId` + PR number) — **bare `gh pr diff`, not
+- [x] New `mstudio:forge:pull-files` channel (`repoId` + PR number) — **bare `gh pr diff`, not
       `--patch`**: the phase doc named `--patch`, which asks GitHub for `git format-patch` output
       (one mbox entry per commit, so a file touched twice appears twice and every mbox header
       after the first is swallowed as diff body). Verified against `cli/cli#14255` — 16 sections
@@ -1579,11 +1579,11 @@ shows its diff, its discussion and its CI verdict without leaving the window.
       construction. Capped by bytes, preferring a file boundary (half a hunk is not a diff) but
       falling back to a whole-line slice for the two shapes that have no boundary — a one-file
       patch and a header-less one — because a cap that can be escaped is not a cap
-- [x] New `mgit:forge:pull-comments` channel — `issues/{n}/comments` and `pulls/{n}/reviews`
+- [x] New `mstudio:forge:pull-comments` channel — `issues/{n}/comments` and `pulls/{n}/reviews`
       fetched concurrently and merged into one chronological thread in main, as a `ForgeComment`
       with a `kind` discriminator. A `PENDING` review and the empty `COMMENTED` shell around
       inline comments are both dropped: neither is a verdict anyone published
-- [x] New `mgit:forge:pull-detail` channel (beyond the theme's spec) — `gh pr view --json` for the
+- [x] New `mstudio:forge:pull-detail` channel (beyond the theme's spec) — `gh pr view --json` for the
       body, base branch, line counts, `mergeable` and the head sha, which no listing field carries
       and the Checks tab is built on. Its own channel rather than a widening of `listPulls`, which
       Theme B is rewriting
@@ -1679,7 +1679,7 @@ the first time, discovering what it can run and — once trusted — running it.
       `discovery-cache.ts` memoises per repo on a short TTL. A moon project's standard tasks
       (`test`/`lint`/`typecheck`) route through `moon run <id>:<task>` rather than duplicating them
       as `pnpm run` suites; everything else stays a plain package-manager script
-- [x] `shared/src/domain/tests.ts` + `mgit:tests:*` channels/schemas — discovery is `repoId`-only
+- [x] `shared/src/domain/tests.ts` + `mstudio:tests:*` channels/schemas — discovery is `repoId`-only
       like `diagDetect`; trust and run take a `suiteId` and (for `trust`) a fingerprint of what the
       prompt showed, never a command — main always re-derives the argument vector itself
 - [x] `desktop/src/main/process-runner.ts` — the diagnostics runner's spawn/deadline/`SIGKILL`
@@ -1914,7 +1914,7 @@ windows that were never adjacent**:
 - The gap marker main splices in has no `job<TAB>step<TAB>` prefix, so the parser filed it under
   `preamble`, which nothing renders. A capped log read as a complete one. It is a `gap` node now,
   always visible and never foldable, and `logGapMarker`/`isLogGapMarker` moved into
-  `@midnite/git-shared` so the writer and the reader share one definition — with a round-trip
+  `@midnite/studio-shared` so the writer and the reader share one definition — with a round-trip
   test that says so rather than two regexes agreeing by luck.
 - Folding ran over the concatenation, so the head window's dangling `##[group]` absorbed every
   tail line — including the failure the log was opened for — under the wrong header, where
@@ -1954,7 +1954,7 @@ that carry them, and the one sidebar surface they make possible.
       `isIssuesDisabled` in `gh-parse.ts`, total over `unknown` like their siblings
 - [x] `ForgeIssue`, `ForgeLabel`, `ForgeStep`, `ForgeJob`, `ForgeRunDetail`, `ForgeRunLog` and
       `ForgeWorkflow`, each in the `{cli, …, error}` envelope
-- [x] `mgit:forge:{issues,run-detail,run-log,workflows}`, all read-only, all `repoId`-keyed
+- [x] `mstudio:forge:{issues,run-detail,run-log,workflows}`, all read-only, all `repoId`-keyed
 - [x] `ForgeRun` grows `event`, `workflowId`, `workflowName`, `startedAt`, `updatedAt`,
       `displayTitle`, `number`, `attempt` — every one nullable, so Phase 17's payloads still parse
 - [x] An Issues sidebar section beside Actions and Reviews; run rows grow a disclosure chevron
@@ -2180,7 +2180,7 @@ the digest for the two things refs cannot see, a `git gc` changing the size figu
 of time turning a fresh branch stale. Clock and ref-reader are injected, so the whole module stays
 `electron`-free and runs under bare vitest.
 
-`mgit:stats:summary` takes a **`repoId` only**, never a path — main resolves the checkout through
+`mstudio:stats:summary` takes a **`repoId` only**, never a path — main resolves the checkout through
 `resolveWorkdir`, the same rule `forge-handlers.ts` and the diagnostics channels follow. The row
 cap and the timing budget surface as `truncated` in the envelope rather than quietly shortening a
 year, so every widget can say "showing the last N" instead of presenting a fragment as the whole.
@@ -2251,7 +2251,7 @@ review moved that check into `isProposedCommand` as a pure function, because it 
 security-relevant line in the diff and living inside an electron-importing handler made it
 untestable; six cases now cover the ways a renderer could try to widen a grant.
 
-Contract: `mgit:diag:{trust-status,trust,untrust,detect,run}`, each taking a **`repoId` only** —
+Contract: `mstudio:diag:{trust-status,trust,untrust,detect,run}`, each taking a **`repoId` only** —
 the working directory comes from `resolveWorkdir` and the command from main's own store. Reason
 codes `no-command | untrusted | not-installed | timed-out | parse-failed`, all fail-soft; nothing
 throws across the boundary. The renderer caches results via react-query with `staleTime: Infinity`
@@ -2499,11 +2499,11 @@ Three contract changes came with it:
 - **`readCommitDetail` returns null** for a sha this repo does not have, instead of the
   empty-but-well-formed record it used to, which conflated "that repo is closed" with "no such
   commit" and rendered both as a commit with no message, no author and no files.
-- **A new `mgit:repo:rev-parse` channel** resolves an abbreviation *before* it becomes a
+- **A new `mstudio:repo:rev-parse` channel** resolves an abbreviation *before* it becomes a
   selection. A 7-char sha reaches `git show` fine, but the selection is also what the graph
   highlights and what the diff key is built from, and neither works with an abbreviation.
 
-Clipboard goes through a new `mgit:clipboard:write-text` channel rather than
+Clipboard goes through a new `mstudio:clipboard:write-text` channel rather than
 `navigator.clipboard`: the packaged app loads the renderer from `file://`, which is not
 guaranteed to be a secure context, and the Async Clipboard API is gated on one — so the web API
 is the one path that would work under the dev server and fail silently in the shipped dmg. The
@@ -2555,9 +2555,9 @@ shiki-highlighted code (github-dark/light synced to the app theme, grammars lazy
 per-extension, a 200 KB highlight cap so a minified bundle can't freeze the render thread),
 markdown rendered through `react-markdown`+`remark-gfm` with a source ⇄ rendered toggle and
 deliberately inert links, and images/video/audio/PDF streaming straight off a new jailed
-`mgit-file://` protocol — media bytes never cross IPC.
+`mstudio-file://` protocol — media bytes never cross IPC.
 
-Underneath: the first arbitrary-fs IPC in the app, `mgit:fs:list-dir` / `mgit:fs:read-file`,
+Underneath: the first arbitrary-fs IPC in the app, `mstudio:fs:list-dir` / `mstudio:fs:read-file`,
 scoped requests only (`repo` via `resolveWorkdir`, `claude-home` for `~/.claude`) with a
 two-stage path jail — pure `joinWithin` (traversal/absolute/NUL) plus `realpath` confinement
 (symlink escapes) — that fails closed everywhere, crafted percent-encoding included. No write
@@ -2587,7 +2587,7 @@ resolves to a known forge) and the GitHub/GitLab project and issue URL builders.
 - [x] URL normaliser, pure + unit-tested: scp-like, `ssh://`, `https://`, `git://`, self-hosted
       GitLab subgroups; unknown hosts degrade to `kind: 'unknown'` and do not linkify
 - [x] Issue-URL builder — GitHub `/issues/{n}`, GitLab `/-/issues/{n}`
-- [x] Channels `mgit:remotes:list` and `mgit:shell:open-external`, the latter protocol-restricted
+- [x] Channels `mstudio:remotes:list` and `mstudio:shell:open-external`, the latter protocol-restricted
 - [x] `remotes` + `shell` on the bridge and the preload `Pick<>`; `ipc.test.ts` extended
 
 Beyond the checklist: a `useRemotes` hook keyed under `keys.repo` and one visible consumer, so
@@ -2626,8 +2626,8 @@ What this shook out:
 
 `readFileDiff` and the new `readCommitFileDiff` return a parsed `FileDiff` — hunks, per-line
 old/new numbers, word-level intraline ranges — instead of patch text, so the renderer paints
-geometry rather than tokenising on the render thread. New `mgit:commit:file-diff` channel (kept
-separate from `mgit:file:diff`, where `staged` is meaningless against a sha), a hunk parser in
+geometry rather than tokenising on the render thread. New `mstudio:commit:file-diff` channel (kept
+separate from `mstudio:file:diff`, where `staged` is meaningless against a sha), a hunk parser in
 git-engine, and one `<DiffView>` serving both the status panel and the commit inspector: rows
 virtualised, low-alpha row tint with the saturated colour on a 2px gutter bar, both line-number
 columns behind a persisted toggle, context expansion as a refetch at a wider `-U`, and an honest
@@ -2636,7 +2636,7 @@ repeated the file list's own numbers as preformatted text; that space now shows 
 
 372 tests green (`moon run :typecheck :lint :test`) plus 8 Playwright specs under
 `moon run app:e2e` — the repo's first renderer-level test harness, driving the real app against a
-mocked `window.midniteGit`.
+mocked `window.midniteStudio`.
 
 What this shook out — mostly a family of cases where the pane rendered something plausible that
 was not the file in front of you, which is the failure a diff viewer can least afford because
@@ -2686,8 +2686,8 @@ from `app/src` and `git-engine/src` both fail lint).
 
 ## 2026-08-25 — Phase 1 · Shared contracts + git-engine exec/parsers
 
-`shared` now carries the whole wire contract (domain zod schemas, `mgit:*` channel constants, IPC
-payload schemas, the `MidniteGitBridge` type, the CommandId registry + default keymap), and
+`shared` now carries the whole wire contract (domain zod schemas, `mstudio:*` channel constants, IPC
+payload schemas, the `MidniteStudioBridge` type, the CommandId registry + default keymap), and
 `git-engine` reads a real repository: dugite exec with env hygiene, the per-repo write queue, four
 NUL-delimited parsers, and `log`/`status`/`refs`/`worktrees` commands including an incremental
 `streamLog`. 93 tests green — 47 parser unit tests against fixture strings plus 21 integration
@@ -2820,7 +2820,7 @@ midnite itself uses, which is also what makes one asset work on both themes.
 ## 2026-08-25 — Phase 13 · UI polish
 
 Resizable panels (sidebar, terminal, commit detail, changes list) with geometry persisted in
-`midnite-git.ui`; a full per-repo ref tree (Branches · Remotes · Tags · Worktrees) replacing the
+`midnite-studio.ui`; a full per-repo ref tree (Branches · Remotes · Tags · Worktrees) replacing the
 worktree-only sidebar, with `FolderGit2` distinguishing a checkout from a branch; a lockable nav
 rail; the theme toggle and an icon-only fetch/pull/push cluster moved into the title bar (with a
 framed-window fallback, since `<TitleBar>` renders nothing off darwin); graph column headers with
@@ -3351,7 +3351,7 @@ hides. The header states the dimensions, and the change in them, which is the di
 picture makes hardest to see and a number makes obvious.
 
 The hard part was never the viewer, it was the *before* side: those bytes are not on disk
-anywhere. They come out of the object database instead, through the `mgit-file://` scheme the
+anywhere. They come out of the object database instead, through the `mstudio-file://` scheme the
 Files preview already uses, with a `?rev=` the handler answers by `git cat-file blob <rev>:<path>`
 — `readBlob` in git-engine, spawned rather than `execGit`'d because dugite hands stdout back as
 a *string* and would corrupt every byte outside the encoding it assumed. Same jail as before

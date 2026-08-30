@@ -1,6 +1,6 @@
 import { useMemo } from 'react';
 
-import type { Ref } from '@midnite/git-shared';
+import type { Ref } from '@midnite/studio-shared';
 import { GitBranch, ListFilter } from 'lucide-react';
 
 import { MultiSelectMenu, type MultiSelectOption } from '../../components/multi-select-menu';

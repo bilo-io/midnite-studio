@@ -1,6 +1,6 @@
 import { Menu, type BrowserWindow, type MenuItemConstructorOptions } from 'electron';
 
-import { DEFAULT_KEYMAP, EVENT_CHANNELS, type CommandId } from '@midnite/git-shared';
+import { DEFAULT_KEYMAP, EVENT_CHANNELS, type CommandId } from '@midnite/studio-shared';
 
 /**
  * The native application menu.

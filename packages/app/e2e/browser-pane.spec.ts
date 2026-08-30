@@ -32,9 +32,9 @@ test.beforeEach(async ({ page }) => {
   // restore spec is about to assert on. `sessionStorage` is the flag because
   // it survives a reload and dies with the (per-test) context.
   await page.addInitScript(() => {
-    if (sessionStorage.getItem('mgit-e2e-browser-cleared')) return;
-    sessionStorage.setItem('mgit-e2e-browser-cleared', '1');
-    localStorage.removeItem('midnite-git.browser');
+    if (sessionStorage.getItem('mstudio-e2e-browser-cleared')) return;
+    sessionStorage.setItem('mstudio-e2e-browser-cleared', '1');
+    localStorage.removeItem('midnite-studio.browser');
   });
 });
 
@@ -193,8 +193,8 @@ test('a crashed view is surfaced as tab state with a reload affordance, not a bl
   await address.press('Enter');
 
   await page.evaluate(() => {
-    const tabId = (window as unknown as { __mgitBrowserTabs: () => string[] }).__mgitBrowserTabs()[0];
-    (window as unknown as { __mgitBrowserEvent: (e: unknown) => void }).__mgitBrowserEvent({
+    const tabId = (window as unknown as { __mstudioBrowserTabs: () => string[] }).__mstudioBrowserTabs()[0];
+    (window as unknown as { __mstudioBrowserEvent: (e: unknown) => void }).__mstudioBrowserEvent({
       kind: 'destroyed',
       tabId,
       reason: 'crashed',
@@ -218,8 +218,8 @@ test('a window.open from a page becomes a new tab beside its opener', async ({ p
   await expect(browserTabs(page)).toHaveCount(1);
 
   await page.evaluate(() => {
-    const tabId = (window as unknown as { __mgitBrowserTabs: () => string[] }).__mgitBrowserTabs()[0];
-    (window as unknown as { __mgitBrowserEvent: (e: unknown) => void }).__mgitBrowserEvent({
+    const tabId = (window as unknown as { __mstudioBrowserTabs: () => string[] }).__mstudioBrowserTabs()[0];
+    (window as unknown as { __mstudioBrowserEvent: (e: unknown) => void }).__mstudioBrowserEvent({
       kind: 'open-tab',
       tabId,
       url: 'https://opened.example',
@@ -240,8 +240,8 @@ test('a blocked download is reported as a notification naming the file', async (
   await address.press('Enter');
 
   await page.evaluate(() => {
-    const tabId = (window as unknown as { __mgitBrowserTabs: () => string[] }).__mgitBrowserTabs()[0];
-    (window as unknown as { __mgitBrowserEvent: (e: unknown) => void }).__mgitBrowserEvent({
+    const tabId = (window as unknown as { __mstudioBrowserTabs: () => string[] }).__mstudioBrowserTabs()[0];
+    (window as unknown as { __mstudioBrowserEvent: (e: unknown) => void }).__mstudioBrowserEvent({
       kind: 'download-blocked',
       tabId,
       filename: 'ubuntu.iso',

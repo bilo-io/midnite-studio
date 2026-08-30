@@ -1,4 +1,4 @@
-import { ForgeRunSchema, type ForgeRun } from '@midnite/git-shared';
+import { ForgeRunSchema, type ForgeRun } from '@midnite/studio-shared';
 import { describe, expect, it } from 'vitest';
 
 import {

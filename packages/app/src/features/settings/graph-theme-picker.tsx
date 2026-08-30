@@ -1,4 +1,4 @@
-import type { GraphRow } from '@midnite/git-shared';
+import type { GraphRow } from '@midnite/studio-shared';
 
 import { GraphDefs, avatarClipId } from '../graph/graph-defs';
 import { GraphSvg } from '../graph/graph-svg';

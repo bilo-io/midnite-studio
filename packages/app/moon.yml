@@ -29,7 +29,7 @@ tasks:
       - 'dist'
 
 
-  # tsc --noEmit resolves @midnite/git-shared through a project reference but
+  # tsc --noEmit resolves @midnite/studio-shared through a project reference but
   # does not build it, so build it first. Shared's sources are inputs too — see
   # the note in packages/desktop/moon.yml: without them a shared-only change
   # leaves this a cache hit and the typecheck runs against a stale API.
@@ -47,7 +47,7 @@ tasks:
     command: 'pnpm exec vite'
     preset: 'server'
 
-  # Browser-driven renderer tests against a mocked window.midniteGit. Kept OUT
+  # Browser-driven renderer tests against a mocked window.midniteStudio. Kept OUT
   # of the `:test` gate deliberately — it needs a chromium download, which is a
   # poor thing to make `moon run :test` depend on. Run it explicitly, or in CI
   # after `playwright install chromium`.

@@ -4,15 +4,14 @@
 
 > **Builds on**: [Phase 11 · Packaging + docs](phase-11-packaging.md), [Phase 16 · Folder explorer, preview pane + settings pages](phase-16-explorer-and-settings-pages.md), and [Phase 27 · Status bar & browser panel](phase-27-status-bar-and-browser-panel.md).
 >
-> **Hard prerequisite — the Midnite Studio rename.** Every user-facing identifier this phase
+> **Prerequisite — the Midnite Studio rename. Landed.** Every user-facing identifier this phase
 > creates is a name: the CLI binary, the URL scheme, the bundle id, the completion filenames. The
-> app is being renamed from *Midnite Git* to **Midnite Studio** (repo folder `midnite-studio`,
-> package names, `appId`, `productName`), and this phase is written against the **new** names
-> throughout. That rename is its own phase and its own PR — it is a repo-wide identifier sweep
-> that also has to migrate the persisted `midnite-git.ui` localStorage key, and it must land
-> before Theme A. **The internal IPC channel prefix stays `mgit:`** and is swept by the rename
-> phase, not by this one; do not invent a `mstudio:` prefix here, or the new channels will
-> disagree with the 456-line registry they live in.
+> app was renamed from *Midnite Git* to **Midnite Studio** (repo folder `midnite-studio`, package
+> names, `appId`, `productName`) in its own PR, a repo-wide identifier sweep that also carried the
+> persisted `midnite-studio.ui` localStorage key and the `userData` directory across the change.
+> This phase is written against those names throughout. **The internal IPC channel prefix is
+> `mstudio:`** — the sweep took it there too, so new channels here use `mstudio:` and agree with
+> the registry they live in.
 >
 > **Scope guardrails**: macOS arm64/Apple Silicon distribution focus. Delivers a production-grade
 > DMG installer with background layout, a system `midnite-studio` CLI tool installer + shell
@@ -96,7 +95,7 @@
     `app.setName('Midnite Studio')` in [`main/index.ts`](../../../packages/desktop/src/main/index.ts);
     `APP_NAME` and `LEGACY_APP_NAME` in
     [`scripts/install-local.mjs`](../../../packages/desktop/scripts/install-local.mjs).
-  - `LEGACY_APP_NAME` must become `'Midnite Git.app'` so the old bundle is removed from
+  - `LEGACY_APP_NAME` must become `'Midnite Studio.app'` so the old bundle is removed from
     `/Applications` rather than left beside the new one for Spotlight to launch.
 - [ ] Run `verify-dist` in CI after packaging.
   - Add a step to the `package` job in [`.github/workflows/ci.yml`](../../../.github/workflows/ci.yml)
@@ -122,9 +121,9 @@
   - Electron-free on purpose so it unit-tests under desktop's vitest, whose config comments
     "Only electron-free modules are unit-tested here".
 - [ ] Define the CLI channels in [`packages/shared/src/ipc/channels.ts`](../../../packages/shared/src/ipc/channels.ts).
-  - In `CHANNELS`: `cliStatus: 'mgit:cli:status'`, `cliInstall: 'mgit:cli:install'`,
-    `cliUninstall: 'mgit:cli:uninstall'`.
-  - camelCase keys, `mgit:<domain>:<verb>` values —
+  - In `CHANNELS`: `cliStatus: 'mstudio:cli:status'`, `cliInstall: 'mstudio:cli:install'`,
+    `cliUninstall: 'mstudio:cli:uninstall'`.
+  - camelCase keys, `mstudio:<domain>:<verb>` values —
     [`ipc.test.ts`](../../../packages/shared/src/ipc/ipc.test.ts) already asserts both the prefix
     and uniqueness, so a `CLI_CHECK_STATUS`-style name fails the suite.
 - [ ] Add the CLI schemas to [`packages/shared/src/ipc/schemas.ts`](../../../packages/shared/src/ipc/schemas.ts) under a `// --- cli (Phase 33) ---` banner.
@@ -227,7 +226,7 @@
   - The reason, stated so nobody relaxes it later: a URL is remote-triggerable — any web page can
     issue one — so a deep link may not add a repository to the app without consent.
 - [ ] Add the deep-link event channel and its preload subscriber.
-  - `EVENT_CHANNELS.deepLink: 'mgit:protocol:deep-link'`, payload
+  - `EVENT_CHANNELS.deepLink: 'mstudio:protocol:deep-link'`, payload
     `{ link: DeepLink; known: boolean }`.
   - Pushed behind the `const win = getWindow(); if (!win || win.isDestroyed()) return;` guard,
     exactly as [`metrics-handlers.ts`](../../../packages/desktop/src/main/ipc/metrics-handlers.ts) does.
@@ -296,9 +295,9 @@
     plain HTTPS fetch and works fine, but Squirrel.Mac refuses to install across an unsigned
     build, so the UI must not offer download→restart on one.
 - [ ] Define the update channels.
-  - `CHANNELS.updateCheck: 'mgit:update:check'`, `updateDownload: 'mgit:update:download'`,
-    `updateRestart: 'mgit:update:restart'`, `updateSetChannel: 'mgit:update:set-channel'`.
-  - `EVENT_CHANNELS.updateState: 'mgit:update:state'` — **one coalesced `UpdateState`**, replacing
+  - `CHANNELS.updateCheck: 'mstudio:update:check'`, `updateDownload: 'mstudio:update:download'`,
+    `updateRestart: 'mstudio:update:restart'`, `updateSetChannel: 'mstudio:update:set-channel'`.
+  - `EVENT_CHANNELS.updateState: 'mstudio:update:state'` — **one coalesced `UpdateState`**, replacing
     the three raw `update-available`/`update-downloaded`/`download-progress` events the
     pre-refinement doc specified. A single state object cannot render a half-updated UI, and it
     lets a late subscriber be handed the current phase immediately instead of waiting for the next
@@ -367,7 +366,7 @@
     and use the existing `useFocusTrap`.
   - Dismissing sets `onboardedAt` to now; the modal never returns.
 - [ ] Define one system-health channel — the renderer cannot run these checks itself.
-  - `CHANNELS.systemHealth: 'mgit:system:health'`, response
+  - `CHANNELS.systemHealth: 'mstudio:system:health'`, response
     `z.object({ git: z.object({ path: z.string().nullable(), version: z.string().nullable() }),
     shell: z.string().nullable(), sshAgent: z.object({ running: z.boolean(), keys: z.number() }),
     cli: CliStatusResponse })`.
@@ -430,7 +429,7 @@
 | `packages/desktop/src/main/system-health.ts` | **net-new** | `readSystemHealth()` |
 | [`packages/desktop/src/main/ipc/handle.ts`](../../../packages/desktop/src/main/ipc/handle.ts) | **unchanged** | `handle`/`handleOp`/`handleBare` are the required wrappers |
 | [`packages/desktop/src/preload/index.ts`](../../../packages/desktop/src/preload/index.ts) | edited | `cli`, `update`, `protocol` groups **and** the `Pick<>` union |
-| [`packages/shared/src/ipc/channels.ts`](../../../packages/shared/src/ipc/channels.ts) | edited | `mgit:cli:*`, `mgit:update:*`, `mgit:system:health`, `mgit:protocol:deep-link` |
+| [`packages/shared/src/ipc/channels.ts`](../../../packages/shared/src/ipc/channels.ts) | edited | `mstudio:cli:*`, `mstudio:update:*`, `mstudio:system:health`, `mstudio:protocol:deep-link` |
 | [`packages/shared/src/ipc/schemas.ts`](../../../packages/shared/src/ipc/schemas.ts) | edited | `Cli*`, `Update*`, `SystemHealth*` request/response pairs |
 | [`packages/shared/src/ipc/bridge.ts`](../../../packages/shared/src/ipc/bridge.ts) | edited | the three new bridge groups |
 | [`packages/app/src/store/ui-store.ts`](../../../packages/app/src/store/ui-store.ts) | edited | 3 new page ids, `updatesAutoCheck`, `updateChannel`, `onboardedAt`, `version 4 → 5` |
@@ -454,7 +453,7 @@
 ## Verification
 
 - [ ] `moon run :typecheck :lint :test` passes green across `shared`, `git-engine`, `app` and `desktop`.
-- [ ] `packages/shared/src/ipc/ipc.test.ts` still passes — every new channel is unique and `mgit:`-prefixed.
+- [ ] `packages/shared/src/ipc/ipc.test.ts` still passes — every new channel is unique and `mstudio:`-prefixed.
 - [ ] `packages/desktop/src/main/protocol-parse.test.ts` (net-new): `parseDeepLink` returns the right
       `DeepLink` for `midnite-studio://open?repo=/abs/path` and `…//clone?url=https://…`, and returns
       **`null`** for each of a foreign scheme, an unknown host, a missing param, a relative `repo`, a
@@ -561,7 +560,7 @@ against a mocked bridge and never loads Electron, main or the preload.
    The migrate arm sets a non-null timestamp for existing installs, so nobody who already uses the app
    sees a first-run modal on upgrade. Triggering off "the repo list is empty" was rejected: it
    reappears every time someone closes their last repository, which makes it a nag rather than onboarding.
-9. **Resolved — one coalesced `UpdateState` event, not three raw ones.** `mgit:update:state` carries the
+9. **Resolved — one coalesced `UpdateState` event, not three raw ones.** `mstudio:update:state` carries the
    whole phase. Three independent events can render a half-updated UI, and a late subscriber would have
    to wait for the next event to learn anything; a single state can be re-pushed on demand.
 10. **Resolved — logic lives in electron-free modules so plain vitest can assert it.** `protocol-parse.ts`,
@@ -572,10 +571,10 @@ against a mocked bridge and never loads Electron, main or the preload.
     (installed path, last error); transient outcomes call `addToast`, making the updater the first real
     consumer of `toast-store`, whose bell already renders whatever it holds. Main-side detail goes through
     `main/log.ts` — `no-console` is an error rule across `**/*.{ts,tsx}`.
-12. **Resolved — user-facing identifiers become `midnite-studio`; the internal `mgit:` channel prefix
-    stays.** The binary, URL scheme, `appId`, `productName` and artifact names all take the new name. The
-    IPC prefix is internal, appears in 456 lines of registry plus two invariant tests, and is swept by the
-    rename phase — introducing `mstudio:` channels here would leave the registry disagreeing with itself.
+12. **Resolved — user-facing identifiers are `midnite-studio`, and the IPC prefix is `mstudio:`.** The
+    binary, URL scheme, `appId`, `productName` and artifact names all take the new name. The IPC prefix is
+    internal — 456 lines of registry plus two invariant tests — and the rename phase swept it from `mgit:`
+    to `mstudio:` in one pass, so channels added here follow suit.
 13. **Resolved — distribution target is macOS arm64 dmg + zip in lockstep**, unchanged from Phase 11.
     Both targets are already configured; the zip is what electron-updater consumes and the dmg is what a
     human downloads.
