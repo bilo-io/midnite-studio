@@ -67,8 +67,39 @@ mac:
   # Required for notarization and harmless while unsigned.
   hardenedRuntime: true
   gatekeeperAssess: false
+  entitlements: resources/entitlements.mac.plist
+  entitlementsInherit: resources/entitlements.mac.inherit.plist
   # Signing is env-gated: with a Developer ID cert (CSC_LINK + CSC_KEY_PASSWORD)
   # electron-builder signs the bundle; without one, the release workflow sets
   # CSC_IDENTITY_AUTO_DISCOVERY=false and afterpack.cjs ad-hoc signs it so it
   # still launches locally.
   notarize: false
+
+afterSign: scripts/notarize.cjs
+
+protocols:
+  - name: Midnite Studio
+    schemes:
+      - midnite-studio
+    role: Viewer
+
+publish:
+  - provider: github
+    owner: bilowabona
+    repo: midnite-studio
+    releaseType: release
+
+dmg:
+  window:
+    width: 660
+    height: 400
+  title: '${productName} ${version}'
+  contents:
+    - x: 180
+      y: 210
+      type: file
+    - x: 480
+      y: 210
+      type: link
+      path: /Applications
+

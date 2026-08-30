@@ -45,6 +45,8 @@ import { SettingsView } from './features/settings/settings-view';
 import { SlidesModal } from './features/slides/slides-modal';
 import { Workbench } from './features/workbench/workbench';
 import { SyncActions } from './features/status/sync-actions';
+import { FirstRunModal } from './features/onboarding/first-run-modal';
+import { useDeepLinks } from './services/deep-link';
 import { StatusBar } from './features/status-bar/status-bar';
 import { TerminalPanel } from './features/terminal/terminal-panel';
 import { hslTokenToHex } from './lib/color';
@@ -334,6 +336,7 @@ function NavLockToggle({
 }
 
 function Shell() {
+  useDeepLinks();
   const activeView = useUiStore((s) => s.activeView);
   const reposOpen = useUiStore((s) => s.reposOpen);
   const terminalOpen = useUiStore((s) => s.terminalOpen);
@@ -849,6 +852,7 @@ function Shell() {
         </div>
 
         <StatusBar />
+        <FirstRunModal />
       </div>
     </AppFrame>
   );

@@ -1,6 +1,7 @@
 import { useEffect, useRef } from 'react';
 
 import { bridge } from '../../services/bridge';
+import { useUiStore } from '../../store/ui-store';
 
 /**
  * Keeps the active tab's `WebContentsView` sized to the pane's web area.
@@ -16,9 +17,14 @@ import { bridge } from '../../services/bridge';
  */
 export function useBrowserBounds(activeTabId: string | null, visible: boolean) {
   const ref = useRef<HTMLDivElement>(null);
+  const occluders = useUiStore((s) => s.occluders);
+  const effectiveVisible = visible && occluders === 0;
 
   useEffect(() => {
-    if (!activeTabId || !visible) return undefined;
+    if (!activeTabId) return undefined;
+    bridge()?.browser.setVisible({ tabId: activeTabId, visible: effectiveVisible });
+    if (!effectiveVisible) return undefined;
+
     const el = ref.current;
     if (!el) return undefined;
 
@@ -43,7 +49,7 @@ export function useBrowserBounds(activeTabId: string | null, visible: boolean) {
       observer.disconnect();
       window.removeEventListener('resize', push);
     };
-  }, [activeTabId, visible]);
+  }, [activeTabId, effectiveVisible]);
 
   return ref;
 }

@@ -1,7 +1,12 @@
-import { dirname, join } from 'node:path';
+import { resolve, dirname, join } from 'node:path';
 
-import { EVENT_CHANNELS } from '@midnite/studio-shared';
-import { BrowserWindow, app } from 'electron';
+import { EVENT_CHANNELS, CHANNELS } from '@midnite/studio-shared';
+import { BrowserWindow, app, ipcMain } from 'electron';
+import { parseDeepLink } from './protocol-parse';
+import { registerCliHandlers } from './ipc/cli-handlers';
+import { registerUpdater } from './update-service';
+import { readSystemHealth } from './system-health';
+
 
 import { createActivityDetector } from './activity-detect';
 import { createAgentWatcher, realAgentWatcherDeps } from './agent-watcher';
@@ -121,13 +126,55 @@ function bindRenderProcessGone(win: BrowserWindow, log: Logger): void {
  */
 app.setName('Midnite Studio');
 
+if (!app.isPackaged) {
+  const mainScript = process.argv[1] ? resolve(process.argv[1]) : process.cwd();
+  app.setAsDefaultProtocolClient('midnite-studio', process.execPath, [mainScript]);
+} else {
+  app.setAsDefaultProtocolClient('midnite-studio');
+}
+
+let pendingDeepLink: string | null = null;
+
+async function handleDeepLinkUrl(rawUrl: string): Promise<void> {
+  const parsed = parseDeepLink(rawUrl);
+  if (!parsed) return;
+
+  const win = getWindow();
+  if (!win || win.isDestroyed()) {
+    pendingDeepLink = rawUrl;
+    return;
+  }
+
+  let known = false;
+  if (parsed.kind === 'open') {
+    const allRepos = await listRepos();
+    known = allRepos.some((r) => r.path === parsed.repo);
+  }
+
+  win.webContents.send(EVENT_CHANNELS.deepLink, { link: parsed, known });
+}
+
 if (!app.requestSingleInstanceLock()) {
   app.quit();
 } else {
-  app.on('second-instance', () => {
-    if (!mainWindow || mainWindow.isDestroyed()) return;
-    if (mainWindow.isMinimized()) mainWindow.restore();
-    mainWindow.focus();
+  app.on('second-instance', (_event, argv) => {
+    if (mainWindow && !mainWindow.isDestroyed()) {
+      if (mainWindow.isMinimized()) mainWindow.restore();
+      mainWindow.focus();
+    }
+    const deepLinkArg = argv.find((arg) => arg.startsWith('midnite-studio://'));
+    if (deepLinkArg) {
+      handleDeepLinkUrl(deepLinkArg);
+    }
+  });
+
+  app.on('open-url', (event, url) => {
+    event.preventDefault();
+    if (mainWindow && !mainWindow.isDestroyed()) {
+      if (mainWindow.isMinimized()) mainWindow.restore();
+      mainWindow.focus();
+    }
+    handleDeepLinkUrl(url);
   });
 
   // Before anything spawns a subprocess: a Finder launch inherits launchd's
@@ -187,6 +234,9 @@ if (!app.requestSingleInstanceLock()) {
     registerFsWriteHandlers();
     registerFsSearchHandlers();
     registerClaudeHandlers(getWindow);
+    registerCliHandlers();
+    registerUpdater(getWindow);
+    ipcMain.handle(CHANNELS.systemHealth, () => readSystemHealth());
     installMgitFileProtocol();
     installMenu(getWindow);
 
@@ -236,6 +286,11 @@ if (!app.requestSingleInstanceLock()) {
     // footer nobody can see.
     bindMetricsToWindow(metrics, mainWindow);
     bindRenderProcessGone(mainWindow, defaultLogger);
+
+    if (pendingDeepLink) {
+      handleDeepLinkUrl(pendingDeepLink);
+      pendingDeepLink = null;
+    }
 
     // Periodic scrollback flush, so a crash or a force-quit still leaves
     // something to restore rather than only the last clean exit.

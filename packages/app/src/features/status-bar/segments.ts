@@ -18,7 +18,10 @@ import { TerminalToggle } from './terminal-toggle';
 import { TestVerdictSegment } from './test-verdict';
 
 
+import { UpdatePill } from './update-pill';
+
 export type StatusZone = 'left' | 'center' | 'right';
+
 
 /**
  * `priority` decides Theme E's overflow order within a zone; render order
@@ -95,6 +98,7 @@ export const STATUS_SEGMENTS: StatusSegment[] = [
     label: 'Checks verdict',
     El: ChecksVerdictSegment,
   },
+  { id: 'app-update', zone: 'right', priority: 45, label: 'Update', El: UpdatePill },
   { id: 'notification-bell', zone: 'right', priority: 50, label: 'Notifications', El: NotificationBell },
   { id: 'assistant-menu', zone: 'right', priority: 60, label: 'Midnite Assistant', El: AssistantMenu },
 ];

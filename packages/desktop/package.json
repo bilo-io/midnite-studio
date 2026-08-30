@@ -14,11 +14,14 @@
   },
   "dependencies": {
     "dugite": "^2.7.1",
+    "electron-updater": "^6.3.9",
     "node-pty": "^1.0.0",
     "zod": "^3.23.8"
   },
   "devDependencies": {
+    "@electron/notarize": "^2.5.0",
     "@electron/rebuild": "^3.7.0",
+
     "@midnite/studio-app": "workspace:*",
     "@midnite/studio-git-engine": "workspace:*",
     "@midnite/studio-shared": "workspace:*",
