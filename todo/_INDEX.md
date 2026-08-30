@@ -6,7 +6,8 @@
 - **[Phase 29 · Markdown Slides Viewer](phase-29-markdown-slides-viewer.md)** (100% · 21/21) — Landed; fullscreen headings-based slide presenter integrated across Files preview, PR descriptions, and comment threads.
 - **[Phase 28 · Sidebar Section Tree](phase-28-sidebar-section-tree.md)** (95% · 59/62) — Feature-complete; data-driven sidebar tree placing Worktrees first, nested Branches (`local`/`remotes`), and Forge parents.
 - **[Phase 27 · Status Bar & Browser Panel](phase-27-status-bar-and-browser-panel.md)** (80% · 72/90) — Full-width 3-zone status bar with density-based overflow popover and browser stub pane.
-- **[Phase 25 · Search Everywhere](phase-25-search-everywhere.md)** (48% · 48/101) & **[Phase 26 · Side-by-Side Diffs](phase-26-side-by-side-diffs.md)** (0% · 0/68) — Upcoming active & planned frontiers for history search, blame, and split diffs.
+- **[Phase 25 · Search Everywhere](phase-25-search-everywhere.md)** (100% · 101/101) & **[Phase 26 · Side-by-Side Diffs](phase-26-side-by-side-diffs.md)** (50% · 34/68) — Active frontiers for history search, blame, and split diffs. Themes A–H landed.
+
 
 Completed work is logged append-only in [`done.md`](done.md). Deferred scope lives in [`outstanding.md`](outstanding.md).
 
