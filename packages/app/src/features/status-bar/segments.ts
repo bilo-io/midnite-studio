@@ -2,7 +2,7 @@ import type { ComponentType } from 'react';
 
 import { DiagnosticsSegment } from '../diagnostics/diagnostics-segment';
 import { MonitorCluster } from '../monitor/monitor-cluster';
-import { ActiveWorktreeSegment } from './active-worktree';
+
 import { AgentCountSegment } from './agent-count';
 import { AssistantMenu } from './assistant-menu';
 import { BrowserToggle } from './browser-toggle';
@@ -55,13 +55,7 @@ export const STATUS_SEGMENTS: StatusSegment[] = [
   { id: 'repos-toggle', zone: 'left', priority: 10, label: 'Repositories', El: ReposToggle },
   { id: 'terminal-toggle', zone: 'left', priority: 20, label: 'Terminal', El: TerminalToggle },
   { id: 'browser-toggle', zone: 'left', priority: 5, label: 'Browser', El: BrowserToggle },
-  {
-    id: 'active-worktree',
-    zone: 'left',
-    priority: 30,
-    label: 'Active worktree',
-    El: ActiveWorktreeSegment,
-  },
+
   {
     id: 'reattached-note',
     zone: 'left',

@@ -142,10 +142,10 @@ test('narrowing drives compact then collapsed, and a collapsed segment still act
   await expect(trigger).toBeVisible();
   // `collapseFor` moves every STATUS_SEGMENTS entry into the popover at
   // `collapsed` density, not only the ones with something to say right now —
-  // 12 today (three toggles, active-worktree, reattached-note, op-progress, in-progress,
+  // 11 today (three toggles, reattached-note, op-progress, in-progress,
   // agent-count, diagnostics, monitor, test-verdict, checks-verdict), even
   // though only seven of those render visible content in this fixture.
-  await expect(trigger).toHaveAccessibleName('12 more');
+  await expect(trigger).toHaveAccessibleName('11 more');
   await trigger.click();
 
   const panel = page.getByTestId('status-overflow-panel');

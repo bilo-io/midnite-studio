@@ -587,12 +587,16 @@ function Shell() {
         icon={CommandIcon}
         label={`Command Palette (${displayChord(paletteChord)}) — Search commands, view actions, and shortcuts`}
         onClick={() => palette.open()}
-      />
+      >
+        <span className="font-mono text-[10px] font-semibold opacity-70">K</span>
+      </IconButton>
       <IconButton
         icon={LuFile}
         label={`Go to File (${displayChord(chordFor('palette.files', 'Mod+p'))}) — Quick search and open files by name`}
         onClick={() => palette.open('files')}
-      />
+      >
+        <span className="font-mono text-[10px] font-semibold opacity-70">P</span>
+      </IconButton>
       <span aria-hidden className="h-4 w-px shrink-0 bg-border" />
       <SyncActions />
       {/*
