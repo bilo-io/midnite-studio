@@ -80,6 +80,7 @@ export function useCommandHandlers(): CommandRuntime {
     'terminal.focus': { enabled: true, run: () => useUiStore.getState().setTerminalOpen(true) },
     'repos.toggle': { enabled: true, run: () => useUiStore.getState().toggleRepos() },
     'browser.toggle': { enabled: true, run: () => useUiStore.getState().toggleBrowser() },
+    'search.open': { enabled: true, run: () => useUiStore.getState().setActiveView('search') },
 
     'repo.open': {
       enabled: true,

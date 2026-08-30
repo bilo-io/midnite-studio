@@ -78,6 +78,7 @@ export type SettingsPageId =
   | 'appearance'
   | 'graph'
   | 'sidebar'
+  | 'search'
   | 'terminal'
   | 'agent'
   | 'reviews'
@@ -110,6 +111,7 @@ export const SETTINGS_PAGES: { id: SettingsPageId; label: string; group: Setting
   { id: 'appearance', label: 'Appearance', group: 'general' },
   { id: 'graph', label: 'Graph', group: 'general' },
   { id: 'sidebar', label: 'Sidebar', group: 'general' },
+  { id: 'search', label: 'Search', group: 'general' },
   { id: 'terminal', label: 'Terminal', group: 'tools' },
   { id: 'agent', label: 'Agent', group: 'tools' },
   { id: 'reviews', label: 'Reviews', group: 'tools' },

@@ -58,6 +58,7 @@ export const SETTINGS_PAGE_ICON: Record<SettingsPageId, IconType> = {
   appearance: LuPalette,
   graph: LuGitBranch,
   sidebar: LuPanelLeft,
+  search: LuSearch,
   terminal: LuSquareTerminal,
   agent: LuBot,
   // A shield rather than a git or comment glyph: this page is the permission in
