@@ -1,4 +1,5 @@
 import { useEffect, useLayoutEffect, useRef, useState, type CSSProperties } from 'react';
+import { createPortal } from 'react-dom';
 
 import { ChevronRight } from 'lucide-react';
 
@@ -112,7 +113,13 @@ export function ContextMenu({
     };
   }, [onClose]);
 
-  return (
+  // Portalled to <body> for the reason spelled out in `popover.tsx` and
+  // `tooltip.tsx`: any ancestor carrying a `transform` becomes the containing
+  // block for `position: fixed` descendants *and* opens a stacking context, so
+  // a menu rendered where it was raised from lands at the wrong coordinates and
+  // paints under later siblings. This one is placed at the cursor, which makes
+  // a shifted containing block especially visible.
+  return createPortal(
     <div
       ref={ref}
       role="menu"
@@ -133,7 +140,8 @@ export function ContextMenu({
           />
         ),
       )}
-    </div>
+    </div>,
+    document.body,
   );
 }
 
