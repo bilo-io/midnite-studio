@@ -167,6 +167,12 @@ export function useCommandHandlers(): CommandRuntime {
     // reached by chord, not by typing '?' or similar.
     'palette.files': { enabled: true, run: () => usePaletteStore.getState().open('files') },
 
+    'app.lock': { enabled: true, run: () => useUiStore.getState().lockScreen() },
+    'app.screensaver': {
+      enabled: true,
+      run: () => useUiStore.getState().setScreensaverOpen(true, false),
+    },
+
     'markdown.presentAsSlides': activeMarkdown
       ? { enabled: true, run: () => useSlidesStore.getState().presentActive() }
       : { enabled: false, disabledReason: 'No markdown in view', run: () => {} },

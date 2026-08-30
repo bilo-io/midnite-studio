@@ -1,12 +1,14 @@
 import type { CommandId } from '@midnite/studio-shared';
 import type { IconType } from 'react-icons';
 import {
+  LuClock,
   LuDownload,
   LuFile,
   LuFolderOpen,
   LuGitBranch,
   LuGitCommitHorizontal,
   LuGlobe,
+  LuLock,
   LuPanelLeft,
   LuPlay,
   LuRefreshCw,
@@ -44,6 +46,8 @@ export const COMMAND_ICONS: Record<CommandId, IconType> = {
   'repo.open': LuFolderOpen,
   'repo.close': LuX,
   'view.refresh': LuRefreshCw,
+  'app.lock': LuLock,
+  'app.screensaver': LuClock,
   'view.graph': LuGitBranch,
   'graph.focus': LuGitBranch,
   'status.focus': LuGitCommitHorizontal,

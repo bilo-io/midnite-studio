@@ -16,6 +16,7 @@ import { GraphPage } from './settings-pages/graph-page';
 import { HealthPage } from './settings-pages/health-page';
 import { MonitorPage } from './settings-pages/monitor-page';
 import { ReviewsPage } from './settings-pages/reviews-page';
+import { ScreenLockPage } from './settings-pages/screen-lock-page';
 import { SearchSettingsPage } from './settings-pages/search-page';
 import { SidebarPage } from './settings-pages/sidebar-page';
 import { TerminalPage } from './settings-pages/terminal-page';
@@ -34,6 +35,7 @@ const PAGE_CONTENT: Record<SettingsPageId, () => React.ReactNode> = {
   graph: () => <GraphPage />,
   sidebar: () => <SidebarPage />,
   search: () => <SearchSettingsPage />,
+  screenLock: () => <ScreenLockPage />,
   terminal: () => <TerminalPage />,
   agent: () => <AgentPage />,
   reviews: () => <ReviewsPage />,
