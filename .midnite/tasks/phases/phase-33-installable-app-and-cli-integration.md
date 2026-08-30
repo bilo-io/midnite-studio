@@ -338,7 +338,7 @@
   - The **same** `if (version < 5)` migrate arm Theme D adds sets it to
     `new Date().toISOString()`, so nobody who already uses the app is shown a first-run modal on
     upgrade. This is why E lands after D — writing the arm twice is the failure mode.
-- [ ] Create `packages/app/src/features/onboarding/first-run-modal.tsx` (net-new) — `export function FirstRunModal()`.
+- [x] Create `packages/app/src/features/onboarding/first-run-modal.tsx` (net-new) — `export function FirstRunModal()`.
   - Mounted from `app.tsx`; renders `null` whenever `onboardedAt !== null`.
   - **Not** `ConfirmDialog` — that component's `ConfirmRequest` is a confirm/cancel pair and this
     has a checklist body. Follow
@@ -346,14 +346,14 @@
     overlay classes (`fixed inset-0 z-dialog flex items-center justify-center bg-background/70`)
     and use the existing `useFocusTrap`.
   - Dismissing sets `onboardedAt` to now; the modal never returns.
-- [ ] Define one system-health channel — the renderer cannot run these checks itself.
+- [x] Define one system-health channel — the renderer cannot run these checks itself.
   - `CHANNELS.systemHealth: 'mstudio:system:health'`, response
     `z.object({ git: z.object({ path: z.string().nullable(), version: z.string().nullable() }),
     shell: z.string().nullable(), sshAgent: z.object({ running: z.boolean(), keys: z.number() }),
     cli: CliStatusResponse })`.
   - The renderer has no node builtins and no `child_process` — eslint's `no-restricted-imports`
     blocks `node:*`, `fs`, `path` and `child_process` outright — so `which git` has to run in main.
-- [ ] Create `packages/desktop/src/main/system-health.ts` (net-new) — `export async function readSystemHealth(): Promise<SystemHealth>`.
+- [x] Create `packages/desktop/src/main/system-health.ts` (net-new) — `export async function readSystemHealth(): Promise<SystemHealth>`.
   - git resolves through dugite's bundled binary first, then `PATH`, and reports both the path and
     `git --version`.
   - Shell is `process.env.SHELL`, matching the fallback already used in
@@ -374,11 +374,11 @@
     `bridge().cli.install`.
   - This component exists because the pre-refinement doc specified the same checks twice, once in
     the modal and once in a settings tab, with no stated relationship.
-- [ ] Add `packages/app/src/features/settings/settings-pages/health-page.tsx` (net-new) — `export function HealthPage()`.
+- [x] Add `packages/app/src/features/settings/settings-pages/health-page.tsx` (net-new) — `export function HealthPage()`.
   - Renders `<HealthChecklist />` inside one `Accordion`, and nothing else.
   - Registered as `{ id: 'health', label: 'System Health', group: 'system' }` with
     `health: LuStethoscope`, plus the `PAGE_CONTENT` arm.
-- [ ] Stub `systemHealth` and the `update` group in `packages/app/e2e/mock-bridge.ts`.
+- [x] Stub `systemHealth` and the `update` group in `packages/app/e2e/mock-bridge.ts`.
   - Same reason as the `cli` stub: `installMockBridge` replaces `window.midniteGit` wholesale, so
     any view reaching a group that isn't stubbed throws inside the page.
 
