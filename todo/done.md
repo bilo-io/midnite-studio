@@ -2,6 +2,15 @@
 
 <!-- Append one entry per landed phase/PR: date, phase, PR link, one-line summary. -->
 
+## 2026-08-30 — Phase 26 Themes E–H — Sticky DiffToolbar, Left-side Review Comments, Full-width Commit Tab & PR Image Diffs
+
+- [x] **Theme E — Shared DiffToolbar.** Extracted reusable `DiffToolbar` with split toggle, old-gutter toggle, context expansion, and sticky headers in file accordions.
+- [x] **Theme F — Left-side Review Comments.** Added `leftSideLines` and per-side thread maps in `comment-anchors.ts`; enabled left-side deleted line comment affordances in `DiffCell` and `DiffView`; added `LEFT`/`RIGHT` line badges to thread headers.
+- [x] **Theme G — Commit Workbench Tab.** Added `commit` workbench tab kind, header `Open commit in tab` button, graph context menu verb, and full-width rendering in `workbench.tsx`.
+- [x] **Theme H — PR Image Diffs.** Added `baseSha` to `ForgePullDetailSchema`, `gh-cli.ts`, and `gh-parse.ts`; wired `baseSha` into `imageDiffSources` in `PrFileAccordion`.
+
+
+
 ## 2026-08-30 — Phase 25 Themes D–F — CodePreview line rework, blame gutter, FilterInput, find bar & Search settings
 
 - [x] **Theme D — CodePreview line rework & Blame gutter.** Refactored `CodePreview` to CodeMirror 6 read-only line model; added `blame-store.ts` for per-file blame state; added blame toggle button to `FilePreview` header; implemented blame gutter and scroll to line.
