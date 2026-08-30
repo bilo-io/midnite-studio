@@ -1407,7 +1407,9 @@ export const CliStatusResponse = z.object({
   target: z.string().nullable(),
   managed: z.boolean(),
 });
+export type CliStatusResponse = z.infer<typeof CliStatusResponse>;
 export const CliInstallRequest = z.object({ target: z.enum(['auto', 'user']).default('auto') });
+export const CliUninstallRequest = z.object({}).optional();
 export const CliInstallResponse = GitOpResultOf(CliStatusResponse);
 export const CliUninstallResponse = GitOpResultOf(CliStatusResponse);
 
@@ -1421,6 +1423,7 @@ export const UpdateStateSchema = z.object({
   error: z.string().nullable(),
   manualInstall: z.boolean().optional(),
 });
+export type UpdateState = z.infer<typeof UpdateStateSchema>;
 
 // --- system health (Phase 33) ----------------------------------------------
 export const SystemHealthResponse = z.object({
@@ -1429,12 +1432,14 @@ export const SystemHealthResponse = z.object({
   sshAgent: z.object({ running: z.boolean(), keys: z.number() }),
   cli: CliStatusResponse,
 });
+export type SystemHealth = z.infer<typeof SystemHealthResponse>;
 
 // --- deep link (Phase 33) --------------------------------------------------
 export const DeepLinkSchema = z.discriminatedUnion('kind', [
   z.object({ kind: z.literal('open'), repo: z.string() }),
   z.object({ kind: z.literal('clone'), url: z.string() }),
 ]);
+export type DeepLink = z.infer<typeof DeepLinkSchema>;
 export const DeepLinkEventSchema = z.object({
   link: DeepLinkSchema,
   known: z.boolean(),

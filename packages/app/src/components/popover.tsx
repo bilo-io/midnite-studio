@@ -10,6 +10,7 @@ import {
 import { createPortal } from 'react-dom';
 
 import { useFocusTrap } from './use-focus-trap';
+import { useUiStore } from '../store/ui-store';
 
 /**
  * A click-toggled panel anchored to its trigger.
@@ -135,10 +136,15 @@ export function Popover({
     window.addEventListener('keydown', onKeyDown);
     window.addEventListener('pointerdown', onPointerDown, true);
     window.addEventListener('scroll', onScroll, true);
+
+    const store = useUiStore.getState();
+    store.incrementOccluders();
+
     return () => {
       window.removeEventListener('keydown', onKeyDown);
       window.removeEventListener('pointerdown', onPointerDown, true);
       window.removeEventListener('scroll', onScroll, true);
+      store.decrementOccluders();
     };
   }, [open, close, setOpen]);
 

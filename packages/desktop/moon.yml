@@ -116,3 +116,12 @@ tasks:
     deps:
       - '~:bundle'
       - 'app:build'
+
+  verify-dist:
+    command: 'node scripts/verify-dist.mjs'
+    deps:
+      - '~:dist'
+    options:
+      runInCI: false
+      cache: false
+

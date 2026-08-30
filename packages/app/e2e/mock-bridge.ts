@@ -1501,6 +1501,27 @@ export async function installMockBridge(page: Page, fixtures: MockFixtures): Pro
         onStateChange: unsubscribe,
         reload: noop,
       },
+      cli: {
+        status: async () => ({ installed: false, path: null, target: null, managed: false }),
+        install: async () => ({ ok: true, value: { installed: true, path: '/usr/local/bin/midnite-studio', target: '/usr/local/bin/midnite-studio', managed: true } }),
+        uninstall: async () => ({ ok: true, value: { installed: false, path: null, target: null, managed: false } }),
+      },
+      update: {
+        check: noop,
+        download: noop,
+        restart: noop,
+        setChannel: noop,
+        onState: unsubscribe,
+      },
+      systemHealth: async () => ({
+        git: { path: '/usr/bin/git', version: 'git version 2.45.0' },
+        shell: '/bin/zsh',
+        sshAgent: { running: true, keys: 1 },
+        cli: { installed: false, path: null, target: null, managed: false },
+      }),
+      protocol: {
+        onDeepLink: unsubscribe,
+      },
       windowChrome: {
         platform: 'darwin',
         /*
