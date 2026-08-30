@@ -1183,6 +1183,8 @@ export async function installMockBridge(page: Page, fixtures: MockFixtures): Pro
         setVisible: noop,
         activate: noop,
         devtools: noop,
+        find: noop,
+        findStop: noop,
         clearData: ok,
         onEvent: (handler: (e: unknown) => void) => {
           browserEventHandlers.push(handler);

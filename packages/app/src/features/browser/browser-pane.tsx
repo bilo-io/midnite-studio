@@ -12,6 +12,8 @@ import { BrowserTabStrip } from './tab-strip';
 import { NewTabPage } from './new-tab-page';
 import { useBrowserBounds } from './use-browser-bounds';
 import { useBrowserTabsEffects } from './use-browser-tabs';
+import { resolveInput } from './resolve-input';
+import { FindBar } from './find-bar';
 
 /**
  * The browser pane: real tabs and groups over a `WebContentsView` engine
@@ -80,15 +82,19 @@ export function BrowserPane({ shown }: { shown: boolean }) {
     };
   }, [shown]);
 
+  const [findOpen, setFindOpen] = useState(false);
+  const [viewportPreset, setViewportPreset] = useState<'full' | '390' | '834' | '1280'>('full');
+
   const onSubmit = (event: FormEvent) => {
     event.preventDefault();
     setEditing(false);
     if (!activeTab || draft.trim().length === 0) return;
+    const resolvedUrl = resolveInput(draft);
     if (activeTab.kind === 'newtab') {
-      useBrowserStore.getState().updateTabState(activeTab.id, { kind: 'page', url: draft });
-      void bridge()?.browser.create({ tabId: activeTab.id, url: draft });
+      useBrowserStore.getState().updateTabState(activeTab.id, { kind: 'page', url: resolvedUrl });
+      void bridge()?.browser.create({ tabId: activeTab.id, url: resolvedUrl });
     } else {
-      bridge()?.browser.navigate({ tabId: activeTab.id, url: draft });
+      bridge()?.browser.navigate({ tabId: activeTab.id, url: resolvedUrl });
     }
   };
 
@@ -144,6 +150,26 @@ export function BrowserPane({ shown }: { shown: boolean }) {
             className="w-full rounded border border-border bg-card px-2 py-1 text-xs outline-none focus-visible:ring-1 focus-visible:ring-ring"
           />
         </form>
+        <select
+          aria-label="Responsive viewport preset"
+          value={viewportPreset}
+          onChange={(e) => setViewportPreset(e.target.value as any)}
+          className="rounded border border-border bg-card px-2 py-1 text-xs text-muted-foreground outline-none focus-visible:ring-1 focus-visible:ring-ring"
+        >
+          <option value="full">Full width</option>
+          <option value="390">Mobile (390px)</option>
+          <option value="834">Tablet (834px)</option>
+          <option value="1280">Laptop (1280px)</option>
+        </select>
+        <button
+          type="button"
+          title="Find in page (Mod+F)"
+          disabled={!activeTab || activeTab.kind !== 'page'}
+          onClick={() => setFindOpen((v) => !v)}
+          className="rounded px-2 py-1 text-xs border border-border bg-card text-muted-foreground hover:text-foreground disabled:opacity-50"
+        >
+          Find
+        </button>
         <button
           type="button"
           title="Toggle DevTools (detached / embedded)"
@@ -161,11 +187,16 @@ export function BrowserPane({ shown }: { shown: boolean }) {
         />
       </div>
 
-      <div ref={bodyRef} className="relative min-h-0 flex-1">
+      <div
+        ref={bodyRef}
+        className={`relative min-h-0 flex-1 ${
+          viewportPreset !== 'full' ? 'mx-auto border-x border-border shadow-2xl' : ''
+        }`}
+        style={{
+          width: viewportPreset === 'full' ? '100%' : `${viewportPreset}px`,
+        }}
+      >
         {activeTab?.kind !== 'page' ? <NewTabPage /> : null}
-        {/* A crashed or unresponsive view is surfaced, never swallowed — the
-            native layer is blank at this point, so without this the tab
-            would just be an empty rectangle with no way out (Theme A). */}
         {activeTab?.kind === 'page' && activeTab.crashed ? (
           <div
             data-testid="browser-crashed"
@@ -187,6 +218,7 @@ export function BrowserPane({ shown }: { shown: boolean }) {
             </button>
           </div>
         ) : null}
+        {findOpen && <FindBar onClose={() => setFindOpen(false)} />}
       </div>
     </div>
   );

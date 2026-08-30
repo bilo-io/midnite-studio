@@ -417,6 +417,8 @@ export type MidniteStudioBridge = {
     setVisible: (req: In<typeof S.BrowserSetVisibleRequest>) => void;
     activate: (req: In<typeof S.BrowserActivateRequest>) => void;
     devtools: (req: In<typeof S.BrowserDevtoolsRequest>) => void;
+    find: (req: In<typeof S.BrowserFindRequest>) => void;
+    findStop: (req: In<typeof S.BrowserFindStopRequest>) => void;
     /** Wipes the `persist:browser` partition's storage and cache. */
     clearData: () => Promise<z.infer<typeof S.BrowserClearDataResponse>>;
     onEvent: (handler: (e: z.infer<typeof S.BrowserEventPayload>) => void) => Unsubscribe;
