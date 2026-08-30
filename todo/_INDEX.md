@@ -16,7 +16,7 @@ Completed work is logged append-only in [`done.md`](done.md). Deferred scope liv
 
 | Phase | Status | Refined | Done | Progress | % | 🔄 WIP | ◻ TODO |
 |-------|--------|---------|------|----------|---|--------|--------|
-| [31 · Interactive Rebase Builder & Graph Sequence Editor](phase-31-interactive-rebase.md) | 🔄 WIP | — | 0/18 | `░░░░░░░░░░` | 0% | A–D | — |
+| [31 · Interactive Rebase Builder & Graph Sequence Editor](phase-31-interactive-rebase.md) | ✅ DONE | — | 18/18 | `██████████` | 100% | — | — |
 | [30 · A terminal that survives you](phase-30-terminal-hardening.md) | 🔄 WIP | x2 | 82/91 | `█████████░` | 90% | — | 9 manual checks |
 | [29 · Markdown slides, everywhere markdown already renders](phase-29-markdown-slides-viewer.md) | ✅ DONE | — | 21/21 | `██████████` | 100% | — | — |
 | [28 · Worktrees first, and the section tree that can say so](phase-28-sidebar-section-tree.md) | 🔄 WIP | — | 59/62 | `██████████` | 95% | — | 3 verification items |
@@ -25,7 +25,7 @@ Completed work is logged append-only in [`done.md`](done.md). Deferred scope liv
 | [25 · Search everywhere, and the blame that explains it](phase-25-search-everywhere.md) | 🔄 WIP | x1 | 48/101 | `█████░░░░░` | 48% | D–F | — |
 | [24 · The explorer learns to write, and to search](phase-24-writable-explorer.md) | ✅ DONE | — | 43/55 | `████████░░` | 78% | — | — |
 | [23 · A command palette, and the registry that can feed it](phase-23-command-palette.md) | ✅ DONE | — | 42/55 | `████████░░` | 76% | — | — |
-| [22 · Stash, the reflog, and writes you can take back](phase-22-stash-and-safety-net.md) | 🔄 WIP | — | 45/70 | `██████░░░░` | 64% | F–H | — |
+| [22 · Stash, the reflog, and writes you can take back](phase-22-stash-and-safety-net.md) | ✅ DONE | — | 70/70 | `██████████` | 100% | — | — |
 | [21 · Agent roster + terminal identity](phase-21-agent-roster-and-terminal-identity.md) | 🔄 WIP | — | 43/46 | `█████████░` | 93% | — | 3 manual checks |
 | [20 · Reviews page & unified diff syntax highlighting](phase-20-reviews-page.md) | 🔄 WIP | — | 43/45 | `██████████` | 96% | — | 2 manual checks |
 | [19 · Dashboard, Actions and Tests as views](phase-19-dashboard-actions-tests.md) | 🔄 WIP | — | 73/76 | `██████████` | 96% | — | 3 manual checks |
@@ -58,10 +58,10 @@ Completed work is logged append-only in [`done.md`](done.md). Deferred scope liv
 
 *Visual drag-and-drop rebase sequence planner (pick, reword, squash, drop, fixup) backed by a custom GIT_SEQUENCE_EDITOR helper binary.*
 
-- ◻ **A** — `GIT_SEQUENCE_EDITOR` helper script, IPC channel schemas, and `git-engine` rebase commands.
-- ◻ **B** — Interactive Rebase Sequence Editor Overlay modal, commit drag-reorder, and action pickers.
-- ◻ **C** — Rebase state controller, paused status banner, and Changes view conflict integration.
-- ◻ **D** — Safety net backup ref creation (`refs/midnite-backup/`), blast-radius modal, and one-click restore.
+- ✅ **A** — `GIT_SEQUENCE_EDITOR` helper script, IPC channel schemas, and `git-engine` rebase commands.
+- ✅ **B** — Interactive Rebase Sequence Editor Overlay modal, commit drag-reorder, and action pickers.
+- ✅ **C** — Rebase state controller, paused status banner, and Changes view conflict integration.
+- ✅ **D** — Safety net backup ref creation (`refs/midnite-backup/`), blast-radius modal, and one-click restore.
 
 ### [Phase 30 — A terminal that survives you](phase-30-terminal-hardening.md)
 
@@ -431,13 +431,13 @@ first toast primitive and first undo.*
   hunk parser and the one shared `DiffView`, not just what `stash show -p` admits to (landed 2026-08-28).
 - ✅ **E** — stash from the Changes view: selected paths, `--keep-index` and `-u` as labelled
   options rather than defaults chosen for the user (landed 2026-08-28).
-- ◻ **F** — force-push with a lease, explicit `=<ref>:<sha>` form only, behind
+- ✅ **F** — force-push with a lease, explicit `=<ref>:<sha>` form only, behind
   `countOrphanedCommits` and a default-off Settings switch — and the three written-down "there is
-  no force push" comments rewritten rather than deleted.
-- ◻ **G** — `commands/reflog.ts` and a **History** rail view: HEAD plus per-ref, each entry
-  checkout-able, with `.git/logs` joining the watcher for the first time.
-- ◻ **H** — the ops journal, the app's first toast primitive, and undo — ref-shaped only, because
-  the reflog records where refs pointed and nothing about the working tree.
+  no force push" comments rewritten rather than deleted. (landed 2026-08-30)
+- ✅ **G** — `commands/reflog.ts` and a **History** rail view: HEAD plus per-ref, each entry
+  checkout-able, with `.git/logs` joining the watcher for the first time. (landed 2026-08-30)
+- ✅ **H** — the ops journal, the app's first toast primitive, and undo — ref-shaped only, because
+  the reflog records where refs pointed and nothing about the working tree. (landed 2026-08-30)
 
 ### [Phase 21 — A plural agent roster, and a terminal that knows where it is](phase-21-agent-roster-and-terminal-identity.md)
 
