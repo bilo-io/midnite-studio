@@ -2,7 +2,7 @@
 
 **Headlines:**
 
-- **[Phase 33 · Application Installation, CLI Tool & Desktop Integration](phases/phase-33-installable-app-and-cli-integration.md)** (0% · 0/19) — Planned, not started. Adds a macOS DMG installer package with custom layout, `midnite-git` CLI tool installer + shell completions, `midnite-git://` deep-linking protocol scheme, auto-updater pipeline, and first-run setup onboarding.
+- **[Phase 33 · Application Installation, CLI Tool & Desktop Integration](phases/phase-33-installable-app-and-cli-integration.md)** (0% · 0/44) — Planned, not started. Adds a macOS DMG installer package with custom layout, `midnite-studio` CLI tool installer + shell completions, `midnite-studio://` deep-linking protocol scheme, auto-updater pipeline, and first-run setup onboarding. Written against the **Midnite Studio rename**, which is its prerequisite.
 - **[Phase 32 · The browser gets an engine](phases/phase-32-browser-engine-and-tabs.md)** (39% · 39/99) — Active frontier. Themes A–D landed: a real `WebContentsView` engine on its own no-preload partition, the `mgit:browser:*` contract, the security policy Phase 27 made a precondition, and tabs with both kinds of group. E–I (occlusion, new-tab page, real chrome, dev powers, forge-in-place) remain.
 - **[Phase 30 · Terminal Hardening](phases/phase-30-terminal-hardening.md)** (90% · 82/91) — Active frontier; detached session broker lets terminal/agent sessions survive app restarts and window reloads. Implementation themes A–G landed; 9 manual verification checks open.
 - **[Phase 29 · Markdown Slides Viewer](phases/phase-29-markdown-slides-viewer.md)** (100% · 21/21) — Landed; fullscreen headings-based slide presenter integrated across Files preview, PR descriptions, and comment threads.
@@ -20,7 +20,7 @@ Completed work is logged append-only in [`done.md`](done.md). Deferred scope liv
 
 | Phase | Status | Refined | Done | Progress | % | 🔄 WIP | ◻ TODO |
 |-------|--------|---------|------|----------|---|--------|--------|
-| [33 · Application Installation, CLI Tool & Desktop Integration](phases/phase-33-installable-app-and-cli-integration.md) | ◻ TODO | — | 0/19 | `░░░░░░░░░░` | 0% | — | A B C D E |
+| [33 · Application Installation, CLI Tool & Desktop Integration](phases/phase-33-installable-app-and-cli-integration.md) | ◻ TODO | x1 | 0/44 | `░░░░░░░░░░` | 0% | — | A B C D E |
 | [32 · The browser gets an engine, and the tabs to fill it](phases/phase-32-browser-engine-and-tabs.md) | 🔄 WIP | — | 39/99 | `████░░░░░░` | 39% | — | E F G H I |
 | [31 · Interactive Rebase Builder & Graph Sequence Editor](phases/phase-31-interactive-rebase.md) | ✅ DONE | — | 18/18 | `██████████` | 100% | — | — |
 | [30 · A terminal that survives you](phases/phase-30-terminal-hardening.md) | ✅ DONE | x2 | 91/91 | `██████████` | 100% | — | — |
@@ -62,13 +62,17 @@ Completed work is logged append-only in [`done.md`](done.md). Deferred scope liv
 
 ### [Phase 33 — Application Installation, CLI Tool & Desktop Integration](phases/phase-33-installable-app-and-cli-integration.md)
 
-*Production-grade macOS DMG installer, `midnite-git` CLI binary symlinking into PATH with shell completions, custom `midnite-git://` protocol handling, background auto-updater service, and first-run setup onboarding.*
+*Production-grade macOS DMG installer, a `midnite-studio` CLI binary symlinking into PATH with shell
+completions, custom `midnite-studio://` protocol handling, a background auto-updater service, and
+first-run setup onboarding. Written throughout against the **Midnite Studio rename**, which is a hard
+prerequisite: every identifier this phase creates is a name. Sequencing is C → B (the CLI is a thin
+wrapper over the protocol), with A and D independent and E last.*
 
-- ◻ **A** — Polished DMG Package & macOS Desktop Integration.
-- ◻ **B** — `midnite-git` CLI Binary & System PATH Symlinking.
-- ◻ **C** — `midnite-git://` Custom Protocol Handler & Single-Instance Dispatcher.
-- ◻ **D** — Auto-Updater Service & Update Status Banner.
-- ◻ **E** — First-Run Installation Onboarding & System Setup Checklist.
+- ◻ **A** — Polished DMG Package & macOS Desktop Integration. `dmg:` window layout + @1x/@2x PNG artwork, hardened-runtime entitlements, `protocols:` registration, an env-gated `afterSign` notarize hook, and a `verify-dist` gate asserting `codesign --verify` / `hdiutil verify`.
+- ◻ **B** — `midnite-studio` CLI Binary & System PATH Symlinking. A POSIX `sh` wrapper execing `open` on the URL scheme, `mgit:cli:*` channels behind `GitOpResultOf`, a `/usr/local/bin` → `~/.local/bin` fallback that never uses sudo, zsh/bash/fish completions, and the CLI Integration settings page.
+- ◻ **C** — `midnite-studio://` Custom Protocol Handler & Deep-Link Dispatch. The single-instance lock already exists — this adds `open-url`, argv forwarding, a pure `parseDeepLink` that returns `null` on hostile input, and a jail rule: a known repo opens silently, any other path needs consent.
+- ◻ **D** — Auto-Updater Service & Update Status Banner. `electron-updater` behind one coalesced `UpdateState` push, a `manualInstall` flag so an ad-hoc-signed build still detects updates, `feedChannelFor` mapping stable → `latest`, a `publish:` block, and a status-bar pill that is `toast-store`'s first caller.
+- ◻ **E** — First-Run Onboarding & System Health. `onboardedAt` seeded by the shared `version < 5` migration, a focus-trapped first-run modal, and one `HealthChecklist` shared by the modal and a System Health settings page.
 
 ### [Phase 32 — The browser gets an engine, and the tabs to fill it](phases/phase-32-browser-engine-and-tabs.md)
 
