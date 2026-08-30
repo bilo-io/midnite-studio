@@ -2,6 +2,7 @@
 
 **Headlines:**
 
+- **[Phase 32 · The browser gets an engine](phase-32-browser-engine-and-tabs.md)** (0% · 0/99) — Planned, not started; the new frontier. Fills the Phase 27 browser stub with a real `WebContentsView` engine, tabs and tab groups, a Midnite-branded new-tab page, and the security policy Phase 27 made a precondition.
 - **[Phase 30 · Terminal Hardening](phase-30-terminal-hardening.md)** (90% · 82/91) — Active frontier; detached session broker lets terminal/agent sessions survive app restarts and window reloads. Implementation themes A–G landed; 9 manual verification checks open.
 - **[Phase 29 · Markdown Slides Viewer](phase-29-markdown-slides-viewer.md)** (100% · 21/21) — Landed; fullscreen headings-based slide presenter integrated across Files preview, PR descriptions, and comment threads.
 - **[Phase 28 · Sidebar Section Tree](phase-28-sidebar-section-tree.md)** (95% · 59/62) — Feature-complete; data-driven sidebar tree placing Worktrees first, nested Branches (`local`/`remotes`), and Forge parents.
@@ -18,6 +19,7 @@ Completed work is logged append-only in [`done.md`](done.md). Deferred scope liv
 
 | Phase | Status | Refined | Done | Progress | % | 🔄 WIP | ◻ TODO |
 |-------|--------|---------|------|----------|---|--------|--------|
+| [32 · The browser gets an engine, and the tabs to fill it](phase-32-browser-engine-and-tabs.md) | ◻ TODO | — | 0/99 | `░░░░░░░░░░` | 0% | — | A B C D E F G H I |
 | [31 · Interactive Rebase Builder & Graph Sequence Editor](phase-31-interactive-rebase.md) | ✅ DONE | — | 18/18 | `██████████` | 100% | — | — |
 | [30 · A terminal that survives you](phase-30-terminal-hardening.md) | ✅ DONE | x2 | 91/91 | `██████████` | 100% | — | — |
 | [29 · Markdown slides, everywhere markdown already renders](phase-29-markdown-slides-viewer.md) | ✅ DONE | — | 21/21 | `██████████` | 100% | — | — |
@@ -55,6 +57,26 @@ Completed work is logged append-only in [`done.md`](done.md). Deferred scope liv
 
 <!-- Each phase currently carries a single theme A = its full deliverables checklist. Split into
      lettered themes if a phase gets parallelised. -->
+
+### [Phase 32 — The browser gets an engine, and the tabs to fill it](phase-32-browser-engine-and-tabs.md)
+
+*Phase 27 Theme F shipped a browser with no browser in it — chrome drawn disabled over a "No web
+engine yet" plate — and attached a condition to the engine: embedding remote content is a
+sandboxing, permissions and navigation-policy surface with a security review of its own. This phase
+fills the body and pays that condition. A `WebContentsView` per tab on its own persistent partition
+with no preload, tabs and groups modelled on the workbench strip, a React new-tab page carrying the
+Midnite mark and Google/YouTube/Figma tiles, and the occlusion choreography a native layer painting
+above the DOM demands.*
+
+- ◻ **A** — `WebContentsView` host in main, the `mgit:browser:*` channel contract, per-tab lifecycle.
+- ◻ **B** — Permissions denied, navigation policy, no preload on embedded views, clear browsing data.
+- ◻ **C** — Tab store and strip: drag-reorder, context menu, browser-scoped chords.
+- ◻ **D** — Tab groups, manual (named, coloured, collapsible) and repo-derived.
+- ◻ **E** — Occlusion registry and bounds choreography — every overlay must outrank the native layer.
+- ◻ **F** — The new-tab page: `BrandMark` hero, shortcut tiles, repo-derived tiles, recents.
+- ◻ **G** — Real chrome: back/forward/reload, URL-vs-search resolution, find-in-page, zoom, errors.
+- ◻ **H** — Dev powers: detached DevTools, dev-server detection, responsive width presets.
+- ◻ **I** — Forge in place: links open in-app by default, `originRepoId` routing, preview deploys.
 
 ### [Phase 31 — Interactive Rebase Builder & Graph Sequence Editor](phase-31-interactive-rebase.md)
 
