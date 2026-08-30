@@ -153,7 +153,7 @@ export function BrowserPane({ shown }: { shown: boolean }) {
         <select
           aria-label="Responsive viewport preset"
           value={viewportPreset}
-          onChange={(e) => setViewportPreset(e.target.value as any)}
+          onChange={(e) => setViewportPreset(e.target.value as 'full' | '390' | '834' | '1280')}
           className="rounded border border-border bg-card px-2 py-1 text-xs text-muted-foreground outline-none focus-visible:ring-1 focus-visible:ring-ring"
         >
           <option value="full">Full width</option>
