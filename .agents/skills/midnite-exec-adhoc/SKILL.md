@@ -1,11 +1,11 @@
 ---
 name: midnite-exec-adhoc
-description: Execute a one-off ad hoc task outside the todo/ phase tracker — clarify scope with a quick back-and-forth, then build it in a worktree, screenshot visual changes, open a PR, drive CI green, merge. For a specific task described up front, not a backlog pick (that's /midnite-exec).
+description: Execute a one-off ad hoc task outside the .midnite/tasks/ phase tracker — clarify scope with a quick back-and-forth, then build it in a worktree, screenshot visual changes, open a PR, drive CI green, merge. For a specific task described up front, not a backlog pick (that's /midnite-exec).
 ---
 
 **Invoke with:** <a description of the adhoc task to build>
 
-End-to-end "execute a described task" for **Midnite Git**, for work that isn't a `todo/phase-N-*.md`
+End-to-end "execute a described task" for **Midnite Git**, for work that isn't a `.midnite/tasks/phases/phase-N-*.md`
 item — a bug someone just mentioned, a small feature sketched in chat, a cleanup nobody wrote down.
 **[`/midnite-exec`](../midnite-exec/SKILL.md) picks from the backlog; this skill takes a task you
 already have in mind** and runs the same build → PR → CI → merge machinery against it, minus every
@@ -15,7 +15,7 @@ step that assumes a phase doc exists.
 
 ## Respect
 - `CLAUDE.md` = conventions (package boundaries — `shared ◀ git-engine ◀ desktop`, `shared ◀ app`; commit style; pre-push gate). Re-read the relevant bits before coding. `docs/INITIAL_PLAN.md` is the design source of truth.
-- `todo/` is **not** the driver here, the same posture [`/midnite-address-issue`](../midnite-address-issue/SKILL.md) takes: only touch it if the task happens to close out an existing phase item, and say so if it does. **Never claim a theme in `todo/_INDEX.md`, never touch `done.md`** — this work isn't phase-tracked.
+- `.midnite/tasks/` is **not** the driver here, the same posture [`/midnite-address-issue`](../midnite-address-issue/SKILL.md) takes: only touch it if the task happens to close out an existing phase item, and say so if it does. **Never claim a theme in `.midnite/tasks/_INDEX.md`, never touch `done.md`** — this work isn't phase-tracked.
 - Parallel work → git worktrees in the repo-root **`.worktrees/<branch>/`** dir (git-ignored; **never** under `.git/`); keep the primary checkout (`/Users/bilolwabona/Dev/midnite-git`) as home base.
 - **Where to work prompt:** Always present an option sheet (using `ask_question` / structured option prompt) when asking for worktree vs primary checkout:
   1. `(Recommended) Worktree: isolated branch under .worktrees/<slug>`

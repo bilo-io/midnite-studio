@@ -5,7 +5,7 @@ A GitKraken-inspired desktop git client. **Design source of truth:
 carries the architecture, IPC contract, data model, and the verified research constraints
 (licensing, registry auth, native-module ABI) that every phase assumes.
 
-**Progress tracker: [`.midnite/todo/`](.midnite/todo/)** — `_INDEX.md` is the phase table, `done.md` is the
+**Progress tracker: [`.midnite/tasks/`](.midnite/tasks/)** — `_INDEX.md` is the phase table, `done.md` is the
 append-only landed log, `outstanding.md` is deliberately-deferred scope.
 
 ## Keep `CLAUDE.md`, `AGENTS.md` and `GEMINI.md` in sync
@@ -118,6 +118,6 @@ explanatory messages. If a boundary rule fires, the fix is an IPC channel, not a
 
 ## Phase workflow
 
-One phase per PR where practical. Work the checklist in `.midnite/todo/phase-N-*.md`, leave
-`moon run :typecheck :lint :test` green, append an entry to `.midnite/todo/done.md`, and update the
-table in `.midnite/todo/_INDEX.md`.
+One phase per PR where practical. Work the checklist in `.midnite/tasks/phases/phase-N-*.md`, leave
+`moon run :typecheck :lint :test` green, append an entry to `.midnite/tasks/done.md`, and update the
+table in `.midnite/tasks/_INDEX.md`.
