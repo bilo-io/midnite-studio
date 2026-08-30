@@ -2,6 +2,7 @@
 
 **Headlines:**
 
+- **[Phase 33 · Application Installation, CLI Tool & Desktop Integration](phase-33-installable-app-and-cli-integration.md)** (0% · 0/19) — Planned, not started. Adds a macOS DMG installer package with custom layout, `midnite-git` CLI tool installer + shell completions, `midnite-git://` deep-linking protocol scheme, auto-updater pipeline, and first-run setup onboarding.
 - **[Phase 32 · The browser gets an engine](phase-32-browser-engine-and-tabs.md)** (0% · 0/99) — Planned, not started; the new frontier. Fills the Phase 27 browser stub with a real `WebContentsView` engine, tabs and tab groups, a Midnite-branded new-tab page, and the security policy Phase 27 made a precondition.
 - **[Phase 30 · Terminal Hardening](phase-30-terminal-hardening.md)** (90% · 82/91) — Active frontier; detached session broker lets terminal/agent sessions survive app restarts and window reloads. Implementation themes A–G landed; 9 manual verification checks open.
 - **[Phase 29 · Markdown Slides Viewer](phase-29-markdown-slides-viewer.md)** (100% · 21/21) — Landed; fullscreen headings-based slide presenter integrated across Files preview, PR descriptions, and comment threads.
@@ -19,6 +20,7 @@ Completed work is logged append-only in [`done.md`](done.md). Deferred scope liv
 
 | Phase | Status | Refined | Done | Progress | % | 🔄 WIP | ◻ TODO |
 |-------|--------|---------|------|----------|---|--------|--------|
+| [33 · Application Installation, CLI Tool & Desktop Integration](phase-33-installable-app-and-cli-integration.md) | ◻ TODO | — | 0/19 | `░░░░░░░░░░` | 0% | — | A B C D E |
 | [32 · The browser gets an engine, and the tabs to fill it](phase-32-browser-engine-and-tabs.md) | ◻ TODO | — | 0/99 | `░░░░░░░░░░` | 0% | — | A B C D E F G H I |
 | [31 · Interactive Rebase Builder & Graph Sequence Editor](phase-31-interactive-rebase.md) | ✅ DONE | — | 18/18 | `██████████` | 100% | — | — |
 | [30 · A terminal that survives you](phase-30-terminal-hardening.md) | ✅ DONE | x2 | 91/91 | `██████████` | 100% | — | — |
@@ -57,6 +59,16 @@ Completed work is logged append-only in [`done.md`](done.md). Deferred scope liv
 
 <!-- Each phase currently carries a single theme A = its full deliverables checklist. Split into
      lettered themes if a phase gets parallelised. -->
+
+### [Phase 33 — Application Installation, CLI Tool & Desktop Integration](phase-33-installable-app-and-cli-integration.md)
+
+*Production-grade macOS DMG installer, `midnite-git` CLI binary symlinking into PATH with shell completions, custom `midnite-git://` protocol handling, background auto-updater service, and first-run setup onboarding.*
+
+- ◻ **A** — Polished DMG Package & macOS Desktop Integration.
+- ◻ **B** — `midnite-git` CLI Binary & System PATH Symlinking.
+- ◻ **C** — `midnite-git://` Custom Protocol Handler & Single-Instance Dispatcher.
+- ◻ **D** — Auto-Updater Service & Update Status Banner.
+- ◻ **E** — First-Run Installation Onboarding & System Setup Checklist.
 
 ### [Phase 32 — The browser gets an engine, and the tabs to fill it](phase-32-browser-engine-and-tabs.md)
 
