@@ -9,6 +9,7 @@ import { bridge } from '../../services/bridge';
 import { useUiStore } from '../../store/ui-store';
 import { useBrowserStore } from '../../store/browser-store';
 import { BrowserTabStrip } from './tab-strip';
+import { NewTabPage } from './new-tab-page';
 import { useBrowserBounds } from './use-browser-bounds';
 import { useBrowserTabsEffects } from './use-browser-tabs';
 
@@ -161,15 +162,7 @@ export function BrowserPane({ shown }: { shown: boolean }) {
       </div>
 
       <div ref={bodyRef} className="relative min-h-0 flex-1">
-        {activeTab?.kind !== 'page' ? (
-          <div
-            data-testid="browser-newtab"
-            className="flex h-full flex-col items-center justify-center gap-1 text-center text-muted-foreground"
-          >
-            <p className="text-sm font-medium text-foreground">New Tab</p>
-            <p className="max-w-sm text-xs">Type an address above and press Enter.</p>
-          </div>
-        ) : null}
+        {activeTab?.kind !== 'page' ? <NewTabPage /> : null}
         {/* A crashed or unresponsive view is surfaced, never swallowed — the
             native layer is blank at this point, so without this the tab
             would just be an empty rectangle with no way out (Theme A). */}

@@ -82,6 +82,12 @@ jobs:
           # ad-hoc signs the bundle so it still launches locally.
           CSC_IDENTITY_AUTO_DISCOVERY: 'false'
 
+      - name: Verify Distribution Integrity
+        run: pnpm exec moon run desktop:verify-dist
+        env:
+          GITHUB_PACKAGES_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+
       - uses: actions/upload-artifact@v4
         with:
           name: midnite-studio-macos-arm64

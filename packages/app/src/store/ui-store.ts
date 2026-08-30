@@ -320,6 +320,15 @@ export type UiState = {
    * there is nothing for a repo switch to disagree about.
    */
   browserOpen: boolean;
+  updatesAutoCheck: boolean;
+  updateChannel: 'stable' | 'beta';
+  onboardedAt: string | null;
+  occluders: number;
+  incrementOccluders: () => void;
+  decrementOccluders: () => void;
+  setUpdatesAutoCheck: (autoCheck: boolean) => void;
+  setUpdateChannel: (channel: 'stable' | 'beta') => void;
+  setOnboardedAt: (timestamp: string | null) => void;
   showOnboarding: boolean;
   setShowOnboarding: (show: boolean) => void;
 
@@ -667,6 +676,9 @@ type PersistedUi = Pick<
   | 'repoGroups'
   | 'repoGroupMembership'
   | 'collapsedRepoGroups'
+  | 'updatesAutoCheck'
+  | 'updateChannel'
+  | 'onboardedAt'
 >;
 
 /**
@@ -698,8 +710,17 @@ export const useUiStore = create<UiState>()(
       terminalSidebarSide: 'right',
       terminalListOpen: true,
       browserOpen: false,
-  showOnboarding: true,
-  setShowOnboarding: (showOnboarding) => set({ showOnboarding }),
+      updatesAutoCheck: true,
+      updateChannel: 'stable',
+      onboardedAt: null,
+      occluders: 0,
+      incrementOccluders: () => set((s) => ({ occluders: s.occluders + 1 })),
+      decrementOccluders: () => set((s) => ({ occluders: Math.max(0, s.occluders - 1) })),
+      setUpdatesAutoCheck: (updatesAutoCheck) => set({ updatesAutoCheck }),
+      setUpdateChannel: (updateChannel) => set({ updateChannel }),
+      setOnboardedAt: (onboardedAt) => set({ onboardedAt }),
+      showOnboarding: true,
+      setShowOnboarding: (showOnboarding) => set({ showOnboarding }),
 
       layout: DEFAULT_LAYOUT,
       graphColumns: DEFAULT_GRAPH_COLUMNS,
@@ -902,29 +923,7 @@ export const useUiStore = create<UiState>()(
     }),
     {
       name: 'midnite-studio.ui',
-      // 4 — `repoGroups`, `repoGroupMembership`, `collapsedRepoGroups` are new.
-      // 3 — `collapsedRepoSections` is new (Phase 28 Theme D); a v2 payload has
-      // no such key, and the migration below supplies `{}` for it.
-      //
-      // 2 — `graphColumns.author` was retired when the avatar took over naming
-      // the author, and `branchTag` took its place in the table. The `classic`
-      // style has since brought the column back, but NOT the migration: a width
-      // last chosen before Phase 14 is two schema versions stale, and the
-      // current default is a better guess than it is.
-      version: 4,
-      /**
-       * Geometry and chrome preferences persist; everything about *this
-       * session* does not.
-       *
-       * `terminalOpen` used to be excluded, on the grounds that restoring it
-       * would spawn a login shell before the user had asked for a terminal.
-       * That is no longer true — sessions restore *dead*, a saved transcript
-       * with no process behind it until the user types — so reopening the panel
-       * costs nothing, and losing every terminal on each launch was the worse
-       * end of the trade. `graphRefFilter` stays excluded for a reason that has
-       * not changed: a filter surviving a restart would present a truncated
-       * history as the whole truth.
-       */
+      version: 5,
       partialize: (state): PersistedUi => ({
         layout: state.layout,
         graphColumns: state.graphColumns,
@@ -932,17 +931,9 @@ export const useUiStore = create<UiState>()(
         collapsedNavSections: state.collapsedNavSections,
         collapsedSettingsGroups: state.collapsedSettingsGroups,
         collapsedRepoSections: state.collapsedRepoSections,
-        /*
-          Persisted alongside `collapsedNavSections`, and for the same reason:
-          both are the shape the user has arranged the sidebar into, not a
-          reading of anything. The ref-filter argument against persisting does
-          not apply — a narrowed sidebar always keeps its own toggle on screen
-          saying so, so it cannot present a partial tree as the whole one.
-        */
         sectionFilters: state.sectionFilters,
         diffShowOldGutter: state.diffShowOldGutter,
         diffLayout: state.diffLayout,
-
         graphTheme: state.graphTheme,
         graphDensity: state.graphDensity,
         settingsPage: state.settingsPage,
@@ -954,46 +945,26 @@ export const useUiStore = create<UiState>()(
         terminalMaximized: state.terminalMaximized,
         terminalSidebarSide: state.terminalSidebarSide,
         terminalListOpen: state.terminalListOpen,
-        /*
-          No `version` bump for this key: the custom `merge` below already
-          spreads a persisted payload over the current defaults, so a blob
-          written before `browserOpen` existed picks it up from the initial
-          state (`false`) automatically — the same argument `forgeWritesEnabled`
-          makes just below.
-        */
         browserOpen: state.browserOpen,
         hiddenMetrics: state.hiddenMetrics,
         autoFetchIntervalMs: state.autoFetchIntervalMs,
         metricsIdleIntervalMs: state.metricsIdleIntervalMs,
-        /*
-          Persisted, so consent survives a relaunch — a switch that reset on
-          every start would be a nag rather than a setting. It is one of the
-          few persisted fields whose *absence* is the safe reading: an older
-          stored blob has no such key, `false` is the initial value, and a
-          restored state therefore cannot arrive with writes silently on.
-        */
         forgeWritesEnabled: state.forgeWritesEnabled,
         agentSkills: state.agentSkills,
         primaryAgent: state.primaryAgent,
         repoGroups: state.repoGroups,
         repoGroupMembership: state.repoGroupMembership,
         collapsedRepoGroups: state.collapsedRepoGroups,
+        updatesAutoCheck: state.updatesAutoCheck,
+        updateChannel: state.updateChannel,
+        onboardedAt: state.onboardedAt,
       }),
 
       /**
        * v1 → v2: drop the pre-Phase-14 `author` column width.
-       *
-       * The column itself is back (the `classic` style renders it), so this is
-       * no longer about a key with no column behind it — it is about a value
-       * chosen for a table that had different neighbouring columns and a 26px
-       * row. The merge below refills it from the defaults.
-       *
-       * v2 → v3: supply `{}` for `collapsedRepoSections`, which did not exist
-       * yet. An empty map reads as "no repo has folded anything", the correct
-       * default for a key with no prior opinion.
-       *
-       * v3 → v4: supply empty defaults for `repoGroups`, `repoGroupMembership`,
-       * and `collapsedRepoGroups`.
+       * v2 → v3: supply `{}` for `collapsedRepoSections`.
+       * v3 → v4: supply empty defaults for `repoGroups`.
+       * v4 → v5: seed `updatesAutoCheck`, `updateChannel`, and set `onboardedAt` for existing installs.
        */
       migrate: (persisted, version) => {
         const state = (persisted ?? {}) as Record<string, unknown> & {
@@ -1002,6 +973,9 @@ export const useUiStore = create<UiState>()(
           repoGroups?: unknown[];
           repoGroupMembership?: Record<string, string>;
           collapsedRepoGroups?: string[];
+          updatesAutoCheck?: boolean;
+          updateChannel?: 'stable' | 'beta';
+          onboardedAt?: string | null;
         };
         if (version < 2 && state.graphColumns) {
           const { author: _retired, ...rest } = state.graphColumns;
@@ -1014,6 +988,11 @@ export const useUiStore = create<UiState>()(
           state.repoGroups = [];
           state.repoGroupMembership = {};
           state.collapsedRepoGroups = [];
+        }
+        if (version < 5) {
+          state.updatesAutoCheck = true;
+          state.updateChannel = 'stable';
+          state.onboardedAt = new Date().toISOString();
         }
         return state as PersistedUi;
       },
