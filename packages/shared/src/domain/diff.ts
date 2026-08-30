@@ -39,6 +39,28 @@ export const DiffLineSchema = z.object({
 });
 export type DiffLine = z.infer<typeof DiffLineSchema>;
 
+export const SplitCellSchema = z.object({
+  line: DiffLineSchema.nullable(),
+  type: z.enum(['ctx', 'add', 'del', 'empty']),
+});
+export type SplitCell = z.infer<typeof SplitCellSchema>;
+
+export const SplitDiffRowSchema = z.discriminatedUnion('kind', [
+  z.object({
+    kind: z.literal('hunk'),
+    hunkIndex: z.number().int().nonnegative(),
+    heading: z.string(),
+    gap: z.number().int().nonnegative().nullable(),
+  }),
+  z.object({
+    kind: z.literal('split-line'),
+    left: SplitCellSchema,
+    right: SplitCellSchema,
+  }),
+]);
+export type SplitDiffRow = z.infer<typeof SplitDiffRowSchema>;
+
+
 export const DiffHunkSchema = z.object({
   oldStart: z.number().int().nonnegative(),
   oldLines: z.number().int().nonnegative(),
