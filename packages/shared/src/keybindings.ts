@@ -101,9 +101,10 @@ export const COMMANDS = [
   { id: 'graph.focus', label: 'Focus Graph', group: 'graph', chord: 'Mod+1' },
   { id: 'status.focus', label: 'Focus Changes', group: 'status', chord: 'Mod+2' },
   { id: 'status.commit', label: 'Commit', group: 'status', chord: 'Mod+Enter' },
-  { id: 'sync.fetch', label: 'Fetch', group: 'sync', chord: 'Mod+Shift+f' },
+  { id: 'sync.fetch', label: 'Fetch', group: 'sync', chord: 'Mod+Shift+r' },
   { id: 'sync.pull', label: 'Pull', group: 'sync', chord: 'Mod+Shift+p' },
   { id: 'sync.push', label: 'Push', group: 'sync', chord: 'Mod+Shift+u' },
+  { id: 'search.open', label: 'Search Everywhere', group: 'view', chord: 'Mod+Shift+f', scope: 'global' },
   // Declared, unbound, and left that way: Phase 22 rebuilds operation state
   // and owns wiring these up.
   { id: 'op.abort', label: 'Abort Operation', group: 'operation' },

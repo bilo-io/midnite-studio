@@ -15,6 +15,7 @@ import { IMAGE_CHECKERBOARD, ImageDiff } from '../../diff/image-diff';
 import { differsFromHead, headToWorktreeImage } from '../../diff/image-sources';
 import { PresentButton } from '../../slides/present-button';
 import { type FsScopeInput } from '../file-tree';
+import { useBlameStore } from './blame-store';
 import { CodePreview } from './code-preview';
 import { MarkdownPreview } from './markdown-preview';
 
@@ -58,6 +59,10 @@ export function FilePreview({ scope, relPath, targetLine, onNavigate }: FilePrev
   const [editing, setEditing] = useState(false);
   const dirty = useFileEditorStore((s) => s.target !== null && s.content !== s.savedContent);
   const saving = useFileEditorStore((s) => s.saving);
+  const repoId = scope.scope === 'repo' ? scope.repoId : '';
+  const fileKey = repoId ? `${repoId}:${relPath}` : '';
+  const showBlame = useBlameStore((s) => Boolean(s.blameByFile[fileKey]));
+  const toggleBlame = useBlameStore((s) => s.toggleBlame);
   const staleWrite = useFileEditorStore((s) => s.staleWrite);
   const saveError = useFileEditorStore((s) => s.saveError);
 
@@ -200,6 +205,18 @@ export function FilePreview({ scope, relPath, targetLine, onNavigate }: FilePrev
           <PresentButton source={{ content: data.content, label: fileName }} />
         </>
       ) : null}
+      {data?.kind === 'text' && !editing && repoId ? (
+        <button
+          type="button"
+          onClick={() => toggleBlame(fileKey)}
+          aria-pressed={showBlame}
+          className={`shrink-0 rounded-md border border-border px-2 py-0.5 text-[10px] transition-colors ${
+            showBlame ? 'bg-primary/20 text-primary font-medium border-primary/30' : 'text-muted-foreground hover:bg-accent'
+          }`}
+        >
+          Blame
+        </button>
+      ) : null}
     </div>
   );
 
@@ -302,6 +319,9 @@ export function FilePreview({ scope, relPath, targetLine, onNavigate }: FilePrev
               content={data.content}
               language={languageForFile(fileName)}
               highlightLine={targetLine}
+              showBlame={showBlame}
+              repoId={repoId}
+              relPath={relPath}
             />
           )
         ) : (
