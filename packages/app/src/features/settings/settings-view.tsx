@@ -11,12 +11,15 @@ import {
 import { AgentPage } from './settings-pages/agent-page';
 import { AppearancePage } from './settings-pages/appearance-page';
 import { BrowserPage } from './settings-pages/browser-page';
+import { CliPage } from './settings-pages/cli-page';
 import { GraphPage } from './settings-pages/graph-page';
+import { HealthPage } from './settings-pages/health-page';
 import { MonitorPage } from './settings-pages/monitor-page';
 import { ReviewsPage } from './settings-pages/reviews-page';
 import { SearchSettingsPage } from './settings-pages/search-page';
 import { SidebarPage } from './settings-pages/sidebar-page';
 import { TerminalPage } from './settings-pages/terminal-page';
+import { UpdatesPage } from './settings-pages/updates-page';
 
 /**
  * Settings, as pages behind an inner sidebar (Phase 16).
@@ -36,6 +39,9 @@ const PAGE_CONTENT: Record<SettingsPageId, () => React.ReactNode> = {
   reviews: () => <ReviewsPage />,
   monitor: () => <MonitorPage />,
   browser: () => <BrowserPage />,
+  cli: () => <CliPage />,
+  updates: () => <UpdatesPage />,
+  health: () => <HealthPage />,
 };
 
 function PageLink({ id, label }: { id: SettingsPageId; label: string }) {

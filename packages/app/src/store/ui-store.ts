@@ -85,7 +85,10 @@ export type SettingsPageId =
   | 'agent'
   | 'reviews'
   | 'monitor'
-  | 'browser';
+  | 'browser'
+  | 'cli'
+  | 'updates'
+  | 'health';
 
 /**
  * The categories the settings pages sort into, in UX priority order — the
@@ -119,6 +122,9 @@ export const SETTINGS_PAGES: { id: SettingsPageId; label: string; group: Setting
   { id: 'agent', label: 'Agent', group: 'tools' },
   { id: 'reviews', label: 'Reviews', group: 'tools' },
   { id: 'browser', label: 'Browser', group: 'tools' },
+  { id: 'cli', label: 'CLI Integration', group: 'system' },
+  { id: 'updates', label: 'App Updates', group: 'system' },
+  { id: 'health', label: 'System Health', group: 'system' },
   { id: 'monitor', label: 'Monitor & Diagnostics', group: 'system' },
 ];
 
@@ -314,6 +320,8 @@ export type UiState = {
    * there is nothing for a repo switch to disagree about.
    */
   browserOpen: boolean;
+  showOnboarding: boolean;
+  setShowOnboarding: (show: boolean) => void;
 
   layout: LayoutSizes;
   graphColumns: GraphColumns;
@@ -690,6 +698,8 @@ export const useUiStore = create<UiState>()(
       terminalSidebarSide: 'right',
       terminalListOpen: true,
       browserOpen: false,
+  showOnboarding: true,
+  setShowOnboarding: (showOnboarding) => set({ showOnboarding }),
 
       layout: DEFAULT_LAYOUT,
       graphColumns: DEFAULT_GRAPH_COLUMNS,

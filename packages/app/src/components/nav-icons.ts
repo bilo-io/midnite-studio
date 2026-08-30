@@ -5,6 +5,7 @@ import {
   LuActivity,
   LuBot,
   LuDiff,
+  LuDownload,
   LuFolderTree,
   LuGitBranch,
   LuHistory,
@@ -16,6 +17,8 @@ import {
   LuSettings,
   LuShieldCheck,
   LuSquareTerminal,
+  LuStethoscope,
+  LuTerminal,
   LuUsers,
   LuWorkflow,
 } from 'react-icons/lu';
@@ -66,4 +69,7 @@ export const SETTINGS_PAGE_ICON: Record<SettingsPageId, IconType> = {
   reviews: LuShieldCheck,
   monitor: LuActivity,
   browser: GoGlobe,
+  cli: LuTerminal,
+  updates: LuDownload,
+  health: LuStethoscope,
 };
