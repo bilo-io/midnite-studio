@@ -81,6 +81,7 @@ export type SettingsPageId =
   | 'graph'
   | 'sidebar'
   | 'search'
+  | 'screenLock'
   | 'terminal'
   | 'agent'
   | 'reviews'
@@ -118,6 +119,7 @@ export const SETTINGS_PAGES: { id: SettingsPageId; label: string; group: Setting
   { id: 'graph', label: 'Graph', group: 'general' },
   { id: 'sidebar', label: 'Sidebar', group: 'general' },
   { id: 'search', label: 'Search', group: 'general' },
+  { id: 'screenLock', label: 'Screen Lock', group: 'general' },
   { id: 'terminal', label: 'Terminal', group: 'tools' },
   { id: 'agent', label: 'Agent', group: 'tools' },
   { id: 'reviews', label: 'Reviews', group: 'tools' },
@@ -563,6 +565,17 @@ export type UiState = {
    */
   primaryAgent: string;
   setPrimaryAgent: (id: string) => void;
+
+  inactivityTimeoutS: number;
+  setInactivityTimeout: (seconds: number) => void;
+  cycleDurationS: number;
+  setCycleDuration: (seconds: number) => void;
+  requirePasscode: boolean;
+  setRequirePasscode: (require: boolean) => void;
+  passcode: string | null;
+  setPasscode: (code: string | null) => void;
+  passcodeOnlyWhenLocked: boolean;
+  setPasscodeOnlyWhenLocked: (onlyWhenLocked: boolean) => void;
 };
 
 /**
@@ -667,6 +680,11 @@ type PersistedUi = Pick<
   | 'repoGroups'
   | 'repoGroupMembership'
   | 'collapsedRepoGroups'
+  | 'inactivityTimeoutS'
+  | 'cycleDurationS'
+  | 'requirePasscode'
+  | 'passcode'
+  | 'passcodeOnlyWhenLocked'
 >;
 
 /**
@@ -689,6 +707,16 @@ export const useUiStore = create<UiState>()(
       forgeWritesEnabled: false,
       agentSkills: DEFAULT_AGENT_SKILLS,
       primaryAgent: 'claude',
+      inactivityTimeoutS: 900,
+      setInactivityTimeout: (inactivityTimeoutS) => set({ inactivityTimeoutS }),
+      cycleDurationS: 10,
+      setCycleDuration: (cycleDurationS) => set({ cycleDurationS }),
+      requirePasscode: false,
+      setRequirePasscode: (requirePasscode) => set({ requirePasscode }),
+      passcode: null,
+      setPasscode: (passcode) => set({ passcode }),
+      passcodeOnlyWhenLocked: false,
+      setPasscodeOnlyWhenLocked: (passcodeOnlyWhenLocked) => set({ passcodeOnlyWhenLocked }),
       selectedRepoId: null,
       selectedWorktreePath: null,
       selectedCommitSha: null,
