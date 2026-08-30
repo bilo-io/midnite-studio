@@ -266,3 +266,61 @@ html[data-motion='reduced'] [data-activity] * {
 [data-density='collapsed'] .status-label {
   display: none;
 }
+
+/* Screensaver / Lockscreen Title Sheen & Tint Glow */
+.screensaver-title {
+  background-image: linear-gradient(
+    100deg,
+    hsl(var(--foreground)) 0%,
+    hsl(var(--foreground)) 12%,
+    hsl(var(--sv-tint, var(--foreground))) 26%,
+    hsl(var(--sv-tint, var(--foreground))) 40%,
+    hsl(var(--foreground)) 54%,
+    hsl(var(--foreground)) 62%,
+    hsl(var(--sv-tint, var(--foreground))) 74%,
+    hsl(var(--sv-tint, var(--foreground))) 88%,
+    hsl(var(--foreground)) 100%
+  );
+  background-size: 200% 100%;
+  background-position: 0% 0;
+  -webkit-background-clip: text;
+  background-clip: text;
+  color: transparent;
+  text-shadow:
+    0 0 22px hsl(var(--sv-tint, var(--foreground)) / 0.56),
+    0 0 48px hsl(var(--sv-tint, var(--foreground)) / 0.31);
+  animation: screensaver-sheen 6s ease-in-out infinite alternate;
+}
+
+@keyframes screensaver-sheen {
+  from {
+    background-position: 0% 0;
+  }
+  to {
+    background-position: 100% 0;
+  }
+}
+
+html[data-motion='reduced'] .screensaver-title {
+  animation: none;
+}
+
+/* Screensaver Status Pill Shimmer Stagger */
+@keyframes pill-shimmer {
+  0% {
+    transform: translateX(-160%);
+  }
+  100% {
+    transform: translateX(160%);
+  }
+}
+
+.pill-shimmer {
+  animation: pill-shimmer 2.4s ease-in-out infinite;
+  animation-delay: calc((var(--pill-i, 0) - 2) * 0.4s);
+}
+
+html[data-motion='reduced'] .pill-shimmer {
+  animation: none;
+}
+
