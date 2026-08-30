@@ -3,7 +3,9 @@ import { ChevronRight } from 'lucide-react';
 import { useId } from 'react';
 
 import { Counts } from '../../components/change-tree';
+import { DiffToolbar } from '../diff/diff-toolbar';
 import { DiffView } from '../diff/diff-view';
+
 import { imageDiffSources } from '../diff/image-sources';
 import { useFileDiff } from '../diff/use-file-diff';
 import { primaryCode, StatusMark } from '../status/status-mark';
@@ -76,7 +78,10 @@ export function FileAccordion({
           </span>
           <Counts insertions={counts.insertions} deletions={counts.deletions} />
         </button>
+
+        {open ? <FileAccordionToolbar repoId={repoId} worktreePath={worktreePath} entry={entry} /> : null}
       </header>
+
 
       {open ? (
         <div id={bodyId}>
@@ -87,8 +92,30 @@ export function FileAccordion({
   );
 }
 
+function FileAccordionToolbar({
+  repoId,
+  worktreePath,
+  entry,
+}: {
+  repoId: string;
+  worktreePath?: string;
+  entry: StatusEntry;
+}) {
+  const { diff, expandContext } = useFileDiff({
+    repoId,
+    path: entry.path,
+    staged: entry.unstaged === 'unmodified',
+    ...(entry.origPath ? { oldPath: entry.origPath } : {}),
+    ...(worktreePath ? { worktreePath } : {}),
+  });
+
+  if (!diff) return null;
+  return <DiffToolbar diff={diff} onExpandContext={expandContext} showStats={false} />;
+}
+
 /**
  * Split out so the query lives and dies with the open state.
+
  *
  * Hooks cannot be called conditionally, so a single component would have to
  * fetch for every row whether or not it is expanded — which is precisely the

@@ -8,7 +8,9 @@ import {
   ArrowUpFromLine,
   Circle,
   CircleDot,
+  ExternalLink,
   GitBranchPlus,
+
   GitCommit,
   GitCompare,
   GitMerge,
@@ -32,7 +34,9 @@ import {
   usePush,
 } from '../../services/use-status';
 import { useRemotes } from '../../services/queries';
+import { useWorkbenchStore } from '../../store/workbench-store';
 import { syncActions, type SyncAction } from './ref-sync';
+
 
 /**
  * The commit-row and branch-badge context menus.
@@ -173,7 +177,23 @@ export function useGraphActions(onError: (message: string) => void) {
 
       return [
         {
+          label: 'Open commit in tab',
+          icon: ExternalLink,
+          onSelect: () => {
+            if (repoId) {
+              useWorkbenchStore.getState().openTab({
+                kind: 'commit',
+                repoId,
+                sha,
+                label: `${short}: ${row.commit.subject}`,
+                ...(worktreePath ? { worktreePath } : {}),
+              });
+            }
+          },
+        },
+        {
           label: 'Create branch here…',
+
           icon: GitBranchPlus,
           onSelect: () =>
             dialogs.prompt({
@@ -252,8 +272,19 @@ export function useGraphActions(onError: (message: string) => void) {
         },
       ];
     },
-    [branchCreate, checkout, dialogs, report, resetTo, tagCreate, withBlastRadius],
+    [
+      branchCreate,
+      checkout,
+      dialogs,
+      repoId,
+      report,
+      resetTo,
+      tagCreate,
+      withBlastRadius,
+      worktreePath,
+    ],
   );
+
 
   /** Right-click on a ref badge. */
   const refMenu = useCallback(

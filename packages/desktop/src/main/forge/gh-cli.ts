@@ -85,12 +85,13 @@ const PULL_FIELDS =
   header's own facts.
 */
 const PULL_DETAIL_FIELDS =
-  `${PULL_FIELDS},body,headRefOid,baseRefName,additions,deletions,changedFiles,` +
+  `${PULL_FIELDS},body,headRefOid,baseRefOid,baseRefName,additions,deletions,changedFiles,` +
   // `commits` and `reviewRequests` are Phase 20's two additions, and both ride
   // this existing call rather than paying for one of their own: the merge
   // confirm's commit count and Theme G's reviewer suggestions are each one
   // field on a `gh pr view` the detail header already makes.
   'createdAt,updatedAt,mergeable,commits,reviewRequests';
+
 
 export async function listRuns(
   forge: Forge,

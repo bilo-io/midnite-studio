@@ -1,4 +1,4 @@
-import { Check, ChevronDown, ChevronRight, Copy, List, ListTree, Rows3 } from 'lucide-react';
+import { Check, ChevronDown, ChevronRight, Copy, ExternalLink, List, ListTree, Rows3 } from 'lucide-react';
 import { useCallback, useEffect, useId, useMemo, useRef, useState } from 'react';
 
 import { buildChangeTree, flattenBySize } from '../../components/build-change-tree';
@@ -7,6 +7,8 @@ import { IconButton } from '../../components/icon-button';
 import { ResizeHandle } from '../../components/resizable/resize-handle';
 import { useResizable } from '../../components/resizable/use-resizable';
 import { Tooltip } from '../../components/tooltip';
+import { useWorkbenchStore } from '../../store/workbench-store';
+
 import {
   copyText,
   resolveRevision,
@@ -245,7 +247,9 @@ export function CommitDetail({ repoId, sha }: { repoId: string; sha: string }) {
           {data.sha}
         </p>
         <CopySha sha={data.sha} />
+        <OpenInTabButton repoId={repoId} sha={data.sha} label={`${data.sha.slice(0, 7)}: ${data.subject}`} />
         <div className="flex shrink-0 items-center">
+
           <ViewToggle
             view={fileView}
             onChange={selectFileView}
@@ -560,3 +564,25 @@ function Parents({ parents, onSelect }: { parents: string[]; onSelect: (sha: str
     </div>
   );
 }
+
+function OpenInTabButton({
+  repoId,
+  sha,
+  label,
+}: {
+  repoId: string;
+  sha: string;
+  label: string;
+}) {
+  const openTab = useWorkbenchStore((s) => s.openTab);
+
+  return (
+    <IconButton
+      icon={ExternalLink}
+      label="Open commit in tab"
+      size="sm"
+      onClick={() => openTab({ kind: 'commit', repoId, sha, label })}
+    />
+  );
+}
+

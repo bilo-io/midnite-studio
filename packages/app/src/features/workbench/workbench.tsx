@@ -1,9 +1,27 @@
 import { useUiStore } from '../../store/ui-store';
 import { useWorkbenchStore } from '../../store/workbench-store';
 import { AllChangesView } from '../changes/all-changes-view';
+import { CommitDetail } from '../commit/commit-detail';
 import { ReviewView, RunView } from '../forge/forge-detail';
 import { StatusPanel } from '../status/status-panel';
 import { TabStrip } from './tab-strip';
+
+function CommitDetailView({
+  repoId,
+  sha,
+  worktreePath: _worktreePath,
+}: {
+  repoId: string;
+  sha: string;
+  worktreePath?: string;
+}) {
+  return (
+    <div className="h-full min-h-0 overflow-y-auto bg-background p-4">
+      <CommitDetail repoId={repoId} sha={sha} />
+    </div>
+  );
+}
+
 
 /**
  * The Changes view, as a tabbed workbench.
@@ -61,9 +79,12 @@ export function Workbench() {
             />
           ) : active.kind === 'run' ? (
             <RunView repoId={active.repoId} runId={active.runId} />
+          ) : active.kind === 'commit' ? (
+            <CommitDetailView repoId={active.repoId} sha={active.sha} worktreePath={active.worktreePath} />
           ) : (
             <ReviewView repoId={active.repoId} number={active.number} />
           )}
+
         </div>
       </div>
     </div>
