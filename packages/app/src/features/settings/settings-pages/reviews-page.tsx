@@ -40,7 +40,7 @@ export function ReviewsPage() {
             className="mt-0.5 accent-[hsl(var(--primary))]"
           />
           <span>
-            Allow Midnite Git to act on pull requests
+            Allow Midnite Studio to act on pull requests
             <span className="mt-0.5 block text-[11px] leading-relaxed text-muted-foreground">
               Every action runs through your own <code>gh</code> CLI, as you, and is shown before it
               is sent. Merging additionally asks for confirmation with the number of commits it

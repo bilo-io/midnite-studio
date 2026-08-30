@@ -327,7 +327,7 @@ export function createBrokerServer(options: BrokerServerOptions): BrokerServer {
             cwd,
             env: {
               ...env,
-              TERM_PROGRAM: 'midnite-git',
+              TERM_PROGRAM: 'midnite-studio',
               GIT_TERMINAL_PROMPT: '1',
             },
           });

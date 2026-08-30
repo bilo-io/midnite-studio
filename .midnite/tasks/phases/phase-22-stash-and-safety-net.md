@@ -1,6 +1,6 @@
 # Phase 22 — Stash, the reflog, and writes you can take back
 
-Twenty-one phases in, Midnite Git can merge, rebase, cherry-pick, reset behind a blast-radius
+Twenty-one phases in, Midnite Studio can merge, rebase, cherry-pick, reset behind a blast-radius
 confirm, and review a pull request without leaving the window — and it still cannot put work down
 for five minutes. `git stash` appears nowhere in the codebase: a grep across all four packages
 finds it only in prose, in a Claude prompt string in

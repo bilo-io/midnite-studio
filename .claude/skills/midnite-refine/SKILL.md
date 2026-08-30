@@ -5,7 +5,7 @@ argument-hint: "[optional: phase number, or an area hint, e.g. '24' or '26 perf+
 allowed-tools: Bash, Read, Write, Edit, Glob, Grep, AskUserQuestion, TodoWrite, Agent
 ---
 
-You are running the **refine** workflow for **Midnite Git**. It takes one *existing, uncompleted*
+You are running the **refine** workflow for **Midnite Studio**. It takes one *existing, uncompleted*
 `todo/phase-N-*.md` and makes it **deeper**, not longer for its own sake — the goal is a plan whose
 every item can be built by a model with no access to this conversation.
 

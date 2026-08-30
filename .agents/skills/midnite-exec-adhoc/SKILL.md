@@ -5,7 +5,7 @@ description: Execute a one-off ad hoc task outside the .midnite/tasks/ phase tra
 
 **Invoke with:** <a description of the adhoc task to build>
 
-End-to-end "execute a described task" for **Midnite Git**, for work that isn't a `.midnite/tasks/phases/phase-N-*.md`
+End-to-end "execute a described task" for **Midnite Studio**, for work that isn't a `.midnite/tasks/phases/phase-N-*.md`
 item — a bug someone just mentioned, a small feature sketched in chat, a cleanup nobody wrote down.
 **[`/midnite-exec`](../midnite-exec/SKILL.md) picks from the backlog; this skill takes a task you
 already have in mind** and runs the same build → PR → CI → merge machinery against it, minus every
@@ -16,10 +16,10 @@ step that assumes a phase doc exists.
 ## Respect
 - `CLAUDE.md` = conventions (package boundaries — `shared ◀ git-engine ◀ desktop`, `shared ◀ app`; commit style; pre-push gate). Re-read the relevant bits before coding. `docs/INITIAL_PLAN.md` is the design source of truth.
 - `.midnite/tasks/` is **not** the driver here, the same posture [`/midnite-address-issue`](../midnite-address-issue/SKILL.md) takes: only touch it if the task happens to close out an existing phase item, and say so if it does. **Never claim a theme in `.midnite/tasks/_INDEX.md`, never touch `done.md`** — this work isn't phase-tracked.
-- Parallel work → git worktrees in the repo-root **`.worktrees/<branch>/`** dir (git-ignored; **never** under `.git/`); keep the primary checkout (`/Users/bilolwabona/Dev/midnite-git`) as home base.
+- Parallel work → git worktrees in the repo-root **`.worktrees/<branch>/`** dir (git-ignored; **never** under `.git/`); keep the primary checkout (`/Users/bilolwabona/Dev/midnite-studio`) as home base.
 - **Where to work prompt:** Always present an option sheet (using `ask_question` / structured option prompt) when asking for worktree vs primary checkout:
   1. `(Recommended) Worktree: isolated branch under .worktrees/<slug>`
-  2. `Primary checkout: working directly in /Users/bilolwabona/Dev/midnite-git`
+  2. `Primary checkout: working directly in /Users/bilolwabona/Dev/midnite-studio`
 
 ## 0 · Get the task
 If `$ARGUMENTS` describes a concrete task, that's the seed. If it's empty or too vague to build from
@@ -36,7 +36,7 @@ straight to Stage 2. **Do not implement until any question you did ask is answer
 ## 2 · Workspace location
 Always prompt the user using an option sheet (`ask_question` / direct option prompt) before making any code edits or git branch operations:
 - Option 1: `(Recommended) Worktree: create isolated .worktrees/adhoc-<slug>`
-- Option 2: `Primary checkout: work directly in /Users/bilolwabona/Dev/midnite-git`
+- Option 2: `Primary checkout: work directly in /Users/bilolwabona/Dev/midnite-studio`
 
 ## 3 · Rename session
 ```bash

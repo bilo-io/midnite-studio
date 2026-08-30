@@ -119,7 +119,7 @@ export function inprocCreatePty(
       cwd: options.cwd,
       env: {
         ...process.env,
-        TERM_PROGRAM: 'midnite-git',
+        TERM_PROGRAM: 'midnite-studio',
         GIT_TERMINAL_PROMPT: '1',
       } as Record<string, string>,
     });

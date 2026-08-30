@@ -13,7 +13,7 @@ import { installMockBridge, type MockFixtures } from './mock-bridge';
  * running one actually renders what the live stream sends back.
  */
 
-const MAIN = '/tmp/midnite-git';
+const MAIN = '/tmp/midnite-studio';
 
 const unitSuite = {
   id: 'packages/app::test',

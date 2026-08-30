@@ -189,7 +189,7 @@ describe('phase 19 store additions', () => {
   it('persists the narrowing, like the sections a user folded away', () => {
     useUiStore.getState().setSectionFilter('actions', false);
 
-    const saved = JSON.parse(localStorage.getItem('midnite-git.ui') ?? '{}') as {
+    const saved = JSON.parse(localStorage.getItem('midnite-studio.ui') ?? '{}') as {
       state: { sectionFilters: Record<string, boolean> };
     };
     expect(saved.state.sectionFilters).toEqual({ actions: false });
@@ -224,7 +224,7 @@ describe('phase 16 store additions', () => {
   it('persists the settings page, so reopening Settings lands where you were', () => {
     useUiStore.getState().setSettingsPage('agent');
 
-    const saved = JSON.parse(localStorage.getItem('midnite-git.ui') ?? '{}') as {
+    const saved = JSON.parse(localStorage.getItem('midnite-studio.ui') ?? '{}') as {
       state: Record<string, unknown>;
     };
     expect(saved.state.settingsPage).toBe('agent');
@@ -241,7 +241,7 @@ describe('phase 16 store additions', () => {
     expect(merged.layout.filesTreeWidth).toBe(DEFAULT_LAYOUT.filesTreeWidth);
 
     useUiStore.getState().setLayout('filesTreeWidth', 260);
-    const saved = JSON.parse(localStorage.getItem('midnite-git.ui') ?? '{}') as {
+    const saved = JSON.parse(localStorage.getItem('midnite-studio.ui') ?? '{}') as {
       state: { layout: Record<string, number> };
     };
     expect(saved.state.layout.filesTreeWidth).toBe(260);
@@ -249,7 +249,7 @@ describe('phase 16 store additions', () => {
 
   it('does not persist the active view — a launch starts on the graph', () => {
     useUiStore.getState().setActiveView('files');
-    const saved = JSON.parse(localStorage.getItem('midnite-git.ui') ?? '{}') as {
+    const saved = JSON.parse(localStorage.getItem('midnite-studio.ui') ?? '{}') as {
       state: Record<string, unknown>;
     };
     expect(saved.state).not.toHaveProperty('activeView');
@@ -274,7 +274,7 @@ describe('persistence', () => {
     useUiStore.getState().setGraphRefFilter(['refs/heads/main']);
     useUiStore.getState().selectCommit('abc123');
 
-    const saved = JSON.parse(localStorage.getItem('midnite-git.ui') ?? '{}') as {
+    const saved = JSON.parse(localStorage.getItem('midnite-studio.ui') ?? '{}') as {
       state: Record<string, unknown>;
     };
 
@@ -288,7 +288,7 @@ describe('persistence', () => {
     useUiStore.getState().toggleTerminalMaximized();
     useUiStore.getState().setTerminalSidebarSide('left');
 
-    const saved = JSON.parse(localStorage.getItem('midnite-git.ui') ?? '{}') as {
+    const saved = JSON.parse(localStorage.getItem('midnite-studio.ui') ?? '{}') as {
       state: Record<string, unknown>;
     };
 
@@ -300,7 +300,7 @@ describe('persistence', () => {
   it('persists a hidden repositories sidebar, so it stays hidden across a restart', () => {
     useUiStore.getState().setReposOpen(false);
 
-    const saved = JSON.parse(localStorage.getItem('midnite-git.ui') ?? '{}') as {
+    const saved = JSON.parse(localStorage.getItem('midnite-studio.ui') ?? '{}') as {
       state: Record<string, unknown>;
     };
 
@@ -329,7 +329,7 @@ describe('persistence', () => {
   it('persists the browser pane state', () => {
     useUiStore.getState().toggleBrowser();
 
-    const saved = JSON.parse(localStorage.getItem('midnite-git.ui') ?? '{}') as {
+    const saved = JSON.parse(localStorage.getItem('midnite-studio.ui') ?? '{}') as {
       state: Record<string, unknown>;
     };
 
@@ -358,7 +358,7 @@ describe('phase 14 store additions', () => {
     useUiStore.getState().setGraphTheme('gitkraken');
     useUiStore.getState().setGraphAuthorFilter(['ada@example.com']);
 
-    const saved = JSON.parse(localStorage.getItem('midnite-git.ui') ?? '{}') as {
+    const saved = JSON.parse(localStorage.getItem('midnite-studio.ui') ?? '{}') as {
       state: Record<string, unknown>;
     };
 
@@ -437,7 +437,7 @@ describe('grouped settings navigation', () => {
     // should not have to fold it away again on every launch.
     useUiStore.getState().toggleSettingsGroup('system');
 
-    const saved = JSON.parse(localStorage.getItem('midnite-git.ui') ?? '{}') as {
+    const saved = JSON.parse(localStorage.getItem('midnite-studio.ui') ?? '{}') as {
       state: Record<string, unknown>;
     };
     expect(saved.state.collapsedSettingsGroups).toEqual(['system']);
@@ -506,7 +506,7 @@ describe('repo section folds', () => {
   it('persists the fold map, keyed by repo', () => {
     toggleRepoSection('repo-a', 'tags');
 
-    const saved = JSON.parse(localStorage.getItem('midnite-git.ui') ?? '{}') as {
+    const saved = JSON.parse(localStorage.getItem('midnite-studio.ui') ?? '{}') as {
       state: Record<string, unknown>;
     };
     expect(saved.state.collapsedRepoSections).toEqual({ 'repo-a': ['tags'] });
@@ -550,7 +550,7 @@ describe('the nav-mode lock', () => {
     // is in `partialize` for exactly this, and nothing else asserted it.
     useUiStore.getState().setNavMode('expanded');
 
-    const saved = JSON.parse(localStorage.getItem('midnite-git.ui') ?? '{}') as {
+    const saved = JSON.parse(localStorage.getItem('midnite-studio.ui') ?? '{}') as {
       state: Record<string, unknown>;
     };
     expect(saved.state.navMode).toBe('expanded');
@@ -588,7 +588,7 @@ describe('the midnite menu\'s skills', () => {
   it('persists the whole record, so a launch reads back what was configured', () => {
     useUiStore.getState().setAgentSkill('brainstorm', '/midnite-brainstorm --wide');
 
-    const saved = JSON.parse(localStorage.getItem('midnite-git.ui') ?? '{}') as {
+    const saved = JSON.parse(localStorage.getItem('midnite-studio.ui') ?? '{}') as {
       state: Record<string, unknown>;
     };
     expect(saved.state.agentSkills).toEqual({
@@ -628,7 +628,7 @@ describe('the primary agent', () => {
   it('persists across a reload', () => {
     useUiStore.getState().setPrimaryAgent('agy');
 
-    const saved = JSON.parse(localStorage.getItem('midnite-git.ui') ?? '{}') as {
+    const saved = JSON.parse(localStorage.getItem('midnite-studio.ui') ?? '{}') as {
       state: Record<string, unknown>;
     };
     expect(saved.state.primaryAgent).toBe('agy');

@@ -5,7 +5,7 @@ description: Deepen an existing, uncompleted .midnite/tasks/ phase doc — pick 
 
 **Invoke with:** [optional: phase number, or an area hint, e.g. '24' or '26 perf+testing']
 
-You are running the **refine** workflow for **Midnite Git**. It takes one *existing, uncompleted*
+You are running the **refine** workflow for **Midnite Studio**. It takes one *existing, uncompleted*
 `.midnite/tasks/phases/phase-N-*.md` and makes it **deeper**, not longer for its own sake — the goal is a plan whose
 every item can be built by a model with no access to this conversation.
 

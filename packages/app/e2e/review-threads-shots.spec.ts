@@ -29,9 +29,9 @@ const HEAD_SHA = 'c0ffee'.padEnd(40, '0');
 const REMOTES = [
   {
     name: 'origin',
-    fetchUrl: 'git@github.com:bilo-io/midnite-git.git',
-    pushUrl: 'git@github.com:bilo-io/midnite-git.git',
-    forge: { host: 'github.com', owner: 'bilo-io', repo: 'midnite-git', kind: 'github' },
+    fetchUrl: 'git@github.com:bilo-io/midnite-studio.git',
+    pushUrl: 'git@github.com:bilo-io/midnite-studio.git',
+    forge: { host: 'github.com', owner: 'bilo-io', repo: 'midnite-studio', kind: 'github' },
   },
 ];
 
@@ -44,7 +44,7 @@ const pull = {
   checks: 'passing',
   headBranch: 'feature/phase-20-inline-threads',
   author: 'bilo',
-  url: 'https://github.com/bilo-io/midnite-git/pull/131',
+  url: 'https://github.com/bilo-io/midnite-studio/pull/131',
 };
 
 const line = (
@@ -111,7 +111,7 @@ const data: MockFixtures = {
   ...fixtures,
   remotes: REMOTES,
   statusEntries: [],
-  statusByWorktree: { '/tmp/midnite-git': [] },
+  statusByWorktree: { '/tmp/midnite-studio': [] },
   forge: {
     cli: { reason: 'ready' },
     pulls: [pull],

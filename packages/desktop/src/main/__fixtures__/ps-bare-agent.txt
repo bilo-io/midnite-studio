@@ -1,4 +1,4 @@
     1     0 S+  /sbin/launchd
-59980     1 S+  /Applications/Midnite Git.app/Contents/MacOS/Midnite Git
+59980     1 S+  /Applications/Midnite Studio.app/Contents/MacOS/Midnite Studio
 60000 59980 S+  /bin/zsh -l
 60041 60000 S+  claude

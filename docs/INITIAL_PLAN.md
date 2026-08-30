@@ -1,8 +1,8 @@
-# Midnite Git — GitKraken-inspired desktop git client (new repo at `~/Dev/midnite-git`)
+# Midnite Studio — GitKraken-inspired desktop git client (new repo at `~/Dev/midnite-studio`)
 
 ## Context
 
-Bilo wants a brand-new standalone desktop app — **Midnite Git** (`@midnite/studio`) — in `~/Dev/midnite-git`, a separate repo structured like the midnite monorepo (proto + moon + pnpm workspace, `todo/` phase docs), consuming the published **@bilo-io/ui@0.1.0** and **@bilo-io/shell@0.1.0** from GitHub Packages (`bilo-io/midnite-ui`).
+Bilo wants a brand-new standalone desktop app — **Midnite Studio** (`@midnite/studio`) — in `~/Dev/midnite-studio`, a separate repo structured like the midnite monorepo (proto + moon + pnpm workspace, `todo/` phase docs), consuming the published **@bilo-io/ui@0.1.0** and **@bilo-io/shell@0.1.0** from GitHub Packages (`bilo-io/midnite-ui`).
 
 Product pillars:
 
@@ -29,7 +29,7 @@ Product pillars:
 
 ## Architecture
 
-### Package layout (`~/Dev/midnite-git`)
+### Package layout (`~/Dev/midnite-studio`)
 
 ```
 .prototools                # node 22.12.0, pnpm 9.15.0, moon 2.3.4

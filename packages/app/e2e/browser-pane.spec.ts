@@ -34,7 +34,7 @@ test.beforeEach(async ({ page }) => {
   await page.addInitScript(() => {
     if (sessionStorage.getItem('mstudio-e2e-browser-cleared')) return;
     sessionStorage.setItem('mstudio-e2e-browser-cleared', '1');
-    localStorage.removeItem('midnite-git.browser');
+    localStorage.removeItem('midnite-studio.browser');
   });
 });
 

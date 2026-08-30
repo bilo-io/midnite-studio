@@ -296,7 +296,7 @@ that pty.
 - [x] Protocol over a unix domain socket at
       `join(userData, 'broker', \`${app.getVersion()}${app.isPackaged ? '' : '-dev'}.sock\`)`:
       length-prefixed frames, a `hello` handshake carrying `{ protocol, appVersion, pid }`. Namespaced
-      by version **and** a `-dev` suffix because `app.setName('Midnite Git')` (`index.ts:85`) makes the
+      by version **and** a `-dev` suffix because `app.setName('Midnite Studio')` (`index.ts:85`) makes the
       dev server and the installed app share `userData`, and two builds attaching to one broker is the
       first bug this design would otherwise ship.
       - Frame layout, in net-new [`broker/protocol.ts`](../packages/desktop/src/broker/protocol.ts):
@@ -313,7 +313,7 @@ that pty.
       - Replies: `{ t: 'reply', id, ok: true, … } | { t: 'reply', id, ok: false, code: 'protocol' | 'unknown-pty' | 'spawn-failed', message }`
         — the `GitOpResult` habit, over the socket. Unsolicited: `{ t: 'exit', ptyId, exitCode, signal? }`
         and data frames.
-      - macOS caps `sun_path` at 104 bytes; `~/Library/Application Support/Midnite Git/broker/0.12.0-dev.sock`
+      - macOS caps `sun_path` at 104 bytes; `~/Library/Application Support/Midnite Studio/broker/0.12.0-dev.sock`
         is ~75. `broker-client` asserts `Buffer.byteLength(path) < 104` and otherwise fails soft
         with reason `'socket path too long'`.
       - **Resolved — filesystem permissions are the auth.** `broker/` is created `0700`, the socket
@@ -327,7 +327,7 @@ that pty.
       moves with it — it already takes a directory and imports no `electron`, which is what makes the
       move a `git mv` to `broker/terminal-store.ts` (its test moves too).
       - **Resolved — main sends the full `env` in every `create` frame.** The broker never computes an
-        environment: `pty-service.ts` keeps building `{ ...process.env, TERM_PROGRAM: 'midnite-git', GIT_TERMINAL_PROMPT: '1' }`
+        environment: `pty-service.ts` keeps building `{ ...process.env, TERM_PROGRAM: 'midnite-studio', GIT_TERMINAL_PROMPT: '1' }`
         (`:192-200`, `PATH` already fixed by `ensureLoginShellPath()` at `index.ts:99`) and ships it.
         A broker started by v1.2 spawns v1.3's env once v1.3 connects, and the Phase 21 `PATH` lesson
         stays in one file.

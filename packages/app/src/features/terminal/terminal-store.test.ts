@@ -389,9 +389,9 @@ describe('useTerminalStore', () => {
     const session = (id: string) => ({
       id,
       kind: 'shell' as const,
-      title: 'midnite-git',
-      cwd: '/repos/midnite-git',
-      repoId: 'repo:midnite-git',
+      title: 'midnite-studio',
+      cwd: '/repos/midnite-studio',
+      repoId: 'repo:midnite-studio',
       createdAt: 1_787_000_000,
     });
 
@@ -458,9 +458,9 @@ describe('sessionLabel', () => {
   const base = {
     id: 's1',
     kind: 'shell' as const,
-    title: 'midnite-git',
-    cwd: '/repos/midnite-git',
-    repoId: 'repo:midnite-git',
+    title: 'midnite-studio',
+    cwd: '/repos/midnite-studio',
+    repoId: 'repo:midnite-studio',
     createdAt: 0,
   };
 

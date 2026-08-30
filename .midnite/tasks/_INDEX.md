@@ -1,8 +1,8 @@
-# Midnite Git — Phase Index
+# Midnite Studio — Phase Index
 
 **Headlines:**
 
-- **[Phase 33 · Application Installation, CLI Tool & Desktop Integration](phases/phase-33-installable-app-and-cli-integration.md)** (0% · 0/19) — Planned, not started. Adds a macOS DMG installer package with custom layout, `midnite-git` CLI tool installer + shell completions, `midnite-git://` deep-linking protocol scheme, auto-updater pipeline, and first-run setup onboarding.
+- **[Phase 33 · Application Installation, CLI Tool & Desktop Integration](phases/phase-33-installable-app-and-cli-integration.md)** (0% · 0/19) — Planned, not started. Adds a macOS DMG installer package with custom layout, `midnite-studio` CLI tool installer + shell completions, `midnite-studio://` deep-linking protocol scheme, auto-updater pipeline, and first-run setup onboarding.
 - **[Phase 32 · The browser gets an engine](phases/phase-32-browser-engine-and-tabs.md)** (39% · 39/99) — Active frontier. Themes A–D landed: a real `WebContentsView` engine on its own no-preload partition, the `mstudio:browser:*` contract, the security policy Phase 27 made a precondition, and tabs with both kinds of group. E–I (occlusion, new-tab page, real chrome, dev powers, forge-in-place) remain.
 - **[Phase 30 · Terminal Hardening](phases/phase-30-terminal-hardening.md)** (90% · 82/91) — Active frontier; detached session broker lets terminal/agent sessions survive app restarts and window reloads. Implementation themes A–G landed; 9 manual verification checks open.
 - **[Phase 29 · Markdown Slides Viewer](phases/phase-29-markdown-slides-viewer.md)** (100% · 21/21) — Landed; fullscreen headings-based slide presenter integrated across Files preview, PR descriptions, and comment threads.
@@ -62,11 +62,11 @@ Completed work is logged append-only in [`done.md`](done.md). Deferred scope liv
 
 ### [Phase 33 — Application Installation, CLI Tool & Desktop Integration](phases/phase-33-installable-app-and-cli-integration.md)
 
-*Production-grade macOS DMG installer, `midnite-git` CLI binary symlinking into PATH with shell completions, custom `midnite-git://` protocol handling, background auto-updater service, and first-run setup onboarding.*
+*Production-grade macOS DMG installer, `midnite-studio` CLI binary symlinking into PATH with shell completions, custom `midnite-studio://` protocol handling, background auto-updater service, and first-run setup onboarding.*
 
 - ◻ **A** — Polished DMG Package & macOS Desktop Integration.
-- ◻ **B** — `midnite-git` CLI Binary & System PATH Symlinking.
-- ◻ **C** — `midnite-git://` Custom Protocol Handler & Single-Instance Dispatcher.
+- ◻ **B** — `midnite-studio` CLI Binary & System PATH Symlinking.
+- ◻ **C** — `midnite-studio://` Custom Protocol Handler & Single-Instance Dispatcher.
 - ◻ **D** — Auto-Updater Service & Update Status Banner.
 - ◻ **E** — First-Run Installation Onboarding & System Setup Checklist.
 

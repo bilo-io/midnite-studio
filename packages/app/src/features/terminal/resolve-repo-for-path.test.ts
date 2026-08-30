@@ -22,23 +22,23 @@ const repo = (id: string, name: string, path: string, extra: string[] = []): Rep
   worktrees: [worktree(id, path, true), ...extra.map((p) => worktree(id, p))],
 });
 
-const MIDNITE = repo('r1', 'midnite-git', '/Users/x/Dev/midnite-git', [
-  '/Users/x/Dev/midnite-git/.worktrees/theme-f',
+const MIDNITE = repo('r1', 'midnite-studio', '/Users/x/Dev/midnite-studio', [
+  '/Users/x/Dev/midnite-studio/.worktrees/theme-f',
 ]);
 const OTHER = repo('r2', 'other', '/Users/x/Dev/other');
 
 describe('resolveRepoForPath', () => {
   it('matches a repository root exactly', () => {
-    expect(resolveRepoForPath('/Users/x/Dev/midnite-git', [MIDNITE, OTHER])).toEqual({
+    expect(resolveRepoForPath('/Users/x/Dev/midnite-studio', [MIDNITE, OTHER])).toEqual({
       repoId: 'r1',
-      repoName: 'midnite-git',
-      root: '/Users/x/Dev/midnite-git',
+      repoName: 'midnite-studio',
+      root: '/Users/x/Dev/midnite-studio',
     });
   });
 
   it('matches a descendant of a repository root', () => {
-    expect(resolveRepoForPath('/Users/x/Dev/midnite-git/packages/app', [MIDNITE])?.root).toBe(
-      '/Users/x/Dev/midnite-git',
+    expect(resolveRepoForPath('/Users/x/Dev/midnite-studio/packages/app', [MIDNITE])?.root).toBe(
+      '/Users/x/Dev/midnite-studio',
     );
   });
 
@@ -49,11 +49,11 @@ describe('resolveRepoForPath', () => {
   */
   it('prefers the nested worktree over the repository containing it', () => {
     expect(
-      resolveRepoForPath('/Users/x/Dev/midnite-git/.worktrees/theme-f/packages', [MIDNITE]),
+      resolveRepoForPath('/Users/x/Dev/midnite-studio/.worktrees/theme-f/packages', [MIDNITE]),
     ).toEqual({
       repoId: 'r1',
-      repoName: 'midnite-git',
-      root: '/Users/x/Dev/midnite-git/.worktrees/theme-f',
+      repoName: 'midnite-studio',
+      root: '/Users/x/Dev/midnite-studio/.worktrees/theme-f',
     });
   });
 
@@ -74,7 +74,7 @@ describe('resolveRepoForPath', () => {
     segment and claim the terminal is in a repository it has never been in.
   */
   it('respects the path separator boundary', () => {
-    expect(resolveRepoForPath('/Users/x/Dev/midnite-git-old/src', [MIDNITE])).toBeNull();
+    expect(resolveRepoForPath('/Users/x/Dev/midnite-studio-old/src', [MIDNITE])).toBeNull();
   });
 
   /*
@@ -87,7 +87,7 @@ describe('resolveRepoForPath', () => {
     const slash = repo('r5', 'root', '/');
     expect(resolveRepoForPath('/etc/hosts', [slash])?.root).toBe('/');
     expect(resolveRepoForPath('/', [slash])?.root).toBe('/');
-    expect(resolveRepoForPath('/Users/x/Dev/midnite-git/src', [slash, MIDNITE])?.repoId).toBe('r1');
+    expect(resolveRepoForPath('/Users/x/Dev/midnite-studio/src', [slash, MIDNITE])?.repoId).toBe('r1');
   });
 
   it('returns null for a path inside no repository', () => {
@@ -95,8 +95,8 @@ describe('resolveRepoForPath', () => {
   });
 
   it('returns null when there is nothing to match against', () => {
-    expect(resolveRepoForPath('/Users/x/Dev/midnite-git', [])).toBeNull();
-    expect(resolveRepoForPath('/Users/x/Dev/midnite-git', undefined)).toBeNull();
+    expect(resolveRepoForPath('/Users/x/Dev/midnite-studio', [])).toBeNull();
+    expect(resolveRepoForPath('/Users/x/Dev/midnite-studio', undefined)).toBeNull();
     expect(resolveRepoForPath(null, [MIDNITE])).toBeNull();
     expect(resolveRepoForPath('', [MIDNITE])).toBeNull();
   });

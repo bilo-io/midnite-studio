@@ -5,6 +5,8 @@ import type { StatsWindow } from '@midnite/studio-shared';
 
 import { DEFAULT_LAYOUT, type WidgetId } from '../features/dashboard/widget-ids';
 
+import { adoptRenamedPersistKey } from './persist-rename';
+
 /**
  * The dashboard board, per repository.
  *
@@ -13,7 +15,7 @@ import { DEFAULT_LAYOUT, type WidgetId } from '../features/dashboard/widget-ids'
  * every one of them applies to the app as a whole. This is a `Record` keyed by
  * repository that grows one entry per repo the user has ever customised, which
  * is a different shape with a different lifetime: it needs its own pruning
- * story, and folding it into `midnite-git.ui` would mean a migration of that
+ * story, and folding it into `midnite-studio.ui` would mean a migration of that
  * key every time this one changed.
  *
  * What is persisted is only what a person *chose*. The layout, the widgets on
@@ -105,6 +107,12 @@ const edit =
       [repoId]: change(state.boards[repoId] ?? DEFAULT_BOARD),
     },
   });
+
+/**
+ * Pre-rename state, adopted before the store hydrates — see
+ * `persist-rename.ts` for why this cannot be a zustand `migrate`.
+ */
+adoptRenamedPersistKey('midnite-studio.dashboard', 'midnite-studio.dashboard');
 
 export const useDashboardStore = create<DashboardState>()(
   persist(
@@ -199,7 +207,7 @@ export const useDashboardStore = create<DashboardState>()(
         set(edit(repoId, (board) => ({ ...board, layout: DEFAULT_LAYOUT }))),
     }),
     {
-      name: 'midnite-git.dashboard',
+      name: 'midnite-studio.dashboard',
       version: 1,
       /*
         Boards for repositories that are no longer open are kept.

@@ -102,7 +102,7 @@ The spine: B–F all read off this contract, so it lands first.
       same objects.
 - [x] The probe must resolve against the **login shell's** `PATH`, not Electron's. This is the
       trap, not a nicety: `claude` and `agy` both live in `~/.local/bin`, which reaches the
-      environment only through the user's shell rc — so a `Midnite Git.app` opened from Finder
+      environment only through the user's shell rc — so a `Midnite Studio.app` opened from Finder
       inherits a `PATH` that has neither, and a naive probe would disable two installed agents on
       the machine this phase was written on. Resolve through a login shell (or read the same `PATH`
       the pty is given), and let the roster carry an optional candidate absolute path as the last
