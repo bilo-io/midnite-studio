@@ -2,28 +2,61 @@ import { useEffect, useRef, useState, type FormEvent } from 'react';
 
 import { GoArrowLeft, GoArrowRight, GoSync, GoX } from 'react-icons/go';
 
-import { EmptyState } from '../../components/empty-state';
 import { IconButton } from '../../components/icon-button';
 import { useFocusTrap } from '../../components/use-focus-trap';
 import { motionMs } from '../../components/use-reveal';
+import { bridge } from '../../services/bridge';
 import { useUiStore } from '../../store/ui-store';
+import { useBrowserStore } from '../../store/browser-store';
+import { BrowserTabStrip } from './tab-strip';
+import { useBrowserBounds } from './use-browser-bounds';
+import { useBrowserTabsEffects } from './use-browser-tabs';
 
 /**
- * A chrome stub with no engine — back/forward/reload disabled, a URL field
- * that accepts text and navigates nowhere, and a plate saying so. Proves the
- * field is wired end to end rather than silently swallowing input, which
- * would be indistinguishable from a broken browser.
+ * The browser pane: real tabs and groups over a `WebContentsView` engine
+ * (Themes A–D), with Back/Forward/Reload left disabled — Theme G still owns
+ * wiring those and the URL-vs-search resolver. The address bar is a raw-URL
+ * minimal version of that: no search fallback, `Enter` navigates the tab
+ * verbatim.
  *
- * Mounted as a child of the content row with `absolute inset-0`, over the
- * repositories panel and the view/terminal column alike — the status bar
- * stays visible below it, which is the whole demonstration.
+ * Mounted exactly where the Phase 27 stub was — `absolute inset-0` over the
+ * content row — with the same focus trap, Escape handling and
+ * close-focus-restore. Only the toolbar's address field and the body
+ * changed from a stub to something real.
  */
 export function BrowserPane({ shown }: { shown: boolean }) {
-  const [url, setUrl] = useState('');
-  const [submitted, setSubmitted] = useState('');
   const containerRef = useRef<HTMLDivElement>(null);
+  const addressRef = useRef<HTMLInputElement>(null);
+  const tabs = useBrowserStore((s) => s.tabs);
+  const activeTabId = useBrowserStore((s) => s.activeTabId);
+  const activeTab = tabs.find((tab) => tab.id === activeTabId) ?? null;
+
+  const [draft, setDraft] = useState(activeTab?.url ?? '');
+  const [editing, setEditing] = useState(false);
+
+  useBrowserTabsEffects(shown);
+  const bodyRef = useBrowserBounds(activeTabId, shown && activeTab?.kind === 'page');
 
   useFocusTrap(containerRef, shown);
+
+  // Ensure there is always at least one tab once the pane is first shown —
+  // "browser.toggle opening with zero tabs creates one new tab" (Theme C).
+  // The emptiness check lives in the store, so StrictMode's double-invoked
+  // effect still yields exactly one tab.
+  useEffect(() => {
+    if (shown) useBrowserStore.getState().ensureTab();
+  }, [shown, tabs.length]);
+
+  useEffect(() => {
+    if (!editing) setDraft(activeTab?.url ?? '');
+  }, [activeTab?.url, activeTab?.id, editing]);
+
+  // A brand new tab focuses the address bar automatically — the whole
+  // surface of a blank tab is "type something here" (Theme F's new-tab
+  // page owns the fuller version; this is the minimal stand-in).
+  useEffect(() => {
+    if (shown && activeTab?.kind === 'newtab') addressRef.current?.focus();
+  }, [shown, activeTab?.id, activeTab?.kind]);
 
   useEffect(() => {
     const onKeyDown = (event: KeyboardEvent) => {
@@ -48,7 +81,14 @@ export function BrowserPane({ shown }: { shown: boolean }) {
 
   const onSubmit = (event: FormEvent) => {
     event.preventDefault();
-    setSubmitted(url);
+    setEditing(false);
+    if (!activeTab || draft.trim().length === 0) return;
+    if (activeTab.kind === 'newtab') {
+      useBrowserStore.getState().updateTabState(activeTab.id, { kind: 'page', url: draft });
+      void bridge()?.browser.create({ tabId: activeTab.id, url: draft });
+    } else {
+      bridge()?.browser.navigate({ tabId: activeTab.id, url: draft });
+    }
   };
 
   return (
@@ -66,16 +106,21 @@ export function BrowserPane({ shown }: { shown: boolean }) {
       }`}
       style={{ transitionDuration: `${motionMs()}ms` }}
     >
+      <BrowserTabStrip />
+
       <div className="flex h-9 shrink-0 items-center gap-2 border-b border-border px-3">
         <IconButton icon={GoArrowLeft} label="Back" disabled size="sm" />
         <IconButton icon={GoArrowRight} label="Forward" disabled size="sm" />
         <IconButton icon={GoSync} label="Reload" disabled size="sm" />
         <form onSubmit={onSubmit} className="min-w-0 flex-1">
           <input
+            ref={addressRef}
             type="text"
-            value={url}
-            onChange={(event) => setUrl(event.target.value)}
-            placeholder="No web engine yet"
+            value={draft}
+            onFocus={() => setEditing(true)}
+            onBlur={() => setEditing(false)}
+            onChange={(event) => setDraft(event.target.value)}
+            placeholder="Search or enter address"
             aria-label="Address"
             className="w-full rounded border border-border bg-card px-2 py-1 text-xs outline-none focus-visible:ring-1 focus-visible:ring-ring"
           />
@@ -87,10 +132,41 @@ export function BrowserPane({ shown }: { shown: boolean }) {
           onClick={() => useUiStore.getState().setBrowserOpen(false)}
         />
       </div>
-      <div className="min-h-0 flex-1">
-        <EmptyState
-          title={submitted ? `No web engine yet — ${submitted} would load here.` : 'No web engine yet.'}
-        />
+
+      <div ref={bodyRef} className="relative min-h-0 flex-1">
+        {activeTab?.kind !== 'page' ? (
+          <div
+            data-testid="browser-newtab"
+            className="flex h-full flex-col items-center justify-center gap-1 text-center text-muted-foreground"
+          >
+            <p className="text-sm font-medium text-foreground">New Tab</p>
+            <p className="max-w-sm text-xs">Type an address above and press Enter.</p>
+          </div>
+        ) : null}
+        {/* A crashed or unresponsive view is surfaced, never swallowed — the
+            native layer is blank at this point, so without this the tab
+            would just be an empty rectangle with no way out (Theme A). */}
+        {activeTab?.kind === 'page' && activeTab.crashed ? (
+          <div
+            data-testid="browser-crashed"
+            className="absolute inset-0 flex flex-col items-center justify-center gap-2 bg-background text-center"
+          >
+            <p className="text-sm font-medium text-foreground">This page stopped responding</p>
+            <p className="max-w-sm text-xs text-muted-foreground">
+              Its renderer crashed or stopped answering. Reloading starts it again.
+            </p>
+            <button
+              type="button"
+              onClick={() => {
+                useBrowserStore.getState().updateTabState(activeTab.id, { crashed: false, loading: true });
+                bridge()?.browser.reload({ tabId: activeTab.id });
+              }}
+              className="mt-1 rounded-md border border-border px-3 py-1.5 text-xs font-medium transition-colors hover:bg-accent"
+            >
+              Reload page
+            </button>
+          </div>
+        ) : null}
       </div>
     </div>
   );

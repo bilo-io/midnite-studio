@@ -89,6 +89,31 @@ export const COMMANDS = [
    * focused.
    */
   { id: 'browser.toggle', label: 'Toggle Browser', group: 'view', chord: 'Mod+b' },
+  /**
+   * The browser's own tab chords (Theme C), all sharing a chord with an
+   * app-wide command that means something else with the pane closed —
+   * `Mod+w` is `repo.close`, `Mod+1`/`Mod+2` are `graph.focus`/`status.focus`.
+   * `use-keybindings.ts` resolves the collision by preferring a `browser.*`
+   * binding ONLY while `browserOpen` is true, so Mod+w still closes the
+   * repository the rest of the time. An app-scoped Mod+w with no such
+   * carve-out would close the window's repository out from under a browser
+   * user reaching to close a tab — the scoping is load-bearing, not cosmetic.
+   */
+  { id: 'browser.newTab', label: 'New Browser Tab', group: 'view', chord: 'Mod+t' },
+  { id: 'browser.closeTab', label: 'Close Browser Tab', group: 'view', chord: 'Mod+w' },
+  { id: 'browser.nextTab', label: 'Next Browser Tab', group: 'view', chord: 'Ctrl+Tab' },
+  { id: 'browser.prevTab', label: 'Previous Browser Tab', group: 'view', chord: 'Ctrl+Shift+Tab' },
+  { id: 'browser.reopenTab', label: 'Reopen Closed Browser Tab', group: 'view', chord: 'Mod+Shift+t' },
+  { id: 'browser.selectTab1', label: 'Select Browser Tab 1', group: 'view', chord: 'Mod+1' },
+  { id: 'browser.selectTab2', label: 'Select Browser Tab 2', group: 'view', chord: 'Mod+2' },
+  { id: 'browser.selectTab3', label: 'Select Browser Tab 3', group: 'view', chord: 'Mod+3' },
+  { id: 'browser.selectTab4', label: 'Select Browser Tab 4', group: 'view', chord: 'Mod+4' },
+  { id: 'browser.selectTab5', label: 'Select Browser Tab 5', group: 'view', chord: 'Mod+5' },
+  { id: 'browser.selectTab6', label: 'Select Browser Tab 6', group: 'view', chord: 'Mod+6' },
+  { id: 'browser.selectTab7', label: 'Select Browser Tab 7', group: 'view', chord: 'Mod+7' },
+  { id: 'browser.selectTab8', label: 'Select Browser Tab 8', group: 'view', chord: 'Mod+8' },
+  /** 9 always means "the last tab", regardless of count — matches every browser's own convention. */
+  { id: 'browser.selectTab9', label: 'Select Last Browser Tab', group: 'view', chord: 'Mod+9' },
   { id: 'repo.open', label: 'Open Repository…', group: 'repository', chord: 'Mod+o' },
   { id: 'repo.close', label: 'Close Repository', group: 'repository', chord: 'Mod+w' },
   { id: 'view.refresh', label: 'Refresh', group: 'view', chord: 'Mod+r' },

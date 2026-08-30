@@ -1,6 +1,6 @@
 import type { IconType } from 'react-icons';
 import { FaCodePullRequest } from 'react-icons/fa6';
-import { GoBeaker } from 'react-icons/go';
+import { GoBeaker, GoGlobe } from 'react-icons/go';
 import {
   LuActivity,
   LuBot,
@@ -65,4 +65,5 @@ export const SETTINGS_PAGE_ICON: Record<SettingsPageId, IconType> = {
   // front of the review actions, not the actions themselves.
   reviews: LuShieldCheck,
   monitor: LuActivity,
+  browser: GoGlobe,
 };

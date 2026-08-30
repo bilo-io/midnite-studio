@@ -398,6 +398,29 @@ export type MidniteGitBridge = {
     reorder: (req: In<typeof S.TerminalReorderRequest>) => void;
   };
 
+  /**
+   * The embedded browser engine (Phase 32) — one `WebContentsView` per tab,
+   * owned by main's `browser-service.ts`. Chrome state (nav, title, favicon,
+   * loading) arrives on the single `onEvent` push rather than per-kind
+   * events, since the events vary in payload shape per tab rather than per
+   * subsystem — see {@link S.BrowserEventPayload}.
+   */
+  browser: {
+    create: (req: In<typeof S.BrowserCreateRequest>) => Promise<z.infer<typeof S.BrowserCreateResponse>>;
+    close: (req: In<typeof S.BrowserCloseRequest>) => void;
+    navigate: (req: In<typeof S.BrowserNavigateRequest>) => void;
+    back: (req: In<typeof S.BrowserBackRequest>) => void;
+    forward: (req: In<typeof S.BrowserForwardRequest>) => void;
+    reload: (req: In<typeof S.BrowserReloadRequest>) => void;
+    stop: (req: In<typeof S.BrowserStopRequest>) => void;
+    setBounds: (req: In<typeof S.BrowserSetBoundsRequest>) => void;
+    setVisible: (req: In<typeof S.BrowserSetVisibleRequest>) => void;
+    activate: (req: In<typeof S.BrowserActivateRequest>) => void;
+    /** Wipes the `persist:browser` partition's storage and cache. */
+    clearData: () => Promise<z.infer<typeof S.BrowserClearDataResponse>>;
+    onEvent: (handler: (e: z.infer<typeof S.BrowserEventPayload>) => void) => Unsubscribe;
+  };
+
   /** Built-in agents merged with the user's `agents.json`, plus the Claude CLI. */
   agent: {
     list: () => Promise<z.infer<typeof S.AgentListResponse>>;

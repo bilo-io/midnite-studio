@@ -2,6 +2,9 @@ import { z } from 'zod';
 
 import {
   BlameResultSchema,
+  BrowserBoundsSchema,
+  BrowserEventSchema,
+  BrowserNavErrorSchema,
   CommitSchema,
   InProgressOpSchema,
   DiagnosticsCandidateSchema,
@@ -1318,6 +1321,42 @@ export const WindowStateSchema = z.object({
   fullScreen: z.boolean(),
   focused: z.boolean(),
 });
+
+// --- browser (Phase 32) -----------------------------------------------------
+
+export const BrowserCreateRequest = z.object({
+  tabId: z.string().min(1),
+  url: z.string().min(1),
+});
+export const BrowserCreateResponse = z.discriminatedUnion('ok', [
+  z.object({ ok: z.literal(true) }),
+  z.object({ ok: z.literal(false), message: z.string() }),
+]);
+export const BrowserCloseRequest = z.object({ tabId: z.string().min(1) });
+export const BrowserNavigateRequest = z.object({
+  tabId: z.string().min(1),
+  url: z.string().min(1),
+});
+export const BrowserBackRequest = z.object({ tabId: z.string().min(1) });
+export const BrowserForwardRequest = z.object({ tabId: z.string().min(1) });
+export const BrowserReloadRequest = z.object({ tabId: z.string().min(1) });
+export const BrowserStopRequest = z.object({ tabId: z.string().min(1) });
+export const BrowserSetBoundsRequest = z.object({
+  tabId: z.string().min(1),
+  bounds: BrowserBoundsSchema,
+});
+export const BrowserSetVisibleRequest = z.object({
+  tabId: z.string().min(1),
+  visible: z.boolean(),
+});
+export const BrowserActivateRequest = z.object({ tabId: z.string().min(1) });
+/** No payload: clears the whole `persist:browser` partition's storage and cache. */
+export const BrowserClearDataResponse = GitOpResultSchema;
+
+export const BrowserEventPayload = BrowserEventSchema;
+
+export type BrowserEventPayloadType = z.infer<typeof BrowserEventPayload>;
+export type BrowserNavErrorType = z.infer<typeof BrowserNavErrorSchema>;
 
 // --- watch -----------------------------------------------------------------
 

@@ -96,6 +96,7 @@ const bridge: Pick<
   | 'stash'
   | 'pty'
   | 'terminal'
+  | 'browser'
   | 'agent'
   | 'fs'
   | 'stats'
@@ -243,6 +244,22 @@ const bridge: Pick<
     save: (req) => ipcRenderer.send(CHANNELS.terminalSave, req),
     forget: (req) => ipcRenderer.send(CHANNELS.terminalForget, req),
     reorder: (req) => ipcRenderer.send(CHANNELS.terminalReorder, req),
+  },
+  browser: {
+    create: (req) => call(CHANNELS.browserCreate, req),
+    close: (req) => ipcRenderer.send(CHANNELS.browserClose, req),
+    navigate: (req) => ipcRenderer.send(CHANNELS.browserNavigate, req),
+    back: (req) => ipcRenderer.send(CHANNELS.browserBack, req),
+    forward: (req) => ipcRenderer.send(CHANNELS.browserForward, req),
+    reload: (req) => ipcRenderer.send(CHANNELS.browserReload, req),
+    stop: (req) => ipcRenderer.send(CHANNELS.browserStop, req),
+    // Fires per resize frame — a round-trip would add latency for nothing to
+    // report back, matching `pty.resize`.
+    setBounds: (req) => ipcRenderer.send(CHANNELS.browserSetBounds, req),
+    setVisible: (req) => ipcRenderer.send(CHANNELS.browserSetVisible, req),
+    activate: (req) => ipcRenderer.send(CHANNELS.browserActivate, req),
+    clearData: () => call(CHANNELS.browserClearData),
+    onEvent: (handler) => subscribe(EVENT_CHANNELS.browserEvent, handler),
   },
   agent: {
     list: () => call(CHANNELS.agentList),

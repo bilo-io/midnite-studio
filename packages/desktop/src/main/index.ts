@@ -5,6 +5,8 @@ import { BrowserWindow, app } from 'electron';
 
 import { createActivityDetector } from './activity-detect';
 import { createAgentWatcher, realAgentWatcherDeps } from './agent-watcher';
+import { destroyAllBrowserTabs } from './browser-service';
+import { registerBrowserHandlers } from './ipc/browser-handlers';
 import { registerClaudeHandlers } from './ipc/claude-handlers';
 import { configureDiagnostics, registerDiagHandlers } from './ipc/diag-handlers';
 import { registerForgeHandlers } from './ipc/forge-handlers';
@@ -150,6 +152,7 @@ if (!app.requestSingleInstanceLock()) {
     registerDiagHandlers();
     registerTestsHandlers(getWindow);
     registerPtyHandlers(getWindow);
+    registerBrowserHandlers(getWindow);
     /*
       What is running inside each terminal, from the pty's own process tree.
 
@@ -271,6 +274,7 @@ if (!app.requestSingleInstanceLock()) {
   let flushed = false;
   app.on('before-quit', (event) => {
     stopAllWatchers();
+    destroyAllBrowserTabs();
 
     if (flushed) {
       detachAll();
@@ -289,6 +293,7 @@ if (!app.requestSingleInstanceLock()) {
   app.on('window-all-closed', () => {
     detachAll();
     stopAllWatchers();
+    destroyAllBrowserTabs();
     // macOS apps conventionally stay alive with no windows; everywhere else,
     // closing the last window quits.
     if (process.platform !== 'darwin') app.quit();

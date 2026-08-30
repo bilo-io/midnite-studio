@@ -63,7 +63,14 @@ export function createWindow(): BrowserWindow {
       // The preload requires `@midnite/git-shared` for the channel constants,
       // which a sandboxed preload cannot do (it only gets a polyfilled subset of
       // require). contextIsolation + nodeIntegration:false remain the actual
-      // security boundary, and the renderer only ever loads local content.
+      // security boundary for THIS window's own renderer, which still only
+      // ever loads local content (the built app, or the Vite dev server).
+      //
+      // Remote content is a separate story: Phase 32's browser tabs load
+      // arbitrary web pages, but each one lives in its own `WebContentsView`
+      // on the `persist:browser` partition — never this window's own
+      // WebContents — with `sandbox: true` and NO preload of its own. See
+      // `browser-service.ts`, the only file that constructs one.
       sandbox: false,
       // Single-sourced from the window options above so the preload never
       // re-derives it. See WINDOW_FRAMELESS_ARG.

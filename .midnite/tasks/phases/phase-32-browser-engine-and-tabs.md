@@ -73,142 +73,142 @@ Effort tags: **S** ≈ an hour or two · **M** ≈ half a day · **L** ≈ a day
 
 ## Deliverables
 
-### A — The engine, and the contract that drives it (L)
+### A — The engine, and the contract that drives it (L) — ✅ DONE (2026-08-30)
 
 The main-process half. Lands first; C through I all assume these channels exist. Nothing in this
 theme is visible — its acceptance test is a page rendering inside the pane with the app's own chrome
 still disabled.
 
-- [ ] `packages/shared/src/domain/browser.ts` — the domain types and zod schemas: `BrowserTabId`
+- [x] `packages/shared/src/domain/browser.ts` — the domain types and zod schemas: `BrowserTabId`
       (branded string), `BrowserTabState` (`id`, `url`, `title`, `faviconUrl`, `loading`,
       `canGoBack`, `canGoForward`, `groupId`, `originRepoId`), `BrowserBounds`
       (`x`/`y`/`width`/`height`), and `BrowserNavError` (`code`, `description`, `validatedUrl`).
       Exported from [`domain/index.ts`](../packages/shared/src/domain/index.ts) alongside the other
       domains. zod only — the package imports no other workspace package.
-- [ ] `mgit:browser:*` channel constants in
+- [x] `mgit:browser:*` channel constants in
       [`ipc/channels.ts`](../packages/shared/src/ipc/channels.ts), grouped and commented in the style
       of the `pty:*` / `terminal:*` split at `:248–271`: `browserCreate`, `browserClose`,
       `browserNavigate`, `browserBack`, `browserForward`, `browserReload`, `browserStop`,
       `browserSetBounds`, `browserSetVisible`, `browserActivate`, `browserZoom`, `browserFind`,
       `browserFindStop`, `browserDevtools`, `browserClearData`.
-- [ ] Payload schemas in [`ipc/schemas.ts`](../packages/shared/src/ipc/schemas.ts) and the method
+- [x] Payload schemas in [`ipc/schemas.ts`](../packages/shared/src/ipc/schemas.ts) and the method
       signatures on the preload bridge type in [`ipc/bridge.ts`](../packages/shared/src/ipc/bridge.ts).
       Every op returns the `GitOpResult` envelope, never throws.
-- [ ] A single **event** channel `mgit:browser:event` carrying a discriminated union
+- [x] A single **event** channel `mgit:browser:event` carrying a discriminated union
       (`navigated` | `title` | `favicon` | `loading` | `failed` | `destroyed`), pushed main→renderer.
       Reuse the [`stream-registry.ts`](../packages/desktop/src/main/stream-registry.ts) subscription
       pattern rather than adding a second event mechanism.
-- [ ] `packages/desktop/src/main/browser-service.ts` — owns a `Map<BrowserTabId, WebContentsView>`,
+- [x] `packages/desktop/src/main/browser-service.ts` — owns a `Map<BrowserTabId, WebContentsView>`,
       creates views into the window's `contentView`, and is the only file in the repo that constructs
       one. Views are created lazily on first activation and destroyed on tab close, window close and
       `before-quit`.
-- [ ] Embedded-view `webPreferences`, stricter than the renderer's: `partition: 'persist:browser'`,
+- [x] Embedded-view `webPreferences`, stricter than the renderer's: `partition: 'persist:browser'`,
       `contextIsolation: true`, `nodeIntegration: false`, **`sandbox: true`** (the renderer sets
       `sandbox: false` only so its preload can `require` the channel constants — an embedded view has
       no preload and therefore no reason to relax it), and **no `preload`**.
-- [ ] `packages/desktop/src/main/ipc/browser-handlers.ts` following the shape of the sibling handler
+- [x] `packages/desktop/src/main/ipc/browser-handlers.ts` following the shape of the sibling handler
       modules in [`main/ipc/`](../packages/desktop/src/main/ipc), registered through the existing
       `handle.ts` helper.
-- [ ] Wire the `webContents` listeners that feed the event channel: `did-navigate`,
+- [x] Wire the `webContents` listeners that feed the event channel: `did-navigate`,
       `did-navigate-in-page`, `page-title-updated`, `page-favicon-updated`, `did-start-loading`,
       `did-stop-loading`, `did-fail-load`, `render-process-gone`.
-- [ ] `render-process-gone` and `unresponsive` are surfaced as tab state, not swallowed — a crashed
+- [x] `render-process-gone` and `unresponsive` are surfaced as tab state, not swallowed — a crashed
       tab shows a reload affordance rather than a blank rectangle.
-- [ ] Unit-test `browser-service` view lifecycle against a fake `WebContentsView` (create → activate →
+- [x] Unit-test `browser-service` view lifecycle against a fake `WebContentsView` (create → activate →
       close destroys; close of a never-activated tab is a no-op; quit destroys all).
 
-### B — Security and navigation policy (M)
+### B — Security and navigation policy (M) — ✅ DONE (2026-08-30)
 
 The condition Phase 27 attached to the engine. Lands with A, not after it — an engine that ships a
 week before its policy is the incident Phase 27 named.
 
-- [ ] `setPermissionRequestHandler` **and** `setPermissionCheckHandler` on the `persist:browser`
+- [x] `setPermissionRequestHandler` **and** `setPermissionCheckHandler` on the `persist:browser`
       session, both denying every permission (camera, microphone, geolocation, notifications, midi,
       clipboard-read, display-capture, pointer-lock). Both, not just the first — the check handler is
       what a synchronous `permissions.query()` reads.
-- [ ] `setWindowOpenHandler` on every embedded view returns `{ action: 'deny' }` and instead emits a
+- [x] `setWindowOpenHandler` on every embedded view returns `{ action: 'deny' }` and instead emits a
       "open as new tab" event, so `target="_blank"` and `window.open` behave the way a browser user
       expects rather than spawning an unmanaged `BrowserWindow`.
-- [ ] A `will-navigate` / `will-redirect` policy allowing **only** `http:` and `https:`. `file:`,
+- [x] A `will-navigate` / `will-redirect` policy allowing **only** `http:` and `https:`. `file:`,
       `mgit:`, `javascript:`, `data:` and every custom scheme are blocked and reported as a
       `BrowserNavError` the pane renders.
-- [ ] Prove the `mgit:` protocol is registered on the **default** session only — read
+- [x] Prove the `mgit:` protocol is registered on the **default** session only — read
       [`fs-protocol.ts`](../packages/desktop/src/main/fs-protocol.ts), confirm the registration
       target, and add a test asserting a `persist:browser` view cannot resolve an `mgit:` URL. If it
       is currently registered on `protocol` globally rather than per-session, fixing that is part of
       this theme.
-- [ ] `certificate-error` is **not** blanket-accepted: the default (reject) stands, and the failure
+- [x] `certificate-error` is **not** blanket-accepted: the default (reject) stands, and the failure
       renders as an error page. No "proceed anyway" affordance this phase.
-- [ ] `session.on('will-download')` cancels and surfaces a one-line notice naming the file — downloads
+- [x] `session.on('will-download')` cancels and surfaces a one-line notice naming the file — downloads
       are out of scope, and cancelling loudly beats dropping silently.
-- [ ] Confirm no embedded view can reach the bridge: a test that evaluates `typeof window.midniteGit`
+- [x] Confirm no embedded view can reach the bridge: a test that evaluates `typeof window.midniteGit`
       in an embedded view's `webContents` and asserts `'undefined'`.
-- [ ] Rewrite the now-false comment at [`window.ts:64–66`](../packages/desktop/src/main/window.ts)
+- [x] Rewrite the now-false comment at [`window.ts:64–66`](../packages/desktop/src/main/window.ts)
       (*"the renderer only ever loads local content"*). It stays true of the renderer and becomes
       misleading about the app — say that remote content lives in sibling views on a separate
       partition with no preload, and link the reader to `browser-service.ts`.
-- [ ] A **Browser** settings page under
+- [x] A **Browser** settings page under
       [`settings-pages/`](../packages/app/src/features/settings/settings-pages) with a
       "Clear browsing data" action (`session.clearStorageData()` + `clearCache()`), behind a
       `ConfirmDialog` naming what is cleared, plus the search-engine and link-handling settings
       Themes G and I need.
 
-### C — The tab model and the strip (L)
+### C — The tab model and the strip (L) — ✅ DONE (2026-08-30)
 
-- [ ] `packages/app/src/store/browser-store.ts` (zustand, colocated `.test.ts`): `tabs`, `groups`,
+- [x] `packages/app/src/store/browser-store.ts` (zustand, colocated `.test.ts`): `tabs`, `groups`,
       `activeTabId`, `recentlyClosed`. Persisted via `partialize` — **URLs and titles only**, never
       live view handles; views are recreated lazily on activation after a restart.
-- [ ] Store actions with pure, testable reducers: `openTab`, `closeTab`, `closeOthers`,
+- [x] Store actions with pure, testable reducers: `openTab`, `closeTab`, `closeOthers`,
       `closeToRight`, `activateTab`, `moveTab`, `duplicateTab`, `reopenClosed`, `updateTabState`.
-- [ ] `features/browser/tab-strip.tsx`, modelled on
+- [x] `features/browser/tab-strip.tsx`, modelled on
       [`workbench/tab-strip.tsx`](../packages/app/src/features/workbench/tab-strip.tsx) — same
       `role="tablist"` semantics, same `overflow-x-auto` overflow decision, same close affordance.
       Read that file's header comment first and follow it rather than re-litigating it.
-- [ ] Favicon slot per tab, falling back to the monochrome
+- [x] Favicon slot per tab, falling back to the monochrome
       [`midnite-icon.tsx`](../packages/app/src/components/icons/midnite-icon.tsx) for a new tab and to
       a generic globe for a page with no favicon. The PNG `BrandMark` is a hero asset and is wrong at
       16px — this is why the traced SVG exists.
-- [ ] Loading state on the tab (spinner replacing the favicon), and a title that falls back to the
+- [x] Loading state on the tab (spinner replacing the favicon), and a title that falls back to the
       URL's host while the page has none.
-- [ ] Drag-to-reorder via [`sortable-list.tsx`](../packages/app/src/components/sortable-list.tsx),
+- [x] Drag-to-reorder via [`sortable-list.tsx`](../packages/app/src/components/sortable-list.tsx),
       including dragging a tab into and out of a group (Theme D consumes the same drop targets).
-- [ ] Right-click menu via [`context-menu.tsx`](../packages/app/src/components/context-menu.tsx):
+- [x] Right-click menu via [`context-menu.tsx`](../packages/app/src/components/context-menu.tsx):
       Reload, Duplicate, Copy URL, Move to group ▸, Close, Close others, Close to the right.
-- [ ] New chords in [`keybindings.ts`](../packages/shared/src/keybindings.ts) under a **browser
+- [x] New chords in [`keybindings.ts`](../packages/shared/src/keybindings.ts) under a **browser
       scope**, not the app scope: `browser.newTab` (`Mod+t`), `browser.closeTab` (`Mod+w`),
       `browser.nextTab` / `browser.prevTab` (`Ctrl+Tab` / `Ctrl+Shift+Tab`), `browser.reopenTab`
       (`Mod+Shift+t`). Scoping is load-bearing: an app-scoped `Mod+w` would close the window.
-- [ ] `Mod+1`…`Mod+9` select the nth tab (9 = last), scoped the same way.
-- [ ] `browser.toggle` opening with zero tabs creates one new tab rather than showing an empty strip.
-- [ ] Reducer unit tests, including the ones easy to get wrong: closing the active tab activates its
+- [x] `Mod+1`…`Mod+9` select the nth tab (9 = last), scoped the same way.
+- [x] `browser.toggle` opening with zero tabs creates one new tab rather than showing an empty strip.
+- [x] Reducer unit tests, including the ones easy to get wrong: closing the active tab activates its
       right neighbour then its left; closing the last tab leaves one new tab, not zero; reorder across
       a group boundary; `reopenClosed` restores position.
 
-### D — Tab groups, manual and derived (L)
+### D — Tab groups, manual and derived (L) — ✅ DONE (2026-08-30)
 
 Two kinds of group with one visual language. Manual groups are user-made and persist; derived groups
 are computed from where a tab came from and vanish when empty.
 
-- [ ] `BrowserTabGroup` in the shared domain: `id`, `name`, `color`, `collapsed`, `kind`
+- [x] `BrowserTabGroup` in the shared domain: `id`, `name`, `color`, `collapsed`, `kind`
       (`'manual' | 'repo'`), `repoId?`.
-- [ ] Manual groups: create from a tab's context menu or a strip affordance, rename inline, pick a
+- [x] Manual groups: create from a tab's context menu or a strip affordance, rename inline, pick a
       colour, collapse/expand, ungroup, delete-keeping-tabs.
-- [ ] A small named colour palette defined as tokens in
+- [x] A small named colour palette defined as tokens in
       [`styles.css`](../packages/app/src/styles.css) with a `.dark` override, in the style of the
       existing `--cal-1..4` and `--health-*` sets. Eight colours; do not reuse the graph lane ramp,
       which carries its own meaning.
-- [ ] Repo-derived groups: a tab opened with an `originRepoId` (Theme I supplies it) is auto-placed in
+- [x] Repo-derived groups: a tab opened with an `originRepoId` (Theme I supplies it) is auto-placed in
       that repo's group, labelled with the repo name and coloured deterministically from its id.
-- [ ] Derived groups are implicit — they appear when their first tab does, disappear when their last
+- [x] Derived groups are implicit — they appear when their first tab does, disappear when their last
       tab closes, and are not persisted as objects. Dragging a tab out of one is allowed and sticks
       (an explicit `groupId: null` beats the derived default).
-- [ ] Collapse rendering follows the [`tree-section.tsx`](../packages/app/src/components/tree-section.tsx)
+- [x] Collapse rendering follows the [`tree-section.tsx`](../packages/app/src/components/tree-section.tsx)
       idiom; a collapsed group shows its name, colour and tab count as one chip.
-- [ ] Closing a collapsed group closes its tabs, behind a `ConfirmDialog` when the count is above a
+- [x] Closing a collapsed group closes its tabs, behind a `ConfirmDialog` when the count is above a
       threshold — the same blast-radius discipline the git ops use.
-- [ ] Group state persists across restarts (manual groups and their membership; derived membership
+- [x] Group state persists across restarts (manual groups and their membership; derived membership
       re-derives from `originRepoId`).
-- [ ] Unit tests for derivation: a tab with `originRepoId` and no explicit `groupId` lands in the
+- [x] Unit tests for derivation: a tab with `originRepoId` and no explicit `groupId` lands in the
       derived group; an explicit `groupId: null` overrides it; the derived group disappears at zero
       tabs.
 

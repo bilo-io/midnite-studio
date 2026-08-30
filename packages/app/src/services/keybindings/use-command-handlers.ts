@@ -6,6 +6,7 @@ import { useDialogs } from '../../components/dialog-host';
 import { useGraphStore } from '../../features/graph/graph-store';
 import { useSlidesStore } from '../../features/slides/slides-store';
 import { syncAffordances } from '../../features/status/sync-availability';
+import { useBrowserStore } from '../../store/browser-store';
 import { useCommitBoxStore } from '../../store/commit-box-store';
 import { useFileEditorStore } from '../../store/file-editor-store';
 import { usePaletteStore } from '../../store/palette-store';
@@ -42,6 +43,7 @@ export function useCommandHandlers(): CommandRuntime {
 
   const selectedRepoId = useUiStore((s) => s.selectedRepoId);
   const activeView = useUiStore((s) => s.activeView);
+  const browserOpen = useUiStore((s) => s.browserOpen);
   const workbenchActiveTabId = useWorkbenchStore((s) => s.activeTabId);
   const { data: repos } = useRepos();
   const selectedRepo = repos?.find((repo) => repo.id === selectedRepoId) ?? null;
@@ -80,6 +82,7 @@ export function useCommandHandlers(): CommandRuntime {
     'terminal.focus': { enabled: true, run: () => useUiStore.getState().setTerminalOpen(true) },
     'repos.toggle': { enabled: true, run: () => useUiStore.getState().toggleRepos() },
     'browser.toggle': { enabled: true, run: () => useUiStore.getState().toggleBrowser() },
+    ...browserTabCommands(browserOpen),
     'search.open': { enabled: true, run: () => useUiStore.getState().setActiveView('search') },
 
     'repo.open': {
@@ -163,5 +166,74 @@ export function useCommandHandlers(): CommandRuntime {
     'markdown.presentAsSlides': activeMarkdown
       ? { enabled: true, run: () => useSlidesStore.getState().presentActive() }
       : { enabled: false, disabledReason: 'No markdown in view', run: () => {} },
+  };
+}
+
+const NO_BROWSER = 'Open the browser first';
+
+/**
+ * The browser's own tab commands — only enabled while the pane is open,
+ * matching `use-keybindings.ts`'s chord collision rule: a chord like Mod+w
+ * means `repo.close` unless the browser owns it right now.
+ */
+function browserTabCommands(browserOpen: boolean): Record<
+  | 'browser.newTab'
+  | 'browser.closeTab'
+  | 'browser.nextTab'
+  | 'browser.prevTab'
+  | 'browser.reopenTab'
+  | 'browser.selectTab1'
+  | 'browser.selectTab2'
+  | 'browser.selectTab3'
+  | 'browser.selectTab4'
+  | 'browser.selectTab5'
+  | 'browser.selectTab6'
+  | 'browser.selectTab7'
+  | 'browser.selectTab8'
+  | 'browser.selectTab9',
+  CommandEntry
+> {
+  if (!browserOpen) {
+    const disabled = { enabled: false, disabledReason: NO_BROWSER, run: () => {} };
+    return {
+      'browser.newTab': disabled,
+      'browser.closeTab': disabled,
+      'browser.nextTab': disabled,
+      'browser.prevTab': disabled,
+      'browser.reopenTab': disabled,
+      'browser.selectTab1': disabled,
+      'browser.selectTab2': disabled,
+      'browser.selectTab3': disabled,
+      'browser.selectTab4': disabled,
+      'browser.selectTab5': disabled,
+      'browser.selectTab6': disabled,
+      'browser.selectTab7': disabled,
+      'browser.selectTab8': disabled,
+      'browser.selectTab9': disabled,
+    };
+  }
+
+  const selectTab = (n: number) => ({ enabled: true, run: () => useBrowserStore.getState().activateNth(n) });
+  return {
+    'browser.newTab': { enabled: true, run: () => useBrowserStore.getState().openTab() },
+    'browser.closeTab': {
+      enabled: true,
+      run: () => {
+        const { activeTabId, closeTab } = useBrowserStore.getState();
+        if (activeTabId) closeTab(activeTabId);
+      },
+    },
+    'browser.nextTab': { enabled: true, run: () => useBrowserStore.getState().cycleTab(1) },
+    'browser.prevTab': { enabled: true, run: () => useBrowserStore.getState().cycleTab(-1) },
+    'browser.reopenTab': { enabled: true, run: () => useBrowserStore.getState().reopenClosed() },
+    'browser.selectTab1': selectTab(1),
+    'browser.selectTab2': selectTab(2),
+    'browser.selectTab3': selectTab(3),
+    'browser.selectTab4': selectTab(4),
+    'browser.selectTab5': selectTab(5),
+    'browser.selectTab6': selectTab(6),
+    'browser.selectTab7': selectTab(7),
+    'browser.selectTab8': selectTab(8),
+    'browser.selectTab9': selectTab(9),
   };
 }

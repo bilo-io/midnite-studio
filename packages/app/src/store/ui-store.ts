@@ -82,7 +82,8 @@ export type SettingsPageId =
   | 'terminal'
   | 'agent'
   | 'reviews'
-  | 'monitor';
+  | 'monitor'
+  | 'browser';
 
 /**
  * The categories the settings pages sort into, in UX priority order — the
@@ -115,6 +116,7 @@ export const SETTINGS_PAGES: { id: SettingsPageId; label: string; group: Setting
   { id: 'terminal', label: 'Terminal', group: 'tools' },
   { id: 'agent', label: 'Agent', group: 'tools' },
   { id: 'reviews', label: 'Reviews', group: 'tools' },
+  { id: 'browser', label: 'Browser', group: 'tools' },
   { id: 'monitor', label: 'Monitor & Diagnostics', group: 'system' },
 ];
 

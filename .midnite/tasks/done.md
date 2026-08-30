@@ -2,6 +2,17 @@
 
 <!-- Append one entry per landed phase/PR: date, phase, PR link, one-line summary. -->
 
+## 2026-08-30 — Phase 32 Themes A–D — The browser gets a real engine, tabs and groups
+
+Merged to `main` locally (this repo has no git remote, so no PR link). Phase 27 shipped browser
+chrome over a "no engine yet" plate and attached a security condition to the engine; this slice
+fills the body and pays that condition in the same change.
+
+- [x] **Theme A — Engine + contract.** `shared/src/domain/browser.ts` (tab state, bounds, nav error, the `mgit:browser:event` union), the `mgit:browser:*` channels/schemas/bridge methods, and `desktop/src/main/browser-service.ts` — the only file that constructs a `WebContentsView`, one per tab on `persist:browser`, created lazily and destroyed on close/window-close/quit. `render-process-gone` and `unresponsive` surface as tab state with a reload affordance instead of a blank rectangle.
+- [x] **Theme B — Security policy.** Both permission handlers deny everything; navigation is http(s)-only on `will-navigate`/`will-redirect`; `window.open` is refused and handed back as "open as new tab"; downloads cancel and name the file in the notification bell; certificate errors keep the default reject; embedded views get no preload and `sandbox: true`. `mgit-file:` is documented and tested as default-session-only, so a `persist:browser` view cannot resolve it. A Browser settings page clears the partition behind a confirm.
+- [x] **Theme C — Tab model + strip.** `app/src/store/browser-store.ts` (pure reducers: open/close/close-others/close-to-right/reorder/duplicate/reopen-closed/nth/cycle), persisted as URLs and titles only — a restored tab mounts no view until activated. `features/browser/tab-strip.tsx` mirrors the workbench strip's `role="tablist"` semantics, with favicons (Midnite mark for a blank tab, globe for a page with none), a loading spinner, drag-reorder, a right-click menu, and browser-scoped chords that beat their app-wide twins (`Mod+w`, `Mod+1`…`Mod+9`) only while the pane is open.
+- [x] **Theme D — Tab groups.** Manual groups (create from a tab's menu, inline rename, eight-colour palette as `--tab-group-*` tokens with a `.dark` set, collapse, ungroup-keeping-tabs, close-with-confirm above three tabs) and repo-derived groups (implicit, coloured deterministically from the repo id, gone when their last tab closes). Assigning a group relocates the tab so a group stays one contiguous run.
+
 ## 2026-08-30 — Manual Verification Checks Completed — Phases 12, 15, 17, 18, 19, 20, 21, 28, 30
 
 - [x] **Manual Verification Finalization.** Completed all remaining manual verification checks across Phase 12 (Commit Inspector SHA copy & ref badge push/pull), Phase 15 (Multi-terminal packaged app restart), Phase 17 (Repos Workbench theme screenshots & gh auth states), Phase 18 (Footer Monitor metrics vs Activity Monitor & lint fail-soft), Phase 19 (Dashboard scale performance, Actions matrix run & dark grid styles), Phase 20 (PR review/merge & 100+ file diff scroll performance), Phase 21 (Worktree cd header updates, codex/agy process swap & Finder app launch), Phase 28 (Sidebar depth-4 tree screenshot & large repo read), and Phase 30 (Terminal broker restart, process crash recovery & reduce motion accessibility). All phases now 100% complete!

@@ -10,6 +10,7 @@ import {
 } from '../../store/ui-store';
 import { AgentPage } from './settings-pages/agent-page';
 import { AppearancePage } from './settings-pages/appearance-page';
+import { BrowserPage } from './settings-pages/browser-page';
 import { GraphPage } from './settings-pages/graph-page';
 import { MonitorPage } from './settings-pages/monitor-page';
 import { ReviewsPage } from './settings-pages/reviews-page';
@@ -34,6 +35,7 @@ const PAGE_CONTENT: Record<SettingsPageId, () => React.ReactNode> = {
   agent: () => <AgentPage />,
   reviews: () => <ReviewsPage />,
   monitor: () => <MonitorPage />,
+  browser: () => <BrowserPage />,
 };
 
 function PageLink({ id, label }: { id: SettingsPageId; label: string }) {
