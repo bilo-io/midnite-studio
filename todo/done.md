@@ -4,7 +4,9 @@
 
 ## 2026-08-30 — Phase 26 Themes E–H — Sticky DiffToolbar, Left-side Review Comments, Full-width Commit Tab & PR Image Diffs
 
+- [x] **Theme D — Virtualized Accordions.** Implemented per-file virtualization in `InlineDiffBody` for inline diff accordions; relaxed `EXPAND_ALL_LIMIT` to 100 in `expansion.ts`; added split scroll perf test cases.
 - [x] **Theme E — Shared DiffToolbar.** Extracted reusable `DiffToolbar` with split toggle, old-gutter toggle, context expansion, and sticky headers in file accordions.
+
 - [x] **Theme F — Left-side Review Comments.** Added `leftSideLines` and per-side thread maps in `comment-anchors.ts`; enabled left-side deleted line comment affordances in `DiffCell` and `DiffView`; added `LEFT`/`RIGHT` line badges to thread headers.
 - [x] **Theme G — Commit Workbench Tab.** Added `commit` workbench tab kind, header `Open commit in tab` button, graph context menu verb, and full-width rendering in `workbench.tsx`.
 - [x] **Theme H — PR Image Diffs.** Added `baseSha` to `ForgePullDetailSchema`, `gh-cli.ts`, and `gh-parse.ts`; wired `baseSha` into `imageDiffSources` in `PrFileAccordion`.

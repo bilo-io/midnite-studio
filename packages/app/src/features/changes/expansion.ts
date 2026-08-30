@@ -14,7 +14,8 @@
  * opens the first N and the view SAYS how many it left closed. A silent
  * truncation would read as "that is all the changes there are".
  */
-export const EXPAND_ALL_LIMIT = 40;
+export const EXPAND_ALL_LIMIT = 100;
+
 
 export type ExpansionState = ReadonlySet<string>;
 
