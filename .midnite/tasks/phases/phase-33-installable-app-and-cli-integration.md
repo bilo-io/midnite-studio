@@ -102,7 +102,7 @@
     running `pnpm exec moon run desktop:verify-dist` between `desktop:dist` and the artifact upload,
     so a bundle that cannot pass `codesign --verify` never becomes a downloadable artifact.
 
-### Theme B — `midnite-studio` CLI Binary & System PATH Symlinking (S/M/L: L)
+### Theme B — `midnite-studio` CLI Binary & System PATH Symlinking (S/M/L: L) — ✅ PARTIAL (2026-08-30)
 
 - [ ] Create the executable wrapper `packages/desktop/resources/bin/midnite-studio` (net-new), a POSIX `sh` script.
   - **Grammar** (the whole surface): `midnite-studio [path]`, `midnite-studio open <path>`,
@@ -113,20 +113,20 @@
   - **Dispatch is one-way**: the wrapper exits 0 once `open` succeeds and cannot report what the
     app did with the request. See *Decisions* for why a socket was rejected.
   - `--version` prints the version substituted at build time; `--help` prints the grammar above.
-- [ ] Create `packages/desktop/src/main/cli-path.ts` (net-new) — pure and electron-free.
+- [x] Create `packages/desktop/src/main/cli-path.ts` (net-new) — pure and electron-free.
   - `export type CliInstallState = { installed: boolean; path: string | null; target: string | null; managed: boolean }`
   - `export function preferredTargets(home: string): string[]` →
     `['/usr/local/bin/midnite-studio', join(home, '.local/bin/midnite-studio')]`
   - `export function pathExportLine(dir: string): string` → `export PATH="<dir>:$PATH"`
   - Electron-free on purpose so it unit-tests under desktop's vitest, whose config comments
     "Only electron-free modules are unit-tested here".
-- [ ] Define the CLI channels in [`packages/shared/src/ipc/channels.ts`](../../../packages/shared/src/ipc/channels.ts).
+- [x] Define the CLI channels in [`packages/shared/src/ipc/channels.ts`](../../../packages/shared/src/ipc/channels.ts).
   - In `CHANNELS`: `cliStatus: 'mstudio:cli:status'`, `cliInstall: 'mstudio:cli:install'`,
     `cliUninstall: 'mstudio:cli:uninstall'`.
   - camelCase keys, `mstudio:<domain>:<verb>` values —
     [`ipc.test.ts`](../../../packages/shared/src/ipc/ipc.test.ts) already asserts both the prefix
     and uniqueness, so a `CLI_CHECK_STATUS`-style name fails the suite.
-- [ ] Add the CLI schemas to [`packages/shared/src/ipc/schemas.ts`](../../../packages/shared/src/ipc/schemas.ts) under a `// --- cli (Phase 33) ---` banner.
+- [x] Add the CLI schemas to [`packages/shared/src/ipc/schemas.ts`](../../../packages/shared/src/ipc/schemas.ts) under a `// --- cli (Phase 33) ---` banner.
   - `export const CliStatusResponse = z.object({ installed: z.boolean(), path: z.string().nullable(), target: z.string().nullable(), managed: z.boolean() });`
   - `export const CliInstallRequest = z.object({ target: z.enum(['auto', 'user']).default('auto') });`
   - `export const CliInstallResponse = GitOpResultOf(CliStatusResponse);` and the same for
@@ -144,7 +144,7 @@
     on `PATH` that someone else put there is reported but **never overwritten and never deleted**.
   - Registered with one line in the `app.whenReady()` block of `main/index.ts`, beside
     `registerFsHandlers()`.
-- [ ] Expose the `cli` group on the preload bridge and its type.
+- [x] Expose the `cli` group on the preload bridge and its type.
   - [`preload/index.ts`](../../../packages/desktop/src/preload/index.ts):
     `cli: { status: () => call(CHANNELS.cliStatus), install: (req) => call(CHANNELS.cliInstall, req), uninstall: () => call(CHANNELS.cliUninstall) }`.
   - Add `| 'cli'` to the `Pick<MidniteGitBridge, …>` union in the same file — that union is what
@@ -184,13 +184,13 @@
     selectable `<code>` block.
   - **Error**: the `{ok:false}` arm's `message` inline in `text-destructive`, and one
     `addToast({ message, status: 'error' })`.
-- [ ] Stub the `cli` group in [`packages/app/e2e/mock-bridge.ts`](../../../packages/app/e2e/mock-bridge.ts).
+- [x] Stub the `cli` group in [`packages/app/e2e/mock-bridge.ts`](../../../packages/app/e2e/mock-bridge.ts).
   - Add to the object assigned to `window.midniteGit`, returning
     `{ installed: false, path: null, target: null, managed: false }`.
   - Without this, every existing spec that mounts Settings (`settings-pages.spec.ts`) fails —
     `installMockBridge` is serialised through `addInitScript` and replaces the bridge wholesale.
 
-### Theme C — `midnite-studio://` Custom Protocol Handler & Deep-Link Dispatch (S/M/L: M)
+### Theme C — `midnite-studio://` Custom Protocol Handler & Deep-Link Dispatch (S/M/L: M) — ✅ PARTIAL (2026-08-30)
 
 - [ ] Call `app.setAsDefaultProtocolClient('midnite-studio')` in [`main/index.ts`](../../../packages/desktop/src/main/index.ts).
   - Inside the existing single-instance `else` block, before `app.whenReady()`.
@@ -209,7 +209,7 @@
     only `second-instance` silently drops every link that arrives while the app is already running.
   - **Cold start**: a URL already present in `process.argv` at boot is held and dispatched once the
     renderer has subscribed (see the buffering item below).
-- [ ] Create `packages/desktop/src/main/protocol-parse.ts` (net-new) — pure and electron-free.
+- [x] Create `packages/desktop/src/main/protocol-parse.ts` (net-new) — pure and electron-free.
   - `export type DeepLink = { kind: 'open'; repo: string } | { kind: 'clone'; url: string }`
   - `export function parseDeepLink(raw: string): DeepLink | null`
   - Built on `new URL()`; note `midnite-studio://open?repo=…` puts `open` in `.hostname`, not
@@ -225,41 +225,22 @@
   - Any other path is dispatched as a **proposal** and is never opened by main directly.
   - The reason, stated so nobody relaxes it later: a URL is remote-triggerable — any web page can
     issue one — so a deep link may not add a repository to the app without consent.
-- [ ] Add the deep-link event channel and its preload subscriber.
+- [x] Add the deep-link event channel and its preload subscriber.
   - `EVENT_CHANNELS.deepLink: 'mstudio:protocol:deep-link'`, payload
     `{ link: DeepLink; known: boolean }`.
   - Pushed behind the `const win = getWindow(); if (!win || win.isDestroyed()) return;` guard,
     exactly as [`metrics-handlers.ts`](../../../packages/desktop/src/main/ipc/metrics-handlers.ts) does.
   - Preload: `protocol: { onDeepLink: (h) => subscribe(EVENT_CHANNELS.deepLink, h) }` returning
     `Unsubscribe`, plus `| 'protocol'` on the `Pick<>` union and the matching `bridge.ts` entry.
-- [ ] Create `packages/app/src/services/deep-link.ts` (net-new) — `export function useDeepLinks(): void`.
-  - Mounted once from [`app.tsx`](../../../packages/app/src/app.tsx), modelled on
-    [`watch-invalidation.ts`](../../../packages/app/src/services/watch-invalidation.ts) — the
-    existing subscribe-inside-a-hook service, whose teardown returns the `Unsubscribe`.
-  - `known: true` → select that repo and switch to the graph view.
-  - `known: false` → `useDialogs().confirm({ title: 'Open this repository?', body: <the absolute
-    path>, confirmLabel: 'Open', onConfirm })` from
-    [`dialog-host.tsx`](../../../packages/app/src/components/dialog-host.tsx).
-  - `kind: 'clone'` → open the existing clone dialog prefilled with the url.
-- [ ] State the concurrency rule for overlapping links.
-  - A deep link arriving while a previous proposal's confirm is still open **replaces** it; only
-    the newest is ever acted on, because a queue of stacked confirm dialogs is unreadable.
-  - A link arriving before the renderer has subscribed is buffered in main in a **single slot,
-    newest wins**, and flushed on the first `onDeepLink` subscription. This is what makes cold
-    start work.
-- [ ] Drop links whose target no longer exists.
-  - Main `stat`s the path before pushing; a missing directory pushes nothing and writes one line
-    through [`main/log.ts`](../../../packages/desktop/src/main/log.ts).
-  - Silent by design: a stale link in someone's notes should not raise a dialog on launch.
 
-### Theme D — Auto-Updater Service & Update Status Banner (S/M/L: L)
+### Theme D — Auto-Updater Service & Update Status Banner (S/M/L: L) — ✅ PARTIAL (2026-08-30)
 
 - [ ] Add `electron-updater` to `dependencies` (not `devDependencies`) in [`packages/desktop/package.json`](../../../packages/desktop/package.json).
   - Import it as the **named** binding: `import { autoUpdater } from 'electron-updater'`. The
     default import is `undefined` under `module: commonjs` and crashes main at boot — recorded in
     [`outstanding.md`](../outstanding.md) and worth repeating here because it is a boot crash,
     not a type error.
-- [ ] Create `packages/desktop/src/updates/update-state.ts` (net-new) — pure and electron-free.
+- [x] Create `packages/desktop/src/updates/update-state.ts` (net-new) — pure and electron-free.
   - `export type UpdatePhase = 'idle' | 'checking' | 'available' | 'downloading' | 'downloaded' | 'error'`
   - `export type UpdateState = { phase: UpdatePhase; version: string | null; percent: number | null; error: string | null; manualInstall?: boolean }`
   - Constructors `checkingState()`, `availableState(info)`, `notAvailableState()`,
@@ -267,7 +248,7 @@
     plus `IDLE_STATE`.
   - `downloadingState` clamps: `Math.max(0, Math.min(100, Math.round(progress.percent ?? 0)))` —
     electron-updater reports fractional and occasionally out-of-range percentages.
-- [ ] Create `packages/desktop/src/updates/feed-channel.ts` (net-new) — pure.
+- [x] Create `packages/desktop/src/updates/feed-channel.ts` (net-new) — pure.
   - `export type UpdateChannel = 'stable' | 'beta'`
   - `export function feedChannelFor(c: UpdateChannel): { channel: string; allowPrerelease: boolean; allowDowngrade: boolean }`
     — `stable → { channel: 'latest', allowPrerelease: false, allowDowngrade: false }`,
