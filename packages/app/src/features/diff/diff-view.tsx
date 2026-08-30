@@ -182,88 +182,20 @@ export function DiffView({
   }
 
   if (inline) {
-
     return (
-      <div className="font-mono text-[11px] leading-[18px]" data-testid="diff-view">
-        {diff.combined ? (
-          <p className="border-b border-border bg-destructive/10 px-3 py-1.5 font-sans text-[11px] text-muted-foreground">
-            This file is unmerged — the content below includes conflict markers.
-          </p>
-        ) : null}
-        <div className="overflow-x-auto">
-          {rows.map((row: DiffRow | SplitDiffRow, index: number) => {
-
-
-            if ('kind' in row && row.kind === 'thread') {
-              return (
-                <div key={`t${index}`} className="w-full">
-                  {renderThread?.(row.threads, row.line)}
-                </div>
-              );
-            }
-            if ('kind' in row && row.kind === 'composer') {
-              return (
-                <div key={`c${index}`} className="w-full">
-                  {composer?.node}
-                </div>
-              );
-            }
-            if (row.kind === 'hunk') {
-              return (
-                <div key={`r${index}`} className="flex w-max min-w-full">
-                  <HunkHeader row={row} onExpand={onExpandContext} context={diff.contextLines} />
-                </div>
-              );
-            }
-            if (row.kind === 'split-line') {
-              return (
-                <div key={`r${index}`} className="flex w-full divide-x divide-border">
-                  <div className="w-1/2 min-w-0">
-                    <DiffCell
-                      cell={row.left}
-                      side="left"
-                      showGutter={showOldGutter}
-                      path={diff.path}
-                      dark={dark}
-                    />
-                  </div>
-                  <div className="w-1/2 min-w-0">
-                    <DiffCell
-                      cell={row.right}
-                      side="right"
-                      showGutter
-                      path={diff.path}
-                      dark={dark}
-                      onComment={onComment}
-                    />
-                  </div>
-                </div>
-              );
-            }
-            return (
-              <div key={`r${index}`} className="flex w-max min-w-full">
-                <DiffCell
-                  cell={{ line: row.line, type: row.line.kind }}
-                  side="right"
-                  showGutter={showOldGutter}
-                  path={diff.path}
-                  dark={dark}
-                  onComment={onComment}
-                />
-              </div>
-            );
-          })}
-        </div>
-
-        {diff.truncated ? (
-          <p className="border-t border-border px-3 py-2 font-sans text-[11px] text-muted-foreground">
-            {diff.droppedLines.toLocaleString()} more lines not shown — this diff was capped to
-            keep the panel responsive.
-          </p>
-        ) : null}
-      </div>
+      <InlineDiffBody
+        diff={diff}
+        rows={rows}
+        showOldGutter={showOldGutter}
+        dark={dark}
+        onExpandContext={onExpandContext}
+        onComment={onComment}
+        renderThread={renderThread}
+        composer={composer}
+      />
     );
   }
+
 
   return (
     <div className="flex h-full min-h-0 flex-col" data-testid="diff-view">
@@ -385,5 +317,138 @@ function HunkHeader({
     </div>
   );
 }
+
+function InlineDiffBody({
+  diff,
+  rows,
+  showOldGutter,
+  dark,
+  onExpandContext,
+  onComment,
+  renderThread,
+  composer,
+}: {
+  diff: FileDiff;
+  rows: readonly (DiffRow | SplitDiffRow)[];
+  showOldGutter: boolean;
+  dark: boolean;
+  onExpandContext?: (context: number) => void;
+  onComment?: (line: number) => void;
+  renderThread?: (threads: readonly ForgeReviewThread[], line: number) => React.ReactNode;
+  composer?: { line: number; node: React.ReactNode } | null;
+}) {
+  const containerRef = useRef<HTMLDivElement>(null);
+
+  const virtualizer = useVirtualizer({
+    count: rows.length,
+    getScrollElement: () => {
+      if (containerRef.current) {
+        return containerRef.current.closest<HTMLElement>('.overflow-y-auto') ?? null;
+      }
+      return null;
+    },
+    estimateSize: (index) => {
+      const row = rows[index];
+      if (row && 'kind' in row && row.kind === 'thread') return THREAD_ESTIMATE;
+      if (row && 'kind' in row && row.kind === 'composer') return COMPOSER_ESTIMATE;
+      return ROW_HEIGHT;
+    },
+    measureElement: (element) => element.getBoundingClientRect().height,
+    overscan: 24,
+  });
+
+  const virtualItems = virtualizer.getVirtualItems();
+
+  return (
+    <div ref={containerRef} className="font-mono text-[11px] leading-[18px]" data-testid="diff-view">
+      {diff.combined ? (
+        <p className="border-b border-border bg-destructive/10 px-3 py-1.5 font-sans text-[11px] text-muted-foreground">
+          This file is unmerged — the content below includes conflict markers.
+        </p>
+      ) : null}
+      <div className="overflow-x-auto">
+        <div
+          style={{
+            height: `${virtualizer.getTotalSize()}px`,
+            width: '100%',
+            position: 'relative',
+          }}
+        >
+          {virtualItems.map((virtualRow) => {
+            const index = virtualRow.index;
+            const row = rows[index];
+            if (!row) return null;
+
+            return (
+              <div
+                key={virtualRow.key}
+                data-index={virtualRow.index}
+                ref={virtualizer.measureElement}
+                style={{
+                  position: 'absolute',
+                  top: 0,
+                  left: 0,
+                  width: '100%',
+                  transform: `translateY(${virtualRow.start}px)`,
+                }}
+              >
+                {'kind' in row && row.kind === 'thread' ? (
+                  <div className="w-full">{renderThread?.(row.threads, row.line)}</div>
+                ) : 'kind' in row && row.kind === 'composer' ? (
+                  <div className="w-full">{composer?.node}</div>
+                ) : row.kind === 'hunk' ? (
+                  <div className="flex w-max min-w-full">
+                    <HunkHeader row={row} onExpand={onExpandContext} context={diff.contextLines} />
+                  </div>
+                ) : row.kind === 'split-line' ? (
+                  <div className="flex w-full divide-x divide-border">
+                    <div className="w-1/2 min-w-0">
+                      <DiffCell
+                        cell={row.left}
+                        side="left"
+                        showGutter={showOldGutter}
+                        path={diff.path}
+                        dark={dark}
+                      />
+                    </div>
+                    <div className="w-1/2 min-w-0">
+                      <DiffCell
+                        cell={row.right}
+                        side="right"
+                        showGutter
+                        path={diff.path}
+                        dark={dark}
+                        onComment={onComment}
+                      />
+                    </div>
+                  </div>
+                ) : (
+                  <div className="flex w-max min-w-full">
+                    <DiffCell
+                      cell={{ line: row.line, type: row.line.kind }}
+                      side="right"
+                      showGutter={showOldGutter}
+                      path={diff.path}
+                      dark={dark}
+                      onComment={onComment}
+                    />
+                  </div>
+                )}
+              </div>
+            );
+          })}
+        </div>
+      </div>
+
+      {diff.truncated ? (
+        <p className="border-t border-border px-3 py-2 font-sans text-[11px] text-muted-foreground">
+          {diff.droppedLines.toLocaleString()} more lines not shown — this diff was capped to
+          keep the panel responsive.
+        </p>
+      ) : null}
+    </div>
+  );
+}
+
 
 
