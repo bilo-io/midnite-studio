@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 
-import { fmtPct, fmtPrice, historyChange } from './finance-derive';
+import { assetTicker, fmtPct, fmtPrice, historyChange } from './finance-derive';
 
 describe('fmtPrice', () => {
   it('uses two decimals for dollar-and-up amounts', () => {
@@ -23,6 +23,18 @@ describe('fmtPct', () => {
 
   it('leaves a loss with its own minus', () => {
     expect(fmtPct(-1.2)).toBe('-1.20%');
+  });
+});
+
+describe('assetTicker', () => {
+  it('extracts symbol from parenthesized names', () => {
+    expect(assetTicker({ kind: 'crypto', symbol: 'bitcoin', name: 'Bitcoin (BTC)' })).toBe('BTC');
+    expect(assetTicker({ kind: 'crypto', symbol: 'ethereum', name: 'Ethereum (ETH)' })).toBe('ETH');
+  });
+
+  it('falls back to symbol in uppercase if no parenthesis', () => {
+    expect(assetTicker({ kind: 'stock', symbol: 'aapl', name: 'Apple Inc' })).toBe('AAPL');
+    expect(assetTicker({ kind: 'crypto', symbol: 'solana', name: 'Solana' })).toBe('SOLANA');
   });
 });
 

@@ -1,4 +1,4 @@
-import type { HistoryPoint } from './finance-types';
+import type { FinanceAsset, HistoryPoint } from './finance-types';
 
 /** Price with a sensible precision: more decimals for sub-dollar (crypto) amounts. */
 export function fmtPrice(n: number, currency = 'USD'): string {
@@ -17,6 +17,16 @@ export function fmtPct(pct: number): string {
 }
 
 /**
+ * Extracts a concise ticker symbol for status-bar / compact display.
+ * e.g., "Bitcoin (BTC)" -> "BTC", "AAPL" -> "AAPL", "bitcoin" -> "BITCOIN"
+ */
+export function assetTicker(asset: FinanceAsset): string {
+  const match = asset.name.match(/\(([^)]+)\)$/);
+  if (match?.[1]) return match[1].toUpperCase();
+  return asset.symbol.toUpperCase();
+}
+
+/**
  * Gain/loss over a run of history points, first-vs-last close — the same
  * measure the source app's watchlist row uses, so the color/arrow always
  * agrees with what the 7-day sparkline actually shows (a 24h quote change
@@ -28,3 +38,4 @@ export function historyChange(points: readonly HistoryPoint[]): { pct: number | 
   const pct = first && last ? ((last - first) / first) * 100 : null;
   return { pct, up: (pct ?? 0) >= 0 };
 }
+
