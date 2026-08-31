@@ -42,6 +42,7 @@ const LOCAL_ICONS: Record<string, IconComponent> = {
   kilo: KiloIcon,
   aider: AiderIcon,
   cursor: SiCursor,
+  copilot: SiGithubcopilot,
   cline: SiCline,
 };
 
