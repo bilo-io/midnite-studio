@@ -25,7 +25,16 @@ export function useDefaultSelection(): void {
   const selectedWorktreePath = useUiStore((s) => s.selectedWorktreePath);
 
   useEffect(() => {
-    if (!repos || repos.length === 0) {
+    // Still loading, not "zero repos": `useRepos` starts every mount with a
+    // beat of `data === undefined`, and treating that as empty cleared a
+    // perfectly good persisted `selectedRepoId` before the list even
+    // arrived — a `selectRepo(null)` this effect has no way to take back,
+    // since the repair below only runs once a selection already exists.
+    if (repos === undefined) {
+      return;
+    }
+
+    if (repos.length === 0) {
       if (selectedRepoId !== null) {
         useUiStore.getState().selectRepo(null);
       }

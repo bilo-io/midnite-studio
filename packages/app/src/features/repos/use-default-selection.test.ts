@@ -103,4 +103,30 @@ describe('useDefaultSelection', () => {
 
     expect(useUiStore.getState().selectedWorktreePath).toBe('/repo-wt');
   });
+
+  it('does not wipe a persisted selection while the repos query is still loading', () => {
+    // The bug: `useRepos` starts every mount with a beat of `data ===
+    // undefined` before its (always-async) queryFn resolves. Deliberately NOT
+    // seeding `keys.repos` here, so the query is genuinely pending at the
+    // moment the hook's effect first runs — the exact window the old code
+    // mistook for "zero repos" and cleared a perfectly good selection for,
+    // with no way to take it back once the real list arrived.
+    useUiStore.setState({ selectedRepoId: 'r1', selectedWorktreePath: '/repo' });
+
+    withClient(newClient());
+
+    expect(useUiStore.getState().selectedRepoId).toBe('r1');
+    expect(useUiStore.getState().selectedWorktreePath).toBe('/repo');
+  });
+
+  it('still clears the selection once the repos query genuinely resolves empty', () => {
+    const client = newClient();
+    client.setQueryData(keys.repos, []);
+    useUiStore.setState({ selectedRepoId: 'r1', selectedWorktreePath: '/repo' });
+
+    withClient(client);
+
+    expect(useUiStore.getState().selectedRepoId).toBe(null);
+    expect(useUiStore.getState().selectedWorktreePath).toBe(null);
+  });
 });
