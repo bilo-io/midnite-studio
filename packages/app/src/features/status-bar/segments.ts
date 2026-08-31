@@ -68,7 +68,6 @@ export const STATUS_SEGMENTS: StatusSegment[] = [
   // Right zone:
   { id: 'finance', zone: 'right', priority: 7, label: 'Finance', El: FinanceSegment },
   { id: 'diagnostics', zone: 'right', priority: 10, label: 'Diagnostics', El: DiagnosticsSegment },
-  { id: 'battery', zone: 'right', priority: 22, label: 'Battery', El: BatterySegment },
   {
     id: 'right-delimiter',
     zone: 'right',
@@ -88,6 +87,13 @@ export const STATUS_SEGMENTS: StatusSegment[] = [
     El: ChecksVerdictSegment,
   },
   { id: 'monitor', zone: 'right', priority: 42, label: 'System monitor', El: MonitorCluster },
+  // Immediately right of the monitor cluster: it is the same kind of reading —
+  // a machine vital, not a repository fact — and reads as the last member of
+  // that group rather than the first of the notification controls. Priority 43
+  // keeps it above diagnostics/finance at collapse time, and its `%` already
+  // carries `.status-label`, so compact density drops the number and keeps the
+  // icon with no carve-out needed.
+  { id: 'battery', zone: 'right', priority: 43, label: 'Battery', El: BatterySegment },
   { id: 'app-update', zone: 'right', priority: 45, label: 'Update', El: UpdatePill },
   { id: 'notification-bell', zone: 'right', priority: 50, label: 'Notifications', El: NotificationBell },
   { id: 'assistant-menu', zone: 'right', priority: 60, label: 'Midnite Assistant', El: AssistantMenu },
