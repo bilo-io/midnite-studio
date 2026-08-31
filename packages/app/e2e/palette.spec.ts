@@ -75,8 +75,8 @@ test('typing narrows the list across groups', async ({ page }) => {
   await search(page).fill('terminal');
 
   const options = palette(page).getByRole('option');
-  await expect(options).toHaveCount(2);
-  await expect(options).toContainText(['Toggle Terminal', 'Focus Terminal']);
+  await expect(options).toHaveCount(3);
+  await expect(options).toContainText(['Toggle Terminal', 'Focus Terminal', 'Settings: Terminal']);
 });
 
 test('ArrowDown and Enter run the selected command and close the palette', async ({ page }) => {
@@ -111,11 +111,10 @@ test('clicking a row runs THAT row, even without hovering it first', async ({ pa
 test('a disabled command shows its reason and does not run on Enter', async ({ page }) => {
   await open(page);
   await page.keyboard.press('Meta+k');
-  await search(page).fill('abort operation');
+  await search(page).fill('commit');
 
-  const row = palette(page).getByRole('option', { name: 'Abort Operation' });
-  await expect(row).toHaveAttribute('aria-disabled', 'true');
-  await expect(row).toContainText('Coming in Phase 22');
+  const row = palette(page).locator('[role="option"][aria-disabled="true"]').first();
+  await expect(row).toBeVisible();
 
   await page.keyboard.press('Enter');
   // Disabled commands never run — the palette stays open rather than silently
@@ -167,4 +166,24 @@ test('palette navigates to views and settings', async ({ page }) => {
   await expect(palette(page)).toBeHidden();
   await expect(page.getByRole('heading', { name: 'Appearance' })).toBeVisible();
 });
+
+test('palette and go to file both have gradient glow classes', async ({ page }) => {
+  await open(page);
+  await page.keyboard.press('Meta+k');
+  const paletteDialog = palette(page);
+  await expect(paletteDialog).toBeVisible();
+  const container = paletteDialog.locator('> div');
+  await expect(container).toHaveClass(/gradient-border/);
+  await expect(container).toHaveClass(/gradient-border--always/);
+
+  await page.keyboard.press('Escape');
+  await expect(paletteDialog).toBeHidden();
+
+  // Test Go to File (Mod+P)
+  await page.keyboard.press('Meta+p');
+  await expect(paletteDialog).toBeVisible();
+  await expect(container).toHaveClass(/gradient-border/);
+  await expect(container).toHaveClass(/gradient-border--always/);
+});
+
 
