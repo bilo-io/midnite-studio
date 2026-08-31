@@ -674,7 +674,7 @@ function RepoItem({
           sections. The grip lives in the gutter, which is what gutters are for.
         */
         className={`group flex h-8 items-center gap-1 pl-1 pr-2 text-sm transition-colors ${
-          selectedRepoId === repo.id ? 'bg-accent/60' : 'hover:bg-accent/30'
+          selectedRepoId === repo.id ? 'repo-row-shimmer' : 'hover:bg-accent/30'
         }`}
       >
         {/*
@@ -804,6 +804,8 @@ function RepoItem({
           icon={FaGitAlt}
           label={`Git actions for ${repo.name}`}
           size="sm"
+          tone="git"
+          className="opacity-50 hover:opacity-100"
           onClick={(event) => {
             const rect = event.currentTarget.getBoundingClientRect();
             // A keyboard activation reports 0,0 — fall back to the button's own

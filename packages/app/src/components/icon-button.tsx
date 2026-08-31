@@ -69,8 +69,13 @@ export type IconButtonProps = {
    * colours, so passing them in would put `text-primary` and the base
    * `text-muted-foreground` in the same slot and leave the winner to whichever
    * Tailwind emitted last.
+   *
+   * `git` is `brand`'s sibling for a mark that isn't this app's own: the Git
+   * logo's actual colour rather than a theme token, because it identifies
+   * *git* specifically and has to stay recognisable as that regardless of
+   * which accent the user has picked.
    */
-  tone?: 'ghost' | 'danger' | 'brand';
+  tone?: 'ghost' | 'danger' | 'brand' | 'git';
   size?: 'sm' | 'md';
   tooltipSide?: 'top' | 'bottom';
   className?: string;
@@ -102,7 +107,9 @@ export function IconButton({
       ? 'text-muted-foreground hover:bg-destructive/10 hover:text-destructive'
       : tone === 'brand'
         ? 'text-primary hover:bg-accent hover:text-foreground'
-        : 'text-muted-foreground hover:bg-accent hover:text-foreground';
+        : tone === 'git'
+          ? 'text-[#F05032] hover:bg-accent hover:text-[#F05032]'
+          : 'text-muted-foreground hover:bg-accent hover:text-foreground';
 
   return (
     <Tooltip label={explained ? `${label} — ${disabledReason}` : label} side={tooltipSide}>

@@ -130,15 +130,19 @@ export function ChartLegend({
               className="h-3 w-3 shrink-0"
               style={{ color: metricColor(entry.id) }}
             />
-            <span>{METRIC_LABELS[entry.id]}</span>
+            <span style={{ color: metricColor(entry.id) }}>{METRIC_LABELS[entry.id]}</span>
             {/*
               An unreadable metric says so. Rendering "0%" here would be the same
               lie the contract's optional fields exist to prevent, one layer up.
             */}
-            <span className="tabular-nums text-foreground">
+            <span className="tabular-nums" style={{ color: metricColor(entry.id) }}>
               {entry.value === null ? 'n/a' : `${Math.round(entry.value)}%`}
             </span>
-            {entry.detail ? <span className="opacity-70">{entry.detail}</span> : null}
+            {entry.detail ? (
+              <span className="opacity-70" style={{ color: metricColor(entry.id) }}>
+                {entry.detail}
+              </span>
+            ) : null}
           </li>
         );
       })}

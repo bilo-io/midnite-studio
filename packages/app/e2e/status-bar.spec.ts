@@ -34,6 +34,17 @@ test('the left zone footprint is unaffected by what the right zone renders', asy
   expect(populatedRightZoneWidth).toBeCloseTo(emptyRightZoneWidth, 0);
 });
 
+/**
+ * The repositories toggle reads "Git Repos" — plain "Repos" was ambiguous
+ * next to the browser/terminal toggles, which are also "repo" surfaces in
+ * their own way.
+ */
+test('the repositories toggle is labelled "Git Repos"', async ({ page }) => {
+  await installMockBridge(page, { ...fixtures });
+  await page.goto('/');
+  await expect(page.getByTestId('repos-toggle')).toContainText('Git Repos');
+});
+
 const GITHUB_REMOTE = {
   name: 'origin',
   fetchUrl: 'git@github.com:bilo-io/midnite-studio.git',
