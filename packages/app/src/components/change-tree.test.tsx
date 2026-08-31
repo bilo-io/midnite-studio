@@ -33,5 +33,16 @@ describe('ChangeTotals', () => {
     expect(boldWrapper?.textContent).toContain('+10');
     expect(boldWrapper?.textContent).toContain('−5');
   });
-});
 
+  it('shrinks and truncates instead of forcing its row to overflow', () => {
+    const { container } = render(
+      <ChangeTotals fileCount={145_000} insertions={12_345_678} deletions={9_876_543} />,
+    );
+    const totals = container.querySelector('[data-testid="change-totals"]');
+    expect(totals?.className).toContain('min-w-0');
+    expect(totals?.className).toContain('flex-1');
+    expect(totals?.className).not.toContain('w-full');
+    const fileCountLabel = screen.getByText('145,000 files');
+    expect(fileCountLabel.className).toContain('truncate');
+  });
+});

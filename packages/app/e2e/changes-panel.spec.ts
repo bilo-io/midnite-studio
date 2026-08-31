@@ -91,8 +91,7 @@ const open = async (page: Page, data: MockFixtures = base): Promise<void> => {
 /** The panel-wide roll-up is the first totals element — it sits above both sections. */
 const panelTotals = (page: Page) => page.getByTestId('change-totals').first();
 
-const row = (page: Page, path: string) =>
-  page.getByRole('button', { name: path, exact: true });
+const row = (page: Page, path: string) => page.getByRole('button', { name: path, exact: true });
 
 test('the panel totals the whole checkout, counting a two-sided file once', async ({ page }) => {
   await open(page);
@@ -176,7 +175,9 @@ test('the staging buttons still act on the row they sit on', async ({ page }) =>
   await page.getByRole('button', { name: 'Stage src/nested/b.ts' }).click();
 
   const ops = await page.evaluate(
-    () => (window as unknown as { __mstudioOps: { op: string; args: { paths: string[] } }[] }).__mstudioOps,
+    () =>
+      (window as unknown as { __mstudioOps: { op: string; args: { paths: string[] } }[] })
+        .__mstudioOps,
   );
   expect(ops).toHaveLength(1);
   expect(ops[0]?.op).toBe('stage');
@@ -245,6 +246,33 @@ test('the commit button only appears once a message is typed', async ({ page }) 
 
   await page.getByPlaceholder('Commit message').fill('');
   await expect(commitButton).toHaveCount(0);
+});
+
+test('the toolbar icon buttons stay visible and clickable when the totals text is very wide', async ({
+  page,
+}) => {
+  // A huge insertions/deletions pair makes the "N files / +X −Y" label as wide
+  // as it gets — the exact condition that used to shove the icon buttons past
+  // the panel's right edge instead of shrinking the label.
+  await open(page, {
+    ...base,
+    statusCounts: {
+      'staged:src/a.ts': { insertions: 5, deletions: 1 },
+      'unstaged:src/a.ts': { insertions: 123_456_789, deletions: 4 },
+      'unstaged:src/nested/b.ts': { insertions: 2, deletions: 0 },
+      'unstaged:README.md': { insertions: 987_654_321, deletions: 0 },
+    },
+  });
+
+  const viewAll = page.getByRole('button', { name: 'View all changes', exact: true });
+  const listView = page.getByRole('button', {
+    name: 'List the changed files by how much changed',
+  });
+
+  await expect(viewAll).toBeInViewport();
+  await expect(listView).toBeInViewport();
+  await viewAll.click();
+  await expect(page.getByTestId('diff-view')).toHaveCount(0);
 });
 
 test('the commit textarea grows with content and shrinks back after committing', async ({
