@@ -24,6 +24,7 @@ import { useResizable } from './components/resizable/use-resizable';
 import { useReveal, useRevealSize } from './components/use-reveal';
 import { ThemeToggle } from './components/theme-toggle';
 import { TitleBarNav } from './components/title-bar-nav';
+import { TitleBarStatus } from './features/titlebar-status/titlebar-status';
 import { OnboardingModal } from './features/onboarding/onboarding-modal';
 import { ScreensaverHost } from './features/screensaver/screensaver-host';
 import { ActionsView } from './features/actions/actions-view';
@@ -636,6 +637,7 @@ function Shell() {
           <TitleBarNav />
         </div>
       }
+      center={<TitleBarStatus />}
       right={chrome}
     />
   );
@@ -680,8 +682,13 @@ function Shell() {
       */}
       <div className="flex flex-col" style={CONTENT_BOX}>
         {framed ? (
-          <div className="flex h-10 shrink-0 items-center justify-end gap-2 border-b border-border px-3">
-            {chrome}
+          <div className="flex h-10 shrink-0 items-center justify-between gap-2 border-b border-border px-3">
+            <div className="flex min-w-0 items-center">
+              <Wordmark className="text-xs" />
+              <TitleBarNav />
+            </div>
+            <TitleBarStatus />
+            <div className="flex items-center gap-2">{chrome}</div>
           </div>
         ) : null}
 
