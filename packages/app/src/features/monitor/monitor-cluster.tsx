@@ -125,7 +125,11 @@ function MetricReadout({
             style={{ backgroundColor: metricColor(id), boxShadow: metricGlow(id) }}
           />
         )}
-        <span aria-hidden className="w-8 text-right tabular-nums">
+        <span
+          aria-hidden
+          className="w-8 text-right tabular-nums"
+          style={{ color: metricColor(id) }}
+        >
           {rounded}%
         </span>
         {level ? null : <Sparkline id={id} points={points} />}
