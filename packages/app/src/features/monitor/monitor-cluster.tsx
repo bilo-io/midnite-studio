@@ -1,27 +1,17 @@
 import { METRIC_IDS, type MetricId } from '@midnite/studio-shared';
 import { useState } from 'react';
-import type { IconType } from 'react-icons';
-import { BsCpuFill, BsHddFill } from 'react-icons/bs';
-import { PiGraphicsCardFill } from 'react-icons/pi';
-import { RiRamFill } from 'react-icons/ri';
 
 import { Popover } from '../../components/popover';
 import { Tooltip } from '../../components/tooltip';
 import { useMetricsStore, type MetricPoint } from '../../store/metrics-store';
 import { useUiStore } from '../../store/ui-store';
 import { MetricDonut } from './metric-donut';
+import { METRIC_ICONS } from './metric-icons';
 import { isLevelMetric } from './metric-geometry';
-import { METRIC_LABELS, metricColor, metricGlow } from './metric-palette';
+import { METRIC_LABELS, metricColor } from './metric-palette';
 import { MonitorFlyout } from './monitor-flyout';
 import { Sparkline } from './sparkline';
 import { useMetricsStream } from './use-metrics-stream';
-
-const METRIC_ICONS: Record<MetricId, IconType> = {
-  cpu: BsCpuFill,
-  memory: RiRamFill,
-  gpu: PiGraphicsCardFill,
-  disk: BsHddFill,
-};
 
 /**
  * Dot, percentage and sparkline per metric, opening into the timeline flyout.
@@ -113,18 +103,7 @@ function MetricReadout({
           className="h-3 w-3 shrink-0"
           style={{ color: metricColor(id) }}
         />
-        {level ? (
-          <MetricDonut id={id} percent={value} />
-        ) : (
-          <span
-            aria-hidden
-            className="h-2 w-2 shrink-0 rounded-full"
-            // Data colours, so inline rather than a token class — see
-            // metric-palette.ts. The glow is what makes a 2px dot read as lit
-            // rather than as a speck of dust on the screen.
-            style={{ backgroundColor: metricColor(id), boxShadow: metricGlow(id) }}
-          />
-        )}
+        {level ? <MetricDonut id={id} percent={value} /> : null}
         <span
           aria-hidden
           className="w-8 text-right tabular-nums"

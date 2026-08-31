@@ -2,6 +2,7 @@ import type { MetricId } from '@midnite/studio-shared';
 
 import type { MetricPoint } from '../../store/metrics-store';
 import { CHART_GEOMETRY, type MetricGeometry } from './metric-geometry';
+import { METRIC_ICONS } from './metric-icons';
 import { METRIC_LABELS, metricColor, metricFill } from './metric-palette';
 import { areaPath, cadenceBreaks, linePath } from './metric-path';
 
@@ -120,24 +121,27 @@ export function ChartLegend({
 }) {
   return (
     <ul className="flex flex-wrap items-center gap-x-3 gap-y-1 text-[10px] text-muted-foreground">
-      {entries.map((entry) => (
-        <li key={entry.id} className="flex items-center gap-1">
-          <span
-            aria-hidden
-            className="h-1.5 w-1.5 shrink-0 rounded-full"
-            style={{ backgroundColor: metricColor(entry.id) }}
-          />
-          <span>{METRIC_LABELS[entry.id]}</span>
-          {/*
-            An unreadable metric says so. Rendering "0%" here would be the same
-            lie the contract's optional fields exist to prevent, one layer up.
-          */}
-          <span className="tabular-nums text-foreground">
-            {entry.value === null ? 'n/a' : `${Math.round(entry.value)}%`}
-          </span>
-          {entry.detail ? <span className="opacity-70">{entry.detail}</span> : null}
-        </li>
-      ))}
+      {entries.map((entry) => {
+        const Icon = METRIC_ICONS[entry.id];
+        return (
+          <li key={entry.id} className="flex items-center gap-1">
+            <Icon
+              aria-hidden
+              className="h-3 w-3 shrink-0"
+              style={{ color: metricColor(entry.id) }}
+            />
+            <span>{METRIC_LABELS[entry.id]}</span>
+            {/*
+              An unreadable metric says so. Rendering "0%" here would be the same
+              lie the contract's optional fields exist to prevent, one layer up.
+            */}
+            <span className="tabular-nums text-foreground">
+              {entry.value === null ? 'n/a' : `${Math.round(entry.value)}%`}
+            </span>
+            {entry.detail ? <span className="opacity-70">{entry.detail}</span> : null}
+          </li>
+        );
+      })}
     </ul>
   );
 }
