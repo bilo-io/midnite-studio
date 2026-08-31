@@ -1,4 +1,5 @@
 import type { Diagnostic, DiagnosticsRun } from '@midnite/studio-shared';
+import { BsExclamationCircle, BsXCircle } from 'react-icons/bs';
 
 /**
  * The problems themselves, as `file:line` with rule and message.
@@ -40,12 +41,15 @@ export function ProblemList({ run }: { run: Extract<DiagnosticsRun, { ok: true }
 function ProblemRow({ row }: { row: Diagnostic }) {
   return (
     <li className="flex items-baseline gap-2 px-3 py-1 text-xs odd:bg-muted/30">
-      <span
-        aria-hidden
-        className={`mt-1 h-1.5 w-1.5 shrink-0 rounded-full ${
-          row.severity === 'error' ? 'bg-destructive' : 'bg-[hsl(var(--health-warn))]'
-        }`}
-      />
+      {row.severity === 'error' ? (
+        <BsXCircle aria-hidden className="mt-0.5 h-3 w-3 shrink-0 text-destructive" />
+      ) : (
+        <BsExclamationCircle
+          aria-hidden
+          className="mt-0.5 h-3 w-3 shrink-0"
+          style={{ color: 'hsl(var(--health-warn))' }}
+        />
+      )}
       <span className="min-w-0 flex-1">
         {/*
           `file:line` as one token, in the shape an editor or a terminal would

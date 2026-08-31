@@ -1,4 +1,5 @@
 import type { TerminalSession } from '@midnite/studio-shared';
+import { BsRobot } from 'react-icons/bs';
 
 import { useUiStore } from '../../store/ui-store';
 import {
@@ -57,9 +58,12 @@ export function AgentCountSegment() {
         // Only if the list is shut — an already-open list is not closed.
         if (!useUiStore.getState().terminalListOpen) useUiStore.getState().toggleTerminalList();
       }}
-      className="rounded px-1.5 transition-colors hover:bg-accent hover:text-foreground"
+      className="flex items-center gap-1.5 rounded px-1.5 transition-colors hover:bg-accent hover:text-foreground"
     >
-      {count} agent{count === 1 ? '' : 's'}
+      <BsRobot aria-hidden className="h-3 w-3 shrink-0" />
+      <span>
+        {count} agent{count === 1 ? '' : 's'}
+      </span>
     </button>
   );
 }

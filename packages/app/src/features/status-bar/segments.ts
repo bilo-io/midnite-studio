@@ -56,6 +56,7 @@ export const STATUS_SEGMENTS: StatusSegment[] = [
   { id: 'terminal-toggle', zone: 'left', priority: 20, label: 'Terminal', El: TerminalToggle },
   { id: 'browser-toggle', zone: 'left', priority: 5, label: 'Browser', El: BrowserToggle },
 
+  { id: 'agent-count', zone: 'left', priority: 30, label: 'Live agents', El: AgentCountSegment },
   {
     id: 'reattached-note',
     zone: 'left',
@@ -68,12 +69,8 @@ export const STATUS_SEGMENTS: StatusSegment[] = [
   // Outranks op-progress: a rebase you have forgotten you are mid-way through
   // is the single most expensive thing this bar can tell you.
   { id: 'in-progress', zone: 'center', priority: 20, label: 'Mid-operation', El: InProgressSegment },
-  // Rendered before diagnostics; lowest priority of the right zone's five —
-  // the least critical of the new readouts, collapsing before diagnostics,
-  // the monitor, and both verdicts.
-  { id: 'agent-count', zone: 'right', priority: 5, label: 'Live agents', El: AgentCountSegment },
   // Ambient, not repository state — the least critical readout in the zone
-  // besides agent-count, so it collapses early alongside it.
+  // so it collapses early.
   { id: 'finance', zone: 'right', priority: 7, label: 'Finance', El: FinanceSegment },
   { id: 'diagnostics', zone: 'right', priority: 10, label: 'Diagnostics', El: DiagnosticsSegment },
   { id: 'monitor', zone: 'right', priority: 20, label: 'System monitor', El: MonitorCluster },
