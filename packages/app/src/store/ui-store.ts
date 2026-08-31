@@ -674,7 +674,8 @@ type PersistedUi = Pick<
   | 'diffShowOldGutter'
   | 'diffLayout'
   | 'graphTheme'
-
+  | 'selectedRepoId'
+  | 'selectedWorktreePath'
   | 'graphDensity'
   | 'settingsPage'
   | 'commitFileView'
@@ -982,6 +983,8 @@ export const useUiStore = create<UiState>()(
         diffShowOldGutter: state.diffShowOldGutter,
         diffLayout: state.diffLayout,
         graphTheme: state.graphTheme,
+        selectedRepoId: state.selectedRepoId,
+        selectedWorktreePath: state.selectedWorktreePath,
         graphDensity: state.graphDensity,
         settingsPage: state.settingsPage,
         commitFileView: state.commitFileView,

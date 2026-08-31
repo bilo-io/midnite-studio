@@ -48,9 +48,20 @@ describe('useDefaultSelection', () => {
   // and clobbers the state the new test just set.
   afterEach(cleanup);
 
-  it('selects the first repo and its main worktree when nothing is selected', () => {
+  it('leaves selectedRepoId alone when null', () => {
     const client = newClient();
     client.setQueryData(keys.repos, [repo([worktree('/repo', true)])]);
+
+    withClient(client);
+
+    expect(useUiStore.getState().selectedRepoId).toBe(null);
+    expect(useUiStore.getState().selectedWorktreePath).toBe(null);
+  });
+
+  it('selects the main worktree when a repo is selected without worktree', () => {
+    const client = newClient();
+    client.setQueryData(keys.repos, [repo([worktree('/repo', true)])]);
+    useUiStore.setState({ selectedRepoId: 'r1', selectedWorktreePath: null });
 
     withClient(client);
 
