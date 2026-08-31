@@ -250,13 +250,16 @@ export function ChangeTotals({
 }) {
   return (
     <span
-      className={`flex shrink-0 items-baseline gap-2 text-[11px] text-muted-foreground ${className}`}
+      className={`flex w-full shrink-0 items-baseline justify-between gap-2 text-[11px] text-muted-foreground ${className}`}
       data-testid="change-totals"
     >
       <span className="tabular-nums">
         {formatNumber(fileCount)} {fileCount === 1 ? 'file' : 'files'}
       </span>
-      <Counts insertions={insertions} deletions={deletions} />
+      <span className="font-bold">
+        <Counts insertions={insertions} deletions={deletions} />
+      </span>
     </span>
   );
 }
+

@@ -23,4 +23,15 @@ describe('ChangeTotals', () => {
     expect(screen.getByText('+12,000')).not.toBeNull();
     expect(screen.getByText('−4,500')).not.toBeNull();
   });
+
+  it('renders diff totals in a bold container aligned across the header', () => {
+    const { container } = render(<ChangeTotals fileCount={2} insertions={10} deletions={5} />);
+    const totals = container.querySelector('[data-testid="change-totals"]');
+    expect(totals?.className).toContain('justify-between');
+    const boldWrapper = container.querySelector('.font-bold');
+    expect(boldWrapper).not.toBeNull();
+    expect(boldWrapper?.textContent).toContain('+10');
+    expect(boldWrapper?.textContent).toContain('−5');
+  });
 });
+
