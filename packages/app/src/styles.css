@@ -167,16 +167,22 @@
  * The sweep only occupies the first 2/7 of the 24.5s cycle (7s), then holds at
  * its off-screen end position for the remaining 17.5s — 7x less frequent than
  * a plain 3.5s loop, and each sweep takes twice as long (half as fast) once it
- * does run. */
+ * does run.
+ *
+ * background-position 0%/100% (not -120%/220%) is what's actually off-screen
+ * here: with a 250%-wide background-size, the position formula scales percent
+ * by (container - image) size, so 0%/100% are the tile-boundary positions
+ * that land the highlight band exactly outside the visible window — -120%/
+ * 220% left it clipping into view at rest. */
 @keyframes repo-row-shimmer {
   0% {
-    background-position: -120% 0;
+    background-position: 0% 0;
   }
   28.5714% {
-    background-position: 220% 0;
+    background-position: 100% 0;
   }
   100% {
-    background-position: 220% 0;
+    background-position: 100% 0;
   }
 }
 
