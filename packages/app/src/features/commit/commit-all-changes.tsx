@@ -52,7 +52,7 @@ export function CommitAllChanges({
   return (
     <div className="flex h-full min-h-0 flex-col">
       <header className="flex shrink-0 items-center gap-2 border-y border-border px-3 py-1.5">
-        <ChangeTotals {...totals} className="mr-auto" />
+        <ChangeTotals {...totals} />
 
         <IconButton
           icon={ChevronsUpDown}
