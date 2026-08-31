@@ -57,7 +57,10 @@ export function useTitleTypewriter(title: string, instant: boolean) {
     }, perChar);
 
     return () => {
-      if (intervalRef.current) clearInterval(intervalRef.current);
+      if (intervalRef.current) {
+        clearInterval(intervalRef.current);
+        intervalRef.current = null;
+      }
     };
   }, [title, instant]);
 

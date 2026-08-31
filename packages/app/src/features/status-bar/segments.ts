@@ -48,15 +48,12 @@ export type StatusSegment = {
  * slot in between existing ones without renumbering the zone.
  */
 export const STATUS_SEGMENTS: StatusSegment[] = [
-  // Rendered last (array order), but the lowest `priority` of the three
-  // toggles — Repos and Terminal both toggle panels that hold work, and the
-  // browser pane holds nothing yet, so it is the first into Theme E's
-  // overflow popover.
+  // Left zone: Repository / Terminal / Browser toggles, Reattached sessions, and Finance
   { id: 'repos-toggle', zone: 'left', priority: 10, label: 'Repositories', El: ReposToggle },
   { id: 'terminal-toggle', zone: 'left', priority: 20, label: 'Terminal', El: TerminalToggle },
   { id: 'browser-toggle', zone: 'left', priority: 5, label: 'Browser', El: BrowserToggle },
-
   { id: 'agent-count', zone: 'left', priority: 30, label: 'Live agents', El: AgentCountSegment },
+  { id: 'finance', zone: 'left', priority: 7, label: 'Finance', El: FinanceSegment },
   {
     id: 'reattached-note',
     zone: 'left',
@@ -69,11 +66,8 @@ export const STATUS_SEGMENTS: StatusSegment[] = [
   // Outranks op-progress: a rebase you have forgotten you are mid-way through
   // is the single most expensive thing this bar can tell you.
   { id: 'in-progress', zone: 'center', priority: 20, label: 'Mid-operation', El: InProgressSegment },
-  // Ambient, not repository state — the least critical readout in the zone
-  // so it collapses early.
-  { id: 'finance', zone: 'right', priority: 7, label: 'Finance', El: FinanceSegment },
+  // Right zone:
   { id: 'diagnostics', zone: 'right', priority: 10, label: 'Diagnostics', El: DiagnosticsSegment },
-  { id: 'monitor', zone: 'right', priority: 20, label: 'System monitor', El: MonitorCluster },
   { id: 'battery', zone: 'right', priority: 22, label: 'Battery', El: BatterySegment },
   {
     id: 'right-delimiter',
@@ -93,6 +87,7 @@ export const STATUS_SEGMENTS: StatusSegment[] = [
     label: 'Checks verdict',
     El: ChecksVerdictSegment,
   },
+  { id: 'monitor', zone: 'right', priority: 42, label: 'System monitor', El: MonitorCluster },
   { id: 'app-update', zone: 'right', priority: 45, label: 'Update', El: UpdatePill },
   { id: 'notification-bell', zone: 'right', priority: 50, label: 'Notifications', El: NotificationBell },
   { id: 'assistant-menu', zone: 'right', priority: 60, label: 'Midnite Assistant', El: AssistantMenu },

@@ -41,7 +41,7 @@ export function LockScreenSysmonWidget() {
   return (
     <div
       data-testid="lock-sysmon-widget"
-      className="flex min-w-[280px] flex-col rounded-xl border border-border/60 bg-card/60 p-3.5 text-left backdrop-blur-md transition-all sm:w-[320px]"
+      className="flex min-w-[280px] flex-col rounded-xl border border-transparent bg-transparent p-3.5 text-left transition-all sm:w-[320px]"
     >
       <div className="mb-2.5 flex items-center justify-between">
         <div className="flex items-center gap-1.5 text-xs font-semibold uppercase tracking-wider text-muted-foreground">
@@ -65,7 +65,7 @@ export function LockScreenSysmonWidget() {
           return (
             <div
               key={id}
-              className="flex flex-col rounded-lg border border-border/40 bg-background/40 p-2"
+              className="flex flex-col rounded-lg border border-transparent bg-transparent p-2"
             >
               <div className="flex items-center justify-between text-[11px]">
                 <span className="flex items-center gap-1 font-medium text-foreground/80">
@@ -142,7 +142,7 @@ export function LockScreenFintechWidget() {
   return (
     <div
       data-testid="lock-fintech-widget"
-      className="flex min-w-[280px] flex-col justify-between rounded-xl border border-border/60 bg-card/60 p-3.5 text-left backdrop-blur-md transition-all sm:w-[320px]"
+      className="flex min-w-[280px] flex-col justify-between rounded-xl border border-transparent bg-transparent p-3.5 text-left transition-all sm:w-[320px]"
     >
       <div className="flex items-center justify-between">
         <div className="flex items-center gap-1.5 text-xs font-semibold uppercase tracking-wider text-muted-foreground">
