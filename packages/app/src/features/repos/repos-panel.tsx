@@ -33,6 +33,7 @@ import { GoRepo } from 'react-icons/go';
 
 import type { MenuItem } from '../../components/context-menu';
 import { ChangeCountPill } from '../../components/change-count-pill';
+import { Collapse } from '@bilo-io/ui';
 import { SortableList, useSortableRow } from '../../components/sortable-list';
 import { useDialogs } from '../../components/dialog-host';
 import { IconButton } from '../../components/icon-button';
@@ -821,7 +822,7 @@ function RepoItem({
         />
       </div>
 
-      {expanded ? (
+      <Collapse open={expanded} id={`repo-tree-${repo.id}`} aria-label={repo.name}>
         <RepoTree
           repo={repo}
           refs={refs}
@@ -835,7 +836,7 @@ function RepoItem({
           onViewAllChanges={viewAllChanges}
           onCheckout={(ref) => void checkout.mutateAsync({ target: ref.name }).then(report)}
         />
-      ) : null}
+      </Collapse>
     </section>
   );
 }
