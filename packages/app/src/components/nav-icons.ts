@@ -1,13 +1,13 @@
 import type { IconType } from 'react-icons';
 import { FaCodePullRequest } from 'react-icons/fa6';
 import { GoBeaker, GoGlobe } from 'react-icons/go';
+import { IoIosGitNetwork } from 'react-icons/io';
 import {
   LuActivity,
   LuBot,
   LuDiff,
   LuDownload,
   LuFolderTree,
-  LuGitBranch,
   LuHistory,
   LuLayoutDashboard,
   LuLock,
@@ -42,7 +42,7 @@ export const VIEW_ICON: Record<ViewId, IconType> = {
   files: LuFolderTree,
   search: LuSearch,
   tests: GoBeaker,
-  graph: LuGitBranch,
+  graph: IoIosGitNetwork,
   changes: LuDiff,
   actions: LuPlay,
   reviews: FaCodePullRequest,
@@ -60,7 +60,7 @@ export const VIEW_ICON: Record<ViewId, IconType> = {
  */
 export const SETTINGS_PAGE_ICON: Record<SettingsPageId, IconType> = {
   appearance: LuPalette,
-  graph: LuGitBranch,
+  graph: IoIosGitNetwork,
   sidebar: LuPanelLeft,
   search: LuSearch,
   screenLock: LuLock,
