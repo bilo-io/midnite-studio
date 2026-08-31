@@ -12,7 +12,8 @@ import { pickForgeRemote } from '@midnite/studio-shared';
 import { QueryClient, useQueryClient } from '@tanstack/react-query';
 import { ChevronLeft, Command as CommandIcon } from 'lucide-react';
 import type { IconType } from 'react-icons';
-import { LuFile, LuLock, LuSettings } from 'react-icons/lu';
+import { CiPower } from 'react-icons/ci';
+import { LuFile, LuSettings } from 'react-icons/lu';
 
 import { Brand, BrandMark, Wordmark } from './components/brand';
 import { DialogHost } from './components/dialog-host';
@@ -539,6 +540,18 @@ function Shell() {
         <div className="flex w-full flex-col gap-1">
           <button
             type="button"
+            onClick={() => useUiStore.getState().setScreensaverOpen(true, true)}
+            aria-label="Lock screen"
+            title="Lock screen"
+            className={`flex w-full items-center gap-2 rounded-md px-2 py-1.5 text-xs text-muted-foreground transition-colors hover:bg-accent hover:text-foreground ${
+              expanded ? '' : 'justify-center'
+            }`}
+          >
+            <CiPower aria-hidden className="h-4 w-4 shrink-0" />
+            {expanded ? <span>Lock screen</span> : null}
+          </button>
+          <button
+            type="button"
             onClick={() => useUiStore.getState().setActiveView('settings')}
             aria-label="Settings"
             aria-current={activeView === 'settings' ? 'page' : undefined}
@@ -551,18 +564,6 @@ function Shell() {
           >
             <LuSettings aria-hidden className="h-4 w-4 shrink-0" />
             {expanded ? <span>Settings</span> : null}
-          </button>
-          <button
-            type="button"
-            onClick={() => useUiStore.getState().setScreensaverOpen(true, true)}
-            aria-label="Lock screen"
-            title="Lock screen"
-            className={`flex w-full items-center gap-2 rounded-md px-2 py-1.5 text-xs text-muted-foreground transition-colors hover:bg-accent hover:text-foreground ${
-              expanded ? '' : 'justify-center'
-            }`}
-          >
-            <LuLock aria-hidden className="h-4 w-4 shrink-0" />
-            {expanded ? <span>Lock screen</span> : null}
           </button>
         </div>
       ),
