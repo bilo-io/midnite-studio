@@ -78,7 +78,6 @@ function TickerRow({ asset }: { asset: FinanceAsset }) {
   return (
     <li className="flex items-center justify-between gap-3 py-1.5">
       <span className="min-w-0 flex-1 truncate text-sm">{asset.name}</span>
-      <Sparkline points={points} up={up} />
       {price == null ? (
         <span className="text-xs text-muted-foreground">…</span>
       ) : (
@@ -100,6 +99,7 @@ function TickerRow({ asset }: { asset: FinanceAsset }) {
           </span>
         </span>
       )}
+      <Sparkline points={points} up={up} />
     </li>
   );
 }

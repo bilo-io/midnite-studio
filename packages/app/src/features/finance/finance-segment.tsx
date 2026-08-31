@@ -3,17 +3,18 @@ import { useEffect, useState } from 'react';
 import { LuArrowDown, LuArrowUp, LuChartLine } from 'react-icons/lu';
 
 import { Popover } from '../../components/popover';
-import { assetTicker, fmtPrice, historyChange } from './finance-derive';
+import { useTitleTypewriter } from '../slides/use-title-typewriter';
+import { assetTicker, fmtPct, fmtPrice, historyChange } from './finance-derive';
 import { useFinanceHistory, useFinanceQuote } from './finance-queries';
 import { FinancePanel } from './finance-panel';
 import { useFinanceStore } from './finance-store';
 import { Sparkline } from './sparkline';
 
 /**
- * The status bar's finance footer: displays the active ticker's sparkline
- * chart, symbol, live price, and gain/loss arrow with the entire entry highlighted
- * in green/red, cycling across all watched tickers every 3 seconds, opening the
- * full watchlist (`FinancePanel`) on click.
+ * The status bar's finance footer: displays the active ticker's symbol
+ * (typed out with typewriter animation), live price, gain/loss arrow, and sparkline
+ * chart, with the entire entry highlighted in green/red, cycling across all
+ * watched tickers every 5 seconds, opening the full watchlist (`FinancePanel`) on click.
  */
 export function FinanceSegment() {
   const [open, setOpen] = useState(false);
@@ -28,7 +29,7 @@ export function FinanceSegment() {
     }
     const timer = setInterval(() => {
       setTickerIndex((prev) => (prev + 1) % assets.length);
-    }, 3000);
+    }, 5000);
     return () => clearInterval(timer);
   }, [assets.length]);
 
@@ -39,6 +40,9 @@ export function FinanceSegment() {
   const { data: history } = useFinanceHistory(currentAsset, apiKey);
   const { pct, up } = historyChange(history ?? []);
   const price = quote?.price ?? history?.at(-1)?.c;
+
+  const rawTicker = currentAsset ? assetTicker(currentAsset) : '';
+  const { typed: typedTicker } = useTitleTypewriter(rawTicker, false);
 
   const hasData = currentAsset !== null && price != null;
   const colorClass = hasData
@@ -58,25 +62,30 @@ export function FinanceSegment() {
       panelClassName="w-[400px] max-h-[420px] p-3"
       trigger={
         <span className={`flex items-center gap-1.5 transition-colors ${colorClass}`}>
-          {currentAsset && history && history.length >= 2 ? (
-            <Sparkline points={history} up={up} width={36} height={14} />
-          ) : (
-            <LuChartLine aria-hidden className="h-3.5 w-3.5 shrink-0" />
-          )}
           {hasData ? (
             <span className="flex items-center gap-1 tabular-nums">
-              <span className="font-medium uppercase">{assetTicker(currentAsset)}</span>
+              <span className="font-bold uppercase">{typedTicker || rawTicker}</span>
               <span className="status-label">{fmtPrice(price, quote?.currency)}</span>
-              {pct != null &&
-                (up ? (
-                  <LuArrowUp className="h-3 w-3 shrink-0" aria-hidden />
-                ) : (
-                  <LuArrowDown className="h-3 w-3 shrink-0" aria-hidden />
-                ))}
+              {pct != null && (
+                <span className="flex items-center gap-0.5 font-medium">
+                  {up ? (
+                    <LuArrowUp className="h-3 w-3 shrink-0 stroke-[2.5]" aria-hidden />
+                  ) : (
+                    <LuArrowDown className="h-3 w-3 shrink-0 stroke-[2.5]" aria-hidden />
+                  )}
+                  <span>{fmtPct(pct)}</span>
+                </span>
+              )}
             </span>
           ) : (
-            <span className="status-label">Finance</span>
+            <>
+              <LuChartLine aria-hidden className="h-3.5 w-3.5 shrink-0" />
+              <span className="status-label">Finance</span>
+            </>
           )}
+          {currentAsset && history && history.length >= 2 ? (
+            <Sparkline points={history} up={up} width={36} height={14} />
+          ) : null}
         </span>
       }
     >
@@ -84,4 +93,5 @@ export function FinanceSegment() {
     </Popover>
   );
 }
+
 
