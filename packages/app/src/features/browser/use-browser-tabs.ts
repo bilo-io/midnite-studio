@@ -16,8 +16,15 @@ import { useToastStore } from '../../store/toast-store';
  * must hide the active view the instant the fade starts, or a native layer
  * with nothing left in the DOM to dismiss it would sit on screen with no
  * way to close it.
+ *
+ * `onTabReady` — pass `useBrowserBounds`'s `sync` — is called once
+ * `browser.create` resolves for the newly-active tab. A tab's view is
+ * created lazily on first activation, so at the moment this effect fires
+ * the view usually doesn't exist yet; `browser.activate` alone would still
+ * force it visible with no bounds ever pushed. Re-running `sync` here is
+ * what actually sizes and (occluder-aware) shows it once it exists.
  */
-export function useBrowserTabsEffects(open: boolean): void {
+export function useBrowserTabsEffects(open: boolean, onTabReady?: () => void): void {
   const activeTabId = useBrowserStore((s) => s.activeTabId);
   const previousActive = useRef<string | null>(null);
 
@@ -90,6 +97,9 @@ export function useBrowserTabsEffects(open: boolean): void {
     // safe to call on every activation, including a reopen after close.
     void bridge()
       ?.browser.create({ tabId: tab.id, url: tab.url })
-      .then(() => bridge()?.browser.activate({ tabId: tab.id }));
-  }, [open, activeTabId]);
+      .then(() => {
+        bridge()?.browser.activate({ tabId: tab.id });
+        onTabReady?.();
+      });
+  }, [open, activeTabId, onTabReady]);
 }

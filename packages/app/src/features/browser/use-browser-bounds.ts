@@ -1,4 +1,4 @@
-import { useEffect, useRef } from 'react';
+import { useCallback, useEffect, useRef } from 'react';
 
 import { bridge } from '../../services/bridge';
 import { useUiStore } from '../../store/ui-store';
@@ -20,36 +20,65 @@ export function useBrowserBounds(activeTabId: string | null, visible: boolean) {
   const occluders = useUiStore((s) => s.occluders);
   const effectiveVisible = visible && occluders === 0;
 
+  // Mirrored into a ref so `sync` keeps a stable identity across renders
+  // (safe to hand to `useBrowserTabsEffects`'s effect deps) while still
+  // reading the CURRENT tab/visibility rather than whichever render created it.
+  const latest = useRef({ activeTabId, effectiveVisible });
+  latest.current = { activeTabId, effectiveVisible };
+
+  /**
+   * Re-sends `setVisible`/`setBounds` for whatever tab and occlusion state
+   * are current right now.
+   *
+   * Exposed (not just run from this hook's own effect) because the effect
+   * below fires once per `[activeTabId, effectiveVisible]` change and talks
+   * to whatever `WebContentsView` exists in main AT THAT INSTANT — a silent
+   * no-op if the tab was only just requested and its view hasn't been
+   * created yet (background tabs are lazy, see `browser-service.ts`). That
+   * left a newly-activated tab visible at Electron's default zero bounds
+   * forever, since nothing re-ran this push once the view actually showed
+   * up. `useBrowserTabsEffects` calls this again once `browser.create`
+   * resolves, so the real bounds land the moment the view exists — and
+   * because it re-reads `effectiveVisible` fresh, it also can't force a tab
+   * visible over an open context menu the way an unconditional
+   * `browser.activate()` alone would.
+   */
+  const sync = useCallback(() => {
+    const { activeTabId, effectiveVisible } = latest.current;
+    if (!activeTabId) return;
+    bridge()?.browser.setVisible({ tabId: activeTabId, visible: effectiveVisible });
+    if (!effectiveVisible) return;
+
+    const el = ref.current;
+    if (!el) return;
+    const rect = el.getBoundingClientRect();
+    bridge()?.browser.setBounds({
+      tabId: activeTabId,
+      bounds: {
+        x: Math.round(rect.x),
+        y: Math.round(rect.y),
+        width: Math.round(rect.width),
+        height: Math.round(rect.height),
+      },
+    });
+  }, []);
+
   useEffect(() => {
     if (!activeTabId) return undefined;
-    bridge()?.browser.setVisible({ tabId: activeTabId, visible: effectiveVisible });
+    sync();
     if (!effectiveVisible) return undefined;
 
     const el = ref.current;
     if (!el) return undefined;
 
-    const push = () => {
-      const rect = el.getBoundingClientRect();
-      bridge()?.browser.setBounds({
-        tabId: activeTabId,
-        bounds: {
-          x: Math.round(rect.x),
-          y: Math.round(rect.y),
-          width: Math.round(rect.width),
-          height: Math.round(rect.height),
-        },
-      });
-    };
-
-    push();
-    const observer = new ResizeObserver(push);
+    const observer = new ResizeObserver(sync);
     observer.observe(el);
-    window.addEventListener('resize', push);
+    window.addEventListener('resize', sync);
     return () => {
       observer.disconnect();
-      window.removeEventListener('resize', push);
+      window.removeEventListener('resize', sync);
     };
-  }, [activeTabId, effectiveVisible]);
+  }, [activeTabId, effectiveVisible, sync]);
 
-  return ref;
+  return { ref, sync };
 }
