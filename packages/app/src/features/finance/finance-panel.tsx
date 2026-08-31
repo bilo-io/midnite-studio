@@ -99,7 +99,9 @@ function TickerRow({ asset }: { asset: FinanceAsset }) {
           </span>
         </span>
       )}
-      <Sparkline points={points} up={up} />
+      <span className={up ? 'text-emerald-600 dark:text-emerald-400' : 'text-destructive'}>
+        <Sparkline points={points} up={up} />
+      </span>
     </li>
   );
 }
