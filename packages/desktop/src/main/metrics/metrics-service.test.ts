@@ -5,7 +5,7 @@ import { DISK_REFRESH_EVERY_TICKS, createMetricsService } from './metrics-servic
 
 /** A probe set that answers instantly and counts how often it was asked. */
 function stubProbes() {
-  const calls = { cpu: 0, memory: 0, gpu: 0, disk: 0 };
+  const calls = { cpu: 0, memory: 0, gpu: 0, disk: 0, battery: 0 };
   return {
     calls,
     probes: {
@@ -24,6 +24,16 @@ function stubProbes() {
       disk: async () => {
         calls.disk += 1;
         return { percent: 70, used: 7, total: 10 };
+      },
+      battery: async () => {
+        calls.battery += 1;
+        return {
+          percent: 85,
+          isCharging: true,
+          isFullyCharged: false,
+          hasBattery: true,
+          devices: [{ id: 'internal', name: 'Computer', type: 'internal' as const, percent: 85 }],
+        };
       },
     },
   };
@@ -52,6 +62,7 @@ describe('createMetricsService', () => {
     build(probes).start(5_000);
     await vi.advanceTimersByTimeAsync(0);
     expect(samples).toHaveLength(1);
+    expect(samples[0]?.battery?.percent).toBe(85);
   });
 
   it('re-arms the single timer on a cadence change instead of adding a second', async () => {
