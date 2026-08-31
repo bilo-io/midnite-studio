@@ -125,6 +125,26 @@ const REFS = [
 const themedFixtures: MockFixtures = { ...fixtures, graphRows: GRAPH_ROWS, refs: REFS };
 
 /**
+ * A single-lane chain long enough that the virtualizer's overscan can't cover
+ * it — scrolling to the end has to unmount the top rows and mount fresh ones,
+ * which is the only way to prove the cascade does not follow recycled rows
+ * back onto the screen.
+ */
+const CHAIN_LENGTH = 80;
+const CHAIN_ROWS = Array.from({ length: CHAIN_LENGTH }, (_, i) => {
+  const edgeType = i === 0 ? 'merge' : i === CHAIN_LENGTH - 1 ? 'branch' : 'straight';
+  return {
+    row: i,
+    lane: 0,
+    colorIdx: 0,
+    laneCount: 1,
+    edges: [{ fromLane: 0, toLane: 0, type: edgeType, colorIdx: 0 }],
+    commit: commit(i, i === CHAIN_LENGTH - 1 ? [] : [sha(i + 1)], `commit number ${i}`),
+  };
+});
+const chainFixtures: MockFixtures = { ...fixtures, graphRows: CHAIN_ROWS, refs: [] };
+
+/**
  * Gravatar is stubbed, never called for real.
  *
  * A suite that hits the network is a suite that fails on a train and produces a
@@ -142,9 +162,13 @@ async function stubGravatar(page: Page, mode: 'hit' | 'miss'): Promise<void> {
   });
 }
 
-async function openGraph(page: Page, mode: 'hit' | 'miss' = 'hit'): Promise<void> {
+async function openGraph(
+  page: Page,
+  mode: 'hit' | 'miss' = 'hit',
+  fixturesOverride: MockFixtures = themedFixtures,
+): Promise<void> {
   await stubGravatar(page, mode);
-  await installMockBridge(page, themedFixtures);
+  await installMockBridge(page, fixturesOverride);
   await page.goto('/graph');
   const repoButton = page.locator('aside[aria-label="Repositories"]').getByRole('button', { name: 'midnite-studio', exact: true });
   if (await repoButton.isVisible()) {
@@ -229,6 +253,45 @@ test.describe('graph themes', () => {
     const rowWrappers = page.locator('[role="grid"] > div > div.absolute');
     await expect(rowWrappers.first()).toHaveClass(/animate-fade-in/);
     await expect(rowWrappers.first()).toHaveClass(/cascade-delay/);
+  });
+
+  /**
+   * The cascade is a once-per-visit entrance, not a standing behaviour of the
+   * list — it has to hand the viewport back to the plain virtualizer once it
+   * settles, or every scroll would re-run fade-in on freshly recycled rows and
+   * eat the perf the virtualisation was for.
+   */
+  test('the cascade settles once, then never replays on scroll or row recycling', async ({ page }) => {
+    await openGraph(page, 'hit', chainFixtures);
+
+    // Scoped to the grid: the sidebar's own (non-virtualized, one-shot) lists
+    // carry `cascade-delay` too, and never remove it — the class alone never
+    // replays their animation because their rows mount once, but a page-wide
+    // selector here would make the graph's OWN teardown look like it never
+    // fired.
+    const gridCascading = page.locator('[role="grid"] .cascade-delay');
+    await expect(gridCascading.first()).toBeVisible();
+
+    // Longer than graph-view.tsx's own cascade duration
+    // ((GRAPH_CASCADE_MAX_STEPS + 1) * CASCADE_STEP_MS + 250 = 628ms), so the
+    // cascade has fully settled and isCascading has flipped off.
+    await page.waitForTimeout(750);
+    await expect(gridCascading).toHaveCount(0);
+
+    // Scroll far enough that the virtualizer unmounts the original rows and
+    // mounts a fresh batch outside its overscan window.
+    await page.locator('[role="grid"]').evaluate((el) => {
+      el.scrollTop = el.scrollHeight;
+    });
+    await expect(page.getByText('commit number 79')).toBeVisible();
+    await expect(gridCascading).toHaveCount(0);
+
+    // And scrolling back to the top does not resurrect it either.
+    await page.locator('[role="grid"]').evaluate((el) => {
+      el.scrollTop = 0;
+    });
+    await expect(page.getByText('commit number 0')).toBeVisible();
+    await expect(gridCascading).toHaveCount(0);
   });
 
   test('ref chips render in the branch column, not beside the subject', async ({ page }) => {

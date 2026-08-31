@@ -8,6 +8,8 @@ describe('cascade', () => {
     expect(cascadeStyle(5)).toEqual({ '--i': 5 });
     expect(cascadeStyle(CASCADE_MAX_STEPS)).toEqual({ '--i': CASCADE_MAX_STEPS });
     expect(cascadeStyle(CASCADE_MAX_STEPS + 10)).toEqual({ '--i': CASCADE_MAX_STEPS });
+    expect(cascadeStyle(18, 20)).toEqual({ '--i': 18 });
+    expect(cascadeStyle(25, 20)).toEqual({ '--i': 20 });
   });
 
   it('defines step duration constant', () => {
