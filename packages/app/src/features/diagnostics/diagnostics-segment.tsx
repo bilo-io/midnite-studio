@@ -250,7 +250,11 @@ function Counts({
 
   if (run.errorCount === 0 && run.warningCount === 0) {
     return (
-      <span className="flex items-center gap-1.5" aria-label="No problems">
+      <span
+        className="flex items-center gap-1.5"
+        style={{ color: 'hsl(var(--health-ok))' }}
+        aria-label="No problems"
+      >
         <BsCheckCircle
           aria-hidden
           className="h-3 w-3 shrink-0"
