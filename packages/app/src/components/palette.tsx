@@ -233,6 +233,16 @@ export function Palette() {
     [flatRows],
   );
 
+  // Read through refs rather than depending on these directly — `scoredResults`
+  // and `selectedIndex` change on every keystroke, which would otherwise tear
+  // down and re-register this capture-phase listener on every render.
+  const scoredResultsLengthRef = useRef(scoredResults.length);
+  scoredResultsLengthRef.current = scoredResults.length;
+  const selectedIndexRef = useRef(selectedIndex);
+  selectedIndexRef.current = selectedIndex;
+  const runSelectedItemRef = useRef(runSelectedItem);
+  runSelectedItemRef.current = runSelectedItem;
+
   useEffect(() => {
     const onKeyDown = (event: KeyboardEvent) => {
       if (event.key === 'Escape') {
@@ -240,21 +250,22 @@ export function Palette() {
         close();
         return;
       }
-      if (scoredResults.length === 0) return;
+      const length = scoredResultsLengthRef.current;
+      if (length === 0) return;
       if (event.key === 'ArrowDown') {
         event.preventDefault();
-        setSelectedIndex(Math.min(selectedIndex + 1, scoredResults.length - 1));
+        setSelectedIndex(Math.min(selectedIndexRef.current + 1, length - 1));
       } else if (event.key === 'ArrowUp') {
         event.preventDefault();
-        setSelectedIndex(Math.max(selectedIndex - 1, 0));
+        setSelectedIndex(Math.max(selectedIndexRef.current - 1, 0));
       } else if (event.key === 'Enter') {
         event.preventDefault();
-        runSelectedItem(selectedIndex);
+        runSelectedItemRef.current(selectedIndexRef.current);
       }
     };
     window.addEventListener('keydown', onKeyDown);
     return () => window.removeEventListener('keydown', onKeyDown);
-  }, [close, scoredResults.length, runSelectedItem, selectedIndex, setSelectedIndex]);
+  }, [close, setSelectedIndex]);
 
   const placeholder = MODE_PLACEHOLDER[mode];
 
