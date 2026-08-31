@@ -1,5 +1,5 @@
 import { Accordion } from '@bilo-io/ui';
-import { LuImage, LuPalette, LuSparkles } from 'react-icons/lu';
+import { LuCalendar, LuClock, LuImage, LuPalette, LuSparkles } from 'react-icons/lu';
 
 import { ACCENT_OPTIONS, BACKGROUND_PATTERN_OPTIONS } from '@bilo-io/shell';
 
@@ -166,21 +166,15 @@ export function AppearancePage() {
         </div>
       </Accordion>
 
-      <TitlebarStatusSettingsAccordion />
+      <TitlebarTimeSettingsAccordion />
+      <TitlebarDateSettingsAccordion />
     </div>
   );
 }
 
-function TitlebarStatusSettingsAccordion() {
-  const showDate = useTitlebarStatusStore((s) => s.showDate);
+function TitlebarTimeSettingsAccordion() {
   const showTime = useTitlebarStatusStore((s) => s.showTime);
-  const showWeather = useTitlebarStatusStore((s) => s.showWeather);
-  const setShowDate = useTitlebarStatusStore((s) => s.setShowDate);
   const setShowTime = useTitlebarStatusStore((s) => s.setShowTime);
-  const setShowWeather = useTitlebarStatusStore((s) => s.setShowWeather);
-
-  const weatherUnits = useTitlebarStatusStore((s) => s.weatherUnits);
-  const setWeatherUnits = useTitlebarStatusStore((s) => s.setWeatherUnits);
   const clockMode = useTitlebarStatusStore((s) => s.clockMode);
   const setClockMode = useTitlebarStatusStore((s) => s.setClockMode);
   const showSeconds = useTitlebarStatusStore((s) => s.showSeconds);
@@ -189,53 +183,22 @@ function TitlebarStatusSettingsAccordion() {
   const setWorldClocksMode = useTitlebarStatusStore((s) => s.setWorldClocksMode);
 
   return (
-    <Accordion title="Titlebar Status & Clock" icon={<LuSparkles className="h-4 w-4" />} defaultOpen>
+    <Accordion title="Titlebar Time" icon={<LuClock className="h-4 w-4" />} defaultOpen>
       <div className="flex flex-col gap-4 p-3">
         <Field
           label="Titlebar Center Pill Items"
-          hint="Choose which elements appear in the top center status bar."
+          hint="Choose whether the time appears in the top center status bar."
         >
-          <div className="flex flex-col gap-1.5">
-            <label className="flex items-center gap-2 text-xs">
-              <input
-                type="checkbox"
-                checked={showDate}
-                onChange={(e) => setShowDate(e.target.checked)}
-                className="h-3.5 w-3.5 accent-[hsl(var(--primary))]"
-              />
-              Date
-            </label>
-            <label className="flex items-center gap-2 text-xs">
-              <input
-                type="checkbox"
-                checked={showTime}
-                onChange={(e) => setShowTime(e.target.checked)}
-                className="h-3.5 w-3.5 accent-[hsl(var(--primary))]"
-              />
-              Time
-            </label>
-            <label className="flex items-center gap-2 text-xs">
-              <input
-                type="checkbox"
-                checked={showWeather}
-                onChange={(e) => setShowWeather(e.target.checked)}
-                className="h-3.5 w-3.5 accent-[hsl(var(--primary))]"
-              />
-              Weather & temperature
-            </label>
-          </div>
+          <label className="flex items-center gap-2 text-xs">
+            <input
+              type="checkbox"
+              checked={showTime}
+              onChange={(e) => setShowTime(e.target.checked)}
+              className="h-3.5 w-3.5 accent-[hsl(var(--primary))]"
+            />
+            Time
+          </label>
         </Field>
-
-        <Choice<string>
-          label="Temperature units"
-          hint="Display temperature in Celsius or Fahrenheit."
-          value={weatherUnits}
-          onChange={(v) => setWeatherUnits(v as 'c' | 'f')}
-          options={[
-            ['c', 'Celsius (°C)'],
-            ['f', 'Fahrenheit (°F)'],
-          ]}
-        />
 
         <Choice<string>
           label="Clock display mode"
@@ -270,6 +233,59 @@ function TitlebarStatusSettingsAccordion() {
             Show seconds (:ss)
           </label>
         </Field>
+      </div>
+    </Accordion>
+  );
+}
+
+function TitlebarDateSettingsAccordion() {
+  const showDate = useTitlebarStatusStore((s) => s.showDate);
+  const showWeather = useTitlebarStatusStore((s) => s.showWeather);
+  const setShowDate = useTitlebarStatusStore((s) => s.setShowDate);
+  const setShowWeather = useTitlebarStatusStore((s) => s.setShowWeather);
+
+  const weatherUnits = useTitlebarStatusStore((s) => s.weatherUnits);
+  const setWeatherUnits = useTitlebarStatusStore((s) => s.setWeatherUnits);
+
+  return (
+    <Accordion title="Titlebar Date" icon={<LuCalendar className="h-4 w-4" />} defaultOpen>
+      <div className="flex flex-col gap-4 p-3">
+        <Field
+          label="Titlebar Center Pill Items"
+          hint="Choose which date/weather elements appear in the top center status bar."
+        >
+          <div className="flex flex-col gap-1.5">
+            <label className="flex items-center gap-2 text-xs">
+              <input
+                type="checkbox"
+                checked={showDate}
+                onChange={(e) => setShowDate(e.target.checked)}
+                className="h-3.5 w-3.5 accent-[hsl(var(--primary))]"
+              />
+              Date
+            </label>
+            <label className="flex items-center gap-2 text-xs">
+              <input
+                type="checkbox"
+                checked={showWeather}
+                onChange={(e) => setShowWeather(e.target.checked)}
+                className="h-3.5 w-3.5 accent-[hsl(var(--primary))]"
+              />
+              Weather & temperature
+            </label>
+          </div>
+        </Field>
+
+        <Choice<string>
+          label="Temperature units"
+          hint="Display temperature in Celsius or Fahrenheit."
+          value={weatherUnits}
+          onChange={(v) => setWeatherUnits(v as 'c' | 'f')}
+          options={[
+            ['c', 'Celsius (°C)'],
+            ['f', 'Fahrenheit (°F)'],
+          ]}
+        />
       </div>
     </Accordion>
   );
