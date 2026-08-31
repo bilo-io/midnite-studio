@@ -601,7 +601,7 @@ function Shell() {
         <span className="font-mono text-[10px] font-semibold opacity-70">P</span>
       </IconButton>
       <span aria-hidden className="h-4 w-px shrink-0 bg-border" />
-      <SyncActions />
+      <TitleBarStatus />
       {/*
         Install / Build / Test / Launch for whichever checkout is selected —
         the same cluster the sidebar shows per repository, aimed here at
@@ -637,9 +637,10 @@ function Shell() {
         <div className="flex min-w-0 items-center">
           <Wordmark className="text-xs" />
           <TitleBarNav />
+          <span aria-hidden className="mx-1.5 h-4 w-px shrink-0 bg-border" />
+          <SyncActions />
         </div>
       }
-      center={<TitleBarStatus />}
       right={chrome}
     />
   );
@@ -688,8 +689,9 @@ function Shell() {
             <div className="flex min-w-0 items-center">
               <Wordmark className="text-xs" />
               <TitleBarNav />
+              <span aria-hidden className="mx-1.5 h-4 w-px shrink-0 bg-border" />
+              <SyncActions />
             </div>
-            <TitleBarStatus />
             <div className="flex items-center gap-2">{chrome}</div>
           </div>
         ) : null}
