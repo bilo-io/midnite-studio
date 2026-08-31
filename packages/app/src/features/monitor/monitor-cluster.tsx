@@ -1,8 +1,9 @@
 import { METRIC_IDS, type MetricId } from '@midnite/studio-shared';
 import { useState } from 'react';
 import type { IconType } from 'react-icons';
-import { BsGpuCard, BsHddFill } from 'react-icons/bs';
-import { RiCpuFill, RiRamFill } from 'react-icons/ri';
+import { BsCpuFill, BsHddFill } from 'react-icons/bs';
+import { PiGraphicsCardFill } from 'react-icons/pi';
+import { RiRamFill } from 'react-icons/ri';
 
 import { Popover } from '../../components/popover';
 import { Tooltip } from '../../components/tooltip';
@@ -16,9 +17,9 @@ import { Sparkline } from './sparkline';
 import { useMetricsStream } from './use-metrics-stream';
 
 const METRIC_ICONS: Record<MetricId, IconType> = {
-  cpu: RiCpuFill,
+  cpu: BsCpuFill,
   memory: RiRamFill,
-  gpu: BsGpuCard,
+  gpu: PiGraphicsCardFill,
   disk: BsHddFill,
 };
 
