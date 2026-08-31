@@ -250,13 +250,21 @@ export const BUILTIN_AGENTS: readonly AgentDefinition[] = [
     install: 'pip install -U aider-chat',
   },
   {
+    /*
+      `cursor` used to type the desktop editor's own launcher into the pty —
+      it opened a GUI window, not a terminal agent. `cursor-agent` is the
+      actual Cursor CLI binary (the install script also symlinks the shorter
+      `agent`, but that name collides with other vendors' CLIs, so this
+      roster uses the unambiguous one, same as every other entry here).
+    */
     id: 'cursor',
     label: 'Cursor',
-    command: 'cursor',
+    command: 'cursor-agent',
     args: [],
+    resume: ['--continue'],
     accent: '#0066FF',
     icon: 'SiCursor',
-    install: 'curl -fsSL https://cursor.com/install.sh | sh',
+    install: 'curl https://cursor.com/install -fsS | bash',
   },
   {
     id: 'cline',

@@ -1173,11 +1173,12 @@ export async function installMockBridge(page: Page, fixtures: MockFixtures): Pro
             {
               id: 'cursor',
               label: 'Cursor',
-              command: 'cursor',
+              command: 'cursor-agent',
               args: [],
+              resume: ['--continue'],
               accent: '#0066FF',
               icon: 'SiCursor',
-              install: 'curl -fsSL https://cursor.com/install.sh | sh',
+              install: 'curl https://cursor.com/install -fsS | bash',
             },
             {
               id: 'cline',
@@ -1198,7 +1199,7 @@ export async function installMockBridge(page: Page, fixtures: MockFixtures): Pro
             { id: 'opencode', installed: true, resolvedPath: '/opt/homebrew/bin/opencode' },
             { id: 'kilo', installed: true, resolvedPath: '/Users/e2e/.local/bin/kilo' },
             { id: 'aider', installed: true, resolvedPath: '/Users/e2e/.local/bin/aider' },
-            { id: 'cursor', installed: true, resolvedPath: '/usr/local/bin/cursor' },
+            { id: 'cursor', installed: true, resolvedPath: '/usr/local/bin/cursor-agent' },
             { id: 'cline', installed: true, resolvedPath: '/usr/local/bin/cline' },
           ],
         }),
