@@ -23,11 +23,15 @@ export function LockScreenWidgets() {
   return (
     <div
       data-testid="lock-screen-widgets"
-      className="mt-8 flex flex-col items-center gap-4 sm:flex-row sm:items-stretch sm:justify-center"
+      className="absolute inset-0 pointer-events-none"
       onClick={(e) => e.stopPropagation()}
     >
-      <LockScreenSysmonWidget />
-      <LockScreenFintechWidget />
+      <div className="pointer-events-auto absolute bottom-8 left-8 z-10">
+        <LockScreenFintechWidget />
+      </div>
+      <div className="pointer-events-auto absolute bottom-8 right-8 z-10">
+        <LockScreenSysmonWidget />
+      </div>
     </div>
   );
 }
