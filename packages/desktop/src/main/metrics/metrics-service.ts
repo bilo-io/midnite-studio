@@ -2,9 +2,11 @@ import {
   METRICS_IDLE_INTERVAL_MS,
   METRICS_MAX_INTERVAL_MS,
   METRICS_MIN_INTERVAL_MS,
+  type BatteryReading,
   type MetricSample,
 } from '@midnite/studio-shared';
 
+import { createBatteryProbe } from './battery';
 import { createCpuProbe, loadAverage1 } from './cpu';
 import { probeDisk, type DiskReading } from './disk';
 import { createGpuProbe } from './gpu';
@@ -46,6 +48,7 @@ export type MetricsProbes = {
   memory: () => Promise<MemoryReading | undefined>;
   gpu: () => Promise<number | undefined>;
   disk: () => Promise<DiskReading | undefined>;
+  battery: () => Promise<BatteryReading | undefined>;
 };
 
 /**
@@ -56,6 +59,9 @@ export type MetricsProbes = {
  * A coarse background refresh keeps it honest for one `statfs` per ~20–50s.
  */
 export const DISK_REFRESH_EVERY_TICKS = 10;
+
+/** Battery status changes slowly, probe every 2 ticks (approx 4-10s). */
+export const BATTERY_REFRESH_EVERY_TICKS = 2;
 
 export type MetricsService = {
   /**
@@ -88,6 +94,8 @@ export function createMetricsService(options: {
   let inFlight: Promise<void> | null = null;
   let ticksSinceDisk = Number.POSITIVE_INFINITY;
   let lastDisk: DiskReading | undefined;
+  let ticksSinceBattery = Number.POSITIVE_INFINITY;
+  let lastBattery: BatteryReading | undefined;
 
   const arm = (): void => {
     disarm();
@@ -119,11 +127,15 @@ export function createMetricsService(options: {
     const { usage, cores } = probes.cpu();
 
     ticksSinceDisk += 1;
+    ticksSinceBattery += 1;
     const wantDisk = forceDisk || ticksSinceDisk >= DISK_REFRESH_EVERY_TICKS;
-    const [memory, gpu, disk] = await Promise.all([
+    const wantBattery = ticksSinceBattery >= BATTERY_REFRESH_EVERY_TICKS;
+
+    const [memory, gpu, disk, battery] = await Promise.all([
       probes.memory(),
       probes.gpu(),
       wantDisk ? probes.disk() : Promise.resolve(undefined),
+      wantBattery ? probes.battery() : Promise.resolve(undefined),
     ]);
 
     if (wantDisk) {
@@ -134,6 +146,12 @@ export function createMetricsService(options: {
       if (disk !== undefined) lastDisk = disk;
     }
     const diskReading = disk ?? lastDisk;
+
+    if (wantBattery) {
+      ticksSinceBattery = 0;
+      if (battery !== undefined) lastBattery = battery;
+    }
+    const batteryReading = battery ?? lastBattery;
 
     const load1 = loadAverage1();
 
@@ -156,6 +174,9 @@ export function createMetricsService(options: {
       sample.diskBytes = { used: diskReading.used, total: diskReading.total };
     }
     sample.cpuInfo = load1 === undefined ? { cores } : { cores, load1 };
+    if (batteryReading !== undefined) {
+      sample.battery = batteryReading;
+    }
 
     options.emit(sample);
   };
@@ -201,10 +222,12 @@ export function createMetricsService(options: {
 function withDefaults(overrides: Partial<MetricsProbes> | undefined): MetricsProbes {
   const cpuProbe = createCpuProbe();
   const gpuProbe = createGpuProbe();
+  const batteryProbe = createBatteryProbe();
   return {
     cpu: overrides?.cpu ?? (() => cpuProbe.sample()),
     memory: overrides?.memory ?? (() => probeMemory()),
     gpu: overrides?.gpu ?? (() => gpuProbe.sample()),
     disk: overrides?.disk ?? (() => probeDisk()),
+    battery: overrides?.battery ?? (() => batteryProbe.sample()),
   };
 }

@@ -1,5 +1,6 @@
 import type { ComponentType } from 'react';
 
+import { BatterySegment } from '../battery/battery-segment';
 import { DiagnosticsSegment } from '../diagnostics/diagnostics-segment';
 import { FinanceSegment } from '../finance/finance-segment';
 import { MonitorCluster } from '../monitor/monitor-cluster';
@@ -18,11 +19,9 @@ import { RightDelimiterSegment } from './right-delimiter';
 import { TerminalToggle } from './terminal-toggle';
 import { TestVerdictSegment } from './test-verdict';
 
-
 import { UpdatePill } from './update-pill';
 
 export type StatusZone = 'left' | 'center' | 'right';
-
 
 /**
  * `priority` decides Theme E's overflow order within a zone; render order
@@ -78,6 +77,7 @@ export const STATUS_SEGMENTS: StatusSegment[] = [
   { id: 'finance', zone: 'right', priority: 7, label: 'Finance', El: FinanceSegment },
   { id: 'diagnostics', zone: 'right', priority: 10, label: 'Diagnostics', El: DiagnosticsSegment },
   { id: 'monitor', zone: 'right', priority: 20, label: 'System monitor', El: MonitorCluster },
+  { id: 'battery', zone: 'right', priority: 22, label: 'Battery', El: BatterySegment },
   {
     id: 'right-delimiter',
     zone: 'right',

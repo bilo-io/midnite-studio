@@ -1,4 +1,5 @@
 import { z } from 'zod';
+import { BatteryReadingSchema } from './battery';
 
 /**
  * A reading of what the machine is doing, sampled in main and pushed to the
@@ -51,6 +52,8 @@ export const MetricSampleSchema = z.object({
       load1: z.number().nonnegative().optional(),
     })
     .optional(),
+  /** Battery reading for system and connected peripherals. */
+  battery: BatteryReadingSchema.optional(),
 });
 export type MetricSample = z.infer<typeof MetricSampleSchema>;
 

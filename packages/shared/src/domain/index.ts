@@ -16,3 +16,4 @@ export * from './stats';
 export * from './status';
 export * from './tests';
 export * from './watch';
+export * from './battery';
