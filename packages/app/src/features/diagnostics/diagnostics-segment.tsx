@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState } from 'react';
+import { BsCheckCircle, BsExclamationCircle, BsXCircle } from 'react-icons/bs';
 
 import {
   commandFingerprint,
@@ -249,40 +250,43 @@ function Counts({
 
   if (run.errorCount === 0 && run.warningCount === 0) {
     return (
-      <span className="flex items-center gap-1" aria-label="No problems">
-        <span
+      <span className="flex items-center gap-1.5" aria-label="No problems">
+        <BsCheckCircle
           aria-hidden
-          className="h-2 w-2 rounded-full"
-          style={{ backgroundColor: 'hsl(var(--health-ok))' }}
+          className="h-3 w-3 shrink-0"
+          style={{ color: 'hsl(var(--health-ok))' }}
         />
-        No problems
+        <span>No problems</span>
       </span>
     );
   }
 
   return (
     <span
-      className="flex items-center gap-1.5"
+      className="flex items-center gap-2"
       aria-label={`${run.errorCount} errors, ${run.warningCount} warnings`}
     >
       {run.errorCount > 0 ? (
         <span
           data-testid="diag-errors"
-          className="rounded-full bg-destructive px-1.5 py-px text-[10px] font-medium leading-none tabular-nums text-destructive-foreground"
+          className="flex items-center gap-1 text-[11px] font-medium leading-none tabular-nums text-destructive"
         >
-          {run.errorCount}
+          <BsXCircle aria-hidden className="h-3 w-3 shrink-0 text-destructive" />
+          <span>{run.errorCount}</span>
         </span>
       ) : null}
       {run.warningCount > 0 ? (
         <span
           data-testid="diag-warnings"
-          className="rounded-full px-1.5 py-px text-[10px] font-medium leading-none tabular-nums"
-          style={{
-            backgroundColor: 'hsl(var(--health-warn))',
-            color: 'hsl(var(--background))',
-          }}
+          className="flex items-center gap-1 text-[11px] font-medium leading-none tabular-nums"
+          style={{ color: 'hsl(var(--health-warn))' }}
         >
-          {run.warningCount}
+          <BsExclamationCircle
+            aria-hidden
+            className="h-3 w-3 shrink-0"
+            style={{ color: 'hsl(var(--health-warn))' }}
+          />
+          <span>{run.warningCount}</span>
         </span>
       ) : null}
     </span>
