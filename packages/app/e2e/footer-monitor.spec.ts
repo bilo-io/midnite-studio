@@ -70,7 +70,7 @@ test.describe('footer monitor', () => {
 
     // The percentage is still the accessible reading, ring or no ring.
     await expect(disk).toHaveText(/72%/);
-    await expect(disk).toHaveAttribute('aria-label', /Disk 72 percent/);
+    await expect(disk).toHaveAttribute('aria-label', /(?:Disk|HDD) 72 percent/);
   });
 
   test('an unreadable GPU renders three readouts, not a zero', async ({ page }) => {

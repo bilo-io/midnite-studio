@@ -73,5 +73,5 @@ export const METRIC_LABELS: Record<MetricId, string> = {
   cpu: 'CPU',
   memory: 'RAM',
   gpu: 'GPU',
-  disk: 'Disk',
+  disk: 'HDD',
 };
