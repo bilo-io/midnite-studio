@@ -166,4 +166,49 @@ describe('FinanceSegment', () => {
       expect(trigger.textContent).toContain('BTC');
     });
   });
+
+  it('types out ticker, price, and percentage via typewriter effect', async () => {
+    vi.stubGlobal(
+      'fetch',
+      vi.fn(async (input: string | URL) => {
+        const url = String(input);
+        if (url.includes('/market_chart')) {
+          return jsonResponse({
+            prices: [
+              [1000, 40000],
+              [2000, 50000],
+            ],
+          });
+        }
+        return jsonResponse({
+          name: 'Bitcoin',
+          market_data: { current_price: { usd: 50000 } },
+        });
+      }),
+    );
+
+    useFinanceStore.setState({
+      assets: [{ kind: 'crypto', symbol: 'bitcoin', name: 'Bitcoin (BTC)' }],
+    });
+
+    vi.useFakeTimers();
+    renderSegment();
+
+    const trigger = screen.getByTestId('finance-segment');
+
+    // Initially typewriter states start at length 0 or minimal chars, then advance to full text
+    await vi.waitFor(() => {
+      expect(trigger.textContent).toBeDefined();
+    });
+
+    act(() => {
+      vi.advanceTimersByTime(1000);
+    });
+
+    await vi.waitFor(() => {
+      expect(trigger.textContent).toContain('BTC');
+      expect(trigger.textContent).toContain('$50,000.00');
+      expect(trigger.textContent).toContain('+25.00%');
+    });
+  });
 });
