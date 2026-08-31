@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 
 import { useVirtualizer } from '@tanstack/react-virtual';
-import { LuGitBranch, LuGitCommitVertical } from 'react-icons/lu';
+import { LuGitBranch, LuGitCommitVertical, LuUsers } from 'react-icons/lu';
 
 import { useDialogs } from '../../components/dialog-host';
 import { EmptyState } from '../../components/empty-state';
@@ -15,9 +15,10 @@ import { CommitDetail } from '../commit/commit-detail';
 import { GraphDndProvider, type DropEvent } from './graph-dnd';
 import { summariseAuthors } from './author-filter';
 import { countLocalBranches } from './branch-count';
+import { firstCommitDate } from './first-commit-date';
 import { GraphDefs, avatarClipId } from './graph-defs';
 import { GraphHeader, graphColumnVars, useGraphColumns } from './graph-header';
-import { CommitGraphRow } from './graph-row';
+import { CommitGraphRow, formatDate } from './graph-row';
 import { useGraphStore } from './graph-store';
 import {
   graphThemeFor,
@@ -69,6 +70,8 @@ export function GraphView() {
   const { data: refs = [] } = useRefs(repoId);
   const refsBySha = useRefsBySha(refs);
   const branchCount = useMemo(() => countLocalBranches(refs), [refs]);
+  const authorCount = useMemo(() => summariseAuthors(rows).length, [rows]);
+  const firstCommit = useMemo(() => firstCommitDate(rows), [rows]);
 
   const { data: status } = useStatus();
   const currentBranch = status?.branch.head ?? null;
@@ -355,7 +358,13 @@ export function GraphView() {
           </span>
           {loading ? <span>loading…</span> : null}
           {truncated ? <span>history truncated at the row cap</span> : null}
-          <span className="ml-auto tabular-nums">{Math.round(paintedGutter)}px gutter</span>
+          <span className="ml-auto flex items-center gap-3">
+            <span className="flex items-center gap-1.5 tabular-nums">
+              <LuUsers aria-hidden className="h-3 w-3 shrink-0" />
+              {authorCount.toLocaleString()} authors
+            </span>
+            {firstCommit !== null ? <span>first commit {formatDate(firstCommit)}</span> : null}
+          </span>
         </footer>
       </div>
 
