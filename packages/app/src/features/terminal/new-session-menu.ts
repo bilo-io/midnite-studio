@@ -70,7 +70,11 @@ export function buildNewSessionMenu({
 
   items.push({ type: 'separator' });
 
-  for (const agent of agents) {
+  const PROPRIETARY_IDS = new Set(['claude', 'agy', 'codex', 'cursor', 'copilot']);
+  const proprietary = agents.filter((a) => PROPRIETARY_IDS.has(a.id));
+  const others = agents.filter((a) => !PROPRIETARY_IDS.has(a.id));
+
+  const addAgentRow = (agent: AgentDefinition) => {
     // Absent status = unknown = assume installed. Only a probe that ran and
     // answered may disable a row.
     const missing = byId.get(agent.id)?.installed === false;
@@ -96,6 +100,18 @@ export function buildNewSessionMenu({
           }
         : {}),
     });
+  };
+
+  for (const agent of proprietary) {
+    addAgentRow(agent);
+  }
+
+  if (proprietary.length > 0 && others.length > 0) {
+    items.push({ type: 'separator' });
+  }
+
+  for (const agent of others) {
+    addAgentRow(agent);
   }
 
   return items;
