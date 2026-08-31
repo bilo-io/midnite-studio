@@ -81,6 +81,7 @@ export function RefBadge({
   syncing,
   onContextMenu,
   onDoubleClick,
+  agentActive = false,
   dnd,
 }: {
   refItem: Ref;
@@ -105,6 +106,8 @@ export function RefBadge({
   syncing?: SyncAction['kind'] | null;
   onContextMenu?: (event: React.MouseEvent) => void;
   onDoubleClick?: (event: React.MouseEvent) => void;
+  /** Whether an AI agent is actively working in this branch's worktree. */
+  agentActive?: boolean;
   /** Drag/drop wiring from useRefDnd — omitted where the badge is static. */
   dnd?: {
     setNodeRef: (node: HTMLElement | null) => void;
@@ -159,24 +162,33 @@ export function RefBadge({
               /*
                 The still half of the "you are here" marker. See `HeadGlow` for
                 why this is a shadow and not a blurred child element.
+                When an agent is also active, an enriched multi-layered gradient glow is applied.
               */
-              boxShadow:
-                '0 0 0 1px hsl(var(--lane-h) var(--lane-s) var(--lane-l) / 0.55), 0 0 7px 1px hsl(var(--lane-h) var(--lane-s) var(--lane-l) / 0.5)',
+              boxShadow: agentActive
+                ? '0 0 0 1px hsl(var(--lane-h) var(--lane-s) var(--lane-l) / 0.8), 0 0 8px 2px hsl(var(--lane-h) var(--lane-s) var(--lane-l) / 0.65), 0 0 16px 4px hsl(calc(var(--lane-h) + 15) var(--lane-s) var(--lane-l) / 0.4)'
+                : '0 0 0 1px hsl(var(--lane-h) var(--lane-s) var(--lane-l) / 0.55), 0 0 7px 1px hsl(var(--lane-h) var(--lane-s) var(--lane-l) / 0.5)',
             }
-          : undefined),
-        opacity: current ? 1 : RESTING_OPACITY,
+          : agentActive
+            ? {
+                boxShadow:
+                  '0 0 0 1px hsl(var(--lane-h) var(--lane-s) var(--lane-l) / 0.7), 0 0 8px 2px hsl(var(--lane-h) var(--lane-s) var(--lane-l) / 0.55), 0 0 14px 3px hsl(calc(var(--lane-h) + 15) var(--lane-s) var(--lane-l) / 0.35)',
+              }
+            : undefined),
+        opacity: current || agentActive ? 1 : RESTING_OPACITY,
       }}
       className={`relative inline-flex min-w-0 max-w-full shrink cursor-default items-center gap-1 rounded-[3px] border px-1.5 py-px text-[11px] leading-4 transition-opacity ${
         current
           ? 'border-[hsl(var(--lane-h)_var(--lane-s)_var(--lane-l))] bg-[hsl(var(--lane-h)_var(--lane-s)_var(--lane-l))] font-semibold'
-          : 'border-[hsl(var(--lane-h)_var(--lane-s)_var(--lane-l)/0.45)] bg-[hsl(var(--lane-h)_var(--lane-s)_var(--lane-l)/0.14)] text-[hsl(var(--lane-h)_var(--lane-s)_var(--lane-ink-l))] hover:opacity-100'
+          : agentActive
+            ? 'border-[hsl(var(--lane-h)_var(--lane-s)_var(--lane-l)/0.8)] bg-[hsl(var(--lane-h)_var(--lane-s)_var(--lane-l)/0.25)] text-[hsl(var(--lane-h)_var(--lane-s)_var(--lane-ink-l))] font-medium hover:opacity-100'
+            : 'border-[hsl(var(--lane-h)_var(--lane-s)_var(--lane-l)/0.45)] bg-[hsl(var(--lane-h)_var(--lane-s)_var(--lane-l)/0.14)] text-[hsl(var(--lane-h)_var(--lane-s)_var(--lane-ink-l))] hover:opacity-100'
       } ${
         // A drop target has to look like one mid-drag, or the gesture is a
         // guess — the ring is the only feedback the user gets before releasing.
         dnd?.isOver ? 'ring-2 ring-primary ring-offset-1 ring-offset-background' : ''
       } ${dnd?.isDragging ? 'opacity-40' : ''}`}
     >
-      {current ? <HeadGlow /> : null}
+      {current || agentActive ? <HeadGlow /> : null}
       <RefIcon refItem={refItem} />
       <span className="truncate">{refItem.name}</span>
       {/* Ahead/behind belongs on the badge: it's the answer to "do I need to

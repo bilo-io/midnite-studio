@@ -1,5 +1,6 @@
 import type { GraphRow, Ref } from '@midnite/studio-shared';
-import { memo } from 'react';
+import { memo, useCallback, useEffect, useRef, useState } from 'react';
+import { createPortal } from 'react-dom';
 
 import { Tooltip } from '../../components/tooltip';
 import { useCommitDnd, useRefDnd } from './graph-dnd';
@@ -59,6 +60,8 @@ export type GraphRowProps = {
   syncing: Record<string, SyncAction['kind']>;
   /** HEAD's branch, which decides whether a pull is offered. */
   currentBranch: string | null;
+  /** Check if an agent is active on a ref's worktree. */
+  isAgentActive?: (ref: Ref) => boolean;
 };
 
 function GraphRowInner({
@@ -78,6 +81,7 @@ function GraphRowInner({
   onSync,
   syncing,
   currentBranch,
+  isAgentActive,
 }: GraphRowProps) {
   // `refs` arrives sorted by importance (HEAD, locals, remotes, tags), so the
   // slice keeps the ref you most need to see and buries the ones you don't.
@@ -98,15 +102,14 @@ function GraphRowInner({
       }}
       className={`relative flex cursor-default items-center gap-2 pr-3 text-sm transition-colors ${
         selected ? 'bg-accent' : 'hover:bg-accent/30'
-      }`}
+      } ${dimmed ? 'opacity-40' : ''}`}
       style={{ height: theme.rowHeight }}
     >
       {/*
-        The selection bar, in the row's OWN lane colour.
+        The selection indicator bar: 3px strip on the left edge.
 
-        Selection used to be `bg-accent/70` against a `bg-accent/30` hover — two
-        tints of one colour, a difference small enough that the selected row was
-        found by elimination rather than seen. A bar at the left edge is read
+        A left border on the row itself would shift its contents right by 3px on
+        selection; a separate element means the text stays still. It paints
         before any tint is, because it is the only thing in the column and the
         eye is already there.
 
@@ -146,6 +149,7 @@ function GraphRowInner({
             crowded={shown.length > 1}
             onSync={(action) => onSync(ref, action)}
             syncing={syncing[ref.fullName] ?? null}
+            agentActive={isAgentActive ? isAgentActive(ref) : false}
             onContextMenu={(event) => {
               // Stop the row's own menu opening as well — the badge's menu is
               // the more specific target the user aimed at.
@@ -161,18 +165,19 @@ function GraphRowInner({
         ))}
 
         {/*
-          The overflow counter, GitKraken's answer to a commit that five refs
-          point at. A fixed cap rather than a measured fit: the alternative is a
-          ResizeObserver per row, and this list is virtualized over 50 000 of
-          them. The names live in the tooltip so a hidden ref is still findable.
+          The overflow counter, GitKraken's answer to a commit that multiple refs
+          point at. Clicking opens a dropdown showing all hidden refs with their
+          specific lane colors and agent glow if active.
         */}
         {hidden.length > 0 ? (
-          <span
-            title={hidden.map((ref) => ref.name).join('\n')}
-            className="shrink-0 rounded-[3px] border border-border bg-muted/60 px-1 py-px text-[11px] leading-4 text-muted-foreground"
-          >
-            +{hidden.length}
-          </span>
+          <RefOverflowButton
+            refs={hidden}
+            colorIdx={row.colorIdx}
+            palette={theme.palette}
+            onRefContextMenu={onRefContextMenu}
+            onRefActivate={onRefActivate}
+            isAgentActive={isAgentActive}
+          />
         ) : null}
 
         {/*
@@ -356,6 +361,7 @@ function DraggableRefBadge({
   crowded,
   onSync,
   syncing,
+  agentActive,
   onContextMenu,
   onDoubleClick,
 }: {
@@ -367,6 +373,7 @@ function DraggableRefBadge({
   crowded: boolean;
   onSync: (action: SyncAction) => void;
   syncing: SyncAction['kind'] | null;
+  agentActive?: boolean;
   onContextMenu: (event: React.MouseEvent) => void;
   onDoubleClick: (event: React.MouseEvent) => void;
 }) {
@@ -381,6 +388,7 @@ function DraggableRefBadge({
       crowded={crowded}
       onSync={onSync}
       syncing={syncing}
+      agentActive={agentActive}
       onContextMenu={onContextMenu}
       onDoubleClick={onDoubleClick}
       dnd={{
@@ -394,6 +402,124 @@ function DraggableRefBadge({
         isDragging: draggable.isDragging,
       }}
     />
+  );
+}
+
+/**
+ * Overflow button and interactive dropdown popover for commits with > 2 refs.
+ * Shows each hidden branch in its lane colour with agent glow if active.
+ */
+function RefOverflowButton({
+  refs,
+  colorIdx,
+  palette,
+  onRefContextMenu,
+  onRefActivate,
+  isAgentActive,
+}: {
+  refs: readonly Ref[];
+  colorIdx: number;
+  palette: GraphTheme['palette'];
+  onRefContextMenu: (event: React.MouseEvent, ref: Ref) => void;
+  onRefActivate: (ref: Ref) => void;
+  isAgentActive?: (ref: Ref) => boolean;
+}) {
+  const [open, setOpen] = useState(false);
+  const buttonRef = useRef<HTMLButtonElement | null>(null);
+  const [coords, setCoords] = useState<{ x: number; y: number } | null>(null);
+
+  const toggle = useCallback((event: React.MouseEvent) => {
+    event.stopPropagation();
+    if (!buttonRef.current) return;
+    const rect = buttonRef.current.getBoundingClientRect();
+    setCoords({ x: rect.left, y: rect.bottom + 4 });
+    setOpen((prev) => !prev);
+  }, []);
+
+  const close = useCallback(() => setOpen(false), []);
+
+  useEffect(() => {
+    if (!open) return;
+    const handleDown = (e: MouseEvent) => {
+      if (buttonRef.current && buttonRef.current.contains(e.target as Node)) return;
+      close();
+    };
+    const handleScroll = () => close();
+
+    window.addEventListener('pointerdown', handleDown, true);
+    window.addEventListener('scroll', handleScroll, true);
+    window.addEventListener('resize', handleScroll, true);
+    return () => {
+      window.removeEventListener('pointerdown', handleDown, true);
+      window.removeEventListener('scroll', handleScroll, true);
+      window.removeEventListener('resize', handleScroll, true);
+    };
+  }, [open, close]);
+
+  const hasActiveAgent = isAgentActive ? refs.some((r) => isAgentActive(r)) : false;
+
+  return (
+    <>
+      <button
+        ref={buttonRef}
+        type="button"
+        onClick={toggle}
+        title={refs.map((ref) => ref.name).join('\n')}
+        className={`shrink-0 rounded-[3px] border px-1 py-px text-[11px] leading-4 transition-colors ${
+          hasActiveAgent
+            ? 'border-primary/60 bg-primary/20 text-primary font-medium shadow-[0_0_6px_rgba(var(--primary),0.3)]'
+            : 'border-border bg-muted/60 text-muted-foreground hover:bg-muted hover:text-foreground'
+        }`}
+      >
+        +{refs.length}
+      </button>
+
+      {open && coords
+        ? createPortal(
+            <div
+              role="dialog"
+              aria-label="Overflow branches"
+              onClick={(e) => e.stopPropagation()}
+              style={{ left: coords.x, top: coords.y }}
+              className="fixed z-popover flex max-h-64 min-w-[180px] max-w-xs flex-col gap-1.5 overflow-y-auto rounded-md border border-border bg-popover p-2 shadow-xl animate-fade-in"
+            >
+              <div className="px-1 text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">
+                Other branches ({refs.length})
+              </div>
+              <div className="flex flex-col gap-1">
+                {refs.map((ref) => {
+                  const active = isAgentActive ? isAgentActive(ref) : false;
+                  return (
+                    <div
+                      key={ref.fullName}
+                      className="flex items-center gap-1.5 rounded p-0.5 hover:bg-accent/40"
+                    >
+                      <RefBadge
+                        refItem={ref}
+                        colorIdx={colorIdx}
+                        palette={palette}
+                        agentActive={active}
+                        onContextMenu={(event) => {
+                          event.preventDefault();
+                          event.stopPropagation();
+                          close();
+                          onRefContextMenu(event, ref);
+                        }}
+                        onDoubleClick={(event) => {
+                          event.stopPropagation();
+                          close();
+                          onRefActivate(ref);
+                        }}
+                      />
+                    </div>
+                  );
+                })}
+              </div>
+            </div>,
+            document.body,
+          )
+        : null}
+    </>
   );
 }
 
