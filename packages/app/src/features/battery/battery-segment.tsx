@@ -5,7 +5,12 @@ import { useMetricsStream } from '../monitor/use-metrics-stream';
 import { useUiStore } from '../../store/ui-store';
 import { BatteryIcon } from './battery-icon';
 import { BatteryPanel } from './battery-panel';
-import { getBatteryTier, getBatteryTierClasses } from './battery-style';
+import {
+  getBatteryFlashClass,
+  getBatteryFlashTier,
+  getBatteryTier,
+  getBatteryTierClasses,
+} from './battery-style';
 
 /**
  * Battery segment for the status bar:
@@ -33,6 +38,8 @@ export function BatterySegment() {
   const rounded = Math.round(percent);
   const tier = getBatteryTier(rounded);
   const { textClass, glowStyle } = getBatteryTierClasses(tier);
+  const flashTier = getBatteryFlashTier(rounded);
+  const flashClass = getBatteryFlashClass(flashTier);
 
   return (
     <Popover
@@ -45,10 +52,11 @@ export function BatterySegment() {
       panelClassName="w-[320px] max-h-[380px] p-3 overflow-y-auto"
       trigger={
         <span
-          className={`flex items-center gap-1.5 font-medium transition-colors ${textClass}`}
+          className={`flex items-center gap-1.5 font-medium transition-colors ${textClass} ${flashClass}`}
           style={glowStyle}
           data-testid="battery-trigger"
           data-tier={tier}
+          data-flash-tier={flashTier}
         >
           <BatteryIcon
             percent={rounded}

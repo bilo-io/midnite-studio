@@ -162,12 +162,20 @@
 
 /* Selected Repo Row — gradient shimmer in the repos panel accordion header.
  * A moving highlight over the same `bg-accent/60` the row already wore, so the
- * resting look is unchanged and the sweep is the only new thing to notice. */
+ * resting look is unchanged and the sweep is the only new thing to notice.
+ *
+ * The sweep only occupies the first 2/7 of the 24.5s cycle (7s), then holds at
+ * its off-screen end position for the remaining 17.5s — 7x less frequent than
+ * a plain 3.5s loop, and each sweep takes twice as long (half as fast) once it
+ * does run. */
 @keyframes repo-row-shimmer {
-  from {
+  0% {
     background-position: -120% 0;
   }
-  to {
+  28.5714% {
+    background-position: 220% 0;
+  }
+  100% {
     background-position: 220% 0;
   }
 }
@@ -182,13 +190,43 @@
     hsl(var(--accent) / 0.6) 100%
   );
   background-size: 250% 100%;
-  animation: repo-row-shimmer 3.5s ease-in-out infinite;
+  animation: repo-row-shimmer 24.5s ease-in-out infinite;
 }
 
 html[data-motion='reduced'] .repo-row-shimmer {
   animation: none;
   background-image: none;
   background-color: hsl(var(--accent) / 0.6);
+}
+
+/* Battery status-bar segment — below 30% the low tier flashes, getting
+ * faster the lower the reading goes: slow under 30%, quicker under 20%,
+ * urgent under 10%. */
+@keyframes battery-flash {
+  0%, 100% {
+    opacity: 1;
+  }
+  50% {
+    opacity: 0.35;
+  }
+}
+
+.battery-flash-slow {
+  animation: battery-flash 2s ease-in-out infinite;
+}
+
+.battery-flash-medium {
+  animation: battery-flash 1s ease-in-out infinite;
+}
+
+.battery-flash-fast {
+  animation: battery-flash 0.4s ease-in-out infinite;
+}
+
+html[data-motion='reduced'] .battery-flash-slow,
+html[data-motion='reduced'] .battery-flash-medium,
+html[data-motion='reduced'] .battery-flash-fast {
+  animation: none;
 }
 
 @keyframes shake {

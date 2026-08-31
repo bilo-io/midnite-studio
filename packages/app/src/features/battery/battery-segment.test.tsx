@@ -76,6 +76,67 @@ describe('BatterySegment', () => {
     expect(screen.getByText('18%')).toBeDefined();
   });
 
+  it('flashes slowly under 30%, faster under 20%, fastest under 10%', () => {
+    useMetricsStore.getState().push({
+      at: Date.now(),
+      battery: {
+        percent: 25,
+        hasBattery: true,
+        isCharging: false,
+        devices: [{ id: 'internal', name: 'Computer', type: 'internal', percent: 25 }],
+      },
+    });
+    const { rerender } = render(<BatterySegment />);
+    let trigger = screen.getByTestId('battery-trigger');
+    expect(trigger.getAttribute('data-flash-tier')).toBe('slow');
+    expect(trigger.className).toContain('battery-flash-slow');
+
+    useMetricsStore.getState().push({
+      at: Date.now(),
+      battery: {
+        percent: 15,
+        hasBattery: true,
+        isCharging: false,
+        devices: [{ id: 'internal', name: 'Computer', type: 'internal', percent: 15 }],
+      },
+    });
+    rerender(<BatterySegment />);
+    trigger = screen.getByTestId('battery-trigger');
+    expect(trigger.getAttribute('data-flash-tier')).toBe('medium');
+    expect(trigger.className).toContain('battery-flash-medium');
+
+    useMetricsStore.getState().push({
+      at: Date.now(),
+      battery: {
+        percent: 8,
+        hasBattery: true,
+        isCharging: false,
+        devices: [{ id: 'internal', name: 'Computer', type: 'internal', percent: 8 }],
+      },
+    });
+    rerender(<BatterySegment />);
+    trigger = screen.getByTestId('battery-trigger');
+    expect(trigger.getAttribute('data-flash-tier')).toBe('fast');
+    expect(trigger.className).toContain('battery-flash-fast');
+  });
+
+  it('does not flash at or above 30%', () => {
+    useMetricsStore.getState().push({
+      at: Date.now(),
+      battery: {
+        percent: 85,
+        hasBattery: true,
+        isCharging: false,
+        devices: [{ id: 'internal', name: 'Computer', type: 'internal', percent: 85 }],
+      },
+    });
+
+    render(<BatterySegment />);
+    const trigger = screen.getByTestId('battery-trigger');
+    expect(trigger.getAttribute('data-flash-tier')).toBe('none');
+    expect(trigger.className).not.toContain('battery-flash');
+  });
+
   it('opens panel on click listing all connected devices', () => {
     useMetricsStore.getState().push({
       at: Date.now(),
