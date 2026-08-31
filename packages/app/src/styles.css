@@ -370,21 +370,8 @@ section.bg-card\/60 {
  * still clears the window edge where the too-tight 6px this once was did not.
  */
 .gradient-border::after {
-  inset: -8px;
-  padding: 8px;
-  filter: blur(4px);
-  mask:
-    linear-gradient(#000 0 0) content-box,
-    linear-gradient(#000 0 0);
-  mask-composite: exclude;
-  transition: opacity 0.3s ease-out;
-  z-index: -1;
-}
-
-.gradient-border:focus-within::after,
-.gradient-border--hover:hover::after,
-.gradient-border--always::after {
-  opacity: 0.55;
+  content: none;
+  display: none;
 }
 
 /* Screensaver / Lockscreen Title Sheen & Tint Glow */
