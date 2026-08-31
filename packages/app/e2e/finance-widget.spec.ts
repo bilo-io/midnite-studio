@@ -77,9 +77,11 @@ test.describe('finance footer', () => {
     await expect(panel.getByText('+11.11%')).toBeVisible();
     await expect(panel.locator('svg polyline')).toHaveCount(1);
 
-    // The footer trigger itself picks up the headline ticker too.
+    // The footer trigger itself picks up the headline ticker and sparkline too.
     const trigger = page.getByTestId('finance-segment');
+    await expect(trigger).toContainText('BTC');
     await expect(trigger).toContainText('$50,000.00');
+    await expect(trigger.locator('svg polyline')).toHaveCount(1);
 
     await page.waitForTimeout(200);
     await page.getByTestId('status-bar').screenshot({ path: '/tmp/finance-footer.png' });
