@@ -331,6 +331,8 @@ export function Screensaver({
               Local Time
             </div>
           </div>
+
+          <LockScreenWidgets />
         </>
       }
     >
@@ -389,8 +391,6 @@ export function Screensaver({
           );
         })}
       </div>
-
-      <LockScreenWidgets />
     </LockScreen>
   );
 }
