@@ -444,3 +444,65 @@ html[data-motion='reduced'] .pill-shimmer {
   animation: none;
 }
 
+/* Breadcrumb Repo Pill — Rainbow gradient border & rotating glow/box-shadow on hover */
+@property --breadcrumb-angle {
+  syntax: '<angle>';
+  inherits: false;
+  initial-value: 0deg;
+}
+
+@keyframes breadcrumb-spin {
+  to {
+    --breadcrumb-angle: 360deg;
+  }
+}
+
+.breadcrumb-repo-pill {
+  position: relative;
+  border: 1px solid transparent;
+  border-radius: 9999px;
+  background-image:
+    linear-gradient(hsl(var(--background)), hsl(var(--background))),
+    conic-gradient(
+      from var(--breadcrumb-angle, 0deg),
+      #f43f5e,
+      #f59e0b,
+      #10b981,
+      #3b82f6,
+      #8b5cf6,
+      #ec4899,
+      #f43f5e
+    );
+  background-origin: border-box;
+  background-clip: padding-box, border-box;
+  animation: breadcrumb-spin 4s linear infinite;
+  transition: all 0.2s ease-in-out;
+}
+
+.breadcrumb-repo-pill:hover {
+  background-image: conic-gradient(
+    from var(--breadcrumb-angle, 0deg),
+    rgba(244, 63, 94, 0.85),
+    rgba(245, 158, 11, 0.85),
+    rgba(16, 185, 129, 0.85),
+    rgba(59, 130, 246, 0.85),
+    rgba(139, 92, 246, 0.85),
+    rgba(236, 72, 153, 0.85),
+    rgba(244, 63, 94, 0.85)
+  );
+  background-origin: border-box;
+  background-clip: border-box;
+  color: #ffffff;
+  box-shadow:
+    0 0 12px rgba(236, 72, 153, 0.45),
+    0 0 20px rgba(59, 130, 246, 0.35);
+}
+
+.breadcrumb-repo-pill:hover * {
+  color: #ffffff !important;
+}
+
+html[data-motion='reduced'] .breadcrumb-repo-pill {
+  animation: none;
+}
+

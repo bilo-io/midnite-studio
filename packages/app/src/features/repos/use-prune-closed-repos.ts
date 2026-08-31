@@ -31,5 +31,9 @@ export function usePruneClosedRepos(): void {
     for (const repoId of Object.keys(useUiStore.getState().collapsedRepoSections)) {
       if (!open.has(repoId)) useUiStore.getState().pruneRepoSections(repoId);
     }
+    const currentSelected = useUiStore.getState().selectedRepoId;
+    if (currentSelected && !open.has(currentSelected)) {
+      useUiStore.getState().selectRepo(null);
+    }
   }, [repos]);
 }

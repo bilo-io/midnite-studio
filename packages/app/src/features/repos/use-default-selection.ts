@@ -25,22 +25,30 @@ export function useDefaultSelection(): void {
   const selectedWorktreePath = useUiStore((s) => s.selectedWorktreePath);
 
   useEffect(() => {
-    if (!repos || repos.length === 0) return;
+    if (!repos || repos.length === 0) {
+      if (selectedRepoId !== null) {
+        useUiStore.getState().selectRepo(null);
+      }
+      return;
+    }
+
+    if (!selectedRepoId) {
+      return;
+    }
 
     const current = repos.find((repo) => repo.id === selectedRepoId);
-    const target = current ?? repos[0];
-    if (!target) return;
+    if (!current) {
+      return;
+    }
 
     const store = useUiStore.getState();
-    if (!current) store.selectRepo(target.id);
-
     const worktreeStillExists =
       selectedWorktreePath !== null &&
-      target.worktrees.some((w) => w.path === selectedWorktreePath);
+      current.worktrees.some((w) => w.path === selectedWorktreePath);
 
     // Default to the main worktree; a repo's other checkouts are opt-in.
-    if (!current || !selectedWorktreePath || !worktreeStillExists) {
-      const main = target.worktrees.find((w) => w.isMain) ?? target.worktrees[0];
+    if (!selectedWorktreePath || !worktreeStillExists) {
+      const main = current.worktrees.find((w) => w.isMain) ?? current.worktrees[0];
       if (main) store.selectWorktree(main.path);
     }
   }, [repos, selectedRepoId, selectedWorktreePath]);
