@@ -2,6 +2,7 @@ import { useMemo } from 'react';
 
 import type { RepoStats } from '@midnite/studio-shared';
 
+import { formatNumber } from '../../../lib/format-number';
 import { calendarColor } from '../calendar-palette';
 import { calendarWeeks, type CalendarCell } from '../dashboard-derive';
 import { WidgetState } from '../widget-frame';
@@ -45,7 +46,7 @@ export function CalendarWidget({
     >
       <div className="flex flex-col gap-2">
         <p className="text-xs text-muted-foreground">
-          <span className="font-medium tabular-nums text-foreground">{total}</span>{' '}
+          <span className="font-medium tabular-nums text-foreground">{formatNumber(total)}</span>{' '}
           {total === 1 ? 'commit' : 'commits'}
           {stats?.truncated ? ' (history was truncated — showing what was scanned)' : ''}
         </p>

@@ -2,6 +2,7 @@ import { MetricDial, RadialGauge } from '@bilo-io/ui';
 
 import type { RepoStats } from '@midnite/studio-shared';
 
+import { formatNumber } from '../../../lib/format-number';
 import { formatBytes } from '../../monitor/format-bytes';
 import { StatTile, WidgetState } from '../widget-frame';
 import { relativeDays } from './contributors-widget';
@@ -67,8 +68,8 @@ export function HealthWidget({
               pct={local === 0 ? 0 : (health.mergedBranches / local) * 100}
               label="Merged"
               hueVar="--primary"
-              sublabel={`${health.mergedBranches} of ${local}`}
-              ariaLabel={`${health.mergedBranches} of ${local} local branches are already merged`}
+              sublabel={`${formatNumber(health.mergedBranches)} of ${formatNumber(local)}`}
+              ariaLabel={`${formatNumber(health.mergedBranches)} of ${formatNumber(local)} local branches are already merged`}
             />
             <p className="pt-1 text-center text-[10px] text-muted-foreground">
               Already in the default branch — safe to delete
@@ -80,12 +81,12 @@ export function HealthWidget({
               label="Repo size"
               value={health.sizeBytes === null ? '—' : formatBytes(health.sizeBytes)}
               sublabel={
-                health.looseObjects === null ? undefined : `${health.looseObjects} loose objects`
+                health.looseObjects === null ? undefined : `${formatNumber(health.looseObjects)} loose objects`
               }
             />
-            <StatTile label="Local branches" value={String(health.localBranches)} />
-            <StatTile label="Remote branches" value={String(health.remoteBranches)} />
-            <StatTile label="Tags" value={String(health.tags)} />
+            <StatTile label="Local branches" value={formatNumber(health.localBranches)} />
+            <StatTile label="Remote branches" value={formatNumber(health.remoteBranches)} />
+            <StatTile label="Tags" value={formatNumber(health.tags)} />
             <StatTile
               label="Oldest un-merged"
               value={
@@ -95,7 +96,7 @@ export function HealthWidget({
             />
             <StatTile
               label="Commits scanned"
-              value={String(stats?.commitsScanned ?? 0)}
+              value={formatNumber(stats?.commitsScanned ?? 0)}
               sublabel={stats?.truncated ? 'traversal truncated' : undefined}
             />
           </div>

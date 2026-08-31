@@ -4,6 +4,7 @@ import { useVirtualizer } from '@tanstack/react-virtual';
 import { ChevronDown, ChevronRight, SquareArrowOutUpRight } from 'lucide-react';
 
 import { IconButton } from '../../components/icon-button';
+import { formatNumber } from '../../lib/format-number';
 import { openExternal } from '../../services/queries';
 import { parseAnsi } from './ansi';
 import { groupCount, visibleRows, type LogNode } from './log-model';
@@ -77,7 +78,7 @@ export function LogPane({
           </button>
         ) : null}
         <span className="ml-auto shrink-0 text-[11px] tabular-nums text-muted-foreground/70">
-          {rows.length.toLocaleString('en-US')} rows
+          {formatNumber(rows.length)} rows
         </span>
       </div>
 
@@ -92,7 +93,7 @@ export function LogPane({
       {truncated ? (
         <p className="flex shrink-0 flex-wrap items-center gap-x-2 gap-y-1 border-b border-border bg-amber-500/10 px-2 py-1 text-[11px] text-amber-700 dark:text-amber-400">
           <span>
-            Log truncated — {omittedLines.toLocaleString('en-US')} lines omitted from the middle of{' '}
+            Log truncated — {formatNumber(omittedLines)} lines omitted from the middle of{' '}
             {formatBytes(totalBytes)}.
           </span>
           {onLoadFull === null ? null : (
@@ -100,9 +101,9 @@ export function LogPane({
               type="button"
               onClick={onLoadFull}
               disabled={loadingFull}
-              className="underline underline-offset-2 disabled:no-underline disabled:opacity-60"
+              className="font-medium underline hover:text-foreground"
             >
-              {loadingFull ? 'Loading…' : 'Load the full log'}
+              {loadingFull ? 'Loading…' : 'Load full log'}
             </button>
           )}
           <IconButton
@@ -115,15 +116,21 @@ export function LogPane({
       ) : null}
 
       <div ref={scroller} className="min-h-0 flex-1 overflow-auto">
-        <div style={{ height: virtualizer.getTotalSize() }} className="relative">
+        <div style={{ height: virtualizer.getTotalSize(), position: 'relative', width: '100%' }}>
           {virtualizer.getVirtualItems().map((item) => {
             const row = rows[item.index];
             if (!row) return null;
             return (
               <div
-                key={row.key}
-                style={{ height: item.size, transform: `translateY(${item.start}px)` }}
-                className="absolute inset-x-0 top-0"
+                key={item.key}
+                style={{
+                  position: 'absolute',
+                  top: 0,
+                  left: 0,
+                  width: '100%',
+                  height: `${item.size}px`,
+                  transform: `translateY(${item.start}px)`,
+                }}
               >
                 {row.kind === 'gap' ? (
                   /*
@@ -148,7 +155,7 @@ export function LogPane({
                       <ChevronRight aria-hidden className="h-3 w-3 shrink-0" />
                     )}
                     <span className="truncate">{row.label}</span>
-                    <span className="ml-auto shrink-0 tabular-nums opacity-70">{row.count}</span>
+                    <span className="ml-auto shrink-0 tabular-nums opacity-70">{formatNumber(row.count)}</span>
                   </button>
                 ) : (
                   <LogLine text={row.text} />

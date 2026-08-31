@@ -2,6 +2,7 @@ import { DIFF_FULL_CONTEXT, type FileDiff } from '@midnite/studio-shared';
 import { ChevronsUpDown, Columns2, Columns3 } from 'lucide-react';
 
 import { IconButton } from '../../components/icon-button';
+import { formatNumber } from '../../lib/format-number';
 import { useUiStore } from '../../store/ui-store';
 import { canSplit } from './diff-rows';
 
@@ -27,9 +28,9 @@ export function DiffToolbar({
     <div className="flex shrink-0 items-center gap-1">
       {showStats ? (
         <span className="mr-auto truncate text-[11px] text-muted-foreground">
-          <span className="font-medium text-success tabular-nums">+{diff.insertions}</span>
+          <span className="font-medium text-success tabular-nums">+{formatNumber(diff.insertions)}</span>
           {' / '}
-          <span className="font-medium text-destructive tabular-nums">−{diff.deletions}</span>
+          <span className="font-medium text-destructive tabular-nums">−{formatNumber(diff.deletions)}</span>
         </span>
       ) : null}
 

@@ -9,6 +9,7 @@ import { useTheme } from '@bilo-io/ui/theme';
 import { useRef } from 'react';
 
 import { useUiStore } from '../../store/ui-store';
+import { formatNumber } from '../../lib/format-number';
 
 import { type ThreadsByLine } from './comment-anchors';
 import { describeEmptyDiff } from './describe-empty';
@@ -274,7 +275,7 @@ export function DiffView({
 
         {diff.truncated ? (
           <p className="border-t border-border px-3 py-2 text-[11px] text-muted-foreground">
-            {diff.droppedLines.toLocaleString()} more lines not shown — this diff was capped to keep
+            {formatNumber(diff.droppedLines)} more lines not shown — this diff was capped to keep
             the panel responsive.
           </p>
         ) : null}
@@ -442,7 +443,7 @@ function InlineDiffBody({
 
       {diff.truncated ? (
         <p className="border-t border-border px-3 py-2 font-sans text-[11px] text-muted-foreground">
-          {diff.droppedLines.toLocaleString()} more lines not shown — this diff was capped to
+          {formatNumber(diff.droppedLines)} more lines not shown — this diff was capped to
           keep the panel responsive.
         </p>
       ) : null}

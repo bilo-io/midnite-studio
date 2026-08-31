@@ -19,6 +19,7 @@ import { firstCommitDate } from './first-commit-date';
 import { GraphDefs, avatarClipId } from './graph-defs';
 import { GraphHeader, graphColumnVars, useGraphColumns } from './graph-header';
 import { CommitGraphRow, formatDate } from './graph-row';
+import { formatNumber } from '../../lib/format-number';
 import { useGraphStore } from './graph-store';
 import {
   graphThemeFor,
@@ -350,18 +351,18 @@ export function GraphView() {
         <footer className="flex shrink-0 items-center gap-3 border-t border-border px-3 py-1 text-xs text-muted-foreground">
           <span className="flex items-center gap-1.5 tabular-nums">
             <LuGitCommitVertical aria-hidden className="h-3 w-3 shrink-0" />
-            {rows.length.toLocaleString()} commits
+            {formatNumber(rows.length)} commits
           </span>
           <span className="flex items-center gap-1.5 tabular-nums">
             <LuGitBranch aria-hidden className="h-3 w-3 shrink-0" />
-            {branchCount.toLocaleString()} branches
+            {formatNumber(branchCount)} branches
           </span>
           {loading ? <span>loading…</span> : null}
           {truncated ? <span>history truncated at the row cap</span> : null}
           <span className="ml-auto flex items-center gap-3">
             <span className="flex items-center gap-1.5 tabular-nums">
               <LuUsers aria-hidden className="h-3 w-3 shrink-0" />
-              {authorCount.toLocaleString()} authors
+              {formatNumber(authorCount)} authors
             </span>
             {firstCommit !== null ? <span>first commit {formatDate(firstCommit)}</span> : null}
           </span>

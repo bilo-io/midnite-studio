@@ -1,6 +1,8 @@
 import type { Diagnostic, DiagnosticsRun } from '@midnite/studio-shared';
 import { BsExclamationCircle, BsXCircle } from 'react-icons/bs';
 
+import { formatNumber } from '../../lib/format-number';
+
 /**
  * The problems themselves, as `file:line` with rule and message.
  *
@@ -29,8 +31,8 @@ export function ProblemList({ run }: { run: Extract<DiagnosticsRun, { ok: true }
       </ul>
       {run.withheld > 0 ? (
         <p className="border-t border-border px-3 py-1.5 text-[10px] text-muted-foreground">
-          Showing {run.rows.length.toLocaleString()} of{' '}
-          {(run.rows.length + run.withheld).toLocaleString()} — {run.withheld.toLocaleString()} not
+          Showing {formatNumber(run.rows.length)} of{' '}
+          {formatNumber(run.rows.length + run.withheld)} — {formatNumber(run.withheld)} not
           listed.
         </p>
       ) : null}
