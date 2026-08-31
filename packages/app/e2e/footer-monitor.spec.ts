@@ -157,6 +157,43 @@ test.describe('footer monitor', () => {
     expect((await cadences()).at(-1)?.intervalMs).toBe(5_000);
   });
 
+  /**
+   * Every readout already tints its icon and its percentage by metric; the
+   * flyout's legend and disk row are the two other places a metric's name and
+   * value appear as text, so they take the same treatment — a glance at "RAM"
+   * should read violet everywhere it's written, not just at the footer icon.
+   *
+   * Asserted against the already-coloured icon in the same row rather than a
+   * hand-converted hex/rgb literal — `metricColor` returns an `hsl()` string
+   * and the browser is free to round it on the way to computed `rgb()`, so
+   * the icon (unchanged by this PR) is the source of truth for what that
+   * rounding actually produces.
+   */
+  test("the flyout colours each metric's legend text and the disk row by its own hue", async ({
+    page,
+  }) => {
+    await open(page);
+    await page.getByTestId('monitor-cluster').click();
+    const panel = page.getByTestId('monitor-cluster-panel');
+    await expect(panel).toBeVisible();
+
+    const cpuEntry = panel.locator('li', { hasText: 'CPU' });
+    const cpuIconColor = await cpuEntry.locator('svg').evaluate((el) => getComputedStyle(el).color);
+    const cpuLabelColor = await cpuEntry
+      .locator('span')
+      .filter({ hasText: 'CPU' })
+      .first()
+      .evaluate((el) => getComputedStyle(el).color);
+    expect(cpuLabelColor).toBe(cpuIconColor);
+
+    const diskLabel = panel.locator('div.mb-1 span', { hasText: 'HDD' }).first();
+    const diskIconColor = await diskLabel
+      .locator('svg')
+      .evaluate((el) => getComputedStyle(el).color);
+    const diskLabelColor = await diskLabel.evaluate((el) => getComputedStyle(el).color);
+    expect(diskLabelColor).toBe(diskIconColor);
+  });
+
   test('the flyout shows disk as a gauge rather than a fourth timeline', async ({ page }) => {
     await open(page);
     await page.getByTestId('monitor-cluster').click();

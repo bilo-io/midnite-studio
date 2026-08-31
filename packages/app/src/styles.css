@@ -160,6 +160,37 @@
   }
 }
 
+/* Selected Repo Row — gradient shimmer in the repos panel accordion header.
+ * A moving highlight over the same `bg-accent/60` the row already wore, so the
+ * resting look is unchanged and the sweep is the only new thing to notice. */
+@keyframes repo-row-shimmer {
+  from {
+    background-position: -120% 0;
+  }
+  to {
+    background-position: 220% 0;
+  }
+}
+
+.repo-row-shimmer {
+  background-image: linear-gradient(
+    100deg,
+    hsl(var(--accent) / 0.6) 0%,
+    hsl(var(--accent) / 0.6) 40%,
+    hsl(var(--primary) / 0.45) 50%,
+    hsl(var(--accent) / 0.6) 60%,
+    hsl(var(--accent) / 0.6) 100%
+  );
+  background-size: 250% 100%;
+  animation: repo-row-shimmer 3.5s ease-in-out infinite;
+}
+
+html[data-motion='reduced'] .repo-row-shimmer {
+  animation: none;
+  background-image: none;
+  background-color: hsl(var(--accent) / 0.6);
+}
+
 @keyframes shake {
   0%, 100% { transform: translateX(0); }
   20%, 60% { transform: translateX(-6px); }

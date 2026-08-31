@@ -24,6 +24,13 @@ async function open(page: Page): Promise<void> {
   await expect(page.getByRole('columnheader', { name: 'Commit message' })).toBeVisible();
 }
 
+/** Waits only on the repo row itself — for specs that never touch the Graph. */
+async function openSidebar(page: Page): Promise<void> {
+  await installMockBridge(page, fixtures);
+  await page.goto('/');
+  await expect(page.getByRole('button', { name: `Git actions for ${REPO}` })).toBeVisible();
+}
+
 /**
  * The initialInput of every pty the app has asked for.
  *
@@ -74,6 +81,42 @@ test('the row carries three menus, midnite first and the ellipsis last', async (
     `Git actions for ${REPO}`,
     `Install, build, test or launch ${REPO}`,
   ]);
+});
+
+/**
+ * The midnite and git marks rest dimmed and come to full strength on hover —
+ * so a folded repo list reads as text first, controls second, rather than six
+ * bright icons per row competing with the names beside them. The git mark
+ * additionally carries Git's own logo colour, since it identifies *git*
+ * specifically and has to stay recognisable as that regardless of the app's
+ * accent.
+ */
+test('the midnite and git marks rest dimmed, at full strength on hover, and git wears its own colour', async ({
+  page,
+}) => {
+  await openSidebar(page);
+
+  const midnite = page.getByRole('button', { name: `Run a midnite skill on ${REPO}` });
+  const git = page.getByRole('button', { name: `Git actions for ${REPO}` });
+
+  await expect(midnite).toHaveClass(/opacity-50/);
+  await expect(git).toHaveClass(/opacity-50/);
+
+  const gitColor = await git.evaluate((el) => getComputedStyle(el).color);
+  expect(gitColor).toBe('rgb(240, 80, 50)'); // #F05032, Git's brand orange
+});
+
+/**
+ * The selected repo's accordion header carries a moving gradient rather than
+ * the flat `bg-accent/60` tint it used to — a glance at a folded list should
+ * find the one row that is "open" without reading every name first.
+ */
+test('the selected repo row carries the gradient shimmer', async ({ page }) => {
+  await openSidebar(page);
+
+  const row = page.locator(`button[aria-label="Git actions for ${REPO}"]`).locator('..');
+  await row.getByRole('button', { name: REPO, exact: true }).click();
+  await expect(row).toHaveClass(/repo-row-shimmer/);
 });
 
 test('the menu offers the fifteen agent verbs, each with its own glyph, with loops in a submenu', async ({

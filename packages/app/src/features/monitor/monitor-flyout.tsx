@@ -81,8 +81,8 @@ export function MonitorFlyout() {
 
       {latest?.disk === undefined ? null : (
         <section className="mt-3 border-t border-border pt-3">
-          <div className="mb-1 flex items-baseline justify-between text-[10px] text-muted-foreground">
-            <span className="flex items-center gap-1">
+          <div className="mb-1 flex items-baseline justify-between text-[10px]">
+            <span className="flex items-center gap-1" style={{ color: metricColor('disk') }}>
               {(() => {
                 const DiskIcon = METRIC_ICONS.disk;
                 return (
@@ -95,7 +95,7 @@ export function MonitorFlyout() {
               })()}
               {METRIC_LABELS[METRIC_IDS[3]]}
             </span>
-            <span className="tabular-nums">
+            <span className="tabular-nums" style={{ color: metricColor('disk') }}>
               {latest.diskBytes
                 ? formatUsage(latest.diskBytes.used, latest.diskBytes.total)
                 : `${Math.round(latest.disk)}%`}
