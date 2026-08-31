@@ -4,6 +4,7 @@ import { createPortal } from 'react-dom';
 import { ChevronRight } from 'lucide-react';
 
 import type { IconComponent } from './icon-button';
+import { useUiStore } from '../store/ui-store';
 
 /**
  * A renderer-drawn context menu.
@@ -106,10 +107,20 @@ export function ContextMenu({
     window.addEventListener('mousedown', onPointerDown, true);
     window.addEventListener('keydown', onKeyDown);
     window.addEventListener('resize', onClose);
+
+    // A loaded browser tab's page is an Electron `WebContentsView`, an
+    // OS-composited layer that paints above the whole renderer window
+    // regardless of `z-index` (see `use-browser-bounds.ts`). Registering as an
+    // occluder — same pattern as `popover.tsx` — hides that native view while
+    // this menu is open, which is the only way a DOM overlay can appear above it.
+    const store = useUiStore.getState();
+    store.incrementOccluders();
+
     return () => {
       window.removeEventListener('mousedown', onPointerDown, true);
       window.removeEventListener('keydown', onKeyDown);
       window.removeEventListener('resize', onClose);
+      store.decrementOccluders();
     };
   }, [onClose]);
 
