@@ -27,6 +27,7 @@ import { useRefsBySha } from './ref-badge';
 import { UncommittedRow, hasUncommittedWork } from './uncommitted-row';
 import { useGraphActions } from './use-graph-actions';
 import { useGraphStream } from './use-graph-stream';
+import { useActiveAgentWorktreePaths } from './use-agent-worktrees';
 
 /**
  * The commit graph.
@@ -109,6 +110,17 @@ export function GraphView() {
       void checkoutRef.mutateAsync({ target: ref.name }).then(report);
     },
     [checkoutRef, currentBranch, report],
+  );
+
+  const activeWorktreePaths = useActiveAgentWorktreePaths();
+  const isAgentActive = useCallback(
+    (ref: (typeof refs)[number]) => {
+      if (ref.worktreePath && activeWorktreePaths.has(ref.worktreePath)) {
+        return true;
+      }
+      return false;
+    },
+    [activeWorktreePaths],
   );
 
   // Docked to the window's right edge, so its splitter is on its LEFT and a
@@ -315,6 +327,7 @@ export function GraphView() {
                     onSync={runSync}
                     syncing={syncing}
                     currentBranch={currentBranch}
+                    isAgentActive={isAgentActive}
                   />
                 </div>
               );

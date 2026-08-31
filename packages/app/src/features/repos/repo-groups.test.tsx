@@ -1,7 +1,9 @@
-import { cleanup } from '@testing-library/react';
-import { afterEach, beforeEach, describe, expect, it } from 'vitest';
+import { cleanup, fireEvent, render, screen } from '@testing-library/react';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
+import { DialogHost } from '../../components/dialog-host';
 import { useUiStore } from '../../store/ui-store';
+import { RepoGroupHeader } from './repo-groups';
 
 afterEach(() => {
   cleanup();
@@ -39,11 +41,12 @@ describe('repo groups — store', () => {
   });
 
   it('assigns and removes a repo from a group', () => {
-    const id = useUiStore.getState().createRepoGroup('Mine');
-    useUiStore.getState().assignRepoToGroup('repo-1', id);
-    expect(useUiStore.getState().repoGroupMembership['repo-1']).toBe(id);
-    useUiStore.getState().removeRepoFromGroup('repo-1');
-    expect(useUiStore.getState().repoGroupMembership['repo-1']).toBeUndefined();
+    const id = useUiStore.getState().createRepoGroup('Work');
+    useUiStore.getState().assignRepoToGroup('repo-a', id);
+    expect(useUiStore.getState().repoGroupMembership['repo-a']).toBe(id);
+
+    useUiStore.getState().removeRepoFromGroup('repo-a');
+    expect(useUiStore.getState().repoGroupMembership['repo-a']).toBeUndefined();
   });
 
   it('toggles collapse state for a group', () => {
@@ -56,16 +59,17 @@ describe('repo groups — store', () => {
   });
 
   it('reorders groups', () => {
-    const a = useUiStore.getState().createRepoGroup('A');
-    const b = useUiStore.getState().createRepoGroup('B');
-    const c = useUiStore.getState().createRepoGroup('C');
-    useUiStore.getState().reorderRepoGroups([c, b, a]);
-    expect(useUiStore.getState().repoGroups.map((g) => g.name)).toEqual(['C', 'B', 'A']);
+    const id1 = useUiStore.getState().createRepoGroup('First');
+    const id2 = useUiStore.getState().createRepoGroup('Second');
+    const id3 = useUiStore.getState().createRepoGroup('Third');
+
+    useUiStore.getState().reorderRepoGroups([id3, id1, id2]);
+    const names = useUiStore.getState().repoGroups.map((g) => g.name);
+    expect(names).toEqual(['Third', 'First', 'Second']);
   });
 
   it('sets and clears a group color', () => {
-    const id = useUiStore.getState().createRepoGroup('ColorGroup');
-    expect(useUiStore.getState().repoGroups[0]?.color).toBeUndefined();
+    const id = useUiStore.getState().createRepoGroup('Work');
     useUiStore.getState().setRepoGroupColor(id, 'red');
     expect(useUiStore.getState().repoGroups[0]?.color).toBe('red');
     useUiStore.getState().setRepoGroupColor(id, undefined);
@@ -74,12 +78,7 @@ describe('repo groups — store', () => {
 });
 
 describe('repo groups — RepoGroupHeader component', () => {
-  it('renders collapse/expand all button and handles clicks', async () => {
-    const { render, screen, fireEvent } = await import('@testing-library/react');
-    const { vi } = await import('vitest');
-    const { DialogHost } = await import('../../components/dialog-host');
-    const { RepoGroupHeader } = await import('./repo-groups');
-
+  it('renders collapse/expand all button and handles clicks', () => {
     const group = { id: 'grp-1', name: 'Work' };
     const onToggleCollapseAll = vi.fn();
 
@@ -103,12 +102,7 @@ describe('repo groups — RepoGroupHeader component', () => {
     expect(onToggleCollapseAll).toHaveBeenCalledTimes(1);
   });
 
-  it('renders fetch all button and handles clicks', async () => {
-    const { render, screen, fireEvent } = await import('@testing-library/react');
-    const { vi } = await import('vitest');
-    const { DialogHost } = await import('../../components/dialog-host');
-    const { RepoGroupHeader } = await import('./repo-groups');
-
+  it('renders fetch all button and handles clicks', () => {
     const group = { id: 'grp-1', name: 'Work' };
     const onFetchAll = vi.fn();
 
@@ -133,11 +127,7 @@ describe('repo groups — RepoGroupHeader component', () => {
     expect(onFetchAll).toHaveBeenCalledTimes(1);
   });
 
-  it('renders rotating custom css spinner while fetching', async () => {
-    const { render, screen } = await import('@testing-library/react');
-    const { DialogHost } = await import('../../components/dialog-host');
-    const { RepoGroupHeader } = await import('./repo-groups');
-
+  it('renders rotating custom css spinner while fetching', () => {
     const group = { id: 'grp-1', name: 'Work' };
 
     render(
