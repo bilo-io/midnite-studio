@@ -32,6 +32,7 @@ import { chordFor, displayChord } from './features/status-bar/chord-hint';
 import { BrowserPane } from './features/browser/browser-pane';
 import { TestsView } from './features/tests/tests-view';
 import { DashboardView } from './features/dashboard/dashboard-view';
+import { EmptyWorkspace } from './features/empty/empty-workspace';
 import { FilesView } from './features/files/files-view';
 import { FileEditorGuard } from './features/files/preview/file-editor-guard';
 import { GraphView } from './features/graph/graph-view';
@@ -792,7 +793,11 @@ function Shell() {
                   covering && terminalTween.settled ? 'hidden' : ''
                 }`}
               >
-                {activeView === 'dashboard' ? (
+                {activeView === 'settings' ? (
+                  <SettingsView />
+                ) : !selectedRepoId ? (
+                  <EmptyWorkspace />
+                ) : activeView === 'dashboard' ? (
                   <DashboardView />
                 ) : activeView === 'files' ? (
                   <FilesView />
@@ -808,8 +813,6 @@ function Shell() {
                   <TestsView />
                 ) : activeView === 'reviews' ? (
                   <ReviewsView />
-                ) : activeView === 'settings' ? (
-                  <SettingsView />
                 ) : (
                   <Placeholder view={activeView} />
                 )}
