@@ -1,19 +1,15 @@
 import type { HistoryPoint } from './finance-types';
 
-// Same vivid, theme-independent gain/loss colours the source app's chart used
-// (tailwind green-500 / red-500) so the line stays legible in both themes.
-const UP_COLOR = '#22c55e';
-const DOWN_COLOR = '#ef4444';
-const UP_FILL = 'rgba(34, 197, 94, 0.22)';
-const DOWN_FILL = 'rgba(239, 68, 68, 0.22)';
-
 /**
  * Area chart sparkline for finance assets matching the visual geometry
  * and fill technique of the status bar system monitor sparklines.
+ *
+ * Uses `currentColor` so the line and translucent fill automatically match
+ * the surrounding gain/loss text color (emerald, destructive, rose, etc.).
  */
 export function Sparkline({
   points,
-  up,
+  up: _up,
   width = 48,
   height = 24,
 }: {
@@ -52,11 +48,11 @@ export function Sparkline({
       focusable="false"
       className="shrink-0"
     >
-      <path d={areaD} fill={up ? UP_FILL : DOWN_FILL} />
+      <path d={areaD} fill="currentColor" fillOpacity={0.22} />
       <path
         d={lineD}
         fill="none"
-        stroke={up ? UP_COLOR : DOWN_COLOR}
+        stroke="currentColor"
         strokeWidth={1}
         strokeLinejoin="round"
         strokeLinecap="round"
