@@ -45,22 +45,23 @@ const row = (items: ReturnType<typeof build>, label: string) =>
   rows(items).find((r) => r.label === label);
 
 describe('buildNewSessionMenu — everything installed', () => {
-  it('is flat: New Terminal, a separator, then one row per agent', () => {
+  it('is structured: New Terminal, a separator, proprietary agents, a delimiter separator, then other agents', () => {
     const items = build();
 
     expect(items[0]).toMatchObject({ label: 'New Terminal' });
     expect(items[1]).toEqual({ type: 'separator' });
+    expect(items[7]).toEqual({ type: 'separator' });
     expect(rows(items).map((r) => r.label)).toEqual([
       'New Terminal',
       'Claude',
       'Antigravity',
       'Codex',
+      'Cursor',
+      'Copilot',
       'OpenClaude',
       'OpenCode',
       'Kilo Code',
       'Aider',
-      'Cursor',
-      'Copilot',
       'Cline',
     ]);
   });

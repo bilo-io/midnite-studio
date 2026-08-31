@@ -28,12 +28,12 @@ describe('resolveAgentIcon', () => {
       ClaudeIcon,
       AntigravityIcon,
       CodexIcon,
+      SiCursor,
+      SiGithubcopilot,
       OpenClaudeIcon,
       OpenCodeIcon,
       KiloIcon,
       AiderIcon,
-      SiCursor,
-      SiGithubcopilot,
       SiCline,
     ]);
     expect(new Set(marks).size).toBe(BUILTIN_AGENTS.length);
