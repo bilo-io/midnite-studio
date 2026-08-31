@@ -5,6 +5,7 @@ import { useForgePulls, useRepos } from '../../services/queries';
 import { useAppearanceStore } from '../../store/appearance-store';
 import { useUiStore } from '../../store/ui-store';
 import { LockScreen } from './lock-screen';
+import { LockScreenWidgets } from './lock-screen-widgets';
 
 const ACTIVE_WORDS = [
   'loading',
@@ -388,6 +389,8 @@ export function Screensaver({
           );
         })}
       </div>
+
+      <LockScreenWidgets />
     </LockScreen>
   );
 }

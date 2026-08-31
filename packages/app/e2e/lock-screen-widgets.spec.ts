@@ -1,0 +1,84 @@
+import { expect, test, type Page, type Route } from '@playwright/test';
+
+import { fixtures } from './fixtures';
+import { installMockBridge } from './mock-bridge';
+
+async function mockCoinGecko(page: Page): Promise<void> {
+  await page.route('https://api.coingecko.com/api/v3/search**', (route: Route) =>
+    route.fulfill({
+      json: { coins: [{ id: 'bitcoin', symbol: 'btc', name: 'Bitcoin' }] },
+    }),
+  );
+  await page.route('https://api.coingecko.com/api/v3/coins/bitcoin?**', (route: Route) =>
+    route.fulfill({
+      json: {
+        name: 'Bitcoin',
+        market_data: {
+          current_price: { usd: 50000 },
+          high_24h: { usd: 51000 },
+          low_24h: { usd: 49000 },
+          price_change_24h: 500,
+          price_change_percentage_24h: 1.01,
+        },
+      },
+    }),
+  );
+  await page.route('https://api.coingecko.com/api/v3/coins/bitcoin/market_chart**', (route: Route) =>
+    route.fulfill({
+      json: {
+        prices: [
+          [1_700_000_000_000, 45000],
+          [1_700_300_000_000, 47000],
+          [1_700_600_000_000, 50000],
+        ],
+      },
+    }),
+  );
+}
+
+test.describe('lock screen widgets', () => {
+  test('renders system monitor graphs and fintech cycle on lock screen', async ({ page }) => {
+    await mockCoinGecko(page);
+    await installMockBridge(page, {
+      ...fixtures,
+      metricsSamples: [
+        {
+          at: 1000,
+          cpu: 40,
+          memory: 60,
+          gpu: 15,
+          cpuInfo: { cores: 8, load1: 1.2 },
+        },
+        {
+          at: 2000,
+          cpu: 45,
+          memory: 62,
+          gpu: 18,
+          cpuInfo: { cores: 8, load1: 1.5 },
+        },
+      ],
+    });
+    await page.goto('/');
+
+    // Click the "Lock screen" button pinned at bottom of rail
+    const lockButton = page.getByRole('button', { name: 'Lock screen' });
+    await expect(lockButton).toBeVisible();
+    await lockButton.click();
+
+    const widgets = page.getByTestId('lock-screen-widgets');
+    await expect(widgets).toBeVisible();
+
+    const sysmon = page.getByTestId('lock-sysmon-widget');
+    await expect(sysmon).toBeVisible();
+    await expect(sysmon).toContainText('System Monitor');
+    await expect(sysmon).toContainText('CPU');
+    await expect(sysmon).toContainText('RAM');
+    await expect(sysmon).toContainText('GPU');
+
+    const fintech = page.getByTestId('lock-fintech-widget');
+    await expect(fintech).toBeVisible();
+    await expect(fintech).toContainText('Fintech Cycle');
+
+    await page.screenshot({ path: '/tmp/lock-screen-widgets.png' });
+  });
+});
