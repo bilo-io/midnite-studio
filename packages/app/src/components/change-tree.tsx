@@ -52,7 +52,11 @@ export function ChangeTree<T extends ChangedFile>({
   renderActions?: (node: FileNode<T>) => ReactNode;
   testId?: string;
 }) {
-  const rowProps = { selection, ...(renderLeading ? { renderLeading } : {}), ...(renderActions ? { renderActions } : {}) };
+  const rowProps = {
+    selection,
+    ...(renderLeading ? { renderLeading } : {}),
+    ...(renderActions ? { renderActions } : {}),
+  };
 
   return (
     <ul className="py-1" {...(testId ? { 'data-testid': testId } : {})}>
@@ -193,7 +197,9 @@ function FileRow<T extends ChangedFile>({
             and without the hint the pane looks like it is showing the wrong
             file's history. */}
         {node.oldPath === null ? null : (
-          <span className="shrink-0 rounded bg-muted px-1 text-[10px] text-muted-foreground">R</span>
+          <span className="shrink-0 rounded bg-muted px-1 text-[10px] text-muted-foreground">
+            R
+          </span>
         )}
         <Counts insertions={node.insertions} deletions={node.deletions} />
       </button>
@@ -250,16 +256,15 @@ export function ChangeTotals({
 }) {
   return (
     <span
-      className={`flex w-full shrink-0 items-baseline justify-between gap-2 text-[11px] text-muted-foreground ${className}`}
+      className={`flex min-w-0 flex-1 items-baseline justify-between gap-2 text-[11px] text-muted-foreground ${className}`}
       data-testid="change-totals"
     >
-      <span className="tabular-nums">
+      <span className="truncate tabular-nums">
         {formatNumber(fileCount)} {fileCount === 1 ? 'file' : 'files'}
       </span>
-      <span className="font-bold">
+      <span className="shrink-0 font-bold">
         <Counts insertions={insertions} deletions={deletions} />
       </span>
     </span>
   );
 }
-
