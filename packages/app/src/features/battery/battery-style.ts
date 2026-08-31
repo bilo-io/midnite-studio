@@ -7,6 +7,33 @@ export function getBatteryTier(percent: number): BatteryColorTier {
   return 'low'; // Below 30% -> red
 }
 
+export type BatteryFlashTier = 'none' | 'slow' | 'medium' | 'fast';
+
+/**
+ * Below 30% the low tier starts flashing, and gets faster the lower it goes:
+ * slow under 30%, a little faster under 20%, really fast under 10%.
+ */
+export function getBatteryFlashTier(percent: number): BatteryFlashTier {
+  const p = Math.round(percent);
+  if (p < 10) return 'fast';
+  if (p < 20) return 'medium';
+  if (p < 30) return 'slow';
+  return 'none';
+}
+
+export function getBatteryFlashClass(tier: BatteryFlashTier): string {
+  switch (tier) {
+    case 'slow':
+      return 'battery-flash-slow';
+    case 'medium':
+      return 'battery-flash-medium';
+    case 'fast':
+      return 'battery-flash-fast';
+    case 'none':
+      return '';
+  }
+}
+
 export function getBatteryTierClasses(tier: BatteryColorTier): {
   textClass: string;
   fillClass: string;
