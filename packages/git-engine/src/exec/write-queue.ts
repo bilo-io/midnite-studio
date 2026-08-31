@@ -55,9 +55,17 @@ export class WriteQueue {
       },
     );
 
-    this.chains.set(
-      key,
-      settled.catch(() => undefined),
+    const tail = settled.catch(() => undefined);
+    this.chains.set(key, tail);
+    // Attached to `settled` (not `tail`, and before `settled` is returned)
+    // so this runs a microtask ahead of the caller's own `.then`/`await` on
+    // the same promise — `chains` is already pruned by the time `run()`'s
+    // caller resumes. Drops the entry only when nothing has queued behind
+    // it, otherwise a long session that opens and closes many repos would
+    // grow this map without bound.
+    settled.then(
+      () => this.evictIfCurrent(key, tail),
+      () => this.evictIfCurrent(key, tail),
     );
     return settled;
   }
@@ -91,6 +99,10 @@ export class WriteQueue {
 
   private emit(active: boolean): void {
     for (const listener of this.listeners) listener(active);
+  }
+
+  private evictIfCurrent(key: string, tail: Promise<unknown>): void {
+    if (this.chains.get(key) === tail) this.chains.delete(key);
   }
 }
 
