@@ -139,9 +139,14 @@ export function LockScreenFintechWidget() {
   const hasData = currentAsset !== null && price != null;
   const colorClass = hasData
     ? up
-      ? 'text-emerald-500'
-      : 'text-rose-500'
+      ? 'text-emerald-600 dark:text-emerald-400'
+      : 'text-destructive'
     : 'text-foreground';
+  const subtleColorClass = hasData
+    ? up
+      ? 'text-emerald-600/70 dark:text-emerald-400/70'
+      : 'text-destructive/70'
+    : 'text-muted-foreground';
 
   return (
     <div
@@ -167,15 +172,15 @@ export function LockScreenFintechWidget() {
         <div className="my-2 flex items-center justify-between gap-3">
           <div className="flex flex-col">
             <div className="flex items-baseline gap-1.5">
-              <span className="font-mono text-lg font-bold tracking-tight text-foreground">
+              <span className={`font-mono text-lg font-bold tracking-tight ${colorClass}`}>
                 {typedTicker || rawTicker}
               </span>
-              <span className="text-xs text-muted-foreground">
+              <span className={`text-xs ${subtleColorClass}`}>
                 {currentAsset.name || currentAsset.symbol}
               </span>
             </div>
             <div className="flex items-center gap-2">
-              <span className="font-mono text-sm font-semibold tabular-nums text-foreground">
+              <span className={`font-mono text-sm font-semibold tabular-nums ${colorClass}`}>
                 {fmtPrice(price, quote?.currency)}
               </span>
               {pct != null ? (
@@ -192,7 +197,7 @@ export function LockScreenFintechWidget() {
           </div>
 
           {history && history.length >= 2 ? (
-            <div className="shrink-0">
+            <div className={`shrink-0 ${colorClass}`}>
               <Sparkline points={history} up={up} width={76} height={28} />
             </div>
           ) : null}

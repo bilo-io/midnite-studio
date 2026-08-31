@@ -6,6 +6,26 @@ import { useMetricsStore } from '../../store/metrics-store';
 import { useFinanceStore } from '../finance/finance-store';
 import { LockScreenWidgets } from './lock-screen-widgets';
 
+function jsonResponse(body: unknown): Response {
+  return { ok: true, status: 200, statusText: 'OK', json: async () => body } as Response;
+}
+
+function stubFinanceFetch(prices: [number, number][]) {
+  vi.stubGlobal(
+    'fetch',
+    vi.fn(async (input: string | URL) => {
+      const url = String(input);
+      if (url.includes('/market_chart')) {
+        return jsonResponse({ prices });
+      }
+      return jsonResponse({
+        name: 'Bitcoin',
+        market_data: { current_price: { usd: prices.at(-1)?.[1] } },
+      });
+    }),
+  );
+}
+
 function createWrapper() {
   const queryClient = new QueryClient({
     defaultOptions: { queries: { retry: false } },
@@ -61,5 +81,56 @@ describe('LockScreenWidgets', () => {
     expect(screen.getByText('CPU')).toBeTruthy();
     expect(screen.getByText('RAM')).toBeTruthy();
     expect(screen.getByText('GPU')).toBeTruthy();
+  });
+
+  it('color-codes ticker, price, name, and sparkline green on a gain', async () => {
+    vi.useRealTimers();
+    stubFinanceFetch([
+      [1000, 40000],
+      [2000, 50000],
+    ]);
+    useFinanceStore.setState({
+      assets: [{ kind: 'crypto', symbol: 'bitcoin', name: 'Bitcoin (BTC)' }],
+      twelveDataApiKey: '',
+    });
+
+    render(<LockScreenWidgets />, { wrapper: createWrapper() });
+
+    const widget = screen.getByTestId('lock-fintech-widget');
+    const ticker = () => widget.querySelector('.font-mono.text-lg.font-bold');
+    await vi.waitFor(() => {
+      expect(ticker()?.textContent).toBe('BTC');
+      expect(widget.textContent).toContain('+25.00%');
+    });
+
+    expect(ticker()?.className).toContain('text-emerald-600');
+    expect(screen.getByText('$50,000.00').className).toContain('text-emerald-600');
+    expect(screen.getByText('Bitcoin (BTC)').className).toContain('text-emerald-600');
+    expect(widget.querySelector('svg[width="76"]')?.parentElement?.className).toContain('text-emerald-600');
+  });
+
+  it('color-codes ticker, price, name, and sparkline red on a loss', async () => {
+    vi.useRealTimers();
+    stubFinanceFetch([
+      [1000, 60000],
+      [2000, 50000],
+    ]);
+    useFinanceStore.setState({
+      assets: [{ kind: 'crypto', symbol: 'bitcoin', name: 'Bitcoin (BTC)' }],
+      twelveDataApiKey: '',
+    });
+
+    render(<LockScreenWidgets />, { wrapper: createWrapper() });
+
+    const widget = screen.getByTestId('lock-fintech-widget');
+    const ticker = () => widget.querySelector('.font-mono.text-lg.font-bold');
+    await vi.waitFor(() => {
+      expect(ticker()?.textContent).toBe('BTC');
+    });
+
+    expect(ticker()?.className).toContain('text-destructive');
+    expect(screen.getByText('$50,000.00').className).toContain('text-destructive');
+    expect(screen.getByText('Bitcoin (BTC)').className).toContain('text-destructive');
+    expect(widget.querySelector('svg[width="76"]')?.parentElement?.className).toContain('text-destructive');
   });
 });
