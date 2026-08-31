@@ -65,10 +65,11 @@ describe('FinanceSegment', () => {
     await vi.waitFor(() => {
       expect(trigger.textContent).toContain('BTC');
       expect(trigger.textContent).toContain('$50,000.00');
+      expect(trigger.textContent).toContain('+25.00%');
     });
 
-    // Check sparkline svg is rendered
-    expect(trigger.querySelector('svg polyline')).not.toBeNull();
+    // Check sparkline svg path is rendered
+    expect(trigger.querySelector('svg path')).not.toBeNull();
     // Check highlight classes
     expect(trigger.firstElementChild?.className).toContain('text-emerald-600');
   });
@@ -107,7 +108,7 @@ describe('FinanceSegment', () => {
     expect(trigger.firstElementChild?.className).toContain('text-destructive');
   });
 
-  it('cycles across tickers every 3 seconds', async () => {
+  it('cycles across tickers every 5 seconds', async () => {
     vi.stubGlobal(
       'fetch',
       vi.fn(async (input: string | URL) => {
@@ -147,18 +148,18 @@ describe('FinanceSegment', () => {
       expect(trigger.textContent).toContain('BTC');
     });
 
-    // Fast-forward 3 seconds
+    // Fast-forward 5 seconds
     act(() => {
-      vi.advanceTimersByTime(3000);
+      vi.advanceTimersByTime(5000);
     });
 
     await vi.waitFor(() => {
       expect(trigger.textContent).toContain('ETH');
     });
 
-    // Fast-forward another 3 seconds (cycles back to BTC)
+    // Fast-forward another 5 seconds (cycles back to BTC)
     act(() => {
-      vi.advanceTimersByTime(3000);
+      vi.advanceTimersByTime(5000);
     });
 
     await vi.waitFor(() => {
