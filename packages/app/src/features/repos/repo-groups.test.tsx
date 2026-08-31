@@ -151,4 +151,25 @@ describe('repo groups — RepoGroupHeader component', () => {
     expect(spinner).not.toBeNull();
     expect(spinner?.className).toContain('border-r-foreground');
   });
+
+  it('renders fully saturated color pill when group has color', () => {
+    const group = { id: 'grp-1', name: 'Frontend', color: 'blue' };
+
+    render(
+      <DialogHost>
+        <RepoGroupHeader
+          group={group}
+          repoCount={3}
+          open={true}
+          onToggle={() => {}}
+        />
+      </DialogHost>,
+    );
+
+    const pill = screen.getByTestId('repo-group-pill-grp-1');
+    expect(pill).toBeTruthy();
+    expect(pill.textContent).toBe('Frontend');
+    expect(pill.style.backgroundColor).toBe('rgb(59, 130, 246)');
+    expect(pill.style.color).toBe('rgb(255, 255, 255)');
+  });
 });

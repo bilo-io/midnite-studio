@@ -37,6 +37,7 @@ export type RepoGroupColorDef = {
   id: string;
   label: string;
   swatch: string;
+  textColor: string;
   pillClass: string;
 };
 
@@ -45,48 +46,56 @@ export const REPO_GROUP_COLORS: readonly RepoGroupColorDef[] = [
     id: 'red',
     label: 'Red',
     swatch: '#ef4444',
+    textColor: '#ffffff',
     pillClass: 'bg-red-500/20 text-red-600 dark:text-red-400 border border-red-500/30',
   },
   {
     id: 'orange',
     label: 'Orange',
     swatch: '#f97316',
+    textColor: '#ffffff',
     pillClass: 'bg-orange-500/20 text-orange-600 dark:text-orange-400 border border-orange-500/30',
   },
   {
     id: 'yellow',
     label: 'Yellow',
     swatch: '#eab308',
+    textColor: '#000000',
     pillClass: 'bg-yellow-500/20 text-yellow-600 dark:text-yellow-400 border border-yellow-500/30',
   },
   {
     id: 'green',
     label: 'Green',
     swatch: '#10b981',
+    textColor: '#ffffff',
     pillClass: 'bg-emerald-500/20 text-emerald-600 dark:text-emerald-400 border border-emerald-500/30',
   },
   {
     id: 'cyan',
     label: 'Cyan',
     swatch: '#06b6d4',
+    textColor: '#ffffff',
     pillClass: 'bg-cyan-500/20 text-cyan-600 dark:text-cyan-400 border border-cyan-500/30',
   },
   {
     id: 'blue',
     label: 'Blue',
     swatch: '#3b82f6',
+    textColor: '#ffffff',
     pillClass: 'bg-blue-500/20 text-blue-600 dark:text-blue-400 border border-blue-500/30',
   },
   {
     id: 'purple',
     label: 'Purple',
     swatch: '#a855f7',
+    textColor: '#ffffff',
     pillClass: 'bg-purple-500/20 text-purple-600 dark:text-purple-400 border border-purple-500/30',
   },
   {
     id: 'pink',
     label: 'Pink',
     swatch: '#ec4899',
+    textColor: '#ffffff',
     pillClass: 'bg-pink-500/20 text-pink-600 dark:text-pink-400 border border-pink-500/30',
   },
 ];
@@ -220,13 +229,22 @@ export function RepoGroupHeader({
             open ? 'rotate-90' : ''
           }`}
         />
-        <span
-          className={`text-[11px] font-semibold uppercase tracking-wide ${
-            colorDef ? 'text-foreground' : 'text-muted-foreground'
-          }`}
-        >
-          {group.name}
-        </span>
+        {colorDef ? (
+          <span
+            data-testid={`repo-group-pill-${group.id}`}
+            style={{
+              backgroundColor: colorDef.swatch,
+              color: colorDef.textColor,
+            }}
+            className="inline-flex items-center justify-center rounded-full px-2 py-0.5 text-[10px] font-bold uppercase tracking-wider shadow-xs select-none"
+          >
+            {group.name}
+          </span>
+        ) : (
+          <span className="text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">
+            {group.name}
+          </span>
+        )}
         <span className="text-[11px] tabular-nums text-muted-foreground/70">{repoCount}</span>
       </button>
 
