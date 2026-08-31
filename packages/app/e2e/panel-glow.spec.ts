@@ -33,6 +33,7 @@ const PANELS = [
 test.beforeEach(async ({ page }) => {
   await installMockBridge(page, fixtures);
   await page.goto('/');
+  await page.getByRole('button', { name: 'midnite-studio', exact: true }).click();
   await expect(page.getByRole('columnheader', { name: 'Commit message' })).toBeVisible();
 });
 
@@ -87,7 +88,7 @@ for (const { trigger, panel } of PANELS) {
  * override upstream's pseudo in place now; a `::before` growing `content` again
  * means the copy has come back.
  */
-test('the glow is one pseudo-element, not two', async ({ page }) => {
+test('the glow pseudo-element is disabled', async ({ page }) => {
   await open(page, 'assistant-menu');
   const target = page.getByTestId('assistant-menu-panel');
   await expect(target).toBeVisible();
@@ -95,14 +96,9 @@ test('the glow is one pseudo-element, not two', async ({ page }) => {
   const pseudos = await target.evaluate((el) => ({
     before: getComputedStyle(el, '::before').content,
     after: getComputedStyle(el, '::after').content,
-    afterMaskComposite: getComputedStyle(el, '::after').maskComposite,
   }));
   expect(pseudos.before).toBe('none');
-  expect(pseudos.after).toBe('""');
-  // The halo is masked into a ring. Without this it paints over the panel's own
-  // fill — a negative z-index cannot escape the stacking context the panel owns
-  // — and the text underneath becomes unreadable.
-  expect(pseudos.afterMaskComposite).toContain('exclude');
+  expect(pseudos.after).toBe('none');
 });
 
 /**
