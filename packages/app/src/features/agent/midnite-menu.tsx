@@ -107,6 +107,7 @@ export function MidniteMenu({
       label={`Run a midnite skill on ${repoName}`}
       size="sm"
       tone="brand"
+      className="opacity-50 hover:opacity-100"
       onClick={(event) => {
         const rect = event.currentTarget.getBoundingClientRect();
         // A keyboard activation reports 0,0 — fall back to the button's own box
