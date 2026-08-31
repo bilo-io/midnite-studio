@@ -145,7 +145,11 @@ async function stubGravatar(page: Page, mode: 'hit' | 'miss'): Promise<void> {
 async function openGraph(page: Page, mode: 'hit' | 'miss' = 'hit'): Promise<void> {
   await stubGravatar(page, mode);
   await installMockBridge(page, themedFixtures);
-  await page.goto('/');
+  await page.goto('/graph');
+  const repoButton = page.locator('aside[aria-label="Repositories"]').getByRole('button', { name: 'midnite-studio', exact: true });
+  if (await repoButton.isVisible()) {
+    await repoButton.click();
+  }
   await expect(page.getByRole('columnheader', { name: 'Commit message' })).toBeVisible();
 }
 
@@ -170,10 +174,13 @@ async function openGraphSettings(page: Page): Promise<void> {
 /** Switch style via Settings, then come back to the graph. */
 async function chooseTheme(page: Page, label: string): Promise<void> {
   await openGraphSettings(page);
-  await page.getByRole('button', { name: new RegExp(`^${label}`) }).click();
-  // The rail's Graph link, not the settings page of the same name — the rail is
-  // a navigation landmark of its own, which is what tells the two apart.
-  await page.getByRole('navigation', { name: 'Views' }).getByRole('link', { name: 'Graph' }).click();
+  await page.getByRole('region', { name: 'Style' }).getByRole('button', { name: new RegExp(`^${label}`) }).click();
+  // Return to Graph view
+  await page.goto('/graph');
+  const repoButton = page.locator('aside[aria-label="Repositories"]').getByRole('button', { name: 'midnite-studio', exact: true });
+  if (await repoButton.isVisible()) {
+    await repoButton.click();
+  }
   await expect(page.getByRole('columnheader', { name: 'Commit message' })).toBeVisible();
 }
 
@@ -215,6 +222,13 @@ test.describe('graph themes', () => {
     // node-level answer for.
     await chooseTheme(page, 'GitKraken');
     await expect(page.getByRole('columnheader', { name: 'Author' })).toHaveCount(0);
+  });
+
+  test('initial graph rows reveal with cascading fade-in classes', async ({ page }) => {
+    await openGraph(page);
+    const rowWrappers = page.locator('[role="grid"] > div > div.absolute');
+    await expect(rowWrappers.first()).toHaveClass(/animate-fade-in/);
+    await expect(rowWrappers.first()).toHaveClass(/cascade-delay/);
   });
 
   test('ref chips render in the branch column, not beside the subject', async ({ page }) => {
@@ -409,6 +423,10 @@ test.describe('graph themes', () => {
 
     // A style is a preference, so it has to survive a reload.
     await page.reload();
+    const repoButton = page.locator('aside[aria-label="Repositories"]').getByRole('button', { name: 'midnite-studio', exact: true });
+    if (await repoButton.isVisible()) {
+      await repoButton.click();
+    }
     await expect(page.getByRole('columnheader', { name: 'Commit message' })).toBeVisible();
     await expect(page.getByText('GitKraken').first()).toBeVisible();
   });

@@ -19,6 +19,7 @@ import { firstCommitDate } from './first-commit-date';
 import { GraphDefs, avatarClipId } from './graph-defs';
 import { GraphHeader, graphColumnVars, useGraphColumns } from './graph-header';
 import { CommitGraphRow, formatDate } from './graph-row';
+import { CASCADE_MAX_STEPS, cascadeStyle } from '../../lib/cascade';
 import { formatNumber } from '../../lib/format-number';
 import { useGraphStore } from './graph-store';
 import {
@@ -183,6 +184,27 @@ export function GraphView() {
   const paintedGutter = gutterWidth(theme, laneWidth, gutterLanes);
 
   const scrollRef = useRef<HTMLDivElement>(null);
+  // Track which commit SHAs have already played their entrance animation,
+  // preventing recycled virtual rows from re-animating during scrolling.
+  const animatedShaSet = useRef<Set<string>>(new Set());
+  const prevRequestId = useRef(requestId);
+  if (prevRequestId.current !== requestId) {
+    prevRequestId.current = requestId;
+    animatedShaSet.current.clear();
+  }
+
+  // Once the initial cascade plays on arrival, mark all current row SHAs as animated
+  // so that virtualizer row recycling during subsequent scrolling does not trigger animations.
+  useEffect(() => {
+    if (rows.length === 0) return;
+    const timer = setTimeout(() => {
+      for (const row of rows) {
+        animatedShaSet.current.add(row.commit.sha);
+      }
+    }, (CASCADE_MAX_STEPS + 1) * 18 + 200);
+    return () => clearTimeout(timer);
+  }, [requestId, rows]);
+
   // dnd-kit's drag-end event carries no pointer position, and the drop menu has
   // to appear where the user released.
   const lastPointer = useRef({ clientX: 0, clientY: 0 });
@@ -294,25 +316,34 @@ export function GraphView() {
 
         {/*
           Keyed on requestId so the list fades in ONCE per stream — on a repo
-          switch or a filter change. Cascading the rows themselves would re-fire
-          the animation every time the virtualizer recycled one, i.e. on every
-          scroll, which strobes.
+          switch or a filter change.
+          
+          Initially visible rows apply a cascading alpha fade-in on arrival
+          (`animate-fade-in cascade-delay` with `cascadeStyle(item.index)`).
+          Rows animated on initial load are recorded in animatedShaSet so that
+          subsequent scrolling or virtual row recycling does not re-trigger animations.
         */}
         <div
           key={requestId ?? 'empty'}
           ref={scrollRef}
-          className="min-h-0 flex-1 animate-fade-in overflow-auto"
+          className="min-h-0 flex-1 overflow-auto"
           role="grid"
         >
           <div className="relative w-full" style={{ height: virtualizer.getTotalSize() }}>
             {virtualizer.getVirtualItems().map((item) => {
               const row = rows[item.index];
               if (!row) return null;
+              const isInitialCascade = !animatedShaSet.current.has(row.commit.sha) && item.index <= CASCADE_MAX_STEPS;
               return (
                 <div
                   key={row.commit.sha}
-                  className="absolute left-0 top-0 w-full"
-                  style={{ transform: `translateY(${item.start}px)` }}
+                  className={`absolute left-0 top-0 w-full ${
+                    isInitialCascade ? 'animate-fade-in cascade-delay' : ''
+                  }`}
+                  style={{
+                    transform: `translateY(${item.start}px)`,
+                    ...(isInitialCascade ? cascadeStyle(item.index) : undefined),
+                  }}
                 >
                   <CommitGraphRow
                     row={row}
