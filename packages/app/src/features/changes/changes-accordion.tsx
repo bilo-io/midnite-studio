@@ -59,13 +59,16 @@ export function ChangesAccordion({
     filename appearing twice in a forty-item accordion list reads as a
     rendering bug, and there is nothing here to stage.
   */
-  const entries = useMemo(
-    () =>
-      rawEntries
-        .filter((entry, index, all) => all.findIndex((e) => e.path === entry.path) === index)
-        .sort((a, b) => a.path.localeCompare(b.path)),
-    [rawEntries],
-  );
+  const entries = useMemo(() => {
+    const seenPaths = new Set<string>();
+    return rawEntries
+      .filter((entry) => {
+        if (seenPaths.has(entry.path)) return false;
+        seenPaths.add(entry.path);
+        return true;
+      })
+      .sort((a, b) => a.path.localeCompare(b.path));
+  }, [rawEntries]);
 
   const paths = useMemo(() => entries.map((entry) => entry.path), [entries]);
   const withheld = withheldByCap(paths);
