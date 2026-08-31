@@ -29,6 +29,6 @@ export const CASCADE_STEP_MS = 18;
  * `cascade-delay` rule in styles.css) instead of being re-derived at every call
  * site — and so reduced motion can neutralise it in CSS alone.
  */
-export function cascadeStyle(index: number): CSSProperties {
-  return { '--i': Math.min(index, CASCADE_MAX_STEPS) } as CSSProperties;
+export function cascadeStyle(index: number, maxSteps = CASCADE_MAX_STEPS): CSSProperties {
+  return { '--i': Math.min(index, maxSteps) } as CSSProperties;
 }

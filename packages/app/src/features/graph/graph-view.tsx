@@ -19,7 +19,7 @@ import { firstCommitDate } from './first-commit-date';
 import { GraphDefs, avatarClipId } from './graph-defs';
 import { GraphHeader, graphColumnVars, useGraphColumns } from './graph-header';
 import { CommitGraphRow, formatDate } from './graph-row';
-import { CASCADE_MAX_STEPS, cascadeStyle } from '../../lib/cascade';
+import { CASCADE_STEP_MS, cascadeStyle } from '../../lib/cascade';
 import { formatNumber } from '../../lib/format-number';
 import { useGraphStore } from './graph-store';
 import {
@@ -184,26 +184,27 @@ export function GraphView() {
   const paintedGutter = gutterWidth(theme, laneWidth, gutterLanes);
 
   const scrollRef = useRef<HTMLDivElement>(null);
-  // Track which commit SHAs have already played their entrance animation,
-  // preventing recycled virtual rows from re-animating during scrolling.
-  const animatedShaSet = useRef<Set<string>>(new Set());
+  // Cascading reveal: when the graph view mounts or the stream/request changes,
+  // we animate the visible rows with staggered alpha transitions (top-to-bottom).
+  // Once the initial viewport cascade settles, isCascading is set to false so
+  // scrolling and recycled virtual rows operate normally without animation overhead.
+  const [isCascading, setIsCascading] = useState(true);
   const prevRequestId = useRef(requestId);
   if (prevRequestId.current !== requestId) {
     prevRequestId.current = requestId;
-    animatedShaSet.current.clear();
+    if (!isCascading) {
+      setIsCascading(true);
+    }
   }
 
-  // Once the initial cascade plays on arrival, mark all current row SHAs as animated
-  // so that virtualizer row recycling during subsequent scrolling does not trigger animations.
   useEffect(() => {
-    if (rows.length === 0) return;
+    if (!isCascading || rows.length === 0) return;
+    const duration = (GRAPH_CASCADE_MAX_STEPS + 1) * CASCADE_STEP_MS + 250;
     const timer = setTimeout(() => {
-      for (const row of rows) {
-        animatedShaSet.current.add(row.commit.sha);
-      }
-    }, (CASCADE_MAX_STEPS + 1) * 18 + 200);
+      setIsCascading(false);
+    }, duration);
     return () => clearTimeout(timer);
-  }, [requestId, rows]);
+  }, [isCascading, requestId, rows.length]);
 
   // dnd-kit's drag-end event carries no pointer position, and the drop menu has
   // to appear where the user released.
@@ -315,13 +316,12 @@ export function GraphView() {
         ) : null}
 
         {/*
-          Keyed on requestId so the list fades in ONCE per stream — on a repo
-          switch or a filter change.
+          Keyed on requestId so the list resets when stream changes.
           
-          Initially visible rows apply a cascading alpha fade-in on arrival
-          (`animate-fade-in cascade-delay` with `cascadeStyle(item.index)`).
-          Rows animated on initial load are recorded in animatedShaSet so that
-          subsequent scrolling or virtual row recycling does not re-trigger animations.
+          When the graph page is visited / rendered, each commit in the visible
+          viewport reveals in a cascading alpha transition from top to bottom.
+          Once the initial viewport cascade settles, isCascading turns off so
+          scrolling through the virtualised list has zero animation interference.
         */}
         <div
           key={requestId ?? 'empty'}
@@ -333,7 +333,7 @@ export function GraphView() {
             {virtualizer.getVirtualItems().map((item) => {
               const row = rows[item.index];
               if (!row) return null;
-              const isInitialCascade = !animatedShaSet.current.has(row.commit.sha) && item.index <= CASCADE_MAX_STEPS;
+              const isInitialCascade = isCascading && item.index <= GRAPH_CASCADE_MAX_STEPS;
               return (
                 <div
                   key={row.commit.sha}
@@ -342,7 +342,7 @@ export function GraphView() {
                   }`}
                   style={{
                     transform: `translateY(${item.start}px)`,
-                    ...(isInitialCascade ? cascadeStyle(item.index) : undefined),
+                    ...(isInitialCascade ? cascadeStyle(item.index, GRAPH_CASCADE_MAX_STEPS) : undefined),
                   }}
                 >
                   <CommitGraphRow
@@ -419,6 +419,16 @@ export function GraphView() {
 }
 
 const EMPTY_REFS: never[] = [];
+
+/**
+ * How many of the graph's initial rows get a staggered fade-in.
+ *
+ * Higher than `cascade.ts`'s own CASCADE_MAX_STEPS (12): the graph's rows are
+ * denser and shorter than a sidebar list, so a typical viewport shows closer
+ * to 20 of them, and capping short of that would flatten the stagger before
+ * it ever reached the fold.
+ */
+const GRAPH_CASCADE_MAX_STEPS = 20;
 
 /**
  * Lanes the gutter will draw before it stops widening.
