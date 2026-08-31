@@ -46,7 +46,7 @@ describe('DiagnosticsSegment', () => {
     mockUseRunDiagnostics.mockReturnValue({ mutate: vi.fn(), isPending: false });
   });
 
-  it('renders "No problems" with matching --health-ok color on container and icon', () => {
+  it('renders "No problems" in the finance segment\'s emerald gain color', () => {
     mockUseDiagTrust.mockReturnValue({
       data: { state: 'trusted', command: { parser: 'eslint', ecosystem: 'javascript', command: 'eslint', args: [] } },
       isLoading: false,
@@ -66,7 +66,8 @@ describe('DiagnosticsSegment', () => {
 
     const noProblemsSpan = screen.getByLabelText('No problems');
     expect(noProblemsSpan).toBeDefined();
-    expect(noProblemsSpan.getAttribute('style')).toContain('color: hsl(var(--health-ok))');
+    expect(noProblemsSpan.className).toContain('text-emerald-600');
+    expect(noProblemsSpan.className).toContain('dark:text-emerald-400');
     expect(screen.getByText('No problems')).toBeDefined();
   });
 
