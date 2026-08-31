@@ -60,6 +60,7 @@ describe('buildNewSessionMenu — everything installed', () => {
       'Kilo Code',
       'Aider',
       'Cursor',
+      'Copilot',
       'Cline',
     ]);
   });
