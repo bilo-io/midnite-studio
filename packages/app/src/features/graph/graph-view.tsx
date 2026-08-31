@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 
 import { useVirtualizer } from '@tanstack/react-virtual';
+import { LuGitBranch, LuGitCommitVertical } from 'react-icons/lu';
 
 import { useDialogs } from '../../components/dialog-host';
 import { EmptyState } from '../../components/empty-state';
@@ -13,6 +14,7 @@ import { DEFAULT_LAYOUT, LAYOUT_BOUNDS, useUiStore } from '../../store/ui-store'
 import { CommitDetail } from '../commit/commit-detail';
 import { GraphDndProvider, type DropEvent } from './graph-dnd';
 import { summariseAuthors } from './author-filter';
+import { countLocalBranches } from './branch-count';
 import { GraphDefs, avatarClipId } from './graph-defs';
 import { GraphHeader, graphColumnVars, useGraphColumns } from './graph-header';
 import { CommitGraphRow } from './graph-row';
@@ -66,6 +68,7 @@ export function GraphView() {
 
   const { data: refs = [] } = useRefs(repoId);
   const refsBySha = useRefsBySha(refs);
+  const branchCount = useMemo(() => countLocalBranches(refs), [refs]);
 
   const { data: status } = useStatus();
   const currentBranch = status?.branch.head ?? null;
@@ -342,7 +345,14 @@ export function GraphView() {
         ) : null}
 
         <footer className="flex shrink-0 items-center gap-3 border-t border-border px-3 py-1 text-xs text-muted-foreground">
-          <span className="tabular-nums">{rows.length.toLocaleString()} commits</span>
+          <span className="flex items-center gap-1.5 tabular-nums">
+            <LuGitCommitVertical aria-hidden className="h-3 w-3 shrink-0" />
+            {rows.length.toLocaleString()} commits
+          </span>
+          <span className="flex items-center gap-1.5 tabular-nums">
+            <LuGitBranch aria-hidden className="h-3 w-3 shrink-0" />
+            {branchCount.toLocaleString()} branches
+          </span>
           {loading ? <span>loading…</span> : null}
           {truncated ? <span>history truncated at the row cap</span> : null}
           <span className="ml-auto tabular-nums">{Math.round(paintedGutter)}px gutter</span>
