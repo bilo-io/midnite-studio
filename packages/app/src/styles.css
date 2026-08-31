@@ -354,7 +354,7 @@ section.bg-card\/60 {
  * turned the panel into a rainbow smear with unreadable text.
  *
  * Masking the host's own box out of the halo is what makes paint order stop
- * mattering: `padding` matching `inset` (both 30px here) makes this pseudo's
+ * mattering: `padding` matching `inset` (both 8px here) makes this pseudo's
  * content box exactly the host's border box, and `mask-composite: exclude`
  * subtracts it, so every pixel that survives lies outside the panel. The hard
  * inner edge that leaves sits underneath the host's own gradient border and is
@@ -362,17 +362,17 @@ section.bg-card\/60 {
  *
  * `mask` is applied *after* `filter` in the render pipeline, so its outer edge
  * — the pseudo's own box, at `inset` — hard-crops whatever the blur hasn't
- * finished fading by then. A blur this soft (14px) needs on the order of 2x
- * its radius of room to read as a gradual fade rather than a ring with a
- * visible rim; 30px clears that with margin, unlike the 6px this used to be
- * (chosen too tight, to keep the halo off a panel opening 20px from the
- * window edge — worth eating that halo running off-screen near an edge for a
- * fade that reads as a fade everywhere else).
+ * finished fading by then. A blur this soft needs on the order of 2x its
+ * radius of room to read as a gradual fade rather than a ring with a visible
+ * rim, which is what set 8px/8px/4px: enough margin for a clean fade at a
+ * scale that reads as a rim light rather than the 30px/30px/14px wash this
+ * used to be — no panel wants a halo a third of its own width wide, and this
+ * still clears the window edge where the too-tight 6px this once was did not.
  */
 .gradient-border::after {
-  inset: -30px;
-  padding: 30px;
-  filter: blur(14px);
+  inset: -8px;
+  padding: 8px;
+  filter: blur(4px);
   mask:
     linear-gradient(#000 0 0) content-box,
     linear-gradient(#000 0 0);
@@ -384,7 +384,7 @@ section.bg-card\/60 {
 .gradient-border:focus-within::after,
 .gradient-border--hover:hover::after,
 .gradient-border--always::after {
-  opacity: 0.65;
+  opacity: 0.55;
 }
 
 /* Screensaver / Lockscreen Title Sheen & Tint Glow */
