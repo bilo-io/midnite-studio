@@ -24,12 +24,12 @@ describe('BUILTIN_AGENTS', () => {
       'claude',
       'agy',
       'codex',
+      'cursor',
+      'copilot',
       'openclaude',
       'opencode',
       'kilo',
       'aider',
-      'cursor',
-      'copilot',
       'cline',
     ]);
   });
