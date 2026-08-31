@@ -92,7 +92,7 @@ export function ChangesAccordion({
           so without this the answer to "how big is this" needs forty
           subprocesses and a scroll.
         */}
-        <ChangeTotals {...totals} className="mr-auto" />
+        <ChangeTotals {...totals} />
 
         <IconButton
           icon={ChevronsUpDown}

@@ -207,7 +207,7 @@ export function StatusPanel() {
           I am about to commit" without adding two numbers together.
         */}
         <div className="flex shrink-0 items-center gap-2 border-b border-border py-1 pl-3 pr-2">
-          <ChangeTotals {...total} className="mr-auto" />
+          <ChangeTotals {...total} />
           <IconButton
             icon={AiOutlineDiff}
             label="View all changes"
