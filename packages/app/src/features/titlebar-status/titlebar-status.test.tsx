@@ -1,5 +1,5 @@
 import { afterEach, describe, expect, it } from 'vitest';
-import { cleanup, render, screen } from '@testing-library/react';
+import { cleanup, fireEvent, render, screen } from '@testing-library/react';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 
 import { TitleBarStatus } from './titlebar-status';
@@ -31,10 +31,23 @@ describe('TitleBarStatus component', () => {
     expect(pill).toBeDefined();
   });
 
-  it('renders full status dashboard panel', () => {
+  it('renders full status dashboard panel defaulting to the Time tab', () => {
     render(withQuery(<TitlebarStatusPanel />));
     expect(screen.getByTestId('titlebar-status-panel')).toBeDefined();
-    expect(screen.getByText('Status & Time Dashboard')).toBeDefined();
+    expect(screen.getByTestId('titlebar-status-tab-time').getAttribute('aria-selected')).toBe('true');
+    expect(screen.getByText('Current Time')).toBeDefined();
+    expect(screen.getByText('World Clocks')).toBeDefined();
+    expect(screen.queryByText('Calendar')).toBeNull();
+  });
+
+  it('switches to the Date tab to show calendar and weather', () => {
+    render(withQuery(<TitlebarStatusPanel />));
+    fireEvent.click(screen.getByTestId('titlebar-status-tab-date'));
+
+    expect(screen.getByTestId('titlebar-status-tab-date').getAttribute('aria-selected')).toBe('true');
+    expect(screen.getByText('Calendar')).toBeDefined();
+    expect(screen.getByText(/Weather/i)).toBeDefined();
+    expect(screen.queryByText('World Clocks')).toBeNull();
   });
 
   it('renders individual dashboard sections', () => {
