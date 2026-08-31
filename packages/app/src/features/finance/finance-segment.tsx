@@ -41,10 +41,15 @@ export function FinanceSegment() {
   const { pct, up } = historyChange(history ?? []);
   const price = quote?.price ?? history?.at(-1)?.c;
 
-  const rawTicker = currentAsset ? assetTicker(currentAsset) : '';
-  const { typed: typedTicker } = useTitleTypewriter(rawTicker, false);
-
   const hasData = currentAsset !== null && price != null;
+  const rawTicker = currentAsset ? assetTicker(currentAsset) : '';
+  const rawPrice = hasData ? fmtPrice(price, quote?.currency) : '';
+  const rawPct = pct != null ? fmtPct(pct) : '';
+
+  const { typed: typedTicker } = useTitleTypewriter(rawTicker, false);
+  const { typed: typedPrice } = useTitleTypewriter(rawPrice, false);
+  const { typed: typedPct } = useTitleTypewriter(rawPct, false);
+
   const colorClass = hasData
     ? up
       ? 'text-emerald-600 dark:text-emerald-400'
@@ -65,7 +70,7 @@ export function FinanceSegment() {
           {hasData ? (
             <span className="flex items-center gap-1 tabular-nums">
               <span className="font-bold uppercase">{typedTicker || rawTicker}</span>
-              <span className="status-label">{fmtPrice(price, quote?.currency)}</span>
+              <span className="status-label">{typedPrice || rawPrice}</span>
               {pct != null && (
                 <span className="flex items-center gap-0.5 font-medium">
                   {up ? (
@@ -73,7 +78,7 @@ export function FinanceSegment() {
                   ) : (
                     <LuArrowDown className="h-3 w-3 shrink-0 stroke-[2.5]" aria-hidden />
                   )}
-                  <span>{fmtPct(pct)}</span>
+                  <span>{typedPct || rawPct}</span>
                 </span>
               )}
             </span>
