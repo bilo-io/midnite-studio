@@ -4,6 +4,7 @@ import { useMetricsStore } from '../../store/metrics-store';
 import { formatUsage } from './format-bytes';
 import { ChartLegend, MetricChart, type ChartSeries } from './metric-chart';
 import { GAUGE_GEOMETRY, TIMELINE_METRICS } from './metric-geometry';
+import { METRIC_ICONS } from './metric-icons';
 import { METRIC_LABELS, metricColor, metricFill } from './metric-palette';
 
 /**
@@ -82,11 +83,16 @@ export function MonitorFlyout() {
         <section className="mt-3 border-t border-border pt-3">
           <div className="mb-1 flex items-baseline justify-between text-[10px] text-muted-foreground">
             <span className="flex items-center gap-1">
-              <span
-                aria-hidden
-                className="h-1.5 w-1.5 rounded-full"
-                style={{ backgroundColor: metricColor('disk') }}
-              />
+              {(() => {
+                const DiskIcon = METRIC_ICONS.disk;
+                return (
+                  <DiskIcon
+                    aria-hidden
+                    className="h-3 w-3 shrink-0"
+                    style={{ color: metricColor('disk') }}
+                  />
+                );
+              })()}
               {METRIC_LABELS[METRIC_IDS[3]]}
             </span>
             <span className="tabular-nums">
