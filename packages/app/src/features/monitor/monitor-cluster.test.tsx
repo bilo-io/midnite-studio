@@ -39,6 +39,11 @@ describe('MonitorCluster', () => {
     expect(screen.getByTestId('metric-memory')).toBeDefined();
     expect(screen.getByTestId('metric-gpu')).toBeDefined();
     expect(screen.getByTestId('metric-disk')).toBeDefined();
+
+    const cpuText = screen.getByText('45%');
+    expect(cpuText.style.color).toBe('rgb(52, 148, 244)');
+    const memText = screen.getByText('60%');
+    expect(memText.style.color).toBe('rgb(187, 103, 228)');
   });
 
   it('shows tooltip on focus for metric', async () => {
