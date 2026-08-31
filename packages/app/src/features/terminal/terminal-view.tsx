@@ -8,6 +8,7 @@ import { useCallback, useEffect, useRef, useState } from 'react';
 import { bridge } from '../../services/bridge';
 import { shouldEscapeTerminal } from '../../services/keybindings/use-keybindings';
 import { EndedStrip } from './ended-banner';
+import { isXtermFocusReport } from './is-xterm-focus-report';
 import { parseOsc7 } from './parse-osc7';
 import { createReplayGate } from './replay-gate';
 import { agentInput } from './terminal-panel';
@@ -411,7 +412,13 @@ export function TerminalView({
           // from reconstructing a command line out of keystrokes — zsh's
           // application-cursor mode made that reconstruction wrong by
           // construction (an arrow key's `ESC O A` decoded as literal `A`).
-          if (session.kind !== 'shell') {
+          //
+          // `data` also carries xterm's own DEC focus-report bytes
+          // (`ESC[I`/`ESC[O]`) whenever the hidden textarea gains or loses
+          // DOM focus — including the programmatic `.focus()` below that
+          // fires just from selecting this session in the sidebar. Those
+          // aren't the user typing, so they must not clear the glyph.
+          if (session.kind !== 'shell' && !isXtermFocusReport(data)) {
             // Typing at an agent answers the question the "waiting" glyph is
             // asking, so the glyph drops back to idle on the first keystroke
             // rather than sitting there until the next footer repaint proves
