@@ -41,3 +41,5 @@ export type WorldClockZone = {
 };
 
 export type ClockMode = 'digital' | 'analogue';
+
+export type PanelView = 'time' | 'date';
