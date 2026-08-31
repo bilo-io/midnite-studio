@@ -13,6 +13,7 @@ import {
   type UiFont,
   type VisualEffects,
 } from '../../../store/appearance-store';
+import { useTitlebarStatusStore } from '../../titlebar-status/titlebar-status-store';
 import { Choice, Field } from './controls';
 
 /**
@@ -164,6 +165,112 @@ export function AppearancePage() {
           />
         </div>
       </Accordion>
+
+      <TitlebarStatusSettingsAccordion />
     </div>
+  );
+}
+
+function TitlebarStatusSettingsAccordion() {
+  const showDate = useTitlebarStatusStore((s) => s.showDate);
+  const showTime = useTitlebarStatusStore((s) => s.showTime);
+  const showWeather = useTitlebarStatusStore((s) => s.showWeather);
+  const setShowDate = useTitlebarStatusStore((s) => s.setShowDate);
+  const setShowTime = useTitlebarStatusStore((s) => s.setShowTime);
+  const setShowWeather = useTitlebarStatusStore((s) => s.setShowWeather);
+
+  const weatherUnits = useTitlebarStatusStore((s) => s.weatherUnits);
+  const setWeatherUnits = useTitlebarStatusStore((s) => s.setWeatherUnits);
+  const clockMode = useTitlebarStatusStore((s) => s.clockMode);
+  const setClockMode = useTitlebarStatusStore((s) => s.setClockMode);
+  const showSeconds = useTitlebarStatusStore((s) => s.showSeconds);
+  const setShowSeconds = useTitlebarStatusStore((s) => s.setShowSeconds);
+  const worldClocksMode = useTitlebarStatusStore((s) => s.worldClocksMode);
+  const setWorldClocksMode = useTitlebarStatusStore((s) => s.setWorldClocksMode);
+
+  return (
+    <Accordion title="Titlebar Status & Clock" icon={<LuSparkles className="h-4 w-4" />} defaultOpen>
+      <div className="flex flex-col gap-4 p-3">
+        <Field
+          label="Titlebar Center Pill Items"
+          hint="Choose which elements appear in the top center status bar."
+        >
+          <div className="flex flex-col gap-1.5">
+            <label className="flex items-center gap-2 text-xs">
+              <input
+                type="checkbox"
+                checked={showDate}
+                onChange={(e) => setShowDate(e.target.checked)}
+                className="h-3.5 w-3.5 accent-[hsl(var(--primary))]"
+              />
+              Date
+            </label>
+            <label className="flex items-center gap-2 text-xs">
+              <input
+                type="checkbox"
+                checked={showTime}
+                onChange={(e) => setShowTime(e.target.checked)}
+                className="h-3.5 w-3.5 accent-[hsl(var(--primary))]"
+              />
+              Time
+            </label>
+            <label className="flex items-center gap-2 text-xs">
+              <input
+                type="checkbox"
+                checked={showWeather}
+                onChange={(e) => setShowWeather(e.target.checked)}
+                className="h-3.5 w-3.5 accent-[hsl(var(--primary))]"
+              />
+              Weather & temperature
+            </label>
+          </div>
+        </Field>
+
+        <Choice<string>
+          label="Temperature units"
+          hint="Display temperature in Celsius or Fahrenheit."
+          value={weatherUnits}
+          onChange={(v) => setWeatherUnits(v as 'c' | 'f')}
+          options={[
+            ['c', 'Celsius (°C)'],
+            ['f', 'Fahrenheit (°F)'],
+          ]}
+        />
+
+        <Choice<string>
+          label="Clock display mode"
+          hint="Digital clock face or analogue clock in popup."
+          value={clockMode}
+          onChange={(v) => setClockMode(v as 'digital' | 'analogue')}
+          options={[
+            ['digital', 'Digital'],
+            ['analogue', 'Analogue'],
+          ]}
+        />
+
+        <Choice<string>
+          label="World clocks style"
+          hint="Clock style used for world timezone cards."
+          value={worldClocksMode}
+          onChange={(v) => setWorldClocksMode(v as 'digital' | 'analogue')}
+          options={[
+            ['digital', 'Digital'],
+            ['analogue', 'Analogue'],
+          ]}
+        />
+
+        <Field label="Seconds display" hint="Show live seconds in digital clock.">
+          <label className="flex items-center gap-2 text-xs">
+            <input
+              type="checkbox"
+              checked={showSeconds}
+              onChange={(e) => setShowSeconds(e.target.checked)}
+              className="h-3.5 w-3.5 accent-[hsl(var(--primary))]"
+            />
+            Show seconds (:ss)
+          </label>
+        </Field>
+      </div>
+    </Accordion>
   );
 }
