@@ -37,8 +37,11 @@ export function BrowserPane({ shown }: { shown: boolean }) {
   const [draft, setDraft] = useState(activeTab?.url ?? '');
   const [editing, setEditing] = useState(false);
 
-  useBrowserTabsEffects(shown);
-  const bodyRef = useBrowserBounds(activeTabId, shown && activeTab?.kind === 'page');
+  const { ref: bodyRef, sync: syncBrowserView } = useBrowserBounds(
+    activeTabId,
+    shown && activeTab?.kind === 'page',
+  );
+  useBrowserTabsEffects(shown, syncBrowserView);
 
   useFocusTrap(containerRef, shown);
 
