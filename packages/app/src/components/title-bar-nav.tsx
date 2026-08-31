@@ -206,6 +206,8 @@ function Breadcrumbs() {
     <nav aria-label="Location" className="flex min-w-0 items-center text-xs">
       {crumbs.map((crumb, index) => {
         const isLast = index === crumbs.length - 1;
+        const isRepo = crumb.key === 'repo';
+        const isBranch = crumb.key === 'branch';
         const Icon = crumb.icon;
         /*
           `shrink-0` on the glyph and `truncate` on the label, not the other way
@@ -213,7 +215,30 @@ function Breadcrumbs() {
           NAME that should give way, and a half-clipped icon would read as a
           rendering fault.
         */
-        const icon = <Icon aria-hidden className="h-3 w-3 shrink-0" />;
+        const icon = (
+          <Icon
+            aria-hidden
+            className={`h-3 w-3 shrink-0 ${isBranch ? 'text-primary' : ''}`}
+          />
+        );
+
+        let buttonClass =
+          'flex min-w-0 items-center gap-1 rounded px-1 py-0.5 text-muted-foreground transition-colors hover:bg-accent hover:text-foreground';
+        let spanClass = `flex min-w-0 items-center gap-1 px-1 py-0.5 ${
+          isLast ? 'font-medium text-foreground' : 'text-muted-foreground'
+        }`;
+
+        if (isRepo) {
+          buttonClass =
+            'breadcrumb-repo-pill flex min-w-0 items-center gap-1 rounded-full px-2.5 py-0.5 text-foreground transition-all cursor-pointer';
+          spanClass =
+            'breadcrumb-repo-pill flex min-w-0 items-center gap-1 rounded-full px-2.5 py-0.5 text-foreground transition-all';
+        } else if (isBranch) {
+          buttonClass =
+            'flex min-w-0 items-center gap-1 rounded px-1 py-0.5 font-bold text-primary transition-colors hover:bg-accent/50';
+          spanClass = 'flex min-w-0 items-center gap-1 px-1 py-0.5 font-bold text-primary';
+        }
+
         return (
           <span key={crumb.key} className="flex min-w-0 items-center">
             {index > 0 ? (
@@ -223,23 +248,21 @@ function Breadcrumbs() {
               />
             ) : null}
             {crumb.onSelect ? (
-              <button
-                type="button"
-                onClick={crumb.onSelect}
-                className="flex min-w-0 items-center gap-1 rounded px-1 py-0.5 text-muted-foreground transition-colors hover:bg-accent hover:text-foreground"
-              >
+              <button type="button" onClick={crumb.onSelect} className={buttonClass}>
                 {icon}
-                <span className="max-w-[10rem] truncate">{crumb.label}</span>
+                <span className={`max-w-[10rem] truncate ${isBranch ? 'font-bold text-primary' : ''}`}>
+                  {crumb.label}
+                </span>
               </button>
             ) : (
               <span
                 aria-current={isLast ? 'page' : undefined}
-                className={`flex min-w-0 items-center gap-1 px-1 py-0.5 ${
-                  isLast ? 'font-medium text-foreground' : 'text-muted-foreground'
-                }`}
+                className={spanClass}
               >
                 {icon}
-                <span className="max-w-[12rem] truncate">{crumb.label}</span>
+                <span className={`max-w-[12rem] truncate ${isBranch ? 'font-bold text-primary' : ''}`}>
+                  {crumb.label}
+                </span>
               </span>
             )}
           </span>
