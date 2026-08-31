@@ -13,7 +13,7 @@ import {
   OpenCodeIcon,
 } from './index';
 import { resolveAgentIcon } from './index';
-import { SiCline, SiCursor } from 'react-icons/si';
+import { SiCline, SiCursor, SiGithubcopilot } from 'react-icons/si';
 
 /**
  * The registry is the one thing standing between an agent roster and
@@ -33,6 +33,7 @@ describe('resolveAgentIcon', () => {
       KiloIcon,
       AiderIcon,
       SiCursor,
+      SiGithubcopilot,
       SiCline,
     ]);
     expect(new Set(marks).size).toBe(BUILTIN_AGENTS.length);

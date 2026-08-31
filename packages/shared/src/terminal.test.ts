@@ -29,6 +29,7 @@ describe('BUILTIN_AGENTS', () => {
       'kilo',
       'aider',
       'cursor',
+      'copilot',
       'cline',
     ]);
   });
@@ -113,6 +114,7 @@ describe('AgentDefinitionSchema', () => {
     const kilo = BUILTIN_AGENTS.find((a) => a.id === 'kilo');
     const aider = BUILTIN_AGENTS.find((a) => a.id === 'aider');
     const cursor = BUILTIN_AGENTS.find((a) => a.id === 'cursor');
+    const copilot = BUILTIN_AGENTS.find((a) => a.id === 'copilot');
     const cline = BUILTIN_AGENTS.find((a) => a.id === 'cline');
 
     expect(claude?.resume).toEqual(['--continue']);
@@ -123,6 +125,7 @@ describe('AgentDefinitionSchema', () => {
     expect(kilo?.resume).toEqual(['--continue']);
     expect(aider?.resume).toEqual(['--restore-chat-history']);
     expect(cursor?.resume).toEqual(['--continue']);
+    expect(copilot?.resume).toEqual(['--continue']);
     expect(cline?.resume).toEqual(['--continue']);
   });
 
