@@ -75,15 +75,17 @@ export function useBrowserTabsEffects(open: boolean, onTabReady?: () => void): v
   }, []);
 
   useEffect(() => {
+    const api = bridge();
+
     if (!open) {
       if (previousActive.current) {
-        bridge()?.browser.setVisible({ tabId: previousActive.current, visible: false });
+        api?.browser.setVisible({ tabId: previousActive.current, visible: false });
       }
       return;
     }
 
     if (previousActive.current && previousActive.current !== activeTabId) {
-      bridge()?.browser.setVisible({ tabId: previousActive.current, visible: false });
+      api?.browser.setVisible({ tabId: previousActive.current, visible: false });
     }
     previousActive.current = activeTabId;
     if (!activeTabId) return;
@@ -95,10 +97,10 @@ export function useBrowserTabsEffects(open: boolean, onTabReady?: () => void): v
 
     // `create` is a no-op in main when the tab already has a live view —
     // safe to call on every activation, including a reopen after close.
-    void bridge()
+    void api
       ?.browser.create({ tabId: tab.id, url: tab.url })
       .then(() => {
-        bridge()?.browser.activate({ tabId: tab.id });
+        api?.browser.activate({ tabId: tab.id });
         onTabReady?.();
       });
   }, [open, activeTabId, onTabReady]);
