@@ -1,6 +1,7 @@
 import type { ComponentType } from 'react';
 
 import { DiagnosticsSegment } from '../diagnostics/diagnostics-segment';
+import { FinanceSegment } from '../finance/finance-segment';
 import { MonitorCluster } from '../monitor/monitor-cluster';
 
 import { AgentCountSegment } from './agent-count';
@@ -72,6 +73,9 @@ export const STATUS_SEGMENTS: StatusSegment[] = [
   // the least critical of the new readouts, collapsing before diagnostics,
   // the monitor, and both verdicts.
   { id: 'agent-count', zone: 'right', priority: 5, label: 'Live agents', El: AgentCountSegment },
+  // Ambient, not repository state — the least critical readout in the zone
+  // besides agent-count, so it collapses early alongside it.
+  { id: 'finance', zone: 'right', priority: 7, label: 'Finance', El: FinanceSegment },
   { id: 'diagnostics', zone: 'right', priority: 10, label: 'Diagnostics', El: DiagnosticsSegment },
   { id: 'monitor', zone: 'right', priority: 20, label: 'System monitor', El: MonitorCluster },
   {
