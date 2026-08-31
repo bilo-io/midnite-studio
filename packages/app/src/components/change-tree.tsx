@@ -2,6 +2,7 @@ import { ChevronDown, ChevronRight, File as FileIcon, Folder } from 'lucide-reac
 import type { ReactNode } from 'react';
 
 import type { ChangedFile, DirNode, FileNode, TreeNode } from './build-change-tree';
+import { formatNumber } from '../lib/format-number';
 
 /** What a caller needs to know about the open file, and how to change it. */
 export type FileSelection<T extends ChangedFile> = {
@@ -220,10 +221,10 @@ export function Counts({ insertions, deletions }: { insertions: number; deletion
   return (
     <span className="shrink-0 text-[11px] font-medium tabular-nums">
       <span className={insertions === 0 ? 'text-muted-foreground/50' : 'text-success'}>
-        +{insertions}
+        +{formatNumber(insertions)}
       </span>{' '}
       <span className={deletions === 0 ? 'text-muted-foreground/50' : 'text-destructive'}>
-        −{deletions}
+        −{formatNumber(deletions)}
       </span>
     </span>
   );
@@ -253,7 +254,7 @@ export function ChangeTotals({
       data-testid="change-totals"
     >
       <span className="tabular-nums">
-        {fileCount} {fileCount === 1 ? 'file' : 'files'}
+        {formatNumber(fileCount)} {fileCount === 1 ? 'file' : 'files'}
       </span>
       <Counts insertions={insertions} deletions={deletions} />
     </span>

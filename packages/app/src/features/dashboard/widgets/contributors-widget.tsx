@@ -2,6 +2,7 @@ import { useMemo } from 'react';
 
 import type { RepoStats } from '@midnite/studio-shared';
 
+import { formatNumber } from '../../../lib/format-number';
 import { byCommits } from '../dashboard-derive';
 import { AuthorAvatar } from './author-avatar';
 import { WidgetState } from '../widget-frame';
@@ -81,12 +82,12 @@ export function ContributorsWidget({
                     <span className="truncate">{person.name}</span>
                   </button>
                 </td>
-                <td className="py-1 text-right tabular-nums">{person.commits}</td>
+                <td className="py-1 text-right tabular-nums">{formatNumber(person.commits)}</td>
                 <td className="py-1 text-right tabular-nums text-emerald-600 dark:text-emerald-400">
-                  {person.insertions === null ? '—' : person.insertions}
+                  {person.insertions === null ? '—' : formatNumber(person.insertions)}
                 </td>
                 <td className="py-1 text-right tabular-nums text-rose-600 dark:text-rose-400">
-                  {person.deletions === null ? '—' : person.deletions}
+                  {person.deletions === null ? '—' : formatNumber(person.deletions)}
                 </td>
                 <td className="py-1 text-right tabular-nums text-muted-foreground">
                   {relativeDays(person.lastAt)}

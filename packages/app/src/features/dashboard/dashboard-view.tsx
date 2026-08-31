@@ -23,6 +23,7 @@ import type { MenuItem } from '../../components/context-menu';
 import { useDialogs } from '../../components/dialog-host';
 import { IconButton, type IconComponent } from '../../components/icon-button';
 import { MultiSelectMenu } from '../../components/multi-select-menu';
+import { formatNumber } from '../../lib/format-number';
 import {
   useForgeIssues,
   useForgePulls,
@@ -141,7 +142,7 @@ export function DashboardView() {
         value: person.email,
         label: person.name,
         keywords: person.email,
-        meta: <span className="tabular-nums">{person.commits}</span>,
+        meta: <span className="tabular-nums">{formatNumber(person.commits)}</span>,
       })),
     [rawStats?.contributors],
   );

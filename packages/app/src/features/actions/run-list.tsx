@@ -3,6 +3,7 @@ import { ChevronDown, ChevronRight } from 'lucide-react';
 import type { ForgeRun } from '@midnite/studio-shared';
 
 import { cascadeStyle } from '../../lib/cascade';
+import { formatNumber } from '../../lib/format-number';
 import { useActionsStore } from '../../store/actions-store';
 import { runStatus, StatusPill } from '../forge/forge-status';
 import { duration, groupRuns, relativeAge } from './run-groups';
@@ -77,7 +78,7 @@ export function RunList({
                 <ChevronRight aria-hidden className="h-3 w-3 shrink-0" />
               )}
               <span className="truncate">{group.label}</span>
-              <span className="ml-auto shrink-0 tabular-nums font-normal">{group.runs.length}</span>
+              <span className="ml-auto shrink-0 tabular-nums font-normal">{formatNumber(group.runs.length)}</span>
             </button>
 
             {open ? (

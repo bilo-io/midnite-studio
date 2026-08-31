@@ -2,6 +2,7 @@ import { useMemo } from 'react';
 
 import type { RepoStats } from '@midnite/studio-shared';
 
+import { formatNumber } from '../../../lib/format-number';
 import { localDayKey, newestFirst } from '../dashboard-derive';
 import { AuthorAvatar } from './author-avatar';
 import { relativeDays } from './contributors-widget';
@@ -96,7 +97,7 @@ export function ActivityWidget({
         */}
         {totalScoped > rows.length ? (
           <p className="pt-1 text-[10px] text-muted-foreground">
-            Showing the newest {rows.length} of {totalScoped}.
+            Showing the newest {formatNumber(rows.length)} of {formatNumber(totalScoped)}.
           </p>
         ) : null}
       </div>

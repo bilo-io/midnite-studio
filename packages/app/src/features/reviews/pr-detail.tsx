@@ -10,6 +10,7 @@ import Markdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
 
 import { IconButton } from '../../components/icon-button';
+import { formatNumber } from '../../lib/format-number';
 import { useSlidesStore } from '../slides/slides-store';
 import { PresentButton } from '../slides/present-button';
 import {
@@ -350,9 +351,10 @@ function PrHeader({
         </span>
         {detail !== null ? (
           <span className="tabular-nums">
-            {detail.changedFiles} {detail.changedFiles === 1 ? 'file' : 'files'}{' '}
-            <span className="text-success">+{detail.additions}</span>{' '}
-            <span className="text-destructive">−{detail.deletions}</span>
+            {formatNumber(detail.changedFiles)}{' '}
+            {detail.changedFiles === 1 ? 'file' : 'files'}{' '}
+            <span className="text-success">+{formatNumber(detail.additions)}</span>{' '}
+            <span className="text-destructive">−{formatNumber(detail.deletions)}</span>
           </span>
         ) : loadingDetail ? (
           /*

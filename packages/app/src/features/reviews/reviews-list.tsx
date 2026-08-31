@@ -11,6 +11,7 @@ import { ResizeHandle } from '../../components/resizable/resize-handle';
 import { useResizable } from '../../components/resizable/use-resizable';
 import { TreeSection } from '../../components/tree-section';
 import { cascadeStyle } from '../../lib/cascade';
+import { formatNumber } from '../../lib/format-number';
 import { useForgePulls, useRefreshForge } from '../../services/queries';
 import { DEFAULT_LAYOUT, LAYOUT_BOUNDS, useUiStore } from '../../store/ui-store';
 import { useReviewsStore } from '../../store/reviews-store';
@@ -152,7 +153,7 @@ export function ReviewsList({ repoId }: { repoId: string }) {
       .map(([author, count]) => ({
         value: author,
         label: author,
-        meta: <span className="tabular-nums text-[10px] text-muted-foreground">{count}</span>,
+        meta: <span className="tabular-nums text-[10px] text-muted-foreground">{formatNumber(count)}</span>,
       }));
   }, [visibleRows]);
 
@@ -233,7 +234,7 @@ export function ReviewsList({ repoId }: { repoId: string }) {
             className="h-6 w-full rounded-md border border-input bg-background pl-6 pr-2 text-xs outline-none focus-visible:border-primary"
           />
           <span className="pointer-events-none absolute right-3 top-1/2 -translate-y-1/2 tabular-nums text-[11px] text-muted-foreground/70">
-            {matched.length}
+            {formatNumber(matched.length)}
           </span>
         </div>
 

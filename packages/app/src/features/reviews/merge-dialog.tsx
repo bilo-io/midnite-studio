@@ -3,6 +3,7 @@ import { AlertTriangle } from 'lucide-react';
 import { useEffect, useRef, useState } from 'react';
 
 import { Spinner } from '../../components/skeleton';
+import { formatNumber } from '../../lib/format-number';
 
 /**
  * The confirm in front of the one irreversible thing this app does.
@@ -125,7 +126,7 @@ export function MergeDialog({
               <span className="text-muted-foreground">Counting the commits to be merged…</span>
             ) : (
               <>
-                <span className="font-semibold tabular-nums">{count}</span>{' '}
+                <span className="font-semibold tabular-nums">{formatNumber(count)}</span>{' '}
                 {count === 1 ? 'commit' : 'commits'} will land on{' '}
                 <span className="text-foreground">{baseBranch || 'the base branch'}</span>. This
                 cannot be undone from this app.

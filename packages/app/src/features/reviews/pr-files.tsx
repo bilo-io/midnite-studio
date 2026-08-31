@@ -1,6 +1,7 @@
 import type { ForgePullFiles, ForgeReviewThread } from '@midnite/studio-shared';
 import { useState } from 'react';
 
+import { formatNumber } from '../../lib/format-number';
 import { openExternal } from '../../services/queries';
 import { PrFileAccordion } from './pr-file-accordion';
 import { PrFilesSkeleton } from './reviews-skeletons';
@@ -95,9 +96,9 @@ export function PrFiles({
 
       {files.truncated ? (
         <p className="border-t border-border px-3 py-2 text-[11px] text-muted-foreground">
-          {files.omittedFiles.toLocaleString()} more{' '}
+          {formatNumber(files.omittedFiles)} more{' '}
           {files.omittedFiles === 1 ? 'file is' : 'files are'} not shown — this pull request&rsquo;s
-          patch is {Math.round(files.totalBytes / 1024).toLocaleString()} KB, past the ceiling that
+          patch is {formatNumber(Math.round(files.totalBytes / 1024))} KB, past the ceiling that
           keeps the window responsive.{' '}
           <button
             type="button"
