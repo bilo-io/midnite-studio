@@ -354,18 +354,24 @@ section.bg-card\/60 {
  * turned the panel into a rainbow smear with unreadable text.
  *
  * Masking the host's own box out of the halo is what makes paint order stop
- * mattering: `padding: 6px` against `inset: -6px` makes this pseudo's content
- * box exactly the host's border box, and `mask-composite: exclude` subtracts
- * it, so every pixel that survives lies outside the panel. The hard inner edge
- * that leaves sits underneath the host's own gradient border and is never
- * visible. The negative z-index stays as belt and braces.
+ * mattering: `padding` matching `inset` (both 30px here) makes this pseudo's
+ * content box exactly the host's border box, and `mask-composite: exclude`
+ * subtracts it, so every pixel that survives lies outside the panel. The hard
+ * inner edge that leaves sits underneath the host's own gradient border and is
+ * never visible. The negative z-index stays as belt and braces.
  *
- * Tighter than upstream's -12px/26px too — a desktop panel opening 20px from
- * the window edge cannot afford a halo that reaches past it.
+ * `mask` is applied *after* `filter` in the render pipeline, so its outer edge
+ * — the pseudo's own box, at `inset` — hard-crops whatever the blur hasn't
+ * finished fading by then. A blur this soft (14px) needs on the order of 2x
+ * its radius of room to read as a gradual fade rather than a ring with a
+ * visible rim; 30px clears that with margin, unlike the 6px this used to be
+ * (chosen too tight, to keep the halo off a panel opening 20px from the
+ * window edge — worth eating that halo running off-screen near an edge for a
+ * fade that reads as a fade everywhere else).
  */
 .gradient-border::after {
-  inset: -6px;
-  padding: 6px;
+  inset: -30px;
+  padding: 30px;
   filter: blur(14px);
   mask:
     linear-gradient(#000 0 0) content-box,
