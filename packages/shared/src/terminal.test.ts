@@ -122,7 +122,7 @@ describe('AgentDefinitionSchema', () => {
     expect(opencode?.resume).toEqual(['--continue']);
     expect(kilo?.resume).toEqual(['--continue']);
     expect(aider?.resume).toEqual(['--restore-chat-history']);
-    expect(cursor?.resume).toBeUndefined();
+    expect(cursor?.resume).toEqual(['--continue']);
     expect(cline?.resume).toEqual(['--continue']);
   });
 
