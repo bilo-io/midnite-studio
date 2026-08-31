@@ -225,6 +225,12 @@ export function DiagnosticsSegment() {
  * colours beside them, these are **semantic**. An error count genuinely means
  * "something is wrong", which is what the token is for — and it should follow
  * the theme's idea of alarming rather than carry a hue of its own.
+ *
+ * The clean state is the one exception: it uses the same
+ * `emerald-600`/`emerald-400` pair as the finance segment's gain colour
+ * (`../finance/finance-segment.tsx`) rather than `--health-ok`, so "no
+ * problems" reads as the same green as a rising ticker elsewhere in this
+ * footer instead of the theme's separate success hue.
  */
 function Counts({
   run,
@@ -251,15 +257,10 @@ function Counts({
   if (run.errorCount === 0 && run.warningCount === 0) {
     return (
       <span
-        className="flex items-center gap-1.5"
-        style={{ color: 'hsl(var(--health-ok))' }}
+        className="flex items-center gap-1.5 text-emerald-600 dark:text-emerald-400"
         aria-label="No problems"
       >
-        <BsCheckCircle
-          aria-hidden
-          className="h-3 w-3 shrink-0"
-          style={{ color: 'hsl(var(--health-ok))' }}
-        />
+        <BsCheckCircle aria-hidden className="h-3 w-3 shrink-0" />
         <span>No problems</span>
       </span>
     );
