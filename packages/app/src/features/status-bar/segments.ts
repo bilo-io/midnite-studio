@@ -48,12 +48,11 @@ export type StatusSegment = {
  * slot in between existing ones without renumbering the zone.
  */
 export const STATUS_SEGMENTS: StatusSegment[] = [
-  // Left zone: Repository / Terminal / Browser toggles, Reattached sessions, and Finance
+  // Left zone: Repository / Terminal / Browser toggles, Agent count, Reattached sessions
   { id: 'repos-toggle', zone: 'left', priority: 10, label: 'Repositories', El: ReposToggle },
   { id: 'terminal-toggle', zone: 'left', priority: 20, label: 'Terminal', El: TerminalToggle },
   { id: 'browser-toggle', zone: 'left', priority: 5, label: 'Browser', El: BrowserToggle },
   { id: 'agent-count', zone: 'left', priority: 30, label: 'Live agents', El: AgentCountSegment },
-  { id: 'finance', zone: 'left', priority: 7, label: 'Finance', El: FinanceSegment },
   {
     id: 'reattached-note',
     zone: 'left',
@@ -67,6 +66,7 @@ export const STATUS_SEGMENTS: StatusSegment[] = [
   // is the single most expensive thing this bar can tell you.
   { id: 'in-progress', zone: 'center', priority: 20, label: 'Mid-operation', El: InProgressSegment },
   // Right zone:
+  { id: 'finance', zone: 'right', priority: 7, label: 'Finance', El: FinanceSegment },
   { id: 'diagnostics', zone: 'right', priority: 10, label: 'Diagnostics', El: DiagnosticsSegment },
   { id: 'battery', zone: 'right', priority: 22, label: 'Battery', El: BatterySegment },
   {
