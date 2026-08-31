@@ -271,7 +271,7 @@ export function Palette() {
       <div
         ref={containerRef}
         tabIndex={-1}
-        className="w-full max-w-xl animate-fade-in overflow-hidden rounded-lg border border-border bg-popover shadow-xl"
+        className="w-full max-w-xl animate-fade-in overflow-hidden rounded-lg gradient-border gradient-border--always border border-border bg-popover shadow-xl"
       >
         <div className="flex items-center gap-2 border-b border-border px-3">
           <Search aria-hidden className="h-4 w-4 shrink-0 text-muted-foreground" />
