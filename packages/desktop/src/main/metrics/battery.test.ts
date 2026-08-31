@@ -1,5 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import {
+  IOREG_INTERNAL_ARGS,
+  IOREG_PERIPHERAL_ARGS,
   createBatteryProbe,
   inferDeviceType,
   parseAppleSmartBattery,
@@ -171,5 +173,41 @@ describe('createBatteryProbe', () => {
       type: 'headphones',
       percent: 65,
     });
+  });
+});
+
+/**
+ * The `run` seam that every test above injects is exactly why the original
+ * bug shipped: the parsers were always fed a good fixture, so nothing ever
+ * exercised the argv actually handed to `ioreg`. `ioreg -r -w 0 -l` with no
+ * `-c`/`-k`/`-n` matches no subtree, prints nothing and exits 0 — a silent
+ * empty reading that looks identical to a desktop with no battery. These
+ * assert the argv itself.
+ */
+describe('ioreg arguments', () => {
+  const withSelector = [
+    ['internal', IOREG_INTERNAL_ARGS],
+    ['peripheral', IOREG_PERIPHERAL_ARGS],
+  ] as const;
+
+  it.each(withSelector)('pairs -r with a selector for the %s tree', (_name, args) => {
+    expect(args).toContain('-r');
+    // -c (class), -k (key) and -n (name) are the only criteria `-r` accepts.
+    expect(args.some((arg) => arg === '-c' || arg === '-k' || arg === '-n')).toBe(true);
+  });
+
+  it('selects the internal cell by class and peripherals by key', () => {
+    expect(IOREG_INTERNAL_ARGS).toEqual(
+      expect.arrayContaining(['-c', 'AppleSmartBattery']),
+    );
+    expect(IOREG_PERIPHERAL_ARGS).toEqual(expect.arrayContaining(['-k', 'BatteryPercent']));
+  });
+
+  it('keeps -w 0 so long property lines are never truncated mid-value', () => {
+    for (const args of [IOREG_INTERNAL_ARGS, IOREG_PERIPHERAL_ARGS]) {
+      expect(args.indexOf('-w')).toBeGreaterThanOrEqual(0);
+      expect(args[args.indexOf('-w') + 1]).toBe('0');
+      expect(args).toContain('-l');
+    }
   });
 });

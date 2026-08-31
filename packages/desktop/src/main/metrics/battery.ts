@@ -6,7 +6,29 @@ import { clampPercent } from './cpu';
 const exec = promisify(execFile);
 
 const IOREG = '/usr/sbin/ioreg';
-const IOREG_ARGS = ['-r', '-w', '0', '-l'];
+
+/**
+ * `-r` means "print only the subtrees rooted at the objects matching the
+ * criteria" — and the criteria are the `-c`/`-k`/`-n` flags that follow it.
+ * With none of them, `ioreg -r -w 0 -l` matches nothing, prints zero bytes,
+ * and still exits 0. That silent-empty mode is why the battery segment never
+ * appeared: the parsers were fed an empty string, `hasBattery` came back
+ * false, and `BatterySegment` correctly rendered `null` for a machine that
+ * does in fact have a battery.
+ *
+ * So every invocation below pairs `-r` with a selector, and they are split in
+ * two because the two readings live under different criteria:
+ *
+ * - the internal cell is a class (`AppleSmartBattery`),
+ * - peripherals are whatever object publishes a `BatteryPercent` key, across
+ *   several unrelated classes (Magic Keyboard/Mouse/Trackpad, AirPods, game
+ *   controllers), so they are selected by key instead.
+ *
+ * The alternative — dropping `-r` for a whole-registry dump — also works, but
+ * costs ~5.7MB per sample against a 4MB `maxBuffer`, every other tick.
+ */
+export const IOREG_INTERNAL_ARGS = ['-r', '-w', '0', '-l', '-c', 'AppleSmartBattery'];
+export const IOREG_PERIPHERAL_ARGS = ['-r', '-w', '0', '-l', '-k', 'BatteryPercent'];
 
 /**
  * Parses internal battery information from `ioreg` output on macOS.
@@ -208,10 +230,32 @@ export function createBatteryProbe(
   };
 }
 
+/**
+ * One `ioreg` invocation, resolving to `''` rather than throwing. Each tree is
+ * probed independently so that a machine with no battery-reporting
+ * peripherals — the common case — still reports its internal cell, instead of
+ * one empty branch taking the whole reading down with it.
+ */
+async function runIoreg(args: readonly string[]): Promise<string> {
+  try {
+    const { stdout } = await exec(IOREG, [...args], {
+      timeout: 2_000,
+      maxBuffer: 4 * 1024 * 1024,
+    });
+    return stdout;
+  } catch {
+    return '';
+  }
+}
+
+/**
+ * The internal cell first, then peripherals: `parseAppleSmartBattery` reads up
+ * to the next `+-o` header, so the order decides where its section ends.
+ */
 async function runIoregBattery(): Promise<string> {
-  const { stdout } = await exec(IOREG, IOREG_ARGS, {
-    timeout: 2_000,
-    maxBuffer: 4 * 1024 * 1024,
-  });
-  return stdout;
+  const [internal, peripherals] = await Promise.all([
+    runIoreg(IOREG_INTERNAL_ARGS),
+    runIoreg(IOREG_PERIPHERAL_ARGS),
+  ]);
+  return `${internal}\n${peripherals}`;
 }
