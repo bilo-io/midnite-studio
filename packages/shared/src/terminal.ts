@@ -252,19 +252,27 @@ export const BUILTIN_AGENTS: readonly AgentDefinition[] = [
   {
     /*
       `cursor` used to type the desktop editor's own launcher into the pty —
-      it opened a GUI window, not a terminal agent. `cursor-agent` is the
-      actual Cursor CLI binary (the install script also symlinks the shorter
-      `agent`, but that name collides with other vendors' CLIs, so this
-      roster uses the unambiguous one, same as every other entry here).
+      it opened a GUI window, not a terminal agent. `agent` is the
+      Cursor CLI terminal binary.
     */
     id: 'cursor',
     label: 'Cursor',
-    command: 'cursor-agent',
+    command: 'agent',
     args: [],
     resume: ['--continue'],
     accent: '#0066FF',
     icon: 'SiCursor',
     install: 'curl https://cursor.com/install -fsS | bash',
+  },
+  {
+    id: 'copilot',
+    label: 'Copilot',
+    command: 'copilot',
+    args: [],
+    resume: ['--continue'],
+    accent: '#6E40C9',
+    icon: 'SiGithubcopilot',
+    install: 'npm i -g @github/copilot',
   },
   {
     id: 'cline',
