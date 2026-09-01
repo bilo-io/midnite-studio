@@ -916,7 +916,7 @@ function Shell() {
               <ResizeHandle resizable={fabPanel} axis="x" label="Resize quick access panel" />
               <div
                 ref={fabPanelTween.ref}
-                className="shrink-0 overflow-hidden"
+                className="shrink-0 overflow-hidden h-full"
                 style={fabPanelTween.style}
               >
                 <FabPanel isOpen={fabPanelOpen} width={fabPanel.current} />
