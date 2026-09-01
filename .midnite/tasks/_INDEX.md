@@ -2,6 +2,7 @@
 
 **Headlines:**
 
+- **[Phase 34 · Agent Councils](phases/phase-34-agent-councils.md)** (0% · 0/36) — Planned, not started. Fills the nav/palette-reserved but unimplemented "Councils" slot: a standing panel of AI members answers a prompt in parallel, synthesized into one distilled write-up. MVP scope only — one format (brainstorm), global (not per-repo), and a 3-agent member pool (`agy`/`codex`/`opencode`), with an explicit auto-send exception to the app's usual type-but-don't-send agent-launch posture.
 - **[Phase 33 · Application Installation, CLI Tool & Desktop Integration](phases/phase-33-installable-app-and-cli-integration.md)** (0% · 0/44) — Planned, not started. Adds a macOS DMG installer package with custom layout, `midnite-studio` CLI tool installer + shell completions, `midnite-studio://` deep-linking protocol scheme, auto-updater pipeline, and first-run setup onboarding. Written against the **Midnite Studio rename**, which is its prerequisite.
 - **[Phase 32 · The browser gets an engine](phases/phase-32-browser-engine-and-tabs.md)** (39% · 39/99) — Active frontier. Themes A–D landed: a real `WebContentsView` engine on its own no-preload partition, the `mstudio:browser:*` contract, the security policy Phase 27 made a precondition, and tabs with both kinds of group. E–I (occlusion, new-tab page, real chrome, dev powers, forge-in-place) remain.
 - **[Phase 30 · Terminal Hardening](phases/phase-30-terminal-hardening.md)** (90% · 82/91) — Active frontier; detached session broker lets terminal/agent sessions survive app restarts and window reloads. Implementation themes A–G landed; 9 manual verification checks open.
@@ -20,6 +21,7 @@ Completed work is logged append-only in [`done.md`](done.md). Deferred scope liv
 
 | Phase | Status | Refined | Done | Progress | % | 🔄 WIP | ◻ TODO |
 |-------|--------|---------|------|----------|---|--------|--------|
+| [34 · Agent Councils](phases/phase-34-agent-councils.md) | ◻ TODO | — | 0/36 | `░░░░░░░░░░` | 0% | — | A B C D E F G H |
 | [33 · Application Installation, CLI Tool & Desktop Integration](phases/phase-33-installable-app-and-cli-integration.md) | ✅ DONE | x1 | 44/44 | `██████████` | 100% | — | — |
 | [32 · The browser gets an engine, and the tabs to fill it](phases/phase-32-browser-engine-and-tabs.md) | ✅ DONE | — | 99/99 | `██████████` | 100% | — | — |
 | [31 · Interactive Rebase Builder & Graph Sequence Editor](phases/phase-31-interactive-rebase.md) | ✅ DONE | — | 18/18 | `██████████` | 100% | — | — |
@@ -59,6 +61,28 @@ Completed work is logged append-only in [`done.md`](done.md). Deferred scope liv
 
 <!-- Each phase currently carries a single theme A = its full deliverables checklist. Split into
      lettered themes if a phase gets parallelised. -->
+
+### [Phase 34 — Agent Councils](phases/phase-34-agent-councils.md)
+
+*A standing panel of AI members answers one prompt in parallel, then a synthesizer distills the
+results — ported from `~/Dev/midnite`'s mature councils feature as a narrow MVP slice: one format,
+global scope, a 3-agent member pool, and an explicit auto-send exception justified by members never
+touching a repo. A is the contract every other theme reads off; B–D are persistence/orchestration/
+IPC; E–G are the three UI surfaces; H is reliability (retry/skip).*
+
+- ◻ **A** — Shared contracts: `Council`/`CouncilMember`/`CouncilRun` schemas, one-format literal,
+  starter members, IPC channel constants.
+- ◻ **B** — Persistence: a global `councils-store.ts` + run history, following `agents-store.ts`'s
+  merge-tolerant shape.
+- ◻ **C** — Run orchestration: parallel one-shot member spawns via the Phase 30 broker, the
+  settle-barrier, the auto-send exception, synthesis.
+- ◻ **D** — IPC bridge: preload methods + main handlers + renderer hooks.
+- ◻ **E** — UI — list & create: fills the `WORK_IN_PROGRESS` councils stub with a real list/create
+  flow.
+- ◻ **F** — UI — detail & members panel: flat add/remove/edit, synthesizer picker, topic composer.
+- ◻ **G** — UI — run view: per-member tabs on the existing xterm component, synthesis tab, run-thread
+  rail.
+- ◻ **H** — Retry/skip controls for a hung or failed member.
 
 ### [Phase 33 — Application Installation, CLI Tool & Desktop Integration](phases/phase-33-installable-app-and-cli-integration.md)
 
