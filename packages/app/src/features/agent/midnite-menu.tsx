@@ -1,5 +1,4 @@
 import { BUILTIN_AGENTS } from '@midnite/studio-shared';
-import { LuRepeat } from 'react-icons/lu';
 
 import type { MenuItem } from '../../components/context-menu';
 import { useDialogs } from '../../components/dialog-host';
@@ -8,7 +7,7 @@ import { MidniteIcon } from '../../components/icons/midnite-icon';
 import { DEFAULT_AGENT_SKILLS, useUiStore } from '../../store/ui-store';
 import { startAgent } from '../terminal/start-agent';
 import { useAgents } from '../terminal/use-agents';
-import { AGENT_COMMANDS } from './agent-commands';
+import { AGENT_COMMANDS, AGENT_COMMAND_GROUPS } from './agent-commands';
 
 /**
  * The midnite menu — this app's own agent verbs, behind the app's own mark.
@@ -18,6 +17,15 @@ import { AGENT_COMMANDS } from './agent-commands';
  * ask *midnite* to do with the repository, the git menu is what you ask *git*,
  * and the ellipsis is the repo's own tooling. Three menus with three different
  * marks, rather than three ellipses that all say "more".
+ *
+ * Its top level is the five groups of `AGENT_COMMAND_GROUPS` and nothing else —
+ * Tasks, Reviews, Releases, Git, Loops — each opening a submenu of its verbs.
+ * The flat list this replaced ran eleven rows deep before reaching its one
+ * submenu, so "Loops" sat among the verbs looking like a twelfth of them
+ * instead of the peer of the four groups the dividers were already implying.
+ * Every row, at both levels, carries one line of sub-text: the group's says
+ * what the group is for, the entry's is the same string the Agent settings page
+ * prints under that entry's skill field.
  *
  * Every entry opens a fresh session with the **configured primary agent** (any
  * roster entry from Settings ▸ Agent — Claude by default) in the checkout and
@@ -50,11 +58,7 @@ export function MidniteMenu({
     // BUILTIN_AGENTS is a non-empty literal tuple, so this index always exists.
     (BUILTIN_AGENTS[0] as (typeof BUILTIN_AGENTS)[number]);
 
-  const items: MenuItem[] = [];
-  const loopSubmenuItems: MenuItem[] = [];
-  let lastCategory: string | undefined;
-
-  for (const { id, label, icon, category } of AGENT_COMMANDS) {
+  const toMenuItem = ({ id, label, icon, hint }: (typeof AGENT_COMMANDS)[number]): MenuItem => {
     /*
       `?? DEFAULT` against the types, not with them: the store's `merge` refills
       a missing entry and a test holds it to that, but this store is
@@ -63,9 +67,10 @@ export function MidniteMenu({
       would take the whole sidebar down rather than one menu row.
     */
     const skill = (skills[id] ?? DEFAULT_AGENT_SKILLS[id]).trim();
-    const menuItem: MenuItem = {
+    return {
       label,
       icon,
+      description: hint,
       // A cleared field is a real state — the setting takes any prompt, so it
       // also takes none — and an empty one would open a terminal on the bare
       // agent command with nothing typed. Naming the page that fixes it beats
@@ -76,30 +81,20 @@ export function MidniteMenu({
       onSelect: () =>
         startAgent({ repoId, cwd, title: label, prompt: skill, agentId: agent.id, command: agent.command }),
     };
+  };
 
-    if (category === 'loops') {
-      loopSubmenuItems.push(menuItem);
-    } else {
-      // A category change draws one divider — never before the first entry, and
-      // never doubled when a category is a single row (release-prep is not).
-      if (lastCategory !== undefined && category !== lastCategory) {
-        items.push({ type: 'separator' });
-      }
-      lastCategory = category;
-      items.push(menuItem);
-    }
-  }
-
-  if (loopSubmenuItems.length > 0) {
-    if (lastCategory !== undefined) {
-      items.push({ type: 'separator' });
-    }
-    items.push({
-      label: 'Loops',
-      icon: LuRepeat,
-      submenu: loopSubmenuItems,
-    });
-  }
+  /*
+    A group with no entries is dropped rather than drawn empty: `AGENT_COMMANDS`
+    and `AGENT_COMMAND_GROUPS` are two literals that a later edit could put out
+    of step, and an empty submenu is a dead-end row with a chevron on it.
+  */
+  const items: MenuItem[] = AGENT_COMMAND_GROUPS.flatMap((group) => {
+    const submenu = AGENT_COMMANDS.filter((command) => command.category === group.id).map(
+      toMenuItem,
+    );
+    if (submenu.length === 0) return [];
+    return [{ label: group.label, icon: group.icon, description: group.hint, submenu }];
+  });
 
   return (
     <IconButton

@@ -35,11 +35,25 @@ test('the row, closed — three marks rather than three ellipses', async ({ page
   await shoot(page, 'row-marks');
 });
 
-test('the menu, open', async ({ page }) => {
+test('the menu, open — the five groups and nothing else', async ({ page }) => {
   await page.getByRole('button', { name: `Run a midnite skill on ${REPO}` }).click();
-  await expect(page.getByRole('menuitem', { name: 'Loops' })).toBeVisible();
+  await expect(page.getByRole('menuitem', { name: 'Loops', exact: true })).toBeVisible();
   await shoot(page, 'menu-open');
 });
+
+/**
+ * One shot per open submenu: the top level says nothing about how wide a group
+ * gets, and the gradient edge is on both surfaces — which is only visible with
+ * the second one showing.
+ */
+for (const group of ['Tasks', 'Loops']) {
+  test(`the ${group} submenu, open`, async ({ page }) => {
+    await page.getByRole('button', { name: `Run a midnite skill on ${REPO}` }).click();
+    await page.getByRole('menuitem', { name: group, exact: true }).hover();
+    await expect(page.getByRole('menu')).toHaveCount(2);
+    await shoot(page, `menu-${group.toLowerCase()}`);
+  });
+}
 
 test('the Agent page, where each entry is pointed', async ({ page }) => {
   await page.getByRole('button', { name: 'Settings' }).click();
