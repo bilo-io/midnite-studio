@@ -1,11 +1,8 @@
-import { useEffect } from 'react';
-import { BrandMark } from './brand';
 import type { FabTab } from '../store/ui-store';
 import { useUiStore } from '../store/ui-store';
 import { LuBrain, LuBot, LuHeartHandshake } from 'react-icons/lu';
 import { GiDogHouse } from 'react-icons/gi';
-import { startAgent } from '../features/terminal/start-agent';
-import { useRepos } from '../services/queries';
+import { FabTerminalView } from '../features/fab-terminal/fab-terminal-view';
 
 interface FabPanelProps {
   isOpen: boolean;
@@ -21,42 +18,11 @@ const FAB_TABS: Array<{ id: FabTab; label: string; icon: React.ComponentType<{ c
 
 export function FabPanel({ isOpen, width }: FabPanelProps) {
   const activeFabTab = useUiStore((s) => s.activeFabTab);
-  const fabTabSessions = useUiStore((s) => s.fabTabSessions);
   const onTabClick = useUiStore((s) => s.onFabTabClick);
-  const setFabTabSession = useUiStore((s) => s.setFabTabSession);
-  const selectedRepoId = useUiStore((s) => s.selectedRepoId);
-
-  const repos = useRepos();
-  const selectedRepo = repos.data?.find((r) => r.id === selectedRepoId);
-
-  useEffect(() => {
-    if (!selectedRepoId || !selectedRepo) return;
-
-    const sessionId = fabTabSessions[activeFabTab];
-    if (sessionId) {
-      // Session already exists for this tab, just switch to it
-      // The terminal system handles this
-      return;
-    }
-
-    // Spawn a new terminal session for this tab
-    const tabConfig = FAB_TABS.find((t) => t.id === activeFabTab);
-    if (!tabConfig) return;
-
-    startAgent({
-      repoId: selectedRepoId,
-      cwd: selectedRepo.path,
-      title: `${tabConfig.label}`,
-      prompt: tabConfig.prompt,
-      agentId: 'claude',
-      command: 'claude',
-    });
-    // TODO: capture the session ID and store it
-    // For now, we just store a placeholder
-    setFabTabSession(activeFabTab, `session-${activeFabTab}`);
-  }, [activeFabTab, selectedRepoId, selectedRepo, fabTabSessions, setFabTabSession]);
 
   if (!isOpen) return null;
+
+  const tabConfig = FAB_TABS.find((t) => t.id === activeFabTab);
 
   return (
     <div className="h-full w-full flex flex-col" style={{ width }}>
@@ -80,19 +46,16 @@ export function FabPanel({ isOpen, width }: FabPanelProps) {
           ))}
         </div>
 
-        {/* Content Area */}
-        <div className="flex-1 overflow-auto p-3 min-h-0">
-          <div className="flex flex-col items-center gap-2">
-            <BrandMark className="h-6 w-6" />
-            <h2 className="text-xs font-semibold">{FAB_TABS.find(t => t.id === activeFabTab)?.label}</h2>
-          </div>
-          <div className="mt-4 text-sm text-muted-foreground">
-            {fabTabSessions[activeFabTab] ? (
-              <>Session: {fabTabSessions[activeFabTab]}</>
-            ) : (
-              <>Starting session...</>
-            )}
-          </div>
+        {/* Terminal Views - one for each tab, only active one visible */}
+        <div className="flex-1 min-h-0 relative">
+          {FAB_TABS.map(({ id, prompt }) => (
+            <div
+              key={id}
+              className={`absolute inset-0 ${activeFabTab === id ? 'visible' : 'invisible'}`}
+            >
+              <FabTerminalView tabId={id} prompt={prompt} />
+            </div>
+          ))}
         </div>
       </div>
     </div>
