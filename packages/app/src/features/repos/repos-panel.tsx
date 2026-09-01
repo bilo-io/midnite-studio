@@ -29,7 +29,6 @@ import {
 } from 'react-icons/lu';
 import { AiOutlineDiff } from 'react-icons/ai';
 import { FaGitAlt } from 'react-icons/fa';
-import { GoRepo } from 'react-icons/go';
 
 import type { MenuItem } from '../../components/context-menu';
 import { ChangeCountPill } from '../../components/change-count-pill';
@@ -266,21 +265,23 @@ export function ReposPanel() {
     <div className="flex h-full min-h-0 flex-col border-r border-border bg-card/40">
       <header className="flex h-9 items-center gap-2 px-3">
         {/*
-          "Repos", with a glyph. The word is the one the app uses everywhere
-          else it has to fit ("Open a repository…" is the verb, this is the
-          label), and at the 288px default the shorter noun buys the toolbar
-          the room the fourth control needs.
+          "Git Repos", with the Git mark — word for word and glyph for glyph
+          what the status bar's `ReposToggle` says, because that button is what
+          summons this panel and the two reading differently made them look like
+          two features — the same ambiguity plain "Repos" already had in the
+          status bar, which is why the button says "Git Repos" there.
 
-          `GoRepo` is Octicons — this file is mostly lucide, but lucide has no
-          repository glyph that is not a folder, and the three folder variants
-          in this panel already mean "worktree", "main worktree" and "missing
-          worktree" a few rows down. Reusing a fourth one for the panel itself
-          would have said the panel was a checkout. (Same reasoning as the rail
-          in `app.tsx`; see CLAUDE.md on react-icons fronting several sets.)
+          `FaGitAlt` is the Git logo in Git's own `#F05032`, the same pairing
+          `IconButton`'s `git` tone uses for the per-repo git menu further down
+          this file. It is deliberately not one of lucide's folders: the three
+          folder variants in this panel already mean "worktree", "main worktree"
+          and "missing worktree" a few rows down, and a fourth would have said
+          the panel was a checkout. (See CLAUDE.md on react-icons fronting
+          several sets.)
         */}
         <h2 className="flex min-w-0 flex-1 items-center gap-1.5 text-xs font-semibold uppercase tracking-wide text-muted-foreground">
-          <GoRepo aria-hidden className="h-3.5 w-3.5 shrink-0" />
-          <span className="truncate">Repos</span>
+          <FaGitAlt aria-hidden className="h-3.5 w-3.5 shrink-0 text-[#F05032]" />
+          <span className="truncate">Git Repos</span>
         </h2>
         {/*
           One toolbar cluster, not two controls spread by `justify-between`.
