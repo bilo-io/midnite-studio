@@ -132,9 +132,12 @@ export function useAllChangesTotals({ repoId, worktreePath }: StatusTarget): Cha
 
     // One row per path — the same de-dupe the all-changes view applies before
     // rendering, so a staged-then-edited file is not counted twice here either.
-    const entries = (status?.entries ?? []).filter(
-      (entry, index, all) => all.findIndex((e) => e.path === entry.path) === index,
-    );
+    const seenPaths = new Set<string>();
+    const entries = (status?.entries ?? []).filter((entry) => {
+      if (seenPaths.has(entry.path)) return false;
+      seenPaths.add(entry.path);
+      return true;
+    });
 
     return entries.reduce<ChangeTotals>(
       (sum, entry) => {
