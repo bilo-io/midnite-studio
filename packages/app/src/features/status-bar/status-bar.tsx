@@ -111,7 +111,7 @@ export function StatusBar() {
       */}
       <div
         data-testid="status-bar-right"
-        className="flex items-center justify-self-end gap-3 whitespace-nowrap [&>*]:shrink-0"
+        className="flex items-center justify-self-end gap-2 whitespace-nowrap [&>*]:shrink-0"
       >
         {byZone.right.visible.map((s) => (
           <s.El key={s.id} />
