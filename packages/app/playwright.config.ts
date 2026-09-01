@@ -25,6 +25,14 @@ const PORT = Number(process.env.MSTUDIO_E2E_PORT ?? 5273);
 
 export default defineConfig({
   testDir: './e2e',
+  /*
+    `e2e/perf/` belongs to `playwright.perf.config.ts` and `moon run app:perf`
+    (Phase 36 Theme H). Without this exclusion the functional suite would pick up
+    the budget specs — including one that launches Electron three times — and the
+    default gate would inherit exactly the timing thresholds that suite exists to
+    keep out of it.
+  */
+  testIgnore: '**/perf/**',
   // The suite is UI-deterministic — a retry would mask a real race rather than
   // absorb infrastructure flake.
   retries: 0,

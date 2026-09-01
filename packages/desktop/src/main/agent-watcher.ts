@@ -48,8 +48,30 @@ import {
  * than never having probed.
  */
 
-/** How long output must be silent before the tree is worth reading. */
-export const QUIET_MS = 750;
+/**
+ * How long output must be silent before the tree is worth reading.
+ *
+ * Raised from 750 by Phase 36 Theme G, which is the first time the number was
+ * costed rather than guessed. `readProcessRows` shells out to
+ * `ps -axo pid=,ppid=,stat=,args=` — the *whole* process table — and on this
+ * machine that is a median **30.6 ms of CPU** (user+sys of the child, median of
+ * 20). A chatty pty resets this timer continuously and so sustains one probe per
+ * window indefinitely:
+ *
+ *   750 ms  → 80 probes/min → 2 448 ms CPU/min → **4.08% of one core**
+ *   1500 ms → 40 probes/min → 1 224 ms CPU/min → **2.04% of one core**
+ *
+ * 4% of a core, forever, to keep an icon in step is not a trade this app should
+ * make; the theme's threshold was "measurable", and 4% is not close to the line.
+ * What is bought back is a slower mark: an agent that starts and then falls quiet
+ * gets its icon up to 750 ms later than before. That is the right side of the
+ * trade for a fact the header describes as changing "a handful of times a day".
+ *
+ * {@link ROWS_TTL_MS} must stay below this, and a test asserts it — raising this
+ * value keeps that invariant true by construction, which is the direction that
+ * cannot break it.
+ */
+export const QUIET_MS = 1500;
 
 /**
  * How long one `ps` read is reused across ptys.

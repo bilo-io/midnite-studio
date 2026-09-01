@@ -8,7 +8,7 @@ import {
   LuListTree,
   LuRows3,
 } from 'react-icons/lu';
-import { useCallback, useEffect, useId, useMemo, useRef, useState } from 'react';
+import { Suspense, lazy, useCallback, useEffect, useId, useMemo, useRef, useState } from 'react';
 
 import { buildChangeTree, flattenBySize } from '../../components/build-change-tree';
 import { ChangeTotals, ChangeTree } from '../../components/change-tree';
@@ -25,7 +25,23 @@ import { imageDiffSources } from '../diff/image-sources';
 import { useCommitFileDiff } from '../diff/use-file-diff';
 import { formatDate } from '../graph/graph-row';
 import { CommitAllChanges } from './commit-all-changes';
-import { CommitMessage } from './commit-message';
+/*
+  `react-markdown` + `remark-gfm` out of the entry chunk — Phase 36 Theme C.
+
+  The phase doc expected these to leave the entry for free, once `DashboardView`
+  and `Workbench`/reviews went lazy. They did not, and the manifest said so: the
+  commit inspector renders its message through the same pipeline, and the
+  inspector hangs off `GraphView`, which is eager by design because it is the
+  first paint. So this is the one place the doc's "add an explicit split only
+  where the assertion fails" clause actually fires.
+
+  `fallback={null}`, not a spinner: the message body is one block inside a header
+  that has already rendered the sha, the author and the subject. A spinner there
+  would draw the eye to the one part of the panel that is about to fill itself in.
+*/
+const CommitMessage = lazy(() =>
+  import('./commit-message').then((m) => ({ default: m.CommitMessage })),
+);
 
 /**
  * The commit inspector.
@@ -282,11 +298,13 @@ export function CommitDetail({ repoId, sha }: { repoId: string; sha: string }) {
           <header className="px-3 pb-2">
             <Identities author={data.author} committer={data.committer} />
             <div className="mt-2">
-              <CommitMessage
-                body={data.body}
-                remotes={remotes ?? EMPTY_REMOTES}
-                onSelectSha={followSha}
-              />
+              <Suspense fallback={null}>
+                <CommitMessage
+                  body={data.body}
+                  remotes={remotes ?? EMPTY_REMOTES}
+                  onSelectSha={followSha}
+                />
+              </Suspense>
             </div>
             <Parents parents={data.parents} onSelect={followSha} />
           </header>

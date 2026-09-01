@@ -2,7 +2,7 @@
 
 **Headlines:**
 
-- **[Phase 36 · Faster, lighter, same app](phases/phase-36-performance-diet.md)** (0% · 0/63 · refined x1) — Planned, not started. The app's first dedicated performance phase: measure (startup marks, bundle report, idle-CPU and heap baselines), then land what the numbers indict — lazy per-view chunks off a 2.52 MB entry, de-serialized main boot, one icon family instead of two, visibility-gated timers, an LRU on the unbounded diff-highlight cache — and leave a `moon run :perf` budget suite behind. Strictly zero user-visible change; browser-tab memory stays Phase 32's.
+- **[Phase 36 · Faster, lighter, same app](phases/phase-36-performance-diet.md)** (91% · 58/64 · refined x1) — Seven of eight themes landed (2026-09-01, local). The app's first dedicated performance phase, and it kept its own rule: every landed item carries a number. **Entry chunk 2 481.3 → 1 084.7 KB** (−56%) by putting thirteen views, xterm and the markdown pipeline behind lazy boundaries under one Suspense; **`ready-to-show` 683 → 570 ms** by taking the synchronous login-shell probe (a median 284 ms of blocked main thread) off the boot path and parallelising the three `whenReady` chains; **the broker went from 12.74% to 1.16% of a core per MB/s** — 11× less CPU per byte — once pty output was coalesced into one frame per 16 ms instead of one socket write *and* one whole-buffer scrollback realloc per chunk; and the `ps` probe's cadence doubled after being costed at 4.08% of a core. `moon run app:perf` is the phase's legacy: strict budgets plus absence assertions that fail the day someone re-adds a static import. Four of the doc's items were **acquitted rather than churned**, each with the measurement that acquits it — the three handler-module deferrals, the `@dnd-kit` split, `manualChunks`, and a `lucide-react` assertion a dependency makes unassertable. Three items stay open: one `useAutoFetch` test that belongs to Theme E, and two human passes (a screenshot diff, an Activity Monitor idle check).
 - **[Phase 35 · FAB Mission Control](phases/phase-35-fab-mission-control.md)** (98% · 39/40) — All five themes landed (2026-09-01, local). Made the (previously untracked, ad-hoc) FAB panel a real loop console: each tab owns its own in-panel terminal session (`surface: 'fab'`, never in the main housing), a checkbox prompt composer per loop, Start↔Stop with the gradient glow pulse, and a mission-control layer — FAB badges, waiting-toasts, a capped run history. Also retires the FAB's hard-coded prompts by pointing each loop at the `DEFAULT_AGENT_SKILLS` entry it runs, so there is one prompt store rather than three. Themes F–I (PR #3) then closed three of the four open verification items and as much of the fourth as a browser reaches — and found, in the doing, that a persisted loop never came back unless you opened the *main* terminal panel first. One item stays open for a human: quit and relaunch mid-run against a **packaged** build.
 - **[Phase 34 · Agent Councils](phases/phase-34-agent-councils.md)** (100% · 34/34) — Landed. Fills the nav/palette-reserved "Councils" slot: a standing panel of AI members answers a prompt in parallel, synthesized into one distilled write-up. MVP scope — one format (brainstorm), global (not per-repo), a 3-agent member pool (`agy`/`codex`/`opencode`), and an explicit auto-send exception to the app's usual type-but-don't-send agent-launch posture. Two manual passes (a real end-to-end run, a copy review) remain for a human.
 - **Phases 25–33 all landed** — search/blame, split diffs, status bar + browser pane, worktrees-first sidebar, markdown slides, the detached terminal broker, interactive rebase, the real browser engine, and the installable app + CLI.
@@ -18,7 +18,7 @@ Completed work is logged append-only in [`done.md`](done.md). Deferred scope liv
 
 | Phase | Status | Refined | Done | Progress | % | 🔄 WIP | ◻ TODO |
 |-------|--------|---------|------|----------|---|--------|--------|
-| [36 · Faster, lighter, same app](phases/phase-36-performance-diet.md) | 🔄 WIP | x1 | 23/63 | `████░░░░░░` | 37% | B C G H | — |
+| [36 · Faster, lighter, same app](phases/phase-36-performance-diet.md) | 🔄 WIP | x1 | 58/64 | `█████████░` | 91% | — | G (human passes) |
 | [35 · FAB Mission Control](phases/phase-35-fab-mission-control.md) | 🔄 WIP | — | 39/40 | `██████████` | 98% | — | — |
 | [34 · Agent Councils](phases/phase-34-agent-councils.md) | ✅ DONE | — | 34/34 | `██████████` | 100% | — | — |
 | [33 · Application Installation, CLI Tool & Desktop Integration](phases/phase-33-installable-app-and-cli-integration.md) | ✅ DONE | x1 | 44/44 | `██████████` | 100% | — | — |
@@ -74,10 +74,10 @@ G runs the profile-gated deferrals to an honest verdict; H locks in strict-ms bu
   `mstudio:perf:mark` IPC, `scripts/perf/` reports (startup, bundle, idle-CPU), Vite manifest,
   and the baseline table filled from real medians — which corrected two of the phase's own
   claims. (2026-09-01, local — no PR/no remote)
-- 🔄 **B** — Main-process startup: async login-shell probe, `Promise.all`'d pre-window awaits
+- ✅ **B** — Main-process startup: async login-shell probe, `Promise.all`'d pre-window awaits
   (migration first, `repos-restored` before `create-window` machine-checked), update/councils/
   forge dynamic-imported, minified main bundle.
-- 🔄 **C** — Renderer bundle: one Suspense + `DelayedFallback` (null ≤120ms → Spinner) over the
+- ✅ **C** — Renderer bundle: one Suspense + `DelayedFallback` (null ≤120ms → Spinner) over the
   lazy views (Graph eager), xterm split + idle-preload, `@dnd-kit` split incl. graph wiring,
   env-gated sourcemaps.
 - ✅ **D** — One icon family: 54 `lucide-react` files → `react-icons/lu` by direct rename,
@@ -92,9 +92,9 @@ G runs the profile-gated deferrals to an honest verdict; H locks in strict-ms bu
 - ✅ **F** — Memory caps: 10k true-LRU + per-key notify in `line-highlight.ts`,
   scrollback-ownership audit with bounds tests, unbounded-Map sweep table in the phase doc.
   Landed 2026-09-01; the heap/1-hour-RSS numbers stay ◐ PARTIAL (DevTools-only).
-- 🔄 **G** — Profile-gated claims: edge culling (>30% frame time), broker frame batching
+- ◐ **G** — Profile-gated claims: edge culling (>30% frame time), broker frame batching
   (16ms coalesce if indicted), `ps`-probe cost — land or acquit, with written thresholds.
-- 🔄 **H** — Perf budgets: `moon run app:perf` (playwright.perf.config), strict-ms budgets at
+- ✅ **H** — Perf budgets: `moon run app:perf` (playwright.perf.config), strict-ms budgets at
   2.5× median in `budgets.json`, entry-chunk absence assertions, startup budget via
   `_electron.launch`.
 

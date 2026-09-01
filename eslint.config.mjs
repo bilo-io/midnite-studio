@@ -147,6 +147,22 @@ export default tseslint.config(
     rules: { 'no-console': 'off' },
   },
 
+  /*
+    The perf suite's output channel is stdout too (Phase 36 Theme H).
+    `packages/app/e2e/perf/*` exists to report numbers — "entry chunk 1084.7 KB
+    (budget 1250 KB)" printed off a PASSING run is what makes a rebaseline
+    possible without re-deriving the measurement. A `console.log` there is the
+    deliverable, not a leftover debug line, so it is allowed by directory rather
+    than by an inline disable on every one of them.
+
+    Scoped to `e2e/perf/` and not to `e2e/`: the functional specs have no business
+    printing, and a stray log in one of those should still fail the gate.
+  */
+  {
+    files: ['**/e2e/perf/**/*.ts'],
+    rules: { 'no-console': 'off' },
+  },
+
   // Keep ESLint out of Prettier's lane (formatting rules disabled).
   prettier,
 );

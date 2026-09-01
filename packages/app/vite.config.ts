@@ -56,7 +56,17 @@ export default defineConfig({
   build: {
     outDir: 'dist',
     emptyOutDir: true,
-    sourcemap: true,
+    /**
+     * Opt-in, via `MSTUDIO_SOURCEMAP=1` (Phase 36 Theme C).
+     *
+     * `dist/` was 70 MB, ~54 MB of it renderer maps — paid on every build, in
+     * every packaged artifact, and read only when someone is genuinely debugging
+     * a production build. Now that is a deliberate rebuild with the flag set.
+     * `packages/desktop/scripts/bundle.mjs` reads the same variable, so one
+     * switch covers both halves of the app. The dev server is unaffected: it
+     * serves its own inline maps and never consults `build`.
+     */
+    sourcemap: process.env['MSTUDIO_SOURCEMAP'] === '1',
     /**
      * `.vite/manifest.json` — the entry→chunk map.
      *

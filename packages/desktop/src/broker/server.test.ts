@@ -98,8 +98,22 @@ describe('broker server', () => {
       frames.push(...decoder.push(chunk));
     });
 
-    socket.on('close', () => {
-      closed = true;
+    /*
+      Awaited rather than slept past. This was `setTimeout(60)`, which is a bet
+      that the reply and the close both land inside 60ms — and it stops being a
+      safe bet the moment another spec file in the same run is also opening unix
+      sockets (Phase 36 Theme G added one). Waiting for the event the assertion is
+      about removes the race instead of widening it.
+    */
+    const closePromise = new Promise<void>((resolve, reject) => {
+      // Cleared on success: a 5s timer left armed keeps the worker's event loop
+      // alive past the test that created it.
+      const bail = setTimeout(() => reject(new Error('socket was never closed')), 5_000);
+      socket.on('close', () => {
+        closed = true;
+        clearTimeout(bail);
+        resolve();
+      });
     });
 
     socket.write(
@@ -112,7 +126,7 @@ describe('broker server', () => {
       }),
     );
 
-    await new Promise((r) => setTimeout(r, 60));
+    await closePromise;
 
     expect(frames).toHaveLength(1);
     expect(frames[0]).toEqual({

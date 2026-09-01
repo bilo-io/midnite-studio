@@ -11,7 +11,7 @@ import { buildNewSessionMenu } from './new-session-menu';
 import { TerminalHeader } from './terminal-header';
 import { TerminalSessionList } from './terminal-session-list';
 import { onMainSurface, resolveSessionAgentId, useTerminalStore } from './terminal-store';
-import { TerminalView } from './terminal-view';
+import { LazyTerminalView } from './lazy-terminal-view';
 import { useAgents } from './use-agents';
 
 /**
@@ -186,7 +186,7 @@ export function TerminalPanel({ cwd, repoId, repoName, fitSignal }: TerminalPane
         {/* Positioned, because the stacked panes inside are absolutely placed. */}
         <div className="relative min-h-0 min-w-0 flex-1">
           {sessions.map((session) => (
-            <TerminalView
+            <LazyTerminalView
               key={session.id}
               session={session}
               active={session.id === activeId}

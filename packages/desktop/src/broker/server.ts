@@ -4,7 +4,7 @@ import { mkdir, writeFile } from 'node:fs/promises';
 import * as net from 'node:net';
 import { dirname, join } from 'node:path';
 
-import { SCROLLBACK_BYTES } from '@midnite/studio-shared';
+import { SCROLLBACK_BYTES, perfEnabled } from '@midnite/studio-shared';
 
 import {
   createFrameDecoder,
@@ -145,6 +145,81 @@ export function createBrokerServer(options: BrokerServerOptions): BrokerServer {
     scrollbackBySession.set(sessionId, kept);
   }
 
+  /**
+   * Per-pty output, coalesced into one frame per {@link COALESCE_MS} — Phase 36
+   * Theme G, and the gate's most emphatic result.
+   *
+   * This function used to be called once per pty chunk, and so did
+   * `appendScrollback` above it. Under `yes` — the chattiest thing a terminal can
+   * hold — that is 7 073 chunks a second, and the broker sat at **96.8% of one
+   * core** to service it. Two costs, not one, and the second is the larger:
+   *
+   *   - one `encodeData` and one socket `write` per chunk, where a 16ms window
+   *     would have carried ~113 chunks in a single frame; and
+   *   - `appendScrollback` reallocating and copying the ENTIRE retained buffer on
+   *     every chunk. Capped at `SCROLLBACK_BYTES * 2`, so each of those 7 073
+   *     copies moves up to a couple of megabytes — which is where the 227 MB RSS
+   *     and the GC pressure behind it came from.
+   *
+   * Coalescing fixes both at once, which is why the buffer sits in front of the
+   * scrollback append as well as the broadcast: one concat and one write per
+   * window instead of per chunk.
+   *
+   * ORDERING is the whole correctness argument. Buffered bytes must reach a
+   * client before anything that logically follows them, so every path that can
+   * observe or end a stream flushes first: a `snapshot` or `attach` (or a client
+   * would read history 16ms stale), the periodic `flush` to disk, `pty.onExit`
+   * (data must precede the exit frame), and shutdown. Per-pty rather than one
+   * global buffer, because two ptys' bytes must never interleave into one frame.
+   */
+  const COALESCE_MS = 16;
+
+  type Pending = { chunks: Uint8Array[]; bytes: number; timer: NodeJS.Timeout };
+  const pendingOutput = new Map<string, Pending>();
+  /** Which session each pty's buffered bytes belong to, for the scrollback append. */
+  const sessionForPty = new Map<string, string>();
+
+  function flushPtyOutput(ptyId: string): void {
+    const pending = pendingOutput.get(ptyId);
+    if (!pending) return;
+    pendingOutput.delete(ptyId);
+    clearTimeout(pending.timer);
+
+    const merged = new Uint8Array(pending.bytes);
+    let at = 0;
+    for (const chunk of pending.chunks) {
+      merged.set(chunk, at);
+      at += chunk.length;
+    }
+
+    const sessionId = sessionForPty.get(ptyId);
+    // One pty per session throughout, so this append cannot interleave with
+    // another pty's. Were two live ptys ever to share a `sessionId`, their bytes
+    // would reach this buffer in *timer* order rather than arrival order — an
+    // assumption the per-chunk append did not need, so it is stated here.
+    if (sessionId !== undefined) appendScrollback(sessionId, merged);
+    broadcastData(ptyId, merged);
+  }
+
+  /** Flush every pty — before a snapshot, a disk flush, or shutdown. */
+  function flushAllPtyOutput(): void {
+    for (const ptyId of [...pendingOutput.keys()]) flushPtyOutput(ptyId);
+  }
+
+  function queuePtyOutput(ptyId: string, sessionId: string, chunk: Uint8Array): void {
+    sessionForPty.set(ptyId, sessionId);
+    const existing = pendingOutput.get(ptyId);
+    if (existing) {
+      existing.chunks.push(chunk);
+      existing.bytes += chunk.length;
+      return;
+    }
+    const timer = setTimeout(() => flushPtyOutput(ptyId), COALESCE_MS);
+    // A 16ms timer must never be the thing keeping this process alive.
+    timer.unref?.();
+    pendingOutput.set(ptyId, { chunks: [chunk], bytes: chunk.length, timer });
+  }
+
   function broadcastControl(msg: ControlMessage): void {
     const buf = encodeControl(msg);
     for (const client of clients) {
@@ -154,13 +229,56 @@ export function createBrokerServer(options: BrokerServerOptions): BrokerServer {
     }
   }
 
+  /**
+   * How much this function is actually doing, when asked — Phase 36 Theme G.
+   *
+   * `broadcastData` is one socket write per pty chunk with no coalescing, and a
+   * chatty pty produces a lot of chunks. Whether that *costs* anything was
+   * folklore, so the counter is here and the verdict is in the phase doc. Behind
+   * `MSTUDIO_PERF=1` and a no-op otherwise: two integer increments per call when
+   * the flag is set, nothing measurable when it is not, and no branch at all in
+   * the hot loop.
+   *
+   * Reported on a timer rather than per call, because a log line per write is a
+   * far bigger cost than the write it is measuring.
+   */
+  const perfCounters = perfEnabled(process.env)
+    ? (() => {
+        let chunks = 0;
+        let writes = 0;
+        let bytes = 0;
+        const started = Date.now();
+        const report = setInterval(() => {
+          const secs = (Date.now() - started) / 1000;
+          log(
+            `[perf] broker broadcast chunks=${chunks} writes=${writes} bytes=${bytes} ` +
+              `chunks/s=${(chunks / secs).toFixed(1)} writes/s=${(writes / secs).toFixed(1)}`,
+          );
+        }, 1000);
+        report.unref?.();
+        return {
+          count: (clientCount: number, byteCount: number): void => {
+            chunks += 1;
+            writes += clientCount;
+            // Bytes as they go OUT, so this is comparable with `writes` rather
+            // than with `chunks`: one frame written to three clients is three
+            // writes and three frames' worth of bytes on the wire.
+            bytes += byteCount * clientCount;
+          },
+        };
+      })()
+    : null;
+
   function broadcastData(ptyId: string, data: Uint8Array): void {
     const buf = encodeData(ptyId, data);
+    let written = 0;
     for (const client of clients) {
       if (!client.destroyed && client.writable) {
         client.write(buf);
+        written += 1;
       }
     }
+    perfCounters?.count(written, buf.length);
   }
 
   function checkIdle(): void {
@@ -195,6 +313,9 @@ export function createBrokerServer(options: BrokerServerOptions): BrokerServer {
 
   // Periodic flush every 15s
   flushTimer = setInterval(() => {
+    // Buffered bytes first: this interval is the crash-safety net, and it can
+    // only save what has actually reached the scrollback.
+    flushAllPtyOutput();
     void flushAllScrollback();
   }, 15_000);
   flushTimer.unref?.();
@@ -348,8 +469,13 @@ export function createBrokerServer(options: BrokerServerOptions): BrokerServer {
           pty.onData((data) => {
             if (hasSentExit) return;
             const bytes = new TextEncoder().encode(data);
-            appendScrollback(sessionId, bytes);
 
+            /*
+              Still per chunk, and it has to be: this types the agent's command in
+              as soon as the shell says something, and waiting out a 16ms window
+              first would be a visible stutter on the one keystroke-shaped thing
+              the broker does. It fires once and clears itself.
+            */
             if (session.pendingInput) {
               const input = session.pendingInput;
               session.pendingInput = null;
@@ -360,12 +486,18 @@ export function createBrokerServer(options: BrokerServerOptions): BrokerServer {
               }
             }
 
-            broadcastData(id, bytes);
+            // Scrollback append and broadcast both happen on the flush, not here.
+            queuePtyOutput(id, sessionId, bytes);
           });
 
           pty.onExit(({ exitCode, signal }) => {
             if (hasSentExit) return;
             hasSentExit = true;
+            // Whatever the process printed on its way out must reach the client
+            // BEFORE the exit frame, or a terminal shows an exited session with
+            // its last line missing.
+            flushPtyOutput(id);
+            sessionForPty.delete(id);
             sessions.delete(id);
             broadcastControl({
               t: 'exit',
@@ -428,6 +560,8 @@ export function createBrokerServer(options: BrokerServerOptions): BrokerServer {
       case 'kill': {
         const session = sessions.get(msg.ptyId);
         if (session) {
+          flushPtyOutput(msg.ptyId);
+          sessionForPty.delete(msg.ptyId);
           sessions.delete(msg.ptyId);
           try {
             session.pty.kill();
@@ -451,6 +585,25 @@ export function createBrokerServer(options: BrokerServerOptions): BrokerServer {
       }
 
       case 'snapshot': {
+        /*
+          Deliberately does NOT flush the coalescing buffer, and that is the
+          opposite of what an earlier draft of this did.
+
+          `flushPtyOutput` broadcasts as well as appending, and `broadcastData`
+          writes to every socket in `clients` — *including* the one that just
+          asked for the snapshot. So flushing here writes a data frame carrying
+          bytes X and then answers with a scrollback that also contains X. The
+          renderer's replay gate (`terminal-view.tsx`) holds data frames that
+          arrive while a snapshot is in flight and releases them after writing
+          the snapshot, so those bytes get written twice — on every mount of a
+          live, producing terminal: a panel reveal, a renderer reload rebind, a
+          FAB loop tab.
+
+          Left unflushed, the answer is up to 16 ms stale and the buffered bytes
+          arrive as an ordinary data frame afterwards — which is precisely the
+          case the replay gate exists to order correctly. Staleness the gate
+          already handles beats duplication it cannot detect.
+        */
         let bytes = scrollbackBySession.get(msg.sessionId);
         if (!bytes) {
           const file = join(scrollbackDir, `${safeId(msg.sessionId)}.bin`);
@@ -473,6 +626,9 @@ export function createBrokerServer(options: BrokerServerOptions): BrokerServer {
       }
 
       case 'flush': {
+        // Same reason, one layer down: what has not been appended yet cannot be
+        // written to disk, and this flush is the crash-safety net.
+        flushAllPtyOutput();
         void flushAllScrollback().then(() => {
           socket.write(encodeControl({ t: 'reply', id: msg.id, ok: true }));
         });
@@ -517,6 +673,10 @@ export function createBrokerServer(options: BrokerServerOptions): BrokerServer {
       flushTimer = null;
     }
 
+    // Last chance for the coalescing window: whatever is buffered has to reach
+    // the scrollback before it is written, or a clean shutdown loses up to 16ms
+    // of every session's final output.
+    flushAllPtyOutput();
     await flushAllScrollback();
 
     for (const client of clients) {

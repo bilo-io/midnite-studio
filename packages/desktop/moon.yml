@@ -70,6 +70,12 @@ tasks:
     inputs:
       - 'src/**/*'
       - 'scripts/bundle.mjs'
+      # The sourcemap switch is an INPUT, or the escape hatch does not work
+      # (Phase 36 Theme C): maps are opt-in now, and without this
+      # `MSTUDIO_SOURCEMAP=1 moon run desktop:bundle` after any prior build is a
+      # cache hit that silently restores the map-less `dist/`. A debugging session
+      # would then be spent wondering where the maps went.
+      - '$MSTUDIO_SOURCEMAP'
       - '/packages/shared/src/**/*'
       - '/packages/git-engine/src/**/*'
     outputs:

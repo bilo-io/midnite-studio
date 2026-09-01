@@ -49,9 +49,28 @@ export const perfEnabled = (env: Record<string, string | undefined>): boolean =>
  *
  * Exported rather than restated in the script so a renamed mark breaks the
  * report loudly at the same commit, instead of leaving a gap in a table nobody
- * re-reads. Order is the boot order the report prints them in.
+ * re-reads.
+ *
+ * This is the order the report PRINTS them in, which since Theme B is no longer
+ * the order they occur in — and deliberately so. `login-shell-done` now lands
+ * after `when-ready` because the probe was taken off the boot path, and
+ * `pty-ready`/`agents-listed`/`repos-restored` race by design, being three
+ * concurrent chains. The list stays in the old sequence because it reads as a
+ * narrative of boot; `startup-report.mjs` prints absolute milliseconds per mark
+ * and never differences adjacent rows, so nothing computes a negative from it.
+ * The one ordering that IS asserted is `repos-restored` before `create-window`,
+ * and it is asserted explicitly rather than inferred from this array.
  */
 export const BOOT_MARKS = [
+  /*
+    Time from process start to the point every static import in main has been
+    evaluated. Added by Theme B, because it is the only number that can say
+    whether deferring a handler-module group behind a dynamic import is worth
+    the churn: ESM hoists imports above the importing module's own body, so the
+    cost is already paid by the time the first line of `index.ts` runs, and
+    `when-ready` cannot see it — Chromium's readiness dominates that mark.
+  */
+  'modules-loaded',
   'login-shell-done',
   'when-ready',
   'handlers-registered',

@@ -1,4 +1,4 @@
-import { spawnSync } from 'node:child_process';
+import { spawn } from 'node:child_process';
 
 /**
  * A Finder/Dock-launched app inherits launchd's bare PATH
@@ -23,9 +23,10 @@ const MARKER_START = '__MSTUDIO_PATH_START__';
 const MARKER_END = '__MSTUDIO_PATH_END__';
 
 /**
- * How long to wait for the login shell before shipping without the fix. Bounds
- * boot, so it stays tight — but it's a *parameter* of
- * {@link resolveLoginShellPath} rather than a hard constant, because the
+ * How long to wait for the login shell before shipping without the fix. It no
+ * longer bounds boot — nothing awaits the probe before the window opens — but it
+ * still bounds the wait its consumers pay, so it stays tight. A *parameter* of
+ * {@link resolveLoginShellPathAsync} rather than a hard constant, because the
  * integration spec runs the real shell on a machine that may be under heavy
  * parallel load (the whole moon graph at once), where a 5s ceiling is a coin
  * flip and a failure says nothing about the code.
@@ -53,38 +54,95 @@ export function mergePath(current: string | undefined, resolved: string): string
   return [resolved, ...extras].join(':');
 }
 
-/**
- * PATH as the user's shell sees it, or null when it can't be resolved (Windows
- * GUI apps already inherit the full user PATH; any shell error/timeout fails
- * soft). The shell runs `-lic` — login AND interactive — because PATH additions
- * commonly live in interactive-only rc files (`~/.zshrc`: nvm, `~/.local/bin`,
- * pyenv), which a plain `-lc` login shell never sources; the markers keep
- * interactive profile noise (banners, prompts) out of the parse, and the
- * timeout bounds an rc file that hangs.
- *
- * `timeoutMs` defaults to the boot-safe {@link RESOLVE_TIMEOUT_MS}; only the
- * integration spec overrides it, to buy headroom on a loaded machine.
- */
-export function resolveLoginShellPath(timeoutMs: number = RESOLVE_TIMEOUT_MS): string | null {
-  if (process.platform === 'win32') return null;
+/** The shell to ask, and the one-liner to ask it. Shared by nothing else —
+ *  factored out only so the async resolver and its test read the same thing. */
+function probeCommand(): { shell: string; args: string[] } {
   const shell =
     process.env['SHELL'] ?? (process.platform === 'darwin' ? '/bin/zsh' : '/bin/bash');
   // Braces around ${PATH} — a bare $PATH would swallow the end marker as part
   // of the variable name (`$PATH__MIDNITE...` is a valid, unset identifier).
   const probe = `printf '%s' "${MARKER_START}\${PATH}${MARKER_END}"`;
-  const res = spawnSync(shell, ['-lic', probe], {
-    encoding: 'utf-8',
-    timeout: timeoutMs,
-  });
-  if (res.error || res.status !== 0) return null;
-  return parseShellPathOutput(res.stdout ?? '');
+  // `-lic` — login AND interactive — because PATH additions commonly live in
+  // interactive-only rc files (`~/.zshrc`: nvm, `~/.local/bin`, pyenv), which a
+  // plain `-lc` login shell never sources; the markers keep interactive profile
+  // noise (banners, prompts) out of the parse.
+  return { shell, args: ['-lic', probe] };
 }
 
-/** Fold the login-shell PATH into this process's env (inherited by every git
- *  subprocess and every PTY the terminal spawns). No-op when resolution fails —
- *  boot must never hang or die on a broken shell profile. */
-export function ensureLoginShellPath(): void {
-  const resolved = resolveLoginShellPath();
+/**
+ * PATH as the user's shell sees it, or null when it can't be resolved (Windows
+ * GUI apps already inherit the full user PATH; any shell error/timeout fails
+ * soft).
+ *
+ * Async because this used to be the single most expensive thing in boot: a
+ * `spawnSync` on the main thread, ahead of `app.whenReady()`, costing a median
+ * 284 ms on this machine (Theme A's baseline) during which Electron could not
+ * run a line of our JS. Spawned rather than awaited-in-place, the same probe
+ * overlaps Chromium's own startup and costs the boot path only whatever is left
+ * when its first consumer actually needs PATH.
+ *
+ * The timeout is enforced here rather than passed to `spawn` (which has no
+ * `timeout` on all supported Node versions for the streaming case in the way
+ * `spawnSync` does): a timer kills the child and resolves null, so a shell
+ * profile that hangs bounds boot exactly as before.
+ *
+ * `timeoutMs` defaults to the boot-safe {@link RESOLVE_TIMEOUT_MS}; only the
+ * integration spec overrides it, to buy headroom on a loaded machine.
+ */
+export function resolveLoginShellPathAsync(
+  timeoutMs: number = RESOLVE_TIMEOUT_MS,
+): Promise<string | null> {
+  if (process.platform === 'win32') return Promise.resolve(null);
+  const { shell, args } = probeCommand();
+
+  return new Promise((resolveResult) => {
+    let child;
+    try {
+      child = spawn(shell, args, { stdio: ['ignore', 'pipe', 'ignore'] });
+    } catch {
+      resolveResult(null);
+      return;
+    }
+
+    let out = '';
+    // Settled once: the timeout, an error and a clean exit can all arrive, and
+    // a Promise ignoring the later ones silently would hide which won.
+    let settled = false;
+    const finish = (value: string | null): void => {
+      if (settled) return;
+      settled = true;
+      clearTimeout(timer);
+      resolveResult(value);
+    };
+
+    const timer = setTimeout(() => {
+      child.kill('SIGKILL');
+      finish(null);
+    }, timeoutMs);
+    // A pending timer must not be what keeps the app alive on quit.
+    timer.unref?.();
+
+    child.stdout?.setEncoding('utf-8');
+    child.stdout?.on('data', (chunk: string) => {
+      out += chunk;
+    });
+    child.on('error', () => finish(null));
+    child.on('close', (code) => finish(code === 0 ? parseShellPathOutput(out) : null));
+  });
+}
+
+/**
+ * Fold the login-shell PATH into this process's env (inherited by every git
+ * subprocess and every PTY the terminal spawns). No-op when resolution fails —
+ * boot must never hang or die on a broken shell profile.
+ *
+ * Call this once, without awaiting, and await the returned promise at each
+ * point that genuinely needs the merged PATH (`initPtyService`, the first git
+ * exec). Awaiting it at the call site would reinstate exactly the serialisation
+ * this replaced.
+ */
+export async function ensureLoginShellPathAsync(): Promise<void> {
+  const resolved = await resolveLoginShellPathAsync();
   if (!resolved) return;
   process.env['PATH'] = mergePath(process.env['PATH'], resolved);
 }

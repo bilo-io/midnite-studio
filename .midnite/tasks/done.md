@@ -2,6 +2,86 @@
 
 <!-- Append one entry per landed phase/PR: date, phase, PR link, one-line summary. -->
 
+## 2026-09-01 — Phase 36 Themes B, C, G, H — Performance diet: the fixes, and the budgets that keep them
+
+Merged to `main` locally (this repo has no git remote, so no PR link). Four themes in one batch,
+branched off the tip that carried A/D/E/F. Every landed item carries a number; four of the doc's
+items are **acquitted** with the measurement that acquits them rather than churned through.
+
+- [x] **Theme B — Main-process startup**: the login-shell PATH probe was the single most
+      expensive thing in boot and the most pointless place to spend it — a `spawnSync` on the
+      main thread ahead of `app.whenReady()`, a median **284 ms** during which Electron could not
+      run a line of our JS, while Chromium was starting up on other threads anyway. Now spawned
+      un-awaited (inside the single-instance branch, so a deep link does not fire a `zsh -lic`
+      nothing will read) with only its real consumers waiting on it: `initPtyService`, because
+      every pty inherits this PATH, and `restoreRepos`, the first git exec. The three `whenReady`
+      chains — pty service, agent roster, repository list — ran sequentially for no reason beyond
+      the order they were written in, and now run under one `Promise.all` with the two orderings
+      that *are* real expressed as code: the userData migration precedes all three because it may
+      move the stores they read, and `createWindow` follows all three because the renderer's first
+      `repo:list` must not be answered with an empty list. Main/preload/broker are minified and
+      built concurrently. **`when-ready` 322 → 190 ms · `create-window` 524 → 441 ms ·
+      `ready-to-show` 683 → 570 ms**, and `login-shell-done` now *follows* `when-ready`, which was
+      the theme's own verification. The three pre-committed handler-module deferrals are
+      **acquitted**: a new `modules-loaded` mark (elapsed at the first statement of main's body,
+      so "every static import evaluated") reads 147 ms with them, 163 ms with all three stubbed
+      out, and 184 ms on a repeat of the unmodified build — the noise on identical code is wider
+      than the 10 ms threshold, so nothing there can be honestly indicted.
+- [x] **Theme C — Renderer bundle**: the window opens on the graph and paid, before the first row
+      of history, for every view it could possibly reach. Thirteen views behind `React.lazy` under
+      **one** Suspense boundary (the ternary's order is load-bearing — `settings` and `councils`
+      still resolve before the `!selectedRepoId` guard); `GraphView`, `EmptyWorkspace`,
+      `Placeholder` and `ScreensaverHost` stay eager on purpose. `DelayedFallback` renders nothing
+      for 120 ms and only then a spinner, so a warm chunk never flashes loading UI and the app
+      cannot read as slower for having got smaller. xterm leaves through one shared
+      `lazy-terminal-view` module — both consumers go through it, so a second static import cannot
+      quietly put it back — warmed by `idlePreload` after first paint because `Ctrl+`` is one
+      keystroke. `react-markdown` did **not** fall out for free the way the doc predicted: the
+      commit inspector renders through the same pipeline and hangs off the eager `GraphView`, so
+      `CommitMessage` is now lazy, worth 142 KB on its own. Sourcemaps behind
+      `MSTUDIO_SOURCEMAP=1`. **Entry chunk 2 481.3 KB (pre-phase, verified) → 1 109.4 KB, −55%.**
+      All 368 functional e2e specs passed unchanged — Playwright's auto-waiting already absorbs a
+      boundary that resolves in a frame. Two items acquitted with numbers: `@dnd-kit` is 59.9 KB
+      reached by four *eager hook* call sites (a hook cannot move behind a lazy boundary without
+      changing its call count, so splitting means converting four sites to render-prop wiring),
+      and `manualChunks` is unnecessary because no vendor module is duplicated across chunks.
+- [x] **Theme G — Profile-gated claims**: two suspects convicted, one rig handed to a human.
+      The **broker** was guilty and worse than the deferral note guessed: under `yes` it held
+      **96.8% of one core for 7.6 MB/s**, and the socket write per chunk was only half of it —
+      `appendScrollback` reallocated and copied the *entire* retained buffer (capped at
+      `SCROLLBACK_BYTES * 2`) on every one of 7 073 chunks a second, which is where the 227 MB RSS
+      came from. A per-pty buffer flushed every 16 ms fixes both, because it sits in front of the
+      scrollback append as well as the broadcast: writes/s **7 073 → 60.5**, RSS **227 → 168 MB**,
+      and normalised for an infinite producer **12.74% → 1.16% of a core per MB/s — 11× less CPU
+      per byte**. Holding bytes back is only safe if everything that can observe a stream flushes
+      first, so `snapshot`, the disk `flush`, `kill`, `onExit`, shutdown and the 15 s interval all
+      do, with five tests pinning that ordering rather than the speed. The **`ps` probe** was
+      guilty too: one `ps -axo pid=,ppid=,stat=,args=` costs a median **30.6 ms of CPU**, and a
+      chatty pty sustains one probe per `QUIET_MS` forever — 80/min = **4.08% of a core** at 750 ms.
+      Raised to 1500 (2.04%); the cost is an icon up to 750 ms later for an agent that starts then
+      falls quiet. **Graph edge culling stays open for a human**: ">30% of frame time" needs the
+      DevTools Performance panel, so what landed is the rig —
+      `scripts/perf/make-big-repo.sh` generates a 50 000-commit fixture over six lanes that merge
+      every 97th commit, via `commit-tree` plumbing so it takes minutes rather than an hour.
+- [x] **Theme H — Perf budgets**: `moon run app:perf` — three specs, one budget source
+      (`scripts/perf/budgets.json`), outside the default gate, `retries: 0`. The size budgets catch
+      drift; the **absence** assertions catch the mistake the phase exists because of — one static
+      import putting a whole library back on the boot path, which no functional test would notice.
+      The diff-scroll timing test moved here from `e2e/diff-scroll-perf.spec.ts`, resolving Phase
+      26's open question as *both*: the exact row counts stay in the default gate, the frame-gap
+      budget does not, and its threshold drops from an inherited 100 ms tripwire to 22 (2.5× the
+      8.5 ms measured). Byte budgets get ~1.15× rather than 2.5× — a byte count does not flake,
+      and at 2.5× the entry budget would be 2 712 KB, above where this phase started; a budget
+      that permits undoing the phase is not a budget. **8 passed**: entry 1 109.4/1 250 KB · total
+      JS 13 731.3/15 800 KB · `ready-to-show` 628/1 425 ms · `first-view-rendered` 194/450 ms ·
+      scroll 8.3/22 ms.
+
+**Left open, deliberately.** One `useAutoFetch` fake-timer test that belongs to Theme E (the
+behaviour landed, but the hook is defined inline in `app.tsx`, so there is nothing importable to
+drive), and two human passes: the `MSTUDIO_SHOTS` before/after screenshot diff, and an Activity
+Monitor check that a blurred idle app sits near 0%. Also logged in `outstanding.md`: ~60 KB of
+`lucide-react` still ships via `@bilo-io/ui`/`@bilo-io/shell`, which is why Theme H cannot assert
+its absence, and the `@dnd-kit` split with the mechanism it would need written down.
 ## 2026-09-01 — Phase 35 Themes F, G, H, I — the verification items, run rather than read
 
 [PR #3](https://github.com/bilo-io/midnite-studio/pull/3). Phase 35 shipped at 90% with four
