@@ -30,6 +30,7 @@ export function FabPanel({ isOpen, width }: FabPanelProps) {
   const runs = useLoopRuns();
 
   usePruneSupersededSessions(activeFabTab);
+  useHydrateOnOpen(isOpen);
 
   if (!isOpen) return null;
 
@@ -91,6 +92,28 @@ export function FabPanel({ isOpen, width }: FabPanelProps) {
       </div>
     </div>
   );
+}
+
+/**
+ * Restore saved sessions when the console is first opened.
+ *
+ * `hydrate()` is what turns `terminals.json` back into rows, and until
+ * Phase 35's Theme I nothing but `TerminalPanel` ever called it — so a loop
+ * that was running when the app quit came back only if you happened to open
+ * the *main* terminal panel first, and the FAB tab that owned it showed
+ * "Press Start" over a session that was sitting on disk the whole time.
+ *
+ * On open rather than on mount, and never at boot: the read pulls every
+ * session's scrollback with it, which is the wrong thing to put on the
+ * startup path for a panel most launches never open. `hydrate()` returns
+ * immediately once `hydrated` is set, so opening the FAB after the terminal
+ * panel (or the other way round) costs nothing the second time.
+ */
+function useHydrateOnOpen(isOpen: boolean): void {
+  useEffect(() => {
+    if (!isOpen) return;
+    void useTerminalStore.getState().hydrate();
+  }, [isOpen]);
 }
 
 /**
