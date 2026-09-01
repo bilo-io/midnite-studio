@@ -28,6 +28,21 @@ import base from './playwright.config';
  * and the `app:e2e-ci` task with it and point CI back at `app:e2e`.
  */
 const KNOWN_RED = [
+  // --- red on the Linux runner only; all four are green on macOS ------------
+  //
+  // Every one of these mounts a terminal, and xterm paints its rows through
+  // `@xterm/addon-webgl` (terminal-view.tsx). A GPU-less runner gives it no
+  // WebGL context, so the terminal never becomes visible. Two fixes were tried
+  // and measured: raising the CI expect timeout to 15s moved nothing (the
+  // failures were never slow, just impossible), and Chromium's SwiftShader
+  // software rasteriser — `--use-gl=angle --use-angle=swiftshader` — also fixed
+  // none of them while making every shard ~60% slower, so it was reverted.
+  // Phase 38 Theme I owns the real answer.
+  '**/e2e/phase-21-roster.spec.ts', //       1 — session list renders 0 rows
+  '**/e2e/terminal-lazy-preload.spec.ts', // 2 — Phase 36's own lazy-xterm specs
+  '**/e2e/terminal-reveal.spec.ts', //       1 — buffer replay on reveal
+  //
+  // --- drift: red everywhere, and Phase 38 Themes A-G own them --------------
   '**/e2e/actions-view.spec.ts', //          2 — Load-the-full-log button never appears
   '**/e2e/browser-pane.spec.ts', //          1 — click lands during the exit transition
   '**/e2e/changes-panel.spec.ts', //        10 — the whole file; nothing in the panel is visible
@@ -58,4 +73,11 @@ export default defineConfig({
   // explicitly rejects: "a report that blocks a green build on a busy laptop
   // gets disabled rather than read".
   testIgnore: ['**/perf/**', ...KNOWN_RED],
+  /*
+    One spec rather than one file. `reviews.spec.ts` has ten specs and only its
+    terminal-header one hits the missing-WebGL wall above, so it carries a
+    `@linux-red` tag and the other nine keep blocking. Prefer this to adding a
+    file to KNOWN_RED whenever the failures are a minority of it.
+  */
+  grepInvert: /@linux-red/,
 });

@@ -81,25 +81,6 @@ export default defineConfig({
   use: {
     baseURL: `http://localhost:${PORT}`,
     trace: 'retain-on-failure',
-    /*
-      Software WebGL, in CI only.
-
-      `terminal-view.tsx` loads `@xterm/addon-webgl`, so xterm paints its rows
-      through WebGL rather than the DOM. A GPU-less Linux runner has no WebGL
-      context to give it, the addon fails, and the terminal never becomes
-      visible — which took out every terminal-touching spec in the job's first
-      two sharded runs (`terminal-lazy-preload` x2, `terminal-reveal`,
-      `phase-21-roster`, and the terminal-header one in `reviews`) while all five
-      stayed green on macOS. Raising the timeouts did nothing, correctly: the
-      context was never coming.
-
-      SwiftShader is Chromium's software rasteriser, so the addon gets a real
-      context and the specs exercise the same renderer the app ships. CI-only
-      because a local macOS run already has hardware GL and should keep using it.
-    */
-    launchOptions: process.env.CI
-      ? { args: ['--use-gl=angle', '--use-angle=swiftshader', '--enable-unsafe-swiftshader'] }
-      : {},
   },
   projects: [{ name: 'chromium', use: { ...devices['Desktop Chrome'] } }],
   webServer: {

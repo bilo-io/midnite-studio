@@ -1,7 +1,8 @@
 # Phase 38 — Paying off the e2e suite
 
 On 2026-09-01 the Playwright suite was run in full for the first time in weeks, as part of
-finally giving it a CI job. **45 of its 442 specs failed, across 17 of 58 files.** Nothing in
+finally giving it a CI job. **45 of its 442 specs failed, across 17 of 58 files** — and wiring
+the job up then found **four more that fail only on the Linux runner**, which Theme I owns. Nothing in
 that run was a fresh regression: a bisect against `ec2c75e` — the commit before Phase 36's
 performance work — showed the same three sample files failing 15 there against 13 on `main`, so
 the rot predates the phase most likely to be blamed for it. This is drift, accumulated over
@@ -199,6 +200,43 @@ becomes a place to hide the next 45.
       blocking gate survivable against a suite this phase had not yet repaired; once it has,
       check whether CI is green at `retries: 0` over a week of merges and take the tolerance
       back out if it is. A retry allowance nobody revisits is how the next 45 hide.
+
+### I — The terminal does not render on the CI runner (M)
+
+Discovered while wiring the job up, and different in kind from every theme above:
+these four specs are **green on macOS and red only on Linux**, so they are not drift. Each
+one mounts a terminal, and xterm paints its rows through `@xterm/addon-webgl`
+([`terminal-view.tsx:363`](../../../packages/app/src/features/terminal/terminal-view.tsx)) — a
+GPU-less runner has no WebGL context to give it, so the terminal never becomes visible.
+
+Two fixes were tried and measured before the specs were ratcheted, so nobody repeats them:
+raising CI's `expect` timeout to 15s **moved nothing** (the failures were never slow, they were
+impossible), and Chromium's SwiftShader software rasteriser
+(`--use-gl=angle --use-angle=swiftshader --enable-unsafe-swiftshader`) **also fixed none of
+them** while making every shard about 60% slower — 7.6 min to 12.1 min — so it was reverted.
+
+- [ ] Establish what SwiftShader actually gave the page — whether `WebglAddon` still threw,
+      whether it fell back, or whether the terminal failed for a second reason entirely that the
+      missing context was masking. The two negative results above say the obvious answer is
+      wrong, so start by reading the addon's own failure rather than guessing again.
+- [ ] Decide the fix: a DOM-renderer fallback under test (cheap, but then the specs no longer
+      exercise the renderer the app ships), a canvas-addon fallback, a GPU-enabled runner, or
+      moving just these specs to a macOS lane. Each has a real cost — pick deliberately and
+      write down why.
+- [ ] `phase-21-roster.spec.ts:49` — the session list renders 0 rows. Also worth asking whether
+      this spec belongs behind the `MSTUDIO_SHOTS` guard the other screenshot specs use: it
+      writes two committed PNGs, which is not something a Linux runner should be doing.
+- [ ] `terminal-lazy-preload.spec.ts:73` + `:101` — Phase 36's own specs for the lazy xterm
+      chunk. Losing these to the ratchet means the phase's headline optimisation is unguarded
+      in CI, which makes this the highest-value item in the theme.
+- [ ] `terminal-reveal.spec.ts:45` — revealing a live session replays its buffer with one
+      resize.
+- [ ] `reviews.spec.ts:400` — the terminal header under a squeezed detail pane. This one is
+      **tagged `@linux-red` rather than ignored**, because it is the only terminal spec in a
+      ten-spec file; drop the tag rather than editing `KNOWN_RED`.
+- [ ] Drop `phase-21-roster.spec.ts`, `terminal-lazy-preload.spec.ts` and
+      `terminal-reveal.spec.ts` from `KNOWN_RED`, and remove `grepInvert` from
+      `playwright.ci.config.ts` once no `@linux-red` tag remains.
 
 ## Files this phase touches
 
