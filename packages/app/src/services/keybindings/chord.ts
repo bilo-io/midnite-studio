@@ -14,6 +14,12 @@ export const isMac = (): boolean =>
 
 export type ChordEvent = {
   key: string;
+  /**
+   * The physical-key code (`KeyboardEvent.code`), used only to recognise the
+   * backquote key. Optional because tests and synthetic callers predate it —
+   * absent, the `key` value stands alone.
+   */
+  code?: string;
   metaKey: boolean;
   ctrlKey: boolean;
   altKey: boolean;
@@ -45,7 +51,12 @@ export function chordFromEvent(event: ChordEvent): string | null {
   if (event.altKey) parts.push('Alt');
   if (event.shiftKey) parts.push('Shift');
 
-  parts.push(normaliseKey(event.key));
+  // The backquote key is matched by POSITION, not by the character it typed.
+  // With Shift held a US layout reports `key: '~'`, so a chord written
+  // `Ctrl+Shift+\`` could never match by `key` alone — and other layouts put
+  // different characters on that physical key entirely. VS Code binds its
+  // terminal chords to the Backquote position for the same reason.
+  parts.push(event.code === 'Backquote' ? '`' : normaliseKey(event.key));
   return parts.join('+');
 }
 
