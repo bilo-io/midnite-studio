@@ -77,7 +77,7 @@ Honour an explicit `$ARGUMENTS` override but still show what auto-detect picked.
   - Move the curated `## [Unreleased]` content into a new `## [X.Y.Z] - YYYY-MM-DD` section (today's date), grouped **Added / Changed / Fixed / Removed** (feat→Added, fix→Fixed, refactor/perf→Changed, revert→Removed; the non-user-facing types — docs/chore/test/build/ci/style — are omitted). **Curate** — merge related commits into one readable line, drop noise; this is release notes, not a `git log` dump.
   - Flag any **breaking** change prominently in the section.
   - Re-seed an empty `## [Unreleased]` stub above it, and update the compare/tag link refs at the bottom (`[Unreleased]: …compare/vX.Y.Z...HEAD`, add `[X.Y.Z]: …/releases/tag/vX.Y.Z`).
-  - Keep this separate from `todo/done.md` (phase tracker, not release notes).
+  - Keep this separate from `.midnite/tasks/done.md` (phase tracker, not release notes).
 - **Sanity-check:** the lockstep invariant still holds — patches may differ, `MAJOR.MINOR` must not (run `moon run root:version-check` if the task has been ported; otherwise eyeball every `package.json`).
 - **Commit the draft:** `chore(release): prepare vX.Y.Z` (changelog + version bumps), with the required `Co-Authored-By` trailer. Do **not** tag, do **not** push.
 
