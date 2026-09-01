@@ -93,6 +93,7 @@ export function TerminalView({
   active,
   initialInput,
   fitSignal,
+  layoutClassName,
 }: {
   session: TerminalSession;
   active: boolean;
@@ -100,6 +101,13 @@ export function TerminalView({
   initialInput?: string | undefined;
   /** Bumped once a reveal tween settles — fits and repaints, once, at the end. */
   fitSignal: number;
+  /**
+   * The outer box's positioning classes. Defaults to the main panel's stacked
+   * layout (`absolute inset-0`, which needs a positioned ancestor); a host
+   * that gives the view a box of its own (the FAB pane, Phase 35) passes its
+   * own classes instead of fighting the absolute placement.
+   */
+  layoutClassName?: string;
 }) {
   const containerRef = useRef<HTMLDivElement>(null);
   const termRef = useRef<Terminal | null>(null);
@@ -540,7 +548,7 @@ export function TerminalView({
 
   return (
     <div
-      className={`absolute inset-0 flex flex-col ${active ? '' : 'invisible'}`}
+      className={`${layoutClassName ?? 'absolute inset-0'} flex flex-col ${active ? '' : 'invisible'}`}
       aria-hidden={!active}
     >
       {connectionState === 'unavailable' ? (

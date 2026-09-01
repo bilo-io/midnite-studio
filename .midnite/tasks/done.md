@@ -2,6 +2,61 @@
 
 <!-- Append one entry per landed phase/PR: date, phase, PR link, one-line summary. -->
 
+## 2026-09-01 — Phase 35 Themes A–E — FAB Mission Control
+
+Merged to `main` locally (this repo has no git remote, so no PR link). Turns the FAB panel — which
+shipped as untracked ad-hoc work and did not actually work — into a real loop console. The two
+symptoms had one shape between them: `fab-terminal-view.tsx` spawned a session per tab *on mount*
+and then read `sessions[sessions.length - 1]` out of a pre-call closure snapshot, so all four tabs
+latched onto whichever session already existed while the four they really spawned piled into the
+main terminal housing, which renders every session unconditionally.
+
+- [x] **Theme A — Shared contracts**: `shared/src/loops.ts` — `LoopDefinitionSchema`,
+      `LoopModifierSchema`, `LoopRunRecordSchema`, `DEFAULT_LOOPS` (the four tabs as data), and the
+      pure `composeLoopPrompt`, which is the single place a command line is assembled so what ran
+      and what history says ran cannot drift. `surface: 'main' | 'fab'` added to
+      `TerminalSessionSchema` as zod-*optional*, so every `terminals.json` written before the field
+      existed parses unchanged. `mstudio:loop-runs:*` channels + schemas, writes on the
+      `GitOpResult` envelope.
+- [x] **Theme B — One loop registry**: the hard-coded `FAB_TABS` prompts are gone; a loop names an
+      `agentCommandId` and reads its base prompt out of `agentSkills`, so the FAB, the midnite menu
+      and Settings all read one store. `loopModifierDefaults` (persisted, edited in a new
+      Settings ▸ Agent ▸ Loops section) is split from the per-run checkbox state (session-ephemeral
+      on purpose). `loop-icons.ts` maps the schema's icon *token* to a component, keeping
+      `packages/shared` free of react and the icon packages.
+- [x] **Theme C — A session that lives in the FAB and nowhere else**: `onMainSurface` is the one
+      predicate the panel and the session list both filter by. `startAgent` now RETURNS the session
+      it created (and takes `surface` / `autoSend`), so the stale-closure bug is gone by
+      construction rather than patched — nothing in a tab reads the session list. A FAB launch skips
+      `setTerminalOpen(true)` and never takes `activeId`. `TerminalView` grew a `layoutClassName`
+      escape hatch so the FAB pane hosts it without fighting `absolute inset-0`; the main housing
+      passes the old classes and renders pixel-identically.
+- [x] **Theme D — Compose, Start, Stop, glow**: a composer per tab (modifier checkboxes + free-text
+      extras) collapsing to a slim chip strip once running. Stop *interrupts then sleeps* — Ctrl+C
+      straight at the pty, 300ms, then `sleepSession` — and finalises the ledger row as `stopped`
+      first, because main's pty-exit hook would otherwise write `exited` and history would say the
+      loop died rather than that you stopped it. Button state derives from `sessionPhase`, so a loop
+      that exits on its own flips back to Start with no bookkeeping. `.loop-run-glow` is lifted from
+      `.breadcrumb-repo-pill`'s conic border, in three states — steady ring (live), breathing
+      (`thinking`), steady amber (`waiting`) — each with its `data-motion='reduced'` opt-out.
+- [x] **Theme E — Mission control**: `loop-runs-store.ts` (capped at 200, like council runs) plus
+      `loop-runs.ts`, whose ends are owned by MAIN — a run is finalised off the pty's own
+      session-keyed exit, so a renderer reload mid-run cannot lose an `endedAt`, and a record still
+      `running` at load is finalised `stopped` rather than pretending. `pty-service.ts` grew a
+      second, session-keyed exit dispatch beside its ptyId-keyed one for exactly that. The collapsed
+      FAB wears the glow with a dot per live loop arced around it (nothing at all when idle);
+      `Toast` grew an optional action so the waiting notice can open the FAB on the tab that is
+      waiting; history is a collapsed disclosure per tab, expanding a row to the exact composed
+      prompt.
+
+Tests: `loops.test.ts`, `loop-runs-store.test.ts`, `loop-composer.test.tsx`,
+`terminal-surface.test.ts`, and `fab-loops.spec.ts` — which asserts the original bug in the terms it
+broke in (nothing created until Start; what Start creates never reaches the main session list or
+opens the main panel). Gate green: 2,620 unit tests, 372 Playwright.
+
+Left open: a packaged quit-and-relaunch pass, the notification click-through, and a
+`data-motion='reduced'` assertion — all noted in the phase doc's Verification block.
+
 ## 2026-09-01 — Phase 34 Themes A–H — Agent Councils
 
 Merged to `main` locally (this repo has no git remote, so no PR link). Fills the "Councils" nav

@@ -66,6 +66,28 @@ export function offPty(ptyId: string): void {
   ptyExitListeners.delete(ptyId);
 }
 
+// --- session-exit hooks (Phase 35) -------------------------------------------
+//
+// A second, session-keyed dispatch beside the ptyId-keyed one above: the loop
+// ledger (`loop-runs.ts`) records runs against the SESSION — the durable half —
+// and needs the exit even when the renderer that started the run is gone.
+// Fires only when the exit could still be mapped to a session: an explicit
+// `killPty` removes the mapping first, which is fine — the one caller of
+// `killPty` for a loop (Stop) finalises its record through `stopLoopRun`
+// before the kill lands.
+
+type SessionExitHook = (sessionId: string, exitCode: number) => void;
+const sessionExitHooks: SessionExitHook[] = [];
+
+export function onSessionExit(hook: SessionExitHook): void {
+  sessionExitHooks.push(hook);
+}
+
+function notifySessionExit(sessionId: string | undefined, exitCode: number): void {
+  if (sessionId === undefined) return;
+  for (const hook of sessionExitHooks) hook(sessionId, exitCode);
+}
+
 export function setAgentWatcher(watcher: AgentWatcher | null): void {
   agentWatcher = watcher;
   setInprocAgentWatcher(watcher);
@@ -279,6 +301,8 @@ export async function initPtyService(deps: {
   });
 
   brokerClient.onExit((ptyId, exitCode, signal) => {
+    // Resolved before the maps are cleaned — after, the answer is gone.
+    notifySessionExit(sessionIdByPty.get(ptyId), exitCode);
     sessions.delete(ptyId);
     sessionIdByPty.delete(ptyId);
     agentWatcher?.untrack(ptyId);
@@ -361,6 +385,8 @@ export async function createPty(options: {
       }
     },
     (ptyId, exitCode, signal) => {
+      // The inproc path has the sessionId in scope — no map lookup to race.
+      notifySessionExit(options.sessionId, exitCode);
       disposeActivity(ptyId);
       ptyExitListeners.get(ptyId)?.(exitCode, signal);
       offPty(ptyId);

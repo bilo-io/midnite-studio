@@ -37,10 +37,14 @@ import {
   detachAll,
   initPtyService,
   notifyActivityDisabled,
+  onSessionExit,
   setActivityDetector,
   setAgentWatcher,
   tickActivityClocks,
 } from './pty-service';
+import { registerLoopRunsHandlers } from './ipc/loop-runs-handlers';
+import { configureLoopRuns, noteSessionExit } from './loop-runs';
+import { createLoopRunsStore } from './loop-runs-store';
 import { createTerminalStore } from './terminal-store';
 import {
   configureTerminals,
@@ -240,6 +244,7 @@ if (!app.requestSingleInstanceLock()) {
     registerClaudeHandlers(getWindow);
     registerCliHandlers();
     registerCouncilHandlers();
+    registerLoopRunsHandlers();
     registerUpdater(getWindow);
     ipcMain.handle(CHANNELS.systemHealth, () => readSystemHealth());
     installMgitFileProtocol();
@@ -263,6 +268,14 @@ if (!app.requestSingleInstanceLock()) {
     configureRegistry(createRepoStore(userData));
     configureTerminals(createTerminalStore(userData), userData);
     configureCouncils(createCouncilsStore(userData), createCouncilsRunsStore(userData));
+    /*
+      The loop ledger's ends are owned here in main: a run's record is finalised
+      off the pty's own session-keyed exit, so a renderer reload mid-run cannot
+      lose it. Wired after `initPtyService` — the hook registry is module state,
+      but the exits it observes only exist once the service is up.
+    */
+    configureLoopRuns(createLoopRunsStore(userData), getWindow);
+    onSessionExit(noteSessionExit);
     /*
       One compile of the roster's activity markers for the life of the
       process — `agents.json` "reloads on next launch" already (Settings ▸

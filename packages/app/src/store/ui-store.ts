@@ -333,6 +333,55 @@ export type UiState = {
   fabPanelOpen: boolean;
   /** Active tab in the FAB panel. */
   activeFabTab: FabTab;
+  /**
+   * The terminal session each FAB tab currently owns (Phase 35), keyed by tab
+   * id. Persisted so a relaunch reattaches each tab to its own (asleep)
+   * session — the session rows themselves live in `terminals.json`; this is
+   * just the tab → session pairing only the renderer knows.
+   */
+  fabSessions: Record<string, string>;
+  setFabSession: (tab: FabTab, sessionId: string | undefined) => void;
+  /**
+   * The session a tab has just superseded — at most one per tab.
+   *
+   * Start always begins a *fresh* run, but killing the predecessor at that
+   * instant would yank the transcript out from under whoever is reading it.
+   * So the outgoing session lingers here, invisible to every surface, and is
+   * closed when the tab is switched away from. One slot per tab caps the
+   * lingering at four sessions, so `terminals.json` cannot grow without
+   * bound the way an unpruned list would.
+   *
+   * NOT persisted: a parked session is a courtesy to whoever is mid-read, and
+   * that reader is gone by the next launch. Persisting it only rehydrated a
+   * hidden dead session that nothing would collect until you happened to
+   * switch tabs.
+   */
+  fabPrevSessions: Record<string, string>;
+  setFabPrevSession: (tab: FabTab, sessionId: string | undefined) => void;
+  /**
+   * Which of a loop's composer checkboxes a *fresh* run starts with, keyed
+   * loopId → modifierId. This is the user-editable half (Settings ▸ Agent ▸
+   * Loops) and the only half that persists; an absent entry falls back to the
+   * modifier's own declared `defaultOn`.
+   *
+   * The boxes a run actually carries are ephemeral to the tab — see
+   * {@link loopModifierChecks} — so tweaking one run never silently rewrites
+   * what the next one starts from.
+   */
+  loopModifierDefaults: Record<string, Record<string, boolean>>;
+  setLoopModifierDefault: (loopId: string, modifierId: string, on: boolean) => void;
+  /**
+   * The per-run checkbox state, seeded from {@link loopModifierDefaults} on
+   * first read. Deliberately NOT persisted: a loop you ran once with
+   * `--triage-only` should not quietly stay in triage mode next week. It
+   * survives the panel closing (the store outlives the component) and dies
+   * with the window, which is what "ephemeral to the tab" means here.
+   */
+  loopModifierChecks: Record<string, Record<string, boolean>>;
+  setLoopModifierCheck: (loopId: string, modifierId: string, on: boolean) => void;
+  /** Per-loop free-text extras — ephemeral, on the same reasoning as above. */
+  loopExtras: Record<string, string>;
+  setLoopExtras: (loopId: string, text: string) => void;
   updatesAutoCheck: boolean;
   updateChannel: 'stable' | 'beta';
   onboardedAt: string | null;
@@ -479,6 +528,12 @@ export type UiState = {
   setFabPanelOpen: (open: boolean) => void;
   setActiveFabTab: (tab: FabTab) => void;
   onFabTabClick: (tab: FabTab) => void;
+  /**
+   * Open the panel *on* a tab, in one action — what a "loop is waiting"
+   * notification does when it is clicked. Two separate setters would render
+   * an intermediate frame on whichever tab was last active.
+   */
+  openFabTab: (tab: FabTab) => void;
 
   setLayout: <K extends keyof LayoutSizes>(key: K, value: number) => void;
   setGraphColumn: <K extends keyof GraphColumns>(key: K, value: number) => void;
@@ -707,6 +762,8 @@ type PersistedUi = Pick<
   | 'terminalListOpen'
   | 'browserOpen'
   | 'fabPanelOpen'
+  | 'fabSessions'
+  | 'loopModifierDefaults'
   | 'hiddenMetrics'
   | 'autoFetchIntervalMs'
   | 'metricsIdleIntervalMs'
@@ -773,6 +830,41 @@ export const useUiStore = create<UiState>()(
       browserOpen: false,
       fabPanelOpen: false,
       activeFabTab: 'innovate',
+      fabSessions: {},
+      setFabSession: (tab, sessionId) =>
+        set((state) => {
+          const next = { ...state.fabSessions };
+          if (sessionId === undefined) delete next[tab];
+          else next[tab] = sessionId;
+          return { fabSessions: next };
+        }),
+      fabPrevSessions: {},
+      setFabPrevSession: (tab, sessionId) =>
+        set((state) => {
+          const next = { ...state.fabPrevSessions };
+          if (sessionId === undefined) delete next[tab];
+          else next[tab] = sessionId;
+          return { fabPrevSessions: next };
+        }),
+      loopModifierDefaults: {},
+      setLoopModifierDefault: (loopId, modifierId, on) =>
+        set((state) => ({
+          loopModifierDefaults: {
+            ...state.loopModifierDefaults,
+            [loopId]: { ...state.loopModifierDefaults[loopId], [modifierId]: on },
+          },
+        })),
+      loopModifierChecks: {},
+      setLoopModifierCheck: (loopId, modifierId, on) =>
+        set((state) => ({
+          loopModifierChecks: {
+            ...state.loopModifierChecks,
+            [loopId]: { ...state.loopModifierChecks[loopId], [modifierId]: on },
+          },
+        })),
+      loopExtras: {},
+      setLoopExtras: (loopId, text) =>
+        set((state) => ({ loopExtras: { ...state.loopExtras, [loopId]: text } })),
       updatesAutoCheck: true,
       updateChannel: 'stable',
       onboardedAt: null,
@@ -891,6 +983,7 @@ export const useUiStore = create<UiState>()(
           return { activeFabTab: tab };
         });
       },
+      openFabTab: (tab) => set({ fabPanelOpen: true, activeFabTab: tab }),
       setLayout: (key, value) => set((state) => ({ layout: { ...state.layout, [key]: value } })),
       setGraphColumn: (key, value) =>
         set((state) => ({ graphColumns: { ...state.graphColumns, [key]: value } })),
@@ -1028,6 +1121,8 @@ export const useUiStore = create<UiState>()(
         terminalListOpen: state.terminalListOpen,
         browserOpen: state.browserOpen,
         fabPanelOpen: state.fabPanelOpen,
+        fabSessions: state.fabSessions,
+        loopModifierDefaults: state.loopModifierDefaults,
         hiddenMetrics: state.hiddenMetrics,
         autoFetchIntervalMs: state.autoFetchIntervalMs,
         metricsIdleIntervalMs: state.metricsIdleIntervalMs,
@@ -1112,6 +1207,11 @@ export const useUiStore = create<UiState>()(
             which reaches the terminal as the string "undefined".
           */
           agentSkills: { ...current.agentSkills, ...saved.agentSkills },
+          fabSessions: { ...current.fabSessions, ...saved.fabSessions },
+          loopModifierDefaults: {
+            ...current.loopModifierDefaults,
+            ...saved.loopModifierDefaults,
+          },
           repoGroupMembership: { ...current.repoGroupMembership, ...saved.repoGroupMembership },
         };
       },

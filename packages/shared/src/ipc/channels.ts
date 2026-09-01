@@ -411,6 +411,16 @@ export const CHANNELS = {
   councilRunSkipMember: 'mstudio:council:run-skip-member',
   councilRunRetryMember: 'mstudio:council:run-retry-member',
 
+  // --- FAB loop runs (Phase 35) ----------------------------------------------
+  // The durable trace of the FAB panel's loop runs. `start` is announced by the
+  // renderer (it owns session creation); the run's END is owned by MAIN — a
+  // natural exit is finalised off the pty exit itself, so a renderer reload
+  // mid-run cannot lose the `endedAt`. `stop` is keyed by sessionId, not runId,
+  // so a remounted tab needs no bookkeeping to stop what it started.
+  loopRunsList: 'mstudio:loop-runs:list',
+  loopRunsStart: 'mstudio:loop-runs:start',
+  loopRunsStop: 'mstudio:loop-runs:stop',
+
   // --- window chrome -------------------------------------------------------
   windowMinimize: 'mstudio:window:minimize',
   windowMaximizeToggle: 'mstudio:window:maximize-toggle',
@@ -485,6 +495,12 @@ export const EVENT_CHANNELS = {
   testsResult: 'mstudio:tests:result',
   /** A discriminated-union chrome event for one browser tab — see BrowserEventSchema. */
   browserEvent: 'mstudio:browser:event',
+  /**
+   * A loop run record changed in main — started, stopped, or finalised off a
+   * pty exit. Carries nothing: the history list re-fetches `loopRunsList`,
+   * which is tiny (capped) and saves inventing a second shape for one row.
+   */
+  loopRunsChanged: 'mstudio:loop-runs:changed',
   updateState: 'mstudio:update:state',
   deepLink: 'mstudio:protocol:deep-link',
 } as const;

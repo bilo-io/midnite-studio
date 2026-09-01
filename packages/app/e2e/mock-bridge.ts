@@ -1308,6 +1308,40 @@ export async function installMockBridge(page: Page, fixtures: MockFixtures): Pro
           retryMember: async () => ({ ok: true as const }),
         },
       },
+      loopRuns: {
+        list: async () => ({ runs: loopRuns }),
+        start: async (req: {
+          loopId: string;
+          sessionId: string;
+          composedPrompt: string;
+          checkedModifierIds: string[];
+        }) => {
+          const record = {
+            id: `loop-run-${++loopRunCounter}`,
+            ...req,
+            startedAt: Date.now(),
+            status: 'running' as const,
+          };
+          loopRuns = [...loopRuns, record];
+          for (const handler of loopRunsHandlers) handler();
+          return { ok: true as const, value: record };
+        },
+        stop: async (req: { sessionId: string }) => {
+          loopRuns = loopRuns.map((run) =>
+            run['sessionId'] === req.sessionId && run['status'] === 'running'
+              ? { ...run, status: 'stopped', endedAt: Date.now() }
+              : run,
+          );
+          for (const handler of loopRunsHandlers) handler();
+          return { ok: true as const };
+        },
+        onChanged: (handler: () => void) => {
+          loopRunsHandlers.push(handler);
+          return () => {
+            loopRunsHandlers.splice(loopRunsHandlers.indexOf(handler), 1);
+          };
+        },
+      },
       browser: {
         create: async (req: { tabId: string; url: string }) => {
           browserTabIds.add(req.tabId);
@@ -1710,6 +1744,20 @@ export async function installMockBridge(page: Page, fixtures: MockFixtures): Pro
     // Unique per create, so a spec can tell two terminals' streams apart.
     // eslint-disable-next-line no-var
     var ptyCount = 0;
+    // --- FAB loop runs (Phase 35) --------------------------------------------
+    /*
+      The ledger, in memory. Faithful to main in the one way a spec cares
+      about: `start` mints the record (id, startedAt, status) rather than
+      trusting the renderer, and `stop` finalises by SESSION id — so a spec can
+      assert the composed prompt a Start actually carried, which is the whole
+      point of the record existing.
+    */
+    // eslint-disable-next-line no-var
+    var loopRuns: Array<Record<string, unknown>> = [];
+    // eslint-disable-next-line no-var
+    var loopRunCounter = 0;
+    // eslint-disable-next-line no-var
+    var loopRunsHandlers: Array<() => void> = [];
     // --- councils (Phase 34) ------------------------------------------------
     // eslint-disable-next-line no-var
     var councils: Array<{ id: string; [key: string]: unknown }> = [];
@@ -1982,6 +2030,13 @@ export async function installMockBridge(page: Page, fixtures: MockFixtures): Pro
       for (const handler of [...browserEventHandlers]) handler(event);
     };
     (window as unknown as { __mstudioBrowserTabs: unknown }).__mstudioBrowserTabs = () => [...browserTabIds];
+    /*
+      A getter, not the array: `loopRuns` is REASSIGNED on every start and
+      stop (the ledger is immutable-updated the way main's is), so a spec
+      holding the original reference would read a snapshot frozen at install
+      time and quietly assert nothing.
+    */
+    (window as unknown as { __mstudioLoopRuns: unknown }).__mstudioLoopRuns = () => loopRuns;
     (window as unknown as { __mstudioTerminalSaves: unknown }).__mstudioTerminalSaves = terminalSaves;
     (window as unknown as { __mstudioExternalUrls: unknown }).__mstudioExternalUrls = externalUrls;
     (window as unknown as { __mstudioRevealedPaths: unknown }).__mstudioRevealedPaths = revealedPaths;

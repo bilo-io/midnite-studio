@@ -75,6 +75,7 @@ import {
   CouncilRunSchema,
   CouncilSchema,
 } from '../council';
+import { LoopRunRecordSchema } from '../loops';
 
 /**
  * Payload/response schemas for every channel. Each `ipcMain.handle` parses its
@@ -1093,6 +1094,33 @@ export const CouncilRunRetryMemberRequest = z.object({
   memberId: z.string().min(1),
 });
 export const CouncilRunRetryMemberResponse = GitOpResultSchema;
+
+// --- FAB loop runs (Phase 35) ------------------------------------------------
+
+export const LoopRunsListResponse = z.object({ runs: z.array(LoopRunRecordSchema) });
+
+/**
+ * The renderer announces a run it has just started. Main mints the record —
+ * `id`, `startedAt`, `status: 'running'` — so a clock skewed renderer cannot
+ * write history, and remembers `sessionId → run` so the pty's own exit
+ * finalises the record even if the renderer is gone by then.
+ */
+export const LoopRunStartRequest = z.object({
+  loopId: z.string().min(1),
+  sessionId: z.string().min(1),
+  composedPrompt: z.string().min(1),
+  checkedModifierIds: z.array(z.string().min(1)),
+});
+export const LoopRunStartResponse = GitOpResultOf(LoopRunRecordSchema);
+
+/**
+ * Keyed by sessionId, not runId: the FAB tab knows its session across
+ * remounts (it is persisted ui state) but would have to re-learn a runId.
+ * Stopping a session with no running record is `ok` — the run may have
+ * exited naturally a beat earlier, and that is not an error worth surfacing.
+ */
+export const LoopRunStopRequest = z.object({ sessionId: z.string().min(1) });
+export const LoopRunStopResponse = GitOpResultSchema;
 
 export const ClaudeInfoResponse = ClaudeInfoSchema;
 /**

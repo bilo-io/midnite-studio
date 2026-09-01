@@ -52,6 +52,24 @@ export function NotificationBell() {
               className={`rounded border border-border bg-card p-3 text-sm shadow-sm ${STATUS_COLORS[toast.status]}`}
             >
               {toast.message}
+              {/*
+                An actionable notification gets a button rather than becoming
+                one: the row is also a place to read, and a whole-row click
+                target makes dismissing the popover by clicking near a message
+                do something instead.
+              */}
+              {toast.action ? (
+                <button
+                  type="button"
+                  onClick={() => {
+                    setOpen(false);
+                    toast.action?.onAction();
+                  }}
+                  className="mt-2 block rounded-md border border-border px-2 py-1 text-xs text-foreground transition-colors hover:bg-accent"
+                >
+                  {toast.action.label}
+                </button>
+              ) : null}
             </div>
           ))
         )}

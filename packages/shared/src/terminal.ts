@@ -20,6 +20,21 @@ export const TerminalSessionKindSchema = z.enum(['shell', 'agent']);
 export type TerminalSessionKind = z.infer<typeof TerminalSessionKindSchema>;
 
 /**
+ * Which surface owns a session's rendering (Phase 35).
+ *
+ * `main` — the terminal panel and its session list, as ever. `fab` — a FAB
+ * loop tab: rendered inside the FAB panel only, filtered OUT of the main
+ * panel's stack and the session list entirely. One flat store still holds
+ * both, so persistence (`terminals.json`), the broker's restart survival and
+ * the activity pipeline all apply to a FAB session unchanged.
+ *
+ * Optional with `main` as the implied default, so every `terminals.json`
+ * written before this field existed parses — and reads — exactly as before.
+ */
+export const TerminalSurfaceSchema = z.enum(['main', 'fab']);
+export type TerminalSurface = z.infer<typeof TerminalSurfaceSchema>;
+
+/**
  * What a live agent session appears to be doing, guessed from its own output.
  *
  * There is no channel that tells the app this directly — an agent CLI is just a
@@ -344,6 +359,8 @@ export const TerminalSessionSchema = z
      * a reload or relaunch as asleep, not ended.
      */
     asleep: z.boolean().optional(),
+    /** Which surface renders this session. Absent means `main`. */
+    surface: TerminalSurfaceSchema.optional(),
   })
   .superRefine(agentIdMatchesKind);
 export type TerminalSession = z.infer<typeof TerminalSessionSchema>;

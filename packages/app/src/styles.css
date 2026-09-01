@@ -604,3 +604,114 @@ html[data-motion='reduced'] .fab-panel-gradient {
   animation: none;
 }
 
+
+/*
+  Loop run glow (Phase 35) — worn by a Start/Stop button and by the collapsed
+  FAB while at least one loop is live.
+
+  Lifted from `.breadcrumb-repo-pill` above: the same conic-gradient border
+  painted through a two-layer `background-clip`, the same 4s rotation. What
+  differs is the box-shadow, which pulses here rather than appearing on hover
+  — a running loop is a state, not a pointer position — and `.is-waiting`,
+  which drops the rotating rainbow for a steady amber ring: a loop with a
+  question on screen should read as one colour you can spot across four tabs,
+  not as more motion competing with the others.
+*/
+@property --loop-glow-angle {
+  syntax: '<angle>';
+  inherits: false;
+  initial-value: 0deg;
+}
+
+@keyframes loop-glow-spin {
+  to {
+    --loop-glow-angle: 360deg;
+  }
+}
+
+@keyframes loop-glow-pulse {
+  0%,
+  100% {
+    box-shadow:
+      0 0 6px rgba(236, 72, 153, 0.3),
+      0 0 10px rgba(59, 130, 246, 0.2);
+  }
+  50% {
+    box-shadow:
+      0 0 12px rgba(236, 72, 153, 0.55),
+      0 0 20px rgba(59, 130, 246, 0.4);
+  }
+}
+
+.loop-run-glow {
+  position: relative;
+  border: 1px solid transparent;
+  background-image:
+    linear-gradient(hsl(var(--background)), hsl(var(--background))),
+    conic-gradient(
+      from var(--loop-glow-angle, 0deg),
+      #f43f5e,
+      #f59e0b,
+      #10b981,
+      #3b82f6,
+      #8b5cf6,
+      #ec4899,
+      #f43f5e
+    );
+  background-origin: border-box;
+  background-clip: padding-box, border-box;
+  animation: loop-glow-spin 4s linear infinite;
+  box-shadow:
+    0 0 6px rgba(236, 72, 153, 0.3),
+    0 0 10px rgba(59, 130, 246, 0.2);
+}
+
+/* Thinking: the glow breathes. A live-but-idle loop keeps the steady ring. */
+.loop-run-glow.is-thinking {
+  animation:
+    loop-glow-spin 4s linear infinite,
+    loop-glow-pulse 2s ease-in-out infinite;
+}
+
+/* Waiting on you: one steady amber ring, no rotation, no pulse. */
+.loop-run-glow.is-waiting {
+  background-image:
+    linear-gradient(hsl(var(--background)), hsl(var(--background))),
+    linear-gradient(#f59e0b, #f59e0b);
+  animation: none;
+  box-shadow: 0 0 12px rgba(245, 158, 11, 0.55);
+}
+
+/*
+  On a filled control. The two-layer trick paints an opaque inner layer over
+  whatever `background-color` the element had, which is right for the
+  composer's Stop button (it sits on the panel) and wrong for the FAB, whose
+  whole identity is `bg-primary`. This variant makes the inner layer the
+  primary fill, so a running loop rings the brand button rather than blanking
+  it.
+*/
+.loop-run-glow.on-primary {
+  background-image:
+    linear-gradient(hsl(var(--primary)), hsl(var(--primary))),
+    conic-gradient(
+      from var(--loop-glow-angle, 0deg),
+      #f43f5e,
+      #f59e0b,
+      #10b981,
+      #3b82f6,
+      #8b5cf6,
+      #ec4899,
+      #f43f5e
+    );
+}
+
+.loop-run-glow.on-primary.is-waiting {
+  background-image:
+    linear-gradient(hsl(var(--primary)), hsl(var(--primary))),
+    linear-gradient(#f59e0b, #f59e0b);
+}
+
+html[data-motion='reduced'] .loop-run-glow {
+  animation: none;
+  box-shadow: 0 0 10px rgba(236, 72, 153, 0.4);
+}

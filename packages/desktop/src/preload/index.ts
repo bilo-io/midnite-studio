@@ -99,6 +99,7 @@ const bridge: Pick<
   | 'browser'
   | 'agent'
   | 'council'
+  | 'loopRuns'
   | 'fs'
   | 'stats'
   | 'diag'
@@ -288,6 +289,12 @@ const bridge: Pick<
       skipMember: (req) => call(CHANNELS.councilRunSkipMember, req),
       retryMember: (req) => call(CHANNELS.councilRunRetryMember, req),
     },
+  },
+  loopRuns: {
+    list: () => call(CHANNELS.loopRunsList),
+    start: (req) => call(CHANNELS.loopRunsStart, req),
+    stop: (req) => call(CHANNELS.loopRunsStop, req),
+    onChanged: (handler) => subscribe(EVENT_CHANNELS.loopRunsChanged, handler),
   },
   fs: {
     listDir: (req) => call(CHANNELS.fsListDir, req),

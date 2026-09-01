@@ -3,7 +3,7 @@
 **Headlines:**
 
 - **[Phase 36 · Faster, lighter, same app](phases/phase-36-performance-diet.md)** (0% · 0/63 · refined x1) — Planned, not started. The app's first dedicated performance phase: measure (startup marks, bundle report, idle-CPU and heap baselines), then land what the numbers indict — lazy per-view chunks off a 2.52 MB entry, de-serialized main boot, one icon family instead of two, visibility-gated timers, an LRU on the unbounded diff-highlight cache — and leave a `moon run :perf` budget suite behind. Strictly zero user-visible change; browser-tab memory stays Phase 32's.
-- **[Phase 35 · FAB Mission Control](phases/phase-35-fab-mission-control.md)** (0% · 0/40) — Planned, next up. Makes the (currently untracked, ad-hoc) FAB panel a real loop console: each tab owns its own in-panel terminal session (`surface: 'fab'`, never in the main housing), a checkbox prompt composer per loop, Start↔Stop with the gradient glow pulse, and a mission-control layer — FAB badges, waiting-toasts, a capped run history. Also unifies the FAB's hard-coded prompts with `DEFAULT_AGENT_SKILLS` into one shared loop registry.
+- **[Phase 35 · FAB Mission Control](phases/phase-35-fab-mission-control.md)** (90% · 36/40) — All five themes landed (2026-09-01, local). Made the (previously untracked, ad-hoc) FAB panel a real loop console: each tab owns its own in-panel terminal session (`surface: 'fab'`, never in the main housing), a checkbox prompt composer per loop, Start↔Stop with the gradient glow pulse, and a mission-control layer — FAB badges, waiting-toasts, a capped run history. Also retires the FAB's hard-coded prompts by pointing each loop at the `DEFAULT_AGENT_SKILLS` entry it runs, so there is one prompt store rather than three. Four verification items stay open for a human: a packaged quit-and-relaunch, the notification click-through, and a reduced-motion pass.
 - **[Phase 34 · Agent Councils](phases/phase-34-agent-councils.md)** (100% · 34/34) — Landed. Fills the nav/palette-reserved "Councils" slot: a standing panel of AI members answers a prompt in parallel, synthesized into one distilled write-up. MVP scope — one format (brainstorm), global (not per-repo), a 3-agent member pool (`agy`/`codex`/`opencode`), and an explicit auto-send exception to the app's usual type-but-don't-send agent-launch posture. Two manual passes (a real end-to-end run, a copy review) remain for a human.
 - **Phases 25–33 all landed** — search/blame, split diffs, status bar + browser pane, worktrees-first sidebar, markdown slides, the detached terminal broker, interactive rebase, the real browser engine, and the installable app + CLI.
 - **The only partial phases are [24 · The explorer learns to write](phases/phase-24-writable-explorer.md)** (78% · 43/55) **and [23 · A command palette](phases/phase-23-command-palette.md)** (76% · 42/55) — both closed as DONE with their remainders logged in [`outstanding.md`](outstanding.md).
@@ -19,7 +19,7 @@ Completed work is logged append-only in [`done.md`](done.md). Deferred scope liv
 | Phase | Status | Refined | Done | Progress | % | 🔄 WIP | ◻ TODO |
 |-------|--------|---------|------|----------|---|--------|--------|
 | [36 · Faster, lighter, same app](phases/phase-36-performance-diet.md) | 🔄 WIP | x1 | 0/63 | `░░░░░░░░░░` | 0% | A D E F | B C G H |
-| [35 · FAB Mission Control](phases/phase-35-fab-mission-control.md) | 🔄 WIP | — | 0/40 | `░░░░░░░░░░` | 0% | A B C D E | — |
+| [35 · FAB Mission Control](phases/phase-35-fab-mission-control.md) | 🔄 WIP | — | 36/40 | `█████████░` | 90% | — | — |
 | [34 · Agent Councils](phases/phase-34-agent-councils.md) | ✅ DONE | — | 34/34 | `██████████` | 100% | — | — |
 | [33 · Application Installation, CLI Tool & Desktop Integration](phases/phase-33-installable-app-and-cli-integration.md) | ✅ DONE | x1 | 44/44 | `██████████` | 100% | — | — |
 | [32 · The browser gets an engine, and the tabs to fill it](phases/phase-32-browser-engine-and-tabs.md) | ✅ DONE | — | 99/99 | `██████████` | 100% | — | — |
@@ -103,18 +103,23 @@ run-record schemas); B kills the triplicated prompt truth by unifying the FAB wi
 composer + Start/Stop/glow; E the mission-control layer (FAB dots, waiting-toasts, capped run
 history à la `councils-runs-store`). Claude-only this phase; Stop = sleep, transcript kept.*
 
-- ◻ **A** — Shared contracts: `LoopDefinition`/`LoopRunRecord` schemas, `composeLoopPrompt`,
-  `surface` on `TerminalSessionSchema`, `mstudio:loopRuns:*` channels.
-- ◻ **B** — Registry unification: `DEFAULT_LOOPS` replaces the FAB's hard-coded prompts and
-  `DEFAULT_AGENT_SKILLS`; Settings → Agent edits prompts + modifier defaults.
-- ◻ **C** — Session hosting: `surface: 'fab'` sessions filtered out of the main
-  housing/session-list, `startAgent` returns the session id (stale-closure bug gone), lazy
-  create-on-Start, `TerminalView` layout prop, asleep rehydration into tabs.
-- ◻ **D** — Composer + Start/Stop: modifier checkboxes + extras field, prompt composition on
-  Start, Stop = sleep with transcript, `.loop-run-glow` pulse keyed to agent activity with
-  reduced-motion opt-out.
-- ◻ **E** — Mission control: FAB glow + per-loop dots (amber on waiting), attention toasts,
-  `loop-runs-store.ts` capped history + per-tab history list, Playwright coverage.
+- ✅ **A** — Shared contracts: `LoopDefinition`/`LoopRunRecord` schemas, `composeLoopPrompt`,
+  `surface` on `TerminalSessionSchema` (zod-optional, so old `terminals.json` parses),
+  `mstudio:loop-runs:*` channels. (2026-09-01, local — no PR/no remote)
+- ✅ **B** — Registry unification: `DEFAULT_LOOPS` retires the FAB's hard-coded prompts by naming
+  an `agentCommandId` into `agentSkills` (wrapped, not migrated — one prompt store, loops as a
+  view over it); Settings ▸ Agent ▸ Loops edits modifier defaults. (2026-09-01)
+- ✅ **C** — Session hosting: `surface: 'fab'` sessions filtered out of the main
+  housing/session-list, `startAgent` returns the session (stale-closure bug gone by construction),
+  lazy create-on-Start, `TerminalView` `layoutClassName` prop, asleep rehydration into tabs.
+  (2026-09-01)
+- ✅ **D** — Composer + Start/Stop: modifier checkboxes + extras field collapsing to a chip strip,
+  prompt composition on Start, Stop = interrupt-then-sleep with the transcript kept,
+  `.loop-run-glow` in three states keyed to agent activity, each with a reduced-motion opt-out.
+  (2026-09-01)
+- ✅ **E** — Mission control: FAB glow + per-loop dots (amber on waiting), an actionable waiting
+  notice, `loop-runs-store.ts` capped history whose ENDS are owned by main (finalised off the
+  pty's own exit) + per-tab history list, `fab-loops.spec.ts`. (2026-09-01)
 
 ### [Phase 34 — Agent Councils](phases/phase-34-agent-councils.md)
 

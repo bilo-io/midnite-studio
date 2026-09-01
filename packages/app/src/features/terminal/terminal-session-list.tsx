@@ -12,6 +12,7 @@ import { Spinner } from '../../components/skeleton';
 import { useUiStore } from '../../store/ui-store';
 import {
   isAgentRow,
+  onMainSurface,
   resolveSessionAgentId,
   sessionLabel,
   sessionPhase,
@@ -35,7 +36,8 @@ export function TerminalSessionList({
   width: number;
 }) {
   const dialogs = useDialogs();
-  const sessions = useTerminalStore((s) => s.sessions);
+  // Main-surface sessions only — a FAB loop's session (Phase 35) never lists here.
+  const sessions = useTerminalStore((s) => s.sessions).filter(onMainSurface);
   const activeId = useTerminalStore((s) => s.activeId);
 
   /*
