@@ -74,12 +74,19 @@ G runs the profile-gated deferrals to an honest verdict; H locks in strict-ms bu
   `mstudio:perf:mark` IPC, `scripts/perf/` reports (startup, bundle, idle-CPU), Vite manifest,
   and the baseline table filled from real medians — which corrected two of the phase's own
   claims. (2026-09-01, local — no PR/no remote)
-- ✅ **B** — Main-process startup: async login-shell probe, `Promise.all`'d pre-window awaits
-  (migration first, `repos-restored` before `create-window` machine-checked), update/councils/
-  forge dynamic-imported, minified main bundle.
-- ✅ **C** — Renderer bundle: one Suspense + `DelayedFallback` (null ≤120ms → Spinner) over the
-  lazy views (Graph eager), xterm split + idle-preload, `@dnd-kit` split incl. graph wiring,
-  env-gated sourcemaps.
+- ✅ **B** — Main-process startup: the sync login-shell probe (a median 284ms of blocked main
+  thread) is async and off the boot path; the three `whenReady` chains run under one
+  `Promise.allSettled` with migration first and `repos-restored` before `create-window`,
+  machine-checked; main/preload/broker minified with `keepNames`. **when-ready 322 → 190ms,
+  ready-to-show 683 → 570ms.** The three handler-module deferrals were *acquitted* — a new
+  `modules-loaded` mark shows the noise on identical code is wider than the 10ms threshold.
+  (2026-09-01, local — no PR/no remote)
+- ✅ **C** — Renderer bundle: one Suspense + `DelayedFallback` (null ≤120ms → Spinner) *outside*
+  the keyed view div, thirteen lazy views (Graph, EmptyWorkspace, Placeholder, ScreensaverHost and
+  BrowserPane eager), xterm split behind one shared module + idle-preload, `CommitMessage` split
+  to get the markdown pipeline out, env-gated sourcemaps. **Entry chunk 2 481.3 → 1 109.4 KB
+  (−55%).** `@dnd-kit` *acquitted* at 59.9 KB behind four eager hook paths; `manualChunks` skipped
+  (no vendor duplication). (2026-09-01, local — no PR/no remote)
 - ✅ **D** — One icon family: 54 `lucide-react` files → `react-icons/lu` by direct rename,
   `strokeWidth` parity proved at code level, dep removed, eslint guard, convention files
   updated. −17.8 KB entry chunk; the claimed 40 MB footprint win does not exist (`@bilo-io/ui`
@@ -92,11 +99,19 @@ G runs the profile-gated deferrals to an honest verdict; H locks in strict-ms bu
 - ✅ **F** — Memory caps: 10k true-LRU + per-key notify in `line-highlight.ts`,
   scrollback-ownership audit with bounds tests, unbounded-Map sweep table in the phase doc.
   Landed 2026-09-01; the heap/1-hour-RSS numbers stay ◐ PARTIAL (DevTools-only).
-- ◐ **G** — Profile-gated claims: edge culling (>30% frame time), broker frame batching
-  (16ms coalesce if indicted), `ps`-probe cost — land or acquit, with written thresholds.
-- ✅ **H** — Perf budgets: `moon run app:perf` (playwright.perf.config), strict-ms budgets at
-  2.5× median in `budgets.json`, entry-chunk absence assertions, startup budget via
-  `_electron.launch`.
+- ◐ **G** — Profile-gated claims, taken to numbers. **Broker: INDICTED** — 96.8% of a core for
+  7.6 MB/s under `yes`, half of it `appendScrollback` copying the whole retained buffer per chunk;
+  16ms per-pty coalescing took it to **1.16% of a core per MB/s, 11× less CPU per byte**, RSS
+  227 → 168 MB. **`ps` probe: INDICTED** at 4.08% of a core; `QUIET_MS` 750 → 1500 halves it.
+  **Two gates open for a human:** graph edge culling (needs a DevTools frame-time capture; the
+  50k-commit fixture generator landed) and an episodic renderer-32%/GPU-55% animation in a
+  *focused* idle window that Theme E's measurement turned up. (2026-09-01, local)
+- ✅ **H** — Perf budgets: `moon run app:perf` (playwright.perf.config, outside the default gate,
+  `retries: 0`), one budget source in `budgets.json` — 2.5× median for milliseconds, 1.13× for
+  bytes, because a byte count does not flake and 2.5× would have permitted undoing the phase.
+  Entry-chunk **absence** assertions are the real legacy; startup budget launches through
+  `scripts/perf/electron-run.mjs`, not `_electron.launch`, so it asserts the same number the
+  report prints. **8 passed.** (2026-09-01, local — no PR/no remote)
 
 ### [Phase 35 — FAB Mission Control](phases/phase-35-fab-mission-control.md)
 
