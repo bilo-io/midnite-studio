@@ -67,15 +67,23 @@ export class LaneLayoutSession {
     const lane = primary ?? registry.open(commit.sha);
     const colorIdx = registry.get(lane)?.colorIdx ?? colorForSha(commit.sha);
 
-    const edges: GraphEdge[] = [];
+    // Bucketed by type and built in the order a final sort would produce, so
+    // a row's edges come out already ordered without paying for one — the
+    // dominant cost once a row has hundreds of pass-through lanes (deferred:
+    // the O(lanes) edge count itself, see the class doc above).
+    const straightEdges: GraphEdge[] = [];
+    const branchEdges: GraphEdge[] = [];
+    const mergeEdges: GraphEdge[] = [];
     // Freeing is deferred to the end of the row: releasing a slot mid-row lets
     // the same row's merge allocate it, and the closing line then meets the new
     // line at the node, reading as one continuous branch when they're unrelated.
     const toClose: number[] = [];
 
-    // Converging lanes end at the node.
+    // Converging lanes end at the node. `converging` is ascending (it's
+    // `arriving` with its smallest element removed), so these already land in
+    // their final order.
     for (const index of converging) {
-      edges.push({
+      branchEdges.push({
         fromLane: index,
         toLane: lane,
         type: 'branch',
@@ -95,18 +103,28 @@ export class LaneLayoutSession {
       toClose.push(lane);
     }
 
-    // The commit's own lane: which halves of the row does it occupy?
+    // The commit's own lane: which halves of the row does it occupy? `lane`
+    // is `primary`, the smallest index in `arriving`, so a branch-type own
+    // edge sorts ahead of every `converging` edge above it — it goes at the
+    // front rather than appended after them. A straight-type own edge is
+    // placed by the pass-through loop below instead, at the point it reaches
+    // this lane's index, since pass-through lanes on either side of it may
+    // sort before or after.
     const arrived = primary !== undefined;
+    let straightOwnEdge: GraphEdge | null = null;
     if (arrived && continues) {
-      edges.push({ fromLane: lane, toLane: lane, type: 'straight', colorIdx });
+      straightOwnEdge = { fromLane: lane, toLane: lane, type: 'straight', colorIdx };
     } else if (arrived) {
-      edges.push({ fromLane: lane, toLane: lane, type: 'branch', colorIdx });
+      branchEdges.unshift({ fromLane: lane, toLane: lane, type: 'branch', colorIdx });
     } else if (continues) {
-      edges.push({ fromLane: lane, toLane: lane, type: 'merge', colorIdx });
+      mergeEdges.push({ fromLane: lane, toLane: lane, type: 'merge', colorIdx });
     }
     // Neither: a standalone commit with no children and no parents. Node only.
 
-    // 4 — merge edges to the remaining parents.
+    // 4 — merge edges to the remaining parents. Every one shares `fromLane`
+    // with the own-lane merge edge above (both are `lane`), so this group —
+    // bounded by parent count, never by lane count — is the only one that
+    // still needs an actual sort.
     const seen = new Set<string>(firstParent === undefined ? [] : [firstParent]);
     for (const parent of otherParents) {
       // An octopus merge listing the same parent twice would otherwise open two
@@ -117,24 +135,30 @@ export class LaneLayoutSession {
       const existing = registry.findExpecting(parent);
       const target = existing[0] ?? registry.open(parent);
 
-      edges.push({
+      mergeEdges.push({
         fromLane: lane,
         toLane: target,
         type: 'merge',
         colorIdx: registry.get(target)?.colorIdx ?? colorForSha(parent),
       });
     }
+    if (mergeEdges.length > 1) mergeEdges.sort(compareEdges);
 
     for (const index of toClose) registry.close(index);
     registry.trim();
 
-    // 5 — lanes this commit never touched, drawn straight through.
+    // 5 — lanes this commit never touched, drawn straight through. `before`
+    // is iterated ascending, so this is where the deferred straight-type own
+    // edge (if any) is spliced in, right when the loop reaches this lane's
+    // own index.
     const after = registry.snapshot();
     for (const index of before) {
-      if (index === lane) continue;
+      if (index === lane) {
+        if (straightOwnEdge) straightEdges.push(straightOwnEdge);
+        continue;
+      }
       if (!after.has(index)) continue; // converged and closed above
-      if (edges.some((e) => e.type === 'straight' && e.fromLane === index)) continue;
-      edges.push({
+      straightEdges.push({
         fromLane: index,
         toLane: index,
         type: 'straight',
@@ -147,10 +171,7 @@ export class LaneLayoutSession {
       commit,
       lane,
       colorIdx,
-      // Sorted so the renderer draws in a deterministic order — otherwise two
-      // runs can paint overlapping edges in a different z-order and snapshot
-      // tests flap.
-      edges: edges.sort(compareEdges),
+      edges: straightEdges.concat(branchEdges, mergeEdges),
       laneCount: Math.max(widthBefore, registry.width()),
     };
 
