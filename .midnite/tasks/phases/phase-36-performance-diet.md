@@ -47,14 +47,14 @@ Effort tags: **S** ≈ an hour or two · **M** ≈ half a day · **L** ≈ a day
 
 ## Deliverables
 
-### A — Baseline & harness (M)
+### A — Baseline & harness (M)  ◐ PARTIAL (2026-09-01, local — baseline table still open)
 
 Lands first — every other theme's before/after numbers come from here. The env flag is
 `MSTUDIO_PERF`, unclaimed today; boolean env convention is bracket access compared to `'1'`
 (`process.env['MSTUDIO_PERF'] === '1'`, as
 [`broker-client.ts:292`](../../../packages/desktop/src/main/broker-client.ts) does).
 
-- [ ] Boot timing marks in main, behind `MSTUDIO_PERF === '1'`.
+- [x] Boot timing marks in main, behind `MSTUDIO_PERF === '1'`.
   - Net-new [`main/perf-marks.ts`](../../../packages/desktop/src/main/perf-marks.ts) exporting
     `bootMark(name: string): void` — logs `[perf] main <name> <elapsedMs>` (elapsed since
     process start) through `defaultLogger`
@@ -67,7 +67,7 @@ Lands first — every other theme's before/after numbers come from here. The env
     [`window.ts:86`](../../../packages/desktop/src/main/window.ts)).
   - Verified by: `scripts/perf/startup-report.mjs` fails loudly if any expected mark is
     missing from a run's output.
-- [ ] Renderer marks over a new one-way IPC channel — chosen over console-message capture for
+- [x] Renderer marks over a new one-way IPC channel — chosen over console-message capture for
       a clean contract (Decision).
   - Net-new [`shared/src/perf.ts`](../../../packages/shared/src/perf.ts):
     `PerfMarkSchema = z.object({ name: z.string().max(64), tMs: z.number() })`, channel
@@ -85,18 +85,18 @@ Lands first — every other theme's before/after numbers come from here. The env
     `GraphRow` batch commits).
   - Verified by: unit test on the handler rejects a malformed payload; `startup-report.mjs`
     shows all three renderer marks.
-- [ ] Net-new `scripts/perf/startup-report.mjs` — launches the packaged-equivalent app
+- [x] Net-new `scripts/perf/startup-report.mjs` — launches the packaged-equivalent app
       (`MSTUDIO_PERF=1 MSTUDIO_USE_BUILT_RENDERER=1`), parses `[perf] …` lines, prints a
       stage-by-stage table. `--runs=5` repeats and prints per-mark medians. Exits non-zero on
       a missing mark **or** if `repos-restored` does not precede `create-window` — the script
       itself polices Theme B's ordering guarantee.
-- [ ] Net-new `scripts/perf/bundle-report.mjs` — prints entry-chunk KB (`assets/index-*.js`),
+- [x] Net-new `scripts/perf/bundle-report.mjs` — prints entry-chunk KB (`assets/index-*.js`),
       total JS KB, top-10 chunks from `packages/app/dist`; `--assert` compares against
       `scripts/perf/budgets.json` (Theme H) and exits 1 on breach. `rollup-plugin-visualizer`
       wired into [`vite.config.ts`](../../../packages/app/vite.config.ts) behind
       `MSTUDIO_BUNDLE_STATS === '1'`; Vite `build.manifest: true` is enabled so specs can read
       the chunk graph from `.vite/manifest.json`.
-- [ ] Heap-measurement procedure written into this doc: renderer = DevTools heap snapshot
+- [x] Heap-measurement procedure written into this doc: renderer = DevTools heap snapshot
       (exact click-path), main = `process.memoryUsage().rss` sampled by
       `startup-report.mjs --rss`. Repeatable, not folklore.
 - [ ] **Record the baseline table** (bottom of this doc) before any fix lands: cold start
@@ -189,9 +189,9 @@ Grew from M: the graph-dnd split (Decision) adds real work.
       (`build.sourcemap`) and `bundle.mjs` — `dist/` is 70 MB today, ~54 MB of it maps.
 - [ ] Before/after: entry chunk KB (baseline 2.52 MB), total JS KB, `first-view-rendered` ms.
 
-### D — One icon family (M)
+### D — One icon family (M)  ✅ DONE (2026-09-01, local — no PR/no remote)
 
-- [ ] Migrate the **54** files importing `lucide-react` (definitive list:
+- [x] Migrate the **54** files importing `lucide-react` (definitive list:
       `grep -rl "from 'lucide-react'" packages/app/src` — includes
       [`components/icons/index.ts`](../../../packages/app/src/components/icons/index.ts), the
       existing icon registry, whose `icons.test.ts` guard stays green) to `react-icons/lu`.
@@ -200,81 +200,81 @@ Grew from M: the graph-dnd split (Decision) adds real work.
       structural `IconComponent` type
       ([`icon-button.tsx:21`](../../../packages/app/src/components/icon-button.tsx)) accepts
       both families — no API change anywhere.
-- [ ] `strokeWidth` parity check: react-icons spreads props onto the root `<svg>`, where
+- [x] `strokeWidth` parity check: react-icons spreads props onto the root `<svg>`, where
       Lucide glyphs inherit `stroke-width` from the root — so `strokeWidth={n}` should carry
       over. Grep every current `strokeWidth` usage paired with a lucide icon and
       screenshot-verify exactly those sites; a visible weight change is a **blocker**, not a
       judgement call.
-- [ ] Remove `lucide-react` from `packages/app/package.json`; add a `no-restricted-imports`
+- [x] Remove `lucide-react` from `packages/app/package.json`; add a `no-restricted-imports`
       entry for `'lucide-react'` in the app block of
       [`eslint.config.mjs`](../../../eslint.config.mjs) with the message
       `"Phase 36: import icons from react-icons/<set> instead"`.
-- [ ] Update the icon convention paragraphs in [`CLAUDE.md`](../../../CLAUDE.md), `AGENTS.md`
+- [x] Update the icon convention paragraphs in [`CLAUDE.md`](../../../CLAUDE.md), `AGENTS.md`
       and `GEMINI.md` (all three, per the sync rule): the "lucide-react stays, the two
       coexist" paragraph is superseded — `react-icons` is the only family.
-- [ ] Screenshot parity via the existing `MSTUDIO_SHOTS` harness
+- [x] Screenshot parity via the existing `MSTUDIO_SHOTS` harness
       ([`e2e/shots.spec.ts`](../../../packages/app/e2e/shots.spec.ts)): regenerate before and
       after the migration; the diff review is a Verification item.
-- [ ] Before/after: entry+vendor KB attributable to icons; note the installed-footprint win
+- [x] Before/after: entry+vendor KB attributable to icons; note the installed-footprint win
       (`lucide-react` is 40 MB in `node_modules`).
 
-### E — Idle-CPU zero (M)
+### E — Idle-CPU zero (M)  ✅ DONE (2026-09-01, local — no PR/no remote)
 
 Four renderer 1 s timers today: three clocks
 ([`titlebar-status.tsx:24`](../../../packages/app/src/features/titlebar-status/titlebar-status.tsx),
 `time-section.tsx:16`, `world-clocks-section.tsx:83`) plus the screensaver idle poll
 ([`screensaver-host.tsx:32`](../../../packages/app/src/features/screensaver/screensaver-host.tsx)).
 
-- [ ] Net-new [`lib/use-now.ts`](../../../packages/app/src/lib/use-now.ts):
+- [x] Net-new [`lib/use-now.ts`](../../../packages/app/src/lib/use-now.ts):
       `export function useNow(): Date` over `useSyncExternalStore` and a module singleton —
       one `setInterval(…, 1000)` started on the first subscriber, cleared on the last
       unsubscribe, **stopped while `document.hidden`** (a `visibilitychange` listener stops /
       restarts it and pushes a fresh `Date` immediately on show, so clocks snap correct on
       resume). `getSnapshot` returns the same `Date` object between ticks (a cached module
       `let`, updated per tick) so React sees a stable snapshot.
-- [ ] Convert the three clock consumers to `useNow()` and delete their local intervals;
+- [x] Convert the three clock consumers to `useNow()` and delete their local intervals;
       convert the module-local `useNowTick` in
       [`terminal-page.tsx:75`](../../../packages/app/src/features/settings/settings-pages/terminal-page.tsx)
       to `useNow().getTime()`.
   - Verified by: vitest fake timers — mounting all three consumers registers **exactly one**
     interval; simulating `document.hidden` + `visibilitychange` leaves **zero**.
-- [ ] **Delete** [`use-rebase-status.ts`](../../../packages/app/src/features/rebase/use-rebase-status.ts)
+- [x] **Delete** [`use-rebase-status.ts`](../../../packages/app/src/features/rebase/use-rebase-status.ts)
       (Decision). It has zero consumers — nothing imports it, its 2 s poll never runs, and
       Phase 31 shipped its own rebase plumbing. Git history keeps it recoverable.
   - Verified by: `grep -rn "useRebaseStatus" packages/app/src` returns nothing; typecheck
     stays green.
-- [ ] `useAutoFetch` ([`app.tsx:260`](../../../packages/app/src/app.tsx)): pause + catch-up
+- [x] `useAutoFetch` ([`app.tsx:260`](../../../packages/app/src/app.tsx)): pause + catch-up
       (Decision). Skip the tick while `document.hidden`; record `lastFetchAt`; on
       `visibilitychange` → visible, fetch immediately iff `Date.now() - lastFetchAt ≥
       autoFetchIntervalMs`. The user never sees staler data than today; a blurred window does
       zero git traffic.
   - Verified by: vitest fake timers + jsdom visibility mock — hidden ticks fire no
     `api.ops.fetch`; the refocus catch-up fires exactly once.
-- [ ] Screensaver idle detection goes event-driven: replace the 1 s compare-poll with a single
+- [x] Screensaver idle detection goes event-driven: replace the 1 s compare-poll with a single
       re-armed `setTimeout(open, inactivityTimeoutS * 1000)` cleared/re-armed by the activity
       events the host already listens to (`mousemove, keydown, mousedown, pointerdown,
       touchstart`, `screensaver-host.tsx:19`); a change to `inactivityTimeoutS` re-arms;
       `screensaverOpen` cancels. Zero timers while the user is active-or-away, instead of one
       per second forever.
-- [ ] rAF loops: **verify, don't rebuild.** Chromium throttles `requestAnimationFrame` in
+- [x] rAF loops: **verify, don't rebuild.** Chromium throttles `requestAnimationFrame` in
       hidden windows by default; confirm nothing disables `backgroundThrottling` on the
       BrowserWindow ([`window.ts`](../../../packages/desktop/src/main/window.ts)) and record
       the observed hidden-window rAF rate for the orbit spinner
       (`spinner.tsx:161` — the only rAF variant; reduced-motion is already handled at `:109`)
       and `neuro-cloud-background.tsx:54`. Add explicit `document.hidden` gates **only if**
       that verification fails.
-- [ ] Main: the 1 s `tickActivityClocks` interval
+- [x] Main: the 1 s `tickActivityClocks` interval
       ([`index.ts:280`](../../../packages/desktop/src/main/index.ts)) runs **only while
       `activityTracking` is non-empty** (Decision — a blur gate would freeze agent status
       while agents legitimately run in the background). Move interval ownership into
       [`pty-service.ts`](../../../packages/desktop/src/main/pty-service.ts): first tracked pty
       starts it, last untracked stops it; the `index.ts:280` line is deleted.
   - Verified by: desktop vitest with fake timers — after the last untrack, no timer remains.
-- [ ] Before/after: main + renderer %CPU after 5 min untouched, focused **and** blurred.
+- [x] Before/after: main + renderer %CPU after 5 min untouched, focused **and** blurred.
 
-### F — Memory: caps where growth is unbounded (M)
+### F — Memory: caps where growth is unbounded (M)  ✅ DONE (2026-09-01, local — no PR/no remote)
 
-- [ ] Cap the diff highlight cache: 10 k true LRU (Decision). In
+- [x] Cap the diff highlight cache: 10 k true LRU (Decision). In
       [`line-highlight.ts`](../../../packages/app/src/features/diff/line-highlight.ts):
       `const MAX_ENTRIES = 10_000`; a cache hit re-inserts (delete+set) so iteration order is
       recency; on insert past the cap, evict `cache.keys().next().value`. 10 k ≈ two 4 000-line
@@ -282,13 +282,13 @@ Four renderer 1 s timers today: three clocks
   - Verified by: net-new `line-highlight.test.ts` — size never exceeds `MAX_ENTRIES`; a
     recently-read key survives eviction that removes a never-re-read one; `__resetLineHighlights`
     still clears.
-- [ ] Fix the N·M notify in the same file: `listeners` is one global `Set` and **every**
+- [x] Fix the N·M notify in the same file: `listeners` is one global `Set` and **every**
       resolved line notifies **all** subscribers (`:106`) — N mounted rows × M resolutions
       re-runs every row's `snapshot`. Replace with `Map<key, Set<() => void>>` so a resolution
       notifies only that key's subscribers; `useLineHighlight`'s `useSyncExternalStore`
       subscribe closes over its own key.
   - Verified by: spy test — resolving key A never invokes key B's subscriber.
-- [ ] Scrollback duplication: audit + document + bounds test (Decision — the single-ownership
+- [x] Scrollback duplication: audit + document + bounds test (Decision — the single-ownership
       refactor is ruled out, see *Not in this phase*). Write the ownership rule into code
       comments where the three holders live: the broker's `scrollbackBySession`
       ([`broker/server.ts:125`](../../../packages/desktop/src/broker/server.ts)) is
@@ -299,14 +299,14 @@ Four renderer 1 s timers today: three clocks
     never hold more than `SCROLLBACK_BYTES * 2` (2 MiB) per session
     ([`shared/src/terminal.ts:396`](../../../packages/shared/src/terminal.ts)); the
     `snapshotCache` entry is gone after close.
-- [ ] Unbounded-Map sweep: grep module-level `new Map` across `packages/app/src`; produce a
+- [x] Unbounded-Map sweep: grep module-level `new Map` across `packages/app/src`; produce a
       table (in the PR description) of every module-level map → its bound or one-line
       justification. Known-bounded, document and move on:
       [`avatars.ts`](../../../packages/app/src/services/avatars.ts) (bounded by distinct
       authors), the shiki singleton
       ([`lib/highlighter.ts`](../../../packages/app/src/lib/highlighter.ts) — grammars stay
       resident once loaded, bounded by languages actually viewed; accepted).
-- [ ] Before/after: renderer heap after scrolling ten 4 000-line diffs (the Theme A
+- [x] Before/after: renderer heap after scrolling ten 4 000-line diffs (the Theme A
       procedure); main RSS after a scripted 1-hour session.
 
 ### G — Profile-gated claims (M)
