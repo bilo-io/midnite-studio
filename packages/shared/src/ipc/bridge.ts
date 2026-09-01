@@ -437,6 +437,35 @@ export type MidniteStudioBridge = {
   };
 
   /**
+   * Agent councils (Phase 34) — global, not per-repo. A member's or the
+   * synthesizer's live output is read through the existing `pty.onData` /
+   * `pty.onExit` / `pty.snapshot` above, filtered by the `ptyId` a running
+   * `run.get` answer carries — there is no separate council event channel.
+   */
+  council: {
+    list: () => Promise<z.infer<typeof S.CouncilListResponse>>;
+    get: (req: In<typeof S.CouncilGetRequest>) => Promise<z.infer<typeof S.CouncilGetResponse>>;
+    create: (
+      req: In<typeof S.CouncilCreateRequest>,
+    ) => Promise<z.infer<typeof S.CouncilCreateResponse>>;
+    updateMembers: (
+      req: In<typeof S.CouncilUpdateMembersRequest>,
+    ) => Promise<z.infer<typeof S.CouncilUpdateMembersResponse>>;
+    remove: (req: In<typeof S.CouncilRemoveRequest>) => Promise<GitOpResult>;
+    run: {
+      start: (
+        req: In<typeof S.CouncilRunStartRequest>,
+      ) => Promise<z.infer<typeof S.CouncilRunStartResponse>>;
+      get: (req: In<typeof S.CouncilRunGetRequest>) => Promise<z.infer<typeof S.CouncilRunGetResponse>>;
+      list: (
+        req: In<typeof S.CouncilRunListRequest>,
+      ) => Promise<z.infer<typeof S.CouncilRunListResponse>>;
+      skipMember: (req: In<typeof S.CouncilRunSkipMemberRequest>) => Promise<GitOpResult>;
+      retryMember: (req: In<typeof S.CouncilRunRetryMemberRequest>) => Promise<GitOpResult>;
+    };
+  };
+
+  /**
    * Filesystem browsing (Phase 16) plus writes (Phase 24). The four write
    * methods are repo scope only — `claude-home` is not expressible in their
    * request types — and every one resolves to a `GitOpResult`, never rejects.
