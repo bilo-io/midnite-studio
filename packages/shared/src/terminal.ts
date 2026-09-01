@@ -27,6 +27,13 @@ export type TerminalSessionKind = z.infer<typeof TerminalSessionKindSchema>;
  * human reads off the screen. Crosses the wire (`mstudio:pty:activity`), which is
  * why it lives here rather than in the renderer's own `terminal-store.ts` —
  * that module re-exports this type so no renderer import has to change.
+ *
+ * The three rungs, and what each earns in the session list:
+ * - `thinking` — the agent is executing a turn (spinner tell seen). Spinner.
+ * - `waiting` — the agent has put a QUESTION to the user — an option sheet, a
+ *   permission prompt — and is blocked on their answer. Ellipsis.
+ * - `idle` — at its input prompt, neither executing nor asking. Blinking
+ *   caret; the default state of a live agent.
  */
 export const SessionActivitySchema = z.enum(['thinking', 'waiting', 'idle']);
 export type SessionActivity = z.infer<typeof SessionActivitySchema>;
@@ -132,6 +139,14 @@ export const AgentDefinitionSchema = z.object({
       thinking: RegexSource,
       /** Matches the agent's frame-ending footer — the mode line, a shortcut hint. */
       frameEnd: RegexSource,
+      /**
+       * Matches only while the agent is asking the user something — an option
+       * sheet's selection caret, a confirm hint. Optional because it is a
+       * refinement: an agent without one still gets thinking/idle, it just
+       * never reports `waiting` — a frame that is neither generating nor
+       * asking reads as idle, the honest default.
+       */
+      awaitingInput: RegexSource.optional(),
     })
     .optional(),
 });
@@ -188,6 +203,15 @@ export const BUILTIN_AGENTS: readonly AgentDefinition[] = [
       thinking:
         '[\\u2722\\u2733\\u2736\\u273B\\u273D][^\\n]{0,200}\\u2026|\\u2193[^\\n]{0,40}tokens|esc to interrupt',
       frameEnd: 'shift\\+tab to cycle|auto mode on|\\? for shortcuts',
+      /*
+        The option-sheet selection caret: `❯ 1. Yes` — a `❯` followed by a
+        numbered choice. Every sheet Claude Code blocks on (AskUserQuestion,
+        permission prompts, plan approval) draws at least one such row; the
+        input box's own caret never carries the number, and transcript prose
+        practically never reproduces the TUI-drawn `❯`. "enter to confirm" is
+        the sheets' footer hint, a second independent tell for the same state.
+      */
+      awaitingInput: '\\u276F\\s{1,3}\\d{1,2}[.)]\\s|enter to confirm',
     },
   },
   {

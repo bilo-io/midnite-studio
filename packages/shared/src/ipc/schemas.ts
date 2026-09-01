@@ -1002,6 +1002,15 @@ export const RestoredTerminalSession = z.object({
       pid: z.number().int().positive(),
       cols: z.number().int().positive(),
       rows: z.number().int().positive(),
+      /**
+       * The detector's current guess for this pty, so `hydrate()` can seed the
+       * session list. `pty:activity` events fire on a CHANGE only — a renderer
+       * that reloads mid-turn would otherwise show "unknown" until the agent's
+       * next rung change, which for a long turn is minutes of a wrong glyph.
+       * `null` means the detector has nothing to say (no marker set, or none
+       * tracked yet).
+       */
+      activity: SessionActivitySchema.nullable().optional(),
     })
     .nullable(),
   /**

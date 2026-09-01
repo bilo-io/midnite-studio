@@ -22,6 +22,9 @@ const CLAUDE_MARKERS: CompiledMarkers = compileMarkers(claude.activity);
 const FOOTER = '⏵⏵ auto mode on (shift+tab to cycle) · ← for agents';
 /** The row above it while a turn is in flight. */
 const SPINNER = '✳ Kneading… (1m 38s · ↓ 4.5k tokens)';
+/** A permission prompt / AskUserQuestion sheet — the one state that blocks on the user. */
+const OPTION_SHEET =
+  'Do you want to make this edit to terminal.ts?\n❯ 1. Yes\n  2. Yes, allow all edits during this session\n  3. No, and tell Claude what to do differently';
 
 describe('detectActivity', () => {
   it('reads the spinner row as thinking', () => {
@@ -38,16 +41,33 @@ describe('detectActivity', () => {
     ).toBe('thinking');
   });
 
-  it('reads a frame with no spinner in it as waiting', () => {
-    expect(detectActivity(createActivityState(), `❯ \n${FOOTER}`, CLAUDE_MARKERS)).toBe(
-      'waiting',
-    );
+  it('reads a bare-prompt frame — no spinner, no question — as idle', () => {
+    expect(detectActivity(createActivityState(), `❯ \n${FOOTER}`, CLAUDE_MARKERS)).toBe('idle');
   });
 
   it('reads the default mode’s shortcut hint as a frame end too', () => {
     expect(
       detectActivity(createActivityState(), '❯ \n  ? for shortcuts', CLAUDE_MARKERS),
+    ).toBe('idle');
+  });
+
+  it('reads an option sheet as waiting, even mid-frame', () => {
+    // A sheet REPLACES the input box, so its frame often never reaches a
+    // footer — the caret row alone has to be enough.
+    expect(
+      detectActivity(createActivityState(), OPTION_SHEET, CLAUDE_MARKERS),
     ).toBe('waiting');
+  });
+
+  it('reads a completed frame carrying an option sheet as waiting', () => {
+    expect(
+      detectActivity(createActivityState(), `${OPTION_SHEET}\n${FOOTER}`, CLAUDE_MARKERS),
+    ).toBe('waiting');
+  });
+
+  it('does not mistake the input box’s own caret for an option sheet', () => {
+    // `❯ ` with no numbered choice after it is the prompt, not a question.
+    expect(detectActivity(createActivityState(), `❯ \n${FOOTER}`, CLAUDE_MARKERS)).toBe('idle');
   });
 
   /*
@@ -68,10 +88,16 @@ describe('detectActivity', () => {
     expect(detectActivity(state, `\n❯ \n${FOOTER}`, CLAUDE_MARKERS)).toBe('thinking');
   });
 
-  it('drops to waiting on the first frame drawn without a spinner', () => {
+  it('drops to idle on the first frame drawn without a spinner', () => {
     const state = createActivityState();
     detectActivity(state, `${SPINNER}\n${FOOTER}`, CLAUDE_MARKERS);
-    expect(detectActivity(state, `❯ \n${FOOTER}`, CLAUDE_MARKERS)).toBe('waiting');
+    expect(detectActivity(state, `❯ \n${FOOTER}`, CLAUDE_MARKERS)).toBe('idle');
+  });
+
+  it('moves from thinking to waiting when the option sheet appears', () => {
+    const state = createActivityState();
+    detectActivity(state, `${SPINNER}\n${FOOTER}`, CLAUDE_MARKERS);
+    expect(detectActivity(state, OPTION_SHEET, CLAUDE_MARKERS)).toBe('waiting');
   });
 
   it('credits the newer frame when one chunk ends a frame and starts the next', () => {
@@ -119,64 +145,54 @@ describe('needsNoBoundaryWarning', () => {
 });
 
 describe('createActivityClock', () => {
-  it('decays thinking -> waiting -> idle on the documented schedule, and restarts on a fresh detection', () => {
+  it('decays an unrefreshed thinking to idle after 15s, and reports current()', () => {
     let now = 0;
     const changes: string[] = [];
     const clock = createActivityClock({ now: () => now, onChange: (a) => changes.push(a) });
 
+    expect(clock.current()).toBeNull();
     clock.saw('thinking');
     expect(changes).toEqual(['thinking']);
+    expect(clock.current()).toBe('thinking');
 
-    now = 9_000;
+    now = 14_000;
     clock.tick();
     expect(changes).toEqual(['thinking']);
 
-    now = 10_000;
+    now = 15_000;
     clock.tick();
-    expect(changes).toEqual(['thinking', 'waiting']);
-
-    now = 69_000;
-    clock.tick();
-    expect(changes).toEqual(['thinking', 'waiting']);
-
-    now = 70_000;
-    clock.tick();
-    expect(changes).toEqual(['thinking', 'waiting', 'idle']);
+    expect(changes).toEqual(['thinking', 'idle']);
+    expect(clock.current()).toBe('idle');
   });
 
-  it('restarts the ladder on any fresh detection', () => {
+  it('restarts the decay on any fresh detection', () => {
     let now = 0;
     const changes: string[] = [];
     const clock = createActivityClock({ now: () => now, onChange: (a) => changes.push(a) });
 
     clock.saw('thinking');
-    now = 9_500;
+    now = 14_500;
     clock.saw('thinking');
-    now = 9_500 + 9_000;
+    now = 14_500 + 14_000;
     clock.tick();
     expect(changes).toEqual(['thinking']);
   });
 
   /**
-   * A session whose very first real detection is 'waiting' (no 'thinking'
-   * before it, e.g. an agent already sitting at its prompt by the time the
-   * pane is revealed) must decay on its OWN 60s, not the 70s a thinking->
-   * waiting->idle climb would take — the two legs are independent, not a
-   * fixed total measured from whenever detection started.
+   * 'waiting' means a question is on screen, and a question left open for an
+   * hour is still a question — it must never quietly turn into an idle caret
+   * while an option sheet is sitting there. It clears on the repaint the
+   * answer causes, or with the process itself.
    */
-  it("decays a session that starts as 'waiting' to idle after 60s, not 70s", () => {
+  it('never decays waiting — an open question stays open', () => {
     let now = 0;
     const changes: string[] = [];
     const clock = createActivityClock({ now: () => now, onChange: (a) => changes.push(a) });
 
     clock.saw('waiting');
-    now = 59_000;
+    now = 3_600_000;
     clock.tick();
     expect(changes).toEqual(['waiting']);
-
-    now = 60_000;
-    clock.tick();
-    expect(changes).toEqual(['waiting', 'idle']);
   });
 
   it('never decays past idle, and never fires after dispose', () => {
@@ -192,6 +208,7 @@ describe('createActivityClock', () => {
     clock.dispose();
     clock.saw('thinking');
     expect(changes).toEqual(['idle']);
+    expect(clock.current()).toBeNull();
   });
 });
 
@@ -259,7 +276,9 @@ describe('createActivityDetector', () => {
  * width at which the `(1m 38s · ↓ 4.5k tokens)` parenthetical is
  * dropped entirely — the exact case that broke the old "esc to interrupt"-only
  * detector — and `claude-transcript.txt` is plain output that must say
- * nothing either way.
+ * nothing either way. `claude-prompt.txt` is the bare at-prompt frame (idle,
+ * the default), and `claude-option-sheet.txt` a permission prompt — the one
+ * frame that genuinely blocks on the user.
  */
 describe('activity fixtures', () => {
   const fixture = (name: string) =>
@@ -269,9 +288,12 @@ describe('activity fixtures', () => {
     expect(detectActivity(createActivityState(), fixture('claude-thinking.txt'), CLAUDE_MARKERS)).toBe(
       'thinking',
     );
-    expect(detectActivity(createActivityState(), fixture('claude-waiting.txt'), CLAUDE_MARKERS)).toBe(
-      'waiting',
+    expect(detectActivity(createActivityState(), fixture('claude-prompt.txt'), CLAUDE_MARKERS)).toBe(
+      'idle',
     );
+    expect(
+      detectActivity(createActivityState(), fixture('claude-option-sheet.txt'), CLAUDE_MARKERS),
+    ).toBe('waiting');
     expect(detectActivity(createActivityState(), fixture('claude-narrow.txt'), CLAUDE_MARKERS)).toBe(
       'thinking',
     );

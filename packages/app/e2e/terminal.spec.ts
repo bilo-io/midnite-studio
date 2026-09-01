@@ -396,6 +396,39 @@ test.describe('terminal panel', () => {
   });
 
   /**
+   * The regression that moved the subscription to `App`: main emits
+   * `pty:activity` on a CHANGE only, and the old per-TerminalView listener
+   * unmounted with the panel — so a rung change during a collapse was lost,
+   * and the reopened list drew the stale glyph until the agent happened to
+   * change rungs again.
+   */
+  test('a rung change while the panel is collapsed still reaches the list', async ({ page }) => {
+    await open(page);
+    await toggleTerminal(page);
+    await page.getByRole('button', { name: 'New terminal or agent' }).click();
+    await page.getByRole('menuitem', { name: 'New Terminal', exact: true }).click();
+    await expect(rows(page)).toHaveCount(2);
+    await expect.poll(async () => (await ptyCalls(page)).creates.length).toBe(2);
+
+    await emitAgentChanged(page, 'claude');
+    await emitActivity(page, 'thinking');
+    await expect(rows(page).first().locator('[data-activity]')).toHaveAttribute(
+      'data-activity',
+      'thinking',
+    );
+
+    await toggleTerminal(page);
+    await expect(panel(page)).toHaveCount(0);
+    await emitActivity(page, 'waiting');
+
+    await toggleTerminal(page);
+    await expect(rows(page).first().locator('[data-activity]')).toHaveAttribute(
+      'data-activity',
+      'waiting',
+    );
+  });
+
+  /**
    * The bug, precisely: the shell's reduced-motion reset pins `caret-blink`'s
    * held final frame (`opacity: 0`) and `dot-wave`'s (`opacity: 0.35`) instead
    * of removing the animation, so the idle caret rendered fully invisible and

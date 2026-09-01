@@ -50,8 +50,9 @@ export function sessionPhase(
  * no renderer import has to change.
  *
  * `undefined` means "live, and the detector has not spoken" — a fourth thing
- * to draw, distinct from `'idle'`. Nothing sets `'idle'` here directly; it
- * only ever arrives from main's decay clock.
+ * to draw, distinct from `'idle'`. `'idle'` is the at-prompt default (a frame
+ * that ended with no spinner and no open question), `'waiting'` means a
+ * question is actually on screen — an option sheet, a permission prompt.
  */
 export type { SessionActivity };
 
@@ -317,7 +318,9 @@ export const useTerminalStore = create<TerminalState>()((set, get) => ({
       }));
       const live = state.sessions.filter((open) => !restored.some((s) => s.id === open.id));
       const liveEntries = sessions.flatMap((e) =>
-        e.live ? [{ sessionId: e.session.id, ptyId: e.live.ptyId }] : [],
+        e.live
+          ? [{ sessionId: e.session.id, ptyId: e.live.ptyId, activity: e.live.activity ?? null }]
+          : [],
       );
       const legacyMap = Object.fromEntries(
         sessions.filter((e) => e.legacy).map((e) => [e.session.id, true]),
@@ -341,6 +344,25 @@ export const useTerminalStore = create<TerminalState>()((set, get) => ({
         ptyIds: {
           ...Object.fromEntries(liveEntries.map((e) => [e.sessionId, e.ptyId])),
           ...state.ptyIds,
+        },
+        /*
+          Seeded from main's snapshot, because `pty:activity` announces
+          CHANGES only: a renderer reloaded mid-turn would otherwise draw the
+          "unknown" mark until the agent's next rung change — minutes, for a
+          long turn. Anything this launch has already heard live wins over the
+          snapshot, same as `states` and `ptyIds` above.
+        */
+        activity: {
+          ...Object.fromEntries(
+            liveEntries.flatMap((e) => (e.activity ? [[e.sessionId, e.activity]] : [])),
+          ),
+          ...state.activity,
+        },
+        activityAt: {
+          ...Object.fromEntries(
+            liveEntries.flatMap((e) => (e.activity ? [[e.sessionId, Date.now()]] : [])),
+          ),
+          ...state.activityAt,
         },
         replay: Object.fromEntries(
           sessions

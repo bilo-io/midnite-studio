@@ -20,23 +20,30 @@ export const createActivityState = (): ActivityState => ({
   loggedNoBoundary: false,
 });
 
-export type CompiledMarkers = { thinking: RegExp; frameEnd: RegExp };
+export type CompiledMarkers = { thinking: RegExp; frameEnd: RegExp; awaitingInput?: RegExp };
 
 /**
  * Compile a roster entry's marker sources into the `RegExp`s `detectActivity`
  * actually runs.
  *
  * `frameEnd` needs the `g` flag for `matchAll` to walk every boundary in a
- * chunk; `thinking` deliberately does not carry one — a global flag on a
- * regex reused across `.test()` calls advances its own `lastIndex`, which
- * would make every other call on the same buffer silently skip matches.
- * `RegexSource`'s own compile check already ran at parse time, in
- * `AgentDefinitionSchema` — this only chooses the flags.
+ * chunk; `thinking` and `awaitingInput` deliberately do not carry one — a
+ * global flag on a regex reused across `.test()` calls advances its own
+ * `lastIndex`, which would make every other call on the same buffer silently
+ * skip matches. `RegexSource`'s own compile check already ran at parse time,
+ * in `AgentDefinitionSchema` — this only chooses the flags.
  */
-export function compileMarkers(source: { thinking: string; frameEnd: string }): CompiledMarkers {
+export function compileMarkers(source: {
+  thinking: string;
+  frameEnd: string;
+  awaitingInput?: string;
+}): CompiledMarkers {
   return {
     thinking: new RegExp(source.thinking, 'i'),
     frameEnd: new RegExp(source.frameEnd, 'gi'),
+    ...(source.awaitingInput === undefined
+      ? {}
+      : { awaitingInput: new RegExp(source.awaitingInput, 'i') }),
   };
 }
 
@@ -53,10 +60,14 @@ export function compileMarkers(source: { thinking: string; frameEnd: string }): 
  * flickers between the two for as long as the turn runs.
  *
  * So `state` carries the bytes since the last frame boundary, and the guess is
- * made over that instead: spinner seen since the last footer → thinking; a
- * footer reached with none → waiting. `undefined` means "no change" rather
- * than "unknown" — most chunks are transcript text that ends no frame and says
- * nothing either way, and the caller keeps its previous guess.
+ * made over that instead: spinner seen since the last footer → thinking; an
+ * option sheet's caret seen → waiting (the agent is blocked on the user); a
+ * footer reached with neither → idle, the ordinary at-prompt state. An option
+ * sheet REPLACES the input box, so its frame usually never reaches a footer —
+ * which is why `waiting` is read off the partial frame too, not only at a
+ * boundary. `undefined` means "no change" rather than "unknown" — most chunks
+ * are transcript text that ends no frame and says nothing either way, and the
+ * caller keeps its previous guess.
  */
 export function detectActivity(
   state: ActivityState,
@@ -87,9 +98,12 @@ export function detectActivity(
   // that has just been given something to do says so on the first repaint
   // rather than one frame later.
   if (markers.thinking.test(current)) return 'thinking';
+  if (markers.awaitingInput?.test(current)) return 'waiting';
   if (!framed) return undefined;
-  if (markers.thinking.test(buffer.slice(0, buffer.length - current.length))) return 'thinking';
-  return 'waiting';
+  const completed = buffer.slice(0, buffer.length - current.length);
+  if (markers.thinking.test(completed)) return 'thinking';
+  if (markers.awaitingInput?.test(completed)) return 'waiting';
+  return 'idle';
 }
 
 /**
@@ -104,29 +118,35 @@ export function needsNoBoundaryWarning(state: ActivityState): boolean {
   return true;
 }
 
-/** A guess that stands unanswered this long decays to the next rung down. */
-const THINKING_TO_WAITING_MS = 10_000;
-const WAITING_TO_IDLE_MS = 60_000;
+/** A `thinking` guess that stands unrefreshed this long decays to `idle`. */
+const THINKING_TO_IDLE_MS = 15_000;
 
 /**
- * A guess expires: `thinking` → 10s of silence → `waiting` → 60s more →
- * `idle`. Today's caller kept its last guess forever, so a killed agent or a
- * marker that stopped matching left a spinner turning until the session
- * closed.
+ * A `thinking` guess expires: 15s of silence → `idle`. An executing agent
+ * repaints its spinner at least once a second (the elapsed-time counter), so
+ * that much silence means the turn ended without a readable final frame — a
+ * killed process, or markers that stopped matching. Without the decay, that
+ * spinner turned until the session closed.
+ *
+ * `waiting` deliberately does NOT decay: it means a question is on screen —
+ * an option sheet, a permission prompt — and a question left open for an hour
+ * is still a question. It clears the honest way, on the repaint the answer
+ * causes; the process exiting drops the whole indicator anyway.
  *
  * One shared clock drives every tracked pty (`tick()` on a single 1s
- * interval) rather than a timer each. Each threshold is measured from when
- * the CURRENT rung was entered — whether by a real detection (`saw()`) or by
- * the previous decay step — not from the original detection: a session whose
- * very first guess is `'waiting'` (no `'thinking'` before it) still decays to
- * `'idle'` after 60s of its own silence, not 70s borrowed from the
- * thinking→waiting leg it never climbed. `onChange` fires only when the rung
- * actually changes.
+ * interval) rather than a timer each. `onChange` fires only when the rung
+ * actually changes; `current()` is the snapshot `terminal:list` embeds so a
+ * reloading renderer does not start blind — events fire on change only.
  */
 export function createActivityClock(opts: {
   now: () => number;
   onChange: (activity: SessionActivity) => void;
-}): { saw: (activity: SessionActivity) => void; tick: () => void; dispose: () => void } {
+}): {
+  saw: (activity: SessionActivity) => void;
+  tick: () => void;
+  current: () => SessionActivity | null;
+  dispose: () => void;
+} {
   let current: SessionActivity | null = null;
   let enteredAt = 0;
   let disposed = false;
@@ -149,16 +169,13 @@ export function createActivityClock(opts: {
       set(activity);
     },
     tick: () => {
-      if (disposed || current === null || current === 'idle') return;
-      const quiet = opts.now() - enteredAt;
-      if (current === 'thinking' && quiet >= THINKING_TO_WAITING_MS) {
-        enteredAt = opts.now();
-        set('waiting');
-      } else if (current === 'waiting' && quiet >= WAITING_TO_IDLE_MS) {
+      if (disposed || current !== 'thinking') return;
+      if (opts.now() - enteredAt >= THINKING_TO_IDLE_MS) {
         enteredAt = opts.now();
         set('idle');
       }
     },
+    current: () => (disposed ? null : current),
     dispose: () => {
       disposed = true;
     },

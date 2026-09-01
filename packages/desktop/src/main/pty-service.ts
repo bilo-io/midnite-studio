@@ -129,6 +129,16 @@ export function disposeActivity(ptyId: string): void {
 }
 
 /**
+ * The detector's current guess for a pty — `null` when it is not tracked or
+ * has said nothing yet. Read by `terminal:list` so `hydrate()` can seed the
+ * session list: `pty:activity` events fire on a change only, and a renderer
+ * that reloads mid-turn would otherwise draw "unknown" until the next change.
+ */
+export function activityFor(ptyId: string): SessionActivity | null {
+  return activityTracking.get(ptyId)?.clock.current() ?? null;
+}
+
+/**
  * Read one chunk of pty output for its activity guess. A no-op unless a
  * detector is installed and the pty is currently running an agent with a
  * marker set — an agent with none, or a plain shell, is left entirely alone

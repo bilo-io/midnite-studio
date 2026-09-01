@@ -86,23 +86,18 @@ export function useTerminalIpc(session: TerminalSession, onData: (bytes: Uint8Ar
       if (command && session.kind === 'shell') store.setAutoName(session.id, command);
     });
     /*
-      The activity guess itself, from main's single `ptyData` send site
-      (Theme G) — never computed here. `activity: null` is the detector's
-      explicit "nothing to say" (no marker set, or one disabled after
-      tripping its time budget); `setActivity`'s own `undefined` clears it
-      back to that same "not spoken" state the row draws as the unknown mark.
+      The activity guess is NOT subscribed here. This hook lives inside
+      `TerminalView`, and every `TerminalView` unmounts when the terminal
+      panel collapses — main emits `pty:activity` on a change only, so a rung
+      change during a collapse was simply lost, and the session list drew the
+      stale glyph until the NEXT change. `use-agent-activity.ts` holds the one
+      always-mounted subscription instead.
     */
-    const offActivity = api.pty.onActivity(({ ptyId: id, activity }) => {
-      if (ptyIdRef.current !== id) return;
-      useTerminalStore.getState().setActivity(session.id, activity ?? undefined);
-    });
-
     return () => {
       offData();
       offExit();
       offAgent();
       offCommand();
-      offActivity();
     };
   }, [session.id, session.kind]);
 
