@@ -2,6 +2,7 @@
 
 **Headlines:**
 
+- **[Phase 37 · A glow that knows which tab](phases/phase-37-fab-tab-glow.md)** (0% · 0/44) — Planned, not started. The FAB panel's rotating rainbow border grows a matching **inner glow**: a blurred conic layer masked to the rim so it falls off smoothly to nothing before the centre, breathing rather than static. The glow is **tab-reactive** — each of the four loops claims the 180° of ramp centred on its own hue (Medic→rose, Watchdog→amber, Automate→emerald, Innovate→blue, a mapping that works because the tab colours *are* the ramp order), and the far half is subtracted, with border and glow driven from one arc pair so they never disagree. Also tokenises the seven-stop rainbow that today sits hard-coded in five places, ties pulse cadence to loop state, and keeps the collapsed FAB button in the same colour as the panel it opens.
 - **[Phase 36 · Faster, lighter, same app](phases/phase-36-performance-diet.md)** (91% · 58/64 · refined x1) — Seven of eight themes landed (2026-09-01, local). The app's first dedicated performance phase, and it kept its own rule: every landed item carries a number. **Entry chunk 2 481.3 → 1 084.7 KB** (−56%) by putting thirteen views, xterm and the markdown pipeline behind lazy boundaries under one Suspense; **`ready-to-show` 683 → 570 ms** by taking the synchronous login-shell probe (a median 284 ms of blocked main thread) off the boot path and parallelising the three `whenReady` chains; **the broker went from 12.74% to 1.16% of a core per MB/s** — 11× less CPU per byte — once pty output was coalesced into one frame per 16 ms instead of one socket write *and* one whole-buffer scrollback realloc per chunk; and the `ps` probe's cadence doubled after being costed at 4.08% of a core. `moon run app:perf` is the phase's legacy: strict budgets plus absence assertions that fail the day someone re-adds a static import. Four of the doc's items were **acquitted rather than churned**, each with the measurement that acquits it — the three handler-module deferrals, the `@dnd-kit` split, `manualChunks`, and a `lucide-react` assertion a dependency makes unassertable. Three items stay open: one `useAutoFetch` test that belongs to Theme E, and two human passes (a screenshot diff, an Activity Monitor idle check).
 - **[Phase 35 · FAB Mission Control](phases/phase-35-fab-mission-control.md)** (98% · 39/40) — All five themes landed (2026-09-01, local). Made the (previously untracked, ad-hoc) FAB panel a real loop console: each tab owns its own in-panel terminal session (`surface: 'fab'`, never in the main housing), a checkbox prompt composer per loop, Start↔Stop with the gradient glow pulse, and a mission-control layer — FAB badges, waiting-toasts, a capped run history. Also retires the FAB's hard-coded prompts by pointing each loop at the `DEFAULT_AGENT_SKILLS` entry it runs, so there is one prompt store rather than three. Themes F–I (PR #3) then closed three of the four open verification items and as much of the fourth as a browser reaches — and found, in the doing, that a persisted loop never came back unless you opened the *main* terminal panel first. One item stays open for a human: quit and relaunch mid-run against a **packaged** build.
 - **[Phase 34 · Agent Councils](phases/phase-34-agent-councils.md)** (100% · 34/34) — Landed. Fills the nav/palette-reserved "Councils" slot: a standing panel of AI members answers a prompt in parallel, synthesized into one distilled write-up. MVP scope — one format (brainstorm), global (not per-repo), a 3-agent member pool (`agy`/`codex`/`opencode`), and an explicit auto-send exception to the app's usual type-but-don't-send agent-launch posture. Two manual passes (a real end-to-end run, a copy review) remain for a human.
@@ -18,6 +19,7 @@ Completed work is logged append-only in [`done.md`](done.md). Deferred scope liv
 
 | Phase | Status | Refined | Done | Progress | % | 🔄 WIP | ◻ TODO |
 |-------|--------|---------|------|----------|---|--------|--------|
+| [37 · A glow that knows which tab](phases/phase-37-fab-tab-glow.md) | ◻ TODO | — | 0/44 | `░░░░░░░░░░` | 0% | — | A B C D E F |
 | [36 · Faster, lighter, same app](phases/phase-36-performance-diet.md) | 🔄 WIP | x1 | 58/64 | `█████████░` | 91% | — | G (human passes) |
 | [35 · FAB Mission Control](phases/phase-35-fab-mission-control.md) | 🔄 WIP | — | 39/40 | `██████████` | 98% | — | — |
 | [34 · Agent Councils](phases/phase-34-agent-councils.md) | ✅ DONE | — | 34/34 | `██████████` | 100% | — | — |
@@ -60,6 +62,22 @@ Completed work is logged append-only in [`done.md`](done.md). Deferred scope liv
 
 <!-- Each phase currently carries a single theme A = its full deliverables checklist. Split into
      lettered themes if a phase gets parallelised. -->
+
+### [Phase 37 — A glow that knows which tab](phases/phase-37-fab-tab-glow.md)
+
+*The FAB panel's rainbow border grows an inner glow — soft, pulsating, hugging the inside edge
+and fading smoothly to nothing before the centre — and that glow subtracts the half of the
+spectrum furthest from the active tab, so the edge reads as "the green one" without ceasing to
+be a gradient. A tokenises the ramp the other five copies share; B builds the masked conic
+overlay; C makes it tab-reactive and sweeps between tabs; D keeps the collapsed FAB in the same
+colour; E ties pulse cadence to loop state; F handles reduced motion and proves the lot.*
+
+- ◻ **A** — One rainbow, six tokens: lift the 7-stop ramp out of its five verbatim copies in `styles.css` into `--rainbow-0…5`, with zero rendered change.
+- ◻ **B** — The inner glow: `::before` overlay, blurred conic, three-stop radial alpha mask, pulse on mask-stop + opacity (never on `blur()`).
+- ◻ **C** — The spectrum knows the tab: `data-fab-tab` + a four-row 180° arc table; border and glow share one arc pair; 0.5s sweep via `@property`-registered angles.
+- ◻ **D** — Collapsed FAB continuity: `.loop-run-glow.on-primary` takes the same arc, so collapsing the panel doesn't change its colour.
+- ◻ **E** — Pulse follows the loop: cadence keys off `useAllLoopStatuses`; amber-waiting overrides the arc, as `.is-waiting` already does on the button.
+- ◻ **F** — Reduced motion, and proof: `animation-name: none !important` (not a pause), computed-custom-property assertions, per-tab shots, and a blurred idle-CPU number.
 
 ### [Phase 36 — Faster, lighter, same app](phases/phase-36-performance-diet.md)
 
