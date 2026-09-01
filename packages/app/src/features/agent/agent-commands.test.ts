@@ -39,7 +39,7 @@ describe('AGENT_COMMANDS', () => {
     expect(DEFAULT_AGENT_SKILLS.refine).toBe('/midnite-refine');
   });
 
-  it('groups categories contiguously, in execute → pr → release → loops order', () => {
+  it('groups categories contiguously, in execute → pr → release → maintain → loops order', () => {
     // The menu and the settings page each draw one divider per category
     // *change*, so a category that reappears after the list has moved past it
     // would draw a second divider for the same group instead of one.
@@ -54,6 +54,21 @@ describe('AGENT_COMMANDS', () => {
       current = category;
       order.push(category);
     }
-    expect(order).toEqual(['execute', 'pr', 'release', 'loops']);
+    expect(order).toEqual(['execute', 'pr', 'release', 'maintain', 'loops']);
+  });
+
+  it('keeps the maintain category at exactly the two repo-housekeeping verbs', () => {
+    // The category exists to keep housekeeping out of `execute`, where it would
+    // read as a build task. Membership is therefore the assertion: an entry
+    // drifting in or out changes what the menu's third divider means, and
+    // nothing else in this file would notice.
+    const maintain = AGENT_COMMANDS.filter((command) => command.category === 'maintain');
+    expect(maintain.map((command) => command.id)).toEqual(['gitReport', 'gitCleanup']);
+
+    // Read-only report ordered before the destructive prune, and both pointed at
+    // skills that exist under `.claude/skills/`. Asserted because a typo here is
+    // invisible until the menu opens a terminal on a command that isn't there.
+    expect(DEFAULT_AGENT_SKILLS.gitReport).toBe('/midnite-git-report');
+    expect(DEFAULT_AGENT_SKILLS.gitCleanup).toBe('/midnite-git-cleanup');
   });
 });

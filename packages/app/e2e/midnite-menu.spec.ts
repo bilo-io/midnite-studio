@@ -119,14 +119,14 @@ test('the selected repo row carries the gradient shimmer', async ({ page }) => {
   await expect(row).toHaveClass(/repo-row-shimmer/);
 });
 
-test('the menu offers the fifteen agent verbs, each with its own glyph, with loops in a submenu', async ({
+test('the menu offers the seventeen agent verbs, each with its own glyph, with loops in a submenu', async ({
   page,
 }) => {
   await open(page);
   await openMidniteMenu(page);
 
   const topItems = page.getByRole('menu').first().getByRole('menuitem');
-  // The top level menu offers 9 standard actions plus the Loops submenu item
+  // The top level menu offers 11 standard actions plus the Loops submenu item
   await expect(topItems).toHaveText([
     'Backlog Task',
     'Adhoc Task',
@@ -137,6 +137,8 @@ test('the menu offers the fifteen agent verbs, each with its own glyph, with loo
     'PR Feedback',
     'Release Prep',
     'Release Complete',
+    'Git Report',
+    'Git Cleanup',
     'Loops',
   ]);
 
@@ -152,11 +154,12 @@ test('the menu offers the fifteen agent verbs, each with its own glyph, with loo
     'Loop: Brainstorm',
   ]);
 
-  // Iconed throughout - 9 flat-item icons, the Loops row's own icon *and* its
+  // Iconed throughout - 11 flat-item icons, the Loops row's own icon *and* its
   // chevron (it is both an entry and a submenu opener), and 6 submenu icons.
-  await expect(page.getByRole('menuitem').locator('svg')).toHaveCount(17);
-  // Four categories, so three dividers on top level menu: execute | pr | release | loops.
-  await expect(page.getByRole('menu').first().locator('hr')).toHaveCount(3);
+  await expect(page.getByRole('menuitem').locator('svg')).toHaveCount(19);
+  // Five categories, so four dividers on top level menu:
+  // execute | pr | release | maintain | loops.
+  await expect(page.getByRole('menu').first().locator('hr')).toHaveCount(4);
 });
 
 test('an entry opens a Claude session with its skill typed, not run', async ({ page }) => {

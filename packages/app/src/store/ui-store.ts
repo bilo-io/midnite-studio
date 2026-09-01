@@ -628,6 +628,8 @@ export type AgentCommandId =
   | 'prFeedback'
   | 'releasePrep'
   | 'releaseComplete'
+  | 'gitReport'
+  | 'gitCleanup'
   | 'loopPrReview'
   | 'loopPrFeedback'
   | 'loopExecBacklog'
@@ -665,6 +667,8 @@ export const DEFAULT_AGENT_SKILLS: Record<AgentCommandId, string> = {
   prFeedback: '/pr-feedback',
   releasePrep: '/midnite-release-prep',
   releaseComplete: '/midnite-release-complete',
+  gitReport: '/midnite-git-report',
+  gitCleanup: '/midnite-git-cleanup',
   loopPrReview: '/loop /pr-review',
   loopPrFeedback: '/loop /pr-feedback',
   loopExecBacklog: '/loop /midnite-exec',
