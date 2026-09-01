@@ -2,6 +2,7 @@
 
 **Headlines:**
 
+- **[Phase 36 · Faster, lighter, same app](phases/phase-36-performance-diet.md)** (0% · 0/47) — Planned, not started. The app's first dedicated performance phase: measure (startup marks, bundle report, idle-CPU and heap baselines), then land what the numbers indict — lazy per-view chunks off a 2.52 MB entry, de-serialized main boot, one icon family instead of two, visibility-gated timers, an LRU on the unbounded diff-highlight cache — and leave a `moon run :perf` budget suite behind. Strictly zero user-visible change; browser-tab memory stays Phase 32's.
 - **[Phase 35 · FAB Mission Control](phases/phase-35-fab-mission-control.md)** (0% · 0/40) — Planned, next up. Makes the (currently untracked, ad-hoc) FAB panel a real loop console: each tab owns its own in-panel terminal session (`surface: 'fab'`, never in the main housing), a checkbox prompt composer per loop, Start↔Stop with the gradient glow pulse, and a mission-control layer — FAB badges, waiting-toasts, a capped run history. Also unifies the FAB's hard-coded prompts with `DEFAULT_AGENT_SKILLS` into one shared loop registry.
 - **[Phase 34 · Agent Councils](phases/phase-34-agent-councils.md)** (100% · 34/34) — Landed. Fills the nav/palette-reserved "Councils" slot: a standing panel of AI members answers a prompt in parallel, synthesized into one distilled write-up. MVP scope — one format (brainstorm), global (not per-repo), a 3-agent member pool (`agy`/`codex`/`opencode`), and an explicit auto-send exception to the app's usual type-but-don't-send agent-launch posture. Two manual passes (a real end-to-end run, a copy review) remain for a human.
 - **Phases 25–33 all landed** — search/blame, split diffs, status bar + browser pane, worktrees-first sidebar, markdown slides, the detached terminal broker, interactive rebase, the real browser engine, and the installable app + CLI.
@@ -17,6 +18,7 @@ Completed work is logged append-only in [`done.md`](done.md). Deferred scope liv
 
 | Phase | Status | Refined | Done | Progress | % | 🔄 WIP | ◻ TODO |
 |-------|--------|---------|------|----------|---|--------|--------|
+| [36 · Faster, lighter, same app](phases/phase-36-performance-diet.md) | ◻ TODO | — | 0/47 | `░░░░░░░░░░` | 0% | — | A B C D E F G H |
 | [35 · FAB Mission Control](phases/phase-35-fab-mission-control.md) | ◻ TODO | — | 0/40 | `░░░░░░░░░░` | 0% | — | A B C D E |
 | [34 · Agent Councils](phases/phase-34-agent-councils.md) | ✅ DONE | — | 34/34 | `██████████` | 100% | — | — |
 | [33 · Application Installation, CLI Tool & Desktop Integration](phases/phase-33-installable-app-and-cli-integration.md) | ✅ DONE | x1 | 44/44 | `██████████` | 100% | — | — |
@@ -58,6 +60,31 @@ Completed work is logged append-only in [`done.md`](done.md). Deferred scope liv
 
 <!-- Each phase currently carries a single theme A = its full deliverables checklist. Split into
      lettered themes if a phase gets parallelised. -->
+
+### [Phase 36 — Faster, lighter, same app](phases/phase-36-performance-diet.md)
+
+*Measure, fix what the numbers indict, leave budgets behind — with strictly zero user-visible
+change. A is the harness every other theme's before/after numbers come from; B/C attack startup
+(main boot, renderer bundle); D unifies on one icon family; E/F are idle-CPU and memory; G runs
+the pre-written profile-gated deferrals (edge culling, socket batching) to an honest verdict;
+H locks it all in as a `:perf` budget target.*
+
+- ◻ **A** — Baseline & harness: `MSTUDIO_PERF` boot/interactive marks, `scripts/perf/` reports,
+  the baseline table.
+- ◻ **B** — Main-process startup: login-shell probe off the critical path, parallelized
+  pre-window awaits, minified main bundle.
+- ◻ **C** — Renderer bundle: `React.lazy` per view (Graph stays eager), xterm/grid/markdown
+  splits, `manualChunks`, env-gated sourcemaps.
+- ◻ **D** — One icon family: 55 `lucide-react` files → `react-icons/lu`, dep removed, lint
+  guard, conventions files updated.
+- ◻ **E** — Idle-CPU zero: one visibility-gated clock, gated rebase/auto-fetch polls, paused
+  rAF loops, main activity tick paused on blur.
+- ◻ **F** — Memory caps: LRU on the diff-highlight cache, scrollback-duplication audit,
+  unbounded-Map sweep.
+- ◻ **G** — Profile-gated claims: edge culling, broker frame batching, `ps`-probe cost — land
+  or acquit, with numbers.
+- ◻ **H** — Perf budgets: `moon run :perf` target, diff-scroll timing budget, bundle + startup
+  budgets at 2.5× baseline.
 
 ### [Phase 35 — FAB Mission Control](phases/phase-35-fab-mission-control.md)
 
