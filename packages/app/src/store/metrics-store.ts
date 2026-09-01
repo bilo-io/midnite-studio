@@ -90,16 +90,28 @@ export function appendSample(series: MetricSeries, sample: MetricSample): Metric
 }
 
 function appendPoint(existing: MetricPoint[], point: MetricPoint): MetricPoint[] {
-  // The flat seed: the very first reading becomes two points at the same
-  // value, one window-start behind the other. A lone point draws nothing, and
-  // an implicit zero before it would draw a spike that never happened.
-  const seeded =
-    existing.length === 0 ? [{ value: point.value, at: point.at - 1 }, point] : [...existing, point];
-
   const cutoff = point.at - METRICS_WINDOW_MS;
-  const windowed = seeded.filter((entry) => entry.at >= cutoff);
-  // The seed pair can itself fall outside the window if the clock jumped;
-  // never return fewer than the point just pushed.
-  const kept = windowed.length === 0 ? [point] : windowed;
+
+  // One pass that both drops stale entries and appends the new point, rather
+  // than an append-then-filter that copied the whole series twice every tick.
+  // `entry.at >= cutoff` is applied per element in the same order as before,
+  // so this is exactly the old filter's result — not a sorted-array shortcut,
+  // which a backward clock jump would make unsafe.
+  const kept: MetricPoint[] = [];
+  if (existing.length === 0) {
+    // The flat seed: the very first reading becomes two points at the same
+    // value, one window-start behind the other. A lone point draws nothing,
+    // and an implicit zero before it would draw a spike that never happened.
+    const seed = { value: point.value, at: point.at - 1 };
+    if (seed.at >= cutoff) kept.push(seed);
+  } else {
+    for (const entry of existing) {
+      if (entry.at >= cutoff) kept.push(entry);
+    }
+  }
+  // point.at >= cutoff always (cutoff is point.at minus a non-negative
+  // window), so it is never itself dropped here.
+  kept.push(point);
+
   return kept.length > METRICS_MAX_POINTS ? kept.slice(kept.length - METRICS_MAX_POINTS) : kept;
 }
