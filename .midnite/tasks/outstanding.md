@@ -110,3 +110,23 @@ no base sha in the shape, so there is nothing to read the "before" from. Two thi
 to hold: the forge domain would need the base sha, and both objects would have to be in the
 local checkout, which for a fork's PR means a fetch first. Until then a binary image in a PR
 keeps the sentence, which is at least not misleading.
+
+## ~60 KB of `lucide-react` ships via `@bilo-io/ui` and `@bilo-io/shell` (Phase 36 Theme C)
+
+Phase 36 Theme D moved all 54 of the renderer's own importers off `lucide-react`, dropped the
+dependency, and put an eslint `no-restricted-imports` guard in the way of its return. The
+package is nonetheless still in the entry chunk — v1.34.0, imported by `@bilo-io/ui` and
+`@bilo-io/shell`, and `app.tsx` pulls `AppFrame`/`ShellProviders`/`TitleBar` out of `shell`
+eagerly, so it lands on the boot path.
+
+Nothing in this repo can fix that: it is a third-party import, and the icons it draws are the
+shell's own chrome. It is recorded here rather than asserted against, because a bundle-level
+"no lucide in the entry" check could only ever fail. Two ways out, both upstream of us: those
+packages could move to `react-icons/lu` (the identical Lucide set, which is what this repo now
+uses), or expose their icon set as a peer so a consumer already carrying `react-icons` does not
+pay for a second copy. Worth raising the next time either package is touched.
+
+Also deferred with it, and separable: **the `@dnd-kit` entry-chunk split**, acquitted at 59.9 KB
+in Phase 36 Theme C. The mechanism it would need — render-prop wiring components swapping an
+inert implementation for the real one across four eager hook call sites — is written up in the
+phase doc's Decisions section, so picking it up later is a matter of doing it, not re-deriving it.

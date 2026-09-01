@@ -19,6 +19,13 @@ tasks:
     inputs:
       - 'src/**/*'
       - 'index.html'
+      # See the same entry on `desktop:bundle`: sourcemaps are opt-in as of
+      # Phase 36 Theme C, and moon's hash must see the switch or the opt-in is
+      # shadowed by the cache.
+      - '$MSTUDIO_SOURCEMAP'
+      # The treemap switch, for the same reason — `MSTUDIO_BUNDLE_STATS=1` after a
+      # prior build would otherwise never write `dist/stats.html`.
+      - '$MSTUDIO_BUNDLE_STATS'
       - 'vite.config.ts'
       - 'tailwind.config.ts'
       - 'postcss.config.js'
@@ -46,6 +53,33 @@ tasks:
   dev:
     command: 'pnpm exec vite'
     preset: 'server'
+
+  # The performance suite — Phase 36 Theme H. Kept out of `:test` for the same
+  # reason as `e2e`, plus a stronger one: a budget failure is a report, and a
+  # report that blocks a green build on a busy laptop gets disabled rather than
+  # read. `mergeArgs: replace` is mandatory — moon APPENDS a local task's args to
+  # the inherited ones otherwise, and this would run `tsc -b exec playwright …`.
+  #
+  # Depends on `app:build` because two of its three specs read `dist`: the bundle
+  # budget parses `.vite/manifest.json`, and the startup budget launches the
+  # packaged-equivalent app. `desktop:bundle` is NOT declarable here (it would
+  # invert the package dependency direction), so `scripts/perf/electron-run.mjs`
+  # refuses to guess and names the command instead.
+  perf:
+    command: 'pnpm exec playwright test --config playwright.perf.config.ts'
+    options:
+      mergeArgs: 'replace'
+    deps:
+      - 'root:install'
+      - 'shared:build'
+      - 'app:build'
+    inputs:
+      - 'src/**/*'
+      - 'e2e/**/*'
+      - 'playwright.perf.config.ts'
+      - 'vite.config.ts'
+      - '/scripts/perf/**/*'
+      - '/packages/shared/src/**/*'
 
   # Browser-driven renderer tests against a mocked window.midniteStudio. Kept OUT
   # of the `:test` gate deliberately — it needs a chromium download, which is a

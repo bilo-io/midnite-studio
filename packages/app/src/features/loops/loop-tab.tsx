@@ -8,7 +8,7 @@ import { useRepos } from '../../services/queries';
 import { useUiStore } from '../../store/ui-store';
 import { agentInitialInput } from '../terminal/terminal-panel';
 import { useTerminalStore } from '../terminal/terminal-store';
-import { TerminalView } from '../terminal/terminal-view';
+import { LazyTerminalView } from '../terminal/lazy-terminal-view';
 import { useAgents } from '../terminal/use-agents';
 
 /**
@@ -122,7 +122,7 @@ export function LoopTab({
             bypassed `agent-invocation.ts` and typed a bare `/loop …` at a
             shell that has no such command.
           */
-          <TerminalView
+          <LazyTerminalView
             key={session.id}
             session={session}
             active={active}

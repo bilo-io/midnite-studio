@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
+import { Suspense, lazy, useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
 
 import {
   AppFrame,
@@ -15,6 +15,8 @@ import { CiPower } from 'react-icons/ci';
 import { LuChevronLeft, LuCommand, LuFile, LuSettings } from 'react-icons/lu';
 
 import { Brand, BrandMark, Wordmark } from './components/brand';
+import { BrowserPane } from './features/browser/browser-pane';
+import { DelayedFallback } from './components/delayed-fallback';
 import { DialogHost } from './components/dialog-host';
 import { VIEW_ICON } from './components/nav-icons';
 import { IconButton } from './components/icon-button';
@@ -28,16 +30,9 @@ import { useReveal, useRevealSize } from './components/use-reveal';
 import { ThemeToggle } from './components/theme-toggle';
 import { TitleBarNav } from './components/title-bar-nav';
 import { TitleBarStatus } from './features/titlebar-status/titlebar-status';
-import { OnboardingModal } from './features/onboarding/onboarding-modal';
 import { ScreensaverHost } from './features/screensaver/screensaver-host';
-import { ActionsView } from './features/actions/actions-view';
-import { CouncilsView } from './features/councils/councils-view';
 import { chordFor, displayChord } from './features/status-bar/chord-hint';
-import { BrowserPane } from './features/browser/browser-pane';
-import { TestsView } from './features/tests/tests-view';
-import { DashboardView } from './features/dashboard/dashboard-view';
 import { EmptyWorkspace } from './features/empty/empty-workspace';
-import { FilesView } from './features/files/files-view';
 import { FileEditorGuard } from './features/files/preview/file-editor-guard';
 import { GraphView } from './features/graph/graph-view';
 import { RepoLifecycleActions } from './features/repos/repo-lifecycle-actions';
@@ -45,20 +40,16 @@ import { ReposPanel } from './features/repos/repos-panel';
 import { useDefaultSelection } from './features/repos/use-default-selection';
 import { usePruneClosedRepos } from './features/repos/use-prune-closed-repos';
 import { primaryTarget } from './features/repos/use-repo-actions';
-import { ReviewsView } from './features/reviews/reviews-view';
-import { SearchView } from './features/search/search-view';
-import { SettingsView } from './features/settings/settings-view';
 
-import { SlidesModal } from './features/slides/slides-modal';
-import { Workbench } from './features/workbench/workbench';
 import { SyncActions } from './features/status/sync-actions';
-import { FirstRunModal } from './features/onboarding/first-run-modal';
 import { useDeepLinks } from './services/deep-link';
 import { StatusBar } from './features/status-bar/status-bar';
+import { loadTerminalView } from './features/terminal/lazy-terminal-view';
 import { TerminalPanel } from './features/terminal/terminal-panel';
 import { useAgentActivity } from './features/terminal/use-agent-activity';
 import { useSessionExits } from './features/terminal/use-session-exits';
 import { hslTokenToHex } from './lib/color';
+import { idlePreload } from './lib/idle-preload';
 import { markOnce } from './lib/perf';
 import { bridge } from './services/bridge';
 import { useCommandHandlers } from './services/keybindings/use-command-handlers';
@@ -77,6 +68,68 @@ import {
   type NavMode,
   type ViewId,
 } from './store/ui-store';
+
+/*
+  The views, split out of the entry chunk — Phase 36 Theme C.
+
+  The entry chunk was 2.48 MB, and the reason is visible in this list: every view
+  the app can *reach* was in the file the app *boots*. A user who opens the
+  window to the graph paid for the settings pages, the councils runner, the
+  dashboard's grid layout, the markdown renderer behind reviews, and the embedded
+  browser — all before the first row of history appeared.
+
+  Eager on purpose, and not in this list: `GraphView` (the first paint, so
+  splitting it would trade boot bytes for a boot round-trip), `EmptyWorkspace`
+  and `Placeholder` (a lazy boundary for what amounts to a centred paragraph
+  costs more than it saves), `ScreensaverHost` (always mounted), and `BrowserPane`.
+
+  `BrowserPane` was in this list and came back out, which is the more interesting
+  case: its MOUNT has load-bearing side effects. It seeds the first browser tab,
+  and `useReveal` drives its fade-in from the parent — flipping `shown` on the
+  first quiet frame, ~16-32ms in. Behind a lazy boundary both go wrong on the
+  first open of a session: a `Mod+T` arriving before the chunk lands adds a tab to
+  an empty store and ends up with one tab instead of two (an e2e spec catches
+  exactly this), and the pane mounts with `shown` already true, so it pops instead
+  of fading. Preloading at idle does not fix it — the race is with the *user*, not
+  with the browser's spare time. Its chunk is 25.2 KB of a 1 085 KB entry, so the
+  trade is 2.3% of boot against two real defects, and a component whose mount
+  seeds state is simply the wrong shape for a lazy boundary.
+
+  `.then` destructuring rather than a default export each: these are named
+  exports throughout the app, and adding thirteen default re-exports to satisfy
+  `React.lazy` would be a worse trade than one line of ceremony per view here.
+*/
+const loadSettingsView = () => import('./features/settings/settings-view');
+const SettingsView = lazy(() => loadSettingsView().then((m) => ({ default: m.SettingsView })));
+const loadCouncilsView = () => import('./features/councils/councils-view');
+const CouncilsView = lazy(() => loadCouncilsView().then((m) => ({ default: m.CouncilsView })));
+const loadDashboardView = () => import('./features/dashboard/dashboard-view');
+const DashboardView = lazy(() => loadDashboardView().then((m) => ({ default: m.DashboardView })));
+const loadFilesView = () => import('./features/files/files-view');
+const FilesView = lazy(() => loadFilesView().then((m) => ({ default: m.FilesView })));
+const loadSearchView = () => import('./features/search/search-view');
+const SearchView = lazy(() => loadSearchView().then((m) => ({ default: m.SearchView })));
+const loadWorkbench = () => import('./features/workbench/workbench');
+const Workbench = lazy(() => loadWorkbench().then((m) => ({ default: m.Workbench })));
+const loadActionsView = () => import('./features/actions/actions-view');
+const ActionsView = lazy(() => loadActionsView().then((m) => ({ default: m.ActionsView })));
+const loadTestsView = () => import('./features/tests/tests-view');
+const TestsView = lazy(() => loadTestsView().then((m) => ({ default: m.TestsView })));
+const loadReviewsView = () => import('./features/reviews/reviews-view');
+const ReviewsView = lazy(() => loadReviewsView().then((m) => ({ default: m.ReviewsView })));
+/*
+  The three rarely-shown modals. Each keeps its own boundary with a `null`
+  fallback rather than joining the view boundary: they are overlays, and a
+  spinner floating over the app while a modal's chunk arrives would be a worse
+  frame than the modal simply appearing a beat later.
+*/
+const loadSlidesModal = () => import('./features/slides/slides-modal');
+const SlidesModal = lazy(() => loadSlidesModal().then((m) => ({ default: m.SlidesModal })));
+const loadOnboardingModal = () => import('./features/onboarding/onboarding-modal');
+const OnboardingModal = lazy(() => loadOnboardingModal().then((m) => ({ default: m.OnboardingModal })));
+const loadFirstRunModal = () => import('./features/onboarding/first-run-modal');
+const FirstRunModal = lazy(() => loadFirstRunModal().then((m) => ({ default: m.FirstRunModal })));
+
 
 /**
  * A QueryClient tuned for a desktop app talking to its own main process.
@@ -495,6 +548,20 @@ function Shell() {
   }, []);
 
   /*
+    Warm the terminal's chunk once the browser is idle — Phase 36 Theme C.
+
+    `Ctrl+`` is a single keystroke and is expected to be instant, so xterm is the
+    one chunk this app pulls out of the entry and then deliberately pulls back
+    in. After first paint, at idle: boot no longer pays for it, and by the time
+    anyone reaches for the chord it is already in memory. An effect rather than a
+    module-level call so it cannot run during SSR-shaped test renders or race the
+    first commit.
+  */
+  useEffect(() => {
+    idlePreload(loadTerminalView);
+  }, []);
+
+  /*
     What the panel is aiming at: the whole stack maximized, otherwise the height
     the handle was dragged to — the live drag value, so a drag still lands
     exactly where the pointer is.
@@ -544,6 +611,36 @@ function Shell() {
     the room straight back rather than blanking the column.
   */
   const covering = terminalOpen && terminalMaximized;
+
+  /*
+    The view box's classes, hoisted so the Suspense fallback outside the keyed div
+    can wear them verbatim (Phase 36 Theme C) — a suspended switch must occupy the
+    same box, and honour the same hidden-handling, as the view it stands in for.
+
+    Hidden, not unmounted, while the terminal is maximized: the graph holds a
+    streamed row buffer and a virtualizer scroll position, and tearing those down
+    for a temporary full-screen terminal would cost a re-stream on the way back.
+
+    Hidden only once the terminal has finished growing over it, too. `display:
+    none` takes the view out of the layout, and a view out of the layout while the
+    terminal is still on its way up leaves a hole above it — the panel would climb
+    through blank background instead of over the thing it is covering. So it keeps
+    its box for the length of the animation, shrinking as the terminal grows, and
+    only steps out at the end.
+
+    `overflow-hidden` is the guard rail, not decoration. A view is one of several
+    stacked children of that column — the terminal and the footer are the others —
+    and a pane inside it that runs taller than its box (a tall PR header over a
+    short window, say) otherwise spills its rows straight across the terminal's
+    header. Painting order makes that worse than a stray pixel: the overflowing
+    TEXT of an earlier sibling is drawn after the later sibling's BACKGROUND, so
+    the terminal cannot cover it by being below in the DOM. Clipping here is what
+    makes "a view stays inside its box" true of every view, present and future,
+    rather than a property each one has to remember.
+  */
+  const viewBoxClassName = `min-h-0 flex-1 overflow-hidden animate-fade-in ${
+    covering && terminalTween.settled ? 'hidden' : ''
+  }`;
 
   const navItem = useCallback(
     (item: NavItem) => ({
@@ -824,43 +921,46 @@ function Shell() {
             */}
             <div ref={stackRef} className="flex min-h-0 flex-1 flex-col">
               {/*
-                Keyed on the view so switching cross-fades rather than cutting.
-                The key is what makes it an ENTRANCE: without it React reuses the
-                same element and the animation, having already run, never replays.
+                ONE boundary for all thirteen lazy views, not one each — Phase 36
+                Theme C. A view switch suspends in exactly one place; thirteen
+                boundaries would render identically and be thirteen things to keep
+                in step.
+
+                OUTSIDE the keyed div, not inside it, and that placement is the
+                whole reason this comment is long. The div below is keyed on
+                `activeView` precisely so `animate-fade-in` replays on every
+                switch — and with the boundary *inside* that key, the first visit
+                to a lazy view mounts the div, starts the 160ms animation on an
+                empty box (`DelayedFallback` renders null for its first 120ms),
+                and then commits the view after the animation has already
+                finished, with no remount left to replay it. Outside, a suspended
+                switch renders the fallback in the div's place and the keyed div
+                mounts fresh — with content — when the chunk lands.
+
+                The fallback carries the div's own classes verbatim so the box and
+                the `covering && terminalTween.settled` hidden-handling hold while
+                suspended too, with `DelayedFallback` inside it — nothing for the
+                first 120ms, then a spinner, so a warm switch never flashes and a
+                genuinely slow one still says something is happening.
               */}
+              <Suspense
+                fallback={
+                  <div className={viewBoxClassName}>
+                    <DelayedFallback />
+                  </div>
+                }
+              >
               <div
                 key={activeView}
-                /*
-                  Hidden, not unmounted, while the terminal is maximized: the graph
-                  holds a streamed row buffer and a virtualizer scroll position, and
-                  tearing those down for a temporary full-screen terminal would cost
-                  a re-stream on the way back.
-
-                  Hidden only once the terminal has finished growing over it, too.
-                  `display: none` takes the view out of the layout, and a view out
-                  of the layout while the terminal is still on its way up leaves a
-                  hole above it — the panel would climb through blank background
-                  instead of over the thing it is covering. So it keeps its box for
-                  the length of the animation, shrinking as the terminal grows, and
-                  only steps out at the end.
-
-                  `overflow-hidden` is the guard rail, not decoration. A view is one
-                  of several stacked children of this column — the terminal and the
-                  footer are the others — and a pane inside it that runs taller than
-                  its box (a tall PR header over a short window, say) otherwise
-                  spills its rows straight across the terminal's header. Painting
-                  order makes that worse than a stray pixel: the overflowing TEXT of
-                  an earlier sibling is drawn after the later sibling's BACKGROUND,
-                  so the terminal cannot cover it by being below in the DOM. Clipping
-                  here is what makes "a view stays inside its box" true of every
-                  view, present and future, rather than a property each one has to
-                  remember.
-                */
-                className={`min-h-0 flex-1 overflow-hidden animate-fade-in ${
-                  covering && terminalTween.settled ? 'hidden' : ''
-                }`}
+                className={viewBoxClassName}
               >
-                {activeView === 'settings' ? (
+                {/*
+                  The ternary's ORDER is load-bearing and does not change:
+                  `settings` and `councils` are global and must be reachable
+                  *before* the `!selectedRepoId` guard, or opening Settings with
+                  no repo selected would show the empty workspace instead.
+                */}
+                  {activeView === 'settings' ? (
                   <SettingsView />
                 ) : activeView === 'councils' ? (
                   // Global, like Settings — a council is not scoped to a repo, so
@@ -889,6 +989,7 @@ function Shell() {
                 )}
 
               </div>
+              </Suspense>
 
               {/*
                 Mounted while open — and for the length of the slide shut — and
@@ -996,7 +1097,9 @@ function Shell() {
         </div>
 
         <StatusBar />
-        <FirstRunModal />
+        <Suspense fallback={null}>
+          <FirstRunModal />
+        </Suspense>
       </div>
     </AppFrame>
   );
@@ -1102,11 +1205,15 @@ export function App() {
       <DialogHost>
         <PaletteHost>
           <Shell />
-          <OnboardingModal />
+          <Suspense fallback={null}>
+            <OnboardingModal />
+          </Suspense>
         </PaletteHost>
       </DialogHost>
       <FileEditorGuard />
-      <SlidesModal />
+      <Suspense fallback={null}>
+        <SlidesModal />
+      </Suspense>
       <ScreensaverHost />
     </ShellProviders>
   );

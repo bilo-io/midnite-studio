@@ -1,9 +1,10 @@
 import { execFile } from 'node:child_process';
 import { promisify } from 'node:util';
 
-import type { AgentDefinition } from '@midnite/studio-shared';
+import { perfEnabled, type AgentDefinition } from '@midnite/studio-shared';
 
 import { probeTarget } from './agent-probe';
+import { defaultLogger } from './log';
 
 /**
  * What is running inside a terminal, read off the machine's own process table.
@@ -84,15 +85,72 @@ export const PS_TIMEOUT_MS = 3_000;
  * is missing, restricted or slow gets no live agent detection, which costs the
  * user an icon that follows their shell and nothing else.
  */
+/**
+ * How often this actually runs, and what it costs — Phase 36 Theme G.
+ *
+ * The watcher debounces to one full process-table read per `QUIET_MS = 750` of
+ * pty silence, so a chatty agent can in principle sustain ~80 reads/min. Whether
+ * it does, and whether that is measurable, was folklore — so each invocation is
+ * counted and timed behind `MSTUDIO_PERF=1`, reported on a timer rather than per
+ * call. The verdict, with the numbers, is in the phase doc.
+ *
+ * A closure resolved once at module load: with the flag unset a call site pays
+ * one no-op invocation, and there is no per-read flag check.
+ */
+const countPsRead: (wallMs: number, ok: boolean) => void = perfEnabled(process.env)
+  ? (() => {
+      let reads = 0;
+      let failures = 0;
+      let totalWallMs = 0;
+      const started = Date.now();
+      const report = setInterval(() => {
+        const mins = (Date.now() - started) / 60_000;
+        /*
+          `wallMs`, not `cpuMs`, and the distinction is the whole point of the
+          number. This measures elapsed time around an `execFile`, which includes
+          scheduling and the child's own lifetime — it is *not* the CPU the probe
+          costs. The 30.6 ms figure in `agent-watcher.ts`'s `QUIET_MS` doc is the
+          child's user+sys, measured separately with `wait4` rusage. What this
+          counter is for is the RATE: how many probes a real chatty session
+          actually fires, which is the half of `rate x cost` that only a running
+          app can answer.
+
+          Failures are counted apart from reads: a timed-out `ps` did work and
+          returned nothing, and folding it into the mean would flatter both.
+        */
+        defaultLogger(
+          `[perf] main ps-probe reads=${reads} failures=${failures} ` +
+            `reads/min=${(reads / mins).toFixed(1)} ` +
+            `wallMs=${Math.round(totalWallMs)} meanWallMs=${reads > 0 ? (totalWallMs / reads).toFixed(1) : '0'}`,
+        );
+      }, 10_000);
+      report.unref?.();
+      return (wallMs: number, ok: boolean): void => {
+        if (ok) {
+          reads += 1;
+          totalWallMs += wallMs;
+        } else {
+          failures += 1;
+        }
+      };
+    })()
+  : () => {};
+
 export async function readProcessRows(): Promise<ProcessRow[] | null> {
+  const startedAt = performance.now();
+  let ok = false;
   try {
     const { stdout } = await exec('ps', ['-axo', 'pid=,ppid=,stat=,args='], {
       timeout: PS_TIMEOUT_MS,
       maxBuffer: PS_MAX_BUFFER,
     });
-    return parsePsOutput(stdout);
+    const rows = parsePsOutput(stdout);
+    ok = true;
+    return rows;
   } catch {
     return null;
+  } finally {
+    countPsRead(performance.now() - startedAt, ok);
   }
 }
 

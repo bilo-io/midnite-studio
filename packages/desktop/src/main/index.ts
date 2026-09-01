@@ -63,7 +63,7 @@ import { migrateAnyLegacyRepoStore } from './userdata-migration';
 import { installMgitFileProtocol, registerMgitFileScheme } from './fs-protocol';
 import { registerPerfHandlers } from './ipc/perf-handlers';
 import { bootMark } from './perf-marks';
-import { ensureLoginShellPath } from './shell-path';
+import { ensureLoginShellPathAsync } from './shell-path';
 import { createWindow } from './window';
 import { registerWindowChrome } from './window-chrome';
 
@@ -133,6 +133,14 @@ function bindRenderProcessGone(win: BrowserWindow, log: Logger): void {
  * moved twice — `midnite-git`, then `Midnite Git` — and `userData` moved with
  * it each time, which is what ./userdata-migration carries across.
  */
+/*
+  The first line of this module's body, and therefore the first moment every
+  static import above has been evaluated — ESM hoists them, so this is where the
+  import graph's cost has already been paid. Theme B's one number for "how
+  expensive is main's module graph"; it needs no `app` and must stay first.
+*/
+bootMark('modules-loaded');
+
 app.setName('Midnite Studio');
 
 if (!app.isPackaged) {
@@ -166,6 +174,26 @@ async function handleDeepLinkUrl(rawUrl: string): Promise<void> {
 if (!app.requestSingleInstanceLock()) {
   app.quit();
 } else {
+  /*
+    Kicked off here, deliberately un-awaited: a Finder launch inherits launchd's
+    bare PATH, which has no Homebrew git, no credential helpers and no user shell
+    config, and asking the login shell costs a median 284 ms (Theme A's baseline).
+    Awaiting it — as this did until Theme B — spent all of that ahead of
+    `app.whenReady()`, blocking the main thread while Chromium was starting up
+    anyway. Now the probe overlaps that startup and only its *consumers* wait:
+    `initPtyService` (every pty inherits this PATH) and `restoreRepos` (the first
+    git exec, which may shell out to a credential helper).
+
+    INSIDE the single-instance branch, and that placement is load-bearing. A
+    second instance's whole job is to hand its argv to the running one and quit —
+    and that is not a rare path, it is how every `midnite-studio://` deep link
+    arrives. Spawning it above the lock check, as an earlier draft of this did,
+    means every deep link fires a `zsh -lic` that nothing will ever read.
+  */
+  const loginShellReady = ensureLoginShellPathAsync().then(() => {
+    bootMark('login-shell-done');
+  });
+
   app.on('second-instance', (_event, argv) => {
     if (mainWindow && !mainWindow.isDestroyed()) {
       if (mainWindow.isMinimized()) mainWindow.restore();
@@ -185,12 +213,6 @@ if (!app.requestSingleInstanceLock()) {
     }
     handleDeepLinkUrl(url);
   });
-
-  // Before anything spawns a subprocess: a Finder launch inherits launchd's
-  // bare PATH, which has no Homebrew git, no credential helpers and no user
-  // shell config. Must run before the first git or pty call.
-  ensureLoginShellPath();
-  bootMark('login-shell-done');
 
   // Chromium fixes the privileged-scheme list at startup — must precede ready.
   registerMgitFileScheme();
@@ -264,25 +286,58 @@ if (!app.requestSingleInstanceLock()) {
     // still under whichever name they last launched.
     await migrateAnyLegacyRepoStore((name) => join(dirname(userData), name), userData);
     bootMark('legacy-migrated');
-    await initPtyService({
-      userDataDir: userData,
-      appVersion: app.getVersion(),
-      isPackaged: app.isPackaged,
-      getWindow,
-      log: (msg) => defaultLogger(msg),
-    });
-    bootMark('pty-ready');
+
+    /*
+      Store wiring is synchronous assignment of module state from `userData` and
+      nothing else, so it is hoisted above the parallel block rather than
+      threaded through it: `restoreRepos` needs the repo store and `listAgents`
+      needs the agents store, and both now start at the same moment.
+    */
     configureRegistry(createRepoStore(userData));
     configureTerminals(createTerminalStore(userData), userData);
     configureCouncils(createCouncilsStore(userData), createCouncilsRunsStore(userData));
+    configureDiagnostics(createTrustStore(userData));
+    configureTests(createTestTrustStore(userData));
+
     /*
-      The loop ledger's ends are owned here in main: a run's record is finalised
-      off the pty's own session-keyed exit, so a renderer reload mid-run cannot
-      lose it. Wired after `initPtyService` — the hook registry is module state,
-      but the exits it observes only exist once the service is up.
+      Three independent boot chains, run at once (Theme B). They were sequential
+      for no reason beyond the order they were written in: the pty service, the
+      agent roster and the repository list touch different stores and different
+      subsystems. What is NOT independent is stated as code rather than as a
+      comment — the migration above must precede all three (it may move the very
+      stores they read), and `createWindow` must follow all three.
     */
-    configureLoopRuns(createLoopRunsStore(userData), getWindow);
-    onSessionExit(noteSessionExit);
+    /*
+      Every pty inherits this process's PATH, so the probe has to have landed
+      before the service comes up. This is the wait Theme B moved off the
+      pre-`whenReady` path and onto the consumer that actually needs it — the
+      probe still costs something, but it is now overlapped with Chromium's
+      startup and with the two chains beside this one instead of preceding
+      everything.
+    */
+    const ptyChain = loginShellReady
+      .then(() =>
+        initPtyService({
+          userDataDir: userData,
+          appVersion: app.getVersion(),
+          isPackaged: app.isPackaged,
+          getWindow,
+          log: (msg) => defaultLogger(msg),
+        }),
+      )
+      .then(() => {
+        bootMark('pty-ready');
+        /*
+          The loop ledger's ends are owned here in main: a run's record is
+          finalised off the pty's own session-keyed exit, so a renderer reload
+          mid-run cannot lose it. Wired after `initPtyService` — the hook
+          registry is module state, but the exits it observes only exist once the
+          service is up.
+        */
+        configureLoopRuns(createLoopRunsStore(userData), getWindow);
+        onSessionExit(noteSessionExit);
+      });
+
     /*
       One compile of the roster's activity markers for the life of the
       process — `agents.json` "reloads on next launch" already (Settings ▸
@@ -290,20 +345,56 @@ if (!app.requestSingleInstanceLock()) {
       would not already have paid. The shared 1s tick drives every tracked
       pty's decay clock rather than a timer each.
     */
-    const rosterForActivity = await listAgents();
-    bootMark('agents-listed');
-    setActivityDetector(
-      createActivityDetector(rosterForActivity, {
-        now: Date.now,
-        log: defaultLogger,
-        onDisabled: notifyActivityDisabled,
-      }),
-    );
-    configureDiagnostics(createTrustStore(userData));
-    configureTests(createTestTrustStore(userData));
-    await restoreRepos();
-    await openReposFromEnv();
-    bootMark('repos-restored');
+    const activityChain = listAgents().then((rosterForActivity) => {
+      bootMark('agents-listed');
+      setActivityDetector(
+        createActivityDetector(rosterForActivity, {
+          now: Date.now,
+          log: defaultLogger,
+          onDisabled: notifyActivityDisabled,
+        }),
+      );
+    });
+
+    /*
+      `restoreRepos` is the first git exec of the session and may shell out to a
+      credential helper, so it is the other consumer that waits on the login-shell
+      PATH. `openReposFromEnv` stays sequenced behind it — same store.
+    */
+    const reposChain = loginShellReady
+      .then(() => restoreRepos())
+      .then(() => openReposFromEnv())
+      .then(() => {
+        bootMark('repos-restored');
+      });
+
+    /*
+      `allSettled`, not `all`, and the difference matters more than it did when
+      these were sequential awaits.
+
+      `Promise.all` rejects on the first failure and abandons the rest — so a
+      corrupt `agents.json` breaking `listAgents()` would leave `initPtyService`
+      and `restoreRepos` to finish against a `getWindow()` that returns null
+      forever, because `createWindow()` below never runs. A live main process with
+      a broker, ptys and watchers, and no window: nothing to see, nothing to
+      close, and an unhandled rejection as the only trace.
+
+      A window is the one thing boot must produce. Each chain's failure is logged
+      and survivable on its own — no roster means no activity marks, no repo
+      store means an empty sidebar the user can open a repo into — so every one of
+      them is reported and boot continues.
+    */
+    const settled = await Promise.allSettled([ptyChain, activityChain, reposChain]);
+    const chainNames = ['pty-service', 'agent-roster', 'repo-restore'] as const;
+    settled.forEach((outcome, index) => {
+      if (outcome.status === 'rejected') {
+        defaultLogger(
+          `[boot] ${chainNames[index]} failed: ${
+            outcome.reason instanceof Error ? outcome.reason.stack ?? outcome.reason.message : String(outcome.reason)
+          }`,
+        );
+      }
+    });
 
     mainWindow = createWindow();
     bootMark('create-window');
