@@ -2,14 +2,10 @@
 
 **Headlines:**
 
+- **[Phase 35 · FAB Mission Control](phases/phase-35-fab-mission-control.md)** (0% · 0/40) — Planned, next up. Makes the (currently untracked, ad-hoc) FAB panel a real loop console: each tab owns its own in-panel terminal session (`surface: 'fab'`, never in the main housing), a checkbox prompt composer per loop, Start↔Stop with the gradient glow pulse, and a mission-control layer — FAB badges, waiting-toasts, a capped run history. Also unifies the FAB's hard-coded prompts with `DEFAULT_AGENT_SKILLS` into one shared loop registry.
 - **[Phase 34 · Agent Councils](phases/phase-34-agent-councils.md)** (100% · 34/34) — Landed. Fills the nav/palette-reserved "Councils" slot: a standing panel of AI members answers a prompt in parallel, synthesized into one distilled write-up. MVP scope — one format (brainstorm), global (not per-repo), a 3-agent member pool (`agy`/`codex`/`opencode`), and an explicit auto-send exception to the app's usual type-but-don't-send agent-launch posture. Two manual passes (a real end-to-end run, a copy review) remain for a human.
-- **[Phase 33 · Application Installation, CLI Tool & Desktop Integration](phases/phase-33-installable-app-and-cli-integration.md)** (0% · 0/44) — Planned, not started. Adds a macOS DMG installer package with custom layout, `midnite-studio` CLI tool installer + shell completions, `midnite-studio://` deep-linking protocol scheme, auto-updater pipeline, and first-run setup onboarding. Written against the **Midnite Studio rename**, which is its prerequisite.
-- **[Phase 32 · The browser gets an engine](phases/phase-32-browser-engine-and-tabs.md)** (39% · 39/99) — Active frontier. Themes A–D landed: a real `WebContentsView` engine on its own no-preload partition, the `mstudio:browser:*` contract, the security policy Phase 27 made a precondition, and tabs with both kinds of group. E–I (occlusion, new-tab page, real chrome, dev powers, forge-in-place) remain.
-- **[Phase 30 · Terminal Hardening](phases/phase-30-terminal-hardening.md)** (90% · 82/91) — Active frontier; detached session broker lets terminal/agent sessions survive app restarts and window reloads. Implementation themes A–G landed; 9 manual verification checks open.
-- **[Phase 29 · Markdown Slides Viewer](phases/phase-29-markdown-slides-viewer.md)** (100% · 21/21) — Landed; fullscreen headings-based slide presenter integrated across Files preview, PR descriptions, and comment threads.
-- **[Phase 28 · Sidebar Section Tree](phases/phase-28-sidebar-section-tree.md)** (95% · 59/62) — Feature-complete; data-driven sidebar tree placing Worktrees first, nested Branches (`local`/`remotes`), and Forge parents.
-- **[Phase 27 · Status Bar & Browser Panel](phases/phase-27-status-bar-and-browser-panel.md)** (80% · 72/90) — Full-width 3-zone status bar with density-based overflow popover and browser stub pane.
-- **[Phase 25 · Search Everywhere](phases/phase-25-search-everywhere.md)** (100% · 101/101) & **[Phase 26 · Side-by-Side Diffs](phases/phase-26-side-by-side-diffs.md)** (100% · 68/68) — Landed; complete side-by-side diff support with virtualized accordions, split views, left-side review comments, and full-width commit workbench tabs.
+- **Phases 25–33 all landed** — search/blame, split diffs, status bar + browser pane, worktrees-first sidebar, markdown slides, the detached terminal broker, interactive rebase, the real browser engine, and the installable app + CLI.
+- **The only partial phases are [24 · The explorer learns to write](phases/phase-24-writable-explorer.md)** (78% · 43/55) **and [23 · A command palette](phases/phase-23-command-palette.md)** (76% · 42/55) — both closed as DONE with their remainders logged in [`outstanding.md`](outstanding.md).
 
 
 
@@ -21,6 +17,7 @@ Completed work is logged append-only in [`done.md`](done.md). Deferred scope liv
 
 | Phase | Status | Refined | Done | Progress | % | 🔄 WIP | ◻ TODO |
 |-------|--------|---------|------|----------|---|--------|--------|
+| [35 · FAB Mission Control](phases/phase-35-fab-mission-control.md) | ◻ TODO | — | 0/40 | `░░░░░░░░░░` | 0% | — | A B C D E |
 | [34 · Agent Councils](phases/phase-34-agent-councils.md) | ✅ DONE | — | 34/34 | `██████████` | 100% | — | — |
 | [33 · Application Installation, CLI Tool & Desktop Integration](phases/phase-33-installable-app-and-cli-integration.md) | ✅ DONE | x1 | 44/44 | `██████████` | 100% | — | — |
 | [32 · The browser gets an engine, and the tabs to fill it](phases/phase-32-browser-engine-and-tabs.md) | ✅ DONE | — | 99/99 | `██████████` | 100% | — | — |
@@ -61,6 +58,31 @@ Completed work is logged append-only in [`done.md`](done.md). Deferred scope liv
 
 <!-- Each phase currently carries a single theme A = its full deliverables checklist. Split into
      lettered themes if a phase gets parallelised. -->
+
+### [Phase 35 — FAB Mission Control](phases/phase-35-fab-mission-control.md)
+
+*The FAB panel becomes a real loop console. Today every tab latches onto the same pre-existing
+session (a stale-closure bug in `fab-terminal-view.tsx`) while its actual spawns pile into the
+main terminal housing; this phase gives each tab its own in-panel session via a
+`surface: 'main' | 'fab'` flag on `TerminalSessionSchema`, a per-loop checkbox composer, and
+Start↔Stop with the gradient glow pulse. A is the shared contract (LoopDefinition, surface,
+run-record schemas); B kills the triplicated prompt truth by unifying the FAB with
+`DEFAULT_AGENT_SKILLS` into one Settings-editable registry; C is the session-hosting fix; D the
+composer + Start/Stop/glow; E the mission-control layer (FAB dots, waiting-toasts, capped run
+history à la `councils-runs-store`). Claude-only this phase; Stop = sleep, transcript kept.*
+
+- ◻ **A** — Shared contracts: `LoopDefinition`/`LoopRunRecord` schemas, `composeLoopPrompt`,
+  `surface` on `TerminalSessionSchema`, `mstudio:loopRuns:*` channels.
+- ◻ **B** — Registry unification: `DEFAULT_LOOPS` replaces the FAB's hard-coded prompts and
+  `DEFAULT_AGENT_SKILLS`; Settings → Agent edits prompts + modifier defaults.
+- ◻ **C** — Session hosting: `surface: 'fab'` sessions filtered out of the main
+  housing/session-list, `startAgent` returns the session id (stale-closure bug gone), lazy
+  create-on-Start, `TerminalView` layout prop, asleep rehydration into tabs.
+- ◻ **D** — Composer + Start/Stop: modifier checkboxes + extras field, prompt composition on
+  Start, Stop = sleep with transcript, `.loop-run-glow` pulse keyed to agent activity with
+  reduced-motion opt-out.
+- ◻ **E** — Mission control: FAB glow + per-loop dots (amber on waiting), attention toasts,
+  `loop-runs-store.ts` capped history + per-tab history list, Playwright coverage.
 
 ### [Phase 34 — Agent Councils](phases/phase-34-agent-councils.md)
 
