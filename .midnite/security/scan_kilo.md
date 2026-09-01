@@ -18,7 +18,7 @@ Date: 2026-08-31
 
 ## Performance Issues
 
-### 3. use-tests-stream.ts scans every repo on every output chunk
+### 3. use-tests-stream.ts scans every repo on every output chunk — ✅ fixed
 - File: `packages/app/src/features/tests/use-tests-stream.ts`
 - Lines: 17-31
 - Issue: Both `onOutput` and `onResult` callbacks run `Object.keys(useTestsStore.getState().runs)` and call `getState()` multiple times per iteration for every single test output chunk. With N repos and M chunks this is O(N×M) store lookups; the store should index runs by `runId` directly instead of linear-scanning.
@@ -32,7 +32,7 @@ Date: 2026-08-31
 - Lines: 64-65
 - Issue: Same `filter(...findIndex...)` pattern, same O(n²) cost.
 
-### 5. Graph store appends via repeated concat
+### 5. Graph store appends via repeated concat — ✅ fixed
 - File: `packages/app/src/features/graph/graph-store.ts`
 - Line: 67
 - Issue: `appendBatch` does `state.rows.concat(rows)` on every 500-row batch. For 50,000 rows across ~100 batches this allocates ~100 new arrays of growing size, producing ~2.5M row copies of GC pressure. A single mutable buffer with a render-time slice, or `push` inside an `unstable_batchedUpdates`, would avoid the churn.
@@ -56,12 +56,12 @@ Date: 2026-08-31
 
 ## Minor / Design Concerns
 
-### 9. metrics-store.ts allocates fresh arrays per sample
+### 9. metrics-store.ts allocates fresh arrays per sample — ✅ fixed
 - File: `packages/app/src/store/metrics-store.ts`
 - Lines: 82-104
 - Issue: `appendSample` spreads the series object and filters each series on every tick. At 2s cadence this is fine, but it is still unnecessary allocation; a ring buffer or timestamped linked list would be cheaper.
 
-### 10. lane-layout.ts sorts edges per row
+### 10. lane-layout.ts sorts edges per row — ✅ fixed
 - File: `packages/git-engine/src/layout/lane-layout.ts`
 - Line: 153
 - Issue: `edges.sort(compareEdges)` runs for every commit. Edge counts are small per row, so this is minor, but it is redundant work if the insertion order is already deterministic.

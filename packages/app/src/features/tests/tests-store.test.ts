@@ -18,7 +18,7 @@ const okResult: TestRunResult = {
 };
 
 beforeEach(() => {
-  useTestsStore.setState({ selectedSuite: {}, runs: {}, results: {} });
+  useTestsStore.setState({ selectedSuite: {}, runs: {}, results: {}, runIndex: {} });
 });
 
 describe('tests-store', () => {
@@ -64,5 +64,13 @@ describe('tests-store', () => {
     const { startRun } = useTestsStore.getState();
     startRun('repo1', 'a::test', 'run-1');
     expect(activeRunId('repo1', 'a::test')).toBe('run-1');
+  });
+
+  it('indexes a started run by run id and evicts it once finished', () => {
+    const { startRun, finishRun } = useTestsStore.getState();
+    startRun('repo1', 'a::test', 'run-1');
+    expect(useTestsStore.getState().runIndex['run-1']).toBe('repo1');
+    finishRun('repo1', 'a::test', 'run-1', okResult);
+    expect(useTestsStore.getState().runIndex['run-1']).toBeUndefined();
   });
 });
