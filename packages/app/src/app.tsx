@@ -19,6 +19,7 @@ import { Brand, BrandMark, Wordmark } from './components/brand';
 import { DialogHost } from './components/dialog-host';
 import { VIEW_ICON } from './components/nav-icons';
 import { IconButton } from './components/icon-button';
+import { FabPanel } from './components/fab-panel';
 import { PaletteHost, usePalette } from './components/palette-host';
 import { ResizeHandle } from './components/resizable/resize-handle';
 import { useResizable } from './components/resizable/use-resizable';
@@ -347,6 +348,8 @@ function Shell() {
   const terminalOpen = useUiStore((s) => s.terminalOpen);
   const terminalMaximized = useUiStore((s) => s.terminalMaximized);
   const browserOpen = useUiStore((s) => s.browserOpen);
+  const fabPanelOpen = useUiStore((s) => s.fabPanelOpen);
+  const toggleFabPanel = useUiStore((s) => s.toggleFabPanel);
   const selectedRepoId = useUiStore((s) => s.selectedRepoId);
   const selectedWorktreePath = useUiStore((s) => s.selectedWorktreePath);
   // The repo's own name labels its terminals; the path is the fallback for a
@@ -891,6 +894,20 @@ function Shell() {
           </div>
 
           {browserReveal.mounted ? <BrowserPane shown={browserReveal.shown} /> : null}
+
+          {/* FAB Button */}
+          <button
+            type="button"
+            onClick={toggleFabPanel}
+            aria-label="Open quick access panel"
+            title="Quick Access"
+            className="absolute bottom-6 right-6 z-20 flex h-12 w-12 items-center justify-center rounded-full bg-primary text-primary-foreground shadow-lg transition-transform hover:scale-110 active:scale-95"
+          >
+            <BrandMark className="h-6 w-6" />
+          </button>
+
+          {/* FAB Panel */}
+          <FabPanel isOpen={fabPanelOpen} onToggle={toggleFabPanel} />
         </div>
 
         <StatusBar />

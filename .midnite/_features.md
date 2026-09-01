@@ -12,3 +12,8 @@
 2. Performance issues (without changing the UI / UX)
 3. Reduced motion applied to various aspects (e.g. gradient shimmers, typewrite effect, etc.)
 
+## Lock Screen
+
+1. Show battery in bottom right
+2. Show weather top center
+3. Make pills clickable
