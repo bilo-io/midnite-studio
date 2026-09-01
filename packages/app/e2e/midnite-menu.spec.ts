@@ -1,4 +1,4 @@
-import { expect, test, type Page } from '@playwright/test';
+import { expect, test, type Locator, type Page } from '@playwright/test';
 
 import { fixtures } from './fixtures';
 import { installMockBridge } from './mock-bridge';
@@ -48,10 +48,15 @@ const ptyInputs = (page: Page) =>
       ).__mstudioPty.creates.map((create) => create.initialInput),
   );
 
-async function openMidniteMenu(page: Page): Promise<void> {
+/**
+ * Opens the menu and hovers a group open. Every verb now lives one level down,
+ * so a spec that wants to click one has to say which group it is in.
+ */
+async function openMidniteMenu(page: Page, group = 'Tasks'): Promise<void> {
   await page.getByRole('button', { name: `Run a midnite skill on ${REPO}` }).click();
-  // Exact: "Loop: Backlog Task" also contains "Backlog Task" as a substring.
-  await expect(page.getByRole('menuitem', { name: 'Backlog Task', exact: true })).toBeVisible();
+  await expect(page.getByRole('menuitem', { name: group, exact: true })).toBeVisible();
+  await page.getByRole('menuitem', { name: group, exact: true }).hover();
+  await expect(page.getByRole('menu')).toHaveCount(2);
 }
 
 test('the row carries three menus, midnite first and the ellipsis last', async ({ page }) => {
@@ -119,33 +124,62 @@ test('the selected repo row carries the gradient shimmer', async ({ page }) => {
   await expect(row).toHaveClass(/repo-row-shimmer/);
 });
 
-test('the menu offers the seventeen agent verbs, each with its own glyph, with loops in a submenu', async ({
-  page,
-}) => {
-  await open(page);
-  await openMidniteMenu(page);
+/**
+ * The rows of one menu surface, by accessible name.
+ *
+ * Read off `aria-label` rather than through `toHaveText`, because a row's text
+ * is now its label *and* its description — and the label alone is what every
+ * `getByRole('menuitem', { name })` in this file matches on.
+ */
+const rowNames = (menu: Locator): Promise<(string | null)[]> =>
+  menu
+    .getByRole('menuitem')
+    .evaluateAll((nodes) => nodes.map((node) => node.getAttribute('aria-label')));
 
-  const topItems = page.getByRole('menu').first().getByRole('menuitem');
-  // The top level menu offers 11 standard actions plus the Loops submenu item
-  await expect(topItems).toHaveText([
+/**
+ * The top level is five groups and nothing else, and each opens onto its own
+ * verbs. Asserted as the exact ordered list rather than five presence checks:
+ * the previous shape had all eleven verbs on this plane, so a test that only
+ * looked for "Tasks" would have passed against a menu that still showed them.
+ */
+test('the top level is the five groups, each opening its own verbs', async ({ page }) => {
+  await open(page);
+  await page.getByRole('button', { name: `Run a midnite skill on ${REPO}` }).click();
+
+  const topMenu = page.getByRole('menu').first();
+  await expect.poll(() => rowNames(topMenu)).toEqual([
+    'Tasks',
+    'Reviews',
+    'Releases',
+    'Git',
+    'Loops',
+  ]);
+  // Groups only: no verb escaped onto the top level, and no divider is left
+  // over from the flat list the groups replaced.
+  await expect(topMenu.locator('hr')).toHaveCount(0);
+
+  const submenu = page.getByRole('menu').nth(1);
+
+  await topMenu.getByRole('menuitem', { name: 'Tasks', exact: true }).hover();
+  await expect.poll(() => rowNames(submenu)).toEqual([
     'Backlog Task',
     'Adhoc Task',
     'Address Issue',
     'Brainstorm',
     'Refine Plan',
-    'PR Review',
-    'PR Feedback',
-    'Release Prep',
-    'Release Complete',
-    'Git Report',
-    'Git Cleanup',
-    'Loops',
   ]);
 
-  // Hover over 'Loops' to open its submenu
-  await page.getByRole('menuitem', { name: 'Loops' }).hover();
-  const subMenu = page.getByRole('menu').nth(1);
-  await expect(subMenu.getByRole('menuitem')).toHaveText([
+  await topMenu.getByRole('menuitem', { name: 'Reviews', exact: true }).hover();
+  await expect.poll(() => rowNames(submenu)).toEqual(['PR Review', 'PR Feedback']);
+
+  await topMenu.getByRole('menuitem', { name: 'Releases', exact: true }).hover();
+  await expect.poll(() => rowNames(submenu)).toEqual(['Release Prep', 'Release Complete']);
+
+  await topMenu.getByRole('menuitem', { name: 'Git', exact: true }).hover();
+  await expect.poll(() => rowNames(submenu)).toEqual(['Git Report', 'Git Cleanup']);
+
+  await topMenu.getByRole('menuitem', { name: 'Loops', exact: true }).hover();
+  await expect.poll(() => rowNames(submenu)).toEqual([
     'Loop: PR Review',
     'Loop: PR Feedback',
     'Loop: Backlog Task',
@@ -154,13 +188,106 @@ test('the menu offers the seventeen agent verbs, each with its own glyph, with l
     'Loop: Brainstorm',
   ]);
 
-  // Iconed throughout - 11 flat-item icons, the Loops row's own icon *and* its
-  // chevron (it is both an entry and a submenu opener), and 6 submenu icons.
-  await expect(page.getByRole('menuitem').locator('svg')).toHaveCount(19);
-  // Five categories, so four dividers on top level menu:
-  // execute | pr | release | maintain | loops.
-  await expect(page.getByRole('menu').first().locator('hr')).toHaveCount(4);
+  /*
+    Iconed throughout: every group row carries its own glyph *and* a chevron,
+    and every submenu row one glyph.
+
+    Counted per row rather than over `topMenu`, which contains the open submenu
+    as a descendant — the submenu is positioned against its parent row, so it
+    is nested in the DOM even though it reads as a separate surface.
+  */
+  for (const group of ['Tasks', 'Reviews', 'Releases', 'Git', 'Loops']) {
+    const row = topMenu.getByRole('menuitem', { name: group, exact: true });
+    await expect(row.locator('svg')).toHaveCount(2);
+  }
+  await expect(submenu.getByRole('menuitem').locator('svg')).toHaveCount(6);
 });
+
+/**
+ * Every row explains itself in one line of smaller, lighter sub-text — the
+ * group's says what the group is for, the entry's is the same string the Agent
+ * settings page prints under that entry's skill field.
+ *
+ * The description is the row's accessible *description*, never part of its
+ * name: every `getByRole('menuitem', { name })` in this file depends on that,
+ * and so does a screen reader that would otherwise announce a sentence where a
+ * label belongs.
+ */
+test('every row carries a sub-text description, without it becoming the row name', async ({
+  page,
+}) => {
+  await open(page);
+  await page.getByRole('button', { name: `Run a midnite skill on ${REPO}` }).click();
+
+  const tasks = page.getByRole('menuitem', { name: 'Tasks', exact: true });
+  await expect(tasks).toHaveAccessibleDescription('Plan and build work in this repository.');
+  await tasks.hover();
+
+  const backlog = page.getByRole('menuitem', { name: 'Backlog Task', exact: true });
+  await expect(backlog).toHaveAccessibleDescription(
+    'Pick up the next unblocked backlog task and build it.',
+  );
+
+  // Smaller and lighter than the label above it, which inherits the menu's own
+  // 14px foreground.
+  const description = backlog.locator('span', {
+    hasText: 'Pick up the next unblocked backlog task and build it.',
+  });
+  const [size, color] = await description
+    .last()
+    .evaluate((el) => [getComputedStyle(el).fontSize, getComputedStyle(el).color]);
+  const labelColor = await backlog
+    .locator('span', { hasText: /^Backlog Task$/ })
+    .last()
+    .evaluate((el) => getComputedStyle(el).color);
+  expect(size).toBe('11px');
+  expect(color).not.toBe(labelColor);
+});
+
+/**
+ * The gradient edge is on both surfaces, not just the top-level one. A submenu
+ * floats over the app with its own shadow and its own rounded box, so a plain
+ * grey border beside a gradient one read as the second one being unfinished.
+ */
+test('both the menu and its submenus wear the gradient border', async ({ page }) => {
+  await open(page);
+  await openMidniteMenu(page);
+
+  const menus = page.getByRole('menu');
+  await expect(menus).toHaveCount(2);
+  for (const menu of await menus.all()) {
+    await expect(menu).toHaveClass(/gradient-border--always/);
+    // The class is only half of it — the conic gradient is painted by the
+    // border box, which a `border-border` colour would cover over.
+    const image = await menu.evaluate((el) => getComputedStyle(el).backgroundImage);
+    expect(image).toContain('conic-gradient');
+  }
+});
+
+/**
+ * A described submenu is several times the width of a labelled one, so the
+ * window edge it used to clear is now well within reach. It stays inside the
+ * window either way — the same correction the menu itself already makes for
+ * its own position.
+ */
+for (const width of [1280, 760]) {
+  test(`a submenu stays inside a ${width}px window`, async ({ page }) => {
+    await page.setViewportSize({ width, height: 700 });
+    await open(page);
+    // Loops is both the longest submenu and the one with the longest rows.
+    await openMidniteMenu(page, 'Loops');
+
+    const parent = await page.getByRole('menu').first().boundingBox();
+    const box = await page.getByRole('menu').nth(1).boundingBox();
+    expect(box).not.toBeNull();
+    expect(box!.x).toBeGreaterThanOrEqual(0);
+    expect(box!.x + box!.width).toBeLessThanOrEqual(width);
+
+    // Where there is room, it still opens off the parent's right edge rather
+    // than being clamped somewhere arbitrary.
+    if (width === 1280) expect(box!.x).toBeGreaterThanOrEqual(parent!.x + parent!.width);
+  });
+}
 
 test('an entry opens a Claude session with its skill typed, not run', async ({ page }) => {
   await open(page);
