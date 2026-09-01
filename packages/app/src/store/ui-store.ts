@@ -333,8 +333,6 @@ export type UiState = {
   fabPanelOpen: boolean;
   /** Active tab in the FAB panel. */
   activeFabTab: FabTab;
-  /** Terminal session IDs for each FAB tab. */
-  fabTabSessions: Record<FabTab, string | null>;
   updatesAutoCheck: boolean;
   updateChannel: 'stable' | 'beta';
   onboardedAt: string | null;
@@ -481,7 +479,6 @@ export type UiState = {
   setFabPanelOpen: (open: boolean) => void;
   setActiveFabTab: (tab: FabTab) => void;
   onFabTabClick: (tab: FabTab) => void;
-  setFabTabSession: (tab: FabTab, sessionId: string | null) => void;
 
   setLayout: <K extends keyof LayoutSizes>(key: K, value: number) => void;
   setGraphColumn: <K extends keyof GraphColumns>(key: K, value: number) => void;
@@ -772,12 +769,6 @@ export const useUiStore = create<UiState>()(
       browserOpen: false,
       fabPanelOpen: false,
       activeFabTab: 'innovate',
-      fabTabSessions: {
-        innovate: null,
-        automate: null,
-        watchdog: null,
-        medic: null,
-      },
       updatesAutoCheck: true,
       updateChannel: 'stable',
       onboardedAt: null,
@@ -896,11 +887,6 @@ export const useUiStore = create<UiState>()(
           return { activeFabTab: tab };
         });
       },
-      setFabTabSession: (tab, sessionId) =>
-        set((state) => ({
-          fabTabSessions: { ...state.fabTabSessions, [tab]: sessionId },
-        })),
-
       setLayout: (key, value) => set((state) => ({ layout: { ...state.layout, [key]: value } })),
       setGraphColumn: (key, value) =>
         set((state) => ({ graphColumns: { ...state.graphColumns, [key]: value } })),
