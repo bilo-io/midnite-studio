@@ -133,6 +133,22 @@ async function open(page: Page, data: MockFixtures = base): Promise<void> {
 
 const goToChanges = (page: Page) => page.getByRole('link', { name: 'Changes' }).click();
 
+/**
+ * The panel's own heading matches the status-bar button that summons it, word
+ * for word and glyph for glyph — bare "Repos" beside an Octicons repo mark
+ * read as a different feature from "Git Repos" beside the Git logo.
+ *
+ * The colour is asserted computed rather than by class, for the same reason as
+ * in `status-bar.spec.ts`: the literal exists so the mark stays Git's regardless
+ * of the accent the user picked.
+ */
+test('the panel heading is "Git Repos", in the Git mark and its brand orange', async ({ page }) => {
+  await open(page);
+  const heading = page.getByRole('heading', { name: 'Git Repos' });
+  await expect(heading).toBeVisible();
+  await expect(heading.locator('svg').first()).toHaveCSS('color', 'rgb(240, 80, 50)');
+});
+
 test('a change count lands on the checkout that owns it, not the repo', async ({ page }) => {
   await open(page);
 
@@ -476,7 +492,10 @@ test('a folded repo hangs its branch and count off the trailing edge', async ({ 
     panel rather than start wherever each repository's name happens to end —
     and it belongs beside the sync control it explains, not beside the name.
   */
-  const row = page.locator('div.group').filter({ has: page.getByTestId('change-count') }).first();
+  const row = page
+    .locator('div.group')
+    .filter({ has: page.getByTestId('change-count') })
+    .first();
   const pill = (await row.getByTestId('change-count').boundingBox())!;
   const sync = (await row.getByRole('button', { name: /^Fetch —/ }).boundingBox())!;
   /*

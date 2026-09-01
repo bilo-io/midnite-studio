@@ -37,12 +37,21 @@ test('the left zone footprint is unaffected by what the right zone renders', asy
 /**
  * The repositories toggle reads "Git Repos" — plain "Repos" was ambiguous
  * next to the browser/terminal toggles, which are also "repo" surfaces in
- * their own way.
+ * their own way — and wears the Git mark in Git's own `#F05032`.
+ *
+ * The colour is asserted as a computed value rather than a class name because
+ * that is the whole point of the literal: it must survive whichever accent the
+ * user has picked, so a theme token silently replacing it is exactly the
+ * regression worth catching.
  */
-test('the repositories toggle is labelled "Git Repos"', async ({ page }) => {
+test('the repositories toggle is the Git mark in brand orange, labelled "Git Repos"', async ({
+  page,
+}) => {
   await installMockBridge(page, { ...fixtures });
   await page.goto('/');
-  await expect(page.getByTestId('repos-toggle')).toContainText('Git Repos');
+  const toggle = page.getByTestId('repos-toggle');
+  await expect(toggle).toContainText('Git Repos');
+  await expect(toggle.locator('svg').first()).toHaveCSS('color', 'rgb(240, 80, 50)');
 });
 
 const GITHUB_REMOTE = {
