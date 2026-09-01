@@ -19,7 +19,7 @@ Completed work is logged append-only in [`done.md`](done.md). Deferred scope liv
 | Phase | Status | Refined | Done | Progress | % | 🔄 WIP | ◻ TODO |
 |-------|--------|---------|------|----------|---|--------|--------|
 | [36 · Faster, lighter, same app](phases/phase-36-performance-diet.md) | 🔄 WIP | x1 | 23/63 | `████░░░░░░` | 37% | B C G H | — |
-| [35 · FAB Mission Control](phases/phase-35-fab-mission-control.md) | 🔄 WIP | — | 36/40 | `█████████░` | 90% | — | — |
+| [35 · FAB Mission Control](phases/phase-35-fab-mission-control.md) | 🔄 WIP | — | 36/40 | `█████████░` | 90% | F G H I | — |
 | [34 · Agent Councils](phases/phase-34-agent-councils.md) | ✅ DONE | — | 34/34 | `██████████` | 100% | — | — |
 | [33 · Application Installation, CLI Tool & Desktop Integration](phases/phase-33-installable-app-and-cli-integration.md) | ✅ DONE | x1 | 44/44 | `██████████` | 100% | — | — |
 | [32 · The browser gets an engine, and the tabs to fill it](phases/phase-32-browser-engine-and-tabs.md) | ✅ DONE | — | 99/99 | `██████████` | 100% | — | — |
@@ -127,6 +127,16 @@ history à la `councils-runs-store`). Claude-only this phase; Stop = sleep, tran
 - ✅ **E** — Mission control: FAB glow + per-loop dots (amber on waiting), an actionable waiting
   notice, `loop-runs-store.ts` capped history whose ENDS are owned by main (finalised off the
   pty's own exit) + per-tab history list, `fab-loops.spec.ts`. (2026-09-01)
+- 🔄 **F** — Loop lifecycle: a pty that exits on its own flips Stop back to Start and drops the
+  glow, Stop mid-run keeps the transcript readable, and the next Start begins a fresh session —
+  driven off a new `__mstudioPtyExit` spec seam rather than the app-initiated kill path.
+- 🔄 **G** — Waiting notice, end to end: exactly one notification per waiting *transition*, in the
+  status-bar bell (the shipped surface — there is no floating toast host), and its `Open <Loop>`
+  action lands on the right FAB tab.
+- 🔄 **H** — Reduced motion, asserted: `html[data-motion='reduced']` resolves `.loop-run-glow` to a
+  computed `animation-name: none`, checked through the cascade rather than by reading the stylesheet.
+- 🔄 **I** — Rehydration: a persisted `surface: 'fab'` session plus its `fabSessions` entry come back
+  asleep with their transcript in the right tab, and still never reach the main session list.
 
 ### [Phase 34 — Agent Councils](phases/phase-34-agent-councils.md)
 
