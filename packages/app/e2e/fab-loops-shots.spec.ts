@@ -13,6 +13,8 @@ import { installMockBridge, type MockFixtures } from './mock-bridge';
  * Run with `MSTUDIO_SHOTS=1`; skipped otherwise so the normal suite stays fast.
  */
 const OUT = '../../docs/screenshots/p35-abcde';
+/** Themes F–I's own shot, kept apart so a rerun of one slice does not rewrite the other's. */
+const OUT_FGHI = '../../docs/screenshots/p35-fghi';
 
 test.skip(!process.env['MSTUDIO_SHOTS'], 'set MSTUDIO_SHOTS=1 to write screenshots');
 
@@ -74,4 +76,35 @@ test('Settings — the Loops section', async ({ page }) => {
   await page.getByRole('button', { name: 'Loops' }).click();
   await page.waitForTimeout(400);
   await page.screenshot({ path: `${OUT}/settings-loops.png` });
+});
+
+/**
+ * Themes F–I ship no new UI, so there is no before/after to take. The one
+ * surface they touch that has never been photographed is the waiting notice:
+ * `useLoopAttention` pushes it into `toast-store` and the status bar's
+ * `NotificationBell` is what renders it, so this is what "the loop is waiting
+ * for you" actually looks like when the panel is shut.
+ */
+test('the waiting notice, in the bell', async ({ page }) => {
+  await open(page);
+  await openFab(page);
+  await page.getByTestId('loop-composer-innovate').getByTestId('loop-start').click();
+  await expect(page.getByTestId('loop-composer-innovate').getByTestId('loop-stop')).toBeVisible();
+
+  // Panel shut — the case the notice exists for.
+  await page.keyboard.press('Escape');
+  await page.waitForTimeout(400);
+
+  await page.evaluate(() => {
+    (
+      window as unknown as {
+        __mstudioPtyActivity: (p: string, a: string) => boolean;
+      }
+    ).__mstudioPtyActivity('pty-1', 'waiting');
+  });
+
+  await page.getByTestId('notification-bell').click();
+  await expect(page.getByText('Innovate is waiting for input.')).toBeVisible();
+  await page.waitForTimeout(200);
+  await page.screenshot({ path: `${OUT_FGHI}/waiting-notice.png` });
 });
