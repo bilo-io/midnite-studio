@@ -290,13 +290,27 @@
   - `ipcRenderer.send`, not `invoke` — these are fire-and-forget commands whose result arrives as
     a pushed state, matching how `metrics.start`/`stop` are wired.
   - `| 'update'` on the `Pick<>` union, plus the `bridge.ts` group.
-- [ ] Add a `publish:` block to `electron-builder.yml`.
-  - `publish: [{ provider: github, owner: <owner>, repo: midnite-studio, releaseType: release }]`,
-    so a packaged build emits `latest-mac.yml` beside the dmg and zip. The `.blockmap` files
-    differential download needs are already produced today.
-  - The feed is **inert until a remote and a tagged release exist** — the repo currently has
-    neither. That is fine and must stay fail-soft: the `error` handler pushes an error state and
-    the banner, which hides on an error with no known version, simply never appears.
+- [x] Add a `publish:` block to `electron-builder.yml`. **Landed 2026-09-01, as `generic` rather
+      than `github`** — the pre-refinement `provider: github` is wrong for where releases actually
+      go, and the reason is worth reading before changing it back.
+  - Public downloads live in **[bilo-io/midnite-apps](https://github.com/bilo-io/midnite-apps)**,
+    not in this repo: this one is private, and an update feed has to be fetchable without a token.
+    That repo distributes several apps, so its tags are namespaced — `midnite-studio/v0.3.1` — and
+    `releases/latest` there is whichever app shipped most recently.
+  - electron-updater's **GitHub provider resolves the feed through exactly that endpoint**: latest
+    release → the `latest-mac.yml` attached to it. In a shared repo it would hand Midnite Studio
+    another app's manifest. The **generic** provider asks for `<url>/latest-mac.yml`, and a per-app
+    path makes it unambiguous:
+    `publish: [{ provider: generic, url: 'https://raw.githubusercontent.com/bilo-io/midnite-apps/main/midnite-studio/feed', channel: latest }]`.
+  - **Still to do here:** the release flow must `gh release upload` the dmg/zip/blockmaps against a
+    `midnite-studio/vX.Y.Z` tag *and* commit `latest-mac.yml` into `midnite-studio/feed/` in that
+    repo. `electron-builder --publish` cannot do it — the generic provider is read-only.
+  - The feed stays **inert until that first release exists**, and must stay fail-soft: the `error`
+    handler pushes an error state and the banner, which hides on an error with no known version,
+    simply never appears.
+  - Note that `midnite-apps` also carries the app's public `version.json`, which is what
+    `install.sh` reads. That is a *separate* feed from `latest-mac.yml` and deliberately so: one is
+    for the shell installer, one for electron-updater. Both are written by the same release.
 - [ ] Persist the update preferences in two places, for a reason.
   - [`ui-store.ts`](../../../packages/app/src/store/ui-store.ts) gains
     `updatesAutoCheck: boolean` (default `true`) and `updateChannel: UpdateChannel` (default

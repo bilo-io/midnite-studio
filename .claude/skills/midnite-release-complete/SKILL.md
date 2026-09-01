@@ -42,13 +42,44 @@ Gather, and **stop with a clear message** on the first failure (nothing has chan
 - Create the tag(s) from `planReleaseTags`: `git tag vX.Y.Z` (annotated: `-a -m "vX.Y.Z"`), or each scoped `git tag '‹pkg›@X.Y.Z'`.
 
 ## 4 · Publish
-- **Push** the branch and the tag(s): `git push origin release/vX.Y.Z` then `git push origin ‹tag›`. (If a tag-triggered release workflow exists — Phase 11+ — a `v*` tag kicks off the desktop build; note its status. Until then, tags are just tags.)
+Two repos are involved, and the split matters: **this repo is private, so nothing users touch can
+live here.** Source tags stay here; the public Release, the installers and the feeds go to
+**[bilo-io/midnite-apps](https://github.com/bilo-io/midnite-apps)**, the shared downloads + issue
+tracker. Because that repo carries several apps, its tags are namespaced — `midnite-studio/vX.Y.Z`,
+never a bare `vX.Y.Z`, which would collide with another app's.
+
+- **Push** the branch and the source tag(s) here: `git push origin release/vX.Y.Z` then
+  `git push origin ‹tag›`.
 - **Merge to main:** open the release PR if one isn't open (`gh pr create --base main --title 'chore(release): vX.Y.Z' --body …`), wait for CI, then `gh pr merge` — prefer a **merge commit** here so the tagged commit stays on `main`.
-- **GitHub Release:** cut it on **this repo** against the tag, with the curated changelog section as the body: `gh release create vX.Y.Z --title 'vX.Y.Z' --notes-file ‹changelog section›` (attach installer artifacts if the desktop build produced them).
+- **GitHub Release — on `bilo-io/midnite-apps`, not here:**
+
+  ```sh
+  gh release create 'midnite-studio/vX.Y.Z' \
+    --repo bilo-io/midnite-apps \
+    --title 'Midnite Studio vX.Y.Z' \
+    --notes-file ‹changelog section› \
+    packages/desktop/release/midnite-studio-X.Y.Z-arm64.dmg \
+    packages/desktop/release/midnite-studio-X.Y.Z-arm64.zip
+  ```
+
+  Build the artifacts first (`moon run desktop:dist`). If a build did not run, cut the Release
+  without assets rather than skipping it — but say so in the report.
+- **Mirror the changelog section** into `midnite-studio/CHANGELOG.md` in that repo, above the
+  previous release, and open it as a PR or push it directly to `main`.
+- **The two feeds.** `midnite-studio/version.json` (what `install.sh` reads) is rewritten
+  automatically by that repo's `release-feed.yml` when the Release publishes — check that it ran
+  rather than editing the file. `midnite-studio/feed/latest-mac.yml` (what electron-updater reads)
+  is **not** automatic: commit the `latest-mac.yml` that `desktop:dist` emitted alongside the dmg.
+  Skipping it means the in-app updater keeps reporting the previous version.
 
 ## 5 · Re-seed + confirm
 - Re-seed an empty `## [Unreleased]` stub above the released section in `CHANGELOG.md` and refresh the compare link (`[Unreleased]: …/compare/vX.Y.Z...HEAD`), if `/midnite-release-prep` didn't. Commit on `main` (`docs(changelog): re-seed Unreleased after vX.Y.Z`).
-- Report, terse: the **released version**, the **tag(s)**, the **Release URL** (`gh release view vX.Y.Z --json url`), the merge commit, and that `## [Unreleased]` is reset. Note the desktop-build workflow status if one exists and a `v*` tag was pushed.
+- Report, terse: the **released version**, the **source tag(s)** here, the **Release URL**
+  (`gh release view 'midnite-studio/vX.Y.Z' --repo bilo-io/midnite-apps --json url`), the merge
+  commit, and that `## [Unreleased]` is reset. Also state, per §4, whether the assets attached,
+  whether `release-feed.yml` updated `version.json`, and whether `latest-mac.yml` was committed —
+  a release that is missing any of the three is published but not installable, and that must not
+  be reported as done.
 
 ## Notes
 - **Out of scope:** publishing packages to a registry (private monorepo) — tags + GitHub Release only.

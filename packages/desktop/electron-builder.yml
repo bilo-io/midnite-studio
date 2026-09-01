@@ -83,11 +83,22 @@ protocols:
       - midnite-studio
     role: Viewer
 
+# Public downloads live in bilo-io/midnite-apps, not here: this repo is private, and an
+# updater feed has to be fetchable without a token. That repo distributes several apps, so its
+# release tags are namespaced (`midnite-studio/v0.3.1`) and `releases/latest` there means "the
+# newest release of *any* app in it".
+#
+# Which is why this is the `generic` provider rather than `github`. electron-updater's GitHub
+# provider resolves the feed by asking for the repo's latest release and reading the
+# `latest-mac.yml` attached to it — in a shared repo that is whichever app shipped most
+# recently, so it would happily hand Midnite Studio another app's update manifest. The generic
+# provider asks for `<url>/latest-mac.yml` instead, and the per-app path makes that
+# unambiguous. Uploading is `gh release upload` from the release flow, not
+# `electron-builder --publish`, which the generic provider cannot do.
 publish:
-  - provider: github
-    owner: bilowabona
-    repo: midnite-studio
-    releaseType: release
+  - provider: generic
+    url: https://raw.githubusercontent.com/bilo-io/midnite-apps/main/midnite-studio/feed
+    channel: latest
 
 dmg:
   window:
