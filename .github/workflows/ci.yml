@@ -58,8 +58,28 @@ jobs:
   # the Vite dev server with a mocked `window.midniteStudio` (see
   # e2e/mock-bridge.ts). No Electron, no dugite, no packaged app — nothing in it
   # is macOS-specific, and macOS minutes bill at 10x on a private repo.
+  #
+  # Sharded four ways, and that is not premature. Unsharded, this job took
+  # 21m30s against 3m0s for the same specs locally — a 4-vCPU runner gives
+  # Playwright `cores/2` = 2 workers where a 12-core laptop gives it 6, on
+  # slower cores. `gate` finishes in ~2m20s, so a single e2e job would have set
+  # the floor for every PR at twenty minutes. Four shards put it back to ~7,
+  # for about the same total runner minutes — which is affordable precisely
+  # because this lane is ubuntu at 1x rather than macOS at 10x.
+  #
+  # Workers are left at the default ON PURPOSE. Forcing `--workers=4` onto 4
+  # vCPUs would buy maybe a third off each shard by oversubscribing them, and
+  # this suite is already timing-sensitive enough to fail about one run in two
+  # (which is why CI retries twice). Trading flake for speed on a blocking job
+  # is the wrong way round.
   e2e:
     runs-on: ubuntu-24.04
+    strategy:
+      # Every shard reports. Cancelling siblings on the first failure would hide
+      # three quarters of a broken suite behind whichever shard happened to fail.
+      fail-fast: false
+      matrix:
+        shard: [1, 2, 3, 4]
     steps:
       - uses: actions/checkout@v4
 
@@ -102,8 +122,8 @@ jobs:
       # `app:e2e-ci`, not `app:e2e` — the ratchet config, which is the full suite
       # minus the 17 files that were already failing when this job was added.
       # See packages/app/playwright.ci.config.ts.
-      - name: E2E
-        run: pnpm exec moon run app:e2e-ci
+      - name: E2E (shard ${{ matrix.shard }}/4)
+        run: pnpm exec moon run app:e2e-ci -- --shard=${{ matrix.shard }}/4
         env:
           GITHUB_PACKAGES_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
@@ -112,7 +132,7 @@ jobs:
       - uses: actions/upload-artifact@v4
         if: failure()
         with:
-          name: playwright-report
+          name: playwright-report-shard-${{ matrix.shard }}
           path: packages/app/test-results
           if-no-files-found: ignore
 
