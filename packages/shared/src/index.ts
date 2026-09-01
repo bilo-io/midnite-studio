@@ -14,4 +14,5 @@ export * from './domain';
 export * from './fs';
 export * from './ipc';
 export * from './keybindings';
+export * from './loops';
 export * from './terminal';

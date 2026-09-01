@@ -1,4 +1,9 @@
-import type { SessionActivity, TerminalSession, TerminalSessionKind } from '@midnite/studio-shared';
+import type {
+  SessionActivity,
+  TerminalSession,
+  TerminalSessionKind,
+  TerminalSurface,
+} from '@midnite/studio-shared';
 import { create } from 'zustand';
 
 import { bridge } from '../../services/bridge';
@@ -64,6 +69,12 @@ export type NewSessionRequest = {
   name?: string;
   cwd: string;
   repoId: string;
+  /**
+   * Which surface renders the session (Phase 35). `'fab'` keeps it out of the
+   * main panel and the session list — and out of `activeId`: a loop starting
+   * in the FAB must not steal the main terminal's active session.
+   */
+  surface?: TerminalSurface;
 };
 
 type TerminalState = {
@@ -315,6 +326,17 @@ export const useTerminalStore = create<TerminalState>()((set, get) => ({
       const restored = sessions.map((entry) => ({
         ...entry.session,
         ...(entry.legacy ? { legacy: true } : {}),
+        /*
+          A FAB loop with no surviving pty comes back ASLEEP, not ended
+          (Phase 35 Theme C). Both phases draw a Start button, so the
+          difference is invisible there — but `TerminalView` renders its
+          `EndedStrip`, with "start shell" and "resume" buttons, over an
+          `ended` session. Inside a loop pane that is the wrong offer twice
+          over: the tab's own Start is how you begin a run, and a loop's
+          restart is a fresh run rather than a resumed shell. Asleep says the
+          true thing — the transcript is here, the process is not.
+        */
+        ...(entry.session.surface === 'fab' && !entry.live ? { asleep: true } : {}),
       }));
       const live = state.sessions.filter((open) => !restored.some((s) => s.id === open.id));
       const liveEntries = sessions.flatMap((e) =>
@@ -333,7 +355,12 @@ export const useTerminalStore = create<TerminalState>()((set, get) => ({
         sessions: [...restored, ...live],
         // A session opened by hand outranks the restored list for focus: the
         // user asked for it seconds ago, and the saved ones have no process.
-        activeId: live.length > 0 ? state.activeId : (restored[0]?.id ?? null),
+        // FAB sessions are skipped: the main panel cannot show one, and an
+        // activeId pointing into the FAB reads as an empty panel.
+        activeId:
+          live.length > 0
+            ? state.activeId
+            : (restored.find((s) => onMainSurface(s))?.id ?? null),
         states: {
           ...Object.fromEntries(restored.map((s) => [s.id, 'exited' as const])),
           // A live row binds straight to 'open' — it survived whatever
@@ -390,11 +417,13 @@ export const useTerminalStore = create<TerminalState>()((set, get) => ({
       cwd: request.cwd,
       repoId: request.repoId,
       createdAt: Date.now(),
+      ...(request.surface === undefined ? {} : { surface: request.surface }),
     };
 
     set((state) => ({
       sessions: [...state.sessions, session],
-      activeId: session.id,
+      // A FAB session never takes over the main panel's selection.
+      activeId: session.surface === 'fab' ? state.activeId : session.id,
       states: { ...state.states, [session.id]: 'idle' },
     }));
     bridge()?.terminal.save({ session });
@@ -415,7 +444,9 @@ export const useTerminalStore = create<TerminalState>()((set, get) => ({
       activeId: activeId === sessionId ? nextActiveId(sessions, sessionId) : activeId,
       ...dropKey(get(), sessionId),
     });
-    if (remaining.length === 0) set({ activeId: null });
+    // FAB rows do not count: the main panel with only a loop session left is
+    // an empty panel, and an activeId pointing into one reads as a blank pane.
+    if (!remaining.some(onMainSurface)) set({ activeId: null });
   },
 
   sleepSession: (sessionId) => {
@@ -469,7 +500,17 @@ export const useTerminalStore = create<TerminalState>()((set, get) => ({
         const session = byId.get(id);
         return session ? [session] : [];
       });
-      return { sessions: ordered };
+      /*
+        The caller names only the rows it can SEE, and the session list shows
+        main-surface rows only (Phase 35) — so rebuilding the list from the ids
+        alone would delete every FAB session from the store the moment someone
+        dragged a terminal row. Sessions the caller did not name keep their
+        relative order and follow the ones it did, which is the same
+        reconciliation `terminal-service.ts` does with the persisted file.
+      */
+      const named = new Set(sessionIds);
+      const untouched = state.sessions.filter((session) => !named.has(session.id));
+      return { sessions: [...ordered, ...untouched] };
     });
     bridge()?.terminal.reorder({ sessionIds });
   },
@@ -574,11 +615,29 @@ export const useTerminalStore = create<TerminalState>()((set, get) => ({
   peekReplay: (sessionId) => get().replay[sessionId] ?? null,
 }));
 
-/** The row to show after closing one: the next along, else the previous. */
+/**
+ * Whether a session belongs to the main terminal panel and its session list.
+ *
+ * The one predicate both surfaces filter by (Phase 35), so the panel's stack
+ * and the list cannot disagree about what a FAB session is. Absent means
+ * `main` — every session from before the field existed.
+ */
+export function onMainSurface(session: Pick<TerminalSession, 'surface'>): boolean {
+  return session.surface !== 'fab';
+}
+
+/**
+ * The row to show after closing one: the next along, else the previous.
+ *
+ * Main-surface rows only. A FAB session cannot be *shown* by the panel, so
+ * selecting one leaves the panel blank with nothing highlighted in the list —
+ * the same trap `openSession` and `hydrate` were already taught to avoid.
+ */
 function nextActiveId(sessions: TerminalSession[], closingId: string): string | null {
-  const index = sessions.findIndex((s) => s.id === closingId);
-  if (index === -1) return null;
-  return sessions[index + 1]?.id ?? sessions[index - 1]?.id ?? null;
+  const visible = sessions.filter(onMainSurface);
+  const index = visible.findIndex((s) => s.id === closingId);
+  if (index === -1) return visible[0]?.id ?? null;
+  return visible[index + 1]?.id ?? visible[index - 1]?.id ?? null;
 }
 
 /** Clear every per-session runtime map for one id. */

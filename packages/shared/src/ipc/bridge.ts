@@ -466,6 +466,21 @@ export type MidniteStudioBridge = {
   };
 
   /**
+   * FAB loop run history (Phase 35). `start` announces a run the renderer just
+   * launched; its END belongs to main — the pty exit finalises the record, so
+   * a reloaded renderer cannot lose an `endedAt`. `onChanged` carries nothing:
+   * the list is capped-small, so consumers just re-fetch it.
+   */
+  loopRuns: {
+    list: () => Promise<z.infer<typeof S.LoopRunsListResponse>>;
+    start: (
+      req: In<typeof S.LoopRunStartRequest>,
+    ) => Promise<z.infer<typeof S.LoopRunStartResponse>>;
+    stop: (req: In<typeof S.LoopRunStopRequest>) => Promise<z.infer<typeof S.LoopRunStopResponse>>;
+    onChanged: (handler: () => void) => Unsubscribe;
+  };
+
+  /**
    * Filesystem browsing (Phase 16) plus writes (Phase 24). The four write
    * methods are repo scope only — `claude-home` is not expressible in their
    * request types — and every one resolves to a `GitOpResult`, never rejects.

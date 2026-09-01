@@ -20,6 +20,8 @@ import { DialogHost } from './components/dialog-host';
 import { VIEW_ICON } from './components/nav-icons';
 import { IconButton } from './components/icon-button';
 import { FabPanel } from './components/fab-panel';
+import { FabLoopDots, useAnyLoopRunning } from './features/loops/fab-loop-dots';
+import { useLoopAttention } from './features/loops/use-loop-attention';
 import { PaletteHost, usePalette } from './components/palette-host';
 import { ResizeHandle } from './components/resizable/resize-handle';
 import { useResizable } from './components/resizable/use-resizable';
@@ -56,6 +58,7 @@ import { useDeepLinks } from './services/deep-link';
 import { StatusBar } from './features/status-bar/status-bar';
 import { TerminalPanel } from './features/terminal/terminal-panel';
 import { useAgentActivity } from './features/terminal/use-agent-activity';
+import { useSessionExits } from './features/terminal/use-session-exits';
 import { hslTokenToHex } from './lib/color';
 import { bridge } from './services/bridge';
 import { useCommandHandlers } from './services/keybindings/use-command-handlers';
@@ -351,6 +354,11 @@ function Shell() {
   const browserOpen = useUiStore((s) => s.browserOpen);
   const fabPanelOpen = useUiStore((s) => s.fabPanelOpen);
   const toggleFabPanel = useUiStore((s) => s.toggleFabPanel);
+  // Loop mission control (Phase 35): the notice fires whether or not the FAB
+  // panel is open — a loop that goes quiet unattended is the case it exists
+  // for — so both live here rather than inside <FabPanel>.
+  useLoopAttention();
+  const loopsRunning = useAnyLoopRunning();
   const selectedRepoId = useUiStore((s) => s.selectedRepoId);
   const selectedWorktreePath = useUiStore((s) => s.selectedWorktreePath);
   // The repo's own name labels its terminals; the path is the fallback for a
@@ -925,16 +933,30 @@ function Shell() {
             </>
           ) : null}
 
-          {/* FAB Button */}
-          <button
-            type="button"
-            onClick={toggleFabPanel}
-            aria-label="Open quick access panel"
-            title="Quick Access"
-            className="absolute bottom-4 right-4 z-20 flex h-10 w-10 items-center justify-center rounded-full bg-primary text-primary-foreground shadow-lg transition-transform hover:scale-110 active:scale-95"
-          >
-            <BrandMark className="h-full w-full" />
-          </button>
+          {/* FAB Button — glows while any loop is live, dotted per loop. */}
+          <div className="absolute bottom-4 right-4 z-20 h-10 w-10">
+            <FabLoopDots />
+            <button
+              type="button"
+              onClick={toggleFabPanel}
+              aria-label="Open quick access panel"
+              title="Quick Access"
+              data-loops-running={loopsRunning.running ? 'true' : undefined}
+              className={`flex h-10 w-10 items-center justify-center rounded-full bg-primary text-primary-foreground shadow-lg transition-transform hover:scale-110 active:scale-95 ${
+                loopsRunning.running
+                  ? `loop-run-glow on-primary ${
+                      loopsRunning.waiting
+                        ? 'is-waiting'
+                        : loopsRunning.thinking
+                          ? 'is-thinking'
+                          : ''
+                    }`
+                  : ''
+              }`}
+            >
+              <BrandMark className="h-full w-full" />
+            </button>
+          </div>
         </div>
 
         <StatusBar />
@@ -1034,6 +1056,11 @@ export function App() {
   // glyphs must keep tracking rung changes while every TerminalView is
   // unmounted (panel collapsed), so this cannot live inside one.
   useAgentActivity();
+  // And the window-lifetime `pty:exit` subscription, for the same reason: a
+  // FAB loop is meant to run with its panel closed, and main emits an exit
+  // once — one missed while every TerminalView was unmounted left the loop
+  // reading as live for the rest of the app run.
+  useSessionExits();
   return (
     <ShellProviders queryClient={queryClient}>
       <DialogHost>

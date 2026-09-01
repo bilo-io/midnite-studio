@@ -10,7 +10,7 @@ import { DEFAULT_LAYOUT, LAYOUT_BOUNDS, useUiStore } from '../../store/ui-store'
 import { buildNewSessionMenu } from './new-session-menu';
 import { TerminalHeader } from './terminal-header';
 import { TerminalSessionList } from './terminal-session-list';
-import { resolveSessionAgentId, useTerminalStore } from './terminal-store';
+import { onMainSurface, resolveSessionAgentId, useTerminalStore } from './terminal-store';
 import { TerminalView } from './terminal-view';
 import { useAgents } from './use-agents';
 
@@ -25,7 +25,9 @@ import { useAgents } from './use-agents';
  */
 export function TerminalPanel({ cwd, repoId, repoName, fitSignal }: TerminalPanelProps) {
   const dialogs = useDialogs();
-  const sessions = useTerminalStore((s) => s.sessions);
+  // The panel and the session list show MAIN sessions only — a FAB loop's
+  // session (Phase 35) renders inside the FAB panel and nowhere else.
+  const sessions = useTerminalStore((s) => s.sessions).filter(onMainSurface);
   const activeId = useTerminalStore((s) => s.activeId);
   const hydrated = useTerminalStore((s) => s.hydrated);
   const pendingInput = useTerminalStore((s) => s.pendingInput);

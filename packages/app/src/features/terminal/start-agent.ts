@@ -1,4 +1,9 @@
-import { agentInvocationArgs, shellQuote, toAgentPrompt } from '@midnite/studio-shared';
+import {
+  agentInvocationArgs,
+  shellQuote,
+  toAgentPrompt,
+  type TerminalSession,
+} from '@midnite/studio-shared';
 
 import { useTerminalStore } from './terminal-store';
 import { useUiStore } from '../../store/ui-store';
@@ -32,6 +37,8 @@ export function startAgent({
   prompt,
   agentId,
   command,
+  surface,
+  autoSend = false,
 }: {
   repoId: string;
   cwd: string;
@@ -42,8 +49,21 @@ export function startAgent({
   agentId: string;
   /** The roster entry's `command` — what's actually typed at the shell. */
   command: string;
-}): void {
-  useUiStore.getState().setTerminalOpen(true);
+  /**
+   * `'fab'` hosts the session in the FAB panel (Phase 35): the main terminal
+   * panel is neither opened nor handed the session.
+   */
+  surface?: 'main' | 'fab';
+  /**
+   * Append the Return, so the composed command RUNS rather than sitting at the
+   * prompt. The second deliberate exception to the type-but-don't-send posture
+   * above (councils were the first): a FAB loop's command is composed from
+   * checkboxes the user just set and launched by their explicit Start press —
+   * the confirmation the withheld Return exists to collect already happened.
+   */
+  autoSend?: boolean;
+}): TerminalSession {
+  if (surface !== 'fab') useUiStore.getState().setTerminalOpen(true);
 
   const session = useTerminalStore.getState().openSession({
     kind: 'agent',
@@ -51,11 +71,13 @@ export function startAgent({
     title,
     cwd,
     repoId,
+    ...(surface === undefined ? {} : { surface }),
   });
 
   // Queued input beats the roster's own start command (see `agentInput` in
   // <TerminalPanel>), so this replaces the bare command an agent session would
   // otherwise open with rather than racing it.
   const words = [command, ...agentInvocationArgs(agentId), shellQuote(toAgentPrompt(prompt, agentId))];
-  useTerminalStore.getState().queueInput(session.id, words.join(' '));
+  useTerminalStore.getState().queueInput(session.id, words.join(' ') + (autoSend ? '\r' : ''));
+  return session;
 }

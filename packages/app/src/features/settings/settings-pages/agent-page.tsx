@@ -1,11 +1,11 @@
 import { Fragment, useEffect, useRef, useState } from 'react';
 
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
-import { LuBot, LuFolderTree, LuRefreshCw } from 'react-icons/lu';
+import { LuBot, LuFolderTree, LuRefreshCw, LuRepeat } from 'react-icons/lu';
 
 import { Accordion } from '@bilo-io/ui';
 
-import { CLAUDE_COMMANDS, type ClaudeInfo } from '@midnite/studio-shared';
+import { CLAUDE_COMMANDS, DEFAULT_LOOPS, type ClaudeInfo } from '@midnite/studio-shared';
 
 import { IconButton } from '../../../components/icon-button';
 import { resolveAgentIcon } from '../../../components/icons';
@@ -13,6 +13,7 @@ import { MidniteIcon } from '../../../components/icons/midnite-icon';
 import { bridge, hasBridge } from '../../../services/bridge';
 import { DEFAULT_AGENT_SKILLS, useUiStore } from '../../../store/ui-store';
 import { AGENT_COMMANDS } from '../../agent/agent-commands';
+import { loopIcon } from '../../loops/loop-icons';
 import { useAgents } from '../../terminal/use-agents';
 import { useTerminalStore } from '../../terminal/terminal-store';
 import { FileTree } from '../../files/file-tree';
@@ -63,6 +64,19 @@ export function AgentPage() {
           </p>
           <PrimaryAgentPicker />
           <SkillFields />
+        </div>
+      </Accordion>
+
+      <Accordion title="Loops" icon={<LuRepeat className="h-4 w-4" />}>
+        <div className="flex flex-col gap-4 p-3">
+          <p className="text-[11px] leading-relaxed text-muted-foreground">
+            The four loops the quick-access panel runs. Each takes its base prompt from the{' '}
+            <em>midnite menu</em> field above with the same name, so there is one place to
+            change what a loop invokes. What you set here is which of a loop&rsquo;s prompt
+            toggles a <em>fresh</em> run starts with — the boxes you tick in the panel itself
+            apply to that run only, and are forgotten when the app closes.
+          </p>
+          <LoopDefaultFields />
         </div>
       </Accordion>
 
@@ -182,6 +196,58 @@ function SkillFields() {
                 ) : null}
               </div>
             </Field>
+          </Fragment>
+        );
+      })}
+    </div>
+  );
+}
+
+/**
+ * Which of each loop's prompt toggles a fresh run starts with.
+ *
+ * Deliberately only the *defaults*: the base prompt is edited one accordion up
+ * (a loop points at a midnite-menu entry by id, so the two cannot drift the
+ * way the FAB's old hard-coded copies did), and the per-run boxes live in the
+ * panel where you can see the run they apply to. A loop with no declared
+ * modifiers says so rather than rendering an empty box.
+ */
+function LoopDefaultFields() {
+  const defaults = useUiStore((s) => s.loopModifierDefaults);
+  const setDefault = useUiStore((s) => s.setLoopModifierDefault);
+
+  return (
+    <div className="flex flex-col gap-3">
+      {DEFAULT_LOOPS.map((loop, index) => {
+        const Icon = loopIcon(loop.icon);
+        return (
+          <Fragment key={loop.id}>
+            {index > 0 ? <hr className="border-border" /> : null}
+            <div className="flex flex-col gap-1.5">
+              <div className="flex items-center gap-2 text-xs font-medium text-foreground">
+                <Icon aria-hidden className={`h-3.5 w-3.5 shrink-0 ${loop.color}`} />
+                {loop.label}
+              </div>
+              {loop.modifiers.length === 0 ? (
+                <p className="text-[11px] text-muted-foreground">No toggles.</p>
+              ) : (
+                loop.modifiers.map((modifier) => (
+                  <label
+                    key={modifier.id}
+                    title={modifier.promptFragment}
+                    className="flex cursor-pointer items-center gap-2 text-[11px] text-muted-foreground hover:text-foreground"
+                  >
+                    <input
+                      type="checkbox"
+                      checked={defaults[loop.id]?.[modifier.id] ?? modifier.defaultOn}
+                      onChange={(event) => setDefault(loop.id, modifier.id, event.target.checked)}
+                      className="h-3 w-3 shrink-0 accent-primary"
+                    />
+                    <span>{modifier.label}</span>
+                  </label>
+                ))
+              )}
+            </div>
           </Fragment>
         );
       })}
