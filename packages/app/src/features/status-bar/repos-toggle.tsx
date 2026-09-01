@@ -1,4 +1,4 @@
-import { GoRepo } from 'react-icons/go';
+import { FaGitAlt } from 'react-icons/fa';
 
 import { Tooltip } from '../../components/tooltip';
 import { useUiStore } from '../../store/ui-store';
@@ -7,13 +7,15 @@ import { chordFor, displayChord } from './chord-hint';
 const reposChord = chordFor('repos.toggle', 'Mod+g');
 
 /**
- * `GoRepo` is Octicons, the same glyph the repositories panel's own header
- * wears, so the button and the thing it summons are recognisably one object.
- * This file is otherwise lucide, which has no repository mark that is not a
- * folder — and every folder variant in this app already means "worktree".
+ * `FaGitAlt` is the Git logo itself, in Git's own `#F05032` — the same pairing
+ * `IconButton`'s `git` tone uses for the per-repo git menu, and the same glyph
+ * the repositories panel's own header wears, so the button and the thing it
+ * summons are recognisably one object. The colour is a literal rather than a
+ * theme token for the reason that tone gives: it identifies *git*, not this
+ * app, so it must not move when the user picks an accent.
  *
  * `Tooltip` replaces the native `title` (Theme G): at `compact`/`collapsed`
- * density `.status-label` hides the inline "Repos ⌘G" text, leaving a bare
+ * density `.status-label` hides the inline "Git Repos ⌘G" text, leaving a bare
  * icon with no visible name, and a native tooltip is the one thing this
  * codebase already replaced everywhere else (`icon-button.tsx`) for being
  * slow and unstyled. Unconditional rather than gated on density: the two
@@ -36,7 +38,7 @@ export function ReposToggle() {
           reposOpen ? 'bg-accent text-foreground' : ''
         }`}
       >
-        <GoRepo aria-hidden className="mr-1 inline h-3.5 w-3.5 align-[-2px]" />
+        <FaGitAlt aria-hidden className="mr-1 inline h-3.5 w-3.5 align-[-2px] text-[#F05032]" />
         <span className="status-label">Git Repos</span>
         <span className="status-label ml-1.5 opacity-80">
           ⌘<span className="text-[13px] font-bold">G</span>
