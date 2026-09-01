@@ -42,7 +42,7 @@
  *
  * Typed to the app's structural `IconComponent` (`className` + `strokeWidth`),
  * like `claude-icon.tsx` next door, so it drops into `IconButton` and the
- * context menus beside a lucide or react-icons glyph. `strokeWidth` is accepted
+ * context menus beside any react-icons glyph. `strokeWidth` is accepted
  * and ignored: the mark is filled, not stroked.
  */
 export function MidniteIcon({ className }: { className?: string; strokeWidth?: number }) {

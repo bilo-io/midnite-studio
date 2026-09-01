@@ -2,10 +2,14 @@ import { useEffect, useMemo, useRef, useState } from 'react';
 
 import type { StatusEntry } from '@midnite/studio-shared';
 
-import { List, ListTree, Minus, Plus, Undo2 } from 'lucide-react';
+import { LuList, LuListTree, LuMinus, LuPlus, LuUndo2 } from 'react-icons/lu';
 import { AiOutlineDiff } from 'react-icons/ai';
 
-import { buildChangeTree, flattenBySize, type ChangedFile } from '../../components/build-change-tree';
+import {
+  buildChangeTree,
+  flattenBySize,
+  type ChangedFile,
+} from '../../components/build-change-tree';
 import { ChangeTotals, ChangeTree, Counts } from '../../components/change-tree';
 import { IconButton, type IconComponent } from '../../components/icon-button';
 import { ResizeHandle } from '../../components/resizable/resize-handle';
@@ -248,7 +252,7 @@ export function StatusPanel() {
               }}
               busy={busy}
               actionsFor={(row) => [
-                { icon: Minus, title: 'Unstage', onClick: () => unstage.mutate([row.path]) },
+                { icon: LuMinus, title: 'Unstage', onClick: () => unstage.mutate([row.path]) },
               ]}
             />
           </TreeSection>
@@ -277,7 +281,7 @@ export function StatusPanel() {
               busy={busy}
               actionsFor={(row) => [
                 {
-                  icon: Undo2,
+                  icon: LuUndo2,
                   title: 'Discard changes',
                   // Uncommitted work has no reflog — a mistake here cannot be
                   // undone, so it asks first, every time.
@@ -287,7 +291,7 @@ export function StatusPanel() {
                   // them is a different, more dangerous operation.
                   hidden: row.code === 'untracked',
                 },
-                { icon: Plus, title: 'Stage', onClick: () => stage.mutate([row.path]) },
+                { icon: LuPlus, title: 'Stage', onClick: () => stage.mutate([row.path]) },
               ]}
             />
           </TreeSection>
@@ -315,7 +319,8 @@ export function StatusPanel() {
               disabled={!canSubmit}
               className="w-full rounded-md bg-primary px-2 py-1.5 text-sm font-medium text-primary-foreground transition-opacity disabled:opacity-40"
             >
-              Commit {staged.length > 0 ? `${staged.length} file${staged.length === 1 ? '' : 's'}` : ''}
+              Commit{' '}
+              {staged.length > 0 ? `${staged.length} file${staged.length === 1 ? '' : 's'}` : ''}
             </button>
           ) : null}
         </div>
@@ -489,7 +494,7 @@ function ViewToggle({
   return (
     <div className="flex shrink-0 items-center">
       <IconButton
-        icon={ListTree}
+        icon={LuListTree}
         label="Group the changed files by folder"
         size="sm"
         aria-pressed={view === 'tree'}
@@ -497,7 +502,7 @@ function ViewToggle({
         onClick={() => onChange('tree')}
       />
       <IconButton
-        icon={List}
+        icon={LuList}
         label="List the changed files by how much changed"
         size="sm"
         aria-pressed={view === 'list'}

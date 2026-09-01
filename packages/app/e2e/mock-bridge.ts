@@ -1646,6 +1646,9 @@ export async function installMockBridge(page: Page, fixtures: MockFixtures): Pro
           return () => testsResultHandlers.splice(testsResultHandlers.indexOf(handler), 1);
         },
       },
+      // Present but off: the renderer only marks when the preload says the
+      // MSTUDIO_PERF flag was set, and an e2e run never sets it.
+      perf: { enabled: false, mark: () => {} },
       metrics: {
         start: (req: { intervalMs: number; freshDisk?: boolean }) => {
           metricsCalls.push(req);

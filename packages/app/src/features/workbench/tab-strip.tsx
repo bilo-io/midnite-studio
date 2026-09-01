@@ -1,7 +1,12 @@
-import { Files, GitCommit, GitPullRequest, Play, X } from 'lucide-react';
-
 import type { ReactNode } from 'react';
-import { LuDiff } from 'react-icons/lu';
+import {
+  LuDiff,
+  LuFiles,
+  LuGitCommitHorizontal,
+  LuGitPullRequest,
+  LuPlay,
+  LuX,
+} from 'react-icons/lu';
 
 import type { IconComponent } from '../../components/icon-button';
 import { Counts } from '../../components/change-tree';
@@ -27,11 +32,10 @@ import type { WorkbenchTab, WorkbenchTabKind } from '../../store/workbench-store
 // exception (`AiOutlineDiff` in the sidebar): it is an action, not the view.
 const KIND_ICON: Record<WorkbenchTabKind, IconComponent> = {
   'all-changes': LuDiff,
-  run: Play,
-  review: GitPullRequest,
-  commit: GitCommit,
+  run: LuPlay,
+  review: LuGitPullRequest,
+  commit: LuGitCommitHorizontal,
 };
-
 
 export function TabStrip({
   tabs,
@@ -94,7 +98,7 @@ function AllChangesTabStats({ repoId, worktreePath }: { repoId: string; worktree
 
   return (
     <span className="flex shrink-0 items-center gap-1 text-[11px] tabular-nums text-muted-foreground">
-      <Files aria-hidden className="h-3 w-3" />
+      <LuFiles aria-hidden className="h-3 w-3" />
       {totals.fileCount}
       <Counts insertions={totals.insertions} deletions={totals.deletions} />
     </span>
@@ -169,7 +173,7 @@ function Tab({
             active ? '' : 'opacity-0 group-hover:opacity-100'
           }`}
         >
-          <X aria-hidden className="h-3 w-3" />
+          <LuX aria-hidden className="h-3 w-3" />
         </button>
       ) : null}
     </div>

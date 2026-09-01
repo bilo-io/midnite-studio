@@ -1,4 +1,13 @@
-import { Check, ChevronDown, ChevronRight, Copy, ExternalLink, List, ListTree, Rows3 } from 'lucide-react';
+import {
+  LuCheck,
+  LuChevronDown,
+  LuChevronRight,
+  LuCopy,
+  LuExternalLink,
+  LuList,
+  LuListTree,
+  LuRows3,
+} from 'react-icons/lu';
 import { useCallback, useEffect, useId, useMemo, useRef, useState } from 'react';
 
 import { buildChangeTree, flattenBySize } from '../../components/build-change-tree';
@@ -9,12 +18,7 @@ import { useResizable } from '../../components/resizable/use-resizable';
 import { Tooltip } from '../../components/tooltip';
 import { useWorkbenchStore } from '../../store/workbench-store';
 
-import {
-  copyText,
-  resolveRevision,
-  useCommitDetail,
-  useRemotes,
-} from '../../services/queries';
+import { copyText, resolveRevision, useCommitDetail, useRemotes } from '../../services/queries';
 import { LAYOUT_BOUNDS, useUiStore, type CommitFileView } from '../../store/ui-store';
 import { DiffView } from '../diff/diff-view';
 import { imageDiffSources } from '../diff/image-sources';
@@ -223,9 +227,9 @@ export function CommitDetail({ repoId, sha }: { repoId: string; sha: string }) {
           className="shrink-0 rounded p-0.5 text-muted-foreground transition-colors hover:bg-accent/40 hover:text-foreground"
         >
           {metaOpen ? (
-            <ChevronDown className="h-3 w-3" strokeWidth={2.5} />
+            <LuChevronDown className="h-3 w-3" strokeWidth={2.5} />
           ) : (
-            <ChevronRight className="h-3 w-3" strokeWidth={2.5} />
+            <LuChevronRight className="h-3 w-3" strokeWidth={2.5} />
           )}
         </button>
         {/*
@@ -247,9 +251,12 @@ export function CommitDetail({ repoId, sha }: { repoId: string; sha: string }) {
           {data.sha}
         </p>
         <CopySha sha={data.sha} />
-        <OpenInTabButton repoId={repoId} sha={data.sha} label={`${data.sha.slice(0, 7)}: ${data.subject}`} />
+        <OpenInTabButton
+          repoId={repoId}
+          sha={data.sha}
+          label={`${data.sha.slice(0, 7)}: ${data.subject}`}
+        />
         <div className="flex shrink-0 items-center">
-
           <ViewToggle
             view={fileView}
             onChange={selectFileView}
@@ -416,7 +423,7 @@ function CopySha({ sha }: { sha: string }) {
 
   return (
     <IconButton
-      icon={copied ? Check : Copy}
+      icon={copied ? LuCheck : LuCopy}
       label={copied ? 'Copied' : 'Copy the full sha'}
       size="sm"
       onClick={() => {
@@ -453,7 +460,7 @@ function ViewToggle({
   return (
     <>
       <IconButton
-        icon={ListTree}
+        icon={LuListTree}
         label="Group the files by folder"
         size="sm"
         aria-pressed={!showAll && view === 'tree'}
@@ -461,7 +468,7 @@ function ViewToggle({
         onClick={() => onChange('tree')}
       />
       <IconButton
-        icon={List}
+        icon={LuList}
         label="List the files by how much changed"
         size="sm"
         aria-pressed={!showAll && view === 'list'}
@@ -469,7 +476,7 @@ function ViewToggle({
         onClick={() => onChange('list')}
       />
       <IconButton
-        icon={Rows3}
+        icon={LuRows3}
         label={showAll ? 'Back to one file at a time' : 'View all changes at once'}
         size="sm"
         aria-pressed={showAll}
@@ -534,11 +541,7 @@ function IdentityRow({ role, identity }: { role: string; identity: Identity }) {
  */
 function Parents({ parents, onSelect }: { parents: string[]; onSelect: (sha: string) => void }) {
   if (parents.length === 0) {
-    return (
-      <p className="mt-2 text-xs text-muted-foreground">
-        Root commit — no parents.
-      </p>
-    );
+    return <p className="mt-2 text-xs text-muted-foreground">Root commit — no parents.</p>;
   }
 
   return (
@@ -565,24 +568,15 @@ function Parents({ parents, onSelect }: { parents: string[]; onSelect: (sha: str
   );
 }
 
-function OpenInTabButton({
-  repoId,
-  sha,
-  label,
-}: {
-  repoId: string;
-  sha: string;
-  label: string;
-}) {
+function OpenInTabButton({ repoId, sha, label }: { repoId: string; sha: string; label: string }) {
   const openTab = useWorkbenchStore((s) => s.openTab);
 
   return (
     <IconButton
-      icon={ExternalLink}
+      icon={LuExternalLink}
       label="Open commit in tab"
       size="sm"
       onClick={() => openTab({ kind: 'commit', repoId, sha, label })}
     />
   );
 }
-

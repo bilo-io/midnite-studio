@@ -5,7 +5,9 @@ import { contextBridge, ipcRenderer } from 'electron';
 import {
   CHANNELS,
   EVENT_CHANNELS,
+  MSTUDIO_PERF_MARK,
   WINDOW_FRAMELESS_ARG,
+  perfEnabled,
   type DesktopPlatform,
   type MidniteStudioBridge,
   type Unsubscribe,
@@ -105,6 +107,7 @@ const bridge: Pick<
   | 'diag'
   | 'tests'
   | 'metrics'
+  | 'perf'
   | 'watch'
   | 'window'
   | 'windowChrome'
@@ -363,6 +366,13 @@ const bridge: Pick<
     restart: () => ipcRenderer.send(CHANNELS.updateRestart),
     setChannel: (req) => ipcRenderer.send(CHANNELS.updateSetChannel, req),
     onState: (handler) => subscribe(EVENT_CHANNELS.updateState, handler),
+  },
+  perf: {
+    // Read once, here: the preload is the last place in the renderer's own
+    // process tree where `process.env` exists. Everything downstream reads this
+    // boolean, so an unset flag makes every mark site a single false check.
+    enabled: perfEnabled(process.env),
+    mark: (m) => ipcRenderer.send(MSTUDIO_PERF_MARK, m),
   },
   systemHealth: () => call(CHANNELS.systemHealth),
   protocol: {

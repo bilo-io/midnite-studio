@@ -6,31 +6,31 @@ import type {
   ForgeRun,
 } from '@midnite/studio-shared';
 import {
-  Ban,
-  Check,
-  CircleCheck,
-  CircleDashed,
-  CircleDot,
-  CircleSlash,
-  CircleX,
-  Clock,
-  Ellipsis,
-  Eye,
-  GitMerge,
-  GitPullRequest,
-  GitPullRequestClosed,
-  GitPullRequestDraft,
-  History,
-  LoaderCircle,
-  MessageSquare,
-  MessageSquareWarning,
-  Minus,
-  ShieldAlert,
-  SkipForward,
-  TimerOff,
-  TriangleAlert,
-  X,
-} from 'lucide-react';
+  LuBan,
+  LuCheck,
+  LuCircleCheck,
+  LuCircleDashed,
+  LuCircleDot,
+  LuCircleSlash,
+  LuCircleX,
+  LuClock,
+  LuEllipsis,
+  LuEye,
+  LuGitMerge,
+  LuGitPullRequest,
+  LuGitPullRequestClosed,
+  LuGitPullRequestDraft,
+  LuHistory,
+  LuLoaderCircle,
+  LuMessageSquare,
+  LuMessageSquareWarning,
+  LuMinus,
+  LuShieldAlert,
+  LuSkipForward,
+  LuTimerOff,
+  LuTriangleAlert,
+  LuX,
+} from 'react-icons/lu';
 
 import type { IconComponent } from '../../components/icon-button';
 import { Tooltip } from '../../components/tooltip';
@@ -106,11 +106,11 @@ export type ForgeStatus = {
  * also why it is one of the three statuses that keeps its words.
  */
 const UNFINISHED: Record<Exclude<ForgeRun['status'], 'completed'>, ForgeStatus> = {
-  queued: { tone: 'busy', label: 'Queued', icon: Clock },
-  in_progress: { tone: 'busy', label: 'Running', icon: LoaderCircle, spin: true },
-  requested: { tone: 'busy', label: 'Requested', icon: CircleDashed },
-  pending: { tone: 'busy', label: 'Pending', icon: Ellipsis },
-  waiting: { tone: 'warn', label: 'Waiting for approval', icon: ShieldAlert, withLabel: true },
+  queued: { tone: 'busy', label: 'Queued', icon: LuClock },
+  in_progress: { tone: 'busy', label: 'Running', icon: LuLoaderCircle, spin: true },
+  requested: { tone: 'busy', label: 'Requested', icon: LuCircleDashed },
+  pending: { tone: 'busy', label: 'Pending', icon: LuEllipsis },
+  waiting: { tone: 'warn', label: 'Waiting for approval', icon: LuShieldAlert, withLabel: true },
 };
 
 /**
@@ -143,26 +143,26 @@ export function outcomeStatus(
   if (status !== 'completed') return UNFINISHED[status];
   switch (conclusion) {
     case 'success':
-      return { tone: 'ok', label: 'Passed', icon: Check };
+      return { tone: 'ok', label: 'Passed', icon: LuCheck };
     case 'failure':
     case 'startup_failure':
-      return { tone: 'fail', label: 'Failed', icon: X };
+      return { tone: 'fail', label: 'Failed', icon: LuX };
     case 'timed_out':
-      return { tone: 'fail', label: 'Timed out', icon: TimerOff };
+      return { tone: 'fail', label: 'Timed out', icon: LuTimerOff };
     case 'action_required':
-      return { tone: 'warn', label: 'Action required', icon: TriangleAlert, withLabel: true };
+      return { tone: 'warn', label: 'Action required', icon: LuTriangleAlert, withLabel: true };
     case 'cancelled':
-      return { tone: 'idle', label: 'Cancelled', icon: Ban };
+      return { tone: 'idle', label: 'Cancelled', icon: LuBan };
     case 'skipped':
-      return { tone: 'idle', label: 'Skipped', icon: SkipForward };
+      return { tone: 'idle', label: 'Skipped', icon: LuSkipForward };
     case 'neutral':
-      return { tone: 'idle', label: 'Neutral', icon: Minus };
+      return { tone: 'idle', label: 'Neutral', icon: LuMinus };
     case 'stale':
-      return { tone: 'idle', label: 'Stale', icon: History };
+      return { tone: 'idle', label: 'Stale', icon: LuHistory };
     // A completed run with no conclusion is a shape the forge should not
     // produce; saying so beats inventing a verdict for it.
     default:
-      return { tone: 'idle', label: 'Completed', icon: CircleDot };
+      return { tone: 'idle', label: 'Completed', icon: LuCircleDot };
   }
 }
 
@@ -185,19 +185,19 @@ export function outcomeStatus(
  * which would say one thing twice and neither of them clearly.
  */
 export function pullStatus(pull: ForgePull): ForgeStatus {
-  if (pull.state === 'merged') return { tone: 'ok', label: 'Merged', icon: GitMerge };
+  if (pull.state === 'merged') return { tone: 'ok', label: 'Merged', icon: LuGitMerge };
   if (pull.state === 'closed')
-    return { tone: 'idle', label: 'Closed', icon: GitPullRequestClosed };
-  if (pull.isDraft) return { tone: 'idle', label: 'Draft', icon: GitPullRequestDraft };
+    return { tone: 'idle', label: 'Closed', icon: LuGitPullRequestClosed };
+  if (pull.isDraft) return { tone: 'idle', label: 'Draft', icon: LuGitPullRequestDraft };
   switch (pull.reviewDecision) {
     case 'APPROVED':
-      return { tone: 'ok', label: 'Approved', icon: Check };
+      return { tone: 'ok', label: 'Approved', icon: LuCheck };
     case 'CHANGES_REQUESTED':
-      return { tone: 'fail', label: 'Changes requested', icon: MessageSquareWarning };
+      return { tone: 'fail', label: 'Changes requested', icon: LuMessageSquareWarning };
     case 'REVIEW_REQUIRED':
-      return { tone: 'warn', label: 'Review required', icon: Eye, withLabel: true };
+      return { tone: 'warn', label: 'Review required', icon: LuEye, withLabel: true };
     default:
-      return { tone: 'idle', label: 'Open', icon: GitPullRequest };
+      return { tone: 'idle', label: 'Open', icon: LuGitPullRequest };
   }
 }
 
@@ -211,18 +211,18 @@ export function pullStatus(pull: ForgePull): ForgeStatus {
 export function checksStatus(pull: ForgePull): ForgeStatus | null {
   switch (pull.checks) {
     case 'passing':
-      return { tone: 'ok', label: 'Checks passing', icon: CircleCheck };
+      return { tone: 'ok', label: 'Checks passing', icon: LuCircleCheck };
     case 'failing':
-      return { tone: 'fail', label: 'Checks failing', icon: CircleX };
+      return { tone: 'fail', label: 'Checks failing', icon: LuCircleX };
     case 'pending':
-      return { tone: 'busy', label: 'Checks running', icon: LoaderCircle, spin: true };
+      return { tone: 'busy', label: 'Checks running', icon: LuLoaderCircle, spin: true };
     default:
       return null;
   }
 }
 
 /** A resolved review thread, in the shared vocabulary rather than its own chip. */
-export const RESOLVED_STATUS: ForgeStatus = { tone: 'ok', label: 'Resolved', icon: CircleCheck };
+export const RESOLVED_STATUS: ForgeStatus = { tone: 'ok', label: 'Resolved', icon: LuCircleCheck };
 
 /**
  * A status as a bare coloured glyph — or as a chip with its word, for the few
@@ -276,8 +276,8 @@ export function StatusPill({
  */
 export function issueStatus(issue: ForgeIssue): ForgeStatus {
   return issue.state === 'closed'
-    ? { tone: 'idle', label: 'Closed', icon: CircleCheck }
-    : { tone: 'warn', label: 'Open', icon: CircleDot };
+    ? { tone: 'idle', label: 'Closed', icon: LuCircleCheck }
+    : { tone: 'warn', label: 'Open', icon: LuCircleDot };
 }
 
 /**
@@ -305,12 +305,12 @@ export function jobStatus(job: ForgeJob): ForgeStatus {
 export function reviewStatus(state: ForgeReviewState): ForgeStatus {
   switch (state) {
     case 'APPROVED':
-      return { tone: 'ok', label: 'Approved', icon: Check };
+      return { tone: 'ok', label: 'Approved', icon: LuCheck };
     case 'CHANGES_REQUESTED':
-      return { tone: 'fail', label: 'Changes requested', icon: MessageSquareWarning };
+      return { tone: 'fail', label: 'Changes requested', icon: LuMessageSquareWarning };
     case 'DISMISSED':
-      return { tone: 'idle', label: 'Dismissed', icon: CircleSlash };
+      return { tone: 'idle', label: 'Dismissed', icon: LuCircleSlash };
     default:
-      return { tone: 'idle', label: 'Reviewed', icon: MessageSquare };
+      return { tone: 'idle', label: 'Reviewed', icon: LuMessageSquare };
   }
 }

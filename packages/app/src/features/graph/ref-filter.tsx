@@ -1,7 +1,7 @@
 import { useMemo } from 'react';
 
 import type { Ref } from '@midnite/studio-shared';
-import { GitBranch, ListFilter } from 'lucide-react';
+import { LuGitBranch, LuListFilter } from 'react-icons/lu';
 
 import { MultiSelectMenu, type MultiSelectOption } from '../../components/multi-select-menu';
 
@@ -40,7 +40,7 @@ export function RefFilter({
           value: ref.fullName,
           label: ref.name,
           icon: (
-            <GitBranch
+            <LuGitBranch
               aria-hidden
               className={`h-3 w-3 shrink-0 ${
                 ref.kind === 'remoteBranch' ? 'text-muted-foreground/60' : 'text-muted-foreground'
@@ -59,7 +59,7 @@ export function RefFilter({
       options={options}
       selected={selected}
       onChange={onChange}
-      icon={<ListFilter aria-hidden className="h-3.5 w-3.5 shrink-0" />}
+      icon={<LuListFilter aria-hidden className="h-3.5 w-3.5 shrink-0" />}
       allLabel="All branches"
       searchPlaceholder="Filter branches…"
       emptyLabel="No branch matches."

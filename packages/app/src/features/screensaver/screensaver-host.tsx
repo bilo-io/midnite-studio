@@ -9,11 +9,49 @@ export function ScreensaverHost() {
   const screensaverLocked = useUiStore((s) => s.screensaverLocked);
   const setScreensaverOpen = useUiStore((s) => s.setScreensaverOpen);
 
-  const lastActivityRef = useRef<number>(Date.now());
+  /**
+   * One re-armed timeout, not a poll (Phase 36 E). This used to compare
+   * `Date.now()` against the last activity every second for the whole time the
+   * app was open — 900 wakeups to answer a question whose answer only changes
+   * when the user stops touching the machine. Now activity re-arms a single
+   * timer for the full timeout, so an active user costs one `clearTimeout` +
+   * `setTimeout` per event burst and an away user costs nothing at all.
+   */
+  const armRef = useRef<(() => void) | null>(null);
 
   useEffect(() => {
+    if (screensaverOpen || !inactivityTimeoutS || inactivityTimeoutS <= 0) {
+      armRef.current = null;
+      return;
+    }
+
+    let timer: ReturnType<typeof setTimeout> | null = null;
+
+    const arm = () => {
+      if (timer !== null) clearTimeout(timer);
+      timer = setTimeout(() => setScreensaverOpen(true, false), inactivityTimeoutS * 1000);
+    };
+    armRef.current = arm;
+    arm();
+
+    return () => {
+      armRef.current = null;
+      if (timer !== null) clearTimeout(timer);
+    };
+  }, [inactivityTimeoutS, screensaverOpen, setScreensaverOpen]);
+
+  useEffect(() => {
+    // `mousemove` fires at pointer rate, so coalesce: re-arming is cheap but
+    // not free, and one re-arm per animation frame is indistinguishable from
+    // one per event against a timeout measured in minutes.
+    let queued = false;
     const onActivity = () => {
-      lastActivityRef.current = Date.now();
+      if (queued) return;
+      queued = true;
+      requestAnimationFrame(() => {
+        queued = false;
+        armRef.current?.();
+      });
     };
 
     const events = ['mousemove', 'keydown', 'mousedown', 'pointerdown', 'touchstart'];
@@ -23,21 +61,6 @@ export function ScreensaverHost() {
       events.forEach((event) => window.removeEventListener(event, onActivity));
     };
   }, []);
-
-  useEffect(() => {
-    if (screensaverOpen || !inactivityTimeoutS || inactivityTimeoutS <= 0) {
-      return;
-    }
-
-    const interval = setInterval(() => {
-      const idleMs = Date.now() - lastActivityRef.current;
-      if (idleMs >= inactivityTimeoutS * 1000) {
-        setScreensaverOpen(true, false);
-      }
-    }, 1000);
-
-    return () => clearInterval(interval);
-  }, [inactivityTimeoutS, screensaverOpen, setScreensaverOpen]);
 
   if (!screensaverOpen) {
     return null;

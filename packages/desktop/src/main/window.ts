@@ -6,6 +6,7 @@ import { BrowserWindow, app, shell } from 'electron';
 import { WINDOW_FRAMELESS_ARG } from '@midnite/studio-shared';
 
 import { maybeCapture } from './capture';
+import { bootMark } from './perf-marks';
 import { attachWindowChrome, windowFrameless } from './window-chrome';
 
 /** Vite's dev server, matching `strictPort: true` in packages/app/vite.config.ts. */
@@ -82,8 +83,13 @@ export function createWindow(): BrowserWindow {
   maybeCapture(win);
 
   // Show only once the renderer has painted — otherwise the window appears as
-  // an empty rectangle for as long as the bundle takes to boot.
-  win.once('ready-to-show', () => win.show());
+  // an empty rectangle for as long as the bundle takes to boot. That makes this
+  // the moment the user first sees the app, which is why it is the mark cold
+  // start is measured to.
+  win.once('ready-to-show', () => {
+    bootMark('ready-to-show');
+    win.show();
+  });
 
   // External links open in the user's browser, never in an app window with no
   // chrome to escape from.

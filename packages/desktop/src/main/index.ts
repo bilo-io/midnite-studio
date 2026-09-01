@@ -40,7 +40,6 @@ import {
   onSessionExit,
   setActivityDetector,
   setAgentWatcher,
-  tickActivityClocks,
 } from './pty-service';
 import { registerLoopRunsHandlers } from './ipc/loop-runs-handlers';
 import { configureLoopRuns, noteSessionExit } from './loop-runs';
@@ -62,6 +61,8 @@ import { createCouncilsRunsStore } from './councils-runs-store';
 import { createCouncilsStore } from './councils-store';
 import { migrateAnyLegacyRepoStore } from './userdata-migration';
 import { installMgitFileProtocol, registerMgitFileScheme } from './fs-protocol';
+import { registerPerfHandlers } from './ipc/perf-handlers';
+import { bootMark } from './perf-marks';
 import { ensureLoginShellPath } from './shell-path';
 import { createWindow } from './window';
 import { registerWindowChrome } from './window-chrome';
@@ -189,11 +190,13 @@ if (!app.requestSingleInstanceLock()) {
   // bare PATH, which has no Homebrew git, no credential helpers and no user
   // shell config. Must run before the first git or pty call.
   ensureLoginShellPath();
+  bootMark('login-shell-done');
 
   // Chromium fixes the privileged-scheme list at startup — must precede ready.
   registerMgitFileScheme();
 
   void app.whenReady().then(async () => {
+    bootMark('when-ready');
     registerWindowChrome(getWindow);
     registerRepoHandlers(getWindow);
     registerSearchHandlers(getWindow);
@@ -247,8 +250,10 @@ if (!app.requestSingleInstanceLock()) {
     registerLoopRunsHandlers();
     registerUpdater(getWindow);
     ipcMain.handle(CHANNELS.systemHealth, () => readSystemHealth());
+    registerPerfHandlers();
     installMgitFileProtocol();
     installMenu(getWindow);
+    bootMark('handlers-registered');
 
     // Restore before the window opens: the renderer's first `repo:list` fires
     // on mount, and an empty answer there shows the empty state for a frame
@@ -258,6 +263,7 @@ if (!app.requestSingleInstanceLock()) {
     // "Midnite Studio") moved userData, and the user's repository list is
     // still under whichever name they last launched.
     await migrateAnyLegacyRepoStore((name) => join(dirname(userData), name), userData);
+    bootMark('legacy-migrated');
     await initPtyService({
       userDataDir: userData,
       appVersion: app.getVersion(),
@@ -265,6 +271,7 @@ if (!app.requestSingleInstanceLock()) {
       getWindow,
       log: (msg) => defaultLogger(msg),
     });
+    bootMark('pty-ready');
     configureRegistry(createRepoStore(userData));
     configureTerminals(createTerminalStore(userData), userData);
     configureCouncils(createCouncilsStore(userData), createCouncilsRunsStore(userData));
@@ -283,20 +290,23 @@ if (!app.requestSingleInstanceLock()) {
       would not already have paid. The shared 1s tick drives every tracked
       pty's decay clock rather than a timer each.
     */
+    const rosterForActivity = await listAgents();
+    bootMark('agents-listed');
     setActivityDetector(
-      createActivityDetector(await listAgents(), {
+      createActivityDetector(rosterForActivity, {
         now: Date.now,
         log: defaultLogger,
         onDisabled: notifyActivityDisabled,
       }),
     );
-    setInterval(tickActivityClocks, 1000).unref();
     configureDiagnostics(createTrustStore(userData));
     configureTests(createTestTrustStore(userData));
     await restoreRepos();
     await openReposFromEnv();
+    bootMark('repos-restored');
 
     mainWindow = createWindow();
+    bootMark('create-window');
     mainWindow.on('closed', () => {
       mainWindow = null;
     });

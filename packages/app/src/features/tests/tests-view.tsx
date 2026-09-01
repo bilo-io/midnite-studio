@@ -1,4 +1,4 @@
-import { RefreshCw } from 'lucide-react';
+import { LuRefreshCw } from 'react-icons/lu';
 
 import { ResizeHandle } from '../../components/resizable/resize-handle';
 import { useResizable } from '../../components/resizable/use-resizable';
@@ -33,7 +33,9 @@ export function TestsView() {
   const discovery = useTestDiscovery(repoId);
   const refresh = useRefreshTestDiscovery(repoId);
 
-  const selectedId = useTestsStore((s) => (repoId === null ? null : (s.selectedSuite[repoId] ?? null)));
+  const selectedId = useTestsStore((s) =>
+    repoId === null ? null : (s.selectedSuite[repoId] ?? null),
+  );
   const selectSuite = useTestsStore((s) => s.selectSuite);
 
   const packages = discovery.data?.packages ?? [];
@@ -65,7 +67,7 @@ export function TestsView() {
             aria-label="Refresh discovered suites"
             className="ml-auto rounded p-1 text-muted-foreground transition-colors hover:bg-accent/40 hover:text-foreground"
           >
-            <RefreshCw className="h-3.5 w-3.5" aria-hidden />
+            <LuRefreshCw className="h-3.5 w-3.5" aria-hidden />
           </button>
         </div>
 
@@ -85,9 +87,7 @@ export function TestsView() {
       <ResizeHandle resizable={list} axis="x" label="Resize the suite list" />
 
       {selected === null ? (
-        <Notice>
-          {discovery.isFetching ? 'Scanning for test suites…' : 'No suite selected.'}
-        </Notice>
+        <Notice>{discovery.isFetching ? 'Scanning for test suites…' : 'No suite selected.'}</Notice>
       ) : (
         <SuiteDetail repoId={repoId} suite={selected} />
       )}

@@ -6,27 +6,27 @@ import { keys } from '../../services/queries';
 import type { Ref, Remote, RepoDescriptor, StatusResult, Worktree } from '@midnite/studio-shared';
 import { forgeProjectUrl, pickForgeRemote } from '@midnite/studio-shared';
 import {
-  ArrowRightLeft,
-  ChevronRight,
-  ChevronsDownUp,
-  ChevronsUpDown,
-  Cloud,
-  CloudDownload,
-  FolderCheck,
-  FolderGit2,
-  FolderInput,
-  FolderMinus,
-  FolderX,
-  GitBranch,
-  GripVertical,
-  ListFilter,
-  MoreVertical,
-  Plus,
-  Search,
-  SquareArrowOutUpRight,
-  Tag,
-  X,
-} from 'lucide-react';
+  LuArrowRightLeft,
+  LuChevronRight,
+  LuChevronsDownUp,
+  LuChevronsUpDown,
+  LuCloud,
+  LuCloudDownload,
+  LuFolderCheck,
+  LuFolderGit2,
+  LuFolderInput,
+  LuFolderMinus,
+  LuFolderX,
+  LuGitBranch,
+  LuGripVertical,
+  LuListFilter,
+  LuEllipsisVertical,
+  LuPlus,
+  LuSearch,
+  LuSquareArrowOutUpRight,
+  LuTag,
+  LuX,
+} from 'react-icons/lu';
 import { AiOutlineDiff } from 'react-icons/ai';
 import { FaGitAlt } from 'react-icons/fa';
 import { GoRepo } from 'react-icons/go';
@@ -215,10 +215,14 @@ export function ReposPanel() {
     mutationFn: async () => {
       const api = bridge();
       if (!api) return;
-      await Promise.all(matched.map((repo) => api.ops.fetch({ repoId: repo.id, worktreePath: repo.path })));
+      await Promise.all(
+        matched.map((repo) => api.ops.fetch({ repoId: repo.id, worktreePath: repo.path })),
+      );
     },
     onSettled: async () => {
-      await Promise.all(matched.map((repo) => client.invalidateQueries({ queryKey: keys.repo(repo.id) })));
+      await Promise.all(
+        matched.map((repo) => client.invalidateQueries({ queryKey: keys.repo(repo.id) })),
+      );
     },
   });
 
@@ -300,7 +304,7 @@ export function ReposPanel() {
           */}
           {repos.length > 0 ? (
             <IconButton
-              icon={allCollapsed ? ChevronsUpDown : ChevronsDownUp}
+              icon={allCollapsed ? LuChevronsUpDown : LuChevronsDownUp}
               label={allCollapsed ? 'Expand all repositories' : 'Collapse all repositories'}
               size="sm"
               disabled={matched.length === 0}
@@ -315,7 +319,7 @@ export function ReposPanel() {
           ) : null}
           {repos.length > 0 ? (
             <IconButton
-              icon={CloudDownload}
+              icon={LuCloudDownload}
               label="Fetch all listed repositories"
               size="sm"
               busy={fetchAll.isPending}
@@ -336,7 +340,7 @@ export function ReposPanel() {
             "showing only changed checkouts" would be a lie in Actions.
           */}
           <IconButton
-            icon={ListFilter}
+            icon={LuListFilter}
             label={sectionFilterLabel(sections)}
             aria-pressed={sections.filtered}
             size="sm"
@@ -361,7 +365,7 @@ export function ReposPanel() {
           />
           <NewGroupButton />
           <IconButton
-            icon={Plus}
+            icon={LuPlus}
             label="Open a repository…"
             size="sm"
             disabled={isPending}
@@ -386,7 +390,7 @@ export function ReposPanel() {
       {repos.length > 0 ? (
         <div className="px-3 pb-2">
           <div className="relative">
-            <Search
+            <LuSearch
               aria-hidden
               className="pointer-events-none absolute left-2 top-1/2 h-3 w-3 -translate-y-1/2 text-muted-foreground"
             />
@@ -409,7 +413,7 @@ export function ReposPanel() {
                 title="Clear the repository filter"
                 className="absolute right-1 top-1/2 -translate-y-1/2 rounded p-0.5 text-muted-foreground transition-colors hover:text-foreground"
               >
-                <X aria-hidden className="h-3 w-3" />
+                <LuX aria-hidden className="h-3 w-3" />
               </button>
             ) : null}
           </div>
@@ -467,10 +471,7 @@ export function ReposPanel() {
 
             {/* Grouped repos — one collapsible section per group */}
             {groups.length > 0 ? (
-              <SortableGroupList
-                groups={groups.map((g) => g.group)}
-                onReorder={reorderRepoGroups}
-              >
+              <SortableGroupList groups={groups.map((g) => g.group)} onReorder={reorderRepoGroups}>
                 {groups.map(({ group, repos: groupRepos }) => {
                   const groupAllCollapsed =
                     groupRepos.length > 0 && groupRepos.every((repo) => folds.collapsed(repo.id));
@@ -607,7 +608,7 @@ function RepoItem({
             .filter((g) => g.id !== currentGroupId)
             .map((g) => ({
               label: `Move to "${g.name}"`,
-              icon: FolderInput,
+              icon: LuFolderInput,
               onSelect: () => assignRepoToGroup(repo.id, g.id),
             }))
         : []),
@@ -615,7 +616,7 @@ function RepoItem({
         ? [
             {
               label: 'Remove from group',
-              icon: FolderMinus,
+              icon: LuFolderMinus,
               onSelect: () => removeRepoFromGroup(repo.id),
             },
           ]
@@ -691,7 +692,7 @@ function RepoItem({
           title="Drag to reorder"
           className="shrink-0 cursor-grab text-muted-foreground/40 opacity-0 transition-opacity hover:text-muted-foreground focus-visible:opacity-100 group-hover:opacity-100 active:cursor-grabbing"
         >
-          <GripVertical aria-hidden className="h-3.5 w-3.5" />
+          <LuGripVertical aria-hidden className="h-3.5 w-3.5" />
         </span>
 
         <button
@@ -701,7 +702,7 @@ function RepoItem({
           aria-label={expanded ? `Collapse ${repo.name}` : `Expand ${repo.name}`}
           aria-expanded={expanded}
         >
-          <ChevronRight
+          <LuChevronRight
             aria-hidden
             className={`h-3.5 w-3.5 transition-transform duration-150 ease-in-out ${
               expanded ? 'rotate-90' : ''
@@ -723,9 +724,7 @@ function RepoItem({
               you picked", so the name says it in the place the eye lands.
             */}
             <span
-              className={`truncate font-medium ${
-                selectedRepoId === repo.id ? 'text-primary' : ''
-              }`}
+              className={`truncate font-medium ${selectedRepoId === repo.id ? 'text-primary' : ''}`}
             >
               {repo.name}
             </span>
@@ -750,7 +749,7 @@ function RepoItem({
               */
               <span className="ml-auto flex min-w-0 shrink-[6] items-center gap-1.5">
                 <span className="flex min-w-0 items-center gap-1 text-xs text-muted-foreground">
-                  <GitBranch aria-hidden className="h-3 w-3 shrink-0" />
+                  <LuGitBranch aria-hidden className="h-3 w-3 shrink-0" />
                   <span className="truncate">
                     {loaded?.branch.head ?? repo.headRef ?? 'detached'}
                   </span>
@@ -994,7 +993,7 @@ export function RepoTree({
 
   /** One builder for both affordances, so right-click and the ellipsis agree. */
   const headingAction = (kind: RefSectionKey, count: number) => ({
-    icon: MoreVertical,
+    icon: LuEllipsisVertical,
     label: `${SECTION_TITLE[kind]} section actions`,
     onClick: () => {
       const items = sectionMenu(kind, refs);
@@ -1008,7 +1007,7 @@ export function RepoTree({
    * `refs` argument has nothing to give a parent, so this calls
    * `parentSectionMenu` instead. */
   const parentHeadingAction = (kind: 'branches') => ({
-    icon: MoreVertical,
+    icon: LuEllipsisVertical,
     label: `${SECTION_TITLE[kind]} section actions`,
     onClick: () => {
       const items = parentSectionMenu(kind);
@@ -1113,7 +1112,7 @@ export function RepoTree({
           <RefRow
             key={ref.fullName}
             refItem={ref}
-            icon={GitBranch}
+            icon={LuGitBranch}
             index={i}
             depth={(depth + 1) as 2 | 3}
             health={branchHealth({
@@ -1170,7 +1169,7 @@ export function RepoTree({
           <RefRow
             key={ref.fullName}
             refItem={ref}
-            icon={Tag}
+            icon={LuTag}
             index={i}
             depth={(depth + 1) as 2 | 3}
             menu={refMenu}
@@ -1312,7 +1311,7 @@ function RemoteGroup({
     <TreeSection
       title={name}
       count={refs.length}
-      icon={<Cloud aria-hidden className="h-3 w-3 shrink-0 text-muted-foreground" />}
+      icon={<LuCloud aria-hidden className="h-3 w-3 shrink-0 text-muted-foreground" />}
       collapsible
       open={open}
       onToggle={onToggle}
@@ -1321,7 +1320,7 @@ function RemoteGroup({
         projectUrl === null || forge === null
           ? undefined
           : {
-              icon: SquareArrowOutUpRight,
+              icon: LuSquareArrowOutUpRight,
               label: `Open ${forge.owner}/${forge.repo} on ${forge.host}`,
               onClick: () => openExternal(projectUrl),
             }
@@ -1331,7 +1330,7 @@ function RemoteGroup({
         <RefRow
           key={ref.fullName}
           refItem={ref}
-          icon={GitBranch}
+          icon={LuGitBranch}
           index={i}
           depth={(depth + 1) as 3 | 4}
           menu={menu}
@@ -1362,7 +1361,7 @@ function RefRow({
   onViewAllChanges,
 }: {
   refItem: Ref;
-  icon: typeof GitBranch;
+  icon: typeof LuGitBranch;
   index: number;
   /** The `TREE_INDENT` rung this row renders at — see `tree-indent.ts`'s ladder. */
   depth: 2 | 3 | 4;
@@ -1441,14 +1440,14 @@ function RefRow({
         ) : null}
         {switchable ? (
           <IconButton
-            icon={ArrowRightLeft}
+            icon={LuArrowRightLeft}
             label={`Switch primary checkout to ${refItem.name}`}
             size="sm"
             onClick={() => onCheckout?.(refItem)}
           />
         ) : null}
         <IconButton
-          icon={MoreVertical}
+          icon={LuEllipsisVertical}
           label={`Actions for ${kindWord} ${refItem.name}`}
           size="sm"
           onClick={(event) => {
@@ -1513,7 +1512,7 @@ function WorktreeRow({
    * out; a branch is a line of history. They were both `⑂` before, which made
    * the two halves of the tree read as one repeated list.
    */
-  const Icon = worktree.prunable ? FolderX : worktree.isMain ? FolderCheck : FolderGit2;
+  const Icon = worktree.prunable ? LuFolderX : worktree.isMain ? LuFolderCheck : LuFolderGit2;
 
   return (
     <div
@@ -1583,7 +1582,7 @@ function WorktreeRow({
           onClick={() => onViewAllChanges(worktree.path, label)}
         />
         <IconButton
-          icon={MoreVertical}
+          icon={LuEllipsisVertical}
           label={`Actions for worktree ${label}`}
           size="sm"
           onClick={(event) => {

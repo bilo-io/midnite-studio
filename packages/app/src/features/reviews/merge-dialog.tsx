@@ -1,5 +1,5 @@
 import type { ForgeMergeMethod, ForgePullDetail } from '@midnite/studio-shared';
-import { AlertTriangle } from 'lucide-react';
+import { LuTriangleAlert } from 'react-icons/lu';
 import { useEffect, useRef, useState } from 'react';
 
 import { Spinner } from '../../components/skeleton';
@@ -104,7 +104,7 @@ export function MergeDialog({
     >
       <div className="w-full max-w-md overflow-hidden rounded-lg border border-destructive/60 bg-popover shadow-xl ring-1 ring-destructive/30">
         <header className="flex items-start gap-2.5 border-b border-destructive/40 bg-destructive/10 px-4 py-3">
-          <AlertTriangle className="mt-0.5 h-4 w-4 shrink-0 text-destructive" aria-hidden />
+          <LuTriangleAlert className="mt-0.5 h-4 w-4 shrink-0 text-destructive" aria-hidden />
           <div className="min-w-0">
             <h2 className="text-sm font-semibold">Merge #{pullNumber}?</h2>
             <p className="mt-0.5 truncate text-[11px] text-muted-foreground" title={title}>

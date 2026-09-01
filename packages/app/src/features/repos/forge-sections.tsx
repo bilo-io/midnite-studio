@@ -1,16 +1,16 @@
 import { useState } from 'react';
 
 import {
-  ChevronDown,
-  ChevronRight,
-  CircleDot,
-  Copy,
-  ExternalLink,
-  GitPullRequest,
-  MoreVertical,
-  Play,
-  RefreshCw,
-} from 'lucide-react';
+  LuChevronDown,
+  LuChevronRight,
+  LuCircleDot,
+  LuCopy,
+  LuExternalLink,
+  LuGitPullRequest,
+  LuEllipsisVertical,
+  LuPlay,
+  LuRefreshCw,
+} from 'react-icons/lu';
 
 import type { MenuItem } from '../../components/context-menu';
 import { useDialogs } from '../../components/dialog-host';
@@ -87,7 +87,7 @@ export function ActionsSection({
     <TreeSection
       title="Actions"
       count={open ? runs.length : undefined}
-      icon={<Play aria-hidden className="h-3 w-3 shrink-0 text-muted-foreground" />}
+      icon={<LuPlay aria-hidden className="h-3 w-3 shrink-0 text-muted-foreground" />}
       collapsible
       open={open}
       onToggle={() => setOpen((v) => !v)}
@@ -98,7 +98,7 @@ export function ActionsSection({
       action={
         open
           ? {
-              icon: RefreshCw,
+              icon: LuRefreshCw,
               label: 'Refresh workflow runs',
               onClick: refresh,
             }
@@ -130,7 +130,8 @@ export function ActionsSection({
               screen reader cannot tell apart, and which a `getByRole` locator
               cannot either. The run number is the thing that differs.
             */
-            label: run.number === null ? `Jobs in ${run.name}` : `Jobs in ${run.name} #${run.number}`,
+            label:
+              run.number === null ? `Jobs in ${run.name}` : `Jobs in ${run.name} #${run.number}`,
             onToggle: () => setExpandedRun((current) => (current === run.id ? null : run.id)),
           }}
           /*
@@ -204,7 +205,12 @@ function RunJobs({
   if (data.cli.reason !== 'ready') {
     return <Note depth={depth}>{data.cli.hint || 'The GitHub CLI is unavailable.'}</Note>;
   }
-  if (data.error) return <Note depth={depth} tone="destructive">{data.error}</Note>;
+  if (data.error)
+    return (
+      <Note depth={depth} tone="destructive">
+        {data.error}
+      </Note>
+    );
 
   const jobs = data.detail?.jobs ?? [];
   if (jobs.length === 0) return <Note depth={depth}>No jobs in this run.</Note>;
@@ -266,13 +272,13 @@ export function IssuesSection({
     <TreeSection
       title="Issues"
       count={open ? issues.length : undefined}
-      icon={<CircleDot aria-hidden className="h-3 w-3 shrink-0 text-muted-foreground" />}
+      icon={<LuCircleDot aria-hidden className="h-3 w-3 shrink-0 text-muted-foreground" />}
       collapsible
       open={open}
       onToggle={() => setOpen((v) => !v)}
       depth={depth}
       hideWhenEmpty={false}
-      action={open ? { icon: RefreshCw, label: 'Refresh issues', onClick: refresh } : undefined}
+      action={open ? { icon: LuRefreshCw, label: 'Refresh issues', onClick: refresh } : undefined}
     >
       {/*
         A repository with its issue tracker switched off is behaving as its
@@ -344,14 +350,14 @@ export function ReviewsSection({
   return (
     <TreeSection
       title="Reviews"
-      icon={<GitPullRequest aria-hidden className="h-3 w-3 shrink-0 text-muted-foreground" />}
+      icon={<LuGitPullRequest aria-hidden className="h-3 w-3 shrink-0 text-muted-foreground" />}
       collapsible
       open={open}
       onToggle={() => setOpen((v) => !v)}
       depth={depth}
       hideWhenEmpty={false}
       action={
-        open ? { icon: RefreshCw, label: 'Refresh pull requests', onClick: refresh } : undefined
+        open ? { icon: LuRefreshCw, label: 'Refresh pull requests', onClick: refresh } : undefined
       }
     >
       {REVIEW_GROUPS.map((group, i) => (
@@ -447,10 +453,10 @@ function ReviewsGroup({
 }
 
 const forgeRowMenu = (url: string, what: string): MenuItem[] => [
-  { label: `Open ${what} on GitHub`, icon: ExternalLink, onSelect: () => openExternal(url) },
+  { label: `Open ${what} on GitHub`, icon: LuExternalLink, onSelect: () => openExternal(url) },
   {
     label: 'Copy link',
-    icon: Copy,
+    icon: LuCopy,
     onSelect: () => void navigator.clipboard?.writeText(url).catch(() => undefined),
   },
 ];
@@ -608,7 +614,7 @@ function ForgeRow({
       >
         {expand ? (
           <IconButton
-            icon={expand.open ? ChevronDown : ChevronRight}
+            icon={expand.open ? LuChevronDown : LuChevronRight}
             label={expand.label}
             size="sm"
             aria-expanded={expand.open}
@@ -629,7 +635,7 @@ function ForgeRow({
         </button>
 
         <IconButton
-          icon={MoreVertical}
+          icon={LuEllipsisVertical}
           label={`Actions for ${title}`}
           size="sm"
           onClick={(event) => {

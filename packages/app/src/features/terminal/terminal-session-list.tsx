@@ -1,7 +1,14 @@
 import type { AgentDefinition, TerminalSession } from '@midnite/studio-shared';
-import { Moon, PanelLeft, PanelRight, Pencil, RotateCcw, Terminal, X } from 'lucide-react';
-
-import { LuChevronRight } from 'react-icons/lu';
+import {
+  LuChevronRight,
+  LuMoon,
+  LuPanelLeft,
+  LuPanelRight,
+  LuPencil,
+  LuRotateCcw,
+  LuTerminal,
+  LuX,
+} from 'react-icons/lu';
 
 import { useDialogs } from '../../components/dialog-host';
 import { IconButton } from '../../components/icon-button';
@@ -61,7 +68,7 @@ export function TerminalSessionList({
     dialogs.openMenu(event, [
       {
         label: side === 'left' ? 'Move to right' : 'Move to left',
-        icon: side === 'left' ? PanelRight : PanelLeft,
+        icon: side === 'left' ? LuPanelRight : LuPanelLeft,
         onSelect: () =>
           useUiStore.getState().setTerminalSidebarSide(side === 'left' ? 'right' : 'left'),
       },
@@ -165,9 +172,7 @@ export function TerminalSessionList({
             session={session}
             active={session.id === activeId}
             agent={agents.find((a) => a.id === session.agentId)}
-            runningAgent={agents.find(
-              (a) => a.id === resolveSessionAgentId(session, liveAgentId),
-            )}
+            runningAgent={agents.find((a) => a.id === resolveSessionAgentId(session, liveAgentId))}
             isAgentRow={isAgentRow(session, liveAgentId)}
           />
         ))}
@@ -225,13 +230,13 @@ function SessionRow({
     event.preventDefault();
     event.stopPropagation();
     dialogs.openMenu(event, [
-      { label: 'Rename session…', icon: Pencil, onSelect: rename },
+      { label: 'Rename session…', icon: LuPencil, onSelect: rename },
       // The prompt dialog itself cannot submit an empty value, so clearing a
       // custom name back to the live guess is a separate, explicit action
       // rather than "rename to nothing".
       {
         label: 'Reset to detected name',
-        icon: RotateCcw,
+        icon: LuRotateCcw,
         disabled: session.name === undefined,
         disabledReason: 'This session has no custom name.',
         onSelect: () => useTerminalStore.getState().renameSession(session.id, undefined),
@@ -239,7 +244,7 @@ function SessionRow({
       { type: 'separator' },
       {
         label: 'Sleep session',
-        icon: Moon,
+        icon: LuMoon,
         disabled: phase !== 'live',
         disabledReason: 'Only a live session can be slept.',
         onSelect: () => useTerminalStore.getState().sleepSession(session.id),
@@ -247,7 +252,7 @@ function SessionRow({
       { type: 'separator' },
       {
         label: side === 'left' ? 'Move to right' : 'Move to left',
-        icon: side === 'left' ? PanelRight : PanelLeft,
+        icon: side === 'left' ? LuPanelRight : LuPanelLeft,
         onSelect: () =>
           useUiStore.getState().setTerminalSidebarSide(side === 'left' ? 'right' : 'left'),
       },
@@ -271,12 +276,10 @@ function SessionRow({
       onClick={() => useTerminalStore.getState().setActive(session.id)}
       onDoubleClick={rename}
     >
-      <div
-        className="flex min-w-0 flex-1 items-center gap-1 text-left"
-      >
+      <div className="flex min-w-0 flex-1 items-center gap-1 text-left">
         <SessionIcon agent={runningAgent} live={live} />
         {phase === 'asleep' ? (
-          <Moon className="h-3 w-3 shrink-0 text-muted-foreground" aria-label="Asleep" />
+          <LuMoon className="h-3 w-3 shrink-0 text-muted-foreground" aria-label="Asleep" />
         ) : null}
         {/*
           The repo name, then the session's own name — "Claude · Claude" for
@@ -302,10 +305,7 @@ function SessionRow({
         >
           {session.title}
         </span>
-        <LuChevronRight
-          aria-hidden
-          className="h-3 w-3 shrink-0 text-muted-foreground/50"
-        />
+        <LuChevronRight aria-hidden className="h-3 w-3 shrink-0 text-muted-foreground/50" />
         <span
           /*
             Named for the e2e suite. Phase 19 split this row into a repo name
@@ -331,11 +331,14 @@ function SessionRow({
       {rowIsAgent && live ? <ActivityIndicator activity={activity} /> : null}
 
       <div className="relative flex h-6 w-6 shrink-0 items-center justify-center">
-        <span aria-hidden className="pointer-events-none absolute flex items-center justify-center transition-opacity group-hover:opacity-0">
+        <span
+          aria-hidden
+          className="pointer-events-none absolute flex items-center justify-center transition-opacity group-hover:opacity-0"
+        >
           <StateDot state={phase === 'asleep' ? 'asleep' : state} />
         </span>
         <IconButton
-          icon={X}
+          icon={LuX}
           label="Close terminal"
           size="sm"
           className="opacity-0 transition-opacity group-hover:opacity-100"
@@ -464,7 +467,7 @@ function UnknownDot() {
  */
 function SessionIcon({ agent, live }: { agent: AgentDefinition | undefined; live: boolean }) {
   const className = `size-3.5 shrink-0 ${live ? '' : 'opacity-50'}`;
-  if (!agent) return <Terminal className={className} />;
+  if (!agent) return <LuTerminal className={className} />;
 
   const Icon = resolveAgentIcon(agent);
   return (
@@ -476,4 +479,3 @@ function SessionIcon({ agent, live }: { agent: AgentDefinition | undefined; live
     />
   );
 }
-

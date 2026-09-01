@@ -116,6 +116,10 @@ export default tseslint.config(
         group: ['node:*', 'fs', 'path', 'child_process'],
         message: 'No node builtins in the renderer — contextIsolation is on and nodeIntegration is off.',
       },
+      {
+        group: ['lucide-react', 'lucide-react/*'],
+        message: 'Phase 36: import icons from react-icons/<set> instead',
+      },
     ]),
   },
 

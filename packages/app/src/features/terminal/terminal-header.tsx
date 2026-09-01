@@ -1,5 +1,13 @@
 import type { AgentDefinition, RepoDescriptor } from '@midnite/studio-shared';
-import { ChevronDown, ChevronUp, List, Plus, Terminal, TriangleAlert, X } from 'lucide-react';
+import {
+  LuChevronDown,
+  LuChevronUp,
+  LuList,
+  LuPlus,
+  LuTerminal,
+  LuTriangleAlert,
+  LuX,
+} from 'react-icons/lu';
 
 import { IconButton } from '../../components/icon-button';
 import { resolveAgentIcon } from '../../components/icons';
@@ -69,7 +77,7 @@ export function TerminalHeader({
       {broker.mode === 'inproc' && broker.reason ? (
         <Tooltip label={`Sessions will not survive quit — ${broker.reason}`}>
           <div className="flex items-center text-amber-500" tabIndex={0} role="status">
-            <TriangleAlert className="h-3.5 w-3.5" />
+            <LuTriangleAlert className="h-3.5 w-3.5" />
           </div>
         </Tooltip>
       ) : null}
@@ -77,7 +85,7 @@ export function TerminalHeader({
       {/* `ml-auto` and shrink-0: the path is the only thing that gives ground. */}
       <div className="ml-auto flex shrink-0 items-center gap-0.5">
         <IconButton
-          icon={List}
+          icon={LuList}
           label={showList ? 'Hide session list' : 'Show session list'}
           size="sm"
           aria-pressed={showList}
@@ -85,21 +93,21 @@ export function TerminalHeader({
           onClick={() => useUiStore.getState().toggleTerminalList()}
         />
         <IconButton
-          icon={Plus}
+          icon={LuPlus}
           label="New terminal or agent"
           size="sm"
           aria-expanded={false}
           onClick={onNewMenu}
         />
         <IconButton
-          icon={maximized ? ChevronDown : ChevronUp}
+          icon={maximized ? LuChevronDown : LuChevronUp}
           label={maximized ? 'Restore terminal height' : 'Expand terminal'}
           size="sm"
           aria-pressed={maximized}
           onClick={() => useUiStore.getState().toggleTerminalMaximized()}
         />
         <IconButton
-          icon={X}
+          icon={LuX}
           label="Hide terminal"
           size="sm"
           onClick={() => useUiStore.getState().setTerminalOpen(false)}
@@ -119,7 +127,7 @@ export function TerminalHeader({
  * item happened to open the session.
  */
 function HeaderMark({ agent }: { agent: AgentDefinition | undefined }) {
-  if (!agent) return <Terminal aria-hidden className="size-3.5 shrink-0" />;
+  if (!agent) return <LuTerminal aria-hidden className="size-3.5 shrink-0" />;
 
   const Icon = resolveAgentIcon(agent);
   return (

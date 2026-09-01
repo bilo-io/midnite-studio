@@ -10,23 +10,23 @@ import type {
 } from '@midnite/studio-shared';
 import { forgeProjectUrl, pickForgeRemote } from '@midnite/studio-shared';
 import {
-  ArrowDownToLine,
-  ArrowRightLeft,
-  ArrowUpFromLine,
-  Copy,
-  ExternalLink,
-  FileDiff,
-  FolderOpen,
-  FolderSymlink,
-  GitBranch,
-  GitBranchPlus,
-  Pencil,
-  RefreshCw,
-  Scissors,
-  Tag,
-  Trash2,
-  X,
-} from 'lucide-react';
+  LuArrowDownToLine,
+  LuArrowRightLeft,
+  LuArrowUpFromLine,
+  LuCopy,
+  LuExternalLink,
+  LuFileDiff,
+  LuFolderOpen,
+  LuFolderSymlink,
+  LuGitBranch,
+  LuGitBranchPlus,
+  LuPencil,
+  LuRefreshCw,
+  LuScissors,
+  LuTag,
+  LuTrash2,
+  LuX,
+} from 'react-icons/lu';
 
 import type { MenuItem } from '../../components/context-menu';
 import { useDialogs } from '../../components/dialog-host';
@@ -122,8 +122,12 @@ export function useRepoActions(
     'worktree-add',
     (api, args, ctx) => api.repos.worktreeAdd({ repoId: ctx.repoId, ...args }),
   );
-  const fetch = useTargetedGitOp<void>(target, 'fetch', (api, _args, ctx) => api.ops.fetch({ ...ctx }));
-  const pull = useTargetedGitOp<void>(target, 'pull', (api, _args, ctx) => api.ops.pull({ ...ctx }));
+  const fetch = useTargetedGitOp<void>(target, 'fetch', (api, _args, ctx) =>
+    api.ops.fetch({ ...ctx }),
+  );
+  const pull = useTargetedGitOp<void>(target, 'pull', (api, _args, ctx) =>
+    api.ops.pull({ ...ctx }),
+  );
   const push = useTargetedGitOp<{ setUpstream: boolean }>(target, 'push', (api, args, ctx) =>
     api.ops.push({ ...ctx, setUpstream: args.setUpstream }),
   );
@@ -249,7 +253,7 @@ export function useRepoActions(
   const checkoutItem = useCallback(
     (ref: Ref): MenuItem => ({
       label: `Switch primary checkout to ${ref.name}`,
-      icon: ArrowRightLeft,
+      icon: LuArrowRightLeft,
       disabled: ref.isHead || ref.worktreePath !== null,
       disabledReason: ref.isHead
         ? 'Already the primary checkout.'
@@ -272,7 +276,7 @@ export function useRepoActions(
   const deleteBranchItem = useCallback(
     (ref: Ref): MenuItem => ({
       label: `Delete ${ref.name}…`,
-      icon: Trash2,
+      icon: LuTrash2,
       danger: true,
       disabled: ref.isHead,
       disabledReason: 'You cannot delete the branch that is checked out.',
@@ -303,7 +307,7 @@ export function useRepoActions(
           checkoutItem(ref),
           {
             label: 'View all changes',
-            icon: FileDiff,
+            icon: LuFileDiff,
             // The button and the menu item agree on when this is possible: a
             // branch that is not checked out anywhere has no working tree to
             // read, and this phase deliberately adds no branch-vs-base diff.
@@ -313,7 +317,7 @@ export function useRepoActions(
           },
           {
             label: `Rename ${ref.name}…`,
-            icon: Pencil,
+            icon: LuPencil,
             onSelect: () =>
               dialogs.prompt({
                 title: `Rename ${ref.name}`,
@@ -327,7 +331,7 @@ export function useRepoActions(
           },
           {
             label: 'Create worktree from this branch…',
-            icon: FolderSymlink,
+            icon: LuFolderSymlink,
             // git refuses to check one branch out twice, so a branch that
             // already lives somewhere cannot seed a second worktree.
             disabled: checkoutPath !== null,
@@ -335,7 +339,7 @@ export function useRepoActions(
             onSelect: () => promptWorktree(ref.name, false),
           },
           { type: 'separator' },
-          copyItem('branch name', ref.name, Copy),
+          copyItem('branch name', ref.name, LuCopy),
           { type: 'separator' },
           deleteBranchItem(ref),
         ];
@@ -348,7 +352,7 @@ export function useRepoActions(
             // HEAD, which is never what clicking a remote branch means. A local
             // branch starting there is.
             label: `Create local branch from ${ref.name}…`,
-            icon: GitBranchPlus,
+            icon: LuGitBranchPlus,
             onSelect: () =>
               dialogs.prompt({
                 title: `New branch from ${ref.name}`,
@@ -362,12 +366,12 @@ export function useRepoActions(
           },
           {
             label: 'Create worktree from this branch…',
-            icon: FolderSymlink,
+            icon: LuFolderSymlink,
             onSelect: () => promptWorktree(shortRemoteName(ref.name), true),
           },
           { type: 'separator' },
-          copyItem('branch name', ref.name, Copy),
-          ...forgeItems(ExternalLink),
+          copyItem('branch name', ref.name, LuCopy),
+          ...forgeItems(LuExternalLink),
         ];
       }
 
@@ -382,12 +386,12 @@ export function useRepoActions(
       return [
         {
           label: `Check out ${ref.name} (detached)`,
-          icon: Tag,
+          icon: LuTag,
           onSelect: () =>
             void checkout.mutateAsync({ target: ref.name, detach: true }).then(report),
         },
         { type: 'separator' },
-        copyItem('tag name', ref.name, Copy),
+        copyItem('tag name', ref.name, LuCopy),
       ];
     },
     [
@@ -413,14 +417,14 @@ export function useRepoActions(
       return [
         {
           label: 'View all changes',
-          icon: FileDiff,
+          icon: LuFileDiff,
           disabled: changed === 0,
           disabledReason: 'This checkout has no uncommitted changes.',
           onSelect: () => viewAllChanges(worktree.path, label),
         },
         {
           label: 'Show in Files view',
-          icon: FolderOpen,
+          icon: LuFolderOpen,
           onSelect: () => {
             useUiStore.getState().selectRepo(repo.id);
             useUiStore.getState().selectWorktree(worktree.path);
@@ -428,11 +432,11 @@ export function useRepoActions(
           },
         },
         { type: 'separator' },
-        copyItem('path', worktree.path, Copy),
+        copyItem('path', worktree.path, LuCopy),
         { type: 'separator' },
         {
           label: `Remove worktree ${label}…`,
-          icon: Trash2,
+          icon: LuTrash2,
           danger: true,
           // git itself refuses to remove the main worktree, so offering it
           // would only ever produce an error message.
@@ -455,7 +459,7 @@ export function useRepoActions(
         return [
           {
             label: 'New worktree from branch',
-            icon: FolderSymlink,
+            icon: LuFolderSymlink,
             disabled: free.length === 0,
             disabledReason:
               refs.length === 0
@@ -463,7 +467,7 @@ export function useRepoActions(
                 : 'Every local branch is already checked out somewhere.',
             submenu: free.slice(0, CHECKOUT_MENU_LIMIT).map((ref) => ({
               label: ref.name,
-              icon: GitBranch,
+              icon: LuGitBranch,
               onSelect: () => promptWorktree(ref.name, false),
             })),
           },
@@ -474,7 +478,7 @@ export function useRepoActions(
         return [
           {
             label: 'New branch…',
-            icon: GitBranchPlus,
+            icon: LuGitBranchPlus,
             onSelect: () =>
               dialogs.prompt({
                 title: 'New branch',
@@ -492,14 +496,14 @@ export function useRepoActions(
         return [
           {
             label: 'Fetch all remotes',
-            icon: RefreshCw,
+            icon: LuRefreshCw,
             onSelect: () => void fetch.mutateAsync().then(report),
           },
-          ...forgeItems(ExternalLink),
+          ...forgeItems(LuExternalLink),
         ];
       }
 
-      return [copyItem('path', repo.path, Copy)];
+      return [copyItem('path', repo.path, LuCopy)];
     },
     [branchCreate, dialogs, fetch, forgeItems, promptWorktree, repo.path, report],
   );
@@ -520,7 +524,7 @@ export function useRepoActions(
       return [
         {
           label: 'New branch…',
-          icon: GitBranchPlus,
+          icon: LuGitBranchPlus,
           onSelect: () =>
             dialogs.prompt({
               title: 'New branch',
@@ -534,12 +538,12 @@ export function useRepoActions(
         { type: 'separator' },
         {
           label: 'Fetch all remotes',
-          icon: RefreshCw,
+          icon: LuRefreshCw,
           onSelect: () => void fetch.mutateAsync().then(report),
         },
         {
           label: 'Prune remote-tracking refs',
-          icon: Scissors,
+          icon: LuScissors,
           onSelect: () => void fetch.mutateAsync().then(report),
         },
       ];
@@ -584,22 +588,22 @@ export function useRepoActions(
         recognisable in here.
       */
       return [
-        syncItem('fetch', RefreshCw, () => fetch.mutateAsync()),
-        syncItem('pull', ArrowDownToLine, () => pull.mutateAsync()),
-        syncItem('push', ArrowUpFromLine, () =>
+        syncItem('fetch', LuRefreshCw, () => fetch.mutateAsync()),
+        syncItem('pull', LuArrowDownToLine, () => pull.mutateAsync()),
+        syncItem('push', LuArrowUpFromLine, () =>
           push.mutateAsync({ setUpstream: status?.branch.upstream == null }),
         ),
         { type: 'separator' },
         {
           label: 'View all changes',
-          icon: FileDiff,
+          icon: LuFileDiff,
           disabled: main === undefined,
           disabledReason: 'This repository has no main worktree.',
           onSelect: () => main && viewAllChanges(main.path, repo.name),
         },
         {
           label: 'Switch primary checkout to',
-          icon: GitBranch,
+          icon: LuGitBranch,
           disabled: shown.length === 0,
           disabledReason:
             switchable.length === 0 && refs.length > 0
@@ -607,17 +611,17 @@ export function useRepoActions(
               : 'Expand the repository to load its branches.',
           submenu: shown.map((ref) => ({
             label: ref.name,
-            icon: ArrowRightLeft,
+            icon: LuArrowRightLeft,
             onSelect: () => void checkout.mutateAsync({ target: ref.name }).then(report),
           })),
         },
         { type: 'separator' },
-        copyItem('path', repo.path, Copy),
-        ...forgeItems(ExternalLink),
+        copyItem('path', repo.path, LuCopy),
+        ...forgeItems(LuExternalLink),
         { type: 'separator' },
         {
           label: `Close ${repo.name}…`,
-          icon: X,
+          icon: LuX,
           danger: true,
           onSelect: () =>
             dialogs.confirm({

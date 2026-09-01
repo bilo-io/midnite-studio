@@ -1,4 +1,4 @@
-import { SquareTerminal } from 'lucide-react';
+import { LuSquareTerminal } from 'react-icons/lu';
 
 import { Tooltip } from '../../components/tooltip';
 import { useUiStore } from '../../store/ui-store';
@@ -23,7 +23,7 @@ export function TerminalToggle() {
           terminalOpen ? 'bg-accent text-foreground' : ''
         }`}
       >
-        <SquareTerminal aria-hidden className="mr-1 inline h-3.5 w-3.5 align-[-2px]" />
+        <LuSquareTerminal aria-hidden className="mr-1 inline h-3.5 w-3.5 align-[-2px]" />
         <span className="status-label">Terminal</span>
         <span className="status-label ml-1.5 opacity-60">{displayChord(terminalChord)}</span>
       </button>

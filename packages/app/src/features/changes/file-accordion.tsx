@@ -1,5 +1,5 @@
 import type { ChangeCounts, StatusEntry } from '@midnite/studio-shared';
-import { ChevronRight } from 'lucide-react';
+import { LuChevronRight } from 'react-icons/lu';
 import { useId } from 'react';
 
 import { Counts } from '../../components/change-tree';
@@ -59,7 +59,7 @@ export function FileAccordion({
           aria-controls={bodyId}
           className="flex min-w-0 flex-1 items-center gap-2 text-left text-[13px] transition-colors hover:text-foreground"
         >
-          <ChevronRight
+          <LuChevronRight
             aria-hidden
             className={`h-3.5 w-3.5 shrink-0 text-muted-foreground transition-transform duration-150 ease-in-out ${
               open ? 'rotate-90' : ''
@@ -79,9 +79,10 @@ export function FileAccordion({
           <Counts insertions={counts.insertions} deletions={counts.deletions} />
         </button>
 
-        {open ? <FileAccordionToolbar repoId={repoId} worktreePath={worktreePath} entry={entry} /> : null}
+        {open ? (
+          <FileAccordionToolbar repoId={repoId} worktreePath={worktreePath} entry={entry} />
+        ) : null}
       </header>
-
 
       {open ? (
         <div id={bodyId}>

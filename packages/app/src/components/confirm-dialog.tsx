@@ -1,6 +1,6 @@
 import { useEffect, useRef } from 'react';
 
-import { AlertTriangle } from 'lucide-react';
+import { LuTriangleAlert } from 'react-icons/lu';
 
 import { useFocusTrap } from './use-focus-trap';
 
@@ -106,7 +106,7 @@ export function ConfirmDialog({
         <div className={`p-4 ${request.danger ? 'bg-destructive/5' : ''}`}>
           <h2 className="flex items-center gap-2 text-sm font-semibold">
             {request.danger ? (
-              <AlertTriangle aria-hidden className="h-4 w-4 shrink-0 text-destructive" />
+              <LuTriangleAlert aria-hidden className="h-4 w-4 shrink-0 text-destructive" />
             ) : null}
             <span className={request.danger ? 'text-destructive' : ''}>{request.title}</span>
           </h2>

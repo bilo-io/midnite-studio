@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
 
-import { Check, ChevronDown } from 'lucide-react';
+import { LuCheck, LuChevronDown } from 'react-icons/lu';
 
 import { cascadeStyle } from '../lib/cascade';
 
@@ -62,8 +62,7 @@ export function MultiSelectMenu({
     if (!needle) return options;
     return options.filter(
       (o) =>
-        o.label.toLowerCase().includes(needle) ||
-        (o.keywords ?? '').toLowerCase().includes(needle),
+        o.label.toLowerCase().includes(needle) || (o.keywords ?? '').toLowerCase().includes(needle),
     );
   }, [options, query]);
 
@@ -84,9 +83,7 @@ export function MultiSelectMenu({
   }, [open]);
 
   const toggle = (value: string) =>
-    onChange(
-      selected.includes(value) ? selected.filter((v) => v !== value) : [...selected, value],
-    );
+    onChange(selected.includes(value) ? selected.filter((v) => v !== value) : [...selected, value]);
 
   const triggerLabel =
     selected.length === 0
@@ -110,7 +107,7 @@ export function MultiSelectMenu({
       >
         {icon}
         <span className="max-w-[12rem] truncate">{triggerLabel}</span>
-        <ChevronDown
+        <LuChevronDown
           aria-hidden
           className={`h-3 w-3 shrink-0 transition-transform duration-150 ease-in-out ${
             open ? 'rotate-180' : ''
@@ -143,7 +140,7 @@ export function MultiSelectMenu({
               onClick={() => onChange([])}
               className="flex w-full items-center gap-2 px-2 py-1 text-left text-xs transition-colors hover:bg-accent"
             >
-              <Check
+              <LuCheck
                 aria-hidden
                 className={`h-3.5 w-3.5 shrink-0 ${selected.length === 0 ? '' : 'invisible'}`}
               />
@@ -167,7 +164,7 @@ export function MultiSelectMenu({
                     onClick={() => toggle(option.value)}
                     className="flex w-full animate-fade-in-up cascade-delay items-center gap-2 px-2 py-1 text-left text-xs transition-colors hover:bg-accent"
                   >
-                    <Check
+                    <LuCheck
                       aria-hidden
                       className={`h-3.5 w-3.5 shrink-0 ${isOn ? '' : 'invisible'}`}
                     />

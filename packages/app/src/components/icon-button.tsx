@@ -3,14 +3,15 @@ import type { ComponentType, CSSProperties, MouseEventHandler, ReactNode } from 
 import { Tooltip } from './tooltip';
 
 /**
- * A component taking `className`, `strokeWidth` and `style` — the shape both
- * icon families in the app already have, and the app's own hand-held marks
- * along with them.
+ * A component taking `className`, `strokeWidth` and `style` — the shape every
+ * `react-icons` set already has, and the app's own hand-held marks along with
+ * them.
  *
- * Declared structurally rather than importing `LucideIcon` or react-icons'
- * `IconType` so this file has no opinion about which set it is handed. That is
- * load-bearing now that the two coexist: the nav rail is on react-icons and
- * most of the renderer is still on lucide, and neither had to be adapted.
+ * Declared structurally rather than importing react-icons' `IconType` so this
+ * file has no opinion about which set it is handed. That was load-bearing
+ * through Phase 36's migration off `lucide-react`: the whole renderer swapped
+ * families without this type, `IconButton`, `Tooltip` or the context menus
+ * being adapted at all.
  *
  * `style` is here for one reason: an agent's `accent` is roster data, which
  * means it is a colour Tailwind has never seen and can only reach an icon

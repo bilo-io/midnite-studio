@@ -1,7 +1,7 @@
 import { useId, type ReactNode } from 'react';
 
 import { Collapse } from '@bilo-io/ui';
-import { ChevronRight } from 'lucide-react';
+import { LuChevronRight } from 'react-icons/lu';
 
 import { IconButton, type IconComponent } from './icon-button';
 import { TREE_INDENT } from './tree-indent';
@@ -75,7 +75,7 @@ export function TreeSection({
   const heading = (
     <>
       {collapsible ? (
-        <ChevronRight
+        <LuChevronRight
           aria-hidden
           className={`h-3 w-3 shrink-0 text-muted-foreground transition-transform duration-150 ease-in-out ${
             open ? 'rotate-90' : ''

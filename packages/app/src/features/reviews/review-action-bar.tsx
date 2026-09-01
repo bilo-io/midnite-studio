@@ -4,7 +4,7 @@ import type {
   ForgePullDetail,
   ForgeReviewEvent,
 } from '@midnite/studio-shared';
-import { Check, GitMerge, MessageSquare, Send, UserPlus, X } from 'lucide-react';
+import { LuCheck, LuGitMerge, LuMessageSquare, LuSend, LuUserPlus, LuX } from 'react-icons/lu';
 import { useState } from 'react';
 
 import {
@@ -133,7 +133,9 @@ export function ReviewActionBar({
         {(['APPROVE', 'REQUEST_CHANGES', 'COMMENT'] as const).map((event) => (
           <ActionButton
             key={event}
-            icon={event === 'APPROVE' ? Check : event === 'REQUEST_CHANGES' ? X : MessageSquare}
+            icon={
+              event === 'APPROVE' ? LuCheck : event === 'REQUEST_CHANGES' ? LuX : LuMessageSquare
+            }
             label={EVENT_LABEL[event]}
             enabled={enabled}
             disabled={busy}
@@ -145,7 +147,7 @@ export function ReviewActionBar({
         ))}
 
         <ActionButton
-          icon={MessageSquare}
+          icon={LuMessageSquare}
           label="Comment on the conversation"
           shortLabel="Discuss"
           enabled={enabled}
@@ -166,7 +168,7 @@ export function ReviewActionBar({
         */}
         {pull.isDraft ? (
           <ActionButton
-            icon={Send}
+            icon={LuSend}
             label="Mark ready for review"
             shortLabel="Ready for review"
             enabled={enabled}
@@ -176,7 +178,7 @@ export function ReviewActionBar({
         ) : null}
 
         <ActionButton
-          icon={UserPlus}
+          icon={LuUserPlus}
           label="Request a review"
           shortLabel="Request review"
           enabled={enabled}
@@ -186,7 +188,7 @@ export function ReviewActionBar({
         />
 
         <ActionButton
-          icon={GitMerge}
+          icon={LuGitMerge}
           label="Merge this pull request"
           shortLabel="Merge"
           enabled={enabled}
@@ -420,7 +422,7 @@ function ActionButton({
   danger,
   onClick,
 }: {
-  icon: typeof Check;
+  icon: typeof LuCheck;
   label: string;
   shortLabel?: string;
   enabled: boolean;

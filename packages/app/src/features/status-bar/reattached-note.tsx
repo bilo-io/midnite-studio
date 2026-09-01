@@ -1,4 +1,4 @@
-import { Terminal, X } from 'lucide-react';
+import { LuTerminal, LuX } from 'react-icons/lu';
 
 import { useTerminalStore } from '../terminal/terminal-store';
 
@@ -25,7 +25,7 @@ export function ReattachedNote() {
       data-testid="reattached-note"
       className="animate-fade-in flex items-center gap-1.5 rounded px-1.5 py-0.5 text-xs text-muted-foreground hover:bg-muted/40"
     >
-      <Terminal className="h-3 w-3 shrink-0 text-primary" />
+      <LuTerminal className="h-3 w-3 shrink-0 text-primary" />
       <span>{text}</span>
       <button
         type="button"
@@ -36,7 +36,7 @@ export function ReattachedNote() {
         aria-label="Dismiss reattached note"
         className="rounded p-0.5 text-muted-foreground/60 hover:text-foreground"
       >
-        <X className="h-3 w-3" />
+        <LuX className="h-3 w-3" />
       </button>
     </div>
   );

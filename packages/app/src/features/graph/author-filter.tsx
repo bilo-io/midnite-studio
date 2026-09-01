@@ -1,7 +1,7 @@
 import { useMemo } from 'react';
 
 import type { GraphRow } from '@midnite/studio-shared';
-import { Users } from 'lucide-react';
+import { LuUsers } from 'react-icons/lu';
 
 import { MultiSelectMenu, type MultiSelectOption } from '../../components/multi-select-menu';
 import { normaliseEmail } from '../../services/avatars';
@@ -90,7 +90,7 @@ export function AuthorFilter({
       options={options}
       selected={selected}
       onChange={onChange}
-      icon={<Users aria-hidden className="h-3.5 w-3.5 shrink-0" />}
+      icon={<LuUsers aria-hidden className="h-3.5 w-3.5 shrink-0" />}
       allLabel="All authors"
       searchPlaceholder="Filter authors…"
       emptyLabel="No author matches."

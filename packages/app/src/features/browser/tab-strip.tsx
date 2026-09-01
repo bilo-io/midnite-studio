@@ -10,7 +10,7 @@ import {
 import { restrictToHorizontalAxis, restrictToParentElement } from '@dnd-kit/modifiers';
 import { SortableContext, horizontalListSortingStrategy } from '@dnd-kit/sortable';
 import { useEffect, useRef, useState, type ReactNode } from 'react';
-import { ChevronRight, Globe, Plus, X } from 'lucide-react';
+import { LuChevronRight, LuGlobe, LuPlus, LuX } from 'react-icons/lu';
 
 import { ContextMenu, type MenuItem, type MenuPosition } from '../../components/context-menu';
 import { useDialogs } from '../../components/dialog-host';
@@ -74,7 +74,9 @@ export function BrowserTabStrip() {
     const overId = String(over.id);
 
     if (overId.startsWith('group-drop:')) {
-      useBrowserStore.getState().moveTabToGroup(String(active.id), overId.slice('group-drop:'.length));
+      useBrowserStore
+        .getState()
+        .moveTabToGroup(String(active.id), overId.slice('group-drop:'.length));
       return;
     }
     if (overId === 'ungrouped-drop') {
@@ -143,7 +145,7 @@ export function BrowserTabStrip() {
             onClick={() => useBrowserStore.getState().openTab()}
             className="flex shrink-0 items-center px-2 text-muted-foreground transition-colors hover:bg-accent/30 hover:text-foreground"
           >
-            <Plus aria-hidden className="h-3.5 w-3.5" />
+            <LuPlus aria-hidden className="h-3.5 w-3.5" />
           </button>
         </Tooltip>
       </div>
@@ -222,7 +224,10 @@ function GroupChip({
             onSelect: () => useBrowserStore.getState().setGroupColor(group.id, swatch),
           })),
         },
-        { label: collapsed ? 'Expand group' : 'Collapse group', onSelect: () => useBrowserStore.getState().toggleGroupCollapsed(group.id) },
+        {
+          label: collapsed ? 'Expand group' : 'Collapse group',
+          onSelect: () => useBrowserStore.getState().toggleGroupCollapsed(group.id),
+        },
         { type: 'separator' },
         {
           label: 'Ungroup (keep tabs)',
@@ -267,7 +272,7 @@ function GroupChip({
           className="flex shrink-0 items-center gap-1 px-2 text-xs font-medium"
           style={{ color: tabGroupColorValue(color) }}
         >
-          <ChevronRight
+          <LuChevronRight
             aria-hidden
             className={`h-3 w-3 transition-transform duration-150 ease-in-out ${collapsed ? '' : 'rotate-90'}`}
           />
@@ -280,7 +285,9 @@ function GroupChip({
         : tabs.map((tab) => (
             <BrowserTabButton key={tab.id} tab={tab} active={tab.id === activeTabId} />
           ))}
-      {menu ? <ContextMenu position={menu} items={menuItems} onClose={() => setMenu(null)} /> : null}
+      {menu ? (
+        <ContextMenu position={menu} items={menuItems} onClose={() => setMenu(null)} />
+      ) : null}
     </div>
   );
 }
@@ -347,7 +354,10 @@ function BrowserTabButton({ tab, active }: { tab: BrowserTab; active: boolean })
     { type: 'separator' },
     { label: 'Close', onSelect: close },
     { label: 'Close others', onSelect: () => useBrowserStore.getState().closeOthers(tab.id) },
-    { label: 'Close to the right', onSelect: () => useBrowserStore.getState().closeToRight(tab.id) },
+    {
+      label: 'Close to the right',
+      onSelect: () => useBrowserStore.getState().closeToRight(tab.id),
+    },
   ];
 
   return (
@@ -396,10 +406,12 @@ function BrowserTabButton({ tab, active }: { tab: BrowserTab; active: boolean })
           active ? '' : 'opacity-0 group-hover:opacity-100'
         }`}
       >
-        <X aria-hidden className="h-3 w-3" />
+        <LuX aria-hidden className="h-3 w-3" />
       </button>
 
-      {menu ? <ContextMenu position={menu} items={menuItems} onClose={() => setMenu(null)} /> : null}
+      {menu ? (
+        <ContextMenu position={menu} items={menuItems} onClose={() => setMenu(null)} />
+      ) : null}
     </div>
   );
 }
@@ -420,10 +432,12 @@ function TabFavicon({ tab }: { tab: BrowserTab }): ReactNode {
     );
   }
   if (tab.faviconUrl) {
-    return <img src={tab.faviconUrl} alt="" aria-hidden className="h-3 w-3 shrink-0 rounded-[2px]" />;
+    return (
+      <img src={tab.faviconUrl} alt="" aria-hidden className="h-3 w-3 shrink-0 rounded-[2px]" />
+    );
   }
   if (tab.kind === 'newtab') return <MidniteIcon className="h-3 w-3 shrink-0" />;
-  return <Globe aria-hidden className="h-3 w-3 shrink-0" />;
+  return <LuGlobe aria-hidden className="h-3 w-3 shrink-0" />;
 }
 
 function hostOf(url: string): string {

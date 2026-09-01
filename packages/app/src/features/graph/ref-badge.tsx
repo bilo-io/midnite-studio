@@ -1,4 +1,4 @@
-import { ArrowDown, ArrowUp, Check, Cloud, GitBranch, Tag } from 'lucide-react';
+import { LuArrowDown, LuArrowUp, LuCheck, LuCloud, LuGitBranch, LuTag } from 'react-icons/lu';
 import type { Ref } from '@midnite/studio-shared';
 import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
@@ -41,7 +41,9 @@ const RANK: Record<Ref['kind'], number> = {
 };
 
 const byImportance = (a: Ref, b: Ref): number =>
-  Number(b.isHead) - Number(a.isHead) || RANK[a.kind] - RANK[b.kind] || a.name.localeCompare(b.name);
+  Number(b.isHead) - Number(a.isHead) ||
+  RANK[a.kind] - RANK[b.kind] ||
+  a.name.localeCompare(b.name);
 
 /**
  * How hard a chip that is NOT the checked-out ref presses on the eye.
@@ -376,7 +378,7 @@ function SyncOverlay({
         <IconButton
           key={action.kind}
           size="sm"
-          icon={action.kind === 'pull' ? ArrowDown : ArrowUp}
+          icon={action.kind === 'pull' ? LuArrowDown : LuArrowUp}
           label={action.label}
           disabled={action.disabled}
           {...(action.disabledReason ? { disabledReason: action.disabledReason } : {})}
@@ -447,8 +449,7 @@ function HeadGlow() {
           background:
             'linear-gradient(90deg, hsl(var(--lane-h) var(--lane-s) var(--lane-l) / 0) 0%, hsl(0 0% 100% / 0.85) 25%, hsl(var(--lane-h) var(--lane-s) var(--lane-l) / 0) 50%, hsl(0 0% 100% / 0.85) 75%, hsl(var(--lane-h) var(--lane-s) var(--lane-l) / 0) 100%)',
           backgroundSize: '200% 100%',
-          WebkitMask:
-            'linear-gradient(#fff 0 0) content-box, linear-gradient(#fff 0 0)',
+          WebkitMask: 'linear-gradient(#fff 0 0) content-box, linear-gradient(#fff 0 0)',
           WebkitMaskComposite: 'xor',
           mask: 'linear-gradient(#fff 0 0) content-box, linear-gradient(#fff 0 0)',
           maskComposite: 'exclude',
@@ -499,8 +500,8 @@ function RefTooltip({ refItem }: { refItem: Ref }) {
  */
 function RefIcon({ refItem }: { refItem: Ref }) {
   const className = 'h-3 w-3 shrink-0';
-  if (refItem.isHead) return <Check aria-hidden className={className} />;
-  if (refItem.kind === 'tag') return <Tag aria-hidden className={className} />;
-  if (refItem.kind === 'remoteBranch') return <Cloud aria-hidden className={className} />;
-  return <GitBranch aria-hidden className={className} />;
+  if (refItem.isHead) return <LuCheck aria-hidden className={className} />;
+  if (refItem.kind === 'tag') return <LuTag aria-hidden className={className} />;
+  if (refItem.kind === 'remoteBranch') return <LuCloud aria-hidden className={className} />;
+  return <LuGitBranch aria-hidden className={className} />;
 }

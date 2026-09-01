@@ -11,17 +11,17 @@ import {
 import { restrictToParentElement, restrictToVerticalAxis } from '@dnd-kit/modifiers';
 import { SortableContext, verticalListSortingStrategy } from '@dnd-kit/sortable';
 import {
-  ChevronRight,
-  ChevronsDownUp,
-  ChevronsUpDown,
-  CloudDownload,
-  FolderPlus,
-  GripVertical,
-  MoreVertical,
-  Palette,
-  Pencil,
-  Trash2,
-} from 'lucide-react';
+  LuChevronRight,
+  LuChevronsDownUp,
+  LuChevronsUpDown,
+  LuCloudDownload,
+  LuFolderPlus,
+  LuGripVertical,
+  LuEllipsisVertical,
+  LuPalette,
+  LuPencil,
+  LuTrash2,
+} from 'react-icons/lu';
 
 import { Collapse } from '@bilo-io/ui';
 import type { RepoDescriptor } from '@midnite/studio-shared';
@@ -68,7 +68,8 @@ export const REPO_GROUP_COLORS: readonly RepoGroupColorDef[] = [
     label: 'Green',
     swatch: '#10b981',
     textColor: '#ffffff',
-    pillClass: 'bg-emerald-500/20 text-emerald-600 dark:text-emerald-400 border border-emerald-500/30',
+    pillClass:
+      'bg-emerald-500/20 text-emerald-600 dark:text-emerald-400 border border-emerald-500/30',
   },
   {
     id: 'cyan',
@@ -152,7 +153,7 @@ export function RepoGroupHeader({
     dialogs.openMenu(at, [
       {
         label: 'Rename group…',
-        icon: Pencil,
+        icon: LuPencil,
         onSelect: () => {
           dialogs.prompt({
             title: 'Rename group',
@@ -165,7 +166,7 @@ export function RepoGroupHeader({
       },
       {
         label: 'Group Color',
-        icon: Palette,
+        icon: LuPalette,
         submenu: [
           {
             label: 'None',
@@ -182,7 +183,7 @@ export function RepoGroupHeader({
       },
       {
         label: 'Delete group',
-        icon: Trash2,
+        icon: LuTrash2,
         danger: true,
         onSelect: () => deleteGroup(group.id),
       },
@@ -213,7 +214,7 @@ export function RepoGroupHeader({
         title="Drag to reorder"
         className="shrink-0 cursor-grab text-muted-foreground/40 opacity-0 transition-opacity hover:text-muted-foreground focus-visible:opacity-100 group-hover:opacity-100 active:cursor-grabbing"
       >
-        <GripVertical aria-hidden className="h-3.5 w-3.5" />
+        <LuGripVertical aria-hidden className="h-3.5 w-3.5" />
       </span>
 
       {/* Collapse toggle */}
@@ -223,7 +224,7 @@ export function RepoGroupHeader({
         aria-expanded={open}
         className="flex min-w-0 flex-1 items-center gap-1.5 rounded text-left transition-colors hover:text-foreground"
       >
-        <ChevronRight
+        <LuChevronRight
           aria-hidden
           className={`h-3 w-3 shrink-0 text-muted-foreground transition-transform duration-150 ease-in-out ${
             open ? 'rotate-90' : ''
@@ -251,7 +252,7 @@ export function RepoGroupHeader({
       {/* Group Collapse / Expand All toggle */}
       {onToggleCollapseAll ? (
         <IconButton
-          icon={allCollapsed ? ChevronsUpDown : ChevronsDownUp}
+          icon={allCollapsed ? LuChevronsUpDown : LuChevronsDownUp}
           label={
             allCollapsed
               ? `Expand all repositories in ${group.name}`
@@ -271,7 +272,7 @@ export function RepoGroupHeader({
       {/* Group Fetch All button */}
       {onFetchAll ? (
         <IconButton
-          icon={isFetching ? Spinner : CloudDownload}
+          icon={isFetching ? Spinner : LuCloudDownload}
           label={`Fetch all repositories in ${group.name}`}
           size="sm"
           busy={isFetching}
@@ -291,7 +292,7 @@ export function RepoGroupHeader({
 
       {/* Context menu ellipsis */}
       <IconButton
-        icon={MoreVertical}
+        icon={LuEllipsisVertical}
         label={`Actions for group ${group.name}`}
         size="sm"
         className="opacity-0 transition-opacity group-hover:opacity-100"
@@ -318,9 +319,7 @@ export function SortableGroupList({
   onReorder: (ids: string[]) => void;
   children: ReactNode;
 }) {
-  const sensors = useSensors(
-    useSensor(PointerSensor, { activationConstraint: { distance: 6 } }),
-  );
+  const sensors = useSensors(useSensor(PointerSensor, { activationConstraint: { distance: 6 } }));
 
   const ids = groups.map((g) => g.id);
 
@@ -402,7 +401,7 @@ export function NewGroupButton() {
 
   return (
     <IconButton
-      icon={FolderPlus}
+      icon={LuFolderPlus}
       label="New repo group"
       size="sm"
       onClick={() => {

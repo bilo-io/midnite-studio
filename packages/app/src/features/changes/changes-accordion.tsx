@@ -2,7 +2,7 @@ import { useMemo, useState } from 'react';
 
 import type { ChangeCounts, StatusEntry } from '@midnite/studio-shared';
 
-import { ChevronsDownUp, ChevronsUpDown } from 'lucide-react';
+import { LuChevronsDownUp, LuChevronsUpDown } from 'react-icons/lu';
 
 import { ChangeTotals } from '../../components/change-tree';
 import { IconButton } from '../../components/icon-button';
@@ -98,13 +98,13 @@ export function ChangesAccordion({
         <ChangeTotals {...totals} />
 
         <IconButton
-          icon={ChevronsUpDown}
+          icon={LuChevronsUpDown}
           label={withheld > 0 ? `Expand the first ${EXPAND_ALL_LIMIT} files` : 'Expand all files'}
           size="sm"
           onClick={() => setExpanded(expandAll(paths))}
         />
         <IconButton
-          icon={ChevronsDownUp}
+          icon={LuChevronsDownUp}
           label="Collapse all files"
           size="sm"
           onClick={() => setExpanded(NOTHING_EXPANDED)}

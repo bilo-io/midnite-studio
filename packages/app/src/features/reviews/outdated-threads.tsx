@@ -1,5 +1,5 @@
 import type { ForgeReviewThread } from '@midnite/studio-shared';
-import { ChevronRight, History } from 'lucide-react';
+import { LuChevronRight, LuHistory } from 'react-icons/lu';
 import { useId, useState } from 'react';
 
 import { CommentThread } from './comment-thread';
@@ -54,11 +54,11 @@ export function OutdatedThreads({
         aria-controls={bodyId}
         className="flex w-full items-center gap-2 px-3 py-1.5 text-left text-[11px] text-muted-foreground transition-colors hover:text-foreground"
       >
-        <ChevronRight
+        <LuChevronRight
           aria-hidden
           className={`h-3 w-3 shrink-0 transition-transform duration-150 ${open ? 'rotate-90' : ''}`}
         />
-        <History aria-hidden className="h-3 w-3 shrink-0" />
+        <LuHistory aria-hidden className="h-3 w-3 shrink-0" />
         {threads.length === 1
           ? '1 comment thread no longer in this diff'
           : `${threads.length} comment threads no longer in this diff`}

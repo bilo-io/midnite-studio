@@ -16,6 +16,7 @@ import type {
   Worktree,
 } from '../domain';
 import type { CommandId } from '../keybindings';
+import type { PerfMark } from '../perf';
 import type * as S from './schemas';
 
 type In<T extends z.ZodTypeAny> = z.input<T>;
@@ -620,6 +621,23 @@ export type MidniteStudioBridge = {
     restart: () => void;
     setChannel: (req: In<typeof S.UpdateSetChannelRequest>) => void;
     onState: (handler: (state: z.infer<typeof S.UpdateStateSchema>) => void) => Unsubscribe;
+  };
+
+  /**
+   * Dev-side startup instrumentation — Phase 36 Theme A. Not a product surface.
+   *
+   * `enabled` is resolved in the PRELOAD, where `process.env` is still
+   * reachable; the renderer cannot read env itself, and making it ask main over
+   * IPC would cost a round-trip on the very boot this measures. With the flag
+   * unset the renderer skips both `performance.mark` and the send, so an
+   * ordinary run pays one boolean check per mark site.
+   *
+   * `mark` is fire-and-forget like `pty.input`: a mark nobody answers is the
+   * point, and awaiting one would perturb the thing being timed.
+   */
+  perf: {
+    enabled: boolean;
+    mark: (m: PerfMark) => void;
   };
 
   systemHealth: () => Promise<z.infer<typeof S.SystemHealthResponse>>;

@@ -20,6 +20,18 @@ export type AvatarState =
   /** No picture, offline, or the request failed. Render the fallback, forever. */
   | { status: 'none' };
 
+/**
+ * Bounded by the number of distinct commit authors the session has looked at,
+ * which is why these need no cap where `features/diff/line-highlight.ts` did
+ * (Phase 36 F): an author repeats across thousands of commits, so the key space
+ * is the contributor list, not the row count. A busy monorepo tops out in the
+ * low thousands of `{status, hash}` records — kilobytes.
+ *
+ * `listeners` is a single global set, the shape `line-highlight` had to abandon.
+ * It stays that way here on purpose: avatar resolutions are one-per-author and
+ * arrive in a burst on first paint, not one-per-row while scrolling, so the
+ * fan-out never reaches the N*M that made a keyed map worth the bookkeeping.
+ */
 const cache = new Map<string, AvatarState>();
 const inFlight = new Map<string, Promise<void>>();
 const listeners = new Set<() => void>();

@@ -1,5 +1,5 @@
 import { BUILTIN_AGENTS } from '@midnite/studio-shared';
-import { Terminal } from 'lucide-react';
+import { LuTerminal } from 'react-icons/lu';
 import { describe, expect, it } from 'vitest';
 
 import {
@@ -57,8 +57,8 @@ describe('resolveAgentIcon', () => {
   });
 
   it('falls back to a terminal glyph for a key it has never heard of', () => {
-    expect(resolveAgentIcon({ id: 'unknown-agent' })).toBe(Terminal);
-    expect(resolveAgentIcon({ id: 'x', icon: 'SiNotAThing' })).toBe(Terminal);
+    expect(resolveAgentIcon({ id: 'unknown-agent' })).toBe(LuTerminal);
+    expect(resolveAgentIcon({ id: 'x', icon: 'SiNotAThing' })).toBe(LuTerminal);
   });
 
   /**
@@ -71,7 +71,7 @@ describe('resolveAgentIcon', () => {
   it.each(['constructor', 'toString', 'valueOf', '__proto__', 'hasOwnProperty'])(
     'does not resolve the inherited key %s',
     (icon) => {
-      expect(resolveAgentIcon({ id: 'x', icon })).toBe(Terminal);
+      expect(resolveAgentIcon({ id: 'x', icon })).toBe(LuTerminal);
     },
   );
 });

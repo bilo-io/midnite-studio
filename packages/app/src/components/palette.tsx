@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useMemo, useRef } from 'react';
 
 import { useVirtualizer } from '@tanstack/react-virtual';
-import { Search } from 'lucide-react';
+import { LuSearch } from 'react-icons/lu';
 
 import { useRepoFiles, useRepos, useRefs, useWorktrees } from '../services/queries';
 import { useAgents } from '../features/terminal/use-agents';
@@ -93,12 +93,9 @@ export function Palette() {
     return headRef?.sha ?? null;
   }, [refs]);
 
-  const filesQuery = useRepoFiles(
-    selectedRepoId,
-    tipSha,
-    selectedWorktreePath ?? undefined,
-    { enabled: mode === 'all' || mode === 'files' },
-  );
+  const filesQuery = useRepoFiles(selectedRepoId, tipSha, selectedWorktreePath ?? undefined, {
+    enabled: mode === 'all' || mode === 'files',
+  });
   const files = useMemo(() => filesQuery.data?.files ?? [], [filesQuery.data]);
   const filesTruncated = filesQuery.data?.truncated ?? false;
 
@@ -220,7 +217,8 @@ export function Palette() {
   });
 
   useEffect(() => {
-    if (rowIndexForSelection >= 0) virtualizer.scrollToIndex(rowIndexForSelection, { align: 'auto' });
+    if (rowIndexForSelection >= 0)
+      virtualizer.scrollToIndex(rowIndexForSelection, { align: 'auto' });
   }, [rowIndexForSelection, virtualizer]);
 
   const runSelectedItem = useCallback(
@@ -285,7 +283,7 @@ export function Palette() {
         className="w-full max-w-xl animate-fade-in overflow-hidden rounded-lg gradient-border gradient-border--always border border-border bg-popover shadow-xl"
       >
         <div className="flex items-center gap-2 border-b border-border px-3">
-          <Search aria-hidden className="h-4 w-4 shrink-0 text-muted-foreground" />
+          <LuSearch aria-hidden className="h-4 w-4 shrink-0 text-muted-foreground" />
           <input
             ref={inputRef}
             value={query}
@@ -300,7 +298,12 @@ export function Palette() {
             spellCheck={false}
           />
         </div>
-        <div ref={scrollRef} id="palette-results" role="listbox" className="max-h-96 overflow-auto p-1">
+        <div
+          ref={scrollRef}
+          id="palette-results"
+          role="listbox"
+          className="max-h-96 overflow-auto p-1"
+        >
           {placeholder ? (
             <p className="px-3 py-6 text-center text-sm text-muted-foreground">{placeholder}</p>
           ) : scoredResults.length === 0 ? (
@@ -350,7 +353,9 @@ export function Palette() {
                     >
                       <div className="flex min-w-0 items-center gap-2.5 truncate">
                         {Icon && <Icon className="h-4 w-4 shrink-0 text-muted-foreground" />}
-                        <span className="truncate">{highlightMatches(item.label, labelIndices)}</span>
+                        <span className="truncate">
+                          {highlightMatches(item.label, labelIndices)}
+                        </span>
                         {item.detail && (
                           <span className="truncate text-xs text-muted-foreground">
                             {highlightMatches(item.detail, detailIndices ?? [])}

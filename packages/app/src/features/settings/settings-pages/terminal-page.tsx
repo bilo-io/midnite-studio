@@ -1,6 +1,5 @@
 import type { AgentDefinition, SessionActivity, TerminalSession } from '@midnite/studio-shared';
 import { Accordion } from '@bilo-io/ui';
-import { useEffect, useState } from 'react';
 import { LuActivity, LuBot, LuSquareTerminal } from 'react-icons/lu';
 
 import {
@@ -11,6 +10,7 @@ import {
   useTerminalStore,
   type ConnectionState,
 } from '../../terminal/terminal-store';
+import { useNow } from '../../../lib/use-now';
 import { useAgents } from '../../terminal/use-agents';
 import { useUiStore, type TerminalSidebarSide } from '../../../store/ui-store';
 import { Choice, Field } from './controls';
@@ -72,13 +72,8 @@ export function activityRows(
  * timer. What the doc's own manual check asks for: "last seen Ns ago" that is
  * actually ticking, not frozen at the moment the panel was opened.
  */
-function useNowTick(intervalMs: number): number {
-  const [now, setNow] = useState(() => Date.now());
-  useEffect(() => {
-    const id = setInterval(() => setNow(Date.now()), intervalMs);
-    return () => clearInterval(id);
-  }, [intervalMs]);
-  return now;
+function useNowTick(): number {
+  return useNow().getTime();
 }
 
 /**
@@ -102,7 +97,7 @@ export function TerminalPage() {
   const activity = useTerminalStore((s) => s.activity);
   const activityAt = useTerminalStore((s) => s.activityAt);
   const liveAgentId = useTerminalStore((s) => s.liveAgentId);
-  const now = useNowTick(1000);
+  const now = useNowTick();
   const rows = activityRows(sessions, states, activity, activityAt, liveAgentId, agents, now);
   const detectedAgentLabels = agents.filter((a) => a.activity !== undefined).map((a) => a.label);
 

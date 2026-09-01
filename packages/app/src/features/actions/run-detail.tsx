@@ -1,7 +1,7 @@
 import { useMemo, useState } from 'react';
 
 import type { ForgeJob, ForgeRun } from '@midnite/studio-shared';
-import { ChevronDown, ChevronRight, SquareArrowOutUpRight } from 'lucide-react';
+import { LuChevronDown, LuChevronRight, LuSquareArrowOutUpRight } from 'react-icons/lu';
 
 import { IconButton } from '../../components/icon-button';
 import { openExternal, useForgeRunLog, useForgeWorkflows } from '../../services/queries';
@@ -70,10 +70,7 @@ export function RunDetail({
     Splitting a run's log is a pass over every line of it; the pane re-renders
     on every fold toggle and every job click, and neither changes the bytes.
   */
-  const model = useMemo(
-    () => parseRunLogLines(log.data?.log?.lines ?? []),
-    [log.data?.log?.lines],
-  );
+  const model = useMemo(() => parseRunLogLines(log.data?.log?.lines ?? []), [log.data?.log?.lines]);
 
   const failed = jobs.filter(shouldExpandJob);
   /*
@@ -172,8 +169,7 @@ function RunHeader({ repoId, run }: { repoId: string; run: ForgeRun }) {
     and nowhere else.
   */
   const workflows = useForgeWorkflows(repoId, true);
-  const file =
-    workflows.data?.workflows.find((entry) => entry.id === run.workflowId)?.path ?? null;
+  const file = workflows.data?.workflows.find((entry) => entry.id === run.workflowId)?.path ?? null;
 
   // `updatedAt` is the last state change, which is non-null for a run still
   // going — so an unfinished run would report a finished-looking "Took 4m".
@@ -186,7 +182,7 @@ function RunHeader({ repoId, run }: { repoId: string; run: ForgeRun }) {
         <StatusPill status={runStatus(run)} />
         <h3 className="truncate text-sm font-semibold">{run.displayTitle ?? run.name}</h3>
         <IconButton
-          icon={SquareArrowOutUpRight}
+          icon={LuSquareArrowOutUpRight}
           label="Open this run on GitHub"
           size="sm"
           className="ml-auto"
@@ -268,7 +264,7 @@ function JobRow({
         }`}
       >
         <IconButton
-          icon={open ? ChevronDown : ChevronRight}
+          icon={open ? LuChevronDown : LuChevronRight}
           label={`Steps in ${job.name}`}
           size="sm"
           aria-expanded={open}
@@ -297,7 +293,7 @@ function JobRow({
         )}
         {job.url.length === 0 ? null : (
           <IconButton
-            icon={SquareArrowOutUpRight}
+            icon={LuSquareArrowOutUpRight}
             label={`Open ${job.name} on GitHub`}
             size="sm"
             onClick={() => openExternal(job.url)}
