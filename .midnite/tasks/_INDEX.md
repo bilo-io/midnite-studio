@@ -2,6 +2,7 @@
 
 **Headlines:**
 
+- **[Phase 39 · One rail, five chords and four loops](phases/phase-39-status-bar-shortcut-rail.md)** (0% · 0/64) — Planned, not started. The status bar's left zone becomes a **shortcut rail** whose job is teaching its own chords. Three toggles that are today three verbatim copies of the same twenty lines collapse behind one `StatusToggle`, and the rule changes: **icon plus chord at rest, the name only while that surface is open or under the pointer** — with density kept as the single gate, so `.status-label` needs no carve-out and `useOverflow` keeps measuring the same two states. `⌘K` and `⌘P` **move** out of the title bar (one control, one home) and diagnostics leaves the machine-vitals cluster for its own group, both landing behind separators that `segments.ts` now *derives* from a new `group` field rather than a hand-placed `<div>` — which also fixes `browser-toggle`'s `priority: 5`, the inversion that had it render first and shed first. After the agent count sit **four loop launchers**, `openFabTab` in one click, coloured from a new renderer-side `loop-glow.ts` because `DEFAULT_LOOPS.color` is a Tailwind `text-*` class a `box-shadow` cannot read. Their two states deliberately **invert the phase's own seed**: the glow means *running* (amber when waiting, as three other surfaces already say), and a ring means *this tab is open* — because both can be true at once, and running is the fact you cannot otherwise see with the FAB collapsed.
 - **[Phase 37 · A glow that knows which tab](phases/phase-37-fab-tab-glow.md)** (0% · 0/44) — Planned, not started. The FAB panel's rotating rainbow border grows a matching **inner glow**: a blurred conic layer masked to the rim so it falls off smoothly to nothing before the centre, breathing rather than static. The glow is **tab-reactive** — each of the four loops claims the 180° of ramp centred on its own hue (Medic→rose, Watchdog→amber, Automate→emerald, Innovate→blue, a mapping that works because the tab colours *are* the ramp order), and the far half is subtracted, with border and glow driven from one arc pair so they never disagree. Also tokenises the seven-stop rainbow that today sits hard-coded in five places, ties pulse cadence to loop state, and keeps the collapsed FAB button in the same colour as the panel it opens.
 - **[Phase 36 · Faster, lighter, same app](phases/phase-36-performance-diet.md)** (91% · 58/64 · refined x1) — Seven of eight themes landed (2026-09-01, local). The app's first dedicated performance phase, and it kept its own rule: every landed item carries a number. **Entry chunk 2 481.3 → 1 084.7 KB** (−56%) by putting thirteen views, xterm and the markdown pipeline behind lazy boundaries under one Suspense; **`ready-to-show` 683 → 570 ms** by taking the synchronous login-shell probe (a median 284 ms of blocked main thread) off the boot path and parallelising the three `whenReady` chains; **the broker went from 12.74% to 1.16% of a core per MB/s** — 11× less CPU per byte — once pty output was coalesced into one frame per 16 ms instead of one socket write *and* one whole-buffer scrollback realloc per chunk; and the `ps` probe's cadence doubled after being costed at 4.08% of a core. `moon run app:perf` is the phase's legacy: strict budgets plus absence assertions that fail the day someone re-adds a static import. Four of the doc's items were **acquitted rather than churned**, each with the measurement that acquits it — the three handler-module deferrals, the `@dnd-kit` split, `manualChunks`, and a `lucide-react` assertion a dependency makes unassertable. Three items stay open: one `useAutoFetch` test that belongs to Theme E, and two human passes (a screenshot diff, an Activity Monitor idle check).
 - **[Phase 35 · FAB Mission Control](phases/phase-35-fab-mission-control.md)** (98% · 39/40) — All five themes landed (2026-09-01, local). Made the (previously untracked, ad-hoc) FAB panel a real loop console: each tab owns its own in-panel terminal session (`surface: 'fab'`, never in the main housing), a checkbox prompt composer per loop, Start↔Stop with the gradient glow pulse, and a mission-control layer — FAB badges, waiting-toasts, a capped run history. Also retires the FAB's hard-coded prompts by pointing each loop at the `DEFAULT_AGENT_SKILLS` entry it runs, so there is one prompt store rather than three. Themes F–I (PR #3) then closed three of the four open verification items and as much of the fourth as a browser reaches — and found, in the doing, that a persisted loop never came back unless you opened the *main* terminal panel first. One item stays open for a human: quit and relaunch mid-run against a **packaged** build.
@@ -19,6 +20,7 @@ Completed work is logged append-only in [`done.md`](done.md). Deferred scope liv
 
 | Phase | Status | Refined | Done | Progress | % | 🔄 WIP | ◻ TODO |
 |-------|--------|---------|------|----------|---|--------|--------|
+| [39 · One rail, five chords and four loops](phases/phase-39-status-bar-shortcut-rail.md) | ◻ TODO | — | 0/64 | `░░░░░░░░░░` | 0% | — | A B C D E F G |
 | [37 · A glow that knows which tab](phases/phase-37-fab-tab-glow.md) | ◻ TODO | — | 0/44 | `░░░░░░░░░░` | 0% | — | A B C D E F |
 | [36 · Faster, lighter, same app](phases/phase-36-performance-diet.md) | 🔄 WIP | x1 | 58/64 | `█████████░` | 91% | — | G (human passes) |
 | [35 · FAB Mission Control](phases/phase-35-fab-mission-control.md) | 🔄 WIP | — | 39/40 | `██████████` | 98% | — | — |
@@ -62,6 +64,25 @@ Completed work is logged append-only in [`done.md`](done.md). Deferred scope liv
 
 <!-- Each phase currently carries a single theme A = its full deliverables checklist. Split into
      lettered themes if a phase gets parallelised. -->
+
+### [Phase 39 — One rail, five chords and four loops](phases/phase-39-status-bar-shortcut-rail.md)
+
+*The status bar's left zone becomes a shortcut rail that teaches its own chords: one
+`StatusToggle` behind every button, the name shown only while a surface is open or hovered so
+the chord is what you read the rest of the time, ⌘K and ⌘P relocated out of the title bar,
+diagnostics moved out of the machine-vitals cluster into its own group, and four loop launchers
+that open the FAB straight onto a tab. A is the primitive the rest register through; B makes
+grouping and separators data rather than array position; C and D are the two relocations; E
+builds the launchers and F gives them two visual channels — glow for running, ring for the open
+tab; G is reduced motion and the numbers.*
+
+- ◻ **A** — One toggle, one rule: a shared `StatusToggle` replaces three hand-rolled copies, with the density×active label decision extracted as a pure, tested function.
+- ◻ **B** — The registry learns to group: `group` on `StatusSegment`, separators derived from group boundaries, `right-delimiter` retired, `browser-toggle`'s priority inversion fixed.
+- ◻ **C** — ⌘K and ⌘P move out of the title bar into the rail, active off `palette-store`'s `isOpen`/`mode`.
+- ◻ **D** — Diagnostics moves left into its own `health` group; its popover flips `align="end"` → `"start"`.
+- ◻ **E** — Four launchers from `DEFAULT_LOOPS`, colours via a new renderer-side `loop-glow.ts`, click → `openFabTab`.
+- ◻ **F** — Two channels, not one: coloured glow + slow pulse = *running* (amber when waiting); a ring = *this tab is open*. Inverts the seed deliberately.
+- ◻ **G** — Reduced motion asserted through the cascade, density×state shots, and a blurred idle-CPU number for an always-mounted pulse.
 
 ### [Phase 37 — A glow that knows which tab](phases/phase-37-fab-tab-glow.md)
 
