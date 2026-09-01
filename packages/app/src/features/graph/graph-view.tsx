@@ -63,7 +63,11 @@ export function GraphView() {
   );
   useGraphStream(repoId, graphRefFilter);
 
-  const rows = useGraphStore((s) => s.rows);
+  // `rows` is a stable buffer the store mutates in place for the life of a
+  // stream (see graph-store.ts), so `rowCount` — not the array's own identity
+  // — is what changes on every batch and is what re-renders this component.
+  const rowCount = useGraphStore((s) => s.rows.length);
+  const rows = useGraphStore.getState().rows;
   const requestId = useGraphStore((s) => s.requestId);
   const loading = useGraphStore((s) => s.loading);
   const truncated = useGraphStore((s) => s.truncated);
@@ -72,8 +76,18 @@ export function GraphView() {
   const { data: refs = [] } = useRefs(repoId);
   const refsBySha = useRefsBySha(refs);
   const branchCount = useMemo(() => countLocalBranches(refs), [refs]);
-  const authorCount = useMemo(() => summariseAuthors(rows).length, [rows]);
-  const firstCommit = useMemo(() => firstCommitDate(rows), [rows]);
+  // `rows` never changes identity mid-stream (see above), so `rowCount` is
+  // the dependency that actually makes these recompute as rows arrive.
+  const authorCount = useMemo(
+    () => summariseAuthors(rows).length,
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [rows, rowCount],
+  );
+  const firstCommit = useMemo(
+    () => firstCommitDate(rows),
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [rows, rowCount],
+  );
 
   const { data: status } = useStatus();
   const currentBranch = status?.branch.head ?? null;
@@ -241,7 +255,12 @@ export function GraphView() {
     [graphAuthorFilter],
   );
 
-  const authors = useMemo(() => summariseAuthors(rows), [rows]);
+  // rowCount, not rows' own identity, is what changes as the stream fills in.
+  const authors = useMemo(
+    () => summariseAuthors(rows),
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [rows, rowCount],
+  );
 
   /**
    * The row HEAD points at, for the working-copy row to sit on top of.
@@ -253,7 +272,9 @@ export function GraphView() {
   const headOid = status?.branch.oid ?? null;
   const headRow = useMemo(
     () => (headOid === null ? undefined : rows.find((row) => row.commit.sha === headOid)),
-    [headOid, rows],
+    // rowCount, not rows' own identity, is what changes as the stream fills in.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [headOid, rows, rowCount],
   );
 
   if (!repoId) {

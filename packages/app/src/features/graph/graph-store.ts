@@ -62,9 +62,17 @@ export const useGraphStore = create<GraphState>((set, get) => ({
     set({ ...EMPTY, repoId, requestId, loading: true, rows: [] }),
 
   appendBatch: (requestId, rows) => {
-    if (get().requestId !== requestId) return;
-    // Concat rather than push: the store's consumers compare by reference.
-    set((state) => ({ rows: state.rows.concat(rows) }));
+    const state = get();
+    if (state.requestId !== requestId) return;
+    // Mutate the existing buffer in place: push is amortized O(batch size),
+    // where concat's full copy of everything accumulated so far turned a
+    // 50 000-row stream into ~2.5M copied elements across its ~100 batches.
+    // The array's own reference is therefore stable for the life of a stream
+    // (a fresh one is only handed out by `begin`/`reset`) — consumers that
+    // need to notice new rows arriving must key off `rows.length`, which
+    // changes by value on every batch, rather than the array's identity.
+    state.rows.push(...rows);
+    set({ rows: state.rows });
   },
 
   finish: (requestId, info) => {
