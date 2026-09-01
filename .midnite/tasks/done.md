@@ -2,6 +2,54 @@
 
 <!-- Append one entry per landed phase/PR: date, phase, PR link, one-line summary. -->
 
+## 2026-09-01 — Phase 36 Themes A, D, E, F — Performance diet: the instruments, and the first three fixes
+
+Merged to `main` locally (this repo has no git remote, so no PR link). Squashed from
+`feature/p36-adef` after a rebase onto the Phase 35 tip; the one conflict was
+`shared/src/index.ts`, where Phase 35's `./loops` export and this phase's `./perf` export both
+wanted the same line, and both were kept.
+
+- [x] **Theme A — Baseline & harness** (◐ partial): `shared/src/perf.ts` + `perf-marks.ts` put
+      boot marks behind `MSTUDIO_PERF === '1'` and a no-op otherwise; the renderer sends its three
+      marks over a new one-way `mstudio:perf:mark` channel rather than having a script scrape
+      console output. Three reports under `scripts/perf/` — `startup-report.mjs` (cold-start
+      medians, `--runs=5`, `--rss`), `bundle-report.mjs` (entry chunk / total JS off Vite's
+      newly-enabled `.vite/manifest.json`) and `idle-cpu.mjs` (percent of one core over a chosen
+      window, `--blurred`) — all launching the packaged-equivalent app through the shared
+      `electron-run.mjs`. Two things that launcher had to get right are written down in it and in
+      the phase doc: every run takes a throwaway `--user-data-dir`, because Electron keys the
+      single-instance lock on it and a run started beside the installed app quits instantly with
+      every mark missing; and the profile is *seeded* before it is measured, because
+      `graph-first-batch` never happens unless a repo is selected, which is persisted state the
+      app deliberately does not invent. Idle CPU differences cumulative `ps -o cputime` rather
+      than reading `%cpu`, which on macOS decays over up to a minute of history and would smear
+      boot CPU into an idle number. **Still open:** the baseline table itself is unfilled — the
+      harness landed but nobody ran it, and the "before" column now needs measuring from the
+      pre-phase tip rather than from this tree.
+- [x] **Theme D — One icon family**: all 54 `lucide-react` importers moved to `react-icons/lu` —
+      the same Lucide set under an `Lu` prefix, so `ChevronLeft` → `LuChevronLeft` and nothing
+      changed visually. `lucide-react` left `node_modules` (~40 MB) and a `no-restricted-imports`
+      entry in `eslint.config.mjs` fails the build on a fresh import of it;
+      `components/icons/icon-names.test.ts` asserts every `react-icons/lu` name the renderer
+      imports resolves to a defined export, which is the guard against a rename that typechecks
+      because the barrel is `any`-ish. The structurally-declared `IconComponent` type is what let
+      the migration touch no call site.
+- [x] **Theme E — Idle-CPU zero**: `lib/use-now.ts` replaces four independent `setInterval`s (the
+      titlebar status, its time section, the world clocks, and the screensaver idle poll) with one
+      `useSyncExternalStore` clock that exists only while something is subscribed *and* the
+      document is visible, re-aligning each tick to the next wall-clock second so two clocks
+      mounted at different moments cannot visibly disagree. Auto-fetch pauses while hidden and
+      catches up on return; the activity tick runs only while ptys are actually tracked (the
+      pre-refinement doc had this gating on blur, which was wrong). The dead
+      `use-rebase-status.ts` poll went with it.
+- [x] **Theme F — Memory caps**: `features/diff/line-highlight.ts`'s cache — keyed on full line
+      text, the one genuinely unbounded map in the renderer — is a true 10 000-entry LRU with
+      per-key subscriber notification. Scrollback ownership audited with bounds tests
+      (`broker/scrollback-bounds.test.ts`), and every module-level `Map`/`Set` in
+      `packages/app/src` swept and tabulated in the phase doc against one rule: keyed on *content*
+      needs a cap, keyed on *mounted components* or a literal enumeration does not, provided it
+      deletes on unmount.
+
 ## 2026-09-01 — Phase 35 Themes A–E — FAB Mission Control
 
 Merged to `main` locally (this repo has no git remote, so no PR link). Turns the FAB panel — which

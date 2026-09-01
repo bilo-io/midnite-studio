@@ -18,7 +18,7 @@ Completed work is logged append-only in [`done.md`](done.md). Deferred scope liv
 
 | Phase | Status | Refined | Done | Progress | % | 🔄 WIP | ◻ TODO |
 |-------|--------|---------|------|----------|---|--------|--------|
-| [36 · Faster, lighter, same app](phases/phase-36-performance-diet.md) | 🔄 WIP | x1 | 0/63 | `░░░░░░░░░░` | 0% | A D E F | B C G H |
+| [36 · Faster, lighter, same app](phases/phase-36-performance-diet.md) | 🔄 WIP | x1 | 24/63 | `████░░░░░░` | 38% | B C G H | — |
 | [35 · FAB Mission Control](phases/phase-35-fab-mission-control.md) | 🔄 WIP | — | 36/40 | `█████████░` | 90% | — | — |
 | [34 · Agent Councils](phases/phase-34-agent-councils.md) | ✅ DONE | — | 34/34 | `██████████` | 100% | — | — |
 | [33 · Application Installation, CLI Tool & Desktop Integration](phases/phase-33-installable-app-and-cli-integration.md) | ✅ DONE | x1 | 44/44 | `██████████` | 100% | — | — |
@@ -70,24 +70,24 @@ dead code; the activity tick gates on tracked ptys, not blur). A is the harness 
 theme's numbers come from; B/C attack startup; D unifies icons; E/F are idle-CPU and memory;
 G runs the profile-gated deferrals to an honest verdict; H locks in strict-ms budgets.*
 
-- ◻ **A** — Baseline & harness: `MSTUDIO_PERF` boot marks via `perf-marks.ts` +
+- ◐ **A** — Baseline & harness: `MSTUDIO_PERF` boot marks via `perf-marks.ts` +
   `mstudio:perf:mark` IPC, `scripts/perf/` reports, Vite manifest, the baseline table.
-- ◻ **B** — Main-process startup: async login-shell probe, `Promise.all`'d pre-window awaits
+- 🔄 **B** — Main-process startup: async login-shell probe, `Promise.all`'d pre-window awaits
   (migration first, `repos-restored` before `create-window` machine-checked), update/councils/
   forge dynamic-imported, minified main bundle.
-- ◻ **C** — Renderer bundle: one Suspense + `DelayedFallback` (null ≤120ms → Spinner) over the
+- 🔄 **C** — Renderer bundle: one Suspense + `DelayedFallback` (null ≤120ms → Spinner) over the
   lazy views (Graph eager), xterm split + idle-preload, `@dnd-kit` split incl. graph wiring,
   env-gated sourcemaps.
-- ◻ **D** — One icon family: 54 `lucide-react` files → `react-icons/lu` by direct rename,
+- ✅ **D** — One icon family: 54 `lucide-react` files → `react-icons/lu` by direct rename,
   `strokeWidth` parity check, dep removed, eslint guard, convention files updated.
-- ◻ **E** — Idle-CPU zero: shared `useNow()` clock (1 interval, visibility-gated), dead
+- ✅ **E** — Idle-CPU zero: shared `useNow()` clock (1 interval, visibility-gated), dead
   `use-rebase-status.ts` deleted, auto-fetch pause+catch-up, event-driven screensaver arm,
   activity tick runs only while ptys are tracked.
-- ◻ **F** — Memory caps: 10k true-LRU + per-key notify in `line-highlight.ts`,
+- ✅ **F** — Memory caps: 10k true-LRU + per-key notify in `line-highlight.ts`,
   scrollback-ownership audit with bounds tests, unbounded-Map sweep.
-- ◻ **G** — Profile-gated claims: edge culling (>30% frame time), broker frame batching
+- 🔄 **G** — Profile-gated claims: edge culling (>30% frame time), broker frame batching
   (16ms coalesce if indicted), `ps`-probe cost — land or acquit, with written thresholds.
-- ◻ **H** — Perf budgets: `moon run app:perf` (playwright.perf.config), strict-ms budgets at
+- 🔄 **H** — Perf budgets: `moon run app:perf` (playwright.perf.config), strict-ms budgets at
   2.5× median in `budgets.json`, entry-chunk absence assertions, startup budget via
   `_electron.launch`.
 
