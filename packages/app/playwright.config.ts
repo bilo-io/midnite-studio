@@ -56,6 +56,27 @@ export default defineConfig({
     `.midnite/tasks/phases/phase-38-e2e-suite-repair.md`, not behind this flag.
   */
   retries: process.env.CI ? 2 : 0,
+  /*
+    Assertions and tests get three times longer in CI, for hardware reasons
+    rather than forgiving ones.
+
+    A private repo's ubuntu runner is 2-core, so Playwright takes `cores/2` = ONE
+    worker where a 12-core laptop takes six, on slower cores. Against that, the
+    5s default `expect` window is not the same amount of time it is locally —
+    and Phase 36 put xterm and thirteen views behind lazy boundaries, so several
+    specs now wait on a chunk fetch before anything is visible. Five specs failed
+    on exactly that in the job's first sharded run — `terminal-lazy-preload`
+    (Phase 36's own spec for the lazy xterm chunk), `terminal-reveal`,
+    `phase-21-roster` and one in `reviews` — every one of them a 5000ms
+    `toBeVisible`, every one green locally, and none rescued by the two retries
+    above, because the chunk was not slow *sometimes*, it was slow *always*.
+
+    So this is not slack for racy specs; a genuinely broken locator still fails,
+    just later. The per-test timeout rises with it, or a test spending 15s in one
+    assertion would trip the 30s default and report the wrong failure.
+  */
+  timeout: process.env.CI ? 60_000 : 30_000,
+  expect: { timeout: process.env.CI ? 15_000 : 5_000 },
   reporter: process.env.CI ? 'line' : 'list',
   use: {
     baseURL: `http://localhost:${PORT}`,

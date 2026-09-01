@@ -60,18 +60,20 @@ jobs:
   # is macOS-specific, and macOS minutes bill at 10x on a private repo.
   #
   # Sharded four ways, and that is not premature. Unsharded, this job took
-  # 21m30s against 3m0s for the same specs locally — a 4-vCPU runner gives
-  # Playwright `cores/2` = 2 workers where a 12-core laptop gives it 6, on
-  # slower cores. `gate` finishes in ~2m20s, so a single e2e job would have set
-  # the floor for every PR at twenty minutes. Four shards put it back to ~7,
-  # for about the same total runner minutes — which is affordable precisely
-  # because this lane is ubuntu at 1x rather than macOS at 10x.
+  # 21m30s against 3m0s for the same specs locally. A private repo's ubuntu
+  # runner is 2-core, so Playwright takes `cores/2` = ONE worker where a 12-core
+  # laptop takes six, on slower cores. `gate` finishes in ~2m20s, so a single
+  # e2e job would have set the floor for every PR at twenty minutes. Four shards
+  # put it back to ~7 (measured: 6m39s–7m30s), for about the same total runner
+  # minutes — affordable precisely because this lane is ubuntu at 1x rather than
+  # macOS at 10x.
   #
-  # Workers are left at the default ON PURPOSE. Forcing `--workers=4` onto 4
-  # vCPUs would buy maybe a third off each shard by oversubscribing them, and
-  # this suite is already timing-sensitive enough to fail about one run in two
-  # (which is why CI retries twice). Trading flake for speed on a blocking job
-  # is the wrong way round.
+  # Workers stay at the default ON PURPOSE. Raising them on a 2-core runner
+  # oversubscribes it, and this suite is timing-sensitive enough already: five
+  # specs failed their first sharded run purely on Phase 36's lazy chunks not
+  # arriving inside a 5s assertion (see the timeout notes in
+  # packages/app/playwright.config.ts). Trading flake for speed on a blocking
+  # job is the wrong way round. Add shards, not workers.
   e2e:
     runs-on: ubuntu-24.04
     strategy:
