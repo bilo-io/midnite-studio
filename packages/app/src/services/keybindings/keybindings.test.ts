@@ -100,6 +100,33 @@ describe('the keymap matches real keystrokes', () => {
       void vi;
     });
   });
+
+  /**
+   * The half/full toggle is the terminal toggle's chord plus Shift. The trap
+   * is that Shift changes what the browser reports for the backquote key —
+   * `key: '~'` on a US layout — so this must match by the physical `code`,
+   * or the binding is dead on every keyboard.
+   */
+  it('Ctrl+Shift+` (reported as ~) resolves to the half/full toggle', () => {
+    const keystroke = event({ key: '~', code: 'Backquote', ctrlKey: true, shiftKey: true });
+    withPlatform('MacIntel', () => {
+      const chord = chordFromEvent(keystroke);
+      expect(chord).toBe('Ctrl+Shift+`');
+      const binding = DEFAULT_KEYMAP.find((b) => b.chord === chord);
+      expect(binding?.command).toBe('terminal.toggleHalfMaximized');
+      expect(binding?.scope).toBe('global');
+    });
+  });
+
+  it('matches the backquote key by position even when no shift is held', () => {
+    // Some layouts report a dead key or a different character for the
+    // physical backquote — `code` is what keeps Ctrl+` alive there.
+    withPlatform('MacIntel', () => {
+      expect(chordFromEvent(event({ key: 'Dead', code: 'Backquote', ctrlKey: true }))).toBe(
+        'Ctrl+`',
+      );
+    });
+  });
 });
 
 describe('the registry is palette-shaped', () => {

@@ -704,6 +704,26 @@ test.describe('terminal panel', () => {
     await expect(path).toHaveText('~/midnite-studio');
   });
 
+  /**
+   * The terminal toggle's own gesture plus Shift: Ctrl+Shift+` flips half /
+   * full height. Pressed as the PHYSICAL Backquote key — with Shift held the
+   * browser reports `key: '~'`, which is exactly the trap the chord matcher's
+   * `code` check exists for.
+   */
+  test('Ctrl+Shift+` toggles half / full height', async ({ page }) => {
+    await open(page, { terminalSessions: RESTORED });
+    await toggleTerminal(page);
+
+    const height = async () => (await panel(page).boundingBox())!.height;
+    const normal = await height();
+
+    await page.keyboard.press('Control+Shift+Backquote');
+    await expect.poll(height).toBeGreaterThan(normal * 1.5);
+
+    await page.keyboard.press('Control+Shift+Backquote');
+    await expect.poll(height).toBeLessThan(normal * 1.2);
+  });
+
   test('maximize fills the window and restores', async ({ page }) => {
     await open(page, { terminalSessions: RESTORED });
     await toggleTerminal(page);

@@ -75,11 +75,17 @@ export const COMMANDS = [
     chord: 'Ctrl+`',
     scope: 'global',
   },
+  /**
+   * The terminal toggle's own chord plus Shift — one gesture family: Ctrl+`
+   * opens/closes the panel, holding Shift as well switches it between half
+   * and full height. Ctrl, not Mod, for the same reason as `terminal.toggle`:
+   * the pair must feel identical on every platform, and on macOS Mod is Cmd.
+   */
   {
     id: 'terminal.toggleHalfMaximized',
     label: 'Toggle Terminal Half / Full Height',
     group: 'terminal',
-    chord: 'Mod+Shift+`',
+    chord: 'Ctrl+Shift+`',
     scope: 'global',
   },
   { id: 'terminal.focus', label: 'Focus Terminal', group: 'terminal' },
