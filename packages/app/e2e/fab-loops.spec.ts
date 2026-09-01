@@ -326,11 +326,16 @@ test.describe('FAB loop console — the waiting notice (Theme G)', () => {
     await page.getByTestId('loop-composer-innovate').getByTestId('loop-start').click();
     await expect(page.getByTestId('loop-composer-innovate').getByTestId('loop-stop')).toBeVisible();
 
-    // Away from the loop's own tab, and out of the panel entirely — the case
-    // the notice exists for is a loop that went quiet while you were elsewhere.
+    /*
+      Away from the loop's own tab, and then out of the panel entirely — the
+      case the notice exists for is a loop that went quiet while you were
+      looking at something else. The FAB button is a toggle, so pressing it
+      again is what shuts the console; `FabPanel` returns null when closed,
+      which is why the composers vanish rather than merely hiding here.
+    */
     await page.getByRole('button', { name: 'Automate', exact: true }).click();
-    await page.keyboard.press('Escape');
-    await page.waitForTimeout(SETTLE_WAIT_MS);
+    await page.getByRole('button', { name: 'Open quick access panel' }).click();
+    await expect(page.getByTestId('loop-composer-innovate')).toHaveCount(0);
 
     await emitActivity(page, 'waiting', 'pty-1');
 
@@ -340,11 +345,12 @@ test.describe('FAB loop console — the waiting notice (Theme G)', () => {
 
     await page.getByRole('button', { name: 'Open Innovate' }).click();
     /*
-      The panel reopens on the loop that asked, not on whichever tab was last.
-      Visibility rather than presence: all four tabs stay MOUNTED (each pane
-      owns an xterm that must not be torn down every time you switch), and the
-      inactive ones are hidden with `invisible` — so a count assertion here
-      would pass no matter which tab the action landed on.
+      The panel reopens on the loop that asked, not on Automate, which is
+      where it was left. Visibility rather than presence for the negative: all
+      four tabs mount together once the panel is open (each pane owns an xterm
+      that must not be torn down on every tab switch) and the inactive ones are
+      hidden with `invisible`, so a count assertion would pass no matter which
+      tab the action had landed on.
     */
     await expect(page.getByTestId('loop-composer-innovate')).toBeVisible();
     await expect(page.getByTestId('loop-composer-automate')).not.toBeVisible();
@@ -449,23 +455,30 @@ test.describe('FAB loop console — rehydration (Theme I)', () => {
     },
   ];
 
-  async function openRestored(page: Page): Promise<void> {
-    await installMockBridge(page, { ...fixtures, terminalSessions: SLEPT } as MockFixtures);
-    /*
-      Registered AFTER `installMockBridge`, so it merges onto the profile that
-      one seeds rather than being overwritten by it — init scripts run in the
-      order they were added.
-    */
-    await page.addInitScript(() => {
+  /**
+   * A launch whose renderer already remembers which session belongs to which
+   * loop — `fabSessions`, in ui-store's own persisted slice.
+   *
+   * The init script is registered AFTER `installMockBridge`, so it merges onto
+   * the profile that one seeds rather than being overwritten by it: init
+   * scripts run in the order they were added.
+   */
+  async function openRestored(
+    page: Page,
+    over: Partial<MockFixtures>,
+    fabSessions: Record<string, string>,
+  ): Promise<void> {
+    await installMockBridge(page, { ...fixtures, ...over } as MockFixtures);
+    await page.addInitScript((map: Record<string, string>) => {
       try {
         const stored = localStorage.getItem('midnite-studio.ui');
         const persisted = stored ? JSON.parse(stored) : { version: 5 };
-        persisted.state = { ...persisted.state, fabSessions: { innovate: 'sess-fab-innovate' } };
+        persisted.state = { ...persisted.state, fabSessions: map };
         localStorage.setItem('midnite-studio.ui', JSON.stringify(persisted));
       } catch {
-        /* Same tolerance as the seeder above: an unparseable profile is discarded. */
+        /* Same tolerance as the seeder it merges onto: an unparseable profile is discarded. */
       }
-    });
+    }, fabSessions);
     await page.goto('/');
     await expect(page.getByRole('columnheader', { name: 'Commit message' })).toBeVisible();
   }
@@ -473,7 +486,7 @@ test.describe('FAB loop console — rehydration (Theme I)', () => {
   test('a persisted FAB session comes back asleep, in its own tab, with its transcript', async ({
     page,
   }) => {
-    await openRestored(page);
+    await openRestored(page, { terminalSessions: SLEPT }, { innovate: 'sess-fab-innovate' });
     await openFab(page);
 
     const composer = page.getByTestId('loop-composer-innovate');
@@ -489,7 +502,7 @@ test.describe('FAB loop console — rehydration (Theme I)', () => {
   });
 
   test('a restored FAB session still never reaches the main terminal housing', async ({ page }) => {
-    await openRestored(page);
+    await openRestored(page, { terminalSessions: SLEPT }, { innovate: 'sess-fab-innovate' });
 
     await page.keyboard.press('Control+`');
     await expect(panel(page)).toBeVisible();
@@ -505,19 +518,7 @@ test.describe('FAB loop console — rehydration (Theme I)', () => {
       at it. `useLoopStatus` returns IDLE for a missing row, so the tab must
       offer a fresh run rather than a tab wired to nothing.
     */
-    await installMockBridge(page, { ...fixtures } as MockFixtures);
-    await page.addInitScript(() => {
-      try {
-        const stored = localStorage.getItem('midnite-studio.ui');
-        const persisted = stored ? JSON.parse(stored) : { version: 5 };
-        persisted.state = { ...persisted.state, fabSessions: { innovate: 'sess-long-gone' } };
-        localStorage.setItem('midnite-studio.ui', JSON.stringify(persisted));
-      } catch {
-        /* As above. */
-      }
-    });
-    await page.goto('/');
-    await expect(page.getByRole('columnheader', { name: 'Commit message' })).toBeVisible();
+    await openRestored(page, {}, { innovate: 'sess-long-gone' });
     await openFab(page);
 
     const composer = page.getByTestId('loop-composer-innovate');

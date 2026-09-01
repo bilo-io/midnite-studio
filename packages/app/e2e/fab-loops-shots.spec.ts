@@ -91,9 +91,8 @@ test('the waiting notice, in the bell', async ({ page }) => {
   await page.getByTestId('loop-composer-innovate').getByTestId('loop-start').click();
   await expect(page.getByTestId('loop-composer-innovate').getByTestId('loop-stop')).toBeVisible();
 
-  // Panel shut — the case the notice exists for.
-  await page.keyboard.press('Escape');
-  await page.waitForTimeout(400);
+  // Left open deliberately: the shot is more use showing the glowing Stop and
+  // the amber tab dot alongside the notice than showing the notice alone.
 
   await page.evaluate(() => {
     (
