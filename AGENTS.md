@@ -119,6 +119,23 @@ explanatory messages. If a boundary rule fires, the fix is an IPC channel, not a
   every `CommandId`, label, palette `group` and optional chord — with `COMMAND_IDS`,
   `DEFAULT_KEYMAP` and `GLOBAL_CHORDS` all derived from it. `Mod+k` opens the command palette and
   joins `Ctrl+`` as the second chord that escapes the terminal; `Mod+Shift+p` stays `sync.pull`.
+- **Commits here are authored as `bilo-io` — `Bilo Lwabona <bilo.lwabona@gmail.com>`.** The
+  global `~/.gitconfig` carries the *work* identity, which is correct for every other
+  checkout on this machine and wrong for this one. Nothing about a clone announces that
+  difference, so the mistake is silent, and the only remedy after the fact is rewriting
+  history — which changes every SHA downstream of it. So the repo pins its own identity in
+  local config and enforces it with [`.githooks/pre-commit`](.githooks/pre-commit), wired up
+  by a repo-local `core.hooksPath`. The hook reads `git var GIT_AUTHOR_IDENT` rather than
+  `user.email`, so a `GIT_AUTHOR_EMAIL=…` or `git -c user.email=…` override is caught rather
+  than waved through; bypass it deliberately with `git commit --no-verify`. **Neither
+  setting survives a fresh clone** — both are local config, not committed state — so re-run
+  all three after cloning:
+
+  ```sh
+  git config --local user.name "Bilo Lwabona"
+  git config --local user.email bilo.lwabona@gmail.com
+  git config --local core.hooksPath .githooks
+  ```
 
 ## Phase workflow
 

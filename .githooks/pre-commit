@@ -1,0 +1,65 @@
+#!/bin/sh
+#
+# Enforce this repository's commit identity.
+#
+# midnite-studio is authored under the personal `bilo-io` GitHub account, while
+# ~/.gitconfig sets the *work* identity (…@ekko.earth) globally. Nothing about a
+# clone of this repo announces that difference, so without this guard a commit
+# here silently picks up the work email — and the only remedy after the fact is
+# rewriting history, which changes every SHA downstream of the mistake.
+#
+# `.git/config` already carries the right default. This hook is the part that
+# makes a WRONG one impossible to commit by accident: a config default is
+# silently overridable by `GIT_AUTHOR_EMAIL=…` or `git -c user.email=… commit`,
+# and a default that can be bypassed without noticing is not enforcement.
+#
+# `git var` is read rather than `git config user.email` for exactly that reason:
+# it reports the identity git will ACTUALLY stamp on the commit, env overrides
+# included, which a plain config read would miss.
+#
+# Caveat: on `git commit --amend` without `--reset-author`, git preserves the
+# original commit's author while `git var` reports the configured one, so the
+# check applies to your configured identity rather than the retained author.
+# That is the safe direction to be wrong in.
+#
+# Deliberate bypass: `git commit --no-verify`.
+
+EXPECTED_EMAIL='bilo.lwabona@gmail.com'
+EXPECTED_NAME='Bilo Lwabona'
+
+# `git var GIT_{AUTHOR,COMMITTER}_IDENT` yields: "Name <email> 1700000000 +0200"
+ident_email() { git var "$1" | sed -n 's/^.*<\(.*\)>.*$/\1/p'; }
+ident_name()  { git var "$1" | sed -n 's/^\(.*\) <.*$/\1/p'; }
+
+fail=0
+for role in AUTHOR COMMITTER; do
+  low=$(printf '%s' "$role" | tr 'A-Z' 'a-z')
+  actual_email=$(ident_email "GIT_${role}_IDENT")
+  actual_name=$(ident_name  "GIT_${role}_IDENT")
+
+  if [ "$actual_email" != "$EXPECTED_EMAIL" ]; then
+    printf 'commit blocked: %s email is "%s", expected "%s"\n' \
+      "$low" "$actual_email" "$EXPECTED_EMAIL" >&2
+    fail=1
+  fi
+  if [ "$actual_name" != "$EXPECTED_NAME" ]; then
+    printf 'commit blocked: %s name is "%s", expected "%s"\n' \
+      "$low" "$actual_name" "$EXPECTED_NAME" >&2
+    fail=1
+  fi
+done
+
+if [ "$fail" -ne 0 ]; then
+  cat >&2 <<EOF
+
+This repository is authored as bilo-io <$EXPECTED_EMAIL>.
+Your global ~/.gitconfig sets a different identity, which is correct for your
+other repositories — so set it for this one only:
+
+  git config --local user.name  "$EXPECTED_NAME"
+  git config --local user.email "$EXPECTED_EMAIL"
+
+Then retry. To bypass this check once: git commit --no-verify
+EOF
+  exit 1
+fi
