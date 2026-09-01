@@ -110,8 +110,10 @@ explanatory messages. If a boundary rule fires, the fix is an IPC channel, not a
   every set.
 - **`lucide-react` is gone, and eslint keeps it out.** Phase 36 Theme D moved all 54 of its
   importers onto `react-icons/lu`, which is the same Lucide glyph set under an `Lu` prefix —
-  `ChevronLeft` → `LuChevronLeft` — so nothing changed visually and the package left
-  `node_modules` (40 MB of it). A `no-restricted-imports` entry in `eslint.config.mjs` fails
+  `ChevronLeft` → `LuChevronLeft` — so nothing changed visually. It does **not** leave
+  `node_modules`, though: `@bilo-io/ui` and `@bilo-io/shell` both depend on it, so the 40 MB
+  stays whatever our own source does (measured in Phase 36 Theme A; the real win is ~18 KB off
+  the entry chunk and one family in our code). A `no-restricted-imports` entry in `eslint.config.mjs` fails
   the build on a fresh import of it, and `components/icons/icon-names.test.ts` asserts every
   `react-icons/lu` name the renderer imports actually resolves to a defined export. The
   shared `IconComponent` type (`components/icon-button.tsx`) stays declared structurally

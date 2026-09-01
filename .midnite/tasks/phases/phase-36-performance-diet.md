@@ -47,7 +47,7 @@ Effort tags: **S** ≈ an hour or two · **M** ≈ half a day · **L** ≈ a day
 
 ## Deliverables
 
-### A — Baseline & harness (M)  ◐ PARTIAL (2026-09-01, local — baseline table still open)
+### A — Baseline & harness (M) — ✅ DONE (2026-09-01)
 
 Lands first — every other theme's before/after numbers come from here. The env flag is
 `MSTUDIO_PERF`, unclaimed today; boolean env convention is bracket access compared to `'1'`
@@ -99,7 +99,7 @@ Lands first — every other theme's before/after numbers come from here. The env
 - [x] Heap-measurement procedure written into this doc: renderer = DevTools heap snapshot
       (exact click-path), main = `process.memoryUsage().rss` sampled by
       `startup-report.mjs --rss`. Repeatable, not folklore.
-- [ ] **Record the baseline table** (bottom of this doc) before any fix lands: cold start
+- [x] **Record the baseline table** (bottom of this doc) before any fix lands: cold start
       (launch → `ready-to-show`, → `first-view-rendered`, → `graph-first-batch`), entry chunk
       KB, total JS KB, idle %CPU (main + renderer, focused and blurred, 5 min untouched),
       renderer heap after the Theme F diff-scroll session. Median of 5, packaged-equivalent.
@@ -189,7 +189,7 @@ Grew from M: the graph-dnd split (Decision) adds real work.
       (`build.sourcemap`) and `bundle.mjs` — `dist/` is 70 MB today, ~54 MB of it maps.
 - [ ] Before/after: entry chunk KB (baseline 2.52 MB), total JS KB, `first-view-rendered` ms.
 
-### D — One icon family (M)  ✅ DONE (2026-09-01, local — no PR/no remote)
+### D — One icon family (M) — ✅ DONE (2026-09-01, one item ◐ PARTIAL)
 
 - [x] Migrate the **54** files importing `lucide-react` (definitive list:
       `grep -rl "from 'lucide-react'" packages/app/src` — includes
@@ -212,13 +212,17 @@ Grew from M: the graph-dnd split (Decision) adds real work.
 - [x] Update the icon convention paragraphs in [`CLAUDE.md`](../../../CLAUDE.md), `AGENTS.md`
       and `GEMINI.md` (all three, per the sync rule): the "lucide-react stays, the two
       coexist" paragraph is superseded — `react-icons` is the only family.
-- [x] Screenshot parity via the existing `MSTUDIO_SHOTS` harness
+- [ ] ◐ PARTIAL — Screenshot parity via the existing `MSTUDIO_SHOTS` harness
       ([`e2e/shots.spec.ts`](../../../packages/app/e2e/shots.spec.ts)): regenerate before and
-      after the migration; the diff review is a Verification item.
+      after the migration; the diff review is a Verification item. **Done and reported as
+      unusable** — the suite's PNGs carry a live clock and most are historical committed
+      artifacts, so a pixel diff of two runs of the *same* tree already differs on ~30 files.
+      Parity was established at code level instead; see *Icon parity* below. The human-eye pass
+      stays open.
 - [x] Before/after: entry+vendor KB attributable to icons; note the installed-footprint win
       (`lucide-react` is 40 MB in `node_modules`).
 
-### E — Idle-CPU zero (M)  ✅ DONE (2026-09-01, local — no PR/no remote)
+### E — Idle-CPU zero (M) — ✅ DONE (2026-09-01)
 
 Four renderer 1 s timers today: three clocks
 ([`titlebar-status.tsx:24`](../../../packages/app/src/features/titlebar-status/titlebar-status.tsx),
@@ -272,7 +276,7 @@ Four renderer 1 s timers today: three clocks
   - Verified by: desktop vitest with fake timers — after the last untrack, no timer remains.
 - [x] Before/after: main + renderer %CPU after 5 min untouched, focused **and** blurred.
 
-### F — Memory: caps where growth is unbounded (M)  ✅ DONE (2026-09-01, local — no PR/no remote)
+### F — Memory: caps where growth is unbounded (M) — ✅ DONE (2026-09-01, one item ◐ PARTIAL)
 
 - [x] Cap the diff highlight cache: 10 k true LRU (Decision). In
       [`line-highlight.ts`](../../../packages/app/src/features/diff/line-highlight.ts):
@@ -306,8 +310,11 @@ Four renderer 1 s timers today: three clocks
       authors), the shiki singleton
       ([`lib/highlighter.ts`](../../../packages/app/src/lib/highlighter.ts) — grammars stay
       resident once loaded, bounded by languages actually viewed; accepted).
-- [x] Before/after: renderer heap after scrolling ten 4 000-line diffs (the Theme A
-      procedure); main RSS after a scripted 1-hour session.
+- [ ] ◐ PARTIAL — Before/after: renderer heap after scrolling ten 4 000-line diffs (the Theme A
+      procedure); main RSS after a scripted 1-hour session. **Procedure written, numbers not
+      taken**: the heap figure needs a DevTools snapshot (no script can take it) and the RSS
+      figure needs an hour. Main RSS at first paint is recorded (154 MB, unchanged); the caps
+      themselves are asserted by `line-highlight.test.ts` rather than by a heap number.
 
 ### G — Profile-gated claims (M)
 
@@ -575,19 +582,106 @@ unmount.
 | [`lib/highlighter.ts`](../../../packages/app/src/lib/highlighter.ts) shiki singleton | Grammars stay resident once loaded — bounded by languages actually viewed. Accepted, documented; unloading would re-pay the load on every revisit (*Not in this phase*). |
 | `languages.ts` ext sets · `chord.ts` `MODIFIER_KEYS` · `use-file-actions.ts` `RESERVED_NAMES` · `linkify-rehype.ts` `OPAQUE` · `image-sources.ts` `NO_HEAD_SIDE` · the `EMPTY_SET` / `NOTHING_EXPANDED` constants | Literal constants. |
 
+## Icon parity (Theme D verification)
+
+The doc asked for two checks: `strokeWidth` sites, and a `MSTUDIO_SHOTS` before/after diff.
+
+**`strokeWidth` parity holds, by construction.** `react-icons/lu`'s generated icons bake
+exactly lucide-react's defaults — `fill:none`, `stroke:currentColor`, `strokeWidth:2`, round
+caps and joins — and `IconBase` renders
+`<svg {stroke, fill, strokeWidth:0} {conf.attr} {attr} {...ourProps}>`, i.e. **caller props are
+spread last**, so `strokeWidth={2.5}` still wins. The four sites that set it —
+[`commit-detail.tsx:230-232`](../../../packages/app/src/features/commit/commit-detail.tsx),
+[`forge-status.tsx:251,264`](../../../packages/app/src/features/forge/forge-status.tsx),
+[`change-tree.tsx:121-193`](../../../packages/app/src/components/change-tree.tsx),
+[`icon-button.tsx:138`](../../../packages/app/src/components/icon-button.tsx) — therefore render
+at the weight they ask for.
+
+**The one real behavioural difference is default size, and it bites nothing here.**
+lucide-react defaults to `width=24 height=24`; react-icons sets `size || '1em'`. Every migrated
+call site carries a Tailwind size class (`h-4 w-4`, `size-3`), and CSS beats the attribute, so
+those are unaffected. An audit for icon elements with *no* size class found two — the
+`<LuCheck>` pair in
+[`onboarding-modal.tsx:35,39`](../../../packages/app/src/features/onboarding/onboarding-modal.tsx)
+— and both were already `react-icons` before this phase (`b649a6e` has them), so D did not
+change them. **Anything added later must carry a size class**, which is the one rule this
+migration leaves behind.
+
+**The screenshot pixel-diff does not work as a parity instrument, and pretending otherwise
+would be worse than saying so.** Measured, rather than assumed: running every `*-shots.spec.ts`
+in a pre-D tree and a post-D tree at the same base produced 33 differing PNGs out of 116 — and
+running the suite **twice in the same tree** produced ~30 differing PNGs at the same magnitude
+(0.01–1.1 % of pixels), in the same regions, because the title bar renders a live clock and
+weather. Worse, most of the 116 files are historical committed artifacts no current spec
+rewrites, so those compare identical for the wrong reason. Of the shots that *are* both stable
+and regenerated, the one large diff (`phase-20-inline-threads/threads-light.png`, 8 %,
+0-pixel repeat noise) turned out to be a spec-coverage difference between the two trees, not a
+glyph change.
+
+So the harness's screenshot mode stays what it was built for — producing pictures for a human
+to look at — and the *automated* answer to "did any glyph change" comes from the two code-level
+facts above. The human-eye pass stays open in *Verification*.
+
 ## Baseline table
 
-Filled in by Theme A before any fix lands; every theme appends its after-numbers. Mode:
-packaged-equivalent, median of 5 cold runs.
+Mode: packaged-equivalent (`MSTUDIO_USE_BUILT_RENDERER=1` + the esbuild-bundled main), **median
+of 5 cold runs** for the startup rows, single 300 s windows for the idle rows. Measured on
+**macOS 25.6 / arm64**, both sides built from the same base (`b649a6e`) so nothing else is in
+the delta: *before* is that commit, *after* is that commit plus Themes D, E and F. Numbers were
+taken before this branch was rebased onto Phase 35, so Phase 35's renderer work is in neither
+column.
 
 | Metric | Before | After | Theme |
 |--------|--------|-------|-------|
-| launch → `ready-to-show` (ms) | — | — | B |
-| launch → `first-view-rendered` (ms) | — | — | B/C |
-| launch → `graph-first-batch` (ms) | — | — | B/C |
-| entry chunk (KB) | — (2 520 unverified) | — | C/D |
-| total JS (KB) | — | — | C/D |
-| idle %CPU, focused (main / renderer) | — | — | E |
-| idle %CPU, blurred (main / renderer) | — | — | E |
+| launch → `ready-to-show` (ms) | 711 | 746 | B |
+| launch → `first-view-rendered` (ms, renderer clock) | 213 | 218 | B/C |
+| launch → `graph-first-batch` (ms, renderer clock) | 268 | 268 | B/C |
+| entry chunk (KB) | 2 464.0 | 2 446.2 | C/D |
+| total JS (KB, 427 chunks) | 13 744.9 | 13 727.2 | C/D |
+| idle %CPU of one core, **blurred** (main / renderer / total) | 0.17 / 0.19 / 0.38 | 0.03 / 0.07 / 0.12 | E |
+| idle %CPU of one core, **focused** (total) | 0.85 – 1.09 (low mode) | 0.70 (low mode) | E |
+| main RSS at first paint (MB) | 154 | 154 | F |
 | renderer heap after diff session (MB) | — | — | F |
 | main RSS after 1 h session (MB) | — | — | F |
+
+**What the startup rows say: nothing, and that is the correct answer.** D, E and F touch no
+boot path, and the 35 ms on `ready-to-show` is inside this machine's run-to-run spread
+(`login-shell-done` alone ranged 295–2 457 ms across the day's runs — the login-shell spawn is
+by far the noisiest stage, which is itself Theme B's finding). These rows exist as the baseline
+B and C will be measured against.
+
+**Bundle: the icon migration is worth ~18 KB, not 40 MB.** Theme D's doc claimed an
+installed-footprint win from dropping `lucide-react`; **it does not hold.** The package is a
+dependency of `@bilo-io/ui` *and* `@bilo-io/shell`, so it stays in `node_modules` (40 MB of it)
+however thoroughly the renderer stops importing it — and whatever glyphs those two libraries
+use still ship. What D actually bought is the entry-chunk delta above, one icon family in our
+own source, and an eslint rule that keeps it that way. Recorded here rather than quietly
+dropped, because "40 MB" would otherwise enter the phase's story as fact.
+
+**Idle CPU is bimodal, and the first measurement of it was nearly a false claim.** A blurred
+window is genuinely quiet on both sides — and mostly *already* was, because Chromium throttles
+timers and `requestAnimationFrame` in an occluded window, which is Theme E's rAF item resolved
+with a number rather than an argument (renderer 0.19 % → 0.07 %; nothing in
+[`window.ts`](../../../packages/desktop/src/main/window.ts) disables `backgroundThrottling`, so
+the default stands). E's blurred win is therefore small; its real value is structural — four
+1 s intervals became one, `use-rebase-status.ts` is gone, auto-fetch does no git work behind a
+hidden window, and main's activity tick is armed by the first tracked pty instead of always.
+
+A **focused** idle window, though, has two modes on **both** sides: ~0.2–1.1 % of a core
+normally, and occasional episodes of tens of percent split between renderer and GPU — the worst
+observed being **renderer 32 % + GPU 55 %, on the *after* build**, in a window where nothing was
+touched. Four re-runs (two per side, 90 s each) put the low mode at 0.85 / 1.09 % before and
+0.70 % after, with the high mode appearing once on each side. So the first pair of 300 s
+samples (27.10 % before, 0.17 % after) was **an artifact of which mode each run happened to
+land in, not a Theme E win**, and is not recorded as one.
+
+That episodic 88 %-of-a-core in a focused, untouched window is a real battery bug and it is
+**not** explained by anything in this batch. It belongs to **Theme G** (profile-gated claims):
+something is animating at frame rate with no user input, and the next step is a DevTools
+performance capture during an episode — not another timer audit.
+
+**The two unmeasured rows are honest blanks.** Renderer heap needs a DevTools snapshot (the
+click-path is written down under *Measurement procedures*) and the 1 h RSS figure needs an hour;
+neither is scripted, so neither is claimed. Theme F's caps are asserted by unit tests
+(`line-highlight.test.ts` holds the 10 000-entry cap and its LRU retention order) rather than by
+a heap number.
