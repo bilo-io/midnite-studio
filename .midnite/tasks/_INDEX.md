@@ -18,7 +18,7 @@ Completed work is logged append-only in [`done.md`](done.md). Deferred scope liv
 
 | Phase | Status | Refined | Done | Progress | % | 🔄 WIP | ◻ TODO |
 |-------|--------|---------|------|----------|---|--------|--------|
-| [36 · Faster, lighter, same app](phases/phase-36-performance-diet.md) | 🔄 WIP | x1 | 24/63 | `████░░░░░░` | 38% | B C G H | — |
+| [36 · Faster, lighter, same app](phases/phase-36-performance-diet.md) | 🔄 WIP | x1 | 23/63 | `████░░░░░░` | 37% | B C G H | — |
 | [35 · FAB Mission Control](phases/phase-35-fab-mission-control.md) | 🔄 WIP | — | 36/40 | `█████████░` | 90% | — | — |
 | [34 · Agent Councils](phases/phase-34-agent-councils.md) | ✅ DONE | — | 34/34 | `██████████` | 100% | — | — |
 | [33 · Application Installation, CLI Tool & Desktop Integration](phases/phase-33-installable-app-and-cli-integration.md) | ✅ DONE | x1 | 44/44 | `██████████` | 100% | — | — |
@@ -70,8 +70,10 @@ dead code; the activity tick gates on tracked ptys, not blur). A is the harness 
 theme's numbers come from; B/C attack startup; D unifies icons; E/F are idle-CPU and memory;
 G runs the profile-gated deferrals to an honest verdict; H locks in strict-ms budgets.*
 
-- ◐ **A** — Baseline & harness: `MSTUDIO_PERF` boot marks via `perf-marks.ts` +
-  `mstudio:perf:mark` IPC, `scripts/perf/` reports, Vite manifest, the baseline table.
+- ✅ **A** — Baseline & harness: `MSTUDIO_PERF` boot marks via `perf-marks.ts` +
+  `mstudio:perf:mark` IPC, `scripts/perf/` reports (startup, bundle, idle-CPU), Vite manifest,
+  and the baseline table filled from real medians — which corrected two of the phase's own
+  claims. (2026-09-01, local — no PR/no remote)
 - 🔄 **B** — Main-process startup: async login-shell probe, `Promise.all`'d pre-window awaits
   (migration first, `repos-restored` before `create-window` machine-checked), update/councils/
   forge dynamic-imported, minified main bundle.
@@ -79,12 +81,17 @@ G runs the profile-gated deferrals to an honest verdict; H locks in strict-ms bu
   lazy views (Graph eager), xterm split + idle-preload, `@dnd-kit` split incl. graph wiring,
   env-gated sourcemaps.
 - ✅ **D** — One icon family: 54 `lucide-react` files → `react-icons/lu` by direct rename,
-  `strokeWidth` parity check, dep removed, eslint guard, convention files updated.
+  `strokeWidth` parity proved at code level, dep removed, eslint guard, convention files
+  updated. −17.8 KB entry chunk; the claimed 40 MB footprint win does not exist (`@bilo-io/ui`
+  keeps lucide-react). Landed 2026-09-01; human-eye screenshot pass still open.
 - ✅ **E** — Idle-CPU zero: shared `useNow()` clock (1 interval, visibility-gated), dead
   `use-rebase-status.ts` deleted, auto-fetch pause+catch-up, event-driven screensaver arm,
-  activity tick runs only while ptys are tracked.
+  activity tick runs only while ptys are tracked. Blurred idle 0.38% → 0.12% of a core; rAF
+  throttling verified rather than re-gated. Landed 2026-09-01 — and it surfaced an episodic
+  88%-of-a-core animation in a FOCUSED idle window that belongs to G.
 - ✅ **F** — Memory caps: 10k true-LRU + per-key notify in `line-highlight.ts`,
-  scrollback-ownership audit with bounds tests, unbounded-Map sweep.
+  scrollback-ownership audit with bounds tests, unbounded-Map sweep table in the phase doc.
+  Landed 2026-09-01; the heap/1-hour-RSS numbers stay ◐ PARTIAL (DevTools-only).
 - 🔄 **G** — Profile-gated claims: edge culling (>30% frame time), broker frame batching
   (16ms coalesce if indicted), `ps`-probe cost — land or acquit, with written thresholds.
 - 🔄 **H** — Perf budgets: `moon run app:perf` (playwright.perf.config), strict-ms budgets at

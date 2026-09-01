@@ -23,12 +23,13 @@ wanted the same line, and both were kept.
       `graph-first-batch` never happens unless a repo is selected, which is persisted state the
       app deliberately does not invent. Idle CPU differences cumulative `ps -o cputime` rather
       than reading `%cpu`, which on macOS decays over up to a minute of history and would smear
-      boot CPU into an idle number. **Still open:** the baseline table itself is unfilled — the
-      harness landed but nobody ran it, and the "before" column now needs measuring from the
-      pre-phase tip rather than from this tree.
+      boot CPU into an idle number. **The baseline table is now filled** — measured later the
+      same day from a pre-phase worktree (`b649a6e`) with the harness cherry-picked onto it, so
+      both columns share a base and Phase 35 is in neither; see the addendum below and the phase
+      doc's *Baseline table*.
 - [x] **Theme D — One icon family**: all 54 `lucide-react` importers moved to `react-icons/lu` —
       the same Lucide set under an `Lu` prefix, so `ChevronLeft` → `LuChevronLeft` and nothing
-      changed visually. `lucide-react` left `node_modules` (~40 MB) and a `no-restricted-imports`
+      changed visually. A `no-restricted-imports`
       entry in `eslint.config.mjs` fails the build on a fresh import of it;
       `components/icons/icon-names.test.ts` asserts every `react-icons/lu` name the renderer
       imports resolves to a defined export, which is the guard against a rename that typechecks
@@ -49,6 +50,51 @@ wanted the same line, and both were kept.
       `packages/app/src` swept and tabulated in the phase doc against one rule: keyed on *content*
       needs a cap, keyed on *mounted components* or a literal enumeration does not, provided it
       deletes on unmount.
+
+### Addendum, same day — the numbers, and what they corrected
+
+The harness was run against a pre-phase worktree (`b649a6e`) and against this batch's tip, both
+built packaged-equivalent, medians of 5 cold runs. Three results contradicted the phase's own
+expectations, and are recorded as corrections rather than quietly dropped:
+
+- **`lucide-react` does not leave `node_modules`.** `@bilo-io/ui` and `@bilo-io/shell` both
+  depend on it, so the "~40 MB footprint win" is not real — corrected above, in the phase doc,
+  and in all three convention files. What Theme D actually bought: **−17.8 KB** of entry chunk
+  (2 464.0 → 2 446.2 KB), one icon family in our own source, and an eslint rule that holds it.
+- **Blurred idle CPU: 0.38 % → 0.12 %** of one core (renderer 0.19 → 0.07). Real, and smaller
+  than the theme's title suggests — because Chromium already throttles timers and rAF in an
+  occluded window. That is Theme E's rAF item closed with a measurement instead of an argument:
+  nothing disables `backgroundThrottling`, so the default stands and no hand-written
+  `document.hidden` gates were needed.
+- **A focused, untouched window is bimodal, and the first measurement nearly became a false
+  claim.** The initial 300 s pair read 27.10 % before vs 0.17 % after — a tenfold "win" that
+  four re-runs (two per side, 90 s) demolished: the low mode is 0.85 / 1.09 % before and 0.70 %
+  after, and the high mode — worst observed **renderer 32 % + GPU 55 %** — appeared on *both*
+  sides. So something animates at frame rate in an idle focused window; it is not explained by
+  anything in this batch, and it is now **Theme G's** first job.
+
+Startup was unchanged, which is the correct answer: D/E/F touch no boot path
+(`ready-to-show` 711 → 746 ms, inside this machine's spread — `login-shell-done` alone ranged
+295–2 457 ms across the day). Those rows are the baseline B and C will be measured against.
+
+Two things the harness found about itself, both fixed in `electron-run.mjs`:
+
+- **it leaked a broker per run.** The pty broker deliberately outlives the app that spawned it,
+  so the first before/after batch ended with twelve resident brokers and 23 stray helpers — and
+  "after" runs that could no longer boot inside a 60 s budget, which is exactly the failure that
+  produced the bogus 27 % contrast above. Teardown now kills anything whose argv names that run's
+  throwaway profile.
+- **the screenshot pixel-diff is not a parity instrument.** Two runs of the *same* tree differ on
+  ~30 of 116 PNGs (the title bar renders a live clock), and most of the 116 are historical
+  committed artifacts no current spec rewrites. Reported as unmeasurable; icon parity was
+  established at code level instead (react-icons' `IconBase` spreads caller props after the
+  glyph's baked attrs, so `strokeWidth` survives; the only real difference is default size,
+  `1em` vs 24px, which affects only icons with no size class — an audit found none among the
+  migrated sites). The eyes-on pass stays open for a human.
+
+Also landed with the numbers: the *Measurement procedures* section (including the DevTools heap
+click-path, since no script can take a heap snapshot) and the Theme F module-level-`Map` sweep as
+a table with a bound for every entry in `packages/app/src`.
 
 ## 2026-09-01 — Phase 35 Themes A–E — FAB Mission Control
 
