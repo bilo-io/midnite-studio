@@ -7,10 +7,12 @@ import { useCallback, useEffect, useRef, useState } from 'react';
 
 import { bridge } from '../../services/bridge';
 import { shouldEscapeTerminal } from '../../services/keybindings/use-keybindings';
+import { openExternal } from '../../services/queries';
 import { EndedStrip } from './ended-banner';
 import { isXtermFocusReport } from './is-xterm-focus-report';
 import { parseOsc7 } from './parse-osc7';
 import { createReplayGate } from './replay-gate';
+import { attachTerminalLinks } from './terminal-links';
 import { agentInput } from './terminal-panel';
 import { sessionPhase, useTerminalStore } from './terminal-store';
 import { useAgents } from './use-agents';
@@ -318,6 +320,17 @@ export function TerminalView({
     const fit = new FitAddon();
     term.loadAddon(fit);
 
+    /**
+     * Cmd+click (Ctrl elsewhere) opens a URL in the output.
+     *
+     * Registered before `open()` on purpose: a link provider is a parser-side
+     * concern, and the rows a session replays are already in the buffer by the
+     * time anything is hovered. `openExternal` rather than a navigation for the
+     * same reason `ExternalLink` uses it — the renderer is a `file://` origin
+     * with no browser chrome to come back from.
+     */
+    const links = attachTerminalLinks(term, openExternal);
+
     let dataSub: { dispose: () => void } | null = null;
     /**
      * Set once this effect's own cleanup runs, so an in-flight snapshot
@@ -480,6 +493,7 @@ export function TerminalView({
       document.removeEventListener('visibilitychange', onVisibilityChange);
       if (cwdTimer) clearTimeout(cwdTimer);
       dataSub?.dispose();
+      links.dispose();
       titleSub?.dispose();
       oscSub.dispose();
       term.dispose();
