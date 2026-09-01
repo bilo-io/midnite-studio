@@ -41,6 +41,23 @@ tasks:
       - '/packages/shared/src/**/*'
       - '/packages/git-engine/src/**/*'
 
+  # Same reasoning as `typecheck`, for the same reason it bites harder here:
+  # vitest RESOLVES `@midnite/studio-shared` at run time, through the package's
+  # `exports` into `shared/dist`. With no dep, a clean checkout has no `dist`
+  # and every one of these files dies at import with "Failed to resolve entry
+  # for package" — which is what CI had been doing while local runs stayed
+  # green off a `dist` some earlier command happened to leave behind.
+  test:
+    deps:
+      - 'shared:build'
+      - 'git-engine:build'
+    inputs:
+      - 'src/**/*'
+      - 'vitest.config.ts'
+      - 'package.json'
+      - '/packages/shared/src/**/*'
+      - '/packages/git-engine/src/**/*'
+
   lint:
     inputs:
       - 'src/**/*'
