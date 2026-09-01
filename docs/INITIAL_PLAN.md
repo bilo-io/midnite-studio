@@ -2,7 +2,7 @@
 
 ## Context
 
-Bilo wants a brand-new standalone desktop app — **Midnite Studio** (`@midnite/studio`) — in `~/Dev/midnite-studio`, a separate repo structured like the midnite monorepo (proto + moon + pnpm workspace, `todo/` phase docs), consuming the published **@bilo-io/ui@0.1.0** and **@bilo-io/shell@0.1.0** from GitHub Packages (`bilo-io/midnite-ui`).
+Bilo wants a brand-new standalone desktop app — **Midnite Studio** (`@midnite/studio`) — in `~/Dev/midnite-studio`, a separate repo structured like the midnite monorepo (proto + moon + pnpm workspace, `.midnite/tasks/` phase docs), consuming the published **@bilo-io/ui@0.1.0** and **@bilo-io/shell@0.1.0** from GitHub Packages (`bilo-io/midnite-ui`).
 
 Product pillars:
 
@@ -37,7 +37,7 @@ Product pillars:
 .moon/{workspace,toolchain,tasks}.yml   # crib midnite; vcs.defaultBranch main; syncProjectReferences false
 moon.yml  pnpm-workspace.yaml  tsconfig.base.json  eslint.config.mjs
 scripts/fix-node-pty.cjs   # spawn-helper chmod (crib midnite)
-todo/                      # _INDEX.md, done.md, outstanding.md, phase-N-*.md
+.midnite/tasks/                      # _INDEX.md, done.md, outstanding.md, phases/phase-N-*.md
 packages/
   shared/       # @midnite/studio-shared — zod-only contract layer (domain types, IPC channels+schemas, bridge type, CommandId/keymap)
   git-engine/   # @midnite/studio-git-engine — pure Node/TS, NO electron imports: dugite exec + write queue, parsers, commands, lane layout, watcher
@@ -75,11 +75,11 @@ Renderer state: **TanStack Query** for main-process data (`['repos']`, `['refs',
 
 Engine uses dugite's bundled git with the user's `HOME` config (identity/signing/credential helpers apply). Env for reads: `LC_ALL=C`, `GIT_OPTIONAL_LOCKS=0`, `GIT_TERMINAL_PROMPT=0`. All writes through a per-repo serialized queue (index.lock). Parsing always NUL-delimited: log `--pretty=format:%H%x00%P%x00%an%x00%ae%x00%at%x00%ct%x00%D%x00%s%x00 -z`, `status --porcelain=v2 -z --branch`, `for-each-ref --format` (incl. `%(upstream:track)`, `%(worktreepath)`), `worktree list --porcelain`. The exec layer abstracts the git binary so a settings flag can later switch to system git.
 
-## Phases (each = one PR-sized `todo/phase-N-*.md`)
+## Phases (each = one PR-sized `.midnite/tasks/phases/phase-N-*.md`)
 
 ### Phase 0 — Scaffold
 
-Repo skeleton: all root config files above, four packages with `package.json`/`tsconfig.json`/`moon.yml`/`vitest.config.ts`, README, CLAUDE.md, todo/ docs. Add `@bilo-io/ui` + `@bilo-io/shell` to `app` deps **now** to prove GH Packages auth. Pin react/react-dom ^19.
+Repo skeleton: all root config files above, four packages with `package.json`/`tsconfig.json`/`moon.yml`/`vitest.config.ts`, README, CLAUDE.md, .midnite/tasks/ docs. Add `@bilo-io/ui` + `@bilo-io/shell` to `app` deps **now** to prove GH Packages auth. Pin react/react-dom ^19.
 **Verify:** `proto use && pnpm install && moon run :typecheck :lint :test` green; ui/shell resolve from the registry.
 
 ### Phase 1 — shared contracts + git-engine exec/parsers
@@ -134,7 +134,7 @@ Commands `checkout/branch/tag/reset` (+ error mapping: dirty-tree block, branch-
 
 ### Phase 11 — Packaging + docs
 
-Crib from midnite desktop: `electron-builder.yml` (arm64 dmg/zip, node-pty asarUnpack), `afterpack.cjs` (chmod spawn-helper, prune dangling symlinks, ad-hoc codesign), `install-local.mjs` (**ditto**), moon `desktop:dist` / `desktop:install-local`; CI workflow with `GITHUB_PACKAGES_TOKEN`; README (PAT setup), finalize todo/. Updater deferred (note the electron-updater **named-import** gotcha in outstanding.md).
+Crib from midnite desktop: `electron-builder.yml` (arm64 dmg/zip, node-pty asarUnpack), `afterpack.cjs` (chmod spawn-helper, prune dangling symlinks, ad-hoc codesign), `install-local.mjs` (**ditto**), moon `desktop:dist` / `desktop:install-local`; CI workflow with `GITHUB_PACKAGES_TOKEN`; README (PAT setup), finalize .midnite/tasks/. Updater deferred (note the electron-updater **named-import** gotcha in outstanding.md).
 **Verify:** build dmg, install, **launch from Finder** (proves shell-path fix), open repo, terminal works (proves packaged node-pty), graph renders.
 
 ## Risks & mitigations
@@ -150,7 +150,7 @@ Crib from midnite desktop: `electron-builder.yml` (arm64 dmg/zip, node-pty asarU
 | dugite vs user env drift | Engine = dugite git + user's HOME config; terminal = login shell/system git; exec layer abstracts the binary (settings escape hatch to system git). |
 | Watcher storms | Debounce + own-write suppression + narrow kind-based invalidation. |
 
-## Post-MVP (record in `todo/outstanding.md`)
+## Post-MVP (record in `.midnite/tasks/outstanding.md`)
 
 Interactive rebase (`GIT_SEQUENCE_EDITOR` helper), proper diff viewer, stash, force-push with lease + gating, auto-updater, command palette, interval-tree edge culling, submodules.
 

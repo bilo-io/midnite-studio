@@ -25,7 +25,7 @@ Echo the resolved range back in one line before the report.
 
 The gathering is independent, so once `START`/`END` are resolved **dispatch two read-only subagents in a single message** so they run concurrently. Pass the resolved `START`/`END` into each prompt. Each returns a compact structured digest — keep the raw JSON and file dumps out of this thread; you compose the report from the digests.
 
-**Context discipline (enforced):** the report's phase-progress data comes from **`todo/_INDEX.md` only** — the pre-computed roll-up `/midnite-exec` keeps current. **Never read the individual `todo/phase-*.md` files** (that's the whole point of the index — ~30 reads collapse to one). Sources are: GitHub/`gh` (PRs, status mix), `git log` (commits, file-touch mapping — `--name-only`, never reading the doc bodies), `todo/_INDEX.md` (phase progress + themes), and a date-filtered grep of `todo/done.md` (items shipped in range).
+**Context discipline (enforced):** the report's phase-progress data comes from **`.midnite/tasks/_INDEX.md` only** — the pre-computed roll-up `/midnite-exec` keeps current. **Never read the individual `.midnite/tasks/phases/phase-*.md` files** (that's the whole point of the index — ~30 reads collapse to one). Sources are: GitHub/`gh` (PRs, status mix), `git log` (commits, file-touch mapping — `--name-only`, never reading the doc bodies), `.midnite/tasks/_INDEX.md` (phase progress + themes), and a date-filtered grep of `.midnite/tasks/done.md` (items shipped in range).
 
 **Subagent A — GitHub / PR data:**
 - **Merged PRs in range** (the spine of the report) — pin the window to SAST with a `+02:00` offset on both bounds so the search brackets the **SAST** day, not the UTC day:
@@ -42,13 +42,13 @@ The gathering is independent, so once `START`/`END` are resolved **dispatch two 
   ```
   Pitfall: do **not** display the raw `mergedAt` HH:MM (that's UTC), and do **not** use `date -ju -f '%Y-%m-%dT%H:%M:%SZ' "$utc"` — the `-u` flag forces UTC *output* too, so it returns the time unconverted (16:19Z → "16:19", not "18:19"). The jq `+7200` path is the reliable one.
 - **Status mix** for the range: also run `--state all --search "updated:${START}T00:00:00+02:00..${END}T23:59:59+02:00"` and bucket by state → merged / still-open / closed-unmerged.
-- **Phase mapping:** parse each PR's title (and body if needed) for `Phase N` (+ Theme). Cross-check against phase docs touched in range: `git log --since=START --until="END 23:59" --name-only -- 'todo/phase-*.md'`. PRs with no phase → an "—" bucket.
+- **Phase mapping:** parse each PR's title (and body if needed) for `Phase N` (+ Theme). Cross-check against phase docs touched in range: `git log --since=START --until="END 23:59" --name-only -- '.midnite/tasks/phases/phase-*.md'`. PRs with no phase → an "—" bucket.
 - If `gh` isn't available/authed, say so and fall back to merge commits via `git log` — don't fail the report.
 - **Return:** the merged-PR rows (`number, title, url, mergedAt, additions, deletions, author, phase`), the status-mix counts, and the phase→PRs aggregation.
 
 **Subagent B — phase state (index-only, no phase docs):**
-- **Phase progress (whole repo):** read **`todo/_INDEX.md`** — it already carries one row per phase with `Status`, `Done`/`Total`, `%`, and the `🔄 WIP` / `◻ TODO` theme columns. Parse the table; **do not** recompute from `phase-*.md` and **do not** open them.
-- **Items shipped in range:** `grep`/filter `todo/done.md` for entries whose date falls in `START..END`, grouped by phase (date-filtered so the 300KB file stays out of context — return only the counts).
+- **Phase progress (whole repo):** read **`.midnite/tasks/_INDEX.md`** — it already carries one row per phase with `Status`, `Done`/`Total`, `%`, and the `🔄 WIP` / `◻ TODO` theme columns. Parse the table; **do not** recompute from `phase-*.md` and **do not** open them.
+- **Items shipped in range:** `grep`/filter `.midnite/tasks/done.md` for entries whose date falls in `START..END`, grouped by phase (date-filtered so the 300KB file stays out of context — return only the counts).
 - **Return:** one row per phase (`number, title, status, done, total, %, wipThemes, todoThemes`) straight from the index, plus the per-phase shipped-in-range counts.
 
 ## 3 · Report — markdown, tables-first
@@ -68,7 +68,7 @@ A one-line **status mix**: `N merged · M open · K closed-unmerged`.
 |-------|-----|------------------|--------------|
 Sum the additions/deletions of the PRs mapped to each phase; `Items → done` = `done.md` entries dated in range for that phase.
 
-`## 📊 Phase progress (overall)` — straight from `todo/_INDEX.md` (don't recompute), with a unicode bar + the open-theme columns:
+`## 📊 Phase progress (overall)` — straight from `.midnite/tasks/_INDEX.md` (don't recompute), with a unicode bar + the open-theme columns:
 | Phase | Status | Done / total | % | Bar | 🔄 WIP | ◻ TODO |
 |-------|--------|--------------|---|-----|--------|--------|
 | 25 · UI library | ✅ | 17 / 17 | 100% | `██████████` | — | — |
