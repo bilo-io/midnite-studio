@@ -137,6 +137,19 @@ explanatory messages. If a boundary rule fires, the fix is an IPC channel, not a
   every `CommandId`, label, palette `group` and optional chord — with `COMMAND_IDS`,
   `DEFAULT_KEYMAP` and `GLOBAL_CHORDS` all derived from it. `Mod+k` opens the command palette and
   joins `Ctrl+`` as the second chord that escapes the terminal; `Mod+Shift+p` stays `sync.pull`.
+- **Public downloads and issues live in
+  [`bilo-io/midnite-apps`](https://github.com/bilo-io/midnite-apps), not here.** This repo is
+  private, so nothing a user touches can be served from it — installers, release notes and the
+  bug tracker all sit in that repo, which does the same job for every midnite app at once. Two
+  consequences bite. **Its release tags are namespaced** — `midnite-studio/v0.3.1`, never a bare
+  `v0.3.1`, which would collide with a sibling app's — so `releases/latest` there means "the
+  newest release of *any* app in it" and is never what resolves a version. And **the updater feed
+  is `generic`, not `github`** ([`electron-builder.yml`](packages/desktop/electron-builder.yml)):
+  electron-updater's GitHub provider reads its manifest off that same latest-release endpoint, so
+  it would hand Midnite Studio another app's update. `install.sh` reads
+  `midnite-studio/version.json`; electron-updater reads `midnite-studio/feed/latest-mac.yml`.
+  Both are written per release — see
+  [`/midnite-release-complete`](.claude/skills/midnite-release-complete/SKILL.md) §4.
 - **Commits here are authored as `bilo-io` — `Bilo Lwabona <bilo.lwabona@gmail.com>`.** The
   global `~/.gitconfig` carries the *work* identity, which is correct for every other
   checkout on this machine and wrong for this one. Nothing about a clone announces that
