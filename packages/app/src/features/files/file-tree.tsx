@@ -296,7 +296,7 @@ function TreeRow({
         ) : (
           <span className="w-3 shrink-0" />
         )}
-        {isDir ? <FolderIcon open={isOpen} /> : <FileIcon name={entry.name} />}
+        {isDir ? <FolderIcon name={entry.name} open={isOpen} /> : <FileIcon name={entry.name} />}
         {badge ? <StatusMark code={badge.code} conflicted={badge.conflicted} /> : null}
         {renaming ? (
           <InlineNameInput
@@ -359,7 +359,11 @@ function CreateRow({
   return (
     <div className="flex w-full items-center gap-1.5 px-3 py-[3px]" style={indent(depth)}>
       <span className="w-3 shrink-0" />
-      {entryKind === 'directory' ? <FolderIcon open={false} /> : <FileIcon name={initialName} />}
+      {entryKind === 'directory' ? (
+        <FolderIcon name={initialName} open={false} />
+      ) : (
+        <FileIcon name={initialName} />
+      )}
       <InlineNameInput
         initialName={initialName}
         siblingNames={siblingNames}
