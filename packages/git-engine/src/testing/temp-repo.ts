@@ -41,9 +41,34 @@ export class TempRepo {
     return repo;
   }
 
+  /**
+   * The identity every commit here is made with, pinned as ENV rather than
+   * left to the local config above.
+   *
+   * Config is not enough: git reads `GIT_AUTHOR_NAME` and friends ahead of
+   * `user.name`, so an environment that exports them — CI does, so that a
+   * repo built by something other than this fixture can still commit — wins
+   * over `git config user.name` and the author assertions read back whatever
+   * the runner is called. That failed only on CI, where the variables are
+   * set, which is the worst place to discover it.
+   *
+   * The config lines stay: they are what a plain `git` run inside one of these
+   * repos by hand (debugging a failure, say) picks up.
+   */
+  private static readonly IDENTITY = {
+    GIT_AUTHOR_NAME: 'Test User',
+    GIT_AUTHOR_EMAIL: 'test@example.com',
+    GIT_COMMITTER_NAME: 'Test User',
+    GIT_COMMITTER_EMAIL: 'test@example.com',
+  } as const;
+
   /** Run git in this repo, failing the test on a non-zero exit. */
   async git(args: string[]): Promise<string> {
-    const res = await execGit(this.path, args, { write: true, throwOnError: true });
+    const res = await execGit(this.path, args, {
+      write: true,
+      throwOnError: true,
+      env: { ...TempRepo.IDENTITY },
+    });
     return res.stdout;
   }
 
@@ -55,7 +80,7 @@ export class TempRepo {
    * about, so `git()`'s throwOnError would destroy the state being set up.
    */
   async gitAllowFailure(args: string[]): Promise<{ exitCode: number; stdout: string }> {
-    const res = await execGit(this.path, args, { write: true });
+    const res = await execGit(this.path, args, { write: true, env: { ...TempRepo.IDENTITY } });
     return { exitCode: res.exitCode, stdout: res.stdout };
   }
 
@@ -85,6 +110,10 @@ export class TempRepo {
       write: true,
       throwOnError: true,
       stdin: message,
+      // The one call that actually stamps an identity, so the one that most
+      // needs `IDENTITY` — it does not route through `git()` because the
+      // message goes in over stdin.
+      env: { ...TempRepo.IDENTITY },
     });
     return this.head();
   }

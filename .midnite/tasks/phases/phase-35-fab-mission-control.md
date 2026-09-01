@@ -214,17 +214,34 @@ The spine every other theme reads off; lands first.
 - [x] Toggle a modifier, Start, and confirm the composed prompt in the terminal (and in the run
       history record) carries the fragment; untoggle → it doesn't. *(`fab-loops.spec.ts`
       asserts the exact composed line and that the unchecked fragment does not ride along.)*
-- [ ] ◐ PARTIAL — Start → button becomes Stop with the glow pulse; the loop finishing on its own
-      flips it back to Start; Stop mid-run keeps the transcript readable and the next Start begins
-      fresh. *(Swap, glow and the collapsed strip are e2e-covered; "exits on its own flips it
-      back" is derived from `sessionPhase` but needs a real long-running loop to observe.)*
-- [ ] ◐ PARTIAL — Drive a loop to a prompt that awaits input: tab dot and FAB dot turn amber, one
-      toast fires, clicking it lands on the right tab. *(Both dots are e2e-covered off a synthetic
-      `pty:activity`; the notification and its click-through want a human pass.)*
-- [ ] Quit and relaunch mid-run: the FAB tab shows the session asleep with its transcript; the
-      main session list still doesn't contain it. *(Manual — needs a packaged relaunch.)*
-- [ ] ◐ PARTIAL — `data-motion='reduced'` kills the new animations. *(The rule ships beside
-      `.fab-panel-gradient`'s; not asserted.)*
+- [x] Start → button becomes Stop with the glow pulse; the loop finishing on its own flips it
+      back to Start; Stop mid-run keeps the transcript readable and the next Start begins fresh.
+      *(Theme F. `__mstudioPtyExit` delivers an exit nothing in the renderer asked for — the
+      app-initiated `pty.kill` path is the one Stop already covered — and the spec asserts the
+      swap, the glow and the dots going, the run finalising as `exited` rather than `stopped`,
+      and a second Start producing a second pty against a different session id.)*
+- [x] Drive a loop to a prompt that awaits input: tab dot and FAB dot turn amber, one toast
+      fires, clicking it lands on the right tab. *(Theme G. The notice's surface is the status
+      bar's `NotificationBell`, not a floating toast — `useLoopAttention` pushes into
+      `toast-store` and the bell is the only thing that renders it — so the spec opens the bell,
+      clicks `Open Innovate` and asserts the panel reopens on that tab. Also asserts the
+      transition-debounce: repeating `waiting` is one notice, going not-waiting rearms it.)*
+- [x] `data-motion='reduced'` kills the new animations. *(Theme H. Asserted through the cascade
+      via `getComputedStyle(...).animationName`, not by reading `styles.css` — a source grep
+      passes even when a more specific rule has out-ranked the opt-out, and
+      `.loop-run-glow.is-thinking` is exactly such a rule. Both the plain ring and the thinking
+      pulse, with the attribute removed again to prove it is the attribute doing it.)*
+- [ ] **Open, for a human:** quit and relaunch mid-run against a **packaged** build. *(Theme I
+      covers everything short of a real quit: a launch that starts with a `surface: 'fab'`
+      session on disk shows it asleep with its transcript in the right tab, spawns no pty to do
+      it, and still keeps it out of the main session list. It also found the reason that had
+      never worked — the call that turns `terminals.json` back into rows lived only in
+      `TerminalPanel`, so a persisted loop came back only if you opened the **main** terminal
+      panel first; the FAB now hydrates when it opens. Both persisted halves are seeded in the
+      spec, because they live apart: the session in `terminals.json`, the loop→session map in
+      localStorage's `fabSessions`, with the drift between them given its own test. What stays
+      manual is the quit itself — only a real one proves the pty died with the app rather than
+      being forgotten by a page reload.)*
 - [x] Old `terminals.json` (no `surface` field) still hydrates; existing `agentSkills` overrides
       survive the registry migration. *(`surface` is zod-optional and unit-tested absent;
       the registry WRAPS `agentSkills` rather than migrating it, so overrides are untouched.)*

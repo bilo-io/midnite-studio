@@ -1030,7 +1030,9 @@ export async function installMockBridge(page: Page, fixtures: MockFixtures): Pro
         },
         kill: (req: { ptyId: string }) => {
           ptyCalls.kills.push(req.ptyId);
+          const sessionId = ptySessions[req.ptyId];
           delete ptySessions[req.ptyId];
+          if (sessionId !== undefined) finalizeLoopRunOnExit(sessionId, 0);
           for (const handler of exitHandlers) handler({ ptyId: req.ptyId, exitCode: 0 });
         },
         onData: (handler: (e: { ptyId: string; data: Uint8Array }) => void) => {
@@ -1757,6 +1759,22 @@ export async function installMockBridge(page: Page, fixtures: MockFixtures): Pro
     */
     // eslint-disable-next-line no-var
     var loopRuns: Array<Record<string, unknown>> = [];
+    /**
+     * What main does on a pty exit, mirrored here: `noteSessionExit` finalises
+     * whichever run is still `running` for that session as `exited`
+     * (`loop-runs.ts`). Only a run that Stop has not already finalised matches,
+     * which is why stopping and exiting cannot both write an end.
+     */
+    // eslint-disable-next-line no-var
+    var finalizeLoopRunOnExit = (sessionId: string, exitCode: number): void => {
+      let touched = false;
+      loopRuns = loopRuns.map((run) => {
+        if (run['sessionId'] !== sessionId || run['status'] !== 'running') return run;
+        touched = true;
+        return { ...run, status: 'exited', endedAt: Date.now(), exitCode };
+      });
+      if (touched) for (const handler of loopRunsHandlers) handler();
+    };
     // eslint-disable-next-line no-var
     var loopRunCounter = 0;
     // eslint-disable-next-line no-var
@@ -2022,6 +2040,27 @@ export async function installMockBridge(page: Page, fixtures: MockFixtures): Pro
     ): boolean => {
       if (!(ptyId in ptySessions)) return false;
       for (const handler of activityHandlers) handler({ ptyId, activity });
+      return true;
+    };
+    /**
+     * A pty that died on its own — the loop finishing its work, the agent
+     * quitting, the shell exiting — rather than one the app asked to kill.
+     *
+     * `pty.kill` already fires the same handlers, but it is the *app-initiated*
+     * path, which Stop covers; the case Phase 35's checklist distrusts is the
+     * one nothing in the renderer initiated, so it needs a seam of its own.
+     * Removes the id from the fake process table first, so a snapshot or an
+     * input aimed at it afterwards behaves like the dead pty it is.
+     */
+    (window as unknown as { __mstudioPtyExit: unknown }).__mstudioPtyExit = (
+      ptyId: string,
+      exitCode = 0,
+    ): boolean => {
+      const sessionId = ptySessions[ptyId];
+      if (sessionId === undefined) return false;
+      delete ptySessions[ptyId];
+      finalizeLoopRunOnExit(sessionId, exitCode);
+      for (const handler of [...exitHandlers]) handler({ ptyId, exitCode });
       return true;
     };
     /**

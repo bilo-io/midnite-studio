@@ -2,6 +2,61 @@
 
 <!-- Append one entry per landed phase/PR: date, phase, PR link, one-line summary. -->
 
+## 2026-09-01 — Phase 35 Themes F, G, H, I — the verification items, run rather than read
+
+[PR #3](https://github.com/bilo-io/midnite-studio/pull/3). Phase 35 shipped at 90% with four
+verification items open — three `◐ PARTIAL`, one manual. Each was left that way for the same
+reason: the half a spec could reach was covered and the half that needed a *process* was not.
+
+**And running them found a bug.** `hydrate()` — the call that turns `terminals.json` back into
+store rows — was only ever made from `TerminalPanel`. So a loop that was running when the app quit
+came back **only if you happened to open the main terminal panel first**; the FAB tab that owned
+it showed "Press Start" over a session sitting on disk the whole time. `fab-panel.tsx` now
+hydrates when the console opens — on open rather than on mount, because the read pulls every
+session's scrollback with it and most launches never open that panel, and `hydrate()` is a no-op
+once `hydrated` is set, so whichever panel opens second pays nothing.
+
+- [x] **Theme F — Loop lifecycle**: a new `__mstudioPtyExit(ptyId, exitCode)` seam in
+      `mock-bridge.ts` delivers an exit *nothing in the renderer asked for*. That distinction is
+      the whole item: `pty.kill` already fired the same handlers, but it is the app-initiated path
+      — the one Stop takes — while the case the checklist doubted is the loop simply finishing,
+      because the button state is derived from `sessionPhase` rather than written down by whoever
+      pressed Stop. Asserts the Stop→Start swap, the glow and the FAB dots going, the run
+      finalising as `exited` rather than `stopped`, and a second Start producing a second pty
+      against a different session id (a Start that revived the slept session would show one).
+      Both exit paths now mirror main's `noteSessionExit`, so the mocked ledger ends runs the way
+      main does.
+- [x] **Theme G — The waiting notice, end to end**: there is no floating toast, which is the fact
+      that had kept this partial. `useLoopAttention` pushes into `toast-store`, and the status
+      bar's `NotificationBell` is the only thing that renders it — so a loop going quiet behind a
+      closed panel shows a count on a bell. That being the shipped surface, it is the one
+      asserted: the spec starts a loop, leaves the tab, shuts the panel, drives the waiting
+      transition, opens the bell, clicks `Open Innovate`, and asserts the panel reopens on *that*
+      tab (by visibility, not presence — all four tabs stay mounted so their xterms survive a tab
+      switch, so a count assertion would pass whichever tab it landed on). A second test asserts
+      the debounce the hook claims: repeating `waiting` is one notice, going not-waiting rearms it.
+- [x] **Theme H — Reduced motion, asserted**: through the cascade, via
+      `getComputedStyle(el).animationName`, rather than by grepping `styles.css` for the
+      `html[data-motion='reduced']` block. A source grep passes even when a later, more specific
+      rule has quietly out-ranked the opt-out, and `.loop-run-glow.is-thinking` — which sets two
+      animations — is exactly such a rule. Covers the plain spinning ring and the thinking pulse,
+      with the attribute removed again to prove it is the attribute doing the work. (`.is-waiting`
+      sets `animation: none` on its own, so asserting the opt-out against a waiting loop would
+      have proved nothing — noted in the spec.)
+- [x] **Theme I — Rehydration**: a launch that starts with a loop already on disk. Two persisted
+      halves have to agree and they are stored apart — the session in main's `terminals.json`
+      (carrying `surface: 'fab'`), the loop→session map in the renderer's own `fabSessions` slice
+      in localStorage — so the spec seeds both, the way a real relaunch hands them over. Asserts
+      the tab shows the session asleep with its transcript, that no pty was spawned to show it,
+      and that the main session list still excludes it. The drift the split invites gets its own
+      test: a `fabSessions` entry whose session is gone reads as idle and Start still works.
+- [ ] **Still open for a human**: the same check against a **packaged** build. Only a real quit
+      proves the pty died with the app rather than being forgotten by a page reload.
+
+Gate green: 1,226 unit tests, and the full Playwright suite at **386 passed** / 19 skipped, up
+from 372. One screenshot — the waiting notice in the bell, the one surface these four touch that
+had never been photographed. Phase 35: 36/40 → 39/40.
+
 ## 2026-09-01 — Phase 36 Themes A, D, E, F — Performance diet: the instruments, and the first three fixes
 
 Merged to `main` locally (this repo has no git remote, so no PR link). Squashed from

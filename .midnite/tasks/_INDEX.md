@@ -3,7 +3,7 @@
 **Headlines:**
 
 - **[Phase 36 · Faster, lighter, same app](phases/phase-36-performance-diet.md)** (0% · 0/63 · refined x1) — Planned, not started. The app's first dedicated performance phase: measure (startup marks, bundle report, idle-CPU and heap baselines), then land what the numbers indict — lazy per-view chunks off a 2.52 MB entry, de-serialized main boot, one icon family instead of two, visibility-gated timers, an LRU on the unbounded diff-highlight cache — and leave a `moon run :perf` budget suite behind. Strictly zero user-visible change; browser-tab memory stays Phase 32's.
-- **[Phase 35 · FAB Mission Control](phases/phase-35-fab-mission-control.md)** (90% · 36/40) — All five themes landed (2026-09-01, local). Made the (previously untracked, ad-hoc) FAB panel a real loop console: each tab owns its own in-panel terminal session (`surface: 'fab'`, never in the main housing), a checkbox prompt composer per loop, Start↔Stop with the gradient glow pulse, and a mission-control layer — FAB badges, waiting-toasts, a capped run history. Also retires the FAB's hard-coded prompts by pointing each loop at the `DEFAULT_AGENT_SKILLS` entry it runs, so there is one prompt store rather than three. Four verification items stay open for a human: a packaged quit-and-relaunch, the notification click-through, and a reduced-motion pass.
+- **[Phase 35 · FAB Mission Control](phases/phase-35-fab-mission-control.md)** (98% · 39/40) — All five themes landed (2026-09-01, local). Made the (previously untracked, ad-hoc) FAB panel a real loop console: each tab owns its own in-panel terminal session (`surface: 'fab'`, never in the main housing), a checkbox prompt composer per loop, Start↔Stop with the gradient glow pulse, and a mission-control layer — FAB badges, waiting-toasts, a capped run history. Also retires the FAB's hard-coded prompts by pointing each loop at the `DEFAULT_AGENT_SKILLS` entry it runs, so there is one prompt store rather than three. Themes F–I (PR #3) then closed three of the four open verification items and as much of the fourth as a browser reaches — and found, in the doing, that a persisted loop never came back unless you opened the *main* terminal panel first. One item stays open for a human: quit and relaunch mid-run against a **packaged** build.
 - **[Phase 34 · Agent Councils](phases/phase-34-agent-councils.md)** (100% · 34/34) — Landed. Fills the nav/palette-reserved "Councils" slot: a standing panel of AI members answers a prompt in parallel, synthesized into one distilled write-up. MVP scope — one format (brainstorm), global (not per-repo), a 3-agent member pool (`agy`/`codex`/`opencode`), and an explicit auto-send exception to the app's usual type-but-don't-send agent-launch posture. Two manual passes (a real end-to-end run, a copy review) remain for a human.
 - **Phases 25–33 all landed** — search/blame, split diffs, status bar + browser pane, worktrees-first sidebar, markdown slides, the detached terminal broker, interactive rebase, the real browser engine, and the installable app + CLI.
 - **The only partial phases are [24 · The explorer learns to write](phases/phase-24-writable-explorer.md)** (78% · 43/55) **and [23 · A command palette](phases/phase-23-command-palette.md)** (76% · 42/55) — both closed as DONE with their remainders logged in [`outstanding.md`](outstanding.md).
@@ -19,7 +19,7 @@ Completed work is logged append-only in [`done.md`](done.md). Deferred scope liv
 | Phase | Status | Refined | Done | Progress | % | 🔄 WIP | ◻ TODO |
 |-------|--------|---------|------|----------|---|--------|--------|
 | [36 · Faster, lighter, same app](phases/phase-36-performance-diet.md) | 🔄 WIP | x1 | 23/63 | `████░░░░░░` | 37% | B C G H | — |
-| [35 · FAB Mission Control](phases/phase-35-fab-mission-control.md) | 🔄 WIP | — | 36/40 | `█████████░` | 90% | F G H I | — |
+| [35 · FAB Mission Control](phases/phase-35-fab-mission-control.md) | 🔄 WIP | — | 39/40 | `██████████` | 98% | — | — |
 | [34 · Agent Councils](phases/phase-34-agent-councils.md) | ✅ DONE | — | 34/34 | `██████████` | 100% | — | — |
 | [33 · Application Installation, CLI Tool & Desktop Integration](phases/phase-33-installable-app-and-cli-integration.md) | ✅ DONE | x1 | 44/44 | `██████████` | 100% | — | — |
 | [32 · The browser gets an engine, and the tabs to fill it](phases/phase-32-browser-engine-and-tabs.md) | ✅ DONE | — | 99/99 | `██████████` | 100% | — | — |
@@ -127,16 +127,20 @@ history à la `councils-runs-store`). Claude-only this phase; Stop = sleep, tran
 - ✅ **E** — Mission control: FAB glow + per-loop dots (amber on waiting), an actionable waiting
   notice, `loop-runs-store.ts` capped history whose ENDS are owned by main (finalised off the
   pty's own exit) + per-tab history list, `fab-loops.spec.ts`. (2026-09-01)
-- 🔄 **F** — Loop lifecycle: a pty that exits on its own flips Stop back to Start and drops the
-  glow, Stop mid-run keeps the transcript readable, and the next Start begins a fresh session —
-  driven off a new `__mstudioPtyExit` spec seam rather than the app-initiated kill path.
-- 🔄 **G** — Waiting notice, end to end: exactly one notification per waiting *transition*, in the
-  status-bar bell (the shipped surface — there is no floating toast host), and its `Open <Loop>`
-  action lands on the right FAB tab.
-- 🔄 **H** — Reduced motion, asserted: `html[data-motion='reduced']` resolves `.loop-run-glow` to a
-  computed `animation-name: none`, checked through the cascade rather than by reading the stylesheet.
-- 🔄 **I** — Rehydration: a persisted `surface: 'fab'` session plus its `fabSessions` entry come back
-  asleep with their transcript in the right tab, and still never reach the main session list.
+- ✅ **F** — Loop lifecycle: a pty that exits on its own flips Stop back to Start, drops the glow
+  and its dots, and finalises as `exited` rather than `stopped`; Stop keeps the transcript and the
+  next Start is a genuinely fresh session. Driven off a new `__mstudioPtyExit` seam rather than
+  the app-initiated kill path, which is the one Stop already covered. (PR #3)
+- ✅ **G** — Waiting notice, end to end: exactly one notification per waiting *transition*, in the
+  status-bar bell — the shipped surface, since there is no floating toast host — and its
+  `Open <Loop>` action reopens the panel on the right tab. (PR #3)
+- ✅ **H** — Reduced motion, asserted: `html[data-motion='reduced']` resolves `.loop-run-glow` to a
+  computed `animation-name: none`, read through the cascade rather than out of the stylesheet,
+  over both the plain ring and the thinking pulse. (PR #3)
+- ✅ **I** — Rehydration: a persisted `surface: 'fab'` session comes back asleep with its transcript
+  in the right tab, spawns no pty, and still never reaches the main session list — which it did
+  NOT, until this: `hydrate()` lived only in `TerminalPanel`, so a loop restored only if you
+  opened the main terminal panel first. The FAB now hydrates when it opens. (PR #3)
 
 ### [Phase 34 — Agent Councils](phases/phase-34-agent-councils.md)
 
