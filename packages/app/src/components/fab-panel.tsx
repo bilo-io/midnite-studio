@@ -22,8 +22,6 @@ export function FabPanel({ isOpen, width }: FabPanelProps) {
 
   if (!isOpen) return null;
 
-  const tabConfig = FAB_TABS.find((t) => t.id === activeFabTab);
-
   return (
     <div className="h-full w-full flex flex-col" style={{ width }}>
       <div className="fab-panel-gradient h-full w-full border border-border bg-popover flex flex-col">

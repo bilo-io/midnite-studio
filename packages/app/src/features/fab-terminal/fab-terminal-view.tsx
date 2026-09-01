@@ -14,6 +14,7 @@ interface FabTerminalViewProps {
 export function FabTerminalView({ tabId, prompt }: FabTerminalViewProps) {
   const sessionIdRef = useRef<string | null>(null);
   const selectedRepoId = useUiStore((s) => s.selectedRepoId);
+  const activeFabTab = useUiStore((s) => s.activeFabTab);
   const sessions = useTerminalStore((s) => s.sessions);
   const repos = useRepos();
   const selectedRepo = repos.data?.find((r) => r.id === selectedRepoId);
@@ -34,7 +35,9 @@ export function FabTerminalView({ tabId, prompt }: FabTerminalViewProps) {
     // Find the most recently created session (should be ours)
     if (sessions.length > 0) {
       const newestSession = sessions[sessions.length - 1];
-      sessionIdRef.current = newestSession.id;
+      if (newestSession) {
+        sessionIdRef.current = newestSession.id;
+      }
     }
   }, [selectedRepoId, selectedRepo, tabId, prompt, sessions]);
 
@@ -46,7 +49,7 @@ export function FabTerminalView({ tabId, prompt }: FabTerminalViewProps) {
 
   return (
     <div className="h-full w-full">
-      <TerminalView sessionId={sessionId} fitSignal={0} />
+      <TerminalView session={session} active={activeFabTab === tabId} fitSignal={0} initialInput={prompt} />
     </div>
   );
 }
