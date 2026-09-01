@@ -29,6 +29,13 @@ export type TestsState = {
   runs: ByRepo<Record<string, SuiteRunState>>;
   /** The last completed result per suite, kept until the next run replaces it. */
   results: ByRepo<Record<string, TestRunResult>>;
+  /**
+   * runId -> repoId, so a stream event (which only carries a run id) can be
+   * routed in O(1) instead of scanning every repo's runs on every chunk.
+   * Entries are removed in `finishRun`, once a run id can no longer receive
+   * further stream events.
+   */
+  runIndex: Record<string, string>;
 
   selectSuite: (repoId: string, suiteId: string) => void;
   startRun: (repoId: string, suiteId: string, runId: string) => void;
@@ -40,6 +47,7 @@ export const useTestsStore = create<TestsState>((set) => ({
   selectedSuite: {},
   runs: {},
   results: {},
+  runIndex: {},
 
   selectSuite: (repoId, suiteId) =>
     set((state) => ({ selectedSuite: { ...state.selectedSuite, [repoId]: suiteId } })),
@@ -50,6 +58,7 @@ export const useTestsStore = create<TestsState>((set) => ({
         ...state.runs,
         [repoId]: { ...state.runs[repoId], [suiteId]: { runId, output: [], running: true } },
       },
+      runIndex: { ...state.runIndex, [runId]: repoId },
     })),
 
   appendOutput: (repoId, runId, chunk) =>
@@ -72,13 +81,15 @@ export const useTestsStore = create<TestsState>((set) => ({
 
   finishRun: (repoId, suiteId, runId, result) =>
     set((state) => {
+      const { [runId]: _removed, ...runIndex } = state.runIndex;
       const forRepo = state.runs[repoId];
       const current = forRepo?.[suiteId];
       // A cancel-then-rerun can make an older run's result arrive after a
       // newer one has already started — the run id is how a stale result is
       // told apart from the one actually in flight.
-      if (current && current.runId !== runId) return state;
+      if (current && current.runId !== runId) return { runIndex };
       return {
+        runIndex,
         runs: {
           ...state.runs,
           [repoId]: { ...forRepo, [suiteId]: { runId, output: current?.output ?? [], running: false } },

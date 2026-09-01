@@ -15,19 +15,17 @@ export function useTestsStream(): void {
     if (!api) return;
 
     const unsubOutput = api.tests.onOutput(({ runId, chunk }) => {
-      // The store looks up which repo/suite this run id belongs to; the event
+      // runIndex resolves which repo this run id belongs to in O(1); the event
       // itself carries only what main actually knows at that point.
-      for (const repoId of Object.keys(useTestsStore.getState().runs)) {
-        useTestsStore.getState().appendOutput(repoId, runId, chunk);
-      }
+      const repoId = useTestsStore.getState().runIndex[runId];
+      if (repoId === undefined) return;
+      useTestsStore.getState().appendOutput(repoId, runId, chunk);
     });
 
     const unsubResult = api.tests.onResult(({ runId, suiteId, result }) => {
-      for (const repoId of Object.keys(useTestsStore.getState().runs)) {
-        if (useTestsStore.getState().runs[repoId]?.[suiteId]?.runId === runId) {
-          useTestsStore.getState().finishRun(repoId, suiteId, runId, result);
-        }
-      }
+      const repoId = useTestsStore.getState().runIndex[runId];
+      if (repoId === undefined) return;
+      useTestsStore.getState().finishRun(repoId, suiteId, runId, result);
     });
 
     return () => {
