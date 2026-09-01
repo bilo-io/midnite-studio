@@ -55,6 +55,7 @@ import { FirstRunModal } from './features/onboarding/first-run-modal';
 import { useDeepLinks } from './services/deep-link';
 import { StatusBar } from './features/status-bar/status-bar';
 import { TerminalPanel } from './features/terminal/terminal-panel';
+import { useAgentActivity } from './features/terminal/use-agent-activity';
 import { hslTokenToHex } from './lib/color';
 import { bridge } from './services/bridge';
 import { useCommandHandlers } from './services/keybindings/use-command-handlers';
@@ -1029,6 +1030,10 @@ export function App() {
   // default above — an explicit `full`/`reduced` choice outranks the media query.
   useAppearanceSync();
   useUnsavedCloseGuard();
+  // The window-lifetime `pty:activity` subscription — the session list's
+  // glyphs must keep tracking rung changes while every TerminalView is
+  // unmounted (panel collapsed), so this cannot live inside one.
+  useAgentActivity();
   return (
     <ShellProviders queryClient={queryClient}>
       <DialogHost>

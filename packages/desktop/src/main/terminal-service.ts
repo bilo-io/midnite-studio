@@ -1,7 +1,8 @@
-import type { AgentDefinition, TerminalSession } from '@midnite/studio-shared';
+import type { AgentDefinition, SessionActivity, TerminalSession } from '@midnite/studio-shared';
 
 import { createAgentsStore, type AgentsStore } from './agents-store';
 import {
+  activityFor,
   dropScrollback,
   livePtyFor,
   readScrollback,
@@ -54,14 +55,23 @@ export async function listTerminals(): Promise<
   {
     session: TerminalSession;
     scrollback: Uint8Array;
-    live: { ptyId: string; pid: number; cols: number; rows: number } | null;
+    live: {
+      ptyId: string;
+      pid: number;
+      cols: number;
+      rows: number;
+      activity: SessionActivity | null;
+    } | null;
   }[]
 > {
   if (sessions.length === 0) sessions = await store.load();
 
   return Promise.all(
     sessions.map(async (session) => {
-      const live = livePtyFor(session.id);
+      const bound = livePtyFor(session.id);
+      // The current activity guess rides along so a reloaded renderer can seed
+      // its session list — `pty:activity` only ever announces changes.
+      const live = bound === null ? null : { ...bound, activity: activityFor(bound.ptyId) };
       // Prefer what this launch has already produced: a revived session's live
       // buffer is a superset of the file it was seeded from.
       const runtime = readScrollback(session.id);

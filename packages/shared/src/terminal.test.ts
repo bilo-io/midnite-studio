@@ -148,6 +148,20 @@ describe('AgentDefinitionSchema', () => {
     expect(parsed.activity).toEqual({ thinking: 'thinking', frameEnd: 'done' });
   });
 
+  it('parses the optional awaitingInput marker, and rejects an invalid one', () => {
+    const parsed = AgentDefinitionSchema.parse({
+      ...minimal,
+      activity: { thinking: 'thinking', frameEnd: 'done', awaitingInput: 'choose' },
+    });
+    expect(parsed.activity?.awaitingInput).toBe('choose');
+    expect(
+      AgentDefinitionSchema.safeParse({
+        ...minimal,
+        activity: { thinking: 'thinking', frameEnd: 'done', awaitingInput: '(unclosed' },
+      }).success,
+    ).toBe(false);
+  });
+
   it('rejects an activity marker that is not a valid regular expression', () => {
     expect(
       AgentDefinitionSchema.safeParse({

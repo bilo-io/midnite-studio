@@ -25,6 +25,8 @@ const reset = () =>
     states: {},
     replay: {},
     errors: {},
+    activity: {},
+    activityAt: {},
   });
 
 const open = (title: string) =>
@@ -399,7 +401,13 @@ describe('useTerminalStore', () => {
       sessions: {
         session: ReturnType<typeof session>;
         scrollback: Uint8Array;
-        live: { ptyId: string; pid: number; cols: number; rows: number } | null;
+        live: {
+          ptyId: string;
+          pid: number;
+          cols: number;
+          rows: number;
+          activity?: 'thinking' | 'waiting' | 'idle' | null;
+        } | null;
       }[],
       ptyCreate: () => void,
     ) => {
@@ -434,6 +442,42 @@ describe('useTerminalStore', () => {
       expect(state.replay['s-1']).toBeUndefined();
       expect(state.reattachedCount).toBe(1);
       expect(ptyCreate).not.toHaveBeenCalled();
+    });
+
+    it('seeds a live row\u2019s activity from the snapshot \u2014 events only announce changes', async () => {
+      mockBridge(
+        [
+          {
+            session: session('s-1'),
+            scrollback: new Uint8Array(),
+            live: { ptyId: 'pty-1', pid: 123, cols: 80, rows: 24, activity: 'thinking' },
+          },
+        ],
+        vi.fn(),
+      );
+
+      await useTerminalStore.getState().hydrate();
+
+      const state = useTerminalStore.getState();
+      expect(state.activity['s-1']).toBe('thinking');
+      expect(state.activityAt['s-1']).toBeGreaterThan(0);
+    });
+
+    it('leaves activity unspoken when the snapshot has nothing to say', async () => {
+      mockBridge(
+        [
+          {
+            session: session('s-1'),
+            scrollback: new Uint8Array(),
+            live: { ptyId: 'pty-1', pid: 123, cols: 80, rows: 24, activity: null },
+          },
+        ],
+        vi.fn(),
+      );
+
+      await useTerminalStore.getState().hydrate();
+
+      expect(useTerminalStore.getState().activity['s-1']).toBeUndefined();
     });
 
     it('marks a dead row exited with its replay', async () => {
