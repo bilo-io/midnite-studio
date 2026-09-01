@@ -98,6 +98,7 @@ const bridge: Pick<
   | 'terminal'
   | 'browser'
   | 'agent'
+  | 'council'
   | 'fs'
   | 'stats'
   | 'diag'
@@ -273,6 +274,20 @@ const bridge: Pick<
     claudeInfo: () => call(CHANNELS.agentClaudeInfo),
     claudeUpdate: () => call(CHANNELS.agentClaudeUpdate),
     onClaudeUpdateData: (handler) => subscribe(EVENT_CHANNELS.agentClaudeUpdateData, handler),
+  },
+  council: {
+    list: () => call(CHANNELS.councilList),
+    get: (req) => call(CHANNELS.councilGet, req),
+    create: (req) => call(CHANNELS.councilCreate, req),
+    updateMembers: (req) => call(CHANNELS.councilUpdateMembers, req),
+    remove: (req) => call(CHANNELS.councilRemove, req),
+    run: {
+      start: (req) => call(CHANNELS.councilRunStart, req),
+      get: (req) => call(CHANNELS.councilRunGet, req),
+      list: (req) => call(CHANNELS.councilRunListForCouncil, req),
+      skipMember: (req) => call(CHANNELS.councilRunSkipMember, req),
+      retryMember: (req) => call(CHANNELS.councilRunRetryMember, req),
+    },
   },
   fs: {
     listDir: (req) => call(CHANNELS.fsListDir, req),
