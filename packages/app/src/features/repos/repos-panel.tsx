@@ -1,4 +1,4 @@
-import { Fragment, useMemo, useState, type ReactNode } from 'react';
+import { Fragment, useEffect, useMemo, useState, type ReactNode } from 'react';
 import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { bridge } from '../../services/bridge';
 import { keys } from '../../services/queries';
@@ -934,6 +934,8 @@ export function RepoTree({
   const { section, remoteGroup } = useSectionToggles(repo.id);
   const dialogs = useDialogs();
 
+  useEffect(() => subscribePointerTracking(), []);
+
   const { branches, remotes: remoteGroups, tags } = useMemo(() => partitionRefs(refs), [refs]);
 
   const forgeByName = useMemo(
@@ -1253,14 +1255,27 @@ function liveStatus(
  * prior pointer opens the menu at the top-left rather than nowhere.
  */
 let pointer = { clientX: 0, clientY: 0 };
-if (typeof window !== 'undefined') {
-  window.addEventListener(
-    'pointerdown',
-    (event) => {
-      pointer = { clientX: event.clientX, clientY: event.clientY };
-    },
-    true,
-  );
+let pointerListenerRefCount = 0;
+
+function onPointerDown(event: PointerEvent): void {
+  pointer = { clientX: event.clientX, clientY: event.clientY };
+}
+
+/**
+ * Ref-counted so every `RepoTree` instance shares one `pointerdown` listener
+ * instead of leaking a fresh module-scope one per hot-reload or test render.
+ */
+function subscribePointerTracking(): () => void {
+  if (pointerListenerRefCount === 0) {
+    window.addEventListener('pointerdown', onPointerDown, true);
+  }
+  pointerListenerRefCount += 1;
+  return () => {
+    pointerListenerRefCount -= 1;
+    if (pointerListenerRefCount === 0) {
+      window.removeEventListener('pointerdown', onPointerDown, true);
+    }
+  };
 }
 const lastPointer = () => pointer;
 
