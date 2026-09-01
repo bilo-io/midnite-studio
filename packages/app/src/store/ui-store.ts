@@ -28,6 +28,9 @@ export type NavMode = 'auto' | 'expanded' | 'collapsed';
 /** Which edge of the terminal pane the session list docks to. */
 export type TerminalSidebarSide = 'left' | 'right';
 
+/** Active tab in the FAB panel. */
+export type FabTab = 'innovate' | 'automate' | 'watchdog' | 'medic';
+
 /** How the commit inspector lists a commit's files. */
 export type CommitFileView = 'tree' | 'list';
 
@@ -156,6 +159,8 @@ export type LayoutSizes = {
   reviewsListWidth: number;
   /** The Search view's results list, left of the detail preview (Phase 25 Theme C). */
   searchResultsWidth: number;
+  /** The FAB panel width, on the right side of the content area. */
+  fabPanelWidth: number;
 };
 
 
@@ -211,6 +216,7 @@ export const DEFAULT_LAYOUT: LayoutSizes = {
   // author — the widest row of any list pane in the app.
   reviewsListWidth: 380,
   searchResultsWidth: 420,
+  fabPanelWidth: 320,
 };
 
 export const DEFAULT_GRAPH_COLUMNS: GraphColumns = {
@@ -244,6 +250,7 @@ export const LAYOUT_BOUNDS = {
   testsListWidth: { min: 240, max: 640 },
   reviewsListWidth: { min: 280, max: 640 },
   searchResultsWidth: { min: 280, max: 900 },
+  fabPanelWidth: { min: 240, max: 640 },
 } as const;
 
 
@@ -324,6 +331,8 @@ export type UiState = {
   browserOpen: boolean;
   /** Whether the FAB panel is open. */
   fabPanelOpen: boolean;
+  /** Active tab in the FAB panel. */
+  activeFabTab: FabTab;
   updatesAutoCheck: boolean;
   updateChannel: 'stable' | 'beta';
   onboardedAt: string | null;
@@ -468,6 +477,7 @@ export type UiState = {
   setBrowserOpen: (open: boolean) => void;
   toggleFabPanel: () => void;
   setFabPanelOpen: (open: boolean) => void;
+  setActiveFabTab: (tab: FabTab) => void;
 
   setLayout: <K extends keyof LayoutSizes>(key: K, value: number) => void;
   setGraphColumn: <K extends keyof GraphColumns>(key: K, value: number) => void;
@@ -757,6 +767,7 @@ export const useUiStore = create<UiState>()(
       terminalListOpen: true,
       browserOpen: false,
       fabPanelOpen: false,
+      activeFabTab: 'innovate',
       updatesAutoCheck: true,
       updateChannel: 'stable',
       onboardedAt: null,
@@ -867,6 +878,7 @@ export const useUiStore = create<UiState>()(
       setBrowserOpen: (browserOpen) => set({ browserOpen }),
       toggleFabPanel: () => set((state) => ({ fabPanelOpen: !state.fabPanelOpen })),
       setFabPanelOpen: (fabPanelOpen) => set({ fabPanelOpen }),
+      setActiveFabTab: (activeFabTab) => set({ activeFabTab }),
 
       setLayout: (key, value) => set((state) => ({ layout: { ...state.layout, [key]: value } })),
       setGraphColumn: (key, value) =>
