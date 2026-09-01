@@ -13,6 +13,7 @@ import { createAgentWatcher, realAgentWatcherDeps } from './agent-watcher';
 import { destroyAllBrowserTabs } from './browser-service';
 import { registerBrowserHandlers } from './ipc/browser-handlers';
 import { registerClaudeHandlers } from './ipc/claude-handlers';
+import { registerCouncilHandlers } from './ipc/council-handlers';
 import { configureDiagnostics, registerDiagHandlers } from './ipc/diag-handlers';
 import { registerForgeHandlers } from './ipc/forge-handlers';
 import { registerFsHandlers } from './ipc/fs-handlers';
@@ -52,6 +53,9 @@ import { reconcileWatchers, stopAllWatchers } from './watch-service';
 import { createTrustStore } from './diagnostics/trust-store';
 import { createTestTrustStore } from './testing/trust-store';
 import { createRepoStore } from './repo-store';
+import { configureCouncils } from './council-service';
+import { createCouncilsRunsStore } from './councils-runs-store';
+import { createCouncilsStore } from './councils-store';
 import { migrateAnyLegacyRepoStore } from './userdata-migration';
 import { installMgitFileProtocol, registerMgitFileScheme } from './fs-protocol';
 import { ensureLoginShellPath } from './shell-path';
@@ -235,6 +239,7 @@ if (!app.requestSingleInstanceLock()) {
     registerFsSearchHandlers();
     registerClaudeHandlers(getWindow);
     registerCliHandlers();
+    registerCouncilHandlers();
     registerUpdater(getWindow);
     ipcMain.handle(CHANNELS.systemHealth, () => readSystemHealth());
     installMgitFileProtocol();
@@ -257,6 +262,7 @@ if (!app.requestSingleInstanceLock()) {
     });
     configureRegistry(createRepoStore(userData));
     configureTerminals(createTerminalStore(userData), userData);
+    configureCouncils(createCouncilsStore(userData), createCouncilsRunsStore(userData));
     /*
       One compile of the roster's activity markers for the life of the
       process — `agents.json` "reloads on next launch" already (Settings ▸

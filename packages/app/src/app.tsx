@@ -29,6 +29,7 @@ import { TitleBarStatus } from './features/titlebar-status/titlebar-status';
 import { OnboardingModal } from './features/onboarding/onboarding-modal';
 import { ScreensaverHost } from './features/screensaver/screensaver-host';
 import { ActionsView } from './features/actions/actions-view';
+import { CouncilsView } from './features/councils/councils-view';
 import { chordFor, displayChord } from './features/status-bar/chord-hint';
 import { BrowserPane } from './features/browser/browser-pane';
 import { TestsView } from './features/tests/tests-view';
@@ -798,6 +799,10 @@ function Shell() {
               >
                 {activeView === 'settings' ? (
                   <SettingsView />
+                ) : activeView === 'councils' ? (
+                  // Global, like Settings — a council is not scoped to a repo, so
+                  // it renders whether or not one is selected/open.
+                  <CouncilsView />
                 ) : !selectedRepoId ? (
                   <EmptyWorkspace />
                 ) : activeView === 'dashboard' ? (

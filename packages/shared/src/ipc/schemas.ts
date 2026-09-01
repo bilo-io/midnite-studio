@@ -69,6 +69,12 @@ import {
   TerminalSessionSchema,
   agentIdMatchesKind,
 } from '../terminal';
+import {
+  CouncilMemberProviderSchema,
+  CouncilMemberSchema,
+  CouncilRunSchema,
+  CouncilSchema,
+} from '../council';
 
 /**
  * Payload/response schemas for every channel. Each `ipcMain.handle` parses its
@@ -1032,6 +1038,52 @@ export const AgentListResponse = z.object({
   agents: z.array(AgentDefinitionSchema),
   status: z.array(AgentStatusSchema).default([]),
 });
+
+// --- councils (Phase 34) -----------------------------------------------------
+
+export const CouncilListResponse = z.object({ councils: z.array(CouncilSchema) });
+export const CouncilGetRequest = z.object({ id: z.string().min(1) });
+export const CouncilGetResponse = z.object({ council: CouncilSchema.nullable() });
+
+export const CouncilCreateRequest = z.object({
+  name: z.string().min(1),
+  description: z.string().optional(),
+});
+export const CouncilCreateResponse = GitOpResultOf(CouncilSchema);
+
+export const CouncilUpdateMembersRequest = z.object({
+  id: z.string().min(1),
+  members: z.array(CouncilMemberSchema),
+  synthProvider: CouncilMemberProviderSchema,
+});
+export const CouncilUpdateMembersResponse = GitOpResultOf(CouncilSchema);
+
+export const CouncilRemoveRequest = z.object({ id: z.string().min(1) });
+export const CouncilRemoveResponse = GitOpResultSchema;
+
+export const CouncilRunStartRequest = z.object({
+  councilId: z.string().min(1),
+  prompt: z.string().min(1),
+});
+export const CouncilRunStartResponse = GitOpResultOf(CouncilRunSchema);
+
+export const CouncilRunGetRequest = z.object({ runId: z.string().min(1) });
+export const CouncilRunGetResponse = z.object({ run: CouncilRunSchema.nullable() });
+
+export const CouncilRunListRequest = z.object({ councilId: z.string().min(1) });
+export const CouncilRunListResponse = z.object({ runs: z.array(CouncilRunSchema) });
+
+export const CouncilRunSkipMemberRequest = z.object({
+  runId: z.string().min(1),
+  memberId: z.string().min(1),
+});
+export const CouncilRunSkipMemberResponse = GitOpResultSchema;
+
+export const CouncilRunRetryMemberRequest = z.object({
+  runId: z.string().min(1),
+  memberId: z.string().min(1),
+});
+export const CouncilRunRetryMemberResponse = GitOpResultSchema;
 
 export const ClaudeInfoResponse = ClaudeInfoSchema;
 /**

@@ -38,6 +38,34 @@ let agentWatcher: AgentWatcher | null = null;
 let brokerClient: BrokerClient | null = null;
 let getWindowThunk: () => BrowserWindow | null = () => null;
 
+// --- per-ptyId listeners (Phase 34) -----------------------------------------
+//
+// `council-runner.ts` runs in main and needs a pty's own output/exit, but the
+// renderer-facing `ptyData`/`ptyExit` broadcast above only reaches
+// `ipcRenderer` — main cannot subscribe to its own `webContents.send`. These
+// are a second, narrow dispatch point alongside that broadcast, keyed by
+// ptyId, for a main-process caller that spawned a pty directly through
+// `createPty` rather than through a `TerminalSession`.
+
+const ptyDataListeners = new Map<string, (bytes: Uint8Array) => void>();
+const ptyExitListeners = new Map<string, (exitCode: number, signal?: number) => void>();
+
+/** Registers both; overwrites any previous registration for the same ptyId. */
+export function onPty(
+  ptyId: string,
+  onData: (bytes: Uint8Array) => void,
+  onExit: (exitCode: number, signal?: number) => void,
+): void {
+  ptyDataListeners.set(ptyId, onData);
+  ptyExitListeners.set(ptyId, onExit);
+}
+
+/** Explicit unregister — also happens automatically on exit. */
+export function offPty(ptyId: string): void {
+  ptyDataListeners.delete(ptyId);
+  ptyExitListeners.delete(ptyId);
+}
+
 export function setAgentWatcher(watcher: AgentWatcher | null): void {
   agentWatcher = watcher;
   setInprocAgentWatcher(watcher);
@@ -232,6 +260,7 @@ export async function initPtyService(deps: {
     }
     agentWatcher?.noteOutput(ptyId);
     noteActivity(ptyId, bytes);
+    ptyDataListeners.get(ptyId)?.(bytes);
 
     const win = getWindowThunk();
     if (win && !win.isDestroyed()) {
@@ -244,6 +273,8 @@ export async function initPtyService(deps: {
     sessionIdByPty.delete(ptyId);
     agentWatcher?.untrack(ptyId);
     disposeActivity(ptyId);
+    ptyExitListeners.get(ptyId)?.(exitCode, signal);
+    offPty(ptyId);
 
     const win = getWindowThunk();
     if (win && !win.isDestroyed()) {
@@ -313,6 +344,7 @@ export async function createPty(options: {
     options,
     (ptyId, bytes) => {
       noteActivity(ptyId, bytes);
+      ptyDataListeners.get(ptyId)?.(bytes);
       const win = getWindowThunk();
       if (win && !win.isDestroyed()) {
         win.webContents.send(EVENT_CHANNELS.ptyData, { ptyId, data: bytes });
@@ -320,6 +352,8 @@ export async function createPty(options: {
     },
     (ptyId, exitCode, signal) => {
       disposeActivity(ptyId);
+      ptyExitListeners.get(ptyId)?.(exitCode, signal);
+      offPty(ptyId);
       const win = getWindowThunk();
       if (win && !win.isDestroyed()) {
         win.webContents.send(EVENT_CHANNELS.ptyExit, {

@@ -1225,6 +1225,89 @@ export async function installMockBridge(page: Page, fixtures: MockFixtures): Pro
         claudeUpdate: async () => ({ ok: true as const, exitCode: 0 }),
         onClaudeUpdateData: unsubscribe,
       },
+      /*
+        Councils (Phase 34). `run.start` skips simulating a real pty settle
+        barrier — that orchestration is main-only and already covered by
+        `council-runner.test.ts` — and instead answers with an already-
+        `completed` run, canned per-member output included, so a spec can
+        assert the run view renders member tabs and a synthesis straight
+        away rather than choreographing a fake multi-process race.
+      */
+      council: {
+        list: async () => ({ councils }),
+        get: async (req: { id: string }) => ({ council: councils.find((c) => c.id === req.id) ?? null }),
+        create: async (req: { name: string; description?: string }) => {
+          const now = Date.now();
+          const council = {
+            id: `council-${councils.length + 1}`,
+            name: req.name,
+            ...(req.description === undefined ? {} : { description: req.description }),
+            members: [
+              { id: 'm1', name: 'Optimist', provider: 'agy' as const, role: 'Argue the best case.' },
+              { id: 'm2', name: 'Skeptic', provider: 'codex' as const, role: 'Find the strongest objection.' },
+              { id: 'm3', name: 'Pragmatist', provider: 'opencode' as const, role: 'Focus on what is achievable.' },
+              { id: 'm4', name: 'Visionary', provider: 'agy' as const, role: 'Ignore near-term constraints.' },
+            ],
+            synthProvider: 'agy' as const,
+            createdAt: now,
+            updatedAt: now,
+          };
+          councils = [...councils, council];
+          return { ok: true as const, value: council };
+        },
+        updateMembers: async (req: { id: string; members: unknown[]; synthProvider: string }) => {
+          const index = councils.findIndex((c) => c.id === req.id);
+          if (index === -1) return { ok: false as const, kind: 'error' as const, message: 'Council not found.' };
+          const updated = { ...councils[index], members: req.members, synthProvider: req.synthProvider, updatedAt: Date.now() };
+          councils = [...councils.slice(0, index), updated, ...councils.slice(index + 1)];
+          return { ok: true as const, value: updated };
+        },
+        remove: async (req: { id: string }) => {
+          const before = councils.length;
+          councils = councils.filter((c) => c.id !== req.id);
+          return before === councils.length
+            ? { ok: false as const, kind: 'error' as const, message: 'Council not found.' }
+            : { ok: true as const };
+        },
+        run: {
+          start: async (req: { councilId: string; prompt: string }) => {
+            const council = councils.find((c) => c.id === req.councilId);
+            if (!council) return { ok: false as const, kind: 'error' as const, message: 'Council not found.' };
+            const now = Date.now();
+            const run = {
+              id: `run-${++councilRunCounter}`,
+              councilId: req.councilId,
+              prompt: req.prompt,
+              format: 'brainstorm' as const,
+              status: 'completed' as const,
+              synthProvider: council.synthProvider,
+              members: council.members.map((m: { id: string; name: string; provider: string; role: string }) => ({
+                memberId: m.id,
+                name: m.name,
+                provider: m.provider,
+                role: m.role,
+                status: 'succeeded' as const,
+                output: `${m.name}'s answer to: ${req.prompt}`,
+                truncated: false,
+                startedAt: now,
+                endedAt: now,
+              })),
+              synthesisOutput: `Synthesis of the panel's views on: ${req.prompt}`,
+              synthesisTruncated: false,
+              createdAt: now,
+              updatedAt: now,
+            };
+            councilRuns = [...councilRuns, run];
+            return { ok: true as const, value: run };
+          },
+          get: async (req: { runId: string }) => ({ run: councilRuns.find((r) => r.id === req.runId) ?? null }),
+          list: async (req: { councilId: string }) => ({
+            runs: councilRuns.filter((r) => r.councilId === req.councilId),
+          }),
+          skipMember: async () => ({ ok: true as const }),
+          retryMember: async () => ({ ok: true as const }),
+        },
+      },
       browser: {
         create: async (req: { tabId: string; url: string }) => {
           browserTabIds.add(req.tabId);
@@ -1627,6 +1710,13 @@ export async function installMockBridge(page: Page, fixtures: MockFixtures): Pro
     // Unique per create, so a spec can tell two terminals' streams apart.
     // eslint-disable-next-line no-var
     var ptyCount = 0;
+    // --- councils (Phase 34) ------------------------------------------------
+    // eslint-disable-next-line no-var
+    var councils: Array<{ id: string; [key: string]: unknown }> = [];
+    // eslint-disable-next-line no-var
+    var councilRuns: Array<{ id: string; councilId: string; [key: string]: unknown }> = [];
+    // eslint-disable-next-line no-var
+    var councilRunCounter = 0;
     // eslint-disable-next-line no-var
     var externalUrls: string[] = [];
     /** `shell.showItemInFolder` calls (Phase 24 Theme C), recorded like `externalUrls`. */
