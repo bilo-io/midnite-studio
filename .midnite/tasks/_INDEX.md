@@ -21,7 +21,7 @@ Completed work is logged append-only in [`done.md`](done.md). Deferred scope liv
 | Phase | Status | Refined | Done | Progress | % | 🔄 WIP | ◻ TODO |
 |-------|--------|---------|------|----------|---|--------|--------|
 | [39 · One rail, five chords and four loops](phases/phase-39-status-bar-shortcut-rail.md) | ◻ TODO | — | 0/64 | `░░░░░░░░░░` | 0% | — | A B C D E F G |
-| [37 · A glow that knows which tab](phases/phase-37-fab-tab-glow.md) | ◻ TODO | — | 0/44 | `░░░░░░░░░░` | 0% | — | A B C D E F |
+| [37 · A glow that knows which tab](phases/phase-37-fab-tab-glow.md) | 🔄 WIP | — | 0/44 | `░░░░░░░░░░` | 0% | A B C D E F | — |
 | [36 · Faster, lighter, same app](phases/phase-36-performance-diet.md) | 🔄 WIP | x1 | 58/64 | `█████████░` | 91% | — | G (human passes) |
 | [35 · FAB Mission Control](phases/phase-35-fab-mission-control.md) | 🔄 WIP | — | 39/40 | `██████████` | 98% | — | — |
 | [34 · Agent Councils](phases/phase-34-agent-councils.md) | ✅ DONE | — | 34/34 | `██████████` | 100% | — | — |
@@ -93,12 +93,12 @@ be a gradient. A tokenises the ramp the other five copies share; B builds the ma
 overlay; C makes it tab-reactive and sweeps between tabs; D keeps the collapsed FAB in the same
 colour; E ties pulse cadence to loop state; F handles reduced motion and proves the lot.*
 
-- ◻ **A** — One rainbow, six tokens: lift the 7-stop ramp out of its five verbatim copies in `styles.css` into `--rainbow-0…5`, with zero rendered change.
-- ◻ **B** — The inner glow: `::before` overlay, blurred conic, three-stop radial alpha mask, pulse on mask-stop + opacity (never on `blur()`).
-- ◻ **C** — The spectrum knows the tab: `data-fab-tab` + a four-row 180° arc table; border and glow share one arc pair; 0.5s sweep via `@property`-registered angles.
-- ◻ **D** — Collapsed FAB continuity: `.loop-run-glow.on-primary` takes the same arc, so collapsing the panel doesn't change its colour.
-- ◻ **E** — Pulse follows the loop: cadence keys off `useAllLoopStatuses`; amber-waiting overrides the arc, as `.is-waiting` already does on the button.
-- ◻ **F** — Reduced motion, and proof: `animation-name: none !important` (not a pause), computed-custom-property assertions, per-tab shots, and a blurred idle-CPU number.
+- 🔄 **A** — One rainbow, six tokens: lift the 7-stop ramp out of its five verbatim copies in `styles.css` into `--rainbow-0…5`, with zero rendered change.
+- 🔄 **B** — The inner glow: `::before` overlay, blurred conic, three-stop radial alpha mask, pulse on mask-stop + opacity (never on `blur()`).
+- 🔄 **C** — The spectrum knows the tab: `data-fab-tab` + a four-row 180° arc table; border and glow share one arc pair; 0.5s sweep via `@property`-registered angles.
+- 🔄 **D** — Collapsed FAB continuity: `.loop-run-glow.on-primary` takes the same arc, so collapsing the panel doesn't change its colour.
+- 🔄 **E** — Pulse follows the loop: cadence keys off `useAllLoopStatuses`; amber-waiting overrides the arc, as `.is-waiting` already does on the button.
+- 🔄 **F** — Reduced motion, and proof: `animation-name: none !important` (not a pause), computed-custom-property assertions, per-tab shots, and a blurred idle-CPU number.
 
 ### [Phase 36 — Faster, lighter, same app](phases/phase-36-performance-diet.md)
 
