@@ -76,8 +76,9 @@ export function GraphView() {
   const { data: refs = [] } = useRefs(repoId);
   const refsBySha = useRefsBySha(refs);
   const branchCount = useMemo(() => countLocalBranches(refs), [refs]);
-  // `rows` never changes identity mid-stream (see above), so `rowCount` is
-  // the dependency that actually makes these recompute as rows arrive.
+  // Every `rows`-derived memo below lists `rowCount` too: `rows` never
+  // changes identity mid-stream (see above), so `rowCount` is what actually
+  // makes these recompute as batches arrive.
   const authorCount = useMemo(
     () => summariseAuthors(rows).length,
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -255,7 +256,6 @@ export function GraphView() {
     [graphAuthorFilter],
   );
 
-  // rowCount, not rows' own identity, is what changes as the stream fills in.
   const authors = useMemo(
     () => summariseAuthors(rows),
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -272,7 +272,6 @@ export function GraphView() {
   const headOid = status?.branch.oid ?? null;
   const headRow = useMemo(
     () => (headOid === null ? undefined : rows.find((row) => row.commit.sha === headOid)),
-    // rowCount, not rows' own identity, is what changes as the stream fills in.
     // eslint-disable-next-line react-hooks/exhaustive-deps
     [headOid, rows, rowCount],
   );

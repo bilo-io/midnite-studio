@@ -71,7 +71,10 @@ export const useGraphStore = create<GraphState>((set, get) => ({
     // (a fresh one is only handed out by `begin`/`reset`) — consumers that
     // need to notice new rows arriving must key off `rows.length`, which
     // changes by value on every batch, rather than the array's identity.
-    state.rows.push(...rows);
+    // A loop rather than `push(...rows)`: spreading a batch as call
+    // arguments risks an engine argument-count limit if batching is ever
+    // coarsened well past the current ~500-row size.
+    for (const row of rows) state.rows.push(row);
     set({ rows: state.rows });
   },
 

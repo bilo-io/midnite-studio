@@ -26,7 +26,13 @@ export type LaneSlot = {
 export class LaneRegistry {
   private lanes: (LaneSlot | null)[] = [];
 
-  /** Indices currently occupied, ascending. */
+  /**
+   * Indices currently occupied, ascending.
+   *
+   * `lane-layout.ts` relies on this order (via `snapshot()`) to build its
+   * pass-through edges pre-sorted rather than sorting them — changing the
+   * iteration order here would silently reorder a row's painted edges.
+   */
   occupied(): number[] {
     const result: number[] = [];
     for (let i = 0; i < this.lanes.length; i += 1) {
@@ -39,7 +45,13 @@ export class LaneRegistry {
     return this.lanes[index] ?? null;
   }
 
-  /** Lanes waiting for `sha`, ascending. Several means several children. */
+  /**
+   * Lanes waiting for `sha`, ascending. Several means several children.
+   *
+   * `lane-layout.ts` relies on ascending order here too: it takes the first
+   * result as `primary` (guaranteed the smallest) to decide where the own-lane
+   * edge sorts relative to the rest.
+   */
   findExpecting(sha: string): number[] {
     const result: number[] = [];
     for (let i = 0; i < this.lanes.length; i += 1) {
