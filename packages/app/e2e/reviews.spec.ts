@@ -116,6 +116,24 @@ const withPull = (over: Partial<NonNullable<MockFixtures['forge']>> = {}): MockF
   },
 });
 
+/**
+ * Click the PR row, from the middle of the viewport.
+ *
+ * Playwright's auto-scroll brings a row to the *top* of its scroll container,
+ * which is exactly where the sticky "All Pull Requests" section header sits —
+ * so the click is intercepted by the header, retried, re-scrolled to the same
+ * place, and intercepted again until the test times out. It is a scroll-position
+ * artifact rather than a product fault (a real user scrolls the row clear before
+ * reaching for it), but it made this file fail roughly one run in three, which
+ * is intolerable now that CI blocks on it. Centring the row first puts it well
+ * clear of the header.
+ */
+async function openPullRow(page: Page): Promise<void> {
+  const row = page.getByText('Reviews page', { exact: true });
+  await row.evaluate((el) => el.scrollIntoView({ block: 'center' }));
+  await row.click();
+}
+
 /** Open the app, expand Reviews, and click into PR #42. */
 async function openPull(page: Page, data: MockFixtures): Promise<void> {
   await installMockBridge(page, data);
@@ -126,7 +144,7 @@ async function openPull(page: Page, data: MockFixtures): Promise<void> {
   // The section is a heading over three lazy scopes now — the rows live under
   // one of them, and nothing is fetched until that one is opened.
   await page.getByRole('button', { name: 'All Pull Requests', exact: true }).click();
-  await page.getByText('Reviews page', { exact: true }).click();
+  await openPullRow(page);
   await expect(page.getByRole('region', { name: 'Pull request #42' })).toBeVisible();
 
   /*
@@ -150,7 +168,7 @@ test('a pull request opens on Overview, showing what it is before what changed',
 
   await page.getByRole('button', { name: 'Reviews', exact: true }).click();
   await page.getByRole('button', { name: 'All Pull Requests', exact: true }).click();
-  await page.getByText('Reviews page', { exact: true }).click();
+  await openPullRow(page);
 
   await expect(page.getByRole('tab', { name: 'Overview' })).toHaveAttribute(
     'aria-selected',
@@ -392,9 +410,10 @@ test('the terminal header is never painted over by a squeezed detail pane', asyn
           ...pullDetail,
           // A description long enough to hit the header's own `max-h-40` cap,
           // which is what leaves the tab panel short.
-          body: Array.from({ length: 40 }, (_, at) => `Paragraph ${at + 1} of the description.`).join(
-            '\n\n',
-          ),
+          body: Array.from(
+            { length: 40 },
+            (_, at) => `Paragraph ${at + 1} of the description.`,
+          ).join('\n\n'),
         },
       },
       runs: [run],
@@ -451,7 +470,11 @@ test('the terminal header is never painted over by a squeezed detail pane', asyn
         .map(({ x, y }) => {
           const hit = document.elementFromPoint(x, y);
           if (hit?.closest('[data-terminal-panel]')) return null;
-          return { x: Math.round(x), tag: hit?.tagName ?? 'none', text: hit?.textContent?.slice(0, 40) ?? '' };
+          return {
+            x: Math.round(x),
+            tag: hit?.tagName ?? 'none',
+            text: hit?.textContent?.slice(0, 40) ?? '',
+          };
         })
         .filter((entry) => entry !== null),
     probes,

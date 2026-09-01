@@ -47,13 +47,29 @@ Recorded here when a phase punts on something; pick these up post-MVP.
   Actions section, and shows nothing otherwise. The **local test run** producer
   (`moon run :test` per branch, cached by tip sha) is still unbuilt.
 
-- **Nothing runs `app:e2e` automatically.** The Playwright suite is out of `moon run :test` on
-  purpose — it needs a chromium download, which is a poor thing to make the gate depend on — but
-  the consequence showed up on 2026-08-27, when seventeen specs sat red on `main` across several
-  merges because no one ran them. The suite is fast (~3 minutes) and deterministic
-  (`retries: 0`, its own strict port). It wants a job of its own: a `moon run :e2e` step in CI
-  after `playwright install chromium`, or a pre-merge check. Until then, every `/midnite-exec` slice that
-  touches the renderer should run it by hand.
+- ~~**Nothing runs `app:e2e` automatically.**~~ — ◐ **half-closed 2026-09-01.** The job exists
+  now, by the route this entry predicted: its own blocking job in
+  [`.github/workflows/ci.yml`](../../.github/workflows/ci.yml), on every PR alongside `gate`. It
+  runs on **ubuntu**, not the macOS the gate needs — the suite drives the renderer in headless
+  chromium against the Vite dev server with a mocked `window.midniteStudio`, so nothing in it is
+  macOS-specific and the runner bills at 1x instead of 10x. Chromium is cached on the resolved
+  `@playwright/test` version, so a version bump busts the cache rather than restoring browsers
+  the new runner cannot drive.
+
+  **What the first full run found is why this entry is only half struck through.** Running the
+  suite for the first time in weeks turned up **45 failures across 17 of 58 files**, out of 442
+  specs — precisely the rot this entry warned about, now more than double the seventeen it was
+  filed for. A bisect against `ec2c75e` rules out Phase 36 as the cause: the same three sample
+  files fail 15 there against 13 on `main`. So the job ships with a **ratchet**
+  ([`packages/app/playwright.ci.config.ts`](../../packages/app/playwright.ci.config.ts)): CI
+  blocks on the 41 green files and skips the 17 named in `KNOWN_RED`. Blocking on everything was
+  impossible with the suite red; blocking on nothing is the arrangement that caused this. The
+  local `moon run app:e2e` is untouched and still runs the lot, because a human should see the
+  truth.
+
+  **[Phase 38](phases/phase-38-e2e-suite-repair.md)** empties `KNOWN_RED` and deletes the
+  ratchet with it. Strike this entry out properly then — and note that three of the 45 read like
+  real product bugs rather than stale specs, so the repair is not only test maintenance.
 
 - **Screenshot PNGs are not byte-reproducible.** A full `app:e2e` run rewrites roughly forty
   committed images across every phase, and two identical runs of the same spec differ by ten or

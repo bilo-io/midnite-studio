@@ -1,0 +1,61 @@
+import { defineConfig } from '@playwright/test';
+
+import base from './playwright.config';
+
+/**
+ * The CI ratchet.
+ *
+ * `playwright.config.ts` runs the whole suite and always will — a local
+ * `pnpm e2e` must show the truth, including the parts that are broken. This
+ * config is what CI blocks on, and it is the same suite minus a named list of
+ * files that were already failing when the job was first wired up (2026-09-01:
+ * 45 specs across 17 files, out of 442).
+ *
+ * The point is the direction of travel. A job that blocks on *everything*
+ * cannot be turned on at all while the suite is red, and a job that blocks on
+ * *nothing* is the arrangement that let these 45 rot in the first place — see
+ * the entry in `.midnite/tasks/outstanding.md`. Blocking on the 397 specs that
+ * do pass means those can never regress, while the debt stays written down in
+ * one place instead of being discovered again in six months.
+ *
+ * Retries are NOT set here: they come from the base config, which allows two
+ * under `process.env.CI` and none locally. Deliberately there rather than in
+ * this file, so that deleting this ratchet (Phase 38 Theme H) does not silently
+ * take CI's flake tolerance with it.
+ *
+ * KNOWN_RED only ever shrinks. Repairing a file is a one-line deletion here,
+ * and Phase 38 exists to empty the list; when it is empty, delete this config
+ * and the `app:e2e-ci` task with it and point CI back at `app:e2e`.
+ */
+const KNOWN_RED = [
+  '**/e2e/actions-view.spec.ts', //          2 — Load-the-full-log button never appears
+  '**/e2e/browser-pane.spec.ts', //          1 — click lands during the exit transition
+  '**/e2e/changes-panel.spec.ts', //        10 — the whole file; nothing in the panel is visible
+  '**/e2e/diff-view.spec.ts', //             2 — line-number column counts are off
+  '**/e2e/fab-loops.spec.ts', //             5 — `pty:activity` never reaches pty-1
+  '**/e2e/files-write.spec.ts', //           1 — claude-home tree
+  '**/e2e/footer-monitor.spec.ts', //        2 — ring/marker counts
+  '**/e2e/forge-issues.spec.ts', //          1 — failed-listing empty state
+  '**/e2e/graph-themes.spec.ts', //          2 — cascade replay + per-style redraw
+  '**/e2e/nav-shell.spec.ts', //             2 — rail contents no longer match
+  '**/e2e/repos-workbench.spec.ts', //       5 — counts, focus, signed-out gh
+  '**/e2e/review-threads-shots.spec.ts', //  3 — all three time out
+  '**/e2e/reviews-loading-shots.spec.ts', // 1 — nothing-cached open
+  '**/e2e/settings-pages.spec.ts', //        3 — incl. a strict-mode violation on 'System'
+  '**/e2e/terminal-links.spec.ts', //        2 — same pty delivery fault as fab-loops
+  '**/e2e/terminal.spec.ts', //              2 — reload rehydration + list resize
+  '**/e2e/tests-view.spec.ts', //            1 — sidebar Tests grouping times out
+];
+
+export default defineConfig({
+  ...base,
+  // The base config's own `testIgnore: '**/perf/**'` is NOT inherited — spreading
+  // `base` and then setting the key replaces it wholesale — so it is repeated
+  // here. Dropping it pulls `e2e/perf/` into this run, where the budget specs
+  // die on a missing `dist/.vite/manifest.json` (they need `app:build` first,
+  // which is why they have a config and a moon task of their own). It would also
+  // make a performance budget block a merge, which `packages/app/moon.yml`
+  // explicitly rejects: "a report that blocks a green build on a busy laptop
+  // gets disabled rather than read".
+  testIgnore: ['**/perf/**', ...KNOWN_RED],
+});
