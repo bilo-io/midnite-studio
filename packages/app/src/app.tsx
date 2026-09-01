@@ -415,6 +415,15 @@ function Shell() {
     ...LAYOUT_BOUNDS.terminalHeight,
   });
 
+  const fabPanel = useResizable({
+    size: layout.fabPanelWidth,
+    onSize: (value) => setLayout('fabPanelWidth', value),
+    initial: DEFAULT_LAYOUT.fabPanelWidth,
+    axis: 'x',
+    edge: 'end',
+    ...LAYOUT_BOUNDS.fabPanelWidth,
+  });
+
   /**
    * The terminal's height while maximized, measured rather than `flex-1`.
    *
@@ -477,6 +486,12 @@ function Shell() {
     animateKey: `${terminalOpen}:${terminalMaximized}`,
   });
   const browserReveal = useReveal(browserOpen);
+  const fabPanelTween = useRevealSize<HTMLDivElement>({
+    open: fabPanelOpen,
+    size: fabPanel.current,
+    axis: 'x',
+    dragging: fabPanel.dragging,
+  });
 
   /*
     A maximized terminal covers the view — and only a terminal that is actually
@@ -895,19 +910,30 @@ function Shell() {
 
           {browserReveal.mounted ? <BrowserPane shown={browserReveal.shown} /> : null}
 
+          {/* FAB Panel (docked on right) */}
+          {fabPanelTween.mounted ? (
+            <>
+              <ResizeHandle resizable={fabPanel} axis="x" label="Resize quick access panel" />
+              <div
+                ref={fabPanelTween.ref}
+                className="shrink-0 overflow-hidden"
+                style={fabPanelTween.style}
+              >
+                <FabPanel isOpen={fabPanelOpen} width={fabPanel.current} />
+              </div>
+            </>
+          ) : null}
+
           {/* FAB Button */}
           <button
             type="button"
             onClick={toggleFabPanel}
             aria-label="Open quick access panel"
             title="Quick Access"
-            className="absolute bottom-6 right-6 z-20 flex h-12 w-12 items-center justify-center rounded-full bg-primary text-primary-foreground shadow-lg transition-transform hover:scale-110 active:scale-95"
+            className="absolute bottom-4 right-4 z-20 flex h-10 w-10 items-center justify-center rounded-full bg-primary text-primary-foreground shadow-lg transition-transform hover:scale-110 active:scale-95"
           >
-            <BrandMark className="h-6 w-6" />
+            <BrandMark className="h-full w-full" />
           </button>
-
-          {/* FAB Panel */}
-          <FabPanel isOpen={fabPanelOpen} onToggle={toggleFabPanel} />
         </div>
 
         <StatusBar />
