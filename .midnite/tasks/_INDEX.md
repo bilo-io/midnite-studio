@@ -2,7 +2,7 @@
 
 **Headlines:**
 
-- **[Phase 34 · Agent Councils](phases/phase-34-agent-councils.md)** (0% · 0/36) — Planned, not started. Fills the nav/palette-reserved but unimplemented "Councils" slot: a standing panel of AI members answers a prompt in parallel, synthesized into one distilled write-up. MVP scope only — one format (brainstorm), global (not per-repo), and a 3-agent member pool (`agy`/`codex`/`opencode`), with an explicit auto-send exception to the app's usual type-but-don't-send agent-launch posture.
+- **[Phase 34 · Agent Councils](phases/phase-34-agent-councils.md)** (100% · 34/34) — Landed. Fills the nav/palette-reserved "Councils" slot: a standing panel of AI members answers a prompt in parallel, synthesized into one distilled write-up. MVP scope — one format (brainstorm), global (not per-repo), a 3-agent member pool (`agy`/`codex`/`opencode`), and an explicit auto-send exception to the app's usual type-but-don't-send agent-launch posture. Two manual passes (a real end-to-end run, a copy review) remain for a human.
 - **[Phase 33 · Application Installation, CLI Tool & Desktop Integration](phases/phase-33-installable-app-and-cli-integration.md)** (0% · 0/44) — Planned, not started. Adds a macOS DMG installer package with custom layout, `midnite-studio` CLI tool installer + shell completions, `midnite-studio://` deep-linking protocol scheme, auto-updater pipeline, and first-run setup onboarding. Written against the **Midnite Studio rename**, which is its prerequisite.
 - **[Phase 32 · The browser gets an engine](phases/phase-32-browser-engine-and-tabs.md)** (39% · 39/99) — Active frontier. Themes A–D landed: a real `WebContentsView` engine on its own no-preload partition, the `mstudio:browser:*` contract, the security policy Phase 27 made a precondition, and tabs with both kinds of group. E–I (occlusion, new-tab page, real chrome, dev powers, forge-in-place) remain.
 - **[Phase 30 · Terminal Hardening](phases/phase-30-terminal-hardening.md)** (90% · 82/91) — Active frontier; detached session broker lets terminal/agent sessions survive app restarts and window reloads. Implementation themes A–G landed; 9 manual verification checks open.
@@ -21,7 +21,7 @@ Completed work is logged append-only in [`done.md`](done.md). Deferred scope liv
 
 | Phase | Status | Refined | Done | Progress | % | 🔄 WIP | ◻ TODO |
 |-------|--------|---------|------|----------|---|--------|--------|
-| [34 · Agent Councils](phases/phase-34-agent-councils.md) | 🔄 WIP | — | 0/36 | `░░░░░░░░░░` | 0% | A B C D E F G H | — |
+| [34 · Agent Councils](phases/phase-34-agent-councils.md) | ✅ DONE | — | 34/34 | `██████████` | 100% | — | — |
 | [33 · Application Installation, CLI Tool & Desktop Integration](phases/phase-33-installable-app-and-cli-integration.md) | ✅ DONE | x1 | 44/44 | `██████████` | 100% | — | — |
 | [32 · The browser gets an engine, and the tabs to fill it](phases/phase-32-browser-engine-and-tabs.md) | ✅ DONE | — | 99/99 | `██████████` | 100% | — | — |
 | [31 · Interactive Rebase Builder & Graph Sequence Editor](phases/phase-31-interactive-rebase.md) | ✅ DONE | — | 18/18 | `██████████` | 100% | — | — |
@@ -70,19 +70,30 @@ global scope, a 3-agent member pool, and an explicit auto-send exception justifi
 touching a repo. A is the contract every other theme reads off; B–D are persistence/orchestration/
 IPC; E–G are the three UI surfaces; H is reliability (retry/skip).*
 
-- ◻ **A** — Shared contracts: `Council`/`CouncilMember`/`CouncilRun` schemas, one-format literal,
-  starter members, IPC channel constants.
-- ◻ **B** — Persistence: a global `councils-store.ts` + run history, following `agents-store.ts`'s
-  merge-tolerant shape.
-- ◻ **C** — Run orchestration: parallel one-shot member spawns via the Phase 30 broker, the
-  settle-barrier, the auto-send exception, synthesis.
-- ◻ **D** — IPC bridge: preload methods + main handlers + renderer hooks.
-- ◻ **E** — UI — list & create: fills the `WORK_IN_PROGRESS` councils stub with a real list/create
-  flow.
-- ◻ **F** — UI — detail & members panel: flat add/remove/edit, synthesizer picker, topic composer.
-- ◻ **G** — UI — run view: per-member tabs on the existing xterm component, synthesis tab, run-thread
-  rail.
-- ◻ **H** — Retry/skip controls for a hung or failed member.
+- ✅ **A** — Shared contracts: `Council`/`CouncilMember`/`CouncilRun` schemas, one-format literal,
+  starter members, IPC channel constants. (2026-09-01, local — no PR/no remote)
+- ✅ **B** — Persistence: a global `councils-store.ts` + run history (`councils-runs-store.ts`,
+  capped at 200 runs), following `agents-store.ts`'s merge-tolerant shape. (2026-09-01)
+- ✅ **C** — Run orchestration: parallel one-shot member spawns via `pty-service.ts` directly (not
+  through `terminal-store`), a per-run mutation lock (`withRunLock`) serializing the settle barrier,
+  the auto-send exception, synthesis. Two real bugs found and fixed while testing: a race where two
+  members settling back to back could clobber each other's write, and a missing shell `exit` — the
+  pty is a login shell, not `pty.spawn(command)`, so without `; exit $?` the CLI finishing never
+  actually ends the pty and the settle barrier's exit signal would never fire. (2026-09-01)
+- ✅ **D** — IPC bridge: preload methods + main handlers + renderer hooks (`use-council.ts`,
+  `use-council-run.ts`). (2026-09-01)
+- ✅ **E** — UI — list & create: fills the `WORK_IN_PROGRESS` councils stub with a real list/create
+  flow. (2026-09-01)
+- ✅ **F** — UI — detail & members panel: flat add/remove/edit, synthesizer picker, topic composer
+  with the auto-send note. (2026-09-01)
+- ✅ **G** — UI — run view: per-member tabs (a plain live-text view over the same `pty.onData`
+  stream `TerminalView` uses, not a full xterm embed — members are output-only, one-shot, no input),
+  synthesis tab, run-thread rail. (2026-09-01)
+- ✅ **H** — Retry/skip controls for a hung or failed member. (2026-09-01)
+
+Landed to local `main` — this repo has no git remote, so no PR link. Two manual passes remain for a
+human: a real end-to-end run against real `agy`/`codex`/`opencode` installs, and a copy review of
+the auto-send note.
 
 ### [Phase 33 — Application Installation, CLI Tool & Desktop Integration](phases/phase-33-installable-app-and-cli-integration.md)
 

@@ -394,6 +394,23 @@ export const CHANNELS = {
   /** Kill an in-flight run's whole process tree. */
   testsCancel: 'mstudio:tests:cancel',
 
+  // --- councils (Phase 34) ---------------------------------------------------
+  // A council is global, not per-repo — see `council.ts`'s own doc comment.
+  // Member/synthesizer processes are spawned and read through the existing
+  // `pty:*` channels above (`onData`/`onExit`/`snapshot`), filtered by the
+  // `ptyId` a live `CouncilRunGet` answer carries — no separate event channel
+  // for their output.
+  councilList: 'mstudio:council:list',
+  councilGet: 'mstudio:council:get',
+  councilCreate: 'mstudio:council:create',
+  councilUpdateMembers: 'mstudio:council:update-members',
+  councilRemove: 'mstudio:council:remove',
+  councilRunStart: 'mstudio:council:run-start',
+  councilRunGet: 'mstudio:council:run-get',
+  councilRunListForCouncil: 'mstudio:council:run-list',
+  councilRunSkipMember: 'mstudio:council:run-skip-member',
+  councilRunRetryMember: 'mstudio:council:run-retry-member',
+
   // --- window chrome -------------------------------------------------------
   windowMinimize: 'mstudio:window:minimize',
   windowMaximizeToggle: 'mstudio:window:maximize-toggle',

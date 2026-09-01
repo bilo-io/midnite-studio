@@ -2,6 +2,58 @@
 
 <!-- Append one entry per landed phase/PR: date, phase, PR link, one-line summary. -->
 
+## 2026-09-01 — Phase 34 Themes A–H — Agent Councils
+
+Merged to `main` locally (this repo has no git remote, so no PR link). Fills the "Councils" nav
+slot reserved since Phase 15/19: a standing panel of AI members answers one prompt in parallel, then
+a synthesizer distills the results — ported as a narrow MVP slice from `~/Dev/midnite`'s councils
+feature (one format, global scope, a 3-agent member pool, an explicit auto-send exception since a
+council member only answers a prompt and never touches a repo).
+
+- [x] **Theme A — Shared contracts**: `Council`/`CouncilMember`/`CouncilRun`/`CouncilRunMember` zod
+      schemas in `shared/src/council.ts`, a one-value `CouncilFormat` literal (`'brainstorm'`), the
+      four starter-member personas, `mstudio:council:*` IPC channels/schemas, all writes returning
+      the `GitOpResult` envelope. `agentInvocationArgs`/`toAgentPrompt`/`shellQuote` moved from
+      `start-agent.ts` into `shared/src/agent-invocation.ts` so `council-runner.ts` (main) and
+      `start-agent.ts` (renderer) share one table instead of two copies drifting.
+- [x] **Theme B — Persistence**: `councils-store.ts` (global `councils.json`, merge-tolerant of a
+      malformed entry) and a separate `councils-runs-store.ts` (`council-runs.json`, capped at 200
+      runs) — kept apart because run history writes far more often than council/member edits.
+- [x] **Theme C — Run orchestration**: `council-runner.ts` spawns every member as a one-shot pty
+      directly through `pty-service.ts` (a small `onPty`/`offPty` per-ptyId listener registry added
+      there), races each against a 120s timeout, and once all settle spawns the synthesizer the same
+      way. Two real bugs found and fixed while writing `council-runner.test.ts`: two members
+      settling back to back could race a plain read-modify-write of the run object and silently drop
+      one's write (fixed with a per-run mutation lock, `withRunLock`); and the pty is a real login
+      shell with the command typed in, not `pty.spawn(command)`, so the CLI finishing does not make
+      the shell exit on its own — `spawnOneShot` now appends `; exit $?` so the settle barrier's only
+      signal (the pty's exit event) actually fires, carrying the CLI's real exit code.
+- [x] **Theme D — IPC bridge**: `ipc/council-handlers.ts`, preload wiring, and
+      `use-council.ts`/`use-council-run.ts` renderer hooks (the run hook polls at upstream's own
+      1200ms cadence while a run is live).
+- [x] **Theme E — UI, list & create**: `CouncilsView`/`CouncilList`/`CouncilCreateDialog` replace the
+      `WORK_IN_PROGRESS` stub `view-sections.ts` carried since Phase 15/19; wired into `app.tsx`
+      ahead of the `!selectedRepoId` check, since a council is global like Settings.
+- [x] **Theme F — UI, detail & members panel**: `CouncilDetail` — flat add/remove/edit members
+      (debounced auto-save), a synthesizer picker, and a bottom composer carrying the auto-send
+      safety note.
+- [x] **Theme G — UI, run view**: `CouncilRunView` — per-member tabs and a synthesis tab, each
+      showing `CouncilLiveOutput` while running (a plain append-only text view over the same
+      `pty.onData`/`pty.onExit` stream `TerminalView` subscribes to, not a full xterm embed — a
+      member has no interactive input, so the terminal-emulator machinery buys nothing), then the
+      server's own cleaned text once settled. ANSI-stripping and carriage-return collapsing moved
+      into `shared/src/ansi.ts` so the live view's client-side cleanup and `council-output.ts`'s
+      server-side cleanup share one regex.
+- [x] **Theme H — Retry/skip controls**: skip kills the pty and settles the member `skipped` without
+      waiting for a real exit; retry re-reads the council's *current* member config and re-runs,
+      clearing a stale synthesis and re-opening the settle barrier.
+
+Verified: `moon run :typecheck :lint :test` green (shared/git-engine/desktop/app), a new
+`e2e/councils.spec.ts` (create → starter members → run → synthesis, against `mock-bridge.ts`'s new
+`council` block), and four screenshots (empty state, detail with members, run tabs + synthesis,
+one member's answer). Two things are explicitly left for a human: a real end-to-end run against
+real `agy`/`codex`/`opencode` installs, and a copy read of the auto-send note.
+
 ## 2026-08-30 — Phase 32 Themes G, H, I & Phase 33 Theme E — Real Browser Chrome, Dev Powers, Forge Links & First-Run Onboarding
 
 - [x] **Phase 32 Theme G — Real Browser Chrome**: Added `FindBar` bottom drawer component, wired `resolveInput` URL/search engine resolution on address bar submit, find-in-page IPC channels (`browserFind`/`browserFindStop`), and zoom/navigation error page integration.
