@@ -60,7 +60,7 @@ export function FabPanel({ isOpen, width }: FabPanelProps) {
 
   return (
     <div className="h-full w-full flex flex-col" style={{ width }}>
-      <div className="fab-panel-gradient h-full w-full rounded-l-lg border border-border bg-popover flex flex-col">
+      <div className="fab-panel-gradient h-full w-full border border-border bg-popover flex flex-col">
         {/* Tab Bar */}
         <div className="flex border-b border-border shrink-0">
           {FAB_TABS.map(({ id, label, icon: Icon, color }) => (
