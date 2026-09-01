@@ -1,6 +1,14 @@
 import { useState } from 'react';
-import { MoreVertical } from 'lucide-react';
-import { LuFlaskConical, LuFolder, LuFolderInput, LuFolderPlus, LuHammer, LuPackage, LuRocket } from 'react-icons/lu';
+import {
+  LuEllipsisVertical,
+  LuFlaskConical,
+  LuFolder,
+  LuFolderInput,
+  LuFolderPlus,
+  LuHammer,
+  LuPackage,
+  LuRocket,
+} from 'react-icons/lu';
 
 import type { MenuItem } from '../../components/context-menu';
 import { useDialogs } from '../../components/dialog-host';
@@ -151,7 +159,7 @@ export function RepoLifecycleMenu({
 
   return (
     <IconButton
-      icon={MoreVertical}
+      icon={LuEllipsisVertical}
       label={`Install, build, test or launch ${repoName}`}
       size="sm"
       onClick={(event) => {

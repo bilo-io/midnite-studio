@@ -1,6 +1,7 @@
-import { useEffect, useState } from 'react';
+import { useState } from 'react';
 import { LuGlobe, LuPlus, LuTrash2 } from 'react-icons/lu';
 
+import { useNow } from '../../../lib/use-now';
 import { useTitlebarStatusStore } from '../titlebar-status-store';
 import type { ClockMode, WorldClockZone } from '../titlebar-status-types';
 import { AnalogClockFace } from './analog-clock-face';
@@ -68,7 +69,7 @@ function offsetLabel(date: Date, tz: string): string {
 }
 
 export function WorldClocksSection() {
-  const [now, setNow] = useState(() => new Date());
+  const now = useNow();
   const worldClocksMode = useTitlebarStatusStore((s) => s.worldClocksMode);
   const worldClockZones = useTitlebarStatusStore((s) => s.worldClockZones);
   const setWorldClocksMode = useTitlebarStatusStore((s) => s.setWorldClocksMode);
@@ -78,11 +79,6 @@ export function WorldClocksSection() {
   const [adding, setAdding] = useState(false);
   const [label, setLabel] = useState('');
   const [tz, setTz] = useState('');
-
-  useEffect(() => {
-    const id = setInterval(() => setNow(new Date()), 1000);
-    return () => clearInterval(id);
-  }, []);
 
   const valid = label.trim() !== '' && isValidTz(tz.trim());
 

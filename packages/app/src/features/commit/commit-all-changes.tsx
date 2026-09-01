@@ -1,4 +1,4 @@
-import { ChevronRight, ChevronsDownUp, ChevronsUpDown } from 'lucide-react';
+import { LuChevronRight, LuChevronsDownUp, LuChevronsUpDown } from 'react-icons/lu';
 import { useId, useMemo, useState } from 'react';
 
 import type { ChangedFile } from '../../components/build-change-tree';
@@ -55,13 +55,13 @@ export function CommitAllChanges({
         <ChangeTotals {...totals} />
 
         <IconButton
-          icon={ChevronsUpDown}
+          icon={LuChevronsUpDown}
           label={withheld > 0 ? `Expand the first ${EXPAND_ALL_LIMIT} files` : 'Expand all files'}
           size="sm"
           onClick={() => setExpanded(expandAll(paths))}
         />
         <IconButton
-          icon={ChevronsDownUp}
+          icon={LuChevronsDownUp}
           label="Collapse all files"
           size="sm"
           onClick={() => setExpanded(NOTHING_EXPANDED)}
@@ -117,7 +117,7 @@ function CommitFileAccordion({
           aria-controls={bodyId}
           className="flex min-w-0 flex-1 items-center gap-2 text-left text-[13px] transition-colors hover:text-foreground"
         >
-          <ChevronRight
+          <LuChevronRight
             aria-hidden
             className={`h-3.5 w-3.5 shrink-0 text-muted-foreground transition-transform duration-150 ease-in-out ${
               open ? 'rotate-90' : ''

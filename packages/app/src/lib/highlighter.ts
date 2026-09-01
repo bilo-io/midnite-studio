@@ -11,6 +11,13 @@ import { createHighlighter, type Highlighter } from 'shiki';
  * than one per caller — two would double the WASM engine and duplicate every
  * grammar the other already loaded.
  */
+/**
+ * Grammars are never unloaded once `loadLanguage` pulls one in, so this grows
+ * with the number of distinct languages viewed in a session — accepted in
+ * Phase 36 F's memory sweep rather than capped: the bound is the language
+ * count (tens, not thousands), and evicting a grammar only means re-paying its
+ * dynamic import the next time that file type is opened.
+ */
 let highlighterPromise: Promise<Highlighter> | null = null;
 export const getHighlighter = (): Promise<Highlighter> =>
   (highlighterPromise ??= createHighlighter({

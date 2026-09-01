@@ -492,6 +492,89 @@ Resolved at refinement x1 (2026-09-01):
 Open: **none.** Theme G's three gates are conditionals with written thresholds, not open
 decisions — their numbers land back in this section as they close.
 
+## Measurement procedures
+
+The harness (Theme A) is three scripts under `scripts/perf/`, all launching the
+packaged-equivalent app — built renderer plus the esbuild-bundled main. Two things every
+one of them has to get right, both documented at length in
+[`electron-run.mjs`](../../../scripts/perf/electron-run.mjs):
+
+- **Each run gets its own `--user-data-dir`.** Electron keys
+  `requestSingleInstanceLock()` on that directory, so a measurement launched while the
+  installed *Midnite Studio.app* is open quits instantly and reports every mark missing.
+  Isolation is a correctness requirement here, not tidiness — and a directory we control is
+  also what makes "cold" mean the same thing twice.
+- **The profile is seeded before it is measured.** `graph-first-batch` only happens if a
+  repository is *selected*, and selection is persisted state that `useDefaultSelection`
+  deliberately does not invent. The seed run opens the repo through `MSTUDIO_OPEN_REPOS`,
+  then selects it the way a user would — a `midnite-studio://open` deep link delivered by a
+  second launch against the same profile, arriving through main's `second-instance` handler
+  — and its own timings are discarded. The path is normalised to the **main worktree**,
+  because that is what `repo-registry` registers when you open a linked worktree.
+
+```sh
+moon run app:build desktop:bundle          # both scripts refuse to guess without these
+
+node scripts/perf/startup-report.mjs --runs=5 --rss    # the official cold-start number
+node scripts/perf/bundle-report.mjs                    # entry chunk, total JS, top ten
+node scripts/perf/idle-cpu.mjs --seconds=300           # focused idle
+node scripts/perf/idle-cpu.mjs --seconds=300 --blurred # blurred idle
+MSTUDIO_BUNDLE_STATS=1 moon run app:build              # dist/stats.html treemap
+```
+
+**Cold start.** `startup-report.mjs` reads the `[perf] …` lines both processes log under
+`MSTUDIO_PERF=1` and prints per-mark medians. It also polices Theme B's ordering
+guarantee: `repos-restored` must precede `create-window`, or the sidebar shows its empty
+state for a frame. A missing mark — in *any* run — is a non-zero exit, not a blank cell.
+
+**Idle CPU.** `idle-cpu.mjs` differences cumulative `ps -o cputime` per process across a
+window and divides by elapsed wall time: percent of one core, over exactly the interval
+asked for. Deliberately **not** `ps -o %cpu`, which on macOS is a decaying average over up
+to a minute of history and would smear boot CPU into an idle reading. Processes are grouped
+by the `--type=` switch Chromium puts in each helper's argv (`main` / `renderer` / `gpu` /
+`other`); a pid that appears or disappears mid-window is dropped rather than half-counted.
+`--blurred` moves focus away with `osascript`, because blur is the state the visibility
+gates key on and it cannot be faked from inside the app. The first 15 s after boot are
+skipped — the first status pass, the first graph batch and shiki warming a grammar are not
+idle behaviour.
+
+**Main RSS.** `--rss` on `startup-report.mjs` samples the main process's resident size from
+outside (`ps -o rss`) at first paint; `idle-cpu.mjs` reports it again at the end of its
+window. From outside on purpose: the measurement stays dev-side, and nothing perf-shaped
+ships in the product.
+
+**Renderer heap** is the one number with no script, because a heap snapshot needs DevTools:
+
+1. `MSTUDIO_PERF=1 moon run desktop:start`, open a repository, and let it settle.
+2. Open the graph, select a commit with a large diff, and scroll the diff pane top to
+   bottom — ten times, alternating light/dark theme every other pass so both cache keys are
+   populated (the highlight cache keys on theme).
+3. DevTools ▸ Memory ▸ *Heap snapshot* ▸ **Take snapshot**. Read "Total JS heap size" off
+   the summary row; take three and record the median.
+4. The comparison number comes from the same click-path against the same repository —
+   different diffs mean different numbers, so the diff has to be named alongside the
+   figure.
+
+## Module-level maps in the renderer (Theme F sweep)
+
+Every module-level `Map`/`Set` in `packages/app/src`, with its bound. The rule the sweep
+applies: a structure keyed on *content* (line text, a URL, a commit sha) needs a cap; one
+keyed on *mounted components* or on a literal enumeration does not, provided it deletes on
+unmount.
+
+| Structure | Bound |
+|-----------|-------|
+| [`line-highlight.ts`](../../../packages/app/src/features/diff/line-highlight.ts) `cache` | **10 000-entry true LRU** (`MAX_ENTRIES`), capped by Theme F. Keyed on full line text — the one genuinely unbounded map in the renderer before this phase. |
+| `line-highlight.ts` `inFlight` | One entry per resolution in flight; `delete` in the settle path (`:145`). |
+| `line-highlight.ts` `listeners` | `Map<key, Set<fn>>`; the key's entry is deleted when its last subscriber unsubscribes (`:162`), so it is bounded by *mounted* diff rows — and the pane is virtualized. |
+| [`avatars.ts`](../../../packages/app/src/services/avatars.ts) `cache` / `inFlight` | Distinct commit authors in the repositories opened this session; `inFlight` deletes on settle (`:104`). Bounded, documented, unchanged (Decision). |
+| `avatars.ts` `listeners` | One per mounted avatar consumer; removed by the unsubscribe (`:125`). |
+| [`use-now.ts`](../../../packages/app/src/lib/use-now.ts) `listeners` | One per mounted clock consumer; the interval itself is cleared when the set empties (`:73`). |
+| [`lib/perf.ts`](../../../packages/app/src/lib/perf.ts) `emitted` | Three names, fixed by `RENDERER_MARKS`. |
+| [`view-sections.ts`](../../../packages/app/src/features/repos/view-sections.ts) `PARENT_OF` / `CHILDREN_OF` | Derived once from the static section tree. |
+| [`lib/highlighter.ts`](../../../packages/app/src/lib/highlighter.ts) shiki singleton | Grammars stay resident once loaded — bounded by languages actually viewed. Accepted, documented; unloading would re-pay the load on every revisit (*Not in this phase*). |
+| `languages.ts` ext sets · `chord.ts` `MODIFIER_KEYS` · `use-file-actions.ts` `RESERVED_NAMES` · `linkify-rehype.ts` `OPAQUE` · `image-sources.ts` `NO_HEAD_SIDE` · the `EMPTY_SET` / `NOTHING_EXPANDED` constants | Literal constants. |
+
 ## Baseline table
 
 Filled in by Theme A before any fix lands; every theme appends its after-numbers. Mode:

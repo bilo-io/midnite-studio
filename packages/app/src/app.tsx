@@ -10,10 +10,9 @@ import {
 } from '@bilo-io/shell';
 import { pickForgeRemote } from '@midnite/studio-shared';
 import { QueryClient, useQueryClient } from '@tanstack/react-query';
-import { ChevronLeft, Command as CommandIcon } from 'lucide-react';
 import type { IconType } from 'react-icons';
 import { CiPower } from 'react-icons/ci';
-import { LuFile, LuSettings } from 'react-icons/lu';
+import { LuChevronLeft, LuCommand, LuFile, LuSettings } from 'react-icons/lu';
 
 import { Brand, BrandMark, Wordmark } from './components/brand';
 import { DialogHost } from './components/dialog-host';
@@ -60,6 +59,7 @@ import { TerminalPanel } from './features/terminal/terminal-panel';
 import { useAgentActivity } from './features/terminal/use-agent-activity';
 import { useSessionExits } from './features/terminal/use-session-exits';
 import { hslTokenToHex } from './lib/color';
+import { markOnce } from './lib/perf';
 import { bridge } from './services/bridge';
 import { useCommandHandlers } from './services/keybindings/use-command-handlers';
 import { useKeybindings } from './services/keybindings/use-keybindings';
@@ -260,23 +260,48 @@ function useForgeGateAvailable(repoId: string | null): boolean {
   return lastKnown.current;
 }
 
+/**
+ * Background fetch, paused while nobody is looking (Phase 36 E).
+ *
+ * Every tick spawns one `git fetch` per open repo, so a hidden window with
+ * several repos open was doing real network and disk work — and the answer it
+ * produced could not be seen. Hidden ticks are skipped; on return, a catch-up
+ * fetch runs immediately if a full interval has elapsed, so the data on screen
+ * is never staler than the always-on version would have made it.
+ */
 function useAutoFetch() {
   const autoFetchIntervalMs = useUiStore((s) => s.autoFetchIntervalMs);
   const { data: repos } = useRepos();
   const client = useQueryClient();
+  const lastFetchAt = useRef<number>(Date.now());
 
   useEffect(() => {
     if (!autoFetchIntervalMs || autoFetchIntervalMs < 10000 || !repos || repos.length === 0) return;
 
-    const interval = setInterval(() => {
+    const runFetch = () => {
       const api = bridge();
       if (!api) return;
+      lastFetchAt.current = Date.now();
       Promise.all(repos.map((repo) => api.ops.fetch({ repoId: repo.id, worktreePath: repo.path })))
         .then(() => Promise.all(repos.map((repo) => client.invalidateQueries({ queryKey: keys.repo(repo.id) }))))
         .catch(() => {});
+    };
+
+    const interval = setInterval(() => {
+      if (document.visibilityState === 'hidden') return;
+      runFetch();
     }, autoFetchIntervalMs);
 
-    return () => clearInterval(interval);
+    const onVisible = () => {
+      if (document.visibilityState === 'hidden') return;
+      if (Date.now() - lastFetchAt.current >= autoFetchIntervalMs) runFetch();
+    };
+    document.addEventListener('visibilitychange', onVisible);
+
+    return () => {
+      clearInterval(interval);
+      document.removeEventListener('visibilitychange', onVisible);
+    };
   }, [autoFetchIntervalMs, repos, client]);
 }
 
@@ -335,7 +360,7 @@ function NavLockToggle({
       title={locked ? 'Unlock navigation' : 'Keep navigation expanded'}
       className="ml-auto shrink-0 rounded p-1 text-muted-foreground transition-colors hover:bg-accent hover:text-foreground"
     >
-      <ChevronLeft
+      <LuChevronLeft
         aria-hidden
         className={`h-4 w-4 transition-transform duration-200 ease-in-out ${
           locked ? '' : 'rotate-180'
@@ -456,6 +481,17 @@ function Shell() {
     const observer = new ResizeObserver(() => setStackHeight(stack.clientHeight));
     observer.observe(stack);
     return () => observer.disconnect();
+  }, []);
+
+  /*
+    First-interactive, as far as the renderer can tell: a layout effect here runs
+    after the view inside `stackRef` has committed, so the mark lands once the
+    user has something other than the pre-paint background to look at. Beside the
+    view switch rather than in `main.tsx` for exactly that reason — the entry
+    module knows when React started, not when it finished.
+  */
+  useLayoutEffect(() => {
+    markOnce('first-view-rendered');
   }, []);
 
   /*
@@ -615,7 +651,7 @@ function Shell() {
         way into every other action.
       */}
       <IconButton
-        icon={CommandIcon}
+        icon={LuCommand}
         label={`Command Palette (${displayChord(paletteChord)}) — Search commands, view actions, and shortcuts`}
         onClick={() => palette.open()}
       >

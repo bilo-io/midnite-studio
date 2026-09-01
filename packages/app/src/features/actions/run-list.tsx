@@ -1,4 +1,4 @@
-import { ChevronDown, ChevronRight } from 'lucide-react';
+import { LuChevronDown, LuChevronRight } from 'react-icons/lu';
 
 import type { ForgeRun } from '@midnite/studio-shared';
 
@@ -73,12 +73,14 @@ export function RunList({
               className="flex w-full items-center gap-1 px-2 py-1 text-left text-[11px] font-semibold uppercase tracking-wide text-muted-foreground transition-colors hover:bg-accent/30"
             >
               {open ? (
-                <ChevronDown aria-hidden className="h-3 w-3 shrink-0" />
+                <LuChevronDown aria-hidden className="h-3 w-3 shrink-0" />
               ) : (
-                <ChevronRight aria-hidden className="h-3 w-3 shrink-0" />
+                <LuChevronRight aria-hidden className="h-3 w-3 shrink-0" />
               )}
               <span className="truncate">{group.label}</span>
-              <span className="ml-auto shrink-0 tabular-nums font-normal">{formatNumber(group.runs.length)}</span>
+              <span className="ml-auto shrink-0 tabular-nums font-normal">
+                {formatNumber(group.runs.length)}
+              </span>
             </button>
 
             {open ? (
@@ -146,7 +148,9 @@ function RunRow({
         <span className="truncate">{run.headBranch ?? 'detached'}</span>
         {run.event === null ? null : <span className="shrink-0">· {run.event}</span>}
         <span className="ml-auto shrink-0 tabular-nums">
-          {took === null ? relativeAge(run.createdAt, now) : `${took} · ${relativeAge(run.createdAt, now)}`}
+          {took === null
+            ? relativeAge(run.createdAt, now)
+            : `${took} · ${relativeAge(run.createdAt, now)}`}
         </span>
       </span>
     </button>

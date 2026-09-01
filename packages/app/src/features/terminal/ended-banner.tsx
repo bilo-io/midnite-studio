@@ -1,4 +1,4 @@
-import { Terminal } from 'lucide-react';
+import { LuTerminal } from 'react-icons/lu';
 
 /**
  * An overlay strip shown at the foot of an ended terminal pane.
@@ -27,7 +27,7 @@ export function EndedStrip({
       className="absolute inset-x-0 bottom-0 h-8 flex items-center justify-between gap-2 px-3 bg-background/90 border-t border-border text-xs z-10"
     >
       <div className="flex items-center gap-2 text-muted-foreground min-w-0 truncate">
-        <Terminal className="size-3.5 shrink-0" />
+        <LuTerminal className="size-3.5 shrink-0" />
         <span className="truncate">{text}</span>
       </div>
       <div className="flex items-center gap-2 shrink-0">

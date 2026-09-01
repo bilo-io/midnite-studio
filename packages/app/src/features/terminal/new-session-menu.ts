@@ -1,5 +1,5 @@
 import type { AgentDefinition, AgentStatus } from '@midnite/studio-shared';
-import { Terminal } from 'lucide-react';
+import { LuTerminal } from 'react-icons/lu';
 
 import type { MenuItem } from '../../components/context-menu';
 import { resolveAgentIcon } from '../../components/icons';
@@ -61,7 +61,7 @@ export function buildNewSessionMenu({
       // lucide's Terminal, so the icon gutter is never ragged — a menu is
       // either iconless or fully iconed (see `ContextMenu`), and one plain row
       // among four marked ones reads as that row being singled out.
-      icon: Terminal,
+      icon: LuTerminal,
       onSelect: onNewTerminal,
       ...(hasWorktree ? {} : { disabled: true, disabledReason: NO_WORKTREE }),
     },

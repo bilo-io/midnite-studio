@@ -1,21 +1,16 @@
-import { useEffect, useState } from 'react';
 import { LuClock } from 'react-icons/lu';
 
+import { useNow } from '../../../lib/use-now';
 import { useTitlebarStatusStore } from '../titlebar-status-store';
 import type { ClockMode } from '../titlebar-status-types';
 import { AnalogClockFace } from './analog-clock-face';
 
 export function TimeSection() {
-  const [now, setNow] = useState(() => new Date());
+  const now = useNow();
   const clockMode = useTitlebarStatusStore((s) => s.clockMode);
   const showSeconds = useTitlebarStatusStore((s) => s.showSeconds);
   const setClockMode = useTitlebarStatusStore((s) => s.setClockMode);
   const setShowSeconds = useTitlebarStatusStore((s) => s.setShowSeconds);
-
-  useEffect(() => {
-    const id = setInterval(() => setNow(new Date()), 1000);
-    return () => clearInterval(id);
-  }, []);
 
   const timeStr = now.toLocaleTimeString(undefined, {
     hour: '2-digit',

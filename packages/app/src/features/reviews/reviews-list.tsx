@@ -2,7 +2,7 @@ import { useCallback, useEffect, useMemo, useState } from 'react';
 
 import { Tabs, type TabOption } from '@bilo-io/ui';
 import type { ForgePull, ForgePullScope } from '@midnite/studio-shared';
-import { RefreshCw, Search, Users } from 'lucide-react';
+import { LuRefreshCw, LuSearch, LuUsers } from 'react-icons/lu';
 
 import { IconButton } from '../../components/icon-button';
 import { MultiSelectMenu, type MultiSelectOption } from '../../components/multi-select-menu';
@@ -153,7 +153,11 @@ export function ReviewsList({ repoId }: { repoId: string }) {
       .map(([author, count]) => ({
         value: author,
         label: author,
-        meta: <span className="tabular-nums text-[10px] text-muted-foreground">{formatNumber(count)}</span>,
+        meta: (
+          <span className="tabular-nums text-[10px] text-muted-foreground">
+            {formatNumber(count)}
+          </span>
+        ),
       }));
   }, [visibleRows]);
 
@@ -199,7 +203,7 @@ export function ReviewsList({ repoId }: { repoId: string }) {
             options={authorOptions}
             selected={authors}
             onChange={setAuthors}
-            icon={<Users aria-hidden className="h-3.5 w-3.5 shrink-0" />}
+            icon={<LuUsers aria-hidden className="h-3.5 w-3.5 shrink-0" />}
             allLabel="All authors"
             searchPlaceholder="Filter authors…"
             emptyLabel="No author matches."
@@ -213,7 +217,7 @@ export function ReviewsList({ repoId }: { repoId: string }) {
             so a button per group would claim a precision it does not have.
           */}
           <IconButton
-            icon={RefreshCw}
+            icon={LuRefreshCw}
             label="Refresh pull requests"
             size="sm"
             onClick={refresh}
@@ -221,7 +225,7 @@ export function ReviewsList({ repoId }: { repoId: string }) {
         </div>
 
         <div className="relative shrink-0 border-b border-border px-2 py-1.5">
-          <Search
+          <LuSearch
             aria-hidden
             className="pointer-events-none absolute left-4 top-1/2 h-3 w-3 -translate-y-1/2 text-muted-foreground"
           />
@@ -349,7 +353,9 @@ function ReviewGroupSection({
   */
   const cli = pulls.data?.cli;
   const cliHint =
-    cli !== undefined && cli.reason !== 'ready' ? cli.hint || 'The GitHub CLI is unavailable.' : null;
+    cli !== undefined && cli.reason !== 'ready'
+      ? cli.hint || 'The GitHub CLI is unavailable.'
+      : null;
   const error = cliHint === null ? (pulls.data?.error ?? null) : null;
   const filtered = rows.filter(filter);
   /*
@@ -405,7 +411,9 @@ function ReviewGroupSection({
             <li className="px-2 py-2">
               <button
                 type="button"
-                onClick={() => setLimit((current) => Math.min(PULLS_PAGE_MAX, current + PULLS_PAGE_SIZE))}
+                onClick={() =>
+                  setLimit((current) => Math.min(PULLS_PAGE_MAX, current + PULLS_PAGE_SIZE))
+                }
                 disabled={isFetching}
                 className="w-full rounded-md border border-border py-1 text-xs text-muted-foreground transition-colors hover:bg-accent hover:text-foreground disabled:opacity-60"
               >

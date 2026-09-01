@@ -1,5 +1,6 @@
 import { useEffect, useRef } from 'react';
 
+import { markOnce } from '../../lib/perf';
 import { bridge } from '../../services/bridge';
 import { useGraphStore } from './graph-store';
 
@@ -31,6 +32,9 @@ export function useGraphStream(
     if (!api) return;
 
     const offBatch = api.log.onBatch(({ requestId, rows }) => {
+      // The end of the cold-start chain worth measuring: main has spawned git,
+      // parsed the log and laid out lanes, and the first rows are in the store.
+      markOnce('graph-first-batch');
       useGraphStore.getState().appendBatch(requestId, rows);
     });
     const offDone = api.log.onDone(({ requestId, truncated, error }) => {

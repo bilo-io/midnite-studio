@@ -135,6 +135,38 @@ export function tickActivityClocks(): void {
   for (const entry of activityTracking.values()) entry.clock.tick();
 }
 
+let activityTicker: ReturnType<typeof setInterval> | null = null;
+
+/**
+ * Run the decay tick only while something is actually being tracked
+ * (Phase 36 E). `index.ts` used to arm this unconditionally at boot, so a
+ * session with no agent running — the common case — still woke the main
+ * process every second for the life of the app.
+ *
+ * Deliberately NOT gated on window focus, unlike the metrics sampler: an agent
+ * keeps working while the window is blurred, and a paused clock would freeze
+ * its activity glyph at whatever it last showed. The right gate is "is anyone
+ * tracked", not "is anyone looking".
+ *
+ * Called after every mutation of `activityTracking`.
+ */
+function syncActivityTicker(): void {
+  const wanted = activityTracking.size > 0;
+  if (wanted && activityTicker === null) {
+    activityTicker = setInterval(tickActivityClocks, 1000);
+    // Bookkeeping must never hold the process open.
+    activityTicker.unref?.();
+  } else if (!wanted && activityTicker !== null) {
+    clearInterval(activityTicker);
+    activityTicker = null;
+  }
+}
+
+/** Test seam — whether the shared decay tick is currently armed. */
+export function __activityTickerArmed(): boolean {
+  return activityTicker !== null;
+}
+
 /** Wired as `createActivityDetector`'s `onDisabled` from `index.ts`. */
 export function notifyActivityDisabled(agentId: string): void {
   for (const [ptyId, entry] of activityTracking) {
@@ -143,11 +175,13 @@ export function notifyActivityDisabled(agentId: string): void {
     activityTracking.delete(ptyId);
     emitActivity(ptyId, null);
   }
+  syncActivityTicker();
 }
 
 export function disposeActivity(ptyId: string): void {
   activityTracking.get(ptyId)?.clock.dispose();
   activityTracking.delete(ptyId);
+  syncActivityTicker();
 }
 
 /**
@@ -183,6 +217,7 @@ export function noteActivity(ptyId: string, bytes: Uint8Array): void {
       agentId,
     };
     activityTracking.set(ptyId, entry);
+    syncActivityTicker();
   } else if (entry.agentId !== agentId) {
     /*
       A different agent is running in this pty now — a plain shell that ran
@@ -209,9 +244,32 @@ type SessionInfo = {
 
 const sessions = new Map<string, SessionInfo>();
 const sessionIdByPty = new Map<string, string>();
+
+/**
+ * Scrollback ownership, audited in Phase 36 F — three maps hold session bytes
+ * and only one is authoritative at a time:
+ *
+ * - `broker/server.ts`'s own map owns the bytes whenever a broker is running.
+ *   That process outlives the window, so it has to.
+ * - `inproc-pty.ts`'s map owns them in the in-proc fallback
+ *   (`MSTUDIO_PTY_INPROC=1`, or no broker available).
+ * - *this* map is a read-through mirror, and only in broker mode: it is fed by
+ *   the broker's data frames so `readScrollback` can answer the renderer
+ *   without a socket round trip. `snapshotCache` below is its cold-start
+ *   fallback, not a fourth copy — see `readScrollback`.
+ *
+ * So the steady-state cost is 2x per live session in broker mode (owner +
+ * mirror), each independently capped at `SCROLLBACK_BYTES * 2` by
+ * `appendScrollback`, and 1x in-proc. `dropScrollback` clears every holder.
+ * Collapsing the mirror into the broker would save that second copy but adds a
+ * socket round trip to every scrollback read — measured as not worth it, see
+ * the phase doc's *Not in this phase*.
+ */
 const scrollbackBySession = new Map<string, Uint8Array>();
 
-// Cache for snapshot queries from broker (200ms TTL)
+/** Bounded by live session count — `dropScrollback` deletes on close. Entries
+ *  are only read within 200ms of being written (see `readScrollback`), so a
+ *  stale one costs a copy of one session's bytes until that session ends. */
 const snapshotCache = new Map<string, { bytes: Uint8Array; timestamp: number }>();
 
 function appendScrollback(sessionId: string, chunk: Uint8Array): void {

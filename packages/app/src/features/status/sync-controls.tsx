@@ -1,6 +1,6 @@
 import type { BranchStatus, GitOpResult } from '@midnite/studio-shared';
-import { RefreshCw } from 'lucide-react';
-import { IoCloudUploadOutline } from "react-icons/io5";
+import { LuRefreshCw } from 'react-icons/lu';
+import { IoCloudUploadOutline } from 'react-icons/io5';
 
 import { useDialogs } from '../../components/dialog-host';
 import { IconButton } from '../../components/icon-button';
@@ -46,8 +46,12 @@ export function SyncControls({
 }) {
   const dialogs = useDialogs();
 
-  const fetch = useTargetedGitOp<void>(target, 'fetch', (api, _args, ctx) => api.ops.fetch({ ...ctx }));
-  const pull = useTargetedGitOp<void>(target, 'pull', (api, _args, ctx) => api.ops.pull({ ...ctx }));
+  const fetch = useTargetedGitOp<void>(target, 'fetch', (api, _args, ctx) =>
+    api.ops.fetch({ ...ctx }),
+  );
+  const pull = useTargetedGitOp<void>(target, 'pull', (api, _args, ctx) =>
+    api.ops.pull({ ...ctx }),
+  );
   const push = useTargetedGitOp<{ setUpstream: boolean }>(target, 'push', (api, args, ctx) =>
     api.ops.push({ ...ctx, setUpstream: args.setUpstream }),
   );
@@ -122,7 +126,7 @@ export function SyncControls({
 
   return (
     <IconButton
-      icon={plan.label === 'Publish branch' ? IoCloudUploadOutline : RefreshCw}
+      icon={plan.label === 'Publish branch' ? IoCloudUploadOutline : LuRefreshCw}
       size={size}
       busy={busy}
       // Both halves of the tooltip and the accessible name: the label alone

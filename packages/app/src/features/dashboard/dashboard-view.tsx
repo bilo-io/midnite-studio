@@ -2,20 +2,20 @@ import { useMemo, useState } from 'react';
 
 import { pickForgeRemote, type StatsWindow } from '@midnite/studio-shared';
 import {
-  Activity,
-  ArrowDown,
-  ArrowUp,
-  Calendar,
-  CircleDot,
-  GitPullRequest,
-  HeartPulse,
-  LayoutGrid,
-  Play,
-  RefreshCw,
-  RotateCcw,
-  Trash2,
-  Users,
-} from 'lucide-react';
+  LuActivity,
+  LuArrowDown,
+  LuArrowUp,
+  LuCalendar,
+  LuCircleDot,
+  LuGitPullRequest,
+  LuHeartPulse,
+  LuLayoutGrid,
+  LuPlay,
+  LuRefreshCw,
+  LuRotateCcw,
+  LuTrash2,
+  LuUsers,
+} from 'react-icons/lu';
 import GridLayout, { useContainerWidth, type LayoutItem } from 'react-grid-layout';
 
 import { BrandMark } from '../../components/brand';
@@ -40,13 +40,7 @@ import {
 } from '../../store/dashboard-store';
 import { useUiStore } from '../../store/ui-store';
 import { byCommits, scopeStats } from './dashboard-derive';
-import {
-  GRID_COLS,
-  GRID_MARGIN,
-  ROW_HEIGHT,
-  isWidgetId,
-  type WidgetId,
-} from './widget-ids';
+import { GRID_COLS, GRID_MARGIN, ROW_HEIGHT, isWidgetId, type WidgetId } from './widget-ids';
 import { DRAG_HANDLE_CLASS, NO_DRAG_CLASS, WidgetFrame } from './widget-frame';
 import { availableWidgets, needsChurn, renderableWidgets, WIDGETS } from './widget-registry';
 import { ActivityWidget } from './widgets/activity-widget';
@@ -77,13 +71,13 @@ const WINDOW_LABELS: Record<StatsWindow, string> = {
 
 /** One glyph per widget, for the board's own "add/remove widget" menu. */
 const WIDGET_ICON: Record<WidgetId, IconComponent> = {
-  calendar: Calendar,
-  contributors: Users,
-  activity: Activity,
-  pulls: GitPullRequest,
-  issues: CircleDot,
-  runs: Play,
-  health: HeartPulse,
+  calendar: LuCalendar,
+  contributors: LuUsers,
+  activity: LuActivity,
+  pulls: LuGitPullRequest,
+  issues: LuCircleDot,
+  runs: LuPlay,
+  health: LuHeartPulse,
 };
 
 export function DashboardView() {
@@ -105,10 +99,7 @@ export function DashboardView() {
   const hasForge = pickForgeRemote(remotes ?? [])?.forge?.kind === 'github';
 
   const layoutIds = useMemo(() => board.layout.map((item) => item.i), [board.layout]);
-  const specs = useMemo(
-    () => renderableWidgets(layoutIds, hasForge),
-    [layoutIds, hasForge],
-  );
+  const specs = useMemo(() => renderableWidgets(layoutIds, hasForge), [layoutIds, hasForge]);
   const onBoard = useMemo(() => new Set(specs.map((spec) => spec.id)), [specs]);
 
   const withChurn = needsChurn(layoutIds);
@@ -174,7 +165,7 @@ export function DashboardView() {
         onBoard.has(spec.id) ? removeWidget(repoId, spec.id) : addWidget(repoId, spec.id),
     })),
     { type: 'separator' as const },
-    { label: 'Reset layout', icon: RotateCcw, onSelect: () => resetLayout(repoId) },
+    { label: 'Reset layout', icon: LuRotateCcw, onSelect: () => resetLayout(repoId) },
   ];
 
   const ordered = inReadingOrder(board.layout);
@@ -183,20 +174,20 @@ export function DashboardView() {
     return [
       {
         label: 'Move up',
-        icon: ArrowUp,
+        icon: LuArrowUp,
         onSelect: () => moveWidget(repoId, id, -1),
         disabled: index <= 0,
       },
       {
         label: 'Move down',
-        icon: ArrowDown,
+        icon: LuArrowDown,
         onSelect: () => moveWidget(repoId, id, 1),
         disabled: index === -1 || index >= ordered.length - 1,
       },
       { type: 'separator' as const },
       {
         label: 'Remove widget',
-        icon: Trash2,
+        icon: LuTrash2,
         onSelect: () => removeWidget(repoId, id),
         danger: true,
       },
@@ -228,7 +219,7 @@ export function DashboardView() {
           options={authorOptions}
           selected={board.authors}
           onChange={(next) => setAuthors(repoId, next)}
-          icon={<Users aria-hidden className="h-3.5 w-3.5" />}
+          icon={<LuUsers aria-hidden className="h-3.5 w-3.5" />}
           allLabel="All authors"
           searchPlaceholder="Filter authors…"
           emptyLabel="No contributors in this window."
@@ -237,7 +228,7 @@ export function DashboardView() {
         />
 
         <IconButton
-          icon={RefreshCw}
+          icon={LuRefreshCw}
           label="Recompute repository statistics"
           size="sm"
           busy={statsFetching}
@@ -245,7 +236,7 @@ export function DashboardView() {
         />
 
         <IconButton
-          icon={LayoutGrid}
+          icon={LuLayoutGrid}
           label="Widgets and layout"
           size="sm"
           onClick={(event) => {

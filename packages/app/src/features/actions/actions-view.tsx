@@ -1,4 +1,4 @@
-import { RefreshCw } from 'lucide-react';
+import { LuRefreshCw } from 'react-icons/lu';
 
 import { IconButton } from '../../components/icon-button';
 import { ResizeHandle } from '../../components/resizable/resize-handle';
@@ -39,7 +39,7 @@ export function ActionsView() {
   const runs = useForgeRuns(repoId, repoId !== null);
   const refresh = useRefreshForge(repoId);
 
-  const stored = useActionsStore((s) => (repoId === null ? null : s.selectedRun[repoId] ?? null));
+  const stored = useActionsStore((s) => (repoId === null ? null : (s.selectedRun[repoId] ?? null)));
 
   /*
     One `now` for the whole paint, and the right one.
@@ -94,7 +94,7 @@ export function ActionsView() {
             {rows.length}
           </span>
           <IconButton
-            icon={RefreshCw}
+            icon={LuRefreshCw}
             label="Refresh workflow runs"
             size="sm"
             className="ml-auto"

@@ -8,8 +8,8 @@ import type { CSSProperties } from 'react';
  * `brand.tsx`, the app's other hand-held mark.
  *
  * Typed to the app's structural `IconComponent` (`className` + `strokeWidth`)
- * rather than to lucide's own type, so it drops into `IconButton` and the
- * session list next to `Terminal` without either caring where it came from.
+ * rather than to react-icons' `IconType`, so it drops into `IconButton` and the
+ * session list next to `LuTerminal` without either caring where it came from.
  * `strokeWidth` is accepted and ignored: the mark is filled, not stroked, and
  * a caller mapping over a list of icons should not have to special-case it.
  *

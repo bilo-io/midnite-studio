@@ -4,7 +4,7 @@ import type {
   ForgeReviewThread,
   StatusCode,
 } from '@midnite/studio-shared';
-import { ChevronRight } from 'lucide-react';
+import { LuChevronRight } from 'react-icons/lu';
 import { useId, useState } from 'react';
 
 import { Counts } from '../../components/change-tree';
@@ -12,7 +12,6 @@ import { positionForLine, threadsForFile } from '../diff/comment-anchors';
 import { DiffToolbar } from '../diff/diff-toolbar';
 import { DiffView } from '../diff/diff-view';
 import { imageDiffSources } from '../diff/image-sources';
-
 
 import { StatusMark } from '../status/status-mark';
 import { CommentComposer } from './comment-composer';
@@ -111,7 +110,7 @@ export function PrFileAccordion({
           aria-controls={bodyId}
           className="flex min-w-0 flex-1 items-center gap-2 text-left text-[13px] transition-colors hover:text-foreground"
         >
-          <ChevronRight
+          <LuChevronRight
             aria-hidden
             className={`h-3.5 w-3.5 shrink-0 text-muted-foreground transition-transform duration-150 ease-in-out ${
               open ? 'rotate-90' : ''
@@ -127,7 +126,6 @@ export function PrFileAccordion({
 
         {open ? <DiffToolbar diff={file} showStats={false} /> : null}
       </header>
-
 
       {open ? (
         <div id={bodyId} className="border-t border-border/40">

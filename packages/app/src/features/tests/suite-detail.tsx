@@ -1,4 +1,4 @@
-import { Play, Square, Terminal } from 'lucide-react';
+import { LuPlay, LuSquare, LuTerminal } from 'react-icons/lu';
 
 import { testSuiteFingerprint, type TestRunResult, type TestSuite } from '@midnite/studio-shared';
 
@@ -42,7 +42,11 @@ export function SuiteDetail({ repoId, suite }: { repoId: string; suite: TestSuit
   const output = (run?.output ?? []).join('');
 
   return (
-    <div role="region" aria-label="Suite detail" className="flex min-h-0 flex-1 flex-col overflow-y-auto p-4">
+    <div
+      role="region"
+      aria-label="Suite detail"
+      className="flex min-h-0 flex-1 flex-col overflow-y-auto p-4"
+    >
       <header className="mb-3 flex items-start justify-between gap-3">
         <div className="min-w-0">
           <h2 className="truncate text-sm font-semibold">{suite.name}</h2>
@@ -52,21 +56,21 @@ export function SuiteDetail({ repoId, suite }: { repoId: string; suite: TestSuit
         </div>
         <div className="flex shrink-0 items-center gap-1">
           <IconButton
-            icon={Terminal}
+            icon={LuTerminal}
             label="Run in terminal"
             size="sm"
             onClick={() => runSuiteInTerminal(repoId, suite)}
           />
           {isRunning ? (
             <IconButton
-              icon={Square}
+              icon={LuSquare}
               label="Cancel run"
               size="sm"
               onClick={() => run && cancelRun(activeRunId(repoId, suite.id) ?? run.runId)}
             />
           ) : (
             <IconButton
-              icon={Play}
+              icon={LuPlay}
               label={isTrusted ? 'Run suite' : 'Trust and run suite'}
               size="sm"
               onClick={() => void trustAndRun()}
@@ -137,7 +141,10 @@ function ResultSummary({ result }: { result: TestRunResult }) {
       {result.failures.length > 0 ? (
         <ul className="space-y-1">
           {result.failures.map((f, i) => (
-            <li key={i} className="rounded border border-destructive/20 bg-destructive/5 px-2 py-1 text-xs">
+            <li
+              key={i}
+              className="rounded border border-destructive/20 bg-destructive/5 px-2 py-1 text-xs"
+            >
               <p className="font-medium">{f.name}</p>
               {f.file ? <p className="text-muted-foreground">{f.file}</p> : null}
               <p className="text-destructive">{f.message}</p>

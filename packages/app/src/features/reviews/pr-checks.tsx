@@ -1,5 +1,5 @@
 import type { ForgeRun } from '@midnite/studio-shared';
-import { RefreshCw } from 'lucide-react';
+import { LuRefreshCw } from 'react-icons/lu';
 import { useMemo, useState } from 'react';
 
 import { useForgeRunDetail, useForgeRuns, useRerunChecks } from '../../services/queries';
@@ -97,8 +97,8 @@ export function PrChecks({
     return (
       <Note>
         No workflow run on {headBranch || 'this branch'} was triggered on {headSha.slice(0, 7)}. The
-        listing is capped at the twenty most recent runs, so an older pull request&rsquo;s checks may
-        have aged out of it.
+        listing is capped at the twenty most recent runs, so an older pull request&rsquo;s checks
+        may have aged out of it.
       </Note>
     );
   }
@@ -211,7 +211,7 @@ function RerunControls({
         title={title('Re-run all jobs')}
         className={className}
       >
-        <RefreshCw className={`h-3 w-3 ${pending ? 'animate-spin' : ''}`} aria-hidden />
+        <LuRefreshCw className={`h-3 w-3 ${pending ? 'animate-spin' : ''}`} aria-hidden />
         Re-run all jobs
       </button>
       {failed ? (

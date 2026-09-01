@@ -1,4 +1,4 @@
-import { Terminal } from 'lucide-react';
+import { LuTerminal } from 'react-icons/lu';
 import {
   SiAnthropic,
   SiCline,
@@ -84,7 +84,7 @@ export const AGENT_ICONS: Readonly<Record<string, IconComponent>> = {
  * only `agy` names one, because "agy" is the command and "antigravity" is what
  * the mark is called.
  *
- * An unrecognised key falls back to lucide's `Terminal` rather than rendering
+ * An unrecognised key falls back to `LuTerminal` rather than rendering
  * nothing: `agents.json` is a file a user hand-edits, and a typo there should
  * cost them their glyph, not their row.
  */
@@ -98,7 +98,7 @@ export function resolveAgentIcon(agent: { id: string; icon?: string }): IconComp
     guarantee that a typo costs a glyph rather than a row — for three
     particular typos it was costing the row.
   */
-  return Object.hasOwn(AGENT_ICONS, key) ? (AGENT_ICONS[key] as IconComponent) : Terminal;
+  return Object.hasOwn(AGENT_ICONS, key) ? (AGENT_ICONS[key] as IconComponent) : LuTerminal;
 }
 
 export {

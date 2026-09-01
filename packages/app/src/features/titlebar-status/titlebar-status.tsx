@@ -1,6 +1,7 @@
-import { useEffect, useState } from 'react';
+import { useState } from 'react';
 import { LuCalendar, LuClock, LuCloudSun } from 'react-icons/lu';
 
+import { useNow } from '../../lib/use-now';
 import { Popover } from '../../components/popover';
 import { TitlebarStatusPanel } from './components/titlebar-status-panel';
 import { useTitlebarStatusStore } from './titlebar-status-store';
@@ -9,7 +10,7 @@ import { describeWeatherCode, temp } from './weather-format';
 
 export function TitleBarStatus() {
   const [open, setOpen] = useState(false);
-  const [now, setNow] = useState(() => new Date());
+  const now = useNow();
 
   const showDate = useTitlebarStatusStore((s) => s.showDate);
   const showTime = useTitlebarStatusStore((s) => s.showTime);
@@ -19,11 +20,6 @@ export function TitleBarStatus() {
   const weatherLocation = useTitlebarStatusStore((s) => s.weatherLocation);
 
   const { data: weatherData } = useWeather(weatherLocation);
-
-  useEffect(() => {
-    const id = setInterval(() => setNow(new Date()), 1000);
-    return () => clearInterval(id);
-  }, []);
 
   const timeStr = now.toLocaleTimeString(undefined, {
     hour: '2-digit',

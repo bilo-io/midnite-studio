@@ -1,5 +1,5 @@
 import { BUILTIN_AGENTS, type AgentStatus } from '@midnite/studio-shared';
-import { Terminal } from 'lucide-react';
+import { LuTerminal } from 'react-icons/lu';
 import { describe, expect, it, vi } from 'vitest';
 
 import {
@@ -39,7 +39,9 @@ const build = (over: Partial<Parameters<typeof buildNewSessionMenu>[0]> = {}) =>
 
 /** Every non-separator row, which is what every assertion below is about. */
 const rows = (items: ReturnType<typeof build>) =>
-  items.filter((item): item is Extract<typeof item, { label: string }> => item.type !== 'separator');
+  items.filter(
+    (item): item is Extract<typeof item, { label: string }> => item.type !== 'separator',
+  );
 
 const row = (items: ReturnType<typeof build>, label: string) =>
   rows(items).find((r) => r.label === label);
@@ -77,7 +79,7 @@ describe('buildNewSessionMenu — everything installed', () => {
 
   it('gives every row an icon, so the gutter is never ragged', () => {
     for (const r of rows(build())) expect(r.icon).toBeDefined();
-    expect(row(build(), 'New Terminal')?.icon).toBe(Terminal);
+    expect(row(build(), 'New Terminal')?.icon).toBe(LuTerminal);
   });
 
   it('resolves each agent to its own mark rather than to Claude multiple times', () => {
@@ -145,7 +147,13 @@ describe('buildNewSessionMenu — one agent uninstalled', () => {
   });
 
   it('falls back to a sentence when a user-added agent has no install hint', () => {
-    const custom = { id: 'custom-agent', label: 'Custom Agent', command: 'custom-agent', args: [], accent: '#14B8A6' };
+    const custom = {
+      id: 'custom-agent',
+      label: 'Custom Agent',
+      command: 'custom-agent',
+      args: [],
+      accent: '#14B8A6',
+    };
     const items = build({
       agents: [custom],
       status: [{ id: 'custom-agent', installed: false, resolvedPath: null }],

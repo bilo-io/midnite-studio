@@ -1,11 +1,9 @@
 import type { DiffLine, SplitCell } from '@midnite/studio-shared';
-import { MessageSquarePlus } from 'lucide-react';
+import { LuMessageSquarePlus } from 'react-icons/lu';
 
 import { mergeSegmentsWithTokens, toSegments } from './diff-rows';
 import { isCommentableLine } from './comment-anchors';
 import { useLineHighlight } from './line-highlight';
-
-
 
 const ROW_STYLE: Record<DiffLine['kind'], { row: string; bar: string; span: string }> = {
   add: { row: 'bg-success/10', bar: 'bg-success', span: 'bg-success/25' },
@@ -14,7 +12,6 @@ const ROW_STYLE: Record<DiffLine['kind'], { row: string; bar: string; span: stri
 };
 
 const MARKER: Record<DiffLine['kind'], string> = { add: '+', del: '−', ctx: ' ' };
-
 
 export function DiffCell({
   cell,
@@ -60,8 +57,6 @@ export function DiffCell({
 
   const pieces = mergeSegmentsWithTokens(toSegments(line), tokens);
 
-
-
   return (
     <div className={`flex w-full ${style.row}`} data-line-kind={kind} data-side={side}>
       <span className={`w-0.5 shrink-0 ${style.bar}`} aria-hidden />
@@ -82,7 +77,7 @@ export function DiffCell({
           <span aria-hidden className="group-hover/gutter:hidden">
             {MARKER[kind]}
           </span>
-          <MessageSquarePlus
+          <LuMessageSquarePlus
             aria-hidden
             className="mx-auto hidden h-3 w-3 group-hover/gutter:block"
           />
@@ -92,7 +87,6 @@ export function DiffCell({
           {MARKER[kind]}
         </span>
       )}
-
 
       <span className="min-w-0 flex-1 whitespace-pre pr-3" data-selectable>
         {pieces.map((piece, i) => {

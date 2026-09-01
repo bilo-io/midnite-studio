@@ -4,7 +4,7 @@ import type {
   ForgePullDetail,
   ForgeWriteResult,
 } from '@midnite/studio-shared';
-import { SquareArrowOutUpRight } from 'lucide-react';
+import { LuSquareArrowOutUpRight } from 'react-icons/lu';
 import { useEffect, useState } from 'react';
 import Markdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
@@ -30,11 +30,7 @@ import { MARKDOWN_PROSE_CLASSES } from '../markdown/prose';
 import { PrChecks } from './pr-checks';
 import { PrConversation } from './pr-conversation';
 import { PrFiles } from './pr-files';
-import {
-  PrDetailSkeleton,
-  PrHeaderMetaSkeleton,
-  PrOverviewSkeleton,
-} from './reviews-skeletons';
+import { PrDetailSkeleton, PrHeaderMetaSkeleton, PrOverviewSkeleton } from './reviews-skeletons';
 import { ReviewActionBar } from './review-action-bar';
 
 /**
@@ -287,7 +283,10 @@ function PrOverview({
   return (
     <div className="px-4 py-3">
       <PresentButton source={{ content: body, label: `PR #${number}` }} className="mb-1" />
-      <div data-selectable className={`max-w-none text-sm leading-relaxed ${MARKDOWN_PROSE_CLASSES}`}>
+      <div
+        data-selectable
+        className={`max-w-none text-sm leading-relaxed ${MARKDOWN_PROSE_CLASSES}`}
+      >
         {/* No `rehype-raw` — see `CommitMessage`'s note on attacker-authored text. */}
         <Markdown remarkPlugins={[remarkGfm]} components={{ a: ExternalLink }}>
           {body}
@@ -330,7 +329,7 @@ function PrHeader({
           <span className="text-muted-foreground">#{pull.number}</span> {pull.title}
         </h2>
         <IconButton
-          icon={SquareArrowOutUpRight}
+          icon={LuSquareArrowOutUpRight}
           label={`Open #${pull.number} on GitHub`}
           size="sm"
           className="ml-auto"
@@ -351,8 +350,7 @@ function PrHeader({
         </span>
         {detail !== null ? (
           <span className="tabular-nums">
-            {formatNumber(detail.changedFiles)}{' '}
-            {detail.changedFiles === 1 ? 'file' : 'files'}{' '}
+            {formatNumber(detail.changedFiles)} {detail.changedFiles === 1 ? 'file' : 'files'}{' '}
             <span className="text-success">+{formatNumber(detail.additions)}</span>{' '}
             <span className="text-destructive">−{formatNumber(detail.deletions)}</span>
           </span>

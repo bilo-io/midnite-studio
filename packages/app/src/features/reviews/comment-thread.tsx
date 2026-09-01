@@ -1,5 +1,5 @@
 import type { ForgeReviewComment, ForgeReviewThread } from '@midnite/studio-shared';
-import { Check, CornerDownRight, Undo2 } from 'lucide-react';
+import { LuCheck, LuCornerDownRight, LuUndo2 } from 'react-icons/lu';
 import { useState } from 'react';
 import Markdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
@@ -126,7 +126,6 @@ function Thread({
             {count === 1 ? '1 comment' : `${count} comments`}
           </span>
           {thread.resolved ? <StatusPill status={RESOLVED_STATUS} /> : null}
-
         </button>
 
         <button
@@ -136,9 +135,9 @@ function Thread({
           className="flex shrink-0 items-center gap-1 rounded px-1.5 py-px text-[10px] text-muted-foreground transition-colors hover:bg-accent hover:text-foreground disabled:opacity-50"
         >
           {thread.resolved ? (
-            <Undo2 aria-hidden className="h-3 w-3" />
+            <LuUndo2 aria-hidden className="h-3 w-3" />
           ) : (
-            <Check aria-hidden className="h-3 w-3" />
+            <LuCheck aria-hidden className="h-3 w-3" />
           )}
           {thread.resolved ? 'Reopen' : 'Resolve'}
         </button>
@@ -182,7 +181,7 @@ function Thread({
               disabled={busy}
               className="mt-1.5 flex items-center gap-1 rounded px-1 py-px text-[11px] text-muted-foreground hover:bg-accent hover:text-foreground disabled:opacity-50"
             >
-              <CornerDownRight aria-hidden className="h-3 w-3" />
+              <LuCornerDownRight aria-hidden className="h-3 w-3" />
               Reply
             </button>
           ) : null}

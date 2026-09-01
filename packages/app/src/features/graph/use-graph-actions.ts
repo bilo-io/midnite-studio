@@ -2,41 +2,33 @@ import { useCallback, useMemo, useState } from 'react';
 
 import type { GitOpResult, GraphRow, Ref, Remote } from '@midnite/studio-shared';
 import {
-  AlertTriangle,
-  ArrowDownToLine,
-  ArrowRightLeft,
-  ArrowUpFromLine,
-  Circle,
-  CircleDot,
-  ExternalLink,
-  GitBranchPlus,
-
-  GitCommit,
-  GitCompare,
-  GitMerge,
-  Pencil,
-  RefreshCw,
-  RotateCcw,
-  Tag,
-  Trash2,
-  UploadCloud,
-} from 'lucide-react';
+  LuTriangleAlert,
+  LuArrowDownToLine,
+  LuArrowRightLeft,
+  LuArrowUpFromLine,
+  LuCircle,
+  LuCircleDot,
+  LuExternalLink,
+  LuGitBranchPlus,
+  LuGitCommitHorizontal,
+  LuGitCompare,
+  LuGitMerge,
+  LuPencil,
+  LuRefreshCw,
+  LuRotateCcw,
+  LuTag,
+  LuTrash2,
+  LuCloudUpload,
+} from 'react-icons/lu';
 
 import { useDialogs } from '../../components/dialog-host';
 import { validateRefName } from '../../components/prompt-dialog';
 import type { MenuItem } from '../../components/context-menu';
 import { bridge } from '../../services/bridge';
-import {
-  useActiveWorktree,
-  useFetch,
-  useGitOp,
-  usePull,
-  usePush,
-} from '../../services/use-status';
+import { useActiveWorktree, useFetch, useGitOp, usePull, usePush } from '../../services/use-status';
 import { useRemotes } from '../../services/queries';
 import { useWorkbenchStore } from '../../store/workbench-store';
 import { syncActions, type SyncAction } from './ref-sync';
-
 
 /**
  * The commit-row and branch-badge context menus.
@@ -57,8 +49,9 @@ export function useGraphActions(onError: (message: string) => void) {
     'branch-create',
     (api, args, ctx) => api.ops.branchCreate({ ...ctx, ...args }),
   );
-  const branchDelete = useGitOp<{ name: string; force: boolean }>('branch-delete', (api, args, ctx) =>
-    api.ops.branchDelete({ ...ctx, ...args }),
+  const branchDelete = useGitOp<{ name: string; force: boolean }>(
+    'branch-delete',
+    (api, args, ctx) => api.ops.branchDelete({ ...ctx, ...args }),
   );
   const branchRename = useGitOp<{ from: string; to: string }>('branch-rename', (api, args, ctx) =>
     api.ops.branchRename({ ...ctx, ...args }),
@@ -66,8 +59,9 @@ export function useGraphActions(onError: (message: string) => void) {
   const tagCreate = useGitOp<{ name: string; target: string }>('tag-create', (api, args, ctx) =>
     api.ops.tagCreate({ ...ctx, ...args }),
   );
-  const resetTo = useGitOp<{ target: string; mode: 'soft' | 'mixed' | 'hard' }>('reset', (api, args, ctx) =>
-    api.ops.reset({ ...ctx, ...args }),
+  const resetTo = useGitOp<{ target: string; mode: 'soft' | 'mixed' | 'hard' }>(
+    'reset',
+    (api, args, ctx) => api.ops.reset({ ...ctx, ...args }),
   );
   const mergeBranch = useGitOp<{ source: string }>('merge', (api, args, ctx) =>
     api.ops.merge({ ...ctx, source: args.source, noFastForward: false }),
@@ -178,7 +172,7 @@ export function useGraphActions(onError: (message: string) => void) {
       return [
         {
           label: 'Open commit in tab',
-          icon: ExternalLink,
+          icon: LuExternalLink,
           onSelect: () => {
             if (repoId) {
               useWorkbenchStore.getState().openTab({
@@ -194,7 +188,7 @@ export function useGraphActions(onError: (message: string) => void) {
         {
           label: 'Create branch here…',
 
-          icon: GitBranchPlus,
+          icon: LuGitBranchPlus,
           onSelect: () =>
             dialogs.prompt({
               title: `New branch at ${short}`,
@@ -203,12 +197,14 @@ export function useGraphActions(onError: (message: string) => void) {
               placeholder: 'feature/my-change',
               validate: validateRefName,
               onConfirm: (name) =>
-                void branchCreate.mutateAsync({ name, startPoint: sha, checkout: true }).then(report),
+                void branchCreate
+                  .mutateAsync({ name, startPoint: sha, checkout: true })
+                  .then(report),
             }),
         },
         {
           label: 'Create tag here…',
-          icon: Tag,
+          icon: LuTag,
           onSelect: () =>
             dialogs.prompt({
               title: `New tag at ${short}`,
@@ -222,30 +218,29 @@ export function useGraphActions(onError: (message: string) => void) {
         { type: 'separator' },
         {
           label: `Checkout ${short} (detached)`,
-          icon: ArrowRightLeft,
-          onSelect: () =>
-            void checkout.mutateAsync({ target: sha, detach: true }).then(report),
+          icon: LuArrowRightLeft,
+          onSelect: () => void checkout.mutateAsync({ target: sha, detach: true }).then(report),
         },
         { type: 'separator' },
         {
           label: `Reset ${currentBranch ?? 'HEAD'} to here`,
-          icon: RotateCcw,
+          icon: LuRotateCcw,
           disabled: currentBranch === null,
           disabledReason: 'HEAD is detached — there is no branch to move.',
           submenu: [
             {
               label: 'Soft — keep changes staged',
-              icon: Circle,
+              icon: LuCircle,
               onSelect: () => void resetTo.mutateAsync({ target: sha, mode: 'soft' }).then(report),
             },
             {
               label: 'Mixed — keep changes unstaged',
-              icon: CircleDot,
+              icon: LuCircleDot,
               onSelect: () => void resetTo.mutateAsync({ target: sha, mode: 'mixed' }).then(report),
             },
             {
               label: 'Hard — discard changes',
-              icon: AlertTriangle,
+              icon: LuTriangleAlert,
               danger: true,
               // The only menu item that can destroy uncommitted work AND
               // orphan commits, so it is the one that must never fire directly.
@@ -285,7 +280,6 @@ export function useGraphActions(onError: (message: string) => void) {
     ],
   );
 
-
   /** Right-click on a ref badge. */
   const refMenu = useCallback(
     (ref: Ref, currentBranch: string | null): MenuItem[] => {
@@ -295,7 +289,7 @@ export function useGraphActions(onError: (message: string) => void) {
       const items: MenuItem[] = [
         {
           label: `Checkout ${ref.name}`,
-          icon: ArrowRightLeft,
+          icon: LuArrowRightLeft,
           disabled: isCurrent || elsewhere,
           disabledReason: isCurrent
             ? 'Already checked out here.'
@@ -315,10 +309,10 @@ export function useGraphActions(onError: (message: string) => void) {
       if (sync.length > 0) {
         items.push({ type: 'separator' });
         const syncIcon = {
-          fetch: RefreshCw,
-          pull: ArrowDownToLine,
-          push: ArrowUpFromLine,
-          publish: UploadCloud,
+          fetch: LuRefreshCw,
+          pull: LuArrowDownToLine,
+          push: LuArrowUpFromLine,
+          publish: LuCloudUpload,
         };
         for (const action of sync) {
           items.push({
@@ -336,7 +330,7 @@ export function useGraphActions(onError: (message: string) => void) {
           { type: 'separator' },
           {
             label: 'Rename…',
-            icon: Pencil,
+            icon: LuPencil,
             onSelect: () =>
               dialogs.prompt({
                 title: `Rename ${ref.name}`,
@@ -350,7 +344,7 @@ export function useGraphActions(onError: (message: string) => void) {
           },
           {
             label: `Delete ${ref.name}`,
-            icon: Trash2,
+            icon: LuTrash2,
             danger: true,
             disabled: isCurrent,
             disabledReason: 'You cannot delete the branch you are on.',
@@ -362,9 +356,7 @@ export function useGraphActions(onError: (message: string) => void) {
                 danger: true,
                 blastRadius: undefined,
                 onConfirm: () =>
-                  void branchDelete
-                    .mutateAsync({ name: ref.name, force: true })
-                    .then(report),
+                  void branchDelete.mutateAsync({ name: ref.name, force: true }).then(report),
               });
               // A deleted branch ends up nowhere, so there is no `to`; what
               // matters is which of its commits no OTHER ref holds.
@@ -394,11 +386,10 @@ export function useGraphActions(onError: (message: string) => void) {
         return [
           {
             label: `Cherry-pick ${source.sha.slice(0, 7)} onto ${target.name}`,
-            icon: GitCommit,
+            icon: LuGitCommitHorizontal,
             disabled: target.name !== currentBranch,
             disabledReason: `Check out ${target.name} first — a cherry-pick applies to the current branch.`,
-            onSelect: () =>
-              void cherryPickCommits.mutateAsync({ shas: [source.sha] }).then(report),
+            onSelect: () => void cherryPickCommits.mutateAsync({ shas: [source.sha] }).then(report),
           },
         ];
       }
@@ -409,14 +400,14 @@ export function useGraphActions(onError: (message: string) => void) {
       return [
         {
           label: `Merge ${sourceName} into ${target.name}`,
-          icon: GitMerge,
+          icon: LuGitMerge,
           disabled: !targetIsCurrent,
           disabledReason: `Check out ${target.name} first — a merge brings changes into the current branch.`,
           onSelect: () => void mergeBranch.mutateAsync({ source: sourceName }).then(report),
         },
         {
           label: `Rebase ${target.name} onto ${sourceName}`,
-          icon: GitCompare,
+          icon: LuGitCompare,
           disabled: !targetIsCurrent,
           disabledReason: `Check out ${target.name} first — a rebase replays the current branch.`,
           onSelect: () => void rebaseOnto.mutateAsync({ onto: sourceName }).then(report),
@@ -426,7 +417,16 @@ export function useGraphActions(onError: (message: string) => void) {
     [cherryPickCommits, mergeBranch, rebaseOnto, report],
   );
 
-  return { commitMenu, refMenu, dropMenu, checkoutRef: checkout, report, syncFor, runSync, syncing };
+  return {
+    commitMenu,
+    refMenu,
+    dropMenu,
+    checkoutRef: checkout,
+    report,
+    syncFor,
+    runSync,
+    syncing,
+  };
 }
 
 const EMPTY_REMOTES: Remote[] = [];

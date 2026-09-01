@@ -115,6 +115,8 @@ function flattenSections(nodes: readonly SectionNode[]): SectionKey[] {
  */
 export const ALL_SECTIONS: readonly SectionKey[] = flattenSections(SECTION_TREE);
 
+/** Filled once by the walk below and never written again, so both are bounded
+ *  by `SECTION_TREE`'s own node count (Phase 36 F's module-level map sweep). */
 const PARENT_OF = new Map<SectionKey, SectionKey>();
 const CHILDREN_OF = new Map<SectionKey, readonly SectionKey[]>();
 

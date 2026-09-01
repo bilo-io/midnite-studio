@@ -1,4 +1,4 @@
-import { ChevronDown, ChevronRight, File as FileIcon, Folder } from 'lucide-react';
+import { LuChevronDown, LuChevronRight, LuFile as FileIcon, LuFolder } from 'react-icons/lu';
 import type { ReactNode } from 'react';
 
 import type { ChangedFile, DirNode, FileNode, TreeNode } from './build-change-tree';
@@ -118,11 +118,11 @@ function DirRow<T extends ChangedFile>({
         style={{ paddingLeft: 12 + depth * INDENT }}
       >
         {isCollapsed ? (
-          <ChevronRight className="h-3 w-3 shrink-0" strokeWidth={2} />
+          <LuChevronRight className="h-3 w-3 shrink-0" strokeWidth={2} />
         ) : (
-          <ChevronDown className="h-3 w-3 shrink-0" strokeWidth={2} />
+          <LuChevronDown className="h-3 w-3 shrink-0" strokeWidth={2} />
         )}
-        <Folder className="h-3.5 w-3.5 shrink-0" strokeWidth={2} />
+        <LuFolder className="h-3.5 w-3.5 shrink-0" strokeWidth={2} />
         <span className="min-w-0 flex-1 truncate" title={node.path}>
           {node.name}
         </span>

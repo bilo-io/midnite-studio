@@ -1,7 +1,7 @@
 import { useMemo, useRef, useState } from 'react';
 
 import { useVirtualizer } from '@tanstack/react-virtual';
-import { ChevronDown, ChevronRight, SquareArrowOutUpRight } from 'lucide-react';
+import { LuChevronDown, LuChevronRight, LuSquareArrowOutUpRight } from 'react-icons/lu';
 
 import { IconButton } from '../../components/icon-button';
 import { formatNumber } from '../../lib/format-number';
@@ -107,7 +107,7 @@ export function LogPane({
             </button>
           )}
           <IconButton
-            icon={SquareArrowOutUpRight}
+            icon={LuSquareArrowOutUpRight}
             label="Open the full log on GitHub"
             size="sm"
             onClick={() => openExternal(runUrl)}
@@ -150,12 +150,14 @@ export function LogPane({
                     className="flex h-full w-full items-center gap-1 px-2 text-left font-mono text-[11px] text-muted-foreground transition-colors hover:bg-accent/30"
                   >
                     {row.open ? (
-                      <ChevronDown aria-hidden className="h-3 w-3 shrink-0" />
+                      <LuChevronDown aria-hidden className="h-3 w-3 shrink-0" />
                     ) : (
-                      <ChevronRight aria-hidden className="h-3 w-3 shrink-0" />
+                      <LuChevronRight aria-hidden className="h-3 w-3 shrink-0" />
                     )}
                     <span className="truncate">{row.label}</span>
-                    <span className="ml-auto shrink-0 tabular-nums opacity-70">{formatNumber(row.count)}</span>
+                    <span className="ml-auto shrink-0 tabular-nums opacity-70">
+                      {formatNumber(row.count)}
+                    </span>
                   </button>
                 ) : (
                   <LogLine text={row.text} />

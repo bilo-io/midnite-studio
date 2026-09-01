@@ -1,5 +1,5 @@
 import { DIFF_FULL_CONTEXT, type FileDiff } from '@midnite/studio-shared';
-import { ChevronsUpDown, Columns2, Columns3 } from 'lucide-react';
+import { LuChevronsUpDown, LuColumns2, LuColumns3 } from 'react-icons/lu';
 
 import { IconButton } from '../../components/icon-button';
 import { formatNumber } from '../../lib/format-number';
@@ -28,15 +28,19 @@ export function DiffToolbar({
     <div className="flex shrink-0 items-center gap-1">
       {showStats ? (
         <span className="mr-auto truncate text-[11px] text-muted-foreground">
-          <span className="font-medium text-success tabular-nums">+{formatNumber(diff.insertions)}</span>
+          <span className="font-medium text-success tabular-nums">
+            +{formatNumber(diff.insertions)}
+          </span>
           {' / '}
-          <span className="font-medium text-destructive tabular-nums">−{formatNumber(diff.deletions)}</span>
+          <span className="font-medium text-destructive tabular-nums">
+            −{formatNumber(diff.deletions)}
+          </span>
         </span>
       ) : null}
 
       {canSplit(diff) ? (
         <IconButton
-          icon={Columns2}
+          icon={LuColumns2}
           label={isSplit ? 'Switch to unified diff' : 'Switch to side-by-side diff'}
           aria-pressed={isSplit}
           size="sm"
@@ -46,7 +50,7 @@ export function DiffToolbar({
 
       {!isSplit ? (
         <IconButton
-          icon={showOldGutter ? Columns3 : Columns2}
+          icon={showOldGutter ? LuColumns3 : LuColumns2}
           label={showOldGutter ? 'Hide original line numbers' : 'Show original line numbers'}
           aria-pressed={showOldGutter}
           size="sm"
@@ -56,7 +60,7 @@ export function DiffToolbar({
 
       {canExpandAll ? (
         <IconButton
-          icon={ChevronsUpDown}
+          icon={LuChevronsUpDown}
           label="Show the whole file"
           size="sm"
           onClick={() => onExpandContext(DIFF_FULL_CONTEXT)}

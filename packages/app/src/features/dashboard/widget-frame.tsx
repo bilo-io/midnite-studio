@@ -1,6 +1,6 @@
 import type { ReactNode } from 'react';
 
-import { MoreVertical } from 'lucide-react';
+import { LuEllipsisVertical } from 'react-icons/lu';
 
 import type { MenuItem } from '../../components/context-menu';
 import { useDialogs } from '../../components/dialog-host';
@@ -62,7 +62,7 @@ export function WidgetFrame({
         */}
         <div className={`${NO_DRAG_CLASS} flex shrink-0 items-center gap-1`}>
           <IconButton
-            icon={MoreVertical}
+            icon={LuEllipsisVertical}
             label={`${title} options`}
             size="sm"
             onClick={(event) => {
