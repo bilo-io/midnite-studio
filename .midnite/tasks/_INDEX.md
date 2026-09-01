@@ -20,7 +20,7 @@ Completed work is logged append-only in [`done.md`](done.md). Deferred scope liv
 
 | Phase | Status | Refined | Done | Progress | % | 🔄 WIP | ◻ TODO |
 |-------|--------|---------|------|----------|---|--------|--------|
-| [39 · One rail, five chords and four loops](phases/phase-39-status-bar-shortcut-rail.md) | ◻ TODO | — | 0/64 | `░░░░░░░░░░` | 0% | — | A B C D E F G |
+| [39 · One rail, five chords and four loops](phases/phase-39-status-bar-shortcut-rail.md) | 🔄 WIP | — | 0/64 | `░░░░░░░░░░` | 0% | A B C D E F | G |
 | [37 · A glow that knows which tab](phases/phase-37-fab-tab-glow.md) | 🔄 WIP | — | 0/44 | `░░░░░░░░░░` | 0% | A B C D E F | — |
 | [36 · Faster, lighter, same app](phases/phase-36-performance-diet.md) | 🔄 WIP | x1 | 58/64 | `█████████░` | 91% | — | G (human passes) |
 | [35 · FAB Mission Control](phases/phase-35-fab-mission-control.md) | 🔄 WIP | — | 39/40 | `██████████` | 98% | — | — |
