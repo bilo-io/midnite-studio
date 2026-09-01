@@ -322,6 +322,8 @@ export type UiState = {
    * there is nothing for a repo switch to disagree about.
    */
   browserOpen: boolean;
+  /** Whether the FAB panel is open. */
+  fabPanelOpen: boolean;
   updatesAutoCheck: boolean;
   updateChannel: 'stable' | 'beta';
   onboardedAt: string | null;
@@ -464,6 +466,8 @@ export type UiState = {
   toggleTerminalList: () => void;
   toggleBrowser: () => void;
   setBrowserOpen: (open: boolean) => void;
+  toggleFabPanel: () => void;
+  setFabPanelOpen: (open: boolean) => void;
 
   setLayout: <K extends keyof LayoutSizes>(key: K, value: number) => void;
   setGraphColumn: <K extends keyof GraphColumns>(key: K, value: number) => void;
@@ -687,6 +691,7 @@ type PersistedUi = Pick<
   | 'terminalSidebarSide'
   | 'terminalListOpen'
   | 'browserOpen'
+  | 'fabPanelOpen'
   | 'hiddenMetrics'
   | 'autoFetchIntervalMs'
   | 'metricsIdleIntervalMs'
@@ -751,6 +756,7 @@ export const useUiStore = create<UiState>()(
       terminalSidebarSide: 'right',
       terminalListOpen: true,
       browserOpen: false,
+      fabPanelOpen: false,
       updatesAutoCheck: true,
       updateChannel: 'stable',
       onboardedAt: null,
@@ -859,6 +865,8 @@ export const useUiStore = create<UiState>()(
         set((state) => ({ terminalListOpen: !state.terminalListOpen })),
       toggleBrowser: () => set((state) => ({ browserOpen: !state.browserOpen })),
       setBrowserOpen: (browserOpen) => set({ browserOpen }),
+      toggleFabPanel: () => set((state) => ({ fabPanelOpen: !state.fabPanelOpen })),
+      setFabPanelOpen: (fabPanelOpen) => set({ fabPanelOpen }),
 
       setLayout: (key, value) => set((state) => ({ layout: { ...state.layout, [key]: value } })),
       setGraphColumn: (key, value) =>
@@ -996,6 +1004,7 @@ export const useUiStore = create<UiState>()(
         terminalSidebarSide: state.terminalSidebarSide,
         terminalListOpen: state.terminalListOpen,
         browserOpen: state.browserOpen,
+        fabPanelOpen: state.fabPanelOpen,
         hiddenMetrics: state.hiddenMetrics,
         autoFetchIntervalMs: state.autoFetchIntervalMs,
         metricsIdleIntervalMs: state.metricsIdleIntervalMs,

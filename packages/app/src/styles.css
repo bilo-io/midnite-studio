@@ -568,3 +568,39 @@ html[data-motion='reduced'] .breadcrumb-repo-pill {
   animation: none;
 }
 
+/* FAB Panel — Rainbow gradient border animation */
+@property --fab-panel-angle {
+  syntax: '<angle>';
+  inherits: false;
+  initial-value: 0deg;
+}
+
+@keyframes fab-panel-spin {
+  to {
+    --fab-panel-angle: 360deg;
+  }
+}
+
+.fab-panel-gradient {
+  animation: fab-panel-spin 4s linear infinite;
+  border: 1.5px solid transparent;
+  background-image:
+    linear-gradient(hsl(var(--popover, var(--card))), hsl(var(--popover, var(--card)))),
+    conic-gradient(
+      from var(--fab-panel-angle, 0deg),
+      #f43f5e,
+      #f59e0b,
+      #10b981,
+      #3b82f6,
+      #8b5cf6,
+      #ec4899,
+      #f43f5e
+    );
+  background-origin: border-box;
+  background-clip: padding-box, border-box;
+}
+
+html[data-motion='reduced'] .fab-panel-gradient {
+  animation: none;
+}
+
