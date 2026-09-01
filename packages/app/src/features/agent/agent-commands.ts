@@ -1,6 +1,7 @@
 import type { IconType } from 'react-icons';
 import {
   LuBug,
+  LuChartLine,
   LuFilePen,
   LuGitPullRequest,
   LuLightbulb,
@@ -14,6 +15,7 @@ import {
   LuRocket,
   LuRotateCw,
   LuScanEye,
+  LuScissors,
   LuZap,
 } from 'react-icons/lu';
 
@@ -23,7 +25,7 @@ import type { AgentCommandId } from '../../store/ui-store';
  * The midnite menu's category, in render order — the same order the menu draws
  * a separator on a change and the settings page draws a divider.
  */
-export type AgentCommandCategory = 'execute' | 'pr' | 'release' | 'loops';
+export type AgentCommandCategory = 'execute' | 'pr' | 'release' | 'maintain' | 'loops';
 
 /**
  * The midnite menu's entries — what they are called, what glyph they take,
@@ -114,6 +116,20 @@ export const AGENT_COMMANDS: readonly AgentCommand[] = [
     icon: LuPackageCheck,
     category: 'release',
     hint: 'Tag, push and cut the GitHub Release from a prepped release branch.',
+  },
+  {
+    id: 'gitReport',
+    label: 'Git Report',
+    icon: LuChartLine,
+    category: 'maintain',
+    hint: 'Report merged PRs and phase progress over a day, week or month.',
+  },
+  {
+    id: 'gitCleanup',
+    label: 'Git Cleanup',
+    icon: LuScissors,
+    category: 'maintain',
+    hint: 'Prune branches and worktrees that have fully landed on main. Dry-run first.',
   },
   {
     id: 'loopPrReview',
