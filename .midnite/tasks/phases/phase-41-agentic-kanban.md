@@ -185,62 +185,71 @@ Effort tags: **S** ≈ an hour or two · **M** ≈ half a day · **L** ≈ a day
     call sites are one-per-view; none is instantiated per element in a loop. Say so, because "reuse
     the approach the commit graph already proved" (the draft's wording) understates it.
 
-### C — Drag between columns (M)
+### C — Drag between columns (M) — ✅ DONE (2026-09-02)
 
 > **Re-tagged: this is the theme with the least precedent.** A `grep` for `onDragOver`, `arrayMove`,
 > `rectSortingStrategy`, `closestCorners` and `pointerWithin` across `packages/app/src` returns
 > **zero hits**. Every one of the four `@dnd-kit` call sites is a single-container list reorder or a
 > discrete drop target. True column-to-column dnd is new machinery here.
 
-- [ ] `@dnd-kit` drag from column to column, writing `Status` via Phase 40 Theme E's
+- [x] `@dnd-kit` drag from column to column, writing `Status` via Phase 40 Theme E's
       `setItemFieldValue`. **Optimistic** — the card moves on drop, and rolls back with the
       GitHub error text if the mutation fails.
-  - What is genuinely reusable: the `activationConstraint: { distance: 6 }` every call site shares,
-    and the **discriminated-union payload** model from
-    [`graph-dnd.tsx:24`](../../../packages/app/src/features/graph/graph-dnd.tsx)
-    (`{ kind: 'card'; itemId } | { kind: 'column'; optionId }` here) rather than loose string ids.
-  - What must be introduced fresh, none of it present today: `onDragOver`, one `SortableContext`
-    per column, and a multi-container collision strategy — `closestCorners` or `pointerWithin`,
-    **not** the `closestCenter` the single-list wrappers use.
-  - Do **not** reuse [`SortableList`](../../../packages/app/src/components/sortable-list.tsx): it
-    applies `restrictToVerticalAxis` and `restrictToParentElement` (`:66`), which is precisely
-    "cannot leave its column".
-  - The optimistic move is a **pure reducer** — `applyOptimisticMove(items, itemId, toOptionId)` —
-    so Theme I tests it and its rollback without a DOM.
-  - *Acceptance:* a rejected mutation restores the card to its original column **and** surfaces the
-    GitHub error text, not a generic message.
-- [ ] Use a `<DragOverlay dropAnimation={null}>`, not an in-place transform.
-  - [`graph-dnd.tsx:84`](../../../packages/app/src/features/graph/graph-dnd.tsx) already had to do
-    this and its comment says why — *"graph rows are virtualized, so the dragged element is
-    unmounted the moment it scrolls out of view and the drag would visibly die mid-gesture."* A
-    virtualized column has exactly that problem.
-  - Note dnd-kit's drag-end carries **no pointer position** (`graph-view.tsx:224` keeps a manual
-    `lastPointer` ref); use the `over` id, never coordinates.
-- [ ] Within-column ordering is **read-only in this phase**. Board position is a separate
-      ProjectV2 concept (`updateProjectV2ItemPosition`) and pretending a drop reorders when it does
-      not is worse than not offering it — the drop indicator only appears at column boundaries.
-- [ ] Keyboard-accessible column moves, because a mouse-only board is a board half the app cannot
-      use.
-  - **There is no `KeyboardSensor` anywhere in this codebase** — all four dnd call sites are
-    `PointerSensor` alone, and `sortable-list.tsx`'s docblock claims to have decided "the keyboard
-    story" while implementing none. This is the app's first.
-  - *Recommendation, and the cheaper correct answer:* skip `KeyboardSensor` and give the card a
-    **menu** — `Move to ▸ <column>` in its context menu and on `Enter` — calling the same
-    `setItemFieldValue` the drop does. A multi-container `coordinateGetter` is a large amount of
-    fiddly code to reproduce what one menu does accessibly. Recorded as a Decision.
-- [ ] A drag in flight must not be clobbered by the react-query refetch that Phase 10's watcher
-      triggers — pause invalidation for the board while a drag is active.
+  - Built as one shared `moveItemToColumn(itemId, toColumnId)` in `board-view.tsx`, called by both
+    `onDragEnd` and the "Move to ▸" menu below — one optimistic-move-plus-rollback path, not two.
+  - Reused the `activationConstraint: { distance: 6 }` every call site shares, and a
+    discriminated-union payload (`CardDragPayload`/`ColumnDropPayload` in `board-dnd.ts`) rather
+    than loose string ids, per `graph-dnd.tsx:24`'s model.
+  - Collision strategy: **`closestCorners`** (the recorded Decision), not `pointerWithin`.
+  - **`SortableContext`/`useSortable` not used at all** — within-column order is read-only (see
+    below), so cards are plain `useDraggable` and columns plain `useDroppable`; no
+    `SortableList` reuse, and no multi-container `SortableContext` either.
+  - `applyOptimisticMove(items, itemId, statusField, toColumnId)` is the pure reducer
+    (`board-dnd.ts`), tested in `board-dnd.test.ts` including its own rollback-relevant no-ops: a
+    target of `NO_STATUS_COLUMN_ID` (never a valid drop — see below) and an orphaned option id.
+  - *Acceptance met:* `e2e/kanban.spec.ts`'s "a rejected drop rolls back and surfaces the GitHub
+    error text" — the card returns to Todo and the toast carries `result.message`/`result.hint`.
+  - **Gated on `forgeWritesEnabled`, at the surface** — `useDraggable({ disabled: !writesEnabled })`,
+    matching the table's own `ProjectFieldCell`; a drag is a write like any other write in this app.
+- [x] Use a `<DragOverlay dropAnimation={null}>`, not an in-place transform.
+  - Renders the dragged `TaskCard` itself, covering the virtualized-column case
+    [`graph-dnd.tsx:84`](../../../packages/app/src/features/graph/graph-dnd.tsx) names.
+  - Uses `over.data.current` (`ColumnDropPayload`), never pointer coordinates.
+- [x] Within-column ordering is **read-only in this phase** — no `SortableContext`, no reorder
+      handler; a drop only ever targets a column, never a position inside one.
+- [x] **"No status" is not a droppable column at all**, discovered while building this: clearing a
+      field is `clearProjectV2ItemFieldValue`, a mutation Phase 40 Theme E never built (it shipped
+      only `updateProjectV2ItemFieldValue`, which requires a real option id). `useDroppable({
+      disabled: column.id === NO_STATUS_COLUMN_ID })` — a real constraint the draft did not name,
+      not an oversight.
+- [x] Keyboard-accessible column moves — shipped as the recorded Decision: **not** a
+      `KeyboardSensor`. A card's context menu (right-click, or the OS context-menu key / Shift+F10,
+      which fire the same DOM `contextmenu` event) offers "Move to ▸ <column>", calling the same
+      `moveItemToColumn` the drop does.
+  - **Not bound to `Enter`, correcting the draft.** `TaskCard`'s own root already answers
+    `Enter`/`Space` by opening the card detail pane (Theme B, tested); doubling that key would
+    silently break one of the two meanings. The context-menu path is the accessible one instead.
+  - A collapsed column also auto-expands on drag-over (a Decision from the exec pass, "allow drop,
+    auto-expand") — dragging near a collapsed rail opens it rather than requiring it pre-opened.
+- [x] **Corrected, not built as the doc first framed it — "pause invalidation while a drag is
+      active" turns out to be structurally unnecessary.** The optimistic move lives in local
+      component state (`optimisticItems` in `board-view.tsx`), layered over the `items` prop rather
+      than written into the query cache — so a concurrent refetch updates a value the overlay is
+      already covering, and the overlay only lifts once the mutation's own outcome (`onSuccess` /
+      rollback) says to. Separately, `keys.forgeProjectItems` sits outside every prefix the repo
+      watcher invalidates today (see `queries.ts`'s own note beside that key), so the literal
+      collision the draft named is not even reachable yet.
 
-### D — A session bound to a card (L)
+### D — A session bound to a card (L) — ◐ PARTIAL (2026-09-02)
 
-- [ ] `'kanban'` added to
+- [x] `'kanban'` added to
       [`TerminalSurfaceSchema`](../../../packages/shared/src/terminal.ts) (line 34), alongside
       `'main'` and `'fab'`.
   - Widening the enum is backward compatible for parsing — old rows carry no `surface` at all — but
     **not for the reason the draft gives.** There is no `.default('main')` anywhere; the field is
     `surface: TerminalSurfaceSchema.optional()` (`terminal.ts:363`) and "absent means main" is a
     *convention enforced by a predicate*, not by zod.
-- [ ] **Fix all five `'fab'`-shaped checks.** This is the item that makes the surface actually work,
+- [x] **Fix all five `'fab'`-shaped checks.** This is the item that makes the surface actually work,
       and each is a real behaviour change with existing test coverage.
 
       | Site | Today | Breaks how |
@@ -256,7 +265,11 @@ Effort tags: **S** ≈ an hour or two · **M** ≈ half a day · **L** ≈ a day
   - `terminal-surface.test.ts:17-29` asserts the current semantics — including
     `expect(onMainSurface(session({}))).toBe(true)` — and must be updated, not deleted.
   - `start-agent.ts:38` should take `TerminalSurface` from shared rather than restating it.
-- [ ] A `taskRef` on the session record — `{ projectId, itemId }` — so a session can be matched
+  - All five sites fixed exactly as specced; `terminal-surface.test.ts` extended (not deleted) with
+    the `'kanban'` parity cases: excluded from `onMainSurface`, never steals `activeId`, restores
+    `asleep` not `exited`. `findCardSession`/`findAnyCardSession` (new, `terminal-store.ts`) are the
+    two lookups Theme F's glow and a future Start/Stop button share.
+- [x] A `taskRef` on the session record — `{ projectId, itemId }` — so a session can be matched
       back to its card after a restart. This is the one genuinely new field, and it is what makes
       Theme H possible.
   - **`TerminalSessionSchema` is a `ZodEffects`, not a `ZodObject`** — it closes with
@@ -276,12 +289,23 @@ Effort tags: **S** ≈ an hour or two · **M** ≈ half a day · **L** ≈ a day
   - Write down the one-way-compat hazard, which nobody has: a `terminals.json` written by a build
     that knows `taskRef` and then opened by an **older** build loses the field permanently on its
     next save, through that same strip. The same is already true of `surface`.
-- [ ] Launching from a card starts a broker session `cwd`-ed at the repo's worktree, running the
-      agent from `start-agent.ts`'s table with the composed prompt typed but **not sent**.
-  - `startAgent({ repoId, cwd, title, prompt, agentId, command, extraArgs, surface: 'kanban', autoSend: false })`
-    — `autoSend` defaults to `false` (`start-agent.ts:42`), so this is the default path, and the
-    reasoning is in the framing above.
-- [ ] One live session per card, enforced: a card already running shows Stop, never a second Start.
+  - `taskRef` added inside the `z.object({...})` literal (before `.superRefine`), and
+    `TerminalSaveRequest` needed **no separate edit** — it wraps `TerminalSessionSchema` directly
+    rather than restating its fields, so the new field flows through the IPC boundary for free.
+    `startAgent()` grew a matching `taskRef` param.
+- [ ] **Not built — no trigger exists in this batch.** Launching from a card starts a broker
+      session `cwd`-ed at the repo's worktree, running the agent from `start-agent.ts`'s table with
+      the composed prompt typed but **not sent**.
+  - `startAgent({ ..., surface: 'kanban', taskRef, autoSend: false })` is fully wired and ready —
+    `start-agent.ts` accepts `taskRef` and stamps it onto the session — but nothing in this batch
+    calls it with `surface: 'kanban'`: that call site is Theme G's card composer, which is **not**
+    in this batch by the exec-time scope decision. Genuinely deferred, not an oversight.
+- [x] One live session per card, enforced *at the lookup level*: `findCardSession(sessions, states,
+      taskRef)` in `terminal-store.ts` — a live, non-asleep `'kanban'` session bound to a card's
+      `{projectId, itemId}`, tested for the "different card", "main surface", "exited" and "asleep"
+      cases (`terminal-surface.test.ts`). What is **not** built: the Start/Stop button itself, since
+      there is no launch UI in this batch to attach it to (see the item above) — the enforcement
+      primitive exists and is unit-tested, ready for Theme G to call.
 
 ### E — The terminal inside the card (L)
 
@@ -339,43 +363,48 @@ Effort tags: **S** ≈ an hour or two · **M** ≈ half a day · **L** ≈ a day
     reason this works. On remount a live session refetches the broker's ring buffer via
     `api.pty.snapshot({ ptyId })` behind the replay gate (`:388`).
 
-### F — The running glow (S)
+### F — The running glow (S) — ✅ DONE (2026-09-02)
 
-- [ ] Card border glow driven from
+- [x] Card border glow driven from
       [`loop-glow.ts`](../../../packages/app/src/features/loops/loop-glow.ts) — one glow
       implementation in this app, not two. Colour keyed off the agent, matching the loop launchers.
-  - `loopGlowColor(loopId: string): string` (`:44`) falls back to `'currentColor'` for an unknown
-    id, so an agent id that is not a loop id degrades rather than throwing. Either pass the agent id
-    and accept the fallback, or add an explicit agent→colour map; do not edit `LOOP_GLOW` itself.
-- [ ] Three visual states, not one: **glowing + pulsing** = running · **amber** = waiting on input ·
-      **static ring** = this card's terminal is open.
-  - **Correction:** the draft cites "the `use-loop-attention` signal". `useLoopAttention()` is
-    `(): void` — a fire-and-forget toast emitter hardcoded to `DEFAULT_LOOPS`, mounted once from
-    `app.tsx:437`. A card cannot read state from it.
-  - The actual state is `activity === 'waiting'` from the terminal store
-    (`terminal-store.ts:128`), which is how `loop-status.ts:52` derives its own
-    `waiting: running && activity === 'waiting'`. Amber is `LOOP_WAITING_COLOR` (`loop-glow.ts:37`,
-    `#f59e0b`).
-  - What *is* worth copying from `use-loop-attention` is its **transition debounce** — the
-    `wasWaiting` ref and the `waitingMask` string (`:25-38`), whose comment explains that depending
-    on the status array directly re-ran the effect every render and swallowed a second question.
-  - `waiting` deliberately never decays (`activity-detect.ts:121`: *"a question left open for an
-    hour is still a question"*), whereas `thinking` decays to `idle` after
-    `THINKING_TO_IDLE_MS = 15_000`. The card's three states inherit that asymmetry — do not add a
-    timeout to amber.
-- [ ] Pulse gated on window focus — a board of ten running cards is ten animations, and a blurred
+  - `loopGlowColor(agentId)`, accepting the `currentColor` fallback for an id that is not a loop id
+    (the recorded Decision) — `TaskCard`/`DraggableCard` never edit `LOOP_GLOW` itself.
+  - **A new CSS class, `.card-run-glow`, not `.loop-run-glow` reused verbatim** — the one place this
+    diverges from a literal reading of "one glow implementation, not two." `.loop-run-glow` paints
+    the shared `--rainbow-ramp` conic gradient a loop tab cycles through; a card is bound to one
+    agent, not a spectrum, so it needs a **solid** colour a `box-shadow` can read directly
+    (`--card-glow-color`, set inline from `loopGlowColor()`). What *is* one implementation, not two:
+    `loopGlowColor()` itself, the pulse-keyframe idiom, and the focus-gate/reduced-motion pattern —
+    see `styles.css`'s own comment beside `.card-run-glow` for the full reasoning.
+- [x] Three visual states, not one: **glowing + pulsing** = running · **amber** = waiting on input ·
+      **static ring** = this card's terminal is open — plus a fourth the doc's prose implies but its
+      list omits: **idle**, no glow at all, for a card with no session and no open pane.
+  - **Correction confirmed as drafted:** `useLoopAttention()` cannot be read from a card;
+    `activity === 'waiting'` from the terminal store is the real signal, read here via a new
+    `useCardStatus()` (`board/use-card-status.ts`) mirroring `loop-status.ts`'s own
+    `running`/`waiting`/`thinking` shape.
+  - **The `wasWaiting`/`waitingMask` transition debounce was not needed and was not copied.** That
+    device exists in `use-loop-attention.ts` to stop a `useEffect` watching an *array* of four
+    loops from re-firing a toast every render. `deriveCardGlowState` (`board/glow-state.ts`) is a
+    plain per-render pure function, not an effect over a collection — there is no transition to
+    debounce, only a value to read. Copying the device here would have been machinery solving a
+    problem this shape does not have.
+  - `waiting` never decays, `thinking` is folded into `running` (both pulse) — no timeout added.
+  - **"This card's terminal is open" is stricter than the draft's own phrasing implies**: it means
+    the detail pane is open **and** a session has ever been bound to this card — an open pane on a
+    card that has never run anything is plain browsing, not a left-open terminal, and gets no ring.
+- [x] Pulse gated on window focus — a board of ten running cards is ten animations, and a blurred
       window should pay for none of them.
-  - The Phase 37 gate does **not** currently reach this: `html[data-window-focused='false']` pauses
-    only `.fab-panel-gradient::before` ([`styles.css:967`](../../../packages/app/src/styles.css)),
-    and `data-window-focused` is written by `useWindowFocusGate` **inside** `fab-panel.tsx:155`,
-    only while that panel is mounted. Hoisting the hook to `app.tsx` and extending the selector is
-    the work. *(If [Phase 43](phase-43-workflows-mvp.md) Theme G lands first it does exactly this —
-    coordinate rather than doing it twice.)*
-- [ ] `prefers-reduced-motion` removes the pulse and keeps the colour, asserted through the
-      cascade rather than assumed — Phase 39 Theme G is the cautionary tale, where a reduced-motion
-      rule lost on specificity and nobody noticed.
-  - `html[data-motion='reduced'] .loop-run-glow { animation: none; }` already exists at
-    `styles.css:1122`. Assert the card inherits it; do not write a second rule.
+  - **Not a hoist to `app.tsx` — `BoardView` calls `useWindowFocusGate(true)` itself, correcting the
+    draft's framing.** The hook already supports concurrent hosts (`FabPanel` and `LandingView`
+    both call it today, tracked by an internal ref-count — see the hook's own docblock), so a third
+    caller costs nothing extra; a hoist would have been a real refactor for no behavioural gain.
+    [Phase 43](phase-43-workflows-mvp.md) Theme G, if it lands first, is free to do the same.
+- [x] `prefers-reduced-motion` removes the pulse and keeps the colour, asserted through the cascade.
+  - Since `.card-run-glow` is its own class (see above), it gets its **own** rule rather than
+    inheriting `.loop-run-glow`'s: `html[data-motion='reduced'] .card-run-glow.is-running { animation:
+    none; … }` in `styles.css`, next to the `.loop-run-glow` block it was modelled on.
 
 ### G — The card composer (M)
 
@@ -431,29 +460,33 @@ Effort tags: **S** ≈ an hour or two · **M** ≈ half a day · **L** ≈ a day
 - [ ] Switching boards or repos does not kill running sessions; it hides them, and returning
       reattaches.
 
-### I — Verification coverage (M)
+### I — Verification coverage (M) — ◐ PARTIAL (2026-09-02)
 
-- [ ] Vitest, pure functions — each named so it can be written before any UI exists:
-      `deriveColumns` (option order, missing field, unknown option id, empty-status bucket),
-      `applyOptimisticMove` and its rollback, `composeCardPrompt` (including the 4 000-char
-      truncation), and the `taskRef` reconciliation from Theme H.
-- [ ] Vitest: the glow-state function — running / waiting / open / idle — as a pure function, the
-      way `loop-glow.test.ts` already tests its own.
-- [ ] Vitest: **the surface predicates.** Extend `terminal-surface.test.ts` so a `'kanban'` session
-      is excluded from the main panel and its list, does not become `activeId` on launch, and
-      returns asleep rather than ended after a restart. These are the four regressions Theme D's
-      table exists to prevent, and they are cheap to assert.
-- [ ] Playwright `e2e/kanban.spec.ts` against the mock bridge: toggle to Board, drag a card between
-      columns and see the mutation fire, launch an agent on a card and see the glow and the
-      terminal appear, stop it.
-  - The mock bridge must learn the project read, `setItemFieldValue`, and a `pty` session that emits
-    a couple of frames.
-  - Given [Phase 38](phase-38-e2e-suite-repair.md)'s ratchet, land this spec green and keep it out
-    of the ratchet list. Note `outstanding.md:72` — xterm e2e is red on GPU-less Linux runners
-    because of `@xterm/addon-webgl`; a spec that asserts on terminal *content* will join that set,
-    so assert on the card's state instead.
-- [ ] Screenshots: the board at rest, a card mid-run with its terminal, and the reduced-motion
-      rendering.
+> **Scoped to what this batch actually built — C, D's plumbing, and F.** `composeCardPrompt` is
+> Theme G's, and `taskRef` reconciliation is Theme H's; neither theme is in this batch, so neither
+> function exists yet to test. Everything else below is done.
+
+- [x] Vitest, pure functions: `applyOptimisticMove` and its rollback-relevant no-ops
+      (`board-dnd.test.ts`). `deriveColumns` already had its own suite from Theme A, untouched here.
+      **Not built: `composeCardPrompt`, the `taskRef` reconciliation** — Theme G/H, not this batch.
+- [x] Vitest: the glow-state function — running / waiting / open / idle — as a pure function
+      (`glow-state.test.ts`), plus the hook that feeds it real store state (`use-card-status.test.ts`).
+- [x] Vitest: **the surface predicates.** `terminal-surface.test.ts` extended with the `'kanban'`
+      parity cases: excluded from `onMainSurface`/main list, never steals `activeId`, restores
+      `asleep` not `exited` after a simulated restart (via `hydrate()` against a mocked bridge).
+      `findCardSession`/`findAnyCardSession` get their own dedicated cases too.
+- [x] Playwright `e2e/kanban.spec.ts` against the mock bridge — **descoped at exec time** to what
+      this batch ships: toggle to Board, drag a card between columns and see the mutation fire (plus
+      a rejected-drop rollback case and a writes-disabled case), and a card already bound to a live
+      `'kanban'` session (seeded via `terminalSessions`, the way a restart restores one) shows the
+      running glow. **Not built: "launch an agent on a card," "the terminal appear," "stop it"** —
+      there is no launch UI in this batch (Theme G) and no in-card terminal (Theme E) to exercise.
+  - The mock bridge already carried `terminalSessions` (Phase 21) and `forgeProject` (Phase 40 Theme
+    G) — no bridge changes were needed for this spec.
+- [x] Screenshots: one, `docs/screenshots/p41-cdfi/board-running-glow.png` — the board with a card
+      mid-glow. **Not built: "a card mid-run with its terminal" (Theme E), "the reduced-motion
+      rendering"** — the latter is a real gap for a human pass, not a batch-scope exclusion; noted
+      as open below.
 
 ## Files this phase touches
 
@@ -473,28 +506,46 @@ Effort tags: **S** ≈ an hour or two · **M** ≈ half a day · **L** ≈ a day
 
 ## Verification
 
-- [ ] `moon run :typecheck :lint :test` green.
-- [ ] Boundary lint clean — the board reaches the broker only through `window.midniteStudio`.
-- [ ] **Phase 40 Themes A–E are landed before this phase starts.** Not a nicety: seven of this
-      phase's dependencies do not exist, and `grep -r ProjectV2 packages/` returns nothing.
-- [ ] A `'kanban'` session does not appear in the main terminal panel or its session list, does not
+- [x] `moon run :typecheck :lint :test` green — 15 tasks, 1516 app/shared/git-engine/desktop tests.
+- [x] Boundary lint clean — the board reaches the broker only through `window.midniteStudio`; no
+      new boundary rule triggered.
+- [x] **Phase 40 Themes A–E are landed before this phase starts.** Confirmed — all of Phase 40 (A–F)
+      had already landed (PRs #38, #41) before this batch began.
+- [x] A `'kanban'` session does not appear in the main terminal panel or its session list, does not
       become `activeId`, does not open the terminal panel on launch, and returns **asleep** after a
-      restart — one assertion each, per Theme D's table.
-- [ ] `taskRef` **survives a full round trip**: set it, quit, relaunch, and read it back off
-      `terminals.json`. This is the assertion that catches the zod-strip at `schemas.ts:1033`.
+      restart — one assertion each, per Theme D's table (`terminal-surface.test.ts`).
+- [x] `taskRef` **survives a full round trip** — not literally "quit, relaunch" (no packaged build
+      in this environment), but the schema-level equivalent: `TerminalSaveRequest.parse()`, the
+      exact boundary `saveTerminal` parses through, is asserted to keep `taskRef` rather than strip
+      it (`terminal.test.ts`, "the kanban surface and taskRef"). The literal quit/relaunch pass
+      needs a packaged build — folded into the human items below.
 - [ ] `moon run app:perf`: the board is inside the lazy Projects chunk and adds nothing to the entry
-      chunk. `@dnd-kit` is already accounted for (see [`outstanding.md`](../outstanding.md)).
-- [ ] No more than 4 xterm instances are mounted at once, asserted by counting mounted terminals
-      with 10 running cards — the WebGL-context ceiling, not a style preference.
-- [ ] Idle CPU with **five** cards running, window blurred, measured with
-      `scripts/perf/idle-cpu.mjs --blurred` — the number, not an assurance.
-- [ ] The board issues **one** item read, not one per column — asserted by counting bridge calls in
-      the RTL test.
+      chunk. **Not run this batch** — `app:perf` needs a packaged build (`app:build desktop:bundle`
+      first per `CLAUDE.md`), out of scope for what this batch's time went to. No new static import
+      was added to the entry chunk (`@dnd-kit` and the board were already lazy from Theme A), so
+      regression risk is low, but the number itself is unmeasured — open below.
+- [ ] No more than 4 xterm instances are mounted at once — **not applicable to this batch**: Theme E
+      (the in-card terminal, the thing that would mount xterm instances) is not built yet. Nothing
+      in C/D/F mounts an xterm.
+- [ ] Idle CPU with **five** cards running — **not applicable**, same reason: nothing in this batch
+      runs an animation whose cost scales with running-card count except the glow itself, and its
+      pulse is already focus-gated (Theme F).
+- [x] The board issues **one** item read, not one per column — unchanged from Theme A/B, which this
+      batch did not touch; `board-view.test.tsx`'s existing coverage still passes.
 - [ ] A real end-to-end pass on a real board: launch an agent from a card, watch it work, drag the
-      card to Done, confirm on github.com.
+      card to Done, confirm on github.com. **Partially open** — the drag half is provable and
+      *is* covered by `e2e/kanban.spec.ts` against the mock bridge; "launch an agent from a card"
+      needs Theme G, not in this batch. A genuine real-`gh`, real-board pass for the drag alone is
+      still a human item, folded in below.
+- [ ] **Open, for a human:** a real board, real `gh`: drag a card between columns and confirm the
+      `Status` change on github.com. The mock-bridge e2e proves the mutation fires with the right
+      shape; nothing in this environment proves the live GraphQL mutation actually lands.
 - [ ] **Open, for a human:** quit mid-run and relaunch — the card reattaches to its session
-      (Theme H, needs a **packaged** build, per Phase 35's own outstanding item).
-- [ ] **Open, for a human:** screenshots per Theme I.
+      (Theme H, needs a **packaged** build, per Phase 35's own outstanding item). Genuinely blocked
+      on Theme H existing, not just on a packaged build.
+- [ ] **Open, for a human:** `moon run app:perf` against a packaged build, and reduced-motion
+      screenshots of the glow (`html[data-motion='reduced']`) — the one Theme F item this batch
+      built but did not screenshot.
 
 ## Not in this phase
 
