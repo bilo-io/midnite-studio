@@ -188,6 +188,13 @@ export const VIEW_FILTERS: Record<ViewId, ViewFilter> = {
   actions: { sections: ['actions', 'worktrees'], dirtyOnly: false },
   tests: { sections: ['tests', 'worktrees'], dirtyOnly: false },
   reviews: { sections: ['reviews', 'worktrees'], dirtyOnly: false },
+  /*
+   * Starts at `WORK_IN_PROGRESS`, matching councils — a board picker one
+   * click away from the header is enough for now, and a dedicated `projects`
+   * sidebar section is worth adding only if that picker proves insufficient
+   * (see the phase doc's own recommendation).
+   */
+  projects: WORK_IN_PROGRESS,
   history: WORK_IN_PROGRESS,
   councils: WORK_IN_PROGRESS,
   workflows: WORK_IN_PROGRESS,

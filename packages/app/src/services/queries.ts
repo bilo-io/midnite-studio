@@ -10,6 +10,10 @@ import type {
   ForgePullScope,
   ForgePullsResult,
   ForgeMergeMethod,
+  ForgeProjectFieldsResult,
+  ForgeProjectItem,
+  ForgeProjectReadKind,
+  ForgeProjectsResult,
   ForgeReviewEvent,
   ForgePullThreadsResult,
   ForgeRunDetailResult,
@@ -153,6 +157,29 @@ export const keys = {
     ['repos', repoId, 'forge', 'pull-threads', number] as const,
   /** Whether `gh` is installed and signed in. Not repo-scoped — it is machine state. */
   forgeCli: ['forge', 'cli'] as const,
+  /**
+   * The ProjectV2 boards visible to the open repo's owner (Phase 40 Theme C).
+   *
+   * Under the repo prefix, like every other forge listing, so closing the
+   * repo drops it. Deliberately NOT under `forge` (`keys.forge(repoId)`): a
+   * board belongs to the owner, not to the repository's runs/pulls/issues, and
+   * this phase's field-write invalidation (Theme E) needs to drop exactly one
+   * board's fields/items without touching the run listing beside it.
+   */
+  forgeProjects: (repoId: string) => ['repos', repoId, 'forge-project', 'list'] as const,
+  /**
+   * One board's field definitions.
+   *
+   * Keyed by `projectId` alone, outside the `repos/<id>` prefix — a ProjectV2
+   * board belongs to a user or an organization, never to a repository (see
+   * `forge-project-handlers.ts`'s own note), so nothing about which repo is
+   * open bears on its fields. Closing the repo therefore does not drop this;
+   * it simply stops being asked for until another repo's Projects view picks
+   * the same board again, at which point `FORGE_STALE_MS` decides freshness.
+   */
+  forgeProjectFields: (projectId: string) => ['forge-project', projectId, 'fields'] as const,
+  /** One board's items — see `forgeProjectFields` for why this is not repo-scoped. */
+  forgeProjectItems: (projectId: string) => ['forge-project', projectId, 'items'] as const,
   /**
    * A repo's dashboard statistics, per window and churn setting.
    *
@@ -462,6 +489,96 @@ export function useForgeIssues(repoId: string | null, enabled: boolean) {
       return api.forge.issues({ repoId, limit: 20, state: 'open' });
     },
     enabled: enabled && repoId !== null,
+    staleTime: FORGE_STALE_MS,
+  });
+}
+
+/**
+ * The ProjectV2 boards visible to the open repo's owner (Phase 40 Theme C).
+ *
+ * `enabled` carries the same promise every forge read does: a human opened
+ * the Projects view. No fetch happens on arrival — the acceptance test this
+ * phase ships (`projects-view.test.tsx`) is built on exactly that gate.
+ */
+export function useForgeProjects(repoId: string | null, enabled: boolean) {
+  return useQuery<ForgeProjectsResult>({
+    queryKey: keys.forgeProjects(repoId ?? ''),
+    queryFn: async () => {
+      const api = bridge();
+      if (!api || !repoId) return EMPTY_PROJECTS;
+      return api.forgeProject.list({ repoId });
+    },
+    enabled: enabled && repoId !== null,
+    staleTime: FORGE_STALE_MS,
+  });
+}
+
+/** One board's field definitions, for the table's columns. Fetched only once a board is picked. */
+export function useForgeProjectFields(projectId: string | null, enabled: boolean) {
+  return useQuery<ForgeProjectFieldsResult>({
+    queryKey: keys.forgeProjectFields(projectId ?? ''),
+    queryFn: async () => {
+      const api = bridge();
+      if (!api || !projectId) return EMPTY_PROJECT_FIELDS;
+      return api.forgeProject.fields({ projectId });
+    },
+    enabled: enabled && projectId !== null,
+    staleTime: FORGE_STALE_MS,
+  });
+}
+
+/** How many pages `useForgeProjectItems` walks before it stops and reports `truncated`. */
+const PROJECT_ITEMS_PAGE_CEILING = 10;
+
+export type ForgeProjectItemsPage = {
+  cli: ForgeProjectsResult['cli'];
+  items: ForgeProjectItem[];
+  /** Hit the 1 000-item ceiling with more still on the board — see the phase doc. */
+  truncated: boolean;
+  error: string | null;
+  kind: ForgeProjectReadKind;
+};
+
+/**
+ * A board's items, walked sequentially to a documented ceiling.
+ *
+ * `mstudio:forge-project:items` is a *page* channel — one `gh` subprocess per
+ * call, cursor in, cursor out (Theme A's own request/response shape). The
+ * sequential walk the phase doc asks for ("fetch pages sequentially… never
+ * per-row") lives here rather than in main, because a cursor forces
+ * sequential fetching anyway and this is the one place react-query already
+ * owns staleness for the combined result. Capped at
+ * `PROJECT_ITEMS_PAGE_CEILING` pages (1 000 items at 100/page) — past it the
+ * walk stops and `truncated` is set, which `ProjectsView` renders rather than
+ * silently dropping the rest of the board.
+ */
+export function useForgeProjectItems(projectId: string | null, enabled: boolean) {
+  return useQuery<ForgeProjectItemsPage>({
+    queryKey: keys.forgeProjectItems(projectId ?? ''),
+    queryFn: async () => {
+      const api = bridge();
+      if (!api || !projectId) return EMPTY_PROJECT_ITEMS_PAGE;
+
+      let cursor: string | undefined;
+      let items: ForgeProjectItem[] = [];
+      let truncated = false;
+      let page: ForgeProjectItemsPage = EMPTY_PROJECT_ITEMS_PAGE;
+
+      for (let pageIndex = 0; pageIndex < PROJECT_ITEMS_PAGE_CEILING; pageIndex += 1) {
+        const result = await api.forgeProject.items({ projectId, ...(cursor ? { cursor } : {}) });
+        page = { cli: result.cli, items: [], truncated: false, error: result.error, kind: result.kind };
+        if (result.error) break;
+
+        items = [...items, ...result.items];
+        if (result.nextCursor === null) break;
+
+        cursor = result.nextCursor;
+        if (pageIndex === PROJECT_ITEMS_PAGE_CEILING - 1) truncated = true;
+      }
+
+      return { ...page, items, truncated };
+    },
+    enabled: enabled && projectId !== null,
     staleTime: FORGE_STALE_MS,
   });
 }
@@ -935,6 +1052,20 @@ const EMPTY_PULL_DETAIL: ForgePullDetailResult = { cli: EMPTY_CLI, detail: null,
 const EMPTY_PULL_FILES: ForgePullFilesResult = { cli: EMPTY_CLI, files: null, error: null };
 const EMPTY_PULL_COMMENTS: ForgePullCommentsResult = { cli: EMPTY_CLI, comments: [], error: null };
 const EMPTY_PULL_THREADS: ForgePullThreadsResult = { cli: EMPTY_CLI, threads: [], error: null };
+const EMPTY_PROJECTS: ForgeProjectsResult = { cli: EMPTY_CLI, projects: [], error: null, kind: 'ok' };
+const EMPTY_PROJECT_FIELDS: ForgeProjectFieldsResult = {
+  cli: EMPTY_CLI,
+  fields: [],
+  error: null,
+  kind: 'ok',
+};
+const EMPTY_PROJECT_ITEMS_PAGE: ForgeProjectItemsPage = {
+  cli: EMPTY_CLI,
+  items: [],
+  truncated: false,
+  error: null,
+  kind: 'ok',
+};
 /**
  * A write with no bridge: `ok: false`, and no error to report.
  *

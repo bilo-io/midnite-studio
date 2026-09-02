@@ -57,6 +57,7 @@ export type ViewId =
   | 'changes'
   | 'actions'
   | 'reviews'
+  | 'projects'
   | 'history'
   | 'councils'
   | 'workflows'
@@ -73,6 +74,7 @@ export const VIEW_IDS: readonly ViewId[] = [
   'changes',
   'actions',
   'reviews',
+  'projects',
   'history',
   'councils',
   'workflows',
@@ -672,6 +674,16 @@ export type UiState = {
   forgeWritesEnabled: boolean;
   setForgeWritesEnabled: (enabled: boolean) => void;
   /**
+   * The last ProjectV2 board opened per repo (Phase 40 Theme D).
+   *
+   * A top-level persisted key, like `repoGroupMembership`, rather than nested
+   * under `layout` — it is not a pane size, and the Projects view's board
+   * picker reads it directly by `repoId`. A repo with no entry has simply
+   * never had a board picked, which the view reads as "show the picker".
+   */
+  projectBoardByRepo: Record<string, string>;
+  setProjectBoard: (repoId: string, projectId: string) => void;
+  /**
    * Which skill each entry of the sidebar's midnite menu invokes.
    *
    * A setting rather than a constant because a skill is a *file in the user's
@@ -834,6 +846,7 @@ type PersistedUi = Pick<
   | 'autoFetchIntervalMs'
   | 'metricsIdleIntervalMs'
   | 'forgeWritesEnabled'
+  | 'projectBoardByRepo'
   | 'agentSkills'
   | 'primaryAgent'
   | 'repoGroups'
@@ -868,6 +881,7 @@ export const useUiStore = create<UiState>()(
       metricsIdleIntervalMs: METRICS_IDLE_INTERVAL_MS,
       // Default off. A fresh install cannot change anything on GitHub.
       forgeWritesEnabled: false,
+      projectBoardByRepo: {},
       agentSkills: DEFAULT_AGENT_SKILLS,
       primaryAgent: 'claude',
       inactivityTimeoutS: 900,
@@ -1170,6 +1184,10 @@ export const useUiStore = create<UiState>()(
       setAutoFetchIntervalMs: (autoFetchIntervalMs) => set({ autoFetchIntervalMs }),
       setMetricsIdleInterval: (metricsIdleIntervalMs) => set({ metricsIdleIntervalMs }),
       setForgeWritesEnabled: (forgeWritesEnabled) => set({ forgeWritesEnabled }),
+      setProjectBoard: (repoId, projectId) =>
+        set((state) => ({
+          projectBoardByRepo: { ...state.projectBoardByRepo, [repoId]: projectId },
+        })),
       setAgentSkill: (id, skill) =>
         set((state) => ({ agentSkills: { ...state.agentSkills, [id]: skill } })),
       setPrimaryAgent: (id) => set({ primaryAgent: id }),
@@ -1211,6 +1229,7 @@ export const useUiStore = create<UiState>()(
         autoFetchIntervalMs: state.autoFetchIntervalMs,
         metricsIdleIntervalMs: state.metricsIdleIntervalMs,
         forgeWritesEnabled: state.forgeWritesEnabled,
+        projectBoardByRepo: state.projectBoardByRepo,
         agentSkills: state.agentSkills,
         primaryAgent: state.primaryAgent,
         repoGroups: state.repoGroups,
@@ -1300,6 +1319,7 @@ export const useUiStore = create<UiState>()(
           loopModels: { ...current.loopModels, ...saved.loopModels },
           loopSchedules: { ...current.loopSchedules, ...saved.loopSchedules },
           repoGroupMembership: { ...current.repoGroupMembership, ...saved.repoGroupMembership },
+          projectBoardByRepo: { ...current.projectBoardByRepo, ...saved.projectBoardByRepo },
         };
       },
     },
