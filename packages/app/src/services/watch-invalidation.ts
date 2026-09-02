@@ -57,6 +57,11 @@ export function invalidateForWatchKind(
     case 'refs':
       void client.invalidateQueries({ queryKey: keys.refs(repoId) });
       void client.invalidateQueries({ queryKey: keys.status(repoId), exact: false });
+      // `.git/refs/stash` is a real ref and falls under this same recursive
+      // `.git/refs` watch (Phase 22 Theme B) — a `stash push`/`pop`/`drop`
+      // invalidates the sidebar's stash list for free, the same way a branch
+      // write invalidates `refs` above.
+      void client.invalidateQueries({ queryKey: keys.stashes(repoId) });
       // Statistics are an `--all` traversal, so every figure in the dashboard
       // depends on the ref set: a commit or a fetch changes the contributor
       // table and the calendar. Main's own cache is keyed on a digest of the

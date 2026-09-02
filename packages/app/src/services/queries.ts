@@ -27,6 +27,7 @@ import type {
   Remote,
   RepoDescriptor,
   RepoStats,
+  StashEntry,
   StatsWindow,
   TestDiscovery,
   TestTrustStatus,
@@ -59,6 +60,17 @@ export const keys = {
   repo: (repoId: string) => ['repos', repoId] as const,
   refs: (repoId: string) => ['repos', repoId, 'refs'] as const,
   worktrees: (repoId: string) => ['repos', repoId, 'worktrees'] as const,
+  /**
+   * A repo's stash list (Phase 22 Theme B).
+   *
+   * Under the `repos/<id>` prefix like `refs`/`worktrees` — `queries.ts`'s own
+   * standing rule, reiterated in the phase doc, is that a key outside that
+   * prefix is never invalidated by the watcher. `.git/refs/stash` already
+   * falls under the recursive `.git/refs` watch and classifies as `'refs'`,
+   * so a `stash push`/`pop`/`drop` invalidates this for free the same way a
+   * branch write invalidates `refs`.
+   */
+  stashes: (repoId: string) => ['repos', repoId, 'stashes'] as const,
   /**
    * A repo's configured remotes.
    *
@@ -317,6 +329,16 @@ export function useWorktrees(repoId: string | null) {
  * git-engine, so deriving it on this side would mean a second implementation of
  * git's five remote-URL syntaxes.
  */
+/** A repo's stash list (Phase 22 Theme B), nested under `keys.repo`. */
+export function useStashes(repoId: string | null, worktreePath?: string) {
+  return useQuery<StashEntry[]>({
+    queryKey: keys.stashes(repoId ?? ''),
+    queryFn: async () =>
+      repoId ? ((await bridge()?.stash.list({ repoId, worktreePath })) ?? []) : [],
+    enabled: repoId !== null,
+  });
+}
+
 export function useRemotes(repoId: string | null) {
   return useQuery<Remote[]>({
     queryKey: keys.remotes(repoId ?? ''),

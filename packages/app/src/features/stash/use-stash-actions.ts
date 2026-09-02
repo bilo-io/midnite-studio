@@ -1,6 +1,6 @@
 import { useMutation, useQueryClient } from '@tanstack/react-query';
 
-import type { OpJournalEntry, StashDropResult } from '@midnite/studio-shared';
+import type { GitOpResult, OpJournalEntry, StashDropResult } from '@midnite/studio-shared';
 import { computeUndoable } from '@midnite/studio-shared';
 
 import { useToasts } from '../../components/toast-host';
@@ -12,19 +12,8 @@ import { useOpsJournalStore } from '../../store/ops-journal-store';
 
 /**
  * Stash actions carrying Phase 22 Theme H's journal + toast wiring — the
- * reusable surface for Theme B's sidebar `stashMenu` (per the phase doc's
- * "Files this phase touches" table, this exact path is where that menu's
- * `drop` handler is meant to call into).
- *
- * Theme B (the sidebar Stashes section, its row menu, the graph pseudo-rows,
- * the inspector) has NOT landed in this checkout, despite the phase doc
- * marking it done — there is today no menu item anywhere in the renderer
- * that calls `drop`. This hook exists so the write + journal + undo path is
- * real and tested (`use-stash-actions.test.ts`, plus `git-engine`'s
- * `stashStore` integration test for the write itself) even though nothing
- * currently triggers it from the UI. `stashPush`/`stashApply`/`stashPop`/
- * `stashBranch` are left for whichever pass builds that menu, since only
- * `drop` has a wired undo in this one.
+ * reusable surface Theme B's sidebar `stashMenu` and heading action call
+ * into (`use-repo-actions.ts`).
  *
  * Mirrors `useTargetedGitOp` in `services/use-status.ts` rather than reusing
  * it directly: that hook is typed over `GitOpId` (never `StashDropResult`'s
@@ -32,6 +21,12 @@ import { useOpsJournalStore } from '../../store/ops-journal-store';
  * same reason `commands/stash.ts` keeps reads and writes in one module. A
  * later pass that finds itself duplicating a THIRD such wrapper should
  * probably generalise the two rather than write a third.
+ *
+ * Only `push` and `drop` are `JournalOp`s (`shared/domain/journal.ts`'s own
+ * `JOURNAL_OPS` list) — `apply`/`pop`/`branch` are plain mutations below,
+ * with no journal entry: each already has its own git-native recovery story
+ * (the stash entry stays, or lives on as a branch), so there is nothing here
+ * for the app's own undo journal to add.
  */
 export function useTargetedStashDrop({ repoId, worktreePath }: StatusTarget) {
   const client = useQueryClient();
@@ -85,4 +80,112 @@ export function useTargetedStashDrop({ repoId, worktreePath }: StatusTarget) {
 
 export function useStashDrop() {
   return useTargetedStashDrop(useActiveWorktree());
+}
+
+export type StashPushArgs = {
+  message?: string;
+  keepIndex?: boolean;
+  includeUntracked?: boolean;
+  paths?: string[];
+};
+
+/** `git stash push` — the sidebar heading action (Theme B) and the Changes
+ *  view's scoped stash (Theme E) both call this. */
+export function useTargetedStashPush({ repoId, worktreePath }: StatusTarget) {
+  const client = useQueryClient();
+  const record = useOpsJournalStore((s) => s.record);
+  const toasts = useToasts();
+
+  return useMutation<GitOpResult, never, StashPushArgs>({
+    mutationKey: ['stash-op', 'push'],
+    mutationFn: async (args) => {
+      const api = bridge();
+      if (!api || !repoId) {
+        return { ok: false, kind: 'error', message: 'No repository selected.' };
+      }
+      const ctx = { repoId, ...(worktreePath ? { worktreePath } : {}) };
+      const result = await api.stash.push({ ...ctx, ...args });
+
+      if (result.ok) {
+        const label = args.message ? `Stashed: ${args.message}` : 'Stashed changes';
+        const entry: OpJournalEntry = {
+          id: crypto.randomUUID(),
+          repoId,
+          ...(worktreePath ? { worktreePath } : {}),
+          op: 'stash-push',
+          label,
+          at: Date.now(),
+          headBefore: null,
+          headAfter: null,
+          refBefore: null,
+          undoable: computeUndoable('stash-push', { headBefore: null, refBefore: null }),
+        };
+        record(entry);
+        // Not in `WIRED_UNDO_OPS` — the toast shows (Theme B/E's own write is
+        // worth a notice), but with no Undo action, same as every other
+        // `JournalOp` this starter subset has not wired a live button for.
+        if (shouldToastOp('stash-push')) toasts.show({ message: entry.label });
+      }
+
+      return result;
+    },
+    onSettled: async () => {
+      if (repoId) await client.invalidateQueries({ queryKey: keys.repo(repoId) });
+    },
+  });
+}
+
+export function useStashPush() {
+  return useTargetedStashPush(useActiveWorktree());
+}
+
+/**
+ * `apply`/`pop`/`branch` — plain mutations, no journal entry: none of the
+ * three is a `JournalOp` (`shared/domain/journal.ts`'s own list), because
+ * each already has its own recovery story outside the app's undo journal —
+ * the stash entry itself for apply/pop, the new branch itself for branch.
+ */
+export function useTargetedStashApply({ repoId, worktreePath }: StatusTarget) {
+  const client = useQueryClient();
+  return useMutation<GitOpResult, never, { selector: string }>({
+    mutationKey: ['stash-op', 'apply'],
+    mutationFn: async (args) => {
+      const api = bridge();
+      if (!api || !repoId) return { ok: false, kind: 'error', message: 'No repository selected.' };
+      return api.stash.apply({ repoId, ...(worktreePath ? { worktreePath } : {}), ...args });
+    },
+    onSettled: async () => {
+      if (repoId) await client.invalidateQueries({ queryKey: keys.repo(repoId) });
+    },
+  });
+}
+
+export function useTargetedStashPop({ repoId, worktreePath }: StatusTarget) {
+  const client = useQueryClient();
+  return useMutation<GitOpResult, never, { selector: string }>({
+    mutationKey: ['stash-op', 'pop'],
+    mutationFn: async (args) => {
+      const api = bridge();
+      if (!api || !repoId) return { ok: false, kind: 'error', message: 'No repository selected.' };
+      return api.stash.pop({ repoId, ...(worktreePath ? { worktreePath } : {}), ...args });
+    },
+    onSettled: async () => {
+      if (repoId) await client.invalidateQueries({ queryKey: keys.repo(repoId) });
+    },
+  });
+}
+
+export function useTargetedStashBranch({ repoId, worktreePath }: StatusTarget) {
+  const client = useQueryClient();
+  return useMutation<GitOpResult, never, { name: string; selector: string }>({
+    mutationKey: ['stash-op', 'branch'],
+    mutationFn: async (args) => {
+      const api = bridge();
+      if (!api || !repoId) return { ok: false, kind: 'error', message: 'No repository selected.' };
+      return api.stash.branch({ repoId, ...(worktreePath ? { worktreePath } : {}), ...args });
+    },
+    onSettled: async () => {
+      if (repoId) await client.invalidateQueries({ queryKey: keys.repo(repoId) });
+    },
+  });
 }
