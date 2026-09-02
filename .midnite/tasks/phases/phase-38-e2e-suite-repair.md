@@ -197,10 +197,7 @@ becomes a place to hide the next 45.
       this door).
 - [ ] Point the CI `E2E` step at `app:e2e`, delete the `app:e2e-ci` task from
       [`packages/app/moon.yml`](../../../packages/app/moon.yml) and delete
-      `packages/app/playwright.ci.config.ts`. **Note the job must exist first** — it was built
-      and measured on 2026-09-01 but held back because shard 2 of 4 never once completed, so
-      landing it (with a `timeout-minutes` cap, which it lacked) is a prerequisite for this
-      phase mattering at all.
+      `packages/app/playwright.ci.config.ts`.
 - [ ] Rewrite the `outstanding.md` entry to record the close, with the final count.
 - [ ] Consider whether `app:e2e` should now join `moon run :test` for local runs, or stay
       separate on the chromium-download argument that has always justified it. Record the

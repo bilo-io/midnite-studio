@@ -41,13 +41,22 @@ async function open(page: Page): Promise<void> {
 }
 
 const palette = (page: Page) => page.getByRole('dialog', { name: 'Command Palette' });
-const search = (page: Page) => palette(page).getByRole('combobox', { name: 'Command palette search' });
+const search = (page: Page) =>
+  palette(page).getByRole('combobox', { name: 'Command palette search' });
 const reposPanel = (page: Page) => page.getByRole('complementary', { name: 'Repositories' });
 
 test('Mod+K opens the palette over the graph and Escape closes it', async ({ page }) => {
   await open(page);
 
-  await page.keyboard.press('Meta+k');
+  /*
+    `ControlOrMeta`, never `Meta`. These chords are `Mod+…` in
+    `shared/src/keybindings.ts`, and that file's own words are "Mod means Cmd on
+    macOS and Ctrl elsewhere" — so a hard-coded `Meta+k` opens nothing on Linux.
+    Every spec in this file passed locally and all nine failed on CI's ubuntu
+    runner for exactly that reason. `Control+\`` below is deliberately NOT this:
+    the terminal toggle is Ctrl on every platform, on purpose.
+  */
+  await page.keyboard.press('ControlOrMeta+k');
   await expect(palette(page)).toBeVisible();
   await expect(search(page)).toBeFocused();
 
@@ -70,7 +79,7 @@ test('the title-bar button opens the palette too, and returns focus on close', a
 
 test('typing narrows the list across groups', async ({ page }) => {
   await open(page);
-  await page.keyboard.press('Meta+k');
+  await page.keyboard.press('ControlOrMeta+k');
 
   await search(page).fill('terminal');
 
@@ -83,7 +92,7 @@ test('ArrowDown and Enter run the selected command and close the palette', async
   await open(page);
   await expect(reposPanel(page)).toBeVisible();
 
-  await page.keyboard.press('Meta+k');
+  await page.keyboard.press('ControlOrMeta+k');
   await search(page).fill('toggle repositories');
   await page.keyboard.press('Enter');
 
@@ -95,7 +104,7 @@ test('clicking a row runs THAT row, even without hovering it first', async ({ pa
   await open(page);
   await expect(reposPanel(page)).toBeVisible();
 
-  await page.keyboard.press('Meta+k');
+  await page.keyboard.press('ControlOrMeta+k');
   await search(page).fill('toggle');
   // `dispatchEvent`, not `.click()` — it fires the click with no synthetic
   // mouseenter first, so the still-default `selectedIndex` (row 0, "Toggle
@@ -110,7 +119,7 @@ test('clicking a row runs THAT row, even without hovering it first', async ({ pa
 
 test('a disabled command shows its reason and does not run on Enter', async ({ page }) => {
   await open(page);
-  await page.keyboard.press('Meta+k');
+  await page.keyboard.press('ControlOrMeta+k');
   await search(page).fill('commit');
 
   const row = palette(page).locator('[role="option"][aria-disabled="true"]').first();
@@ -126,13 +135,13 @@ test('Mod+g typed into the palette does not toggle the repositories panel', asyn
   await open(page);
   await expect(reposPanel(page)).toBeVisible();
 
-  await page.keyboard.press('Meta+k');
-  await page.keyboard.press('Meta+g');
+  await page.keyboard.press('ControlOrMeta+k');
+  await page.keyboard.press('ControlOrMeta+g');
   await expect(palette(page)).toBeVisible();
   await expect(reposPanel(page)).toBeVisible();
 
   await page.keyboard.press('Escape');
-  await page.keyboard.press('Meta+g');
+  await page.keyboard.press('ControlOrMeta+g');
   await expect(reposPanel(page)).toBeHidden();
 });
 
@@ -142,13 +151,13 @@ test('Mod+K opens the palette while the terminal has focus', async ({ page }) =>
   await expect(page.locator('.xterm-screen')).toBeVisible();
   await page.locator('.xterm-screen').click();
 
-  await page.keyboard.press('Meta+k');
+  await page.keyboard.press('ControlOrMeta+k');
   await expect(palette(page)).toBeVisible();
 });
 
 test('fuzzy search matches acronyms and renders mark tags', async ({ page }) => {
   await open(page);
-  await page.keyboard.press('Meta+k');
+  await page.keyboard.press('ControlOrMeta+k');
   await search(page).fill('tt');
 
   const row = palette(page).getByRole('option', { name: /Toggle Terminal/ });
@@ -159,7 +168,7 @@ test('fuzzy search matches acronyms and renders mark tags', async ({ page }) => 
 
 test('palette navigates to views and settings', async ({ page }) => {
   await open(page);
-  await page.keyboard.press('Meta+k');
+  await page.keyboard.press('ControlOrMeta+k');
   await search(page).fill('Settings: Appearance');
   await page.keyboard.press('Enter');
 
@@ -169,7 +178,7 @@ test('palette navigates to views and settings', async ({ page }) => {
 
 test('palette and go to file both have gradient glow classes', async ({ page }) => {
   await open(page);
-  await page.keyboard.press('Meta+k');
+  await page.keyboard.press('ControlOrMeta+k');
   const paletteDialog = palette(page);
   await expect(paletteDialog).toBeVisible();
   const container = paletteDialog.locator('> div');
@@ -180,10 +189,8 @@ test('palette and go to file both have gradient glow classes', async ({ page }) 
   await expect(paletteDialog).toBeHidden();
 
   // Test Go to File (Mod+P)
-  await page.keyboard.press('Meta+p');
+  await page.keyboard.press('ControlOrMeta+p');
   await expect(paletteDialog).toBeVisible();
   await expect(container).toHaveClass(/gradient-border/);
   await expect(container).toHaveClass(/gradient-border--always/);
 });
-
-
