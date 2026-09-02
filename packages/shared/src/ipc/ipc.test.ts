@@ -12,7 +12,13 @@ import {
   METRICS_IDLE_INTERVAL_MS,
   metricsPresent,
 } from '../domain/metrics';
-import { COMMAND_IDS, DEFAULT_KEYMAP, GLOBAL_CHORDS, isCommandId } from '../keybindings';
+import {
+  COMMAND_IDS,
+  DEFAULT_KEYMAP,
+  GLOBAL_CHORDS,
+  TERMINAL_YIELD_COMMANDS,
+  isCommandId,
+} from '../keybindings';
 import { CHANNELS, EVENT_CHANNELS } from './channels';
 import * as schemas from './schemas';
 
@@ -904,6 +910,36 @@ describe('keybindings', () => {
     const toggle = DEFAULT_KEYMAP.find((b) => b.command === 'terminal.toggle');
     expect(toggle?.chord).toBe('Ctrl+`');
     expect(toggle?.chord.startsWith('Mod')).toBe(false);
+  });
+
+  it('gives the reload pair the browser chords, and keeps them out of the terminal', () => {
+    // Mod+R / Mod+Shift+R mean reload everywhere else. Neither is `global`:
+    // that scope is the xterm escape allow-list, and a reload is the last
+    // thing that should reach through a shell. Keeping them OUT of the
+    // terminal takes `TERMINAL_YIELD_COMMANDS` as well — asserted below.
+    const soft = DEFAULT_KEYMAP.find((b) => b.command === 'app.reload');
+    const hard = DEFAULT_KEYMAP.find((b) => b.command === 'app.hardReload');
+    expect(soft?.chord).toBe('Mod+r');
+    expect(hard?.chord).toBe('Mod+Shift+r');
+    expect(soft?.scope).toBe('app');
+    expect(hard?.scope).toBe('app');
+    expect(GLOBAL_CHORDS).not.toContain('Mod+r');
+    expect(GLOBAL_CHORDS).not.toContain('Mod+Shift+r');
+  });
+
+  it('yields exactly the reload pair to the shell, and nothing else', () => {
+    // Two wide on purpose: `app` scope does not, on its own, keep a chord out
+    // of the terminal, and everything else is better off firing from there.
+    expect([...TERMINAL_YIELD_COMMANDS].sort()).toEqual(['app.hardReload', 'app.reload']);
+    for (const command of TERMINAL_YIELD_COMMANDS) expect(isCommandId(command)).toBe(true);
+  });
+
+  it('leaves view.refresh and sync.fetch declared but unbound, the reload pair having taken their chords', () => {
+    expect(DEFAULT_KEYMAP.find((b) => b.command === 'view.refresh')).toBeUndefined();
+    expect(DEFAULT_KEYMAP.find((b) => b.command === 'sync.fetch')).toBeUndefined();
+    // Still first-class commands, so the palette and the native menu list them.
+    expect(COMMAND_IDS).toContain('view.refresh');
+    expect(COMMAND_IDS).toContain('sync.fetch');
   });
 
   it('lets the terminal toggle escape xterm', () => {

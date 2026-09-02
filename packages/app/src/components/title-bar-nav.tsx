@@ -12,6 +12,7 @@ import {
   LuZap,
 } from 'react-icons/lu';
 
+import { chordFor, displayChord } from '../features/status-bar/chord-hint';
 import { bridge } from '../services/bridge';
 import { useRepos } from '../services/queries';
 import { useStatus } from '../services/use-status';
@@ -72,15 +73,29 @@ function HistoryButtons() {
  * Left-click reloads the way a plain browser refresh does; right-click opens
  * a menu for the hard-refresh variant that bypasses the HTTP cache — the same
  * split a browser's own reload button makes.
+ *
+ * Both rows carry their chord as a `description`, read from the keymap rather
+ * than written out here: this button is where someone discovers that the app
+ * reloads at all, and `Mod+R`/`Mod+Shift+R` are the gesture they will reach
+ * for the second time.
  */
 function ReloadButton() {
   const dialogs = useDialogs();
 
+  const softChord = displayChord(chordFor('app.reload', 'Mod+r'));
+  const hardChord = displayChord(chordFor('app.hardReload', 'Mod+Shift+r'));
+
   const items: MenuItem[] = [
-    { label: 'Reload', icon: LuRotateCw, onSelect: () => bridge()?.window.reload(false) },
+    {
+      label: 'Reload',
+      icon: LuRotateCw,
+      description: softChord,
+      onSelect: () => bridge()?.window.reload(false),
+    },
     {
       label: 'Hard Reload',
       icon: LuZap,
+      description: hardChord,
       onSelect: () => bridge()?.window.reload(true),
       danger: true,
     },
@@ -96,7 +111,7 @@ function ReloadButton() {
     >
       <IconButton
         icon={LuRotateCw}
-        label="Reload window (right-click for hard reload)"
+        label={`Reload window (${softChord} · right-click for hard reload)`}
         size="sm"
         onClick={() => bridge()?.window.reload(false)}
       />

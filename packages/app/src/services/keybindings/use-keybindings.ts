@@ -1,6 +1,6 @@
 import { useEffect } from 'react';
 
-import { DEFAULT_KEYMAP, GLOBAL_CHORDS } from '@midnite/studio-shared';
+import { DEFAULT_KEYMAP, GLOBAL_CHORDS, TERMINAL_YIELD_COMMANDS } from '@midnite/studio-shared';
 
 import { bridge } from '../bridge';
 import { usePaletteStore } from '../../store/palette-store';
@@ -48,6 +48,14 @@ export function useKeybindings(runtime: CommandRuntime): void {
         : (terminalWins ? terminalBinding : restBinding);
       if (!binding) return;
 
+      // A handful of chords belong to the shell while the shell has focus —
+      // see `TERMINAL_YIELD_COMMANDS` for which and why. Matched off the
+      // event's own target rather than `document.activeElement`, so a
+      // keystroke aimed at one terminal is judged by THAT terminal.
+      if (TERMINAL_YIELD_COMMANDS.includes(binding.command) && insideTerminal(event.target)) {
+        return;
+      }
+
       // The palette owns the keyboard while open: only its own chords (to
       // re-focus it, or re-pin the file mode) still resolve here. Every other
       // bound chord falls through untouched, so typing "Mod+g" into the
@@ -92,6 +100,16 @@ export function useKeybindings(runtime: CommandRuntime): void {
     return off;
   }, [runtime]);
 }
+
+/**
+ * Whether a keystroke was aimed at a terminal.
+ *
+ * `.xterm` is xterm.js's own root class on the element it takes over, so this
+ * holds for the textarea it reads keystrokes through and for every layer it
+ * paints — and for nothing else in the app.
+ */
+const insideTerminal = (target: EventTarget | null): boolean =>
+  target instanceof Element && target.closest('.xterm') !== null;
 
 /**
  * Whether xterm should let a keystroke through to the app.

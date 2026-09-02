@@ -14,6 +14,7 @@ import { useFileEditorStore } from '../../store/file-editor-store';
 import { usePaletteStore } from '../../store/palette-store';
 import { useUiStore } from '../../store/ui-store';
 import { useWorkbenchStore } from '../../store/workbench-store';
+import { bridge } from '../bridge';
 import { useCloseRepo, usePickAndOpenRepo, useRepos } from '../queries';
 import { useFetch, usePull, usePush, useStatus } from '../use-status';
 import { invalidateForWatchKind } from '../watch-invalidation';
@@ -158,6 +159,17 @@ export function useCommandHandlers(): CommandRuntime {
           },
         }
       : { enabled: false, disabledReason: NO_REPO, run: () => {} },
+
+    /*
+      Reload the window, and reload it bypassing the HTTP cache — the same two
+      calls the title bar's reload button makes on left-click and from its
+      right-click menu, routed here so the chord, the menu item and the palette
+      row all resolve through the one runtime. `enabled: true` unconditionally:
+      a reload needs no repo, and is the one command that still has to work
+      when the app has wedged itself.
+    */
+    'app.reload': { enabled: true, run: () => bridge()?.window.reload(false) },
+    'app.hardReload': { enabled: true, run: () => bridge()?.window.reload(true) },
 
     'view.graph': { enabled: true, run: () => useUiStore.getState().setActiveView('graph') },
     'graph.focus': { enabled: true, run: () => useUiStore.getState().setActiveView('graph') },
