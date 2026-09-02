@@ -197,6 +197,9 @@ describe('ProjectsView', () => {
     expect(screen.getByText('Todo')).toBeDefined();
     expect(screen.getByText('A draft item')).toBeDefined();
     expect(screen.queryByRole('table')).toBeNull();
+    // The phase doc's own Theme I acceptance test: one item read for the
+    // whole board, never one per column.
+    expect(items).toHaveBeenCalledTimes(1);
   });
 });
 
