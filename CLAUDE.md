@@ -132,6 +132,18 @@ explanatory messages. If a boundary rule fires, the fix is an IPC channel, not a
   throwaway `--user-data-dir`, because Electron keys the single-instance lock on it and a run
   alongside the installed app would otherwise quit instantly; see
   `scripts/perf/electron-run.mjs`, which also explains why the profile is seeded first.
+- **The terminal broker outlives the build it was started from — so its socket is keyed by
+  one.** The pty broker (`desktop/src/broker/`) is spawned detached so terminals survive
+  reloads, window closes and relaunches, which also means a `desktop:dist` + reinstall replaces
+  the bundle under a running broker. Its socket name carries a build fingerprint
+  (`brokerSocketName` in `main/broker-client.ts`), so a new build starts its own broker and
+  finds the previous one as a *legacy* peer whose sessions stay reachable until they end. The
+  broker also watches its own script and node-pty's `spawn-helper` (`broker/staleness.ts`):
+  when either changes on disk it answers `create` with `stale-broker` instead of node-pty's
+  errno-less "posix_spawnp failed.", the client asks it to `retire` to a `-retired-<pid>.sock`
+  path and spawns a fresh one. Order matters there — Node unlinks a Unix socket's file when the
+  server that bound it closes, so a stale broker must step off the path *before* its successor
+  binds it.
 - **`Ctrl+`` toggles the terminal on every platform.** macOS reserves `Cmd+`` for window
   cycling — do not take it.
 - **The command registry is [`shared/src/keybindings.ts`](packages/shared/src/keybindings.ts),
