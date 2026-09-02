@@ -313,8 +313,14 @@ Effort tags: **S** ≈ an hour or two · **M** ≈ half a day · **L** ≈ a day
       `child_process` in `packages/app` — but the `git-engine` rule is **not**: only `NO_ELECTRON`
       guards it, so nothing would stop video code being put there by mistake. It is a naming and
       ownership constraint, and this phase respects it by putting nothing there.
-- [ ] [`ipc.test.ts`](../../../packages/shared/src/ipc/ipc.test.ts) passes — it asserts
-      channel/bridge/schema coverage, so a half-wired channel fails CI rather than shipping.
+- [ ] A `describe('video contract')` block is **added** to
+      [`ipc.test.ts`](../../../packages/shared/src/ipc/ipc.test.ts), with a `CASES` table and an
+      `expected` key map filtered on `key.startsWith('video')`.
+      - That file's exhaustiveness guards are **prefix-scoped and opt-in**, not automatic: there is
+        no council block in it at all, which is exactly why a council channel can be added
+        unvalidated. Without this block the only guards a `video*` channel gets are the two global
+        ones — no duplicate names, and a `mstudio:` prefix.
+      - *Acceptance:* deleting one channel's row from `expected` makes the suite fail.
 - [ ] `view-sections.test.ts` passes — it enumerates every `ViewId` and fails loudly on one that is
       unhandled, which is the cheapest proof the eight-file checklist in Theme D was completed.
 - [ ] **`package.json` diff shows no new runtime dependency in `app` or `desktop`** — no `remotion`,
