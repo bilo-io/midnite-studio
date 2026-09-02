@@ -992,23 +992,19 @@ html[data-motion='reduced'] .landing-slide-in {
  */
 
 /*
- * Two hosts, one rule (and the same again for `::before` below): the FAB's
- * loop console, and the landing page — which asked for "the inner rotating
- * gradient just like the FAB panel, both the glow and the border, in the
- * exact same way". Sharing the selector is what makes "the exact same way"
- * a fact rather than an intention: there is one 4s rotation, one two-layer
- * `background-clip` border and one blurred conic rim, and a tweak to any of
- * them lands on both surfaces at once.
- *
- * Only the base pair is shared. The `[data-loop-state]` cadences further
- * down stay the FAB's alone — they describe a loop's state, and the landing
- * page has no loop. With no such attribute set it simply runs the base
- * pulse, and with no `data-fab-tab` set `--fab-arc-from`/`--fab-arc-to` rest
- * at their registered `0deg`/`360deg`: a full, unnarrowed ring, which is the
- * right answer for a page that is not a tab.
+ * The inner gradient frame — one 4s rotation, one two-layer
+ * `background-clip` border and one blurred conic rim — lives on a single
+ * reusable class, `.gradient-frame`, rather than a growing list of
+ * selectors every consumer has to be added to by hand. The FAB's loop
+ * console and the landing page both add this class alongside their own host
+ * class (`.fab-panel-gradient` / `.landing-panel-gradient`), which now only
+ * carries what differs per host: the FAB's `[data-loop-state]` cadences
+ * further down, and the landing page's raised glow z-index and fixed
+ * half-ring arc (both further down this file too) — the landing page has no
+ * loop and no tab, so it fixes its own arc rather than reading one off
+ * `[data-fab-tab]`.
  */
-.fab-panel-gradient,
-.landing-panel-gradient {
+.gradient-frame {
   animation: fab-panel-spin 4s linear infinite;
   /*
    * 2.5px, where the rest of the app's gradient borders are 1.5px (see
@@ -1184,8 +1180,7 @@ html[data-motion='reduced'] .landing-slide-in {
   }
 }
 
-.fab-panel-gradient::before,
-.landing-panel-gradient::before {
+.gradient-frame::before {
   content: '';
   position: absolute;
   inset: 0;
@@ -1406,15 +1401,29 @@ html[data-motion='reduced'] .landing-slide-in {
   z-index: 30;
 }
 
-html[data-window-focused='false'] .fab-panel-gradient,
-html[data-window-focused='false'] .fab-panel-gradient::before,
-html[data-window-focused='false'] .landing-panel-gradient,
-html[data-window-focused='false'] .landing-panel-gradient::before {
+/*
+ * The landing page's own fixed half-ring. It has no `[data-fab-tab]` to read
+ * an arc off — there is no tab, no loop, nothing for a colour to identify —
+ * so it pins `--fab-arc-from`/`--fab-arc-to` to a plain 180deg span itself,
+ * the same width every FAB tab row above narrows to and the same two
+ * properties the border and rim masks further up already key off. That is
+ * the whole mechanism: `--fab-panel-angle`'s rotation walks the arc's
+ * position, this only fixes its width, so the border and the glow read as
+ * one lit segment orbiting the frame's edge exactly as the FAB panel's does
+ * for whichever tab is active, rather than a full unbroken ring.
+ */
+.landing-panel-gradient,
+.landing-panel-gradient::before {
+  --fab-arc-from: -90deg;
+  --fab-arc-to: 90deg;
+}
+
+html[data-window-focused='false'] .gradient-frame,
+html[data-window-focused='false'] .gradient-frame::before {
   animation-play-state: paused;
 }
 
-html[data-motion='reduced'] .fab-panel-gradient,
-html[data-motion='reduced'] .landing-panel-gradient {
+html[data-motion='reduced'] .gradient-frame {
   animation: none;
   transition: none;
 }
@@ -1427,8 +1436,7 @@ html[data-motion='reduced'] .landing-panel-gradient {
  * `--fab-glow-edge: 30px`, `opacity` back to the pseudo's own base value —
  * rather than whatever frame the animation happened to die on.
  */
-html[data-motion='reduced'] .fab-panel-gradient::before,
-html[data-motion='reduced'] .landing-panel-gradient::before {
+html[data-motion='reduced'] .gradient-frame::before {
   animation-name: none !important;
   transition: none;
 }

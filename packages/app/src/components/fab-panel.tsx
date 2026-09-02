@@ -55,7 +55,7 @@ export function FabPanel({ isOpen, width }: FabPanelProps) {
   return (
     <div className="h-full w-full flex flex-col" style={{ width }}>
       <div
-        className="fab-panel-gradient relative h-full w-full border border-border bg-popover flex flex-col"
+        className="gradient-frame fab-panel-gradient relative h-full w-full border border-border bg-popover flex flex-col"
         data-fab-tab={activeFabTab}
         data-loop-state={loopState}
       >
