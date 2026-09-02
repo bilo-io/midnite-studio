@@ -201,4 +201,13 @@ describe('the registry is palette-shaped', () => {
     const binding = DEFAULT_KEYMAP.find((b) => b.chord === 'Mod+Shift+g');
     expect(binding?.command).toBe('view.graph');
   });
+
+  it('binds Mod+Shift+e to view.files, not plain Mod+e', async () => {
+    // Plain Mod+e would be Ctrl+e off macOS, which readline already owns
+    // (move to end of line) — Shift sidesteps the collision.
+    const { DEFAULT_KEYMAP } = await import('@midnite/studio-shared');
+    const binding = DEFAULT_KEYMAP.find((b) => b.chord === 'Mod+Shift+e');
+    expect(binding?.command).toBe('view.files');
+    expect(DEFAULT_KEYMAP.find((b) => b.chord === 'Mod+e')).toBeUndefined();
+  });
 });

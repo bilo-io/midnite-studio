@@ -1,14 +1,12 @@
 import { useState } from 'react';
 
+import { GoGitPullRequest, GoIssueOpened, GoPlay } from 'react-icons/go';
 import {
   LuChevronDown,
   LuChevronRight,
-  LuCircleDot,
   LuCopy,
   LuExternalLink,
-  LuGitPullRequest,
   LuEllipsisVertical,
-  LuPlay,
   LuRefreshCw,
 } from 'react-icons/lu';
 
@@ -87,7 +85,7 @@ export function ActionsSection({
     <TreeSection
       title="Actions"
       count={open ? runs.length : undefined}
-      icon={<LuPlay aria-hidden className="h-3 w-3 shrink-0 text-muted-foreground" />}
+      icon={<GoPlay aria-hidden className="h-3 w-3 shrink-0 text-muted-foreground" />}
       collapsible
       open={open}
       onToggle={() => setOpen((v) => !v)}
@@ -272,7 +270,7 @@ export function IssuesSection({
     <TreeSection
       title="Issues"
       count={open ? issues.length : undefined}
-      icon={<LuCircleDot aria-hidden className="h-3 w-3 shrink-0 text-muted-foreground" />}
+      icon={<GoIssueOpened aria-hidden className="h-3 w-3 shrink-0 text-muted-foreground" />}
       collapsible
       open={open}
       onToggle={() => setOpen((v) => !v)}
@@ -350,7 +348,7 @@ export function ReviewsSection({
   return (
     <TreeSection
       title="Reviews"
-      icon={<LuGitPullRequest aria-hidden className="h-3 w-3 shrink-0 text-muted-foreground" />}
+      icon={<GoGitPullRequest aria-hidden className="h-3 w-3 shrink-0 text-muted-foreground" />}
       collapsible
       open={open}
       onToggle={() => setOpen((v) => !v)}

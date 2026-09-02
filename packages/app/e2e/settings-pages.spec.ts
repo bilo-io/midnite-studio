@@ -50,8 +50,8 @@ test('settings is one bottom entry, not a workspace nav item', async ({ page }) 
   await installMockBridge(page, settingsFixtures);
   await page.goto('/');
 
-  // The rail's workspace links: Files, Graph, Changes — no Settings link.
-  await expect(page.getByRole('link', { name: 'Files' })).toBeVisible();
+  // The rail's workspace links: Explorer, Graph, Changes — no Settings link.
+  await expect(page.getByRole('link', { name: 'Explorer' })).toBeVisible();
   await expect(page.getByRole('link', { name: 'Settings' })).toHaveCount(0);
   await expect(page.getByRole('button', { name: 'Settings' })).toBeVisible();
 });
@@ -167,8 +167,8 @@ test('the side-navigation lock lives on the Sidebar page, and locked closed mean
     say the hover did not expand anything. In `auto` this same hover would have
     expanded the rail and the label would be in-flow text, not a tooltip.
   */
-  await page.getByRole('link', { name: 'Files' }).hover();
-  await expect(page.getByRole('tooltip')).toHaveText('Files');
+  await page.getByRole('link', { name: 'Explorer' }).hover();
+  await expect(page.getByRole('tooltip')).toHaveText('Explorer');
   // And the expanded rail's furniture stays gone — no pin to unlock.
   await expect(page.getByRole('button', { name: 'Unlock navigation' })).toHaveCount(0);
 });

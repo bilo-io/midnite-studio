@@ -172,6 +172,7 @@ export function useCommandHandlers(): CommandRuntime {
     'app.hardReload': { enabled: true, run: () => bridge()?.window.reload(true) },
 
     'view.graph': { enabled: true, run: () => useUiStore.getState().setActiveView('graph') },
+    'view.files': { enabled: true, run: () => useUiStore.getState().setActiveView('files') },
     'graph.focus': { enabled: true, run: () => useUiStore.getState().setActiveView('graph') },
     'status.focus': { enabled: true, run: () => useUiStore.getState().setActiveView('changes') },
     'status.commit':

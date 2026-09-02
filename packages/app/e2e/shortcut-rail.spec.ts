@@ -209,7 +209,7 @@ test('diagnostics sits in the left zone, not the right', async ({ page }) => {
 });
 
 /** Render order and collapse order agree — the priority inversion Theme B fixed. */
-test('the rail renders repos, terminal, browser, palette, files in that order', async ({
+test('the rail renders repos, terminal, explorer, browser, palette, files in that order', async ({
   page,
 }) => {
   await open(page);
@@ -218,9 +218,10 @@ test('the rail renders repos, terminal, browser, palette, files in that order', 
       .map((child) => child.getAttribute('data-testid'))
       .filter((id): id is string => id !== null),
   );
-  expect(ids.slice(0, 5)).toEqual([
+  expect(ids.slice(0, 6)).toEqual([
     'repos-toggle',
     'terminal-toggle',
+    'explorer-toggle',
     'browser-toggle',
     'palette-toggle',
     'files-toggle',

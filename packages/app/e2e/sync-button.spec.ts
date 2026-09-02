@@ -153,9 +153,10 @@ test.describe('the sync button', () => {
   });
 });
 
-test('the rail names the file browser Files, not Folder', async ({ page }) => {
+test('the rail names the file browser Explorer, not Files or Folder', async ({ page }) => {
   await open(page);
-  await expect(page.getByRole('link', { name: 'Files' })).toBeVisible();
+  await expect(page.getByRole('link', { name: 'Explorer' })).toBeVisible();
+  await expect(page.getByRole('link', { name: 'Files' })).toHaveCount(0);
   await expect(page.getByRole('link', { name: 'Folder' })).toHaveCount(0);
   await expect(page.getByRole('link', { name: 'Changes' })).toBeVisible();
 });

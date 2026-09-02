@@ -24,7 +24,7 @@ import type { IconComponent } from '../../components/icon-button';
 
 const VIEW_LABELS: Record<ViewId, string> = {
   dashboard: 'Dashboard',
-  files: 'Files',
+  files: 'Explorer',
   search: 'Search Everywhere',
   graph: 'Commit Graph',
   changes: 'Changes',

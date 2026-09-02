@@ -14,6 +14,13 @@ import { installMockBridge } from './mock-bridge';
  * this asserts the left zone's actual measured width instead.
  */
 test('the left zone footprint is unaffected by what the right zone renders', async ({ page }) => {
+  // Generously wide: this asserts a layout invariant that has nothing to do
+  // with the rail's own density collapse, and riding near a density
+  // breakpoint (a shortcut rail with more toggles needs more headroom than it
+  // used to) is exactly the kind of thing that makes an unrelated assertion
+  // flake on a runner whose font metrics differ from the one it was written
+  // against.
+  await page.setViewportSize({ width: 1600, height: 800 });
   await installMockBridge(page, { ...fixtures });
   await page.goto('/');
   const leftZone = page.getByTestId('status-bar-left');
