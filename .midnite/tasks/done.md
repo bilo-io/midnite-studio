@@ -2,6 +2,47 @@
 
 <!-- Append one entry per landed phase/PR: date, phase, PR link, one-line summary. -->
 
+## 2026-09-02 — Phase 42 Themes E, F + Phase 38 Themes G, I — councils/runs share the rail, motion proven, two e2e ratchet themes closed
+
+[PR #TBD].
+
+- [x] **Phase 42 Theme E — councils and runs share the panel.** `council-run-list.tsx` (new)
+      replaces the old horizontal run-picker strip with a vertical list in the left rail, rendered
+      by a second `PanelStack` that shares the centre pane's `history` object — moving between
+      "which council" and "which run of it" is one back/forward motion in one place.
+      `councils-history-store.ts` (new) moves the navigation stack out of a component-local
+      `usePanelHistory` call into a module-level zustand store, since Councils is lazy and unmounts
+      on view switch — the stack now survives leaving the view and coming back. `council-run-view.tsx`
+      lost its own run-picker and the unused `councilId` prop that went with it.
+- [x] **Phase 42 Theme F — motion, proven.** Fixed the exact mistake its own doc warned against
+      repeating (Phase 39 Theme G's cautionary tale): `.panel-stack-pane`'s reduced-motion rules in
+      `styles.css` needed `!important,` because `panel-stack.tsx` sets `transitionDuration` as an
+      inline style, which beats any non-`!important` external rule regardless of specificity. Caught
+      by three new `e2e/councils.spec.ts` cases asserting the real `transitionDuration` in all three
+      motion configurations — `data-motion='reduced'`, `data-motion='full'` under OS reduce-motion,
+      and the default `'system'` + OS reduce-motion blind spot, which is the one that failed first.
+- [x] **Phase 38 Theme G — the five stragglers.** Two were real: `footer-monitor.spec.ts`'s cadence
+      marker never appeared because `MonitorCluster` and `BatterySegment` each subscribe to the
+      metrics stream independently, double-pushing every sample into the store (fixed by sharing one
+      subscription, ref-counted, in `use-metrics-stream.ts`); its ring/path-count assertion was a
+      test-scoping bug, counting a metric icon's own `<path>`s alongside the chart's. The other three
+      (`graph-themes.spec.ts` × 2, `browser-pane.spec.ts`) were already green — fixed by unrelated
+      earlier work, not touched here. All three files dropped from `KNOWN_RED`.
+- [x] **Phase 38 Theme I — the terminal does not render on CI.** Chose the DOM-renderer-under-test
+      fallback: `terminal-view.tsx` skips `WebglAddon` when `VITE_MSTUDIO_FORCE_DOM_RENDERER` is set,
+      which `playwright.config.ts`'s `webServer` now sets for every e2e run (local and CI alike).
+      Drops `phase-21-roster.spec.ts`, `terminal-lazy-preload.spec.ts`, `terminal-reveal.spec.ts` and
+      — rebased onto Phase 38 Theme D's PR #47, whose own attempt at this had to revert when CI
+      found agent-mark specs hitting the same wall — `terminal.spec.ts` itself, from `KNOWN_RED`; and
+      the `@linux-red` tag from six specs across `fab-loops.spec.ts`, `terminal-links.spec.ts`,
+      `reviews.spec.ts` and `palette.spec.ts`. The theme's other Linux-only cause —
+      `shortcut-rail.spec.ts` and `status-bar.spec.ts` asserting a font-metric-dependent density
+      breakpoint at a hard-coded pixel viewport — got `status-bar-density.ts` (new): measures the
+      same content widths `use-overflow.ts` decides against, from the test itself, so the chosen
+      viewport is unambiguous on whichever machine runs it. `grepInvert` stays in
+      `playwright.ci.config.ts`: `titlebar-agents.spec.ts` and `panel-snap.spec.ts` still carry
+      `@linux-red` tags this theme does not own.
+
 ## 2026-09-02 — Phase 41 Themes D, G, H (partial) + Phase 38 Theme D (partial) — the card composer, and CI's own correction
 
 [PR #47]. Rebased mid-flight onto #46 (Phase 41 Themes C/D/F), which landed the `kanban` surface
@@ -74,7 +115,7 @@ this PR originally built in parallel — that duplicate work was dropped in favo
 
 ## 2026-09-02 — Phase 42 Themes A, B, C, D — panel-stack, three panes, config right, back/forward
 
-[PR #TBD]. Themes E (councils/runs share the rail) and F (motion verification) are not in this
+[PR #48]. Themes E (councils/runs share the rail) and F (motion verification) are not in this
 batch and stay open.
 
 - [x] **Theme A — `panel-stack`.** A generic `usePanelHistory<T>` (`components/panel-stack/`):
