@@ -397,14 +397,7 @@ test('a signed-out gh gets the fix-it hint, not a claim about the pull request',
  * pass on a header buried under another pane's rows, and a bounding-box check
  * would pass on content that is clipped but still laid out where it was.
  */
-test(
-  'the terminal header is never painted over by a squeezed detail pane',
-  // Tagged, not ignored: this is the only spec in the file that mounts a
-  // terminal, and terminals do not render on the CI runner (see the
-  // `@linux-red` note in playwright.ci.config.ts). A file-level ignore would
-  // cost the other nine specs here their place in the blocking job.
-  { tag: '@linux-red' },
-  async ({ page }) => {
+test('the terminal header is never painted over by a squeezed detail pane', async ({ page }) => {
     // Short enough that the 288px terminal leaves the Checks tab less room than
     // its own chrome needs — the condition, not an incidental viewport.
     await page.setViewportSize({ width: 1280, height: 620 });

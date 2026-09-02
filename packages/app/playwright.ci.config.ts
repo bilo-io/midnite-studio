@@ -28,38 +28,21 @@ import base from './playwright.config';
  * and the `app:e2e-ci` task with it and point CI back at `app:e2e`.
  */
 const KNOWN_RED = [
-  // --- red on the Linux runner only; all four are green on macOS ------------
-  //
-  // Every one of these mounts a terminal, and xterm paints its rows through
-  // `@xterm/addon-webgl` (terminal-view.tsx). A GPU-less runner gives it no
-  // WebGL context, so the terminal never becomes visible. Two fixes were tried
-  // and measured: raising the CI expect timeout to 15s moved nothing (the
-  // failures were never slow, just impossible), and Chromium's SwiftShader
-  // software rasteriser — `--use-gl=angle --use-angle=swiftshader` — also fixed
-  // none of them while making every shard ~60% slower, so it was reverted.
-  // Phase 38 Theme I owns the real answer.
-  '**/e2e/phase-21-roster.spec.ts', //       1 — session list renders 0 rows
-  '**/e2e/terminal-lazy-preload.spec.ts', // 2 — Phase 36's own lazy-xterm specs
-  '**/e2e/terminal-reveal.spec.ts', //       1 — buffer replay on reveal
-  //
   // --- drift: red everywhere, and Phase 38 Themes A-G own them --------------
-  '**/e2e/browser-pane.spec.ts', //          1 — click lands during the exit transition
-  '**/e2e/footer-monitor.spec.ts', //        2 — ring/marker counts
-  '**/e2e/graph-themes.spec.ts', //          2 — cascade replay + per-style redraw
   //
   // Theme D fixed its own two named specs — 'a reload keeps live sessions
   // live' and 'the session list resizes independently of the terminal pane'
-  // — confirmed stable over three local runs each. The file stays ratcheted
-  // regardless: un-ratcheting it here for the first time (it was wholesale-
-  // excluded before any Linux CI run ever touched it) surfaced real failures
-  // in OTHER specs — 'an agent row carries its own mark and its own accent',
-  // 'two agents from the same roster get different marks' and at least one
-  // more before the job was cancelled — that are new sightings of exactly
-  // the GPU-less-runner wall documented above, on marks that assert xterm
-  // content rather than session state. Theme I owns identifying and tagging
-  // every affected spec with @linux-red; this file cannot leave KNOWN_RED
-  // before it does.
-  '**/e2e/terminal.spec.ts', //              3+ — Theme I's GPU/WebGL wall, not Theme D's
+  // — confirmed stable over three local runs each. The file stayed ratcheted
+  // regardless, because un-ratcheting it for the first time surfaced real
+  // failures in OTHER specs — 'an agent row carries its own mark and its own
+  // accent', 'two agents from the same roster get different marks' and at
+  // least one more — that were new sightings of exactly the GPU-less-runner
+  // wall documented above, on marks that assert xterm content rather than
+  // session state. Theme I's DOM-renderer-under-test fallback (this file's
+  // own `webServer.env`, read by `terminal-view.tsx`) closes that wall for
+  // every terminal spec at once, this file included — verified locally with
+  // the fallback forced on, all green — so it drops from KNOWN_RED entirely
+  // rather than picking up `@linux-red` tags for specs Theme D never named.
 ];
 
 export default defineConfig({
@@ -74,10 +57,15 @@ export default defineConfig({
   // gets disabled rather than read".
   testIgnore: ['**/perf/**', ...KNOWN_RED],
   /*
-    One spec rather than one file. `reviews.spec.ts` has ten specs and only its
-    terminal-header one hits the missing-WebGL wall above, so it carries a
-    `@linux-red` tag and the other nine keep blocking. Prefer this to adding a
-    file to KNOWN_RED whenever the failures are a minority of it.
+    One spec rather than one file, whenever the failures are a minority of it —
+    the alternative, adding the whole file to KNOWN_RED, would cost every
+    passing spec in it its place in the blocking job. `shortcut-rail.spec.ts`
+    and `status-bar.spec.ts` each carry one `@linux-red` spec this way: both
+    assert a status-bar *density*, decided from measured content width, and
+    the CI runner's font set differs from macOS's enough to land the same
+    viewport on the other side of the breakpoint. A different Linux-only cause
+    from the WebGL wall Phase 38 Theme I closed (which is what emptied this
+    tag everywhere else it appeared) — Theme I's own remaining item.
   */
   grepInvert: /@linux-red/,
 });

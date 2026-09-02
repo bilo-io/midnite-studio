@@ -2,6 +2,7 @@ import { expect, test } from '@playwright/test';
 
 import { fixtures } from './fixtures';
 import { installMockBridge } from './mock-bridge';
+import { densityViewportWidths } from './status-bar-density';
 
 /**
  * Phase 27 Theme C: the status bar as a three-column grid, not `ml-auto`/
@@ -145,75 +146,63 @@ test("the bar's left edge does not move with the repositories panel", async ({ p
  * overflow popover keeps its click behaviour — collapsing must not turn an
  * action into a label.
  *
- * The thresholds moved in Phase 39: the left zone gained the palette and
- * Go-to-File toggles and the loop-launcher strip, and diagnostics arrived from
- * the right. Measured against this fixture, `full` holds to ~1200px, `compact`
- * spans ~1000-1150px and `collapsed` takes over by ~950px — so the widths below
- * sit mid-band rather than on an edge. `collapsed` at 950px is further above
- * `@bilo-io/shell`'s own `md:` (768px) breakpoint than it was, so this still
- * never contends with the shell's mobile chrome.
- *
- * They moved back a little when the loop-launcher strip and the live-agent
- * count left for the title bar's agent cluster: the left zone gave up its
- * collapsed brand glyph and a `gap-3` slot, so every band shifted a few dozen
- * pixels narrower. The widths below were re-checked against that and still sit
- * mid-band, which is the whole reason they were picked mid-band.
+ * Viewport widths used to be hard-coded pixel guesses here — `full` holds to
+ * ~1200px, `compact` spans ~1000-1150px and so on — re-tuned by hand each time
+ * the fixture's segment count changed (Phase 39's toggles, then the
+ * loop-launcher strip leaving for the title bar). They were always mid-band on
+ * macOS and still went red on the Linux CI runner, because the bands
+ * themselves are decided from measured content width (`lib/density.ts`) and a
+ * different font substitutes different label widths there. `densityViewportWidths`
+ * (Phase 38 Theme I) replaces the guess with the same measurement
+ * `use-overflow.ts` makes internally, so the viewport picked below is
+ * unambiguous on whichever machine runs it — see its own doc comment.
  */
-test(
-  'narrowing drives compact then collapsed, and a collapsed segment still acts',
-  /*
-    `@linux-red`: this asserts a DENSITY, and density is decided from measured
-    content width — which depends on the fonts installed. The CI runner has a
-    different set from macOS, so the same viewport lands on the other side of the
-    breakpoint there ('compact' where macOS gives 'full'). Green locally, red on
-    CI, and a spec-portability problem rather than a product fault: pin the
-    viewport to a width that is unambiguous on both, or assert the breakpoint
-    against a measured width rather than a hard-coded one. Phase 38 Theme I.
-  */
-  { tag: '@linux-red' },
-  async ({ page }) => {
-    await installMockBridge(page, {
-      ...fixtures,
-      remotes: [GITHUB_REMOTE],
-      diagnostics: {
-        candidates: [{ id: 'eslint', label: 'ESLint' }],
-        trust: { state: 'trusted', command: null, trustedAt: Date.now() },
-        result: { total: 3 },
-      },
-      metricsSamples: [{ at: Date.now(), cpu: 42, memory: 55, gpu: 30, disk: 72 }],
-      forge: { pulls: [FAILING_PR] },
-    });
-    await page.goto('/');
+test('narrowing drives compact then collapsed, and a collapsed segment still acts', async ({
+  page,
+}) => {
+  await installMockBridge(page, {
+    ...fixtures,
+    remotes: [GITHUB_REMOTE],
+    diagnostics: {
+      candidates: [{ id: 'eslint', label: 'ESLint' }],
+      trust: { state: 'trusted', command: null, trustedAt: Date.now() },
+      result: { total: 3 },
+    },
+    metricsSamples: [{ at: Date.now(), cpu: 42, memory: 55, gpu: 30, disk: 72 }],
+    forge: { pulls: [FAILING_PR] },
+  });
+  await page.goto('/');
 
-    const bar = page.getByTestId('status-bar');
-    await expect(bar).toHaveAttribute('data-density', 'full');
-    await expect(page.getByTestId('status-segment-checks-verdict')).toBeVisible();
+  const bar = page.getByTestId('status-bar');
+  await expect(bar).toHaveAttribute('data-density', 'full');
+  await expect(page.getByTestId('status-segment-checks-verdict')).toBeVisible();
 
-    await page.setViewportSize({ width: 1080, height: 800 });
-    await expect(bar).toHaveAttribute('data-density', 'compact');
-    // Icon-only: the toggles' trailing labels are hidden, not removed.
-    await expect(page.getByRole('button', { name: 'Toggle Repositories' })).toBeVisible();
+  const { compact, collapsed } = await densityViewportWidths(page);
 
-    await page.setViewportSize({ width: 900, height: 800 });
-    await expect(bar).toHaveAttribute('data-density', 'collapsed');
-    await expect(page.getByTestId('status-segment-checks-verdict')).toHaveCount(0);
+  await page.setViewportSize({ width: compact, height: 800 });
+  await expect(bar).toHaveAttribute('data-density', 'compact');
+  // Icon-only: the toggles' trailing labels are hidden, not removed.
+  await expect(page.getByRole('button', { name: 'Toggle Repositories' })).toBeVisible();
 
-    const trigger = page.getByTestId('status-overflow');
-    await expect(trigger).toBeVisible();
-    // `collapseFor` moves every STATUS_SEGMENTS entry into the popover at `collapsed` density
-    await expect(trigger).toHaveAccessibleName(/\d+ more/);
-    await trigger.click();
+  await page.setViewportSize({ width: collapsed, height: 800 });
+  await expect(bar).toHaveAttribute('data-density', 'collapsed');
+  await expect(page.getByTestId('status-segment-checks-verdict')).toHaveCount(0);
 
-    const panel = page.getByTestId('status-overflow-panel');
-    await expect(panel).toBeVisible();
-    for (const name of ['Toggle Repositories', 'Toggle Terminal', 'Toggle Browser']) {
-      await expect(panel.getByRole('button', { name })).toBeVisible();
-    }
-    await expect(panel.getByTestId('status-segment-checks-verdict')).toBeVisible();
+  const trigger = page.getByTestId('status-overflow');
+  await expect(trigger).toBeVisible();
+  // `collapseFor` moves every STATUS_SEGMENTS entry into the popover at `collapsed` density
+  await expect(trigger).toHaveAccessibleName(/\d+ more/);
+  await trigger.click();
 
-    // Click-through: a segment collapsed into the popover keeps its own click
-    // behaviour rather than becoming an inert label.
-    await panel.getByRole('button', { name: 'Toggle Terminal' }).click();
-    await expect(page.locator('[data-terminal-frame]')).toBeVisible();
-  },
-);
+  const panel = page.getByTestId('status-overflow-panel');
+  await expect(panel).toBeVisible();
+  for (const name of ['Toggle Repositories', 'Toggle Terminal', 'Toggle Browser']) {
+    await expect(panel.getByRole('button', { name })).toBeVisible();
+  }
+  await expect(panel.getByTestId('status-segment-checks-verdict')).toBeVisible();
+
+  // Click-through: a segment collapsed into the popover keeps its own click
+  // behaviour rather than becoming an inert label.
+  await panel.getByRole('button', { name: 'Toggle Terminal' }).click();
+  await expect(page.locator('[data-terminal-frame]')).toBeVisible();
+});

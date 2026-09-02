@@ -28,6 +28,32 @@ import { useTerminalIpc } from './use-terminal-ipc';
 const OSC7_QUIET_MS = 80;
 
 /**
+ * Skip the WebGL addon outright under Playwright (Phase 38 Theme I).
+ *
+ * Every terminal spec that mounts a real xterm — `terminal-links.spec.ts`,
+ * `fab-loops.spec.ts`'s second-terminal pair, `phase-21-roster.spec.ts`,
+ * `terminal-lazy-preload.spec.ts`, `terminal-reveal.spec.ts` and one spec each
+ * in `reviews.spec.ts` and `palette.spec.ts` — was green on macOS and red only
+ * on the Linux CI runner, which has no GPU. The `try/catch` around
+ * `WebglAddon` below already degrades gracefully when context creation
+ * *throws*, and that is not what was happening: two fixes were tried and
+ * measured (a longer `expect` timeout, and Chromium's SwiftShader software
+ * rasteriser) and neither moved a single spec, which means the runner *was*
+ * getting a context — the addon loaded, and the terminal still never painted.
+ * Chasing what specifically breaks post-load in a headless GPU-less
+ * compositor is real work with no macOS-reproducible bug to develop it
+ * against; forcing the same DOM renderer the WebGL addon degrades to on a
+ * real GPU failure sidesteps the whole question for the one consumer that
+ * does not need pixel fidelity — no e2e spec asserts on a drawn glyph, only
+ * on xterm's own behaviour (`.xterm-screen` presence, buffer content via
+ * `term.buffer`, focus, resize). Production is untouched: this reads a Vite
+ * env var Playwright's `webServer` sets (`playwright.config.ts`) and that a
+ * packaged build never carries, so a real user's session still tries WebGL
+ * first, powerline glyphs included — see the class docblock below.
+ */
+const FORCE_DOM_RENDERER = import.meta.env.VITE_MSTUDIO_FORCE_DOM_RENDERER === '1';
+
+/**
  * One session's xterm.
  *
  * Adapted from midnite's web terminal; the transport is IPC rather than a
@@ -359,12 +385,16 @@ export function TerminalView({
       // Must load after open() - the addon needs the terminal's element. If the
       // GPU says no (context creation fails or is later lost), fall back to the
       // DOM renderer: everything still works, only the drawn glyphs degrade.
-      try {
-        const webgl = new WebglAddon();
-        webgl.onContextLoss(() => webgl.dispose());
-        term.loadAddon(webgl);
-      } catch {
-        // WebGL unavailable; DOM renderer remains active.
+      // `FORCE_DOM_RENDERER` (Phase 38 Theme I) skips the attempt outright under
+      // Playwright — see its own comment for why "let it fail" wasn't enough.
+      if (!FORCE_DOM_RENDERER) {
+        try {
+          const webgl = new WebglAddon();
+          webgl.onContextLoss(() => webgl.dispose());
+          term.loadAddon(webgl);
+        } catch {
+          // WebGL unavailable; DOM renderer remains active.
+        }
       }
       termRef.current = term;
       fitRef.current = fit;

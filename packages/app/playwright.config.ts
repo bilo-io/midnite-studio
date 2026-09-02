@@ -88,6 +88,15 @@ export default defineConfig({
     command: `pnpm exec vite --port ${PORT} --strictPort`,
     url: `http://localhost:${PORT}`,
     /**
+     * `VITE_MSTUDIO_FORCE_DOM_RENDERER` (Phase 38 Theme I) — read by
+     * `terminal-view.tsx` to skip loading `@xterm/addon-webgl` under this
+     * suite. Set here rather than only in CI so a developer chasing a
+     * terminal spec locally sees the exact renderer CI does, not the WebGL
+     * one macOS happens to have. A packaged build never runs through Vite's
+     * `webServer`, so production is unaffected.
+     */
+    env: { ...process.env, VITE_MSTUDIO_FORCE_DOM_RENDERER: '1' },
+    /**
      * Never reuse a server this config did not start.
      *
      * The dev port (5173) is contended: `moon run app:dev` from the primary
