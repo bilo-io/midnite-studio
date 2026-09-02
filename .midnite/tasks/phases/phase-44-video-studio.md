@@ -1,0 +1,401 @@
+# Phase 44 — Video Studio
+
+[`.midnite/_features.md`](../../_features.md) lists five product features. Four of them became
+[Phase 40](phase-40-github-projects.md), [41](phase-41-agentic-kanban.md),
+[42](phase-42-councils-layout.md) and [43](phase-43-workflows-mvp.md). This is the fifth and last:
+a **Video** view that turns a brief into a rendered video, with Remotion doing the drawing and
+Claude doing the writing.
+
+The reference is [`~/Dev/ekko-videos`](file:///Users/bilolwabona/Dev/ekko-videos), which already
+works and whose README is explicitly written as "the playbook for repeating the process". It
+separates three things this phase keeps separated: **shared assets** reused across videos,
+**projects** (one numbered folder per video, carrying its brief, its editorial script and its
+output iterations), and **one Remotion app** that builds all of them. Its two Claude skills —
+`video-write-editorial-script` (brief → plan) and `video-execute-editorial-script` (plan → code) —
+are the loop this view puts a face on.
+
+**The central decision, and the one everything else follows from: this app ships no Remotion
+dependency.** Not in `packages/app`, not in `packages/desktop`, not anywhere. A video project is a
+**real npm project on disk that the user owns**, and Midnite Studio drives it from the outside —
+exactly as it already drives `gh` ([`gh-shell.ts`](../../../packages/desktop/src/main/forge/gh-shell.ts))
+and Claude ([`claude-cli.ts`](../../../packages/desktop/src/main/claude-cli.ts)): spawn a process,
+read its output, never link its library. The reason is packaging.
+[`electron-builder.yml`](../../../packages/desktop/electron-builder.yml) puts **only two esbuild
+bundles** in the asar — [`scripts/bundle.mjs`](../../../packages/desktop/scripts/bundle.mjs) inlines
+the whole workspace with `external: ['electron', 'node-pty', 'dugite']`, and the config actively
+excludes `node_modules/@midnite/**`, because electron-builder follows pnpm's workspace symlinks out
+of the app root and fails. `@remotion/renderer` cannot survive that, and the numbers are not close.
+Measured against the reference project's own install:
+
+| Artifact | Size |
+|---|---|
+| `chrome-headless-shell/mac-arm64` | **193 MB** |
+| `@remotion/compositor-darwin-arm64` (the Rust FFmpeg binary) | **17 MB** |
+| `@remotion/renderer` | 4.6 MB |
+| `remotion` | 2.6 MB |
+
+That is **~210 MB unpacked** against a dmg whose entire current native payload is dugite's 42 MB of
+git binaries — the single precedent for shipping real executables, unpacked deliberately through
+`asarUnpack`, and a load-bearing dependency of the app's reason to exist. A video renderer is not.
+It would also drag in `afterpack.cjs` re-asserting `+x` on two more binaries, and hardened-runtime
+entitlements for a spawned Chromium (`allow-unsigned-executable-memory` /
+`disable-library-validation`) that [`entitlements.mac.plist`](../../../packages/desktop/resources/entitlements.mac.plist)
+does not currently carry.
+
+So the app is a **host and a project manager**, not a video renderer. That is a much smaller,
+much more honest phase, and it buys three things for free.
+
+**Builds on.** Three existing systems do most of the work, and this phase adds no new
+process-spawning or embedding machinery:
+
+- **The browser engine.** [`browser-service.ts`](../../../packages/desktop/src/main/browser-service.ts)
+  is the only file in the repo that constructs a `WebContentsView` (line 88), and
+  `mstudio:browser:create|navigate|set-bounds|set-visible` already exist in
+  [`channels.ts:291`](../../../packages/shared/src/ipc/channels.ts). `remotion studio` is a plain
+  localhost dev server printing a `http://localhost:3000` URL — so **the timeline editor this phase
+  needs is already written, by Remotion, and this app can already host it.** Phase 43 hand-rolls an
+  SVG canvas because a workflow graph has no upstream editor; a video timeline does.
+- **The terminal.** [`terminal-links.ts`](../../../packages/app/src/features/terminal/terminal-links.ts)
+  already turns a URL in pty output into a Cmd+click that opens the browser pane, and
+  [`start-agent.ts`](../../../packages/app/src/features/terminal/start-agent.ts) already types a
+  command into a named session. A render is a long-running command with progress on stdout, which
+  is precisely what the Phase 30 broker was built to survive.
+- **Councils as the domain template.** Contracts in
+  [`shared/src/council.ts`](../../../packages/shared/src/council.ts), a runner plus `*-store.ts`
+  JSON persistence under `userData` in `desktop/src/main/`, one `*-handlers.ts` in
+  [`ipc/`](../../../packages/desktop/src/main/ipc/), a `features/` folder in the renderer, and
+  nothing in `git-engine`. Videos follow it exactly — nothing here touches git.
+
+**Scope guardrails.** **No in-app timeline editor** — Remotion Studio is the timeline, hosted.
+**No in-app video encoding, no ffmpeg dependency, no `@remotion/renderer` import.** **No Remotion
+Lambda / cloud rendering.** **No asset library management beyond listing what is on disk** — no
+upload, no transcoding, no thumbnails in the MVP. **No captions/whisper**, which
+`@remotion/install-whisper-cpp` would make tempting and which is its own phase. Video projects are
+**global, not per-repo**, matching councils — a video is not a property of a checkout. The view
+**degrades honestly**: with no video root configured it shows an empty state that explains the one
+setting, and with `npx` missing it says so rather than hanging.
+
+**A note on `node`, `npx` and PATH.** `ekko-videos/docs/REMOTION.md` opens with a PATH warning —
+`node`/`npx`/`ffmpeg` are Homebrew installs and a GUI-launched app does not inherit a login shell's
+PATH. This app already solved that: Phase 36 Theme A moved the login-shell probe off the boot path
+precisely because it cost a median 284 ms, which means **the probe exists**. Theme C reuses it
+rather than writing a second one, and a missing `npx` is a first-class, rendered state.
+
+Effort tags: **S** ≈ an hour or two · **M** ≈ half a day · **L** ≈ a day plus.
+
+## Deliverables
+
+### A — Shared contracts (M)
+
+- [ ] `VideoProject`, `VideoComposition`, `VideoRender`, `VideoStudioStatus`, `VideoToolchain` zod
+      schemas in a new [`shared/src/video.ts`](../../../packages/shared/src/video.ts), plus
+      `video.test.ts`, modelled on [`council.ts`](../../../packages/shared/src/council.ts)'s
+      structure.
+- [ ] `VideoProject` mirrors `ekko-videos`' `project.json` verbatim — `{ id, title, composition,
+      source, brief, script }` — so a project folder is portable **in both directions**: one made
+      by this app opens in that repo, and vice versa. This is a contract with an existing format,
+      not a new one; write it as such and say so in the doc comment.
+- [ ] `VideoRenderStatus` — `queued | rendering | succeeded | failed | cancelled` — mirroring the
+      council member states the runner already models.
+- [ ] `VideoStudioStatus` is a discriminated union on `state`: `stopped | starting | running |
+      failed`, carrying the `url` only in `running`. A studio with no URL yet is a *state*, not a
+      null field, because the view renders each of the four differently.
+- [ ] `VideoToolchain` — the resolved `node`/`npx` paths plus a `remotionVersion` read from the
+      project's own `package.json`, or the reason each is missing. The view renders the reason.
+- [ ] Channels in [`channels.ts`](../../../packages/shared/src/ipc/channels.ts), in the established
+      `mstudio:` namespace and grouped with a `// --- video (Phase 44) ---` banner comment like
+      every block before it: `mstudio:video:project-list|project-get|project-create|project-remove`,
+      `mstudio:video:studio-start|studio-stop|studio-status`,
+      `mstudio:video:render-start|render-cancel|render-list`, `mstudio:video:toolchain`.
+- [ ] Push events under `EVENT_CHANNELS` ([`channels.ts:440`](../../../packages/shared/src/ipc/channels.ts)):
+      `videoStudioChanged`, `videoRenderProgress`. One discriminated-union event per group, as
+      `browserEvent` does — not one channel per field.
+- [ ] Bridge signatures in [`bridge.ts`](../../../packages/shared/src/ipc/bridge.ts) returning the
+      `GitOpResult`-shaped envelope. A failed render is a normal outcome the UI renders, never a
+      thrown error — the rule from [`CLAUDE.md`](../../../CLAUDE.md), and a render fails often.
+
+### B — Project discovery and the store (M)
+
+- [ ] `desktop/src/main/video/projects-store.ts` — JSON under `userData` following the
+      [`councils-store.ts`](../../../packages/desktop/src/main/councils-store.ts) convention. It
+      persists **one setting**: the video root directory. Everything else is read from disk.
+- [ ] Projects are **discovered, not registered**: scan `<root>/projects/*/project.json`. A folder
+      the user created by hand appears without being told about; a folder deleted outside the app
+      disappears. The store is a pointer, not a mirror — mirrors drift.
+- [ ] Path containment: every read is jailed under the configured root, reusing
+      [`fs-scope.ts`](../../../packages/desktop/src/main/fs-scope.ts) rather than a second
+      implementation. A `project.json` naming `../../etc` resolves outside the root and is refused,
+      asserted in a test.
+- [ ] A malformed or unparseable `project.json` yields a project in an `invalid` state carrying the
+      parse error, listed and greyed — never a crash and never a silently skipped folder.
+- [ ] `project-create` copies `<root>/projects/_template/`, the mechanism `ekko-videos` already
+      documents ("copy this to start the next one"), and refuses an id that already exists.
+- [ ] Renders are read from `<project>/output/` by filename (`vN-<label>.mp4`) — the iteration
+      number is derived from what is on disk, not counted in a store that can disagree with it.
+
+### C — The toolchain probe and the studio host (M)
+
+- [ ] `desktop/src/main/video/toolchain.ts` — resolve `node` and `npx` through the **existing**
+      [`login-shell.ts`](../../../packages/desktop/src/main/login-shell.ts) (`spawn(loginShell(),
+      ['-lic', cmd])`, line 42), which [`gh-shell.ts`](../../../packages/desktop/src/main/forge/gh-shell.ts)
+      already uses for exactly this reason. Do not write a second PATH probe. Cache the result;
+      re-probe on explicit request only.
+- [ ] `desktop/src/main/video/studio-service.ts` owns **at most one** `remotion studio` child per
+      project, in a `Map<projectId, ChildProcess>` the way
+      [`browser-service.ts`](../../../packages/desktop/src/main/browser-service.ts) owns its tab map
+      and `pty-service.ts` owns its ptys. Starting a studio that is already running returns the
+      running one; it never spawns a second.
+- [ ] Spawn with `--no-open` — the flag `ekko-videos/docs/REMOTION.md` uses — so Remotion does not
+      launch the OS browser out from under the app.
+- [ ] **Port discovery reads stdout, it does not assume 3000.** Remotion picks the next free port
+      when 3000 is taken, and a machine running two studios or an unrelated dev server is the normal
+      case, not the edge case. Match the printed URL; until it appears the state is `starting`.
+- [ ] A studio that exits on its own transitions to `failed` carrying its last stderr lines, pushed
+      over `videoStudioChanged`. A dev server that dies silently is the single most confusing
+      failure this feature can have.
+- [ ] Every child is killed on `before-quit` and on project removal, **by process group** — see
+      Theme E. A `remotion studio` surviving the app is a port leak the user cannot see and cannot
+      find.
+
+### D — The Video view (L)
+
+- [ ] Add `video` to the `ViewId` union at
+      [`ui-store.ts:51`](../../../packages/app/src/store/ui-store.ts) and to `VIEW_IDS` at
+      [`ui-store.ts:66`](../../../packages/app/src/store/ui-store.ts) — the union's order **is** the
+      rail's order, as its doc comment says, so place it deliberately: after `workflows`, before
+      `sessions`. There is **no router**: `pathForView`/`viewForPath`
+      ([`ui-store.ts:1278`](../../../packages/app/src/store/ui-store.ts)) synthesise the path from
+      `VIEW_IDS`, which is why that list is the thing to edit.
+- [ ] **A new `ViewId` touches eight files, and the scan found all of them — do not discover them
+      one failing test at a time:**
+
+      | File | What |
+      |---|---|
+      | [`ui-store.ts:51,66`](../../../packages/app/src/store/ui-store.ts) | union + `VIEW_IDS` |
+      | [`nav-icons.ts:39`](../../../packages/app/src/components/nav-icons.ts) | `VIEW_ICON: Record<ViewId, IconType>` — **exhaustive; typecheck fails without it** |
+      | [`app.tsx:250`](../../../packages/app/src/app.tsx) | a `NavItem` in `AGENT_NAV_ITEMS` |
+      | [`app.tsx:955`](../../../packages/app/src/app.tsx) | the render ternary arm |
+      | [`title-bar-nav.tsx:40`](../../../packages/app/src/components/title-bar-nav.tsx) | breadcrumb label |
+      | [`palette/providers.ts:34,49`](../../../packages/app/src/services/palette/providers.ts) | palette title + keywords |
+      | [`sidebar-page.tsx:34`](../../../packages/app/src/features/settings/settings-pages/sidebar-page.tsx) | Settings → Sidebar toggle |
+      | [`view-sections.ts:191`](../../../packages/app/src/features/repos/view-sections.ts) | which sidebar sections the view shows |
+
+- [ ] The nav icon is a `react-icons` glyph, per [`CLAUDE.md`](../../../CLAUDE.md)'s one-family
+      rule, imported per set (`react-icons/lu`), never from the package root.
+- [ ] The view is **global, before the repo guard** — the `councils` arm at
+      [`app.tsx:957`](../../../packages/app/src/app.tsx) is the precedent, and the ternary's order
+      is documented as load-bearing. A video project is not a property of the open checkout, so it
+      must not fall into `<EmptyWorkspace />`.
+- [ ] Three panes, following the layout [Phase 42](phase-42-councils-layout.md) argues for and for
+      the same reason: **projects left, the studio centre, project detail right.** The centre is the
+      point of the view and must not compete for width with its own configuration.
+- [ ] The centre pane hosts a browser tab via `browserCreate` + `browserSetBounds`, positioned by
+      the same `use-browser-bounds` hook the browser pane already uses
+      ([`use-browser-bounds.ts`](../../../packages/app/src/features/browser/use-browser-bounds.ts)).
+      **Do not write a second bounds implementation** — that hook exists because getting this right
+      once was hard.
+- [ ] The tab is torn down on view switch and on project switch, and its visibility is gated the
+      way the browser pane's is. A `WebContentsView` left visible behind another view is the exact
+      bug [Phase 32 Theme E](phase-32-browser-engine-and-tabs.md) is still open on — read it first.
+- [ ] Four rendered states for the centre pane, one per `VideoStudioStatus` variant, plus a fifth
+      for "no toolchain": a Start button, a spinner with the port being waited on, the hosted
+      studio, the failure with its stderr, and the `npx`-missing explanation.
+- [ ] The view is **lazy**, behind the same Suspense boundary as the other thirteen
+      ([Phase 36 Theme B](phase-36-performance-diet.md)) — `moon run app:perf` asserts the entry
+      chunk does not move, and this view adds no runtime dependency to assert about.
+
+### E — Renders (M)
+
+- [ ] `desktop/src/main/video/render-service.ts` spawns through the **existing**
+      [`process-runner.ts`](../../../packages/desktop/src/main/process-runner.ts) — `realSpawn`
+      (line 43) already does argv-vector-no-shell, `NO_COLOR`, `detached: true`, a deadline timer
+      with SIGKILL, and an `OUTPUT_TAIL_CAP`. It is what `main/testing/runner.ts` and
+      `main/diagnostics/runner.ts` use, and a render is the same shape of job. **Writing a fresh
+      `spawn` here is the mistake this item exists to prevent.**
+- [ ] Run the project's own wrapper when it exists (`scripts/render.mjs <project-id> [label]`, which
+      `ekko-videos` has) and fall back to `npx remotion render <composition> <out>`. Prefer the
+      wrapper: it already knows the output convention and appends the changelog stub.
+- [ ] Parse Remotion's progress output into `videoRenderProgress` events — frames done / total and
+      a phase (`bundling | rendering | encoding`). Progress that only says "working" is not worth
+      the channel.
+- [ ] Cancel kills the child **and its process group** — `process.kill(-pid)`, which
+      `process-runner.ts` already implements because `detached: true` is what makes it possible.
+      `npx` spawns Remotion, which spawns Chrome; killing only `npx` orphans both, and an orphaned
+      headless Chrome is invisible and expensive.
+- [ ] A render is queued per project — one at a time. Two concurrent Chrome renders on a laptop is
+      how you make the app feel broken.
+- [ ] The right pane lists `output/vN-*.mp4` with size and mtime, and renders
+      `output/CHANGELOG.md` — the tracked file `ekko-videos` uses to record what changed in each
+      cut — through the **existing** markdown pipeline
+      ([`features/markdown/`](../../../packages/app/src/features/markdown)), not a second renderer.
+- [ ] Reveal-in-Finder and play-in-default-app on a render, through the existing `shell` channel.
+- [ ] **No in-app video player in this phase — but record why, because it is closer than it looks.**
+      [`file-preview.tsx:287`](../../../packages/app/src/features/files/preview/file-preview.tsx)
+      already renders `<video controls>` over
+      [`fs-protocol.ts`](../../../packages/desktop/src/main/fs-protocol.ts)'s `mstudio-file://`
+      scheme, which is registered with `stream: true` **specifically so `<video>` can seek**. The
+      one real blocker is scope: [`fs-scope.ts`](../../../packages/desktop/src/main/fs-scope.ts)
+      `confineToRoot` jails that scheme to a repo checkout or `~/.claude`, and a video root is
+      neither. Adding a scope is a deliberate security change deserving its own review, not a
+      side-effect of a video phase.
+
+### F — Claude in the loop (M)
+
+- [ ] A **Write editorial script** action on a project: opens a terminal session bound to the video
+      root and types (does **not** send) the `/video-write-editorial-script` invocation with the
+      project's brief path. This is the app's standing agent-launch posture — type, don't send —
+      and [Phase 34](phase-34-agent-councils.md) treated its auto-send as an explicit, argued
+      exception. This is not one.
+- [ ] An **Execute editorial script** action doing the same for
+      `/video-execute-editorial-script`.
+- [ ] Both reuse [`start-agent.ts`](../../../packages/app/src/features/terminal/start-agent.ts) and
+      the `DEFAULT_AGENT_SKILLS` prompt store that [Phase 35](phase-35-fab-mission-control.md)
+      built precisely so prompts stop being hard-coded at their call sites. **Adding a hard-coded
+      prompt string in this phase undoes that work** — if the skills need a new entry, add one.
+- [ ] `EDITORIAL_SCRIPT.md` and `BRIEF.md` render in the right pane through the same markdown
+      pipeline, and open in the existing editor ([Phase 24](phase-24-writable-explorer.md)) for
+      edits. No bespoke editor.
+- [ ] The two skills live in the **video root's** `.claude/skills/`, not in this repo. The app
+      surfaces whether they are present and links to `ekko-videos` as the reference when they are
+      not; it does not install them.
+
+### G — Assets (S)
+
+- [ ] Run the project's `scripts/sync-assets.mjs` when present, as a button with its output in a
+      terminal session. `ekko-videos` makes this a `predev`/`prebuild` hook; surfacing it manually
+      is enough for the MVP.
+- [ ] List `<root>/assets/` and `<project>/input/` as a read-only tree in the right pane, reusing
+      the explorer's existing tree component rather than a second one.
+- [ ] Nothing writes into `assets/`. Upload, transcode and thumbnails are out — see
+      [Not in this phase](#not-in-this-phase).
+
+### H — Wiring and verification (M)
+
+- [ ] `desktop/src/main/ipc/video-handlers.ts`, registered where the other `*-handlers.ts` are,
+      using the shared [`handle.ts`](../../../packages/desktop/src/main/ipc/handle.ts) wrapper so
+      the envelope is uniform.
+- [ ] Preload bridge exposure in `packages/desktop/src/preload/`, and query hooks in
+      [`queries.ts`](../../../packages/app/src/services/queries.ts) following the councils
+      precedent.
+- [ ] A palette provider entry per project and per action, in
+      [`palette/providers.ts`](../../../packages/app/src/services/palette/providers.ts), plus a
+      `view.video` command in [`keybindings.ts`](../../../packages/shared/src/keybindings.ts) —
+      `COMMANDS` is the single source of truth, per
+      [`CLAUDE.md`](../../../CLAUDE.md), and `COMMAND_IDS`/`DEFAULT_KEYMAP` derive from it. **No
+      new global chord** — the rail and palette are enough; Phase 39 just finished arguing that
+      chords are scarce.
+- [ ] A Settings page entry for the video root directory, using the existing directory picker
+      (`mstudio:repo:pick-directory`) rather than a text field.
+- [ ] `menu.ts` entry alongside the other views.
+- [ ] Unit tests for the port-matching parser, the render-progress parser, the `project.json`
+      round-trip, and the path-containment refusal — the four places this phase can be wrong
+      without anyone noticing.
+- [ ] Screenshots of all five centre-pane states, per the repo's usual verification convention.
+
+## Files this phase touches
+
+| Area | Path |
+|---|---|
+| Contract | [`shared/src/video.ts`](../../../packages/shared/src/video.ts) *(new)*, [`channels.ts`](../../../packages/shared/src/ipc/channels.ts), [`bridge.ts`](../../../packages/shared/src/ipc/bridge.ts), [`keybindings.ts`](../../../packages/shared/src/keybindings.ts) |
+| Main | `desktop/src/main/video/` *(new)* — `projects-store.ts`, `toolchain.ts`, `studio-service.ts`, `render-service.ts` |
+| IPC | `desktop/src/main/ipc/video-handlers.ts` *(new)*, [`handle.ts`](../../../packages/desktop/src/main/ipc/handle.ts) |
+| Reuse | [`fs-scope.ts`](../../../packages/desktop/src/main/fs-scope.ts), [`browser-service.ts`](../../../packages/desktop/src/main/browser-service.ts), [`claude-cli.ts`](../../../packages/desktop/src/main/claude-cli.ts) |
+| Renderer | `app/src/features/video/` *(new)*, [`app.tsx`](../../../packages/app/src/app.tsx), [`ui-store.ts`](../../../packages/app/src/store/ui-store.ts), [`use-browser-bounds.ts`](../../../packages/app/src/features/browser/use-browser-bounds.ts), [`start-agent.ts`](../../../packages/app/src/features/terminal/start-agent.ts), [`queries.ts`](../../../packages/app/src/services/queries.ts), [`palette/providers.ts`](../../../packages/app/src/services/palette/providers.ts) |
+| Menu | [`desktop/src/main/menu.ts`](../../../packages/desktop/src/main/menu.ts) |
+| Untouched | `packages/git-engine` — nothing here touches git |
+
+## Verification
+
+- [ ] `moon run :typecheck :lint :test` green.
+- [ ] Boundary lint clean: spawning and path resolution stay in `packages/desktop`; `shared` carries
+      only zod; `git-engine` is untouched. Note the renderer rule is mechanical —
+      [`eslint.config.mjs`](../../../eslint.config.mjs) denies `node:*`, `fs`, `path` and
+      `child_process` in `packages/app` — but the `git-engine` rule is **not**: only `NO_ELECTRON`
+      guards it, so nothing would stop video code being put there by mistake. It is a naming and
+      ownership constraint, and this phase respects it by putting nothing there.
+- [ ] [`ipc.test.ts`](../../../packages/shared/src/ipc/ipc.test.ts) passes — it asserts
+      channel/bridge/schema coverage, so a half-wired channel fails CI rather than shipping.
+- [ ] `view-sections.test.ts` passes — it enumerates every `ViewId` and fails loudly on one that is
+      unhandled, which is the cheapest proof the eight-file checklist in Theme D was completed.
+- [ ] **`package.json` diff shows no new runtime dependency in `app` or `desktop`** — no `remotion`,
+      no `@remotion/*`, no `ffmpeg`. This is the phase's central claim and the one assertion that
+      proves it.
+- [ ] `moon run app:perf`: the Video view is lazy and the entry chunk is unmoved.
+- [ ] The path-containment refusal is asserted in a test, not just implemented.
+- [ ] A studio started on a machine where port 3000 is already taken is discovered on its real port
+      — the assumption most likely to be wrong in the wild.
+- [ ] Cancelling a render leaves **no orphaned Chrome process**, checked with `ps` after the fact.
+- [ ] Quitting the app with a studio and a render both live leaves no surviving children.
+- [ ] A real end-to-end pass against `~/Dev/ekko-videos` as the configured root: list its
+      `01-cop31-showreel` project, host its studio, read its changelog. The reference repo is the
+      integration test.
+- [ ] Screenshots per Theme H.
+
+## Not in this phase
+
+An in-app timeline editor; in-app video playback; `@remotion/renderer` or any bundled encoder;
+Remotion Lambda or any cloud render; captions and whisper transcription; asset upload, transcoding
+or thumbnails; multi-project or batch rendering; per-repo scoping; scaffolding a video root from
+nothing (`npx create-video`) — the MVP configures an existing root, and creating one is a
+one-command shell step the terminal already does. Also out: the `tools/cut-detect.py` and
+`tools/bbox.py` frame-analysis helpers `ekko-videos` carries, which are a Python toolchain
+dependency this app should not acquire.
+
+## Decisions / open questions
+
+- **Settled — the app ships no Remotion dependency; projects are npm projects on disk, driven from
+  outside.** Forced by [`electron-builder.yml`](../../../packages/desktop/electron-builder.yml):
+  the asar carries only two esbuild bundles with the workspace inlined, and `@remotion/renderer`
+  needs a real on-disk `node_modules` plus a ~150 MB Chrome Headless Shell. It also matches how the
+  app already treats `gh` and `claude`. The price is that the user must have `node`/`npx` — which
+  Theme C makes a rendered state rather than a crash.
+- **Settled — Remotion Studio is the timeline, hosted in a `WebContentsView`.** The app has a real
+  browser engine and Remotion Studio is a localhost dev server; building a second timeline editor
+  would be the largest and least defensible thing in the backlog. Contrast
+  [Phase 43](phase-43-workflows-mvp.md), which hand-rolls a canvas *because no upstream editor
+  exists* for a workflow graph.
+- **Settled — global, not per-repo**, matching councils. A video is not a property of a checkout.
+- **Settled — type-don't-send for both Claude actions**, per the app's standing posture. Phase 34's
+  auto-send was an argued exception; nothing here argues for one.
+- **Settled — host the studio; do not embed `@remotion/player`.** `@remotion/player` is browser-only
+  React and *is* legal in `packages/app` — it is the one Remotion package the boundary rules would
+  allow. It was rejected anyway, and the reason is the interesting one: `<Player>` needs the
+  **compositions themselves** — the project's own `.tsx` files — reachable from the renderer's
+  bundle, while the CLI needs them reachable from Remotion's bundler in its own process. Satisfying
+  both means the user's video project becomes a build input to this app, which is a far larger
+  commitment than hosting a dev server, has no precedent in this repo (`packages/shared` is the
+  nearest thing and is zod-only by rule), and would drag a Remotion dependency back into
+  `packages/app` after all. Hosting sidesteps the entire fork.
+- **Settled — no new `packages/video-engine`.** A sibling to `git-engine` under the same
+  plain-Node/never-electron rule is the architecturally tidy option, and it would need a new eslint
+  boundary group, a `moon.yml`, a tsconfig project reference and an entry in `bundle.mjs`. It earns
+  none of that while the app ships no Remotion code at all. Revisit only if in-app rendering is ever
+  adopted — see the note below.
+- **Open — one video root, or several?** *Recommendation:* one, for the MVP. Several is a list
+  setting, a picker in three places and a "which root does this project belong to" question in
+  every payload, for a feature whose first user has exactly one.
+- **Open — does the centre pane host Remotion Studio, or does the studio open as a normal browser
+  tab?** *Recommendation:* host it in the centre pane. A normal tab is one line of code and loses
+  the whole point — the project list and its studio side by side. But build it so the URL is also
+  openable as a plain tab, because that is free and is the fallback when bounds go wrong.
+- **Open — should the studio auto-start when a project is selected?** *Recommendation:* no. It
+  spawns a dev server and a Node process; a server that starts itself because you clicked a list
+  row is a surprise, and the same call [Phase 43](phase-43-workflows-mvp.md) made about its demo
+  API. Explicit Start, remembered per project within the session.
+- **Open — Tailwind version.** The app is on Tailwind 3; `ekko-videos`' compositions use
+  `@remotion/tailwind-v4`. *Recommendation:* ignore it — the compositions render inside Remotion's
+  own bundler in its own process, not in this app's renderer, so the two never meet. Worth writing
+  down only because it looks like a conflict and is not.
+- **Open — where do the two Claude skills live?** *Recommendation:* the video root's
+  `.claude/skills/`, not this repo. They are about making videos, not about Midnite Studio, and
+  `ekko-videos` already owns and versions them. The app detects and links; it does not install.
+- **Open — if in-app rendering is ever wanted, which of the two ways in?** Recorded now so the
+  option is not re-derived later. Either **download-on-first-use** (call Remotion's
+  `ensureBrowser()` into `app.getPath('userData')` behind a progress UI — dmg unchanged, one-time
+  ~193 MB download and a first-run stall) or **use the user's own Chrome** via `browserExecutable`
+  (no download, silently broken on a machine without Chrome). The 17 MB FFmpeg compositor is not
+  optional under either. *Recommendation:* neither, in this phase — but if forced, the first.
+  Reusing **Electron's own Chromium was investigated and is not a plan**: `@remotion/renderer`
+  expects a `chrome-headless-shell` binary, Electron's helpers are not CLI-compatible with it, and
+  Remotion neither documents nor tests the substitution. It was not verified empirically, so treat
+  it as unavailable rather than merely unproven.
