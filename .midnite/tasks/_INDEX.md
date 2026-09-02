@@ -43,7 +43,7 @@ Completed work is logged append-only in [`done.md`](done.md). Deferred scope liv
 | [43 · Workflows](phases/phase-43-workflows-mvp.md) | ◻ TODO | x1 | 0/77 | `░░░░░░░░░░` | 0% | — | A B C D E F G H I |
 | [42 · Councils, rearranged](phases/phase-42-councils-layout.md) | ◻ TODO | x1 | 0/43 | `░░░░░░░░░░` | 0% | — | A B C D E F |
 | [41 · Agentic Kanban](phases/phase-41-agentic-kanban.md) | ◻ TODO | x1 | 0/55 | `░░░░░░░░░░` | 0% | — | A B C D E F G H I |
-| [40 · GitHub Projects](phases/phase-40-github-projects.md) | 🔄 WIP | x1 | 24/53 | `█████░░░░░` | 45% | — | E F G |
+| [40 · GitHub Projects](phases/phase-40-github-projects.md) | 🔄 WIP | x1 | 24/53 | `█████░░░░░` | 45% | E F | G |
 | [39 · One rail, five chords and four loops](phases/phase-39-status-bar-shortcut-rail.md) | 🔄 WIP | — | 61/64 | `██████████` | 95% | — | Verification (human keyboard + eye pass) |
 | [38 · Paying off the e2e suite](phases/phase-38-e2e-suite-repair.md) | 🔄 WIP | — | 35/58 | `██████░░░░` | 60% | — | D G H I |
 | [37 · A glow that knows which tab](phases/phase-37-fab-tab-glow.md) | 🔄 WIP | — | 41/44 | `█████████░` | 93% | — | F (human idle-cpu + resize check) |
