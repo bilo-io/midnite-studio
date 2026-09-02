@@ -197,10 +197,7 @@ becomes a place to hide the next 45.
       this door).
 - [ ] Point the CI `E2E` step at `app:e2e`, delete the `app:e2e-ci` task from
       [`packages/app/moon.yml`](../../../packages/app/moon.yml) and delete
-      `packages/app/playwright.ci.config.ts`. **Note the job must exist first** — it was built
-      and measured on 2026-09-01 but held back because shard 2 of 4 never once completed, so
-      landing it (with a `timeout-minutes` cap, which it lacked) is a prerequisite for this
-      phase mattering at all.
+      `packages/app/playwright.ci.config.ts`.
 - [ ] Rewrite the `outstanding.md` entry to record the close, with the final count.
 - [ ] Consider whether `app:e2e` should now join `moon run :test` for local runs, or stay
       separate on the chromium-download argument that has always justified it. Record the
@@ -244,6 +241,19 @@ them** while making every shard about 60% slower — 7.6 min to 12.1 min — so 
 - [ ] `reviews.spec.ts:400` — the terminal header under a squeezed detail pane. This one is
       **tagged `@linux-red` rather than ignored**, because it is the only terminal spec in a
       ten-spec file; drop the tag rather than editing `KNOWN_RED`.
+- [ ] `palette.spec.ts:148` — "Mod+K opens the palette while the terminal has focus". Also
+      `@linux-red`-tagged, and worth noting it was found the hard way: the other nine specs in
+      that file failed on CI for an unrelated reason (a hard-coded `Meta+k`, fixed), and only
+      once those were green did this one stand out as the single spec there that needs a real
+      `.xterm-screen`.
+- [ ] `shortcut-rail.spec.ts:261` and `status-bar.spec.ts:149` — a **different** Linux-only
+      cause from the rest of this theme, and the first thing the job caught in anger: both
+      assert a status-bar *density*, which is decided from measured content width, which depends
+      on the fonts installed. The runner's set differs from macOS, so the same viewport lands on
+      the other side of the breakpoint (`compact` where macOS gives `full`). Fix by pinning the
+      viewport to a width that is unambiguous on both, or by asserting the breakpoint against a
+      measured width rather than a hard-coded one — not by widening the timeout, which cannot
+      help. Both are Phase 39's own specs, tagged `@linux-red` within hours of it landing.
 - [ ] Drop `phase-21-roster.spec.ts`, `terminal-lazy-preload.spec.ts` and
       `terminal-reveal.spec.ts` from `KNOWN_RED`, and remove `grepInvert` from
       `playwright.ci.config.ts` once no `@linux-red` tag remains.

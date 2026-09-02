@@ -47,42 +47,31 @@ Recorded here when a phase punts on something; pick these up post-MVP.
   Actions section, and shows nothing otherwise. The **local test run** producer
   (`moon run :test` per branch, cached by tip sha) is still unbuilt.
 
-- **Nothing runs `app:e2e` automatically.** — still open, but no longer unexamined. The
-  Playwright suite is out of `moon run :test` on purpose (it needs a chromium download) and so
-  it runs only when a human remembers; on 2026-08-27 seventeen specs sat red on `main` across
-  several merges because no one did.
+- ~~**Nothing runs `app:e2e` automatically.**~~ — ✅ landed 2026-09-02, by the route this entry
+  predicted: its own **blocking** job in [`.github/workflows/ci.yml`](../../.github/workflows/ci.yml),
+  on every PR alongside `gate`. It runs on **ubuntu**, not the macOS the gate needs — the suite
+  drives the renderer in headless chromium against a mocked `window.midniteStudio`, so nothing
+  in it is macOS-specific and the runner bills at 1x instead of 10x — sharded four ways, because
+  a private repo's runner is 2-core and Playwright takes one worker on it: unsharded the job took
+  **21m30s** against 3m0s locally, and four shards bring that to ~6 min.
 
-  **2026-09-01: the job was built, measured, and deliberately held back.** Running the suite in
-  full for the first time in weeks found **45 failures across 17 of 58 files**, and a bisect
-  against `ec2c75e` rules out Phase 36 — the same three sample files fail 15 there against 13 on
-  `main`. So it is drift, and [Phase 38](phases/phase-38-e2e-suite-repair.md) owns repairing it.
-  What already landed is the scaffolding the job needs, so the follow-up is small:
-  [`playwright.ci.config.ts`](../../packages/app/playwright.ci.config.ts) — the **ratchet**,
-  naming every currently-red file so CI can block on the 41 green ones — the `app:e2e-ci` moon
-  task that runs it, and CI-only `retries: 2` plus 15s/60s timeouts in
-  [`playwright.config.ts`](../../packages/app/playwright.config.ts).
+  It blocks on a **ratchet** ([`playwright.ci.config.ts`](../../packages/app/playwright.ci.config.ts)):
+  the suite had 45 failures across 17 of 58 files when it was first run in full, so CI blocks on
+  the green majority and [Phase 38](phases/phase-38-e2e-suite-repair.md) empties the list.
+  Blocking on everything was impossible with the suite red; blocking on nothing is the
+  arrangement that produced the rot in the first place.
 
-  **Why the job itself is not wired up yet.** A four-way-sharded ubuntu job was built and run:
-  three shards go green in 5–7 minutes, and **shard 2 never completed once across four runs** —
-  still inside its Playwright step after 22 minutes where its siblings finish in six. The cause
-  is unknown; it does not reproduce in a local run of the same shard. Merging a *blocking* job
-  in that state would have wedged every PR, and the job carried no `timeout-minutes`, so a hang
-  would have held a runner for GitHub's 6-hour default rather than failing fast. Both are
-  cheap to fix and neither should be guessed at under merge pressure.
+  **Two things the wiring-up taught, worth keeping.** A shard that looked hung at 22 minutes was
+  not hung — nine `palette.spec.ts` specs pressed a hard-coded `Meta+k`, which does nothing on
+  Linux because `Mod` is Ctrl there, and each failure cost three attempts at a 60s timeout. They
+  now press `ControlOrMeta`. And the job carries `timeout-minutes: 20`, because without it a job
+  inherits GitHub's **6-hour** default — a blocking job that can hold a runner all day is worse
+  than no job at all.
 
-  **The counts below are already a floor, not a total.** Rebasing onto `main` mid-way picked up
-  another session's renderer work, and a local run of one shard then failed four specs that had
-  passed an hour earlier (`files-search`, `files-view`, `files-editor`, `diff-scroll-perf`) —
-  which is the same rot arriving in real time, and the argument for landing the job rather than
-  perfecting the list first. Re-measure when it lands; do not trust these numbers to be current.
-
-  Measured along the way, so the follow-up does not repeat them: unsharded the job took
-  **21m30s** against 3m0s locally (a private repo's ubuntu runner is 2-core, so Playwright takes
-  one worker where a 12-core laptop takes six); four shards bring that to ~6 min. And four specs
-  fail **only** on Linux because xterm paints through `@xterm/addon-webgl` and a GPU-less runner
-  has no context to give it — a 15s timeout moved nothing and SwiftShader fixed none of them
-  while costing 60% more runtime, so both were reverted and Phase 38 Theme I owns the real
-  answer.
+  Four specs stay ratcheted for a reason that is **not** drift: they are green on macOS and red
+  only on Linux, because xterm paints through `@xterm/addon-webgl` and a GPU-less runner has no
+  context to give it. A 15s timeout moved nothing and SwiftShader fixed none of them while
+  costing 60% more runtime; both were reverted. Phase 38 Theme I owns the real answer.
 
 - **Screenshot PNGs are not byte-reproducible.** A full `app:e2e` run rewrites roughly forty
   committed images across every phase, and two identical runs of the same spec differ by ten or
