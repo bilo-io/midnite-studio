@@ -1947,3 +1947,35 @@ html[data-motion='reduced'] .loop-launcher.is-running.is-pulsing {
     box-shadow: 0 0 5px 0 hsl(var(--lane-h) var(--lane-s) var(--lane-l) / 0.55);
   }
 }
+
+/*
+  `PanelStack` (Phase 42 Theme A/B) — a directional slide between a panel's
+  history entries. `transition-property`/`timing-function` live here;
+  `transition-duration` and the actual `transform` are inline, driven by
+  `motionMs()` and the component's own directional state.
+
+  Transition-driven rather than `@keyframes`-driven on purpose: the shell's
+  universal `html[data-motion='reduced'] *` reset pins a `@keyframes`
+  animation to its last frame (correct for a slide only by luck), but
+  collapses a `transition` honestly — an instant transition still lands on
+  the right value. The rule below is the belt-and-suspenders per-class
+  override Phase 39 Theme G's retro asks every new motion to carry, covering
+  the one case the universal reset cannot reach: `data-motion` defaults to
+  `'system'`, not `'reduced'`, so a fresh install with the OS's own
+  reduce-motion on reads `'system'` and the `[data-motion='reduced']`
+  selector never matches at all — only the `@media` form below does.
+*/
+.panel-stack-pane {
+  transition-property: transform;
+  transition-timing-function: ease-in-out;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  html:not([data-motion='full']) .panel-stack-pane {
+    transition: none;
+  }
+}
+
+html[data-motion='reduced'] .panel-stack-pane {
+  transition: none;
+}

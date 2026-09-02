@@ -937,10 +937,18 @@ describe('keybindings', () => {
     expect(GLOBAL_CHORDS).not.toContain('Mod+Shift+r');
   });
 
-  it('yields exactly the reload pair to the shell, and nothing else', () => {
-    // Two wide on purpose: `app` scope does not, on its own, keep a chord out
+  it('yields exactly the reload pair and the panel-history pair to the shell, and nothing else', () => {
+    // Four wide on purpose: `app` scope does not, on its own, keep a chord out
     // of the terminal, and everything else is better off firing from there.
-    expect([...TERMINAL_YIELD_COMMANDS].sort()).toEqual(['app.hardReload', 'app.reload']);
+    // `panel.back`/`panel.forward` (Phase 42 Theme D) join the reload pair
+    // for the same reason `Mod+R` does — `Mod+[` off macOS is `Ctrl+[`,
+    // which is `ESC` in every shell.
+    expect([...TERMINAL_YIELD_COMMANDS].sort()).toEqual([
+      'app.hardReload',
+      'app.reload',
+      'panel.back',
+      'panel.forward',
+    ]);
     for (const command of TERMINAL_YIELD_COMMANDS) expect(isCommandId(command)).toBe(true);
   });
 
