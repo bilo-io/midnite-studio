@@ -8,6 +8,13 @@ node:
   pnpm:
     version: '9.15.0'
 
+  # moon's default is to run `pnpm dedupe` whenever it sees the lockfile change.
+  # In CI every fresh checkout looks like a change, so this fires on every job —
+  # a full resolution pass that rewrites pnpm-lock.yaml underneath a workflow
+  # that deliberately installed with `--frozen-lockfile`. Deduping is a
+  # considered, local act; it has no business running inside the gate.
+  dedupeOnLockfileChange: false
+
 # TypeScript project-reference syncing is intentionally OFF. When enabled, moon
 # re-serialises every package tsconfig on each run — stripping the hand-written
 # explanatory comments and reformatting them — and generates a root `tsconfig.json`
