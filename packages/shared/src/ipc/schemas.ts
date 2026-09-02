@@ -879,9 +879,15 @@ export const PullRequest = OpBase.extend({
   rebase: z.boolean().default(false),
 });
 /**
- * No `force` field, deliberately. Force-push is out of scope for the MVP
- * (docs/INITIAL_PLAN.md → Risks); when it lands it will be `--force-with-lease`
- * behind blast-radius gating, as a distinct channel.
+ * No bare `force` field — Phase 22 Theme F's reversal of the MVP's original
+ * "no force-push" rule (docs/INITIAL_PLAN.md → Risks) stops well short of
+ * one. `forceWithLease` is the only escape hatch, and it is deliberately not
+ * a boolean: git's bare `--force-with-lease` leases against the LOCAL
+ * remote-tracking ref, which a background fetch can silently refresh into
+ * agreement with the remote — turning the safety net into a no-op. `ref` +
+ * `expect` forces the caller to have read that ref's sha at confirm time and
+ * pass it through explicitly, so the sha the blast-radius dialog showed is
+ * the sha the lease actually checks against.
  */
 export const PushRequest = OpBase.extend({
   remote: z.string().optional(),
@@ -890,6 +896,19 @@ export const PushRequest = OpBase.extend({
   setUpstream: z.boolean().default(false),
   /** Push the tag refspec too. */
   tags: z.boolean().default(false),
+  /**
+   * `--force-with-lease=<ref>:<expect>` — offered only from the ref badge
+   * menu, only after a plain push has already been rejected as non-fast-
+   * forward, and only behind the `Settings ▸ Git Safety` opt-in.
+   */
+  forceWithLease: z
+    .object({
+      /** The remote-tracking ref being leased against, e.g. `refs/remotes/origin/main`. */
+      ref: z.string().min(1),
+      /** The sha that ref was at when the confirm dialog read it. */
+      expect: z.string().min(1),
+    })
+    .optional(),
 });
 
 /**

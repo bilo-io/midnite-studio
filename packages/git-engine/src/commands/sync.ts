@@ -20,9 +20,16 @@ import { gitErrorLine } from './worktree-ops';
  * block forever and the UI would spin with no way to answer. Instead auth
  * failures come back immediately as errors.
  *
- * There is **no force-push** here, and no `force` parameter to add one through.
- * When it lands post-MVP it will be `--force-with-lease` behind blast-radius
- * gating, as its own command.
+ * **Force-push is `--force-with-lease` only, never bare `--force`** (Phase 22
+ * Theme F). There is still no way to build a bare `--force` from `PushOptions`
+ * — `forceWithLease` is the only escape hatch this module offers, and it
+ * always carries an explicit `ref:expect` pair rather than a boolean, so a
+ * caller cannot lease against whatever the local remote-tracking ref happens
+ * to say right now (which a background fetch can silently refresh). The
+ * app-side gating — the Settings opt-in, the blast-radius confirm, offering
+ * it only after a plain push was rejected as non-fast-forward — lives above
+ * this module; this layer only refuses to build the dangerous, argument-less
+ * form.
  */
 
 export type FetchOptions = { remote?: string; prune?: boolean };
@@ -78,17 +85,28 @@ export type PushOptions = {
   /** `-u` for a branch that has no upstream yet. */
   setUpstream?: boolean;
   tags?: boolean;
+  /**
+   * `--force-with-lease=<ref>:<expect>` — the only force-push this module
+   * builds, and only in this explicit `ref:expect` form. See the module
+   * header for why a bare boolean is never offered.
+   */
+  forceWithLease?: { ref: string; expect: string };
 };
 
 export async function push(worktreePath: string, options: PushOptions = {}): Promise<GitOpResult> {
   const args = ['push'];
   if (options.setUpstream) args.push('--set-upstream');
   if (options.tags) args.push('--tags');
+  if (options.forceWithLease) {
+    args.push(`--force-with-lease=${options.forceWithLease.ref}:${options.forceWithLease.expect}`);
+  }
   if (options.remote) args.push(options.remote);
   if (options.branch) args.push(options.branch);
 
   const res = await run(worktreePath, args);
-  return res.exitCode === 0 ? ok() : failure(describePushFailure(res.stderr), res.stderr);
+  return res.exitCode === 0
+    ? ok()
+    : failure(describePushFailure(res.stderr, !!options.forceWithLease), res.stderr, pushFailureCode(res.stderr, !!options.forceWithLease));
 }
 
 const run = (worktreePath: string, args: string[]) =>
@@ -130,10 +148,22 @@ function describeNetworkFailure(stderr: string): string {
   return gitErrorLine(stderr) || 'The remote operation failed.';
 }
 
-function describePushFailure(stderr: string): string {
+/**
+ * A rejected `--force-with-lease` is its own outcome, not a generic
+ * non-fast-forward — the fix is emphatically not "push again," it is "fetch
+ * and look, because the lease you had is stale." Only checked when the push
+ * itself carried a lease: the same `(stale info)` marker cannot appear in a
+ * plain push's stderr, since a plain push never sends `--force-with-lease`
+ * for git to reject against.
+ */
+function describePushFailure(stderr: string, wasForceWithLease: boolean): string {
+  if (wasForceWithLease && /\(stale info\)/i.test(stderr)) {
+    return 'Someone else pushed to this branch since you last fetched. Fetch and look before forcing.';
+  }
   if (/non-fast-forward|fetch first|Updates were rejected/i.test(stderr)) {
-    // The single most common push failure. Naming the fix matters, and the fix
-    // is emphatically NOT a force push — which the MVP does not offer at all.
+    // The single most common push failure. Naming the fix matters — pull
+    // first, not force: force-with-lease exists (Phase 22 Theme F) but is
+    // reached through its own gated entry point, never suggested here.
     return 'The remote has commits you do not. Pull first, then push again.';
   }
   if (/has no upstream branch/i.test(stderr)) {
@@ -143,4 +173,13 @@ function describePushFailure(stderr: string): string {
     return gitErrorLine(stderr) || 'The remote rejected the push.';
   }
   return describeNetworkFailure(stderr);
+}
+
+function pushFailureCode(
+  stderr: string,
+  wasForceWithLease: boolean,
+): 'non-fast-forward' | 'stale-lease' | undefined {
+  if (wasForceWithLease && /\(stale info\)/i.test(stderr)) return 'stale-lease';
+  if (/non-fast-forward|fetch first|Updates were rejected/i.test(stderr)) return 'non-fast-forward';
+  return undefined;
 }
