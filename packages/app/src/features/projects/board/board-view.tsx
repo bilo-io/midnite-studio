@@ -280,7 +280,13 @@ function without<T>(set: ReadonlySet<T>, value: T): ReadonlySet<T> {
   return next;
 }
 
-/** The column id an item currently belongs to, per `deriveColumns`'s own rule. */
+/**
+ * The column id an item currently belongs to — used only for the drag/menu
+ * "already in this column, no-op" check, so it does not need
+ * `deriveColumns`'s own orphaned-option-id fallback to `NO_STATUS_COLUMN_ID`:
+ * a stale option id can never equal a real target column's id, so the no-op
+ * guard below still fires correctly either way.
+ */
 function columnIdFor(field: ForgeProjectField, item: ForgeProjectItem): string {
   const value = item.fieldValues[field.id];
   return value?.dataType === 'single_select' ? value.optionId : NO_STATUS_COLUMN_ID;
