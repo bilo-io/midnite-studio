@@ -246,6 +246,14 @@ them** while making every shard about 60% slower — 7.6 min to 12.1 min — so 
       that file failed on CI for an unrelated reason (a hard-coded `Meta+k`, fixed), and only
       once those were green did this one stand out as the single spec there that needs a real
       `.xterm-screen`.
+- [ ] `shortcut-rail.spec.ts:261` and `status-bar.spec.ts:149` — a **different** Linux-only
+      cause from the rest of this theme, and the first thing the job caught in anger: both
+      assert a status-bar *density*, which is decided from measured content width, which depends
+      on the fonts installed. The runner's set differs from macOS, so the same viewport lands on
+      the other side of the breakpoint (`compact` where macOS gives `full`). Fix by pinning the
+      viewport to a width that is unambiguous on both, or by asserting the breakpoint against a
+      measured width rather than a hard-coded one — not by widening the timeout, which cannot
+      help. Both are Phase 39's own specs, tagged `@linux-red` within hours of it landing.
 - [ ] Drop `phase-21-roster.spec.ts`, `terminal-lazy-preload.spec.ts` and
       `terminal-reveal.spec.ts` from `KNOWN_RED`, and remove `grepInvert` from
       `playwright.ci.config.ts` once no `@linux-red` tag remains.
