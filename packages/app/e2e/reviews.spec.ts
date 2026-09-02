@@ -116,6 +116,24 @@ const withPull = (over: Partial<NonNullable<MockFixtures['forge']>> = {}): MockF
   },
 });
 
+/**
+ * Click the PR row, from the middle of the viewport.
+ *
+ * Playwright's auto-scroll brings a row to the *top* of its scroll container,
+ * which is exactly where the sticky "All Pull Requests" section header sits —
+ * so the click is intercepted by the header, retried, re-scrolled to the same
+ * place, and intercepted again until the test times out. It is a scroll-position
+ * artifact rather than a product fault (a real user scrolls the row clear before
+ * reaching for it), but it made this file fail roughly one run in three, which
+ * is intolerable now that CI blocks on it. Centring the row first puts it well
+ * clear of the header.
+ */
+async function openPullRow(page: Page): Promise<void> {
+  const row = page.getByText('Reviews page', { exact: true });
+  await row.evaluate((el) => el.scrollIntoView({ block: 'center' }));
+  await row.click();
+}
+
 /** Open the app, expand Reviews, and click into PR #42. */
 async function openPull(page: Page, data: MockFixtures): Promise<void> {
   await installMockBridge(page, data);
@@ -126,7 +144,7 @@ async function openPull(page: Page, data: MockFixtures): Promise<void> {
   // The section is a heading over three lazy scopes now — the rows live under
   // one of them, and nothing is fetched until that one is opened.
   await page.getByRole('button', { name: 'All Pull Requests', exact: true }).click();
-  await page.getByText('Reviews page', { exact: true }).click();
+  await openPullRow(page);
   await expect(page.getByRole('region', { name: 'Pull request #42' })).toBeVisible();
 
   /*
@@ -150,7 +168,7 @@ test('a pull request opens on Overview, showing what it is before what changed',
 
   await page.getByRole('button', { name: 'Reviews', exact: true }).click();
   await page.getByRole('button', { name: 'All Pull Requests', exact: true }).click();
-  await page.getByText('Reviews page', { exact: true }).click();
+  await openPullRow(page);
 
   await expect(page.getByRole('tab', { name: 'Overview' })).toHaveAttribute(
     'aria-selected',
@@ -379,83 +397,96 @@ test('a signed-out gh gets the fix-it hint, not a claim about the pull request',
  * pass on a header buried under another pane's rows, and a bounding-box check
  * would pass on content that is clipped but still laid out where it was.
  */
-test('the terminal header is never painted over by a squeezed detail pane', async ({ page }) => {
-  // Short enough that the 288px terminal leaves the Checks tab less room than
-  // its own chrome needs — the condition, not an incidental viewport.
-  await page.setViewportSize({ width: 1280, height: 620 });
+test(
+  'the terminal header is never painted over by a squeezed detail pane',
+  // Tagged, not ignored: this is the only spec in the file that mounts a
+  // terminal, and terminals do not render on the CI runner (see the
+  // `@linux-red` note in playwright.ci.config.ts). A file-level ignore would
+  // cost the other nine specs here their place in the blocking job.
+  { tag: '@linux-red' },
+  async ({ page }) => {
+    // Short enough that the 288px terminal leaves the Checks tab less room than
+    // its own chrome needs — the condition, not an incidental viewport.
+    await page.setViewportSize({ width: 1280, height: 620 });
 
-  await openPull(
-    page,
-    withPull({
-      pullDetail: {
-        '42': {
-          ...pullDetail,
-          // A description long enough to hit the header's own `max-h-40` cap,
-          // which is what leaves the tab panel short.
-          body: Array.from({ length: 40 }, (_, at) => `Paragraph ${at + 1} of the description.`).join(
-            '\n\n',
-          ),
+    await openPull(
+      page,
+      withPull({
+        pullDetail: {
+          '42': {
+            ...pullDetail,
+            // A description long enough to hit the header's own `max-h-40` cap,
+            // which is what leaves the tab panel short.
+            body: Array.from(
+              { length: 40 },
+              (_, at) => `Paragraph ${at + 1} of the description.`,
+            ).join('\n\n'),
+          },
         },
-      },
-      runs: [run],
-      runDetail: {
-        '1': {
-          jobs: [
-            {
-              id: '10',
-              name: 'typecheck',
-              status: 'completed',
-              conclusion: 'failure',
-              startedAt: '2026-08-26T10:00:10Z',
-              completedAt: '2026-08-26T10:01:00Z',
-              url: 'https://github.com/bilo-io/midnite-studio/actions/runs/1/job/10',
-              steps: [],
-            },
-          ],
+        runs: [run],
+        runDetail: {
+          '1': {
+            jobs: [
+              {
+                id: '10',
+                name: 'typecheck',
+                status: 'completed',
+                conclusion: 'failure',
+                startedAt: '2026-08-26T10:00:10Z',
+                completedAt: '2026-08-26T10:01:00Z',
+                url: 'https://github.com/bilo-io/midnite-studio/actions/runs/1/job/10',
+                steps: [],
+              },
+            ],
+          },
         },
-      },
-      runLogs: {
-        '1': {
-          lines: Array.from(
-            { length: 200 },
-            (_, at) => `typecheck\tRun tsc\t2026-08-26T10:00:11Z line ${at + 1}`,
-          ),
+        runLogs: {
+          '1': {
+            lines: Array.from(
+              { length: 200 },
+              (_, at) => `typecheck\tRun tsc\t2026-08-26T10:00:11Z line ${at + 1}`,
+            ),
+          },
         },
-      },
-    }),
-  );
+      }),
+    );
 
-  await page.getByRole('tab', { name: /Checks/ }).click();
-  await expect(page.getByRole('list', { name: 'Jobs' }).getByText('typecheck')).toBeVisible();
+    await page.getByRole('tab', { name: /Checks/ }).click();
+    await expect(page.getByRole('list', { name: 'Jobs' }).getByText('typecheck')).toBeVisible();
 
-  await page.keyboard.press('Control+`');
-  const header = page.locator('[data-terminal-header]');
-  await expect(header).toBeVisible();
+    await page.keyboard.press('Control+`');
+    const header = page.locator('[data-terminal-header]');
+    await expect(header).toBeVisible();
 
-  const box = await header.boundingBox();
-  expect(box).not.toBeNull();
+    const box = await header.boundingBox();
+    expect(box).not.toBeNull();
 
-  /*
+    /*
     Sampled across the whole width rather than at one point: the spill lands
     over the detail pane's own columns on the right, and a single probe near
     the label on the left would have passed throughout the bug.
   */
-  const probes = Array.from({ length: 24 }, (_, at) => ({
-    x: box!.x + ((at + 0.5) * box!.width) / 24,
-    y: box!.y + box!.height / 2,
-  }));
+    const probes = Array.from({ length: 24 }, (_, at) => ({
+      x: box!.x + ((at + 0.5) * box!.width) / 24,
+      y: box!.y + box!.height / 2,
+    }));
 
-  const strays = await page.evaluate(
-    (points) =>
-      points
-        .map(({ x, y }) => {
-          const hit = document.elementFromPoint(x, y);
-          if (hit?.closest('[data-terminal-panel]')) return null;
-          return { x: Math.round(x), tag: hit?.tagName ?? 'none', text: hit?.textContent?.slice(0, 40) ?? '' };
-        })
-        .filter((entry) => entry !== null),
-    probes,
-  );
+    const strays = await page.evaluate(
+      (points) =>
+        points
+          .map(({ x, y }) => {
+            const hit = document.elementFromPoint(x, y);
+            if (hit?.closest('[data-terminal-panel]')) return null;
+            return {
+              x: Math.round(x),
+              tag: hit?.tagName ?? 'none',
+              text: hit?.textContent?.slice(0, 40) ?? '',
+            };
+          })
+          .filter((entry) => entry !== null),
+      probes,
+    );
 
-  expect(strays).toEqual([]);
-});
+    expect(strays).toEqual([]);
+  },
+);

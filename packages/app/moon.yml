@@ -49,6 +49,17 @@ tasks:
       - 'package.json'
       - '/packages/shared/src/**/*'
 
+  # Same reasoning as `typecheck` above: vitest.config.ts aliases
+  # @midnite/studio-shared to its source, so shared's sources belong in this
+  # task's hash too — otherwise a shared-only change leaves the renderer suite a
+  # cache hit and the change ships untested.
+  test:
+    inputs:
+      - 'src/**/*'
+      - 'vitest.config.ts'
+      - 'package.json'
+      - '/packages/shared/src/**/*'
+
   # Vite dev server for the Electron main process to load in development.
   dev:
     command: 'pnpm exec vite'
@@ -79,6 +90,25 @@ tasks:
       - 'playwright.perf.config.ts'
       - 'vite.config.ts'
       - '/scripts/perf/**/*'
+      - '/packages/shared/src/**/*'
+
+  # What CI blocks on — `e2e` minus the files that were already red when the job
+  # was wired up. See playwright.ci.config.ts for why the split exists and
+  # `.midnite/tasks/phases/phase-38-e2e-suite-repair.md` for emptying the list.
+  # Deliberately NOT the task a human runs: locally you want the whole truth.
+  e2e-ci:
+    command: 'pnpm exec playwright test --config playwright.ci.config.ts'
+    options:
+      mergeArgs: 'replace'
+    deps:
+      - 'root:install'
+      - 'shared:build'
+    inputs:
+      - 'src/**/*'
+      - 'e2e/**/*'
+      - 'playwright.config.ts'
+      - 'playwright.ci.config.ts'
+      - 'vite.config.ts'
       - '/packages/shared/src/**/*'
 
   # Browser-driven renderer tests against a mocked window.midniteStudio. Kept OUT

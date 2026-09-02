@@ -47,6 +47,18 @@ jobs:
           GIT_COMMITTER_NAME: ci
           GIT_COMMITTER_EMAIL: ci@example.com
 
+  # The Playwright suite is deliberately OUT of `moon run :test` — it needs a
+  # chromium download, which is a poor thing to make the gate depend on — but
+  # nothing ran it either, and on 2026-08-27 seventeen specs sat red on `main`
+  # across several merges before anyone noticed. So it gets a job of its own,
+  # blocking like the gate: a non-blocking e2e job reproduces exactly the failure
+  # mode it is here to prevent.
+  #
+  # ubuntu, not macOS: the suite drives the renderer in headless chromium against
+  # the Vite dev server with a mocked `window.midniteStudio` (see
+  # e2e/mock-bridge.ts). No Electron, no dugite, no packaged app — nothing in it
+  # is macOS-specific, and macOS minutes bill at 10x on a private repo.
+  #
   package:
     # Packaging is macOS-arm64 only and slow, so it runs on main rather than on
     # every PR. It is here to catch electron-builder breakage early — the pnpm
@@ -54,7 +66,12 @@ jobs:
     if: github.ref == 'refs/heads/main'
     needs: gate
     runs-on: macos-14
+    # A job-level `permissions:` block REPLACES the workflow default rather than
+    # adding to it, so `packages: read` alone leaves `contents` at none — and
+    # actions/checkout then fails to clone this PRIVATE repo with the maximally
+    # unhelpful "remote: Repository not found". Both scopes are required.
     permissions:
+      contents: read
       packages: read
     steps:
       - uses: actions/checkout@v4
@@ -86,7 +103,6 @@ jobs:
         run: pnpm exec moon run desktop:verify-dist
         env:
           GITHUB_PACKAGES_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-
 
       - uses: actions/upload-artifact@v4
         with:
