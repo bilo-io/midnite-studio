@@ -161,6 +161,9 @@ test.describe('FAB loop console', () => {
     await openFab(page);
     await page.getByTestId('loop-composer-innovate').getByTestId('loop-start').click();
     await expect(page.getByTestId('loop-composer-innovate').getByTestId('loop-stop')).toBeVisible();
+    // The pty behind the tab is created once TerminalView's lazy chunk mounts
+    // (Phase 36 Theme C) — a moment after Stop appears, not the same tick.
+    await expect(page.locator('.xterm-screen')).toHaveCount(1);
 
     await expect(page.getByTestId('loop-dot-innovate')).toHaveClass(/text-blue-500/);
     await emitActivity(page, 'waiting', 'pty-1');
@@ -247,6 +250,9 @@ test.describe('FAB loop console — lifecycle (Theme F)', () => {
     const composer = page.getByTestId('loop-composer-innovate');
     await composer.getByTestId('loop-start').click();
     await expect(composer.getByTestId('loop-stop')).toBeVisible();
+    // The pty behind the tab is created once TerminalView's lazy chunk mounts
+    // (Phase 36 Theme C) — a moment after Stop appears, not the same tick.
+    await expect(page.locator('.xterm-screen')).toHaveCount(1);
 
     /*
       The distinction this test exists for: Stop is the app killing the pty,
@@ -272,6 +278,9 @@ test.describe('FAB loop console — lifecycle (Theme F)', () => {
     await composer.getByTestId('loop-start').click();
     await expect(composer.getByTestId('loop-stop')).toHaveClass(/loop-run-glow/);
     await expect(page.getByTestId('fab-loop-dot-innovate')).toBeVisible();
+    // The pty behind the tab is created once TerminalView's lazy chunk mounts
+    // (Phase 36 Theme C) — a moment after Stop appears, not the same tick.
+    await expect(page.locator('.xterm-screen')).toHaveCount(1);
 
     await exitPty(page, 'pty-1');
 
@@ -363,6 +372,9 @@ test.describe('FAB loop console — the waiting notice (Theme G)', () => {
     await openFab(page);
     await page.getByTestId('loop-composer-innovate').getByTestId('loop-start').click();
     await expect(page.getByTestId('loop-composer-innovate').getByTestId('loop-stop')).toBeVisible();
+    // The pty behind the tab is created once TerminalView's lazy chunk mounts
+    // (Phase 36 Theme C) — a moment after Stop appears, not the same tick.
+    await expect(page.locator('.xterm-screen')).toHaveCount(1);
 
     const notices = () => page.getByText('Ideate is waiting for input.');
 
@@ -420,6 +432,9 @@ test.describe('FAB loop console — reduced motion (Theme H)', () => {
     await openFab(page);
     await page.getByTestId('loop-composer-innovate').getByTestId('loop-start').click();
     await expect(page.getByTestId('loop-composer-innovate').getByTestId('loop-stop')).toBeVisible();
+    // The pty behind the tab is created once TerminalView's lazy chunk mounts
+    // (Phase 36 Theme C) — a moment after Stop appears, not the same tick.
+    await expect(page.locator('.xterm-screen')).toHaveCount(1);
 
     await emitActivity(page, 'thinking', 'pty-1');
     expect(await animationName(page)).toBe('loop-glow-spin, loop-glow-pulse');
@@ -489,6 +504,9 @@ test.describe('FAB panel — the tab glow (Phase 37)', () => {
     await page.getByTestId('loop-composer-watchdog').getByTestId('loop-start').click();
     await expect(page.getByTestId('loop-composer-watchdog').getByTestId('loop-stop')).toBeVisible();
     await expect(gradient(page)).toHaveAttribute('data-loop-state', 'running');
+    // The pty behind the tab is created once TerminalView's lazy chunk mounts
+    // (Phase 36 Theme C) — a moment after Stop appears, not the same tick.
+    await expect(page.locator('.xterm-screen')).toHaveCount(1);
 
     await emitActivity(page, 'waiting', 'pty-1');
     await expect(gradient(page)).toHaveAttribute('data-loop-state', 'waiting');
@@ -505,6 +523,9 @@ test.describe('FAB panel — the tab glow (Phase 37)', () => {
     await openFab(page, 'Medic');
     await page.getByTestId('loop-composer-medic').getByTestId('loop-start').click();
     await expect(page.getByTestId('loop-composer-medic').getByTestId('loop-stop')).toBeVisible();
+    // The pty behind the tab is created once TerminalView's lazy chunk mounts
+    // (Phase 36 Theme C) — a moment after Stop appears, not the same tick.
+    await expect(page.locator('.xterm-screen')).toHaveCount(1);
 
     await emitActivity(page, 'waiting', 'pty-1');
     await expect(gradient(page)).toHaveAttribute('data-loop-state', 'waiting');
@@ -645,6 +666,9 @@ test.describe('FAB loop console — rehydration (Theme I)', () => {
 
     await composer.getByTestId('loop-start').click();
     await expect(composer.getByTestId('loop-stop')).toBeVisible();
+    // The pty behind the tab is created once TerminalView's lazy chunk mounts
+    // (Phase 36 Theme C) — a moment after Stop appears, not the same tick.
+    await expect(page.locator('.xterm-screen')).toHaveCount(1);
     expect(await ptyCreates(page)).toHaveLength(1);
   });
 });

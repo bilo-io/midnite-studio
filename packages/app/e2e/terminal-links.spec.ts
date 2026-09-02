@@ -24,6 +24,10 @@ async function open(page: Page): Promise<void> {
   // `Ctrl+\`` on every platform — macOS reserves Cmd+\` for window cycling.
   await page.keyboard.press('Control+`');
   await expect(page.getByRole('button', { name: 'New terminal or agent' })).toBeVisible();
+  // The pty behind the auto-opened shell is created once TerminalView's lazy
+  // chunk mounts (Phase 36 Theme C) — a moment after the panel opens, not the
+  // same tick.
+  await expect(page.locator('.xterm-screen')).toHaveCount(1);
 }
 
 /** Clear the fake shell's prompt and print the URL alone on the top row. */
