@@ -642,9 +642,10 @@ test.describe('FAB panel — the tab glow (Phase 37)', () => {
 
   /**
    * Amber outranks the arc (decision 6), and it outranks it with a FULL
-   * ring — the mask that narrows the border and the glow to a tab's 180° is
-   * built for the rainbow it otherwise wears, and would misread a one-colour
-   * amber ring as a half-lit one if it stayed applied.
+   * ring — the mask that narrows the BORDER to a tab's 180° is built for the
+   * rainbow it otherwise wears, and would misread a one-colour amber ring as a
+   * half-lit one if it stayed applied. (The inner glow has no arc mask to
+   * drop: it is a full-perimeter rim in every state.)
    */
   test('a waiting loop drops the arc mask and stops rotation and pulse', async ({ page }) => {
     await open(page);
@@ -666,6 +667,64 @@ test.describe('FAB panel — the tab glow (Phase 37)', () => {
     expect(info.borderMask).toBe('none');
     expect(info.beforeAnimation).toBe('none');
     expect(info.ownAnimation).toBe('none');
+  });
+
+  /**
+   * The inner glow is an EVEN rim, and it sits IN FRONT of the pane.
+   *
+   * Both halves are load-bearing and both were broken in ways a screenshot of
+   * an idle panel hid. The mask used to be one centred `radial-gradient`
+   * ellipse whose first non-transparent stop was at 62%: a mid-edge pixel's
+   * normalised radius is 0.5 and a corner's is ~0.707, so only the corners
+   * ever cleared it and the glow could not touch the middle of an edge at any
+   * opacity. And at `z-index: 0` the pseudo painted before the panel's own
+   * children, so the opaque xterm that fills the pane the moment a loop runs
+   * covered the glow completely.
+   *
+   * So this asserts the *shape* of the mask rather than pixels: four linear
+   * ramps, one per side, each ending transparent at the same length — which is
+   * what "evenly along the edges" means in CSS and what a percentage band on a
+   * 320x900 panel could not be — plus a positive z-index and the `isolation`
+   * on the host that keeps it local.
+   */
+  test('the inner glow is a four-sided rim of equal width, painted over the pane', async ({
+    page,
+  }) => {
+    await open(page);
+    await openFab(page, 'Ideate');
+
+    const glow = await gradient(page).evaluate((el) => {
+      const before = getComputedStyle(el, '::before');
+      return {
+        mask: before.maskImage,
+        zIndex: before.zIndex,
+        isolation: getComputedStyle(el).isolation,
+      };
+    });
+
+    // One layer per side, and no fifth: the old arc layer is gone (a
+    // non-inherited registered property never reached the pseudo, so it
+    // masked nothing — see styles.css).
+    const layers = glow.mask.split(/\), (?=linear-gradient)/);
+    expect(layers).toHaveLength(4);
+    expect(glow.mask).not.toContain('conic-gradient');
+    expect(glow.mask).not.toContain('radial-gradient');
+
+    // `to bottom` computes to a bare `linear-gradient(...)`; the other three
+    // keep their keyword. One per side, no side twice.
+    expect(layers[0]).not.toContain('to ');
+    expect(layers[1]).toContain('to top');
+    expect(layers[2]).toContain('to right');
+    expect(layers[3]).toContain('to left');
+
+    // Every side fades out at the same length — the "evenly" of the ask.
+    const ends = layers.map((layer) => /rgba\(0, 0, 0, 0\)\s+([\d.]+)px/.exec(layer)?.[1]);
+    expect(ends.every((end) => end !== undefined)).toBe(true);
+    expect(new Set(ends).size).toBe(1);
+
+    // In front of the children, in a stacking context of the panel's own.
+    expect(Number(glow.zIndex)).toBeGreaterThan(0);
+    expect(glow.isolation).toBe('isolate');
   });
 
   test("data-motion='reduced' stops the panel's rotation, pulse and arc sweep", async ({
