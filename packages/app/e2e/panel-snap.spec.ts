@@ -42,9 +42,18 @@ const fabPanel = (page: Page) => page.getByRole('button', { name: 'Ideate', exac
  */
 async function dragSeparator(page: Page, name: string, to: { x?: number; y?: number }) {
   const handle = page.getByRole('separator', { name });
+  /*
+    `hover()` rather than a `mouse.move` to a measured centre, and this is not a
+    stylistic preference: the shell's layout is still settling by a pixel or two
+    when the graph first paints, and a splitter is FIVE pixels wide. A centre
+    measured a moment earlier lands beside it often enough to make the suite
+    flaky — silently, because a mousedown on nothing raises no error and leaves
+    the pane at the width it started with. `hover()` waits for the element to
+    stop moving and asserts the point actually hits it.
+  */
+  await handle.hover();
   const box = (await handle.boundingBox())!;
   const from = { x: box.x + box.width / 2, y: box.y + box.height / 2 };
-  await page.mouse.move(from.x, from.y);
   await page.mouse.down();
   await page.mouse.move(to.x ?? from.x, to.y ?? from.y, { steps: 10 });
   await page.mouse.up();
@@ -82,33 +91,43 @@ test('a drag that stops at the minimum leaves the repositories panel open', asyn
   expect((await repos(page).boundingBox())?.width).toBe(180);
 });
 
-test('dragging the terminal splitter to the top maximizes it, and to the bottom closes it', async ({
-  page,
-}) => {
-  await open(page);
-  await toggleTerminal(page);
-  await expect(frame(page)).toHaveCount(1);
-
-  const viewport = page.viewportSize()!;
-  await dragSeparator(page, 'Resize terminal', { y: 8 });
-
+test(
+  'dragging the terminal splitter to the top maximizes it, and to the bottom closes it',
   /*
-    Maximized, not merely tall: the splitter is gone (there is nothing left to
-    resize against) and the panel's own restore control has appeared. Height
-    alone could not tell the two apart — a drag stopping just short of the top
-    is also nearly the height of the column.
+    `@linux-red`: this is the one spec in the file that mounts a terminal, and
+    the panel never appears on the CI runner — xterm paints through
+    `@xterm/addon-webgl`, which a GPU-less runner cannot give it. The same wall
+    terminal-links, terminal-reveal and phase-21-roster hit; Phase 38 Theme I
+    owns the fix. Green locally on macOS, where the assertions below are the
+    real coverage for both terminal snaps.
   */
-  await expect(page.getByRole('separator', { name: 'Resize terminal' })).toHaveCount(0);
-  await expect(page.getByRole('button', { name: 'Restore terminal height' })).toBeVisible();
+  { tag: '@linux-red' },
+  async ({ page }) => {
+    await open(page);
+    await toggleTerminal(page);
+    await expect(frame(page)).toHaveCount(1);
 
-  // And back down, past the bottom of the window: the panel closes rather than
-  // sitting at its minimum height.
-  await page.getByRole('button', { name: 'Restore terminal height' }).click();
-  await page.waitForTimeout(SETTLE_WAIT_MS);
-  await dragSeparator(page, 'Resize terminal', { y: viewport.height - 4 });
+    const viewport = page.viewportSize()!;
+    await dragSeparator(page, 'Resize terminal', { y: 8 });
 
-  await expect(frame(page)).toHaveCount(0);
-});
+    /*
+      Maximized, not merely tall: the splitter is gone (there is nothing left to
+      resize against) and the panel's own restore control has appeared. Height
+      alone could not tell the two apart — a drag stopping just short of the top
+      is also nearly the height of the column.
+    */
+    await expect(page.getByRole('separator', { name: 'Resize terminal' })).toHaveCount(0);
+    await expect(page.getByRole('button', { name: 'Restore terminal height' })).toBeVisible();
+
+    // And back down, past the bottom of the window: the panel closes rather than
+    // sitting at its minimum height.
+    await page.getByRole('button', { name: 'Restore terminal height' }).click();
+    await page.waitForTimeout(SETTLE_WAIT_MS);
+    await dragSeparator(page, 'Resize terminal', { y: viewport.height - 4 });
+
+    await expect(frame(page)).toHaveCount(0);
+  },
+);
 
 test('the FAB panel drags out to 60% of the window, and past its minimum it closes', async ({
   page,
