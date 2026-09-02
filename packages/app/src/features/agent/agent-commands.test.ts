@@ -39,6 +39,13 @@ describe('AGENT_COMMANDS', () => {
     expect(DEFAULT_AGENT_SKILLS.refine).toBe('/midnite-refine');
   });
 
+  it('leaves the Patrol loop bare — its skills come from the FAB checkboxes', () => {
+    // The one default that is deliberately *not* a skill. A skill creeping in
+    // here would ride along on every Patrol run whether or not a box was
+    // ticked, which is exactly what the bare base exists to prevent.
+    expect(DEFAULT_AGENT_SKILLS.loopPatrol).toBe('/loop');
+  });
+
   it('gives every entry a line of sub-text', () => {
     // `hint` is one string serving two renderers — the menu row's description
     // and the settings field's caption. A blank one is a row that explains

@@ -685,6 +685,7 @@ export type AgentCommandId =
   | 'releaseComplete'
   | 'gitReport'
   | 'gitCleanup'
+  | 'loopPatrol'
   | 'loopPrReview'
   | 'loopPrFeedback'
   | 'loopExecBacklog'
@@ -724,6 +725,10 @@ export const DEFAULT_AGENT_SKILLS: Record<AgentCommandId, string> = {
   releaseComplete: '/midnite-release-complete',
   gitReport: '/midnite-git-report',
   gitCleanup: '/midnite-git-cleanup',
+  // Bare on purpose: the FAB's Patrol tab appends `/pr-review`, `/pr-feedback`
+  // or `/midnite-triage` from its own checkboxes, so a skill named here would
+  // be a fifth one every run carried whether or not a box was ticked.
+  loopPatrol: '/loop',
   loopPrReview: '/loop /pr-review',
   loopPrFeedback: '/loop /pr-feedback',
   loopExecBacklog: '/loop /midnite-exec',

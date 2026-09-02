@@ -180,6 +180,7 @@ test('the top level is the five groups, each opening its own verbs', async ({ pa
 
   await topMenu.getByRole('menuitem', { name: 'Loops', exact: true }).hover();
   await expect.poll(() => rowNames(submenu)).toEqual([
+    'Loop: Patrol',
     'Loop: PR Review',
     'Loop: PR Feedback',
     'Loop: Backlog Task',
@@ -200,7 +201,8 @@ test('the top level is the five groups, each opening its own verbs', async ({ pa
     const row = topMenu.getByRole('menuitem', { name: group, exact: true });
     await expect(row.locator('svg')).toHaveCount(2);
   }
-  await expect(submenu.getByRole('menuitem').locator('svg')).toHaveCount(6);
+  // Loops is the submenu left open above: one glyph per row, seven of them.
+  await expect(submenu.getByRole('menuitem').locator('svg')).toHaveCount(7);
 });
 
 /**
