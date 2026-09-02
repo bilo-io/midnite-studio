@@ -57,23 +57,24 @@ export default defineConfig({
   */
   retries: process.env.CI ? 2 : 0,
   /*
-    Assertions and tests get three times longer in CI, for hardware reasons
-    rather than forgiving ones.
+    Assertions and tests get longer in CI, for hardware reasons.
 
     A private repo's ubuntu runner is 2-core, so Playwright takes `cores/2` = ONE
-    worker where a 12-core laptop takes six, on slower cores. Against that, the
-    5s default `expect` window is not the same amount of time it is locally —
-    and Phase 36 put xterm and thirteen views behind lazy boundaries, so several
-    specs now wait on a chunk fetch before anything is visible. Five specs failed
-    on exactly that in the job's first sharded run — `terminal-lazy-preload`
-    (Phase 36's own spec for the lazy xterm chunk), `terminal-reveal`,
-    `phase-21-roster` and one in `reviews` — every one of them a 5000ms
-    `toBeVisible`, every one green locally, and none rescued by the two retries
-    above, because the chunk was not slow *sometimes*, it was slow *always*.
+    worker where a 12-core laptop takes six, on slower cores. Against that the 5s
+    default `expect` window is not the same amount of time it is locally.
 
-    So this is not slack for racy specs; a genuinely broken locator still fails,
-    just later. The per-test timeout rises with it, or a test spending 15s in one
-    assertion would trip the 30s default and report the wrong failure.
+    An earlier version of this comment blamed Phase 36's lazy boundaries and
+    claimed these values fixed five terminal specs. They did not: those specs
+    fail because xterm wants a WebGL context the runner has none of, raising the
+    timeout to 15s moved nothing, and they are ratcheted out in
+    playwright.ci.config.ts with Phase 38 Theme I owning the real fix. The
+    honest justification is only the hardware one above.
+
+    Note the cost, because it bit once already: every failing spec now burns up
+    to 60s per attempt and is retried twice, so a failure is 3 minutes of wall
+    clock. Nine such failures in one shard read as a hung job for 22 minutes.
+    That is a reason to keep the suite green, not a reason to lower these — but
+    it is why the e2e job carries a `timeout-minutes` cap.
   */
   timeout: process.env.CI ? 60_000 : 30_000,
   expect: { timeout: process.env.CI ? 15_000 : 5_000 },
