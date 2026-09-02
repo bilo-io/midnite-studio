@@ -180,6 +180,12 @@ export const UNFILTERED: ViewFilter = { sections: ALL_SECTIONS, dirtyOnly: false
  * without saying so by hand.
  */
 export const VIEW_FILTERS: Record<ViewId, ViewFilter> = {
+  /**
+   * The landing page is the one view that shows no repository at all, so its
+   * entry is a formality the `Record` demands rather than a decision — the
+   * sidebar's own settings page skips its row for exactly that reason.
+   */
+  landing: WORK_IN_PROGRESS,
   dashboard: WORK_IN_PROGRESS,
   files: WORK_IN_PROGRESS,
   search: WORK_IN_PROGRESS,

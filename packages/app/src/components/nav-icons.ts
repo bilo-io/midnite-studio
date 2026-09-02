@@ -8,6 +8,7 @@ import {
   LuDownload,
   LuFolderTree,
   LuHistory,
+  LuHouse,
   LuLayoutDashboard,
   LuLock,
   LuPalette,
@@ -38,6 +39,12 @@ import type { SettingsPageId, ViewId } from '../store/ui-store';
  * than either icon.
  */
 export const VIEW_ICON: Record<ViewId, IconType> = {
+  /**
+   * `LuHouse` — the landing page has no rail row, but the breadcrumb and the
+   * palette both read this map for every `ViewId`, so it needs a glyph like
+   * any other view.
+   */
+  landing: LuHouse,
   dashboard: LuLayoutDashboard,
   files: LuFolderTree,
   search: LuSearch,
