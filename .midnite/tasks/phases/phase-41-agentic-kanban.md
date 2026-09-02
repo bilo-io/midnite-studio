@@ -17,34 +17,30 @@ exactly what it is doing. This is the shape the sibling `~/Dev/midnite` app's ta
 (`board-view.tsx`, `session-card.tsx`, `session-terminal.tsx`) — re-implemented against this app's
 IPC and broker rather than ported, exactly as Phase 34 did for councils.
 
-> ## ⛔ This phase is hard-blocked on Phase 40, which is 0% built
+> ## ✅ The Phase 40 block is resolved (2026-09-02)
 >
-> The x1 audit's first finding, and the one that governs scheduling. Phase 41 depends on **seven**
-> things from Phase 40, and a `grep` across `packages/` for `ProjectV2`, `projectsV2`,
-> `setItemFieldValue`, `ForgeProjectItemContent` or `updateProjectV2` returns **zero hits**. Not one
-> file in the monorepo has "project" in its name.
+> The x1 audit's first finding governed scheduling; it no longer applies. Phase 40 Themes A–F have
+> landed (PRs #38, #41), and every one of the seven things this phase named as missing now exists:
 >
-> | What Phase 41 needs | State |
+> | What Phase 41 needed | State |
 > |---|---|
-> | `shared/src/domain/forge-project.ts` (cited in the Files table) | **does not exist** |
-> | `packages/app/src/features/projects/` — the view the toggle lives in | **does not exist** |
-> | The ProjectV2 read path + its IPC channels | **do not exist** |
-> | `projects` in `ViewId` / `VIEW_IDS` / `VIEW_ICON` / the rail | **not registered** |
-> | `projects` in `FORGE_GATED_VIEWS` ([`app.tsx:271`](../../../packages/app/src/app.tsx)) | **not added** |
-> | `setItemFieldValue(projectId, itemId, fieldId, value)` | named by Phase 40 Theme E, **unbuilt** |
-> | "Phase 40 Theme E's inline editors" | **has no API to bind to** — see below |
+> | `shared/src/domain/forge-project.ts` | ✅ landed, Phase 40 Theme A |
+> | `packages/app/src/features/projects/` | ✅ landed, Phase 40 Theme D |
+> | The ProjectV2 read path + its IPC channels | ✅ landed, Phase 40 Themes B/C |
+> | `projects` in `ViewId` / `VIEW_IDS` / `VIEW_ICON` / the rail | ✅ landed, Phase 40 Theme D |
+> | `projects` in `FORGE_GATED_VIEWS` | ✅ landed, Phase 40 Theme D |
+> | `setItemFieldValue(projectId, itemId, fieldId, value)` | ✅ landed, Phase 40 Theme E |
+> | "Phase 40 Theme E's inline editors" | **confirmed weak, as predicted below — not extracted** |
 >
-> **Do not start this phase before Phase 40 Themes A–E have landed.** The seam itself is agreed —
-> Phase 40's own Decisions say *"Theme D should therefore build `projects-view.tsx` with a header
-> slot ready for a `[ Table | Board ]` toggle"* — so this is a sequencing constraint, not a design
-> conflict.
+> **The one dependency that was "weaker than it looks" resolved the way this doc predicted.** Phase
+> 40 Theme E built its editors (`ProjectFieldCell`, `SingleSelectEditor`, `TextLikeEditor`) inline in
+> `projects-view.tsx`, coupled to the table cell's own layout and to a `useSetProjectItemField` call
+> scoped to one project — not as a standalone, reusable API. **Theme B builds its own** for the card
+> detail pane rather than importing these.
 >
-> **One dependency is weaker than it looks.** Phase 41's Theme B says the card detail "reuses Phase
-> 40 Theme E's inline editors", but Theme E names **no exported symbol** for them — it describes
-> behaviour ("a single-select field edits as a menu of its own options") scoped to *the table*. As
-> written, Phase 40 would build those editors inline in its table component, not as extractable
-> ones. Either Phase 40 extracts them deliberately, or this phase builds its own. Recorded as a
-> Decision.
+> Theme A (this theme) shipped in [PR #42](https://github.com/bilo-io/midnite-studio/pull/42):
+> the `[ Table | Board ]` toggle, `projectsMode` persistence, and `deriveColumns`. Themes B onward
+> remain open.
 
 **Builds on.** Every ingredient already exists and none of them is new work:
 [`loop-glow.ts`](../../../packages/app/src/features/loops/loop-glow.ts) is the running-glow idiom,
@@ -119,9 +115,9 @@ Effort tags: **S** ≈ an hour or two · **M** ≈ half a day · **L** ≈ a day
 
 ## Deliverables
 
-### A — The board shell (M)
+### A — The board shell (M) — ✅ DONE (PR #42, 2026-09-02)
 
-- [ ] `[ Table | Board ]` toggle in the Projects view header, persisted per repo in
+- [x] `[ Table | Board ]` toggle in the Projects view header, persisted per repo in
       [`ui-store.ts`](../../../packages/app/src/store/ui-store.ts) — the board is a *mode*, not a
       route, so nothing about `ViewId` or `FORGE_GATED_VIEWS` changes.
   - `projectsMode: Record<string, 'table' | 'board'>` keyed by `repoId`, added to `partialize`
@@ -131,7 +127,7 @@ Effort tags: **S** ≈ an hour or two · **M** ≈ half a day · **L** ≈ a day
   - The gate is inherited, not rebuilt: Phase 40 adds `'projects'` to
     `FORGE_GATED_VIEWS` ([`app.tsx:271`](../../../packages/app/src/app.tsx)) and the board lives
     inside that view, so it is gated for free. **Add nothing to that array here.**
-- [ ] `features/projects/board/board-view.tsx` — columns derived from the project's `Status`
+- [x] `features/projects/board/board-view.tsx` — columns derived from the project's `Status`
       single-select field, in the field's own option order, each with its option colour as an
       accent.
   - Derivation is a **pure exported function**, `deriveColumns(field, items): Column[]`, so Theme I
@@ -139,9 +135,9 @@ Effort tags: **S** ≈ an hour or two · **M** ≈ half a day · **L** ≈ a day
     without mounting anything.
   - An item whose `Status` is empty goes to a leading **"No status"** column, not dropped and not
     invented into the first real one.
-- [ ] Horizontal column scroll with vertical scroll *inside* each column, so a 40-card column does
+- [x] Horizontal column scroll with vertical scroll *inside* each column, so a 40-card column does
       not stretch the page — the overflow discipline the diff and graph views already follow.
-- [ ] Explicit empty states: no board selected, board has no `Status` field, board has no items,
+- [x] Explicit empty states: no board selected, board has no `Status` field, board has no items,
       and a column with none.
   - Literal copy, so it is not re-invented per state: *"Pick a project to see its board."* ·
     *"This project has no Status field — the board groups by Status, so there are no columns to
@@ -149,9 +145,9 @@ Effort tags: **S** ≈ an hour or two · **M** ≈ half a day · **L** ≈ a day
     reading *"Drop here"*, which doubles as the drag affordance.
   - Use [`EmptyState`](../../../packages/app/src/components/empty-state.tsx) (`{ icon, title, body }`),
     as `councils-view.tsx:25` does.
-- [ ] Column headers carry a live count and collapse to a rail, so a Done column with 200 items is
+- [x] Column headers carry a live count and collapse to a rail, so a Done column with 200 items is
       not the whole screen.
-- [ ] **The board must not eagerly load every column.** Every forge read in this app is gated on
+- [x] **The board must not eagerly load every column.** Every forge read in this app is gated on
       `enabled` — "a human opened this section" — because each is a `gh` subprocess plus rate-limit
       spend; see `useForgeIssues`
       ([`queries.ts:452`](../../../packages/app/src/services/queries.ts)) and the shared
