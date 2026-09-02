@@ -46,22 +46,36 @@ const loopRuns = (page: Page) =>
     ).__mstudioLoopRuns(),
   );
 
-/** Say that main's activity detector changed its guess for the newest pty. */
+/**
+ * Say that main's activity detector changed its guess for the newest pty.
+ *
+ * Polled rather than asserted once: the mock's `ptySessions` map only gains
+ * `ptyId` once TerminalView's lazy chunk (Phase 36 Theme C) has mounted and
+ * called `pty.create`, which can land a moment after Start rather than in the
+ * same tick. Every call site *also* waits on `.xterm-screen` first, but that
+ * wait belongs at the call site by convention, not by necessity — this poll
+ * is what actually makes a forgotten one fail loud instead of flaky.
+ */
 async function emitActivity(
   page: Page,
   activity: 'thinking' | 'waiting' | 'idle' | null,
   ptyId: string,
 ): Promise<void> {
-  const delivered = await page.evaluate(
-    ({ id, act }) =>
-      (
-        window as unknown as {
-          __mstudioPtyActivity: (p: string, a: typeof act) => boolean;
-        }
-      ).__mstudioPtyActivity(id, act),
-    { id: ptyId, act: activity },
-  );
-  expect(delivered, `pty:activity was not delivered to ${ptyId}`).toBe(true);
+  await expect
+    .poll(
+      () =>
+        page.evaluate(
+          ({ id, act }) =>
+            (
+              window as unknown as {
+                __mstudioPtyActivity: (p: string, a: typeof act) => boolean;
+              }
+            ).__mstudioPtyActivity(id, act),
+          { id: ptyId, act: activity },
+        ),
+      `pty:activity was not delivered to ${ptyId}`,
+    )
+    .toBe(true);
 }
 
 test.describe('FAB loop console', () => {
@@ -110,27 +124,39 @@ test.describe('FAB loop console', () => {
     expect(run?.['checkedModifierIds']).toEqual(['pr-reviews']);
   });
 
-  test('the loop session never appears in the main terminal housing', async ({ page }) => {
-    await open(page);
-    await openFab(page);
-    await page.getByTestId('loop-composer-innovate').getByTestId('loop-start').click();
-    await expect(page.getByTestId('loop-composer-innovate').getByTestId('loop-stop')).toBeVisible();
+  test(
+    'the loop session never appears in the main terminal housing',
+    // The main panel auto-opens a REAL second terminal, which never becomes
+    // visible on the CI runner — xterm paints through `@xterm/addon-webgl`,
+    // which a GPU-less runner cannot give it. Same wall as terminal-lazy-preload
+    // and friends — Phase 38 Theme I owns the fix.
+    { tag: '@linux-red' },
+    async ({ page }) => {
+      await open(page);
+      await openFab(page);
+      await page.getByTestId('loop-composer-innovate').getByTestId('loop-start').click();
+      await expect(
+        page.getByTestId('loop-composer-innovate').getByTestId('loop-stop'),
+      ).toBeVisible();
 
-    // The FAB's own pane has a terminal…
-    await expect(page.locator('.xterm-screen')).toHaveCount(1);
+      // The FAB's own pane has a terminal…
+      await expect(page.locator('.xterm-screen')).toHaveCount(1);
 
-    /*
-      …and the main panel, opened afterwards, does not list or render it. The
-      assertion is about the LOOP's row specifically, not the row count: the
-      panel auto-opens a shell of its own when it comes up to an empty list,
-      so counting rows would race that effect rather than state the intent.
-    */
-    await page.keyboard.press('Control+`');
-    await expect(panel(page)).toBeVisible();
-    await expect(rows(page).filter({ hasText: 'Ideate' })).toHaveCount(0);
-    // Whatever the panel opened for itself, the FAB's pane still has its own.
-    await expect(page.getByTestId('loop-composer-innovate').getByTestId('loop-stop')).toBeVisible();
-  });
+      /*
+        …and the main panel, opened afterwards, does not list or render it. The
+        assertion is about the LOOP's row specifically, not the row count: the
+        panel auto-opens a shell of its own when it comes up to an empty list,
+        so counting rows would race that effect rather than state the intent.
+      */
+      await page.keyboard.press('Control+`');
+      await expect(panel(page)).toBeVisible();
+      await expect(rows(page).filter({ hasText: 'Ideate' })).toHaveCount(0);
+      // Whatever the panel opened for itself, the FAB's pane still has its own.
+      await expect(
+        page.getByTestId('loop-composer-innovate').getByTestId('loop-stop'),
+      ).toBeVisible();
+    },
+  );
 
   test('starting a loop does not open the main terminal panel', async ({ page }) => {
     await open(page);
@@ -161,6 +187,9 @@ test.describe('FAB loop console', () => {
     await openFab(page);
     await page.getByTestId('loop-composer-innovate').getByTestId('loop-start').click();
     await expect(page.getByTestId('loop-composer-innovate').getByTestId('loop-stop')).toBeVisible();
+    // The pty behind the tab is created once TerminalView's lazy chunk mounts
+    // (Phase 36 Theme C) — a moment after Stop appears, not the same tick.
+    await expect(page.locator('.xterm-screen')).toHaveCount(1);
 
     await expect(page.getByTestId('loop-dot-innovate')).toHaveClass(/text-blue-500/);
     await emitActivity(page, 'waiting', 'pty-1');
@@ -213,18 +242,28 @@ test.describe('FAB loop console', () => {
  * disk.
  */
 
-/** Kill a pty the way the world does — nothing in the app asked for this. */
+/**
+ * Kill a pty the way the world does — nothing in the app asked for this.
+ *
+ * Polled for the same reason `emitActivity` is: `ptyId` only exists in the
+ * mock's bookkeeping once the lazy TerminalView chunk has mounted.
+ */
 async function exitPty(page: Page, ptyId: string, exitCode = 0): Promise<void> {
-  const delivered = await page.evaluate(
-    ({ id, code }) =>
-      (
-        window as unknown as {
-          __mstudioPtyExit: (p: string, c: number) => boolean;
-        }
-      ).__mstudioPtyExit(id, code),
-    { id: ptyId, code: exitCode },
-  );
-  expect(delivered, `pty:exit was not delivered to ${ptyId}`).toBe(true);
+  await expect
+    .poll(
+      () =>
+        page.evaluate(
+          ({ id, code }) =>
+            (
+              window as unknown as {
+                __mstudioPtyExit: (p: string, c: number) => boolean;
+              }
+            ).__mstudioPtyExit(id, code),
+          { id: ptyId, code: exitCode },
+        ),
+      `pty:exit was not delivered to ${ptyId}`,
+    )
+    .toBe(true);
 }
 
 /** What the app asked the (fake) main process to spawn. */
@@ -247,6 +286,9 @@ test.describe('FAB loop console — lifecycle (Theme F)', () => {
     const composer = page.getByTestId('loop-composer-innovate');
     await composer.getByTestId('loop-start').click();
     await expect(composer.getByTestId('loop-stop')).toBeVisible();
+    // The pty behind the tab is created once TerminalView's lazy chunk mounts
+    // (Phase 36 Theme C) — a moment after Stop appears, not the same tick.
+    await expect(page.locator('.xterm-screen')).toHaveCount(1);
 
     /*
       The distinction this test exists for: Stop is the app killing the pty,
@@ -272,6 +314,9 @@ test.describe('FAB loop console — lifecycle (Theme F)', () => {
     await composer.getByTestId('loop-start').click();
     await expect(composer.getByTestId('loop-stop')).toHaveClass(/loop-run-glow/);
     await expect(page.getByTestId('fab-loop-dot-innovate')).toBeVisible();
+    // The pty behind the tab is created once TerminalView's lazy chunk mounts
+    // (Phase 36 Theme C) — a moment after Stop appears, not the same tick.
+    await expect(page.locator('.xterm-screen')).toHaveCount(1);
 
     await exitPty(page, 'pty-1');
 
@@ -327,6 +372,11 @@ test.describe('FAB loop console — the waiting notice (Theme G)', () => {
     await openFab(page);
     await page.getByTestId('loop-composer-innovate').getByTestId('loop-start').click();
     await expect(page.getByTestId('loop-composer-innovate').getByTestId('loop-stop')).toBeVisible();
+    // The pty behind the tab is created once TerminalView's lazy chunk mounts
+    // (Phase 36 Theme C) — a moment after Stop appears, not the same tick.
+    // The tab-switch and panel-close below happen to buy enough wall-clock
+    // time for this on an idle machine, but that is incidental, not a wait.
+    await expect(page.locator('.xterm-screen')).toHaveCount(1);
 
     /*
       Away from the loop's own tab, and then out of the panel entirely — the
@@ -363,6 +413,9 @@ test.describe('FAB loop console — the waiting notice (Theme G)', () => {
     await openFab(page);
     await page.getByTestId('loop-composer-innovate').getByTestId('loop-start').click();
     await expect(page.getByTestId('loop-composer-innovate').getByTestId('loop-stop')).toBeVisible();
+    // The pty behind the tab is created once TerminalView's lazy chunk mounts
+    // (Phase 36 Theme C) — a moment after Stop appears, not the same tick.
+    await expect(page.locator('.xterm-screen')).toHaveCount(1);
 
     const notices = () => page.getByText('Ideate is waiting for input.');
 
@@ -420,6 +473,9 @@ test.describe('FAB loop console — reduced motion (Theme H)', () => {
     await openFab(page);
     await page.getByTestId('loop-composer-innovate').getByTestId('loop-start').click();
     await expect(page.getByTestId('loop-composer-innovate').getByTestId('loop-stop')).toBeVisible();
+    // The pty behind the tab is created once TerminalView's lazy chunk mounts
+    // (Phase 36 Theme C) — a moment after Stop appears, not the same tick.
+    await expect(page.locator('.xterm-screen')).toHaveCount(1);
 
     await emitActivity(page, 'thinking', 'pty-1');
     expect(await animationName(page)).toBe('loop-glow-spin, loop-glow-pulse');
@@ -448,7 +504,10 @@ test.describe('FAB panel — the tab glow (Phase 37)', () => {
   const arcOf = (locator: ReturnType<typeof gradient>) =>
     locator.evaluate((el) => {
       const cs = getComputedStyle(el);
-      return { from: cs.getPropertyValue('--fab-arc-from').trim(), to: cs.getPropertyValue('--fab-arc-to').trim() };
+      return {
+        from: cs.getPropertyValue('--fab-arc-from').trim(),
+        to: cs.getPropertyValue('--fab-arc-to').trim(),
+      };
     });
 
   for (const [tab, arc] of Object.entries(ARCS)) {
@@ -489,6 +548,9 @@ test.describe('FAB panel — the tab glow (Phase 37)', () => {
     await page.getByTestId('loop-composer-watchdog').getByTestId('loop-start').click();
     await expect(page.getByTestId('loop-composer-watchdog').getByTestId('loop-stop')).toBeVisible();
     await expect(gradient(page)).toHaveAttribute('data-loop-state', 'running');
+    // The pty behind the tab is created once TerminalView's lazy chunk mounts
+    // (Phase 36 Theme C) — a moment after Stop appears, not the same tick.
+    await expect(page.locator('.xterm-screen')).toHaveCount(1);
 
     await emitActivity(page, 'waiting', 'pty-1');
     await expect(gradient(page)).toHaveAttribute('data-loop-state', 'waiting');
@@ -505,6 +567,9 @@ test.describe('FAB panel — the tab glow (Phase 37)', () => {
     await openFab(page, 'Medic');
     await page.getByTestId('loop-composer-medic').getByTestId('loop-start').click();
     await expect(page.getByTestId('loop-composer-medic').getByTestId('loop-stop')).toBeVisible();
+    // The pty behind the tab is created once TerminalView's lazy chunk mounts
+    // (Phase 36 Theme C) — a moment after Stop appears, not the same tick.
+    await expect(page.locator('.xterm-screen')).toHaveCount(1);
 
     await emitActivity(page, 'waiting', 'pty-1');
     await expect(gradient(page)).toHaveAttribute('data-loop-state', 'waiting');
@@ -519,10 +584,13 @@ test.describe('FAB panel — the tab glow (Phase 37)', () => {
     expect(info.ownAnimation).toBe('none');
   });
 
-  test("data-motion='reduced' stops the panel's rotation, pulse and arc sweep", async ({ page }) => {
+  test("data-motion='reduced' stops the panel's rotation, pulse and arc sweep", async ({
+    page,
+  }) => {
     await open(page);
     await openFab(page, 'Ideate');
-    const before = () => gradient(page).evaluate((el) => getComputedStyle(el, '::before').animationName);
+    const before = () =>
+      gradient(page).evaluate((el) => getComputedStyle(el, '::before').animationName);
 
     expect(await before()).toBe('fab-panel-spin, fab-glow-pulse');
 
@@ -619,13 +687,21 @@ test.describe('FAB loop console — rehydration (Theme I)', () => {
     expect(await ptyCreates(page)).toEqual([]);
   });
 
-  test('a restored FAB session still never reaches the main terminal housing', async ({ page }) => {
-    await openRestored(page, { terminalSessions: SLEPT }, { innovate: 'sess-fab-innovate' });
+  test(
+    'a restored FAB session still never reaches the main terminal housing',
+    // The main panel auto-opens a REAL second terminal, which never becomes
+    // visible on the CI runner — xterm paints through `@xterm/addon-webgl`,
+    // which a GPU-less runner cannot give it. Same wall as terminal-lazy-preload
+    // and friends — Phase 38 Theme I owns the fix.
+    { tag: '@linux-red' },
+    async ({ page }) => {
+      await openRestored(page, { terminalSessions: SLEPT }, { innovate: 'sess-fab-innovate' });
 
-    await page.keyboard.press('Control+`');
-    await expect(panel(page)).toBeVisible();
-    await expect(rows(page).filter({ hasText: 'Ideate' })).toHaveCount(0);
-  });
+      await page.keyboard.press('Control+`');
+      await expect(panel(page)).toBeVisible();
+      await expect(rows(page).filter({ hasText: 'Ideate' })).toHaveCount(0);
+    },
+  );
 
   test('a fabSessions entry whose session is gone reads as idle, and Start still works', async ({
     page,
@@ -645,6 +721,9 @@ test.describe('FAB loop console — rehydration (Theme I)', () => {
 
     await composer.getByTestId('loop-start').click();
     await expect(composer.getByTestId('loop-stop')).toBeVisible();
+    // The pty behind the tab is created once TerminalView's lazy chunk mounts
+    // (Phase 36 Theme C) — a moment after Stop appears, not the same tick.
+    await expect(page.locator('.xterm-screen')).toHaveCount(1);
     expect(await ptyCreates(page)).toHaveLength(1);
   });
 });
