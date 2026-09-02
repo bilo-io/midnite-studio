@@ -47,7 +47,6 @@ const KNOWN_RED = [
   '**/e2e/browser-pane.spec.ts', //          1 — click lands during the exit transition
   '**/e2e/changes-panel.spec.ts', //        10 — the whole file; nothing in the panel is visible
   '**/e2e/diff-view.spec.ts', //             2 — line-number column counts are off
-  '**/e2e/fab-loops.spec.ts', //             5 — `pty:activity` never reaches pty-1
   '**/e2e/files-write.spec.ts', //           1 — claude-home tree
   '**/e2e/footer-monitor.spec.ts', //        2 — ring/marker counts
   '**/e2e/forge-issues.spec.ts', //          1 — failed-listing empty state
@@ -57,7 +56,6 @@ const KNOWN_RED = [
   '**/e2e/review-threads-shots.spec.ts', //  3 — all three time out
   '**/e2e/reviews-loading-shots.spec.ts', // 1 — nothing-cached open
   '**/e2e/settings-pages.spec.ts', //        3 — incl. a strict-mode violation on 'System'
-  '**/e2e/terminal-links.spec.ts', //        2 — same pty delivery fault as fab-loops
   '**/e2e/terminal.spec.ts', //              2 — reload rehydration + list resize
   '**/e2e/tests-view.spec.ts', //            1 — sidebar Tests grouping times out
 ];
