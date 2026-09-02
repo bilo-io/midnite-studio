@@ -28,7 +28,6 @@ import type { RepoDescriptor } from '@midnite/studio-shared';
 
 import { useDialogs } from '../../components/dialog-host';
 import { IconButton } from '../../components/icon-button';
-import { Spinner } from '../../components/skeleton';
 import { useSortableRow } from '../../components/sortable-list';
 import type { RepoGroup } from '../../store/ui-store';
 import { useUiStore } from '../../store/ui-store';
@@ -272,7 +271,7 @@ export function RepoGroupHeader({
       {/* Group Fetch All button */}
       {onFetchAll ? (
         <IconButton
-          icon={isFetching ? Spinner : LuCloudDownload}
+          icon={LuCloudDownload}
           label={`Fetch all repositories in ${group.name}`}
           size="sm"
           busy={isFetching}

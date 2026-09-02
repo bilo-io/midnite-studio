@@ -76,14 +76,47 @@ export function Skeleton({
  * what is happening ("Posting…"), leave it off — the default is `aria-hidden`,
  * because a screen reader announcing "Loading" next to the word "Posting" is
  * the same news twice.
+ *
+ * `size` and `tone` are props rather than something a caller layers on through
+ * `className`, because both would be overriding a utility this component
+ * already emits — `size-3.5` against a passed `size-4`, `border-r-foreground`
+ * against a passed `border-r-current` — and which of two conflicting Tailwind
+ * utilities wins is decided by their order in the generated stylesheet, not by
+ * their order in the class string. So an override that looks right in the JSX
+ * lands as a coin flip. The rim stays 2px at every size for the reason above:
+ * it is what makes the sweep visible at all.
+ *
+ * `tone: 'inherit'` lights the two sweeping borders with `currentColor`
+ * instead of `--foreground`, which is what a spinner standing in for an icon
+ * inside a button wants — the mark then takes the button's own tint (muted at
+ * rest, `--primary` on a `brand` control) exactly as the icon it replaced did.
+ * Only the lit borders move; the dim track stays `--muted-foreground/25`,
+ * because Tailwind v3 cannot put an alpha on `currentColor` — there is no
+ * `<alpha-value>` placeholder to substitute into — so `border-current/25`
+ * would silently emit nothing.
  */
-export function Spinner({ className = '', label }: { className?: string; label?: string }) {
+export function Spinner({
+  className = '',
+  label,
+  size = 'sm',
+  tone = 'default',
+}: {
+  className?: string;
+  label?: string;
+  size?: 'xs' | 'sm' | 'md';
+  tone?: 'default' | 'inherit';
+}) {
+  const box = size === 'xs' ? 'size-3' : size === 'md' ? 'size-4' : 'size-3.5';
+  const rim =
+    tone === 'inherit'
+      ? 'border-muted-foreground/25 border-r-current border-t-current'
+      : 'border-muted-foreground/25 border-r-foreground border-t-foreground';
   return (
     <span
       role={label === undefined ? undefined : 'img'}
       aria-label={label}
       aria-hidden={label === undefined || undefined}
-      className={`inline-block size-3.5 shrink-0 animate-spin rounded-full border-2 border-muted-foreground/25 border-r-foreground border-t-foreground ${className}`}
+      className={`inline-block ${box} shrink-0 animate-spin rounded-full border-2 ${rim} ${className}`}
     />
   );
 }
