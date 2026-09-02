@@ -31,7 +31,7 @@ Completed work is logged append-only in [`done.md`](done.md). Deferred scope liv
 | [43 · Workflows](phases/phase-43-workflows-mvp.md) | ◻ TODO | x1 | 0/77 | `░░░░░░░░░░` | 0% | — | A B C D E F G H I |
 | [42 · Councils, rearranged](phases/phase-42-councils-layout.md) | ◻ TODO | x1 | 0/43 | `░░░░░░░░░░` | 0% | — | A B C D E F |
 | [41 · Agentic Kanban](phases/phase-41-agentic-kanban.md) | ◻ TODO | x1 | 0/55 | `░░░░░░░░░░` | 0% | — | A B C D E F G H I |
-| [40 · GitHub Projects](phases/phase-40-github-projects.md) | 🔄 WIP | — | 0/39 | `░░░░░░░░░░` | 0% | A | B C D E F G |
+| [40 · GitHub Projects](phases/phase-40-github-projects.md) | 🔄 WIP | x1 | 0/53 | `░░░░░░░░░░` | 0% | A | B C D E F G |
 | [39 · One rail, five chords and four loops](phases/phase-39-status-bar-shortcut-rail.md) | 🔄 WIP | — | 52/63 | `████████░░` | 83% | G | — |
 | [38 · Paying off the e2e suite](phases/phase-38-e2e-suite-repair.md) | 🔄 WIP | — | 9/58 | `██░░░░░░░░` | 16% | B C E F | D G H I |
 | [37 · A glow that knows which tab](phases/phase-37-fab-tab-glow.md) | 🔄 WIP | — | 41/44 | `█████████░` | 93% | — | F (human idle-cpu + resize check) |
@@ -168,19 +168,25 @@ stripped** by zod at `schemas.ts:1033` unless the shared schema learns it, so it
 
 ### [Phase 40 — GitHub Projects](phases/phase-40-github-projects.md)
 
-*A `grep` for `ProjectV2` across `packages/` returns zero hits — this app knows a lot about a
-repo's forge and nothing about planning. A read-and-nudge Projects view: list the owner's boards,
-show one as a table with its custom fields, and write back exactly two things. ProjectV2 is
-GraphQL-only, which is precisely why `gh-graphql.ts` exists. The board rendering is Phase 41; this
-phase ships the table and the contracts it reads.*
+*Opens ProjectV2 — GraphQL-only, which is why `gh-graphql.ts` exists — as a read-and-nudge Projects
+view: list the owner's boards, show one as a table with its custom fields, and write back exactly
+two things. Creation, deletion and schema editing stay on github.com.*
+**Refined x1 (2026-09-02), Themes B–G only — Theme A is in flight and was left untouched.**
+39 → 53 items. The headline correction inverts a theme: the draft told an executor to follow
+"Phase 20's optimistic update with rollback", but **Phase 20 established the opposite, in writing,
+twice** — `onMutate` appears nowhere in the renderer, and `queries.ts` says *"None of them is
+optimistic. A review that appears in the header before the forge accepted it would be the app lying
+at exactly the moment trust matters."* Two more premises were false: `gh-cache.ts` **does not
+exist** (the cited test covers a *terminal-state* cache a never-terminal board cannot use), and
+three line refs had drifted.
 
-- ◻ **A** — Shared contracts: `ForgeProject*` in its own `domain/forge-project.ts` (not appended to a 750-line `forge.ts`), item content as a union on `type`, fields as a union on `dataType`, channels + bridge.
-- ◻ **B** — ProjectV2 reads: `gh-project.ts`, cursor pagination with a documented ceiling, owner user-vs-organization probing (the commonest cause of an empty-looking list), and the flattener that turns GraphQL's heterogeneous `fieldValues.nodes[]` into the flat record the contract declares.
-- ◻ **C** — IPC + query layer: `forge-project-handlers.ts` beside `forge-handlers.ts`, preload exposure, react-query keys scoped so a mutation invalidates one board.
-- ◻ **D** — The Projects view: `projects` joins the `ViewId` union (order = rail order) and `FORGE_GATED_VIEWS`, lazy-loaded, with a board picker over an item table — and a header slot ready for Phase 41's toggle.
-- ◻ **E** — Field writes: `updateProjectV2ItemFieldValue` + `addProjectV2ItemById`, inline editors per `dataType`, optimistic with rollback, and the real GitHub error text on failure.
-- ◻ **F** — Wiring + the missing-scope path: palette, menu, sections, settings — and the `project` OAuth scope `gh auth login` does not grant by default, surfaced as a first-class state with its `gh auth refresh -s project` fix, not an error toast.
-- ◻ **G** — Verification: recorded GraphQL fixtures (user- and org-owned, every field type, a draft, a paginated page, an `INSUFFICIENT_SCOPES` body), the flattener specifically, e2e, screenshots.
+- ◻ **A** — Shared contracts *(in flight — not refined)*.
+- ◻ **B** — ProjectV2 reads: the `gh api graphql` transport with its `-f`/`-F` rule and exit-code-not-payload judgement, a 1 000-item ceiling whose truncation is **rendered**, owner resolution via `repositoryOwner` inline fragments (the reference's `viewer` roots answer a different question, and its org half fails **silently** without `read:org`), per-element `safeParse` because `fieldValues.nodes` is heterogeneous and most nodes arrive `{}`, and **no caching in main** — react-query owns staleness.
+- ◻ **C** — IPC + query layer: keys that invalidate one board rather than the whole forge, `enabled`-gating because every forge read is a subprocess plus rate-limit spend, and the existing url-safe-base64 node-id validator reused verbatim for all four id fields.
+- ◻ **D** — The Projects view: the **eight**-file `ViewId` checklist (the doc's `ui-store.ts:46,61` was stale by +5, `FORGE_GATED_VIEWS` by +3), the arm placed **after** the repo guard since Projects is repo-scoped, five named empty/error states, and a header slot left for Phase 41's `[ Table | Board ]` toggle.
+- ◻ **E** — Field writes: `setItemFieldValue` in its own `gh-project-write.ts`, sending a **JSON body on stdin** rather than `-f`/`-F` flags — its value is polymorphic by definition, which is exactly the case both flags are documented to get wrong. Not optimistic; gated at the surface, per the reason already written down.
+- ◻ **F** — Wiring: "open Projects" is **free** once the ViewId exists (`createViewsSource` derives it), so only the per-board source is new; a `VIEW_FILTERS` entry is required regardless; the settings page is four enforced edits across three files.
+- ◻ **G** — Verification: the assertion that proves the parser rule (an unrecognised field type must not drop the item), the assertion that catches the `-f`-vs-JSON mistake, and a human pass against a **real org-owned and a real user-owned** board, since no fixture proves the live root field.
 
 ### [Phase 39 — One rail, five chords and four loops](phases/phase-39-status-bar-shortcut-rail.md)
 
