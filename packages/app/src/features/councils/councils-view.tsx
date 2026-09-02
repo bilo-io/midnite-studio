@@ -1,33 +1,222 @@
-import { useState } from 'react';
-import { LuUsers } from 'react-icons/lu';
+import { LuChevronLeft, LuUsers } from 'react-icons/lu';
 
+import { useRegisterActivePanel } from '../../components/panel-stack/active-panel';
+import { PanelHeader } from '../../components/panel-stack/panel-header';
+import { PanelStack } from '../../components/panel-stack/panel-stack';
+import { usePanelHistory } from '../../components/panel-stack/use-panel-history';
 import { EmptyState } from '../../components/empty-state';
-import { CouncilDetail } from './council-detail';
+import { ResizeHandle } from '../../components/resizable/resize-handle';
+import { useResizable } from '../../components/resizable/use-resizable';
+import { DEFAULT_LAYOUT, LAYOUT_BOUNDS, useUiStore } from '../../store/ui-store';
+import { CouncilConfigPanel } from './council-config-panel';
 import { CouncilList } from './council-list';
+import { CouncilRunView } from './council-run-view';
+import { useCouncil, useCouncils } from './use-council';
+import { useCouncilRuns } from './use-council-run';
 
 /**
- * Agent councils (Phase 34) — global, not per-repo, unlike almost every other
- * rail view in this app. `view-sections.ts`'s `councils` case renders this in
- * place of the `WORK_IN_PROGRESS` stub it used before this phase.
+ * A council panel's own navigation stack (Phase 42 Theme D) — replaces the
+ * two `useState`s the old flat layout carried: `selectedId` here, and
+ * `selectedRunId` inside what used to be `council-detail.tsx`. The second is
+ * why the run tab strip could not navigate at all before this phase.
+ *
+ * **Correction to the phase doc's own drafted type** — found by testing, not
+ * by reading: `{ kind: 'run'; id }` alone is not enough to render a run.
+ * `useCouncilRuns` (the run *list*, which resolves which run is "latest")
+ * is keyed by `councilId`, not `runId` — a run entry needs its council's id
+ * carried alongside it, or the centre pane cannot know which council's run
+ * list to read. Without it, `CouncilOutput` was passing a run id where a
+ * council id belonged, and `useCouncilRuns` silently fetched an empty list
+ * for a council that doesn't exist — reachable only once a run is actually
+ * started, which is exactly the case `councils.spec.ts`'s existing "running
+ * a consultation" test caught.
+ */
+export type CouncilEntry =
+  | { kind: 'list' }
+  | { kind: 'council'; id: string }
+  | { kind: 'run'; id: string; councilId: string };
+
+function isSameCouncilEntry(a: CouncilEntry, b: CouncilEntry): boolean {
+  switch (a.kind) {
+    case 'list':
+      return b.kind === 'list';
+    case 'council':
+      return b.kind === 'council' && b.id === a.id;
+    case 'run':
+      return b.kind === 'run' && b.id === a.id;
+  }
+}
+
+/** The council a stack entry belongs to — `null` only for the root `'list'` entry. */
+function councilIdOf(entry: CouncilEntry): string | null {
+  switch (entry.kind) {
+    case 'list':
+      return null;
+    case 'council':
+      return entry.id;
+    case 'run':
+      return entry.councilId;
+  }
+}
+
+const COLLAPSED_WIDTH = 'w-9';
+
+/**
+ * Agent councils (Phase 34), rearranged into three panes (Phase 42): a
+ * navigation rail left, the run output centre — the widest region, and the
+ * one that grows — and configuration right.
+ *
+ * The responsive floor below 900px is the honest fallback the phase doc's
+ * own Decisions recommend over a drawer/overlay with no precedent anywhere
+ * in this app: the centre region carries a hard `min-w`, so a narrow window
+ * scrolls rather than squeezing the output to nothing. Cut deliberately —
+ * see the phase doc.
  */
 export function CouncilsView() {
-  const [selectedId, setSelectedId] = useState<string | null>(null);
+  const history = usePanelHistory<CouncilEntry>({ kind: 'list' }, { isSame: isSameCouncilEntry });
+  // Always true while this component is mounted — there is only ever one
+  // Councils panel, so "is the Councils view active" and "is this the panel
+  // on screen" are the same question here.
+  useRegisterActivePanel(history, true);
+
+  const layout = useUiStore((s) => s.layout);
+  const setLayout = useUiStore((s) => s.setLayout);
+  const configCollapsed = useUiStore((s) => s.councilConfigCollapsed);
+  const setConfigCollapsed = useUiStore((s) => s.setCouncilConfigCollapsed);
+
+  const nav = useResizable({
+    size: layout.councilNavWidth,
+    onSize: (value) => setLayout('councilNavWidth', value),
+    initial: DEFAULT_LAYOUT.councilNavWidth,
+    axis: 'x',
+    ...LAYOUT_BOUNDS.councilNavWidth,
+  });
+
+  // The splitter sits on the panel's LEFT edge (`config` is docked to the
+  // window's right), so dragging left must grow it — `edge: 'end'`, the same
+  // inversion `app.tsx` calls out for the terminal and the detail pane.
+  const config = useResizable({
+    size: layout.councilConfigWidth,
+    onSize: (value) => setLayout('councilConfigWidth', value),
+    initial: DEFAULT_LAYOUT.councilConfigWidth,
+    axis: 'x',
+    edge: 'end',
+    ...LAYOUT_BOUNDS.councilConfigWidth,
+    // Collapsing must not overwrite the stored width — a separate boolean,
+    // restored to the width it had rather than the default on expand.
+    onCollapse: () => setConfigCollapsed(true),
+  });
+
+  const { data: councils } = useCouncils();
+  const currentCouncilId = councilIdOf(history.current);
+
+  const label = (entry: CouncilEntry): string => {
+    switch (entry.kind) {
+      case 'list':
+        return 'Councils';
+      case 'council':
+        return councils?.find((c) => c.id === entry.id)?.name ?? 'Council';
+      case 'run':
+        // A specific run's own label (its prompt) belongs to whichever
+        // council's runs are currently loaded, which an ancestor breadcrumb
+        // may not be — kept generic rather than fetching every stack
+        // entry's council just to name one crumb.
+        return 'Run';
+    }
+  };
 
   return (
     <div className="flex h-full min-h-0">
-      <div className="w-64 shrink-0 border-r border-border">
-        <CouncilList selectedId={selectedId} onSelect={setSelectedId} />
+      <div className="flex shrink-0 flex-col border-r border-border" style={{ width: nav.current }}>
+        <PanelHeader history={history} label={label} className="shrink-0 border-b border-border px-2 py-1.5" />
+        <div className="min-h-0 flex-1">
+          <CouncilList selectedId={currentCouncilId} onSelect={(id) => history.push({ kind: 'council', id })} />
+        </div>
       </div>
+      <ResizeHandle resizable={nav} axis="x" label="Resize councils navigation" />
 
-      {selectedId ? (
-        <CouncilDetail councilId={selectedId} onDeleted={() => setSelectedId(null)} />
-      ) : (
-        <EmptyState
-          icon={LuUsers}
-          title="Select a council"
-          body="Pick a council on the left, or create a new one to get started."
-        />
-      )}
+      <PanelStack
+        history={history}
+        className="min-w-[320px] flex-1"
+        render={(entry) => {
+          const entryCouncilId = councilIdOf(entry);
+          return entryCouncilId === null ? (
+            <EmptyState
+              icon={LuUsers}
+              title="Select a council"
+              body="Pick a council on the left, or create a new one to get started."
+            />
+          ) : (
+            <CouncilOutput
+              councilId={entryCouncilId}
+              requestedRunId={entry.kind === 'run' ? entry.id : null}
+              onSelectRun={(runId) => history.push({ kind: 'run', id: runId, councilId: entryCouncilId })}
+            />
+          );
+        }}
+      />
+
+      {currentCouncilId !== null ? (
+        configCollapsed ? (
+          <button
+            type="button"
+            onClick={() => setConfigCollapsed(false)}
+            aria-label="Expand configuration"
+            className={`flex shrink-0 flex-col items-center justify-center border-l border-border text-muted-foreground hover:bg-accent ${COLLAPSED_WIDTH}`}
+          >
+            <LuChevronLeft className="h-3.5 w-3.5" />
+          </button>
+        ) : (
+          <>
+            <ResizeHandle resizable={config} axis="x" label="Resize council configuration" />
+            <div className="shrink-0" style={{ width: config.current }}>
+              <CouncilConfigWrapper
+                councilId={currentCouncilId}
+                onDeleted={() => history.reset()}
+                onRunStarted={(runId) =>
+                  history.push({ kind: 'run', id: runId, councilId: currentCouncilId })
+                }
+              />
+            </div>
+          </>
+        )
+      ) : null}
     </div>
   );
+}
+
+/** Resolves `requestedRunId` against the council's live run list, falling back to the latest. */
+function CouncilOutput({
+  councilId,
+  requestedRunId,
+  onSelectRun,
+}: {
+  councilId: string;
+  requestedRunId: string | null;
+  onSelectRun: (runId: string) => void;
+}) {
+  const runs = useCouncilRuns(councilId);
+  const runsData = runs.data ?? [];
+  const activeRunId =
+    (requestedRunId !== null && runsData.some((r) => r.id === requestedRunId) ? requestedRunId : null) ??
+    runsData[runsData.length - 1]?.id ??
+    null;
+
+  return (
+    <CouncilRunView councilId={councilId} runs={runsData} activeRunId={activeRunId} onSelectRun={onSelectRun} />
+  );
+}
+
+function CouncilConfigWrapper({
+  councilId,
+  onDeleted,
+  onRunStarted,
+}: {
+  councilId: string;
+  onDeleted: () => void;
+  onRunStarted: (runId: string) => void;
+}) {
+  const { data: council } = useCouncil(councilId);
+  if (!council) return <EmptyState icon={LuUsers} title="Loading council…" />;
+  return <CouncilConfigPanel council={council} onDeleted={onDeleted} onRunStarted={onRunStarted} />;
 }
