@@ -84,8 +84,10 @@ test.describe('FAB loop console', () => {
     await openFab(page, 'Patrol');
 
     const composer = page.getByTestId('loop-composer-watchdog');
-    await expect(composer.getByLabel('Watch dependabot PRs')).toBeVisible();
+    await expect(composer.getByLabel('Also review pull requests')).toBeVisible();
+    await expect(composer.getByLabel('Also address PR feedback')).toBeVisible();
     await expect(composer.getByLabel('Triage only')).toBeVisible();
+    await expect(composer.getByLabel('Summary table')).toBeVisible();
     await expect(composer.getByPlaceholder('Extra instructions…')).toBeVisible();
   });
 
@@ -94,7 +96,7 @@ test.describe('FAB loop console', () => {
     await openFab(page, 'Patrol');
 
     const composer = page.getByTestId('loop-composer-watchdog');
-    await composer.getByLabel('Watch dependabot PRs').check();
+    await composer.getByLabel('Also review pull requests').check();
     await composer.getByPlaceholder('Extra instructions…').fill('Skip drafts.');
     await composer.getByTestId('loop-start').click();
 
@@ -102,10 +104,10 @@ test.describe('FAB loop console', () => {
     const [run] = await loopRuns(page);
     expect(run?.['loopId']).toBe('watchdog');
     expect(run?.['composedPrompt']).toBe(
-      '/loop /midnite-address-issue Also watch for dependabot PRs and handle them. Skip drafts.',
+      '/loop /midnite-address-issue Also review any ready pull requests and leave feedback. Skip drafts.',
     );
     // Only the checked one — the unchecked "Triage only" fragment must not ride along.
-    expect(run?.['checkedModifierIds']).toEqual(['dependabot']);
+    expect(run?.['checkedModifierIds']).toEqual(['pr-reviews']);
   });
 
   test('the loop session never appears in the main terminal housing', async ({ page }) => {

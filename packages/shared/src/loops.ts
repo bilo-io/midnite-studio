@@ -149,15 +149,28 @@ export const DEFAULT_LOOPS: readonly LoopDefinition[] = [
     fallbackPrompt: '/loop /midnite-address-issue',
     modifiers: [
       {
-        id: 'dependabot',
-        label: 'Watch dependabot PRs',
-        promptFragment: 'Also watch for dependabot PRs and handle them.',
+        id: 'pr-reviews',
+        label: 'Also review pull requests',
+        promptFragment: 'Also review any ready pull requests and leave feedback.',
+        defaultOn: false,
+      },
+      {
+        id: 'pr-feedback',
+        label: 'Also address PR feedback',
+        promptFragment:
+          'Also check my own open pull requests for review feedback and address it.',
         defaultOn: false,
       },
       {
         id: 'triage-only',
         label: 'Triage only',
         promptFragment: 'Only triage and comment on issues; do not push fixes.',
+        defaultOn: false,
+      },
+      {
+        id: 'summary-table',
+        label: 'Summary table',
+        promptFragment: 'Summarize outcomes in a markdown table.',
         defaultOn: false,
       },
     ],
@@ -175,6 +188,24 @@ export const DEFAULT_LOOPS: readonly LoopDefinition[] = [
         id: 'auto-approve',
         label: 'Auto-approve passing PRs',
         promptFragment: 'Auto-approve PRs that pass review with no blocking findings.',
+        defaultOn: false,
+      },
+      {
+        id: 'dependabot',
+        label: 'Watch dependabot PRs',
+        promptFragment: 'Also watch for dependabot PRs and handle them.',
+        defaultOn: false,
+      },
+      {
+        id: 'renovate',
+        label: 'Watch Renovate PRs',
+        promptFragment: 'Also watch for Renovate PRs and handle them.',
+        defaultOn: false,
+      },
+      {
+        id: 'triage-only',
+        label: 'Triage only',
+        promptFragment: 'Only triage and comment on these PRs; do not merge or auto-approve.',
         defaultOn: false,
       },
     ],
