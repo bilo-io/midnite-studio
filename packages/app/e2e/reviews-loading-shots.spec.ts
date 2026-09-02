@@ -1,7 +1,7 @@
 import { expect, test, type Page } from '@playwright/test';
 
 import { fixtures } from './fixtures';
-import { installMockBridge, type MockFixtures } from './mock-bridge';
+import { clickRailLink, installMockBridge, type MockFixtures } from './mock-bridge';
 
 /**
  * The Reviews view's loading states, held still and photographed.
@@ -110,7 +110,7 @@ async function openReviews(page: Page): Promise<void> {
     available, which is itself one of the calls being held — so Playwright's
     auto-wait is doing real work on this line.
   */
-  await page.getByRole('link', { name: 'Reviews' }).click();
+  await clickRailLink(page, 'Reviews');
   /*
     Every scope group starts collapsed, and a collapsed group issues no query —
     so the list pane has no loading state to photograph until one is opened.

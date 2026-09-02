@@ -1,7 +1,7 @@
 import { expect, test, type Page } from '@playwright/test';
 
 import { fixtures } from './fixtures';
-import { installMockBridge, type MockFixtures } from './mock-bridge';
+import { clickRailLink, installMockBridge, type MockFixtures } from './mock-bridge';
 
 /**
  * The Actions view, assembled.
@@ -161,7 +161,7 @@ async function goToActions(page: Page, data: MockFixtures = base): Promise<void>
   await installMockBridge(page, data);
   await page.goto('/');
   await expect(page.getByRole('heading', { name: 'Worktrees' })).toBeVisible();
-  await page.getByRole('link', { name: 'Actions' }).click();
+  await clickRailLink(page, 'Actions');
 }
 
 test('runs are sectioned by workflow, newest section first', async ({ page }) => {
