@@ -8,13 +8,13 @@ import {
   LuSearch,
   LuUser,
   LuX,
-  LuLoader,
 } from 'react-icons/lu';
 import { MdFormatShapes } from 'react-icons/md';
 
 import { EmptyState } from '../../components/empty-state';
 import { ResizeHandle } from '../../components/resizable/resize-handle';
 import { useResizable } from '../../components/resizable/use-resizable';
+import { Spinner } from '../../components/skeleton';
 import { useUiStore } from '../../store/ui-store';
 import { FileIcon } from '../files/file-icons';
 import { FilePreview } from '../files/preview/file-preview';
@@ -122,7 +122,7 @@ export function SearchView() {
         {/* Results status bar */}
         <div className="flex items-center justify-between px-3 py-1.5 text-xs text-muted-foreground border-b border-border bg-muted/10 font-mono">
           <div className="flex items-center gap-1.5">
-            {inFlight && <LuLoader className="h-3 w-3 animate-spin text-primary" />}
+            {inFlight && <Spinner size="xs" tone="inherit" className="text-primary" />}
             <span>
               {totalResults} {totalResults === 1 ? 'match' : 'matches'}
               {truncated ? ' (capped at 5,000)' : ''}

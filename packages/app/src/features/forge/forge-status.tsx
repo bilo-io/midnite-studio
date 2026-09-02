@@ -33,6 +33,7 @@ import {
 } from 'react-icons/lu';
 
 import type { IconComponent } from '../../components/icon-button';
+import { Spinner } from '../../components/skeleton';
 import { Tooltip } from '../../components/tooltip';
 
 /**
@@ -248,7 +249,7 @@ export function StatusPill({
       <span
         className={`inline-flex shrink-0 items-center gap-1 rounded-full py-px pl-1 pr-1.5 text-[10px] font-medium leading-none ${TONE_CLASS[tone]} ${className}`}
       >
-        <Icon className={`size-3 ${spin ? 'animate-spin' : ''}`} strokeWidth={2.5} />
+        {spin ? <Spinner size="xs" tone="inherit" /> : <Icon className="size-3" strokeWidth={2.5} />}
         {label}
       </span>
     );
@@ -261,7 +262,7 @@ export function StatusPill({
         aria-label={label}
         className={`inline-flex shrink-0 items-center ${GLYPH_CLASS[tone]} ${className}`}
       >
-        <Icon className={`size-3.5 ${spin ? 'animate-spin' : ''}`} strokeWidth={2.5} />
+        {spin ? <Spinner size="sm" tone="inherit" /> : <Icon className="size-3.5" strokeWidth={2.5} />}
       </span>
     </Tooltip>
   );

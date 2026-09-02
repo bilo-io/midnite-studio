@@ -7,6 +7,7 @@ import {
   LuSearch,
 } from 'react-icons/lu';
 
+import { Spinner } from '../../../components/skeleton';
 import { useTitlebarStatusStore } from '../titlebar-status-store';
 import type {
   WeatherGeocodeResult,
@@ -96,7 +97,11 @@ export function WeatherSection() {
             title="Refresh weather"
             className="rounded p-1 text-muted-foreground transition-colors hover:bg-accent hover:text-foreground disabled:opacity-50"
           >
-            <LuRefreshCw className={`h-3.5 w-3.5 ${isFetching ? 'animate-spin' : ''}`} />
+            {isFetching ? (
+              <Spinner size="sm" tone="inherit" />
+            ) : (
+              <LuRefreshCw className="h-3.5 w-3.5" />
+            )}
           </button>
         </div>
       </div>

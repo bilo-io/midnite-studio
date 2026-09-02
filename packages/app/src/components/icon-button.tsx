@@ -1,5 +1,6 @@
 import type { ComponentType, CSSProperties, MouseEventHandler, ReactNode } from 'react';
 
+import { Spinner } from './skeleton';
 import { Tooltip } from './tooltip';
 
 /**
@@ -48,7 +49,20 @@ export type IconButtonProps = {
    * click instead.
    */
   disabledReason?: string;
-  /** Spins the icon and blocks the click, without collapsing the layout. */
+  /**
+   * Swaps the icon for the app's sweeping-ring spinner and blocks the click,
+   * without collapsing the layout.
+   *
+   * The icon used to be spun in place instead, and that reads as the wrong
+   * thing on most of the glyphs this button is handed. A rotating trash can,
+   * chevron or cloud is not a busy indicator — it is the same symbol, wobbling
+   * — and on a radially symmetric mark (a circle, a dot) the rotation is
+   * invisible outright, so the one state the user needs to see is the one
+   * state that doesn't show. Only `LuRefreshCw` ever looked deliberate, and it
+   * looked deliberate because it happens to depict rotation. The spinner is a
+   * mark that means exactly one thing, at every call site, whatever glyph the
+   * button rests on.
+   */
   busy?: boolean;
   /** Rendered after the icon — an ahead/behind count, a chevron. */
   children?: ReactNode;
@@ -133,10 +147,13 @@ export function IconButton({
         } ${className}`}
         {...aria}
       >
-        <Icon
-          className={`${size === 'sm' ? 'h-3.5 w-3.5' : 'h-4 w-4'} ${busy ? 'animate-spin' : ''}`}
-          strokeWidth={2}
-        />
+        {busy ? (
+          // `tone="inherit"` so the ring takes the button's own tint, and the
+          // spinner sits in the icon's box so nothing beside it shifts.
+          <Spinner size={size === 'sm' ? 'sm' : 'md'} tone="inherit" />
+        ) : (
+          <Icon className={size === 'sm' ? 'h-3.5 w-3.5' : 'h-4 w-4'} strokeWidth={2} />
+        )}
         {children}
       </button>
     </Tooltip>
