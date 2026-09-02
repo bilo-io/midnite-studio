@@ -31,7 +31,7 @@ const LOOP_GLOW: Record<string, string> = {
  * Amber, for a loop that is waiting on you.
  *
  * The same `#f59e0b` as `.loop-run-glow.is-waiting`, the FAB tab dot and
- * `fab-loop-corners.tsx`. A loop with a question on screen is the one you need,
+ * `fab-loop-halo.tsx`. A loop with a question on screen is the one you need,
  * and it has to look identical wherever it is shown.
  */
 export const LOOP_WAITING_COLOR = '#f59e0b';

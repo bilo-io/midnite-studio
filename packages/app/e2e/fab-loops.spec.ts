@@ -38,6 +38,21 @@ async function openFab(page: Page, tab?: string): Promise<void> {
 /** The reveal tween's own duration (`REVEAL_MS` in `use-reveal.ts`), plus slack. */
 const SETTLE_WAIT_MS = 300;
 
+/**
+ * Every colour-stop position in a computed conic-gradient, in degrees.
+ *
+ * Chromium clamps a conic stop's position to `[0deg, 360deg]` rather than
+ * wrapping it, so an arc mask written with a negative stop (`#000 -90deg`)
+ * renders a different — smaller — arc than it says. Medic's `-90deg → 90deg`
+ * half-ring came out as the top-right quarter alone for exactly this reason,
+ * so the arc masks are written wrap-safe (the arc's start folded into `from`,
+ * the leading fade at `330deg → 360deg`), and this is what a test can hold
+ * them to: computed values have `var()` and `calc()` already resolved, so a
+ * stop that would clamp shows up here as a literal negative number.
+ */
+const conicStopAngles = (mask: string): number[] =>
+  [...mask.matchAll(/rgba?\([^)]*\)\s+(-?[\d.]+)deg/g)].map((m) => Number(m[1]));
+
 /** What the app asked the (fake) main process to record about its runs. */
 const loopRuns = (page: Page) =>
   page.evaluate(() =>
@@ -254,7 +269,7 @@ test.describe('FAB loop console', () => {
     await expect(composer.getByText('Dependabot PRs')).toBeVisible();
   });
 
-  test('a waiting loop turns its tab dot and the FAB corner amber', async ({ page }) => {
+  test('a waiting loop turns its tab dot and the FAB halo amber', async ({ page }) => {
     await open(page);
     await openFab(page);
     await page.getByTestId('loop-composer-innovate').getByTestId('loop-start').click();
@@ -266,14 +281,22 @@ test.describe('FAB loop console', () => {
     await expect(page.getByTestId('loop-dot-innovate')).toHaveClass(/text-blue-500/);
     await emitActivity(page, 'waiting', 'pty-1');
     await expect(page.getByTestId('loop-dot-innovate')).toHaveClass(/bg-amber-500/);
-    await expect(page.getByTestId('fab-loop-corner-innovate')).toHaveClass(/is-waiting/);
+    await expect(page.getByTestId('fab-loop-halo')).toHaveClass(/is-waiting/);
   });
 
-  test('the collapsed FAB lights one corner per live loop and none when idle', async ({
+  /**
+   * The halo is the panel's rim seen from outside: ONE span while anything is
+   * live, none when idle, wearing the ACTIVE TAB's arc — not the running
+   * loop's. It carries `data-fab-tab` itself (the arc properties are
+   * `inherits: false`, so an ancestor's would never reach it) and so resolves
+   * the same two angles the button's ring does, cut from the same
+   * `--loop-glow-angle`.
+   */
+  test('the collapsed FAB wears one halo in the active tab arc while any loop is live', async ({
     page,
   }) => {
     await open(page);
-    await expect(page.getByTestId('fab-loop-corners')).toHaveCount(0);
+    await expect(page.getByTestId('fab-loop-halo')).toHaveCount(0);
 
     await openFab(page);
     await page.getByTestId('loop-composer-innovate').getByTestId('loop-start').click();
@@ -281,19 +304,47 @@ test.describe('FAB loop console', () => {
     await page.waitForTimeout(SETTLE_WAIT_MS);
     await page.getByTestId('loop-composer-automate').getByTestId('loop-start').click();
 
-    /*
-      Each loop owns a fixed corner from its index in `DEFAULT_LOOPS`, not from
-      how many are live — so Ideate stays top-left when Create joins it.
-    */
-    await expect(page.getByTestId('fab-loop-corner-innovate')).toHaveAttribute(
-      'data-corner',
-      'tl',
-    );
-    await expect(page.getByTestId('fab-loop-corner-automate')).toHaveAttribute(
-      'data-corner',
-      'tr',
-    );
-    await expect(page.getByTestId('fab-loop-corner-watchdog')).toHaveCount(0);
+    const halo = page.getByTestId('fab-loop-halo');
+    await expect(halo).toHaveCount(1);
+    await expect(halo).toHaveAttribute('data-fab-tab', 'automate');
+
+    const arcs = await page.evaluate(() => {
+      const read = (el: Element) => {
+        const cs = getComputedStyle(el);
+        return {
+          from: cs.getPropertyValue('--fab-arc-from').trim(),
+          to: cs.getPropertyValue('--fab-arc-to').trim(),
+        };
+      };
+      const halo = document.querySelector('[data-testid="fab-loop-halo"]')!;
+      const button = document.querySelector('[aria-label="Open quick access panel"]')!;
+      return { halo: read(halo), button: read(button), mask: getComputedStyle(halo).maskImage };
+    });
+    // Create's row of the tab table, on both — see the Phase 37 describe below.
+    expect(arcs.halo).toEqual({ from: '30deg', to: '210deg' });
+    expect(arcs.button).toEqual(arcs.halo);
+    expect(arcs.mask).toContain('conic-gradient');
+
+    // Medic is the row with a negative start, the one Chromium's stop clamp
+    // used to cut to a quarter: on the halo AND the ring every stop sits in
+    // [0, 360] — the arc's start lives in `from`, never in a stop.
+    await page.getByRole('button', { name: 'Medic', exact: true }).click();
+    await expect(halo).toHaveAttribute('data-fab-tab', 'medic');
+    await page.waitForTimeout(600); // the 0.5s arc sweep
+    const masks = await page.evaluate(() => ({
+      halo: getComputedStyle(document.querySelector('[data-testid="fab-loop-halo"]')!).maskImage,
+      ring: getComputedStyle(document.querySelector('[aria-label="Open quick access panel"]')!)
+        .maskImage,
+    }));
+    for (const mask of [masks.halo, masks.ring]) {
+      const stops = conicStopAngles(mask);
+      expect(stops.length).toBeGreaterThan(0);
+      expect(stops.every((deg) => deg >= 0 && deg <= 360)).toBe(true);
+    }
+
+    // Back to Ideate: the halo follows the tab, not the two loops still running.
+    await page.getByRole('button', { name: 'Ideate', exact: true }).click();
+    await expect(halo).toHaveAttribute('data-fab-tab', 'innovate');
   });
 
   test('Stop finalises the run and the history records what it carried', async ({ page }) => {
@@ -391,13 +442,13 @@ test.describe('FAB loop console — lifecycle (Theme F)', () => {
     await expect.poll(async () => (await loopRuns(page))[0]?.['status']).toBe('exited');
   });
 
-  test('an exited loop drops the glow and its corner', async ({ page }) => {
+  test('an exited loop drops the glow and the halo', async ({ page }) => {
     await open(page);
     await openFab(page);
     const composer = page.getByTestId('loop-composer-innovate');
     await composer.getByTestId('loop-start').click();
     await expect(composer.getByTestId('loop-stop')).toHaveClass(/loop-run-glow/);
-    await expect(page.getByTestId('fab-loop-corner-innovate')).toBeVisible();
+    await expect(page.getByTestId('fab-loop-halo')).toBeAttached();
     // The pty behind the tab is created once TerminalView's lazy chunk mounts
     // (Phase 36 Theme C) — a moment after Stop appears, not the same tick.
     await expect(page.locator('.xterm-screen')).toHaveCount(1);
@@ -405,7 +456,7 @@ test.describe('FAB loop console — lifecycle (Theme F)', () => {
     await exitPty(page, 'pty-1');
 
     await expect(composer.getByTestId('loop-start')).not.toHaveClass(/loop-run-glow/);
-    await expect(page.getByTestId('fab-loop-corner-innovate')).toHaveCount(0);
+    await expect(page.getByTestId('fab-loop-halo')).toHaveCount(0);
   });
 
   test('Stop keeps the transcript, and the next Start is a fresh session', async ({ page }) => {
@@ -702,7 +753,22 @@ test.describe('FAB panel — the tab glow (Phase 37)', () => {
     page,
   }) => {
     await open(page);
-    await openFab(page, 'Ideate');
+    // Medic, not Ideate: its arc starts below zero, which is the case the
+    // stop-angle guard below exists for. Ideate is the default tab, so this is
+    // a tab CHANGE, and the pseudo's two angles ease over 0.5s — read nothing
+    // until they have landed.
+    await openFab(page, 'Medic');
+    await expect
+      .poll(() =>
+        gradient(page).evaluate((el) => {
+          const before = getComputedStyle(el, '::before');
+          return {
+            from: before.getPropertyValue('--fab-arc-from').trim(),
+            to: before.getPropertyValue('--fab-arc-to').trim(),
+          };
+        }),
+      )
+      .toEqual(ARCS['Medic']);
 
     const glow = await gradient(page).evaluate((el) => {
       const before = getComputedStyle(el, '::before');
@@ -715,6 +781,7 @@ test.describe('FAB panel — the tab glow (Phase 37)', () => {
         },
         zIndex: before.zIndex,
         isolation: getComputedStyle(el).isolation,
+        borderMask: getComputedStyle(el).maskImage,
       };
     });
 
@@ -726,8 +793,16 @@ test.describe('FAB panel — the tab glow (Phase 37)', () => {
 
     // The arc is the active tab's, resolved ON the pseudo — not the registered
     // initial full ring.
-    expect(glow.arc).toEqual(ARCS['Ideate']);
+    expect(glow.arc).toEqual(ARCS['Medic']);
     expect(glow.composite).toBe('intersect, add, add, add, add');
+
+    // ...and written so it renders as that arc: no stop below 0deg on the
+    // rim's arc layer or on the host's border mask (see `conicStopAngles`).
+    for (const mask of [layers[0], glow.borderMask]) {
+      const stops = conicStopAngles(mask);
+      expect(stops.length).toBeGreaterThan(0);
+      expect(stops.every((deg) => deg >= 0 && deg <= 360)).toBe(true);
+    }
 
     // `to bottom` computes to a bare `linear-gradient(...)`; the other three
     // keep their keyword. One per side, no side twice.

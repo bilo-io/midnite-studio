@@ -1,0 +1,74 @@
+import { expect, test, type Page } from '@playwright/test';
+
+import { fixtures } from './fixtures';
+import { installMockBridge, type MockFixtures } from './mock-bridge';
+
+/**
+ * The collapsed FAB with a loop live — before/after shots for the orbiting
+ * halo that replaced the per-loop corner glows.
+ *
+ * A standalone spec on purpose: it is run once against `main` (the corners)
+ * and once against the branch (the halo) from the same file, so the two shots
+ * differ only in what the app draws. Reduced motion, so the ring and halo rest
+ * at the same angle in both, and the panel is closed so the FAB is what the
+ * frame is about. The clip is the FAB's wrapper padded out by 28px — the halo
+ * (and before it the corners) lives OUTSIDE the button's own box.
+ *
+ * Run with `MSTUDIO_SHOTS=1`; skipped otherwise so the normal suite stays fast.
+ */
+const OUT = '../../docs/screenshots/adhoc-fab-orbit-halo';
+const VARIANT = process.env['MSTUDIO_SHOT_VARIANT'] ?? 'after';
+
+test.skip(!process.env['MSTUDIO_SHOTS'], 'set MSTUDIO_SHOTS=1 to write screenshots');
+
+async function open(page: Page): Promise<void> {
+  await installMockBridge(page, fixtures as MockFixtures);
+  await page.goto('/');
+  await expect(page.getByRole('columnheader', { name: 'Commit message' })).toBeVisible();
+}
+
+const fab = (page: Page) => page.getByRole('button', { name: 'Open quick access panel' });
+
+async function shotFab(page: Page, name: string): Promise<void> {
+  const box = (await fab(page).boundingBox())!;
+  const pad = 28;
+  await page.waitForTimeout(300);
+  await page.screenshot({
+    path: `${OUT}/${name}-${VARIANT}.png`,
+    clip: { x: box.x - pad, y: box.y - pad, width: box.width + pad * 2, height: box.height + pad * 2 },
+  });
+}
+
+for (const mode of ['light', 'dark'] as const) {
+  test(`the collapsed FAB with a loop live, per tab, then waiting (${mode})`, async ({ page }) => {
+    await open(page);
+    if (mode === 'dark') await page.evaluate(() => document.documentElement.classList.add('dark'));
+    await page.evaluate(() => document.documentElement.setAttribute('data-motion', 'reduced'));
+
+    await fab(page).click();
+    await expect(page.getByRole('button', { name: 'Ideate', exact: true })).toBeVisible();
+    await page.getByTestId('loop-composer-innovate').getByTestId('loop-start').click();
+    await expect(page.getByTestId('loop-composer-innovate').getByTestId('loop-stop')).toBeVisible();
+    await expect(page.locator('.xterm-screen')).toHaveCount(1);
+
+    for (const tab of ['Ideate', 'Create', 'Patrol', 'Medic']) {
+      await page.getByRole('button', { name: tab, exact: true }).click();
+      await page.waitForTimeout(300);
+      await fab(page).click(); // close
+      await page.waitForTimeout(400);
+      await shotFab(page, `${mode}-${tab.toLowerCase()}`);
+      await fab(page).click(); // reopen for the next tab
+      await page.waitForTimeout(400);
+    }
+
+    await page.evaluate(() => {
+      (window as unknown as { __mstudioPtyActivity: (p: string, a: string) => boolean }).__mstudioPtyActivity(
+        'pty-1',
+        'waiting',
+      );
+    });
+    await fab(page).click();
+    await page.waitForTimeout(400);
+    await shotFab(page, `${mode}-waiting`);
+  });
+}

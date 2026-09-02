@@ -21,7 +21,7 @@ import { DialogHost } from './components/dialog-host';
 import { ToastHost } from './components/toast-host';
 import { VIEW_ICON } from './components/nav-icons';
 import { FabPanel } from './components/fab-panel';
-import { FabLoopCorners, useAnyLoopRunning } from './features/loops/fab-loop-corners';
+import { FabLoopHalo, useAnyLoopRunning } from './features/loops/fab-loop-halo';
 import { useLoopAttention } from './features/loops/use-loop-attention';
 import { PaletteHost } from './components/palette-host';
 import { ResizeHandle } from './components/resizable/resize-handle';
@@ -1143,9 +1143,9 @@ function Shell() {
             </>
           ) : null}
 
-          {/* FAB Button — glows while any loop is live, one lit corner per loop. */}
+          {/* FAB Button — glows while any loop is live, ringed and haloed in the active tab's arc. */}
           <div className="absolute bottom-4 right-4 z-20 h-10 w-10">
-            <FabLoopCorners />
+            <FabLoopHalo tab={activeFabTab} />
             <button
               type="button"
               onClick={toggleFabPanel}
@@ -1154,8 +1154,8 @@ function Shell() {
               data-loops-running={loopsRunning.running ? 'true' : undefined}
               data-fab-tab={activeFabTab}
               /*
-                `relative` is load-bearing: the corner glows sit at `-z-10` behind
-                this button, and a static box would paint UNDER a negative-z
+                `relative` is load-bearing: the halo sits at `-z-10` behind this
+                button, and a static box would paint UNDER a negative-z
                 positioned sibling rather than over it — the halo's opaque disc
                 would swallow the brand mark. `.loop-run-glow` happens to set
                 `position: relative` too, but only while a loop runs, which is
