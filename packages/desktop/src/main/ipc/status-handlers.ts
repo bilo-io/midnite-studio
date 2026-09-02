@@ -15,6 +15,7 @@ import {
   stashDrop,
   stashPop,
   stashPush,
+  stashStore,
   unstagePaths,
 } from '@midnite/studio-git-engine';
 import {
@@ -201,6 +202,11 @@ export function registerStatusHandlers(): void {
     CHANNELS.opStashBranch,
     schemas.StashBranchRequest,
     inWorkdir((cwd, req) => stashBranch(cwd, req.name, req.selector)),
+  );
+  handleOp(
+    CHANNELS.opStashStore,
+    schemas.StashStoreRequest,
+    inWorkdir((cwd, req) => stashStore(cwd, req.sha, req.message)),
   );
 }
 

@@ -84,55 +84,78 @@ itself) never becomes visible. Tagged `@linux-red` per the established per-spec 
 than re-adding whole files to `KNOWN_RED`, so the rest of each file keeps blocking. These four are
 now Theme I's to close alongside its existing three.
 
-### B — The changes panel (M)
+### B — The changes panel (M) — ✅ DONE (2026-09-02)
 
 The largest single cluster: **all ten** `changes-panel` specs fail, every one on
 `expect(locator).toBeVisible()`. A whole file failing on one assertion type means the panel
 never reaches the state the fixture sets up — one fault, ten symptoms. `diff-view` joins this
 theme because both of its failures are `toHaveCount` against the same diff surface.
 
-- [ ] Find the single reason nothing in the panel is visible — most likely the fixture no
+- [x] Find the single reason nothing in the panel is visible — most likely the fixture no
       longer produces a selected checkout, or the panel's container moved behind a lazy
       boundary the spec does not await. Fix that before touching any individual assertion.
-- [ ] `changes-panel.spec.ts:96` + `:108` — panel totals count a two-sided file once; a row
+- [x] `changes-panel.spec.ts:96` + `:108` — panel totals count a two-sided file once; a row
       shows the counts for the side it is listed on.
-- [ ] `changes-panel.spec.ts:119` + `:135` + `:155` — list ordering and full paths, tree
+- [x] `changes-panel.spec.ts:119` + `:135` + `:155` — list ordering and full paths, tree
       grouping with collapsed totals, and the tree ⇄ list choice surviving a reload.
-- [ ] `changes-panel.spec.ts:170` + `:216` — staging buttons act on their own row; picking a
+- [x] `changes-panel.spec.ts:170` + `:216` — staging buttons act on their own row; picking a
       file switches the pane back to its single diff and back again.
-- [ ] `changes-panel.spec.ts:239` + `:251` + `:278` — the commit button appearing only once a
+- [x] `changes-panel.spec.ts:239` + `:251` + `:278` — the commit button appearing only once a
       message is typed, toolbar buttons surviving very wide totals text, and the textarea
       growing then shrinking back after committing.
-- [ ] `diff-view.spec.ts:63` + `:81` — the old line-number column off by default and toggling
+- [x] `diff-view.spec.ts:63` + `:81` — the old line-number column off by default and toggling
       on, and side-by-side switching layout. Both `toHaveCount`: establish whether the expected
       count changed by design (Phase 26 territory) or the rendering broke.
-- [ ] Drop `changes-panel.spec.ts` and `diff-view.spec.ts` from `KNOWN_RED`.
+- [x] Drop `changes-panel.spec.ts` and `diff-view.spec.ts` from `KNOWN_RED`.
 
-### C — The workbench and the rail (M)
+**Found:** neither of the doc's two guesses was the cause. The nav rail defaults to a
+collapsed, hover-to-expand state; every spec's `open()` helper clicked "Changes" as its
+first interaction, and Playwright's `.click()` computes its target point before the
+hover-triggered reflow moves the item out from under it, so the click silently lands
+elsewhere and nothing ever renders. Fixed at the spec level (hover, wait for the settled
+label, then click). `diff-view:63` (old-line-number gutter count) *was* a real regression —
+Phase 26's `DiffCell` refactor collapsed to a single `showGutter` toggle and dropped the
+always-shown new-line number — fixed in `diff-cell.tsx`. `:81` was a stale count (the
+Levenshtein aligner in `split-diff-rows.ts` correctly produces 4 add-cells for an uneven
+diff, not 1); the assertion was updated to match.
+
+### C — The workbench and the rail (M) — ✅ DONE (2026-09-02)
 
 `repos-workbench` fails five different ways and `nav-shell` two, and unlike A and B these look
 genuinely independent — including two that are strong candidates for *real* product bugs.
 
-- [ ] `nav-shell.spec.ts:103` — "the rail carries all eight views, Dashboard ungrouped above
+- [x] `nav-shell.spec.ts:103` — "the rail carries all eight views, Dashboard ungrouped above
       the rest" fails on `toEqual` deep equality. The rail's contents are asserted exactly, so
       this says a view was added, removed or reordered without the spec being told. Decide
       which is correct and make the spec the record of it.
-- [ ] `nav-shell.spec.ts:251` — switching views keeps the checkout you were looking at
+- [x] `nav-shell.spec.ts:251` — switching views keeps the checkout you were looking at
       (`not.toHaveProperty`). If the checkout is genuinely being dropped on a view switch,
       **that is a product bug and takes priority over the spec.**
-- [ ] `repos-workbench.spec.ts:136` — a change count lands on the checkout that owns it, not
+- [x] `repos-workbench.spec.ts:136` — a change count lands on the checkout that owns it, not
       the repo (`toHaveCount`).
-- [ ] `repos-workbench.spec.ts:201` — removing a worktree asks first, in danger colours, naming
+- [x] `repos-workbench.spec.ts:201` — removing a worktree asks first, in danger colours, naming
       what is at stake (`toBeFocused`). A destructive-confirm dialog that no longer takes focus
       is an accessibility regression, not a stale selector — check the dialog, not the spec.
-- [ ] `repos-workbench.spec.ts:394` — a signed-out `gh` says what to run rather than failing
+- [x] `repos-workbench.spec.ts:394` — a signed-out `gh` says what to run rather than failing
       silently.
-- [ ] `repos-workbench.spec.ts:468` — a folded repo hangs its branch and count off the trailing
+- [x] `repos-workbench.spec.ts:468` — a folded repo hangs its branch and count off the trailing
       edge.
-- [ ] `repos-workbench.spec.ts:502` — commit message input has equal inset on all sides when
+- [x] `repos-workbench.spec.ts:502` — commit message input has equal inset on all sides when
       empty (`toBeLessThanOrEqual`, i.e. a measured-pixel assertion — confirm it is not simply
       brittle before changing the number).
-- [ ] Drop `repos-workbench.spec.ts` and `nav-shell.spec.ts` from `KNOWN_RED`.
+- [x] Drop `repos-workbench.spec.ts` and `nav-shell.spec.ts` from `KNOWN_RED`.
+
+**Found:** both flagged real bugs were real. `repos-workbench:201` — `use-focus-trap.ts`
+unconditionally called `container.focus()` after React applied a child's `autoFocus`,
+stealing focus from `ConfirmDialog`'s Cancel button every time; fixed to only focus the
+container when nothing inside already has it. `repos-workbench:468` — `min-w-0` on a
+folded repo's branch+count summary let flexbox shrink it below its unshrinkable content,
+visibly overflowing the container; dropped from `repos-panel.tsx`. `repos-workbench:502`
+was also real: an inline-block `<textarea>` sized to its line box rather than its border
+box, leaving a gap under it; added `block`. `nav-shell:251` (checkout dropped on view
+switch) was a stale spec — worktree selection persisting across view switches is a
+deliberate, already-landed feature (`e36b6ac`); the assertion was inverted to match. The
+other three were stale-selector fixes, not bugs.
 
 ### D — The terminal panel (S)
 
@@ -145,40 +168,60 @@ but re-run them after A lands before spending any time here.
       (`toBeGreaterThan`).
 - [ ] Drop `terminal.spec.ts` from `KNOWN_RED`.
 
-### E — Settings, files and tests (S)
+### E — Settings, files and tests (S) — ✅ DONE (2026-09-02)
 
-- [ ] `settings-pages.spec.ts:113` — **fix this one first**: it fails on a strict-mode
+- [x] `settings-pages.spec.ts:113` — **fix this one first**: it fails on a strict-mode
       violation, `getByRole('navigation', {name: 'Settings pages'}).getByRole('button', {name:
       'System'})` resolving to two elements — the "System" category header and the "System
       Health" page button. That is an ambiguity a screen-reader user hits too, so prefer
       disambiguating the accessible names in the product over `exact: true` in the spec.
-- [ ] `settings-pages.spec.ts:75` — the pages are grouped under collapsible category headers.
-- [ ] `settings-pages.spec.ts:281` — the Agent page shows the version card and browses
+- [x] `settings-pages.spec.ts:75` — the pages are grouped under collapsible category headers.
+- [x] `settings-pages.spec.ts:281` — the Agent page shows the version card and browses
       `~/.claude`.
-- [ ] `files-write.spec.ts:204` — the Agent settings page's claude-home tree offers no context
+- [x] `files-write.spec.ts:204` — the Agent settings page's claude-home tree offers no context
       menu at all. Shares a surface with the previous item; do them together.
-- [ ] `tests-view.spec.ts:56` — the sidebar Tests section groups discovered suites by kind.
+- [x] `tests-view.spec.ts:56` — the sidebar Tests section groups discovered suites by kind.
       Times out clicking the `Tests` button, so the section is not rendering at all.
-- [ ] Drop `settings-pages.spec.ts`, `files-write.spec.ts` and `tests-view.spec.ts` from
+- [x] Drop `settings-pages.spec.ts`, `files-write.spec.ts` and `tests-view.spec.ts` from
       `KNOWN_RED`.
 
-### F — The forge surfaces (M)
+**Found:** the same substring-collision pattern hit three separate control pairs — the
+"System" category heading vs. "System Health" page button (renamed to "System Info"),
+the Agent page's "Update" button vs. the "App Updates" settings entry (renamed to
+"Update Claude"), and an unscoped `getByRole('button', {name:'Agent'})` matching the
+persistent rail's "Agents" section header (fixed by scoping the locator to the settings
+nav). `tests-view:56` failed because the Tests section is nested under the forge-gated
+parent and the spec's fixture had no remote configured — added one, matching sibling specs.
+
+### F — The forge surfaces (M) — ✅ DONE (2026-09-02)
 
 Seven specs across four files, all on PR/Actions/review surfaces. Four of them time out rather
 than assert, which usually means a query that never resolves against the mocked bridge.
 
-- [ ] `actions-view.spec.ts:258` + `:388` — both time out waiting to click **"Load the full
+- [x] `actions-view.spec.ts:258` + `:388` — both time out waiting to click **"Load the full
       log"**, so the truncation banner's button is not being rendered. One fix, two specs.
-- [ ] `review-threads-shots.spec.ts:247` + `:260` + `:272` — threads light, composer open on a
+- [x] `review-threads-shots.spec.ts:247` + `:260` + `:272` — threads light, composer open on a
       line, outdated group expanded. All three time out; these write committed screenshots, so
       expect PNG churn and commit only the shots this theme actually changes.
-- [ ] `reviews-loading-shots.spec.ts:176` — a pull request opening with nothing cached
+- [x] `reviews-loading-shots.spec.ts:176` — a pull request opening with nothing cached
       (`toBeAttached`). Adjacent to the previous item and probably the same loading path.
-- [ ] `forge-issues.spec.ts:111` — a failed listing is a different empty from an empty listing.
+- [x] `forge-issues.spec.ts:111` — a failed listing is a different empty from an empty listing.
       A distinction worth keeping: check the product still draws two different empties before
       assuming the spec is stale.
-- [ ] Drop `actions-view.spec.ts`, `review-threads-shots.spec.ts`,
+- [x] Drop `actions-view.spec.ts`, `review-threads-shots.spec.ts`,
       `reviews-loading-shots.spec.ts` and `forge-issues.spec.ts` from `KNOWN_RED`.
+
+**Found:** `actions-view` was a real regression — "Load the full log" had been silently
+truncated to "Load full log" in an unrelated number-formatting PR; one-line text fix.
+`review-threads-shots` was the same nav-rail hover/click-reflow hazard Theme C found
+independently, at this spec's wide viewport where the rail starts collapsed; fixed at the
+spec level only (Theme C owns any product-level nav-rail fix). `reviews-loading-shots:176`
+was a stale premise — the status bar's own PR-list query now warms the same cache before
+Reviews is ever opened, so the whole-pane loading skeleton it wanted is no longer
+reachable; updated to assert the real current skeleton. `forge-issues:111` was a locator
+bug, not a fixture issue — the product already distinguishes a failed listing from an
+empty one; the shared seeded error text just matched twice, ambiguating an unscoped
+`getByText`.
 
 ### G — Monitor, graph and the browser pane (S)
 

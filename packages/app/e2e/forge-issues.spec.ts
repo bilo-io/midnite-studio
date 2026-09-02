@@ -115,7 +115,17 @@ test('a failed listing is a different empty from an empty listing', async ({ pag
   });
 
   await page.getByRole('button', { name: 'Issues', exact: true }).click();
-  await expect(page.getByText('HTTP 502: Bad gateway')).toBeVisible();
+  /*
+    Scoped to the Issues landmark, not a bare `getByText`: the status bar's
+    checks verdict (`checks-verdict.tsx`) queries `pulls` unconditionally for
+    its own badge, on the same query key as the sidebar's "All Pull Requests"
+    group, so the same fixture error legitimately renders there too. That is
+    correct — one real `gh` failure reported everywhere it is relevant — and
+    exactly why this assertion must name the landmark it means.
+  */
+  await expect(
+    page.getByLabel('Issues', { exact: true }).getByText('HTTP 502: Bad gateway'),
+  ).toBeVisible();
 });
 
 test('expanding a run row shows its jobs, and only then fetches them', async ({ page }) => {

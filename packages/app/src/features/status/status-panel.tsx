@@ -309,7 +309,16 @@ export function StatusPanel() {
               onChange={(event) => setMessage(event.target.value)}
               placeholder="Commit message"
               rows={1}
-              className="w-full resize-none overflow-y-auto rounded-md border-0 bg-background px-2 py-1.5 text-sm outline-none"
+              /*
+                `block`: a `<textarea>` is inline-block by default, so without
+                it the `gradient-border` wrapper — a plain block `<div>` — sized
+                itself to the inline FORMATTING CONTEXT's line box rather than
+                to the textarea's own border box, leaving a ~6px descender gap
+                under it that only showed up as an asymmetric inset (bottom vs.
+                top) once the auto-grow effect started setting an exact pixel
+                height on the textarea.
+              */
+              className="block w-full resize-none overflow-y-auto rounded-md border-0 bg-background px-2 py-1.5 text-sm outline-none"
             />
           </div>
           {message.length > 0 ? (

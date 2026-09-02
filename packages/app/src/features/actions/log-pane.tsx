@@ -103,7 +103,7 @@ export function LogPane({
               disabled={loadingFull}
               className="font-medium underline hover:text-foreground"
             >
-              {loadingFull ? 'Loading…' : 'Load full log'}
+              {loadingFull ? 'Loading…' : 'Load the full log'}
             </button>
           )}
           <IconButton

@@ -100,10 +100,23 @@ const heading = (page: Page, name: string) =>
 const section = (page: Page, name: string) =>
   panel(page).getByRole('button', { name: new RegExp(`^${name}( \\d+)?$`) });
 
-test('the rail carries all eight views, Dashboard ungrouped above the rest', async ({ page }) => {
+test('the rail carries all twelve views, Dashboard ungrouped above the rest', async ({ page }) => {
   await open(page);
 
-  for (const label of ['Dashboard', 'Files', 'Graph', 'Changes', 'Actions', 'Tests', 'Reviews']) {
+  for (const label of [
+    'Dashboard',
+    'Files',
+    'Search',
+    'Tests',
+    'Graph',
+    'Changes',
+    'Actions',
+    'Reviews',
+    'History',
+    'Councils',
+    'Workflows',
+    'Sessions',
+  ]) {
     await expect(rail(page, label)).toBeVisible();
   }
 
@@ -130,11 +143,16 @@ test('the rail carries all eight views, Dashboard ungrouped above the rest', asy
   expect(hrefs).toEqual([
     '/dashboard',
     '/files',
+    '/search',
+    '/tests',
     '/graph',
     '/changes',
     '/actions',
-    '/tests',
     '/reviews',
+    '/history',
+    '/councils',
+    '/workflows',
+    '/sessions',
   ]);
 });
 
@@ -266,9 +284,13 @@ test('switching views keeps the checkout you were looking at', async ({ page }) 
     const raw = localStorage.getItem('midnite-studio.ui');
     return raw ? (JSON.parse(raw) as { state?: Record<string, unknown> }).state : undefined;
   });
-  // The selection is session state and deliberately unpersisted — what matters
-  // is that the row is still marked active in the live DOM.
-  expect(selected).not.toHaveProperty('selectedWorktreePath');
+  // The empty-workspace feature (commit e36b6ac) made the selection persist
+  // ACROSS RESTARTS on purpose, so the app can reopen to the same repo and
+  // worktree rather than falling through to the dashboard — so the DOM check
+  // above (still marked active while switching views) is what this spec is
+  // really about, and the persisted value should simply still be the row we
+  // clicked, not merely present-or-absent.
+  expect(selected).toHaveProperty('selectedWorktreePath', FEATURE);
 });
 
 test('standing in Actions when it disappears lands you on the graph', async ({ page }) => {

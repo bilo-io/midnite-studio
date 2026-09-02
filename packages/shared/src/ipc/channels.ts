@@ -183,6 +183,25 @@ export const CHANNELS = {
    */
   forgeWorkflows: 'mstudio:forge:workflows',
 
+  // --- forge projects (GitHub ProjectV2 — Phase 40) -------------------------
+  //
+  // Its own `forge-project:` namespace rather than folded into `forge:` above:
+  // ProjectV2 is GraphQL-only, served by its own `gh-project.ts` (Theme B), and
+  // ships its own read/write split the same way the block above documents one
+  // for PR review — `list`/`items`/`fields` never write, `set-field`/`add-item`
+  // are the two writes this phase allows and nothing else. See
+  // `shared/src/domain/forge-project.ts` for the contract these channels move.
+  /** The ProjectV2 boards visible to the open repo's owner. */
+  forgeProjectList: 'mstudio:forge-project:list',
+  /** One board's items, paginated — see `ForgeProjectItemsResult.nextCursor`. */
+  forgeProjectItems: 'mstudio:forge-project:items',
+  /** One board's field definitions, for the table's columns. */
+  forgeProjectFields: 'mstudio:forge-project:fields',
+  /** `updateProjectV2ItemFieldValue` — the one per-cell write this phase allows. */
+  forgeProjectSetField: 'mstudio:forge-project:set-field',
+  /** `addProjectV2ItemById` — attach an existing issue or PR to the board. */
+  forgeProjectAddItem: 'mstudio:forge-project:add-item',
+
   // --- shell ---------------------------------------------------------------
   /**
    * Hand a URL to the OS browser. Protocol-restricted at both ends — see the
@@ -251,6 +270,13 @@ export const CHANNELS = {
    */
   opStashDrop: 'mstudio:stash:drop',
   opStashBranch: 'mstudio:stash:branch',
+  /**
+   * `git stash store` — restore a previously-dropped stash from its captured
+   * sha (Phase 22 Theme H's undo for `opStashDrop`). A plain `GitOpResult`:
+   * unlike a drop this never discovers anything worth widening the response
+   * for.
+   */
+  opStashStore: 'mstudio:stash:store',
 
   // --- pty -----------------------------------------------------------------
   // `pty:*` owns the *process*; `terminal:*` below owns the durable *record*.

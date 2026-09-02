@@ -14,6 +14,7 @@ import {
   LuPalette,
   LuPanelLeft,
   LuPlay,
+  LuScrollText,
   LuSearch,
   LuSettings,
   LuShieldCheck,
@@ -46,6 +47,11 @@ export const VIEW_ICON: Record<ViewId, IconType> = {
   changes: LuDiff,
   actions: LuPlay,
   reviews: FaCodePullRequest,
+  /**
+   * `LuScrollText`, not `LuHistory` — `sessions` already wears that glyph,
+   * and one icon per view is the whole point of this map.
+   */
+  history: LuScrollText,
   councils: LuUsers,
   workflows: LuWorkflow,
   sessions: LuHistory,

@@ -208,7 +208,18 @@ async function openThreads(page: Page): Promise<void> {
     section without leaving the Graph view, and leaves the PR's title clipped
     behind its two badges. Going through the rail puts the whole Reviews view on
     screen, which is what these images are of.
+
+    Hovered and settled before it is clicked: at this spec's wide 1680px
+    viewport the rail starts collapsed to icons (`navMode` is `auto`) and only
+    reflows to its labelled width on hover, and a bare `.click()` computes its
+    target point from the PRE-hover layout — the same mouse-move that opens the
+    rail also reshuffles every item under the cursor, so the click that follows
+    lands on whichever item the reflow left at that old point (Graph, one slot
+    up) rather than on Reviews. Hovering first, and giving the reflow a beat to
+    finish, means the click that follows is aimed at the rail as it actually is.
   */
+  await page.getByRole('link', { name: 'Reviews' }).hover();
+  await page.waitForTimeout(800);
   await page.getByRole('link', { name: 'Reviews' }).click();
 
   /*

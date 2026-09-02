@@ -83,7 +83,7 @@ test('the pages are grouped under collapsible category headers', async ({ page }
     'true',
   );
   await expect(tools).toHaveAttribute('aria-expanded', 'true');
-  await expect(nav.getByRole('button', { name: 'System' })).toBeVisible();
+  await expect(nav.getByRole('button', { name: 'System Info' })).toBeVisible();
 
   /*
     Folded is asserted through `inert` on the clipped region rather than through
@@ -114,14 +114,14 @@ test('a folded category stays folded across a reload', async ({ page }) => {
   await openSettings(page);
   const nav = page.getByRole('navigation', { name: 'Settings pages' });
 
-  await nav.getByRole('button', { name: 'System' }).click();
+  await nav.getByRole('button', { name: 'System Info' }).click();
   await expect(page.locator('#settings-group-system > div')).toHaveAttribute('inert', '');
 
   await page.reload();
   await page.getByRole('button', { name: 'Settings' }).click();
 
   const afterReload = page.getByRole('navigation', { name: 'Settings pages' });
-  await expect(afterReload.getByRole('button', { name: 'System' })).toHaveAttribute(
+  await expect(afterReload.getByRole('button', { name: 'System Info' })).toHaveAttribute(
     'aria-expanded',
     'false',
   );
@@ -289,7 +289,7 @@ test('the Agent page shows the version card and browses ~/.claude', async ({ pag
   // Version card, from the mocked login-shell probe.
   await expect(page.getByText('v2.1.34')).toBeVisible();
   await expect(page.getByText('via npm')).toBeVisible();
-  await expect(page.getByRole('button', { name: 'Update' })).toBeVisible();
+  await expect(page.getByRole('button', { name: 'Update Claude' })).toBeVisible();
   await expect(page.getByRole('button', { name: 'Uninstall…' })).toBeVisible();
 
   // The ~/.claude tree is lazy like the repo one.

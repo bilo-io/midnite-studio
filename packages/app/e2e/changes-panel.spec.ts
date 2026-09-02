@@ -81,10 +81,33 @@ const base: MockFixtures = {
   },
 };
 
+/**
+ * Click the rail's Changes link on a freshly (re)loaded page.
+ *
+ * The rail defaults to `navMode: 'auto'` — collapsed to icons until hovered,
+ * then it grows to show labels. Hovering the link is what starts that grow,
+ * so a plain `.click()` on a cold rail races its own hover: Playwright moves
+ * the pointer to the collapsed icon's centre, the resulting `mouseenter`
+ * kicks off the rail's expansion, and by the time `mousedown`/`mouseup` land
+ * at that same fixed screen point the item has already reflowed out from
+ * under it — onto whatever now occupies that pixel, never onto the link. No
+ * amount of waiting *after* the click can recover a click that never reached
+ * its target, which is why every spec in this file was failing on the same
+ * "Changes" heading never appearing. Hovering first and waiting for the
+ * link's own expanded label to render turns "wait out the race" into a real,
+ * observable precondition instead of a guessed delay.
+ */
+const clickChangesNav = async (page: Page): Promise<void> => {
+  const link = page.getByRole('link', { name: 'Changes' });
+  await link.hover();
+  await expect(link.getByText('Changes', { exact: true })).toBeVisible();
+  await link.click();
+};
+
 const open = async (page: Page, data: MockFixtures = base): Promise<void> => {
   await installMockBridge(page, data);
   await page.goto('/');
-  await page.getByRole('link', { name: 'Changes' }).click();
+  await clickChangesNav(page);
   await expect(page.getByRole('heading', { name: 'Changes' })).toBeVisible();
 };
 
@@ -160,7 +183,7 @@ test('the tree ⇄ list choice survives a reload', async ({ page }) => {
   ).toBeVisible();
 
   await page.reload();
-  await page.getByRole('link', { name: 'Changes' }).click();
+  await clickChangesNav(page);
 
   await expect(
     page.getByTestId('changes-unstaged').getByRole('button', { name: 'src', exact: true }),

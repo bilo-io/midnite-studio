@@ -262,7 +262,8 @@ export function DiffView({
                   <DiffCell
                     cell={{ line: row.line, type: row.line.kind }}
                     side="right"
-                    showGutter={showOldGutter}
+                    showGutter
+                    secondaryLineNo={showOldGutter ? row.line.oldNo : undefined}
                     path={diff.path}
                     dark={dark}
                     onComment={onComment}
@@ -428,7 +429,8 @@ function InlineDiffBody({
                     <DiffCell
                       cell={{ line: row.line, type: row.line.kind }}
                       side="right"
-                      showGutter={showOldGutter}
+                      showGutter
+                      secondaryLineNo={showOldGutter ? row.line.oldNo : undefined}
                       path={diff.path}
                       dark={dark}
                       onComment={onComment}

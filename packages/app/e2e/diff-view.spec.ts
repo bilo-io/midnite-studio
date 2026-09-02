@@ -87,7 +87,16 @@ test('toggling side-by-side diff switches rendering layout', async ({ page }) =>
   await toggle.click();
 
   await expect(page.getByRole('button', { name: 'Switch to unified diff' })).toBeVisible();
-  await expect(lines(page, 'add')).toHaveCount(1); // 1 side-by-side split row containing add
+
+  // The fixture's one deletion and four additions are an UNEVEN run, so the
+  // aligner (Levenshtein distance, `split-diff-rows.ts`) pairs the deletion
+  // with its closest addition on one row and gives the other three additions
+  // their own rows, each with an empty left cell — never one row holding all
+  // four. Every add still carries its own right-hand cell (4), which is why
+  // this count is unchanged from the unified view's; what split view adds is
+  // the three placeholder left cells the unmatched additions render against.
+  await expect(lines(page, 'add')).toHaveCount(4);
+  await expect(diff(page).getByTestId('diff-cell-left-empty')).toHaveCount(3);
 });
 
 

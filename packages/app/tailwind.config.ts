@@ -95,6 +95,9 @@ const config: Config = {
        *   menu    — dropdowns and context menus anchored to a trigger
        *   popover — richer anchored panels (Popover, the expanded ref badge)
        *   dialog  — modals, whose backdrop is meant to dim the title bar too
+       *   toast   — non-modal op notifications (Phase 22 Theme H), above a
+       *             dialog's backdrop: an Undo toast for something done
+       *             elsewhere must stay visible even while a confirm is open
        *   tooltip — always last, including over a dialog's own controls
        *
        * The gaps are deliberate: a one-off layer can be slotted between two
@@ -106,6 +109,7 @@ const config: Config = {
         menu: '80',
         popover: '85',
         dialog: '90',
+        toast: '92',
         tooltip: '95',
       },
       /**

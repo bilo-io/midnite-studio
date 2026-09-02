@@ -275,6 +275,43 @@ export type MidniteStudioBridge = {
   };
 
   /**
+   * GitHub ProjectV2 (Phase 40 Theme A), read through the same `gh` CLI
+   * escape hatch as `forge` above and kept as its own group for the same
+   * reason it is its own IPC namespace: ProjectV2 is GraphQL-only, served by
+   * its own main-side module (`gh-project.ts`), and carries its own narrow
+   * write surface — one field value, one item add, nothing else.
+   *
+   * `setField` and `addItem` resolve `ForgeProjectWriteResult` rather than
+   * `ForgeWriteResult`: a missing `project` OAuth scope is a normal outcome
+   * this app expects the first time a user opens the view, not a fault, and
+   * the envelope's `kind: 'insufficient-scope'` arm is what lets the table
+   * render the exact `gh auth refresh -s project` fix in place of the cell
+   * that failed to write, rather than a generic error toast.
+   */
+  forgeProject: {
+    /** The ProjectV2 boards visible to the open repo's owner. */
+    list: (
+      req: In<typeof S.ForgeProjectListRequest>,
+    ) => Promise<z.infer<typeof S.ForgeProjectListResponse>>;
+    /** One board's field definitions, for the table's columns. */
+    fields: (
+      req: In<typeof S.ForgeProjectFieldsRequest>,
+    ) => Promise<z.infer<typeof S.ForgeProjectFieldsResponse>>;
+    /** One board's items, one page at a time — see `nextCursor` on the result. */
+    items: (
+      req: In<typeof S.ForgeProjectItemsRequest>,
+    ) => Promise<z.infer<typeof S.ForgeProjectItemsResponse>>;
+    /** `updateProjectV2ItemFieldValue` — the one per-cell write this phase allows. */
+    setField: (
+      req: In<typeof S.ForgeProjectSetFieldRequest>,
+    ) => Promise<z.infer<typeof S.ForgeProjectSetFieldResponse>>;
+    /** `addProjectV2ItemById` — attach an existing issue or PR to the board. */
+    addItem: (
+      req: In<typeof S.ForgeProjectAddItemRequest>,
+    ) => Promise<z.infer<typeof S.ForgeProjectAddItemResponse>>;
+  };
+
+  /**
    * Hand-offs to the OS.
    *
    * `openExternal` is protocol-restricted in the schema AND re-checked in the
@@ -346,6 +383,8 @@ export type MidniteStudioBridge = {
     /** Its own result type — a drop carries the sha it just made unreachable. */
     drop: (req: In<typeof S.StashDropRequest>) => Promise<StashDropResult>;
     branch: (req: In<typeof S.StashBranchRequest>) => Promise<GitOpResult>;
+    /** Restore a dropped stash from its captured sha (Phase 22 Theme H's undo). */
+    store: (req: In<typeof S.StashStoreRequest>) => Promise<GitOpResult>;
   };
 
   pty: {

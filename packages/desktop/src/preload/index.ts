@@ -231,6 +231,7 @@ const bridge: Pick<
     apply: (req) => call(CHANNELS.opStashApply, req),
     drop: (req) => call(CHANNELS.opStashDrop, req),
     branch: (req) => call(CHANNELS.opStashBranch, req),
+    store: (req) => call(CHANNELS.opStashStore, req),
   },
   pty: {
     create: (req) => call(CHANNELS.ptyCreate, req),

@@ -1,15 +1,21 @@
 import type {
   ChangeCounts,
   GitOpResult,
+  JournalOp,
+  OpJournalEntry,
   RepoDescriptor,
   StatusResult,
   Worktree,
 } from '@midnite/studio-shared';
+import { computeUndoable } from '@midnite/studio-shared';
 import { useMemo } from 'react';
 import { useMutation, useQueries, useQuery, useQueryClient } from '@tanstack/react-query';
 
+import { useToasts } from '../components/toast-host';
+import { useOpsJournalStore } from '../store/ops-journal-store';
 import { useUiStore } from '../store/ui-store';
 import { bridge } from './bridge';
+import { shouldToastOp, useUndoJournalEntry, WIRED_UNDO_OPS } from './use-journal';
 import { keys } from './queries';
 
 /**
@@ -319,16 +325,71 @@ export const GIT_OP_RANK: Record<GitOpId, number> = {
 };
 
 /**
+ * The past-tense label a journal entry (and its toast) shows for a
+ * generically-recorded op. Deliberately generic — no file counts, no branch
+ * names — because `useTargetedGitOp` is generic over `TArgs` and cannot read
+ * an op's own argument shape; a call site that wants a richer label passes
+ * one through `JournalHint.label` instead (see `use-graph-actions.ts`'s
+ * branch-delete for an example).
+ */
+const JOURNAL_OP_LABEL: Record<GitOpId, string> = {
+  fetch: 'Fetched',
+  pull: 'Pulled',
+  push: 'Pushed',
+  merge: 'Merged',
+  rebase: 'Rebased',
+  'cherry-pick': 'Cherry-picked',
+  revert: 'Reverted',
+  checkout: 'Checked out',
+  reset: 'Reset',
+  stage: 'Staged changes',
+  unstage: 'Unstaged changes',
+  discard: 'Discarded changes',
+  commit: 'Committed',
+  'branch-create': 'Created a branch',
+  'branch-delete': 'Deleted a branch',
+  'branch-rename': 'Renamed a branch',
+  'tag-create': 'Created a tag',
+  'worktree-add': 'Added a worktree',
+  abort: 'Aborted',
+  continue: 'Continued',
+};
+
+/**
+ * What a call site can tell the generic journal-recording wrapper about ITS
+ * op that the wrapper cannot infer from `TArgs` alone.
+ *
+ * `refBefore`/`headBefore`/`headAfter` default to the current checkout's HEAD
+ * (before) and freshly-read HEAD (after) — right for `commit`/`reset`/
+ * `checkout`, wrong for an op whose ref is not HEAD (`branch-delete`, whose
+ * own branch may not even be the one checked out). Those call sites override
+ * the defaults; everyone else can omit this argument entirely.
+ */
+export type JournalHint<TArgs> = (args: TArgs) => {
+  label?: string;
+  refBefore?: string | null;
+  headBefore?: string | null;
+  headAfter?: string | null;
+};
+
+/**
  * Wrap a git operation so it invalidates the repo afterwards and never rejects.
  *
  * The result is data, not an exception — a conflict is an expected outcome the
  * UI renders — so callers read `result.ok` instead of catching.
+ *
+ * Every SUCCESSFUL write also records a Phase 22 Theme H journal entry and, for
+ * the ops `shouldToastOp` names, raises a toast — with a live Undo button only
+ * for the two in `WIRED_UNDO_OPS`. This is the one seam every op in the app
+ * already runs through, which is why the recording lives here instead of at
+ * each of the dozen call sites.
  */
 export function useGitOp<TArgs>(
   opId: GitOpId,
   run: (api: NonNullable<ReturnType<typeof bridge>>, args: TArgs, ctx: { repoId: string; worktreePath?: string }) => Promise<GitOpResult>,
+  journalHint?: JournalHint<TArgs>,
 ) {
-  return useTargetedGitOp(useActiveWorktree(), opId, run);
+  return useTargetedGitOp(useActiveWorktree(), opId, run, journalHint);
 }
 
 /**
@@ -344,8 +405,12 @@ export function useTargetedGitOp<TArgs>(
   { repoId, worktreePath }: StatusTarget,
   opId: GitOpId,
   run: (api: NonNullable<ReturnType<typeof bridge>>, args: TArgs, ctx: { repoId: string; worktreePath?: string }) => Promise<GitOpResult>,
+  journalHint?: JournalHint<TArgs>,
 ) {
   const client = useQueryClient();
+  const record = useOpsJournalStore((s) => s.record);
+  const toasts = useToasts();
+  const undo = useUndoJournalEntry();
 
   return useMutation<GitOpResult, never, TArgs>({
     mutationKey: ['git-op', opId],
@@ -354,7 +419,50 @@ export function useTargetedGitOp<TArgs>(
       if (!api || !repoId) {
         return { ok: false, kind: 'error', message: 'No repository selected.' };
       }
-      return run(api, args, { repoId, ...(worktreePath ? { worktreePath } : {}) });
+      const ctx = { repoId, ...(worktreePath ? { worktreePath } : {}) };
+      const cachedHeadBefore =
+        client.getQueryData<StatusResult>(keys.status(repoId, worktreePath))?.branch.oid ?? null;
+      const hint = journalHint?.(args) ?? {};
+
+      const result = await run(api, args, ctx);
+
+      if (result.ok) {
+        const op = opId as JournalOp;
+        const headBefore = hint.headBefore !== undefined ? hint.headBefore : cachedHeadBefore;
+        const headAfter =
+          hint.headAfter !== undefined
+            ? hint.headAfter
+            : await api.status
+                .get(ctx)
+                .then((status) => status.branch.oid)
+                .catch(() => null);
+        const refBefore = hint.refBefore ?? 'HEAD';
+
+        const entry: OpJournalEntry = {
+          id: crypto.randomUUID(),
+          repoId,
+          ...(worktreePath ? { worktreePath } : {}),
+          op,
+          label: hint.label ?? JOURNAL_OP_LABEL[opId],
+          at: Date.now(),
+          headBefore,
+          headAfter,
+          refBefore,
+          undoable: computeUndoable(op, { headBefore, refBefore }),
+        };
+        record(entry);
+
+        if (shouldToastOp(op)) {
+          const wired = WIRED_UNDO_OPS.includes(op) && entry.undoable;
+          toasts.show({
+            message: entry.label,
+            danger: !entry.undoable,
+            ...(wired ? { action: { label: 'Undo', onAction: () => void undo(entry) } } : {}),
+          });
+        }
+      }
+
+      return result;
     },
     onSettled: async () => {
       if (repoId) await client.invalidateQueries({ queryKey: keys.repo(repoId) });

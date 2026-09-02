@@ -17,6 +17,7 @@ export function DiffCell({
   cell,
   side,
   showGutter = true,
+  secondaryLineNo,
   path,
   dark,
   onComment,
@@ -24,6 +25,18 @@ export function DiffCell({
   cell: SplitCell;
   side: 'left' | 'right';
   showGutter?: boolean;
+  /**
+   * An extra gutter rendered before the primary one, for the unified view's
+   * "Show original line numbers" toggle.
+   *
+   * Split view already gives the old side its own column (a whole second
+   * `DiffCell`), so this is unused there — but the unified view has only one
+   * cell per row, and its new-file number must stay visible whether or not
+   * the toggle is on. `undefined` renders nothing extra; `null` or a number
+   * renders the second gutter (empty for a line with no old counterpart, e.g.
+   * a pure addition).
+   */
+  secondaryLineNo?: number | null;
   path: string;
   dark: boolean;
   onComment?: (line: number) => void;
@@ -60,6 +73,12 @@ export function DiffCell({
   return (
     <div className={`flex w-full ${style.row}`} data-line-kind={kind} data-side={side}>
       <span className={`w-0.5 shrink-0 ${style.bar}`} aria-hidden />
+
+      {secondaryLineNo !== undefined ? (
+        <span className="w-10 shrink-0 select-none pr-1.5 text-right tabular-nums text-muted-foreground/60">
+          {secondaryLineNo ?? ''}
+        </span>
+      ) : null}
 
       {showGutter ? (
         <span className="w-10 shrink-0 select-none pr-1.5 text-right tabular-nums text-muted-foreground/60">

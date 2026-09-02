@@ -50,28 +50,28 @@ Effort tags: **S** ≈ an hour or two · **M** ≈ half a day · **L** ≈ a day
 
 ## Deliverables
 
-### A — Shared contracts (S)
+### A — Shared contracts (S) — ✅ DONE (2026-09-02)
 
 The spine every other theme reads off; lands first, and Phase 41 consumes it unchanged.
 
-- [ ] `ForgeProject`, `ForgeProjectField`, `ForgeProjectFieldValue`, `ForgeProjectItem` zod schemas
+- [x] `ForgeProject`, `ForgeProjectField`, `ForgeProjectFieldValue`, `ForgeProjectItem` zod schemas
       in a new [`shared/src/domain/forge-project.ts`](../../../packages/shared/src/domain/forge-project.ts),
       re-exported from `domain/index.ts` alongside `forge.ts`. Kept in its own module rather than
       appended to `forge.ts` — that file is already ~750 lines and ProjectV2 is a distinct API.
-- [ ] `ForgeProjectItemContent` as a **discriminated union** on `type`: `'issue' | 'pull' | 'draft'`.
+- [x] `ForgeProjectItemContent` as a **discriminated union** on `type`: `'issue' | 'pull' | 'draft'`.
       A draft item has no number and no URL; making that a union rather than three optional fields
       is what stops the renderer rendering a link to nowhere.
-- [ ] `ForgeProjectField` as a discriminated union on `dataType` — `text`, `number`, `date`,
+- [x] `ForgeProjectField` as a discriminated union on `dataType` — `text`, `number`, `date`,
       `single_select` (carrying `options: {id, name, color}[]`), `iteration`. Only the first four
       are writable in Theme E; `iteration` parses and renders read-only, so a board that has one
       does not fail to load.
-- [ ] Channels in [`shared/src/ipc/channels.ts`](../../../packages/shared/src/ipc/channels.ts)
+- [x] Channels in [`shared/src/ipc/channels.ts`](../../../packages/shared/src/ipc/channels.ts)
       under the existing naming rule: `mstudio:forge-project:list`, `:items`, `:fields`,
       `:set-field`, `:add-item`. Never written as a literal anywhere else.
-- [ ] Bridge method signatures on [`ipc/bridge.ts`](../../../packages/shared/src/ipc/bridge.ts),
+- [x] Bridge method signatures on [`ipc/bridge.ts`](../../../packages/shared/src/ipc/bridge.ts),
       returning the same `GitOpResult`-style envelope the forge writes already use — a missing
       `project` scope is a normal outcome the UI renders, not a thrown error.
-- [ ] `forge-project.test.ts`: schema round-trips, a `single_select` value whose option id is no
+- [x] `forge-project.test.ts`: schema round-trips, a `single_select` value whose option id is no
       longer in the field's option list still parses, one malformed item does not cost the page.
 
 ### B — ProjectV2 reads (M)
