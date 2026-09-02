@@ -117,6 +117,34 @@ test('clicking a row runs THAT row, even without hovering it first', async ({ pa
   await expect(page.locator('.xterm-screen')).toHaveCount(0);
 });
 
+test('the reload pair carries the browser chords, and the commands they displaced carry none', async ({
+  page,
+}) => {
+  await open(page);
+  await page.keyboard.press('ControlOrMeta+k');
+
+  await search(page).fill('reload');
+  /*
+    `⌘R` on macOS, `Ctrl+R` on CI's ubuntu runner — the same reason every
+    keystroke in this file is `ControlOrMeta`. Asserting the rendered hint
+    rather than the keymap is the point: this covers registry → palette row →
+    `displayChord`, which is the whole path a user reads the shortcut off.
+  */
+  await expect(
+    palette(page).getByRole('option', { name: /^Reload (⌘|Ctrl\+)R$/ }),
+  ).toBeVisible();
+  await expect(
+    palette(page).getByRole('option', { name: /^Hard Reload (⌘⇧|Ctrl\+Shift\+)R$/ }),
+  ).toBeVisible();
+
+  // Refresh and Fetch are still listed — they lost their chords, not their
+  // place in the palette.
+  await search(page).fill('refresh');
+  await expect(palette(page).getByRole('option', { name: 'Refresh' })).toBeVisible();
+  await search(page).fill('fetch');
+  await expect(palette(page).getByRole('option', { name: 'Fetch' })).toBeVisible();
+});
+
 test('a disabled command shows its reason and does not run on Enter', async ({ page }) => {
   await open(page);
   await page.keyboard.press('ControlOrMeta+k');
