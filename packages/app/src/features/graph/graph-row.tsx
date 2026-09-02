@@ -6,7 +6,7 @@ import { Tooltip } from '../../components/tooltip';
 import { useCommitDnd, useRefDnd } from './graph-dnd';
 import { GraphSvg } from './graph-svg';
 import { CONNECTOR_OPACITY, RAIL_WIDTH, showsAuthorColumn, type GraphTheme } from './graph-themes';
-import { laneColor } from './lane-colors';
+import { laneColor, laneVars } from './lane-colors';
 import { RefBadge } from './ref-badge';
 import { badgeActions, type SyncAction } from './ref-sync';
 
@@ -42,6 +42,17 @@ export type GraphRowProps = {
   clipId: string;
   /** Author-filtered out — drawn back, never removed. */
   dimmed: boolean;
+  /**
+   * The lane the selected commit sits on, or `null` when nothing is selected.
+   *
+   * Every mounted row takes it, not just the selected one: the highlight is a
+   * property of the BRANCH, so the rows above and below the selection that
+   * share its lane are exactly the ones that have to light up too. It does bust
+   * this component's memo for all ~30 mounted rows on each selection change —
+   * cheap next to the streaming re-renders the memo actually exists for, and
+   * unavoidable, since no row can tell on its own whether it is on the lane.
+   */
+  glowColorIdx?: number | null;
   onSelect: (sha: string) => void;
   onContextMenu: (event: React.MouseEvent, row: GraphRow) => void;
   onRefContextMenu: (event: React.MouseEvent, ref: Ref) => void;
@@ -73,6 +84,7 @@ function GraphRowInner({
   theme,
   clipId,
   dimmed,
+  glowColorIdx = null,
   onSelect,
   onContextMenu,
   onRefContextMenu,
@@ -88,6 +100,10 @@ function GraphRowInner({
   const shown = refs.length > REF_CHIP_CAP ? refs.slice(0, REF_CHIP_CAP) : refs;
   const hidden = refs.length > REF_CHIP_CAP ? refs.slice(REF_CHIP_CAP) : EMPTY_REFS;
 
+  // The row's own node sits on the lit lane — as opposed to merely having one
+  // of its edges pass through it, which the SVG decides for itself.
+  const onGlowingLane = glowColorIdx !== null && row.colorIdx === glowColorIdx;
+
   return (
     <div
       role="row"
@@ -100,10 +116,18 @@ function GraphRowInner({
         onSelect(row.commit.sha);
         onContextMenu(event, row);
       }}
-      className={`relative flex cursor-default items-center gap-2 pr-3 text-sm transition-colors ${
-        selected ? 'bg-accent' : 'hover:bg-accent/30'
+      className={`graph-row relative flex cursor-default items-center gap-2 pr-3 text-sm transition-colors ${
+        selected ? '' : 'hover:bg-accent/30'
       } ${dimmed ? 'opacity-40' : ''}`}
-      style={{ height: theme.rowHeight }}
+      /*
+        The lane's hue as three components, on every row — the selected tint,
+        the ink and the rail halo are all built from it in `styles.css`, and a
+        finished `hsl()` string cannot be taken apart again in CSS.
+
+        Set unconditionally rather than only when selected, so selecting a row
+        changes one attribute rather than rewriting its inline style.
+      */
+      style={{ ...laneVars(row.colorIdx, theme.palette), height: theme.rowHeight }}
     >
       {/*
         The selection indicator bar: 3px strip on the left edge.
@@ -234,6 +258,7 @@ function GraphRowInner({
               clipId={clipId}
               dimmed={dimmed}
               connector={refs.length > 0}
+              glowColorIdx={glowColorIdx}
             />
           </span>
         </Tooltip>
@@ -247,9 +272,10 @@ function GraphRowInner({
       {theme.node === 'avatar' ? (
         <span
           aria-hidden
+          data-graph-rail
           className={`shrink-0 rounded-full transition-opacity duration-150 ease-in-out ${
             dimmed ? 'opacity-40' : ''
-          }`}
+          } ${onGlowingLane ? 'graph-rail-glow' : ''}`}
           style={{
             width: RAIL_WIDTH,
             // Full row height, so a run of commits on one branch reads as one
@@ -273,7 +299,9 @@ function GraphRowInner({
         }`}
       >
         <span
-          className={`min-w-0 flex-1 truncate ${selected ? '' : 'text-muted-foreground'}`}
+          className={`graph-row-ink min-w-0 flex-1 truncate ${
+            selected ? '' : 'text-muted-foreground'
+          }`}
         >
           <CommitSubject subject={row.commit.subject} />
         </span>
@@ -293,7 +321,7 @@ function GraphRowInner({
       */}
       {showsAuthorColumn(theme) ? (
         <span
-          className={`shrink-0 truncate text-right text-xs text-muted-foreground transition-opacity duration-150 ease-in-out ${
+          className={`graph-row-ink shrink-0 truncate text-right text-xs text-muted-foreground transition-opacity duration-150 ease-in-out ${
             dimmed ? 'opacity-40' : ''
           }`}
           style={{ width: 'var(--col-author)' }}
@@ -302,7 +330,7 @@ function GraphRowInner({
         </span>
       ) : null}
       <span
-        className={`shrink-0 text-right text-xs tabular-nums text-muted-foreground transition-opacity duration-150 ease-in-out ${
+        className={`graph-row-ink shrink-0 text-right text-xs tabular-nums text-muted-foreground transition-opacity duration-150 ease-in-out ${
           dimmed ? 'opacity-40' : ''
         }`}
         style={{ width: 'var(--col-date)' }}
@@ -310,7 +338,7 @@ function GraphRowInner({
         {formatDate(row.commit.committerDate)}
       </span>
       <span
-        className={`shrink-0 text-right font-mono text-xs text-muted-foreground transition-opacity duration-150 ease-in-out ${
+        className={`graph-row-ink shrink-0 text-right font-mono text-xs text-muted-foreground transition-opacity duration-150 ease-in-out ${
           dimmed ? 'opacity-40' : ''
         }`}
         style={{ width: 'var(--col-sha)' }}

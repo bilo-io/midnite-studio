@@ -1,4 +1,5 @@
 import type { GraphRow } from '@midnite/studio-shared';
+import type { ReactElement } from 'react';
 
 import { CommitAvatar } from './commit-avatar';
 import {
@@ -9,7 +10,7 @@ import {
   nodeExtent,
   type GraphTheme,
 } from './graph-themes';
-import { LANE_COLOR_COUNT, laneColor } from './lane-colors';
+import { LANE_COLOR_COUNT, laneColor, laneVars } from './lane-colors';
 
 /**
  * One row's worth of graph, as an SVG.
@@ -35,6 +36,7 @@ export function GraphSvg({
   clipId,
   dimmed = false,
   connector = false,
+  glowColorIdx = null,
 }: {
   row: GraphRow;
   width: number;
@@ -57,11 +59,112 @@ export function GraphSvg({
    * back to an empty column is a line pointing at nothing.
    */
   connector?: boolean;
+  /**
+   * The lane whose graphic pulses, or `null` for none.
+   *
+   * Set from the SELECTED row's `colorIdx`, so picking a commit lights up the
+   * whole branch it sits on rather than just the one row — the lane is the only
+   * part of the picture that says which history the commit belongs to, and it
+   * is drawn identically on every row until something distinguishes it.
+   *
+   * It is a colour index rather than a boolean because a row draws lanes it
+   * does not sit on: only the edges whose own `colorIdx` matches get a halo,
+   * so a neighbouring branch passing through the same row stays quiet.
+   */
+  glowColorIdx?: number | null;
 }) {
   const mid = theme.rowHeight / 2;
   const lane = (n: number): number => laneCentre(theme, laneWidth, n);
   const nodeX = lane(row.lane);
   const nodeColor = laneColor(row.colorIdx, theme.palette);
+
+  /**
+   * One edge, drawn either as the real lane or as its halo copy.
+   *
+   * A closure rather than two copies of the geometry: the halo has to trace
+   * exactly the path the lane traces, and any drift between the two would show
+   * up as a shadow offset from the line it belongs to.
+   */
+  const renderEdge = (
+    edge: GraphRow['edges'][number],
+    index: number,
+    withArrow: boolean,
+  ): ReactElement => {
+    const color = laneColor(edge.colorIdx, theme.palette);
+    const from = lane(edge.fromLane);
+    const to = lane(edge.toLane);
+    const key = `${edge.type}-${edge.fromLane}-${edge.toLane}-${index}`;
+
+    /**
+     * Arrowheads mark an edge ARRIVING at this commit, which is the upper
+     * half — a `merge` edge leaves the node, and an arrow on its far end
+     * would claim a direction the commit does not have.
+     *
+     * `% LANE_COLOR_COUNT` and not a literal 10: the marker ids are
+     * generated from the same palette in `graph-defs`, and an eleventh hue
+     * would otherwise leave every eleventh lane pointing at a `url(#…)`
+     * that was never defined.
+     */
+    const arrow =
+      withArrow && theme.arrowheads && edge.type === 'branch'
+        ? `url(#mstudio-arrow-${edge.colorIdx % LANE_COLOR_COUNT}-${theme.id})`
+        : undefined;
+
+    // The tip stops at the face, not under it.
+    const arrivalY = arrow ? mid - nodeExtent(theme) - ARROW_GAP : mid;
+
+    if (edge.type === 'straight') {
+      return (
+        <line
+          key={key}
+          x1={from}
+          y1={0}
+          x2={from}
+          y2={theme.rowHeight}
+          stroke={color}
+          strokeWidth={theme.strokeWidth}
+        />
+      );
+    }
+
+    const [startX, startY, endX, endY] =
+      edge.type === 'branch' ? [from, 0, to, arrivalY] : [from, mid, to, theme.rowHeight];
+
+    /**
+     * A lane that does not change column is a plain segment whatever the
+     * style — curving or cornering a straight line only adds artefacts.
+     *
+     * It still takes the marker. In a linear history EVERY arriving edge is
+     * same-lane, so skipping it here is skipping arrowheads entirely for
+     * the repos most likely to be looked at.
+     */
+    if (startX === endX) {
+      return (
+        <line
+          key={key}
+          x1={startX}
+          y1={startY}
+          x2={endX}
+          y2={endY}
+          stroke={color}
+          strokeWidth={theme.strokeWidth}
+          markerEnd={arrow}
+        />
+      );
+    }
+
+    return (
+      <path
+        key={key}
+        d={edgePath(theme, startX, startY, endX, endY)}
+        fill="none"
+        stroke={color}
+        strokeWidth={theme.strokeWidth}
+        strokeLinejoin="round"
+        markerEnd={arrow}
+      />
+    );
+  };
 
   return (
     <svg
@@ -118,82 +221,54 @@ export function GraphSvg({
         />
       ) : null}
 
-      {row.edges.map((edge, index) => {
-        const color = laneColor(edge.colorIdx, theme.palette);
-        const from = lane(edge.fromLane);
-        const to = lane(edge.toLane);
-        const key = `${edge.type}-${edge.fromLane}-${edge.toLane}-${index}`;
+      {/*
+        The halo layer, under the lanes it copies.
 
-        /**
-         * Arrowheads mark an edge ARRIVING at this commit, which is the upper
-         * half — a `merge` edge leaves the node, and an arrow on its far end
-         * would claim a direction the commit does not have.
-         *
-         * `% LANE_COLOR_COUNT` and not a literal 10: the marker ids are
-         * generated from the same palette in `graph-defs`, and an eleventh hue
-         * would otherwise leave every eleventh lane pointing at a `url(#…)`
-         * that was never defined.
-         */
-        const arrow =
-          theme.arrowheads && edge.type === 'branch'
-            ? `url(#mstudio-arrow-${edge.colorIdx % LANE_COLOR_COUNT}-${theme.id})`
-            : undefined;
+        A branch highlight has to be visible THROUGH the stroke that causes it,
+        which a `filter` on the stroke itself cannot do — the blur would sit
+        under the line and the line would hide most of it. Redrawing the
+        matching edges as a group beneath, blurred and pulsing, puts the glow
+        around the lane rather than behind it.
 
-        // The tip stops at the face, not under it.
-        const arrivalY = arrow ? mid - nodeExtent(theme) - ARROW_GAP : mid;
+        It also buys the animation for free. Pulsing a `drop-shadow` radius
+        re-rasterises the filtered layer every frame (the same trap Phase 36
+        Theme E documents for the FAB's blur); pulsing the OPACITY of a group
+        whose filter never changes composites on the GPU. So the radius here is
+        fixed and `graph-lane-glow` animates opacity alone.
 
-        if (edge.type === 'straight') {
-          return (
-            <line
-              key={key}
-              x1={from}
-              y1={0}
-              x2={from}
-              y2={theme.rowHeight}
-              stroke={color}
+        Arrowheads are deliberately dropped from the copy: a blurred marker
+        under a sharp one reads as a printing misregistration, and the halo's
+        job is the lane, not its direction.
+      */}
+      {glowColorIdx !== null ? (
+        <g
+          className="graph-lane-glow"
+          style={laneVars(glowColorIdx, theme.palette)}
+          data-graph-glow
+        >
+          {row.edges.map((edge, index) =>
+            edge.colorIdx === glowColorIdx ? renderEdge(edge, index, false) : null,
+          )}
+          {/*
+            The node's own halo — a ring at the node's outer edge, which is the
+            avatar's rim in the avatar styles and the dot's circumference in
+            `dot`. Only on rows that actually SIT on the lane: a row the lane
+            merely passes through has its node somewhere else entirely.
+          */}
+          {row.colorIdx === glowColorIdx ? (
+            <circle
+              cx={nodeX}
+              cy={mid}
+              r={nodeExtent(theme)}
+              fill="none"
+              stroke={nodeColor}
               strokeWidth={theme.strokeWidth}
             />
-          );
-        }
+          ) : null}
+        </g>
+      ) : null}
 
-        const [startX, startY, endX, endY] =
-          edge.type === 'branch' ? [from, 0, to, arrivalY] : [from, mid, to, theme.rowHeight];
-
-        /**
-         * A lane that does not change column is a plain segment whatever the
-         * style — curving or cornering a straight line only adds artefacts.
-         *
-         * It still takes the marker. In a linear history EVERY arriving edge is
-         * same-lane, so skipping it here is skipping arrowheads entirely for
-         * the repos most likely to be looked at.
-         */
-        if (startX === endX) {
-          return (
-            <line
-              key={key}
-              x1={startX}
-              y1={startY}
-              x2={endX}
-              y2={endY}
-              stroke={color}
-              strokeWidth={theme.strokeWidth}
-              markerEnd={arrow}
-            />
-          );
-        }
-
-        return (
-          <path
-            key={key}
-            d={edgePath(theme, startX, startY, endX, endY)}
-            fill="none"
-            stroke={color}
-            strokeWidth={theme.strokeWidth}
-            strokeLinejoin="round"
-            markerEnd={arrow}
-          />
-        );
-      })}
+      {row.edges.map((edge, index) => renderEdge(edge, index, true))}
 
       {/*
         The node last so it sits above every edge — a merge line arriving at the
