@@ -177,12 +177,18 @@ test('a pull request opening, with nothing cached', async ({ page }) => {
   await openReviews(page);
 
   /*
-    Nothing is known about #128 yet — not even the row's own title, because the
-    header reads the DEFAULT pull listing and the list pane fetched a different
-    one. So the whole pane is outlined: header, action bar, tab strip, body.
+    The row's own title is already on screen the moment it is clicked — not
+    from the list pane (a *different* `gh pr list`, scoped `state: 'all'`) but
+    from the status bar's checks verdict (`checks-verdict.tsx`), which queries
+    the header's own default listing (`state: 'open'`, unscoped) the instant a
+    GitHub remote is found, well before any row is ever clicked. So the header
+    and its badges render immediately from that cache; only the detail proper
+    — the additions/deletions, the mergeable state, the description — is still
+    out, which is the Overview skeleton's job, not the whole-pane one.
   */
   await prRow(page, pull.title).click();
-  await expect(page.getByText('Loading the pull request…')).toBeAttached();
+  await expect(page.getByRole('region', { name: `Pull request #${pull.number}` })).toBeVisible();
+  await expect(page.getByText('Loading the description…')).toBeAttached();
 
   await shoot(page, 'detail-loading');
 });

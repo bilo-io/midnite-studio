@@ -701,6 +701,16 @@ describe('forge schemas', () => {
       ],
       forgePullReady: ['ForgePullReadyRequest', 'ForgePullReadyResponse'],
       forgeRunRerun: ['ForgeRunRerunRequest', 'ForgeRunRerunResponse'],
+      /*
+        GitHub ProjectV2 (Phase 40 Theme A) — its own `forge-project:`
+        namespace, but still swept by this guard since every key here starts
+        with `forge`.
+      */
+      forgeProjectList: ['ForgeProjectListRequest', 'ForgeProjectListResponse'],
+      forgeProjectItems: ['ForgeProjectItemsRequest', 'ForgeProjectItemsResponse'],
+      forgeProjectFields: ['ForgeProjectFieldsRequest', 'ForgeProjectFieldsResponse'],
+      forgeProjectSetField: ['ForgeProjectSetFieldRequest', 'ForgeProjectSetFieldResponse'],
+      forgeProjectAddItem: ['ForgeProjectAddItemRequest', 'ForgeProjectAddItemResponse'],
     };
     const channelKeys = Object.keys(CHANNELS).filter((key) => key.startsWith('forge'));
     expect(channelKeys.sort()).toEqual(Object.keys(expected).sort());

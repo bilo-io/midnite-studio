@@ -36,8 +36,23 @@ const e2eSuite = {
   run: { command: 'pnpm', args: ['run', 'e2e'], cwd: `${MAIN}/packages/app` },
 };
 
+// The sidebar nests Tests under Forge alongside Actions/Reviews/Issues
+// (Phase 28 Theme F), and `RepoTree` gates the whole Forge parent — Tests
+// included — behind a GitHub remote (`hasGithubForge`), same as its three
+// siblings. Test discovery itself has nothing to do with GitHub, but the
+// sidebar section it renders in does, so the fixture needs one to show it.
+const REMOTES = [
+  {
+    name: 'origin',
+    fetchUrl: 'git@github.com:bilo-io/midnite-studio.git',
+    pushUrl: 'git@github.com:bilo-io/midnite-studio.git',
+    forge: { host: 'github.com', owner: 'bilo-io', repo: 'midnite-studio', kind: 'github' },
+  },
+];
+
 const base: MockFixtures = {
   ...fixtures,
+  remotes: REMOTES,
   statusEntries: [],
   statusByWorktree: { [MAIN]: [] },
   tests: {

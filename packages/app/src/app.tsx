@@ -18,6 +18,7 @@ import { Brand, BrandMark, Wordmark } from './components/brand';
 import { BrowserPane } from './features/browser/browser-pane';
 import { DelayedFallback } from './components/delayed-fallback';
 import { DialogHost } from './components/dialog-host';
+import { ToastHost } from './components/toast-host';
 import { VIEW_ICON } from './components/nav-icons';
 import { FabPanel } from './components/fab-panel';
 import { FabLoopCorners, useAnyLoopRunning } from './features/loops/fab-loop-corners';
@@ -119,6 +120,8 @@ const loadTestsView = () => import('./features/tests/tests-view');
 const TestsView = lazy(() => loadTestsView().then((m) => ({ default: m.TestsView })));
 const loadReviewsView = () => import('./features/reviews/reviews-view');
 const ReviewsView = lazy(() => loadReviewsView().then((m) => ({ default: m.ReviewsView })));
+const loadHistoryView = () => import('./features/history/history-view');
+const HistoryView = lazy(() => loadHistoryView().then((m) => ({ default: m.HistoryView })));
 /*
   The three rarely-shown modals. Each keeps its own boundary with a `null`
   fallback rather than joining the view boundary: they are overlays, and a
@@ -249,6 +252,7 @@ const GIT_NAV_ITEMS: NavItem[] = [
   { view: 'changes', label: 'Changes', icon: VIEW_ICON.changes },
   { view: 'actions', label: 'Actions', icon: VIEW_ICON.actions },
   { view: 'reviews', label: 'Reviews', icon: VIEW_ICON.reviews },
+  { view: 'history', label: 'History', icon: VIEW_ICON.history },
 ];
 
 const AGENT_NAV_ITEMS: NavItem[] = [
@@ -1048,6 +1052,8 @@ function Shell() {
                   <TestsView />
                 ) : activeView === 'reviews' ? (
                   <ReviewsView />
+                ) : activeView === 'history' ? (
+                  <HistoryView />
                 ) : (
                   <Placeholder view={activeView} />
                 )}
@@ -1279,12 +1285,14 @@ export function App() {
   return (
     <ShellProviders queryClient={queryClient}>
       <DialogHost>
-        <PaletteHost>
-          <Shell />
-          <Suspense fallback={null}>
-            <OnboardingModal />
-          </Suspense>
-        </PaletteHost>
+        <ToastHost>
+          <PaletteHost>
+            <Shell />
+            <Suspense fallback={null}>
+              <OnboardingModal />
+            </Suspense>
+          </PaletteHost>
+        </ToastHost>
       </DialogHost>
       <FileEditorGuard />
       <Suspense fallback={null}>

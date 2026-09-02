@@ -12,6 +12,7 @@ import {
   stashDrop,
   stashPop,
   stashPush,
+  stashStore,
 } from './stash';
 
 let repo: TempRepo;
@@ -158,6 +159,42 @@ describe('stashDrop', () => {
     if (!result.ok) throw new Error('expected success');
     expect(result.recoveredSha).toMatch(/^[0-9a-f]{40}$/);
     expect(await listStashes(repo.path)).toEqual([]);
+  });
+});
+
+describe('stashStore', () => {
+  it('restores a dropped stash from its captured sha — Phase 22 Theme H undo', async () => {
+    await repo.commitFile('a.txt', 'one\n', 'base');
+    await repo.writeFile('a.txt', 'two\n');
+    await stashPush(repo.path, { message: 'wip' });
+
+    const dropped = await stashDrop(repo.path, 'stash@{0}');
+    if (!dropped.ok || dropped.recoveredSha === undefined) {
+      throw new Error('expected a recovered sha');
+    }
+    expect(await listStashes(repo.path)).toEqual([]);
+
+    expect(await stashStore(repo.path, dropped.recoveredSha, 'wip')).toEqual({ ok: true });
+
+    const restored = await listStashes(repo.path);
+    expect(restored).toHaveLength(1);
+    expect(restored[0]?.sha).toBe(dropped.recoveredSha);
+    expect(restored[0]?.selector).toBe('stash@{0}');
+
+    // The restored entry is a real stash again: applying it brings the
+    // change back exactly as it was before the drop.
+    expect(await stashPop(repo.path, 'stash@{0}')).toEqual({ ok: true });
+    expect(await readFile(join(repo.path, 'a.txt'), 'utf8')).toBe('two\n');
+  });
+
+  it('reports a failure for a sha that is not a stash commit', async () => {
+    await repo.commitFile('a.txt', 'one\n', 'base');
+    const headSha = (await repo.git(['rev-parse', 'HEAD'])).trim();
+
+    const result = await stashStore(repo.path, headSha);
+    expect(result.ok).toBe(false);
+    if (result.ok) throw new Error('expected a failure');
+    expect(result.kind).toBe('error');
   });
 });
 

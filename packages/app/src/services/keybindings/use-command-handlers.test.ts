@@ -7,6 +7,7 @@ import { beforeEach, describe, expect, it, vi } from 'vitest';
 import type { BranchStatus, StatusResult } from '@midnite/studio-shared';
 
 import { DialogHost } from '../../components/dialog-host';
+import { ToastHost } from '../../components/toast-host';
 import { useSlidesStore } from '../../features/slides/slides-store';
 import { useTerminalStore } from '../../features/terminal/terminal-store';
 import { keys } from '../queries';
@@ -36,7 +37,16 @@ const REPO_ID = 'repo-1';
 const withProviders = (client: QueryClient) =>
   renderHook(() => useCommandHandlers(), {
     wrapper: ({ children }) =>
-      createElement(QueryClientProvider, { client }, createElement(DialogHost, null, children)),
+      createElement(
+        QueryClientProvider,
+        { client },
+        // `ToastHost` joins `DialogHost` here because Phase 22 Theme H's
+        // journal recording lives inside `useGitOp` — every command this
+        // hook wires up that goes through it (`sync.fetch` among them) now
+        // needs `useToasts()` in scope, same as it already needed
+        // `useDialogs()`.
+        createElement(DialogHost, null, createElement(ToastHost, null, children)),
+      ),
   });
 
 beforeEach(() => {

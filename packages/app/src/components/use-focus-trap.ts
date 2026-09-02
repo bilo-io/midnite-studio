@@ -48,7 +48,17 @@ export function useFocusTrap(ref: RefObject<HTMLElement | null>, active: boolean
     // scrolls an ancestor to reveal it, and a surface that owns a scroll-to-
     // dismiss listener reads its own reveal scroll as the user scrolling away.
     // A focus trap has no business moving the viewport regardless.
-    container.focus({ preventScroll: true });
+    //
+    // Only when nothing inside already has it: `autoFocus` on a child (the
+    // Cancel button in a destructive `ConfirmDialog`, say) runs during React's
+    // commit, which finishes before this effect does — so unconditionally
+    // stealing focus onto the container here would override it every time,
+    // landing Tab/Return on the dialog shell instead of the button the caller
+    // deliberately asked to hold focus. Popover, the effect's original owner,
+    // has no such child, so its own focus-on-open behaviour is unaffected.
+    if (!container.contains(document.activeElement)) {
+      container.focus({ preventScroll: true });
+    }
     container.addEventListener('keydown', onKeyDown);
     return () => container.removeEventListener('keydown', onKeyDown);
   }, [ref, active]);

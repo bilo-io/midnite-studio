@@ -57,6 +57,7 @@ export type ViewId =
   | 'changes'
   | 'actions'
   | 'reviews'
+  | 'history'
   | 'councils'
   | 'workflows'
   | 'sessions'
@@ -72,6 +73,7 @@ export const VIEW_IDS: readonly ViewId[] = [
   'changes',
   'actions',
   'reviews',
+  'history',
   'councils',
   'workflows',
   'sessions',
@@ -114,7 +116,7 @@ export type SettingsGroupId = 'general' | 'tools' | 'system';
 export const SETTINGS_GROUPS: { id: SettingsGroupId; label: string }[] = [
   { id: 'general', label: 'General' },
   { id: 'tools', label: 'Tools' },
-  { id: 'system', label: 'System' },
+  { id: 'system', label: 'System Info' },
 ];
 
 /**

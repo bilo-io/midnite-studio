@@ -110,6 +110,33 @@ export async function stashDrop(
   return recovered ? { ok: true, recoveredSha: recovered[1] } : { ok: true };
 }
 
+/**
+ * Restore a dropped stash — `git stash store`.
+ *
+ * The forward write Phase 22 Theme H's undo uses for `stash drop`: `stashDrop`
+ * captures the commit sha a drop just made unreachable, and this is what
+ * makes that sha reachable again, as a real stash entry rather than a bare
+ * commit floating with nothing pointing at it. It is a NEW write through the
+ * queue like every other undo in this app, never a reflog rewrite.
+ */
+export async function stashStore(
+  worktreePath: string,
+  sha: string,
+  message?: string,
+): Promise<GitOpResult> {
+  const args = ['stash', 'store'];
+  if (message !== undefined) args.push('-m', message);
+  args.push(sha);
+
+  const res = await run(worktreePath, args);
+  if (res.exitCode === 0) return ok();
+
+  if (/not a valid stash reference|is not a stash reference/i.test(res.stderr)) {
+    return failure('That is not a stash commit — it cannot be restored as one.', res.stderr);
+  }
+  return failure(gitErrorLine(res.stderr) || 'Could not restore the stash.', res.stderr);
+}
+
 export async function stashBranch(
   worktreePath: string,
   branchName: string,

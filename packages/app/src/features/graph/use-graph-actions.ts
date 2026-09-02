@@ -49,9 +49,23 @@ export function useGraphActions(onError: (message: string) => void) {
     'branch-create',
     (api, args, ctx) => api.ops.branchCreate({ ...ctx, ...args }),
   );
-  const branchDelete = useGitOp<{ name: string; force: boolean }>(
+  const branchDelete = useGitOp<{ name: string; force: boolean; sha: string }>(
     'branch-delete',
-    (api, args, ctx) => api.ops.branchDelete({ ...ctx, ...args }),
+    (api, args, ctx) => api.ops.branchDelete({ ...ctx, name: args.name, force: args.force }),
+    /*
+     * `refBefore`/`headBefore` here are the ref that ACTUALLY moved — the
+     * deleted branch — not the checkout's `HEAD`, which never moves when you
+     * delete a branch you are not on (deleting the current branch is refused
+     * before this ever runs). Phase 22 Theme H's branch-delete undo
+     * (`services/use-journal.ts`) reads exactly these two fields to recreate
+     * the branch at its prior sha.
+     */
+    (args) => ({
+      label: `Deleted branch ${args.name}`,
+      refBefore: `refs/heads/${args.name}`,
+      headBefore: args.sha,
+      headAfter: null,
+    }),
   );
   const branchRename = useGitOp<{ from: string; to: string }>('branch-rename', (api, args, ctx) =>
     api.ops.branchRename({ ...ctx, ...args }),
@@ -356,7 +370,9 @@ export function useGraphActions(onError: (message: string) => void) {
                 danger: true,
                 blastRadius: undefined,
                 onConfirm: () =>
-                  void branchDelete.mutateAsync({ name: ref.name, force: true }).then(report),
+                  void branchDelete
+                    .mutateAsync({ name: ref.name, force: true, sha: ref.sha })
+                    .then(report),
               });
               // A deleted branch ends up nowhere, so there is no `to`; what
               // matters is which of its commits no OTHER ref holds.

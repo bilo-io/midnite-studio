@@ -748,7 +748,23 @@ function RepoItem({
                 explain, instead of starting at a different x on every row
                 because repository names differ in length.
               */
-              <span className="ml-auto flex min-w-0 shrink-[6] items-center gap-1.5">
+              /*
+                No `min-w-0` here, deliberately — that utility is what tells
+                flexbox this item's minimum size is 0 rather than its content's
+                natural size, and this item's own un-shrinkable content (the
+                branch icon and the count pill, both `shrink-0`) has a real
+                floor above 0. With `min-w-0` set, the OUTER shrink distribution
+                (this span vs. the repo name) could squeeze this span below
+                that floor at narrow widths, and — since nothing here clips
+                overflow — the pill then visibly bled a couple of px past this
+                span's own box and the name button's trailing edge, which is
+                the "hangs off the trailing edge" bug the sibling caught.
+                Leaving the floor in place means the SIBLING (the repo name,
+                which has its own `.truncate` and legitimately has nothing to
+                lose by shrinking to near-zero) gives up the space instead —
+                which is what `shrink-[6]` already intended.
+              */
+              <span className="ml-auto flex shrink-[6] items-center gap-1.5">
                 <span className="flex min-w-0 items-center gap-1 text-xs text-muted-foreground">
                   <LuGitBranch aria-hidden className="h-3 w-3 shrink-0" />
                   <span className="truncate">

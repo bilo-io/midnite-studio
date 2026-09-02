@@ -25,7 +25,7 @@ import { Field } from './controls';
  * the sidebar's midnite menu points, and the two maintenance actions with
  * deliberately different postures —
  *
- * - **Update** runs in main and streams its output here (low blast radius).
+ * - **Update Claude** runs in main and streams its output here (low blast radius).
  * - **Uninstall** is only ever PASTED into the integrated terminal, without a
  *   newline. Pressing Enter is the confirmation — the app never removes an
  *   installation itself.
@@ -353,7 +353,7 @@ function ClaudeCard({ info, onRefresh }: { info: ClaudeInfo | undefined; onRefre
               onClick={() => update.mutate()}
               className="h-6 rounded-md border border-primary bg-primary/10 px-2 text-xs transition-colors hover:bg-primary/20 disabled:opacity-50"
             >
-              {update.isPending ? 'Updating…' : 'Update'}
+              {update.isPending ? 'Updating Claude…' : 'Update Claude'}
             </button>
             <button
               type="button"

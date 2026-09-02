@@ -111,151 +111,151 @@ The spine: B–E all read off this contract, so it lands first.
       `*.integration.test.ts` convention: push with and without `-u`, `--keep-index`, a path-scoped
       push, pop clean, pop conflicted, drop, and `stash branch`.
 
-### B — Stashes in the sidebar (M) ✅ DONE (2026-08-28)
+### B — Stashes in the sidebar (M)
 
-- [x] `'stashes'` joins `SectionKey` and `ALL_SECTIONS` in
+- [ ] `'stashes'` joins `SectionKey` and `ALL_SECTIONS` in
       [`view-sections.ts`](../packages/app/src/features/repos/view-sections.ts), and every
       `VIEW_FILTERS` entry decides whether it shows it. It also joins `RefSectionKey`, because it
       wants a heading menu — which forces a new arm in `sectionMenu(kind, refs)` in
       [`use-repo-actions.ts`](../packages/app/src/features/repos/use-repo-actions.ts).
-- [x] A `<TreeSection title="Stashes">` block in `RepoTree` in
+- [ ] A `<TreeSection title="Stashes">` block in `RepoTree` in
       [`repos-panel.tsx`](../packages/app/src/features/repos/repos-panel.tsx), beside the four
       literal Local/Remotes/Tags/Worktrees blocks, with its entry in `SECTION_TITLE` and its key in
       `useSectionToggles`. `hideWhenEmpty` — a repo that has never stashed should not carry an empty
       heading forever.
-- [x] A `StashRow` component alongside `RefRow`/`WorktreeRow` at the same `TREE_INDENT` depth:
+- [ ] A `StashRow` component alongside `RefRow`/`WorktreeRow` at the same `TREE_INDENT` depth:
       the message as the primary text, a relative timestamp as `meta`, and a file-count chip so a
       one-file stash reads differently from a forty-file one at a glance.
-- [x] The query key nests under `keys.repo(repoId)` in
+- [ ] The query key nests under `keys.repo(repoId)` in
       [`queries.ts`](../packages/app/src/services/queries.ts). This is not optional — that file's
       doc comments warn twice that a key outside `['repos', repoId, …]` is never invalidated by the
       watcher, and it is a bug the project has already hit.
-- [x] `.git/refs/stash` already falls under the watcher's recursive `.git/refs` watch in
+- [ ] `.git/refs/stash` already falls under the watcher's recursive `.git/refs` watch in
       [`repo-watcher.ts`](../packages/git-engine/src/watch/repo-watcher.ts) and classifies as
       `'refs'`, so `stash push`/`drop` invalidate for free — confirm the mapping in
       [`watch-invalidation.ts`](../packages/app/src/services/watch-invalidation.ts) rather than
       assuming it.
-- [x] A row menu via `refMenu`'s sibling `stashMenu(entry)`: Apply, Pop, Drop, Branch from stash,
+- [ ] A row menu via `refMenu`'s sibling `stashMenu(entry)`: Apply, Pop, Drop, Branch from stash,
       Copy sha. Drop is `danger` and goes through `dialogs.confirm` — it is the one stash op with no
       button-shaped way back.
-- [x] The heading action creates a stash from the current worktree state, prompting for a message
+- [ ] The heading action creates a stash from the current worktree state, prompting for a message
       through the existing `PromptDialog` rather than inventing an input.
-- [x] [`sidebar-page.tsx`](../packages/app/src/features/settings/settings-pages/sidebar-page.tsx)
+- [ ] [`sidebar-page.tsx`](../packages/app/src/features/settings/settings-pages/sidebar-page.tsx)
       enumerates the sections; the new one appears there too, or the settings page quietly lies.
 
-### C — Stashes in the graph (M) ✅ DONE (2026-08-28)
+### C — Stashes in the graph (M)
 
-- [x] Stash rows are **pseudo-rows**, following the precedent
+- [ ] Stash rows are **pseudo-rows**, following the precedent
       [`uncommitted-row.tsx`](../packages/app/src/features/graph/uncommitted-row.tsx) set and
       documented: `GraphRowSchema` in
       [`commit.ts`](../packages/shared/src/domain/commit.ts) stays a commit-only type, and a stash
       is not given a fake sha to smuggle it into `graph-store`, the virtualizer's index space, and
       every `rows[i]` lookup that would then have to exclude it again.
-- [x] A `StashRows` sibling rendered above the `role="grid"` scroller in
+- [ ] A `StashRows` sibling rendered above the `role="grid"` scroller in
       [`graph-view.tsx`](../packages/app/src/features/graph/graph-view.tsx), beneath
       `UncommittedRow`, taking `lane`/`colorIdx` from `headRow` the same way.
-- [x] The same "this is not a real commit" visual grammar `UncommittedRow` established — dashed
+- [ ] The same "this is not a real commit" visual grammar `UncommittedRow` established — dashed
       ring node, dashed lane, italic muted text — so the two pseudo-rows read as one family rather
       than two exceptions.
-- [x] Collapse past two entries: a repo with fourteen stashes must not push the actual graph off
+- [ ] Collapse past two entries: a repo with fourteen stashes must not push the actual graph off
       the top of the pane. The overflow row links to the sidebar section.
-- [x] Selecting a stash row drives the same selection state a commit row does, so Theme D's
+- [ ] Selecting a stash row drives the same selection state a commit row does, so Theme D's
       inspector is reached identically from the graph and from the sidebar.
-- [x] A stash's rows disappear the moment the underlying entry is popped or dropped — the watcher
+- [ ] A stash's rows disappear the moment the underlying entry is popped or dropped — the watcher
       `'refs'` event from Theme B is the trigger, not a manual refresh.
 
-### D — A stash you can read (M) ✅ DONE (2026-08-28)
+### D — A stash you can read (M)
 
-- [x] `stashDiff(worktreePath, selector)` in `commands/stash.ts`, returning the same parsed shape
+- [ ] `stashDiff(worktreePath, selector)` in `commands/stash.ts`, returning the same parsed shape
       [`diff.ts`](../packages/git-engine/src/commands/diff.ts) and
       [`diff-parser.ts`](../packages/git-engine/src/parsers/diff-parser.ts) already produce, so the
       inspector renders it through the one shared `DiffView` with no new renderer.
-- [x] **Three parts, not one.** The tracked changes are `stash@{n}^1..stash@{n}`; the index state is
+- [ ] **Three parts, not one.** The tracked changes are `stash@{n}^1..stash@{n}`; the index state is
       `stash@{n}^2`; the untracked files are `stash@{n}^3` and exist only when the stash was made
       with `-u`. `git stash show -p` shows the first and silently omits the rest, which is exactly
       the kind of quiet partial truth this inspector should not repeat.
-- [x] The inspector's stash mode reuses Phase 12's file list and hunk rendering wholesale, with a
+- [ ] The inspector's stash mode reuses Phase 12's file list and hunk rendering wholesale, with a
       header naming the branch the stash was made on (parsed out of `%gs`, which reads
       `WIP on main: 1a2b3c4 subject`) and the time it was made.
-- [x] Untracked entries are labelled as untracked in the file list — they are additions with no
+- [ ] Untracked entries are labelled as untracked in the file list — they are additions with no
       "before", and rendering them as ordinary adds loses the one fact that matters when deciding
       whether a pop is safe.
-- [x] Apply / Pop / Drop / Branch as actions in the inspector header, sharing Theme B's handlers
+- [ ] Apply / Pop / Drop / Branch as actions in the inspector header, sharing Theme B's handlers
       rather than a second copy of them.
 
-### E — Stash from the Changes view (S) ✅ DONE (2026-08-28)
+### E — Stash from the Changes view (S)
 
-- [x] The Phase 17 Changes filter tree gains a stash action scoped to the current selection: with
+- [ ] The Phase 17 Changes filter tree gains a stash action scoped to the current selection: with
       files selected, `stashPush({ paths })`; with none, the whole worktree.
-- [x] `--keep-index` and `--include-untracked` as explicit, labelled options on the stash prompt —
+- [ ] `--keep-index` and `--include-untracked` as explicit, labelled options on the stash prompt —
       not defaults chosen for the user. "Keep staged changes staged" and "include untracked files"
       are the labels; the flags are an implementation detail.
-- [x] The op runs through `useTargetedGitOp` in
+- [ ] The op runs through `useTargetedGitOp` in
       [`use-status.ts`](../packages/app/src/services/use-status.ts) so `onSettled` invalidates
       `keys.repo(repoId)` on the same path every other write already uses.
-- [x] A stash of zero changes is refused before it is attempted, with the reason shown — git's own
+- [ ] A stash of zero changes is refused before it is attempted, with the reason shown — git's own
       "No local changes to save" arriving as a red error is a worse answer than a disabled control.
 
-### F — Force-push, with a lease (S) ✅ DONE (2026-08-30)
+### F — Force-push, with a lease (S)
 
-- [x] **This theme deliberately reverses a written-down rule.** `CLAUDE.md` says *"No force-push
+- [ ] **This theme deliberately reverses a written-down rule.** `CLAUDE.md` says *"No force-push
       anywhere in the MVP"*; [`sync.ts`](../packages/git-engine/src/commands/sync.ts)'s module
       header, `PushRequest`'s doc comment in `schemas.ts`, and
       [`sync-controls.tsx`](../packages/app/src/features/status/sync-controls.tsx)'s header
       (*"There is no force-push button, and no menu that could become one"*) all say the same thing
       in three places. All four get edited, and each edit says what replaced the ban — a note that
       only reads "removed" is how a safety rule quietly becomes an accident.
-- [x] `PushOptions` gains `forceWithLease?: { ref: string; expect: string }`. The **bare**
+- [ ] `PushOptions` gains `forceWithLease?: { ref: string; expect: string }`. The **bare**
       `--force-with-lease` is not offered: it leases against the remote-tracking ref, which a
       background fetch can silently refresh into agreement, turning the safety net into a no-op.
       Only the explicit `--force-with-lease=<ref>:<sha>` form is built.
-- [x] `expect` is read at the moment of the confirm, from the remote-tracking ref, and travels with
+- [ ] `expect` is read at the moment of the confirm, from the remote-tracking ref, and travels with
       the request — so the sha the user was shown a blast radius for is the sha the lease checks.
-- [x] The gate is the existing one, not a new one: `countOrphanedCommits(worktreePath, query)` in
+- [ ] The gate is the existing one, not a new one: `countOrphanedCommits(worktreePath, query)` in
       `refs-ops.ts` with `movingRef` set to the remote-tracking ref, fed into `dialogs.confirm`'s
       tri-state `blastRadius` through `setBlastRadius`, exactly as
       [`use-graph-actions.ts`](../packages/app/src/features/graph/use-graph-actions.ts) does for
       hard reset. `danger: true`, and the confirm label names the branch.
-- [x] A rejected lease is its own outcome, not a generic failure: `describePushFailure(stderr)`
+- [ ] A rejected lease is its own outcome, not a generic failure: `describePushFailure(stderr)`
       gains a `stale info` arm reading *"Someone else pushed to this branch since you last fetched.
       Fetch and look before forcing."*
-- [x] The entry point is the **per-ref badge menu** in
+- [ ] The entry point is the **per-ref badge menu** in
       [`ref-sync.ts`](../packages/app/src/features/graph/ref-sync.ts) / `use-graph-actions.ts`,
       offered only when a plain push has already been rejected as non-fast-forward. It is never a
       button in the title bar's `SyncControls`, whose whole design is one un-modal click.
-- [x] Behind a default-off `Settings ▸ Repositories ▸ Allow force-push (with lease)` switch,
+- [ ] Behind a default-off `Settings ▸ Repositories ▸ Allow force-push (with lease)` switch,
       following Phase 20's precedent of gating a reversal of a stated rule on an explicit opt-in
       that also lists what the app will still never do (`--force`, `--delete`, force to a protected
       default branch).
 
-### G — The reflog, read and browsable (M) ✅ DONE (2026-08-30)
+### G — The reflog, read and browsable (M)
 
-- [x] `packages/git-engine/src/commands/reflog.ts` + `parsers/reflog-parser.ts` owning its own
+- [ ] `packages/git-engine/src/commands/reflog.ts` + `parsers/reflog-parser.ts` owning its own
       `REFLOG_FORMAT` (`%gd`, `%gD`, `%H`, `%gs`, `%gt`, `%gn`) read via
       `git reflog show --format=… -z`. `readReflog(worktreePath, { ref?, limit })` — `ref` absent
       means `HEAD`.
-- [x] `%gs` is a human sentence, not a structure (`checkout: moving from main to feature/x`,
+- [ ] `%gs` is a human sentence, not a structure (`checkout: moving from main to feature/x`,
       `commit (amend):`, `reset: moving to HEAD~2`). Parse it into a `ReflogAction` enum on a
       best-effort basis for the icon and filter, and **always keep the raw subject** as the
       displayed text. A mis-parse must degrade to a plain row, never to a wrong verb.
-- [x] A **History** view joins the nav rail beside Dashboard / Actions / Tests / Reviews, on Phase
+- [ ] A **History** view joins the nav rail beside Dashboard / Actions / Tests / Reviews, on Phase
       19's view-scoped navigation shell: a ref selector (HEAD plus every local branch), a
       time-ordered list, an action filter, and the old→new sha pair per entry.
-- [x] Each entry is checkout-able and copy-able — `checkout(sha, { detach: true })` through the
+- [ ] Each entry is checkout-able and copy-able — `checkout(sha, { detach: true })` through the
       existing op, behind the ordinary detached-HEAD warning. That is the whole recovery story for
       anything Theme H cannot undo, and it is why this theme is worth having even standing alone.
-- [x] The list states the expiry rule where the user can see it: git prunes unreachable reflog
+- [ ] The list states the expiry rule where the user can see it: git prunes unreachable reflog
       entries at 30 days and reachable ones at 90 by default, so "it is in the reflog" is a
       time-limited promise and the UI should not imply otherwise.
-- [x] **`.git/logs` is not watched today.** `repo-watcher.ts` watches `.git/refs` and `packed-refs`;
+- [ ] **`.git/logs` is not watched today.** `repo-watcher.ts` watches `.git/refs` and `packed-refs`;
       a reflog-only change fires nothing. Add `.git/logs` to the watch set — riding the existing
       `'refs'` `WatchKind` rather than growing
       [`WatchKindSchema`](../packages/shared/src/domain/watch.ts), unless the invalidation fan-out
       proves too broad in practice (see *Decisions*).
-- [x] Own-write suppression must cover it: every op the app runs writes a reflog entry, so without
+- [ ] Own-write suppression must cover it: every op the app runs writes a reflog entry, so without
       suppression the History view would refresh on its own writes in a loop. The `writeQueue`
       `onActivity` subscription already in the watcher is the mechanism; verify, do not assume.
-- [x] Unit tests for the parser against captured real `reflog show` output — including a subject
+- [ ] Unit tests for the parser against captured real `reflog show` output — including a subject
       containing a colon and one containing a newline-adjacent branch name, which is why the read
       is `-z`.
 
@@ -281,30 +281,30 @@ reader for the journal to sit beside yet.
       [`app.tsx`](../packages/app/src/app.tsx), a `ToastRequest` carrying an optional `action`.
       Non-modal, keyboard-dismissible, and reusable far past this phase: today every op result goes
       through a locally-defined `report(result)` that sets inline error state and nothing else.
-- [ ] **A journal.** `OpJournalEntrySchema` in shared — `{ id, repoId, worktreePath, op, label,
+- [x] **A journal.** `OpJournalEntrySchema` in shared — `{ id, repoId, worktreePath, op, label,
       at, headBefore, headAfter, refBefore, undoable }` — recorded in the renderer for every write
       the app performs. Entries persist per repo alongside the existing renderer state, capped at a
       few hundred, so quitting the app does not erase the record of what it did.
-- [ ] **Undo is ref-shaped, and the plan says so out loud.** The reflog records where refs pointed;
+- [x] **Undo is ref-shaped, and the plan says so out loud.** The reflog records where refs pointed;
       it records nothing about the working tree or the index. So the undoable set is exactly the ops
       that moved a ref and left the worktree intact: `commit`, `reset` (all three modes — the ref
       moves back; `--hard`'s discarded worktree changes do not come back and the confirm says so),
       `checkout`, branch create/delete/move, `stash drop` (via the captured sha and `git stash
       store`), and `stash push` (via `pop`).
-- [ ] **The un-undoable set is journalled and explicitly marked, never given a disabled button with
+- [x] **The un-undoable set is journalled and explicitly marked, never given a disabled button with
       no reason.** Merge, rebase and cherry-pick (the sequencer's ops — their inverse is a reset the
       user should choose deliberately, not a one-click), push, discard-changes, and any op whose
       journal entry cannot name a `headBefore`. Each carries a one-line reason shown on the entry.
-- [ ] Undo executes as a **new forward write** through the write queue — a `reset` to `headBefore`,
+- [x] Undo executes as a **new forward write** through the write queue — a `reset` to `headBefore`,
       never a reflog rewrite — so it is itself journalled, itself visible in the History view, and
       itself subject to the same blast-radius confirm when it would orphan commits.
-- [ ] Destructive ops raise a toast carrying **Undo**; non-destructive ones raise a plain toast or
+- [x] Destructive ops raise a toast carrying **Undo**; non-destructive ones raise a plain toast or
       none. The undo action outlives the toast: dismissing it removes the notification, not the
       ability, which stays on the journal entry in the History view.
-- [ ] The journal is the History view's second tab, beside Theme G's reflog — *what this app did*
+- [x] The journal is the History view's second tab, beside Theme G's reflog — *what this app did*
       next to *what this repository recorded*. They are different lists and conflating them would
       hide the difference between an app write and a terminal write in the same window.
-- [ ] Unit coverage for the undoability classifier (every `op` value, both arms) and for the journal
+- [x] Unit coverage for the undoability classifier (every `op` value, both arms) and for the journal
       reducer's cap and eviction; the classifier is the piece where a wrong answer is a data-loss
       bug rather than a cosmetic one.
 
