@@ -2,6 +2,73 @@
 
 <!-- Append one entry per landed phase/PR: date, phase, PR link, one-line summary. -->
 
+## 2026-09-02 — Phase 38 Themes B, C, E, F + Phase 40 Theme A + Phase 22 Theme H — e2e repair, Projects contracts, the ops journal
+
+[PR #PENDING](https://github.com/bilo-io/midnite-studio/pull/PENDING). Three phases in one
+batch: 27 e2e specs repaired by root cause rather than by patching assertions, the read-only
+zod spine for GitHub Projects, and the app's first history mechanism.
+
+- [x] **Phase 38 Theme B — the changes panel**: not either of the doc's two guesses. Every
+      `changes-panel` spec was failing on the same `toBeVisible`, because the rail defaults to
+      `navMode: 'auto'` — collapsed to icons until hovered — so a plain `.click()` on a cold
+      rail races its own hover: the `mouseenter` starts the expansion and the link reflows out
+      from under the pointer before `mousedown` lands. Fixed at the spec level (hover, wait for
+      the expanded label, then click), because no amount of waiting *after* a click that never
+      reached its target can recover it. Alongside it, a real product regression: Phase 26's
+      `DiffCell` refactor had silently dropped the always-shown new-line-number gutter column,
+      which is what `diff-view`'s two `toHaveCount` specs were counting.
+- [x] **Phase 38 Theme C — the workbench and the rail**: three genuine product bugs, not stale
+      specs. `use-focus-trap.ts` focused its container unconditionally *after* React had applied
+      a child's `autoFocus`, stealing focus from `ConfirmDialog`'s Cancel button on every
+      destructive confirm — now it defers when something inside already holds focus. A folded
+      repo's branch+count summary carried `min-w-0`, letting flexbox shrink it below its own
+      unshrinkable content so the count pill visibly overflowed; dropped the utility so the
+      repo-name sibling absorbs the shrink instead. And the commit-message textarea was left
+      `inline-block`, sizing its gradient-border wrapper to the line box rather than the border
+      box and leaving an asymmetric inset. The one "failure" that was neither was a stale
+      checkout-persistence assertion contradicting a deliberately-landed feature.
+- [x] **Phase 38 Theme E — Settings, files and tests**: the same fault three times over — an
+      accessible-name substring collision, where Playwright's role queries matched "System"
+      against "System Health", "Update" against "App Updates", and an unscoped "Agent". Fixed by
+      disambiguating the labels rather than the selectors, on the phase doc's own reasoning: it
+      is an ambiguity a screen-reader user hits too.
+- [x] **Phase 38 Theme F — the forge surfaces**: found the rail hover/click-reflow hazard a
+      second time and independently, in `review-threads-shots`, plus one more real regression —
+      "Load the full log" had been silently truncated to "Load full log" by an unrelated
+      number-formatting PR. `KNOWN_RED` trimmed from B/C/E/F's files, leaving D, G, H, I.
+      Self-review then found one more class in `review-writes`: `openPull` clicked the PR row
+      where auto-scroll had left it, under the sticky "All Pull Requests" header — the hazard
+      `reviews.spec.ts` already documents and centres past.
+- [x] **Phase 40 Theme A — shared contracts**: `ForgeProject`, `ForgeProjectField`,
+      `ForgeProjectFieldValue` and `ForgeProjectItem` as zod schemas in their own
+      `domain/forge-project.ts`, item content discriminated on `type` (issue/pull/draft) and
+      field values on `dataType` (text/number/date/single_select/iteration), plus the channels
+      and a `GitOpResult`-shaped bridge envelope that carries insufficient-scope **as data**
+      rather than as a thrown error. Read-only spine only — Phase 41's board builds on it. 12
+      round-trip tests.
+- [x] **Phase 22 Theme H — the ops journal, toasts and starter undo** ◐ PARTIAL. `@bilo-io/ui`
+      was checked empirically and exports no toast/notification component, so `toast.tsx` +
+      `toast-host.tsx` are custom, shaped after `dialog-host.tsx` — a `useToasts(): ToastApi`,
+      one stacking host mounted in `app.tsx`, and a `ToastRequest` that can carry an action.
+      `OpJournalEntrySchema` records every write the app performs, persisted per repo and
+      capped. The undoability classifier (`isUndoableOpKind`/`undoReason`) is exhaustive over
+      every op this app can emit and every un-undoable op carries its one-line reason rather
+      than a disabled button; undo executes as a **new forward write** through the write queue,
+      so it is itself journalled. **What is not done**: only `stash-drop` and `branch-delete`
+      have a live Undo executor (`WIRED_UNDO_OPS` in `services/use-journal.ts`) — `commit`,
+      `reset`, `checkout`, branch create/move and `stash push` are classified and journalled but
+      have no button yet; wire one by adding to `WIRED_UNDO_OPS` plus an executor arm. The
+      journal is genuinely the History view's second tab, but Theme G's reflog tab beside it is
+      an honest placeholder: Theme G was found unbuilt in this same pass, so there is no reflog
+      reader for it to sit next to.
+
+**Also corrected in this pass**: a fuller audit of Phase 22 found the earlier `a2cd211`
+correction had not gone far enough. Themes B, C, D, E, F and G were all marked DONE by two
+mislabeled historical commits (`7475d79`, `26e2349`) that never shipped the corresponding code —
+only Theme A is real, and B–G are reverted to TODO. The phase's item total was itself a
+miscount: 70 counted 14 shared Verification-section items against Theme H, and the real sum
+across A–H is 56.
+
 ## 2026-09-02 — Phase 38 Theme A — The pty seam
 
 [PR #12](https://github.com/bilo-io/midnite-studio/pull/12). Nine of `fab-loops.spec.ts` and
