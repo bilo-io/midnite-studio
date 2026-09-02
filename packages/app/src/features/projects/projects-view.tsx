@@ -1,19 +1,8 @@
 import { useVirtualizer } from '@tanstack/react-virtual';
-import { useEffect, useRef, useState } from 'react';
-import {
-  LuCheck,
-  LuCircleDot,
-  LuCopy,
-  LuGitPullRequest,
-  LuNotebookPen,
-} from 'react-icons/lu';
+import { useRef, useState } from 'react';
+import { LuCheck, LuCircleDot, LuCopy, LuGitPullRequest, LuNotebookPen } from 'react-icons/lu';
 
-import type {
-  ForgeProjectField,
-  ForgeProjectFieldValue,
-  ForgeProjectItem,
-  ForgeProjectWriteResult,
-} from '@midnite/studio-shared';
+import type { ForgeProjectField, ForgeProjectItem } from '@midnite/studio-shared';
 
 import { EmptyState } from '../../components/empty-state';
 import type { IconComponent } from '../../components/icon-button';
@@ -21,12 +10,8 @@ import { VIEW_ICON } from '../../components/nav-icons';
 import { ExternalLink } from '../markdown/external-link';
 import { bridge } from '../../services/bridge';
 import { BoardView } from './board/board-view';
-import {
-  useForgeProjectFields,
-  useForgeProjectItems,
-  useForgeProjects,
-  useSetProjectItemField,
-} from '../../services/queries';
+import { ProjectFieldCell } from './field-editor';
+import { useForgeProjectFields, useForgeProjectItems, useForgeProjects } from '../../services/queries';
 import { useActiveWorktree } from '../../services/use-status';
 import { useUiStore } from '../../store/ui-store';
 
@@ -162,7 +147,11 @@ export function ProjectsView() {
       ) : items.data?.error ? (
         <EmptyState icon={VIEW_ICON.projects} title="Could not load items" body={items.data.error} />
       ) : mode === 'board' ? (
-        <BoardView items={items.data?.items ?? []} fields={fields.data?.fields ?? []} />
+        <BoardView
+          projectId={selectedProjectId}
+          items={items.data?.items ?? []}
+          fields={fields.data?.fields ?? []}
+        />
       ) : (items.data?.items.length ?? 0) === 0 ? (
         <EmptyState
           icon={VIEW_ICON.projects}
@@ -260,13 +249,14 @@ function ProjectItemsTable({
                   {item.content.assignees.join(', ')}
                 </span>
                 {fields.map((field) => (
-                  <ProjectFieldCell
-                    key={field.id}
-                    projectId={projectId}
-                    itemId={item.id}
-                    field={field}
-                    value={item.fieldValues[field.id]}
-                  />
+                  <span key={field.id} className="w-32 shrink-0 px-2">
+                    <ProjectFieldCell
+                      projectId={projectId}
+                      itemId={item.id}
+                      field={field}
+                      value={item.fieldValues[field.id]}
+                    />
+                  </span>
                 ))}
               </div>
             );
@@ -283,208 +273,6 @@ function ProjectItemsTable({
   );
 }
 
-/**
- * One field cell: a value for `iteration` (not writable this phase — see the
- * contract's own note) or the picked board's `forgeWritesEnabled` setting off,
- * an editable control otherwise (Phase 40 Theme E).
- *
- * **Not optimistic** — the house rule every forge write in this app follows:
- * the control disables while `gh` answers, then either the invalidated refetch
- * carries the new value back down, or `failureOf` renders `gh`'s own sentence
- * underneath. **Gated at the surface, not in the mutation** — a disabled
- * control that says why is the whole point; see `review-action-bar.tsx`'s own
- * note for the reasoning this phase reuses verbatim.
- */
-/** Exported for `projects-view.test.tsx` — tested directly rather than through the virtualized table, which jsdom cannot size. */
-export function ProjectFieldCell({
-  projectId,
-  itemId,
-  field,
-  value,
-}: {
-  projectId: string;
-  itemId: string;
-  field: ForgeProjectField;
-  value: ForgeProjectFieldValue | undefined;
-}) {
-  const writesEnabled = useUiStore((s) => s.forgeWritesEnabled);
-  const setField = useSetProjectItemField(projectId);
-  const pending = setField.isPending;
-  const problem = failureOf(setField.data);
-
-  if (field.dataType === 'iteration') {
-    return (
-      <span className="w-32 shrink-0 truncate px-2 text-muted-foreground">
-        {formatFieldValue(value)}
-      </span>
-    );
-  }
-
-  const disabled = !writesEnabled || pending;
-  const title = writesEnabled ? problem : 'Enable review actions in Settings → Reviews';
-  const commit = (next: ForgeProjectFieldValue) => {
-    if (!writesEnabled || sameValue(value, next)) return;
-    setField.mutate({ itemId, fieldId: field.id, value: next });
-  };
-
-  return (
-    <span className="w-32 shrink-0 px-2">
-      {field.dataType === 'single_select' ? (
-        <SingleSelectEditor field={field} value={value} disabled={disabled} title={title} onCommit={commit} />
-      ) : (
-        <TextLikeEditor field={field} value={value} disabled={disabled} title={title} onCommit={commit} />
-      )}
-    </span>
-  );
-}
-
-function SingleSelectEditor({
-  field,
-  value,
-  disabled,
-  title,
-  onCommit,
-}: {
-  field: Extract<ForgeProjectField, { dataType: 'single_select' }>;
-  value: ForgeProjectFieldValue | undefined;
-  disabled: boolean;
-  title: string | null;
-  onCommit: (next: ForgeProjectFieldValue) => void;
-}) {
-  const optionId = value?.dataType === 'single_select' ? value.optionId : '';
-  return (
-    <select
-      aria-label={field.name}
-      value={optionId}
-      disabled={disabled}
-      title={title ?? undefined}
-      onChange={(event) => {
-        const option = field.options.find((o) => o.id === event.target.value);
-        if (option) {
-          onCommit({ fieldId: field.id, dataType: 'single_select', optionId: option.id, name: option.name });
-        }
-      }}
-      className="w-full truncate rounded border border-transparent bg-transparent py-0.5 text-xs text-muted-foreground hover:border-border disabled:cursor-not-allowed disabled:opacity-60"
-    >
-      <option value="" disabled>
-        —
-      </option>
-      {field.options.map((option) => (
-        <option key={option.id} value={option.id}>
-          {option.name}
-        </option>
-      ))}
-    </select>
-  );
-}
-
-/** Text, number and date all commit on blur through the same plain `<input>` shape. */
-function TextLikeEditor({
-  field,
-  value,
-  disabled,
-  title,
-  onCommit,
-}: {
-  field: Extract<ForgeProjectField, { dataType: 'text' | 'number' | 'date' }>;
-  value: ForgeProjectFieldValue | undefined;
-  disabled: boolean;
-  title: string | null;
-  onCommit: (next: ForgeProjectFieldValue) => void;
-}) {
-  const [draft, setDraft] = useState(() => draftFor(field, value));
-  useEffect(() => setDraft(draftFor(field, value)), [field, value]);
-
-  return (
-    <input
-      aria-label={field.name}
-      type={field.dataType === 'number' ? 'number' : field.dataType === 'date' ? 'date' : 'text'}
-      value={draft}
-      disabled={disabled}
-      title={title ?? undefined}
-      onChange={(event) => setDraft(event.target.value)}
-      onBlur={() => {
-        const next = fieldValueFor(field, draft);
-        if (next) onCommit(next);
-      }}
-      onKeyDown={(event) => {
-        if (event.key === 'Enter') event.currentTarget.blur();
-      }}
-      className="w-full truncate rounded border border-transparent bg-transparent py-0.5 text-xs text-muted-foreground hover:border-border disabled:cursor-not-allowed disabled:opacity-60"
-    />
-  );
-}
-
-function draftFor(
-  field: Extract<ForgeProjectField, { dataType: 'text' | 'number' | 'date' }>,
-  value: ForgeProjectFieldValue | undefined,
-): string {
-  if (!value) return '';
-  if (field.dataType === 'text' && value.dataType === 'text') return value.text;
-  if (field.dataType === 'number' && value.dataType === 'number') return String(value.number);
-  if (field.dataType === 'date' && value.dataType === 'date') return value.date;
-  return '';
-}
-
-function fieldValueFor(
-  field: Extract<ForgeProjectField, { dataType: 'text' | 'number' | 'date' }>,
-  draft: string,
-): ForgeProjectFieldValue | null {
-  if (field.dataType === 'text') return { fieldId: field.id, dataType: 'text', text: draft };
-  if (field.dataType === 'number') {
-    const number = Number(draft);
-    return draft.trim().length > 0 && !Number.isNaN(number)
-      ? { fieldId: field.id, dataType: 'number', number }
-      : null;
-  }
-  return draft.length > 0 ? { fieldId: field.id, dataType: 'date', date: draft } : null;
-}
-
-function sameValue(a: ForgeProjectFieldValue | undefined, b: ForgeProjectFieldValue): boolean {
-  if (!a || a.dataType !== b.dataType) return false;
-  switch (b.dataType) {
-    case 'text':
-      return a.dataType === 'text' && a.text === b.text;
-    case 'number':
-      return a.dataType === 'number' && a.number === b.number;
-    case 'date':
-      return a.dataType === 'date' && a.date === b.date;
-    case 'single_select':
-      return a.dataType === 'single_select' && a.optionId === b.optionId;
-    default:
-      return false;
-  }
-}
-
-/**
- * The sentence a finished-and-refused write has to say, if any.
- *
- * Reads the mutation's own `data` rather than `error` — `ForgeProjectWriteResult`
- * never rejects, so a refusal is a value, not a throw — mirroring
- * `review-action-bar.tsx`'s own `failureOf`.
- */
-function failureOf(result: ForgeProjectWriteResult | undefined): string | null {
-  if (result === undefined || result.ok) return null;
-  return result.kind === 'insufficient-scope' ? result.hint : result.message;
-}
-
-function formatFieldValue(value: ForgeProjectFieldValue | undefined): string {
-  if (!value) return '';
-  switch (value.dataType) {
-    case 'text':
-      return value.text;
-    case 'number':
-      return String(value.number);
-    case 'date':
-      return value.date;
-    case 'single_select':
-      return value.name;
-    case 'iteration':
-      return value.title;
-    default:
-      return '';
-  }
-}
 
 /** How the fix is spelled — shown verbatim, per the phase doc's own rule. */
 const SCOPE_FIX_COMMAND = 'gh auth refresh -s project';

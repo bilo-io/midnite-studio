@@ -157,22 +157,25 @@ Effort tags: **S** ≈ an hour or two · **M** ≈ half a day · **L** ≈ a day
     query per column.** Columns are a client-side grouping of one item list, which is also why
     `deriveColumns` is pure.
 
-### B — Cards (M)
+### B — Cards (M) — ✅ DONE (PR #43, 2026-09-02)
 
-- [ ] `board/task-card.tsx` — title, the type glyph from `ForgeProjectItemContent`'s discriminant
-      (issue / PR / draft), assignee avatars, labels, and `#number` linking out to github.com for
+- [x] `board/task-card.tsx` — title, the type glyph from `ForgeProjectItemContent`'s discriminant
+      (issue / PR / draft), assignee avatars, ~~labels~~, and `#number` linking out to github.com for
       the two types that have one.
+  - **Corrected — no labels row.** `ForgeProjectItemContent` carries no labels field at all
+    (`assignees: string[]` is the whole of it); this claim did not survive contact with the
+    contract, so nothing was built against data that does not exist. Avatars use GitHub's own
+    `<login>.png` convention — the content only ever carries a login, never an avatar URL.
   - A draft item has no `number` and no URL — render no link rather than a dead one. This is the
     discriminant's whole purpose.
-- [ ] Non-`Status` field values render as compact chips, so a board that leans on a custom
+- [x] Non-`Status` field values render as compact chips, so a board that leans on a custom
       `Priority` or `Size` field is legible without opening anything.
-- [ ] Card detail — clicking a card opens the item in a right-hand pane (body, assignees, all
-      fields editable, the agent composer from Theme G).
-  - **Do not assume Phase 40's inline editors are importable.** Theme E there names no component,
-    no file and no props, and describes them as living in *the table*. Before starting this item,
-    check whether they were extracted; if not, this theme builds them and Phase 40's table should
-    adopt *these*. Recorded as a Decision.
-- [ ] Virtualise a column past a threshold, rather than rendering 200 DOM cards per column.
+- [x] Card detail — clicking a card opens the item in a right-hand pane (body, assignees, all
+      fields editable). **Not the agent composer from Theme G** — that theme does not exist yet;
+      this pane is read-and-edit only, exactly like the table it shares its editors with.
+  - **Confirmed: Phase 40's inline editors were not importable**, exactly as this Decision
+    predicted. Extracted into `field-editor.tsx`; the table now adopts the extracted version.
+- [x] Virtualise a column past a threshold, rather than rendering 200 DOM cards per column.
   - Threshold **50 cards**; below that the DOM cost is not worth the machinery.
   - Cards are variable-height, so the model is
     [`diff-view.tsx:157`](../../../packages/app/src/features/diff/diff-view.tsx) — `estimateSize`
