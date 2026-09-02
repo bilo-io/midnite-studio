@@ -2,6 +2,64 @@
 
 <!-- Append one entry per landed phase/PR: date, phase, PR link, one-line summary. -->
 
+## 2026-09-03 — Phase 22 Themes B, E, F, G + Phase 45 Themes E, F + Phase 49 Theme A + Phase 48 Theme A
+
+[PR #51]. A large batch, four phases: stash reaches the sidebar and the Changes view, force-push
+gets a lease, the reflog gets a real tab, six process leaks are fixed and verified, the onboarding
+kit ships as a checked-in template, and PR-suggestion detection lands its first piece.
+
+- [x] **Phase 22 Theme B — stashes in the sidebar.** A `Stashes` `TreeSection` in `repos-panel.tsx`,
+      `hideWhenEmpty={false}` (deliberately — the heading's own action is the only way to create a
+      repo's *first* stash), a `StashRow` (message + relative age, no file-count chip — `StashEntry`
+      carries none), and a `stashMenu`/`promptStashPush` pair built parallel to `refMenu` rather than
+      forced through `RefSectionKey` (a stash is not a ref). `keys.stashes(repoId)` nests under
+      `keys.repo`; `watch-invalidation.ts`'s `'refs'` case confirmed to cover it already.
+- [x] **Phase 22 Theme E — stash from the Changes view.** A "Stash changes" toolbar action (whole
+      worktree, disabled with a reason at zero changes) and a per-row "Stash file" action, both
+      opening a dedicated `StashPushDialog` (not the generic one-field `dialogs.prompt`) with
+      keep-index/include-untracked as unchecked-by-default checkboxes. Reuses Theme B's
+      `useStashPush`.
+- [x] **Phase 22 Theme F — force-push, with a lease.** Reverses `CLAUDE.md`'s "no force-push"
+      rule on record, in all three convention files plus `sync.ts`/`schemas.ts`/`sync-controls.tsx`.
+      `forceWithLease: {ref, expect}` — never a boolean, never bare `--force-with-lease`. New
+      `'non-fast-forward'`/`'stale-lease'` `GitOpFailure` codes. Entry point is the per-ref badge
+      menu, offered only after a plain push from that menu came back non-fast-forward, behind a new
+      `Settings ▸ Git Safety` opt-in (not `▸ Repositories` — no such page exists). `expect` is read
+      from the graph's own `refs` query, not a fresh IPC call (`RevParseRequest` is deliberately
+      hex-only).
+- [x] **Phase 22 Theme G — the reflog, read and browsable.** `readReflog` via
+      `git reflog show --date=unix -z`; the doc's own `%gt` placeholder doesn't exist in real git
+      (confirmed directly) — `--date=unix` on `%gd`/`%gD` is what actually carries a per-entry
+      timestamp, verified against a real reset (whose reflog entry lands at-or-after the reset, not
+      at the target commit's own date). `oldSha` isn't a git placeholder either — paired by fetching
+      `limit + 1` records. Replaces Theme H's honest `ReflogList` placeholder with the real ref
+      selector / action filter / checkout-able, copy-able list. `.git/logs` rides the existing
+      `'refs'` `WatchKind`.
+- [x] **Phase 45 Theme E — the six small leaks, one commit each.** `council-runner.ts`'s `runLocks`,
+      `tests-handlers.ts`'s `inFlight`, `log-service.ts`/`search-service.ts`'s release-on-reject gap
+      (`.then()` → `.finally()`), `terminal-store.ts`'s `dropKey` missing the `legacy` field,
+      `browser-service.ts`'s un-detached `webContents` listeners, and `gh-cli.ts`'s unbounded
+      workflow cache (now sharing the run cache's LRU).
+- [x] **Phase 45 Theme F — verification, run for real.** Extended `retention.spec.ts` to `repo` and
+      `browser-tabs` (previously `terminal`-only) and actually ran it — twice, since the first run
+      found two real issues: `memory-report.mjs` never re-exported the `electron-run.mjs` helpers
+      `retention.spec.ts` needs (the spec had never actually been run before), and `browser-tabs` at
+      10 cycles read a false-positive leak that Chromium's own subprocess-pool warm-up explains
+      (checked by hand: ~742 KB/cycle at 10 cycles, ~230 KB/cycle at 20). Both fixed; all three
+      actions pass for real now.
+- [x] **Phase 49 Theme A — the onboarding kit.** `templates/midnite/` — a checked-in skeleton, not a
+      snapshot of this repo's own 1.8 MB `.midnite/` — carrying the tracker skeleton, eight
+      repo-agnostic skills mirrored into `.claude`/`.agents`/`.codex` (genericized: every
+      "Midnite Studio"/package-path/org mention replaced or placeholdered), and `CLAUDE.md`/
+      `AGENTS.md`/`GEMINI.md` stubs. `electron-builder.yml` ships it as an `extraResource`;
+      `template-path.ts`'s `templateRoot()` resolves it dev-vs-packaged, mirroring `window.ts`'s
+      `rendererEntry()`. `midnite-setup/SKILL.md` (and its two mirrors, found drifted independently
+      of this fix) now emits this same tree instead of a hand-described `todo/` layout.
+- [x] **Phase 48 Theme A — suggestion detection.** `extractSuggestion(body)` walks the same mdast
+      tree `deck-parser.ts` already builds (`remark-parse` + `remark-gfm`) for a ` ```suggestion `
+      fence anywhere in the tree, depth-first in document order — the first of two fences wins,
+      documented rather than an oversight.
+
 ## 2026-09-02 — Phase 42 Themes E, F + Phase 38 Themes G, I (partial) — councils/runs share the rail, motion proven, a wrong CI diagnosis corrected
 
 [PR #TBD].

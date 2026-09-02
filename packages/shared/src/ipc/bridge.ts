@@ -5,6 +5,7 @@ import type {
   GraphRow,
   MetricSample,
   Ref,
+  ReflogEntry,
   Remote,
   RepoDescriptor,
   RepoStats,
@@ -385,6 +386,11 @@ export type MidniteStudioBridge = {
     branch: (req: In<typeof S.StashBranchRequest>) => Promise<GitOpResult>;
     /** Restore a dropped stash from its captured sha (Phase 22 Theme H's undo). */
     store: (req: In<typeof S.StashStoreRequest>) => Promise<GitOpResult>;
+  };
+
+  reflog: {
+    /** Newest first — see `ReflogEntrySchema` for why `at` isn't a commit date. */
+    list: (req: In<typeof S.ReflogListRequest>) => Promise<ReflogEntry[]>;
   };
 
   pty: {

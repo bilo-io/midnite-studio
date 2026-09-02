@@ -43,23 +43,19 @@ Effort tags: **S** ≈ an hour or two · **M** ≈ half a day · **L** ≈ a day
 
 ## Deliverables
 
-### A — Suggestion detection + parsing (S)
+### A — Suggestion detection + parsing (S) ✅ DONE (2026-09-03, PR #51)
 
-- [ ] A pure function, e.g. `extractSuggestion(body: string)` in a new
-      `app/src/features/reviews/suggestion-block.ts`, walking the comment body's markdown AST (the
-      app already depends on `remark-gfm`/`react-markdown`; use the same parse the renderer already
-      does rather than a second, string-based scan) for a fenced block whose language is exactly
-      `suggestion`. Returns the replacement text, or `null` if none is present.
-- [ ] A comment body with **prose before and/or after** the fence (GitHub allows this — "please fix
-      the typo:" followed by the suggestion block) parses correctly; only the fenced block's content
-      is the replacement, the prose stays prose.
-- [ ] A comment body with a suggestion-shaped fence that **isn't actually GitHub's suggestion
-      syntax** (e.g. a user pasted ` ```suggestion ` as a joke, or wrote it inside a nested code
-      block) is out of scope to distinguish — treat any ` ```suggestion ` fence as real. GitHub
-      itself makes the same simplification.
-- [ ] Unit tests: single suggestion, prose-wrapped suggestion, no suggestion present, and a comment
-      body with **two separate** suggestion fences (rare but valid) — the first one found is used;
-      document that choice rather than silently picking one.
+- [x] `extractSuggestion(body: string)` in `app/src/features/reviews/suggestion-block.ts`, walking
+      the same mdast tree `deck-parser.ts` already builds (`remark-parse` + `remark-gfm`) for a
+      fenced block whose language is exactly `suggestion`, depth-first in document order (so a
+      fence nested in a blockquote or list item is found too). Returns the replacement text
+      (the node's own de-fenced `value`), or `null`.
+- [x] A comment body with prose before/after the fence parses correctly — only the fenced block's
+      content comes back.
+- [x] Any ` ```suggestion ` fence is treated as real, matching GitHub's own simplification.
+- [x] Eight unit tests: bare fence, prose-wrapped, absent (plain text and a non-suggestion fence),
+      two separate fences (first wins, documented), nested in a blockquote, nested in a list item,
+      multi-line content with blank lines preserved exactly.
 
 ### B — Line-range resolution (S)
 

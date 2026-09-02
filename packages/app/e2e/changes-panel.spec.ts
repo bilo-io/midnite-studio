@@ -317,3 +317,96 @@ test('the commit textarea grows with content and shrinks back after committing',
   const shrunkHeight = await textarea.evaluate((el) => el.getBoundingClientRect().height);
   expect(shrunkHeight).toBeLessThan(grownHeight);
 });
+
+/**
+ * Stash from the Changes view — Phase 22 Theme E.
+ *
+ * `stashOps` reads `stash.push` calls specifically off `__mstudioOps`, not the
+ * generic `ops.*` array `the staging buttons` test above reads — the mock
+ * bridge gives stash its own namespace (`mock-bridge.ts`) since `stash.list`
+ * needs a real answer, not `ops`'s proxy's blanket `{ok:true}`.
+ */
+const stashOps = (page: Page) =>
+  page.evaluate(
+    () =>
+      (
+        window as unknown as {
+          __mstudioOps: { op: string; args: { message?: string; keepIndex?: boolean; includeUntracked?: boolean; paths?: string[] } }[];
+        }
+      ).__mstudioOps.filter((c) => c.op === 'stash.push'),
+  );
+
+test.describe('stash from the Changes view', () => {
+  test('Stash changes is disabled with a reason when there is nothing to stash', async ({ page }) => {
+    // Not `open()`: with zero entries the "Changes" TreeSection's own heading
+    // (`status-panel.tsx`, the unstaged list's `title="Changes"`) hides too —
+    // `hideWhenEmpty` defaults true — so `open()`'s own assertion on it would
+    // fail here for a reason that has nothing to do with this test.
+    await installMockBridge(page, { ...base, statusEntries: [] });
+    await page.goto('/');
+    await clickChangesNav(page);
+
+    const button = page.getByRole('button', { name: 'Stash changes' });
+    await expect(button).toBeDisabled();
+  });
+
+  test('the heading action stashes the whole worktree, with the checked options', async ({
+    page,
+  }) => {
+    await open(page);
+
+    await page.getByRole('button', { name: 'Stash changes' }).click();
+    const dialog = page.getByRole('dialog', { name: 'Stash changes' });
+    await expect(dialog).toContainText('the whole worktree');
+
+    await dialog.getByLabel('Message (optional)').fill('wip');
+    await dialog.getByLabel('Keep staged changes staged').check();
+    await dialog.getByLabel('Include untracked files').check();
+    await dialog.getByRole('button', { name: 'Create stash' }).click();
+
+    await expect(dialog).toHaveCount(0);
+    const calls = await stashOps(page);
+    expect(calls).toHaveLength(1);
+    expect(calls[0]?.args).toEqual({
+      repoId: 'repo-1',
+      worktreePath: '/tmp/midnite-studio',
+      message: 'wip',
+      keepIndex: true,
+      includeUntracked: true,
+    });
+  });
+
+  test('a row\'s Stash file action scopes the stash to that one path, git\'s own defaults unchecked', async ({
+    page,
+  }) => {
+    await open(page);
+
+    await page.getByRole('button', { name: 'Stash file src/nested/b.ts' }).click();
+    const dialog = page.getByRole('dialog', { name: 'Stash changes' });
+    await expect(dialog).toContainText('src/nested/b.ts');
+
+    await dialog.getByRole('button', { name: 'Create stash' }).click();
+
+    const calls = await stashOps(page);
+    expect(calls).toHaveLength(1);
+    expect(calls[0]?.args).toEqual({
+      repoId: 'repo-1',
+      worktreePath: '/tmp/midnite-studio',
+      message: undefined,
+      keepIndex: false,
+      includeUntracked: false,
+      paths: ['src/nested/b.ts'],
+    });
+  });
+
+  test('Cancel closes the dialog without calling stash.push', async ({ page }) => {
+    await open(page);
+
+    await page.getByRole('button', { name: 'Stash changes' }).click();
+    const dialog = page.getByRole('dialog', { name: 'Stash changes' });
+    await dialog.getByRole('button', { name: 'Cancel' }).click();
+
+    await expect(dialog).toHaveCount(0);
+    expect(await stashOps(page)).toHaveLength(0);
+  });
+});

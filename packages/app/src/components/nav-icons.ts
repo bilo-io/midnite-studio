@@ -16,6 +16,7 @@ import {
   LuScrollText,
   LuSearch,
   LuSettings,
+  LuShieldAlert,
   LuShieldCheck,
   LuSquareKanban,
   LuSquareTerminal,
@@ -91,6 +92,7 @@ export const SETTINGS_PAGE_ICON: Record<SettingsPageId, IconType> = {
   // front of the review actions, not the actions themselves.
   reviews: LuShieldCheck,
   projects: LuSquareKanban,
+  gitSafety: LuShieldAlert,
   monitor: LuActivity,
   browser: GoGlobe,
   cli: LuTerminal,

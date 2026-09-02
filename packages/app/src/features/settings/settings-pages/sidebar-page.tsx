@@ -44,13 +44,13 @@ const VIEW_LABELS: Record<ViewId, string> = {
 /**
  * The sidebar's own section headings, reused as the filter's vocabulary.
  *
- * `branches`, `forge` and `stashes` are placeholders in the sense that
- * `SectionKey` widened for them in Phase 28 Theme A before any `VIEW_FILTERS`
- * entry named one directly — `Record<SectionKey, string>` makes an incomplete
- * label map a compile error rather than an `undefined` string. `stashes` has
- * no row anywhere on this page yet: Phase 22 is what gives it a body to
- * describe. `branches` and `forge` are used by `describeNarrowed` below,
- * which reads the nesting these labels imply.
+ * `branches` and `forge` are placeholders in the sense that `SectionKey`
+ * widened for them in Phase 28 Theme A before any `VIEW_FILTERS` entry named
+ * one directly — `Record<SectionKey, string>` makes an incomplete label map
+ * a compile error rather than an `undefined` string. `branches` and `forge`
+ * are used by `describeNarrowed` below, which reads the nesting these labels
+ * imply. `stashes` was the same kind of placeholder until Phase 22 Theme B
+ * gave it a body in `repos-panel.tsx`'s `SECTION_BODY`.
  */
 const SECTION_LABELS: Record<SectionKey, string> = {
   local: 'Local',

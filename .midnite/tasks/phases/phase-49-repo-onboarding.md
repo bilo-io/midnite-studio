@@ -54,41 +54,35 @@ Effort tags: **S** ≈ an hour or two · **M** ≈ half a day · **L** ≈ a day
 
 ## Deliverables
 
-### A — The onboarding kit, its packaging, and the skill it must agree with (M)
+### A — The onboarding kit, its packaging, and the skill it must agree with (M) ✅ DONE (2026-09-03, PR #51)
 
-- [ ] A checked-in `templates/midnite/` tree at the repo root — the **skeleton**, deliberately not
-      a snapshot of this repo's own `.midnite/` (which is 1.8 MB of real phase docs). Contents:
-      `.midnite/settings.json`, `.midnite/tasks/_INDEX.md` (the headers and an empty `## Phases`
-      table, matching [`_INDEX.md`](../_INDEX.md)'s own format), `.midnite/tasks/done.md`,
-      `.midnite/tasks/outstanding.md`, an empty `.midnite/tasks/phases/`, and `.midnite/_features.md`.
-- [ ] The repo-agnostic **skills** in the same tree, under `templates/midnite/.claude/skills/`. Of
-      the eleven in [`.claude/skills/`](../../../.claude/skills), ship the workflow core —
-      `midnite-brainstorm`, `midnite-exec`, `midnite-exec-adhoc`, `midnite-refine`,
-      `midnite-address-issue`, `midnite-triage`, `midnite-git-report`, `midnite-git-cleanup`.
-      **Exclude `midnite-setup`** (a repo that has just been set up does not need the bootstrapper)
-      **and the `midnite-release-*` pair**, which assume the `bilo-io/midnite-apps` release repo,
-      the namespaced `midnite-studio/vX.Y.Z` tag scheme and the `generic` updater feed — all three
-      specific to this product, none true of an arbitrary target. Record that reasoning in the
-      template's own README so the exclusion isn't re-litigated.
-- [ ] Agent-file **stubs**, not copies. `CLAUDE.md`/`AGENTS.md`/`GEMINI.md` here are 199 identical
-      lines of midnite-studio conventions; what transfers is the *sync rule* between the three and
-      the tracker/worktree/phase-workflow sections, with the repo-specific parts left as marked
-      placeholders. A stub that reads as a template is honest; a copy that names this repo's
-      package boundaries in someone else's repo is not.
-- [ ] The `.agents/skills/` and `.codex/skills/` mirrors are produced from the **same** source in
-      the same apply pass — this repo keeps three verbatim copies of the skill set (140 K / 124 K /
-      124 K) precisely because each CLI reads its own path, and scaffolding one without the others
-      hands the target a half-onboarded repo.
-- [ ] **Get the tree into the packaged app.** A root `templates/` directory is not in the bundle by
-      default: add it to [`electron-builder.yml`](../../../packages/desktop/electron-builder.yml) and
-      resolve it in main off `process.resourcesPath` in production versus the repo root in dev, with
-      one helper that owns the branch. This is the item most likely to pass in `moon run
-      desktop:start` and fail in a dmg — assert it in Theme E's packaged check, not by eye.
-- [ ] Fix [`midnite-setup/SKILL.md`](../../../.claude/skills/midnite-setup/SKILL.md): `todo/` →
-      `.midnite/tasks/`, and point it at `templates/midnite/` as the layout it must emit, so the
-      skill and the app cannot drift again. Mirror the edit into `.agents/` and `.codex/`.
-- [ ] `README.md` gains a short "Onboarding another repo" note; the `CLAUDE.md`/`AGENTS.md`/
-      `GEMINI.md` trio gains the same paragraph, per this repo's own sync rule.
+- [x] A checked-in `templates/midnite/` tree at the repo root: `.midnite/settings.json`,
+      `.midnite/tasks/_INDEX.md` (headers + an empty `## Phases` table), `.midnite/tasks/done.md`,
+      `.midnite/tasks/outstanding.md`, `.midnite/tasks/phases/` (empty but for a README explaining
+      the naming convention — git can't track a truly empty directory), and `.midnite/_features.md`.
+- [x] The repo-agnostic skills under `templates/midnite/.claude/skills/`: `midnite-brainstorm`,
+      `midnite-exec`, `midnite-exec-adhoc`, `midnite-refine`, `midnite-address-issue`,
+      `midnite-triage`, `midnite-git-report`, `midnite-git-cleanup` — genericized (every
+      "Midnite Studio"/package-path/org/personal-timezone mention replaced with generic phrasing or
+      a placeholder), keeping every workflow mechanic verbatim. `midnite-setup` and
+      `midnite-release-*` excluded, reasoning recorded in the template's own README.
+- [x] Agent-file stubs: `CLAUDE.md`/`AGENTS.md`/`GEMINI.md` with the sync rule and worktree policy
+      transferred verbatim, toolchain/package-boundary/house-convention sections left as marked
+      `<!-- TODO -->` placeholders.
+- [x] `.agents/skills/` and `.codex/skills/` mirror `.claude/skills/` exactly (frontmatter
+      reformatted per each CLI's own established convention — full frontmatter for `.claude`, a
+      simplified `name`/`description` + "Invoke with:" line for `.agents`/`.codex`, matching how
+      this repo's own real skills already differ).
+- [x] `electron-builder.yml` ships `templates/` as an `extraResource`; `template-path.ts`'s
+      `templateRoot()` is the one helper resolving `process.resourcesPath` (packaged) vs. the repo
+      root (dev), mirroring `window.ts`'s `rendererEntry()` exactly. No caller yet — Theme C's
+      scaffold reader is the eventual consumer; the packaged-build assertion is Theme E's.
+- [x] `midnite-setup/SKILL.md` (and its `.agents`/`.codex` mirrors — found drifted from `.claude` in
+      more than just the `todo/` reference) now emits `templates/midnite/` verbatim instead of
+      hand-picking two skills, stripping a `midnite-` prefix, and hand-writing a tracker from
+      scratch.
+- [x] `README.md`, `CLAUDE.md`, `AGENTS.md`, `GEMINI.md` all gain the "Onboarding another repo"
+      paragraph.
 
 ### B — The scaffold contract in `shared` (S)
 

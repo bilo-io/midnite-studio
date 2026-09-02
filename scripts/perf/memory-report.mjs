@@ -85,6 +85,11 @@ import {
   stop,
 } from './electron-run.mjs';
 
+// Re-exported so `retention.spec.ts` can import this module alone as its
+// harness, rather than reaching into `electron-run.mjs` for the setup it
+// needs alongside `runRetention` itself.
+export { REPO_ROOT, mainWorktree, requireBuilt };
+
 const { BOOT_MARKS, RENDERER_MARKS } = sharedMarks();
 const EXPECTED = [...BOOT_MARKS, ...RENDERER_MARKS];
 

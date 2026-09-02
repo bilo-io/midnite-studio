@@ -100,8 +100,19 @@ explanatory messages. If a boundary rule fires, the fix is an IPC channel, not a
   outcome the UI renders, not an exception.
 - **Lane layout runs in main**, inside git-engine. The renderer receives fully laid-out
   `GraphRow` batches — parsing and layout stay off the render thread.
-- **No force-push anywhere in the MVP.** Destructive ops need a confirm dialog showing blast
-  radius (`rev-list --count` of commits about to be orphaned).
+- **Destructive ops need a confirm dialog showing blast radius** (`rev-list --count` of commits
+  about to be orphaned).
+- **Force-push is `--force-with-lease` only, and only through its own gated entry point — never a
+  bare `--force`, and never from the title bar.** Phase 22 Theme F reversed the MVP's original
+  "no force-push anywhere" rule; the replacement is narrower than a plain revert, not an
+  open door. `PushOptions`/`PushRequest` carry `forceWithLease: {ref, expect}`, never a boolean —
+  a bare `--force-with-lease` leases against the local remote-tracking ref, which a background
+  fetch can silently refresh into agreement, so only the explicit `ref:expect` form is ever built.
+  The entry point is the per-ref badge menu (`ref-sync.ts`/`use-graph-actions.ts`), offered only
+  once a plain push has already been rejected as non-fast-forward, behind a default-off
+  `Settings ▸ Git Safety ▸ Allow force-push (with lease)` switch, gated by the same blast-radius
+  confirm every other destructive op uses. `sync-controls.tsx`'s title-bar sync cluster still has
+  no force-push button and never will — one un-modal click is that control's whole design.
 - **Every icon comes from `react-icons` — it is the only family.** It fronts ~30 icon sets
   behind one package, so a control can take the glyph that actually reads as its job instead
   of the nearest match within one family. Lucide is one of those sets — `react-icons/lu`,
@@ -197,3 +208,14 @@ explanatory messages. If a boundary rule fires, the fix is an IPC channel, not a
 One phase per PR where practical. Work the checklist in `.midnite/tasks/phases/phase-N-*.md`, leave
 `moon run :typecheck :lint :test` green, append an entry to `.midnite/tasks/done.md`, and update the
 table in `.midnite/tasks/_INDEX.md`.
+
+## Onboarding another repo
+
+[`templates/midnite/`](templates/midnite/) is a checked-in, repo-agnostic skeleton of this same
+workflow — the `.midnite/tasks/` tracker, the eight core skills mirrored into `.claude/`, `.agents/`
+and `.codex/`, and `CLAUDE.md`/`AGENTS.md`/`GEMINI.md` stubs — for onboarding a *different* repo
+onto it, not this one. The midnite menu's Setup leaf is what will copy it in and track a hash
+manifest so a re-run is an upgrade rather than a guess (Phase 49); until then,
+[`midnite-setup`](.claude/skills/midnite-setup/SKILL.md) is the interactive path — it emits this
+same tree. See the template's own [README](templates/midnite/README.md) for what ships and why
+three of this repo's eleven skills are deliberately left out.

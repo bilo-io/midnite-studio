@@ -108,6 +108,7 @@ export type SettingsPageId =
   | 'agent'
   | 'reviews'
   | 'projects'
+  | 'gitSafety'
   | 'monitor'
   | 'browser'
   | 'cli'
@@ -147,6 +148,7 @@ export const SETTINGS_PAGES: { id: SettingsPageId; label: string; group: Setting
   { id: 'agent', label: 'Agent', group: 'tools' },
   { id: 'reviews', label: 'Reviews', group: 'tools' },
   { id: 'projects', label: 'Projects', group: 'tools' },
+  { id: 'gitSafety', label: 'Git Safety', group: 'tools' },
   { id: 'browser', label: 'Browser', group: 'tools' },
   { id: 'cli', label: 'CLI Integration', group: 'system' },
   { id: 'updates', label: 'App Updates', group: 'system' },
@@ -760,6 +762,14 @@ export type UiState = {
   setCycleDuration: (seconds: number) => void;
   requirePasscode: boolean;
   setRequirePasscode: (require: boolean) => void;
+  /**
+   * Phase 22 Theme F's opt-in — same shape as `forgeWritesEnabled` (Phase 20):
+   * default off, so a fresh install cannot force-push anything until someone
+   * deliberately turns it on. The ref badge menu's force-with-lease entry
+   * checks this before it will even offer the item.
+   */
+  allowForceWithLease: boolean;
+  setAllowForceWithLease: (allow: boolean) => void;
   passcode: string | null;
   setPasscode: (code: string | null) => void;
   passcodeOnlyWhenLocked: boolean;
@@ -901,6 +911,7 @@ type PersistedUi = Pick<
   | 'requirePasscode'
   | 'passcode'
   | 'passcodeOnlyWhenLocked'
+  | 'allowForceWithLease'
 >;
 
 /**
@@ -931,6 +942,10 @@ export const useUiStore = create<UiState>()(
       setCycleDuration: (cycleDurationS) => set({ cycleDurationS }),
       requirePasscode: false,
       setRequirePasscode: (requirePasscode) => set({ requirePasscode }),
+      // Default off, same as forgeWritesEnabled: a fresh install cannot
+      // force-push anything until someone deliberately turns it on.
+      allowForceWithLease: false,
+      setAllowForceWithLease: (allowForceWithLease) => set({ allowForceWithLease }),
       passcode: null,
       setPasscode: (passcode) => set({ passcode }),
       passcodeOnlyWhenLocked: false,
@@ -1295,6 +1310,7 @@ export const useUiStore = create<UiState>()(
         requirePasscode: state.requirePasscode,
         passcode: state.passcode,
         passcodeOnlyWhenLocked: state.passcodeOnlyWhenLocked,
+        allowForceWithLease: state.allowForceWithLease,
       }),
 
       /**

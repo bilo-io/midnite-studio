@@ -16,6 +16,7 @@ import {
   LuPencil,
   LuRefreshCw,
   LuRotateCcw,
+  LuShieldAlert,
   LuTag,
   LuTrash2,
   LuCloudUpload,
@@ -27,6 +28,7 @@ import type { MenuItem } from '../../components/context-menu';
 import { bridge } from '../../services/bridge';
 import { useActiveWorktree, useFetch, useGitOp, usePull, usePush } from '../../services/use-status';
 import { useRemotes } from '../../services/queries';
+import { useUiStore } from '../../store/ui-store';
 import { useWorkbenchStore } from '../../store/workbench-store';
 import { syncActions, type SyncAction } from './ref-sync';
 
@@ -38,7 +40,7 @@ import { syncActions, type SyncAction } from './ref-sync';
  * so the same actions can later be reached from a command palette without
  * duplicating any of this.
  */
-export function useGraphActions(onError: (message: string) => void) {
+export function useGraphActions(onError: (message: string) => void, refs: readonly Ref[] = EMPTY_REFS) {
   const dialogs = useDialogs();
   const { repoId, worktreePath } = useActiveWorktree();
 
@@ -117,6 +119,16 @@ export function useGraphActions(onError: (message: string) => void) {
   const [syncing, setSyncing] = useState<Record<string, SyncAction['kind']>>({});
 
   /**
+   * Which local branches just had a plain push rejected as non-fast-forward —
+   * the ref badge menu's own signal to start offering force-with-lease
+   * (Phase 22 Theme F). Keyed by `ref.fullName`, cleared the moment a push
+   * (plain or forced) on that ref settles any other way — a stale "offer
+   * force-push" is worse than none, since a fetch or a pull can have already
+   * made the branch fast-forwardable again.
+   */
+  const [nonFastForward, setNonFastForward] = useState<Record<string, boolean>>({});
+
+  /**
    * Run one derived sync verb.
    *
    * The verbs come from `syncActions`, so the badge buttons and the menu items
@@ -140,7 +152,13 @@ export function useGraphActions(onError: (message: string) => void) {
             : pushBranch.mutateAsync({ ...scope, setUpstream: action.setUpstream });
 
       void run
-        .then(report)
+        .then((result) => {
+          if (action.kind === 'push') {
+            const rejected = !result.ok && result.kind === 'error' && result.code === 'non-fast-forward';
+            setNonFastForward((current) => ({ ...current, [ref.fullName]: rejected }));
+          }
+          report(result);
+        })
         // `finally`, not the success path: a failed push must release the
         // spinner too, or the badge stays busy until the next repo switch.
         .finally(() =>
@@ -175,6 +193,61 @@ export function useGraphActions(onError: (message: string) => void) {
         .catch(() => dialogs.setBlastRadius(null));
     },
     [dialogs, repoId, worktreePath],
+  );
+
+  const allowForceWithLease = useUiStore((s) => s.allowForceWithLease);
+
+  /**
+   * Force-push `ref` with `--force-with-lease` (Phase 22 Theme F).
+   *
+   * `expect` is read from the matching remote-tracking `Ref` in the same
+   * `refs` array the graph already renders from — not a fresh `revParse`:
+   * `RevParseRequest.rev` is deliberately restricted to hex
+   * (`shared/ipc/schemas.ts`'s `HexRev`), specifically to keep it from
+   * becoming a general "resolve any revision" channel, so widening it for
+   * this one caller was rejected. The refs query is kept current by the
+   * repo-watcher the same way `ref.upstream` itself is, so this is the same
+   * "read at the moment of confirm" the sha the blast-radius dialog counts
+   * against, and the sha the lease actually checks, stay identical.
+   */
+  const forcePushWithLease = useCallback(
+    (ref: Ref) => {
+      if (!repoId || !ref.upstream) return;
+      const upstreamName = ref.upstream.name;
+      const remoteTrackingRef = `refs/remotes/${upstreamName}`;
+      const remote = upstreamName.slice(0, upstreamName.indexOf('/'));
+      const expect = refs.find((r) => r.kind === 'remoteBranch' && r.name === upstreamName)?.sha;
+
+      if (!expect) {
+        onError(`Could not find ${upstreamName} — fetch first.`);
+        return;
+      }
+
+      dialogs.confirm({
+        title: `Force-push ${ref.name} to ${upstreamName}?`,
+        body: 'This replaces history on the remote with your local branch. Anyone else who already pulled the commits being replaced will need to reconcile them.',
+        confirmLabel: 'Force-push (with lease)',
+        danger: true,
+        blastRadius: undefined,
+        onConfirm: () =>
+          void pushBranch
+            .mutateAsync({
+              remote,
+              branch: ref.name,
+              setUpstream: false,
+              forceWithLease: { ref: ref.fullName, expect },
+            })
+            .then((result) => {
+              setNonFastForward((current) => ({ ...current, [ref.fullName]: false }));
+              report(result);
+            }),
+      });
+      // The remote-tracking ref is what MOVES; excluded from its own count
+      // for the same reason `withBlastRadius` excludes `movingRef` everywhere
+      // else — counting it would always yield zero.
+      withBlastRadius({ from: remoteTrackingRef, to: ref.sha, movingRef: remoteTrackingRef });
+    },
+    [dialogs, onError, pushBranch, refs, report, repoId, withBlastRadius],
   );
 
   /** Right-click on a commit row. */
@@ -339,6 +412,28 @@ export function useGraphActions(onError: (message: string) => void) {
         }
       }
 
+      /*
+        Force-with-lease (Phase 22 Theme F) — never a standing item. It exists
+        only for the one moment it can actually help: a plain push from THIS
+        menu just came back non-fast-forward, and the setting that allows it
+        is on. Fetching, pulling, or switching repos clears the rejection —
+        `nonFastForward` — so a stale offer to force-push a branch that is no
+        longer diverged cannot linger.
+      */
+      if (
+        ref.kind === 'localBranch' &&
+        allowForceWithLease &&
+        nonFastForward[ref.fullName] &&
+        ref.upstream
+      ) {
+        items.push({
+          label: `Force-push ${ref.name} (with lease)…`,
+          icon: LuShieldAlert,
+          danger: true,
+          onSelect: () => forcePushWithLease(ref),
+        });
+      }
+
       if (ref.kind === 'localBranch') {
         items.push(
           { type: 'separator' },
@@ -384,7 +479,19 @@ export function useGraphActions(onError: (message: string) => void) {
 
       return items;
     },
-    [branchDelete, branchRename, checkout, dialogs, report, runSync, syncFor, withBlastRadius],
+    [
+      allowForceWithLease,
+      branchDelete,
+      branchRename,
+      checkout,
+      dialogs,
+      forcePushWithLease,
+      nonFastForward,
+      report,
+      runSync,
+      syncFor,
+      withBlastRadius,
+    ],
   );
 
   /**
@@ -446,6 +553,7 @@ export function useGraphActions(onError: (message: string) => void) {
 }
 
 const EMPTY_REMOTES: Remote[] = [];
+const EMPTY_REFS: readonly Ref[] = [];
 
 /** What can be dropped onto a branch badge. */
 export type DropSource = { kind: 'ref'; ref: Ref } | { kind: 'commit'; sha: string };

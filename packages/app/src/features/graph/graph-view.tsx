@@ -95,7 +95,7 @@ export function GraphView() {
   const dialogs = useDialogs();
   const [opError, setOpError] = useState('');
   const { commitMenu, refMenu, dropMenu, checkoutRef, report, syncFor, runSync, syncing } =
-    useGraphActions(setOpError);
+    useGraphActions(setOpError, refs);
 
   /**
    * A drop opens a menu at the pointer rather than acting.
