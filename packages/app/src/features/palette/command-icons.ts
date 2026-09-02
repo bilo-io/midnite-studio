@@ -2,6 +2,8 @@ import type { CommandId } from '@midnite/studio-shared';
 import type { IconType } from 'react-icons';
 import { IoIosGitNetwork } from 'react-icons/io';
 import {
+  LuChevronLeft,
+  LuChevronRight,
   LuClock,
   LuCommand,
   LuDownload,
@@ -42,6 +44,8 @@ export const COMMAND_ICONS: Record<CommandId, IconType> = {
   'browser.nextTab': LuGlobe,
   'browser.prevTab': LuGlobe,
   'browser.reopenTab': LuGlobe,
+  'panel.back': LuChevronLeft,
+  'panel.forward': LuChevronRight,
   'browser.selectTab1': LuGlobe,
   'browser.selectTab2': LuGlobe,
   'browser.selectTab3': LuGlobe,

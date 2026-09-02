@@ -62,10 +62,66 @@ test('running a consultation renders member answers and a synthesis', async ({ p
   await page.getByPlaceholder('What should the council answer?').fill('Should we ship the new onboarding flow?');
   await page.getByRole('button', { name: 'Run', exact: true }).click();
 
-  await expect(page.getByRole('button', { name: /^Optimist/ })).toBeVisible();
-  await page.getByRole('button', { name: 'Synthesis' }).click();
-  await expect(page.getByText(/Synthesis of the panel's views on/)).toBeVisible();
+  /*
+    Starting a run navigates the centre pane's panel-stack (Phase 42 Theme D)
+    from the council entry to the new run entry, and both panes stay mounted
+    for the length of the slide — the outgoing one marked `aria-hidden` but
+    still matched by a plain `getByText`. Scoped to the one pane that isn't
+    `aria-hidden` so an assertion mid-transition cannot resolve to two
+    elements; a `getByRole` query would exclude it already (roles respect the
+    accessibility tree), but the text/button queries below do not.
+  */
+  const activePane = page.locator('.panel-stack-pane:not([aria-hidden])');
 
-  await page.getByRole('button', { name: /^Optimist/ }).click();
-  await expect(page.getByText(/Optimist's answer to/)).toBeVisible();
+  await expect(activePane.getByRole('button', { name: /^Optimist/ })).toBeVisible();
+  await activePane.getByRole('button', { name: 'Synthesis' }).click();
+  await expect(activePane.getByText(/Synthesis of the panel's views on/)).toBeVisible();
+
+  await activePane.getByRole('button', { name: /^Optimist/ }).click();
+  await expect(activePane.getByText(/Optimist's answer to/)).toBeVisible();
+});
+
+test('the panel-stack navigates list → council → run, and back/forward retrace it (Theme D)', async ({ page }) => {
+  await open(page);
+
+  await page.getByRole('button', { name: 'New council' }).click();
+  await page.getByRole('dialog', { name: 'New council' }).getByLabel('Name', { exact: true }).fill('Retro');
+  await page.getByRole('button', { name: 'Create' }).click();
+  await expect(page.getByRole('heading', { name: 'Retro' })).toBeVisible();
+
+  const activePane = page.locator('.panel-stack-pane:not([aria-hidden])');
+  const nav = page.getByRole('navigation', { name: 'Breadcrumb' });
+
+  // Creating a council landed on the council entry directly (list → council).
+  await expect(nav.getByText('Retro', { exact: true })).toBeVisible();
+  await expect(page.getByRole('main').getByRole('button', { name: 'Back' })).toBeEnabled();
+  await expect(page.getByRole('main').getByRole('button', { name: 'Forward' })).toBeDisabled();
+
+  await page.getByPlaceholder('What should the council answer?').fill('Ship it?');
+  await page.getByRole('button', { name: 'Run', exact: true }).click();
+  await expect(activePane.getByRole('button', { name: /^Optimist/ })).toBeVisible();
+  // list → council → run: a third crumb, and the stack is now 3 deep.
+  await expect(nav.getByText('Run', { exact: true })).toBeVisible();
+
+  // Back once: run → council. Still a council selected (the config panel and
+  // its member list stay put) — only the `list` entry shows the empty state.
+  await page.getByRole('main').getByRole('button', { name: 'Back' }).click();
+  await expect(page.getByRole('textbox', { name: 'Member name' }).first()).toBeVisible();
+  // The breadcrumb trail still shows "Run" here — it renders the whole
+  // stack, forward tail included, so a still-navigable entry stays clickable
+  // rather than disappearing the moment it is no longer current.
+  await expect(nav.getByText('Retro', { exact: true })).toBeVisible();
+
+  // Back again: council → list. The config panel disappears along with it —
+  // there is no council to configure.
+  await page.getByRole('main').getByRole('button', { name: 'Back' }).click();
+  await expect(activePane.getByText('Select a council')).toBeVisible();
+  await expect(page.getByRole('button', { name: 'New council' })).toBeVisible();
+  await expect(page.getByRole('main').getByRole('button', { name: 'Back' })).toBeDisabled();
+
+  // Forward twice retraces exactly back to the run.
+  await page.getByRole('main').getByRole('button', { name: 'Forward' }).click();
+  await page.getByRole('main').getByRole('button', { name: 'Forward' }).click();
+  await expect(activePane.getByRole('button', { name: /^Optimist/ })).toBeVisible();
+  await expect(page.getByRole('main').getByRole('button', { name: 'Forward' })).toBeDisabled();
 });

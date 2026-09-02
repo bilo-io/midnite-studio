@@ -2,6 +2,50 @@
 
 <!-- Append one entry per landed phase/PR: date, phase, PR link, one-line summary. -->
 
+## 2026-09-02 — Phase 42 Themes A, B, C, D — panel-stack, three panes, config right, back/forward
+
+[PR #TBD]. Themes E (councils/runs share the rail) and F (motion verification) are not in this
+batch and stay open.
+
+- [x] **Theme A — `panel-stack`.** A generic `usePanelHistory<T>` (`components/panel-stack/`):
+      push/replace/back/forward/reset, forward-tail truncation, a 20-entry depth cap that
+      decrements `index` correctly when dropping from the head, duplicate-push dedup via a caller
+      `isSame`. `PanelStack` renders the current entry with a directional slide — **a CSS
+      `transition` on `transform`, not `@keyframes`**, so it collapses honestly under the shell's
+      universal reduced-motion reset instead of getting pinned to its last frame by luck (the
+      Phase 39 Theme G lesson). `PanelHeader` gives it back/forward chevrons and a clickable
+      breadcrumb trail. A new `active-panel.ts` module-level registry (not named by the doc) routes
+      the global `Mod+[`/`Mod+]` chords to whichever panel is on screen, since `panel-stack` stays
+      deliberately store-free. 22 tests across the primitive and the registry.
+- [x] **Theme B — three panes.** `councils-view.tsx` rewritten: a resizable left navigation rail, a
+      centre output region carrying the `PanelStack` slide (placed there, not in the rail, since
+      that's where content actually differs across entries — a correction to the draft), and a
+      resizable, collapse-to-rail right configuration panel. `councilNavWidth`/`councilConfigWidth`
+      join `LayoutSizes` (no migration needed); `councilConfigCollapsed` is a new top-level
+      persisted boolean. The responsive overlay below 900px was cut, per the doc's own
+      instruction — a hard `min-w` on the centre region is the honest fallback instead.
+- [x] **Theme C — config right, members reorder.** `council-detail.tsx` deleted; its members panel,
+      synth-provider select and prompt composer split into a new `council-config-panel.tsx`
+      (`border-l` now) and `councils-view.tsx`'s own data orchestration. `@dnd-kit` drag-reorder via
+      the unchanged `SortableList`, with a dedicated grip handle (a member card's input/select/
+      textarea would otherwise swallow the drag listeners) and `Alt+↑`/`Alt+↓` for the keyboard
+      story instead of a `KeyboardSensor`. A new `use-flushable-save.ts` fixes a real, pre-existing
+      bug: the old debounce's unmount cleanup cleared its timer without firing it, silently
+      dropping an in-window edit. A scoped `components/form/select-field.tsx` replaces the file's
+      two identical `<select>`s — the actual, present duplication; input/textarea were left alone.
+- [x] **Theme D — back, forward, the crumbs.** Two `useState`s replaced by the `panel-stack`
+      entries. **Corrected the drafted `CouncilEntry` type, found by testing, not by reading**: a
+      `'run'` entry needs its owning `councilId` alongside it, since `useCouncilRuns` (which
+      resolves "latest") is keyed by council, not run — without it, `councils.spec.ts`'s existing
+      "running a consultation" spec went from a visible member tab to "No runs yet" the moment a
+      run actually started. `Mod+[`/`Mod+]` bound through `keybindings.ts`, and added to
+      `TERMINAL_YIELD_COMMANDS` alongside the reload pair — `enabled` gating alone does not keep a
+      chord out of a docked terminal panel that can be open regardless of active view, and `Mod+[`
+      off macOS is `Ctrl+[`, i.e. `ESC`. Mouse back/forward buttons cut, per the doc's own
+      recommendation. `councils.spec.ts` gained a third spec (list → council → run, back twice,
+      forward twice) and both existing specs needed scoping fixes for the transition's dual-mounted
+      panes.
+
 ## 2026-09-02 — Phase 41 Themes C, F, D (partial), I (partial) — drag, glow, the surface fix
 
 [PR #TBD]. Batch built without Theme G (card composer) or Theme E (in-card terminal) — both stay

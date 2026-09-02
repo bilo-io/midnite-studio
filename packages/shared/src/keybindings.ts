@@ -141,6 +141,14 @@ export const COMMANDS = [
   { id: 'browser.closeTab', label: 'Close Browser Tab', group: 'view', chord: 'Mod+w' },
   { id: 'browser.nextTab', label: 'Next Browser Tab', group: 'view', chord: 'Ctrl+Tab' },
   { id: 'browser.prevTab', label: 'Previous Browser Tab', group: 'view', chord: 'Ctrl+Shift+Tab' },
+  /**
+   * The first history chords in the app — `title-bar-nav.tsx`'s Back/Forward
+   * buttons call `viewHistory` directly today and carry no chord at all.
+   * Panel-local (Phase 42 Theme D): the handler no-ops unless the Councils
+   * panel that owns the active `panel-stack` is mounted.
+   */
+  { id: 'panel.back', label: 'Back', group: 'view', chord: 'Mod+[' },
+  { id: 'panel.forward', label: 'Forward', group: 'view', chord: 'Mod+]' },
   { id: 'browser.reopenTab', label: 'Reopen Closed Browser Tab', group: 'view', chord: 'Mod+Shift+t' },
   { id: 'browser.selectTab1', label: 'Select Browser Tab 1', group: 'view', chord: 'Mod+1' },
   { id: 'browser.selectTab2', label: 'Select Browser Tab 2', group: 'view', chord: 'Mod+2' },
@@ -260,8 +268,19 @@ export const GLOBAL_CHORDS: readonly string[] = DEFAULT_KEYMAP.filter(
  * whole renderer away mid-command. So these two, and only these two, fall
  * through to the terminal when that is what has focus; the title bar's reload
  * button and the palette are both still one gesture away.
+ *
+ * `panel.back`/`panel.forward` (Phase 42 Theme D) join them for the identical
+ * reason: `Mod+[` off macOS is `Ctrl+[`, which is `ESC` in every terminal —
+ * the docked Terminal panel can be open regardless of which view is active,
+ * so Councils being the active view is not enough on its own to know the
+ * keystroke was meant for the panel rather than the shell sitting behind it.
  */
-export const TERMINAL_YIELD_COMMANDS: readonly CommandId[] = ['app.reload', 'app.hardReload'];
+export const TERMINAL_YIELD_COMMANDS: readonly CommandId[] = [
+  'app.reload',
+  'app.hardReload',
+  'panel.back',
+  'panel.forward',
+];
 
 export const isCommandId = (value: string): value is CommandId =>
   (COMMAND_IDS as readonly string[]).includes(value);
