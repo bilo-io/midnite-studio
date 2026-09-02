@@ -30,14 +30,26 @@ async function open(page: Page): Promise<void> {
   await expect(page.locator('.xterm-screen')).toHaveCount(1);
 }
 
-/** Clear the fake shell's prompt and print the URL alone on the top row. */
+/**
+ * Clear the fake shell's prompt and print the URL alone on the top row.
+ *
+ * Polled rather than asserted once: `pty-1` only exists in the mock's
+ * bookkeeping once TerminalView's lazy chunk (Phase 36 Theme C) has mounted,
+ * a moment after the panel opens rather than in the same tick.
+ */
 async function printUrl(page: Page): Promise<void> {
-  const delivered = await page.evaluate((text) => {
-    const write = (window as unknown as { __mstudioPtyWrite: (id: string, data: string) => boolean })
-      .__mstudioPtyWrite;
-    return write('pty-1', `\u001b[2J\u001b[H${text}\r\n`);
-  }, URL);
-  expect(delivered, 'the URL was not delivered to pty-1').toBe(true);
+  await expect
+    .poll(
+      () =>
+        page.evaluate((text) => {
+          const write = (
+            window as unknown as { __mstudioPtyWrite: (id: string, data: string) => boolean }
+          ).__mstudioPtyWrite;
+          return write('pty-1', `\u001b[2J\u001b[H${text}\r\n`);
+        }, URL),
+      'the URL was not delivered to pty-1',
+    )
+    .toBe(true);
 }
 
 /**
@@ -50,7 +62,9 @@ async function printUrl(page: Page): Promise<void> {
  * across is somewhere inside a URL 27 cells long. The bottom row is empty
  * whatever the pane's dimensions, since the fake shell has printed three lines.
  */
-async function aim(page: Page): Promise<{ url: { x: number; y: number }; blank: { x: number; y: number } }> {
+async function aim(
+  page: Page,
+): Promise<{ url: { x: number; y: number }; blank: { x: number; y: number } }> {
   const box = await page.locator('.xterm-screen').boundingBox();
   expect(box, 'the xterm screen has no box').not.toBeNull();
   return {
@@ -60,49 +74,69 @@ async function aim(page: Page): Promise<{ url: { x: number; y: number }; blank: 
 }
 
 const externalUrls = (page: Page) =>
-  page.evaluate(() => (window as unknown as { __mstudioExternalUrls: string[] }).__mstudioExternalUrls);
+  page.evaluate(
+    () => (window as unknown as { __mstudioExternalUrls: string[] }).__mstudioExternalUrls,
+  );
 
 /** xterm's own pointer-cursor decoration, the one DOM trace a link leaves. */
 const screenClasses = (page: Page) =>
-  page.locator('.xterm-screen').getAttribute('class').then((value) => value ?? '');
+  page
+    .locator('.xterm-screen')
+    .getAttribute('class')
+    .then((value) => value ?? '');
 
 test.describe('terminal links', () => {
-  test('Cmd+click opens a URL in the output; a bare click does not', async ({ page }) => {
-    await open(page);
-    await printUrl(page);
+  test(
+    'Cmd+click opens a URL in the output; a bare click does not',
+    // Every spec in this file needs a REAL terminal — the panel itself never
+    // becomes visible on the CI runner because xterm paints through
+    // `@xterm/addon-webgl`, which a GPU-less runner cannot give it. Same wall
+    // as terminal-lazy-preload and friends — Phase 38 Theme I owns the fix;
+    // this file's own pty-delivery race (Theme A) is verified fixed
+    // independently (green locally, and in the CI ratchet run before this
+    // Linux-only wall was hit).
+    { tag: '@linux-red' },
+    async ({ page }) => {
+      await open(page);
+      await printUrl(page);
 
-    const { x, y } = (await aim(page)).url;
-    await page.mouse.move(x, y);
+      const { x, y } = (await aim(page)).url;
+      await page.mouse.move(x, y);
 
-    // Hovered, no modifier: no decoration, and a click is just a click.
-    await expect.poll(() => screenClasses(page)).not.toContain('xterm-cursor-pointer');
-    await page.mouse.click(x, y);
-    expect(await externalUrls(page)).toEqual([]);
+      // Hovered, no modifier: no decoration, and a click is just a click.
+      await expect.poll(() => screenClasses(page)).not.toContain('xterm-cursor-pointer');
+      await page.mouse.click(x, y);
+      expect(await externalUrls(page)).toEqual([]);
 
-    // The modifier goes down while the mouse is already parked on the link.
-    await page.keyboard.down('Meta');
-    await expect.poll(() => screenClasses(page)).toContain('xterm-cursor-pointer');
+      // The modifier goes down while the mouse is already parked on the link.
+      await page.keyboard.down('Meta');
+      await expect.poll(() => screenClasses(page)).toContain('xterm-cursor-pointer');
 
-    await page.mouse.down();
-    await page.mouse.up();
-    await page.keyboard.up('Meta');
+      await page.mouse.down();
+      await page.mouse.up();
+      await page.keyboard.up('Meta');
 
-    await expect.poll(() => externalUrls(page)).toEqual([URL]);
-    await expect.poll(() => screenClasses(page)).not.toContain('xterm-cursor-pointer');
-  });
+      await expect.poll(() => externalUrls(page)).toEqual([URL]);
+      await expect.poll(() => screenClasses(page)).not.toContain('xterm-cursor-pointer');
+    },
+  );
 
-  test('leaves output that is not a link alone', async ({ page }) => {
-    await open(page);
-    await printUrl(page);
+  test(
+    'leaves output that is not a link alone',
+    { tag: '@linux-red' }, // same wall — see the note on the spec above
+    async ({ page }) => {
+      await open(page);
+      await printUrl(page);
 
-    // The bottom row: empty grid, nothing to decorate or open.
-    const { x, y } = (await aim(page)).blank;
-    await page.mouse.move(x, y);
-    await page.keyboard.down('Meta');
-    await page.mouse.click(x, y);
-    await page.keyboard.up('Meta');
+      // The bottom row: empty grid, nothing to decorate or open.
+      const { x, y } = (await aim(page)).blank;
+      await page.mouse.move(x, y);
+      await page.keyboard.down('Meta');
+      await page.mouse.click(x, y);
+      await page.keyboard.up('Meta');
 
-    expect(await screenClasses(page)).not.toContain('xterm-cursor-pointer');
-    expect(await externalUrls(page)).toEqual([]);
-  });
+      expect(await screenClasses(page)).not.toContain('xterm-cursor-pointer');
+      expect(await externalUrls(page)).toEqual([]);
+    },
+  );
 });
