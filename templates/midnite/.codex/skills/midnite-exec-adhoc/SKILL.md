@@ -1,9 +1,9 @@
 ---
 name: midnite-exec-adhoc
 description: Execute a one-off ad hoc task outside the .midnite/tasks/ phase tracker — clarify scope with a quick back-and-forth, then build it in a worktree, screenshot visual changes, open a PR, drive CI green, merge. For a specific task described up front, not a backlog pick (that's /midnite-exec).
-argument-hint: "<a description of the adhoc task to build>"
-allowed-tools: Bash, Read, Edit, Write, Glob, Grep, AskUserQuestion, TodoWrite, Agent, ToolSearch
 ---
+
+**Invoke with:** <a description of the adhoc task to build>
 
 End-to-end "execute a described task" for **this project**, for work that isn't a `.midnite/tasks/phases/phase-N-*.md`
 item — a bug someone just mentioned, a small feature sketched in chat, a cleanup nobody wrote down.

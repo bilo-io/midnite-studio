@@ -1,9 +1,9 @@
 ---
 name: midnite-git-cleanup
 description: Remove branches and worktrees that have fully landed on the target branch. Dry-run by default. Catches duplicate and cherry-picked commits that `git branch -d` misreports as "not fully merged".
-argument-hint: "[--apply] [--target <branch>]"
-allowed-tools: Bash, Read, AskUserQuestion
 ---
+
+**Invoke with:** [--apply] [--target <branch>]
 
 Prune stale branches and their worktrees from **this repo**.
 

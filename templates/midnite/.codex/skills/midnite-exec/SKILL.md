@@ -1,9 +1,9 @@
 ---
 name: midnite-exec
 description: Pick one or more unblocked .midnite/tasks/ themes across up to 4 phases, build them together in a worktree, screenshot visual changes with Playwright, open a PR, drive CI green, merge.
-argument-hint: "[optional: phase number or task hint]"
-allowed-tools: Bash, Read, Edit, Write, Glob, Grep, AskUserQuestion, TodoWrite, Agent, ToolSearch
 ---
+
+**Invoke with:** [optional: phase number or task hint]
 
 End-to-end "execute a phase slice" for **this project**.
 

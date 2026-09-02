@@ -1,9 +1,9 @@
 ---
 name: midnite-brainstorm
 description: Interactively brainstorm a brand-new .midnite/tasks/ phase — scan existing phases, show a status overview, riff on proposals together, then write the phase doc.
-argument-hint: "[optional: a topic/theme to seed the new phase, e.g. 'mobile app' or 'observability']"
-allowed-tools: Bash, Read, Write, Edit, Glob, Grep, AskUserQuestion, TodoWrite, Agent
 ---
+
+**Invoke with:** [optional: a topic/theme to seed the new phase, e.g. 'mobile app' or 'observability']
 
 You are running the **brainstorm** workflow for **this project**: an interactive, human-in-the-loop session that lands a **new `.midnite/tasks/phases/phase-N-*.md`** plan. It's a back-and-forth — propose, let the user steer, refine over a few rounds, then write the doc. **Do not write the phase file until the user has converged on a direction** (Stage 5).
 

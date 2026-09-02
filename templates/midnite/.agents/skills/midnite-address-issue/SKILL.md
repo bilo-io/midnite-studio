@@ -1,9 +1,9 @@
 ---
 name: midnite-address-issue
 description: Triage this repo's issue board, recommend the highest-impact issue (plus 3 alternatives), agree a fix plan interactively, then build it in a worktree and open a linked PR. Stops at the PR — never merges.
-argument-hint: "[optional: issue number, label, or keyword]"
-allowed-tools: Bash, Read, Edit, Write, Glob, Grep, AskUserQuestion, TodoWrite, Agent, ToolSearch
 ---
+
+**Invoke with:** [optional: issue number, label, or keyword]
 
 End-to-end "fix a reported issue" for **this project**, driven by the repo's issue board.
 

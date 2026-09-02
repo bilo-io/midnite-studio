@@ -1,9 +1,9 @@
 ---
 name: midnite-refine
 description: Deepen an existing, uncompleted .midnite/tasks/ phase doc — pick the phase, choose which areas to expand via option sheets, resolve the open decisions, then rewrite the doc to a standard any model can execute. Stamps "Refined: xN" on the doc and the index.
-argument-hint: "[optional: phase number, or an area hint, e.g. '24' or '26 perf+testing']"
-allowed-tools: Bash, Read, Write, Edit, Glob, Grep, AskUserQuestion, TodoWrite, Agent
 ---
+
+**Invoke with:** [optional: phase number, or an area hint, e.g. '24' or '26 perf+testing']
 
 You are running the **refine** workflow for **this project**. It takes one *existing, uncompleted*
 `.midnite/tasks/phases/phase-N-*.md` and makes it **deeper**, not longer for its own sake — the goal is a plan whose

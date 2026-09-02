@@ -1,9 +1,9 @@
 ---
 name: midnite-git-report
 description: Git activity report for the repo over a day/week/month — merged PRs (linked), phases tackled + per-phase diff, and overall phase progress, as tables + a chart.
-argument-hint: "[today | yesterday | YYYY-MM-DD | this-week | this-month | YYYY-MM-DD..YYYY-MM-DD]"
-allowed-tools: Bash, Read, Write, Glob, Grep, AskUserQuestion, Artifact, Agent, SendUserFile
 ---
+
+**Invoke with:** [today | yesterday | YYYY-MM-DD | this-week | this-month | YYYY-MM-DD..YYYY-MM-DD]
 
 A git activity + phase-progress report for **this project** over a chosen window.
 

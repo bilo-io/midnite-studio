@@ -1,9 +1,9 @@
 ---
 name: midnite-triage
 description: Read-only forge triage — one markdown summary table of the open PRs (and optionally issues), each row a clickable link with emoji status marks for checks, review state, mergeability and age. Changes nothing.
-argument-hint: "[prs | issues | all] [--repo owner/name]"
-allowed-tools: Bash, Read, Glob, Grep
 ---
+
+**Invoke with:** [prs | issues | all] [--repo owner/name]
 
 A **read-only** snapshot of what the forge is holding, as one table you can scan in a
 second. Look, tabulate, touch nothing.
