@@ -1,6 +1,5 @@
 import type { IconType } from 'react-icons';
-import { GiDogHouse } from 'react-icons/gi';
-import { LuBrain, LuBot, LuCircleDot, LuHeartHandshake } from 'react-icons/lu';
+import { LuBrain, LuBot, LuCircleDot, LuHeartHandshake, LuRadar } from 'react-icons/lu';
 
 /**
  * `LoopDefinition.icon` is a *token*, not a component — `packages/shared` is
@@ -15,7 +14,7 @@ import { LuBrain, LuBot, LuCircleDot, LuHeartHandshake } from 'react-icons/lu';
 const LOOP_ICONS: Record<string, IconType> = {
   brain: LuBrain,
   bot: LuBot,
-  watchdog: GiDogHouse,
+  watchdog: LuRadar,
   medic: LuHeartHandshake,
 };
 

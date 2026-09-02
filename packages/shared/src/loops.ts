@@ -101,7 +101,7 @@ export type LoopRunRecord = z.infer<typeof LoopRunRecordSchema>;
 export const DEFAULT_LOOPS: readonly LoopDefinition[] = [
   {
     id: 'innovate',
-    label: 'Innovate',
+    label: 'Ideate',
     icon: 'brain',
     color: 'text-blue-500',
     agentId: 'claude',
@@ -118,7 +118,7 @@ export const DEFAULT_LOOPS: readonly LoopDefinition[] = [
   },
   {
     id: 'automate',
-    label: 'Automate',
+    label: 'Engineer',
     icon: 'bot',
     color: 'text-green-500',
     agentId: 'claude',
@@ -141,7 +141,7 @@ export const DEFAULT_LOOPS: readonly LoopDefinition[] = [
   },
   {
     id: 'watchdog',
-    label: 'Watchdog',
+    label: 'Patrol',
     icon: 'watchdog',
     color: 'text-yellow-500',
     agentId: 'claude',
