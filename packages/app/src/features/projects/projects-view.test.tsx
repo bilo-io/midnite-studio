@@ -2,6 +2,7 @@ import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
+import { DialogHost } from '../../components/dialog-host';
 import { ProjectsView } from './projects-view';
 
 afterEach(cleanup);
@@ -60,9 +61,13 @@ vi.mock('../../store/ui-store', () => ({
 
 function renderWithClient() {
   const queryClient = new QueryClient({ defaultOptions: { queries: { retry: false } } });
+  // Board mode's cards reach `useDialogs()` for their "Move to ▸" menu
+  // (Phase 41 Theme C) — the host every render needs, matching the real tree.
   return render(
     <QueryClientProvider client={queryClient}>
-      <ProjectsView />
+      <DialogHost>
+        <ProjectsView />
+      </DialogHost>
     </QueryClientProvider>,
   );
 }
