@@ -46,7 +46,6 @@ const KNOWN_RED = [
   '**/e2e/browser-pane.spec.ts', //          1 — click lands during the exit transition
   '**/e2e/footer-monitor.spec.ts', //        2 — ring/marker counts
   '**/e2e/graph-themes.spec.ts', //          2 — cascade replay + per-style redraw
-  '**/e2e/terminal.spec.ts', //              2 — reload rehydration + list resize
 ];
 
 export default defineConfig({
