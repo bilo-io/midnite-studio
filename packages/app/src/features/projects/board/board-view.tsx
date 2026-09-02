@@ -1,36 +1,45 @@
-import { useMemo, useState } from 'react';
-import { LuChevronRight, LuCircleDot, LuGitPullRequest, LuNotebookPen } from 'react-icons/lu';
+import { useVirtualizer } from '@tanstack/react-virtual';
+import { useMemo, useRef, useState } from 'react';
+import { LuChevronRight } from 'react-icons/lu';
 
 import type { ForgeProjectField, ForgeProjectItem } from '@midnite/studio-shared';
 
-import type { IconComponent } from '../../../components/icon-button';
 import { EmptyState } from '../../../components/empty-state';
 import { VIEW_ICON } from '../../../components/nav-icons';
+import { CardDetail } from './card-detail';
 import { deriveColumns, NO_STATUS_COLUMN_ID, type BoardColumn } from './board-derive';
+import { TaskCard } from './task-card';
 
 /**
- * The `[ Table | Board ]` mode's board (Phase 41 Theme A) — the project's
+ * The `[ Table | Board ]` mode's board (Phase 41 Themes A–B) — the project's
  * `Status` single-select field turned on its side, one column per option.
  *
  * **No query of its own.** `items`/`fields` are exactly the query results the
  * Table mode already fetched — the phase doc's own rule ("one paged read for
  * the board's items … not one query per column"), so switching modes costs
  * nothing extra and a board never fetches per column.
- *
- * Cards are placeholders here — the type glyph and a title, nothing else.
- * Theme B builds the real card (field chips, the per-card virtualizer);
- * building it twice would mean throwing this version away.
  */
 export function BoardView({
+  projectId,
   fields,
   items,
 }: {
+  projectId: string;
   fields: readonly ForgeProjectField[];
   items: readonly ForgeProjectItem[];
 }) {
   const statusField = useMemo(() => findStatusField(fields), [fields]);
   const columns = useMemo(() => deriveColumns(statusField, items), [statusField, items]);
   const [collapsed, setCollapsed] = useState<ReadonlySet<string>>(new Set());
+  const [selectedItemId, setSelectedItemId] = useState<string | null>(null);
+
+  // Every field except Status — the column already says that one.
+  const cardFields = useMemo(
+    () => fields.filter((field) => field.id !== statusField?.id),
+    [fields, statusField],
+  );
+
+  const selectedItem = selectedItemId ? (items.find((i) => i.id === selectedItemId) ?? null) : null;
 
   if (!statusField) {
     return (
@@ -56,15 +65,28 @@ export function BoardView({
   };
 
   return (
-    <div className="flex h-full min-h-0 gap-3 overflow-x-auto p-3" data-testid="board-view">
-      {columns.map((column) => (
-        <BoardColumnView
-          key={column.id}
-          column={column}
-          collapsed={collapsed.has(column.id)}
-          onToggle={() => toggle(column.id)}
+    <div className="flex h-full min-h-0" data-testid="board-view">
+      <div className="flex min-h-0 flex-1 gap-3 overflow-x-auto p-3">
+        {columns.map((column) => (
+          <BoardColumnView
+            key={column.id}
+            column={column}
+            fields={cardFields}
+            collapsed={collapsed.has(column.id)}
+            onToggle={() => toggle(column.id)}
+            onSelectItem={setSelectedItemId}
+          />
+        ))}
+      </div>
+
+      {selectedItem ? (
+        <CardDetail
+          projectId={projectId}
+          item={selectedItem}
+          fields={fields}
+          onClose={() => setSelectedItemId(null)}
         />
-      ))}
+      ) : null}
     </div>
   );
 }
@@ -74,23 +96,25 @@ function findStatusField(fields: readonly ForgeProjectField[]): ForgeProjectFiel
   return fields.find((f) => f.dataType === 'single_select' && f.name === 'Status') ?? null;
 }
 
-const CONTENT_ICON: Record<ForgeProjectItem['content']['type'], IconComponent> = {
-  issue: LuCircleDot,
-  pull: LuGitPullRequest,
-  draft: LuNotebookPen,
-};
-
 const COLLAPSED_WIDTH = 'w-9';
 const COLUMN_WIDTH = 'w-72';
 
+/** Below this, a plain `.map()` costs less than the virtualizer's own machinery. */
+const VIRTUALIZE_THRESHOLD = 50;
+const CARD_HEIGHT_ESTIMATE = 84;
+
 function BoardColumnView({
   column,
+  fields,
   collapsed,
   onToggle,
+  onSelectItem,
 }: {
   column: BoardColumn;
+  fields: readonly ForgeProjectField[];
   collapsed: boolean;
   onToggle: () => void;
+  onSelectItem: (itemId: string) => void;
 }) {
   if (collapsed) {
     return (
@@ -124,29 +148,72 @@ function BoardColumnView({
         </span>
       </button>
 
-      <div className="min-h-0 flex-1 overflow-y-auto p-2">
-        {column.items.length === 0 ? (
+      {column.items.length === 0 ? (
+        <div className="p-2">
           <div className="flex h-16 items-center justify-center rounded border border-dashed border-border text-[11px] text-muted-foreground">
             Drop here
           </div>
-        ) : (
+        </div>
+      ) : column.items.length > VIRTUALIZE_THRESHOLD ? (
+        <VirtualizedColumnItems column={column} fields={fields} onSelectItem={onSelectItem} />
+      ) : (
+        <div className="min-h-0 flex-1 overflow-y-auto p-2">
           <div className="flex flex-col gap-1.5">
             {column.items.map((item) => (
-              <BoardCard key={item.id} item={item} />
+              <TaskCard key={item.id} item={item} fields={fields} onClick={() => onSelectItem(item.id)} />
             ))}
           </div>
-        )}
-      </div>
+        </div>
+      )}
     </div>
   );
 }
 
-function BoardCard({ item }: { item: ForgeProjectItem }) {
-  const Icon = CONTENT_ICON[item.content.type];
+/**
+ * A column past `VIRTUALIZE_THRESHOLD` cards (Phase 41 Theme B) — the app's
+ * **first per-container virtualizer**: every other `useVirtualizer` call site
+ * is one per view, not one per element in a loop, which is why this is its
+ * own component rather than a branch inside `BoardColumnView`'s render.
+ * Cards are variable-height, so this is `diff-view.tsx`'s
+ * `estimateSize`/`measureElement` recipe, not the graph's fixed-row one.
+ */
+function VirtualizedColumnItems({
+  column,
+  fields,
+  onSelectItem,
+}: {
+  column: BoardColumn;
+  fields: readonly ForgeProjectField[];
+  onSelectItem: (itemId: string) => void;
+}) {
+  const scrollRef = useRef<HTMLDivElement>(null);
+  const virtualizer = useVirtualizer({
+    count: column.items.length,
+    getScrollElement: () => scrollRef.current,
+    estimateSize: () => CARD_HEIGHT_ESTIMATE,
+    measureElement: (element) => element.getBoundingClientRect().height,
+    overscan: 24,
+  });
+
   return (
-    <div className="flex items-start gap-1.5 rounded border border-border bg-background px-2 py-1.5 text-xs">
-      <Icon aria-hidden className="mt-0.5 h-3.5 w-3.5 shrink-0 text-muted-foreground" />
-      <span className="min-w-0 flex-1 truncate">{item.content.title}</span>
+    <div ref={scrollRef} className="min-h-0 flex-1 overflow-y-auto p-2">
+      <div className="relative w-full" style={{ height: virtualizer.getTotalSize() }}>
+        {virtualizer.getVirtualItems().map((virtualRow) => {
+          const item = column.items[virtualRow.index];
+          if (!item) return null;
+          return (
+            <div
+              key={item.id}
+              ref={virtualizer.measureElement}
+              data-index={virtualRow.index}
+              className="absolute left-0 top-0 w-full pb-1.5"
+              style={{ transform: `translateY(${virtualRow.start}px)` }}
+            >
+              <TaskCard item={item} fields={fields} onClick={() => onSelectItem(item.id)} />
+            </div>
+          );
+        })}
+      </div>
     </div>
   );
 }

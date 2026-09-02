@@ -1,10 +1,25 @@
+import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import type { ForgeProjectField, ForgeProjectItem } from '@midnite/studio-shared';
 import { cleanup, fireEvent, render, screen } from '@testing-library/react';
-import { afterEach, describe, expect, it } from 'vitest';
+import { afterEach, describe, expect, it, vi } from 'vitest';
 
 import { BoardView } from './board-view';
 
 afterEach(cleanup);
+
+// Only reached once a card opens `CardDetail`, which mutates through this.
+vi.mock('../../../services/bridge', () => ({
+  bridge: () => ({ forgeProject: { setField: vi.fn() } }),
+}));
+vi.mock('../../../store/ui-store', () => ({
+  useUiStore: (selector: (state: { forgeWritesEnabled: boolean }) => unknown) =>
+    selector({ forgeWritesEnabled: false }),
+}));
+
+function renderWithClient(ui: React.ReactElement) {
+  const queryClient = new QueryClient({ defaultOptions: { queries: { retry: false } } });
+  return render(<QueryClientProvider client={queryClient}>{ui}</QueryClientProvider>);
+}
 
 const statusField: ForgeProjectField = {
   id: 'f1',
@@ -26,18 +41,19 @@ const item = (id: string, title: string, optionId?: string): ForgeProjectItem =>
 
 describe('BoardView', () => {
   it('shows a "no Status field" state when the project has no single_select Status field', () => {
-    render(<BoardView fields={[]} items={[item('i1', 'A task')]} />);
+    renderWithClient(<BoardView projectId="PVT_1" fields={[]} items={[item('i1', 'A task')]} />);
     expect(screen.getByText('No Status field')).toBeDefined();
   });
 
   it('shows a "no items" state when the board is empty', () => {
-    render(<BoardView fields={[statusField]} items={[]} />);
+    renderWithClient(<BoardView projectId="PVT_1" fields={[statusField]} items={[]} />);
     expect(screen.getByText('No items')).toBeDefined();
   });
 
   it('renders one column per option, plus No status, each with a live count', () => {
-    render(
+    renderWithClient(
       <BoardView
+        projectId="PVT_1"
         fields={[statusField]}
         items={[item('i1', 'A task', 'todo'), item('i2', 'B task'), item('i3', 'C task', 'done')]}
       />,
@@ -52,16 +68,39 @@ describe('BoardView', () => {
   });
 
   it('an empty column renders the drop-zone placeholder', () => {
-    render(<BoardView fields={[statusField]} items={[item('i1', 'A task', 'todo')]} />);
+    renderWithClient(<BoardView projectId="PVT_1" fields={[statusField]} items={[item('i1', 'A task', 'todo')]} />);
     expect(screen.getAllByText('Drop here').length).toBeGreaterThan(0);
   });
 
   it('collapsing a column hides its cards behind a rail showing just the count', () => {
-    render(<BoardView fields={[statusField]} items={[item('i1', 'A task', 'todo')]} />);
+    renderWithClient(<BoardView projectId="PVT_1" fields={[statusField]} items={[item('i1', 'A task', 'todo')]} />);
 
     fireEvent.click(screen.getByRole('button', { name: 'Collapse Todo' }));
 
     expect(screen.queryByText('A task')).toBeNull();
     expect(screen.getByRole('button', { name: 'Expand Todo' })).toBeDefined();
+  });
+
+  it('clicking a card opens its detail pane, and closing it clears the selection', () => {
+    renderWithClient(<BoardView projectId="PVT_1" fields={[statusField]} items={[item('i1', 'A task', 'todo')]} />);
+
+    expect(screen.queryByTestId('card-detail')).toBeNull();
+
+    fireEvent.click(screen.getByText('A task'));
+    expect(screen.getByTestId('card-detail')).toBeDefined();
+
+    fireEvent.click(screen.getByRole('button', { name: 'Close' }));
+    expect(screen.queryByTestId('card-detail')).toBeNull();
+  });
+
+  it('a column past the virtualize threshold switches to the virtualizer without crashing', () => {
+    // jsdom reports every element as zero-sized, so the virtualizer itself
+    // renders no rows here (the same limitation `projects-view.test.tsx`
+    // documents for the table) — this proves the threshold branch mounts
+    // cleanly and still reports the true count, not that rows paint.
+    const many = Array.from({ length: 60 }, (_, i) => item(`i${i}`, `Task ${i}`, 'todo'));
+    renderWithClient(<BoardView projectId="PVT_1" fields={[statusField]} items={many} />);
+
+    expect(screen.getByText('60')).toBeDefined(); // the column's live count
   });
 });

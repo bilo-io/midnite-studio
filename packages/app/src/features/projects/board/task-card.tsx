@@ -1,0 +1,113 @@
+import { LuCircleDot, LuGitPullRequest, LuNotebookPen } from 'react-icons/lu';
+
+import type { ForgeProjectField, ForgeProjectItem } from '@midnite/studio-shared';
+
+import type { IconComponent } from '../../../components/icon-button';
+import { formatFieldValue } from '../field-editor';
+import { ExternalLink } from '../../markdown/external-link';
+
+/**
+ * One card (Phase 41 Theme B): title, type glyph, `#number` where the item
+ * has one, assignee avatars, and a chip per non-`Status` field with a value.
+ *
+ * **No "labels" row** — the phase doc names one, but `ForgeProjectItemContent`
+ * carries no labels field at all (`assignees: string[]` is the whole of it);
+ * this is a stale claim, corrected here rather than built against data that
+ * does not exist.
+ *
+ * Avatars use GitHub's own `<login>.png` convention rather than a fetched
+ * URL — the item content only ever carries a login string, never an avatar
+ * URL, and this is the same convention `git config`-less commit avatars in
+ * this app do not have the luxury of (those go through gravatar by email
+ * instead, in `services/avatars.ts` — a login has no email to hash).
+ */
+export function TaskCard({
+  item,
+  fields,
+  onClick,
+}: {
+  item: ForgeProjectItem;
+  /** Every field except `Status` — the board already reads that one as the column. */
+  fields: readonly ForgeProjectField[];
+  onClick?: () => void;
+}) {
+  const Icon = CONTENT_ICON[item.content.type];
+  const href = item.content.type === 'draft' ? null : item.content.url;
+  const number = item.content.type === 'draft' ? null : item.content.number;
+
+  const chips = fields
+    .map((field) => ({ field, text: formatFieldValue(item.fieldValues[field.id]) }))
+    .filter((chip) => chip.text.length > 0);
+
+  return (
+    <div
+      role="button"
+      tabIndex={0}
+      onClick={onClick}
+      onKeyDown={(event) => {
+        if (event.key === 'Enter' || event.key === ' ') {
+          event.preventDefault();
+          onClick?.();
+        }
+      }}
+      className="flex w-full flex-col gap-1.5 rounded border border-border bg-background px-2 py-1.5 text-left text-xs hover:border-foreground/30"
+    >
+      <div className="flex items-start gap-1.5">
+        <Icon aria-hidden className="mt-0.5 h-3.5 w-3.5 shrink-0 text-muted-foreground" />
+        <span className="min-w-0 flex-1 truncate">{item.content.title}</span>
+      </div>
+
+      {number !== null || item.content.assignees.length > 0 ? (
+        <div className="flex items-center justify-between gap-2">
+          {number !== null ? (
+            href ? (
+              // Its own click target, not the card's — stopped from also
+              // opening the detail pane the card click would.
+              <span onClick={(event) => event.stopPropagation()}>
+                <ExternalLink href={href}>
+                  <span className="text-[11px] text-muted-foreground">#{number}</span>
+                </ExternalLink>
+              </span>
+            ) : (
+              <span className="text-[11px] text-muted-foreground">#{number}</span>
+            )
+          ) : (
+            <span />
+          )}
+          {item.content.assignees.length > 0 ? (
+            <div className="flex -space-x-1.5">
+              {item.content.assignees.map((login) => (
+                <img
+                  key={login}
+                  src={`https://github.com/${login}.png?size=32`}
+                  alt={login}
+                  title={login}
+                  className="h-4 w-4 rounded-full border border-background"
+                />
+              ))}
+            </div>
+          ) : null}
+        </div>
+      ) : null}
+
+      {chips.length > 0 ? (
+        <div className="flex flex-wrap gap-1">
+          {chips.map((chip) => (
+            <span
+              key={chip.field.id}
+              className="rounded-full bg-muted px-1.5 py-0.5 text-[10px] text-muted-foreground"
+            >
+              {chip.text}
+            </span>
+          ))}
+        </div>
+      ) : null}
+    </div>
+  );
+}
+
+const CONTENT_ICON: Record<ForgeProjectItem['content']['type'], IconComponent> = {
+  issue: LuCircleDot,
+  pull: LuGitPullRequest,
+  draft: LuNotebookPen,
+};
