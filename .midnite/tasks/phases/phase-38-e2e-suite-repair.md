@@ -177,12 +177,15 @@ but re-run them after A lands before spending any time here.
   - Both confirmed stable over 3 repeated local runs each.
 - [x] **Attempted and reverted, then resolved by Theme I.** Dropping the whole file from
       `KNOWN_RED` verified green at 38/38 locally on macOS — but macOS has a real GPU. CI (a
-      GPU-less Linux runner) surfaced failures in *other* specs entirely unrelated to this theme
-      (`'an agent row carries its own mark and its own accent'`, `'two agents from the same roster
-      get different marks'`, at least a third before the job was cancelled) — exactly the
-      `@xterm/addon-webgl` wall this file's `KNOWN_RED` comment already names. Theme I's
-      DOM-renderer-under-test fallback closes that wall for every terminal spec at once, this file
-      included — see its own "New sighting" item — so the file drops from `KNOWN_RED` there.
+      GPU-less Linux runner, or so it looked) surfaced failures in *other* specs entirely
+      unrelated to this theme (`'an agent row carries its own mark and its own accent'`, `'two
+      agents from the same roster get different marks'`, at least a third before the job was
+      cancelled) — the same wall this file's `KNOWN_RED` comment already named. It was not
+      actually the GPU: Theme I traced it to a `navigator.platform`-driven chord mismatch that
+      kept the terminal panel from ever opening on CI, unrelated to what renders inside it once
+      open. Its fix (pinning the platform in `mock-bridge.ts`) closes that wall for every terminal
+      spec at once, this file included — see its own "New sighting" item — so the file drops from
+      `KNOWN_RED` there.
 
 ### E — Settings, files and tests (S) — ✅ DONE (2026-09-02)
 
@@ -239,7 +242,7 @@ bug, not a fixture issue — the product already distinguishes a failed listing 
 empty one; the shared seeded error text just matched twice, ambiguating an unscoped
 `getByText`.
 
-### G — Monitor, graph and the browser pane (S) — ✅ DONE (2026-09-02)
+### G — Monitor, graph and the browser pane (S) — ◐ PARTIAL (2026-09-02)
 
 The five stragglers, unrelated to each other; batched so they do not each need a slice.
 
@@ -253,16 +256,20 @@ The five stragglers, unrelated to each other; batched so they do not each need a
       `useMetricsStream()` independently, so every real sample was pushed into `useMetricsStore`
       twice — two same-timestamp points per sample, which `cadenceBreaks`'s `previous <= 0` guard
       silently skips rather than draws a rule at. Fixed by sharing one `onSample` subscription
-      across callers via a module-level ref count in `use-metrics-stream.ts`.
-- [x] `graph-themes.spec.ts:264` — the cascade settles once, then never replays on scroll or
-      row recycling. Already green — re-run in isolation, 24/24 passing, apparently fixed by
-      unrelated earlier work (not investigated further; no code change needed here).
-- [x] `graph-themes.spec.ts:479` — each style redraws the graph and persists (times out).
-      Already green, same as above.
+      across callers via a module-level ref count in `use-metrics-stream.ts`. **Confirmed on a real
+      CI run**, not just locally.
+- [ ] `graph-themes.spec.ts:264` — the cascade settles once, then never replays on scroll or
+      row recycling. **A genuine trap, caught only by actually running CI**: green in an isolated
+      local run (24/24, macOS), but a real CI run confirmed it still red on Linux. A local pass
+      cannot be trusted for this one — whatever the difference is (timing under a slower/2-core
+      runner is the leading guess), it is not yet root-caused. Stays in `KNOWN_RED`.
+- [ ] `graph-themes.spec.ts:479` — each style redraws the graph and persists (times out). Not
+      independently confirmed red or green on CI — bundled with `:264` in the same file, which
+      stays ratcheted as a whole until both are actually investigated.
 - [x] `browser-pane.spec.ts:129` — closing the pane restores clicks to the content beneath it
-      immediately, not after the exit transition. Already green, same as above.
-- [x] Drop `footer-monitor.spec.ts`, `graph-themes.spec.ts` and `browser-pane.spec.ts` from
-      `KNOWN_RED`.
+      immediately, not after the exit transition. Green locally **and confirmed on a real CI run**.
+- [x] Drop `footer-monitor.spec.ts` and `browser-pane.spec.ts` from `KNOWN_RED` — **not**
+      `graph-themes.spec.ts`, which a real CI run proved still belongs there.
 
 ### H — Retire the ratchet (S)
 
@@ -285,13 +292,13 @@ becomes a place to hide the next 45.
       check whether CI is green at `retries: 0` over a week of merges and take the tolerance
       back out if it is. A retry allowance nobody revisits is how the next 45 hide.
 
-### I — The terminal does not render on the CI runner (M) — ✅ DONE (2026-09-02)
+### I — The terminal does not render on the CI runner (M) — ◐ PARTIAL (2026-09-02)
 
 Discovered while wiring the job up, and different in kind from every theme above:
 these four specs are **green on macOS and red only on Linux**, so they are not drift. Each
-one mounts a terminal, and xterm paints its rows through `@xterm/addon-webgl`
-([`terminal-view.tsx:363`](../../../packages/app/src/features/terminal/terminal-view.tsx)) — a
-GPU-less runner has no WebGL context to give it, so the terminal never becomes visible.
+one mounts a terminal, and the original diagnosis was xterm's paint step: `@xterm/addon-webgl`
+([`terminal-view.tsx:363`](../../../packages/app/src/features/terminal/terminal-view.tsx)) gets
+no context on a GPU-less runner. **That diagnosis was wrong** — see below.
 
 **Four more joined the list from Theme A.** Un-ratcheting `fab-loops.spec.ts` and
 `terminal-links.spec.ts` ran every one of their specs on the CI runner for the first time, which
@@ -303,80 +310,77 @@ restored FAB session still never reaches the main terminal housing". All four ar
 `@linux-red` in place rather than added to `KNOWN_RED` wholesale, so the rest of each file keeps
 blocking; whatever this theme's fix turns out to be, drop the tag along with the rest.
 
-Two fixes were tried and measured before the specs were ratcheted, so nobody repeats them:
-raising CI's `expect` timeout to 15s **moved nothing** (the failures were never slow, they were
-impossible), and Chromium's SwiftShader software rasteriser
-(`--use-gl=angle --use-angle=swiftshader --enable-unsafe-swiftshader`) **also fixed none of
-them** while making every shard about 60% slower — 7.6 min to 12.1 min — so it was reverted.
+**Two fixes were tried and measured before this batch, both rejected:** raising CI's `expect`
+timeout to 15s **moved nothing** (the failures were never slow, they were impossible), and
+Chromium's SwiftShader software rasteriser **also fixed none of them** while making every shard
+about 60% slower, so it was reverted. **A third was tried and reverted in this batch**: forcing
+xterm's own DOM renderer (skip `WebglAddon` outright) under Playwright degraded gracefully on
+macOS — 38/38 green, forced on — but on the real Linux CI runner it did not just fail to render:
+several terminal specs across every shard **timed out** (60s × 3 retries each), and one shard hit
+the job's 20-minute cap and was **cancelled**. The DOM renderer's per-character-cell layout cost,
+compounding across several sequential terminal mounts on a 2-core runner, is apparently worse
+than SwiftShader's already-rejected software-GPU path.
+
+**The real root cause, found triaging that failure: the terminal panel was never opening on CI
+at all**, for every one of these specs, regardless of which renderer xterm would have used —
+its rendering was never reached. `chord.ts`'s `isMac()` reads `navigator.platform`, which is
+`'MacIntel'` on every real install (`electron-builder.yml` ships macOS only) but genuinely
+`'Linux'` on the CI runner's actual Chromium. On a non-mac platform, `chordFromEvent` treats a
+bare Ctrl press as `Mod`, so `page.keyboard.press('Control+\`')` — every affected spec's own
+`open()` presses exactly this to reveal the panel — resolves to the chord `'Mod+\`'`, which never
+matches `terminal.toggle`'s registered `'Ctrl+\`'` binding
+([`shared/src/keybindings.ts`](../../../packages/shared/src/keybindings.ts)). This is why neither
+of the first two rejected fixes moved anything: neither addressed a failure that happens before
+any rendering is even attempted.
 
 - [x] Establish what SwiftShader actually gave the page — whether `WebglAddon` still threw,
       whether it fell back, or whether the terminal failed for a second reason entirely that the
-      missing context was masking. The two negative results above say the obvious answer is
-      wrong, so start by reading the addon's own failure rather than guessing again.
-  - Not re-investigated directly (no Linux runner available to this session) — reasoned from the
-    two negative results instead: SwiftShader giving every shard a working software GPU context
-    and still fixing nothing means the addon *was* loading and *was* getting a context, so
-    whatever breaks is a post-load painting problem in a headless GPU-less compositor with no
-    macOS-reproducible bug to develop a fix against. That reasoning is what picked the fix below
-    over debugging the addon further.
-- [x] Decide the fix: a DOM-renderer fallback under test (cheap, but then the specs no longer
-      exercise the renderer the app ships), a canvas-addon fallback, a GPU-enabled runner, or
-      moving just these specs to a macOS lane. Each has a real cost — pick deliberately and
-      write down why.
-  - **Chose the DOM-renderer fallback under test.** `terminal-view.tsx` skips loading
-    `WebglAddon` outright when `VITE_MSTUDIO_FORCE_DOM_RENDERER` is set, and
-    `playwright.config.ts`'s `webServer` sets it for every e2e run — local and CI alike, so a
-    developer chasing a terminal spec locally sees the same renderer CI does rather than the
-    WebGL one macOS happens to have. The cost the doc calls out (specs no longer exercise the
-    renderer the app ships) is real and accepted: no e2e spec asserts a drawn glyph, only
-    xterm's own behaviour, and production never sets the flag, so a real user's session still
-    tries WebGL first — powerline glyphs included, per `terminal-view.tsx`'s own docblock.
-- [x] `phase-21-roster.spec.ts:49` — the session list renders 0 rows. Also worth asking whether
-      this spec belongs behind the `MSTUDIO_SHOTS` guard the other screenshot specs use: it
-      writes two committed PNGs, which is not something a Linux runner should be doing.
-  - Green under the forced DOM renderer. The `MSTUDIO_SHOTS` question is still open — not
-    addressed this batch, since the spec already ran cleanly without it.
+      missing context was masking.
+  - **Answered, eventually: neither.** The addon was never reached at all — see the root cause
+    above. The DOM-renderer attempt (tried first, on the WebGL theory) is what surfaced this.
+- [x] Decide the fix: a DOM-renderer fallback under test, a canvas-addon fallback, a GPU-enabled
+      runner, or moving just these specs to a macOS lane.
+  - **None of these — the fix is upstream of rendering entirely.**
+    [`mock-bridge.ts`](../../../packages/app/e2e/mock-bridge.ts)'s `installMockBridge` now pins
+    `navigator.platform` to `'MacIntel'` via `addInitScript`, once, for every spec — so every e2e
+    run sees the one platform this app is ever real on, regardless of what OS actually runs the
+    browser. Reproduced locally by pinning the OTHER way (simulating Linux) and confirming the
+    terminal panel genuinely fails to open without the fix, and opens correctly with it.
+- [x] `phase-21-roster.spec.ts:49` — the session list renders 0 rows.
+  - Green with the platform fix (confirmed locally against the real, unforced WebGL renderer —
+    no DOM-renderer fallback needed at all).
 - [x] `terminal-lazy-preload.spec.ts:73` + `:101` — Phase 36's own specs for the lazy xterm
-      chunk. Losing these to the ratchet means the phase's headline optimisation is unguarded
-      in CI, which makes this the highest-value item in the theme.
+      chunk. Green with the platform fix.
 - [x] `terminal-reveal.spec.ts:45` — revealing a live session replays its buffer with one
-      resize.
-- [x] `reviews.spec.ts:400` — the terminal header under a squeezed detail pane. This one is
-      **tagged `@linux-red` rather than ignored**, because it is the only terminal spec in a
-      ten-spec file; drop the tag rather than editing `KNOWN_RED`.
-- [x] `palette.spec.ts:148` — "Mod+K opens the palette while the terminal has focus". Also
-      `@linux-red`-tagged, and worth noting it was found the hard way: the other nine specs in
-      that file failed on CI for an unrelated reason (a hard-coded `Meta+k`, fixed), and only
-      once those were green did this one stand out as the single spec there that needs a real
-      `.xterm-screen`.
-- [x] `shortcut-rail.spec.ts:261` and `status-bar.spec.ts:149` — a **different** Linux-only
-      cause from the rest of this theme, and the first thing the job caught in anger: both
-      assert a status-bar *density*, which is decided from measured content width, which depends
-      on the fonts installed. The runner's set differs from macOS, so the same viewport lands on
-      the other side of the breakpoint (`compact` where macOS gives `full`). Fix by pinning the
-      viewport to a width that is unambiguous on both, or by asserting the breakpoint against a
-      measured width rather than a hard-coded one — not by widening the timeout, which cannot
-      help. Both are Phase 39's own specs, tagged `@linux-red` within hours of it landing.
-  - **Chose "assert against a measured width."** `status-bar-density.ts` (new) reads the same
-    `fullWidth`/`compactWidth` numbers `use-overflow.ts` decides against, from the test itself —
-    though not by replaying that hook's own read verbatim: at a wide test viewport nothing
-    overflows the bar regardless of density, so `scrollWidth` just echoes `clientWidth` and the
-    two numbers come back identical. Forcing the element down to `1px` first manufactures the
-    overflow unconditionally, which is what makes the read meaningful from a viewport that was
-    never actually narrow. See the file's own doc comment for the full reasoning.
+      resize. Green with the platform fix.
+- [x] `reviews.spec.ts:400` — the terminal header under a squeezed detail pane. Green with the
+      platform fix; tag dropped rather than the whole file added to `KNOWN_RED`, since it is the
+      only terminal spec in a ten-spec file.
+- [x] `palette.spec.ts:148` — "Mod+K opens the palette while the terminal has focus". Green with
+      the platform fix.
+- [ ] `shortcut-rail.spec.ts:261` and `status-bar.spec.ts:149` — a **different, still-open**
+      Linux-only cause from the rest of this theme: both assert a status-bar *density*, decided
+      from measured content width, which depends on the fonts installed. An attempted fix
+      (`status-bar-density.ts`, reading the real breakpoint from the DOM at test time instead of
+      a hard-coded pixel guess) was tried and reverted — it addressed a LATER assertion in each
+      spec, but the real CI run failed on an EARLIER one (that the fixture starts in `full`
+      density at all), which a real-GPU macOS run does not exercise the same way. Both stay
+      `@linux-red`.
 - [x] **New sighting (PR #47, 2026-09-02): `terminal.spec.ts` joined this theme's scope, not just
       Theme D's.** Theme D fixed its own two named specs (both spec races) and tried dropping the
       whole file from `KNOWN_RED` — verified 38/38 green on macOS, then reverted once CI failed on
       `'an agent row carries its own mark and its own accent'`, `'two agents from the same roster
-      get different marks'` and at least a third before the job was cancelled. These turned out to
-      be the same WebGL wall as this theme's other four, not a new fault — the DOM-renderer fallback
-      above fixes them along with everything else that mounts a real xterm, verified by running the
-      full file locally with the fallback forced on (see the `KNOWN_RED` entry below).
+      get different marks'` and at least a third before the job was cancelled. These were the same
+      chord-mismatch wall as this theme's other five, not a new fault — `terminal.spec.ts`'s own
+      `open()` presses `Control+\`` too. Fixed by the same platform pin; verified by running the
+      full file (38 specs) locally against the real, unforced renderer.
 - [x] Drop `phase-21-roster.spec.ts`, `terminal-lazy-preload.spec.ts`, `terminal-reveal.spec.ts`
-      **and `terminal.spec.ts` itself** from `KNOWN_RED`.
-  - **`grepInvert` stays** — `titlebar-agents.spec.ts` and `panel-snap.spec.ts` still carry
-    `@linux-red` tags this theme does not own (not enumerated above, not investigated this
-    batch), so removing it is not yet safe.
+      **and `terminal.spec.ts` itself** from `KNOWN_RED`, and the `@linux-red` tag from all six
+      affected specs across `fab-loops.spec.ts`, `terminal-links.spec.ts`, `reviews.spec.ts` and
+      `palette.spec.ts`.
+  - **`grepInvert` stays** — `shortcut-rail.spec.ts`/`status-bar.spec.ts` (above) and
+    `titlebar-agents.spec.ts`/`panel-snap.spec.ts` (not enumerated above, not investigated) still
+    carry `@linux-red` tags, so removing it is not yet safe.
 
 ## Files this phase touches
 
