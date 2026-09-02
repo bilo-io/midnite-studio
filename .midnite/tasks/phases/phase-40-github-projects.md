@@ -74,9 +74,9 @@ The spine every other theme reads off; lands first, and Phase 41 consumes it unc
 - [x] `forge-project.test.ts`: schema round-trips, a `single_select` value whose option id is no
       longer in the field's option list still parses, one malformed item does not cost the page.
 
-### B — ProjectV2 reads (M)
+### B — ProjectV2 reads (M) — ✅ DONE (PR #38, 2026-09-02)
 
-- [ ] `listProjects(owner, repo)` in a new
+- [x] `listProjects(owner, repo)` in a new
       [`forge/gh-project.ts`](../../../packages/desktop/src/main/forge/gh-project.ts) — the boards
       visible to the repo owner, via `gh api graphql`. Crib the query shapes from
       `~/Dev/midnite/packages/gateway/src/github/lib/github-projects-queries.ts` (**verified to
@@ -94,7 +94,7 @@ The spine every other theme reads off; lands first, and Phase 41 consumes it unc
   - Note `gh-graphql.ts`'s docblock argues for its own singularity — *"the one GraphQL read in the
     app, and why it has to be one"*. Adding a whole ProjectV2 surface widens that deliberately;
     a new `gh-project.ts` keeps the widening in its own file rather than swelling that one.
-- [ ] `projectFields(projectId)` and `projectItems(projectId, cursor)` — items paginated at 100 per
+- [x] `projectFields(projectId)` and `projectItems(projectId, cursor)` — items paginated at 100 per
       page with cursor follow-through, capped at a documented ceiling so a 5 000-item board cannot
       hang the view.
   - Ceiling: **1 000 items** (10 pages). Past it, stop and return `truncated: true` — and
@@ -103,7 +103,7 @@ The spine every other theme reads off; lands first, and Phase 41 consumes it unc
   - Each page is a separate `gh` subprocess through a login shell. Ten of them serially at
     `LIST_TIMEOUT_MS` each is a worst case worth stating: fetch pages **sequentially** (a cursor
     forces it anyway) and surface progress rather than blocking silently.
-- [ ] Owner resolution: a repo's owner may be a `user` **or** an `organization`, and the ProjectV2
+- [x] Owner resolution: a repo's owner may be a `user` **or** an `organization`, and the ProjectV2
       root field differs. Probe once, cache the answer per owner — this is the single most common
       cause of an empty-looking projects list.
   - Concretely: `organization(login:$owner){projectsV2(first:20){…}}` versus
@@ -123,7 +123,7 @@ The spine every other theme reads off; lands first, and Phase 41 consumes it unc
     docblock warns that without it the org half *"returns the personal boards only rather than
     failing"*. If Theme B keeps any `viewer.organizations` path, the missing-scope state must cover
     `read:org` as well as `read:project`, and the Theme D copy must name both.
-- [ ] Parsers in `gh-project.ts` (or extend
+- [x] Parsers in `gh-project.ts` (or extend
       [`gh-parse.ts`](../../../packages/desktop/src/main/forge/gh-parse.ts)) that flatten GraphQL's
       `fieldValues.nodes[]` — a heterogeneous list of `ProjectV2ItemFieldTextValue`,
       `…SingleSelectValue`, etc. — into the flat `Record<fieldId, ForgeProjectFieldValue>` the
@@ -139,7 +139,7 @@ The spine every other theme reads off; lands first, and Phase 41 consumes it unc
   - `parseJobs` (`gh-parse.ts:407`) is the canonical shape to copy: narrow to
     `Record<string, unknown>`, coerce through the `asString`/`asId`/`asTimestamp` helpers, then
     per-element `safeParse`.
-- [ ] Scope detection: recognise the `INSUFFICIENT_SCOPES` / `read:project` GraphQL error and
+- [x] Scope detection: recognise the `INSUFFICIENT_SCOPES` / `read:project` GraphQL error and
       return it as a distinct `kind`, not a generic failure string.
   - **Put it on the Projects result, not on `ForgeCliStatus`.** That enum is
     `z.enum(['ready', 'not-installed', 'not-authenticated'])`
@@ -157,7 +157,7 @@ The spine every other theme reads off; lands first, and Phase 41 consumes it unc
     [`gh-write.ts:218`](../../../packages/desktop/src/main/forge/gh-write.ts) gives for writes:
     *"the commonest cause of a refused write is a token that has expired or lost a scope, and the
     next `ghStatus()` should find that out rather than serve a cached `ready`."*
-- [ ] Do **not** cache in main. Let react-query own staleness.
+- [x] Do **not** cache in main. Let react-query own staleness.
   - **Correction: the cited precedent does not exist and would not transfer.** There is no
     `gh-cache.ts` module —
     [`gh-cache.test.ts`](../../../packages/desktop/src/main/forge/gh-cache.test.ts) tests
@@ -178,7 +178,7 @@ The spine every other theme reads off; lands first, and Phase 41 consumes it unc
     boards twice and invalidate independently. Another reason to leave caching to react-query, whose
     keys this phase controls.
 
-- [ ] Fetch boards and items **sequentially**, and never per-row.
+- [x] Fetch boards and items **sequentially**, and never per-row.
   - There is **no rate-limit handling and no concurrency ceiling anywhere in the forge layer** —
     `runInShell` spawns unconditionally, and the only backpressure is a per-call timeout
     (`LIST_TIMEOUT_MS = 20_000`). `SEARCH_CEILING = 4` exists but is streaming-search-specific and
@@ -190,17 +190,17 @@ The spine every other theme reads off; lands first, and Phase 41 consumes it unc
   - Nothing in this app reads GitHub's `X-RateLimit-*` headers or the GraphQL `rateLimit` field.
     Caching is the de facto strategy, which is another reason Theme D's `enabled` gating matters.
 
-### C — IPC + query layer (S)
+### C — IPC + query layer (S) — ✅ DONE (PR #38, 2026-09-02)
 
-- [ ] [`ipc/forge-project-handlers.ts`](../../../packages/desktop/src/main/ipc/forge-project-handlers.ts),
+- [x] [`ipc/forge-project-handlers.ts`](../../../packages/desktop/src/main/ipc/forge-project-handlers.ts),
       registered next to [`forge-handlers.ts`](../../../packages/desktop/src/main/ipc/forge-handlers.ts)
       and wrapped by the shared [`handle.ts`](../../../packages/desktop/src/main/ipc/handle.ts).
-- [ ] Preload exposure on `window.midniteStudio` per the bridge type from Theme A.
-- [ ] Validate every GraphQL node id at the schema boundary, reusing the existing validator verbatim:
+- [x] Preload exposure on `window.midniteStudio` per the bridge type from Theme A.
+- [x] Validate every GraphQL node id at the schema boundary, reusing the existing validator verbatim:
       `z.string().min(1).max(256).regex(/^[A-Za-z0-9_=-]+$/, 'a node id is url-safe base64')` from
       [`ForgeResolveThreadRequest`](../../../packages/shared/src/ipc/schemas.ts) (`schemas.ts:572`).
       `projectId`, `itemId`, `fieldId` and `optionId` are all node ids and all reach a shell command.
-- [ ] react-query key factory entries in
+- [x] react-query key factory entries in
       [`services/queries.ts`](../../../packages/app/src/services/queries.ts):
       `forgeProjects(repoId)`, `forgeProjectFields(projectId)`, `forgeProjectItems(projectId)` —
       keyed so Theme E's mutations can invalidate precisely one board, not the whole forge.
@@ -216,15 +216,15 @@ The spine every other theme reads off; lands first, and Phase 41 consumes it unc
   - *Acceptance:* an RTL test asserts opening the Projects view with no board selected issues
     **zero** item fetches.
 
-### D — The Projects view (M)
+### D — The Projects view (M) — ✅ DONE (PR #38, 2026-09-02)
 
-- [ ] `projects` added to the `ViewId` union and `VIEW_IDS` in
+- [x] `projects` added to the `ViewId` union and `VIEW_IDS` in
       [`ui-store.ts`](../../../packages/app/src/store/ui-store.ts) — **union order encodes rail
       order**, so it goes between `reviews` and `councils`.
   - **The cited line numbers were stale.** The union is at **`:51`** and `VIEW_IDS` at **`:66`**;
     `:46` is a comment and `:61` is `| 'workflows'`. The file grew by five lines after this doc was
     written — [Phase 43](phase-43-workflows-mvp.md) carried the identical drift.
-- [ ] **A new `ViewId` touches eight files, not two.** Every one is a `Record` over the union or an
+- [x] **A new `ViewId` touches eight files, not two.** Every one is a `Record` over the union or an
       enumerated test, so each is a typecheck or suite failure until added — but discovering them
       one red run at a time wastes an hour:
 
@@ -239,9 +239,9 @@ The spine every other theme reads off; lands first, and Phase 41 consumes it unc
       | [`sidebar-page.tsx:34`](../../../packages/app/src/features/settings/settings-pages/sidebar-page.tsx) | Settings → Sidebar toggle |
       | [`view-sections.ts:182`](../../../packages/app/src/features/repos/view-sections.ts) | `VIEW_FILTERS` entry |
 
-- [ ] `VIEW_ICON.projects` in [`nav-icons.ts`](../../../packages/app/src/components/nav-icons.ts),
+- [x] `VIEW_ICON.projects` in [`nav-icons.ts`](../../../packages/app/src/components/nav-icons.ts),
       from `react-icons` — never `lucide-react`, which eslint blocks.
-- [ ] Lazy `loadProjectsView` import and a render branch in
+- [x] Lazy `loadProjectsView` import and a render branch in
       [`app.tsx`](../../../packages/app/src/app.tsx), under the existing Suspense boundary — Phase
       36 Theme C's lazy-view rule is a budget, not a suggestion.
   - Exact form, copying `app.tsx:102`:
@@ -250,11 +250,11 @@ The spine every other theme reads off; lands first, and Phase 41 consumes it unc
   - The arm goes **after** the `!selectedRepoId` guard (`app.tsx:961`), unlike `councils` — Projects
     is repo-scoped, so `<EmptyWorkspace />` is the correct thing to show with no repo open.
   - One shared `<Suspense>` already wraps all thirteen views; do not add a second.
-- [ ] `'projects'` added to `FORGE_GATED_VIEWS` at [`app.tsx:274`](../../../packages/app/src/app.tsx)
+- [x] `'projects'` added to `FORGE_GATED_VIEWS` at [`app.tsx:274`](../../../packages/app/src/app.tsx)
       (**the doc's `:271` was stale by +3**),
       so a repo with no resolvable remote hides the rail item and redirects rather than showing an
       empty board picker.
-- [ ] `features/projects/projects-view.tsx` — a board picker (remembering the last board per repo)
+- [x] `features/projects/projects-view.tsx` — a board picker (remembering the last board per repo)
       above an item table: title, type glyph, assignees, and one column per non-hidden project
       field.
   - "Remembering the last board per repo" is `Record<repoId, projectId>` in the ui-store, added to
@@ -267,7 +267,7 @@ The spine every other theme reads off; lands first, and Phase 41 consumes it unc
   - Virtualise the table past **50 rows**, using the variable-height recipe
     (`estimateSize` + `measureElement`) from
     [`diff-view.tsx:157`](../../../packages/app/src/features/diff/diff-view.tsx); house `overscan` is 24.
-- [ ] Empty, loading and error states, including the **missing-scope** state from Theme B with the
+- [x] Empty, loading and error states, including the **missing-scope** state from Theme B with the
       `gh auth refresh -s project` command shown verbatim and copyable.
   - Five distinct states, each with literal copy so they are not re-invented: no repo remote
     (handled by the gate, never rendered) · **no boards for this owner** (*"This owner has no

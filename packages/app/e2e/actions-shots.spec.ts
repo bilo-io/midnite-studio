@@ -1,6 +1,6 @@
 import { expect, test, type Page } from '@playwright/test';
 import { fixtures } from './fixtures';
-import { installMockBridge, type MockFixtures } from './mock-bridge';
+import { clickRailLink, installMockBridge, type MockFixtures } from './mock-bridge';
 
 /**
  * The committed screenshots for Phase 19 Theme E.
@@ -79,7 +79,7 @@ async function land(page: Page): Promise<void> {
   await installMockBridge(page, data);
   await page.goto('/');
   await expect(page.getByRole('heading', { name: 'Worktrees' })).toBeVisible();
-  await page.getByRole('link', { name: 'Actions' }).click();
+  await clickRailLink(page, 'Actions');
   await expect(page.getByRole('list', { name: 'Workflow runs' })).toBeVisible();
   await page.waitForTimeout(1200);
 }

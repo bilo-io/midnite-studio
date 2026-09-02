@@ -2,6 +2,38 @@
 
 <!-- Append one entry per landed phase/PR: date, phase, PR link, one-line summary. -->
 
+## 2026-09-02 — Phase 40 Themes B, C, D — GitHub Projects reads, IPC and the table view
+
+[PR #38](https://github.com/bilo-io/midnite-studio/pull/38). Continues Theme A's contracts
+(PR #23) with the read path Phase 41 (Agentic Kanban) is hard-blocked on.
+
+- [x] **Theme B — ProjectV2 reads**: `gh-project.ts`'s `listProjects`/`projectFields`/
+      `projectItems` through `gh api graphql` (no REST endpoint exists for ProjectV2). Owner
+      resolution via `repositoryOwner(login:)` — one query, one round trip, answers for both
+      user- and org-owned boards, over the alternative of probing which kind the owner is and
+      caching that answer. `fieldValues.nodes`' heterogeneous union parsed one element at a
+      time so an unrecognised node type drops that field, never the item. Added
+      `ForgeProjectReadKind` (`'ok' | 'insufficient-scope' | 'error'`) to Theme A's read-result
+      envelopes, kept off `ForgeCliStatus` deliberately — a missing `read:project` scope is
+      feature-scoped, not CLI-global, and that enum is read by ten other files.
+- [x] **Theme C — IPC + query layer**: `forge-project-handlers.ts` (read-only — the two write
+      channels reject with "no handler registered" until Theme E), every GraphQL node id
+      validated at the schema boundary before it reaches a shell command. Found and fixed a gap
+      in that boundary while resuming this work: `ForgeProjectItemsRequest.cursor` had no
+      charset restriction, so a cursor carrying shell metacharacters reached `projectItems`
+      unrejected — closed with the same url-safe-base64 regex the node-id fields already use.
+      Query keys in `queries.ts` (repo-scoped for the board list, un-prefixed for
+      fields/items — a board belongs to an owner, not a repo), every read `enabled`-gated on
+      the view being open, `staleTime: FORGE_STALE_MS`, no caching in main.
+- [x] **Theme D — the Projects view**: `projects-view.tsx`, the full eight-file `ViewId`
+      checklist, `FORGE_GATED_VIEWS` entry, a virtualized item table (the `diff-view.tsx`
+      `estimateSize`/`measureElement` recipe), five named empty/loading/error/missing-scope
+      states, a header slot reserved for Phase 41's `[ Table | Board ]` toggle, and
+      `projectBoardByRepo` persisted per repo (`Pick<>` union, no version bump).
+
+Field writes (Theme E) and the remaining wiring/verification (F, G — including the two
+human-only passes the phase doc itself calls out) are left for follow-up PRs.
+
 ## 2026-09-02 — Phase 39 Theme G — density×state shots + perf numbers
 
 [PR #33](https://github.com/bilo-io/midnite-studio/pull/33). Closes the theme PR #7 deliberately

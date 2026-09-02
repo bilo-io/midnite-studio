@@ -1,7 +1,7 @@
 import { expect, test, type Page } from '@playwright/test';
 
 import { fixtures } from './fixtures';
-import { installMockBridge, type MockFixtures } from './mock-bridge';
+import { clickRailLink, installMockBridge, type MockFixtures } from './mock-bridge';
 
 /**
  * The Files view (Phase 16): lazy tree, gitignore dimming, and the read-only
@@ -75,7 +75,7 @@ const filesFixtures: MockFixtures = {
 async function openFiles(page: Page): Promise<void> {
   await installMockBridge(page, filesFixtures);
   await page.goto('/');
-  await page.getByRole('link', { name: 'Files' }).click();
+  await clickRailLink(page, 'Files');
   await expect(page.getByRole('tree', { name: 'Files' })).toBeVisible();
 }
 

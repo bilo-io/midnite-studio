@@ -684,10 +684,19 @@ export const ForgeProjectFieldsResponse = ForgeProjectFieldsResultSchema;
  * `cursor` is omitted for the first page and echoed back from
  * `ForgeProjectItemsResult.nextCursor` for every page after — the same
  * opaque-cursor pattern GraphQL pagination always takes, never an offset.
+ * Bounded by the same reasoning as `ProjectNodeId`: it is opaque base64-ish
+ * text this app cannot otherwise validate, and it reaches a `gh api graphql`
+ * argument, so the boundary confines its character set rather than trusting
+ * `shellQuote` alone to be the only line of defense.
  */
 export const ForgeProjectItemsRequest = z.object({
   projectId: ProjectNodeId,
-  cursor: z.string().min(1).optional(),
+  cursor: z
+    .string()
+    .min(1)
+    .max(1024)
+    .regex(/^[A-Za-z0-9+/_=-]+$/, 'a cursor is url-safe base64')
+    .optional(),
 });
 export const ForgeProjectItemsResponse = ForgeProjectItemsResultSchema;
 

@@ -1,7 +1,7 @@
 import { expect, test, type Page } from '@playwright/test';
 
 import { fixtures } from './fixtures';
-import { installMockBridge, type MockFixtures } from './mock-bridge';
+import { clickRailLink, installMockBridge, type MockFixtures } from './mock-bridge';
 
 /**
  * The committed screenshots for Phase 29 (Themes A-D): the Files-preview
@@ -36,7 +36,7 @@ const data: MockFixtures = {
 async function openFile(page: Page): Promise<void> {
   await installMockBridge(page, data);
   await page.goto('/');
-  await page.getByRole('link', { name: 'Files' }).click();
+  await clickRailLink(page, 'Files');
   await page.getByRole('treeitem', { name: /README\.md/ }).click();
   await expect(page.getByText('A short deck to present.')).toBeVisible();
 }

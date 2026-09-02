@@ -1,4 +1,4 @@
-import type { Page } from '@playwright/test';
+import { expect, type Page } from '@playwright/test';
 
 /**
  * A stand-in for the preload bridge, installed before any app code runs.
@@ -2098,4 +2098,26 @@ export async function installMockBridge(page: Page, fixtures: MockFixtures): Pro
       for (const handler of metricsHandlers) handler(sample);
     };
   }, fixtures);
+}
+
+/**
+ * Click a rail link safely.
+ *
+ * The rail is collapsed to icons until hovered, so a plain `.click()` races
+ * its own hover-expand reflow: the pointer lands on the collapsed icon's
+ * centre, the resulting `mouseenter` starts the rail growing to show labels,
+ * and by the time `mousedown`/`mouseup` land at that same fixed screen point
+ * the link has reflowed out from under it — onto whatever now occupies that
+ * pixel, never onto the link. No amount of waiting *after* a click that never
+ * reached its target can recover it. Hovering first and waiting for the
+ * link's own expanded label to render turns "wait out the race" into a real,
+ * observable precondition — `changes-panel.spec.ts`'s `clickChangesNav`
+ * carried this fix first; this is the same fix promoted so every spec
+ * navigating the rail shares one implementation instead of re-discovering it.
+ */
+export async function clickRailLink(page: Page, name: string): Promise<void> {
+  const link = page.getByRole('link', { name, exact: true });
+  await link.hover();
+  await expect(link.getByText(name, { exact: true })).toBeVisible();
+  await link.click();
 }

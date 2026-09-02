@@ -1,7 +1,7 @@
 import { expect, test, type Page } from '@playwright/test';
 
 import { fixtures } from './fixtures';
-import { installMockBridge, type MockFixtures } from './mock-bridge';
+import { clickRailLink, installMockBridge, type MockFixtures } from './mock-bridge';
 
 /**
  * The rail as the app's table of contents, and the sidebar it reshapes.
@@ -85,6 +85,9 @@ async function open(page: Page, data: MockFixtures = base): Promise<void> {
 
 const rail = (page: Page, name: string) => page.getByRole('link', { name, exact: true });
 
+/** See `clickRailLink` in `mock-bridge.ts` for why a plain `.click()` races the rail's own hover-expand. */
+const clickRail = clickRailLink;
+
 /**
  * Scoped to the repositories sidebar, because the view panes reuse these words.
  *
@@ -100,7 +103,7 @@ const heading = (page: Page, name: string) =>
 const section = (page: Page, name: string) =>
   panel(page).getByRole('button', { name: new RegExp(`^${name}( \\d+)?$`) });
 
-test('the rail carries all twelve views, Dashboard ungrouped above the rest', async ({ page }) => {
+test('the rail carries all thirteen views, Dashboard ungrouped above the rest', async ({ page }) => {
   await open(page);
 
   for (const label of [
@@ -112,6 +115,7 @@ test('the rail carries all twelve views, Dashboard ungrouped above the rest', as
     'Changes',
     'Actions',
     'Reviews',
+    'Projects',
     'History',
     'Councils',
     'Workflows',
@@ -149,6 +153,7 @@ test('the rail carries all twelve views, Dashboard ungrouped above the rest', as
     '/changes',
     '/actions',
     '/reviews',
+    '/projects',
     '/history',
     '/councils',
     '/workflows',
@@ -160,7 +165,7 @@ test('each view is reachable and none of them answers as the graph', async ({ pa
   await open(page);
 
   for (const label of ['Dashboard', 'Files', 'Changes', 'Actions', 'Tests', 'Reviews', 'Graph']) {
-    await rail(page, label).click();
+    await clickRail(page, label);
     await expect(rail(page, label)).toHaveAttribute('aria-current', 'page');
   }
 });
@@ -183,7 +188,7 @@ test('Actions and Reviews are absent for a repository gh could never answer for'
 
 test('the Actions view narrows the sidebar to Actions and Worktrees', async ({ page }) => {
   await open(page);
-  await rail(page, 'Actions').click();
+  await clickRail(page, 'Actions');
 
   // Its own section, and the checkout context every view needs.
   await expect(heading(page, 'Actions')).toBeVisible();
@@ -204,7 +209,7 @@ test('the view section is collapsed on arrival; Worktrees is open', async ({ pag
   // Opening Actions costs a subprocess plus a rate-limited API call, which is
   // why Phase 17 closed it — entering the view must not spend that unasked.
   await open(page);
-  await rail(page, 'Actions').click();
+  await clickRail(page, 'Actions');
 
   await expect(section(page, 'Actions')).toHaveAttribute('aria-expanded', 'false');
   await expect(section(page, 'Worktrees')).toHaveAttribute('aria-expanded', 'true');
@@ -212,7 +217,7 @@ test('the view section is collapsed on arrival; Worktrees is open', async ({ pag
 
 test('Show all sections is the escape hatch, and it persists', async ({ page }) => {
   await open(page);
-  await rail(page, 'Actions').click();
+  await clickRail(page, 'Actions');
   await expect(heading(page, 'Local')).toHaveCount(0);
 
   // Wanting a branch mid-triage must not be a reason to leave the view.
@@ -225,11 +230,11 @@ test('Show all sections is the escape hatch, and it persists', async ({ page }) 
   await expect(heading(page, 'Reviews')).toBeVisible();
 
   // Per-view, so it did not also unfilter Changes.
-  await rail(page, 'Changes').click();
+  await clickRail(page, 'Changes');
   await expect(heading(page, 'Local')).toHaveCount(0);
 
   // And it is the shape the user arranged the sidebar into, so it survives.
-  await rail(page, 'Actions').click();
+  await clickRail(page, 'Actions');
   await expect(heading(page, 'Local')).toBeVisible();
   await page.reload();
   await expect(heading(page, 'Worktrees')).toBeVisible();
@@ -240,7 +245,7 @@ test('the Changes filter still behaves as Phase 17 shipped it', async ({ page })
   // Folding it into the view table must not change what it does or what it is
   // called — this is the accessible name users have been reading since.
   await open(page);
-  await rail(page, 'Changes').click();
+  await clickRail(page, 'Changes');
 
   const toggle = page.getByRole('button', { name: 'Showing only changed checkouts' });
   await expect(toggle).toHaveAttribute('aria-pressed', 'true');
@@ -275,7 +280,7 @@ test('switching views keeps the checkout you were looking at', async ({ page }) 
   await row.click();
 
   for (const label of ['Files', 'Actions', 'Tests', 'Dashboard', 'Graph']) {
-    await rail(page, label).click();
+    await clickRail(page, label);
     await expect(page.getByRole('button', { name: /Actions for worktree feature\/x/ })).toBeVisible();
   }
 
@@ -295,7 +300,7 @@ test('switching views keeps the checkout you were looking at', async ({ page }) 
 
 test('standing in Actions when it disappears lands you on the graph', async ({ page }) => {
   await open(page);
-  await rail(page, 'Actions').click();
+  await clickRail(page, 'Actions');
   await expect(rail(page, 'Actions')).toHaveAttribute('aria-current', 'page');
 
   // A repo whose remotes gh cannot speak for takes the item away; leaving the

@@ -1,7 +1,7 @@
 import { expect, test } from '@playwright/test';
 
 import { fixtures } from './fixtures';
-import { installMockBridge, type MockFixtures } from './mock-bridge';
+import { clickRailLink, installMockBridge, type MockFixtures } from './mock-bridge';
 
 /**
  * Agent councils (Phase 34), assembled.
@@ -29,7 +29,7 @@ async function open(page: import('@playwright/test').Page, data: MockFixtures = 
     race here.
   */
   await expect(async () => {
-    await page.getByRole('link', { name: 'Councils' }).click();
+    await clickRailLink(page, 'Councils');
     await expect(page.getByRole('button', { name: 'New council' })).toBeVisible({ timeout: 500 });
   }).toPass({ timeout: 5000 });
 }

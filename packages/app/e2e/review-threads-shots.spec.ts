@@ -1,7 +1,7 @@
 import { expect, test, type Page } from '@playwright/test';
 
 import { fixtures } from './fixtures';
-import { installMockBridge, type MockFixtures } from './mock-bridge';
+import { clickRailLink, installMockBridge, type MockFixtures } from './mock-bridge';
 
 /**
  * The committed screenshots for Phase 20 Theme E.
@@ -220,7 +220,7 @@ async function openThreads(page: Page): Promise<void> {
   */
   await page.getByRole('link', { name: 'Reviews' }).hover();
   await page.waitForTimeout(800);
-  await page.getByRole('link', { name: 'Reviews' }).click();
+  await clickRailLink(page, 'Reviews');
 
   /*
     The three scopes arrive folded and fetch nothing until one is opened, so the

@@ -1,7 +1,7 @@
 import { expect, test, type Page } from '@playwright/test';
 
 import { fixtures } from './fixtures';
-import { installMockBridge, type MockFixtures } from './mock-bridge';
+import { clickRailLink, installMockBridge, type MockFixtures } from './mock-bridge';
 
 /**
  * Phase 29: a fullscreen slide deck, one press away, over markdown a surface
@@ -37,7 +37,7 @@ const slidesFixtures: MockFixtures = {
 async function openReadmeDeck(page: Page) {
   await installMockBridge(page, slidesFixtures);
   await page.goto('/');
-  await page.getByRole('link', { name: 'Files' }).click();
+  await clickRailLink(page, 'Files');
   await page.getByRole('treeitem', { name: /README\.md/ }).click();
   await expect(page.getByText('A short deck to present.')).toBeVisible();
   await page.getByRole('button', { name: 'Present as slides' }).click();

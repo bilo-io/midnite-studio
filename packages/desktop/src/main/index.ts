@@ -16,6 +16,7 @@ import { registerClaudeHandlers } from './ipc/claude-handlers';
 import { registerCouncilHandlers } from './ipc/council-handlers';
 import { configureDiagnostics, registerDiagHandlers } from './ipc/diag-handlers';
 import { registerForgeHandlers } from './ipc/forge-handlers';
+import { registerForgeProjectHandlers } from './ipc/forge-project-handlers';
 import { registerFsHandlers } from './ipc/fs-handlers';
 import { registerFsSearchHandlers } from './ipc/fs-search-handlers';
 import { registerFsWriteHandlers } from './ipc/fs-write-handlers';
@@ -229,6 +230,7 @@ if (!app.requestSingleInstanceLock()) {
     registerRemoteHandlers();
     registerClipboardHandlers();
     registerForgeHandlers();
+    registerForgeProjectHandlers();
     registerDiagHandlers();
     registerTestsHandlers(getWindow);
     registerPtyHandlers(getWindow);
