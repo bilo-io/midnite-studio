@@ -37,11 +37,11 @@ Completed work is logged append-only in [`done.md`](done.md). Deferred scope liv
 
 | Phase | Status | Refined | Done | Progress | % | 🔄 WIP | ◻ TODO |
 |-------|--------|---------|------|----------|---|--------|--------|
-| [49 · Onboarding a repo: Setup and Update](phases/phase-49-repo-onboarding.md) | ◻ TODO | — | 0/30 | `░░░░░░░░░░` | 0% | — | A B C D E |
-| [48 · Apply suggested-change blocks](phases/phase-48-apply-suggested-changes.md) | ◻ TODO | — | 0/20 | `░░░░░░░░░░` | 0% | — | A B C D E |
+| [49 · Onboarding a repo: Setup and Update](phases/phase-49-repo-onboarding.md) | 🔄 WIP | — | 0/30 | `░░░░░░░░░░` | 0% | A | B C D E |
+| [48 · Apply suggested-change blocks](phases/phase-48-apply-suggested-changes.md) | 🔄 WIP | — | 0/20 | `░░░░░░░░░░` | 0% | A | B C D E |
 | [47 · Conflict Resolution Studio](phases/phase-47-conflict-resolution-studio.md) | ◻ TODO | — | 0/23 | `░░░░░░░░░░` | 0% | — | A B C D E F |
 | [46 · The lock screen, and a motion policy that holds](phases/phase-46-lock-screen-and-motion.md) | ◻ TODO | — | 0/37 | `░░░░░░░░░░` | 0% | — | A B C D E F G |
-| [45 · The leak audit](phases/phase-45-leak-audit.md) | 🔄 WIP | — | 21/35 | `██████░░░░` | 60% | — | E F |
+| [45 · The leak audit](phases/phase-45-leak-audit.md) | 🔄 WIP | — | 21/35 | `██████░░░░` | 60% | E F | — |
 | [44 · Video Studio](phases/phase-44-video-studio.md) | ◻ TODO | — | 0/64 | `░░░░░░░░░░` | 0% | — | A B C D E F G H |
 | [43 · Workflows](phases/phase-43-workflows-mvp.md) | ◻ TODO | x1 | 0/77 | `░░░░░░░░░░` | 0% | — | A B C D E F G H I |
 | [42 · Councils, rearranged](phases/phase-42-councils-layout.md) | 🔄 WIP | x1 | 30/44 | `███████░░░` | 68% | E F | — |
@@ -64,7 +64,7 @@ Completed work is logged append-only in [`done.md`](done.md). Deferred scope liv
 | [25 · Search everywhere, and the blame that explains it](phases/phase-25-search-everywhere.md) | ✅ DONE | x1 | 101/101 | `██████████` | 100% | — | — |
 | [24 · The explorer learns to write, and to search](phases/phase-24-writable-explorer.md) | ✅ DONE | — | 43/55 | `████████░░` | 78% | — | — |
 | [23 · A command palette, and the registry that can feed it](phases/phase-23-command-palette.md) | ✅ DONE | — | 42/55 | `████████░░` | 76% | — | — |
-| [22 · Stash, the reflog, and writes you can take back](phases/phase-22-stash-and-safety-net.md) | 🔄 WIP | — | 18/56 | `███░░░░░░░` | 32% | — | B C D E F G H (partial) |
+| [22 · Stash, the reflog, and writes you can take back](phases/phase-22-stash-and-safety-net.md) | 🔄 WIP | — | 18/56 | `███░░░░░░░` | 32% | B E F G | C D H (partial) |
 | [21 · Agent roster + terminal identity](phases/phase-21-agent-roster-and-terminal-identity.md) | ✅ DONE | — | 46/46 | `██████████` | 100% | — | — |
 | [20 · Reviews page & unified diff syntax highlighting](phases/phase-20-reviews-page.md) | ✅ DONE | — | 45/45 | `██████████` | 100% | — | — |
 | [19 · Dashboard, Actions and Tests as views](phases/phase-19-dashboard-actions-tests.md) | ✅ DONE | — | 76/76 | `██████████` | 100% | — | — |
