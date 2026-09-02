@@ -128,6 +128,10 @@ export const ForgeProjectItemContentSchema = z.discriminatedUnion('type', [
     state: ForgeIssueStateSchema,
     /** Logins, in the order the forge listed them. Empty means unassigned. */
     assignees: z.array(z.string()).default([]),
+    /** Markdown body. Empty when withheld or blank. */
+    body: z.string().default(''),
+    /** Names only — Phase 41 Theme G's card composer is the only reader. */
+    labels: z.array(z.string()).default([]),
   }),
   z.object({
     type: z.literal('pull'),
@@ -137,6 +141,8 @@ export const ForgeProjectItemContentSchema = z.discriminatedUnion('type', [
     url: z.string(),
     state: ForgePullStateSchema,
     assignees: z.array(z.string()).default([]),
+    body: z.string().default(''),
+    labels: z.array(z.string()).default([]),
   }),
   z.object({
     type: z.literal('draft'),
@@ -144,6 +150,7 @@ export const ForgeProjectItemContentSchema = z.discriminatedUnion('type', [
     id: z.string(),
     title: z.string(),
     assignees: z.array(z.string()).default([]),
+    body: z.string().default(''),
   }),
 ]);
 export type ForgeProjectItemContent = z.infer<typeof ForgeProjectItemContentSchema>;

@@ -178,7 +178,9 @@ describe('parseItemsPage', () => {
                   title: 'Fix the thing',
                   url: 'https://github.com/acme/widgets/issues/42',
                   state: 'OPEN',
+                  body: 'Steps to reproduce…',
                   assignees: { nodes: [{ login: 'octocat' }] },
+                  labels: { nodes: [{ name: 'bug' }] },
                 },
                 fieldValues: {
                   nodes: [
@@ -221,6 +223,8 @@ describe('parseItemsPage', () => {
       url: 'https://github.com/acme/widgets/issues/42',
       state: 'open',
       assignees: ['octocat'],
+      body: 'Steps to reproduce…',
+      labels: ['bug'],
     });
     expect(item?.fieldValues['F_status']).toEqual({
       fieldId: 'F_status',
@@ -257,7 +261,11 @@ describe('parseItemsPage', () => {
 
     const { items } = parseItemsPage(output);
     expect(items).toEqual([
-      { id: 'PVTI_draft', content: { type: 'draft', id: 'DI_1', title: 'Untriaged idea', assignees: [] }, fieldValues: {} },
+      {
+        id: 'PVTI_draft',
+        content: { type: 'draft', id: 'DI_1', title: 'Untriaged idea', assignees: [], body: '' },
+        fieldValues: {},
+      },
     ]);
   });
 
