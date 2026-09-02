@@ -889,7 +889,16 @@ html[data-motion='reduced'] .breadcrumb-repo-pill {
 
 .fab-panel-gradient {
   animation: fab-panel-spin 4s linear infinite;
-  border: 1.5px solid transparent;
+  /*
+   * 2.5px, where the rest of the app's gradient borders are 1.5px (see
+   * `.gradient-border--always` further up). That figure is calibrated for a
+   * 300-400px panel where 2px "reads as a selection outline"; this panel is
+   * the better part of 900px tall and is the one surface whose border is the
+   * feature rather than a hover affordance — it carries the active tab's
+   * 180deg arc of the spectrum. At 1.5px the arc's colour was there to be
+   * inferred rather than seen.
+   */
+  border: 2.5px solid transparent;
   /*
    * A stacking context, so the inner glow's `z-index: 3` (below) is a matter
    * between this panel and its own children and nothing else. The glow moved
@@ -914,7 +923,7 @@ html[data-motion='reduced'] .breadcrumb-repo-pill {
    * interior fill too, so this is two mask layers instead of one — the first
    * clipped to the padding-box and always fully opaque (the panel's own
    * content stays untouched), the second clipped to the border-box and equal
-   * to the arc mask above (only the 1.5px ring it actually paints in is
+   * to the arc mask above (only the 2.5px ring it actually paints in is
    * subject to it). Default mask compositing unions the two, so the ring
    * gains the arc's transparency while the interior never does.
    */
@@ -987,7 +996,7 @@ html[data-motion='reduced'] .breadcrumb-repo-pill {
  * `getComputedStyle(el, '::before').maskImage` reports `0deg`/`360deg` while
  * the host's own `--fab-arc-from` reads `90deg`. Keeping a dead layer around
  * to document an intention is worse than saying so here, and a full-spectrum
- * rim is what this change wants anyway. **Theme C is not lost**: the 1.5px
+ * rim is what this change wants anyway. **Theme C is not lost**: the 2.5px
  * gradient border above lives on the host element, where those properties do
  * resolve, and it still narrows to the active tab's 180deg — so the tab still
  * colours the panel's edge, just through the ring rather than the wash.
@@ -1016,19 +1025,21 @@ html[data-motion='reduced'] .breadcrumb-repo-pill {
  * the 4s rotation so the two never visibly re-sync on the same beat.
  *
  * The amplitudes are not Phase 37's. `0.55 -> 0.85` behind the content was a
- * glow you had to look for; `0.62 -> 0.92` in front of it is the "a bit more
- * noticeable" this change was asked for, and it is the rim's *width* that
- * breathes (`40px -> 52px`) where the radial mask's inner radius used to.
+ * glow you had to look for; moving the rim in *front* of the panel's children
+ * (see above) then made the same opacities read far hotter than they did
+ * behind an opaque pane, so the pair that landed there, `0.62 -> 0.92`, is
+ * scaled down by 40% here: `0.37 -> 0.55`. The rim's *width* is what
+ * breathes (`40px -> 52px`), where the radial mask's inner radius used to.
  */
 @keyframes fab-glow-pulse {
   0%,
   100% {
     --fab-glow-edge: 40px;
-    opacity: 0.62;
+    opacity: 0.37;
   }
   50% {
     --fab-glow-edge: 52px;
-    opacity: 0.92;
+    opacity: 0.55;
   }
 }
 
@@ -1091,7 +1102,9 @@ html[data-motion='reduced'] .breadcrumb-repo-pill {
       rgba(0, 0, 0, 0.42) calc(var(--fab-glow-edge, 40px) * 0.42),
       transparent var(--fab-glow-edge, 40px)
     );
-  opacity: 0.62;
+  /* The pulse's trough, and what reduced motion rests at once the keyframes
+   * are gone (see `html[data-motion='reduced']` below). */
+  opacity: 0.37;
   animation:
     fab-panel-spin 4s linear infinite,
     fab-glow-pulse 3.2s ease-in-out infinite;
@@ -1148,7 +1161,7 @@ html[data-motion='reduced'] .breadcrumb-repo-pill {
   background-image: none;
   background-color: #f59e0b;
   animation: none;
-  opacity: 0.62;
+  opacity: 0.37;
   /*
    * The same four-ramp band as the rainbow glow, at the registered initial
    * width — a still frame of it, since this state stops the pulse. What it

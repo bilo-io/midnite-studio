@@ -727,6 +727,42 @@ test.describe('FAB panel — the tab glow (Phase 37)', () => {
     expect(glow.isolation).toBe('isolate');
   });
 
+  /*
+   * The ring is thicker than the app's other gradient borders, and the rim is
+   * dimmer than the frame it first shipped at.
+   *
+   * The border is worth asserting at all because `.fab-panel-gradient` shares
+   * its element with Tailwind's own `border` utility (1px) at the same
+   * specificity — one class each — so which of the two wins is a
+   * stylesheet-order question, not one to take on trust.
+   *
+   * It is asserted as `>= 2px` rather than `2.5px` because a *used* border
+   * width is snapped to whole device pixels: this suite runs at
+   * `deviceScaleFactor: 1`, where 2.5px is painted (and reported) as 2px, and
+   * on the retina display the app ships to it stays 2.5px. Either way it
+   * clears 2, and the 1.5px it replaced could not — that one reported 1px
+   * here, which is the same snapping and worth knowing about.
+   *
+   * The rim's opacity is read under reduced motion, where `fab-glow-pulse` is
+   * gone and the pseudo rests at its own base value instead of whichever
+   * frame the pulse happened to be mid-way through.
+   */
+  test('the ring is thicker than 2px and the rim rests at the dimmed trough', async ({
+    page,
+  }) => {
+    await open(page);
+    await openFab(page, 'Ideate');
+    await page.evaluate(() => document.documentElement.setAttribute('data-motion', 'reduced'));
+
+    const style = await gradient(page).evaluate((el) => ({
+      border: getComputedStyle(el).borderTopWidth,
+      glow: getComputedStyle(el, '::before').opacity,
+    }));
+
+    expect(Number.parseFloat(style.border)).toBeGreaterThanOrEqual(2);
+    expect(Number(style.glow)).toBeCloseTo(0.37, 2);
+  });
+
   test("data-motion='reduced' stops the panel's rotation, pulse and arc sweep", async ({
     page,
   }) => {

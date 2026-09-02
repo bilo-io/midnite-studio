@@ -19,6 +19,8 @@ const OUT_FGHI = '../../docs/screenshots/p35-fghi';
 const OUT_P37 = '../../docs/screenshots/p37-fab-tab-glow';
 /** The ad hoc rim rework of the Phase 37 inner glow — before/after pairs. */
 const OUT_GLOW = '../../docs/screenshots/adhoc-fab-glow-edges';
+/** The ad hoc dim-and-thicken pass over that rim — before/after pairs. */
+const OUT_DIM = '../../docs/screenshots/adhoc-fab-glow-dim';
 
 test.skip(!process.env['MSTUDIO_SHOTS'], 'set MSTUDIO_SHOTS=1 to write screenshots');
 
@@ -199,6 +201,38 @@ for (const mode of ['light', 'dark'] as const) {
       await expect(composer.getByTestId('loop-stop')).toBeVisible();
       await page.waitForTimeout(900);
       await panel.screenshot({ path: `${OUT_GLOW}/${mode}-running-${variant}.png` });
+    });
+  }
+}
+
+/**
+ * Ad hoc — the rim dimmed by 40% and the ring thickened, before and after.
+ *
+ * "Before" is the pair of numbers this change replaces, re-applied over the
+ * new ones by an injected stylesheet: `border-width: 1.5px` and the
+ * `0.62 -> 0.92` pulse. Both shots are taken under `data-motion='reduced'`,
+ * which stops the pulse *and* the rotation, so each pair differs only in the
+ * two numbers under test rather than in whichever frame the two animations
+ * happened to be on — the rim rests at its own base opacity (0.62 before,
+ * 0.37 after) and the arc rests at the same angle in both.
+ */
+const BEFORE_DIM_CSS = `
+  .fab-panel-gradient { border-width: 1.5px !important; }
+  .fab-panel-gradient::before { opacity: 0.62 !important; }
+`;
+
+for (const mode of ['light', 'dark'] as const) {
+  for (const variant of ['before', 'after'] as const) {
+    test(`the dimmed rim and thicker ring, ${variant} (${mode})`, async ({ page }) => {
+      await open(page);
+      if (mode === 'dark') await page.evaluate(() => document.documentElement.classList.add('dark'));
+      if (variant === 'before') await page.addStyleTag({ content: BEFORE_DIM_CSS });
+      await openFab(page, 'Ideate');
+      await page.evaluate(() => document.documentElement.setAttribute('data-motion', 'reduced'));
+      await page.waitForTimeout(300);
+
+      const panel = page.locator('.fab-panel-gradient');
+      await panel.screenshot({ path: `${OUT_DIM}/${mode}-idle-${variant}.png` });
     });
   }
 }
