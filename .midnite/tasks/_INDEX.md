@@ -42,7 +42,7 @@ Completed work is logged append-only in [`done.md`](done.md). Deferred scope liv
 | [44 · Video Studio](phases/phase-44-video-studio.md) | ◻ TODO | — | 0/64 | `░░░░░░░░░░` | 0% | — | A B C D E F G H |
 | [43 · Workflows](phases/phase-43-workflows-mvp.md) | ◻ TODO | x1 | 0/77 | `░░░░░░░░░░` | 0% | — | A B C D E F G H I |
 | [42 · Councils, rearranged](phases/phase-42-councils-layout.md) | ◻ TODO | x1 | 0/43 | `░░░░░░░░░░` | 0% | — | A B C D E F |
-| [41 · Agentic Kanban](phases/phase-41-agentic-kanban.md) | 🔄 WIP | x1 | 0/55 | `░░░░░░░░░░` | 0% | A | B C D E F G H I |
+| [41 · Agentic Kanban](phases/phase-41-agentic-kanban.md) | 🔄 WIP | x1 | 6/55 | `█░░░░░░░░░` | 11% | — | B C D E F G H I |
 | [40 · GitHub Projects](phases/phase-40-github-projects.md) | 🔄 WIP | x1 | 37/53 | `███████░░░` | 70% | — | G |
 | [39 · One rail, five chords and four loops](phases/phase-39-status-bar-shortcut-rail.md) | 🔄 WIP | — | 61/64 | `██████████` | 95% | — | Verification (human keyboard + eye pass) |
 | [38 · Paying off the e2e suite](phases/phase-38-e2e-suite-repair.md) | 🔄 WIP | — | 35/58 | `██████░░░░` | 60% | — | D G H I |
@@ -233,15 +233,17 @@ no precedent at all: collapse-to-a-rail, the responsive overlay, and mouse back/
 *Turns Phase 40's Projects table on its side as a `[ Table | Board ]` mode and gives each card a
 running agent — a gradient glow while it works and a live terminal inside the card. Columns are the
 project's `Status` field; a drag is a real `updateProjectV2ItemFieldValue` mutation.*
-**Refined x1 (2026-09-02):** 44 → 55 items, and the headline is a **hard block** — this phase needs
-**seven** things from Phase 40 and `grep -r ProjectV2 packages/` returns **zero hits**; not one file
-in the monorepo has "project" in its name. Three further corrections: adding `'kanban'` to the
-surface enum does the **opposite** of Theme D's promise, because `onMainSurface` is a deny-one test
-(`surface !== 'fab'`) and **five** `'fab'` literals break the same way; `taskRef` is **silently
-stripped** by zod at `schemas.ts:1033` unless the shared schema learns it, so it would never reach
-`terminals.json`; and the real ceiling on in-card terminals is **WebGL contexts**, not DOM.
+**Refined x1 (2026-09-02):** 44 → 55 items. Was a **hard block** — needed **seven** things from
+Phase 40 — **resolved 2026-09-02**: Phase 40 Themes A–F landed (PRs #38, #41) and Theme A here
+shipped in [PR #42](https://github.com/bilo-io/midnite-studio/pull/42), confirming the doc's own
+prediction that Phase 40 Theme E's inline editors would not be reusable (Theme B builds its own).
+Three further corrections stand: adding `'kanban'` to the surface enum does the **opposite** of
+Theme D's promise, because `onMainSurface` is a deny-one test (`surface !== 'fab'`) and **five**
+`'fab'` literals break the same way; `taskRef` is **silently stripped** by zod at `schemas.ts:1033`
+unless the shared schema learns it, so it would never reach `terminals.json`; and the real ceiling
+on in-card terminals is **WebGL contexts**, not DOM.
 
-- ◻ **A** — The board shell: a per-repo persisted mode toggle, columns derived by a pure `deriveColumns` (empty status gets its own leading column), and **one** item read grouped client-side — every forge read in this app is `enabled`-gated because each is a subprocess plus rate-limit spend, and a per-column fetch would be the first violation.
+- ✅ **A** — The board shell: a per-repo persisted mode toggle, columns derived by a pure `deriveColumns` (empty status gets its own leading column, alongside an item whose option id no longer exists on the board), and **one** item read grouped client-side — every forge read in this app is `enabled`-gated because each is a subprocess plus rate-limit spend, and a per-column fetch would be the first violation. (PR #42)
 - ◻ **B** — Cards: type-discriminated content (a draft has no number, so no dead link), field chips, and the app's **first per-container virtualizer** — variable-height, so the `diff-view.tsx` `measureElement` recipe, not the graph's fixed-row one.
 - ◻ **C** — Drag between columns *(the least-precedented theme)*: `onDragOver`, per-column `SortableContext` and a multi-container collision strategy are all **absent from this codebase** — zero hits for `onDragOver`, `arrayMove`, `closestCorners`, `pointerWithin`. Reuses the `distance: 6` constraint and `graph-dnd.tsx`'s union payload + DragOverlay-because-virtualized; keyboard moves ship as a `Move to ▸` menu rather than the app's first `KeyboardSensor`.
 - ◻ **D** — A session bound to a card: `'kanban'` on the surface enum, `taskRef` inside the schema's object literal (it is a `ZodEffects`, so it cannot be `.extend()`ed) **and** in `schemas.ts` or it never persists — plus the five-site table of `'fab'` checks that otherwise put kanban sessions in the main panel, steal its selection, pop it open, and restore them ended instead of asleep.

@@ -2,6 +2,26 @@
 
 <!-- Append one entry per landed phase/PR: date, phase, PR link, one-line summary. -->
 
+## 2026-09-02 — Phase 41 Theme A — the Agentic Kanban board shell
+
+[PR #42](https://github.com/bilo-io/midnite-studio/pull/42). Resolves the phase's own
+"hard-blocked on Phase 40" banner — every one of the seven things it named as missing landed
+across Phase 40's PRs (#38, #41) — and confirms the doc's own prediction that Theme 40 E's inline
+editors would not be reusable, so this phase builds its own for Theme B's card detail.
+
+- [x] **Theme A**: a `[ Table | Board ]` toggle in the Projects view header, `projectsMode:
+      Record<repoId, 'table'|'board'>` persisted per repo (a mode, not a route — `ViewId` and
+      `FORGE_GATED_VIEWS` untouched, the forge gate inherited for free). `deriveColumns` — a pure,
+      exported function turning the project's `Status` single-select field into columns, with a
+      leading "No status" column for both an empty value and an orphaned option id (an option
+      deleted or renamed on github.com since the item was set), so neither case is dropped or
+      invented into the first real column. `BoardView`: horizontal column scroll with vertical
+      scroll inside each column, live per-column counts, collapse-to-rail, and the board's own
+      empty states. **No query of its own** — Board mode reads exactly the `items`/`fields` Table
+      mode already fetched, asserted directly (`items` called exactly once with the board rendered
+      and multiple columns populated — Theme I's own acceptance test, satisfied early). Cards are
+      placeholders; Theme B builds the real one.
+
 ## 2026-09-02 — Phase 40 Themes E, F — field writes and wiring
 
 [PR #41](https://github.com/bilo-io/midnite-studio/pull/41). Finishes Phase 40's read/write pair —
