@@ -2,6 +2,28 @@
 
 <!-- Append one entry per landed phase/PR: date, phase, PR link, one-line summary. -->
 
+## 2026-09-02 — Phase 38 Theme A — The pty seam
+
+[PR #12](https://github.com/bilo-io/midnite-studio/pull/12). Nine of `fab-loops.spec.ts` and
+`terminal-links.spec.ts`'s specs were failing on `pty:activity was not delivered to pty-1` and
+its siblings — not a mock-bridge fault. `TerminalView` moved behind a lazy chunk in Phase 36
+Theme C, so `pty.create` fires once the lazy chunk's Suspense boundary resolves, a moment after
+Start rather than in the same tick; these specs called the mock's pty-event injectors against a
+hardcoded `pty-1` before that had happened. Confirmed with a debug probe:
+`window.__mstudioPty.creates` was empty at the exact moment of failure. Re-measuring at the
+start of the theme found three more failures beyond the phase doc's original count — all the
+same cause.
+
+- [x] **Theme A**: `emitActivity`/`exitPty`/`printUrl` now poll the injector's return value
+      instead of asserting it once, so the fix is structural — any call site, present or future,
+      waits out the race rather than assuming it away. Self-review caught one call site the first
+      pass missed (it passed locally only by accident of extra UI steps buying enough time).
+      Dropped both files from `KNOWN_RED`. Un-ratcheting them ran every spec in both files on the
+      CI runner for the first time, which surfaced four *unrelated* specs hitting Theme I's
+      already-known GPU-less-runner wall (`@xterm/addon-webgl` gets no context on Linux CI) —
+      tagged `@linux-red` per the established convention and handed to Theme I rather than fixed
+      here. (PR #12)
+
 ## 2026-09-02 — Phase 39 Themes A–F (+ part of G) — One rail, five chords and four loops
 
 [PR #7](https://github.com/bilo-io/midnite-studio/pull/7). Six of seven themes in one batch; Theme G

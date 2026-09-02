@@ -48,7 +48,7 @@ Effort tags: **S** ≈ an hour or two · **M** ≈ half a day · **L** ≈ a day
 
 ## Deliverables
 
-### A — The pty seam (M)
+### A — The pty seam (M) — ✅ DONE (PR #12, 2026-09-02)
 
 **Do this first.** Seven of the 45 — every `fab-loops` failure and both `terminal-links` ones —
 fail with the same shape: `pty:activity was not delivered to pty-1`, `pty:exit was not
@@ -56,23 +56,33 @@ delivered to pty-1`, `the URL was not delivered to pty-1`. Two unrelated feature
 identically is one fault in the mock bridge's pty event delivery, not nine bugs, and the other
 themes are much easier to read once it is gone.
 
-- [ ] Diagnose the delivery failure in
-      [`e2e/mock-bridge.ts`](../../../packages/app/e2e/mock-bridge.ts): whether the listener is
-      registered after the event fires, whether the session id the spec addresses (`pty-1`)
-      still matches what the app allocates, or whether the subscription moved when terminal
-      sessions were reworked. Record the answer in the fix's commit message — the other themes
-      may share it.
-- [ ] `fab-loops.spec.ts:157` — a waiting loop turns its tab dot and the FAB dot amber.
-- [ ] `fab-loops.spec.ts:240` — a loop that exits on its own flips Stop back to Start, and
-      history says exited (`pty:exit`, not `pty:activity` — confirm both paths are covered).
-- [ ] `fab-loops.spec.ts:359` — the waiting notice is debounced by transition, not by time.
-- [ ] `fab-loops.spec.ts:416` — `data-motion='reduced'` also stops the thinking pulse.
-- [ ] `fab-loops.spec.ts:512` — a `fabSessions` entry whose session is gone reads as idle
-      (`toHaveLength` — a different assertion, so check it is really the same root cause and
-      not a passenger).
-- [ ] `terminal-links.spec.ts:66` — Cmd+click opens a URL in the output; a bare click does not.
-- [ ] `terminal-links.spec.ts:90` — leaves output that is not a link alone.
-- [ ] Drop `fab-loops.spec.ts` and `terminal-links.spec.ts` from `KNOWN_RED`.
+- [x] Diagnosed: not a mock-bridge fault at all. `TerminalView` moved behind a lazy chunk in
+      Phase 36 Theme C, so `pty.create` no longer fires synchronously with Start (or the panel's
+      auto-opened shell) — it fires once the lazy chunk's Suspense boundary resolves, a moment
+      later. Confirmed with a debug probe: `window.__mstudioPty.creates` was empty at the exact
+      moment of failure. Fix: `emitActivity`/`exitPty`/`printUrl` now poll the injector's return
+      value instead of asserting it once, so any call site — present or future — waits out the
+      race structurally. Re-measuring at the start of this theme found **3 more failures beyond
+      the original count** (drift since the doc was written); all the same cause.
+- [x] `fab-loops.spec.ts:157` — a waiting loop turns its tab dot and the FAB dot amber.
+- [x] `fab-loops.spec.ts:240` — a loop that exits on its own flips Stop back to Start, and
+      history says exited (`pty:exit`, not `pty:activity` — both paths covered).
+- [x] `fab-loops.spec.ts:359` — the waiting notice is debounced by transition, not by time.
+- [x] `fab-loops.spec.ts:416` — `data-motion='reduced'` also stops the thinking pulse.
+- [x] `fab-loops.spec.ts:512` — a `fabSessions` entry whose session is gone reads as idle. Same
+      root cause as the rest, not a passenger — confirmed by reproduction.
+- [x] `terminal-links.spec.ts:66` — Cmd+click opens a URL in the output; a bare click does not.
+- [x] `terminal-links.spec.ts:90` — leaves output that is not a link alone.
+- [x] Dropped `fab-loops.spec.ts` and `terminal-links.spec.ts` from `KNOWN_RED`.
+
+**Handoff to Theme I.** Un-ratcheting these two files ran every one of their specs on the CI
+runner for the first time, which surfaced a *second*, unrelated failure class: 4 specs (1 in
+`fab-loops.spec.ts`, both in `terminal-links.spec.ts`, plus one more in `fab-loops.spec.ts`) open
+a REAL second terminal and hit the same GPU-less-runner wall `terminal-lazy-preload.spec.ts` and
+friends already carry — `@xterm/addon-webgl` gets no context, so `.xterm-screen` (or the panel
+itself) never becomes visible. Tagged `@linux-red` per the established per-spec convention rather
+than re-adding whole files to `KNOWN_RED`, so the rest of each file keeps blocking. These four are
+now Theme I's to close alongside its existing three.
 
 ### B — The changes panel (M)
 
@@ -215,6 +225,16 @@ these four specs are **green on macOS and red only on Linux**, so they are not d
 one mounts a terminal, and xterm paints its rows through `@xterm/addon-webgl`
 ([`terminal-view.tsx:363`](../../../packages/app/src/features/terminal/terminal-view.tsx)) — a
 GPU-less runner has no WebGL context to give it, so the terminal never becomes visible.
+
+**Four more joined the list from Theme A.** Un-ratcheting `fab-loops.spec.ts` and
+`terminal-links.spec.ts` ran every one of their specs on the CI runner for the first time, which
+hit this exact wall in specs nobody had seen run there before: `terminal-links.spec.ts`'s both
+specs (real terminal, mouse/keyboard interaction against `.xterm-screen`), and two
+`fab-loops.spec.ts` specs that open a REAL second terminal in the main housing (`Control+\``,
+`[data-terminal-panel]`) — "the loop session never appears in the main terminal housing" and "a
+restored FAB session still never reaches the main terminal housing". All four are tagged
+`@linux-red` in place rather than added to `KNOWN_RED` wholesale, so the rest of each file keeps
+blocking; whatever this theme's fix turns out to be, drop the tag along with the rest.
 
 Two fixes were tried and measured before the specs were ratcheted, so nobody repeats them:
 raising CI's `expect` timeout to 15s **moved nothing** (the failures were never slow, they were
