@@ -2,10 +2,44 @@ import {
   METRICS_ACTIVE_INTERVAL_MS,
   METRICS_IDLE_INTERVAL_MS,
 } from '@midnite/studio-shared';
+import type { MidniteStudioBridge } from '@midnite/studio-shared';
 import { useEffect } from 'react';
 
 import { bridge } from '../../services/bridge';
 import { useMetricsStore } from '../../store/metrics-store';
+
+/**
+ * The stream itself is a module-level singleton, ref-counted across callers.
+ *
+ * `useMetricsStream` has two callers — the footer's `MonitorCluster` and
+ * `BatterySegment` — each mounted for the app's whole life, both wanting the
+ * same live samples. Each subscribing independently means every real sample
+ * gets pushed into `useMetricsStore` once per caller: harmless-looking for a
+ * single reading (the store's `latest` just gets overwritten with the same
+ * value twice), but it corrupts `series` — a sample logged twice lands as two
+ * points at the same timestamp, a zero-width gap `cadenceBreaks` (Theme G)
+ * skips over rather than draws a rule at, quietly eating the boundary it
+ * exists to mark. One subscription shared by however many components are
+ * asking is the fix, not a change to what either caller does.
+ */
+let sampleSubscribers = 0;
+let unsubscribeSample: (() => void) | null = null;
+
+function retainSampleSubscription(api: MidniteStudioBridge): () => void {
+  sampleSubscribers += 1;
+  if (sampleSubscribers === 1) {
+    unsubscribeSample = api.metrics.onSample((sample) => {
+      useMetricsStore.getState().push(sample);
+    });
+  }
+  return () => {
+    sampleSubscribers -= 1;
+    if (sampleSubscribers === 0) {
+      unsubscribeSample?.();
+      unsubscribeSample = null;
+    }
+  };
+}
 
 /**
  * Drive the metrics stream.
@@ -38,9 +72,7 @@ export function useMetricsStream(
   useEffect(() => {
     const api = bridge();
     if (!api) return;
-    return api.metrics.onSample((sample) => {
-      useMetricsStore.getState().push(sample);
-    });
+    return retainSampleSubscription(api);
   }, []);
 
   useEffect(() => {

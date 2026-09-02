@@ -28,38 +28,14 @@ import base from './playwright.config';
  * and the `app:e2e-ci` task with it and point CI back at `app:e2e`.
  */
 const KNOWN_RED = [
-  // --- red on the Linux runner only; all four are green on macOS ------------
-  //
-  // Every one of these mounts a terminal, and xterm paints its rows through
-  // `@xterm/addon-webgl` (terminal-view.tsx). A GPU-less runner gives it no
-  // WebGL context, so the terminal never becomes visible. Two fixes were tried
-  // and measured: raising the CI expect timeout to 15s moved nothing (the
-  // failures were never slow, just impossible), and Chromium's SwiftShader
-  // software rasteriser — `--use-gl=angle --use-angle=swiftshader` — also fixed
-  // none of them while making every shard ~60% slower, so it was reverted.
-  // Phase 38 Theme I owns the real answer.
-  '**/e2e/phase-21-roster.spec.ts', //       1 — session list renders 0 rows
-  '**/e2e/terminal-lazy-preload.spec.ts', // 2 — Phase 36's own lazy-xterm specs
-  '**/e2e/terminal-reveal.spec.ts', //       1 — buffer replay on reveal
-  //
   // --- drift: red everywhere, and Phase 38 Themes A-G own them --------------
-  '**/e2e/browser-pane.spec.ts', //          1 — click lands during the exit transition
-  '**/e2e/footer-monitor.spec.ts', //        2 — ring/marker counts
-  '**/e2e/graph-themes.spec.ts', //          2 — cascade replay + per-style redraw
   //
-  // Theme D fixed its own two named specs — 'a reload keeps live sessions
-  // live' and 'the session list resizes independently of the terminal pane'
-  // — confirmed stable over three local runs each. The file stays ratcheted
-  // regardless: un-ratcheting it here for the first time (it was wholesale-
-  // excluded before any Linux CI run ever touched it) surfaced real failures
-  // in OTHER specs — 'an agent row carries its own mark and its own accent',
-  // 'two agents from the same roster get different marks' and at least one
-  // more before the job was cancelled — that are new sightings of exactly
-  // the GPU-less-runner wall documented above, on marks that assert xterm
-  // content rather than session state. Theme I owns identifying and tagging
-  // every affected spec with @linux-red; this file cannot leave KNOWN_RED
-  // before it does.
-  '**/e2e/terminal.spec.ts', //              3+ — Theme I's GPU/WebGL wall, not Theme D's
+  // `browser-pane.spec.ts` and `footer-monitor.spec.ts` are OUT — both
+  // confirmed green in a real CI run (not just locally). `graph-themes.spec.ts`
+  // stays: two of its specs (`:251`, `:264` — the row-cascade animation) are
+  // green in an isolated local run but confirmed still red on the real Linux
+  // CI runner, which a local macOS run cannot explain — genuinely unsolved.
+  '**/e2e/graph-themes.spec.ts', //          2 — cascade replay (:251, :264), CI-only
 ];
 
 export default defineConfig({
@@ -74,10 +50,19 @@ export default defineConfig({
   // gets disabled rather than read".
   testIgnore: ['**/perf/**', ...KNOWN_RED],
   /*
-    One spec rather than one file. `reviews.spec.ts` has ten specs and only its
-    terminal-header one hits the missing-WebGL wall above, so it carries a
-    `@linux-red` tag and the other nine keep blocking. Prefer this to adding a
-    file to KNOWN_RED whenever the failures are a minority of it.
+    One spec rather than one file, whenever the failures are a minority of it —
+    the alternative, adding the whole file to KNOWN_RED, would cost every
+    passing spec in it its place in the blocking job. `shortcut-rail.spec.ts`
+    and `status-bar.spec.ts` each carry one `@linux-red` spec this way: both
+    assert a status-bar *density*, decided from measured content width, and
+    the CI runner's font set differs from macOS's enough to land even the
+    "wide" fixture on the wrong side of the `full` breakpoint at the default
+    1280px viewport. A fix that read the real breakpoint from the DOM at test
+    time (rather than a hard-coded pixel guess) was tried and reverted — it
+    addressed a later assertion in each spec, but the FIRST assertion (that
+    the fixture starts in `full`) was already failing on the real CI run,
+    which a local, real-GPU macOS run cannot see. Phase 38 Theme I's own
+    remaining item.
   */
   grepInvert: /@linux-red/,
 });

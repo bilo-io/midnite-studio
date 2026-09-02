@@ -1,7 +1,14 @@
 import { act, renderHook } from '@testing-library/react';
 import { describe, expect, it } from 'vitest';
 
-import { usePanelHistory } from './use-panel-history';
+import {
+  backHistoryState,
+  forwardHistoryState,
+  pushHistoryState,
+  replaceHistoryState,
+  usePanelHistory,
+  type PanelHistoryState,
+} from './use-panel-history';
 
 describe('usePanelHistory', () => {
   it('starts with one entry, at index 0, unable to go either direction', () => {
@@ -132,5 +139,34 @@ describe('usePanelHistory', () => {
     act(() => result.current.reset('fresh'));
 
     expect(result.current.entries).toEqual(['fresh']);
+  });
+});
+
+/**
+ * The pure transitions directly (Phase 42 Theme E) — exported so a
+ * module-level store (Councils' own) can reuse the exact arithmetic the hook
+ * itself runs on, rather than re-deriving the depth-cap hazard by hand.
+ */
+describe('the exported pure transitions', () => {
+  it('pushHistoryState matches the hook behaviour bit for bit', () => {
+    const s0: PanelHistoryState<string> = { entries: ['a'], index: 0 };
+    const s1 = pushHistoryState(s0, 'b', Object.is);
+    expect(s1).toEqual({ entries: ['a', 'b'], index: 1 });
+
+    const s2 = pushHistoryState(s1, 'b', Object.is);
+    expect(s2).toBe(s1); // no-op returns the same reference
+  });
+
+  it('backHistoryState/forwardHistoryState are no-ops at the ends', () => {
+    const s: PanelHistoryState<string> = { entries: ['a', 'b'], index: 0 };
+    expect(backHistoryState(s)).toBe(s);
+
+    const atTail: PanelHistoryState<string> = { entries: ['a', 'b'], index: 1 };
+    expect(forwardHistoryState(atTail)).toBe(atTail);
+  });
+
+  it('replaceHistoryState swaps only the entry at index', () => {
+    const s: PanelHistoryState<string> = { entries: ['a', 'b'], index: 1 };
+    expect(replaceHistoryState(s, 'z')).toEqual({ entries: ['a', 'z'], index: 1 });
   });
 });

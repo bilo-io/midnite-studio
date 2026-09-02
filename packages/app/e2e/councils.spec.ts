@@ -94,8 +94,8 @@ test('the panel-stack navigates list → council → run, and back/forward retra
 
   // Creating a council landed on the council entry directly (list → council).
   await expect(nav.getByText('Retro', { exact: true })).toBeVisible();
-  await expect(page.getByRole('main').getByRole('button', { name: 'Back' })).toBeEnabled();
-  await expect(page.getByRole('main').getByRole('button', { name: 'Forward' })).toBeDisabled();
+  await expect(page.getByRole('main').getByRole('button', { name: 'Back', exact: true })).toBeEnabled();
+  await expect(page.getByRole('main').getByRole('button', { name: 'Forward', exact: true })).toBeDisabled();
 
   await page.getByPlaceholder('What should the council answer?').fill('Ship it?');
   await page.getByRole('button', { name: 'Run', exact: true }).click();
@@ -105,7 +105,7 @@ test('the panel-stack navigates list → council → run, and back/forward retra
 
   // Back once: run → council. Still a council selected (the config panel and
   // its member list stay put) — only the `list` entry shows the empty state.
-  await page.getByRole('main').getByRole('button', { name: 'Back' }).click();
+  await page.getByRole('main').getByRole('button', { name: 'Back', exact: true }).click();
   await expect(page.getByRole('textbox', { name: 'Member name' }).first()).toBeVisible();
   // The breadcrumb trail still shows "Run" here — it renders the whole
   // stack, forward tail included, so a still-navigable entry stays clickable
@@ -114,14 +114,117 @@ test('the panel-stack navigates list → council → run, and back/forward retra
 
   // Back again: council → list. The config panel disappears along with it —
   // there is no council to configure.
-  await page.getByRole('main').getByRole('button', { name: 'Back' }).click();
+  await page.getByRole('main').getByRole('button', { name: 'Back', exact: true }).click();
   await expect(activePane.getByText('Select a council')).toBeVisible();
   await expect(page.getByRole('button', { name: 'New council' })).toBeVisible();
-  await expect(page.getByRole('main').getByRole('button', { name: 'Back' })).toBeDisabled();
+  await expect(page.getByRole('main').getByRole('button', { name: 'Back', exact: true })).toBeDisabled();
 
   // Forward twice retraces exactly back to the run.
-  await page.getByRole('main').getByRole('button', { name: 'Forward' }).click();
-  await page.getByRole('main').getByRole('button', { name: 'Forward' }).click();
+  await page.getByRole('main').getByRole('button', { name: 'Forward', exact: true }).click();
+  await page.getByRole('main').getByRole('button', { name: 'Forward', exact: true }).click();
   await expect(activePane.getByRole('button', { name: /^Optimist/ })).toBeVisible();
-  await expect(page.getByRole('main').getByRole('button', { name: 'Forward' })).toBeDisabled();
+  await expect(page.getByRole('main').getByRole('button', { name: 'Forward', exact: true })).toBeDisabled();
+});
+
+test('a run picked from the left rail navigates the centre pane (Theme E)', async ({ page }) => {
+  await open(page);
+
+  await page.getByRole('button', { name: 'New council' }).click();
+  await page.getByRole('dialog', { name: 'New council' }).getByLabel('Name', { exact: true }).fill('Roadmap');
+  await page.getByRole('button', { name: 'Create' }).click();
+  await expect(page.getByRole('heading', { name: 'Roadmap' })).toBeVisible();
+
+  const activePane = page.locator('.panel-stack-pane:not([aria-hidden])');
+
+  // Starting a run auto-navigates the rail from the council list into this
+  // council's run list — the same PanelStack, driven by the same push.
+  await page.getByPlaceholder('What should the council answer?').fill('First question');
+  await page.getByRole('button', { name: 'Run', exact: true }).click();
+  await expect(activePane.getByRole('button', { name: /^Optimist/ })).toBeVisible();
+
+  // "Back to councils" in the rail returns to the council picker without
+  // touching the centre/config panes' own selection.
+  await page.getByRole('button', { name: 'Back to councils' }).click();
+  await expect(page.getByRole('button', { name: 'New council' })).toBeVisible();
+  await expect(activePane.getByText('Select a council')).toBeVisible();
+
+  // Picking the council again lands back on its run list in the rail, and
+  // selecting the run from there (not the old centre tab strip, which no
+  // longer exists) drives the centre pane the same way starting one did.
+  // The council-list row's full name ("Roadmap 4 members") disambiguates it
+  // from the breadcrumb's own "Roadmap" crumb, still on screen from before.
+  await page.getByRole('button', { name: 'Roadmap 4 members' }).click();
+  await page.getByRole('button', { name: /First question/ }).click();
+  await expect(activePane.getByRole('button', { name: /^Optimist/ })).toBeVisible();
+});
+
+test('the navigation stack survives leaving Councils and coming back (Theme E)', async ({ page }) => {
+  await open(page);
+
+  await page.getByRole('button', { name: 'New council' }).click();
+  await page.getByRole('dialog', { name: 'New council' }).getByLabel('Name', { exact: true }).fill('Survives');
+  await page.getByRole('button', { name: 'Create' }).click();
+  await expect(page.getByRole('heading', { name: 'Survives' })).toBeVisible();
+
+  // Councils is lazy and unmounts on view switch — the whole reason its
+  // navigation stack lives in a module-level store rather than a local
+  // `usePanelHistory` call.
+  await clickRailLink(page, 'Graph');
+  await expect(page.getByRole('columnheader', { name: 'Commit message' })).toBeVisible();
+
+  await clickRailLink(page, 'Councils');
+  await expect(page.getByRole('heading', { name: 'Survives' })).toBeVisible();
+  await expect(page.getByRole('main').getByRole('button', { name: 'Back', exact: true })).toBeEnabled();
+});
+
+/**
+ * `panel-stack`'s slide, in the three configurations that matter (Phase 42
+ * Theme F) — asserted through the real cascade rather than assumed. Phase 39
+ * Theme G is the cautionary tale this batch was written against: a
+ * reduced-motion rule that lost on specificity and shipped believing
+ * otherwise. `.panel-stack-pane` carries a `transition`, not a `@keyframes`
+ * animation (Theme A's own correction), so the assertion reads
+ * `transitionDuration` rather than `animationName`.
+ */
+test.describe('panel-stack reduced motion — three configurations (Theme F)', () => {
+  const paneTransitionDuration = (page: import('@playwright/test').Page) =>
+    page
+      .locator('.panel-stack-pane')
+      .first()
+      .evaluate((el) => parseFloat(getComputedStyle(el).transitionDuration));
+
+  test("data-motion='reduced' collapses the slide to an instant swap", async ({ page }) => {
+    await open(page);
+    await page.evaluate(() => document.documentElement.setAttribute('data-motion', 'reduced'));
+
+    expect(await paneTransitionDuration(page)).toBeLessThan(0.01);
+  });
+
+  test("data-motion='full' still animates even with the OS's own reduce-motion on — the setting outranks the OS", async ({
+    page,
+  }) => {
+    await page.emulateMedia({ reducedMotion: 'reduce' });
+    await open(page);
+    await page.evaluate(() => document.documentElement.setAttribute('data-motion', 'full'));
+
+    expect(await paneTransitionDuration(page)).toBeGreaterThan(0.1);
+  });
+
+  test("the default 'system' setting with the OS's reduce-motion on still collapses the slide — the blind spot", async ({
+    page,
+  }) => {
+    // The path the doc names precisely: `useMotionPreference` resolves the OS
+    // query to 'reduced'/'full' first, but `useAppearanceSync` runs after it
+    // and overwrites the attribute with the *persisted* setting — 'system' by
+    // default, never having been changed. So `data-motion` reads literally
+    // 'system' here, not 'reduced', and only the `@media` form of the guard
+    // (not the `[data-motion='reduced']` attribute selector) can catch it.
+    await page.emulateMedia({ reducedMotion: 'reduce' });
+    await open(page);
+
+    expect(
+      await page.evaluate(() => document.documentElement.getAttribute('data-motion')),
+    ).toBe('system');
+    expect(await paneTransitionDuration(page)).toBeLessThan(0.01);
+  });
 });

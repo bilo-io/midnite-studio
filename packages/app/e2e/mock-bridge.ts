@@ -369,6 +369,29 @@ export type MockFixtures = {
 
 export async function installMockBridge(page: Page, fixtures: MockFixtures): Promise<void> {
   /*
+    The packaged app ships macOS-only (`electron-builder.yml`: `mac` only,
+    `moon run desktop:dist` produces an arm64 dmg/zip and nothing else) — so
+    `chord.ts`'s `isMac()` is always true in the real product, and
+    `terminal.toggle`'s chord is deliberately `Ctrl+\`` (never `Mod+\``) *because*
+    of that: it is meant to mean "the physical Control key, on the platform
+    this app only runs on." Playwright's Chromium reports whatever OS is
+    actually running it, though, so `navigator.platform` reads `'Linux'` on
+    the CI runner — and `chordFromEvent`'s own non-mac branch treats a bare
+    Ctrl press AS `Mod` there (correct for a hypothetical Linux build, where
+    Ctrl really is Mod), which `Control+\`` in `page.keyboard.press` then
+    resolves to `Mod+\``, never matching the `Ctrl+\`` binding. That silent
+    mismatch — not `@xterm/addon-webgl` — is what actually kept the terminal
+    panel from ever opening on CI: every affected spec's own `open()` presses
+    `Control+\``, and the page snapshot on failure shows "Toggle Terminal"
+    never reaching `[pressed]`. Pinning `navigator.platform` here makes every
+    e2e spec see the one platform this app is ever real on, which is what the
+    suite is meant to simulate in the first place.
+  */
+  await page.addInitScript(() => {
+    Object.defineProperty(navigator, 'platform', { get: () => 'MacIntel', configurable: true });
+  });
+
+  /*
     Seed the app as already-onboarded, unless a spec asks for a first run.
 
     Both onboarding surfaces — `FirstRunModal` (gated on the persisted

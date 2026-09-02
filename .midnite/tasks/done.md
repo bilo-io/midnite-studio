@@ -2,6 +2,59 @@
 
 <!-- Append one entry per landed phase/PR: date, phase, PR link, one-line summary. -->
 
+## 2026-09-02 — Phase 42 Themes E, F + Phase 38 Themes G, I (partial) — councils/runs share the rail, motion proven, a wrong CI diagnosis corrected
+
+[PR #TBD].
+
+- [x] **Phase 42 Theme E — councils and runs share the panel.** `council-run-list.tsx` (new)
+      replaces the old horizontal run-picker strip with a vertical list in the left rail, rendered
+      by a second `PanelStack` that shares the centre pane's `history` object — moving between
+      "which council" and "which run of it" is one back/forward motion in one place.
+      `councils-history-store.ts` (new) moves the navigation stack out of a component-local
+      `usePanelHistory` call into a module-level zustand store, since Councils is lazy and unmounts
+      on view switch — the stack now survives leaving the view and coming back. `council-run-view.tsx`
+      lost its own run-picker and the unused `councilId` prop that went with it.
+- [x] **Phase 42 Theme F — motion, proven.** Fixed the exact mistake its own doc warned against
+      repeating (Phase 39 Theme G's cautionary tale): `.panel-stack-pane`'s reduced-motion rules in
+      `styles.css` needed `!important,` because `panel-stack.tsx` sets `transitionDuration` as an
+      inline style, which beats any non-`!important` external rule regardless of specificity. Caught
+      by three new `e2e/councils.spec.ts` cases asserting the real `transitionDuration` in all three
+      motion configurations — `data-motion='reduced'`, `data-motion='full'` under OS reduce-motion,
+      and the default `'system'` + OS reduce-motion blind spot, which is the one that failed first.
+- [◐] **Phase 38 Theme G — the five stragglers, partial.** Two were real, both confirmed on an
+      actual CI run: `footer-monitor.spec.ts`'s cadence marker never appeared because
+      `MonitorCluster` and `BatterySegment` each subscribe to the metrics stream independently,
+      double-pushing every sample into the store (fixed by sharing one subscription, ref-counted,
+      in `use-metrics-stream.ts`); its ring/path-count assertion was a test-scoping bug, counting a
+      metric icon's own `<path>`s alongside the chart's. `browser-pane.spec.ts` was already green —
+      also confirmed on CI. `graph-themes.spec.ts`'s two cascade-replay specs looked fixed in an
+      isolated local run (24/24) but a **real CI run proved them still red** — a local pass cannot
+      be trusted for this one; stays in `KNOWN_RED`, not yet root-caused.
+- [◐] **Phase 38 Theme I — the terminal does not render on CI, partial — and a wrong diagnosis
+      corrected mid-batch.** First attempt: forced xterm's own DOM renderer under Playwright
+      (skip `WebglAddon`), following the original phase doc's WebGL theory. Green locally (38/38,
+      forced on, macOS) — but on the real CI run several terminal specs **timed out** and one shard
+      hit the 20-minute job cap and was **cancelled**. Triaging that led to the real cause: the
+      terminal panel was never opening on CI at all, for any of these specs — `chord.ts`'s
+      `isMac()` reads `navigator.platform`, genuinely `'Linux'` on the CI runner's Chromium (the
+      packaged app ships macOS-only, so this never happens for a real user), and on a non-mac
+      platform a bare Ctrl press resolves to `Mod`, so `Control+\`` (every affected spec's own way
+      of opening a terminal) never matches `terminal.toggle`'s literal `Ctrl+\`` binding. Fixed once,
+      for every spec, by pinning `navigator.platform` to `'MacIntel'` in `mock-bridge.ts`'s
+      `installMockBridge` — reproduced locally by pinning the OTHER way first (simulating Linux) and
+      confirming the panel genuinely fails to open without the fix. The DOM-renderer forcing was
+      fully reverted (production and e2e both try WebGL first again, unchanged). Drops
+      `phase-21-roster.spec.ts`, `terminal-lazy-preload.spec.ts`, `terminal-reveal.spec.ts` and
+      `terminal.spec.ts` (including its PR #47 "new sighting" — the same wall) from `KNOWN_RED`, and
+      the `@linux-red` tag from six specs across `fab-loops.spec.ts`, `terminal-links.spec.ts`,
+      `reviews.spec.ts` and `palette.spec.ts`. **Still open**: the theme's other, unrelated Linux-only
+      cause — `shortcut-rail.spec.ts`/`status-bar.spec.ts` asserting a font-metric-dependent density
+      breakpoint. A DOM-measurement fix (`status-bar-density.ts`) was tried and reverted: it addressed
+      a later assertion in each spec, but the real CI run failed on an earlier, untouched one (that
+      the fixture starts in `full` density at all) — not exercised the same way on a real-GPU macOS
+      run. `grepInvert` stays in `playwright.ci.config.ts`: those two plus `titlebar-agents.spec.ts`
+      and `panel-snap.spec.ts` still carry `@linux-red` tags.
+
 ## 2026-09-02 — Phase 41 Themes D, G, H (partial) + Phase 38 Theme D (partial) — the card composer, and CI's own correction
 
 [PR #47]. Rebased mid-flight onto #46 (Phase 41 Themes C/D/F), which landed the `kanban` surface
@@ -74,7 +127,7 @@ this PR originally built in parallel — that duplicate work was dropped in favo
 
 ## 2026-09-02 — Phase 42 Themes A, B, C, D — panel-stack, three panes, config right, back/forward
 
-[PR #TBD]. Themes E (councils/runs share the rail) and F (motion verification) are not in this
+[PR #48]. Themes E (councils/runs share the rail) and F (motion verification) are not in this
 batch and stay open.
 
 - [x] **Theme A — `panel-stack`.** A generic `usePanelHistory<T>` (`components/panel-stack/`):

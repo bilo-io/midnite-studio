@@ -24,24 +24,23 @@ const STATUS_TONE: Record<CouncilRunMember['status'], string> = {
   skipped: 'text-muted-foreground',
 };
 
-export function CouncilRunView({
-  runs,
-  activeRunId,
-  onSelectRun,
-}: {
-  councilId: string;
-  runs: CouncilRun[];
-  activeRunId: string | null;
-  onSelectRun: (runId: string) => void;
-}) {
+/**
+ * One run's own content — which member (or the synthesis) is showing.
+ *
+ * **No longer owns "which run"** (Phase 42 Theme E): the run-picker strip
+ * that used to sit above this moved to the left rail as `CouncilRunList`,
+ * sharing the same `panel-stack` councils/runs navigate through. This
+ * component's only remaining axis is the member/synthesis tab row.
+ */
+export function CouncilRunView({ activeRunId }: { activeRunId: string | null }) {
   const { data: run } = useCouncilRun(activeRunId);
   const [tab, setTab] = useState<string>('synthesis');
 
-  if (runs.length === 0) {
+  if (activeRunId === null) {
     return (
       <EmptyState
         title="No runs yet"
-        body="Type a prompt on the left and hit Run to start this council's first consultation."
+        body="Type a prompt on the right and hit Run to start this council's first consultation."
       />
     );
   }
@@ -55,26 +54,6 @@ export function CouncilRunView({
 
   return (
     <div className="flex min-h-0 flex-1 flex-col">
-      <div className="flex shrink-0 items-center gap-1 overflow-x-auto border-b border-border px-2 py-1">
-        {runs
-          .slice()
-          .reverse()
-          .map((r) => (
-            <button
-              key={r.id}
-              type="button"
-              onClick={() => onSelectRun(r.id)}
-              title={r.prompt}
-              className={`shrink-0 truncate rounded px-2 py-1 text-xs ${
-                r.id === run.id ? 'bg-accent text-foreground' : 'text-muted-foreground hover:bg-accent/50'
-              }`}
-              style={{ maxWidth: 180 }}
-            >
-              {r.prompt}
-            </button>
-          ))}
-      </div>
-
       <div className="flex shrink-0 items-center gap-1 border-b border-border px-2 py-1">
         {run.members.map((member) => (
           <button

@@ -86,57 +86,42 @@ const screenClasses = (page: Page) =>
     .then((value) => value ?? '');
 
 test.describe('terminal links', () => {
-  test(
-    'Cmd+click opens a URL in the output; a bare click does not',
-    // Every spec in this file needs a REAL terminal — the panel itself never
-    // becomes visible on the CI runner because xterm paints through
-    // `@xterm/addon-webgl`, which a GPU-less runner cannot give it. Same wall
-    // as terminal-lazy-preload and friends — Phase 38 Theme I owns the fix;
-    // this file's own pty-delivery race (Theme A) is verified fixed
-    // independently (green locally, and in the CI ratchet run before this
-    // Linux-only wall was hit).
-    { tag: '@linux-red' },
-    async ({ page }) => {
-      await open(page);
-      await printUrl(page);
+  test('Cmd+click opens a URL in the output; a bare click does not', async ({ page }) => {
+    await open(page);
+    await printUrl(page);
 
-      const { x, y } = (await aim(page)).url;
-      await page.mouse.move(x, y);
+    const { x, y } = (await aim(page)).url;
+    await page.mouse.move(x, y);
 
-      // Hovered, no modifier: no decoration, and a click is just a click.
-      await expect.poll(() => screenClasses(page)).not.toContain('xterm-cursor-pointer');
-      await page.mouse.click(x, y);
-      expect(await externalUrls(page)).toEqual([]);
+    // Hovered, no modifier: no decoration, and a click is just a click.
+    await expect.poll(() => screenClasses(page)).not.toContain('xterm-cursor-pointer');
+    await page.mouse.click(x, y);
+    expect(await externalUrls(page)).toEqual([]);
 
-      // The modifier goes down while the mouse is already parked on the link.
-      await page.keyboard.down('Meta');
-      await expect.poll(() => screenClasses(page)).toContain('xterm-cursor-pointer');
+    // The modifier goes down while the mouse is already parked on the link.
+    await page.keyboard.down('Meta');
+    await expect.poll(() => screenClasses(page)).toContain('xterm-cursor-pointer');
 
-      await page.mouse.down();
-      await page.mouse.up();
-      await page.keyboard.up('Meta');
+    await page.mouse.down();
+    await page.mouse.up();
+    await page.keyboard.up('Meta');
 
-      await expect.poll(() => externalUrls(page)).toEqual([URL]);
-      await expect.poll(() => screenClasses(page)).not.toContain('xterm-cursor-pointer');
-    },
-  );
+    await expect.poll(() => externalUrls(page)).toEqual([URL]);
+    await expect.poll(() => screenClasses(page)).not.toContain('xterm-cursor-pointer');
+  });
 
-  test(
-    'leaves output that is not a link alone',
-    { tag: '@linux-red' }, // same wall — see the note on the spec above
-    async ({ page }) => {
-      await open(page);
-      await printUrl(page);
+  test('leaves output that is not a link alone', async ({ page }) => {
+    await open(page);
+    await printUrl(page);
 
-      // The bottom row: empty grid, nothing to decorate or open.
-      const { x, y } = (await aim(page)).blank;
-      await page.mouse.move(x, y);
-      await page.keyboard.down('Meta');
-      await page.mouse.click(x, y);
-      await page.keyboard.up('Meta');
+    // The bottom row: empty grid, nothing to decorate or open.
+    const { x, y } = (await aim(page)).blank;
+    await page.mouse.move(x, y);
+    await page.keyboard.down('Meta');
+    await page.mouse.click(x, y);
+    await page.keyboard.up('Meta');
 
-      expect(await screenClasses(page)).not.toContain('xterm-cursor-pointer');
-      expect(await externalUrls(page)).toEqual([]);
-    },
-  );
+    expect(await screenClasses(page)).not.toContain('xterm-cursor-pointer');
+    expect(await externalUrls(page)).toEqual([]);
+  });
 });

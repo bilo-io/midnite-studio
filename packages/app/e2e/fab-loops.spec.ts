@@ -211,14 +211,7 @@ test.describe('FAB loop console', () => {
     expect(run?.['model']).toBe('opus-5');
   });
 
-  test(
-    'the loop session never appears in the main terminal housing',
-    // The main panel auto-opens a REAL second terminal, which never becomes
-    // visible on the CI runner — xterm paints through `@xterm/addon-webgl`,
-    // which a GPU-less runner cannot give it. Same wall as terminal-lazy-preload
-    // and friends — Phase 38 Theme I owns the fix.
-    { tag: '@linux-red' },
-    async ({ page }) => {
+  test('the loop session never appears in the main terminal housing', async ({ page }) => {
       await open(page);
       await openFab(page);
       await page.getByTestId('loop-composer-innovate').getByTestId('loop-start').click();
@@ -1035,14 +1028,7 @@ test.describe('FAB loop console — rehydration (Theme I)', () => {
     expect(await ptyCreates(page)).toEqual([]);
   });
 
-  test(
-    'a restored FAB session still never reaches the main terminal housing',
-    // The main panel auto-opens a REAL second terminal, which never becomes
-    // visible on the CI runner — xterm paints through `@xterm/addon-webgl`,
-    // which a GPU-less runner cannot give it. Same wall as terminal-lazy-preload
-    // and friends — Phase 38 Theme I owns the fix.
-    { tag: '@linux-red' },
-    async ({ page }) => {
+  test('a restored FAB session still never reaches the main terminal housing', async ({ page }) => {
       await openRestored(page, { terminalSessions: SLEPT }, { innovate: 'sess-fab-innovate' });
 
       await page.keyboard.press('Control+`');
