@@ -5,11 +5,13 @@ import type {
   Ref,
   Remote,
   RepoDescriptor,
+  StashEntry,
   StatusResult,
   Worktree,
 } from '@midnite/studio-shared';
 import { forgeProjectUrl, pickForgeRemote } from '@midnite/studio-shared';
 import {
+  LuArchiveRestore,
   LuArrowDownToLine,
   LuArrowRightLeft,
   LuArrowUpFromLine,
@@ -37,6 +39,13 @@ import { openExternal, useCloseRepo, useRemoveWorktree } from '../../services/qu
 import { useTargetedGitOp, type StatusTarget } from '../../services/use-status';
 import { useUiStore } from '../../store/ui-store';
 import { useWorkbenchStore } from '../../store/workbench-store';
+import {
+  useTargetedStashApply,
+  useTargetedStashBranch,
+  useTargetedStashDrop,
+  useTargetedStashPop,
+  useTargetedStashPush,
+} from '../stash/use-stash-actions';
 import { syncAffordances } from '../status/sync-availability';
 
 /**
@@ -148,6 +157,11 @@ export function useRepoActions(
   const push = useTargetedGitOp<{ setUpstream: boolean }>(target, 'push', (api, args, ctx) =>
     api.ops.push({ ...ctx, setUpstream: args.setUpstream }),
   );
+  const stashPush = useTargetedStashPush(target);
+  const stashApply = useTargetedStashApply(target);
+  const stashPop = useTargetedStashPop(target);
+  const stashDrop = useTargetedStashDrop(target);
+  const stashBranch = useTargetedStashBranch(target);
 
   const report = useCallback(
     (result: GitOpResult) => {
@@ -427,6 +441,74 @@ export function useRepoActions(
     ],
   );
 
+  /** The Stashes heading's action: create a stash from the whole worktree. */
+  const promptStashPush = useCallback(() => {
+    dialogs.prompt({
+      title: 'Stash changes',
+      label: 'Message (optional)',
+      initialValue: '',
+      confirmLabel: 'Create stash',
+      onConfirm: (message) =>
+        void stashPush.mutateAsync({ message: message.trim() || undefined }).then(report),
+    });
+  }, [dialogs, report, stashPush]);
+
+  /**
+   * Right-click on a stash row. Drop is `danger` and goes through
+   * `dialogs.confirm` — it is the one stash op that removes the entry rather
+   * than leaving it (Apply/Pop/Branch all keep the stash list unchanged or
+   * grow it); the confirm names the Undo path Theme H actually wired for it.
+   */
+  const stashMenu = useCallback(
+    (entry: StashEntry): MenuItem[] => [
+      {
+        label: 'Apply stash',
+        icon: LuArchiveRestore,
+        onSelect: () => void stashApply.mutateAsync({ selector: entry.selector }).then(report),
+      },
+      {
+        label: 'Pop stash',
+        icon: LuArrowUpFromLine,
+        onSelect: () => void stashPop.mutateAsync({ selector: entry.selector }).then(report),
+      },
+      {
+        label: 'Create branch from stash…',
+        icon: LuGitBranchPlus,
+        onSelect: () =>
+          dialogs.prompt({
+            title: 'Create branch from stash',
+            label: 'Branch name',
+            initialValue: '',
+            confirmLabel: 'Create branch',
+            validate: validateRefName,
+            onConfirm: (name) =>
+              void stashBranch.mutateAsync({ name, selector: entry.selector }).then(report),
+          }),
+      },
+      { type: 'separator' },
+      copyItem('stash sha', entry.sha, LuCopy),
+      { type: 'separator' },
+      {
+        label: 'Drop stash…',
+        icon: LuTrash2,
+        danger: true,
+        onSelect: () =>
+          dialogs.confirm({
+            title: 'Drop this stash?',
+            body: 'The entry is removed. A toast with an Undo action follows immediately after — this is the one stash op that needs it.',
+            confirmLabel: 'Drop stash',
+            danger: true,
+            blastRadius: null,
+            onConfirm: () =>
+              void stashDrop
+                .mutateAsync({ selector: entry.selector, message: entry.message })
+                .then(report),
+          }),
+      },
+    ],
+    [dialogs, report, stashApply, stashBranch, stashDrop, stashPop],
+  );
+
   /** Right-click on a worktree row, and its hover ellipsis. */
   const worktreeMenu = useCallback(
     (worktree: Worktree): MenuItem[] => {
@@ -680,6 +762,8 @@ export function useRepoActions(
     worktreeMenu,
     sectionMenu,
     parentSectionMenu,
+    stashMenu,
+    promptStashPush,
     checkout,
     report,
     viewAllChanges,

@@ -36,8 +36,7 @@ import { useUiStore, type ViewId } from '../../store/ui-store';
  * one that could disagree.
  *
  * `branches` and `forge` are parents, not sections with rows of their own —
- * see `SECTION_TREE`. `stashes` is a reserved leaf: it exists in the
- * declaration from this phase on, but Phase 22 is what gives it a body.
+ * see `SECTION_TREE`. `stashes` is a leaf, same as `local`/`remotes`/`tags`.
  */
 export type SectionKey =
   | 'local'
@@ -83,8 +82,8 @@ export type SectionNode = {
  * primary context in every view (`VIEW_FILTERS` already says so for Actions
  * and Tests). `Branches` owns `Local` and `Remotes` as children rather than
  * replacing them — see the now-corrected comment in `repos-panel.tsx`.
- * `stashes` is declared here and rendered nowhere until Phase 22 supplies a
- * body for it.
+ * `stashes` sits right after `tags` — Phase 22 Theme B gave it a body in
+ * `repos-panel.tsx`'s `SECTION_BODY`.
  */
 export const SECTION_TREE: readonly SectionNode[] = [
   { key: 'worktrees' },
