@@ -5,7 +5,7 @@ import { LuBot, LuFolderTree, LuRefreshCw, LuRepeat } from 'react-icons/lu';
 
 import { Accordion } from '@bilo-io/ui';
 
-import { CLAUDE_COMMANDS, DEFAULT_LOOPS, type ClaudeInfo } from '@midnite/studio-shared';
+import { CLAUDE_COMMANDS, DEFAULT_LOOPS, LOOP_GROUPS, type ClaudeInfo } from '@midnite/studio-shared';
 
 import { IconButton } from '../../../components/icon-button';
 import { resolveAgentIcon } from '../../../components/icons';
@@ -231,21 +231,41 @@ function LoopDefaultFields() {
               {loop.modifiers.length === 0 ? (
                 <p className="text-[11px] text-muted-foreground">No toggles.</p>
               ) : (
-                loop.modifiers.map((modifier) => (
-                  <label
-                    key={modifier.id}
-                    title={modifier.promptFragment}
-                    className="flex cursor-pointer items-center gap-2 text-[11px] text-muted-foreground hover:text-foreground"
-                  >
-                    <input
-                      type="checkbox"
-                      checked={defaults[loop.id]?.[modifier.id] ?? modifier.defaultOn}
-                      onChange={(event) => setDefault(loop.id, modifier.id, event.target.checked)}
-                      className="h-3 w-3 shrink-0 accent-primary"
-                    />
-                    <span>{modifier.label}</span>
-                  </label>
-                ))
+                /*
+                  Grouped the way the panel groups them, so the two surfaces
+                  read as one form. Uniformly checkboxes here even where the
+                  panel draws a switch: every row is answering the same
+                  question — does a fresh run start with this on — rather than
+                  putting a policy in force right now.
+                */
+                LOOP_GROUPS.map((group) => {
+                  const modifiers = loop.modifiers.filter((m) => m.group === group.id);
+                  if (modifiers.length === 0) return null;
+                  return (
+                    <Fragment key={group.id}>
+                      <h4 className="mt-0.5 text-[9px] font-semibold uppercase tracking-wider text-muted-foreground/70">
+                        {group.label}
+                      </h4>
+                      {modifiers.map((modifier) => (
+                        <label
+                          key={modifier.id}
+                          title={modifier.promptFragment}
+                          className="flex cursor-pointer items-center gap-2 text-[11px] text-muted-foreground hover:text-foreground"
+                        >
+                          <input
+                            type="checkbox"
+                            checked={defaults[loop.id]?.[modifier.id] ?? modifier.defaultOn}
+                            onChange={(event) =>
+                              setDefault(loop.id, modifier.id, event.target.checked)
+                            }
+                            className="h-3 w-3 shrink-0 accent-primary"
+                          />
+                          <span>{modifier.label}</span>
+                        </label>
+                      ))}
+                    </Fragment>
+                  );
+                })
               )}
             </div>
           </Fragment>

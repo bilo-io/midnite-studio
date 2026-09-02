@@ -1,4 +1,10 @@
-import { composeLoopPrompt, type LoopDefinition } from '@midnite/studio-shared';
+import {
+  composeLoopPrompt,
+  loopModelArgs,
+  type LoopDefinition,
+  type LoopModel,
+  type LoopSchedule,
+} from '@midnite/studio-shared';
 import { useCallback } from 'react';
 
 import { recordLoopStart, recordLoopStop } from './use-loop-runs';
@@ -38,6 +44,12 @@ export function useLoopSession(
     cwd: string | null;
     basePrompt: string;
     checkedModifierIds: string[];
+    /** choiceId → optionId, for this loop's radio groups. */
+    choiceIds: Record<string, string>;
+    /** The working window, or `null` when the loop is not scheduled. */
+    schedule: LoopSchedule | null;
+    /** Which Claude to launch — a `--model` flag, never a prompt fragment. */
+    model: LoopModel;
     extras: string;
     /**
      * What the loop's agent is actually typed as at the shell.
@@ -52,7 +64,8 @@ export function useLoopSession(
     command: string;
   },
 ): LoopSessionControls {
-  const { repoId, cwd, basePrompt, checkedModifierIds, extras, command } = options;
+  const { repoId, cwd, basePrompt, checkedModifierIds, choiceIds, schedule, model, extras, command } =
+    options;
   const tab = loop.id as FabTab;
 
   const start = useCallback(() => {
@@ -75,7 +88,12 @@ export function useLoopSession(
       ui.setFabPrevSession(tab, outgoing);
     }
 
-    const composedPrompt = composeLoopPrompt(basePrompt, loop, checkedModifierIds, extras);
+    const composedPrompt = composeLoopPrompt(basePrompt, loop, {
+      modifierIds: checkedModifierIds,
+      choiceIds,
+      schedule,
+      extras,
+    });
 
     const session = startAgent({
       repoId,
@@ -84,6 +102,9 @@ export function useLoopSession(
       prompt: composedPrompt,
       agentId: loop.agentId,
       command,
+      // Empty for `'default'`, and empty for any agent whose CLI has no
+      // `--model` — see `loopModelArgs`.
+      extraArgs: loopModelArgs(loop.agentId, model),
       surface: 'fab',
       // The explicit Start press IS the confirmation the withheld Return
       // normally collects — see `startAgent`'s own note.
@@ -96,8 +117,21 @@ export function useLoopSession(
       sessionId: session.id,
       composedPrompt,
       checkedModifierIds,
+      model,
     });
-  }, [repoId, cwd, basePrompt, checkedModifierIds, extras, command, loop, tab]);
+  }, [
+    repoId,
+    cwd,
+    basePrompt,
+    checkedModifierIds,
+    choiceIds,
+    schedule,
+    model,
+    extras,
+    command,
+    loop,
+    tab,
+  ]);
 
   const stop = useCallback(() => {
     const sessionId = useUiStore.getState().fabSessions[tab];

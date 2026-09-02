@@ -1,6 +1,6 @@
 import { randomUUID } from 'node:crypto';
 
-import { EVENT_CHANNELS, type LoopRunRecord } from '@midnite/studio-shared';
+import { EVENT_CHANNELS, type LoopModel, type LoopRunRecord } from '@midnite/studio-shared';
 import type { BrowserWindow } from 'electron';
 
 import { nullLoopRunsStore, type LoopRunsStore } from './loop-runs-store';
@@ -76,6 +76,7 @@ export async function startLoopRun(req: {
   sessionId: string;
   composedPrompt: string;
   checkedModifierIds: string[];
+  model?: LoopModel | undefined;
 }): Promise<LoopRunRecord> {
   return withLock(async () => {
     await ensureLoaded();
@@ -86,6 +87,10 @@ export async function startLoopRun(req: {
       startedAt: Date.now(),
       composedPrompt: req.composedPrompt,
       checkedModifierIds: req.checkedModifierIds,
+      // Spread rather than `model: req.model`: the record is parsed by an
+      // `.optional()` field, and an explicit `undefined` key would survive the
+      // JSON round-trip as a present-but-empty property in the ledger file.
+      ...(req.model === undefined ? {} : { model: req.model }),
       status: 'running',
     };
     runs = [...runs, record];
