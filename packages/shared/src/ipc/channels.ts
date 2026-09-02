@@ -278,6 +278,10 @@ export const CHANNELS = {
    */
   opStashStore: 'mstudio:stash:store',
 
+  // --- reflog ----------------------------------------------------------------
+  /** `readReflog` — the History view's reflog tab (Phase 22 Theme G). */
+  reflogList: 'mstudio:reflog:list',
+
   // --- pty -----------------------------------------------------------------
   // `pty:*` owns the *process*; `terminal:*` below owns the durable *record*.
   // A session outlives its pty (that is the whole point of restoring one), so

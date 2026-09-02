@@ -43,6 +43,7 @@ import {
   METRICS_MIN_INTERVAL_MS,
   MetricSampleSchema,
   RefSchema,
+  ReflogEntrySchema,
   RemoteSchema,
   RebaseSequencePlanSchema,
   RepoDescriptorSchema,
@@ -981,6 +982,15 @@ export const StashStoreRequest = OpBase.extend({
   sha: z.string().min(1),
   message: z.string().optional(),
 });
+
+// --- reflog ------------------------------------------------------------------
+
+export const ReflogListRequest = OpBase.extend({
+  /** Absent means `HEAD`. */
+  ref: z.string().optional(),
+  limit: z.number().int().positive().max(500).default(200),
+});
+export const ReflogListResponse = z.array(ReflogEntrySchema);
 
 // --- pty -------------------------------------------------------------------
 
