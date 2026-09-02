@@ -2,6 +2,8 @@
 
 **Headlines:**
 
+- **[Phases 40–43 · Projects, the board, the council room, and workflows](phases/phase-40-github-projects.md)** (0% · 0/176) — **Four planned phases, none started**, carved out of [`.midnite/_features.md`](../_features.md) items 1–4 and the first net-new *product* frontier since Phase 34. They stack: **[40](phases/phase-40-github-projects.md)** opens ProjectV2 — GraphQL-only, which is exactly why `gh-graphql.ts` exists — as a read-and-nudge Projects view; **[41](phases/phase-41-agentic-kanban.md)** turns that table on its side as a `[ Table | Board ]` mode in the same view, where a card can launch an agent and grows the `loop-glow` border while it runs, with a live xterm inside it; **[42](phases/phase-42-councils-layout.md)** is the smallest and the one two others want first — it builds the `panel-stack` history primitive the app lacks (councils' selection is one `useState`, which is why "back/forward" is not a CSS change) and moves councils to config-right / output-centre; **[43](phases/phase-43-workflows-mvp.md)** finally fills the `workflows` ViewId that has rendered `<Placeholder>` since Phase 19, with a hand-rolled SVG canvas and a real local `node:http` CRUD API to build against. 41 depends on 40; 42 and 43 are independent, and 42 unblocks 43 Theme F. Nothing here touches `git-engine`.
+
 - **[Phase 39 · One rail, five chords and four loops](phases/phase-39-status-bar-shortcut-rail.md)** (75% · 48/64) — **Six of seven themes landed** ([PR #7](https://github.com/bilo-io/midnite-studio/pull/7), 2026-09-02); Theme G held back. The status bar's left zone is now a **shortcut rail** whose job is teaching its own chords: **icon plus chord at rest, the name only while that surface is open or under the pointer**. Three toggles that were three verbatim copies of the same twenty lines — and had already drifted, two hard-coding `⌘`+letter in JSX so the same commands read `⌘G`/`⌘B` wherever `Mod` is `Ctrl` — collapsed behind one `StatusToggle`, and `displayChord` now owns the upper-casing. `⌘K` and `⌘P` **moved** out of the title bar (one control, one home) and diagnostics left the machine-vitals cluster, both landing behind separators `segments.ts` now *derives* from a new `group` field — which also fixed `browser-toggle`'s `priority: 5`, the inversion that had it render first and shed first. The separator rule is the phase's one real design find: placement is pure, but **pruning reads the rendered DOM**, because the `health` group renders *nothing* for a repo with no linter and an *Enable diagnostics* prompt for an untrusted one, and only that segment's own hooks know which — a `collapsible` group flag, the doc's own recommendation, would have made correctness depend on every future author remembering to declare it. After the agent count sit **four loop launchers**, `openFabTab` in one click, coloured from a new renderer-side `loop-glow.ts` because `DEFAULT_LOOPS.color` is a Tailwind `text-*` class no `box-shadow` can read; glow means *running* (amber when waiting), an outline means *this tab is open*, and the strip **collapses to one glyph at rest**. Its pulse ships **gated on window focus** rather than unmeasured — a permanently mounted animation is precisely what Phase 36 Theme E was written about. `moon run :typecheck :lint :test` green at 2 722 tests; the CI-blocking e2e set 220/0; the 6 remaining `fab-loops` failures baselined as **identical on `origin/main`**, which is what caught the one real regression (an `aria-label` colliding with the waiting notice under Playwright's substring name matching).
 
 - **[Phase 38 · Paying off the e2e suite](phases/phase-38-e2e-suite-repair.md)** (16% · 9/58) — Theme A landed ([PR #12](https://github.com/bilo-io/midnite-studio/pull/12), 2026-09-02): not a mock-bridge fault after all — `TerminalView`'s Phase 36 Theme C lazy chunk means `pty.create` lands a moment after Start, not in the same tick, and `emitActivity`/`exitPty`/`printUrl` now poll for it structurally rather than assuming it away. Un-ratcheting the two files it touched ran every spec in them on the CI runner for the first time, surfacing 4 more specs on Theme I's already-known GPU-less-runner wall — tagged `@linux-red` and handed off rather than fixed here. The Playwright suite was run in full on 2026-09-01 for the first time in weeks, to give it a CI job at last, and **45 of its 442 specs failed across 17 of 58 files** — none of it a fresh regression: a bisect against `ec2c75e` found the same three sample files 15-red *before* Phase 36's performance work against 13 on `main`. This is the drift `outstanding.md` predicted on 2026-08-27, when it recorded that nothing runs `app:e2e` automatically. The CI job that closes the hole landed 2026-09-02 — four ubuntu shards, blocking, capped at 20 minutes — and it blocks on a **ratchet** (`playwright.ci.config.ts`) naming the red files so the green majority is guarded. This phase empties that list. Themes follow root causes rather than filenames: **A** alone covers seven failures across `fab-loops` and `terminal-links` that share one error string (`pty:activity was not delivered to pty-1`), and **B** covers a `changes-panel` file that fails all ten of its specs on the same assertion. Three failures read like genuine product bugs rather than stale specs — a checkout dropped on view switch, a destructive-confirm dialog that no longer takes focus, and a pointer-events delay the browser pane guards against. **I** is different in kind — four specs that are green on macOS and red only on Linux, because xterm paints through `@xterm/addon-webgl` and a GPU-less runner has no context to give it; both a 15s timeout and Chromium's SwiftShader were tried, fixed none of them, and SwiftShader cost 60% more runtime. **H** deletes the ratchet once the list is empty.
@@ -23,6 +25,10 @@ Completed work is logged append-only in [`done.md`](done.md). Deferred scope liv
 
 | Phase | Status | Refined | Done | Progress | % | 🔄 WIP | ◻ TODO |
 |-------|--------|---------|------|----------|---|--------|--------|
+| [43 · Workflows](phases/phase-43-workflows-mvp.md) | ◻ TODO | — | 0/57 | `░░░░░░░░░░` | 0% | — | A B C D E F G H I |
+| [42 · Councils, rearranged](phases/phase-42-councils-layout.md) | ◻ TODO | — | 0/36 | `░░░░░░░░░░` | 0% | — | A B C D E F |
+| [41 · Agentic Kanban](phases/phase-41-agentic-kanban.md) | ◻ TODO | — | 0/44 | `░░░░░░░░░░` | 0% | — | A B C D E F G H I |
+| [40 · GitHub Projects](phases/phase-40-github-projects.md) | ◻ TODO | — | 0/39 | `░░░░░░░░░░` | 0% | — | A B C D E F G |
 | [39 · One rail, five chords and four loops](phases/phase-39-status-bar-shortcut-rail.md) | 🔄 WIP | — | 52/63 | `████████░░` | 83% | G | — |
 | [38 · Paying off the e2e suite](phases/phase-38-e2e-suite-repair.md) | 🔄 WIP | — | 9/58 | `██░░░░░░░░` | 16% | — | B C D E F G H I |
 | [37 · A glow that knows which tab](phases/phase-37-fab-tab-glow.md) | 🔄 WIP | — | 41/44 | `█████████░` | 93% | — | F (human idle-cpu + resize check) |
@@ -68,6 +74,77 @@ Completed work is logged append-only in [`done.md`](done.md). Deferred scope liv
 
 <!-- Each phase currently carries a single theme A = its full deliverables checklist. Split into
      lettered themes if a phase gets parallelised. -->
+
+### [Phase 43 — Workflows](phases/phase-43-workflows-mvp.md)
+
+*Fills the `workflows` ViewId that has rendered `<Placeholder>` since Phase 19, the way Phase 34
+filled the identically-reserved Councils slot. A workflow is a graph of five node kinds, built on
+a hand-rolled SVG canvas and run manually; its centre of gravity is HTTP, so D ships a real local
+`node:http` CRUD API to build against — a workflow engine with nothing to call is a diagram. A is
+the contract, B the engine, C–D what it calls, E–F how you build one, G–H how you watch and keep
+it.*
+
+- ◻ **A** — Shared contracts: `Workflow*` zod schemas, nodes as a discriminated union of exactly five kinds, channels + push events. Named with no `Forge` prefix — `workflow` already means *GitHub Actions workflow* in this codebase.
+- ◻ **B** — The engine: topological execution with parallel branches, cycle detection before the first node runs, per-node timeout, whole-run cancel — and the `withRunLock` per-run mutation lock, because parallel settles racing on a read-modify-write is the exact bug Phase 34 found.
+- ◻ **C** — The HTTP executor: GET/POST/PUT/PATCH/DELETE/HEAD/QUERY, `{{node.field}}` interpolation (a substitution, deliberately not an expression language), plus `transform`, `condition`, `delay`.
+- ◻ **D** — The demo CRUD API: `node:http` on `127.0.0.1` only, in-memory collections, every verb and the right status codes. On demand, off by default, one click to paste its base URL into a node.
+- ◻ **E** — The canvas: hand-rolled SVG nodes + bézier edges, `@dnd-kit` drag, viewBox pan/zoom, cycle rejected at draw time. No new dependency, per Phase 5/18 precedent and Phase 36's budgets.
+- ◻ **F** — The node inspector: forms driven off the `kind` union, live validation that marks a node invalid on the canvas, and an interpolation helper that lists what is actually upstream. Adopts Phase 42's `panel-stack`.
+- ◻ **G** — Runs: the canvas read-only with live per-node status off `EVENT_CHANNELS`, per-node input/output/duration/error, capped history, and the existing `loop-glow` running idiom rather than a third animation.
+- ◻ **H** — Persistence + the list: two `*-store.ts` files under `userData`, `workflow-handlers.ts`, and `workflows-view.tsx` finally replacing the `<Placeholder>` at `app.tsx:980`. JSON import/export as the cheapest sharing story.
+- ◻ **I** — Wiring + verification: sections, palette, menu, a settings page, e2e, and one real pass with **no network** — proving the demo API makes the feature self-contained.
+
+### [Phase 42 — Councils, rearranged](phases/phase-42-councils-layout.md)
+
+*`councils-view.tsx` is 33 lines of flat two-pane flex whose selection is a single `useState`, and
+that `useState` is why "back/forward with a transition" is not a CSS change — there is no history
+to navigate. A builds the primitive the app is missing (modelled on `ui-store.ts`'s own
+`viewHistory`, so the app has one notion of back, not two); B–C move config right and output
+centre; D–E make councils and runs share one panel; F proves the motion. Renderer-only — no IPC,
+no main-process change.*
+
+- ◻ **A** — `panel-stack`: a generic, tested `use-panel-history` + slide transition + breadcrumb header in `components/`, not `features/councils/`, because Projects and Workflows want it next. Push truncates the forward tail, matching `viewHistory` exactly.
+- ◻ **B** — Three panes: navigation left, output centre (the widest, and the one that grows), configuration right — resizable, persisted, collapsible, with an overlay floor on narrow widths.
+- ◻ **C** — Config moves right and members reorder: the members panel extracted out of the 221-line `council-detail.tsx`, `@dnd-kit` reorder flushing the debounced save on drop rather than racing it. Order is presentation, **not** execution order, and the panel says so.
+- ◻ **D** — Back, forward, crumbs: local `useState` selection replaced by stack entries, `Mod+[` / `Mod+]` declared in `keybindings.ts` — never a literal chord in JSX, the drift Phase 39 A had to clean up.
+- ◻ **E** — One panel for both lists: councils and runs are both stack entries in the left rail; starting a run pushes it; live output keeps streaming when its entry is not on top.
+- ◻ **F** — Motion, proved: reduced motion collapses the slide, asserted **through the real cascade** — Phase 39 G shipped believing a rule fired that lost on specificity.
+
+### [Phase 41 — Agentic Kanban](phases/phase-41-agentic-kanban.md)
+
+*Phase 40's table, turned on its side, with a running agent per card. A `[ Table | Board ]` mode
+inside the Projects view — same picker, same gate — with columns from the project's `Status` field
+and a drag that is a real GraphQL mutation. Every ingredient exists: `loop-glow.ts` is the glow,
+`TerminalSurfaceSchema` is already how a session renders in one panel and nowhere else, `@dnd-kit`
+already ships. A–C are the board, D–F the agent in the card, G–H the composer and surviving a
+restart. Keeps the type-but-don't-send posture — unlike a council member, a Kanban agent **does**
+touch the repo.*
+
+- ◻ **A** — The board shell: mode toggle, columns derived from the `Status` single-select in its own option order, per-column scroll, and four honest empty states.
+- ◻ **B** — Cards: type glyph off the content union, assignees, labels, non-`Status` fields as chips, a detail pane, and virtualisation past a threshold.
+- ◻ **C** — Drag between columns → `updateProjectV2ItemFieldValue`, optimistic with rollback. Within-column ordering is **read-only** — board position is a separate concept and faking it is worse than omitting it.
+- ◻ **D** — A session bound to a card: `'kanban'` joins `TerminalSurfaceSchema`, plus a `taskRef` on the session record — the one genuinely new field, and what makes H possible.
+- ◻ **E** — The terminal inside the card: xterm mounted **only for visible running cards**; everything else shows its last activity line. Phase 36 measured what a permanently mounted animation costs; an xterm is worse.
+- ◻ **F** — The running glow from `loop-glow.ts` — one glow implementation in this app. Three states (running / waiting / open), focus-gated, reduced motion asserted through the cascade.
+- ◻ **G** — The card composer: roster agent picker, prompt composed from the card and shown in full, the command displayed verbatim because the user presses Return.
+- ◻ **H** — Binding survives a restart: reconcile broker sessions to cards by `taskRef`, terminal state instead of a stale glow, quit-and-relaunch reattaches (Phase 30's guarantee, on this surface).
+- ◻ **I** — Verification: column derivation, the optimistic reducer + rollback, glow state as a pure function, e2e, and a blurred idle-CPU number with five cards running.
+
+### [Phase 40 — GitHub Projects](phases/phase-40-github-projects.md)
+
+*A `grep` for `ProjectV2` across `packages/` returns zero hits — this app knows a lot about a
+repo's forge and nothing about planning. A read-and-nudge Projects view: list the owner's boards,
+show one as a table with its custom fields, and write back exactly two things. ProjectV2 is
+GraphQL-only, which is precisely why `gh-graphql.ts` exists. The board rendering is Phase 41; this
+phase ships the table and the contracts it reads.*
+
+- ◻ **A** — Shared contracts: `ForgeProject*` in its own `domain/forge-project.ts` (not appended to a 750-line `forge.ts`), item content as a union on `type`, fields as a union on `dataType`, channels + bridge.
+- ◻ **B** — ProjectV2 reads: `gh-project.ts`, cursor pagination with a documented ceiling, owner user-vs-organization probing (the commonest cause of an empty-looking list), and the flattener that turns GraphQL's heterogeneous `fieldValues.nodes[]` into the flat record the contract declares.
+- ◻ **C** — IPC + query layer: `forge-project-handlers.ts` beside `forge-handlers.ts`, preload exposure, react-query keys scoped so a mutation invalidates one board.
+- ◻ **D** — The Projects view: `projects` joins the `ViewId` union (order = rail order) and `FORGE_GATED_VIEWS`, lazy-loaded, with a board picker over an item table — and a header slot ready for Phase 41's toggle.
+- ◻ **E** — Field writes: `updateProjectV2ItemFieldValue` + `addProjectV2ItemById`, inline editors per `dataType`, optimistic with rollback, and the real GitHub error text on failure.
+- ◻ **F** — Wiring + the missing-scope path: palette, menu, sections, settings — and the `project` OAuth scope `gh auth login` does not grant by default, surfaced as a first-class state with its `gh auth refresh -s project` fix, not an error toast.
+- ◻ **G** — Verification: recorded GraphQL fixtures (user- and org-owned, every field type, a draft, a paginated page, an `INSUFFICIENT_SCOPES` body), the flattener specifically, e2e, screenshots.
 
 ### [Phase 39 — One rail, five chords and four loops](phases/phase-39-status-bar-shortcut-rail.md)
 
