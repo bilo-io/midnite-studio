@@ -56,12 +56,12 @@ Effort tags: **S** ≈ an hour or two · **M** ≈ half a day · **L** ≈ a day
 
 ## Deliverables
 
-### A — One toggle, one rule (M)
+### A — One toggle, one rule (M) — ✅ DONE (PR #7, 2026-09-02)
 
 Lands first: Themes C and D both register buttons through it, and writing them against three
 divergent copies would mean five copies by the end of the phase.
 
-- [ ] Add `packages/app/src/features/status-bar/status-toggle.tsx` exporting
+- [x] Add `packages/app/src/features/status-bar/status-toggle.tsx` exporting
       `StatusToggle` — props `{ testId, Icon, iconClassName?, name, chord, active, onToggle,
       tooltip }`. It renders exactly what
       [`repos-toggle.tsx`](../../../packages/app/src/features/status-bar/repos-toggle.tsx)
@@ -70,28 +70,28 @@ divergent copies would mean five copies by the end of the phase.
       [`IconButton`'s children slot](../../../packages/app/src/components/icon-button.tsx) —
       the title bar already renders `⌘`+bold-letter that way at
       [`app.tsx:751-763`](../../../packages/app/src/app.tsx).
-- [ ] Add `status-toggle-label.ts` with a **pure** `showsName({ active, hovered, density })`
+- [x] Add `status-toggle-label.ts` with a **pure** `showsName({ active, hovered, density })`
       returning a boolean, plus `showsChord({ density })`. Two independent axes both deciding
       whether text renders is the drift risk in this theme; one tested function is the answer.
       `density.test.ts` is the model for testing a pure layout decision with plain values.
-- [ ] Implement the rule as decided: **the name renders when `active || hovered`, and only at
+- [x] Implement the rule as decided: **the name renders when `active || hovered`, and only at
       `full` density.** At `compact`/`collapsed` nothing shows a name — `.status-label` already
       guarantees that and needs no carve-out, and an active toggle that grew a label in a
       narrow window could re-trigger the very overflow that produced the narrow state.
-- [ ] The chord hint stops wearing `.status-label` and becomes **always visible at `full`,
+- [x] The chord hint stops wearing `.status-label` and becomes **always visible at `full`,
       hidden at `compact`/`collapsed`** — same visibility as today, but expressed through
       `showsChord` rather than by borrowing the name's class, so the two can never be changed
       together by accident.
-- [ ] Chord rendering goes through
+- [x] Chord rendering goes through
       [`displayChord`](../../../packages/app/src/features/status-bar/chord-hint.ts) for every
       button. Today `repos-toggle` and `browser-toggle` hard-code `⌘`+`G`/`B` in JSX while
       `terminal-toggle` calls `displayChord` — the hard-coded pair is wrong on Linux and
       Windows, where the same commands are `Ctrl+G`/`Ctrl+B`.
-- [ ] Track hover/focus in `StatusToggle` itself via `onPointerEnter`/`onPointerLeave` +
+- [x] Track hover/focus in `StatusToggle` itself via `onPointerEnter`/`onPointerLeave` +
       `onFocus`/`onBlur` (not CSS `:hover`), because the name's presence changes layout width
       and the pure function has to be the one deciding it. Keyboard focus counts as hover, so
       tabbing the rail reveals names.
-- [ ] Rewrite
+- [x] Rewrite
       [`repos-toggle.tsx`](../../../packages/app/src/features/status-bar/repos-toggle.tsx),
       [`terminal-toggle.tsx`](../../../packages/app/src/features/status-bar/terminal-toggle.tsx)
       and
@@ -100,28 +100,28 @@ divergent copies would mean five copies by the end of the phase.
       its own `chordFor(...)` line and nothing else. `repos-toggle`'s `text-[#F05032]` Git
       orange passes through `iconClassName`; its long comment about why that colour is a
       literal rather than a token moves with it.
-- [ ] `status-toggle.test.tsx`: `aria-pressed` follows `active`; the name is absent when
+- [x] `status-toggle.test.tsx`: `aria-pressed` follows `active`; the name is absent when
       inactive-and-unhovered and present when either is true; the chord is present in both
       states; a `data-density='compact'` ancestor hides the name in both states.
 
-### B — The registry learns to group (M)
+### B — The registry learns to group (M) — ✅ DONE (PR #7, 2026-09-02)
 
 Three insertions and one zone move in
 [`segments.ts`](../../../packages/app/src/features/status-bar/segments.ts) is where hand-editing
 that array stops being reasonable, and the seed's layout is defined by *grouping*, which the
 array cannot currently express.
 
-- [ ] Add `group: string` to `StatusSegment` and give every entry one. Left zone:
+- [x] Add `group: string` to `StatusSegment` and give every entry one. Left zone:
       `'shortcuts'`, `'health'`, `'live'`. Right zone: `'repo'`, `'machine'`, `'alerts'` —
       naming what the existing hand-placed `right-delimiter` already separates, so the right
       zone gains a description of itself without changing a pixel.
-- [ ] Render group boundaries as separators **derived from the data**, in
+- [x] Render group boundaries as separators **derived from the data**, in
       [`status-bar.tsx`](../../../packages/app/src/features/status-bar/status-bar.tsx): a
       separator is emitted between two adjacent visible segments whose `group` differs. A
       trailing or leading separator must never appear — this is the same trap the existing
       header comment records about wrapping a `null`-returning segment in a `div` and leaving
       60px of unexplained `gap-3` space.
-- [ ] Extract that decision into a pure `withSeparators(segments)` in
+- [x] Extract that decision into a pure `withSeparators(segments)` in
       `segments-groups.ts`, returning a render list of `{ kind: 'segment' } | { kind: 'sep' }`,
       and test it: no leading/trailing separator, no double separator, exactly one boundary
       between two differing groups, and — the case that actually bites — **no separator when
@@ -130,73 +130,73 @@ array cannot currently express.
       stranding a separator next to nothing (recommendation: groups whose members can all
       vanish declare `collapsible: true`, and the separator before such a group is rendered by
       the group itself, not by the boundary rule).
-- [ ] Retire
+- [x] Retire
       [`right-delimiter.tsx`](../../../packages/app/src/features/status-bar/right-delimiter.tsx)
       as a registered *segment* and keep only its markup as the shared `StatusSeparator`
       (`h-3 w-px bg-border shrink-0`, `aria-hidden`). Its `data-testid="right-delimiter"` is
       asserted by
       [`right-status-bar.test.tsx`](../../../packages/app/src/features/status-bar/right-status-bar.test.tsx)
       — update that test rather than keeping a dead id alive.
-- [ ] Fix the priority inversion on `browser-toggle`: it is `priority: 5`, the **lowest** in
+- [x] Fix the priority inversion on `browser-toggle`: it is `priority: 5`, the **lowest** in
       the left zone, so it renders first and would be shed first. Renumber the shortcuts group
       to `10, 20, 30, 40, 50` in render order, leaving gaps as the array's own comment intends.
-- [ ] Keep `collapseFor`'s contract exactly as it is — whole-zone collapse at `collapsed`
+- [x] Keep `collapseFor`'s contract exactly as it is — whole-zone collapse at `collapsed`
       density, priority-ascending. **Group-aware partial collapse is explicitly not in this
       phase** (see *Not in this phase*); the `group` field is added for layout now and is
       available to a later partial-collapse implementation without a second migration.
-- [ ] Extend `segments.test.ts`: every segment has a `group`; groups within a zone are
+- [x] Extend `segments.test.ts`: every segment has a `group`; groups within a zone are
       **contiguous** in array order (a segment cannot rejoin its group after another group's
       segment, which would render two separators for one logical break).
 
-### C — The palette and Go-to-File join the rail (S)
+### C — The palette and Go-to-File join the rail (S) — ✅ DONE (PR #7, 2026-09-02)
 
 A **move**, not an addition. Both buttons exist today at
 [`app.tsx:749-764`](../../../packages/app/src/app.tsx) as `IconButton`s with `LuCommand`/`LuFile`
 and a mono `K`/`P` badge.
 
-- [ ] Add `palette-toggle.tsx` and `files-toggle.tsx` in
+- [x] Add `palette-toggle.tsx` and `files-toggle.tsx` in
       [`features/status-bar/`](../../../packages/app/src/features/status-bar), both thin
       `StatusToggle` call sites. Names `Command Palette` / `Go to File`; chords via
       `chordFor('palette.open', 'Mod+k')` and `chordFor('palette.files', 'Mod+p')`.
-- [ ] Icons: reuse the pair
+- [x] Icons: reuse the pair
       [`command-icons.ts`](../../../packages/app/src/features/palette/command-icons.ts) already
       maps for these two command ids (`LuSearch` for `palette.open`, `LuFile` for
       `palette.files`) **or** the title bar's `LuCommand`/`LuFile` — pick one pair and make the
       other match it, so a command's glyph is the same in the palette list and on the rail.
       Recommendation: `LuCommand`/`LuFile`, and update `command-icons.ts`'s `palette.open`
       entry, because `LuSearch` collides with `search.open`'s own meaning.
-- [ ] Active state is real for both: `usePaletteStore` carries `isOpen` and
+- [x] Active state is real for both: `usePaletteStore` carries `isOpen` and
       `mode: 'all' | 'files'`
       ([`palette-store.ts:111-139`](../../../packages/app/src/store/palette-store.ts)).
       `palette-toggle` is active when `isOpen && mode !== 'files'`; `files-toggle` when
       `isOpen && mode === 'files'`. **Exactly one of the two may be active at a time** — assert
       it, because `setQuery` re-derives `mode` from a typed sigil and can flip which button
       lights up mid-typing, which is correct behaviour and easy to mistake for a bug.
-- [ ] `onToggle` calls `palette.open()` / `palette.open('files')` when shut and
+- [x] `onToggle` calls `palette.open()` / `palette.open('files')` when shut and
       `palette.close()` when that mode is already open — a control showing `aria-pressed` that
       cannot un-press is a lie about its own affordance.
-- [ ] Register both in the `shortcuts` group of the left zone, after `browser-toggle`.
-- [ ] Delete the two `IconButton`s from
+- [x] Register both in the `shortcuts` group of the left zone, after `browser-toggle`.
+- [x] Delete the two `IconButton`s from
       [`app.tsx`](../../../packages/app/src/app.tsx) and drop the now-unused `LuCommand` /
       `LuFile` imports and the module-scope `paletteChord` const if nothing else reads it.
       Check whether the adjacent `<span … w-px bg-border />` separator at
       [`app.tsx:764`](../../../packages/app/src/app.tsx) is still separating two things.
-- [ ] Check the empty-workspace hint at
+- [x] Check the empty-workspace hint at
       [`empty-workspace.tsx:34-41`](../../../packages/app/src/features/empty/empty-workspace.tsx)
       still reads correctly — it teaches `⌘K`/`⌘P` and now points at the rail rather than the
       title bar.
 
-### D — Diagnostics moves left (S)
+### D — Diagnostics moves left (S) — ✅ DONE (PR #7, 2026-09-02)
 
 It is a fact about *this repository*, and it now sits between two machine-vitals readouts. Its
 own header comment already explains that it follows the sidebar selection, not the workbench
 tab — which is a left-zone kind of statement.
 
-- [ ] Change
+- [x] Change
       [`diagnostics-segment`](../../../packages/app/src/features/diagnostics/diagnostics-segment.tsx)'s
       registration in `segments.ts` to `zone: 'left'`, `group: 'health'`, priority above the
       shortcuts group and below `live`.
-- [ ] Flip its `Popover` from `align="end"` to `align="start"`
+- [x] Flip its `Popover` from `align="end"` to `align="start"`
       ([`diagnostics-segment.tsx:173-177`](../../../packages/app/src/features/diagnostics/diagnostics-segment.tsx)).
       `align="end"` right-aligns the panel against the trigger, which was correct hard against
       the window's right edge and puts the panel off-screen-left at the window's left edge.
@@ -204,18 +204,18 @@ tab — which is a left-zone kind of statement.
       ([`popover.tsx:100-113`](../../../packages/app/src/components/popover.tsx)), so the bug is
       a panel that visually detaches from its trigger rather than one that disappears — verify
       by eye, not only by test.
-- [ ] Same flip for the `ConfirmDialog` trust prompt if it is anchored rather than centred.
-- [ ] Update
+- [x] Same flip for the `ConfirmDialog` trust prompt if it is anchored rather than centred.
+- [x] Update
       [`right-status-bar.test.tsx`](../../../packages/app/src/features/status-bar/right-status-bar.test.tsx)
       and any test asserting `status-bar-right` contains diagnostics.
-- [ ] Confirm the right zone still reads as a group after the move: `finance` is now the
+- [x] Confirm the right zone still reads as a group after the move: `finance` is now the
       leftmost member of `'repo'` and the `right-delimiter` boundary must still fall in the
       right place under Theme B's derived rule.
-- [ ] Leave the `ProblemList` popover contents entirely alone. This is a relocation.
+- [x] Leave the `ProblemList` popover contents entirely alone. This is a relocation.
 
-### E — Four launchers (M)
+### E — Four launchers (M) — ✅ DONE (PR #7, 2026-09-02)
 
-- [ ] Add `packages/app/src/features/loops/loop-glow.ts`: a `Record<string, string>` from loop
+- [x] Add `packages/app/src/features/loops/loop-glow.ts`: a `Record<string, string>` from loop
       id to a **CSS colour**, sitting beside
       [`loop-icons.tsx`](../../../packages/app/src/features/loops/loop-icons.tsx) and justified
       by the same comment — `packages/shared` is the wire contract and cannot carry
@@ -224,74 +224,74 @@ tab — which is a left-zone kind of statement.
       (blue-500), `automate` `#22c55e` (green-500), `watchdog` `#eab308` (yellow-500), `medic`
       `#ef4444` (red-500). An unknown id falls back to `currentColor`, mirroring
       `loopIcon`'s neutral-dot fallback — a wrong colour is cosmetic, a crash is not.
-- [ ] Add `packages/app/src/features/status-bar/fab-launchers.tsx` — one segment rendering four
+- [x] Add `packages/app/src/features/status-bar/fab-launchers.tsx` — one segment rendering four
       buttons from `DEFAULT_LOOPS` in declaration order, glyph via `loopIcon(loop.icon)`.
       **One segment, not four**, so the four never separate across an overflow boundary and the
       group rule sees them as one unit.
-- [ ] At rest each launcher is **semi-transparent** (`opacity: .45`) and monochrome-ish — the
+- [x] At rest each launcher is **semi-transparent** (`opacity: .45`) and monochrome-ish — the
       loop colour is present but muted, so four resting launchers do not compete with the agent
       count beside them.
-- [ ] Click calls `useUiStore.getState().openFabTab(loop.id as FabTab)` — which already sets
+- [x] Click calls `useUiStore.getState().openFabTab(loop.id as FabTab)` — which already sets
       `fabPanelOpen: true` and `activeFabTab` in one action
       ([`ui-store.ts:986`](../../../packages/app/src/store/ui-store.ts)), so no new store
       action is needed. Clicking the launcher for the tab that is already open and focused
       **closes the panel**, matching every other toggle in the rail.
-- [ ] Accessibility: each button gets `aria-label={`Open ${loop.label} loop`}`, a `Tooltip`
+- [x] Accessibility: each button gets `aria-label={`Open ${loop.label} loop`}`, a `Tooltip`
       carrying label + live state, and `aria-pressed` reflecting *open-tab*, not *running* —
       pressed is about this control's own surface.
-- [ ] Register as `{ id: 'fab-launchers', zone: 'left', group: 'live', priority: 35 }`, between
+- [x] Register as `{ id: 'fab-launchers', zone: 'left', group: 'live', priority: 35 }`, between
       `agent-count` (30) and `reattached-note` (40), as the seed specifies.
-- [ ] Density behaviour: the launchers are icons with no label, so `full` and `compact` look
+- [x] Density behaviour: the launchers are icons with no label, so `full` and `compact` look
       identical. Give the row `gap-1` rather than inheriting the zone's `gap-3` — four glyphs
       that read as one cluster, not four unrelated segments.
 
-### F — The strip is mission control (M)
+### F — The strip is mission control (M) — ✅ DONE (PR #7, 2026-09-02)
 
 Two independent facts, two visual channels. **This supersedes the seed's original wording**,
 which put the glow on the active tab: the glow means *running*.
 
-- [ ] Read `useAllLoopStatuses(LOOP_IDS)` in `fab-launchers.tsx` — the same call
+- [x] Read `useAllLoopStatuses(LOOP_IDS)` in `fab-launchers.tsx` — the same call
       [`fab-panel.tsx:29`](../../../packages/app/src/components/fab-panel.tsx) and
       [`fab-loop-dots.tsx`](../../../packages/app/src/features/loops/fab-loop-dots.tsx) already
       make, so all three surfaces agree by construction.
-- [ ] **Glow = running.** A running loop's launcher goes fully opaque and takes a
+- [x] **Glow = running.** A running loop's launcher goes fully opaque and takes a
       `box-shadow` in its own colour plus a slow opacity pulse. Drive the colour through a
       `--loop-glow-color` custom property set inline from `loop-glow.ts`, so the CSS is one
       rule rather than four — the technique `.loop-run-glow` uses for `--loop-glow-angle`.
-- [ ] **Ring = the open tab.** A subtle `ring-1` / outline in the loop's colour marks which tab
+- [x] **Ring = the open tab.** A subtle `ring-1` / outline in the loop's colour marks which tab
       the FAB is currently showing, and it is legible *with or without* the glow: a loop can be
       open and idle, running and unopened, or both at once, and all three states must be
       distinguishable at a glance.
-- [ ] **Amber outranks the loop colour when waiting** — `#f59e0b`, steady, no pulse. Established
+- [x] **Amber outranks the loop colour when waiting** — `#f59e0b`, steady, no pulse. Established
       three times already: `.loop-run-glow.is-waiting` in
       [`styles.css:677-683`](../../../packages/app/src/styles.css), the tab dot in
       `fab-panel.tsx`, and `fab-loop-dots.tsx`. A loop with a question on screen is the one you
       need, and it must look the same wherever it is shown.
-- [ ] `is-thinking` is *not* given a fourth state here. The launcher is 14px; `running` vs
+- [x] `is-thinking` is *not* given a fourth state here. The launcher is 14px; `running` vs
       `waiting` is as much as it can carry honestly. Note the decision in the file so nobody
       re-derives it.
-- [ ] Add the CSS to [`styles.css`](../../../packages/app/src/styles.css) as
+- [x] Add the CSS to [`styles.css`](../../../packages/app/src/styles.css) as
       `.loop-launcher` + `.is-running` / `.is-waiting` / `.is-open`, adjacent to the
       `.loop-run-glow` block so the two families are read together. Keyframes animate
       **opacity only** — never `box-shadow` spread and never `filter` — for the reason Phase 36
       Theme E documents: this is a permanently-running animation on a window that is often
       blurred.
-- [ ] Decide whether `FabLoopDots` on the collapsed FAB is now redundant. Recommendation:
+- [x] Decide whether `FabLoopDots` on the collapsed FAB is now redundant. Recommendation:
       **keep it.** The FAB is visible when the status bar is scrolled past nothing but is a
       different surface at a different moment, and the dots already handle the four-cap by
       construction. Record the call either way.
-- [ ] `fab-launchers.test.tsx`: four buttons in `DEFAULT_LOOPS` order; a click calls
+- [x] `fab-launchers.test.tsx`: four buttons in `DEFAULT_LOOPS` order; a click calls
       `openFabTab` with the right id; running adds `is-running`; waiting adds `is-waiting` and
       *removes* the loop colour; the open tab adds `is-open`; running+open carries both.
 
-### G — Reduced motion, and proof (S)
+### G — Reduced motion, and proof (S) — ◐ PARTIAL (PR #7 took three items)
 
-- [ ] `html[data-motion='reduced'] .loop-launcher` resolves to a computed
+- [x] `html[data-motion='reduced'] .loop-launcher` resolves to a computed
       `animation-name: none` — **not** `animation-play-state: paused`. A paused animation still
       holds a compositor layer, and Phase 35 Theme H's assertion reads the computed value
       through the cascade rather than out of the stylesheet, precisely so a later `!important`
       elsewhere cannot silently defeat it. Reuse that test's shape.
-- [ ] Under reduced motion a running launcher keeps its full opacity and its coloured
+- [x] Under reduced motion a running launcher keeps its full opacity and its coloured
       `box-shadow` and loses only the pulse — the state stays legible, which is what reduced
       motion asks for and what `html[data-motion='reduced'] .loop-run-glow` already does.
 - [ ] Playwright shots of the left zone across the states that actually differ: `full`
@@ -309,7 +309,28 @@ which put the glow on the active tab: the glow means *running*.
       packaged-equivalent build with one loop running, and record it. This phase adds a
       permanently-running opacity animation to a surface that is always mounted — the one thing
       Phase 36 Theme E exists to catch.
-- [ ] `moon run :typecheck :lint :test` green.
+- [x] `moon run :typecheck :lint :test` green. (PR #7 — 2 743 tests)
+
+
+**Landed early, out of PR #7's self-review.** The first two items came forward because the
+review found that the rule they describe **could not fire**:
+`html[data-motion='reduced'] .loop-launcher` is (0,2,1) and loses to
+`.loop-launcher.is-running.is-pulsing` at (0,3,0). It *looked* right only because
+`@bilo-io/shell` forces `animation-duration: 0.001ms !important` under reduced motion, pinning
+the pulse to a final frame whose `opacity: 1` happens to be harmless — precisely the accident
+[`styles.css:323-334`](../../../packages/app/src/styles.css) already warns about, and the
+inverse of what this phase claimed ("so a later `!important` elsewhere cannot silently defeat
+it"). The `.loop-run-glow` precedent it was cribbed from clears its own competitor by one point;
+adding a third class to the running selector consumed that margin. Worth noting for whoever
+finishes this theme: **the first test written for it passed with the bug still present**, because
+it opened a launcher's tab without the loop running, so there was no pulse to kill. The assertion
+now applies the class combination directly and guards on `animation-name: loop-launcher-pulse`
+*before* switching reduced motion on.
+
+**Still open here:** the density×state screenshot matrix, the `collapsed`-state end-to-end
+assertion, `moon run app:perf`, and the blurred idle-CPU number. The last one now measures a
+**focus-gated** animation (decision 9), which is a different — and much cheaper — measurement
+than the one this theme was written against.
 
 ## Files this phase touches
 
@@ -343,19 +364,23 @@ the label rule was scoped to `full` only.
 
 ## Verification
 
-- [ ] Every left-zone button shows its chord and no name at rest; toggling a panel on reveals
+- [x] Every left-zone button shows its chord and no name at rest; toggling a panel on reveals
       that button's name; hovering any button reveals its name without changing its state.
 - [ ] Narrowing the window to `compact` hides every name including the active one, and no
       button changes width when hovered at `compact`.
-- [ ] Narrowing further to `collapsed` moves the whole left zone into the overflow popover, and
+- [x] Narrowing further to `collapsed` moves the whole left zone into the overflow popover, and
       every control in it — including the four launchers — still works.
-- [ ] `⌘K` and `⌘P` are gone from the title bar and present in the rail; both still open the
+- [x] `⌘K` and `⌘P` are gone from the title bar and present in the rail; both still open the
       palette in the right mode, both close it on a second press, and exactly one of them is
       ever lit.
-- [ ] Diagnostics sits in the left zone between two separators; its popover opens flush with
+- [◐] Diagnostics sits in the left zone between two separators — asserted in
+      `shortcut-rail.spec.ts`, including the repo-with-no-linter case where the group renders
+      nothing and one of the two rules is pruned. **The popover still needs an eye**: `Popover`
+      clamps to the viewport, so a wrong `align` detaches the panel from its trigger rather than
+      hiding it, and no assertion catches that. Original wording: its popover opens flush with
       its trigger and fully on screen at the window's left edge; the trust prompt still reads
       correctly.
-- [ ] Clicking each of the four launchers opens the FAB panel on that loop's tab; clicking the
+- [x] Clicking each of the four launchers opens the FAB panel on that loop's tab; clicking the
       already-open one closes the panel.
 - [ ] Start a loop from the FAB: its launcher goes opaque, glows in the loop's own colour and
       pulses. Switch tabs: the ring moves, the glow stays on the running loop.
@@ -365,12 +390,13 @@ the label rule was scoped to `full` only.
       glance without hovering.
 - [ ] Quit and relaunch with a loop persisted asleep: the launcher is at rest, not glowing.
       (Phase 35 Theme I's hydration is what makes this true; this only has to not break it.)
-- [ ] `html[data-motion='reduced']`: no pulse anywhere in the rail; running launchers still
+- [x] `html[data-motion='reduced']`: no pulse anywhere in the rail; running launchers still
       opaque and still coloured; computed `animation-name` is `none`.
 - [ ] Full keyboard pass: tab through the rail, every control reachable, focus visible, names
       revealed on focus, `aria-pressed` correct on all six toggles.
-- [ ] `moon run :typecheck :lint :test` green; `moon run app:perf` inside budget; a recorded
-      blurred idle-CPU number with one loop running.
+- [x] `moon run :typecheck :lint :test` green — 2 722 tests (PR #7). `moon run app:perf` inside
+      budget and a recorded blurred idle-CPU number with one loop running stay open: both are
+      Theme G's, and this PR shipped the pulse focus-gated rather than measured (decision 9).
 - [ ] A human-eye pass at `full` on a wide window: the rail reads as three groups, and four
       resting launchers do not shout.
 
@@ -432,6 +458,76 @@ knowingly.
 8. **Diagnostics keeps `side="top"` and changes only `align`.** The popover already clamps to
    the viewport, so the failure mode of leaving `align="end"` is a panel that detaches from its
    trigger rather than one that vanishes — which is why this needs an eye, not just a test.
+
+9. **The pulse is gated on window focus** (PR #7, decided at exec time). The doc left it ungated
+   with the measurement deferred to Theme G, which is not in that batch — which would have landed
+   a permanently-mounted always-on animation with no number attached, the one thing Phase 36's
+   rule exists to prevent. `useWindowFocused()` in
+   [`lib/use-window-focus.ts`](../../../packages/app/src/lib/use-window-focus.ts) adds
+   `.is-pulsing` only while the window has focus. **Focus, not `visibilityState`** — the
+   distinction `use-now.ts` does not need: a hidden document cannot be read, but a *blurred*
+   window is still on screen, still readable, and animating it is what costs. Theme G's
+   measurement is still worth taking; it now measures a gated animation.
+10. **Separators are pruned against the rendered DOM**, not by a `collapsible` group flag
+   (PR #7 — this resolves the doc's own first open question, differently from its recommendation).
+   Placement stays pure (`withSeparators` over the registry); *pruning* reads a zone's live
+   `children` (`strandedSeparators`). The deciding case is one the registry cannot see: the
+   `health` group renders **nothing** for a repo with no linter and an **"Enable diagnostics"
+   prompt** for an untrusted one, and only `DiagnosticsSegment`'s own hooks know which. A
+   `collapsible` flag would have made correctness depend on every future segment author
+   remembering to declare it. No wrapper element is needed to read the answer, because a segment
+   returning `null` produces no element at all — the same no-wrappers constraint
+   `status-bar.tsx`'s header comment already records for the `gap-3` reason.
+11. **`showsName` takes no `density`.** The doc specified
+   `showsName({active, hovered, density})`; density cannot reach JavaScript here.
+   [`use-overflow.ts`](../../../packages/app/src/features/status-bar/use-overflow.ts) measures by
+   *synchronously* stamping `data-density='full'`, reading `scrollWidth`, stamping `'compact'`,
+   and reading again — all inside one `useLayoutEffect`. A React context carrying density would
+   not have re-rendered between those two reads, so both would report the same width and
+   `densityFor` would never see a difference. Density stays a CSS gate (`.status-label` /
+   `.status-chord`); `showsNameAt(state, density)` exists as the complete two-axis truth for
+   tests, and is deliberately not what the component calls.
+12. **The launchers' `aria-label` is `"<Label> loop"`, not `"Open <Label> loop"`** (PR #7). The
+   waiting-notice action in the notification bell is already named `Open <Label>`, and
+   Playwright's `getByRole({ name })` matches on substring by default — so the first spelling
+   turned every spec reaching for that action into a strict-mode violation. Found by baselining
+   `fab-loops.spec.ts` against `origin/main` rather than by reading the diff.
+
+13. **The name's state gate is a `[data-density]`-scoped CSS rule, not a `hidden` attribute**
+   (PR #7 self-review). `hidden` was the first implementation and it broke the overflow popover:
+   [`overflow-popover.tsx`](../../../packages/app/src/features/status-bar/overflow-popover.tsx)
+   states the contract in its own header — the panel portals into `document.body`, outside the
+   `<footer data-density>` the `.status-label` rule matches against, "so a segment's label comes
+   back automatically — no override needed". A JS attribute travels into the portal and density
+   does not, so at `collapsed` density the popover listed five unlabelled 14px glyphs and their
+   chords: the one surface where the name is the only affordance there is. The button publishes
+   `data-named` and a rule scoped under `[data-density]` resolves it, which keeps the portal
+   exemption exactly as documented.
+14. **The launcher strip expands on `fabPanelOpen`, not only on `anyLive`** (PR #7 self-review).
+   Theme F requires open-and-idle, running-and-unopened and both-at-once to be three
+   distinguishable states; with the strip collapsed whenever nothing was running, the first of
+   those three rendered no launchers at all — so `is-open` existed in CSS and could never be
+   seen. Two related consequences of the collapse behaviour are accepted rather than fixed:
+   Theme E's "four resting launchers … do not compete with the agent count" now describes the
+   *hovered* state, and the strip's expansion is not density-gated, so hovering it at `compact`
+   widens the left zone. The second is worth a look when Theme G runs its density matrix.
+15. **The collapsed glyph expands the strip and nothing else** (PR #7 self-review). It called
+   `openFabTab`, which was wrong three ways: unreachable by mouse — `pointerenter` fires first
+   and unmounts the button before the click lands; unreachable by keyboard — focus is handed
+   forward to the first launcher, because expanding swaps the button out and Chromium fires no
+   `blur` for a removed node, which dropped focus to `document.body` *and* left the strip stuck
+   expanded; and unable to un-press the way `LoopLauncher` does, so clicking it with the FAB
+   already open on `activeFabTab` was a silent no-op. `aria-expanded` is now honest and
+   `aria-controls` names the strip.
+16. **Pruning asks `useOverflow` to re-measure, through a callback rather than a revision
+   counter** (PR #7 self-review). Hiding a separator removes a 1px rule *and* its 12px `gap-3`
+   slot but does not change the footer's own `clientWidth`, so the `ResizeObserver` never fires
+   and `lastWidths` would cache a reading taken before the prune. `useSeparatorPruning` is
+   therefore called *before* `useOverflow` — layout effects run in call order, so the first
+   measurement already sees pruned DOM — and a later prune (diagnostics appearing once trust is
+   granted) calls `remeasure()`. A counter was the first attempt and meant `setState` inside a
+   dependency-free layout effect: an infinite-update hazard eslint correctly flags even though
+   `prune` is idempotent, plus an extra render per prune.
 
 ## Open questions
 
