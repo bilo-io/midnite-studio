@@ -254,7 +254,7 @@ test.describe('FAB loop console', () => {
     await expect(composer.getByText('Dependabot PRs')).toBeVisible();
   });
 
-  test('a waiting loop turns its tab dot and the FAB dot amber', async ({ page }) => {
+  test('a waiting loop turns its tab dot and the FAB corner amber', async ({ page }) => {
     await open(page);
     await openFab(page);
     await page.getByTestId('loop-composer-innovate').getByTestId('loop-start').click();
@@ -266,12 +266,14 @@ test.describe('FAB loop console', () => {
     await expect(page.getByTestId('loop-dot-innovate')).toHaveClass(/text-blue-500/);
     await emitActivity(page, 'waiting', 'pty-1');
     await expect(page.getByTestId('loop-dot-innovate')).toHaveClass(/bg-amber-500/);
-    await expect(page.getByTestId('fab-loop-dot-innovate')).toHaveClass(/bg-amber-500/);
+    await expect(page.getByTestId('fab-loop-corner-innovate')).toHaveClass(/is-waiting/);
   });
 
-  test('the collapsed FAB shows a dot per live loop and none when idle', async ({ page }) => {
+  test('the collapsed FAB lights one corner per live loop and none when idle', async ({
+    page,
+  }) => {
     await open(page);
-    await expect(page.getByTestId('fab-loop-dots')).toHaveCount(0);
+    await expect(page.getByTestId('fab-loop-corners')).toHaveCount(0);
 
     await openFab(page);
     await page.getByTestId('loop-composer-innovate').getByTestId('loop-start').click();
@@ -279,9 +281,19 @@ test.describe('FAB loop console', () => {
     await page.waitForTimeout(SETTLE_WAIT_MS);
     await page.getByTestId('loop-composer-automate').getByTestId('loop-start').click();
 
-    await expect(page.getByTestId('fab-loop-dot-innovate')).toBeVisible();
-    await expect(page.getByTestId('fab-loop-dot-automate')).toBeVisible();
-    await expect(page.getByTestId('fab-loop-dot-watchdog')).toHaveCount(0);
+    /*
+      Each loop owns a fixed corner from its index in `DEFAULT_LOOPS`, not from
+      how many are live — so Ideate stays top-left when Engineer joins it.
+    */
+    await expect(page.getByTestId('fab-loop-corner-innovate')).toHaveAttribute(
+      'data-corner',
+      'tl',
+    );
+    await expect(page.getByTestId('fab-loop-corner-automate')).toHaveAttribute(
+      'data-corner',
+      'tr',
+    );
+    await expect(page.getByTestId('fab-loop-corner-watchdog')).toHaveCount(0);
   });
 
   test('Stop finalises the run and the history records what it carried', async ({ page }) => {
@@ -379,13 +391,13 @@ test.describe('FAB loop console — lifecycle (Theme F)', () => {
     await expect.poll(async () => (await loopRuns(page))[0]?.['status']).toBe('exited');
   });
 
-  test('an exited loop drops the glow and its dots', async ({ page }) => {
+  test('an exited loop drops the glow and its corner', async ({ page }) => {
     await open(page);
     await openFab(page);
     const composer = page.getByTestId('loop-composer-innovate');
     await composer.getByTestId('loop-start').click();
     await expect(composer.getByTestId('loop-stop')).toHaveClass(/loop-run-glow/);
-    await expect(page.getByTestId('fab-loop-dot-innovate')).toBeVisible();
+    await expect(page.getByTestId('fab-loop-corner-innovate')).toBeVisible();
     // The pty behind the tab is created once TerminalView's lazy chunk mounts
     // (Phase 36 Theme C) — a moment after Stop appears, not the same tick.
     await expect(page.locator('.xterm-screen')).toHaveCount(1);
@@ -393,7 +405,7 @@ test.describe('FAB loop console — lifecycle (Theme F)', () => {
     await exitPty(page, 'pty-1');
 
     await expect(composer.getByTestId('loop-start')).not.toHaveClass(/loop-run-glow/);
-    await expect(page.getByTestId('fab-loop-dot-innovate')).toHaveCount(0);
+    await expect(page.getByTestId('fab-loop-corner-innovate')).toHaveCount(0);
   });
 
   test('Stop keeps the transcript, and the next Start is a fresh session', async ({ page }) => {

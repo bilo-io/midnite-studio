@@ -20,7 +20,7 @@ import { DelayedFallback } from './components/delayed-fallback';
 import { DialogHost } from './components/dialog-host';
 import { VIEW_ICON } from './components/nav-icons';
 import { FabPanel } from './components/fab-panel';
-import { FabLoopDots, useAnyLoopRunning } from './features/loops/fab-loop-dots';
+import { FabLoopCorners, useAnyLoopRunning } from './features/loops/fab-loop-corners';
 import { useLoopAttention } from './features/loops/use-loop-attention';
 import { PaletteHost } from './components/palette-host';
 import { ResizeHandle } from './components/resizable/resize-handle';
@@ -1062,9 +1062,9 @@ function Shell() {
             </>
           ) : null}
 
-          {/* FAB Button — glows while any loop is live, dotted per loop. */}
+          {/* FAB Button — glows while any loop is live, one lit corner per loop. */}
           <div className="absolute bottom-4 right-4 z-20 h-10 w-10">
-            <FabLoopDots />
+            <FabLoopCorners />
             <button
               type="button"
               onClick={toggleFabPanel}
@@ -1072,7 +1072,15 @@ function Shell() {
               title="Quick Access"
               data-loops-running={loopsRunning.running ? 'true' : undefined}
               data-fab-tab={activeFabTab}
-              className={`flex h-10 w-10 items-center justify-center rounded-full bg-primary text-primary-foreground shadow-lg transition-transform hover:scale-110 active:scale-95 ${
+              /*
+                `relative` is load-bearing: the corner glows sit at `-z-10` behind
+                this button, and a static box would paint UNDER a negative-z
+                positioned sibling rather than over it — the halo's opaque disc
+                would swallow the brand mark. `.loop-run-glow` happens to set
+                `position: relative` too, but only while a loop runs, which is
+                too load-bearing a coincidence to lean on.
+              */
+              className={`relative flex h-10 w-10 items-center justify-center rounded-full bg-primary text-primary-foreground shadow-lg transition-transform hover:scale-110 active:scale-95 ${
                 loopsRunning.running
                   ? `loop-run-glow on-primary ${
                       loopsRunning.waiting
