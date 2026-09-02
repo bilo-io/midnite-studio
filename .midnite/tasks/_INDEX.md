@@ -31,9 +31,9 @@ Completed work is logged append-only in [`done.md`](done.md). Deferred scope liv
 | [43 · Workflows](phases/phase-43-workflows-mvp.md) | ◻ TODO | x1 | 0/77 | `░░░░░░░░░░` | 0% | — | A B C D E F G H I |
 | [42 · Councils, rearranged](phases/phase-42-councils-layout.md) | ◻ TODO | — | 0/36 | `░░░░░░░░░░` | 0% | — | A B C D E F |
 | [41 · Agentic Kanban](phases/phase-41-agentic-kanban.md) | ◻ TODO | x1 | 0/55 | `░░░░░░░░░░` | 0% | — | A B C D E F G H I |
-| [40 · GitHub Projects](phases/phase-40-github-projects.md) | ◻ TODO | — | 0/39 | `░░░░░░░░░░` | 0% | — | A B C D E F G |
+| [40 · GitHub Projects](phases/phase-40-github-projects.md) | 🔄 WIP | — | 0/39 | `░░░░░░░░░░` | 0% | A | B C D E F G |
 | [39 · One rail, five chords and four loops](phases/phase-39-status-bar-shortcut-rail.md) | 🔄 WIP | — | 52/63 | `████████░░` | 83% | G | — |
-| [38 · Paying off the e2e suite](phases/phase-38-e2e-suite-repair.md) | 🔄 WIP | — | 9/58 | `██░░░░░░░░` | 16% | — | B C D E F G H I |
+| [38 · Paying off the e2e suite](phases/phase-38-e2e-suite-repair.md) | 🔄 WIP | — | 9/58 | `██░░░░░░░░` | 16% | B C E F | D G H I |
 | [37 · A glow that knows which tab](phases/phase-37-fab-tab-glow.md) | 🔄 WIP | — | 41/44 | `█████████░` | 93% | — | F (human idle-cpu + resize check) |
 | [36 · Faster, lighter, same app](phases/phase-36-performance-diet.md) | 🔄 WIP | x1 | 58/64 | `█████████░` | 91% | — | G (human passes) |
 | [35 · FAB Mission Control](phases/phase-35-fab-mission-control.md) | 🔄 WIP | — | 39/40 | `██████████` | 98% | — | — |
@@ -49,7 +49,7 @@ Completed work is logged append-only in [`done.md`](done.md). Deferred scope liv
 | [25 · Search everywhere, and the blame that explains it](phases/phase-25-search-everywhere.md) | ✅ DONE | x1 | 101/101 | `██████████` | 100% | — | — |
 | [24 · The explorer learns to write, and to search](phases/phase-24-writable-explorer.md) | ✅ DONE | — | 43/55 | `████████░░` | 78% | — | — |
 | [23 · A command palette, and the registry that can feed it](phases/phase-23-command-palette.md) | ✅ DONE | — | 42/55 | `████████░░` | 76% | — | — |
-| [22 · Stash, the reflog, and writes you can take back](phases/phase-22-stash-and-safety-net.md) | 🔄 WIP | — | 48/70 | `███████░░░` | 69% | — | H |
+| [22 · Stash, the reflog, and writes you can take back](phases/phase-22-stash-and-safety-net.md) | 🔄 WIP | — | 48/70 | `███████░░░` | 69% | H | — |
 | [21 · Agent roster + terminal identity](phases/phase-21-agent-roster-and-terminal-identity.md) | ✅ DONE | — | 46/46 | `██████████` | 100% | — | — |
 | [20 · Reviews page & unified diff syntax highlighting](phases/phase-20-reviews-page.md) | ✅ DONE | — | 45/45 | `██████████` | 100% | — | — |
 | [19 · Dashboard, Actions and Tests as views](phases/phase-19-dashboard-actions-tests.md) | ✅ DONE | — | 76/76 | `██████████` | 100% | — | — |
