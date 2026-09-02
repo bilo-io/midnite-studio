@@ -1,5 +1,7 @@
 # Phase 42 — Councils, rearranged
 
+**Refined: x1** · 2026-09-02 · UI/UX & interaction, visual design & theming, accessibility & keyboard, persistence & migration, performance & scale, testing & verification, file-map precision, per-item acceptance criteria
+
 [Phase 34](phase-34-agent-councils.md) shipped Agent Councils as a working vertical slice and
 explicitly deferred the shape of the room it lives in. That shape is now the thing holding it back.
 
@@ -17,8 +19,8 @@ councils to **three panes** (navigation left, output centre, configuration right
 council members the **drag-reorder** Phase 34 listed as deferred.
 
 **Builds on.** The app already has a back/forward stack — but at the *view* level:
-`viewHistory` / `viewHistoryIndex` in
-[`ui-store.ts:292`](../../../packages/app/src/store/ui-store.ts), with the push-truncates-forward
+`viewHistory` / `viewHistoryIndex` at
+[`ui-store.ts:297`](../../../packages/app/src/store/ui-store.ts), with the push-truncates-forward
 semantics you would expect. That is the model for the panel-level primitive, and worth reading
 before writing a second one. Councils' data layer needs no change at all — 
 [`shared/src/council.ts`](../../../packages/shared/src/council.ts),
@@ -33,6 +35,39 @@ primitive, deliberately **not** an app-wide router: replacing the `ViewId` switc
 [`app.tsx`](../../../packages/app/src/app.tsx) would touch every view, the title-bar breadcrumbs,
 the palette's nav provider and `FORGE_GATED_VIEWS`' redirect, and it is not what this phase is for.
 
+### What the x1 refinement corrected
+
+Four claims needed grounding. None is fatal — this phase is in better shape than its siblings —
+but each would have cost an executor a wrong turn.
+
+1. **"Matching `viewHistory` semantics exactly" and "depth is bounded" contradict each other.**
+   `viewHistory` has **no depth bound** — it grows unbounded
+   ([`ui-store.ts:962`](../../../packages/app/src/store/ui-store.ts)). A cap is a deliberate
+   *addition*, so Theme A names the number. Its three actions also wrap in
+   `useFileEditorStore.getState().guardNavigation(...)`, a dirty-editor guard a panel-local stack
+   must **not** copy.
+2. **`data-motion` is `'system'` by default, so the attribute half of Theme F's test can pass while
+   the real path stays unverified.** `useMotionPreference` writes `'reduced'`/`'full'` from the media
+   query at [`app.tsx:1182`](../../../packages/app/src/app.tsx); `useAppearanceSync` at `:1185` then
+   writes the *persisted* setting, which defaults to `'system'` — and being declared second, it runs
+   second and wins. So on a default install with OS reduce-motion **on**, the attribute reads
+   `'system'`, the shell's universal `html[data-motion='reduced'] *` reset **never fires**, and only
+   the `@media (prefers-reduced-motion) { html:not([data-motion='full']) … }` rules are live. Theme F
+   now asserts **three** cases, not two.
+3. **The duration token exists — it is TypeScript, not CSS — and it has the same blind spot.**
+   `REVEAL_MS = 200` and
+   `motionMs()` ([`use-reveal.ts:11,41`](../../../packages/app/src/components/use-reveal.ts)) are
+   the app's one duration source, consumed as `style={{ transitionDuration: motionMs() + 'ms' }}`.
+   But `motionMs()` tests `dataset.motion === 'reduced'` only, so under the default `'system'` +
+   OS-reduce it returns **200, not 0**. There is no CSS custom property and no Tailwind
+   `transitionDuration` key. Separately, **no `translate`-based keyframe exists at all** — every
+   entrance in the app is a fade, and `fade-in-up` is the only one that moves.
+4. **"Navigating away must not detach the run" conflates two things.**
+   [`council-live-output.tsx:17`](../../../packages/app/src/features/councils/council-live-output.tsx)
+   subscribes in a `useEffect` and snapshots on mount, so unmounting **does** detach the listener.
+   What survives is the *process* (broker-owned) and its scrollback, which `pty.snapshot` replays
+   losslessly. Theme E now says that precisely.
+
 Effort tags: **S** ≈ an hour or two · **M** ≈ half a day · **L** ≈ a day plus.
 
 ## Deliverables
@@ -45,16 +80,56 @@ its obvious next ones, which is why it lands in `components/` rather than `featu
 
 - [ ] `app/src/components/panel-stack/use-panel-history.ts` — `push`, `replace`, `back`,
       `forward`, `reset`, with `canGoBack` / `canGoForward`, generic over an entry type. Push
-      **truncates the forward tail**, matching `ui-store.ts`'s `viewHistory` semantics exactly, so
+      **truncates the forward tail**, matching `ui-store.ts`'s `viewHistory` semantics, so
       the app has one notion of what back/forward means rather than two.
+  - `export function usePanelHistory<T>(initial: T, options?: { maxDepth?: number }): { entries: T[]; index: number; current: T; push(e: T): void; replace(e: T): void; back(): void; forward(): void; reset(e?: T): void; canGoBack: boolean; canGoForward: boolean }`
+  - Copy the three mutations verbatim in shape from
+    [`ui-store.ts:962`](../../../packages/app/src/store/ui-store.ts): push is
+    `[...entries.slice(0, index + 1), entry]` with `index = next.length - 1`; back guards
+    `index <= 0`; forward guards `index >= entries.length - 1`.
+  - **Do not copy the `guardNavigation` wrapper.** All three `viewHistory` actions run inside
+    `useFileEditorStore.getState().guardNavigation(...)` because a view switch can abandon a dirty
+    editor. A panel-local stack has no editor to guard, and pulling that dependency into
+    `components/` would couple a generic primitive to the file editor.
+  - `useState`-based and panel-local — **not** a zustand store. Two councils panels are not a thing,
+    and a store would invite exactly the cross-view coupling the guardrail forbids.
 - [ ] `panel-stack.tsx` — renders the current entry with a directional slide: forward pushes in
       from the right, back from the left. Only two panes are ever mounted during a transition.
+  - `export function PanelStack<T>({ history, render, className }: { history: ReturnType<typeof usePanelHistory<T>>; render: (entry: T) => ReactNode; className?: string })`
+  - **The slide is net-new CSS.** `tailwind.config.ts`'s `keyframes` map has no `translate`-based
+    entry — `fade-in` and `fade-in-up` are the entrance vocabulary, and `fade-in-up` is the only one
+    that moves at all. Add `slide-in-right` / `slide-in-left` keyframes and two named `animation`
+    entries beside them.
+  - Duration goes **in that named animation**, inside the config's documented **160–220 ms entrance
+    band**, using the house easing token `transitionTimingFunction.DEFAULT`. There is no
+    `transitionDuration` theme extension to pull a token from — the band *is* the convention.
+  - The outgoing pane is `aria-hidden` and `pointer-events-none` for the duration, so a mid-slide
+    click cannot land on the pane that is leaving.
 - [ ] `panel-header.tsx` — a back chevron (disabled at the root), a forward chevron, and a
       breadcrumb trail of the stack, each crumb clickable.
-- [ ] Depth is bounded, and pushing the entry already on top is a no-op — a run clicked twice is
-      not two entries.
+  - Chevrons are [`IconButton`](../../../packages/app/src/components/icon-button.tsx) with
+    `LuChevronLeft` / `LuChevronRight` from `react-icons/lu` — per `CLAUDE.md`, imported per set,
+    never from the package root.
+  - A crumb click is `back()` repeated, not a direct index write, so the forward tail behaves
+    identically however you got there.
+  - Disabled chevrons keep their `title` (`"Back"` / `"Forward"`) so the affordance still explains
+    itself when it cannot act.
+- [ ] Depth is bounded at **20 entries**, oldest dropped from the head, and pushing the entry
+      already on top is a no-op — a run clicked twice is not two entries.
+  - This is a **deliberate divergence from `viewHistory`, which has no bound at all.** Councils'
+    stack is three levels deep by design (`list → council → run`), so 20 is generous; the cap
+    exists so a pathological loop cannot grow an array forever.
+  - Duplicate-push compares by the caller's own equality — `usePanelHistory` takes an optional
+    `isSame?: (a: T, b: T) => boolean`, defaulting to `Object.is`. Councils' entries are objects, so
+    it passes one comparing `kind` + `id`. Without this the no-op silently never fires.
+  - Dropping from the head **must decrement `index`**, or back/forward point at the wrong entry.
+    This is the item's real hazard and Theme A's test asserts it.
 - [ ] `use-panel-history.test.ts`: push/back/forward ordering, the forward-tail truncation, the
       depth bound, the duplicate-push no-op, and back at the root.
+  - *Acceptance, spelled out because it is the whole point of a shared primitive:* go back twice
+    then push — the old forward branch is gone; push 25 entries — length is 20 **and** `current` is
+    still the 25th; push the same entry twice — length grows by one; `back()` at index 0 and
+    `forward()` at the tail are both no-ops that do not throw.
 - [ ] Documented as reusable in the module's own header comment, naming Councils as consumer #1 —
       the convention Phase 39's `StatusToggle` established for a shared primitive.
 
@@ -67,9 +142,47 @@ its obvious next ones, which is why it lands in `components/` rather than `featu
       live member transcript are what the view is *for*.
 - [ ] Left and right panels are resizable and their widths persist, using the same
       resizable-panel machinery Phase 13 built and Phase 27 extended. Not a new mechanism.
+  - The machinery is real and the claim holds: `useResizable({ size, onSize, initial, axis, edge?, min, max })`
+    ([`use-resizable.ts`](../../../packages/app/src/components/resizable/use-resizable.ts)) driven
+    from `layout` in the ui-store, as `app.tsx:483` does for `reposWidth`.
+  - Add `councilNavWidth` and `councilConfigWidth` to `LayoutSizes`, `DEFAULT_LAYOUT` and
+    `LAYOUT_BOUNDS` ([`ui-store.ts:424`](../../../packages/app/src/store/ui-store.ts)).
+  - **No migration and no version bump.** `layout` is already in `PersistedUi`, and the rehydrate
+    merge is `layout: { ...current.layout, ...saved.layout }` (`ui-store.ts:1252`) — so a blob
+    written before these keys existed picks their `DEFAULT_LAYOUT` values up automatically. The
+    comment beside that line documents why the re-spread is there; this is the case it protects.
+  - The right panel's splitter is on its **left** edge, so dragging left must grow it: `edge: 'end'`,
+    the same inversion `app.tsx:495` calls out for the terminal.
 - [ ] The right panel collapses to a rail, so a council mid-run can be read full-width.
-- [ ] Responsive floor: below a threshold the right panel becomes an overlay rather than squeezing
-      the centre to nothing.
+  - **Greenfield.** Every panel collapse in this app today is *hide-entirely* — `reposOpen`,
+    `terminalListOpen`, `browserOpen`, `fabPanelOpen` all unmount behind a tween
+    ([`app.tsx:870`](../../../packages/app/src/app.tsx)). The one true collapse-to-rail, the nav
+    rail, lives **inside `@bilo-io/shell`'s `AppFrame`**, not in this repo — `ui-store.ts:21`
+    explains that even its `NavMode` type is re-declared locally because there is no legal deep
+    import. There is nothing here to copy.
+  - `councilConfigCollapsed` is a **top-level** boolean, not a `layout` key, so unlike the widths it
+    needs four edits: `UiState`, the `PersistedUi` `Pick<>` union
+    ([`ui-store.ts:771`](../../../packages/app/src/store/ui-store.ts)), the initial state, and
+    `partialize`. Still no version bump — an absent key falls back through `merge`'s `...current`,
+    the reasoning the `showOnboarding` comment at `:1190` spells out.
+  - Collapsing **must not** overwrite the stored width — restore to the width it had, not to the
+    default. Writing `0` into `councilConfigWidth` is the obvious wrong implementation.
+- [ ] Responsive floor: below **900 px** of view width the right panel becomes an overlay rather
+      than squeezing the centre to nothing.
+  - A number, because the draft had none and an executor would have invented one. It is derived,
+    not guessed: the two side panels' `LAYOUT_BOUNDS` minimums plus a centre wide enough to read a
+    synthesis write-up.
+  - **Also greenfield: this app has no breakpoint mechanism at all.** No width constant, no
+    `clientWidth <` comparison; `matchMedia` appears twice and both are `prefers-reduced-motion`.
+    Every `ResizeObserver` today measures, none switches layout.
+  - Measure with a `ResizeObserver` on the view container, **not** `window.matchMedia` — the
+    sidebar, terminal and browser pane all change the view's width without the window resizing, the
+    same reason `dashboard-view.tsx:328` uses a container-width hook rather than a media query.
+  - *If this item is cut for scope, cut it deliberately and say so* — it is the one item in Theme B
+    with no precedent, no existing primitive, and no other consumer waiting on it.
+  - The overlay traps focus and closes on `Escape`, reusing
+    [`use-focus-trap.ts`](../../../packages/app/src/components/use-focus-trap.ts) rather than a
+    second implementation.
 
 ### C — Configuration moves right, and members reorder (M)
 
@@ -77,13 +190,70 @@ its obvious next ones, which is why it lands in `components/` rather than `featu
       [`council-detail.tsx`](../../../packages/app/src/features/councils/council-detail.tsx)
       (currently 221 lines holding three concerns) into `council-config-panel.tsx`, mounted in the
       right region.
+  - **Correction: the three concerns are not the three the draft names.** `council-detail.tsx`
+    holds the **members panel** (`:120-164`), a **synth-provider select** (`:166-181`) and the
+    **prompt composer** (`:184-210`), under a header at `:104-118`. The **run list is not in this
+    file at all** — it lives inside `CouncilRunView`
+    ([`council-run-view.tsx:58-76`](../../../packages/app/src/features/councils/council-run-view.tsx)),
+    which `council-detail.tsx:213` merely mounts. Theme E's "run list moves to the left rail" is
+    therefore an extraction out of *that* file, not this one.
+  - The config column wrapper is `:103` — `flex w-80 shrink-0 flex-col border-r border-border`, with
+    its scroll body at `:120` (`min-h-0 flex-1 overflow-auto px-3 py-2`).
+  - Moving to config-**right** is a two-character change on that wrapper — `border-r` → `border-l` —
+    plus placing it after the centre region. The column markup itself is the precedent; it is only
+    on the wrong side.
+  - The local state that must move with it: `members` (`:37`), `synthProvider` (`:38`),
+    `scheduleSave` (`:53`) and the `saveTimer` ref. `prompt` (`:39`) belongs to the composer, and
+    `selectedRunId` (`:40`) belongs to the stack (Theme D) — **not** to the config panel.
+  - Form controls in that column are **raw HTML today** — bare `<input>` (`:136`), `<select>`
+    (`:145`, `:170`), `<textarea>` (`:156`, `:185`) sharing one repeated className. Keep them as-is
+    or adopt the `components/form/` hoist that Phases 41 and 43 both plan; do **not** invent a third
+    styling.
 - [ ] `@dnd-kit` drag-reorder of council members — the item Phase 34 named as deferred. Order
-      persists through the existing debounced save (`SAVE_DEBOUNCE_MS`), and a drag must not race
-      that debounce: flush on drop rather than waiting out the timer.
+      persists through the existing debounced save (`SAVE_DEBOUNCE_MS = 500`), and a drag must not
+      race that debounce: flush on drop rather than waiting out the timer.
+  - Use [`SortableList`](../../../packages/app/src/components/sortable-list.tsx)
+    (`{ ids, onReorder, children }` + `useSortableRow(id)`) as-is. This is the one place in these
+    four phases where it fits unchanged: members are a single vertical list, and its
+    `restrictToVerticalAxis` + `restrictToParentElement` modifiers are exactly right here — unlike
+    [Phase 41 Theme C](phase-41-agentic-kanban.md), where they are the reason it cannot be reused.
+  - Members carry an `id` already (`CouncilMemberSchema`), and the list is already keyed
+    `key={member.id}` (`:129`) — which is exactly `SortableList`'s stated contract, *"Row keys must
+    match these exactly."*
+  - **Use a dedicated drag handle, not a whole-card listener spread.** A member card contains an
+    `<input>` (`:135`), a `<select>` (`:145`) and a `<textarea>` (`:156`); spreading
+    `useSortableRow`'s `listeners` on the card root would swallow text selection inside all three.
+    Both existing `SortableList` call sites are plain rows with buttons, which is why this has not
+    bitten yet.
+  - "Flush on drop" needs more than a `clearTimeout`, because **`scheduleSave` closes over its
+    arguments rather than reading a ref** (`:53-58`) — there is nothing for a `flush()` to re-send.
+    Extract it into a hook holding a `pendingRef` of `{ members, synthProvider }`, written on every
+    `scheduleSave`, and have `flush()` clear the timer and `mutate` from that ref.
+  - **This also fixes a bug that already exists.** The unmount cleanup at `:59-61` clears the timer
+    **without firing it**, so an edit made inside the debounce window is silently dropped — and its
+    dep array is `[]`, so it captures the first render's closure. Themes D and E make this strictly
+    worse by unmounting the config panel on navigation. `flush()` on unmount is the fix.
+  - *Acceptance:* a vitest asserts that reorder-then-immediately-unmount still issues exactly **one**
+    mutation carrying the new order.
 - [ ] Member order is **presentation and prompt order**, not execution order — members still run in
       parallel, and the config panel says so, so reordering does not imply a scheduling promise the
       runner does not keep.
-- [ ] Keyboard reorder via `@dnd-kit`'s keyboard sensor.
+- [ ] Keyboard reorder — **not** via `@dnd-kit`'s keyboard sensor.
+  - There is **no `KeyboardSensor` anywhere in this repo**; all four dnd call sites use
+    `PointerSensor` alone, and `sortable-list.tsx`'s own docblock claims to have settled "the
+    keyboard story" while implementing none.
+  - *Recommendation:* `Alt+↑` / `Alt+↓` on the focused member row, moving it one place and calling
+    the same flush-then-mutate path. It is a handful of lines against a sensor plus a
+    `coordinateGetter`, it needs no new dnd concepts, and it is the same call
+    [Phase 41 Theme C](phase-41-agentic-kanban.md) makes for its board. Recorded as a Decision.
+  - Announce the move via the row's `aria-label` (`"Member 2 of 4"`), so the change is perceivable
+    without sight of the drag.
+  - Note the temptation to instead add a `KeyboardSensor` inside
+    [`sortable-list.tsx`](../../../packages/app/src/components/sortable-list.tsx) — whose own
+    docblock claims the wrapper exists so "the keyboard story" is decided once, while implementing
+    none. Doing so would hand keyboard dnd to Councils, the repos sidebar, repo groups **and** the
+    terminal session list at once. That is either a welcome fix or scope creep; this phase says
+    scope creep, and Not-in-this-phase records it.
 - [ ] A run's member snapshot stays frozen at run start (the Phase 34 Theme A guarantee) —
       reordering a council does not retroactively reorder a finished run.
 
@@ -91,12 +261,41 @@ its obvious next ones, which is why it lands in `components/` rather than `featu
 
 - [ ] Councils' local `useState<string | null>` selection is replaced by the `panel-stack` entries:
       `{kind:'list'} → {kind:'council', id} → {kind:'run', id}`.
+  - `type CouncilEntry = { kind: 'list' } | { kind: 'council'; id: string } | { kind: 'run'; id: string }`
+    — a discriminated union, so `PanelStack`'s `render` is exhaustive rather than a `switch` with a
+    default.
+  - **Two** `useState`s die, not one: `selectedId` in
+    [`councils-view.tsx:14`](../../../packages/app/src/features/councils/councils-view.tsx) *and*
+    `selectedRunId` in `council-detail.tsx:40`. The second is why the run list cannot navigate today.
+  - Pass `isSame` comparing `kind` **and** `id`, or Theme A's duplicate-push no-op never fires for
+    these object entries.
 - [ ] Back chevron, forward chevron and breadcrumbs in the left rail's header.
 - [ ] `Mod+[` / `Mod+]` bound through
       [`shared/src/keybindings.ts`](../../../packages/shared/src/keybindings.ts) — the registry is
       the single source of truth for every chord, per `CLAUDE.md`; a literal chord in JSX is the
       exact drift Phase 39 Theme A had to clean up.
+  - **Both chords are free** — checked against all 36 in `COMMANDS`; the nearest neighbours are
+    `Ctrl+Tab`/`Ctrl+Shift+Tab` (`browser.nextTab`/`prevTab`).
+  - Entries: `{ id: 'panel.back', label: 'Back', group: 'view', chord: 'Mod+[' }` and
+    `{ id: 'panel.forward', label: 'Forward', group: 'view', chord: 'Mod+]' }`. `CommandGroup` has a
+    `'view'` member; no new group is needed.
+  - A new `CommandId` also needs a `CommandRuntime` entry
+    ([`use-command-handlers.ts`](../../../packages/app/src/services/keybindings/use-command-handlers.ts))
+    and a `COMMAND_ICONS` entry — both are keyed by `CommandId`, so both are typecheck failures
+    until added.
+  - **Scope matters:** these are panel-local. Give them `scope: 'app'` and have the handler no-op
+    unless the Councils view is active, or `Mod+[` fires from inside the terminal.
+  - Note there is **no `view.back`/`view.forward` command today** — the title bar's history buttons
+    ([`title-bar-nav.tsx:47`](../../../packages/app/src/components/title-bar-nav.tsx)) call the store
+    directly and have no chord. These are the first history chords in the app.
 - [ ] Mouse back/forward buttons, if the platform surfaces them, drive the same stack.
+  - **Entirely greenfield** — a grep for `auxclick`, `button === 3` and `button === 4` across
+    `packages/app/src` returns nothing; the only `button` checks are `event.button !== 0` in
+    `use-resizable.ts:76` and a `mousedown` in `graph-row.tsx:471`.
+  - Listen for `pointerdown` with `event.button === 3` (back) / `4` (forward) on the view container
+    and `preventDefault()`, since Chromium maps them to history navigation by default.
+  - *Recommendation:* ship it, but treat it as the item to cut first if Theme D runs long — it is a
+    convenience with no other consumer, and the chords already cover the need.
 
 ### E — Councils and runs share the panel (M)
 
@@ -108,9 +307,34 @@ its obvious next ones, which is why it lands in `components/` rather than `featu
       [`council-run-view.tsx`](../../../packages/app/src/features/councils/council-run-view.tsx).
 - [ ] A run that starts while its council is on top pushes the run entry automatically — you land
       on the thing you just started.
-- [ ] Live output ([`council-live-output.tsx`](../../../packages/app/src/features/councils/council-live-output.tsx))
-      keeps streaming when its entry is not on top; navigating away must not detach the run.
+- [ ] Navigating away must not **kill the run or lose output** — stated precisely, because the
+      draft's "must not detach" conflates two different things.
+  - [`council-live-output.tsx:17`](../../../packages/app/src/features/councils/council-live-output.tsx)
+    (`CouncilLiveOutput({ ptyId })`) subscribes to `pty.onData` inside a `useEffect` and snapshots
+    on mount. Unmounting it **does** detach the listener — and that is fine.
+  - What survives is the **process** (broker-owned, exactly as Phase 30 built it) and its
+    **scrollback**, which `api.pty.snapshot({ ptyId })` replays losslessly on remount. The run is
+    never detached; only the listener is.
+  - So the requirement is: do **not** keep the component mounted off-stack to "hold" the stream, and
+    do **not** kill the pty on unmount. Both are wrong for the same reason — the broker already owns
+    continuity.
+  - Keeping it mounted-but-hidden is actively expensive: it calls `setText` on **every** `onData`
+    chunk and re-runs `collapseCarriageReturns(stripAnsi(fullBuffer))` over the whole buffer each
+    time (`:39-40`), plus a `scrollTop` write per change (`:48`). That is O(n²) work for a panel
+    nobody is looking at.
+  - Two free cleanups while rewriting: the file's header comment (`:10`) claims it subscribes to
+    `pty.onExit` — **it does not**; and `CouncilRunView` declares a `councilId` prop
+    (`council-run-view.tsx:32`) that is never destructured or used, passed in at
+    `council-detail.tsx:214`.
+  - *Acceptance:* navigate list → council → run mid-flight, go back to the list, wait, return — the
+    output shown on return includes what was emitted while away.
 - [ ] The stack survives leaving the Councils view and coming back within a session.
+  - Councils is lazy and its component unmounts on view switch, so a `useState` inside
+    `councils-view.tsx` will not survive. Hold the history in a small module-level store for the
+    feature (or lift it to the ui-store **unpersisted**), and keep it out of `partialize`.
+  - That matches the `viewHistory` precedent exactly, whose own comment gives the reason:
+    *"session-only … so a restart does not hand the user a 'back' button to a view from last time."*
+    Resolves the doc's open question about restart persistence — see Decisions.
 
 ### F — Motion, and proving it (S)
 
@@ -118,11 +342,53 @@ its obvious next ones, which is why it lands in `components/` rather than `featu
       the slide to an instant swap. **Asserted through the real cascade**, not assumed: Phase 39
       Theme G found a reduced-motion rule losing on specificity (`0,2,1` vs `0,3,0`) with shell's
       `!important` duration masking it, and it shipped believing otherwise.
-- [ ] Transition duration comes from the existing motion tokens, not a hard-coded ms.
+  - **There is a global sweep, but it is not in this repo and it does not do what it looks like.**
+    `@bilo-io/shell/appearance.css` (imported at [`styles.css:7`](../../../packages/app/src/styles.css))
+    carries a universal `html[data-motion='reduced'] *, *::before, *::after` block forcing
+    `animation-duration: 0.001ms !important` and `transition-duration: 0.001ms !important`. It
+    **pins animations to their final keyframe** rather than removing them — which is exactly the
+    accident `styles.css:323` already warns about, and exactly how Phase 39 Theme G's broken rule
+    looked correct.
+  - On top of it this repo adds **11** targeted `html[data-motion='reduced']` blocks and **4**
+    scoped `@media (prefers-reduced-motion: reduce)` blocks. So a new slide gets the shell's
+    `!important` duration collapse for free, and gets **nothing** from the per-class layer.
+  - Therefore: make the slide **transition-driven**, not keyframe-driven, wherever possible. A
+    `transition` on `transform` collapses honestly under the shell reset; an `animation` gets pinned
+    to its last frame, which for a slide is the correct end position by luck rather than by design —
+    and luck is what Phase 39 Theme G shipped on.
+  - Write the per-class rule anyway, at least as specific as what it overrides, and check it in the
+    browser's computed styles. Phase 39 Theme G is **still open** (4 of its 7 items unticked).
+- [ ] Transition duration comes from the app's existing motion vocabulary, not a hard-coded ms in
+      a utility class.
+  - The token is `REVEAL_MS = 200` with the helper `motionMs()`
+    ([`use-reveal.ts:11,41`](../../../packages/app/src/components/use-reveal.ts)) — *"the one source
+    of the duration"* — consumed as `style={{ transitionDuration: `${motionMs()}ms` }}`, as
+    [`browser-pane.tsx:117`](../../../packages/app/src/features/browser/browser-pane.tsx) does. Use
+    it; do not add a second constant.
+  - **But fix its blind spot or inherit it:** `motionMs()` checks `dataset.motion === 'reduced'`
+    only, so under the default `'system'` + OS-reduce it returns `200`. Either widen it to consult
+    the media query too — a two-line change that improves every existing caller — or rely solely on
+    the shell's `!important` collapse and say so. Do not leave it ambiguous.
+  - There is **no** CSS custom property and **no** Tailwind `transitionDuration` key, so a
+    `duration-*` utility is the wrong tool here. Note
+    [`duration-literal.test.ts`](../../../packages/app/src/components/duration-literal.test.ts)
+    asserts `duration-200` appears **exactly once** in `packages/app/src`; a second one fails the
+    suite.
+  - If a keyframe is used anyway, put it in the config's documented **160–220 ms entrance band**
+    beside `fade-in` (160 ms) and `fade-in-up` (180 ms), with the house easing
+    `transitionTimingFunction.DEFAULT`.
 - [ ] Update [`e2e/councils.spec.ts`](../../../packages/app/e2e/councils.spec.ts) for the new
       layout, and add: navigate list → council → run, go back twice, go forward once, land where
       you started.
-- [ ] Vitest for the config panel's reorder-then-save flush.
+  - It exists, holds **2** specs, and is **not** in
+    [`playwright.ci.config.ts`](../../../packages/app/playwright.ci.config.ts)'s ratchet — i.e. it is
+    green on CI today. **Keep it that way**: a rewrite that lands red adds to the list
+    [Phase 38](phase-38-e2e-suite-repair.md) exists to empty.
+  - Drive the navigation by the panel header's back/forward buttons **and** once by `Mod+[`, so the
+    chord binding is covered too.
+- [ ] Vitest for the config panel's reorder-then-save flush — see Theme C's acceptance.
+- [ ] Vitest for `use-panel-history` — see Theme A's acceptance. It is the reusable half of this
+      phase and the only part two other phases will consume, so it carries the heavier test.
 - [ ] Screenshots: three panes at rest, the right panel collapsed, and a run mid-flight.
 
 ## Files this phase touches
@@ -132,8 +398,12 @@ its obvious next ones, which is why it lands in `components/` rather than `featu
 | New primitive | `app/src/components/panel-stack/` *(new — `use-panel-history.ts`, `panel-stack.tsx`, `panel-header.tsx`, tests)* |
 | Councils | [`councils-view.tsx`](../../../packages/app/src/features/councils/councils-view.tsx), [`council-detail.tsx`](../../../packages/app/src/features/councils/council-detail.tsx), [`council-list.tsx`](../../../packages/app/src/features/councils/council-list.tsx), [`council-run-view.tsx`](../../../packages/app/src/features/councils/council-run-view.tsx), [`council-live-output.tsx`](../../../packages/app/src/features/councils/council-live-output.tsx), `council-config-panel.tsx` *(new)* |
 | Chords | [`shared/src/keybindings.ts`](../../../packages/shared/src/keybindings.ts) |
-| Store | [`ui-store.ts`](../../../packages/app/src/store/ui-store.ts) (persisted panel widths) |
-| Tests | [`app/e2e/councils.spec.ts`](../../../packages/app/e2e/councils.spec.ts) |
+| Store | [`ui-store.ts`](../../../packages/app/src/store/ui-store.ts) — two `layout` keys (`LayoutSizes` + `DEFAULT_LAYOUT` + `LAYOUT_BOUNDS`, **no version bump**) and one top-level `councilConfigCollapsed` (which *does* need the `PersistedUi` `Pick<>` + `partialize`) |
+| Motion | [`tailwind.config.ts`](../../../packages/app/tailwind.config.ts) (`keyframes` + `animation`), [`styles.css`](../../../packages/app/src/styles.css) (the paired reduced-motion rules) |
+| Chords | [`use-command-handlers.ts`](../../../packages/app/src/services/keybindings/use-command-handlers.ts), `command-icons.ts` — both `Record`s over `CommandId`, so both are typecheck failures until added |
+| Reused, unchanged | [`use-resizable.ts`](../../../packages/app/src/components/resizable/use-resizable.ts) + [`resize-handle.tsx`](../../../packages/app/src/components/resizable/resize-handle.tsx) (**unchanged** — fully controlled, `size` in / `onSize` out, and it commits to the store only on pointer-up), [`sortable-list.tsx`](../../../packages/app/src/components/sortable-list.tsx) (**unchanged** — its vertical/parent restrictions are correct here), [`use-focus-trap.ts`](../../../packages/app/src/components/use-focus-trap.ts) |
+| Deliberately untouched | `shared/src/council.ts`, `council-runner.ts`, `councils-store.ts`, every IPC channel — a diff touching any of them means the phase grew past its brief |
+| Tests | [`app/e2e/councils.spec.ts`](../../../packages/app/e2e/councils.spec.ts) (**green today, not in the ratchet — keep it that way**) |
 
 ## Verification
 
@@ -141,7 +411,27 @@ its obvious next ones, which is why it lands in `components/` rather than `featu
 - [ ] No IPC, `shared/src/council.ts`, or main-process change in the diff — if one appears, the
       phase has grown past its brief.
 - [ ] `moon run app:perf` unchanged: `panel-stack` is small and Councils is already lazy.
-- [ ] Reduced motion verified **in the browser** with the attribute set, not by reading the CSS.
+- [ ] Reduced motion verified **in the browser**, in **three** configurations, not two — because the
+      default is the one most likely to be wrong:
+      1. `data-motion='reduced'` explicitly — the shell's universal `!important` collapse.
+      2. `data-motion='full'` with OS reduce-motion on — must still animate (the setting outranks
+         the OS, which is the whole point of `full`).
+      3. **`data-motion='system'` (the default) with OS reduce-motion on** — the path where the
+         attribute reads `'system'`, the universal reset never fires, and `motionMs()` returns 200.
+- [ ] `councils.spec.ts` still passes, and is still absent from
+      [`playwright.ci.config.ts`](../../../packages/app/playwright.ci.config.ts)'s `KNOWN_RED`. It
+      **blocks CI today**, so a rewrite that lands it red blocks the phase's own PR — and that file's
+      rule is `KNOWN_RED only ever shrinks`, so parking it there is not an option.
+- [ ] `use-panel-history.test.ts` covers all five behaviours from Theme A, including the one that is
+      easy to get wrong: dropping from the head at the depth cap **decrements `index`**.
+- [ ] The reorder-then-unmount flush issues exactly one mutation, carrying the new order.
+- [ ] Council pane widths survive a restart, and a profile written **before** these keys existed
+      picks up `DEFAULT_LAYOUT` rather than `undefined` — the case `merge`'s `layout` re-spread
+      exists to handle.
+- [ ] `Mod+[` inside the terminal does **not** navigate the councils panel.
+- [ ] An edit made inside the 500 ms save debounce is **not lost** when the config panel unmounts on
+      navigation — the bug Theme C's `flush()` fixes, and the one Themes D and E would otherwise make
+      routinely reachable.
 - [ ] A real council run, watched from the new layout: start it from the council entry, get pushed
       to the run, navigate back to the list mid-run, return, and confirm output never stopped.
 - [ ] Screenshots per Theme F.
@@ -152,18 +442,53 @@ An app-wide router, per-repo council scoping, new synthesis formats, anonymizati
 re-synthesis, changing the member pool, or adopting `panel-stack` in any other view — Projects and
 Workflows adopt it on their own phases.
 
+Added by the x1 refinement, each with its reason:
+
+- **A `KeyboardSensor` inside `SortableList`.** It would silently hand keyboard dnd to the repos
+  sidebar, repo groups and the terminal session list as well — three surfaces this phase has not
+  looked at and cannot test. Councils gets `Alt+↑`/`Alt+↓` locally instead.
+- **Fixing `motionMs()`'s media-query blind spot for the whole app.** Theme F must decide what *this*
+  slide does about it; changing the shared helper's behaviour re-times every existing panel reveal
+  and deserves its own before/after.
+- **Wiring up `search-view.tsx`'s orphaned `searchResultsWidth`.** Real, four lines, and not this
+  phase's file — see Decisions.
+- **A general drawer/overlay primitive.** Theme B's responsive overlay is councils-local; a shared
+  one needs a second consumer to be designed against.
+
 ## Decisions / open questions
 
 - **Settled — a generic `panel-stack` primitive, not a councils-local stack and not a router.**
   Two other phases in this batch want the same behaviour; a router is a much larger change than the
   problem justifies.
 - **Settled — config right, output centre, navigation left.**
-- **Open — does the stack persist across app restarts?** *Recommendation:* no. Within-session only,
-  reset to the list on launch. A restored deep link into a finished run is more confusing than
-  useful, and the run is one click away.
-- **Open — does the run list live in the left rail or under the council in the centre?**
-  *Recommendation:* the left rail, as Theme E writes it — the feature note explicitly asks for both
-  lists to navigate from the same panel.
-- **Open — should member order become execution order later?** *Recommendation:* keep them separate
-  and say so in the UI (Theme C). If a future phase adds sequential councils, ordering is already
-  there to mean something.
+- **Resolved — the stack does not persist across restarts.** Within-session only, reset to the list
+  on launch. This is not just a preference now: `viewHistory` made the identical call and wrote down
+  why — *"session-only, like `activeView` itself, so a restart does not hand the user a 'back'
+  button to a view from last time"* ([`ui-store.ts:287`](../../../packages/app/src/store/ui-store.ts)).
+  Doing the opposite here would give the app two different answers to the same question.
+- **Resolved — the run list lives in the left rail**, as Theme E writes it. The feature note asks
+  for both lists to navigate from the same panel, and it is also what lets `selectedRunId` — the
+  second `useState` that makes today's run list a dead end — be deleted rather than relocated.
+- **Resolved — member order stays presentation order, and the UI says so.** Keeping them separate
+  costs one line of copy; conflating them would promise a scheduling behaviour
+  [`council-runner.ts`](../../../packages/desktop/src/main/council-runner.ts) does not implement,
+  since members are spawned in parallel. If a future phase adds sequential councils, the ordering is
+  already there to mean something.
+- **Resolved — keyboard reorder is `Alt+↑`/`Alt+↓`, not a `KeyboardSensor`.** No keyboard dnd exists
+  anywhere in this repo, and a multi-item `coordinateGetter` is a lot of machinery to reproduce what
+  two key handlers do accessibly. [Phase 41 Theme C](phase-41-agentic-kanban.md) reaches the same
+  conclusion for its board; if either lands first, the other follows it.
+- **Resolved — `panel-stack` is `useState`-based and panel-local, not a store.** A zustand store
+  would invite exactly the cross-view coupling the scope guardrail forbids, and there is never more
+  than one councils panel.
+- **Open — is the responsive overlay (Theme B) in scope?** It is the only item in this phase with
+  **no precedent of any kind**: this app has no breakpoint mechanism, no overlay/drawer panel, and
+  uses `matchMedia` solely for reduced motion. *Recommendation:* keep it, but implement it last and
+  cut it explicitly if the phase runs long — a hard minimum width on the centre region is an honest
+  fallback, and unlike the overlay it is three lines.
+- **Noted, out of scope — `search-view.tsx` never persists its sidebar width.** It uses a local
+  `useState(380)` with inline bounds while `LayoutSizes.searchResultsWidth`,
+  `DEFAULT_LAYOUT.searchResultsWidth` (420) and `LAYOUT_BOUNDS.searchResultsWidth` all exist in the
+  store and are referenced by nothing else. The field was added and never wired up. Not this phase's
+  job — recorded here because this is the phase that read every `useResizable` call site, and the
+  fix is four lines for whoever next touches Search.

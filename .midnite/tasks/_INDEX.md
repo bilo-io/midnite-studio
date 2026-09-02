@@ -29,7 +29,7 @@ Completed work is logged append-only in [`done.md`](done.md). Deferred scope liv
 |-------|--------|---------|------|----------|---|--------|--------|
 | [44 · Video Studio](phases/phase-44-video-studio.md) | ◻ TODO | — | 0/64 | `░░░░░░░░░░` | 0% | — | A B C D E F G H |
 | [43 · Workflows](phases/phase-43-workflows-mvp.md) | ◻ TODO | x1 | 0/77 | `░░░░░░░░░░` | 0% | — | A B C D E F G H I |
-| [42 · Councils, rearranged](phases/phase-42-councils-layout.md) | ◻ TODO | — | 0/36 | `░░░░░░░░░░` | 0% | — | A B C D E F |
+| [42 · Councils, rearranged](phases/phase-42-councils-layout.md) | ◻ TODO | x1 | 0/43 | `░░░░░░░░░░` | 0% | — | A B C D E F |
 | [41 · Agentic Kanban](phases/phase-41-agentic-kanban.md) | ◻ TODO | x1 | 0/55 | `░░░░░░░░░░` | 0% | — | A B C D E F G H I |
 | [40 · GitHub Projects](phases/phase-40-github-projects.md) | 🔄 WIP | — | 0/39 | `░░░░░░░░░░` | 0% | A | B C D E F G |
 | [39 · One rail, five chords and four loops](phases/phase-39-status-bar-shortcut-rail.md) | 🔄 WIP | — | 52/63 | `████████░░` | 83% | G | — |
@@ -125,19 +125,23 @@ multi-select and undo/redo each have zero precedent in this renderer.
 
 ### [Phase 42 — Councils, rearranged](phases/phase-42-councils-layout.md)
 
-*`councils-view.tsx` is 33 lines of flat two-pane flex whose selection is a single `useState`, and
-that `useState` is why "back/forward with a transition" is not a CSS change — there is no history
-to navigate. A builds the primitive the app is missing (modelled on `ui-store.ts`'s own
-`viewHistory`, so the app has one notion of back, not two); B–C move config right and output
-centre; D–E make councils and runs share one panel; F proves the motion. Renderer-only — no IPC,
-no main-process change.*
+*Builds the `panel-stack` history primitive the app lacks, then moves Councils to three panes —
+navigation left, output centre, configuration right — and gives members drag-reorder. Renderer-only:
+no IPC, no main-process change.* **Refined x1 (2026-09-02):** 36 → 43 items, all three open
+decisions resolved, and the motion story rewritten after two of the doc's premises turned out
+backwards. The global reduced-motion reset **does** exist but lives in `@bilo-io/shell`, and it
+*pins animations to their last keyframe* rather than removing them — the precise accident Phase 39
+Theme G shipped on. And `data-motion` reads **`'system'`** by default, not `'reduced'`, because
+`useAppearanceSync` runs after `useMotionPreference` and overwrites it — so the attribute-based test
+can pass while the default path stays unverified. Three other items turned out to be greenfield with
+no precedent at all: collapse-to-a-rail, the responsive overlay, and mouse back/forward buttons.
 
-- ◻ **A** — `panel-stack`: a generic, tested `use-panel-history` + slide transition + breadcrumb header in `components/`, not `features/councils/`, because Projects and Workflows want it next. Push truncates the forward tail, matching `viewHistory` exactly.
-- ◻ **B** — Three panes: navigation left, output centre (the widest, and the one that grows), configuration right — resizable, persisted, collapsible, with an overlay floor on narrow widths.
-- ◻ **C** — Config moves right and members reorder: the members panel extracted out of the 221-line `council-detail.tsx`, `@dnd-kit` reorder flushing the debounced save on drop rather than racing it. Order is presentation, **not** execution order, and the panel says so.
-- ◻ **D** — Back, forward, crumbs: local `useState` selection replaced by stack entries, `Mod+[` / `Mod+]` declared in `keybindings.ts` — never a literal chord in JSX, the drift Phase 39 A had to clean up.
-- ◻ **E** — One panel for both lists: councils and runs are both stack entries in the left rail; starting a run pushes it; live output keeps streaming when its entry is not on top.
-- ◻ **F** — Motion, proved: reduced motion collapses the slide, asserted **through the real cascade** — Phase 39 G shipped believing a rule fired that lost on specificity.
+- ◻ **A** — `panel-stack`: a generic `usePanelHistory<T>` mirroring `viewHistory`'s push-truncates-forward shape — but **not** its `guardNavigation` wrapper, and **not** its unbounded depth, since `viewHistory` has no cap at all. Capped at 20, with the hazard named: dropping from the head must decrement the index.
+- ◻ **B** — Three panes. Widths are cheap — `layout` is already persisted and `merge` re-spreads it, so **no migration and no version bump** — but a collapsed flag is a top-level boolean needing four edits, and both *collapse-to-a-rail* and the *responsive overlay* are greenfield: every panel collapse here hides entirely, the one true rail lives in `@bilo-io/shell`, and the app has **no breakpoint mechanism whatsoever** (`matchMedia` is used only for reduced motion).
+- ◻ **C** — Config moves right (`border-r` → `border-l`) and members reorder. `SortableList` fits here **unchanged** — the one place in these four phases where its vertical/parent restrictions are right — but needs a **drag handle**, since member cards contain three text controls a listener spread would swallow. "Flush on drop" also fixes a live bug: the debounce's unmount cleanup clears the timer without firing it, so an in-window edit is already silently dropped.
+- ◻ **D** — Back/forward/crumbs. Kills **two** `useState`s, not one — `selectedId` *and* `selectedRunId`, the second being why the run list is a dead end today. `Mod+[`/`Mod+]` are both free; these would be the app's first history chords, since the title bar's buttons have none.
+- ◻ **E** — Councils and runs share the left rail. The draft's "navigating away must not detach the run" conflated two things: unmounting **does** detach the listener, and that is fine — the pty is broker-owned and `pty.snapshot` replays losslessly. Keeping it mounted-but-hidden is actively expensive (O(n²) re-parse per chunk). Note the run list lives in `council-run-view.tsx`, **not** in `council-detail.tsx` as the doc claimed.
+- ◻ **F** — Motion, and proving it. Three reduced-motion configurations, not two, because the default `'system'` path is the one most likely to be wrong. Prefer a **transition** over a keyframe, since the shell's `!important` collapse pins keyframes to their final frame. `councils.spec.ts` is green and **not** in the ratchet, so it blocks CI today and the rewrite must keep it passing.
 
 ### [Phase 41 — Agentic Kanban](phases/phase-41-agentic-kanban.md)
 
