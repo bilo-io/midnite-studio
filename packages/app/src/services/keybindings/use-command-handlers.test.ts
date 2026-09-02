@@ -286,3 +286,36 @@ describe('useCommandHandlers — markdown.presentAsSlides', () => {
     expect(presentActive).toHaveBeenCalledOnce();
   });
 });
+
+describe('useCommandHandlers — the reload pair', () => {
+  /**
+   * Both stay enabled with nothing open, deliberately: a reload is the one
+   * command that has to work when the app has wedged itself, and it needs no
+   * repository to be meaningful.
+   */
+  it('reloads plainly, and bypasses the cache on the hard variant', () => {
+    const reload = vi.fn();
+    Object.defineProperty(window, 'midniteStudio', {
+      value: { window: { reload } },
+      configurable: true,
+    });
+    try {
+      const { result } = withProviders(new QueryClient());
+      expect(result.current['app.reload'].enabled).toBe(true);
+      expect(result.current['app.hardReload'].enabled).toBe(true);
+
+      result.current['app.reload'].run();
+      expect(reload).toHaveBeenLastCalledWith(false);
+
+      result.current['app.hardReload'].run();
+      expect(reload).toHaveBeenLastCalledWith(true);
+    } finally {
+      Reflect.deleteProperty(window, 'midniteStudio');
+    }
+  });
+
+  it('is a no-op rather than a throw with no preload bridge', () => {
+    const { result } = withProviders(new QueryClient());
+    expect(() => result.current['app.reload'].run()).not.toThrow();
+  });
+});
