@@ -23,10 +23,14 @@ import { FabSlide, ShortcutSlide } from './landing-slides';
  * stay where they are and the page is somewhere you can navigate away from
  * rather than something you dismiss.
  *
- * `.landing-panel-gradient` is the FAB console's own rotating rainbow — the
- * same declaration, shared rather than copied (see the note on that selector
- * in `styles.css`), so the border and the blurred inner rim are the FAB's to
- * the pixel.
+ * The border and the blurred inner rim are the FAB loop console panel's own
+ * rotating rainbow, to the pixel — both wear the shared `.gradient-frame`
+ * class (see the note on that class in `styles.css`), not a copy of it. This
+ * page fixes its own half-ring arc rather than reading one off
+ * `[data-fab-tab]` (it has no tab), so the same orbiting-segment behaviour
+ * the FAB panel's border and glow have shows here too, and — like the FAB
+ * panel itself — the page carries no border-radius, so its corners sit
+ * flush with the content box around it.
  */
 export function LandingView() {
   const reading = useScreensaverReading();
@@ -55,7 +59,7 @@ export function LandingView() {
   return (
     <div
       data-testid="landing-view"
-      className="landing-panel-gradient relative flex h-full w-full flex-col items-center justify-center overflow-hidden rounded-xl border border-border bg-popover px-6 text-center"
+      className="gradient-frame landing-panel-gradient relative flex h-full w-full flex-col items-center justify-center overflow-hidden border border-border bg-popover px-6 text-center"
     >
       <NeuroCloudBackground animate={!reduced} />
 
