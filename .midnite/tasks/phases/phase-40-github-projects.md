@@ -404,8 +404,8 @@ The spine every other theme reads off; lands first, and Phase 41 consumes it unc
       (`gh-project-write.test.ts`, PR #41)
 - [x] Vitest: with `forgeWritesEnabled` off the editor renders disabled and no bridge call is made.
       (`projects-view.test.tsx`, PR #41)
-- [ ] Playwright `e2e/projects.spec.ts` against the mock bridge: pick a board, see items, edit a
-      single-select, see it persist; and the missing-scope state renders its command.
+- [x] Playwright `e2e/projects.spec.ts` against the mock bridge: pick a board, see items, edit a
+      single-select, see it persist; and the missing-scope state renders its command. (PR #45)
 - [ ] **Open, for a human:** screenshots per the visual-phase convention — the board picker, the
       item table, and the missing-scope state.
 - [ ] **Open, for a human:** one real pass against a genuine org-owned board and a genuine
