@@ -392,7 +392,7 @@ test.describe('terminal panel', () => {
     await emitActivity(page, 'thinking');
 
     await expect(row.locator('[data-activity]')).toHaveAttribute('data-activity', 'thinking');
-    await expect(page.getByTestId('status-segment-agent-count')).toHaveText('1 agent');
+    await expect(page.getByTestId('titlebar-agent-count')).toHaveText('1 agent');
   });
 
   /**
@@ -1053,11 +1053,11 @@ test.describe('terminal panel', () => {
     await expect.poll(async () => (await ptyCalls(page)).creates.length).toBe(2);
     await emitAgentChanged(page, 'claude');
     await emitActivity(page, 'thinking');
-    await expect(page.getByTestId('status-segment-agent-count')).toHaveText('1 agent');
+    await expect(page.getByTestId('titlebar-agent-count')).toHaveText('1 agent');
 
     await page.getByRole('button', { name: 'Hide terminal' }).click();
     await expect(page.getByRole('button', { name: 'New terminal or agent' })).toHaveCount(0);
-    await expect(page.getByTestId('status-segment-agent-count')).toHaveText('1 agent');
+    await expect(page.getByTestId('titlebar-agent-count')).toHaveText('1 agent');
 
     await toggleTerminal(page);
     await expect(rows(page).first().locator('[data-activity]')).toHaveAttribute(

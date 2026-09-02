@@ -5,19 +5,26 @@ import { BrandMark } from '../../components/brand';
 import { Tooltip } from '../../components/tooltip';
 import { useWindowFocused } from '../../lib/use-window-focus';
 import { useUiStore, type FabTab } from '../../store/ui-store';
-import { loopGlowColor, LOOP_WAITING_COLOR } from '../loops/loop-glow';
-import { loopIcon } from '../loops/loop-icons';
-import { useAllLoopStatuses, type LoopStatus } from '../loops/loop-status';
+import { loopGlowColor, LOOP_WAITING_COLOR } from './loop-glow';
+import { loopIcon } from './loop-icons';
+import { useAllLoopStatuses, type LoopStatus } from './loop-status';
 
 const LOOP_IDS = DEFAULT_LOOPS.map((loop) => loop.id);
 
 /**
- * The four loop launchers, on the rail (Phase 39 Themes E + F).
+ * The four loop launchers, in the title bar's right cluster.
+ *
+ * They were a `STATUS_SEGMENTS` entry in the status bar's left zone from
+ * Phase 39 Themes E + F until this move, which put them beside the live-agent
+ * count in [`title-bar-agents.tsx`](../../components/title-bar-agents.tsx) —
+ * the two readouts about *agents* now sit together at the top-right rather than
+ * trailing the rail's five unrelated shortcut toggles. Nothing about the
+ * control itself changed but the direction its tooltips open.
  *
  * One click puts the FAB console on that loop's tab — `openFabTab` already sets
  * `fabPanelOpen` and `activeFabTab` in a single action, so this needed no new
  * store surface. Clicking the tab that is already open closes the panel, like
- * every other toggle in the rail.
+ * every other toggle in the app.
  *
  * **Two states, two CSS properties.** A running loop **glows** — full opacity,
  * a `box-shadow` in its own colour, a slow opacity pulse. The **open** tab wears
@@ -33,9 +40,12 @@ const LOOP_IDS = DEFAULT_LOOPS.map((loop) => loop.id);
  * is where the breathing distinction between live-and-idle and live-and-working
  * is drawn.
  *
- * **One segment, not four.** Four separate registrations could be split across
- * an overflow boundary and would each take a `gap-3` slot; as one segment the
- * strip is indivisible and can use its own tighter `gap-1`.
+ * **One component, not four.** This began life as a single `STATUS_SEGMENTS`
+ * entry because four separate registrations could be split across an overflow
+ * boundary and would each take a `gap-3` slot. The overflow mechanism is behind
+ * it now, but the reason to keep one component stands: the strip's collapsed
+ * form is one glyph standing in for all four, which is not something four
+ * independent components could render.
  */
 export function FabLaunchers() {
   const statuses = useAllLoopStatuses(LOOP_IDS);
@@ -56,7 +66,10 @@ export function FabLaunchers() {
   const pulsing = useWindowFocused();
   /*
     At rest the strip is a single glyph, expanding on hover/focus, while any
-    loop is live, or while the FAB panel is open.
+    loop is live, or while the FAB panel is open. Kept on the move into the
+    title bar: there is more room up here, but four permanently-lit glyphs in
+    the window's highest-attention corner is exactly the noise the collapse
+    exists to avoid.
 
     `FabLoopCorners` renders nothing at all when nothing is running, on the
     argument that the FAB is a button people press fifty times a day and should
@@ -64,6 +77,11 @@ export function FabLaunchers() {
     you start* a loop, so hiding them until one runs is circular. Collapsing
     instead of hiding keeps the resting bar quiet — one glyph, not four — while
     leaving the affordance reachable.
+
+    It is also what keeps the title bar's own width honest: the agent cluster
+    sits ahead of the date/weather pill and the repo lifecycle actions, and a
+    strip that grew by three glyphs the moment a loop started would shove all
+    of them leftward.
 
     **`fabPanelOpen` belongs in this expression, not just `anyLive`.** Theme F
     needs open-and-idle, running-and-unopened and both-at-once to be three
@@ -96,7 +114,9 @@ export function FabLaunchers() {
   if (!expanded) {
     return (
       <div data-testid="fab-launchers" data-expanded="false" {...strip}>
-        <Tooltip label="Agent loops — Ideate, Engineer, Patrol, Medic" side="top">
+        {/* `side="bottom"`: the strip is at the top edge of the window now, so a
+            tooltip above it would be drawn off-screen. */}
+        <Tooltip label="Agent loops — Ideate, Engineer, Patrol, Medic" side="bottom">
           <button
             type="button"
             data-testid="fab-launchers-collapsed"
@@ -179,7 +199,7 @@ function LoopLauncher({
   return (
     <Tooltip
       label={`${label}${running ? (waiting ? ' — waiting on you' : ' — running') : ''}`}
-      side="top"
+      side="bottom"
     >
       <button
         ref={buttonRef}

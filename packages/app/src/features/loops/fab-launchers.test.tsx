@@ -3,7 +3,7 @@ import { cleanup, fireEvent, render, screen } from '@testing-library/react';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 import { useUiStore } from '../../store/ui-store';
-import type { LoopStatus } from '../loops/loop-status';
+import type { LoopStatus } from './loop-status';
 
 import { FabLaunchers } from './fab-launchers';
 
@@ -18,7 +18,7 @@ const IDLE: LoopStatus = {
 
 let statuses: LoopStatus[] = DEFAULT_LOOPS.map(() => IDLE);
 
-vi.mock('../loops/loop-status', () => ({
+vi.mock('./loop-status', () => ({
   useAllLoopStatuses: () => statuses,
 }));
 
