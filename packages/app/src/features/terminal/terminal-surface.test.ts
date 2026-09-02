@@ -1,7 +1,7 @@
 import type { TerminalSession } from '@midnite/studio-shared';
-import { beforeEach, describe, expect, it } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 
-import { onMainSurface, useTerminalStore } from './terminal-store';
+import { findCardSession, onMainSurface, useTerminalStore } from './terminal-store';
 
 function session(overrides: Partial<TerminalSession>): TerminalSession {
   return {
@@ -25,6 +25,10 @@ describe('onMainSurface', () => {
 
   it('excludes a FAB session — it renders in its loop tab and nowhere else', () => {
     expect(onMainSurface(session({ surface: 'fab' }))).toBe(false);
+  });
+
+  it('excludes a Kanban session — it renders in its card and nowhere else', () => {
+    expect(onMainSurface(session({ surface: 'kanban' }))).toBe(false);
   });
 });
 
@@ -62,6 +66,36 @@ describe('openSession with a surface', () => {
       .openSession({ kind: 'agent', agentId: 'claude', title: 'repo', cwd: '/repo', repoId: 'r1', surface: 'fab' });
     expect(useTerminalStore.getState().activeId).toBeNull();
   });
+
+  it('a Kanban session never steals the main panel selection either', () => {
+    const store = useTerminalStore.getState();
+    const main = store.openSession({ kind: 'shell', title: 'repo', cwd: '/repo', repoId: 'r1' });
+    expect(useTerminalStore.getState().activeId).toBe(main.id);
+
+    store.openSession({
+      kind: 'agent',
+      agentId: 'claude',
+      title: 'card',
+      cwd: '/repo',
+      repoId: 'r1',
+      surface: 'kanban',
+      taskRef: { projectId: 'p1', itemId: 'i1' },
+    });
+    expect(useTerminalStore.getState().activeId).toBe(main.id);
+  });
+
+  it('stamps taskRef onto a Kanban session', () => {
+    const created = useTerminalStore.getState().openSession({
+      kind: 'agent',
+      agentId: 'claude',
+      title: 'card',
+      cwd: '/repo',
+      repoId: 'r1',
+      surface: 'kanban',
+      taskRef: { projectId: 'p1', itemId: 'i1' },
+    });
+    expect(created.taskRef).toEqual({ projectId: 'p1', itemId: 'i1' });
+  });
 });
 
 describe('reorder', () => {
@@ -91,6 +125,75 @@ describe('reorder', () => {
 
     const ids = useTerminalStore.getState().sessions.map((row) => row.id);
     expect(ids).toEqual([b.id, a.id, fab.id]);
+  });
+});
+
+describe('findCardSession', () => {
+  const TASK_REF = { projectId: 'p1', itemId: 'i1' };
+
+  it('finds a live kanban session bound to the card', () => {
+    const s = session({ id: 's1', surface: 'kanban', taskRef: TASK_REF });
+    expect(findCardSession([s], { s1: 'open' }, TASK_REF)).toBe(s);
+  });
+
+  it('ignores a session bound to a different card', () => {
+    const s = session({ id: 's1', surface: 'kanban', taskRef: { projectId: 'p1', itemId: 'other' } });
+    expect(findCardSession([s], { s1: 'open' }, TASK_REF)).toBeUndefined();
+  });
+
+  it('ignores a main-surface session even with a matching taskRef', () => {
+    const s = session({ id: 's1', taskRef: TASK_REF });
+    expect(findCardSession([s], { s1: 'open' }, TASK_REF)).toBeUndefined();
+  });
+
+  it('ignores an exited session — the card should offer Start again', () => {
+    const s = session({ id: 's1', surface: 'kanban', taskRef: TASK_REF });
+    expect(findCardSession([s], { s1: 'exited' }, TASK_REF)).toBeUndefined();
+  });
+
+  it('ignores an asleep session — a card resumes with a fresh Start, not Stop', () => {
+    const s = session({ id: 's1', surface: 'kanban', taskRef: TASK_REF, asleep: true });
+    expect(findCardSession([s], { s1: 'open' }, TASK_REF)).toBeUndefined();
+  });
+});
+
+describe('hydrate restores a Kanban session asleep, not ended', () => {
+  afterEach(() => {
+    delete (window as unknown as { midniteStudio?: unknown }).midniteStudio;
+  });
+
+  it('a restored Kanban session with no live pty comes back asleep', async () => {
+    useTerminalStore.setState({ hydrated: false, sessions: [], activeId: null, states: {} });
+    (window as unknown as { midniteStudio: unknown }).midniteStudio = {
+      terminal: {
+        list: () =>
+          Promise.resolve({
+            sessions: [
+              {
+                session: {
+                  id: 'card-1',
+                  kind: 'agent',
+                  agentId: 'claude',
+                  title: 'card',
+                  cwd: '/repo',
+                  repoId: 'r1',
+                  createdAt: 1,
+                  surface: 'kanban',
+                  taskRef: { projectId: 'p1', itemId: 'i1' },
+                },
+                scrollback: new Uint8Array(),
+                live: null,
+              },
+            ],
+          }),
+      },
+      pty: { create: () => undefined },
+    };
+
+    await useTerminalStore.getState().hydrate();
+
+    const restored = useTerminalStore.getState().sessions.find((s) => s.id === 'card-1');
+    expect(restored?.asleep).toBe(true);
   });
 });
 

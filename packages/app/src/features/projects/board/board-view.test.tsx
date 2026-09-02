@@ -1,24 +1,52 @@
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import type { ForgeProjectField, ForgeProjectItem } from '@midnite/studio-shared';
-import { cleanup, fireEvent, render, screen } from '@testing-library/react';
+import { cleanup, fireEvent, render, screen, within } from '@testing-library/react';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 
+import { DialogHost } from '../../../components/dialog-host';
 import { BoardView } from './board-view';
 
-afterEach(cleanup);
+afterEach(() => {
+  cleanup();
+  uiState.forgeWritesEnabled = false;
+});
 
-// Only reached once a card opens `CardDetail`, which mutates through this.
+// Reached once a card opens `CardDetail` (which mutates through this) or the
+// "Move to ▸" menu fires (Theme C) — resolved to a real accepted write so
+// `useSetProjectItemField`'s `onSuccess` has an `ok` to read, not `undefined`.
 vi.mock('../../../services/bridge', () => ({
-  bridge: () => ({ forgeProject: { setField: vi.fn() } }),
+  bridge: () => ({ forgeProject: { setField: vi.fn().mockResolvedValue({ ok: true, kind: 'ok' }) } }),
 }));
+
+// A mutable object rather than a literal, so individual tests can flip
+// `forgeWritesEnabled` — `vi.mock`'s factory is hoisted and evaluated once,
+// so the selector has to read through a reference each render rather than
+// close over a value baked in at mock-registration time.
+const uiState = {
+  forgeWritesEnabled: false,
+  // `ContextMenu` (Theme C's "Move to ▸") reaches these directly via
+  // `useUiStore.getState()`, zustand's vanilla escape hatch outside React —
+  // a plain selector function has no `.getState` unless this attaches one.
+  incrementOccluders: vi.fn(),
+  decrementOccluders: vi.fn(),
+};
+function useUiStoreMock<T>(selector: (state: typeof uiState) => T): T {
+  return selector(uiState);
+}
+useUiStoreMock.getState = () => uiState;
 vi.mock('../../../store/ui-store', () => ({
-  useUiStore: (selector: (state: { forgeWritesEnabled: boolean }) => unknown) =>
-    selector({ forgeWritesEnabled: false }),
+  useUiStore: useUiStoreMock,
 }));
 
 function renderWithClient(ui: React.ReactElement) {
   const queryClient = new QueryClient({ defaultOptions: { queries: { retry: false } } });
-  return render(<QueryClientProvider client={queryClient}>{ui}</QueryClientProvider>);
+  // `DraggableCard`'s "Move to ▸" menu reaches `useDialogs()` (Theme C) —
+  // every render needs the host it expects in the real app tree.
+  return render(
+    <QueryClientProvider client={queryClient}>
+      <DialogHost>{ui}</DialogHost>
+    </QueryClientProvider>,
+  );
 }
 
 const statusField: ForgeProjectField = {
@@ -102,5 +130,69 @@ describe('BoardView', () => {
     renderWithClient(<BoardView projectId="PVT_1" fields={[statusField]} items={many} />);
 
     expect(screen.getByText('60')).toBeDefined(); // the column's live count
+  });
+
+  describe('drag gating on forgeWritesEnabled (Theme C)', () => {
+    // dnd-kit's `useDraggable({ disabled })` writes straight through to
+    // `aria-disabled` on the node carrying its `attributes` — the surface a
+    // real drag gesture is notoriously unreliable to simulate under jsdom
+    // (this repo has no precedent for it even for the older graph drag;
+    // that gesture is proved in Playwright, see `e2e/kanban.spec.ts`), but
+    // "is this card allowed to start a drag at all" is a plain DOM read.
+    const draggableWrapperFor = (title: string): HTMLElement | null =>
+      screen.getByText(title).closest('[aria-disabled]');
+
+    it('a card cannot start a drag while forge writes are disabled', () => {
+      uiState.forgeWritesEnabled = false;
+      renderWithClient(<BoardView projectId="PVT_1" fields={[statusField]} items={[item('i1', 'A task', 'todo')]} />);
+
+      expect(draggableWrapperFor('A task')?.getAttribute('aria-disabled')).toBe('true');
+    });
+
+    it('a card can start a drag once forge writes are enabled', () => {
+      uiState.forgeWritesEnabled = true;
+      renderWithClient(<BoardView projectId="PVT_1" fields={[statusField]} items={[item('i1', 'A task', 'todo')]} />);
+
+      expect(draggableWrapperFor('A task')?.getAttribute('aria-disabled')).toBe('false');
+    });
+  });
+
+  describe('"Move to ▸" — the keyboard-reachable alternative to dragging (Theme C)', () => {
+    it('right-clicking a card offers every other column, not its own', async () => {
+      uiState.forgeWritesEnabled = true;
+      renderWithClient(<BoardView projectId="PVT_1" fields={[statusField]} items={[item('i1', 'A task', 'todo')]} />);
+
+      fireEvent.contextMenu(screen.getByText('A task'));
+      const moveTo = await screen.findByRole('menuitem', { name: 'Move to' });
+      fireEvent.mouseEnter(moveTo.closest('div')!);
+
+      expect(await screen.findByRole('menuitem', { name: 'Done' })).toBeDefined();
+      // "Todo" is the card's own column — offering it as a destination would
+      // be a no-op menu item.
+      expect(screen.queryByRole('menuitem', { name: 'Todo' })).toBeNull();
+    });
+
+    it('choosing a column moves the card there', async () => {
+      uiState.forgeWritesEnabled = true;
+      renderWithClient(<BoardView projectId="PVT_1" fields={[statusField]} items={[item('i1', 'A task', 'todo')]} />);
+
+      fireEvent.contextMenu(screen.getByText('A task'));
+      const moveTo = await screen.findByRole('menuitem', { name: 'Move to' });
+      fireEvent.mouseEnter(moveTo.closest('div')!);
+      fireEvent.click(await screen.findByRole('menuitem', { name: 'Done' }));
+
+      // Optimistic (Theme C's own documented exception): the card is under
+      // Done immediately, before any refetch could possibly have returned.
+      const doneColumn = screen.getByRole('button', { name: 'Collapse Done' }).closest('div')!;
+      expect(within(doneColumn).getByText('A task')).toBeDefined();
+    });
+
+    it('disabled while forge writes are off — no menu, no mutation', () => {
+      uiState.forgeWritesEnabled = false;
+      renderWithClient(<BoardView projectId="PVT_1" fields={[statusField]} items={[item('i1', 'A task', 'todo')]} />);
+
+      fireEvent.contextMenu(screen.getByText('A task'));
+      expect(screen.queryByRole('menu')).toBeNull();
+    });
   });
 });

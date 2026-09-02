@@ -70,11 +70,14 @@ export type NewSessionRequest = {
   cwd: string;
   repoId: string;
   /**
-   * Which surface renders the session (Phase 35). `'fab'` keeps it out of the
-   * main panel and the session list — and out of `activeId`: a loop starting
-   * in the FAB must not steal the main terminal's active session.
+   * Which surface renders the session (Phase 35, Phase 41). `'fab'`/`'kanban'`
+   * keep it out of the main panel and the session list — and out of
+   * `activeId`: a loop or a card launching an agent must not steal the main
+   * terminal's active session.
    */
   surface?: TerminalSurface;
+  /** `{ projectId, itemId }` — set only for `surface: 'kanban'` (Phase 41 Theme D). */
+  taskRef?: { projectId: string; itemId: string };
 };
 
 type TerminalState = {
@@ -327,16 +330,17 @@ export const useTerminalStore = create<TerminalState>()((set, get) => ({
         ...entry.session,
         ...(entry.legacy ? { legacy: true } : {}),
         /*
-          A FAB loop with no surviving pty comes back ASLEEP, not ended
-          (Phase 35 Theme C). Both phases draw a Start button, so the
-          difference is invisible there — but `TerminalView` renders its
-          `EndedStrip`, with "start shell" and "resume" buttons, over an
-          `ended` session. Inside a loop pane that is the wrong offer twice
-          over: the tab's own Start is how you begin a run, and a loop's
-          restart is a fresh run rather than a resumed shell. Asleep says the
-          true thing — the transcript is here, the process is not.
+          A FAB loop or Kanban card with no surviving pty comes back ASLEEP,
+          not ended (Phase 35 Theme C, Phase 41 Theme D). Both surfaces draw
+          a Start button, so the difference is invisible there — but
+          `TerminalView` renders its `EndedStrip`, with "start shell" and
+          "resume" buttons, over an `ended` session. Inside a loop pane or a
+          card that is the wrong offer twice over: the surface's own Start is
+          how you begin a run, and a restart is a fresh run rather than a
+          resumed shell. Asleep says the true thing — the transcript is here,
+          the process is not.
         */
-        ...(entry.session.surface === 'fab' && !entry.live ? { asleep: true } : {}),
+        ...(!onMainSurface(entry.session) && !entry.live ? { asleep: true } : {}),
       }));
       const live = state.sessions.filter((open) => !restored.some((s) => s.id === open.id));
       const liveEntries = sessions.flatMap((e) =>
@@ -418,12 +422,13 @@ export const useTerminalStore = create<TerminalState>()((set, get) => ({
       repoId: request.repoId,
       createdAt: Date.now(),
       ...(request.surface === undefined ? {} : { surface: request.surface }),
+      ...(request.taskRef === undefined ? {} : { taskRef: request.taskRef }),
     };
 
     set((state) => ({
       sessions: [...state.sessions, session],
-      // A FAB session never takes over the main panel's selection.
-      activeId: session.surface === 'fab' ? state.activeId : session.id,
+      // A non-main session (FAB, Kanban) never takes over the main panel's selection.
+      activeId: onMainSurface(session) ? session.id : state.activeId,
       states: { ...state.states, [session.id]: 'idle' },
     }));
     bridge()?.terminal.save({ session });
@@ -618,12 +623,60 @@ export const useTerminalStore = create<TerminalState>()((set, get) => ({
 /**
  * Whether a session belongs to the main terminal panel and its session list.
  *
- * The one predicate both surfaces filter by (Phase 35), so the panel's stack
- * and the list cannot disagree about what a FAB session is. Absent means
- * `main` — every session from before the field existed.
+ * The one predicate every non-main surface is filtered by (Phase 35, Phase
+ * 41), so the panel's stack and the list cannot disagree about what a FAB or
+ * Kanban session is. An **allowlist**, not a `!== 'fab'` denylist — the
+ * denylist shape is what let a `'kanban'` session slip through unfiltered
+ * when that surface was added, since it was neither `undefined` nor `'main'`
+ * but also not the one value being excluded. Absent means `main` — every
+ * session from before the field existed.
  */
 export function onMainSurface(session: Pick<TerminalSession, 'surface'>): boolean {
-  return session.surface !== 'fab';
+  return session.surface === undefined || session.surface === 'main';
+}
+
+/**
+ * The live `'kanban'` session already bound to a card, if any (Phase 41 Theme
+ * D) — what a card's Start button checks before launching, so a card already
+ * running shows Stop rather than a second, orphaned session. `sessions` and
+ * `states` are the store's own two maps, kept apart from `useTerminalStore`
+ * itself so this stays a pure function a test can call without mounting
+ * anything.
+ */
+export function findCardSession(
+  sessions: Pick<TerminalSession, 'id' | 'surface' | 'taskRef' | 'asleep' | 'agentId'>[],
+  states: Record<string, ConnectionState>,
+  taskRef: { projectId: string; itemId: string },
+): (typeof sessions)[number] | undefined {
+  return sessions.find(
+    (s) =>
+      s.surface === 'kanban' &&
+      !s.asleep &&
+      s.taskRef?.projectId === taskRef.projectId &&
+      s.taskRef?.itemId === taskRef.itemId &&
+      states[s.id] !== 'exited' &&
+      states[s.id] !== 'unavailable',
+  );
+}
+
+/**
+ * Any `'kanban'` session ever bound to a card, live or not (Phase 41 Theme
+ * F) — what the glow reads to tell "no agent has ever run here" (no ring)
+ * apart from "one did, and its transcript is one click away" (a static ring
+ * once the pane is reopened), a distinction `findCardSession`'s live-only
+ * filter above cannot make since it exists for a different question (does
+ * Start need to become Stop right now).
+ */
+export function findAnyCardSession(
+  sessions: Pick<TerminalSession, 'id' | 'surface' | 'taskRef' | 'agentId' | 'asleep'>[],
+  taskRef: { projectId: string; itemId: string },
+): (typeof sessions)[number] | undefined {
+  return sessions.find(
+    (s) =>
+      s.surface === 'kanban' &&
+      s.taskRef?.projectId === taskRef.projectId &&
+      s.taskRef?.itemId === taskRef.itemId,
+  );
 }
 
 /**

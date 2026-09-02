@@ -7,9 +7,10 @@ import {
   RegexSource,
   SessionActivitySchema,
   TerminalSessionSchema,
+  TerminalSurfaceSchema,
   type AgentDefinition,
 } from './terminal';
-import { AgentListResponse } from './ipc/schemas';
+import { AgentListResponse, TerminalSaveRequest } from './ipc/schemas';
 
 /**
  * The roster is the contract every terminal surface reads off, and it grew
@@ -316,5 +317,59 @@ describe('AgentListResponse', () => {
     const parsed = AgentStatusSchema.parse({ id: 'claude', installed: true, resolvedPath: null });
 
     expect(parsed).toEqual({ id: 'claude', installed: true, resolvedPath: null });
+  });
+});
+
+/**
+ * `'kanban'` and `taskRef` (Phase 41 Theme D) — the exact pair the phase doc
+ * worried would silently disappear: `TerminalSessionSchema` closes with
+ * `.superRefine`, so a new field has to be added inside the object literal
+ * rather than by `.extend()`, and `TerminalSaveRequest` has to actually carry
+ * it through zod's own unknown-key strip at the IPC boundary.
+ */
+describe('the kanban surface and taskRef', () => {
+  const BASE = {
+    id: 's1',
+    kind: 'shell' as const,
+    title: 'midnite-studio',
+    cwd: '/repo',
+    repoId: 'r1',
+    createdAt: 1,
+  };
+
+  it('accepts kanban alongside main and fab', () => {
+    expect(TerminalSurfaceSchema.options).toEqual(['main', 'fab', 'kanban']);
+  });
+
+  it('parses a kanban session carrying a taskRef', () => {
+    const parsed = TerminalSessionSchema.parse({
+      ...BASE,
+      surface: 'kanban',
+      taskRef: { projectId: 'PVT_1', itemId: 'PVTI_1' },
+    });
+
+    expect(parsed.taskRef).toEqual({ projectId: 'PVT_1', itemId: 'PVTI_1' });
+  });
+
+  it('a session with no taskRef parses exactly as before — the field is optional', () => {
+    const parsed = TerminalSessionSchema.parse(BASE);
+
+    expect('taskRef' in parsed).toBe(false);
+  });
+
+  /**
+   * This is the assertion that catches the exact zod-strip the doc names:
+   * `TerminalSaveRequest = z.object({ session: TerminalSessionSchema })`
+   * parses `session` through the schema, and zod drops any field the schema
+   * does not declare. If `taskRef` had been added only to the renderer's own
+   * type and not to `TerminalSessionSchema` itself, this would fail with
+   * `taskRef` silently missing from the parsed output — never a thrown error.
+   */
+  it('taskRef survives TerminalSaveRequest — the IPC boundary the save handler parses through', () => {
+    const parsed = TerminalSaveRequest.parse({
+      session: { ...BASE, surface: 'kanban', taskRef: { projectId: 'PVT_1', itemId: 'PVTI_1' } },
+    });
+
+    expect(parsed.session.taskRef).toEqual({ projectId: 'PVT_1', itemId: 'PVTI_1' });
   });
 });

@@ -3,6 +3,7 @@ import {
   shellQuote,
   toAgentPrompt,
   type TerminalSession,
+  type TerminalSurface,
 } from '@midnite/studio-shared';
 
 import { useTerminalStore } from './terminal-store';
@@ -38,6 +39,7 @@ export function startAgent({
   agentId,
   command,
   surface,
+  taskRef,
   extraArgs = [],
   autoSend = false,
 }: {
@@ -51,10 +53,15 @@ export function startAgent({
   /** The roster entry's `command` — what's actually typed at the shell. */
   command: string;
   /**
-   * `'fab'` hosts the session in the FAB panel (Phase 35): the main terminal
-   * panel is neither opened nor handed the session.
+   * `'fab'` hosts the session in the FAB panel (Phase 35), `'kanban'` inside
+   * a board card (Phase 41): either way, the main terminal panel is neither
+   * opened nor handed the session. Taken from the shared `TerminalSurface`
+   * enum rather than restated as a hand-written union, so widening the
+   * schema widens this too.
    */
-  surface?: 'main' | 'fab';
+  surface?: TerminalSurface;
+  /** `{ projectId, itemId }` — required alongside `surface: 'kanban'` (Phase 41 Theme D). */
+  taskRef?: { projectId: string; itemId: string };
   /**
    * Extra flags for the agent's own CLI, ahead of the prompt — the FAB's
    * `--model` picker is the only caller today (`loopModelArgs`). Words, not a
@@ -71,7 +78,7 @@ export function startAgent({
    */
   autoSend?: boolean;
 }): TerminalSession {
-  if (surface !== 'fab') useUiStore.getState().setTerminalOpen(true);
+  if (surface !== 'fab' && surface !== 'kanban') useUiStore.getState().setTerminalOpen(true);
 
   const session = useTerminalStore.getState().openSession({
     kind: 'agent',
@@ -80,6 +87,7 @@ export function startAgent({
     cwd,
     repoId,
     ...(surface === undefined ? {} : { surface }),
+    ...(taskRef === undefined ? {} : { taskRef }),
   });
 
   // Queued input beats the roster's own start command (see `agentInput` in
