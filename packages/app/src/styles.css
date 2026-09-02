@@ -1163,13 +1163,11 @@ html[data-motion='reduced'] .breadcrumb-repo-pill {
     linear-gradient(to top, #000 0, rgba(0, 0, 0, 0.42) 17px, transparent 40px),
     linear-gradient(to right, #000 0, rgba(0, 0, 0, 0.42) 17px, transparent 40px),
     linear-gradient(to left, #000 0, rgba(0, 0, 0, 0.42) 17px, transparent 40px);
-  mask-composite: add;
   -webkit-mask-image:
     linear-gradient(to bottom, #000 0, rgba(0, 0, 0, 0.42) 17px, transparent 40px),
     linear-gradient(to top, #000 0, rgba(0, 0, 0, 0.42) 17px, transparent 40px),
     linear-gradient(to right, #000 0, rgba(0, 0, 0, 0.42) 17px, transparent 40px),
     linear-gradient(to left, #000 0, rgba(0, 0, 0, 0.42) 17px, transparent 40px);
-  -webkit-mask-composite: source-over;
 }
 
 /*
