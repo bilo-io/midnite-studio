@@ -28,7 +28,7 @@ Completed work is logged append-only in [`done.md`](done.md). Deferred scope liv
 | Phase | Status | Refined | Done | Progress | % | 🔄 WIP | ◻ TODO |
 |-------|--------|---------|------|----------|---|--------|--------|
 | [44 · Video Studio](phases/phase-44-video-studio.md) | ◻ TODO | — | 0/64 | `░░░░░░░░░░` | 0% | — | A B C D E F G H |
-| [43 · Workflows](phases/phase-43-workflows-mvp.md) | ◻ TODO | — | 0/57 | `░░░░░░░░░░` | 0% | — | A B C D E F G H I |
+| [43 · Workflows](phases/phase-43-workflows-mvp.md) | ◻ TODO | x1 | 0/77 | `░░░░░░░░░░` | 0% | — | A B C D E F G H I |
 | [42 · Councils, rearranged](phases/phase-42-councils-layout.md) | ◻ TODO | — | 0/36 | `░░░░░░░░░░` | 0% | — | A B C D E F |
 | [41 · Agentic Kanban](phases/phase-41-agentic-kanban.md) | ◻ TODO | — | 0/44 | `░░░░░░░░░░` | 0% | — | A B C D E F G H I |
 | [40 · GitHub Projects](phases/phase-40-github-projects.md) | ◻ TODO | — | 0/39 | `░░░░░░░░░░` | 0% | — | A B C D E F G |
@@ -106,17 +106,22 @@ filled the identically-reserved Councils slot. A workflow is a graph of five nod
 a hand-rolled SVG canvas and run manually; its centre of gravity is HTTP, so D ships a real local
 `node:http` CRUD API to build against — a workflow engine with nothing to call is a diagram. A is
 the contract, B the engine, C–D what it calls, E–F how you build one, G–H how you watch and keep
-it.*
+it.* **Refined x1 (2026-09-02):** 57 → 77 items, every open decision resolved, and **four false
+precedents corrected** — there is no pan/zoom anywhere in the app and the commit graph is not a
+canvas; `council-runner.ts` emits no events at all (councils poll); `WORK_IN_PROGRESS` is a sidebar
+filter preset a global view already has right, not a placeholder; and `.loop-run-glow` is **not**
+covered by Phase 37's focus gate. E is re-tagged the phase's largest risk: pan/zoom, free 2-D drag,
+multi-select and undo/redo each have zero precedent in this renderer.
 
-- ◻ **A** — Shared contracts: `Workflow*` zod schemas, nodes as a discriminated union of exactly five kinds, channels + push events. Named with no `Forge` prefix — `workflow` already means *GitHub Actions workflow* in this codebase.
-- ◻ **B** — The engine: topological execution with parallel branches, cycle detection before the first node runs, per-node timeout, whole-run cancel — and the `withRunLock` per-run mutation lock, because parallel settles racing on a read-modify-write is the exact bug Phase 34 found.
-- ◻ **C** — The HTTP executor: GET/POST/PUT/PATCH/DELETE/HEAD/QUERY, `{{node.field}}` interpolation (a substitution, deliberately not an expression language), plus `transform`, `condition`, `delay`.
-- ◻ **D** — The demo CRUD API: `node:http` on `127.0.0.1` only, in-memory collections, every verb and the right status codes. On demand, off by default, one click to paste its base URL into a node.
-- ◻ **E** — The canvas: hand-rolled SVG nodes + bézier edges, `@dnd-kit` drag, viewBox pan/zoom, cycle rejected at draw time. No new dependency, per Phase 5/18 precedent and Phase 36's budgets.
-- ◻ **F** — The node inspector: forms driven off the `kind` union, live validation that marks a node invalid on the canvas, and an interpolation helper that lists what is actually upstream. Adopts Phase 42's `panel-stack`.
-- ◻ **G** — Runs: the canvas read-only with live per-node status off `EVENT_CHANNELS`, per-node input/output/duration/error, capped history, and the existing `loop-glow` running idiom rather than a third animation.
-- ◻ **H** — Persistence + the list: two `*-store.ts` files under `userData`, `workflow-handlers.ts`, and `workflows-view.tsx` finally replacing the `<Placeholder>` at `app.tsx:980`. JSON import/export as the cheapest sharing story.
-- ◻ **I** — Wiring + verification: sections, palette, menu, a settings page, e2e, and one real pass with **no network** — proving the demo API makes the feature self-contained.
+- ◻ **A** — Shared contracts: `Workflow*` zod schemas, nodes as a discriminated union of exactly five kinds, channels + one bare `workflowRunChanged` event. Copies `GitOpResult`'s nested-union shape exactly — a flat `discriminatedUnion('ok')` is a zod error — and adds the opt-in `describe('workflow contract')` block to `ipc.test.ts` without which a channel ships unvalidated.
+- ◻ **B** — The engine: Kahn topological order, parallel branches capped at 4 in flight, cycle detection before the first node runs, a 120 s per-node deadline via the `trackOneShot` race, and `withRunLock` copied verbatim — including the never-nest rule that avoids deadlocking it against itself, and the `runLocks` prune the councils original still lacks.
+- ◻ **C** — The HTTP executor: every verb, a written-down `{{node.field}}` grammar with a `{{{{` escape where an unresolved reference **fails the node** rather than substituting empty, a 512 KB cap reusing `appendCapped`'s visible `truncated` flag, and `transform`/`condition`/`delay` bounded in schema.
+- ◻ **D** — The demo CRUD API: `node:http` on `127.0.0.1` and an **ephemeral port** (`listen(0)`) — the draft said both that and a fixed `:7331` — in-memory collections capped at 1 000, every verb and the right status codes. On demand, off by default, one click to paste its base URL into a node.
+- ◻ **E** — The canvas *(the phase's largest risk)*: SVG nodes + bézier edges, with the geometry split pure the way `metric-path.ts` is. `edgePath` is the bezier to **copy, not call** — its control axis is vertical and a workflow flows sideways. Pan/zoom is defined here, not inherited; drag is **raw pointer events, not `@dnd-kit`**; culling is a rect filter, not a virtualizer.
+- ◻ **F** — The node inspector: forms driven off the `kind` union in the app's **first** right-hand config pane, live validation that reuses the node's own zod schema, and an interpolation helper listing genuine upstream fields. Hoists the scattered form primitives into `components/form/` rather than making a third copy. Does **not** build or consume `panel-stack`.
+- ◻ **G** — Runs: the canvas read-only with live status by **push-then-re-fetch** (councils' 1 200 ms poll would look frozen), capped at 200 globally, and the `loop-glow` idiom — this theme owns hoisting `useWindowFocusGate` out of `fab-panel.tsx` and extending the paused selector, because the gate does not currently reach it.
+- ◻ **H** — Persistence + the list: two `*-store.ts` files under `userData` (separate write profiles), `workflow-handlers.ts` taking the `getWindow` thunk, hooks feature-local rather than in `queries.ts`, and `workflows-view.tsx` replacing the `<Placeholder>` — inserted **before** `app.tsx:961`'s repo guard, or a global view shows `EmptyWorkspace`.
+- ◻ **I** — Wiring + verification: `view-sections.ts` needs **no change**, the palette view row **already exists**, so what is actually new is a chord-less `workflow.run` command, a settings page (four enforced edits across three files), e2e, and one real pass with **no network**.
 
 ### [Phase 42 — Councils, rearranged](phases/phase-42-councils-layout.md)
 
