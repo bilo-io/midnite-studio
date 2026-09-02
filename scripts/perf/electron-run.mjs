@@ -122,9 +122,9 @@ function launchEnv(repo) {
  * installed Midnite Studio.app is open otherwise quits instantly and reports
  * nothing at all. Isolation is a correctness requirement, not tidiness.
  */
-export function launch({ profile, repo, until, onMark }) {
+export function launch({ profile, repo, until, onMark, onLine, extraArgs = [] }) {
   return new Promise((resolveRun) => {
-    const child = spawn(electronBinary(), ['.', `--user-data-dir=${profile}`], {
+    const child = spawn(electronBinary(), ['.', `--user-data-dir=${profile}`, ...extraArgs], {
       cwd: DESKTOP,
       env: launchEnv(repo),
       stdio: ['ignore', 'pipe', 'pipe'],
@@ -146,6 +146,11 @@ export function launch({ profile, repo, until, onMark }) {
       const lines = buffered.split('\n');
       buffered = lines.pop() ?? '';
       for (const line of lines) {
+        // A generic hook past the `[perf]` mark convention — `memory-report.mjs`
+        // needs Electron's own `DevTools listening on ws://…` line to attach a
+        // CDP client, which is not a mark and should not become one just to be
+        // observable here.
+        onLine?.(line);
         const m = MARK_LINE.exec(line);
         if (!m) continue;
         // First occurrence wins: `ready-to-show` fires again after a renderer
@@ -241,8 +246,17 @@ function killByProfile(profile) {
  * discarded; what the measured runs inherit is a profile that remembers a
  * selection, which is what a cold start is for anyone who has used the app.
  */
-export async function seedProfile(repo, required) {
-  const profile = mkdtempSync(join(tmpdir(), 'mstudio-perf-'));
+export async function seedProfile(repo, required, opts = {}) {
+  /*
+    `os.tmpdir()`'s per-user macOS path (`/var/folders/xx/…/T`) is long enough
+    that appending `/broker/<version>-<buildId>.sock` can cross the 104-byte
+    `sun_path` limit `broker-client.ts` checks — a dev build's id
+    (`0.1.0-<hash>-dev`) is the straw that breaks it. `memory-report.mjs`
+    passes a short `tmpPrefix` for exactly this reason: its retention
+    measurement needs the REAL broker, not the socket-path-too-long fallback
+    to in-process ptys, which would silently measure the wrong process.
+  */
+  const profile = mkdtempSync(opts.tmpPrefix ?? join(tmpdir(), 'mstudio-perf-'));
   process.stderr.write('seeding profile (opens and selects the repo)…\n');
 
   /*

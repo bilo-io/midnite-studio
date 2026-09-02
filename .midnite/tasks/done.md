@@ -35,6 +35,43 @@ this PR originally built in parallel — that duplicate work was dropped in favo
       `playwright.ci.config.ts` already documents. `terminal.spec.ts` stays in `KNOWN_RED`; Theme I
       owns tagging the actually-affected specs `@linux-red` before it can leave.
 
+## 2026-09-02 — Phase 45 Themes A, B, C, D — retention harness, broker scrollback fix, unbounded run histories
+
+[PR #49](https://github.com/bilo-io/midnite-studio/pull/49). Themes E (the small leaks) and F
+(the phase's own verification pass) are not in this batch and stay open.
+
+- [x] **Theme A — the instrument.** `scripts/perf/memory-report.mjs`, driven through the existing
+      `electron-run.mjs` (never Playwright's own `_electron.launch`), attaching a CDP client to the
+      already-launched packaged app to drive four named actions (open/close a repo, a terminal
+      session, browser tabs, `council` refused with a reason) through the real bridge — bypassing
+      the renderer's own React/Zustand bookkeeping on purpose, since what leaks in this phase lives
+      in main and the broker. Reports RSS per process class (main/renderer/broker/other) as a
+      **slope** — median of the last 5 cycles vs the first 5 — not a level. `retention.spec.ts`
+      wraps `runRetention()` the way `startup-budget.spec.ts` wraps `electron-run.mjs`. Also ships
+      an `MSTUDIO_PERF` heap sampler in main and the broker (`heap-sampler.ts`), and a
+      `retainedPerCycleKb` budget in `budgets.json`. Found along the way: `os.tmpdir()`'s macOS path
+      plus a dev build's socket name can cross the 104-byte `sun_path` limit, silently falling back
+      to an in-process pty that never touches the real broker — `seedProfile` grew an optional short
+      `tmpPrefix` for exactly this measurement.
+- [x] **Theme B — the sweep, with verdicts.** Every retaining `Map`/`Set` in `packages/desktop`
+      audited and marked BOUNDED or LEAKING — full table in the phase doc. `packages/git-engine`
+      confirmed clean (bounded LRUs with TTLs throughout), as Phase 36 Theme F predicted.
+- [x] **Theme C — the broker's scrollback.** `scrollbackBySession` never deleted a session's bytes
+      on pty exit or kill, in the one process that deliberately outlives the app. Fixed at the
+      source (delete in both the `onExit` and `kill` handlers), plus a new `forget` `ControlMessage`
+      main can send explicitly and a reconcile-on-`hello` backstop for an older broker build's
+      leftovers. **Verified with unit tests, not the live retention harness** — a single session's
+      2 MB cap sits well inside the RSS noise floor of a short run; three new `server.test.ts` tests
+      confirmed to fail against the unfixed code (0 → 17–32 bytes leaked) before passing against the
+      fix.
+- [x] **Theme D — two unbounded run histories.** `council-service.ts`'s `saveRun` and
+      `loop-runs.ts`'s `startLoopRun` both trimmed only the copy written to disk, never reassigning
+      the trimmed array back to the in-memory one. Fixed by capping **at write time**, in both
+      files, independent of the store's own trim — each with a unit test pushing `MAX + 10` records
+      and asserting the in-memory list is exactly `MAX`, oldest dropped.
+- [x] One Theme E item landed early: `pty-service.ts`'s `sessionExitHooks` was append-only with no
+      `off` — closed while Theme B's sweep was already there to find it.
+
 ## 2026-09-02 — Phase 42 Themes A, B, C, D — panel-stack, three panes, config right, back/forward
 
 [PR #TBD]. Themes E (councils/runs share the rail) and F (motion verification) are not in this

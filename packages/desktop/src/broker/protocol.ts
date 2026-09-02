@@ -30,6 +30,15 @@ export type ControlMessage =
   | { t: 'resize'; id?: number; ptyId: string; cols: number; rows: number }
   | { t: 'kill'; id?: number; ptyId: string }
   | { t: 'snapshot'; id?: number; sessionId: string }
+  /**
+   * "These sessions are gone — stop holding their scrollback." A list rather
+   * than one id per message (Phase 45 Theme C): the reconciliation that finds
+   * forgettable sessions runs on hydrate and on broker start/reconnect, and
+   * usually finds several at once — one round trip per dead session would be
+   * a chatty protocol for a socket that exists to be quiet. Distinct from
+   * `kill`: a session can be forgotten long after its pty already exited.
+   */
+  | { t: 'forget'; id?: number; sessionIds: string[] }
   | { t: 'detach'; id?: number }
   | { t: 'flush'; id?: number }
   /**

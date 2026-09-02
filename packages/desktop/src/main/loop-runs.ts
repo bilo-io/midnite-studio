@@ -3,7 +3,7 @@ import { randomUUID } from 'node:crypto';
 import { EVENT_CHANNELS, type LoopModel, type LoopRunRecord } from '@midnite/studio-shared';
 import type { BrowserWindow } from 'electron';
 
-import { nullLoopRunsStore, type LoopRunsStore } from './loop-runs-store';
+import { MAX_STORED_LOOP_RUNS, nullLoopRunsStore, type LoopRunsStore } from './loop-runs-store';
 
 /**
  * The loop-run ledger (Phase 35).
@@ -93,7 +93,15 @@ export async function startLoopRun(req: {
       ...(req.model === undefined ? {} : { model: req.model }),
       status: 'running',
     };
-    runs = [...runs, record];
+    /*
+      Capped here, at write time — not left to `store.save`'s own trim, which
+      only ever bounded the copy written to disk (Phase 45 Theme D: the
+      identical bug `council-service.ts`'s `saveRun` had, same shape, same
+      fix). Capping on every push stays correct even if the store's own
+      trimming rule ever changes independently of this file.
+    */
+    const next = [...runs, record];
+    runs = next.length > MAX_STORED_LOOP_RUNS ? next.slice(next.length - MAX_STORED_LOOP_RUNS) : next;
     await store.save(runs);
     emitChanged();
     return record;

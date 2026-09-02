@@ -24,6 +24,8 @@ node scripts/perf/bundle-report.mjs --assert          # ...and fail on a budget 
 node scripts/perf/idle-cpu.mjs --seconds=300          # focused idle, % of one core
 node scripts/perf/idle-cpu.mjs --seconds=300 --blurred # blurred idle (what the gates key on)
 node scripts/perf/broker-load.mjs --seconds=10        # broker CPU per MB under `yes`
+node scripts/perf/memory-report.mjs --action=terminal # retention: bytes retained per cycle
+node scripts/perf/memory-report.mjs --action=terminal --assert # ...and fail on a budget breach
 scripts/perf/make-big-repo.sh                        # ~50k-commit graph fixture
 MSTUDIO_BUNDLE_STATS=1 moon run app:build            # dist/stats.html treemap
 ```
@@ -49,6 +51,7 @@ Three specs under `packages/app/e2e/perf/`, all reading `budgets.json`:
 | `bundle-budget.spec.ts` | entry chunk KB, total JS KB, and the **absence** of `@xterm`, `react-grid-layout`, `react-markdown`, `remark-gfm` from the entry chunk |
 | `startup-budget.spec.ts` | `ready-to-show` and `first-view-rendered` medians, every mark present in every run, and `repos-restored` before `create-window` |
 | `diff-scroll.spec.ts` | median frame gap over a 60-frame scroll of a 4 000-line diff |
+| `retention.spec.ts` | bytes retained per cycle (main/renderer/broker), median-of-last-5-vs-first-5 — see Phase 45 |
 
 Deliberately **outside** `moon run :test`. A budget failure is a report, and a
 report that blocks a green build on a busy laptop gets disabled rather than read.
@@ -87,8 +90,13 @@ how a performance phase gets undone a year later.
 
 ## What is not measured here
 
-`idle %CPU` and renderer heap still need a human. Idle CPU wants two untouched
-five-minute windows (focused and blurred) — the script does the arithmetic, but
-nobody can touch the machine while it runs. Renderer heap needs a DevTools heap
-snapshot, and the exact click-path is written into the phase doc, because a heap
-number without the diff that produced it is not comparable to anything.
+`idle %CPU` still needs a human — it wants two untouched five-minute windows
+(focused and blurred), and the script does the arithmetic but nobody can touch
+the machine while it runs.
+
+Renderer/main/broker retention (Phase 45) is now a script with a budget:
+`memory-report.mjs` drives a real action N times through a CDP connection to
+the packaged-equivalent app (never Playwright's `_electron.launch` — see
+`electron-run.mjs`'s own docblock) and reports bytes retained per cycle,
+per process class. What it cannot see is a multi-hour session — only a human
+measures a day; the harness measures a controlled loop of cycles.

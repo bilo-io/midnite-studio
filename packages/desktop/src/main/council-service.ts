@@ -6,7 +6,7 @@ import {
   type CouncilRun,
 } from '@midnite/studio-shared';
 
-import { nullCouncilsRunsStore, type CouncilsRunsStore } from './councils-runs-store';
+import { MAX_STORED_RUNS, nullCouncilsRunsStore, type CouncilsRunsStore } from './councils-runs-store';
 import { nullCouncilsStore, type CouncilsStore } from './councils-store';
 
 /**
@@ -109,12 +109,21 @@ export async function getRun(runId: string): Promise<CouncilRun | null> {
   return runs.find((r) => r.id === runId) ?? null;
 }
 
-/** Insert or update one run in memory, then persist a stripped copy of all of them. */
+/**
+ * Insert or update one run in memory, then persist a stripped copy of all of them.
+ *
+ * The in-memory array is capped here, at write time — not left to
+ * `runsStore.save`'s own trim, which only ever bounded the copy written to
+ * disk (Phase 45 Theme D: the cap existed in exactly one of the two places it
+ * was needed). Capping on every push, rather than reading back whatever
+ * `save` trimmed to, means this stays correct even if the store's own
+ * trimming rule ever changes independently of this file.
+ */
 export async function saveRun(run: CouncilRun): Promise<void> {
   await ensureRunsLoaded();
   const index = runs.findIndex((r) => r.id === run.id);
-  if (index === -1) runs = [...runs, run];
-  else runs = [...runs.slice(0, index), run, ...runs.slice(index + 1)];
+  const next = index === -1 ? [...runs, run] : [...runs.slice(0, index), run, ...runs.slice(index + 1)];
+  runs = next.length > MAX_STORED_RUNS ? next.slice(next.length - MAX_STORED_RUNS) : next;
   void runsStore.save(runs.map(stripTransientPtyIds));
 }
 
