@@ -20,6 +20,7 @@ import type { IconComponent } from '../../components/icon-button';
 import { VIEW_ICON } from '../../components/nav-icons';
 import { ExternalLink } from '../markdown/external-link';
 import { bridge } from '../../services/bridge';
+import { BoardView } from './board/board-view';
 import {
   useForgeProjectFields,
   useForgeProjectItems,
@@ -41,14 +42,17 @@ import { useUiStore } from '../../store/ui-store';
  * picked, the picked board has no items, a missing `read:project` scope, and
  * — the steady state — the table.
  *
- * The board mode (Phase 41's kanban) lives inside this same view rather than
- * as its own nav item, which is why the header carries a slot for a future
- * `[ Table | Board ]` toggle even though only Table exists here.
+ * The board mode (Phase 41 Theme A) lives inside this same view rather than
+ * as its own nav item — one board picker, one gating path, one data source
+ * turned sideways rather than duplicated.
  */
 export function ProjectsView() {
   const { repoId } = useActiveWorktree();
   const boardByRepo = useUiStore((s) => s.projectBoardByRepo);
   const setProjectBoard = useUiStore((s) => s.setProjectBoard);
+  const modeByRepo = useUiStore((s) => s.projectsMode);
+  const setProjectsMode = useUiStore((s) => s.setProjectsMode);
+  const mode = repoId !== null ? (modeByRepo[repoId] ?? 'table') : 'table';
 
   // Fetching starts only once this view is mounted, matching every other
   // forge read's `enabled` gate — see the phase doc's own acceptance test.
@@ -118,17 +122,33 @@ export function ProjectsView() {
           </select>
         </label>
 
-        {/*
-          Reserved for Phase 41's `[ Table | Board ]` toggle — only Table
-          exists in this phase, so the slot renders its one, non-interactive
-          label rather than a control with nothing to switch to.
-        */}
-        <span
+        <div
+          role="group"
+          aria-label="View mode"
           data-testid="projects-view-mode-slot"
-          className="rounded border border-border px-2 py-1 text-xs text-muted-foreground"
+          className="flex overflow-hidden rounded border border-border text-xs"
         >
-          Table
-        </span>
+          {(
+            [
+              { id: 'table', label: 'Table' },
+              { id: 'board', label: 'Board' },
+            ] as const
+          ).map((option) => (
+            <button
+              key={option.id}
+              type="button"
+              aria-pressed={mode === option.id}
+              onClick={() => repoId && setProjectsMode(repoId, option.id)}
+              className={`px-2 py-1 transition-colors ${
+                mode === option.id
+                  ? 'bg-primary/10 text-foreground'
+                  : 'text-muted-foreground hover:bg-accent hover:text-foreground'
+              }`}
+            >
+              {option.label}
+            </button>
+          ))}
+        </div>
       </header>
 
       {selectedProjectId === null ? (
@@ -141,6 +161,8 @@ export function ProjectsView() {
         <p className="p-4 text-xs text-muted-foreground">Loading items…</p>
       ) : items.data?.error ? (
         <EmptyState icon={VIEW_ICON.projects} title="Could not load items" body={items.data.error} />
+      ) : mode === 'board' ? (
+        <BoardView items={items.data?.items ?? []} fields={fields.data?.fields ?? []} />
       ) : (items.data?.items.length ?? 0) === 0 ? (
         <EmptyState
           icon={VIEW_ICON.projects}

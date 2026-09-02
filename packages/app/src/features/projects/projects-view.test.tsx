@@ -4,6 +4,8 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 import { ProjectFieldCell, ProjectsView } from './projects-view';
 
+afterEach(cleanup);
+
 /*
   The real `useForgeProjects`/`useForgeProjectFields`/`useForgeProjectItems`
   hooks run against a mocked `bridge()`, so this test proves the actual
@@ -32,14 +34,28 @@ const setProjectBoard = vi.fn((repoId: string, projectId: string) => {
 });
 let forgeWritesEnabled = false;
 
+let projectsMode: Record<string, 'table' | 'board'> = {};
+const setProjectsMode = vi.fn((repoId: string, mode: 'table' | 'board') => {
+  projectsMode = { ...projectsMode, [repoId]: mode };
+});
+
 vi.mock('../../store/ui-store', () => ({
   useUiStore: (
     selector: (state: {
       projectBoardByRepo: Record<string, string>;
       setProjectBoard: typeof setProjectBoard;
       forgeWritesEnabled: boolean;
+      projectsMode: Record<string, 'table' | 'board'>;
+      setProjectsMode: typeof setProjectsMode;
     }) => unknown,
-  ) => selector({ projectBoardByRepo: boardByRepo, setProjectBoard, forgeWritesEnabled }),
+  ) =>
+    selector({
+      projectBoardByRepo: boardByRepo,
+      setProjectBoard,
+      forgeWritesEnabled,
+      projectsMode,
+      setProjectsMode,
+    }),
 }));
 
 function renderWithClient() {
@@ -62,6 +78,8 @@ describe('ProjectsView', () => {
     boardByRepo = {};
     setProjectBoard.mockClear();
     forgeWritesEnabled = false;
+    projectsMode = {};
+    setProjectsMode.mockClear();
   });
 
   it('issues zero item fetches when no board has been picked', async () => {
@@ -121,6 +139,65 @@ describe('ProjectsView', () => {
     expect(await screen.findByText('No items')).toBeDefined();
   });
 
+  it('clicking Board persists the mode choice per repo', async () => {
+    boardByRepo = { 'repo-1': 'PVT_1' };
+    list.mockResolvedValue({
+      cli: CLI_READY,
+      projects: [
+        { id: 'PVT_1', number: 1, title: 'Roadmap', url: 'https://github.com/orgs/acme/projects/1', closed: false },
+      ],
+      error: null,
+      kind: 'ok',
+    });
+    fields.mockResolvedValue({ cli: CLI_READY, fields: [], error: null, kind: 'ok' });
+    items.mockResolvedValue({ cli: CLI_READY, items: [], nextCursor: null, error: null, kind: 'ok' });
+
+    renderWithClient();
+    await screen.findByText('No items');
+
+    fireEvent.click(screen.getByRole('button', { name: 'Board' }));
+
+    expect(setProjectsMode).toHaveBeenCalledWith('repo-1', 'board');
+  });
+
+  it('with the mode already set to board, renders the board view instead of the table', async () => {
+    boardByRepo = { 'repo-1': 'PVT_1' };
+    projectsMode = { 'repo-1': 'board' };
+    list.mockResolvedValue({
+      cli: CLI_READY,
+      projects: [
+        { id: 'PVT_1', number: 1, title: 'Roadmap', url: 'https://github.com/orgs/acme/projects/1', closed: false },
+      ],
+      error: null,
+      kind: 'ok',
+    });
+    fields.mockResolvedValue({
+      cli: CLI_READY,
+      fields: [{ id: 'f1', name: 'Status', dataType: 'single_select', options: [{ id: 'todo', name: 'Todo', color: 'GRAY' }] }],
+      error: null,
+      kind: 'ok',
+    });
+    items.mockResolvedValue({
+      cli: CLI_READY,
+      items: [
+        {
+          id: 'item1',
+          content: { type: 'draft', id: 'DI_1', title: 'A draft item', assignees: [] },
+          fieldValues: { f1: { fieldId: 'f1', dataType: 'single_select', optionId: 'todo', name: 'Todo' } },
+        },
+      ],
+      nextCursor: null,
+      error: null,
+      kind: 'ok',
+    });
+
+    renderWithClient();
+
+    expect(await screen.findByTestId('board-view')).toBeDefined();
+    expect(screen.getByText('Todo')).toBeDefined();
+    expect(screen.getByText('A draft item')).toBeDefined();
+    expect(screen.queryByRole('table')).toBeNull();
+  });
 });
 
 /* Phase 40 Theme E's own acceptance test, verbatim from the doc. Rendered on
