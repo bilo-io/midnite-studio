@@ -139,6 +139,16 @@ explanatory messages. If a boundary rule fires, the fix is an IPC channel, not a
   every `CommandId`, label, palette `group` and optional chord — with `COMMAND_IDS`,
   `DEFAULT_KEYMAP` and `GLOBAL_CHORDS` all derived from it. `Mod+k` opens the command palette and
   joins `Ctrl+`` as the second chord that escapes the terminal; `Mod+Shift+p` stays `sync.pull`.
+  **`Mod+r`/`Mod+Shift+r` are `app.reload`/`app.hardReload`** — reload the window, and reload it
+  bypassing the HTTP cache, exactly as a browser reads them. They are the one pair listed in
+  `TERMINAL_YIELD_COMMANDS`, which the dispatcher honours by falling through when the keystroke
+  is aimed at an `.xterm` root: `app` scope alone does **not** keep a chord out of the terminal
+  (the dispatcher's window listener grabs every bound chord, `Mod+1` from inside a shell
+  included), and `Mod+R` off macOS is `Ctrl+R` — readline's reverse-i-search. For the same
+  reason neither gets a native Electron accelerator in `menu.ts`; an OS accelerator fires
+  whenever the window is focused, xterm included. They displaced `view.refresh` and `sync.fetch`,
+  which are now declared with **no chord** — and a menu or palette label for a chord-free command
+  has to come from `COMMANDS`, not `DEFAULT_KEYMAP` (which drops them), or it renders as the raw id.
 - **Public downloads and issues live in
   [`bilo-io/midnite-apps`](https://github.com/bilo-io/midnite-apps), not here.** This repo is
   private, so nothing a user touches can be served from it — installers, release notes and the
