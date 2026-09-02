@@ -1,5 +1,8 @@
 import type { IconType } from 'react-icons';
-import { LuBrain, LuBot, LuCircleDot, LuHeartHandshake, LuRadar } from 'react-icons/lu';
+import { FaHeartbeat } from 'react-icons/fa';
+import { GiOvermind } from 'react-icons/gi';
+import { LuBot, LuCircleDot } from 'react-icons/lu';
+import { SiSecurityscorecard } from 'react-icons/si';
 
 /**
  * `LoopDefinition.icon` is a *token*, not a component — `packages/shared` is
@@ -12,10 +15,10 @@ import { LuBrain, LuBot, LuCircleDot, LuHeartHandshake, LuRadar } from 'react-ic
  * crashed panel is not.
  */
 const LOOP_ICONS: Record<string, IconType> = {
-  brain: LuBrain,
+  brain: GiOvermind,
   bot: LuBot,
-  watchdog: LuRadar,
-  medic: LuHeartHandshake,
+  watchdog: SiSecurityscorecard,
+  medic: FaHeartbeat,
 };
 
 export function loopIcon(token: string): IconType {
