@@ -41,7 +41,7 @@ Completed work is logged append-only in [`done.md`](done.md). Deferred scope liv
 | [48 · Apply suggested-change blocks](phases/phase-48-apply-suggested-changes.md) | ◻ TODO | — | 0/20 | `░░░░░░░░░░` | 0% | — | A B C D E |
 | [47 · Conflict Resolution Studio](phases/phase-47-conflict-resolution-studio.md) | ◻ TODO | — | 0/23 | `░░░░░░░░░░` | 0% | — | A B C D E F |
 | [46 · The lock screen, and a motion policy that holds](phases/phase-46-lock-screen-and-motion.md) | ◻ TODO | — | 0/37 | `░░░░░░░░░░` | 0% | — | A B C D E F G |
-| [45 · The leak audit](phases/phase-45-leak-audit.md) | ◻ TODO | — | 0/34 | `░░░░░░░░░░` | 0% | — | A B C D E F |
+| [45 · The leak audit](phases/phase-45-leak-audit.md) | 🔄 WIP | — | 0/34 | `░░░░░░░░░░` | 0% | A B C D | E F |
 | [44 · Video Studio](phases/phase-44-video-studio.md) | ◻ TODO | — | 0/64 | `░░░░░░░░░░` | 0% | — | A B C D E F G H |
 | [43 · Workflows](phases/phase-43-workflows-mvp.md) | ◻ TODO | x1 | 0/77 | `░░░░░░░░░░` | 0% | — | A B C D E F G H I |
 | [42 · Councils, rearranged](phases/phase-42-councils-layout.md) | 🔄 WIP | x1 | 0/43 | `░░░░░░░░░░` | 0% | A B C D | E F |
