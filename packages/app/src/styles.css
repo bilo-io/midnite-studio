@@ -727,6 +727,145 @@ html[data-motion='reduced'] .breadcrumb-repo-pill {
 }
 
 /*
+ * The same four arcs again, sampled — the sub-spectrum as five *colours*
+ * rather than two angles.
+ *
+ * Everything above narrows a conic ring by masking it, which works because a
+ * ring is drawn around a full turn and an arc of one is a sector of the same
+ * paint. A form field is not a ring: its border is a rectangle and its
+ * background is a wash, and neither can be expressed as a sector of anything.
+ * So the arc has to arrive here as a linear ramp, and the only honest way to
+ * build that ramp is to read the colours the arc actually covers off the same
+ * `--rainbow-*` stops the conic uses — the ramp sits at even 60° increments,
+ * so a stop landing between two of them is their midpoint, computed once and
+ * written down rather than recomputed by the browser.
+ *
+ * Stop 3 of five is each tab's own centre, which is why they line up with the
+ * `color` classes `DEFAULT_LOOPS` already carries: medic is rose (0°, its
+ * `text-red-500`), watchdog amber (60°), automate emerald (120°), innovate
+ * blue (180°). Change an arc above and these must be re-sampled with it —
+ * they are two expressions of one decision, and `loop-spectrum.test.ts`
+ * asserts every tab declares all five so a new loop cannot land with none.
+ *
+ * Channel triplets rather than hex, so one declaration serves both the opaque
+ * border ramp (`rgb(var(--fab-spec-1))`) and the ~10% background wash
+ * (`rgb(var(--fab-spec-1) / 0.1)`) without a second set of values to keep in
+ * step.
+ */
+[data-fab-tab='medic'] {
+  --fab-spec-1: 187 82 200; /* 270deg — violet/pink midpoint */
+  --fab-spec-2: 236 72 153; /* 300deg — pink */
+  --fab-spec-3: 244 63 94; /*   0deg — rose */
+  --fab-spec-4: 245 158 11; /*  60deg — amber */
+  --fab-spec-5: 130 171 70; /*  90deg — amber/emerald midpoint */
+}
+
+[data-fab-tab='watchdog'] {
+  --fab-spec-1: 240 67 123; /* 330deg — pink/rose midpoint */
+  --fab-spec-2: 244 63 94; /*   0deg — rose */
+  --fab-spec-3: 245 158 11; /*  60deg — amber */
+  --fab-spec-4: 16 185 129; /* 120deg — emerald */
+  --fab-spec-5: 37 157 187; /* 150deg — emerald/blue midpoint */
+}
+
+[data-fab-tab='automate'] {
+  --fab-spec-1: 244 110 52; /*  30deg — rose/amber midpoint */
+  --fab-spec-2: 245 158 11; /*  60deg — amber */
+  --fab-spec-3: 16 185 129; /* 120deg — emerald */
+  --fab-spec-4: 59 130 246; /* 180deg — blue */
+  --fab-spec-5: 99 111 246; /* 210deg — blue/violet midpoint */
+}
+
+[data-fab-tab='innovate'] {
+  --fab-spec-1: 130 171 70; /*  90deg — amber/emerald midpoint */
+  --fab-spec-2: 16 185 129; /* 120deg — emerald */
+  --fab-spec-3: 59 130 246; /* 180deg — blue */
+  --fab-spec-4: 139 92 246; /* 240deg — violet */
+  --fab-spec-5: 187 82 200; /* 270deg — violet/pink midpoint */
+}
+
+/*
+ * The composer's own ground: the tab's sub-spectrum as a wash, diagonally
+ * across the form.
+ *
+ * Alpha stays in the 5–11% band on purpose. Below ~4% it reads as a rendering
+ * artefact on the popover's near-black, and above ~15% it starts competing
+ * with the `text-muted-foreground` labels sitting on top of it — the brief
+ * was "subtle but noticeable", and this is the window where the tint is
+ * legible as *this tab's colour* without the labels losing contrast. The
+ * midpoints dip to 5% so the wash reads as two corners rather than a stripe.
+ *
+ * `background-color` under it, not a fourth gradient stop: the wash is
+ * translucent by design and needs the popover behind it, and painting that
+ * with the same longhand the gradient uses would let one override drop both.
+ */
+.loop-composer-surface {
+  background-color: hsl(var(--popover));
+  background-image: linear-gradient(
+    145deg,
+    rgb(var(--fab-spec-1, 244 63 94) / 0.11) 0%,
+    rgb(var(--fab-spec-2, 245 158 11) / 0.05) 28%,
+    rgb(var(--fab-spec-3, 16 185 129) / 0.08) 52%,
+    rgb(var(--fab-spec-4, 59 130 246) / 0.05) 74%,
+    rgb(var(--fab-spec-5, 139 92 246) / 0.11) 100%
+  );
+}
+
+/*
+ * A field wearing the sub-spectrum as its border.
+ *
+ * The two-layer `background-clip` trick the panel's own ring uses, with the
+ * conic swapped for a linear ramp — the padding box is filled with an opaque
+ * popover colour and the border box with the gradient, so the 1px frame is
+ * the only part of the gradient that survives. `background-origin: border-box`
+ * is what makes the ramp span the whole element rather than restart inside
+ * the padding box.
+ *
+ * The interior fill is `--popover` and not transparent: a translucent field
+ * over `.loop-composer-surface`'s wash would let the ramp show through its
+ * own middle, which is a smear rather than a border. Focus deepens the ramp's
+ * own colour into a ring instead of switching to `--primary`, so the field
+ * that says which tab it belongs to keeps saying it while you type in it.
+ */
+.loop-spectrum-field {
+  border: 1px solid transparent;
+  background-image:
+    linear-gradient(hsl(var(--popover)), hsl(var(--popover))),
+    linear-gradient(
+      100deg,
+      rgb(var(--fab-spec-1, 244 63 94)),
+      rgb(var(--fab-spec-2, 245 158 11)),
+      rgb(var(--fab-spec-3, 16 185 129)),
+      rgb(var(--fab-spec-4, 59 130 246)),
+      rgb(var(--fab-spec-5, 139 92 246))
+    );
+  background-origin: border-box;
+  background-clip: padding-box, border-box;
+  transition: box-shadow 0.15s ease;
+}
+
+.loop-spectrum-field:focus {
+  outline: none;
+  box-shadow: 0 0 0 2px rgb(var(--fab-spec-3, 16 185 129) / 0.35);
+}
+
+/*
+ * The chosen pill in a composer radio group.
+ *
+ * Tinted with the tab's own centre colour rather than `--primary`: in the dark
+ * theme `--primary` is near-white, and a near-white pill sitting on the
+ * `.loop-composer-surface` wash reads as the one option that is *unavailable*
+ * — the opposite of what a selected radio means. The centre stop is the tab's
+ * own identity colour (rose / amber / emerald / blue), so the group also says
+ * which tab it belongs to at a glance.
+ */
+.loop-spectrum-pill {
+  background-color: rgb(var(--fab-spec-3, 16 185 129) / 0.22);
+  border-color: rgb(var(--fab-spec-3, 16 185 129) / 0.65);
+}
+
+
+/*
  * The arc mask, repeated at each of the three places this phase narrows a
  * ring, rather than factored into one shared custom property. It was
  * factored out first — `--fab-arc-mask: conic-gradient(…)` on `:root`,

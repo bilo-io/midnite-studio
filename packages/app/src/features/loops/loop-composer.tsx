@@ -1,33 +1,44 @@
 import {
+  LOOP_DAY_SETS,
+  LOOP_FREQUENCIES,
   LOOP_GROUPS,
   LOOP_MODELS,
-  loopScheduleFragment,
+  loopScheduleSummary,
   resolveLoopChoice,
   type LoopChoice,
+  type LoopDays,
   type LoopDefinition,
+  type LoopFrequency,
   type LoopGroup,
   type LoopModel,
   type LoopModifier,
   type LoopSchedule,
 } from '@midnite/studio-shared';
-import { LuCircleStop, LuPlay } from 'react-icons/lu';
+import { Collapse } from '@bilo-io/ui';
+import { useId, useState, type ReactNode } from 'react';
+import { LuChevronRight, LuCircleStop, LuPlay } from 'react-icons/lu';
 
 /**
  * The controls above a loop's terminal: what the next run will be told, and
  * the one button that starts or stops it.
  *
  * Two shapes, not two components. Idle, it is the composer — the loop's
- * declared settings in three labelled sections, the model and schedule under
- * them, and a free-text field. Running, it collapses to a slim strip: the
- * settings that are actually in force as read-only chips, so the live run's
- * instructions stay legible without giving up the terminal's height, and the
- * glowing Stop.
+ * declared settings in labelled accordion sections, the model and schedule in
+ * two more, and a free-text field under them. Running, it collapses to a slim
+ * strip: the settings that are actually in force as read-only chips, so the
+ * live run's instructions stay legible without giving up the terminal's
+ * height, and the glowing Stop.
  *
  * Every control is drawn as the shape of the answer it takes, which is the
  * whole reason `LoopModifier.control` and `LoopChoice` exist: additive jobs
  * are checkboxes, standing policies are switches, and mutually exclusive
  * answers are radios. A flat column of identical boxes made "Auto-merge green
  * PRs" look like one more item on a to-do list.
+ *
+ * The surface wears its tab's own slice of the app's rainbow — `styles.css`'s
+ * `--fab-spec-1…5`, sampled from the same arc the panel's ring is masked to,
+ * so the wash behind the form and the ramp around the extras field say which
+ * of the four tabs you are in without a second colour vocabulary.
  */
 export function LoopComposer({
   loop,
@@ -71,8 +82,35 @@ export function LoopComposer({
   onStart: () => void;
   onStop: () => void;
 }) {
+  /*
+    Which accordions are open, per composer instance.
+
+    Every section starts open, and closing one is a this-sitting convenience
+    rather than a preference: the composer is permanently mounted per tab, so
+    the state survives every tab switch a session will make, and persisting it
+    would put four tabs × five sections of chrome bookkeeping into
+    `settings.json` to remember something nobody would notice was forgotten.
+    Open-by-default also means nothing a loop declares is ever one click away
+    from being invisible when you first look at the tab.
+  */
+  const [closed, setClosed] = useState<Record<string, true>>({});
+  const toggleSection = (id: string): void =>
+    setClosed((current) => {
+      if (current[id]) {
+        const { [id]: _dropped, ...rest } = current;
+        return rest;
+      }
+      return { ...current, [id]: true };
+    });
+
+  const modelLabel = LOOP_MODELS.find((entry) => entry.id === model)?.label ?? 'Default';
+  const scheduleSummary = loopScheduleSummary(schedule);
+
   return (
-    <div className="shrink-0 border-b border-border px-2 py-2" data-testid={`loop-composer-${loop.id}`}>
+    <div
+      className={`loop-composer-surface shrink-0 border-b border-border ${running ? 'px-2 py-2' : ''}`}
+      data-testid={`loop-composer-${loop.id}`}
+    >
       {running ? (
         <RunningStrip
           loop={loop}
@@ -85,42 +123,67 @@ export function LoopComposer({
           onStop={onStop}
         />
       ) : (
-        <div className="flex flex-col gap-2">
+        <div className="flex flex-col">
           {/*
             Capped and scrollable rather than allowed to grow: the panel is
             320px wide by default and the terminal below it is the point of the
             tab, so a loop that declares more settings than the others must not
-            push its own output off the bottom. The cap clears the tallest loop
-            the registry ships (Medic, nine controls) — it is a ceiling for a
-            future one, not a scrollbar the shipped tabs live with.
+            push its own output off the bottom. The accordions are what make
+            the cap comfortable rather than merely enforced — a tall loop is
+            now two clicks from fitting, instead of a scrollbar you live with.
           */}
-          <div className="flex max-h-72 flex-col gap-2 overflow-y-auto">
+          <div className="flex max-h-72 flex-col overflow-y-auto">
             {LOOP_GROUPS.map((group) => (
               <SettingsGroup
                 key={group.id}
                 loop={loop}
                 group={group.id}
                 label={group.label}
+                open={!closed[group.id]}
+                onToggle={() => toggleSection(group.id)}
                 checked={checked}
                 choiceIds={choiceIds}
-                onToggle={onToggle}
+                onModifierToggle={onToggle}
                 onChoice={onChoice}
               />
             ))}
           </div>
 
-          <div className="flex flex-col gap-1.5 border-t border-border/60 pt-2">
+          {/*
+            Model and Schedule sit outside the scroll region, not inside it.
+            They are the two settings every loop has — the registry sections
+            above are what varies per tab — so a tall loop scrolling its own
+            declarations must never push "which model" and "when" out of reach.
+            Their headings are always on screen; only the bodies collapse.
+          */}
+          <ComposerSection
+            id="model"
+            title="Model"
+            meta={modelLabel}
+            open={!closed['model']}
+            onToggle={() => toggleSection('model')}
+          >
             <RadioRow
               name={`${loop.id}-model`}
               label="Model"
+              hideLabel
               options={LOOP_MODELS.map(({ id, label }) => ({ id, label }))}
               value={model}
               onSelect={(id) => onModel(id as LoopModel)}
             />
-            <ScheduleRow loop={loop} schedule={schedule} onSchedule={onSchedule} />
-          </div>
+          </ComposerSection>
 
-          <div className="flex items-end gap-2">
+          <ComposerSection
+            id="schedule"
+            title="Schedule"
+            meta={schedule.enabled ? (scheduleSummary ?? 'On') : 'Off'}
+            open={!closed['schedule']}
+            onToggle={() => toggleSection('schedule')}
+          >
+            <ScheduleRows loop={loop} schedule={schedule} onSchedule={onSchedule} />
+          </ComposerSection>
+
+          <div className="flex items-end gap-2 border-t border-border/50 px-2 py-2">
             <textarea
               value={extras}
               spellCheck={false}
@@ -140,7 +203,7 @@ export function LoopComposer({
                   onStart();
                 }
               }}
-              className="min-h-[3.25rem] min-w-0 flex-1 resize-y rounded border border-input bg-background px-2 py-1 text-[11px] leading-relaxed outline-none focus-visible:border-primary"
+              className="loop-spectrum-field min-h-[3.25rem] min-w-0 flex-1 resize-y rounded px-2 py-1 text-[11px] leading-relaxed outline-none"
             />
             <StartStopButton
               running={false}
@@ -158,26 +221,106 @@ export function LoopComposer({
 }
 
 /**
- * One labelled section — Tasks, Scope or Run — drawn only if the loop declares
+ * One collapsible section of the composer, in the sidebar's own grammar.
+ *
+ * Same three parts as `TreeSection` — a rotating chevron, a small uppercase
+ * title, and a `<Collapse>` body that animates a `0fr → 1fr` grid track and
+ * marks itself `inert` while shut — with the delimiter carried as a `border-t`
+ * on every section but the first, so the stack reads as one list of headings
+ * rather than five boxes. It is deliberately *not* `TreeSection` itself: that
+ * component is measured on `TREE_INDENT`'s depth ladder and hides itself at
+ * `count === 0`, and neither behaviour has a meaning in a 320px form.
+ */
+function ComposerSection({
+  id,
+  title,
+  group,
+  meta,
+  open,
+  onToggle,
+  children,
+}: {
+  id: string;
+  title: string;
+  /** Set only on the three sections the loop registry itself declares. */
+  group?: LoopGroup;
+  /** What the section says while shut — the reason closing one is safe. */
+  meta?: ReactNode;
+  open: boolean;
+  onToggle: () => void;
+  children: ReactNode;
+}) {
+  const bodyId = useId();
+  return (
+    <section
+      data-loop-section={id}
+      {...(group ? { 'data-loop-group': group } : {})}
+      className="border-t border-border/50 first:border-t-0"
+    >
+      <button
+        type="button"
+        onClick={onToggle}
+        aria-expanded={open}
+        aria-controls={bodyId}
+        className="flex h-7 w-full items-center gap-1.5 px-2 text-left transition-colors hover:text-foreground"
+      >
+        <LuChevronRight
+          aria-hidden
+          className={`h-3 w-3 shrink-0 text-muted-foreground transition-transform duration-150 ease-in-out ${
+            open ? 'rotate-90' : ''
+          }`}
+        />
+        <h4 className="text-[9px] font-semibold uppercase tracking-wider text-muted-foreground">
+          {title}
+        </h4>
+        {meta === undefined ? null : (
+          <span className="ml-auto min-w-0 truncate pl-2 text-[10px] text-muted-foreground/70">
+            {meta}
+          </span>
+        )}
+      </button>
+      <Collapse open={open} id={bodyId} aria-label={title}>
+        <div className="flex flex-col gap-1.5 px-2 pb-2">{children}</div>
+      </Collapse>
+    </section>
+  );
+}
+
+/**
+ * One registry section — Tasks, Scope or Run — drawn only if the loop declares
  * something in it. Checkboxes first, then switches, then the radio groups, so
  * "what it does" precedes "how it behaves" inside a section the same way it
  * does between them.
+ *
+ * The boxes sit in a two-column grid rather than a column. They are the one
+ * control here whose label is short and whose neighbours are its peers — five
+ * of them stacked read as a to-do list you work down, where the truth is that
+ * any subset is a valid run — and two columns halve the height the tallest
+ * loop costs before anything is collapsed. Switches keep their own full-width
+ * rows: the label is on the left and the track on the right, and a
+ * half-width row leaves neither enough space to land.
  */
 function SettingsGroup({
   loop,
   group,
   label,
+  open,
+  onToggle,
   checked,
   choiceIds,
-  onToggle,
+  onModifierToggle,
   onChoice,
 }: {
   loop: LoopDefinition;
   group: LoopGroup;
   label: string;
+  open: boolean;
+  /** Opens or shuts the section. */
+  onToggle: () => void;
   checked: Record<string, boolean>;
   choiceIds: Record<string, string>;
-  onToggle: (modifierId: string, on: boolean) => void;
+  /** Reports a control being switched — named apart from the section's own. */
+  onModifierToggle: (modifierId: string, on: boolean) => void;
   onChoice: (choiceId: string, optionId: string) => void;
 }) {
   const modifiers = loop.modifiers.filter((m) => m.group === group);
@@ -186,25 +329,40 @@ function SettingsGroup({
   const choices = loop.choices.filter((c) => c.group === group);
   if (modifiers.length === 0 && choices.length === 0) return null;
 
+  /*
+    What the heading says while the section is shut: how many of its controls
+    are actually on. A collapsed section that reported nothing would be the
+    one way this layout could lose information the flat list always showed.
+  */
+  const onCount = modifiers.filter((m) => checked[m.id]).length;
+
   return (
-    <section className="flex flex-col gap-1" data-loop-group={group}>
-      <h4 className="text-[9px] font-semibold uppercase tracking-wider text-muted-foreground/70">
-        {label}
-      </h4>
-      {boxes.map((modifier) => (
-        <CheckboxRow
-          key={modifier.id}
-          modifier={modifier}
-          on={checked[modifier.id] ?? false}
-          onToggle={onToggle}
-        />
-      ))}
+    <ComposerSection
+      id={group}
+      group={group}
+      title={label}
+      meta={onCount > 0 ? `${onCount} on` : undefined}
+      open={open}
+      onToggle={onToggle}
+    >
+      {boxes.length > 0 ? (
+        <div className="grid grid-cols-2 gap-x-3 gap-y-1">
+          {boxes.map((modifier) => (
+            <CheckboxRow
+              key={modifier.id}
+              modifier={modifier}
+              on={checked[modifier.id] ?? false}
+              onToggle={onModifierToggle}
+            />
+          ))}
+        </div>
+      ) : null}
       {switches.map((modifier) => (
         <SwitchRow
           key={modifier.id}
           modifier={modifier}
           on={checked[modifier.id] ?? false}
-          onToggle={onToggle}
+          onToggle={onModifierToggle}
         />
       ))}
       {choices.map((choice) => (
@@ -216,7 +374,7 @@ function SettingsGroup({
           onChoice={onChoice}
         />
       ))}
-    </section>
+    </ComposerSection>
   );
 }
 
@@ -233,7 +391,7 @@ function CheckboxRow({
   return (
     <label
       title={modifier.promptFragment}
-      className="flex cursor-pointer items-center gap-2 text-[11px] text-muted-foreground hover:text-foreground"
+      className="flex min-w-0 cursor-pointer items-center gap-1.5 text-[11px] text-muted-foreground hover:text-foreground"
     >
       <input
         type="checkbox"
@@ -281,11 +439,27 @@ function SwitchRow({
         onChange={(event) => onToggle(modifier.id, event.target.checked)}
         className="peer absolute inset-0 h-full w-full cursor-pointer opacity-0"
       />
-      <span
-        aria-hidden
-        className="relative h-3.5 w-6 shrink-0 rounded-full bg-muted transition-colors after:absolute after:left-[2px] after:top-[2px] after:h-2.5 after:w-2.5 after:rounded-full after:bg-background after:transition-transform after:content-[''] peer-checked:bg-primary peer-checked:after:translate-x-[10px] peer-focus-visible:ring-1 peer-focus-visible:ring-ring"
-      />
+      <SwitchTrack />
     </label>
+  );
+}
+
+/**
+ * The painted half of a switch — a sibling of the real input, driven entirely
+ * by `peer-checked`.
+ *
+ * One component rather than the same 400-character class string written out
+ * at each switch, which is what it was: the schedule's copy had already
+ * drifted into being maintained separately from the modifier switches' copy,
+ * and a track that reads as a different control from the one two rows above
+ * it is exactly the drift this composer exists to remove.
+ */
+function SwitchTrack() {
+  return (
+    <span
+      aria-hidden
+      className="relative h-3.5 w-6 shrink-0 rounded-full bg-muted transition-colors after:absolute after:left-[2px] after:top-[2px] after:h-2.5 after:w-2.5 after:rounded-full after:bg-background after:transition-transform after:content-[''] peer-checked:bg-primary peer-checked:after:translate-x-[10px] peer-focus-visible:ring-1 peer-focus-visible:ring-ring"
+    />
   );
 }
 
@@ -325,16 +499,29 @@ function ChoiceRow({
  * label association and the accessible name all come free. Segmented rather
  * than stacked because these groups are two or three short words each, and a
  * 320px panel has width to spare where it has no height to.
+ *
+ * The selected pill is tinted with the tab's own mid-spectrum colour rather
+ * than `--primary`, which in the dark theme is near-white and made a chosen
+ * option read as a disabled one against the wash behind it.
  */
 function RadioRow({
   name,
   label,
+  hideLabel = false,
   options,
   value,
   onSelect,
 }: {
   name: string;
   label: string;
+  /**
+   * Drop the visible legend, keeping it as the group's accessible name.
+   *
+   * For the one row whose section heading already says what it is — a "Model"
+   * legend under a MODEL heading is the same word twice, and the second one
+   * costs a pill's worth of the 320px it is competing for.
+   */
+  hideLabel?: boolean;
   options: { id: string; label: string; title?: string | undefined }[];
   value: string;
   onSelect: (optionId: string) => void;
@@ -345,7 +532,7 @@ function RadioRow({
       aria-label={label}
       className="flex min-w-0 flex-wrap items-center gap-x-2 gap-y-1"
     >
-      <span className="text-[11px] text-muted-foreground">{label}</span>
+      {hideLabel ? null : <span className="text-[11px] text-muted-foreground">{label}</span>}
       <div className="flex flex-wrap items-center gap-1">
         {options.map((option) => {
           const on = option.id === value;
@@ -355,7 +542,7 @@ function RadioRow({
               title={option.title}
               className={`relative cursor-pointer rounded-full border px-1.5 py-[1px] text-[10px] transition-colors ${
                 on
-                  ? 'border-primary bg-primary/10 text-foreground'
+                  ? 'loop-spectrum-pill text-foreground'
                   : 'border-border text-muted-foreground hover:text-foreground'
               }`}
             >
@@ -377,14 +564,20 @@ function RadioRow({
 }
 
 /**
- * The window the loop is told to work in.
+ * The window the loop is told to work in, and how often it comes back round.
  *
- * Prompt-level, and the hint says so: Start still starts now, and the composed
- * line carries the window as a standing rule that `/loop` — which paces itself
- * — can honour. Promising a timer here would be promising something that does
+ * All three axes are prompt-level, and the hint says so: Start still starts
+ * now, and the composed line carries days, window and cadence as standing
+ * rules that `/loop` — which paces itself and schedules its own next wake-up —
+ * can honour. Promising a timer here would be promising something that does
  * not survive a quit.
+ *
+ * Frequency and days stay live while the master switch is off, unlike the two
+ * time fields. They are answers you set once and leave alone, and greying them
+ * out would mean re-answering them every time a loop is re-armed; the window,
+ * by contrast, is the thing the switch is *about*.
  */
-function ScheduleRow({
+function ScheduleRows({
   loop,
   schedule,
   onSchedule,
@@ -395,13 +588,13 @@ function ScheduleRow({
 }) {
   const empty = schedule.enabled && schedule.from === schedule.to;
   return (
-    <div className="flex flex-col gap-1">
-      <div className="flex items-center gap-2 text-[11px] text-muted-foreground">
+    <>
+      <div className="flex flex-wrap items-center gap-x-2 gap-y-1 text-[11px] text-muted-foreground">
         <label
           className="relative flex cursor-pointer items-center gap-2"
           title="Only work inside this window"
         >
-          <span>Schedule</span>
+          <span>Window</span>
           <input
             type="checkbox"
             role="switch"
@@ -409,10 +602,7 @@ function ScheduleRow({
             onChange={(event) => onSchedule({ ...schedule, enabled: event.target.checked })}
             className="peer absolute inset-0 h-full w-full cursor-pointer opacity-0"
           />
-          <span
-            aria-hidden
-            className="relative h-3.5 w-6 shrink-0 rounded-full bg-muted transition-colors after:absolute after:left-[2px] after:top-[2px] after:h-2.5 after:w-2.5 after:rounded-full after:bg-background after:transition-transform after:content-[''] peer-checked:bg-primary peer-checked:after:translate-x-[10px] peer-focus-visible:ring-1 peer-focus-visible:ring-ring"
-          />
+          <SwitchTrack />
         </label>
         <input
           type="time"
@@ -420,7 +610,7 @@ function ScheduleRow({
           disabled={!schedule.enabled}
           aria-label={`Run ${loop.label} from`}
           onChange={(event) => onSchedule({ ...schedule, from: event.target.value })}
-          className="rounded border border-input bg-background px-1 py-[1px] text-[10px] outline-none focus-visible:border-primary disabled:opacity-50"
+          className="loop-spectrum-field rounded px-1 py-[1px] text-[10px] outline-none disabled:opacity-50"
         />
         <span aria-hidden>→</span>
         <input
@@ -429,7 +619,7 @@ function ScheduleRow({
           disabled={!schedule.enabled}
           aria-label={`Run ${loop.label} until`}
           onChange={(event) => onSchedule({ ...schedule, to: event.target.value })}
-          className="rounded border border-input bg-background px-1 py-[1px] text-[10px] outline-none focus-visible:border-primary disabled:opacity-50"
+          className="loop-spectrum-field rounded px-1 py-[1px] text-[10px] outline-none disabled:opacity-50"
         />
       </div>
       {empty ? (
@@ -437,7 +627,29 @@ function ScheduleRow({
           Same start and end — no window is sent until they differ.
         </p>
       ) : null}
-    </div>
+      <RadioRow
+        name={`${loop.id}-frequency`}
+        label="Every"
+        options={LOOP_FREQUENCIES.map(({ id, label, promptFragment }) => ({
+          id,
+          label,
+          title: promptFragment ?? 'No cadence is sent — the loop paces itself.',
+        }))}
+        value={schedule.frequency ?? 'continuous'}
+        onSelect={(id) => onSchedule({ ...schedule, frequency: id as LoopFrequency })}
+      />
+      <RadioRow
+        name={`${loop.id}-days`}
+        label="On"
+        options={LOOP_DAY_SETS.map(({ id, label, promptFragment }) => ({
+          id,
+          label,
+          title: promptFragment ?? 'No day restriction is sent.',
+        }))}
+        value={schedule.days ?? 'all'}
+        onSelect={(id) => onSchedule({ ...schedule, days: id as LoopDays })}
+      />
+    </>
   );
 }
 
@@ -488,9 +700,15 @@ function RunningStrip({
   if (modelLabel && modelLabel.cliModel !== null) {
     chips.push({ key: 'model', label: modelLabel.label });
   }
-  const window = loopScheduleFragment(schedule);
+  /*
+    One chip for the whole schedule, and the same neutrality rule the composed
+    line uses — `loopScheduleSummary` returns null exactly when
+    `loopScheduleFragment` does, so the strip cannot claim a run is scheduled
+    on a line that says nothing about scheduling.
+  */
+  const window = loopScheduleSummary(schedule);
   if (window !== null) {
-    chips.push({ key: 'schedule', label: `${schedule.from}–${schedule.to}`, title: window });
+    chips.push({ key: 'schedule', label: window });
   }
 
   return (
