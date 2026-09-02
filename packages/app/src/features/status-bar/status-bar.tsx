@@ -1,6 +1,6 @@
 import { useEffect, useLayoutEffect, useRef, type RefObject } from 'react';
 
-import { collapseFor } from './density';
+import { collapseFor } from '../../lib/density';
 import { InProgressLiveRegion } from './in-progress';
 import { OpProgressLiveRegion } from './op-progress';
 import { OverflowPopover } from './overflow-popover';

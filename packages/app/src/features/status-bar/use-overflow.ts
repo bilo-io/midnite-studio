@@ -1,6 +1,6 @@
 import { useCallback, useLayoutEffect, useRef, useState, type RefObject } from 'react';
 
-import { densityFor, type Density } from './density';
+import { densityFor, type Density } from '../../lib/density';
 
 /**
  * Measures the bar element itself, not the window — the repositories panel

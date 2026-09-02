@@ -25,6 +25,41 @@ async function open(page: Page): Promise<void> {
 }
 
 /**
+ * One live agent, so `LiveAgentCount` renders and the cluster is at its full
+ * 105px width — the specs about shedding that width have nothing to measure
+ * against the default fixture, where the count is `null`.
+ *
+ * Typed onto the pty the panel opens with rather than restored from a fixture:
+ * `terminal.list()`'s restored rows are not `live` until they rebind, and
+ * `isAgentRow` reads the probe's `liveAgentId`, which is what this emits.
+ */
+async function startOneAgent(page: Page): Promise<void> {
+  await page.keyboard.press('Control+`');
+  await expect(page.getByRole('button', { name: 'New terminal or agent' })).toBeVisible();
+  /*
+    Polled, not fired once after a sleep: the mock's `__mstudioPtyAgent`
+    returns `false` while the ptyId is unknown to its process table, so its
+    own return value IS the readiness signal for "the panel's first pty
+    exists". Deliberately not waiting on `.xterm-screen` instead — that never
+    becomes visible on the GPU-less CI runner (see `playwright.ci.config.ts`'s
+    KNOWN_RED note), and this needs the pty, not the paint.
+  */
+  await expect
+    .poll(
+      () =>
+        page.evaluate(() =>
+          (
+            window as unknown as { __mstudioPtyAgent: (p: string, a: string | null) => boolean }
+          ).__mstudioPtyAgent('pty-1', 'claude'),
+        ),
+      { timeout: 10_000 },
+    )
+    .toBe(true);
+  await page.keyboard.press('Control+`');
+  await expect(page.getByTestId('titlebar-agent-count')).toBeVisible();
+}
+
+/**
  * The move itself. Asserted through `closest('header')` rather than a
  * coordinate comparison: the bar is `position: fixed` at `top: 0` and the
  * status bar is at the other end of the window, so a y-ordering assertion would
@@ -73,6 +108,159 @@ test('the hairline holds with no agents running', async ({ page }) => {
   await expect(page.getByTestId('titlebar-agent-count')).toHaveCount(0);
   await expect(page.getByTestId('fab-launchers-collapsed')).toBeVisible();
   await expect(page.getByTestId('titlebar-agents-sep')).toBeVisible();
+});
+
+/** The header's overflow and the cluster's current step, read together. */
+async function barState(
+  page: Page,
+): Promise<{ over: number; density: 'full' | 'compact' | 'collapsed' }> {
+  return page.evaluate(() => {
+    const header = document.querySelector('header')!;
+    const cluster = document.querySelector('[data-testid="titlebar-agents"]') as HTMLElement;
+    return {
+      over: header.scrollWidth - header.clientWidth,
+      density: cluster.dataset.density as 'full' | 'compact' | 'collapsed',
+    };
+  });
+}
+
+/**
+ * The bug this cluster shipped with, and the reason it carries a density at
+ * all: `@bilo-io/shell` gives the title bar's slots `shrink-0`, so a bar over
+ * budget does not squeeze — it overflows past the right edge and takes
+ * `ThemeToggle` out of the window with it. The cluster was 105px of a 1138px
+ * demand, which moved the point at which that happens from ~1027px to ~1138px.
+ *
+ * **Asserted without a single pixel constant.** Density bands are decided from
+ * measured text, and measured text depends on the fonts installed — which is
+ * why every hard-coded-width spec in this suite carries `@linux-red`. So this
+ * walks the viewport down and asserts the *invariant* instead: the cluster must
+ * have given way before the bar overflows, and it must give way in order. Both
+ * hold whatever the font metrics are, and both fail on the shipped version.
+ */
+test('the cluster sheds width before the bar can overflow', async ({ page }) => {
+  await open(page);
+  await startOneAgent(page);
+  await page.setViewportSize({ width: 1400, height: 800 });
+  await expect(page.getByTestId('titlebar-agents')).toHaveAttribute('data-density', 'full');
+
+  const RANK = { full: 2, compact: 1, collapsed: 0 } as const;
+  let previous = RANK.full;
+
+  for (let width = 1400; width >= 1060; width -= 40) {
+    await page.setViewportSize({ width, height: 800 });
+
+    /*
+      Polled, and the poll IS the invariant: overflow is only permissible once
+      the cluster has given up everything it can. A plain read here raced the
+      `ResizeObserver` callback and React's commit, and reported the density
+      from before the resize.
+    */
+    await expect
+      .poll(async () => {
+        const { over, density } = await barState(page);
+        return over <= 0 || density === 'collapsed';
+      }, {
+        timeout: 3_000,
+        message: `at ${width}px the bar overflows with the cluster not yet collapsed`,
+      })
+      .toBe(true);
+
+    // Monotonic: narrowing never restores a wider step. `densityFor`'s 24px
+    // hysteresis is what makes this safe to assert on a 40px stride.
+    const { density } = await barState(page);
+    expect(RANK[density]).toBeLessThanOrEqual(previous);
+    previous = RANK[density];
+  }
+
+  expect(previous).toBe(RANK.collapsed);
+
+  // And it comes back: `collapsed` stops probing the live DOM (`lastWidths`),
+  // so a restore that never fires is the specific way this hook breaks.
+  await page.setViewportSize({ width: 1400, height: 800 });
+  await expect(page.getByTestId('titlebar-agents')).toHaveAttribute('data-density', 'full');
+});
+
+/** What each step actually looks like, driven by `data-density` alone. */
+test('compact drops the word, collapsed drops the readout', async ({ page }) => {
+  await open(page);
+  await startOneAgent(page);
+
+  const count = page.getByTestId('titlebar-agent-count');
+  const word = count.locator('.status-label');
+  const cluster = page.getByTestId('titlebar-agents');
+
+  await cluster.evaluate((el) => (el.dataset.density = 'full'));
+  await expect(word).toBeVisible();
+  await expect(count).toBeVisible();
+
+  await cluster.evaluate((el) => (el.dataset.density = 'compact'));
+  await expect(word).toBeHidden();
+  await expect(count).toBeVisible();
+  // The digit survives; only the word went. Read off its own span, because
+  // `toHaveText` on the button would still see the hidden word's text.
+  await expect(count.locator('.tabular-nums')).toHaveText('1');
+
+  await cluster.evaluate((el) => (el.dataset.density = 'collapsed'));
+  await expect(count).toBeHidden();
+  // The strip is how a loop is *started*, so it survives every step.
+  await expect(page.getByTestId('fab-launchers-collapsed')).toBeVisible();
+});
+
+/**
+ * The symptom, named: `ThemeToggle` is the last control in the right cluster,
+ * and before the cluster carried a density it left the viewport entirely
+ * somewhere around 1138px — a 1000×800 window, well above `@bilo-io/shell`'s
+ * own 768px `md:` breakpoint, had an unclickable theme toggle.
+ *
+ * **The widths are derived, not written down.** `full`'s demand is measured
+ * from the running bar and the viewport set relative to it, so this carries no
+ * `@linux-red` tag: it holds whatever the runner's font metrics make that
+ * number. A hard-coded 1140px did NOT hold — it landed within a couple of
+ * pixels of the breakpoint and read `full` where a local measurement had said
+ * `compact`, which is the trap `status-bar.spec.ts` documents at length.
+ */
+test('the theme toggle stays in the window once full no longer fits', async ({ page }) => {
+  await open(page);
+  await startOneAgent(page);
+
+  await page.setViewportSize({ width: 1600, height: 800 });
+  await expect(page.getByTestId('titlebar-agents')).toHaveAttribute('data-density', 'full');
+
+  /*
+    Probed at a width the bar cannot serve, because `scrollWidth` is floored at
+    `clientWidth`: read at 1600px it reports 1600, not the ~1143px the content
+    actually wants, and every width derived from it would be comfortably wide.
+    Stamping `full` first is the same trick `useTitleBarDensity` uses, and for
+    the same reason — the bar has to be asked what it wants at a step it is not
+    currently on.
+  */
+  await page.setViewportSize({ width: 900, height: 800 });
+  const fullWidth = await page.evaluate(() => {
+    const header = document.querySelector('header')!;
+    const cluster = document.querySelector('[data-testid="titlebar-agents"]') as HTMLElement;
+    const restore = cluster.dataset.density;
+    cluster.dataset.density = 'full';
+    const width = header.scrollWidth;
+    if (restore) cluster.dataset.density = restore;
+    return width;
+  });
+
+  // Just inside the range `full` cannot serve, then well past `compact`'s too.
+  for (const width of [fullWidth - 20, fullWidth - 60]) {
+    await page.setViewportSize({ width, height: 800 });
+    await expect(page.getByTestId('titlebar-agents')).not.toHaveAttribute('data-density', 'full');
+
+    await expect
+      .poll(
+        () =>
+          page
+            .getByRole('button', { name: 'Toggle theme' })
+            .evaluate((el) => Math.round(el.getBoundingClientRect().right)),
+        { message: `the theme toggle is outside a ${width}px window` },
+      )
+      .toBeLessThanOrEqual(width);
+  }
 });
 
 /**
@@ -127,10 +315,9 @@ test('clicking the open tab’s launcher closes the panel', async ({ page }) => 
  * about.
  *
  * **The class combination is applied directly**, not driven through a real loop
- * start. Starting a loop end to end lives in `fab-loops.spec.ts` (currently in
- * `KNOWN_RED` on the pty seam), and the first version of this test opened a tab
- * *without* running it — so there was no pulse to kill and it passed with the
- * bug still present. What is being asserted is a cascade outcome, so the honest
+ * start. Starting a loop end to end lives in `fab-loops.spec.ts`, and the first
+ * version of this test opened a tab *without* running it — so there was no
+ * pulse to kill and it passed with the bug still present. What is being asserted is a cascade outcome, so the honest
  * way to assert it is to put the element in the state and read the computed
  * value: Phase 35 Theme H's method. `animation-name: none`, read through the
  * cascade rather than out of the stylesheet, and not a paused play-state — a
