@@ -428,6 +428,9 @@ function Shell() {
   const browserOpen = useUiStore((s) => s.browserOpen);
   const fabPanelOpen = useUiStore((s) => s.fabPanelOpen);
   const toggleFabPanel = useUiStore((s) => s.toggleFabPanel);
+  // Phase 37 Theme D: the collapsed FAB wears the same tab arc as the open
+  // panel, so toggling the panel never changes the button's colour.
+  const activeFabTab = useUiStore((s) => s.activeFabTab);
   // Loop mission control (Phase 35): the notice fires whether or not the FAB
   // panel is open — a loop that goes quiet unattended is the case it exists
   // for — so both live here rather than inside <FabPanel>.
@@ -1068,6 +1071,7 @@ function Shell() {
               aria-label="Open quick access panel"
               title="Quick Access"
               data-loops-running={loopsRunning.running ? 'true' : undefined}
+              data-fab-tab={activeFabTab}
               className={`flex h-10 w-10 items-center justify-center rounded-full bg-primary text-primary-foreground shadow-lg transition-transform hover:scale-110 active:scale-95 ${
                 loopsRunning.running
                   ? `loop-run-glow on-primary ${

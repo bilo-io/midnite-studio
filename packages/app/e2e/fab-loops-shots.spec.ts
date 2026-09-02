@@ -15,6 +15,8 @@ import { installMockBridge, type MockFixtures } from './mock-bridge';
 const OUT = '../../docs/screenshots/p35-abcde';
 /** Themes F–I's own shot, kept apart so a rerun of one slice does not rewrite the other's. */
 const OUT_FGHI = '../../docs/screenshots/p35-fghi';
+/** Phase 37's own shots, kept apart for the same reason. */
+const OUT_P37 = '../../docs/screenshots/p37-fab-tab-glow';
 
 test.skip(!process.env['MSTUDIO_SHOTS'], 'set MSTUDIO_SHOTS=1 to write screenshots');
 
@@ -106,4 +108,50 @@ test('the waiting notice, in the bell', async ({ page }) => {
   await expect(page.getByText('Innovate is waiting for input.')).toBeVisible();
   await page.waitForTimeout(200);
   await page.screenshot({ path: `${OUT_FGHI}/waiting-notice.png` });
+});
+
+/**
+ * Phase 37 — the tab-reactive inner glow, one shot per tab, in both themes.
+ *
+ * `900ms` clears the 0.5s arc sweep and lands the pulse partway through a
+ * cycle rather than at a keyframe boundary, so the glow reads as it actually
+ * looks rather than at a frame the animation happens to start on.
+ */
+for (const mode of ['light', 'dark'] as const) {
+  test(`the FAB panel glow, per tab (${mode})`, async ({ page }) => {
+    await open(page);
+    if (mode === 'dark') await page.evaluate(() => document.documentElement.classList.add('dark'));
+    await openFab(page);
+
+    const panel = page.locator('.fab-panel-gradient');
+    for (const tab of ['Innovate', 'Automate', 'Watchdog', 'Medic']) {
+      await page.getByRole('button', { name: tab, exact: true }).click();
+      await page.waitForTimeout(900);
+      await panel.screenshot({ path: `${OUT_P37}/${mode}-${tab.toLowerCase()}.png` });
+    }
+  });
+}
+
+test('the collapsed FAB carries the tab arc, and a waiting loop overrides it', async ({ page }) => {
+  await open(page);
+  await openFab(page, 'Medic');
+  await page.getByTestId('loop-composer-medic').getByTestId('loop-start').click();
+  await expect(page.getByTestId('loop-composer-medic').getByTestId('loop-stop')).toBeVisible();
+
+  await page.getByRole('button', { name: 'Open quick access panel' }).click();
+  await page.waitForTimeout(400);
+  await page.getByRole('button', { name: 'Open quick access panel' }).screenshot({
+    path: `${OUT_P37}/collapsed-medic-running.png`,
+  });
+
+  await page.evaluate(() => {
+    (window as unknown as { __mstudioPtyActivity: (p: string, a: string) => boolean }).__mstudioPtyActivity(
+      'pty-1',
+      'waiting',
+    );
+  });
+  await page.waitForTimeout(200);
+  await page.getByRole('button', { name: 'Open quick access panel' }).screenshot({
+    path: `${OUT_P37}/collapsed-medic-waiting.png`,
+  });
 });
