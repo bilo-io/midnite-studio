@@ -84,11 +84,37 @@ test.describe('FAB loop console', () => {
     await openFab(page, 'Patrol');
 
     const composer = page.getByTestId('loop-composer-watchdog');
-    await expect(composer.getByLabel('Also review pull requests')).toBeVisible();
-    await expect(composer.getByLabel('Also address PR feedback')).toBeVisible();
+    await expect(composer.getByLabel('PR review')).toBeVisible();
+    await expect(composer.getByLabel('PR feedback')).toBeVisible();
     await expect(composer.getByLabel('Triage only')).toBeVisible();
-    await expect(composer.getByLabel('Summary table')).toBeVisible();
+    await expect(composer.getByLabel('Auto-approve passing PRs')).toBeVisible();
+    await expect(composer.getByLabel('Auto pick recommended')).toBeVisible();
+    await expect(composer.getByLabel('Auto pick performance')).toBeVisible();
     await expect(composer.getByPlaceholder('Extra instructions…')).toBeVisible();
+  });
+
+  test('Medic offers the dependency bots, and every tab the auto-pick pair', async ({ page }) => {
+    await open(page);
+    await openFab(page, 'Medic');
+
+    const composer = page.getByTestId('loop-composer-medic');
+    await expect(composer.getByLabel('Dependabot PRs')).toBeVisible();
+    await expect(composer.getByLabel('Renovate PRs')).toBeVisible();
+    await expect(composer.getByLabel('Triage only')).toBeVisible();
+
+    // The auto-pick pair is the one thing every tab carries, so it is asserted
+    // on the tabs that declare nothing else in common with Medic. The panel is
+    // already open, so switching tabs is a click on the tab — `openFab` would
+    // toggle the panel shut.
+    for (const [tab, id] of [
+      ['Ideate', 'innovate'],
+      ['Engineer', 'automate'],
+    ] as const) {
+      await page.getByRole('button', { name: tab, exact: true }).click();
+      const other = page.getByTestId(`loop-composer-${id}`);
+      await expect(other.getByLabel('Auto pick recommended')).toBeVisible();
+      await expect(other.getByLabel('Auto pick performance')).toBeVisible();
+    }
   });
 
   test('Start composes the prompt from the checked modifiers and the extras', async ({ page }) => {
@@ -96,18 +122,26 @@ test.describe('FAB loop console', () => {
     await openFab(page, 'Patrol');
 
     const composer = page.getByTestId('loop-composer-watchdog');
-    await composer.getByLabel('Also review pull requests').check();
+    // "PR review" is `defaultOn`, so it arrives checked; feedback is the extra pass.
+    await expect(composer.getByLabel('PR review')).toBeChecked();
+    await composer.getByLabel('PR feedback').check();
+    await composer.getByLabel('Auto pick recommended').check();
     await composer.getByPlaceholder('Extra instructions…').fill('Skip drafts.');
     await composer.getByTestId('loop-start').click();
 
     await expect.poll(async () => (await loopRuns(page)).length).toBe(1);
     const [run] = await loopRuns(page);
     expect(run?.['loopId']).toBe('watchdog');
+    // Skills in declared order, the standing rule after them, extras last.
     expect(run?.['composedPrompt']).toBe(
-      '/loop /midnite-address-issue Also review any ready pull requests and leave feedback. Skip drafts.',
+      '/loop /pr-review /pr-feedback Never stop to ask: keep advancing and always take the recommended option. Skip drafts.',
     );
-    // Only the checked one — the unchecked "Triage only" fragment must not ride along.
-    expect(run?.['checkedModifierIds']).toEqual(['pr-reviews']);
+    // Only the checked ones — the unchecked "Triage only" fragment must not ride along.
+    expect(run?.['checkedModifierIds']).toEqual([
+      'pr-review',
+      'pr-feedback',
+      'auto-pick-recommended',
+    ]);
   });
 
   test('the loop session never appears in the main terminal housing', async ({ page }) => {
@@ -145,7 +179,7 @@ test.describe('FAB loop console', () => {
     await openFab(page, 'Medic');
 
     const composer = page.getByTestId('loop-composer-medic');
-    await composer.getByLabel('Auto-approve passing PRs').check();
+    await composer.getByLabel('Dependabot PRs').check();
     await composer.getByTestId('loop-start').click();
 
     const stop = composer.getByTestId('loop-stop');
@@ -153,7 +187,7 @@ test.describe('FAB loop console', () => {
     await expect(stop).toHaveClass(/loop-run-glow/);
     // Collapsed: the inputs are gone, the checked modifier survives as a chip.
     await expect(composer.getByPlaceholder('Extra instructions…')).toHaveCount(0);
-    await expect(composer.getByText('Auto-approve passing PRs')).toBeVisible();
+    await expect(composer.getByText('Dependabot PRs')).toBeVisible();
   });
 
   test('a waiting loop turns its tab dot and the FAB dot amber', async ({ page }) => {

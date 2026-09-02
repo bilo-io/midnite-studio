@@ -17,15 +17,18 @@ import { z } from 'zod';
 /**
  * One checkbox in a loop's composer.
  *
- * `promptFragment` is a complete imperative sentence appended verbatim to the
- * composed prompt when the box is checked — a sentence rather than a flag, so
- * the agent reads it the way a human instruction reads.
+ * `promptFragment` is appended verbatim to the composed prompt when the box is
+ * checked, and it is one of two things. Usually a complete imperative sentence
+ * — a sentence rather than a flag, so the agent reads it the way a human
+ * instruction reads. Sometimes a bare skill invocation (`/pr-review`), for the
+ * loops whose *job* is the checkbox: Patrol's base is a bare `/loop`, and its
+ * boxes are what say which forge skills that loop runs.
  */
 export const LoopModifierSchema = z.object({
   id: z.string().min(1),
   /** The checkbox label. */
   label: z.string().min(1),
-  /** Appended to the prompt when checked. A full sentence, ending in `.`. */
+  /** Appended to the prompt when checked — a full sentence, or a `/skill`. */
   promptFragment: z.string().min(1),
   /** Whether a fresh install starts with this box checked. */
   defaultOn: z.boolean().default(false),
@@ -95,8 +98,46 @@ export const LoopRunRecordSchema = z.object({
 export type LoopRunRecord = z.infer<typeof LoopRunRecordSchema>;
 
 /**
+ * The two "don't stop to ask" toggles *every* loop offers.
+ *
+ * Spread last into each loop's `modifiers`, because `composeLoopPrompt` emits
+ * fragments in declared order and a standing rule belongs at the tail of the
+ * line — after the steps it governs, where an agent reads it as a policy for
+ * the whole run rather than as one more step.
+ *
+ * Two boxes rather than one tri-state: checking both is a contradiction, but a
+ * *legible* one that the composer has no business silently resolving on the
+ * user's behalf. Whichever the agent honours, the run record says which boxes
+ * were checked.
+ */
+export const AUTO_PICK_MODIFIERS: readonly LoopModifier[] = [
+  {
+    id: 'auto-pick-recommended',
+    label: 'Auto pick recommended',
+    promptFragment:
+      'Never stop to ask: keep advancing and always take the recommended option.',
+    defaultOn: false,
+  },
+  {
+    id: 'auto-pick-performance',
+    label: 'Auto pick performance',
+    promptFragment:
+      'Never stop to ask: keep advancing and always take the most performant option.',
+    defaultOn: false,
+  },
+];
+
+/**
  * The four loops the FAB ships with. Ids match the historical `FabTab` union
  * so persisted `activeFabTab` values keep meaning what they meant.
+ *
+ * Two of them read their whole job off the forge, and split it the way the two
+ * words do. **Patrol** walks the pull requests — its base is a bare `/loop` and
+ * its boxes append the PR skills themselves, so "review" and "feedback" are one
+ * pass or two by checkbox rather than by tab. **Medic** treats what is already
+ * sick: the dependency bots' PRs and the issue backlog, on `/midnite-address-issue`.
+ * Either can be told to look and not touch, and `Triage only` on both means the
+ * same thing — run `/midnite-triage` and report its table, change nothing.
  */
 export const DEFAULT_LOOPS: readonly LoopDefinition[] = [
   {
@@ -114,6 +155,7 @@ export const DEFAULT_LOOPS: readonly LoopDefinition[] = [
         promptFragment: 'Prefer small, PR-sized phases over sweeping multi-week ones.',
         defaultOn: false,
       },
+      ...AUTO_PICK_MODIFIERS,
     ],
   },
   {
@@ -137,6 +179,7 @@ export const DEFAULT_LOOPS: readonly LoopDefinition[] = [
         promptFragment: 'Pick at most one theme per iteration.',
         defaultOn: false,
       },
+      ...AUTO_PICK_MODIFIERS,
     ],
   },
   {
@@ -145,34 +188,35 @@ export const DEFAULT_LOOPS: readonly LoopDefinition[] = [
     icon: 'watchdog',
     color: 'text-yellow-500',
     agentId: 'claude',
-    agentCommandId: 'loopAddressIssue',
-    fallbackPrompt: '/loop /midnite-address-issue',
+    agentCommandId: 'loopPatrol',
+    fallbackPrompt: '/loop',
     modifiers: [
       {
-        id: 'pr-reviews',
-        label: 'Also review pull requests',
-        promptFragment: 'Also review any ready pull requests and leave feedback.',
-        defaultOn: false,
+        id: 'pr-review',
+        label: 'PR review',
+        promptFragment: '/pr-review',
+        defaultOn: true,
       },
       {
         id: 'pr-feedback',
-        label: 'Also address PR feedback',
-        promptFragment:
-          'Also check my own open pull requests for review feedback and address it.',
+        label: 'PR feedback',
+        promptFragment: '/pr-feedback',
         defaultOn: false,
       },
       {
         id: 'triage-only',
         label: 'Triage only',
-        promptFragment: 'Only triage and comment on issues; do not push fixes.',
+        promptFragment:
+          'Triage only: run /midnite-triage and report its summary table — leave no reviews, merge nothing and push no fixes.',
         defaultOn: false,
       },
       {
-        id: 'summary-table',
-        label: 'Summary table',
-        promptFragment: 'Summarize outcomes in a markdown table.',
+        id: 'auto-approve',
+        label: 'Auto-approve passing PRs',
+        promptFragment: 'Auto-approve PRs that pass review with no blocking findings.',
         defaultOn: false,
       },
+      ...AUTO_PICK_MODIFIERS,
     ],
   },
   {
@@ -181,33 +225,31 @@ export const DEFAULT_LOOPS: readonly LoopDefinition[] = [
     icon: 'medic',
     color: 'text-red-500',
     agentId: 'claude',
-    agentCommandId: 'loopPrReview',
-    fallbackPrompt: '/loop /pr-review',
+    agentCommandId: 'loopAddressIssue',
+    fallbackPrompt: '/loop /midnite-address-issue',
     modifiers: [
       {
-        id: 'auto-approve',
-        label: 'Auto-approve passing PRs',
-        promptFragment: 'Auto-approve PRs that pass review with no blocking findings.',
-        defaultOn: false,
-      },
-      {
         id: 'dependabot',
-        label: 'Watch dependabot PRs',
-        promptFragment: 'Also watch for dependabot PRs and handle them.',
+        label: 'Dependabot PRs',
+        promptFragment:
+          'Also take the open Dependabot PRs: run the gate on each and land the ones that pass.',
         defaultOn: false,
       },
       {
         id: 'renovate',
-        label: 'Watch Renovate PRs',
-        promptFragment: 'Also watch for Renovate PRs and handle them.',
+        label: 'Renovate PRs',
+        promptFragment:
+          'Also take the open Renovate PRs: run the gate on each and land the ones that pass.',
         defaultOn: false,
       },
       {
         id: 'triage-only',
         label: 'Triage only',
-        promptFragment: 'Only triage and comment on these PRs; do not merge or auto-approve.',
+        promptFragment:
+          'Triage only: run /midnite-triage and report its summary table — merge nothing and push no fixes.',
         defaultOn: false,
       },
+      ...AUTO_PICK_MODIFIERS,
     ],
   },
 ] as const;
