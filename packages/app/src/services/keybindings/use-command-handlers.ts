@@ -3,6 +3,7 @@ import { useQueryClient } from '@tanstack/react-query';
 import type { CommandId } from '@midnite/studio-shared';
 
 import { useDialogs } from '../../components/dialog-host';
+import { activePanelBack, activePanelForward } from '../../components/panel-stack/active-panel';
 import { useGraphStore } from '../../features/graph/graph-store';
 import { useSlidesStore } from '../../features/slides/slides-store';
 import { syncAffordances } from '../../features/status/sync-availability';
@@ -222,6 +223,18 @@ export function useCommandHandlers(): CommandRuntime {
     'markdown.presentAsSlides': activeMarkdown
       ? { enabled: true, run: () => useSlidesStore.getState().presentActive() }
       : { enabled: false, disabledReason: 'No markdown in view', run: () => {} },
+
+    // Panel-local (Phase 42 Theme D) — the first history chords in the app.
+    // `activePanelBack`/`Forward` route to whichever `panel-stack` a mounted
+    // view registered (see `active-panel.ts`); gating `enabled` on the
+    // Councils view being active is what stops `Mod+[` firing silently from
+    // every other view, since the registry itself would no-op there anyway.
+    'panel.back': activeView === 'councils'
+      ? { enabled: true, run: () => activePanelBack() }
+      : { enabled: false, disabledReason: 'Open Councils first', run: () => {} },
+    'panel.forward': activeView === 'councils'
+      ? { enabled: true, run: () => activePanelForward() }
+      : { enabled: false, disabledReason: 'Open Councils first', run: () => {} },
   };
 }
 

@@ -182,6 +182,10 @@ export type LayoutSizes = {
   searchResultsWidth: number;
   /** The FAB panel width, on the right side of the content area. */
   fabPanelWidth: number;
+  /** Councils' left navigation rail (Phase 42 Theme B). */
+  councilNavWidth: number;
+  /** Councils' right configuration panel (Phase 42 Theme B). */
+  councilConfigWidth: number;
 };
 
 
@@ -238,6 +242,12 @@ export const DEFAULT_LAYOUT: LayoutSizes = {
   reviewsListWidth: 380,
   searchResultsWidth: 420,
   fabPanelWidth: 320,
+  // A council card carries a name and a member count — narrower than most
+  // list panes is enough to read both.
+  councilNavWidth: 260,
+  // Wide enough for the member editor's three stacked controls (name,
+  // provider select, role textarea) at a comfortable reading width.
+  councilConfigWidth: 320,
 };
 
 export const DEFAULT_GRAPH_COLUMNS: GraphColumns = {
@@ -277,6 +287,8 @@ export const LAYOUT_BOUNDS = {
     `min` plus a fallback for a render with no window to measure.
   */
   fabPanelWidth: { min: 240, max: 640 },
+  councilNavWidth: { min: 200, max: 420 },
+  councilConfigWidth: { min: 240, max: 480 },
 } as const;
 
 /**
@@ -464,6 +476,9 @@ export type UiState = {
   setOnboardedAt: (timestamp: string | null) => void;
   showOnboarding: boolean;
   setShowOnboarding: (show: boolean) => void;
+  /** Councils' right configuration panel, collapsed to a rail (Phase 42 Theme B). */
+  councilConfigCollapsed: boolean;
+  setCouncilConfigCollapsed: (collapsed: boolean) => void;
 
   layout: LayoutSizes;
   graphColumns: GraphColumns;
@@ -880,6 +895,7 @@ type PersistedUi = Pick<
   | 'updateChannel'
   | 'onboardedAt'
   | 'showOnboarding'
+  | 'councilConfigCollapsed'
   | 'inactivityTimeoutS'
   | 'cycleDurationS'
   | 'requirePasscode'
@@ -995,6 +1011,8 @@ export const useUiStore = create<UiState>()(
       setOnboardedAt: (onboardedAt) => set({ onboardedAt }),
       showOnboarding: true,
       setShowOnboarding: (showOnboarding) => set({ showOnboarding }),
+      councilConfigCollapsed: false,
+      setCouncilConfigCollapsed: (councilConfigCollapsed) => set({ councilConfigCollapsed }),
 
       layout: DEFAULT_LAYOUT,
       graphColumns: DEFAULT_GRAPH_COLUMNS,
@@ -1271,6 +1289,7 @@ export const useUiStore = create<UiState>()(
          * written down means it is re-raised over the whole app on every single
          * launch — and the only way past it is to dismiss it again. */
         showOnboarding: state.showOnboarding,
+        councilConfigCollapsed: state.councilConfigCollapsed,
         inactivityTimeoutS: state.inactivityTimeoutS,
         cycleDurationS: state.cycleDurationS,
         requirePasscode: state.requirePasscode,
