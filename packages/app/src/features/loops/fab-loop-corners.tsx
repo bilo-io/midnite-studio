@@ -6,7 +6,7 @@ import { useAllLoopStatuses } from './loop-status';
 const LOOP_IDS = DEFAULT_LOOPS.map((loop) => loop.id);
 
 /**
- * One corner per loop, in `DEFAULT_LOOPS` order — Ideate top-left, Engineer
+ * One corner per loop, in `DEFAULT_LOOPS` order — Ideate top-left, Create
  * top-right, Patrol bottom-right, Medic bottom-left, clockwise from noon.
  *
  * Keyed on the loop's position in the roster rather than on how many happen to

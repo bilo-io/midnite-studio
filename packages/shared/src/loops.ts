@@ -416,7 +416,7 @@ export const DEFAULT_LOOPS: readonly LoopDefinition[] = [
   },
   {
     id: 'automate',
-    label: 'Engineer',
+    label: 'Create',
     icon: 'bot',
     color: 'text-green-500',
     agentId: 'claude',
