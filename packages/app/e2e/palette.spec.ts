@@ -49,14 +49,29 @@ test('Mod+K opens the palette over the graph and Escape closes it', async ({ pag
   await open(page);
 
   /*
-    `ControlOrMeta`, never `Meta`. These chords are `Mod+…` in
-    `shared/src/keybindings.ts`, and that file's own words are "Mod means Cmd on
-    macOS and Ctrl elsewhere" — so a hard-coded `Meta+k` opens nothing on Linux.
-    Every spec in this file passed locally and all nine failed on CI's ubuntu
-    runner for exactly that reason. `Control+\`` below is deliberately NOT this:
-    the terminal toggle is Ctrl on every platform, on purpose.
+    Literal `Meta`, not Playwright's OS-adaptive `ControlOrMeta` alias.
+
+    This used to be `ControlOrMeta` — a hard-coded `Meta+k` broke here once
+    already, when every spec in this file passed locally and all nine failed
+    on CI's ubuntu runner, because `ControlOrMeta` sent the real Ctrl key
+    there and the app (reading the CI runner's genuinely non-mac
+    `navigator.platform`) correctly wanted Ctrl for `Mod`, matching
+    `shared/src/keybindings.ts`'s own words: "Mod means Cmd on macOS and Ctrl
+    elsewhere".
+
+    Phase 38 Theme I moved the ground under that fix: `mock-bridge.ts` now
+    pins `navigator.platform` to `'MacIntel'` for every e2e spec, so the app
+    always wants Meta for `Mod` regardless of which OS Chromium is actually
+    running on — needed so `Control+\`` below (deliberately Ctrl on every
+    *real* platform, since the packaged app only ships macOS) can be told
+    apart from `Mod`. `ControlOrMeta` broke under that pin exactly as `Meta`
+    broke before it: it resolves from Playwright's own OS detection, not
+    from the page's spoofed `navigator.platform`, so on the actual CI runner
+    it kept sending literal Ctrl for what the app now expects as Meta. This
+    file's own regression, caught by the same job that caught the last one —
+    literal `Meta` is what the app actually wants now.
   */
-  await page.keyboard.press('ControlOrMeta+k');
+  await page.keyboard.press('Meta+k');
   await expect(palette(page)).toBeVisible();
   await expect(search(page)).toBeFocused();
 
@@ -79,7 +94,7 @@ test('the title-bar button opens the palette too, and returns focus on close', a
 
 test('typing narrows the list across groups', async ({ page }) => {
   await open(page);
-  await page.keyboard.press('ControlOrMeta+k');
+  await page.keyboard.press('Meta+k');
 
   await search(page).fill('terminal');
 
@@ -92,7 +107,7 @@ test('ArrowDown and Enter run the selected command and close the palette', async
   await open(page);
   await expect(reposPanel(page)).toBeVisible();
 
-  await page.keyboard.press('ControlOrMeta+k');
+  await page.keyboard.press('Meta+k');
   await search(page).fill('toggle repositories');
   await page.keyboard.press('Enter');
 
@@ -104,7 +119,7 @@ test('clicking a row runs THAT row, even without hovering it first', async ({ pa
   await open(page);
   await expect(reposPanel(page)).toBeVisible();
 
-  await page.keyboard.press('ControlOrMeta+k');
+  await page.keyboard.press('Meta+k');
   await search(page).fill('toggle');
   // `dispatchEvent`, not `.click()` — it fires the click with no synthetic
   // mouseenter first, so the still-default `selectedIndex` (row 0, "Toggle
@@ -121,21 +136,19 @@ test('the reload pair carries the browser chords, and the commands they displace
   page,
 }) => {
   await open(page);
-  await page.keyboard.press('ControlOrMeta+k');
+  await page.keyboard.press('Meta+k');
 
   await search(page).fill('reload');
   /*
-    `⌘R` on macOS, `Ctrl+R` on CI's ubuntu runner — the same reason every
-    keystroke in this file is `ControlOrMeta`. Asserting the rendered hint
-    rather than the keymap is the point: this covers registry → palette row →
+    Always `⌘R`, never `Ctrl+R` — `navigator.platform` is pinned to
+    `'MacIntel'` for every e2e spec (see the note above), so `chord-hint.ts`'s
+    own `isMac()` read always resolves the same way here, regardless of which
+    OS Chromium is actually running on. Asserting the rendered hint rather
+    than the keymap is the point: this covers registry → palette row →
     `displayChord`, which is the whole path a user reads the shortcut off.
   */
-  await expect(
-    palette(page).getByRole('option', { name: /^Reload (⌘|Ctrl\+)R$/ }),
-  ).toBeVisible();
-  await expect(
-    palette(page).getByRole('option', { name: /^Hard Reload (⌘⇧|Ctrl\+Shift\+)R$/ }),
-  ).toBeVisible();
+  await expect(palette(page).getByRole('option', { name: 'Reload ⌘R' })).toBeVisible();
+  await expect(palette(page).getByRole('option', { name: 'Hard Reload ⌘⇧R' })).toBeVisible();
 
   // Refresh and Fetch are still listed — they lost their chords, not their
   // place in the palette.
@@ -147,7 +160,7 @@ test('the reload pair carries the browser chords, and the commands they displace
 
 test('a disabled command shows its reason and does not run on Enter', async ({ page }) => {
   await open(page);
-  await page.keyboard.press('ControlOrMeta+k');
+  await page.keyboard.press('Meta+k');
   await search(page).fill('commit');
 
   const row = palette(page).locator('[role="option"][aria-disabled="true"]').first();
@@ -163,13 +176,13 @@ test('Mod+g typed into the palette does not toggle the repositories panel', asyn
   await open(page);
   await expect(reposPanel(page)).toBeVisible();
 
-  await page.keyboard.press('ControlOrMeta+k');
-  await page.keyboard.press('ControlOrMeta+g');
+  await page.keyboard.press('Meta+k');
+  await page.keyboard.press('Meta+g');
   await expect(palette(page)).toBeVisible();
   await expect(reposPanel(page)).toBeVisible();
 
   await page.keyboard.press('Escape');
-  await page.keyboard.press('ControlOrMeta+g');
+  await page.keyboard.press('Meta+g');
   await expect(reposPanel(page)).toBeHidden();
 });
 
@@ -179,14 +192,14 @@ test('Mod+K opens the palette while the terminal has focus', async ({ page }) =>
     await expect(page.locator('.xterm-screen')).toBeVisible();
     await page.locator('.xterm-screen').click();
 
-    await page.keyboard.press('ControlOrMeta+k');
+    await page.keyboard.press('Meta+k');
     await expect(palette(page)).toBeVisible();
   },
 );
 
 test('fuzzy search matches acronyms and renders mark tags', async ({ page }) => {
   await open(page);
-  await page.keyboard.press('ControlOrMeta+k');
+  await page.keyboard.press('Meta+k');
   await search(page).fill('tt');
 
   const row = palette(page).getByRole('option', { name: /Toggle Terminal/ });
@@ -197,7 +210,7 @@ test('fuzzy search matches acronyms and renders mark tags', async ({ page }) => 
 
 test('palette navigates to views and settings', async ({ page }) => {
   await open(page);
-  await page.keyboard.press('ControlOrMeta+k');
+  await page.keyboard.press('Meta+k');
   await search(page).fill('Settings: Appearance');
   await page.keyboard.press('Enter');
 
@@ -207,7 +220,7 @@ test('palette navigates to views and settings', async ({ page }) => {
 
 test('palette and go to file both have gradient glow classes', async ({ page }) => {
   await open(page);
-  await page.keyboard.press('ControlOrMeta+k');
+  await page.keyboard.press('Meta+k');
   const paletteDialog = palette(page);
   await expect(paletteDialog).toBeVisible();
   const container = paletteDialog.locator('> div');
@@ -218,7 +231,7 @@ test('palette and go to file both have gradient glow classes', async ({ page }) 
   await expect(paletteDialog).toBeHidden();
 
   // Test Go to File (Mod+P)
-  await page.keyboard.press('ControlOrMeta+p');
+  await page.keyboard.press('Meta+p');
   await expect(paletteDialog).toBeVisible();
   await expect(container).toHaveClass(/gradient-border/);
   await expect(container).toHaveClass(/gradient-border--always/);
