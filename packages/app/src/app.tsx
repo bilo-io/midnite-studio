@@ -25,6 +25,7 @@ import { useLoopAttention } from './features/loops/use-loop-attention';
 import { PaletteHost } from './components/palette-host';
 import { ResizeHandle } from './components/resizable/resize-handle';
 import { useResizable } from './components/resizable/use-resizable';
+import { useViewportWidth } from './components/use-viewport-width';
 import { useReveal, useRevealSize } from './components/use-reveal';
 import { ThemeToggle } from './components/theme-toggle';
 import { TitleBarNav } from './components/title-bar-nav';
@@ -59,8 +60,10 @@ import { useAppearanceSync } from './store/appearance-store';
 import { useFileEditorStore } from './store/file-editor-store';
 import {
   DEFAULT_LAYOUT,
+  FAB_PANEL_MAX_SHARE,
   LAYOUT_BOUNDS,
   pathForView,
+  TERMINAL_VIEW_RESERVE,
   useUiStore,
   viewForPath,
   type NavMode,
@@ -428,6 +431,15 @@ function Shell() {
   const browserOpen = useUiStore((s) => s.browserOpen);
   const fabPanelOpen = useUiStore((s) => s.fabPanelOpen);
   const toggleFabPanel = useUiStore((s) => s.toggleFabPanel);
+  /*
+    The setters the three splitters need for their snaps: dragging a pane past
+    its own minimum closes it, and dragging the terminal past the top of the
+    column maximizes it. See each `useResizable` below.
+  */
+  const setReposOpen = useUiStore((s) => s.setReposOpen);
+  const setTerminalOpen = useUiStore((s) => s.setTerminalOpen);
+  const setTerminalMaximized = useUiStore((s) => s.setTerminalMaximized);
+  const setFabPanelOpen = useUiStore((s) => s.setFabPanelOpen);
   // Phase 37 Theme D: the collapsed FAB wears the same tab arc as the open
   // panel, so toggling the panel never changes the button's colour.
   const activeFabTab = useUiStore((s) => s.activeFabTab);
@@ -480,36 +492,6 @@ function Shell() {
   // through this one runtime, keyed by CommandId — see use-command-handlers.ts.
   useKeybindings(useCommandHandlers());
 
-  const repos = useResizable({
-    size: layout.reposWidth,
-    onSize: (value) => setLayout('reposWidth', value),
-    initial: DEFAULT_LAYOUT.reposWidth,
-    axis: 'x',
-    ...LAYOUT_BOUNDS.reposWidth,
-  });
-
-  /**
-   * The terminal's splitter is ABOVE it, so dragging up must grow the panel —
-   * `edge: 'end'`, the same inversion the right-docked detail pane needs.
-   */
-  const terminal = useResizable({
-    size: layout.terminalHeight,
-    onSize: (value) => setLayout('terminalHeight', value),
-    initial: DEFAULT_LAYOUT.terminalHeight,
-    axis: 'y',
-    edge: 'end',
-    ...LAYOUT_BOUNDS.terminalHeight,
-  });
-
-  const fabPanel = useResizable({
-    size: layout.fabPanelWidth,
-    onSize: (value) => setLayout('fabPanelWidth', value),
-    initial: DEFAULT_LAYOUT.fabPanelWidth,
-    axis: 'x',
-    edge: 'end',
-    ...LAYOUT_BOUNDS.fabPanelWidth,
-  });
-
   /**
    * The terminal's height while maximized, measured rather than `flex-1`.
    *
@@ -534,6 +516,68 @@ function Shell() {
     observer.observe(stack);
     return () => observer.disconnect();
   }, []);
+
+  /*
+    The two drag ceilings that are not constants.
+
+    The terminal's is the column it lives in, less a strip of the view that a
+    plain drag may never cover (`TERMINAL_VIEW_RESERVE`) — cross that strip and
+    the splitter snaps to maximized instead, which is what makes "drag it nearly
+    to the top" and "maximize it" two distinguishable outcomes of one gesture.
+    Before the stack has been measured there is nothing to derive it from, so
+    the static bound stands in for the one render that needs it.
+
+    The FAB panel's is a share of the window (`FAB_PANEL_MAX_SHARE`), floored at
+    the static bound so a narrow window still allows the width its own default
+    asks for.
+  */
+  const viewportWidth = useViewportWidth();
+  const terminalMax = stackHeight
+    ? Math.max(LAYOUT_BOUNDS.terminalHeight.min, stackHeight - TERMINAL_VIEW_RESERVE)
+    : LAYOUT_BOUNDS.terminalHeight.max;
+  const fabPanelMax = Math.max(
+    LAYOUT_BOUNDS.fabPanelWidth.max,
+    Math.round(viewportWidth * FAB_PANEL_MAX_SHARE),
+  );
+
+  const repos = useResizable({
+    size: layout.reposWidth,
+    onSize: (value) => setLayout('reposWidth', value),
+    initial: DEFAULT_LAYOUT.reposWidth,
+    axis: 'x',
+    ...LAYOUT_BOUNDS.reposWidth,
+    // Dragged shut rather than only toggled shut: the splitter is already under
+    // the pointer, and past the minimum there is nothing else the gesture could
+    // mean. The width is left in the store, so re-opening restores it.
+    onCollapse: () => setReposOpen(false),
+  });
+
+  /**
+   * The terminal's splitter is ABOVE it, so dragging up must grow the panel —
+   * `edge: 'end'`, the same inversion the right-docked detail pane needs.
+   */
+  const terminal = useResizable({
+    size: layout.terminalHeight,
+    onSize: (value) => setLayout('terminalHeight', value),
+    initial: DEFAULT_LAYOUT.terminalHeight,
+    axis: 'y',
+    edge: 'end',
+    ...LAYOUT_BOUNDS.terminalHeight,
+    max: terminalMax,
+    onCollapse: () => setTerminalOpen(false),
+    onExpand: () => setTerminalMaximized(true),
+  });
+
+  const fabPanel = useResizable({
+    size: layout.fabPanelWidth,
+    onSize: (value) => setLayout('fabPanelWidth', value),
+    initial: DEFAULT_LAYOUT.fabPanelWidth,
+    axis: 'x',
+    edge: 'end',
+    ...LAYOUT_BOUNDS.fabPanelWidth,
+    max: fabPanelMax,
+    onCollapse: () => setFabPanelOpen(false),
+  });
 
   /*
     First-interactive, as far as the renderer can tell: a layout effect here runs
@@ -565,7 +609,17 @@ function Shell() {
     the handle was dragged to — the live drag value, so a drag still lands
     exactly where the pointer is.
   */
-  const terminalTarget = terminalMaximized ? stackHeight : terminal.current;
+  const terminalTarget =
+    terminalMaximized || terminal.snap === 'expand' ? stackHeight : terminal.current;
+
+  /*
+    What the animated FRAME draws, which is not always what the panel inside it
+    is sized to. A drag that has armed a snap shows the outcome — zero for a
+    collapse — while the panel keeps its real height, so the preview is a matter
+    of clipping and the pty is never told the terminal is 0 rows tall and then
+    told otherwise a moment later.
+  */
+  const terminalFrameSize = terminal.snap === 'collapse' ? 0 : terminalTarget;
 
   /*
     All three size-tweened panels (repos, terminal, its session list — the
@@ -575,13 +629,17 @@ function Shell() {
   */
   const reposTween = useRevealSize({
     open: reposOpen,
-    size: repos.current,
+    // Zero while a drag is poised to close the panel — the same preview the
+    // terminal and the FAB panel draw, and the same reason: past the minimum
+    // the splitter stops following the pointer, so the pane going to nothing is
+    // the only thing left that can say what letting go will do.
+    size: repos.snap === 'collapse' ? 0 : repos.current,
     axis: 'x',
     dragging: repos.dragging,
   });
   const terminalTween = useRevealSize<HTMLDivElement>({
     open: terminalOpen,
-    size: terminalTarget,
+    size: terminalFrameSize,
     axis: 'y',
     dragging: terminal.dragging,
     /*
@@ -599,7 +657,7 @@ function Shell() {
   const browserReveal = useReveal(browserOpen);
   const fabPanelTween = useRevealSize<HTMLDivElement>({
     open: fabPanelOpen,
-    size: fabPanel.current,
+    size: fabPanel.snap === 'collapse' ? 0 : fabPanel.current,
     axis: 'x',
     dragging: fabPanel.dragging,
   });
@@ -1054,6 +1112,9 @@ function Shell() {
               <ResizeHandle resizable={fabPanel} axis="x" label="Resize quick access panel" />
               <div
                 ref={fabPanelTween.ref}
+                // Named for the e2e suite: this box, not the panel inside it,
+                // is the one whose width the splitter drives.
+                data-fab-panel-frame
                 className="shrink-0 overflow-hidden h-full"
                 style={fabPanelTween.style}
               >
