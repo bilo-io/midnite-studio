@@ -44,6 +44,22 @@ Effort tags: **S** ≈ an hour or two · **M** ≈ half a day · **L** ≈ a day
 
 ## Deliverables
 
+**Correction (2026-09-02).** Themes B–G were marked `✅ DONE` by two mislabeled historical commits —
+`7475d79` ("docs: sync todo trackers with Phase 25 Themes A, B, C merge") silently flipped B–E to
+done while actually merging Phase 25 work, and `26e2349` ("docs(todo): mark Phase 31 Themes A-D and
+Phase 22 Themes F-H landed") flipped F–H alongside a Phase 31 rebase-feature merge that contained
+none of Phase 22's F/G/H code. `a2cd211` had already caught and reverted the Theme H half of that
+second false claim; this pass re-audited the whole phase against the actual tree and found B, C, D,
+E, F and G equally unbuilt — no `StashRow`/graph pseudo-rows/stash diff/Changes-view stash action, no
+`forceWithLease` anywhere (and `sync.ts`/`CLAUDE.md` still say "no force-push"), no `reflog.ts`. Only
+**A** (the git-engine stash engine) is real. Reverted to `◻ TODO` below; H moves to `◐ PARTIAL` for a
+real starter slice landed in this same pass — see H's own note.
+**Also corrected: the phase's own item total.** `_INDEX.md` and `a2cd211` both quoted 70 total
+items/22 for Theme H — a recount (every `- [ ]`/`- [x]` line, attributed by nearest theme header)
+finds Theme H's own lettered checklist has 8 items, not 22; the other 14 belong to the shared
+`## Verification` section below and were miscounted into H by whichever earlier pass first summed
+these. **The real total across A–H is 56**, not 70.
+
 ### A — Stash in the engine (M) ✅ DONE (2026-08-28)
 
 The spine: B–E all read off this contract, so it lands first.
@@ -243,12 +259,23 @@ The spine: B–E all read off this contract, so it lands first.
       containing a colon and one containing a newline-adjacent branch name, which is why the read
       is `-z`.
 
-### H — The ops journal, toasts, and undo (L)
+### H — The ops journal, toasts, and undo (L) ◐ PARTIAL (2026-09-02, starter subset)
 
 The largest theme, and the only one with no existing pattern to copy: this builds the app's first
 history mechanism *and* the first surface it can announce itself on. Land it last.
 
-- [ ] **A toast primitive.** `components/toast.tsx` + `components/toast-host.tsx`, shaped after
+**Starter-subset landing.** `@bilo-io/ui` was checked and exports no toast/notification component,
+so `toast.tsx`/`toast-host.tsx` were built custom, per the original plan. The undoability classifier
+(`isUndoableOpKind`/`undoReason`) is complete and exhaustive over every op this app can emit, but only
+`stash-drop` and `branch-delete` have a real, wired Undo executor (`WIRED_UNDO_OPS` in
+`services/use-journal.ts`) — every other undoable-by-classifier op (`commit`, `reset`, `checkout`,
+branch create/move, `stash push`) is correctly classified and journalled but has no live Undo button
+yet; wire it by adding to `WIRED_UNDO_OPS` plus an executor arm. The journal is genuinely the History
+view's second tab, but Theme G's reflog tab is an honest placeholder, not real data — Theme G was
+found unbuilt in this same pass (see the phase-level Correction note above), so there is no reflog
+reader for the journal to sit beside yet.
+
+- [x] **A toast primitive.** `components/toast.tsx` + `components/toast-host.tsx`, shaped after
       [`dialog-host.tsx`](../packages/app/src/components/dialog-host.tsx) — a `useToasts(): ToastApi`
       with `{ show, dismiss }`, a stacking host mounted once in
       [`app.tsx`](../packages/app/src/app.tsx), a `ToastRequest` carrying an optional `action`.
