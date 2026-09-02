@@ -554,6 +554,19 @@ html[data-motion='reduced'] .pill-shimmer {
   animation: none;
 }
 
+/* FAB Loop Tab Shimmer — a running loop's tab cascades the same sweep as the
+ * screensaver pills above, tinted per-loop via an inline gradient rather than
+ * the pills' `hueVar`, and staggered by tab index (`--tab-i`) instead of
+ * distance from a middle pill. */
+.tab-loop-shimmer {
+  animation: pill-shimmer 2.4s ease-in-out infinite;
+  animation-delay: calc(var(--tab-i, 0) * 0.3s);
+}
+
+html[data-motion='reduced'] .tab-loop-shimmer {
+  animation: none;
+}
+
 /* Breadcrumb Repo Pill — Rainbow gradient border & rotating glow/box-shadow on hover */
 @property --breadcrumb-angle {
   syntax: '<angle>';
