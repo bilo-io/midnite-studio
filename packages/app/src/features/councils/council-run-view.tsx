@@ -4,6 +4,7 @@ import { LuCircleAlert, LuLoader, LuSkipForward } from 'react-icons/lu';
 
 import { EmptyState } from '../../components/empty-state';
 import { IconButton } from '../../components/icon-button';
+import { Spinner } from '../../components/skeleton';
 import { CouncilLiveOutput } from './council-live-output';
 import { useCouncilRun, useRetryCouncilMember, useSkipCouncilMember } from './use-council-run';
 
@@ -84,7 +85,7 @@ export function CouncilRunView({
               activeTab === member.memberId ? 'bg-accent text-foreground' : 'text-muted-foreground hover:bg-accent/50'
             }`}
           >
-            {member.status === 'running' ? <LuLoader className="h-3 w-3 animate-spin" /> : null}
+            {member.status === 'running' ? <Spinner size="xs" tone="inherit" /> : null}
             <span className={STATUS_TONE[member.status]}>{member.name}</span>
           </button>
         ))}

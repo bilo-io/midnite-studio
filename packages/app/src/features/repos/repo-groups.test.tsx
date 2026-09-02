@@ -146,10 +146,13 @@ describe('repo groups — RepoGroupHeader component', () => {
     const fetchBtn = screen.getByRole('button', { name: 'Fetch all repositories in Work' });
     expect(fetchBtn.getAttribute('aria-busy')).toBe('true');
 
-    // The spinner element has animate-spin and border styling from skeleton Spinner
+    // IconButton swaps the glyph for the shared sweeping-ring spinner while
+    // busy, tinted with the button's own colour rather than a fixed one.
     const spinner = fetchBtn.querySelector('.animate-spin');
     expect(spinner).not.toBeNull();
-    expect(spinner?.className).toContain('border-r-foreground');
+    expect(spinner?.className).toContain('border-r-current');
+    // ...and the download glyph is gone rather than rotating in place.
+    expect(fetchBtn.querySelector('svg')).toBeNull();
   });
 
   it('renders fully saturated color pill when group has color', () => {

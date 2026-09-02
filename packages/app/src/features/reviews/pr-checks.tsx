@@ -2,6 +2,7 @@ import type { ForgeRun } from '@midnite/studio-shared';
 import { LuRefreshCw } from 'react-icons/lu';
 import { useMemo, useState } from 'react';
 
+import { Spinner } from '../../components/skeleton';
 import { useForgeRunDetail, useForgeRuns, useRerunChecks } from '../../services/queries';
 import { useUiStore } from '../../store/ui-store';
 import { RunDetail } from '../actions/run-detail';
@@ -211,7 +212,11 @@ function RerunControls({
         title={title('Re-run all jobs')}
         className={className}
       >
-        <LuRefreshCw className={`h-3 w-3 ${pending ? 'animate-spin' : ''}`} aria-hidden />
+        {pending ? (
+          <Spinner size="xs" tone="inherit" />
+        ) : (
+          <LuRefreshCw className="h-3 w-3" aria-hidden />
+        )}
         Re-run all jobs
       </button>
       {failed ? (

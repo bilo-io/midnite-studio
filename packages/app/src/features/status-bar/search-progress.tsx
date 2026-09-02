@@ -1,7 +1,5 @@
-import { LuLoader } from 'react-icons/lu';
-
+import { Spinner } from '../../components/skeleton';
 import { useSearchStore } from '../search/search-store';
-
 
 export function SearchProgressSegment() {
   const inFlight = useSearchStore((s) => s.inFlight);
@@ -15,7 +13,7 @@ export function SearchProgressSegment() {
       title={`Searching (${inFlight.mode})…`}
       aria-label={`Search in progress: ${totalResults} matches`}
     >
-      <LuLoader className="h-3 w-3 animate-spin text-primary" />
+      <Spinner size="xs" tone="inherit" className="text-primary" />
       <span className="status-label capitalize">
         Searching {inFlight.mode} ({totalResults})
       </span>
