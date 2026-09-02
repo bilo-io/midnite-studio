@@ -2,6 +2,46 @@ import { useState, useEffect } from 'react';
 import { LuStethoscope, LuCheck, LuX } from 'react-icons/lu';
 import { Spinner } from '../../../components/skeleton';
 import type { SystemHealth } from '@midnite/studio-shared';
+import { openExternal } from '../../../services/queries';
+import { parseGitVersion } from './git-version';
+
+/**
+ * The git row's value: `v2.39.5`, linked to that version's upstream release
+ * notes.
+ *
+ * The raw line (`git version 2.39.5 (Apple Git-154)`) and the binary's path are
+ * both still worth having when something is wrong, so they move into the
+ * tooltip rather than being dropped — the row shows the one thing a reader
+ * scans for, and keeps the diagnostic a hover away.
+ *
+ * A version that will not parse falls back to the raw string, unlinked: a wrong
+ * link is worse than no link, and `parseGitVersion` returns `null` rather than
+ * guessing for exactly that reason.
+ */
+function GitVersionValue({ raw, path }: { raw: string | null; path: string | null }) {
+  const parsed = parseGitVersion(raw);
+  const title = [raw, path].filter(Boolean).join(' — ') || undefined;
+
+  if (!parsed) {
+    return (
+      <span className="text-xs text-muted-foreground" title={title}>
+        {raw ?? "Couldn't detect"}
+      </span>
+    );
+  }
+
+  return (
+    <button
+      type="button"
+      onClick={() => openExternal(parsed.releaseNotesUrl)}
+      title={title}
+      aria-label={`git ${parsed.label} — open release notes`}
+      className="rounded font-mono text-xs text-primary underline decoration-primary/40 underline-offset-2 hover:decoration-primary focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-primary"
+    >
+      {parsed.label}
+    </button>
+  );
+}
 
 export function HealthChecklist({ compact }: { compact?: boolean }) {
   const [health, setHealth] = useState<SystemHealth | null>(null);
@@ -42,9 +82,7 @@ export function HealthChecklist({ compact }: { compact?: boolean }) {
           )}
           <span className="font-medium text-xs">Git binary</span>
         </div>
-        <span className="text-xs text-muted-foreground">
-          {health?.git.version ? `${health.git.version} (${health.git.path})` : "Couldn't detect"}
-        </span>
+        <GitVersionValue raw={health?.git.version ?? null} path={health?.git.path ?? null} />
       </div>
 
       {/* Shell check */}
@@ -75,7 +113,7 @@ export function HealthChecklist({ compact }: { compact?: boolean }) {
             ? health.sshAgent.keys > 0
               ? `Running (${health.sshAgent.keys} keys loaded)`
               : 'Running (no keys loaded)'
-            : "Not running / couldn't detect"}
+            : 'Undetected'}
         </span>
       </div>
 
