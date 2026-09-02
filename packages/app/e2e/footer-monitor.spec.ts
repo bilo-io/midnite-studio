@@ -59,14 +59,23 @@ test.describe('footer monitor', () => {
       a muted track and the used arc over it. Checking only that disk has
       circles would still pass if it had ALSO kept the flat line it is meant to
       replace, which is exactly the regression worth catching.
+
+      Scoped to the chart's own svg, excluding the metric's icon — `BsCpuFill`
+      and `BsHddFill` are themselves multi-`<path>` glyphs (react-icons draws a
+      filled icon as one or more `<path>` elements), so an unscoped `svg path`
+      count was really "chart paths + icon paths" and never stayed 2/0 as icon
+      sets changed. The icon carries its own `metric-icon-<id>` testid
+      (`monitor-cluster.tsx`) precisely so a query like this can exclude it.
     */
     const cpu = page.getByTestId('metric-cpu');
-    await expect(cpu.locator('svg path')).toHaveCount(2);
-    await expect(cpu.locator('svg circle')).toHaveCount(0);
+    const cpuChart = cpu.locator('svg:not([data-testid="metric-icon-cpu"])');
+    await expect(cpuChart.locator('path')).toHaveCount(2);
+    await expect(cpuChart.locator('circle')).toHaveCount(0);
 
     const disk = page.getByTestId('metric-disk');
-    await expect(disk.locator('svg circle')).toHaveCount(2);
-    await expect(disk.locator('svg path')).toHaveCount(0);
+    const diskChart = disk.locator('svg:not([data-testid="metric-icon-disk"])');
+    await expect(diskChart.locator('circle')).toHaveCount(2);
+    await expect(diskChart.locator('path')).toHaveCount(0);
 
     // The percentage is still the accessible reading, ring or no ring.
     await expect(disk).toHaveText(/72%/);
