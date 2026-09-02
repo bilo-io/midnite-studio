@@ -243,7 +243,7 @@ The spine: B–E all read off this contract, so it lands first.
       containing a colon and one containing a newline-adjacent branch name, which is why the read
       is `-z`.
 
-### H — The ops journal, toasts, and undo (L) ✅ DONE (2026-08-30)
+### H — The ops journal, toasts, and undo (L)
 
 The largest theme, and the only one with no existing pattern to copy: this builds the app's first
 history mechanism *and* the first surface it can announce itself on. Land it last.
