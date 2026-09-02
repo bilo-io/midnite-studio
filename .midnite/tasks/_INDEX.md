@@ -10,7 +10,8 @@
 - **[Phase 35 · FAB Mission Control](phases/phase-35-fab-mission-control.md)** (98% · 39/40) — All five themes landed (2026-09-01, local). Made the (previously untracked, ad-hoc) FAB panel a real loop console: each tab owns its own in-panel terminal session (`surface: 'fab'`, never in the main housing), a checkbox prompt composer per loop, Start↔Stop with the gradient glow pulse, and a mission-control layer — FAB badges, waiting-toasts, a capped run history. Also retires the FAB's hard-coded prompts by pointing each loop at the `DEFAULT_AGENT_SKILLS` entry it runs, so there is one prompt store rather than three. Themes F–I (PR #3) then closed three of the four open verification items and as much of the fourth as a browser reaches — and found, in the doing, that a persisted loop never came back unless you opened the *main* terminal panel first. One item stays open for a human: quit and relaunch mid-run against a **packaged** build.
 - **[Phase 34 · Agent Councils](phases/phase-34-agent-councils.md)** (100% · 34/34) — Landed. Fills the nav/palette-reserved "Councils" slot: a standing panel of AI members answers a prompt in parallel, synthesized into one distilled write-up. MVP scope — one format (brainstorm), global (not per-repo), a 3-agent member pool (`agy`/`codex`/`opencode`), and an explicit auto-send exception to the app's usual type-but-don't-send agent-launch posture. Two manual passes (a real end-to-end run, a copy review) remain for a human.
 - **Phases 25–33 all landed** — search/blame, split diffs, status bar + browser pane, worktrees-first sidebar, markdown slides, the detached terminal broker, interactive rebase, the real browser engine, and the installable app + CLI.
-- **The only partial phases are [24 · The explorer learns to write](phases/phase-24-writable-explorer.md)** (78% · 43/55) **and [23 · A command palette](phases/phase-23-command-palette.md)** (76% · 42/55) — both closed as DONE with their remainders logged in [`outstanding.md`](outstanding.md).
+- **[24 · The explorer learns to write](phases/phase-24-writable-explorer.md)** (78% · 43/55) **and [23 · A command palette](phases/phase-23-command-palette.md)** (76% · 42/55) are both closed as DONE with their remainders logged in [`outstanding.md`](outstanding.md).
+- **[22 · Stash, the reflog, and writes you can take back](phases/phase-22-stash-and-safety-net.md)** (69% · 48/70) is genuinely WIP, not closed — Theme H (the ops journal, the toast primitive, and undo) was marked done in the doc on 2026-08-30 but was never built: no `toast.tsx`, no `OpJournalEntrySchema`, all 22 of its items still unchecked, and nothing about it logged in `outstanding.md`. Force-push-with-lease (F) and the reflog view (G) did land that day and are real.
 
 
 
@@ -39,7 +40,7 @@ Completed work is logged append-only in [`done.md`](done.md). Deferred scope liv
 | [25 · Search everywhere, and the blame that explains it](phases/phase-25-search-everywhere.md) | ✅ DONE | x1 | 101/101 | `██████████` | 100% | — | — |
 | [24 · The explorer learns to write, and to search](phases/phase-24-writable-explorer.md) | ✅ DONE | — | 43/55 | `████████░░` | 78% | — | — |
 | [23 · A command palette, and the registry that can feed it](phases/phase-23-command-palette.md) | ✅ DONE | — | 42/55 | `████████░░` | 76% | — | — |
-| [22 · Stash, the reflog, and writes you can take back](phases/phase-22-stash-and-safety-net.md) | ✅ DONE | — | 70/70 | `██████████` | 100% | — | — |
+| [22 · Stash, the reflog, and writes you can take back](phases/phase-22-stash-and-safety-net.md) | 🔄 WIP | — | 48/70 | `███████░░░` | 69% | — | H |
 | [21 · Agent roster + terminal identity](phases/phase-21-agent-roster-and-terminal-identity.md) | ✅ DONE | — | 46/46 | `██████████` | 100% | — | — |
 | [20 · Reviews page & unified diff syntax highlighting](phases/phase-20-reviews-page.md) | ✅ DONE | — | 45/45 | `██████████` | 100% | — | — |
 | [19 · Dashboard, Actions and Tests as views](phases/phase-19-dashboard-actions-tests.md) | ✅ DONE | — | 76/76 | `██████████` | 100% | — | — |
@@ -662,8 +663,9 @@ first toast primitive and first undo.*
   no force push" comments rewritten rather than deleted. (landed 2026-08-30)
 - ✅ **G** — `commands/reflog.ts` and a **History** rail view: HEAD plus per-ref, each entry
   checkout-able, with `.git/logs` joining the watcher for the first time. (landed 2026-08-30)
-- ✅ **H** — the ops journal, the app's first toast primitive, and undo — ref-shaped only, because
-  the reflog records where refs pointed and nothing about the working tree. (landed 2026-08-30)
+- ◻ **H** — the ops journal, the app's first toast primitive, and undo — ref-shaped only, because
+  the reflog records where refs pointed and nothing about the working tree. Scoped, not built:
+  no `toast.tsx`, no `OpJournalEntrySchema` — its 22 checklist items are still unchecked.
 
 ### [Phase 21 — A plural agent roster, and a terminal that knows where it is](phases/phase-21-agent-roster-and-terminal-identity.md)
 
