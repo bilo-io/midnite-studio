@@ -84,4 +84,43 @@ describe('TitleBarAgents', () => {
 
     expect(screen.getByTestId('titlebar-agent-count').textContent).toContain('2 agents');
   });
+
+  /**
+   * The markup the density rules act on. `.status-label` around the WORD only
+   * — the digit is the information, "agents" is grammar — and
+   * `.status-collapsible` on the button, so the whole readout (and the
+   * `gap-3` slot before it) goes at the tightest step.
+   *
+   * Asserted as structure rather than through the CSS, which jsdom does not
+   * apply: `e2e/titlebar-agents.spec.ts` is where the rules are shown to
+   * actually fire. What breaks silently without this is someone folding the
+   * two spans back into one `{count} agent{s}` string, which no CSS could
+   * then split.
+   */
+  it('splits the count into a digit and a labelled word, and marks it collapsible', () => {
+    useTerminalStore.setState({ sessions: [session({ id: 'a' })], states: { a: 'open' } });
+    render(<TitleBarAgents />);
+
+    const button = screen.getByTestId('titlebar-agent-count');
+    expect(button.classList.contains('status-collapsible')).toBe(true);
+
+    const spans = Array.from(button.querySelectorAll('span'));
+    // The word owns the space between it and the digit, so the two leave
+    // together and the button never reads "1agent" to a screen reader.
+    expect(spans.map((span) => span.textContent)).toEqual(['1', ' agent']);
+    expect(spans[1]!.classList.contains('status-label')).toBe(true);
+    expect(spans[0]!.classList.contains('status-label')).toBe(false);
+  });
+
+  /**
+   * The density lands on the cluster, because that is the element
+   * `.status-label` and `.status-collapsible` are resolved against. jsdom has
+   * no `ResizeObserver`, so `useTitleBarDensity` returns its `full` initial
+   * state here and the stepping itself is a Playwright concern — the same
+   * split `features/status-bar/use-overflow.ts` documents for the status bar.
+   */
+  it('stamps a density on the cluster', () => {
+    render(<TitleBarAgents />);
+    expect(screen.getByTestId('titlebar-agents').dataset.density).toBe('full');
+  });
 });

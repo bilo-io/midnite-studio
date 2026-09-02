@@ -1,4 +1,4 @@
-import type { Density } from './density';
+import type { Density } from '../../lib/density';
 
 /**
  * Which of a `StatusToggle`'s three pieces render, given its state.
