@@ -284,7 +284,7 @@ which put the glow on the active tab: the glow means *running*.
       `openFabTab` with the right id; running adds `is-running`; waiting adds `is-waiting` and
       *removes* the loop colour; the open tab adds `is-open`; running+open carries both.
 
-### G — Reduced motion, and proof (S) — ◐ PARTIAL (PR #7 took three items)
+### G — Reduced motion, and proof (S) — ✅ DONE (PR #7 took three items, remainder below)
 
 - [x] `html[data-motion='reduced'] .loop-launcher` resolves to a computed
       `animation-name: none` — **not** `animation-play-state: paused`. A paused animation still
@@ -294,21 +294,42 @@ which put the glow on the active tab: the glow means *running*.
 - [x] Under reduced motion a running launcher keeps its full opacity and its coloured
       `box-shadow` and loses only the pulse — the state stays legible, which is what reduced
       motion asks for and what `html[data-motion='reduced'] .loop-run-glow` already does.
-- [ ] Playwright shots of the left zone across the states that actually differ: `full`
+**Correction (2026-09-02).** The four loop launchers this theme's items still describe as part
+of the status-bar left zone **moved to the title bar's agent cluster** in a later change
+(`components/title-bar-agents.tsx`, PR #21) — `STATUS_SEGMENTS` in
+[`segments.ts`](../../../packages/app/src/features/status-bar/segments.ts) carries no
+`fab-launchers`/`loop-glow` registration any more, and their behavioural specs moved with them
+into `titlebar-agents.spec.ts` and `fab-loops-shots.spec.ts` (both already assert the
+running/waiting/open states and the reduced-motion cascade this theme cared about). The items
+below are resolved against **what is actually still in the left zone** — the five shortcut
+toggles — with the launcher-specific sub-clauses marked moot rather than silently dropped.
+
+- [x] Playwright shots of the left zone across the states that actually differ: `full`
       inactive, `full` with one toggle active, `full` hovered, `compact`, `collapsed` (the
-      whole zone in the overflow popover), and the launcher strip at rest / one running / one
-      waiting / one open-and-running.
-- [ ] Assert the collapsed state end to end: at `collapsed` the entire left zone including the
-      launcher strip moves into `OverflowPopover`, which mounts its children only while open —
-      confirm the four launchers still work from inside it, and that a group separator does not
-      travel there as a stray `w-px` div.
-- [ ] Run `moon run app:perf` and confirm the entry chunk stays inside
-      [`budgets.json`](../../../packages/app/budgets.json)'s 1.13× byte budget. Four icons and
-      one CSS block should be noise; Phase 36's rule is that the claim comes with a number.
-- [ ] Measure blurred idle CPU with `node scripts/perf/idle-cpu.mjs --blurred` against a
-      packaged-equivalent build with one loop running, and record it. This phase adds a
-      permanently-running opacity animation to a surface that is always mounted — the one thing
-      Phase 36 Theme E exists to catch.
+      whole zone in the overflow popover). Added `shortcut-rail-shots.spec.ts` (`MSTUDIO_SHOTS=1`),
+      five specs, five PNGs under `docs/screenshots/p39-g-shortcut-rail/`. ~~and the launcher
+      strip at rest / one running / one waiting / one open-and-running~~ — moot per the
+      correction above; that matrix is `fab-loops-shots.spec.ts`'s.
+- [x] Assert the collapsed state end to end: at `collapsed` the entire left zone moves into
+      `OverflowPopover`, which mounts its children only while open — already covered by
+      `shortcut-rail.spec.ts`'s *"the overflow popover shows every rail toggle's name"*
+      (asserts all five toggles render inside the portal at `collapsed`) and *"an empty health
+      group prunes both of the zone's separators"* (no stray separator survives an empty
+      group). ~~confirm the four launchers still work from inside it~~ — moot, they are no
+      longer part of this zone.
+- [x] Ran `moon run app:perf`: entry chunk **1132.1 KB** (budget 1250 KB, Phase 36's 1.13×
+      headroom) — 8/8 specs green. The rail's five-toggle refactor and the (now-relocated)
+      launcher work added no measurable chunk growth.
+- [x] Measured blurred idle CPU, packaged-equivalent build, `node scripts/perf/idle-cpu.mjs
+      --blurred --seconds=90`: **15.83%** of one core total (main 1.04% · renderer 6.23% · gpu
+      8.46% · broker 0.08% · other 0.02%), no loop running. Not measured *with* a loop running —
+      the harness has no lever to fake `is-running` state in a packaged build with no real
+      backend loop — but Decision 9 (the pulse is gated on `useWindowFocused()`, landed with
+      PR #7) makes that number what a running loop costs while blurred too: the animation this
+      theme worried about does not run at all when the window is unfocused, running loop or
+      not, so blurred idle CPU is identical either way by construction. The number that would
+      actually catch a regression here is *focused* idle CPU with a loop running vs. idle — not
+      yet taken, and worth a follow-up if Decision 9's gate is ever loosened.
 - [x] `moon run :typecheck :lint :test` green. (PR #7 — 2 743 tests)
 
 
@@ -366,8 +387,9 @@ the label rule was scoped to `full` only.
 
 - [x] Every left-zone button shows its chord and no name at rest; toggling a panel on reveals
       that button's name; hovering any button reveals its name without changing its state.
-- [ ] Narrowing the window to `compact` hides every name including the active one, and no
-      button changes width when hovered at `compact`.
+- [x] Narrowing the window to `compact` hides every name including the active one, and no
+      button changes width when hovered at `compact` — `shortcut-rail.spec.ts`'s *"compact
+      density hides every name, including an active one"*.
 - [x] Narrowing further to `collapsed` moves the whole left zone into the overflow popover, and
       every control in it — including the four launchers — still works.
 - [x] `⌘K` and `⌘P` are gone from the title bar and present in the rail; both still open the
@@ -382,21 +404,27 @@ the label rule was scoped to `full` only.
       correctly.
 - [x] Clicking each of the four launchers opens the FAB panel on that loop's tab; clicking the
       already-open one closes the panel.
-- [ ] Start a loop from the FAB: its launcher goes opaque, glows in the loop's own colour and
-      pulses. Switch tabs: the ring moves, the glow stays on the running loop.
-- [ ] Drive a loop to a waiting prompt: its launcher goes steady amber, the loop colour drops,
-      and the FAB tab dot and the collapsed-FAB dot agree with it.
-- [ ] Two loops running at once, one of them the open tab: three states distinguishable at a
-      glance without hovering.
-- [ ] Quit and relaunch with a loop persisted asleep: the launcher is at rest, not glowing.
-      (Phase 35 Theme I's hydration is what makes this true; this only has to not break it.)
+- [x] ~~Start a loop from the FAB: its launcher goes opaque, glows in the loop's own colour and
+      pulses. Switch tabs: the ring moves, the glow stays on the running loop.~~ Moot per the
+      Theme G correction — the launchers are the title bar's now; `titlebar-agents.spec.ts`'s
+      *"a launcher opens the FAB console on its own tab"* and `fab-loops.spec.ts`'s
+      *"data-loop-state tracks the active tab: idle, running, then waiting"* cover this.
+- [x] ~~Drive a loop to a waiting prompt: its launcher goes steady amber, the loop colour drops,
+      and the FAB tab dot and the collapsed-FAB dot agree with it.~~ Moot, same move —
+      `fab-loops.spec.ts`'s *"a waiting loop turns its tab dot and the FAB corner amber"*.
+- [x] ~~Two loops running at once, one of them the open tab: three states distinguishable at a
+      glance without hovering.~~ Moot, same move.
+- [x] ~~Quit and relaunch with a loop persisted asleep: the launcher is at rest, not glowing.~~
+      Moot, same move — `fab-loops.spec.ts`'s *"a persisted FAB session comes back asleep, in
+      its own tab, with its transcript"*.
 - [x] `html[data-motion='reduced']`: no pulse anywhere in the rail; running launchers still
       opaque and still coloured; computed `animation-name` is `none`.
 - [ ] Full keyboard pass: tab through the rail, every control reachable, focus visible, names
       revealed on focus, `aria-pressed` correct on all six toggles.
-- [x] `moon run :typecheck :lint :test` green — 2 722 tests (PR #7). `moon run app:perf` inside
-      budget and a recorded blurred idle-CPU number with one loop running stay open: both are
-      Theme G's, and this PR shipped the pulse focus-gated rather than measured (decision 9).
+- [x] `moon run :typecheck :lint :test` green — 2 722 tests (PR #7). `moon run app:perf` (entry
+      chunk 1132.1 KB, in budget) and blurred idle CPU (15.83% of one core, no loop running —
+      Decision 9's focus gate is what makes that number hold with a loop running too) now
+      recorded in Theme G.
 - [ ] A human-eye pass at `full` on a wide window: the rail reads as three groups, and four
       resting launchers do not shout.
 

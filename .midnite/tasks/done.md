@@ -2,6 +2,25 @@
 
 <!-- Append one entry per landed phase/PR: date, phase, PR link, one-line summary. -->
 
+## 2026-09-02 — Phase 39 Theme G — density×state shots + perf numbers
+
+[PR #33](https://github.com/bilo-io/midnite-studio/pull/33). Closes the theme PR #7 deliberately
+held back.
+
+- [x] **Theme G, remainder**: `shortcut-rail-shots.spec.ts` (`MSTUDIO_SHOTS=1`-gated, 5 specs) —
+      full density at rest/active/hovered, compact, collapsed with the overflow popover open. The
+      collapsed-state end-to-end check was already covered by `shortcut-rail.spec.ts`, so noted
+      rather than duplicated. `moon run app:perf`: entry chunk 1132.1 KB against a 1250 KB budget,
+      8/8 green. Blurred idle CPU, packaged-equivalent build: 15.83% of one core, no loop running
+      — Decision 9's window-focus gate on the pulse (PR #7) is what makes that number hold with a
+      loop running too, since the animation this theme worried about doesn't run unfocused either
+      way. The four loop launchers this theme's doc originally described moved to the title bar's
+      agent cluster in PR #21; their own state matrix already lives in
+      `fab-loops-shots.spec.ts`/`titlebar-agents.spec.ts`, so the phase doc's `## Verification`
+      section now marks those sub-items moot rather than leaving them permanently unchecked
+      against machinery that no longer exists in this zone. Two human-only passes remain open at
+      the phase level: a full keyboard sweep and an eye-pass at `full` density on a wide window.
+
 ## 2026-09-02 — Phase 38 Themes B, C, E, F + Phase 40 Theme A + Phase 22 Theme H — e2e repair, Projects contracts, the ops journal
 
 [PR #23](https://github.com/bilo-io/midnite-studio/pull/23) (with a follow-up in
