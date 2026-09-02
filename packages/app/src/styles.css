@@ -945,8 +945,6 @@ html[data-motion='reduced'] .breadcrumb-repo-pill {
     rgba(0, 0, 0, 0.55) 82%,
     #000 100%
   );
-  mask-composite: add;
-  -webkit-mask-composite: source-over;
 }
 
 /*
