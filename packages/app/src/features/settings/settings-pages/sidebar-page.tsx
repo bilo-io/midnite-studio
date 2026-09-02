@@ -31,6 +31,7 @@ const VIEW_LABELS: Record<ViewId, string> = {
   changes: 'Changes',
   actions: 'Actions',
   reviews: 'Reviews',
+  history: 'History',
   councils: 'Councils',
   workflows: 'Workflows',
   sessions: 'Sessions',
