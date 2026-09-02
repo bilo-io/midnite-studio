@@ -277,9 +277,9 @@ The spine every other theme reads off; lands first, and Phase 41 consumes it unc
     `gh auth login` hint from `ghStatus` does **not** add a scope to an existing token.
   - Use [`EmptyState`](../../../packages/app/src/components/empty-state.tsx) (`{ icon, title, body }`).
 
-### E — Field writes (M)
+### E — Field writes (M) — ✅ DONE (PR #41, 2026-09-02)
 
-- [ ] `setItemFieldValue(projectId, itemId, fieldId, value)` in a sibling
+- [x] `setItemFieldValue(projectId, itemId, fieldId, value)` in a sibling
       `gh-project-write.ts` — `updateProjectV2ItemFieldValue`, with the mutation's value shape
       chosen off the field's `dataType` (`{text}` / `{number}` / `{date}` / `{singleSelectOptionId}`).
   - **Decided: a sibling file, not `gh-write.ts`.** The draft said "or", and the Files table below
@@ -299,7 +299,7 @@ The spine every other theme reads off; lands first, and Phase 41 consumes it unc
     `const cli = await ghStatus(); if (cli.reason !== 'ready') return notReady(cli);` and closing
     with `invalidateGhProbe()` + `describeGraphqlFailure` on a non-zero exit — the exact arc
     `setThreadResolved` (`gh-write.ts:167`) follows.
-- [ ] `addItemToProject(projectId, contentId)` — `addProjectV2ItemById`, taking an issue or PR node
+- [x] `addItemToProject(projectId, contentId)` — `addProjectV2ItemById`, taking an issue or PR node
       id. Reachable from the Reviews and Issues surfaces as an "Add to project ▸" action.
   - `contentId` is a GraphQL **node id**, not an issue number. Nothing in the current forge domain
     carries one — `ForgeIssueSchema` and `ForgePullSchema` are REST-shaped — so either the Theme B
@@ -308,7 +308,7 @@ The spine every other theme reads off; lands first, and Phase 41 consumes it unc
   - *Recommendation:* have Theme B's item query return node ids, and defer the Reviews/Issues entry
     points to a later phase. The mutation is cheap; the plumbing to reach it from two other surfaces
     is not, and it is not what this phase is for.
-- [ ] Inline editing in the table: a single-select field edits as a menu of its own options, text
+- [x] Inline editing in the table: a single-select field edits as a menu of its own options, text
       and number as inputs, date as a date field. **Not optimistic** — see below.
   - **Correction, and it inverts the draft.** There is no optimistic-with-rollback pattern in this
     codebase to follow: `grep -rn "onMutate" packages/app/src` returns **zero hits**. Phase 20
@@ -330,13 +330,13 @@ The spine every other theme reads off; lands first, and Phase 41 consumes it unc
     optimistic card drag on the same mutation. A drag that visibly snaps back is a stronger case for
     optimism than a text field is — but it is now a **deliberate exception** to a documented house
     rule, and that phase should argue it rather than inherit it silently.
-- [ ] Writes are **never** silent: a failed mutation restores the prior value and surfaces the
+- [x] Writes are **never** silent: a failed mutation restores the prior value and surfaces the
       GitHub error text, not a generic "something went wrong".
   - `describeGraphqlFailure` already digs `errors[].message` out of the payload and caps it at 300
     chars — use it rather than `describeFailure`, which deliberately skips lines starting with `{`
     and would report "could not complete that request" for a response that named the exact field at
     fault.
-- [ ] Respect the existing `forgeWritesEnabled` setting — and gate it **at the surface**, not in the
+- [x] Respect the existing `forgeWritesEnabled` setting — and gate it **at the surface**, not in the
       mutation.
   - The flag is renderer-only (`ui-store.ts:670`, default **off**, persisted at `:1211`) and is
     **not checked in main** — `forge-handlers.ts` has no gate. That is deliberate, and
@@ -349,9 +349,9 @@ The spine every other theme reads off; lands first, and Phase 41 consumes it unc
   - *Acceptance:* with `forgeWritesEnabled` off, the inline editors render disabled **and say why**,
     and no mutation is issued.
 
-### F — Wiring and the missing-scope path (S)
+### F — Wiring and the missing-scope path (S) — ✅ DONE (PR #41, 2026-09-02)
 
-- [ ] Command palette entries in
+- [x] Command palette entries in
       [`palette/providers.ts`](../../../packages/app/src/services/palette/providers.ts): open
       Projects, plus one entry per board once loaded.
   - **"Open Projects" is free.** `createViewsSource` (`:89`) derives one palette row per `VIEW_IDS`
@@ -360,9 +360,13 @@ The spine every other theme reads off; lands first, and Phase 41 consumes it unc
     board list.
   - A per-board source must not *trigger* a fetch — it lists what is already loaded, or nothing.
     Opening the palette is not "a human opened this section".
-- [ ] Native menu item in [`menu.ts`](../../../packages/desktop/src/main/menu.ts), under the
-      existing Tasks group.
-- [ ] Sidebar sections for the view in
+- [x] ~~Native menu item in [`menu.ts`](../../../packages/desktop/src/main/menu.ts), under the
+      existing Tasks group.~~ **Corrected, not built.** No "Tasks" group exists in `menu.ts`
+      (it has File/Edit/View/Repository), and no sibling forge view — Actions, Reviews — has a
+      native menu item either; only `view.graph` gets a `CommandId`, and even that has no menu
+      entry. Adding one only for Projects would be new, inconsistent surface with no precedent to
+      follow, so this checks off as *addressed* by not building a one-off rather than by shipping it.
+- [x] Sidebar sections for the view in
       [`view-sections.ts`](../../../packages/app/src/features/repos/view-sections.ts).
   - `VIEW_FILTERS` is a `Record<ViewId, ViewFilter>` (`:182`), so an entry is **required** for the
     typecheck to pass regardless. The choice is what it contains: the sibling forge views use
@@ -371,7 +375,7 @@ The spine every other theme reads off; lands first, and Phase 41 consumes it unc
   - *Recommendation:* start with `WORK_IN_PROGRESS`, matching councils, and add a dedicated
     `projects` section only if the header picker proves insufficient. A sidebar section is a second
     place to keep in sync with board state, for a picker that is already one click away.
-- [ ] A Projects settings page (`SettingsPageId` + a page under
+- [x] A Projects settings page (`SettingsPageId` + a page under
       [`settings-pages/`](../../../packages/app/src/features/settings/settings-pages/)): default
       board per repo, item-count ceiling, and the scope-refresh instructions in one durable place.
   - Registration is **four edits across three files**, each enforced by a `Record` over the union:
@@ -386,18 +390,20 @@ The spine every other theme reads off; lands first, and Phase 41 consumes it unc
 
 ### G — Verification coverage (M)
 
-- [ ] Vitest for `gh-project.ts` against **recorded GraphQL fixtures**, not live calls: a
+- [x] Vitest for `gh-project.ts` against **recorded GraphQL fixtures**, not live calls: a
       user-owned and an org-owned board, an item with every field type, a draft item, a
-      cursor-paginated response, and an `INSUFFICIENT_SCOPES` error body.
-- [ ] Vitest for the field-value flattener specifically — the union-narrowing in Theme B is where
+      cursor-paginated response, and an `INSUFFICIENT_SCOPES` error body. (`gh-project.test.ts`, PR #38)
+- [x] Vitest for the field-value flattener specifically — the union-narrowing in Theme B is where
       this phase's bugs will live.
   - *Acceptance:* a fixture whose `fieldValues.nodes` contains one **unrecognised** node type still
     yields the item with its other fields intact. That is the assertion that proves the
-    per-element-`safeParse` rule was followed, and the one a whole-array parse fails.
-- [ ] Vitest for `setItemFieldValue`'s command construction — assert the built command carries a
+    per-element-`safeParse` rule was followed, and the one a whole-array parse fails. (`gh-project.test.ts`, PR #38)
+- [x] Vitest for `setItemFieldValue`'s command construction — assert the built command carries a
       **JSON body on stdin**, not `-f`/`-F` flags, and that a numeric value survives as a number.
       This is the item most likely to be built wrong, so it gets the assertion that catches it.
-- [ ] Vitest: with `forgeWritesEnabled` off the editor renders disabled and no bridge call is made.
+      (`gh-project-write.test.ts`, PR #41)
+- [x] Vitest: with `forgeWritesEnabled` off the editor renders disabled and no bridge call is made.
+      (`projects-view.test.tsx`, PR #41)
 - [ ] Playwright `e2e/projects.spec.ts` against the mock bridge: pick a board, see items, edit a
       single-select, see it persist; and the missing-scope state renders its command.
 - [ ] **Open, for a human:** screenshots per the visual-phase convention — the board picker, the

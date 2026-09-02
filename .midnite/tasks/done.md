@@ -2,6 +2,35 @@
 
 <!-- Append one entry per landed phase/PR: date, phase, PR link, one-line summary. -->
 
+## 2026-09-02 — Phase 40 Themes E, F — field writes and wiring
+
+[PR #41](https://github.com/bilo-io/midnite-studio/pull/41). Finishes Phase 40's read/write pair —
+Phase 41 (Agentic Kanban) still needs its own optimistic-drag argument, but the mutation it drags
+onto now exists.
+
+- [x] **Theme E — field writes**: `gh-project-write.ts`'s `setItemFieldValue`
+      (`updateProjectV2ItemFieldValue`) and `addItemToProject` (`addProjectV2ItemById`), both a JSON
+      body on stdin through `gh api graphql --input -` — the one item the phase doc itself flagged
+      as most likely to be built wrong, since `-f`/`-F` both get a polymorphic value's type wrong.
+      IPC handlers, a non-optimistic `useSetProjectItemField` mutation (invalidates only the edited
+      board's items), and inline text/number/date/single-select editors in the table — gated at the
+      surface on `forgeWritesEnabled`, disabled-with-explanation when off, exactly as
+      `review-action-bar.tsx` already does for Reviews. `addItemToProject`'s cross-surface entry
+      points (Reviews/Issues "Add to project ▸") deliberately deferred, per the doc's own
+      recommendation.
+- [x] **Theme F — wiring**: a command-palette source over already-loaded boards
+      (`enabled: false` — opening the palette never itself fetches), and a Projects settings page
+      with the `gh auth refresh -s project` command in one durable, copyable place. **The doc's
+      "native menu item under the Tasks group" turned out not to exist** — no such group, and
+      neither Actions nor Reviews has a menu item either — so that item is corrected in the phase
+      doc rather than built as a one-off. The sidebar `VIEW_FILTERS` entry had already landed in
+      Theme D.
+- [x] **Four of Theme G's Vitest items also landed along the way** and are checked off in the
+      phase doc: the `gh-project.ts` fixture suite and the field-value-flattener test shipped with
+      Theme B (PR #38); `setItemFieldValue`'s command-construction test and the
+      `forgeWritesEnabled`-off RTL test ship with this PR. The Playwright spec and the two
+      human-only passes (screenshots, a real org/user board) remain open.
+
 ## 2026-09-02 — Phase 40 Themes B, C, D — GitHub Projects reads, IPC and the table view
 
 [PR #38](https://github.com/bilo-io/midnite-studio/pull/38). Continues Theme A's contracts

@@ -4,27 +4,26 @@ import {
   type ForgeProjectFieldsResult,
   type ForgeProjectItemsResult,
   type ForgeProjectsResult,
+  type ForgeProjectWriteResult,
 } from '@midnite/studio-shared';
 
+import { addItemToProject, setItemFieldValue } from '../forge/gh-project-write';
 import { listProjects, projectFields, projectItems } from '../forge/gh-project';
 import { githubForge, noForgeStatus } from './forge-handlers';
 import { handle } from './handle';
 
 /**
- * GitHub ProjectV2 reads (Phase 40 Theme C) — the IPC half of `gh-project.ts`
- * (Theme B), registered beside `forge-handlers.ts` rather than folded into it:
- * the `forge-project:` namespace is its own IPC surface (see `channels.ts`),
- * and keeping its handlers in their own module mirrors the read/write split
- * `gh-project.ts` itself documents.
- *
- * **Read-only.** `forgeProjectSetField` and `forgeProjectAddItem` are declared
- * in `channels.ts` and typed on the bridge (Theme A) but registered nowhere
- * here — Theme E (`gh-project-write.ts`) is what answers them. Until it lands,
- * a call on either channel rejects with "no handler registered", which is the
- * correct failure for a write this phase deliberately does not ship.
+ * GitHub ProjectV2 IPC (Phase 40 Themes C and E) — the IPC half of
+ * `gh-project.ts` (reads, Theme B) and `gh-project-write.ts` (writes, Theme
+ * E), registered beside `forge-handlers.ts` rather than folded into it: the
+ * `forge-project:` namespace is its own IPC surface (see `channels.ts`), and
+ * keeping its handlers in their own module mirrors the read/write split
+ * those two files themselves document.
  *
  * Owner and repo are resolved from `.git/config` on this side for the one
- * channel that needs them, exactly as every other forge read does.
+ * read channel that needs them, exactly as every other forge read does. The
+ * two write channels take only node ids (Theme A's own request shape), so
+ * they reach `GITHUB_COM_FORGE` the same way `fields`/`items` already do.
  */
 export function registerForgeProjectHandlers(): void {
   handle<typeof schemas.ForgeProjectListRequest, ForgeProjectsResult>(
@@ -66,6 +65,26 @@ export function registerForgeProjectHandlers(): void {
     schemas.ForgeProjectItemsRequest,
     async (req) => projectItems(GITHUB_COM_FORGE, req.projectId, req.cursor),
     (issue) => ({ cli: noForgeStatus(), items: [], nextCursor: null, error: issue, kind: 'error' }),
+  );
+
+  handle<typeof schemas.ForgeProjectSetFieldRequest, ForgeProjectWriteResult>(
+    CHANNELS.forgeProjectSetField,
+    schemas.ForgeProjectSetFieldRequest,
+    async (req) =>
+      setItemFieldValue(GITHUB_COM_FORGE, {
+        projectId: req.projectId,
+        itemId: req.itemId,
+        fieldId: req.fieldId,
+        value: req.value,
+      }),
+    (issue) => ({ ok: false, kind: 'error', message: issue }),
+  );
+
+  handle<typeof schemas.ForgeProjectAddItemRequest, ForgeProjectWriteResult>(
+    CHANNELS.forgeProjectAddItem,
+    schemas.ForgeProjectAddItemRequest,
+    async (req) => addItemToProject(GITHUB_COM_FORGE, { projectId: req.projectId, contentId: req.contentId }),
+    (issue) => ({ ok: false, kind: 'error', message: issue }),
   );
 }
 
