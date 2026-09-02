@@ -201,6 +201,43 @@ export type MockFixtures = {
     error?: string | null;
   };
   /**
+   * `mstudio:forge-project:*` answers (Phase 40 Theme G).
+   *
+   * Its own top-level fixture rather than a `forge.*` extension, matching the
+   * bridge's own `forgeProject` namespace split — ProjectV2 is a distinct
+   * `gh` surface with its own read/write shapes (see `forge-project.ts`).
+   */
+  forgeProject?: {
+    /** `ForgeProject[]` — the boards `forgeProject.list` answers with. */
+    projects?: unknown[];
+    /** One board's field definitions, keyed by project id. */
+    fields?: Record<string, unknown[]>;
+    /**
+     * One board's items, keyed by project id — always answered as a single
+     * page (`nextCursor: null`), since pagination itself is `queries.ts`'s
+     * own concern and already unit-tested there.
+     */
+    items?: Record<string, unknown[]>;
+    /**
+     * `ForgeProjectReadKind` for `list`/`items` — `'insufficient-scope'`
+     * reaches the exact state the phase doc names: `gh` installed and
+     * authenticated, but missing the `project` OAuth scope.
+     */
+    readKind?: 'ok' | 'insufficient-scope' | 'error';
+    error?: string | null;
+    /**
+     * What `setField`/`addItem` answer with. Absent means every write
+     * succeeds — matching `forge.writeError`'s own default — and a
+     * successful `setField` mutates the seeded item's `fieldValues` in
+     * place, so a spec can prove the edit actually persisted rather than
+     * merely that the call was accepted.
+     */
+    writeResult?:
+      | { ok: true }
+      | { ok: false; kind: 'insufficient-scope'; hint?: string }
+      | { ok: false; kind: 'error'; message: string };
+  };
+  /**
    * `mstudio:stats:summary` — everything the dashboard draws.
    *
    * Merged over an all-zero envelope, so a spec sets only the arrays its
@@ -897,6 +934,85 @@ export async function installMockBridge(page: Page, fixtures: MockFixtures): Pro
         runRerun: async (req: Record<string, unknown>) => {
           recordWrite('runRerun', req);
           return writeResult(writeError() === null);
+        },
+      }),
+      /*
+        ProjectV2 (Phase 40 Theme G), its own IPC namespace in the real
+        bridge and kept that way here too. `list`/`items` share one
+        `readKind` fixture because the real `INSUFFICIENT_SCOPES` failure can
+        surface on either call — `ProjectsView` checks both.
+      */
+      forgeProject: slowed({
+        /*
+          Every read returns a deep clone of the fixture, never the fixture's
+          own objects — `setField` below mutates the backing store in place,
+          exactly as `reviewComment` mutates `data.forge.pullThreads`, and
+          react-query's default structural sharing compares a refetch against
+          the *previous* cached data by value. Handing out the same object
+          reference on every call would let that mutation reach the already-
+          cached data too (they would be the same object), so the "before"
+          and "after" snapshots read identical and no re-render is scheduled
+          — a mocking artifact a real `gh` subprocess, which always returns
+          freshly parsed JSON, could never produce.
+        */
+        list: async () => ({
+          cli: forgeCli(),
+          projects: structuredClone(data.forgeProject?.projects ?? []),
+          error: data.forgeProject?.error ?? null,
+          kind: data.forgeProject?.readKind ?? 'ok',
+        }),
+        fields: async (req: { projectId: string }) => ({
+          cli: forgeCli(),
+          fields: structuredClone(data.forgeProject?.fields?.[req.projectId] ?? []),
+          error: null,
+          kind: 'ok',
+        }),
+        items: async (req: { projectId: string }) => ({
+          cli: forgeCli(),
+          items: structuredClone(data.forgeProject?.items?.[req.projectId] ?? []),
+          nextCursor: null,
+          error: data.forgeProject?.error ?? null,
+          kind: data.forgeProject?.readKind ?? 'ok',
+        }),
+        /*
+          A refusal is answered from the fixture verbatim; an acceptance
+          mutates the seeded item's `fieldValues` in place — the same
+          "mutate the fixture so a refetch comes back different" device
+          `reviewComment` above uses — so the next `items` call, fired by
+          `useSetProjectItemField`'s own invalidation, actually shows the new
+          value rather than a stub that merely claims to have accepted it.
+        */
+        setField: async (req: Record<string, unknown>) => {
+          recordWrite('forgeProjectSetField', req);
+          const result = data.forgeProject?.writeResult;
+          if (result && result.ok === false) {
+            return result.kind === 'insufficient-scope'
+              ? { ok: false as const, kind: 'insufficient-scope' as const, hint: result.hint ?? 'gh auth refresh -s project' }
+              : { ok: false as const, kind: 'error' as const, message: result.message };
+          }
+          const projectId = req['projectId'] as string;
+          const itemId = req['itemId'] as string;
+          const value = req['value'] as Record<string, unknown>;
+          const items = (data.forgeProject?.items?.[projectId] ?? []) as Record<string, unknown>[];
+          for (const item of items) {
+            if (item['id'] === itemId) {
+              item['fieldValues'] = {
+                ...(item['fieldValues'] as Record<string, unknown>),
+                [value['fieldId'] as string]: value,
+              };
+            }
+          }
+          return { ok: true as const, kind: 'ok' as const };
+        },
+        addItem: async (req: Record<string, unknown>) => {
+          recordWrite('forgeProjectAddItem', req);
+          const result = data.forgeProject?.writeResult;
+          if (result && result.ok === false) {
+            return result.kind === 'insufficient-scope'
+              ? { ok: false as const, kind: 'insufficient-scope' as const, hint: result.hint ?? 'gh auth refresh -s project' }
+              : { ok: false as const, kind: 'error' as const, message: result.message };
+          }
+          return { ok: true as const, kind: 'ok' as const };
         },
       }),
       /*
