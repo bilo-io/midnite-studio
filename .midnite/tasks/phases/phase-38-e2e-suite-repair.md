@@ -8,6 +8,13 @@ performance work — showed the same three sample files failing 15 there against
 the rot predates the phase most likely to be blamed for it. This is drift, accumulated over
 however many merges have landed since anyone last ran `moon run app:e2e`.
 
+**These counts are a floor.** They were taken on 2026-09-01; a rebase onto `main` later the
+same evening picked up another session's renderer work and immediately turned four more specs
+red (`files-search`, `files-view`, `files-editor`, `diff-scroll-perf`). Re-measure at the start
+of the phase rather than trusting the list — and note that the CI job which would have stopped
+this is itself still unlanded (see `outstanding.md`), so the number only moves one way until it
+is.
+
 **Why it happened is already written down.** `outstanding.md` has carried the entry since
 2026-08-27, when seventeen specs sat red across several merges: *"Nothing runs `app:e2e`
 automatically."* The suite is out of `moon run :test` on purpose — it needs a chromium download
@@ -190,7 +197,10 @@ becomes a place to hide the next 45.
       this door).
 - [ ] Point the CI `E2E` step at `app:e2e`, delete the `app:e2e-ci` task from
       [`packages/app/moon.yml`](../../../packages/app/moon.yml) and delete
-      `packages/app/playwright.ci.config.ts`.
+      `packages/app/playwright.ci.config.ts`. **Note the job must exist first** — it was built
+      and measured on 2026-09-01 but held back because shard 2 of 4 never once completed, so
+      landing it (with a `timeout-minutes` cap, which it lacked) is a prerequisite for this
+      phase mattering at all.
 - [ ] Rewrite the `outstanding.md` entry to record the close, with the final count.
 - [ ] Consider whether `app:e2e` should now join `moon run :test` for local runs, or stay
       separate on the chromium-download argument that has always justified it. Record the
