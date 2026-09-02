@@ -3,7 +3,7 @@ import { useCallback, useEffect, useMemo, useRef } from 'react';
 import { useVirtualizer } from '@tanstack/react-virtual';
 import { LuSearch } from 'react-icons/lu';
 
-import { useRepoFiles, useRepos, useRefs, useWorktrees } from '../services/queries';
+import { useForgeProjects, useRepoFiles, useRepos, useRefs, useWorktrees } from '../services/queries';
 import { useAgents } from '../features/terminal/use-agents';
 import { useTerminalStore } from '../features/terminal/terminal-store';
 import { useUiStore } from '../store/ui-store';
@@ -20,6 +20,7 @@ import {
 import {
   createCommandSource,
   createFilesSource,
+  createProjectBoardsSource,
   createRefsSource,
   createReposSource,
   createTerminalSource,
@@ -76,6 +77,9 @@ export function Palette() {
   const selectedWorktreePath = useUiStore((s) => s.selectedWorktreePath);
   const worktreesQuery = useWorktrees(selectedRepoId);
   const refsQuery = useRefs(selectedRepoId);
+  // `enabled: false` — opening the palette must not itself fetch boards; this
+  // reads whatever the Projects view has already cached, or nothing.
+  const projectsQuery = useForgeProjects(selectedRepoId, false);
   const { agents } = useAgents();
   const sessions = useTerminalStore((s) => s.sessions);
 
@@ -86,6 +90,7 @@ export function Palette() {
   );
   const worktrees = useMemo(() => worktreesQuery.data ?? [], [worktreesQuery.data]);
   const refs = useMemo(() => refsQuery.data ?? [], [refsQuery.data]);
+  const projectBoards = useMemo(() => projectsQuery.data?.projects ?? [], [projectsQuery.data]);
 
   // Head/tip SHA of active worktree or main
   const tipSha = useMemo(() => {
@@ -143,6 +148,7 @@ export function Palette() {
     // Views & Settings source
     if (mode === 'all' || mode === 'views') {
       list.push(createViewsSource(close));
+      list.push(createProjectBoardsSource(projectBoards, selectedRepoId, close));
     }
 
     // Repos & Worktrees source
@@ -174,6 +180,7 @@ export function Palette() {
     worktrees,
     activeRepo,
     selectedRepoId,
+    projectBoards,
     refs,
     handleCheckout,
     handleReveal,

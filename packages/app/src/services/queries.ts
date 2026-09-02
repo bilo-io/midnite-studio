@@ -11,9 +11,11 @@ import type {
   ForgePullsResult,
   ForgeMergeMethod,
   ForgeProjectFieldsResult,
+  ForgeProjectFieldValue,
   ForgeProjectItem,
   ForgeProjectReadKind,
   ForgeProjectsResult,
+  ForgeProjectWriteResult,
   ForgeReviewEvent,
   ForgePullThreadsResult,
   ForgeRunDetailResult,
@@ -584,6 +586,35 @@ export function useForgeProjectItems(projectId: string | null, enabled: boolean)
 }
 
 /**
+ * Set one item's field value (Phase 40 Theme E).
+ *
+ * **Not optimistic** — the house rule `useSetThreadResolved` already follows:
+ * the mutation never throws, so `onSuccess` fires on a refusal too, and only
+ * `result.ok` decides whether to invalidate. Invalidated narrowly: this
+ * board's items (what the edited cell renders from) — never the whole forge,
+ * and never `forgeProjectFields`, which a field-*value* write never changes.
+ */
+export function useSetProjectItemField(projectId: string | null) {
+  const client = useQueryClient();
+  return useMutation({
+    mutationFn: async (input: {
+      itemId: string;
+      fieldId: string;
+      value: ForgeProjectFieldValue;
+    }): Promise<ForgeProjectWriteResult> => {
+      const api = bridge();
+      if (!api || !projectId) return NO_FORGE_PROJECT_WRITE;
+      return api.forgeProject.setField({ projectId, ...input });
+    },
+    onSuccess: (result) => {
+      if (result.ok && projectId) {
+        void client.invalidateQueries({ queryKey: keys.forgeProjectItems(projectId) });
+      }
+    },
+  });
+}
+
+/**
  * One run's job/step tree, fetched only once a row has been expanded.
  *
  * The same staleness window as its siblings, deliberately: a completed run is
@@ -1074,6 +1105,8 @@ const EMPTY_PROJECT_ITEMS_PAGE: ForgeProjectItemsPage = {
  * in every component test that happens to mount one.
  */
 const NO_FORGE_WRITE: ForgeWriteResult = { ok: false, cli: EMPTY_CLI, error: null };
+/** Same reasoning as `NO_FORGE_WRITE`, for the `ForgeProjectWriteResult` shape. */
+const NO_FORGE_PROJECT_WRITE: ForgeProjectWriteResult = { ok: false, kind: 'error', message: '' };
 
 /** Re-run the forge listings for one repo, on the user's say-so. */
 export function useRefreshForge(repoId: string | null) {

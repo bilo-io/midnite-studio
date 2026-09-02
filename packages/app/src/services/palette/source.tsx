@@ -25,7 +25,8 @@ export type PaletteSourceKey =
   | 'refs'
   | 'files'
   | 'sessions'
-  | 'agents';
+  | 'agents'
+  | 'project-boards';
 
 export type PaletteSource = {
   key: PaletteSourceKey;
@@ -46,6 +47,7 @@ export const SOURCE_WEIGHTS: Record<PaletteSourceKey, number> = {
   files: 0.9,
   sessions: 0.9,
   agents: 1.0,
+  'project-boards': 1.0,
 };
 
 export type ScoredPaletteItem = {
