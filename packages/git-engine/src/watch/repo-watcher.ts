@@ -154,9 +154,23 @@ export class RepoWatcher {
     this.watchPath(join(gitDir, 'index'), () => 'index');
     this.watchPath(join(gitDir, 'packed-refs'), () => 'refs');
     this.watchPath(join(gitDir, 'refs'), () => 'refs', true);
-    // A linked worktree's HEAD lives under `.git/worktrees/<name>/HEAD`, so a
-    // checkout in another worktree is invisible without this.
-    this.watchPath(join(gitDir, 'worktrees'), () => 'head', true);
+    // The reflog (Phase 22 Theme G's History view). Rides the existing
+    // `'refs'` kind rather than growing `WatchKindSchema` — a branch's reflog
+    // living under `logs/refs/heads/<branch>` in the COMMON dir is watched
+    // here; a linked worktree's own `logs/HEAD` is per-worktree (see the
+    // `worktrees` watch below for why that needs its own classifier).
+    this.watchPath(join(gitDir, 'logs'), () => 'refs', true);
+    // A linked worktree's HEAD (and, since git 2.5, its own HEAD reflog) live
+    // under `.git/worktrees/<name>/HEAD` / `.../logs/HEAD`, so a checkout —
+    // or the reflog entry it writes — in another worktree is invisible
+    // without this. `logs/HEAD` specifically is classified `'refs'`, same as
+    // the common-dir reflog watch above; everything else under a worktree's
+    // admin dir stays `'head'`.
+    this.watchPath(
+      join(gitDir, 'worktrees'),
+      (file) => (file.split(sep).includes('logs') ? 'refs' : 'head'),
+      true,
+    );
 
     // The working tree itself. Recursive, and filtered hard — this is the noisy
     // one, and the filter is what stops `node_modules` churn from reaching the UI.

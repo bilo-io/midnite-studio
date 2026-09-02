@@ -2,6 +2,7 @@ export * from './blame-parser';
 export * from './diff-parser';
 export * from './grep-parser';
 export * from './log-parser';
+export * from './reflog-parser';
 export * from './refs-parser';
 export * from './remote-url';
 export * from './stash-parser';
