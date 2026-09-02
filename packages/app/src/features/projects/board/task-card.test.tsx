@@ -19,13 +19,15 @@ const issue: ForgeProjectItem = {
     url: 'https://github.com/acme/widgets/issues/42',
     state: 'open',
     assignees: ['octocat'],
+    body: '',
+    labels: [],
   },
   fieldValues: { 'f-priority': { fieldId: 'f-priority', dataType: 'text', text: 'High' } },
 };
 
 const draft: ForgeProjectItem = {
   id: 'item2',
-  content: { type: 'draft', id: 'DI_1', title: 'Write the design doc', assignees: [] },
+  content: { type: 'draft', id: 'DI_1', title: 'Write the design doc', assignees: [], body: '' },
   fieldValues: {},
 };
 

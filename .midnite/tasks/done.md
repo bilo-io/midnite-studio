@@ -2,6 +2,39 @@
 
 <!-- Append one entry per landed phase/PR: date, phase, PR link, one-line summary. -->
 
+## 2026-09-02 — Phase 41 Themes D, G, H (partial) + Phase 38 Theme D (partial) — the card composer, and CI's own correction
+
+[PR #47]. Rebased mid-flight onto #46 (Phase 41 Themes C/D/F), which landed the `kanban` surface
+this PR originally built in parallel — that duplicate work was dropped in favor of consuming #46's
+`findCardSession`/`findAnyCardSession` directly.
+
+- [x] **Theme D — a session bound to a card, completed.** The one item #46 left open — launching
+      from a card starts a broker session via `startAgent({ surface: 'kanban', taskRef, autoSend:
+      false })` — now has its call site: Theme G's `CardComposer`. Theme D is fully done.
+- [x] **Theme G — the card composer.** `CardComposer` (`board/card-composer.tsx`): an agent picker
+      (`RadioRow` pills, defaulting to the repo's most recent launch), an editable prompt seeded
+      from a new pure `composeCardPrompt(item, repoPath)` (title/number, url, assignees, labels,
+      repo path, body capped at 4 000 chars with a truncation notice), and the literal shell command
+      shown above Start. Reads its own session via `findCardSession`/`findAnyCardSession` rather
+      than a prop — one live session per card enforced by hiding the form for a Stop button instead
+      of a second Start. `SwitchRow`/`RadioRow` hoisted from `loop-composer.tsx` to
+      `components/form/toggle-rows.tsx`, generalised off `id`/`label`/`title` rather than
+      `LoopModifier`. `ForgeProjectItemContent` (issue/pull) gained `body`/`labels`, fetched by
+      `gh-project.ts` — Phase 40 Theme A's original GraphQL read never carried them.
+- [◐] **Theme H — binding survives a restart, partial.** `BoardView` now re-homes an orphaned
+      `kanban` session back to `main` once its item leaves the board, via a pure `sessionsToRehome`
+      and a new `rehomeSession` store action. Hydration-on-open and the asleep-not-ended restore
+      were already covered by #46. Two items stay open for a human: quit-and-relaunch against a
+      **packaged** build, and an explicit test that switching boards doesn't kill a running session.
+- [◐] **Phase 38 Theme D, partial — and a correction worth recording.** Both named specs
+      (`terminal.spec.ts:972`/`:1073`) were genuine spec races, not product bugs — fixed with
+      `expect.poll` and a `hover()`-before-`boundingBox()` respectively, stable over 3 local runs
+      each. **The "drop the file from `KNOWN_RED`" item was attempted, verified green at 38/38
+      locally on macOS, and then reverted** once CI (a GPU-less Linux runner) surfaced real
+      failures in *other*, unrelated specs — agent-mark assertions hitting exactly the WebGL wall
+      `playwright.ci.config.ts` already documents. `terminal.spec.ts` stays in `KNOWN_RED`; Theme I
+      owns tagging the actually-affected specs `@linux-red` before it can leave.
+
 ## 2026-09-02 — Phase 42 Themes A, B, C, D — panel-stack, three panes, config right, back/forward
 
 [PR #TBD]. Themes E (councils/runs share the rail) and F (motion verification) are not in this

@@ -32,7 +32,7 @@ import { useUiStore } from '../../store/ui-store';
  * turned sideways rather than duplicated.
  */
 export function ProjectsView() {
-  const { repoId } = useActiveWorktree();
+  const { repoId, worktreePath } = useActiveWorktree();
   const boardByRepo = useUiStore((s) => s.projectBoardByRepo);
   const setProjectBoard = useUiStore((s) => s.setProjectBoard);
   const modeByRepo = useUiStore((s) => s.projectsMode);
@@ -149,6 +149,8 @@ export function ProjectsView() {
       ) : mode === 'board' ? (
         <BoardView
           projectId={selectedProjectId}
+          repoId={repoId}
+          worktreePath={worktreePath}
           items={items.data?.items ?? []}
           fields={fields.data?.fields ?? []}
         />

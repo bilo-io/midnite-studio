@@ -187,7 +187,7 @@ describe('ProjectsView', () => {
       items: [
         {
           id: 'item1',
-          content: { type: 'draft', id: 'DI_1', title: 'A draft item', assignees: [] },
+          content: { type: 'draft', id: 'DI_1', title: 'A draft item', assignees: [], body: '' },
           fieldValues: { f1: { fieldId: 'f1', dataType: 'single_select', optionId: 'todo', name: 'Todo' } },
         },
       ],
