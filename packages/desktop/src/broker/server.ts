@@ -6,6 +6,7 @@ import { dirname, join } from 'node:path';
 
 import { SCROLLBACK_BYTES, perfEnabled } from '@midnite/studio-shared';
 
+import { startHeapSampler } from '../heap-sampler';
 import {
   createFrameDecoder,
   encodeControl,
@@ -107,6 +108,8 @@ export function createBrokerServer(options: BrokerServerOptions): BrokerServer {
     log = () => {},
     idleGraceMs = 10 * 60 * 1000,
   } = options;
+
+  startHeapSampler({ enabled: perfEnabled(process.env), processName: 'broker', log });
 
   // Mutable: `retire` moves this broker to a `-retired-<pid>` path.
   let socketPath = options.socketPath;
@@ -311,6 +314,23 @@ export function createBrokerServer(options: BrokerServerOptions): BrokerServer {
     }
   }
 
+  /**
+   * A defensive backstop, not the primary fix — `onExit`/`kill` above already
+   * delete a session's scrollback the moment it dies, going forward. This
+   * exists for the transition (an older broker build's leftovers, still
+   * resident when the app upgrades and reconnects to it) and for a pty that
+   * somehow exited without `onExit` firing. Run on every client (re)connect
+   * rather than once at boot, because a `hello` is the one moment this
+   * long-lived process actually hears from the world again — waiting for the
+   * next boot would mean waiting for this broker to be replaced entirely.
+   */
+  function reconcileOrphanedScrollback(): void {
+    const live = new Set([...sessions.values()].map((s) => s.sessionId));
+    for (const sessionId of scrollbackBySession.keys()) {
+      if (!live.has(sessionId)) scrollbackBySession.delete(sessionId);
+    }
+  }
+
   async function flushAllScrollback(): Promise<void> {
     try {
       await mkdir(scrollbackDir, { recursive: true });
@@ -443,6 +463,9 @@ export function createBrokerServer(options: BrokerServerOptions): BrokerServer {
             stale: isStale() !== null,
           }),
         );
+        // A client (re)connecting is the moment this broker's own bookkeeping
+        // is worth re-checking against reality — see the function's own doc.
+        reconcileOrphanedScrollback();
         break;
       }
 
@@ -572,6 +595,10 @@ export function createBrokerServer(options: BrokerServerOptions): BrokerServer {
             // BEFORE the exit frame, or a terminal shows an exited session with
             // its last line missing.
             flushPtyOutput(id);
+            // A session that ends normally does not wait for an explicit
+            // `forget` — see the theme's own framing at `scrollbackBySession`'s
+            // declaration.
+            scrollbackBySession.delete(sessionId);
             sessionForPty.delete(id);
             sessions.delete(id);
             broadcastControl({
@@ -640,6 +667,11 @@ export function createBrokerServer(options: BrokerServerOptions): BrokerServer {
         const session = sessions.get(msg.ptyId);
         if (session) {
           flushPtyOutput(msg.ptyId);
+          // Same reasoning as the `onExit` handler above: a killed session
+          // does not wait for an explicit `forget` either. `pty.kill()` below
+          // still fires `onExit` asynchronously, which deletes the same keys
+          // again — both maps' `delete` is idempotent, so that is harmless.
+          scrollbackBySession.delete(session.sessionId);
           sessionForPty.delete(msg.ptyId);
           sessions.delete(msg.ptyId);
           try {
@@ -701,6 +733,15 @@ export function createBrokerServer(options: BrokerServerOptions): BrokerServer {
             bytesBase64: Buffer.from(trimmed).toString('base64'),
           }),
         );
+        break;
+      }
+
+      case 'forget': {
+        // Phase 45 Theme C: the one control message that clears the leak —
+        // `scrollbackBySession` otherwise keeps every session ever opened,
+        // forever, in the one process that deliberately outlives the app.
+        for (const sessionId of msg.sessionIds) scrollbackBySession.delete(sessionId);
+        socket.write(encodeControl({ t: 'reply', id: msg.id, ok: true }));
         break;
       }
 

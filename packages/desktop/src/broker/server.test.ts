@@ -486,4 +486,112 @@ describe('broker server', () => {
     socket.destroy();
     await broker.close();
   });
+
+  /**
+   * Phase 45 Theme C — `scrollbackBySession` is the headline leak: it deletes
+   * `sessionForPty`/`sessions` on exit and on kill, and never itself. Each
+   * test below drives the real protocol path and reads back a `snapshot`,
+   * because `scrollbackBySession` is a closure with no exported handle — a
+   * snapshot answering empty is the observable proof the map no longer holds
+   * the session, exactly as a real client would discover it.
+   */
+  describe('scrollback is dropped, not just the session (Theme C)', () => {
+    async function snapshotBytes(socketPath: string, sessionId: string, id: number): Promise<Uint8Array> {
+      const { frames } = await connectAndSend(socketPath, [
+        encodeControl({ t: 'hello', id: 0, protocol: PROTOCOL, appVersion: '0.12.0', pid: process.pid }),
+        encodeControl({ t: 'snapshot', id, sessionId }),
+      ]);
+      const reply = frames.find(
+        (f): f is Extract<Frame, { type: 0x00 }> =>
+          f.type === 0x00 && f.message.t === 'reply' && f.message.id === id,
+      );
+      const b64 = (reply?.message as { bytesBase64?: string } | undefined)?.bytesBase64 ?? '';
+      return new Uint8Array(Buffer.from(b64, 'base64'));
+    }
+
+    it('a session that exits normally loses its scrollback without an explicit forget', async () => {
+      const tmp = mkdtempSync(join(tmpdir(), 'mstudio-broker-test-'));
+      const socketPath = join(tmp, 'exit-scrollback.sock');
+      const fake = createFakePty(8001);
+      const broker = createBrokerServer({ socketPath, userDataDir: tmp, spawnPty: () => fake.pty });
+      await new Promise((r) => setTimeout(r, 20));
+
+      await connectAndSend(socketPath, [
+        encodeControl({ t: 'hello', id: 1, protocol: PROTOCOL, appVersion: '0.12.0', pid: process.pid }),
+        encodeControl({ t: 'create', id: 2, sessionId: 'exit-sess', cwd: '/tmp', cols: 80, rows: 24, env: {} }),
+      ]);
+      await new Promise((r) => setTimeout(r, 30));
+
+      fake.emitData('some real output\n');
+      await new Promise((r) => setTimeout(r, 30));
+      fake.emitExit(0);
+      await new Promise((r) => setTimeout(r, 30));
+
+      const bytes = await snapshotBytes(socketPath, 'exit-sess', 10);
+      expect(bytes.length).toBe(0);
+
+      await broker.close();
+    });
+
+    it('a killed session loses its scrollback too', async () => {
+      const tmp = mkdtempSync(join(tmpdir(), 'mstudio-broker-test-'));
+      const socketPath = join(tmp, 'kill-scrollback.sock');
+      const fake = createFakePty(8002);
+      const broker = createBrokerServer({ socketPath, userDataDir: tmp, spawnPty: () => fake.pty });
+      await new Promise((r) => setTimeout(r, 20));
+
+      const { frames: createFrames } = await connectAndSend(socketPath, [
+        encodeControl({ t: 'hello', id: 1, protocol: PROTOCOL, appVersion: '0.12.0', pid: process.pid }),
+        encodeControl({ t: 'create', id: 2, sessionId: 'kill-sess', cwd: '/tmp', cols: 80, rows: 24, env: {} }),
+      ]);
+      const createReply = createFrames.find(
+        (f): f is Extract<Frame, { type: 0x00 }> =>
+          f.type === 0x00 && f.message.t === 'reply' && f.message.id === 2,
+      );
+      const ptyId = (createReply?.message as { ptyId: string }).ptyId;
+
+      fake.emitData('output before the kill\n');
+      await new Promise((r) => setTimeout(r, 30));
+
+      await connectAndSend(socketPath, [
+        encodeControl({ t: 'hello', id: 3, protocol: PROTOCOL, appVersion: '0.12.0', pid: process.pid }),
+        encodeControl({ t: 'kill', id: 4, ptyId }),
+      ]);
+      await new Promise((r) => setTimeout(r, 30));
+
+      const bytes = await snapshotBytes(socketPath, 'kill-sess', 20);
+      expect(bytes.length).toBe(0);
+
+      await broker.close();
+    });
+
+    it("an explicit 'forget' drops scrollback even for a still-live session", async () => {
+      const tmp = mkdtempSync(join(tmpdir(), 'mstudio-broker-test-'));
+      const socketPath = join(tmp, 'forget-scrollback.sock');
+      const fake = createFakePty(8003);
+      const broker = createBrokerServer({ socketPath, userDataDir: tmp, spawnPty: () => fake.pty });
+      await new Promise((r) => setTimeout(r, 20));
+
+      await connectAndSend(socketPath, [
+        encodeControl({ t: 'hello', id: 1, protocol: PROTOCOL, appVersion: '0.12.0', pid: process.pid }),
+        encodeControl({ t: 'create', id: 2, sessionId: 'forget-sess', cwd: '/tmp', cols: 80, rows: 24, env: {} }),
+      ]);
+      await new Promise((r) => setTimeout(r, 30));
+
+      fake.emitData('output that should be forgotten\n');
+      await new Promise((r) => setTimeout(r, 30));
+
+      // No exit and no kill — the pty is still alive when it is forgotten.
+      await connectAndSend(socketPath, [
+        encodeControl({ t: 'hello', id: 3, protocol: PROTOCOL, appVersion: '0.12.0', pid: process.pid }),
+        encodeControl({ t: 'forget', id: 4, sessionIds: ['forget-sess'] }),
+      ]);
+      await new Promise((r) => setTimeout(r, 30));
+
+      const bytes = await snapshotBytes(socketPath, 'forget-sess', 30);
+      expect(bytes.length).toBe(0);
+
+      await broker.close();
+    });
+  });
 });

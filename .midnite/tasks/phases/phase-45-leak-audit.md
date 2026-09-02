@@ -56,24 +56,25 @@ Effort tags: **S** ≈ an hour or two · **M** ≈ half a day · **L** ≈ a day
 
 ## Deliverables
 
-### A — The instrument (M)
+### A — The instrument (M) — ✅ DONE (2026-09-02)
 
 Nothing else in this phase can be argued without this, so it lands first.
 
-- [ ] `scripts/perf/memory-report.mjs`, launching through
+- [x] `scripts/perf/memory-report.mjs`, launching through
       [`electron-run.mjs`](../../../scripts/perf/electron-run.mjs) like every other harness — **not**
       Playwright's `_electron.launch`. See the framing; `startup-budget.spec.ts` already paid for
-      this lesson.
-- [ ] It reports **three processes separately**: main, renderer, and the detached broker. They have
+      this lesson. `runRetention()` is the reusable half; `retention.spec.ts` imports it directly.
+- [x] It reports **three processes separately**: main, renderer, and the detached broker. They have
       different lifetimes and different leaks — a single total would hide the worst one in this
-      phase (Theme C's broker growth) behind two healthy numbers.
-- [ ] Sampling stays **outside** the app, reading `ps -o rss=`, as
+      phase (Theme C's broker growth) behind two healthy numbers. (A fourth `other` bucket — GPU,
+      utility, network — falls out of the same classifier `idle-cpu.mjs` already uses.)
+- [x] Sampling stays **outside** the app, reading `ps -o rss=`, as
       [`startup-report.mjs:69`](../../../scripts/perf/startup-report.mjs),
       [`idle-cpu.mjs:183`](../../../scripts/perf/idle-cpu.mjs) and `broker-load.mjs` already do.
       [`README.md:13`](../../../scripts/perf/README.md) states the rule this phase must not quietly
       break: *"Instrumentation is dev-side … the scripts read `ps` from outside rather than having
       the app report on itself. Nothing perf-shaped ships in the product."*
-- [ ] A **retention** mode, which is the actual measurement: run an action N times, sample, and
+- [x] A **retention** mode, which is the actual measurement: run an action N times, sample, and
       report the growth per cycle rather than the level. `--cycles=20 --action=<name>` with a small
       registry of actions (open/close a repo, open/close a terminal session, run a council, open and
       close 10 browser tabs).
@@ -81,8 +82,21 @@ Nothing else in this phase can be argued without this, so it lands first.
     against the first 5**, not first-vs-last, and force a GC between cycles where the surface allows
     it (`--js-flags=--expose-gc` on the renderer; main and broker cannot be forced from outside).
   - The verdict is a **slope**: bytes retained per cycle. A flat line is a pass whatever the level.
-- [ ] An `MSTUDIO_PERF=1` heap sampler in main and in the broker, shaped like the two that already
-      exist — [`agent-process.ts:100`](../../../packages/desktop/src/main/agent-process.ts) and
+  - **Found while building this, not assumed:** the four actions are things a *user* does through
+    the renderer, and a perf script has no UI to click. Drives them via a CDP connection
+    (`--remote-debugging-port=0`, `chromium.connectOverCDP` — Playwright as a CDP **client** on an
+    already-launched app, never as the launcher) calling the exact bridge methods the renderer
+    calls. `council` is registered but refuses to run automatically — it needs a real, authenticated
+    agent CLI per member, which this harness cannot assume is present; it stays a human-run item.
+  - **Also found:** `os.tmpdir()`'s per-user macOS path plus a dev build's `<version>-<hash>-dev`
+    socket name can cross the 104-byte `sun_path` limit `broker-client.ts` checks, silently falling
+    back to an in-process pty that never touches the real broker. `seedProfile` grew an optional
+    short `tmpPrefix` for exactly this measurement.
+- [x] An `MSTUDIO_PERF=1` heap sampler in main and in the broker
+      ([`heap-sampler.ts`](../../../packages/desktop/src/heap-sampler.ts), at the package root since
+      main already reaches into `broker/` for `protocol.ts` — the cross-import is established, not
+      new), shaped like the two that already exist —
+      [`agent-process.ts:100`](../../../packages/desktop/src/main/agent-process.ts) and
       [`broker/server.ts:245`](../../../packages/desktop/src/broker/server.ts) — a flag-gated
       closure that accumulates and reports on an `unref()`'d interval, and is a **no-op closure**
       when the flag is unset, exactly as `createBootMark`
@@ -94,71 +108,122 @@ Nothing else in this phase can be argued without this, so it lands first.
   - Report `rss`, `heapUsed`, `heapTotal`, `external` and `arrayBuffers` from
     `process.memoryUsage()` — `arrayBuffers` is the one that will show Theme C, because scrollback
     is `Uint8Array`.
-- [ ] A `retainedPerCycleKb` entry in [`budgets.json`](../../../scripts/perf/budgets.json), with a
+- [x] A `retainedPerCycleKb` entry in [`budgets.json`](../../../scripts/perf/budgets.json), with a
       `_retention` note explaining that **this budget is a slope, not a level**, and that the
       1.15×/2.5× rule the rest of the file uses does not apply to it. A budget whose rule is
-      misunderstood is worse than none.
+      misunderstood is worse than none. Set to `500` from observed RSS noise (repo/browser-tabs
+      cycles, both expected flat, swung up to ~250 KB/cycle) — provisional pending more history.
 
-### B — The sweep, with verdicts (S)
+### B — The sweep, with verdicts (S) — ✅ DONE (2026-09-02)
 
-- [ ] A table of **every** retaining structure in `packages/desktop/src` — 35 top-level `Map`/`Set`
+- [x] A table of **every** retaining structure in `packages/desktop/src` — 35 top-level `Map`/`Set`
       allocations plus the arrays — each marked BOUNDED (by what, and where it is deleted) or
       LEAKING (what accumulates, and on what event). Published in the PR description and appended to
       the phase doc, the way [Phase 36](phase-36-performance-diet.md)'s Theme F sweep was.
-- [ ] Apply Theme F's rule verbatim rather than inventing a second one: *"a structure keyed on
+- [x] Apply Theme F's rule verbatim rather than inventing a second one: *"a structure keyed on
       content needs a cap; one keyed on mounted components or a literal enumeration does not,
       provided it deletes on unmount."* For main, read "mounted components" as "live ptys, open
       repos, open tabs, connected sockets".
-- [ ] **`packages/git-engine` is in the sweep and is expected to come back clean** — every cache
+- [x] **`packages/git-engine` is in the sweep and is expected to come back clean** — every cache
       there is already a bounded LRU with a TTL (`stats-cache.ts` `STATS_CACHE_MAX = 32`,
       `discovery-cache.ts` `DISCOVERY_CACHE_MAX = 32`) and every watcher and listener has a release
       path. Record it as audited; do not change it.
-- [ ] The sweep is **not** a licence to cap everything. A bounded, documented growth is a pass —
+- [x] The sweep is **not** a licence to cap everything. A bounded, documented growth is a pass —
       `avatars.ts`'s cache of distinct commit authors was explicitly acquitted by Theme F on exactly
       that basis.
 
-### C — The broker's scrollback, which outlives the app (M)
+#### The table
+
+| File | Structure | Verdict | Note |
+|---|---|---|---|
+| `broker/server.ts` | `sessions`, `sessionForPty` | BOUNDED | Deleted on pty `onExit` and on `kill`. |
+| `broker/server.ts` | `scrollbackBySession` | **was LEAKING → fixed (Theme C)** | Never deleted on exit/kill before this phase; now deleted in both, plus an explicit `forget` control message and a reconcile-on-`hello` backstop. |
+| `broker/server.ts` | `clients` | BOUNDED | One entry per open socket; deleted on `close`/`error`. |
+| `broker/server.ts` | `pendingOutput` | BOUNDED | Cleared by its own coalescing timer (`flushPtyOutput`) every 16ms. |
+| `broker-client.ts` | `legacy`, `ptyOwner`, `sessionOwner`, `ptySession` | BOUNDED | Deleted together on pty exit; `legacy` also drops a peer once it has no sessions left. |
+| `broker-client.ts` | `pendingRequests` | BOUNDED | Deleted on reply or on timeout. |
+| `broker-client.ts` | `dataListeners`, `exitListeners` | BOUNDED | `onData`/`onExit` already return an unsubscribe that deletes — the pattern `sessionExitHooks` below was missing. |
+| `main/pty-service.ts` | `sessions`, `sessionIdByPty`, `ptyDataListeners`, `ptyExitListeners`, `activityTracking` | BOUNDED | All deleted together on pty exit/kill. |
+| `main/pty-service.ts` | `scrollbackBySession` (the broker-mode mirror), `snapshotCache` | BOUNDED | Both cleared by `dropScrollback`, which now also reaches the broker's own copy (Theme C). |
+| `main/inproc-pty.ts` | `sessions`, `scrollbackBySession` | BOUNDED | Same shape as the broker's, deleted on drop; only live when `MSTUDIO_PTY_INPROC=1` or no broker is available. |
+| `main/council-service.ts` | `runs` | **was LEAKING → fixed (Theme D)** | `MAX_STORED_RUNS` trimmed only the disk copy; the in-memory array is now capped at write time in `saveRun`. |
+| `main/loop-runs.ts` | `runs` | **was LEAKING → fixed (Theme D)** | Identical bug to `council-service.ts`, same fix, in `startLoopRun`. |
+| `main/council-runner.ts` | `runLocks` | LEAKING (Theme E, not this batch) | `get`/`set`, no `delete` — one settled promise leaks per council run. `write-queue.ts`'s `evictIfCurrent` is the idiom to copy. |
+| `main/ipc/tests-handlers.ts` | `inFlight` | LEAKING (Theme E, not this batch) | Deleted in a `.then` with no `.catch` — a spawn rejection keeps the handle and raises an unhandled rejection. |
+| `main/log-service.ts`, `main/search-service.ts` | `stream-registry.ts`'s map, via `release()` | LEAKING on one path (Theme E, not this batch) | `release()` runs only inside `stream.done.then(...)`; a rejecting stream never reaches it. |
+| `main/terminal-store.ts` (renderer) | `legacy` record | LEAKING, trivial bytes (Theme E, not this batch) | `dropKey`'s hand-written `Pick<>` misses one of thirteen per-session records. |
+| `main/browser-service.ts` | `tabs` | BOUNDED | Deleted on tab close. Its `wc.removeAllListeners()` ordering (Theme E, not this batch) is hygiene, not a live leak — the contents close regardless. |
+| `main/forge/gh-cli.ts` | `runDetailCache`, `runLogCache` | BOUNDED | Explicit `forgetRun`-style invalidation on the event that stales them (`gh run rerun`). |
+| `main/forge/gh-cli.ts` | `workflowCache` | LEAKING, low severity (Theme E, not this batch) | TTL-checked on read, never evicted or capped — unlike its two neighbours above. Bounded in practice by distinct repos ever opened. |
+| `main/pty-service.ts` | `sessionExitHooks` | **was append-only → `off` added** | One boot-time caller today, so a latent risk rather than a leak; closed now rather than waiting for a second caller to need it. |
+| `main/activity-detect.ts` | `markers`, `strikes`, `disabled` | BOUNDED | Keyed on the agent roster (`AgentDefinition[]` passed in once at construction) — a literal enumeration, not per-session content. |
+| `main/agent-watcher.ts` | `tracked` | BOUNDED | Deleted when a tracked pty stops. |
+| `main/repo-registry.ts` | `entries` | BOUNDED | Keyed on open repos; one entry per repo the app has opened. |
+| `main/watch-service.ts` | `watchers` | BOUNDED | One fs watcher per open repo, disposed on close. |
+| `main/agent-process.ts` | `RUNTIMES`, `VALUE_FLAGS` | BOUNDED | Static literal enumerations, never mutated after module load. |
+| `main/fs-scope-write.ts` | `RESERVED_SEGMENTS` | BOUNDED | Static literal enumeration. |
+| `packages/git-engine` | every cache (`stats-cache.ts`, `discovery-cache.ts`, …) | BOUNDED (audited, unchanged) | Already bounded LRUs with TTLs throughout, per Phase 36 Theme F. |
+
+Six real leaks (the headline count this phase's intro gives): `scrollbackBySession` (Theme C), the two
+run-history arrays (Theme D, counted as one bug repeated), `runLocks`, `inFlight`, and
+`stream-registry`'s one-path `release()` gap — the last three are Theme E's and stay open past this
+batch. `dropKey`, `wc.removeAllListeners()` ordering and `workflowCache` are noted above as lower
+severity (trivial bytes, hygiene, or already bounded in practice) and are also Theme E's to fix.
+
+### C — The broker's scrollback, which outlives the app (M) — ✅ DONE (2026-09-02)
 
 > The largest leak found, and the only one whose severity comes from *where* it lives.
 
-- [ ] `scrollbackBySession` ([`broker/server.ts:125`](../../../packages/desktop/src/broker/server.ts))
+- [x] `scrollbackBySession` ([`broker/server.ts:125`](../../../packages/desktop/src/broker/server.ts))
       is `Map<sessionId, Uint8Array>` capped at `SCROLLBACK_BYTES * 2` = **2 MB per session**
       ([`terminal.ts:413`](../../../packages/shared/src/terminal.ts)). On pty exit (`:500`) and on
       `kill` (`:564`) the code deletes `sessionForPty` and `sessions` — **and never
       `scrollbackBySession`.**
-- [ ] Why this is worse than the same bug in main: the broker is **detached and deliberately
+- [x] Why this is worse than the same bug in main: the broker is **detached and deliberately
       outlives the window**. `before-quit` calls `detachAll()`, not kill
       ([`main/index.ts:451`](../../../packages/desktop/src/main/index.ts)) — that is the Phase 30
       guarantee. So the growth is 2 MB per terminal session **ever opened, across app restarts**,
       until the idle timer fires.
-- [ ] It also costs work, not just bytes: `flushAllScrollback()` (`server.ts:299`) walks the whole
+- [x] It also costs work, not just bytes: `flushAllScrollback()` (`server.ts:299`) walks the whole
       map every 15 s and writes a file per dead session, forever.
-- [ ] **The fix needs a protocol addition, which is why this is its own theme.** Main's
+- [x] **The fix needs a protocol addition, which is why this is its own theme.** Main's
       `forgetTerminal` clears main-side state only; there is no broker-side `dropScrollback` and no
       "forget this session" control message. Add one to
       [`broker/protocol.ts`](../../../packages/desktop/src/broker/protocol.ts)'s `ControlMessage`
       union — a discriminated union, so the new arm is a typecheck failure until handled.
-- [ ] Delete on pty exit and on kill as well, so a session that ends normally does not wait for an
+- [x] Delete on pty exit and on kill as well, so a session that ends normally does not wait for an
       explicit forget.
-- [ ] *Acceptance:* the Theme A retention harness, running "open a terminal session, run a command,
-      close it" × 20, shows **flat broker RSS and flat `arrayBuffers`**. Today it grows ~2 MB per
-      cycle, which is what makes this the phase's headline number.
+- [x] *Acceptance, revised from the draft:* the draft's plan — read the fix off the Theme A retention
+      harness's broker RSS — does not survive contact with a real run. A single terminal session's
+      2 MB cap is well inside the ±few-hundred-KB RSS noise a short-lived `ps` sample carries (V8/
+      allocator headroom absorbs it), so **the precise proof is a unit test against
+      `createBrokerServer` itself**: create a session, write real output, then exit/kill/`forget` it,
+      and read back a `snapshot` — three new tests in `server.test.ts`, each confirmed to fail against
+      the pre-fix code (0 → 17–32 bytes leaked) before passing against the fix. The retention harness
+      remains useful for the other three actions (flat main/renderer/broker RSS confirmed for
+      `repo` and `browser-tabs`) and is still what a human should re-run for a real multi-hour
+      session, per the phase's own verification item.
+- [x] **Beyond the draft's ask:** also reconcile on broker start/reconnect
+      (`reconcileOrphanedScrollback`, run on every `hello`) as a defensive backstop for an older
+      broker build's leftovers still resident when the app upgrades and reconnects to it — the
+      primary fix (exit/kill) covers everything going forward.
 
-### D — Two run histories that are capped on disk and unbounded in memory (S)
+### D — Two run histories that are capped on disk and unbounded in memory (S) — ✅ DONE (2026-09-02)
 
-- [ ] [`council-service.ts:27`](../../../packages/desktop/src/main/council-service.ts)'s in-memory
+- [x] [`council-service.ts:27`](../../../packages/desktop/src/main/council-service.ts)'s in-memory
       `runs` array grows without limit. `MAX_STORED_RUNS = 200`
       ([`councils-runs-store.ts:22`](../../../packages/desktop/src/main/councils-runs-store.ts))
       trims **only the copy written to disk** (`:46`) — the trimmed array is never assigned back.
-- [ ] Each run holds up to `COUNCIL_OUTPUT_CAP_BYTES` = **500 KB per member**
+- [x] Each run holds up to `COUNCIL_OUTPUT_CAP_BYTES` = **500 KB per member**
       ([`council.ts:179`](../../../packages/shared/src/council.ts)), so a four-member council
       retains ~2 MB per run, forever.
-- [ ] [`loop-runs.ts:27`](../../../packages/desktop/src/main/loop-runs.ts) has the **identical**
+- [x] [`loop-runs.ts:27`](../../../packages/desktop/src/main/loop-runs.ts) has the **identical**
       bug: `runs = [...runs, record]` at `:95`, with `MAX_STORED_LOOP_RUNS` trimming only the disk
       write (`loop-runs-store.ts:40`). Smaller payload, same shape.
-- [ ] Fix both by trimming the in-memory array with the same constant, so the cap means one thing.
-      **The bug is that a cap exists and is applied in exactly one of the two places it is needed** —
-      say that in the commit, because the next store written from this template will copy it.
+- [x] Fixed both by capping the in-memory array **at write time**, inside `saveRun`/`startLoopRun`
+      themselves — not by reading back whatever `store.save()` happened to trim — so the cap holds
+      even if the store's own trimming rule ever changes independently. Each fix carries a unit test
+      that pushes `MAX + 10` records and asserts the in-memory list is exactly `MAX`, oldest dropped.
 - [ ] *Acceptance:* a unit test asserts that after `MAX + 10` saves the in-memory array is `MAX`,
       not `MAX + 10`. One test per store; both would pass today against disk and fail against memory.
 

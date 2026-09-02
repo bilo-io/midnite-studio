@@ -1,6 +1,6 @@
 import { resolve, dirname, join } from 'node:path';
 
-import { EVENT_CHANNELS, CHANNELS } from '@midnite/studio-shared';
+import { EVENT_CHANNELS, CHANNELS, perfEnabled } from '@midnite/studio-shared';
 import { BrowserWindow, app, ipcMain } from 'electron';
 import { parseDeepLink } from './protocol-parse';
 import { registerCliHandlers } from './ipc/cli-handlers';
@@ -64,6 +64,7 @@ import { migrateAnyLegacyRepoStore } from './userdata-migration';
 import { installMgitFileProtocol, registerMgitFileScheme } from './fs-protocol';
 import { registerPerfHandlers } from './ipc/perf-handlers';
 import { bootMark } from './perf-marks';
+import { startHeapSampler } from '../heap-sampler';
 import { ensureLoginShellPathAsync } from './shell-path';
 import { createWindow } from './window';
 import { registerWindowChrome } from './window-chrome';
@@ -141,6 +142,7 @@ function bindRenderProcessGone(win: BrowserWindow, log: Logger): void {
   expensive is main's module graph"; it needs no `app` and must stay first.
 */
 bootMark('modules-loaded');
+startHeapSampler({ enabled: perfEnabled(process.env), processName: 'main', log: defaultLogger });
 
 app.setName('Midnite Studio');
 
