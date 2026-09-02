@@ -1223,3 +1223,91 @@ html[data-motion='reduced'] .loop-launcher,
 html[data-motion='reduced'] .loop-launcher.is-running.is-pulsing {
   animation-name: none;
 }
+
+/* ---------------------------------------------------------------------------
+ * Commit graph — the selected row, and the branch it landed on.
+ *
+ * Selecting a commit used to paint `bg-accent` and leave the graph untouched,
+ * which answers "which row did I click" and none of "which branch is this".
+ * The lane colour already carries that answer everywhere else in the row — the
+ * ref chips, the rail, the 3px selection strip — so the tint, the text and the
+ * lane halo all take it too, and the accent hue stops competing with a palette
+ * it has no relationship to.
+ *
+ * `--lane-h` / `--lane-s` / `--lane-l` are set inline on every row from its own
+ * `colorIdx` (`laneVars`, features/graph/lane-colors.ts); only the ink's
+ * lightness is the app theme's business, via `--lane-ink-l` — the lane palette
+ * is tuned for a dark ground, and the same value over white is a pastel.
+ * ------------------------------------------------------------------------- */
+
+/* 0.16, not the ~0.4 an accent fill lands at: the row's own text sits ON this,
+ * and a lane hue strong enough to read as "selected" from the tint alone is
+ * strong enough to fight the subject it is behind. The 3px strip at the left
+ * edge is what carries the selection; this only has to warm the row. */
+.graph-row[aria-selected='true'] {
+  background-color: hsl(var(--lane-h) var(--lane-s) var(--lane-l) / 0.16);
+}
+
+/* Subject, author, date and sha, all in the branch's hue. `--lane-ink-l`
+ * rather than the lane's own `--lane-l`, for the reason above — and the rule
+ * is unlayered, so it outranks the `text-muted-foreground` utility the date
+ * and sha still carry for their unselected state. */
+.graph-row[aria-selected='true'] .graph-row-ink {
+  color: hsl(var(--lane-h) var(--lane-s) var(--lane-ink-l));
+}
+
+/* The lane halo (features/graph/graph-svg.tsx draws the copy this animates).
+ *
+ * Opacity is the only animated property, and the `drop-shadow` radius never
+ * changes: a filter whose radius moves re-rasterises its layer every frame —
+ * the trap Phase 36 Theme E documents for the FAB's blur — where an opacity on
+ * a stable filtered layer composites on the GPU. That matters here more than
+ * there, because up to ~30 virtualised rows can be running this at once. */
+@keyframes graph-lane-glow {
+  0%,
+  100% {
+    opacity: 0.25;
+  }
+  50% {
+    opacity: 1;
+  }
+}
+
+.graph-lane-glow {
+  filter: drop-shadow(0 0 3px hsl(var(--lane-h) var(--lane-s) var(--lane-l) / 0.9));
+  animation: graph-lane-glow 2.4s ease-in-out infinite;
+  pointer-events: none;
+}
+
+/* The rail between the graph and the subject, in the avatar styles. A real box,
+ * so a real `box-shadow` — and the blur radius is likewise fixed, with only the
+ * shadow's alpha moving between the two keyframes. */
+@keyframes graph-rail-glow {
+  0%,
+  100% {
+    box-shadow: 0 0 5px 0 hsl(var(--lane-h) var(--lane-s) var(--lane-l) / 0.2);
+  }
+  50% {
+    box-shadow: 0 0 5px 0 hsl(var(--lane-h) var(--lane-s) var(--lane-l) / 0.85);
+  }
+}
+
+.graph-rail-glow {
+  animation: graph-rail-glow 2.4s ease-in-out infinite;
+}
+
+/* Reduced motion keeps the highlight and drops the pulse — the glow is what
+ * says which branch, and a steady one says it just as well. Gated on
+ * `data-motion` the same way `.pill-shimmer` is, so the app's own Motion
+ * setting can opt back in. */
+@media (prefers-reduced-motion: reduce) {
+  html:not([data-motion='full']) .graph-lane-glow {
+    animation: none;
+    opacity: 0.7;
+  }
+
+  html:not([data-motion='full']) .graph-rail-glow {
+    animation: none;
+    box-shadow: 0 0 5px 0 hsl(var(--lane-h) var(--lane-s) var(--lane-l) / 0.55);
+  }
+}

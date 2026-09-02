@@ -263,6 +263,22 @@ export function GraphView() {
   );
 
   /**
+   * The lane the selected commit sits on — what the branch highlight keys off.
+   *
+   * Derived here rather than in the row because a row cannot see the selection
+   * unless it IS the selection, and the point of the highlight is the rows that
+   * are not: the whole branch lights up, above and below the commit picked.
+   *
+   * `null` while the selected sha is below the loaded window, which is normal
+   * on a large repo mid-stream — nothing glows until its row streams in.
+   */
+  const glowColorIdx = useMemo(
+    () => rows.find((row) => row.commit.sha === selectedSha)?.colorIdx ?? null,
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [rows, rowCount, selectedSha],
+  );
+
+  /**
    * The row HEAD points at, for the working-copy row to sit on top of.
    *
    * `undefined` when HEAD is below the loaded window, which is normal on a
@@ -377,6 +393,7 @@ export function GraphView() {
                       highlightedEmails !== null &&
                       !highlightedEmails.has(row.commit.authorEmail.trim().toLowerCase())
                     }
+                    glowColorIdx={glowColorIdx}
                     onSelect={selectCommit}
                     onContextMenu={onRowContextMenu}
                     onRefContextMenu={onRefContextMenu}
