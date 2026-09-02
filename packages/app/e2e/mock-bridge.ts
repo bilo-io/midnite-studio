@@ -57,6 +57,8 @@ export type MockFixtures = {
   statusEntries: unknown[];
   /** Refs the sidebar and the BRANCH / TAG column render. */
   refs?: unknown[];
+  /** What `stash.list` answers — the sidebar's Stashes section (Phase 22 Theme B). */
+  stashes?: unknown[];
   /** Configured remotes, as `mstudio:remotes:list` returns them (forge pre-derived). */
   remotes?: unknown[];
   /**
@@ -1111,6 +1113,36 @@ export async function installMockBridge(page: Page, fixtures: MockFixtures): Pro
           },
         },
       ),
+      /*
+        Its own namespace, not folded into `ops`'s proxy above: `list` is a
+        read answering from `data.stashes`, and `ops`'s proxy always stubs
+        `{ok:true}` — a real answer needs a real method. The five writes
+        record into the same `opCalls`, `op` prefixed `stash.` so a spec can
+        tell `stash.push` apart from `push` (Phase 22 Theme B/E).
+      */
+      stash: {
+        list: async () => data.stashes ?? [],
+        push: async (args: unknown) => {
+          opCalls.push({ op: 'stash.push', args });
+          return data.opResults?.['stash.push'] ?? { ok: true as const };
+        },
+        apply: async (args: unknown) => {
+          opCalls.push({ op: 'stash.apply', args });
+          return data.opResults?.['stash.apply'] ?? { ok: true as const };
+        },
+        pop: async (args: unknown) => {
+          opCalls.push({ op: 'stash.pop', args });
+          return data.opResults?.['stash.pop'] ?? { ok: true as const };
+        },
+        branch: async (args: unknown) => {
+          opCalls.push({ op: 'stash.branch', args });
+          return data.opResults?.['stash.branch'] ?? { ok: true as const };
+        },
+        drop: async (args: unknown) => {
+          opCalls.push({ op: 'stash.drop', args });
+          return data.opResults?.['stash.drop'] ?? { ok: true as const };
+        },
+      },
       /*
         A fake pty that actually talks back.
 
