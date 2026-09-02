@@ -1,6 +1,8 @@
 import { DEFAULT_LOOPS } from '@midnite/studio-shared';
 import { useEffect } from 'react';
+import type { CSSProperties } from 'react';
 
+import { loopGlowColor } from '../features/loops/loop-glow';
 import { loopIcon } from '../features/loops/loop-icons';
 import { LoopTab } from '../features/loops/loop-tab';
 import { useAllLoopStatuses, type LoopStatus } from '../features/loops/loop-status';
@@ -65,15 +67,45 @@ export function FabPanel({ isOpen, width }: FabPanelProps) {
               <button
                 key={loop.id}
                 onClick={() => onTabClick(loop.id as FabTab)}
-                className={`relative flex-1 flex flex-col items-center justify-center gap-1 py-2 transition-colors ${
+                className={`relative flex-1 flex flex-col items-center justify-center gap-1 overflow-hidden py-2 transition-colors ${
                   activeFabTab === loop.id
                     ? 'bg-accent text-accent-foreground'
                     : 'bg-transparent text-muted-foreground hover:bg-muted hover:text-foreground'
                 }`}
                 title={loop.label}
               >
-                <Icon className={`h-4 w-4 ${loop.color}`} />
-                <span className="text-xs font-medium">{loop.label}</span>
+                {/*
+                  A tab with a live session cascades the same shimmer sweep
+                  the lock-screen status pills use (`.pill-shimmer`), just
+                  tinted to the loop's own colour and staggered by tab index
+                  instead of by distance from the middle pill.
+                */}
+                {status?.running ? (
+                  <span
+                    aria-hidden
+                    data-testid={`loop-shimmer-${loop.id}`}
+                    className="tab-loop-shimmer pointer-events-none absolute inset-0"
+                    style={
+                      {
+                        background: `linear-gradient(100deg, transparent 38%, ${loopGlowColor(loop.id)} 50%, transparent 62%)`,
+                        '--tab-i': index,
+                      } as CSSProperties
+                    }
+                  />
+                ) : null}
+                <Icon className={`relative h-4 w-4 ${loop.color}`} />
+                <span
+                  className={`relative text-xs ${activeFabTab === loop.id ? 'font-semibold' : 'font-medium'} ${loop.color}`}
+                >
+                  {loop.label}
+                </span>
+                {/* The active tab's title carries its own underline sliver, in the loop's colour. */}
+                {activeFabTab === loop.id ? (
+                  <span
+                    aria-hidden
+                    className={`absolute inset-x-3 bottom-0 h-0.5 rounded-full bg-current ${loop.color}`}
+                  />
+                ) : null}
                 {/*
                   The live dot, so four unattended loops are legible without
                   visiting each tab. Amber outranks the loop colour: a loop

@@ -85,7 +85,7 @@ test.describe('FAB loop console', () => {
     await open(page);
     await openFab(page);
 
-    for (const label of ['Ideate', 'Engineer', 'Patrol', 'Medic']) {
+    for (const label of ['Ideate', 'Create', 'Patrol', 'Medic']) {
       await expect(page.getByRole('button', { name: label, exact: true })).toBeVisible();
     }
     // The eager-spawn bug: four panes used to appear before anything was pressed.
@@ -126,7 +126,7 @@ test.describe('FAB loop console', () => {
     // toggle the panel shut.
     for (const [tab, id] of [
       ['Ideate', 'innovate'],
-      ['Engineer', 'automate'],
+      ['Create', 'automate'],
       ['Medic', 'medic'],
     ] as const) {
       await page.getByRole('button', { name: tab, exact: true }).click();
@@ -232,7 +232,7 @@ test.describe('FAB loop console', () => {
 
   test('starting a loop does not open the main terminal panel', async ({ page }) => {
     await open(page);
-    await openFab(page, 'Engineer');
+    await openFab(page, 'Create');
     await page.getByTestId('loop-composer-automate').getByTestId('loop-start').click();
     await expect(page.getByTestId('loop-composer-automate').getByTestId('loop-stop')).toBeVisible();
     await expect(panel(page)).toHaveCount(0);
@@ -277,13 +277,13 @@ test.describe('FAB loop console', () => {
 
     await openFab(page);
     await page.getByTestId('loop-composer-innovate').getByTestId('loop-start').click();
-    await page.getByRole('button', { name: 'Engineer', exact: true }).click();
+    await page.getByRole('button', { name: 'Create', exact: true }).click();
     await page.waitForTimeout(SETTLE_WAIT_MS);
     await page.getByTestId('loop-composer-automate').getByTestId('loop-start').click();
 
     /*
       Each loop owns a fixed corner from its index in `DEFAULT_LOOPS`, not from
-      how many are live — so Ideate stays top-left when Engineer joins it.
+      how many are live — so Ideate stays top-left when Create joins it.
     */
     await expect(page.getByTestId('fab-loop-corner-innovate')).toHaveAttribute(
       'data-corner',
@@ -469,7 +469,7 @@ test.describe('FAB loop console — the waiting notice (Theme G)', () => {
       again is what shuts the console; `FabPanel` returns null when closed,
       which is why the composers vanish rather than merely hiding here.
     */
-    await page.getByRole('button', { name: 'Engineer', exact: true }).click();
+    await page.getByRole('button', { name: 'Create', exact: true }).click();
     await page.getByRole('button', { name: 'Open quick access panel' }).click();
     await expect(page.getByTestId('loop-composer-innovate')).toHaveCount(0);
 
@@ -481,7 +481,7 @@ test.describe('FAB loop console — the waiting notice (Theme G)', () => {
 
     await page.getByRole('button', { name: 'Open Ideate' }).click();
     /*
-      The panel reopens on the loop that asked, not on Engineer, which is
+      The panel reopens on the loop that asked, not on Create, which is
       where it was left. Visibility rather than presence for the negative: all
       four tabs mount together once the panel is open (each pane owns an xterm
       that must not be torn down on every tab switch) and the inactive ones are
@@ -579,7 +579,7 @@ test.describe('FAB panel — the tab glow (Phase 37)', () => {
   const ARCS: Record<string, { from: string; to: string }> = {
     Medic: { from: '-90deg', to: '90deg' },
     Patrol: { from: '-30deg', to: '150deg' },
-    Engineer: { from: '30deg', to: '210deg' },
+    Create: { from: '30deg', to: '210deg' },
     Ideate: { from: '90deg', to: '270deg' },
   };
 
@@ -617,11 +617,11 @@ test.describe('FAB panel — the tab glow (Phase 37)', () => {
 
   test("Start/Stop inside a tab's own pane inherits that tab's arc for free", async ({ page }) => {
     await open(page);
-    await openFab(page, 'Engineer');
+    await openFab(page, 'Create');
     await page.getByTestId('loop-composer-automate').getByTestId('loop-start').click();
     const stop = page.getByTestId('loop-composer-automate').getByTestId('loop-stop');
     await expect(stop).toBeVisible();
-    await expect.poll(() => arcOf(stop)).toEqual(ARCS['Engineer']);
+    await expect.poll(() => arcOf(stop)).toEqual(ARCS['Create']);
   });
 
   test('data-loop-state tracks the active tab: idle, running, then waiting', async ({ page }) => {
