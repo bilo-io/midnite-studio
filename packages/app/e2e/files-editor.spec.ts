@@ -31,7 +31,7 @@ const editorFixtures: MockFixtures = {
 async function openFiles(page: Page): Promise<void> {
   await installMockBridge(page, editorFixtures);
   await page.goto('/');
-  await clickRailLink(page, 'Files');
+  await clickRailLink(page, 'Explorer');
   await expect(page.getByRole('tree', { name: 'Files' })).toBeVisible();
 }
 

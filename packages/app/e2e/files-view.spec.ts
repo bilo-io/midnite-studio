@@ -75,7 +75,7 @@ const filesFixtures: MockFixtures = {
 async function openFiles(page: Page): Promise<void> {
   await installMockBridge(page, filesFixtures);
   await page.goto('/');
-  await clickRailLink(page, 'Files');
+  await clickRailLink(page, 'Explorer');
   await expect(page.getByRole('tree', { name: 'Files' })).toBeVisible();
 }
 

@@ -37,7 +37,7 @@ const slidesFixtures: MockFixtures = {
 async function openReadmeDeck(page: Page) {
   await installMockBridge(page, slidesFixtures);
   await page.goto('/');
-  await clickRailLink(page, 'Files');
+  await clickRailLink(page, 'Explorer');
   await page.getByRole('treeitem', { name: /README\.md/ }).click();
   await expect(page.getByText('A short deck to present.')).toBeVisible();
   await page.getByRole('button', { name: 'Present as slides' }).click();
