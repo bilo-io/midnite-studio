@@ -1,7 +1,8 @@
 import type { ForgeProjectField, ForgeProjectItem } from '@midnite/studio-shared';
 import { cleanup, fireEvent, render, screen } from '@testing-library/react';
-import { afterEach, describe, expect, it, vi } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
+import { useTerminalStore } from '../../terminal/terminal-store';
 import { TaskCard } from './task-card';
 
 afterEach(cleanup);
@@ -65,5 +66,60 @@ describe('TaskCard', () => {
     fireEvent.click(screen.getByText('Fix the flaky test'));
 
     expect(onClick).toHaveBeenCalled();
+  });
+
+  describe('the running glow (Theme F)', () => {
+    beforeEach(() => {
+      useTerminalStore.setState({ sessions: [], activeId: null, states: {}, activity: {} });
+    });
+
+    it('no glow class with no projectId — a card with no board context stays plain', () => {
+      const { container } = render(<TaskCard item={issue} fields={[]} />);
+      expect(container.querySelector('.card-run-glow')).toBeNull();
+    });
+
+    it('no glow class with a projectId but no bound session', () => {
+      const { container } = render(<TaskCard item={issue} fields={[]} projectId="proj1" />);
+      expect(container.querySelector('.card-run-glow')).toBeNull();
+    });
+
+    it('pulses running once a kanban session is bound to this card', () => {
+      useTerminalStore.getState().openSession({
+        kind: 'agent',
+        agentId: 'claude',
+        title: 'card',
+        cwd: '/repo',
+        repoId: 'r1',
+        surface: 'kanban',
+        taskRef: { projectId: 'proj1', itemId: issue.id },
+      });
+
+      const { container } = render(<TaskCard item={issue} fields={[]} projectId="proj1" />);
+      const card = container.querySelector('.card-run-glow');
+      expect(card).not.toBeNull();
+      expect(card?.className).toContain('is-running');
+    });
+
+    it('no glow for an open pane with no session ever launched — plain browsing, not a left-open terminal', () => {
+      const { container } = render(<TaskCard item={issue} fields={[]} projectId="proj1" isOpen />);
+      expect(container.querySelector('.card-run-glow')).toBeNull();
+    });
+
+    it('a session bound to this card, ended, with the detail pane open: a static ring', () => {
+      const session = useTerminalStore.getState().openSession({
+        kind: 'agent',
+        agentId: 'claude',
+        title: 'card',
+        cwd: '/repo',
+        repoId: 'r1',
+        surface: 'kanban',
+        taskRef: { projectId: 'proj1', itemId: issue.id },
+      });
+      useTerminalStore.getState().setState(session.id, 'exited');
+
+      const { container } = render(<TaskCard item={issue} fields={[]} projectId="proj1" isOpen />);
+      const card = container.querySelector('.card-run-glow');
+      expect(card?.className).toContain('is-open');
+    });
   });
 });

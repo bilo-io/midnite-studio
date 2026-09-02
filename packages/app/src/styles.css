@@ -1585,6 +1585,65 @@ html[data-motion='reduced'] .loop-run-glow {
   box-shadow: 0 0 10px rgba(236, 72, 153, 0.4);
 }
 
+/*
+  Card run glow (Phase 41 Theme F) — a Kanban card's own border glow, and
+  deliberately not `.loop-run-glow` reused verbatim: that class paints the
+  shared rainbow ramp a loop tab cycles through, but a card is bound to one
+  agent, not a spectrum, so `--card-glow-color` carries a single solid hex
+  from `loopGlowColor(agentId)` instead. Three states, from `glow-state.ts`:
+  `.is-running` pulses, `.is-waiting` is a steady amber ring (waiting never
+  decays — `activity-detect.ts`'s own rule), `.is-open` is a static ring at
+  the card's own colour with no animation, so the open card stays findable
+  without competing for attention with a running one.
+*/
+@keyframes card-glow-pulse {
+  0%,
+  100% {
+    box-shadow:
+      0 0 4px var(--card-glow-color),
+      0 0 8px var(--card-glow-color);
+  }
+  50% {
+    box-shadow:
+      0 0 8px var(--card-glow-color),
+      0 0 16px var(--card-glow-color);
+  }
+}
+
+.card-run-glow {
+  border-color: var(--card-glow-color) !important;
+}
+
+.card-run-glow.is-running {
+  animation: card-glow-pulse 2s ease-in-out infinite;
+}
+
+.card-run-glow.is-waiting {
+  border-color: #f59e0b !important;
+  box-shadow: 0 0 8px rgba(245, 158, 11, 0.55);
+}
+
+.card-run-glow.is-open {
+  box-shadow: 0 0 0 1px var(--card-glow-color);
+}
+
+/*
+  Focus-gated the same way `.fab-panel-gradient` is (see the block above) —
+  a board with several running cards is that many animations, and a blurred
+  window should pay for none of them. `BoardView` calls the shared
+  `useWindowFocusGate` itself rather than waiting on a hoist to `app.tsx`:
+  the hook already supports concurrent hosts (FabPanel and LandingView both
+  call it today), so a third caller costs nothing extra.
+*/
+html[data-window-focused='false'] .card-run-glow.is-running {
+  animation-play-state: paused;
+}
+
+html[data-motion='reduced'] .card-run-glow.is-running {
+  animation: none;
+  box-shadow: 0 0 8px var(--card-glow-color);
+}
+
 /* ---------------------------------------------------------------------------
  * The collapsed FAB's orbiting halo — the panel's inner rim, turned inside out.
  *
