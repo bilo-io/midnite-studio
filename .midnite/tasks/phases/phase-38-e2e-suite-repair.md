@@ -157,16 +157,32 @@ switch) was a stale spec — worktree selection persisting across view switches 
 deliberate, already-landed feature (`e36b6ac`); the assertion was inverted to match. The
 other three were stale-selector fixes, not bugs.
 
-### D — The terminal panel (S)
+### D — The terminal panel (S) — ◐ PARTIAL (PR #47, 2026-09-02)
 
 Two specs, both about state that has to survive something. Kept separate from Theme A: these
 fail on their own assertions rather than on pty delivery, so they may well outlive A's fix —
 but re-run them after A lands before spending any time here.
 
-- [ ] `terminal.spec.ts:972` — a reload keeps live sessions live (`toEqual` deep equality).
-- [ ] `terminal.spec.ts:1073` — the session list resizes independently of the terminal pane
+- [x] `terminal.spec.ts:972` — a reload keeps live sessions live (`toEqual` deep equality).
+  - Was a spec race, not a product bug: `LazyTerminalView`'s chunk (re-)loads asynchronously after
+    a reload, so the mount effect that calls `pty.snapshot` lands a beat after the session rows are
+    already visible. Fixed with `expect.poll` instead of a synchronous read right after
+    `rows(page)` — reproduced reliably as an empty `Set` without it.
+- [x] `terminal.spec.ts:1073` — the session list resizes independently of the terminal pane
       (`toBeGreaterThan`).
-- [ ] Drop `terminal.spec.ts` from `KNOWN_RED`.
+  - Also a spec race: the bounding box was measured immediately after `toggleTerminal`, while the
+    reveal tween was still settling. `panel-snap.spec.ts`'s own `dragSeparator` already documents
+    this exact trap and its fix — `hover()` before `boundingBox()`, so Playwright waits for the
+    element to stop moving.
+  - Both confirmed stable over 3 repeated local runs each.
+- [ ] **Attempted and reverted.** Dropping the whole file from `KNOWN_RED` verified green at 38/38
+      locally on macOS — but macOS has a real GPU. CI (a GPU-less Linux runner) surfaced failures in
+      *other* specs entirely unrelated to this theme (`'an agent row carries its own mark and its
+      own accent'`, `'two agents from the same roster get different marks'`, at least a third before
+      the job was cancelled) — exactly the `@xterm/addon-webgl` wall this file's `KNOWN_RED` comment
+      already names. The file was wholesale-excluded from the day CI was wired up, so nobody had
+      ever run its other 36 specs against a real Linux runner before. It stays in `KNOWN_RED`; Theme
+      I owns finding and `@linux-red`-tagging every affected spec.
 
 ### E — Settings, files and tests (S) — ✅ DONE (2026-09-02)
 
@@ -320,6 +336,16 @@ them** while making every shard about 60% slower — 7.6 min to 12.1 min — so 
 - [ ] Drop `phase-21-roster.spec.ts`, `terminal-lazy-preload.spec.ts` and
       `terminal-reveal.spec.ts` from `KNOWN_RED`, and remove `grepInvert` from
       `playwright.ci.config.ts` once no `@linux-red` tag remains.
+- [ ] **New sighting (PR #47, 2026-09-02): `terminal.spec.ts` joins this theme's scope, not just
+      Theme D's.** Theme D fixed its own two named specs (both spec races) and tried dropping the
+      whole file from `KNOWN_RED` — verified 38/38 green on macOS, then reverted once CI failed on
+      `'an agent row carries its own mark and its own accent'`, `'two agents from the same roster
+      get different marks'` and at least a third before the job was cancelled at its ~20-minute
+      mark. These are agent-mark assertions against real terminal content, the same shape as this
+      theme's other four — but the file was wholesale-excluded from the day CI was wired up, so
+      **the true count of affected specs in it is still unknown**; the job never finished a full
+      pass. First step here is the same as `phase-21-roster.spec.ts` etc.: run it in isolation
+      against CI (or a GPU-less local repro) to find the complete list before tagging.
 
 ## Files this phase touches
 
