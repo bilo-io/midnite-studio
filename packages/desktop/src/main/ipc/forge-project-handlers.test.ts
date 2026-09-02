@@ -27,6 +27,12 @@ const { listProjects, projectFields, projectItems } = vi.hoisted(() => ({
 }));
 vi.mock('../forge/gh-project', () => ({ listProjects, projectFields, projectItems }));
 
+const { setItemFieldValue, addItemToProject } = vi.hoisted(() => ({
+  setItemFieldValue: vi.fn(),
+  addItemToProject: vi.fn(),
+}));
+vi.mock('../forge/gh-project-write', () => ({ setItemFieldValue, addItemToProject }));
+
 const OK_CLI = { reason: 'ready' as const, binPath: '/usr/bin/gh', hint: '' };
 const githubRemote = {
   name: 'origin',
@@ -48,6 +54,8 @@ beforeEach(() => {
   listProjects.mockReset();
   projectFields.mockReset();
   projectItems.mockReset();
+  setItemFieldValue.mockReset();
+  addItemToProject.mockReset();
 });
 
 afterEach(() => {
@@ -136,5 +144,63 @@ describe('forgeProjectFields / forgeProjectItems — node id validation', () => 
 
     expect(projectItems).not.toHaveBeenCalled();
     expect(result).toMatchObject({ items: [], kind: 'error' });
+  });
+});
+
+describe('forgeProjectSetField / forgeProjectAddItem (Theme E)', () => {
+  it('forwards a well-formed set-field request to setItemFieldValue', async () => {
+    setItemFieldValue.mockResolvedValue({ ok: true, kind: 'ok' });
+    const registered = await loadHandlers();
+    const value = { fieldId: 'f1', dataType: 'text' as const, text: 'hello' };
+
+    const result = await registered
+      .get('mstudio:forge-project:set-field')
+      ?.(null, { projectId: 'PVT_abc', itemId: 'PVTI_abc', fieldId: 'f1', value });
+
+    expect(setItemFieldValue).toHaveBeenCalledWith(expect.objectContaining({ host: 'github.com' }), {
+      projectId: 'PVT_abc',
+      itemId: 'PVTI_abc',
+      fieldId: 'f1',
+      value,
+    });
+    expect(result).toEqual({ ok: true, kind: 'ok' });
+  });
+
+  it('refuses a set-field request whose itemId carries shell metacharacters', async () => {
+    const registered = await loadHandlers();
+    const result = await registered.get('mstudio:forge-project:set-field')?.(null, {
+      projectId: 'PVT_abc',
+      itemId: '$(rm -rf /)',
+      fieldId: 'f1',
+      value: { fieldId: 'f1', dataType: 'text', text: 'hello' },
+    });
+
+    expect(setItemFieldValue).not.toHaveBeenCalled();
+    expect(result).toMatchObject({ ok: false, kind: 'error' });
+  });
+
+  it('forwards a well-formed add-item request to addItemToProject', async () => {
+    addItemToProject.mockResolvedValue({ ok: true, kind: 'ok' });
+    const registered = await loadHandlers();
+
+    const result = await registered
+      .get('mstudio:forge-project:add-item')
+      ?.(null, { projectId: 'PVT_abc', contentId: 'I_abc' });
+
+    expect(addItemToProject).toHaveBeenCalledWith(expect.objectContaining({ host: 'github.com' }), {
+      projectId: 'PVT_abc',
+      contentId: 'I_abc',
+    });
+    expect(result).toEqual({ ok: true, kind: 'ok' });
+  });
+
+  it('refuses an add-item request whose contentId carries shell metacharacters', async () => {
+    const registered = await loadHandlers();
+    const result = await registered
+      .get('mstudio:forge-project:add-item')
+      ?.(null, { projectId: 'PVT_abc', contentId: '; rm -rf /' });
+
+    expect(addItemToProject).not.toHaveBeenCalled();
+    expect(result).toMatchObject({ ok: false, kind: 'error' });
   });
 });

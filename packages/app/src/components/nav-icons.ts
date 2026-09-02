@@ -83,6 +83,7 @@ export const SETTINGS_PAGE_ICON: Record<SettingsPageId, IconType> = {
   // A shield rather than a git or comment glyph: this page is the permission in
   // front of the review actions, not the actions themselves.
   reviews: LuShieldCheck,
+  projects: LuSquareKanban,
   monitor: LuActivity,
   browser: GoGlobe,
   cli: LuTerminal,

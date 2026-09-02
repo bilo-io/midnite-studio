@@ -97,6 +97,7 @@ export type SettingsPageId =
   | 'terminal'
   | 'agent'
   | 'reviews'
+  | 'projects'
   | 'monitor'
   | 'browser'
   | 'cli'
@@ -135,6 +136,7 @@ export const SETTINGS_PAGES: { id: SettingsPageId; label: string; group: Setting
   { id: 'terminal', label: 'Terminal', group: 'tools' },
   { id: 'agent', label: 'Agent', group: 'tools' },
   { id: 'reviews', label: 'Reviews', group: 'tools' },
+  { id: 'projects', label: 'Projects', group: 'tools' },
   { id: 'browser', label: 'Browser', group: 'tools' },
   { id: 'cli', label: 'CLI Integration', group: 'system' },
   { id: 'updates', label: 'App Updates', group: 'system' },

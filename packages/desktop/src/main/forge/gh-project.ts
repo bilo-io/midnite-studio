@@ -235,7 +235,7 @@ export async function projectItems(
  * not. `read:project` is matched too, for the same scope named in prose by a
  * differently-worded refusal on some `gh` versions.
  */
-function scopeErrorKind(output: string): ForgeProjectReadKind {
+export function scopeErrorKind(output: string): ForgeProjectReadKind {
   return /INSUFFICIENT_SCOPES/.test(output) || /\bread:project\b/.test(output)
     ? 'insufficient-scope'
     : 'error';

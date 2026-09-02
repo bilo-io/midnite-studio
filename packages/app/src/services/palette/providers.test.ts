@@ -1,9 +1,16 @@
-import type { AgentDefinition, RepoDescriptor, TerminalSession, Worktree } from '@midnite/studio-shared';
+import type {
+  AgentDefinition,
+  ForgeProject,
+  RepoDescriptor,
+  TerminalSession,
+  Worktree,
+} from '@midnite/studio-shared';
 import { describe, expect, it, vi } from 'vitest';
 
 import type { CommandRuntime } from '../../services/keybindings/use-command-handlers';
 import {
   createCommandSource,
+  createProjectBoardsSource,
   createReposSource,
   createTerminalSource,
   createViewsSource,
@@ -93,6 +100,21 @@ describe('palette providers', () => {
     const items = source.items();
     expect(items.find((i) => i.id === 'session:s1')?.label).toBe('zsh');
     expect(items.find((i) => i.id === 'agent:claude')?.label).toBe('Start Claude Code');
+  });
+
+  it('creates a board entry only for boards already loaded, and only with a repo open', () => {
+    const onSelect = vi.fn();
+    const boards: ForgeProject[] = [
+      { id: 'PVT_1', number: 1, title: 'Roadmap', url: 'https://github.com/orgs/acme/projects/1', closed: false },
+    ];
+
+    const source = createProjectBoardsSource(boards, 'r1', onSelect);
+    expect(source.key).toBe('project-boards');
+    expect(source.items().find((i) => i.id === 'project-board:PVT_1')?.label).toBe('Roadmap');
+
+    // No repo open: nothing to navigate a board within, so no items — never
+    // a fetch either way, since `boards` is whatever the caller already had.
+    expect(createProjectBoardsSource(boards, null, onSelect).items()).toEqual([]);
   });
 
   it('scores items using source weights', () => {

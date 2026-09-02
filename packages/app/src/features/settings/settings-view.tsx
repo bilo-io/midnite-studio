@@ -15,6 +15,7 @@ import { CliPage } from './settings-pages/cli-page';
 import { GraphPage } from './settings-pages/graph-page';
 import { HealthPage } from './settings-pages/health-page';
 import { MonitorPage } from './settings-pages/monitor-page';
+import { ProjectsPage } from './settings-pages/projects-page';
 import { ReviewsPage } from './settings-pages/reviews-page';
 import { ScreenLockPage } from './settings-pages/screen-lock-page';
 import { SearchSettingsPage } from './settings-pages/search-page';
@@ -39,6 +40,7 @@ const PAGE_CONTENT: Record<SettingsPageId, () => React.ReactNode> = {
   terminal: () => <TerminalPage />,
   agent: () => <AgentPage />,
   reviews: () => <ReviewsPage />,
+  projects: () => <ProjectsPage />,
   monitor: () => <MonitorPage />,
   browser: () => <BrowserPage />,
   cli: () => <CliPage />,

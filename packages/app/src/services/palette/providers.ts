@@ -1,6 +1,7 @@
 import type {
   AgentDefinition,
   CommandDescriptor,
+  ForgeProject,
   Ref,
   RepoDescriptor,
   TerminalSession,
@@ -120,6 +121,42 @@ export function createViewsSource(onSelect: () => void): PaletteSource {
       }));
 
       return [...viewItems, ...settingsItems];
+    },
+  };
+}
+
+/**
+ * One entry per already-loaded ProjectV2 board (Phase 40 Theme F).
+ *
+ * `boards` is whatever `useForgeProjects` currently has cached — the caller
+ * passes it with `enabled: false`, so opening the palette never itself
+ * triggers a fetch. Picking an item opens Projects on that specific board;
+ * a board never fetched (the Projects view has not been opened this
+ * session) simply has no entry here.
+ */
+export function createProjectBoardsSource(
+  boards: ForgeProject[],
+  repoId: string | null,
+  onSelect: () => void,
+): PaletteSource {
+  return {
+    key: 'project-boards',
+    items: () => {
+      if (repoId === null) return [];
+      return boards.map(
+        (board): PaletteItem => ({
+          id: `project-board:${board.id}`,
+          label: board.title,
+          group: 'Projects',
+          icon: VIEW_ICON.projects,
+          keywords: 'project board kanban',
+          run: () => {
+            onSelect();
+            useUiStore.getState().setActiveView('projects');
+            useUiStore.getState().setProjectBoard(repoId, board.id);
+          },
+        }),
+      );
     },
   };
 }
