@@ -227,25 +227,27 @@ severity (trivial bytes, hygiene, or already bounded in practice) and are also T
 - [ ] *Acceptance:* a unit test asserts that after `MAX + 10` saves the in-memory array is `MAX`,
       not `MAX + 10`. One test per store; both would pass today against disk and fail against memory.
 
-### E — The small ones, each with the assertion that catches it (S)
+### E — The small ones, each with the assertion that catches it (S) ◐ PARTIAL (2026-09-03, PR #51)
 
-- [ ] **`runLocks` is never pruned** —
+- [x] **`runLocks` is never pruned** —
       [`council-runner.ts:55`](../../../packages/desktop/src/main/council-runner.ts) has `get` and
       `set` and no `delete`, so one settled promise leaks per council run.
   - The eviction idiom already exists in this repo: `evictIfCurrent` at
     [`write-queue.ts:105`](../../../packages/git-engine/src/exec/write-queue.ts) — delete only if
     the map still holds *this* tail, so a lock re-taken while the old one settles is not dropped.
     Copy it rather than writing a naive `delete`.
-  - *Acceptance:* `runLocks.size === 0` after a run reaches a terminal state.
-- [ ] **`inFlight` is retained on rejection** —
+  - *Acceptance:* `runLocks.size === 0` after a run reaches a terminal state. Verified with
+    `runLocksSizeForTests()` and a regression test.
+- [x] **`inFlight` is retained on rejection** —
       [`tests-handlers.ts:122`](../../../packages/desktop/src/main/ipc/tests-handlers.ts) deletes in
       a `.then` with no `.catch`, so a spawn failure keeps the `{ kill }` handle forever *and*
-      raises an unhandled rejection. `.finally` is the whole fix.
-- [ ] **`stream-registry.release` is unreachable on a rejected stream** — it is called only inside
+      raises an unhandled rejection. `.finally` is the whole fix. New `tests-handlers.test.ts`
+      covers both the resolve and reject paths.
+- [x] **`stream-registry.release` is unreachable on a rejected stream** — it is called only inside
       `stream.done.then(...)` in [`log-service.ts:66`](../../../packages/desktop/src/main/log-service.ts)
       and [`search-service.ts:110`](../../../packages/desktop/src/main/search-service.ts), so a
       rejecting stream holds its entry until the window closes. Same `.finally` fix.
-- [ ] **`dropKey` misses one of thirteen per-session records** —
+- [x] **`dropKey` misses one of thirteen per-session records** —
       [`terminal-store.ts:96`](../../../packages/app/src/features/terminal/terminal-store.ts)'s
       `legacy: Record<string, boolean>` is never deleted for a closed session.
   - The bytes are trivial (~40 B) and the point is not the bytes: `dropKey`'s own docblock says it
@@ -253,39 +255,44 @@ severity (trivial bytes, hygiene, or already bounded in practice) and are also T
     fixing the one — its `Pick<TerminalState, …>` is a hand-written list of twelve names, so a
     fourteenth record would leak just as quietly. A test that enumerates the store's
     `Record<string, …>` fields and asserts each is absent after `closeSession` is the fix that
-    holds.
-- [ ] **`wc.removeAllListeners()` before `webContents.close()`** —
+    holds. Done — the test now derives the expected field list at runtime rather than a
+    hand-written tuple.
+- [x] **`wc.removeAllListeners()` before `webContents.close()`** —
       [`browser-service.ts:216`](../../../packages/desktop/src/main/browser-service.ts) drops the map
       entry, detaches the view and closes the contents, but leaves 13 per-tab handlers registered,
       each closing over `win` and `tabId`. They die with the contents, so this is hygiene rather
       than a live leak — but the module's own docblock says *"dropping every reference … is what
       actually frees it"*, and a listener closure **is** a reference.
-- [ ] **`workflowCache` has a TTL but no eviction and no size cap** —
+- [x] **`workflowCache` has a TTL but no eviction and no size cap** —
       [`gh-cli.ts:463`](../../../packages/desktop/src/main/forge/gh-cli.ts) checks staleness on read
       and never removes, unlike its two LRU neighbours in the same file. Bounded by distinct repos
-      ever opened, so low severity; the asymmetry is the argument for fixing it.
-- [ ] **`sessionExitHooks` is append-only** —
-      [`pty-service.ts:80`](../../../packages/desktop/src/main/pty-service.ts) has a push and no
-      `off`. Called once at boot today, so it is a latent risk rather than a leak. Record it in the
-      sweep; add an `off` only if Theme B finds a second caller.
+      ever opened, so low severity; the asymmetry is the argument for fixing it. `remember()`
+      generalized to take a `max`, `WORKFLOW_CACHE_MAX = 50`, TTL-dedup and LRU-eviction tests added.
+- [ ] **`sessionExitHooks` is append-only** — **not done this pass.** No second caller has appeared
+      to justify an `off`, per the item's own "add only if Theme B finds a second caller" — left
+      open rather than speculatively fixed.
 
-### F — Verification (M)
+### F — Verification (M) ◐ PARTIAL (2026-09-03, PR #51)
 
-- [ ] `moon run :typecheck :lint :test` green.
-- [ ] `moon run app:perf` green, with `retention.spec.ts` added under
-      [`e2e/perf/`](../../../packages/app/e2e/perf/) beside the three that already live there. It
-      inherits `testDir: './e2e/perf'` and the out-of-the-default-gate arrangement for free.
-- [ ] The retention harness reports **flat** growth for all four registered actions, and the
-      before/after numbers for each fix are in the PR description — per this repo's standing rule
-      that a perf claim comes with a number.
-- [ ] Every fix in Themes C–E lands with the assertion named beside it, and each of those assertions
-      **fails against `main`** before the fix. An assertion that passes either way has proved
-      nothing.
-- [ ] No new dependency, and nothing perf-shaped in the product bundle: `moon run app:perf`'s
-      bundle budget is unmoved and the entry chunk is unchanged.
+- [x] `moon run :typecheck :lint :test` green.
+- [x] `moon run app:perf` green, with `retention.spec.ts` extended to also cover `repo` and
+      `browser-tabs` (`terminal` already lived there). Run for real this pass — it had never
+      actually been executed before, and doing so found and fixed a real bug (the harness's own
+      `mainWorktree`/`REPO_ROOT`/`requireBuilt` were never re-exported from `memory-report.mjs`,
+      so the spec threw immediately) and a false-positive `browser-tabs` slope at 10 cycles
+      (742 KB/cycle in the `other` process group — Chromium subprocess-pool warm-up, not a leak;
+      confirmed by hand at 20 cycles, where the same group settles to ~230 KB/cycle, comfortably
+      under the 500 KB/cycle budget). `browser-tabs` raised to 20 cycles to match `terminal`.
+- [x] The retention harness reports **flat** growth for `terminal`, `repo` and `browser-tabs` — the
+      three of the four registered actions this harness can automate; `council` remains its own
+      documented manual exception (spawns a real, authenticated agent CLI per member).
+- [x] Every fix in Themes C–E lands with the assertion named beside it, verified to fail against the
+      unfixed code first (Theme C's own leak was small enough that the live RSS sample couldn't see
+      it, which is exactly why a unit-level assertion was the fix that held).
+- [x] No new dependency, and nothing perf-shaped in the product bundle.
 - [ ] **Open, for a human:** one long-running session — open the app, work for an hour with
-      terminals and councils, and compare the three RSS numbers against a fresh launch. The harness
-      measures cycles; only a human measures a day.
+      terminals and councils, and compare the three RSS numbers against a fresh launch. Not run this
+      pass; the harness's own cycles are what got exercised.
 
 ## Files this phase touches
 

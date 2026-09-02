@@ -111,37 +111,37 @@ The spine: B–E all read off this contract, so it lands first.
       `*.integration.test.ts` convention: push with and without `-u`, `--keep-index`, a path-scoped
       push, pop clean, pop conflicted, drop, and `stash branch`.
 
-### B — Stashes in the sidebar (M)
+### B — Stashes in the sidebar (M) ✅ DONE (2026-09-03, PR #51)
 
-- [ ] `'stashes'` joins `SectionKey` and `ALL_SECTIONS` in
-      [`view-sections.ts`](../packages/app/src/features/repos/view-sections.ts), and every
-      `VIEW_FILTERS` entry decides whether it shows it. It also joins `RefSectionKey`, because it
-      wants a heading menu — which forces a new arm in `sectionMenu(kind, refs)` in
-      [`use-repo-actions.ts`](../packages/app/src/features/repos/use-repo-actions.ts).
-- [ ] A `<TreeSection title="Stashes">` block in `RepoTree` in
-      [`repos-panel.tsx`](../packages/app/src/features/repos/repos-panel.tsx), beside the four
-      literal Local/Remotes/Tags/Worktrees blocks, with its entry in `SECTION_TITLE` and its key in
-      `useSectionToggles`. `hideWhenEmpty` — a repo that has never stashed should not carry an empty
-      heading forever.
-- [ ] A `StashRow` component alongside `RefRow`/`WorktreeRow` at the same `TREE_INDENT` depth:
-      the message as the primary text, a relative timestamp as `meta`, and a file-count chip so a
-      one-file stash reads differently from a forty-file one at a glance.
-- [ ] The query key nests under `keys.repo(repoId)` in
-      [`queries.ts`](../packages/app/src/services/queries.ts). This is not optional — that file's
-      doc comments warn twice that a key outside `['repos', repoId, …]` is never invalidated by the
-      watcher, and it is a bug the project has already hit.
-- [ ] `.git/refs/stash` already falls under the watcher's recursive `.git/refs` watch in
-      [`repo-watcher.ts`](../packages/git-engine/src/watch/repo-watcher.ts) and classifies as
-      `'refs'`, so `stash push`/`drop` invalidate for free — confirm the mapping in
-      [`watch-invalidation.ts`](../packages/app/src/services/watch-invalidation.ts) rather than
-      assuming it.
-- [ ] A row menu via `refMenu`'s sibling `stashMenu(entry)`: Apply, Pop, Drop, Branch from stash,
-      Copy sha. Drop is `danger` and goes through `dialogs.confirm` — it is the one stash op with no
-      button-shaped way back.
-- [ ] The heading action creates a stash from the current worktree state, prompting for a message
-      through the existing `PromptDialog` rather than inventing an input.
-- [ ] [`sidebar-page.tsx`](../packages/app/src/features/settings/settings-pages/sidebar-page.tsx)
-      enumerates the sections; the new one appears there too, or the settings page quietly lies.
+- [x] `'stashes'` joins `SectionKey`/`ALL_SECTIONS`/`SECTION_TREE` in
+      [`view-sections.ts`](../packages/app/src/features/repos/view-sections.ts) (already reserved
+      from an earlier phase, right after `tags`). **Deviation**: it does **not** join
+      `RefSectionKey` — that type is specifically for ref-backed heading menus, and a `StashEntry`
+      is not a `Ref`. A parallel, dedicated `stashMenu(entry)` + `promptStashPush` mechanism was
+      built instead (see below), rather than forcing a non-ref type through a ref-shaped seam.
+- [x] A `<TreeSection title="Stashes">` block in `RepoTree` in
+      [`repos-panel.tsx`](../packages/app/src/features/repos/repos-panel.tsx)'s `SECTION_BODY`, with
+      its entry in `SECTION_TITLE`/`useSectionToggles`. `hideWhenEmpty={false}` — deliberately the
+      opposite of the plan's own assumption: the heading's "Stash changes" action is the only way to
+      create a repo's *first* stash, so the section stays visible at zero count instead of hiding the
+      one control that would ever change that count.
+- [x] A `StashRow` component alongside `RefRow`/`WorktreeRow` at the same `TREE_INDENT` depth: the
+      message as the primary text, a relative timestamp. **Deviation**: no file-count chip —
+      `StashEntry` (Theme A's own contract) carries no per-entry file count, and `git stash list` has
+      no `--format` token for one; a second subprocess per row costs more than the chip is worth.
+      Left for later if it turns out to matter in practice.
+- [x] The query key (`keys.stashes(repoId)`) nests under `keys.repo(repoId)` in
+      [`queries.ts`](../packages/app/src/services/queries.ts).
+- [x] `.git/refs/stash` invalidation confirmed directly in
+      [`watch-invalidation.ts`](../packages/app/src/services/watch-invalidation.ts)'s `'refs'` case
+      (not assumed) — `stash push`/`pop`/`apply`/`drop`/`branch` all invalidate for free.
+- [x] A row menu via `use-repo-actions.ts`'s `stashMenu(entry)`: Apply, Pop, Branch from stash, Copy
+      sha, Drop. Drop is `danger` and goes through `dialogs.confirm`.
+- [x] The heading action (`promptStashPush`) creates a stash from the current worktree state,
+      prompting for a message through the existing `PromptDialog`.
+- [x] [`sidebar-page.tsx`](../packages/app/src/features/settings/settings-pages/sidebar-page.tsx)'s
+      `SECTION_LABELS` already had a compile-enforced `stashes` entry from the phase that widened
+      `SectionKey`; only its stale doc comment needed updating.
 
 ### C — Stashes in the graph (M)
 
@@ -183,81 +183,81 @@ The spine: B–E all read off this contract, so it lands first.
 - [ ] Apply / Pop / Drop / Branch as actions in the inspector header, sharing Theme B's handlers
       rather than a second copy of them.
 
-### E — Stash from the Changes view (S)
+### E — Stash from the Changes view (S) ✅ DONE (2026-09-03, PR #51)
 
-- [ ] The Phase 17 Changes filter tree gains a stash action scoped to the current selection: with
-      files selected, `stashPush({ paths })`; with none, the whole worktree.
-- [ ] `--keep-index` and `--include-untracked` as explicit, labelled options on the stash prompt —
-      not defaults chosen for the user. "Keep staged changes staged" and "include untracked files"
-      are the labels; the flags are an implementation detail.
-- [ ] The op runs through `useTargetedGitOp` in
-      [`use-status.ts`](../packages/app/src/services/use-status.ts) so `onSettled` invalidates
-      `keys.repo(repoId)` on the same path every other write already uses.
-- [ ] A stash of zero changes is refused before it is attempted, with the reason shown — git's own
-      "No local changes to save" arriving as a red error is a worse answer than a disabled control.
+- [x] The Changes view gains a "Stash changes" toolbar action (whole worktree) and a per-row "Stash
+      file" action on the unstaged list (scoped to that one path) — `StashPushDialog`'s `paths` arg.
+      **Deviation**: no multi-file checkbox selection exists anywhere in the Changes view today, so
+      "the current selection" is read as the row a per-file action was invoked on, not a new
+      multi-select UI this theme did not add.
+- [x] `--keep-index`/`--include-untracked` as explicit, unchecked-by-default checkboxes on a
+      dedicated `StashPushDialog` (not the generic `dialogs.prompt`, which is one text field only).
+- [x] Runs through `useStashPush` (`features/stash/use-stash-actions.ts`, Theme B's own hook, shared
+      rather than duplicated) — `onSettled` invalidates `keys.repo(repoId)`.
+- [x] The "Stash changes" toolbar button is disabled with a reason (`disabledReason`) when
+      `entries.length === 0`, refusing before attempting rather than surfacing git's own error text.
 
-### F — Force-push, with a lease (S)
+### F — Force-push, with a lease (S) ✅ DONE (2026-09-03, PR #51)
 
-- [ ] **This theme deliberately reverses a written-down rule.** `CLAUDE.md` says *"No force-push
-      anywhere in the MVP"*; [`sync.ts`](../packages/git-engine/src/commands/sync.ts)'s module
-      header, `PushRequest`'s doc comment in `schemas.ts`, and
-      [`sync-controls.tsx`](../packages/app/src/features/status/sync-controls.tsx)'s header
-      (*"There is no force-push button, and no menu that could become one"*) all say the same thing
-      in three places. All four get edited, and each edit says what replaced the ban — a note that
-      only reads "removed" is how a safety rule quietly becomes an accident.
-- [ ] `PushOptions` gains `forceWithLease?: { ref: string; expect: string }`. The **bare**
-      `--force-with-lease` is not offered: it leases against the remote-tracking ref, which a
-      background fetch can silently refresh into agreement, turning the safety net into a no-op.
-      Only the explicit `--force-with-lease=<ref>:<sha>` form is built.
-- [ ] `expect` is read at the moment of the confirm, from the remote-tracking ref, and travels with
-      the request — so the sha the user was shown a blast radius for is the sha the lease checks.
-- [ ] The gate is the existing one, not a new one: `countOrphanedCommits(worktreePath, query)` in
-      `refs-ops.ts` with `movingRef` set to the remote-tracking ref, fed into `dialogs.confirm`'s
-      tri-state `blastRadius` through `setBlastRadius`, exactly as
-      [`use-graph-actions.ts`](../packages/app/src/features/graph/use-graph-actions.ts) does for
-      hard reset. `danger: true`, and the confirm label names the branch.
-- [ ] A rejected lease is its own outcome, not a generic failure: `describePushFailure(stderr)`
-      gains a `stale info` arm reading *"Someone else pushed to this branch since you last fetched.
-      Fetch and look before forcing."*
-- [ ] The entry point is the **per-ref badge menu** in
-      [`ref-sync.ts`](../packages/app/src/features/graph/ref-sync.ts) / `use-graph-actions.ts`,
-      offered only when a plain push has already been rejected as non-fast-forward. It is never a
-      button in the title bar's `SyncControls`, whose whole design is one un-modal click.
-- [ ] Behind a default-off `Settings ▸ Repositories ▸ Allow force-push (with lease)` switch,
-      following Phase 20's precedent of gating a reversal of a stated rule on an explicit opt-in
-      that also lists what the app will still never do (`--force`, `--delete`, force to a protected
-      default branch).
+- [x] **The rule reversal is recorded, not silent.** `CLAUDE.md`/`AGENTS.md`/`GEMINI.md` (the rule
+      lives in one place, mirrored three ways per this repo's own sync rule — not a fourth location),
+      `sync.ts`'s module header, `PushRequest`'s doc comment in `schemas.ts`, and
+      `sync-controls.tsx`'s header all say what replaced the ban.
+- [x] `PushOptions`/`PushRequest` gain `forceWithLease?: { ref: string; expect: string }` — never a
+      boolean, never a bare `--force-with-lease`.
+- [x] `expect` comes from the matching remote-tracking `Ref` already in the graph's own `refs` query
+      (not a fresh IPC call). **Deviation**: `RevParseRequest.rev` is deliberately hex-only
+      (`shared/ipc/schemas.ts`'s `HexRev`, guarding it from becoming a general "resolve any revision"
+      channel); widening it for this one caller was rejected in favor of reusing data the
+      repo-watcher already keeps current.
+- [x] The blast-radius gate reuses `countOrphanedCommits`/`dialogs.confirm`'s tri-state
+      `blastRadius`, exactly as hard-reset does — `danger: true`, confirm names the branch.
+- [x] A rejected lease is its own outcome: `pushFailureCode`/`describePushFailure` gain a
+      `'stale-lease'` code + message, detected off git's own `(stale info)` marker — distinct from
+      the ordinary `'non-fast-forward'` code a plain push's rejection now also carries.
+- [x] Entry point is the per-ref badge menu (`use-graph-actions.ts`'s `refMenu`), offered only once a
+      plain push from that same menu has come back non-fast-forward (tracked per-ref, cleared the
+      moment a later push settles any other way). Never in `SyncControls`.
+- [x] Behind a default-off switch. **Deviation**: `Settings ▸ Git Safety ▸ Allow force-push (with
+      lease)`, a new dedicated section — not `Settings ▸ Repositories` (no such settings page exists
+      today; a force-push opt-in is a big enough decision to deserve its own page, per the batch's
+      own upfront design decision). Its copy states no bare `--force`, no `--delete`, and no bypass of
+      a branch-protection rule the remote already enforces (this app has no local concept of
+      "protected," so a rejection there still comes back rejected, unchanged).
 
-### G — The reflog, read and browsable (M)
+### G — The reflog, read and browsable (M) ✅ DONE (2026-09-03, PR #51)
 
-- [ ] `packages/git-engine/src/commands/reflog.ts` + `parsers/reflog-parser.ts` owning its own
-      `REFLOG_FORMAT` (`%gd`, `%gD`, `%H`, `%gs`, `%gt`, `%gn`) read via
-      `git reflog show --format=… -z`. `readReflog(worktreePath, { ref?, limit })` — `ref` absent
-      means `HEAD`.
-- [ ] `%gs` is a human sentence, not a structure (`checkout: moving from main to feature/x`,
-      `commit (amend):`, `reset: moving to HEAD~2`). Parse it into a `ReflogAction` enum on a
-      best-effort basis for the icon and filter, and **always keep the raw subject** as the
-      displayed text. A mis-parse must degrade to a plain row, never to a wrong verb.
-- [ ] A **History** view joins the nav rail beside Dashboard / Actions / Tests / Reviews, on Phase
-      19's view-scoped navigation shell: a ref selector (HEAD plus every local branch), a
-      time-ordered list, an action filter, and the old→new sha pair per entry.
-- [ ] Each entry is checkout-able and copy-able — `checkout(sha, { detach: true })` through the
-      existing op, behind the ordinary detached-HEAD warning. That is the whole recovery story for
-      anything Theme H cannot undo, and it is why this theme is worth having even standing alone.
-- [ ] The list states the expiry rule where the user can see it: git prunes unreachable reflog
-      entries at 30 days and reachable ones at 90 by default, so "it is in the reflog" is a
-      time-limited promise and the UI should not imply otherwise.
-- [ ] **`.git/logs` is not watched today.** `repo-watcher.ts` watches `.git/refs` and `packed-refs`;
-      a reflog-only change fires nothing. Add `.git/logs` to the watch set — riding the existing
-      `'refs'` `WatchKind` rather than growing
-      [`WatchKindSchema`](../packages/shared/src/domain/watch.ts), unless the invalidation fan-out
-      proves too broad in practice (see *Decisions*).
-- [ ] Own-write suppression must cover it: every op the app runs writes a reflog entry, so without
-      suppression the History view would refresh on its own writes in a loop. The `writeQueue`
-      `onActivity` subscription already in the watcher is the mechanism; verify, do not assume.
-- [ ] Unit tests for the parser against captured real `reflog show` output — including a subject
-      containing a colon and one containing a newline-adjacent branch name, which is why the read
-      is `-z`.
+- [x] `packages/git-engine/src/commands/reflog.ts` + `parsers/reflog-parser.ts` own `REFLOG_FORMAT`,
+      read via `git reflog show --date=unix -z --format=… <ref>`. **Deviation**: `%gt` is not a real
+      git placeholder — confirmed against real git, where it prints literally as the string `%gt`.
+      The format actually shipped is `%gd%x00%gD%x00%H%x00%gs%x00%gn`, with `--date=unix` making
+      `%gd`/`%gD` themselves carry the entry's real write time (`HEAD@{1788383371}`) — the only
+      placeholders that answer "when was this reflog ENTRY written," as distinct from `%at`/`%ct`
+      (the target commit's own date, verified wrong for e.g. a reset onto an old commit in the
+      integration test). `readReflog(worktreePath, { ref?, limit })` — `ref` absent means `HEAD`.
+- [x] `%gs` parses into a `ReflogAction` enum (commit/amend/checkout/reset/merge/rebase/cherryPick/
+      revert/pull/branch/other) best-effort; the raw subject is always the displayed text.
+- [x] The **History** view already existed (Theme H landed its nav-rail item, routing and tab shell
+      ahead of this theme, with `ReflogList` as an honest placeholder). This theme replaces the
+      placeholder's body: a ref selector (HEAD + every local branch), a time-ordered list, an action
+      filter (applied client-side over the fetched page, not server-side — the `limit` is a page
+      size, and filtering it server-side would silently shrink the page), and the old→new sha pair
+      per entry (`oldSha` is not a git placeholder at all; `readReflog` fetches `limit + 1` records
+      and pairs each with the next OLDER one so the returned page's own oldest entry still carries a
+      real predecessor rather than a phantom `null`).
+- [x] Each entry is checkout-able (`detach: true`, the existing op) and copy-able (its sha). The
+      app's existing detached-HEAD indicators pick up the result reactively — no separate warning
+      dialog was needed or added.
+- [x] The list states the 30/90-day expiry rule in a standing footer note.
+- [x] `.git/logs` (the common dir's shared reflogs) and every
+      `.git/worktrees/<name>/logs/HEAD` (a linked worktree's own HEAD reflog) now ride the existing
+      `'refs'` `WatchKind` — no growth to `WatchKindSchema`.
+- [x] Own-write suppression needed no new wiring — it is scoped by write-queue busy windows, not by
+      `WatchKind`, so it already covers reflog events uniformly; verified with a dedicated test
+      rather than assumed.
+- [x] Fifteen parser unit tests (including a colon-containing subject and a newline-adjacent branch
+      name) plus seven integration tests against a real repo (real timestamps, a real reset, an
+      explicit non-HEAD ref, page-boundary oldSha pairing, an empty-reflog ref).
 
 ### H — The ops journal, toasts, and undo (L) ◐ PARTIAL (2026-09-02, starter subset)
 
