@@ -126,6 +126,51 @@ describe('DEFAULT_LOOPS', () => {
     ]);
   });
 
+  it('marks a loop whose base names no skill as needing a box, and only that one', () => {
+    // The pairing is the invariant: `requiresModifier` exists to stop a bare
+    // `/loop` reaching a pty, so it must be true exactly where the base is bare.
+    for (const entry of DEFAULT_LOOPS) {
+      const bare = entry.fallbackPrompt.trim() === '/loop';
+      expect(entry.requiresModifier, entry.id).toBe(bare);
+    }
+    expect(DEFAULT_LOOPS.filter((l) => l.requiresModifier).map((l) => l.id)).toEqual(['watchdog']);
+  });
+
+  it('gives a requiresModifier loop boxes that can actually satisfy it', () => {
+    // The guard reads `providesTask`, not "any box checked" — the auto-pick pair
+    // is a standing rule with no task under it. A loop that required a modifier
+    // and marked none of them would be unstartable.
+    for (const entry of DEFAULT_LOOPS.filter((l) => l.requiresModifier)) {
+      expect(entry.modifiers.filter((m) => m.providesTask).map((m) => m.id), entry.id).toEqual([
+        'pr-review',
+        'pr-feedback',
+        'triage-only',
+      ]);
+    }
+    for (const modifier of AUTO_PICK_MODIFIERS) expect(modifier.providesTask).toBeUndefined();
+  });
+
+  it('has Patrol override its own default-on skill when triage is checked', () => {
+    // `pr-review` is `defaultOn`, so the composed triage line still carries
+    // `/pr-review`. The fragment must therefore *name* what it overrides — a
+    // bare "do not review" beside `/pr-review` is a contradiction, not an order.
+    const patrol = DEFAULT_LOOPS.find((l) => l.id === 'watchdog')!;
+    const line = composeLoopPrompt(patrol.fallbackPrompt, patrol, ['pr-review', 'triage-only']);
+    expect(line).toContain('/pr-review');
+    expect(line).toContain('ignore any review or feedback skill named above');
+  });
+
+  it('keeps Medic off merging — its bot boxes gate, they do not land', () => {
+    // These two ids predate this change and persist in `loopModifierDefaults`,
+    // so a stored `true` must not quietly start auto-merging dependency PRs.
+    const medic = DEFAULT_LOOPS.find((l) => l.id === 'medic')!;
+    for (const id of ['dependabot', 'renovate']) {
+      const fragment = medic.modifiers.find((m) => m.id === id)?.promptFragment ?? '';
+      expect(fragment, id).toContain('run the gate');
+      expect(fragment, id).not.toMatch(/\b(merge|land|approve)/i);
+    }
+  });
+
   it('points both triage boxes at the one read-only skill', () => {
     // Same words on two tabs must mean the same thing, or "Triage only" reads
     // as a different promise depending on which tab you ticked it on.

@@ -30,6 +30,17 @@ export const LoopModifierSchema = z.object({
   label: z.string().min(1),
   /** Appended to the prompt when checked — a full sentence, or a `/skill`. */
   promptFragment: z.string().min(1),
+  /**
+   * This box gives the loop something *to do*, rather than qualifying what it
+   * already does — it names a skill. Only meaningful on a `requiresModifier`
+   * loop, where it is what separates a startable run from a bare `/loop`:
+   * "Auto pick recommended" alone is a policy with no task under it.
+   *
+   * Optional rather than defaulted, unlike `defaultOn`: it is meaningful on
+   * three of the thirteen shipped boxes, and declaring `false` on the other ten
+   * would bury the exception in the noise of stating it everywhere.
+   */
+  providesTask: z.boolean().optional(),
   /** Whether a fresh install starts with this box checked. */
   defaultOn: z.boolean().default(false),
 });
@@ -62,6 +73,15 @@ export const LoopDefinitionSchema = z.object({
   agentCommandId: z.string().min(1),
   /** Base prompt when the registry has no entry for `agentCommandId`. */
   fallbackPrompt: z.string().min(1),
+  /**
+   * The base names no skill on its own, so a run with every box unchecked
+   * would be a loop with no task — Start stays disabled until one is ticked.
+   *
+   * True only for Patrol, whose whole design is that the checkboxes *are* the
+   * skills. Every other loop's base is a complete command and its modifiers
+   * only qualify it.
+   */
+  requiresModifier: z.boolean().default(false),
   modifiers: z.array(LoopModifierSchema),
 });
 export type LoopDefinition = z.infer<typeof LoopDefinitionSchema>;
@@ -138,6 +158,13 @@ export const AUTO_PICK_MODIFIERS: readonly LoopModifier[] = [
  * sick: the dependency bots' PRs and the issue backlog, on `/midnite-address-issue`.
  * Either can be told to look and not touch, and `Triage only` on both means the
  * same thing — run `/midnite-triage` and report its table, change nothing.
+ *
+ * Known seam: a *base* prompt is indirected through `agentCommandId`, so Settings
+ * ▸ Agent can repoint it, but a modifier's `promptFragment` is not — the skill
+ * names above are literal. `/pr-review` and `/pr-feedback` are personal skills and
+ * travel with the user, but `/midnite-triage` ships in *this* repo's
+ * `.claude/skills/`, so `Triage only` is a no-op in a checkout that does not carry
+ * it. A per-modifier registry is the fix; it is deliberately not this change.
  */
 export const DEFAULT_LOOPS: readonly LoopDefinition[] = [
   {
@@ -148,6 +175,7 @@ export const DEFAULT_LOOPS: readonly LoopDefinition[] = [
     agentId: 'claude',
     agentCommandId: 'loopBrainstorm',
     fallbackPrompt: '/loop /midnite-brainstorm',
+    requiresModifier: false,
     modifiers: [
       {
         id: 'small-phases',
@@ -166,6 +194,7 @@ export const DEFAULT_LOOPS: readonly LoopDefinition[] = [
     agentId: 'claude',
     agentCommandId: 'loopExecBacklog',
     fallbackPrompt: '/loop /midnite-exec',
+    requiresModifier: false,
     modifiers: [
       {
         id: 'auto-merge',
@@ -190,24 +219,32 @@ export const DEFAULT_LOOPS: readonly LoopDefinition[] = [
     agentId: 'claude',
     agentCommandId: 'loopPatrol',
     fallbackPrompt: '/loop',
+    requiresModifier: true,
     modifiers: [
       {
         id: 'pr-review',
         label: 'PR review',
         promptFragment: '/pr-review',
+        providesTask: true,
         defaultOn: true,
       },
       {
         id: 'pr-feedback',
         label: 'PR feedback',
         promptFragment: '/pr-feedback',
+        providesTask: true,
         defaultOn: false,
       },
       {
         id: 'triage-only',
         label: 'Triage only',
+        // Names the boxes it overrides on purpose. `PR review` is `defaultOn`,
+        // so a triage-only run *will* still carry `/pr-review` on the line, and
+        // an instruction that only said "do not review" would read as a
+        // contradiction rather than as the later word winning.
         promptFragment:
-          'Triage only: run /midnite-triage and report its summary table — leave no reviews, merge nothing and push no fixes.',
+          'Triage only: ignore any review or feedback skill named above — run /midnite-triage instead and report only its summary table. Leave no reviews, merge nothing and push no fixes.',
+        providesTask: true,
         defaultOn: false,
       },
       {
@@ -227,19 +264,20 @@ export const DEFAULT_LOOPS: readonly LoopDefinition[] = [
     agentId: 'claude',
     agentCommandId: 'loopAddressIssue',
     fallbackPrompt: '/loop /midnite-address-issue',
+    requiresModifier: false,
     modifiers: [
       {
         id: 'dependabot',
         label: 'Dependabot PRs',
         promptFragment:
-          'Also take the open Dependabot PRs: run the gate on each and land the ones that pass.',
+          'Also take the open Dependabot PRs: run the gate on each, and fix or report whatever it catches.',
         defaultOn: false,
       },
       {
         id: 'renovate',
         label: 'Renovate PRs',
         promptFragment:
-          'Also take the open Renovate PRs: run the gate on each and land the ones that pass.',
+          'Also take the open Renovate PRs: run the gate on each, and fix or report whatever it catches.',
         defaultOn: false,
       },
       {

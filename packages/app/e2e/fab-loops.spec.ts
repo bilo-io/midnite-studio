@@ -117,6 +117,31 @@ test.describe('FAB loop console', () => {
     }
   });
 
+  test('Patrol will not start with every box unchecked — its base names no skill', async ({
+    page,
+  }) => {
+    await open(page);
+    await openFab(page, 'Patrol');
+
+    const composer = page.getByTestId('loop-composer-watchdog');
+    const start = composer.getByTestId('loop-start');
+    await expect(start).toBeEnabled();
+
+    // Unticking the only checked box leaves a bare `/loop` — an agent launched
+    // and told nothing — so Start goes away rather than sending it.
+    await composer.getByLabel('PR review').uncheck();
+    await expect(start).toBeDisabled();
+    await expect(start).toHaveAttribute('title', /Check PR review, PR feedback or Triage only/);
+
+    // A standing rule is not a task: the auto-pick pair does not satisfy it.
+    await composer.getByLabel('Auto pick recommended').check();
+    await expect(start).toBeDisabled();
+
+    // Any one of the three that names a skill does — Triage only included.
+    await composer.getByLabel('Triage only').check();
+    await expect(start).toBeEnabled();
+  });
+
   test('Start composes the prompt from the checked modifiers and the extras', async ({ page }) => {
     await open(page);
     await openFab(page, 'Patrol');

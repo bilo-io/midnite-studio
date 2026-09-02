@@ -15,9 +15,12 @@ narration of the `gh` calls, no per-PR prose under the table.
 ## 0 · Hard constraint — read-only
 
 This skill **never** writes. No `gh pr review`, `comment`, `merge`, `close`, `edit`,
-`ready`, `label`; no `git push`, `commit`, `rebase`; no file edits. Its `allowed-tools`
-carry no `Write` or `Edit` for that reason. If the surrounding loop asked for a fix, the
-fix is *not* this skill's job — report the row and stop.
+`ready`, `label`; no `git push`, `commit`, `rebase`; no file edits. If the surrounding
+loop asked for a fix, the fix is *not* this skill's job — report the row and stop.
+
+`allowed-tools` drops `Write` and `Edit` to make that cheaper to honour, but it is not a
+guarantee: `Bash` is here for `gh pr list`, and `gh` can merge as easily as it can list.
+The constraint above is the real one, and it is on you.
 
 ## 1 · Scope
 
