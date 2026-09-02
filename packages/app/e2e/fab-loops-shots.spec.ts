@@ -17,6 +17,8 @@ const OUT = '../../docs/screenshots/p35-abcde';
 const OUT_FGHI = '../../docs/screenshots/p35-fghi';
 /** Phase 37's own shots, kept apart for the same reason. */
 const OUT_P37 = '../../docs/screenshots/p37-fab-tab-glow';
+/** The ad hoc rim rework of the Phase 37 inner glow — before/after pairs. */
+const OUT_GLOW = '../../docs/screenshots/adhoc-fab-glow-edges';
 
 test.skip(!process.env['MSTUDIO_SHOTS'], 'set MSTUDIO_SHOTS=1 to write screenshots');
 
@@ -155,3 +157,48 @@ test('the collapsed FAB carries the tab arc, and a waiting loop overrides it', a
     path: `${OUT_P37}/collapsed-medic-waiting.png`,
   });
 });
+
+/**
+ * Ad hoc — the inner glow as an even rim, before and after.
+ *
+ * "Before" is the shipped Phase 37 pseudo re-applied over the new one by an
+ * injected stylesheet, rather than a checkout of the old tree: the single
+ * radial mask whose first lit stop sat at 62%, at `z-index: 0` behind the
+ * panel's children, with no stacking context on the host. Two states matter.
+ * Idle shows the *shape* — corner smudges against an even rim — and running
+ * shows the *stacking*: the opaque xterm that fills the pane covered the old
+ * glow outright, where the rim now paints over it.
+ */
+const BEFORE_CSS = `
+  .fab-panel-gradient { isolation: auto !important; }
+  .fab-panel-gradient::before {
+    z-index: 0 !important;
+    opacity: 0.55 !important;
+    animation: fab-panel-spin 4s linear infinite !important;
+    mask-image: radial-gradient(ellipse 100% 100% at 50% 50%, transparent 0%, transparent 62%, rgba(0, 0, 0, 0.55) 82%, #000 100%) !important;
+    -webkit-mask-image: radial-gradient(ellipse 100% 100% at 50% 50%, transparent 0%, transparent 62%, rgba(0, 0, 0, 0.55) 82%, #000 100%) !important;
+  }
+`;
+
+for (const mode of ['light', 'dark'] as const) {
+  for (const variant of ['before', 'after'] as const) {
+    test(`the inner glow rim, ${variant} (${mode})`, async ({ page }) => {
+      await open(page);
+      if (mode === 'dark') await page.evaluate(() => document.documentElement.classList.add('dark'));
+      if (variant === 'before') await page.addStyleTag({ content: BEFORE_CSS });
+      await openFab(page, 'Ideate');
+      const panel = page.locator('.fab-panel-gradient');
+
+      await page.waitForTimeout(900);
+      await panel.screenshot({ path: `${OUT_GLOW}/${mode}-idle-${variant}.png` });
+
+      await page.getByRole('button', { name: 'Patrol', exact: true }).click();
+      const composer = page.getByTestId('loop-composer-watchdog');
+      await composer.getByRole('checkbox', { name: 'Answer feedback' }).check();
+      await composer.getByTestId('loop-start').click();
+      await expect(composer.getByTestId('loop-stop')).toBeVisible();
+      await page.waitForTimeout(900);
+      await panel.screenshot({ path: `${OUT_GLOW}/${mode}-running-${variant}.png` });
+    });
+  }
+}

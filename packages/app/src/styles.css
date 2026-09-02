@@ -890,6 +890,15 @@ html[data-motion='reduced'] .breadcrumb-repo-pill {
 .fab-panel-gradient {
   animation: fab-panel-spin 4s linear infinite;
   border: 1.5px solid transparent;
+  /*
+   * A stacking context, so the inner glow's `z-index: 3` (below) is a matter
+   * between this panel and its own children and nothing else. The glow moved
+   * from behind the children to in front of them, and a positive z-index on a
+   * pseudo whose host does not isolate would be resolved against whatever
+   * ancestor context does — putting the band in the same competition as the
+   * terminal frame's `z-10` and the FAB button's `z-20` out in `app.tsx`.
+   */
+  isolation: isolate;
   background-image:
     linear-gradient(hsl(var(--popover, var(--card))), hsl(var(--popover, var(--card)))),
     conic-gradient(
@@ -942,56 +951,84 @@ html[data-motion='reduced'] .breadcrumb-repo-pill {
 }
 
 /*
- * Phase 37 Theme B — the inner glow. A second, independent paint layer
- * behind the border above: `content: ''`, so no new DOM node, and a
- * `::before` rather than the halo's `::after` because `.gradient-border`
- * already owns that pseudo on this element's ancestry and this glow has to
- * stay clear of it (see the halo comment further up this file).
+ * Phase 37 Theme B — the inner glow, as an even rim rather than four corner
+ * smudges. A second, independent paint layer over the panel's own fill:
+ * `content: ''`, so no new DOM node, and a `::before` rather than the halo's
+ * `::after` because `.gradient-border` already owns that pseudo on this
+ * element's ancestry and this glow has to stay clear of it (see the halo
+ * comment further up this file).
  *
- * Two masks stack here rather than one, same reasoning as the border's own
- * `mask-image` above but composed for a different end: the first is the
- * existing three-stop radial alpha mask (the falloff toward the panel's
- * centre, unrelated to which tab is active), the second is the shared arc
- * mask (Theme C). `mask-composite: intersect` on the second layer is
- * deliberate here, unlike the border's default union — the glow has no
- * opaque interior to protect, so what should reach the screen is wherever
- * BOTH masks are lit: inside the radial ring AND inside the active tab's
- * arc. An `add`/union here would leave the whole centre-to-rim gradient
- * visible outside the arc too, which is exactly what Theme C exists to
- * prevent.
+ * **Four edge ramps, not one radial.** The mask this replaces was a single
+ * `radial-gradient(ellipse 100% 100% at 50% 50%, transparent 0 62%,
+ * rgba(0,0,0,0.55) 82%, #000 100%)`, and on a box of any aspect ratio the
+ * normalised radius of a mid-edge point is 0.5 where a corner's is
+ * sqrt(0.25 + 0.25) ~= 0.707. With the first non-transparent stop at 62%,
+ * every mid-edge pixel fell below the ramp and only the four corners cleared
+ * it: geometrically that glow could never touch the middle of an edge,
+ * whatever its opacity. No ellipse setting fixes that — an ellipse is not a
+ * distance-to-nearest-edge field. Four linear ramps unioned are: each is
+ * `#000` at its own edge and transparent `--fab-glow-edge` inward, so all
+ * four sides light identically and the union only widens the band a little
+ * where two of them meet at a corner. Default `mask-composite: add` is that
+ * union, so it goes unstated.
  *
- * `z-index: 0` is the only stacking rule this needs: the pseudo paints first
- * (browsers place `::before` before any real children in paint order), and
- * every one of the panel's actual children — the tab bar, the pane
- * container — is normal flow with no `z-index` of its own, so they paint
- * over it without help. Verified against the running app rather than
- * assumed; see Theme F's screenshots.
+ * The width is a **length, not a percentage**, which is the other half of
+ * "evenly": this panel is ~320px wide and the better part of 900px tall, so a
+ * percentage band would be nearly three times thicker top and bottom than it
+ * is down the sides.
+ *
+ * **The arc layer is gone from this pseudo, and it was never doing anything.**
+ * Theme C's `--fab-arc-from`/`--fab-arc-to` are registered `inherits: false`,
+ * and a pseudo-element does not inherit a non-inherited registered property
+ * from its originating element — so the `conic-gradient` that used to sit on
+ * top of this mask resolved against the *initial* values (`0deg`/`360deg`, a
+ * full untouched ramp) no matter which tab was active, and its `intersect`
+ * was a no-op over an all-opaque layer. Confirmed against the running app:
+ * `getComputedStyle(el, '::before').maskImage` reports `0deg`/`360deg` while
+ * the host's own `--fab-arc-from` reads `90deg`. Keeping a dead layer around
+ * to document an intention is worse than saying so here, and a full-spectrum
+ * rim is what this change wants anyway. **Theme C is not lost**: the 1.5px
+ * gradient border above lives on the host element, where those properties do
+ * resolve, and it still narrows to the active tab's 180deg — so the tab still
+ * colours the panel's edge, just through the ring rather than the wash.
+ *
+ * `z-index: 3` puts the rim *over* the panel's children, which is the second
+ * half of the fix. At `z-index: 0` this painted before them, and the panel's
+ * own xterm — opaque, and the full height of the pane the moment a loop is
+ * running — covered it outright: start a loop and the glow simply vanished.
+ * The rim is only ever the outer ~40-52px, blurred, and `pointer-events:
+ * none`, so painting over costs a soft tint at the edge of the transcript and
+ * buys a glow that is visible in the state the panel spends most of its life
+ * in. `isolation: isolate` on the host keeps that z-index a local matter.
  */
-@property --fab-glow-inner {
-  syntax: '<percentage>';
+@property --fab-glow-edge {
+  syntax: '<length>';
   inherits: false;
-  initial-value: 62%;
+  initial-value: 40px;
 }
 
 /*
  * Mask stops, not `filter: blur()` — Phase 36 Theme E is the reason. This
- * panel is a permanently-mounted, often-blurred-window animation, and a
- * blur radius that changes every frame forces Chromium to re-rasterise the
- * whole layer each time; a mask stop and an opacity both composite for
- * free. Amplitude (`62% → 56%`, `0.55 → 0.85`) and the 3.2s period are the
- * doc's own starting figures, shipped as-is — not retuned by eye, kept
- * deliberately co-prime-ish with the 4s rotation so the two never visibly
- * re-sync on the same beat.
+ * panel is a permanently-mounted, often-blurred-window animation, and a blur
+ * radius that changes every frame forces Chromium to re-rasterise the whole
+ * layer each time; a mask stop and an opacity both composite for free. The
+ * 3.2s period is Phase 37's own figure, kept deliberately co-prime-ish with
+ * the 4s rotation so the two never visibly re-sync on the same beat.
+ *
+ * The amplitudes are not Phase 37's. `0.55 -> 0.85` behind the content was a
+ * glow you had to look for; `0.62 -> 0.92` in front of it is the "a bit more
+ * noticeable" this change was asked for, and it is the rim's *width* that
+ * breathes (`40px -> 52px`) where the radial mask's inner radius used to.
  */
 @keyframes fab-glow-pulse {
   0%,
   100% {
-    --fab-glow-inner: 62%;
-    opacity: 0.55;
+    --fab-glow-edge: 40px;
+    opacity: 0.62;
   }
   50% {
-    --fab-glow-inner: 56%;
-    opacity: 0.85;
+    --fab-glow-edge: 52px;
+    opacity: 0.92;
   }
 }
 
@@ -1001,52 +1038,63 @@ html[data-motion='reduced'] .breadcrumb-repo-pill {
   inset: 0;
   border-radius: inherit;
   pointer-events: none;
-  z-index: 0;
+  z-index: 3;
   background-image: conic-gradient(from var(--fab-panel-angle, 0deg), var(--rainbow-ramp));
   filter: blur(20px);
   mask-image:
-    radial-gradient(
-      ellipse 100% 100% at 50% 50%,
-      transparent 0%,
-      transparent var(--fab-glow-inner, 62%),
-      rgba(0, 0, 0, 0.55) 82%,
-      #000 100%
+    linear-gradient(
+      to bottom,
+      #000 0,
+      rgba(0, 0, 0, 0.42) calc(var(--fab-glow-edge, 40px) * 0.42),
+      transparent var(--fab-glow-edge, 40px)
     ),
-    conic-gradient(
-      from var(--fab-panel-angle, 0deg),
-      transparent -400deg,
-      transparent calc(var(--fab-arc-from, 0deg) - 30deg),
-      #000 var(--fab-arc-from, 0deg),
-      #000 var(--fab-arc-to, 360deg),
-      transparent calc(var(--fab-arc-to, 360deg) + 30deg),
-      transparent 400deg
+    linear-gradient(
+      to top,
+      #000 0,
+      rgba(0, 0, 0, 0.42) calc(var(--fab-glow-edge, 40px) * 0.42),
+      transparent var(--fab-glow-edge, 40px)
+    ),
+    linear-gradient(
+      to right,
+      #000 0,
+      rgba(0, 0, 0, 0.42) calc(var(--fab-glow-edge, 40px) * 0.42),
+      transparent var(--fab-glow-edge, 40px)
+    ),
+    linear-gradient(
+      to left,
+      #000 0,
+      rgba(0, 0, 0, 0.42) calc(var(--fab-glow-edge, 40px) * 0.42),
+      transparent var(--fab-glow-edge, 40px)
     );
-  mask-composite: intersect;
   -webkit-mask-image:
-    radial-gradient(
-      ellipse 100% 100% at 50% 50%,
-      transparent 0%,
-      transparent var(--fab-glow-inner, 62%),
-      rgba(0, 0, 0, 0.55) 82%,
-      #000 100%
+    linear-gradient(
+      to bottom,
+      #000 0,
+      rgba(0, 0, 0, 0.42) calc(var(--fab-glow-edge, 40px) * 0.42),
+      transparent var(--fab-glow-edge, 40px)
     ),
-    conic-gradient(
-      from var(--fab-panel-angle, 0deg),
-      transparent -400deg,
-      transparent calc(var(--fab-arc-from, 0deg) - 30deg),
-      #000 var(--fab-arc-from, 0deg),
-      #000 var(--fab-arc-to, 360deg),
-      transparent calc(var(--fab-arc-to, 360deg) + 30deg),
-      transparent 400deg
+    linear-gradient(
+      to top,
+      #000 0,
+      rgba(0, 0, 0, 0.42) calc(var(--fab-glow-edge, 40px) * 0.42),
+      transparent var(--fab-glow-edge, 40px)
+    ),
+    linear-gradient(
+      to right,
+      #000 0,
+      rgba(0, 0, 0, 0.42) calc(var(--fab-glow-edge, 40px) * 0.42),
+      transparent var(--fab-glow-edge, 40px)
+    ),
+    linear-gradient(
+      to left,
+      #000 0,
+      rgba(0, 0, 0, 0.42) calc(var(--fab-glow-edge, 40px) * 0.42),
+      transparent var(--fab-glow-edge, 40px)
     );
-  -webkit-mask-composite: source-in;
-  opacity: 0.55;
+  opacity: 0.62;
   animation:
     fab-panel-spin 4s linear infinite,
     fab-glow-pulse 3.2s ease-in-out infinite;
-  transition:
-    --fab-arc-from 0.5s ease,
-    --fab-arc-to 0.5s ease;
 }
 
 /*
@@ -1100,21 +1148,26 @@ html[data-motion='reduced'] .breadcrumb-repo-pill {
   background-image: none;
   background-color: #f59e0b;
   animation: none;
-  opacity: 0.55;
-  mask-image: radial-gradient(
-    ellipse 100% 100% at 50% 50%,
-    transparent 0%,
-    transparent 62%,
-    rgba(0, 0, 0, 0.55) 82%,
-    #000 100%
-  );
-  -webkit-mask-image: radial-gradient(
-    ellipse 100% 100% at 50% 50%,
-    transparent 0%,
-    transparent 62%,
-    rgba(0, 0, 0, 0.55) 82%,
-    #000 100%
-  );
+  opacity: 0.62;
+  /*
+   * The same four-ramp band as the rainbow glow, at the registered initial
+   * width — a still frame of it, since this state stops the pulse. What it
+   * drops is only the arc layer: amber is a full ring here, not an arc of
+   * one, exactly as the border's own `waiting` rule above drops its mask.
+   * With no arc to intersect there is nothing left to composite but the
+   * union, so the default `add` is what the four layers want and
+   * `mask-composite` goes unstated.
+   */
+  mask-image:
+    linear-gradient(to bottom, #000 0, rgba(0, 0, 0, 0.42) 17px, transparent 40px),
+    linear-gradient(to top, #000 0, rgba(0, 0, 0, 0.42) 17px, transparent 40px),
+    linear-gradient(to right, #000 0, rgba(0, 0, 0, 0.42) 17px, transparent 40px),
+    linear-gradient(to left, #000 0, rgba(0, 0, 0, 0.42) 17px, transparent 40px);
+  -webkit-mask-image:
+    linear-gradient(to bottom, #000 0, rgba(0, 0, 0, 0.42) 17px, transparent 40px),
+    linear-gradient(to top, #000 0, rgba(0, 0, 0, 0.42) 17px, transparent 40px),
+    linear-gradient(to right, #000 0, rgba(0, 0, 0, 0.42) 17px, transparent 40px),
+    linear-gradient(to left, #000 0, rgba(0, 0, 0, 0.42) 17px, transparent 40px);
 }
 
 /*
@@ -1146,9 +1199,9 @@ html[data-motion='reduced'] .fab-panel-gradient {
 /*
  * Phase 37 Theme F — reduced motion drops all three of this phase's new
  * motions (rotation, pulse, the 0.5s sweep) but keeps the tab's colour: the
- * arc mask above is static CSS, not an animation, so with the keyframes gone
- * the glow simply rests at `@property`'s registered initial values —
- * `--fab-glow-inner: 62%`, `opacity` back to the pseudo's own base value —
+ * border's arc mask is static CSS, not an animation, so with the keyframes
+ * gone the glow simply rests at `@property`'s registered initial values —
+ * `--fab-glow-edge: 40px`, `opacity` back to the pseudo's own base value —
  * rather than whatever frame the animation happened to die on.
  */
 html[data-motion='reduced'] .fab-panel-gradient::before {
