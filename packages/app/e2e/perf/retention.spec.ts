@@ -18,9 +18,13 @@ import { expect, test } from '@playwright/test';
  * harness cannot assume is present). `terminal` keeps the full 20 cycles —
  * it is the one that exercises the broker (Theme C's fix lives there), and
  * is the phase doc's own acceptance test for that theme specifically.
- * `repo`/`browser-tabs` run at 10: enough to expose a real per-cycle slope
- * without doubling this spec's own runtime for actions with no theme of
- * their own riding on the number.
+ * `repo` runs at 10: its cycle is one process (main), and 10 already gives a
+ * flat, stable slope. `browser-tabs` needs the full 20, not 10 — each cycle
+ * spins up ten real Chromium renderer/GPU/utility subprocesses, and at 10
+ * cycles the "other" group's own process-pool warm-up (measured, not this
+ * repo's leak — see the perCycleKb of `other` fall from ~740 at 10 cycles to
+ * ~230 at 20 when this was checked by hand) reads as a false-positive slope.
+ * 20 is where it actually flattens.
  */
 const HERE = dirname(fileURLToPath(import.meta.url));
 const PERF_DIR = resolve(HERE, '..', '..', '..', '..', 'scripts', 'perf');
@@ -78,12 +82,12 @@ test('retention stays inside its budget for a repo open/close cycle', async () =
 });
 
 test('retention stays inside its budget for a browser-tabs open/close cycle', async () => {
-  test.setTimeout(6 * 60 * 1000);
+  test.setTimeout(10 * 60 * 1000);
 
   const harness = (await import(`${PERF_DIR}/memory-report.mjs`)) as unknown as Harness;
   const budgets = JSON.parse(await readFile(`${PERF_DIR}/budgets.json`, 'utf8'));
   const limit = budgets.retainedPerCycleKb;
 
   const repo = harness.mainWorktree(harness.REPO_ROOT);
-  await assertFlat(harness, 'browser-tabs', 10, limit, repo);
+  await assertFlat(harness, 'browser-tabs', 20, limit, repo);
 });
