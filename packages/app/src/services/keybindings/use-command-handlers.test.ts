@@ -8,6 +8,7 @@ import type { BranchStatus, StatusResult } from '@midnite/studio-shared';
 
 import { DialogHost } from '../../components/dialog-host';
 import { useSlidesStore } from '../../features/slides/slides-store';
+import { useTerminalStore } from '../../features/terminal/terminal-store';
 import { keys } from '../queries';
 import { useFileEditorStore } from '../../store/file-editor-store';
 import { useUiStore } from '../../store/ui-store';
@@ -39,7 +40,13 @@ const withProviders = (client: QueryClient) =>
   });
 
 beforeEach(() => {
-  useUiStore.setState({ selectedRepoId: null, selectedWorktreePath: null, activeView: 'graph' });
+  useUiStore.setState({
+    selectedRepoId: null,
+    selectedWorktreePath: null,
+    activeView: 'graph',
+    terminalOpen: false,
+    fabPanelOpen: false,
+  });
   useWorkbenchStore.setState({ tabs: [], activeTabId: null });
   useFileEditorStore.setState({
     target: null,
@@ -49,6 +56,7 @@ beforeEach(() => {
     pendingNav: null,
   });
   useSlidesStore.setState({ deck: null, activeMarkdown: null });
+  useTerminalStore.setState({ sessions: [], activeId: null, states: {}, foregroundCommand: {} });
 });
 
 describe('useCommandHandlers — no repo open', () => {
@@ -62,6 +70,18 @@ describe('useCommandHandlers — no repo open', () => {
     }
   });
 
+  it('disables terminal.new with no repo/worktree selected', () => {
+    const { result } = withProviders(new QueryClient());
+    expect(result.current['terminal.new'].enabled).toBe(false);
+    expect(result.current['terminal.new'].disabledReason).toBe('Open a repository first');
+  });
+
+  it('disables terminal.close with no terminal session open', () => {
+    const { result } = withProviders(new QueryClient());
+    expect(result.current['terminal.close'].enabled).toBe(false);
+    expect(result.current['terminal.close'].disabledReason).toBe('No terminal selected');
+  });
+
   it('leaves navigation, terminal and repo.open enabled with nothing selected', () => {
     const { result } = withProviders(new QueryClient());
     const runtime = result.current;
@@ -71,6 +91,7 @@ describe('useCommandHandlers — no repo open', () => {
       'terminal.focus',
       'repos.toggle',
       'browser.toggle',
+      'fab.toggle',
       'repo.open',
       'view.graph',
       'graph.focus',
@@ -177,6 +198,74 @@ describe('useCommandHandlers — a repo is selected', () => {
     expect(result.current['sync.pull'].enabled).toBe(true);
     expect(result.current['sync.push'].enabled).toBe(false);
     expect(result.current['sync.push'].disabledReason).toBe('Nothing to push.');
+  });
+});
+
+describe('useCommandHandlers — terminal.new', () => {
+  it('opens a plain shell session (no agentId) and expands a collapsed panel', () => {
+    useUiStore.setState({
+      selectedRepoId: REPO_ID,
+      selectedWorktreePath: '/repos/demo',
+      terminalOpen: false,
+    });
+    const client = new QueryClient();
+    client.setQueryData(keys.repos, [{ id: REPO_ID, name: 'demo', path: '/demo', worktrees: [] }]);
+    const { result } = withProviders(client);
+
+    expect(result.current['terminal.new'].enabled).toBe(true);
+    result.current['terminal.new'].run();
+
+    const { sessions } = useTerminalStore.getState();
+    expect(sessions).toHaveLength(1);
+    expect(sessions[0]?.kind).toBe('shell');
+    expect(sessions[0]?.agentId).toBeUndefined();
+    expect(sessions[0]?.cwd).toBe('/repos/demo');
+    expect(useUiStore.getState().terminalOpen).toBe(true);
+  });
+
+  it('leaves an already-expanded panel alone', () => {
+    useUiStore.setState({
+      selectedRepoId: REPO_ID,
+      selectedWorktreePath: '/repos/demo',
+      terminalOpen: true,
+    });
+    const client = new QueryClient();
+    client.setQueryData(keys.repos, [{ id: REPO_ID, name: 'demo', path: '/demo', worktrees: [] }]);
+    const { result } = withProviders(client);
+
+    result.current['terminal.new'].run();
+
+    expect(useUiStore.getState().terminalOpen).toBe(true);
+  });
+});
+
+describe('useCommandHandlers — terminal.close', () => {
+  it('closes the selected session when nothing is running in its foreground', () => {
+    useTerminalStore.getState().openSession({
+      kind: 'shell',
+      title: 'demo',
+      cwd: '/repos/demo',
+      repoId: REPO_ID,
+    });
+    const { result } = withProviders(new QueryClient());
+
+    expect(result.current['terminal.close'].enabled).toBe(true);
+    result.current['terminal.close'].run();
+
+    expect(useTerminalStore.getState().sessions).toHaveLength(0);
+  });
+});
+
+describe('useCommandHandlers — fab.toggle', () => {
+  it('toggles the FAB panel', () => {
+    const { result } = withProviders(new QueryClient());
+    expect(useUiStore.getState().fabPanelOpen).toBe(false);
+
+    result.current['fab.toggle'].run();
+    expect(useUiStore.getState().fabPanelOpen).toBe(true);
+
+    result.current['fab.toggle'].run();
+    expect(useUiStore.getState().fabPanelOpen).toBe(false);
   });
 });
 

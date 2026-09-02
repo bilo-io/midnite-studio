@@ -6,6 +6,8 @@ import { useDialogs } from '../../components/dialog-host';
 import { useGraphStore } from '../../features/graph/graph-store';
 import { useSlidesStore } from '../../features/slides/slides-store';
 import { syncAffordances } from '../../features/status/sync-availability';
+import { closeSessionWithConfirm } from '../../features/terminal/close-session';
+import { onMainSurface, useTerminalStore } from '../../features/terminal/terminal-store';
 import { useBrowserStore } from '../../store/browser-store';
 import { useCommitBoxStore } from '../../store/commit-box-store';
 import { useFileEditorStore } from '../../store/file-editor-store';
@@ -42,11 +44,17 @@ export function useCommandHandlers(): CommandRuntime {
   const queryClient = useQueryClient();
 
   const selectedRepoId = useUiStore((s) => s.selectedRepoId);
+  const selectedWorktreePath = useUiStore((s) => s.selectedWorktreePath);
   const activeView = useUiStore((s) => s.activeView);
   const browserOpen = useUiStore((s) => s.browserOpen);
   const workbenchActiveTabId = useWorkbenchStore((s) => s.activeTabId);
   const { data: repos } = useRepos();
   const selectedRepo = repos?.find((repo) => repo.id === selectedRepoId) ?? null;
+
+  const terminalSessions = useTerminalStore((s) => s.sessions);
+  const terminalActiveId = useTerminalStore((s) => s.activeId);
+  const activeTerminalSession =
+    terminalSessions.find((s) => s.id === terminalActiveId && onMainSurface(s)) ?? null;
 
   const { pickAndOpen } = usePickAndOpenRepo();
   const closeRepo = useCloseRepo();
@@ -84,8 +92,33 @@ export function useCommandHandlers(): CommandRuntime {
       run: () => useUiStore.getState().toggleTerminalHalfMaximized(),
     },
     'terminal.focus': { enabled: true, run: () => useUiStore.getState().setTerminalOpen(true) },
+    'terminal.new': selectedRepoId && selectedWorktreePath
+      ? {
+          enabled: true,
+          run: () => {
+            useTerminalStore.getState().openSession({
+              kind: 'shell',
+              title: selectedRepo?.name ?? 'terminal',
+              cwd: selectedWorktreePath,
+              repoId: selectedRepoId,
+            });
+            // "Not expanded at all" — a session opened onto a collapsed panel
+            // would be invisible until the user separately reached for
+            // `terminal.toggle`, which defeats the point of a "new terminal"
+            // shortcut.
+            if (!useUiStore.getState().terminalOpen) useUiStore.getState().setTerminalOpen(true);
+          },
+        }
+      : { enabled: false, disabledReason: NO_REPO, run: () => {} },
+    'terminal.close': activeTerminalSession
+      ? {
+          enabled: true,
+          run: () => closeSessionWithConfirm(dialogs, activeTerminalSession),
+        }
+      : { enabled: false, disabledReason: 'No terminal selected', run: () => {} },
     'repos.toggle': { enabled: true, run: () => useUiStore.getState().toggleRepos() },
     'browser.toggle': { enabled: true, run: () => useUiStore.getState().toggleBrowser() },
+    'fab.toggle': { enabled: true, run: () => useUiStore.getState().toggleFabPanel() },
     ...browserTabCommands(browserOpen),
     'search.open': { enabled: true, run: () => useUiStore.getState().setActiveView('search') },
 

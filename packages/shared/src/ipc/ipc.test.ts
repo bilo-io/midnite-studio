@@ -866,21 +866,31 @@ describe('keybindings', () => {
     expect(new Set(commands).size).toBe(commands.length);
   });
 
-  it('binds every chord at most once, except a browser.* command deliberately sharing one with an app-wide command', () => {
+  it('binds every chord at most once per namespace, except the browser.*/terminal.* carve-outs', () => {
     // Phase 32 Theme C: the browser's own tab chords (Mod+w, Mod+1…Mod+9)
     // intentionally reuse chords repo.close/graph.focus/status.focus already
-    // own — `use-keybindings.ts` resolves the collision by preferring the
-    // `browser.*` reading only while the pane is open. Any OTHER duplicate
-    // is a real mistake this test still catches.
+    // own. A later theme added terminal.new/terminal.close onto Mod+t/Mod+w
+    // too, so Mod+w is now a genuine three-way chord (browser.closeTab /
+    // terminal.close / repo.close) — `use-keybindings.ts` resolves it by
+    // preferring browser.* while the pane is open, then terminal.* while a
+    // session exists to act on, then the app-wide fallback. At most one
+    // command per namespace (browser./terminal./neither) may claim a given
+    // chord; any OTHER duplicate is a real mistake this test still catches.
     const byChord = new Map<string, string[]>();
     for (const binding of DEFAULT_KEYMAP) {
       byChord.set(binding.chord, [...(byChord.get(binding.chord) ?? []), binding.command]);
     }
     for (const [chord, commands] of byChord) {
       if (commands.length === 1) continue;
-      expect(commands, `chord ${chord} bound to ${commands.join(', ')}`).toHaveLength(2);
       const browserCommands = commands.filter((c) => c.startsWith('browser.'));
+      const terminalCommands = commands.filter((c) => c.startsWith('terminal.'));
+      const rest = commands.filter((c) => !c.startsWith('browser.') && !c.startsWith('terminal.'));
       expect(browserCommands, `chord ${chord} bound to ${commands.join(', ')}`).toHaveLength(1);
+      expect(terminalCommands.length, `chord ${chord} bound to ${commands.join(', ')}`).toBeLessThanOrEqual(1);
+      expect(rest.length, `chord ${chord} bound to ${commands.join(', ')}`).toBeLessThanOrEqual(1);
+      expect(commands, `chord ${chord} bound to ${commands.join(', ')}`).toHaveLength(
+        browserCommands.length + terminalCommands.length + rest.length,
+      );
     }
   });
 

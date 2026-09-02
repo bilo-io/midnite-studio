@@ -13,8 +13,14 @@ import type { CommandId } from '@midnite/studio-shared';
 export const PALETTE_SAFE: readonly CommandId[] = [
   'terminal.toggle',
   'terminal.focus',
+  // `terminal.new`/`terminal.close` are deliberately absent, same as
+  // `browser.newTab`/`browser.closeTab`: they share a chord with a command
+  // whose meaning depends on runtime state (which terminal is selected, or
+  // whether the browser is open), and the palette has no such context to
+  // resolve against.
   'repos.toggle',
   'browser.toggle',
+  'fab.toggle',
   'repo.open',
   'repo.close',
   'view.refresh',

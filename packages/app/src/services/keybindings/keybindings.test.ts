@@ -144,11 +144,12 @@ describe('the registry is palette-shaped', () => {
     expect(cont?.chord).toBeUndefined();
   });
 
-  it('never binds two commands to the same chord, except a browser.* command deliberately sharing one', async () => {
+  it('never binds two commands to the same chord outside the browser.*/terminal.* carve-outs', async () => {
     // Phase 32 Theme C: the browser's own tab chords intentionally reuse
     // chords repo.close/graph.focus/status.focus already own —
     // `use-keybindings.ts` prefers the `browser.*` reading only while the
-    // pane is open. See the identical, fuller-commented assertion in
+    // pane is open, then a `terminal.*` reading while a session exists to act
+    // on. See the identical, fuller-commented assertion in
     // `@midnite/studio-shared`'s own ipc.test.ts.
     const { DEFAULT_KEYMAP } = await import('@midnite/studio-shared');
     const byChord = new Map<string, string[]>();
@@ -157,9 +158,15 @@ describe('the registry is palette-shaped', () => {
     }
     for (const [chord, commands] of byChord) {
       if (commands.length === 1) continue;
-      expect(commands, `chord ${chord} bound to ${commands.join(', ')}`).toHaveLength(2);
       const browserCommands = commands.filter((c) => c.startsWith('browser.'));
+      const terminalCommands = commands.filter((c) => c.startsWith('terminal.'));
+      const rest = commands.filter((c) => !c.startsWith('browser.') && !c.startsWith('terminal.'));
       expect(browserCommands, `chord ${chord} bound to ${commands.join(', ')}`).toHaveLength(1);
+      expect(terminalCommands.length, `chord ${chord} bound to ${commands.join(', ')}`).toBeLessThanOrEqual(1);
+      expect(rest.length, `chord ${chord} bound to ${commands.join(', ')}`).toBeLessThanOrEqual(1);
+      expect(commands, `chord ${chord} bound to ${commands.join(', ')}`).toHaveLength(
+        browserCommands.length + terminalCommands.length + rest.length,
+      );
     }
   });
 

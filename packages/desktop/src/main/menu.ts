@@ -35,6 +35,25 @@ export function buildMenu(getWindow: () => BrowserWindow | null): Menu {
     click: send(command),
   });
 
+  /**
+   * A menu item for a chord-colliding command, with NO Electron accelerator.
+   *
+   * `repo.close` shares Mod+w with `browser.closeTab`/`terminal.close` — a
+   * native accelerator fires unconditionally whenever the window is focused,
+   * regardless of which of those three the renderer's own keydown handler
+   * would resolve to (that resolution lives in `use-keybindings.ts` and reads
+   * live app state an Electron `Menu` has no way to see). Registering one here
+   * meant every Mod+w silently ALSO fired `repo.close` — popping "Close
+   * repository?" while the visible, intended effect was closing a browser tab
+   * or a terminal session. The item stays for discoverability and click; only
+   * the live keyboard shortcut is gone, and the renderer's own listener
+   * already covers Mod+w everywhere this menu's accelerator would have.
+   */
+  const itemNoAccelerator = (command: CommandId): MenuItemConstructorOptions => ({
+    label: DEFAULT_KEYMAP.find((b) => b.command === command)?.label ?? command,
+    click: send(command),
+  });
+
   const isMac = process.platform === 'darwin';
 
   const template: MenuItemConstructorOptions[] = [
@@ -45,7 +64,7 @@ export function buildMenu(getWindow: () => BrowserWindow | null): Menu {
       label: 'File',
       submenu: [
         item('repo.open'),
-        item('repo.close'),
+        itemNoAccelerator('repo.close'),
         { type: 'separator' },
         isMac ? { role: 'close' } : { role: 'quit' },
       ],
@@ -70,6 +89,7 @@ export function buildMenu(getWindow: () => BrowserWindow | null): Menu {
         item('repos.toggle'),
         item('terminal.toggle'),
         item('browser.toggle'),
+        item('fab.toggle'),
         { type: 'separator' },
         { role: 'togglefullscreen' },
         { role: 'toggleDevTools' },

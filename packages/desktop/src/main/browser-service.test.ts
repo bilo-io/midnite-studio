@@ -318,3 +318,97 @@ describe('navigation policy (Theme B)', () => {
     );
   });
 });
+
+describe('Mod+w / Mod+t owned by hand (before-input-event)', () => {
+  beforeEach(() => {
+    resetBrowserServiceForTests();
+    fakeSessions.clear();
+  });
+  afterEach(() => vi.clearAllMocks());
+
+  /**
+   * A page inside the `WebContentsView` is a genuinely separate `webContents`
+   * from the host window's own renderer, so the renderer's window-level
+   * keydown listener never sees a keystroke aimed at it — this handler is the
+   * only thing that can react to Mod+w/Mod+t while a tab has native focus.
+   */
+  function createAndGetView(): { win: ReturnType<typeof fakeWindow>; view: FakeView } {
+    const win = fakeWindow();
+    createBrowserTab(win, 'tab-1', 'https://example.com');
+    const view = (win.contentView.addChildView as ReturnType<typeof vi.fn>).mock
+      .calls[0]?.[0] as FakeView;
+    return { win, view };
+  }
+
+  const mac = (run: () => void) => {
+    const original = process.platform;
+    Object.defineProperty(process, 'platform', { value: 'darwin', configurable: true });
+    try {
+      run();
+    } finally {
+      Object.defineProperty(process, 'platform', { value: original, configurable: true });
+    }
+  };
+
+  it('sends browser.closeTab for Cmd+W on macOS and swallows the keystroke', () => {
+    mac(() => {
+      const { win, view } = createAndGetView();
+      const onInput = view.webContents.handlers.get('before-input-event')?.[0];
+      const event = { preventDefault: vi.fn() };
+
+      onInput?.(event, { type: 'keyDown', key: 'w', meta: true, control: false, alt: false, shift: false });
+
+      expect(event.preventDefault).toHaveBeenCalledTimes(1);
+      expect(win.webContents.send).toHaveBeenCalledWith(expect.any(String), 'browser.closeTab');
+    });
+  });
+
+  it('sends browser.newTab for Cmd+T on macOS and swallows the keystroke', () => {
+    mac(() => {
+      const { win, view } = createAndGetView();
+      const onInput = view.webContents.handlers.get('before-input-event')?.[0];
+      const event = { preventDefault: vi.fn() };
+
+      onInput?.(event, { type: 'keyDown', key: 't', meta: true, control: false, alt: false, shift: false });
+
+      expect(event.preventDefault).toHaveBeenCalledTimes(1);
+      expect(win.webContents.send).toHaveBeenCalledWith(expect.any(String), 'browser.newTab');
+    });
+  });
+
+  it('ignores plain Ctrl+W on macOS — Mod means Cmd there, not Ctrl', () => {
+    mac(() => {
+      const { view } = createAndGetView();
+      const onInput = view.webContents.handlers.get('before-input-event')?.[0];
+      const event = { preventDefault: vi.fn() };
+
+      onInput?.(event, { type: 'keyDown', key: 'w', meta: false, control: true, alt: false, shift: false });
+
+      expect(event.preventDefault).not.toHaveBeenCalled();
+    });
+  });
+
+  it('ignores Cmd+Shift+W — an extra modifier means a different chord entirely', () => {
+    mac(() => {
+      const { view } = createAndGetView();
+      const onInput = view.webContents.handlers.get('before-input-event')?.[0];
+      const event = { preventDefault: vi.fn() };
+
+      onInput?.(event, { type: 'keyDown', key: 'w', meta: true, control: false, alt: false, shift: true });
+
+      expect(event.preventDefault).not.toHaveBeenCalled();
+    });
+  });
+
+  it('ignores keyUp — only keyDown should fire the command', () => {
+    mac(() => {
+      const { view } = createAndGetView();
+      const onInput = view.webContents.handlers.get('before-input-event')?.[0];
+      const event = { preventDefault: vi.fn() };
+
+      onInput?.(event, { type: 'keyUp', key: 'w', meta: true, control: false, alt: false, shift: false });
+
+      expect(event.preventDefault).not.toHaveBeenCalled();
+    });
+  });
+});

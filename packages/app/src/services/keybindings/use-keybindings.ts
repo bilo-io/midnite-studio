@@ -24,19 +24,28 @@ export function useKeybindings(runtime: CommandRuntime): void {
       const chord = chordFromEvent(event);
       if (chord === null) return;
 
-      // A chord can carry TWO bindings — the browser's own tab commands
-      // (Theme C) deliberately reuse Mod+w/Mod+1/Mod+2, which already mean
-      // repo.close/graph.focus/status.focus app-wide. While the pane is
-      // open the browser reading wins; otherwise the app-wide one does. Two
-      // real commands can never share a chord OUTSIDE this one carve-out —
-      // `getState()`, not a subscription, so the effect need not re-run on
-      // every browser open/close.
+      // A chord can carry up to THREE bindings on Mod+w/Mod+t — the browser's
+      // own tab commands (Theme C) deliberately reuse Mod+w/Mod+1/Mod+2, which
+      // already mean repo.close/graph.focus/status.focus app-wide, and
+      // terminal.new/terminal.close sit between the two. Priority: the
+      // browser reading wins while the pane is open; otherwise an ENABLED
+      // terminal reading wins (there is a session to act on, or a repo to
+      // open one in); otherwise the app-wide one does. Checking `enabled`
+      // rather than mere presence is what lets Mod+w still close the
+      // repository when no terminal session exists yet, instead of the
+      // keystroke silently doing nothing. `getState()`, not a subscription,
+      // so the effect need not re-run on every browser/terminal state change.
       const candidates = DEFAULT_KEYMAP.filter((b) => b.chord === chord);
       const browserOpen = useUiStore.getState().browserOpen;
+      const browserBinding = candidates.find((b) => b.command.startsWith('browser.'));
+      const terminalBinding = candidates.find((b) => b.command.startsWith('terminal.'));
+      const restBinding = candidates.find(
+        (b) => !b.command.startsWith('browser.') && !b.command.startsWith('terminal.'),
+      );
+      const terminalWins = terminalBinding !== undefined && runtime[terminalBinding.command].enabled;
       const binding = browserOpen
-        ? (candidates.find((b) => b.command.startsWith('browser.')) ??
-          candidates.find((b) => !b.command.startsWith('browser.')))
-        : candidates.find((b) => !b.command.startsWith('browser.'));
+        ? (browserBinding ?? (terminalWins ? terminalBinding : restBinding))
+        : (terminalWins ? terminalBinding : restBinding);
       if (!binding) return;
 
       // The palette owns the keyboard while open: only its own chords (to

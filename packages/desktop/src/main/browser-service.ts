@@ -1,6 +1,6 @@
-import { WebContentsView, session, shell, type BrowserWindow } from 'electron';
+import { WebContentsView, session, shell, type BrowserWindow, type Input } from 'electron';
 
-import { EVENT_CHANNELS, type BrowserBounds, type BrowserEvent } from '@midnite/studio-shared';
+import { EVENT_CHANNELS, type BrowserBounds, type BrowserEvent, type CommandId } from '@midnite/studio-shared';
 
 import { cancelDownload, checkNavigationUrl, denyAllPermissions } from './browser-security';
 import { defaultLogger } from './log';
@@ -52,6 +52,26 @@ function ensureSessionConfigured(): void {
 const send = (win: BrowserWindow, event: BrowserEvent): void => {
   if (!win.isDestroyed()) win.webContents.send(EVENT_CHANNELS.browserEvent, event);
 };
+
+const sendCommand = (win: BrowserWindow, command: CommandId): void => {
+  if (!win.isDestroyed()) win.webContents.send(EVENT_CHANNELS.menuCommand, command);
+};
+
+/**
+ * Whether a native `before-input-event` keystroke is Mod+`key` with no other
+ * modifier — `Mod` being Cmd on macOS, Ctrl elsewhere, same as the renderer's
+ * own `chordFromEvent`.
+ */
+function isModChord(input: Input, key: string): boolean {
+  const mod = process.platform === 'darwin' ? input.meta : input.control;
+  return (
+    input.type === 'keyDown' &&
+    mod &&
+    !input.shift &&
+    !input.alt &&
+    input.key.toLowerCase() === key
+  );
+}
 
 /**
  * Create a tab's view and load its first URL.
@@ -123,6 +143,31 @@ export function createBrowserTab(win: BrowserWindow, tabId: string, url: string)
   // Not a crash — the view is alive but has stopped answering. Surfaced the
   // same way so the pane offers a reload rather than a frozen rectangle.
   wc.on('unresponsive', () => send(win, { kind: 'destroyed', tabId, reason: 'unresponsive' }));
+
+  /*
+    Mod+w/Mod+t owned by hand, not by the app's usual keybinding path.
+
+    This view is a genuinely separate `webContents` from the host window's own
+    renderer — while a page inside it has keyboard focus, the renderer's
+    window-level `keydown` capture listener (`use-keybindings.ts`) never sees
+    the keystroke at all, unlike the terminal (an xterm textarea living in the
+    SAME renderer DOM). With no Electron menu accelerator registered for
+    either chord (see `menu.ts` — that was the actual leak: a native
+    accelerator fires regardless of which webContents has focus, so it kept
+    invoking `repo.close` even while a browser tab plainly owned the
+    keystroke), a keystroke landing here would otherwise do nothing at all
+    rather than the tab action it visibly should. `preventDefault()` also
+    stops the page underneath from ever seeing the chord.
+  */
+  wc.on('before-input-event', (event, input) => {
+    if (isModChord(input, 'w')) {
+      event.preventDefault();
+      sendCommand(win, 'browser.closeTab');
+    } else if (isModChord(input, 't')) {
+      event.preventDefault();
+      sendCommand(win, 'browser.newTab');
+    }
+  });
 
   // Only `http:`/`https:` proceed — Theme B's navigation policy. Blocking
   // here (rather than only refusing the renderer's own `browserNavigate`

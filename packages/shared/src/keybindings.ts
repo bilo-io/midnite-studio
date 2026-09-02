@@ -90,6 +90,17 @@ export const COMMANDS = [
   },
   { id: 'terminal.focus', label: 'Focus Terminal', group: 'terminal' },
   /**
+   * `Mod+t`/`Mod+w` for the terminal panel — a new plain shell, and closing
+   * whichever session is selected (with the same "still running" confirm the
+   * session list's own close button shows). `app` scope, same reasoning as
+   * `repos.toggle`: neither chord needs to reach through xterm itself, and
+   * doing so on non-mac platforms would steal Ctrl+W from readline's own
+   * delete-word-backward binding. See the collision note on `browser.newTab`/
+   * `browser.closeTab` below — these two chords are shared three ways.
+   */
+  { id: 'terminal.new', label: 'New Terminal', group: 'terminal', chord: 'Mod+t' },
+  { id: 'terminal.close', label: 'Close Terminal', group: 'terminal', chord: 'Mod+w' },
+  /**
    * Mod+g ("G" for Git). `app` scope, unlike the terminal toggle: showing the
    * repository list while the terminal has focus is not something you reach
    * for mid-command.
@@ -103,6 +114,12 @@ export const COMMANDS = [
    */
   { id: 'browser.toggle', label: 'Toggle Browser', group: 'view', chord: 'Mod+b' },
   /**
+   * Mod+m for the FAB panel (agent loops), matching the mnemonic-by-elimination
+   * pattern the other panel toggles already use (g/b taken). A standalone
+   * chord — nothing else claims Mod+m, so no carve-out is needed here.
+   */
+  { id: 'fab.toggle', label: 'Toggle Loop Panel', group: 'view', chord: 'Mod+m' },
+  /**
    * The browser's own tab chords (Theme C), all sharing a chord with an
    * app-wide command that means something else with the pane closed —
    * `Mod+w` is `repo.close`, `Mod+1`/`Mod+2` are `graph.focus`/`status.focus`.
@@ -111,6 +128,14 @@ export const COMMANDS = [
    * repository the rest of the time. An app-scoped Mod+w with no such
    * carve-out would close the window's repository out from under a browser
    * user reaching to close a tab — the scoping is load-bearing, not cosmetic.
+   *
+   * `Mod+w`/`Mod+t` are a THREE-way chord now: `terminal.close`/`terminal.new`
+   * (below) sit between the browser reading and the app-wide fallback, so
+   * `use-keybindings.ts`'s priority is browser (pane open) > terminal (a
+   * session exists to act on) > repo.close/unbound. Neither of these gets a
+   * native Electron menu accelerator (see `menu.ts`) — an OS-level accelerator
+   * fires unconditionally regardless of which of the three contexts is
+   * actually active, which is exactly the bug this carve-out exists to avoid.
    */
   { id: 'browser.newTab', label: 'New Browser Tab', group: 'view', chord: 'Mod+t' },
   { id: 'browser.closeTab', label: 'Close Browser Tab', group: 'view', chord: 'Mod+w' },
