@@ -4,7 +4,7 @@
 
 ## 2026-09-02 — Phase 40 Theme G (partial) — the assembled-app Playwright coverage
 
-[PR #TBD]. The union-narrowing and command-construction rules Theme G calls out already had their
+[PR #45](https://github.com/bilo-io/midnite-studio/pull/45). The union-narrowing and command-construction rules Theme G calls out already had their
 own Vitest suites (`gh-project.test.ts`, `gh-project-write.test.ts`, alongside E/B); this lands
 the one thing only the assembled app can show.
 
