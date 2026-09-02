@@ -108,10 +108,16 @@ export function startCommitSearch(
     },
   });
 
-  void stream.done.then((result) => {
-    if (finished) return;
-    finishStream(forwarded >= cap, result.error);
-  });
+  void stream.done
+    .then((result) => {
+      if (finished) return;
+      finishStream(forwarded >= cap, result.error);
+    })
+    // `.finally`, not the `.then` body: a rejected `stream.done` skipped
+    // `release` entirely before, leaking the registry entry until the window
+    // closed. `release` is idempotent, so a second call after `finishStream`
+    // already ran is harmless.
+    .finally(() => release(win, options.requestId));
 
   return { ok: true, value: { started: true } };
 }
@@ -184,10 +190,13 @@ export function startGrep(
     },
   });
 
-  void stream.done.then((result) => {
-    if (finished) return;
-    finishStream(forwarded >= cap, result.error);
-  });
+  void stream.done
+    .then((result) => {
+      if (finished) return;
+      finishStream(forwarded >= cap, result.error);
+    })
+    // Same `.finally` fix as `startCommitSearch` above — see its comment.
+    .finally(() => release(win, options.requestId));
 
   return { ok: true, value: { started: true } };
 }
