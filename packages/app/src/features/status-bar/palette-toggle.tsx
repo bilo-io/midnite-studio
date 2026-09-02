@@ -1,4 +1,4 @@
-import { LuCommand } from 'react-icons/lu';
+import { GoCommandPalette } from 'react-icons/go';
 
 import { usePaletteStore } from '../../store/palette-store';
 
@@ -33,7 +33,7 @@ export function PaletteToggle() {
   return (
     <StatusToggle
       testId="palette-toggle"
-      icon={LuCommand}
+      icon={GoCommandPalette}
       name="Palette"
       chord={displayChord(paletteChord)}
       active={active}
