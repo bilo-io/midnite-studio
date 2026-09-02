@@ -127,13 +127,38 @@ export type LoopChoice = z.infer<typeof LoopChoiceSchema>;
  * own configuration decide — the honest default for a user who has already
  * picked one in `claude`'s settings.
  */
-export const LoopModelSchema = z.enum(['default', 'sonnet-5', 'opus-5']);
+export const LoopModelSchema = z.enum([
+  'default',
+  'haiku-4-5',
+  'sonnet-5',
+  'opus-4-8',
+  'opus-5',
+  'fable-5',
+  'fable-5-1',
+]);
 export type LoopModel = z.infer<typeof LoopModelSchema>;
 
+/**
+ * Cheapest first, so the row reads as a cost ladder rather than a release
+ * order — a loop is the one place in this app where the model choice is a
+ * standing bill rather than a single call, and the pill you reach for first
+ * should be the one you can afford to leave running.
+ *
+ * Two older models are here on purpose. `opus-4-8` is the previous Opus, kept
+ * because a long unattended run is exactly the case where a known-good model
+ * beats the newest one. `fable-5` sits below `fable-5-1` for the same reason.
+ * Ids are our own tokens, not the CLI strings — `cliModel` is the only place
+ * an `--model` word is written, so a rename upstream is a one-line change and
+ * a persisted store never holds a vendor string it cannot interpret.
+ */
 export const LOOP_MODELS: readonly { id: LoopModel; label: string; cliModel: string | null }[] = [
   { id: 'default', label: 'Default', cliModel: null },
+  { id: 'haiku-4-5', label: 'Haiku 4.5', cliModel: 'claude-haiku-4-5' },
   { id: 'sonnet-5', label: 'Sonnet 5', cliModel: 'claude-sonnet-5' },
+  { id: 'opus-4-8', label: 'Opus 4.8', cliModel: 'claude-opus-4-8' },
   { id: 'opus-5', label: 'Opus 5', cliModel: 'claude-opus-5' },
+  { id: 'fable-5', label: 'Fable 5', cliModel: 'claude-fable-5' },
+  { id: 'fable-5-1', label: 'Fable 5.1', cliModel: 'claude-fable-5-1' },
 ];
 
 /**
@@ -149,6 +174,78 @@ export function loopModelArgs(agentId: string, model: LoopModel): string[] {
   const cli = LOOP_MODELS.find((entry) => entry.id === model)?.cliModel ?? null;
   return cli === null ? [] : ['--model', cli];
 }
+
+/**
+ * How often a scheduled loop should take another pass.
+ *
+ * Prompt-level like the window itself, and for the same reason: `/loop` paces
+ * itself and schedules its own next wake-up, so a cadence it can *read* is a
+ * cadence it can honour. A renderer-side timer would arm nothing that survives
+ * a quit. `'continuous'` says nothing at all — the honest default, and not the
+ * same as asking for the fastest cadence on the list.
+ */
+export const LoopFrequencySchema = z.enum([
+  'continuous',
+  '15m',
+  '30m',
+  'hourly',
+  '2h',
+  '4h',
+  'daily',
+]);
+export type LoopFrequency = z.infer<typeof LoopFrequencySchema>;
+
+export const LOOP_FREQUENCIES: readonly {
+  id: LoopFrequency;
+  label: string;
+  /** Appended when chosen. `null` on the neutral option, which adds nothing. */
+  promptFragment: string | null;
+}[] = [
+  { id: 'continuous', label: 'Continuous', promptFragment: null },
+  {
+    id: '15m',
+    label: '15m',
+    promptFragment: 'Pace yourself to roughly one pass every 15 minutes.',
+  },
+  {
+    id: '30m',
+    label: '30m',
+    promptFragment: 'Pace yourself to roughly one pass every 30 minutes.',
+  },
+  { id: 'hourly', label: 'Hourly', promptFragment: 'Pace yourself to roughly one pass an hour.' },
+  { id: '2h', label: '2h', promptFragment: 'Pace yourself to roughly one pass every two hours.' },
+  { id: '4h', label: '4h', promptFragment: 'Pace yourself to roughly one pass every four hours.' },
+  { id: 'daily', label: 'Daily', promptFragment: 'Take at most one pass a day.' },
+];
+
+/**
+ * Which days the window applies on.
+ *
+ * Three sets rather than seven checkboxes: the answer a standing loop actually
+ * needs is "my working week" or "not my working week", and a per-day grid
+ * would be five more controls in a 320px panel to express the case nobody has
+ * asked for. `'all'` is neutral and says nothing.
+ */
+export const LoopDaysSchema = z.enum(['all', 'weekdays', 'weekends']);
+export type LoopDays = z.infer<typeof LoopDaysSchema>;
+
+export const LOOP_DAY_SETS: readonly {
+  id: LoopDays;
+  label: string;
+  promptFragment: string | null;
+}[] = [
+  { id: 'all', label: 'Every day', promptFragment: null },
+  {
+    id: 'weekdays',
+    label: 'Weekdays',
+    promptFragment: 'Work on weekdays only — idle through Saturday and Sunday.',
+  },
+  {
+    id: 'weekends',
+    label: 'Weekends',
+    promptFragment: 'Work at weekends only — idle Monday through Friday.',
+  },
+];
 
 /** `HH:MM`, 24-hour — what an `<input type="time">` produces. */
 const TimeOfDay = z
@@ -168,25 +265,91 @@ export const LoopScheduleSchema = z.object({
   enabled: z.boolean().default(false),
   from: TimeOfDay,
   to: TimeOfDay,
+  /**
+   * How often the loop should come back round inside its window.
+   *
+   * Optional rather than defaulted, and read as `'continuous'` when absent:
+   * every schedule persisted before this field existed is a valid schedule
+   * that simply said nothing about cadence, and a zod `.default()` would make
+   * the *type* claim an answer those records never gave. Same reasoning as
+   * `LoopRunRecord.model`.
+   */
+  frequency: LoopFrequencySchema.optional(),
+  /** Which days it may work at all. Absent means every day. */
+  days: LoopDaysSchema.optional(),
 });
 export type LoopSchedule = z.infer<typeof LoopScheduleSchema>;
 
 /** A working day, as the window a fresh loop offers before it is edited. */
-export const DEFAULT_LOOP_SCHEDULE: LoopSchedule = { enabled: false, from: '09:00', to: '17:00' };
+export const DEFAULT_LOOP_SCHEDULE: LoopSchedule = {
+  enabled: false,
+  from: '09:00',
+  to: '17:00',
+  frequency: 'continuous',
+  days: 'all',
+};
 
 /**
- * The schedule as one sentence, or `null` when there is nothing to say.
+ * The schedule as prose, or `null` when there is nothing to say.
+ *
+ * Three independent axes, emitted in the order a reader needs them — which
+ * days, then the window inside a day, then the cadence inside the window —
+ * and each contributes only when it is non-neutral. An armed schedule left on
+ * every default therefore still says nothing, which is the right answer: the
+ * switch alone is not an instruction.
  *
  * `from === to` is not a 24-hour window and not a zero-length one — it is a
- * user mid-edit, so it says nothing rather than guessing. A window that wraps
- * midnight is named as such: "between 22:00 and 06:00" alone reads like a
- * mistake, and an agent that read it as one would drop the rule.
+ * user mid-edit, so the *window* says nothing rather than guessing. The days
+ * and the cadence are unaffected by that: they are answers to different
+ * questions and stay on the line. A window that wraps midnight is named as
+ * such: "between 22:00 and 06:00" alone reads like a mistake, and an agent
+ * that read it as one would drop the rule.
  */
 export function loopScheduleFragment(schedule: LoopSchedule | null | undefined): string | null {
   if (!schedule?.enabled) return null;
-  if (schedule.from === schedule.to) return null;
-  const overnight = schedule.from > schedule.to ? ' (overnight)' : '';
-  return `Work only between ${schedule.from} and ${schedule.to} local time${overnight} — outside that window, idle and wait rather than starting new work.`;
+
+  const parts: string[] = [];
+
+  const days = LOOP_DAY_SETS.find((entry) => entry.id === (schedule.days ?? 'all'));
+  if (days?.promptFragment) parts.push(days.promptFragment);
+
+  if (schedule.from !== schedule.to) {
+    const overnight = schedule.from > schedule.to ? ' (overnight)' : '';
+    parts.push(
+      `Work only between ${schedule.from} and ${schedule.to} local time${overnight} — outside that window, idle and wait rather than starting new work.`,
+    );
+  }
+
+  const frequency = LOOP_FREQUENCIES.find(
+    (entry) => entry.id === (schedule.frequency ?? 'continuous'),
+  );
+  if (frequency?.promptFragment) parts.push(frequency.promptFragment);
+
+  return parts.length === 0 ? null : parts.join(' ');
+}
+
+/**
+ * The schedule as the two-or-three words a running strip has room for, or
+ * `null` when the schedule is saying nothing.
+ *
+ * Same neutrality rule as {@link loopScheduleFragment} — a chip that read
+ * "09:00–09:00 · Every day · Continuous" would be three ways of saying
+ * nothing — so the two surfaces can never disagree about whether a run is
+ * scheduled at all.
+ */
+export function loopScheduleSummary(schedule: LoopSchedule | null | undefined): string | null {
+  if (loopScheduleFragment(schedule) === null || !schedule) return null;
+  const parts: string[] = [];
+  if (schedule.from !== schedule.to) parts.push(`${schedule.from}–${schedule.to}`);
+  if (schedule.days && schedule.days !== 'all') {
+    parts.push(LOOP_DAY_SETS.find((entry) => entry.id === schedule.days)?.label ?? schedule.days);
+  }
+  if (schedule.frequency && schedule.frequency !== 'continuous') {
+    parts.push(
+      LOOP_FREQUENCIES.find((entry) => entry.id === schedule.frequency)?.label ?? schedule.frequency,
+    );
+  }
+  return parts.length === 0 ? null : parts.join(' · ');
 }
 
 /**

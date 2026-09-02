@@ -1,4 +1,4 @@
-import { test, expect } from '@playwright/test';
+import { test, expect, type Page } from '@playwright/test';
 
 import { fixtures } from './fixtures';
 import { installMockBridge, type MockFixtures } from './mock-bridge';
@@ -24,7 +24,7 @@ const TABS = [
   ['Medic', 'medic'],
 ] as const;
 
-test('the composer, one shot per tab', async ({ page }) => {
+async function shootEveryTab(page: Page, suffix: string): Promise<void> {
   await installMockBridge(page, fixtures as MockFixtures);
   await page.goto('/');
   await expect(page.getByRole('columnheader', { name: 'Commit message' })).toBeVisible();
@@ -34,6 +34,24 @@ test('the composer, one shot per tab', async ({ page }) => {
   for (const [tab, id] of TABS) {
     await page.getByRole('button', { name: tab, exact: true }).click();
     await page.waitForTimeout(250);
-    await page.getByTestId(`loop-composer-${id}`).screenshot({ path: `${OUT}/${id}.png` });
+    await page.getByTestId(`loop-composer-${id}`).screenshot({ path: `${OUT}/${id}${suffix}.png` });
   }
+}
+
+test('the composer, one shot per tab', async ({ page }) => {
+  await shootEveryTab(page, '');
+});
+
+/*
+  And again in the dark. The composer's ground is a translucent wash of the
+  tab's own sub-spectrum over `--popover`, so it is a genuinely different
+  picture in each theme rather than the same one re-tinted — a light-only shot
+  would say nothing about the theme most of this app is looked at in.
+*/
+test.describe('dark', () => {
+  test.use({ colorScheme: 'dark' });
+
+  test('the composer in the dark, one shot per tab', async ({ page }) => {
+    await shootEveryTab(page, '-dark');
+  });
 });

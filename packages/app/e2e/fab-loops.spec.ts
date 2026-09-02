@@ -133,7 +133,7 @@ test.describe('FAB loop console', () => {
       const other = page.getByTestId(`loop-composer-${id}`);
       await expect(other.getByRole('radio', { name: 'Ask me' })).toBeChecked();
       await expect(other.getByRole('radio', { name: 'Opus 5' })).toBeVisible();
-      await expect(other.getByRole('switch', { name: 'Schedule' })).not.toBeChecked();
+      await expect(other.getByRole('switch', { name: 'Window' })).not.toBeChecked();
     }
   });
 
@@ -172,7 +172,7 @@ test.describe('FAB loop console', () => {
     await composer.getByRole('checkbox', { name: 'Answer feedback' }).check();
     await composer.getByRole('radio', { name: 'Ready only' }).check();
     await composer.getByRole('radio', { name: 'Recommended' }).check();
-    await composer.getByRole('switch', { name: 'Schedule' }).check();
+    await composer.getByRole('switch', { name: 'Window' }).check();
     await composer.getByLabel('Run Patrol from').fill('09:00');
     await composer.getByLabel('Run Patrol until').fill('17:00');
     await composer.getByRole('radio', { name: 'Opus 5' }).check();

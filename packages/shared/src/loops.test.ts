@@ -5,15 +5,22 @@ import {
   COMMON_RUN_MODIFIERS,
   DEFAULT_LOOPS,
   DEFAULT_LOOP_SCHEDULE,
+  LOOP_DAY_SETS,
+  LOOP_FREQUENCIES,
   LOOP_MODELS,
+  LoopDaysSchema,
   LoopDefinitionSchema,
+  LoopFrequencySchema,
+  LoopModelSchema,
   LoopRunRecordSchema,
   LoopScheduleSchema,
   composeLoopPrompt,
   loopModelArgs,
   loopScheduleFragment,
+  loopScheduleSummary,
   resolveLoopChoice,
   type LoopDefinition,
+  type LoopSchedule,
 } from './loops';
 
 /** A loop whose fragments are trivially identifiable in the composed line. */
@@ -191,8 +198,115 @@ describe('loopScheduleFragment', () => {
     );
   });
 
-  it('starts a fresh loop unscheduled', () => {
+  it('starts a fresh loop unscheduled, and neutral on both new axes', () => {
     expect(DEFAULT_LOOP_SCHEDULE.enabled).toBe(false);
+    expect(DEFAULT_LOOP_SCHEDULE.frequency).toBe('continuous');
+    expect(DEFAULT_LOOP_SCHEDULE.days).toBe('all');
+  });
+
+  it('reads a schedule persisted before frequency and days existed as neutral on both', () => {
+    // The optional fields are what make this true: an old record parses, and
+    // the fragment it composes is exactly the one it always composed.
+    const legacy = LoopScheduleSchema.parse({ enabled: true, from: '09:00', to: '17:00' });
+    expect(legacy.frequency).toBeUndefined();
+    expect(legacy.days).toBeUndefined();
+    expect(loopScheduleFragment(legacy)).toBe(loopScheduleFragment({ ...legacy, days: 'all' }));
+  });
+
+  it('names the cadence after the window, so the pacing rule reads as a qualifier', () => {
+    const line = loopScheduleFragment({
+      enabled: true,
+      from: '09:00',
+      to: '17:00',
+      frequency: 'hourly',
+    });
+    expect(line).toContain('between 09:00 and 17:00');
+    expect(line).toContain('roughly one pass an hour');
+    expect(line!.indexOf('one pass an hour')).toBeGreaterThan(line!.indexOf('between 09:00'));
+  });
+
+  it('names the day set before the window — which days, then when inside one', () => {
+    const line = loopScheduleFragment({
+      enabled: true,
+      from: '09:00',
+      to: '17:00',
+      days: 'weekdays',
+    });
+    expect(line!.indexOf('weekdays only')).toBeLessThan(line!.indexOf('between 09:00'));
+  });
+
+  it('still carries cadence and days when the window itself is mid-edit', () => {
+    // A zero-width window says nothing; the other two axes answer different
+    // questions and are not silenced with it.
+    const line = loopScheduleFragment({
+      enabled: true,
+      from: '09:00',
+      to: '09:00',
+      frequency: 'daily',
+      days: 'weekends',
+    });
+    expect(line).toContain('weekends only');
+    expect(line).toContain('at most one pass a day');
+    expect(line).not.toContain('between');
+  });
+
+  it('says nothing at all when every axis is on its neutral option', () => {
+    expect(
+      loopScheduleFragment({
+        enabled: true,
+        from: '09:00',
+        to: '09:00',
+        frequency: 'continuous',
+        days: 'all',
+      }),
+    ).toBeNull();
+  });
+});
+
+describe('loopScheduleSummary', () => {
+  it('is null exactly when the composed line is, so the chip cannot over-claim', () => {
+    const cases: LoopSchedule[] = [
+      { enabled: false, from: '09:00', to: '17:00' },
+      { enabled: true, from: '09:00', to: '09:00' },
+      { enabled: true, from: '09:00', to: '09:00', frequency: 'continuous', days: 'all' },
+      { enabled: true, from: '09:00', to: '17:00' },
+      { enabled: true, from: '09:00', to: '09:00', days: 'weekdays' },
+    ];
+    for (const schedule of cases) {
+      expect(loopScheduleSummary(schedule) === null, JSON.stringify(schedule)).toBe(
+        loopScheduleFragment(schedule) === null,
+      );
+    }
+  });
+
+  it('reads as the window, then what qualifies it', () => {
+    expect(
+      loopScheduleSummary({
+        enabled: true,
+        from: '22:00',
+        to: '06:00',
+        frequency: 'hourly',
+        days: 'weekdays',
+      }),
+    ).toBe('22:00–06:00 · Weekdays · Hourly');
+  });
+
+  it('drops the neutral axes rather than spelling them out', () => {
+    expect(loopScheduleSummary({ enabled: true, from: '09:00', to: '17:00' })).toBe('09:00–17:00');
+  });
+});
+
+describe('LOOP_FREQUENCIES and LOOP_DAY_SETS', () => {
+  it('offer exactly one neutral option each, and it is the schema default', () => {
+    expect(LOOP_FREQUENCIES.filter((f) => f.promptFragment === null).map((f) => f.id)).toEqual([
+      'continuous',
+    ]);
+    expect(LOOP_DAY_SETS.filter((d) => d.promptFragment === null).map((d) => d.id)).toEqual(['all']);
+  });
+
+  it('cover every id the schema accepts, so no stored pick renders as a raw token', () => {
+    expect(LOOP_FREQUENCIES.map((f) => f.id)).toEqual(LoopFrequencySchema.options);
+    expect(LOOP_DAY_SETS.map((d) => d.id)).toEqual(LoopDaysSchema.options);
   });
 });
 
@@ -213,8 +327,28 @@ describe('loopModelArgs', () => {
   });
 
   it('offers exactly one model per id, and only the default passes no flag', () => {
-    expect(LOOP_MODELS.map((m) => m.id)).toEqual(['default', 'sonnet-5', 'opus-5']);
+    expect(LOOP_MODELS.map((m) => m.id)).toEqual([
+      'default',
+      'haiku-4-5',
+      'sonnet-5',
+      'opus-4-8',
+      'opus-5',
+      'fable-5',
+      'fable-5-1',
+    ]);
     expect(LOOP_MODELS.filter((m) => m.cliModel === null).map((m) => m.id)).toEqual(['default']);
+    expect(new Set(LOOP_MODELS.map((m) => m.label)).size).toBe(LOOP_MODELS.length);
+  });
+
+  it('keeps every id in the schema, so a stored pick can never fail to parse', () => {
+    for (const model of LOOP_MODELS) {
+      expect(LoopModelSchema.safeParse(model.id).success, model.id).toBe(true);
+    }
+  });
+
+  it('names the previous generations too — a long unattended run may want a known-good one', () => {
+    expect(loopModelArgs('claude', 'opus-4-8')).toEqual(['--model', 'claude-opus-4-8']);
+    expect(loopModelArgs('claude', 'fable-5-1')).toEqual(['--model', 'claude-fable-5-1']);
   });
 });
 
