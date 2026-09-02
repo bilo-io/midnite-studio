@@ -36,8 +36,16 @@ export function agentCount(
  * **Not** `use-agents.ts`'s `AgentRoster` — that is the installed-agent
  * roster, a constant list of what is on the machine, and has nothing to do
  * with how many are running.
+ *
+ * Was `AgentCountSegment`, a `STATUS_SEGMENTS` entry in the status bar's left
+ * zone, until it moved into the title bar's right cluster beside the loop
+ * launchers — see [`title-bar-agents.tsx`](../../components/title-bar-agents.tsx).
+ * The name lost its `Segment` suffix with the registration: it is no longer
+ * subject to the bar's density collapse or its overflow popover, and a name
+ * claiming otherwise would send the next reader to `segments.ts` looking for a
+ * row that is not there.
  */
-export function AgentCountSegment() {
+export function LiveAgentCount() {
   const count = useTerminalStore((s) => agentCount(s.sessions, s.states, s.liveAgentId));
 
   if (count === 0) return null;
@@ -45,7 +53,7 @@ export function AgentCountSegment() {
   return (
     <button
       type="button"
-      data-testid="status-segment-agent-count"
+      data-testid="titlebar-agent-count"
       onClick={() => {
         useUiStore.getState().setTerminalOpen(true);
         const terminal = useTerminalStore.getState();

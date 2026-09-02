@@ -28,6 +28,7 @@ import { useResizable } from './components/resizable/use-resizable';
 import { useViewportWidth } from './components/use-viewport-width';
 import { useReveal, useRevealSize } from './components/use-reveal';
 import { ThemeToggle } from './components/theme-toggle';
+import { TitleBarAgents } from './components/title-bar-agents';
 import { TitleBarNav } from './components/title-bar-nav';
 import { TitleBarStatus } from './features/titlebar-status/titlebar-status';
 import { ScreensaverHost } from './features/screensaver/screensaver-host';
@@ -812,6 +813,19 @@ function Shell() {
         building the mechanism for the status bar would have been the same bug in
         the other half of the window.
       */}
+      {/*
+        Leads the cluster: the live-agent count and the four loop launchers,
+        which used to be two segments in the status bar's left zone. They sit
+        ahead of everything else on this side because they are the only part of
+        it that changes on its own — the date, the lifecycle actions and the
+        theme toggle all sit still until you touch them — and a readout that
+        moves is worth the corner nearest the eye.
+
+        `TitleBarAgents` draws its OWN trailing hairline rather than taking one
+        from here, so the rule cannot outlive the cluster; see its header for
+        why that had to be its responsibility and not this one's.
+      */}
+      <TitleBarAgents />
       <TitleBarStatus />
       {/*
         Install / Build / Test / Launch for whichever checkout is selected —
