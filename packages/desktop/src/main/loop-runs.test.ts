@@ -9,7 +9,7 @@ import {
   startLoopRun,
   stopLoopRun,
 } from './loop-runs';
-import type { LoopRunsStore } from './loop-runs-store';
+import { MAX_STORED_LOOP_RUNS, type LoopRunsStore } from './loop-runs-store';
 
 /** A store over an array, so a test can seed what "the last launch left". */
 function fakeStore(seed: LoopRunRecord[] = []): LoopRunsStore & { saved: LoopRunRecord[][] } {
@@ -54,6 +54,26 @@ describe('startLoopRun', () => {
     expect(run.status).toBe('running');
     expect(run.startedAt).toBeGreaterThan(0);
     expect(await listLoopRuns()).toEqual([run]);
+  });
+});
+
+describe('the in-memory ledger is capped, not just the disk copy (Phase 45 Theme D)', () => {
+  it('never holds more than MAX_STORED_LOOP_RUNS records, even mid-session with no reload', async () => {
+    configure(fakeStore());
+
+    for (let i = 0; i < MAX_STORED_LOOP_RUNS + 10; i += 1) {
+      await startLoopRun({
+        loopId: 'automate',
+        sessionId: `s-${i}`,
+        composedPrompt: '/loop /midnite-exec',
+        checkedModifierIds: [],
+      });
+    }
+
+    const runs = await listLoopRuns();
+    expect(runs).toHaveLength(MAX_STORED_LOOP_RUNS);
+    // Oldest dropped, not newest — the most recent run is always the last one started.
+    expect(runs.at(-1)?.sessionId).toBe(`s-${MAX_STORED_LOOP_RUNS + 9}`);
   });
 });
 

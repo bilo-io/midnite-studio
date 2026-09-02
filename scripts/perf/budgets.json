@@ -12,6 +12,9 @@
   "_scroll": "Median frame gap over a 60-frame rAF-driven scroll of a 4000-line diff, x 2.5. Inherited as a literal 100 from diff-scroll-perf.spec.ts, which was an order-of-magnitude tripwire rather than a budget; the measurement is 8.5 ms, so the rule gives 22.",
   "diffScrollMedianGapMs": 22,
 
+  "_retention": "Phase 45 Theme A. UNLIKE every other budget above, this is a SLOPE (bytes retained PER CYCLE), not a ceiling on a level — the 1.15x/2.5x multiplier rule does NOT apply to it. Set from observed RSS noise on the phase author's machine across repo-cycle and browser-tabs-cycle runs (both expected flat): main/renderer swung up to ~250 KB/cycle from GC and allocator churn alone with only 10-20 samples. 500 KB/cycle sits above that noise floor while still catching Theme C's multi-MB-per-session leak over a real run. Provisional pending more history — see the phase doc's own open question about CI inclusion.",
+  "retainedPerCycleKb": 500,
+
   "_measured": {
     "note": "What the numbers above are 1.15x / 2.5x OF. Captured 2026-09-01, packaged-equivalent, median of 5, on the phase author's machine (Darwin arm64).",
     "entryKb": 1109.4,

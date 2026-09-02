@@ -61,6 +61,8 @@ export type BrokerClient = {
   killPty: (ptyId: string) => Promise<boolean>;
   listSessions: () => Promise<BrokerSessionInfo[]>;
   snapshot: (sessionId: string) => Promise<Uint8Array>;
+  /** Tell the broker to drop its own `scrollbackBySession` entries — Phase 45 Theme C. */
+  forgetScrollback: (sessionIds: string[]) => void;
   flush: () => Promise<void>;
   disconnect: () => Promise<void>;
   onData: (listener: (ptyId: string, bytes: Uint8Array) => void) => () => void;
@@ -701,6 +703,32 @@ export function createBrokerClient(deps: BrokerClientDeps): BrokerClient {
         // Fall back to empty
       }
       return new Uint8Array(0);
+    },
+
+    /**
+     * Fire-and-forget, no `id` — a reply with no id is dropped by
+     * `handleIncomingFrame` above rather than mismatched, and this is cleanup
+     * that already happened locally (`dropScrollback`'s caller has moved on);
+     * nothing here should block on the broker's answer, only ask for it.
+     * Grouped by owning peer, same as `snapshot`, since a legacy handover can
+     * leave sessions split across brokers.
+     */
+    forgetScrollback(sessionIds: string[]): void {
+      const byTarget = new Map<Peer, string[]>();
+      for (const sessionId of sessionIds) {
+        const target = sessionOwner.get(sessionId) ?? primary;
+        if (!target || target.socket.destroyed) continue;
+        const list = byTarget.get(target) ?? [];
+        list.push(sessionId);
+        byTarget.set(target, list);
+      }
+      for (const [target, ids] of byTarget) {
+        try {
+          target.socket.write(encodeControl({ t: 'forget', sessionIds: ids }));
+        } catch {
+          // Ignore — a dead socket has nothing left to forget for.
+        }
+      }
     },
 
     async flush(): Promise<void> {

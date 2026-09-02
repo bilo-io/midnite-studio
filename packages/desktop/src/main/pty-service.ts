@@ -79,8 +79,19 @@ export function offPty(ptyId: string): void {
 type SessionExitHook = (sessionId: string, exitCode: number) => void;
 const sessionExitHooks: SessionExitHook[] = [];
 
-export function onSessionExit(hook: SessionExitHook): void {
+/**
+ * Returns an unsubscribe. Added on the sweep that found this array is
+ * append-only with no caller yet needing `off` — one boot-time registration
+ * (`main/index.ts`) is not itself a leak, but an array with a `push` and no
+ * `delete` is exactly the shape Phase 45's own rule flags, so the seam is
+ * here before a second caller needs it rather than after.
+ */
+export function onSessionExit(hook: SessionExitHook): () => void {
   sessionExitHooks.push(hook);
+  return () => {
+    const index = sessionExitHooks.indexOf(hook);
+    if (index !== -1) sessionExitHooks.splice(index, 1);
+  };
 }
 
 function notifySessionExit(sessionId: string | undefined, exitCode: number): void {
@@ -260,10 +271,12 @@ const sessionIdByPty = new Map<string, string>();
  *
  * So the steady-state cost is 2x per live session in broker mode (owner +
  * mirror), each independently capped at `SCROLLBACK_BYTES * 2` by
- * `appendScrollback`, and 1x in-proc. `dropScrollback` clears every holder.
- * Collapsing the mirror into the broker would save that second copy but adds a
- * socket round trip to every scrollback read — measured as not worth it, see
- * the phase doc's *Not in this phase*.
+ * `appendScrollback`, and 1x in-proc. `dropScrollback` clears every holder —
+ * including the broker's own, via `forgetScrollback` (Phase 45 Theme C; the
+ * broker also self-cleans on pty exit/kill, so this is the explicit-forget
+ * path, not the only one). Collapsing the mirror into the broker would save
+ * that second copy but adds a socket round trip to every scrollback read —
+ * measured as not worth it, see the phase doc's *Not in this phase*.
  */
 const scrollbackBySession = new Map<string, Uint8Array>();
 
@@ -328,6 +341,9 @@ export function dropScrollback(sessionId: string): void {
   scrollbackBySession.delete(sessionId);
   snapshotCache.delete(sessionId);
   inprocDropScrollback(sessionId);
+  if (brokerClient && brokerClient.getStatus().mode === 'broker') {
+    brokerClient.forgetScrollback([sessionId]);
+  }
 }
 
 export type CreateResult = { ok: true; ptyId: string } | { ok: false; message: string };
