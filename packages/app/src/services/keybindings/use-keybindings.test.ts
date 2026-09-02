@@ -56,7 +56,7 @@ describe('useKeybindings', () => {
     dispatch({ key: 'r', metaKey: true });
 
     expect(run['repos.toggle']).not.toHaveBeenCalled();
-    expect(run['view.refresh']).not.toHaveBeenCalled();
+    expect(run['app.reload']).not.toHaveBeenCalled();
   });
 
   it('still resolves palette.open and palette.files while the palette is open', () => {
@@ -78,6 +78,63 @@ describe('useKeybindings', () => {
     usePaletteStore.getState().close();
 
     dispatch({ key: 'g', metaKey: true });
+
+    expect(run['repos.toggle']).toHaveBeenCalledTimes(1);
+  });
+});
+
+describe('the reload pair yields to the shell', () => {
+  /**
+   * Dispatched at an element inside an `.xterm` root rather than at `window`:
+   * the dispatcher judges a keystroke by its own target, which is what lets
+   * one terminal keep Ctrl+R while the rest of the app reloads on it.
+   */
+  const inXterm = (over: Partial<KeyboardEventInit> & { key: string }) => {
+    const root = document.createElement('div');
+    root.className = 'xterm';
+    const textarea = document.createElement('textarea');
+    root.appendChild(textarea);
+    document.body.appendChild(root);
+    try {
+      textarea.dispatchEvent(
+        new KeyboardEvent('keydown', { bubbles: true, cancelable: true, ...over }),
+      );
+    } finally {
+      root.remove();
+    }
+  };
+
+  it('does not reload on Mod+R aimed at a terminal', () => {
+    const { runtime, run } = fakeRuntime();
+    renderHook(() => useKeybindings(runtime));
+
+    inXterm({ key: 'r', metaKey: true });
+    inXterm({ key: 'r', metaKey: true, shiftKey: true });
+
+    expect(run['app.reload']).not.toHaveBeenCalled();
+    expect(run['app.hardReload']).not.toHaveBeenCalled();
+  });
+
+  it('still reloads on Mod+R anywhere else', () => {
+    const { runtime, run } = fakeRuntime();
+    renderHook(() => useKeybindings(runtime));
+
+    dispatch({ key: 'r', metaKey: true });
+    dispatch({ key: 'r', metaKey: true, shiftKey: true });
+
+    expect(run['app.reload']).toHaveBeenCalledTimes(1);
+    expect(run['app.hardReload']).toHaveBeenCalledTimes(1);
+  });
+
+  /**
+   * The carve-out is two commands wide, deliberately — `Mod+1` jumping to the
+   * Graph from inside a shell is useful, and stays.
+   */
+  it('leaves every other app-scope chord firing from inside a terminal', () => {
+    const { runtime, run } = fakeRuntime();
+    renderHook(() => useKeybindings(runtime));
+
+    inXterm({ key: 'g', metaKey: true });
 
     expect(run['repos.toggle']).toHaveBeenCalledTimes(1);
   });

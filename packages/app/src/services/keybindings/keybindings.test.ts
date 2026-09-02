@@ -184,6 +184,18 @@ describe('the registry is palette-shaped', () => {
     expect(files && GLOBAL_CHORDS.includes(files.chord)).toBe(false);
   });
 
+  it('resolves a real Cmd+R / Cmd+Shift+R keystroke to the reload pair', () => {
+    withPlatform('MacIntel', () => {
+      const soft = chordFromEvent(event({ key: 'r', metaKey: true }));
+      expect(DEFAULT_KEYMAP.find((b) => b.chord === soft)?.command).toBe('app.reload');
+      // Shift does not change what the `r` key reports, so `key` alone is
+      // enough here — unlike the backquote pair, which needs `code`.
+      const hard = chordFromEvent(event({ key: 'R', metaKey: true, shiftKey: true }));
+      expect(hard).toBe('Mod+Shift+r');
+      expect(DEFAULT_KEYMAP.find((b) => b.chord === hard)?.command).toBe('app.hardReload');
+    });
+  });
+
   it('binds Mod+Shift+g to view.graph', async () => {
     const { DEFAULT_KEYMAP } = await import('@midnite/studio-shared');
     const binding = DEFAULT_KEYMAP.find((b) => b.chord === 'Mod+Shift+g');

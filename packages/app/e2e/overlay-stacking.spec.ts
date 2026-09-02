@@ -79,7 +79,7 @@ test('the theme menu paints over the title bar it hangs from', async ({ page }) 
  */
 test('a context menu raised from the title bar paints over it', async ({ page }) => {
   await page
-    .getByRole('button', { name: 'Reload window (right-click for hard reload)' })
+    .getByRole('button', { name: /^Reload window \(.* right-click for hard reload\)$/ })
     .click({ button: 'right' });
 
   const menu = page.getByRole('menu').filter({ has: page.getByText('Hard Reload') });

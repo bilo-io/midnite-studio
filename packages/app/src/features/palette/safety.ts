@@ -24,6 +24,11 @@ export const PALETTE_SAFE: readonly CommandId[] = [
   'repo.open',
   'repo.close',
   'view.refresh',
+  // Both reload rows are safe: a reload discards renderer state and comes
+  // back, which is recoverable by definition — it is the palette's answer to
+  // a wedged view, and the same pair the title bar's reload button offers.
+  'app.reload',
+  'app.hardReload',
   'graph.focus',
   'status.focus',
   'status.commit',

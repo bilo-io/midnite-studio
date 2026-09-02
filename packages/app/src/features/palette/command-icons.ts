@@ -14,11 +14,13 @@ import {
   LuPanelRight,
   LuPlay,
   LuRefreshCw,
+  LuRotateCw,
   LuSearch,
   LuSparkles,
   LuSquareTerminal,
   LuUpload,
   LuX,
+  LuZap,
 } from 'react-icons/lu';
 
 /**
@@ -51,6 +53,8 @@ export const COMMAND_ICONS: Record<CommandId, IconType> = {
   'repo.open': LuFolderOpen,
   'repo.close': LuX,
   'view.refresh': LuRefreshCw,
+  'app.reload': LuRotateCw,
+  'app.hardReload': LuZap,
   'app.lock': LuLock,
   'app.screensaver': LuClock,
   'view.graph': IoIosGitNetwork,

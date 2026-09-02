@@ -5,10 +5,10 @@
  * keystroke directly. Three sources feed the same dispatcher: the renderer's
  * key handler, the native menu (`mstudio:menu:command`), and the command
  * palette. One registry means a menu item and its shortcut can never drift,
- * and the palette gets its contents for free — including the two ids below
- * that have no chord at all: `op.abort` and `op.continue` are declared here
- * so the palette can list them as present-but-unbound, exactly like every
- * other command.
+ * and the palette gets its contents for free — including the ids below that
+ * have no chord at all (`view.refresh`, `sync.fetch`, `op.abort`,
+ * `op.continue`, …), declared here so the palette and the native menu list
+ * them as present-but-unbound, exactly like every other command.
  */
 
 /**
@@ -154,7 +154,25 @@ export const COMMANDS = [
   { id: 'browser.selectTab9', label: 'Select Last Browser Tab', group: 'view', chord: 'Mod+9' },
   { id: 'repo.open', label: 'Open Repository…', group: 'repository', chord: 'Mod+o' },
   { id: 'repo.close', label: 'Close Repository', group: 'repository', chord: 'Mod+w' },
-  { id: 'view.refresh', label: 'Refresh', group: 'view', chord: 'Mod+r' },
+  /**
+   * Refresh (refetch the repo's git data) and Fetch below are both deliberately
+   * chord-free: `Mod+r` and `Mod+Shift+r` now mean what they mean in every
+   * browser and Electron app — reload the window, and reload it bypassing the
+   * cache. Both stay first-class palette and menu rows; the git-data refresh
+   * they used to own is also what a window reload does on its way back up, so
+   * losing the chord costs a keystroke, not a capability.
+   */
+  { id: 'view.refresh', label: 'Refresh', group: 'view' },
+  /**
+   * `Mod+r` / `Mod+Shift+r`, the browser reload pair — plain, and bypassing
+   * the HTTP cache. `app` scope, and additionally listed in
+   * `TERMINAL_YIELD_COMMANDS` below, which is what actually keeps them out of
+   * the shell: `app` alone would still fire them with xterm focused, and
+   * `Ctrl+R` (which is what `Mod+R` is off macOS) is readline's
+   * reverse-i-search.
+   */
+  { id: 'app.reload', label: 'Reload', group: 'view', chord: 'Mod+r' },
+  { id: 'app.hardReload', label: 'Hard Reload', group: 'view', chord: 'Mod+Shift+r' },
   { id: 'app.lock', label: 'Lock Screen', group: 'view', chord: 'Mod+Alt+l' },
   { id: 'app.screensaver', label: 'Start Screensaver', group: 'view' },
   /**
@@ -166,7 +184,8 @@ export const COMMANDS = [
   { id: 'graph.focus', label: 'Focus Graph', group: 'graph', chord: 'Mod+1' },
   { id: 'status.focus', label: 'Focus Changes', group: 'status', chord: 'Mod+2' },
   { id: 'status.commit', label: 'Commit', group: 'status', chord: 'Mod+Enter' },
-  { id: 'sync.fetch', label: 'Fetch', group: 'sync', chord: 'Mod+Shift+r' },
+  // Chord-free since the reload pair took Mod+Shift+r — see `view.refresh`.
+  { id: 'sync.fetch', label: 'Fetch', group: 'sync' },
   { id: 'sync.pull', label: 'Pull', group: 'sync', chord: 'Mod+Shift+p' },
   { id: 'sync.push', label: 'Push', group: 'sync', chord: 'Mod+Shift+u' },
   { id: 'search.open', label: 'Search Everywhere', group: 'view', chord: 'Mod+Shift+f', scope: 'global' },
@@ -219,6 +238,22 @@ export const DEFAULT_KEYMAP: readonly KeyBinding[] = (
 export const GLOBAL_CHORDS: readonly string[] = DEFAULT_KEYMAP.filter(
   (b) => b.scope === 'global',
 ).map((b) => b.chord);
+
+/**
+ * Commands whose chord must yield to the shell when xterm owns the keyboard.
+ *
+ * The dispatcher grabs every bound chord app-wide, terminal focus included —
+ * `scope` only governs xterm's own escape allow-list, so `app` is not, on its
+ * own, "the terminal keeps this". For nearly every command that is right:
+ * `Mod+1` should still jump to the Graph from inside a shell. The reload pair
+ * is the exception, in both directions at once. `Mod` is Ctrl off macOS, and
+ * `Ctrl+R` there is readline's reverse-i-search — the single most-used
+ * keystroke a shell owns — and the command it would fire instead throws the
+ * whole renderer away mid-command. So these two, and only these two, fall
+ * through to the terminal when that is what has focus; the title bar's reload
+ * button and the palette are both still one gesture away.
+ */
+export const TERMINAL_YIELD_COMMANDS: readonly CommandId[] = ['app.reload', 'app.hardReload'];
 
 export const isCommandId = (value: string): value is CommandId =>
   (COMMAND_IDS as readonly string[]).includes(value);

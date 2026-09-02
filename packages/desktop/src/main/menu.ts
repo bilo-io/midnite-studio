@@ -1,6 +1,6 @@
 import { Menu, type BrowserWindow, type MenuItemConstructorOptions } from 'electron';
 
-import { DEFAULT_KEYMAP, EVENT_CHANNELS, type CommandId } from '@midnite/studio-shared';
+import { COMMANDS, DEFAULT_KEYMAP, EVENT_CHANNELS, type CommandId } from '@midnite/studio-shared';
 
 /**
  * The native application menu.
@@ -29,8 +29,17 @@ export function buildMenu(getWindow: () => BrowserWindow | null): Menu {
     return chord?.replace(/^Mod\+/, 'CmdOrCtrl+');
   };
 
+  /**
+   * A command's menu label, read from `COMMANDS` rather than `DEFAULT_KEYMAP`:
+   * the keymap drops every chord-free command, so a menu item for one (Refresh
+   * and Fetch, since the reload pair took Mod+R / Mod+Shift+R) would otherwise
+   * fall through to showing its raw id.
+   */
+  const labelOf = (command: CommandId): string =>
+    COMMANDS.find((c) => c.id === command)?.label ?? command;
+
   const item = (command: CommandId, label?: string): MenuItemConstructorOptions => ({
-    label: label ?? DEFAULT_KEYMAP.find((b) => b.command === command)?.label ?? command,
+    label: label ?? labelOf(command),
     accelerator: accelerator(command),
     click: send(command),
   });
@@ -48,9 +57,17 @@ export function buildMenu(getWindow: () => BrowserWindow | null): Menu {
    * or a terminal session. The item stays for discoverability and click; only
    * the live keyboard shortcut is gone, and the renderer's own listener
    * already covers Mod+w everywhere this menu's accelerator would have.
+   *
+   * `app.reload`/`app.hardReload` are here for the same reason wearing a
+   * different hat. Their chords are the browser ones (Mod+R, Mod+Shift+R) and
+   * the renderer deliberately lets a terminal keep them — see
+   * `TERMINAL_YIELD_COMMANDS`. An accelerator registered here fires whenever
+   * the WINDOW is focused, xterm included, so it would reload the app out from
+   * under someone's Ctrl+R reverse-i-search and undo that carve-out entirely.
+   * The chord is real everywhere else; the menu row is for clicking.
    */
   const itemNoAccelerator = (command: CommandId): MenuItemConstructorOptions => ({
-    label: DEFAULT_KEYMAP.find((b) => b.command === command)?.label ?? command,
+    label: labelOf(command),
     click: send(command),
   });
 
@@ -84,6 +101,8 @@ export function buildMenu(getWindow: () => BrowserWindow | null): Menu {
     {
       label: 'View',
       submenu: [
+        itemNoAccelerator('app.reload'),
+        itemNoAccelerator('app.hardReload'),
         item('view.refresh'),
         { type: 'separator' },
         item('repos.toggle'),
