@@ -1,4 +1,10 @@
-import type { LoopDefinition, LoopRunRecord } from '@midnite/studio-shared';
+import {
+  DEFAULT_LOOP_SCHEDULE,
+  resolveLoopChoice,
+  type LoopDefinition,
+  type LoopModel,
+  type LoopRunRecord,
+} from '@midnite/studio-shared';
 
 import { LoopComposer } from './loop-composer';
 import { LoopHistory } from './loop-history';
@@ -60,8 +66,14 @@ export function LoopTab({
   );
   const defaults = useUiStore((s) => s.loopModifierDefaults[loop.id]);
   const checks = useUiStore((s) => s.loopModifierChecks[loop.id]);
+  const savedChoices = useUiStore((s) => s.loopChoices[loop.id]);
+  const model = useUiStore((s) => s.loopModels[loop.id] ?? 'default');
+  const schedule = useUiStore((s) => s.loopSchedules[loop.id] ?? DEFAULT_LOOP_SCHEDULE);
   const extras = useUiStore((s) => s.loopExtras[loop.id] ?? '');
   const setCheck = useUiStore((s) => s.setLoopModifierCheck);
+  const setChoice = useUiStore((s) => s.setLoopChoice);
+  const setModel = useUiStore((s) => s.setLoopModel);
+  const setSchedule = useUiStore((s) => s.setLoopSchedule);
   const setExtras = useUiStore((s) => s.setLoopExtras);
 
   /*
@@ -76,6 +88,16 @@ export function LoopTab({
     loop.modifiers.map((m) => [m.id, checks?.[m.id] ?? defaults?.[m.id] ?? m.defaultOn]),
   );
   const checkedModifierIds = loop.modifiers.filter((m) => checked[m.id]).map((m) => m.id);
+  /*
+    Radios are resolved on read for the same reason the boxes above are: a
+    stored option id that a later version renamed falls back to the declared
+    default rather than leaving the group with nothing selected — and the
+    composer never has to guess, because what it is handed is always a real
+    option id.
+  */
+  const choiceIds = Object.fromEntries(
+    loop.choices.map((choice) => [choice.id, resolveLoopChoice(choice, savedChoices?.[choice.id]).id]),
+  );
   /** Is there a skill on the line at all? Only asked of a `requiresModifier` loop. */
   const hasTask = loop.modifiers.some((m) => checked[m.id] && m.providesTask);
 
@@ -88,6 +110,9 @@ export function LoopTab({
     cwd,
     basePrompt,
     checkedModifierIds,
+    choiceIds,
+    schedule: schedule.enabled ? schedule : null,
+    model,
     extras,
     command,
   });
@@ -105,20 +130,26 @@ export function LoopTab({
         waiting={status.waiting}
         thinking={status.thinking}
         checked={checked}
+        choiceIds={choiceIds}
+        model={model}
+        schedule={schedule}
         extras={extras}
         disabled={!repo || (loop.requiresModifier && !hasTask)}
         disabledReason={
           repo
             ? // Patrol's base is a bare `/loop`: with no task box checked there
               // is no skill on the line at all, so Start would launch an agent
-              // and tell it nothing. The auto-pick pair does not count — a
+              // and tell it nothing. The autonomy radio does not count — a
               // standing rule is not a task. Held here rather than in
               // `composeLoopPrompt`, which is pure and has no business refusing
               // to compose.
-              'Check PR review, PR feedback or Triage only — this loop takes its task from them.'
+              'Pick a task — Review PRs, Answer feedback, Security review or Triage only.'
             : 'Select a repository first.'
         }
         onToggle={(modifierId, on) => setCheck(loop.id, modifierId, on)}
+        onChoice={(choiceId, optionId) => setChoice(loop.id, choiceId, optionId)}
+        onModel={(next: LoopModel) => setModel(loop.id, next)}
+        onSchedule={(next) => setSchedule(loop.id, next)}
         onExtras={(text) => setExtras(loop.id, text)}
         onStart={start}
         onStop={stop}

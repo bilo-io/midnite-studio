@@ -1,58 +1,220 @@
 import { describe, expect, it } from 'vitest';
 
 import {
-  AUTO_PICK_MODIFIERS,
+  AUTONOMY_CHOICE,
+  COMMON_RUN_MODIFIERS,
   DEFAULT_LOOPS,
+  DEFAULT_LOOP_SCHEDULE,
+  LOOP_MODELS,
   LoopDefinitionSchema,
   LoopRunRecordSchema,
+  LoopScheduleSchema,
   composeLoopPrompt,
+  loopModelArgs,
+  loopScheduleFragment,
+  resolveLoopChoice,
   type LoopDefinition,
 } from './loops';
 
 /** A loop whose fragments are trivially identifiable in the composed line. */
-const loop: Pick<LoopDefinition, 'modifiers'> = {
+const loop: Pick<LoopDefinition, 'modifiers' | 'choices'> = {
   modifiers: [
-    { id: 'first', label: 'First', promptFragment: 'Do the first thing.', defaultOn: false },
-    { id: 'second', label: 'Second', promptFragment: 'Do the second thing.', defaultOn: true },
-    { id: 'third', label: 'Third', promptFragment: 'Do the third thing.', defaultOn: false },
+    {
+      id: 'first',
+      label: 'First',
+      promptFragment: 'Do the first thing.',
+      group: 'tasks',
+      control: 'checkbox',
+      defaultOn: false,
+    },
+    {
+      id: 'second',
+      label: 'Second',
+      promptFragment: 'Do the second thing.',
+      group: 'tasks',
+      control: 'checkbox',
+      defaultOn: true,
+    },
+    {
+      id: 'third',
+      label: 'Third',
+      promptFragment: 'Do the third thing.',
+      group: 'tasks',
+      control: 'checkbox',
+      defaultOn: false,
+    },
+    {
+      id: 'policy',
+      label: 'Policy',
+      promptFragment: 'Behave politely.',
+      group: 'run',
+      control: 'switch',
+      defaultOn: false,
+    },
+  ],
+  choices: [
+    {
+      id: 'depth',
+      label: 'Depth',
+      group: 'scope',
+      defaultOptionId: 'shallow',
+      options: [
+        { id: 'shallow', label: 'Shallow' },
+        { id: 'deep', label: 'Deep', promptFragment: 'Go deep.' },
+      ],
+    },
   ],
 };
 
 describe('composeLoopPrompt', () => {
-  it('returns the base prompt alone when nothing is checked', () => {
-    expect(composeLoopPrompt('/loop /midnite-exec', loop, [])).toBe('/loop /midnite-exec');
+  it('returns the base prompt alone when nothing is set', () => {
+    expect(composeLoopPrompt('/loop /midnite-exec', loop, {})).toBe('/loop /midnite-exec');
+  });
+
+  it('defaults every argument — an empty selection is a legal selection', () => {
+    expect(composeLoopPrompt('/base', loop)).toBe('/base');
   });
 
   it('appends only the checked fragments', () => {
-    expect(composeLoopPrompt('/base', loop, ['first'])).toBe('/base Do the first thing.');
+    expect(composeLoopPrompt('/base', loop, { modifierIds: ['first'] })).toBe(
+      '/base Do the first thing.',
+    );
   });
 
   it('orders fragments by the loop declaration, not the click order', () => {
-    const clickedBackwards = composeLoopPrompt('/base', loop, ['third', 'first']);
-    const clickedForwards = composeLoopPrompt('/base', loop, ['first', 'third']);
-    expect(clickedBackwards).toBe('/base Do the first thing. Do the third thing.');
-    expect(clickedBackwards).toBe(clickedForwards);
+    const backwards = composeLoopPrompt('/base', loop, { modifierIds: ['third', 'first'] });
+    const forwards = composeLoopPrompt('/base', loop, { modifierIds: ['first', 'third'] });
+    expect(backwards).toBe('/base Do the first thing. Do the third thing.');
+    expect(backwards).toBe(forwards);
+  });
+
+  it('emits by group — tasks, then scope, then the standing rules', () => {
+    // The invariant the group order exists for: a policy must land after the
+    // steps it governs, whatever order the declarations happen to be in.
+    expect(
+      composeLoopPrompt('/base', loop, {
+        modifierIds: ['policy', 'first'],
+        choiceIds: { depth: 'deep' },
+      }),
+    ).toBe('/base Do the first thing. Go deep. Behave politely.');
   });
 
   it('ignores ids that name no modifier', () => {
-    expect(composeLoopPrompt('/base', loop, ['ghost'])).toBe('/base');
+    expect(composeLoopPrompt('/base', loop, { modifierIds: ['ghost'] })).toBe('/base');
+  });
+
+  it('says nothing for a choice sitting on its neutral option', () => {
+    expect(composeLoopPrompt('/base', loop, { choiceIds: { depth: 'shallow' } })).toBe('/base');
+  });
+
+  it('falls back to a choice default when the stored option id is unknown', () => {
+    expect(composeLoopPrompt('/base', loop, { choiceIds: { depth: 'renamed' } })).toBe('/base');
+  });
+
+  it('appends the schedule after the settings and before the extras', () => {
+    expect(
+      composeLoopPrompt('/base', loop, {
+        modifierIds: ['first'],
+        schedule: { enabled: true, from: '09:00', to: '17:00' },
+        extras: 'Only touch docs.',
+      }),
+    ).toBe(
+      '/base Do the first thing. Work only between 09:00 and 17:00 local time — outside that window, idle and wait rather than starting new work. Only touch docs.',
+    );
   });
 
   it('puts free-text extras last, after every fragment', () => {
-    expect(composeLoopPrompt('/base', loop, ['second'], 'Only touch docs.')).toBe(
-      '/base Do the second thing. Only touch docs.',
+    expect(composeLoopPrompt('/base', loop, { modifierIds: ['second'], extras: 'Only docs.' })).toBe(
+      '/base Do the second thing. Only docs.',
     );
   });
 
   it('trims each part and drops the ones that are empty or whitespace', () => {
-    expect(composeLoopPrompt('  /base  ', loop, [], '   ')).toBe('/base');
-    expect(composeLoopPrompt('/base', loop, [], '  extras  ')).toBe('/base extras');
+    expect(composeLoopPrompt('  /base  ', loop, { extras: '   ' })).toBe('/base');
+    expect(composeLoopPrompt('/base', loop, { extras: '  extras  ' })).toBe('/base extras');
   });
 
   it('is deterministic — the same inputs compose the same line', () => {
-    const once = composeLoopPrompt('/base', loop, ['first', 'second'], 'extras');
-    const twice = composeLoopPrompt('/base', loop, ['first', 'second'], 'extras');
-    expect(once).toBe(twice);
+    const selection = { modifierIds: ['first', 'second'], extras: 'extras' };
+    expect(composeLoopPrompt('/base', loop, selection)).toBe(
+      composeLoopPrompt('/base', loop, selection),
+    );
+  });
+});
+
+describe('resolveLoopChoice', () => {
+  const choice = loop.choices[0]!;
+
+  it('returns the selected option', () => {
+    expect(resolveLoopChoice(choice, 'deep').id).toBe('deep');
+  });
+
+  it('falls back to the declared default when nothing is selected', () => {
+    expect(resolveLoopChoice(choice, undefined).id).toBe('shallow');
+  });
+
+  it('falls back rather than leaving a group with nothing on', () => {
+    expect(resolveLoopChoice(choice, 'gone').id).toBe('shallow');
+  });
+});
+
+describe('loopScheduleFragment', () => {
+  it('says nothing when the schedule is off', () => {
+    expect(loopScheduleFragment({ enabled: false, from: '09:00', to: '17:00' })).toBeNull();
+    expect(loopScheduleFragment(null)).toBeNull();
+    expect(loopScheduleFragment(undefined)).toBeNull();
+  });
+
+  it('says nothing for a zero-width window — that is a user mid-edit', () => {
+    expect(loopScheduleFragment({ enabled: true, from: '09:00', to: '09:00' })).toBeNull();
+  });
+
+  it('names the window', () => {
+    expect(loopScheduleFragment({ enabled: true, from: '09:00', to: '17:00' })).toContain(
+      'between 09:00 and 17:00 local time —',
+    );
+  });
+
+  it('names a window that wraps midnight as overnight, so it does not read as a typo', () => {
+    expect(loopScheduleFragment({ enabled: true, from: '22:00', to: '06:00' })).toContain(
+      'between 22:00 and 06:00 local time (overnight)',
+    );
+  });
+
+  it('parses, and rejects a time that is not HH:MM', () => {
+    expect(LoopScheduleSchema.parse(DEFAULT_LOOP_SCHEDULE)).toEqual(DEFAULT_LOOP_SCHEDULE);
+    expect(LoopScheduleSchema.safeParse({ enabled: true, from: '9am', to: '17:00' }).success).toBe(
+      false,
+    );
+    expect(LoopScheduleSchema.safeParse({ enabled: true, from: '24:00', to: '17:00' }).success).toBe(
+      false,
+    );
+  });
+
+  it('starts a fresh loop unscheduled', () => {
+    expect(DEFAULT_LOOP_SCHEDULE.enabled).toBe(false);
+  });
+});
+
+describe('loopModelArgs', () => {
+  it('passes no flag for the default — the CLI keeps its own configuration', () => {
+    expect(loopModelArgs('claude', 'default')).toEqual([]);
+  });
+
+  it('passes the pinned model id, not the friendly label', () => {
+    expect(loopModelArgs('claude', 'sonnet-5')).toEqual(['--model', 'claude-sonnet-5']);
+    expect(loopModelArgs('claude', 'opus-5')).toEqual(['--model', 'claude-opus-5']);
+  });
+
+  it('passes nothing to an agent whose CLI has no --model — it would fail the launch', () => {
+    for (const agentId of ['codex', 'agy', 'opencode']) {
+      expect(loopModelArgs(agentId, 'opus-5'), agentId).toEqual([]);
+    }
+  });
+
+  it('offers exactly one model per id, and only the default passes no flag', () => {
+    expect(LOOP_MODELS.map((m) => m.id)).toEqual(['default', 'sonnet-5', 'opus-5']);
+    expect(LOOP_MODELS.filter((m) => m.cliModel === null).map((m) => m.id)).toEqual(['default']);
   });
 });
 
@@ -63,43 +225,83 @@ describe('DEFAULT_LOOPS', () => {
   });
 
   it('covers the four historical FAB tabs, so persisted activeFabTab keeps meaning', () => {
-    expect(DEFAULT_LOOPS.map((l) => l.id)).toEqual([
-      'innovate',
-      'automate',
-      'watchdog',
-      'medic',
-    ]);
+    expect(DEFAULT_LOOPS.map((l) => l.id)).toEqual(['innovate', 'automate', 'watchdog', 'medic']);
   });
 
-  it('runs claude only this phase — the one agent with honest activity markers', () => {
+  it('runs claude only — the one agent with honest activity markers', () => {
     for (const entry of DEFAULT_LOOPS) expect(entry.agentId).toBe('claude');
   });
 
-  it('gives every loop unique modifier ids', () => {
+  it('gives every loop unique modifier and choice ids', () => {
     for (const entry of DEFAULT_LOOPS) {
-      expect(new Set(entry.modifiers.map((m) => m.id)).size).toBe(entry.modifiers.length);
+      expect(new Set(entry.modifiers.map((m) => m.id)).size, entry.id).toBe(entry.modifiers.length);
+      expect(new Set(entry.choices.map((c) => c.id)).size, entry.id).toBe(entry.choices.length);
     }
   });
 
-  it('offers both auto-pick toggles on every loop, and offers them last', () => {
-    // Last is the assertion that matters: `composeLoopPrompt` emits in declared
-    // order, so a loop that listed them earlier would bury a standing rule in
-    // the middle of its steps.
+  it('gives every choice a default that names one of its own options', () => {
     for (const entry of DEFAULT_LOOPS) {
-      expect(entry.modifiers.slice(-AUTO_PICK_MODIFIERS.length), entry.id).toEqual([
-        ...AUTO_PICK_MODIFIERS,
+      for (const choice of entry.choices) {
+        const ids = choice.options.map((o) => o.id);
+        expect(ids, `${entry.id}/${choice.id}`).toContain(choice.defaultOptionId);
+        expect(new Set(ids).size, `${entry.id}/${choice.id}`).toBe(ids.length);
+      }
+    }
+  });
+
+  it('offers the autonomy radio on every loop, in the run group', () => {
+    // The one setting every tab shares. It is a radio because its answers
+    // contradict: ticking "take the recommendation" and "take the fastest
+    // path" as boxes was a contradiction the composer had to shrug at.
+    for (const entry of DEFAULT_LOOPS) {
+      expect(entry.choices.at(-1), entry.id).toEqual(AUTONOMY_CHOICE);
+    }
+    expect(AUTONOMY_CHOICE.group).toBe('run');
+    expect(AUTONOMY_CHOICE.defaultOptionId).toBe('ask');
+  });
+
+  it('never defaults autonomy away from asking — unattended is opt-in', () => {
+    const ask = AUTONOMY_CHOICE.options.find((o) => o.id === AUTONOMY_CHOICE.defaultOptionId);
+    expect(ask?.promptFragment).toBeUndefined();
+  });
+
+  it('offers the common run switches on every loop', () => {
+    for (const entry of DEFAULT_LOOPS) {
+      expect(entry.modifiers.slice(-COMMON_RUN_MODIFIERS.length), entry.id).toEqual([
+        ...COMMON_RUN_MODIFIERS,
       ]);
     }
   });
 
-  it('never defaults an auto-pick box on — unattended is opt-in', () => {
-    for (const modifier of AUTO_PICK_MODIFIERS) expect(modifier.defaultOn).toBe(false);
+  it('draws additive jobs as boxes and standing policies as switches', () => {
+    // The rule the whole `control` field exists for. A task is something a run
+    // can do alongside another task; a `run`-group setting is a mode.
+    for (const entry of DEFAULT_LOOPS) {
+      for (const modifier of entry.modifiers) {
+        const expected = modifier.group === 'tasks' ? 'checkbox' : 'switch';
+        expect(modifier.control, `${entry.id}/${modifier.id}`).toBe(expected);
+      }
+    }
+  });
+
+  it('keeps every label short enough to read in a 320px panel', () => {
+    for (const entry of DEFAULT_LOOPS) {
+      for (const modifier of entry.modifiers) {
+        expect(modifier.label.length, `${entry.id}/${modifier.id}`).toBeLessThanOrEqual(26);
+      }
+      for (const choice of entry.choices) {
+        expect(choice.label.length, `${entry.id}/${choice.id}`).toBeLessThanOrEqual(20);
+        for (const option of choice.options) {
+          expect(option.label.length, `${entry.id}/${option.id}`).toBeLessThanOrEqual(24);
+        }
+      }
+    }
   });
 
   it('drives Patrol off a bare loop, with the PR skills as its checkboxes', () => {
     // Patrol's whole design: the base names no skill, so an unchecked box is a
     // skill that does *not* run. A skill creeping into `fallbackPrompt` would
-    // make "PR review" a checkbox that changes nothing.
+    // make "Review PRs" a checkbox that changes nothing.
     const patrol = DEFAULT_LOOPS.find((l) => l.id === 'watchdog');
     expect(patrol?.label).toBe('Patrol');
     expect(patrol?.fallbackPrompt).toBe('/loop');
@@ -108,21 +310,22 @@ describe('DEFAULT_LOOPS', () => {
     const fragments = new Map(patrol?.modifiers.map((m) => [m.id, m.promptFragment]));
     expect(fragments.get('pr-review')).toBe('/pr-review');
     expect(fragments.get('pr-feedback')).toBe('/pr-feedback');
+    expect(fragments.get('security-review')).toBe('/security-review');
 
-    // Review is the tab's resting job; feedback is the extra pass.
+    // Review is the tab's resting job; the others are extra passes.
     expect(patrol?.modifiers.find((m) => m.id === 'pr-review')?.defaultOn).toBe(true);
     expect(patrol?.modifiers.find((m) => m.id === 'pr-feedback')?.defaultOn).toBe(false);
   });
 
-  it('gives Medic the dependency bots over the issue backlog, and no PR-review skill', () => {
+  it('gives Medic the dependency bots and the failing-test sweep over the issue backlog', () => {
     const medic = DEFAULT_LOOPS.find((l) => l.id === 'medic');
     expect(medic?.fallbackPrompt).toBe('/loop /midnite-address-issue');
     expect(medic?.agentCommandId).toBe('loopAddressIssue');
-    expect(medic?.modifiers.map((m) => m.id)).toEqual([
+    expect(medic?.modifiers.filter((m) => m.group === 'tasks').map((m) => m.id)).toEqual([
       'dependabot',
       'renovate',
-      'triage-only',
-      ...AUTO_PICK_MODIFIERS.map((m) => m.id),
+      'failing-tests',
+      'prune-branches',
     ]);
   });
 
@@ -136,26 +339,29 @@ describe('DEFAULT_LOOPS', () => {
     expect(DEFAULT_LOOPS.filter((l) => l.requiresModifier).map((l) => l.id)).toEqual(['watchdog']);
   });
 
-  it('gives a requiresModifier loop boxes that can actually satisfy it', () => {
-    // The guard reads `providesTask`, not "any box checked" — the auto-pick pair
-    // is a standing rule with no task under it. A loop that required a modifier
-    // and marked none of them would be unstartable.
+  it('gives a requiresModifier loop controls that can actually satisfy it', () => {
+    // The guard reads `providesTask`, not "any box checked" — the autonomy
+    // radio is a standing rule with no task under it. A loop that required a
+    // modifier and marked none of them would be unstartable.
     for (const entry of DEFAULT_LOOPS.filter((l) => l.requiresModifier)) {
       expect(entry.modifiers.filter((m) => m.providesTask).map((m) => m.id), entry.id).toEqual([
         'pr-review',
         'pr-feedback',
+        'security-review',
         'triage-only',
       ]);
     }
-    for (const modifier of AUTO_PICK_MODIFIERS) expect(modifier.providesTask).toBeUndefined();
+    for (const modifier of COMMON_RUN_MODIFIERS) expect(modifier.providesTask).toBeUndefined();
   });
 
-  it('has Patrol override its own default-on skill when triage is checked', () => {
+  it('has Patrol override its own default-on skill when triage is switched on', () => {
     // `pr-review` is `defaultOn`, so the composed triage line still carries
     // `/pr-review`. The fragment must therefore *name* what it overrides — a
     // bare "do not review" beside `/pr-review` is a contradiction, not an order.
     const patrol = DEFAULT_LOOPS.find((l) => l.id === 'watchdog')!;
-    const line = composeLoopPrompt(patrol.fallbackPrompt, patrol, ['pr-review', 'triage-only']);
+    const line = composeLoopPrompt(patrol.fallbackPrompt, patrol, {
+      modifierIds: ['pr-review', 'triage-only'],
+    });
     expect(line).toContain('/pr-review');
     expect(line).toContain('ignore any review or feedback skill named above');
   });
@@ -171,30 +377,28 @@ describe('DEFAULT_LOOPS', () => {
     }
   });
 
-  it('points both triage boxes at the one read-only skill', () => {
+  it('points both triage switches at the one read-only skill', () => {
     // Same words on two tabs must mean the same thing, or "Triage only" reads
-    // as a different promise depending on which tab you ticked it on.
-    const triage = DEFAULT_LOOPS.flatMap((l) => l.modifiers).filter(
-      (m) => m.id === 'triage-only',
-    );
+    // as a different promise depending on which tab you flipped it on.
+    const triage = DEFAULT_LOOPS.flatMap((l) => l.modifiers).filter((m) => m.id === 'triage-only');
     expect(triage).toHaveLength(2);
     for (const modifier of triage) {
       expect(modifier.label).toBe('Triage only');
+      expect(modifier.control).toBe('switch');
       expect(modifier.promptFragment).toContain('/midnite-triage');
       expect(modifier.promptFragment).toMatch(/push no fixes/);
     }
   });
 
-  it('composes Patrol the way the tab reads — skills first, standing rule last', () => {
+  it('composes Patrol the way the tab reads — skills first, standing rules last', () => {
     const patrol = DEFAULT_LOOPS.find((l) => l.id === 'watchdog')!;
     expect(
-      composeLoopPrompt(patrol.fallbackPrompt, patrol, [
-        'auto-pick-performance',
-        'pr-feedback',
-        'pr-review',
-      ]),
+      composeLoopPrompt(patrol.fallbackPrompt, patrol, {
+        modifierIds: ['pr-feedback', 'pr-review'],
+        choiceIds: { 'pr-scope': 'ready', autonomy: 'fastest' },
+      }),
     ).toBe(
-      '/loop /pr-review /pr-feedback Never stop to ask: keep advancing and always take the most performant option.',
+      '/loop /pr-review /pr-feedback Look only at PRs that are ready for review — skip drafts. Never stop to ask: keep advancing and always take the most performant option.',
     );
   });
 });
@@ -217,6 +421,16 @@ describe('LoopRunRecordSchema', () => {
   it('round-trips a finished record with an exit code', () => {
     const ended = { ...running, status: 'exited' as const, endedAt: 2, exitCode: 0 };
     expect(LoopRunRecordSchema.parse(ended)).toEqual(ended);
+  });
+
+  it('remembers the model, which the composed prompt cannot say', () => {
+    expect(LoopRunRecordSchema.parse({ ...running, model: 'opus-5' })).toMatchObject({
+      model: 'opus-5',
+    });
+    // Records written before the picker existed have no answer, and inventing
+    // `'default'` for them would be a guess about what someone once ran.
+    expect(LoopRunRecordSchema.parse(running).model).toBeUndefined();
+    expect(LoopRunRecordSchema.safeParse({ ...running, model: 'haiku' }).success).toBe(false);
   });
 
   it('accepts a negative exit code — a signal death is still a real end', () => {

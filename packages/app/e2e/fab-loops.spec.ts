@@ -93,41 +93,47 @@ test.describe('FAB loop console', () => {
     expect(await loopRuns(page)).toEqual([]);
   });
 
-  test('a loop tab offers its declared modifiers and an extras field', async ({ page }) => {
+  test('a loop tab draws each setting as the control its answer wants', async ({ page }) => {
     await open(page);
     await openFab(page, 'Patrol');
 
     const composer = page.getByTestId('loop-composer-watchdog');
-    await expect(composer.getByLabel('PR review')).toBeVisible();
-    await expect(composer.getByLabel('PR feedback')).toBeVisible();
-    await expect(composer.getByLabel('Triage only')).toBeVisible();
-    await expect(composer.getByLabel('Auto-approve passing PRs')).toBeVisible();
-    await expect(composer.getByLabel('Auto pick recommended')).toBeVisible();
-    await expect(composer.getByLabel('Auto pick performance')).toBeVisible();
+    // Additive jobs are boxes…
+    await expect(composer.getByRole('checkbox', { name: 'Review PRs' })).toBeVisible();
+    await expect(composer.getByRole('checkbox', { name: 'Answer feedback' })).toBeVisible();
+    await expect(composer.getByRole('checkbox', { name: 'Security review' })).toBeVisible();
+    // …standing policies are switches…
+    await expect(composer.getByRole('switch', { name: 'Triage only' })).toBeVisible();
+    await expect(composer.getByRole('switch', { name: 'Auto-approve clean PRs' })).toBeVisible();
+    // …and contradictory answers are radios.
+    await expect(composer.getByRole('radiogroup', { name: 'Which PRs' })).toBeVisible();
+    await expect(composer.getByRole('radio', { name: 'Recommended' })).toBeVisible();
     await expect(composer.getByPlaceholder('Extra instructions…')).toBeVisible();
   });
 
-  test('Medic offers the dependency bots, and every tab the auto-pick pair', async ({ page }) => {
+  test('every tab offers the autonomy radio, a model and a schedule', async ({ page }) => {
     await open(page);
     await openFab(page, 'Medic');
 
     const composer = page.getByTestId('loop-composer-medic');
-    await expect(composer.getByLabel('Dependabot PRs')).toBeVisible();
-    await expect(composer.getByLabel('Renovate PRs')).toBeVisible();
-    await expect(composer.getByLabel('Triage only')).toBeVisible();
+    await expect(composer.getByRole('checkbox', { name: 'Dependabot PRs' })).toBeVisible();
+    await expect(composer.getByRole('checkbox', { name: 'Renovate PRs' })).toBeVisible();
+    await expect(composer.getByRole('switch', { name: 'Triage only' })).toBeVisible();
 
-    // The auto-pick pair is the one thing every tab carries, so it is asserted
-    // on the tabs that declare nothing else in common with Medic. The panel is
+    // The run settings are the thing every tab carries, so they are asserted on
+    // the tabs that declare nothing else in common with Medic. The panel is
     // already open, so switching tabs is a click on the tab — `openFab` would
     // toggle the panel shut.
     for (const [tab, id] of [
       ['Ideate', 'innovate'],
       ['Engineer', 'automate'],
+      ['Medic', 'medic'],
     ] as const) {
       await page.getByRole('button', { name: tab, exact: true }).click();
       const other = page.getByTestId(`loop-composer-${id}`);
-      await expect(other.getByLabel('Auto pick recommended')).toBeVisible();
-      await expect(other.getByLabel('Auto pick performance')).toBeVisible();
+      await expect(other.getByRole('radio', { name: 'Ask me' })).toBeChecked();
+      await expect(other.getByRole('radio', { name: 'Opus 5' })).toBeVisible();
+      await expect(other.getByRole('switch', { name: 'Schedule' })).not.toBeChecked();
     }
   });
 
@@ -143,44 +149,51 @@ test.describe('FAB loop console', () => {
 
     // Unticking the only checked box leaves a bare `/loop` — an agent launched
     // and told nothing — so Start goes away rather than sending it.
-    await composer.getByLabel('PR review').uncheck();
+    await composer.getByRole('checkbox', { name: 'Review PRs' }).uncheck();
     await expect(start).toBeDisabled();
-    await expect(start).toHaveAttribute('title', /Check PR review, PR feedback or Triage only/);
+    await expect(start).toHaveAttribute('title', /Pick a task/);
 
-    // A standing rule is not a task: the auto-pick pair does not satisfy it.
-    await composer.getByLabel('Auto pick recommended').check();
+    // A standing rule is not a task: the autonomy radio does not satisfy it.
+    await composer.getByRole('radio', { name: 'Recommended' }).check();
     await expect(start).toBeDisabled();
 
-    // Any one of the three that names a skill does — Triage only included.
-    await composer.getByLabel('Triage only').check();
+    // Any control that names a skill does — the Triage only switch included.
+    await composer.getByRole('switch', { name: 'Triage only' }).check();
     await expect(start).toBeEnabled();
   });
 
-  test('Start composes the prompt from the checked modifiers and the extras', async ({ page }) => {
+  test('Start composes the prompt from every control, in group order', async ({ page }) => {
     await open(page);
     await openFab(page, 'Patrol');
 
     const composer = page.getByTestId('loop-composer-watchdog');
-    // "PR review" is `defaultOn`, so it arrives checked; feedback is the extra pass.
-    await expect(composer.getByLabel('PR review')).toBeChecked();
-    await composer.getByLabel('PR feedback').check();
-    await composer.getByLabel('Auto pick recommended').check();
+    // "Review PRs" is `defaultOn`, so it arrives checked; feedback is the extra pass.
+    await expect(composer.getByRole('checkbox', { name: 'Review PRs' })).toBeChecked();
+    await composer.getByRole('checkbox', { name: 'Answer feedback' }).check();
+    await composer.getByRole('radio', { name: 'Ready only' }).check();
+    await composer.getByRole('radio', { name: 'Recommended' }).check();
+    await composer.getByRole('switch', { name: 'Schedule' }).check();
+    await composer.getByLabel('Run Patrol from').fill('09:00');
+    await composer.getByLabel('Run Patrol until').fill('17:00');
+    await composer.getByRole('radio', { name: 'Opus 5' }).check();
     await composer.getByPlaceholder('Extra instructions…').fill('Skip drafts.');
     await composer.getByTestId('loop-start').click();
 
     await expect.poll(async () => (await loopRuns(page)).length).toBe(1);
     const [run] = await loopRuns(page);
     expect(run?.['loopId']).toBe('watchdog');
-    // Skills in declared order, the standing rule after them, extras last.
+    // Tasks, then scope, then the standing rules, then the window, extras last.
     expect(run?.['composedPrompt']).toBe(
-      '/loop /pr-review /pr-feedback Never stop to ask: keep advancing and always take the recommended option. Skip drafts.',
+      '/loop /pr-review /pr-feedback Look only at PRs that are ready for review — skip drafts. ' +
+        'Do every piece of work in its own git worktree — never edit the primary checkout. ' +
+        'Never stop to ask: keep advancing and always take the recommended option. ' +
+        'Work only between 09:00 and 17:00 local time — outside that window, idle and wait rather than starting new work. ' +
+        'Skip drafts.',
     );
-    // Only the checked ones — the unchecked "Triage only" fragment must not ride along.
-    expect(run?.['checkedModifierIds']).toEqual([
-      'pr-review',
-      'pr-feedback',
-      'auto-pick-recommended',
-    ]);
+    // Only what is on — the unflipped "Triage only" fragment must not ride along.
+    expect(run?.['checkedModifierIds']).toEqual(['pr-review', 'pr-feedback', 'worktree-only']);
+    // The model is a `--model` flag, so the ledger records it beside the line.
+    expect(run?.['model']).toBe('opus-5');
   });
 
   test(
@@ -230,7 +243,7 @@ test.describe('FAB loop console', () => {
     await openFab(page, 'Medic');
 
     const composer = page.getByTestId('loop-composer-medic');
-    await composer.getByLabel('Dependabot PRs').check();
+    await composer.getByRole('checkbox', { name: 'Dependabot PRs' }).check();
     await composer.getByTestId('loop-start').click();
 
     const stop = composer.getByTestId('loop-stop');
@@ -275,7 +288,7 @@ test.describe('FAB loop console', () => {
     await open(page);
     await openFab(page);
     const composer = page.getByTestId('loop-composer-innovate');
-    await composer.getByLabel('Prefer small phases').check();
+    await composer.getByRole('radio', { name: 'PR-sized' }).check();
     await composer.getByTestId('loop-start').click();
     await composer.getByTestId('loop-stop').click();
 

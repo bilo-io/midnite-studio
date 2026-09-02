@@ -75,7 +75,7 @@ import {
   CouncilRunSchema,
   CouncilSchema,
 } from '../council';
-import { LoopRunRecordSchema } from '../loops';
+import { LoopModelSchema, LoopRunRecordSchema } from '../loops';
 
 /**
  * Payload/response schemas for every channel. Each `ipcMain.handle` parses its
@@ -1110,6 +1110,12 @@ export const LoopRunStartRequest = z.object({
   sessionId: z.string().min(1),
   composedPrompt: z.string().min(1),
   checkedModifierIds: z.array(z.string().min(1)),
+  /**
+   * Which Claude the run was launched on. Optional because it is not derivable
+   * from `composedPrompt` — the model is a `--model` flag, not a sentence — and
+   * a renderer that predates the picker sends none.
+   */
+  model: LoopModelSchema.optional(),
 });
 export const LoopRunStartResponse = GitOpResultOf(LoopRunRecordSchema);
 

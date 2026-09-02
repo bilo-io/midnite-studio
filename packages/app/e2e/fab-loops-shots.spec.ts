@@ -36,7 +36,7 @@ async function openFab(page: Page, tab?: string): Promise<void> {
 test('the composer, idle', async ({ page }) => {
   await open(page);
   await openFab(page, 'Patrol');
-  await page.getByTestId('loop-composer-watchdog').getByLabel('PR feedback').check();
+  await page.getByTestId('loop-composer-watchdog').getByRole('checkbox', { name: 'Answer feedback' }).check();
   await page.screenshot({ path: `${OUT}/composer-idle.png` });
 });
 
@@ -44,7 +44,7 @@ test('a running loop — slim strip, glowing Stop, live dots', async ({ page }) 
   await open(page);
   await openFab(page, 'Patrol');
   const composer = page.getByTestId('loop-composer-watchdog');
-  await composer.getByLabel('PR feedback').check();
+  await composer.getByRole('checkbox', { name: 'Answer feedback' }).check();
   await composer.getByPlaceholder('Extra instructions…').fill('Skip drafts.');
   await composer.getByTestId('loop-start').click();
   await expect(composer.getByTestId('loop-stop')).toBeVisible();
@@ -56,7 +56,7 @@ test('run history, expanded', async ({ page }) => {
   await open(page);
   await openFab(page, 'Patrol');
   const composer = page.getByTestId('loop-composer-watchdog');
-  await composer.getByLabel('PR feedback').check();
+  await composer.getByRole('checkbox', { name: 'Answer feedback' }).check();
   await composer.getByTestId('loop-start').click();
   await composer.getByTestId('loop-stop').click();
 

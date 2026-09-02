@@ -38,6 +38,7 @@ export function startAgent({
   agentId,
   command,
   surface,
+  extraArgs = [],
   autoSend = false,
 }: {
   repoId: string;
@@ -54,6 +55,13 @@ export function startAgent({
    * panel is neither opened nor handed the session.
    */
   surface?: 'main' | 'fab';
+  /**
+   * Extra flags for the agent's own CLI, ahead of the prompt — the FAB's
+   * `--model` picker is the only caller today (`loopModelArgs`). Words, not a
+   * string: they go into the same array as everything else and are never
+   * re-split, so a flag value with a space in it stays one word.
+   */
+  extraArgs?: string[];
   /**
    * Append the Return, so the composed command RUNS rather than sitting at the
    * prompt. The second deliberate exception to the type-but-don't-send posture
@@ -77,7 +85,12 @@ export function startAgent({
   // Queued input beats the roster's own start command (see `agentInput` in
   // <TerminalPanel>), so this replaces the bare command an agent session would
   // otherwise open with rather than racing it.
-  const words = [command, ...agentInvocationArgs(agentId), shellQuote(toAgentPrompt(prompt, agentId))];
+  const words = [
+    command,
+    ...extraArgs,
+    ...agentInvocationArgs(agentId),
+    shellQuote(toAgentPrompt(prompt, agentId)),
+  ];
   useTerminalStore.getState().queueInput(session.id, words.join(' ') + (autoSend ? '\r' : ''));
   return session;
 }
