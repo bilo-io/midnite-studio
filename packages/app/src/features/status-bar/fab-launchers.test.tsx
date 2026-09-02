@@ -43,7 +43,7 @@ afterEach(() => {
 
 describe('FabLaunchers', () => {
   /**
-   * `FabLoopDots` renders nothing when nothing is running, on the argument that
+   * `FabLoopCorners` renders nothing when nothing is running, on the argument that
    * the FAB should look untouched. That does not transfer here: these launchers
    * are how a loop is *started*, so hiding them until one runs is circular.
    * Collapsing to one glyph keeps the resting bar quiet without removing the
@@ -142,7 +142,7 @@ describe('FabLaunchers', () => {
 
   /**
    * Amber outranks the loop's own colour — established by
-   * `.loop-run-glow.is-waiting`, the FAB tab dot and `fab-loop-dots.tsx`. A loop
+   * `.loop-run-glow.is-waiting`, the FAB tab dot and `fab-loop-corners.tsx`. A loop
    * with a question on screen has to look identical in all four places.
    */
   it('gives a waiting loop amber, dropping its own colour', () => {
