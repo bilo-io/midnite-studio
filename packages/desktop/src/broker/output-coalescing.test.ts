@@ -23,8 +23,12 @@ import { createBrokerServer, type IPtyLike, type SpawnPtyFn } from './server';
  */
 const COALESCE_MS = 16;
 
-/** Long enough for a 16ms window to have closed, short enough to keep the suite quick. */
-const AFTER_WINDOW_MS = 60;
+/**
+ * Long enough for a 16ms window to have closed even when the whole suite is
+ * running in parallel on a loaded machine, short enough to keep this file quick.
+ * 60ms was not: a late timer under load left a flushed frame still in flight.
+ */
+const AFTER_WINDOW_MS = COALESCE_MS * 10;
 
 function createFakePty(pid = 1000): {
   pty: IPtyLike;
@@ -219,8 +223,9 @@ describe('per-pty output coalescing', () => {
     // Deliberately INSIDE the 16ms window, which is the whole point: the snapshot
     // handler must not flush. Flushing broadcasts to every client — including the
     // one asking — so the bytes would land once as a data frame and again inside
-    // the reply, and the renderer's replay gate writes both.
-    await new Promise((r) => setTimeout(r, COALESCE_MS / 2));
+    // the reply, and the renderer's replay gate writes both. Sent straight away
+    // rather than after half a window: on a loaded machine an 8ms pause was
+    // enough for the timer to fire first, which tests the wrong thing.
     c.send(encodeControl({ t: 'snapshot', id: 9, sessionId: 's1' }));
     await new Promise((r) => setTimeout(r, AFTER_WINDOW_MS));
 
