@@ -4,7 +4,8 @@
 
 ## 2026-09-02 — Phase 38 Themes B, C, E, F + Phase 40 Theme A + Phase 22 Theme H — e2e repair, Projects contracts, the ops journal
 
-[PR #PENDING](https://github.com/bilo-io/midnite-studio/pull/PENDING). Three phases in one
+[PR #23](https://github.com/bilo-io/midnite-studio/pull/23) (with a follow-up in
+[PR #31](https://github.com/bilo-io/midnite-studio/pull/31)). Three phases in one
 batch: 27 e2e specs repaired by root cause rather than by patching assertions, the read-only
 zod spine for GitHub Projects, and the app's first history mechanism.
 
@@ -61,6 +62,22 @@ zod spine for GitHub Projects, and the app's first history mechanism.
       journal is genuinely the History view's second tab, but Theme G's reflog tab beside it is
       an honest placeholder: Theme G was found unbuilt in this same pass, so there is no reflog
       reader for it to sit next to.
+
+- [x] **Follow-up (PR #31)**: the sidebar's `branch-delete` never passed the `journalHint` its
+      wired undo reads. `useTargetedGitOp` defaults `refBefore` to `'HEAD'` and `headBefore` to
+      the checkout's oid — right for `commit`/`reset`, wrong for a branch you are not on — so the
+      Undo button it still offered would have called `branchCreate` for a branch literally named
+      `HEAD` at the wrong sha, and the generic `'Deleted a branch'` label left neither the toast
+      nor the journal entry able to say which branch went. The graph's copy had always passed the
+      hint; the sidebar's had not, and nothing failed. Found while screenshotting the theme, which
+      is the argument for taking the shots: the classifier, the recording and the undo executor all
+      had unit coverage and all three were right — only the call site feeding them was wrong.
+      `e2e/journal-undo.spec.ts` drives the real row menu through the confirm to the toast, presses
+      Undo and asserts the recorded `branchCreate` carries the branch's own name and sha; verified
+      red before the fix. Also centred `review-writes`' `openPull` on the PR row before clicking it
+      — Playwright's auto-scroll had been leaving it under the sticky section header, the same
+      hazard `reviews.spec.ts` already documents, which made a rotating handful of that file's
+      tests fail under a loaded runner.
 
 **Also corrected in this pass**: a fuller audit of Phase 22 found the earlier `a2cd211`
 correction had not gone far enough. Themes B, C, D, E, F and G were all marked DONE by two

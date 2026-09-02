@@ -837,7 +837,10 @@ first toast primitive and first undo.*
   wired Undo yet; the journal is the History view's real second tab, beside G's placeholder. A prior
   correction (`a2cd211`) had already caught this theme's earlier false "done" claim (2026-08-30) and
   its own "22 checklist items" count was itself off — the real count is 8 (the other 14 it summed
-  belong to the phase's shared Verification section, not Theme H).
+  belong to the phase's shared Verification section, not Theme H). A follow-up ([PR #31](https://github.com/bilo-io/midnite-studio/pull/31))
+  then found the sidebar's `branch-delete` never passed the `journalHint` its wired undo reads, so
+  that Undo would have recreated a branch literally named `HEAD` at the wrong sha — fixed, with an
+  e2e spec that drives the real row menu (`e2e/journal-undo.spec.ts`).
 
 ### [Phase 21 — A plural agent roster, and a terminal that knows where it is](phases/phase-21-agent-roster-and-terminal-identity.md)
 
