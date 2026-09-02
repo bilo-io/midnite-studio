@@ -2,6 +2,25 @@
 
 <!-- Append one entry per landed phase/PR: date, phase, PR link, one-line summary. -->
 
+## 2026-09-02 — Phase 41 Theme B — cards, chips, detail pane, the first per-container virtualizer
+
+[PR #43](https://github.com/bilo-io/midnite-studio/pull/43). Resolves the phase doc's own
+recorded Decision the way it predicted: Phase 40 Theme E's inline field editors were not
+importable, so this theme extracts them.
+
+- [x] **Extracted Phase 40 Theme E's editors** into `features/projects/field-editor.tsx`
+      (`ProjectFieldCell`, its `SingleSelectEditor`/`TextLikeEditor`, `formatFieldValue`) — the
+      table adopts the extracted version unchanged, no behavior change there.
+- [x] **`TaskCard`**: title, type glyph, `#number` linked out for issues/PRs (a draft has neither
+      — no dead link), assignee avatars via GitHub's own `<login>.png` convention, a chip per
+      non-`Status` field with a value. **No labels row** — corrected: `ForgeProjectItemContent`
+      carries no labels field at all, so the doc's claim did not survive contact with the
+      contract.
+- [x] **`CardDetail`**: clicking a card opens a right-hand pane, every field editable through the
+      same `ProjectFieldCell` the table uses. No agent composer — Theme G doesn't exist yet.
+- [x] **`VirtualizedColumnItems`**: the app's first per-container virtualizer, gated at a 50-card
+      threshold so a small column (the common case) skips the machinery entirely.
+
 ## 2026-09-02 — Phase 41 Theme A — the Agentic Kanban board shell
 
 [PR #42](https://github.com/bilo-io/midnite-studio/pull/42). Resolves the phase's own
