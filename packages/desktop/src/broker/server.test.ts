@@ -1,4 +1,4 @@
-import { mkdtempSync, statSync, writeFileSync } from 'node:fs';
+import { existsSync, mkdtempSync, readFileSync, statSync, writeFileSync } from 'node:fs';
 import * as net from 'node:net';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
@@ -74,6 +74,15 @@ async function connectAndSend(
       resolve({ frames, socket });
     }, 50);
   });
+}
+
+/** Poll `check` until it holds, for a suite that runs in parallel on a loaded machine. */
+async function waitFor(check: () => boolean, timeoutMs = 2000): Promise<void> {
+  const deadline = Date.now() + timeoutMs;
+  while (!check()) {
+    if (Date.now() > deadline) throw new Error('waitFor: condition not met in time');
+    await new Promise((r) => setTimeout(r, 10));
+  }
 }
 
 describe('broker server', () => {
@@ -177,6 +186,8 @@ describe('broker server', () => {
         protocol: PROTOCOL,
         pid: process.pid,
         appVersion: '0.12.0',
+        buildId: 'unknown',
+        stale: false,
       },
     });
 
@@ -202,6 +213,151 @@ describe('broker server', () => {
     expect(pidStat.mode & 0o777).toBe(0o600);
 
     await broker.close();
+  });
+
+  it('echoes its build id and a stale flag in the hello reply', async () => {
+    const tmp = mkdtempSync(join(tmpdir(), 'mstudio-broker-test-'));
+    const socketPath = join(tmp, 'hello-build.sock');
+
+    const broker = createBrokerServer({
+      socketPath,
+      userDataDir: tmp,
+      buildId: 'deadbeef',
+      isStale: () => 'spawn-helper is gone from disk',
+    });
+    await new Promise((r) => setTimeout(r, 20));
+
+    const { frames, socket } = await connectAndSend(socketPath, [
+      encodeControl({ t: 'hello', id: 1, protocol: PROTOCOL, appVersion: '0.12.0', pid: process.pid }),
+    ]);
+
+    expect(frames[0]).toMatchObject({
+      type: 0x00,
+      message: { t: 'reply', id: 1, ok: true, buildId: 'deadbeef', stale: true },
+    });
+
+    socket.destroy();
+    await broker.close();
+  });
+
+  it('refuses to create a pty once stale, with a stale-broker code rather than spawn-failed', async () => {
+    const tmp = mkdtempSync(join(tmpdir(), 'mstudio-broker-test-'));
+    const socketPath = join(tmp, 'stale-create.sock');
+
+    let reason: string | null = null;
+    const spawnPty = vi.fn<SpawnPtyFn>(() => createFakePty(1).pty);
+    const broker = createBrokerServer({
+      socketPath,
+      userDataDir: tmp,
+      spawnPty,
+      isStale: () => reason,
+    });
+    await new Promise((r) => setTimeout(r, 20));
+
+    const create = (id: number) =>
+      encodeControl({ t: 'create', id, sessionId: `s-${id}`, cwd: '/tmp', cols: 80, rows: 24, env: {} });
+    const hello = encodeControl({ t: 'hello', id: 1, protocol: PROTOCOL, appVersion: '0.12.0', pid: process.pid });
+
+    // Healthy: the spawn goes through.
+    const healthy = await connectAndSend(socketPath, [hello, create(2)]);
+    expect(healthy.frames[1]).toMatchObject({ message: { id: 2, ok: true } });
+    expect(spawnPty).toHaveBeenCalledTimes(1);
+    healthy.socket.destroy();
+
+    // The bundle moved under this process: refuse BEFORE trying to spawn.
+    reason = 'spawn-helper is gone from disk';
+    const stale = await connectAndSend(socketPath, [hello, create(3)]);
+    expect(stale.frames[1]).toMatchObject({
+      message: {
+        id: 3,
+        ok: false,
+        code: 'stale-broker',
+        message: expect.stringMatching(/previous build of Midnite Studio.*spawn-helper is gone from disk\./),
+      },
+    });
+    expect(spawnPty).toHaveBeenCalledTimes(1);
+    // The session it already has is untouched.
+    expect(broker.sessionCount()).toBe(1);
+    stale.socket.destroy();
+
+    await broker.close();
+  });
+
+  it('reports a spawn that fails while stale as stale-broker, not as the raw error', async () => {
+    const tmp = mkdtempSync(join(tmpdir(), 'mstudio-broker-test-'));
+    const socketPath = join(tmp, 'stale-after.sock');
+
+    // Stale only from the second call: the pre-spawn check passes, the spawn
+    // then throws node-pty's errno-less message, and the post-failure check
+    // explains it.
+    let calls = 0;
+    const broker = createBrokerServer({
+      socketPath,
+      userDataDir: tmp,
+      spawnPty: () => {
+        throw new Error('posix_spawnp failed.');
+      },
+      isStale: () => (calls++ === 0 ? null : 'spawn-helper is gone from disk'),
+    });
+    await new Promise((r) => setTimeout(r, 20));
+
+    const { frames, socket } = await connectAndSend(socketPath, [
+      encodeControl({ t: 'hello', id: 1, protocol: PROTOCOL, appVersion: '0.12.0', pid: process.pid }),
+      encodeControl({ t: 'create', id: 2, sessionId: 's', cwd: '/tmp', cols: 80, rows: 24, env: {} }),
+    ]);
+
+    expect(frames[1]).toMatchObject({
+      message: { id: 2, ok: false, code: 'stale-broker', message: expect.stringContaining('gone from disk') },
+    });
+
+    socket.destroy();
+    await broker.close();
+  });
+
+  it('retires to a -retired-<pid> path, freeing the original for a successor while keeping its sessions', async () => {
+    const tmp = mkdtempSync(join(tmpdir(), 'mstudio-broker-test-'));
+    const socketPath = join(tmp, 'shared.sock');
+
+    const fake = createFakePty(11);
+    const old = createBrokerServer({ socketPath, userDataDir: tmp, spawnPty: () => fake.pty });
+    await new Promise((r) => setTimeout(r, 20));
+
+    const hello = encodeControl({ t: 'hello', id: 1, protocol: PROTOCOL, appVersion: '0.12.0', pid: process.pid });
+    const { frames, socket } = await connectAndSend(socketPath, [
+      hello,
+      encodeControl({ t: 'create', id: 2, sessionId: 's', cwd: '/tmp', cols: 80, rows: 24, env: {} }),
+      encodeControl({ t: 'retire', id: 3 }),
+    ]);
+    const retiredPath = join(tmp, `shared-retired-${process.pid}.sock`);
+    expect(frames[2]).toMatchObject({ message: { id: 3, ok: true, socketPath: retiredPath } });
+
+    // The original path is free, the retired one is served, and the session lives on.
+    await waitFor(() => existsSync(retiredPath) && existsSync(`${retiredPath}.pid`));
+    expect(existsSync(socketPath)).toBe(false);
+    expect(readFileSync(`${retiredPath}.pid`, 'utf8').trim()).toBe(String(process.pid));
+    expect(old.sessionCount()).toBe(1);
+    expect(old.socketPath).toBe(retiredPath);
+
+    // The connection that asked is still live: input still reaches the pty.
+    const ptyId = (frames[1] as { message: { ptyId: string } }).message.ptyId;
+    socket.write(encodeControl({ t: 'resize', id: 4, ptyId, cols: 10, rows: 5 }));
+    await waitFor(() => (fake.pty.resize as ReturnType<typeof vi.fn>).mock.calls.length > 0);
+    expect(fake.pty.resize).toHaveBeenCalledWith(10, 5);
+
+    // A successor binds the original path; new connections reach the retired one at its new path.
+    const fresh = createBrokerServer({ socketPath, userDataDir: tmp });
+    await waitFor(() => existsSync(socketPath));
+    const viaRetired = await connectAndSend(retiredPath, [encodeControl({ t: 'list', id: 5 })]);
+    expect(viaRetired.frames[0]).toMatchObject({ message: { id: 5, ok: true, sessions: [expect.objectContaining({ sessionId: 's' })] } });
+    viaRetired.socket.destroy();
+    socket.destroy();
+
+    // Closing the retired broker takes only its own files with it.
+    await old.close();
+    expect(existsSync(retiredPath)).toBe(false);
+    expect(existsSync(socketPath)).toBe(true);
+
+    await fresh.close();
   });
 
   it('resolves closed promise when idle after last session is killed and no clients connected', async () => {

@@ -14,7 +14,7 @@ export const MAX_PAYLOAD_LENGTH = 16 * 1024 * 1024; // 16 MB
 
 export type ControlMessage =
   // Client -> Broker requests
-  | { t: 'hello'; id?: number; protocol: number; appVersion: string; pid: number }
+  | { t: 'hello'; id?: number; protocol: number; appVersion: string; pid: number; buildId?: string }
   | { t: 'list'; id?: number }
   | {
       t: 'create';
@@ -32,6 +32,13 @@ export type ControlMessage =
   | { t: 'snapshot'; id?: number; sessionId: string }
   | { t: 'detach'; id?: number }
   | { t: 'flush'; id?: number }
+  /**
+   * Give up the socket path so a fresh broker can bind it, and move to
+   * `<path>-retired-<pid>.sock` to keep serving existing sessions — the
+   * handover for a broker that reports itself stale (see `staleness.ts`).
+   * Replies `{ ok: true, socketPath }` with the new path.
+   */
+  | { t: 'retire'; id?: number }
   | { t: 'shutdown'; id?: number }
   | ControlReply
   | { t: 'exit'; ptyId: string; exitCode: number; signal?: number | undefined };
@@ -42,7 +49,12 @@ export type ControlReply =
       t: 'reply';
       id?: number;
       ok: false;
-      code: 'protocol' | 'unknown-pty' | 'spawn-failed' | 'error';
+      /**
+       * `stale-broker`: this broker outlived the build it was started from and
+       * can no longer spawn (see `staleness.ts`). Distinct from `spawn-failed`
+       * so the client can respawn a fresh broker rather than surface it.
+       */
+      code: 'protocol' | 'unknown-pty' | 'spawn-failed' | 'stale-broker' | 'error';
       message: string;
     };
 

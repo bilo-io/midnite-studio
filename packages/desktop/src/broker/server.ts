@@ -13,6 +13,7 @@ import {
   PROTOCOL,
   type ControlMessage,
 } from './protocol';
+import { staleBrokerMessage } from './staleness';
 
 export interface IPtyLike {
   readonly pid: number;
@@ -40,6 +41,14 @@ export type BrokerServerOptions = {
   pidPath?: string;
   userDataDir: string;
   appVersion?: string;
+  /** Fingerprint of the build this broker was started from; echoed in `hello`. */
+  buildId?: string;
+  /**
+   * Answers "why can this broker no longer spawn", or `null` while it can —
+   * see `staleness.ts`. Consulted before every `create` and echoed as `stale`
+   * in the `hello` reply so a client can decline a dead-on-arrival broker.
+   */
+  isStale?: () => string | null;
   spawnPty?: SpawnPtyFn;
   now?: () => number;
   log?: (message: string) => void;
@@ -90,15 +99,18 @@ function safeId(sessionId: string): string {
 
 export function createBrokerServer(options: BrokerServerOptions): BrokerServer {
   const {
-    socketPath,
     userDataDir,
     appVersion = '0.0.0',
+    buildId = 'unknown',
+    isStale = () => null,
     spawnPty,
     log = () => {},
     idleGraceMs = 10 * 60 * 1000,
   } = options;
 
-  const pidPath = options.pidPath ?? `${socketPath}.pid`;
+  // Mutable: `retire` moves this broker to a `-retired-<pid>` path.
+  let socketPath = options.socketPath;
+  let pidPath = options.pidPath ?? `${socketPath}.pid`;
   const scrollbackDir = join(userDataDir, 'scrollback');
 
   const socketDir = dirname(socketPath);
@@ -320,7 +332,7 @@ export function createBrokerServer(options: BrokerServerOptions): BrokerServer {
   }, 15_000);
   flushTimer.unref?.();
 
-  const server = net.createServer((socket) => {
+  const onConnection = (socket: net.Socket): void => {
     clients.add(socket);
     checkIdle();
 
@@ -362,7 +374,46 @@ export function createBrokerServer(options: BrokerServerOptions): BrokerServer {
       clients.delete(socket);
       checkIdle();
     });
-  });
+  };
+
+  let server = net.createServer(onConnection);
+
+  function listenOn(path: string): void {
+    server.listen(path, () => {
+      try {
+        chmodSync(path, 0o600);
+        writeFileSync(pidPath, `${process.pid}\n`, { mode: 0o600 });
+        log(`[broker] listening on ${path} (pid ${process.pid})`);
+      } catch (err) {
+        log(`[broker] error configuring socket permissions: ${err instanceof Error ? err.message : String(err)}`);
+      }
+    });
+  }
+
+  /**
+   * Hand the socket path to a successor while keeping every session and every
+   * connected client. Closing the listener is what frees the path — Node
+   * unlinks a Unix socket's file when its server closes, which is also why the
+   * successor must not bind until this has happened: had it bound first, this
+   * close would have deleted ITS socket. Existing connections are untouched by
+   * `server.close()`; only new ones need the new path.
+   */
+  function retire(): string {
+    const retiredPath = socketPath.replace(/(\.sock)?$/, `-retired-${process.pid}.sock`);
+    const old = server;
+    old.close();
+    try {
+      if (existsSync(pidPath)) unlinkSync(pidPath);
+    } catch {
+      // Ignored
+    }
+    socketPath = retiredPath;
+    pidPath = `${retiredPath}.pid`;
+    server = net.createServer(onConnection);
+    listenOn(retiredPath);
+    log(`[broker] retired to ${retiredPath}`);
+    return retiredPath;
+  }
 
   function handleControlMessage(socket: net.Socket, msg: ControlMessage): void {
     switch (msg.t) {
@@ -388,6 +439,8 @@ export function createBrokerServer(options: BrokerServerOptions): BrokerServer {
             protocol: PROTOCOL,
             pid: process.pid,
             appVersion,
+            buildId,
+            stale: isStale() !== null,
           }),
         );
         break;
@@ -422,6 +475,28 @@ export function createBrokerServer(options: BrokerServerOptions): BrokerServer {
               ok: false,
               code: 'spawn-failed',
               message: 'spawnPty not provided to broker server',
+            }),
+          );
+          return;
+        }
+
+        /*
+          Checked BEFORE the spawn, not only after it fails: a stale broker's
+          spawn-helper may be missing (a hard failure) or merely replaced by a
+          different build's (a spawn that "works" against code this process
+          never loaded). Either way the answer is the same — hand off to a
+          fresh broker — and the check is one stat per new terminal.
+        */
+        const staleBefore = isStale();
+        if (staleBefore !== null) {
+          log(`[broker] refusing create: ${staleBefore}`);
+          socket.write(
+            encodeControl({
+              t: 'reply',
+              id: msg.id,
+              ok: false,
+              code: 'stale-broker',
+              message: staleBrokerMessage(staleBefore),
             }),
           );
           return;
@@ -519,13 +594,17 @@ export function createBrokerServer(options: BrokerServerOptions): BrokerServer {
           );
           checkIdle();
         } catch (err) {
+          // The bundle may have been replaced between the check above and the
+          // spawn; a failure that coincides with staleness is reported as such.
+          const staleAfter = isStale();
           socket.write(
             encodeControl({
               t: 'reply',
               id: msg.id,
               ok: false,
-              code: 'spawn-failed',
-              message: err instanceof Error ? err.message : String(err),
+              ...(staleAfter !== null
+                ? { code: 'stale-broker', message: staleBrokerMessage(staleAfter) }
+                : { code: 'spawn-failed', message: err instanceof Error ? err.message : String(err) }),
             }),
           );
         }
@@ -640,6 +719,12 @@ export function createBrokerServer(options: BrokerServerOptions): BrokerServer {
         break;
       }
 
+      case 'retire': {
+        const retiredPath = retire();
+        socket.write(encodeControl({ t: 'reply', id: msg.id, ok: true, socketPath: retiredPath }));
+        break;
+      }
+
       case 'shutdown': {
         socket.write(encodeControl({ t: 'reply', id: msg.id, ok: true }));
         void closeServer();
@@ -703,20 +788,18 @@ export function createBrokerServer(options: BrokerServerOptions): BrokerServer {
     return closed;
   }
 
-  server.listen(socketPath, () => {
-    try {
-      chmodSync(socketPath, 0o600);
-      writeFileSync(pidPath, `${process.pid}\n`, { mode: 0o600 });
-      log(`[broker] listening on ${socketPath} (pid ${process.pid})`);
-    } catch (err) {
-      log(`[broker] error configuring socket permissions: ${err instanceof Error ? err.message : String(err)}`);
-    }
-  });
+  listenOn(socketPath);
 
   return {
-    socketPath,
-    pidPath,
-    server,
+    get socketPath() {
+      return socketPath;
+    },
+    get pidPath() {
+      return pidPath;
+    },
+    get server() {
+      return server;
+    },
     closed,
     close: closeServer,
     sessionCount: () => sessions.size,
