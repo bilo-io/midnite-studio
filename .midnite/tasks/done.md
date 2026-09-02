@@ -2,6 +2,40 @@
 
 <!-- Append one entry per landed phase/PR: date, phase, PR link, one-line summary. -->
 
+## 2026-09-02 — Phase 41 Themes C, F, D (partial), I (partial) — drag, glow, the surface fix
+
+[PR #TBD]. Batch built without Theme G (card composer) or Theme E (in-card terminal) — both stay
+open, and Theme D/I are marked partial because of it.
+
+- [x] **Theme C — drag between columns.** `@dnd-kit` `useDraggable`/`useDroppable` (not
+      `SortableContext` — within-column order is read-only), `closestCorners` collision, one
+      shared `moveItemToColumn` behind both the drop and a new "Move to ▸" context menu (the
+      keyboard-accessible path — deliberately not bound to `Enter`, which Theme B already gave to
+      opening the card detail). Optimistic: the card moves on drop and rolls back with GitHub's own
+      error text on a refusal. Found in the doing: "No status" cannot be a drop target — clearing a
+      field is `clearProjectV2ItemFieldValue`, which Phase 40 never built. "Pause invalidation
+      while dragging" turned out unnecessary once the move lives in a local overlay rather than the
+      query cache. Gated on `forgeWritesEnabled` like every other forge write.
+- [x] **Theme F — the running glow.** A new `.card-run-glow` CSS class (not `.loop-run-glow`
+      reused verbatim — one solid `loopGlowColor()` hex, not the shared rainbow ramp), three states
+      plus idle, driven by a new `useCardStatus()`/`deriveCardGlowState()`. `BoardView` calls the
+      existing `useWindowFocusGate` itself (it already supports concurrent hosts) rather than a
+      hoist to `app.tsx`. Needed one unplanned addition: a scoped `hydrate()` call on board mount,
+      or the glow is inert on a fresh boot — nothing else calls `hydrate()` before a card could ask
+      about a live session.
+- [◐] **Theme D — a session bound to a card (partial).** `'kanban'` added to
+      `TerminalSurfaceSchema`, `taskRef` added to `TerminalSessionSchema`'s object literal (flows
+      through `TerminalSaveRequest` for free), all five `'fab'`-shaped surface checks fixed and
+      tested, `findCardSession`/`findAnyCardSession` added. **Not built**: the actual
+      `startAgent(..., surface: 'kanban')` call — that trigger point is Theme G's card composer,
+      out of this batch.
+- [◐] **Theme I — verification (partial), scoped to what shipped.** `applyOptimisticMove` +
+      rollback (`board-dnd.test.ts`), the glow-state function, the surface-predicate regressions,
+      `taskRef`'s IPC-boundary round trip via `TerminalSaveRequest.parse()` (the assertion that
+      catches the zod-strip the phase doc names), and `e2e/kanban.spec.ts` (drag between columns,
+      rejected-drop rollback, writes-disabled gating, the running glow). **Not built**:
+      `composeCardPrompt`, `taskRef` reconciliation — Theme G/H's own functions, which don't exist.
+
 ## 2026-09-02 — Phase 40 Theme G (partial) — the assembled-app Playwright coverage
 
 [PR #45](https://github.com/bilo-io/midnite-studio/pull/45). The union-narrowing and command-construction rules Theme G calls out already had their

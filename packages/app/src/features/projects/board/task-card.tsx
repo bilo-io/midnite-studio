@@ -3,8 +3,11 @@ import { LuCircleDot, LuGitPullRequest, LuNotebookPen } from 'react-icons/lu';
 import type { ForgeProjectField, ForgeProjectItem } from '@midnite/studio-shared';
 
 import type { IconComponent } from '../../../components/icon-button';
+import { loopGlowColor } from '../../loops/loop-glow';
 import { formatFieldValue } from '../field-editor';
 import { ExternalLink } from '../../markdown/external-link';
+import { deriveCardGlowState } from './glow-state';
+import { useCardStatus } from './use-card-status';
 
 /**
  * One card (Phase 41 Theme B): title, type glyph, `#number` where the item
@@ -24,11 +27,21 @@ import { ExternalLink } from '../../markdown/external-link';
 export function TaskCard({
   item,
   fields,
+  projectId,
+  isOpen = false,
   onClick,
 }: {
   item: ForgeProjectItem;
   /** Every field except `Status` — the board already reads that one as the column. */
   fields: readonly ForgeProjectField[];
+  /**
+   * The board this card belongs to — set only once a board is showing.
+   * Absent in `CardDetail`'s own re-use of nothing (there is none today),
+   * kept optional so a future caller with no board context still compiles.
+   */
+  projectId?: string;
+  /** Whether this card's detail pane is the one currently open (Theme F). */
+  isOpen?: boolean;
   onClick?: () => void;
 }) {
   const Icon = CONTENT_ICON[item.content.type];
@@ -38,6 +51,20 @@ export function TaskCard({
   const chips = fields
     .map((field) => ({ field, text: formatFieldValue(item.fieldValues[field.id]) }))
     .filter((chip) => chip.text.length > 0);
+
+  // No board, no session to bind to — falls out of `useCardStatus` as idle.
+  const status = useCardStatus(projectId ? { projectId, itemId: item.id } : { projectId: '', itemId: '' });
+  // "Open" only means something once there is a session to point the ring
+  // at — an item pane opened with no agent ever launched on it is plain
+  // browsing, not a terminal left open.
+  const glow = projectId
+    ? deriveCardGlowState({
+        running: status.running,
+        waiting: status.waiting,
+        isOpen: isOpen && status.sessionId !== undefined,
+      })
+    : 'idle';
+  const glowColor = status.agentId ? loopGlowColor(status.agentId) : undefined;
 
   return (
     <div
@@ -50,7 +77,10 @@ export function TaskCard({
           onClick?.();
         }
       }}
-      className="flex w-full flex-col gap-1.5 rounded border border-border bg-background px-2 py-1.5 text-left text-xs hover:border-foreground/30"
+      style={glow !== 'idle' && glowColor ? ({ '--card-glow-color': glowColor } as React.CSSProperties) : undefined}
+      className={`flex w-full flex-col gap-1.5 rounded border border-border bg-background px-2 py-1.5 text-left text-xs hover:border-foreground/30 ${
+        glow === 'idle' ? '' : `card-run-glow is-${glow}`
+      }`}
     >
       <div className="flex items-start gap-1.5">
         <Icon aria-hidden className="mt-0.5 h-3.5 w-3.5 shrink-0 text-muted-foreground" />
