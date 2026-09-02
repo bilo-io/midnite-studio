@@ -372,6 +372,37 @@ section.bg-card\/60 {
 }
 
 /* ---------------------------------------------------------------------------
+ * The rainbow ramp (Phase 37 Theme A) — one seven-stop conic gradient, shared
+ * by `.gradient-border`, `.breadcrumb-repo-pill`, `.fab-panel-gradient` and
+ * `.loop-run-glow`, all four of which used to carry their own verbatim copy
+ * of these six hex values. Phase 37 Theme C does arithmetic against degree
+ * positions in this ramp, which only stays honest with one source of truth.
+ *
+ * Stops sit at even 60° increments around a seven-stop conic (the seventh
+ * repeats the first to close the loop): rose 0°, amber 60°, emerald 120°,
+ * blue 180°, violet 240°, pink 300°.
+ *
+ * `@bilo-io/ui`'s `tokens.css` carries its own two copies of this same ramp
+ * (upstream, out of scope for this repo) — these values are deliberately
+ * identical to those, so the day upstream tokenises its own copies the delta
+ * here is a one-line diff rather than a hunt.
+ */
+:root {
+  --rainbow-0: #f43f5e; /* rose, 0deg */
+  --rainbow-1: #f59e0b; /* amber, 60deg */
+  --rainbow-2: #10b981; /* emerald, 120deg */
+  --rainbow-3: #3b82f6; /* blue, 180deg */
+  --rainbow-4: #8b5cf6; /* violet, 240deg */
+  --rainbow-5: #ec4899; /* pink, 300deg */
+  /* Shorthand for a plain full-spectrum consumer: `conic-gradient(from …,
+   * var(--rainbow-ramp))`. Theme C's arc gradients keep listing stops
+   * individually — they need to omit some. */
+  --rainbow-ramp:
+    var(--rainbow-0), var(--rainbow-1), var(--rainbow-2), var(--rainbow-3), var(--rainbow-4),
+    var(--rainbow-5), var(--rainbow-0);
+}
+
+/* ---------------------------------------------------------------------------
  * Gradient glow — the *deltas* to @bilo-io/ui's `.gradient-border`, which is
  * imported at the top of this file (tokens.css). Deliberately not a second
  * copy of it. What used to sit here was exactly that, and both ways it failed
@@ -429,13 +460,7 @@ section.bg-card\/60 {
     linear-gradient(hsl(var(--popover, var(--card))), hsl(var(--popover, var(--card)))),
     conic-gradient(
       from var(--gradient-angle),
-      #f43f5e,
-      #f59e0b,
-      #10b981,
-      #3b82f6,
-      #8b5cf6,
-      #ec4899,
-      #f43f5e
+      var(--rainbow-ramp)
     );
   background-origin: border-box;
   background-clip: padding-box, border-box;
@@ -550,13 +575,7 @@ html[data-motion='reduced'] .pill-shimmer {
     linear-gradient(hsl(var(--background)), hsl(var(--background))),
     conic-gradient(
       from var(--breadcrumb-angle, 0deg),
-      #f43f5e,
-      #f59e0b,
-      #10b981,
-      #3b82f6,
-      #8b5cf6,
-      #ec4899,
-      #f43f5e
+      var(--rainbow-ramp)
     );
   background-origin: border-box;
   background-clip: padding-box, border-box;
@@ -604,6 +623,100 @@ html[data-motion='reduced'] .breadcrumb-repo-pill {
   }
 }
 
+/*
+ * Phase 37 Theme C — the spectrum knows the tab.
+ *
+ * `--fab-arc-from`/`--fab-arc-to` are the two edges of the 180° span every
+ * consumer (the border above, the inner glow below, `.loop-run-glow`'s own
+ * ring) keeps lit; the rest of the ramp goes transparent. Registered as
+ * `<angle>` so the 0.5s sweep between tabs animates the two numbers rather
+ * than snapping — anything that reads or masks by these values gets the
+ * motion for free once the attribute selectors below change which value is
+ * in force.
+ *
+ * The four rows use ONE continuous, never-wrapping number line —
+ * `anchor - 90deg` to `anchor + 90deg` against each tab's own ramp anchor
+ * (medic/rose 0°, watchdog/amber 60°, automate/emerald 120°, innovate/blue
+ * 180°) — rather than each tab's angles individually normalised into
+ * [0deg, 360deg). `medic` becomes `-90deg → 90deg` instead of the equivalent
+ * `270deg → 90deg`, which is the fix the phase doc calls out by name; doing
+ * the same for every row (watchdog: `-30deg → 150deg`) rather than medic
+ * alone means no pair of these four tabs is ever more than 180deg apart on
+ * this line, so a registered-angle transition between ANY two of them always
+ * interpolates numerically through the shorter arc — there is no seam left
+ * to cross, so no tab needed a second, special-cased fix.
+ *
+ * The initial value (0deg/360deg, a full untouched ramp) is what
+ * `.loop-run-glow` falls back to everywhere `data-fab-tab` is not set — the
+ * "stay full-spectrum" half of Theme D needs no extra rule for it.
+ */
+@property --fab-arc-from {
+  syntax: '<angle>';
+  inherits: false;
+  initial-value: 0deg;
+}
+
+@property --fab-arc-to {
+  syntax: '<angle>';
+  inherits: false;
+  initial-value: 360deg;
+}
+
+/*
+ * Written once on the attribute itself and again against a nested
+ * `.loop-run-glow` — the hoist Theme D asks for, so the Start/Stop button
+ * inside a loop's own pane (which sits under a `data-fab-tab` pane wrapper,
+ * not under `.fab-panel-gradient`) picks the same arc up for free. Both
+ * `--fab-arc-from`/`--fab-arc-to` are `inherits: false`, so a plain
+ * descendant combinator — not inheritance — is what has to carry the value
+ * down to that nested button.
+ */
+[data-fab-tab='medic'],
+[data-fab-tab='medic'] .loop-run-glow {
+  --fab-arc-from: -90deg;
+  --fab-arc-to: 90deg;
+}
+
+[data-fab-tab='watchdog'],
+[data-fab-tab='watchdog'] .loop-run-glow {
+  --fab-arc-from: -30deg;
+  --fab-arc-to: 150deg;
+}
+
+[data-fab-tab='automate'],
+[data-fab-tab='automate'] .loop-run-glow {
+  --fab-arc-from: 30deg;
+  --fab-arc-to: 210deg;
+}
+
+[data-fab-tab='innovate'],
+[data-fab-tab='innovate'] .loop-run-glow {
+  --fab-arc-from: 90deg;
+  --fab-arc-to: 270deg;
+}
+
+/*
+ * The arc mask, repeated at each of the three places this phase narrows a
+ * ring, rather than factored into one shared custom property. It was
+ * factored out first — `--fab-arc-mask: conic-gradient(…)` on `:root`,
+ * consumed as `var(--fab-arc-mask)` everywhere — and that version rendered
+ * every tab full-spectrum: an unregistered custom property that references
+ * `var(--fab-arc-from)` resolves *at the element that declares it*, so a
+ * value defined on `:root` bakes in `:root`'s own `--fab-arc-from`
+ * (the registered initial value, `0deg`, since nothing sets the attribute
+ * there) and inheriting that already-resolved value down does not re-open it
+ * against `.fab-panel-gradient`'s own `90deg`. Writing the same
+ * `conic-gradient()` directly on each consuming property, so `var()`
+ * resolves in place, is what makes it see the local override.
+ *
+ * The formula itself is identical in all three spots: fully transparent
+ * outside `[--fab-arc-from, --fab-arc-to]`, easing over 30° at each edge so
+ * the cut is a fade rather than a hard seam, opaque black in between. It
+ * carries no colour of its own and no tab-specific stop list — only the two
+ * edge positions ever move; the ramp colours it is masking stay exactly
+ * where they have always been.
+ */
+
 .fab-panel-gradient {
   animation: fab-panel-spin 4s linear infinite;
   border: 1.5px solid transparent;
@@ -611,20 +724,266 @@ html[data-motion='reduced'] .breadcrumb-repo-pill {
     linear-gradient(hsl(var(--popover, var(--card))), hsl(var(--popover, var(--card)))),
     conic-gradient(
       from var(--fab-panel-angle, 0deg),
-      #f43f5e,
-      #f59e0b,
-      #10b981,
-      #3b82f6,
-      #8b5cf6,
-      #ec4899,
-      #f43f5e
+      var(--rainbow-ramp)
     );
   background-origin: border-box;
   background-clip: padding-box, border-box;
+  /*
+   * Theme C: narrow the border to the active tab's arc without touching the
+   * two-layer background trick above. A `mask-image` covering the whole
+   * element would punch the arc's transparency straight through the opaque
+   * interior fill too, so this is two mask layers instead of one — the first
+   * clipped to the padding-box and always fully opaque (the panel's own
+   * content stays untouched), the second clipped to the border-box and equal
+   * to the arc mask above (only the 1.5px ring it actually paints in is
+   * subject to it). Default mask compositing unions the two, so the ring
+   * gains the arc's transparency while the interior never does.
+   */
+  mask-image:
+    linear-gradient(#000, #000),
+    conic-gradient(
+      from var(--fab-panel-angle, 0deg),
+      transparent -400deg,
+      transparent calc(var(--fab-arc-from, 0deg) - 30deg),
+      #000 var(--fab-arc-from, 0deg),
+      #000 var(--fab-arc-to, 360deg),
+      transparent calc(var(--fab-arc-to, 360deg) + 30deg),
+      transparent 400deg
+    );
+  mask-clip: padding-box, border-box;
+  -webkit-mask-image:
+    linear-gradient(#000, #000),
+    conic-gradient(
+      from var(--fab-panel-angle, 0deg),
+      transparent -400deg,
+      transparent calc(var(--fab-arc-from, 0deg) - 30deg),
+      #000 var(--fab-arc-from, 0deg),
+      #000 var(--fab-arc-to, 360deg),
+      transparent calc(var(--fab-arc-to, 360deg) + 30deg),
+      transparent 400deg
+    );
+  -webkit-mask-clip: padding-box, border-box;
+  /* Theme C: the 0.5s sweep. Both layers above read the same two variables,
+   * so one transition drives the border and (via `::before` below) the glow
+   * together — they can never show a different arc at the same moment. */
+  transition:
+    --fab-arc-from 0.5s ease,
+    --fab-arc-to 0.5s ease;
+}
+
+/*
+ * Phase 37 Theme B — the inner glow. A second, independent paint layer
+ * behind the border above: `content: ''`, so no new DOM node, and a
+ * `::before` rather than the halo's `::after` because `.gradient-border`
+ * already owns that pseudo on this element's ancestry and this glow has to
+ * stay clear of it (see the halo comment further up this file).
+ *
+ * Two masks stack here rather than one, same reasoning as the border's own
+ * `mask-image` above but composed for a different end: the first is the
+ * existing three-stop radial alpha mask (the falloff toward the panel's
+ * centre, unrelated to which tab is active), the second is the shared arc
+ * mask (Theme C). `mask-composite: intersect` on the second layer is
+ * deliberate here, unlike the border's default union — the glow has no
+ * opaque interior to protect, so what should reach the screen is wherever
+ * BOTH masks are lit: inside the radial ring AND inside the active tab's
+ * arc. An `add`/union here would leave the whole centre-to-rim gradient
+ * visible outside the arc too, which is exactly what Theme C exists to
+ * prevent.
+ *
+ * `z-index: 0` is the only stacking rule this needs: the pseudo paints first
+ * (browsers place `::before` before any real children in paint order), and
+ * every one of the panel's actual children — the tab bar, the pane
+ * container — is normal flow with no `z-index` of its own, so they paint
+ * over it without help. Verified against the running app rather than
+ * assumed; see Theme F's screenshots.
+ */
+@property --fab-glow-inner {
+  syntax: '<percentage>';
+  inherits: false;
+  initial-value: 62%;
+}
+
+/*
+ * Mask stops, not `filter: blur()` — Phase 36 Theme E is the reason. This
+ * panel is a permanently-mounted, often-blurred-window animation, and a
+ * blur radius that changes every frame forces Chromium to re-rasterise the
+ * whole layer each time; a mask stop and an opacity both composite for
+ * free. Amplitude (`62% → 56%`, `0.55 → 0.85`) and the 3.2s period are the
+ * doc's own starting figures, shipped as-is — not retuned by eye, kept
+ * deliberately co-prime-ish with the 4s rotation so the two never visibly
+ * re-sync on the same beat.
+ */
+@keyframes fab-glow-pulse {
+  0%,
+  100% {
+    --fab-glow-inner: 62%;
+    opacity: 0.55;
+  }
+  50% {
+    --fab-glow-inner: 56%;
+    opacity: 0.85;
+  }
+}
+
+.fab-panel-gradient::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  border-radius: inherit;
+  pointer-events: none;
+  z-index: 0;
+  background-image: conic-gradient(from var(--fab-panel-angle, 0deg), var(--rainbow-ramp));
+  filter: blur(20px);
+  mask-image:
+    radial-gradient(
+      ellipse 100% 100% at 50% 50%,
+      transparent 0%,
+      transparent var(--fab-glow-inner, 62%),
+      rgba(0, 0, 0, 0.55) 82%,
+      #000 100%
+    ),
+    conic-gradient(
+      from var(--fab-panel-angle, 0deg),
+      transparent -400deg,
+      transparent calc(var(--fab-arc-from, 0deg) - 30deg),
+      #000 var(--fab-arc-from, 0deg),
+      #000 var(--fab-arc-to, 360deg),
+      transparent calc(var(--fab-arc-to, 360deg) + 30deg),
+      transparent 400deg
+    );
+  mask-composite: intersect;
+  -webkit-mask-image:
+    radial-gradient(
+      ellipse 100% 100% at 50% 50%,
+      transparent 0%,
+      transparent var(--fab-glow-inner, 62%),
+      rgba(0, 0, 0, 0.55) 82%,
+      #000 100%
+    ),
+    conic-gradient(
+      from var(--fab-panel-angle, 0deg),
+      transparent -400deg,
+      transparent calc(var(--fab-arc-from, 0deg) - 30deg),
+      #000 var(--fab-arc-from, 0deg),
+      #000 var(--fab-arc-to, 360deg),
+      transparent calc(var(--fab-arc-to, 360deg) + 30deg),
+      transparent 400deg
+    );
+  -webkit-mask-composite: source-in;
+  opacity: 0.55;
+  animation:
+    fab-panel-spin 4s linear infinite,
+    fab-glow-pulse 3.2s ease-in-out infinite;
+  transition:
+    --fab-arc-from 0.5s ease,
+    --fab-arc-to 0.5s ease;
+}
+
+/*
+ * Phase 37 Theme E — pulse follows the loop. `data-loop-state` (idle /
+ * running / thinking / waiting) is set on `.fab-panel-gradient` from the
+ * active tab's own `useAllLoopStatuses` entry; everything below is CSS-only,
+ * one keyframe reused at three speeds rather than three keyframes.
+ *
+ * `waiting` is the one state that is not a cadence change: decision 6 has
+ * amber outrank the tab arc for the active tab, exactly like
+ * `.loop-run-glow.is-waiting` already does on the Start/Stop button and the
+ * collapsed FAB, and for the same reason — a loop with a question on screen
+ * is the one surface a user must be able to spot without reading anything.
+ * Rotation and pulse both stop; the border gets the same treatment via its
+ * own `[data-loop-state='waiting']` rule below.
+ */
+.fab-panel-gradient[data-loop-state='idle']::before {
+  animation-duration: 4s, 4s;
+}
+
+.fab-panel-gradient[data-loop-state='running']::before {
+  animation-duration: 4s, 2.6s;
+}
+
+.fab-panel-gradient[data-loop-state='thinking']::before {
+  animation-duration: 4s, 1.8s;
+  /*
+   * "A brighter peak" (the doc's own words for this state) can't be a
+   * different `opacity` here — the running `fab-glow-pulse` keyframe already
+   * animates that property every frame, and a running animation's own
+   * keyframe values always win over a static declaration for the same
+   * property, cascade or no cascade. `brightness()` on the existing blur
+   * filter is untouched by that animation, so it is the one channel this
+   * state can actually brighten without a second keyframe.
+   */
+  filter: blur(20px) brightness(1.3);
+}
+
+.fab-panel-gradient[data-loop-state='waiting'] {
+  background-image:
+    linear-gradient(hsl(var(--popover, var(--card))), hsl(var(--popover, var(--card)))),
+    linear-gradient(#f59e0b, #f59e0b);
+  animation: none;
+  /* A full amber ring, not an arc of one — the border's Theme C mask only
+   * makes sense against the rainbow it otherwise narrows. */
+  mask-image: none;
+  -webkit-mask-image: none;
+}
+
+.fab-panel-gradient[data-loop-state='waiting']::before {
+  background-image: none;
+  background-color: #f59e0b;
+  animation: none;
+  opacity: 0.55;
+  mask-image: radial-gradient(
+    ellipse 100% 100% at 50% 50%,
+    transparent 0%,
+    transparent 62%,
+    rgba(0, 0, 0, 0.55) 82%,
+    #000 100%
+  );
+  -webkit-mask-image: radial-gradient(
+    ellipse 100% 100% at 50% 50%,
+    transparent 0%,
+    transparent 62%,
+    rgba(0, 0, 0, 0.55) 82%,
+    #000 100%
+  );
+}
+
+/*
+ * Both the panel's rotation and the glow's pulse are permanently-running
+ * animations on a panel that can sit mounted, blurred, for hours — precisely
+ * the shape Phase 36 Theme E was written to eliminate. Rather than wait for
+ * a measurement to indict it (the phase doc leaves that decision to Theme
+ * F's number), this pauses both the instant the OS takes focus elsewhere:
+ * `animation-play-state: paused` freezes the current frame with no
+ * recomputation, unlike `display: none` (which would also hide the glow) or
+ * re-triggering the animation on return (which would jump). Scoped to this
+ * phase's own new layer only — the pre-existing `.fab-panel-gradient`
+ * rotation and `.loop-run-glow` elsewhere in the app are Phase 35's, and
+ * changing their idle behaviour is out of this phase's scope.
+ *
+ * `data-window-focused` is set by `FabPanel` itself (see fab-panel.tsx) only
+ * while the panel is mounted, via the renderer's `window` focus/blur events
+ * — there is no such thing as a window-focus media query.
+ */
+html[data-window-focused='false'] .fab-panel-gradient::before {
+  animation-play-state: paused;
 }
 
 html[data-motion='reduced'] .fab-panel-gradient {
   animation: none;
+  transition: none;
+}
+
+/*
+ * Phase 37 Theme F — reduced motion drops all three of this phase's new
+ * motions (rotation, pulse, the 0.5s sweep) but keeps the tab's colour: the
+ * arc mask above is static CSS, not an animation, so with the keyframes gone
+ * the glow simply rests at `@property`'s registered initial values —
+ * `--fab-glow-inner: 62%`, `opacity` back to the pseudo's own base value —
+ * rather than whatever frame the animation happened to die on.
+ */
+html[data-motion='reduced'] .fab-panel-gradient::before {
+  animation-name: none !important;
+  transition: none;
 }
 
 
@@ -673,13 +1032,7 @@ html[data-motion='reduced'] .fab-panel-gradient {
     linear-gradient(hsl(var(--background)), hsl(var(--background))),
     conic-gradient(
       from var(--loop-glow-angle, 0deg),
-      #f43f5e,
-      #f59e0b,
-      #10b981,
-      #3b82f6,
-      #8b5cf6,
-      #ec4899,
-      #f43f5e
+      var(--rainbow-ramp)
     );
   background-origin: border-box;
   background-clip: padding-box, border-box;
@@ -687,6 +1040,40 @@ html[data-motion='reduced'] .fab-panel-gradient {
   box-shadow:
     0 0 6px rgba(236, 72, 153, 0.3),
     0 0 10px rgba(59, 130, 246, 0.2);
+  /*
+   * Theme D: when a `data-fab-tab` ancestor (or this element itself, on the
+   * collapsed FAB) sets `--fab-arc-from`/`--fab-arc-to`, narrow to that tab's
+   * arc the same way `.fab-panel-gradient` does above — two mask layers, the
+   * fill always shown, the ring conditionally. Where neither is set, both
+   * variables resolve to their registered full-circle initial values and
+   * this mask is effectively a no-op, which is what keeps every other
+   * `.loop-run-glow` (composer buttons outside a tab's own pane, the button
+   * before Theme D ever touches it) full-spectrum with no extra rule.
+   */
+  mask-image:
+    linear-gradient(#000, #000),
+    conic-gradient(
+      from var(--loop-glow-angle, 0deg),
+      transparent -400deg,
+      transparent calc(var(--fab-arc-from, 0deg) - 30deg),
+      #000 var(--fab-arc-from, 0deg),
+      #000 var(--fab-arc-to, 360deg),
+      transparent calc(var(--fab-arc-to, 360deg) + 30deg),
+      transparent 400deg
+    );
+  mask-clip: padding-box, border-box;
+  -webkit-mask-image:
+    linear-gradient(#000, #000),
+    conic-gradient(
+      from var(--loop-glow-angle, 0deg),
+      transparent -400deg,
+      transparent calc(var(--fab-arc-from, 0deg) - 30deg),
+      #000 var(--fab-arc-from, 0deg),
+      #000 var(--fab-arc-to, 360deg),
+      transparent calc(var(--fab-arc-to, 360deg) + 30deg),
+      transparent 400deg
+    );
+  -webkit-mask-clip: padding-box, border-box;
 }
 
 /* Thinking: the glow breathes. A live-but-idle loop keeps the steady ring. */
@@ -696,13 +1083,17 @@ html[data-motion='reduced'] .fab-panel-gradient {
     loop-glow-pulse 2s ease-in-out infinite;
 }
 
-/* Waiting on you: one steady amber ring, no rotation, no pulse. */
+/* Waiting on you: one steady amber ring, no rotation, no pulse. A full ring,
+ * not an arc of one — Theme D's mask above only narrows the rainbow it
+ * otherwise wears. */
 .loop-run-glow.is-waiting {
   background-image:
     linear-gradient(hsl(var(--background)), hsl(var(--background))),
     linear-gradient(#f59e0b, #f59e0b);
   animation: none;
   box-shadow: 0 0 12px rgba(245, 158, 11, 0.55);
+  mask-image: none;
+  -webkit-mask-image: none;
 }
 
 /*
@@ -718,13 +1109,7 @@ html[data-motion='reduced'] .fab-panel-gradient {
     linear-gradient(hsl(var(--primary)), hsl(var(--primary))),
     conic-gradient(
       from var(--loop-glow-angle, 0deg),
-      #f43f5e,
-      #f59e0b,
-      #10b981,
-      #3b82f6,
-      #8b5cf6,
-      #ec4899,
-      #f43f5e
+      var(--rainbow-ramp)
     );
 }
 

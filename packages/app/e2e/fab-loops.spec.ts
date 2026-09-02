@@ -427,6 +427,122 @@ test.describe('FAB loop console — reduced motion (Theme H)', () => {
   });
 });
 
+test.describe('FAB panel — the tab glow (Phase 37)', () => {
+  /**
+   * The computed custom properties are the testable seam here — the rendered
+   * gradient/mask pixels are not. Every row matches `styles.css`'s arc table:
+   * `anchor - 90deg` to `anchor + 90deg` against each tab's own ramp anchor,
+   * never each tab's angles individually wrapped into `[0deg, 360deg)`.
+   */
+  const ARCS: Record<string, { from: string; to: string }> = {
+    Medic: { from: '-90deg', to: '90deg' },
+    Watchdog: { from: '-30deg', to: '150deg' },
+    Automate: { from: '30deg', to: '210deg' },
+    Innovate: { from: '90deg', to: '270deg' },
+  };
+
+  const gradient = (page: Page) => page.locator('.fab-panel-gradient');
+
+  const arcOf = (locator: ReturnType<typeof gradient>) =>
+    locator.evaluate((el) => {
+      const cs = getComputedStyle(el);
+      return { from: cs.getPropertyValue('--fab-arc-from').trim(), to: cs.getPropertyValue('--fab-arc-to').trim() };
+    });
+
+  for (const [tab, arc] of Object.entries(ARCS)) {
+    test(`${tab}'s arc matches its row of the table`, async ({ page }) => {
+      await open(page);
+      await openFab(page, tab);
+      await expect.poll(() => arcOf(gradient(page))).toEqual(arc);
+    });
+  }
+
+  test('the collapsed FAB carries the same arc as the open panel', async ({ page }) => {
+    await open(page);
+    await openFab(page, 'Medic');
+    await page.getByTestId('loop-composer-medic').getByTestId('loop-start').click();
+    await expect(page.getByTestId('loop-composer-medic').getByTestId('loop-stop')).toBeVisible();
+
+    // Collapse — the button, not the panel, is what Theme D has to agree with.
+    await page.getByRole('button', { name: 'Open quick access panel' }).click();
+    const button = page.getByRole('button', { name: 'Open quick access panel' });
+    await expect(button).toHaveAttribute('data-fab-tab', 'medic');
+    await expect.poll(() => arcOf(button)).toEqual(ARCS['Medic']);
+  });
+
+  test("Start/Stop inside a tab's own pane inherits that tab's arc for free", async ({ page }) => {
+    await open(page);
+    await openFab(page, 'Automate');
+    await page.getByTestId('loop-composer-automate').getByTestId('loop-start').click();
+    const stop = page.getByTestId('loop-composer-automate').getByTestId('loop-stop');
+    await expect(stop).toBeVisible();
+    await expect.poll(() => arcOf(stop)).toEqual(ARCS['Automate']);
+  });
+
+  test('data-loop-state tracks the active tab: idle, running, then waiting', async ({ page }) => {
+    await open(page);
+    await openFab(page, 'Watchdog');
+    await expect(gradient(page)).toHaveAttribute('data-loop-state', 'idle');
+
+    await page.getByTestId('loop-composer-watchdog').getByTestId('loop-start').click();
+    await expect(page.getByTestId('loop-composer-watchdog').getByTestId('loop-stop')).toBeVisible();
+    await expect(gradient(page)).toHaveAttribute('data-loop-state', 'running');
+
+    await emitActivity(page, 'waiting', 'pty-1');
+    await expect(gradient(page)).toHaveAttribute('data-loop-state', 'waiting');
+  });
+
+  /**
+   * Amber outranks the arc (decision 6), and it outranks it with a FULL
+   * ring — the mask that narrows the border and the glow to a tab's 180° is
+   * built for the rainbow it otherwise wears, and would misread a one-colour
+   * amber ring as a half-lit one if it stayed applied.
+   */
+  test('a waiting loop drops the arc mask and stops rotation and pulse', async ({ page }) => {
+    await open(page);
+    await openFab(page, 'Medic');
+    await page.getByTestId('loop-composer-medic').getByTestId('loop-start').click();
+    await expect(page.getByTestId('loop-composer-medic').getByTestId('loop-stop')).toBeVisible();
+
+    await emitActivity(page, 'waiting', 'pty-1');
+    await expect(gradient(page)).toHaveAttribute('data-loop-state', 'waiting');
+
+    const info = await gradient(page).evaluate((el) => ({
+      borderMask: getComputedStyle(el).maskImage,
+      beforeAnimation: getComputedStyle(el, '::before').animationName,
+      ownAnimation: getComputedStyle(el).animationName,
+    }));
+    expect(info.borderMask).toBe('none');
+    expect(info.beforeAnimation).toBe('none');
+    expect(info.ownAnimation).toBe('none');
+  });
+
+  test("data-motion='reduced' stops the panel's rotation, pulse and arc sweep", async ({ page }) => {
+    await open(page);
+    await openFab(page, 'Innovate');
+    const before = () => gradient(page).evaluate((el) => getComputedStyle(el, '::before').animationName);
+
+    expect(await before()).toBe('fab-panel-spin, fab-glow-pulse');
+
+    await page.evaluate(() => document.documentElement.setAttribute('data-motion', 'reduced'));
+    expect(await before()).toBe('none');
+
+    const transitions = await gradient(page).evaluate((el) => ({
+      own: getComputedStyle(el).transitionProperty,
+      before: getComputedStyle(el, '::before').transitionProperty,
+    }));
+    expect(transitions.own).toBe('none');
+    expect(transitions.before).toBe('none');
+
+    // The colour survives even though the motion doesn't: still Innovate's
+    // arc, resting rather than mid-sweep.
+    await expect.poll(() => arcOf(gradient(page))).toEqual(ARCS['Innovate']);
+
+    await page.evaluate(() => document.documentElement.removeAttribute('data-motion'));
+    expect(await before()).toBe('fab-panel-spin, fab-glow-pulse');
+  });
+});
+
 test.describe('FAB loop console — rehydration (Theme I)', () => {
   /**
    * A launch that starts with a loop already on disk.

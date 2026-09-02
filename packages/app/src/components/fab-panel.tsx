@@ -3,7 +3,7 @@ import { useEffect } from 'react';
 
 import { loopIcon } from '../features/loops/loop-icons';
 import { LoopTab } from '../features/loops/loop-tab';
-import { useAllLoopStatuses } from '../features/loops/loop-status';
+import { useAllLoopStatuses, type LoopStatus } from '../features/loops/loop-status';
 import { useLoopRuns } from '../features/loops/use-loop-runs';
 import { useTerminalStore } from '../features/terminal/terminal-store';
 import { useUiStore, type FabTab } from '../store/ui-store';
@@ -14,6 +14,17 @@ interface FabPanelProps {
 }
 
 const LOOP_IDS = DEFAULT_LOOPS.map((loop) => loop.id);
+
+/** The four states `styles.css`'s `[data-loop-state]` rules key their pulse cadence off. */
+type LoopGlowState = 'idle' | 'running' | 'thinking' | 'waiting';
+
+/** Amber outranks the loop colour (Theme E) — same rule as the tab dot above. */
+function loopGlowState(status: LoopStatus | undefined): LoopGlowState {
+  if (!status?.running) return 'idle';
+  if (status.waiting) return 'waiting';
+  if (status.thinking) return 'thinking';
+  return 'running';
+}
 
 /**
  * The FAB's loop console (Phase 35).
@@ -31,12 +42,20 @@ export function FabPanel({ isOpen, width }: FabPanelProps) {
 
   usePruneSupersededSessions(activeFabTab);
   useHydrateOnOpen(isOpen);
+  useWindowFocusGate(isOpen);
 
   if (!isOpen) return null;
 
+  const activeIndex = LOOP_IDS.indexOf(activeFabTab);
+  const loopState = loopGlowState(statuses[activeIndex]);
+
   return (
     <div className="h-full w-full flex flex-col" style={{ width }}>
-      <div className="fab-panel-gradient h-full w-full border border-border bg-popover flex flex-col">
+      <div
+        className="fab-panel-gradient relative h-full w-full border border-border bg-popover flex flex-col"
+        data-fab-tab={activeFabTab}
+        data-loop-state={loopState}
+      >
         {/* Tab Bar */}
         <div className="flex border-b border-border shrink-0">
           {DEFAULT_LOOPS.map((loop, index) => {
@@ -79,6 +98,7 @@ export function FabPanel({ isOpen, width }: FabPanelProps) {
           {DEFAULT_LOOPS.map((loop) => (
             <div
               key={loop.id}
+              data-fab-tab={loop.id}
               className={`absolute inset-0 ${activeFabTab === loop.id ? 'visible' : 'invisible'}`}
             >
               <LoopTab
@@ -113,6 +133,41 @@ function useHydrateOnOpen(isOpen: boolean): void {
   useEffect(() => {
     if (!isOpen) return;
     void useTerminalStore.getState().hydrate();
+  }, [isOpen]);
+}
+
+/**
+ * Freezes the panel's rainbow glow (Phase 37 Theme B) the instant the OS
+ * takes focus elsewhere, and lets it run again on return.
+ *
+ * `document.visibilityState` (what `use-now.ts` gates on) answers a
+ * different question — hidden vs. visible, i.e. minimised or on another
+ * space — and stays `'visible'` for a window that is merely blurred behind
+ * another app, which is exactly the state Phase 36's `idle-cpu.mjs
+ * --blurred` measures and the state a permanently-mounted rotating,
+ * pulsing panel should not keep animating through. `window.hasFocus()` /
+ * `focus` / `blur` are the only signal for that.
+ *
+ * Scoped to while the panel is open — nothing needs this attribute set
+ * before the glow exists to gate, and cleanup on close avoids leaving a
+ * stale `false` behind for whatever mounts next.
+ */
+function useWindowFocusGate(isOpen: boolean): void {
+  useEffect(() => {
+    if (!isOpen) return;
+    const setFocused = (focused: boolean): void => {
+      document.documentElement.dataset['windowFocused'] = focused ? 'true' : 'false';
+    };
+    setFocused(document.hasFocus());
+    const onFocus = (): void => setFocused(true);
+    const onBlur = (): void => setFocused(false);
+    window.addEventListener('focus', onFocus);
+    window.addEventListener('blur', onBlur);
+    return () => {
+      window.removeEventListener('focus', onFocus);
+      window.removeEventListener('blur', onBlur);
+      delete document.documentElement.dataset['windowFocused'];
+    };
   }, [isOpen]);
 }
 

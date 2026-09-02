@@ -124,6 +124,56 @@ launchers' `aria-label` was `Open <Label> loop`, colliding with the waiting-noti
 premise updates — its left-zone-footprint fixture used diagnostics, now a *left*-zone segment
 whose presence legitimately changes that width, and its density thresholds moved (measured:
 full ≥ ~1200px, compact ~1000–1150px, collapsed ≤ ~950px).
+## 2026-09-02 — Phase 37 Themes A, B, C, D, E, F — A glow that knows which tab
+
+[PR #8](https://github.com/bilo-io/midnite-studio/pull/8). All six themes in one batch. The FAB
+panel's rotating rainbow border grows an inner glow that subtracts the half of the spectrum
+furthest from the active tab, so the panel edge reads as "the green one" without ceasing to be a
+gradient — tied to loop state, mirrored on the collapsed FAB, and gated on window focus rather
+than left to a measurement this sandbox couldn't trust.
+
+- [x] **Theme A — One rainbow, six tokens**: the seven-stop ramp lifted out of five verbatim hex
+      copies in `styles.css` into `--rainbow-0..5` + a `--rainbow-ramp` shorthand. Zero rendered
+      change — every consumer resolves to byte-identical values.
+- [x] **Theme B — The inner glow**: a `::before` overlay on `.fab-panel-gradient` — no new DOM
+      node — paints a blurred conic gradient behind the border, masked by a three-stop radial
+      alpha gradient for the centre falloff and pulsed via a registered `--fab-glow-inner` mask
+      stop plus opacity (never `filter: blur()`, per Phase 36's rule against per-frame
+      re-rasterised blur on a permanently-mounted animation).
+- [x] **Theme C — The spectrum knows the tab**: `data-fab-tab` plus a four-row arc table
+      (`anchor - 90deg` → `anchor + 90deg` on one continuous, never-wrapping number line rather
+      than each tab normalised into `[0deg, 360deg)`) narrows both the border and the glow to a
+      shared 180° arc via one mask formula, with a 0.5s sweep between tabs. Hit and fixed a real
+      bug along the way: an unregistered custom property referencing a registered one via `var()`
+      resolves against the value in force *where it is declared*, not where it is consumed, so a
+      `--fab-arc-mask` factored onto `:root` baked in `:root`'s own untouched arc and rendered
+      every tab full-spectrum — fixed by writing the same `conic-gradient()` directly on each of
+      the three consuming properties instead of sharing it through an inherited variable.
+- [x] **Theme D — Collapsed FAB continuity**: the collapsed button and each tab's own Start/Stop
+      button pick up the same arc for free from one hoisted attribute table (`[data-fab-tab='…'],
+      [data-fab-tab='…'] .loop-run-glow { … }`), so collapsing the panel never changes its colour.
+- [x] **Theme E — Pulse follows the loop**: `data-loop-state` (idle/running/thinking/waiting) off
+      the existing `useAllLoopStatuses` call drives pulse cadence (one keyframe, three durations);
+      `thinking`'s "brighter peak" needed `filter: brightness()` rather than a static `opacity`
+      override, because a running keyframe's own animated value always wins over a static
+      declaration for the same property. `waiting` drops the arc entirely for a full, steady
+      amber ring — on both the border and the glow, each of which needed its mask explicitly
+      cleared rather than left narrowed to an arc that no longer means anything against a flat
+      fill.
+- [x] **Theme F — Reduced motion, and proof**: `animation-name: none !important` (not a duration
+      override) for the new `::before`, the 0.5s arc transition suppressed too, `fab-loops.spec.ts`
+      extended with computed-`--fab-arc-from`/`--fab-arc-to` assertions per tab plus the
+      collapsed-FAB and composer-button inheritance checks, and `panel-glow.spec.ts` re-run clean
+      (Theme A touches `.gradient-border`, the exact block with a documented history of a
+      popover-positioning regression). A window focus/blur gate pauses the glow's rotation and
+      pulse unconditionally, decided upfront rather than after a measurement — Phase 36's rule is
+      that a perf claim comes with a number, and this sandbox could not produce a trustworthy one:
+      no Accessibility permission for the UI-scripted click needed to open the panel in a packaged
+      build, and even the panel-closed *baseline* swung 22% → 55% of a core across two runs of
+      identical unmodified `main`. Left open for a human pass on real hardware, along with a
+      resize to the panel's min/max width (240/640px) — a DOM-level width override in this
+      session's attempt only widened `FabPanel`'s own wrapper, not the `overflow-hidden` tween
+      wrapper around it, and clipped the result rather than testing it.
 
 ## 2026-09-01 — Phase 36 Themes B, C, G, H — Performance diet: the fixes, and the budgets that keep them
 
