@@ -3,6 +3,7 @@ import type { IconType } from 'react-icons';
 import { IoIosGitNetwork } from 'react-icons/io';
 import {
   LuClock,
+  LuCommand,
   LuDownload,
   LuFile,
   LuFolderOpen,
@@ -58,7 +59,10 @@ export const COMMAND_ICONS: Record<CommandId, IconType> = {
   'search.open': LuSearch,
   'op.abort': LuX,
   'op.continue': LuPlay,
-  'palette.open': LuSearch,
+  // LuCommand, not LuSearch: `search.open` (Search Everywhere) is what should
+  // own the magnifier, and Phase 39 put both of these on the status bar's
+  // shortcut rail where the two would otherwise have worn the same glyph.
+  'palette.open': LuCommand,
   'palette.files': LuFile,
   'file.save': LuFile,
   'markdown.presentAsSlides': LuSparkles,

@@ -20,11 +20,17 @@ test('the left zone footprint is unaffected by what the right zone renders', asy
   await expect(leftZone).toBeVisible();
   const emptyRightZoneWidth = (await leftZone.boundingBox())!.width;
 
-  // Now give the right zone something to render: a failing diagnostics
-  // candidate and a live metrics sample, so both of its segments mount.
+  /*
+    Now give the right zone something to render: a live metrics sample, so the
+    monitor cluster mounts.
+
+    Diagnostics used to be the other half of this fixture. Phase 39 moved it
+    into the LEFT zone, where populating it legitimately changes the left zone's
+    width — so using it here would have made this assertion test the opposite of
+    what it is for. `metricsSamples` alone is a purely right-zone change.
+  */
   await installMockBridge(page, {
     ...fixtures,
-    diagnostics: { trust: { state: 'trusted', command: null, trustedAt: Date.now() } },
     metricsSamples: [{ at: Date.now(), cpu: 42, memory: 55, gpu: 30, disk: 72 }],
   });
   await page.goto('/');
@@ -43,14 +49,22 @@ test('the left zone footprint is unaffected by what the right zone renders', asy
  * that is the whole point of the literal: it must survive whichever accent the
  * user has picked, so a theme token silently replacing it is exactly the
  * regression worth catching.
+ *
+ * Since Phase 39 the name lives in the shared `.status-label` span and is shown
+ * only while the surface is open or the button is hovered. The repositories
+ * panel IS open on a fresh profile, so the name is visible here — the wording
+ * is still asserted, because the *reason* for "Git Repos" over "Repos" has not
+ * changed. The state rule itself is covered in `shortcut-rail.spec.ts`.
  */
-test('the repositories toggle is the Git mark in brand orange, labelled "Git Repos"', async ({
+test('the repositories toggle is the Git mark in brand orange, named "Git Repos"', async ({
   page,
 }) => {
   await installMockBridge(page, { ...fixtures });
   await page.goto('/');
   const toggle = page.getByTestId('repos-toggle');
-  await expect(toggle).toContainText('Git Repos');
+  await expect(toggle).toHaveAttribute('aria-pressed', 'true');
+  await expect(toggle.locator('.status-label')).toHaveText('Git Repos');
+  await expect(toggle.locator('.status-label')).toBeVisible();
   await expect(toggle.locator('svg').first()).toHaveCSS('color', 'rgb(240, 80, 50)');
 });
 
@@ -124,10 +138,13 @@ test("the bar's left edge does not move with the repositories panel", async ({ p
  * overflow popover keeps its click behaviour — collapsing must not turn an
  * action into a label.
  *
- * Six segments (three toggles, diagnostics, monitor, checks-verdict) push the
- * `compact → collapsed` threshold up to ~790px of viewport width — safely
- * above `@bilo-io/shell`'s own `md:` (768px) breakpoint, so this never
- * contends with the shell's mobile chrome the way a narrower window would.
+ * The thresholds moved in Phase 39: the left zone gained the palette and
+ * Go-to-File toggles and the loop-launcher strip, and diagnostics arrived from
+ * the right. Measured against this fixture, `full` holds to ~1200px, `compact`
+ * spans ~1000-1150px and `collapsed` takes over by ~950px — so the widths below
+ * sit mid-band rather than on an edge. `collapsed` at 950px is further above
+ * `@bilo-io/shell`'s own `md:` (768px) breakpoint than it was, so this still
+ * never contends with the shell's mobile chrome.
  */
 test('narrowing drives compact then collapsed, and a collapsed segment still acts', async ({
   page,
@@ -149,12 +166,12 @@ test('narrowing drives compact then collapsed, and a collapsed segment still act
   await expect(bar).toHaveAttribute('data-density', 'full');
   await expect(page.getByTestId('status-segment-checks-verdict')).toBeVisible();
 
-  await page.setViewportSize({ width: 900, height: 800 });
+  await page.setViewportSize({ width: 1080, height: 800 });
   await expect(bar).toHaveAttribute('data-density', 'compact');
   // Icon-only: the toggles' trailing labels are hidden, not removed.
   await expect(page.getByRole('button', { name: 'Toggle Repositories' })).toBeVisible();
 
-  await page.setViewportSize({ width: 780, height: 800 });
+  await page.setViewportSize({ width: 900, height: 800 });
   await expect(bar).toHaveAttribute('data-density', 'collapsed');
   await expect(page.getByTestId('status-segment-checks-verdict')).toHaveCount(0);
 

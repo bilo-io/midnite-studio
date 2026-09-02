@@ -1,4 +1,4 @@
-import { useLayoutEffect, useRef, useState, type RefObject } from 'react';
+import { useCallback, useLayoutEffect, useRef, useState, type RefObject } from 'react';
 
 import { densityFor, type Density } from './density';
 
@@ -16,8 +16,22 @@ import { densityFor, type Density } from './density';
  * what `density.test.ts` drives directly. jsdom has no `ResizeObserver` and
  * no test file in this repo stubs one, so this hook is covered by the
  * Playwright suite (Theme H) rather than a rendered-component test.
+ *
+ * Returns `remeasure` alongside the density (Phase 39) for content changes the
+ * `ResizeObserver` cannot see. The observer watches this element, and hiding a
+ * stranded group separator does not change its `clientWidth` — so without a way
+ * to ask again, the cached `lastWidths` would keep an inflated reading (a 1px
+ * rule plus its 12px `gap-3` slot per pruned separator) and the bar could sit
+ * one density step narrower than its content warrants until the next window
+ * resize. A callback rather than a `revision` counter: a counter meant
+ * `setState` inside a dependency-free layout effect, which is an infinite-update
+ * hazard even when the producing function is idempotent, and it cost an extra
+ * render per prune.
  */
-export function useOverflow(ref: RefObject<HTMLElement | null>): Density {
+export function useOverflow(ref: RefObject<HTMLElement | null>): {
+  density: Density;
+  remeasure: () => void;
+} {
   const [density, setDensity] = useState<Density>('full');
   const densityRef = useRef<Density>(density);
   densityRef.current = density;
@@ -37,6 +51,14 @@ export function useOverflow(ref: RefObject<HTMLElement | null>): Density {
     currently lying about what it wants.
   */
   const lastWidths = useRef<{ fullWidth: number; compactWidth: number } | null>(null);
+
+  /*
+    The live `measure`, so a caller outside this hook can trigger one. Held in a
+    ref because `measure` closes over the element and is rebuilt by the effect;
+    the exported `remeasure` stays a stable identity, which is what lets
+    `status-bar.tsx` hand it over during render.
+  */
+  const measureRef = useRef<() => void>(() => {});
 
   useLayoutEffect(() => {
     const el = ref.current;
@@ -72,12 +94,18 @@ export function useOverflow(ref: RefObject<HTMLElement | null>): Density {
       if (next !== current) setDensity(next);
     };
 
+    measureRef.current = measure;
     measure();
     if (typeof ResizeObserver === 'undefined') return;
     const observer = new ResizeObserver(measure);
     observer.observe(el);
-    return () => observer.disconnect();
+    return () => {
+      observer.disconnect();
+      measureRef.current = () => {};
+    };
   }, [ref]);
 
-  return density;
+  const remeasure = useCallback(() => measureRef.current(), []);
+
+  return { density, remeasure };
 }

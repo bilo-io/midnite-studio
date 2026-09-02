@@ -3,7 +3,7 @@ import { describe, expect, it } from 'vitest';
 
 import { NotificationBell } from './notification-bell';
 import { AssistantMenu } from './assistant-menu';
-import { RightDelimiterSegment } from './right-delimiter';
+import { StatusSeparator } from './status-separator';
 
 describe('Right zone status bar components', () => {
   it('renders NotificationBell popover header when open', async () => {
@@ -18,9 +18,14 @@ describe('Right zone status bar components', () => {
     expect(assistantButton).toBeDefined();
   });
 
-  it('renders RightDelimiterSegment correctly', () => {
-    render(<RightDelimiterSegment />);
-    const delim = screen.getByTestId('right-delimiter');
-    expect(delim).toBeDefined();
+  // Was `RightDelimiterSegment`, a delimiter registered as a *segment* in the
+  // middle of `STATUS_SEGMENTS`. Phase 39 moved placement into the data
+  // (`StatusSegment.group`) and left only the markup here, so the assertion is
+  // now about the shared separator rather than one hand-placed instance of it.
+  it('renders StatusSeparator with the marker status-bar.tsx prunes on', () => {
+    render(<StatusSeparator />);
+    const separator = screen.getByTestId('status-separator');
+    expect(separator).toBeDefined();
+    expect(separator.hasAttribute('data-status-sep')).toBe(true);
   });
 });

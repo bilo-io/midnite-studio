@@ -1,34 +1,33 @@
 import { GoGlobe } from 'react-icons/go';
 
-import { Tooltip } from '../../components/tooltip';
 import { useUiStore } from '../../store/ui-store';
+
 import { chordFor, displayChord } from './chord-hint';
+import { StatusToggle } from './status-toggle';
 
 const browserChord = chordFor('browser.toggle', 'Mod+b');
 
-/** `Tooltip` replaces the native `title` — see `ReposToggle`'s comment. */
+/**
+ * See [`StatusToggle`](./status-toggle.tsx) for the shared behaviour.
+ *
+ * The chord now goes through `displayChord` like every other button in the
+ * rail. It used to be a hard-coded `⌘`+bold-`B` in JSX, which read wrongly on
+ * every platform where `Mod` is `Ctrl`.
+ */
 export function BrowserToggle() {
   const browserOpen = useUiStore((s) => s.browserOpen);
   const toggleBrowser = useUiStore((s) => s.toggleBrowser);
 
   return (
-    <Tooltip label={`Toggle browser (${displayChord(browserChord)})`} side="top">
-      <button
-        type="button"
-        data-testid="browser-toggle"
-        onClick={toggleBrowser}
-        aria-label="Toggle Browser"
-        aria-pressed={browserOpen}
-        className={`rounded px-1.5 transition-colors hover:bg-accent hover:text-foreground ${
-          browserOpen ? 'bg-accent text-foreground' : ''
-        }`}
-      >
-        <GoGlobe aria-hidden className="mr-1 inline h-3.5 w-3.5 align-[-2px]" />
-        <span className="status-label">Browser</span>
-        <span className="status-label ml-1.5 opacity-80">
-          ⌘<span className="text-[13px] font-bold">B</span>
-        </span>
-      </button>
-    </Tooltip>
+    <StatusToggle
+      testId="browser-toggle"
+      icon={GoGlobe}
+      name="Browser"
+      chord={displayChord(browserChord)}
+      active={browserOpen}
+      onToggle={toggleBrowser}
+      ariaLabel="Toggle Browser"
+      tooltip={`Toggle browser (${displayChord(browserChord)})`}
+    />
   );
 }

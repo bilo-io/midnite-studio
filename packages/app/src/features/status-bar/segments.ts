@@ -9,13 +9,15 @@ import { AgentCountSegment } from './agent-count';
 import { AssistantMenu } from './assistant-menu';
 import { BrowserToggle } from './browser-toggle';
 import { ChecksVerdictSegment } from './checks-verdict';
+import { FabLaunchers } from './fab-launchers';
+import { FilesToggle } from './files-toggle';
 import { InProgressSegment } from './in-progress';
 import { NotificationBell } from './notification-bell';
 import { OpProgressSegment } from './op-progress';
+import { PaletteToggle } from './palette-toggle';
 import { ReattachedNote } from './reattached-note';
 import { ReposToggle } from './repos-toggle';
 import { SearchProgressSegment } from './search-progress';
-import { RightDelimiterSegment } from './right-delimiter';
 import { TerminalToggle } from './terminal-toggle';
 import { TestVerdictSegment } from './test-verdict';
 
@@ -32,10 +34,38 @@ export type StatusZone = 'left' | 'center' | 'right';
 export type StatusSegment = {
   id: string;
   zone: StatusZone;
+  /**
+   * Which cluster this segment belongs to. Separators are drawn wherever two
+   * adjacent segments disagree about it — see
+   * [`segments-groups.ts`](./segments-groups.ts) — so grouping is data here
+   * rather than a hand-placed `<div>` in the middle of the array, which is what
+   * the retired `right-delimiter` segment used to be.
+   *
+   * A group's segments must be **contiguous** in this array; `segments.test.ts`
+   * asserts it, because a group resuming after another group's segment would
+   * draw two separators for one logical break.
+   */
+  group: StatusGroup;
   priority: number;
   label: string;
   El: ComponentType;
 };
+
+/**
+ * Left: the shortcut rail, then this repository's health, then what is running.
+ * Right: this repository's forge verdicts, the machine's vitals, then the
+ * notification controls — names for the clusters the hand-placed
+ * `right-delimiter` already separated, so the right zone gains a description of
+ * itself without a pixel changing.
+ */
+export type StatusGroup =
+  | 'shortcuts'
+  | 'health'
+  | 'live'
+  | 'progress'
+  | 'repo'
+  | 'machine'
+  | 'alerts';
 
 /**
  * Static composition, not a registration store — a segment is a component
@@ -48,53 +78,64 @@ export type StatusSegment = {
  * slot in between existing ones without renumbering the zone.
  */
 export const STATUS_SEGMENTS: StatusSegment[] = [
-  // Left zone: Repository / Terminal / Browser toggles, Agent count, Reattached sessions
-  { id: 'repos-toggle', zone: 'left', priority: 10, label: 'Repositories', El: ReposToggle },
-  { id: 'terminal-toggle', zone: 'left', priority: 20, label: 'Terminal', El: TerminalToggle },
-  { id: 'browser-toggle', zone: 'left', priority: 5, label: 'Browser', El: BrowserToggle },
-  { id: 'agent-count', zone: 'left', priority: 30, label: 'Live agents', El: AgentCountSegment },
+  // ---- Left zone -------------------------------------------------------
+  // `shortcuts`: the rail. Every entry is a `StatusToggle` naming a command
+  // that already exists in `COMMANDS`, showing its chord at rest and its name
+  // while open or hovered. Priorities ascend with render order — before
+  // Phase 39 `browser-toggle` sat at 5, the LOWEST in the zone, so it rendered
+  // first and would have been the first thing shed on a narrow window.
+  { id: 'repos-toggle', zone: 'left', group: 'shortcuts', priority: 10, label: 'Repositories', El: ReposToggle },
+  { id: 'terminal-toggle', zone: 'left', group: 'shortcuts', priority: 20, label: 'Terminal', El: TerminalToggle },
+  { id: 'browser-toggle', zone: 'left', group: 'shortcuts', priority: 30, label: 'Browser', El: BrowserToggle },
+  { id: 'palette-toggle', zone: 'left', group: 'shortcuts', priority: 40, label: 'Command palette', El: PaletteToggle },
+  { id: 'files-toggle', zone: 'left', group: 'shortcuts', priority: 50, label: 'Go to file', El: FilesToggle },
+  // `health`: this repository's own problems. Moved out of the right zone in
+  // Phase 39 — it is a fact about the checkout, and it had been sitting between
+  // two machine-vitals readouts. Its own header comment already says it follows
+  // the sidebar selection rather than the workbench tab, which is a left-zone
+  // kind of statement. One member, and it returns `null` for a repository
+  // nobody has measured, which is why separators are DOM-derived.
+  { id: 'diagnostics', zone: 'left', group: 'health', priority: 60, label: 'Diagnostics', El: DiagnosticsSegment },
+  // `live`: what is running right now.
+  { id: 'agent-count', zone: 'left', group: 'live', priority: 70, label: 'Live agents', El: AgentCountSegment },
+  { id: 'fab-launchers', zone: 'left', group: 'live', priority: 75, label: 'Loop launchers', El: FabLaunchers },
   {
     id: 'reattached-note',
     zone: 'left',
-    priority: 40,
+    group: 'live',
+    priority: 80,
     label: 'Reattached sessions',
     El: ReattachedNote,
   },
-  { id: 'search-progress', zone: 'center', priority: 5, label: 'Search progress', El: SearchProgressSegment },
-  { id: 'op-progress', zone: 'center', priority: 10, label: 'Operation progress', El: OpProgressSegment },
+  // ---- Centre zone -----------------------------------------------------
+  { id: 'search-progress', zone: 'center', group: 'progress', priority: 5, label: 'Search progress', El: SearchProgressSegment },
+  { id: 'op-progress', zone: 'center', group: 'progress', priority: 10, label: 'Operation progress', El: OpProgressSegment },
   // Outranks op-progress: a rebase you have forgotten you are mid-way through
   // is the single most expensive thing this bar can tell you.
-  { id: 'in-progress', zone: 'center', priority: 20, label: 'Mid-operation', El: InProgressSegment },
-  // Right zone:
-  { id: 'finance', zone: 'right', priority: 7, label: 'Finance', El: FinanceSegment },
-  { id: 'diagnostics', zone: 'right', priority: 10, label: 'Diagnostics', El: DiagnosticsSegment },
-  {
-    id: 'right-delimiter',
-    zone: 'right',
-    priority: 25,
-    label: 'Delimiter',
-    El: RightDelimiterSegment,
-  },
-  // The two verdicts sit at the window's outer corner, the highest-attention
-  // position, and outrank diagnostics/monitor at collapse time — a failing
-  // test outranks a CPU readout.
-  { id: 'test-verdict', zone: 'right', priority: 30, label: 'Test verdict', El: TestVerdictSegment },
+  { id: 'in-progress', zone: 'center', group: 'progress', priority: 20, label: 'Mid-operation', El: InProgressSegment },
+  // ---- Right zone ------------------------------------------------------
+  // `repo`: forge verdicts about the checkout. They sit at the window's outer
+  // corner, the highest-attention position, and outrank the machine's vitals at
+  // collapse time — a failing test outranks a CPU readout. Phase 39 moved
+  // diagnostics left and deliberately left these two here for that reason.
+  { id: 'finance', zone: 'right', group: 'repo', priority: 7, label: 'Finance', El: FinanceSegment },
+  { id: 'test-verdict', zone: 'right', group: 'repo', priority: 30, label: 'Test verdict', El: TestVerdictSegment },
   {
     id: 'checks-verdict',
     zone: 'right',
+    group: 'repo',
     priority: 40,
     label: 'Checks verdict',
     El: ChecksVerdictSegment,
   },
-  { id: 'monitor', zone: 'right', priority: 42, label: 'System monitor', El: MonitorCluster },
-  // Immediately right of the monitor cluster: it is the same kind of reading —
-  // a machine vital, not a repository fact — and reads as the last member of
-  // that group rather than the first of the notification controls. Priority 43
-  // keeps it above diagnostics/finance at collapse time, and its `%` already
-  // carries `.status-label`, so compact density drops the number and keeps the
-  // icon with no carve-out needed.
-  { id: 'battery', zone: 'right', priority: 43, label: 'Battery', El: BatterySegment },
-  { id: 'app-update', zone: 'right', priority: 45, label: 'Update', El: UpdatePill },
-  { id: 'notification-bell', zone: 'right', priority: 50, label: 'Notifications', El: NotificationBell },
-  { id: 'assistant-menu', zone: 'right', priority: 60, label: 'Midnite Assistant', El: AssistantMenu },
+  // `machine`: vitals, hard against the window edge where they do not move as
+  // things are added. Battery reads as the last member of this group rather
+  // than the first of the notification controls, and its `%` already carries
+  // `.status-label`, so compact density drops the number and keeps the icon.
+  { id: 'monitor', zone: 'right', group: 'machine', priority: 42, label: 'System monitor', El: MonitorCluster },
+  { id: 'battery', zone: 'right', group: 'machine', priority: 43, label: 'Battery', El: BatterySegment },
+  // `alerts`: the notification controls.
+  { id: 'app-update', zone: 'right', group: 'alerts', priority: 45, label: 'Update', El: UpdatePill },
+  { id: 'notification-bell', zone: 'right', group: 'alerts', priority: 50, label: 'Notifications', El: NotificationBell },
+  { id: 'assistant-menu', zone: 'right', group: 'alerts', priority: 60, label: 'Midnite Assistant', El: AssistantMenu },
 ];

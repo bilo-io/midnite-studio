@@ -1,8 +1,9 @@
 import { FaGitAlt } from 'react-icons/fa';
 
-import { Tooltip } from '../../components/tooltip';
 import { useUiStore } from '../../store/ui-store';
+
 import { chordFor, displayChord } from './chord-hint';
+import { StatusToggle } from './status-toggle';
 
 const reposChord = chordFor('repos.toggle', 'Mod+g');
 
@@ -14,36 +15,26 @@ const reposChord = chordFor('repos.toggle', 'Mod+g');
  * theme token for the reason that tone gives: it identifies *git*, not this
  * app, so it must not move when the user picks an accent.
  *
- * `Tooltip` replaces the native `title` (Theme G): at `compact`/`collapsed`
- * density `.status-label` hides the inline "Git Repos ⌘G" text, leaving a bare
- * icon with no visible name, and a native tooltip is the one thing this
- * codebase already replaced everywhere else (`icon-button.tsx`) for being
- * slow and unstyled. Unconditional rather than gated on density: the two
- * never conflict, since Tooltip only opens on hover/focus and stays silent
- * while the inline label is already doing the job.
+ * Everything else — the `Tooltip` that replaced the native `title`, the
+ * `aria-pressed`, the name-while-active-or-hovered rule, the chord hint — lives
+ * in [`StatusToggle`](./status-toggle.tsx) now. This file is the store
+ * selector, the glyph and the chord, and nothing else.
  */
 export function ReposToggle() {
   const reposOpen = useUiStore((s) => s.reposOpen);
   const toggleRepos = useUiStore((s) => s.toggleRepos);
 
   return (
-    <Tooltip label={`Toggle repositories (${displayChord(reposChord)})`} side="top">
-      <button
-        type="button"
-        data-testid="repos-toggle"
-        onClick={toggleRepos}
-        aria-label="Toggle Repositories"
-        aria-pressed={reposOpen}
-        className={`rounded px-1.5 transition-colors hover:bg-accent hover:text-foreground ${
-          reposOpen ? 'bg-accent text-foreground' : ''
-        }`}
-      >
-        <FaGitAlt aria-hidden className="mr-1 inline h-3.5 w-3.5 align-[-2px] text-[#F05032]" />
-        <span className="status-label">Git Repos</span>
-        <span className="status-label ml-1.5 opacity-80">
-          ⌘<span className="text-[13px] font-bold">G</span>
-        </span>
-      </button>
-    </Tooltip>
+    <StatusToggle
+      testId="repos-toggle"
+      icon={FaGitAlt}
+      iconClassName="text-[#F05032]"
+      name="Git Repos"
+      chord={displayChord(reposChord)}
+      active={reposOpen}
+      onToggle={toggleRepos}
+      ariaLabel="Toggle Repositories"
+      tooltip={`Toggle repositories (${displayChord(reposChord)})`}
+    />
   );
 }

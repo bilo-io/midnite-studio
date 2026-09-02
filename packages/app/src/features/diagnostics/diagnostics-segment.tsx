@@ -174,7 +174,16 @@ export function DiagnosticsSegment() {
           open={open}
           onOpenChange={setOpen}
           side="top"
-          align="end"
+          /*
+            `start` since Phase 39 moved this segment into the left zone.
+            `align="end"` right-aligns the panel against its trigger, which was
+            right hard against the window's right edge and is wrong at the left
+            edge — `Popover` clamps to the viewport, so the failure mode is a
+            panel that visually detaches from the control that opened it rather
+            than one that disappears, which is why this wants an eye and not
+            only a test.
+          */
+          align="start"
           label="Problems in this repository"
           testId="diagnostics-segment"
           panelClassName="w-[420px] max-w-[calc(100vw-1rem)]"

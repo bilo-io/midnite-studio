@@ -2,6 +2,129 @@
 
 <!-- Append one entry per landed phase/PR: date, phase, PR link, one-line summary. -->
 
+## 2026-09-02 — Phase 39 Themes A–F (+ part of G) — One rail, five chords and four loops
+
+[PR #7](https://github.com/bilo-io/midnite-studio/pull/7). Six of seven themes in one batch; Theme G
+(reduced-motion assertions, the density×state shot matrix, perf numbers) deliberately held back.
+The status bar's left zone becomes a rail whose job is teaching its own chords.
+
+- [x] **Theme A — One toggle, one rule**: `repos-toggle`, `terminal-toggle` and `browser-toggle`
+      were three verbatim copies of the same twenty lines with nothing enforcing that they stayed
+      identical — and they had already drifted, two hard-coding `⌘`+letter in JSX while the third
+      called `displayChord`, so the same commands read `⌘G`/`⌘B` on every platform where `Mod` is
+      `Ctrl`. One `StatusToggle` now owns the `Tooltip`, the `aria-pressed`, the glyph slot, the
+      chord and the name; each toggle is its store selector, its icon and its `chordFor` line.
+      **The name renders only while the surface is open or the button is hovered/focused** — at
+      rest the chord is what you read, which is the whole premise. The decision is a pure,
+      tested function, and the *density* half of it stays in CSS for a reason worth writing down:
+      `use-overflow.ts` measures by synchronously stamping `data-density='full'`, reading
+      `scrollWidth`, stamping `'compact'` and reading again, all in one `useLayoutEffect` — a
+      React context carrying density would not have re-rendered between those two reads, so both
+      would report the same width and `densityFor` would never see a difference. Fixed en route:
+      `displayChord` now upper-cases the final key (`⌘G`, not `⌘g`) for a trailing letter that is
+      the whole final key only, since `Escape` also ends in a lone `e`.
+- [x] **Theme B — The registry learns to group**: `StatusSegment` grows `group`, and separators
+      are **derived from group boundaries** instead of being a `<div>` hand-registered in the
+      middle of the array (`right-delimiter`, now the shared `StatusSeparator`). Placement is
+      pure — `withSeparators` over the registry — but *pruning* reads the DOM, and the case that
+      forced that is one the registry cannot see: the `health` group renders **nothing** for a
+      repo with no linter and an **"Enable diagnostics" prompt** for an untrusted one, and only
+      `DiagnosticsSegment`'s own hooks know which. A segment returning `null` produces no element
+      at all, so a zone's live `children` list is already an exact record of what rendered — the
+      same no-wrappers constraint `status-bar.tsx` already documents for the `gap-3` reason. Also
+      fixed `browser-toggle`'s `priority: 5`, the **lowest** in its zone, so it rendered first and
+      would have been the first thing shed on a narrow window; `segments.test.ts` now asserts
+      group contiguity and that priority ascends with render order in every zone.
+- [x] **Theme C — The palette and Go-to-File join the rail**: both **moved** out of the title bar
+      rather than being added, on the argument `status-bar.tsx`'s own header comment already makes
+      about git status — two readings of one thing, one at each edge of the window, is one more
+      place to disagree and no more information. `active` is real, off `palette-store`'s `isOpen`
+      and `mode`, with exactly one of the two ever lit; asserted, because `setQuery` re-derives
+      `mode` from a typed sigil and can legitimately move the lit state mid-keystroke.
+      `command-icons.ts`'s `palette.open` took `LuCommand`, freeing `LuSearch` for `search.open`.
+- [x] **Theme D — Diagnostics moves left**: into its own `health` group between two rules. Its
+      `Popover` flipped `align="end"` → `"start"`: `end` right-aligns the panel against its
+      trigger, which was correct hard against the window's right edge and puts it off-screen-left
+      at the left edge. `Popover` clamps to the viewport, so the failure mode is a panel that
+      *detaches* from its trigger rather than one that vanishes — which is why that half of the
+      verification is left `◐` for a human eye rather than ticked off a passing test.
+- [x] **Theme E — Four launchers**: one segment, not four, so the strip can never split across an
+      overflow boundary and can use its own tighter `gap-1`. Colours come from a new
+      renderer-side `loop-glow.ts` — `DEFAULT_LOOPS.color` is a Tailwind `text-*` class that a
+      `box-shadow` cannot read, and `packages/shared` imports zod and nothing else, so this is the
+      same resolution `loop-icons.tsx` already performs for the glyph token. `openFabTab` already
+      set panel-open and active-tab in one action, so no new store surface was needed.
+      **At rest the strip collapses to one glyph**, expanding on hover, focus, or the moment any
+      loop goes live: `FabLoopDots` renders nothing when idle on the argument that the FAB should
+      look untouched, and that argument does not transfer — these launchers are *how a loop is
+      started*, so hiding them until one runs is circular.
+- [x] **Theme F — The strip is mission control**: two facts, two CSS properties. `box-shadow` is
+      exclusively the running glow (amber and steady when a loop is waiting on you, as
+      `.loop-run-glow.is-waiting`, the FAB tab dot and `fab-loop-dots.tsx` already say);
+      `outline` is exclusively "this is the tab the FAB is showing". A loop can be open and idle,
+      running and unopened, or both — one `box-shadow` list would have made every combination a
+      hand-written string. `is-thinking` gets no fourth state: at 14px, running vs waiting is as
+      much as the control carries honestly. **The pulse is gated on window focus** — a divergence
+      from the doc, which left it ungated pending Theme G's measurement; this is a permanently
+      mounted animation, exactly the shape Phase 36 Theme E was written about, so it ships with a
+      gate rather than with nothing.
+
+**Six real defects came out of the self-review**, three of them serious enough to be worth
+recording as the phase's own lesson:
+
+- **A reduced-motion rule that could not fire.** `html[data-motion='reduced'] .loop-launcher` is
+  (0,2,1) and loses to `.loop-launcher.is-running.is-pulsing` at (0,3,0). It looked correct only
+  because `@bilo-io/shell` forces `animation-duration: 0.001ms !important` under reduced motion,
+  pinning the pulse to a final frame whose `opacity: 1` happens to be harmless — the exact
+  accident the Phase 30 comment at `styles.css:323-334` already documents, and the inverse of
+  what this phase claimed about `!important` not being able to defeat it. Worse: **the first test
+  written for the fix passed with the bug still present**, because it opened a launcher's tab
+  without the loop running, so there was no pulse to kill. The assertion now applies the class
+  combination directly and guards on `animation-name: loop-launcher-pulse` before switching
+  reduced motion on — and was verified by reverting the fix and watching it fail.
+- **The rail's names vanished inside the overflow popover.** The state gate was a `hidden`
+  attribute, which travels into `OverflowPopover`'s portal where `[data-density]` does not — so at
+  `collapsed` density the popover listed five unlabelled 14px glyphs and their chords, on the one
+  surface where the name is the only affordance. `overflow-popover.tsx`'s own header states that
+  contract; the gate is now a `[data-density]`-scoped rule on a `data-named` attribute.
+- **Tabbing into the launcher strip destroyed focus.** Expanding swaps the collapsed button for
+  four launchers, unmounting the element that had just been focused; focus fell to
+  `document.body`, the next Tab restarted from the top of the document, and — because Chromium
+  fires no `blur` for a removed node — the strip stayed stuck expanded with no pointer near it.
+  A keyboard arrival now hands focus forward to the first launcher. The same button's `onClick`
+  was unreachable by mouse for the mirror-image reason (`pointerenter` unmounts it before the
+  click lands) and could not un-press; it expands the strip and nothing else now, which is what
+  makes its `aria-expanded` honest.
+- **Theme F's ring was invisible in the state it exists for.** `expanded` keyed on `anyLive`
+  alone, so "FAB open on Watchdog, nothing running" collapsed the strip and `is-open` could never
+  be seen — one of the three states the theme requires to be distinguishable.
+- **A stranded hairline in the title bar.** Removing the two `IconButton`s left their trailing
+  separator as the first child of `chrome`, a 1px rule with nothing on its left. Theme B's entire
+  premise is that a separator must never be stranded; building that mechanism for the status bar
+  and leaving the same bug in the other half of the window would have been quite the irony.
+- **Density was measured before separators were pruned.** `useOverflow` ran first, so the first
+  `measure()` read a `scrollWidth` that included a rule and its 12px `gap-3` slot the very next
+  effect removed — and `lastWidths` cached it. Pruning is now called first, and a later prune
+  (diagnostics appearing once trust is granted) calls `remeasure()`. A revision counter was the
+  first attempt and meant `setState` in a dependency-free layout effect; eslint was right about it.
+
+Also removed a `showsChordAt` that nothing called — the chord's only axis is density, which lives
+in CSS, so an exported and tested predicate with no call site read as covered when it was not.
+
+**Proof.** `moon run :typecheck :lint :test` green — 2 743 tests (app 1 300, desktop 711,
+git-engine 446, shared 286), including 66 new ones across nine files. `e2e/shortcut-rail.spec.ts`
+(17 specs) covers the rail behaviourally: the stranded-separator case, the popover's names, the
+compact-density rule, the `MutationObserver` path where a segment appears after mount, and the
+reduced-motion cascade. `playwright.ci.config.ts` — the CI-blocking set — ran **220 passed, 0
+failed** locally. `fab-loops.spec.ts` has 6 failures on the branch and **the same 6 on
+`origin/main`**, baselined in a detached worktree rather than assumed; the file is already in
+`KNOWN_RED`. That baseline is what found the one regression the diff had introduced: the
+launchers' `aria-label` was `Open <Label> loop`, colliding with the waiting-notice action's
+`Open <Label>` under Playwright's substring name matching. `status-bar.spec.ts` needed two
+premise updates — its left-zone-footprint fixture used diagnostics, now a *left*-zone segment
+whose presence legitimately changes that width, and its density thresholds moved (measured:
+full ≥ ~1200px, compact ~1000–1150px, collapsed ≤ ~950px).
+
 ## 2026-09-01 — Phase 36 Themes B, C, G, H — Performance diet: the fixes, and the budgets that keep them
 
 Merged to `main` locally (this repo has no git remote, so no PR link). Four themes in one batch,
