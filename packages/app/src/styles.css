@@ -1005,7 +1005,7 @@ html[data-motion='reduced'] .breadcrumb-repo-pill {
  * half of the fix. At `z-index: 0` this painted before them, and the panel's
  * own xterm — opaque, and the full height of the pane the moment a loop is
  * running — covered it outright: start a loop and the glow simply vanished.
- * The rim is only ever the outer ~40-52px, blurred, and `pointer-events:
+ * The rim is only ever the outer ~30-40px, blurred, and `pointer-events:
  * none`, so painting over costs a soft tint at the edge of the transcript and
  * buys a glow that is visible in the state the panel spends most of its life
  * in. `isolation: isolate` on the host keeps that z-index a local matter.
@@ -1013,7 +1013,7 @@ html[data-motion='reduced'] .breadcrumb-repo-pill {
 @property --fab-glow-edge {
   syntax: '<length>';
   inherits: false;
-  initial-value: 40px;
+  initial-value: 30px;
 }
 
 /*
@@ -1024,22 +1024,30 @@ html[data-motion='reduced'] .breadcrumb-repo-pill {
  * 3.2s period is Phase 37's own figure, kept deliberately co-prime-ish with
  * the 4s rotation so the two never visibly re-sync on the same beat.
  *
- * The amplitudes are not Phase 37's. `0.55 -> 0.85` behind the content was a
- * glow you had to look for; moving the rim in *front* of the panel's children
- * (see above) then made the same opacities read far hotter than they did
- * behind an opaque pane, so the pair that landed there, `0.62 -> 0.92`, is
- * scaled down by 40% here: `0.37 -> 0.55`. The rim's *width* is what
- * breathes (`40px -> 52px`), where the radial mask's inner radius used to.
+ * Neither the amplitudes nor the width are Phase 37's. `0.55 -> 0.85` behind
+ * the content was a glow you had to look for; moving the rim in *front* of the
+ * panel's children (see above) then made the same opacities read far hotter
+ * than they did behind an opaque pane, so the pair that landed there,
+ * `0.62 -> 0.92`, comes down to `0.50 -> 0.74` — half way back from the 40%
+ * cut this pass first tried, which read as too dim once the band was also
+ * narrower.
+ *
+ * And it is narrower: `30px -> 40px`, down from `40px -> 52px`. Width and
+ * opacity are not independent here — a wide band reaches far enough up the
+ * panel that its *tail*, not its lit edge, is what a reader's eye lands on,
+ * so shortening it takes the tint off the transcript while leaving the rim
+ * itself readable. It is the rim's width that breathes, where the radial
+ * mask's inner radius used to.
  */
 @keyframes fab-glow-pulse {
   0%,
   100% {
-    --fab-glow-edge: 40px;
-    opacity: 0.37;
+    --fab-glow-edge: 30px;
+    opacity: 0.5;
   }
   50% {
-    --fab-glow-edge: 52px;
-    opacity: 0.55;
+    --fab-glow-edge: 40px;
+    opacity: 0.74;
   }
 }
 
@@ -1056,55 +1064,55 @@ html[data-motion='reduced'] .breadcrumb-repo-pill {
     linear-gradient(
       to bottom,
       #000 0,
-      rgba(0, 0, 0, 0.42) calc(var(--fab-glow-edge, 40px) * 0.42),
-      transparent var(--fab-glow-edge, 40px)
+      rgba(0, 0, 0, 0.42) calc(var(--fab-glow-edge, 30px) * 0.42),
+      transparent var(--fab-glow-edge, 30px)
     ),
     linear-gradient(
       to top,
       #000 0,
-      rgba(0, 0, 0, 0.42) calc(var(--fab-glow-edge, 40px) * 0.42),
-      transparent var(--fab-glow-edge, 40px)
+      rgba(0, 0, 0, 0.42) calc(var(--fab-glow-edge, 30px) * 0.42),
+      transparent var(--fab-glow-edge, 30px)
     ),
     linear-gradient(
       to right,
       #000 0,
-      rgba(0, 0, 0, 0.42) calc(var(--fab-glow-edge, 40px) * 0.42),
-      transparent var(--fab-glow-edge, 40px)
+      rgba(0, 0, 0, 0.42) calc(var(--fab-glow-edge, 30px) * 0.42),
+      transparent var(--fab-glow-edge, 30px)
     ),
     linear-gradient(
       to left,
       #000 0,
-      rgba(0, 0, 0, 0.42) calc(var(--fab-glow-edge, 40px) * 0.42),
-      transparent var(--fab-glow-edge, 40px)
+      rgba(0, 0, 0, 0.42) calc(var(--fab-glow-edge, 30px) * 0.42),
+      transparent var(--fab-glow-edge, 30px)
     );
   -webkit-mask-image:
     linear-gradient(
       to bottom,
       #000 0,
-      rgba(0, 0, 0, 0.42) calc(var(--fab-glow-edge, 40px) * 0.42),
-      transparent var(--fab-glow-edge, 40px)
+      rgba(0, 0, 0, 0.42) calc(var(--fab-glow-edge, 30px) * 0.42),
+      transparent var(--fab-glow-edge, 30px)
     ),
     linear-gradient(
       to top,
       #000 0,
-      rgba(0, 0, 0, 0.42) calc(var(--fab-glow-edge, 40px) * 0.42),
-      transparent var(--fab-glow-edge, 40px)
+      rgba(0, 0, 0, 0.42) calc(var(--fab-glow-edge, 30px) * 0.42),
+      transparent var(--fab-glow-edge, 30px)
     ),
     linear-gradient(
       to right,
       #000 0,
-      rgba(0, 0, 0, 0.42) calc(var(--fab-glow-edge, 40px) * 0.42),
-      transparent var(--fab-glow-edge, 40px)
+      rgba(0, 0, 0, 0.42) calc(var(--fab-glow-edge, 30px) * 0.42),
+      transparent var(--fab-glow-edge, 30px)
     ),
     linear-gradient(
       to left,
       #000 0,
-      rgba(0, 0, 0, 0.42) calc(var(--fab-glow-edge, 40px) * 0.42),
-      transparent var(--fab-glow-edge, 40px)
+      rgba(0, 0, 0, 0.42) calc(var(--fab-glow-edge, 30px) * 0.42),
+      transparent var(--fab-glow-edge, 30px)
     );
   /* The pulse's trough, and what reduced motion rests at once the keyframes
    * are gone (see `html[data-motion='reduced']` below). */
-  opacity: 0.37;
+  opacity: 0.5;
   animation:
     fab-panel-spin 4s linear infinite,
     fab-glow-pulse 3.2s ease-in-out infinite;
@@ -1161,7 +1169,7 @@ html[data-motion='reduced'] .breadcrumb-repo-pill {
   background-image: none;
   background-color: #f59e0b;
   animation: none;
-  opacity: 0.37;
+  opacity: 0.5;
   /*
    * The same four-ramp band as the rainbow glow, at the registered initial
    * width — a still frame of it, since this state stops the pulse. What it
@@ -1172,15 +1180,15 @@ html[data-motion='reduced'] .breadcrumb-repo-pill {
    * `mask-composite` goes unstated.
    */
   mask-image:
-    linear-gradient(to bottom, #000 0, rgba(0, 0, 0, 0.42) 17px, transparent 40px),
-    linear-gradient(to top, #000 0, rgba(0, 0, 0, 0.42) 17px, transparent 40px),
-    linear-gradient(to right, #000 0, rgba(0, 0, 0, 0.42) 17px, transparent 40px),
-    linear-gradient(to left, #000 0, rgba(0, 0, 0, 0.42) 17px, transparent 40px);
+    linear-gradient(to bottom, #000 0, rgba(0, 0, 0, 0.42) 12.6px, transparent 30px),
+    linear-gradient(to top, #000 0, rgba(0, 0, 0, 0.42) 12.6px, transparent 30px),
+    linear-gradient(to right, #000 0, rgba(0, 0, 0, 0.42) 12.6px, transparent 30px),
+    linear-gradient(to left, #000 0, rgba(0, 0, 0, 0.42) 12.6px, transparent 30px);
   -webkit-mask-image:
-    linear-gradient(to bottom, #000 0, rgba(0, 0, 0, 0.42) 17px, transparent 40px),
-    linear-gradient(to top, #000 0, rgba(0, 0, 0, 0.42) 17px, transparent 40px),
-    linear-gradient(to right, #000 0, rgba(0, 0, 0, 0.42) 17px, transparent 40px),
-    linear-gradient(to left, #000 0, rgba(0, 0, 0, 0.42) 17px, transparent 40px);
+    linear-gradient(to bottom, #000 0, rgba(0, 0, 0, 0.42) 12.6px, transparent 30px),
+    linear-gradient(to top, #000 0, rgba(0, 0, 0, 0.42) 12.6px, transparent 30px),
+    linear-gradient(to right, #000 0, rgba(0, 0, 0, 0.42) 12.6px, transparent 30px),
+    linear-gradient(to left, #000 0, rgba(0, 0, 0, 0.42) 12.6px, transparent 30px);
 }
 
 /*
@@ -1214,7 +1222,7 @@ html[data-motion='reduced'] .fab-panel-gradient {
  * motions (rotation, pulse, the 0.5s sweep) but keeps the tab's colour: the
  * border's arc mask is static CSS, not an animation, so with the keyframes
  * gone the glow simply rests at `@property`'s registered initial values —
- * `--fab-glow-edge: 40px`, `opacity` back to the pseudo's own base value —
+ * `--fab-glow-edge: 30px`, `opacity` back to the pseudo's own base value —
  * rather than whatever frame the animation happened to die on.
  */
 html[data-motion='reduced'] .fab-panel-gradient::before {

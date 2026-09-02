@@ -206,19 +206,23 @@ for (const mode of ['light', 'dark'] as const) {
 }
 
 /**
- * Ad hoc — the rim dimmed by 40% and the ring thickened, before and after.
+ * Ad hoc — the rim dimmed and narrowed, the ring thickened; before and after.
  *
- * "Before" is the pair of numbers this change replaces, re-applied over the
- * new ones by an injected stylesheet: `border-width: 1.5px` and the
- * `0.62 -> 0.92` pulse. Both shots are taken under `data-motion='reduced'`,
- * which stops the pulse *and* the rotation, so each pair differs only in the
- * two numbers under test rather than in whichever frame the two animations
- * happened to be on — the rim rests at its own base opacity (0.62 before,
- * 0.37 after) and the arc rests at the same angle in both.
+ * "Before" is the three numbers this change replaces, re-applied over the new
+ * ones by an injected stylesheet: `border-width: 1.5px`, the pulse's `0.62`
+ * trough, and the 40px band it rested at. Both shots are taken under
+ * `data-motion='reduced'`, which stops the pulse *and* the rotation, so each
+ * pair differs only in those numbers rather than in whichever frame the two
+ * animations happened to be on — the rim rests at its own base opacity
+ * (0.62 before, 0.50 after) and its resting width (40px before, 30px after),
+ * and the arc rests at the same angle in both.
  */
 const BEFORE_DIM_CSS = `
   .fab-panel-gradient { border-width: 1.5px !important; }
-  .fab-panel-gradient::before { opacity: 0.62 !important; }
+  .fab-panel-gradient::before {
+    opacity: 0.62 !important;
+    --fab-glow-edge: 40px !important;
+  }
 `;
 
 for (const mode of ['light', 'dark'] as const) {

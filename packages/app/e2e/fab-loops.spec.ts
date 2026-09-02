@@ -760,7 +760,7 @@ test.describe('FAB panel — the tab glow (Phase 37)', () => {
     }));
 
     expect(Number.parseFloat(style.border)).toBeGreaterThanOrEqual(2);
-    expect(Number(style.glow)).toBeCloseTo(0.37, 2);
+    expect(Number(style.glow)).toBeCloseTo(0.5, 2);
   });
 
   test("data-motion='reduced' stops the panel's rotation, pulse and arc sweep", async ({
