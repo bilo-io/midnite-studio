@@ -687,13 +687,21 @@ test.describe('FAB loop console — rehydration (Theme I)', () => {
     expect(await ptyCreates(page)).toEqual([]);
   });
 
-  test('a restored FAB session still never reaches the main terminal housing', async ({ page }) => {
-    await openRestored(page, { terminalSessions: SLEPT }, { innovate: 'sess-fab-innovate' });
+  test(
+    'a restored FAB session still never reaches the main terminal housing',
+    // The main panel auto-opens a REAL second terminal, which never becomes
+    // visible on the CI runner — xterm paints through `@xterm/addon-webgl`,
+    // which a GPU-less runner cannot give it. Same wall as terminal-lazy-preload
+    // and friends — Phase 38 Theme I owns the fix.
+    { tag: '@linux-red' },
+    async ({ page }) => {
+      await openRestored(page, { terminalSessions: SLEPT }, { innovate: 'sess-fab-innovate' });
 
-    await page.keyboard.press('Control+`');
-    await expect(panel(page)).toBeVisible();
-    await expect(rows(page).filter({ hasText: 'Ideate' })).toHaveCount(0);
-  });
+      await page.keyboard.press('Control+`');
+      await expect(panel(page)).toBeVisible();
+      await expect(rows(page).filter({ hasText: 'Ideate' })).toHaveCount(0);
+    },
+  );
 
   test('a fabSessions entry whose session is gone reads as idle, and Start still works', async ({
     page,
