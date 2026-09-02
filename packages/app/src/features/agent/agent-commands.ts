@@ -15,6 +15,7 @@ import {
   LuPackage,
   LuPackageCheck,
   LuPlay,
+  LuRadar,
   LuRepeat,
   LuRepeat2,
   LuRocket,
@@ -187,6 +188,13 @@ export const AGENT_COMMANDS: readonly AgentCommand[] = [
     icon: LuScissors,
     category: 'git',
     hint: 'Prune branches and worktrees that have fully landed. Dry-run first.',
+  },
+  {
+    id: 'loopPatrol',
+    label: 'Loop: Patrol',
+    icon: LuRadar,
+    category: 'loops',
+    hint: "The FAB's Patrol tab — its checkboxes append the PR skills to this line.",
   },
   {
     id: 'loopPrReview',

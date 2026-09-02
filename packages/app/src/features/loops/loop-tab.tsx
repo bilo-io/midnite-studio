@@ -76,6 +76,8 @@ export function LoopTab({
     loop.modifiers.map((m) => [m.id, checks?.[m.id] ?? defaults?.[m.id] ?? m.defaultOn]),
   );
   const checkedModifierIds = loop.modifiers.filter((m) => checked[m.id]).map((m) => m.id);
+  /** Is there a skill on the line at all? Only asked of a `requiresModifier` loop. */
+  const hasTask = loop.modifiers.some((m) => checked[m.id] && m.providesTask);
 
   const status = useLoopStatus(loop.id);
   const agents = useAgents();
@@ -104,8 +106,18 @@ export function LoopTab({
         thinking={status.thinking}
         checked={checked}
         extras={extras}
-        disabled={!repo}
-        disabledReason="Select a repository first."
+        disabled={!repo || (loop.requiresModifier && !hasTask)}
+        disabledReason={
+          repo
+            ? // Patrol's base is a bare `/loop`: with no task box checked there
+              // is no skill on the line at all, so Start would launch an agent
+              // and tell it nothing. The auto-pick pair does not count — a
+              // standing rule is not a task. Held here rather than in
+              // `composeLoopPrompt`, which is pure and has no business refusing
+              // to compose.
+              'Check PR review, PR feedback or Triage only — this loop takes its task from them.'
+            : 'Select a repository first.'
+        }
         onToggle={(modifierId, on) => setCheck(loop.id, modifierId, on)}
         onExtras={(text) => setExtras(loop.id, text)}
         onStart={start}
