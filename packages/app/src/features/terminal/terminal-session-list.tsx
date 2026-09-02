@@ -17,6 +17,7 @@ import { SortableList, useSortableRow } from '../../components/sortable-list';
 import { StateDot } from '../../components/state-dot';
 import { Spinner } from '../../components/skeleton';
 import { useUiStore } from '../../store/ui-store';
+import { closeSessionWithConfirm } from './close-session';
 import {
   isAgentRow,
   onMainSurface,
@@ -208,7 +209,6 @@ function SessionRow({
   const state = useTerminalStore((s) => s.states[session.id] ?? 'idle');
   const activity = useTerminalStore((s) => s.activity[session.id]);
   const autoName = useTerminalStore((s) => s.autoNames[session.id]);
-  const foregroundCommand = useTerminalStore((s) => s.foregroundCommand[session.id]);
   const side = useUiStore((s) => s.terminalSidebarSide);
   const { setNodeRef, style, attributes, listeners, isDragging } = useSortableRow(session.id);
 
@@ -344,17 +344,7 @@ function SessionRow({
           className="opacity-0 transition-opacity group-hover:opacity-100"
           onClick={(event) => {
             event.stopPropagation();
-            if (phase === 'live' && foregroundCommand) {
-              dialogs.confirm({
-                title: 'Close this session?',
-                body: `${foregroundCommand} is still running and will be killed.`,
-                confirmLabel: 'Close session',
-                danger: true,
-                onConfirm: () => useTerminalStore.getState().closeSession(session.id),
-              });
-            } else {
-              useTerminalStore.getState().closeSession(session.id);
-            }
+            closeSessionWithConfirm(dialogs, session);
           }}
         />
       </div>
