@@ -12,18 +12,17 @@ import { pickForgeRemote } from '@midnite/studio-shared';
 import { QueryClient, useQueryClient } from '@tanstack/react-query';
 import type { IconType } from 'react-icons';
 import { CiPower } from 'react-icons/ci';
-import { LuChevronLeft, LuCommand, LuFile, LuSettings } from 'react-icons/lu';
+import { LuChevronLeft, LuSettings } from 'react-icons/lu';
 
 import { Brand, BrandMark, Wordmark } from './components/brand';
 import { BrowserPane } from './features/browser/browser-pane';
 import { DelayedFallback } from './components/delayed-fallback';
 import { DialogHost } from './components/dialog-host';
 import { VIEW_ICON } from './components/nav-icons';
-import { IconButton } from './components/icon-button';
 import { FabPanel } from './components/fab-panel';
 import { FabLoopDots, useAnyLoopRunning } from './features/loops/fab-loop-dots';
 import { useLoopAttention } from './features/loops/use-loop-attention';
-import { PaletteHost, usePalette } from './components/palette-host';
+import { PaletteHost } from './components/palette-host';
 import { ResizeHandle } from './components/resizable/resize-handle';
 import { useResizable } from './components/resizable/use-resizable';
 import { useReveal, useRevealSize } from './components/use-reveal';
@@ -31,7 +30,6 @@ import { ThemeToggle } from './components/theme-toggle';
 import { TitleBarNav } from './components/title-bar-nav';
 import { TitleBarStatus } from './features/titlebar-status/titlebar-status';
 import { ScreensaverHost } from './features/screensaver/screensaver-host';
-import { chordFor, displayChord } from './features/status-bar/chord-hint';
 import { EmptyWorkspace } from './features/empty/empty-workspace';
 import { FileEditorGuard } from './features/files/preview/file-editor-guard';
 import { GraphView } from './features/graph/graph-view';
@@ -271,8 +269,6 @@ const ALL_NAV_ITEMS: NavItem[] = [
  * is one array entry, not three call sites to remember to update together.
  */
 const FORGE_GATED_VIEWS: readonly ViewId[] = ['actions', 'reviews'];
-
-const paletteChord = chordFor('palette.open', 'Mod+k');
 
 /**
  * Whether the Actions and Reviews views have anything they could ever show.
@@ -737,8 +733,6 @@ function Shell() {
   // native frame.
   const windowChrome = bridge()?.windowChrome ?? null;
 
-  const palette = usePalette();
-
   const chrome = (
     <>
       {/*
@@ -747,20 +741,14 @@ function Shell() {
         opening the palette is not a repo action or a preference, it is the
         way into every other action.
       */}
-      <IconButton
-        icon={LuCommand}
-        label={`Command Palette (${displayChord(paletteChord)}) — Search commands, view actions, and shortcuts`}
-        onClick={() => palette.open()}
-      >
-        <span className="font-mono text-[10px] font-semibold opacity-70">K</span>
-      </IconButton>
-      <IconButton
-        icon={LuFile}
-        label={`Go to File (${displayChord(chordFor('palette.files', 'Mod+p'))}) — Quick search and open files by name`}
-        onClick={() => palette.open('files')}
-      >
-        <span className="font-mono text-[10px] font-semibold opacity-70">P</span>
-      </IconButton>
+      {/*
+        The command palette and Go-to-File used to sit here as well as in the
+        status bar's shortcut rail. Phase 39 Theme C moved them to the rail
+        only, on the argument `status-bar.tsx`'s header comment already makes
+        about git status: two readings of the same thing, one at each edge of
+        the window, is one more place to disagree and no more information. The
+        rail is where this app teaches its own chords.
+      */}
       <span aria-hidden className="h-4 w-px shrink-0 bg-border" />
       <TitleBarStatus />
       {/*

@@ -341,6 +341,17 @@ html[data-motion='reduced'] [data-activity] * {
 [data-density='collapsed'] .status-label {
   display: none;
 }
+/* Phase 39 — the chord hint has its own class with the same rule.
+ * It used to BORROW `.status-label`, which meant a toggle's name and its
+ * keyboard shortcut could only ever be changed together — and they answer
+ * different questions: the name is state-dependent (shown while the surface is
+ * open or hovered, decided in JS by `status-toggle-label.ts`), the chord is
+ * not. Two selectors in one rule keeps today's identical behaviour while making
+ * them independently changeable. */
+[data-density='compact'] .status-chord,
+[data-density='collapsed'] .status-chord {
+  display: none;
+}
 
 /* Accordion & section card border contrast reduction in settings pages */
 section.overflow-hidden.rounded-lg.border,
@@ -714,4 +725,80 @@ html[data-motion='reduced'] .fab-panel-gradient {
 html[data-motion='reduced'] .loop-run-glow {
   animation: none;
   box-shadow: 0 0 10px rgba(236, 72, 153, 0.4);
+}
+
+/* ---------------------------------------------------------------------------
+ * Phase 39 — the status bar's loop launchers.
+ *
+ * Sibling of the `.loop-run-glow` family further up this file, and built from
+ * the same two techniques: a colour passed in as a custom property so one rule
+ * serves four loops, and a pulse that animates nothing but `opacity`. Kept as
+ * its own block at the end of the file rather than beside `.loop-run-glow`
+ * purely to stay out of Phase 37's way, which is rewriting that block in
+ * parallel; read the two together.
+ *
+ * **Two states, two properties.** `box-shadow` is exclusively the running glow;
+ * `outline` is exclusively "this is the tab the FAB is showing". A launcher can
+ * be both at once, and keeping them on separate properties means neither state
+ * has to know the other exists.
+ *
+ * **The pulse is gated on window focus.** Phase 36 Theme E measured what a
+ * permanently-running animation costs on a blurred window, and this one is
+ * mounted for the app's whole life. The gate is the extra `.is-pulsing` class,
+ * applied only while `useWindowFocused()` is true — a JS gate rather than a
+ * selector because CSS has no way to ask whether the window has focus. A
+ * background window animates nothing; the running state stays fully legible.
+ * ------------------------------------------------------------------------ */
+.loop-launcher {
+  opacity: 0.45;
+  transition:
+    opacity 150ms ease-out,
+    box-shadow 150ms ease-out;
+}
+
+.loop-launcher:hover,
+.loop-launcher:focus-visible {
+  opacity: 1;
+}
+
+/* Running: fully opaque, glowing in its own colour, breathing slowly. */
+.loop-launcher.is-running,
+.loop-launcher.is-waiting {
+  opacity: 1;
+  box-shadow: 0 0 6px var(--loop-launcher-color, currentColor);
+}
+
+.loop-launcher.is-running.is-pulsing {
+  animation: loop-launcher-pulse 2.4s ease-in-out infinite;
+}
+
+/* Waiting on you: steady, no pulse — the colour is already amber by then. */
+.loop-launcher.is-waiting {
+  animation: none;
+}
+
+/* The open tab. `outline-offset` keeps the ring clear of the glyph so the two
+ * states remain separable when both are on. */
+.loop-launcher.is-open {
+  outline: 1px solid var(--loop-launcher-color, currentColor);
+  outline-offset: 1px;
+  opacity: 1;
+}
+
+@keyframes loop-launcher-pulse {
+  0%,
+  100% {
+    opacity: 1;
+  }
+  50% {
+    opacity: 0.62;
+  }
+}
+
+/* Reduced motion drops the pulse and keeps the glow — the same trade
+ * `html[data-motion='reduced'] .loop-run-glow` already makes. `animation: none`
+ * rather than `animation-play-state: paused`: a paused animation still holds a
+ * compositor layer. */
+html[data-motion='reduced'] .loop-launcher {
+  animation: none;
 }

@@ -1,20 +1,28 @@
-import { useRef } from 'react';
+import { useEffect, useLayoutEffect, useRef, type RefObject } from 'react';
 
 import { collapseFor } from './density';
 import { InProgressLiveRegion } from './in-progress';
 import { OpProgressLiveRegion } from './op-progress';
 import { OverflowPopover } from './overflow-popover';
 import { STATUS_SEGMENTS, type StatusSegment, type StatusZone } from './segments';
+import {
+  strandedSeparators,
+  withSeparators,
+  type RenderedKind,
+} from './segments-groups';
+import { StatusSeparator } from './status-separator';
 import { useOverflow } from './use-overflow';
 
 /**
- * The status bar: the panel toggles on the left and, since Phase 18, the
- * machine's vitals in the right half.
+ * The status bar: the shortcut rail and this repository's health on the left,
+ * operation progress in the middle, and the machine's vitals in the right half.
  *
  * It no longer repeats the checkout's git status — branch, ahead/behind and
  * the change count all live in the title bar, where the breadcrumb and the
  * sync cluster already say them. Two readings of the same thing, one at each
  * edge of the window, is one more place to disagree and no more information.
+ * Phase 39 applied that same argument to the command palette and Go-to-File,
+ * which used to sit in both places and now sit only here.
  *
  * Spans the full content area as of Phase 27 Theme A — mounted as a sibling of
  * the content row inside CONTENT_BOX, so the `border-t` runs under the
@@ -24,18 +32,19 @@ import { useOverflow } from './use-overflow';
  * centre zone a true middle that cannot drift as the left zone's content
  * changes length, and the `auto` track collapses to zero width when nothing
  * is mounted there, so the left and right zones are not pushed inward by an
- * empty centre. Each zone maps `STATUS_SEGMENTS` directly —
- * `segments.map((s) => <s.El key={s.id} />)`, no wrapping element — because a
- * `<div>` around a segment that returns `null` still occupies a `gap-3` slot,
- * and five absent segments would be 60px of unexplained space.
+ * empty centre. Each zone maps its render list directly, **no wrapping
+ * element** — because a `<div>` around a segment that returns `null` still
+ * occupies a `gap-3` slot, and five absent segments would be 60px of
+ * unexplained space. That constraint is also what makes Phase 39's separator
+ * rule work at all: with no wrappers, a zone's live `children` list is already
+ * an exact record of which segments rendered.
  *
- * Theme E's overflow sits on top of that same array rather than a second
+ * Theme E's overflow sits on top of `STATUS_SEGMENTS` rather than a second
  * source of truth: `data-density` on this `<footer>` drives every segment's
- * own `.status-label` CSS (`styles.css`) — compact/collapsed hide it, full
- * does not — so a segment already using that class earns compact styling
- * for free, including every segment Theme D has not landed yet. `collapsed`
- * additionally removes a zone's segments from here and hands them to the one
- * shared `OverflowPopover`.
+ * own `.status-label` / `.status-chord` CSS (`styles.css`) — compact/collapsed
+ * hide them, full does not — so a segment already using those classes earns
+ * compact styling for free. `collapsed` additionally removes a zone's segments
+ * from here and hands them to the one shared `OverflowPopover`.
  *
  * **Zones never shrink their children.** A default flex row lets its
  * children shrink and their text wrap, which keeps `scrollWidth` equal to
@@ -53,9 +62,74 @@ const ZONES: StatusZone[] = ['left', 'center', 'right'];
 
 type CollapseResult = { visible: StatusSegment[]; collapsed: StatusSegment[] };
 
+/**
+ * Hide the separators that ended up with nothing on one side of them.
+ *
+ * Runs against the DOM rather than against the registry because a segment
+ * announces "nothing to report" by returning `null`, and only its own hooks
+ * know whether it did. The `health` group is the case that forced this: one
+ * member, `DiagnosticsSegment`, which renders nothing at all for a repository
+ * nobody has measured — so a fresh install would draw two separators around an
+ * empty space.
+ *
+ * Two mechanisms, because there are two ways the answer can change:
+ *
+ * - A **layout effect on every render** catches anything this component
+ *   re-rendered for (density flips, a zone's segment list changing).
+ * - A **`MutationObserver`** catches the case there is no render here to hang
+ *   off: a segment flipping from `null` to visible re-renders *itself*. The
+ *   observer watches `childList` on the three zone elements only, and its
+ *   callback is a handful of array reads over at most ten nodes.
+ */
+function prune(el: HTMLElement): void {
+  const children = Array.from(el.children);
+  const kinds: RenderedKind[] = children.map((child) =>
+    child.hasAttribute('data-status-sep') ? 'separator' : 'segment',
+  );
+  const hidden = strandedSeparators(kinds);
+  children.forEach((child, i) => {
+    if (kinds[i] !== 'separator') return;
+    (child as HTMLElement).hidden = hidden.has(i);
+  });
+}
+
+type ZoneRef = RefObject<HTMLDivElement | null>;
+
+function useSeparatorPruning(left: ZoneRef, center: ZoneRef, right: ZoneRef): void {
+  // Refs are stable for the component's life, so this array is safe to rebuild
+  // per render and safe to read from an effect with an empty dependency list.
+  const live = (): HTMLDivElement[] =>
+    [left.current, center.current, right.current].filter(
+      (el): el is HTMLDivElement => el !== null,
+    );
+
+  // Every render — no dependency array on purpose.
+  useLayoutEffect(() => {
+    for (const el of live()) prune(el);
+  });
+
+  // Once — the observers outlive individual renders.
+  useEffect(() => {
+    if (typeof MutationObserver === 'undefined') return;
+    const observers = live().map((el) => {
+      const observer = new MutationObserver(() => prune(el));
+      observer.observe(el, { childList: true });
+      return observer;
+    });
+    return () => {
+      for (const observer of observers) observer.disconnect();
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+}
+
 export function StatusBar() {
   const ref = useRef<HTMLElement | null>(null);
   const density = useOverflow(ref);
+  const leftRef = useRef<HTMLDivElement | null>(null);
+  const centerRef = useRef<HTMLDivElement | null>(null);
+  const rightRef = useRef<HTMLDivElement | null>(null);
+  useSeparatorPruning(leftRef, centerRef, rightRef);
 
   const byZone = Object.fromEntries(
     ZONES.map((zone) => [zone, collapseFor(zoneSegments(zone), density)]),
@@ -66,6 +140,15 @@ export function StatusBar() {
   // single cross-zone ranking to sort by — each zone's own segments already
   // arrive priority-ascending from `collapseFor`.
   const overflowing = ZONES.flatMap((zone) => byZone[zone].collapsed);
+
+  const renderZone = (zone: StatusZone) =>
+    withSeparators(byZone[zone].visible).map((item) =>
+      item.kind === 'separator' ? (
+        <StatusSeparator key={item.id} />
+      ) : (
+        <item.segment.El key={item.segment.id} />
+      ),
+    );
 
   return (
     <footer
@@ -86,36 +169,25 @@ export function StatusBar() {
       <OpProgressLiveRegion />
       <InProgressLiveRegion />
       <div
+        ref={leftRef}
         data-testid="status-bar-left"
         className="flex items-center justify-self-start gap-3 whitespace-nowrap [&>*]:shrink-0"
       >
-        {byZone.left.visible.map((s) => (
-          <s.El key={s.id} />
-        ))}
+        {renderZone('left')}
       </div>
       <div
+        ref={centerRef}
         data-testid="status-bar-center"
         className="flex items-center justify-self-center gap-3 whitespace-nowrap [&>*]:shrink-0"
       >
-        {byZone.center.visible.map((s) => (
-          <s.El key={s.id} />
-        ))}
+        {renderZone('center')}
       </div>
-      {/*
-        Diagnostics sits LEFT of the monitor within this zone: it is about
-        this repository and belongs nearer the repository controls, while the
-        machine's vitals stay hard against the window edge where they do not
-        move as things are added. Phase 17's checks-verdict indicator slots in
-        here too. The overflow trigger, when there is one, sits hard against
-        the edge itself — the one control that is never optional.
-      */}
       <div
+        ref={rightRef}
         data-testid="status-bar-right"
         className="flex items-center justify-self-end gap-2 whitespace-nowrap [&>*]:shrink-0"
       >
-        {byZone.right.visible.map((s) => (
-          <s.El key={s.id} />
-        ))}
+        {renderZone('right')}
         <OverflowPopover items={overflowing} density={density} />
       </div>
     </footer>
