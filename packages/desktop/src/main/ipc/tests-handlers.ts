@@ -39,6 +39,11 @@ const NO_TRUST: TestTrustStatus = { state: 'untrusted', trustedAt: null };
 /** In-flight runs, for `cancel` — the process handle only, nothing else. */
 const inFlight = new Map<string, { kill: () => void }>();
 
+/** Test-only: `inFlight` is otherwise module-private. */
+export function inFlightSizeForTests(): number {
+  return inFlight.size;
+}
+
 async function findSuite(repoId: string, suiteId: string): Promise<TestSuite | null> {
   const workdir = await resolveWorkdir(repoId);
   if (!workdir) return null;
@@ -118,16 +123,17 @@ export function registerTestsHandlers(getWindow: () => BrowserWindow | null): vo
             getWindow()?.webContents.send(EVENT_CHANNELS.testsOutput, { runId, chunk });
           }
         },
-      }).then((result) => {
-        inFlight.delete(runId);
-        if (!getWindow()?.isDestroyed()) {
-          getWindow()?.webContents.send(EVENT_CHANNELS.testsResult, {
-            runId,
-            suiteId: req.suiteId,
-            result,
-          });
-        }
-      });
+      })
+        .then((result) => {
+          if (!getWindow()?.isDestroyed()) {
+            getWindow()?.webContents.send(EVENT_CHANNELS.testsResult, {
+              runId,
+              suiteId: req.suiteId,
+              result,
+            });
+          }
+        })
+        .finally(() => inFlight.delete(runId));
 
       return { ok: true, runId };
     },
