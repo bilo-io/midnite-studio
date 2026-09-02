@@ -56,7 +56,6 @@ const HINTS: Partial<Record<CommandId, string>> = {
   'sync.pull': 'Fetch and integrate',
   'sync.push': 'Publish the current branch',
   'terminal.new': 'A fresh shell session',
-  'terminal.close': 'Close the selected session',
   'app.reload': 'Reload the window, as a browser would',
   'app.lock': 'Lock the screen behind your passcode',
 };
@@ -84,6 +83,24 @@ const BATCH_TWO: readonly CommandId[] = [
 ];
 
 /**
+ * A command's chord, from the registry, rendered for this platform — or
+ * `undefined` for a command that has none.
+ *
+ * Exported because slide 4 needs the FAB's chord on its own, outside a card,
+ * and the alternative was a second literal `'Mod+m'` beside the one in
+ * `COMMANDS` — which is the exact duplication this whole module exists to
+ * avoid. `chordOf` rather than `command.chord`: `CommandDescriptor` is the
+ * const array's own union, so half its members have no such property to read
+ * at the type level.
+ */
+export function commandChord(id: CommandId): string | undefined {
+  const command = COMMANDS.find((c) => c.id === id);
+  if (!command) return undefined;
+  const declared = chordOf(command);
+  return declared === undefined ? undefined : displayChord(chordFor(id, declared));
+}
+
+/**
  * An id becomes a card by reading the registry.
  *
  * A command with no chord is dropped rather than shown blank: this page's
@@ -95,16 +112,13 @@ const BATCH_TWO: readonly CommandId[] = [
 function cardsFor(ids: readonly CommandId[]): readonly ShortcutCard[] {
   return ids.flatMap((id) => {
     const command = COMMANDS.find((c) => c.id === id);
-    // `chordOf` rather than `command.chord`: `CommandDescriptor` is the
-    // const array's own union, so half its members have no such property to
-    // read at the type level.
-    const declared = command ? chordOf(command) : undefined;
-    if (!command || declared === undefined) return [];
+    const chord = commandChord(id);
+    if (!command || chord === undefined) return [];
     return [
       {
         id,
         label: command.label,
-        chord: displayChord(chordFor(id, declared)),
+        chord,
         icon: COMMAND_ICONS[id],
         hint: HINTS[id] ?? '',
       },

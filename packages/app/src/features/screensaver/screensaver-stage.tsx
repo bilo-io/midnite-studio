@@ -18,10 +18,10 @@ import { MODE_TINT, nextRandomIndex, WORD_SETS, type Mode } from './screensaver-
  * a user setting. A second implementation would have been a second set of
  * both.
  *
- * The hook and the component are deliberately separate exports: the landing
- * page's other slides read `mode` too (they share the tint), so the reading
- * happens once at the host and is handed down rather than re-derived per
- * slide.
+ * The hook and the component are deliberately separate exports because the
+ * landing page's carousel unmounts the slide it is not showing: the reading
+ * has to live at the host, above the carousel, or every return to slide one
+ * would re-subscribe four queries and flash empty counts on the way back.
  */
 
 type Counts = { repos: number; agents: number; myPrs: number; teamPrs: number };
@@ -63,11 +63,6 @@ export function useScreensaverReading(): ScreensaverReading {
   };
 }
 
-/** The tint a mode paints its spinner, title glow and headings in. */
-export function modeTint(mode: Mode): string {
-  return MODE_TINT[mode];
-}
-
 const MODE_SUBTITLE: Record<Mode, string> = {
   active: 'Agents hard at work',
   waiting: 'PRs awaiting review and attention',
@@ -78,12 +73,14 @@ const MODE_SUBTITLE: Record<Mode, string> = {
  * One word at a time out of the mode's list, typed a character at a time and
  * then held for `cycleDurationS` before the next is picked at random.
  *
- * `paused` exists for the landing page: the carousel keeps every slide's host
- * mounted, and a typewriter ticking every 65ms behind three slides nobody is
- * looking at is exactly the kind of idle cost `scripts/perf/idle-cpu.mjs`
- * measures.
+ * `paused` exists for the landing page, and holds the typing still for the
+ * ~590ms a slide change takes: a word that types itself out *while* sliding
+ * in reads as two animations arguing, where one that starts once the slide
+ * has settled reads as the page greeting you. It is not an idle-cost
+ * measure — the carousel unmounts the slides it is not showing, so there is
+ * no background ticking to stop.
  */
-export function useTypedWord(mode: Mode, paused = false): string {
+function useTypedWord(mode: Mode, paused = false): string {
   const cycleDurationS = useUiStore((s) => s.cycleDurationS);
   const [index, setIndex] = useState(() =>
     Math.floor(Math.random() * WORD_SETS[mode].length),

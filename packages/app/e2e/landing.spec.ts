@@ -76,9 +76,20 @@ test('the arrow keys wrap around the carousel', async ({ page }) => {
   await page.getByTestId('landing-dot-0').click();
   await expect(page.getByTestId('landing-dot-0')).toHaveAttribute('aria-selected', 'true');
 
+  const settled = page.locator('[data-landing-phase="idle"]');
+
   // Left from the first slide lands on the last.
   await page.keyboard.press('ArrowLeft');
   await expect(page.getByTestId('landing-dot-3')).toHaveAttribute('aria-selected', 'true');
+
+  /*
+    Wait for the stage to settle before the second press. A keystroke that
+    arrives mid-transition is deliberately ignored — that guard is what keeps
+    a held arrow key from cancelling the swap on every repeat and leaving the
+    page parked at `opacity: 0`.
+  */
+  await expect(settled).toBeVisible();
+
   // And right from the last comes back to the first.
   await page.keyboard.press('ArrowRight');
   await expect(page.getByTestId('landing-dot-0')).toHaveAttribute('aria-selected', 'true');

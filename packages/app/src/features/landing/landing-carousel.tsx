@@ -68,7 +68,22 @@ export type CarouselSlide = {
 function ownsArrowKeys(target: EventTarget | null): boolean {
   if (!(target instanceof Element)) return true;
   if (target.closest('input, textarea, select, [contenteditable="true"]')) return false;
-  if (target.closest('.xterm, [role="tree"], [role="grid"], [role="listbox"]')) return false;
+  /*
+    Every other surface that already means something by a horizontal arrow,
+    all of which can be mounted beside the landing view: the repository tree
+    and the palette's lists; xterm, which owns every keystroke it is handed;
+    `[role="separator"]` — the resize handles (`components/resizable/`), where
+    the arrows nudge a pane's width; and the terminal's session list, whose
+    arrow moves focus into the terminal and which is a plain div carrying
+    `data-session-list`.
+  */
+  if (
+    target.closest(
+      '.xterm, [role="tree"], [role="grid"], [role="listbox"], [role="separator"], [data-session-list]',
+    )
+  ) {
+    return false;
+  }
   return true;
 }
 
@@ -122,12 +137,33 @@ export function LandingCarousel({ slides }: { slides: readonly CarouselSlide[] }
     [goTo, index],
   );
 
+  /**
+   * A deliberate move: retires autoplay, and is ignored while a change is
+   * already in flight.
+   *
+   * The guard is not politeness — it is the difference between a working page
+   * and a blank one. `goTo` clears the pending `setIndex` and recomputes its
+   * target from `index`, which has not advanced yet, so under OS key
+   * auto-repeat (~30-50ms, well inside `OUT_MS`) the timer was cancelled on
+   * every repeat and `setIndex` never ran — while `stageClass` stayed
+   * `landing-slide-out` across those renders. React writes no attribute when
+   * a class does not change, so the CSS animation never restarted either: it
+   * finished once and, being `forwards`, parked the stage at `opacity: 0`.
+   * Holding an arrow key left an empty page until release. Two quick presses
+   * had the milder version of the same bug — both read the same stale index,
+   * and advanced one slide between them.
+   *
+   * The wheel path keeps its own cooldown on top of this, for a different
+   * reason: one trackpad flick emits a burst of events, and the burst
+   * outlives a settled transition.
+   */
   const nudge = useCallback(
     (dir: 1 | -1) => {
       setInteracted(true);
+      if (phase.kind !== 'idle') return;
       step(dir);
     },
-    [step],
+    [phase.kind, step],
   );
 
   // Autoplay, until the first interaction. Re-armed per slide, so a manual
@@ -205,6 +241,15 @@ export function LandingCarousel({ slides }: { slides: readonly CarouselSlide[] }
         role="tabpanel"
         id="landing-panel"
         aria-labelledby={`landing-tab-${index}`}
+        /*
+          Focusable, because a slide is prose and keycaps with nothing
+          tabbable inside it — the standard answer for a `tabpanel` whose body
+          holds no controls, or a reader who selects a slide has nowhere to go.
+          The dots keep the default tab order rather than a roving tabindex:
+          a roving one has to move DOM focus with the selection to mean
+          anything, and moving focus is precisely what autoplay must not do.
+        */
+        tabIndex={0}
         data-testid="landing-slide"
         data-landing-phase={phase.kind}
         className={`flex flex-col items-center text-center ${stageClass}`}
@@ -233,9 +278,6 @@ export function LandingCarousel({ slides }: { slides: readonly CarouselSlide[] }
             aria-selected={i === index}
             aria-label={s.label}
             title={s.label}
-            /* Roving tabindex, as a tablist owes: Tab reaches the selected
-               dot, and the arrow keys move between them. */
-            tabIndex={i === index ? 0 : -1}
             data-testid={`landing-dot-${i}`}
             onClick={() => {
               setInteracted(true);

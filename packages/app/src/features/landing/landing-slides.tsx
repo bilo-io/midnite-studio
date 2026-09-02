@@ -3,8 +3,7 @@ import type { CSSProperties } from 'react';
 
 import { loopGlowColor } from '../loops/loop-glow';
 import { loopIcon } from '../loops/loop-icons';
-import { chordFor, displayChord } from '../status-bar/chord-hint';
-import type { ShortcutBatch } from './landing-shortcuts';
+import { commandChord, type ShortcutBatch } from './landing-shortcuts';
 
 /**
  * The carousel's teaching slides — two batches of shortcuts and the FAB
@@ -66,10 +65,15 @@ export function ShortcutSlide({ batch }: { batch: ShortcutBatch }) {
  *
  * The tabs are `DEFAULT_LOOPS` itself — the same array the panel's own tab bar
  * maps over — so a fifth loop appears here the day it is added, wearing the
- * glyph and colour it wears there.
+ * glyph and the `text-*` class it wears there. Its *tile* would be untinted
+ * until someone gives it a row in `loop-glow.ts` and a line in `LOOP_BLURBS`
+ * below, which is the same cost every other consumer of those two maps pays.
  */
 export function FabSlide() {
-  const chord = displayChord(chordFor('fab.toggle', 'Mod+m'));
+  // From `COMMANDS`, with no literal chord written here — the same route the
+  // shortcut cards take, so slide 2's `fab.toggle` row and this keycap cannot
+  // disagree after a rebinding.
+  const chord = commandChord('fab.toggle');
 
   return (
     <div className="flex max-w-2xl flex-col items-center">
@@ -84,9 +88,15 @@ export function FabSlide() {
       </p>
 
       <div className="mt-5 flex items-center gap-2 text-xs text-muted-foreground">
-        <span>Open it with</span>
-        <Keycap chord={chord} />
-        <span>— or the mark in the bottom-right corner.</span>
+        {chord ? (
+          <>
+            <span>Open it with</span>
+            <Keycap chord={chord} />
+            <span>— or the mark in the bottom-right corner.</span>
+          </>
+        ) : (
+          <span>Open it with the mark in the bottom-right corner.</span>
+        )}
       </div>
 
       <div className="mt-8 grid w-full grid-cols-2 gap-2 text-left sm:grid-cols-4">
@@ -98,10 +108,18 @@ export function FabSlide() {
               key={loop.id}
               data-testid={`landing-loop-${loop.id}`}
               className="flex flex-col items-center gap-2 rounded-xl border px-3 py-3 backdrop-blur"
+              /*
+                `color-mix`, not a `${hue}66` alpha suffix. `loopGlowColor`
+                answers `currentColor` for an id it does not know (its
+                documented neutral fallback), and `currentColor66` is not a
+                colour — the browser drops the declaration and the tile loses
+                its border and its wash together. `color-mix` takes any
+                colour value, keyword fallback included.
+              */
               style={
                 {
-                  borderColor: `${hue}66`,
-                  background: `${hue}14`,
+                  borderColor: `color-mix(in srgb, ${hue} 40%, transparent)`,
+                  background: `color-mix(in srgb, ${hue} 8%, transparent)`,
                 } as CSSProperties
               }
             >

@@ -40,8 +40,8 @@ export function LandingView() {
     {
       key: 'stage',
       label: 'Workspace status',
-      // `paused` while another slide is showing: the typewriter ticks every
-      // 65ms, and this host stays mounted the whole time.
+      // Held still for the length of the transition, so the word types
+      // itself out once the slide has settled rather than while it moves.
       render: (active) => <ScreensaverStage {...reading} paused={!active} />,
     },
     ...SHORTCUT_BATCHES.map((batch) => ({

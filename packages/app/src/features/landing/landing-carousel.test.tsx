@@ -47,7 +47,7 @@ describe('LandingCarousel', () => {
     expect(screen.getByTestId('landing-dot-2').getAttribute('aria-selected')).toBe('false');
   });
 
-  it('tells the active slide it is active, so off-screen slides can idle', () => {
+  it('tells a slide whether it has settled, so it can hold its own motion', () => {
     render(<LandingCarousel slides={SLIDES} />);
     expect(screen.getByText('first live')).toBeTruthy();
   });
@@ -108,17 +108,47 @@ describe('LandingCarousel', () => {
     expect(screen.getByText(/^first/)).toBeTruthy();
   });
 
-  it('leaves the arrow keys to a text field, a tree and a terminal', () => {
+  /**
+   * The key-repeat regression. `goTo` cancels the pending `setIndex` and
+   * re-reads `index`, which has not advanced yet, so without the in-flight
+   * guard a held arrow key cancelled the swap on every repeat while the
+   * outgoing slide's `forwards` animation stayed parked at `opacity: 0` —
+   * a page that was blank until the key came up.
+   */
+  it('ignores a repeat while a change is in flight, and never parks mid-transition', () => {
+    render(<LandingCarousel slides={SLIDES} />);
+
+    // A held key: five repeats well inside the 170ms exit.
+    for (const _ of [0, 1, 2, 3, 4]) {
+      act(() => {
+        window.dispatchEvent(new KeyboardEvent('keydown', { key: 'ArrowRight' }));
+      });
+      advance(30);
+    }
+
+    advance(SETTLE_MS);
+    // Exactly one slide moved, and the stage settled rather than sticking.
+    expect(screen.getByText('second')).toBeTruthy();
+    expect(screen.getByTestId('landing-slide').dataset['landingPhase']).toBe('idle');
+    expect(screen.getByTestId('landing-slide').className).not.toContain('landing-slide-out');
+  });
+
+  it('leaves the arrow keys to a text field, a tree, a terminal, a splitter and the session list', () => {
     render(
       <>
         <input data-testid="field" />
         <div role="tree" data-testid="tree" tabIndex={-1} />
         <div className="xterm" data-testid="term" tabIndex={-1} />
+        {/* The resize handles and the terminal's session list both mean
+            something else by a horizontal arrow, and both can be on screen
+            beside the landing view. */}
+        <div role="separator" data-testid="splitter" tabIndex={-1} />
+        <div data-session-list data-testid="sessions" tabIndex={-1} />
         <LandingCarousel slides={SLIDES} />
       </>,
     );
 
-    for (const id of ['field', 'tree', 'term']) {
+    for (const id of ['field', 'tree', 'term', 'splitter', 'sessions']) {
       act(() => {
         screen
           .getByTestId(id)

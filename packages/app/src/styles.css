@@ -1384,6 +1384,28 @@ html[data-motion='reduced'] .landing-slide-in {
  * while the panel is mounted, via the renderer's `window` focus/blur events
  * — there is no such thing as a window-focus media query.
  */
+/*
+ * The landing page's rim, in front of its own children — which is what the
+ * FAB's `z-index: 3` already achieves there and could not achieve here.
+ *
+ * `isolation: isolate` on the shared host makes that z-index a matter between
+ * the panel and its own children, and the FAB's children carry no z-index at
+ * all, so `3` clears them. Every one of the landing page's does: the carousel
+ * stage is `z-10`, the dots `z-20`, and the clock, date and widgets `z-10`
+ * (they need it to clear the neural-cloud canvas). Those last three sit at
+ * `inset-8`, well inside the 30-40px band `--fab-glow-edge` breathes across,
+ * so at `3` the rim painted *under* exactly the elements it overlaps — the
+ * one visible way the two surfaces differed.
+ *
+ * Above the dots rather than merely above the corners: the rim is blurred,
+ * `pointer-events: none` and half-transparent at its hottest, so nothing it
+ * covers becomes unreadable — and a band that stops short of one child is a
+ * band with a seam in it.
+ */
+.landing-panel-gradient::before {
+  z-index: 30;
+}
+
 html[data-window-focused='false'] .fab-panel-gradient,
 html[data-window-focused='false'] .fab-panel-gradient::before,
 html[data-window-focused='false'] .landing-panel-gradient,
