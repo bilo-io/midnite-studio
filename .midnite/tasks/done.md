@@ -2,6 +2,24 @@
 
 <!-- Append one entry per landed phase/PR: date, phase, PR link, one-line summary. -->
 
+## 2026-09-02 — Phase 40 Theme G (partial) — the assembled-app Playwright coverage
+
+[PR #TBD]. The union-narrowing and command-construction rules Theme G calls out already had their
+own Vitest suites (`gh-project.test.ts`, `gh-project-write.test.ts`, alongside E/B); this lands
+the one thing only the assembled app can show.
+
+- [x] `e2e/projects.spec.ts` against the mock bridge: picking a board gates the item fetch (zero
+      fetches with none picked); editing a single-select is **not optimistic** — disable, mutate,
+      refetch, never a value painted before `gh` answers; a refused write restores the prior value
+      and shows `gh`'s own error text rather than a generic message; the missing-`project`-scope
+      state renders `gh auth refresh -s project` verbatim and copyable.
+- [x] `mock-bridge.ts` grew a `forgeProject` fixture namespace mirroring the real bridge's split —
+      `list`/`fields`/`items`/`setField`/`addItem` — with `setField` mutating the seeded item's
+      `fieldValues` in place so a refetch actually shows the new value, the same device
+      `reviewComment` already uses.
+- Two Theme G items remain, both human-only: screenshots, and a real pass against a genuine
+  org-owned and user-owned board.
+
 ## 2026-09-02 — Phase 41 Theme B — cards, chips, detail pane, the first per-container virtualizer
 
 [PR #43](https://github.com/bilo-io/midnite-studio/pull/43). Resolves the phase doc's own
