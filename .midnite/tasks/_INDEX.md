@@ -30,7 +30,7 @@ Completed work is logged append-only in [`done.md`](done.md). Deferred scope liv
 | [44 · Video Studio](phases/phase-44-video-studio.md) | ◻ TODO | — | 0/64 | `░░░░░░░░░░` | 0% | — | A B C D E F G H |
 | [43 · Workflows](phases/phase-43-workflows-mvp.md) | ◻ TODO | x1 | 0/77 | `░░░░░░░░░░` | 0% | — | A B C D E F G H I |
 | [42 · Councils, rearranged](phases/phase-42-councils-layout.md) | ◻ TODO | — | 0/36 | `░░░░░░░░░░` | 0% | — | A B C D E F |
-| [41 · Agentic Kanban](phases/phase-41-agentic-kanban.md) | ◻ TODO | — | 0/44 | `░░░░░░░░░░` | 0% | — | A B C D E F G H I |
+| [41 · Agentic Kanban](phases/phase-41-agentic-kanban.md) | ◻ TODO | x1 | 0/55 | `░░░░░░░░░░` | 0% | — | A B C D E F G H I |
 | [40 · GitHub Projects](phases/phase-40-github-projects.md) | ◻ TODO | — | 0/39 | `░░░░░░░░░░` | 0% | — | A B C D E F G |
 | [39 · One rail, five chords and four loops](phases/phase-39-status-bar-shortcut-rail.md) | 🔄 WIP | — | 52/63 | `████████░░` | 83% | G | — |
 | [38 · Paying off the e2e suite](phases/phase-38-e2e-suite-repair.md) | 🔄 WIP | — | 9/58 | `██░░░░░░░░` | 16% | — | B C D E F G H I |
@@ -141,23 +141,26 @@ no main-process change.*
 
 ### [Phase 41 — Agentic Kanban](phases/phase-41-agentic-kanban.md)
 
-*Phase 40's table, turned on its side, with a running agent per card. A `[ Table | Board ]` mode
-inside the Projects view — same picker, same gate — with columns from the project's `Status` field
-and a drag that is a real GraphQL mutation. Every ingredient exists: `loop-glow.ts` is the glow,
-`TerminalSurfaceSchema` is already how a session renders in one panel and nowhere else, `@dnd-kit`
-already ships. A–C are the board, D–F the agent in the card, G–H the composer and surviving a
-restart. Keeps the type-but-don't-send posture — unlike a council member, a Kanban agent **does**
-touch the repo.*
+*Turns Phase 40's Projects table on its side as a `[ Table | Board ]` mode and gives each card a
+running agent — a gradient glow while it works and a live terminal inside the card. Columns are the
+project's `Status` field; a drag is a real `updateProjectV2ItemFieldValue` mutation.*
+**Refined x1 (2026-09-02):** 44 → 55 items, and the headline is a **hard block** — this phase needs
+**seven** things from Phase 40 and `grep -r ProjectV2 packages/` returns **zero hits**; not one file
+in the monorepo has "project" in its name. Three further corrections: adding `'kanban'` to the
+surface enum does the **opposite** of Theme D's promise, because `onMainSurface` is a deny-one test
+(`surface !== 'fab'`) and **five** `'fab'` literals break the same way; `taskRef` is **silently
+stripped** by zod at `schemas.ts:1033` unless the shared schema learns it, so it would never reach
+`terminals.json`; and the real ceiling on in-card terminals is **WebGL contexts**, not DOM.
 
-- ◻ **A** — The board shell: mode toggle, columns derived from the `Status` single-select in its own option order, per-column scroll, and four honest empty states.
-- ◻ **B** — Cards: type glyph off the content union, assignees, labels, non-`Status` fields as chips, a detail pane, and virtualisation past a threshold.
-- ◻ **C** — Drag between columns → `updateProjectV2ItemFieldValue`, optimistic with rollback. Within-column ordering is **read-only** — board position is a separate concept and faking it is worse than omitting it.
-- ◻ **D** — A session bound to a card: `'kanban'` joins `TerminalSurfaceSchema`, plus a `taskRef` on the session record — the one genuinely new field, and what makes H possible.
-- ◻ **E** — The terminal inside the card: xterm mounted **only for visible running cards**; everything else shows its last activity line. Phase 36 measured what a permanently mounted animation costs; an xterm is worse.
-- ◻ **F** — The running glow from `loop-glow.ts` — one glow implementation in this app. Three states (running / waiting / open), focus-gated, reduced motion asserted through the cascade.
-- ◻ **G** — The card composer: roster agent picker, prompt composed from the card and shown in full, the command displayed verbatim because the user presses Return.
-- ◻ **H** — Binding survives a restart: reconcile broker sessions to cards by `taskRef`, terminal state instead of a stale glow, quit-and-relaunch reattaches (Phase 30's guarantee, on this surface).
-- ◻ **I** — Verification: column derivation, the optimistic reducer + rollback, glow state as a pure function, e2e, and a blurred idle-CPU number with five cards running.
+- ◻ **A** — The board shell: a per-repo persisted mode toggle, columns derived by a pure `deriveColumns` (empty status gets its own leading column), and **one** item read grouped client-side — every forge read in this app is `enabled`-gated because each is a subprocess plus rate-limit spend, and a per-column fetch would be the first violation.
+- ◻ **B** — Cards: type-discriminated content (a draft has no number, so no dead link), field chips, and the app's **first per-container virtualizer** — variable-height, so the `diff-view.tsx` `measureElement` recipe, not the graph's fixed-row one.
+- ◻ **C** — Drag between columns *(the least-precedented theme)*: `onDragOver`, per-column `SortableContext` and a multi-container collision strategy are all **absent from this codebase** — zero hits for `onDragOver`, `arrayMove`, `closestCorners`, `pointerWithin`. Reuses the `distance: 6` constraint and `graph-dnd.tsx`'s union payload + DragOverlay-because-virtualized; keyboard moves ship as a `Move to ▸` menu rather than the app's first `KeyboardSensor`.
+- ◻ **D** — A session bound to a card: `'kanban'` on the surface enum, `taskRef` inside the schema's object literal (it is a `ZodEffects`, so it cannot be `.extend()`ed) **and** in `schemas.ts` or it never persists — plus the five-site table of `'fab'` checks that otherwise put kanban sessions in the main panel, steal its selection, pop it open, and restore them ended instead of asleep.
+- ◻ **E** — The terminal inside the card: through `LazyTerminalView` only (a direct import silently undoes Phase 36's lazy chunk), viewport-mounted via `IntersectionObserver` — **new machinery**, both existing multi-xterm hosts mount everything they own — and capped at **4 concurrent instances**, because each takes a WebGL context and an evicted one degrades to the DOM renderer permanently.
+- ◻ **F** — The running glow: `loop-glow.ts`, three states. The waiting state reads `activity === 'waiting'` off the terminal store — **not** `useLoopAttention`, which is a `(): void` toast emitter hardcoded to `DEFAULT_LOOPS` and carries no readable state — and inherits the rule that `waiting` never decays while `thinking` does.
+- ◻ **G** — The card composer: agent picker, a pure `composeCardPrompt` capped at 4 000 chars, the command shown verbatim. Typed-not-sent, now with the argument the draft lacked: a loop runs a prompt **you** wrote, a card runs one composed from **remote GitHub text**.
+- ◻ **H** — Binding survives a restart: an inverse `sessionId → card` index built once at load, hydration triggered on board open the way the FAB does, and reattach riding the existing chain end to end — no new IPC. Don't build on `listLegacySessions`; it returns an always-empty array.
+- ◻ **I** — Verification: the pure functions by name, the four surface regressions as one assertion each, a `taskRef` full round-trip through quit-and-relaunch (the assertion that catches the zod strip), and a mounted-terminal count under 10 running cards.
 
 ### [Phase 40 — GitHub Projects](phases/phase-40-github-projects.md)
 
