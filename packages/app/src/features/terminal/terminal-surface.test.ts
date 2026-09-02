@@ -239,3 +239,32 @@ describe('closeSession', () => {
     expect(useTerminalStore.getState().activeId).toBeNull();
   });
 });
+
+describe('rehomeSession', () => {
+  beforeEach(() => {
+    useTerminalStore.setState({ sessions: [], activeId: null, states: {} });
+  });
+
+  it('drops surface and taskRef, so the session re-homes to the main panel', () => {
+    const store = useTerminalStore.getState();
+    const card = store.openSession({
+      kind: 'agent',
+      agentId: 'claude',
+      title: 'card',
+      cwd: '/repo',
+      repoId: 'r1',
+      surface: 'kanban',
+      taskRef: { projectId: 'PVT_1', itemId: 'PVTI_1' },
+    });
+
+    store.rehomeSession(card.id);
+
+    const rehomed = useTerminalStore.getState().sessions.find((s) => s.id === card.id);
+    expect(rehomed && onMainSurface(rehomed)).toBe(true);
+    expect(rehomed?.taskRef).toBeUndefined();
+  });
+
+  it('is a no-op for a session that does not exist', () => {
+    expect(() => useTerminalStore.getState().rehomeSession('missing')).not.toThrow();
+  });
+});
