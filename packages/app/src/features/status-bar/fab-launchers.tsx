@@ -25,7 +25,7 @@ const LOOP_IDS = DEFAULT_LOOPS.map((loop) => loop.id);
  * idle, running and unopened, or both at once, and stacking two `box-shadow`
  * lists would make every combination a hand-written shadow string. Amber
  * outranks the loop colour when a loop is waiting on you — established by
- * `.loop-run-glow.is-waiting`, the FAB tab dot and `fab-loop-dots.tsx`, and it
+ * `.loop-run-glow.is-waiting`, the FAB tab dot and `fab-loop-corners.tsx`, and it
  * has to look identical in all four places.
  *
  * `is-thinking` deliberately gets no fourth state here. At 14px, *running* and
@@ -58,7 +58,7 @@ export function FabLaunchers() {
     At rest the strip is a single glyph, expanding on hover/focus, while any
     loop is live, or while the FAB panel is open.
 
-    `FabLoopDots` renders nothing at all when nothing is running, on the
+    `FabLoopCorners` renders nothing at all when nothing is running, on the
     argument that the FAB is a button people press fifty times a day and should
     look untouched. That argument does not transfer: these launchers are *how
     you start* a loop, so hiding them until one runs is circular. Collapsing
