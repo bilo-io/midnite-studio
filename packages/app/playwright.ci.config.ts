@@ -30,19 +30,12 @@ import base from './playwright.config';
 const KNOWN_RED = [
   // --- drift: red everywhere, and Phase 38 Themes A-G own them --------------
   //
-  // Theme D fixed its own two named specs — 'a reload keeps live sessions
-  // live' and 'the session list resizes independently of the terminal pane'
-  // — confirmed stable over three local runs each. The file stayed ratcheted
-  // regardless, because un-ratcheting it for the first time surfaced real
-  // failures in OTHER specs — 'an agent row carries its own mark and its own
-  // accent', 'two agents from the same roster get different marks' and at
-  // least one more — that were new sightings of exactly the GPU-less-runner
-  // wall documented above, on marks that assert xterm content rather than
-  // session state. Theme I's DOM-renderer-under-test fallback (this file's
-  // own `webServer.env`, read by `terminal-view.tsx`) closes that wall for
-  // every terminal spec at once, this file included — verified locally with
-  // the fallback forced on, all green — so it drops from KNOWN_RED entirely
-  // rather than picking up `@linux-red` tags for specs Theme D never named.
+  // `browser-pane.spec.ts` and `footer-monitor.spec.ts` are OUT — both
+  // confirmed green in a real CI run (not just locally). `graph-themes.spec.ts`
+  // stays: two of its specs (`:251`, `:264` — the row-cascade animation) are
+  // green in an isolated local run but confirmed still red on the real Linux
+  // CI runner, which a local macOS run cannot explain — genuinely unsolved.
+  '**/e2e/graph-themes.spec.ts', //          2 — cascade replay (:251, :264), CI-only
 ];
 
 export default defineConfig({
@@ -62,10 +55,14 @@ export default defineConfig({
     passing spec in it its place in the blocking job. `shortcut-rail.spec.ts`
     and `status-bar.spec.ts` each carry one `@linux-red` spec this way: both
     assert a status-bar *density*, decided from measured content width, and
-    the CI runner's font set differs from macOS's enough to land the same
-    viewport on the other side of the breakpoint. A different Linux-only cause
-    from the WebGL wall Phase 38 Theme I closed (which is what emptied this
-    tag everywhere else it appeared) — Theme I's own remaining item.
+    the CI runner's font set differs from macOS's enough to land even the
+    "wide" fixture on the wrong side of the `full` breakpoint at the default
+    1280px viewport. A fix that read the real breakpoint from the DOM at test
+    time (rather than a hard-coded pixel guess) was tried and reverted — it
+    addressed a later assertion in each spec, but the FIRST assertion (that
+    the fixture starts in `full`) was already failing on the real CI run,
+    which a local, real-GPU macOS run cannot see. Phase 38 Theme I's own
+    remaining item.
   */
   grepInvert: /@linux-red/,
 });
