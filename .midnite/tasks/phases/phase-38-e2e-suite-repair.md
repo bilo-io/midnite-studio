@@ -241,6 +241,11 @@ them** while making every shard about 60% slower — 7.6 min to 12.1 min — so 
 - [ ] `reviews.spec.ts:400` — the terminal header under a squeezed detail pane. This one is
       **tagged `@linux-red` rather than ignored**, because it is the only terminal spec in a
       ten-spec file; drop the tag rather than editing `KNOWN_RED`.
+- [ ] `palette.spec.ts:148` — "Mod+K opens the palette while the terminal has focus". Also
+      `@linux-red`-tagged, and worth noting it was found the hard way: the other nine specs in
+      that file failed on CI for an unrelated reason (a hard-coded `Meta+k`, fixed), and only
+      once those were green did this one stand out as the single spec there that needs a real
+      `.xterm-screen`.
 - [ ] Drop `phase-21-roster.spec.ts`, `terminal-lazy-preload.spec.ts` and
       `terminal-reveal.spec.ts` from `KNOWN_RED`, and remove `grepInvert` from
       `playwright.ci.config.ts` once no `@linux-red` tag remains.

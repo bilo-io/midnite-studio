@@ -145,15 +145,24 @@ test('Mod+g typed into the palette does not toggle the repositories panel', asyn
   await expect(reposPanel(page)).toBeHidden();
 });
 
-test('Mod+K opens the palette while the terminal has focus', async ({ page }) => {
-  await open(page);
-  await page.keyboard.press('Control+`');
-  await expect(page.locator('.xterm-screen')).toBeVisible();
-  await page.locator('.xterm-screen').click();
+test(
+  'Mod+K opens the palette while the terminal has focus',
+  // The only spec in this file that needs a REAL terminal: it asserts
+  // `.xterm-screen` is visible, and xterm paints that through
+  // `@xterm/addon-webgl`, which a GPU-less CI runner cannot give it. Same wall
+  // as terminal-lazy-preload and friends — Phase 38 Theme I. Tagged rather than
+  // added to KNOWN_RED so the other ten palette specs keep blocking.
+  { tag: '@linux-red' },
+  async ({ page }) => {
+    await open(page);
+    await page.keyboard.press('Control+`');
+    await expect(page.locator('.xterm-screen')).toBeVisible();
+    await page.locator('.xterm-screen').click();
 
-  await page.keyboard.press('ControlOrMeta+k');
-  await expect(palette(page)).toBeVisible();
-});
+    await page.keyboard.press('ControlOrMeta+k');
+    await expect(palette(page)).toBeVisible();
+  },
+);
 
 test('fuzzy search matches acronyms and renders mark tags', async ({ page }) => {
   await open(page);
