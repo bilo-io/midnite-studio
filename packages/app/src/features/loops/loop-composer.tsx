@@ -18,6 +18,8 @@ import { Collapse } from '@bilo-io/ui';
 import { useId, useState, type ReactNode } from 'react';
 import { LuChevronRight, LuCircleStop, LuPlay } from 'react-icons/lu';
 
+import { RadioRow, SwitchRow, SwitchTrack } from '../../components/form/toggle-rows';
+
 /**
  * The controls above a loop's terminal: what the next run will be told, and
  * the one button that starts or stops it.
@@ -360,7 +362,9 @@ function SettingsGroup({
       {switches.map((modifier) => (
         <SwitchRow
           key={modifier.id}
-          modifier={modifier}
+          id={modifier.id}
+          label={modifier.label}
+          title={modifier.promptFragment}
           on={checked[modifier.id] ?? false}
           onToggle={onModifierToggle}
         />
@@ -404,65 +408,6 @@ function CheckboxRow({
   );
 }
 
-/**
- * A standing policy: in force for the whole run, or not.
- *
- * A real `<input type="checkbox">` under the paint, with `role="switch"` on
- * it — that is the one shape that keeps the label association, the keyboard
- * behaviour and the form semantics while reading as a toggle. The visible
- * track is a sibling styled off `peer-checked`, so no state lives in the DOM
- * twice.
- *
- * Transparent and stretched over the row rather than `sr-only`: the hidden
- * input is still what a click and a Playwright hit-target check land on, and a
- * 1px clipped box in the corner is not something either can hit.
- */
-function SwitchRow({
-  modifier,
-  on,
-  onToggle,
-}: {
-  modifier: LoopModifier;
-  on: boolean;
-  onToggle: (modifierId: string, on: boolean) => void;
-}) {
-  return (
-    <label
-      title={modifier.promptFragment}
-      className="relative flex cursor-pointer items-center justify-between gap-2 text-[11px] text-muted-foreground hover:text-foreground"
-    >
-      <span className="min-w-0 truncate">{modifier.label}</span>
-      <input
-        type="checkbox"
-        role="switch"
-        checked={on}
-        onChange={(event) => onToggle(modifier.id, event.target.checked)}
-        className="peer absolute inset-0 h-full w-full cursor-pointer opacity-0"
-      />
-      <SwitchTrack />
-    </label>
-  );
-}
-
-/**
- * The painted half of a switch — a sibling of the real input, driven entirely
- * by `peer-checked`.
- *
- * One component rather than the same 400-character class string written out
- * at each switch, which is what it was: the schedule's copy had already
- * drifted into being maintained separately from the modifier switches' copy,
- * and a track that reads as a different control from the one two rows above
- * it is exactly the drift this composer exists to remove.
- */
-function SwitchTrack() {
-  return (
-    <span
-      aria-hidden
-      className="relative h-3.5 w-6 shrink-0 rounded-full bg-muted transition-colors after:absolute after:left-[2px] after:top-[2px] after:h-2.5 after:w-2.5 after:rounded-full after:bg-background after:transition-transform after:content-[''] peer-checked:bg-primary peer-checked:after:translate-x-[10px] peer-focus-visible:ring-1 peer-focus-visible:ring-ring"
-    />
-  );
-}
-
 /** One of N, because the options contradict each other. */
 function ChoiceRow({
   loopId,
@@ -488,78 +433,6 @@ function ChoiceRow({
       value={selected.id}
       onSelect={(id) => onChoice(choice.id, id)}
     />
-  );
-}
-
-/**
- * A radio group as a wrapping row of pills.
- *
- * The `<input type="radio">` is real and merely transparent — stretched over
- * its pill, so the pill *is* the input's hit target: arrow-key roving, the
- * label association and the accessible name all come free. Segmented rather
- * than stacked because these groups are two or three short words each, and a
- * 320px panel has width to spare where it has no height to.
- *
- * The selected pill is tinted with the tab's own mid-spectrum colour rather
- * than `--primary`, which in the dark theme is near-white and made a chosen
- * option read as a disabled one against the wash behind it.
- */
-function RadioRow({
-  name,
-  label,
-  hideLabel = false,
-  options,
-  value,
-  onSelect,
-}: {
-  name: string;
-  label: string;
-  /**
-   * Drop the visible legend, keeping it as the group's accessible name.
-   *
-   * For the one row whose section heading already says what it is — a "Model"
-   * legend under a MODEL heading is the same word twice, and the second one
-   * costs a pill's worth of the 320px it is competing for.
-   */
-  hideLabel?: boolean;
-  options: { id: string; label: string; title?: string | undefined }[];
-  value: string;
-  onSelect: (optionId: string) => void;
-}) {
-  return (
-    <div
-      role="radiogroup"
-      aria-label={label}
-      className="flex min-w-0 flex-wrap items-center gap-x-2 gap-y-1"
-    >
-      {hideLabel ? null : <span className="text-[11px] text-muted-foreground">{label}</span>}
-      <div className="flex flex-wrap items-center gap-1">
-        {options.map((option) => {
-          const on = option.id === value;
-          return (
-            <label
-              key={option.id}
-              title={option.title}
-              className={`relative cursor-pointer rounded-full border px-1.5 py-[1px] text-[10px] transition-colors ${
-                on
-                  ? 'loop-spectrum-pill text-foreground'
-                  : 'border-border text-muted-foreground hover:text-foreground'
-              }`}
-            >
-              <input
-                type="radio"
-                name={name}
-                value={option.id}
-                checked={on}
-                onChange={() => onSelect(option.id)}
-                className="absolute inset-0 h-full w-full cursor-pointer opacity-0"
-              />
-              {option.label}
-            </label>
-          );
-        })}
-      </div>
-    </div>
   );
 }
 

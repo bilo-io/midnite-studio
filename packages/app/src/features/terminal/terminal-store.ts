@@ -217,6 +217,14 @@ type TerminalState = {
    * Clears the asleep flag on revive / wakeup.
    */
   awakeSession: (sessionId: string) => void;
+  /**
+   * Drop a `kanban` session back to the main surface (Phase 41 Theme H) —
+   * its card is gone from the board that owned it, so it re-homes to the
+   * main terminal panel rather than staying orphaned and invisible. Clears
+   * `taskRef` too: a re-homed session is a plain session, not a dangling
+   * pointer at a card that no longer resolves it.
+   */
+  rehomeSession: (sessionId: string) => void;
   setActive: (sessionId: string) => void;
   /** Same as `setActive`, but keeps keyboard focus in the session list. */
   setActiveFromListNav: (sessionId: string) => void;
@@ -473,6 +481,20 @@ export const useTerminalStore = create<TerminalState>()((set, get) => ({
     const session = get().sessions.find((s) => s.id === sessionId);
     if (!session || !session.asleep) return;
     const nextSession: TerminalSession = { ...session, asleep: false };
+    set((state) => ({
+      sessions: state.sessions.map((s) => (s.id === sessionId ? nextSession : s)),
+    }));
+    bridge()?.terminal.save({ session: nextSession });
+  },
+
+  rehomeSession: (sessionId) => {
+    const session = get().sessions.find((s) => s.id === sessionId);
+    if (!session) return;
+    // Omit rather than set-to-undefined: a stripped key round-trips through
+    // the IPC boundary's zod parse the same way `openSession` builds a
+    // surface-less session in the first place.
+    const { surface: _surface, taskRef: _taskRef, ...rest } = session;
+    const nextSession: TerminalSession = rest;
     set((state) => ({
       sessions: state.sessions.map((s) => (s.id === sessionId ? nextSession : s)),
     }));

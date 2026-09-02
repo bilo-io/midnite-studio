@@ -1,7 +1,7 @@
-import type { ForgeProjectField, ForgeProjectItem } from '@midnite/studio-shared';
+import type { ForgeProjectField, ForgeProjectItem, TerminalSession } from '@midnite/studio-shared';
 import { describe, expect, it } from 'vitest';
 
-import { deriveColumns, NO_STATUS_COLUMN_ID } from './board-derive';
+import { composeCardPrompt, deriveColumns, NO_STATUS_COLUMN_ID, sessionsToRehome } from './board-derive';
 
 const statusField: ForgeProjectField = {
   id: 'f1',
@@ -16,13 +16,13 @@ const statusField: ForgeProjectField = {
 
 const draft = (id: string, title: string): ForgeProjectItem => ({
   id,
-  content: { type: 'draft', id: `DI_${id}`, title, assignees: [] },
+  content: { type: 'draft', id: `DI_${id}`, title, assignees: [], body: '' },
   fieldValues: {},
 });
 
 const withStatus = (id: string, title: string, optionId: string, name: string): ForgeProjectItem => ({
   id,
-  content: { type: 'draft', id: `DI_${id}`, title, assignees: [] },
+  content: { type: 'draft', id: `DI_${id}`, title, assignees: [], body: '' },
   fieldValues: { f1: { fieldId: 'f1', dataType: 'single_select', optionId, name } },
 });
 
@@ -76,5 +76,104 @@ describe('deriveColumns', () => {
     const columns = deriveColumns(statusField, []);
     expect(columns.every((c) => c.items.length === 0)).toBe(true);
     expect(columns).toHaveLength(4);
+  });
+});
+
+describe('composeCardPrompt', () => {
+  const issue: ForgeProjectItem = {
+    id: 'item1',
+    content: {
+      type: 'issue',
+      id: 'I_1',
+      number: 42,
+      title: 'Fix the flaky test',
+      url: 'https://github.com/acme/widgets/issues/42',
+      state: 'open',
+      assignees: ['octocat'],
+      body: 'Steps to reproduce…',
+      labels: ['bug', 'flaky'],
+    },
+    fieldValues: {},
+  };
+
+  it('carries title, number, url, assignees, labels, repo path and body', () => {
+    const prompt = composeCardPrompt(issue, '/repo/widgets');
+    expect(prompt).toContain('Fix the flaky test (#42)');
+    expect(prompt).toContain('https://github.com/acme/widgets/issues/42');
+    expect(prompt).toContain('Assignees: octocat');
+    expect(prompt).toContain('Labels: bug, flaky');
+    expect(prompt).toContain('Repo: /repo/widgets');
+    expect(prompt).toContain('Steps to reproduce…');
+  });
+
+  it('a draft has no number, url or labels line', () => {
+    const draftItem: ForgeProjectItem = {
+      id: 'item2',
+      content: { type: 'draft', id: 'DI_1', title: 'Untriaged idea', assignees: [], body: '' },
+      fieldValues: {},
+    };
+    const prompt = composeCardPrompt(draftItem, '/repo/widgets');
+    expect(prompt).toContain('Untriaged idea');
+    expect(prompt).not.toContain('Labels:');
+    expect(prompt).not.toContain('https://');
+  });
+
+  it('caps the body at 4 000 characters with a visible truncation notice', () => {
+    const longBody = 'x'.repeat(4500);
+    const withLongBody: ForgeProjectItem = {
+      ...issue,
+      content: { ...issue.content, body: longBody },
+    };
+    const prompt = composeCardPrompt(withLongBody, '/repo/widgets');
+    expect(prompt).toContain('x'.repeat(4000));
+    expect(prompt).not.toContain('x'.repeat(4001));
+    expect(prompt).toContain('truncated — 500 more characters omitted');
+  });
+
+  it('omits the body section entirely when there is no body', () => {
+    const noBody: ForgeProjectItem = { ...issue, content: { ...issue.content, body: '' } };
+    const prompt = composeCardPrompt(noBody, '/repo/widgets');
+    expect(prompt.trim().endsWith('Repo: /repo/widgets')).toBe(true);
+  });
+});
+
+describe('sessionsToRehome', () => {
+  function kanbanSession(id: string, projectId: string, itemId: string): TerminalSession {
+    return {
+      id,
+      kind: 'agent',
+      agentId: 'claude',
+      title: 'card',
+      cwd: '/repo',
+      repoId: 'r1',
+      createdAt: 1,
+      surface: 'kanban',
+      taskRef: { projectId, itemId },
+    };
+  }
+
+  it('names a kanban session whose item is gone from the current board', () => {
+    const sessions = [kanbanSession('s1', 'PVT_1', 'PVTI_gone'), kanbanSession('s2', 'PVT_1', 'PVTI_1')];
+    const ids = sessionsToRehome(sessions, { projectId: 'PVT_1', itemIds: new Set(['PVTI_1']) });
+    expect(ids).toEqual(['s1']);
+  });
+
+  it('leaves a session bound to a different board alone, even if its item id is unknown here', () => {
+    const sessions = [kanbanSession('s1', 'PVT_other', 'PVTI_1')];
+    const ids = sessionsToRehome(sessions, { projectId: 'PVT_1', itemIds: new Set() });
+    expect(ids).toEqual([]);
+  });
+
+  it('ignores a main-surface session entirely', () => {
+    const main: TerminalSession = {
+      id: 's1',
+      kind: 'shell',
+      title: 'repo',
+      cwd: '/repo',
+      repoId: 'r1',
+      createdAt: 1,
+    };
+    const ids = sessionsToRehome([main], { projectId: 'PVT_1', itemIds: new Set() });
+    expect(ids).toEqual([]);
   });
 });

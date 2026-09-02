@@ -1000,9 +1000,17 @@ test.describe('terminal panel', () => {
     // 18 StrictMode double-invokes the mount effect in dev (the server this
     // suite runs against), so a snapshot may be asked for twice per row —
     // the PTY it named is the thing to assert on, not the call count.
+    //
+    // `LazyTerminalView`'s chunk (re-)loads asynchronously after a reload, so
+    // the mount effect that actually calls `pty.snapshot` lands a beat after
+    // the session ROWS are already visible — polling is what a synchronous
+    // read after `rows(page)` was missing (confirmed: it reliably reproduced
+    // as `Set {}` without this).
+    await expect
+      .poll(async () => new Set((await ptyCalls(page)).snapshots))
+      .toEqual(new Set(['pty-1', 'pty-2']));
     const after = await ptyCalls(page);
     expect(after.creates).toEqual([]);
-    expect(new Set(after.snapshots)).toEqual(new Set(['pty-1', 'pty-2']));
     for (let i = 0; i < 2; i += 1) {
       await expect(labels.nth(i)).not.toHaveClass(/text-muted-foreground/);
     }
@@ -1075,9 +1083,17 @@ test.describe('terminal panel', () => {
     await toggleTerminal(page);
 
     const list = page.locator('[data-session-list]');
-    const before = (await list.boundingBox())!;
-
     const handle = page.getByRole('separator', { name: 'Resize terminal sessions' });
+    /*
+      `hover()`, not a bare `boundingBox()` — `panel-snap.spec.ts`'s own
+      `dragSeparator` documents why: the reveal tween opening the panel is
+      still settling right after `toggleTerminal`, and a box measured a
+      moment too early lands the mousedown beside a five-pixel handle. That
+      is a silent no-op, not an error, which is exactly this spec's failure
+      mode — the drag registers on nothing and the list never moves.
+    */
+    await handle.hover();
+    const before = (await list.boundingBox())!;
     const handleBox = (await handle.boundingBox())!;
     const midY = handleBox.y + handleBox.height / 2;
 

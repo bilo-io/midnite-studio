@@ -46,7 +46,20 @@ const KNOWN_RED = [
   '**/e2e/browser-pane.spec.ts', //          1 — click lands during the exit transition
   '**/e2e/footer-monitor.spec.ts', //        2 — ring/marker counts
   '**/e2e/graph-themes.spec.ts', //          2 — cascade replay + per-style redraw
-  '**/e2e/terminal.spec.ts', //              2 — reload rehydration + list resize
+  //
+  // Theme D fixed its own two named specs — 'a reload keeps live sessions
+  // live' and 'the session list resizes independently of the terminal pane'
+  // — confirmed stable over three local runs each. The file stays ratcheted
+  // regardless: un-ratcheting it here for the first time (it was wholesale-
+  // excluded before any Linux CI run ever touched it) surfaced real failures
+  // in OTHER specs — 'an agent row carries its own mark and its own accent',
+  // 'two agents from the same roster get different marks' and at least one
+  // more before the job was cancelled — that are new sightings of exactly
+  // the GPU-less-runner wall documented above, on marks that assert xterm
+  // content rather than session state. Theme I owns identifying and tagging
+  // every affected spec with @linux-red; this file cannot leave KNOWN_RED
+  // before it does.
+  '**/e2e/terminal.spec.ts', //              3+ — Theme I's GPU/WebGL wall, not Theme D's
 ];
 
 export default defineConfig({

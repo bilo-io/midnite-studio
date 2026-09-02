@@ -16,7 +16,7 @@ const STATUS_FIELD: ForgeProjectField = {
 
 const item = (overrides: Partial<ForgeProjectItem> = {}): ForgeProjectItem => ({
   id: 'item-1',
-  content: { type: 'draft', id: 'DI_1', title: 'A card', assignees: [] },
+  content: { type: 'draft', id: 'DI_1', title: 'A card', assignees: [], body: '' },
   fieldValues: {},
   ...overrides,
 });

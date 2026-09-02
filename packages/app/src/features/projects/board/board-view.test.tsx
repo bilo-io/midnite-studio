@@ -14,8 +14,16 @@ afterEach(() => {
 // Reached once a card opens `CardDetail` (which mutates through this) or the
 // "Move to ▸" menu fires (Theme C) — resolved to a real accepted write so
 // `useSetProjectItemField`'s `onSuccess` has an `ok` to read, not `undefined`.
+// `terminal`/`agent` are reached by every render — `BoardView` hydrates
+// unconditionally (Theme F/H), and `CardDetail`'s composer (Theme G) queries
+// the agent roster once a card opens.
 vi.mock('../../../services/bridge', () => ({
-  bridge: () => ({ forgeProject: { setField: vi.fn().mockResolvedValue({ ok: true, kind: 'ok' }) } }),
+  bridge: () => ({
+    forgeProject: { setField: vi.fn().mockResolvedValue({ ok: true, kind: 'ok' }) },
+    terminal: { list: vi.fn(async () => ({ sessions: [] })), save: vi.fn() },
+    agent: { list: vi.fn(async () => ({ agents: [], status: [] })) },
+  }),
+  hasBridge: () => true,
 }));
 
 // A mutable object rather than a literal, so individual tests can flip
@@ -61,7 +69,7 @@ const statusField: ForgeProjectField = {
 
 const item = (id: string, title: string, optionId?: string): ForgeProjectItem => ({
   id,
-  content: { type: 'draft', id: `DI_${id}`, title, assignees: [] },
+  content: { type: 'draft', id: `DI_${id}`, title, assignees: [], body: '' },
   fieldValues: optionId
     ? { f1: { fieldId: 'f1', dataType: 'single_select', optionId, name: optionId } }
     : {},
@@ -69,19 +77,19 @@ const item = (id: string, title: string, optionId?: string): ForgeProjectItem =>
 
 describe('BoardView', () => {
   it('shows a "no Status field" state when the project has no single_select Status field', () => {
-    renderWithClient(<BoardView projectId="PVT_1" fields={[]} items={[item('i1', 'A task')]} />);
+    renderWithClient(<BoardView projectId="PVT_1" repoId="repo-1" worktreePath="/repo" fields={[]} items={[item('i1', 'A task')]} />);
     expect(screen.getByText('No Status field')).toBeDefined();
   });
 
   it('shows a "no items" state when the board is empty', () => {
-    renderWithClient(<BoardView projectId="PVT_1" fields={[statusField]} items={[]} />);
+    renderWithClient(<BoardView projectId="PVT_1" repoId="repo-1" worktreePath="/repo" fields={[statusField]} items={[]} />);
     expect(screen.getByText('No items')).toBeDefined();
   });
 
   it('renders one column per option, plus No status, each with a live count', () => {
     renderWithClient(
       <BoardView
-        projectId="PVT_1"
+        projectId="PVT_1" repoId="repo-1" worktreePath="/repo"
         fields={[statusField]}
         items={[item('i1', 'A task', 'todo'), item('i2', 'B task'), item('i3', 'C task', 'done')]}
       />,
@@ -96,12 +104,12 @@ describe('BoardView', () => {
   });
 
   it('an empty column renders the drop-zone placeholder', () => {
-    renderWithClient(<BoardView projectId="PVT_1" fields={[statusField]} items={[item('i1', 'A task', 'todo')]} />);
+    renderWithClient(<BoardView projectId="PVT_1" repoId="repo-1" worktreePath="/repo" fields={[statusField]} items={[item('i1', 'A task', 'todo')]} />);
     expect(screen.getAllByText('Drop here').length).toBeGreaterThan(0);
   });
 
   it('collapsing a column hides its cards behind a rail showing just the count', () => {
-    renderWithClient(<BoardView projectId="PVT_1" fields={[statusField]} items={[item('i1', 'A task', 'todo')]} />);
+    renderWithClient(<BoardView projectId="PVT_1" repoId="repo-1" worktreePath="/repo" fields={[statusField]} items={[item('i1', 'A task', 'todo')]} />);
 
     fireEvent.click(screen.getByRole('button', { name: 'Collapse Todo' }));
 
@@ -110,7 +118,7 @@ describe('BoardView', () => {
   });
 
   it('clicking a card opens its detail pane, and closing it clears the selection', () => {
-    renderWithClient(<BoardView projectId="PVT_1" fields={[statusField]} items={[item('i1', 'A task', 'todo')]} />);
+    renderWithClient(<BoardView projectId="PVT_1" repoId="repo-1" worktreePath="/repo" fields={[statusField]} items={[item('i1', 'A task', 'todo')]} />);
 
     expect(screen.queryByTestId('card-detail')).toBeNull();
 
@@ -127,7 +135,7 @@ describe('BoardView', () => {
     // documents for the table) — this proves the threshold branch mounts
     // cleanly and still reports the true count, not that rows paint.
     const many = Array.from({ length: 60 }, (_, i) => item(`i${i}`, `Task ${i}`, 'todo'));
-    renderWithClient(<BoardView projectId="PVT_1" fields={[statusField]} items={many} />);
+    renderWithClient(<BoardView projectId="PVT_1" repoId="repo-1" worktreePath="/repo" fields={[statusField]} items={many} />);
 
     expect(screen.getByText('60')).toBeDefined(); // the column's live count
   });
@@ -144,14 +152,14 @@ describe('BoardView', () => {
 
     it('a card cannot start a drag while forge writes are disabled', () => {
       uiState.forgeWritesEnabled = false;
-      renderWithClient(<BoardView projectId="PVT_1" fields={[statusField]} items={[item('i1', 'A task', 'todo')]} />);
+      renderWithClient(<BoardView projectId="PVT_1" repoId="repo-1" worktreePath="/repo" fields={[statusField]} items={[item('i1', 'A task', 'todo')]} />);
 
       expect(draggableWrapperFor('A task')?.getAttribute('aria-disabled')).toBe('true');
     });
 
     it('a card can start a drag once forge writes are enabled', () => {
       uiState.forgeWritesEnabled = true;
-      renderWithClient(<BoardView projectId="PVT_1" fields={[statusField]} items={[item('i1', 'A task', 'todo')]} />);
+      renderWithClient(<BoardView projectId="PVT_1" repoId="repo-1" worktreePath="/repo" fields={[statusField]} items={[item('i1', 'A task', 'todo')]} />);
 
       expect(draggableWrapperFor('A task')?.getAttribute('aria-disabled')).toBe('false');
     });
@@ -160,7 +168,7 @@ describe('BoardView', () => {
   describe('"Move to ▸" — the keyboard-reachable alternative to dragging (Theme C)', () => {
     it('right-clicking a card offers every other column, not its own', async () => {
       uiState.forgeWritesEnabled = true;
-      renderWithClient(<BoardView projectId="PVT_1" fields={[statusField]} items={[item('i1', 'A task', 'todo')]} />);
+      renderWithClient(<BoardView projectId="PVT_1" repoId="repo-1" worktreePath="/repo" fields={[statusField]} items={[item('i1', 'A task', 'todo')]} />);
 
       fireEvent.contextMenu(screen.getByText('A task'));
       const moveTo = await screen.findByRole('menuitem', { name: 'Move to' });
@@ -174,7 +182,7 @@ describe('BoardView', () => {
 
     it('choosing a column moves the card there', async () => {
       uiState.forgeWritesEnabled = true;
-      renderWithClient(<BoardView projectId="PVT_1" fields={[statusField]} items={[item('i1', 'A task', 'todo')]} />);
+      renderWithClient(<BoardView projectId="PVT_1" repoId="repo-1" worktreePath="/repo" fields={[statusField]} items={[item('i1', 'A task', 'todo')]} />);
 
       fireEvent.contextMenu(screen.getByText('A task'));
       const moveTo = await screen.findByRole('menuitem', { name: 'Move to' });
@@ -189,7 +197,7 @@ describe('BoardView', () => {
 
     it('disabled while forge writes are off — no menu, no mutation', () => {
       uiState.forgeWritesEnabled = false;
-      renderWithClient(<BoardView projectId="PVT_1" fields={[statusField]} items={[item('i1', 'A task', 'todo')]} />);
+      renderWithClient(<BoardView projectId="PVT_1" repoId="repo-1" worktreePath="/repo" fields={[statusField]} items={[item('i1', 'A task', 'todo')]} />);
 
       fireEvent.contextMenu(screen.getByText('A task'));
       expect(screen.queryByRole('menu')).toBeNull();

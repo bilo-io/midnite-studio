@@ -1,4 +1,4 @@
-import type { ForgeProjectField, ForgeProjectItem } from '@midnite/studio-shared';
+import type { ForgeProjectField, ForgeProjectItem, TerminalSession } from '@midnite/studio-shared';
 
 /**
  * The `Status` single-select field's own option id — every real column keys
@@ -55,4 +55,68 @@ export function deriveColumns(
   }
 
   return Array.from(columns.values()).map((column) => ({ ...column, items: buckets.get(column.id)! }));
+}
+
+/** A body past this length is cut, with a notice — an issue body is unbounded remote text. */
+const BODY_CHAR_CAP = 4000;
+
+/**
+ * The card composer's prompt (Phase 41 Theme G) — title, url, assignees,
+ * labels and the repo path, plus the item's body capped at
+ * {@link BODY_CHAR_CAP} characters with a visible truncation notice.
+ *
+ * **Pure and exported** so the composition — including the cap — is a unit
+ * test rather than something only visible by opening a card. Shown to the
+ * user in full and editable before Start, never sent unread: this is the
+ * seed text, not the final prompt.
+ */
+export function composeCardPrompt(item: ForgeProjectItem, repoPath: string): string {
+  const content = item.content;
+  const lines: string[] = [];
+
+  lines.push(content.type === 'draft' ? content.title : `${content.title} (#${content.number})`);
+  if (content.type !== 'draft') lines.push(content.url);
+  if (content.assignees.length > 0) lines.push(`Assignees: ${content.assignees.join(', ')}`);
+  if (content.type !== 'draft' && content.labels.length > 0) {
+    lines.push(`Labels: ${content.labels.join(', ')}`);
+  }
+  lines.push(`Repo: ${repoPath}`);
+
+  const body = content.body.trim();
+  if (body.length > 0) {
+    lines.push('');
+    if (body.length > BODY_CHAR_CAP) {
+      lines.push(body.slice(0, BODY_CHAR_CAP));
+      lines.push(`\n[…truncated — ${body.length - BODY_CHAR_CAP} more characters omitted]`);
+    } else {
+      lines.push(body);
+    }
+  }
+
+  return lines.join('\n');
+}
+
+/**
+ * Kanban sessions whose card no longer exists on the currently-open board
+ * (Phase 41 Theme H) — the item was moved off this board, or the board
+ * switched entirely. Pure so the reconciliation itself is a unit test: the
+ * caller applies it via `rehomeSession` for each id returned.
+ *
+ * Scoped to `board.projectId` deliberately: a `kanban` session bound to
+ * *another* board's card is not orphaned just because it is invisible on
+ * this one — see `TerminalSession.taskRef`'s own note.
+ */
+export function sessionsToRehome(
+  sessions: readonly TerminalSession[],
+  board: { projectId: string; itemIds: ReadonlySet<string> },
+): string[] {
+  return sessions
+    .filter(
+      (s) =>
+        s.surface === 'kanban' &&
+        s.taskRef !== undefined &&
+        s.taskRef.projectId === board.projectId &&
+        !board.itemIds.has(s.taskRef.itemId),
+    )
+    .map((s) => s.id);
 }

@@ -240,7 +240,7 @@ Effort tags: **S** ≈ an hour or two · **M** ≈ half a day · **L** ≈ a day
       watcher invalidates today (see `queries.ts`'s own note beside that key), so the literal
       collision the draft named is not even reachable yet.
 
-### D — A session bound to a card (L) — ◐ PARTIAL (2026-09-02)
+### D — A session bound to a card (L) — ✅ DONE (PR #47, 2026-09-02)
 
 - [x] `'kanban'` added to
       [`TerminalSurfaceSchema`](../../../packages/shared/src/terminal.ts) (line 34), alongside
@@ -293,19 +293,17 @@ Effort tags: **S** ≈ an hour or two · **M** ≈ half a day · **L** ≈ a day
     `TerminalSaveRequest` needed **no separate edit** — it wraps `TerminalSessionSchema` directly
     rather than restating its fields, so the new field flows through the IPC boundary for free.
     `startAgent()` grew a matching `taskRef` param.
-- [ ] **Not built — no trigger exists in this batch.** Launching from a card starts a broker
-      session `cwd`-ed at the repo's worktree, running the agent from `start-agent.ts`'s table with
-      the composed prompt typed but **not sent**.
-  - `startAgent({ ..., surface: 'kanban', taskRef, autoSend: false })` is fully wired and ready —
-    `start-agent.ts` accepts `taskRef` and stamps it onto the session — but nothing in this batch
-    calls it with `surface: 'kanban'`: that call site is Theme G's card composer, which is **not**
-    in this batch by the exec-time scope decision. Genuinely deferred, not an oversight.
+- [x] Launching from a card starts a broker session `cwd`-ed at the repo's worktree, running the
+      agent from `start-agent.ts`'s table with the composed prompt typed but **not sent**.
+  - `startAgent({ ..., surface: 'kanban', taskRef, autoSend: false })` is the call site — Theme G's
+    `CardComposer` (`board/card-composer.tsx`), which landed in the same PR as the rest of this
+    theme once it was unblocked.
 - [x] One live session per card, enforced *at the lookup level*: `findCardSession(sessions, states,
       taskRef)` in `terminal-store.ts` — a live, non-asleep `'kanban'` session bound to a card's
       `{projectId, itemId}`, tested for the "different card", "main surface", "exited" and "asleep"
-      cases (`terminal-surface.test.ts`). What is **not** built: the Start/Stop button itself, since
-      there is no launch UI in this batch to attach it to (see the item above) — the enforcement
-      primitive exists and is unit-tested, ready for Theme G to call.
+      cases (`terminal-surface.test.ts`). Theme G's `CardComposer` calls it directly (no prop
+      threading a session through `CardDetail`) and hides the composer form for a Stop button
+      instead of drawing a second Start.
 
 ### E — The terminal inside the card (L)
 
@@ -406,59 +404,64 @@ Effort tags: **S** ≈ an hour or two · **M** ≈ half a day · **L** ≈ a day
     inheriting `.loop-run-glow`'s: `html[data-motion='reduced'] .card-run-glow.is-running { animation:
     none; … }` in `styles.css`, next to the `.loop-run-glow` block it was modelled on.
 
-### G — The card composer (M)
+### G — The card composer (M) — ✅ DONE (PR #47, 2026-09-02)
 
-- [ ] Agent picker from the Phase 21 roster, defaulting per repo.
-- [ ] Prompt composed from the card: title, body, labels and the repo path, shown in full and
+- [x] Agent picker from the Phase 21 roster, defaulting per repo.
+  - Defaults off this repo's most recently-launched agent (`useTerminalStore`'s own sessions),
+    rather than a second persisted setting — read once as `useState`'s initial value, since the
+    composer remounts per open card (`CardDetail key={item.id}`).
+- [x] Prompt composed from the card: title, body, labels and the repo path, shown in full and
       editable before launch — the card is the context, and the user sees exactly what the agent
       will get.
-  - Composition is a **pure exported function**, `composeCardPrompt(item, repoPath): string`, so
-    Theme I asserts it without a board.
-  - Cap the body at **4 000 characters** with a visible truncation notice. An issue body is
-    unbounded remote text and the composer is a text field, not a document viewer.
-- [ ] The composed command displayed verbatim above Start, since it is typed-not-sent and the user
+  - Composition is a **pure exported function**, `composeCardPrompt(item, repoPath): string`
+    (`board/board-derive.ts`), tested directly in `board-derive.test.ts` without a board.
+  - Body capped at **4 000 characters** with a visible truncation notice.
+- [x] The composed command displayed verbatim above Start, since it is typed-not-sent and the user
       is the one who presses Return.
-- [ ] Reuse the checkbox-modifier idiom from
-      [`loop-composer.tsx`](../../../packages/app/src/features/loops/loop-composer.tsx) and
-      [`shared/src/loops.ts`](../../../packages/shared/src/loops.ts)'s `LoopModifierSchema` rather
-      than a second modifier mechanism.
-  - `SwitchRow` and `RadioRow` are **module-private** inside `loop-composer.tsx` (`:262`, `:329`).
-    Hoist them to `components/form/` rather than copying — and note
-    [Phase 43 Theme F](phase-43-workflows-mvp.md) plans the same hoist, so whichever lands first
-    does it and the other consumes it.
+- [x] Reuse the checkbox-modifier idiom from
+      [`loop-composer.tsx`](../../../packages/app/src/features/loops/loop-composer.tsx) rather than
+      a second modifier mechanism.
+  - `SwitchRow`/`RadioRow` hoisted to `components/form/toggle-rows.tsx`, generalised off `id`/
+    `label`/`title` rather than `LoopModifier` (that type was never load-bearing for either
+    control). `loop-composer.tsx` now imports both; its own 32 tests pass unmodified.
+  - **Only `RadioRow` is actually used here** (the agent picker, as pills) — the composer has no
+    standing-policy toggle to draw with `SwitchRow`, so it is hoisted but not yet a second consumer
+    of it. [Phase 43 Theme F](phase-43-workflows-mvp.md) remains free to be that second consumer.
+  - Reads its own session off the store via Theme D's `findCardSession`/`findAnyCardSession` rather
+    than a prop threaded through `CardDetail` — matching `useCardStatus`'s own rule that a card
+    never keeps its own copy of "which session am I."
 
-### H — Binding survives a restart (M)
+### H — Binding survives a restart (M) — ◐ PARTIAL (PR #47, 2026-09-02)
 
-- [ ] On board load, reconcile live broker sessions against cards by `taskRef` — a session whose
+- [x] On board load, reconcile live broker sessions against cards by `taskRef` — a session whose
       card is gone renders in the main terminal panel rather than being orphaned invisibly.
-  - Build the **inverse index** (`sessionId → card`) once at load and hold it in board-local state;
-    do not scan every session per card render.
-  - The Phase 35 precedent is `fabSessions: Record<string, string>` in `ui-store` — but it is keyed
-    by a **fixed enumeration of four tabs** and persisted in localStorage. Cards are unbounded and
-    remote-owned, which is exactly why `taskRef` belongs on the durable, main-owned record instead.
-    `loop-status.ts:6` states the rule this follows: *"Both are derived, never stored — the bug this
-    phase exists to fix came from a component keeping its own copy of 'which session am I'."*
-  - A `taskRef` session whose item is absent from the current board is **not** necessarily orphaned
-    — it may belong to another project. Re-home it to the main panel only when its `projectId`
-    matches the open board and its `itemId` is gone.
-- [ ] The board triggers hydration on open, the way the FAB does.
-  - `useHydrateOnOpen` at `fab-panel.tsx:132` exists because *"until Phase 35's Theme I nothing but
-    `TerminalPanel` ever called it"*. `hydrate()` early-returns once `hydrated`
-    (`terminal-store.ts:303`), so calling it on board open is cheap and idempotent.
-- [ ] A card whose session ended while the board was closed shows a terminal state (succeeded /
+  - Built as a pure function, `sessionsToRehome(sessions, { projectId, itemIds })`
+    (`board/board-derive.ts`, tested), applied via a new `rehomeSession` store action
+    (`terminal-store.ts`) that drops `surface`/`taskRef` back to `main`. `BoardView` runs it in a
+    `useEffect` keyed on the live `sessions` selector, scoped to `projectId` — a `taskRef` session
+    bound to a *different* board is left alone, per the doc's own note.
+  - **Correction to the draft:** no separate inverse index was built. Theme F's `useCardStatus`
+    already does the per-card `findAnyCardSession` lookup the doc worried would mean "scanning
+    every session per card render" — that concern is about the board's *grid* of cards, and it was
+    already solved before this theme started. This item is the *reconciliation*, not a second index.
+- [x] The board triggers hydration on open, the way the FAB does.
+  - Landed as part of Theme F (`BoardView`'s own `hydrate().catch(() => {})` effect) — confirmed
+    still in place and load-bearing for this theme's reconciliation, which reads the same
+    `sessions` selector.
+- [x] A card whose session ended while the board was closed shows a terminal state (succeeded /
       failed / ended), not a stale glow.
-  - This is what the `terminal-store.ts:339` fix in Theme D buys: with `'kanban'` included, a
-    restored session with no live pty comes back `asleep` rather than `exited`.
+  - Theme D's `terminal-store.ts:339` fix (now landed) is what buys this: a restored `'kanban'`
+    session with no live pty comes back `asleep` rather than `exited`.
 - [ ] Quit-and-relaunch mid-run reattaches the card to its still-running detached session, the
       Phase 30 guarantee applied to this surface.
-  - The chain already exists end to end and needs no new IPC: main adopts the broker's live
-    processes at init (`pty-service.ts:381` → `listSessions()`), `terminal-service.ts:54` joins disk
-    records to live ptys, `mstudio:terminal:list` carries it, and `hydrate()` binds — a live row
-    going straight to `'open'` with its `ptyId` (`terminal-store.ts:365`).
-  - **Do not build on `listLegacySessions`** (`broker-client.ts:475`): it writes to each legacy
-    socket and returns an always-empty array.
+  - The chain exists end to end per the doc's own reasoning and needed no new code here — but
+    nobody has actually run it against a **packaged** build (quit, relaunch, watch the card
+    reattach). Left open for the same reason Phase 35/37's own equivalent items are: it needs a
+    human on real hardware, not something this batch could verify.
 - [ ] Switching boards or repos does not kill running sessions; it hides them, and returning
       reattaches.
+  - True by construction (nothing here kills a session on unmount or board switch), but not
+    exercised by a test — left open rather than checked on inference alone.
 
 ### I — Verification coverage (M) — ◐ PARTIAL (2026-09-02)
 

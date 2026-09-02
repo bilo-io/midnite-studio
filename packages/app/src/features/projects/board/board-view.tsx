@@ -28,7 +28,7 @@ import { useToastStore } from '../../../store/toast-store';
 import { useTerminalStore } from '../../terminal/terminal-store';
 import { applyOptimisticMove, type CardDragPayload, type ColumnDropPayload } from './board-dnd';
 import { CardDetail } from './card-detail';
-import { deriveColumns, NO_STATUS_COLUMN_ID, type BoardColumn } from './board-derive';
+import { deriveColumns, NO_STATUS_COLUMN_ID, sessionsToRehome, type BoardColumn } from './board-derive';
 import { TaskCard } from './task-card';
 
 /**
@@ -42,10 +42,15 @@ import { TaskCard } from './task-card';
  */
 export function BoardView({
   projectId,
+  repoId,
+  worktreePath,
   fields,
   items,
 }: {
   projectId: string;
+  repoId: string | null;
+  /** Absent when no worktree is selected — passed through to the card composer. */
+  worktreePath: string | undefined;
   fields: readonly ForgeProjectField[];
   items: readonly ForgeProjectItem[];
 }) {
@@ -79,6 +84,23 @@ export function BoardView({
       .hydrate()
       .catch(() => {});
   }, []);
+
+  /*
+    Theme H: a `kanban` session whose card is gone from THIS board — moved to
+    another status the caller filtered out is not the case (this board still
+    holds every item regardless of column), so "gone" means removed from the
+    project entirely — re-homes to the main surface rather than staying
+    orphaned and invisible. `sessions` is read live from the store (not
+    `items`, which is this component's own prop) so a session opened after
+    this render still gets reconciled once the store updates.
+  */
+  const sessions = useTerminalStore((s) => s.sessions);
+  const itemIds = useMemo(() => new Set(items.map((item) => item.id)), [items]);
+  useEffect(() => {
+    for (const id of sessionsToRehome(sessions, { projectId, itemIds })) {
+      useTerminalStore.getState().rehomeSession(id);
+    }
+  }, [sessions, projectId, itemIds]);
 
   // A board with several running cards is that many pulsing glows (Theme F)
   // — gated on window focus the same way the FAB and landing panels are.
@@ -249,7 +271,10 @@ export function BoardView({
 
         {selectedItem ? (
           <CardDetail
+            key={selectedItem.id}
             projectId={projectId}
+            repoId={repoId}
+            worktreePath={worktreePath}
             item={selectedItem}
             fields={fields}
             onClose={() => setSelectedItemId(null)}

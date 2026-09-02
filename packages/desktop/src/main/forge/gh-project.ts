@@ -47,6 +47,8 @@ const FIELDS_PAGE = 50;
 const ITEMS_PAGE = 100;
 /** Assignees per item. A project item with more than this is not realistic. */
 const ASSIGNEES_PAGE = 10;
+/** Labels per item — matches `ForgeIssueSchema`'s own read elsewhere. */
+const LABELS_PAGE = 20;
 
 /**
  * The boards visible to `$owner` — a repository's owner may be a `User` or an
@@ -120,9 +122,9 @@ const PROJECT_ITEMS_QUERY = [
   'id ',
   'content{',
   '__typename ',
-  `... on Issue{id number title url state assignees(first:${ASSIGNEES_PAGE}){nodes{login}}}`,
-  `... on PullRequest{id number title url state assignees(first:${ASSIGNEES_PAGE}){nodes{login}}}`,
-  `... on DraftIssue{id title assignees(first:${ASSIGNEES_PAGE}){nodes{login}}}`,
+  `... on Issue{id number title url state body assignees(first:${ASSIGNEES_PAGE}){nodes{login}} labels(first:${LABELS_PAGE}){nodes{name}}}`,
+  `... on PullRequest{id number title url state body assignees(first:${ASSIGNEES_PAGE}){nodes{login}} labels(first:${LABELS_PAGE}){nodes{name}}}`,
+  `... on DraftIssue{id title body assignees(first:${ASSIGNEES_PAGE}){nodes{login}}}`,
   '}',
   `fieldValues(first:${FIELDS_PAGE}){nodes{`,
   '__typename ',
@@ -402,6 +404,7 @@ function parseItemContent(value: unknown): ForgeProjectItem['content'] | null {
   const assignees = asArray(pick(row['assignees'], 'nodes'))
     .map((entry) => asString(pick(entry, 'login')))
     .filter((login): login is string => login !== null && login.length > 0);
+  const body = asString(row['body']) ?? '';
 
   if (typename === 'Issue' || typename === 'PullRequest') {
     const number = row['number'];
@@ -411,8 +414,21 @@ function parseItemContent(value: unknown): ForgeProjectItem['content'] | null {
     if (typeof number !== 'number' || title === null || url === null || state === undefined) {
       return null;
     }
+    const labels = asArray(pick(row['labels'], 'nodes'))
+      .map((entry) => asString(pick(entry, 'name')))
+      .filter((name): name is string => name !== null && name.length > 0);
     return typename === 'Issue'
-      ? { type: 'issue', id, number, title, url, state: state as 'open' | 'closed', assignees }
+      ? {
+          type: 'issue',
+          id,
+          number,
+          title,
+          url,
+          state: state as 'open' | 'closed',
+          assignees,
+          body,
+          labels,
+        }
       : {
           type: 'pull',
           id,
@@ -421,12 +437,14 @@ function parseItemContent(value: unknown): ForgeProjectItem['content'] | null {
           url,
           state: state as 'open' | 'closed' | 'merged',
           assignees,
+          body,
+          labels,
         };
   }
 
   if (typename === 'DraftIssue') {
     const title = asString(row['title']) ?? '';
-    return { type: 'draft', id, title, assignees };
+    return { type: 'draft', id, title, assignees, body };
   }
 
   return null;

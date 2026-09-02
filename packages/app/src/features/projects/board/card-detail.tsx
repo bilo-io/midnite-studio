@@ -1,26 +1,29 @@
+import type { ForgeProjectField, ForgeProjectItem } from '@midnite/studio-shared';
 import { LuCircleDot, LuGitPullRequest, LuNotebookPen, LuX } from 'react-icons/lu';
 
-import type { ForgeProjectField, ForgeProjectItem } from '@midnite/studio-shared';
-
 import type { IconComponent } from '../../../components/icon-button';
-import { ProjectFieldCell } from '../field-editor';
 import { ExternalLink } from '../../markdown/external-link';
+import { CardComposer } from './card-composer';
+import { ProjectFieldCell } from '../field-editor';
 
 /**
  * A card's detail (Phase 41 Theme B): the item's body, assignees and every
- * field, editable through the same `ProjectFieldCell` the table uses.
- *
- * **No agent composer here.** The phase doc names one for this pane, but it
- * belongs to Theme G, which does not exist yet — this pane is read-and-edit
- * only, exactly like the table it shares its editors with.
+ * field, editable through the same `ProjectFieldCell` the table uses — plus
+ * the agent composer (Theme G) at the bottom, when a repo checkout is open
+ * to launch it against.
  */
 export function CardDetail({
   projectId,
+  repoId,
+  worktreePath,
   item,
   fields,
   onClose,
 }: {
   projectId: string;
+  repoId: string | null;
+  /** Absent when no worktree is selected — the composer needs a real `cwd`. */
+  worktreePath: string | undefined;
   item: ForgeProjectItem;
   fields: readonly ForgeProjectField[];
   onClose: () => void;
@@ -73,6 +76,14 @@ export function CardDetail({
           ))}
         </div>
       </div>
+
+      {repoId && worktreePath ? (
+        <CardComposer projectId={projectId} repoId={repoId} worktreePath={worktreePath} item={item} />
+      ) : (
+        <p className="border-t border-border/50 px-3 py-2.5 text-[11px] text-muted-foreground">
+          Select a repo checkout to launch an agent from this card.
+        </p>
+      )}
     </div>
   );
 }

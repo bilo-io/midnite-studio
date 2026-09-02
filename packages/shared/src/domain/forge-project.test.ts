@@ -132,6 +132,8 @@ describe('ForgeProjectItemSchema / ForgeProjectItemContent', () => {
         url: 'https://github.com/o/r/issues/42',
         state: 'open' as const,
         assignees: ['octocat'],
+        body: 'Steps to reproduce…',
+        labels: ['bug'],
       },
       fieldValues: {
         f1: { fieldId: 'f1', dataType: 'text' as const, text: 'a note' },
@@ -151,6 +153,8 @@ describe('ForgeProjectItemSchema / ForgeProjectItemContent', () => {
         url: 'https://github.com/o/r/pull/7',
         state: 'open' as const,
         assignees: [],
+        body: '',
+        labels: [],
       },
       fieldValues: {},
     };
@@ -170,6 +174,7 @@ describe('ForgeProjectItemSchema / ForgeProjectItemContent', () => {
         id: 'DI_1',
         title: 'Investigate flaky test',
         assignees: [],
+        body: '',
       },
       fieldValues: {},
     };
