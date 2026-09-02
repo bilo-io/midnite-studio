@@ -23,6 +23,11 @@ import {
   ForgePullScopeSchema,
   ForgePullsResultSchema,
   ForgePullThreadsResultSchema,
+  ForgeProjectFieldsResultSchema,
+  ForgeProjectFieldValueSchema,
+  ForgeProjectItemsResultSchema,
+  ForgeProjectsResultSchema,
+  ForgeProjectWriteResultSchema,
   GrepHitSchema,
 
   ForgeReviewEventSchema,
@@ -650,6 +655,68 @@ export const ForgeRunRerunRequest = RepoId.extend({
 });
 export const ForgeRunRerunResponse = ForgeWriteResultSchema;
 
+// --- forge projects (Phase 40 Theme A — GitHub ProjectV2) -------------------
+
+/**
+ * A ProjectV2 node id, item id or field id — the same opaque, url-safe
+ * base64-ish shape GraphQL hands out for all three, and bounded by charset for
+ * the same reason `ForgeResolveThreadRequest.threadId` is: none of them are a
+ * shape this app can otherwise validate, so the boundary at least confines the
+ * character set before any of them reaches a `gh api graphql` argument.
+ */
+const ProjectNodeId = z
+  .string()
+  .min(1)
+  .max(256)
+  .regex(/^[A-Za-z0-9_=-]+$/, 'a node id is url-safe base64');
+
+/** The ProjectV2 boards visible to the open repo's owner. */
+export const ForgeProjectListRequest = RepoId;
+export const ForgeProjectListResponse = ForgeProjectsResultSchema;
+
+/** One board's field definitions. */
+export const ForgeProjectFieldsRequest = z.object({ projectId: ProjectNodeId });
+export const ForgeProjectFieldsResponse = ForgeProjectFieldsResultSchema;
+
+/**
+ * One board's items, one page at a time.
+ *
+ * `cursor` is omitted for the first page and echoed back from
+ * `ForgeProjectItemsResult.nextCursor` for every page after — the same
+ * opaque-cursor pattern GraphQL pagination always takes, never an offset.
+ */
+export const ForgeProjectItemsRequest = z.object({
+  projectId: ProjectNodeId,
+  cursor: z.string().min(1).optional(),
+});
+export const ForgeProjectItemsResponse = ForgeProjectItemsResultSchema;
+
+/**
+ * `updateProjectV2ItemFieldValue` — the one per-cell write this phase allows.
+ *
+ * `value` carries `ForgeProjectFieldValue` wholesale rather than a narrower
+ * write-only shape: the mutation's own value shape is already exactly what
+ * that union's `text`/`number`/`date`/`single_select` arms hold, and a second,
+ * near-identical type would only be another place for the two to drift.
+ * `iteration` is never sent — Theme E's writable set stops at `single_select`
+ * — so main rejects it the same way this phase's UI never offers it.
+ */
+export const ForgeProjectSetFieldRequest = z.object({
+  projectId: ProjectNodeId,
+  itemId: ProjectNodeId,
+  fieldId: ProjectNodeId,
+  value: ForgeProjectFieldValueSchema,
+});
+export const ForgeProjectSetFieldResponse = ForgeProjectWriteResultSchema;
+
+/** `addProjectV2ItemById` — attach an existing issue or PR to the board. */
+export const ForgeProjectAddItemRequest = z.object({
+  projectId: ProjectNodeId,
+  /** The issue's or PR's own GraphQL node id — never a number, never a draft. */
+  contentId: ProjectNodeId,
+});
+export const ForgeProjectAddItemResponse = ForgeProjectWriteResultSchema;
+
 // --- shell -----------------------------------------------------------------
 
 /**
@@ -875,6 +942,16 @@ export const StashDropResponse = StashDropResultSchema;
 export const StashBranchRequest = OpBase.extend({
   name: z.string().min(1),
   selector: StashSelector,
+});
+
+/**
+ * `git stash store` — restore a dropped stash from its captured sha. Not a
+ * selector: a dropped stash entry no longer has one, which is the whole
+ * reason this takes a raw sha instead.
+ */
+export const StashStoreRequest = OpBase.extend({
+  sha: z.string().min(1),
+  message: z.string().optional(),
 });
 
 // --- pty -------------------------------------------------------------------
