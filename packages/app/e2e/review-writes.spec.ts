@@ -129,7 +129,18 @@ async function openPull(
   // The section is a heading over three lazy scopes now — the rows live under
   // one of them, and nothing is fetched until that one is opened.
   await page.getByRole('button', { name: 'All Pull Requests', exact: true }).click();
-  await page.getByText('Teach the app to review', { exact: true }).click();
+  /*
+    Centred first, then clicked — the same fix `reviews.spec.ts` documents on its
+    own `openPullRow`. Playwright's auto-scroll brings a row to the *top* of the
+    scroll container, which is where the sticky "All Pull Requests" header sits,
+    so the click is intercepted, retried, re-scrolled to the identical place and
+    intercepted again until the 30s timeout. It only bites under a loaded runner
+    (the list has to be long enough to scroll at all), which is why it read as a
+    flake in a handful of this file's tests rather than a failure in all of them.
+  */
+  const pullRow = page.getByText('Teach the app to review', { exact: true });
+  await pullRow.evaluate((el) => el.scrollIntoView({ block: 'center' }));
+  await pullRow.click();
   /*
     The list's status tab has to agree with the PR, or nothing opens.
 

@@ -107,10 +107,27 @@ export function useRepoActions(
     'branch-create',
     (api, args, ctx) => api.ops.branchCreate({ ...ctx, ...args, checkout: true }),
   );
-  const branchDelete = useTargetedGitOp<{ name: string; force: boolean }>(
+  const branchDelete = useTargetedGitOp<{ name: string; force: boolean; sha: string }>(
     target,
     'branch-delete',
-    (api, args, ctx) => api.ops.branchDelete({ ...ctx, ...args }),
+    (api, args, ctx) => api.ops.branchDelete({ ...ctx, name: args.name, force: args.force }),
+    /*
+     * The same override the graph's own `branchDelete` carries, and for the
+     * same reason (see `features/graph/use-graph-actions.ts`): the ref that
+     * moved is the DELETED branch, not the checkout's `HEAD`, which does not
+     * move when you delete a branch you are not on. Without this the wrapper's
+     * defaults apply — `refBefore: 'HEAD'` and the current HEAD's oid — and
+     * Theme H's wired undo, which reads exactly those two fields, recreates a
+     * branch literally named `HEAD` at the wrong sha instead of restoring the
+     * one that was deleted. The generic label would also leave both the toast
+     * and the journal entry unable to say which branch went.
+     */
+    (args) => ({
+      label: `Deleted branch ${args.name}`,
+      refBefore: `refs/heads/${args.name}`,
+      headBefore: args.sha,
+      headAfter: null,
+    }),
   );
   const branchRename = useTargetedGitOp<{ from: string; to: string }>(
     target,
@@ -288,7 +305,9 @@ export function useRepoActions(
           danger: true,
           blastRadius: undefined,
           onConfirm: () =>
-            void branchDelete.mutateAsync({ name: ref.name, force: true }).then(report),
+            void branchDelete
+              .mutateAsync({ name: ref.name, force: true, sha: ref.sha })
+              .then(report),
         });
         void countBlastRadius(repo.id, { from: ref.fullName, movingRef: ref.fullName }).then(
           (radius) => dialogs.setBlastRadius(radius),
