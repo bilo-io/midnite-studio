@@ -696,6 +696,17 @@ export type UiState = {
   projectBoardByRepo: Record<string, string>;
   setProjectBoard: (repoId: string, projectId: string) => void;
   /**
+   * Table or board, per repo (Phase 41 Theme A).
+   *
+   * The board is a *mode* inside the Projects view, not a route — `ViewId`
+   * and `FORGE_GATED_VIEWS` change nothing — so this lives beside
+   * `projectBoardByRepo` rather than under `layout`, for the same reason:
+   * it is per-repo view state, not a pane size. A repo with no entry reads
+   * as `'table'`, the phase's existing default.
+   */
+  projectsMode: Record<string, 'table' | 'board'>;
+  setProjectsMode: (repoId: string, mode: 'table' | 'board') => void;
+  /**
    * Which skill each entry of the sidebar's midnite menu invokes.
    *
    * A setting rather than a constant because a skill is a *file in the user's
@@ -859,6 +870,7 @@ type PersistedUi = Pick<
   | 'metricsIdleIntervalMs'
   | 'forgeWritesEnabled'
   | 'projectBoardByRepo'
+  | 'projectsMode'
   | 'agentSkills'
   | 'primaryAgent'
   | 'repoGroups'
@@ -894,6 +906,7 @@ export const useUiStore = create<UiState>()(
       // Default off. A fresh install cannot change anything on GitHub.
       forgeWritesEnabled: false,
       projectBoardByRepo: {},
+      projectsMode: {},
       agentSkills: DEFAULT_AGENT_SKILLS,
       primaryAgent: 'claude',
       inactivityTimeoutS: 900,
@@ -1200,6 +1213,8 @@ export const useUiStore = create<UiState>()(
         set((state) => ({
           projectBoardByRepo: { ...state.projectBoardByRepo, [repoId]: projectId },
         })),
+      setProjectsMode: (repoId, mode) =>
+        set((state) => ({ projectsMode: { ...state.projectsMode, [repoId]: mode } })),
       setAgentSkill: (id, skill) =>
         set((state) => ({ agentSkills: { ...state.agentSkills, [id]: skill } })),
       setPrimaryAgent: (id) => set({ primaryAgent: id }),
@@ -1242,6 +1257,7 @@ export const useUiStore = create<UiState>()(
         metricsIdleIntervalMs: state.metricsIdleIntervalMs,
         forgeWritesEnabled: state.forgeWritesEnabled,
         projectBoardByRepo: state.projectBoardByRepo,
+        projectsMode: state.projectsMode,
         agentSkills: state.agentSkills,
         primaryAgent: state.primaryAgent,
         repoGroups: state.repoGroups,
@@ -1332,6 +1348,7 @@ export const useUiStore = create<UiState>()(
           loopSchedules: { ...current.loopSchedules, ...saved.loopSchedules },
           repoGroupMembership: { ...current.repoGroupMembership, ...saved.repoGroupMembership },
           projectBoardByRepo: { ...current.projectBoardByRepo, ...saved.projectBoardByRepo },
+          projectsMode: { ...current.projectsMode, ...saved.projectsMode },
         };
       },
     },
