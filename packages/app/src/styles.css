@@ -701,26 +701,39 @@ html[data-motion='reduced'] .breadcrumb-repo-pill {
  * `--fab-arc-from`/`--fab-arc-to` are `inherits: false`, so a plain
  * descendant combinator — not inheritance — is what has to carry the value
  * down to that nested button.
+ *
+ * And a third time against `::before` — the panel's own inner glow. Both
+ * properties are `inherits: false`, and a pseudo-element does not inherit a
+ * non-inherited registered property from its originating element, so
+ * without its own row the glow would resolve them to the registered initial
+ * values (`0deg`/`360deg`, a full ring) whatever tab is active. Naming the
+ * pseudo here is what lets its mask carry the same arc the border does.
+ * (`[data-fab-tab]` is also set on each loop's pane wrapper, which has no
+ * `::before` content, so the extra selector generates nothing there.)
  */
 [data-fab-tab='medic'],
+[data-fab-tab='medic']::before,
 [data-fab-tab='medic'] .loop-run-glow {
   --fab-arc-from: -90deg;
   --fab-arc-to: 90deg;
 }
 
 [data-fab-tab='watchdog'],
+[data-fab-tab='watchdog']::before,
 [data-fab-tab='watchdog'] .loop-run-glow {
   --fab-arc-from: -30deg;
   --fab-arc-to: 150deg;
 }
 
 [data-fab-tab='automate'],
+[data-fab-tab='automate']::before,
 [data-fab-tab='automate'] .loop-run-glow {
   --fab-arc-from: 30deg;
   --fab-arc-to: 210deg;
 }
 
 [data-fab-tab='innovate'],
+[data-fab-tab='innovate']::before,
 [data-fab-tab='innovate'] .loop-run-glow {
   --fab-arc-from: 90deg;
   --fab-arc-to: 270deg;
@@ -986,20 +999,34 @@ html[data-motion='reduced'] .breadcrumb-repo-pill {
  * percentage band would be nearly three times thicker top and bottom than it
  * is down the sides.
  *
- * **The arc layer is gone from this pseudo, and it was never doing anything.**
- * Theme C's `--fab-arc-from`/`--fab-arc-to` are registered `inherits: false`,
- * and a pseudo-element does not inherit a non-inherited registered property
- * from its originating element — so the `conic-gradient` that used to sit on
- * top of this mask resolved against the *initial* values (`0deg`/`360deg`, a
- * full untouched ramp) no matter which tab was active, and its `intersect`
- * was a no-op over an all-opaque layer. Confirmed against the running app:
- * `getComputedStyle(el, '::before').maskImage` reports `0deg`/`360deg` while
- * the host's own `--fab-arc-from` reads `90deg`. Keeping a dead layer around
- * to document an intention is worse than saying so here, and a full-spectrum
- * rim is what this change wants anyway. **Theme C is not lost**: the 2.5px
- * gradient border above lives on the host element, where those properties do
- * resolve, and it still narrows to the active tab's 180deg — so the tab still
- * colours the panel's edge, just through the ring rather than the wash.
+ * **The rim follows the ring.** The mask's first layer is the same arc the
+ * border wears — `conic-gradient` from `--fab-panel-angle`, transparent
+ * outside `[--fab-arc-from, --fab-arc-to]` with the 30deg fade at each edge —
+ * and `mask-composite: intersect` on it cuts the four-ramp union down to the
+ * active tab's 180deg. Where the ring is transparent the rim is too, so the
+ * glow reads as one lit half creeping round the inside of the panel with the
+ * border rather than a full wash sitting behind an arc.
+ *
+ * That layer existed once before and did nothing: Theme C's
+ * `--fab-arc-from`/`--fab-arc-to` are registered `inherits: false`, and a
+ * pseudo-element does not inherit a non-inherited registered property from
+ * its originating element, so the conic resolved against the *initial*
+ * values (`0deg`/`360deg`, a full ring) whatever tab was active and its
+ * `intersect` was a no-op over an all-opaque layer. The fix is not on this
+ * rule but in the tab table further up, where each `[data-fab-tab]` row now
+ * names `::before` alongside the host and the nested `.loop-run-glow` — the
+ * pseudo gets its own copy of the two angles, so the same `var()` that was
+ * dead now reads the active tab. The `transition` below is what keeps the
+ * two arcs sweeping together on a tab change: the host's 0.5s is on its own
+ * rule and would otherwise leave the rim snapping while the ring eased.
+ *
+ * Layer ORDER is load-bearing. Mask layers composite from the last (bottom)
+ * upward, each layer's own `mask-composite` describing how it lands on the
+ * result of everything below it — so the arc has to be FIRST with
+ * `intersect`, and the four ramps after it with `add`: the ramps union from
+ * the bottom up, then the arc intersects that union. Arc last with
+ * `intersect` on the ramp above it would cut only ONE ramp to the arc and
+ * union the other three back in whole.
  *
  * `z-index: 3` puts the rim *over* the panel's children, which is the second
  * half of the fix. At `z-index: 0` this painted before them, and the panel's
@@ -1061,6 +1088,15 @@ html[data-motion='reduced'] .breadcrumb-repo-pill {
   background-image: conic-gradient(from var(--fab-panel-angle, 0deg), var(--rainbow-ramp));
   filter: blur(20px);
   mask-image:
+    conic-gradient(
+      from var(--fab-panel-angle, 0deg),
+      transparent -400deg,
+      transparent calc(var(--fab-arc-from, 0deg) - 30deg),
+      #000 var(--fab-arc-from, 0deg),
+      #000 var(--fab-arc-to, 360deg),
+      transparent calc(var(--fab-arc-to, 360deg) + 30deg),
+      transparent 400deg
+    ),
     linear-gradient(
       to bottom,
       #000 0,
@@ -1086,6 +1122,15 @@ html[data-motion='reduced'] .breadcrumb-repo-pill {
       transparent var(--fab-glow-edge, 30px)
     );
   -webkit-mask-image:
+    conic-gradient(
+      from var(--fab-panel-angle, 0deg),
+      transparent -400deg,
+      transparent calc(var(--fab-arc-from, 0deg) - 30deg),
+      #000 var(--fab-arc-from, 0deg),
+      #000 var(--fab-arc-to, 360deg),
+      transparent calc(var(--fab-arc-to, 360deg) + 30deg),
+      transparent 400deg
+    ),
     linear-gradient(
       to bottom,
       #000 0,
@@ -1110,12 +1155,31 @@ html[data-motion='reduced'] .breadcrumb-repo-pill {
       rgba(0, 0, 0, 0.42) calc(var(--fab-glow-edge, 30px) * 0.42),
       transparent var(--fab-glow-edge, 30px)
     );
+  /*
+   * Arc ∩ (top ∪ bottom ∪ left ∪ right) — see the layer-order note above. One
+   * value per layer; the last is ignored (nothing sits below it) and is
+   * written out so the list reads against the five layers as declared.
+   *
+   * No `-webkit-mask-composite` beside it, unlike the `-webkit-mask-image`
+   * twins above. Chromium's prefixed composite is not an alias of the
+   * unprefixed one: it takes the legacy `source-in`/`source-over` keywords,
+   * and declared after this it REPLACES the list — the computed
+   * `maskComposite` came back as `source-in, source-over, …` with the last
+   * value wrapped round to `source-in`. Electron 33 is Chromium 130, which
+   * has shipped unprefixed `mask-composite` since 120.
+   */
+  mask-composite: intersect, add, add, add, add;
   /* The pulse's trough, and what reduced motion rests at once the keyframes
    * are gone (see `html[data-motion='reduced']` below). */
   opacity: 0.5;
   animation:
     fab-panel-spin 4s linear infinite,
     fab-glow-pulse 3.2s ease-in-out infinite;
+  /* The same 0.5s sweep the host's border runs, so the rim's arc and the
+   * ring's arc never show a different tab at the same moment. */
+  transition:
+    --fab-arc-from 0.5s ease,
+    --fab-arc-to 0.5s ease;
 }
 
 /*
@@ -1175,10 +1239,11 @@ html[data-motion='reduced'] .breadcrumb-repo-pill {
    * width — a still frame of it, since this state stops the pulse. What it
    * drops is only the arc layer: amber is a full ring here, not an arc of
    * one, exactly as the border's own `waiting` rule above drops its mask.
-   * With no arc to intersect there is nothing left to composite but the
-   * union, so the default `add` is what the four layers want and
-   * `mask-composite` goes unstated.
+   * With no arc to intersect, the composite list has to go back to a plain
+   * union too — the base rule's `intersect` is per-layer and would otherwise
+   * land on the first RAMP, cutting the top edge down to its two corners.
    */
+  mask-composite: add, add, add, add;
   mask-image:
     linear-gradient(to bottom, #000 0, rgba(0, 0, 0, 0.42) 12.6px, transparent 30px),
     linear-gradient(to top, #000 0, rgba(0, 0, 0, 0.42) 12.6px, transparent 30px),
@@ -1199,15 +1264,22 @@ html[data-motion='reduced'] .breadcrumb-repo-pill {
  * F's number), this pauses both the instant the OS takes focus elsewhere:
  * `animation-play-state: paused` freezes the current frame with no
  * recomputation, unlike `display: none` (which would also hide the glow) or
- * re-triggering the animation on return (which would jump). Scoped to this
- * phase's own new layer only — the pre-existing `.fab-panel-gradient`
- * rotation and `.loop-run-glow` elsewhere in the app are Phase 35's, and
- * changing their idle behaviour is out of this phase's scope.
+ * re-triggering the animation on return (which would jump).
+ *
+ * Phase 37 scoped this to its own new layer and left the host's Phase 35
+ * rotation running. That stopped being an option once the rim's mask took
+ * the ring's arc: the host and the pseudo each run their own
+ * `fab-panel-spin`, which agree only because they start on the same frame
+ * and tick at the same rate, and pausing one while the other ran on would
+ * leave the glow's arc some tens of degrees behind the border's after every
+ * blur. So both pause, and both resume, on the same attribute. (`.loop-run-glow`
+ * elsewhere in the app stays Phase 35's business.)
  *
  * `data-window-focused` is set by `FabPanel` itself (see fab-panel.tsx) only
  * while the panel is mounted, via the renderer's `window` focus/blur events
  * — there is no such thing as a window-focus media query.
  */
+html[data-window-focused='false'] .fab-panel-gradient,
 html[data-window-focused='false'] .fab-panel-gradient::before {
   animation-play-state: paused;
 }
