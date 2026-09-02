@@ -30,6 +30,7 @@ import { SETTINGS_PAGE_ICON, VIEW_ICON } from './nav-icons';
  * `nav-icons` map, so a view wears one icon everywhere.
  */
 const VIEW_LABELS: Record<ViewId, string> = {
+  landing: 'Home',
   dashboard: 'Dashboard',
   files: 'Explorer',
   search: 'Search',

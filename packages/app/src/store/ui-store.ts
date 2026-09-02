@@ -49,6 +49,15 @@ export type CommitFileView = 'tree' | 'list';
  * that ordering is written down.
  */
 export type ViewId =
+  /**
+   * The landing page, and the only view whose path is `/` rather than
+   * `/<id>` — it is the app's front door, not an entry in the rail. Nothing
+   * in `app.tsx`'s nav item lists names it, so it never renders a rail row;
+   * it is reached from the brand mark, the title bar wordmark and the
+   * palette. First in the union for the same reason `dashboard` is second:
+   * position here is the only place this ordering is written down.
+   */
+  | 'landing'
   | 'dashboard'
   | 'files'
   | 'search'
@@ -66,6 +75,7 @@ export type ViewId =
 
 /** Every view, in rail order — the domain of the per-view maps below. */
 export const VIEW_IDS: readonly ViewId[] = [
+  'landing',
   'dashboard',
   'files',
   'search',
@@ -1328,8 +1338,14 @@ export const useUiStore = create<UiState>()(
   ),
 );
 
-/** Route path for a view — AppFrame is router-agnostic and compares strings. */
-export const pathForView = (view: ViewId): string => `/${view}`;
+/**
+ * Route path for a view — AppFrame is router-agnostic and compares strings.
+ *
+ * `landing` is the one special case: it is the app's root, so it answers `/`
+ * rather than `/landing`. `viewForPath` is derived from this function, so the
+ * exception needs stating exactly once.
+ */
+export const pathForView = (view: ViewId): string => (view === 'landing' ? '/' : `/${view}`);
 
 /**
  * The inverse of `pathForView`, over `VIEW_IDS` rather than a chain of
