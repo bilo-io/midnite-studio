@@ -686,8 +686,19 @@ test.describe('FAB panel — the tab glow (Phase 37)', () => {
    * what "evenly along the edges" means in CSS and what a percentage band on a
    * 320x900 panel could not be — plus a positive z-index and the `isolation`
    * on the host that keeps it local.
+   *
+   * And, since the rim took the ring's arc, a fifth layer AHEAD of those four:
+   * the same conic arc the border wears, intersected with the ramps' union.
+   * Two things about it are asserted because both were once silently wrong.
+   * The arc has to resolve to the ACTIVE tab's angles on the pseudo itself —
+   * `--fab-arc-from`/`--fab-arc-to` are `inherits: false`, and an earlier
+   * version of this layer read the registered initial `0deg`/`360deg` (a full
+   * ring, so the intersect masked nothing) because nothing set them on
+   * `::before`. And the composite list has to put `intersect` on the arc and
+   * `add` on the ramps, in that order: mask layers composite bottom-up, so the
+   * arc last would cut one ramp to the arc and union the other three back in.
    */
-  test('the inner glow is a four-sided rim of equal width, painted over the pane', async ({
+  test('the inner glow is a four-sided rim of equal width, cut to the tab arc, over the pane', async ({
     page,
   }) => {
     await open(page);
@@ -697,34 +708,86 @@ test.describe('FAB panel — the tab glow (Phase 37)', () => {
       const before = getComputedStyle(el, '::before');
       return {
         mask: before.maskImage,
+        composite: before.maskComposite,
+        arc: {
+          from: before.getPropertyValue('--fab-arc-from').trim(),
+          to: before.getPropertyValue('--fab-arc-to').trim(),
+        },
         zIndex: before.zIndex,
         isolation: getComputedStyle(el).isolation,
       };
     });
 
-    // One layer per side, and no fifth: the old arc layer is gone (a
-    // non-inherited registered property never reached the pseudo, so it
-    // masked nothing — see styles.css).
-    const layers = glow.mask.split(/\), (?=linear-gradient)/);
-    expect(layers).toHaveLength(4);
-    expect(glow.mask).not.toContain('conic-gradient');
+    // The arc, then one layer per side, and no sixth.
+    const layers = glow.mask.split(/\), (?=(?:linear|conic)-gradient)/);
+    expect(layers).toHaveLength(5);
+    expect(layers[0]).toContain('conic-gradient');
     expect(glow.mask).not.toContain('radial-gradient');
+
+    // The arc is the active tab's, resolved ON the pseudo — not the registered
+    // initial full ring.
+    expect(glow.arc).toEqual(ARCS['Ideate']);
+    expect(glow.composite).toBe('intersect, add, add, add, add');
 
     // `to bottom` computes to a bare `linear-gradient(...)`; the other three
     // keep their keyword. One per side, no side twice.
-    expect(layers[0]).not.toContain('to ');
-    expect(layers[1]).toContain('to top');
-    expect(layers[2]).toContain('to right');
-    expect(layers[3]).toContain('to left');
+    const ramps = layers.slice(1);
+    expect(ramps[0]).not.toContain('to ');
+    expect(ramps[1]).toContain('to top');
+    expect(ramps[2]).toContain('to right');
+    expect(ramps[3]).toContain('to left');
 
     // Every side fades out at the same length — the "evenly" of the ask.
-    const ends = layers.map((layer) => /rgba\(0, 0, 0, 0\)\s+([\d.]+)px/.exec(layer)?.[1]);
+    const ends = ramps.map((layer) => /rgba\(0, 0, 0, 0\)\s+([\d.]+)px/.exec(layer)?.[1]);
     expect(ends.every((end) => end !== undefined)).toBe(true);
     expect(new Set(ends).size).toBe(1);
 
     // In front of the children, in a stacking context of the panel's own.
     expect(Number(glow.zIndex)).toBeGreaterThan(0);
     expect(glow.isolation).toBe('isolate');
+  });
+
+  /**
+   * The rim's arc moves WITH the ring's. Switching tabs eases the host's two
+   * angles over 0.5s; the pseudo has its own copy of both (see the tab table
+   * in styles.css) and its own identical transition, so at the far end they
+   * agree again — and in the `waiting` state, where the ring goes full amber
+   * with no arc, the rim's composite list goes back to a plain union so the
+   * still frame is a full ring too rather than a top edge cut to its corners.
+   */
+  test('the rim sweeps to the new tab with the ring, and waiting unions the ramps again', async ({
+    page,
+  }) => {
+    await open(page);
+    await openFab(page, 'Medic');
+
+    const pseudoArc = () =>
+      gradient(page).evaluate((el) => {
+        const before = getComputedStyle(el, '::before');
+        return {
+          from: before.getPropertyValue('--fab-arc-from').trim(),
+          to: before.getPropertyValue('--fab-arc-to').trim(),
+        };
+      });
+
+    await expect.poll(pseudoArc).toEqual(ARCS['Medic']);
+    await page.getByRole('button', { name: 'Patrol', exact: true }).click();
+    await expect.poll(pseudoArc).toEqual(ARCS['Patrol']);
+    await expect.poll(() => arcOf(gradient(page))).toEqual(ARCS['Patrol']);
+
+    const composer = page.getByTestId('loop-composer-watchdog');
+    await composer.getByTestId('loop-start').click();
+    await expect(composer.getByTestId('loop-stop')).toBeVisible();
+    await expect(page.locator('.xterm-screen')).toHaveCount(1);
+    await emitActivity(page, 'waiting', 'pty-1');
+    await expect(gradient(page)).toHaveAttribute('data-loop-state', 'waiting');
+
+    const waiting = await gradient(page).evaluate((el) => {
+      const before = getComputedStyle(el, '::before');
+      return { mask: before.maskImage, composite: before.maskComposite };
+    });
+    expect(waiting.mask).not.toContain('conic-gradient');
+    expect(waiting.composite).toBe('add, add, add, add');
   });
 
   /*
@@ -789,6 +852,37 @@ test.describe('FAB panel — the tab glow (Phase 37)', () => {
 
     await page.evaluate(() => document.documentElement.removeAttribute('data-motion'));
     expect(await before()).toBe('fab-panel-spin, fab-glow-pulse');
+  });
+
+  /**
+   * Blur pauses the ring's rotation as well as the rim's. Each runs its own
+   * `fab-panel-spin`, and they agree only because they start on the same frame
+   * and tick at the same rate — pause one and not the other and the rim's arc
+   * would sit some tens of degrees behind the ring's after every blur.
+   */
+  test("data-window-focused='false' pauses the ring and the rim together", async ({ page }) => {
+    await open(page);
+    await openFab(page, 'Ideate');
+    // A play-state list is reported as declared, not expanded per animation:
+    // the pseudo's two animations under one `paused` read back as `paused`,
+    // so each value in the list is checked rather than the list's shape.
+    const states = () =>
+      gradient(page).evaluate((el) => ({
+        own: getComputedStyle(el).animationPlayState.split(', '),
+        before: getComputedStyle(el, '::before').animationPlayState.split(', '),
+      }));
+    const all = (want: string) => async () => {
+      const s = await states();
+      return [...s.own, ...s.before].every((v) => v === want);
+    };
+
+    expect(await all('running')()).toBe(true);
+
+    await page.evaluate(() => document.documentElement.setAttribute('data-window-focused', 'false'));
+    expect(await all('paused')()).toBe(true);
+
+    await page.evaluate(() => document.documentElement.removeAttribute('data-window-focused'));
+    expect(await all('running')()).toBe(true);
   });
 });
 

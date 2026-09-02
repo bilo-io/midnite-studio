@@ -21,6 +21,8 @@ const OUT_P37 = '../../docs/screenshots/p37-fab-tab-glow';
 const OUT_GLOW = '../../docs/screenshots/adhoc-fab-glow-edges';
 /** The ad hoc dim-and-thicken pass over that rim — before/after pairs. */
 const OUT_DIM = '../../docs/screenshots/adhoc-fab-glow-dim';
+/** The ad hoc pass that cut the rim to the ring's arc — before/after pairs. */
+const OUT_ARC = '../../docs/screenshots/adhoc-fab-glow-arc';
 
 test.skip(!process.env['MSTUDIO_SHOTS'], 'set MSTUDIO_SHOTS=1 to write screenshots');
 
@@ -239,4 +241,48 @@ for (const mode of ['light', 'dark'] as const) {
       await panel.screenshot({ path: `${OUT_DIM}/${mode}-idle-${variant}.png` });
     });
   }
+}
+
+/**
+ * Ad hoc — the rim cut to the ring's arc, before and after.
+ *
+ * "Before" is the pseudo's arc forced back to the registered initial full
+ * ring (`0deg`/`360deg`) — which is exactly what it resolved to before the tab
+ * table named `::before` — so the intersect masks nothing and the rim is the
+ * full wash that shipped in #32. Reduced motion again, so the ring and rim
+ * rest at the same angle in every frame and the pair differs only in the
+ * mask. One shot per tab in dark, one tab in light: it is the *relationship*
+ * to the ring that changed, and that is the same in every theme.
+ */
+const BEFORE_ARC_CSS = `
+  .fab-panel-gradient::before {
+    --fab-arc-from: 0deg !important;
+    --fab-arc-to: 360deg !important;
+  }
+`;
+
+for (const variant of ['before', 'after'] as const) {
+  test(`the rim cut to the tab arc, ${variant} (dark, per tab)`, async ({ page }) => {
+    await open(page);
+    await page.evaluate(() => document.documentElement.classList.add('dark'));
+    if (variant === 'before') await page.addStyleTag({ content: BEFORE_ARC_CSS });
+    await openFab(page);
+    await page.evaluate(() => document.documentElement.setAttribute('data-motion', 'reduced'));
+
+    const panel = page.locator('.fab-panel-gradient');
+    for (const tab of ['Ideate', 'Create', 'Patrol', 'Medic']) {
+      await page.getByRole('button', { name: tab, exact: true }).click();
+      await page.waitForTimeout(300);
+      await panel.screenshot({ path: `${OUT_ARC}/dark-${tab.toLowerCase()}-${variant}.png` });
+    }
+  });
+
+  test(`the rim cut to the tab arc, ${variant} (light)`, async ({ page }) => {
+    await open(page);
+    if (variant === 'before') await page.addStyleTag({ content: BEFORE_ARC_CSS });
+    await openFab(page, 'Ideate');
+    await page.evaluate(() => document.documentElement.setAttribute('data-motion', 'reduced'));
+    await page.waitForTimeout(300);
+    await page.locator('.fab-panel-gradient').screenshot({ path: `${OUT_ARC}/light-ideate-${variant}.png` });
+  });
 }
