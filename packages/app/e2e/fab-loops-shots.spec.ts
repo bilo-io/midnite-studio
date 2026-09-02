@@ -124,7 +124,7 @@ for (const mode of ['light', 'dark'] as const) {
     await openFab(page);
 
     const panel = page.locator('.fab-panel-gradient');
-    for (const tab of ['Ideate', 'Engineer', 'Patrol', 'Medic']) {
+    for (const tab of ['Ideate', 'Create', 'Patrol', 'Medic']) {
       await page.getByRole('button', { name: tab, exact: true }).click();
       await page.waitForTimeout(900);
       await panel.screenshot({ path: `${OUT_P37}/${mode}-${tab.toLowerCase()}.png` });
