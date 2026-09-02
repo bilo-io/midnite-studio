@@ -20,18 +20,20 @@ export const TerminalSessionKindSchema = z.enum(['shell', 'agent']);
 export type TerminalSessionKind = z.infer<typeof TerminalSessionKindSchema>;
 
 /**
- * Which surface owns a session's rendering (Phase 35).
+ * Which surface owns a session's rendering (Phase 35, Phase 41).
  *
  * `main` — the terminal panel and its session list, as ever. `fab` — a FAB
  * loop tab: rendered inside the FAB panel only, filtered OUT of the main
- * panel's stack and the session list entirely. One flat store still holds
- * both, so persistence (`terminals.json`), the broker's restart survival and
- * the activity pipeline all apply to a FAB session unchanged.
+ * panel's stack and the session list entirely. `kanban` — launched from a
+ * Projects board card (Phase 41): same filtering as `fab`, plus a `taskRef`
+ * binding it back to the card that started it. One flat store still holds
+ * all three, so persistence (`terminals.json`), the broker's restart
+ * survival and the activity pipeline all apply unchanged.
  *
  * Optional with `main` as the implied default, so every `terminals.json`
  * written before this field existed parses — and reads — exactly as before.
  */
-export const TerminalSurfaceSchema = z.enum(['main', 'fab']);
+export const TerminalSurfaceSchema = z.enum(['main', 'fab', 'kanban']);
 export type TerminalSurface = z.infer<typeof TerminalSurfaceSchema>;
 
 /**
@@ -361,6 +363,17 @@ export const TerminalSessionSchema = z
     asleep: z.boolean().optional(),
     /** Which surface renders this session. Absent means `main`. */
     surface: TerminalSurfaceSchema.optional(),
+    /**
+     * Binds a `'kanban'` session back to the ProjectV2 card that launched it
+     * (Phase 41), so a board reopened after a restart can re-attach a still
+     * running session to its card. Set only for `surface: 'kanban'` sessions;
+     * absent for every other surface.
+     *
+     * Must be listed in the object literal, not added via `.extend()` —
+     * `TerminalSessionSchema` closes with `.superRefine`, which returns a
+     * `ZodEffects` that cannot be extended.
+     */
+    taskRef: z.object({ projectId: z.string().min(1), itemId: z.string().min(1) }).optional(),
   })
   .superRefine(agentIdMatchesKind);
 export type TerminalSession = z.infer<typeof TerminalSessionSchema>;
