@@ -59,6 +59,10 @@ export type MockFixtures = {
   refs?: unknown[];
   /** What `stash.list` answers — the sidebar's Stashes section (Phase 22 Theme B). */
   stashes?: unknown[];
+  /** What `reflog.list` answers for HEAD — the History view's Reflog tab (Phase 22 Theme G). */
+  reflog?: unknown[];
+  /** Per-ref override for `reflog.list`, keyed exactly as the request's `ref` arrives — proves the ref selector actually re-requests rather than re-filtering one fixed list. */
+  reflogByRef?: Record<string, unknown[]>;
   /** Configured remotes, as `mstudio:remotes:list` returns them (forge pre-derived). */
   remotes?: unknown[];
   /**
@@ -1142,6 +1146,11 @@ export async function installMockBridge(page: Page, fixtures: MockFixtures): Pro
           opCalls.push({ op: 'stash.drop', args });
           return data.opResults?.['stash.drop'] ?? { ok: true as const };
         },
+      },
+      /** The History view's Reflog tab (Phase 22 Theme G) — a plain read, same shape as `stash.list`. */
+      reflog: {
+        list: async (req: { ref?: string }) =>
+          (req.ref ? data.reflogByRef?.[req.ref] : undefined) ?? data.reflog ?? [],
       },
       /*
         A fake pty that actually talks back.

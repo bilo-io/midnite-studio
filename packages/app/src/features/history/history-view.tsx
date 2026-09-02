@@ -12,9 +12,9 @@ import { ReflogList } from './reflog-list';
  * hide exactly that distinction, which is why they are two tabs rather than
  * one merged list.
  *
- * Journal opens first: Theme H is what this pass builds end to end (the
- * classifier, the recording, the two wired Undo actions), where the reflog
- * tab is presently a placeholder pending Theme G — see `reflog-list.tsx`.
+ * Journal opens first, matching the order the two themes landed in (H's
+ * journal, then G's reflog) — not a statement that one matters more than the
+ * other now that both are real.
  */
 type HistoryTab = 'journal' | 'reflog';
 

@@ -24,6 +24,7 @@ import type {
   ForgeWorkflowsResult,
   ForgeWriteResult,
   Ref,
+  ReflogEntry,
   Remote,
   RepoDescriptor,
   RepoStats,
@@ -71,6 +72,14 @@ export const keys = {
    * branch write invalidates `refs`.
    */
   stashes: (repoId: string) => ['repos', repoId, 'stashes'] as const,
+  /**
+   * A repo's reflog for one ref (Phase 22 Theme G), keyed by `ref` so
+   * switching the History view's ref selector doesn't share a cache entry
+   * across branches. Under the `repos/<id>` prefix like `stashes` — `.git/logs`
+   * rides the `'refs'` `WatchKind` (`repo-watcher.ts`), so any write that
+   * touches a ref refreshes this the same way it already refreshes `refs`.
+   */
+  reflog: (repoId: string, ref: string) => ['repos', repoId, 'reflog', ref] as const,
   /**
    * A repo's configured remotes.
    *
@@ -335,6 +344,15 @@ export function useStashes(repoId: string | null, worktreePath?: string) {
     queryKey: keys.stashes(repoId ?? ''),
     queryFn: async () =>
       repoId ? ((await bridge()?.stash.list({ repoId, worktreePath })) ?? []) : [],
+    enabled: repoId !== null,
+  });
+}
+
+/** A repo's reflog for one ref (Phase 22 Theme G) — `ref` absent means HEAD. */
+export function useReflog(repoId: string | null, ref?: string, worktreePath?: string) {
+  return useQuery<ReflogEntry[]>({
+    queryKey: keys.reflog(repoId ?? '', ref ?? 'HEAD'),
+    queryFn: async () => (repoId ? ((await bridge()?.reflog.list({ repoId, ref, worktreePath })) ?? []) : []),
     enabled: repoId !== null,
   });
 }

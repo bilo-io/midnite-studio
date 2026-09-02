@@ -62,6 +62,11 @@ export function invalidateForWatchKind(
       // invalidates the sidebar's stash list for free, the same way a branch
       // write invalidates `refs` above.
       void client.invalidateQueries({ queryKey: keys.stashes(repoId) });
+      // `.git/logs` rides this same `'refs'` kind (Phase 22 Theme G) — every
+      // ref-keyed reflog cache entry, not just whichever ref the History view
+      // currently has selected, since TanStack Query's default prefix match
+      // catches all of `keys.reflog(repoId, <any ref>)` from this shorter key.
+      void client.invalidateQueries({ queryKey: [...keys.repo(repoId), 'reflog'] });
       // Statistics are an `--all` traversal, so every figure in the dashboard
       // depends on the ref set: a commit or a fetch changes the contributor
       // table and the calendar. Main's own cache is keyed on a digest of the
