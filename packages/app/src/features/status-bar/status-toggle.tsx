@@ -73,21 +73,27 @@ export function StatusToggle({
         onBlur={() => setHovered(false)}
         aria-label={ariaLabel}
         aria-pressed={active}
-        className={`rounded px-1.5 transition-colors hover:bg-accent hover:text-foreground ${
+        /*
+          The state decision is published as an ATTRIBUTE and resolved in CSS,
+          not applied here as `hidden`.
+
+          `hidden` was the first attempt and it broke the overflow popover.
+          `overflow-popover.tsx`'s own comment states the contract: its panel
+          portals into `document.body`, outside the `<footer data-density>` the
+          `.status-label` rule matches against, "so a segment's label comes back
+          automatically — no override needed". A JS `hidden` travels with the
+          element into the portal, so at `collapsed` density the popover would
+          have listed five unlabelled 14px glyphs and their chords — the one
+          surface where the name is the only affordance. Scoping the rule under
+          `[data-density]` in `styles.css` keeps the portal exemption intact.
+        */
+        data-named={named ? 'true' : 'false'}
+        className={`status-toggle rounded px-1.5 transition-colors hover:bg-accent hover:text-foreground ${
           active ? 'bg-accent text-foreground' : ''
         }`}
       >
         <Icon aria-hidden className={`mr-1 inline h-3.5 w-3.5 align-[-2px] ${iconClassName}`} />
-        {/*
-          `hidden` rather than a conditional render: the element stays in the
-          tree, so `.status-label`'s density rule and this state rule are
-          independent gates on one node instead of two mechanisms racing to
-          own the same text. A plain `<span>` carries no display utility, so
-          the UA's `[hidden] { display: none }` is not overridden.
-        */}
-        <span className="status-label" hidden={!named}>
-          {name}
-        </span>
+        <span className="status-label">{name}</span>
         <span className="status-chord ml-1.5 opacity-70">{chord}</span>
       </button>
     </Tooltip>

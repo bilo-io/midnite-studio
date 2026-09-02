@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 
-import { showsChordAt, showsName, showsNameAt } from './status-toggle-label';
+import { showsName, showsNameAt } from './status-toggle-label';
 
 describe('showsName', () => {
   it('is false at rest — the chord is what you read', () => {
@@ -36,13 +36,5 @@ describe('showsNameAt', () => {
   it('defers to state at full density', () => {
     expect(showsNameAt({ active: false, hovered: false }, 'full')).toBe(false);
     expect(showsNameAt({ active: true, hovered: false }, 'full')).toBe(true);
-  });
-});
-
-describe('showsChordAt', () => {
-  it('is state-independent: shown at full, hidden below it', () => {
-    expect(showsChordAt('full')).toBe(true);
-    expect(showsChordAt('compact')).toBe(false);
-    expect(showsChordAt('collapsed')).toBe(false);
   });
 });

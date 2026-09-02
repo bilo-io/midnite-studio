@@ -1,14 +1,13 @@
 import { DEFAULT_LOOPS } from '@midnite/studio-shared';
-import { useState } from 'react';
+import { useLayoutEffect, useRef, useState, type Ref } from 'react';
 
+import { BrandMark } from '../../components/brand';
 import { Tooltip } from '../../components/tooltip';
 import { useWindowFocused } from '../../lib/use-window-focus';
 import { useUiStore, type FabTab } from '../../store/ui-store';
 import { loopGlowColor, LOOP_WAITING_COLOR } from '../loops/loop-glow';
 import { loopIcon } from '../loops/loop-icons';
 import { useAllLoopStatuses, type LoopStatus } from '../loops/loop-status';
-
-import { BrandMark } from '../../components/brand';
 
 const LOOP_IDS = DEFAULT_LOOPS.map((loop) => loop.id);
 
@@ -42,7 +41,9 @@ export function FabLaunchers() {
   const statuses = useAllLoopStatuses(LOOP_IDS);
   const fabPanelOpen = useUiStore((s) => s.fabPanelOpen);
   const activeFabTab = useUiStore((s) => s.activeFabTab);
-  const [hovered, setHovered] = useState(false);
+  const [reached, setReached] = useState(false);
+  const [claimFocus, setClaimFocus] = useState(false);
+  const firstLauncher = useRef<HTMLButtonElement | null>(null);
 
   const anyLive = statuses.some((status) => status.running);
   /*
@@ -54,8 +55,8 @@ export function FabLaunchers() {
   */
   const pulsing = useWindowFocused();
   /*
-    At rest the strip is a single glyph, expanding to four on hover, focus, or
-    the moment any loop goes live.
+    At rest the strip is a single glyph, expanding on hover/focus, while any
+    loop is live, or while the FAB panel is open.
 
     `FabLoopDots` renders nothing at all when nothing is running, on the
     argument that the FAB is a button people press fifty times a day and should
@@ -63,26 +64,58 @@ export function FabLaunchers() {
     you start* a loop, so hiding them until one runs is circular. Collapsing
     instead of hiding keeps the resting bar quiet — one glyph, not four — while
     leaving the affordance reachable.
-  */
-  const expanded = anyLive || hovered;
 
-  const handlers = {
-    onPointerEnter: () => setHovered(true),
-    onPointerLeave: () => setHovered(false),
-    onFocusCapture: () => setHovered(true),
-    onBlurCapture: () => setHovered(false),
+    **`fabPanelOpen` belongs in this expression, not just `anyLive`.** Theme F
+    needs open-and-idle, running-and-unopened and both-at-once to be three
+    distinguishable states; without it the first of those three collapsed the
+    strip, so the `is-open` outline existed in CSS and could never be seen.
+  */
+  const expanded = anyLive || fabPanelOpen || reached;
+
+  /*
+    Expanding swaps the collapsed button for four launchers, which UNMOUNTS the
+    element that was just focused: focus falls to `document.body`, the next Tab
+    restarts from the top of the document, and — because Chromium fires no
+    `blur` for a removed node — `reached` would stay stuck true with no pointer
+    having gone near it. So a keyboard arrival hands focus forward to the first
+    launcher the expansion revealed.
+  */
+  useLayoutEffect(() => {
+    if (!claimFocus || !expanded) return;
+    firstLauncher.current?.focus();
+    setClaimFocus(false);
+  }, [claimFocus, expanded]);
+
+  const strip = {
+    onPointerEnter: () => setReached(true),
+    onPointerLeave: () => setReached(false),
+    onFocusCapture: () => setReached(true),
+    onBlurCapture: () => setReached(false),
   };
 
   if (!expanded) {
     return (
-      <div data-testid="fab-launchers" data-expanded="false" {...handlers}>
+      <div data-testid="fab-launchers" data-expanded="false" {...strip}>
         <Tooltip label="Agent loops — Innovate, Automate, Watchdog, Medic" side="top">
           <button
             type="button"
             data-testid="fab-launchers-collapsed"
             aria-label="Agent loop launchers"
+            /*
+              `aria-expanded` is honest because activating this button expands
+              the strip and does nothing else. It used to call `openFabTab`,
+              which was wrong three ways: unreachable by mouse (`pointerenter`
+              fires first and unmounts this button before the click can land),
+              unreachable by keyboard (focus is handed forward, above), and
+              unable to un-press the way `LoopLauncher` does — clicking it with
+              the FAB already open on `activeFabTab` was a silent no-op.
+            */
             aria-expanded={false}
-            onClick={() => useUiStore.getState().openFabTab(activeFabTab)}
+            aria-controls="fab-launcher-strip"
+            onClick={() => {
+              setReached(true);
+              setClaimFocus(true);
+            }}
             className="flex items-center rounded px-1 opacity-45 transition-opacity hover:opacity-100"
           >
             <BrandMark className="h-3.5 w-3.5" />
@@ -94,14 +127,16 @@ export function FabLaunchers() {
 
   return (
     <div
+      id="fab-launcher-strip"
       data-testid="fab-launchers"
       data-expanded="true"
       className="flex items-center gap-1"
-      {...handlers}
+      {...strip}
     >
       {DEFAULT_LOOPS.map((loop, index) => (
         <LoopLauncher
           key={loop.id}
+          buttonRef={index === 0 ? firstLauncher : undefined}
           loopId={loop.id}
           label={loop.label}
           Icon={loopIcon(loop.icon)}
@@ -115,6 +150,8 @@ export function FabLaunchers() {
 }
 
 type LoopLauncherProps = {
+  /** Set on the first launcher only, so a keyboard arrival has somewhere to go. */
+  buttonRef?: Ref<HTMLButtonElement>;
   loopId: string;
   label: string;
   Icon: ReturnType<typeof loopIcon>;
@@ -124,7 +161,15 @@ type LoopLauncherProps = {
   pulsing: boolean;
 };
 
-function LoopLauncher({ loopId, label, Icon, status, open, pulsing }: LoopLauncherProps) {
+function LoopLauncher({
+  buttonRef,
+  loopId,
+  label,
+  Icon,
+  status,
+  open,
+  pulsing,
+}: LoopLauncherProps) {
   const running = status?.running ?? false;
   const waiting = status?.waiting ?? false;
   const color = waiting ? LOOP_WAITING_COLOR : loopGlowColor(loopId);
@@ -132,8 +177,12 @@ function LoopLauncher({ loopId, label, Icon, status, open, pulsing }: LoopLaunch
   const state = waiting ? 'waiting' : running ? 'running' : 'idle';
 
   return (
-    <Tooltip label={`${label}${running ? (waiting ? ' — waiting on you' : ' — running') : ''}`} side="top">
+    <Tooltip
+      label={`${label}${running ? (waiting ? ' — waiting on you' : ' — running') : ''}`}
+      side="top"
+    >
       <button
+        ref={buttonRef}
         type="button"
         data-testid={`loop-launcher-${loopId}`}
         data-loop-state={state}

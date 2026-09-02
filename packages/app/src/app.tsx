@@ -736,20 +736,21 @@ function Shell() {
   const chrome = (
     <>
       {/*
-        The one entry point a keyboard shortcut nobody has been told about
-        does not provide. Leads the cluster rather than sitting inside it:
-        opening the palette is not a repo action or a preference, it is the
-        way into every other action.
-      */}
-      {/*
-        The command palette and Go-to-File used to sit here as well as in the
-        status bar's shortcut rail. Phase 39 Theme C moved them to the rail
-        only, on the argument `status-bar.tsx`'s header comment already makes
-        about git status: two readings of the same thing, one at each edge of
-        the window, is one more place to disagree and no more information. The
+        The command palette and Go-to-File used to lead this cluster, as well as
+        sitting in the status bar's shortcut rail. Phase 39 Theme C moved them to
+        the rail only, on the argument `status-bar.tsx`'s header comment already
+        makes about git status: two readings of the same thing, one at each edge
+        of the window, is one more place to disagree and no more information. The
         rail is where this app teaches its own chords.
+
+        Their trailing hairline went with them. `chrome` is rendered whole as the
+        right cluster in both the frameless and the native-frame path, so a
+        separator left at the head of it had nothing on its left — a 1px rule
+        floating at the start of the cluster. Theme B's whole premise is that a
+        separator must never be stranded; leaving one in the title bar while
+        building the mechanism for the status bar would have been the same bug in
+        the other half of the window.
       */}
-      <span aria-hidden className="h-4 w-px shrink-0 bg-border" />
       <TitleBarStatus />
       {/*
         Install / Build / Test / Launch for whichever checkout is selected —

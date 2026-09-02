@@ -21,7 +21,7 @@ Completed work is logged append-only in [`done.md`](done.md). Deferred scope liv
 
 | Phase | Status | Refined | Done | Progress | % | 🔄 WIP | ◻ TODO |
 |-------|--------|---------|------|----------|---|--------|--------|
-| [39 · One rail, five chords and four loops](phases/phase-39-status-bar-shortcut-rail.md) | 🔄 WIP | — | 48/64 | `████████░░` | 75% | — | G |
+| [39 · One rail, five chords and four loops](phases/phase-39-status-bar-shortcut-rail.md) | 🔄 WIP | — | 52/63 | `████████░░` | 83% | G | — |
 | [38 · Paying off the e2e suite](phases/phase-38-e2e-suite-repair.md) | ◻ TODO | — | 0/56 | `░░░░░░░░░░` | 0% | — | A B C D E F G H I |
 | [37 · A glow that knows which tab](phases/phase-37-fab-tab-glow.md) | 🔄 WIP | — | 0/44 | `░░░░░░░░░░` | 0% | A B C D E F | — |
 | [36 · Faster, lighter, same app](phases/phase-36-performance-diet.md) | 🔄 WIP | x1 | 58/64 | `█████████░` | 91% | — | G (human passes) |
@@ -84,7 +84,7 @@ tab; G is reduced motion and the numbers.*
 - ✅ **D** — Diagnostics moves left into its own `health` group; its popover flips `align="end"` → `"start"`. (PR #7)
 - ✅ **E** — Four launchers from `DEFAULT_LOOPS`, colours via a new renderer-side `loop-glow.ts`, click → `openFabTab`. At rest the strip collapses to one glyph. (PR #7)
 - ✅ **F** — Two channels, not one: coloured glow + slow pulse = *running* (amber when waiting); a ring = *this tab is open*. Inverts the seed deliberately. Pulse gated on window focus rather than shipped unmeasured. (PR #7)
-- ◻ **G** — Reduced motion asserted through the cascade, density×state shots, and a blurred idle-CPU number for an always-mounted pulse.
+- ◐ **G** — Reduced motion asserted through the cascade — landed early (PR #7), because the self-review found the rule could not fire: `html[data-motion='reduced'] .loop-launcher` (0,2,1) loses to `.loop-launcher.is-running.is-pulsing` (0,3,0), and shell's `!important` duration was masking it. Still open: the density×state shots, the `collapsed` end-to-end assertion, `app:perf`, and the blurred idle-CPU number.
 ### [Phase 38 — Paying off the e2e suite](phases/phase-38-e2e-suite-repair.md)
 
 *45 of 442 Playwright specs were failing when the suite finally got a CI job, across 17 of 58

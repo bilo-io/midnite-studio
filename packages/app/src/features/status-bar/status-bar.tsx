@@ -81,21 +81,49 @@ type CollapseResult = { visible: StatusSegment[]; collapsed: StatusSegment[] };
  *   observer watches `childList` on the three zone elements only, and its
  *   callback is a handful of array reads over at most ten nodes.
  */
-function prune(el: HTMLElement): void {
+/** Returns whether anything actually changed, so a re-measure can be conditional. */
+function prune(el: HTMLElement): boolean {
   const children = Array.from(el.children);
   const kinds: RenderedKind[] = children.map((child) =>
     child.hasAttribute('data-status-sep') ? 'separator' : 'segment',
   );
   const hidden = strandedSeparators(kinds);
+  let changed = false;
   children.forEach((child, i) => {
     if (kinds[i] !== 'separator') return;
-    (child as HTMLElement).hidden = hidden.has(i);
+    const next = hidden.has(i);
+    if ((child as HTMLElement).hidden === next) return;
+    (child as HTMLElement).hidden = next;
+    changed = true;
   });
+  return changed;
 }
 
 type ZoneRef = RefObject<HTMLDivElement | null>;
 
-function useSeparatorPruning(left: ZoneRef, center: ZoneRef, right: ZoneRef): void {
+/**
+ * `onChange` fires whenever a prune actually changed the DOM — `useOverflow`'s
+ * cue to measure again.
+ *
+ * Hiding a separator removes a 1px rule *and* its 12px `gap-3` slot from a zone,
+ * but does not change the `<footer>`'s own `clientWidth`, so the
+ * `ResizeObserver` watching that footer never fires. Without this the density
+ * decision would be made against a width that included separators the very next
+ * effect removed — and `lastWidths` would cache it.
+ *
+ * A callback rather than a revision counter this component renders on: a
+ * counter meant `setState` inside a dependency-free layout effect, which eslint
+ * correctly flags as an infinite-update hazard and which cost an extra render
+ * per prune. It is passed as a ref so this hook can be called *before*
+ * `useOverflow` — which is what guarantees its layout effect runs first — while
+ * still reaching a function `useOverflow` has not returned yet.
+ */
+function useSeparatorPruning(
+  left: ZoneRef,
+  center: ZoneRef,
+  right: ZoneRef,
+  onChange: RefObject<() => void>,
+): void {
   // Refs are stable for the component's life, so this array is safe to rebuild
   // per render and safe to read from an effect with an empty dependency list.
   const live = (): HTMLDivElement[] =>
@@ -105,14 +133,18 @@ function useSeparatorPruning(left: ZoneRef, center: ZoneRef, right: ZoneRef): vo
 
   // Every render — no dependency array on purpose.
   useLayoutEffect(() => {
-    for (const el of live()) prune(el);
+    let changed = false;
+    for (const el of live()) changed = prune(el) || changed;
+    if (changed) onChange.current();
   });
 
   // Once — the observers outlive individual renders.
   useEffect(() => {
     if (typeof MutationObserver === 'undefined') return;
     const observers = live().map((el) => {
-      const observer = new MutationObserver(() => prune(el));
+      const observer = new MutationObserver(() => {
+        if (prune(el)) onChange.current();
+      });
       observer.observe(el, { childList: true });
       return observer;
     });
@@ -125,11 +157,24 @@ function useSeparatorPruning(left: ZoneRef, center: ZoneRef, right: ZoneRef): vo
 
 export function StatusBar() {
   const ref = useRef<HTMLElement | null>(null);
-  const density = useOverflow(ref);
   const leftRef = useRef<HTMLDivElement | null>(null);
   const centerRef = useRef<HTMLDivElement | null>(null);
   const rightRef = useRef<HTMLDivElement | null>(null);
-  useSeparatorPruning(leftRef, centerRef, rightRef);
+  /*
+    Pruning is called BEFORE `useOverflow`, so its layout effect is registered
+    first and therefore runs first: the very first `measure()` reads a
+    `scrollWidth` with the stranded separators already gone. Ordering alone is
+    not enough afterwards — a segment can flip from `null` to visible long after
+    mount (diagnostics, once trust is granted) — so a prune that changes anything
+    asks for a re-measure through this ref. On mount that call lands before
+    `useOverflow` has installed its own `measure`, and is a deliberate no-op:
+    the hook's own first measurement follows immediately, against pruned DOM.
+  */
+  const remeasure = useRef<() => void>(() => {});
+  useSeparatorPruning(leftRef, centerRef, rightRef, remeasure);
+  const overflow = useOverflow(ref);
+  remeasure.current = overflow.remeasure;
+  const density = overflow.density;
 
   const byZone = Object.fromEntries(
     ZONES.map((zone) => [zone, collapseFor(zoneSegments(zone), density)]),

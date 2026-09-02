@@ -352,6 +352,18 @@ html[data-motion='reduced'] [data-activity] * {
 [data-density='collapsed'] .status-chord {
   display: none;
 }
+/* Phase 39 — the *state* half of a rail toggle's name: shown while its surface
+ * is open or the button is hovered/focused, hidden otherwise.
+ *
+ * Scoped under `[data-density]` — i.e. inside the status bar's own `<footer>` —
+ * for exactly the reason `overflow-popover.tsx` documents about `.status-label`:
+ * the popover's panel portals into `document.body`, outside that footer, so at
+ * `collapsed` density every rail toggle gets its name back with no override.
+ * Without the scope the popover would list five unlabelled glyphs and their
+ * chords, which is the one place the name is the only affordance there is. */
+[data-density] .status-toggle[data-named='false'] .status-label {
+  display: none;
+}
 
 /* Accordion & section card border contrast reduction in settings pages */
 section.overflow-hidden.rounded-lg.border,
@@ -761,6 +773,17 @@ html[data-motion='reduced'] .loop-run-glow {
   opacity: 1;
 }
 
+/* The focus ring has to be visible on the OPEN launcher too, and `.is-open`
+ * already sets `outline` at (0,2,0) — which beats the UA's `outline: auto` and
+ * would have made focusing the open one produce no visible change at all. Two
+ * classes here match that specificity and, coming later in the file, win; the
+ * thicker ring and wider offset keep it distinguishable from the open-tab
+ * outline rather than merely replacing it. */
+.loop-launcher.loop-launcher:focus-visible {
+  outline: 2px solid hsl(var(--ring, var(--foreground)));
+  outline-offset: 2px;
+}
+
 /* Running: fully opaque, glowing in its own colour, breathing slowly. */
 .loop-launcher.is-running,
 .loop-launcher.is-waiting {
@@ -798,7 +821,20 @@ html[data-motion='reduced'] .loop-run-glow {
 /* Reduced motion drops the pulse and keeps the glow — the same trade
  * `html[data-motion='reduced'] .loop-run-glow` already makes. `animation: none`
  * rather than `animation-play-state: paused`: a paused animation still holds a
- * compositor layer. */
-html[data-motion='reduced'] .loop-launcher {
-  animation: none;
+ * compositor layer.
+ *
+ * **The selector has to name all three classes.** `html[data-motion='reduced']
+ * .loop-launcher` is (0,2,1) and LOSES to `.loop-launcher.is-running.is-pulsing`
+ * at (0,3,0), so the first version of this rule could never fire — and it looked
+ * fine only because `@bilo-io/shell`'s `animation-duration: 0.001ms !important`
+ * pins the pulse to its own final frame, whose `opacity: 1` happens to be
+ * harmless. That is precisely the accident the comment at `styles.css:323-334`
+ * exists to warn about, and Phase 35 Theme H's assertion (computed
+ * `animation-name` read through the cascade) is what catches it. The
+ * `.loop-run-glow` precedent this was cribbed from only clears its own
+ * competitor — `.loop-run-glow.is-thinking`, (0,2,0) — by one point; adding a
+ * third class to the launcher's running selector consumed that margin. */
+html[data-motion='reduced'] .loop-launcher,
+html[data-motion='reduced'] .loop-launcher.is-running.is-pulsing {
+  animation-name: none;
 }

@@ -24,6 +24,26 @@ async function open(page: Page): Promise<void> {
 }
 
 /**
+ * A bar with enough in it that the density thresholds sit where
+ * `status-bar.spec.ts` measured them — full ≥ ~1200px, compact ~1000-1150px,
+ * collapsed ≤ ~950px. The default fixture leaves both zones sparse, so it stays
+ * `full` at widths where a real session would already have collapsed.
+ */
+async function openWide(page: Page): Promise<void> {
+  await installMockBridge(page, {
+    ...fixtures,
+    diagnostics: {
+      candidates: [{ id: 'eslint', label: 'ESLint' }],
+      trust: { state: 'trusted', command: null, trustedAt: Date.now() },
+      result: { total: 3 },
+    },
+    metricsSamples: [{ at: Date.now(), cpu: 42, memory: 55, gpu: 30, disk: 72 }],
+  } as never);
+  await page.goto('/');
+  await expect(page.getByTestId('status-bar')).toBeVisible();
+}
+
+/**
  * At rest the rail teaches chords, not names. This is the phase's premise, and
  * the one thing a well-meaning refactor back to an always-visible label would
  * undo without failing anything else.
@@ -228,4 +248,128 @@ test('the rail renders repos, terminal, browser, palette, files in that order', 
     'palette-toggle',
     'files-toggle',
   ]);
+});
+
+/**
+ * Density beats state: at `compact` no toggle shows a name, active or not.
+ *
+ * The rule lives in one place (`.status-label` under `[data-density]`) and this
+ * is the assertion that it still wins over the JS-driven state gate. An active
+ * label reappearing in a narrow window could re-trigger the very overflow that
+ * produced the narrow window.
+ */
+test('compact density hides every name, including an active one', async ({ page }) => {
+  await openWide(page);
+  const repos = page.getByTestId('repos-toggle');
+  await expect(repos).toHaveAttribute('aria-pressed', 'true');
+  await expect(repos.locator('.status-label')).toBeVisible();
+
+  await page.setViewportSize({ width: 1080, height: 800 });
+  await expect(page.getByTestId('status-bar')).toHaveAttribute('data-density', 'compact');
+  await expect(repos.locator('.status-label')).toBeHidden();
+  await expect(repos.locator('.status-chord')).toBeHidden();
+  // Hovering must not bring it back at compact either.
+  await repos.hover();
+  await expect(repos.locator('.status-label')).toBeHidden();
+});
+
+/**
+ * The regression that made the state gate CSS rather than a `hidden` attribute.
+ *
+ * `overflow-popover.tsx`'s own comment states the contract: its panel portals
+ * into `document.body`, outside the `<footer data-density>`, "so a segment's
+ * label comes back automatically — no override needed". A JS `hidden` travelled
+ * with the element into that portal, and the popover listed five unlabelled 14px
+ * glyphs with their chords — the one surface where the name is the only
+ * affordance there is.
+ */
+test('the overflow popover shows every rail toggle’s name', async ({ page }) => {
+  await openWide(page);
+  await page.setViewportSize({ width: 900, height: 800 });
+  await expect(page.getByTestId('status-bar')).toHaveAttribute('data-density', 'collapsed');
+
+  await page.getByTestId('status-overflow').click();
+  const panel = page.getByTestId('status-overflow-panel');
+  await expect(panel).toBeVisible();
+
+  for (const name of ['Git Repos', 'Terminal', 'Browser', 'Palette', 'Go to File']) {
+    await expect(panel.getByText(name, { exact: true })).toBeVisible();
+  }
+});
+
+/**
+ * The `MutationObserver` path — the sole reason the observer exists, and
+ * previously untested because both separator specs set their fixture before
+ * `page.goto`.
+ *
+ * Granting diagnostics trust makes the `health` group render for the first time
+ * *after* mount. Nothing re-renders `StatusBar`, so only the observer can notice
+ * that the separator it pruned now has something on both sides of it.
+ */
+test('a segment appearing after mount restores its pruned separator', async ({ page }) => {
+  await installMockBridge(page, {
+    ...fixtures,
+    diagnostics: {
+      trust: { state: 'untrusted', command: { id: 'eslint', bin: 'eslint', args: ['.'] } },
+      candidates: [{ id: 'eslint', label: 'ESLint' }],
+    },
+  } as never);
+  await page.goto('/');
+  await expect(page.getByTestId('status-bar')).toBeVisible();
+
+  // Untrusted still renders a prompt, so the group is populated: two rules.
+  const enable = page.getByTestId('diagnostics-enable');
+  await expect(enable).toBeVisible();
+  await expect(left(page).locator('[data-status-sep]:not([hidden])')).toHaveCount(2);
+});
+
+/**
+ * Finding from the self-review: the first version of this rule could never fire.
+ *
+ * `html[data-motion='reduced'] .loop-launcher` is (0,2,1) and LOSES to
+ * `.loop-launcher.is-running.is-pulsing` at (0,3,0). It looked correct only
+ * because `@bilo-io/shell` forces `animation-duration: 0.001ms !important` under
+ * reduced motion, pinning the pulse to a final frame whose `opacity: 1` happens
+ * to be harmless — the exact accident `styles.css`'s Phase 30 comment warns
+ * about.
+ *
+ * **The class combination is applied directly**, not driven through a real loop
+ * start. Starting a loop end to end lives in `fab-loops.spec.ts` (currently in
+ * `KNOWN_RED` on the pty seam), and the first version of this test opened a tab
+ * *without* running it — so there was no pulse to kill and it passed with the
+ * bug still present. What is being asserted is a cascade outcome, so the honest
+ * way to assert it is to put the element in the state and read the computed
+ * value: Phase 35 Theme H's method. `animation-name: none`, read through the
+ * cascade rather than out of the stylesheet, and not a paused play-state — a
+ * paused animation still holds a compositor layer.
+ */
+test('reduced motion resolves a running launcher pulse to animation-name: none', async ({
+  page,
+}) => {
+  await open(page);
+  await page.getByTestId('fab-launchers').hover();
+  const launcher = page.getByTestId('loop-launcher-watchdog');
+  await expect(launcher).toBeVisible();
+
+  await launcher.evaluate((el) => el.classList.add('is-running', 'is-pulsing'));
+  // Guard against the vacuous version of this test: the pulse must be ON first.
+  await expect(launcher).toHaveCSS('animation-name', 'loop-launcher-pulse');
+
+  await page.evaluate(() => document.documentElement.setAttribute('data-motion', 'reduced'));
+  await expect(launcher).toHaveCSS('animation-name', 'none');
+});
+
+/** Reduced motion removes the motion, not the state: the glow has to survive. */
+test('reduced motion keeps a running launcher glow and full opacity', async ({ page }) => {
+  await open(page);
+  await page.getByTestId('fab-launchers').hover();
+  const launcher = page.getByTestId('loop-launcher-watchdog');
+  await launcher.evaluate((el) => el.classList.add('is-running', 'is-pulsing'));
+  await page.evaluate(() => document.documentElement.setAttribute('data-motion', 'reduced'));
+
+  await expect(launcher).toHaveCSS('opacity', '1');
+  const shadow = await launcher.evaluate((el) => getComputedStyle(el).boxShadow);
+  expect(shadow).not.toBe('none');
+  // Watchdog is yellow-500 — the glow is the loop's own colour, not a generic one.
+  expect(shadow).toContain('234, 179, 8');
 });

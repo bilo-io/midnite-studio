@@ -55,15 +55,15 @@ export function showsNameAt(state: ToggleLabelState, density: Density): boolean 
   return density === 'full' && showsName(state);
 }
 
-/**
- * The chord hint is state-independent: always present at `full`, hidden at
- * `compact`/`collapsed`.
- *
- * Same visibility as the name's density half, expressed separately on purpose.
- * Before this phase the chord *borrowed* `.status-label`, which meant the two
- * could only ever be changed together — and they answer different questions.
- * The chord wears `.status-chord`, a sibling selector in the same CSS rule.
- */
-export function showsChordAt(density: Density): boolean {
-  return density === 'full';
-}
+/*
+  There is deliberately no `showsChord*` here.
+
+  Theme A asked for the chord's visibility to be "expressed through
+  `showsChord`", and the useful half of that — stopping it from BORROWING
+  `.status-label`, so a toggle's name and its keyboard shortcut can no longer be
+  changed together by accident — is done with the separate `.status-chord` class
+  in `styles.css`. The other half would have been a function nothing could call:
+  the chord is state-independent, so its only axis is density, and density
+  cannot reach JavaScript here (see above). An exported, tested predicate with no
+  call site reads as covered when it is not.
+*/

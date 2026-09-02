@@ -284,14 +284,14 @@ which put the glow on the active tab: the glow means *running*.
       `openFabTab` with the right id; running adds `is-running`; waiting adds `is-waiting` and
       *removes* the loop colour; the open tab adds `is-open`; running+open carries both.
 
-### G — Reduced motion, and proof (S)
+### G — Reduced motion, and proof (S) — ◐ PARTIAL (PR #7 took three items)
 
-- [ ] `html[data-motion='reduced'] .loop-launcher` resolves to a computed
+- [x] `html[data-motion='reduced'] .loop-launcher` resolves to a computed
       `animation-name: none` — **not** `animation-play-state: paused`. A paused animation still
       holds a compositor layer, and Phase 35 Theme H's assertion reads the computed value
       through the cascade rather than out of the stylesheet, precisely so a later `!important`
       elsewhere cannot silently defeat it. Reuse that test's shape.
-- [ ] Under reduced motion a running launcher keeps its full opacity and its coloured
+- [x] Under reduced motion a running launcher keeps its full opacity and its coloured
       `box-shadow` and loses only the pulse — the state stays legible, which is what reduced
       motion asks for and what `html[data-motion='reduced'] .loop-run-glow` already does.
 - [ ] Playwright shots of the left zone across the states that actually differ: `full`
@@ -309,7 +309,28 @@ which put the glow on the active tab: the glow means *running*.
       packaged-equivalent build with one loop running, and record it. This phase adds a
       permanently-running opacity animation to a surface that is always mounted — the one thing
       Phase 36 Theme E exists to catch.
-- [ ] `moon run :typecheck :lint :test` green.
+- [x] `moon run :typecheck :lint :test` green. (PR #7 — 2 743 tests)
+
+
+**Landed early, out of PR #7's self-review.** The first two items came forward because the
+review found that the rule they describe **could not fire**:
+`html[data-motion='reduced'] .loop-launcher` is (0,2,1) and loses to
+`.loop-launcher.is-running.is-pulsing` at (0,3,0). It *looked* right only because
+`@bilo-io/shell` forces `animation-duration: 0.001ms !important` under reduced motion, pinning
+the pulse to a final frame whose `opacity: 1` happens to be harmless — precisely the accident
+[`styles.css:323-334`](../../../packages/app/src/styles.css) already warns about, and the
+inverse of what this phase claimed ("so a later `!important` elsewhere cannot silently defeat
+it"). The `.loop-run-glow` precedent it was cribbed from clears its own competitor by one point;
+adding a third class to the running selector consumed that margin. Worth noting for whoever
+finishes this theme: **the first test written for it passed with the bug still present**, because
+it opened a launcher's tab without the loop running, so there was no pulse to kill. The assertion
+now applies the class combination directly and guards on `animation-name: loop-launcher-pulse`
+*before* switching reduced motion on.
+
+**Still open here:** the density×state screenshot matrix, the `collapsed`-state end-to-end
+assertion, `moon run app:perf`, and the blurred idle-CPU number. The last one now measures a
+**focus-gated** animation (decision 9), which is a different — and much cheaper — measurement
+than the one this theme was written against.
 
 ## Files this phase touches
 
@@ -369,7 +390,7 @@ the label rule was scoped to `full` only.
       glance without hovering.
 - [ ] Quit and relaunch with a loop persisted asleep: the launcher is at rest, not glowing.
       (Phase 35 Theme I's hydration is what makes this true; this only has to not break it.)
-- [ ] `html[data-motion='reduced']`: no pulse anywhere in the rail; running launchers still
+- [x] `html[data-motion='reduced']`: no pulse anywhere in the rail; running launchers still
       opaque and still coloured; computed `animation-name` is `none`.
 - [ ] Full keyboard pass: tab through the rail, every control reachable, focus visible, names
       revealed on focus, `aria-pressed` correct on all six toggles.
@@ -471,6 +492,42 @@ knowingly.
    Playwright's `getByRole({ name })` matches on substring by default — so the first spelling
    turned every spec reaching for that action into a strict-mode violation. Found by baselining
    `fab-loops.spec.ts` against `origin/main` rather than by reading the diff.
+
+13. **The name's state gate is a `[data-density]`-scoped CSS rule, not a `hidden` attribute**
+   (PR #7 self-review). `hidden` was the first implementation and it broke the overflow popover:
+   [`overflow-popover.tsx`](../../../packages/app/src/features/status-bar/overflow-popover.tsx)
+   states the contract in its own header — the panel portals into `document.body`, outside the
+   `<footer data-density>` the `.status-label` rule matches against, "so a segment's label comes
+   back automatically — no override needed". A JS attribute travels into the portal and density
+   does not, so at `collapsed` density the popover listed five unlabelled 14px glyphs and their
+   chords: the one surface where the name is the only affordance there is. The button publishes
+   `data-named` and a rule scoped under `[data-density]` resolves it, which keeps the portal
+   exemption exactly as documented.
+14. **The launcher strip expands on `fabPanelOpen`, not only on `anyLive`** (PR #7 self-review).
+   Theme F requires open-and-idle, running-and-unopened and both-at-once to be three
+   distinguishable states; with the strip collapsed whenever nothing was running, the first of
+   those three rendered no launchers at all — so `is-open` existed in CSS and could never be
+   seen. Two related consequences of the collapse behaviour are accepted rather than fixed:
+   Theme E's "four resting launchers … do not compete with the agent count" now describes the
+   *hovered* state, and the strip's expansion is not density-gated, so hovering it at `compact`
+   widens the left zone. The second is worth a look when Theme G runs its density matrix.
+15. **The collapsed glyph expands the strip and nothing else** (PR #7 self-review). It called
+   `openFabTab`, which was wrong three ways: unreachable by mouse — `pointerenter` fires first
+   and unmounts the button before the click lands; unreachable by keyboard — focus is handed
+   forward to the first launcher, because expanding swaps the button out and Chromium fires no
+   `blur` for a removed node, which dropped focus to `document.body` *and* left the strip stuck
+   expanded; and unable to un-press the way `LoopLauncher` does, so clicking it with the FAB
+   already open on `activeFabTab` was a silent no-op. `aria-expanded` is now honest and
+   `aria-controls` names the strip.
+16. **Pruning asks `useOverflow` to re-measure, through a callback rather than a revision
+   counter** (PR #7 self-review). Hiding a separator removes a 1px rule *and* its 12px `gap-3`
+   slot but does not change the footer's own `clientWidth`, so the `ResizeObserver` never fires
+   and `lastWidths` would cache a reading taken before the prune. `useSeparatorPruning` is
+   therefore called *before* `useOverflow` — layout effects run in call order, so the first
+   measurement already sees pruned DOM — and a later prune (diagnostics appearing once trust is
+   granted) calls `remeasure()`. A counter was the first attempt and meant `setState` inside a
+   dependency-free layout effect: an infinite-update hazard eslint correctly flags even though
+   `prune` is idempotent, plus an extra render per prune.
 
 ## Open questions
 
