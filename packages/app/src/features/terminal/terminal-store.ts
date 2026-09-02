@@ -733,6 +733,7 @@ function dropKey(
   | 'liveCwd'
   | 'liveAgentId'
   | 'foregroundCommand'
+  | 'legacy'
 > {
   const ptyIds = { ...state.ptyIds };
   const states = { ...state.states };
@@ -746,6 +747,7 @@ function dropKey(
   const liveCwd = { ...state.liveCwd };
   const liveAgentId = { ...state.liveAgentId };
   const foregroundCommand = { ...state.foregroundCommand };
+  const legacy = { ...state.legacy };
   delete ptyIds[sessionId];
   delete states[sessionId];
   delete exitCodes[sessionId];
@@ -758,6 +760,7 @@ function dropKey(
   delete liveCwd[sessionId];
   delete liveAgentId[sessionId];
   delete foregroundCommand[sessionId];
+  delete legacy[sessionId];
   return {
     ptyIds,
     states,
@@ -771,6 +774,7 @@ function dropKey(
     liveCwd,
     liveAgentId,
     foregroundCommand,
+    legacy,
   };
 }
 

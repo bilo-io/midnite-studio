@@ -7,6 +7,7 @@ export * from './ignore';
 export * from './list-files';
 export * from './log';
 export * from './rebase';
+export * from './reflog';
 export * from './refs';
 export * from './refs-ops';
 export * from './remotes';

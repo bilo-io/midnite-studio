@@ -462,6 +462,11 @@ export async function listIssues(
  */
 const workflowCache = new Map<string, { at: number; result: ForgeWorkflowsResult }>();
 const WORKFLOW_CACHE_MS = 5 * 60_000;
+// Bounded like its two LRU neighbours below (`runDetailCache`/`runLogCache`),
+// keyed on `remember`/`recall` — unlike them it also had a TTL, which reads
+// as staleness-only cleanup and hid that nothing ever removed an entry: a
+// session opening many distinct repos across a day grew this Map forever.
+export const WORKFLOW_CACHE_MAX = 50;
 
 export async function listWorkflows(forge: Forge): Promise<ForgeWorkflowsResult> {
   const cli = await ghStatus();
@@ -469,7 +474,10 @@ export async function listWorkflows(forge: Forge): Promise<ForgeWorkflowsResult>
 
   const key = `${forge.host}/${slug(forge)}`;
   const cached = workflowCache.get(key);
-  if (cached && Date.now() - cached.at < WORKFLOW_CACHE_MS) return cached.result;
+  if (cached && Date.now() - cached.at < WORKFLOW_CACHE_MS) {
+    remember(workflowCache, key, cached, WORKFLOW_CACHE_MAX); // bump LRU order on a hit
+    return cached.result;
+  }
 
   // `--limit` defaults to 50, and this listing exists solely to resolve
   // workflow ids to paths — an overflowing repo would have links that can never
@@ -484,7 +492,7 @@ export async function listWorkflows(forge: Forge): Promise<ForgeWorkflowsResult>
   }
 
   const result: ForgeWorkflowsResult = { cli, workflows: parseWorkflowList(payload), error: null };
-  workflowCache.set(key, { at: Date.now(), result });
+  remember(workflowCache, key, { at: Date.now(), result }, WORKFLOW_CACHE_MAX);
   return result;
 }
 
@@ -506,12 +514,12 @@ const RUN_CACHE_MAX = 20;
 const runDetailCache = new Map<string, ForgeRunDetail>();
 const runLogCache = new Map<string, ForgeRunLog>();
 
-function remember<T>(cache: Map<string, T>, key: string, value: T): T {
+function remember<T>(cache: Map<string, T>, key: string, value: T, max: number = RUN_CACHE_MAX): T {
   // Re-inserting moves the key to the end, which is what makes a plain Map an
   // LRU: `keys().next()` is then always the least recently touched.
   cache.delete(key);
   cache.set(key, value);
-  if (cache.size > RUN_CACHE_MAX) {
+  if (cache.size > max) {
     const oldest = cache.keys().next();
     if (!oldest.done) cache.delete(oldest.value);
   }

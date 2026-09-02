@@ -44,6 +44,9 @@ const { FakeWebContentsView, fakeSessions, makeFakeSession } = vi.hoisted(() => 
     isDestroyed(): boolean {
       return this.destroyed;
     }
+    removeAllListeners = vi.fn(() => {
+      this.handlers.clear();
+    });
     close = vi.fn(() => {
       this.destroyed = true;
     });
@@ -160,6 +163,20 @@ describe('browser-service lifecycle', () => {
 
     expect(win.contentView.removeChildView).toHaveBeenCalledWith(view);
     expect(view.webContents.close).toHaveBeenCalledTimes(1);
+  });
+
+  it('close drops every per-tab listener before closing the contents (Phase 45 Theme E)', () => {
+    const win = fakeWindow();
+    createBrowserTab(win, 'tab-1', 'https://example.com');
+    const view = (win.contentView.addChildView as ReturnType<typeof vi.fn>).mock
+      .calls[0]?.[0] as FakeView;
+
+    expect(view.webContents.handlers.size).toBeGreaterThan(0);
+
+    closeBrowserTab('tab-1');
+
+    expect(view.webContents.removeAllListeners).toHaveBeenCalledTimes(1);
+    expect(view.webContents.handlers.size).toBe(0);
   });
 
   it('closing a tab that was never created is a no-op', () => {

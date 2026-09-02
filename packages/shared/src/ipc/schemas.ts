@@ -43,6 +43,7 @@ import {
   METRICS_MIN_INTERVAL_MS,
   MetricSampleSchema,
   RefSchema,
+  ReflogEntrySchema,
   RemoteSchema,
   RebaseSequencePlanSchema,
   RepoDescriptorSchema,
@@ -879,9 +880,15 @@ export const PullRequest = OpBase.extend({
   rebase: z.boolean().default(false),
 });
 /**
- * No `force` field, deliberately. Force-push is out of scope for the MVP
- * (docs/INITIAL_PLAN.md → Risks); when it lands it will be `--force-with-lease`
- * behind blast-radius gating, as a distinct channel.
+ * No bare `force` field — Phase 22 Theme F's reversal of the MVP's original
+ * "no force-push" rule (docs/INITIAL_PLAN.md → Risks) stops well short of
+ * one. `forceWithLease` is the only escape hatch, and it is deliberately not
+ * a boolean: git's bare `--force-with-lease` leases against the LOCAL
+ * remote-tracking ref, which a background fetch can silently refresh into
+ * agreement with the remote — turning the safety net into a no-op. `ref` +
+ * `expect` forces the caller to have read that ref's sha at confirm time and
+ * pass it through explicitly, so the sha the blast-radius dialog showed is
+ * the sha the lease actually checks against.
  */
 export const PushRequest = OpBase.extend({
   remote: z.string().optional(),
@@ -890,6 +897,27 @@ export const PushRequest = OpBase.extend({
   setUpstream: z.boolean().default(false),
   /** Push the tag refspec too. */
   tags: z.boolean().default(false),
+  /**
+   * `--force-with-lease=<ref>:<expect>` — offered only from the ref badge
+   * menu, only after a plain push has already been rejected as non-fast-
+   * forward, and only behind the `Settings ▸ Git Safety` opt-in.
+   */
+  forceWithLease: z
+    .object({
+      /**
+       * The ref as named ON THE REMOTE — a local branch ref like
+       * `refs/heads/main`, matching what an ordinary push already sends as
+       * the refspec destination. **Not** `refs/remotes/origin/main`: that
+       * form names the LOCAL remote-tracking copy, which is not what git's
+       * `--force-with-lease=<ref>:<expect>` compares `expect` against. See
+       * `sync.ts`'s `push()` (the caller) and its integration tests, both of
+       * which use `refs/heads/<branch>`.
+       */
+      ref: z.string().min(1),
+      /** The sha that ref was at when the confirm dialog read it. */
+      expect: z.string().min(1),
+    })
+    .optional(),
 });
 
 /**
@@ -962,6 +990,15 @@ export const StashStoreRequest = OpBase.extend({
   sha: z.string().min(1),
   message: z.string().optional(),
 });
+
+// --- reflog ------------------------------------------------------------------
+
+export const ReflogListRequest = OpBase.extend({
+  /** Absent means `HEAD`. */
+  ref: z.string().optional(),
+  limit: z.number().int().positive().max(500).default(200),
+});
+export const ReflogListResponse = z.array(ReflogEntrySchema);
 
 // --- pty -------------------------------------------------------------------
 

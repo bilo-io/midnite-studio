@@ -1,7 +1,7 @@
 import type { Forge } from '@midnite/studio-shared';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
-import { clearForgeRunCache, forgetRun, runDetail, runLog } from './gh-cli';
+import { WORKFLOW_CACHE_MAX, clearForgeRunCache, forgetRun, listWorkflows, runDetail, runLog } from './gh-cli';
 
 /**
  * Main's run cache, and the one write that has to break it.
@@ -144,5 +144,39 @@ describe('the completed-run cache', () => {
     await runDetail(other, '9001');
 
     expect(runInShell).toHaveBeenCalledTimes(2);
+  });
+});
+
+/**
+ * `workflowCache` (Phase 45 Theme E): had a TTL but no cap, unlike its two
+ * LRU neighbours above — a session opening many distinct repos in one day
+ * grew it forever. Now bounded via the same `remember` LRU idiom.
+ */
+describe('the workflow cache', () => {
+  it('spawns once per forge within the TTL window', async () => {
+    runInShell.mockResolvedValue(jsonOk([]));
+
+    await listWorkflows(FORGE);
+    await listWorkflows(FORGE);
+
+    expect(runInShell).toHaveBeenCalledTimes(1);
+  });
+
+  it('evicts the least-recently-used entry once the cap is exceeded', async () => {
+    runInShell.mockResolvedValue(jsonOk([]));
+
+    // Fill the cache to its cap, one distinct forge per entry.
+    for (let i = 0; i < WORKFLOW_CACHE_MAX; i += 1) {
+      await listWorkflows({ ...FORGE, owner: `owner-${i}` });
+    }
+    expect(runInShell).toHaveBeenCalledTimes(WORKFLOW_CACHE_MAX);
+
+    // One more forge pushes the map past its cap — the very first entry
+    // (owner-0), untouched since, is the one that should fall out.
+    await listWorkflows({ ...FORGE, owner: 'owner-overflow' });
+    expect(runInShell).toHaveBeenCalledTimes(WORKFLOW_CACHE_MAX + 1);
+
+    await listWorkflows({ ...FORGE, owner: 'owner-0' });
+    expect(runInShell).toHaveBeenCalledTimes(WORKFLOW_CACHE_MAX + 2);
   });
 });

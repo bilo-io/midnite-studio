@@ -9,6 +9,7 @@ export * from './journal';
 export * from './metrics';
 export * from './rebase';
 export * from './ref';
+export * from './reflog';
 export * from './remote';
 export * from './repo';
 export * from './result';

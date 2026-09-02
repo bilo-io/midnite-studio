@@ -106,15 +106,16 @@ describe('useTerminalStore', () => {
   });
 
   /*
-    Written over the tuple rather than field by field, so one assertion covers
-    every runtime map — and the pre-check below makes it non-vacuous by proving
-    each map held something first.
-
-    It does NOT catch a map added to the store and forgotten in `dropKey`: this
-    list is hand-written and would be forgotten alongside it. Keeping the two in
-    step is still a review job.
+    Structural, not a hand-written field list (Phase 45 Theme E) — the
+    previous version of this test named the maps to check, which is exactly
+    the failure mode `dropKey` itself has: a Pick<> of twelve names that
+    quietly drifted to miss `legacy`, the thirteenth. This version derives
+    "which fields are per-session maps" from the state object itself, after
+    seeding: any top-level value that is a plain object carrying `a.id` as an
+    own key. A future fourteenth map only has to be SEEDED below to be
+    covered here — it never needs a second, parallel name added anywhere.
   */
-  it('leaves no runtime state behind in any map', () => {
+  it('leaves no runtime state behind in any per-session map', () => {
     const a = open('a');
     const store = useTerminalStore.getState();
     store.bindPty(a.id, 'pty-1');
@@ -123,41 +124,42 @@ describe('useTerminalStore', () => {
     store.setAutoName(a.id, 'building');
     store.setActivity(a.id, 'thinking');
     store.setLiveCwd(a.id, '/tmp/elsewhere');
+    store.setExitCode(a.id, 0);
     /*
-      `replay` is written only by `hydrate` and `errors` only by a failed
-      spawn; seeded directly so the tuple below is exercised in full rather
-      than proving teardown for whichever maps happen to be easy to fill.
+      `replay`/`errors`/`legacy` have no dedicated setter (written only by
+      `hydrate`, a failed spawn, or a restored legacy session respectively),
+      so they are seeded directly.
     */
     useTerminalStore.setState((state) => ({
       replay: { ...state.replay, [a.id]: new Uint8Array([1]) },
       errors: { ...state.errors, [a.id]: 'spawn failed' },
+      legacy: { ...state.legacy, [a.id]: true },
     }));
-    // A string rather than the tri-state's `null`, so the `!== undefined`
-    // assertions below mean what they say.
+    // A string rather than the tri-state's `null`, so the "still present"
+    // check below means what it says.
     useTerminalStore.getState().setLiveAgentId(a.id, 'codex');
     store.setForegroundCommand(a.id, 'pnpm dev');
 
-    const runtime = [
-      'ptyIds',
-      'states',
-      'replay',
-      'errors',
-      'pendingInput',
-      'autoNames',
-      'activity',
-      'liveCwd',
-      'liveAgentId',
-      'foregroundCommand',
-    ] as const;
-
-    // Every map genuinely held something first, or the assertion below is vacuous.
-    const before = useTerminalStore.getState();
-    expect(runtime.filter((key) => before[key][a.id] === undefined)).toEqual([]);
+    const before = useTerminalStore.getState() as unknown as Record<string, unknown>;
+    const perSessionKeys = Object.keys(before).filter((key) => {
+      const value = before[key];
+      return (
+        value !== null &&
+        typeof value === 'object' &&
+        !Array.isArray(value) &&
+        Object.prototype.hasOwnProperty.call(value, a.id)
+      );
+    });
+    // Non-vacuous: the seeding above must actually have produced some maps to check.
+    expect(perSessionKeys.length).toBeGreaterThan(0);
 
     useTerminalStore.getState().closeSession(a.id);
 
-    const after = useTerminalStore.getState();
-    expect(runtime.filter((key) => after[key][a.id] !== undefined)).toEqual([]);
+    const after = useTerminalStore.getState() as unknown as Record<string, Record<string, unknown>>;
+    const stillPresent = perSessionKeys.filter((key) =>
+      Object.prototype.hasOwnProperty.call(after[key], a.id),
+    );
+    expect(stillPresent).toEqual([]);
   });
 
   it('applies a new order', () => {

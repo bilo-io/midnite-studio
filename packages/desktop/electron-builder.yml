@@ -29,6 +29,13 @@ extraResources:
   # (see src/main/window.ts). Static assets, so no reason to put them in the asar.
   - from: ../app/dist
     to: renderer
+  # The onboarding kit (Phase 49 Theme A) — a root-level tree, not under any
+  # package, so it needs its own entry here or a packaged build has no
+  # `templates/` at all. Read off `process.resourcesPath` in production; the
+  # repo root in dev. See `main/template-path.ts` for the one helper that
+  # owns the branch.
+  - from: ../../templates
+    to: templates
 
 asar: true
 asarUnpack:

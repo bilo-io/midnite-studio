@@ -15,7 +15,7 @@ vi.mock('./council-service', () => ({
 }));
 
 import { getCouncil, getRun, saveRun } from './council-service';
-import { retryMember, skipMember, startRun } from './council-runner';
+import { retryMember, runLocksSizeForTests, skipMember, startRun } from './council-runner';
 import { createPty, killPty, offPty, onPty } from './pty-service';
 import { listAgents } from './terminal-service';
 
@@ -153,6 +153,26 @@ describe('skipMember', () => {
 
     const second = await skipMember(result.value.id, 'm-agy');
     expect(second.ok).toBe(false);
+  });
+});
+
+describe('runLocks (Phase 45 Theme E)', () => {
+  it('leaves no lock behind once a run reaches a terminal state', async () => {
+    const result = await startRun('c1', 'topic');
+    if (!result.ok) throw new Error('expected ok');
+    await flush();
+
+    const ptyIds = [...listeners.keys()];
+    exit(ptyIds[0]!, 0);
+    exit(ptyIds[1]!, 1);
+    await flush();
+
+    const synthPtyId = [...listeners.keys()].find((id) => !ptyIds.includes(id))!;
+    exit(synthPtyId, 0);
+    await flush();
+
+    expect(store[result.value.id]!.status).toBe('completed');
+    expect(runLocksSizeForTests()).toBe(0);
   });
 });
 

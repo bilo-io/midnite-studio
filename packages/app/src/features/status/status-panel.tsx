@@ -2,7 +2,7 @@ import { useEffect, useMemo, useRef, useState } from 'react';
 
 import type { StatusEntry } from '@midnite/studio-shared';
 
-import { LuList, LuListTree, LuMinus, LuPlus, LuUndo2 } from 'react-icons/lu';
+import { LuList, LuListTree, LuMinus, LuPackage, LuPlus, LuUndo2 } from 'react-icons/lu';
 import { AiOutlineDiff } from 'react-icons/ai';
 
 import {
@@ -31,8 +31,10 @@ import {
 } from '../../store/ui-store';
 import { TreeSection } from '../../components/tree-section';
 import { useCommitBoxStore, type CommitBoxHandle } from '../../store/commit-box-store';
+import { useStashPush } from '../stash/use-stash-actions';
 import { ChangesAccordion } from '../changes/changes-accordion';
 import { FileDiff } from './file-diff';
+import { StashPushDialog, type StashPushRequest } from './stash-push-dialog';
 import { StatusMark } from './status-mark';
 
 /** Cap on the commit message textarea's autogrow, past which it scrolls. */
@@ -73,6 +75,8 @@ export function StatusPanel() {
   } | null>(null);
   /** Right pane shows every changed file at once instead of one selection. */
   const [viewingAll, setViewingAll] = useState(false);
+  /** Phase 22 Theme E's stash prompt — `paths` absent means the whole worktree. */
+  const [stashRequest, setStashRequest] = useState<StashPushRequest | null>(null);
   /*
     Collapsed directories, per side.
 
@@ -89,6 +93,18 @@ export function StatusPanel() {
   const unstage = useUnstage();
   const discard = useDiscard();
   const commit = useCommit();
+  const stashPush = useStashPush();
+
+  /** Opens the stash prompt scoped to `paths` — omitted addresses the whole worktree. */
+  const openStashDialog = (paths?: string[]) => {
+    setStashRequest({
+      paths,
+      onConfirm: (args) => {
+        setStashRequest(null);
+        stashPush.mutate({ ...args, paths });
+      },
+    });
+  };
 
   const list = useResizable({
     size: listWidth,
@@ -114,7 +130,8 @@ export function StatusPanel() {
     [entries, counts],
   );
 
-  const busy = stage.isPending || unstage.isPending || discard.isPending || commit.isPending;
+  const busy =
+    stage.isPending || unstage.isPending || discard.isPending || commit.isPending || stashPush.isPending;
 
   const onCommit = async () => {
     const result = await commit.mutateAsync({ message });
@@ -225,6 +242,15 @@ export function StatusPanel() {
               setViewingAll(true);
             }}
           />
+          <IconButton
+            icon={LuPackage}
+            label="Stash changes"
+            size="sm"
+            disabled={entries.length === 0}
+            disabledReason="No changes to stash."
+            busy={stashPush.isPending}
+            onClick={() => openStashDialog()}
+          />
           <ViewToggle view={fileView} onChange={setFileView} />
         </div>
 
@@ -292,6 +318,7 @@ export function StatusPanel() {
                   hidden: row.code === 'untracked',
                 },
                 { icon: LuPlus, title: 'Stage', onClick: () => stage.mutate([row.path]) },
+                { icon: LuPackage, title: 'Stash file', onClick: () => openStashDialog([row.path]) },
               ]}
             />
           </TreeSection>
@@ -356,6 +383,8 @@ export function StatusPanel() {
           <Empty>Select a file to see its diff.</Empty>
         )}
       </div>
+
+      {stashRequest ? <StashPushDialog request={stashRequest} onCancel={() => setStashRequest(null)} /> : null}
     </div>
   );
 }

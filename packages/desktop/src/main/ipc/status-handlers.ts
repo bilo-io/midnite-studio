@@ -8,6 +8,7 @@ import {
   push,
   readCommitFileDiff,
   readFileDiff,
+  readReflog,
   readStatusCounts,
   stagePaths,
   stashApply,
@@ -25,6 +26,7 @@ import {
   schemas,
   type FileDiff,
   type GitOpResult,
+  type ReflogEntry,
   type StashEntry,
 } from '@midnite/studio-shared';
 
@@ -146,6 +148,7 @@ export function registerStatusHandlers(): void {
         ...(req.branch === undefined ? {} : { branch: req.branch }),
         setUpstream: req.setUpstream,
         tags: req.tags,
+        ...(req.forceWithLease === undefined ? {} : { forceWithLease: req.forceWithLease }),
       }),
     ),
   );
@@ -207,6 +210,16 @@ export function registerStatusHandlers(): void {
     CHANNELS.opStashStore,
     schemas.StashStoreRequest,
     inWorkdir((cwd, req) => stashStore(cwd, req.sha, req.message)),
+  );
+
+  handle(
+    CHANNELS.reflogList,
+    schemas.ReflogListRequest,
+    async (req): Promise<ReflogEntry[]> => {
+      const cwd = await resolveWorkdir(req.repoId, req.worktreePath);
+      return cwd ? readReflog(cwd, { ref: req.ref, limit: req.limit }) : [];
+    },
+    () => [],
   );
 }
 

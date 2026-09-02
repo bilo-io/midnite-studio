@@ -118,3 +118,14 @@ Developer ID certificate in `CSC_LINK` + `CSC_KEY_PASSWORD`, electron-builder si
 Work phase by phase from [`.midnite/tasks/`](.midnite/tasks/). Every change leaves
 `moon run :typecheck :lint :test` green; visual changes get a screenshot in
 [`docs/screenshots/`](docs/screenshots).
+
+## Onboarding another repo
+
+[`templates/midnite/`](templates/midnite/) is a checked-in, repo-agnostic skeleton of this same
+workflow — the `.midnite/tasks/` tracker, the eight core skills mirrored into `.claude/`, `.agents/`
+and `.codex/`, and `CLAUDE.md`/`AGENTS.md`/`GEMINI.md` stubs — for onboarding a *different* repo
+onto it, not this one. The midnite menu's Setup leaf is what will copy it in and track a hash
+manifest so a re-run is an upgrade rather than a guess (Phase 49); until then,
+[`midnite-setup`](.claude/skills/midnite-setup/SKILL.md) is the interactive path — it emits this
+same tree. See the template's own [README](templates/midnite/README.md) for what ships and why
+three of this repo's eleven skills are deliberately left out.

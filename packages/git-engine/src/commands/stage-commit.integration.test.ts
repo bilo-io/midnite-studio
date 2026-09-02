@@ -171,9 +171,10 @@ describe('sync against a local bare remote', () => {
     await origin.cleanup();
   }, 120_000);
 
-  it('explains a non-fast-forward push instead of suggesting force', async () => {
-    // There is no force push in the MVP, so the message has to point at the
-    // actual fix rather than at an escape hatch that does not exist.
+  it('explains a non-fast-forward push instead of suggesting force, and codes it', async () => {
+    // A plain push still points at pull, never at force — force-with-lease
+    // (Phase 22 Theme F) is reached only through its own gated entry point,
+    // never suggested from this message.
     const origin = await TempRepo.create({ bare: true });
     await repo.commitFile('a.txt', 'one\n', 'first');
     await repo.git(['remote', 'add', 'origin', origin.path]);
@@ -193,6 +194,79 @@ describe('sync against a local bare remote', () => {
     if (result.ok || result.kind !== 'error') throw new Error('expected an error');
     expect(result.message).toMatch(/Pull first/i);
     expect(result.message).not.toMatch(/force/i);
+    // The ref badge menu's own signal to offer force-with-lease now.
+    expect(result.code).toBe('non-fast-forward');
+
+    await other.cleanup();
+    await origin.cleanup();
+  }, 120_000);
+
+  it('force-with-lease pushes past a diverged remote, past what a plain push refuses', async () => {
+    const origin = await TempRepo.create({ bare: true });
+    await repo.commitFile('a.txt', 'one\n', 'first');
+    await repo.git(['remote', 'add', 'origin', origin.path]);
+    await push(repo.path, { setUpstream: true, remote: 'origin', branch: 'main' });
+
+    // Someone else advances the remote behind our back.
+    const other = await TempRepo.create();
+    await other.git(['remote', 'add', 'origin', origin.path]);
+    await other.git(['fetch', 'origin']);
+    await other.git(['checkout', '-B', 'main', 'origin/main']);
+    await other.commitFile('theirs.txt', 'theirs\n', 'theirs');
+    await other.git(['push', 'origin', 'main']);
+
+    // We amend our own history instead of merging — the case force-with-lease
+    // exists for.
+    await repo.git(['fetch', 'origin']);
+    const staleExpect = (await repo.git(['rev-parse', 'origin/main'])).trim();
+    await repo.commitFile('mine.txt', 'mine\n', 'rewritten');
+    await repo.git(['commit', '--amend', '--no-edit']);
+
+    const plain = await push(repo.path, { remote: 'origin', branch: 'main' });
+    expect(plain.ok).toBe(false);
+
+    const leased = await push(repo.path, {
+      remote: 'origin',
+      branch: 'main',
+      forceWithLease: { ref: 'refs/heads/main', expect: staleExpect },
+    });
+    expect(leased).toEqual({ ok: true });
+
+    const originTip = (await origin.git(['rev-parse', 'main'])).trim();
+    const localTip = (await repo.git(['rev-parse', 'HEAD'])).trim();
+    expect(originTip).toBe(localTip);
+
+    await other.cleanup();
+    await origin.cleanup();
+  }, 120_000);
+
+  it('names a rejected lease as stale, not as a generic non-fast-forward', async () => {
+    const origin = await TempRepo.create({ bare: true });
+    await repo.commitFile('a.txt', 'one\n', 'first');
+    await repo.git(['remote', 'add', 'origin', origin.path]);
+    await push(repo.path, { setUpstream: true, remote: 'origin', branch: 'main' });
+
+    // The expected sha is stale from the moment it is read: the remote moves
+    // again before the leased push runs.
+    const staleExpect = (await repo.git(['rev-parse', 'origin/main'])).trim();
+
+    const other = await TempRepo.create();
+    await other.git(['remote', 'add', 'origin', origin.path]);
+    await other.git(['fetch', 'origin']);
+    await other.git(['checkout', '-B', 'main', 'origin/main']);
+    await other.commitFile('theirs.txt', 'theirs\n', 'theirs');
+    await other.git(['push', 'origin', 'main']);
+
+    const result = await push(repo.path, {
+      remote: 'origin',
+      branch: 'main',
+      forceWithLease: { ref: 'refs/heads/main', expect: staleExpect },
+    });
+
+    expect(result.ok).toBe(false);
+    if (result.ok || result.kind !== 'error') throw new Error('expected an error');
+    expect(result.code).toBe('stale-lease');
+    expect(result.message).toMatch(/fetch and look/i);
 
     await other.cleanup();
     await origin.cleanup();

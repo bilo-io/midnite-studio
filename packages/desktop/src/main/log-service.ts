@@ -63,18 +63,24 @@ export function startLog(win: BrowserWindow, options: LogStartOptions): void {
     },
   });
 
-  void stream.done.then((result) => {
-    if (finished) return;
-    finished = true;
-    release(win, options.requestId);
+  void stream.done
+    .then((result) => {
+      if (finished) return;
+      finished = true;
 
-    send(EVENT_CHANNELS.logDone, {
-      requestId: options.requestId,
-      total,
-      truncated: total >= options.limit,
-      ...(result.error === undefined ? {} : { error: result.error }),
-    });
-  });
+      send(EVENT_CHANNELS.logDone, {
+        requestId: options.requestId,
+        total,
+        truncated: total >= options.limit,
+        ...(result.error === undefined ? {} : { error: result.error }),
+      });
+    })
+    // `.finally`, not the `.then` body: a rejected `stream.done` skipped
+    // `release` entirely before, leaking the registry entry until the window
+    // closed. `release` itself is idempotent (a `Map.delete` on an already-
+    // gone key is a no-op), so calling it here even after an explicit cancel
+    // already removed the entry is harmless.
+    .finally(() => release(win, options.requestId));
 }
 
 /** Kill the in-flight log stream, if any. */

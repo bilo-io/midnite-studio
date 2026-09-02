@@ -1,9 +1,10 @@
-import type { Ref, Remote, RepoDescriptor } from '@midnite/studio-shared';
+import type { Ref, Remote, RepoDescriptor, StashEntry } from '@midnite/studio-shared';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
-import { cleanup, render, screen } from '@testing-library/react';
-import { afterEach, describe, expect, it } from 'vitest';
+import { cleanup, fireEvent, render, screen } from '@testing-library/react';
+import { afterEach, describe, expect, it, vi } from 'vitest';
 
 import { DialogHost } from '../../components/dialog-host';
+import type { MenuItem } from '../../components/context-menu';
 import type { WorktreeStatuses } from '../../services/use-status';
 import { branchesCount, matchesRepoQuery, partitionRefs, RepoTree } from './repos-panel';
 import { ALL_SECTIONS, type SectionKey, type ViewSections } from './view-sections';
@@ -175,7 +176,13 @@ describe('RepoTree', () => {
     forge: { host: 'github.com', owner: 'acme', repo: 'repo', kind: 'github' },
   };
 
-  function renderTree(sections: ViewSections, remotes: Remote[] = []) {
+  function renderTree(
+    sections: ViewSections,
+    remotes: Remote[] = [],
+    stashes: StashEntry[] = [],
+    stashMenu: (entry: StashEntry) => MenuItem[] = () => [],
+    onStashPush: () => void = () => {},
+  ) {
     const client = new QueryClient();
     return render(
       <QueryClientProvider client={client}>
@@ -184,12 +191,15 @@ describe('RepoTree', () => {
             repo={repo}
             refs={refs}
             remotes={remotes}
+            stashes={stashes}
             statuses={statuses}
             sections={sections}
             refMenu={() => []}
             worktreeMenu={() => []}
             sectionMenu={() => []}
             parentSectionMenu={() => []}
+            stashMenu={stashMenu}
+            onStashPush={onStashPush}
             onViewAllChanges={() => {}}
             onCheckout={() => {}}
           />
@@ -214,8 +224,10 @@ describe('RepoTree', () => {
     // 'origin' is RemoteGroup's own heading, nested inside Remotes. Forge is
     // absent entirely — this fixture has no remote at all, so `hasGithubForge`
     // is false and the whole subtree (Actions/Reviews/Issues/Tests included)
-    // is skipped before the walk ever reaches it (Phase 28 Theme F).
-    expect(headings).toEqual(['Worktrees', 'Branches', 'Local', 'Remotes', 'origin', 'Tags']);
+    // is skipped before the walk ever reaches it (Phase 28 Theme F). Stashes
+    // shows even with none — the "Stash changes" action needs somewhere to
+    // live regardless of count (Phase 22 Theme B).
+    expect(headings).toEqual(['Worktrees', 'Branches', 'Local', 'Remotes', 'origin', 'Tags', 'Stashes']);
   });
 
   it('nests Actions/Reviews/Issues/Tests under a Forge heading when the repo has a GitHub remote', () => {
@@ -230,6 +242,7 @@ describe('RepoTree', () => {
       'Remotes',
       'origin',
       'Tags',
+      'Stashes',
       'Forge',
       'Actions',
       'Reviews',
@@ -293,5 +306,51 @@ describe('RepoTree', () => {
 
     const headings = screen.getAllByRole('heading', { level: 3 }).map((h) => h.textContent);
     expect(headings).toEqual(['Worktrees']);
+  });
+
+  describe('Stashes (Phase 22 Theme B)', () => {
+    const stash: StashEntry = {
+      selector: 'stash@{0}',
+      sha: 'a'.repeat(40),
+      parents: ['b'.repeat(40), 'c'.repeat(40)],
+      message: 'WIP on main: 1a2b3c4 do the thing',
+      authoredAt: 1_700_000_000,
+      author: { name: 'Dev', email: 'dev@example.com' },
+    };
+
+    it('shows the Stash changes action even with none, and none of a row', () => {
+      renderTree(unfiltered);
+
+      expect(screen.getByRole('heading', { level: 3, name: 'Stashes' })).toBeTruthy();
+      expect(screen.getByRole('button', { name: 'Stash changes' })).toBeTruthy();
+      expect(screen.queryByText('WIP on main: 1a2b3c4 do the thing')).toBeNull();
+    });
+
+    it('renders one row per stash, with its message and a count on the heading', () => {
+      renderTree(unfiltered, [], [stash]);
+
+      const heading = screen.getByRole('heading', { level: 3, name: 'Stashes' });
+      expect(heading.parentElement?.textContent).toBe('Stashes1');
+      expect(screen.getByText('WIP on main: 1a2b3c4 do the thing')).toBeTruthy();
+    });
+
+    it('calls onStashPush when the heading action is clicked', () => {
+      const onStashPush = vi.fn();
+      renderTree(unfiltered, [], [], () => [], onStashPush);
+
+      fireEvent.click(screen.getByRole('button', { name: 'Stash changes' }));
+
+      expect(onStashPush).toHaveBeenCalledTimes(1);
+    });
+
+    it('opens the row menu built from the entry when its ellipsis is clicked', () => {
+      const stashMenu = vi.fn().mockReturnValue([{ label: 'Apply', onClick: () => {} }]);
+      renderTree(unfiltered, [], [stash], stashMenu);
+
+      fireEvent.click(screen.getByRole('button', { name: 'Actions for stash stash@{0}' }));
+
+      expect(stashMenu).toHaveBeenCalledWith(stash);
+      expect(screen.getByRole('menuitem', { name: 'Apply' })).toBeTruthy();
+    });
   });
 });

@@ -48,8 +48,16 @@ export const GitOpFailureSchema = z.discriminatedUnion('kind', [
      * file changed on disk since the caller's `FsVersion` was read. It rides
      * the ordinary error arm rather than growing `ConflictOp` a fs-shaped
      * member — a stale write is not a git conflict.
+     *
+     * `'non-fast-forward'` (Phase 22 Theme F) is what an ordinary `push`
+     * answers when the remote has commits the local branch does not — it is
+     * how the ref badge menu knows a force-with-lease offer belongs on this
+     * branch now. `'stale-lease'` is what a `push` with `forceWithLease`
+     * answers when the lease itself was rejected: someone else pushed to the
+     * branch between the lease being read and the push landing, and the fix
+     * is "fetch and look again," not "try the same lease again."
      */
-    code: z.literal('stale-write').optional(),
+    code: z.enum(['stale-write', 'non-fast-forward', 'stale-lease']).optional(),
   }),
 ]);
 
@@ -75,7 +83,7 @@ export const conflict = <T = void>(op: ConflictOp, files: string[]): GitOpResult
 export const failure = <T = void>(
   message: string,
   stderr?: string,
-  code?: 'stale-write',
+  code?: 'stale-write' | 'non-fast-forward' | 'stale-lease',
 ): GitOpResult<T> => ({
   ok: false,
   kind: 'error',

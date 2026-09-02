@@ -85,6 +85,19 @@ describe('RepoWatcher', () => {
     expect(events).toContain('worktree');
   });
 
+  it('reports a reflog-only change as `refs` (Phase 22 Theme G)', async () => {
+    // A reflog write always rides alongside a ref/HEAD write in real git — so
+    // this reaches straight for `.git/logs/HEAD` to prove the WATCH itself
+    // fires, independent of whatever else that same commit touched. Real
+    // reflog behaviour (parsing, timestamps) is `reflog.integration.test.ts`'s
+    // job, not this suite's.
+    await startWatching();
+    await repo.writeFile('.git/logs/HEAD', '0'.repeat(40) + ' ' + '1'.repeat(40) + ' extra line\n');
+    await wait(400);
+
+    expect(events).toContain('refs');
+  });
+
   it('stays silent for a change inside an ignored directory', async () => {
     // The behaviour that makes the watcher usable: a `pnpm install` must not
     // wake the UI thousands of times.

@@ -3,7 +3,14 @@ import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { bridge } from '../../services/bridge';
 import { keys } from '../../services/queries';
 
-import type { Ref, Remote, RepoDescriptor, StatusResult, Worktree } from '@midnite/studio-shared';
+import type {
+  Ref,
+  Remote,
+  RepoDescriptor,
+  StashEntry,
+  StatusResult,
+  Worktree,
+} from '@midnite/studio-shared';
 import { forgeProjectUrl, pickForgeRemote } from '@midnite/studio-shared';
 import {
   LuArrowRightLeft,
@@ -21,6 +28,7 @@ import {
   LuGripVertical,
   LuListFilter,
   LuEllipsisVertical,
+  LuPackage,
   LuPlus,
   LuSearch,
   LuSquareArrowOutUpRight,
@@ -40,6 +48,8 @@ import { Tooltip } from '../../components/tooltip';
 import { TREE_INDENT } from '../../components/tree-indent';
 import { TreeSection } from '../../components/tree-section';
 import { cascadeStyle } from '../../lib/cascade';
+import { useNow } from '../../lib/use-now';
+import { relativeAge } from '../actions/run-groups';
 import {
   openExternal,
   usePickAndOpenRepo,
@@ -48,6 +58,7 @@ import {
   useRemotes,
   useReorderRepos,
   useRepos,
+  useStashes,
 } from '../../services/queries';
 import {
   useRepoStatus,
@@ -556,6 +567,7 @@ function RepoItem({
    */
   const { data: refs = [] } = useRefs(expanded ? repo.id : null);
   const { data: remotes = [] } = useRemotes(expanded ? repo.id : null);
+  const { data: stashes = [] } = useStashes(expanded ? repo.id : null);
 
   /**
    * Status, on the other hand, is fetched whether the repo is expanded or not:
@@ -596,6 +608,8 @@ function RepoItem({
     worktreeMenu,
     sectionMenu,
     parentSectionMenu,
+    stashMenu,
+    promptStashPush,
     checkout,
     report,
     viewAllChanges,
@@ -845,12 +859,15 @@ function RepoItem({
           repo={repo}
           refs={refs}
           remotes={remotes}
+          stashes={stashes}
           statuses={statuses}
           sections={sections}
           refMenu={refMenu}
           worktreeMenu={worktreeMenu}
           sectionMenu={sectionMenu}
           parentSectionMenu={parentSectionMenu}
+          stashMenu={stashMenu}
+          onStashPush={promptStashPush}
           onViewAllChanges={viewAllChanges}
           onCheckout={(ref) => void checkout.mutateAsync({ target: ref.name }).then(report)}
         />
@@ -925,24 +942,30 @@ export function RepoTree({
   repo,
   refs,
   remotes,
+  stashes,
   statuses,
   sections,
   refMenu,
   worktreeMenu,
   sectionMenu,
   parentSectionMenu,
+  stashMenu,
+  onStashPush,
   onViewAllChanges,
   onCheckout,
 }: {
   repo: RepoDescriptor;
   refs: Ref[];
   remotes: Remote[];
+  stashes: StashEntry[];
   statuses: WorktreeStatuses;
   sections: ViewSections;
   refMenu: (ref: Ref) => MenuItem[];
   worktreeMenu: (worktree: Worktree) => MenuItem[];
   sectionMenu: (kind: RefSectionKey, refs: readonly Ref[]) => MenuItem[];
   parentSectionMenu: (kind: 'branches') => MenuItem[];
+  stashMenu: (entry: StashEntry) => MenuItem[];
+  onStashPush: () => void;
   onViewAllChanges: (worktreePath: string, label: string) => void;
   onCheckout: (ref: Ref) => void;
 }) {
@@ -1075,9 +1098,9 @@ export function RepoTree({
    * A leaf's own renderer, keyed by `SectionKey` — a move, not a rewrite: each
    * body is the same JSX the four literal blocks used to hold. `branches` and
    * `forge` have none, which is what tells `renderSection` to wrap their
-   * children in a generic parent heading instead; `stashes` has none either,
-   * and no children to recurse into, so it renders nothing until Phase 22
-   * registers a body here. Forge's four (Theme F) are leaves exactly like
+   * children in a generic parent heading instead; `stashes` is a leaf too,
+   * rendering the `StashRow` list Phase 22 Theme B added below. Forge's four
+   * (Theme F) are leaves exactly like
    * Worktrees/Local/Remotes/Tags above them — `renderSection` gates their
    * visibility and passes their `depth` the same way, so none of them checks
    * its own visibility anymore.
@@ -1194,6 +1217,23 @@ export function RepoTree({
         ))}
       </TreeSection>
     ),
+    stashes: (depth) => (
+      <TreeSection
+        title="Stashes"
+        count={stashes.length}
+        depth={depth}
+        // A repo with none is the case the action exists for: pushing the
+        // FIRST stash. Hiding on an empty count (`TreeSection`'s default)
+        // would remove the only way to reach it from here.
+        hideWhenEmpty={false}
+        {...section('stashes')}
+        action={{ label: 'Stash changes', onClick: onStashPush }}
+      >
+        {stashes.map((entry, i) => (
+          <StashRow key={entry.selector} entry={entry} index={i} depth={(depth + 1) as 2 | 3} menu={stashMenu} />
+        ))}
+      </TreeSection>
+    ),
     actions: (depth) => <ActionsSection repoId={repo.id} index={forgeIndex} depth={depth} />,
     reviews: (depth) => <ReviewsSection repoId={repo.id} index={forgeIndex + 1} depth={depth} />,
     issues: (depth) => <IssuesSection repoId={repo.id} index={forgeIndex + 2} depth={depth} />,
@@ -1204,11 +1244,12 @@ export function RepoTree({
    * The walk that deletes the coincidence: `SECTION_TREE` is the only thing
    * that decides what renders and in what order now, so a section the
    * declaration does not contain cannot appear here by accident. A node with
-   * its own `SECTION_BODY` entry renders that (a leaf's rows); a childless
-   * node with none renders nothing (the reserved `stashes` slot); anything
-   * else is a parent wrapping its own recursively rendered children one rung
-   * deeper — `Branches` and `Forge`, matching the load-bearing visibility rule
-   * Theme A already gives them via `sections.visible`.
+   * its own `SECTION_BODY` entry renders that (a leaf's rows — `stashes`
+   * included, since Phase 22 Theme B); a childless node with none renders
+   * nothing; anything else is a parent wrapping its own recursively rendered
+   * children one rung deeper — `Branches` and `Forge`, matching the
+   * load-bearing visibility rule Theme A already gives them via
+   * `sections.visible`.
    *
    * `forge` gets one more gate before that: `gh` speaks GitHub only, so
    * without a GitHub remote none of its four children — Tests included, since
@@ -1483,6 +1524,65 @@ function RefRow({
     <Tooltip label={`Checked out in ${refItem.worktreePath}`}>{row}</Tooltip>
   ) : (
     row
+  );
+}
+
+/**
+ * One entry in the Stashes section (Phase 22 Theme B) — `%gs`'s own message
+ * as the primary text, a relative timestamp, and the row menu on right-click
+ * or the hover ellipsis, matching `RefRow`'s own grammar exactly.
+ *
+ * No file-count chip: `StashEntry` (the git-engine contract Theme A shipped)
+ * carries no per-entry file count, and `git stash list` has no `--format`
+ * token for one — adding it would mean a second subprocess per row, which is
+ * a worse cost than the chip the doc asked for is worth. Left for a later
+ * pass if it turns out to matter in practice.
+ */
+function StashRow({
+  entry,
+  index,
+  depth,
+  menu,
+}: {
+  entry: StashEntry;
+  index: number;
+  depth: 2 | 3;
+  menu: (entry: StashEntry) => MenuItem[];
+}) {
+  const dialogs = useDialogs();
+  const now = useNow();
+
+  const openMenu = (at: { clientX: number; clientY: number }) => dialogs.openMenu(at, menu(entry));
+
+  return (
+    <div
+      onContextMenu={(event) => {
+        event.preventDefault();
+        openMenu(event);
+      }}
+      style={cascadeStyle(index)}
+      className={`group flex animate-fade-in-up cascade-delay items-center gap-1.5 py-0.5 pr-2 text-[13px] transition-colors hover:bg-accent/30 ${TREE_INDENT[depth]}`}
+    >
+      <LuPackage aria-hidden className="h-3 w-3 shrink-0 text-muted-foreground" />
+      <span className="truncate">{entry.message}</span>
+      <span className="ml-auto shrink-0 text-[11px] text-muted-foreground">
+        {relativeAge(new Date(entry.authoredAt * 1000).toISOString(), now.getTime())}
+      </span>
+      <span className="ml-auto flex shrink-0 items-center opacity-0 transition-opacity group-focus-within:opacity-100 group-hover:opacity-100">
+        <IconButton
+          icon={LuEllipsisVertical}
+          label={`Actions for stash ${entry.selector}`}
+          size="sm"
+          onClick={(event) => {
+            const rect = event.currentTarget.getBoundingClientRect();
+            openMenu({
+              clientX: event.clientX || rect.left,
+              clientY: event.clientY || rect.bottom,
+            });
+          }}
+        />
+      </span>
+    </div>
   );
 }
 

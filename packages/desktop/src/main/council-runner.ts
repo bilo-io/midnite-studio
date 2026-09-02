@@ -59,14 +59,25 @@ function withRunLock<T>(runId: string, fn: () => Promise<T>): Promise<T> {
   const settled = prior.then(fn, fn);
   // Chain the *next* lock off this settling regardless of outcome — a
   // mutation that throws must not wedge every later one for the same run.
-  runLocks.set(
-    runId,
-    settled.then(
-      () => undefined,
-      () => undefined,
-    ),
+  const tail: Promise<void> = settled.then(
+    () => undefined,
+    () => undefined,
   );
+  runLocks.set(runId, tail);
+  // `write-queue.ts`'s own `evictIfCurrent` idiom: delete only if the map
+  // still holds *this* tail, so a lock re-taken while the old one settles is
+  // not dropped out from under the newer chain.
+  void tail.then(() => evictIfCurrent(runId, tail));
   return settled;
+}
+
+function evictIfCurrent(runId: string, tail: Promise<unknown>): void {
+  if (runLocks.get(runId) === tail) runLocks.delete(runId);
+}
+
+/** Test-only: `runLocks` is otherwise module-private. */
+export function runLocksSizeForTests(): number {
+  return runLocks.size;
 }
 
 export async function startRun(councilId: string, prompt: string): Promise<GitOpResult<CouncilRun>> {
