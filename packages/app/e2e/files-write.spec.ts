@@ -210,7 +210,12 @@ test("the Agent settings page's claude-home tree offers no context menu at all",
   });
   await page.goto('/');
   await page.getByRole('button', { name: 'Settings' }).click();
-  await page.getByRole('button', { name: 'Agent' }).click();
+  const nav = page.getByRole('navigation', { name: 'Settings pages' });
+  await expect(nav).toBeVisible();
+  // Scoped: an unscoped 'Agent' collides with the persistent rail's 'Agents'
+  // section header and its collapsed 'Agent loop launchers' toggle, both of
+  // which stay mounted behind the settings page.
+  await nav.getByRole('button', { name: 'Agent' }).click();
 
   const row = page.getByRole('treeitem', { name: /CLAUDE\.md/ });
   await expect(row).toBeVisible();

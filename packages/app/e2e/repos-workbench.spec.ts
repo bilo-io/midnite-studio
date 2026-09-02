@@ -159,9 +159,12 @@ test('a change count lands on the checkout that owns it, not the repo', async ({
   await expect(pills).toHaveCount(2); // the worktree row and its branch row
   await expect(pills.first()).toHaveText('3');
 
-  // The branch row for a checkout that IS clean stays bare.
-  const mainRow = page.locator('div').filter({ hasText: /^main/ }).first();
-  await expect(mainRow.getByTestId('change-count')).toHaveCount(0);
+  // The branch row for a checkout that IS clean stays bare. Matched by the
+  // pill's own accessible name rather than a `div:has-text` ancestor search —
+  // every TreeSection row nests inside a shared wrapper, so a text-content
+  // filter for "main" matches that wrapper (which also contains feature/x's
+  // pill) rather than main's own row.
+  await expect(page.getByLabel(/^main: \d+ changed/)).toHaveCount(0);
 });
 
 test('the Changes view hides the checkouts with nothing in them', async ({ page }) => {
@@ -417,8 +420,15 @@ test('a signed-out gh says what to run rather than failing silently', async ({ p
 
   await page.getByRole('button', { name: 'Actions', exact: true }).click();
   // The one empty state the user can actually fix — so it must not look like
-  // "this repository has no CI".
-  await expect(page.getByText('Run `gh auth login` in a terminal.')).toBeVisible();
+  // "this repository has no CI". Scoped to the Actions section's own body
+  // (its `Collapse` carries `aria-label="Actions"`, unique in the tree):
+  // every forge-gated section reports the same `gh` unavailability
+  // independently, and Reviews' "All Pull Requests" group renders the
+  // identical hint at the same time (it is open by default), which an
+  // unscoped `getByText` matches too and turns into a strict-mode violation.
+  await expect(
+    page.locator('[aria-label="Actions"]').getByText('Run `gh auth login` in a terminal.'),
+  ).toBeVisible();
 });
 
 test('a repo with no GitHub remote grows no forge sections at all', async ({ page }) => {
@@ -485,7 +495,19 @@ test('a folded repo hangs its branch and count off the trailing edge', async ({ 
   await open(page);
 
   await page.locator('button[aria-label="Collapse midnite-studio"]').click();
-  await expect(page.getByRole('heading', { name: 'Worktrees' })).toHaveCount(0);
+  /*
+    Not `getByRole('heading', ...).toHaveCount(0)`: the folded tree stays
+    attached, `inert` and clipped to a 0fr grid row (`repos-panel.tsx`'s
+    `<Collapse>`) rather than removed, and Playwright's role engine does not
+    factor the `inert` attribute into its visibility computation (confirmed by
+    isolating `<div inert><h3>…</h3></div>` — the heading still resolves).
+    `aria-expanded` on the toggle is the reliable, already-asserted-elsewhere
+    signal that the fold actually happened.
+  */
+  await expect(page.locator('button[aria-label="Expand midnite-studio"]')).toHaveAttribute(
+    'aria-expanded',
+    'false',
+  );
 
   /*
     Folded rows are read as a column, so the summary has to line up down the

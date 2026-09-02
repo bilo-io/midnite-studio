@@ -39,4 +39,24 @@ describe('useFocusTrap', () => {
 
     document.body.removeChild(container);
   });
+
+  it('leaves focus alone when a child already holds it (e.g. autoFocus)', () => {
+    // A ConfirmDialog's Cancel button sets `autoFocus`, which React applies
+    // during commit — before this hook's effect runs. Grabbing the container
+    // unconditionally would override that choice every time.
+    const container = document.createElement('div');
+    container.tabIndex = -1;
+    const cancelBtn = document.createElement('button');
+    container.appendChild(cancelBtn);
+    document.body.appendChild(container);
+    cancelBtn.focus();
+    expect(document.activeElement).toBe(cancelBtn);
+
+    const ref = { current: container };
+    renderHook(() => useFocusTrap(ref, true));
+
+    expect(document.activeElement).toBe(cancelBtn);
+
+    document.body.removeChild(container);
+  });
 });
