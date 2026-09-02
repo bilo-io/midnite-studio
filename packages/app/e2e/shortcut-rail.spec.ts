@@ -212,7 +212,7 @@ test('a launcher opens the FAB console on its own tab', async ({ page }) => {
   await open(page);
   await page.getByTestId('fab-launchers').hover();
   await page.getByTestId('loop-launcher-watchdog').click();
-  await expect(page.getByRole('button', { name: 'Watchdog', exact: true })).toBeVisible();
+  await expect(page.getByRole('button', { name: 'Patrol', exact: true })).toBeVisible();
   await expect(page.getByTestId('loop-launcher-watchdog')).toHaveAttribute(
     'data-loop-open',
     'true',
@@ -381,6 +381,6 @@ test('reduced motion keeps a running launcher glow and full opacity', async ({ p
   await expect(launcher).toHaveCSS('opacity', '1');
   const shadow = await launcher.evaluate((el) => getComputedStyle(el).boxShadow);
   expect(shadow).not.toBe('none');
-  // Watchdog is yellow-500 — the glow is the loop's own colour, not a generic one.
+  // Patrol is yellow-500 — the glow is the loop's own colour, not a generic one.
   expect(shadow).toContain('234, 179, 8');
 });

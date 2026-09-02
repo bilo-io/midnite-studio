@@ -96,7 +96,7 @@ export function FabLaunchers() {
   if (!expanded) {
     return (
       <div data-testid="fab-launchers" data-expanded="false" {...strip}>
-        <Tooltip label="Agent loops — Innovate, Automate, Watchdog, Medic" side="top">
+        <Tooltip label="Agent loops — Ideate, Engineer, Patrol, Medic" side="top">
           <button
             type="button"
             data-testid="fab-launchers-collapsed"
@@ -191,7 +191,7 @@ function LoopLauncher({
           `"<Label> loop"`, deliberately not `"Open <Label>"`: the waiting-notice
           action button in the notification bell is already named
           `Open <Label>`, and Playwright's `getByRole({ name })` matches on
-          substring by default — so `Open Innovate loop` made every spec
+          substring by default — so `Open Ideate loop` made every spec
           reaching for that action a strict-mode violation.
         */
         aria-label={`${label} loop`}

@@ -28,21 +28,21 @@ async function open(page: Page): Promise<void> {
 
 async function openFab(page: Page, tab?: string): Promise<void> {
   await page.getByRole('button', { name: 'Open quick access panel' }).click();
-  await expect(page.getByRole('button', { name: 'Innovate', exact: true })).toBeVisible();
+  await expect(page.getByRole('button', { name: 'Ideate', exact: true })).toBeVisible();
   if (tab) await page.getByRole('button', { name: tab, exact: true }).click();
   await page.waitForTimeout(400);
 }
 
 test('the composer, idle', async ({ page }) => {
   await open(page);
-  await openFab(page, 'Watchdog');
+  await openFab(page, 'Patrol');
   await page.getByTestId('loop-composer-watchdog').getByLabel('Watch dependabot PRs').check();
   await page.screenshot({ path: `${OUT}/composer-idle.png` });
 });
 
 test('a running loop — slim strip, glowing Stop, live dots', async ({ page }) => {
   await open(page);
-  await openFab(page, 'Watchdog');
+  await openFab(page, 'Patrol');
   const composer = page.getByTestId('loop-composer-watchdog');
   await composer.getByLabel('Watch dependabot PRs').check();
   await composer.getByPlaceholder('Extra instructions…').fill('Skip drafts.');
@@ -54,7 +54,7 @@ test('a running loop — slim strip, glowing Stop, live dots', async ({ page }) 
 
 test('run history, expanded', async ({ page }) => {
   await open(page);
-  await openFab(page, 'Watchdog');
+  await openFab(page, 'Patrol');
   const composer = page.getByTestId('loop-composer-watchdog');
   await composer.getByLabel('Watch dependabot PRs').check();
   await composer.getByTestId('loop-start').click();
@@ -105,7 +105,7 @@ test('the waiting notice, in the bell', async ({ page }) => {
   });
 
   await page.getByTestId('notification-bell').click();
-  await expect(page.getByText('Innovate is waiting for input.')).toBeVisible();
+  await expect(page.getByText('Ideate is waiting for input.')).toBeVisible();
   await page.waitForTimeout(200);
   await page.screenshot({ path: `${OUT_FGHI}/waiting-notice.png` });
 });
@@ -124,7 +124,7 @@ for (const mode of ['light', 'dark'] as const) {
     await openFab(page);
 
     const panel = page.locator('.fab-panel-gradient');
-    for (const tab of ['Innovate', 'Automate', 'Watchdog', 'Medic']) {
+    for (const tab of ['Ideate', 'Engineer', 'Patrol', 'Medic']) {
       await page.getByRole('button', { name: tab, exact: true }).click();
       await page.waitForTimeout(900);
       await panel.screenshot({ path: `${OUT_P37}/${mode}-${tab.toLowerCase()}.png` });

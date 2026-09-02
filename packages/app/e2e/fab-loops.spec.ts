@@ -30,7 +30,7 @@ async function open(page: Page, over: Partial<MockFixtures> = {}): Promise<void>
  */
 async function openFab(page: Page, tab?: string): Promise<void> {
   await page.getByRole('button', { name: 'Open quick access panel' }).click();
-  await expect(page.getByRole('button', { name: 'Innovate', exact: true })).toBeVisible();
+  await expect(page.getByRole('button', { name: 'Ideate', exact: true })).toBeVisible();
   if (tab) await page.getByRole('button', { name: tab, exact: true }).click();
   await page.waitForTimeout(SETTLE_WAIT_MS);
 }
@@ -71,7 +71,7 @@ test.describe('FAB loop console', () => {
     await open(page);
     await openFab(page);
 
-    for (const label of ['Innovate', 'Automate', 'Watchdog', 'Medic']) {
+    for (const label of ['Ideate', 'Engineer', 'Patrol', 'Medic']) {
       await expect(page.getByRole('button', { name: label, exact: true })).toBeVisible();
     }
     // The eager-spawn bug: four panes used to appear before anything was pressed.
@@ -81,7 +81,7 @@ test.describe('FAB loop console', () => {
 
   test('a loop tab offers its declared modifiers and an extras field', async ({ page }) => {
     await open(page);
-    await openFab(page, 'Watchdog');
+    await openFab(page, 'Patrol');
 
     const composer = page.getByTestId('loop-composer-watchdog');
     await expect(composer.getByLabel('Watch dependabot PRs')).toBeVisible();
@@ -91,7 +91,7 @@ test.describe('FAB loop console', () => {
 
   test('Start composes the prompt from the checked modifiers and the extras', async ({ page }) => {
     await open(page);
-    await openFab(page, 'Watchdog');
+    await openFab(page, 'Patrol');
 
     const composer = page.getByTestId('loop-composer-watchdog');
     await composer.getByLabel('Watch dependabot PRs').check();
@@ -125,14 +125,14 @@ test.describe('FAB loop console', () => {
     */
     await page.keyboard.press('Control+`');
     await expect(panel(page)).toBeVisible();
-    await expect(rows(page).filter({ hasText: 'Innovate' })).toHaveCount(0);
+    await expect(rows(page).filter({ hasText: 'Ideate' })).toHaveCount(0);
     // Whatever the panel opened for itself, the FAB's pane still has its own.
     await expect(page.getByTestId('loop-composer-innovate').getByTestId('loop-stop')).toBeVisible();
   });
 
   test('starting a loop does not open the main terminal panel', async ({ page }) => {
     await open(page);
-    await openFab(page, 'Automate');
+    await openFab(page, 'Engineer');
     await page.getByTestId('loop-composer-automate').getByTestId('loop-start').click();
     await expect(page.getByTestId('loop-composer-automate').getByTestId('loop-stop')).toBeVisible();
     await expect(panel(page)).toHaveCount(0);
@@ -172,7 +172,7 @@ test.describe('FAB loop console', () => {
 
     await openFab(page);
     await page.getByTestId('loop-composer-innovate').getByTestId('loop-start').click();
-    await page.getByRole('button', { name: 'Automate', exact: true }).click();
+    await page.getByRole('button', { name: 'Engineer', exact: true }).click();
     await page.waitForTimeout(SETTLE_WAIT_MS);
     await page.getByTestId('loop-composer-automate').getByTestId('loop-start').click();
 
@@ -333,19 +333,19 @@ test.describe('FAB loop console — the waiting notice (Theme G)', () => {
       again is what shuts the console; `FabPanel` returns null when closed,
       which is why the composers vanish rather than merely hiding here.
     */
-    await page.getByRole('button', { name: 'Automate', exact: true }).click();
+    await page.getByRole('button', { name: 'Engineer', exact: true }).click();
     await page.getByRole('button', { name: 'Open quick access panel' }).click();
     await expect(page.getByTestId('loop-composer-innovate')).toHaveCount(0);
 
     await emitActivity(page, 'waiting', 'pty-1');
 
     await page.getByTestId('notification-bell').click();
-    const notice = page.getByText('Innovate is waiting for input.');
+    const notice = page.getByText('Ideate is waiting for input.');
     await expect(notice).toBeVisible();
 
-    await page.getByRole('button', { name: 'Open Innovate' }).click();
+    await page.getByRole('button', { name: 'Open Ideate' }).click();
     /*
-      The panel reopens on the loop that asked, not on Automate, which is
+      The panel reopens on the loop that asked, not on Engineer, which is
       where it was left. Visibility rather than presence for the negative: all
       four tabs mount together once the panel is open (each pane owns an xterm
       that must not be torn down on every tab switch) and the inactive ones are
@@ -362,7 +362,7 @@ test.describe('FAB loop console — the waiting notice (Theme G)', () => {
     await page.getByTestId('loop-composer-innovate').getByTestId('loop-start').click();
     await expect(page.getByTestId('loop-composer-innovate').getByTestId('loop-stop')).toBeVisible();
 
-    const notices = () => page.getByText('Innovate is waiting for input.');
+    const notices = () => page.getByText('Ideate is waiting for input.');
 
     // A run that sits at one prompt for ten minutes is one notification, and
     // repeating the same activity is not a new question.
@@ -436,9 +436,9 @@ test.describe('FAB panel — the tab glow (Phase 37)', () => {
    */
   const ARCS: Record<string, { from: string; to: string }> = {
     Medic: { from: '-90deg', to: '90deg' },
-    Watchdog: { from: '-30deg', to: '150deg' },
-    Automate: { from: '30deg', to: '210deg' },
-    Innovate: { from: '90deg', to: '270deg' },
+    Patrol: { from: '-30deg', to: '150deg' },
+    Engineer: { from: '30deg', to: '210deg' },
+    Ideate: { from: '90deg', to: '270deg' },
   };
 
   const gradient = (page: Page) => page.locator('.fab-panel-gradient');
@@ -472,16 +472,16 @@ test.describe('FAB panel — the tab glow (Phase 37)', () => {
 
   test("Start/Stop inside a tab's own pane inherits that tab's arc for free", async ({ page }) => {
     await open(page);
-    await openFab(page, 'Automate');
+    await openFab(page, 'Engineer');
     await page.getByTestId('loop-composer-automate').getByTestId('loop-start').click();
     const stop = page.getByTestId('loop-composer-automate').getByTestId('loop-stop');
     await expect(stop).toBeVisible();
-    await expect.poll(() => arcOf(stop)).toEqual(ARCS['Automate']);
+    await expect.poll(() => arcOf(stop)).toEqual(ARCS['Engineer']);
   });
 
   test('data-loop-state tracks the active tab: idle, running, then waiting', async ({ page }) => {
     await open(page);
-    await openFab(page, 'Watchdog');
+    await openFab(page, 'Patrol');
     await expect(gradient(page)).toHaveAttribute('data-loop-state', 'idle');
 
     await page.getByTestId('loop-composer-watchdog').getByTestId('loop-start').click();
@@ -519,7 +519,7 @@ test.describe('FAB panel — the tab glow (Phase 37)', () => {
 
   test("data-motion='reduced' stops the panel's rotation, pulse and arc sweep", async ({ page }) => {
     await open(page);
-    await openFab(page, 'Innovate');
+    await openFab(page, 'Ideate');
     const before = () => gradient(page).evaluate((el) => getComputedStyle(el, '::before').animationName);
 
     expect(await before()).toBe('fab-panel-spin, fab-glow-pulse');
@@ -534,9 +534,9 @@ test.describe('FAB panel — the tab glow (Phase 37)', () => {
     expect(transitions.own).toBe('none');
     expect(transitions.before).toBe('none');
 
-    // The colour survives even though the motion doesn't: still Innovate's
+    // The colour survives even though the motion doesn't: still Ideate's
     // arc, resting rather than mid-sweep.
-    await expect.poll(() => arcOf(gradient(page))).toEqual(ARCS['Innovate']);
+    await expect.poll(() => arcOf(gradient(page))).toEqual(ARCS['Ideate']);
 
     await page.evaluate(() => document.documentElement.removeAttribute('data-motion'));
     expect(await before()).toBe('fab-panel-spin, fab-glow-pulse');
@@ -560,7 +560,7 @@ test.describe('FAB loop console — rehydration (Theme I)', () => {
         id: 'sess-fab-innovate',
         kind: 'agent',
         agentId: 'claude',
-        title: 'Innovate',
+        title: 'Ideate',
         cwd: '/tmp/midnite-studio',
         repoId: 'repo-1',
         createdAt: 1_787_000_000,
@@ -610,7 +610,7 @@ test.describe('FAB loop console — rehydration (Theme I)', () => {
     // in for "no session yet" is gone because there IS a session.
     await expect(composer.getByTestId('loop-start')).toBeVisible();
     await expect(composer.getByTestId('loop-stop')).toHaveCount(0);
-    await expect(page.getByText('Press Start to run Innovate')).toHaveCount(0);
+    await expect(page.getByText('Press Start to run Ideate')).toHaveCount(0);
 
     // The transcript is mounted, and no process was spawned to show it.
     await expect(page.locator('.xterm-screen')).toHaveCount(1);
@@ -622,7 +622,7 @@ test.describe('FAB loop console — rehydration (Theme I)', () => {
 
     await page.keyboard.press('Control+`');
     await expect(panel(page)).toBeVisible();
-    await expect(rows(page).filter({ hasText: 'Innovate' })).toHaveCount(0);
+    await expect(rows(page).filter({ hasText: 'Ideate' })).toHaveCount(0);
   });
 
   test('a fabSessions entry whose session is gone reads as idle, and Start still works', async ({
@@ -639,7 +639,7 @@ test.describe('FAB loop console — rehydration (Theme I)', () => {
 
     const composer = page.getByTestId('loop-composer-innovate');
     await expect(composer.getByTestId('loop-start')).toBeVisible();
-    await expect(page.getByText('Press Start to run Innovate')).toBeVisible();
+    await expect(page.getByText('Press Start to run Ideate')).toBeVisible();
 
     await composer.getByTestId('loop-start').click();
     await expect(composer.getByTestId('loop-stop')).toBeVisible();
