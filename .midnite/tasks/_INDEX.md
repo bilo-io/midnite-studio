@@ -44,11 +44,11 @@ Completed work is logged append-only in [`done.md`](done.md). Deferred scope liv
 | [45 · The leak audit](phases/phase-45-leak-audit.md) | 🔄 WIP | — | 0/34 | `░░░░░░░░░░` | 0% | A B C D | E F |
 | [44 · Video Studio](phases/phase-44-video-studio.md) | ◻ TODO | — | 0/64 | `░░░░░░░░░░` | 0% | — | A B C D E F G H |
 | [43 · Workflows](phases/phase-43-workflows-mvp.md) | ◻ TODO | x1 | 0/77 | `░░░░░░░░░░` | 0% | — | A B C D E F G H I |
-| [42 · Councils, rearranged](phases/phase-42-councils-layout.md) | 🔄 WIP | x1 | 30/44 | `███████░░░` | 68% | — | E F |
+| [42 · Councils, rearranged](phases/phase-42-councils-layout.md) | 🔄 WIP | x1 | 30/44 | `███████░░░` | 68% | E F | — |
 | [41 · Agentic Kanban](phases/phase-41-agentic-kanban.md) | 🔄 WIP | x1 | 35/57 | `██████░░░░` | 61% | G H | D (blocked on G) |
 | [40 · GitHub Projects](phases/phase-40-github-projects.md) | 🔄 WIP | x1 | 38/53 | `███████░░░` | 72% | — | G (human screenshots + real-board pass) |
 | [39 · One rail, five chords and four loops](phases/phase-39-status-bar-shortcut-rail.md) | 🔄 WIP | — | 61/64 | `██████████` | 95% | — | Verification (human keyboard + eye pass) |
-| [38 · Paying off the e2e suite](phases/phase-38-e2e-suite-repair.md) | 🔄 WIP | — | 35/58 | `██████░░░░` | 60% | D | G H I |
+| [38 · Paying off the e2e suite](phases/phase-38-e2e-suite-repair.md) | 🔄 WIP | — | 35/58 | `██████░░░░` | 60% | D G I | H |
 | [37 · A glow that knows which tab](phases/phase-37-fab-tab-glow.md) | 🔄 WIP | — | 41/44 | `█████████░` | 93% | — | F (human idle-cpu + resize check) |
 | [36 · Faster, lighter, same app](phases/phase-36-performance-diet.md) | 🔄 WIP | x1 | 58/64 | `█████████░` | 91% | — | G (human passes) |
 | [35 · FAB Mission Control](phases/phase-35-fab-mission-control.md) | 🔄 WIP | — | 39/40 | `██████████` | 98% | — | — |
