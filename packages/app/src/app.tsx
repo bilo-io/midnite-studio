@@ -14,7 +14,7 @@ import type { IconType } from 'react-icons';
 import { CiPower } from 'react-icons/ci';
 import { LuChevronLeft, LuSettings } from 'react-icons/lu';
 
-import { Brand, BrandMark, Wordmark } from './components/brand';
+import { Brand, BrandHomeButton, BrandMark, Wordmark } from './components/brand';
 import { BrowserPane } from './features/browser/browser-pane';
 import { DelayedFallback } from './components/delayed-fallback';
 import { DialogHost } from './components/dialog-host';
@@ -99,11 +99,13 @@ import {
   seeds state is simply the wrong shape for a lazy boundary.
 
   `.then` destructuring rather than a default export each: these are named
-  exports throughout the app, and adding thirteen default re-exports to satisfy
+  exports throughout the app, and adding fourteen default re-exports to satisfy
   `React.lazy` would be a worse trade than one line of ceremony per view here.
 */
 const loadSettingsView = () => import('./features/settings/settings-view');
 const SettingsView = lazy(() => loadSettingsView().then((m) => ({ default: m.SettingsView })));
+const loadLandingView = () => import('./features/landing/landing-view');
+const LandingView = lazy(() => loadLandingView().then((m) => ({ default: m.LandingView })));
 const loadCouncilsView = () => import('./features/councils/councils-view');
 const CouncilsView = lazy(() => loadCouncilsView().then((m) => ({ default: m.CouncilsView })));
 const loadDashboardView = () => import('./features/dashboard/dashboard-view');
@@ -749,7 +751,9 @@ function Shell() {
       // clipped to a couple of letters, which reads as a rendering bug.
       brand: ({ expanded }) => (
         <div className="flex min-w-0 flex-1 items-center gap-1">
-          <Brand className="px-1" showWordmark={expanded} />
+          <BrandHomeButton className="px-1">
+            <Brand showWordmark={expanded} />
+          </BrandHomeButton>
           {/*
             The pin only exists while the rail is expanded. Collapsed, the rail
             is 3.5rem of icons with nowhere to put it — and it would be asking
@@ -869,7 +873,9 @@ function Shell() {
       windowChrome={windowChrome}
       left={
         <div className="flex min-w-0 items-center">
-          <Wordmark className="text-xs" />
+          <BrandHomeButton>
+                <Wordmark className="text-xs" />
+              </BrandHomeButton>
           <TitleBarNav />
           <span aria-hidden className="mx-1.5 h-4 w-px shrink-0 bg-border" />
           <SyncActions />
@@ -921,7 +927,9 @@ function Shell() {
         {framed ? (
           <div className="flex h-10 shrink-0 items-center justify-between gap-2 border-b border-border px-3">
             <div className="flex min-w-0 items-center">
-              <Wordmark className="text-xs" />
+              <BrandHomeButton>
+                <Wordmark className="text-xs" />
+              </BrandHomeButton>
               <TitleBarNav />
               <span aria-hidden className="mx-1.5 h-4 w-px shrink-0 bg-border" />
               <SyncActions />
@@ -994,9 +1002,9 @@ function Shell() {
             */}
             <div ref={stackRef} className="flex min-h-0 flex-1 flex-col">
               {/*
-                ONE boundary for all thirteen lazy views, not one each — Phase 36
-                Theme C. A view switch suspends in exactly one place; thirteen
-                boundaries would render identically and be thirteen things to keep
+                ONE boundary for all eleven lazy views, not one each — Phase 36
+                Theme C. A view switch suspends in exactly one place; eleven
+                boundaries would render identically and be eleven things to keep
                 in step.
 
                 OUTSIDE the keyed div, not inside it, and that placement is the
@@ -1033,7 +1041,12 @@ function Shell() {
                   *before* the `!selectedRepoId` guard, or opening Settings with
                   no repo selected would show the empty workspace instead.
                 */}
-                  {activeView === 'settings' ? (
+                  {activeView === 'landing' ? (
+                  // The landing page shows no repository, so like Settings and
+                  // Councils it has to be reachable ahead of the
+                  // `!selectedRepoId` guard below.
+                  <LandingView />
+                ) : activeView === 'settings' ? (
                   <SettingsView />
                 ) : activeView === 'councils' ? (
                   // Global, like Settings — a council is not scoped to a repo, so

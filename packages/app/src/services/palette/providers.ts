@@ -24,6 +24,7 @@ import type { PaletteItem, PaletteSource } from './source';
 import type { IconComponent } from '../../components/icon-button';
 
 const VIEW_LABELS: Record<ViewId, string> = {
+  landing: 'Home',
   dashboard: 'Dashboard',
   files: 'Explorer',
   search: 'Search Everywhere',
@@ -41,7 +42,9 @@ const VIEW_LABELS: Record<ViewId, string> = {
 };
 
 const VIEW_KEYWORDS: Record<ViewId, string> = {
-  dashboard: 'overview summary metrics home',
+  landing: 'home landing start welcome shortcuts keys cheatsheet',
+  // `home` is the landing page's word now, so the dashboard drops it.
+  dashboard: 'overview summary metrics',
   files: 'tree folder file explorer code',
   search: 'search grep find commits messages files',
   graph: 'git history commits branches log',

@@ -23,6 +23,7 @@ import { Choice, Field } from './controls';
 
 /** The rail's names for the views, so the two lists read as one vocabulary. */
 const VIEW_LABELS: Record<ViewId, string> = {
+  landing: 'Home',
   dashboard: 'Dashboard',
   files: 'Files',
   search: 'Search',
@@ -204,7 +205,12 @@ export function SidebarPage() {
             hint="Views that are a question about a subset — Changes, Actions, Tests — arrive narrowed to it; the rest start with the whole tree. This is the setting the panel's own filter button flips, one view at a time."
           >
             <div className="flex flex-col gap-1.5">
-              {VIEW_IDS.map((view) => (
+              {/*
+                Every view but the landing page, which renders no repository
+                sidebar at all — a narrowing row for it would be a control
+                over nothing.
+              */}
+              {VIEW_IDS.filter((view) => view !== 'landing').map((view) => (
                 <ViewRow key={view} view={view} />
               ))}
             </div>

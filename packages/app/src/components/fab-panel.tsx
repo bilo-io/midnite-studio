@@ -8,6 +8,7 @@ import { LoopTab } from '../features/loops/loop-tab';
 import { useAllLoopStatuses, type LoopStatus } from '../features/loops/loop-status';
 import { useLoopRuns } from '../features/loops/use-loop-runs';
 import { useTerminalStore } from '../features/terminal/terminal-store';
+import { useWindowFocusGate } from '../lib/use-window-focus-gate';
 import { useUiStore, type FabTab } from '../store/ui-store';
 
 interface FabPanelProps {
@@ -165,41 +166,6 @@ function useHydrateOnOpen(isOpen: boolean): void {
   useEffect(() => {
     if (!isOpen) return;
     void useTerminalStore.getState().hydrate();
-  }, [isOpen]);
-}
-
-/**
- * Freezes the panel's rainbow glow (Phase 37 Theme B) the instant the OS
- * takes focus elsewhere, and lets it run again on return.
- *
- * `document.visibilityState` (what `use-now.ts` gates on) answers a
- * different question — hidden vs. visible, i.e. minimised or on another
- * space — and stays `'visible'` for a window that is merely blurred behind
- * another app, which is exactly the state Phase 36's `idle-cpu.mjs
- * --blurred` measures and the state a permanently-mounted rotating,
- * pulsing panel should not keep animating through. `window.hasFocus()` /
- * `focus` / `blur` are the only signal for that.
- *
- * Scoped to while the panel is open — nothing needs this attribute set
- * before the glow exists to gate, and cleanup on close avoids leaving a
- * stale `false` behind for whatever mounts next.
- */
-function useWindowFocusGate(isOpen: boolean): void {
-  useEffect(() => {
-    if (!isOpen) return;
-    const setFocused = (focused: boolean): void => {
-      document.documentElement.dataset['windowFocused'] = focused ? 'true' : 'false';
-    };
-    setFocused(document.hasFocus());
-    const onFocus = (): void => setFocused(true);
-    const onBlur = (): void => setFocused(false);
-    window.addEventListener('focus', onFocus);
-    window.addEventListener('blur', onBlur);
-    return () => {
-      window.removeEventListener('focus', onFocus);
-      window.removeEventListener('blur', onBlur);
-      delete document.documentElement.dataset['windowFocused'];
-    };
   }, [isOpen]);
 }
 
