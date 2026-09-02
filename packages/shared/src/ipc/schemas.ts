@@ -904,7 +904,15 @@ export const PushRequest = OpBase.extend({
    */
   forceWithLease: z
     .object({
-      /** The remote-tracking ref being leased against, e.g. `refs/remotes/origin/main`. */
+      /**
+       * The ref as named ON THE REMOTE — a local branch ref like
+       * `refs/heads/main`, matching what an ordinary push already sends as
+       * the refspec destination. **Not** `refs/remotes/origin/main`: that
+       * form names the LOCAL remote-tracking copy, which is not what git's
+       * `--force-with-lease=<ref>:<expect>` compares `expect` against. See
+       * `sync.ts`'s `push()` (the caller) and its integration tests, both of
+       * which use `refs/heads/<branch>`.
+       */
       ref: z.string().min(1),
       /** The sha that ref was at when the confirm dialog read it. */
       expect: z.string().min(1),
