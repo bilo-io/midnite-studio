@@ -1964,6 +1964,15 @@ html[data-motion='reduced'] .loop-launcher.is-running.is-pulsing {
   `'system'`, not `'reduced'`, so a fresh install with the OS's own
   reduce-motion on reads `'system'` and the `[data-motion='reduced']`
   selector never matches at all — only the `@media` form below does.
+
+  **`!important` on both overrides is load-bearing, not decoration.**
+  `transition-duration` is set *inline* (`style={{ transitionDuration:
+  motionMs() + 'ms' }}` in `panel-stack.tsx`), and an inline style beats any
+  external stylesheet rule regardless of selector specificity unless that
+  rule carries `!important` — a `transition: none` without it here would be
+  the exact Theme F caught: `e2e/councils.spec.ts`'s three-configuration
+  test failed against `main` before this line existed, with the pane still
+  animating at the full 200ms under the `'system'`+OS-reduce path.
 */
 .panel-stack-pane {
   transition-property: transform;
@@ -1972,10 +1981,10 @@ html[data-motion='reduced'] .loop-launcher.is-running.is-pulsing {
 
 @media (prefers-reduced-motion: reduce) {
   html:not([data-motion='full']) .panel-stack-pane {
-    transition: none;
+    transition: none !important;
   }
 }
 
 html[data-motion='reduced'] .panel-stack-pane {
-  transition: none;
+  transition: none !important;
 }

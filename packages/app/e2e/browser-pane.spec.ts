@@ -92,7 +92,7 @@ test('Mod+T opens a new tab, and the strip shows both', async ({ page }) => {
   await page.locator('[data-testid="browser-toggle"]').click();
   await expect(browserTabs(page)).toHaveCount(1);
 
-  await page.keyboard.press('ControlOrMeta+t');
+  await page.keyboard.press('Meta+t');
   await expect(browserTabs(page)).toHaveCount(2);
 });
 
@@ -102,10 +102,10 @@ test('Mod+W closes the active browser tab rather than the repository, while the 
   await expect(page.getByRole('columnheader', { name: 'Commit message' })).toBeVisible();
 
   await page.locator('[data-testid="browser-toggle"]').click();
-  await page.keyboard.press('ControlOrMeta+t');
+  await page.keyboard.press('Meta+t');
   await expect(browserTabs(page)).toHaveCount(2);
 
-  await page.keyboard.press('ControlOrMeta+w');
+  await page.keyboard.press('Meta+w');
   // Closes the browser tab, not the repository — the graph stays mounted
   // and the pane stays open, which is the whole point of the chord carve-out.
   await expect(browserTabs(page)).toHaveCount(1);

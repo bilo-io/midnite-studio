@@ -19,9 +19,13 @@ import { useCallback, useMemo, useState } from 'react';
  *   decrements `index` in the same update, or `back`/`forward` would point at the wrong entry the
  *   moment the cap is hit.
  *
- * `useState`-based and panel-local, not a zustand store: there is never more than one instance of
- * a consuming panel mounted at once, and a store would invite the cross-view coupling a panel-local
- * primitive is meant to avoid.
+ * `useState`-based and panel-local by default, not a zustand store: there is usually never more
+ * than one instance of a consuming panel mounted at once, and a store would invite the cross-view
+ * coupling a panel-local primitive is meant to avoid. **The one exception is a lazy-mounted panel
+ * that needs its stack to survive being unmounted** (Councils — Phase 42 Theme E): the pure state
+ * transitions below (`pushHistoryState` etc.) are exported precisely so a consumer in that
+ * position can drive them from its own module-level store instead, without re-deriving the
+ * depth-cap arithmetic by hand.
  */
 
 export type PanelHistoryOptions<T> = {
@@ -52,51 +56,69 @@ export type PanelHistory<T> = {
   canGoForward: boolean;
 };
 
-const DEFAULT_MAX_DEPTH = 20;
+export const DEFAULT_MAX_DEPTH = 20;
+
+/** The bare `{ entries, index }` shape the pure transitions below operate on. */
+export type PanelHistoryState<T> = { entries: T[]; index: number };
+
+/**
+ * Push, truncating any forward tail and enforcing the depth cap — a no-op if
+ * `entry` equals the current top per `isSame`. Exported so a module-level
+ * store (Councils' own — Theme E) can reuse the exact same arithmetic
+ * `usePanelHistory` itself runs on, including the depth-cap/index hazard.
+ */
+export function pushHistoryState<T>(
+  state: PanelHistoryState<T>,
+  entry: T,
+  isSame: (a: T, b: T) => boolean,
+  maxDepth: number = DEFAULT_MAX_DEPTH,
+): PanelHistoryState<T> {
+  const current = state.entries[state.index];
+  if (current !== undefined && isSame(current, entry)) return state;
+
+  const truncated = [...state.entries.slice(0, state.index + 1), entry];
+  // Drop from the head once over the cap — and decrement index in the same
+  // update, the hazard this primitive exists to get right.
+  const overflow = truncated.length - maxDepth;
+  const entries = overflow > 0 ? truncated.slice(overflow) : truncated;
+  return { entries, index: entries.length - 1 };
+}
+
+export function replaceHistoryState<T>(state: PanelHistoryState<T>, entry: T): PanelHistoryState<T> {
+  const entries = [...state.entries];
+  entries[state.index] = entry;
+  return { entries, index: state.index };
+}
+
+export function backHistoryState<T>(state: PanelHistoryState<T>): PanelHistoryState<T> {
+  return state.index <= 0 ? state : { entries: state.entries, index: state.index - 1 };
+}
+
+export function forwardHistoryState<T>(state: PanelHistoryState<T>): PanelHistoryState<T> {
+  return state.index >= state.entries.length - 1
+    ? state
+    : { entries: state.entries, index: state.index + 1 };
+}
 
 export function usePanelHistory<T>(initial: T, options: PanelHistoryOptions<T> = {}): PanelHistory<T> {
   const maxDepth = options.maxDepth ?? DEFAULT_MAX_DEPTH;
   const isSame = options.isSame ?? Object.is;
 
-  const [state, setState] = useState<{ entries: T[]; index: number }>({
+  const [state, setState] = useState<PanelHistoryState<T>>({
     entries: [initial],
     index: 0,
   });
 
   const push = useCallback(
-    (entry: T) => {
-      setState((prev) => {
-        const current = prev.entries[prev.index];
-        if (current !== undefined && isSame(current, entry)) return prev;
-
-        const truncated = [...prev.entries.slice(0, prev.index + 1), entry];
-        // Drop from the head once over the cap — and decrement index in the
-        // same update, the hazard this primitive exists to get right.
-        const overflow = truncated.length - maxDepth;
-        const entries = overflow > 0 ? truncated.slice(overflow) : truncated;
-        return { entries, index: entries.length - 1 };
-      });
-    },
+    (entry: T) => setState((prev) => pushHistoryState(prev, entry, isSame, maxDepth)),
     [isSame, maxDepth],
   );
 
-  const replace = useCallback((entry: T) => {
-    setState((prev) => {
-      const entries = [...prev.entries];
-      entries[prev.index] = entry;
-      return { entries, index: prev.index };
-    });
-  }, []);
+  const replace = useCallback((entry: T) => setState((prev) => replaceHistoryState(prev, entry)), []);
 
-  const back = useCallback(() => {
-    setState((prev) => (prev.index <= 0 ? prev : { entries: prev.entries, index: prev.index - 1 }));
-  }, []);
+  const back = useCallback(() => setState(backHistoryState), []);
 
-  const forward = useCallback(() => {
-    setState((prev) =>
-      prev.index >= prev.entries.length - 1 ? prev : { entries: prev.entries, index: prev.index + 1 },
-    );
-  }, []);
+  const forward = useCallback(() => setState(forwardHistoryState), []);
 
   const reset = useCallback(
     (entry?: T) => {

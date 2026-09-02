@@ -336,38 +336,36 @@ its obvious next ones, which is why it lands in `components/` rather than `featu
     it is a convenience with no other consumer and the chords already cover the need — taken as
     the Decision rather than waiting to run out of time to reach it.
 
-### E — Councils and runs share the panel (M)
+### E — Councils and runs share the panel (M) — ✅ DONE (2026-09-02)
 
-- [ ] `<CouncilList>` and the run list both render as `PanelStack` entries in the **left rail**,
+- [x] `<CouncilList>` and the run list both render as `PanelStack` entries in the **left rail**,
       so moving between "which council" and "which run of it" is one back-and-forward motion in one
       place — the behaviour the feature note asks for.
-- [ ] The centre region follows the stack top: a council entry shows its latest run or an empty
+  - [`council-run-list.tsx`](../../../packages/app/src/features/councils/council-run-list.tsx) (new)
+    is the vertical replacement for the old horizontal tab strip, rendered by a second `PanelStack`
+    in the rail (`councils-view.tsx`) that shares the same `history` object the centre pane does.
+- [x] The centre region follows the stack top: a council entry shows its latest run or an empty
       prompt state; a run entry shows
       [`council-run-view.tsx`](../../../packages/app/src/features/councils/council-run-view.tsx).
-- [ ] A run that starts while its council is on top pushes the run entry automatically — you land
+  - `CouncilRunView` lost its horizontal run-picker strip — run selection lives in the rail now —
+    and takes `activeRunId` directly rather than resolving it itself.
+- [x] A run that starts while its council is on top pushes the run entry automatically — you land
       on the thing you just started.
-- [ ] Navigating away must not **kill the run or lose output** — stated precisely, because the
+- [x] Navigating away must not **kill the run or lose output** — stated precisely, because the
       draft's "must not detach" conflates two different things.
   - [`council-live-output.tsx:17`](../../../packages/app/src/features/councils/council-live-output.tsx)
     (`CouncilLiveOutput({ ptyId })`) subscribes to `pty.onData` inside a `useEffect` and snapshots
     on mount. Unmounting it **does** detach the listener — and that is fine.
   - What survives is the **process** (broker-owned, exactly as Phase 30 built it) and its
     **scrollback**, which `api.pty.snapshot({ ptyId })` replays losslessly on remount. The run is
-    never detached; only the listener is.
-  - So the requirement is: do **not** keep the component mounted off-stack to "hold" the stream, and
-    do **not** kill the pty on unmount. Both are wrong for the same reason — the broker already owns
-    continuity.
-  - Keeping it mounted-but-hidden is actively expensive: it calls `setText` on **every** `onData`
-    chunk and re-runs `collapseCarriageReturns(stripAnsi(fullBuffer))` over the whole buffer each
-    time (`:39-40`), plus a `scrollTop` write per change (`:48`). That is O(n²) work for a panel
-    nobody is looking at.
-  - Two free cleanups while rewriting: the file's header comment (`:10`) claims it subscribes to
-    `pty.onExit` — **it does not**; and `CouncilRunView` declares a `councilId` prop
-    (`council-run-view.tsx:32`) that is never destructured or used, passed in at
-    `council-detail.tsx:214`.
-  - *Acceptance:* navigate list → council → run mid-flight, go back to the list, wait, return — the
-    output shown on return includes what was emitted while away.
-- [ ] The stack survives leaving the Councils view and coming back within a session.
+    never detached; only the listener is. `CouncilRunView`/`CouncilRunList` were rewritten to render
+    from the `PanelStack` entry rather than holding anything off-stack, so this was never at risk of
+    regressing here — nothing in `council-live-output.tsx` needed to change.
+  - Of the two free cleanups noted: `CouncilRunView`'s unused `councilId` prop is gone, a side effect
+    of the Theme E rewrite (its new signature is just `{ activeRunId }`). The other —
+    `council-live-output.tsx:10`'s header comment still claims a `pty.onExit` subscription that does
+    not exist in the code — was not touched this batch; that file itself was not part of the rewrite.
+- [x] The stack survives leaving the Councils view and coming back within a session.
   - Councils is lazy and its component unmounts on view switch, so a `useState` inside
     `councils-view.tsx` will not survive. Hold the history in a small module-level store for the
     feature (or lift it to the ui-store **unpersisted**), and keep it out of `partialize`.
@@ -375,12 +373,18 @@ its obvious next ones, which is why it lands in `components/` rather than `featu
     *"session-only … so a restart does not hand the user a 'back' button to a view from last time."*
     Resolves the doc's open question about restart persistence — see Decisions.
 
-### F — Motion, and proving it (S)
+### F — Motion, and proving it (S) — ✅ DONE (2026-09-02)
 
-- [ ] `prefers-reduced-motion` and the app's `html[data-motion='reduced']` attribute both collapse
+- [x] `prefers-reduced-motion` and the app's `html[data-motion='reduced']` attribute both collapse
       the slide to an instant swap. **Asserted through the real cascade**, not assumed: Phase 39
       Theme G found a reduced-motion rule losing on specificity (`0,2,1` vs `0,3,0`) with shell's
       `!important` duration masking it, and it shipped believing otherwise.
+  - This theme found the same mistake in its own new rule before shipping, not after: the
+    `!important` on the two `.panel-stack-pane` reduced-motion rules in `styles.css` is load-bearing
+    because `panel-stack.tsx` sets `transitionDuration` as an **inline style** — which beats any
+    non-`!important` external rule regardless of selector specificity. Caught by the third of the
+    three `e2e/councils.spec.ts` cases below, which failed with `transitionDuration` reading `200`
+    (not near-zero) before the fix.
   - **There is a global sweep, but it is not in this repo and it does not do what it looks like.**
     `@bilo-io/shell/appearance.css` (imported at [`styles.css:7`](../../../packages/app/src/styles.css))
     carries a universal `html[data-motion='reduced'] *, *::before, *::after` block forcing
@@ -397,17 +401,18 @@ its obvious next ones, which is why it lands in `components/` rather than `featu
     and luck is what Phase 39 Theme G shipped on.
   - Write the per-class rule anyway, at least as specific as what it overrides, and check it in the
     browser's computed styles. Phase 39 Theme G is **still open** (4 of its 7 items unticked).
-- [ ] Transition duration comes from the app's existing motion vocabulary, not a hard-coded ms in
+- [x] Transition duration comes from the app's existing motion vocabulary, not a hard-coded ms in
       a utility class.
   - The token is `REVEAL_MS = 200` with the helper `motionMs()`
     ([`use-reveal.ts:11,41`](../../../packages/app/src/components/use-reveal.ts)) — *"the one source
     of the duration"* — consumed as `style={{ transitionDuration: `${motionMs()}ms` }}`, as
     [`browser-pane.tsx:117`](../../../packages/app/src/features/browser/browser-pane.tsx) does. Use
     it; do not add a second constant.
-  - **But fix its blind spot or inherit it:** `motionMs()` checks `dataset.motion === 'reduced'`
-    only, so under the default `'system'` + OS-reduce it returns `200`. Either widen it to consult
-    the media query too — a two-line change that improves every existing caller — or rely solely on
-    the shell's `!important` collapse and say so. Do not leave it ambiguous.
+  - **Chose "rely solely on the shell's `!important` collapse", explicitly:** `motionMs()` still
+    only checks `dataset.motion === 'reduced'`, unchanged — the default `'system'` + OS-reduce case
+    is handled entirely by the `@media (prefers-reduced-motion: reduce)` rule in `styles.css`
+    (see above), not by widening `motionMs()` itself. Left ambiguous no longer: the third
+    `e2e/councils.spec.ts` case in the list below asserts exactly this configuration.
   - There is **no** CSS custom property and **no** Tailwind `transitionDuration` key, so a
     `duration-*` utility is the wrong tool here. Note
     [`duration-literal.test.ts`](../../../packages/app/src/components/duration-literal.test.ts)
@@ -436,9 +441,10 @@ its obvious next ones, which is why it lands in `components/` rather than `featu
       phase and the only part two other phases will consume, so it carries the heavier test.
       12 tests, plus 5 more for `active-panel.ts`'s registry (not named by the doc — see Theme A).
 - [ ] **Open, for a human:** screenshots: three panes at rest, the right panel collapsed, and a run
-      mid-flight. One at-rest shot taken this session
-      (`docs/screenshots/p42-abcd/councils-three-pane.png`) for the PR; the collapsed and
-      reduced-motion states are Theme F's own item and were not captured here.
+      mid-flight. One at-rest shot taken in an earlier session
+      (`docs/screenshots/p42-abcd/councils-three-pane.png`) for the PR, and this batch added
+      `docs/screenshots/p42-ef-p38-gi/councils-run-mid-flight.png` (a live run, three panes) — the
+      right-panel-collapsed and reduced-motion-mid-slide states specifically are still not captured.
 
 ## Files this phase touches
 
@@ -465,10 +471,12 @@ its obvious next ones, which is why it lands in `components/` rather than `featu
       (`app:build desktop:bundle` first). No new static import was added to the entry chunk
       (Councils was already lazy from Phase 34), so regression risk is low, but the number itself
       is unmeasured — open below.
-- [ ] Reduced motion verified **in the browser**, in **three** configurations — **Theme F's own
-      item, not run this batch.** The slide is transition-driven (see Theme A's correction) with
-      its own per-class reduced-motion rule in `styles.css`, mirroring the `.loop-run-glow` pattern
-      this batch modelled it on, but the three-configuration browser pass itself is open below.
+- [x] Reduced motion verified **in the browser**, in **three** configurations — done in the batch
+      that landed Theme E/F: `e2e/councils.spec.ts`'s `panel-stack reduced motion — three
+      configurations (Theme F)` describe block reads `transitionDuration` through a real
+      `getComputedStyle` in `data-motion='reduced'`, `data-motion='full'` with the OS reduce-motion
+      on, and the default `'system'` + OS reduce-motion blind spot — the third case is what caught
+      the `!important` bug noted under Theme F above.
 - [x] `councils.spec.ts` still passes, and is still absent from
       [`playwright.ci.config.ts`](../../../packages/app/playwright.ci.config.ts)'s `KNOWN_RED` —
       3 specs, run 4x repeated with no flakes.

@@ -3,61 +3,17 @@ import { LuChevronLeft, LuUsers } from 'react-icons/lu';
 import { useRegisterActivePanel } from '../../components/panel-stack/active-panel';
 import { PanelHeader } from '../../components/panel-stack/panel-header';
 import { PanelStack } from '../../components/panel-stack/panel-stack';
-import { usePanelHistory } from '../../components/panel-stack/use-panel-history';
 import { EmptyState } from '../../components/empty-state';
 import { ResizeHandle } from '../../components/resizable/resize-handle';
 import { useResizable } from '../../components/resizable/use-resizable';
 import { DEFAULT_LAYOUT, LAYOUT_BOUNDS, useUiStore } from '../../store/ui-store';
 import { CouncilConfigPanel } from './council-config-panel';
 import { CouncilList } from './council-list';
+import { CouncilRunList } from './council-run-list';
 import { CouncilRunView } from './council-run-view';
+import { councilIdOf, useCouncilsHistory, type CouncilEntry } from './councils-history-store';
 import { useCouncil, useCouncils } from './use-council';
 import { useCouncilRuns } from './use-council-run';
-
-/**
- * A council panel's own navigation stack (Phase 42 Theme D) — replaces the
- * two `useState`s the old flat layout carried: `selectedId` here, and
- * `selectedRunId` inside what used to be `council-detail.tsx`. The second is
- * why the run tab strip could not navigate at all before this phase.
- *
- * **Correction to the phase doc's own drafted type** — found by testing, not
- * by reading: `{ kind: 'run'; id }` alone is not enough to render a run.
- * `useCouncilRuns` (the run *list*, which resolves which run is "latest")
- * is keyed by `councilId`, not `runId` — a run entry needs its council's id
- * carried alongside it, or the centre pane cannot know which council's run
- * list to read. Without it, `CouncilOutput` was passing a run id where a
- * council id belonged, and `useCouncilRuns` silently fetched an empty list
- * for a council that doesn't exist — reachable only once a run is actually
- * started, which is exactly the case `councils.spec.ts`'s existing "running
- * a consultation" test caught.
- */
-export type CouncilEntry =
-  | { kind: 'list' }
-  | { kind: 'council'; id: string }
-  | { kind: 'run'; id: string; councilId: string };
-
-function isSameCouncilEntry(a: CouncilEntry, b: CouncilEntry): boolean {
-  switch (a.kind) {
-    case 'list':
-      return b.kind === 'list';
-    case 'council':
-      return b.kind === 'council' && b.id === a.id;
-    case 'run':
-      return b.kind === 'run' && b.id === a.id;
-  }
-}
-
-/** The council a stack entry belongs to — `null` only for the root `'list'` entry. */
-function councilIdOf(entry: CouncilEntry): string | null {
-  switch (entry.kind) {
-    case 'list':
-      return null;
-    case 'council':
-      return entry.id;
-    case 'run':
-      return entry.councilId;
-  }
-}
 
 const COLLAPSED_WIDTH = 'w-9';
 
@@ -71,9 +27,14 @@ const COLLAPSED_WIDTH = 'w-9';
  * in this app: the centre region carries a hard `min-w`, so a narrow window
  * scrolls rather than squeezing the output to nothing. Cut deliberately —
  * see the phase doc.
+ *
+ * **The navigation stack itself lives in `councils-history-store.ts`, not a
+ * local `usePanelHistory` call (Phase 42 Theme E).** Councils is lazy and
+ * unmounts on view switch, so a component-local stack would reset to the
+ * list every time you left and came back within a session.
  */
 export function CouncilsView() {
-  const history = usePanelHistory<CouncilEntry>({ kind: 'list' }, { isSame: isSameCouncilEntry });
+  const history = useCouncilsHistory();
   // Always true while this component is mounted — there is only ever one
   // Councils panel, so "is the Councils view active" and "is this the panel
   // on screen" are the same question here.
@@ -129,9 +90,32 @@ export function CouncilsView() {
     <div className="flex h-full min-h-0">
       <div className="flex shrink-0 flex-col border-r border-border" style={{ width: nav.current }}>
         <PanelHeader history={history} label={label} className="shrink-0 border-b border-border px-2 py-1.5" />
-        <div className="min-h-0 flex-1">
-          <CouncilList selectedId={currentCouncilId} onSelect={(id) => history.push({ kind: 'council', id })} />
-        </div>
+        {/*
+          The rail's own PanelStack (Phase 42 Theme E) — sharing the same
+          `history` the centre pane does, so a run picked here and a council
+          picked here both drive one back/forward motion. Swaps between the
+          council list (`'list'` entries) and this council's run list
+          (`'council'`/`'run'` entries) — the run-tab strip that used to sit
+          above `CouncilRunView` lives here now instead.
+        */}
+        <PanelStack
+          history={history}
+          className="min-h-0 flex-1"
+          render={(entry) => {
+            const entryCouncilId = councilIdOf(entry);
+            return entryCouncilId === null ? (
+              <CouncilList selectedId={null} onSelect={(id) => history.push({ kind: 'council', id })} />
+            ) : (
+              <CouncilRunList
+                councilId={entryCouncilId}
+                councilName={councils?.find((c) => c.id === entryCouncilId)?.name ?? 'Council'}
+                activeRunId={entry.kind === 'run' ? entry.id : null}
+                onSelectRun={(runId) => history.push({ kind: 'run', id: runId, councilId: entryCouncilId })}
+                onBack={() => history.push({ kind: 'list' })}
+              />
+            );
+          }}
+        />
       </div>
       <ResizeHandle resizable={nav} axis="x" label="Resize councils navigation" />
 
@@ -147,11 +131,7 @@ export function CouncilsView() {
               body="Pick a council on the left, or create a new one to get started."
             />
           ) : (
-            <CouncilOutput
-              councilId={entryCouncilId}
-              requestedRunId={entry.kind === 'run' ? entry.id : null}
-              onSelectRun={(runId) => history.push({ kind: 'run', id: runId, councilId: entryCouncilId })}
-            />
+            <CouncilOutput councilId={entryCouncilId} requestedRunId={entry.kind === 'run' ? entry.id : null} />
           );
         }}
       />
@@ -189,11 +169,9 @@ export function CouncilsView() {
 function CouncilOutput({
   councilId,
   requestedRunId,
-  onSelectRun,
 }: {
   councilId: string;
   requestedRunId: string | null;
-  onSelectRun: (runId: string) => void;
 }) {
   const runs = useCouncilRuns(councilId);
   const runsData = runs.data ?? [];
@@ -202,9 +180,7 @@ function CouncilOutput({
     runsData[runsData.length - 1]?.id ??
     null;
 
-  return (
-    <CouncilRunView councilId={councilId} runs={runsData} activeRunId={activeRunId} onSelectRun={onSelectRun} />
-  );
+  return <CouncilRunView activeRunId={activeRunId} />;
 }
 
 function CouncilConfigWrapper({
