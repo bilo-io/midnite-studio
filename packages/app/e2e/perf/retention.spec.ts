@@ -12,9 +12,15 @@ import { expect, test } from '@playwright/test';
  * than shelling out to the CLI, so there is exactly one retention
  * implementation, not a script and a re-implementation of it in a spec.
  *
- * `terminal` is the action asserted here, not `repo` or `browser-tabs`: it is
- * the one that exercises the broker (Theme C's fix lives there), and it is
- * the phase doc's own acceptance test for that theme.
+ * All three automatable actions run here — the phase doc's own "flat growth
+ * for all four registered actions" (`council` is `ACTIONS`' own documented
+ * exception: it spawns a real, authenticated agent CLI per member, which this
+ * harness cannot assume is present). `terminal` keeps the full 20 cycles —
+ * it is the one that exercises the broker (Theme C's fix lives there), and
+ * is the phase doc's own acceptance test for that theme specifically.
+ * `repo`/`browser-tabs` run at 10: enough to expose a real per-cycle slope
+ * without doubling this spec's own runtime for actions with no theme of
+ * their own riding on the number.
  */
 const HERE = dirname(fileURLToPath(import.meta.url));
 const PERF_DIR = resolve(HERE, '..', '..', '..', '..', 'scripts', 'perf');
@@ -30,6 +36,22 @@ type Harness = {
   }>;
 };
 
+async function assertFlat(
+  harness: Harness,
+  actionName: string,
+  cycles: number,
+  limit: number,
+  repo: string,
+): Promise<void> {
+  const { slopes } = await harness.runRetention({ actionName, cycles, repo });
+  for (const [group, slope] of Object.entries(slopes)) {
+    expect(
+      Math.abs(slope.perCycleKb),
+      `${actionName}/${group}: ${JSON.stringify(slope)}`,
+    ).toBeLessThanOrEqual(limit);
+  }
+}
+
 test('retention stays inside its budget for a real terminal session cycle', async () => {
   // 20 cycles of create/run/kill against a real broker — minutes, not seconds.
   test.setTimeout(10 * 60 * 1000);
@@ -41,9 +63,27 @@ test('retention stays inside its budget for a real terminal session cycle', asyn
   expect(typeof limit).toBe('number');
 
   const repo = harness.mainWorktree(harness.REPO_ROOT);
-  const { slopes } = await harness.runRetention({ actionName: 'terminal', cycles: 20, repo });
+  await assertFlat(harness, 'terminal', 20, limit, repo);
+});
 
-  for (const [group, slope] of Object.entries(slopes)) {
-    expect(Math.abs(slope.perCycleKb), `${group}: ${JSON.stringify(slope)}`).toBeLessThanOrEqual(limit);
-  }
+test('retention stays inside its budget for a repo open/close cycle', async () => {
+  test.setTimeout(6 * 60 * 1000);
+
+  const harness = (await import(`${PERF_DIR}/memory-report.mjs`)) as unknown as Harness;
+  const budgets = JSON.parse(await readFile(`${PERF_DIR}/budgets.json`, 'utf8'));
+  const limit = budgets.retainedPerCycleKb;
+
+  const repo = harness.mainWorktree(harness.REPO_ROOT);
+  await assertFlat(harness, 'repo', 10, limit, repo);
+});
+
+test('retention stays inside its budget for a browser-tabs open/close cycle', async () => {
+  test.setTimeout(6 * 60 * 1000);
+
+  const harness = (await import(`${PERF_DIR}/memory-report.mjs`)) as unknown as Harness;
+  const budgets = JSON.parse(await readFile(`${PERF_DIR}/budgets.json`, 'utf8'));
+  const limit = budgets.retainedPerCycleKb;
+
+  const repo = harness.mainWorktree(harness.REPO_ROOT);
+  await assertFlat(harness, 'browser-tabs', 10, limit, repo);
 });
