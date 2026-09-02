@@ -1,7 +1,7 @@
 import { expect, test } from '@playwright/test';
 
 import { fixtures } from './fixtures';
-import { installMockBridge, type MockFixtures } from './mock-bridge';
+import { clickRailLink, installMockBridge, type MockFixtures } from './mock-bridge';
 
 /**
  * The Tests view and its sidebar section, assembled.
@@ -84,7 +84,7 @@ test('the Tests view lists suites by package and shows the selected one\'s comma
 }) => {
   await open(page);
 
-  await page.getByRole('link', { name: 'Tests' }).click();
+  await clickRailLink(page, 'Tests');
   await expect(suites(page).getByText('@midnite/studio-app')).toBeVisible();
   await expect(suites(page).getByRole('button', { name: /^test/ })).toBeVisible();
   await expect(suites(page).getByRole('button', { name: /^e2e/ })).toBeVisible();
@@ -117,7 +117,7 @@ test('trusting and running a suite renders the streamed result', async ({ page }
     },
   });
 
-  await page.getByRole('link', { name: 'Tests' }).click();
+  await clickRailLink(page, 'Tests');
   await suites(page).getByRole('button', { name: /^test/ }).click();
   await detail(page).getByRole('button', { name: 'Trust and run suite' }).click();
 

@@ -92,6 +92,7 @@ const bridge: Pick<
   | 'remotes'
 
   | 'forge'
+  | 'forgeProject'
   | 'shell'
   | 'clipboard'
   | 'ops'
@@ -191,6 +192,17 @@ const bridge: Pick<
     pullRequestReview: (req) => call(CHANNELS.forgePullRequestReview, req),
     pullReady: (req) => call(CHANNELS.forgePullReady, req),
     runRerun: (req) => call(CHANNELS.forgeRunRerun, req),
+  },
+  forgeProject: {
+    list: (req) => call(CHANNELS.forgeProjectList, req),
+    fields: (req) => call(CHANNELS.forgeProjectFields, req),
+    items: (req) => call(CHANNELS.forgeProjectItems, req),
+    // No main handler exists for either yet — Theme E (`gh-project-write.ts`)
+    // is what answers them. Wired here anyway because the bridge type (Theme
+    // A) mandates the whole group; calling one before Theme E lands rejects
+    // with "no handler registered", same as any other unimplemented channel.
+    setField: (req) => call(CHANNELS.forgeProjectSetField, req),
+    addItem: (req) => call(CHANNELS.forgeProjectAddItem, req),
   },
   shell: {
     // `invoke`, not `send`: the renderer needs to know a URL was refused, and

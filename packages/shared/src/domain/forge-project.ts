@@ -164,6 +164,23 @@ export const ForgeProjectItemSchema = z.object({
 export type ForgeProjectItem = z.infer<typeof ForgeProjectItemSchema>;
 
 /**
+ * What kind of thing a project *read* answered with — added by Theme B on top
+ * of Theme A's envelope shape, for the reason the phase doc's own Decisions
+ * section gives: `ForgeCliStatus` distinguishes "not installed" from "not
+ * authenticated", but a missing `read:project` OAuth scope is neither — `gh`
+ * is installed and signed in, and every other forge read still succeeds. This
+ * is deliberately its own read-side enum rather than a reuse of
+ * `ForgeProjectWriteResult`'s `kind`: that one is a discriminated union with an
+ * `ok: true` arm that carries no `error`/`hint`, which is the wrong shape for
+ * an envelope that already has `projects`/`fields`/`items` alongside `error`.
+ * `'ok'` is the default so a plain listing (the common case) never has to name
+ * it, and every existing consumer that only reads `projects`/`fields`/`items`
+ * stays correct without inspecting a field it does not care about.
+ */
+export const ForgeProjectReadKindSchema = z.enum(['ok', 'insufficient-scope', 'error']);
+export type ForgeProjectReadKind = z.infer<typeof ForgeProjectReadKindSchema>;
+
+/**
  * A project listing that is allowed to come back empty-handed.
  *
  * Same envelope shape as `ForgeRunsResult`/`ForgePullsResult` in `forge.ts`:
@@ -174,6 +191,7 @@ export const ForgeProjectsResultSchema = z.object({
   cli: ForgeCliStatusSchema,
   projects: z.array(ForgeProjectSchema).default([]),
   error: z.string().nullable().default(null),
+  kind: ForgeProjectReadKindSchema.default('ok'),
 });
 export type ForgeProjectsResult = z.infer<typeof ForgeProjectsResultSchema>;
 
@@ -182,6 +200,7 @@ export const ForgeProjectFieldsResultSchema = z.object({
   cli: ForgeCliStatusSchema,
   fields: z.array(ForgeProjectFieldSchema).default([]),
   error: z.string().nullable().default(null),
+  kind: ForgeProjectReadKindSchema.default('ok'),
 });
 export type ForgeProjectFieldsResult = z.infer<typeof ForgeProjectFieldsResultSchema>;
 
@@ -198,6 +217,7 @@ export const ForgeProjectItemsResultSchema = z.object({
   /** Set when there is a further page; null once the last one has been read. */
   nextCursor: z.string().nullable().default(null),
   error: z.string().nullable().default(null),
+  kind: ForgeProjectReadKindSchema.default('ok'),
 });
 export type ForgeProjectItemsResult = z.infer<typeof ForgeProjectItemsResultSchema>;
 

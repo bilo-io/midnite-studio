@@ -1,7 +1,7 @@
 import { expect, test, type Locator, type Page } from '@playwright/test';
 
 import { fixtures } from './fixtures';
-import { installMockBridge } from './mock-bridge';
+import { clickRailLink, installMockBridge } from './mock-bridge';
 
 /**
  * The repository row's midnite menu.
@@ -320,7 +320,7 @@ test('pointing the entry at another skill in Settings changes what it sends', as
   const reset = page.getByRole('button', { name: 'Reset' });
   await expect(reset).toHaveCount(1);
 
-  await page.getByRole('link', { name: 'Graph' }).click();
+  await clickRailLink(page, 'Graph');
   await openMidniteMenu(page);
   await page.getByRole('menuitem', { name: 'Backlog Task', exact: true }).click();
 
@@ -336,7 +336,7 @@ test('switching the primary agent in Settings changes which binary and prefix th
   await page.getByRole('button', { name: 'Agent', exact: true }).click();
   await page.getByRole('button', { name: 'Codex' }).click();
 
-  await page.getByRole('link', { name: 'Graph' }).click();
+  await clickRailLink(page, 'Graph');
   await openMidniteMenu(page);
   await page.getByRole('menuitem', { name: 'Backlog Task', exact: true }).click();
 

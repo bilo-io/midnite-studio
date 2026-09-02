@@ -61,7 +61,7 @@ import { handle, handleBare } from './handle';
 /** No GitHub remote at all — a permanent, non-error condition for a repo. */
 const NO_FORGE = 'This repository has no GitHub remote.';
 
-async function githubForge(repoId: string): Promise<Forge | null> {
+export async function githubForge(repoId: string): Promise<Forge | null> {
   const cwd = await resolveWorkdir(repoId);
   if (!cwd) return null;
   const forge = pickForgeRemote(await listRemotes(cwd))?.forge ?? null;
@@ -77,7 +77,7 @@ async function githubForge(repoId: string): Promise<Forge | null> {
  * the sidebar's point of view "there is nothing here to show" is one state,
  * and the `hint` carries the difference in words.
  */
-const noForgeStatus = (): ForgeCliStatus => ({
+export const noForgeStatus = (): ForgeCliStatus => ({
   reason: 'not-installed',
   binPath: null,
   hint: NO_FORGE,

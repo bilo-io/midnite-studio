@@ -18,6 +18,7 @@ import {
   LuSearch,
   LuSettings,
   LuShieldCheck,
+  LuSquareKanban,
   LuSquareTerminal,
   LuStethoscope,
   LuTerminal,
@@ -47,6 +48,12 @@ export const VIEW_ICON: Record<ViewId, IconType> = {
   changes: LuDiff,
   actions: LuPlay,
   reviews: FaCodePullRequest,
+  /**
+   * A kanban glyph even though Theme D ships only the table — the board mode
+   * (Phase 41) lives inside this same view, not a separate nav item, so the
+   * icon names the view's eventual whole rather than today's one mode.
+   */
+  projects: LuSquareKanban,
   /**
    * `LuScrollText`, not `LuHistory` — `sessions` already wears that glyph,
    * and one icon per view is the whole point of this map.

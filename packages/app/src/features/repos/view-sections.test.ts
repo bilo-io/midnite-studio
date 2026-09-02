@@ -125,8 +125,8 @@ describe('filterFor', () => {
 });
 
 describe('view ids', () => {
-  it('lists all thirteen, Dashboard first', () => {
-    expect(VIEW_IDS).toHaveLength(13);
+  it('lists all fourteen, Dashboard first', () => {
+    expect(VIEW_IDS).toHaveLength(14);
     expect(VIEW_IDS[0]).toBe('dashboard');
   });
 
@@ -150,6 +150,7 @@ describe('view ids', () => {
       changes: false,
       actions: false,
       reviews: false,
+      projects: false,
       history: false,
       councils: false,
       workflows: false,

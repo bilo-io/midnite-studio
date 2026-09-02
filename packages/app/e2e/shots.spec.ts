@@ -1,6 +1,6 @@
 import { expect, test, type Page } from '@playwright/test';
 
-import { installMockBridge, type MockFixtures } from './mock-bridge';
+import { clickRailLink, installMockBridge, type MockFixtures } from './mock-bridge';
 
 /**
  * The Phase 12 Theme C + F screenshots.
@@ -236,7 +236,7 @@ test.describe('screenshots', () => {
     await open(page);
     await openGraphSettings(page);
     await page.getByRole('button', { name: /^Compact/ }).click();
-    await page.getByRole('link', { name: 'Graph' }).click();
+    await clickRailLink(page, 'Graph');
     await expect(page.getByRole('grid')).toBeVisible();
     // Off the nav rail: it expands on hover, and the pointer is left sitting on
     // it by the click above — which puts a half-open rail over the sidebar in

@@ -1,7 +1,7 @@
 import { expect, test, type Page } from '@playwright/test';
 
 import { fixtures } from './fixtures';
-import { installMockBridge, type MockFixtures } from './mock-bridge';
+import { clickRailLink, installMockBridge, type MockFixtures } from './mock-bridge';
 
 /**
  * The sidebar as a workbench — counts, the Changes filter, the menus, and the
@@ -131,7 +131,8 @@ async function open(page: Page, data: MockFixtures = base): Promise<void> {
   await expect(page.getByRole('heading', { name: 'Worktrees' })).toBeVisible();
 }
 
-const goToChanges = (page: Page) => page.getByRole('link', { name: 'Changes' }).click();
+/** See `clickRailLink` in `mock-bridge.ts` for why a plain `.click()` races the rail's own hover-expand. */
+const goToChanges = (page: Page) => clickRailLink(page, 'Changes');
 
 /**
  * The panel's own heading matches the status-bar button that summons it, word
