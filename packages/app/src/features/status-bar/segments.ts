@@ -5,11 +5,9 @@ import { DiagnosticsSegment } from '../diagnostics/diagnostics-segment';
 import { FinanceSegment } from '../finance/finance-segment';
 import { MonitorCluster } from '../monitor/monitor-cluster';
 
-import { AgentCountSegment } from './agent-count';
 import { AssistantMenu } from './assistant-menu';
 import { BrowserToggle } from './browser-toggle';
 import { ChecksVerdictSegment } from './checks-verdict';
-import { FabLaunchers } from './fab-launchers';
 import { FilesToggle } from './files-toggle';
 import { InProgressSegment } from './in-progress';
 import { NotificationBell } from './notification-bell';
@@ -74,8 +72,9 @@ export type StatusGroup =
  * `MonitorCluster` already do.
  *
  * Priorities are gapped (10, 20, …) rather than sequential so Theme D's new
- * segments (active-worktree, op-progress, agent-count, checks-verdict) can
- * slot in between existing ones without renumbering the zone.
+ * segments (active-worktree, op-progress, checks-verdict) can slot in between
+ * existing ones without renumbering the zone — and so a departure leaves a gap
+ * rather than forcing a renumber, as the agent cluster's did.
  */
 export const STATUS_SEGMENTS: StatusSegment[] = [
   // ---- Left zone -------------------------------------------------------
@@ -97,8 +96,19 @@ export const STATUS_SEGMENTS: StatusSegment[] = [
   // nobody has measured, which is why separators are DOM-derived.
   { id: 'diagnostics', zone: 'left', group: 'health', priority: 60, label: 'Diagnostics', El: DiagnosticsSegment },
   // `live`: what is running right now.
-  { id: 'agent-count', zone: 'left', group: 'live', priority: 70, label: 'Live agents', El: AgentCountSegment },
-  { id: 'fab-launchers', zone: 'left', group: 'live', priority: 75, label: 'Loop launchers', El: FabLaunchers },
+  //
+  // Down to one member: the live-agent count and the loop-launcher strip both
+  // moved to the title bar's right cluster
+  // (`components/title-bar-agents.tsx`), which is why the priorities here jump
+  // 60 → 80.
+  //
+  // The zone still DECLARES two separators — `shortcuts` | `health` and
+  // `health` | `live` — but `ReattachedNote` is a dismissible one-shot notice,
+  // so the trailing one is now normally stranded and pruned. Each of the two
+  // states therefore draws one rule fewer than it used to: none at all when
+  // diagnostics has nothing to say either, and one when it does. That is
+  // `strandedSeparators` doing exactly its job rather than something to fix,
+  // and `shortcut-rail.spec.ts` pins both counts.
   {
     id: 'reattached-note',
     zone: 'left',

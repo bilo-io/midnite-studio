@@ -145,6 +145,12 @@ test("the bar's left edge does not move with the repositories panel", async ({ p
  * sit mid-band rather than on an edge. `collapsed` at 950px is further above
  * `@bilo-io/shell`'s own `md:` (768px) breakpoint than it was, so this still
  * never contends with the shell's mobile chrome.
+ *
+ * They moved back a little when the loop-launcher strip and the live-agent
+ * count left for the title bar's agent cluster: the left zone gave up its
+ * collapsed brand glyph and a `gap-3` slot, so every band shifted a few dozen
+ * pixels narrower. The widths below were re-checked against that and still sit
+ * mid-band, which is the whole reason they were picked mid-band.
  */
 test(
   'narrowing drives compact then collapsed, and a collapsed segment still acts',

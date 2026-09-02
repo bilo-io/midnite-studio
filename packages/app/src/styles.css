@@ -1277,7 +1277,7 @@ html[data-motion='reduced'] .fab-loop-corner {
 }
 
 /* ---------------------------------------------------------------------------
- * Phase 39 — the status bar's loop launchers.
+ * Phase 39 — the loop launchers, now in the title bar's agent cluster.
  *
  * Sibling of the `.loop-run-glow` family further up this file, and built from
  * the same two techniques: a colour passed in as a custom property so one rule
