@@ -2,8 +2,6 @@
 
 **Headlines:**
 
-- **[Phase 45 · The leak audit](phases/phase-45-leak-audit.md)** (0% · 0/34) — **Improvements item 1 in [`_features.md`](../_features.md), and the sequel [Phase 36](phases/phase-36-performance-diet.md) left open by name.** That phase's own [`scripts/perf/README.md`](../../scripts/perf/README.md) carries a section titled *"What is not measured here"*, and renderer heap is in it: *"a heap number without the diff that produced it is not comparable to anything."* Correct — and it is why nothing has been measured since. So this phase turns the last human-only metric into a script with a budget, and the budget is a **slope** (bytes retained per cycle) rather than a level, because a leak is growth, not size. Phase 36 Theme F already swept `packages/app/src` and is not repeated; **`packages/desktop` has never been audited at all** — 35 top-level `Map`/`Set` allocations, six intervals, a `WebContentsView` map, a pty map, watchers and a socket client. A sweep found **six real leaks**, and `git-engine` clean throughout (bounded LRUs with TTLs everywhere). The headline is the broker's `scrollbackBySession`: **2 MB per terminal session, never deleted**, in the one process that *deliberately outlives the app* — `before-quit` detaches rather than kills, which is the Phase 30 guarantee — so it grows across restarts and is re-walked every 15 s writing files for sessions that ended long ago. Next is a cap applied in exactly one of the two places it is needed: `MAX_STORED_RUNS` trims the copy written to disk and is never assigned back to the in-memory array, at ~500 KB per council member per run, with `loop-runs.ts` repeating it verbatim. Nothing here ships in the product — measurement stays dev-side, reading `ps` from outside, with one narrow and argued exception.
-
 - **[Phase 44 · Video Studio](phases/phase-44-video-studio.md)** (0% · 0/64) — **The last unclaimed item in [`_features.md`](../_features.md).** Items 1–4 became Phases 40–43; this is item 5, and with it the feature list is fully planned. A **Video** view that turns a brief into a rendered video — Remotion draws, Claude writes — modelled on the working [`~/Dev/ekko-videos`](file:///Users/bilolwabona/Dev/ekko-videos) repo, whose README is explicitly "the playbook for repeating the process". Its one load-bearing decision is that **this app ships no Remotion dependency at all**: [`electron-builder.yml`](../../packages/desktop/electron-builder.yml) puts only two esbuild bundles in the asar, and `@remotion/renderer` needs ~210 MB of on-disk binaries (a 193 MB `chrome-headless-shell` plus a 17 MB Rust FFmpeg compositor) against a dmg whose entire native payload today is dugite's 42 MB of git. So a video project is a **real npm project on disk, driven from outside** — exactly as `gh` and `claude` already are — and the app is a host and a project manager rather than a renderer. That buys the hard part for free: `remotion studio` is a localhost dev server, so **the timeline editor is Remotion's own, hosted in the `WebContentsView` engine [Phase 32](phases/phase-32-browser-engine-and-tabs.md) already built**. The contrast with [43](phases/phase-43-workflows-mvp.md) is the point — that phase hand-rolls an SVG canvas *because no upstream editor exists* for a workflow graph; one does for a video timeline. `@remotion/player` was considered and rejected on a real argument, not on size: it is renderer-legal, but it would make the user's video project a build input to this app. Nothing here touches `git-engine`.
 
 - **[Phases 40–43 · Projects, the board, the council room, and workflows](phases/phase-40-github-projects.md)** (0% · 0/176) — **Four planned phases, none started**, carved out of [`.midnite/_features.md`](../_features.md) items 1–4 and the first net-new *product* frontier since Phase 34. They stack: **[40](phases/phase-40-github-projects.md)** opens ProjectV2 — GraphQL-only, which is exactly why `gh-graphql.ts` exists — as a read-and-nudge Projects view; **[41](phases/phase-41-agentic-kanban.md)** turns that table on its side as a `[ Table | Board ]` mode in the same view, where a card can launch an agent and grows the `loop-glow` border while it runs, with a live xterm inside it; **[42](phases/phase-42-councils-layout.md)** is the smallest and the one two others want first — it builds the `panel-stack` history primitive the app lacks (councils' selection is one `useState`, which is why "back/forward" is not a CSS change) and moves councils to config-right / output-centre; **[43](phases/phase-43-workflows-mvp.md)** finally fills the `workflows` ViewId that has rendered `<Placeholder>` since Phase 19, with a hand-rolled SVG canvas and a real local `node:http` CRUD API to build against. 41 depends on 40; 42 and 43 are independent, and 42 unblocks 43 Theme F. Nothing here touches `git-engine`.
@@ -17,7 +15,7 @@
 - **[Phase 34 · Agent Councils](phases/phase-34-agent-councils.md)** (100% · 34/34) — Landed. Fills the nav/palette-reserved "Councils" slot: a standing panel of AI members answers a prompt in parallel, synthesized into one distilled write-up. MVP scope — one format (brainstorm), global (not per-repo), a 3-agent member pool (`agy`/`codex`/`opencode`), and an explicit auto-send exception to the app's usual type-but-don't-send agent-launch posture. Two manual passes (a real end-to-end run, a copy review) remain for a human.
 - **Phases 25–33 all landed** — search/blame, split diffs, status bar + browser pane, worktrees-first sidebar, markdown slides, the detached terminal broker, interactive rebase, the real browser engine, and the installable app + CLI.
 - **[24 · The explorer learns to write](phases/phase-24-writable-explorer.md)** (78% · 43/55) **and [23 · A command palette](phases/phase-23-command-palette.md)** (76% · 42/55) are both closed as DONE with their remainders logged in [`outstanding.md`](outstanding.md).
-- **[22 · Stash, the reflog, and writes you can take back](phases/phase-22-stash-and-safety-net.md)** (69% · 48/70) is genuinely WIP, not closed — Theme H (the ops journal, the toast primitive, and undo) was marked done in the doc on 2026-08-30 but was never built: no `toast.tsx`, no `OpJournalEntrySchema`, all 22 of its items still unchecked, and nothing about it logged in `outstanding.md`. Force-push-with-lease (F) and the reflog view (G) did land that day and are real.
+- **[22 · Stash, the reflog, and writes you can take back](phases/phase-22-stash-and-safety-net.md)** (32% · 18/56) is genuinely WIP, far earlier than previously tracked — a fuller audit (2026-09-02) found the prior "F and G did land" correction was itself wrong: **only Theme A** (the git-engine stash engine) is real. Themes B–G were all marked `✅ DONE` by two mislabeled historical commits that never actually shipped the sidebar/graph/inspector/Changes-view stash surfaces, force-with-lease, or the reflog view — `sync.ts`/`CLAUDE.md` still say "no force-push", and `reflog.ts` never existed. The phase's own item total was also miscounted (70 → the real sum across A–H is 56). Theme H (ops journal, toast, undo) got a real **starter** landing this pass — a custom toast primitive, the journal schema, an exhaustive undoability classifier, and live Undo wired for `stash-drop` + `branch-delete` — marked `◐ PARTIAL`, not done: most undoable ops are correctly classified but not yet wired to execute, and its History-view reflog tab is a placeholder since Theme G doesn't exist yet.
 
 
 
@@ -29,7 +27,6 @@ Completed work is logged append-only in [`done.md`](done.md). Deferred scope liv
 
 | Phase | Status | Refined | Done | Progress | % | 🔄 WIP | ◻ TODO |
 |-------|--------|---------|------|----------|---|--------|--------|
-| [45 · The leak audit](phases/phase-45-leak-audit.md) | ◻ TODO | — | 0/34 | `░░░░░░░░░░` | 0% | — | A B C D E F |
 | [44 · Video Studio](phases/phase-44-video-studio.md) | ◻ TODO | — | 0/64 | `░░░░░░░░░░` | 0% | — | A B C D E F G H |
 | [43 · Workflows](phases/phase-43-workflows-mvp.md) | ◻ TODO | x1 | 0/77 | `░░░░░░░░░░` | 0% | — | A B C D E F G H I |
 | [42 · Councils, rearranged](phases/phase-42-councils-layout.md) | ◻ TODO | x1 | 0/43 | `░░░░░░░░░░` | 0% | — | A B C D E F |
@@ -52,7 +49,7 @@ Completed work is logged append-only in [`done.md`](done.md). Deferred scope liv
 | [25 · Search everywhere, and the blame that explains it](phases/phase-25-search-everywhere.md) | ✅ DONE | x1 | 101/101 | `██████████` | 100% | — | — |
 | [24 · The explorer learns to write, and to search](phases/phase-24-writable-explorer.md) | ✅ DONE | — | 43/55 | `████████░░` | 78% | — | — |
 | [23 · A command palette, and the registry that can feed it](phases/phase-23-command-palette.md) | ✅ DONE | — | 42/55 | `████████░░` | 76% | — | — |
-| [22 · Stash, the reflog, and writes you can take back](phases/phase-22-stash-and-safety-net.md) | 🔄 WIP | — | 48/70 | `███████░░░` | 69% | H | — |
+| [22 · Stash, the reflog, and writes you can take back](phases/phase-22-stash-and-safety-net.md) | 🔄 WIP | — | 18/56 | `███░░░░░░░` | 32% | — | B C D E F G H (partial) |
 | [21 · Agent roster + terminal identity](phases/phase-21-agent-roster-and-terminal-identity.md) | ✅ DONE | — | 46/46 | `██████████` | 100% | — | — |
 | [20 · Reviews page & unified diff syntax highlighting](phases/phase-20-reviews-page.md) | ✅ DONE | — | 45/45 | `██████████` | 100% | — | — |
 | [19 · Dashboard, Actions and Tests as views](phases/phase-19-dashboard-actions-tests.md) | ✅ DONE | — | 76/76 | `██████████` | 100% | — | — |
@@ -80,25 +77,6 @@ Completed work is logged append-only in [`done.md`](done.md). Deferred scope liv
 
 <!-- Each phase currently carries a single theme A = its full deliverables checklist. Split into
      lettered themes if a phase gets parallelised. -->
-
-### [Phase 45 — The leak audit](phases/phase-45-leak-audit.md)
-
-*Closes the one gap [`scripts/perf/README.md`](../../scripts/perf/README.md) declares open in a
-section called "What is not measured here": renderer heap, which *"needs a DevTools heap snapshot …
-because a heap number without the diff that produced it is not comparable to anything."* That
-sentence is right, and it is why nothing has been measured since — so this phase does for retention
-what Phase 36 did for startup, bundle and idle CPU: turns the last human-only metric into a script
-with a budget, then spends the instrument on what it finds. Phase 36 Theme F already swept the
-renderer and is not repeated; **`packages/desktop` was never audited** and holds 35 top-level
-Map/Set allocations. A sweep found **six real leaks, two byte-heavy** — and `git-engine` clean
-throughout.*
-
-- ◻ **A** — The instrument, first, because every other theme's acceptance is a number it produces: a retention harness driven through the existing `electron-run.mjs` (**not** `_electron.launch` — "one launcher, one number", a lesson `startup-budget.spec.ts` already paid for), measuring main, renderer and broker **separately**, and reporting a **slope** — bytes retained per cycle — rather than a level.
-- ◻ **B** — The sweep with verdicts, applying Theme F's own rule verbatim rather than inventing a second one. `git-engine` is audited and expected clean; a bounded documented cache is a **pass**, not a thing to cap on sight.
-- ◻ **C** — The headline leak, and the only one whose severity comes from *where* it lives: the broker's `scrollbackBySession` is **2 MB per session, never deleted**, in a process that deliberately **outlives the app** (`before-quit` detaches rather than kills — the Phase 30 guarantee). It also walks the whole map every 15 s writing files for dead sessions. Fixing it needs a new `ControlMessage` arm, which is why it is its own theme.
-- ◻ **D** — Two run histories capped on disk and unbounded in memory: `MAX_STORED_RUNS` trims only the copy written to disk and is never assigned back, at ~500 KB per council member per run — and `loop-runs.ts` has the identical bug. The cap exists and is applied in exactly one of the two places it is needed.
-- ◻ **E** — The small ones, each with the assertion that catches it: `runLocks` never pruned (the `evictIfCurrent` idiom already exists in `write-queue.ts`), two `.then`-without-`.catch` sites that retain a handle *and* raise an unhandled rejection, and `dropKey` missing one of thirteen per-session records — fixed **structurally**, since its `Pick<>` is a hand-written list a fourteenth would slip past just as quietly.
-- ◻ **F** — Verification: every fix lands with an assertion that **fails against `main`** first, because one that passes either way has proved nothing.
 
 ### [Phase 44 — Video Studio](phases/phase-44-video-studio.md)
 
@@ -791,22 +769,29 @@ first toast primitive and first undo.*
 - ✅ **A** — `commands/stash.ts` + `stash-parser.ts` on the write-queue idiom, `mstudio:stash:*`
   channels, and a `'stash-apply'` arm on `ConflictOpSchema` so a conflicted pop is a normal outcome
   (landed 2026-08-28)
-- ✅ **B** — a `'stashes'` `SectionKey` and a `TreeSection` in `RepoTree`, with a `StashRow`, a
-  heading action and a query key nested under `keys.repo(repoId)` (landed 2026-08-28).
-- ✅ **C** — stashes as graph pseudo-rows on the `UncommittedRow` precedent: dashed lane, dashed
-  ring, outside `GraphRowSchema` rather than smuggled in behind a fake sha (landed 2026-08-28).
-- ✅ **D** — a stash you can read: all three parts (tracked, index, untracked) through Phase 12's
-  hunk parser and the one shared `DiffView`, not just what `stash show -p` admits to (landed 2026-08-28).
-- ✅ **E** — stash from the Changes view: selected paths, `--keep-index` and `-u` as labelled
-  options rather than defaults chosen for the user (landed 2026-08-28).
-- ✅ **F** — force-push with a lease, explicit `=<ref>:<sha>` form only, behind
-  `countOrphanedCommits` and a default-off Settings switch — and the three written-down "there is
-  no force push" comments rewritten rather than deleted. (landed 2026-08-30)
-- ✅ **G** — `commands/reflog.ts` and a **History** rail view: HEAD plus per-ref, each entry
-  checkout-able, with `.git/logs` joining the watcher for the first time. (landed 2026-08-30)
-- ◻ **H** — the ops journal, the app's first toast primitive, and undo — ref-shaped only, because
-  the reflog records where refs pointed and nothing about the working tree. Scoped, not built:
-  no `toast.tsx`, no `OpJournalEntrySchema` — its 22 checklist items are still unchecked.
+- ◻ **B** — a `'stashes'` `SectionKey` is declared in `view-sections.ts` but its own comment says
+  "rendered nowhere until Phase 22 supplies a renderer" — no `StashRow`, no sidebar `TreeSection`.
+  Falsely marked done 2026-08-28; corrected 2026-09-02.
+- ◻ **C** — no `features/graph/stash-rows.tsx` exists; stashes are not pseudo-rows in the graph.
+  Falsely marked done 2026-08-28; corrected 2026-09-02.
+- ◻ **D** — no `stashDiff` in `commands/stash.ts`; the inspector has no stash mode.
+  Falsely marked done 2026-08-28; corrected 2026-09-02.
+- ◻ **E** — no stash action in `features/changes/`. Falsely marked done 2026-08-28; corrected
+  2026-09-02.
+- ◻ **F** — no `forceWithLease` anywhere; `sync.ts` and `CLAUDE.md` still say "no force-push
+  anywhere in the MVP", unedited. Falsely marked done 2026-08-30 (bundled into a Phase 31 rebase
+  merge, `26e2349`, that shipped none of this); corrected 2026-09-02.
+- ◻ **G** — no `commands/reflog.ts` / `parsers/reflog-parser.ts`; the History view's reflog tab
+  built this pass (Theme H) is an explicit "not built yet" placeholder. Falsely marked done
+  2026-08-30 (same `26e2349` false claim); corrected 2026-09-02.
+- ◐ **H** — **PARTIAL**, a real starter slice (2026-09-02): a custom toast primitive
+  (`components/toast.tsx`/`toast-host.tsx` — `@bilo-io/ui` exports none), `OpJournalEntrySchema` +
+  an exhaustive undoability classifier, and live Undo wired for `stash-drop` and `branch-delete`
+  only (`WIRED_UNDO_OPS`). Every other undoable-by-classifier op is journalled correctly but has no
+  wired Undo yet; the journal is the History view's real second tab, beside G's placeholder. A prior
+  correction (`a2cd211`) had already caught this theme's earlier false "done" claim (2026-08-30) and
+  its own "22 checklist items" count was itself off — the real count is 8 (the other 14 it summed
+  belong to the phase's shared Verification section, not Theme H).
 
 ### [Phase 21 — A plural agent roster, and a terminal that knows where it is](phases/phase-21-agent-roster-and-terminal-identity.md)
 
