@@ -2,7 +2,7 @@ import { useEffect, useState } from 'react';
 import { LuEllipsis } from 'react-icons/lu';
 
 import { Popover } from '../../components/popover';
-import type { Density } from './density';
+import type { Density } from '../../lib/density';
 import type { StatusSegment } from './segments';
 
 /**

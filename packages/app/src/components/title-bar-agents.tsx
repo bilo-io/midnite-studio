@@ -1,5 +1,8 @@
+import { useRef } from 'react';
+
 import { LiveAgentCount } from '../features/agent/agent-count';
 import { FabLaunchers } from '../features/loops/fab-launchers';
+import { useTitleBarDensity } from './use-titlebar-density';
 
 /**
  * The title bar's agent cluster — how many agent sessions are live, then the
@@ -23,14 +26,33 @@ import { FabLaunchers } from '../features/loops/fab-launchers';
  * returns `null`. (`LiveAgentCount` does return `null` at zero agents, which is
  * why the rule cannot be its responsibility.)
  *
- * No density mechanism follows them up here. The status bar's `.status-label`
- * hiding is keyed on `data-density` on its own `<footer>`, so neither control
- * loses anything by leaving: `LiveAgentCount` never used those classes, and the
- * launcher strip's own collapse — one glyph until a loop runs or a pointer
- * arrives — is a better fit for a bar this crowded than an overflow popover
- * would be.
+ * **It carries its own density, and it has to.** The first version of this
+ * component said no density mechanism was needed up here, and that was wrong:
+ * `@bilo-io/shell` gives the title bar's two slots `shrink-0`, so a bar over
+ * budget pushes its last control off the right edge of the window rather than
+ * squeezing. Measured with one live agent, the bar wants 1138px and this
+ * cluster is 105px of it — so adding it moved the point at which `ThemeToggle`
+ * leaves the viewport from ~1027px to ~1138px. `useTitleBarDensity` measures
+ * the header and stamps `data-density` here, which drives the same
+ * `.status-label` / `.status-collapsible` rules in
+ * [`styles.css`](../styles.css) that the status bar's own `data-density` does:
+ *
+ * - `full` (105px) — `3 agents`, and the launcher strip.
+ * - `compact` (68px) — the number without the word. "agents" is grammar; the
+ *   digit is the information.
+ * - `collapsed` (35px) — the count drops out entirely and the strip's collapsed
+ *   glyph stays, because the strip is how a loop is *started* and the count is
+ *   a click-through to the terminal panel, which `Ctrl+`` already opens.
+ *
+ * That gives back 70 of the 111px, so the cliff sits at ~1055px. The remaining
+ * overflow below that is **not** this cluster's: it is the left slot's 532px of
+ * wordmark, history, reload, breadcrumbs and sync cluster, which predates this
+ * component and needs its own pass.
  */
 export function TitleBarAgents() {
+  const ref = useRef<HTMLDivElement | null>(null);
+  const density = useTitleBarDensity(ref);
+
   return (
     <>
       {/*
@@ -43,10 +65,13 @@ export function TitleBarAgents() {
         `whitespace-nowrap` + `shrink-0` for the same reason the status bar's
         zones carry them: a flex child that is allowed to shrink wraps its text
         instead, and "2 agents" broken over two lines in a 48px bar is a
-        layout fault rather than a graceful degradation.
+        layout fault rather than a graceful degradation. Shedding width is the
+        density's job, not the flex algorithm's.
       */}
       <div
+        ref={ref}
         data-testid="titlebar-agents"
+        data-density={density}
         className="flex shrink-0 items-center gap-3 whitespace-nowrap text-xs text-muted-foreground"
       >
         <LiveAgentCount />

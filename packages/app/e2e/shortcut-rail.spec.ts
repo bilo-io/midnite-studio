@@ -208,7 +208,6 @@ test('diagnostics sits in the left zone, not the right', async ({ page }) => {
   ).toHaveCount(0);
 });
 
-
 /** Render order and collapse order agree — the priority inversion Theme B fixed. */
 test('the rail renders repos, terminal, browser, palette, files in that order', async ({
   page,
