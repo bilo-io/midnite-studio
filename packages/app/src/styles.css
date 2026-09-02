@@ -641,6 +641,74 @@ html[data-motion='reduced'] .breadcrumb-repo-pill {
   animation: none;
 }
 
+/* ---------------------------------------------------------------------------
+ * The landing carousel's slide change (`features/landing/landing-carousel.tsx`).
+ *
+ * Two animations rather than one transition, because the change is two
+ * separate moves over two different slides: the outgoing one leaves and is
+ * unmounted, the incoming one arrives. A `transition` cannot express that —
+ * there is no single element whose property changes from one to the other.
+ *
+ * Both fade fully to and from transparent, so the two slides never overlap
+ * as legible text; the travel is small (36px, set inline as
+ * `--landing-in-x`/`--landing-out-x` so the direction follows the swipe).
+ *
+ * The bounce is the arrival curve, not a second keyframe: `cubic-bezier(0.34,
+ * 1.5, 0.64, 1)` has a control point above 1, so the slide overshoots its
+ * resting position by a few pixels and settles back. Doing it in the easing
+ * rather than in the keyframes keeps the overshoot proportional to the
+ * travel — a keyframed `110%` would have to be re-tuned every time the
+ * distance changed.
+ *
+ * The departure is `ease-in` (accelerating away) and the arrival `ease-out`
+ * (decelerating in) — which, across the pair, is the ease-in-out the page
+ * reads as.
+ */
+@keyframes landing-slide-out {
+  from {
+    opacity: 1;
+    transform: translateX(0);
+  }
+  to {
+    opacity: 0;
+    transform: translateX(var(--landing-out-x, -36px));
+  }
+}
+
+@keyframes landing-slide-in {
+  from {
+    opacity: 0;
+    transform: translateX(var(--landing-in-x, 36px));
+  }
+  /* Opaque well before the travel finishes, so the overshoot is something you
+   * see happen to readable content rather than to a fading ghost. */
+  55% {
+    opacity: 1;
+  }
+  to {
+    opacity: 1;
+    transform: translateX(0);
+  }
+}
+
+.landing-slide-out {
+  animation: landing-slide-out var(--landing-out-ms, 170ms) cubic-bezier(0.4, 0, 1, 1) forwards;
+}
+
+.landing-slide-in {
+  animation: landing-slide-in var(--landing-in-ms, 420ms) cubic-bezier(0.34, 1.5, 0.64, 1)
+    forwards;
+}
+
+/* Reduced motion swaps slides outright — the carousel's own state machine
+ * skips both phases, so these classes are never applied; the rule is the
+ * belt-and-braces half, matching how every other motion in this file is
+ * disabled. */
+html[data-motion='reduced'] .landing-slide-out,
+html[data-motion='reduced'] .landing-slide-in {
+  animation: none;
+}
+
 /* FAB Panel — Rainbow gradient border animation */
 @property --fab-panel-angle {
   syntax: '<angle>';
@@ -923,7 +991,24 @@ html[data-motion='reduced'] .breadcrumb-repo-pill {
  * tab full-spectrum, exactly as before.
  */
 
-.fab-panel-gradient {
+/*
+ * Two hosts, one rule (and the same again for `::before` below): the FAB's
+ * loop console, and the landing page — which asked for "the inner rotating
+ * gradient just like the FAB panel, both the glow and the border, in the
+ * exact same way". Sharing the selector is what makes "the exact same way"
+ * a fact rather than an intention: there is one 4s rotation, one two-layer
+ * `background-clip` border and one blurred conic rim, and a tweak to any of
+ * them lands on both surfaces at once.
+ *
+ * Only the base pair is shared. The `[data-loop-state]` cadences further
+ * down stay the FAB's alone — they describe a loop's state, and the landing
+ * page has no loop. With no such attribute set it simply runs the base
+ * pulse, and with no `data-fab-tab` set `--fab-arc-from`/`--fab-arc-to` rest
+ * at their registered `0deg`/`360deg`: a full, unnarrowed ring, which is the
+ * right answer for a page that is not a tab.
+ */
+.fab-panel-gradient,
+.landing-panel-gradient {
   animation: fab-panel-spin 4s linear infinite;
   /*
    * 2.5px, where the rest of the app's gradient borders are 1.5px (see
@@ -1099,7 +1184,8 @@ html[data-motion='reduced'] .breadcrumb-repo-pill {
   }
 }
 
-.fab-panel-gradient::before {
+.fab-panel-gradient::before,
+.landing-panel-gradient::before {
   content: '';
   position: absolute;
   inset: 0;
@@ -1299,11 +1385,14 @@ html[data-motion='reduced'] .breadcrumb-repo-pill {
  * — there is no such thing as a window-focus media query.
  */
 html[data-window-focused='false'] .fab-panel-gradient,
-html[data-window-focused='false'] .fab-panel-gradient::before {
+html[data-window-focused='false'] .fab-panel-gradient::before,
+html[data-window-focused='false'] .landing-panel-gradient,
+html[data-window-focused='false'] .landing-panel-gradient::before {
   animation-play-state: paused;
 }
 
-html[data-motion='reduced'] .fab-panel-gradient {
+html[data-motion='reduced'] .fab-panel-gradient,
+html[data-motion='reduced'] .landing-panel-gradient {
   animation: none;
   transition: none;
 }
@@ -1316,7 +1405,8 @@ html[data-motion='reduced'] .fab-panel-gradient {
  * `--fab-glow-edge: 30px`, `opacity` back to the pseudo's own base value —
  * rather than whatever frame the animation happened to die on.
  */
-html[data-motion='reduced'] .fab-panel-gradient::before {
+html[data-motion='reduced'] .fab-panel-gradient::before,
+html[data-motion='reduced'] .landing-panel-gradient::before {
   animation-name: none !important;
   transition: none;
 }

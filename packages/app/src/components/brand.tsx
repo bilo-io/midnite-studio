@@ -1,4 +1,7 @@
+import type { ReactNode } from 'react';
+
 import logoUrl from '../assets/logo.png';
+import { useUiStore } from '../store/ui-store';
 
 /**
  * The midnite crescent and wordmark.
@@ -69,5 +72,44 @@ export function Brand({
       <BrandMark />
       {showWordmark ? <Wordmark className="text-sm" /> : null}
     </span>
+  );
+}
+
+/**
+ * The brand, as the way home.
+ *
+ * Clicking a product's mark going to its front page is a convention old
+ * enough that leaving it inert reads as a broken link — so both places the
+ * brand appears (the rail's header and the title bar's wordmark) wrap it in
+ * this. It navigates to the `landing` view, whose path is `/`.
+ *
+ * A wrapper rather than a prop on `<Brand>`/`<Wordmark>`: the mark also
+ * appears on the empty workspace, the browser's new-tab page, the dashboard
+ * header and the collapsed FAB, none of which is a link, and a `linkToHome`
+ * flag defaulting to off would put the decision in five call sites instead of
+ * two.
+ */
+export function BrandHomeButton({
+  children,
+  className = '',
+  label = 'Go to the landing page',
+}: {
+  children: ReactNode;
+  className?: string;
+  label?: string;
+}) {
+  const setActiveView = useUiStore((s) => s.setActiveView);
+  const isHome = useUiStore((s) => s.activeView === 'landing');
+  return (
+    <button
+      type="button"
+      onClick={() => setActiveView('landing')}
+      aria-label={label}
+      aria-current={isHome ? 'page' : undefined}
+      title={label}
+      className={`flex min-w-0 items-center rounded-md transition-opacity hover:opacity-80 ${className}`}
+    >
+      {children}
+    </button>
   );
 }
