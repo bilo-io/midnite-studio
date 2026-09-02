@@ -215,7 +215,15 @@ export function closeBrowserTab(tabId: string): void {
   if (!tracked) return;
   tabs.delete(tabId);
   if (!tracked.win.isDestroyed()) tracked.win.contentView.removeChildView(tracked.view);
-  if (!tracked.view.webContents.isDestroyed()) tracked.view.webContents.close();
+  if (!tracked.view.webContents.isDestroyed()) {
+    // The 13 per-tab handlers registered above (`did-navigate`,
+    // `certificate-error`, the window-open handler, etc.) each close over
+    // `win` and `tabId`. They die with the contents either way, but this
+    // module's own docblock is explicit that "dropping every reference … is
+    // what actually frees it" — a listener closure is a reference too.
+    tracked.view.webContents.removeAllListeners();
+    tracked.view.webContents.close();
+  }
 }
 
 export function navigateBrowserTab(tabId: string, url: string): void {
