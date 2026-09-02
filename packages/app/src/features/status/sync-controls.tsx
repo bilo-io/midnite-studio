@@ -24,8 +24,15 @@ import { syncResolution, type SyncFailure } from './sync-resolution';
  * The target is a prop rather than the selected checkout precisely so a sidebar
  * row can sync a repository the user has not selected.
  *
- * There is no force-push button, and no menu that could become one. See
- * docs/INITIAL_PLAN.md → Risks.
+ * There is no force-push button here, and no menu that could become one — that
+ * stays true even after Phase 22 Theme F gave the app force-push at all. One
+ * un-modal click is this control's whole design, and a force-with-lease is
+ * never that: it needs the branch it targets named, and the blast-radius
+ * confirm every destructive op gets. Its entry point is the per-ref badge
+ * menu (`ref-sync.ts`/`use-graph-actions.ts`), reached only after a plain
+ * push from there was already rejected as non-fast-forward, and only behind
+ * `Settings ▸ Git Safety`'s opt-in. See docs/INITIAL_PLAN.md → Risks for the
+ * original MVP rule this narrows rather than reopens.
  *
  * The glyph is a reload, not the Git logo it briefly became. The logo names the
  * tool; this button names an action, and the git menu beside it now carries the

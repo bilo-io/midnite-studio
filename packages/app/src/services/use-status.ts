@@ -513,11 +513,14 @@ export const usePull = () =>
   );
 
 export const usePush = () =>
-  useGitOp<SyncScope & { setUpstream: boolean }>('push', (api, args, ctx) =>
-    api.ops.push({
-      ...ctx,
-      setUpstream: args.setUpstream,
-      ...(args.remote ? { remote: args.remote } : {}),
-      ...(args.branch ? { branch: args.branch } : {}),
-    }),
+  useGitOp<SyncScope & { setUpstream: boolean; forceWithLease?: { ref: string; expect: string } }>(
+    'push',
+    (api, args, ctx) =>
+      api.ops.push({
+        ...ctx,
+        setUpstream: args.setUpstream,
+        ...(args.remote ? { remote: args.remote } : {}),
+        ...(args.branch ? { branch: args.branch } : {}),
+        ...(args.forceWithLease ? { forceWithLease: args.forceWithLease } : {}),
+      }),
   );

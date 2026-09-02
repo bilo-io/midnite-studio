@@ -100,8 +100,19 @@ explanatory messages. If a boundary rule fires, the fix is an IPC channel, not a
   outcome the UI renders, not an exception.
 - **Lane layout runs in main**, inside git-engine. The renderer receives fully laid-out
   `GraphRow` batches — parsing and layout stay off the render thread.
-- **No force-push anywhere in the MVP.** Destructive ops need a confirm dialog showing blast
-  radius (`rev-list --count` of commits about to be orphaned).
+- **Destructive ops need a confirm dialog showing blast radius** (`rev-list --count` of commits
+  about to be orphaned).
+- **Force-push is `--force-with-lease` only, and only through its own gated entry point — never a
+  bare `--force`, and never from the title bar.** Phase 22 Theme F reversed the MVP's original
+  "no force-push anywhere" rule; the replacement is narrower than a plain revert, not an
+  open door. `PushOptions`/`PushRequest` carry `forceWithLease: {ref, expect}`, never a boolean —
+  a bare `--force-with-lease` leases against the local remote-tracking ref, which a background
+  fetch can silently refresh into agreement, so only the explicit `ref:expect` form is ever built.
+  The entry point is the per-ref badge menu (`ref-sync.ts`/`use-graph-actions.ts`), offered only
+  once a plain push has already been rejected as non-fast-forward, behind a default-off
+  `Settings ▸ Git Safety ▸ Allow force-push (with lease)` switch, gated by the same blast-radius
+  confirm every other destructive op uses. `sync-controls.tsx`'s title-bar sync cluster still has
+  no force-push button and never will — one un-modal click is that control's whole design.
 - **Every icon comes from `react-icons` — it is the only family.** It fronts ~30 icon sets
   behind one package, so a control can take the glyph that actually reads as its job instead
   of the nearest match within one family. Lucide is one of those sets — `react-icons/lu`,

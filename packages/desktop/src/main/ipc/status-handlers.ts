@@ -146,6 +146,7 @@ export function registerStatusHandlers(): void {
         ...(req.branch === undefined ? {} : { branch: req.branch }),
         setUpstream: req.setUpstream,
         tags: req.tags,
+        ...(req.forceWithLease === undefined ? {} : { forceWithLease: req.forceWithLease }),
       }),
     ),
   );

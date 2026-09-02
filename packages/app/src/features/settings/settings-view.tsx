@@ -12,6 +12,7 @@ import { AgentPage } from './settings-pages/agent-page';
 import { AppearancePage } from './settings-pages/appearance-page';
 import { BrowserPage } from './settings-pages/browser-page';
 import { CliPage } from './settings-pages/cli-page';
+import { GitSafetyPage } from './settings-pages/git-safety-page';
 import { GraphPage } from './settings-pages/graph-page';
 import { HealthPage } from './settings-pages/health-page';
 import { MonitorPage } from './settings-pages/monitor-page';
@@ -41,6 +42,7 @@ const PAGE_CONTENT: Record<SettingsPageId, () => React.ReactNode> = {
   agent: () => <AgentPage />,
   reviews: () => <ReviewsPage />,
   projects: () => <ProjectsPage />,
+  gitSafety: () => <GitSafetyPage />,
   monitor: () => <MonitorPage />,
   browser: () => <BrowserPage />,
   cli: () => <CliPage />,
