@@ -255,8 +255,36 @@ export const LAYOUT_BOUNDS = {
   testsListWidth: { min: 240, max: 640 },
   reviewsListWidth: { min: 280, max: 640 },
   searchResultsWidth: { min: 280, max: 900 },
+  /*
+    Max is NOT this number — see `FAB_PANEL_MAX_SHARE`. The panel's ceiling is a
+    share of the window, computed in `app.tsx`, and this entry exists for its
+    `min` plus a fallback for a render with no window to measure.
+  */
   fabPanelWidth: { min: 240, max: 640 },
 } as const;
+
+/**
+ * How much of the window the FAB panel may take, dragged all the way out.
+ *
+ * The one pane bound in the app expressed as a share rather than a pixel count.
+ * Every other pane holds a list whose rows have a natural width, so an absolute
+ * ceiling is the right answer for them; this one holds documents, chat and loop
+ * output, which want as much of the window as the user will part with — and
+ * what "as much as you can spare" is in pixels depends entirely on the display.
+ */
+export const FAB_PANEL_MAX_SHARE = 0.6;
+
+/**
+ * The strip of the view a dragged terminal may never cover, in px.
+ *
+ * The terminal's `LAYOUT_BOUNDS.terminalHeight.max` is a floor for this rather
+ * than the real ceiling: the panel drags to the full height of the column
+ * minus this, so on a tall window it goes far past 720. The remaining strip is
+ * what keeps a plain drag distinguishable from maximizing — cross it and the
+ * splitter snaps to maximized instead, which is a different, reversible state
+ * with its own restore button rather than a height that happens to be tall.
+ */
+export const TERMINAL_VIEW_RESERVE = 88;
 
 
 export const GRAPH_COLUMN_BOUNDS = {
@@ -546,6 +574,7 @@ export type UiState = {
   toggleTerminal: () => void;
   setTerminalOpen: (open: boolean) => void;
   toggleTerminalMaximized: () => void;
+  setTerminalMaximized: (maximized: boolean) => void;
   toggleTerminalHalfMaximized: () => void;
   setTerminalSidebarSide: (side: TerminalSidebarSide) => void;
   toggleTerminalList: () => void;
@@ -1010,6 +1039,7 @@ export const useUiStore = create<UiState>()(
       setTerminalOpen: (terminalOpen) => set({ terminalOpen }),
       toggleTerminalMaximized: () =>
         set((state) => ({ terminalMaximized: !state.terminalMaximized })),
+      setTerminalMaximized: (terminalMaximized) => set({ terminalMaximized }),
       toggleTerminalHalfMaximized: () =>
         set((state) => {
           if (!state.terminalOpen) {

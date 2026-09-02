@@ -55,7 +55,19 @@ export function ResizeHandle({
             ? { marginInline: pull }
             : { marginBlock: pull }
       }
-      className={`group relative z-10 shrink-0 touch-none transition-colors focus-visible:outline-none ${
+      data-snap={resizable.snap ?? undefined}
+      /*
+        Above the panes it separates, not level with them.
+
+        The 5px grab target is negative margin — it overlaps its neighbours by
+        2px on each side rather than displacing them — so at an equal z-index
+        whichever neighbour comes later in the DOM takes those pixels back. The
+        terminal's frame is exactly that case (`relative z-10`, and after its
+        splitter), which left two of the splitter's five grab pixels belonging
+        to the terminal. z-20 is the FAB button's level, and the button is later
+        in the DOM again, so it still wins where the two overlap.
+      */
+      className={`group relative z-20 shrink-0 touch-none transition-colors focus-visible:outline-none ${
         vertical
           ? `w-[5px] cursor-col-resize ${pull === undefined ? '-mx-[2px]' : ''}`
           : `h-[5px] cursor-row-resize ${pull === undefined ? '-my-[2px]' : ''}`
@@ -65,12 +77,22 @@ export function ResizeHandle({
         The rule itself, centred in the hit area. Painted on a child rather
         than as the parent's background so the 5px grab target stays invisible
         while the 1px line is what the user sees.
+
+        A drag that has run past its bound and armed a snap thickens the rule to
+        the full hit area: the pane itself has stopped moving by then, so
+        without this the only thing telling the user their overshoot is about to
+        close or maximize something is the cursor's own distance from a splitter
+        that is no longer following it.
       */}
       <span
         aria-hidden
-        className={`pointer-events-none absolute bg-border transition-colors group-hover:bg-primary/50 group-focus-visible:bg-primary ${
+        className={`pointer-events-none absolute bg-border transition-[background-color,width,height] group-hover:bg-primary/50 group-focus-visible:bg-primary ${
           resizable.dragging ? '!bg-primary' : ''
-        } ${vertical ? 'inset-y-0 left-1/2 w-[2px] -translate-x-1/2' : 'inset-x-0 top-1/2 h-[2px] -translate-y-1/2'}`}
+        } ${
+          vertical
+            ? `inset-y-0 left-1/2 -translate-x-1/2 ${resizable.snap ? 'w-[5px]' : 'w-[2px]'}`
+            : `inset-x-0 top-1/2 -translate-y-1/2 ${resizable.snap ? 'h-[5px]' : 'h-[2px]'}`
+        }`}
       />
     </div>
   );

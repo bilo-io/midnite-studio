@@ -102,6 +102,126 @@ describe('useResizable', () => {
     expect(onSize).toHaveBeenLastCalledWith(560);
   });
 
+  it('commits the last pointer position even when the release lands in the same frame', () => {
+    // All three events inside ONE act(): React batches them, so nothing
+    // re-renders in between and a handler reading render state would commit the
+    // size the drag STARTED at and miss a snap armed on the final move. Real
+    // pointers do this too — a flick and release inside one frame.
+    const onCollapse = vi.fn();
+    const { hook, onSize } = setup({ onCollapse });
+
+    act(() => {
+      hook.result.current.handleProps.onPointerDown(pointer(0));
+      hook.result.current.handleProps.onPointerMove(pointer(40));
+      hook.result.current.handleProps.onPointerUp(pointer(40));
+    });
+    expect(onSize).toHaveBeenCalledExactlyOnceWith(296);
+    expect(onCollapse).not.toHaveBeenCalled();
+
+    const flick = setup({ onCollapse });
+    act(() => {
+      flick.hook.result.current.handleProps.onPointerDown(pointer(0));
+      flick.hook.result.current.handleProps.onPointerMove(pointer(-400));
+      flick.hook.result.current.handleProps.onPointerUp(pointer(-400));
+    });
+    expect(onCollapse).toHaveBeenCalledOnce();
+    expect(flick.onSize).not.toHaveBeenCalled();
+  });
+
+  it('arms a collapse once a drag runs far enough past the minimum, and fires it on release', () => {
+    const onCollapse = vi.fn();
+    const { hook, onSize } = setup({ onCollapse });
+
+    act(() => hook.result.current.handleProps.onPointerDown(pointer(0)));
+    // At the minimum exactly: clamped, but nothing armed — a firm drag to the
+    // bound must not close the pane.
+    act(() => hook.result.current.handleProps.onPointerMove(pointer(-76)));
+    expect(hook.result.current.current).toBe(180);
+    expect(hook.result.current.snap).toBeNull();
+
+    // Past it by more than the slop.
+    act(() => hook.result.current.handleProps.onPointerMove(pointer(-200)));
+    expect(hook.result.current.snap).toBe('collapse');
+    expect(hook.result.current.current).toBe(180);
+
+    act(() => hook.result.current.handleProps.onPointerUp(pointer(-200)));
+    expect(onCollapse).toHaveBeenCalledOnce();
+    // The size is deliberately NOT committed: re-opening the pane restores the
+    // width the user chose, not the minimum they dragged through on the way out.
+    expect(onSize).not.toHaveBeenCalled();
+  });
+
+  it('disarms a snap the drag comes back from', () => {
+    const onCollapse = vi.fn();
+    const { hook, onSize } = setup({ onCollapse });
+
+    act(() => hook.result.current.handleProps.onPointerDown(pointer(0)));
+    act(() => hook.result.current.handleProps.onPointerMove(pointer(-300)));
+    expect(hook.result.current.snap).toBe('collapse');
+    act(() => hook.result.current.handleProps.onPointerMove(pointer(-56)));
+    expect(hook.result.current.snap).toBeNull();
+
+    act(() => hook.result.current.handleProps.onPointerUp(pointer(-56)));
+    expect(onCollapse).not.toHaveBeenCalled();
+    expect(onSize).toHaveBeenCalledExactlyOnceWith(200);
+  });
+
+  it('arms an expand past the maximum, and only when the caller offers one', () => {
+    const onExpand = vi.fn();
+    const { hook, onSize } = setup({ onExpand });
+
+    act(() => hook.result.current.handleProps.onPointerDown(pointer(0)));
+    act(() => hook.result.current.handleProps.onPointerMove(pointer(9999)));
+    expect(hook.result.current.snap).toBe('expand');
+    act(() => hook.result.current.handleProps.onPointerUp(pointer(9999)));
+    expect(onExpand).toHaveBeenCalledOnce();
+    expect(onSize).not.toHaveBeenCalled();
+
+    // Without the callback the same drag is the old behaviour — clamped, and
+    // committed at the bound.
+    const plain = setup();
+    act(() => plain.hook.result.current.handleProps.onPointerDown(pointer(0)));
+    act(() => plain.hook.result.current.handleProps.onPointerMove(pointer(9999)));
+    expect(plain.hook.result.current.snap).toBeNull();
+    act(() => plain.hook.result.current.handleProps.onPointerUp(pointer(9999)));
+    expect(plain.onSize).toHaveBeenCalledExactlyOnceWith(560);
+  });
+
+  it('reads the snap off the pointer, not the clamped size, for an inverted edge', () => {
+    // `edge: 'end'` inverts the delta, so the terminal's splitter collapses the
+    // panel on a drag DOWN and maximizes it on a drag UP. Getting the sign
+    // wrong here would close the panel at exactly the moment it should fill.
+    const onCollapse = vi.fn();
+    const onExpand = vi.fn();
+    const { hook } = setup({ edge: 'end', onCollapse, onExpand });
+
+    act(() => hook.result.current.handleProps.onPointerDown(pointer(0)));
+    act(() => hook.result.current.handleProps.onPointerMove(pointer(400)));
+    expect(hook.result.current.snap).toBe('collapse');
+    act(() => hook.result.current.handleProps.onPointerMove(pointer(-400)));
+    expect(hook.result.current.snap).toBe('expand');
+  });
+
+  it('snaps from the keyboard when the pane is already at the bound', () => {
+    const onCollapse = vi.fn();
+    const onExpand = vi.fn();
+
+    const atMin = setup({ size: 180, onCollapse, onExpand });
+    act(() => atMin.hook.result.current.handleProps.onKeyDown(key('ArrowLeft')));
+    expect(onCollapse).toHaveBeenCalledOnce();
+    expect(atMin.onSize).not.toHaveBeenCalled();
+
+    // Home means "go to the minimum", not "go past it" — it never collapses.
+    act(() => atMin.hook.result.current.handleProps.onKeyDown(key('Home')));
+    expect(onCollapse).toHaveBeenCalledOnce();
+    expect(atMin.onSize).toHaveBeenCalledExactlyOnceWith(180);
+
+    const atMax = setup({ size: 560, onCollapse, onExpand });
+    act(() => atMax.hook.result.current.handleProps.onKeyDown(key('ArrowRight')));
+    expect(onExpand).toHaveBeenCalledOnce();
+    expect(atMax.onSize).not.toHaveBeenCalled();
+  });
+
   it('restores the default on double-click', () => {
     const { hook, onSize } = setup({ size: 400 });
     act(() => hook.result.current.handleProps.onDoubleClick());
