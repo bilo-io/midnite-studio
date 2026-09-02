@@ -1,3 +1,4 @@
+import type { LoopModel } from '@midnite/studio-shared';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { useEffect } from 'react';
 
@@ -45,6 +46,7 @@ export async function recordLoopStart(req: {
   sessionId: string;
   composedPrompt: string;
   checkedModifierIds: string[];
+  model?: LoopModel;
 }): Promise<void> {
   const result = await bridge()?.loopRuns.start(req);
   if (result && !result.ok && result.kind === 'error') {

@@ -1,7 +1,12 @@
 import { create } from 'zustand';
 import { persist } from 'zustand/middleware';
 
-import { METRICS_IDLE_INTERVAL_MS, type MetricId } from '@midnite/studio-shared';
+import {
+  METRICS_IDLE_INTERVAL_MS,
+  type LoopModel,
+  type LoopSchedule,
+  type MetricId,
+} from '@midnite/studio-shared';
 
 import {
   DEFAULT_GRAPH_DENSITY,
@@ -379,6 +384,28 @@ export type UiState = {
    */
   loopModifierChecks: Record<string, Record<string, boolean>>;
   setLoopModifierCheck: (loopId: string, modifierId: string, on: boolean) => void;
+  /**
+   * Which radio a loop's one-of-N settings sit on, keyed loopId → choiceId →
+   * optionId. Persisted, and with no ephemeral twin: a radio has no "off", so
+   * an unpersisted one would snap back to its declared default every launch
+   * and quietly change what the loop is told. An id naming no option resolves
+   * to the default (`resolveLoopChoice`) rather than leaving the group blank.
+   */
+  loopChoices: Record<string, Record<string, string>>;
+  setLoopChoice: (loopId: string, choiceId: string, optionId: string) => void;
+  /**
+   * Which Claude each loop runs on. Persisted for the same reason as the
+   * radios above, and for one more: a model is a cost decision, and one made
+   * on Monday should still hold on Tuesday.
+   */
+  loopModels: Record<string, LoopModel>;
+  setLoopModel: (loopId: string, model: LoopModel) => void;
+  /**
+   * The working window each loop is told to keep. Persisted — "only work
+   * office hours" is a standing preference, not a property of one run.
+   */
+  loopSchedules: Record<string, LoopSchedule>;
+  setLoopSchedule: (loopId: string, schedule: LoopSchedule) => void;
   /** Per-loop free-text extras — ephemeral, on the same reasoning as above. */
   loopExtras: Record<string, string>;
   setLoopExtras: (loopId: string, text: string) => void;
@@ -769,6 +796,9 @@ type PersistedUi = Pick<
   | 'fabPanelOpen'
   | 'fabSessions'
   | 'loopModifierDefaults'
+  | 'loopChoices'
+  | 'loopModels'
+  | 'loopSchedules'
   | 'hiddenMetrics'
   | 'autoFetchIntervalMs'
   | 'metricsIdleIntervalMs'
@@ -867,6 +897,20 @@ export const useUiStore = create<UiState>()(
             [loopId]: { ...state.loopModifierChecks[loopId], [modifierId]: on },
           },
         })),
+      loopChoices: {},
+      setLoopChoice: (loopId, choiceId, optionId) =>
+        set((state) => ({
+          loopChoices: {
+            ...state.loopChoices,
+            [loopId]: { ...state.loopChoices[loopId], [choiceId]: optionId },
+          },
+        })),
+      loopModels: {},
+      setLoopModel: (loopId, model) =>
+        set((state) => ({ loopModels: { ...state.loopModels, [loopId]: model } })),
+      loopSchedules: {},
+      setLoopSchedule: (loopId, schedule) =>
+        set((state) => ({ loopSchedules: { ...state.loopSchedules, [loopId]: schedule } })),
       loopExtras: {},
       setLoopExtras: (loopId, text) =>
         set((state) => ({ loopExtras: { ...state.loopExtras, [loopId]: text } })),
@@ -1128,6 +1172,9 @@ export const useUiStore = create<UiState>()(
         fabPanelOpen: state.fabPanelOpen,
         fabSessions: state.fabSessions,
         loopModifierDefaults: state.loopModifierDefaults,
+        loopChoices: state.loopChoices,
+        loopModels: state.loopModels,
+        loopSchedules: state.loopSchedules,
         hiddenMetrics: state.hiddenMetrics,
         autoFetchIntervalMs: state.autoFetchIntervalMs,
         metricsIdleIntervalMs: state.metricsIdleIntervalMs,
@@ -1217,6 +1264,9 @@ export const useUiStore = create<UiState>()(
             ...current.loopModifierDefaults,
             ...saved.loopModifierDefaults,
           },
+          loopChoices: { ...current.loopChoices, ...saved.loopChoices },
+          loopModels: { ...current.loopModels, ...saved.loopModels },
+          loopSchedules: { ...current.loopSchedules, ...saved.loopSchedules },
           repoGroupMembership: { ...current.repoGroupMembership, ...saved.repoGroupMembership },
         };
       },
