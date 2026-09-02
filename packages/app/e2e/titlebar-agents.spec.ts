@@ -1,7 +1,7 @@
 import { expect, test, type Page } from '@playwright/test';
 
 import { fixtures } from './fixtures';
-import { installMockBridge } from './mock-bridge';
+import { installMockBridge, type MockFixtures } from './mock-bridge';
 
 /**
  * The title bar's agent cluster — the live-agent count and the four loop
@@ -26,37 +26,59 @@ async function open(page: Page): Promise<void> {
 
 /**
  * One live agent, so `LiveAgentCount` renders and the cluster is at its full
- * 105px width — the specs about shedding that width have nothing to measure
- * against the default fixture, where the count is `null`.
+ * width — the specs about shedding that width have nothing to measure against
+ * the default fixture, where the count is `null`.
  *
- * Typed onto the pty the panel opens with rather than restored from a fixture:
- * `terminal.list()`'s restored rows are not `live` until they rebind, and
- * `isAgentRow` reads the probe's `liveAgentId`, which is what this emits.
+ * **A restored session bound by `hydrate()`, not a terminal typed into.** The
+ * first version opened the terminal panel and emitted `pty:agent-changed` on
+ * its first pty, which works locally and cannot work on CI: xterm paints
+ * through `@xterm/addon-webgl`, the runner has no GPU, and the panel never
+ * becomes visible at all — the wall that puts four whole spec files in
+ * `playwright.ci.config.ts`'s KNOWN_RED. This needs a *store* with a live
+ * agent in it, not a rendered terminal.
+ *
+ * So the session arrives through the fixture with a `live` pty, and opening the
+ * FAB console is what calls `hydrate()` — which binds a live entry straight to
+ * `'open'`, the state `sessionPhase` needs. The FAB is opened and shut again
+ * rather than left up: it is `surface: 'fab'` sessions that render a pane
+ * there, and this one is on the main surface, so nothing mounts an xterm.
  */
-async function startOneAgent(page: Page): Promise<void> {
-  await page.keyboard.press('Control+`');
-  await expect(page.getByRole('button', { name: 'New terminal or agent' })).toBeVisible();
-  /*
-    Polled, not fired once after a sleep: the mock's `__mstudioPtyAgent`
-    returns `false` while the ptyId is unknown to its process table, so its
-    own return value IS the readiness signal for "the panel's first pty
-    exists". Deliberately not waiting on `.xterm-screen` instead — that never
-    becomes visible on the GPU-less CI runner (see `playwright.ci.config.ts`'s
-    KNOWN_RED note), and this needs the pty, not the paint.
-  */
-  await expect
-    .poll(
-      () =>
-        page.evaluate(() =>
-          (
-            window as unknown as { __mstudioPtyAgent: (p: string, a: string | null) => boolean }
-          ).__mstudioPtyAgent('pty-1', 'claude'),
-        ),
-      { timeout: 10_000 },
-    )
-    .toBe(true);
-  await page.keyboard.press('Control+`');
+const RESTORED_AGENT: MockFixtures['terminalSessions'] = [
+  {
+    session: {
+      id: 'sess-claude',
+      kind: 'agent',
+      agentId: 'claude',
+      title: 'midnite-studio',
+      cwd: '/tmp/midnite-studio',
+      repoId: 'repo-1',
+      createdAt: 1_787_000_000,
+    },
+    live: { ptyId: 'pty-restored', pid: 4242, cols: 80, rows: 24 },
+  },
+];
+
+async function openWithAgent(page: Page): Promise<void> {
+  await installMockBridge(page, {
+    ...fixtures,
+    terminalSessions: RESTORED_AGENT,
+  } as MockFixtures);
+  await page.goto('/');
+  await expect(page.getByTestId('status-bar')).toBeVisible();
+
+  const fab = page.getByRole('button', { name: 'Open quick access panel' });
+  await fab.click();
+  await expect(page.getByRole('button', { name: 'Ideate', exact: true })).toBeVisible();
   await expect(page.getByTestId('titlebar-agent-count')).toBeVisible();
+  /*
+    Shut again by the same toggle. It has to be shut: `fabPanelOpen` is one of
+    the three things that expand the launcher strip, so leaving the console up
+    would put four glyphs in the cluster and measure a width no resting bar
+    ever has.
+  */
+  await fab.click();
+  await expect(page.getByRole('button', { name: 'Ideate', exact: true })).toBeHidden();
+  await expect(page.getByTestId('fab-launchers')).toHaveAttribute('data-expanded', 'false');
 }
 
 /**
@@ -139,8 +161,7 @@ async function barState(
  * hold whatever the font metrics are, and both fail on the shipped version.
  */
 test('the cluster sheds width before the bar can overflow', async ({ page }) => {
-  await open(page);
-  await startOneAgent(page);
+  await openWithAgent(page);
   await page.setViewportSize({ width: 1400, height: 800 });
   await expect(page.getByTestId('titlebar-agents')).toHaveAttribute('data-density', 'full');
 
@@ -183,8 +204,7 @@ test('the cluster sheds width before the bar can overflow', async ({ page }) => 
 
 /** What each step actually looks like, driven by `data-density` alone. */
 test('compact drops the word, collapsed drops the readout', async ({ page }) => {
-  await open(page);
-  await startOneAgent(page);
+  await openWithAgent(page);
 
   const count = page.getByTestId('titlebar-agent-count');
   const word = count.locator('.status-label');
@@ -221,8 +241,7 @@ test('compact drops the word, collapsed drops the readout', async ({ page }) => 
  * `compact`, which is the trap `status-bar.spec.ts` documents at length.
  */
 test('the theme toggle stays in the window once full no longer fits', async ({ page }) => {
-  await open(page);
-  await startOneAgent(page);
+  await openWithAgent(page);
 
   await page.setViewportSize({ width: 1600, height: 800 });
   await expect(page.getByTestId('titlebar-agents')).toHaveAttribute('data-density', 'full');
