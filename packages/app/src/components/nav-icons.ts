@@ -1,6 +1,5 @@
 import type { IconType } from 'react-icons';
-import { FaCodePullRequest } from 'react-icons/fa6';
-import { GoBeaker, GoGlobe } from 'react-icons/go';
+import { GoBeaker, GoGitPullRequest, GoGlobe, GoPlay } from 'react-icons/go';
 import { IoIosGitNetwork } from 'react-icons/io';
 import {
   LuActivity,
@@ -13,7 +12,6 @@ import {
   LuLock,
   LuPalette,
   LuPanelLeft,
-  LuPlay,
   LuScrollText,
   LuSearch,
   LuSettings,
@@ -46,8 +44,11 @@ export const VIEW_ICON: Record<ViewId, IconType> = {
   tests: GoBeaker,
   graph: IoIosGitNetwork,
   changes: LuDiff,
-  actions: LuPlay,
-  reviews: FaCodePullRequest,
+  // Actions and Reviews wear GitHub's own Octicons — `play` and
+  // `git-pull-request` — rather than the nearest Lucide/Font-Awesome match,
+  // so the rail reads identically to github.com's own top nav.
+  actions: GoPlay,
+  reviews: GoGitPullRequest,
   /**
    * A kanban glyph even though Theme D ships only the table — the board mode
    * (Phase 41) lives inside this same view, not a separate nav item, so the

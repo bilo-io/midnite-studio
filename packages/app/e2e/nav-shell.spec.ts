@@ -108,7 +108,7 @@ test('the rail carries all thirteen views, Dashboard ungrouped above the rest', 
 
   for (const label of [
     'Dashboard',
-    'Files',
+    'Explorer',
     'Search',
     'Tests',
     'Graph',
@@ -164,7 +164,7 @@ test('the rail carries all thirteen views, Dashboard ungrouped above the rest', 
 test('each view is reachable and none of them answers as the graph', async ({ page }) => {
   await open(page);
 
-  for (const label of ['Dashboard', 'Files', 'Changes', 'Actions', 'Tests', 'Reviews', 'Graph']) {
+  for (const label of ['Dashboard', 'Explorer', 'Changes', 'Actions', 'Tests', 'Reviews', 'Graph']) {
     await clickRail(page, label);
     await expect(rail(page, label)).toHaveAttribute('aria-current', 'page');
   }
@@ -279,7 +279,7 @@ test('switching views keeps the checkout you were looking at', async ({ page }) 
   const row = page.getByRole('button', { name: /^feature\/x/ }).last();
   await row.click();
 
-  for (const label of ['Files', 'Actions', 'Tests', 'Dashboard', 'Graph']) {
+  for (const label of ['Explorer', 'Actions', 'Tests', 'Dashboard', 'Graph']) {
     await clickRail(page, label);
     await expect(page.getByRole('button', { name: /Actions for worktree feature\/x/ })).toBeVisible();
   }

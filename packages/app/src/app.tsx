@@ -215,10 +215,12 @@ const CONTENT_BOX = {
  * component type, and the `Lu*` prefix names the set — a sibling elsewhere in
  * the app importing `Ai*` or `Md*` is the point of the package, not a mistake.
  *
- * "Files", not "Folder": the view is a browser for the checkout's files, and
- * naming it after the container rather than what you came looking for made it
- * read as a second sidebar. ("Explore" describes the verb, but a rail of nouns
- * with one verb in it is the odd one out.)
+ * "Explorer", not "Folder" or "Files": the view is a browser for the
+ * checkout's files, and naming it after the container rather than what you
+ * came looking for made it read as a second sidebar. "Explorer" is the noun
+ * form — VS Code's and Windows' own name for the same job — so it keeps the
+ * rail's one-noun-per-item pattern; the bare verb "Explore" was rejected for
+ * exactly that reason, as the one item that wasn't a noun.
  */
 type NavItem = { view: ViewId; label: string; icon: IconType };
 
@@ -229,8 +231,8 @@ type NavItem = { view: ViewId; label: string; icon: IconType };
  * the shell's own type documents that slot as "items rendered above the
  * sections (e.g. Dashboard), with no section header", so this asks for the slot
  * that already exists rather than a new one. It is not a view OF a checkout the
- * way Files and Graph are; it is the repository's front page, and grouping it
- * with them would say otherwise.
+ * way Explorer and Graph are; it is the repository's front page, and grouping
+ * it with them would say otherwise.
  */
 const PINNED_ITEM: NavItem = {
   view: 'dashboard',
@@ -244,7 +246,7 @@ const PINNED_ITEM: NavItem = {
   Tests and Reviews, whose reasoning lives beside them there.
 */
 const WORKSPACE_NAV_ITEMS: NavItem[] = [
-  { view: 'files', label: 'Files', icon: VIEW_ICON.files },
+  { view: 'files', label: 'Explorer', icon: VIEW_ICON.files },
   { view: 'search', label: 'Search', icon: VIEW_ICON.search },
   { view: 'tests', label: 'Tests', icon: VIEW_ICON.tests },
 ];

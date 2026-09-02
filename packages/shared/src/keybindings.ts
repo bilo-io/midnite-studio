@@ -203,6 +203,14 @@ export const COMMANDS = [
   { id: 'palette.open', label: 'Command Palette', group: 'palette', chord: 'Mod+k', scope: 'global' },
   { id: 'palette.files', label: 'Go to File…', group: 'palette', chord: 'Mod+p' },
   { id: 'file.save', label: 'Save File', group: 'files', chord: 'Mod+s' },
+  /**
+   * Mod+Shift+e navigates to the Explorer view from anywhere — same pattern
+   * as `view.graph`'s Mod+Shift+g, and for the same reason: plain `Mod+e`
+   * would be `Ctrl+e` off macOS, which readline already owns (move to end of
+   * line), and the terminal must keep it. Shift sidesteps the collision
+   * entirely rather than adding a third name to `TERMINAL_YIELD_COMMANDS`.
+   */
+  { id: 'view.files', label: 'Go to Explorer', group: 'files', chord: 'Mod+Shift+e' },
   // Declared, unbound: Phase 23's palette is the surface that gives this a
   // chord-free way to fire. Enabled only while a description-level markdown
   // surface (Files preview, PR/review description) is in view — see

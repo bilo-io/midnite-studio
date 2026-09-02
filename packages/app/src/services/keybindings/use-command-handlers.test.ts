@@ -104,6 +104,7 @@ describe('useCommandHandlers — no repo open', () => {
       'fab.toggle',
       'repo.open',
       'view.graph',
+      'view.files',
       'graph.focus',
       'status.focus',
     ] as const) {

@@ -8,6 +8,7 @@ import { MonitorCluster } from '../monitor/monitor-cluster';
 import { AssistantMenu } from './assistant-menu';
 import { BrowserToggle } from './browser-toggle';
 import { ChecksVerdictSegment } from './checks-verdict';
+import { ExplorerToggle } from './explorer-toggle';
 import { FilesToggle } from './files-toggle';
 import { InProgressSegment } from './in-progress';
 import { NotificationBell } from './notification-bell';
@@ -85,6 +86,7 @@ export const STATUS_SEGMENTS: StatusSegment[] = [
   // first and would have been the first thing shed on a narrow window.
   { id: 'repos-toggle', zone: 'left', group: 'shortcuts', priority: 10, label: 'Repositories', El: ReposToggle },
   { id: 'terminal-toggle', zone: 'left', group: 'shortcuts', priority: 20, label: 'Terminal', El: TerminalToggle },
+  { id: 'explorer-toggle', zone: 'left', group: 'shortcuts', priority: 25, label: 'Explorer', El: ExplorerToggle },
   { id: 'browser-toggle', zone: 'left', group: 'shortcuts', priority: 30, label: 'Browser', El: BrowserToggle },
   { id: 'palette-toggle', zone: 'left', group: 'shortcuts', priority: 40, label: 'Command palette', El: PaletteToggle },
   { id: 'files-toggle', zone: 'left', group: 'shortcuts', priority: 50, label: 'Go to file', El: FilesToggle },

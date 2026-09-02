@@ -36,7 +36,7 @@ const data: MockFixtures = {
 async function openFile(page: Page): Promise<void> {
   await installMockBridge(page, data);
   await page.goto('/');
-  await clickRailLink(page, 'Files');
+  await clickRailLink(page, 'Explorer');
   await page.getByRole('treeitem', { name: /README\.md/ }).click();
   await expect(page.getByText('A short deck to present.')).toBeVisible();
 }
