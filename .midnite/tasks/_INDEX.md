@@ -37,7 +37,7 @@ Completed work is logged append-only in [`done.md`](done.md). Deferred scope liv
 
 | Phase | Status | Refined | Done | Progress | % | 🔄 WIP | ◻ TODO |
 |-------|--------|---------|------|----------|---|--------|--------|
-| [50 · Kanban & Projects, Follow-Through](phases/phase-50-kanban-projects-followthrough.md) | ◻ TODO | — | 0/17 | `░░░░░░░░░░` | 0% | — | A B C D E F |
+| [50 · Kanban & Projects, Follow-Through](phases/phase-50-kanban-projects-followthrough.md) | 🔄 WIP | — | 0/17 | `░░░░░░░░░░` | 0% | A B C D | E F |
 | [49 · Onboarding a repo: Setup and Update](phases/phase-49-repo-onboarding.md) | 🔄 WIP | — | 28/33 | `████████░░` | 85% | E | — |
 | [48 · Apply suggested-change blocks](phases/phase-48-apply-suggested-changes.md) | 🔄 WIP | — | 19/20 | `██████████` | 95% | — | E (human round-trip verification) |
 | [47 · Conflict Resolution Studio](phases/phase-47-conflict-resolution-studio.md) | 🔄 WIP | — | 4/23 | `██░░░░░░░░` | 17% | B | C D E F |
@@ -102,10 +102,10 @@ drop target, `panel-stack` finally reaching the surface its own docblock named a
 "Add to project" from the Reviews page, and activity markers for the three agents this app already
 runs unattended that have never had any.*
 
-- ◻ **A** — A card's session survives its agent, cleared only on explicit Dismiss; a soft warning (not a block) at 5 concurrent card sessions on one board.
-- ◻ **B** — "Launch and run," opt-in behind a `Settings ▸ Projects` toggle, still confirmed every time — `startAgent`'s existing `autoSend` flag, never defaulted on.
-- ◻ **C** — `clearProjectV2ItemFieldValue`, and "No status" becomes a real droppable column instead of a permanently-disabled one.
-- ◻ **D** — The card-detail pane adopts `panel-stack` (`Mod+[`/`Mod+]` back/forward, a breadcrumb) — Projects was already named as its next consumer.
+- 🔄 **A** — A card's session survives its agent, cleared only on explicit Dismiss; a soft warning (not a block) at 5 concurrent card sessions on one board. (WIP)
+- 🔄 **B** — "Launch and run," opt-in behind a `Settings ▸ Projects` toggle, still confirmed every time — `startAgent`'s existing `autoSend` flag, never defaulted on. (WIP)
+- 🔄 **C** — `clearProjectV2ItemFieldValue`, and "No status" becomes a real droppable column instead of a permanently-disabled one. (WIP)
+- 🔄 **D** — The card-detail pane adopts `panel-stack` (`Mod+[`/`Mod+]` back/forward, a breadcrumb) — Projects was already named as its next consumer. (WIP)
 - ◻ **E** — "Add to project ▸" from a PR's Reviews detail pane, closing the gap `addItemToProject`'s own docblock named; PRs only, no Issues view exists yet.
 - ◻ **F** — Activity markers (`thinking`/`frameEnd`/`awaitingInput`) authored for `agy`/`codex`/`opencode` — today only `claude` has any, so every other agent's card glow and FAB pulse reads a permanently mute signal.
 
