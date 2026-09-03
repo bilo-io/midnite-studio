@@ -1,8 +1,8 @@
 import type { IconType } from 'react-icons';
 import { FaHeartbeat } from 'react-icons/fa';
 import { GiOvermind } from 'react-icons/gi';
-import { LuBot, LuCircleDot } from 'react-icons/lu';
-import { SiSecurityscorecard } from 'react-icons/si';
+import { LuCircleDot } from 'react-icons/lu';
+import { SiClevercloud, SiSecurityscorecard } from 'react-icons/si';
 
 /**
  * `LoopDefinition.icon` is a *token*, not a component — `packages/shared` is
@@ -16,7 +16,7 @@ import { SiSecurityscorecard } from 'react-icons/si';
  */
 const LOOP_ICONS: Record<string, IconType> = {
   brain: GiOvermind,
-  bot: LuBot,
+  bot: SiClevercloud,
   watchdog: SiSecurityscorecard,
   medic: FaHeartbeat,
 };
