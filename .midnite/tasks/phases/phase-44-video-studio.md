@@ -85,7 +85,7 @@ Effort tags: **S** ≈ an hour or two · **M** ≈ half a day · **L** ≈ a day
 
 ## Deliverables
 
-### A — Shared contracts (M) — ✅ DONE (PR #TBD, 2026-09-04)
+### A — Shared contracts (M) — ✅ DONE (PR #110, 2026-09-04)
 
 - [x] `VideoProject`, `VideoComposition`, `VideoRender`, `VideoStudioStatus`, `VideoToolchain` zod
       schemas in a new [`shared/src/video.ts`](../../../packages/shared/src/video.ts), plus

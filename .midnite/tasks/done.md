@@ -4,7 +4,7 @@
 
 ## 2026-09-04 — Phase 44 Theme A — Video Studio's shared contracts
 
-[PR #TBD]. Opens Phase 44, the last of the five `_features.md` items — a **Video** view driving a
+[PR #110]. Opens Phase 44, the last of the five `_features.md` items — a **Video** view driving a
 real npm project on disk (Remotion, no dependency shipped) exactly as this app already drives `gh`
 and Claude. Theme A is contracts only: no engine, no store, no view yet.
 
