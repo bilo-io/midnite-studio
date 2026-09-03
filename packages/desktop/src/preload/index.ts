@@ -206,6 +206,7 @@ const bridge: Pick<
     // with "no handler registered", same as any other unimplemented channel.
     setField: (req) => call(CHANNELS.forgeProjectSetField, req),
     addItem: (req) => call(CHANNELS.forgeProjectAddItem, req),
+    clearField: (req) => call(CHANNELS.forgeProjectClearField, req),
   },
   shell: {
     // `invoke`, not `send`: the renderer needs to know a URL was refused, and

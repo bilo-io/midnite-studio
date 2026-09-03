@@ -1,7 +1,7 @@
 import type { Forge, ForgeProjectFieldValue } from '@midnite/studio-shared';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
-import { addItemToProject, setItemFieldValue } from './gh-project-write';
+import { addItemToProject, clearItemFieldValue, setItemFieldValue } from './gh-project-write';
 
 /* Same arrangement `gh-project.test.ts` uses — see its own note. */
 const { runInShell } = vi.hoisted(() => ({
@@ -152,5 +152,38 @@ describe('addItemToProject', () => {
     expect(command).not.toMatch(/-f |-F /);
     expect(command).toContain('addProjectV2ItemById');
     expect(result).toEqual({ ok: true, kind: 'ok' });
+  });
+});
+
+describe('clearItemFieldValue (Phase 50 Theme C)', () => {
+  it('sends projectId/itemId/fieldId as a JSON body, with no value at all', async () => {
+    runInShell.mockResolvedValue({
+      output: JSON.stringify({ data: { clearProjectV2ItemFieldValue: { projectV2Item: { id: 'i1' } } } }),
+      stdout: '',
+      stderr: '',
+      exitCode: 0,
+    });
+
+    const result = await clearItemFieldValue(forge, { projectId: 'p1', itemId: 'i1', fieldId: 'f1' });
+
+    const [command] = runInShell.mock.calls[0]!;
+    expect(command).toContain('gh api graphql --input -');
+    expect(command).not.toMatch(/-f |-F /);
+    expect(command).toContain('clearProjectV2ItemFieldValue');
+    expect(command).not.toContain('"value"');
+    expect(result).toEqual({ ok: true, kind: 'ok' });
+  });
+
+  it('recognises INSUFFICIENT_SCOPES the same way every other mutation here does', async () => {
+    runInShell.mockResolvedValue({
+      output: JSON.stringify({ errors: [{ type: 'INSUFFICIENT_SCOPES', message: 'missing project scope' }] }),
+      stdout: '',
+      stderr: '',
+      exitCode: 1,
+    });
+
+    const result = await clearItemFieldValue(forge, { projectId: 'p1', itemId: 'i1', fieldId: 'f1' });
+
+    expect(result).toEqual({ ok: false, kind: 'insufficient-scope', hint: 'gh auth refresh -s project' });
   });
 });

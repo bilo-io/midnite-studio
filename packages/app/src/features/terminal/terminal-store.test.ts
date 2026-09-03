@@ -657,6 +657,58 @@ describe('sleepSession and awakeSession', () => {
   });
 });
 
+describe('dismissCardSession (Phase 50 Theme A)', () => {
+  beforeEach(reset);
+
+  const openCard = (taskRef: { projectId: string; itemId: string }) =>
+    useTerminalStore.getState().openSession({
+      kind: 'agent',
+      agentId: 'claude',
+      title: 'card',
+      cwd: '/repo',
+      repoId: 'r1',
+      surface: 'kanban',
+      taskRef,
+    });
+
+  it('drops surface/taskRef the same way rehomeSession does', () => {
+    const s = openCard({ projectId: 'p1', itemId: 'i1' });
+
+    useTerminalStore.getState().dismissCardSession({ projectId: 'p1', itemId: 'i1' });
+
+    const updated = useTerminalStore.getState().sessions.find((entry) => entry.id === s.id);
+    expect(updated?.surface).toBeUndefined();
+    expect(updated?.taskRef).toBeUndefined();
+  });
+
+  it('is a no-op for a taskRef with no bound session', () => {
+    const before = useTerminalStore.getState().sessions;
+
+    useTerminalStore.getState().dismissCardSession({ projectId: 'p1', itemId: 'nope' });
+
+    expect(useTerminalStore.getState().sessions).toBe(before);
+  });
+
+  it('finds an ended session too, not just a live one — that is the whole point', () => {
+    const s = openCard({ projectId: 'p1', itemId: 'i1' });
+    useTerminalStore.getState().setState(s.id, 'exited');
+
+    useTerminalStore.getState().dismissCardSession({ projectId: 'p1', itemId: 'i1' });
+
+    const updated = useTerminalStore.getState().sessions.find((entry) => entry.id === s.id);
+    expect(updated?.taskRef).toBeUndefined();
+  });
+
+  it('leaves a different card\'s session with the same item id on another project untouched', () => {
+    const other = openCard({ projectId: 'p2', itemId: 'i1' });
+
+    useTerminalStore.getState().dismissCardSession({ projectId: 'p1', itemId: 'i1' });
+
+    const updated = useTerminalStore.getState().sessions.find((entry) => entry.id === other.id);
+    expect(updated?.taskRef).toEqual({ projectId: 'p2', itemId: 'i1' });
+  });
+});
+
 describe('exitCodes tracking', () => {
   beforeEach(reset);
 

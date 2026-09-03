@@ -225,6 +225,16 @@ type TerminalState = {
    * pointer at a card that no longer resolves it.
    */
   rehomeSession: (sessionId: string) => void;
+  /**
+   * Drop a card's session back to the main surface on purpose (Phase 50
+   * Theme A) — the user-initiated sibling of `rehomeSession` above, which
+   * only ever fires automatically on board load to reconcile an orphaned
+   * session. Same transition (`rehomeSession` is what this calls), different
+   * trigger: a still-bound card whose agent has finished, dismissed by hand.
+   * A no-op if the card never had a session, or its session already ended
+   * and was rehomed by other means.
+   */
+  dismissCardSession: (taskRef: { projectId: string; itemId: string }) => void;
   setActive: (sessionId: string) => void;
   /** Same as `setActive`, but keeps keyboard focus in the session list. */
   setActiveFromListNav: (sessionId: string) => void;
@@ -500,6 +510,12 @@ export const useTerminalStore = create<TerminalState>()((set, get) => ({
       sessions: state.sessions.map((s) => (s.id === sessionId ? nextSession : s)),
     }));
     bridge()?.terminal.save({ session: nextSession });
+  },
+
+  dismissCardSession: (taskRef) => {
+    const session = findAnyCardSession(get().sessions, taskRef);
+    if (!session) return;
+    get().rehomeSession(session.id);
   },
 
   setActive: (activeId) => set({ activeId }),

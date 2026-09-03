@@ -1,7 +1,15 @@
 import type { ForgeProjectField, ForgeProjectItem, TerminalSession } from '@midnite/studio-shared';
 import { describe, expect, it } from 'vitest';
 
-import { composeCardPrompt, deriveColumns, NO_STATUS_COLUMN_ID, sessionsToRehome } from './board-derive';
+import {
+  composeCardPrompt,
+  CONCURRENT_CARD_SESSION_SOFT_LIMIT,
+  countLiveCardSessions,
+  deriveColumns,
+  NO_STATUS_COLUMN_ID,
+  sessionsToRehome,
+} from './board-derive';
+import type { ConnectionState } from '../../terminal/terminal-store';
 
 const statusField: ForgeProjectField = {
   id: 'f1',
@@ -175,5 +183,58 @@ describe('sessionsToRehome', () => {
     };
     const ids = sessionsToRehome([main], { projectId: 'PVT_1', itemIds: new Set() });
     expect(ids).toEqual([]);
+  });
+});
+
+describe('countLiveCardSessions (Phase 50 Theme A)', () => {
+  function kanbanSession(id: string, projectId: string, itemId: string): TerminalSession {
+    return {
+      id,
+      kind: 'agent',
+      agentId: 'claude',
+      title: 'card',
+      cwd: '/repo',
+      repoId: 'r1',
+      createdAt: 1,
+      surface: 'kanban',
+      taskRef: { projectId, itemId },
+    };
+  }
+
+  it('CONCURRENT_CARD_SESSION_SOFT_LIMIT is 5 — Phase 41 Theme I\'s own recorded recommendation', () => {
+    expect(CONCURRENT_CARD_SESSION_SOFT_LIMIT).toBe(5);
+  });
+
+  it('counts only live sessions bound to this board', () => {
+    const sessions = [
+      kanbanSession('s1', 'PVT_1', 'i1'),
+      kanbanSession('s2', 'PVT_1', 'i2'),
+      kanbanSession('s3', 'PVT_1', 'i3'),
+    ];
+    const states: Record<string, ConnectionState> = { s1: 'open', s2: 'exited', s3: 'idle' };
+
+    expect(countLiveCardSessions(sessions, states, 'PVT_1')).toBe(2);
+  });
+
+  it('ignores a session bound to a different board', () => {
+    const sessions = [kanbanSession('s1', 'PVT_other', 'i1')];
+    expect(countLiveCardSessions(sessions, { s1: 'open' }, 'PVT_1')).toBe(0);
+  });
+
+  it('an asleep session does not count, even with a "live" connection state', () => {
+    const asleep: TerminalSession = { ...kanbanSession('s1', 'PVT_1', 'i1'), asleep: true };
+    expect(countLiveCardSessions([asleep], { s1: 'open' }, 'PVT_1')).toBe(0);
+  });
+
+  it('ignores a main-surface session entirely', () => {
+    const main: TerminalSession = {
+      id: 's1',
+      kind: 'shell',
+      title: 'repo',
+      cwd: '/repo',
+      repoId: 'r1',
+      createdAt: 1,
+    };
+    expect(countLiveCardSessions([main], { s1: 'open' }, 'PVT_1')).toBe(0);
   });
 });

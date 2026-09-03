@@ -15,19 +15,19 @@ import { useVirtualizer } from '@tanstack/react-virtual';
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { LuChevronRight } from 'react-icons/lu';
 
-import type { ForgeProjectField, ForgeProjectItem } from '@midnite/studio-shared';
+import type { ForgeProjectField, ForgeProjectItem, ForgeProjectWriteResult } from '@midnite/studio-shared';
 
 import { useDialogs } from '../../../components/dialog-host';
 import type { MenuItem } from '../../../components/context-menu';
 import { EmptyState } from '../../../components/empty-state';
 import { VIEW_ICON } from '../../../components/nav-icons';
 import { useWindowFocusGate } from '../../../lib/use-window-focus-gate';
-import { useSetProjectItemField } from '../../../services/queries';
+import { useClearProjectItemField, useSetProjectItemField } from '../../../services/queries';
 import { useUiStore } from '../../../store/ui-store';
 import { useToastStore } from '../../../store/toast-store';
 import { useTerminalStore } from '../../terminal/terminal-store';
 import { applyOptimisticMove, type CardDragPayload, type ColumnDropPayload } from './board-dnd';
-import { CardDetail } from './card-detail';
+import { CardPanelStack } from './card-panel-stack';
 import { deriveColumns, NO_STATUS_COLUMN_ID, sessionsToRehome, type BoardColumn } from './board-derive';
 import { TaskCard } from './task-card';
 
@@ -144,6 +144,7 @@ export function BoardView({
   const columns = useMemo(() => deriveColumns(statusField, boardItems), [statusField, boardItems]);
 
   const setField = useSetProjectItemField(projectId);
+  const clearField = useClearProjectItemField(projectId);
   const addToast = useToastStore((s) => s.addToast);
 
   const [activeItem, setActiveItem] = useState<ForgeProjectItem | null>(null);
@@ -156,7 +157,6 @@ export function BoardView({
     [fields, statusField],
   );
 
-  const selectedItem = selectedItemId ? (boardItems.find((i) => i.id === selectedItemId) ?? null) : null;
 
   if (!statusField) {
     return (
@@ -208,30 +208,39 @@ export function BoardView({
     if (currentColumnId === toColumnId) return;
 
     const next = applyOptimisticMove(boardItems, itemId, statusField, toColumnId);
+    setOptimisticItems(next);
+
+    const onSettled = (result: ForgeProjectWriteResult): void => {
+      if (result.ok) {
+        awaitingRefetch.current = true;
+      } else {
+        // Roll back: the drop is refused, so the card returns to its
+        // original column, with GitHub's own error text — never a
+        // generic "something went wrong".
+        setOptimisticItems(null);
+        addToast({
+          status: 'error',
+          message: result.kind === 'insufficient-scope' ? result.hint : result.message,
+        });
+      }
+    };
+
+    /*
+      "No status" (Phase 50 Theme C) clears the field rather than setting it
+      — `applyOptimisticMove` already deletes the entry, which is exactly why
+      this branch cannot read a `value` off the moved item to send: there is
+      none, by design, and `clearProjectV2ItemFieldValue` takes none either.
+    */
+    if (toColumnId === NO_STATUS_COLUMN_ID) {
+      clearField.mutate({ itemId, fieldId: statusField.id }, { onSuccess: onSettled });
+      return;
+    }
+
     const moved = next.find((i) => i.id === itemId);
     const value = moved?.fieldValues[statusField.id];
     if (!value) return;
 
-    setOptimisticItems(next);
-    setField.mutate(
-      { itemId, fieldId: statusField.id, value },
-      {
-        onSuccess: (result) => {
-          if (result.ok) {
-            awaitingRefetch.current = true;
-          } else {
-            // Roll back: the drop is refused, so the card returns to its
-            // original column, with GitHub's own error text — never a
-            // generic "something went wrong".
-            setOptimisticItems(null);
-            addToast({
-              status: 'error',
-              message: result.kind === 'insufficient-scope' ? result.hint : result.message,
-            });
-          }
-        },
-      },
-    );
+    setField.mutate({ itemId, fieldId: statusField.id, value }, { onSuccess: onSettled });
   };
 
   const handleDragEnd = (event: DragEndEvent): void => {
@@ -269,14 +278,14 @@ export function BoardView({
           ))}
         </div>
 
-        {selectedItem ? (
-          <CardDetail
-            key={selectedItem.id}
+        {selectedItemId ? (
+          <CardPanelStack
             projectId={projectId}
             repoId={repoId}
             worktreePath={worktreePath}
-            item={selectedItem}
+            items={boardItems}
             fields={fields}
+            selectedItemId={selectedItemId}
             onClose={() => setSelectedItemId(null)}
           />
         ) : null}
@@ -353,16 +362,9 @@ function BoardColumnView({
   onSelectItem: (itemId: string) => void;
   onMoveToColumn: (itemId: string, toColumnId: string) => void;
 }) {
-  /*
-    "No status" is not a droppable target at all: clearing a field is
-    `clearProjectV2ItemFieldValue`, a different GraphQL mutation Phase 40
-    Theme E never built (it only shipped `updateProjectV2ItemFieldValue`,
-    which requires a real option id) — see `board-dnd.ts`'s own note.
-  */
   const droppable = useDroppable({
     id: `column:${column.id}`,
     data: { kind: 'column', optionId: column.id } satisfies ColumnDropPayload,
-    disabled: column.id === NO_STATUS_COLUMN_ID,
   });
 
   if (collapsed) {
@@ -500,7 +502,10 @@ function DraggableCard({
 
   const openMoveMenu = (event: { clientX: number; clientY: number }): void => {
     if (!writesEnabled) return;
-    const targets = columns.filter((c) => c.id !== currentColumnId && c.id !== NO_STATUS_COLUMN_ID);
+    // "No status" is a real target now (Phase 50 Theme C) — the keyboard
+    // story gets the same destination the drag gesture does, not a smaller
+    // one.
+    const targets = columns.filter((c) => c.id !== currentColumnId);
     if (targets.length === 0) return;
     dialogs.openMenu(event, [
       {

@@ -219,6 +219,31 @@ test.describe('kanban board drag (Theme C)', () => {
 
     expect((await recorded(page)).map((call) => call.channel)).not.toContain('forgeProjectSetField');
   });
+
+  /** Phase 50 Theme C — "No status" is now a real drop target. */
+  test('dragging a card onto "No status" clears the field through the real mutation, not setField', async ({
+    page,
+  }) => {
+    await openBoard(page, base, { writes: true });
+
+    const card = page.getByText('Wire the write path');
+    const noStatusColumn = page.getByRole('button', { name: 'Collapse No status' });
+    await dragOnto(page, card, noStatusColumn);
+
+    await expect
+      .poll(async () => (await recorded(page)).map((call) => call.channel))
+      .toContain('forgeProjectClearField');
+    const call = (await recorded(page)).find((entry) => entry.channel === 'forgeProjectClearField');
+    expect(call?.request).toMatchObject({
+      projectId: BOARD.id,
+      itemId: ITEM.id,
+      fieldId: STATUS_FIELD.id,
+    });
+    expect((await recorded(page)).map((c) => c.channel)).not.toContain('forgeProjectSetField');
+
+    const noStatusPanel = noStatusColumn.locator('xpath=..');
+    await expect(noStatusPanel.getByText('Wire the write path')).toBeVisible();
+  });
 });
 
 /** The seeded live `'kanban'` session a restart would restore, bound to `ITEM`. */
@@ -353,5 +378,30 @@ test.describe('revealing a card session in the terminal', () => {
     // Scoped to the panel itself — see the sibling test's note above.
     await expect(page.locator('[data-terminal-panel]')).toBeVisible();
     await expect(page.locator('[data-terminal-panel] .xterm-screen')).toHaveCount(1);
+  });
+});
+
+/**
+ * The card-detail pane's `panel-stack` instance (Phase 50 Theme D) — opening
+ * a second card pushes a history entry rather than just swapping content, so
+ * Back returns to the first card without leaving the board.
+ */
+test.describe('card-detail panel history (Theme D)', () => {
+  test('opening a second card, then Back, returns to the first', async ({ page }) => {
+    await openBoard(page, base);
+
+    // `.last()` throughout: `panel-stack` briefly mounts both the outgoing
+    // and incoming pane during its slide transition, and both carry this
+    // same `data-testid` — the incoming (current) one is always the later
+    // sibling (`panel-stack.tsx`'s own render order).
+    await page.getByText('Wire the write path').click();
+    await expect(page.getByTestId('card-detail').last()).toBeVisible();
+    await expect(page.getByTestId('card-detail').last()).toContainText('Wire the write path');
+
+    await page.getByText('A card nobody touches').click();
+    await expect(page.getByTestId('card-detail').last()).toContainText('A card nobody touches');
+
+    await page.getByTestId('board-view').getByRole('button', { name: 'Back' }).click();
+    await expect(page.getByTestId('card-detail').last()).toContainText('Wire the write path');
   });
 });

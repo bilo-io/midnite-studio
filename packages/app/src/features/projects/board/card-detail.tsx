@@ -11,6 +11,11 @@ import { ProjectFieldCell } from '../field-editor';
  * field, editable through the same `ProjectFieldCell` the table uses — plus
  * the agent composer (Theme G) at the bottom, when a repo checkout is open
  * to launch it against.
+ *
+ * **No outer sizing/border of its own (Phase 50 Theme D).** `card-panel-stack.tsx`
+ * now owns the `w-80 shrink-0 border-l` chrome, since it wraps this in a
+ * `panel-stack` pane sized by its own container — a second border here would
+ * double up against the wrapper's.
  */
 export function CardDetail({
   projectId,
@@ -33,7 +38,7 @@ export function CardDetail({
   const number = item.content.type === 'draft' ? null : item.content.number;
 
   return (
-    <div className="flex h-full w-80 shrink-0 flex-col border-l border-border" data-testid="card-detail">
+    <div className="flex h-full flex-col" data-testid="card-detail">
       <header className="flex shrink-0 items-start gap-2 border-b border-border px-3 py-2.5">
         <Icon aria-hidden className="mt-0.5 h-4 w-4 shrink-0 text-muted-foreground" />
         <div className="min-w-0 flex-1">
