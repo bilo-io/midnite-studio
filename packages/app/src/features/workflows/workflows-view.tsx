@@ -56,16 +56,34 @@ export function WorkflowsView() {
  * would have exactly that bug: its debounce holds one pending value, and a
  * second `schedule()` for a different workflow inside the same window would
  * silently overwrite the first's.
+ *
+ * **`local` is the canvas's real source of truth, not the `workflow` prop.**
+ * The canvas has no state of its own — every edit calls `onChange` with the
+ * next graph, computed from whatever graph it was last given. Feeding it the
+ * `workflow` prop directly means two edits inside one `SAVE_DEBOUNCE_MS`
+ * window — a drag immediately followed by adding a node, well within normal
+ * use — would both compute their "next" from the same not-yet-round-tripped
+ * prop, and the second `schedule()` call silently overwrites the first's
+ * pending value with one that never knew about it. `local` closes that gap:
+ * every `onChange` updates it immediately, so the next edit always builds on
+ * the one before it, and `schedule` persists the same value in the
+ * background. Seeded once per mount — `key={workflow.id}` on the caller
+ * already remounts (and reseeds) this on a workflow switch.
  */
 function WorkflowEditor({ workflow }: { workflow: Workflow }) {
   const save = useSaveWorkflow();
   const { schedule } = useFlushableSave<Workflow>((next) => save.mutate(next), SAVE_DEBOUNCE_MS);
+  const [local, setLocal] = useState(workflow);
 
   return (
     <WorkflowCanvas
       resetKey={workflow.id}
-      graph={{ nodes: workflow.nodes, edges: workflow.edges }}
-      onChange={(next: WorkflowGraph) => schedule({ ...workflow, ...next, updatedAt: Date.now() })}
+      graph={{ nodes: local.nodes, edges: local.edges }}
+      onChange={(next: WorkflowGraph) => {
+        const updated = { ...local, ...next, updatedAt: Date.now() };
+        setLocal(updated);
+        schedule(updated);
+      }}
     />
   );
 }
