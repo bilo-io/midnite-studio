@@ -112,3 +112,42 @@ test('the delete and its undo both land in the journal, the undo marked as one',
   await expect(journal.getByText('Undo: Deleted branch feature/shelved')).toBeVisible();
   await expect(journal.getByText('Deleted branch feature/shelved', { exact: true })).toBeVisible();
 });
+
+/**
+ * The rest of Theme H's remaining undo executors (`commit`/`reset`/`checkout`/
+ * `branch-create`/`branch-rename`/`stash-push`) each have unit coverage in
+ * `services/use-journal.test.tsx`. Rename is the one worth an assembled run
+ * too: its undo depends on `headAfter` carrying the new name captured by
+ * `use-graph-actions.ts`'s own `journalHint` — a field every other op treats
+ * as a sha — so this is what proves the call site actually threads it through
+ * rather than the type merely allowing it to.
+ */
+test('renaming a branch offers an Undo that renames it back', async ({ page }) => {
+  await installMockBridge(page, data);
+  await page.goto('/');
+  await expect(page.getByRole('heading', { name: 'Worktrees' })).toBeVisible();
+
+  const menu = page.getByRole('button', { name: 'Actions for branch feature/shelved' });
+  await menu.evaluate((el) => el.scrollIntoView({ block: 'center' }));
+  await menu.click();
+  await page.getByRole('menuitem', { name: /Rename feature\/shelved/ }).click();
+  await page.getByLabel('New name').fill('feature/renamed');
+  await page.getByRole('button', { name: 'Rename', exact: true }).click();
+
+  const toast = page.getByRole('status').filter({ hasText: 'Renamed feature/shelved to feature/renamed' });
+  await expect(toast).toBeVisible();
+  await toast.getByRole('button', { name: 'Undo' }).click();
+
+  await expect
+    .poll(() => opsFor(page, 'branchRename'))
+    .toEqual([
+      {
+        op: 'branchRename',
+        args: expect.objectContaining({ from: 'feature/shelved', to: 'feature/renamed' }),
+      },
+      {
+        op: 'branchRename',
+        args: expect.objectContaining({ from: 'feature/renamed', to: 'feature/shelved' }),
+      },
+    ]);
+});

@@ -50,6 +50,20 @@ export function useGraphActions(onError: (message: string) => void, refs: readon
   const branchCreate = useGitOp<{ name: string; startPoint: string; checkout: boolean }>(
     'branch-create',
     (api, args, ctx) => api.ops.branchCreate({ ...ctx, ...args }),
+    /*
+     * `refBefore` names the ref the op ITSELF created, not `HEAD` — the
+     * mirror of `branchDelete`'s own hint below. `headBefore` carries the sha
+     * the branch was created FROM, but only when this call actually checked
+     * it out — Theme H's undo (`services/use-journal.ts`) uses it to step off
+     * the branch before deleting it, which is only needed when the delete
+     * would otherwise target the branch HEAD is on.
+     */
+    (args) => ({
+      label: `Created branch ${args.name}`,
+      refBefore: `refs/heads/${args.name}`,
+      headBefore: args.checkout ? args.startPoint : null,
+      headAfter: null,
+    }),
   );
   const branchDelete = useGitOp<{ name: string; force: boolean; sha: string }>(
     'branch-delete',
@@ -69,8 +83,21 @@ export function useGraphActions(onError: (message: string) => void, refs: readon
       headAfter: null,
     }),
   );
-  const branchRename = useGitOp<{ from: string; to: string }>('branch-rename', (api, args, ctx) =>
-    api.ops.branchRename({ ...ctx, ...args }),
+  const branchRename = useGitOp<{ from: string; to: string }>(
+    'branch-rename',
+    (api, args, ctx) => api.ops.branchRename({ ...ctx, ...args }),
+    /*
+     * A plain rename moves no sha, so there is nothing HEAD-shaped to
+     * capture — `refBefore` carries the old name and `headAfter` is
+     * repurposed to carry the new one (see `computeUndoable`'s own doc),
+     * which is exactly the pair Theme H's undo reverses the rename with.
+     */
+    (args) => ({
+      label: `Renamed ${args.from} to ${args.to}`,
+      refBefore: `refs/heads/${args.from}`,
+      headBefore: null,
+      headAfter: args.to,
+    }),
   );
   const tagCreate = useGitOp<{ name: string; target: string }>('tag-create', (api, args, ctx) =>
     api.ops.tagCreate({ ...ctx, ...args }),

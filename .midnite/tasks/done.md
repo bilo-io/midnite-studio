@@ -2,6 +2,37 @@
 
 <!-- Append one entry per landed phase/PR: date, phase, PR link, one-line summary. -->
 
+## 2026-09-04 — Phase 22 Theme H — the remaining undo executors
+
+[PR #109]. Closes out Theme H — every op `isUndoableOpKind` calls undoable in principle now has a
+real, wired Undo, not just the starter pair (`stash-drop`/`branch-delete`).
+
+- [x] Executor arms for `commit`/`reset` (a plain `mixed` reset to the prior `HEAD` — leaves the
+      working tree alone), `checkout` (detaches to the prior sha rather than guessing a branch
+      name), `branch-create` (deletes the branch it named), `branch-rename` (renames back), and
+      `stash-push` (pops the newest entry, matching `computeUndoable`'s existing "applied by being
+      newest" assumption).
+- [x] `computeUndoable` gained an optional `headAfter` anchor field, backward compatible with every
+      existing caller, so `branch-rename`'s undoability check can require the new name it needs.
+- [x] **Found the same graph/sidebar gap `branch-delete` already hit (PR #31):** `branch-create` and
+      `branch-rename` each have two independent call sites (`use-graph-actions.ts`,
+      `use-repo-actions.ts`), and only the graph's originally carried a `journalHint`. Caught by
+      extending `journal-undo.spec.ts` with a rename-and-undo case through the sidebar's own menu,
+      which timed out until both call sites got the hint.
+- [x] **Self-review caught a real bug before merge:** every `branch-create` call site checks the new
+      branch out immediately, so its undo (`branchDelete`, `force: true`) was force-deleting the
+      branch HEAD is currently on — which git refuses regardless of force. Fixed by detaching to the
+      sha the branch was created from first, the same shape `checkout`'s own undo already uses.
+
+## 2026-09-04 — Phase 43 Theme D — the demo API status pill
+
+[PR #109]. Closes out Theme D's one carried-over item.
+
+- [x] `Demo API · running on :<port> · [stop]` / `Demo API · stopped · [start]` in the Workflows
+      canvas toolbar, polling the existing `demoApi.status` IPC (it shipped with no push event).
+      One-click insertion of the running server's base URL into a selected `http` node's URL field,
+      gated on both a running server and an `http` node actually being selected.
+
 ## 2026-09-04 — Phase 44 Theme A — Video Studio's shared contracts
 
 [PR #110]. Opens Phase 44, the last of the five `_features.md` items — a **Video** view driving a

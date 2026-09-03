@@ -273,18 +273,25 @@ The spine: B–E all read off this contract, so it lands first.
       name) plus seven integration tests against a real repo (real timestamps, a real reset, an
       explicit non-HEAD ref, page-boundary oldSha pairing, an empty-reflog ref).
 
-### H — The ops journal, toasts, and undo (L) ◐ PARTIAL (2026-09-02, starter subset)
+### H — The ops journal, toasts, and undo (L) ✅ DONE (2026-09-02, starter subset; 2026-09-04, the remaining executors — PR #109)
 
 The largest theme, and the only one with no existing pattern to copy: this builds the app's first
 history mechanism *and* the first surface it can announce itself on. Land it last.
 
-**Starter-subset landing.** `@bilo-io/ui` was checked and exports no toast/notification component,
-so `toast.tsx`/`toast-host.tsx` were built custom, per the original plan. The undoability classifier
-(`isUndoableOpKind`/`undoReason`) is complete and exhaustive over every op this app can emit, but only
-`stash-drop` and `branch-delete` have a real, wired Undo executor (`WIRED_UNDO_OPS` in
-`services/use-journal.ts`) — every other undoable-by-classifier op (`commit`, `reset`, `checkout`,
-branch create/move, `stash push`) is correctly classified and journalled but has no live Undo button
-yet; wire it by adding to `WIRED_UNDO_OPS` plus an executor arm. The journal is genuinely the History
+**Starter-subset landing (2026-09-02).** `@bilo-io/ui` was checked and exports no toast/notification
+component, so `toast.tsx`/`toast-host.tsx` were built custom, per the original plan. The undoability
+classifier (`isUndoableOpKind`/`undoReason`) is complete and exhaustive over every op this app can
+emit; `stash-drop` and `branch-delete` shipped with a real, wired Undo executor first.
+
+**The rest of `WIRED_UNDO_OPS` (2026-09-04).** Every other undoable-by-classifier op — `commit`,
+`reset` (both a plain `mixed` reset to the prior `HEAD`), `checkout` (detaches to the prior sha
+rather than guessing a branch name), `branch-create` (deletes the branch it named, stepping off it
+first when it was checked out on creation — every call site does this, and git refuses to delete the
+branch you're on regardless of `force`), `branch-rename` (renames back, `headAfter` repurposed to
+carry the new name a plain rename has no sha for), and `stash-push` (pops the newest entry) — now has
+a real Undo button. `branch-create`/`branch-rename` needed a `journalHint` added at **both** of their
+independent call sites (the graph's `use-graph-actions.ts` and the sidebar's `use-repo-actions.ts`) —
+the same gap this theme already named for `branch-delete` below. The journal is genuinely the History
 view's second tab, but Theme G's reflog tab is an honest placeholder, not real data — Theme G was
 found unbuilt in this same pass (see the phase-level Correction note above), so there is no reflog
 reader for the journal to sit beside yet.

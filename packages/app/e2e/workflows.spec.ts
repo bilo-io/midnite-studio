@@ -260,3 +260,33 @@ test('the "Run Workflow" palette command runs the currently open workflow', asyn
   await page.getByRole('button', { name: 'Run history' }).click();
   await expect(page.getByText('Completed')).toBeVisible();
 });
+
+/**
+ * The demo API pill (Theme D's carried-over item). `demo-api-pill.test.tsx`
+ * covers the component in isolation with a mocked bridge — what only the
+ * assembled app can show is that starting it for real then wires an actual
+ * `http` node's URL field, through the canvas and the inspector both.
+ */
+test('the demo API pill starts the server and inserts its URL into the selected http node', async ({
+  page,
+}) => {
+  await open(page);
+  await createWorkflow(page);
+
+  await expect(page.getByText('Demo API · stopped')).toBeVisible();
+  await expect(page.getByTitle('Insert base URL into the selected node')).toHaveCount(0);
+
+  await page.getByRole('button', { name: 'start' }).click();
+  await expect(page.getByText('Demo API · running on :54321')).toBeVisible();
+
+  await addNode(page, 'HTTP');
+  await page.locator('[data-node-id]').first().click();
+  await expect(page.getByLabel('URL')).toHaveValue('');
+
+  await page.getByTitle('Insert base URL into the selected node').click();
+  await expect(page.getByLabel('URL')).toHaveValue('http://127.0.0.1:54321');
+
+  await page.getByRole('button', { name: 'stop' }).click();
+  await expect(page.getByText('Demo API · stopped')).toBeVisible();
+  await expect(page.getByTitle('Insert base URL into the selected node')).toHaveCount(0);
+});
