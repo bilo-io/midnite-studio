@@ -1,6 +1,7 @@
 export * from './blame';
 export * from './browser';
 export * from './commit';
+export * from './conflict';
 export * from './diagnostics';
 export * from './diff';
 export * from './forge';

@@ -37,16 +37,16 @@ Effort tags: **S** ≈ an hour or two · **M** ≈ half a day · **L** ≈ a day
 
 ## Deliverables
 
-### A — The conflict data model + parser (M)
+### A — The conflict data model + parser (M) — ✅ DONE (PR #63, 2026-09-03)
 
 Nothing past this theme can render or act on anything; it turns opaque marker text into structure.
 
-- [ ] `ConflictRegionSchema` / `ConflictedHunkSchema` in a new
+- [x] `ConflictRegionSchema` / `ConflictedHunkSchema` in a new
       [`shared/src/domain/conflict.ts`](../../../packages/shared/src/domain/conflict.ts) — zod only,
       no other workspace import, per the package boundary rule. A hunk is a discriminated sequence
       of segments: `context` (identical on both sides), and a `conflict` segment carrying `ours`,
       `theirs`, and an optional `base` (present only under `diff3` conflict style).
-- [ ] A new [`git-engine/src/parsers/conflict-parser.ts`](../../../packages/git-engine/src/parsers/conflict-parser.ts)
+- [x] A new [`git-engine/src/parsers/conflict-parser.ts`](../../../packages/git-engine/src/parsers/conflict-parser.ts)
       that takes the raw marker-delimited text `readFileDiff` already returns for a combined diff
       (confirmed today by
       [`diff-conflicts.integration.test.ts`](../../../packages/git-engine/src/commands/diff-conflicts.integration.test.ts):
@@ -54,13 +54,15 @@ Nothing past this theme can render or act on anything; it turns opaque marker te
       and splits it into `ConflictRegion`s. Detect `|||||||` to support **both** conflict styles —
       the default 2-way marker set and `merge.conflictStyle = diff3`'s 3-way one — since that's a
       user's global git config, not something the app controls or should assume.
-- [ ] Unit tests: a `diff3`-style fixture and a default-style fixture, each round-tripping through
+- [x] Unit tests: a `diff3`-style fixture and a default-style fixture, each round-tripping through
       the parser into the same logical regions modulo the presence of `base`. A file with **no**
       conflict markers (e.g. binary, or an already-resolved file the caller queried too late) parses
-      to zero regions rather than throwing — the caller decides what an empty result means.
-- [ ] `FileDiffSchema.combined` ([`diff.ts:120`](../../../packages/shared/src/domain/diff.ts)) stays
+      to zero regions rather than throwing — the caller decides what an empty result means. Also
+      round-tripped against **real git output** (`conflict-parser.integration.test.ts`) for both
+      conflict styles — the fixture tests prove the grammar, this proves git actually emits it.
+- [x] `FileDiffSchema.combined` ([`diff.ts:120`](../../../packages/shared/src/domain/diff.ts)) stays
       exactly as it is — it is the flag that tells the caller *whether* to route through this new
-      parser at all, not something this theme changes.
+      parser at all, not something this theme changes. Untouched.
 
 ### B — Whole-file resolution actions (M)
 
