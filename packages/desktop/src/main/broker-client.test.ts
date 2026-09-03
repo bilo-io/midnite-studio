@@ -224,9 +224,12 @@ describe('broker client', () => {
     await expect(emptyBroker.closed).resolves.toBeUndefined();
     expect(legacyBroker.clientCount()).toBe(1);
 
-    // Its session is listed alongside the primary's (none yet).
+    // Its session is listed alongside the primary's (none yet), tagged so
+    // main can mark it `asleep` (`pty-service.ts`'s `livePtyFor`) instead of
+    // offering a live pane over a process the current build no longer owns.
     const sessions = await client.listSessions();
     expect(sessions.map((s) => s.sessionId)).toEqual(['legacy-sess']);
+    expect(sessions[0]!.legacy).toBe(true);
     const legacyPtyId = sessions[0]!.ptyId;
 
     // Input is routed to the broker that owns the pty, not the primary.
@@ -250,7 +253,12 @@ describe('broker client', () => {
     expect(created.ok).toBe(true);
     expect(primaryBroker.sessionCount()).toBe(1);
     expect(legacyBroker.sessionCount()).toBe(1);
-    expect((await client.listSessions()).map((s) => s.sessionId).sort()).toEqual(['legacy-sess', 'new-sess']);
+    const both = await client.listSessions();
+    expect(both.map((s) => s.sessionId).sort()).toEqual(['legacy-sess', 'new-sess']);
+    // The primary's own fresh session is never `legacy`, even while a legacy
+    // peer's session is still reachable alongside it.
+    expect(both.find((s) => s.sessionId === 'new-sess')?.legacy).toBe(false);
+    expect(both.find((s) => s.sessionId === 'legacy-sess')?.legacy).toBe(true);
 
     // Killing the legacy pty is routed to its owner; once it is empty the
     // legacy broker is shut down rather than kept alive by our connection.
