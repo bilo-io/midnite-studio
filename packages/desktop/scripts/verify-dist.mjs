@@ -59,4 +59,26 @@ if (!plistContent.includes('midnite-studio')) {
   process.exit(1);
 }
 
+// Phase 49 Theme E: the one `templateRoot()` failure mode dev mode can't
+// catch — `electron-builder.yml`'s `extraResources` entry for `templates/`
+// silently producing nothing (a typo'd `from`, a glob that matches zero
+// files) resolves fine against the repo's own working tree in dev and only
+// fails once packaged. A specific file, not just the directory, so a
+// truncated copy still fails this check.
+console.log('Verifying the onboarding kit template shipped into Resources...');
+const templateIndexPath = join(
+  appPath,
+  'Contents',
+  'Resources',
+  'templates',
+  'midnite',
+  '.midnite',
+  'tasks',
+  '_INDEX.md',
+);
+if (!existsSync(templateIndexPath)) {
+  console.error(`Missing onboarding kit template at ${templateIndexPath}`);
+  process.exit(1);
+}
+
 console.log('✓ All dist verification checks passed successfully!');
