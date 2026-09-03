@@ -206,3 +206,35 @@ test('deselecting every node closes the inspector', async ({ page }) => {
   await canvas(page).press('Escape');
   await expect(page.getByText('Select a node to configure it.')).toBeVisible();
 });
+
+/**
+ * The run view (Theme G). Only the assembled app can show that a real Run
+ * actually lands in the history popover and that picking it really swaps the
+ * canvas into read-only mode with the right-hand pane showing the run's own
+ * result rather than the editable form.
+ */
+test('running a workflow, viewing it in history, and returning to editing', async ({ page }) => {
+  await open(page);
+  await createWorkflow(page);
+  await addNode(page, 'HTTP');
+  await page.locator('[data-node-id]').first().click();
+  await page.getByLabel('URL').fill('https://example.com');
+
+  // The mock's `workflow.run()` reads the last **saved** workflow, exactly
+  // as the real IPC does — wait out the auto-save debounce so Run doesn't
+  // fire against the pre-edit (0-node-config) snapshot.
+  await page.waitForTimeout(600);
+  await page.getByRole('button', { name: 'Run', exact: true }).click();
+
+  await page.getByRole('button', { name: 'Run history' }).click();
+  await page.getByText('Completed').click();
+
+  await expect(page.getByText('Viewing run')).toBeVisible();
+  await expect(page.getByLabel('URL')).toHaveCount(0);
+
+  await page.locator('[data-node-id]').first().click();
+  await expect(page.getByText('Succeeded')).toBeVisible();
+
+  await page.getByRole('button', { name: 'Back to editing' }).click();
+  await expect(page.getByText('Viewing run')).toHaveCount(0);
+});
