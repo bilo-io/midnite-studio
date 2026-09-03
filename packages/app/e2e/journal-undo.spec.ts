@@ -130,7 +130,7 @@ test('renaming a branch offers an Undo that renames it back', async ({ page }) =
   const menu = page.getByRole('button', { name: 'Actions for branch feature/shelved' });
   await menu.evaluate((el) => el.scrollIntoView({ block: 'center' }));
   await menu.click();
-  await page.getByRole('menuitem', { name: 'Rename…' }).click();
+  await page.getByRole('menuitem', { name: /Rename feature\/shelved/ }).click();
   await page.getByLabel('New name').fill('feature/renamed');
   await page.getByRole('button', { name: 'Rename', exact: true }).click();
 

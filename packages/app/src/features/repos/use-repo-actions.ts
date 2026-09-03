@@ -115,6 +115,14 @@ export function useRepoActions(
     target,
     'branch-create',
     (api, args, ctx) => api.ops.branchCreate({ ...ctx, ...args, checkout: true }),
+    // The same override the graph's own `branchCreate` carries — see
+    // `features/graph/use-graph-actions.ts`.
+    (args) => ({
+      label: `Created branch ${args.name}`,
+      refBefore: `refs/heads/${args.name}`,
+      headBefore: null,
+      headAfter: null,
+    }),
   );
   const branchDelete = useTargetedGitOp<{ name: string; force: boolean; sha: string }>(
     target,
@@ -142,6 +150,14 @@ export function useRepoActions(
     target,
     'branch-rename',
     (api, args, ctx) => api.ops.branchRename({ ...ctx, ...args }),
+    // The same override the graph's own `branchRename` carries — see
+    // `features/graph/use-graph-actions.ts`.
+    (args) => ({
+      label: `Renamed ${args.from} to ${args.to}`,
+      refBefore: `refs/heads/${args.from}`,
+      headBefore: null,
+      headAfter: args.to,
+    }),
   );
   const worktreeAdd = useTargetedGitOp<{ path: string; branch: string; createBranch: boolean }>(
     target,
