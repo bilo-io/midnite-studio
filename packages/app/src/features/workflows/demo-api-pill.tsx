@@ -22,7 +22,8 @@ export function DemoApiPill({
   const start = useStartDemoApi();
   const stop = useStopDemoApi();
 
-  const data = status.data ?? { running: false };
+  // Never undefined: `useDemoApiStatus` sets `initialData`.
+  const data = status.data;
   const port = data.running ? data.port : null;
   const baseUrl = port !== null ? `http://127.0.0.1:${port}` : null;
   const pending = start.isPending || stop.isPending;

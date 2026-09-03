@@ -66,9 +66,12 @@ const shortBranchName = (fullName: string): string => fullName.replace(/^refs\/h
  * to be at rather than trying to recall which branch that was — every
  * checkout call site across the app captures only a sha (see
  * `services/use-status.ts`'s default anchor), and a detached-but-correct
- * position beats guessing a branch name from nothing. `branch-create`/
- * `branch-delete` and `stash-drop`/`stash-store` are exact mirrors of each
- * other. `branch-rename` reverses the two names its own `journalHint`
+ * position beats guessing a branch name from nothing. `branch-delete`/
+ * `branch-create` and `stash-drop`/`stash-store` are exact mirrors of each
+ * other, except `branch-create`'s own reverse steps off the branch first
+ * when it was checked out on creation (every call site does this) — git
+ * refuses to delete the branch you are on regardless of `force`.
+ * `branch-rename` reverses the two names its own `journalHint`
  * captured (`use-graph-actions.ts`). `stash-push`'s reverse is `stash pop`
  * against the newest entry, matching the same "applied by being the newest"
  * assumption `computeUndoable` already documents for it — nothing here
@@ -110,7 +113,21 @@ async function executeUndo(entry: OpJournalEntry): Promise<GitOpResult> {
     }
     case 'branch-create': {
       if (entry.refBefore == null) return noAnchor;
-      return api.ops.branchDelete({ ...ctx, name: shortBranchName(entry.refBefore), force: true });
+      const name = shortBranchName(entry.refBefore);
+      /*
+       * Every `branch-create` call site in the app passes `checkout: true`,
+       * so the branch being undone is usually the one HEAD is on right now —
+       * and git refuses to delete the branch you are on, `force` included.
+       * `headBefore` carries the sha it was created FROM (the hint below), so
+       * stepping off it there first — detached, the same shape `checkout`'s
+       * own undo already uses — is what actually lets the delete land instead
+       * of failing with a git error the toast cannot explain usefully.
+       */
+      if (entry.headBefore != null) {
+        const stepOff = await api.ops.checkout({ ...ctx, target: entry.headBefore, detach: true });
+        if (!stepOff.ok) return stepOff;
+      }
+      return api.ops.branchDelete({ ...ctx, name, force: true });
     }
     case 'branch-rename': {
       if (entry.refBefore == null || entry.headAfter == null) return noAnchor;

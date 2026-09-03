@@ -166,9 +166,10 @@ describe('useUndoJournalEntry', () => {
     expect(checkout).toHaveBeenCalledWith({ repoId: 'r1', target: 'e'.repeat(40), detach: true });
   });
 
-  it('undoes a branch-create by deleting the branch it named', async () => {
+  it('undoes a branch-create by deleting the branch it named, with no headBefore to step off', async () => {
     const branchDelete = vi.fn().mockResolvedValue({ ok: true });
-    installBridge({ ops: { branchDelete } as unknown as MidniteStudioBridge['ops'] });
+    const checkout = vi.fn();
+    installBridge({ ops: { branchDelete, checkout } as unknown as MidniteStudioBridge['ops'] });
 
     const { result } = renderHook(() => useUndoJournalEntry(), { wrapper });
     const outcome = await result.current(
@@ -176,9 +177,45 @@ describe('useUndoJournalEntry', () => {
     );
 
     expect(outcome).toEqual({ ok: true });
+    expect(checkout).not.toHaveBeenCalled();
     expect(branchDelete).toHaveBeenCalledWith({ repoId: 'r1', name: 'feature/y', force: true });
     const entries = useOpsJournalStore.getState().entriesByRepo.r1 ?? [];
     expect(entries[0]?.op).toBe('branch-delete');
+  });
+
+  /**
+   * Every `branch-create` call site checks the new branch out immediately, so
+   * undoing it usually means deleting the branch HEAD is currently on — which
+   * git refuses no matter how forceful the delete is. The undo has to step
+   * off it first.
+   */
+  it('undoes a checked-out branch-create by stepping off it before deleting', async () => {
+    const checkout = vi.fn().mockResolvedValue({ ok: true });
+    const branchDelete = vi.fn().mockResolvedValue({ ok: true });
+    installBridge({ ops: { checkout, branchDelete } as unknown as MidniteStudioBridge['ops'] });
+
+    const { result } = renderHook(() => useUndoJournalEntry(), { wrapper });
+    const outcome = await result.current(
+      baseEntry({ op: 'branch-create', headBefore: 'f'.repeat(40), refBefore: 'refs/heads/feature/y' }),
+    );
+
+    expect(outcome).toEqual({ ok: true });
+    expect(checkout).toHaveBeenCalledWith({ repoId: 'r1', target: 'f'.repeat(40), detach: true });
+    expect(branchDelete).toHaveBeenCalledWith({ repoId: 'r1', name: 'feature/y', force: true });
+  });
+
+  it('stops at a failed step-off and never attempts the delete', async () => {
+    const checkout = vi.fn().mockResolvedValue({ ok: false, kind: 'error', message: 'dirty tree' });
+    const branchDelete = vi.fn();
+    installBridge({ ops: { checkout, branchDelete } as unknown as MidniteStudioBridge['ops'] });
+
+    const { result } = renderHook(() => useUndoJournalEntry(), { wrapper });
+    const outcome = await result.current(
+      baseEntry({ op: 'branch-create', headBefore: 'f'.repeat(40), refBefore: 'refs/heads/feature/y' }),
+    );
+
+    expect(outcome).toEqual({ ok: false, kind: 'error', message: 'dirty tree' });
+    expect(branchDelete).not.toHaveBeenCalled();
   });
 
   it('undoes a branch-rename by renaming back from the captured new name to the old one', async () => {

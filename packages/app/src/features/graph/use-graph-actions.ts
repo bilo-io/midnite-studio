@@ -52,13 +52,16 @@ export function useGraphActions(onError: (message: string) => void, refs: readon
     (api, args, ctx) => api.ops.branchCreate({ ...ctx, ...args }),
     /*
      * `refBefore` names the ref the op ITSELF created, not `HEAD` — the
-     * mirror of `branchDelete`'s own hint below. Theme H's undo
-     * (`services/use-journal.ts`) reads it to know which branch to delete.
+     * mirror of `branchDelete`'s own hint below. `headBefore` carries the sha
+     * the branch was created FROM, but only when this call actually checked
+     * it out — Theme H's undo (`services/use-journal.ts`) uses it to step off
+     * the branch before deleting it, which is only needed when the delete
+     * would otherwise target the branch HEAD is on.
      */
     (args) => ({
       label: `Created branch ${args.name}`,
       refBefore: `refs/heads/${args.name}`,
-      headBefore: null,
+      headBefore: args.checkout ? args.startPoint : null,
       headAfter: null,
     }),
   );

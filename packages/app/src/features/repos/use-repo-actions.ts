@@ -116,11 +116,13 @@ export function useRepoActions(
     'branch-create',
     (api, args, ctx) => api.ops.branchCreate({ ...ctx, ...args, checkout: true }),
     // The same override the graph's own `branchCreate` carries — see
-    // `features/graph/use-graph-actions.ts`.
+    // `features/graph/use-graph-actions.ts`. `checkout` is always `true` at
+    // this call site (below), so `headBefore` is always the start point —
+    // Theme H's undo steps off it before deleting the branch.
     (args) => ({
       label: `Created branch ${args.name}`,
       refBefore: `refs/heads/${args.name}`,
-      headBefore: null,
+      headBefore: args.startPoint,
       headAfter: null,
     }),
   );
