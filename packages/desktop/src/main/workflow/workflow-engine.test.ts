@@ -549,3 +549,64 @@ describe('upstream outputs', () => {
     expect(seen).toEqual({ a: { first: 1 }, b: { second: 2 } });
   });
 });
+
+describe('the terminal write', () => {
+  it('still closes the run out when the driver throws mid-flight', async () => {
+    const store = makeStore();
+    const recorder: Recorder = { started: [], settled: [] };
+    let throwOnce = false;
+    const brittle: EngineDeps = {
+      ...deps(store, { executors: fakeRegistry({}, recorder) }),
+      getRun: async (runId) => {
+        if (throwOnce) {
+          throwOnce = false;
+          throw new Error('read failed');
+        }
+        return store.getRun(runId);
+      },
+    };
+
+    const started = await startWorkflowRun(
+      workflow([delayNode('a'), delayNode('b')], [['a', 'b']]),
+      brittle,
+    );
+    expect(started.ok).toBe(true);
+    throwOnce = true;
+    await settle();
+
+    /*
+      Whatever broke, the run must not be left `running` with nobody left to
+      advance it — the next launch would otherwise "finalise" it as interrupted,
+      which is a lie about what happened. The write itself is not what this
+      guards: the real stores swallow their own errors, so `saveRun` does not
+      throw. What can throw is the driver's own read-modify-write.
+    */
+    const run = store.get(started.ok ? started.value.id : '')!;
+    expect(run.status).toBe('failed');
+    expect(run.error).toBe('read failed');
+    expect(run.endedAt).toBeDefined();
+    expect(run.nodes.every((node) => node.status !== 'pending' && node.status !== 'running')).toBe(
+      true,
+    );
+    expect(runLocksSizeForTests()).toBe(0);
+  });
+
+  it('records an executor-reported timeout as `timeout`, with its own message', async () => {
+    const store = makeStore();
+    const recorder: Recorder = { started: [], settled: [] };
+    const started = await startWorkflowRun(
+      workflow([delayNode('a')], []),
+      deps(store, {
+        executors: fakeRegistry(
+          { a: async () => ({ ok: false, error: 'Timed out after 5000 ms.', timedOut: true }) },
+          recorder,
+        ),
+      }),
+    );
+    await settle();
+
+    const node = store.get(started.ok ? started.value.id : '')!.nodes[0]!;
+    expect(node.status).toBe('timeout');
+    expect(node.error).toBe('Timed out after 5000 ms.');
+  });
+});

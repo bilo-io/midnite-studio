@@ -152,7 +152,7 @@ export const httpExecutor: NodeExecutor = async (node, context): Promise<NodeOut
   } catch (error) {
     if (context.signal.cancelled()) return { ok: false, error: 'Cancelled.' };
     if (error instanceof Error && error.name === 'AbortError') {
-      return { ok: false, error: `Timed out after ${context.timeoutMs} ms.` };
+      return { ok: false, error: `Timed out after ${context.timeoutMs} ms.`, timedOut: true };
     }
     const message = error instanceof Error ? error.message : String(error);
     return { ok: false, error: `${config.method} ${target.href} failed: ${message}` };

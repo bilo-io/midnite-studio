@@ -18,7 +18,15 @@ import type { WorkflowNode } from '@midnite/studio-shared';
  */
 export type NodeOutcome =
   | { ok: true; output: unknown; truncated?: boolean; skipDownstream?: boolean }
-  | { ok: false; error: string };
+  /**
+   * `timedOut` is what makes the node's recorded status `timeout` rather than
+   * `failed`. It matters because the executor is the only party that can abort
+   * the work — the engine's own deadline can stop *waiting*, but it cannot
+   * close a socket — so an executor that honours `context.timeoutMs` has to be
+   * able to say which kind of failure it produced. Without this the six-value
+   * status enum would collapse to five in practice.
+   */
+  | { ok: false; error: string; timedOut?: boolean };
 
 /**
  * A cancel signal, not an `AbortSignal`.

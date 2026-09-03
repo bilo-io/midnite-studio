@@ -289,98 +289,139 @@ async function drive(
   const byId = new Map(nodes.map((node) => [node.id, node]));
   const running = new Map<string, Promise<void>>();
 
-  for (;;) {
-    if (state.cancelled) break;
+  /*
+    The loop is wrapped so the terminal write in the `finally` cannot be
+    skipped. A store write that throws mid-run would otherwise leave the run
+    `running` for ever with nobody left to advance it — and the next launch
+    would "finalise" it as interrupted, which is a lie about what happened.
+  */
+  let driveError: string | null = null;
+  try {
+    for (;;) {
+      if (state.cancelled) break;
 
-    const ready = await withRunLock(runId, async () => {
-      const run = await deps.getRun(runId);
-      if (!run) return [];
-      const graph = buildGraph(
-        run.nodes.map((n) => n.nodeId),
-        run.edges,
-      );
-      const status = new Map(run.nodes.map((n) => [n.nodeId, n.status]));
-      const gated = new Map(run.nodes.map((n) => [n.nodeId, n.gatedDownstream === true]));
+      const ready = await withRunLock(runId, async () => {
+        const run = await deps.getRun(runId);
+        if (!run) return [];
+        const graph = buildGraph(
+          run.nodes.map((n) => n.nodeId),
+          run.edges,
+        );
+        const status = new Map(run.nodes.map((n) => [n.nodeId, n.status]));
+        const gated = new Map(run.nodes.map((n) => [n.nodeId, n.gatedDownstream === true]));
 
-      /*
-        Two passes, in this order. First cascade: any pending node whose parent
-        failed, timed out, was skipped, or gated its branch off becomes
-        `skipped` — that has to settle before eligibility is computed, or a node
-        under a failed parent would be counted as "waiting" forever and the
-        driver would spin.
-      */
-      let mutated = false;
-      for (const node of run.nodes) {
-        if (node.status !== 'pending') continue;
-        const parents = graph.parents.get(node.nodeId) ?? [];
-        const blocked = parents.find((parent) => {
-          const parentStatus = status.get(parent);
-          if (parentStatus === 'failed' || parentStatus === 'timeout' || parentStatus === 'skipped') {
-            return true;
+        /*
+          Two passes, in this order. First cascade: any pending node whose
+          parent failed, timed out, was skipped, or gated its branch off
+          becomes `skipped`. That has to settle before eligibility is computed,
+          or a node under a failed parent would count as "still waiting" for
+          ever and this loop would find nothing to start and nothing to wait on.
+        */
+        let mutated = false;
+        for (const node of run.nodes) {
+          if (node.status !== 'pending') continue;
+          const parents = graph.parents.get(node.nodeId) ?? [];
+          const blocked = parents.find((parent) => {
+            const parentStatus = status.get(parent);
+            if (parentStatus === 'failed' || parentStatus === 'timeout' || parentStatus === 'skipped') {
+              return true;
+            }
+            return gated.get(parent) === true;
+          });
+          if (blocked !== undefined) {
+            node.status = 'skipped';
+            node.error =
+              gated.get(blocked) === true
+                ? 'Skipped — a condition upstream did not hold.'
+                : 'Skipped — an earlier step did not succeed.';
+            status.set(node.nodeId, 'skipped');
+            mutated = true;
           }
-          return gated.get(parent) === true;
-        });
-        if (blocked !== undefined) {
-          node.status = 'skipped';
-          node.error =
-            gated.get(blocked) === true
-              ? 'Skipped — a condition upstream did not hold.'
-              : 'Skipped — an earlier step did not succeed.';
-          status.set(node.nodeId, 'skipped');
-          mutated = true;
         }
-      }
-      if (mutated) await deps.saveRun(run);
 
-      const inFlightCount = run.nodes.filter((n) => n.status === 'running').length;
-      const room = Math.max(0, WORKFLOW_NODE_CONCURRENCY - inFlightCount);
-      const eligible = run.nodes
-        .filter(
-          (node) =>
-            node.status === 'pending' &&
-            (graph.parents.get(node.nodeId) ?? []).every((parent) =>
-              TERMINAL.has(status.get(parent) ?? 'pending'),
-            ),
-        )
-        .slice(0, room);
+        const inFlightCount = run.nodes.filter((n) => n.status === 'running').length;
+        const room = Math.max(0, WORKFLOW_NODE_CONCURRENCY - inFlightCount);
+        const eligible = run.nodes
+          .filter(
+            (node) =>
+              node.status === 'pending' &&
+              (graph.parents.get(node.nodeId) ?? []).every((parent) =>
+                TERMINAL.has(status.get(parent) ?? 'pending'),
+              ),
+          )
+          .slice(0, room);
 
-      // Claimed inside the lock, so two turns of this loop cannot both start
-      // the same node.
-      const claimed: string[] = [];
-      for (const node of eligible) {
-        node.status = 'running';
-        node.startedAt = clock.now();
-        claimed.push(node.nodeId);
-      }
-      if (claimed.length > 0 || mutated) {
-        await deps.saveRun(run);
-        deps.emitChanged();
-      }
-      return claimed;
-    });
+        // Claimed inside the lock, so two turns of this loop cannot both start
+        // the same node.
+        const claimed: string[] = [];
+        for (const node of eligible) {
+          node.status = 'running';
+          node.startedAt = clock.now();
+          claimed.push(node.nodeId);
+        }
+        if (claimed.length > 0 || mutated) {
+          await deps.saveRun(run);
+          deps.emitChanged();
+        }
+        return claimed;
+      });
 
-    for (const nodeId of ready) {
-      const node = byId.get(nodeId);
-      if (!node) continue;
-      // Started OUTSIDE the lock — see the module doc.
-      const promise = executeNode(runId, node, deps, state, executors)
-        .finally(() => running.delete(nodeId));
-      running.set(nodeId, promise);
+      for (const nodeId of ready) {
+        const node = byId.get(nodeId);
+        /*
+          A claimed id with no node behind it cannot happen — both lists are
+          built from the same `runnable` array — but the consequence if it ever
+          did is an unbounded spin: the node stays `running`, nothing
+          downstream becomes eligible, and there is no settle to wait on.
+          Settling it as a failure keeps the run terminating.
+        */
+        if (!node) {
+          await settleNode(
+            runId,
+            nodeId,
+            { status: 'failed', result: { ok: false, error: 'This step is no longer part of the workflow.' } },
+            deps,
+          );
+          continue;
+        }
+        // Started OUTSIDE the lock — see the module doc.
+        const promise = executeNode(runId, node, deps, state, executors).finally(() =>
+          running.delete(nodeId),
+        );
+        running.set(nodeId, promise);
+      }
+
+      if (running.size === 0) {
+        if (ready.length === 0) break; // Nothing running, nothing startable: done.
+        continue;
+      }
+      // One settle is all it takes to make more nodes eligible; the rest of the
+      // fan-out keeps running while this turn re-evaluates.
+      await Promise.race(running.values());
     }
-
-    if (running.size === 0) {
-      if (ready.length === 0) break; // Nothing running, nothing startable: done.
-      continue;
-    }
-    // One settle is all it takes to make more nodes eligible; the rest of the
-    // fan-out keeps running while this turn re-evaluates.
-    await Promise.race(running.values());
+  } catch (error) {
+    driveError = error instanceof Error ? error.message : String(error);
+  } finally {
+    // A cancel leaves in-flight nodes to notice their own signal; wait for them
+    // so the terminal write below is the last one.
+    await Promise.allSettled(running.values());
+    await finalizeRun(runId, deps, state, driveError);
   }
+}
 
-  // A cancel leaves in-flight nodes to notice their own signal; wait for them
-  // so the terminal write below is the last one.
-  await Promise.allSettled(running.values());
-
+/**
+ * The one write that closes a run out.
+ *
+ * Reached from `drive`'s `finally`, so no path — an exhausted graph, a cancel,
+ * a store write that threw — can leave a run stuck `running`.
+ */
+async function finalizeRun(
+  runId: string,
+  deps: EngineDeps,
+  state: InFlight,
+  driveError: string | null,
+): Promise<void> {
+  const clock = deps.clock ?? realClock;
   await withRunLock(runId, async () => {
     const run = await deps.getRun(runId);
     if (!run) return;
@@ -392,6 +433,17 @@ async function drive(
         node.endedAt = clock.now();
       }
       run.status = 'cancelled';
+    } else if (driveError !== null) {
+      // The engine itself broke, so no node's own state is trustworthy: every
+      // one still open is failed with the cause, and the run says why.
+      for (const node of run.nodes) {
+        if (TERMINAL.has(node.status)) continue;
+        node.status = 'failed';
+        node.error = node.error ?? driveError;
+        node.endedAt = clock.now();
+      }
+      run.status = 'failed';
+      run.error = driveError;
     } else {
       run.status = statusFor(run);
     }
@@ -466,7 +518,11 @@ async function runNode(
         if (settled) return;
         settled = true;
         clock.clearTimeout(timer as never);
-        resolve({ status: result.ok ? 'succeeded' : 'failed', result });
+        // An executor that honoured the deadline itself says so, and the node
+        // records `timeout` — it is the only party that could actually abort
+        // the work, so it is the only one that knows.
+        const failed = result.ok === false && result.timedOut === true ? 'timeout' : 'failed';
+        resolve({ status: result.ok ? 'succeeded' : failed, result });
       },
       (error: unknown) => {
         // An executor that rejects is a BUG in the executor, not a node
@@ -502,7 +558,9 @@ async function settleNode(
     node.endedAt = clock.now();
     const result = outcome.result;
     if (outcome.status === 'timeout') {
-      node.error = 'Timed out.';
+      // The executor's own message names the budget it blew; the engine's
+      // backstop deadline has no message of its own to offer.
+      node.error = result?.ok === false ? result.error : 'Timed out.';
     } else if (result?.ok === true) {
       node.output = result.output;
       node.truncated = result.truncated === true;

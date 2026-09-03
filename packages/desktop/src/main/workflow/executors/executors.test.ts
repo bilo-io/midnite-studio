@@ -160,15 +160,21 @@ describe('the http executor', () => {
     expect(!outcome.ok && outcome.error).toContain('is not upstream of this one');
   });
 
-  it('honours the deadline', async () => {
+  it('honours the deadline, and flags it as a timeout rather than a plain failure', async () => {
     // The demo API answers instantly, so the deadline has to be smaller than
     // any real round trip to be observable at all.
     const outcome = await httpExecutor(
       httpNode({ method: 'GET', url: `${api.baseUrl}/items` }),
       context({ timeoutMs: 1 }),
     );
-    if (!outcome.ok) expect(outcome.error).toContain('Timed out after 1 ms');
-    else expect(outcome.output).toBeDefined(); // it can legitimately win the race
+    if (!outcome.ok) {
+      expect(outcome.error).toContain('Timed out after 1 ms');
+      // `timedOut` is what makes the engine record `timeout` instead of
+      // `failed` — without it the six-value status enum collapses to five.
+      expect(outcome.timedOut).toBe(true);
+    } else {
+      expect(outcome.output).toBeDefined(); // it can legitimately win the race
+    }
   });
 
   it('caps a large response and says it was truncated', async () => {
