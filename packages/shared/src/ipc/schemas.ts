@@ -86,6 +86,7 @@ import {
   CouncilSchema,
 } from '../council';
 import { LoopModelSchema, LoopRunRecordSchema } from '../loops';
+import { WorkflowRunSchema, WorkflowSchema } from '../workflow';
 
 /**
  * Payload/response schemas for every channel. Each `ipcMain.handle` parses its
@@ -1698,3 +1699,58 @@ export const DeepLinkEventSchema = z.object({
   known: z.boolean(),
 });
 
+
+// --- workflows (Phase 43) --------------------------------------------------
+
+/**
+ * Global, so no `repoId` on any of these — the deliberate difference from every
+ * git-touching channel in this file, and the same shape councils use.
+ */
+export const WorkflowListResponse = z.object({ workflows: z.array(WorkflowSchema) });
+
+/**
+ * One upsert channel rather than create/update: the canvas edits a whole
+ * workflow object and hands it back, and a create is just a save of an id the
+ * store has not seen. The renderer mints the id (it needs one to render the
+ * node the user just dropped, before any round-trip); `createdAt` is honoured
+ * on first sight and preserved after.
+ */
+export const WorkflowSaveRequest = z.object({ workflow: WorkflowSchema });
+export const WorkflowSaveResponse = GitOpResultOf(WorkflowSchema);
+
+export const WorkflowDeleteRequest = z.object({ id: z.string().min(1) });
+export const WorkflowDeleteResponse = GitOpResultSchema;
+
+/**
+ * Resolves with the freshly-minted run — main owns the id, per
+ * `tests-handlers.ts` — not with the finished result. A run can take minutes;
+ * progress arrives on `workflowRunChanged`.
+ */
+export const WorkflowRunRequest = z.object({ workflowId: z.string().min(1) });
+export const WorkflowRunResponse = GitOpResultOf(WorkflowRunSchema);
+
+export const WorkflowCancelRequest = z.object({ runId: z.string().min(1) });
+export const WorkflowCancelResponse = GitOpResultSchema;
+
+export const WorkflowRunsListRequest = z.object({ workflowId: z.string().min(1) });
+export const WorkflowRunsListResponse = z.object({ runs: z.array(WorkflowRunSchema) });
+
+export const WorkflowRunsGetRequest = z.object({ runId: z.string().min(1) });
+export const WorkflowRunsGetResponse = z.object({ run: WorkflowRunSchema.nullable() });
+
+// --- workflow demo API (Phase 43 Theme D) -----------------------------------
+
+/**
+ * The port is always reported, never chosen: the server binds `listen(0)` so a
+ * fixed port cannot collide with whatever else the developer is running, and
+ * the renderer reads it back from here rather than hard-coding one.
+ */
+export const DemoApiStatusSchema = z.discriminatedUnion('running', [
+  z.object({ running: z.literal(false) }),
+  z.object({ running: z.literal(true), port: z.number().int().positive() }),
+]);
+export type DemoApiStatus = z.infer<typeof DemoApiStatusSchema>;
+
+export const DemoApiStartResponse = GitOpResultOf(DemoApiStatusSchema);
+export const DemoApiStopResponse = GitOpResultSchema;
+export const DemoApiStatusResponse = DemoApiStatusSchema;

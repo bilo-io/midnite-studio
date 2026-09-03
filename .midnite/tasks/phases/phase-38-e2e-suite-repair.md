@@ -268,6 +268,32 @@ The five stragglers, unrelated to each other; batched so they do not each need a
       stays ratcheted as a whole until both are actually investigated.
 - [x] `browser-pane.spec.ts:129` — closing the pane restores clicks to the content beneath it
       immediately, not after the exit transition. Green locally **and confirmed on a real CI run**.
+  - **Reopened 2026-09-03, and fixed in [PR #91].** That confirmation was a single green run, and
+    one green run is not evidence a spec is stable: it went red on three consecutive CI runs of an
+    unrelated branch — nine attempts, since `retries: 2`.
+  - **It was never branch-specific.** Running the full `--shard=1/4` under
+    `playwright.ci.config.ts` against a *detached worktree at `origin/main`* reproduces it: `:129`
+    flaky there, and `:147` flaky in the same run. `main`'s green was `retries: 2` rescuing it —
+    exactly the tolerance Theme H's last item warns "is how the next 45 hide". Anyone re-checking
+    a suspected flake here should reach for that comparison first; a single-file local run passes
+    13/13 and proves nothing, because the failure only appears under the full shard's load.
+  - **Root cause.** The 150 ms budget sits deliberately under `REVEAL_MS` (200), so that a click
+    landing proves the pane stopped swallowing clicks *before* its exit finished — the right thing
+    to test. But Playwright's actionability check also waits for the target to be **stable across
+    two animation frames**, so on a loaded runner the whole budget goes on frames rather than on
+    the behaviour under test. The assertion raced the transition it meant to outrun.
+  - **The fix records the class from inside the page** rather than polling for it. The guarded
+    regression is stateful, not temporal — `pointer-events-none` must land in the same commit that
+    starts the fade — but polling from the test races the *other* way: `useReveal` unmounts the
+    pane `REVEAL_MS + SETTLE_SLACK_MS` later, so a stalled runner reaches its first poll to find no
+    element at all. A `MutationObserver` captures the className at the first frame carrying
+    `opacity-0`, and the assertion reads that recording at whatever pace it likes. **Two sessions
+    converged on this spec at once** (PR #91 and PR #92); the observer version landed, and a
+    simpler `toBeAttached()` + `toHaveCSS(...)` attempt was dropped in its favour precisely because
+    it would still have raced that unmount.
+  - Measured after: the full shard goes green twice in a row with **0 flaky**, against 1 flaky on a
+    branch and 2 on `main` beforehand — and the shard is ~40% faster, since the old test spent its
+    150 ms budget on every one of its three attempts.
 - [x] Drop `footer-monitor.spec.ts` and `browser-pane.spec.ts` from `KNOWN_RED` — **not**
       `graph-themes.spec.ts`, which a real CI run proved still belongs there.
 

@@ -455,6 +455,29 @@ export const CHANNELS = {
   loopRunsStart: 'mstudio:loop-runs:start',
   loopRunsStop: 'mstudio:loop-runs:stop',
 
+  // --- workflows (Phase 43) --------------------------------------------------
+  // A workflow is global, not per-repo, and nothing here touches git — see
+  // `workflow.ts`'s own doc comment, including why these are `workflow*` and
+  // never `forgeWorkflow*` (that name is taken, by GitHub Actions).
+  // `run` mints the runId in MAIN and returns it immediately; progress arrives
+  // as a bare `workflowRunChanged` ping the renderer answers with a re-fetch.
+  workflowList: 'mstudio:workflow:list',
+  workflowSave: 'mstudio:workflow:save',
+  workflowDelete: 'mstudio:workflow:delete',
+  workflowRun: 'mstudio:workflow:run',
+  workflowCancel: 'mstudio:workflow:cancel',
+  workflowRunsList: 'mstudio:workflow-runs:list',
+  workflowRunsGet: 'mstudio:workflow-runs:get',
+
+  // --- workflow demo API (Phase 43 Theme D) ----------------------------------
+  // A real `node:http` CRUD server bound to 127.0.0.1 on an EPHEMERAL port, so
+  // an HTTP workflow is testable on a machine with no network. Off by default,
+  // started explicitly — a server that starts because you opened a view is a
+  // surprise, and on macOS can raise a firewall prompt nobody asked for.
+  demoApiStart: 'mstudio:demo-api:start',
+  demoApiStop: 'mstudio:demo-api:stop',
+  demoApiStatus: 'mstudio:demo-api:status',
+
   // --- onboarding kit scaffold (Phase 49) -----------------------------------
   // `plan` reads the template tree and the target repo, hashes both sides and
   // classifies every entry — it writes nothing. `apply` writes only the exact
@@ -544,6 +567,14 @@ export const EVENT_CHANNELS = {
    * which is tiny (capped) and saves inventing a second shape for one row.
    */
   loopRunsChanged: 'mstudio:loop-runs:changed',
+  /**
+   * A workflow run advanced — started, a node settled, cancelled, finished.
+   * Carries nothing, exactly as `loopRunsChanged` does: the consumer re-fetches
+   * the one run it is looking at. A per-node payload would need an ordering
+   * guarantee and a reconciliation story in the renderer; a ping plus a
+   * re-fetch needs neither.
+   */
+  workflowRunChanged: 'mstudio:workflow:run-changed',
   updateState: 'mstudio:update:state',
   deepLink: 'mstudio:protocol:deep-link',
 } as const;

@@ -612,6 +612,50 @@ export type MidniteStudioBridge = {
   };
 
   /**
+   * Workflows (Phase 43) — global, not per-repo, and unrelated to
+   * `forge.workflows` above, which means *GitHub Actions*. See `workflow.ts`.
+   *
+   * `run` resolves with the freshly-minted run rather than the finished one: a
+   * run can take minutes, and its progress arrives on `onRunChanged`. That
+   * event carries nothing, exactly as `loopRuns.onChanged` does — the consumer
+   * re-fetches the single run it is looking at, which needs no ordering
+   * guarantee and no reconciliation story in the renderer.
+   */
+  workflow: {
+    list: () => Promise<z.infer<typeof S.WorkflowListResponse>>;
+    /** Upsert. A create is a save of an id the store has not seen before. */
+    save: (req: In<typeof S.WorkflowSaveRequest>) => Promise<z.infer<typeof S.WorkflowSaveResponse>>;
+    /** Refused while one of this workflow's runs is still in flight. */
+    delete: (req: In<typeof S.WorkflowDeleteRequest>) => Promise<GitOpResult>;
+    run: (req: In<typeof S.WorkflowRunRequest>) => Promise<z.infer<typeof S.WorkflowRunResponse>>;
+    cancel: (req: In<typeof S.WorkflowCancelRequest>) => Promise<GitOpResult>;
+    runs: {
+      list: (
+        req: In<typeof S.WorkflowRunsListRequest>,
+      ) => Promise<z.infer<typeof S.WorkflowRunsListResponse>>;
+      get: (
+        req: In<typeof S.WorkflowRunsGetRequest>,
+      ) => Promise<z.infer<typeof S.WorkflowRunsGetResponse>>;
+    };
+    onRunChanged: (handler: () => void) => Unsubscribe;
+  };
+
+  /**
+   * The workflow demo API (Phase 43 Theme D) — a real `node:http` CRUD server
+   * in main, bound to `127.0.0.1` on an ephemeral port, so an HTTP workflow is
+   * immediately, honestly testable on a machine with no network.
+   *
+   * Off by default and started explicitly: a server that starts itself because
+   * you opened a view is a surprise, and on macOS it can raise a firewall
+   * prompt the user did not ask for. `status` is the only source of the port.
+   */
+  demoApi: {
+    start: () => Promise<z.infer<typeof S.DemoApiStartResponse>>;
+    stop: () => Promise<GitOpResult>;
+    status: () => Promise<z.infer<typeof S.DemoApiStatusResponse>>;
+  };
+
+  /**
    * The onboarding kit's Setup/Update leaves (Phase 49). `plan` reads the
    * template tree and the target repo and writes nothing — safe to call
    * unprompted, the same posture as `diag.detect`. `apply` writes only the

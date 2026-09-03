@@ -14,6 +14,7 @@ import { destroyAllBrowserTabs } from './browser-service';
 import { registerBrowserHandlers } from './ipc/browser-handlers';
 import { registerClaudeHandlers } from './ipc/claude-handlers';
 import { registerCouncilHandlers } from './ipc/council-handlers';
+import { registerDemoApiHandlers } from './ipc/demo-api-handlers';
 import { configureDiagnostics, registerDiagHandlers } from './ipc/diag-handlers';
 import { registerScaffoldHandlers } from './ipc/scaffold-handlers';
 import { registerForgeHandlers } from './ipc/forge-handlers';
@@ -44,6 +45,7 @@ import {
   setAgentWatcher,
 } from './pty-service';
 import { registerLoopRunsHandlers } from './ipc/loop-runs-handlers';
+import { registerWorkflowHandlers } from './ipc/workflow-handlers';
 import { configureLoopRuns, noteSessionExit } from './loop-runs';
 import { createLoopRunsStore } from './loop-runs-store';
 import { createTerminalStore } from './terminal-store';
@@ -61,6 +63,10 @@ import { createRepoStore } from './repo-store';
 import { configureCouncils } from './council-service';
 import { createCouncilsRunsStore } from './councils-runs-store';
 import { createCouncilsStore } from './councils-store';
+import { configureWorkflows } from './workflow-service';
+import { createWorkflowsStore } from './workflows-store';
+import { createWorkflowRunsStore } from './workflow-runs-store';
+import { stopDemoApi } from './demo-api/server';
 import { migrateAnyLegacyRepoStore } from './userdata-migration';
 import { installMgitFileProtocol, registerMgitFileScheme } from './fs-protocol';
 import { registerPerfHandlers } from './ipc/perf-handlers';
@@ -276,6 +282,8 @@ if (!app.requestSingleInstanceLock()) {
     registerCliHandlers();
     registerCouncilHandlers();
     registerLoopRunsHandlers();
+    registerWorkflowHandlers();
+    registerDemoApiHandlers();
     registerUpdater(getWindow);
     ipcMain.handle(CHANNELS.systemHealth, () => readSystemHealth());
     registerPerfHandlers();
@@ -302,6 +310,18 @@ if (!app.requestSingleInstanceLock()) {
     configureRegistry(createRepoStore(userData));
     configureTerminals(createTerminalStore(userData), userData);
     configureCouncils(createCouncilsStore(userData), createCouncilsRunsStore(userData));
+    /*
+      Wired here beside councils rather than in a boot chain: it is synchronous
+      module-state assignment, and a `workflow:list` can arrive on the
+      renderer's first paint. The `getWindow` thunk is what a run's
+      `workflowRunChanged` ping is sent through — see `loop-runs.ts` for the
+      same pattern and the same destroyed-window guard.
+    */
+    configureWorkflows(
+      createWorkflowsStore(userData),
+      createWorkflowRunsStore(userData),
+      getWindow,
+    );
     configureDiagnostics(createTrustStore(userData));
     configureTests(createTestTrustStore(userData));
 
@@ -457,6 +477,13 @@ if (!app.requestSingleInstanceLock()) {
   app.on('before-quit', (event) => {
     stopAllWatchers();
     destroyAllBrowserTabs();
+    /*
+      Fire-and-forget: `closeAllConnections()` inside makes the close immediate
+      rather than waiting out a keep-alive socket, and the demo API holds no
+      state worth flushing — it is in-memory by design, and stopping it
+      discards everything on purpose.
+    */
+    void stopDemoApi();
 
     if (flushed) {
       detachAll();
