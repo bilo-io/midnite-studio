@@ -363,6 +363,9 @@ export type MidniteStudioBridge = {
     stage: (req: In<typeof S.StageRequest>) => Promise<GitOpResult>;
     unstage: (req: In<typeof S.UnstageRequest>) => Promise<GitOpResult>;
     discard: (req: In<typeof S.DiscardRequest>) => Promise<GitOpResult>;
+    conflictResolveWholeFile: (
+      req: In<typeof S.ConflictResolveWholeFileRequest>,
+    ) => Promise<GitOpResult>;
     commit: (req: In<typeof S.CommitRequest>) => Promise<GitOpResult>;
     fetch: (req: In<typeof S.FetchRequest>) => Promise<GitOpResult>;
     pull: (req: In<typeof S.PullRequest>) => Promise<GitOpResult>;

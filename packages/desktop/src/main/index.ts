@@ -13,6 +13,7 @@ import { createAgentWatcher, realAgentWatcherDeps } from './agent-watcher';
 import { destroyAllBrowserTabs } from './browser-service';
 import { registerBrowserHandlers } from './ipc/browser-handlers';
 import { registerClaudeHandlers } from './ipc/claude-handlers';
+import { registerConflictHandlers } from './ipc/conflict-handlers';
 import { registerCouncilHandlers } from './ipc/council-handlers';
 import { registerDemoApiHandlers } from './ipc/demo-api-handlers';
 import { configureDiagnostics, registerDiagHandlers } from './ipc/diag-handlers';
@@ -233,6 +234,7 @@ if (!app.requestSingleInstanceLock()) {
     registerRepoHandlers(getWindow);
     registerSearchHandlers(getWindow);
     registerStatusHandlers();
+    registerConflictHandlers();
     registerStatsHandlers();
     registerRebaseHandlers();
     registerRefHandlers();
