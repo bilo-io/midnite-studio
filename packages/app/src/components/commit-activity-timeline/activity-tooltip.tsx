@@ -41,15 +41,23 @@ export function ActivityTooltip({
   /*
     Measure-then-place, before paint. The card's size depends on its text (the
     churn row comes and goes), so the clamp cannot be computed from a constant.
+
+    `max(GUTTER, min(edge, wanted))` in that order, on both axes: with the
+    `min` last, a card wider than the viewport would be pushed to a negative
+    left and land off the *other* edge — the floor has to win.
   */
   useLayoutEffect(() => {
     const card = cardRef.current;
     if (!card) return;
     const { width, height } = card.getBoundingClientRect();
-    const x = Math.min(Math.max(GUTTER, at.x + OFFSET), window.innerWidth - width - GUTTER);
+    const clamp = (wanted: number, size: number, viewport: number): number =>
+      Math.max(GUTTER, Math.min(wanted, viewport - size - GUTTER));
     // Above the pointer by default, below it when there is no room above.
     const above = at.y - height - OFFSET;
-    setPlaced({ x, y: above >= GUTTER ? above : at.y + OFFSET });
+    setPlaced({
+      x: clamp(at.x + OFFSET, width, window.innerWidth),
+      y: clamp(above >= GUTTER ? above : at.y + OFFSET, height, window.innerHeight),
+    });
   }, [at.x, at.y, bucket.start]);
 
   const share = windowCommits > 0 ? Math.round((bucket.count / windowCommits) * 100) : 0;

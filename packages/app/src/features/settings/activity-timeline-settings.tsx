@@ -17,7 +17,7 @@ export function ActivityTimelineSettings() {
   const orientation = useUiStore((s) => s.activityTimelineOrientation);
   const timeframe = useUiStore((s) => s.activityTimeframe);
   const gridlines = useUiStore((s) => s.activityTimelineGridlines);
-  const barLayout = useUiStore((s) => s.activityBarLayout);
+  const barLayout = useUiStore((s) => s.activityTimelineBarLayout);
 
   return (
     <div className="flex flex-col gap-4">
@@ -57,7 +57,7 @@ export function ActivityTimelineSettings() {
         label="Churn bars"
         hint="How the bars split lines added from lines removed. Only affects the Bars style."
         value={barLayout}
-        onChange={(next) => useUiStore.getState().setActivityBarLayout(next)}
+        onChange={(next) => useUiStore.getState().setActivityTimelineBarLayout(next)}
         options={[
           [
             'diverging',

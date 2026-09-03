@@ -433,8 +433,12 @@ export type UiState = {
    * window's overall shape.
    */
   activityTimelineGridlines: boolean;
-  /** Diverging off a centre baseline, or the two churn bars side by side. */
-  activityBarLayout: ActivityBarLayout;
+  /**
+   * Diverging off a centre baseline, or the two churn bars side by side.
+   * Named with the `activityTimeline` prefix its three siblings share — a
+   * persisted key is forever, so it agrees with them from the start.
+   */
+  activityTimelineBarLayout: ActivityBarLayout;
   /** Active tab in the FAB panel. */
   activeFabTab: FabTab;
   /**
@@ -664,7 +668,7 @@ export type UiState = {
   setActivityTimeframe: (timeframe: ActivityTimeframe) => void;
   toggleActivityTimelineGridlines: () => void;
   setActivityTimelineGridlines: (on: boolean) => void;
-  setActivityBarLayout: (layout: ActivityBarLayout) => void;
+  setActivityTimelineBarLayout: (layout: ActivityBarLayout) => void;
   setActiveFabTab: (tab: FabTab) => void;
   onFabTabClick: (tab: FabTab) => void;
   /**
@@ -940,7 +944,7 @@ type PersistedUi = Pick<
   | 'activityTimelineOrientation'
   | 'activityTimeframe'
   | 'activityTimelineGridlines'
-  | 'activityBarLayout'
+  | 'activityTimelineBarLayout'
   | 'fabSessions'
   | 'loopModifierDefaults'
   | 'loopChoices'
@@ -1026,7 +1030,7 @@ export const useUiStore = create<UiState>()(
       activityTimelineOrientation: 'vertical',
       activityTimeframe: 'week',
       activityTimelineGridlines: false,
-      activityBarLayout: 'diverging',
+      activityTimelineBarLayout: 'diverging',
       activeFabTab: 'innovate',
       fabSessions: {},
       setFabSession: (tab, sessionId) =>
@@ -1202,7 +1206,7 @@ export const useUiStore = create<UiState>()(
         set((state) => ({ activityTimelineGridlines: !state.activityTimelineGridlines })),
       setActivityTimelineGridlines: (activityTimelineGridlines) =>
         set({ activityTimelineGridlines }),
-      setActivityBarLayout: (activityBarLayout) => set({ activityBarLayout }),
+      setActivityTimelineBarLayout: (activityTimelineBarLayout) => set({ activityTimelineBarLayout }),
       setActiveFabTab: (activeFabTab) => set({ activeFabTab }),
       onFabTabClick: (tab) => {
         set((state) => {
@@ -1360,7 +1364,7 @@ export const useUiStore = create<UiState>()(
         activityTimelineOrientation: state.activityTimelineOrientation,
         activityTimeframe: state.activityTimeframe,
         activityTimelineGridlines: state.activityTimelineGridlines,
-        activityBarLayout: state.activityBarLayout,
+        activityTimelineBarLayout: state.activityTimelineBarLayout,
         fabSessions: state.fabSessions,
         loopModifierDefaults: state.loopModifierDefaults,
         loopChoices: state.loopChoices,

@@ -62,7 +62,7 @@ async function land(page: Page, theme: 'light' | 'dark', prefs: Shot): Promise<v
           activityTimelineStyle: seeded.style,
           activityTimelineOrientation: seeded.orientation,
           activityTimelineGridlines: seeded.gridlines ?? false,
-          activityBarLayout: seeded.barLayout ?? 'diverging',
+          activityTimelineBarLayout: seeded.barLayout ?? 'diverging',
         },
         version: 5,
       }),
@@ -100,6 +100,10 @@ const SHOTS: Shot[] = [
   },
   { style: 'bars', orientation: 'horizontal', gridlines: true, hover: true, name: 'tooltip' },
   { style: 'heatmap', orientation: 'vertical', hover: true, name: 'tooltip' },
+  // The vertical cases for the two new drawings: `place()` swaps x and y, so a
+  // broken swap is invisible in every horizontal frame above.
+  { style: 'bars', orientation: 'vertical', gridlines: true, name: 'gridlines' },
+  { style: 'bars', orientation: 'vertical', barLayout: 'grouped', name: 'grouped' },
 ];
 
 test.describe('activity timeline screenshots', () => {

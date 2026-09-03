@@ -255,3 +255,103 @@ describe('CommitActivityTimeline hover tooltip', () => {
     expect(container.querySelector('rect.fill-foreground')).not.toBeNull();
   });
 });
+
+/**
+ * The vertical orientation, which every test above leaves at its default.
+ *
+ * `place()` swaps x and y, so every assertion on `x`/`y`/`width`/`height`
+ * above is horizontal-only — a broken swap would pass all of them. These pin
+ * the swap for each of the new marks.
+ */
+describe('CommitActivityTimeline vertical orientation', () => {
+  const vertical = (props: Partial<Parameters<typeof CommitActivityTimeline>[0]> = {}) =>
+    render(
+      <CommitActivityTimeline
+        commits={commits}
+        timeframe="week"
+        orientation="vertical"
+        now={NOW}
+        {...props}
+      />,
+    ).container;
+
+  it('turns the time-axis rules into full-width horizontal lines', () => {
+    const container = vertical({ gridlines: true });
+    const lines = [...container.querySelectorAll('[data-testid="activity-gridlines"] line')];
+    const rules = lines.filter((l) => l.getAttribute('stroke-dasharray') !== null);
+
+    expect(rules).toHaveLength(6);
+    for (const rule of rules) {
+      // Constant y (a moment in time), spanning the cross axis 0 → 32.
+      expect(rule.getAttribute('y1')).toBe(rule.getAttribute('y2'));
+      expect(rule.getAttribute('x1')).toBe('0');
+      expect(rule.getAttribute('x2')).toBe('32');
+    }
+  });
+
+  it('runs the diverging baseline down the middle instead of across it', () => {
+    const container = vertical({ gridlines: true });
+    const baseline = [...container.querySelectorAll('[data-testid="activity-gridlines"] line')].find(
+      (l) => l.getAttribute('stroke-dasharray') === null,
+    )!;
+    // x fixed at the cross-axis centre, y spanning the whole time axis.
+    expect(baseline.getAttribute('x1')).toBe('16');
+    expect(baseline.getAttribute('x2')).toBe('16');
+    expect(baseline.getAttribute('y1')).toBe('0');
+    expect(baseline.getAttribute('y2')).toBe('100');
+  });
+
+  it('stands grouped bars side by side down the time axis, off one shared edge', () => {
+    const container = vertical({ barLayout: 'grouped' });
+    const add = container.querySelector('rect.text-emerald-500')!;
+    const del = [...container.querySelectorAll('rect.text-rose-500')].find(
+      (rect) => rect.getAttribute('y') !== add.getAttribute('y'),
+    )!;
+
+    // Two slots along y (time), both ending at the same cross-axis edge.
+    expect(add.getAttribute('y')).not.toBe(del.getAttribute('y'));
+    const right = (rect: Element) =>
+      Number(rect.getAttribute('x')) + Number(rect.getAttribute('width'));
+    expect(right(add)).toBeCloseTo(right(del), 5);
+    expect(right(add)).toBeCloseTo(32, 5);
+  });
+
+  it('lays the hit rects down the time axis, spanning the full cross axis', () => {
+    const container = vertical();
+    const hit = container.querySelector('[data-testid="activity-hit"]')!;
+    expect(hit.getAttribute('width')).toBe('32');
+    expect(Number(hit.getAttribute('height'))).toBeCloseTo(100 / 7, 1);
+  });
+});
+
+describe('CommitActivityTimeline hover bookkeeping', () => {
+  const hits = (container: HTMLElement) =>
+    [...container.querySelectorAll('[data-testid="activity-hit"]')];
+
+  it('drops a highlight whose bucket the timeframe change took away', () => {
+    const { container, rerender } = render(
+      <CommitActivityTimeline commits={commits} timeframe="month" now={NOW} />,
+    );
+    // Bucket 23 exists in a 30-bucket month and not in a 7-bucket week.
+    hover(hits(container)[23]!);
+    expect(container.querySelector('rect.fill-foreground')).not.toBeNull();
+
+    rerender(<CommitActivityTimeline commits={commits} timeframe="week" now={NOW} />);
+    // Neither the highlight nor the card may render off the end of the window.
+    expect(container.querySelector('rect.fill-foreground')).toBeNull();
+    expect(screen.queryByTestId('activity-tooltip')).toBeNull();
+  });
+
+  it('clamps the card inside the viewport rather than off its edges', () => {
+    const { container } = render(
+      <CommitActivityTimeline commits={commits} timeframe="week" now={NOW} />,
+    );
+    // jsdom reports a zero-sized card, so the assertion is about the FLOOR:
+    // a pointer in the top-left corner must not place the card at a negative
+    // offset, which is what a `min`-last clamp would do.
+    hover(hits(container).at(-1)!, 0, 0);
+    const card = screen.getByTestId('activity-tooltip');
+    expect(Number.parseFloat(card.style.left)).toBeGreaterThanOrEqual(0);
+    expect(Number.parseFloat(card.style.top)).toBeGreaterThanOrEqual(0);
+  });
+});

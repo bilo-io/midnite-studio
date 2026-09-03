@@ -1,4 +1,4 @@
-import { useMemo, type ReactNode } from 'react';
+import { forwardRef, useMemo, useRef, type KeyboardEventHandler, type ReactNode } from 'react';
 import { LuChartColumn, LuChartSpline, LuGrid3X3, LuLayoutGrid } from 'react-icons/lu';
 
 import type { IconComponent } from '../../components/icon-button';
@@ -36,7 +36,7 @@ export function CommitActivityPanel({ slot }: { slot: 'right' | 'bottom' }) {
   const orientation = useUiStore((s) => s.activityTimelineOrientation);
   const timeframe = useUiStore((s) => s.activityTimeframe);
   const gridlines = useUiStore((s) => s.activityTimelineGridlines);
-  const barLayout = useUiStore((s) => s.activityBarLayout);
+  const barLayout = useUiStore((s) => s.activityTimelineBarLayout);
   const repoId = useUiStore((s) => s.selectedRepoId);
 
   const placed = open && (slot === 'right') === (orientation === 'vertical');
@@ -145,43 +145,64 @@ export function emptyLabel({
   return `No commits in the last ${window}`;
 }
 
-const TIMEFRAMES: [ActivityTimeframe, string, string][] = [
+/** `[value, what the button shows, its accessible name]` — the shape `SegGroup` reads. */
+const TIMEFRAMES: readonly (readonly [ActivityTimeframe, ReactNode, string])[] = [
   ['day', 'D', 'Last 24 hours'],
   ['week', 'W', 'Last 7 days'],
   ['month', 'M', 'Last 30 days'],
 ];
 
-const STYLES: [ActivityTimelineStyle, IconComponent, string][] = [
+const STYLE_ICONS: readonly (readonly [ActivityTimelineStyle, IconComponent, string])[] = [
   ['bars', LuChartColumn, 'Bars'],
   ['heatmap', LuLayoutGrid, 'Heatmap'],
   ['sparkline', LuChartSpline, 'Sparkline'],
 ];
 
+const STYLES: readonly (readonly [ActivityTimelineStyle, ReactNode, string])[] = STYLE_ICONS.map(
+  ([style, Icon, label]) => [style, <Icon className="h-3 w-3" />, label] as const,
+);
+
 /**
  * The 20px square every control in this header is, so the two rows of the
  * horizontal layout line up and the single row of the vertical one is even.
+ *
  * Not `IconButton`: that control is 24px with its own tooltip and padding, and
  * three of them plus D/W/M plus the switch would not fit the header at all.
+ *
+ * `role` is a prop because the header holds both kinds of control — two radio
+ * groups and one standalone toggle — and only the sizing is shared.
  */
-function Seg({
-  active,
-  label,
-  onClick,
-  children,
-}: {
-  active: boolean;
-  label: string;
-  onClick: () => void;
-  children: ReactNode;
-}) {
+const Seg = forwardRef<
+  HTMLButtonElement,
+  {
+    role: 'radio' | 'button';
+    active: boolean;
+    label: string;
+    onClick: () => void;
+    onKeyDown?: KeyboardEventHandler<HTMLButtonElement>;
+    children: ReactNode;
+    testId?: string;
+  }
+>(function Seg({ role, active, label, onClick, onKeyDown, children, testId }, ref) {
+  const radio = role === 'radio';
   return (
     <button
+      ref={ref}
       type="button"
-      role="radio"
-      aria-checked={active}
+      role={role}
+      aria-checked={radio ? active : undefined}
+      aria-pressed={radio ? undefined : active}
       aria-label={label}
       title={label}
+      data-testid={testId}
+      /*
+        An ARIA radio group is ONE tab stop whose members are reached with the
+        arrow keys. Without the roving index the six buttons this header gained
+        would be six new stops between the graph and everything after it.
+      */
+      tabIndex={radio && !active ? -1 : undefined}
       onClick={onClick}
+      onKeyDown={onKeyDown}
       className={`flex h-5 w-5 shrink-0 items-center justify-center rounded text-[10px] transition-colors ${
         active ? 'bg-primary/10 text-foreground' : 'text-muted-foreground hover:bg-accent'
       }`}
@@ -189,23 +210,89 @@ function Seg({
       {children}
     </button>
   );
+});
+
+/**
+ * A radio group over one store field, keyboard-navigable the way the ARIA
+ * pattern requires: an arrow moves *and* selects, Home/End jump to the ends,
+ * and the move wraps — the group is a ring of three, so stopping at the end
+ * would just be a dead key. Focus follows the selection, because the selected
+ * radio is the only tab stop and an unfocused one cannot receive the next
+ * arrow press.
+ *
+ * Generic over the option union so `StylePicker` and `TimeframePicker` keep
+ * their own types rather than meeting at `string`.
+ */
+function SegGroup<T extends string>({
+  label,
+  value,
+  options,
+  onChange,
+}: {
+  label: string;
+  value: T;
+  options: readonly (readonly [T, ReactNode, string])[];
+  onChange: (next: T) => void;
+}) {
+  const refs = useRef<(HTMLButtonElement | null)[]>([]);
+
+  const move = (from: number, event: KeyboardEvent | { key: string }): boolean => {
+    const to =
+      event.key === 'Home'
+        ? 0
+        : event.key === 'End'
+          ? options.length - 1
+          : ARROW_STEP[event.key] === undefined
+            ? -1
+            : (from + ARROW_STEP[event.key]! + options.length) % options.length;
+    if (to < 0) return false;
+    const next = options[to];
+    if (!next) return false;
+    onChange(next[0]);
+    refs.current[to]?.focus();
+    return true;
+  };
+
+  return (
+    <div role="radiogroup" aria-label={label} className="flex gap-0.5">
+      {options.map(([option, content, title], index) => (
+        <Seg
+          key={option}
+          ref={(node) => {
+            refs.current[index] = node;
+          }}
+          role="radio"
+          active={value === option}
+          label={title}
+          onClick={() => onChange(option)}
+          onKeyDown={(event) => {
+            if (move(index, event)) event.preventDefault();
+          }}
+        >
+          {content}
+        </Seg>
+      ))}
+    </div>
+  );
 }
+
+/** Both axes: the header runs in a row in one layout and stacks in the other. */
+const ARROW_STEP: Record<string, number | undefined> = {
+  ArrowRight: 1,
+  ArrowDown: 1,
+  ArrowLeft: -1,
+  ArrowUp: -1,
+};
 
 /** D / W / M, the same field Settings edits — two doors onto one preference. */
 function TimeframePicker({ value }: { value: ActivityTimeframe }) {
   return (
-    <div role="radiogroup" aria-label="Timeframe" className="flex gap-0.5">
-      {TIMEFRAMES.map(([timeframe, label, title]) => (
-        <Seg
-          key={timeframe}
-          active={value === timeframe}
-          label={title}
-          onClick={() => useUiStore.getState().setActivityTimeframe(timeframe)}
-        >
-          {label}
-        </Seg>
-      ))}
-    </div>
+    <SegGroup
+      label="Timeframe"
+      value={value}
+      options={TIMEFRAMES}
+      onChange={(next) => useUiStore.getState().setActivityTimeframe(next)}
+    />
   );
 }
 
@@ -217,18 +304,12 @@ function TimeframePicker({ value }: { value: ActivityTimeframe }) {
  */
 function StylePicker({ value }: { value: ActivityTimelineStyle }) {
   return (
-    <div role="radiogroup" aria-label="Chart style" className="flex gap-0.5">
-      {STYLES.map(([style, Icon, label]) => (
-        <Seg
-          key={style}
-          active={value === style}
-          label={label}
-          onClick={() => useUiStore.getState().setActivityTimelineStyle(style)}
-        >
-          <Icon className="h-3 w-3" />
-        </Seg>
-      ))}
-    </div>
+    <SegGroup
+      label="Chart style"
+      value={value}
+      options={STYLES}
+      onChange={(next) => useUiStore.getState().setActivityTimelineStyle(next)}
+    />
   );
 }
 
@@ -240,18 +321,14 @@ function StylePicker({ value }: { value: ActivityTimelineStyle }) {
 function GridlinesToggle({ on, timeframe }: { on: boolean; timeframe: ActivityTimeframe }) {
   const label = `${on ? 'Hide' : 'Show'} gridlines (${GRIDLINE_CADENCE[timeframe]})`;
   return (
-    <button
-      type="button"
-      aria-pressed={on}
-      aria-label={label}
-      title={label}
-      data-testid="activity-gridlines-toggle"
+    <Seg
+      role="button"
+      active={on}
+      label={label}
+      testId="activity-gridlines-toggle"
       onClick={() => useUiStore.getState().toggleActivityTimelineGridlines()}
-      className={`flex h-5 w-5 shrink-0 items-center justify-center rounded transition-colors ${
-        on ? 'bg-primary/10 text-foreground' : 'text-muted-foreground hover:bg-accent'
-      }`}
     >
       <LuGrid3X3 className="h-3 w-3" />
-    </button>
+    </Seg>
   );
 }

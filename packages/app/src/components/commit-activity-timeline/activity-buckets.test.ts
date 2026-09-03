@@ -130,9 +130,14 @@ describe('bucketLabel', () => {
   });
 
   it('gives a day bucket the weekday, and no clock at all', () => {
-    const [bucket] = bucketCommits([], 'week', NOW).slice(-1);
-    const label = bucketLabel(bucket!, 'week');
+    const week = bucketCommits([], 'week', NOW);
+    const label = bucketLabel(week.at(-1)!, 'week');
     expect(label).not.toContain('–');
-    expect(label).toContain('3');
+    // Distinct per bucket — a label that lost the date would collapse the
+    // seven of them onto one string, which `toContain('3')` would not catch.
+    expect(new Set(week.map((bucket) => bucketLabel(bucket, 'week'))).size).toBe(7);
+    // The weekday-bearing form, which the day view's own label never carries.
+    const dayForm = bucketLabel(bucketCommits([], 'day', NOW).at(-1)!, 'day');
+    expect(label).not.toBe(dayForm);
   });
 });

@@ -75,9 +75,17 @@ export function CommitActivityTimeline({
   const [hovered, setHovered] = useState<number | null>(null);
   const [pointer, setPointer] = useState<PointerAt>({ x: 0, y: 0 });
 
+  /*
+    Anchored per bucket, not per pixel: `onPointerMove` fires dozens of times a
+    second and a state write per move re-renders every mark in the window (60 of
+    them in the month view) plus the card's own measure pass. The card only ever
+    describes the bucket, so it only needs to move when the bucket does.
+  */
   const onHover = useCallback((index: number, event: { clientX: number; clientY: number }) => {
-    setHovered(index);
-    setPointer({ x: event.clientX, y: event.clientY });
+    setHovered((current) => {
+      if (current !== index) setPointer({ x: event.clientX, y: event.clientY });
+      return index;
+    });
   }, []);
 
   const total = buckets.reduce((sum, bucket) => sum + bucket.count, 0);
@@ -108,7 +116,15 @@ export function CommitActivityTimeline({
             baseline={variant === 'bars' && hasChurn && barLayout === 'diverging'}
           />
         ) : null}
-        {hovered !== null ? <Highlight index={hovered} count={buckets.length} horizontal={horizontal} /> : null}
+        {/*
+          Guarded on the resolved bucket, not on `hovered !== null`: switching
+          the timeframe under the pointer shrinks the window while the index
+          stays put, and index 23 of a 7-bucket week would place the highlight
+          off the viewBox entirely.
+        */}
+        {hoveredBucket ? (
+          <Highlight index={hovered!} count={buckets.length} horizontal={horizontal} />
+        ) : null}
         {variant === 'bars' ? <Bars buckets={buckets} horizontal={horizontal} layout={barLayout} /> : null}
         {variant === 'heatmap' ? <Heatmap buckets={buckets} horizontal={horizontal} /> : null}
         {variant === 'sparkline' ? <Sparkline buckets={buckets} horizontal={horizontal} /> : null}
@@ -183,15 +199,19 @@ function Gridlines({
   baseline: boolean;
 }) {
   const width = AXIS / count;
+  // `span` is in the same "time × cross" vocabulary `place()` uses — never
+  // x/y, which swap meaning between the orientations.
   const line = (
     along: number,
     across: number,
-    span: { x: number; y: number },
+    span: { along: number; across: number },
     key: string,
     dashed: boolean,
   ) => {
     const [x1, y1] = horizontal ? [along, across] : [across, along];
-    const [x2, y2] = horizontal ? [along + span.x, across + span.y] : [across + span.y, along + span.x];
+    const [x2, y2] = horizontal
+      ? [along + span.along, across + span.across]
+      : [across + span.across, along + span.along];
     return (
       <line
         key={key}
@@ -211,8 +231,10 @@ function Gridlines({
     // A note about the axis, not a datum — the svg's own aria-label is what
     // reports the numbers, exactly as `metric-chart.tsx` treats its breaks.
     <g aria-hidden data-testid="activity-gridlines" opacity={0.7}>
-      {rules.map((index) => line(index * width, 0, { x: 0, y: CROSS }, `rule-${index}`, true))}
-      {baseline ? line(0, CROSS / 2, { x: AXIS, y: 0 }, 'baseline', false) : null}
+      {rules.map((index) =>
+        line(index * width, 0, { along: 0, across: CROSS }, `rule-${index}`, true),
+      )}
+      {baseline ? line(0, CROSS / 2, { along: AXIS, across: 0 }, 'baseline', false) : null}
     </g>
   );
 }

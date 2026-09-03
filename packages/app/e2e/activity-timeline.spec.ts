@@ -18,9 +18,16 @@ import { installMockBridge, type MockFixtures } from './mock-bridge';
 const DAY_S = 86_400;
 const nowS = Math.floor(Date.now() / 1000);
 
-/** Relative to the clock, because the panel buckets against `Date.now()`. */
+/**
+ * Relative to the clock, because the panel buckets against `Date.now()`.
+ *
+ * The newest row is `nowS` itself, not an hour ago: the hover test asserts on
+ * the *last* bucket's contents, and "an hour ago" falls into the previous hour
+ * bucket in the day view and into yesterday's in the week view whenever the
+ * suite runs in the first hour after local midnight.
+ */
 const TIMELINE = [
-  { sha: 'a'.repeat(40), at: nowS - 3_600, additions: 12, deletions: 3 },
+  { sha: 'a'.repeat(40), at: nowS, additions: 12, deletions: 3 },
   { sha: 'b'.repeat(40), at: nowS - 2 * DAY_S, additions: 5, deletions: 9 },
   { sha: 'c'.repeat(40), at: nowS - 6 * DAY_S, additions: 0, deletions: 4 },
 ];
@@ -127,13 +134,47 @@ test('the gridlines toggle draws the timeframe cadence it names', async ({ page 
 
   await toggle.click();
   await expect(toggle).toHaveAttribute('aria-pressed', 'true');
+  const rules = page.getByTestId('activity-gridlines').locator('line');
   // A week rules every day boundary but the first, plus the churn baseline.
-  await expect(page.getByTestId('activity-gridlines').locator('line')).toHaveCount(7);
+  await expect(rules).toHaveCount(7);
 
-  // The cadence follows the window: 30 days rules every week instead.
+  // The cadence follows the window: 30 days rules every week instead. Asserted
+  // as "fewer than the week's", not as a number — a 30-day window holds four
+  // Mondays on most days and five when today is one, so a fixed count would
+  // fail one day in seven against the real clock.
   await page.getByRole('radio', { name: 'Last 30 days' }).click();
   await expect(toggle).toHaveAttribute('aria-label', 'Hide gridlines (every week)');
-  await expect(page.getByTestId('activity-gridlines').locator('line')).toHaveCount(5);
+  // The label already re-rendered with the new timeframe, so the count is settled.
+  const monthRules = await rules.count();
+  expect(monthRules).toBeLessThan(7);
+  expect(monthRules).toBeGreaterThanOrEqual(5);
+});
+
+test('the header controls are one tab stop each, arrow-navigable', async ({ page }) => {
+  await open(page);
+  await page.getByTestId('activity-toggle').click();
+
+  // An ARIA radio group is a single tab stop: only the checked radio is
+  // reachable by Tab, and the arrows both move and select.
+  await page.getByRole('radio', { name: 'Last 7 days' }).focus();
+  await page.keyboard.press('ArrowRight');
+  await expect(page.getByRole('radio', { name: 'Last 30 days' })).toHaveAttribute(
+    'aria-checked',
+    'true',
+  );
+  // And it wraps — three options make stopping at the end a dead key.
+  await page.keyboard.press('ArrowRight');
+  await expect(page.getByRole('radio', { name: 'Last 24 hours' })).toHaveAttribute(
+    'aria-checked',
+    'true',
+  );
+
+  await page.getByRole('radio', { name: 'Bars' }).focus();
+  await page.keyboard.press('ArrowDown');
+  await expect(page.getByTestId('commit-activity-chart')).toHaveAttribute(
+    'data-variant',
+    'heatmap',
+  );
 });
 
 test('hovering a bucket names it, its commits and its churn', async ({ page }) => {

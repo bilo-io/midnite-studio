@@ -124,12 +124,21 @@ const WEEK_RULE_DAY = 1;
  * Indices of the buckets whose **leading edge** gets a rule, at the cadence
  * `GRIDLINE_CADENCE` names.
  *
- * Derived from each bucket's own `start` rather than from `index % n`, because
- * the two disagree exactly where it matters. A day's buckets are epoch-hour
- * aligned, so "every 2 hours" has to mean *even local hours* — `index % 2` would
- * put the rules on odd hours half the time, and in a half-hour timezone on no
- * clock hour at all. A month's rules land on Mondays, which are 7 apart but
- * whose offset depends on what day the window opened.
+ * Derived from each bucket's own `start` rather than from `index % n`, for two
+ * reasons — one about phase and one about arithmetic.
+ *
+ * *Phase*: a day window is a rolling 24 hours, so `index % 2` rules whichever
+ * parity index 0 happens to be — odd local hours half the time. "Every 2 hours"
+ * has to mean the even ones, or the rules move under the reader every hour.
+ * (In a half-hour timezone every rule sits at `HH:30` either way; epoch-hour
+ * bucket starts cannot land on a clock hour there, and that is fine — what
+ * matters is that consecutive runs agree.) Same story for a month, whose
+ * Mondays are 7 apart at an offset that depends on the day the window opened.
+ *
+ * *Arithmetic*: across a DST transition a local hour repeats or vanishes, so
+ * the local-hour sequence is no longer `index + k`. `index % 2` would keep
+ * ruling every other bucket straight through a fall-back's doubled hour;
+ * reading `getHours()` puts the rules back on the clock the reader sees.
  *
  * Index 0 never gets one: it is the axis's own edge, already drawn by the
  * panel's border, and a rule flush against it reads as a rendering seam.
