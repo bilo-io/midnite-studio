@@ -62,6 +62,8 @@ export async function listTerminals(): Promise<
       rows: number;
       activity: SessionActivity | null;
     } | null;
+    /** Set when the live pty behind this row (if any) is on a legacy broker peer. */
+    legacy?: boolean;
   }[]
 > {
   if (sessions.length === 0) sessions = await store.load();
@@ -71,15 +73,23 @@ export async function listTerminals(): Promise<
       const bound = livePtyFor(session.id);
       // The current activity guess rides along so a reloaded renderer can seed
       // its session list — `pty:activity` only ever announces changes.
-      const live = bound === null ? null : { ...bound, activity: activityFor(bound.ptyId) };
+      const live =
+        bound === null
+          ? null
+          : { ptyId: bound.ptyId, pid: bound.pid, cols: bound.cols, rows: bound.rows, activity: activityFor(bound.ptyId) };
+      // `legacy` is a wire-level sibling of `live`, not a field on it
+      // (`RestoredTerminalSession`, `schemas.ts`) — `sessionPhase` reads it
+      // off the restored session row itself, so a legacy pty still reports
+      // `live` (it is a real, running process) but is marked asleep by it.
+      const legacy = bound?.legacy === true ? { legacy: true as const } : {};
       // Prefer what this launch has already produced: a revived session's live
       // buffer is a superset of the file it was seeded from.
       const runtime = readScrollback(session.id);
-      if (runtime.length > 0) return { session, scrollback: runtime, live };
+      if (runtime.length > 0) return { session, scrollback: runtime, live, ...legacy };
 
       const saved = await store.readScrollback(session.id);
       seedScrollback(session.id, saved);
-      return { session, scrollback: saved, live };
+      return { session, scrollback: saved, live, ...legacy };
     }),
   );
 }

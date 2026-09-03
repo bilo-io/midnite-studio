@@ -1365,7 +1365,11 @@ function Shell() {
                 className="shrink-0 overflow-hidden h-full"
                 style={fabPanelTween.style}
               >
-                <FabPanel isOpen={fabPanelOpen} width={fabPanel.current} />
+                <FabPanel
+                  isOpen={fabPanelOpen}
+                  width={fabPanel.current}
+                  fitSignal={fabPanelTween.settleCount}
+                />
               </div>
             </>
           ) : null}

@@ -32,10 +32,13 @@ export function LoopTab({
   loop,
   active,
   runs,
+  fitSignal,
 }: {
   loop: LoopDefinition;
   active: boolean;
   runs: LoopRunRecord[];
+  /** Bumped once the FAB panel's own reveal tween settles — see `FabPanel`'s own prop. */
+  fitSignal: number;
 }) {
   const selectedRepoId = useUiStore((s) => s.selectedRepoId);
   const selectedWorktreePath = useUiStore((s) => s.selectedWorktreePath);
@@ -189,7 +192,7 @@ export function LoopTab({
             session={session}
             active={active}
             initialInput={pendingInput ?? agentInitialInput(agents.agents, session.agentId)}
-            fitSignal={0}
+            fitSignal={fitSignal}
             layoutClassName="h-full w-full"
           />
         ) : (
