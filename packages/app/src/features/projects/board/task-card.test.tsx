@@ -199,4 +199,54 @@ describe('TaskCard', () => {
       expect(onClick).not.toHaveBeenCalled();
     });
   });
+
+  describe('the in-card terminal (Theme E)', () => {
+    beforeEach(() => {
+      useTerminalStore.setState({ sessions: [], activeId: null, states: {}, activity: {} });
+    });
+
+    // jsdom has no `IntersectionObserver` (unstubbed in this file), so every
+    // card here behaves exactly as an off-screen one does for real — the
+    // free, mount-independent fallback is the one thing that can be asserted
+    // without a real browser. The visible/mounted path is
+    // `card-terminal.test.tsx`'s job; the granted-vs-visible split is
+    // `card-terminal-mounts.test.ts`'s.
+    it('renders the activity line for a running session, not the terminal, with no IntersectionObserver', () => {
+      useTerminalStore.getState().openSession({
+        kind: 'agent',
+        agentId: 'claude',
+        title: 'card',
+        cwd: '/repo',
+        repoId: 'r1',
+        surface: 'kanban',
+        taskRef: { projectId: 'proj1', itemId: issue.id },
+      });
+
+      render(<TaskCard item={issue} fields={[]} projectId="proj1" />);
+
+      expect(screen.getByText('Running')).toBeDefined();
+    });
+
+    it('renders neither for a card with no session', () => {
+      render(<TaskCard item={issue} fields={[]} projectId="proj1" />);
+      expect(screen.queryByText('Running')).toBeNull();
+    });
+
+    it('renders neither once the session has ended', () => {
+      const session = useTerminalStore.getState().openSession({
+        kind: 'agent',
+        agentId: 'claude',
+        title: 'card',
+        cwd: '/repo',
+        repoId: 'r1',
+        surface: 'kanban',
+        taskRef: { projectId: 'proj1', itemId: issue.id },
+      });
+      useTerminalStore.getState().setState(session.id, 'exited');
+
+      render(<TaskCard item={issue} fields={[]} projectId="proj1" />);
+
+      expect(screen.queryByText('Running')).toBeNull();
+    });
+  });
 });

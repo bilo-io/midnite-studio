@@ -305,9 +305,9 @@ Effort tags: **S** ≈ an hour or two · **M** ≈ half a day · **L** ≈ a day
       threading a session through `CardDetail`) and hides the composer form for a Stop button
       instead of drawing a second Start.
 
-### E — The terminal inside the card (L)
+### E — The terminal inside the card (L) — ✅ DONE (2026-09-03)
 
-- [ ] `board/card-terminal.tsx` — an xterm bound to the card's session, mounted inside the card
+- [x] `board/card-terminal.tsx` — an xterm bound to the card's session, mounted inside the card
       while it is running, at a deliberately small viewport with a "pop out to Terminal view"
       escape.
   - It **must** go through
@@ -317,7 +317,7 @@ Effort tags: **S** ≈ an hour or two · **M** ≈ half a day · **L** ≈ a day
     `layoutClassName="h-full w-full"`. That module's docblock is explicit: it is the single entry
     point because *"a second static import anywhere would put xterm straight back in the entry and
     nothing would say so."* A direct `./terminal-view` import silently undoes Phase 36 Theme C.
-- [ ] **Only the visible running cards mount an xterm** — and this is new machinery, not a reused
+- [x] **Only the visible running cards mount an xterm** — and this is new machinery, not a reused
       pattern.
   - Both existing multi-xterm hosts mount *everything they own*: `terminal-panel.tsx:186` maps every
     main-surface session into a stacked `absolute inset-0` pane (unbounded), and the FAB maps its
@@ -336,14 +336,14 @@ Effort tags: **S** ≈ an hour or two · **M** ≈ half a day · **L** ≈ a day
   - Per-instance cost, for the record: one WebGL context and texture atlas, `scrollback: 10_000`
     lines (`terminal-view.tsx:247`), a `ResizeObserver`, a `visibilitychange` listener, three xterm
     subscriptions and a `pty.onData`/`onExit` pair.
-- [ ] An off-screen or collapsed card renders the last activity line from the session record.
+- [x] An off-screen or collapsed card renders the last activity line from the session record.
   - This is **free and correct**, and worth knowing before building something cleverer:
     `useAgentActivity()` is mounted once at
     [`app.tsx:1190`](../../../packages/app/src/app.tsx) and maps `ptyId → sessionId → activity` in
     the store regardless of what is mounted. Phase 35 moved it there precisely because a
     per-`TerminalView` subscription went dark when the panel collapsed. An unmounted card's activity
     stays live.
-- [ ] Unmount cleanly.
+- [x] Unmount cleanly.
   - **Correction to the draft:** the xterm-on-unmount throw is *not* recorded in
     [phase-36](phase-36-performance-diet.md) — only in [`outstanding.md:106`](../outstanding.md) —
     and it was never fixed. It is upstream in `@xterm/xterm`'s own teardown, reachable only through
@@ -355,7 +355,7 @@ Effort tags: **S** ≈ an hour or two · **M** ≈ half a day · **L** ≈ a day
     consumption made StrictMode's second mount revive a shell nobody asked for).
   - *Acceptance:* an RTL test asserts the card's own `IntersectionObserver` and subscriptions are
     disconnected on unmount. It asserts teardown, **not** the absence of an upstream throw.
-- [ ] Scrollback survives a card being scrolled out of view and back, because the broker owns it,
+- [x] Scrollback survives a card being scrolled out of view and back, because the broker owns it,
       not the component.
   - The pty is deliberately **not** killed on unmount (`terminal-view.tsx:498`), which is the whole
     reason this works. On remount a live session refetches the broker's ring buffer via

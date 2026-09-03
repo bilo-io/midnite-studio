@@ -1,3 +1,4 @@
+import { useRef } from 'react';
 import { LuCircleDot, LuGitPullRequest, LuNotebookPen, LuSquareTerminal } from 'react-icons/lu';
 
 import type { ForgeProjectField, ForgeProjectItem } from '@midnite/studio-shared';
@@ -7,8 +8,11 @@ import { Tooltip } from '../../../components/tooltip';
 import { formatFieldValue } from '../field-editor';
 import { ExternalLink } from '../../markdown/external-link';
 import { revealSession } from '../../terminal/reveal-session';
+import { CardActivityLine } from './card-activity-line';
+import { CardTerminal } from './card-terminal';
 import { deriveCardGlowState } from './glow-state';
 import { useCardStatus } from './use-card-status';
+import { useCardVisible } from './use-card-visible';
 
 /**
  * One card (Phase 41 Theme B): title, type glyph, `#number` where the item
@@ -70,8 +74,15 @@ export function TaskCard({
   // callback boundary.
   const sessionId = status.sessionId;
 
+  // Theme E: the card's own viewport-mount signal — a running card mounts
+  // its xterm only while scrolled into view, and shows the last activity
+  // line (free, from the store, regardless of mount state) otherwise.
+  const cardRef = useRef<HTMLDivElement>(null);
+  const visible = useCardVisible(cardRef);
+
   return (
     <div
+      ref={cardRef}
       role="button"
       tabIndex={0}
       onClick={onClick}
@@ -156,6 +167,22 @@ export function TaskCard({
               {chip.text}
             </span>
           ))}
+        </div>
+      ) : null}
+
+      {/*
+        Theme E: only ever rendered once a session is actually running — a
+        card with no session, or one that has ended, shows neither the
+        terminal nor the activity line (`EndedStrip` inside the card's own
+        detail pane already covers "ended", per Theme F/H).
+      */}
+      {sessionId !== undefined && status.running ? (
+        <div onClick={(event) => event.stopPropagation()}>
+          {visible ? (
+            <CardTerminal sessionId={sessionId} visible={visible} />
+          ) : (
+            <CardActivityLine activity={status.activity} />
+          )}
         </div>
       ) : null}
     </div>
