@@ -595,6 +595,12 @@ export async function installMockBridge(page: Page, fixtures: MockFixtures): Pro
       */
       homeDir: '/tmp',
       /*
+        A plausible shipped version, not `0.0.0` — the rail's version pill hides
+        itself on the preload's unknown-version fallback, so the fixture has to
+        name a real one for the strip to have anything in it.
+      */
+      appVersion: '1.2.3',
+      /*
         A real-looking machine name, not `localhost` — the OSC 7 specs emit
         payloads carrying it, which is the form a configured shell actually
         writes and the form the parser has to accept.
@@ -1621,6 +1627,11 @@ export async function installMockBridge(page: Page, fixtures: MockFixtures): Pro
         restart: noop,
         setChannel: noop,
         onState: unsubscribe,
+        releaseNotes: async (req: { version: string }) => ({
+          version: req.version,
+          notes: '### Added\n\n- A version pill in the rail.',
+          error: null,
+        }),
       },
       systemHealth: async () => ({
         git: { path: '/usr/bin/git', version: 'git version 2.39.5' },
@@ -1949,6 +1960,11 @@ export async function installMockBridge(page: Page, fixtures: MockFixtures): Pro
         restart: noop,
         setChannel: noop,
         onState: unsubscribe,
+        releaseNotes: async (req: { version: string }) => ({
+          version: req.version,
+          notes: '### Added\n\n- A version pill in the rail.',
+          error: null,
+        }),
       },
       systemHealth: async () => ({
         git: { path: '/usr/bin/git', version: 'git version 2.45.0' },
