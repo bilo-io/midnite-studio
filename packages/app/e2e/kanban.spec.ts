@@ -325,8 +325,11 @@ test.describe('revealing a card session in the terminal', () => {
 
     // The panel is open, and the card's own session is the one showing —
     // named in the session list, which is what "go to that session" means.
+    // Scoped to the panel itself (not `.xterm-screen` page-wide): Theme E's
+    // own in-card terminal is legitimately still mounted on the board behind
+    // it, the same session rendered a second time.
     await expect(page.locator('[data-terminal-panel]')).toBeVisible();
-    await expect(page.locator('.xterm-screen')).toHaveCount(1);
+    await expect(page.locator('[data-terminal-panel] .xterm-screen')).toHaveCount(1);
 
     // And the card is still bound: same glow, still running.
     await expect(card).toHaveClass(/is-running/);
@@ -347,7 +350,8 @@ test.describe('revealing a card session in the terminal', () => {
     await expect(composer.getByText('Running')).toBeVisible();
     await composer.getByTestId('composer-reveal-terminal').click();
 
+    // Scoped to the panel itself — see the sibling test's note above.
     await expect(page.locator('[data-terminal-panel]')).toBeVisible();
-    await expect(page.locator('.xterm-screen')).toHaveCount(1);
+    await expect(page.locator('[data-terminal-panel] .xterm-screen')).toHaveCount(1);
   });
 });
