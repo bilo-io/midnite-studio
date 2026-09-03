@@ -1,4 +1,4 @@
-import type { ForgeReviewThread } from '@midnite/studio-shared';
+import type { FileDiff, ForgeReviewThread } from '@midnite/studio-shared';
 import { LuChevronRight, LuHistory } from 'react-icons/lu';
 import { useId, useState } from 'react';
 
@@ -32,6 +32,9 @@ export function OutdatedThreads({
   onResolve,
   busy = false,
   error = null,
+  file,
+  repoId,
+  worktreePath,
 }: {
   threads: readonly ForgeReviewThread[];
   /** Resolves true when the reply landed — see `CommentThread`'s own note. */
@@ -39,6 +42,16 @@ export function OutdatedThreads({
   onResolve: (input: { threadId: string; resolved: boolean }) => void;
   busy?: boolean;
   error?: string | null;
+  /**
+   * Threaded straight through to `CommentThread` for Apply (Phase 48). A
+   * thread that lands here is either file-level, left-side, or already
+   * `outdated` — every one of those disables Apply on its own — but the
+   * props still need a path through so the component compiles and the
+   * disabled reason reads correctly rather than "not applicable" by omission.
+   */
+  file?: FileDiff;
+  repoId?: string;
+  worktreePath?: string;
 }) {
   const [open, setOpen] = useState(false);
   const bodyId = useId();
@@ -84,6 +97,9 @@ export function OutdatedThreads({
                 onResolve={onResolve}
                 busy={busy}
                 error={error}
+                file={file}
+                repoId={repoId}
+                worktreePath={worktreePath}
               />
             </div>
           ))}
