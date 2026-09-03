@@ -3,7 +3,7 @@ import { join } from 'node:path';
 
 import { BrowserWindow, app, shell } from 'electron';
 
-import { WINDOW_FRAMELESS_ARG } from '@midnite/studio-shared';
+import { APP_VERSION_ARG, WINDOW_FRAMELESS_ARG } from '@midnite/studio-shared';
 
 import { maybeCapture } from './capture';
 import { bootMark } from './perf-marks';
@@ -75,7 +75,12 @@ export function createWindow(): BrowserWindow {
       sandbox: false,
       // Single-sourced from the window options above so the preload never
       // re-derives it. See WINDOW_FRAMELESS_ARG.
-      additionalArguments: [`${WINDOW_FRAMELESS_ARG}${frameless ? '1' : '0'}`],
+      additionalArguments: [
+        `${WINDOW_FRAMELESS_ARG}${frameless ? '1' : '0'}`,
+        // Only main can ask Electron for it, and the rail's version pill wants
+        // it on first paint. See APP_VERSION_ARG.
+        `${APP_VERSION_ARG}${app.getVersion()}`,
+      ],
     },
   });
 

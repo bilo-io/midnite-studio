@@ -1700,6 +1700,23 @@ export const UpdateStateSchema = z.object({
 });
 export type UpdateState = z.infer<typeof UpdateStateSchema>;
 
+/**
+ * One version's release notes, read out of the public changelog mirror.
+ *
+ * `notes: null` is a normal answer, not a failure — a build is published before
+ * its section reaches the mirror, and a pre-release build has no section at all.
+ * `error` distinguishes "the mirror has nothing for this version" from "we could
+ * not reach the mirror", because the popover says different things about each
+ * and the links below it stand either way.
+ */
+export const ReleaseNotesRequest = z.object({ version: z.string().min(1) });
+export const ReleaseNotesResponse = z.object({
+  version: z.string(),
+  notes: z.string().nullable(),
+  error: z.string().nullable(),
+});
+export type ReleaseNotes = z.infer<typeof ReleaseNotesResponse>;
+
 // --- system health (Phase 33) ----------------------------------------------
 export const SystemHealthResponse = z.object({
   git: z.object({ path: z.string().nullable(), version: z.string().nullable() }),
