@@ -86,7 +86,7 @@ const isDark = (): boolean => document.documentElement.classList.contains('dark'
  * nothing needs resetting.
  */
 const RESET_MODES =
-  '\x1b[?1000l\x1b[?1002l\x1b[?1003l\x1b[?1005l\x1b[?1006l\x1b[?1015l\x1b[?2004l\x1b[?1049l\x1b[?47l\x1b[?25h';
+  '\x1b[?1000l\x1b[?1002l\x1b[?1003l\x1b[?1004l\x1b[?1005l\x1b[?1006l\x1b[?1015l\x1b[?2004l\x1b[?1049l\x1b[?47l\x1b[?25h';
 
 export function TerminalView({
   session,
@@ -449,6 +449,13 @@ export function TerminalView({
           return;
         }
         if (stateRef.current === 'starting' || stateRef.current === 'unavailable') return;
+        // A dead pane stays mounted (FAB tabs in particular sit `exited`
+        // unattended while the user works elsewhere), and its xterm instance
+        // can still have DEC focus-tracking latched on from whatever TUI was
+        // running. Switching tabs or Cmd-Tabbing away fires a focus/blur
+        // report through this same `onData` stream — that's not the user
+        // asking to wake this session, so it must not revive one.
+        if (isXtermFocusReport(data)) return;
         void startRef.current(term.cols, term.rows, initialInputRef.current);
       });
 
