@@ -15,6 +15,7 @@ import { useFileEditorStore } from '../../store/file-editor-store';
 import { usePaletteStore } from '../../store/palette-store';
 import { useUiStore, type ViewId } from '../../store/ui-store';
 import { useWorkbenchStore } from '../../store/workbench-store';
+import { useWorkflowRunCommandStore } from '../../store/workflow-run-command-store';
 import { bridge } from '../bridge';
 import { useCloseRepo, usePickAndOpenRepo, useRepos } from '../queries';
 import { useFetch, usePull, usePush, useStatus } from '../use-status';
@@ -133,6 +134,21 @@ export function useCommandHandlers(): CommandRuntime {
     },
     ...browserTabCommands(browserOpen),
     'search.open': { enabled: true, run: () => useUiStore.getState().setActiveView('search') },
+
+    /*
+      Always enabled, like `search.open` — it just opens Workflows if nothing
+      more specific applies. `workflow-run-command-store.ts`'s handle exists
+      only while a workflow is actually open in the view, so `.handle?.run()`
+      is a harmless no-op the rest of the time rather than a second gate this
+      runtime would need its own state to compute.
+    */
+    'workflow.run': {
+      enabled: true,
+      run: () => {
+        useUiStore.getState().setActiveView('workflows');
+        useWorkflowRunCommandStore.getState().handle?.run();
+      },
+    },
 
     'repo.open': {
       enabled: true,

@@ -89,7 +89,11 @@ import {
   CouncilSchema,
 } from '../council';
 import { LoopModelSchema, LoopRunRecordSchema } from '../loops';
-import { WorkflowRunSchema, WorkflowSchema } from '../workflow';
+import {
+  WORKFLOW_MAX_NODE_TIMEOUT_MS,
+  WorkflowRunSchema,
+  WorkflowSchema,
+} from '../workflow';
 
 /**
  * Payload/response schemas for every channel. Each `ipcMain.handle` parses its
@@ -1799,6 +1803,17 @@ export const WorkflowRunsListResponse = z.object({ runs: z.array(WorkflowRunSche
 
 export const WorkflowRunsGetRequest = z.object({ runId: z.string().min(1) });
 export const WorkflowRunsGetResponse = z.object({ run: WorkflowRunSchema.nullable() });
+
+/**
+ * The Workflows settings page (Theme I), one-way like `updateSetChannel` —
+ * `ipcMain.on`, not `invoke`. Bounded here too, not just in the UI: a
+ * mistyped value must fail to parse rather than park every run for ten
+ * minutes or silently disable the run-history cap.
+ */
+export const WorkflowSetDefaultsRequest = z.object({
+  defaultTimeoutMs: z.number().int().positive().max(WORKFLOW_MAX_NODE_TIMEOUT_MS),
+  runHistoryCap: z.number().int().min(1).max(100),
+});
 
 // --- workflow demo API (Phase 43 Theme D) -----------------------------------
 

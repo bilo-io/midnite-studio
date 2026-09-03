@@ -1,10 +1,11 @@
 import { validateWorkflow, type Workflow, type WorkflowNode, type WorkflowNodeStatus } from '@midnite/studio-shared';
-import { useMemo, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { LuHistory, LuWorkflow, LuX } from 'react-icons/lu';
 
 import { EmptyState } from '../../components/empty-state';
 import { Popover } from '../../components/popover';
 import { useWindowFocusGate } from '../../lib/use-window-focus-gate';
+import { useWorkflowRunCommandStore, type WorkflowRunHandle } from '../../store/workflow-run-command-store';
 import { useFlushableSave } from '../councils/use-flushable-save';
 import { NodeInspector } from './canvas/node-inspector';
 import { RunNodeDetail } from './canvas/run-node-detail';
@@ -112,6 +113,23 @@ function WorkflowEditor({ workflow }: { workflow: Workflow }) {
     setLocal(updated);
     schedule(updated);
   };
+
+  /**
+   * The seam the global `workflow.run` command calls through — see
+   * `workflow-run-command-store.ts`. A ref, not a dependency array, so this
+   * effect registers once per mount rather than on every keystroke; the ref
+   * always reads the current `local`/`issues`/`mode`, the same trick
+   * `status-panel.tsx`'s `runRef` uses for `status.commit`.
+   */
+  const runRef = useRef<() => void>(() => {});
+  runRef.current = () => {
+    if (mode === 'edit' && issues.length === 0) runWorkflow.mutate(local.id);
+  };
+  useEffect(() => {
+    const handle: WorkflowRunHandle = { run: () => runRef.current() };
+    useWorkflowRunCommandStore.getState().register(handle);
+    return () => useWorkflowRunCommandStore.getState().unregister(handle);
+  }, []);
 
   return (
     <div className="flex h-full min-h-0">

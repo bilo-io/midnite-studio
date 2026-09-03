@@ -501,49 +501,55 @@ Effort tags: **S** ≈ an hour or two · **M** ≈ half a day · **L** ≈ a day
   - Import assigns **fresh ids** to the workflow and every node, remapping edges, so importing the
     same file twice does not collide.
 
-### I — Wiring and verification (M)
+### I — Wiring and verification (M) — ◐ PARTIAL (PR #TBD, 2026-09-04)
 
-- [ ] Sidebar sections: **no change needed** in
-      [`view-sections.ts`](../../../packages/app/src/features/repos/view-sections.ts).
-  - The first draft called `WORK_IN_PROGRESS` a placeholder to be replaced. It is not — it is a
-    sidebar *filter preset* (`{ sections: ['worktrees'], dirtyOnly: true }`, line 157), and
-    **councils kept it after Phase 34** (line 191) precisely because a global view has no section of
-    its own to narrow to. `workflows: WORK_IN_PROGRESS` at line 192 is already correct.
-  - `view-sections.test.ts:154` already asserts `workflows: false` in `filtersByDefault`. Leave it.
-- [ ] Palette: the view row already exists; only the run command is new.
-  - `VIEW_LABELS.workflows` (`providers.ts:35`) and `VIEW_KEYWORDS.workflows` (`:50`) are both
-    populated, and `createViewsSource` (`:89`) derives every view row from `VIEW_IDS`. **Opening
-    Workflows from the palette works today.**
-  - What is new: a `workflow.run` command. Add `{ id: 'workflow.run', label: 'Run Workflow', group: 'view' }`
-    to `COMMANDS` in [`keybindings.ts`](../../../packages/shared/src/keybindings.ts) — **chord-less**,
-    following the `op.abort`/`markdown.presentAsSlides` precedent of declared-but-unbound commands.
-    `CommandGroup` has no `'workflows'` member and does not need one.
-  - A new `CommandId` also needs a `CommandRuntime` entry in
+- [x] Sidebar sections: confirmed no change needed in
+      [`view-sections.ts`](../../../packages/app/src/features/repos/view-sections.ts) — `workflows:
+      WORK_IN_PROGRESS` was already correct, exactly as the doc's own correction said.
+- [x] Palette: the view row already worked; the run command needed **two** additions, not one.
+  - `{ id: 'workflow.run', label: 'Run Workflow', group: 'view' }` added to `COMMANDS`
+    ([`keybindings.ts`](../../../packages/shared/src/keybindings.ts)), chord-less like `sync.fetch`.
+    A `CommandRuntime` entry in
     [`use-command-handlers.ts`](../../../packages/app/src/services/keybindings/use-command-handlers.ts)
-    and a `COMMAND_ICONS` entry — both are keyed by `CommandId`, so both are typecheck failures
-    until added.
-  - Native menu group in [`menu.ts`](../../../packages/desktop/src/main/menu.ts).
-- [ ] A Workflows settings page: the default node timeout and the run-history cap.
-  - Registration is **four edits across three files**, each enforced by a `Record` over the union:
-    the id in `SettingsPageId` ([`ui-store.ts:87`](../../../packages/app/src/store/ui-store.ts)), a
-    row in `SETTINGS_PAGES` (`:125`, group `'tools'`, beside `agent`/`reviews`), an entry in
-    `PAGE_CONTENT` ([`settings-view.tsx:33`](../../../packages/app/src/features/settings/settings-view.tsx)),
-    and a `SETTINGS_PAGE_ICON` entry in `nav-icons.ts`.
-  - The page follows `graph-page.tsx`: a named `function WorkflowsPage()` with no props returning
-    `<div className="flex flex-col gap-3">` of `<Accordion title icon defaultOpen>` from
-    `@bilo-io/ui`, each wrapping `<div className="p-3">`.
-  - The palette picks the page up for free via `createViewsSource` — no palette edit.
-  - **The demo API toggle does not go here.** It lives in the Workflows view header (Theme D), where
-    you are when you need it.
-- [ ] Playwright `e2e/workflows.spec.ts` against the mock bridge: create a workflow, add two nodes,
-      connect them, run it, watch both reach a terminal state.
-  - The mock bridge must learn the `workflow` namespace and emit a `workflowRunChanged` after a
-    scripted delay, or the run never settles in the spec.
-  - Given [Phase 38](phase-38-e2e-suite-repair.md)'s ratchet, add the new spec **green** and keep it
-    out of the ratchet list.
-- [ ] One **real** end-to-end pass: start the demo API, build a POST-then-GET workflow against it,
-      run it, and see the created record come back.
-- [ ] Screenshots: the workflow list, the canvas with a selected node, and a run mid-flight.
+    and a `COMMAND_ICONS` entry (`LuPlay`) followed, both real typecheck failures until added.
+  - **The doc missed the actual gate:** the palette filters every row through
+    [`isPaletteSafe`](../../../packages/app/src/features/palette/safety.ts), a separate explicit
+    allowlist from `COMMANDS` — declaring the command was not enough to make it *findable*, an e2e
+    run against the real palette caught this (it typechecked, and simply never appeared). Added
+    `workflow.run` to `PALETTE_SAFE` too.
+  - **Enablement needed a seam the doc didn't anticipate**, since "which workflow is open" is
+    `WorkflowsView`'s own local state, invisible to the global command runtime. New
+    `workflow-run-command-store.ts` — the exact `commit-box-store.ts`/`status.commit` shape: a
+    registered `{run}` handle, closed over by `WorkflowEditor` while a valid workflow is open,
+    `run()` always navigates to Workflows and calls `.handle?.run()` (a harmless no-op with nothing
+    open, rather than a command whose `enabled` this runtime would need new state to compute).
+  - Native menu item in [`menu.ts`](../../../packages/desktop/src/main/menu.ts)'s View submenu.
+- [x] The Workflows settings page: the default node timeout and the run-history cap — **and, since
+      the doc didn't say otherwise, actually wired to change what a run does**, not just cosmetic.
+  - Registration exactly as planned: `SettingsPageId`, `SETTINGS_PAGES` (group `'tools'`),
+    `PAGE_CONTENT`, `SETTINGS_PAGE_ICON` (`LuWorkflow`, already imported for the nav rail).
+    `workflows-page.tsx` follows `graph-page.tsx`'s `<Accordion>` shape, sliders styled like
+    `screen-lock-page.tsx`'s own.
+  - **Reaching main needed a real IPC round trip the doc never designed**, since
+    `WORKFLOW_NODE_TIMEOUT_MS`/`MAX_STORED_WORKFLOW_RUNS_PER_WORKFLOW` are read by
+    `workflow-engine.ts`/`workflow-runs-store.ts` in main. Followed `updates-page.tsx`'s
+    `update.setChannel` precedent exactly: one new one-way channel
+    (`workflowSetDefaults`, `ipcMain.on` + manual `safeParse`, not `handle`'s invoke shape), sent on
+    every change, never synced on boot — main starts each launch at `shared/workflow.ts`'s own
+    constants, same as update channel does. `EngineDeps` gained an injected `defaultTimeoutMs?`
+    (mirroring the existing `clock` seam, for the same testability reason);
+    `trimRunsPerWorkflow`/`createWorkflowRunsStore` gained an optional cap parameter/thunk, both
+    defaulting to the untouched constants so every existing caller (tests included) is unaffected.
+  - The demo API toggle stayed in the Workflows view header (Theme D), as planned.
+- [x] Playwright coverage against the mock bridge — already substantially built across Themes F–H;
+      this theme added the `workflow.run` palette round trip specifically (`e2e/workflows.spec.ts`).
+      Found and fixed in passing: the mock's `workflow.run()` fabricated `{ nodeRuns: [] }` instead
+      of the real schema's `{ nodes, edges, workflowName }` (already caught and fixed in Theme G).
+- [x] Screenshots: the workflow list, canvas, node inspector, run history and run view were already
+      captured across Themes F–G; this theme added the settings page itself.
+- [ ] **Open, for a human:** the one real end-to-end pass — start the demo API, build a
+      POST-then-GET workflow against it, run it, and see the created record come back. Nothing here
+      can drive that unattended: it needs a person watching a real HTTP round trip land.
 
 ## Files this phase touches
 

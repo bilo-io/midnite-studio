@@ -238,3 +238,25 @@ test('running a workflow, viewing it in history, and returning to editing', asyn
   await page.getByRole('button', { name: 'Back to editing' }).click();
   await expect(page.getByText('Viewing run')).toHaveCount(0);
 });
+
+/**
+ * `workflow.run` (Theme I) — the palette's own way in, over the same
+ * `useWorkflowRunCommandStore` seam the canvas's Run button already used.
+ * Only the assembled app (palette + keybindings + the registered handle) can
+ * show this actually reaches the open workflow, not a mock of any one part.
+ */
+test('the "Run Workflow" palette command runs the currently open workflow', async ({ page }) => {
+  await open(page);
+  await createWorkflow(page);
+  await addNode(page, 'HTTP');
+  await page.locator('[data-node-id]').first().click();
+  await page.getByLabel('URL').fill('https://example.com');
+  await page.waitForTimeout(600);
+
+  await page.keyboard.press('Meta+k');
+  await page.getByRole('combobox', { name: 'Command palette search' }).fill('run workflow');
+  await page.keyboard.press('Enter');
+
+  await page.getByRole('button', { name: 'Run history' }).click();
+  await expect(page.getByText('Completed')).toBeVisible();
+});

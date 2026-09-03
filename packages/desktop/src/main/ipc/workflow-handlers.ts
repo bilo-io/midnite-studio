@@ -1,4 +1,5 @@
 import { CHANNELS, failure, ok, schemas } from '@midnite/studio-shared';
+import { ipcMain } from 'electron';
 
 import {
   cancelRun,
@@ -8,6 +9,7 @@ import {
   listWorkflows,
   runWorkflow,
   saveWorkflow,
+  setWorkflowDefaults,
 } from '../workflow-service';
 import { handle, handleBare } from './handle';
 
@@ -63,4 +65,14 @@ export function registerWorkflowHandlers(): void {
     async ({ runId }) => ({ run: await getRun(runId) }),
     () => ({ run: null }),
   );
+
+  // One-way, like `update.setChannel` (update-service.ts) — ipcMain.on with a
+  // manual safeParse, not `handle`'s invoke/response shape. The Settings page
+  // has nothing to await; a malformed payload is silently ignored rather than
+  // surfaced, matching that precedent.
+  ipcMain.on(CHANNELS.workflowSetDefaults, (_event, req) => {
+    const parsed = schemas.WorkflowSetDefaultsRequest.safeParse(req);
+    if (!parsed.success) return;
+    setWorkflowDefaults(parsed.data);
+  });
 }

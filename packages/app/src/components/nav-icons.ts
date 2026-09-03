@@ -92,6 +92,7 @@ export const SETTINGS_PAGE_ICON: Record<SettingsPageId, IconType> = {
   // front of the review actions, not the actions themselves.
   reviews: LuShieldCheck,
   projects: LuSquareKanban,
+  workflows: LuWorkflow,
   gitSafety: LuShieldAlert,
   monitor: LuActivity,
   browser: GoGlobe,
