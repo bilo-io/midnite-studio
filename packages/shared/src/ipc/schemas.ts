@@ -6,6 +6,7 @@ import {
   BrowserEventSchema,
   BrowserNavErrorSchema,
   CommitSchema,
+  ConflictedHunkSchema,
   ConflictHunkSideSchema,
   ConflictRegionSchema,
   ConflictSideSchema,
@@ -399,6 +400,34 @@ export const CommitFileDiffRequest = RepoId.extend({
 });
 
 export const FileDiffResponse = FileDiffSchema;
+
+/**
+ * A conflicted path's regions, structured for the Studio (Phase 47 Theme D).
+ *
+ * Not part of `FileDiffRequest`/`fileDiff` — that channel hands the renderer
+ * the raw combined diff (literal markers, for `DiffView`'s "this file is
+ * unmerged" banner). Themes A–C never needed this read wired to the renderer
+ * at all: `parseConflictedFile` ran main-process-side only, feeding
+ * `applyConflictHunk`'s own patch synthesis. `context`/`staged` are meaningless
+ * here — a conflicted path is always read at full context, worktree-only.
+ */
+export const ConflictRegionsRequest = RepoId.extend({
+  path: z.string().min(1),
+  worktreePath: z.string().optional(),
+});
+export const ConflictRegionsResponse = z.object({
+  hunks: z.array(ConflictedHunkSchema),
+  /**
+   * True when the underlying `readFileDiff` hit `DIFF_LINE_CAP` before
+   * reaching the end of the file — found in self-review: a conflict region
+   * past that line is silently absent from `hunks`, with the same region
+   * count `locateConflictRegion` (git-engine) would still compute correctly
+   * for everything *before* the cutoff, but nothing to say a region *after*
+   * it exists at all. The Studio surfaces this rather than letting a huge
+   * conflicted file (a lockfile, say) look fully resolved when it is not.
+   */
+  truncated: z.boolean(),
+});
 
 // --- remotes ---------------------------------------------------------------
 

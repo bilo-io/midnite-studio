@@ -64,6 +64,8 @@ export const CHANNELS = {
   fileDiff: 'mstudio:file:diff',
   /** A path's diff *inside a commit* — the worktree-scoped one can't answer this. */
   commitFileDiff: 'mstudio:commit:file-diff',
+  /** A conflicted path's parsed regions, for the Studio (Phase 47 Theme D). */
+  conflictRegions: 'mstudio:conflict:regions',
 
   // --- remotes -------------------------------------------------------------
   remotesList: 'mstudio:remotes:list',

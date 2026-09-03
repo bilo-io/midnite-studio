@@ -164,6 +164,10 @@ export type MidniteStudioBridge = {
     commitFileDiff: (
       req: In<typeof S.CommitFileDiffRequest>,
     ) => Promise<z.infer<typeof S.FileDiffResponse>>;
+    /** A conflicted path's parsed regions — the Studio's read side (Phase 47 Theme D). */
+    conflictRegions: (
+      req: In<typeof S.ConflictRegionsRequest>,
+    ) => Promise<z.infer<typeof S.ConflictRegionsResponse>>;
   };
 
   /**

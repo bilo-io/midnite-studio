@@ -51,6 +51,10 @@ export const JOURNAL_OPS = [
    * about which one happened.
    */
   'stash-store',
+  /** Whole-file conflict resolution (Phase 47 Theme B) — accept-ours/theirs/base. */
+  'conflict-resolve-whole-file',
+  /** One region within a conflicted path (Phase 47 Theme C/D) — ours/theirs/both. */
+  'conflict-apply-hunk',
 ] as const;
 export const JournalOpSchema = z.enum(JOURNAL_OPS);
 export type JournalOp = z.infer<typeof JournalOpSchema>;
@@ -133,6 +137,8 @@ export function isUndoableOpKind(op: JournalOp): boolean {
     case 'abort':
     case 'continue':
     case 'stash-store':
+    case 'conflict-resolve-whole-file':
+    case 'conflict-apply-hunk':
       return false;
     default: {
       const exhaustive: never = op;
@@ -185,6 +191,9 @@ export function undoReason(op: JournalOp): string | undefined {
       return 'Part of resolving an in-progress operation, not an undoable step on its own.';
     case 'stash-store':
       return 'This is itself an undo — drop the stash again from the sidebar if you want it gone.';
+    case 'conflict-resolve-whole-file':
+    case 'conflict-apply-hunk':
+      return 'This only changed the index, not a ref — there is nothing here for a ref-based undo to move.';
     default: {
       const exhaustive: never = op;
       throw new Error(`Unclassified journal op: ${String(exhaustive)}`);

@@ -28,9 +28,12 @@ export const INPROGRESS_LABEL: Record<InProgressOp, string> = {
 export function ConflictBanner({
   status,
   onError,
+  onOpenConflict,
 }: {
   status: StatusResult;
   onError: (message: string) => void;
+  /** Opens the Conflict Resolution Studio for one path (Phase 47 Theme D). */
+  onOpenConflict?: (path: string) => void;
 }) {
   const op = status.inProgress;
 
@@ -54,7 +57,10 @@ export function ConflictBanner({
   };
 
   return (
-    <div className="shrink-0 border-b border-destructive/40 bg-destructive/10 px-3 py-2">
+    <div
+      data-testid="conflict-banner"
+      className="shrink-0 border-b border-destructive/40 bg-destructive/10 px-3 py-2"
+    >
       <div className="flex items-center gap-2">
         <span className="text-xs font-semibold text-destructive">{INPROGRESS_LABEL[op]} in progress</span>
         <span className="text-xs text-muted-foreground">
@@ -91,11 +97,24 @@ export function ConflictBanner({
 
       {conflicted.length > 0 ? (
         <ul className="mt-1.5 space-y-0.5">
-          {conflicted.slice(0, 8).map((entry) => (
-            <li key={entry.path} className="truncate text-xs text-muted-foreground">
-              {entry.path}
-            </li>
-          ))}
+          {conflicted.slice(0, 8).map((entry) =>
+            onOpenConflict ? (
+              <li key={entry.path}>
+                <button
+                  type="button"
+                  onClick={() => onOpenConflict(entry.path)}
+                  title={`Resolve ${entry.path}`}
+                  className="w-full truncate text-left text-xs text-muted-foreground underline decoration-dotted underline-offset-2 hover:text-foreground"
+                >
+                  {entry.path}
+                </button>
+              </li>
+            ) : (
+              <li key={entry.path} className="truncate text-xs text-muted-foreground">
+                {entry.path}
+              </li>
+            ),
+          )}
           {conflicted.length > 8 ? (
             <li className="text-xs text-muted-foreground">
               …and {conflicted.length - 8} more

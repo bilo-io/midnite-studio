@@ -42,6 +42,30 @@
       created record come back. Nothing here can drive a real HTTP round
       trip unattended.
 
+## 2026-09-04 — Phase 47 Theme D — the Conflict Resolution Studio UI
+
+[PR #107]. The phase's UI surface — Themes A–C built the parser, the safe whole-file baseline, and
+the real risk (hunk-level patching), but resolving a conflict still meant leaving the app until this
+landed.
+
+- [x] **The Studio** (`features/conflicts/conflict-resolution-studio.tsx`), opened from a now-clickable
+      path in `ConflictBanner`, rendered in the graph's existing side-panel slot beside
+      `CommitDetail`/`StashInspector` (`GraphSelection` widened with a `'conflict'` kind). Per-region
+      **Accept mine/theirs/both** call Theme C's `applyConflictHunk`; file-level **Accept all
+      mine/theirs** call Theme B's whole-file resolve. Deliberately not built on `DiffCell`/
+      `toSplitRows` — Phase 26's two-way model has no notion of a three-sided region — so this ships
+      a plain monospace rendering; shiki highlighting and virtualization are left for later.
+- [x] **New read-side IPC**, `mstudio:conflict:regions`: Themes A–C's `parseConflictedFile`/
+      `readFileDiff` had only ever run main-process-side. Response carries a `truncated` flag —
+      self-review caught that `readFileDiff`'s `DIFF_LINE_CAP` silently drops trailing regions from a
+      large conflicted file with no signal; the Studio now warns instead of looking fully resolved.
+- [x] A resolved region disappears without a full-file remount: `useConflictRegions` rides the same
+      `keys.status(...)`-prefixed invalidation every write op and the file watcher already trigger —
+      the existing "server state authoritative but not synchronous" pattern, not a local append.
+- A real bug caught mid-build: the mutation hooks defaulted to the *globally selected* worktree
+  rather than the Studio's own `worktreePath` prop, invisible until a payload-asserting test caught
+  it — fixed with `useTargetedGitOp` and an explicit target (`use-repo-actions.ts`'s own precedent).
+
 ## 2026-09-03 — Phase 43 Theme G — the workflow run view
 
 [PR #105]. Closes out Phase 43's build half — Theme I (settings) is the one item left.
