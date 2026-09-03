@@ -5,20 +5,24 @@ import {
   COMMON_RUN_MODIFIERS,
   DEFAULT_LOOPS,
   DEFAULT_LOOP_SCHEDULE,
-  LOOP_DAY_SETS,
+  ALL_LOOP_WEEKDAYS,
+  LEGACY_LOOP_DAY_SETS,
   LOOP_FREQUENCIES,
   LOOP_MODELS,
-  LoopDaysSchema,
+  LOOP_WEEKDAYS,
   LoopDefinitionSchema,
   LoopFrequencySchema,
   LoopModelSchema,
   LoopRunRecordSchema,
   LoopScheduleSchema,
+  LoopWeekdaySchema,
   composeLoopPrompt,
   loopModelArgs,
+  loopModelsFor,
   loopScheduleFragment,
   loopScheduleSummary,
   resolveLoopChoice,
+  resolveLoopDays,
   type LoopDefinition,
   type LoopSchedule,
 } from './loops';
@@ -201,7 +205,7 @@ describe('loopScheduleFragment', () => {
   it('starts a fresh loop unscheduled, and neutral on both new axes', () => {
     expect(DEFAULT_LOOP_SCHEDULE.enabled).toBe(false);
     expect(DEFAULT_LOOP_SCHEDULE.frequency).toBe('continuous');
-    expect(DEFAULT_LOOP_SCHEDULE.days).toBe('all');
+    expect(DEFAULT_LOOP_SCHEDULE.days).toEqual([...ALL_LOOP_WEEKDAYS]);
   });
 
   it('reads a schedule persisted before frequency and days existed as neutral on both', () => {
@@ -210,7 +214,34 @@ describe('loopScheduleFragment', () => {
     const legacy = LoopScheduleSchema.parse({ enabled: true, from: '09:00', to: '17:00' });
     expect(legacy.frequency).toBeUndefined();
     expect(legacy.days).toBeUndefined();
-    expect(loopScheduleFragment(legacy)).toBe(loopScheduleFragment({ ...legacy, days: 'all' }));
+    expect(loopScheduleFragment(legacy)).toBe(
+      loopScheduleFragment({ ...legacy, days: [...ALL_LOOP_WEEKDAYS] }),
+    );
+  });
+
+  it('widens a legacy preset token into the day set it always named', () => {
+    // `days` was `'all' | 'weekdays' | 'weekends'` before the multi-select, and
+    // those strings are sitting in every existing `settings.json`.
+    for (const [token, set] of Object.entries(LEGACY_LOOP_DAY_SETS)) {
+      const parsed = LoopScheduleSchema.parse({
+        enabled: true,
+        from: '09:00',
+        to: '17:00',
+        days: token,
+      });
+      expect(parsed.days, token).toEqual([...set]);
+    }
+  });
+
+  it('drops an unrecognised day token rather than refusing the whole schedule', () => {
+    const parsed = LoopScheduleSchema.safeParse({
+      enabled: true,
+      from: '09:00',
+      to: '17:00',
+      days: 'fortnightly',
+    });
+    expect(parsed.success).toBe(true);
+    expect(parsed.success && parsed.data.days).toBeUndefined();
   });
 
   it('names the cadence after the window, so the pacing rule reads as a qualifier', () => {
@@ -230,7 +261,7 @@ describe('loopScheduleFragment', () => {
       enabled: true,
       from: '09:00',
       to: '17:00',
-      days: 'weekdays',
+      days: ['mon', 'tue', 'wed', 'thu', 'fri'],
     });
     expect(line!.indexOf('weekdays only')).toBeLessThan(line!.indexOf('between 09:00'));
   });
@@ -243,7 +274,7 @@ describe('loopScheduleFragment', () => {
       from: '09:00',
       to: '09:00',
       frequency: 'daily',
-      days: 'weekends',
+      days: ['sat', 'sun'],
     });
     expect(line).toContain('weekends only');
     expect(line).toContain('at most one pass a day');
@@ -257,7 +288,7 @@ describe('loopScheduleFragment', () => {
         from: '09:00',
         to: '09:00',
         frequency: 'continuous',
-        days: 'all',
+        days: [...ALL_LOOP_WEEKDAYS],
       }),
     ).toBeNull();
   });
@@ -268,9 +299,16 @@ describe('loopScheduleSummary', () => {
     const cases: LoopSchedule[] = [
       { enabled: false, from: '09:00', to: '17:00' },
       { enabled: true, from: '09:00', to: '09:00' },
-      { enabled: true, from: '09:00', to: '09:00', frequency: 'continuous', days: 'all' },
+      {
+        enabled: true,
+        from: '09:00',
+        to: '09:00',
+        frequency: 'continuous',
+        days: [...ALL_LOOP_WEEKDAYS],
+      },
       { enabled: true, from: '09:00', to: '17:00' },
-      { enabled: true, from: '09:00', to: '09:00', days: 'weekdays' },
+      { enabled: true, from: '09:00', to: '09:00', days: ['mon', 'tue', 'wed', 'thu', 'fri'] },
+      { enabled: true, from: '09:00', to: '09:00', days: [] },
     ];
     for (const schedule of cases) {
       expect(loopScheduleSummary(schedule) === null, JSON.stringify(schedule)).toBe(
@@ -286,7 +324,7 @@ describe('loopScheduleSummary', () => {
         from: '22:00',
         to: '06:00',
         frequency: 'hourly',
-        days: 'weekdays',
+        days: ['mon', 'tue', 'wed', 'thu', 'fri'],
       }),
     ).toBe('22:00–06:00 · Weekdays · Hourly');
   });
@@ -296,17 +334,89 @@ describe('loopScheduleSummary', () => {
   });
 });
 
-describe('LOOP_FREQUENCIES and LOOP_DAY_SETS', () => {
-  it('offer exactly one neutral option each, and it is the schema default', () => {
+describe('LOOP_FREQUENCIES', () => {
+  it('offers exactly one neutral option, and it is the schema default', () => {
     expect(LOOP_FREQUENCIES.filter((f) => f.promptFragment === null).map((f) => f.id)).toEqual([
       'continuous',
     ]);
-    expect(LOOP_DAY_SETS.filter((d) => d.promptFragment === null).map((d) => d.id)).toEqual(['all']);
   });
 
-  it('cover every id the schema accepts, so no stored pick renders as a raw token', () => {
+  it('covers every id the schema accepts, so no stored pick renders as a raw token', () => {
     expect(LOOP_FREQUENCIES.map((f) => f.id)).toEqual(LoopFrequencySchema.options);
-    expect(LOOP_DAY_SETS.map((d) => d.id)).toEqual(LoopDaysSchema.options);
+  });
+});
+
+describe('LOOP_WEEKDAYS', () => {
+  it('offers all seven, Monday first, and covers every id the schema accepts', () => {
+    expect(LOOP_WEEKDAYS).toHaveLength(7);
+    expect(LOOP_WEEKDAYS[0]?.id).toBe('mon');
+    expect(LOOP_WEEKDAYS.map((d) => d.id)).toEqual([...ALL_LOOP_WEEKDAYS]);
+    expect(LoopWeekdaySchema.options).toEqual([...ALL_LOOP_WEEKDAYS]);
+  });
+
+  it('names every day both long and short, so prose and chip cannot disagree', () => {
+    for (const day of LOOP_WEEKDAYS) {
+      expect(day.label.startsWith(day.short), day.id).toBe(true);
+    }
+  });
+});
+
+describe('resolveLoopDays', () => {
+  it('reads an absent answer as every day — the neutral one', () => {
+    expect(resolveLoopDays(undefined)).toEqual([...ALL_LOOP_WEEKDAYS]);
+  });
+
+  it('reads a legacy preset string, which the store still holds unparsed', () => {
+    // `settings.json` is spread into the store rather than re-parsed through
+    // zod, so the type says array while the value on disk may be a token.
+    expect(resolveLoopDays('weekends' as unknown as LoopSchedule['days'])).toEqual(['sat', 'sun']);
+    expect(resolveLoopDays('nonsense' as unknown as LoopSchedule['days'])).toEqual([
+      ...ALL_LOOP_WEEKDAYS,
+    ]);
+  });
+
+  it('canonicalises an array: Monday first, duplicates and junk dropped', () => {
+    expect(
+      resolveLoopDays(['fri', 'mon', 'fri', 'nope'] as unknown as LoopSchedule['days']),
+    ).toEqual(['mon', 'fri']);
+  });
+
+  it('keeps an empty selection empty — mid-edit is not "every day"', () => {
+    expect(resolveLoopDays([])).toEqual([]);
+  });
+});
+
+describe('the day axis', () => {
+  const at = (days: LoopSchedule['days']): LoopSchedule => ({
+    enabled: true,
+    from: '09:00',
+    to: '09:00',
+    days,
+  });
+
+  it('says nothing for every day, and nothing for none — both are mid-answer', () => {
+    expect(loopScheduleFragment(at([...ALL_LOOP_WEEKDAYS]))).toBeNull();
+    expect(loopScheduleFragment(at([]))).toBeNull();
+  });
+
+  it('keeps the two preset sentences a stored preset used to compose', () => {
+    expect(loopScheduleFragment(at(['mon', 'tue', 'wed', 'thu', 'fri']))).toContain(
+      'weekdays only',
+    );
+    expect(loopScheduleFragment(at(['sat', 'sun']))).toContain('weekends only');
+  });
+
+  it('names an arbitrary set as a sentence, long-form and in week order', () => {
+    expect(loopScheduleFragment(at(['fri', 'mon', 'wed']))).toBe(
+      'Work on Monday, Wednesday and Friday only — idle on every other day.',
+    );
+    expect(loopScheduleSummary(at(['fri', 'mon', 'wed']))).toBe('Mon, Wed, Fri');
+  });
+
+  it('names a single day without a stray conjunction', () => {
+    expect(loopScheduleFragment(at(['sun']))).toBe(
+      'Work on Sunday only — idle on every other day.',
+    );
   });
 });
 
@@ -575,5 +685,20 @@ describe('LoopRunRecordSchema', () => {
 
   it('rejects an unknown status', () => {
     expect(LoopRunRecordSchema.safeParse({ ...running, status: 'paused' }).success).toBe(false);
+  });
+});
+
+describe('loopModelsFor', () => {
+  it('offers Claude the whole ladder', () => {
+    expect(loopModelsFor('claude')).toEqual(LOOP_MODELS);
+  });
+
+  it('offers every other agent the neutral entry alone, matching loopModelArgs', () => {
+    // A picker that offered Opus for `codex` and a launcher that dropped the
+    // flag would disagree about what the run cost.
+    for (const agentId of ['codex', 'agy', 'cursor']) {
+      expect(loopModelsFor(agentId).map((entry) => entry.id), agentId).toEqual(['default']);
+      expect(loopModelArgs(agentId, 'opus-5'), agentId).toEqual([]);
+    }
   });
 });

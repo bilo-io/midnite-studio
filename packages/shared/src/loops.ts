@@ -176,6 +176,20 @@ export function loopModelArgs(agentId: string, model: LoopModel): string[] {
 }
 
 /**
+ * The models a given provider actually offers — the second half of the
+ * composer's provider/model pair.
+ *
+ * The same claude-only rule {@link loopModelArgs} enforces, said in the shape
+ * a picker needs: every other agent gets the one neutral entry rather than a
+ * list of Claudes it would refuse to launch. Kept beside `loopModelArgs` so
+ * the two cannot drift — a UI that offered Opus for `codex` and a launcher
+ * that dropped the flag would disagree about what the run cost.
+ */
+export function loopModelsFor(agentId: string): readonly (typeof LOOP_MODELS)[number][] {
+  return agentId === 'claude' ? LOOP_MODELS : LOOP_MODELS.filter((entry) => entry.cliModel === null);
+}
+
+/**
  * How often a scheduled loop should take another pass.
  *
  * Prompt-level like the window itself, and for the same reason: `/loop` paces
@@ -219,33 +233,76 @@ export const LOOP_FREQUENCIES: readonly {
 ];
 
 /**
- * Which days the window applies on.
+ * Which days the loop may work at all — the seven, individually.
  *
- * Three sets rather than seven checkboxes: the answer a standing loop actually
- * needs is "my working week" or "not my working week", and a per-day grid
- * would be five more controls in a 320px panel to express the case nobody has
- * asked for. `'all'` is neutral and says nothing.
+ * This was three preset tokens (`'all' | 'weekdays' | 'weekends'`), whose own
+ * comment argued that a per-day answer would be "five more controls in a 320px
+ * panel to express the case nobody has asked for". The case was asked for, and
+ * the premise no longer holds: a multi-select is ONE control the width of the
+ * two beside it, not seven checkboxes. The presets survive as
+ * {@link LEGACY_LOOP_DAY_SETS} — every schedule persisted before this change
+ * still holds one of those strings, and {@link resolveLoopDays} is what reads
+ * it as the day set it always meant.
+ *
+ * Monday first: the loops this app runs are working-week shaped, and a week
+ * that starts on Sunday puts the two days a loop is most often told to skip on
+ * opposite ends of the control.
  */
-export const LoopDaysSchema = z.enum(['all', 'weekdays', 'weekends']);
-export type LoopDays = z.infer<typeof LoopDaysSchema>;
+export const LoopWeekdaySchema = z.enum(['mon', 'tue', 'wed', 'thu', 'fri', 'sat', 'sun']);
+export type LoopWeekday = z.infer<typeof LoopWeekdaySchema>;
 
-export const LOOP_DAY_SETS: readonly {
-  id: LoopDays;
-  label: string;
-  promptFragment: string | null;
-}[] = [
-  { id: 'all', label: 'Every day', promptFragment: null },
-  {
-    id: 'weekdays',
-    label: 'Weekdays',
-    promptFragment: 'Work on weekdays only — idle through Saturday and Sunday.',
-  },
-  {
-    id: 'weekends',
-    label: 'Weekends',
-    promptFragment: 'Work at weekends only — idle Monday through Friday.',
-  },
+/**
+ * `label` is what the prompt says ("Monday"), `short` what a 320px control and
+ * a running chip have room for ("Mon") — one table, so the two can never name
+ * the same day differently.
+ */
+export const LOOP_WEEKDAYS: readonly { id: LoopWeekday; label: string; short: string }[] = [
+  { id: 'mon', label: 'Monday', short: 'Mon' },
+  { id: 'tue', label: 'Tuesday', short: 'Tue' },
+  { id: 'wed', label: 'Wednesday', short: 'Wed' },
+  { id: 'thu', label: 'Thursday', short: 'Thu' },
+  { id: 'fri', label: 'Friday', short: 'Fri' },
+  { id: 'sat', label: 'Saturday', short: 'Sat' },
+  { id: 'sun', label: 'Sunday', short: 'Sun' },
 ];
+
+/** Every day, in declared order — the neutral answer, which says nothing. */
+export const ALL_LOOP_WEEKDAYS: readonly LoopWeekday[] = LOOP_WEEKDAYS.map((day) => day.id);
+
+const WEEKDAY_SET: readonly LoopWeekday[] = ['mon', 'tue', 'wed', 'thu', 'fri'];
+const WEEKEND_SET: readonly LoopWeekday[] = ['sat', 'sun'];
+
+/**
+ * The three tokens `days` used to be, as the day sets they always meant.
+ *
+ * Exported because it is a migration, not an implementation detail: a stored
+ * `'weekdays'` has to keep composing the same line it composed before the
+ * multi-select existed, and that equivalence is worth a test.
+ */
+export const LEGACY_LOOP_DAY_SETS: Record<string, readonly LoopWeekday[]> = {
+  all: ALL_LOOP_WEEKDAYS,
+  weekdays: WEEKDAY_SET,
+  weekends: WEEKEND_SET,
+};
+
+/**
+ * Accept either shape on the wire: the array this field is now, or one of the
+ * three legacy preset strings, widened to the set it named.
+ *
+ * A string naming no preset becomes `undefined` — neutral — rather than a
+ * parse failure: `days` is one axis of an optional schedule, and refusing the
+ * whole record over an unknown token would cost a user their window and their
+ * cadence too.
+ */
+function widenLegacyDays(value: unknown): unknown {
+  if (typeof value !== 'string') return value;
+  return Object.hasOwn(LEGACY_LOOP_DAY_SETS, value) ? [...LEGACY_LOOP_DAY_SETS[value]!] : undefined;
+}
+
+export const LoopDaysSchema = z.preprocess(
+  widenLegacyDays,
+  z.array(LoopWeekdaySchema).optional(),
+);
 
 /** `HH:MM`, 24-hour — what an `<input type="time">` produces. */
 const TimeOfDay = z
@@ -275,8 +332,13 @@ export const LoopScheduleSchema = z.object({
    * `LoopRunRecord.model`.
    */
   frequency: LoopFrequencySchema.optional(),
-  /** Which days it may work at all. Absent means every day. */
-  days: LoopDaysSchema.optional(),
+  /**
+   * Which days it may work at all. Absent — and every day selected —
+   * means the same thing: no day restriction is sent. See
+   * {@link resolveLoopDays}, which is also where a legacy preset string is
+   * read as the set it named.
+   */
+  days: LoopDaysSchema,
 });
 export type LoopSchedule = z.infer<typeof LoopScheduleSchema>;
 
@@ -286,8 +348,78 @@ export const DEFAULT_LOOP_SCHEDULE: LoopSchedule = {
   from: '09:00',
   to: '17:00',
   frequency: 'continuous',
-  days: 'all',
+  days: [...ALL_LOOP_WEEKDAYS],
 };
+
+/**
+ * The days a schedule actually names, whatever shape it was stored in.
+ *
+ * Three inputs reach this: the array the field is now, one of the three legacy
+ * preset strings (a `settings.json` written before the multi-select existed is
+ * spread into the store as-is — nothing re-parses it through zod on the way
+ * in, so the TYPE says array while the value on disk may still be a string),
+ * and `undefined`. The first two are read as themselves; `undefined` is every
+ * day, which is the neutral answer.
+ *
+ * Filtering `ALL_LOOP_WEEKDAYS` rather than the input is what canonicalises
+ * the result: duplicates collapse, unknown tokens drop, and Monday is always
+ * first however the user clicked them in — so the composed line and the chip
+ * read the same for two selections that mean the same thing.
+ */
+export function resolveLoopDays(days: LoopSchedule['days']): LoopWeekday[] {
+  const raw: unknown = days;
+  if (raw === undefined || raw === null) return [...ALL_LOOP_WEEKDAYS];
+  if (typeof raw === 'string') {
+    return [...(LEGACY_LOOP_DAY_SETS[raw] ?? ALL_LOOP_WEEKDAYS)];
+  }
+  if (!Array.isArray(raw)) return [...ALL_LOOP_WEEKDAYS];
+  return ALL_LOOP_WEEKDAYS.filter((day) => (raw as unknown[]).includes(day));
+}
+
+/** Same members, order-insensitively — both sides are already canonical. */
+function sameDays(a: readonly LoopWeekday[], b: readonly LoopWeekday[]): boolean {
+  return a.length === b.length && a.every((day) => b.includes(day));
+}
+
+/**
+ * "Monday, Wednesday and Friday" — an Oxford-comma-free list, because it is
+ * read by an agent as part of a sentence.
+ */
+function nameDays(days: readonly LoopWeekday[], key: 'label' | 'short'): string {
+  const names = days.map((day) => LOOP_WEEKDAYS.find((entry) => entry.id === day)?.[key] ?? day);
+  if (names.length <= 1) return names.join('');
+  return `${names.slice(0, -1).join(', ')} and ${names[names.length - 1]}`;
+}
+
+/**
+ * The day axis as prose, or `null` when it is neutral.
+ *
+ * Neutral is BOTH "every day" and "no day at all": an empty selection is a
+ * user mid-edit, exactly like `from === to` on the window, and a loop told to
+ * work on no days would be a loop told not to run — which Start pressing at
+ * all contradicts. The composer warns instead (see `ScheduleRows`).
+ *
+ * The two preset sets keep the verbatim sentences the three-token version
+ * sent, so a stored `'weekdays'` composes the line it always composed.
+ */
+function loopDaysFragment(days: readonly LoopWeekday[]): string | null {
+  if (days.length === 0 || days.length === LOOP_WEEKDAYS.length) return null;
+  if (sameDays(days, WEEKDAY_SET)) {
+    return 'Work on weekdays only — idle through Saturday and Sunday.';
+  }
+  if (sameDays(days, WEEKEND_SET)) {
+    return 'Work at weekends only — idle Monday through Friday.';
+  }
+  return `Work on ${nameDays(days, 'label')} only — idle on every other day.`;
+}
+
+/** The day axis as the two or three words a chip has room for, or `null`. */
+function loopDaysSummary(days: readonly LoopWeekday[]): string | null {
+  if (days.length === 0 || days.length === LOOP_WEEKDAYS.length) return null;
+  if (sameDays(days, WEEKDAY_SET)) return 'Weekdays';
+  if (sameDays(days, WEEKEND_SET)) return 'Weekends';
+  return days.map((day) => LOOP_WEEKDAYS.find((entry) => entry.id === day)?.short ?? day).join(', ');
+}
 
 /**
  * The schedule as prose, or `null` when there is nothing to say.
@@ -310,8 +442,8 @@ export function loopScheduleFragment(schedule: LoopSchedule | null | undefined):
 
   const parts: string[] = [];
 
-  const days = LOOP_DAY_SETS.find((entry) => entry.id === (schedule.days ?? 'all'));
-  if (days?.promptFragment) parts.push(days.promptFragment);
+  const days = loopDaysFragment(resolveLoopDays(schedule.days));
+  if (days !== null) parts.push(days);
 
   if (schedule.from !== schedule.to) {
     const overnight = schedule.from > schedule.to ? ' (overnight)' : '';
@@ -341,9 +473,8 @@ export function loopScheduleSummary(schedule: LoopSchedule | null | undefined): 
   if (loopScheduleFragment(schedule) === null || !schedule) return null;
   const parts: string[] = [];
   if (schedule.from !== schedule.to) parts.push(`${schedule.from}–${schedule.to}`);
-  if (schedule.days && schedule.days !== 'all') {
-    parts.push(LOOP_DAY_SETS.find((entry) => entry.id === schedule.days)?.label ?? schedule.days);
-  }
+  const days = loopDaysSummary(resolveLoopDays(schedule.days));
+  if (days !== null) parts.push(days);
   if (schedule.frequency && schedule.frequency !== 'continuous') {
     parts.push(
       LOOP_FREQUENCIES.find((entry) => entry.id === schedule.frequency)?.label ?? schedule.frequency,
