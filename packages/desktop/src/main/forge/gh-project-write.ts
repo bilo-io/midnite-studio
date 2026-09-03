@@ -115,6 +115,30 @@ export async function addItemToProject(
 }
 
 /**
+ * `clearProjectV2ItemFieldValue` (Phase 50 Theme C) — empties a cell rather
+ * than setting it to something. `setItemFieldValue`'s own `value` input
+ * always carries one of `text`/`number`/`date`/`singleSelectOptionId`; none
+ * of them can mean "no value," which is exactly what dropping a card on
+ * `board-view.tsx`'s "No status" column needs to send.
+ */
+export async function clearItemFieldValue(
+  forge: Forge,
+  request: { projectId: string; itemId: string; fieldId: string },
+): Promise<ForgeProjectWriteResult> {
+  const cli = await ghStatus();
+  if (cli.reason !== 'ready') return { ok: false, kind: 'error', message: 'gh is not ready.' };
+
+  const query =
+    'mutation($input:ClearProjectV2ItemFieldValueInput!){' +
+    'clearProjectV2ItemFieldValue(input:$input){projectV2Item{id}}}';
+  const variables = {
+    input: { projectId: request.projectId, itemId: request.itemId, fieldId: request.fieldId },
+  };
+
+  return runMutation(forge, query, variables);
+}
+
+/**
  * One `gh api graphql` mutation with a JSON body on stdin.
  *
  * `printf %s <json> | gh api graphql --input -`, never `-f`/`-F` — see this

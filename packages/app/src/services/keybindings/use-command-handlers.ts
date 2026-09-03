@@ -13,7 +13,7 @@ import { useBrowserStore } from '../../store/browser-store';
 import { useCommitBoxStore } from '../../store/commit-box-store';
 import { useFileEditorStore } from '../../store/file-editor-store';
 import { usePaletteStore } from '../../store/palette-store';
-import { useUiStore } from '../../store/ui-store';
+import { useUiStore, type ViewId } from '../../store/ui-store';
 import { useWorkbenchStore } from '../../store/workbench-store';
 import { bridge } from '../bridge';
 import { useCloseRepo, usePickAndOpenRepo, useRepos } from '../queries';
@@ -30,6 +30,12 @@ export type CommandEntry = {
 export type CommandRuntime = Record<CommandId, CommandEntry>;
 
 const NO_REPO = 'Open a repository first';
+
+// Views that can ever register a `panel-stack` instance (`active-panel.ts`)
+// — Councils (Phase 42) and, since Phase 50 Theme D, a board's card detail.
+// `Mod+[`/`Mod+]` stay disabled everywhere else rather than firing a silent
+// no-op through the registry.
+const PANEL_HISTORY_VIEWS = new Set<ViewId>(['councils', 'projects']);
 
 /**
  * The one dispatcher every source reads: the keyboard, the native menu, and
@@ -228,17 +234,18 @@ export function useCommandHandlers(): CommandRuntime {
       ? { enabled: true, run: () => useSlidesStore.getState().presentActive() }
       : { enabled: false, disabledReason: 'No markdown in view', run: () => {} },
 
-    // Panel-local (Phase 42 Theme D) — the first history chords in the app.
-    // `activePanelBack`/`Forward` route to whichever `panel-stack` a mounted
-    // view registered (see `active-panel.ts`); gating `enabled` on the
-    // Councils view being active is what stops `Mod+[` firing silently from
-    // every other view, since the registry itself would no-op there anyway.
-    'panel.back': activeView === 'councils'
+    // Panel-local (Phase 42 Theme D, joined by Phase 50 Theme D's board card
+    // panel). `activePanelBack`/`Forward` route to whichever `panel-stack` a
+    // mounted view registered (see `active-panel.ts`); gating `enabled` on
+    // one of the views that can ever register one is what stops `Mod+[`
+    // firing silently from every other view, since the registry itself would
+    // no-op there anyway.
+    'panel.back': PANEL_HISTORY_VIEWS.has(activeView)
       ? { enabled: true, run: () => activePanelBack() }
-      : { enabled: false, disabledReason: 'Open Councils first', run: () => {} },
-    'panel.forward': activeView === 'councils'
+      : { enabled: false, disabledReason: 'Open Councils or a Projects card first', run: () => {} },
+    'panel.forward': PANEL_HISTORY_VIEWS.has(activeView)
       ? { enabled: true, run: () => activePanelForward() }
-      : { enabled: false, disabledReason: 'Open Councils first', run: () => {} },
+      : { enabled: false, disabledReason: 'Open Councils or a Projects card first', run: () => {} },
   };
 }
 

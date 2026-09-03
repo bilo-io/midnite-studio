@@ -39,9 +39,9 @@ Effort tags: **S** ≈ an hour or two · **M** ≈ half a day · **L** ≈ a day
 
 ## Deliverables
 
-### A — A card session outlives its agent (S)
+### A — A card session outlives its agent (S) — ✅ DONE (2026-09-03)
 
-- [ ] Resolve [Phase 41's open decision](phase-41-agentic-kanban.md#decisions--open-questions)
+- [x] Resolve [Phase 41's open decision](phase-41-agentic-kanban.md#decisions--open-questions)
       ("what happens to a card's session when its agent finishes?") the way that doc's own
       recommendation said: the session **stays** after the agent exits, the card renders a
       terminal state (succeeded / failed / ended) instead of losing its binding, and it is cleared
@@ -55,15 +55,15 @@ Effort tags: **S** ≈ an hour or two · **M** ≈ half a day · **L** ≈ a day
     means.
   - Dismiss appears only once `useCardStatus()` reports a non-running terminal state — a running
     card has a Stop control (Theme D of Phase 41), not a Dismiss one.
-- [ ] A soft warning, not a hard block, at **5** concurrently-bound card sessions on one board —
+- [x] A soft warning, not a hard block, at **5** concurrently-bound card sessions on one board —
       Phase 41 Theme I's own recorded recommendation, distinct from Theme E's 4-instance *mounted
       xterm* cap: five agents may be running while at most four of their terminals are painted.
   - A toast on the 6th launch attempt, matching this app's "controls disable until the answer
     comes back" posture rather than inventing a client-side quota that blocks the action outright.
 
-### B — Launch and run, as an explicit opt-in (M)
+### B — Launch and run, as an explicit opt-in (M) — ✅ DONE (2026-09-03)
 
-- [ ] A "Launch and run" action beside the existing Start (which still types-and-does-not-send by
+- [x] A "Launch and run" action beside the existing Start (which still types-and-does-not-send by
       default), gated behind a new `Settings ▸ Projects` toggle — that page already exists
       ([`projects-page.tsx`](../../../packages/app/src/features/settings/settings-pages/projects-page.tsx))
       — defaulting **off**.
@@ -81,14 +81,14 @@ Effort tags: **S** ≈ an hour or two · **M** ≈ half a day · **L** ≈ a day
     could have written, unlike a FAB loop's fixed, user-authored prompt. The confirm dialog is
     where that argument earns its keep — it names the prompt's source, not just its content.
 
-### C — A real "No status" drop target (S)
+### C — A real "No status" drop target (S) — ✅ DONE (2026-09-03)
 
-- [ ] `clearProjectV2ItemFieldValue` in
+- [x] `clearProjectV2ItemFieldValue` in
       [`gh-project-write.ts`](../../../packages/desktop/src/main/forge/gh-project-write.ts), a
       third mutation beside `setItemFieldValue`/`addItemToProject`, following the same JSON-on-stdin
       pattern the file's own docblock establishes (never `-f`/`-F`) and returning the same
       `ForgeProjectWriteResult` envelope.
-- [ ] Wire it into the board: `board-dnd.ts`'s `applyOptimisticMove` and `board-view.tsx`'s
+- [x] Wire it into the board: `board-dnd.ts`'s `applyOptimisticMove` and `board-view.tsx`'s
       `useDroppable({ disabled: column.id === NO_STATUS_COLUMN_ID })` both exist specifically
       because this mutation didn't — `board-dnd.ts:15` names it directly
       (*"There is no `clearProjectV2ItemFieldValue` in this phase's write path"*). Flip the
@@ -99,9 +99,9 @@ Effort tags: **S** ≈ an hour or two · **M** ≈ half a day · **L** ≈ a day
     (`board-dnd.test.ts:66`) currently asserts the target is rejected — that assertion inverts once
     this theme lands, and needs updating in place rather than deleting.
 
-### D — The card-detail pane adopts `panel-stack` (M)
+### D — The card-detail pane adopts `panel-stack` (M) — ✅ DONE (2026-09-03)
 
-- [ ] Wrap the card-detail flow (Phase 41 Theme B's right-hand pane) in
+- [x] Wrap the card-detail flow (Phase 41 Theme B's right-hand pane) in
       [`PanelStack`](../../../packages/app/src/components/panel-stack/panel-stack.tsx) +
       `usePanelHistory`, exactly the primitive Councils (Phase 42) already runs on and that its own
       docblock names Projects as the next intended consumer of.
@@ -180,17 +180,29 @@ Effort tags: **S** ≈ an hour or two · **M** ≈ half a day · **L** ≈ a day
 
 ## Verification
 
-- [ ] `moon run :typecheck :lint :test` green.
-- [ ] A card whose agent has exited still shows in the board with a terminal-state indicator, not a
+- [x] `moon run :typecheck :lint :test` green.
+- [x] A card whose agent has exited still shows in the board with a terminal-state indicator, not a
       stale glow, and Dismiss clears its binding without ending a still-live session early.
-- [ ] The 6th concurrent card launch on one board shows the soft-warn toast; it does not block the
-      launch.
-- [ ] "Launch and run" is invisible with the settings toggle off, and even with it on, still shows
+      (`card-composer.test.tsx` — "Ended" + Dismiss present, Stop absent; `terminal-store.test.ts` —
+      `dismissCardSession` finds an ended session and leaves another board's alone.)
+- [x] The 6th concurrent card launch on one board shows the soft-warn toast; it does not block the
+      launch. (`card-composer.test.tsx` "warns, but still launches"; `board-derive.test.ts` proves
+      the count ignores asleep, main-surface and other-board sessions.)
+- [x] "Launch and run" is invisible with the settings toggle off, and even with it on, still shows
       the confirm dialog with the exact command before sending it.
-- [ ] Dragging a card to "No status" clears the field on github.com (mock-bridge e2e for the shape;
-      a real-board human pass for the live mutation, same posture as Phase 41 Theme I).
-- [ ] Opening a card, closing it and reopening a different one is `Mod+[`-reachable back to the
-      first, via the board's own panel-stack instance.
+      (`card-composer.test.tsx` `describe('Launch and run (Phase 50 Theme B)')` — five cases: absent
+      by default, present when on, the confirm carrying the preview verbatim with nothing launched
+      yet, cancel launching nothing, and confirm queuing the prompt *with* the trailing `\r` that
+      Start's own case asserts the absence of.)
+- [ ] Dragging a card to "No status" clears the field on github.com — **mock-bridge half done,
+      the item stays open for the human half**
+      (`e2e/kanban.spec.ts` asserts the drop routes through `clearField`, not `setField`;
+      `board-view.test.tsx` asserts the same for the "Move to ▸ No status" menu path). The
+      real-board human pass for the live mutation stays open, same posture as Phase 41 Theme I.
+- [x] Opening a card, closing it and reopening a different one is `Mod+[`-reachable back to the
+      first, via the board's own panel-stack instance. (`e2e/kanban.spec.ts` "opening a second card,
+      then Back, returns to the first"; `card-panel-stack.test.tsx` covers the push/no-op/reset/
+      drop-out cases and `use-command-handlers.test.ts` the `panel.back`/`panel.forward` gating.)
 - [ ] "Add to project ▸" from a PR's Reviews detail pane adds it to the last-used board, verified
       against a mock bridge; a real-board human pass confirms the item appears on github.com.
 - [ ] A non-Claude agent's kanban card / FAB tab shows a live `thinking`/`waiting` transition during

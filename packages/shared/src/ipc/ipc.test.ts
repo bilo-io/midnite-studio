@@ -711,6 +711,7 @@ describe('forge schemas', () => {
       forgeProjectFields: ['ForgeProjectFieldsRequest', 'ForgeProjectFieldsResponse'],
       forgeProjectSetField: ['ForgeProjectSetFieldRequest', 'ForgeProjectSetFieldResponse'],
       forgeProjectAddItem: ['ForgeProjectAddItemRequest', 'ForgeProjectAddItemResponse'],
+      forgeProjectClearField: ['ForgeProjectClearFieldRequest', 'ForgeProjectClearFieldResponse'],
     };
     const channelKeys = Object.keys(CHANNELS).filter((key) => key.startsWith('forge'));
     expect(channelKeys.sort()).toEqual(Object.keys(expected).sort());

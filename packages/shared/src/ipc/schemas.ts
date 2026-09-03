@@ -733,6 +733,20 @@ export const ForgeProjectAddItemRequest = z.object({
 });
 export const ForgeProjectAddItemResponse = ForgeProjectWriteResultSchema;
 
+/**
+ * `clearProjectV2ItemFieldValue` (Phase 50 Theme C) — removes a field's value
+ * entirely, the mutation `setField` cannot express: its own `value` input
+ * always carries one of `text`/`number`/`date`/`singleSelectOptionId`, none
+ * of which can mean "no value." No `value` here for the same reason —
+ * clearing takes only the coordinates of the cell to empty.
+ */
+export const ForgeProjectClearFieldRequest = z.object({
+  projectId: ProjectNodeId,
+  itemId: ProjectNodeId,
+  fieldId: ProjectNodeId,
+});
+export const ForgeProjectClearFieldResponse = ForgeProjectWriteResultSchema;
+
 // --- shell -----------------------------------------------------------------
 
 /**

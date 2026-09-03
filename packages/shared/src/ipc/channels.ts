@@ -201,6 +201,8 @@ export const CHANNELS = {
   forgeProjectSetField: 'mstudio:forge-project:set-field',
   /** `addProjectV2ItemById` — attach an existing issue or PR to the board. */
   forgeProjectAddItem: 'mstudio:forge-project:add-item',
+  /** `clearProjectV2ItemFieldValue` — empty a cell, e.g. dropping a card on "No status". */
+  forgeProjectClearField: 'mstudio:forge-project:clear-field',
 
   // --- shell ---------------------------------------------------------------
   /**

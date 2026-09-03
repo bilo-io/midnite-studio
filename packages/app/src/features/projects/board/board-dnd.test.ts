@@ -55,7 +55,7 @@ describe('applyOptimisticMove', () => {
     expect(next[0]?.fieldValues['f-status']).toMatchObject({ optionId: 'opt-done' });
   });
 
-  it('is a no-op — never clears the field — when the target is the No-status column', () => {
+  it('clears the field when the target is the No-status column (Phase 50 Theme C)', () => {
     const items = [
       item({
         fieldValues: {
@@ -65,7 +65,14 @@ describe('applyOptimisticMove', () => {
     ];
     const next = applyOptimisticMove(items, 'item-1', STATUS_FIELD, NO_STATUS_COLUMN_ID);
 
-    expect(next[0]?.fieldValues['f-status']).toMatchObject({ optionId: 'opt-todo' });
+    expect(next[0]?.fieldValues['f-status']).toBeUndefined();
+  });
+
+  it('clearing the field is still a no-op on an item that already has none', () => {
+    const items = [item()];
+    const next = applyOptimisticMove(items, 'item-1', STATUS_FIELD, NO_STATUS_COLUMN_ID);
+
+    expect(next[0]?.fieldValues['f-status']).toBeUndefined();
   });
 
   it('is a no-op for an option id the field no longer has', () => {

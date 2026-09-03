@@ -27,11 +27,12 @@ const { listProjects, projectFields, projectItems } = vi.hoisted(() => ({
 }));
 vi.mock('../forge/gh-project', () => ({ listProjects, projectFields, projectItems }));
 
-const { setItemFieldValue, addItemToProject } = vi.hoisted(() => ({
+const { setItemFieldValue, addItemToProject, clearItemFieldValue } = vi.hoisted(() => ({
   setItemFieldValue: vi.fn(),
   addItemToProject: vi.fn(),
+  clearItemFieldValue: vi.fn(),
 }));
-vi.mock('../forge/gh-project-write', () => ({ setItemFieldValue, addItemToProject }));
+vi.mock('../forge/gh-project-write', () => ({ setItemFieldValue, addItemToProject, clearItemFieldValue }));
 
 const OK_CLI = { reason: 'ready' as const, binPath: '/usr/bin/gh', hint: '' };
 const githubRemote = {
@@ -56,6 +57,7 @@ beforeEach(() => {
   projectItems.mockReset();
   setItemFieldValue.mockReset();
   addItemToProject.mockReset();
+  clearItemFieldValue.mockReset();
 });
 
 afterEach(() => {
@@ -201,6 +203,36 @@ describe('forgeProjectSetField / forgeProjectAddItem (Theme E)', () => {
       ?.(null, { projectId: 'PVT_abc', contentId: '; rm -rf /' });
 
     expect(addItemToProject).not.toHaveBeenCalled();
+    expect(result).toMatchObject({ ok: false, kind: 'error' });
+  });
+});
+
+describe('forgeProjectClearField (Phase 50 Theme C)', () => {
+  it('forwards a well-formed clear-field request to clearItemFieldValue', async () => {
+    clearItemFieldValue.mockResolvedValue({ ok: true, kind: 'ok' });
+    const registered = await loadHandlers();
+
+    const result = await registered
+      .get('mstudio:forge-project:clear-field')
+      ?.(null, { projectId: 'PVT_abc', itemId: 'PVTI_abc', fieldId: 'f1' });
+
+    expect(clearItemFieldValue).toHaveBeenCalledWith(expect.objectContaining({ host: 'github.com' }), {
+      projectId: 'PVT_abc',
+      itemId: 'PVTI_abc',
+      fieldId: 'f1',
+    });
+    expect(result).toEqual({ ok: true, kind: 'ok' });
+  });
+
+  it('refuses a clear-field request whose fieldId carries shell metacharacters', async () => {
+    const registered = await loadHandlers();
+    const result = await registered.get('mstudio:forge-project:clear-field')?.(null, {
+      projectId: 'PVT_abc',
+      itemId: 'PVTI_abc',
+      fieldId: '$(rm -rf /)',
+    });
+
+    expect(clearItemFieldValue).not.toHaveBeenCalled();
     expect(result).toMatchObject({ ok: false, kind: 'error' });
   });
 });

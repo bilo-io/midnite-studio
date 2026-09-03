@@ -19,7 +19,10 @@ afterEach(() => {
 // the agent roster once a card opens.
 vi.mock('../../../services/bridge', () => ({
   bridge: () => ({
-    forgeProject: { setField: vi.fn().mockResolvedValue({ ok: true, kind: 'ok' }) },
+    forgeProject: {
+      setField: vi.fn().mockResolvedValue({ ok: true, kind: 'ok' }),
+      clearField: vi.fn().mockResolvedValue({ ok: true, kind: 'ok' }),
+    },
     terminal: { list: vi.fn(async () => ({ sessions: [] })), save: vi.fn() },
     agent: { list: vi.fn(async () => ({ agents: [], status: [] })) },
   }),
@@ -226,6 +229,32 @@ describe('BoardView', () => {
 
       fireEvent.contextMenu(screen.getByText('A task'));
       expect(screen.queryByRole('menu')).toBeNull();
+    });
+
+    it('offers "No status" as a real destination (Phase 50 Theme C)', async () => {
+      uiState.forgeWritesEnabled = true;
+      renderWithClient(<BoardView projectId="PVT_1" repoId="repo-1" worktreePath="/repo" fields={[statusField]} items={[item('i1', 'A task', 'todo')]} />);
+
+      fireEvent.contextMenu(screen.getByText('A task'));
+      const moveTo = await screen.findByRole('menuitem', { name: 'Move to' });
+      fireEvent.mouseEnter(moveTo.closest('div')!);
+
+      expect(await screen.findByRole('menuitem', { name: 'No status' })).toBeDefined();
+    });
+
+    it('choosing "No status" clears the field, not sets it', async () => {
+      uiState.forgeWritesEnabled = true;
+      renderWithClient(<BoardView projectId="PVT_1" repoId="repo-1" worktreePath="/repo" fields={[statusField]} items={[item('i1', 'A task', 'todo')]} />);
+
+      fireEvent.contextMenu(screen.getByText('A task'));
+      const moveTo = await screen.findByRole('menuitem', { name: 'Move to' });
+      fireEvent.mouseEnter(moveTo.closest('div')!);
+      fireEvent.click(await screen.findByRole('menuitem', { name: 'No status' }));
+
+      // Optimistic, same as any other move: the card is under No status
+      // immediately.
+      const noStatusColumn = screen.getByRole('button', { name: 'Collapse No status' }).closest('div')!;
+      expect(within(noStatusColumn).getByText('A task')).toBeDefined();
     });
   });
 });

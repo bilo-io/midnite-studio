@@ -684,6 +684,29 @@ export function useSetProjectItemField(projectId: string | null) {
 }
 
 /**
+ * Clear one item's field value entirely (Phase 50 Theme C) — a sibling to
+ * `useSetProjectItemField` rather than a branch inside it: `clearField` takes
+ * no `value` at all, so folding the two into one mutation would mean an
+ * input shape that is sometimes wrong for the channel it calls. Same "not
+ * optimistic, invalidate narrowly" posture as its sibling.
+ */
+export function useClearProjectItemField(projectId: string | null) {
+  const client = useQueryClient();
+  return useMutation({
+    mutationFn: async (input: { itemId: string; fieldId: string }): Promise<ForgeProjectWriteResult> => {
+      const api = bridge();
+      if (!api || !projectId) return NO_FORGE_PROJECT_WRITE;
+      return api.forgeProject.clearField({ projectId, ...input });
+    },
+    onSuccess: (result) => {
+      if (result.ok && projectId) {
+        void client.invalidateQueries({ queryKey: keys.forgeProjectItems(projectId) });
+      }
+    },
+  });
+}
+
+/**
  * One run's job/step tree, fetched only once a row has been expanded.
  *
  * The same staleness window as its siblings, deliberately: a completed run is

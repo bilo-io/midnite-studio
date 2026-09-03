@@ -1067,6 +1067,35 @@ export async function installMockBridge(page: Page, fixtures: MockFixtures): Pro
           }
           return { ok: true as const, kind: 'ok' as const };
         },
+        /*
+          `clearField` (Phase 50 Theme C) — same fixture-mutation device as
+          `setField` above, but removing the key entirely rather than
+          replacing its value: a cleared cell has no `ForgeProjectFieldValue`
+          to render, which `deriveColumns`'s "No status" fallback already
+          expects (an item with no entry for the Status field id, not one
+          holding an empty value).
+        */
+        clearField: async (req: Record<string, unknown>) => {
+          recordWrite('forgeProjectClearField', req);
+          const result = data.forgeProject?.writeResult;
+          if (result && result.ok === false) {
+            return result.kind === 'insufficient-scope'
+              ? { ok: false as const, kind: 'insufficient-scope' as const, hint: result.hint ?? 'gh auth refresh -s project' }
+              : { ok: false as const, kind: 'error' as const, message: result.message };
+          }
+          const projectId = req['projectId'] as string;
+          const itemId = req['itemId'] as string;
+          const fieldId = req['fieldId'] as string;
+          const items = (data.forgeProject?.items?.[projectId] ?? []) as Record<string, unknown>[];
+          for (const item of items) {
+            if (item['id'] === itemId) {
+              const fieldValues = { ...(item['fieldValues'] as Record<string, unknown>) };
+              delete fieldValues[fieldId];
+              item['fieldValues'] = fieldValues;
+            }
+          }
+          return { ok: true as const, kind: 'ok' as const };
+        },
       }),
       /*
         One payload, echoing back the window it was asked for.

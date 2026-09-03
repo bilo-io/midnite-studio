@@ -203,6 +203,25 @@ describe('useCommandHandlers — a repo is selected', () => {
     expect(result.current['status.commit'].enabled).toBe(false);
   });
 
+  it('enables panel.back/forward on Councils and Projects, disabled everywhere else', () => {
+    useUiStore.setState({ activeView: 'graph' });
+    const { result: elsewhere } = withProviders(seededClient({}));
+    expect(elsewhere.current['panel.back'].enabled).toBe(false);
+    expect(elsewhere.current['panel.forward'].enabled).toBe(false);
+
+    useUiStore.setState({ activeView: 'councils' });
+    const { result: councils } = withProviders(seededClient({}));
+    expect(councils.current['panel.back'].enabled).toBe(true);
+    expect(councils.current['panel.forward'].enabled).toBe(true);
+
+    // Phase 50 Theme D: the board's own card panel-stack joins Councils as a
+    // registrant of `active-panel.ts`.
+    useUiStore.setState({ activeView: 'projects' });
+    const { result: projects } = withProviders(seededClient({}));
+    expect(projects.current['panel.back'].enabled).toBe(true);
+    expect(projects.current['panel.forward'].enabled).toBe(true);
+  });
+
   it('wires sync.* through the same syncAffordances rules the sync cluster uses', () => {
     useUiStore.setState({ selectedRepoId: REPO_ID });
     const { result } = withProviders(seededClient({ behind: 2, ahead: 0 }));

@@ -2,6 +2,59 @@
 
 <!-- Append one entry per landed phase/PR: date, phase, PR link, one-line summary. -->
 
+## 2026-09-03 — Phase 50 Themes A, B, C, D — Kanban follow-through
+
+[PR #93]. Four gaps Phases 40–42 each named and declined to build, batched together because A, B
+and D all land on `card-composer.tsx` and `board-view.tsx` and would have conflicted split apart.
+
+- [x] **Theme A — a card session outlives its agent.** The binding used to be what proved a session
+      was live, so an agent exiting lost the card's connection to its own scrollback. Now the pane
+      renders `Ended` (Stop gone, Dismiss offered, "reveal terminal" still working) and the binding
+      is cleared **only** by an explicit Dismiss. `dismissCardSession` drops `surface`/`taskRef`
+      exactly the way `rehomeSession` already did — it does not end the session, because the one
+      case that matters is a session that is *still live* under a card the user no longer wants
+      bound. `countLiveCardSessions` + `CONCURRENT_CARD_SESSION_SOFT_LIMIT = 5` soft-**warn** at the
+      6th launch and never block it: Phase 41 Theme I's own recorded recommendation, and a
+      client-side quota that refused the launch is what that recommendation argues against. The
+      count deliberately ignores asleep sessions, main-surface sessions, and sessions on another
+      board — each its own test, because each is a way the number could quietly read too high.
+- [x] **Theme B — "Launch and run," opt-in and confirmed every time.** A second button beside Start,
+      **absent from the DOM entirely** behind a default-off `Settings ▸ Projects` toggle
+      (`launchAndRunEnabled`, shaped on `forgeWritesEnabled`), and even with it on it opens a confirm
+      whose body *is* the composed command verbatim before anything is sent. Start and Launch-and-run
+      funnel through one `launch(autoSend)` rather than two copies that drift: the only difference
+      between the paths is the trailing `\r`, asserted present in one and absent in the other. Every
+      time, not only the first — a kanban prompt is composed from **remote GitHub text**, which is
+      the argument Phase 41 Theme G already wrote down for typed-not-sent, and the toggle narrows it
+      rather than reversing it.
+- [x] **Theme C — a real "No status" drop target.** `clearProjectV2ItemFieldValue` in
+      `gh-project-write.ts` plus its own channel and handler. Phase 41 Theme C found in the doing
+      that "No status" *cannot* be a drop target — clearing a field is a different GraphQL mutation
+      from setting one, which Phase 40 never built — and left the column permanently disabled. Both
+      the drag path (`applyOptimisticMove`) and the "Move to ▸" menu now route to `clearField`, and
+      the tests assert **`clearField` rather than `setField`**, not merely that some call succeeded:
+      a wire-up that reached the old mutation with an empty value would pass a weaker assertion and
+      fail on github.com.
+- [x] **Theme D — the card-detail pane adopts `panel-stack`.** `Mod+[`/`Mod+]` with a breadcrumb, on
+      the primitive whose own docblock named Projects as consumer #2. A new `card-panel-stack.tsx`
+      owns **one `usePanelHistory` per open pane**, reset on close — no module-level store, because
+      the history is meaningless once the pane is shut. Joins Councils in `active-panel.ts`'s
+      registry, so `panel.back`/`panel.forward` now gate on either view being active.
+- A follow-up fix pass caught three real defects before merge, each with a test: `CardComposer`
+  state bled between cards across a panel-stack push (a prompt typed on card A reappeared on card
+  B — fixed by keying the composer on the card id, so its local prompt/agent/model state resets
+  per card); a no-op move (dropping a card back on the column it came from) froze the board; and
+  the stack's current entry drifted out of sync with the board's own `selectedItemId`, since
+  Back/Forward move `history.current` without touching the prop that drives the column highlight —
+  fixed by reporting the navigation upward, guarded so it does not fire straight back on the push
+  that caused it. A history entry can also outlive its item (the card leaves the board while still
+  in the back-stack); that renders an explicit notice with a Close, not a blank pane.
+- **The verification checklist's three human-only items stay open, and that is the whole remainder
+  of A–D**: a real board for the live clear mutation (no fixture proves a GraphQL mutation's live
+  behaviour — Phase 41 Theme I's exact posture), and a real non-Claude CLI for Theme F's activity
+  transitions. Themes **E** ("Add to project ▸" from Reviews) and **F** (activity markers for
+  `agy`/`codex`/`opencode`) were not attempted.
+
 ## 2026-09-03 — Phase 47 Theme B — whole-file conflict resolution
 
 [PR #64]. The safe baseline on top of Theme A's parser: accept one side of a conflicted file

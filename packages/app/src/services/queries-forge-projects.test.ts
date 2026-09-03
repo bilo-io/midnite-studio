@@ -4,7 +4,7 @@ import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { renderHook, waitFor } from '@testing-library/react';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
-import { useForgeProjectItems, useForgeProjects, useSetProjectItemField } from './queries';
+import { useClearProjectItemField, useForgeProjectItems, useForgeProjects, useSetProjectItemField } from './queries';
 
 /**
  * `useForgeProjectItems` is the one hook in Theme C with real logic worth
@@ -19,6 +19,7 @@ type Bridge = {
     list: ReturnType<typeof vi.fn>;
     items: ReturnType<typeof vi.fn>;
     setField: ReturnType<typeof vi.fn>;
+    clearField: ReturnType<typeof vi.fn>;
   };
 };
 
@@ -35,7 +36,7 @@ const CLI_READY = { reason: 'ready' as const, binPath: '/usr/bin/gh', hint: '' }
 
 beforeEach(() => {
   (window as unknown as { midniteStudio?: Bridge }).midniteStudio = {
-    forgeProject: { list: vi.fn(), items: vi.fn(), setField: vi.fn() },
+    forgeProject: { list: vi.fn(), items: vi.fn(), setField: vi.fn(), clearField: vi.fn() },
   };
 });
 
@@ -179,6 +180,48 @@ describe('useSetProjectItemField', () => {
       fieldId: 'f1',
       value: { fieldId: 'f1', dataType: 'text', text: 'hi' },
     });
+
+    await waitFor(() => expect(result.current.isSuccess).toBe(true));
+    expect(result.current.data).toMatchObject({ ok: false });
+    expect(invalidate).not.toHaveBeenCalled();
+  });
+});
+
+describe('useClearProjectItemField (Phase 50 Theme C)', () => {
+  it('is not optimistic and invalidates the board\'s items on success', async () => {
+    const bridge = (window as unknown as { midniteStudio: Bridge }).midniteStudio;
+    bridge.forgeProject.clearField.mockResolvedValue({ ok: true, kind: 'ok' });
+
+    const { client, wrapper } = withClient();
+    const invalidate = vi.spyOn(client, 'invalidateQueries');
+    const { result } = renderHook(() => useClearProjectItemField('PVT_1'), { wrapper });
+
+    result.current.mutate({ itemId: 'item1', fieldId: 'f1' });
+
+    await waitFor(() => expect(result.current.isSuccess).toBe(true));
+    expect(bridge.forgeProject.clearField).toHaveBeenCalledWith({
+      projectId: 'PVT_1',
+      itemId: 'item1',
+      fieldId: 'f1',
+    });
+    expect(invalidate).toHaveBeenCalledWith(
+      expect.objectContaining({ queryKey: expect.arrayContaining(['PVT_1']) }),
+    );
+  });
+
+  it('a refused write never throws, and never invalidates', async () => {
+    const bridge = (window as unknown as { midniteStudio: Bridge }).midniteStudio;
+    bridge.forgeProject.clearField.mockResolvedValue({
+      ok: false,
+      kind: 'error',
+      message: 'Field does not belong to this project',
+    });
+
+    const { client, wrapper } = withClient();
+    const invalidate = vi.spyOn(client, 'invalidateQueries');
+    const { result } = renderHook(() => useClearProjectItemField('PVT_1'), { wrapper });
+
+    result.current.mutate({ itemId: 'item1', fieldId: 'f1' });
 
     await waitFor(() => expect(result.current.isSuccess).toBe(true));
     expect(result.current.data).toMatchObject({ ok: false });

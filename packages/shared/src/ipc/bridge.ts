@@ -310,6 +310,10 @@ export type MidniteStudioBridge = {
     addItem: (
       req: In<typeof S.ForgeProjectAddItemRequest>,
     ) => Promise<z.infer<typeof S.ForgeProjectAddItemResponse>>;
+    /** `clearProjectV2ItemFieldValue` — empty a cell, e.g. dropping a card on "No status". */
+    clearField: (
+      req: In<typeof S.ForgeProjectClearFieldRequest>,
+    ) => Promise<z.infer<typeof S.ForgeProjectClearFieldResponse>>;
   };
 
   /**

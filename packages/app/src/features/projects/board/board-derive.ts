@@ -1,5 +1,7 @@
 import type { ForgeProjectField, ForgeProjectItem, TerminalSession } from '@midnite/studio-shared';
 
+import { sessionPhase, type ConnectionState } from '../../terminal/terminal-store';
+
 /**
  * The `Status` single-select field's own option id — every real column keys
  * on this. `NO_STATUS_COLUMN_ID` never collides with a real one: GraphQL node
@@ -119,4 +121,33 @@ export function sessionsToRehome(
         !board.itemIds.has(s.taskRef.itemId),
     )
     .map((s) => s.id);
+}
+
+/**
+ * The soft-warn threshold at which one more concurrently-*running* card
+ * session gets a heads-up rather than a block (Phase 50 Theme A) — Phase 41
+ * Theme I's own recorded recommendation, and deliberately distinct from
+ * Theme E's 4-instance *mounted xterm* cap: five agents may be running on one
+ * board while at most four of their terminals are actually painted.
+ */
+export const CONCURRENT_CARD_SESSION_SOFT_LIMIT = 5;
+
+/**
+ * How many `kanban` sessions bound to this board are currently live — pure,
+ * so the threshold itself is a unit test rather than something only a
+ * running app can exercise. Ended and asleep sessions don't count: Theme A
+ * keeps them bound until Dismissed, but a dismissed-pending card isn't
+ * spending anything.
+ */
+export function countLiveCardSessions(
+  sessions: readonly TerminalSession[],
+  states: Record<string, ConnectionState>,
+  projectId: string,
+): number {
+  return sessions.filter(
+    (s) =>
+      s.surface === 'kanban' &&
+      s.taskRef?.projectId === projectId &&
+      sessionPhase(s, states[s.id]) === 'live',
+  ).length;
 }

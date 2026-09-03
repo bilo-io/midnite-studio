@@ -845,6 +845,18 @@ export type UiState = {
    */
   allowForceWithLease: boolean;
   setAllowForceWithLease: (allow: boolean) => void;
+  /**
+   * "Launch and run" (Phase 50 Theme B) — same shape as `forgeWritesEnabled`
+   * and `allowForceWithLease`: default off, so a fresh install cannot send a
+   * remote-composed prompt to an agent until someone deliberately turns it
+   * on. Reveals the button on a card's composer; it does not remove the
+   * confirm dialog that button still shows before it sends anything — a
+   * kanban prompt is composed from remote GitHub text, unlike a FAB loop's
+   * fixed, user-authored one, and that is the argument the confirm exists
+   * to carry.
+   */
+  launchAndRunEnabled: boolean;
+  setLaunchAndRunEnabled: (enabled: boolean) => void;
   passcode: string | null;
   setPasscode: (code: string | null) => void;
   passcodeOnlyWhenLocked: boolean;
@@ -995,6 +1007,7 @@ type PersistedUi = Pick<
   | 'passcode'
   | 'passcodeOnlyWhenLocked'
   | 'allowForceWithLease'
+  | 'launchAndRunEnabled'
 >;
 
 /**
@@ -1029,6 +1042,11 @@ export const useUiStore = create<UiState>()(
       // force-push anything until someone deliberately turns it on.
       allowForceWithLease: false,
       setAllowForceWithLease: (allowForceWithLease) => set({ allowForceWithLease }),
+      // Default off, same reasoning: a fresh install cannot send a
+      // remote-composed prompt to an agent until someone deliberately turns
+      // it on.
+      launchAndRunEnabled: false,
+      setLaunchAndRunEnabled: (launchAndRunEnabled) => set({ launchAndRunEnabled }),
       passcode: null,
       setPasscode: (passcode) => set({ passcode }),
       passcodeOnlyWhenLocked: false,
@@ -1427,6 +1445,7 @@ export const useUiStore = create<UiState>()(
         passcode: state.passcode,
         passcodeOnlyWhenLocked: state.passcodeOnlyWhenLocked,
         allowForceWithLease: state.allowForceWithLease,
+        launchAndRunEnabled: state.launchAndRunEnabled,
       }),
 
       /**

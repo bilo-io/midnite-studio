@@ -10,14 +10,10 @@ export type ColumnDropPayload = { kind: 'column'; optionId: string };
  * The optimistic move (Phase 41 Theme C) — a pure reducer over the board's
  * own item list, so a test exercises it and its rollback without a DOM.
  *
- * A no-op (returns `items` unchanged) for the one case a caller must not let
- * through: `toColumnId === NO_STATUS_COLUMN_ID`. There is no
- * `clearProjectV2ItemFieldValue` in this phase's write path — Phase 40 Theme
- * E built only `updateProjectV2ItemFieldValue`, which requires a real option
- * id — so "No status" is not a droppable column at all (see `board-view.tsx`'s
- * `disabled` on that column's `useDroppable`). This function stays defensive
- * about it anyway: a reducer that trusted its caller to never pass the one
- * value it cannot honour is a reducer one future call site will get wrong.
+ * `toColumnId === NO_STATUS_COLUMN_ID` **clears** the field rather than
+ * no-opping (Phase 50 Theme C) — `board-view.tsx`'s `useDroppable` no longer
+ * disables that column now that `clearProjectV2ItemFieldValue` exists to
+ * back the drop with a real mutation. Every other case is unchanged.
  */
 export function applyOptimisticMove(
   items: readonly ForgeProjectItem[],
@@ -25,9 +21,17 @@ export function applyOptimisticMove(
   statusField: ForgeProjectField,
   toColumnId: string,
 ): ForgeProjectItem[] {
-  if (statusField.dataType !== 'single_select' || toColumnId === NO_STATUS_COLUMN_ID) {
-    return items.slice();
+  if (statusField.dataType !== 'single_select') return items.slice();
+
+  if (toColumnId === NO_STATUS_COLUMN_ID) {
+    return items.map((item) => {
+      if (item.id !== itemId) return item;
+      const fieldValues = { ...item.fieldValues };
+      delete fieldValues[statusField.id];
+      return { ...item, fieldValues };
+    });
   }
+
   const option = statusField.options.find((o) => o.id === toColumnId);
   if (!option) return items.slice();
 
