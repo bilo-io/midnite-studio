@@ -814,10 +814,11 @@ function RepoItem({
           Three menus, three marks, and the order is midnite → git → ellipsis:
           widest scope first. The midnite mark holds what you ask *this app* to
           do with the repository, the Git logo holds what you ask *git*, and the
-          ellipsis holds the repository's own tooling — Install/Build/Test/Launch,
-          which used to stand here as four separate buttons ahead of the sync
-          control. Two identical ellipses came before all three, saying only
-          "more" while hiding which one held what.
+          ellipsis holds the repository's own tooling — Setup and Update, then
+          Install/Build/Test/Launch, four of which used to stand here as
+          separate buttons ahead of the sync control. Two identical ellipses
+          came before all three, saying only "more" while hiding which one held
+          what.
 
           Every one of them targets the main worktree: a folded row already
           reports the repo's own state rather than any one checkout's, and these
