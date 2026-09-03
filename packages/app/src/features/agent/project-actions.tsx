@@ -128,9 +128,15 @@ export function useProjectActions(target: ProjectActionsTarget): {
     {
       key: 'update',
       label: 'Update Midnite Studio',
-      buttonLabel: hasBuild
-        ? 'Update Midnite Studio — rebuild and install this checkout'
-        : 'Update Midnite Studio — no packaged build yet, will run dist first (several minutes, ~200MB)',
+      // The no-build note is only worth showing when the button is actually
+      // clickable — `IconButton` already appends `disabledReason` to this
+      // string when `isStudioCheckout` is false, and a repo that fails that
+      // check will also, in practice, always fail `hasBuild`, so skipping the
+      // note there avoids a tooltip fighting itself over two reasons at once.
+      buttonLabel:
+        isStudioCheckout && !hasBuild
+          ? 'Update Midnite Studio — no packaged build yet, will run dist first (several minutes, ~200MB)'
+          : 'Update Midnite Studio — rebuild and install this checkout',
       icon: LuDownload,
       ...(isStudioCheckout
         ? {}

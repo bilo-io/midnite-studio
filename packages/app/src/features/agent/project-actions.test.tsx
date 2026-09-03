@@ -46,6 +46,20 @@ describe('useProjectActions — Update pre-flight (Phase 49 Theme E)', () => {
     });
   });
 
+  it('omits the no-build note when the repo is not the studio checkout, so the tooltip does not double up on disabledReason', async () => {
+    installBridge({
+      listDir: () => ({ ok: true, entries: [] }), // no .midnite, no packaged build
+      readFile: () => ({ kind: 'missing' }), // not the studio checkout
+    });
+    const { result } = renderHook(() => useProjectActions(TARGET));
+
+    await waitFor(() => {
+      const update = result.current.actions.find((a) => a.key === 'update')!;
+      expect(update.disabled).toBe(true);
+      expect(update.buttonLabel).toBe('Update Midnite Studio — rebuild and install this checkout');
+    });
+  });
+
   it('reverts to the plain rebuild wording once a packaged build exists', async () => {
     installBridge({
       listDir: (req: unknown) =>
