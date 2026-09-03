@@ -150,6 +150,17 @@ function finish<T extends ChangedFile>(node: Building<T>): DirNode<T> {
 const compare = (a: string, b: string): number =>
   a.localeCompare(b, undefined, { numeric: true, sensitivity: 'base' });
 
+/** Every file path in a directory's subtree, for a bulk action scoped to it. */
+export function collectFilePaths<T extends ChangedFile>(node: DirNode<T>): string[] {
+  const paths: string[] = [];
+  const walk = (child: TreeNode<T>) => {
+    if (child.kind === 'file') paths.push(child.path);
+    else child.children.forEach(walk);
+  };
+  node.children.forEach(walk);
+  return paths;
+}
+
 /**
  * The flat view: every file, biggest change first.
  *
