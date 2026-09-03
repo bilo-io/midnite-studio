@@ -10,6 +10,7 @@ import {
 
 import type { ActivityTimeframe } from '../components/commit-activity-timeline/activity-buckets';
 import type {
+  ActivityBarLayout,
   ActivityTimelineOrientation,
   ActivityTimelineStyle,
 } from '../components/commit-activity-timeline/commit-activity-timeline';
@@ -425,6 +426,15 @@ export type UiState = {
   activityTimelineOrientation: ActivityTimelineOrientation;
   /** How far back the timeline looks: 24 hours, 7 days or 30. */
   activityTimeframe: ActivityTimeframe;
+  /**
+   * Whether the timeline draws rules across its time axis. Off by default:
+   * the panel is under 70px of chart in either orientation, and the rules only
+   * earn their ink once you are reading a *particular* bucket rather than the
+   * window's overall shape.
+   */
+  activityTimelineGridlines: boolean;
+  /** Diverging off a centre baseline, or the two churn bars side by side. */
+  activityBarLayout: ActivityBarLayout;
   /** Active tab in the FAB panel. */
   activeFabTab: FabTab;
   /**
@@ -652,6 +662,9 @@ export type UiState = {
   setActivityTimelineStyle: (style: ActivityTimelineStyle) => void;
   setActivityTimelineOrientation: (orientation: ActivityTimelineOrientation) => void;
   setActivityTimeframe: (timeframe: ActivityTimeframe) => void;
+  toggleActivityTimelineGridlines: () => void;
+  setActivityTimelineGridlines: (on: boolean) => void;
+  setActivityBarLayout: (layout: ActivityBarLayout) => void;
   setActiveFabTab: (tab: FabTab) => void;
   onFabTabClick: (tab: FabTab) => void;
   /**
@@ -926,6 +939,8 @@ type PersistedUi = Pick<
   | 'activityTimelineStyle'
   | 'activityTimelineOrientation'
   | 'activityTimeframe'
+  | 'activityTimelineGridlines'
+  | 'activityBarLayout'
   | 'fabSessions'
   | 'loopModifierDefaults'
   | 'loopChoices'
@@ -1010,6 +1025,8 @@ export const useUiStore = create<UiState>()(
       activityTimelineStyle: 'bars',
       activityTimelineOrientation: 'vertical',
       activityTimeframe: 'week',
+      activityTimelineGridlines: false,
+      activityBarLayout: 'diverging',
       activeFabTab: 'innovate',
       fabSessions: {},
       setFabSession: (tab, sessionId) =>
@@ -1181,6 +1198,11 @@ export const useUiStore = create<UiState>()(
       setActivityTimelineOrientation: (activityTimelineOrientation) =>
         set({ activityTimelineOrientation }),
       setActivityTimeframe: (activityTimeframe) => set({ activityTimeframe }),
+      toggleActivityTimelineGridlines: () =>
+        set((state) => ({ activityTimelineGridlines: !state.activityTimelineGridlines })),
+      setActivityTimelineGridlines: (activityTimelineGridlines) =>
+        set({ activityTimelineGridlines }),
+      setActivityBarLayout: (activityBarLayout) => set({ activityBarLayout }),
       setActiveFabTab: (activeFabTab) => set({ activeFabTab }),
       onFabTabClick: (tab) => {
         set((state) => {
@@ -1337,6 +1359,8 @@ export const useUiStore = create<UiState>()(
         activityTimelineStyle: state.activityTimelineStyle,
         activityTimelineOrientation: state.activityTimelineOrientation,
         activityTimeframe: state.activityTimeframe,
+        activityTimelineGridlines: state.activityTimelineGridlines,
+        activityBarLayout: state.activityBarLayout,
         fabSessions: state.fabSessions,
         loopModifierDefaults: state.loopModifierDefaults,
         loopChoices: state.loopChoices,

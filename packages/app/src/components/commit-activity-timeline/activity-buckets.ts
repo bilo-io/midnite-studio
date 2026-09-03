@@ -106,3 +106,67 @@ function bucketIndex(starts: readonly number[], at: number): number {
   }
   return low;
 }
+
+/**
+ * How dense the time-axis rules are, per timeframe — the reader's own words for
+ * it, so the gridline toggle's tooltip can say what turning it on will draw.
+ */
+export const GRIDLINE_CADENCE: Record<ActivityTimeframe, string> = {
+  day: 'every 2 hours',
+  week: 'every day',
+  month: 'every week',
+};
+
+/** Local weekday a month's week-rules land on. Monday, as the ISO week opens. */
+const WEEK_RULE_DAY = 1;
+
+/**
+ * Indices of the buckets whose **leading edge** gets a rule, at the cadence
+ * `GRIDLINE_CADENCE` names.
+ *
+ * Derived from each bucket's own `start` rather than from `index % n`, because
+ * the two disagree exactly where it matters. A day's buckets are epoch-hour
+ * aligned, so "every 2 hours" has to mean *even local hours* — `index % 2` would
+ * put the rules on odd hours half the time, and in a half-hour timezone on no
+ * clock hour at all. A month's rules land on Mondays, which are 7 apart but
+ * whose offset depends on what day the window opened.
+ *
+ * Index 0 never gets one: it is the axis's own edge, already drawn by the
+ * panel's border, and a rule flush against it reads as a rendering seam.
+ */
+export function gridlineIndices(
+  buckets: readonly ActivityBucket[],
+  timeframe: ActivityTimeframe,
+): number[] {
+  const marks: number[] = [];
+  for (let i = 1; i < buckets.length; i += 1) {
+    const at = new Date(buckets[i]!.start);
+    const ruled =
+      timeframe === 'day'
+        ? at.getHours() % 2 === 0
+        : timeframe === 'week'
+          ? true
+          : at.getDay() === WEEK_RULE_DAY;
+    if (ruled) marks.push(i);
+  }
+  return marks;
+}
+
+/**
+ * The bucket's own span, as the hover tooltip's heading.
+ *
+ * An hour bucket needs the clock range (and the date, since a rolling 24-hour
+ * window straddles midnight); a day bucket needs the weekday, which is the part
+ * a reader actually navigates by. Locale-formatted through `undefined`, like
+ * every other date in the renderer.
+ */
+export function bucketLabel(bucket: ActivityBucket, timeframe: ActivityTimeframe): string {
+  const at = new Date(bucket.start);
+  if (timeframe !== 'day') {
+    return at.toLocaleDateString(undefined, { weekday: 'short', day: 'numeric', month: 'short' });
+  }
+  const clock = (date: Date): string =>
+    date.toLocaleTimeString(undefined, { hour: '2-digit', minute: '2-digit' });
+  const date = at.toLocaleDateString(undefined, { day: 'numeric', month: 'short' });
+  return `${date}, ${clock(at)}–${clock(new Date(bucket.start + HOUR_MS))}`;
+}

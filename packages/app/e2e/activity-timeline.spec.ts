@@ -6,11 +6,13 @@ import { installMockBridge, type MockFixtures } from './mock-bridge';
 /**
  * The commit-activity timeline as a panel in the running app.
  *
- * The unit tests own the arithmetic — bucketing, the three drawings, the axis
- * swap. What only the running app can show is the wiring: that the status-bar
- * toggle actually raises the panel, that the chord reaches it, that the D/W/M
- * picker moves the window the chart announces, and that a repository with no
- * timeline rows says "No commits" rather than drawing an empty chart.
+ * The unit tests own the arithmetic — bucketing, gridline cadence, the three
+ * drawings, the axis swap. What only the running app can show is the wiring:
+ * that the status-bar toggle actually raises the panel, that the chord reaches
+ * it, that each header control moves the store field Settings shares with it
+ * (D/W/M, the style icons, the gridline switch), that hovering a bucket raises
+ * the tooltip and leaving the chart takes it away, and that a repository with
+ * no timeline rows says "No commits" rather than drawing an empty chart.
  */
 
 const DAY_S = 86_400;
@@ -92,6 +94,66 @@ test('the D/W/M picker moves the window the chart announces', async ({ page }) =
 
   await page.getByRole('radio', { name: 'Last 24 hours' }).click();
   await expect(chart).toHaveAttribute('aria-label', 'Commit activity, last 24 hours: 1 commit');
+});
+
+test('the style icons swap the drawing, and the choice reaches Settings', async ({ page }) => {
+  await open(page);
+  await page.getByTestId('activity-toggle').click();
+  const chart = page.getByTestId('commit-activity-chart');
+
+  await expect(chart).toHaveAttribute('data-variant', 'bars');
+  await page.getByRole('radio', { name: 'Heatmap' }).click();
+  await expect(chart).toHaveAttribute('data-variant', 'heatmap');
+  await page.getByRole('radio', { name: 'Sparkline' }).click();
+  await expect(chart).toHaveAttribute('data-variant', 'sparkline');
+
+  // Same store field the Settings page edits — the panel's icons are the
+  // second door onto it, so the first door has to agree.
+  await expect(page.getByRole('radio', { name: 'Sparkline' })).toHaveAttribute(
+    'aria-checked',
+    'true',
+  );
+});
+
+test('the gridlines toggle draws the timeframe cadence it names', async ({ page }) => {
+  await open(page);
+  await page.getByTestId('activity-toggle').click();
+  const toggle = page.getByTestId('activity-gridlines-toggle');
+
+  // Off by default, and the label says what turning it on will draw.
+  await expect(toggle).toHaveAttribute('aria-pressed', 'false');
+  await expect(toggle).toHaveAttribute('aria-label', 'Show gridlines (every day)');
+  await expect(page.getByTestId('activity-gridlines')).toHaveCount(0);
+
+  await toggle.click();
+  await expect(toggle).toHaveAttribute('aria-pressed', 'true');
+  // A week rules every day boundary but the first, plus the churn baseline.
+  await expect(page.getByTestId('activity-gridlines').locator('line')).toHaveCount(7);
+
+  // The cadence follows the window: 30 days rules every week instead.
+  await page.getByRole('radio', { name: 'Last 30 days' }).click();
+  await expect(toggle).toHaveAttribute('aria-label', 'Hide gridlines (every week)');
+  await expect(page.getByTestId('activity-gridlines').locator('line')).toHaveCount(5);
+});
+
+test('hovering a bucket names it, its commits and its churn', async ({ page }) => {
+  await open(page);
+  await page.getByTestId('activity-toggle').click();
+
+  // The last hit rect is the newest bucket — the one holding the +12/-3 commit
+  // from an hour ago. Vertical panel, so "last" is the bottom one.
+  await page.getByTestId('activity-hit').last().hover();
+
+  const tip = page.getByTestId('activity-tooltip');
+  await expect(tip).toBeVisible();
+  await expect(tip).toContainText('1 commit');
+  await expect(tip).toContainText('+12');
+  await expect(tip).toContainText('−3');
+  await expect(tip).toContainText('of the last 7 days');
+
+  // Leaving the chart takes it away rather than parking it over the content.
+  await page.getByTestId('status-bar').hover();
+  await expect(tip).toHaveCount(0);
 });
 
 test('a repository with no rows says so instead of drawing an empty chart', async ({ page }) => {
