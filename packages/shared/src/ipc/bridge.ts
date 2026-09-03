@@ -606,6 +606,19 @@ export type MidniteStudioBridge = {
   };
 
   /**
+   * The onboarding kit's Setup/Update leaves (Phase 49). `plan` reads the
+   * template tree and the target repo and writes nothing — safe to call
+   * unprompted, the same posture as `diag.detect`. `apply` writes only the
+   * exact paths the renderer is holding an approved plan for.
+   */
+  scaffold: {
+    plan: (req: In<typeof S.ScaffoldPlanRequest>) => Promise<z.infer<typeof S.ScaffoldPlanResponse>>;
+    apply: (
+      req: In<typeof S.ScaffoldApplyRequest>,
+    ) => Promise<z.infer<typeof S.ScaffoldApplyResponse>>;
+  };
+
+  /**
    * Everything the dashboard draws, in one payload.
    *
    * A single method rather than one per widget: the figures are seven foldings
