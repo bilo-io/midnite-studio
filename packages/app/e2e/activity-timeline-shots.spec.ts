@@ -6,9 +6,9 @@ import { installMockBridge, type MockFixtures } from './mock-bridge';
 /**
  * Committed screenshots for the commit-activity timeline: the vertical panel
  * in each of its three styles, the horizontal strip above the status bar in
- * two of them, and the drawing options that only the chart shows — gridlines,
- * side-by-side churn bars, stacked churn areas, and the hover tooltip — in
- * both themes.
+ * two of them, the twelve-month Year view, and the drawing options that only
+ * the chart shows — gridlines, side-by-side churn bars, stacked churn areas,
+ * and the hover tooltip — in both themes.
  *
  * Gated behind `MSTUDIO_SHOTS` like every other shots suite — committed
  * images, not assertions a normal `app:e2e` run must keep passing.
@@ -27,9 +27,20 @@ const TIMELINE = Array.from({ length: 40 }, (_, i) => ({
   deletions: (i * 17) % 90,
 }));
 
-const data: MockFixtures = {
-  ...fixtures,
-  stats: { timeline: TIMELINE, commitsScanned: TIMELINE.length },
+/**
+ * A year of commits, for the Year shots — the week fixture above would draw
+ * eleven empty months and say nothing about the month buckets.
+ */
+const YEAR_TIMELINE = Array.from({ length: 260 }, (_, i) => ({
+  sha: String(i).padStart(40, 'e'),
+  at: nowS - ((i * i * 8_641) % (350 * DAY_S)),
+  additions: (i * 53) % 400,
+  deletions: (i * 29) % 160,
+}));
+
+const dataFor = (timeframe: string | undefined): MockFixtures => {
+  const timeline = timeframe === 'year' ? YEAR_TIMELINE : TIMELINE;
+  return { ...fixtures, stats: { timeline, commitsScanned: timeline.length } };
 };
 
 /** One frame: the store state to seed, and what to do before the shutter. */
@@ -42,6 +53,8 @@ interface Shot {
   barLayout?: string;
   /** `stacked` sits the additions area on top of the deletions one. */
   areaLayout?: string;
+  /** `year` widens the window to twelve calendar months, bucketed by month. */
+  timeframe?: string;
   /** Hover the newest bucket before shooting, so the tooltip is in frame. */
   hover?: boolean;
   /** Suffix distinguishing this shot from the plain one for the same style. */
@@ -67,12 +80,13 @@ async function land(page: Page, theme: 'light' | 'dark', prefs: Shot): Promise<v
           activityTimelineGridlines: seeded.gridlines ?? false,
           activityTimelineBarLayout: seeded.barLayout ?? 'diverging',
           activityTimelineAreaLayout: seeded.areaLayout ?? 'overlaid',
+          activityTimeframe: seeded.timeframe ?? 'week',
         },
         version: 6,
       }),
     );
   }, prefs);
-  await installMockBridge(page, data);
+  await installMockBridge(page, dataFor(prefs.timeframe));
   await page.goto('/');
   await expect(page.getByTestId('status-bar')).toBeVisible();
   if (theme === 'dark') {
@@ -110,6 +124,26 @@ const SHOTS: Shot[] = [
   // broken swap is invisible in every horizontal frame above.
   { style: 'bars', orientation: 'vertical', gridlines: true, name: 'gridlines' },
   { style: 'bars', orientation: 'vertical', barLayout: 'grouped', name: 'grouped' },
+  // The Year window: twelve month buckets, in each drawing and each
+  // orientation, with the quarter rules on for two of them.
+  { style: 'bars', orientation: 'horizontal', timeframe: 'year', name: 'year' },
+  {
+    style: 'bars',
+    orientation: 'horizontal',
+    timeframe: 'year',
+    gridlines: true,
+    name: 'year-gridlines',
+  },
+  { style: 'heatmap', orientation: 'horizontal', timeframe: 'year', name: 'year' },
+  { style: 'area', orientation: 'horizontal', timeframe: 'year', name: 'year' },
+  { style: 'bars', orientation: 'vertical', timeframe: 'year', gridlines: true, name: 'year-gridlines' },
+  {
+    style: 'heatmap',
+    orientation: 'horizontal',
+    timeframe: 'year',
+    hover: true,
+    name: 'year-tooltip',
+  },
 ];
 
 test.describe('activity timeline screenshots', () => {

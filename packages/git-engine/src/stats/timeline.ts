@@ -13,15 +13,26 @@ import type { HistoryCommit } from './commit-history';
  */
 
 /**
- * Hard cap on timeline rows, newest first.
+ * Hard cap on timeline rows, newest first — deliberately the **same** number as
+ * `STATS_MAX_COMMITS`, so the rows are never a subset of what was scanned.
  *
- * The envelope is cached and crosses IPC whole; a decade-deep `all` window at
- * 20,000 scanned commits would ship a megabyte of rows to a widget that draws
- * at most thirty buckets. 5,000 comfortably covers the 30-day window the
- * timeline actually reads, and the envelope's own `truncated` already says
- * when the scan itself was cut short.
+ * Written as a literal rather than imported from `index.ts`, which imports
+ * *this* module: a cycle would leave the constant `undefined` at module-eval
+ * time. `timeline.test.ts` asserts the two agree.
+ *
+ * It used to be 5,000, on the reasoning that a decade-deep `all` window would
+ * otherwise ship a megabyte of rows to a widget drawing thirty buckets. That
+ * held only while the widest timeframe was 30 days. The year view buckets the
+ * last twelve months, and this slice drops the **oldest** rows: on a repository
+ * with more than 5,000 commits in the window, the far end of the chart would
+ * have read as no commits at all — a silently wrong chart, not a coarse one,
+ * and one the envelope's `truncated` flag would not have mentioned, because the
+ * scan itself was never cut short.
+ *
+ * Matching the scan cap makes `truncated` cover this truncation too, and pays
+ * for it in payload only on repositories that already hit that cap.
  */
-export const TIMELINE_LIMIT = 5_000;
+export const TIMELINE_LIMIT = 20_000;
 
 /**
  * Line counts follow the contributors' convention: null when churn was not
