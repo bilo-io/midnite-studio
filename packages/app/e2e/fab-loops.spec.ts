@@ -1060,4 +1060,37 @@ test.describe('FAB loop console — rehydration (Theme I)', () => {
     await expect(page.locator('.xterm-screen')).toHaveCount(1);
     expect(await ptyCreates(page)).toHaveLength(1);
   });
+
+  test('a sleeping FAB session ignores a focus report — switching tabs does not revive it', async ({
+    page,
+  }) => {
+    /*
+      An exited pane stays mounted (it's covered by an "ended" strip, not
+      unmounted), and its xterm instance can still have DEC focus-tracking
+      latched on from whatever ran before — Claude's own Ink-based TUI
+      enables it and nothing ever turns it off on exit. Switching FAB tabs
+      moves real DOM focus off this tab's hidden textarea and onto the next
+      one, which used to be read as "the user typed something" and silently
+      spawned a brand-new, empty session.
+    */
+    const withFocusTracking: MockFixtures['terminalSessions'] = [
+      { ...SLEPT[0], scrollback: `${SLEPT[0].scrollback}\x1b[?1004h` },
+    ];
+    await openRestored(page, { terminalSessions: withFocusTracking }, { innovate: 'sess-fab-innovate' });
+    await openFab(page, 'Ideate');
+    expect(await ptyCreates(page)).toEqual([]);
+
+    // Focus follows selection, so the tab's xterm already holds DOM focus.
+    // Blurring it and refocusing it is what a tab switch, a window blur, or
+    // Cmd-Tab does — with focus tracking armed, xterm turns that into an
+    // `ESC[O`/`ESC[I` pair on the very `onData` stream real keystrokes use.
+    const textarea = page.locator('.xterm-helper-textarea').first();
+    await expect(textarea).toBeFocused();
+    await textarea.evaluate((el) => (el as HTMLTextAreaElement).blur());
+    await textarea.focus();
+
+    expect(await ptyCreates(page)).toEqual([]);
+    // Still asleep, not revived: Start is still the button on offer.
+    await expect(page.getByTestId('loop-composer-innovate').getByTestId('loop-start')).toBeVisible();
+  });
 });
