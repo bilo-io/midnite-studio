@@ -273,7 +273,7 @@ Effort tags: **S** ≈ an hour or two · **M** ≈ half a day · **L** ≈ a day
     birds: the executor tests and the demo API's own tests exercise the same server.
   - *Acceptance:* the whole executor suite passes with the machine's network cable out.
 
-### D — The demo CRUD API (M) — ◐ PARTIAL (PR #92, 2026-09-03) — the view-header surface carried to Theme H
+### D — The demo CRUD API (M) — ✅ DONE (PR #92, 2026-09-03; PR #109, 2026-09-04)
 
 - [x] `desktop/src/main/demo-api/server.ts` — `node:http`, bound to **`127.0.0.1` only**, on an
       ephemeral port reported back to the renderer. Never `0.0.0.0`; this is a dev conveniences
@@ -299,9 +299,9 @@ Effort tags: **S** ≈ an hour or two · **M** ≈ half a day · **L** ≈ a day
 - [x] Started **on demand**, never at boot, and stopped on quit. Off by default.
   - Register the stop on `before-quit`. A `node:http` server with an open keep-alive socket delays
     quit; call `server.closeAllConnections()` before `close()`.
-- [ ] ⏳ **Carried to Theme H**: Surfaced in the Workflows UI as `Demo API · running on :<port> · [stop]`, with one-click
+- [x] Surfaced in the Workflows UI as `Demo API · running on :<port> · [stop]`, with one-click
       insertion of its base URL into a selected `http` node — the whole point is that it takes no
-      setup.
+      setup. (PR #109, 2026-09-04)
   - The port is read from `demo-api:status`, never hard-coded in the renderer.
   - "Stopped" state reads `Demo API · stopped · [start]`. Both states live in the Workflows view
     header, not in Settings, because it is a thing you do while building, not a preference.
