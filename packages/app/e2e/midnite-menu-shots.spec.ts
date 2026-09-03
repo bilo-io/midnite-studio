@@ -35,7 +35,7 @@ test('the row, closed — three marks rather than three ellipses', async ({ page
   await shoot(page, 'row-marks');
 });
 
-test('the menu, open — the six groups and nothing else', async ({ page }) => {
+test('the menu, open — the five groups and nothing else', async ({ page }) => {
   await page.getByRole('button', { name: `Run a midnite skill on ${REPO}` }).click();
   await expect(page.getByRole('menuitem', { name: 'Loops', exact: true })).toBeVisible();
   await shoot(page, 'menu-open');
@@ -46,7 +46,7 @@ test('the menu, open — the six groups and nothing else', async ({ page }) => {
  * gets, and the gradient edge is on both surfaces — which is only visible with
  * the second one showing.
  */
-for (const group of ['Tasks', 'Loops', 'Project']) {
+for (const group of ['Tasks', 'Loops']) {
   test(`the ${group} submenu, open`, async ({ page }) => {
     await page.getByRole('button', { name: `Run a midnite skill on ${REPO}` }).click();
     await page.getByRole('menuitem', { name: group, exact: true }).hover();
@@ -76,8 +76,9 @@ test('the Setup dialog, previewing a plan', async ({ page }) => {
   await page.goto('/');
   await expect(page.getByRole('columnheader', { name: 'Commit message' })).toBeVisible();
 
-  await page.getByRole('button', { name: `Run a midnite skill on ${REPO}` }).click();
-  await page.getByRole('menuitem', { name: 'Project', exact: true }).hover();
+  await page
+    .getByRole('button', { name: `Set up, install, build, test or launch ${REPO}` })
+    .click();
   await page.getByRole('menuitem', { name: 'Set up this repo', exact: true }).click();
   await expect(page.getByRole('dialog', { name: 'Set up this repo' })).toBeVisible();
   await expect(page.getByText('CLAUDE.md')).toBeVisible();

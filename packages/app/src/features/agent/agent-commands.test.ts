@@ -97,43 +97,37 @@ describe('AGENT_COMMANDS', () => {
  * that opens onto nothing.
  */
 describe('AGENT_COMMAND_GROUPS', () => {
-  it('is the menu top level: Tasks, Reviews, Releases, Git, Loops, Project', () => {
+  it('is the menu top level: Tasks, Reviews, Releases, Git, Loops', () => {
     expect(AGENT_COMMAND_GROUPS.map((group) => group.label)).toEqual([
       'Tasks',
       'Reviews',
       'Releases',
       'Git',
       'Loops',
-      'Project',
     ]);
   });
 
-  it('covers every category the commands use, and no empty ones except Project', () => {
-    // `project` is the one declared group with no `AGENT_COMMANDS` entries —
-    // deliberately: its two leaves (Setup, Update) are not skill-typing verbs
-    // and are built directly in `midnite-menu.tsx` instead. See this file's
-    // own comment on the group.
+  it('covers every category the commands use, and declares no empty one', () => {
+    // Every declared group now has entries — the one that never did,
+    // `project`, is gone: its two leaves (Setup, Update) type no skill at an
+    // agent, so they moved to the repo's own tooling menu and the title bar's
+    // cluster. See `project-actions.tsx`.
     const used = new Set(AGENT_COMMANDS.map((command) => command.category));
     const declared = AGENT_COMMAND_GROUPS.map((group) => group.id);
 
     expect(new Set(declared).size).toBe(declared.length);
-    expect([...used].sort()).toEqual([...declared].filter((id) => id !== 'project').sort());
+    expect([...used].sort()).toEqual([...declared].sort());
   });
 
-  it('matches the commands on group order, Project always last', () => {
+  it('matches the commands on group order', () => {
     // The menu renders `AGENT_COMMAND_GROUPS` in order and the settings page
     // renders `AGENT_COMMANDS` in order; the two would silently disagree about
-    // which group comes first if only one of them were reordered. `project`
-    // is excluded from this check for the same reason as the test above — it
-    // has no `AGENT_COMMANDS` entries to derive an order from.
+    // which group comes first if only one of them were reordered.
     const firstSeen: string[] = [];
     for (const { category } of AGENT_COMMANDS) {
       if (!firstSeen.includes(category)) firstSeen.push(category);
     }
-    expect(firstSeen).toEqual(
-      AGENT_COMMAND_GROUPS.map((group) => group.id).filter((id) => id !== 'project'),
-    );
-    expect(AGENT_COMMAND_GROUPS.at(-1)?.id).toBe('project');
+    expect(firstSeen).toEqual(AGENT_COMMAND_GROUPS.map((group) => group.id));
   });
 
   it('gives every group its own glyph and its own line of sub-text', () => {

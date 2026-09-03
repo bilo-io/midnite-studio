@@ -40,6 +40,7 @@ import { CommitActivityPanel } from './features/activity/commit-activity-panel';
 import { EmptyWorkspace } from './features/empty/empty-workspace';
 import { FileEditorGuard } from './features/files/preview/file-editor-guard';
 import { GraphView } from './features/graph/graph-view';
+import { ProjectActions } from './features/agent/project-actions';
 import { RepoLifecycleActions } from './features/repos/repo-lifecycle-actions';
 import { ReposPanel } from './features/repos/repos-panel';
 import { useDefaultSelection } from './features/repos/use-default-selection';
@@ -900,14 +901,27 @@ function Shell() {
       <TitleBarAgents />
       <TitleBarStatus />
       {/*
-        Install / Build / Test / Launch for whichever checkout is selected —
-        the same cluster the sidebar shows per repository, aimed here at
-        "wherever you are" rather than "this repo's main worktree". Absent
-        with no repository selected: there is no checkout for a guessed
-        command to run against.
+        The repository's own tooling for whichever checkout is selected — the
+        same set the sidebar collapses behind one ellipsis per repository,
+        aimed here at "wherever you are" rather than "this repo's main
+        worktree". Absent with no repository selected: there is no checkout
+        for a guessed command to run against.
+
+        Two clusters, not one: Setup and Update act on the checkout itself —
+        write an onboarding kit into it, replace the installed app from it —
+        while Install / Build / Test / Launch only ever type a guessed command
+        at a prompt. A hairline between them says that, and it is the same
+        divider the sidebar's menu draws between the same two halves.
       */}
       {selectedRepo ? (
         <>
+          <span aria-hidden className="h-4 w-px shrink-0 bg-border" />
+          <ProjectActions
+            repoId={selectedRepo.id}
+            repoName={selectedRepo.name}
+            cwd={selectedWorktreePath ?? primaryTarget(selectedRepo).worktreePath ?? selectedRepo.path}
+            {...(selectedWorktreePath ? { worktreePath: selectedWorktreePath } : {})}
+          />
           <span aria-hidden className="h-4 w-px shrink-0 bg-border" />
           <RepoLifecycleActions
             repoId={selectedRepo.id}

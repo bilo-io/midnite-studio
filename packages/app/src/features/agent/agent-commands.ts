@@ -4,7 +4,6 @@ import {
   LuChartLine,
   LuClipboardCheck,
   LuFilePen,
-  LuFolderCog,
   LuGitBranch,
   LuGitPullRequest,
   LuInfinity,
@@ -36,10 +35,19 @@ import type { AgentCommandId } from '../../store/ui-store';
  * this replaced put eleven rows and one submenu on the same plane, which made
  * "Loops" read as a twelfth verb rather than as the other four groups' mirror.
  *
+ * A sixth, "Project", held Setup and Update for one phase and is gone. Every
+ * group here is a set of *skills* handed to an agent — that is what makes the
+ * Agent settings page able to render this same list as a form of skill fields
+ * — and those two hand over no skill at all: Setup opens a dialog, Update
+ * types one fixed shell command. Forcing either into `AGENT_COMMANDS` would
+ * have given that page a skill field with nothing sensible to put in it, so
+ * they now sit with the repo's own tooling instead — the lifecycle ellipsis
+ * and the title bar's cluster; see `project-actions.tsx`.
+ *
  * `hint` is the sub-text under the label — one line, in every place the group
  * is drawn.
  */
-export type AgentCommandCategory = 'tasks' | 'reviews' | 'releases' | 'git' | 'loops' | 'project';
+export type AgentCommandCategory = 'tasks' | 'reviews' | 'releases' | 'git' | 'loops';
 
 export type AgentCommandGroup = {
   id: AgentCommandCategory;
@@ -79,24 +87,6 @@ export const AGENT_COMMAND_GROUPS: readonly AgentCommandGroup[] = [
     label: 'Loops',
     icon: LuInfinity,
     hint: 'The same verbs, repeating until you stop them.',
-  },
-  /*
-    Sixth group (Phase 49). Its two leaves — Setup and Update — are built
-    directly in `midnite-menu.tsx` rather than as `AGENT_COMMANDS` entries:
-    every entry above types a user-configurable SKILL string at an agent, and
-    `agentSkills`/`DEFAULT_AGENT_SKILLS` are a total `Record<AgentCommandId,
-    string>` over that assumption. Setup does not type anything at all — it
-    opens `SetupDialog` — and Update's command is fixed
-    (`moon run desktop:install-local`), never meant to be user-edited the way
-    a skill is. Forcing either into the generic registry would have given
-    the Agent settings page a "skill" field with nothing sensible to put in
-    it.
-  */
-  {
-    id: 'project',
-    label: 'Project',
-    icon: LuFolderCog,
-    hint: 'About the repository itself, not an agent working in it.',
   },
 ];
 
