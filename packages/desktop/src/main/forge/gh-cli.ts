@@ -75,7 +75,7 @@ const RUN_DETAIL_FIELDS = `${RUN_FIELDS},jobs`;
 const ISSUE_FIELDS = 'number,title,state,author,labels,assignees,updatedAt,createdAt,url';
 const WORKFLOW_FIELDS = 'id,name,path,state';
 const PULL_FIELDS =
-  'number,title,state,isDraft,reviewDecision,headRefName,author,url,statusCheckRollup,' +
+  'id,number,title,state,isDraft,reviewDecision,headRefName,author,url,statusCheckRollup,' +
   'mergedAt,closedAt';
 /*
   `gh pr view --json` accepts every `pr list` field plus the ones only a single

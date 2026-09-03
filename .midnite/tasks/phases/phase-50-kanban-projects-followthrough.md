@@ -118,9 +118,9 @@ Effort tags: **S** ≈ an hour or two · **M** ≈ half a day · **L** ≈ a day
     not built to run inside a panel-stack pane) and stays a `#number` link-out, unchanged from
     Phase 41 Theme B.
 
-### E — "Add to project" from the Reviews page (M)
+### E — "Add to project" from the Reviews page (M) — ✅ DONE (PR #101, 2026-09-03)
 
-- [ ] Add `id` to `PULL_FIELDS`/`PULL_DETAIL_FIELDS` in
+- [x] Add `id` to `PULL_FIELDS`/`PULL_DETAIL_FIELDS` in
       [`gh-cli.ts`](../../../packages/desktop/src/main/forge/gh-cli.ts) (currently
       `'number,title,state,isDraft,reviewDecision,headRefName,author,url,statusCheckRollup,mergedAt,closedAt'`
       — no `id` at all) and thread it through `ForgePullSchema`/`ForgePullDetailSchema`
@@ -130,20 +130,21 @@ Effort tags: **S** ≈ an hour or two · **M** ≈ half a day · **L** ≈ a day
     --json id` returns the GraphQL global node id — exactly what `addItemToProject`'s `contentId`
     needs — but nothing in this app requests that field today. Without it, there is no id to hand
     the mutation and this theme cannot ship.
-- [ ] An "Add to project ▸" action in
-      [`pr-detail.tsx`](../../../packages/app/src/features/reviews/pr-detail.tsx), reusing Phase
-      40/41's existing board picker (remembers last board per repo) rather than building a second
-      one, calling `addItemToProject(projectId, pr.id)` and reporting the same
-      `ForgeProjectWriteResult` shape every other write in this surface already renders.
+- [x] An "Add to project ▸" action in
+      [`review-action-bar.tsx`](../../../packages/app/src/features/reviews/review-action-bar.tsx)
+      (the action bar `pr-detail.tsx` already mounts), reusing Phase 40/41's existing board picker
+      (remembers last board per repo) rather than building a second one, calling
+      `addItemToProject(projectId, pr.id)` and reporting the same `ForgeProjectWriteResult` shape
+      every other write in this surface already renders.
   - **PRs only, deliberately.** `addItemToProject`'s own docblock names "the Reviews and Issues
     surfaces" as the two entry points Phase 40 deferred — but this app has no Issues view
     (`ForgeIssuesResultSchema` is read for the repo dashboard's issue list, not a page with a
     detail pane an action could attach to), so an Issues entry point has no surface to live on
     yet and is not this theme's job to invent one for.
 
-### F — Activity markers beyond Claude (M)
+### F — Activity markers beyond Claude (M) — ◐ PARTIAL (PR #101, 2026-09-03) — agy, opencode; codex needs a human login pass
 
-- [ ] Author `activity` marker sets (`thinking`/`frameEnd`/`awaitingInput` regex sources, per
+- [x] Author `activity` marker sets (`thinking`/`frameEnd`/`awaitingInput` regex sources, per
       `AgentDefinitionSchema.activity`) for `agy`, `codex` and `opencode` — the three providers
       Phase 34 already trusts to run unattended as council members, and the same three most likely
       to be running as a kanban card's agent or a FAB loop's.
@@ -157,6 +158,14 @@ Effort tags: **S** ≈ an hour or two · **M** ≈ half a day · **L** ≈ a day
     per CLI and reading its own spinner/footer/option-sheet text, the same process that produced
     Claude's markers, then updating `terminal.test.ts`'s builtins-with-activity assertion to name
     all four rather than one.
+  - **`codex` shipped without a marker set, and that is this item's actual state, not "done for
+    three of three."** `agy` and `opencode` both got real captured transcripts; `codex` needed an
+    interactive `codex login` (OAuth device flow) that this pass had no business driving
+    unattended, so its roster entry stays unset with a comment explaining why, exactly the bar this
+    theme's own doc set for excluding a marker set. `terminal.test.ts`'s builtins-with-activity
+    assertion was updated to name **`agy` and `opencode`**, not all three — closing this out for
+    real needs a human `codex login` pass and a captured transcript, the same posture as the two
+    open human-pass items below.
   - **Not this theme:** the remaining six roster entries (`kilo`, `aider`, `cursor`, `copilot`,
     `cline`, `openclaude`) — narrowed to the three council-eligible providers because those are the
     ones this app already runs unattended today, and a marker set authored against a CLI nobody
@@ -171,12 +180,12 @@ Effort tags: **S** ≈ an hour or two · **M** ≈ half a day · **L** ≈ a day
 | Contract | [`shared/src/domain/forge.ts`](../../../packages/shared/src/domain/forge.ts) — `ForgePullSchema`/`ForgePullDetailSchema` gain `id` (Theme E) |
 | Renderer, board | `app/src/features/projects/board/` — `board-view.tsx`, `board-dnd.ts`, `board-derive.ts` (Theme C); a new `card-panel-stack.tsx` wrapper (Theme D); `card-composer.tsx` (Theme B); a new `dismissCardSession` action surfaced on the card (Theme A) |
 | Renderer, terminal store | [`terminal-store.ts`](../../../packages/app/src/features/terminal/terminal-store.ts) — new `dismissCardSession` action beside `rehomeSession` (Theme A) |
-| Renderer, reviews | [`pr-detail.tsx`](../../../packages/app/src/features/reviews/pr-detail.tsx) — new "Add to project ▸" action (Theme E) |
+| Renderer, reviews | [`review-action-bar.tsx`](../../../packages/app/src/features/reviews/review-action-bar.tsx) — new "Add to project ▸" action, mounted by `pr-detail.tsx` (Theme E) |
 | Renderer, settings | [`projects-page.tsx`](../../../packages/app/src/features/settings/settings-pages/projects-page.tsx) — new launch-and-run toggle (Theme B) |
 | Renderer, reused unchanged | [`panel-stack/`](../../../packages/app/src/components/panel-stack/) (Theme D), `start-agent.ts`'s existing `autoSend` param (Theme B) |
 | Main, activity | [`activity-detect.ts`](../../../packages/desktop/src/main/activity-detect.ts) — unchanged; only the roster's marker data changes |
 | Contract, roster | [`shared/src/terminal.ts`](../../../packages/shared/src/terminal.ts) — `activity` field on `agy`/`codex`/`opencode`'s `BUILTIN_AGENTS` entries (Theme F) |
-| Tests | `board-dnd.test.ts` (Theme C, invert the No-status rejection case), `terminal-store.test.ts` (Theme A), `terminal.test.ts` (Theme F, update the builtins-with-activity assertion), `pr-detail.test.tsx`/`reviews` e2e (Theme E) |
+| Tests | `board-dnd.test.ts` (Theme C, invert the No-status rejection case), `terminal-store.test.ts` (Theme A), `terminal.test.ts` (Theme F, update the builtins-with-activity assertion for `agy`/`opencode`), `activity-detect.test.ts` (Theme F, `agy`/`opencode` fixture-backed cases), `review-action-bar.test.tsx`/`add-to-project-shots.spec.ts` (Theme E) |
 
 ## Verification
 
@@ -203,10 +212,13 @@ Effort tags: **S** ≈ an hour or two · **M** ≈ half a day · **L** ≈ a day
       first, via the board's own panel-stack instance. (`e2e/kanban.spec.ts` "opening a second card,
       then Back, returns to the first"; `card-panel-stack.test.tsx` covers the push/no-op/reset/
       drop-out cases and `use-command-handlers.test.ts` the `panel.back`/`panel.forward` gating.)
-- [ ] "Add to project ▸" from a PR's Reviews detail pane adds it to the last-used board, verified
-      against a mock bridge; a real-board human pass confirms the item appears on github.com.
+- [x] "Add to project ▸" from a PR's Reviews detail pane adds it to the last-used board, verified
+      against a mock bridge (`review-action-bar.test.tsx`, `e2e/add-to-project-shots.spec.ts`) —
+      **a real-board human pass confirming the item appears on github.com stays open.**
 - [ ] A non-Claude agent's kanban card / FAB tab shows a live `thinking`/`waiting` transition during
       a real run, not a static idle glyph — a human pass, since it needs a real CLI's real output.
+      `agy` and `opencode` have marker sets to verify against; `codex` has none yet (needs a human
+      `codex login` pass first, see Theme F above).
 
 ## Not in this phase
 

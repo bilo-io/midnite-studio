@@ -4,6 +4,7 @@ import { describe, expect, it } from 'vitest';
 import { findPrForBranch } from './checks-verdict';
 
 const pull = (overrides: Partial<ForgePull> & { number: number; headBranch: string }): ForgePull => ({
+  id: '',
   title: '',
   state: 'open',
   isDraft: false,

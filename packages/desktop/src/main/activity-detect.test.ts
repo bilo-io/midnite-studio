@@ -315,3 +315,39 @@ describe('activity fixtures', () => {
     expect(chunkedResult).toBe(wholeResult);
   });
 });
+
+/**
+ * Phase 50 Theme F's two new marker sets, proven against real captures —
+ * a PTY-driven session with a trivial prompt, ANSI stripped — the same
+ * standard `activity fixtures` above holds Claude to.
+ */
+describe('agy and opencode activity fixtures', () => {
+  const fixture = (name: string) =>
+    readFileSync(join(__dirname, '__fixtures__', 'activity', name), 'utf8');
+
+  const agy = BUILTIN_AGENTS.find((a) => a.id === 'agy');
+  if (!agy?.activity) throw new Error('agy is expected to ship an activity marker set');
+  const AGY_MARKERS = compileMarkers(agy.activity);
+
+  const opencode = BUILTIN_AGENTS.find((a) => a.id === 'opencode');
+  if (!opencode?.activity) throw new Error('opencode is expected to ship an activity marker set');
+  const OPENCODE_MARKERS = compileMarkers(opencode.activity);
+
+  it('reads agy’s braille spinner + "Generating" as thinking, and its idle prompt as idle', () => {
+    expect(detectActivity(createActivityState(), fixture('agy-thinking.txt'), AGY_MARKERS)).toBe(
+      'thinking',
+    );
+    expect(detectActivity(createActivityState(), fixture('agy-prompt.txt'), AGY_MARKERS)).toBe(
+      'idle',
+    );
+  });
+
+  it('reads opencode’s "Thinking" spinner row as thinking, and its idle prompt as idle', () => {
+    expect(
+      detectActivity(createActivityState(), fixture('opencode-thinking.txt'), OPENCODE_MARKERS),
+    ).toBe('thinking');
+    expect(
+      detectActivity(createActivityState(), fixture('opencode-prompt.txt'), OPENCODE_MARKERS),
+    ).toBe('idle');
+  });
+});

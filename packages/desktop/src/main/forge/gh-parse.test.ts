@@ -170,6 +170,7 @@ describe('rollupChecks', () => {
 
 describe('parsePullList', () => {
   const pull = {
+    id: 'PR_kwDOAbCdEf',
     number: 42,
     title: 'Line the table up',
     state: 'OPEN',
@@ -186,6 +187,7 @@ describe('parsePullList', () => {
   it('maps an open, approved PR', () => {
     expect(parsePullList([pull])).toEqual([
       {
+        id: 'PR_kwDOAbCdEf',
         number: 42,
         title: 'Line the table up',
         state: 'open',

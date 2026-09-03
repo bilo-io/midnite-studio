@@ -154,6 +154,19 @@ export type ForgeChecksRollup = z.infer<typeof ForgeChecksRollupSchema>;
 
 /** One pull request. */
 export const ForgePullSchema = z.object({
+  /**
+   * The GraphQL global node id — `gh pr list/view --json id` — never the
+   * plain `number` above. `addItemToProject`'s `contentId` (Phase 50 Theme E)
+   * needs exactly this, and nothing else in this schema carries it.
+   *
+   * Defaulted like every other field here rather than required: this schema's
+   * own convention is that no withheld field rejects the row (`url` gets the
+   * same treatment at the parse layer in `gh-parse.ts`), and an empty id
+   * still renders every read-only surface — it just cannot be added to a
+   * project, which `review-action-bar.tsx`'s write already reports as an
+   * ordinary refusal rather than a crash.
+   */
+  id: z.string().default(''),
   number: z.number().int().positive(),
   title: z.string(),
   state: ForgePullStateSchema,

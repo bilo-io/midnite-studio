@@ -172,9 +172,18 @@ describe('AgentDefinitionSchema', () => {
     ).toBe(false);
   });
 
-  it('carries only claude with an activity marker set among the builtins', () => {
+  /*
+    Phase 50 Theme F adds `agy` and `opencode`, both captured from a real
+    session. `codex` stays unset — the local CLI needed an interactive
+    `codex login` this pass had no business driving unattended — and the
+    remaining six roster entries are `kilo`/`aider`/`cursor`/`copilot`/
+    `cline`/`openclaude`, narrowed out by the phase doc itself: a marker set
+    authored against a CLI nobody launches from a card or a loop is
+    unverifiable.
+  */
+  it('carries claude, agy and opencode with an activity marker set among the builtins', () => {
     const withActivity = BUILTIN_AGENTS.filter((a) => a.activity !== undefined).map((a) => a.id);
-    expect(withActivity).toEqual(['claude']);
+    expect(withActivity).toEqual(['claude', 'agy', 'opencode']);
   });
 });
 

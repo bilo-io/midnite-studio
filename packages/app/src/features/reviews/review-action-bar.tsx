@@ -1,14 +1,19 @@
 import type {
   ForgeMergeMethod,
+  ForgeProjectWriteResult,
   ForgePull,
   ForgePullDetail,
   ForgeReviewEvent,
 } from '@midnite/studio-shared';
-import { LuCheck, LuGitMerge, LuMessageSquare, LuSend, LuUserPlus, LuX } from 'react-icons/lu';
-import { useState } from 'react';
+import { LuCheck, LuGitMerge, LuKanban, LuMessageSquare, LuSend, LuUserPlus, LuX } from 'react-icons/lu';
+import { useState, type MouseEvent } from 'react';
 
+import type { MenuItem } from '../../components/context-menu';
+import { useDialogs } from '../../components/dialog-host';
 import {
+  useAddProjectItem,
   useCommentPull,
+  useForgeProjects,
   useMarkPullReady,
   useMergePull,
   useRequestReview,
@@ -79,6 +84,44 @@ export function ReviewActionBar({
   const markReady = useMarkPullReady(repoId, pull.number);
 
   /*
+    "Add to project" (Phase 50 Theme E) reuses exactly the data
+    `projects-view.tsx`'s own board picker reads — the repo's boards and the
+    per-repo `boardByRepo` memory — rather than a second picker component.
+    Fetched unconditionally like `list`/`detail` above (not gated behind the
+    menu opening): the boards call is one cheap `gh project list`, already
+    cached under the same `keys.forgeProjects(repoId)` key the Projects view
+    itself warms, and gating it would leave the very first click on a cold
+    cache building its menu from an empty, still-loading list.
+  */
+  const boards = useForgeProjects(repoId, true);
+  const boardByRepo = useUiStore((s) => s.projectBoardByRepo);
+  const setProjectBoard = useUiStore((s) => s.setProjectBoard);
+  const addToProject = useAddProjectItem();
+  const dialogs = useDialogs();
+
+  const openProjectMenu = (event: MouseEvent<HTMLButtonElement>) => {
+    const rect = event.currentTarget.getBoundingClientRect();
+    const list = boards.data?.projects ?? [];
+    const lastPicked = boardByRepo[repoId];
+    const items: MenuItem[] =
+      list.length > 0
+        ? list.map((board) => ({
+            label: board.title + (board.id === lastPicked ? ' (last used)' : ''),
+            onSelect: () => {
+              setProjectBoard(repoId, board.id);
+              addToProject.mutate({ projectId: board.id, contentId: pull.id });
+            },
+          }))
+        : [
+            // Reached only once the button's own `boards.isLoading` gate has
+            // already cleared — an empty list at that point is a real "this
+            // owner has no boards", never a still-loading one.
+            { label: 'No projects for this repo', disabled: true, onSelect: () => {} },
+          ];
+    dialogs.openMenu({ clientX: rect.left, clientY: rect.bottom }, items);
+  };
+
+  /*
     One line of feedback for the whole bar.
 
     Whichever mutation last answered with a problem owns it, because only one
@@ -87,11 +130,19 @@ export function ReviewActionBar({
     sentence that appears in one of them.
   */
   const problem =
-    failureOf(review) ?? failureOf(comment) ?? failureOf(requestReview) ?? failureOf(markReady);
+    failureOf(review) ??
+    failureOf(comment) ??
+    failureOf(requestReview) ??
+    failureOf(markReady) ??
+    projectWriteFailure(addToProject.data);
 
   const closed = pull.state !== 'open';
   const busy =
-    review.isPending || comment.isPending || requestReview.isPending || markReady.isPending;
+    review.isPending ||
+    comment.isPending ||
+    requestReview.isPending ||
+    markReady.isPending ||
+    addToProject.isPending;
 
   const submit = () => {
     if (composing === null) return;
@@ -185,6 +236,26 @@ export function ReviewActionBar({
           disabled={busy}
           pressed={requesting}
           onClick={() => setRequesting((open) => !open)}
+        />
+
+        <ActionButton
+          icon={LuKanban}
+          label="Add to project ▸"
+          shortLabel="Add to project"
+          enabled={enabled}
+          /*
+            `boards.isLoading` only — not `isFetching` — so a background
+            refetch of an already-warm cache never disables this: `isLoading`
+            is react-query's own "no data yet" signal, true only for the very
+            first fetch this repo has ever made (often already settled by the
+            time a human reads the tab and reaches for this button, since it
+            fires the moment the PR opens). Disabling for the whole
+            first-load window rather than opening the menu straight into a
+            "Loading…" placeholder that can never update itself — the menu's
+            `items` are a plain array, fixed at open time, not a live view.
+          */
+          disabled={busy || boards.isLoading}
+          onClick={openProjectMenu}
         />
 
         <ActionButton
@@ -429,7 +500,13 @@ function ActionButton({
   disabled: boolean;
   pressed?: boolean;
   danger?: boolean;
-  onClick: () => void;
+  /**
+   * Widened to accept the click event (the DOM always passes one; most
+   * callers just ignore it) so `openProjectMenu` below can read
+   * `event.currentTarget`'s rect to anchor its menu, without a second button
+   * component that duplicates this one's className.
+   */
+  onClick: (event: React.MouseEvent<HTMLButtonElement>) => void;
 }) {
   return (
     <button
@@ -471,4 +548,14 @@ function failureOf(mutation: {
     return result.cli.hint.length > 0 ? result.cli.hint : 'The GitHub CLI is not available.';
   }
   return 'The GitHub CLI could not complete that request.';
+}
+
+/**
+ * `ForgeProjectWriteResult` is a different envelope from `ForgeWriteResult`
+ * above (`kind`-discriminated, no `cli`/`error` pair) — `field-editor.tsx`'s
+ * own `failureOf` reads the identical shape for the board table's writes.
+ */
+function projectWriteFailure(result: ForgeProjectWriteResult | undefined): string | null {
+  if (result === undefined || result.ok) return null;
+  return result.kind === 'insufficient-scope' ? result.hint : result.message;
 }
