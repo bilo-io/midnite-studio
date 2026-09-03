@@ -106,6 +106,15 @@ const config: Config = {
        * which are meant to cover the app entirely.
        */
       zIndex: {
+        /*
+          The full-screen browser pane, and the one entry in here that is NOT
+          a portalled layer: it stays inside the content row, but has to paint
+          over `@bilo-io/shell`'s nav rail — a `position: fixed`, `z-40`
+          element outside this app's tree. 45 clears it and still sits under
+          every menu/dialog below, so a context menu raised from inside the
+          browser is still on top.
+        */
+        browser: '45',
         menu: '80',
         popover: '85',
         dialog: '90',

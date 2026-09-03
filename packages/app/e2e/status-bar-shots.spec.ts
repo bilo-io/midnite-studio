@@ -102,6 +102,9 @@ test.describe('status bar screenshots', () => {
       // content row while leaving the bar visible beneath it.
       await page.setViewportSize({ width: 1280, height: 800 });
       await page.locator('[title^="Toggle browser"]').click();
+      // The toggle raises the layout launcher first; full screen is what this
+      // shot is about, and it is the pre-selected option.
+      await page.getByTestId('browser-layout-full').click();
       await expect(page.getByRole('textbox', { name: 'Address' })).toBeVisible();
       await page.waitForTimeout(300);
       await page.screenshot({ path: `${OUT}/status-bar-browser-pane-${theme}.png` });

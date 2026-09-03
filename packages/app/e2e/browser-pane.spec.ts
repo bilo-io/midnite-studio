@@ -22,6 +22,26 @@ import { installMockBridge } from './mock-bridge';
 const browserTabs = (page: Page) =>
   page.getByRole('tablist', { name: 'Browser tabs' }).getByRole('tab');
 
+/**
+ * Open the pane the way a user does: the toggle raises the layout launcher,
+ * and `Enter` takes whichever layout is pre-selected.
+ *
+ * Every spec below that only cares about tabs or chrome goes through this, so
+ * the launcher is asserted in one place (`the toggle raises the launcher…`)
+ * rather than in fifteen.
+ */
+async function openBrowser(page: Page, layout?: 'full' | 'left' | 'right'): Promise<void> {
+  await page.locator('[data-testid="browser-toggle"]').click();
+  const launcher = page.getByTestId('browser-launcher');
+  await expect(launcher).toBeVisible();
+  if (layout) {
+    await page.getByTestId(`browser-layout-${layout}`).click();
+  } else {
+    await page.keyboard.press('Enter');
+  }
+  await expect(launcher).toHaveCount(0);
+}
+
 test.beforeEach(async ({ page }) => {
   // Every spec starts with a clean browser store — it persists to
   // localStorage, and a leftover tab from a previous test would make
@@ -48,7 +68,7 @@ test('the toggle opens the pane over the repositories panel, and the bar stays h
   const reposAside = page.getByRole('complementary', { name: 'Repositories' });
   await expect(reposAside).toBeVisible();
 
-  await page.locator('[data-testid="browser-toggle"]').click();
+  await openBrowser(page);
 
   const address = page.getByRole('textbox', { name: 'Address' });
   await expect(address).toBeVisible();
@@ -66,7 +86,7 @@ test('the toggle opens the pane over the repositories panel, and the bar stays h
 test('opening the pane creates one blank tab, focused on the address bar', async ({ page }) => {
   await installMockBridge(page, { ...fixtures });
   await page.goto('/');
-  await page.locator('[data-testid="browser-toggle"]').click();
+  await openBrowser(page);
 
   await expect(browserTabs(page)).toHaveCount(1);
   await expect(page.getByTestId('browser-newtab')).toBeVisible();
@@ -76,7 +96,7 @@ test('opening the pane creates one blank tab, focused on the address bar', async
 test('typing a URL and pressing Enter navigates the blank tab and clears the placeholder', async ({ page }) => {
   await installMockBridge(page, { ...fixtures });
   await page.goto('/');
-  await page.locator('[data-testid="browser-toggle"]').click();
+  await openBrowser(page);
 
   const address = page.getByRole('textbox', { name: 'Address' });
   await address.fill('https://example.com');
@@ -89,7 +109,7 @@ test('typing a URL and pressing Enter navigates the blank tab and clears the pla
 test('Mod+T opens a new tab, and the strip shows both', async ({ page }) => {
   await installMockBridge(page, { ...fixtures });
   await page.goto('/');
-  await page.locator('[data-testid="browser-toggle"]').click();
+  await openBrowser(page);
   await expect(browserTabs(page)).toHaveCount(1);
 
   await page.keyboard.press('Meta+t');
@@ -101,7 +121,7 @@ test('Mod+W closes the active browser tab rather than the repository, while the 
   await page.goto('/');
   await expect(page.getByRole('columnheader', { name: 'Commit message' })).toBeVisible();
 
-  await page.locator('[data-testid="browser-toggle"]').click();
+  await openBrowser(page);
   await page.keyboard.press('Meta+t');
   await expect(browserTabs(page)).toHaveCount(2);
 
@@ -115,7 +135,7 @@ test('Mod+W closes the active browser tab rather than the repository, while the 
 test('closing the only tab leaves one fresh blank tab, not zero', async ({ page }) => {
   await installMockBridge(page, { ...fixtures });
   await page.goto('/');
-  await page.locator('[data-testid="browser-toggle"]').click();
+  await openBrowser(page);
   await expect(browserTabs(page)).toHaveCount(1);
 
   await page
@@ -155,7 +175,7 @@ test('closing the pane restores clicks to the content beneath it immediately, no
   await expect(page.getByRole('columnheader', { name: 'Commit message' })).toBeVisible();
 
   const toggle = page.locator('[data-testid="browser-toggle"]');
-  await toggle.click();
+  await openBrowser(page);
   await expect(page.getByRole('textbox', { name: 'Address' })).toBeVisible();
 
   // `opacity-0` is what marks the first commit of the exit; whatever else the
@@ -190,7 +210,7 @@ test('Escape closes the pane, and it reopens with the same tabs on reload', asyn
   await page.goto('/');
   await expect(page.getByRole('columnheader', { name: 'Commit message' })).toBeVisible();
 
-  await page.locator('[data-testid="browser-toggle"]').click();
+  await openBrowser(page);
   const address = page.getByRole('textbox', { name: 'Address' });
   await address.fill('https://example.com');
   await address.press('Enter');
@@ -198,11 +218,16 @@ test('Escape closes the pane, and it reopens with the same tabs on reload', asyn
   await page.keyboard.press('Escape');
   await expect(address).toHaveCount(0);
 
-  await page.locator('[data-testid="browser-toggle"]').click();
+  await openBrowser(page);
   await expect(address).toHaveValue('https://example.com');
   await page.reload();
   await expect(page.getByRole('columnheader', { name: 'Commit message' })).toBeVisible();
-  await page.locator('[data-testid="browser-toggle"]').click();
+  /*
+    No launcher on the way back. A pane that was open when the window reloaded
+    is restored open, in the layout it was in — the launcher asks where to put
+    the browser, and a restored session has already answered.
+  */
+  await expect(page.getByTestId('browser-launcher')).toHaveCount(0);
   await expect(address).toHaveValue('https://example.com');
 });
 
@@ -212,7 +237,7 @@ test('the pane traps Tab, and Escape restores focus to the toggle', async ({ pag
   await expect(page.getByRole('columnheader', { name: 'Commit message' })).toBeVisible();
 
   const toggle = page.locator('[data-testid="browser-toggle"]');
-  await toggle.click();
+  await openBrowser(page);
 
   const address = page.getByRole('textbox', { name: 'Address' });
   await expect(address).toBeVisible();
@@ -227,7 +252,7 @@ test('a crashed view is surfaced as tab state with a reload affordance, not a bl
 }) => {
   await installMockBridge(page, { ...fixtures });
   await page.goto('/');
-  await page.locator('[data-testid="browser-toggle"]').click();
+  await openBrowser(page);
 
   const address = page.getByRole('textbox', { name: 'Address' });
   await address.fill('https://example.com');
@@ -251,7 +276,7 @@ test('a crashed view is surfaced as tab state with a reload affordance, not a bl
 test('a window.open from a page becomes a new tab beside its opener', async ({ page }) => {
   await installMockBridge(page, { ...fixtures });
   await page.goto('/');
-  await page.locator('[data-testid="browser-toggle"]').click();
+  await openBrowser(page);
 
   const address = page.getByRole('textbox', { name: 'Address' });
   await address.fill('https://example.com');
@@ -274,7 +299,7 @@ test('a window.open from a page becomes a new tab beside its opener', async ({ p
 test('a blocked download is reported as a notification naming the file', async ({ page }) => {
   await installMockBridge(page, { ...fixtures });
   await page.goto('/');
-  await page.locator('[data-testid="browser-toggle"]').click();
+  await openBrowser(page);
 
   const address = page.getByRole('textbox', { name: 'Address' });
   await address.fill('https://example.com');
@@ -297,7 +322,7 @@ test('a blocked download is reported as a notification naming the file', async (
 test('a tab can be put in a new group, which then renames inline and collapses', async ({ page }) => {
   await installMockBridge(page, { ...fixtures });
   await page.goto('/');
-  await page.locator('[data-testid="browser-toggle"]').click();
+  await openBrowser(page);
 
   const tab = browserTabs(page).first();
   await tab.click({ button: 'right' });
@@ -324,4 +349,111 @@ test('a tab can be put in a new group, which then renames inline and collapses',
     'false',
   );
   await expect(browserTabs(page)).toHaveCount(0);
+});
+
+/**
+ * The layout launcher, and what each answer does to the window.
+ *
+ * The pane used to appear wherever the last session left it with no say in
+ * the matter, and "wherever" was a full-screen overlay that respected the nav
+ * rail's padding — so the right-hand column's width was permanently clipped
+ * by a rail nothing in the browser can use. These specs pin both halves of
+ * the fix: the choice happens up front, and each choice reaches its edges.
+ */
+test('the toggle raises the launcher rather than the pane, and remembers the answer', async ({
+  page,
+}) => {
+  await installMockBridge(page, { ...fixtures });
+  await page.goto('/');
+  await expect(page.getByRole('columnheader', { name: 'Commit message' })).toBeVisible();
+
+  await page.locator('[data-testid="browser-toggle"]').click();
+  const launcher = page.getByTestId('browser-launcher');
+  await expect(launcher).toBeVisible();
+  // Nothing has opened yet — the launcher is a question, not a step.
+  await expect(page.getByRole('textbox', { name: 'Address' })).toHaveCount(0);
+  // Three options, each drawing its own layout.
+  await expect(launcher.getByRole('radio')).toHaveCount(3);
+  await expect(page.getByTestId('browser-layout-full')).toHaveAttribute('aria-checked', 'true');
+
+  // Arrows move the selection; Enter is what commits it.
+  await page.keyboard.press('ArrowRight');
+  await expect(page.getByTestId('browser-layout-left')).toHaveAttribute('aria-checked', 'true');
+  await page.keyboard.press('Enter');
+  await expect(launcher).toHaveCount(0);
+  await expect(page.getByRole('textbox', { name: 'Address' })).toBeVisible();
+
+  // Reopening pre-selects what was chosen last time, so the common path is
+  // Mod+B then Enter.
+  await page.keyboard.press('Escape');
+  await page.locator('[data-testid="browser-toggle"]').click();
+  await expect(page.getByTestId('browser-layout-left')).toHaveAttribute('aria-checked', 'true');
+});
+
+test('Escape on the launcher leaves the browser closed', async ({ page }) => {
+  await installMockBridge(page, { ...fixtures });
+  await page.goto('/');
+  await page.locator('[data-testid="browser-toggle"]').click();
+  await expect(page.getByTestId('browser-launcher')).toBeVisible();
+
+  await page.keyboard.press('Escape');
+  await expect(page.getByTestId('browser-launcher')).toHaveCount(0);
+  await expect(page.getByRole('textbox', { name: 'Address' })).toHaveCount(0);
+});
+
+test('full screen reaches the window edge over the nav rail, and stops above the footer', async ({
+  page,
+}) => {
+  await installMockBridge(page, { ...fixtures });
+  await page.goto('/');
+  await expect(page.getByRole('columnheader', { name: 'Commit message' })).toBeVisible();
+
+  await openBrowser(page, 'full');
+
+  const pane = page.getByRole('dialog', { name: 'Browser' });
+  const paneBox = (await pane.boundingBox())!;
+  const rail = page.getByRole('complementary', { name: 'Views' });
+  const railBox = (await rail.boundingBox())!;
+  const statusBox = (await page.getByTestId('status-bar').boundingBox())!;
+  const viewport = page.viewportSize()!;
+
+  // Over the rail, not beside it — this is the whole point: the rail's every
+  // item navigates the app behind the browser.
+  expect(railBox.width).toBeGreaterThan(0);
+  expect(paneBox.x).toBeLessThanOrEqual(1);
+  // …and therefore all the way to the other edge, rather than a rail's width
+  // short of it, which is how the right side used to be clipped.
+  expect(paneBox.x + paneBox.width).toBeGreaterThanOrEqual(viewport.width - 1);
+  // The footer is the one strip it leaves alone.
+  expect(paneBox.y + paneBox.height).toBeLessThanOrEqual(statusBox.y + 1);
+});
+
+test('side by side reflows the workspace into the other half instead of covering it', async ({
+  page,
+}) => {
+  await installMockBridge(page, { ...fixtures });
+  await page.goto('/');
+  const header = page.getByRole('columnheader', { name: 'Commit message' });
+  await expect(header).toBeVisible();
+
+  await openBrowser(page, 'right');
+
+  const frame = page.locator('[data-browser-frame]');
+  await expect(frame).toBeVisible();
+  const frameBox = (await frame.boundingBox())!;
+  const headerBox = (await header.boundingBox())!;
+
+  // No overlap in either direction: the graph ends where the browser begins,
+  // which is only true if the view actually gave up the room.
+  expect(headerBox.x + headerBox.width).toBeLessThanOrEqual(frameBox.x + 1);
+  // The rail keeps its space in a split — unlike full screen, there is a
+  // workspace behind it worth navigating.
+  const railBox = (await page.getByRole('complementary', { name: 'Views' }).boundingBox())!;
+  expect(frameBox.x).toBeGreaterThan(railBox.x + railBox.width);
+
+  // The toolbar's picker switches sides without closing the pane.
+  await page.getByTestId('browser-layout-pick-left').click();
+  const movedBox = (await page.locator('[data-browser-frame]').boundingBox())!;
+  expect(movedBox.x).toBeLessThan(frameBox.x);
+  await expect(page.getByRole('textbox', { name: 'Address' })).toBeVisible();
 });
