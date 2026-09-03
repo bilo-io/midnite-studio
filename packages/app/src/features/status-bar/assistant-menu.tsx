@@ -1,10 +1,69 @@
-import { useState } from 'react';
+import { useRef, useState } from 'react';
 
+import { BrandMark } from '../../components/brand';
 import { Popover } from '../../components/popover';
 import { MidniteIcon } from '../../components/icons/midnite-icon';
+import { FabLoopHalo, useAnyLoopRunning } from '../loops/fab-loop-halo';
+import { captureFabMorphOrigin, useFabMorphEntrance } from '../loops/fab-morph';
+import { useUiStore } from '../../store/ui-store';
 
+/**
+ * The statusbar's rightmost segment.
+ *
+ * While the FAB panel is closed this is the (currently blank) Midnite
+ * Assistant popover. While it is open, this slot instead wears a miniature
+ * of the FAB itself — same brand mark, same loop glow/halo, same toggle — so
+ * closing the panel never needs a second control to hunt for. The two looks
+ * share one statusbar segment rather than sitting side by side: with the big
+ * FAB hidden for the same duration (`app.tsx`), there is exactly one FAB
+ * on screen at all times, and the FLIP transform in `fab-morph.ts` is what
+ * sells the two as one button moving rather than one disappearing and
+ * another appearing in its place.
+ */
 export function AssistantMenu() {
   const [open, setOpen] = useState(false);
+  const fabPanelOpen = useUiStore((s) => s.fabPanelOpen);
+  const toggleFabPanel = useUiStore((s) => s.toggleFabPanel);
+  const activeFabTab = useUiStore((s) => s.activeFabTab);
+  const loopsRunning = useAnyLoopRunning();
+  const miniFabRef = useRef<HTMLButtonElement | null>(null);
+  useFabMorphEntrance(miniFabRef);
+
+  if (fabPanelOpen) {
+    return (
+      <div className="relative flex h-4 w-4 items-center justify-center">
+        <FabLoopHalo tab={activeFabTab} compact />
+        <button
+          ref={miniFabRef}
+          type="button"
+          onClick={() => {
+            captureFabMorphOrigin(miniFabRef.current);
+            toggleFabPanel();
+          }}
+          aria-label="Close quick access panel"
+          title="Quick Access"
+          data-testid="assistant-menu"
+          data-loops-running={loopsRunning.running ? 'true' : undefined}
+          data-fab-tab={activeFabTab}
+          // `relative`, same reason as the large FAB: the halo sits at
+          // `-z-10` behind this button and needs it to not be a static box.
+          className={`relative flex h-4 w-4 items-center justify-center rounded-full bg-primary text-primary-foreground transition-transform hover:scale-110 active:scale-95 ${
+            loopsRunning.running
+              ? `loop-run-glow on-primary ${
+                  loopsRunning.waiting
+                    ? 'is-waiting'
+                    : loopsRunning.thinking
+                      ? 'is-thinking'
+                      : ''
+                }`
+              : ''
+          }`}
+        >
+          <BrandMark className="h-full w-full" />
+        </button>
+      </div>
+    );
+  }
 
   return (
     <Popover
