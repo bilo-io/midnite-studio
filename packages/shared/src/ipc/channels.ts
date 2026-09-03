@@ -494,6 +494,22 @@ export const CHANNELS = {
   demoApiStop: 'mstudio:demo-api:stop',
   demoApiStatus: 'mstudio:demo-api:status',
 
+  // --- video (Phase 44) -------------------------------------------------------
+  // Video Studio is global, not per-repo, and this app ships no Remotion
+  // dependency anywhere — see `video.ts`'s own doc comment. Projects are
+  // discovered from disk, not registered, so there is no `videoProjectSave`.
+  videoProjectList: 'mstudio:video:project-list',
+  videoProjectGet: 'mstudio:video:project-get',
+  videoProjectCreate: 'mstudio:video:project-create',
+  videoProjectRemove: 'mstudio:video:project-remove',
+  videoStudioStart: 'mstudio:video:studio-start',
+  videoStudioStop: 'mstudio:video:studio-stop',
+  videoStudioStatus: 'mstudio:video:studio-status',
+  videoRenderStart: 'mstudio:video:render-start',
+  videoRenderCancel: 'mstudio:video:render-cancel',
+  videoRenderList: 'mstudio:video:render-list',
+  videoToolchain: 'mstudio:video:toolchain',
+
   // --- onboarding kit scaffold (Phase 49) -----------------------------------
   // `plan` reads the template tree and the target repo, hashes both sides and
   // classifies every entry — it writes nothing. `apply` writes only the exact
@@ -591,6 +607,10 @@ export const EVENT_CHANNELS = {
    * re-fetch needs neither.
    */
   workflowRunChanged: 'mstudio:workflow:run-changed',
+  /** A studio's status changed — see `VideoStudioChangedEventSchema`. */
+  videoStudioChanged: 'mstudio:video:studio-changed',
+  /** A render's status/progress advanced — see `VideoRenderProgressEventSchema`. */
+  videoRenderProgress: 'mstudio:video:render-progress',
   updateState: 'mstudio:update:state',
   deepLink: 'mstudio:protocol:deep-link',
 } as const;

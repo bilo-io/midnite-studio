@@ -674,6 +674,46 @@ export type MidniteStudioBridge = {
   };
 
   /**
+   * Video Studio (Phase 44) — global, not per-repo, and this app ships no
+   * Remotion dependency anywhere; see `video.ts`. Projects are discovered
+   * from disk, not registered, so there is no `save` — only `create` (copy
+   * the template) and `remove`. `studio.start`/`render.start` resolve with
+   * the freshly-minted status/render; live progress arrives on
+   * `onStudioChanged`/`onRenderProgress`.
+   */
+  video: {
+    project: {
+      list: () => Promise<z.infer<typeof S.VideoProjectListResponse>>;
+      get: (req: In<typeof S.VideoProjectGetRequest>) => Promise<z.infer<typeof S.VideoProjectGetResponse>>;
+      create: (
+        req: In<typeof S.VideoProjectCreateRequest>,
+      ) => Promise<z.infer<typeof S.VideoProjectCreateResponse>>;
+      remove: (req: In<typeof S.VideoProjectRemoveRequest>) => Promise<GitOpResult>;
+    };
+    studio: {
+      start: (
+        req: In<typeof S.VideoStudioStartRequest>,
+      ) => Promise<z.infer<typeof S.VideoStudioStartResponse>>;
+      stop: (req: In<typeof S.VideoStudioStopRequest>) => Promise<GitOpResult>;
+      status: (
+        req: In<typeof S.VideoStudioStatusRequest>,
+      ) => Promise<z.infer<typeof S.VideoStudioStatusResponse>>;
+    };
+    render: {
+      start: (
+        req: In<typeof S.VideoRenderStartRequest>,
+      ) => Promise<z.infer<typeof S.VideoRenderStartResponse>>;
+      cancel: (req: In<typeof S.VideoRenderCancelRequest>) => Promise<GitOpResult>;
+      list: (req: In<typeof S.VideoRenderListRequest>) => Promise<z.infer<typeof S.VideoRenderListResponse>>;
+    };
+    toolchain: (
+      req: In<typeof S.VideoToolchainRequest>,
+    ) => Promise<z.infer<typeof S.VideoToolchainResponse>>;
+    onStudioChanged: (handler: (event: z.infer<typeof S.VideoStudioChangedPayload>) => void) => Unsubscribe;
+    onRenderProgress: (handler: (event: z.infer<typeof S.VideoRenderProgressPayload>) => void) => Unsubscribe;
+  };
+
+  /**
    * The onboarding kit's Setup/Update leaves (Phase 49). `plan` reads the
    * template tree and the target repo and writes nothing — safe to call
    * unprompted, the same posture as `diag.detect`. `apply` writes only the

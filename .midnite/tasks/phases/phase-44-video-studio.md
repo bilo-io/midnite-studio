@@ -85,34 +85,48 @@ Effort tags: **S** ≈ an hour or two · **M** ≈ half a day · **L** ≈ a day
 
 ## Deliverables
 
-### A — Shared contracts (M)
+### A — Shared contracts (M) — ✅ DONE (PR #TBD, 2026-09-04)
 
-- [ ] `VideoProject`, `VideoComposition`, `VideoRender`, `VideoStudioStatus`, `VideoToolchain` zod
+- [x] `VideoProject`, `VideoComposition`, `VideoRender`, `VideoStudioStatus`, `VideoToolchain` zod
       schemas in a new [`shared/src/video.ts`](../../../packages/shared/src/video.ts), plus
       `video.test.ts`, modelled on [`council.ts`](../../../packages/shared/src/council.ts)'s
-      structure.
-- [ ] `VideoProject` mirrors `ekko-videos`' `project.json` verbatim — `{ id, title, composition,
-      source, brief, script }` — so a project folder is portable **in both directions**: one made
-      by this app opens in that repo, and vice versa. This is a contract with an existing format,
-      not a new one; write it as such and say so in the doc comment.
-- [ ] `VideoRenderStatus` — `queued | rendering | succeeded | failed | cancelled` — mirroring the
+      structure. `VideoRenderStatus` and `VideoToolBinary` (a `found`-discriminated pair for
+      `node`/`npx`, so a consumer cannot read `path` without narrowing `found` first) live there too.
+- [x] `VideoProject` mirrors `ekko-videos`' `project.json` verbatim — `{ id, title, composition,
+      source, brief, script }`, checked directly against the real
+      [`projects/_template/project.json`](file:///Users/bilolwabona/Dev/ekko-videos/projects/_template/project.json)
+      rather than guessed — so a project folder is portable **in both directions**. It is itself the
+      `valid: true` arm of a small discriminated union with `{ valid: false, id, error }`, since
+      Theme B's own "malformed `project.json` → an `invalid` state, never a crash" needs a shape to
+      land in; `id` is always the folder name, the only identity available when the file itself
+      cannot be read.
+- [x] `VideoRenderStatus` — `queued | rendering | succeeded | failed | cancelled` — mirroring the
       council member states the runner already models.
-- [ ] `VideoStudioStatus` is a discriminated union on `state`: `stopped | starting | running |
-      failed`, carrying the `url` only in `running`. A studio with no URL yet is a *state*, not a
-      null field, because the view renders each of the four differently.
-- [ ] `VideoToolchain` — the resolved `node`/`npx` paths plus a `remotionVersion` read from the
+- [x] `VideoStudioStatus` is a discriminated union on `state`: `stopped | starting | running |
+      failed`, carrying the `url` only in `running` and the studio's last stderr lines only in
+      `failed` (Theme C: "a dev server that dies silently is the single most confusing failure this
+      feature can have") — both schema-enforced, not just documented, and asserted by name in
+      `video.test.ts`.
+- [x] `VideoToolchain` — the resolved `node`/`npx` paths plus a `remotionVersion` read from the
       project's own `package.json`, or the reason each is missing. The view renders the reason.
-- [ ] Channels in [`channels.ts`](../../../packages/shared/src/ipc/channels.ts), in the established
+- [x] Channels in [`channels.ts`](../../../packages/shared/src/ipc/channels.ts), in the established
       `mstudio:` namespace and grouped with a `// --- video (Phase 44) ---` banner comment like
       every block before it: `mstudio:video:project-list|project-get|project-create|project-remove`,
       `mstudio:video:studio-start|studio-stop|studio-status`,
       `mstudio:video:render-start|render-cancel|render-list`, `mstudio:video:toolchain`.
-- [ ] Push events under `EVENT_CHANNELS` ([`channels.ts:440`](../../../packages/shared/src/ipc/channels.ts)):
-      `videoStudioChanged`, `videoRenderProgress`. One discriminated-union event per group, as
-      `browserEvent` does — not one channel per field.
-- [ ] Bridge signatures in [`bridge.ts`](../../../packages/shared/src/ipc/bridge.ts) returning the
+- [x] Push events under `EVENT_CHANNELS`: `videoStudioChanged`, `videoRenderProgress`. One
+      discriminated-payload event per group, as `browserEvent` does. **Correction:** the payload
+      schemas could not keep the same names as their `../video`-exported inferred TYPEs
+      (`VideoStudioChangedEvent`/`VideoRenderProgressEvent`) — `index.ts`'s barrel re-export fails
+      with an ambiguity error the moment a type and a same-named value both leave the package.
+      Re-exported from `ipc/schemas.ts` as `...Payload` instead, the same pattern
+      `BrowserEventPayload` already uses for exactly this reason.
+- [x] Bridge signatures in [`bridge.ts`](../../../packages/shared/src/ipc/bridge.ts) returning the
       `GitOpResult`-shaped envelope. A failed render is a normal outcome the UI renders, never a
       thrown error — the rule from [`CLAUDE.md`](../../../CLAUDE.md), and a render fails often.
+      Confirmed the bridge type alone does not force `preload/index.ts` to implement it yet —
+      `app:typecheck`/`desktop:typecheck` stay green with no `video` property there at all, so a
+      contracts-only theme genuinely lands standalone, same as workflow's and councils' own Theme A.
 
 ### B — Project discovery and the store (M)
 
