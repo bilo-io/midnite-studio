@@ -44,7 +44,7 @@ Completed work is logged append-only in [`done.md`](done.md). Deferred scope liv
 | [50 · Kanban & Projects, Follow-Through](phases/phase-50-kanban-projects-followthrough.md) | 🔄 WIP | — | 15/17 | `█████████░` | 88% | — | F (codex human pass), Verification (2 human passes) |
 | [49 · Onboarding a repo: Setup and Update](phases/phase-49-repo-onboarding.md) | 🔄 WIP | — | 31/33 | `█████████░` | 94% | — | Verification (2 human passes) |
 | [48 · Apply suggested-change blocks](phases/phase-48-apply-suggested-changes.md) | 🔄 WIP | — | 19/20 | `██████████` | 95% | — | E (human round-trip verification) |
-| [47 · Conflict Resolution Studio](phases/phase-47-conflict-resolution-studio.md) | 🔄 WIP | — | 19/23 | `████████░░` | 83% | — | E, F (human diff3 pass) |
+| [47 · Conflict Resolution Studio](phases/phase-47-conflict-resolution-studio.md) | 🔄 WIP | — | 19/23 | `████████░░` | 83% | E | F (human diff3 pass) |
 | [46 · The lock screen, and a motion policy that holds](phases/phase-46-lock-screen-and-motion.md) | 🔄 WIP | — | 37/49 | `████████░░` | 76% | — | Verification (human keyboard + eye pass) |
 | [45 · The leak audit](phases/phase-45-leak-audit.md) | 🔄 WIP | — | 32/35 | `█████████░` | 91% | — | F (human long-running-session pass) |
 | [44 · Video Studio](phases/phase-44-video-studio.md) | 🔄 WIP | — | 8/64 | `█░░░░░░░░░` | 13% | B | C D E F G H |
