@@ -14,11 +14,12 @@ import { useJournalEntries } from '../../store/ops-journal-store';
  * every write the REPOSITORY has seen, from any tool; this is every write
  * THIS APP made, which is the one thing the reflog cannot say for itself.
  *
- * Only the two ops in `WIRED_UNDO_OPS` (`stash-drop`, `branch-delete`) get a
- * live Undo button — everything else `entry.undoable` marks true is still
- * shown as such (a domain fact this pass does not hide), it simply has no
- * button yet; everything un-undoable shows its one-line reason instead of a
- * disabled control with nothing said.
+ * Only the ops in `WIRED_UNDO_OPS` get a live Undo button — kept as its own
+ * list rather than reading straight off `entry.undoable` so a future op can
+ * be classified as undoable in principle before its executor exists, without
+ * that showing a button with nothing behind it. Every undoable-in-principle
+ * op now has one; everything un-undoable shows its one-line reason instead of
+ * a disabled control with nothing said.
  */
 export function JournalList({ repoId }: { repoId: string | null }) {
   const entries = useJournalEntries(repoId);

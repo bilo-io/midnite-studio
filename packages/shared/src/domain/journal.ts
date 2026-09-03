@@ -206,17 +206,24 @@ export function undoReason(op: JournalOp): string | undefined {
  * whatever anchor this particular write managed to capture.
  *
  * Most ops need `headBefore` (the sha to reset back to); `branch-create`'s
- * undo is a delete by name, so it needs `refBefore` instead; `stash-push`'s
+ * undo is a delete by name, so it needs `refBefore` instead; `branch-rename`'s
+ * undo renames back, so it needs BOTH `refBefore` (the old name) and
+ * `headAfter` (repurposed to carry the new name a plain rename has no sha
+ * for, rather than growing the entry a tenth field for one op); `stash-push`'s
  * undo is `stash pop`, which needs neither sha nor ref (the stash is applied
  * by being the newest entry), so it stays undoable as long as the op
  * succeeded at all.
+ *
+ * `headAfter` is optional on the anchor — every caller but `branch-rename`'s
+ * can omit it exactly as before.
  */
 export function computeUndoable(
   op: JournalOp,
-  anchor: { headBefore: string | null; refBefore: string | null },
+  anchor: { headBefore: string | null; refBefore: string | null; headAfter?: string | null },
 ): boolean {
   if (!isUndoableOpKind(op)) return false;
   if (op === 'branch-create') return anchor.refBefore != null;
+  if (op === 'branch-rename') return anchor.refBefore != null && anchor.headAfter != null;
   if (op === 'stash-push') return true;
   return anchor.headBefore != null;
 }

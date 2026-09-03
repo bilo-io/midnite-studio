@@ -7,6 +7,7 @@ import { Popover } from '../../components/popover';
 import { useWindowFocusGate } from '../../lib/use-window-focus-gate';
 import { useWorkflowRunCommandStore, type WorkflowRunHandle } from '../../store/workflow-run-command-store';
 import { useFlushableSave } from '../councils/use-flushable-save';
+import { DemoApiPill } from './demo-api-pill';
 import { NodeInspector } from './canvas/node-inspector';
 import { RunNodeDetail } from './canvas/run-node-detail';
 import { WorkflowCanvas, type WorkflowGraph } from './canvas/workflow-canvas';
@@ -163,30 +164,40 @@ function WorkflowEditor({ workflow }: { workflow: Workflow }) {
               Back to editing
             </button>
           ) : (
-            <Popover
-              label="Run history"
-              side="bottom"
-              align="start"
-              panelClassName="p-0"
-              trigger={
-                <span
-                  className={`flex h-6 w-6 items-center justify-center rounded-md border border-transparent ${
-                    hasRunningRun ? 'card-run-glow is-running' : ''
-                  }`}
-                >
-                  <LuHistory aria-hidden className="h-3.5 w-3.5" />
-                </span>
-              }
-              triggerClassName="rounded-md hover:bg-accent"
-            >
-              <RunHistoryList
-                workflowId={workflow.id}
-                onSelectRun={(runId) => {
-                  setActiveRunId(runId);
-                  setSelection(new Set());
+            <>
+              <Popover
+                label="Run history"
+                side="bottom"
+                align="start"
+                panelClassName="p-0"
+                trigger={
+                  <span
+                    className={`flex h-6 w-6 items-center justify-center rounded-md border border-transparent ${
+                      hasRunningRun ? 'card-run-glow is-running' : ''
+                    }`}
+                  >
+                    <LuHistory aria-hidden className="h-3.5 w-3.5" />
+                  </span>
+                }
+                triggerClassName="rounded-md hover:bg-accent"
+              >
+                <RunHistoryList
+                  workflowId={workflow.id}
+                  onSelectRun={(runId) => {
+                    setActiveRunId(runId);
+                    setSelection(new Set());
+                  }}
+                />
+              </Popover>
+              <DemoApiPill
+                selectedNode={selectedNode}
+                onInsertUrl={(baseUrl) => {
+                  if (selectedNode?.kind === 'http') {
+                    changeNode({ ...selectedNode, config: { ...selectedNode.config, url: baseUrl } });
+                  }
                 }}
               />
-            </Popover>
+            </>
           )
         }
       />

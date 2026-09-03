@@ -459,7 +459,7 @@ export function useTargetedGitOp<TArgs>(
           headBefore,
           headAfter,
           refBefore,
-          undoable: computeUndoable(op, { headBefore, refBefore }),
+          undoable: computeUndoable(op, { headBefore, headAfter, refBefore }),
         };
         record(entry);
 

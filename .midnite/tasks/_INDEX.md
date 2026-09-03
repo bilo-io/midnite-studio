@@ -48,7 +48,7 @@ Completed work is logged append-only in [`done.md`](done.md). Deferred scope liv
 | [46 · The lock screen, and a motion policy that holds](phases/phase-46-lock-screen-and-motion.md) | 🔄 WIP | — | 37/49 | `████████░░` | 76% | — | Verification (human keyboard + eye pass) |
 | [45 · The leak audit](phases/phase-45-leak-audit.md) | 🔄 WIP | — | 32/35 | `█████████░` | 91% | — | F (human long-running-session pass) |
 | [44 · Video Studio](phases/phase-44-video-studio.md) | 🔄 WIP | — | 8/64 | `█░░░░░░░░░` | 13% | B | C D E F G H |
-| [43 · Workflows](phases/phase-43-workflows-mvp.md) | 🔄 WIP | x1 | 55/77 | `███████░░░` | 71% | D (partial) | I (human pass) |
+| [43 · Workflows](phases/phase-43-workflows-mvp.md) | 🔄 WIP | x1 | 56/77 | `███████░░░` | 73% | — | I (human pass) |
 | [42 · Councils, rearranged](phases/phase-42-councils-layout.md) | ✅ DONE | x1 | 38/44 | `█████████░` | 86% | — | — |
 | [41 · Agentic Kanban](phases/phase-41-agentic-kanban.md) | 🔄 WIP | x1 | 48/57 | `████████░░` | 84% | H | — |
 | [40 · GitHub Projects](phases/phase-40-github-projects.md) | 🔄 WIP | x1 | 38/53 | `███████░░░` | 72% | — | G (human screenshots + real-board pass) |
@@ -69,7 +69,7 @@ Completed work is logged append-only in [`done.md`](done.md). Deferred scope liv
 | [25 · Search everywhere, and the blame that explains it](phases/phase-25-search-everywhere.md) | ✅ DONE | x1 | 101/101 | `██████████` | 100% | — | — |
 | [24 · The explorer learns to write, and to search](phases/phase-24-writable-explorer.md) | ✅ DONE | — | 43/55 | `████████░░` | 78% | — | — |
 | [23 · A command palette, and the registry that can feed it](phases/phase-23-command-palette.md) | ✅ DONE | — | 42/55 | `████████░░` | 76% | — | — |
-| [22 · Stash, the reflog, and writes you can take back](phases/phase-22-stash-and-safety-net.md) | 🔄 WIP | — | 56/56 | `██████████` | 100% | H (partial) | — |
+| [22 · Stash, the reflog, and writes you can take back](phases/phase-22-stash-and-safety-net.md) | ✅ DONE | — | 56/56 | `██████████` | 100% | — | — |
 | [21 · Agent roster + terminal identity](phases/phase-21-agent-roster-and-terminal-identity.md) | ✅ DONE | — | 46/46 | `██████████` | 100% | — | — |
 | [20 · Reviews page & unified diff syntax highlighting](phases/phase-20-reviews-page.md) | ✅ DONE | — | 45/45 | `██████████` | 100% | — | — |
 | [19 · Dashboard, Actions and Tests as views](phases/phase-19-dashboard-actions-tests.md) | ✅ DONE | — | 76/76 | `██████████` | 100% | — | — |
@@ -242,7 +242,7 @@ multi-select and undo/redo each have zero precedent in this renderer.
 - ◻ **A** — Shared contracts: `Workflow*` zod schemas, nodes as a discriminated union of exactly five kinds, channels + one bare `workflowRunChanged` event. Copies `GitOpResult`'s nested-union shape exactly — a flat `discriminatedUnion('ok')` is a zod error — and adds the opt-in `describe('workflow contract')` block to `ipc.test.ts` without which a channel ships unvalidated.
 - ✅ **B** ([PR #92](https://github.com/bilo-io/midnite-studio/pull/92)) — The engine: Kahn topological order, parallel branches capped at 4 in flight, cycle detection before the first node runs, a 120 s per-node deadline via the `trackOneShot` race, and `withRunLock` copied verbatim — including the never-nest rule that avoids deadlocking it against itself, and the `runLocks` prune the councils original still lacks.
 - ✅ **C** ([PR #92](https://github.com/bilo-io/midnite-studio/pull/92)) — The HTTP executor: every verb, a written-down `{{node.field}}` grammar with a `{{{{` escape where an unresolved reference **fails the node** rather than substituting empty, a 512 KB cap reusing `appendCapped`'s visible `truncated` flag, and `transform`/`condition`/`delay` bounded in schema.
-- ◐ **D** ([PR #92](https://github.com/bilo-io/midnite-studio/pull/92)) — The demo CRUD API: `node:http` on `127.0.0.1` and an **ephemeral port** (`listen(0)`) — the draft said both that and a fixed `:7331` — in-memory collections capped at 1 000, every verb and the right status codes. On demand, off by default; **the one-click base-URL paste is carried to Theme H**, which is where the view that would hold it gets built.
+- ✅ **D** ([PR #92](https://github.com/bilo-io/midnite-studio/pull/92), [PR #109](https://github.com/bilo-io/midnite-studio/pull/109)) — The demo CRUD API: `node:http` on `127.0.0.1` and an **ephemeral port** (`listen(0)`) — the draft said both that and a fixed `:7331` — in-memory collections capped at 1 000, every verb and the right status codes. On demand, off by default. **The one-click base-URL paste** landed as a `Demo API · running on :<port> · [stop]` pill in the canvas toolbar, polling `demoApi.status` (no push event shipped with it) and inserting the base URL into a selected `http` node's URL field.
 - ✅ **E** ([PR #100](https://github.com/bilo-io/midnite-studio/pull/100)) — The canvas *(the phase's largest risk)*: SVG nodes + bézier edges, with the geometry split pure the way `metric-path.ts` is. `edgePath` is the bezier to **copy, not call** — its control axis is vertical and a workflow flows sideways. Pan/zoom is defined here, not inherited; drag is **raw pointer events, not `@dnd-kit`**; culling is a rect filter, not a virtualizer.
 - ✅ **F** (PR #102) — The node inspector: forms driven off the `kind` union in the app's **first** right-hand config pane, live validation via the existing `validateWorkflow()` (not a bare zod schema — that catches nothing an empty URL/picks/right-hand value would need), and a `{{...}}` interpolation helper listing genuine upstream fields by their declared output shape. Hoists `Field`/`Choice`/`TextField`/`TextArea` into `components/form/` rather than making a third copy; `SwitchRow`/`RadioRow` turned out already hoisted by Phase 41 Theme G. Does **not** build or consume `panel-stack`.
 - ✅ **G** (PR #105) — Runs: the same canvas read-only with per-node status colouring (stroke, not text), live via **push-then-re-fetch** off `workflowRunChanged` (councils' 1 200 ms poll would look frozen). History is a Popover off the canvas toolbar, per-workflow-capped at 20 (`workflow-runs-store.ts`'s real cap — not the 200-global the doc guessed before that store existed). A run's status/duration/error render in the inspector's pane, swapped by mode; the doc's "input" was never a real field on `WorkflowNodeRunSchema`, so it isn't shown. The running indicator wears `.card-run-glow` (not `.loop-run-glow`'s tab-hued system, which predates it) and calls the shared `useWindowFocusGate` itself — already concurrent-host-safe, no `app.tsx` hoist needed.
@@ -971,17 +971,23 @@ first toast primitive and first undo.*
   riding the existing `'refs'` `WatchKind`, and the real Reflog tab (ref selector, action filter,
   old→new sha pairs, checkout) replacing Theme H's honest placeholder. (Falsely marked done
   2026-08-30 in the same `26e2349` claim, corrected 2026-09-02; really done 2026-09-03, PR #51.)
-- ◐ **H** — **PARTIAL**, a real starter slice (2026-09-02): a custom toast primitive
+- ✅ **H** — a real starter slice (2026-09-02): a custom toast primitive
   (`components/toast.tsx`/`toast-host.tsx` — `@bilo-io/ui` exports none), `OpJournalEntrySchema` +
   an exhaustive undoability classifier, and live Undo wired for `stash-drop` and `branch-delete`
-  only (`WIRED_UNDO_OPS`). Every other undoable-by-classifier op is journalled correctly but has no
-  wired Undo yet; the journal is the History view's real second tab, beside G's placeholder. A prior
-  correction (`a2cd211`) had already caught this theme's earlier false "done" claim (2026-08-30) and
-  its own "22 checklist items" count was itself off — the real count is 8 (the other 14 it summed
-  belong to the phase's shared Verification section, not Theme H). A follow-up ([PR #31](https://github.com/bilo-io/midnite-studio/pull/31))
-  then found the sidebar's `branch-delete` never passed the `journalHint` its wired undo reads, so
-  that Undo would have recreated a branch literally named `HEAD` at the wrong sha — fixed, with an
-  e2e spec that drives the real row menu (`e2e/journal-undo.spec.ts`).
+  only (`WIRED_UNDO_OPS`). A prior correction (`a2cd211`) had already caught this theme's earlier
+  false "done" claim (2026-08-30) and its own "22 checklist items" count was itself off — the real
+  count is 8 (the other 14 it summed belong to the phase's shared Verification section, not Theme
+  H). A follow-up ([PR #31](https://github.com/bilo-io/midnite-studio/pull/31)) then found the
+  sidebar's `branch-delete` never passed the `journalHint` its wired undo reads, so that Undo would
+  have recreated a branch literally named `HEAD` at the wrong sha — fixed, with an e2e spec that
+  drives the real row menu (`e2e/journal-undo.spec.ts`). **The rest of `WIRED_UNDO_OPS`**
+  ([PR #109](https://github.com/bilo-io/midnite-studio/pull/109), 2026-09-04): `commit`/`reset`
+  (mixed reset to the prior `HEAD`), `checkout` (detach to the prior sha), `branch-create` (delete
+  the branch it named — stepping off it first when checked out on creation, since git refuses to
+  delete the branch you're on regardless of `force`), `branch-rename` (rename back, `headAfter`
+  repurposed to carry the new name a plain rename has no sha for), and `stash-push` (pop the newest
+  entry). Found the **same** graph/sidebar gap a second time — `branch-create` and `branch-rename`
+  each needed the `journalHint` added at both their independent call sites, not just the graph's.
 
 ### [Phase 21 — A plural agent roster, and a terminal that knows where it is](phases/phase-21-agent-roster-and-terminal-identity.md)
 
