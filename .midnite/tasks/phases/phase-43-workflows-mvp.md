@@ -80,9 +80,9 @@ Effort tags: **S** ≈ an hour or two · **M** ≈ half a day · **L** ≈ a day
 
 ## Deliverables
 
-### A — Shared contracts (M)
+### A — Shared contracts (M) — ✅ DONE (PR #91, 2026-09-03)
 
-- [ ] `Workflow`, `WorkflowNode`, `WorkflowEdge`, `WorkflowRun`, `WorkflowNodeRun` zod schemas in a
+- [x] `Workflow`, `WorkflowNode`, `WorkflowEdge`, `WorkflowRun`, `WorkflowNodeRun` zod schemas in a
       new [`shared/src/workflow.ts`](../../../packages/shared/src/workflow.ts), plus
       `workflow.test.ts`, modelled on `council.ts`'s structure.
   - Follow `council.ts`'s house conventions exactly: ids are `z.string().min(1)`; timestamps are
@@ -91,7 +91,7 @@ Effort tags: **S** ≈ an hour or two · **M** ≈ half a day · **L** ≈ a day
     one-member `z.enum`.
   - *Acceptance:* `workflow.test.ts` round-trips a two-node workflow through
     `WorkflowSchema.parse(JSON.parse(JSON.stringify(w)))` and gets a deep-equal object back.
-- [ ] `WorkflowNode` is a **discriminated union on `kind`**, and the MVP's vocabulary is exactly
+- [x] `WorkflowNode` is a **discriminated union on `kind`**, and the MVP's vocabulary is exactly
       five: `http`, `transform`, `condition`, `delay`, `note`. Written as a union, not an open
       string, so adding node #6 is an honest schema change.
   - Idiom: `z.discriminatedUnion('kind', [z.object({ kind: z.literal('http'), ... }), ...])`, the
@@ -100,18 +100,18 @@ Effort tags: **S** ≈ an hour or two · **M** ≈ half a day · **L** ≈ a day
   - Every arm carries the shared base fields — `id`, `label`, `x`, `y` — plus its own `config`
     object. Declare the base once as `WorkflowNodeBase` and `.extend()` it per arm, as
     `SearchStartRequest` does with `RepoId.extend`.
-- [ ] `WorkflowNodeStatus` — `pending | running | succeeded | failed | skipped` — mirroring the
+- [x] `WorkflowNodeStatus` — `pending | running | succeeded | failed | skipped` — mirroring the
       council member states the runner already models.
   - Add `timeout` as a sixth value. `council.ts:91` has it
     (`['running','succeeded','failed','timeout','skipped']`) and Theme B's per-node deadline
     produces exactly that outcome; folding it into `failed` loses the one distinction the UI most
     needs to explain.
-- [ ] Node position (`x`, `y`) lives on the node, so the canvas layout is data and survives a
+- [x] Node position (`x`, `y`) lives on the node, so the canvas layout is data and survives a
       round-trip through the store.
   - `z.number()` — plain floats, **not** integers and not grid cells. Theme E snaps on drop for
     tidiness, but the schema must not enforce it or an imported workflow with fractional positions
     fails to parse.
-- [ ] Channels in [`channels.ts`](../../../packages/shared/src/ipc/channels.ts):
+- [x] Channels in [`channels.ts`](../../../packages/shared/src/ipc/channels.ts):
       `mstudio:workflow:list|save|delete|run|cancel`, `mstudio:workflow-runs:list|get`, and
       `mstudio:demo-api:start|stop|status`. Push events (`workflowRunChanged`,
       `workflowNodeChanged`) grouped under `EVENT_CHANNELS`, as `loopRunsChanged` is.
@@ -122,7 +122,7 @@ Effort tags: **S** ≈ an hour or two · **M** ≈ half a day · **L** ≈ a day
     the reasoning ("the list is capped-small, so consumers just re-fetch it"). A per-node event
     would need a payload design, an ordering guarantee and a reconciliation story in the renderer;
     a bare ping plus a re-fetch of the run needs none of the three. See Decisions.
-- [ ] Bridge signatures in [`bridge.ts`](../../../packages/shared/src/ipc/bridge.ts), returning the
+- [x] Bridge signatures in [`bridge.ts`](../../../packages/shared/src/ipc/bridge.ts), returning the
       result envelope — a failed node is a normal outcome the UI renders, never a thrown error.
   - **Copy `GitOpResult`'s shape exactly** from
     [`domain/result.ts`](../../../packages/shared/src/domain/result.ts): a `z.union` of
@@ -130,12 +130,12 @@ Effort tags: **S** ≈ an hour or two · **M** ≈ half a day · **L** ≈ a day
     for the failures. A flat `z.discriminatedUnion('ok', [...])` with two `ok: false` arms **is a
     zod error** — the discriminator values must be distinct — and is the obvious wrong first try.
     Use the `GitOpResultOf(schema)` helper rather than rebuilding it.
-- [ ] Add a `'workflow'` member to the preload namespace union at
+- [x] Add a `'workflow'` member to the preload namespace union at
       [`preload/index.ts:103`](../../../packages/desktop/src/preload/index.ts).
   - The preload object is typed `Record<'…' | '…' | …, unknown>` over that union, so a missing
     namespace is a **compile error**, not a runtime surprise. This is the cheapest guard in the
     contract and it is free.
-- [ ] Add a `describe('workflow contract')` block to
+- [x] Add a `describe('workflow contract')` block to
       [`ipc.test.ts`](../../../packages/shared/src/ipc/ipc.test.ts) with a `CASES` table and an
       `expected` key map filtered on `key.startsWith('workflow') || key.startsWith('demoApi')`.
   - **This is not optional boilerplate.** The exhaustiveness guards in that file are *prefix-scoped
@@ -145,16 +145,16 @@ Effort tags: **S** ≈ an hour or two · **M** ≈ half a day · **L** ≈ a day
     fails the suite.
   - *Acceptance:* deleting one channel's row from `expected` makes `ipc.test.ts` fail.
 
-### B — The engine (L)
+### B — The engine (L) — ✅ DONE (PR #91, 2026-09-03)
 
-- [ ] `desktop/src/main/workflow/executor-registry.ts` — `kind → executor` lookup, one place a new
+- [x] `desktop/src/main/workflow/executor-registry.ts` — `kind → executor` lookup, one place a new
       node type is registered.
   - Type it `Record<WorkflowNode['kind'], NodeExecutor>` so the union from Theme A makes the
     registry exhaustive at compile time. A `Map` with a runtime `get` would not.
   - `export type NodeExecutor = (node: WorkflowNode, inputs: Record<string, unknown>, signal: { cancelled: () => boolean }) => Promise<NodeOutcome>`, where
     `NodeOutcome = { ok: true; output: unknown } | { ok: false; error: string }`. Executors
     **never throw**; the engine treats a rejection as a bug, not as a node failure.
-- [ ] `node-executor.ts` — resolves a node's inputs from its incoming edges, runs its executor,
+- [x] `node-executor.ts` — resolves a node's inputs from its incoming edges, runs its executor,
       records the result, emits a change event.
   - "Emits a change event" means `emitChanged()` — the module-level `getWindow` thunk pattern from
     [`loop-runs.ts:26,37`](../../../packages/desktop/src/main/loop-runs.ts), stashed by a
@@ -162,7 +162,7 @@ Effort tags: **S** ≈ an hour or two · **M** ≈ half a day · **L** ≈ a day
     `council-runner.ts` emits nothing at all.
   - Guard the send: `const win = getWindowThunk(); if (win && !win.isDestroyed()) win.webContents.send(...)`.
     A send to a destroyed window throws.
-- [ ] `workflow-engine.ts` — topological order over the graph, executing independent branches in
+- [x] `workflow-engine.ts` — topological order over the graph, executing independent branches in
       **parallel** and joining before a node with multiple inputs. Cycle detection **before** the
       first node runs, reported as a validation error against the offending edge, not a hang.
   - Kahn's algorithm over an in-degree map. A non-empty remainder after the queue drains **is** the
@@ -174,7 +174,7 @@ Effort tags: **S** ≈ an hour or two · **M** ≈ half a day · **L** ≈ a day
   - Cap concurrent in-flight nodes at **4**, mirroring `SEARCH_CEILING = 4`
     ([`search-service.ts:26`](../../../packages/desktop/src/main/search-service.ts)). A twenty-node
     fan-out firing twenty simultaneous `fetch`es is a self-inflicted rate limit.
-- [ ] A **per-run mutation lock**, the `withRunLock` pattern from
+- [x] A **per-run mutation lock**, the `withRunLock` pattern from
       [`council-runner.ts`](../../../packages/desktop/src/main/council-runner.ts) — parallel node
       settles racing on a read-modify-write of the run object is the exact bug Phase 34 found, and
       this engine reproduces its conditions.
@@ -185,7 +185,7 @@ Effort tags: **S** ≈ an hour or two · **M** ≈ half a day · **L** ≈ a day
     state inside the lock, return a boolean out of it, and *start the next node outside it*.
   - `runLocks` in the councils original is a `Map` that is **never pruned**, so an entry leaks per
     run. Delete the key when a run reaches a terminal state, and assert it in the test.
-- [ ] Per-node timeout and whole-run cancel, both leaving a coherent terminal state — a cancelled
+- [x] Per-node timeout and whole-run cancel, both leaving a coherent terminal state — a cancelled
       run's un-started nodes are `skipped`, not `pending` forever.
   - Per-node deadline default **120 000 ms**, matching `COUNCIL_RUN_TIMEOUT_MS`
     ([`council.ts:171`](../../../packages/shared/src/council.ts)) and `DEFAULT_TIMEOUT_MS` in
@@ -198,17 +198,17 @@ Effort tags: **S** ≈ an hour or two · **M** ≈ half a day · **L** ≈ a day
     — because a user cancel can race a real settle. `council-runner.ts:353` is the line.
   - *Acceptance:* cancelling a 5-node run mid-flight leaves zero nodes in `pending` and zero in
     `running`.
-- [ ] A run's node snapshot is frozen at run start, so editing the workflow mid-run does not
+- [x] A run's node snapshot is frozen at run start, so editing the workflow mid-run does not
       rewrite history (the Phase 34 Theme A guarantee, applied here).
   - Build the whole `WorkflowRun` — every node copied by value — and `saveRun(run)` **before** the
     first node launches, as `startRun` does at `council-runner.ts:78-97`. Execute from
     `run.nodes`, never from the live `workflow.nodes`.
   - Write the guarantee into the schema docblock, as `council.ts:106` does.
-- [ ] Runtime-only fields never reach disk.
+- [x] Runtime-only fields never reach disk.
   - Councils strip `ptyId`/`synthesisPtyId` before persisting (`council-service.ts:17`). The
     equivalent here is any `AbortController`, timer handle or in-flight promise — keep them in a
     side `Map` keyed by `runId`, never on the persisted object.
-- [ ] `workflow-engine.test.ts`: a diamond graph joins correctly, a failing node marks its
+- [x] `workflow-engine.test.ts`: a diamond graph joins correctly, a failing node marks its
       dependants `skipped`, a cycle is rejected pre-run, a hung node times out without blocking its
       siblings, and concurrent settles do not drop a write.
   - Inject a fake clock and a fake executor registry so the timeout test does not actually wait
@@ -217,9 +217,9 @@ Effort tags: **S** ≈ an hour or two · **M** ≈ half a day · **L** ≈ a day
     persisted run has 20 recorded outcomes — the assertion that fails without `withRunLock`.
   - *Acceptance for the lock leak:* `runLocks.size === 0` after the run reaches a terminal state.
 
-### C — The HTTP executor (M)
+### C — The HTTP executor (M) — ✅ DONE (PR #91, 2026-09-03)
 
-- [ ] `workflow/executors/http.ts` — method, URL, headers, body; `GET`, `POST`, `PUT`, `PATCH`,
+- [x] `workflow/executors/http.ts` — method, URL, headers, body; `GET`, `POST`, `PUT`, `PATCH`,
       `DELETE`, `HEAD` and a `QUERY`-shaped GET-with-params, covering the verbs the feature note
       names.
   - Use Node's global `fetch` (Node 22 — `.prototools` pins 22.12.0). No new dependency.
@@ -227,14 +227,14 @@ Effort tags: **S** ≈ an hour or two · **M** ≈ half a day · **L** ≈ a day
     query string. Name it that way in the schema (`method: 'GET', queryShaped: true`) or as its own
     literal, but say in the docblock that it is not a wire method — a reader will otherwise look for
     it in an RFC.
-- [ ] Response captured as `{ status, headers, body, durationMs }` and made available to downstream
+- [x] Response captured as `{ status, headers, body, durationMs }` and made available to downstream
       nodes.
   - `headers` as a plain `Record<string, string>` from `Object.fromEntries(res.headers)`; a
     `Headers` instance does not survive `JSON.stringify` into the run store.
   - `body` is parsed as JSON when `content-type` matches `/\bjson\b/`, and kept as a string
     otherwise. Record which happened in a `bodyIsJson: boolean` so `{{...}}` interpolation knows
     whether field access is meaningful.
-- [ ] Simple `{{node.field}}` interpolation from upstream outputs into URL, headers and body — a
+- [x] Simple `{{node.field}}` interpolation from upstream outputs into URL, headers and body — a
       documented, deliberately non-Turing-complete substitution, not an expression language.
   - Grammar, written down once and tested: `{{` `<nodeId>` `.` `<dotted.path>` `}}`. The path is
     split on `.` and walked with plain property access; an array index is a numeric segment
@@ -247,7 +247,7 @@ Effort tags: **S** ≈ an hour or two · **M** ≈ half a day · **L** ≈ a day
     `export function interpolate(template: string, upstream: Record<string, unknown>): { ok: true; value: string } | { ok: false; error: string }`,
     unit-tested without the engine — it is string arithmetic, and string arithmetic that can be
     wrong should be testable without spawning anything.
-- [ ] Timeouts, non-2xx handling (a 404 is a *result*, not a crash), and a response-size cap so a
+- [x] Timeouts, non-2xx handling (a 404 is a *result*, not a crash), and a response-size cap so a
       large body cannot balloon the run store.
   - Cap at **512 KB**, reusing `COUNCIL_OUTPUT_CAP_BYTES` (`500 * 1024`,
     [`council.ts:179`](../../../packages/shared/src/council.ts)) rather than inventing a second
@@ -257,7 +257,7 @@ Effort tags: **S** ≈ an hour or two · **M** ≈ half a day · **L** ≈ a day
     truncation the user cannot see is the failure mode this whole convention exists to avoid.
   - A non-2xx sets `ok: true` with the status recorded. Only a transport error (DNS, refused,
     timeout) is `ok: false`. Say so in the docblock, because it is counter-intuitive.
-- [ ] `transform`, `condition` and `delay` executors: JSON path pick/rename, a boolean predicate
+- [x] `transform`, `condition` and `delay` executors: JSON path pick/rename, a boolean predicate
       gating downstream nodes, and a bounded sleep.
   - `transform`: a list of `{ from: string; to: string }` pairs using the Theme C path grammar. No
     JS evaluation — that is a sandbox question this phase does not open.
@@ -268,27 +268,27 @@ Effort tags: **S** ≈ an hour or two · **M** ≈ half a day · **L** ≈ a day
     typo cannot park a run for a day.
   - `note` has no executor — it is canvas furniture. Give it an explicit no-op entry in the registry
     rather than a `default` arm, so the exhaustive `Record` keeps working.
-- [ ] Executor unit tests against a local fixture server, not the public internet.
+- [x] Executor unit tests against a local fixture server, not the public internet.
   - Use Theme D's own demo API as the fixture, started on an ephemeral port in `beforeAll`. Two
     birds: the executor tests and the demo API's own tests exercise the same server.
   - *Acceptance:* the whole executor suite passes with the machine's network cable out.
 
-### D — The demo CRUD API (M)
+### D — The demo CRUD API (M) — ◐ PARTIAL (PR #91, 2026-09-03) — the view-header surface carried to Theme H
 
-- [ ] `desktop/src/main/demo-api/server.ts` — `node:http`, bound to **`127.0.0.1` only**, on an
+- [x] `desktop/src/main/demo-api/server.ts` — `node:http`, bound to **`127.0.0.1` only**, on an
       ephemeral port reported back to the renderer. Never `0.0.0.0`; this is a dev conveniences
       server, and it should be impossible to reach from another machine.
   - `server.listen(0, '127.0.0.1')` and read the real port from `server.address()` after `listening`
     fires. **Port 0, not a fixed 7331** — see Decisions; the first draft said both.
   - `export function startDemoApi(): Promise<{ port: number }>`, `stopDemoApi(): Promise<void>`,
     `demoApiStatus(): { running: false } | { running: true; port: number }`.
-- [ ] `store.ts` — in-memory collections (`/items`, `/users`, and an arbitrary
+- [x] `store.ts` — in-memory collections (`/items`, `/users`, and an arbitrary
       `/:collection`), each record auto-`id`'d and timestamped. Reset on stop; nothing persists.
   - Ids are `randomUUID()`. Timestamps are `createdAt`/`updatedAt` as epoch ms, matching the
     repo's `z.number().int().nonnegative()` convention so a workflow can round-trip them.
   - Cap each collection at **1 000 records**, oldest evicted, so a looping workflow cannot exhaust
     main's heap.
-- [ ] `routes.ts` — `GET /:c`, `GET /:c/:id`, `POST /:c`, `PUT /:c/:id`, `PATCH /:c/:id`,
+- [x] `routes.ts` — `GET /:c`, `GET /:c/:id`, `POST /:c`, `PUT /:c/:id`, `PATCH /:c/:id`,
       `DELETE /:c/:id`, `HEAD /:c/:id`, plus query params (`?limit`, `?offset`, `?field=value`) so
       the `QUERY` verb has something to query. Correct status codes throughout — 201 on create, 404
       on a missing id, 204 on delete.
@@ -296,16 +296,16 @@ Effort tags: **S** ≈ an hour or two · **M** ≈ half a day · **L** ≈ a day
     `Content-Type: application/json` on every response that has a body.
   - `PUT` replaces and `PATCH` merges — the distinction is the point of having both, and a workflow
     author will test exactly that.
-- [ ] Started **on demand**, never at boot, and stopped on quit. Off by default.
+- [x] Started **on demand**, never at boot, and stopped on quit. Off by default.
   - Register the stop on `before-quit`. A `node:http` server with an open keep-alive socket delays
     quit; call `server.closeAllConnections()` before `close()`.
-- [ ] Surfaced in the Workflows UI as `Demo API · running on :<port> · [stop]`, with one-click
+- [ ] ⏳ **Carried to Theme H**: Surfaced in the Workflows UI as `Demo API · running on :<port> · [stop]`, with one-click
       insertion of its base URL into a selected `http` node — the whole point is that it takes no
       setup.
   - The port is read from `demo-api:status`, never hard-coded in the renderer.
   - "Stopped" state reads `Demo API · stopped · [start]`. Both states live in the Workflows view
     header, not in Settings, because it is a thing you do while building, not a preference.
-- [ ] `demo-api.test.ts`: every verb, the error codes, the query params, and that it refuses a
+- [x] `demo-api.test.ts`: every verb, the error codes, the query params, and that it refuses a
       non-loopback bind.
   - *Acceptance for the bind:* assert `server.address().address === '127.0.0.1'` after listen, and
     assert a connection attempt to the machine's LAN IP on that port is refused.
@@ -494,9 +494,9 @@ Effort tags: **S** ≈ an hour or two · **M** ≈ half a day · **L** ≈ a day
   - *Acceptance:* `moon run app:perf --blurred` shows no measurable idle-CPU delta with a run
     mid-flight and the window blurred.
 
-### H — Persistence and the list (M)
+### H — Persistence and the list (M) — ◐ PARTIAL (PR #91, 2026-09-03) — the two stores + handlers landed with B/D
 
-- [ ] `workflows-store.ts` and `workflow-runs-store.ts` in `desktop/src/main/`, JSON under
+- [x] `workflows-store.ts` and `workflow-runs-store.ts` in `desktop/src/main/`, JSON under
       `userData`, one malformed entry never costing the rest of the file — the councils stores'
       established behaviour, with the same test.
   - **Two files, not one** — `workflows.json` and `workflow-runs.json`.
@@ -513,7 +513,7 @@ Effort tags: **S** ≈ an hour or two · **M** ≈ half a day · **L** ≈ a day
     this repo. Do not promise a migration path the precedent does not have; a shape change simply
     drops old entries.
   - *Acceptance:* a fixture file with 3 valid and 1 corrupt entry loads exactly 3.
-- [ ] `ipc/workflow-handlers.ts`, registered like
+- [x] `ipc/workflow-handlers.ts`, registered like
       [`council-handlers.ts`](../../../packages/desktop/src/main/ipc/council-handlers.ts).
   - `registerWorkflowHandlers(getWindow: () => BrowserWindow | null)` — it **does** take the thunk,
     unlike `registerCouncilHandlers()`, because this domain pushes events. Call it in

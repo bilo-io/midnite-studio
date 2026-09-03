@@ -28,6 +28,75 @@ the card while it runs.
   the over-cap fallback for one frame on a card with a genuinely free slot. CI then caught a third:
   `kanban.spec.ts` asserted exactly one `.xterm-screen` on the whole page after revealing a card's
   session, which the card's own new terminal now legitimately makes two — rescoped to the panel.
+## 2026-09-03 — Phase 43 Themes A, B, C, D — the workflow engine, backend-complete
+
+[PR #91]. The whole main-process half of Workflows, with no renderer: contracts, engine,
+executors, and a real local CRUD API to run against. Themes E–G and I (the canvas, the
+inspector, the run view, the settings page) stay open.
+
+- [x] **Theme A — the contract.** `shared/src/workflow.ts`: `Workflow`/`WorkflowNode`/`WorkflowEdge`/
+      `WorkflowRun`/`WorkflowNodeRun`, with `WorkflowNode` a `discriminatedUnion('kind', …)` over
+      exactly five literals so node #6 is a compile error at every exhaustive `Record`, not a value
+      slotting into a union nobody widened. Node `x`/`y` are plain floats — the canvas snaps on
+      drop, the schema must not, or an imported workflow with fractional positions fails to parse.
+      Seven `mstudio:workflow*`/`mstudio:demo-api*` channels plus one bare `workflowRunChanged`
+      event (`loopRunsChanged`'s exact reasoning: a per-node payload needs an ordering guarantee
+      and a reconciliation story, a ping plus a re-fetch needs neither). `GitOpResultOf` reused
+      rather than rebuilt. `ipc.test.ts` gains the opt-in `describe('workflow contract')` block —
+      **proven to fail when one channel's `CASES` row is deleted**, which is the whole point:
+      those guards are prefix-scoped, so without a block a `workflow*` channel ships validated
+      only against "unique name" and "`mstudio:` prefix".
+- [x] **Theme B — the engine.** `workflow/workflow-engine.ts`: Kahn's algorithm run for its
+      *remainder* (a non-empty one **is** the cycle, reported against the offending edge before the
+      first node launches — not a hang), independent branches in parallel capped at 4 in flight
+      (`SEARCH_CEILING`'s number), and a join before any node with more than one input. `withRunLock`
+      copied from `council-runner.ts` verbatim, `prior.then(fn, fn)` and the `evictIfCurrent` prune
+      included — asserted at `runLocks.size === 0` after every terminal run. **Locked sections never
+      nest**, which is what dictates the driver's shape: mutate under the lock, return a claim list
+      out of it, start the claimed nodes outside it. The run's node+edge snapshot is built and
+      persisted *before* anything launches, so editing the graph mid-run cannot rewrite history or
+      strand a node on an edge that just went away. The 120 s per-node deadline rides an **injected
+      clock seam** rather than `vi.useFakeTimers` — fake timers fight the real promise scheduling
+      around `fetch`/`await`, and the seam makes the same test run in 20 ms. Cancelling a 5-node run
+      leaves zero nodes `pending` and zero `running`.
+- [x] **Theme C — the executors.** `http` on Node 22's global `fetch`, no new dependency. **A
+      non-2xx is `ok: true`** with the status recorded — a 404 is a result a downstream `condition`
+      interprets — and only a transport failure or the deadline is a node failure; the docblock says
+      so, because it is counter-intuitive. Responses cap at `COUNCIL_OUTPUT_CAP_BYTES` through
+      `appendCapped`, stop pulling bytes off the wire once the cap bites, and carry the `truncated`
+      flag into the recorded output; a truncated JSON body is deliberately **not** claimed as JSON,
+      since it is no longer valid. `QUERY` is modelled as `method: 'GET'` + `queryShaped: true`
+      rather than a seventh method literal, so `method` always holds something `fetch` can send.
+      `{{node.dotted.path}}` lives in its own pure `workflow/interpolate.ts` with a `{{{{` escape,
+      numeric segments for array indices, and — the point of the module — **an unresolved reference
+      fails the node** with `Cannot resolve {{a.b}} — node "a" has no field "b"`, never an empty
+      substitution that silently POSTs `undefined`. Plus `transform` (path picks, no JS eval),
+      `condition` (a false predicate is a *success* that records `gatedDownstream`, so the step that
+      ran is not mislabelled `skipped` — only its dependants are), `delay` (bounded in schema, and
+      it notices a cancel rather than sitting out 60 s) and a no-op `note` entry that keeps the
+      registry `Record` exhaustive instead of a `default` arm absorbing node #6.
+- [x] **Theme D — the demo CRUD API.** `demo-api/{server,routes,store}.ts`: `node:http` on
+      **`127.0.0.1` and an ephemeral `listen(0)`** — never `0.0.0.0`, never a fixed `:7331`; the
+      bind address is what makes an unauthenticated CRUD server unreachable from another machine,
+      and the test asserts a connection to the machine's LAN IP on that port is refused. Every verb
+      with the codes a workflow author will actually test (201 + `Location`, 404, 204, 400 on
+      unparseable JSON, 405 with `Allow`), `PUT` replacing where `PATCH` merges, `?limit`/`?offset`
+      plus arbitrary-field filters so the QUERY-shaped GET has something to query, collections
+      created by writing to them, and 1 000 records per collection with the oldest evicted.
+      `closeAllConnections()` before `close()` on `before-quit`, or a keep-alive socket makes the
+      quit visibly slow. **Theme C's executor suite uses it as its fixture** through one named seam
+      (`fixture-server.ts`), so the whole executor file passes with the network cable out.
+- [x] **Theme H, partially — the two stores and the handler registration, landed early.**
+      `workflows-store.ts` + `workflow-runs-store.ts` (separate files, because config and run
+      history have different write profiles), `workflow-service.ts`, `ipc/workflow-handlers.ts`,
+      `ipc/demo-api-handlers.ts`, the `workflow`/`demoApi` preload namespaces and
+      `configureWorkflows` at boot. Wiring the contract now rather than later was a deliberate call:
+      the preload namespace union makes a missing member a **compile error**, which is the cheapest
+      guard in the contract and free. The run-history cap is **per workflow (20)**, not one global
+      figure, so a workflow you run in a loop cannot evict the history of one you run twice a week —
+      and it is applied at every write site, not only in the store's own save (Phase 45 Theme D's
+      lesson). Deleting a workflow with a run in flight is **refused** with `{ok:false}` naming the
+      reason rather than silently cancelling work the user may not know is running.
 
 ## 2026-09-03 — Phase 46 Theme G + Phase 47 Theme A
 
