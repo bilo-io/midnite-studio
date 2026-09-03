@@ -89,6 +89,14 @@ describe('trimRunsPerWorkflow', () => {
   });
 });
 
+describe('trimRunsPerWorkflow with a custom cap (Theme I settings page)', () => {
+  it('uses the passed cap instead of the constant', () => {
+    const runs = Array.from({ length: 10 }, (_, i) => run(`r${i}`, 'w'));
+    expect(trimRunsPerWorkflow(runs, 3)).toHaveLength(3);
+    expect(trimRunsPerWorkflow(runs, 3).map((r) => r.id)).toEqual(['r7', 'r8', 'r9']);
+  });
+});
+
 describe('trimRunsPerWorkflow and a live run', () => {
   it('never evicts a run that is still running', () => {
     const older = Array.from({ length: MAX_STORED_WORKFLOW_RUNS_PER_WORKFLOW + 5 }, (_, i) =>

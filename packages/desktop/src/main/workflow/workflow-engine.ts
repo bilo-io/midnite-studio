@@ -67,6 +67,12 @@ export type EngineDeps = {
     setTimeout: (fn: () => void, ms: number) => { unref?: () => void };
     clearTimeout: (handle: never) => void;
   };
+  /**
+   * Overrides {@link WORKFLOW_NODE_TIMEOUT_MS} for a node with no timeout of
+   * its own (Theme I's settings page). Injected, not read from a mutable
+   * global, for the same testability reason as `clock`.
+   */
+  defaultTimeoutMs?: number;
 };
 
 type Timer = ReturnType<typeof setTimeout>;
@@ -448,9 +454,9 @@ async function finalizeRun(
   deps.emitChanged();
 }
 
-function timeoutFor(node: WorkflowNode): number {
+function timeoutFor(node: WorkflowNode, deps: EngineDeps): number {
   if (node.kind === 'http' && node.config.timeoutMs !== undefined) return node.config.timeoutMs;
-  return WORKFLOW_NODE_TIMEOUT_MS;
+  return deps.defaultTimeoutMs ?? WORKFLOW_NODE_TIMEOUT_MS;
 }
 
 /**
@@ -468,7 +474,7 @@ async function executeNode(
   state: InFlight,
   executors: ExecutorRegistry,
 ): Promise<void> {
-  const outcome = await runNode(runId, node, deps, state, executors, timeoutFor(node));
+  const outcome = await runNode(runId, node, deps, state, executors, timeoutFor(node, deps));
   await settleNode(runId, node.id, outcome, deps);
 }
 

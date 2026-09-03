@@ -185,4 +185,19 @@ test.describe('workflows screenshots', () => {
     await page.waitForTimeout(SETTLE_MS);
     await page.screenshot({ path: `${OUT}/workflows-run-view.png` });
   });
+
+  test('the Workflows settings page (Theme I)', async ({ page }) => {
+    await installMockBridge(page, fixtures);
+    await page.goto('/');
+    await expect(page.getByRole('heading', { name: 'Worktrees' })).toBeVisible();
+
+    await page.getByRole('button', { name: 'Settings' }).click();
+    await page
+      .getByRole('navigation', { name: 'Settings pages' })
+      .getByRole('button', { name: 'Workflows' })
+      .click();
+    await page.getByText('Default node timeout').waitFor();
+    await page.waitForTimeout(SETTLE_MS);
+    await page.screenshot({ path: `${OUT}/workflows-settings-page.png` });
+  });
 });

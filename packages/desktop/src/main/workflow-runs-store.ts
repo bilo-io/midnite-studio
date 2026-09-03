@@ -34,7 +34,11 @@ type StoredState = { version: 1; runs: unknown[] };
  * so a consumer that reverses it gets a coherent history rather than one
  * grouped by workflow.
  */
-export function trimRunsPerWorkflow(runs: readonly WorkflowRun[]): WorkflowRun[] {
+export function trimRunsPerWorkflow(
+  runs: readonly WorkflowRun[],
+  /** Theme I's settings page overrides this; existing callers (tests included) keep the constant. */
+  cap: number = MAX_STORED_WORKFLOW_RUNS_PER_WORKFLOW,
+): WorkflowRun[] {
   const kept = new Set<string>();
   const counts = new Map<string, number>();
   // Walk newest-first so the ones dropped are the oldest of each workflow.
@@ -53,14 +57,18 @@ export function trimRunsPerWorkflow(runs: readonly WorkflowRun[]): WorkflowRun[]
       continue;
     }
     const seen = counts.get(run.workflowId) ?? 0;
-    if (seen >= MAX_STORED_WORKFLOW_RUNS_PER_WORKFLOW) continue;
+    if (seen >= cap) continue;
     counts.set(run.workflowId, seen + 1);
     kept.add(run.id);
   }
   return runs.filter((run) => kept.has(run.id));
 }
 
-export function createWorkflowRunsStore(directory: string): WorkflowRunsStore {
+export function createWorkflowRunsStore(
+  directory: string,
+  /** Theme I: read live so a settings change applies to the very next save. */
+  getCap: () => number = () => MAX_STORED_WORKFLOW_RUNS_PER_WORKFLOW,
+): WorkflowRunsStore {
   const file = join(directory, FILE_NAME);
   /*
     One writer at a time, the `write-queue.ts` idiom.
@@ -88,7 +96,7 @@ export function createWorkflowRunsStore(directory: string): WorkflowRunsStore {
     save: (runs) => {
       // Serialised, and the payload is snapshotted before the wait so a later
       // mutation of the caller's array cannot change what this write emits.
-      const state: StoredState = { version: 1, runs: trimRunsPerWorkflow(runs) };
+      const state: StoredState = { version: 1, runs: trimRunsPerWorkflow(runs, getCap()) };
       const next = queue.then(async () => {
         try {
           await writeFile(file, `${JSON.stringify(state, null, 2)}\n`, 'utf8');

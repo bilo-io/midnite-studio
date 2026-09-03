@@ -476,6 +476,14 @@ export const CHANNELS = {
   workflowCancel: 'mstudio:workflow:cancel',
   workflowRunsList: 'mstudio:workflow-runs:list',
   workflowRunsGet: 'mstudio:workflow-runs:get',
+  /**
+   * One-way, fire-and-forget (Theme I) — the same shape `updateSetChannel`
+   * uses for a renderer setting that reaches main: `ipcMain.on`, not a
+   * request/response `invoke`. Sent on change only, not synced on boot,
+   * matching that precedent's own posture; main starts at the constants in
+   * `workflow.ts` until the Settings page is opened and changed.
+   */
+  workflowSetDefaults: 'mstudio:workflow:set-defaults',
 
   // --- workflow demo API (Phase 43 Theme D) ----------------------------------
   // A real `node:http` CRUD server bound to 127.0.0.1 on an EPHEMERAL port, so

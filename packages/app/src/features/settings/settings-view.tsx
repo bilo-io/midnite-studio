@@ -23,6 +23,7 @@ import { SearchSettingsPage } from './settings-pages/search-page';
 import { SidebarPage } from './settings-pages/sidebar-page';
 import { TerminalPage } from './settings-pages/terminal-page';
 import { UpdatesPage } from './settings-pages/updates-page';
+import { WorkflowsPage } from './settings-pages/workflows-page';
 
 /**
  * Settings, as pages behind an inner sidebar (Phase 16).
@@ -42,6 +43,7 @@ const PAGE_CONTENT: Record<SettingsPageId, () => React.ReactNode> = {
   agent: () => <AgentPage />,
   reviews: () => <ReviewsPage />,
   projects: () => <ProjectsPage />,
+  workflows: () => <WorkflowsPage />,
   gitSafety: () => <GitSafetyPage />,
   monitor: () => <MonitorPage />,
   browser: () => <BrowserPage />,
