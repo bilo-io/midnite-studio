@@ -1,4 +1,5 @@
-import Select, { type ClassNamesConfig } from 'react-select';
+import Select, { type ClassNamesConfig, type MultiValueRemoveProps } from 'react-select';
+import { LuX } from 'react-icons/lu';
 
 import type { IconComponent } from '../icon-button';
 
@@ -16,6 +17,8 @@ export type IconSelectOption = {
   icon?: IconComponent;
   /** Roster `accent` — a colour Tailwind has never seen, same reasoning as `IconButton`'s `style` prop. */
   iconColor?: string;
+  /** Hover title on the row — what this option actually does, when the label cannot say it. */
+  hint?: string;
   isDisabled?: boolean;
   disabledReason?: string;
 };
@@ -27,7 +30,7 @@ export type IconSelectOption = {
  * so this control tracks the light/dark toggle for free instead of carrying a
  * second palette.
  */
-const classNames: ClassNamesConfig<IconSelectOption, false> = {
+const BASE_CLASS_NAMES: ClassNamesConfig<IconSelectOption, boolean> = {
   control: ({ isFocused, isDisabled }) =>
     `flex min-h-0 items-center gap-1 rounded-md border px-1.5 py-1 text-xs transition-colors ${
       isDisabled ? 'cursor-not-allowed opacity-50' : 'cursor-text'
@@ -53,12 +56,40 @@ const classNames: ClassNamesConfig<IconSelectOption, false> = {
             : 'text-foreground'
     }`,
   noOptionsMessage: () => 'px-2 py-1.5 text-muted-foreground',
+  /*
+    Portalled menus only (see `menuInPortal`): the menu leaves the app's own
+    stacking contexts for `document.body`, so it needs a z-index of its own or
+    it lands under the panels it was opened from.
+  */
+  menuPortal: () => 'z-[60]',
+  /*
+    Multi only, and unused by the single-value control — one table rather than
+    two, so a chip in the day picker is themed off the same tokens as the
+    single-value row above it.
+  */
+  multiValue: () =>
+    'flex min-w-0 items-center overflow-hidden rounded border border-border/60 bg-accent/60',
+  multiValueLabel: () => 'truncate pl-1 pr-0.5 py-[1px] text-[10px] leading-tight text-foreground',
+  multiValueRemove: () =>
+    'flex items-center pr-0.5 text-muted-foreground hover:bg-destructive/20 hover:text-foreground',
 };
+
+/**
+ * The one cast in this file, and it is a variance workaround rather than a
+ * lie: every entry above is keyed by a component whose props are generic in
+ * `IsMulti`, so a table typed `boolean` is not assignable to the `false` (or
+ * `true`) config each `Select` asks for even though every function in it
+ * ignores that parameter. Writing the table twice was the alternative, and the
+ * copies would drift.
+ */
+function classNamesFor<IsMulti extends boolean>(): ClassNamesConfig<IconSelectOption, IsMulti> {
+  return BASE_CLASS_NAMES as ClassNamesConfig<IconSelectOption, IsMulti>;
+}
 
 function OptionLabel({ option }: { option: IconSelectOption }) {
   const Icon = option.icon;
   return (
-    <span className="flex min-w-0 items-center gap-1.5" title={option.disabledReason}>
+    <span className="flex min-w-0 items-center gap-1.5" title={option.hint ?? option.disabledReason}>
       {Icon ? (
         <Icon aria-hidden className="size-3.5 shrink-0" style={{ color: option.iconColor }} />
       ) : null}
@@ -67,6 +98,24 @@ function OptionLabel({ option }: { option: IconSelectOption }) {
   );
 }
 
+/**
+ * Render the menu into `document.body` instead of beside the control.
+ *
+ * Needed wherever the select sits inside an `overflow: hidden` box — the loop
+ * composer's `<Collapse>` sections are exactly that, and an inline menu there
+ * is clipped to the accordion body rather than overlaying the form. Fixed
+ * positioning comes with it, which is what keeps the menu attached to its
+ * control while the composer's own settings region scrolls.
+ *
+ * Opt-in rather than always-on: a portalled menu is no longer inside the
+ * control's own subtree, which changes what a `within(container)` query — a
+ * test's or a click-outside handler's — can see.
+ */
+const PORTAL_PROPS = {
+  menuPortalTarget: typeof document === 'undefined' ? undefined : document.body,
+  menuPosition: 'fixed',
+} as const;
+
 export function IconSelect({
   ariaLabel,
   options,
@@ -74,6 +123,7 @@ export function IconSelect({
   onChange,
   isSearchable = true,
   isDisabled = false,
+  menuInPortal = false,
   placeholder,
 }: {
   ariaLabel: string;
@@ -82,16 +132,19 @@ export function IconSelect({
   onChange: (id: string) => void;
   isSearchable?: boolean;
   isDisabled?: boolean;
+  /** See {@link PORTAL_PROPS} — for a select inside an `overflow: hidden` box. */
+  menuInPortal?: boolean;
   placeholder?: string;
 }) {
   const selected = options.find((o) => o.id === value) ?? null;
 
   return (
     <Select<IconSelectOption, false>
+      {...(menuInPortal ? PORTAL_PROPS : {})}
       aria-label={ariaLabel}
       classNamePrefix="icon-select"
       unstyled
-      classNames={classNames}
+      classNames={classNamesFor<false>()}
       options={options}
       value={selected}
       isSearchable={isSearchable}
@@ -105,5 +158,87 @@ export function IconSelect({
         if (next) onChange(next.id);
       }}
     />
+  );
+}
+
+/**
+ * The same control, many-of-N — the day-of-week picker in the loop composer's
+ * schedule (and whatever else needs a searchable set rather than a row of
+ * checkboxes).
+ *
+ * `closeMenuOnSelect={false}` and `hideSelectedOptions={false}`: picking days
+ * is one gesture over a list of seven, so the menu staying open with every
+ * option still on it — the selected ones marked — is what makes "Mon, Wed and
+ * Fri" one visit instead of three.
+ *
+ * Selection order is whatever the user clicked; the caller canonicalises
+ * (`resolveLoopDays` in the loop composer's case) rather than this control
+ * pretending to know what order the ids mean anything in.
+ */
+export function MultiIconSelect({
+  ariaLabel,
+  options,
+  values,
+  onChange,
+  isSearchable = true,
+  isDisabled = false,
+  menuInPortal = false,
+  placeholder,
+}: {
+  ariaLabel: string;
+  options: readonly IconSelectOption[];
+  values: readonly string[];
+  onChange: (ids: string[]) => void;
+  isSearchable?: boolean;
+  isDisabled?: boolean;
+  /** See {@link PORTAL_PROPS} — for a select inside an `overflow: hidden` box. */
+  menuInPortal?: boolean;
+  placeholder?: string;
+}) {
+  const selected = options.filter((option) => values.includes(option.id));
+
+  return (
+    <Select<IconSelectOption, true>
+      {...(menuInPortal ? PORTAL_PROPS : {})}
+      aria-label={ariaLabel}
+      classNamePrefix="icon-select"
+      unstyled
+      isMulti
+      closeMenuOnSelect={false}
+      hideSelectedOptions={false}
+      /*
+        No clear-all ×. Every chip carries its own, and the one-click version
+        of "remove them all" is a state the caller has to warn about rather
+        than a shortcut worth offering — an empty day set is a schedule
+        mid-edit. It also costs a chip's width in a 320px panel.
+      */
+      isClearable={false}
+      classNames={classNamesFor<true>()}
+      components={{ MultiValueRemove }}
+      options={options}
+      value={selected}
+      isSearchable={isSearchable}
+      isDisabled={isDisabled || options.length === 0}
+      placeholder={placeholder ?? 'Select…'}
+      isOptionDisabled={(option) => option.isDisabled === true}
+      getOptionValue={(option) => option.id}
+      getOptionLabel={(option) => option.label}
+      formatOptionLabel={(option) => <OptionLabel option={option} />}
+      onChange={(next) => onChange(next.map((option) => option.id))}
+    />
+  );
+}
+
+/**
+ * The chip's own × — `react-select`'s default is a 20px SVG sized for a
+ * full-height control, which on a 10px chip in a 320px panel is most of the
+ * chip. `innerProps` carries the click handler and the class from the table
+ * above, so this only swaps the glyph.
+ */
+function MultiValueRemove({ innerProps }: MultiValueRemoveProps<IconSelectOption, true>) {
+  return (
+    <div {...innerProps} aria-hidden>
+      <LuX className="size-2.5" />
+    </div>
   );
 }
