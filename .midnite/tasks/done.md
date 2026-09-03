@@ -2,6 +2,40 @@
 
 <!-- Append one entry per landed phase/PR: date, phase, PR link, one-line summary. -->
 
+## 2026-09-03 — Phase 47 Theme B — whole-file conflict resolution
+
+[PR #64]. The safe baseline on top of Theme A's parser: accept one side of a conflicted file
+entirely, no partial state.
+
+- [x] **`resolveConflictWholeFile(worktreePath, path, side)`** in a new
+      `git-engine/src/commands/conflict-resolve.ts`. Reads the requested index stage
+      (`:1:`/`:2:`/`:3:` for base/ours/theirs) through the **existing** `readBlob` — a binary-safe
+      `Buffer` read off `cat-file blob`, deliberately not a string-decoding `git show`, which would
+      silently mangle bytes outside dugite's assumed encoding (the fix reused from the CRLF defect
+      Phase 48 found, one step earlier in the pipeline). Writes the blob to the worktree and stages
+      it through the **existing** `stagePaths` — no new staging primitive.
+- [x] **The rebase inversion, tested by name rather than assumed.** Git's own `:2:`/`:3:`
+      index-stage convention flips "ours"/"theirs" during a rebase relative to merge: the commit
+      being replayed is `theirs`, the branch being rebased *onto* is `ours` — backwards from what
+      the person who typed `git rebase` would call their own branch. The function does not correct
+      for this; it passes git's own stages through unmodified, and `conflict-resolve.integration.test.ts`
+      proves both merge (ours/theirs/base each resolve correctly) and, in two separate `it`s, the
+      rebase inversion itself. (Two separate tests, not one calling both sides on the same path: `git
+      add` collapses stages 1/2/3 into one stage-0 entry the moment the first side is accepted, so a
+      second call against an already-resolved path would have nothing left to read — caught by an
+      actual test failure during development, not anticipated up front.)
+- [x] **Wired end to end**: `mstudio:op:conflict-resolve-whole-file` channel + `ConflictResolveWholeFileRequest`
+      schema in `shared`, a new `packages/desktop/src/main/ipc/conflict-handlers.ts` (thin, no logic
+      of its own — matches every other write-path handler), preload + bridge type additions. No UI
+      consumer yet — that's Theme D.
+
+**Process note, not a phase finding:** this batch's implementation was accidentally started
+directly in the primary checkout instead of a worktree. Caught before committing (`git status`),
+recovered via `git stash push -u -m <tag>` in the primary checkout, a proper worktree created from
+a fresh claim-commit on `main`, `git stash apply <sha>` (not `pop`) into the worktree, then the
+stash entry dropped once safely applied elsewhere. No data lost; flagged here as a reminder to
+`cd` into the worktree *before* the first file write, not just before the first git command.
+
 ## 2026-09-03 — Phase 41 Theme E — the terminal inside a running card
 
 [PR #90]. The phase's last real building block: a card's agent has been headless until now (only

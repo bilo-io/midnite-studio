@@ -6,6 +6,7 @@ import {
   BrowserEventSchema,
   BrowserNavErrorSchema,
   CommitSchema,
+  ConflictSideSchema,
   InProgressOpSchema,
   DiagnosticsCandidateSchema,
   DiagnosticsCommandSchema,
@@ -867,6 +868,12 @@ export const StageRequest = OpBase.extend({ paths: z.array(z.string()).min(1) })
 export const UnstageRequest = StageRequest;
 /** Explicit paths only — never a bare `git checkout .`. */
 export const DiscardRequest = StageRequest;
+
+/** Accept one side for an entire conflicted path (Phase 47 Theme B). */
+export const ConflictResolveWholeFileRequest = OpBase.extend({
+  path: z.string().min(1),
+  side: ConflictSideSchema,
+});
 
 export const CommitRequest = OpBase.extend({
   message: z.string().min(1),
