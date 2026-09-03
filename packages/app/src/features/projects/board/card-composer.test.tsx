@@ -4,6 +4,7 @@ import { cleanup, fireEvent, render, screen } from '@testing-library/react';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 import { CardComposer } from './card-composer';
+import { useUiStore } from '../../../store/ui-store';
 import { useTerminalStore } from '../../terminal/terminal-store';
 
 afterEach(cleanup);
@@ -69,6 +70,7 @@ describe('CardComposer', () => {
       states: {},
       pendingInput: {},
     });
+    useUiStore.setState({ terminalOpen: false, terminalListOpen: false });
   });
 
   it('seeds the prompt from the card and shows the composed command above Start', () => {
@@ -168,5 +170,43 @@ describe('CardComposer', () => {
     fireEvent.click(screen.getByTestId('card-start'));
     const created = useTerminalStore.getState().sessions[0]!;
     expect(useTerminalStore.getState().pendingInput[created.id]).not.toContain('--model');
+  });
+
+  describe('the Terminal button', () => {
+    it('is absent until this card has a session', () => {
+      renderComposer();
+      expect(screen.queryByTestId('composer-reveal-terminal')).toBeNull();
+    });
+
+    it('reveals a live session in the terminal panel', () => {
+      useTerminalStore.setState({
+        sessions: [liveSession()],
+        states: { s1: 'open' },
+        activeId: null,
+        pendingInput: {},
+      });
+
+      renderComposer();
+      fireEvent.click(screen.getByTestId('composer-reveal-terminal'));
+
+      expect(useUiStore.getState().terminalOpen).toBe(true);
+      expect(useTerminalStore.getState().activeId).toBe('s1');
+    });
+
+    it('is offered for an ENDED session too — the scrollback is the answer to "what did it do"', () => {
+      useTerminalStore.setState({
+        sessions: [liveSession()],
+        states: { s1: 'exited' },
+        activeId: null,
+        pendingInput: {},
+      });
+
+      renderComposer();
+      expect(screen.getByText('Ended')).toBeDefined();
+      expect(screen.queryByTestId('card-stop')).toBeNull();
+      fireEvent.click(screen.getByTestId('composer-reveal-terminal'));
+
+      expect(useTerminalStore.getState().activeId).toBe('s1');
+    });
   });
 });

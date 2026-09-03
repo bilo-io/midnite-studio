@@ -1658,45 +1658,88 @@ html[data-motion='reduced'] .loop-run-glow {
 }
 
 /*
-  Card run glow (Phase 41 Theme F) — a Kanban card's own border glow, and
-  deliberately not `.loop-run-glow` reused verbatim: that class paints the
-  shared rainbow ramp a loop tab cycles through, but a card is bound to one
-  agent, not a spectrum, so `--card-glow-color` carries a single solid hex
-  from `loopGlowColor(agentId)` instead. Three states, from `glow-state.ts`:
-  `.is-running` pulses, `.is-waiting` is a steady amber ring (waiting never
-  decays — `activity-detect.ts`'s own rule), `.is-open` is a static ring at
-  the card's own colour with no animation, so the open card stays findable
-  without competing for attention with a running one.
+  Card run glow (Phase 41 Theme F, recoloured here) — a Kanban card's own
+  border glow, painted with the SAME rotating rainbow ramp `.loop-run-glow`
+  wears rather than a per-agent solid.
+
+  It used to carry a single hex from `loopGlowColor(agentId)`, on the reading
+  that "a card is bound to one agent, not a spectrum". That never actually
+  painted an agent colour: `LOOP_GLOW` is keyed by *loop* id
+  (`innovate`/`automate`/`watchdog`/`medic`) and a card's `agentId` is an
+  AGENT id (`claude`/`codex`/`agy`), so every card fell through to that
+  function's `currentColor` fallback and glowed in the card's own text colour
+  — a grey ring that read as a hover state, not as a running agent. Rather
+  than add a second colour table keyed by agent, the ramp is the answer: it
+  is what every other "something is live" surface in the app already uses
+  (the FAB ring, its halo, the breadcrumb pill), so a running card now
+  matches them instead of inventing a fourth convention.
+
+  Deliberately reuses `--loop-glow-angle` and `loop-glow-spin` rather than
+  registering a card-specific angle. Both are `4s linear infinite`, so every
+  card ring and the FAB's ring spin in step for free — the same reason
+  `.fab-loop-halo` shares the angle with the ring in front of it. The
+  `@property` is `inherits: false`, so each card animates its own copy.
+
+  Three states, from `glow-state.ts`:
+  `.is-running` spins and pulses; `.is-open` is the same ramp held still, so
+  the open card stays findable without competing with a running one;
+  `.is-waiting` is a steady amber ring and keeps its solid colour on purpose
+  — amber-means-waiting is one signal shown identically by the FAB tab dot,
+  `.loop-run-glow.is-waiting` and `fab-loop-halo.tsx`, and a card is not the
+  place to break it.
 */
 @keyframes card-glow-pulse {
   0%,
   100% {
     box-shadow:
-      0 0 4px var(--card-glow-color),
-      0 0 8px var(--card-glow-color);
+      0 0 4px rgba(236, 72, 153, 0.3),
+      0 0 8px rgba(59, 130, 246, 0.2);
   }
   50% {
     box-shadow:
-      0 0 8px var(--card-glow-color),
-      0 0 16px var(--card-glow-color);
+      0 0 8px rgba(236, 72, 153, 0.55),
+      0 0 16px rgba(59, 130, 246, 0.4);
   }
 }
 
+/*
+  The two-layer `background-clip` border, lifted from `.loop-run-glow`: an
+  opaque inner layer clipped to the padding box over the ramp clipped to the
+  border box, which is the only way a gradient can paint a 1px border.
+
+  `border-color: transparent` needs the `!important` its solid-hex
+  predecessor also carried — the card's own `border-border` Tailwind utility
+  is the competing declaration, and this class is applied alongside it rather
+  than in place of it.
+*/
 .card-run-glow {
-  border-color: var(--card-glow-color) !important;
+  border-color: transparent !important;
+  background-image:
+    linear-gradient(hsl(var(--background)), hsl(var(--background))),
+    conic-gradient(from var(--loop-glow-angle, 0deg), var(--rainbow-ramp));
+  background-origin: border-box;
+  background-clip: padding-box, border-box;
 }
 
 .card-run-glow.is-running {
-  animation: card-glow-pulse 2s ease-in-out infinite;
+  animation:
+    loop-glow-spin 4s linear infinite,
+    card-glow-pulse 2s ease-in-out infinite;
 }
 
+/* Waiting on you: one steady amber ring, no ramp, no rotation. */
 .card-run-glow.is-waiting {
-  border-color: #f59e0b !important;
+  background-image:
+    linear-gradient(hsl(var(--background)), hsl(var(--background))),
+    linear-gradient(#f59e0b, #f59e0b);
+  animation: none;
   box-shadow: 0 0 8px rgba(245, 158, 11, 0.55);
 }
 
+/* Open, nothing running: the ramp held at rest. No animation, no shadow —
+ * the ring alone is the "you have this one open" mark. */
 .card-run-glow.is-open {
-  box-shadow: 0 0 0 1px var(--card-glow-color);
+  animation: none;
 }
 
 /*
@@ -1711,16 +1754,22 @@ html[data-window-focused='false'] .card-run-glow.is-running {
   animation-play-state: paused;
 }
 
+/*
+  Reduced motion drops both the spin and the pulse but keeps the ramp — with
+  the keyframes gone `--loop-glow-angle` rests at its registered `0deg`
+  initial value, so the ring is a static slice of the spectrum rather than
+  whatever frame the animation died on. Phase 37 Theme F's own rule.
+*/
 @media (prefers-reduced-motion: reduce) {
   html:not([data-motion='full']) .card-run-glow.is-running {
     animation: none;
-    box-shadow: 0 0 8px var(--card-glow-color);
+    box-shadow: 0 0 8px rgba(236, 72, 153, 0.4);
   }
 }
 
 html[data-motion='reduced'] .card-run-glow.is-running {
   animation: none;
-  box-shadow: 0 0 8px var(--card-glow-color);
+  box-shadow: 0 0 8px rgba(236, 72, 153, 0.4);
 }
 
 /* ---------------------------------------------------------------------------
