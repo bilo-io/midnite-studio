@@ -40,6 +40,18 @@ export type NavMode = 'auto' | 'expanded' | 'collapsed';
 /** Which edge of the terminal pane the session list docks to. */
 export type TerminalSidebarSide = 'left' | 'right';
 
+/**
+ * How the browser pane divides the window.
+ *
+ * `full` is a true full screen — it covers the nav rail as well as the
+ * content row, because a rail whose every item navigates the app behind the
+ * browser has nothing to offer while the browser is what you are looking at.
+ * `left`/`right` are the side-by-side splits, naming the half the BROWSER
+ * takes; the other half keeps the active view (the "editor" half), reflowed
+ * rather than merely covered.
+ */
+export type BrowserLayout = 'full' | 'left' | 'right';
+
 /** Active tab in the FAB panel. */
 export type FabTab = 'innovate' | 'automate' | 'watchdog' | 'medic';
 
@@ -197,6 +209,21 @@ export type LayoutSizes = {
   searchResultsWidth: number;
   /** The FAB panel width, on the right side of the content area. */
   fabPanelWidth: number;
+  /**
+   * The browser pane's width in the side-by-side layouts.
+   *
+   * Only read while `browserLayout` is `left`/`right` — a full-screen browser
+   * has no split to size. Pixels, like every other pane in here, so the
+   * open/close tween has a number to travel to; the ceiling is a share of the
+   * window (`BROWSER_MAX_SHARE`), not the `LAYOUT_BOUNDS` `max`.
+   *
+   * **`0` means "never dragged"**, and `app.tsx` resolves it to half the
+   * window. The one pane in here that needs a sentinel: "side by side" means
+   * an even split, and an even split is a share of a window whose width this
+   * file cannot know — a fixed pixel default lands at 56% of a 1280 laptop
+   * and 33% of a 1920 desktop, neither of which is what the words say.
+   */
+  browserWidth: number;
   /** Councils' left navigation rail (Phase 42 Theme B). */
   councilNavWidth: number;
   /** Councils' right configuration panel (Phase 42 Theme B). */
@@ -257,6 +284,9 @@ export const DEFAULT_LAYOUT: LayoutSizes = {
   reviewsListWidth: 380,
   searchResultsWidth: 420,
   fabPanelWidth: 320,
+  // The "never dragged" sentinel — half the window, resolved against the real
+  // one in `app.tsx`. See `LayoutSizes.browserWidth`.
+  browserWidth: 0,
   // A council card carries a name and a member count — narrower than most
   // list panes is enough to read both.
   councilNavWidth: 260,
@@ -302,6 +332,13 @@ export const LAYOUT_BOUNDS = {
     `min` plus a fallback for a render with no window to measure.
   */
   fabPanelWidth: { min: 240, max: 640 },
+  /*
+    Max is NOT this number — see `BROWSER_MAX_SHARE`, the same arrangement the
+    FAB panel has and for the same reason: a browser wants as much of the
+    window as the user will part with, and these bounds cannot know how wide
+    the window is.
+  */
+  browserWidth: { min: 320, max: 1600 },
   councilNavWidth: { min: 200, max: 420 },
   councilConfigWidth: { min: 240, max: 480 },
 } as const;
@@ -309,13 +346,25 @@ export const LAYOUT_BOUNDS = {
 /**
  * How much of the window the FAB panel may take, dragged all the way out.
  *
- * The one pane bound in the app expressed as a share rather than a pixel count.
- * Every other pane holds a list whose rows have a natural width, so an absolute
- * ceiling is the right answer for them; this one holds documents, chat and loop
- * output, which want as much of the window as the user will part with — and
- * what "as much as you can spare" is in pixels depends entirely on the display.
+ * One of two pane bounds in the app expressed as a share rather than a pixel
+ * count (`BROWSER_MAX_SHARE` is the other). Every other pane holds a list whose
+ * rows have a natural width, so an absolute ceiling is the right answer for
+ * them; this one holds documents, chat and loop output, which want as much of
+ * the window as the user will part with — and what "as much as you can spare"
+ * is in pixels depends entirely on the display.
  */
 export const FAB_PANEL_MAX_SHARE = 0.6;
+
+/**
+ * How much of the window the split browser may take, dragged all the way out.
+ *
+ * Further than the FAB panel, because the thing on the other side of this
+ * splitter is a whole app view rather than a chat column — and a user who
+ * drags a browser to 80% is asking for a browser with a strip of context, which
+ * is a legitimate shape. Past that, `browserLayout: 'full'` is the honest
+ * answer and is one keystroke away.
+ */
+export const BROWSER_MAX_SHARE = 0.8;
 
 /**
  * The strip of the view a dragged terminal may never cover, in px.
@@ -413,6 +462,22 @@ export type UiState = {
    * there is nothing for a repo switch to disagree about.
    */
   browserOpen: boolean;
+  /**
+   * Which layout the pane takes when it opens — full screen, or a
+   * side-by-side split on either side. Persisted, because it is the answer
+   * the launcher below pre-selects: the layout you chose last time is
+   * overwhelmingly the one you want next time.
+   */
+  browserLayout: BrowserLayout;
+  /**
+   * Whether the layout launcher is up.
+   *
+   * The browser is the one panel in the app that cannot simply appear: where
+   * it goes changes the shape of everything else, so `toggleBrowser` from
+   * closed asks first. NOT persisted — a modal restored on launch is a modal
+   * nobody asked for.
+   */
+  browserLauncherOpen: boolean;
   /** Whether the FAB panel is open. */
   fabPanelOpen: boolean;
   /**
@@ -680,6 +745,11 @@ export type UiState = {
   toggleTerminalList: () => void;
   toggleBrowser: () => void;
   setBrowserOpen: (open: boolean) => void;
+  /** Open the pane in a given layout, dismissing the launcher. */
+  openBrowser: (layout: BrowserLayout) => void;
+  /** Change the layout of an already-open pane (the toolbar's picker). */
+  setBrowserLayout: (layout: BrowserLayout) => void;
+  closeBrowserLauncher: () => void;
   toggleFabPanel: () => void;
   setFabPanelOpen: (open: boolean) => void;
   toggleActivityTimeline: () => void;
@@ -971,6 +1041,7 @@ type PersistedUi = Pick<
   | 'terminalSidebarSide'
   | 'terminalListOpen'
   | 'browserOpen'
+  | 'browserLayout'
   | 'fabPanelOpen'
   | 'activityTimelineOpen'
   | 'activityTimelineStyle'
@@ -1065,6 +1136,8 @@ export const useUiStore = create<UiState>()(
       terminalSidebarSide: 'right',
       terminalListOpen: true,
       browserOpen: false,
+      browserLayout: 'full',
+      browserLauncherOpen: false,
       fabPanelOpen: false,
       activityTimelineOpen: false,
       activityTimelineStyle: 'bars',
@@ -1237,8 +1310,24 @@ export const useUiStore = create<UiState>()(
       setTerminalSidebarSide: (terminalSidebarSide) => set({ terminalSidebarSide }),
       toggleTerminalList: () =>
         set((state) => ({ terminalListOpen: !state.terminalListOpen })),
-      toggleBrowser: () => set((state) => ({ browserOpen: !state.browserOpen })),
-      setBrowserOpen: (browserOpen) => set({ browserOpen }),
+      /*
+        Asymmetric on purpose. Closing is unambiguous, so it just happens;
+        OPENING raises the launcher instead, and `openBrowser` is what
+        actually shows the pane. A second press while the launcher is up
+        dismisses it — the chord stays a toggle from the user's side even
+        though there are now three states behind it.
+      */
+      toggleBrowser: () =>
+        set((state) =>
+          state.browserOpen
+            ? { browserOpen: false, browserLauncherOpen: false }
+            : { browserLauncherOpen: !state.browserLauncherOpen },
+        ),
+      setBrowserOpen: (browserOpen) => set({ browserOpen, browserLauncherOpen: false }),
+      openBrowser: (browserLayout) =>
+        set({ browserOpen: true, browserLayout, browserLauncherOpen: false }),
+      setBrowserLayout: (browserLayout) => set({ browserLayout }),
+      closeBrowserLauncher: () => set({ browserLauncherOpen: false }),
       toggleFabPanel: () => set((state) => ({ fabPanelOpen: !state.fabPanelOpen })),
       setFabPanelOpen: (fabPanelOpen) => set({ fabPanelOpen }),
       toggleActivityTimeline: () =>
@@ -1405,6 +1494,7 @@ export const useUiStore = create<UiState>()(
         terminalSidebarSide: state.terminalSidebarSide,
         terminalListOpen: state.terminalListOpen,
         browserOpen: state.browserOpen,
+        browserLayout: state.browserLayout,
         fabPanelOpen: state.fabPanelOpen,
         activityTimelineOpen: state.activityTimelineOpen,
         activityTimelineStyle: state.activityTimelineStyle,

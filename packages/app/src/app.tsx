@@ -15,6 +15,7 @@ import { CiPower } from 'react-icons/ci';
 import { LuChevronLeft, LuSettings } from 'react-icons/lu';
 
 import { Brand, BrandHomeButton, BrandMark, Wordmark } from './components/brand';
+import { BrowserLauncher } from './features/browser/browser-launcher';
 import { BrowserPane } from './features/browser/browser-pane';
 import { DelayedFallback } from './components/delayed-fallback';
 import { DialogHost } from './components/dialog-host';
@@ -65,6 +66,7 @@ import { useTestsStream } from './features/tests/use-tests-stream';
 import { useAppearanceStore, useAppearanceSync } from './store/appearance-store';
 import { useFileEditorStore } from './store/file-editor-store';
 import {
+  BROWSER_MAX_SHARE,
   DEFAULT_LAYOUT,
   FAB_PANEL_MAX_SHARE,
   LAYOUT_BOUNDS,
@@ -511,6 +513,7 @@ function Shell() {
   const terminalOpen = useUiStore((s) => s.terminalOpen);
   const terminalMaximized = useUiStore((s) => s.terminalMaximized);
   const browserOpen = useUiStore((s) => s.browserOpen);
+  const browserLayout = useUiStore((s) => s.browserLayout);
   const fabPanelOpen = useUiStore((s) => s.fabPanelOpen);
   const toggleFabPanel = useUiStore((s) => s.toggleFabPanel);
   /*
@@ -522,6 +525,8 @@ function Shell() {
   const setTerminalOpen = useUiStore((s) => s.setTerminalOpen);
   const setTerminalMaximized = useUiStore((s) => s.setTerminalMaximized);
   const setFabPanelOpen = useUiStore((s) => s.setFabPanelOpen);
+  const setBrowserOpen = useUiStore((s) => s.setBrowserOpen);
+  const setBrowserLayout = useUiStore((s) => s.setBrowserLayout);
   // Phase 37 Theme D: the collapsed FAB wears the same tab arc as the open
   // panel, so toggling the panel never changes the button's colour.
   const activeFabTab = useUiStore((s) => s.activeFabTab);
@@ -621,6 +626,29 @@ function Shell() {
     LAYOUT_BOUNDS.fabPanelWidth.max,
     Math.round(viewportWidth * FAB_PANEL_MAX_SHARE),
   );
+  const browserMax = Math.max(
+    LAYOUT_BOUNDS.browserWidth.min,
+    Math.round(viewportWidth * BROWSER_MAX_SHARE),
+  );
+  /*
+    An even split of the real window, which is what "side by side" says and
+    what a stored pixel count cannot promise across displays — see
+    `LayoutSizes.browserWidth`'s `0` sentinel. Also what a double-click on the
+    splitter restores, so "put it back" means the even split rather than
+    whatever a past window size happened to make even.
+
+    Minus the repositories panel, because the split is between the browser and
+    the VIEW, and the panel is neither: half the raw window with the panel open
+    leaves the view a third of the room and the two halves visibly unequal,
+    which is the one thing the words "side by side" promise they are not. The
+    committed width rather than `repos.current` — a default has no business
+    tracking a live drag, and this is declared above that splitter anyway.
+  */
+  const browserHalf = Math.max(
+    LAYOUT_BOUNDS.browserWidth.min,
+    Math.round((viewportWidth - (reposOpen ? layout.reposWidth : 0)) / 2),
+  );
+  const browserWidth = layout.browserWidth > 0 ? layout.browserWidth : browserHalf;
 
   const repos = useResizable({
     size: layout.reposWidth,
@@ -648,6 +676,28 @@ function Shell() {
     max: terminalMax,
     onCollapse: () => setTerminalOpen(false),
     onExpand: () => setTerminalMaximized(true),
+  });
+
+  /**
+   * The side-by-side browser's splitter.
+   *
+   * `edge` flips with the layout, because the handle changes sides with the
+   * pane: a browser docked left is grown by dragging right (`start`), one
+   * docked right by dragging left (`end`). Dragging past the far bound does
+   * what the terminal's does — past `min` closes the pane, past `max`
+   * promotes it to full screen, which is the honest destination for a drag
+   * that wants the whole window.
+   */
+  const browser = useResizable({
+    size: browserWidth,
+    onSize: (value) => setLayout('browserWidth', value),
+    initial: browserHalf,
+    axis: 'x',
+    edge: browserLayout === 'right' ? 'end' : 'start',
+    ...LAYOUT_BOUNDS.browserWidth,
+    max: browserMax,
+    onCollapse: () => setBrowserOpen(false),
+    onExpand: () => setBrowserLayout('full'),
   });
 
   const fabPanel = useResizable({
@@ -736,7 +786,23 @@ function Shell() {
     */
     animateKey: `${terminalOpen}:${terminalMaximized}`,
   });
+  /*
+    The browser gets BOTH reveal primitives, one per layout, because the two
+    layouts are structurally different panes: full screen is an overlay that
+    fades (`useReveal`, opacity), side by side is a flex child that has to
+    push the view aside as it arrives (`useRevealSize`, width). Both key on
+    the same `browserOpen`, so only the one matching the current layout is
+    ever rendered — and a layout change mid-open finds the other already at
+    its target, which is why switching does not replay an animation.
+  */
   const browserReveal = useReveal(browserOpen);
+  const browserSideBySide = browserLayout !== 'full';
+  const browserTween = useRevealSize<HTMLDivElement>({
+    open: browserOpen,
+    size: browser.snap === 'collapse' ? 0 : browser.current,
+    axis: 'x',
+    dragging: browser.dragging,
+  });
   const fabPanelTween = useRevealSize<HTMLDivElement>({
     open: fabPanelOpen,
     size: fabPanel.snap === 'collapse' ? 0 : fabPanel.current,
@@ -780,6 +846,37 @@ function Shell() {
   const viewBoxClassName = `min-h-0 flex-1 overflow-hidden animate-fade-in ${
     covering && terminalTween.settled ? 'hidden' : ''
   }`;
+
+  /**
+   * The side-by-side browser, as a real column of the content row.
+   *
+   * Two boxes for the same reason the terminal has two: the OUTER one is what
+   * the tween animates (and what draws a poised collapse as zero), while the
+   * pane inside stays at its settled width and is clipped — so the browser's
+   * own chrome does not re-layout on every frame of an open or close.
+   *
+   * `null` unless the layout asks for it, so the full-screen overlay below and
+   * this are never both mounted.
+   */
+  const browserColumn =
+    browserSideBySide && browserTween.mounted ? (
+      <div
+        ref={browserTween.ref}
+        // Named for the e2e suite: this box, not the pane inside it, is the
+        // one whose width the splitter drives.
+        data-browser-frame
+        className="h-full shrink-0 overflow-hidden"
+        style={browserTween.style}
+      >
+        <div className="h-full" style={{ width: browser.current }}>
+          <BrowserPane shown={browserTween.shown} />
+        </div>
+      </div>
+    ) : null;
+  const browserSplitter =
+    browserSideBySide && browserTween.mounted ? (
+      <ResizeHandle resizable={browser} axis="x" label="Resize browser" />
+    ) : null;
 
   const navItem = useCallback(
     (item: NavItem) => ({
@@ -1043,6 +1140,18 @@ function Shell() {
           ) : null}
           {/* Renders only when open AND the orientation setting says vertical. */}
           <CommitActivityPanel slot="right" />
+          {/*
+            A browser docked LEFT sits between the repositories panel and the
+            view — not left of the repositories, which stays where it is: the
+            panel is the app's object list and belongs beside the rail, while
+            the split divides the working area.
+          */}
+          {browserLayout === 'left' ? (
+            <>
+              {browserColumn}
+              {browserSplitter}
+            </>
+          ) : null}
           <div className="flex min-w-0 flex-1 flex-col">
             {/*
               View, splitter and terminal share this box, but the status bar does
@@ -1205,7 +1314,21 @@ function Shell() {
             </div>
           </div>
 
-          {browserReveal.mounted ? <BrowserPane shown={browserReveal.shown} /> : null}
+          {browserLayout === 'right' ? (
+            <>
+              {browserSplitter}
+              {browserColumn}
+            </>
+          ) : null}
+
+          {/*
+            Full screen only. The overlay stretches left over the nav rail (see
+            `browser-pane.tsx`) and stops at the bottom of this row, which is
+            what leaves the footer — a sibling of the row, one level up — alone.
+          */}
+          {!browserSideBySide && browserReveal.mounted ? (
+            <BrowserPane shown={browserReveal.shown} />
+          ) : null}
 
           {/* FAB Panel (docked on right) */}
           {fabPanelTween.mounted ? (
@@ -1266,6 +1389,12 @@ function Shell() {
         */}
         <CommitActivityPanel slot="bottom" />
         <StatusBar />
+        {/*
+          Eager, not lazy, and for the same reason `BrowserPane` is: this is
+          what `Mod+B` puts on screen, and a modal that arrives a chunk-fetch
+          after the keystroke would swallow the `Enter` that follows it.
+        */}
+        <BrowserLauncher />
         <Suspense fallback={null}>
           <FirstRunModal />
         </Suspense>

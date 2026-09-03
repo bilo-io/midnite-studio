@@ -25,6 +25,8 @@ const reset = () =>
     terminalMaximized: false,
     terminalSidebarSide: 'right',
     browserOpen: false,
+    browserLayout: 'full',
+    browserLauncherOpen: false,
     layout: DEFAULT_LAYOUT,
     graphColumns: DEFAULT_GRAPH_COLUMNS,
     navMode: 'auto',
@@ -340,14 +342,61 @@ describe('persistence', () => {
     expect(merged.layout.terminalHeight).toBe(DEFAULT_LAYOUT.terminalHeight);
   });
 
-  it('persists the browser pane state', () => {
-    useUiStore.getState().toggleBrowser();
+  it('persists the browser pane state and the layout it was opened in', () => {
+    useUiStore.getState().openBrowser('right');
 
     const saved = JSON.parse(localStorage.getItem('midnite-studio.ui') ?? '{}') as {
       state: Record<string, unknown>;
     };
 
     expect(saved.state.browserOpen).toBe(true);
+    expect(saved.state.browserLayout).toBe('right');
+  });
+
+  it('does not persist the launcher — a modal restored on launch is one nobody asked for', () => {
+    useUiStore.getState().toggleBrowser();
+
+    const saved = JSON.parse(localStorage.getItem('midnite-studio.ui') ?? '{}') as {
+      state: Record<string, unknown>;
+    };
+
+    expect(useUiStore.getState().browserLauncherOpen).toBe(true);
+    expect(saved.state).not.toHaveProperty('browserLauncherOpen');
+  });
+
+  it('opening the browser goes through the launcher, closing it does not', () => {
+    // The asymmetry is the point: where the pane goes changes the shape of
+    // the whole window, so `toggleBrowser` from closed asks first and
+    // `openBrowser` is what actually shows it. Closing is unambiguous.
+    useUiStore.getState().toggleBrowser();
+    expect(useUiStore.getState().browserLauncherOpen).toBe(true);
+    expect(useUiStore.getState().browserOpen).toBe(false);
+
+    useUiStore.getState().openBrowser('left');
+    expect(useUiStore.getState()).toMatchObject({
+      browserOpen: true,
+      browserLayout: 'left',
+      browserLauncherOpen: false,
+    });
+
+    useUiStore.getState().toggleBrowser();
+    expect(useUiStore.getState().browserOpen).toBe(false);
+    expect(useUiStore.getState().browserLauncherOpen).toBe(false);
+  });
+
+  it('a second toggle while the launcher is up dismisses it', () => {
+    useUiStore.getState().toggleBrowser();
+    useUiStore.getState().toggleBrowser();
+
+    expect(useUiStore.getState().browserLauncherOpen).toBe(false);
+    expect(useUiStore.getState().browserOpen).toBe(false);
+  });
+
+  it('the layout of an open pane can be changed without closing it', () => {
+    useUiStore.getState().openBrowser('full');
+    useUiStore.getState().setBrowserLayout('right');
+
+    expect(useUiStore.getState()).toMatchObject({ browserOpen: true, browserLayout: 'right' });
   });
 
   it('defaults browserOpen to false for a payload written before the key existed', () => {
