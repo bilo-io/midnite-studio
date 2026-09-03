@@ -84,93 +84,143 @@ Effort tags: **S** ≈ an hour or two · **M** ≈ half a day · **L** ≈ a day
 - [x] `README.md`, `CLAUDE.md`, `AGENTS.md`, `GEMINI.md` all gain the "Onboarding another repo"
       paragraph.
 
-### B — The scaffold contract in `shared` (S)
+### B — The scaffold contract in `shared` (S) — ✅ DONE (2026-09-03)
 
-- [ ] A new `shared/src/domain/scaffold.ts`: zod schemas for `ScaffoldEntry`
+- [x] A new `shared/src/domain/scaffold.ts`: zod schemas for `ScaffoldEntry`
       (`{ path, status, bytes }`), `ScaffoldStatus` as a literal union of
       `'create' | 'unchanged' | 'stale' | 'locally-edited'`, `ScaffoldPlan`
       (`{ targetRoot, templateVersion, entries }`) and `ScaffoldApplyResult`.
-- [ ] The `.midnite/settings.json` schema, extended from today's `{ "version": 1 }` to carry a
+- [x] The `.midnite/settings.json` schema, extended from today's `{ "version": 1 }` to carry a
       **manifest**: `{ version, template: { version, files: Record<path, sha256> } }`. This one
       field is what makes re-running Setup an upgrade rather than a guess, and it is the only
       persistent state the phase adds.
-- [ ] Two IPC channel constants (plan, apply) with request/response schemas, in the same file as
+- [x] Two IPC channel constants (plan, apply) with request/response schemas, in the same file as
       the rest of the channel constants. Both responses use the house `{ ok: true, … }` |
       `{ ok: false, kind, … }` envelope — **never throw across the boundary**.
-- [ ] Round-trip tests for every schema, matching the pattern the other domain modules use.
-- [ ] `shared` gains no dependency: zod only, no `node:fs`, no `electron`. The template *contents*
+  - Keyed by `repoId` only, not `targetRoot` — matching `diag-handlers.ts`'s own rule (main
+    resolves the checkout through `resolveWorkdir`, the renderer never names a raw path), settled
+    under the "where does Setup get its target repo" decision below.
+- [x] Round-trip tests for every schema, matching the pattern the other domain modules use.
+      `scaffold.test.ts`, 12 tests.
+- [x] `shared` gains no dependency: zod only, no `node:fs`, no `electron`. The template *contents*
       live under `templates/`, not inside the package — `shared` describes the plan, it does not
       carry the files.
 
-### C — Plan and apply in main (M)
+### C — Plan and apply in main (M) — ✅ DONE (2026-09-03)
 
-- [ ] A `desktop/src/main/scaffold/` module: read the template tree, walk the target repo, sha256
-      both sides, and classify each file — `create` (absent), `unchanged` (hash matches the
-      manifest **and** the current template), `stale` (matches the manifest but the template has
-      moved on — the upgrade case), `locally-edited` (present, and its hash matches neither).
-- [ ] **A target `.midnite/` with no manifest at all classifies as `locally-edited`, wholesale.**
+- [x] A `desktop/src/main/scaffold/` module: read the template tree, walk the target repo, sha256
+      both sides, and classify each file — `create` (absent), `unchanged`, `stale` (matches the
+      manifest but the template has moved on — the upgrade case), `locally-edited` (present, and
+      its hash matches neither).
+  - **Corrected: `unchanged` is a direct hash match against the current template, not "the
+    manifest AND the template."** Requiring both would call a byte-identical file something other
+    than `unchanged` whenever the manifest disagrees or is absent — but the actual thing
+    `unchanged` promises (nothing needs writing) is already true the moment the target's hash
+    equals the template's. Simpler, and no different in outcome.
+- [x] **A target `.midnite/` with no manifest at all classifies as `locally-edited`, wholesale.**
       Someone who hand-made a tracker is exactly the person a silent overwrite would hurt most;
-      absence of provenance is not permission.
-- [ ] Every write goes through [`fs-scope-write.ts`](../../../packages/desktop/src/main/fs-scope-write.ts)'s
+      absence of provenance is not permission. `classify.ts`'s own explicit branch — checked
+      *before* the general hash comparison, so even a byte-identical coincidence still reads
+      `locally-edited` here.
+- [x] Every write goes through [`fs-scope-write.ts`](../../../packages/desktop/src/main/fs-scope-write.ts)'s
       confinement against the *target repo root*, so a malformed template path cannot escape it.
       A template entry that resolves outside the root fails the whole plan, loudly — no partial
       apply of a plan with a bad entry in it.
-- [ ] Apply writes only the entries the renderer sent back as approved, re-checking each hash
+  - New `ensureConfinedDirs` there, walking one level at a time (refusing a symlink at any level)
+    rather than a recursive `mkdir` — `confineParent` never created missing intermediate
+    directories before this, since nothing else in the app produced a multi-segment new path. A
+    fresh repo has neither `.claude/skills/<name>/` nor `.midnite/tasks/phases/` yet.
+- [x] Apply writes only the entries the renderer sent back as approved, re-checking each hash
       immediately before writing (the plan the user approved may be seconds old; the file may have
       changed underneath it). A mismatch skips that one file and reports it in the result rather
       than aborting the batch.
-- [ ] The manifest is written **last**, after the files it describes — a crash mid-apply then leaves
+- [x] The manifest is written **last**, after the files it describes — a crash mid-apply then leaves
       a target whose next plan reads the truth off disk rather than off a manifest that over-claims.
-- [ ] Unit tests over a temp-dir fixture: fresh repo (all `create`), identical re-run (all
+- [x] Unit tests over a temp-dir fixture: fresh repo (all `create`), identical re-run (all
       `unchanged`), template bumped (`stale`), user-edited file (`locally-edited` and never
       written), no-manifest pre-existing `.midnite/`, and an escaping template path.
+      `scaffold.test.ts`, 11 tests; the escaping-path case needed an injectable `walk` function,
+      since a real directory walk cannot produce a traversal segment to test against (`plan.ts`'s
+      own doc comment). `fs-scope-write.test.ts` gained its own `ensureConfinedDirs` suite, 5 tests.
 
-### D — The Setup dialog (M)
+### D — The Setup dialog (M) — ✅ DONE (2026-09-03)
 
-- [ ] The Setup leaf opens a **modal preview** rather than acting: target repo path in the header,
+- [x] The Setup leaf opens a **modal preview** rather than acting: target repo path in the header,
       the template version, and counts by status. Nothing is written before Apply.
-- [ ] The per-file list, grouped by status, with `locally-edited` entries visibly *excluded from the
+- [x] The per-file list, grouped by status, with `locally-edited` entries visibly *excluded from the
       write* and saying so — the dialog's job is to make "what will change" answerable at a glance,
       the same job the destructive-git confirm dialogs already do with `rev-list --count`.
-- [ ] Wording changes on re-run: a repo with no `.midnite/` reads "Set up", a repo with a manifest
-      reads "Update onboarding kit" with the version delta. One dialog, two honest framings.
-- [ ] Apply / Cancel, a result state (n written, n skipped, n refused), and a failure state that
+- [x] Wording changes on re-run: a repo with no `.midnite/` reads "Set up this repo", a repo with a
+      manifest reads "Update onboarding kit". **Not the version delta itself** — `hasExistingKit`
+      is a plain boolean the menu already computed (`hasMidniteDir`), and the plan's own
+      `templateVersion` line covers what version is being applied; a second "vN → vN+1" string
+      would say the same thing a different way.
+- [x] Apply / Cancel, a result state (n written, n skipped, n refused), and a failure state that
       renders the `{ ok: false }` envelope's reason rather than a generic error.
-- [ ] Reuses the existing dialog and confirm primitives; **no new modal system**, and no new
-      ViewId.
+- [x] Reuses the existing dialog and confirm primitives; **no new modal system**, and no new
+      ViewId. Not literally `ConfirmDialog`, though — its `body`/`warnings` props cannot express a
+      grouped, counted file list; `SetupDialog` copies its overlay/focus-trap/button shell instead.
+  - **Corrected, found building it:** a dialog rendered inline inside `MidniteMenu` — itself
+    mounted per (possibly virtualized) repo row — had its `fixed inset-0` overlay contained by a
+    transformed ancestor rather than the viewport, positioning it near the row instead of centred
+    on screen. Caught by the screenshot, not the RTL tests (jsdom does not lay out real CSS
+    containment). Portaled to `document.body`, the same escape `graph-row.tsx`'s own popovers use.
+  - Decided: RTL component tests for the dialog's own grouping/wording logic, on top of Theme E's
+    e2e pass — `setup-dialog.test.tsx`, 6 tests.
 
-### E — Update, capability detection, and the menu (M)
+### E — Update, capability detection, and the menu (M) — ◐ PARTIAL (2026-09-03)
 
-- [ ] A repo-capability helper beside [`repo-lifecycle.ts`](../../../packages/app/src/features/repos/repo-lifecycle.ts):
+- [x] A repo-capability helper beside [`repo-lifecycle.ts`](../../../packages/app/src/features/repos/repo-lifecycle.ts):
       `hasMidniteDir`, `isMoonWorkspace` (reuse, don't re-derive) and `isMidniteStudioCheckout` —
       the last identified by a real marker (the workspace's own project name / the presence of
       `packages/desktop/scripts/install-local.mjs`), not by directory name, so a clone or worktree
-      under any path still resolves correctly.
-- [ ] A sixth entry in `AGENT_COMMAND_GROUPS`
+      under any path still resolves correctly. `repo-lifecycle.ts`'s own `inspectRepoRoot` exported
+      for reuse. `hasPackagedBuild` added too, for the pre-flight item below.
+- [x] A sixth entry in `AGENT_COMMAND_GROUPS`
       ([`agent-commands.ts`](../../../packages/app/src/features/agent/agent-commands.ts)) —
       `project`, with a `hint` in the same voice as the other five — and the two leaves in it, with
-      `react-icons/lu` glyphs. The `AgentCommandCategory` union and `AgentCommandId` in
-      [`store/ui-store.ts`](../../../packages/app/src/store/ui-store.ts) widen accordingly.
-- [ ] **Update is disabled with a `disabledReason`** anywhere `isMidniteStudioCheckout` is false —
+      `react-icons/lu` glyphs.
+  - **Corrected: `AgentCommandId` and `DEFAULT_AGENT_SKILLS` do NOT widen.** Both leaves are built
+    directly in `midnite-menu.tsx`, not as `AGENT_COMMANDS` entries — every existing entry types a
+    user-configurable skill at an agent, and `agentSkills`/`DEFAULT_AGENT_SKILLS` are a *total*
+    `Record<AgentCommandId, string>` over that assumption. Setup does not type anything at all; it
+    opens `SetupDialog`. Update's command is fixed, never meant to be user-edited the way a skill
+    is. Forcing either in would have given the Agent settings page a "skill" field with nothing
+    sensible to put in it. `agent-commands.ts`'s own comment on the group states this in full;
+    `agent-commands.test.ts`'s group-coverage tests were updated to treat `project` as the one
+    declared group with no `AGENT_COMMANDS` entries, by design.
+- [x] **Update is disabled with a `disabledReason`** anywhere `isMidniteStudioCheckout` is false —
       "Only for the Midnite Studio checkout" — using the `disabled`/`disabledReason` fields
       [`context-menu.tsx`](../../../packages/app/src/components/context-menu.tsx) already carries.
 - [ ] A pre-flight before typing: `release/mac-arm64/Midnite Studio.app` present? If not, the leaf
       still works but the dialog-free path says what will happen (`install-local` depends on
       `~:dist`, so the command *will* build first — several minutes and ~200 MB of uncached
       artifacts; [`moon.yml`](../../../packages/desktop/moon.yml) marks `dist` `cache: false`
-      deliberately).
-- [ ] Update then does exactly what the other eighteen leaves do — `startAgent` types
-      `moon run desktop:install-local` into a session on the checkout and **stops**. The user
-      presses Return, and so chooses the moment the app they are running gets replaced.
-- [ ] Tests: [`agent-commands.test.ts`](../../../packages/app/src/features/agent/agent-commands.test.ts)
-      extended for the sixth group and its ids; unit tests for each capability predicate; e2e in
+      deliberately). **Not done**: `hasPackagedBuild` exists and is tested, but nothing surfaces its
+      answer in the menu yet — no tooltip, no inline note. Left open rather than guessed at.
+- [x] Update then does exactly what the other eighteen leaves do — ~~`startAgent` types~~ **a plain
+      shell session queues** `moon run desktop:install-local` into a session on the checkout and
+      **stops**. The user presses Return, and so chooses the moment the app they are running gets
+      replaced.
+  - **Corrected, found building it: `startAgent` is the wrong mechanism.** It always composes
+    `command + agentInvocationArgs(agentId) + shellQuote(toAgentPrompt(prompt, agentId))` — every
+    existing leaf's `prompt` is a natural-language instruction TO an agent CLI, wrapped as its
+    argument (e.g. `claude '/midnite-exec'`). Routing Update's literal command through it would
+    have typed `claude 'moon run desktop:install-local'` — asking Claude to interpret that string,
+    not running it. `repo-lifecycle.ts`'s `runLifecycleAction` is the actual "type, don't run"
+    precedent this item points at: a plain `kind: 'shell'` session with the command queued raw, no
+    agent wrapping. Update now mirrors that.
+- [x] Tests: [`agent-commands.test.ts`](../../../packages/app/src/features/agent/agent-commands.test.ts)
+      extended for the sixth group and its ids; unit tests for each capability predicate
+      (`repo-capability.test.ts`, 8 tests); e2e in
       [`e2e/midnite-menu.spec.ts`](../../../packages/app/e2e/midnite-menu.spec.ts) covering the
-      group opening, Update's disabled state on a non-studio repo, and the Setup dialog rendering a
-      plan; a new screenshot in
+      group opening, Update's disabled state on a non-studio repo, Update typing the literal
+      command on the studio checkout, and the Setup dialog rendering a plan; a new screenshot in
       [`midnite-menu-shots.spec.ts`](../../../packages/app/e2e/midnite-menu-shots.spec.ts) beside
-      the existing `menu-open`/`menu-tasks`/`menu-loops` set.
+      the existing `menu-open`/`menu-tasks`/`menu-loops` set, plus one for the Setup dialog itself.
 - [ ] A **packaged-build check** that the template resolves off `process.resourcesPath` — the one
-      Theme A failure mode that dev mode cannot catch.
+      Theme A failure mode that dev mode cannot catch. **Not done** — needs a packaged build
+      (`moon run desktop:dist`), not exercised this batch.
 
 ## Files this phase touches
 

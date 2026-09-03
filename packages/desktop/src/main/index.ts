@@ -15,6 +15,7 @@ import { registerBrowserHandlers } from './ipc/browser-handlers';
 import { registerClaudeHandlers } from './ipc/claude-handlers';
 import { registerCouncilHandlers } from './ipc/council-handlers';
 import { configureDiagnostics, registerDiagHandlers } from './ipc/diag-handlers';
+import { registerScaffoldHandlers } from './ipc/scaffold-handlers';
 import { registerForgeHandlers } from './ipc/forge-handlers';
 import { registerForgeProjectHandlers } from './ipc/forge-project-handlers';
 import { registerFsHandlers } from './ipc/fs-handlers';
@@ -234,6 +235,7 @@ if (!app.requestSingleInstanceLock()) {
     registerForgeHandlers();
     registerForgeProjectHandlers();
     registerDiagHandlers();
+    registerScaffoldHandlers();
     registerTestsHandlers(getWindow);
     registerPtyHandlers(getWindow);
     registerBrowserHandlers(getWindow);

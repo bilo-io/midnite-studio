@@ -451,6 +451,15 @@ export const CHANNELS = {
   loopRunsStart: 'mstudio:loop-runs:start',
   loopRunsStop: 'mstudio:loop-runs:stop',
 
+  // --- onboarding kit scaffold (Phase 49) -----------------------------------
+  // `plan` reads the template tree and the target repo, hashes both sides and
+  // classifies every entry — it writes nothing. `apply` writes only the exact
+  // paths the renderer is holding an approved plan for, re-hashing each one
+  // immediately before writing. Both take a `repoId`, never a raw path: main
+  // resolves the checkout through `resolveWorkdir`, same rule as `diag*` above.
+  scaffoldPlan: 'mstudio:scaffold:plan',
+  scaffoldApply: 'mstudio:scaffold:apply',
+
   // --- window chrome -------------------------------------------------------
   windowMinimize: 'mstudio:window:minimize',
   windowMaximizeToggle: 'mstudio:window:maximize-toggle',

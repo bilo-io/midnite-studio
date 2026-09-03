@@ -1,14 +1,15 @@
-import { mkdir, mkdtemp, realpath, rm, symlink, writeFile as writeFileFixture } from 'node:fs/promises';
+import { lstat, mkdir, mkdtemp, realpath, rm, symlink, writeFile as writeFileFixture } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 
-import { afterAll, beforeAll, describe, expect, it } from 'vitest';
+import { afterAll, afterEach, beforeAll, describe, expect, it } from 'vitest';
 
 import {
   confineParent,
   createDirectory,
   createFile,
   describeFsError,
+  ensureConfinedDirs,
   isSymlinkTarget,
   openForOverwrite,
   targetExists,
@@ -194,5 +195,48 @@ describe('describeFsError', () => {
 
   it('falls back to String() for a non-Error throw', () => {
     expect(describeFsError('a string throw')).toBe('a string throw');
+  });
+});
+
+describe('ensureConfinedDirs', () => {
+  let root: string;
+
+  afterEach(async () => {
+    await rm(root, { recursive: true, force: true });
+  });
+
+  it('creates every missing intermediate directory', async () => {
+    root = await realpath(await mkdtemp(join(tmpdir(), 'mstudio-ensure-dirs-')));
+
+    expect(await ensureConfinedDirs(root, '.claude/skills/midnite-exec/SKILL.md')).toBe(true);
+    expect((await lstat(join(root, '.claude', 'skills', 'midnite-exec'))).isDirectory()).toBe(true);
+  });
+
+  it('is a no-op for a top-level path with no parent to create', async () => {
+    root = await realpath(await mkdtemp(join(tmpdir(), 'mstudio-ensure-dirs-')));
+
+    expect(await ensureConfinedDirs(root, 'CLAUDE.md')).toBe(true);
+  });
+
+  it('leaves an already-existing directory chain alone', async () => {
+    root = await realpath(await mkdtemp(join(tmpdir(), 'mstudio-ensure-dirs-')));
+    await mkdir(join(root, 'a', 'b'), { recursive: true });
+
+    expect(await ensureConfinedDirs(root, 'a/b/c.md')).toBe(true);
+  });
+
+  it('refuses a path that would escape the root', async () => {
+    root = await realpath(await mkdtemp(join(tmpdir(), 'mstudio-ensure-dirs-')));
+
+    expect(await ensureConfinedDirs(root, '../escape/file.md')).toBe(false);
+  });
+
+  it('refuses when a symlink sits where a directory needs to be created', async () => {
+    root = await realpath(await mkdtemp(join(tmpdir(), 'mstudio-ensure-dirs-')));
+    const outside = await realpath(await mkdtemp(join(tmpdir(), 'mstudio-ensure-dirs-outside-')));
+    await symlink(outside, join(root, 'linked'));
+
+    expect(await ensureConfinedDirs(root, 'linked/nested/file.md')).toBe(false);
+    await rm(outside, { recursive: true, force: true });
   });
 });

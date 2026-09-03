@@ -162,6 +162,39 @@ export async function createDirectory(target: ConfinedTarget): Promise<boolean> 
   }
 }
 
+/**
+ * Ensure every directory between `root` and `relPath`'s final segment
+ * exists, creating any that are missing — walked one level at a time so each
+ * new directory gets the same symlink-safety check `createDirectory` already
+ * gives a single level, rather than trusting a recursive `mkdir` to walk
+ * through whatever a TOCTOU race plants partway down.
+ *
+ * `confineParent` deliberately never creates missing intermediate
+ * directories — nothing else in the app produces a multi-segment new path.
+ * The scaffold writer (Phase 49) is the first caller that needs one: a fresh
+ * repo has neither `.claude/skills/<name>/` nor `.midnite/tasks/phases/` yet.
+ * Trusted input only — call this with a path from the app's own checked-in
+ * template tree, never with one a renderer supplied.
+ */
+export async function ensureConfinedDirs(root: string, relPath: string): Promise<boolean> {
+  const lastSlash = relPath.lastIndexOf('/');
+  if (lastSlash === -1) return true; // no parent directories to create
+
+  const segments = relPath.slice(0, lastSlash).split('/');
+  let currentRel = '';
+  for (const segment of segments) {
+    currentRel = currentRel ? `${currentRel}/${segment}` : segment;
+    const target = await confineParent(root, currentRel);
+    if (!target) return false;
+    if (await targetExists(target)) {
+      if (await isSymlinkTarget(target)) return false;
+      continue;
+    }
+    if (!(await createDirectory(target))) return false;
+  }
+  return true;
+}
+
 /** Human-readable text for the common `fs` error codes a write handler hits. */
 export function describeFsError(error: unknown): string {
   const code = (error as NodeJS.ErrnoException | undefined)?.code;

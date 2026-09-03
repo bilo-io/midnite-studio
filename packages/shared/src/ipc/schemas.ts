@@ -48,6 +48,8 @@ import {
   RebaseSequencePlanSchema,
   RepoDescriptorSchema,
   RepoStatsSchema,
+  ScaffoldApplyResultSchema,
+  ScaffoldPlanSchema,
   StashDropResultSchema,
   StashEntrySchema,
   StatsWindowSchema,
@@ -1471,6 +1473,17 @@ export const DiagDetectResponse = z.object({
 
 export const DiagRunRequest = RepoId;
 export const DiagRunResponse = DiagnosticsRunSchema;
+
+// --- onboarding kit scaffold (Phase 49) ------------------------------------
+
+/** Reads the template tree and the target repo. Writes nothing. */
+export const ScaffoldPlanRequest = RepoId;
+export const ScaffoldPlanResponse = GitOpResultOf(ScaffoldPlanSchema);
+
+export const ScaffoldApplyRequest = RepoId.extend({
+  paths: z.array(z.string().min(1)),
+});
+export const ScaffoldApplyResponse = GitOpResultOf(ScaffoldApplyResultSchema);
 
 // --- repository statistics (Phase 19) --------------------------------------
 
