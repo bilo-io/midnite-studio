@@ -39,6 +39,12 @@ export type FabTab = 'innovate' | 'automate' | 'watchdog' | 'medic';
 /** How the commit inspector lists a commit's files. */
 export type CommitFileView = 'tree' | 'list';
 
+/** What the graph's detail panel shows (Phase 22 Theme D) — see `graphSelection`. */
+export type GraphSelection =
+  | { kind: 'commit'; sha: string }
+  | { kind: 'stash'; selector: string }
+  | null;
+
 /**
  * The main content views the rail switches between.
  *
@@ -359,7 +365,15 @@ export type UiState = {
   settingsPage: SettingsPageId;
   selectedRepoId: string | null;
   selectedWorktreePath: string | null;
-  selectedCommitSha: string | null;
+  /**
+   * What the graph's detail panel shows — a commit or a stash entry, never
+   * both. A discriminated union rather than two independent nullable fields
+   * (Phase 22 Theme D): two fields can both be non-null at once, which is a
+   * state nothing renders correctly, and the panel would have to invent a
+   * tie-break rule for which one wins. One field with a `kind` tag makes that
+   * state unrepresentable instead.
+   */
+  graphSelection: GraphSelection;
   /**
    * Whether the repositories sidebar is shown at all.
    *
@@ -602,6 +616,8 @@ export type UiState = {
   selectRepo: (repoId: string | null) => void;
   selectWorktree: (path: string | null) => void;
   selectCommit: (sha: string | null) => void;
+  /** Select a stash entry — clears any commit selection (Phase 22 Theme D). */
+  selectStash: (selector: string | null) => void;
   toggleRepos: () => void;
   setReposOpen: (open: boolean) => void;
   toggleTerminal: () => void;
@@ -957,7 +973,7 @@ export const useUiStore = create<UiState>()(
       lockScreen: () => set({ screensaverOpen: true, screensaverLocked: true }),
       selectedRepoId: null,
       selectedWorktreePath: null,
-      selectedCommitSha: null,
+      graphSelection: null,
       reposOpen: true,
       terminalOpen: false,
       terminalMaximized: false,
@@ -1099,14 +1115,16 @@ export const useUiStore = create<UiState>()(
           set({
             selectedRepoId,
             selectedWorktreePath: null,
-            selectedCommitSha: null,
+            graphSelection: null,
             graphRefFilter: [],
             graphAuthorFilter: [],
           }),
         ),
       selectWorktree: (selectedWorktreePath) =>
         useFileEditorStore.getState().guardNavigation(() => set({ selectedWorktreePath })),
-      selectCommit: (selectedCommitSha) => set({ selectedCommitSha }),
+      selectCommit: (sha) => set({ graphSelection: sha === null ? null : { kind: 'commit', sha } }),
+      selectStash: (selector) =>
+        set({ graphSelection: selector === null ? null : { kind: 'stash', selector } }),
       toggleRepos: () => set((state) => ({ reposOpen: !state.reposOpen })),
       setReposOpen: (reposOpen) => set({ reposOpen }),
       toggleTerminal: () => set((state) => ({ terminalOpen: !state.terminalOpen })),

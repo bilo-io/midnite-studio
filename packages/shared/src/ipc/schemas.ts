@@ -50,8 +50,10 @@ import {
   RepoStatsSchema,
   ScaffoldApplyResultSchema,
   ScaffoldPlanSchema,
+  StashDetailSchema,
   StashDropResultSchema,
   StashEntrySchema,
+  StashPartSchema,
   StatsWindowSchema,
   StatusCountsSchema,
   StatusResultSchema,
@@ -992,6 +994,20 @@ export const StashStoreRequest = OpBase.extend({
   sha: z.string().min(1),
   message: z.string().optional(),
 });
+
+/** A stash entry's three-part file list (Phase 22 Theme D). */
+export const StashDetailRequest = OpBase.extend({ selector: StashSelector });
+export const StashDetailResponse = StashDetailSchema.nullable();
+
+/** One file's hunks within one part of a stash entry (Phase 22 Theme D). */
+export const StashDiffRequest = OpBase.extend({
+  selector: StashSelector,
+  part: StashPartSchema,
+  path: z.string().min(1),
+  oldPath: OldPath,
+  context: ContextLines.default(DIFF_DEFAULT_CONTEXT),
+});
+export const StashDiffResponse = FileDiffSchema.nullable();
 
 // --- reflog ------------------------------------------------------------------
 

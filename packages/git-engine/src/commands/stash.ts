@@ -1,8 +1,17 @@
-import type { GitOpResult, StashDropResult, StashEntry } from '@midnite/studio-shared';
+import type {
+  FileDiff,
+  GitOpResult,
+  StashDetail,
+  StashDropResult,
+  StashEntry,
+  StashPart,
+} from '@midnite/studio-shared';
 import { conflict, failure, ok } from '@midnite/studio-shared';
 
 import { execGit } from '../exec/git-exec';
 import { writeQueue } from '../exec/write-queue';
+import { readCommitFileDiff, readRefDiff, type DiffOptions } from './diff';
+import { parseNumstat } from './log';
 import { STASH_FORMAT, parseStashList } from '../parsers/stash-parser';
 import { conflictedPaths } from './status';
 import { gitErrorLine } from './worktree-ops';
@@ -82,6 +91,86 @@ async function applyOrPop(
   if (introduced.length > 0) return conflict('stash-apply', introduced);
 
   return failure(gitErrorLine(res.stderr) || `Could not ${subcommand} the stash.`, res.stderr);
+}
+
+/**
+ * Resolve one of a stash's parents to a real sha, or `null` if it does not
+ * exist — `^2` (the index state) is present on every ordinary stash, but `^3`
+ * (untracked files) exists only when the stash was made with `-u`, and
+ * `git rev-parse --verify` is how that absence is told apart from a genuine
+ * error.
+ */
+async function resolveParent(worktreePath: string, selector: string, parent: 1 | 2 | 3): Promise<string | null> {
+  const res = await execGit(worktreePath, ['rev-parse', '--verify', `${selector}^${parent}`]);
+  return res.exitCode === 0 ? res.stdout.trim() : null;
+}
+
+/**
+ * The file list for all three of a stash's parts (Phase 22 Theme D).
+ *
+ * `tracked` reuses the exact `--numstat -m --first-parent` invocation
+ * `readCommitDetail` already makes for an ordinary commit — a stash entry
+ * IS a commit, and its first parent is HEAD at stash time, so "this commit's
+ * own diff" already answers "what changed in the working tree". `index` is a
+ * genuine two-commit diff (`^1..^2`), and `untracked` is `^3`'s own diff
+ * against nothing (it is a rootless commit, so every file in it is new).
+ */
+export async function readStashDetail(worktreePath: string, selector: string): Promise<StashDetail | null> {
+  const [stashRes, headAtStash, indexSha, untrackedSha] = await Promise.all([
+    execGit(worktreePath, ['rev-parse', '--verify', selector]),
+    resolveParent(worktreePath, selector, 1),
+    resolveParent(worktreePath, selector, 2),
+    resolveParent(worktreePath, selector, 3),
+  ]);
+  if (stashRes.exitCode !== 0 || !headAtStash) return null;
+  const sha = stashRes.stdout.trim();
+
+  const [trackedRes, indexRes, untrackedRes] = await Promise.all([
+    execGit(worktreePath, ['show', '--numstat', '-z', '-m', '--first-parent', '--pretty=format:', '--end-of-options', sha]),
+    indexSha
+      ? execGit(worktreePath, ['diff', '--numstat', '-z', '--end-of-options', headAtStash, indexSha])
+      : Promise.resolve(null),
+    untrackedSha
+      ? execGit(worktreePath, ['show', '--numstat', '-z', '--pretty=format:', '--end-of-options', untrackedSha])
+      : Promise.resolve(null),
+  ]);
+
+  return {
+    tracked: trackedRes.exitCode === 0 ? parseNumstat(trackedRes.stdout) : [],
+    index: indexRes && indexRes.exitCode === 0 ? parseNumstat(indexRes.stdout) : [],
+    untracked: untrackedRes && untrackedRes.exitCode === 0 ? parseNumstat(untrackedRes.stdout) : [],
+  };
+}
+
+/**
+ * One file's hunks within one part of a stash — reuses `diff.ts` wholesale
+ * rather than a third parsed shape, per the phase doc: `tracked` and
+ * `untracked` are both plain `git show <sha> -- path` reads (a stash entry's
+ * own diff against its first parent; `^3`'s own diff against nothing, since
+ * it is rootless), so `readCommitFileDiff` already does the right thing for
+ * both — only `index` (`^1..^2`) needs the two-ref form `readRefDiff` adds.
+ */
+export async function readStashFileDiff(
+  worktreePath: string,
+  selector: string,
+  part: StashPart,
+  path: string,
+  opts: DiffOptions = {},
+): Promise<FileDiff | null> {
+  if (part === 'tracked') return readCommitFileDiff(worktreePath, selector, path, opts);
+
+  if (part === 'untracked') {
+    const untrackedSha = await resolveParent(worktreePath, selector, 3);
+    if (!untrackedSha) return null;
+    return readCommitFileDiff(worktreePath, untrackedSha, path, opts);
+  }
+
+  const [headAtStash, indexSha] = await Promise.all([
+    resolveParent(worktreePath, selector, 1),
+    resolveParent(worktreePath, selector, 2),
+  ]);
+  if (!headAtStash || !indexSha) return null;
+  return readRefDiff(worktreePath, headAtStash, indexSha, path, opts);
 }
 
 export const stashApply = (worktreePath: string, selector: string): Promise<GitOpResult> =>

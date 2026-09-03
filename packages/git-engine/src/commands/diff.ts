@@ -134,6 +134,37 @@ export async function readCommitFileDiff(
   return parse(res.stdout, path, context, opts);
 }
 
+/**
+ * A path's diff between two arbitrary commits — `git diff <from> <to>`, not a
+ * `git show`. The one caller today is a stash's INDEX part
+ * (Phase 22 Theme D): `stash@{n}^1` (HEAD at stash time) vs `stash@{n}^2`
+ * (the index state), which is not "one commit's diff against its own parent"
+ * the way `readCommitFileDiff` answers — it is a diff between two SIBLING
+ * commits that happen to share a parent, and `git show` has no way to ask
+ * for that.
+ */
+export async function readRefDiff(
+  worktreePath: string,
+  from: string,
+  to: string,
+  path: string,
+  opts: DiffOptions = {},
+): Promise<FileDiff> {
+  const context = opts.context ?? DIFF_DEFAULT_CONTEXT;
+  const res = await execGit(worktreePath, [
+    ...LITERAL,
+    'diff',
+    ...BASE_ARGS,
+    `-U${context}`,
+    '--end-of-options',
+    from,
+    to,
+    ...pathspec(path, opts.oldPath),
+  ]);
+
+  return parse(res.stdout, path, context, opts);
+}
+
 /** Whether git has this path in the index — the untracked test that matters. */
 async function isTracked(worktreePath: string, path: string): Promise<boolean> {
   const res = await execGit(worktreePath, [

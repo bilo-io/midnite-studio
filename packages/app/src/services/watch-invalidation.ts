@@ -62,6 +62,11 @@ export function invalidateForWatchKind(
       // invalidates the sidebar's stash list for free, the same way a branch
       // write invalidates `refs` above.
       void client.invalidateQueries({ queryKey: keys.stashes(repoId) });
+      // The stash inspector (Phase 22 Theme D): a selector is index-based, so
+      // a push/pop/drop can shift what `stash@{n}` even points at — a prefix
+      // invalidation here, not one keyed to whichever entry is open, is what
+      // keeps a stale detail/diff read from surviving that shift.
+      void client.invalidateQueries({ queryKey: [...keys.repo(repoId), 'stash'] });
       // `.git/logs` rides this same `'refs'` kind (Phase 22 Theme G) — every
       // ref-keyed reflog cache entry, not just whichever ref the History view
       // currently has selected, since TanStack Query's default prefix match

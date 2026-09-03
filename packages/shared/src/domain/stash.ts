@@ -37,3 +37,36 @@ export const StashDropResultSchema = z.union([
   GitOpFailureSchema,
 ]);
 export type StashDropResult = z.infer<typeof StashDropResultSchema>;
+
+/** One changed file within one part of a stash — same shape `parseNumstat` (git-engine) produces. */
+export const StashDiffFileSchema = z.object({
+  path: z.string(),
+  oldPath: z.string().nullable(),
+  insertions: z.number().int().nonnegative(),
+  deletions: z.number().int().nonnegative(),
+});
+export type StashDiffFile = z.infer<typeof StashDiffFileSchema>;
+
+/**
+ * The file list for all three of a stash's parts (Phase 22 Theme D) —
+ * `stashDetail`'s answer, read once per stash entry the inspector opens.
+ *
+ * **Three parts, not one.** `tracked` is `stash@{n}^1..stash@{n}` (the normal
+ * working-tree changes); `index` is `stash@{n}^1..stash@{n}^2` (what was
+ * staged at stash time) and is empty unless the stash captured a distinct
+ * index state; `untracked` is `stash@{n}^3` on its own (a rootless commit, so
+ * every file in it is an addition) and is empty unless the stash was made
+ * with `-u`. `git stash show -p` only ever answers for `tracked` — reading
+ * all three here is the whole reason this type exists rather than reusing
+ * `FileDiff`'s own file-list shape.
+ */
+export const StashDetailSchema = z.object({
+  tracked: z.array(StashDiffFileSchema),
+  index: z.array(StashDiffFileSchema),
+  untracked: z.array(StashDiffFileSchema),
+});
+export type StashDetail = z.infer<typeof StashDetailSchema>;
+
+/** Which of a stash's three parts a file belongs to — `stashFileDiff`'s own selector. */
+export const StashPartSchema = z.enum(['tracked', 'index', 'untracked']);
+export type StashPart = z.infer<typeof StashPartSchema>;

@@ -7,11 +7,13 @@ import { useDialogs } from '../../components/dialog-host';
 import { EmptyState } from '../../components/empty-state';
 import { ResizeHandle } from '../../components/resizable/resize-handle';
 import { useResizable } from '../../components/resizable/use-resizable';
-import { useRefs } from '../../services/queries';
+import { useRefs, useStashes } from '../../services/queries';
 import { useStatus } from '../../services/use-status';
 import { ConflictBanner } from '../status/conflict-banner';
 import { DEFAULT_LAYOUT, LAYOUT_BOUNDS, useUiStore } from '../../store/ui-store';
 import { CommitDetail } from '../commit/commit-detail';
+import { StashInspector } from '../stash/stash-inspector';
+import { StashRows } from './stash-rows';
 import { GraphDndProvider, type DropEvent } from './graph-dnd';
 import { summariseAuthors } from './author-filter';
 import { countLocalBranches } from './branch-count';
@@ -43,8 +45,10 @@ import { useActiveAgentWorktreePaths } from './use-agent-worktrees';
  */
 export function GraphView() {
   const repoId = useUiStore((s) => s.selectedRepoId);
-  const selectedSha = useUiStore((s) => s.selectedCommitSha);
+  const graphSelection = useUiStore((s) => s.graphSelection);
+  const selectedSha = graphSelection?.kind === 'commit' ? graphSelection.sha : null;
   const selectCommit = useUiStore((s) => s.selectCommit);
+  const selectStash = useUiStore((s) => s.selectStash);
   const detailWidth = useUiStore((s) => s.layout.detailWidth);
   const setLayout = useUiStore((s) => s.setLayout);
   const setActiveView = useUiStore((s) => s.setActiveView);
@@ -74,6 +78,7 @@ export function GraphView() {
   const error = useGraphStore((s) => s.error);
 
   const { data: refs = [] } = useRefs(repoId);
+  const { data: stashes = [] } = useStashes(repoId);
   const refsBySha = useRefsBySha(refs);
   const branchCount = useMemo(() => countLocalBranches(refs), [refs]);
   // Every `rows`-derived memo below lists `rowCount` too: `rows` never
@@ -352,6 +357,26 @@ export function GraphView() {
         ) : null}
 
         {/*
+          Also above the scroller, for the same reason the working copy is
+          (Phase 22 Theme C): a stash is shelved uncommitted work, not history,
+          and giving it a fake `GraphRow` would put it in the virtualizer's
+          index space as something every `rows[i]` lookup has to exclude again.
+        */}
+        {stashes.length > 0 ? (
+          <StashRows
+            repoId={repoId}
+            stashes={stashes}
+            theme={theme}
+            gutterWidth={paintedGutter}
+            laneWidth={laneWidth}
+            colorIdx={headRow?.colorIdx ?? 0}
+            lane={headRow?.lane ?? 0}
+            selectedSelector={graphSelection?.kind === 'stash' ? graphSelection.selector : null}
+            onSelect={selectStash}
+          />
+        ) : null}
+
+        {/*
           Keyed on requestId so the list resets when stream changes.
           
           When the graph page is visited / rendered, each commit in the visible
@@ -437,7 +462,7 @@ export function GraphView() {
         </footer>
       </div>
 
-      {selectedSha ? (
+      {graphSelection ? (
         <>
           <ResizeHandle resizable={detail} axis="x" label="Resize commit detail" />
           <aside
@@ -446,7 +471,15 @@ export function GraphView() {
             }`}
             style={{ width: detail.current }}
           >
-            <CommitDetail repoId={repoId} sha={selectedSha} />
+            {graphSelection.kind === 'commit' ? (
+              <CommitDetail repoId={repoId} sha={graphSelection.sha} />
+            ) : (
+              <StashInspector
+                repoId={repoId}
+                selector={graphSelection.selector}
+                onError={setOpError}
+              />
+            )}
           </aside>
         </>
       ) : null}

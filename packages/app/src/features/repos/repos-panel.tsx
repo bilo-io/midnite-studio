@@ -1230,7 +1230,14 @@ export function RepoTree({
         action={{ label: 'Stash changes', onClick: onStashPush }}
       >
         {stashes.map((entry, i) => (
-          <StashRow key={entry.selector} entry={entry} index={i} depth={(depth + 1) as 2 | 3} menu={stashMenu} />
+          <StashRow
+            key={entry.selector}
+            repo={repo}
+            entry={entry}
+            index={i}
+            depth={(depth + 1) as 2 | 3}
+            menu={stashMenu}
+          />
         ))}
       </TreeSection>
     ),
@@ -1539,11 +1546,13 @@ function RefRow({
  * pass if it turns out to matter in practice.
  */
 function StashRow({
+  repo,
   entry,
   index,
   depth,
   menu,
 }: {
+  repo: RepoDescriptor;
   entry: StashEntry;
   index: number;
   depth: 2 | 3;
@@ -1551,6 +1560,15 @@ function StashRow({
 }) {
   const dialogs = useDialogs();
   const now = useNow();
+  const selectedRepoId = useUiStore((s) => s.selectedRepoId);
+  const graphSelection = useUiStore((s) => s.graphSelection);
+  const selectRepo = useUiStore((s) => s.selectRepo);
+  const selectStash = useUiStore((s) => s.selectStash);
+
+  const active =
+    selectedRepoId === repo.id &&
+    graphSelection?.kind === 'stash' &&
+    graphSelection.selector === entry.selector;
 
   const openMenu = (at: { clientX: number; clientY: number }) => dialogs.openMenu(at, menu(entry));
 
@@ -1561,10 +1579,26 @@ function StashRow({
         openMenu(event);
       }}
       style={cascadeStyle(index)}
-      className={`group flex animate-fade-in-up cascade-delay items-center gap-1.5 py-0.5 pr-2 text-[13px] transition-colors hover:bg-accent/30 ${TREE_INDENT[depth]}`}
+      className={`group flex animate-fade-in-up cascade-delay items-center gap-1.5 py-0.5 pr-2 text-[13px] transition-colors ${
+        active ? 'bg-accent/60' : 'hover:bg-accent/30'
+      } ${TREE_INDENT[depth]}`}
     >
-      <LuPackage aria-hidden className="h-3 w-3 shrink-0 text-muted-foreground" />
-      <span className="truncate">{entry.message}</span>
+      {/*
+        Selecting a stash opens the graph's inspector on it (Phase 22 Theme
+        D) — the same panel Theme C's pseudo-rows open, so there is one place
+        a stash is ever read from, whichever list it was clicked in.
+      */}
+      <button
+        type="button"
+        onClick={() => {
+          if (selectedRepoId !== repo.id) selectRepo(repo.id);
+          selectStash(entry.selector);
+        }}
+        className="flex min-w-0 flex-1 items-center gap-1.5 text-left"
+      >
+        <LuPackage aria-hidden className="h-3 w-3 shrink-0 text-muted-foreground" />
+        <span className="truncate">{entry.message}</span>
+      </button>
       <span className="ml-auto shrink-0 text-[11px] text-muted-foreground">
         {relativeAge(new Date(entry.authoredAt * 1000).toISOString(), now.getTime())}
       </span>

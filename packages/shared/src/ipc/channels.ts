@@ -277,6 +277,10 @@ export const CHANNELS = {
    * for.
    */
   opStashStore: 'mstudio:stash:store',
+  /** A stash entry's three-part file list (Phase 22 Theme D). See `StashDetailSchema`. */
+  stashDetail: 'mstudio:stash:detail',
+  /** One file's hunks within one part of a stash entry (Phase 22 Theme D). */
+  stashDiff: 'mstudio:stash:diff',
 
   // --- reflog ----------------------------------------------------------------
   /** `readReflog` — the History view's reflog tab (Phase 22 Theme G). */

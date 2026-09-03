@@ -32,6 +32,34 @@
       actually mirrors: a plain shell session, command queued raw. Still open: the packaged-build
       pre-flight surfacing in the menu, and Theme A's own packaged-build assertion.
 
+## 2026-09-03 — Phase 22 Themes C, D
+
+[PR #52]. Stashes reach the graph and become readable: pseudo-rows above the commit list, and a
+three-part inspector reusing Phase 12's file-list/diff machinery wholesale.
+
+- [x] **Phase 22 Theme C — stashes in the graph.** `features/graph/stash-rows.tsx`: pseudo-rows
+      above the `role="grid"` scroller, beneath `UncommittedRow` and sharing its dashed-ring/
+      dashed-lane/italic visual grammar — no fake sha is invented to smuggle a stash into
+      `graph-store`/the virtualizer's index space. Collapses past two entries into an overflow row
+      that expands the sidebar's `Stashes` section if it's closed. Selecting one drives a new
+      discriminated `graphSelection: {kind:'commit',sha} | {kind:'stash',selector} | null` in
+      `ui-store.ts`, replacing the old commit-only `selectedCommitSha` — the sidebar's own
+      `StashRow` is now also clickable and lands in the identical panel. Rows disappear on the same
+      `'refs'` watch invalidation Theme B already wired for `keys.stashes`.
+- [x] **Phase 22 Theme D — a stash you can read.** `readStashDetail`/`readStashFileDiff` in
+      `commands/stash.ts`: the tracked and untracked parts reuse `readCommitFileDiff` unchanged
+      (`git show`'s own `-m --first-parent` and a rootless commit's empty-tree diff already answer
+      correctly), and a new `readRefDiff` in `diff.ts` answers the index part's genuine two-ref
+      `stash@{n}^1..stash@{n}^2` diff, which `git show` cannot express. New
+      `mstudio:stash:detail`/`mstudio:stash:diff` channels, each with their own schemas
+      (`StashDetailSchema`/`StashDiffFileSchema`/`StashPartSchema` in `shared/src/domain/stash.ts`)
+      rather than reusing the generic diff contract. `features/stash/stash-inspector.tsx`: three
+      labelled `TreeSection`s — tracked, staged-at-stash-time, untracked — over the shared
+      `ChangeTree`/`DiffView`, not tabs (mirrors how the Changes panel splits staged/unstaged).
+      Apply/Pop/Branch/Drop ship as header icon actions calling the exact same
+      `useTargetedStashApply`/`Pop`/`Branch`/`Drop` hooks the sidebar's `stashMenu` already uses — a
+      second consumer, not a second copy.
+
 ## 2026-09-03 — Phase 22 Themes B, E, F, G + Phase 45 Themes E, F + Phase 49 Theme A + Phase 48 Theme A
 
 [PR #51]. A large batch, four phases: stash reaches the sidebar and the Changes view, force-push
