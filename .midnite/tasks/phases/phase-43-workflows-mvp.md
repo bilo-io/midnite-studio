@@ -501,7 +501,7 @@ Effort tags: **S** ≈ an hour or two · **M** ≈ half a day · **L** ≈ a day
   - Import assigns **fresh ids** to the workflow and every node, remapping edges, so importing the
     same file twice does not collide.
 
-### I — Wiring and verification (M) — ◐ PARTIAL (PR #TBD, 2026-09-04)
+### I — Wiring and verification (M) — ◐ PARTIAL (PR #108, 2026-09-04)
 
 - [x] Sidebar sections: confirmed no change needed in
       [`view-sections.ts`](../../../packages/app/src/features/repos/view-sections.ts) — `workflows:

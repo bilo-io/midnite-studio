@@ -4,7 +4,7 @@
 
 ## 2026-09-04 — Phase 43 Theme I (partial) — the palette command, the settings page, and the wiring between them
 
-[PR #TBD]. Closes out Phase 43's build entirely bar one human-only pass.
+[PR #108]. Closes out Phase 43's build entirely bar one human-only pass.
 
 - [x] **`workflow.run`, and the gate the doc missed.** Declared in `COMMANDS`
       (chord-less), given a `CommandRuntime` entry and a `COMMAND_ICONS` row —
