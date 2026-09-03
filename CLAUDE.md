@@ -163,7 +163,7 @@ explanatory messages. If a boundary rule fires, the fix is an IPC channel, not a
   `DEFAULT_KEYMAP` and `GLOBAL_CHORDS` all derived from it. `Mod+k` opens the command palette and
   joins `Ctrl+`` as the second chord that escapes the terminal; `Mod+Shift+p` stays `sync.pull`.
   **`Mod+r`/`Mod+Shift+r` are `app.reload`/`app.hardReload`** — reload the window, and reload it
-  bypassing the HTTP cache, exactly as a browser reads them. They are the one pair listed in
+  bypassing the HTTP cache, exactly as a browser reads them. They head the list in
   `TERMINAL_YIELD_COMMANDS`, which the dispatcher honours by falling through when the keystroke
   is aimed at an `.xterm` root: `app` scope alone does **not** keep a chord out of the terminal
   (the dispatcher's window listener grabs every bound chord, `Mod+1` from inside a shell
@@ -172,6 +172,17 @@ explanatory messages. If a boundary rule fires, the fix is an IPC channel, not a
   whenever the window is focused, xterm included. They displaced `view.refresh` and `sync.fetch`,
   which are now declared with **no chord** — and a menu or palette label for a chord-free command
   has to come from `COMMANDS`, not `DEFAULT_KEYMAP` (which drops them), or it renders as the raw id.
+  **The "L" pair is `Mod+l` = `fab.toggle` (the Loops panel) and `Mod+Shift+l` = `app.lock`** — the
+  same letter one modifier apart, replacing `Mod+m` and `Mod+Alt+l`. `fab.toggle` joins the reload
+  pair and `panel.back`/`panel.forward` in `TERMINAL_YIELD_COMMANDS` for the identical reason:
+  `Mod` is Ctrl off macOS, and `Ctrl+L` is every shell's clear-screen.
+  **Each rail item that has a chord shows it on hover, and shows *only* it** —
+  [`components/nav-chords.ts`](packages/app/src/components/nav-chords.ts) maps a `ViewId` to a
+  `CommandId` (never a chord literal), and `app.tsx`'s `ViewLink` wraps the row in `<Tooltip
+  side="right">`. Only the chord, because hover or focus anywhere in the rail expands it — the
+  label is already on screen, so a bubble repeating it teaches nothing. The map names the command
+  that navigates there *unconditionally*: `Mod+1` is shorter than `view.graph`'s `Mod+Shift+g` but
+  becomes `browser.selectTab1` while the browser pane is open.
 - **Public downloads and issues live in
   [`bilo-io/midnite-apps`](https://github.com/bilo-io/midnite-apps), not here.** This repo is
   private, so nothing a user touches can be served from it — installers, release notes and the

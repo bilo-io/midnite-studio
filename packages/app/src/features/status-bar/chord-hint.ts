@@ -1,5 +1,6 @@
-import { DEFAULT_KEYMAP, type CommandId } from '@midnite/studio-shared';
+import { COMMANDS, DEFAULT_KEYMAP, type CommandId } from '@midnite/studio-shared';
 
+import { chordOf } from '../../store/palette-store';
 import { isMac } from '../../services/keybindings/chord';
 
 /**
@@ -48,4 +49,26 @@ export function displayChord(chord: string): string {
  */
 function upperFinalLetter(chord: string): string {
   return chord.replace(/(^|[+⌘⇧])([a-z])$/, (_, lead: string, letter: string) => lead + letter.toUpperCase());
+}
+
+/**
+ * A command's chord straight from the registry, rendered for this platform —
+ * or `undefined` for a command that has none.
+ *
+ * `chordFor`'s two-argument shape asks the caller for a fallback, which every
+ * caller answers with a literal copy of the chord it is looking up. That is
+ * fine for a control hard-wired to one command (a fallback that has drifted
+ * still renders *something*), and wrong for the surfaces that teach chords in
+ * bulk — the landing cheat sheet and the nav rail — where a literal per row is
+ * exactly the duplication `COMMANDS` exists to prevent.
+ *
+ * `chordOf` rather than `command.chord`: `CommandDescriptor` is the const
+ * array's own union, so half its members have no such property to read at the
+ * type level.
+ */
+export function commandChord(id: CommandId): string | undefined {
+  const command = COMMANDS.find((c) => c.id === id);
+  if (!command) return undefined;
+  const declared = chordOf(command);
+  return declared === undefined ? undefined : displayChord(chordFor(id, declared));
 }
