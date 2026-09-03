@@ -1646,6 +1646,21 @@ export async function installMockBridge(page: Page, fixtures: MockFixtures): Pro
         },
         onRunChanged: () => () => {},
       },
+      /** The demo API status pill (Phase 43 Theme D). No push event — the
+       *  renderer polls, so `status` just answers whatever `start`/`stop`
+       *  last left `demoApiRunning` at. */
+      demoApi: {
+        start: async () => {
+          demoApiRunning = true;
+          return { ok: true as const, value: { running: true as const, port: 54321 } };
+        },
+        stop: async () => {
+          demoApiRunning = false;
+          return { ok: true as const };
+        },
+        status: async () =>
+          demoApiRunning ? { running: true as const, port: 54321 } : { running: false as const },
+      },
       loopRuns: {
         list: async () => ({ runs: loopRuns }),
         start: async (req: {
@@ -2157,6 +2172,10 @@ export async function installMockBridge(page: Page, fixtures: MockFixtures): Pro
     var workflowRuns: Array<{ id: string; workflowId: string; [key: string]: unknown }> = [];
     // eslint-disable-next-line no-var
     var workflowRunCounter = 0;
+    /** The demo API pill's (Phase 43 Theme D) own toggle state — a fixed mock
+     *  port keeps every run's screenshot/assertion deterministic. */
+    // eslint-disable-next-line no-var
+    var demoApiRunning = false;
     // eslint-disable-next-line no-var
     var externalUrls: string[] = [];
     /** `shell.showItemInFolder` calls (Phase 24 Theme C), recorded like `externalUrls`. */
