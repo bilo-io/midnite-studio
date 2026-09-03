@@ -128,24 +128,51 @@ Effort tags: **S** ≈ an hour or two · **M** ≈ half a day · **L** ≈ a day
       `app:typecheck`/`desktop:typecheck` stay green with no `video` property there at all, so a
       contracts-only theme genuinely lands standalone, same as workflow's and councils' own Theme A.
 
-### B — Project discovery and the store (M)
+### B — Project discovery and the store (M) — ✅ DONE (PR #112, 2026-09-04)
 
-- [ ] `desktop/src/main/video/projects-store.ts` — JSON under `userData` following the
+- [x] `desktop/src/main/video/projects-store.ts` — JSON under `userData` following the
       [`councils-store.ts`](../../../packages/desktop/src/main/councils-store.ts) convention. It
       persists **one setting**: the video root directory. Everything else is read from disk.
-- [ ] Projects are **discovered, not registered**: scan `<root>/projects/*/project.json`. A folder
+- [x] Projects are **discovered, not registered**: scan `<root>/projects/*/project.json`. A folder
       the user created by hand appears without being told about; a folder deleted outside the app
-      disappears. The store is a pointer, not a mirror — mirrors drift.
-- [ ] Path containment: every read is jailed under the configured root, reusing
+      disappears. The store is a pointer, not a mirror — mirrors drift. `_template` is never
+      listed. **Extra invariant, matching Theme A's own recorded decision:** a `project.json` whose
+      own `id` field disagrees with its folder name is marked `invalid`, not silently trusted —
+      `VideoProjectSchema`'s doc comment already said this would be the rule.
+- [x] Path containment: every read is jailed under the configured root, reusing
       [`fs-scope.ts`](../../../packages/desktop/src/main/fs-scope.ts) rather than a second
       implementation. A `project.json` naming `../../etc` resolves outside the root and is refused,
-      asserted in a test.
-- [ ] A malformed or unparseable `project.json` yields a project in an `invalid` state carrying the
-      parse error, listed and greyed — never a crash and never a silently skipped folder.
-- [ ] `project-create` copies `<root>/projects/_template/`, the mechanism `ekko-videos` already
-      documents ("copy this to start the next one"), and refuses an id that already exists.
-- [ ] Renders are read from `<project>/output/` by filename (`vN-<label>.mp4`) — the iteration
+      asserted in a test — and so is a project folder reached through a symlink pointing outside the
+      root, found while writing that same test.
+      **Two real bugs found and fixed while building this, both worth recording:**
+      (1) `confineToRoot`'s `realpath` requires the target to **exist**, which made
+      `source`/`brief`/`script` — file references a fresh, in-progress project legitimately has not
+      created yet — fail containment for the wrong reason ("outside the root") when the real reason
+      was "doesn't exist yet." Fixed by checking those three fields with the pure, no-filesystem
+      `joinWithin` instead, reserving `confineToRoot`'s symlink-aware `realpath` check for paths that
+      must already exist (`project.json` itself). (2) `readdir`'s own `Dirent.isDirectory()` reports
+      a **symlinked** directory as `false` (it reflects the symlink's own type, not its target's) —
+      the original directory filter silently dropped a symlinked project folder from the list
+      entirely instead of reading and refusing it, which would have made the "escapes via a symlink"
+      containment case fail open rather than closed. Fixed by also accepting `isSymbolicLink()`
+      entries into the read path, where `confineToRoot`'s `realpath` then correctly refuses one that
+      resolves outside the root.
+- [x] A malformed or unparseable `project.json` yields a project in an `invalid` state carrying the
+      parse error, listed and greyed — never a crash and never a silently skipped folder. Covers
+      unreadable/missing, invalid JSON, and schema-invalid, each with its own distinct message.
+- [x] `project-create` copies `<root>/projects/_template/`, the mechanism `ekko-videos` already
+      documents ("copy this to start the next one"), and refuses an id that already exists (or
+      `_template` itself, or a template that does not exist) — then patches the copy's `id`/`title`
+      so the folder name and the file agree from the moment it exists, satisfying the same
+      folder-vs-`id` invariant discovery enforces.
+- [x] Renders are read from `<project>/output/` by filename (`vN-<label>.mp4`) — the iteration
       number is derived from what is on disk, not counted in a store that can disagree with it.
+      Returns an internal `VideoOutputFile[]` (not a new `shared/` type) since this is a listing of
+      files already on disk, not the tracked in-flight-render concept `VideoRender` (Theme A) models
+      — Theme H (or whichever theme first wires this to the renderer) decides how the two relate.
+- **Deliberately not in this theme, per the doc's own split:** IPC handler registration and preload
+  wiring. Theme H's own bullet ("handlers, preload") owns that; this theme's functions are desktop-
+  internal and unreachable from the renderer until then — mirroring Workflow's own Theme B/H split.
 
 ### C — The toolchain probe and the studio host (M)
 
