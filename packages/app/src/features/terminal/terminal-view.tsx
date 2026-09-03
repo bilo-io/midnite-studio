@@ -91,12 +91,23 @@ const RESET_MODES =
 export function TerminalView({
   session,
   active,
+  autoFocus = true,
   initialInput,
   fitSignal,
   layoutClassName,
 }: {
   session: TerminalSession;
   active: boolean;
+  /**
+   * Whether becoming ready should steal keyboard focus (Phase 41 Theme E).
+   * Every existing host wants `active` to mean both things at once — the
+   * panel and the FAB tabs each show exactly one session and it is always
+   * the one the user meant to type into. A Kanban card's mini terminal
+   * breaks that: it is genuinely visible (so `active`, not `invisible`)
+   * without ever being the thing you clicked, and a card scrolling into
+   * view has no business dragging focus out of wherever it actually was.
+   */
+  autoFocus?: boolean;
   /** Typed in when this session first starts — the agent's command. */
   initialInput?: string | undefined;
   /** Bumped once a reveal tween settles — fits and repaints, once, at the end. */
@@ -545,13 +556,13 @@ export function TerminalView({
   const phase = sessionPhase(session, connectionState);
 
   useEffect(() => {
-    if (!active || !ready) return;
+    if (!active || !ready || !autoFocus) return;
     if (useTerminalStore.getState().suppressAutoFocus) {
       useTerminalStore.getState().clearSuppressAutoFocus();
       return;
     }
     termRef.current?.focus();
-  }, [active, ready, focusSignal]);
+  }, [active, ready, autoFocus, focusSignal]);
 
   return (
     <div

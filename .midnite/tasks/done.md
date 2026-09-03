@@ -2,6 +2,33 @@
 
 <!-- Append one entry per landed phase/PR: date, phase, PR link, one-line summary. -->
 
+## 2026-09-03 — Phase 41 Theme E — the terminal inside a running card
+
+[PR #90]. The phase's last real building block: a card's agent has been headless until now (only
+the `>_` button, opening the *main* terminal panel) — this puts a small live xterm directly inside
+the card while it runs.
+
+- [x] **`board/card-terminal.tsx`**, through `LazyTerminalView` only (a direct `terminal-view`
+      import would undo Phase 36's lazy-chunk split), with a "pop out to Terminal view" button
+      reusing `revealSession`.
+- [x] **New viewport-driven mount machinery**, with no precedent anywhere else in the app (both
+      existing multi-xterm hosts mount everything they own): `use-card-visible.ts`, a
+      feature-detected `IntersectionObserver` hook treated as permanently off-screen (not on) when
+      unsupported; `card-terminal-mounts.ts`, an ordered-wanters cap at **4 concurrently-mounted
+      card terminals** matching the FAB's own ceiling, since Chromium's WebGL context eviction
+      degrades an xterm to the DOM renderer *permanently*.
+- [x] **`card-activity-line.tsx`** — the off-screen/collapsed fallback, free and correct by
+      construction: `useAgentActivity()` tracks activity in the store regardless of what's mounted.
+- [x] **`terminal-view.tsx` gains an `autoFocus` prop** (default `true`, every existing call site
+      unaffected) so a card scrolling into view — genuinely visible, unlike every other inactive
+      pane — never steals keyboard focus from wherever the user actually was.
+- Self-review caught two real bugs before merge: the card's own click-guard was swallowing clicks
+  on the plain activity-line status pill too (only the terminal needed it), and
+  `useCardTerminalSlot` read the mount registry before its own registering effect had run, flashing
+  the over-cap fallback for one frame on a card with a genuinely free slot. CI then caught a third:
+  `kanban.spec.ts` asserted exactly one `.xterm-screen` on the whole page after revealing a card's
+  session, which the card's own new terminal now legitimately makes two — rescoped to the panel.
+
 ## 2026-09-03 — Phase 46 Theme G + Phase 47 Theme A
 
 [PR #63]. Two unrelated, self-contained slices in one batch.
