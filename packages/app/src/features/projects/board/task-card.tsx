@@ -1,11 +1,12 @@
-import { LuCircleDot, LuGitPullRequest, LuNotebookPen } from 'react-icons/lu';
+import { LuCircleDot, LuGitPullRequest, LuNotebookPen, LuSquareTerminal } from 'react-icons/lu';
 
 import type { ForgeProjectField, ForgeProjectItem } from '@midnite/studio-shared';
 
 import type { IconComponent } from '../../../components/icon-button';
-import { loopGlowColor } from '../../loops/loop-glow';
+import { Tooltip } from '../../../components/tooltip';
 import { formatFieldValue } from '../field-editor';
 import { ExternalLink } from '../../markdown/external-link';
+import { revealSession } from '../../terminal/reveal-session';
 import { deriveCardGlowState } from './glow-state';
 import { useCardStatus } from './use-card-status';
 
@@ -64,7 +65,10 @@ export function TaskCard({
         isOpen: isOpen && status.sessionId !== undefined,
       })
     : 'idle';
-  const glowColor = status.agentId ? loopGlowColor(status.agentId) : undefined;
+  // Narrowed once, here — `status.sessionId` is read twice below (the button's
+  // existence and its click), and a property read cannot narrow across a JSX
+  // callback boundary.
+  const sessionId = status.sessionId;
 
   return (
     <div
@@ -77,7 +81,6 @@ export function TaskCard({
           onClick?.();
         }
       }}
-      style={glow !== 'idle' && glowColor ? ({ '--card-glow-color': glowColor } as React.CSSProperties) : undefined}
       className={`flex w-full flex-col gap-1.5 rounded border border-border bg-background px-2 py-1.5 text-left text-xs hover:border-foreground/30 ${
         glow === 'idle' ? '' : `card-run-glow is-${glow}`
       }`}
@@ -85,6 +88,29 @@ export function TaskCard({
       <div className="flex items-start gap-1.5">
         <Icon aria-hidden className="mt-0.5 h-3.5 w-3.5 shrink-0 text-muted-foreground" />
         <span className="min-w-0 flex-1 truncate">{item.content.title}</span>
+        {/*
+          The card's own answer to "where did my agent go" — shown only once
+          this card HAS a session, so an untouched card carries no chrome for
+          a terminal that does not exist. Its own click target, stopped from
+          also opening the detail pane: the pane is the composer, and someone
+          reaching for the terminal has already launched.
+        */}
+        {sessionId !== undefined ? (
+          <Tooltip label="Open in terminal">
+            <button
+              type="button"
+              aria-label="Open in terminal"
+              data-testid="card-reveal-terminal"
+              onClick={(event) => {
+                event.stopPropagation();
+                revealSession(sessionId);
+              }}
+              className="-mr-0.5 mt-0.5 shrink-0 rounded p-0.5 text-muted-foreground hover:bg-accent hover:text-foreground"
+            >
+              <LuSquareTerminal aria-hidden className="h-3.5 w-3.5" />
+            </button>
+          </Tooltip>
+        ) : null}
       </div>
 
       {number !== null || item.content.assignees.length > 0 ? (

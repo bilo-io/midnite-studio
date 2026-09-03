@@ -19,8 +19,8 @@ import { Spinner } from '../../components/skeleton';
 import { useUiStore } from '../../store/ui-store';
 import { closeSessionWithConfirm } from './close-session';
 import {
+  inMainPanel,
   isAgentRow,
-  onMainSurface,
   resolveSessionAgentId,
   sessionLabel,
   sessionPhase,
@@ -44,8 +44,9 @@ export function TerminalSessionList({
   width: number;
 }) {
   const dialogs = useDialogs();
-  // Main-surface sessions only — a FAB loop's session (Phase 35) never lists here.
-  const sessions = useTerminalStore((s) => s.sessions).filter(onMainSurface);
+  // Main-surface and Kanban sessions — a FAB loop's session (Phase 35) never
+  // lists here, because it renders in the FAB's own tab.
+  const sessions = useTerminalStore((s) => s.sessions).filter(inMainPanel);
   const activeId = useTerminalStore((s) => s.activeId);
 
   /*

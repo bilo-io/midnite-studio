@@ -1,6 +1,6 @@
 import { LOOP_MODELS, loopModelArgs, type ForgeProjectItem, type LoopModel } from '@midnite/studio-shared';
 import { useEffect, useMemo, useState } from 'react';
-import { LuCircleStop, LuPlay } from 'react-icons/lu';
+import { LuCircleStop, LuPlay, LuSquareTerminal } from 'react-icons/lu';
 
 import { IconSelect, type IconSelectOption } from '../../../components/select/icon-select';
 import { resolveAgentIcon } from '../../../components/icons';
@@ -10,6 +10,7 @@ import {
   startAgent,
   toAgentPrompt,
 } from '../../terminal/start-agent';
+import { revealSession } from '../../terminal/reveal-session';
 import {
   findAnyCardSession,
   findCardSession,
@@ -131,19 +132,36 @@ export function CardComposer({
       </h3>
 
       {anySession ? (
-        <p className="mb-2 flex items-center justify-between text-[11px] text-muted-foreground">
+        <p className="mb-2 flex items-center justify-between gap-2 text-[11px] text-muted-foreground">
           <span>{phase === 'live' ? 'Running' : phase === 'asleep' ? 'Asleep' : 'Ended'}</span>
-          {isLive ? (
+          <span className="flex items-center gap-2.5">
+            {/*
+              Where the session actually is. Offered for an ENDED or asleep
+              session too, not just a live one: the panel keeps the pane and
+              its scrollback either way, and "what did it do before it
+              stopped" is the commoner question of the two.
+            */}
             <button
               type="button"
-              onClick={handleStop}
-              data-testid="card-stop"
+              onClick={() => revealSession(anySession.id)}
+              data-testid="composer-reveal-terminal"
               className="flex items-center gap-1 text-[11px] text-muted-foreground hover:text-foreground"
             >
-              <LuCircleStop aria-hidden className="h-3 w-3" />
-              Stop
+              <LuSquareTerminal aria-hidden className="h-3 w-3" />
+              Terminal
             </button>
-          ) : null}
+            {isLive ? (
+              <button
+                type="button"
+                onClick={handleStop}
+                data-testid="card-stop"
+                className="flex items-center gap-1 text-[11px] text-muted-foreground hover:text-foreground"
+              >
+                <LuCircleStop aria-hidden className="h-3 w-3" />
+                Stop
+              </button>
+            ) : null}
+          </span>
         </p>
       ) : null}
 

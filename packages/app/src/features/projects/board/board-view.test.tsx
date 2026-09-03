@@ -141,27 +141,52 @@ describe('BoardView', () => {
   });
 
   describe('drag gating on forgeWritesEnabled (Theme C)', () => {
-    // dnd-kit's `useDraggable({ disabled })` writes straight through to
-    // `aria-disabled` on the node carrying its `attributes` — the surface a
-    // real drag gesture is notoriously unreliable to simulate under jsdom
-    // (this repo has no precedent for it even for the older graph drag;
-    // that gesture is proved in Playwright, see `e2e/kanban.spec.ts`), but
-    // "is this card allowed to start a drag at all" is a plain DOM read.
-    const draggableWrapperFor = (title: string): HTMLElement | null =>
-      screen.getByText(title).closest('[aria-disabled]');
+    /*
+      A real drag gesture is notoriously unreliable to simulate under jsdom
+      (this repo has no precedent for it even for the older graph drag; that
+      gesture is proved in Playwright, see `e2e/kanban.spec.ts`) — but
+      "does this card advertise a drag at all" is a plain DOM read.
+      `useDraggable`'s `attributes` bundle is what carries that advertisement:
+      `aria-roledescription="draggable"`, a `role`, a `tabIndex`, and an
+      `aria-disabled` set from its own `disabled` flag.
 
-    it('a card cannot start a drag while forge writes are disabled', () => {
+      The bundle now goes on ONLY while the drag is available, and the
+      assertions changed with it. It used to be spread unconditionally, so a
+      write-gated card wore `aria-disabled="true"` — which reads down the
+      whole subtree, to a screen reader and to Playwright alike, and so
+      announced the card's own open-the-pane click and `TaskCard`'s `>_`
+      reveal button as dead controls. Both work fine with writes off.
+    */
+    const wrapperFor = (title: string): HTMLElement | null =>
+      screen.getByText(title).closest('[aria-roledescription]');
+
+    it('a write-gated card advertises no drag at all, and says why on hover', () => {
       uiState.forgeWritesEnabled = false;
       renderWithClient(<BoardView projectId="PVT_1" repoId="repo-1" worktreePath="/repo" fields={[statusField]} items={[item('i1', 'A task', 'todo')]} />);
 
-      expect(draggableWrapperFor('A task')?.getAttribute('aria-disabled')).toBe('true');
+      expect(wrapperFor('A task')).toBeNull();
+      // No `aria-disabled` anywhere above the card either — that is the
+      // attribute whose subtree reach was the problem.
+      expect(screen.getByText('A task').closest('[aria-disabled]')).toBeNull();
+      expect(screen.getByTitle(/Enable review actions/)).toBeDefined();
     });
 
-    it('a card can start a drag once forge writes are enabled', () => {
+    it('a card advertises the drag once forge writes are enabled', () => {
       uiState.forgeWritesEnabled = true;
       renderWithClient(<BoardView projectId="PVT_1" repoId="repo-1" worktreePath="/repo" fields={[statusField]} items={[item('i1', 'A task', 'todo')]} />);
 
-      expect(draggableWrapperFor('A task')?.getAttribute('aria-disabled')).toBe('false');
+      const wrapper = wrapperFor('A task');
+      expect(wrapper?.getAttribute('aria-roledescription')).toBe('draggable');
+      expect(wrapper?.getAttribute('aria-disabled')).toBe('false');
+    });
+
+    it('the detail pane still opens with writes disabled — the gate is on moving cards, not reading them', () => {
+      uiState.forgeWritesEnabled = false;
+      renderWithClient(<BoardView projectId="PVT_1" repoId="repo-1" worktreePath="/repo" fields={[statusField]} items={[item('i1', 'A task', 'todo')]} />);
+
+      fireEvent.click(screen.getByText('A task'));
+
+      expect(screen.getByTestId('card-detail')).toBeDefined();
     });
   });
 

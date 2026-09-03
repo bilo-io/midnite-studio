@@ -1,7 +1,7 @@
 import type { TerminalSession } from '@midnite/studio-shared';
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 
-import { findCardSession, onMainSurface, useTerminalStore } from './terminal-store';
+import { findCardSession, inMainPanel, onMainSurface, useTerminalStore } from './terminal-store';
 
 function session(overrides: Partial<TerminalSession>): TerminalSession {
   return {
@@ -27,8 +27,23 @@ describe('onMainSurface', () => {
     expect(onMainSurface(session({ surface: 'fab' }))).toBe(false);
   });
 
-  it('excludes a Kanban session — it renders in its card and nowhere else', () => {
+  it('excludes a Kanban session — it never STEALS the panel selection on open', () => {
     expect(onMainSurface(session({ surface: 'kanban' }))).toBe(false);
+  });
+});
+
+describe('inMainPanel', () => {
+  it('keeps everything `onMainSurface` keeps', () => {
+    expect(inMainPanel(session({}))).toBe(true);
+    expect(inMainPanel(session({ surface: 'main' }))).toBe(true);
+  });
+
+  it('keeps a Kanban session — the panel is where a card\'s `>_` button sends you', () => {
+    expect(inMainPanel(session({ surface: 'kanban' }))).toBe(true);
+  });
+
+  it('still excludes a FAB session — it renders in its loop tab, and a second xterm on the same pty is not a view', () => {
+    expect(inMainPanel(session({ surface: 'fab' }))).toBe(false);
   });
 });
 

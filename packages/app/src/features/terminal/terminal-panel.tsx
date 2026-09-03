@@ -10,7 +10,7 @@ import { DEFAULT_LAYOUT, LAYOUT_BOUNDS, useUiStore } from '../../store/ui-store'
 import { buildNewSessionMenu } from './new-session-menu';
 import { TerminalHeader } from './terminal-header';
 import { TerminalSessionList } from './terminal-session-list';
-import { onMainSurface, resolveSessionAgentId, useTerminalStore } from './terminal-store';
+import { inMainPanel, resolveSessionAgentId, useTerminalStore } from './terminal-store';
 import { LazyTerminalView } from './lazy-terminal-view';
 import { useAgents } from './use-agents';
 
@@ -25,9 +25,10 @@ import { useAgents } from './use-agents';
  */
 export function TerminalPanel({ cwd, repoId, repoName, fitSignal }: TerminalPanelProps) {
   const dialogs = useDialogs();
-  // The panel and the session list show MAIN sessions only — a FAB loop's
-  // session (Phase 35) renders inside the FAB panel and nowhere else.
-  const sessions = useTerminalStore((s) => s.sessions).filter(onMainSurface);
+  // The panel and the session list show main-surface sessions plus Kanban
+  // ones (`inMainPanel`) — a FAB loop's session (Phase 35) renders inside the
+  // FAB panel and nowhere else, so it stays out.
+  const sessions = useTerminalStore((s) => s.sessions).filter(inMainPanel);
   const activeId = useTerminalStore((s) => s.activeId);
   const hydrated = useTerminalStore((s) => s.hydrated);
   const pendingInput = useTerminalStore((s) => s.pendingInput);
@@ -68,6 +69,16 @@ export function TerminalPanel({ cwd, repoId, repoName, fitSignal }: TerminalPane
    * Only when nothing was restored: with saved sessions the user already has
    * terminals, and adding an unasked-for one on every launch would grow the
    * list forever.
+   *
+   * Counted over the panel's OWN list (`inMainPanel`), which now includes a
+   * card's Kanban session — deliberately, and it was worth getting wrong
+   * once to see why. Counted over `onMainSurface` instead, on the reading
+   * that `Ctrl+`` should always hand you a shell, this fires the moment
+   * `revealSession` opens the panel on a card's agent: the new shell is a
+   * main-surface session, so `openSession` makes it active, and the reveal
+   * lands you on an empty prompt instead of the agent you clicked through
+   * to. The panel having content is the condition that matters; `+` is
+   * there for a shell alongside it.
    */
   useEffect(() => {
     if (!hydrated || sessions.length > 0 || !cwd || !repoId) return;

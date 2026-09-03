@@ -2,6 +2,7 @@ import type { TerminalSession } from '@midnite/studio-shared';
 import { BsRobot } from 'react-icons/bs';
 
 import { useUiStore } from '../../store/ui-store';
+import { revealSession } from '../terminal/reveal-session';
 import {
   isAgentRow,
   sessionPhase,
@@ -62,16 +63,20 @@ export function LiveAgentCount() {
       type="button"
       data-testid="titlebar-agent-count"
       onClick={() => {
-        useUiStore.getState().setTerminalOpen(true);
         const terminal = useTerminalStore.getState();
         const firstLive = terminal.sessions.find(
           (session) =>
             isAgentRow(session, terminal.liveAgentId) &&
             sessionPhase(session, terminal.states[session.id]) === 'live',
         );
-        if (firstLive) terminal.setActive(firstLive.id);
-        // Only if the list is shut — an already-open list is not closed.
-        if (!useUiStore.getState().terminalListOpen) useUiStore.getState().toggleTerminalList();
+        // `revealSession` is this handler's own three steps, hoisted so the
+        // Kanban card's `>_` button shares them. Opening the panel with no
+        // row to select was the old fallback and is kept: the count is
+        // non-zero, so there IS an agent — just one the panel cannot show.
+        if (!firstLive || !revealSession(firstLive.id)) {
+          useUiStore.getState().setTerminalOpen(true);
+          if (!useUiStore.getState().terminalListOpen) useUiStore.getState().toggleTerminalList();
+        }
       }}
       /*
         `.status-collapsible` on the button itself, so the whole readout drops

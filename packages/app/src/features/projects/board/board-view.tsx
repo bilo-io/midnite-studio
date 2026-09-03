@@ -521,7 +521,24 @@ function DraggableCard({
     <div
       ref={draggable.setNodeRef}
       {...draggable.listeners}
-      {...draggable.attributes}
+      /*
+        The a11y attributes go on ONLY while the drag is actually available.
+        `useDraggable`'s `attributes` bundle carries `aria-disabled` set from
+        its own `disabled` flag, and `aria-disabled` on a container makes
+        every descendant read as disabled — to a screen reader and to
+        Playwright's actionability check alike. With forge writes off (the
+        default) that covered the card's own `role="button"` open-the-pane
+        click and, once it existed, `TaskCard`'s `>_` reveal button: two
+        controls that work fine with writes disabled, announced as dead.
+
+        Spreading nothing is the right answer rather than deleting one key:
+        a card that cannot be dragged needs no `aria-roledescription
+        ="draggable"` and no second nested `role="button"` describing a
+        gesture that is not on offer. `listeners` still spread — dnd-kit
+        makes them no-ops when disabled, and dropping them would mean
+        re-adding them on the way back.
+      */
+      {...(writesEnabled ? draggable.attributes : {})}
       title={writesEnabled ? undefined : 'Enable review actions in Settings → Reviews to move cards'}
       style={draggable.isDragging ? { opacity: 0 } : undefined}
       onContextMenu={(event) => {

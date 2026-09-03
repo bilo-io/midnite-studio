@@ -368,11 +368,12 @@ export const useTerminalStore = create<TerminalState>()((set, get) => ({
         // A session opened by hand outranks the restored list for focus: the
         // user asked for it seconds ago, and the saved ones have no process.
         // FAB sessions are skipped: the main panel cannot show one, and an
-        // activeId pointing into the FAB reads as an empty panel.
+        // activeId pointing into the FAB reads as an empty panel. A Kanban
+        // one is fine — the panel renders those (`inMainPanel`).
         activeId:
           live.length > 0
             ? state.activeId
-            : (restored.find((s) => onMainSurface(s))?.id ?? null),
+            : (restored.find((s) => inMainPanel(s))?.id ?? null),
         states: {
           ...Object.fromEntries(restored.map((s) => [s.id, 'exited' as const])),
           // A live row binds straight to 'open' — it survived whatever
@@ -459,7 +460,7 @@ export const useTerminalStore = create<TerminalState>()((set, get) => ({
     });
     // FAB rows do not count: the main panel with only a loop session left is
     // an empty panel, and an activeId pointing into one reads as a blank pane.
-    if (!remaining.some(onMainSurface)) set({ activeId: null });
+    if (!remaining.some(inMainPanel)) set({ activeId: null });
   },
 
   sleepSession: (sessionId) => {
@@ -643,18 +644,42 @@ export const useTerminalStore = create<TerminalState>()((set, get) => ({
 }));
 
 /**
- * Whether a session belongs to the main terminal panel and its session list.
+ * Whether a session is one the main panel may make active BY ITSELF.
  *
- * The one predicate every non-main surface is filtered by (Phase 35, Phase
- * 41), so the panel's stack and the list cannot disagree about what a FAB or
- * Kanban session is. An **allowlist**, not a `!== 'fab'` denylist — the
- * denylist shape is what let a `'kanban'` session slip through unfiltered
- * when that surface was added, since it was neither `undefined` nor `'main'`
- * but also not the one value being excluded. Absent means `main` — every
- * session from before the field existed.
+ * The narrow of the two surface predicates, and the one that governs
+ * `activeId` on open: a loop or a card launching an agent must not steal the
+ * main panel's selection out from under whatever the user was typing in.
+ * An **allowlist**, not a `!== 'fab'` denylist — the denylist shape is what
+ * let a `'kanban'` session slip through unfiltered when that surface was
+ * added, since it was neither `undefined` nor `'main'` but also not the one
+ * value being excluded. Absent means `main` — every session from before the
+ * field existed.
+ *
+ * For "does the panel RENDER it", use `inMainPanel` below. The two were one
+ * predicate until a card's `>_` button needed somewhere to send you.
  */
 export function onMainSurface(session: Pick<TerminalSession, 'surface'>): boolean {
   return session.surface === undefined || session.surface === 'main';
+}
+
+/**
+ * Whether the main terminal panel lists and renders a session.
+ *
+ * `onMainSurface` plus `'kanban'`. A card's agent had no view anywhere
+ * before this: `'kanban'` sessions were excluded from the panel on the
+ * reading that a card would grow its own inline transcript (Phase 41 Theme
+ * E, never built), and until one existed the only way to reach a card's pty
+ * was `rehomeSession` — which drops `taskRef`, so the card that launched it
+ * loses its glow and its Stop in exchange for a terminal you can see. That
+ * is a trade nobody asked for; the panel lists them instead, and the card
+ * keeps its binding.
+ *
+ * A `'fab'` loop session is still excluded, and for a reason that has not
+ * changed: it renders inside the FAB panel's own tab, so listing it here
+ * would mount a second xterm against the same pty.
+ */
+export function inMainPanel(session: Pick<TerminalSession, 'surface'>): boolean {
+  return onMainSurface(session) || session.surface === 'kanban';
 }
 
 /**
@@ -709,7 +734,7 @@ export function findAnyCardSession(
  * the same trap `openSession` and `hydrate` were already taught to avoid.
  */
 function nextActiveId(sessions: TerminalSession[], closingId: string): string | null {
-  const visible = sessions.filter(onMainSurface);
+  const visible = sessions.filter(inMainPanel);
   const index = visible.findIndex((s) => s.id === closingId);
   if (index === -1) return visible[0]?.id ?? null;
   return visible[index + 1]?.id ?? visible[index - 1]?.id ?? null;
