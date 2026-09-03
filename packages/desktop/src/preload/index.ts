@@ -106,6 +106,7 @@ const bridge: Pick<
   | 'fs'
   | 'stats'
   | 'diag'
+  | 'scaffold'
   | 'tests'
   | 'metrics'
   | 'perf'
@@ -340,6 +341,10 @@ const bridge: Pick<
     untrust: (req) => call(CHANNELS.diagUntrust, req),
     detect: (req) => call(CHANNELS.diagDetect, req),
     run: (req) => call(CHANNELS.diagRun, req),
+  },
+  scaffold: {
+    plan: (req) => call(CHANNELS.scaffoldPlan, req),
+    apply: (req) => call(CHANNELS.scaffoldApply, req),
   },
   stats: {
     summary: (req) => call(CHANNELS.statsSummary, req),
