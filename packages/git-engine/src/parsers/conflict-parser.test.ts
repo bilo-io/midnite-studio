@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 
-import { parseConflictMarkers, parseConflictedFile } from './conflict-parser';
+import { locateConflictRegion, parseConflictMarkers, parseConflictedFile } from './conflict-parser';
 
 describe('parseConflictMarkers — default (2-way) conflict style', () => {
   it('splits context from the conflicted region', () => {
@@ -79,6 +79,67 @@ describe('parseConflictMarkers — no markers', () => {
 
   it('parses an empty file to zero segments', () => {
     expect(parseConflictMarkers([]).segments).toEqual([]);
+  });
+});
+
+describe('locateConflictRegion', () => {
+  it('finds the requested region by document order, marker text intact', () => {
+    const lines = ['a', '<<<<<<< HEAD', 'MAIN', '=======', 'FEATURE', '>>>>>>> feature', 'c'];
+
+    const region = locateConflictRegion(lines, 0);
+
+    expect(region).toEqual({
+      startLine: 1,
+      endLine: 6,
+      oursMarker: '<<<<<<< HEAD',
+      ours: ['MAIN'],
+      baseMarker: null,
+      base: null,
+      sepMarker: '=======',
+      theirs: ['FEATURE'],
+      endMarker: '>>>>>>> feature',
+    });
+  });
+
+  it('finds the second region while leaving the first alone', () => {
+    const lines = [
+      '<<<<<<< HEAD',
+      'x',
+      '=======',
+      'y',
+      '>>>>>>> feature',
+      'shared',
+      '<<<<<<< HEAD',
+      'MAIN',
+      '=======',
+      'FEATURE',
+      '>>>>>>> feature',
+    ];
+
+    const region = locateConflictRegion(lines, 1);
+
+    expect(region).toMatchObject({ startLine: 6, endLine: 11, ours: ['MAIN'], theirs: ['FEATURE'] });
+  });
+
+  it('captures the diff3 ancestor marker and lines', () => {
+    const lines = ['<<<<<<< HEAD', 'MAIN', '||||||| base', 'ORIGINAL', '=======', 'FEATURE', '>>>>>>> feature'];
+
+    const region = locateConflictRegion(lines, 0);
+
+    expect(region).toMatchObject({
+      baseMarker: '||||||| base',
+      base: ['ORIGINAL'],
+    });
+  });
+
+  it('returns null for an index past the last region', () => {
+    const lines = ['<<<<<<< HEAD', 'MAIN', '=======', 'FEATURE', '>>>>>>> feature'];
+
+    expect(locateConflictRegion(lines, 1)).toBeNull();
+  });
+
+  it('returns null for a marker run left unclosed at end of file', () => {
+    expect(locateConflictRegion(['<<<<<<< HEAD', 'MAIN', '======='], 0)).toBeNull();
   });
 });
 

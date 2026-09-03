@@ -378,6 +378,7 @@ export type MidniteStudioBridge = {
     conflictResolveWholeFile: (
       req: In<typeof S.ConflictResolveWholeFileRequest>,
     ) => Promise<GitOpResult>;
+    conflictApplyHunk: (req: In<typeof S.ApplyConflictHunkRequest>) => Promise<GitOpResult>;
     commit: (req: In<typeof S.CommitRequest>) => Promise<GitOpResult>;
     fetch: (req: In<typeof S.FetchRequest>) => Promise<GitOpResult>;
     pull: (req: In<typeof S.PullRequest>) => Promise<GitOpResult>;

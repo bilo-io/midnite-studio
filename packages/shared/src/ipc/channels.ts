@@ -243,6 +243,8 @@ export const CHANNELS = {
   opDiscard: 'mstudio:op:discard',
   /** Whole-file conflict resolution (Phase 47 Theme B) — accept-ours/theirs/base. */
   opConflictResolveWholeFile: 'mstudio:op:conflict-resolve-whole-file',
+  /** One region within a conflicted path (Phase 47 Theme C) — ours/theirs/both. */
+  opConflictApplyHunk: 'mstudio:op:conflict-apply-hunk',
   opCommit: 'mstudio:op:commit',
   opFetch: 'mstudio:op:fetch',
   opPull: 'mstudio:op:pull',

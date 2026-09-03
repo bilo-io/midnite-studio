@@ -49,3 +49,14 @@ export type ConflictedHunk = z.infer<typeof ConflictedHunkSchema>;
  */
 export const ConflictSideSchema = z.enum(['ours', 'theirs', 'base']);
 export type ConflictSide = z.infer<typeof ConflictSideSchema>;
+
+/**
+ * Which content a hunk-level resolution (Theme C) writes for one region.
+ * No `base`: a hunk apply always replaces a region with something that
+ * belongs in the final file, and the ancestor text under `diff3` is never
+ * that — `ConflictSide` above is the whole-file case's own enum, not this
+ * one, because `'both'` (ours-then-theirs, additive-conflict's common case)
+ * has no equivalent there.
+ */
+export const ConflictHunkSideSchema = z.enum(['ours', 'theirs', 'both']);
+export type ConflictHunkSide = z.infer<typeof ConflictHunkSideSchema>;
