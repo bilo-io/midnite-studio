@@ -4,7 +4,7 @@ import { join } from 'node:path';
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 
 import { TempRepo } from '../testing/temp-repo';
-import { readCommitFileDiff, readFileDiff } from './diff';
+import { readCommitFileDiff, readFileDiff, readRefDiff } from './diff';
 import { readCommitDetail } from './log';
 
 /**
@@ -227,5 +227,17 @@ describe('diff commands (integration)', () => {
 
     expect(add.ranges).toHaveLength(1);
     expect(add.text.slice(add.ranges[0]!.start, add.ranges[0]!.end)).toBe('1500');
+  });
+
+  it('reads a diff between two arbitrary commits, not just a commit and its own parent', async () => {
+    await repo.commitFile('a.txt', 'one\n', 'base');
+    const base = (await repo.git(['rev-parse', 'HEAD'])).trim();
+    await repo.git(['checkout', '-q', '-b', 'side']);
+    await repo.commitFile('a.txt', 'two\n', 'side commit');
+    const side = (await repo.git(['rev-parse', 'HEAD'])).trim();
+
+    const diff = await readRefDiff(repo.path, base, side, 'a.txt');
+
+    expect(diff.hunks[0]!.lines.find((l) => l.kind === 'add')?.text).toBe('two');
   });
 });

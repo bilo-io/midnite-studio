@@ -386,6 +386,12 @@ export type MidniteStudioBridge = {
     branch: (req: In<typeof S.StashBranchRequest>) => Promise<GitOpResult>;
     /** Restore a dropped stash from its captured sha (Phase 22 Theme H's undo). */
     store: (req: In<typeof S.StashStoreRequest>) => Promise<GitOpResult>;
+    /** A stash entry's three-part file list (Phase 22 Theme D). `null` for a stale selector. */
+    detail: (
+      req: In<typeof S.StashDetailRequest>,
+    ) => Promise<z.infer<typeof S.StashDetailResponse>>;
+    /** One file's hunks within one part of a stash entry (Phase 22 Theme D). */
+    diff: (req: In<typeof S.StashDiffRequest>) => Promise<z.infer<typeof S.StashDiffResponse>>;
   };
 
   reflog: {

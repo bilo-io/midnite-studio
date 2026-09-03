@@ -9,6 +9,8 @@ import {
   readCommitFileDiff,
   readFileDiff,
   readReflog,
+  readStashDetail,
+  readStashFileDiff,
   readStatusCounts,
   stagePaths,
   stashApply,
@@ -210,6 +212,30 @@ export function registerStatusHandlers(): void {
     CHANNELS.opStashStore,
     schemas.StashStoreRequest,
     inWorkdir((cwd, req) => stashStore(cwd, req.sha, req.message)),
+  );
+
+  handle(
+    CHANNELS.stashDetail,
+    schemas.StashDetailRequest,
+    async (req) => {
+      const cwd = await resolveWorkdir(req.repoId, req.worktreePath);
+      return cwd ? readStashDetail(cwd, req.selector) : null;
+    },
+    () => null,
+  );
+
+  handle(
+    CHANNELS.stashDiff,
+    schemas.StashDiffRequest,
+    async (req) => {
+      const cwd = await resolveWorkdir(req.repoId, req.worktreePath);
+      if (!cwd) return null;
+      return readStashFileDiff(cwd, req.selector, req.part, req.path, {
+        context: req.context,
+        ...(req.oldPath === undefined ? {} : { oldPath: req.oldPath }),
+      });
+    },
+    () => null,
   );
 
   handle(
