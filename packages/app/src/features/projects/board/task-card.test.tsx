@@ -2,6 +2,7 @@ import type { ForgeProjectField, ForgeProjectItem } from '@midnite/studio-shared
 import { cleanup, fireEvent, render, screen } from '@testing-library/react';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
+import { useUiStore } from '../../../store/ui-store';
 import { useTerminalStore } from '../../terminal/terminal-store';
 import { TaskCard } from './task-card';
 
@@ -122,6 +123,80 @@ describe('TaskCard', () => {
       const { container } = render(<TaskCard item={issue} fields={[]} projectId="proj1" isOpen />);
       const card = container.querySelector('.card-run-glow');
       expect(card?.className).toContain('is-open');
+    });
+
+    /*
+      The colour used to come from `loopGlowColor(agentId)` through a
+      `--card-glow-color` custom property — but that table is keyed by LOOP
+      id, and `claude` is an AGENT id, so every card resolved to its
+      `currentColor` fallback and glowed in the card's own text colour. The
+      ramp replaced it, and the ramp is pure CSS: no inline custom property
+      at all is the assertion, because a stray one would mean someone
+      reintroduced the per-agent colour without touching the stylesheet.
+    */
+    it('sets no inline glow colour — the ring is the rotating rainbow ramp, from CSS alone', () => {
+      useTerminalStore.getState().openSession({
+        kind: 'agent',
+        agentId: 'claude',
+        title: 'card',
+        cwd: '/repo',
+        repoId: 'r1',
+        surface: 'kanban',
+        taskRef: { projectId: 'proj1', itemId: issue.id },
+      });
+
+      const { container } = render(<TaskCard item={issue} fields={[]} projectId="proj1" />);
+      const card = container.querySelector('.card-run-glow') as HTMLElement;
+      expect(card.style.getPropertyValue('--card-glow-color')).toBe('');
+      expect(card.getAttribute('style')).toBeNull();
+    });
+  });
+
+  describe('the reveal-terminal button', () => {
+    beforeEach(() => {
+      useTerminalStore.setState({ sessions: [], activeId: null, states: {}, activity: {} });
+      useUiStore.setState({ terminalOpen: false, terminalListOpen: false });
+    });
+
+    it('is absent on a card that has never launched an agent', () => {
+      render(<TaskCard item={issue} fields={[]} projectId="proj1" />);
+      expect(screen.queryByTestId('card-reveal-terminal')).toBeNull();
+    });
+
+    it('reveals the bound session in the terminal panel', () => {
+      const session = useTerminalStore.getState().openSession({
+        kind: 'agent',
+        agentId: 'claude',
+        title: 'card',
+        cwd: '/repo',
+        repoId: 'r1',
+        surface: 'kanban',
+        taskRef: { projectId: 'proj1', itemId: issue.id },
+      });
+
+      render(<TaskCard item={issue} fields={[]} projectId="proj1" />);
+      fireEvent.click(screen.getByTestId('card-reveal-terminal'));
+
+      expect(useUiStore.getState().terminalOpen).toBe(true);
+      expect(useTerminalStore.getState().activeId).toBe(session.id);
+    });
+
+    it('does not also open the detail pane — the click stops at the button', () => {
+      useTerminalStore.getState().openSession({
+        kind: 'agent',
+        agentId: 'claude',
+        title: 'card',
+        cwd: '/repo',
+        repoId: 'r1',
+        surface: 'kanban',
+        taskRef: { projectId: 'proj1', itemId: issue.id },
+      });
+      const onClick = vi.fn();
+
+      render(<TaskCard item={issue} fields={[]} projectId="proj1" onClick={onClick} />);
+      fireEvent.click(screen.getByTestId('card-reveal-terminal'));
+
+      expect(onClick).not.toHaveBeenCalled();
     });
   });
 });
