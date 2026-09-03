@@ -1,6 +1,7 @@
 import { Accordion } from '@bilo-io/ui';
-import { LuGitBranch, LuRows3 } from 'react-icons/lu';
+import { LuActivity, LuGitBranch, LuRows3 } from 'react-icons/lu';
 
+import { ActivityTimelineSettings } from '../activity-timeline-settings';
 import { GraphDensityPicker } from '../density-picker';
 import { GraphThemePicker } from '../graph-theme-picker';
 
@@ -24,6 +25,12 @@ export function GraphPage() {
       <Accordion title="Row density" icon={<LuRows3 className="h-4 w-4" />} defaultOpen>
         <div className="p-3">
           <GraphDensityPicker />
+        </div>
+      </Accordion>
+
+      <Accordion title="Activity timeline" icon={<LuActivity className="h-4 w-4" />} defaultOpen>
+        <div className="p-3">
+          <ActivityTimelineSettings />
         </div>
       </Accordion>
     </div>

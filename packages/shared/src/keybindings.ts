@@ -120,6 +120,12 @@ export const COMMANDS = [
    */
   { id: 'fab.toggle', label: 'Toggle Loop Panel', group: 'view', chord: 'Mod+m' },
   /**
+   * Mod+Shift+a for the commit-activity timeline. Shifted because plain Mod+a
+   * is select-all everywhere text can be selected, and `app` scope like the
+   * other panel toggles: a chart is not something you reach for mid-command.
+   */
+  { id: 'activity.toggle', label: 'Toggle Activity Timeline', group: 'view', chord: 'Mod+Shift+a' },
+  /**
    * The browser's own tab chords (Theme C), all sharing a chord with an
    * app-wide command that means something else with the pane closed —
    * `Mod+w` is `repo.close`, `Mod+1`/`Mod+2` are `graph.focus`/`status.focus`.
