@@ -30,7 +30,7 @@ const daysAgo = (days: number, hour = 12): number =>
 
 describe('bucketCommits', () => {
   it('always returns the full bucket count, empty buckets included', () => {
-    for (const timeframe of ['day', 'week', 'month'] as const) {
+    for (const timeframe of ['day', 'week', 'month', 'year'] as const) {
       const buckets = bucketCommits([], timeframe, NOW);
       expect(buckets).toHaveLength(TIMEFRAME_BUCKETS[timeframe]);
       expect(buckets.every((b) => b.count === 0)).toBe(true);
@@ -84,6 +84,53 @@ describe('bucketCommits', () => {
   });
 });
 
+describe('bucketCommits, year', () => {
+  const monthsAgo = (months: number, date = 15): number =>
+    new Date(2026, 8 - months, date, 12).getTime();
+
+  it('opens each bucket on the local 1st, ending with the current month', () => {
+    const buckets = bucketCommits([], 'year', NOW);
+
+    expect(buckets).toHaveLength(12);
+    for (const bucket of buckets) {
+      const at = new Date(bucket.start);
+      expect(at.getDate()).toBe(1);
+      expect([at.getHours(), at.getMinutes(), at.getSeconds()]).toEqual([0, 0, 0]);
+    }
+    // Twelve consecutive months ending on the month `NOW` falls in.
+    expect(new Date(buckets.at(-1)!.start).getMonth()).toBe(8);
+    expect(new Date(buckets[0]!.start).getMonth()).toBe(9);
+    expect(new Date(buckets[0]!.start).getFullYear()).toBe(2025);
+  });
+
+  it('folds commits into the calendar month they happened in', () => {
+    const buckets = bucketCommits(
+      [
+        commit(monthsAgo(0, 1), { additions: 5 }),
+        commit(monthsAgo(0, 28), { additions: 7 }),
+        commit(monthsAgo(3), { deletions: 2 }),
+      ],
+      'year',
+      NOW,
+    );
+
+    // Both of this month's commits in the last bucket, whole-month spread and
+    // all — a 30-day slice would have put the 1st in the previous one.
+    expect(buckets.at(-1)).toMatchObject({ count: 2, additions: 12, deletions: 0 });
+    expect(buckets.at(-4)).toMatchObject({ count: 1, deletions: 2 });
+    expect(buckets.reduce((sum, b) => sum + b.count, 0)).toBe(3);
+  });
+
+  it('drops commits older than the window and in the future', () => {
+    const buckets = bucketCommits(
+      [commit(monthsAgo(12)), commit(new Date(2026, 9, 1).getTime())],
+      'year',
+      NOW,
+    );
+    expect(buckets.every((bucket) => bucket.count === 0)).toBe(true);
+  });
+});
+
 describe('gridlineIndices', () => {
   it('rules a day window on even LOCAL hours, never on index 0', () => {
     const buckets = bucketCommits([], 'day', NOW);
@@ -115,8 +162,21 @@ describe('gridlineIndices', () => {
     expect(marks.map((index, i) => index - (marks[0]! + i * 7))).toEqual([0, 0, 0, 0]);
   });
 
+  it('rules a year window on calendar quarters', () => {
+    const buckets = bucketCommits([], 'year', NOW);
+    const marks = gridlineIndices(buckets, 'year');
+
+    expect(marks).not.toContain(0);
+    for (const index of marks) {
+      expect(new Date(buckets[index]!.start).getMonth() % 3).toBe(0);
+    }
+    // Four quarter starts in twelve months, less any that lands on index 0.
+    expect(marks.length).toBeGreaterThanOrEqual(3);
+    expect(marks.length).toBeLessThanOrEqual(4);
+  });
+
   it('names its own cadence for every timeframe', () => {
-    expect(Object.keys(GRIDLINE_CADENCE).sort()).toEqual(['day', 'month', 'week']);
+    expect(Object.keys(GRIDLINE_CADENCE).sort()).toEqual(['day', 'month', 'week', 'year']);
   });
 });
 
@@ -127,6 +187,19 @@ describe('bucketLabel', () => {
     expect(label).toContain('–');
     // Both ends of the range, an hour apart.
     expect(label.split('–')).toHaveLength(2);
+  });
+
+  it('gives a month bucket its month and year, distinct across the window', () => {
+    const year = bucketCommits([], 'year', NOW);
+    const labels = year.map((bucket) => bucketLabel(bucket, 'year'));
+
+    expect(labels).toHaveLength(12);
+    expect(new Set(labels).size).toBe(12);
+    // The window straddles a new year, which is what the year in the label is
+    // for: December and January are adjacent buckets twelve months apart.
+    expect(labels[2]).toContain('2025');
+    expect(labels.at(-1)).toContain('2026');
+    expect(labels.at(-1)).not.toContain('–');
   });
 
   it('gives a day bucket the weekday, and no clock at all', () => {

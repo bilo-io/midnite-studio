@@ -104,8 +104,7 @@ export function CommitActivityTimeline({
 
   const total = buckets.reduce((sum, bucket) => sum + bucket.count, 0);
   const hasChurn = buckets.some((bucket) => bucket.additions > 0 || bucket.deletions > 0);
-  const windowLabel =
-    timeframe === 'day' ? 'last 24 hours' : timeframe === 'week' ? 'last 7 days' : 'last 30 days';
+  const windowLabel = WINDOW_LABEL[timeframe];
 
   const horizontal = orientation === 'horizontal';
   const rules = gridlines ? gridlineIndices(buckets, timeframe) : [];
@@ -158,6 +157,14 @@ export function CommitActivityTimeline({
     </div>
   );
 }
+
+/** The window each timeframe covers, for the chart's own accessible name. */
+const WINDOW_LABEL: Record<ActivityTimeframe, string> = {
+  day: 'last 24 hours',
+  week: 'last 7 days',
+  month: 'last 30 days',
+  year: 'last 12 months',
+};
 
 /** ViewBox length along time and across it. Arbitrary units — the box stretches. */
 const AXIS = 100;
@@ -235,9 +242,18 @@ function Gridlines({
         y1={r(y1)}
         x2={r(x2)}
         y2={r(y2)}
-        className="stroke-border"
+        /*
+          `--muted-foreground`, not `--border`: the border token is tuned to
+          separate two filled panels, and a hairline of it over the panel's own
+          background is very nearly the background. The rules read against the
+          marks now, and the baseline — which the two halves of a diverging bar
+          are measured off, so it is closer to an axis than to a note — is
+          drawn stronger still.
+        */
+        className="stroke-muted-foreground"
+        opacity={dashed ? RULE_OPACITY : BASELINE_OPACITY}
         strokeWidth={1}
-        strokeDasharray={dashed ? '2 3' : undefined}
+        strokeDasharray={dashed ? '3 3' : undefined}
         vectorEffect="non-scaling-stroke"
       />
     );
@@ -246,7 +262,11 @@ function Gridlines({
   return (
     // A note about the axis, not a datum — the svg's own aria-label is what
     // reports the numbers, exactly as `metric-chart.tsx` treats its breaks.
-    <g aria-hidden data-testid="activity-gridlines" opacity={0.7}>
+    //
+    // No group opacity: 0.7 here multiplied whatever each line carried, on top
+    // of a token already close to the background — present in the DOM,
+    // invisible on screen. Each line now carries the only opacity it has.
+    <g aria-hidden data-testid="activity-gridlines">
       {rules.map((index) =>
         line(index * width, 0, { along: 0, across: CROSS }, `rule-${index}`, true),
       )}
@@ -254,6 +274,10 @@ function Gridlines({
     </g>
   );
 }
+
+/** Divider strengths: a time rule is a note, the diverging baseline is an axis. */
+const RULE_OPACITY = 0.5;
+const BASELINE_OPACITY = 0.8;
 
 /** The hovered slot's backdrop, drawn under the marks so it never hides them. */
 function Highlight({

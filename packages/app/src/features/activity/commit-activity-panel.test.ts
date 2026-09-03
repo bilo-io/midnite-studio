@@ -33,6 +33,7 @@ describe('emptyLabel', () => {
       ['day', '24 hours'],
       ['week', '7 days'],
       ['month', '30 days'],
+      ['year', '12 months'],
     ] as const) {
       expect(emptyLabel({ repoId: 'r1', settled: true, envelope: envelope([]), timeframe })).toBe(
         `No commits in the last ${window}`,

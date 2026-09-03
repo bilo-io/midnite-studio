@@ -13,14 +13,18 @@ export interface CommitActivity {
   deletions: number;
 }
 
-/** `day` = the last 24 hours, `week` = the last 7 days, `month` = the last 30. */
-export type ActivityTimeframe = 'day' | 'week' | 'month';
+/**
+ * `day` = the last 24 hours, `week` = the last 7 days, `month` = the last 30,
+ * `year` = the last 12 **calendar months**.
+ */
+export type ActivityTimeframe = 'day' | 'week' | 'month' | 'year';
 
-/** Bucket count per timeframe: hours for a day, days otherwise. */
+/** Bucket count per timeframe: hours for a day, months for a year, days between. */
 export const TIMEFRAME_BUCKETS: Record<ActivityTimeframe, number> = {
   day: 24,
   week: 7,
   month: 30,
+  year: 12,
 };
 
 export interface ActivityBucket {
@@ -39,7 +43,8 @@ const HOUR_MS = 3_600_000;
  *
  * Day buckets are aligned to **local midnight** via the `Date` constructor, so
  * "yesterday" is the reader's yesterday and a 23-hour DST day cannot be
- * miscounted. Hour buckets are aligned to the epoch hour instead: a rolling
+ * miscounted. Month buckets are aligned to the local 1st through the same
+ * constructor. Hour buckets are aligned to the epoch hour instead: a rolling
  * 24-hour view has no "day in the life" semantics to protect, and epoch
  * alignment keeps the maths free of the half-hour timezones.
  *
@@ -85,6 +90,21 @@ function bucketBounds(timeframe: ActivityTimeframe, nowMs: number): { starts: nu
 
   const now = new Date(nowMs);
   const [year, month, date] = [now.getFullYear(), now.getMonth(), now.getDate()];
+
+  if (timeframe === 'year') {
+    // Calendar months, not 30-day slices: "the last year" is read off a
+    // calendar, and a fixed-width slice would put half of March in February's
+    // bucket. Buckets are therefore of unequal length by construction — which
+    // is why every consumer works off `start` and the binary search, never
+    // off an index times a width.
+    return {
+      starts: Array.from({ length: count }, (_, i) =>
+        new Date(year, month - (count - 1 - i), 1).getTime(),
+      ),
+      end: new Date(year, month + 1, 1).getTime(),
+    };
+  }
+
   return {
     // Local-midnight arithmetic through the constructor, not `± 86_400_000`:
     // the constructor normalises across month ends and DST for us.
@@ -115,6 +135,7 @@ export const GRIDLINE_CADENCE: Record<ActivityTimeframe, string> = {
   day: 'every 2 hours',
   week: 'every day',
   month: 'every week',
+  year: 'every quarter',
 };
 
 /** Local weekday a month's week-rules land on. Monday, as the ISO week opens. */
@@ -155,7 +176,12 @@ export function gridlineIndices(
         ? at.getHours() % 2 === 0
         : timeframe === 'week'
           ? true
-          : at.getDay() === WEEK_RULE_DAY;
+          : timeframe === 'year'
+            // Calendar quarters — Jan/Apr/Jul/Oct — for the same phase reason
+            // the month view rules Mondays: `index % 3` would rule whichever
+            // months index 0 happened to land on, which moves every month.
+            ? at.getMonth() % 3 === 0
+            : at.getDay() === WEEK_RULE_DAY;
     if (ruled) marks.push(i);
   }
   return marks;
@@ -166,11 +192,15 @@ export function gridlineIndices(
  *
  * An hour bucket needs the clock range (and the date, since a rolling 24-hour
  * window straddles midnight); a day bucket needs the weekday, which is the part
- * a reader actually navigates by. Locale-formatted through `undefined`, like
+ * a reader actually navigates by; a month bucket needs the year, since twelve
+ * of them straddle a new year. Locale-formatted through `undefined`, like
  * every other date in the renderer.
  */
 export function bucketLabel(bucket: ActivityBucket, timeframe: ActivityTimeframe): string {
   const at = new Date(bucket.start);
+  if (timeframe === 'year') {
+    return at.toLocaleDateString(undefined, { month: 'long', year: 'numeric' });
+  }
   if (timeframe !== 'day') {
     return at.toLocaleDateString(undefined, { weekday: 'short', day: 'numeric', month: 'short' });
   }

@@ -25,10 +25,11 @@ import { useUiStore } from '../../store/ui-store';
  * the placement rules (`shrink-0`, fixed cross-size — see the `stackHeight`
  * comment in app.tsx) are the slot's, not the panel's.
  *
- * Data is the stats envelope's `timeline` rows over the 30-day window — the
- * widest timeframe the panel offers — with churn requested, since two of the
- * three drawings read line counts. Null counts ("not measured") render as
- * zero here: the chart falls back to commit-count bars on an all-zero window.
+ * Data is the stats envelope's `timeline` rows, with churn requested, since two
+ * of the three drawings read line counts. Null counts ("not measured") render
+ * as zero here: the chart falls back to commit-count bars on an all-zero
+ * window. The window asked for tracks the timeframe — `30d` covers D/W/M, and
+ * only Y pays for the `1y` traversal.
  */
 export function CommitActivityPanel({ slot }: { slot: 'right' | 'bottom' }) {
   const open = useUiStore((s) => s.activityTimelineOpen);
@@ -41,7 +42,13 @@ export function CommitActivityPanel({ slot }: { slot: 'right' | 'bottom' }) {
   const repoId = useUiStore((s) => s.selectedRepoId);
 
   const placed = open && (slot === 'right') === (orientation === 'vertical');
-  const stats = useRepoStats(repoId, '30d', true, placed);
+  /*
+    The window follows the timeframe, and only the year view widens it: `1y` is
+    a deeper traversal (and its own cache entry), so the three short timeframes
+    keep sharing the cheap `30d` answer they already had. `30d` covers the
+    30-day view exactly — the widest of the three.
+  */
+  const stats = useRepoStats(repoId, timeframe === 'year' ? '1y' : '30d', true, placed);
 
   const commits = useMemo<CommitActivity[]>(
     () =>
@@ -61,17 +68,19 @@ export function CommitActivityPanel({ slot }: { slot: 'right' | 'bottom' }) {
     <div
       data-testid="commit-activity-panel"
       className={`flex shrink-0 border-border bg-background ${
-        vertical ? 'w-56 flex-col border-r' : 'h-20 flex-row items-stretch border-t'
+        vertical ? 'w-64 flex-col border-r' : 'h-20 flex-row items-stretch border-t'
       }`}
     >
       {/*
         One row of controls when vertical, two when horizontal. Same controls,
-        same order, wrapped differently: the vertical panel has 224px of width
+        same order, wrapped differently: the vertical panel has 256px of width
         to spend on a single line, the horizontal strip has a narrow column and
-        20px of height to spare, so it stacks instead. `w-56` and `h-20` are
+        20px of height to spare, so it stacks instead. `w-64` and `h-20` are
         both a step up from the pre-controls panel — the label, three style
-        icons, the gridline switch and D/W/M do not fit in what D/W/M alone
-        needed, and a wrapping toolbar in a 32px header is worse than a wider one.
+        icons, the gridline switch and D/W/M/Y do not fit in what D/W/M alone
+        needed, and a wrapping toolbar in a 32px header is worse than a wider
+        one. `w-64` rather than the `w-56` that held D/W/M: the fourth
+        timeframe button is 22px the old width did not have to give.
       */}
       <div
         className={`flex shrink-0 gap-1 px-2 ${
@@ -124,7 +133,7 @@ export function CommitActivityPanel({ slot }: { slot: 'right' | 'bottom' }) {
  * Electron main it is talking to (vite reloads the renderer on a pull, but
  * main keeps serving the pre-`timeline` envelope until the app restarts).
  * Only the genuinely-empty window gets the "no commits" answer, and it names
- * the window so switching D/W/M reads as re-asking the question.
+ * the window so switching D/W/M/Y reads as re-asking the question.
  */
 export function emptyLabel({
   repoId,
@@ -142,16 +151,23 @@ export function emptyLabel({
   // `timeline` is required by the schema, so its absence at runtime means the
   // envelope came from a main process built before the field existed.
   if (envelope && !Array.isArray(envelope.timeline)) return 'Engine updated — restart the app';
-  const window =
-    timeframe === 'day' ? '24 hours' : timeframe === 'week' ? '7 days' : '30 days';
-  return `No commits in the last ${window}`;
+  return `No commits in the last ${EMPTY_WINDOW[timeframe]}`;
 }
+
+/** The window each timeframe names, for the empty-state sentence. */
+const EMPTY_WINDOW: Record<ActivityTimeframe, string> = {
+  day: '24 hours',
+  week: '7 days',
+  month: '30 days',
+  year: '12 months',
+};
 
 /** `[value, what the button shows, its accessible name]` — the shape `SegGroup` reads. */
 const TIMEFRAMES: readonly (readonly [ActivityTimeframe, ReactNode, string])[] = [
   ['day', 'D', 'Last 24 hours'],
   ['week', 'W', 'Last 7 days'],
   ['month', 'M', 'Last 30 days'],
+  ['year', 'Y', 'Last 12 months'],
 ];
 
 const STYLE_ICONS: readonly (readonly [ActivityTimelineStyle, IconComponent, string])[] = [
@@ -169,7 +185,7 @@ const STYLES: readonly (readonly [ActivityTimelineStyle, ReactNode, string])[] =
  * horizontal layout line up and the single row of the vertical one is even.
  *
  * Not `IconButton`: that control is 24px with its own tooltip and padding, and
- * three of them plus D/W/M plus the switch would not fit the header at all.
+ * three of them plus D/W/M/Y plus the switch would not fit the header at all.
  *
  * `role` is a prop because the header holds both kinds of control — two radio
  * groups and one standalone toggle — and only the sizing is shared.
@@ -199,8 +215,9 @@ const Seg = forwardRef<
       data-testid={testId}
       /*
         An ARIA radio group is ONE tab stop whose members are reached with the
-        arrow keys. Without the roving index the six buttons this header gained
-        would be six new stops between the graph and everything after it.
+        arrow keys. Without the roving index the seven buttons this header
+        carries would be seven new stops between the graph and everything
+        after it.
       */
       tabIndex={radio && !active ? -1 : undefined}
       onClick={onClick}
@@ -217,8 +234,8 @@ const Seg = forwardRef<
 /**
  * A radio group over one store field, keyboard-navigable the way the ARIA
  * pattern requires: an arrow moves *and* selects, Home/End jump to the ends,
- * and the move wraps — the group is a ring of three, so stopping at the end
- * would just be a dead key. Focus follows the selection, because the selected
+ * and the move wraps — the group is a ring, so stopping at the end would just
+ * be a dead key. Focus follows the selection, because the selected
  * radio is the only tab stop and an unfocused one cannot receive the next
  * arrow press.
  *
@@ -286,7 +303,7 @@ const ARROW_STEP: Record<string, number | undefined> = {
   ArrowUp: -1,
 };
 
-/** D / W / M, the same field Settings edits — two doors onto one preference. */
+/** D / W / M / Y, the same field Settings edits — two doors onto one preference. */
 function TimeframePicker({ value }: { value: ActivityTimeframe }) {
   return (
     <SegGroup

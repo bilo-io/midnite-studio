@@ -99,4 +99,5 @@ const WINDOW_LABEL: Record<ActivityTimeframe, string> = {
   day: 'the last 24 hours',
   week: 'the last 7 days',
   month: 'the last 30 days',
+  year: 'the last 12 months',
 };

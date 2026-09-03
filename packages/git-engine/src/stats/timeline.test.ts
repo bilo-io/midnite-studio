@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest';
 
 import type { HistoryCommit } from './commit-history';
+import { STATS_MAX_COMMITS } from './index';
 import { buildTimeline, TIMELINE_LIMIT } from './timeline';
 
 const commit = (overrides: Partial<HistoryCommit> & { sha: string }): HistoryCommit => ({
@@ -33,6 +34,14 @@ describe('buildTimeline', () => {
       }),
     ]);
     expect(rows[0]).toMatchObject({ additions: 7, deletions: 3 });
+  });
+
+  /*
+    The cap is the scan cap on purpose: this slice drops the OLDEST rows, so a
+    smaller number would silently zero the far end of the year view's window.
+  */
+  it('caps at the scan cap, so rows are never a subset of what was scanned', () => {
+    expect(TIMELINE_LIMIT).toBe(STATS_MAX_COMMITS);
   });
 
   it('caps at TIMELINE_LIMIT, keeping the newest (first) rows', () => {
