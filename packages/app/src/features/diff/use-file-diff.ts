@@ -1,5 +1,5 @@
 import { useQuery } from '@tanstack/react-query';
-import { DIFF_DEFAULT_CONTEXT, type FileDiff } from '@midnite/studio-shared';
+import { DIFF_DEFAULT_CONTEXT, type FileDiff, type StashPart } from '@midnite/studio-shared';
 import { useCallback, useState } from 'react';
 
 import { bridge } from '../../services/bridge';
@@ -138,6 +138,41 @@ export function useCommitFileDiff({
     // A commit is immutable — but only at the context it was fetched with, and
     // that is already part of the key.
     staleTime: Number.POSITIVE_INFINITY,
+  });
+
+  return { diff: data, isLoading: path !== null && isLoading, expandContext };
+}
+
+/** A path's diff within one part of a stash entry (Phase 22 Theme D). */
+export function useStashFileDiff({
+  repoId,
+  selector,
+  part,
+  path,
+  oldPath,
+}: {
+  repoId: string;
+  selector: string;
+  part: StashPart;
+  path: string | null;
+  oldPath?: string | null;
+}): Result {
+  const { context, expandContext } = useContextReset([repoId, selector, part, path ?? ''].join(' '));
+
+  const { data, isLoading } = useQuery({
+    queryKey: keys.stashDiff(repoId, selector, part, path ?? '', context),
+    enabled: path !== null,
+    queryFn: async () =>
+      path === null
+        ? undefined
+        : ((await bridge()?.stash.diff({
+            repoId,
+            selector,
+            part,
+            path,
+            context,
+            ...(oldPath ? { oldPath } : {}),
+          })) ?? undefined),
   });
 
   return { diff: data, isLoading: path !== null && isLoading, expandContext };

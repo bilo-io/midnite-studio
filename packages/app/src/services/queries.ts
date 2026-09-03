@@ -81,6 +81,18 @@ export const keys = {
    */
   reflog: (repoId: string, ref: string) => ['repos', repoId, 'reflog', ref] as const,
   /**
+   * A stash entry's three-part file list (Phase 22 Theme D). Under the repo
+   * prefix and invalidated on the same `'refs'` event as `stashes` above — a
+   * selector is index-based (`stash@{n}`) and can point at a different
+   * underlying entry after another push/pop/drop, so a stale cache here would
+   * show the wrong stash's files rather than none at all.
+   */
+  stashDetail: (repoId: string, selector: string) =>
+    ['repos', repoId, 'stash', selector] as const,
+  /** One file's diff within one part of a stash entry (Phase 22 Theme D). */
+  stashDiff: (repoId: string, selector: string, part: string, path: string, context: number) =>
+    [...keys.stashDetail(repoId, selector), part, path, context] as const,
+  /**
    * A repo's configured remotes.
    *
    * Under the `repos/<id>` prefix like everything else, so closing a repo drops
@@ -345,6 +357,23 @@ export function useStashes(repoId: string | null, worktreePath?: string) {
     queryFn: async () =>
       repoId ? ((await bridge()?.stash.list({ repoId, worktreePath })) ?? []) : [],
     enabled: repoId !== null,
+  });
+}
+
+/**
+ * One stash entry's three-part file list (Phase 22 Theme D).
+ *
+ * `data === null` is a real answer, not a loading state: the selector is
+ * index-based and can go stale between the sidebar rendering it and the
+ * inspector reading it (another push/pop/drop shifts every later index), so
+ * "no such stash" is a state the panel has to render, not an error.
+ */
+export function useStashDetail(repoId: string | null, selector: string | null) {
+  return useQuery({
+    queryKey: keys.stashDetail(repoId ?? '', selector ?? ''),
+    queryFn: async () =>
+      repoId && selector ? ((await bridge()?.stash.detail({ repoId, selector })) ?? null) : null,
+    enabled: repoId !== null && selector !== null,
   });
 }
 
