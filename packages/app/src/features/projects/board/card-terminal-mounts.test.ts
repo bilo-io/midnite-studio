@@ -73,4 +73,33 @@ describe('useCardTerminalSlot', () => {
     expect(result.current).toBe(false);
     expect(useCardTerminalMounts.getState().wanters).toEqual([]);
   });
+
+  it('grants a solo wanter on its very first render — no one-frame over-cap flash', () => {
+    // `want(key)` only lands in the store once the registering effect runs,
+    // one render after `wantsSlot` first goes true — a hook that read
+    // `wanters` verbatim would answer `false` on this very first render and
+    // only flip `true` once React re-renders after that effect. Capturing
+    // every render's return value (not just the settled one `result.current`
+    // reads after `act` flushes effects) is what catches that.
+    const seen: boolean[] = [];
+    renderHook(() => {
+      seen.push(useCardTerminalSlot('solo', true));
+    });
+
+    expect(seen[0]).toBe(true);
+  });
+
+  it('a fifth wanter with no free slot answers false from its first render too', () => {
+    renderHook(() => useCardTerminalSlot('s1', true));
+    renderHook(() => useCardTerminalSlot('s2', true));
+    renderHook(() => useCardTerminalSlot('s3', true));
+    renderHook(() => useCardTerminalSlot('s4', true));
+
+    const seen: boolean[] = [];
+    renderHook(() => {
+      seen.push(useCardTerminalSlot('s5', true));
+    });
+
+    expect(seen.every((granted) => granted === false)).toBe(true);
+  });
 });

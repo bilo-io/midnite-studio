@@ -8,10 +8,14 @@ import { create } from 'zustand';
  * oldest by dropping its context — and `terminal-view.tsx`'s own
  * `onContextLoss` handler degrades that instance to the DOM renderer
  * **permanently**, because nothing ever re-adds the addon. A board of ten
- * running cards plus the main panel's own terminals is a realistic path into
- * that cap, and nothing before this counted contexts at all. Four matches the
- * FAB's own ceiling (Phase 35) — this is not a new number, just a new place
- * it applies.
+ * running cards is a realistic path into that cap on its own, and nothing
+ * before this counted card contexts at all. Four matches the FAB's own
+ * ceiling (Phase 35) — this is not a new number, just a new place it
+ * applies. **Scoped to card terminals only** — the main panel's own open
+ * sessions (`terminal-panel.tsx`) count against the same Chromium ceiling and
+ * are not tracked here; capping those, if the aggregate ever needs it, is a
+ * separate change against a host that, unlike this one, has always mounted
+ * everything it owns.
  *
  * `wanters` is every visible, running card, in the order each asked — not a
  * counter, so that when the card at the front leaves (scrolls away, or its
@@ -58,5 +62,16 @@ export function useCardTerminalSlot(key: string, wantsSlot: boolean): boolean {
     return () => unwant(key);
   }, [wantsSlot, key, want, unwant]);
 
-  return wantsSlot && isCardTerminalGranted(wanters, key);
+  if (!wantsSlot) return false;
+
+  /*
+   * `want(key)` above only lands in `wanters` once the effect runs, one
+   * render after `wantsSlot` first flips true — so a card with a genuinely
+   * free slot would flash the over-cap fallback for a frame before settling
+   * on its terminal. Projecting the append here (deterministic: `want` is a
+   * no-op once `key` is already present) answers the eventual question
+   * immediately instead of waiting for it.
+   */
+  const projected = wanters.includes(key) ? wanters : [...wanters, key];
+  return isCardTerminalGranted(projected, key);
 }

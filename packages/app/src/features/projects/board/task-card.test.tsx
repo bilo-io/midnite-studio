@@ -227,6 +227,24 @@ describe('TaskCard', () => {
       expect(screen.getByText('Running')).toBeDefined();
     });
 
+    it('clicking the activity line still opens the card — it is a status pill, not a terminal', () => {
+      useTerminalStore.getState().openSession({
+        kind: 'agent',
+        agentId: 'claude',
+        title: 'card',
+        cwd: '/repo',
+        repoId: 'r1',
+        surface: 'kanban',
+        taskRef: { projectId: 'proj1', itemId: issue.id },
+      });
+      const onClick = vi.fn();
+
+      render(<TaskCard item={issue} fields={[]} projectId="proj1" onClick={onClick} />);
+      fireEvent.click(screen.getByText('Running'));
+
+      expect(onClick).toHaveBeenCalled();
+    });
+
     it('renders neither for a card with no session', () => {
       render(<TaskCard item={issue} fields={[]} projectId="proj1" />);
       expect(screen.queryByText('Running')).toBeNull();

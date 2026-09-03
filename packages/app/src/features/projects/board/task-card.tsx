@@ -175,15 +175,21 @@ export function TaskCard({
         card with no session, or one that has ended, shows neither the
         terminal nor the activity line (`EndedStrip` inside the card's own
         detail pane already covers "ended", per Theme F/H).
+
+        `stopPropagation` guards only the terminal, not the activity line: the
+        line is a plain status pill with nothing of its own to click, so a
+        click on it is still "open the card" — only the terminal underneath
+        (a real xterm, and its pop-out button) needs to keep a click from also
+        opening the detail pane behind it.
       */}
       {sessionId !== undefined && status.running ? (
-        <div onClick={(event) => event.stopPropagation()}>
-          {visible ? (
+        visible ? (
+          <div onClick={(event) => event.stopPropagation()}>
             <CardTerminal sessionId={sessionId} visible={visible} />
-          ) : (
-            <CardActivityLine activity={status.activity} />
-          )}
-        </div>
+          </div>
+        ) : (
+          <CardActivityLine activity={status.activity} />
+        )
       ) : null}
     </div>
   );
