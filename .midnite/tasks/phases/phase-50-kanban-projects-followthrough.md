@@ -180,7 +180,7 @@ Effort tags: **S** ≈ an hour or two · **M** ≈ half a day · **L** ≈ a day
 
 ## Verification
 
-- [ ] `moon run :typecheck :lint :test` green.
+- [x] `moon run :typecheck :lint :test` green.
 - [ ] A card whose agent has exited still shows in the board with a terminal-state indicator, not a
       stale glow, and Dismiss clears its binding without ending a still-live session early.
 - [ ] The 6th concurrent card launch on one board shows the soft-warn toast; it does not block the
