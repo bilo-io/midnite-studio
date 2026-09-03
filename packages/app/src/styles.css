@@ -2084,3 +2084,147 @@ html[data-motion='reduced'] .loop-launcher.is-running.is-pulsing {
 html[data-motion='reduced'] .panel-stack-pane {
   transition: none !important;
 }
+
+/* ---------------------------------------------------------------------------
+ * The composer's Start button — a gradient border at rest, an orbiting one
+ * under the pointer.
+ *
+ * Built from the same two-layer `background-clip` trick as
+ * `.loop-spectrum-field` and `.loop-run-glow`: the padding box takes an opaque
+ * `--popover` fill, the border box takes the gradient, and the 1.5px frame is
+ * the only part of the gradient that survives. What differs is which gradient
+ * and when.
+ *
+ * **The colours are the tab's, not the rainbow's.** `--fab-spec-1…5` are the
+ * active tab's own 180deg arc sampled as five stops (see the sub-spectrum table
+ * further up), so Start says which loop it starts. Conic rather than linear —
+ * unlike the fields, which cannot rotate — because the hover state's whole
+ * gesture is the ramp orbiting the button, and a conic from a registered angle
+ * is the one shape where that is a single animated number rather than a
+ * background-position hack.
+ *
+ * **At rest it is 45% opaque; on hover it is not.** A button that already
+ * glowed at full strength has nothing to answer a pointer with, and the panel
+ * has four other things competing for attention. So rest is a visible-but-quiet
+ * frame, and hover brings the full ramp, the orbit and the pulsing halo
+ * together — one state change, three tells.
+ *
+ * `:disabled` keeps the resting frame and takes neither animation: Start is
+ * disabled when there is nowhere to run or no task on the line, and a button
+ * that orbits under the pointer while refusing the click is a lie. The
+ * `opacity-50` utility on the element is what says it is off.
+ * ------------------------------------------------------------------------ */
+@property --loop-start-angle {
+  syntax: '<angle>';
+  inherits: false;
+  initial-value: 0deg;
+}
+
+@keyframes loop-start-orbit {
+  to {
+    --loop-start-angle: 360deg;
+  }
+}
+
+/*
+ * The halo, keyed to the same two stops the border's ends carry so the glow is
+ * the tab's colour rather than a second palette. Only `box-shadow` moves — no
+ * filter, no radius change, for the reason `.graph-lane-glow` documents.
+ */
+@keyframes loop-start-halo {
+  0%,
+  100% {
+    box-shadow:
+      0 0 5px rgb(var(--fab-spec-3, 16 185 129) / 0.3),
+      0 0 10px rgb(var(--fab-spec-5, 139 92 246) / 0.18);
+  }
+  50% {
+    box-shadow:
+      0 0 12px rgb(var(--fab-spec-3, 16 185 129) / 0.6),
+      0 0 22px rgb(var(--fab-spec-5, 139 92 246) / 0.4);
+  }
+}
+
+.loop-start-gradient {
+  border: 1.5px solid transparent;
+  background-image:
+    linear-gradient(hsl(var(--popover)), hsl(var(--popover))),
+    conic-gradient(
+      from var(--loop-start-angle, 0deg),
+      rgb(var(--fab-spec-1, 244 63 94) / 0.45),
+      rgb(var(--fab-spec-2, 245 158 11) / 0.45),
+      rgb(var(--fab-spec-3, 16 185 129) / 0.45),
+      rgb(var(--fab-spec-4, 59 130 246) / 0.45),
+      rgb(var(--fab-spec-5, 139 92 246) / 0.45),
+      rgb(var(--fab-spec-1, 244 63 94) / 0.45)
+    );
+  background-origin: border-box;
+  background-clip: padding-box, border-box;
+  transition: box-shadow 0.2s ease;
+}
+
+/*
+ * `:focus-visible` gets the same treatment as `:hover` — the button is
+ * reachable by Tab from the extras field it now sits under, and a keyboard
+ * user should see the state a pointer user sees rather than a UA outline over
+ * a resting gradient.
+ */
+.loop-start-gradient:hover:not(:disabled),
+.loop-start-gradient:focus-visible:not(:disabled) {
+  outline: none;
+  background-image:
+    linear-gradient(hsl(var(--popover)), hsl(var(--popover))),
+    conic-gradient(
+      from var(--loop-start-angle, 0deg),
+      rgb(var(--fab-spec-1, 244 63 94)),
+      rgb(var(--fab-spec-2, 245 158 11)),
+      rgb(var(--fab-spec-3, 16 185 129)),
+      rgb(var(--fab-spec-4, 59 130 246)),
+      rgb(var(--fab-spec-5, 139 92 246)),
+      rgb(var(--fab-spec-1, 244 63 94))
+    );
+  animation:
+    loop-start-orbit 3s linear infinite,
+    loop-start-halo 1.8s ease-in-out infinite;
+}
+
+/*
+ * Reduced motion keeps the full-strength ramp and the glow and drops both
+ * animations — the same trade every other rule in this file makes. The
+ * `box-shadow` is the halo keyframes' own midpoint, so hovering still lights
+ * up; it simply does not breathe.
+ *
+ * The selector has to name the hover state, not just the class: the rule above
+ * is `.loop-start-gradient:hover:not(:disabled)`, and
+ * `html:not([data-motion='full']) .loop-start-gradient` is (0,2,1) against its
+ * (0,3,0) — the arithmetic `.loop-launcher`'s own guard comment walks through.
+ */
+@media (prefers-reduced-motion: reduce) {
+  html:not([data-motion='full']) .loop-start-gradient,
+  html:not([data-motion='full']) .loop-start-gradient:hover:not(:disabled),
+  html:not([data-motion='full']) .loop-start-gradient:focus-visible:not(:disabled) {
+    animation-name: none;
+    transition: none;
+  }
+
+  html:not([data-motion='full']) .loop-start-gradient:hover:not(:disabled),
+  html:not([data-motion='full']) .loop-start-gradient:focus-visible:not(:disabled) {
+    box-shadow:
+      0 0 12px rgb(var(--fab-spec-3, 16 185 129) / 0.6),
+      0 0 22px rgb(var(--fab-spec-5, 139 92 246) / 0.4);
+  }
+}
+
+html[data-motion='reduced'] .loop-start-gradient,
+html[data-motion='reduced'] .loop-start-gradient:hover:not(:disabled),
+html[data-motion='reduced'] .loop-start-gradient:focus-visible:not(:disabled) {
+  animation-name: none;
+  transition: none;
+}
+
+html[data-motion='reduced'] .loop-start-gradient:hover:not(:disabled),
+html[data-motion='reduced'] .loop-start-gradient:focus-visible:not(:disabled) {
+  box-shadow:
+    0 0 12px rgb(var(--fab-spec-3, 16 185 129) / 0.6),
+    0 0 22px rgb(var(--fab-spec-5, 139 92 246) / 0.4);
+}

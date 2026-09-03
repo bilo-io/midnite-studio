@@ -1,4 +1,4 @@
-import { expect, test, type Page } from '@playwright/test';
+import { expect, test, type Locator, type Page } from '@playwright/test';
 
 import { fixtures } from './fixtures';
 import { installMockBridge, type MockFixtures } from './mock-bridge';
@@ -71,6 +71,26 @@ const loopRuns = (page: Page) =>
  * wait belongs at the call site by convention, not by necessity — this poll
  * is what actually makes a forgotten one fail loud instead of flaky.
  */
+/**
+ * Pick a row in one of the composer's `react-select`s.
+ *
+ * The control is inside the composer; the MENU is not — these selects render
+ * theirs into `document.body` (`menuInPortal`), because an inline menu inside
+ * a `<Collapse>` body is clipped by its `overflow: hidden`. So the row is
+ * addressed off the page, not the composer. `exact` because the day picker
+ * keeps selected rows in its menu (`hideSelectedOptions={false}`) — one label
+ * must never match two rows.
+ */
+async function pickInSelect(
+  page: Page,
+  composer: Locator,
+  name: string,
+  option: string,
+): Promise<void> {
+  await composer.getByRole('combobox', { name }).click();
+  await page.getByRole('option', { name: option, exact: true }).click();
+}
+
 async function emitActivity(
   page: Page,
   activity: 'thinking' | 'waiting' | 'idle' | null,
@@ -147,8 +167,13 @@ test.describe('FAB loop console', () => {
       await page.getByRole('button', { name: tab, exact: true }).click();
       const other = page.getByTestId(`loop-composer-${id}`);
       await expect(other.getByRole('radio', { name: 'Ask me' })).toBeChecked();
-      await expect(other.getByRole('radio', { name: 'Opus 5' })).toBeVisible();
+      // Provider and model are two selects now, not a row of model pills.
+      await expect(other.getByRole('combobox', { name: 'Provider' })).toBeVisible();
+      await expect(other.getByRole('combobox', { name: 'Model' })).toBeVisible();
       await expect(other.getByRole('switch', { name: 'Window' })).not.toBeChecked();
+      // …and the schedule's cadence and day set are two more.
+      await expect(other.getByRole('combobox', { name: 'Every' })).toBeVisible();
+      await expect(other.getByRole('combobox', { name: 'Days' })).toBeVisible();
     }
   });
 
@@ -190,7 +215,16 @@ test.describe('FAB loop console', () => {
     await composer.getByRole('switch', { name: 'Window' }).check();
     await composer.getByLabel('Run Patrol from').fill('09:00');
     await composer.getByLabel('Run Patrol until').fill('17:00');
-    await composer.getByRole('radio', { name: 'Opus 5' }).check();
+    await pickInSelect(page, composer, 'Model', 'Opus 5');
+    /*
+      Drop the weekend, so the day axis is on the line as well as the window.
+      One visit for both days: the picker keeps its menu open across a pick
+      (`closeMenuOnSelect={false}`), and clicking a selected row removes it.
+    */
+    await composer.getByRole('combobox', { name: 'Days' }).click();
+    await page.getByRole('option', { name: 'Sat', exact: true }).click();
+    await page.getByRole('option', { name: 'Sun', exact: true }).click();
+    await page.keyboard.press('Escape');
     await composer.getByPlaceholder('Extra instructions…').fill('Skip drafts.');
     await composer.getByTestId('loop-start').click();
 
@@ -202,6 +236,7 @@ test.describe('FAB loop console', () => {
       '/loop /pr-review /pr-feedback Look only at PRs that are ready for review — skip drafts. ' +
         'Do every piece of work in its own git worktree — never edit the primary checkout. ' +
         'Never stop to ask: keep advancing and always take the recommended option. ' +
+        'Work on weekdays only — idle through Saturday and Sunday. ' +
         'Work only between 09:00 and 17:00 local time — outside that window, idle and wait rather than starting new work. ' +
         'Skip drafts.',
     );
@@ -209,6 +244,64 @@ test.describe('FAB loop console', () => {
     expect(run?.['checkedModifierIds']).toEqual(['pr-review', 'pr-feedback', 'worktree-only']);
     // The model is a `--model` flag, so the ledger records it beside the line.
     expect(run?.['model']).toBe('opus-5');
+  });
+
+  test('the three tabs you are not looking at take neither clicks nor focus', async ({
+    page,
+  }) => {
+    await open(page);
+    await openFab(page, 'Patrol');
+
+    /*
+      `visibility: hidden` on the pane is not enough on its own: it inherits,
+      but a descendant setting `visibility: visible` climbs back out of it, and
+      `react-select`'s input does. Three hidden composers' selects sat at the
+      same coordinates as the visible one's and swallowed its clicks.
+    */
+    for (const id of ['innovate', 'automate', 'medic']) {
+      await expect(page.locator(`[inert] [data-testid="loop-composer-${id}"]`)).toHaveCount(1);
+    }
+    await expect(page.locator('[inert] [data-testid="loop-composer-watchdog"]')).toHaveCount(0);
+
+    // And the visible tab's own controls answer, which is the point of it.
+    const composer = page.getByTestId('loop-composer-watchdog');
+    await composer.getByRole('combobox', { name: 'Model' }).click();
+    await expect(page.getByRole('option', { name: 'Opus 5', exact: true })).toBeVisible();
+  });
+
+  test('the provider select decides what the launch actually runs', async ({ page }) => {
+    await open(page);
+    await openFab(page, 'Patrol');
+
+    const composer = page.getByTestId('loop-composer-watchdog');
+    // Claude, with a model: the flag reaches the command line.
+    await pickInSelect(page, composer, 'Model', 'Opus 5');
+    await composer.getByTestId('loop-start').click();
+    await expect(composer.getByTestId('loop-stop')).toBeVisible();
+
+    await expect.poll(async () => (await ptyCreates(page)).length).toBe(1);
+    const [claudeRun] = await ptyCreates(page);
+    expect(claudeRun?.agentId).toBe('claude');
+    expect(claudeRun?.initialInput).toContain('--model claude-opus-5');
+
+    // Switch provider, and the next launch is a different CLI with no
+    // `--model` at all — `loopModelArgs` passes it to `claude` alone.
+    await composer.getByTestId('loop-stop').click();
+    await expect(composer.getByTestId('loop-start')).toBeVisible();
+    await pickInSelect(page, composer, 'Provider', 'Codex');
+    await expect(composer.getByRole('button', { name: /^Model/ })).toContainText('Codex');
+    await composer.getByTestId('loop-start').click();
+
+    await expect.poll(async () => (await ptyCreates(page)).length).toBe(2);
+    const codexRun = (await ptyCreates(page))[1];
+    expect(codexRun?.agentId).toBe('codex');
+    expect(codexRun?.initialInput).not.toContain('--model');
+
+    // And the ledger agrees with the command line rather than with the store:
+    // `model` answers "what did this run cost", so a Codex run that carried no
+    // flag records no model at all.
+    await expect.poll(async () => (await loopRuns(page)).length).toBe(2);
+    expect((await loopRuns(page)).map((run) => run['model'])).toEqual(['opus-5', undefined]);
   });
 
   test('the loop session never appears in the main terminal housing', async ({ page }) => {
@@ -400,7 +493,9 @@ const ptyCreates = (page: Page) =>
     () =>
       (
         window as unknown as {
-          __mstudioPty: { creates: Array<{ sessionId: string }> };
+          __mstudioPty: {
+            creates: Array<{ sessionId: string; agentId?: string; initialInput?: string }>;
+          };
         }
       ).__mstudioPty.creates,
   );

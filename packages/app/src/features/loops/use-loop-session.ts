@@ -48,6 +48,16 @@ export function useLoopSession(
     choiceIds: Record<string, string>;
     /** The working window, or `null` when the loop is not scheduled. */
     schedule: LoopSchedule | null;
+    /**
+     * Which provider actually runs: the composer's pick, resolved against the
+     * live roster by the caller, or the loop's own declared `agentId`.
+     *
+     * Passed in rather than read off `loop` — the tab's provider select is
+     * exactly the "per-tab agent picker" `LoopDefinition.agentId`'s own
+     * comment says the field exists to allow, and a launcher that kept reading
+     * the declaration would ignore it.
+     */
+    agentId: string;
     /** Which Claude to launch — a `--model` flag, never a prompt fragment. */
     model: LoopModel;
     extras: string;
@@ -64,8 +74,18 @@ export function useLoopSession(
     command: string;
   },
 ): LoopSessionControls {
-  const { repoId, cwd, basePrompt, checkedModifierIds, choiceIds, schedule, model, extras, command } =
-    options;
+  const {
+    repoId,
+    cwd,
+    basePrompt,
+    checkedModifierIds,
+    choiceIds,
+    schedule,
+    agentId,
+    model,
+    extras,
+    command,
+  } = options;
   const tab = loop.id as FabTab;
 
   const start = useCallback(() => {
@@ -95,16 +115,24 @@ export function useLoopSession(
       extras,
     });
 
+    /*
+      The flag this run actually carries — empty for `'default'`, and empty for
+      any provider whose CLI has no `--model` (see `loopModelArgs`). Computed
+      once, because the ledger below has to agree with it: a Codex run recorded
+      as `model: 'opus-5'` would be a durable claim about what the run cost
+      that no argument on the command line supports, and
+      `LoopRunRecordSchema.model` exists precisely to answer that question.
+    */
+    const modelArgs = loopModelArgs(agentId, model);
+
     const session = startAgent({
       repoId,
       cwd,
       title: loop.label,
       prompt: composedPrompt,
-      agentId: loop.agentId,
+      agentId,
       command,
-      // Empty for `'default'`, and empty for any agent whose CLI has no
-      // `--model` — see `loopModelArgs`.
-      extraArgs: loopModelArgs(loop.agentId, model),
+      extraArgs: modelArgs,
       surface: 'fab',
       // The explicit Start press IS the confirmation the withheld Return
       // normally collects — see `startAgent`'s own note.
@@ -117,7 +145,9 @@ export function useLoopSession(
       sessionId: session.id,
       composedPrompt,
       checkedModifierIds,
-      model,
+      // Absent, not `'default'`, when no flag went out — the field is optional
+      // for exactly this reason, and inventing an answer would be a guess.
+      ...(modelArgs.length > 0 ? { model } : {}),
     });
   }, [
     repoId,
@@ -126,6 +156,7 @@ export function useLoopSession(
     checkedModifierIds,
     choiceIds,
     schedule,
+    agentId,
     model,
     extras,
     command,
