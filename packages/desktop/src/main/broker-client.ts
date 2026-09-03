@@ -43,6 +43,19 @@ export type BrokerSessionInfo = {
   cols: number;
   rows: number;
   cwd: string;
+  /**
+   * Whether the peer that answered `list` for this session is a legacy
+   * broker (an older build's, kept reachable only until its sessions end —
+   * see {@link brokerSocketName}) rather than the current primary.
+   *
+   * Stamped here, not read off the wire: the broker server has no concept of
+   * "legacy," that is purely this client's view of which peer answered. A
+   * session with `legacy: true` is real and still running — it is what lets
+   * `listTerminals()` (`terminal-service.ts`) tell main's `livePtyFor` to mark
+   * it so, which the renderer's `sessionPhase` reads as `asleep` rather than
+   * offering a live pane over a process the current build no longer owns.
+   */
+  legacy: boolean;
 };
 
 export type BrokerClient = {
@@ -498,7 +511,12 @@ export function createBrokerClient(deps: BrokerClientDeps): BrokerClient {
   async function syncPeerSessions(peer: Peer): Promise<BrokerSessionInfo[]> {
     try {
       const reply = await sendRequest({ t: 'list' }, 5000, peer);
-      const list = (reply.ok ? (reply['sessions'] as BrokerSessionInfo[] | undefined) : undefined) ?? [];
+      const raw =
+        (reply.ok ? (reply['sessions'] as Omit<BrokerSessionInfo, 'legacy'>[] | undefined) : undefined) ??
+        [];
+      // The wire reply carries no `legacy` bit — the server doesn't know it
+      // is a legacy peer, only this client does, from which `Peer` answered.
+      const list = raw.map((s) => ({ ...s, legacy: peer.legacy }));
       for (const s of list) recordPty(peer, s.ptyId, s.sessionId);
       return list;
     } catch {

@@ -14,6 +14,16 @@ import { useUiStore, type FabTab } from '../store/ui-store';
 interface FabPanelProps {
   isOpen: boolean;
   width: number;
+  /**
+   * Bumped once the panel's own open/close tween settles — the FAB
+   * equivalent of `TerminalPanel`'s `fitSignal` prop (`app.tsx`'s
+   * `terminalTween.settleCount`). Every loop tab's `LazyTerminalView` needs
+   * this to fit and repaint once the reveal animation finishes; without it
+   * xterm can settle at a stale size and paint nothing until an unrelated
+   * resize (a window resize, or dragging the panel handle) forces a real
+   * `ResizeObserver` tick.
+   */
+  fitSignal: number;
 }
 
 const LOOP_IDS = DEFAULT_LOOPS.map((loop) => loop.id);
@@ -37,7 +47,7 @@ function loopGlowState(status: LoopStatus | undefined): LoopGlowState {
  * `agentSkills`. Each loop's base prompt is read through its `agentCommandId`,
  * so editing a `/loop …` field in Settings ▸ Agent changes what the tab runs.
  */
-export function FabPanel({ isOpen, width }: FabPanelProps) {
+export function FabPanel({ isOpen, width, fitSignal }: FabPanelProps) {
   const activeFabTab = useUiStore((s) => s.activeFabTab);
   const onTabClick = useUiStore((s) => s.onFabTabClick);
   const statuses = useAllLoopStatuses(LOOP_IDS);
@@ -154,6 +164,7 @@ export function FabPanel({ isOpen, width }: FabPanelProps) {
                 loop={loop}
                 active={activeFabTab === loop.id}
                 runs={runs.data.filter((run) => run.loopId === loop.id)}
+                fitSignal={fitSignal}
               />
             </div>
           ))}

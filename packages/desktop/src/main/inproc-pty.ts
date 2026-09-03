@@ -190,10 +190,11 @@ export function inprocSessionIdFor(ptyId: string): string | undefined {
 
 export function inprocLivePtyFor(
   sessionId: string,
-): { ptyId: string; pid: number; cols: number; rows: number } | null {
+): { ptyId: string; pid: number; cols: number; rows: number; legacy: boolean } | null {
   for (const [ptyId, session] of sessions) {
     if (session.sessionId === sessionId) {
-      return { ptyId, pid: session.pty.pid, cols: session.cols, rows: session.rows };
+      // Inproc mode spawns only for this launch — there is no legacy peer.
+      return { ptyId, pid: session.pty.pid, cols: session.cols, rows: session.rows, legacy: false };
     }
   }
   return null;
