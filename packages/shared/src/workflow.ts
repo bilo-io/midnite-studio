@@ -335,7 +335,7 @@ export function validateWorkflow(workflow: Workflow): WorkflowIssue[] {
     if (edge.from === edge.to) {
       issues.push({ message: `A node cannot connect to itself.`, edgeId: edge.id });
     }
-    const pair = `${edge.from} ${edge.to}`;
+    const pair = `${edge.from}:${edge.to}`;
     if (seenEdges.has(pair)) {
       issues.push({ message: `Duplicate connection between the same two nodes.`, edgeId: edge.id });
     }
@@ -354,6 +354,71 @@ export function validateWorkflow(workflow: Workflow): WorkflowIssue[] {
   }
 
   return issues;
+}
+
+// --- cycle detection -----------------------------------------------------------
+
+/**
+ * Kahn's algorithm, run for its *remainder* rather than its order — shared by
+ * `workflow-engine.ts` (which refuses to start a cyclic run) and the canvas
+ * (which refuses to draw a cyclic edge), **so the two cannot disagree about
+ * what a cycle is.** Living in `shared` rather than duplicated in `desktop`
+ * and `app` is what makes that true: `app` may not import `desktop`, and this
+ * is the one piece of the engine's cycle check that both sides need.
+ *
+ * A non-empty remainder after the queue drains **is** a cycle; the first edge
+ * found among the remaining nodes is the one worth naming.
+ *
+ * Dangling edge endpoints (a `from`/`to` not in `nodeIds`) are ignored here —
+ * that is {@link validateWorkflow}'s concern, not this function's.
+ */
+export function findCycleEdge(
+  nodeIds: readonly string[],
+  edges: readonly Pick<WorkflowEdge, 'id' | 'from' | 'to'>[],
+): WorkflowEdge | null {
+  const known = new Set(nodeIds);
+  const children = new Map<string, string[]>(nodeIds.map((id) => [id, []]));
+  const inDegree = new Map<string, number>(nodeIds.map((id) => [id, 0]));
+
+  for (const edge of edges) {
+    if (!known.has(edge.from) || !known.has(edge.to)) continue;
+    children.get(edge.from)!.push(edge.to);
+    inDegree.set(edge.to, (inDegree.get(edge.to) ?? 0) + 1);
+  }
+
+  const queue = nodeIds.filter((id) => (inDegree.get(id) ?? 0) === 0);
+  let settled = 0;
+  while (queue.length > 0) {
+    const id = queue.shift()!;
+    settled += 1;
+    for (const child of children.get(id) ?? []) {
+      const next = (inDegree.get(child) ?? 0) - 1;
+      inDegree.set(child, next);
+      if (next === 0) queue.push(child);
+    }
+  }
+
+  if (settled === nodeIds.length) return null;
+  const stuck = new Set(nodeIds.filter((id) => (inDegree.get(id) ?? 0) > 0));
+  return (
+    (edges as WorkflowEdge[]).find((edge) => stuck.has(edge.from) && stuck.has(edge.to)) ?? null
+  );
+}
+
+/**
+ * Would adding `candidate` create a cycle, without actually adding it?
+ *
+ * The canvas's edge-drag preview calls this on every pointer move over a
+ * candidate target port, so it stays a cheap Kahn pass over the existing
+ * edges plus one — no id required on the candidate, since the algorithm only
+ * ever reads `from`/`to`.
+ */
+export function wouldCycle(
+  edges: readonly WorkflowEdge[],
+  nodeIds: readonly string[],
+  candidate: { from: string; to: string },
+): boolean {
+  return findCycleEdge(nodeIds, [...edges, { id: '__candidate__', ...candidate }]) !== null;
 }
 
 // --- tunables ----------------------------------------------------------------

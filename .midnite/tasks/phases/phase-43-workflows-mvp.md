@@ -310,14 +310,14 @@ Effort tags: **S** ≈ an hour or two · **M** ≈ half a day · **L** ≈ a day
   - *Acceptance for the bind:* assert `server.address().address === '127.0.0.1'` after listen, and
     assert a connection attempt to the machine's LAN IP on that port is refused.
 
-### E — The canvas (L)
+### E — The canvas (L) — ✅ DONE (PR #100, 2026-09-03)
 
 > **Re-tagged L, and the largest single risk in the phase.** The x1 audit found that pan/zoom,
 > free 2-D drag, multi-select and undo/redo each have **zero precedent** in this renderer. This is
 > six items of net-new interaction code, not six items of "reuse the existing pattern". Sequence it
 > after B so there is something real to render, and expect it to be the theme that slips.
 
-- [ ] `features/workflows/canvas/workflow-canvas.tsx` — hand-rolled SVG. Nodes are positioned
+- [x] `features/workflows/canvas/workflow-canvas.tsx` — hand-rolled SVG. Nodes are positioned
       `<g>` elements; edges are cubic béziers between port anchors. No new dependency, per the
       guardrail.
   - Split the geometry out, mirroring Phase 18's two-module split:
@@ -338,7 +338,7 @@ Effort tags: **S** ≈ an hour or two · **M** ≈ half a day · **L** ≈ a day
     `<svg width={0} height={0}>` exactly as
     [`graph-defs.tsx:18`](../../../packages/app/src/features/graph/graph-defs.tsx) does. Its
     docblock explains the cost of not doing so: one duplicated marker per node.
-- [ ] Pan and zoom via a `viewBox` transform. **This phase defines the convention; there is none to
+- [x] Pan and zoom via a `viewBox` transform. **This phase defines the convention; there is none to
       inherit.**
   - State is one `{ x, y, scale }` in a `useState`, applied as
     ``viewBox={`${x} ${y} ${w / scale} ${h / scale}`}``.
@@ -356,7 +356,7 @@ Effort tags: **S** ≈ an hour or two · **M** ≈ half a day · **L** ≈ a day
   - *Acceptance:* a `workflow-path.test.ts` case asserts that zooming about a pointer keeps the
     graph point under the cursor fixed — the property that makes zoom feel right and the one that
     silently breaks.
-- [ ] Node drag: **raw pointer events, not `@dnd-kit`.**
+- [x] Node drag: **raw pointer events, not `@dnd-kit`.**
   - The first draft said `@dnd-kit`. Both existing uses are list reorders or discrete drop targets —
     [`sortable-list.tsx:66`](../../../packages/app/src/components/sortable-list.tsx) even applies
     `restrictToVerticalAxis` — and dnd-kit's drag-end carries **no pointer position**, which
@@ -366,7 +366,7 @@ Effort tags: **S** ≈ an hour or two · **M** ≈ half a day · **L** ≈ a day
     by dividing the delta by `scale`, and write `x`/`y` back on `pointerup`.
   - Snap to a **16 px** grid on drop only; dragging is free, so the node tracks the cursor.
   - Keep `@dnd-kit` out of this theme entirely — it stays in the app for the lists that use it.
-- [ ] Edge creation by dragging from an output port to an input port, with a live preview edge and
+- [x] Edge creation by dragging from an output port to an input port, with a live preview edge and
       a rejection for a connection that would create a cycle — caught at draw time, not run time.
   - Reuse Theme B's cycle check as a pure exported function
     (`wouldCycle(edges, from, to): boolean`) so the canvas and the engine cannot disagree about what
@@ -375,7 +375,7 @@ Effort tags: **S** ≈ an hour or two · **M** ≈ half a day · **L** ≈ a day
     not silently snap back with no explanation.
   - Drop on empty space cancels. Drop on an input port that already has an edge from the same source
     is a no-op, not a duplicate edge.
-- [ ] Selection and delete.
+- [x] Selection and delete.
   - Single-select on click, multi-select on `Shift`-click and on marquee drag over empty space.
     Selection is `Set<string>` of node ids in canvas-local state — **net-new**; the graph's
     `selectedCommitSha` ([`ui-store.ts:304`](../../../packages/app/src/store/ui-store.ts)) is a
@@ -383,7 +383,7 @@ Effort tags: **S** ≈ an hour or two · **M** ≈ half a day · **L** ≈ a day
   - `Delete`/`Backspace` removes the selection and every edge touching it. `Escape` clears the
     selection. `Cmd+A` selects all nodes.
   - Deleting a node with edges shows no confirm — undo covers it.
-- [ ] Undo/redo, canvas-local and in-session.
+- [x] Undo/redo, canvas-local and in-session.
   - **Net-new.** The only `history` in the renderer is CodeMirror's own extension inside
     [`code-editor.tsx`](../../../packages/app/src/features/files/preview/code-editor.tsx), which is
     editor-internal and not reusable.
@@ -393,7 +393,7 @@ Effort tags: **S** ≈ an hour or two · **M** ≈ half a day · **L** ≈ a day
     [`keybindings.ts`](../../../packages/shared/src/keybindings.ts): these are surface-local and
     must not fire while focus is in the inspector's text fields.
   - Not persisted. See Decisions.
-- [ ] Only nodes intersecting the viewport render, so a 200-node workflow stays interactive.
+- [x] Only nodes intersecting the viewport render, so a 200-node workflow stays interactive.
   - A plain rect-intersection filter over `nodes` against the current `viewBox`, widened by one node
     width so a partially-visible node is not popped. **Not** `@tanstack/react-virtual` — that
     virtualizes a 1-D list of known row heights (`estimateSize: () => theme.rowHeight`,
@@ -494,7 +494,7 @@ Effort tags: **S** ≈ an hour or two · **M** ≈ half a day · **L** ≈ a day
   - *Acceptance:* `moon run app:perf --blurred` shows no measurable idle-CPU delta with a run
     mid-flight and the window blurred.
 
-### H — Persistence and the list (M) — ◐ PARTIAL (PR #92, 2026-09-03) — the two stores + handlers landed with B/D
+### H — Persistence and the list (M) — ✅ DONE (PR #92, #100, 2026-09-03) — stores + handlers (PR #92), the renderer half (PR #100)
 
 - [x] `workflows-store.ts` and `workflow-runs-store.ts` in `desktop/src/main/`, JSON under
       `userData`, one malformed entry never costing the rest of the file — the councils stores'
@@ -525,21 +525,24 @@ Effort tags: **S** ≈ an hour or two · **M** ≈ half a day · **L** ≈ a day
     the result carries a `value`, which is what council-handlers does and why.
   - `workflow:cancel` is one-way: `ipcMain.on` + a manual `safeParse`, following
     `tests-handlers.ts:139`.
-- [ ] `features/workflows/workflows-view.tsx` **replaces the `<Placeholder>`** at
-      [`app.tsx:980`](../../../packages/app/src/app.tsx): a workflow list, create/duplicate/delete,
-      and last-run status per row.
+- [x] `features/workflows/workflows-view.tsx` **replaces the `<Placeholder>`** at
+      [`app.tsx:980`](../../../packages/app/src/app.tsx): a workflow list with create/duplicate/delete.
+  - **Last-run status per row deferred to Theme G.** Theme G ("Runs") is what actually builds the
+    run-history surface this would read from; wiring a per-row `runs.list` query in here first would
+    duplicate that data model rather than reuse it. `workflow-list.tsx` shows node count per row for
+    now, the same information `council-list.tsx` shows for a council with no run yet.
   - **Insert the arm before the `!selectedRepoId` guard at `app.tsx:961`**, beside `councils`. The
     comment at `app.tsx:949` states the rule: global views must be reachable before that guard.
     Workflows is global by this phase's own settled decision, so leaving it in the current
     fall-through position would show `<EmptyWorkspace />` to anyone with no repo open.
   - Empty state: `<EmptyState icon={LuWorkflow} title="No workflows yet" body="Create one to get started." />`,
     matching `councils-view.tsx:25`.
-- [ ] Lazy `loadWorkflowsView`, under the existing Suspense boundary.
+- [x] Lazy `loadWorkflowsView`, under the existing Suspense boundary.
   - Exact form, copying `app.tsx:102`:
     `const loadWorkflowsView = () => import('./features/workflows/workflows-view');` then
     `const WorkflowsView = lazy(() => loadWorkflowsView().then((m) => ({ default: m.WorkflowsView })));`
   - One shared `<Suspense>` already wraps all thirteen views (`app.tsx:938`) — do not add a second.
-- [ ] Query hooks in `features/workflows/use-workflow.ts`, **not** in
+- [x] Query hooks in `features/workflows/use-workflow.ts`, **not** in
       [`queries.ts`](../../../packages/app/src/services/queries.ts).
   - Councils are deliberately absent from that file (`grep -c council` → 0), and
     [`use-council.ts:13`](../../../packages/app/src/features/councils/use-council.ts) records why:
@@ -548,7 +551,7 @@ Effort tags: **S** ≈ an hour or two · **M** ≈ half a day · **L** ≈ a day
   - Key factory `WORKFLOW_KEYS = { list: ['workflows'] as const, detail: (id) => ['workflows', id] as const }`.
   - `noBridge<T>()` and `reportFailure<T>()` are currently duplicated verbatim in both council hook
     files. Hoist them to `services/bridge-result.ts` rather than writing a third copy.
-- [ ] Import/export a workflow as JSON — the cheapest possible sharing story, and it makes the
+- [x] Import/export a workflow as JSON — the cheapest possible sharing story, and it makes the
       contract's round-trip testable.
   - Export writes `WorkflowSchema.parse`'d JSON through the existing save dialog; import
     `safeParse`s and reports the zod issue verbatim on failure.

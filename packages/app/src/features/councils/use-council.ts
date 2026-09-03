@@ -1,14 +1,8 @@
-import {
-  failure,
-  type Council,
-  type CouncilMember,
-  type CouncilMemberProvider,
-  type GitOpResult,
-} from '@midnite/studio-shared';
+import type { Council, CouncilMember, CouncilMemberProvider } from '@midnite/studio-shared';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 
 import { bridge } from '../../services/bridge';
-import { useToastStore } from '../../store/toast-store';
+import { noBridge, reportFailure } from '../../services/bridge-result';
 
 /**
  * Councils are global — not scoped to a repo/worktree — so these keys carry
@@ -21,22 +15,6 @@ const COUNCIL_KEYS = {
   list: ['councils'] as const,
   detail: (id: string) => ['councils', id] as const,
 };
-
-/**
- * No preload under vitest/jsdom — the fallback every write mutation below
- * returns. Generic (rather than one shared constant) so each call site's
- * `GitOpResult<T>` keeps its own `value` shape instead of collapsing into a
- * union across every T this file uses.
- */
-function noBridge<T>(): GitOpResult<T> {
-  return failure('The app bridge is unavailable.');
-}
-
-function reportFailure<T>(result: GitOpResult<T>): void {
-  if (!result.ok && result.kind === 'error') {
-    useToastStore.getState().addToast({ message: result.message, status: 'error' });
-  }
-}
 
 export function useCouncils() {
   return useQuery({
