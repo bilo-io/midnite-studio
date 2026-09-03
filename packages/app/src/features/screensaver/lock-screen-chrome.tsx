@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react';
 
+import { LockScreenSlotIsland } from './lock-screen-slots';
 import { LockScreenWidgets } from './lock-screen-widgets';
 
 /**
@@ -44,23 +45,27 @@ export function LockScreenChrome() {
 
   return (
     <>
-      <div className="absolute left-8 top-8 z-10 text-left">
-        <div className="text-2xl font-semibold tracking-tight text-foreground">
-          {DAYS[now.getDay()]}
+      <LockScreenSlotIsland slot="top-left">
+        <div>
+          <div className="text-2xl font-semibold tracking-tight text-foreground">
+            {DAYS[now.getDay()]}
+          </div>
+          <div className="mt-0.5 text-sm text-muted-foreground tabular-nums">
+            {now.getDate()} {MONTHS[now.getMonth()]} {now.getFullYear()}
+          </div>
         </div>
-        <div className="mt-0.5 text-sm text-muted-foreground tabular-nums">
-          {now.getDate()} {MONTHS[now.getMonth()]} {now.getFullYear()}
-        </div>
-      </div>
+      </LockScreenSlotIsland>
 
-      <div className="absolute right-8 top-8 z-10 text-right">
-        <div className="font-mono text-3xl font-semibold tabular-nums tracking-tight text-foreground">
-          {time}
+      <LockScreenSlotIsland slot="top-right">
+        <div>
+          <div className="font-mono text-3xl font-semibold tabular-nums tracking-tight text-foreground">
+            {time}
+          </div>
+          <div className="mt-0.5 text-[11px] uppercase tracking-[0.2em] text-muted-foreground">
+            Local Time
+          </div>
         </div>
-        <div className="mt-0.5 text-[11px] uppercase tracking-[0.2em] text-muted-foreground">
-          Local Time
-        </div>
-      </div>
+      </LockScreenSlotIsland>
 
       <LockScreenWidgets />
     </>

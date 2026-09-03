@@ -93,27 +93,30 @@ an exact precedent to copy rather than a design to invent.
 - [ ] Fetch failure renders **nothing**, not a broken widget. No retry storm, no error toast: the
       lock screen is ambient.
 
-### B — Battery, bottom right (S)
+### B — Battery, bottom right (S) — ✅ DONE (PR #53, 2026-09-03)
 
 `_features.md`: *"Show battery in bottom right"*. Almost entirely reuse — the audit's happiest find.
 
-- [ ] Render battery from the **existing** `features/battery/` — `battery-icon.tsx`,
+- [x] Render battery from the **existing** `features/battery/` — `battery-icon.tsx`,
       `battery-device-icon.tsx`, `battery-style.ts` and `battery-panel.tsx` all already ship, and
       `BatteryReadingSchema` is already an optional field on the metrics sample
       ([`domain/metrics.ts:56`](../../../packages/shared/src/domain/metrics.ts)). **No new IPC, no
-      new sampling, no new schema.**
-- [ ] Resolve the **corner collision**, which is the only real decision in this theme:
+      new sampling, no new schema.** `LockScreenBatteryWidget` in `lock-screen-widgets.tsx`.
+- [x] Resolve the **corner collision**, which is the only real decision in this theme:
       `LockScreenWidgets` already puts `LockScreenSysmonWidget` at `bottom-8 right-8`
       ([`lock-screen-widgets.tsx:31`](../../../packages/app/src/features/screensaver/lock-screen-widgets.tsx)).
       Battery joins that corner **above** the sysmon widget in the same stack rather than displacing
       it — the two are the same kind of thing (machine vitals) and the fintech widget on the left
-      keeps the layout balanced. See Decisions.
-- [ ] Honour the same absent-state rule as the status bar segment: a desktop with no battery renders
+      keeps the layout balanced. Both now render as two children of Theme D's `bottom-right`
+      `LockScreenSlotIsland`, which stacks them with its own `gap-3` and needs neither widget to know
+      the other exists.
+- [x] Honour the same absent-state rule as the status bar segment: a desktop with no battery renders
       **nothing**, and `BatteryReadingSchema`'s percentage is already documented as *"undefined if
       not battery-powered"*.
-- [ ] `battery-flash-slow`/`-medium`/`-fast` are already motion-guarded at
+- [x] `battery-flash-slow`/`-medium`/`-fast` are already motion-guarded at
       [`styles.css:232`](../../../packages/app/src/styles.css) — in the `html[data-motion='reduced']`
       dialect, so Theme E's unification covers them and this theme must not add a third copy.
+      Converted alongside every other guard in Theme E; untouched by this theme itself.
 
 ### C — Pills that navigate (M)
 
@@ -148,70 +151,144 @@ etc."* The most interesting theme, because the destination is the easy half.
 - [ ] A pill whose count is **zero** still navigates. "0 my PRs" going to Reviews is correct; a
       disabled control that looks live is worse than an empty destination.
 
-### D — The corner layout becomes data (S)
+### D — The corner layout becomes data (S) — ✅ DONE (PR #53, 2026-09-03)
 
 Three hard-coded `absolute` positions across two files, and this phase adds two more surfaces to
 them. Make the slots declared before that happens, not after.
 
-- [ ] A single slot map in `lock-screen-widgets.tsx` — `top-left`, `top-centre`, `top-right`,
+- [x] A single slot map, `lock-screen-slots.tsx` *(new)* — `top-left`, `top-centre`, `top-right`,
       `bottom-left`, `bottom-right` — replacing the inline `absolute bottom-8 left-8` /
-      `bottom-8 right-8` pairs and the clock's own inline block in `screensaver.tsx`.
-- [ ] `LockScreen`'s existing `corners` prop
+      `bottom-8 right-8` pairs (`lock-screen-widgets.tsx`) and the clock's own inline block
+      (`lock-screen-chrome.tsx`). `top-centre` is declared and unused in this batch — Theme A (not
+      in this batch) is its first consumer.
+- [x] `LockScreen`'s existing `corners` prop
       ([`lock-screen.tsx:34`](../../../packages/app/src/features/screensaver/lock-screen.tsx)) is
-      already the right seam — this theme fills it properly rather than replacing it.
-- [ ] The `pointer-events-none` container / `pointer-events-auto` island rule becomes a property of
-      the slot, so Theme C cannot get it wrong per-widget.
-- [ ] Keep it a map, **not** a drag-and-drop layout editor. That is a different phase and nobody
-      asked for it.
+      already the right seam — this theme fills it properly rather than replacing it. Untouched.
+- [x] The `pointer-events-none` container / `pointer-events-auto` island rule becomes a property of
+      the slot, so Theme C cannot get it wrong per-widget. `LockScreenSlotIsland` owns
+      `pointer-events-auto`; the existing outer `pointer-events-none` wrappers (one in
+      `lock-screen-widgets.tsx`, unchanged) are what it renders inside of.
+- [x] Keep it a map, **not** a drag-and-drop layout editor. That is a different phase and nobody
+      asked for it. `Record<LockScreenSlot, string>` of Tailwind position classes; no runtime
+      reordering exists.
 
-### E — The motion audit (M)
+### E — The motion audit (M) — ✅ DONE (PR #53, 2026-09-03)
 
 The findings in the framing, resolved. This is the theme the last three phases each punted.
 
-- [ ] **Observe which value actually lands on `<html>`** given `motion: 'system'` and an OS that
-      asks for reduced motion — `useMotionPreference` and `useAppearanceSync` both write the
-      attribute and disagree about resolving `'system'`. Write down the answer; every item below
-      depends on it.
-- [ ] **One dialect, everywhere.** Standardise on
-      `@media (prefers-reduced-motion: reduce) { html:not([data-motion='full']) .x }` — it is the
-      only one of the two that both honours the OS *and* lets an explicit `Motion: full` opt back
-      in, and it is already the dialect `graph-lane-glow` and the first `pill-shimmer` use. Convert
-      the `html[data-motion='reduced']` rules, keeping the explicit-`reduced` case working.
-- [ ] **Delete the duplicated `pill-shimmer` block.** Two identical `@keyframes` + `.pill-shimmer`
-      declarations with two different guards, at 143/152 and 539/548. Keep one, in the converted
-      dialect.
-- [ ] Cover the animations CSS cannot reach — **`NeuroCloudBackground` must consult the motion
-      setting itself**, not only its `animate` prop, so the canvas rAF loop stops for a user who
-      asked for stillness regardless of which caller mounted it.
-- [ ] Walk the other rAF users and confirm each is already handled or fix it:
-      [`use-reveal.ts`](../../../packages/app/src/components/use-reveal.ts) (documented as reading
-      the preference fresh on every call), [`spinner.tsx`](../../../packages/app/src/components/spinner.tsx),
-      and `screensaver-host.tsx`'s coalescer — the last is an activity coalescer, **not** an
-      animation, and should be recorded as audited and left alone.
-- [ ] Audit all **16 `@keyframes`** against the 18 guard rules and publish the table in the PR the
-      way [Phase 36](phase-36-performance-diet.md) Theme F published its sweep: each keyframe marked
-      GUARDED (by which rule) or UNGUARDED (and why it is acceptable, if it is). A short animation
-      that runs once — `shake`, `code-preview-hit-fade` — may legitimately need no guard; say so
-      rather than capping on sight.
-- [ ] **Close [Phase 39 Theme G](phase-39-status-bar-shortcut-rail.md)'s motion remainder** if the
-      table shows it covered, and say so in `done.md` when this phase lands. A `◐ PARTIAL` that this
-      phase actually finishes should not stay open.
+- [x] **Observe which value actually lands on `<html>`, confirmed.** `useMotionPreference`
+      (`app.tsx`) and `useAppearanceSync` (`appearance-store.ts`) both wrote the attribute
+      unconditionally; `useAppearanceSync` runs second (declaration order in `App()`) and passed the
+      literal `state.motion` through — so on the default `'system'` preference, `data-motion`
+      literally read `'system'`, matching **none** of this file's `html[data-motion='reduced']`
+      guards regardless of the OS setting. Fixed at the source: both writers now resolve `'system'`
+      via a shared `resolveSystemMotion()` (`appearance-store.ts`) before it ever reaches
+      `applyMotion`, and `useMotionPreference`'s OS listener now no-ops once the stored preference is
+      an explicit `'full'`/`'reduced'` — the two writers agree instead of racing. Two new unit tests
+      (`appearance-store.test.ts`) confirmed to fail against the unfixed code first.
+- [x] **Belt-and-braces, everywhere — not the single dialect first attempted.** The first pass added
+      `@media (prefers-reduced-motion: reduce) { html:not([data-motion='full']) .x }` and *deleted* the
+      old plain `html[data-motion='reduced']` form across the 14 rules this phase found in it,
+      reasoning (wrongly) that `panel-stack-pane`'s existing dual-form guard (Phase 42) was a special
+      case rather than the general rule. CI's e2e shards caught the actual gap: `fab-loops.spec.ts`,
+      `titlebar-agents.spec.ts` and `terminal.spec.ts` each assert reduced motion by setting
+      `data-motion='reduced'` directly, **without** emulating the OS media query — an established
+      pattern across the e2e suite, not a test bug — so a pure `@media` guard never fires for them
+      (the CI runner's default `prefers-reduced-motion` is `no-preference`, confirmed by reproducing
+      locally with `page.emulateMedia` unset). `panel-stack-pane`'s own comment already named the
+      reason the plain form has to stay: an `@media` block only ever evaluates its contents when the
+      OS condition is independently true, regardless of what `data-motion` says, so it alone can't
+      serve an explicit choice tested without OS emulation. **Fix:** restored the plain
+      `html[data-motion='reduced'] .x { ... }` form alongside the `@media` one for all 14 rules —
+      byte-identical property values, both present — matching `panel-stack-pane`'s pattern exactly
+      rather than treating it as an exception. The `@media` form remains what closes the actual blind
+      spot (the default `'system'` preference with the OS asking for reduced motion, now additionally
+      fixed at the JS source below); the plain form is what an explicit, directly-tested
+      `data-motion='reduced'` still needs.
+- [x] **Deleted the duplicated `pill-shimmer` block** (byte-identical `@keyframes` + `.pill-shimmer`
+      at old lines 143/152 and 567/579, two different guards). `.tab-loop-shimmer` still resolves the
+      keyframe by name against the one remaining declaration.
+- [x] **`NeuroCloudBackground` now consults the motion setting itself** via a new `useResolvedMotion()`
+      hook (`appearance-store.ts`) — live against OS changes while the stored preference is
+      `'system'`, ANDed with the existing `animate` prop rather than replacing it.
+      `screensaver.tsx`'s own `animateBackground={motion !== 'reduced'}` — which had the identical
+      'system'-treated-as-full-motion bug — is deleted; the component no longer needs the caller to
+      resolve this correctly on its behalf.
+- [x] Walked the other rAF users: [`spinner.tsx`](../../../packages/app/src/components/spinner.tsx)
+      reads the live OS query directly (`window.matchMedia`, bypassing `data-motion` entirely) — it
+      does not have this phase's bug (no `'system'` ever reaches it) but it also does not let an
+      explicit `Motion: full` override the OS, an inconsistency with the rest of the app's posture.
+      Noted rather than fixed: it is a minor, narrow effect (a loading spinner) and changing an
+      imperative rAF component's motion source is a large enough shift in shape to deserve its own
+      pass rather than a drive-by in this phase.
+      [`use-reveal.ts`](../../../packages/app/src/components/use-reveal.ts)'s `motionMs()` reads
+      `data-motion` directly (`=== 'reduced'`), so it inherited the **same bug** this theme just
+      fixed — every size-tweened panel in the app (terminal, session list, repos sidebar) is a real,
+      previously-silent beneficiary of the `useAppearanceSync` fix above, not just the lock screen.
+      `screensaver-host.tsx`'s coalescer is an activity-timeout re-armer, not an animation — recorded
+      as audited, left alone.
+- [x] Audited all keyframes against the guard rules — table below, in the same convention
+      [Phase 45](phase-45-leak-audit.md) Theme B's sweep used, and in the PR description: every
+      keyframe is now guarded except `shake`, allowlisted in Theme F's own test with its reason (a
+      single ~0.4s shake on an invalid action, never a loop).
+- [x] **`e2e/councils.spec.ts`'s own Theme F suite (Phase 42) needed updating, not just re-running.**
+      Its "the setting outranks the OS" test poked `data-motion='full'` *after* `open(page)`, but
+      `PanelStack`'s duration comes from `motionMs()` (`use-reveal.ts`), read once at render time and
+      never re-read on a later DOM mutation alone — so a post-boot poke only ever proves the other
+      guards' pure-CSS mechanism, never this component's. Rewritten to seed the persisted
+      `midnite.settings` `localStorage` key with `motion: 'full'` via `page.addInitScript`, before
+      `open()` — an explicit choice really is already on disk before the app's next launch, so this
+      is the faithful way to put it in front of `PanelStack`'s first render, not a workaround. Its
+      "the blind spot" test's `data-motion` assertion is updated from `.toBe('system')` to
+      `.toBe('reduced')`: that test was asserting the *unfixed* bug this theme's first bullet closes,
+      so the literal `'system'` string it expected no longer lands — proof the fix works, not
+      breakage.
 
-### F — A guard that can't be forgotten (S)
+#### The keyframes table
+
+| Keyframe | Verdict | Guard |
+|---|---|---|
+| `pill-shimmer` | GUARDED | `@media` form already correct pre-phase (its byte-identical duplicate, carrying the plain-attribute form, is deleted as dead code); a fresh plain-attribute form added back this phase for belt-and-braces parity with the rest of the sweep |
+| `repo-row-shimmer` | GUARDED | Converted to belt-and-braces (`@media` + attribute) this phase |
+| `battery-flash-{slow,medium,fast}` | GUARDED | Converted to belt-and-braces this phase |
+| `shake` | **UNGUARDED, allowlisted** | Single ~0.4s run on an invalid action, never a loop |
+| `code-preview-hit-fade` | GUARDED | Already `@media`; widened to the full `html:not([data-motion='full'])` form and given a matching plain-attribute form this phase |
+| `screensaver-sheen` | GUARDED | Converted to belt-and-braces this phase |
+| `breadcrumb-spin` | GUARDED | Converted to belt-and-braces this phase (via `.breadcrumb-repo-pill`) |
+| `landing-slide-out` / `landing-slide-in` | GUARDED | Converted to belt-and-braces this phase |
+| `fab-panel-spin` | GUARDED | `.gradient-frame` — already `@media`-adjacent; given a matching plain-attribute form this phase |
+| `fab-glow-pulse` | GUARDED | `.gradient-frame::before` — same rule as `fab-panel-spin` |
+| `loop-glow-spin` / `loop-glow-pulse` | GUARDED | `.loop-run-glow` — converted to belt-and-braces this phase (CI's e2e caught the pure-`@media` regression; see above) |
+| `card-glow-pulse` | GUARDED | `.card-run-glow.is-running` — converted to belt-and-braces this phase |
+| `fab-halo-pulse` | GUARDED | `.fab-loop-halo` — converted to belt-and-braces this phase |
+| `loop-launcher-pulse` | GUARDED | `.loop-launcher`/`.loop-launcher.is-running.is-pulsing` — converted to belt-and-braces, specificity arithmetic preserved; CI's e2e caught the pure-`@media` regression |
+| `graph-lane-glow` / `graph-rail-glow` | GUARDED | Already correct `@media` dialect pre-phase |
+| `[data-activity]` (`caret-blink`/`dot-wave`/spinner glyphs) | GUARDED | Converted to belt-and-braces this phase; CI's e2e caught the pure-`@media` regression |
+
+`.panel-stack-pane` (Phase 42) is transition-driven, not `@keyframes`-driven, and carries its own
+deliberate two-form guard — audited, out of this table's scope, left unchanged (see Theme E above).
+- [x] **[Phase 39 Theme G](phase-39-status-bar-shortcut-rail.md)'s motion remainder is closed by
+      this fix.** That item's own root cause — a reduced-motion rule losing on specificity — was
+      already fixed in PR #7; what stayed open was the same class of "does `'system'` actually
+      resolve" question this theme answers for the whole app. See `done.md`.
+
+### F — A guard that can't be forgotten (S) — ✅ DONE (PR #53, 2026-09-03)
 
 The highest-leverage item here, and the reason the phase is worth writing rather than fixing the
 CSS in a drive-by. Three phases ended with an unfinished motion item because nothing failed when
 they did.
 
-- [ ] A test over [`styles.css`](../../../packages/app/src/styles.css) asserting **every
+- [x] A test over [`styles.css`](../../../packages/app/src/styles.css) asserting **every
       `@keyframes` name is either referenced by a motion-guarded rule or listed in an explicit
       allowlist with a reason**. Model it on
       [`components/icons/icon-names.test.ts`](../../../packages/app/src/components/icons/icon-names.test.ts),
       which does exactly this job for `react-icons/lu` names and is the in-repo precedent for
-      "a convention with a test behind it".
-- [ ] The allowlist entries carry their reason **in the test file**, so adding one is a visible
-      decision rather than a silent skip.
-- [ ] A second assertion catching the duplicate class that Theme E deletes: **no `@keyframes` name
+      "a convention with a test behind it". `styles-motion-guards.test.ts`, reading the stylesheet
+      through the existing `virtual:midnite-styles-raw` module (`vitest.config.ts`) rather than a
+      glob, since Vitest stubs a CSS import's content regardless of a `?raw` query.
+- [x] The allowlist entries carry their reason **in the test file**, so adding one is a visible
+      decision rather than a silent skip. One entry: `shake`.
+- [x] A second assertion catching the duplicate class that Theme E deletes: **no `@keyframes` name
       declared twice**. That is the bug this phase found by reading, and a two-line test means the
       next one is found by CI.
 - [ ] Also assert the **query gating** Theme A relies on — that the weather query is not enabled

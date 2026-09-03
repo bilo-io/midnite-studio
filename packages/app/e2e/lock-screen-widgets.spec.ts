@@ -48,6 +48,7 @@ test.describe('lock screen widgets', () => {
           memory: 60,
           gpu: 15,
           cpuInfo: { cores: 8, load1: 1.2 },
+          battery: { hasBattery: true, percent: 76, isCharging: false, devices: [] },
         },
         {
           at: 2000,
@@ -55,6 +56,7 @@ test.describe('lock screen widgets', () => {
           memory: 62,
           gpu: 18,
           cpuInfo: { cores: 8, load1: 1.5 },
+          battery: { hasBattery: true, percent: 76, isCharging: false, devices: [] },
         },
       ],
     });
@@ -79,6 +81,27 @@ test.describe('lock screen widgets', () => {
     await expect(fintech).toBeVisible();
     await expect(fintech).toContainText('Fintech Cycle');
 
+    // Phase 46 Theme B — battery stacks above sysmon in the same bottom-right slot.
+    const battery = page.getByTestId('lock-battery-widget');
+    await expect(battery).toBeVisible();
+    await expect(battery).toContainText('76%');
+    const batteryBox = await battery.boundingBox();
+    const sysmonBox = await sysmon.boundingBox();
+    expect(batteryBox && sysmonBox && batteryBox.y < sysmonBox.y).toBe(true);
+
     await page.screenshot({ path: '/tmp/lock-screen-widgets.png' });
+  });
+
+  test('renders nothing for battery on a machine with no battery', async ({ page }) => {
+    await mockCoinGecko(page);
+    await installMockBridge(page, {
+      ...fixtures,
+      metricsSamples: [{ at: 1000, battery: { hasBattery: false, devices: [] } }],
+    });
+    await page.goto('/');
+
+    await page.getByRole('button', { name: 'Lock screen' }).click();
+    await expect(page.getByTestId('lock-sysmon-widget')).toBeVisible();
+    await expect(page.getByTestId('lock-battery-widget')).toHaveCount(0);
   });
 });

@@ -160,6 +160,10 @@
   }
 }
 
+html[data-motion='reduced'] .pill-shimmer {
+  animation: none;
+}
+
 /* Selected Repo Row — gradient shimmer in the repos panel accordion header.
  * A moving highlight over the same `bg-accent/60` the row already wore, so the
  * resting look is unchanged and the sweep is the only new thing to notice.
@@ -199,6 +203,14 @@
   animation: repo-row-shimmer 24.5s ease-in-out infinite;
 }
 
+@media (prefers-reduced-motion: reduce) {
+  html:not([data-motion='full']) .repo-row-shimmer {
+    animation: none;
+    background-image: none;
+    background-color: hsl(var(--accent) / 0.6);
+  }
+}
+
 html[data-motion='reduced'] .repo-row-shimmer {
   animation: none;
   background-image: none;
@@ -227,6 +239,14 @@ html[data-motion='reduced'] .repo-row-shimmer {
 
 .battery-flash-fast {
   animation: battery-flash 0.4s ease-in-out infinite;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  html:not([data-motion='full']) .battery-flash-slow,
+  html:not([data-motion='full']) .battery-flash-medium,
+  html:not([data-motion='full']) .battery-flash-fast {
+    animation: none;
+  }
 }
 
 html[data-motion='reduced'] .battery-flash-slow,
@@ -314,10 +334,15 @@ html[data-motion='reduced'] .battery-flash-fast {
   }
 }
 @media (prefers-reduced-motion: reduce) {
-  .code-preview-hit {
+  html:not([data-motion='full']) .code-preview-hit {
     animation: none;
     background-color: hsl(var(--primary) / 0.25);
   }
+}
+
+html[data-motion='reduced'] .code-preview-hit {
+  animation: none;
+  background-color: hsl(var(--primary) / 0.25);
 }
 
 /* Phase 30 Theme F — the terminal's activity glyphs, under reduced motion.
@@ -330,8 +355,19 @@ html[data-motion='reduced'] .battery-flash-fast {
  * spinner survived, because its final frame (`rotate(360deg)`) looks like its
  * first. Removing the animation outright — rather than overriding each held
  * property — is what lets every glyph fall back to the static appearance its
- * own base classes already describe; `data-motion='full'` and the unset
- * default are untouched, since this selector can only match under 'reduced'. */
+ * own base classes already describe.
+ *
+ * Converted to the one dialect (Phase 46 Theme E): the plain attribute form
+ * only ever matched an EXPLICIT `Motion: reduced`, never the default
+ * `'system'` with the OS asking for reduced motion — the same gap this whole
+ * phase exists to close. */
+@media (prefers-reduced-motion: reduce) {
+  html:not([data-motion='full']) [data-activity],
+  html:not([data-motion='full']) [data-activity] * {
+    animation-name: none !important;
+  }
+}
+
 html[data-motion='reduced'] [data-activity],
 html[data-motion='reduced'] [data-activity] * {
   animation-name: none !important;
@@ -549,28 +585,25 @@ section.bg-card\/60 {
   }
 }
 
+@media (prefers-reduced-motion: reduce) {
+  html:not([data-motion='full']) .screensaver-title {
+    animation: none;
+  }
+}
+
 html[data-motion='reduced'] .screensaver-title {
   animation: none;
 }
 
-/* Screensaver Status Pill Shimmer Stagger */
-@keyframes pill-shimmer {
-  0% {
-    transform: translateX(-160%);
-  }
-  100% {
-    transform: translateX(160%);
-  }
-}
-
-.pill-shimmer {
-  animation: pill-shimmer 2.4s ease-in-out infinite;
-  animation-delay: calc((var(--pill-i, 0) - 2) * 0.4s);
-}
-
-html[data-motion='reduced'] .pill-shimmer {
-  animation: none;
-}
+/*
+ * Phase 46 Theme E: this used to redeclare `@keyframes pill-shimmer` and
+ * `.pill-shimmer` byte-for-byte identically to the copy above (line 143),
+ * each carrying a DIFFERENT motion guard — the default `@media` dialect up
+ * there, the plain `html[data-motion='reduced']` form here, which never
+ * fired for the default `'system'` preference. Deleted rather than
+ * reconciled: one declaration, already correctly guarded, is what both
+ * `.pill-shimmer` and `.tab-loop-shimmer` below need.
+ */
 
 /* FAB Loop Tab Shimmer — a running loop's tab cascades the same sweep as the
  * screensaver pills above, tinted per-loop via an inline gradient rather than
@@ -579,6 +612,12 @@ html[data-motion='reduced'] .pill-shimmer {
 .tab-loop-shimmer {
   animation: pill-shimmer 2.4s ease-in-out infinite;
   animation-delay: calc(var(--tab-i, 0) * 0.3s);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  html:not([data-motion='full']) .tab-loop-shimmer {
+    animation: none;
+  }
 }
 
 html[data-motion='reduced'] .tab-loop-shimmer {
@@ -635,6 +674,12 @@ html[data-motion='reduced'] .tab-loop-shimmer {
 
 .breadcrumb-repo-pill:hover * {
   color: #ffffff !important;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  html:not([data-motion='full']) .breadcrumb-repo-pill {
+    animation: none;
+  }
 }
 
 html[data-motion='reduced'] .breadcrumb-repo-pill {
@@ -704,6 +749,13 @@ html[data-motion='reduced'] .breadcrumb-repo-pill {
  * skips both phases, so these classes are never applied; the rule is the
  * belt-and-braces half, matching how every other motion in this file is
  * disabled. */
+@media (prefers-reduced-motion: reduce) {
+  html:not([data-motion='full']) .landing-slide-out,
+  html:not([data-motion='full']) .landing-slide-in {
+    animation: none;
+  }
+}
+
 html[data-motion='reduced'] .landing-slide-out,
 html[data-motion='reduced'] .landing-slide-in {
   animation: none;
@@ -1423,11 +1475,6 @@ html[data-window-focused='false'] .gradient-frame::before {
   animation-play-state: paused;
 }
 
-html[data-motion='reduced'] .gradient-frame {
-  animation: none;
-  transition: none;
-}
-
 /*
  * Phase 37 Theme F — reduced motion drops all three of this phase's new
  * motions (rotation, pulse, the 0.5s sweep) but keeps the tab's colour: the
@@ -1436,6 +1483,23 @@ html[data-motion='reduced'] .gradient-frame {
  * `--fab-glow-edge: 30px`, `opacity` back to the pseudo's own base value —
  * rather than whatever frame the animation happened to die on.
  */
+@media (prefers-reduced-motion: reduce) {
+  html:not([data-motion='full']) .gradient-frame {
+    animation: none;
+    transition: none;
+  }
+
+  html:not([data-motion='full']) .gradient-frame::before {
+    animation-name: none !important;
+    transition: none;
+  }
+}
+
+html[data-motion='reduced'] .gradient-frame {
+  animation: none;
+  transition: none;
+}
+
 html[data-motion='reduced'] .gradient-frame::before {
   animation-name: none !important;
   transition: none;
@@ -1579,6 +1643,14 @@ html[data-motion='reduced'] .gradient-frame::before {
     linear-gradient(#f59e0b, #f59e0b);
 }
 
+@media (prefers-reduced-motion: reduce) {
+  html:not([data-motion='full']) .loop-run-glow {
+    animation: none;
+    transition: none;
+    box-shadow: 0 0 10px rgba(236, 72, 153, 0.4);
+  }
+}
+
 html[data-motion='reduced'] .loop-run-glow {
   animation: none;
   transition: none;
@@ -1637,6 +1709,13 @@ html[data-motion='reduced'] .loop-run-glow {
 */
 html[data-window-focused='false'] .card-run-glow.is-running {
   animation-play-state: paused;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  html:not([data-motion='full']) .card-run-glow.is-running {
+    animation: none;
+    box-shadow: 0 0 8px var(--card-glow-color);
+  }
 }
 
 html[data-motion='reduced'] .card-run-glow.is-running {
@@ -1755,6 +1834,13 @@ html[data-motion='reduced'] .card-run-glow.is-running {
   -webkit-mask-image: none;
 }
 
+@media (prefers-reduced-motion: reduce) {
+  html:not([data-motion='full']) .fab-loop-halo {
+    animation: none;
+    transition: none;
+  }
+}
+
 html[data-motion='reduced'] .fab-loop-halo {
   animation: none;
   transition: none;
@@ -1840,11 +1926,11 @@ html[data-motion='reduced'] .fab-loop-halo {
 }
 
 /* Reduced motion drops the pulse and keeps the glow — the same trade
- * `html[data-motion='reduced'] .loop-run-glow` already makes. `animation: none`
+ * `.loop-run-glow`'s own guard already makes. `animation: none`
  * rather than `animation-play-state: paused`: a paused animation still holds a
  * compositor layer.
  *
- * **The selector has to name all three classes.** `html[data-motion='reduced']
+ * **The selector has to name all three classes.** `html:not([data-motion='full'])
  * .loop-launcher` is (0,2,1) and LOSES to `.loop-launcher.is-running.is-pulsing`
  * at (0,3,0), so the first version of this rule could never fire — and it looked
  * fine only because `@bilo-io/shell`'s `animation-duration: 0.001ms !important`
@@ -1854,7 +1940,17 @@ html[data-motion='reduced'] .fab-loop-halo {
  * `animation-name` read through the cascade) is what catches it. The
  * `.loop-run-glow` precedent this was cribbed from only clears its own
  * competitor — `.loop-run-glow.is-thinking`, (0,2,0) — by one point; adding a
- * third class to the launcher's running selector consumed that margin. */
+ * third class to the launcher's running selector consumed that margin.
+ * Converting to the `@media` dialect (Phase 46 Theme E) does not change any
+ * of this arithmetic: `:not([data-motion='full'])` carries the same (0,1,0)
+ * its attribute-selector argument always did. */
+@media (prefers-reduced-motion: reduce) {
+  html:not([data-motion='full']) .loop-launcher,
+  html:not([data-motion='full']) .loop-launcher.is-running.is-pulsing {
+    animation-name: none;
+  }
+}
+
 html[data-motion='reduced'] .loop-launcher,
 html[data-motion='reduced'] .loop-launcher.is-running.is-pulsing {
   animation-name: none;
