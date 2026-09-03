@@ -2,6 +2,24 @@
 
 <!-- Append one entry per landed phase/PR: date, phase, PR link, one-line summary. -->
 
+## 2026-09-03 — Phase 49 Theme E — Update pre-flight tooltip + packaged-build template check
+
+[PR #104]. Closes out Theme E's last two open items, and with them the phase's build half.
+
+- [x] **The pre-flight tooltip.** Update's `buttonLabel` names the build cost
+      ("no packaged build yet — will run dist first, several minutes, ~200MB") when
+      `hasPackagedBuild` is false, re-read once the Update session's own terminal state reaches
+      `exited`. Surfaced in the tooltip only, not a `ContextMenu` `description` — that component's
+      own rule is every row of a menu is described or none, and this menu's rows (Setup, Update, the
+      four lifecycle verbs) are all undescribed today; singling Update out would have broken it.
+- [x] **The packaged-build assertion.** Extends the existing `verify-dist.mjs`, which already runs
+      in CI's `package` job (`moon run desktop:dist` → `desktop:verify-dist`, macOS-only, on `main`)
+      — no new script, no new CI cost. Asserts a specific file,
+      `Contents/Resources/templates/midnite/.midnite/tasks/_INDEX.md`, so a truncated
+      `extraResources` copy still fails rather than passing on an empty directory.
+      `template-path.test.ts`'s mocked coverage of `templateRoot()`'s packaged branch already
+      existed from Theme A; this closes the separate real-build gap a mock can't reach.
+
 ## 2026-09-03 — Phase 43 Theme F — the workflow node inspector
 
 [PR #102]. The canvas's first right-hand config pane — the five node kinds `#100` shipped had
