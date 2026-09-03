@@ -104,4 +104,47 @@ test.describe('lock screen widgets', () => {
     await expect(page.getByTestId('lock-sysmon-widget')).toBeVisible();
     await expect(page.getByTestId('lock-battery-widget')).toHaveCount(0);
   });
+
+  test('renders nothing for weather until a location is set (Phase 46 Theme A)', async ({ page }) => {
+    await mockCoinGecko(page);
+    await installMockBridge(page, fixtures);
+    await page.goto('/');
+
+    await page.getByRole('button', { name: 'Lock screen' }).click();
+    await expect(page.getByTestId('lock-screen-widgets')).toBeVisible();
+    await expect(page.getByTestId('lock-weather-widget')).toHaveCount(0);
+  });
+
+  test('shows temperature, condition and location once a location is set', async ({ page }) => {
+    await mockCoinGecko(page);
+    await page.route('https://geocoding-api.open-meteo.com/v1/search**', (route) =>
+      route.fulfill({
+        json: { results: [{ name: 'London', latitude: 51.5, longitude: -0.13, country: 'United Kingdom' }] },
+      }),
+    );
+    await page.route('https://api.open-meteo.com/v1/forecast**', (route) =>
+      route.fulfill({ json: { current: { temperature_2m: 18.4, weather_code: 0 } } }),
+    );
+    await page.addInitScript(() => {
+      window.localStorage.setItem(
+        'midnite.weather',
+        JSON.stringify({
+          state: {
+            location: { name: 'London', latitude: 51.5, longitude: -0.13, country: 'United Kingdom' },
+            unit: 'celsius',
+          },
+          version: 1,
+        }),
+      );
+    });
+    await installMockBridge(page, fixtures);
+    await page.goto('/');
+
+    await page.getByRole('button', { name: 'Lock screen' }).click();
+    const weather = page.getByTestId('lock-weather-widget');
+    await expect(weather).toBeVisible();
+    await expect(weather).toContainText('18°C');
+    await expect(weather).toContainText('Clear sky');
+    await expect(weather).toContainText('London, United Kingdom');
+  });
 });
