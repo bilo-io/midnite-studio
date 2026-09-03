@@ -226,6 +226,15 @@ export const WorkflowNodeRunSchema = z.object({
   output: z.unknown().optional(),
   /** Set when the captured output hit the per-node cap and was cut off. */
   truncated: z.boolean().default(false),
+  /**
+   * A `condition` node whose predicate did not hold.
+   *
+   * Its own field rather than a status, because the node itself ran and
+   * answered — marking it `skipped` would claim the step never happened, which
+   * is the opposite of what a false predicate means. What it gates is
+   * everything *downstream*, which the engine then marks `skipped`.
+   */
+  gatedDownstream: z.boolean().default(false),
   error: z.string().optional(),
   startedAt: z.number().int().nonnegative().optional(),
   endedAt: z.number().int().nonnegative().optional(),

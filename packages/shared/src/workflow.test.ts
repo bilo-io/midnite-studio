@@ -77,7 +77,16 @@ describe('WorkflowRunSchema', () => {
       workflowId: 'w1',
       workflowName: 'Two steps',
       status: 'running' as const,
-      nodes: [{ nodeId: 'a', kind: 'http' as const, label: 'Fetch', status: 'pending' as const, truncated: false }],
+      nodes: [
+        {
+          nodeId: 'a',
+          kind: 'http' as const,
+          label: 'Fetch',
+          status: 'pending' as const,
+          truncated: false,
+          gatedDownstream: false,
+        },
+      ],
       edges: [{ id: 'e1', from: 'a', to: 'b' }],
       startedAt: 5,
     };
