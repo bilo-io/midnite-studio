@@ -2,6 +2,45 @@
 
 <!-- Append one entry per landed phase/PR: date, phase, PR link, one-line summary. -->
 
+## 2026-09-03 — Phase 43 Themes E, H — the workflow canvas and its list/persistence
+
+[PR #100]. Fills in the renderer half of Workflows: Theme A–D's contract and engine (PR #92) had
+nothing to build against or look at until this landed. Theme E is the phase's largest risk — pan/zoom,
+free 2-D drag, multi-select and undo/redo had zero precedent anywhere in this renderer.
+
+- [x] **Theme E — the canvas.** `features/workflows/canvas/workflow-canvas.tsx`, a hand-rolled SVG
+      with the geometry split pure (`workflow-geometry.ts`, `workflow-path.ts`), mirroring
+      `metric-geometry.ts`/`metric-path.ts`'s own split. Pan via plain wheel/trackpad scroll,
+      `Ctrl`/`Cmd`-wheel zoom about the pointer clamped to `[0.25, 2]` (proven by a
+      `workflow-path.test.ts` case that the graph point under the cursor stays fixed across a zoom
+      change), space-drag and middle-drag panning, raw-pointer node drag (not `@dnd-kit`) snapping to
+      a 16px grid on drop, edge creation by dragging port-to-port with a live preview and draw-time
+      cycle rejection, single/shift/marquee selection, `Delete`/`Escape`/`Cmd+A`, a 50-entry
+      undo/redo ring buffer, and viewport culling so a 200-node fixture stays under 300 rendered DOM
+      nodes. Cycle detection (`findCycleEdge`/`wouldCycle`) is hoisted into `shared/src/workflow.ts`
+      so the canvas and the engine can never disagree about what a cycle is — the engine's own
+      copy was deleted in favour of it.
+- [x] **Theme H — persistence and the list (the renderer half; the two stores + IPC handlers had
+      already landed with B/D in PR #92).** `workflows-view.tsx` replaces the `<Placeholder>`,
+      inserted before `app.tsx`'s `!selectedRepoId` guard alongside Councils since a workflow is
+      global. `workflow-list.tsx` is the left rail: create/duplicate/delete, import/export as JSON
+      (fresh ids assigned on import so importing the same file twice never collides), all via
+      `use-workflow.ts` query hooks kept feature-local rather than in `queries.ts`, matching why
+      councils are absent from that file. `noBridge`/`reportFailure` — duplicated verbatim in both
+      council hook files — are hoisted into `services/bridge-result.ts` and re-exported from all
+      three call sites now that workflows needed a third copy. Last-run status per row is deferred to
+      Theme G, which owns the run-history data it would read from.
+- **Two real bugs fixed along the way, neither part of either theme's own scope:** a stray NUL byte
+  had corrupted `shared/src/workflow.ts` (`` `${edge.from}\x00${edge.to}` `` instead of `:` in the
+  edge-dedup key), which made the file register as binary to some tooling; and `WorkflowEditor`'s
+  auto-save fed the canvas the raw `workflow` prop rather than an optimistic local copy, so two edits
+  inside the 500ms save debounce (e.g. drag a node, then immediately add another) computed the
+  second edit from stale pre-round-trip data and silently dropped the first — caught directly by the
+  new e2e "connects two nodes" spec.
+- Playwright coverage: `e2e/workflows.spec.ts` (create, add/connect/select/delete/undo nodes, cycle
+  rejection, duplicate, delete-with-confirm) and `e2e/workflows-shots.spec.ts` (the empty list, a
+  connected canvas, a selected node), plus a `workflow` domain added to `mock-bridge.ts`.
+
 ## 2026-09-03 — Phase 50 Themes A, B, C, D — Kanban follow-through
 
 [PR #93]. Four gaps Phases 40–42 each named and declined to build, batched together because A, B

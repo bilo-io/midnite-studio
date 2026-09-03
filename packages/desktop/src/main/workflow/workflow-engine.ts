@@ -4,6 +4,7 @@ import {
   WORKFLOW_NODE_CONCURRENCY,
   WORKFLOW_NODE_TIMEOUT_MS,
   failure,
+  findCycleEdge,
   ok,
   validateWorkflow,
   type GitOpResult,
@@ -136,38 +137,11 @@ function buildGraph(nodeIds: readonly string[], edges: readonly WorkflowEdge[]):
   return { parents, children };
 }
 
-/**
- * Kahn's algorithm, run for its *remainder* rather than its order.
- *
- * A non-empty remainder after the queue drains **is** a cycle, and the first
- * edge among the remaining nodes is the one worth naming — a hang is not an
- * acceptable way to discover this, so it runs before the first node launches.
- */
-function findCycleEdge(
-  nodeIds: readonly string[],
-  edges: readonly WorkflowEdge[],
-): WorkflowEdge | null {
-  const graph = buildGraph(nodeIds, edges);
-  const inDegree = new Map<string, number>(
-    nodeIds.map((id) => [id, graph.parents.get(id)?.length ?? 0]),
-  );
-  const queue = nodeIds.filter((id) => (inDegree.get(id) ?? 0) === 0);
-  let settled = 0;
-
-  while (queue.length > 0) {
-    const id = queue.shift()!;
-    settled += 1;
-    for (const child of graph.children.get(id) ?? []) {
-      const next = (inDegree.get(child) ?? 0) - 1;
-      inDegree.set(child, next);
-      if (next === 0) queue.push(child);
-    }
-  }
-
-  if (settled === nodeIds.length) return null;
-  const stuck = new Set(nodeIds.filter((id) => (inDegree.get(id) ?? 0) > 0));
-  return edges.find((edge) => stuck.has(edge.from) && stuck.has(edge.to)) ?? null;
-}
+// `findCycleEdge` itself now lives in `shared/src/workflow.ts` — the canvas
+// needs the identical check and `app` may not import `desktop`, so this is
+// the one piece of the engine hoisted there rather than duplicated. A hang is
+// not an acceptable way to discover a cycle, so it still runs before the
+// first node launches, below.
 
 // --- run lifecycle -----------------------------------------------------------
 

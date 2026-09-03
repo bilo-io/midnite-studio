@@ -1,8 +1,8 @@
-import { failure, type CouncilRun, type GitOpResult } from '@midnite/studio-shared';
+import type { CouncilRun } from '@midnite/studio-shared';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 
 import { bridge } from '../../services/bridge';
-import { useToastStore } from '../../store/toast-store';
+import { noBridge, reportFailure } from '../../services/bridge-result';
 
 const RUN_KEYS = {
   forCouncil: (councilId: string) => ['councils', councilId, 'runs'] as const,
@@ -11,22 +11,6 @@ const RUN_KEYS = {
 
 /** How often a live run is re-fetched — matches upstream's own 1200ms cadence. */
 const RUN_POLL_MS = 1200;
-
-/**
- * No preload under vitest/jsdom — the fallback every write mutation below
- * returns. Generic (rather than one shared constant) so each call site's
- * `GitOpResult<T>` keeps its own `value` shape instead of collapsing into a
- * union across every T this file uses.
- */
-function noBridge<T>(): GitOpResult<T> {
-  return failure('The app bridge is unavailable.');
-}
-
-function reportFailure<T>(result: GitOpResult<T>): void {
-  if (!result.ok && result.kind === 'error') {
-    useToastStore.getState().addToast({ message: result.message, status: 'error' });
-  }
-}
 
 export function useCouncilRuns(councilId: string | null) {
   return useQuery({

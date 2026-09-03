@@ -394,6 +394,13 @@ export type MockFixtures = {
    * Every other spec is seeded as already-onboarded — see `installMockBridge`.
    */
   firstRun?: boolean;
+  /**
+   * Seeds the workflows domain's initial roster (Phase 43), read once into
+   * the mock's own mutable array the way `terminalSessions` is. Named
+   * `appWorkflows` rather than `workflows` — that name is already taken by
+   * `forge.workflows`, the unrelated GitHub Actions `.yml` listing.
+   */
+  appWorkflows?: Array<{ id: string; [key: string]: unknown }>;
 };
 
 
@@ -1555,6 +1562,54 @@ export async function installMockBridge(page: Page, fixtures: MockFixtures): Pro
           retryMember: async () => ({ ok: true as const }),
         },
       },
+      /**
+       * Workflows (Phase 43). `run` answers with an already-`completed` run
+       * rather than driving the real topological engine — that orchestration
+       * is main-only and already covered by `workflow-engine.test.ts` — the
+       * same call `council.run.start` makes above, for the same reason.
+       */
+      workflow: {
+        list: async () => ({ workflows }),
+        save: async (req: { workflow: { id: string; [key: string]: unknown } }) => {
+          const index = workflows.findIndex((w) => w.id === req.workflow.id);
+          workflows =
+            index === -1
+              ? [...workflows, req.workflow]
+              : [...workflows.slice(0, index), req.workflow, ...workflows.slice(index + 1)];
+          return { ok: true as const, value: req.workflow };
+        },
+        delete: async (req: { id: string }) => {
+          const before = workflows.length;
+          workflows = workflows.filter((w) => w.id !== req.id);
+          workflowRuns = workflowRuns.filter((r) => r.workflowId !== req.id);
+          return before === workflows.length
+            ? { ok: false as const, kind: 'error' as const, message: 'Workflow not found.' }
+            : { ok: true as const };
+        },
+        run: async (req: { workflowId: string }) => {
+          const workflow = workflows.find((w) => w.id === req.workflowId);
+          if (!workflow) return { ok: false as const, kind: 'error' as const, message: 'Workflow not found.' };
+          const now = Date.now();
+          const run = {
+            id: `workflow-run-${++workflowRunCounter}`,
+            workflowId: req.workflowId,
+            status: 'completed' as const,
+            nodeRuns: [],
+            startedAt: now,
+            endedAt: now,
+          };
+          workflowRuns = [...workflowRuns, run];
+          return { ok: true as const, value: run };
+        },
+        cancel: async () => {},
+        runs: {
+          list: async (req: { workflowId: string }) => ({
+            runs: workflowRuns.filter((r) => r.workflowId === req.workflowId),
+          }),
+          get: async (req: { runId: string }) => ({ run: workflowRuns.find((r) => r.id === req.runId) ?? null }),
+        },
+        onRunChanged: () => () => {},
+      },
       loopRuns: {
         list: async () => ({ runs: loopRuns }),
         start: async (req: {
@@ -2056,6 +2111,16 @@ export async function installMockBridge(page: Page, fixtures: MockFixtures): Pro
     var councilRuns: Array<{ id: string; councilId: string; [key: string]: unknown }> = [];
     // eslint-disable-next-line no-var
     var councilRunCounter = 0;
+    // --- workflows (Phase 43) ------------------------------------------------
+    /** Read once from the fixture, then mutated by `save`/`delete` like `councils`. */
+    // eslint-disable-next-line no-var
+    var workflows: Array<{ id: string; [key: string]: unknown }> = data.appWorkflows
+      ? [...data.appWorkflows]
+      : [];
+    // eslint-disable-next-line no-var
+    var workflowRuns: Array<{ id: string; workflowId: string; [key: string]: unknown }> = [];
+    // eslint-disable-next-line no-var
+    var workflowRunCounter = 0;
     // eslint-disable-next-line no-var
     var externalUrls: string[] = [];
     /** `shell.showItemInFolder` calls (Phase 24 Theme C), recorded like `externalUrls`. */

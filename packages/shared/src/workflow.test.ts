@@ -6,8 +6,11 @@ import {
   WorkflowNodeSchema,
   WorkflowRunSchema,
   WorkflowSchema,
+  findCycleEdge,
   validateWorkflow,
+  wouldCycle,
   type Workflow,
+  type WorkflowEdge,
   type WorkflowNode,
 } from './workflow';
 
@@ -168,5 +171,37 @@ describe('the http node timeout override', () => {
     // runs, deleting that workflow is refused as "still running".
     expect(WorkflowNodeSchema.safeParse(withTimeout(86_400_000)).success).toBe(false);
     expect(WorkflowNodeSchema.safeParse(withTimeout(0)).success).toBe(false);
+  });
+});
+
+describe('findCycleEdge / wouldCycle', () => {
+  const edge = (id: string, from: string, to: string): WorkflowEdge => ({ id, from, to });
+
+  it('returns null for a diamond, which is not a cycle', () => {
+    const ids = ['a', 'b', 'c', 'd'];
+    const edges = [edge('e1', 'a', 'b'), edge('e2', 'a', 'c'), edge('e3', 'b', 'd'), edge('e4', 'c', 'd')];
+    expect(findCycleEdge(ids, edges)).toBeNull();
+  });
+
+  it('names an edge among the stuck remainder for a real cycle', () => {
+    const ids = ['a', 'b', 'c'];
+    const edges = [edge('e1', 'a', 'b'), edge('e2', 'b', 'c'), edge('e3', 'c', 'a')];
+    const cycle = findCycleEdge(ids, edges);
+    expect(cycle).not.toBeNull();
+    expect(edges).toContainEqual(cycle);
+  });
+
+  it('ignores a dangling edge endpoint rather than treating it as a cycle', () => {
+    const ids = ['a', 'b'];
+    const edges = [edge('e1', 'a', 'b'), edge('e2', 'b', 'ghost')];
+    expect(findCycleEdge(ids, edges)).toBeNull();
+  });
+
+  it('wouldCycle checks a candidate edge without mutating the existing set', () => {
+    const ids = ['a', 'b', 'c'];
+    const edges = [edge('e1', 'a', 'b'), edge('e2', 'b', 'c')];
+    expect(wouldCycle(edges, ids, { from: 'c', to: 'a' })).toBe(true);
+    expect(wouldCycle(edges, ids, { from: 'a', to: 'c' })).toBe(false);
+    expect(edges).toHaveLength(2);
   });
 });
