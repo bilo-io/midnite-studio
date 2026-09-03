@@ -6,6 +6,14 @@ import { existsSync } from 'node:fs';
 
 const execAsync = promisify(exec);
 
+// Every probe below shells out. A stuck `ssh-add -l` (agent socket present but
+// unresponsive) or a slow `git --version` spawn under load would otherwise hang
+// the caller for as long as the child lives; bound each so `readSystemHealth`
+// always settles. The try/catch around each probe already treats a rejection as
+// "unavailable", so a timed-out probe degrades to the same null/false it would
+// on a missing binary.
+const PROBE_TIMEOUT_MS = 4000;
+
 export type SystemHealth = {
   git: { path: string | null; version: string | null };
   shell: string | null;
@@ -17,7 +25,7 @@ export async function readSystemHealth(): Promise<SystemHealth> {
   let gitPath: string | null = '/usr/bin/git';
   let gitVersion: string | null = null;
   try {
-    const { stdout } = await execAsync(`"${gitPath}" --version`);
+    const { stdout } = await execAsync(`"${gitPath}" --version`, { timeout: PROBE_TIMEOUT_MS });
     gitVersion = stdout.trim();
   } catch {
     gitPath = null;
@@ -29,7 +37,7 @@ export async function readSystemHealth(): Promise<SystemHealth> {
   let sshRunning = false;
   let sshKeys = 0;
   try {
-    const { stdout } = await execAsync('ssh-add -l');
+    const { stdout } = await execAsync('ssh-add -l', { timeout: PROBE_TIMEOUT_MS });
     sshRunning = true;
     if (!stdout.includes('The agent has no identities')) {
       sshKeys = stdout.trim().split('\n').length;
