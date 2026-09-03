@@ -103,6 +103,8 @@ const bridge: Pick<
   | 'agent'
   | 'council'
   | 'loopRuns'
+  | 'workflow'
+  | 'demoApi'
   | 'fs'
   | 'stats'
   | 'diag'
@@ -308,6 +310,23 @@ const bridge: Pick<
       skipMember: (req) => call(CHANNELS.councilRunSkipMember, req),
       retryMember: (req) => call(CHANNELS.councilRunRetryMember, req),
     },
+  },
+  workflow: {
+    list: () => call(CHANNELS.workflowList),
+    save: (req) => call(CHANNELS.workflowSave, req),
+    delete: (req) => call(CHANNELS.workflowDelete, req),
+    run: (req) => call(CHANNELS.workflowRun, req),
+    cancel: (req) => call(CHANNELS.workflowCancel, req),
+    runs: {
+      list: (req) => call(CHANNELS.workflowRunsList, req),
+      get: (req) => call(CHANNELS.workflowRunsGet, req),
+    },
+    onRunChanged: (handler) => subscribe(EVENT_CHANNELS.workflowRunChanged, handler),
+  },
+  demoApi: {
+    start: () => call(CHANNELS.demoApiStart),
+    stop: () => call(CHANNELS.demoApiStop),
+    status: () => call(CHANNELS.demoApiStatus),
   },
   loopRuns: {
     list: () => call(CHANNELS.loopRunsList),
