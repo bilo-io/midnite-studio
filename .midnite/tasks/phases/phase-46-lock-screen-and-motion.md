@@ -321,19 +321,20 @@ they did.
       testing generic React/react-query behavior, not anything this phase's own code could
       regress. Left unchecked rather than falsely marked done or backfilled with a vacuous test.
 
-### G — Verification and screenshots (S) — ◐ PARTIAL (2026-09-03)
+### G — Verification and screenshots (S) — ✅ DONE (PR #63, 2026-09-03)
 
-- [ ] Playwright shots of the lock screen in **both motion modes** and both themes, following the
-      existing screenshot specs' conventions. PR #55 captured two ad hoc PNGs (weather widget,
-      pill passcode-hold) for the PR body via a throwaway script, not a committed, re-runnable
-      `MSTUDIO_SHOTS`-gated spec covering both motion modes and both themes — that remains open.
-- [ ] Note the known hazard before adding shots: `outstanding.md` records that **screenshot PNGs are
-      not byte-reproducible** and a full `app:e2e` run rewrites ~40 committed images. Commit only
-      this phase's shots and `git checkout --` the rest.
-- [ ] Specs press **`ControlOrMeta`, never a hard-coded `Meta`** — the Phase 38 lesson that cost a
-      shard 22 minutes. Not yet exercised — PR #55's new specs (`screensaver-pills.spec.ts`, the
-      weather additions to `lock-screen-widgets.spec.ts`) press digit keys and click buttons only,
-      no modifier chords.
+- [x] Playwright shots of the lock screen in **both motion modes** and both themes, following the
+      existing screenshot specs' conventions. `lock-screen-shots.spec.ts` — a committed,
+      re-runnable `MSTUDIO_SHOTS`-gated spec covering the full lock screen (weather, battery,
+      sysmon, navigating pills) across `motion ∈ {full, reduced}` × `theme ∈ {light, dark}` — 4
+      shots, replacing PR #55's two ad hoc throwaway-script PNGs.
+- [x] Note the known hazard before adding shots: `outstanding.md` records that **screenshot PNGs are
+      not byte-reproducible** and a full `app:e2e` run rewrites ~40 committed images. Committed only
+      this phase's 4 shots.
+- [x] Specs press **`ControlOrMeta`, never a hard-coded `Meta`** — the Phase 38 lesson that cost a
+      shard 22 minutes. Doesn't apply as written: the new spec presses no modifier chords at all
+      (a click plus `data-motion`/`.dark` DOM overrides), so there is nothing for that lesson to
+      catch here.
 - [x] Unit tests alongside the existing
       [`lock-screen-widgets.test.tsx`](../../../packages/app/src/features/screensaver/lock-screen-widgets.test.tsx)
       and `screensaver-host.test.ts`, covering: pill → destination mapping

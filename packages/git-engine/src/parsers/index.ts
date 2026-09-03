@@ -1,4 +1,5 @@
 export * from './blame-parser';
+export * from './conflict-parser';
 export * from './diff-parser';
 export * from './grep-parser';
 export * from './log-parser';
