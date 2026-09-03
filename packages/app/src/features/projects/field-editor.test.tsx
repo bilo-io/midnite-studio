@@ -96,6 +96,50 @@ describe('ProjectFieldCell', () => {
     expect(select.value).toBe('todo');
   });
 
+  it("a single_select field's chosen option is painted in GitHub's own colour for it", () => {
+    forgeWritesEnabled = true;
+    const field = {
+      id: 'f1',
+      name: 'Priority',
+      dataType: 'single_select' as const,
+      options: [
+        { id: 'p0', name: 'P0', color: 'RED' },
+        { id: 'p1', name: 'P1', color: 'YELLOW' },
+      ],
+    };
+    const value = { fieldId: 'f1', dataType: 'single_select' as const, optionId: 'p0', name: 'P0' };
+    const queryClient = new QueryClient({ defaultOptions: { queries: { retry: false } } });
+
+    render(
+      <QueryClientProvider client={queryClient}>
+        <ProjectFieldCell projectId="PVT_1" itemId="item1" field={field} value={value} />
+      </QueryClientProvider>,
+    );
+
+    const select = screen.getByRole('combobox', { name: 'Priority' }) as HTMLSelectElement;
+    expect(select.style.color).toBe('rgb(239, 68, 68)'); // RED's swatch, #EF4444
+  });
+
+  it('a single_select field with nothing chosen renders with no colour', () => {
+    forgeWritesEnabled = true;
+    const field = {
+      id: 'f1',
+      name: 'Priority',
+      dataType: 'single_select' as const,
+      options: [{ id: 'p0', name: 'P0', color: 'RED' }],
+    };
+    const queryClient = new QueryClient({ defaultOptions: { queries: { retry: false } } });
+
+    render(
+      <QueryClientProvider client={queryClient}>
+        <ProjectFieldCell projectId="PVT_1" itemId="item1" field={field} value={undefined} />
+      </QueryClientProvider>,
+    );
+
+    const select = screen.getByRole('combobox', { name: 'Priority' }) as HTMLSelectElement;
+    expect(select.style.color).toBe('');
+  });
+
   it('an iteration field renders read-only text, never an editor', () => {
     forgeWritesEnabled = true;
     const field = { id: 'f1', name: 'Sprint', dataType: 'iteration' as const };

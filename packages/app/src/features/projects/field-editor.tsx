@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react';
 
 import type { ForgeProjectField, ForgeProjectFieldValue, ForgeProjectWriteResult } from '@midnite/studio-shared';
 
+import { fieldOptionColor } from './field-option-colors';
 import { useSetProjectItemField } from '../../services/queries';
 import { useUiStore } from '../../store/ui-store';
 
@@ -70,29 +71,46 @@ function SingleSelectEditor({
   onCommit: (next: ForgeProjectFieldValue) => void;
 }) {
   const optionId = value?.dataType === 'single_select' ? value.optionId : '';
+  const selected = field.options.find((o) => o.id === optionId);
+  const color = selected ? fieldOptionColor(selected.color) : null;
+
   return (
-    <select
-      aria-label={field.name}
-      value={optionId}
-      disabled={disabled}
-      title={title ?? undefined}
-      onChange={(event) => {
-        const option = field.options.find((o) => o.id === event.target.value);
-        if (option) {
-          onCommit({ fieldId: field.id, dataType: 'single_select', optionId: option.id, name: option.name });
-        }
-      }}
-      className="w-full truncate rounded border border-transparent bg-transparent py-0.5 text-xs text-muted-foreground hover:border-border disabled:cursor-not-allowed disabled:opacity-60"
-    >
-      <option value="" disabled>
-        —
-      </option>
-      {field.options.map((option) => (
-        <option key={option.id} value={option.id}>
-          {option.name}
+    <div className="relative">
+      {color ? (
+        <span
+          aria-hidden
+          className="pointer-events-none absolute left-2 top-1/2 h-1.5 w-1.5 -translate-y-1/2 rounded-full"
+          style={{ backgroundColor: color }}
+        />
+      ) : null}
+      <select
+        aria-label={field.name}
+        value={optionId}
+        disabled={disabled}
+        title={title ?? undefined}
+        onChange={(event) => {
+          const option = field.options.find((o) => o.id === event.target.value);
+          if (option) {
+            onCommit({ fieldId: field.id, dataType: 'single_select', optionId: option.id, name: option.name });
+          }
+        }}
+        style={color ? { color, backgroundColor: `${color}1A`, borderColor: `${color}55` } : undefined}
+        className={`w-full truncate rounded-full border py-0.5 text-xs transition-colors disabled:cursor-not-allowed disabled:opacity-60 ${
+          color
+            ? 'pl-4 pr-1.5 font-medium hover:brightness-95'
+            : 'border-transparent bg-transparent px-1.5 text-muted-foreground hover:border-border'
+        }`}
+      >
+        <option value="" disabled>
+          —
         </option>
-      ))}
-    </select>
+        {field.options.map((option) => (
+          <option key={option.id} value={option.id} style={{ color: fieldOptionColor(option.color) }}>
+            {option.name}
+          </option>
+        ))}
+      </select>
+    </div>
   );
 }
 
