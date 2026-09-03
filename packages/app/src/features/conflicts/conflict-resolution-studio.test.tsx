@@ -105,6 +105,33 @@ describe('ConflictResolutionStudio', () => {
     expect(firstRegion).toBeDefined();
   });
 
+  /**
+   * Phase 47 Theme F: the ours/theirs/both → button mapping, pinned at the UI
+   * level. Git's own rebase-vs-merge convention flip is proven in git-engine's
+   * integration tests (`conflict-flow.integration.test.ts` et al) — this
+   * component has no merge/rebase awareness of its own and never should; it
+   * only ever passes `side` straight through. What ONLY a UI-level test can
+   * catch is a "mislabeling a button" regression — a button's own `onClick`
+   * wired to the wrong side, invisible to any git-engine test since nothing
+   * there renders a button at all.
+   */
+  it('"Accept theirs" and "Accept both" each send their own side, not "ours"', async () => {
+    useUiStore.setState({ selectedRepoId: 'r1' });
+    const applyHunk = vi.fn().mockResolvedValue({ ok: true });
+    installBridge({ hunks: TWO_REGIONS, ops: { conflictApplyHunk: applyHunk } });
+
+    render(<ConflictResolutionStudio repoId="r1" path="f.txt" onClose={vi.fn()} />, { wrapper });
+    await screen.findAllByTestId('conflict-region');
+
+    fireEvent.click(screen.getAllByRole('button', { name: 'Accept theirs' })[0]!);
+    await waitFor(() => expect(applyHunk).toHaveBeenCalledTimes(1));
+    expect(applyHunk).toHaveBeenCalledWith(expect.objectContaining({ regionIndex: 0, side: 'theirs' }));
+
+    fireEvent.click(screen.getAllByRole('button', { name: 'Accept both' })[1]!);
+    await waitFor(() => expect(applyHunk).toHaveBeenCalledTimes(2));
+    expect(applyHunk).toHaveBeenCalledWith(expect.objectContaining({ regionIndex: 1, side: 'both' }));
+  });
+
   it('shows a stale-write message rather than a generic error when the region moved under it', async () => {
     useUiStore.setState({ selectedRepoId: 'r1' });
     const applyHunk = vi
@@ -136,6 +163,22 @@ describe('ConflictResolutionStudio', () => {
     await waitFor(() => expect(onClose).toHaveBeenCalledTimes(1));
     expect(resolveWholeFile).toHaveBeenCalledWith(
       expect.objectContaining({ repoId: 'r1', path: 'f.txt', side: 'ours' }),
+    );
+  });
+
+  it('"Accept all theirs" sends side: "theirs", not "ours" (Phase 47 Theme F)', async () => {
+    useUiStore.setState({ selectedRepoId: 'r1' });
+    const resolveWholeFile = vi.fn().mockResolvedValue({ ok: true });
+    installBridge({ hunks: TWO_REGIONS, ops: { conflictResolveWholeFile: resolveWholeFile } });
+
+    render(<ConflictResolutionStudio repoId="r1" path="f.txt" onClose={vi.fn()} />, { wrapper });
+
+    await screen.findAllByTestId('conflict-region');
+    fireEvent.click(screen.getByRole('button', { name: 'Accept all theirs' }));
+
+    await waitFor(() => expect(resolveWholeFile).toHaveBeenCalledTimes(1));
+    expect(resolveWholeFile).toHaveBeenCalledWith(
+      expect.objectContaining({ repoId: 'r1', path: 'f.txt', side: 'theirs' }),
     );
   });
 
