@@ -61,21 +61,58 @@ export function CommitActivityPanel({ slot }: { slot: 'right' | 'bottom' }) {
         <TimeframePicker value={timeframe} />
       </div>
       <div className={`min-h-0 min-w-0 flex-1 ${vertical ? 'p-2' : 'py-1.5 pr-2'}`}>
-        {commits.length === 0 ? (
-          <p className="flex h-full items-center justify-center text-center text-[11px] text-muted-foreground">
-            {repoId ? 'No commits' : 'No repository'}
-          </p>
-        ) : (
+        {commits.length > 0 ? (
           <CommitActivityTimeline
             commits={commits}
             timeframe={timeframe}
             variant={variant}
             orientation={orientation}
           />
+        ) : (
+          <p className="flex h-full items-center justify-center text-center text-[11px] text-muted-foreground">
+            {emptyLabel({
+              repoId,
+              settled: stats.data !== undefined,
+              envelope: stats.data,
+              timeframe,
+            })}
+          </p>
         )}
       </div>
     </div>
   );
+}
+
+/**
+ * What the empty chart area says, and why it says something specific.
+ *
+ * "No commits" alone turned out to cover three different situations and lie
+ * about two of them: the traversal still running (the first churn walk over a
+ * large repository takes seconds), and a dev-mode renderer newer than the
+ * Electron main it is talking to (vite reloads the renderer on a pull, but
+ * main keeps serving the pre-`timeline` envelope until the app restarts).
+ * Only the genuinely-empty window gets the "no commits" answer, and it names
+ * the window so switching D/W/M reads as re-asking the question.
+ */
+export function emptyLabel({
+  repoId,
+  settled,
+  envelope,
+  timeframe,
+}: {
+  repoId: string | null;
+  settled: boolean;
+  envelope: { timeline?: unknown } | undefined;
+  timeframe: ActivityTimeframe;
+}): string {
+  if (!repoId) return 'No repository';
+  if (!settled) return 'Counting commits…';
+  // `timeline` is required by the schema, so its absence at runtime means the
+  // envelope came from a main process built before the field existed.
+  if (envelope && !Array.isArray(envelope.timeline)) return 'Engine updated — restart the app';
+  const window =
+    timeframe === 'day' ? '24 hours' : timeframe === 'week' ? '7 days' : '30 days';
+  return `No commits in the last ${window}`;
 }
 
 const TIMEFRAMES: [ActivityTimeframe, string, string][] = [
