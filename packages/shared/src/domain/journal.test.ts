@@ -106,6 +106,22 @@ describe('computeUndoable', () => {
   it('needs neither anchor for stash-push — undone by popping the newest entry', () => {
     expect(computeUndoable('stash-push', { headBefore: null, refBefore: null })).toBe(true);
   });
+
+  it('requires both refBefore and headAfter for branch-rename — a plain rename moves no sha', () => {
+    expect(
+      computeUndoable('branch-rename', {
+        headBefore: null,
+        refBefore: 'refs/heads/old-name',
+        headAfter: 'new-name',
+      }),
+    ).toBe(true);
+    expect(
+      computeUndoable('branch-rename', { headBefore: null, refBefore: null, headAfter: 'new-name' }),
+    ).toBe(false);
+    expect(
+      computeUndoable('branch-rename', { headBefore: null, refBefore: 'refs/heads/old-name' }),
+    ).toBe(false);
+  });
 });
 
 describe('entryUndoReason', () => {
