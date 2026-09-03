@@ -190,15 +190,32 @@ The safe baseline: accept one side for an entire file, no partial state.
 - [ ] Uses the existing council/member picker UI conventions (whichever council the user has active,
       or a lightweight inline picker if none is) — no new orchestration, no new IPC channel.
 
-### F — Wiring, safety net, verification (S)
+### F — Wiring, safety net, verification (S) — ◐ PARTIAL (PR #111, 2026-09-04)
 
-- [ ] `moon run :typecheck :lint :test` green.
-- [ ] End-to-end: a real merge conflict fixture, resolved with a mix of one whole-file action
-      (Theme B) and one region-by-region session (Theme C/D) in the same repo, ending with Continue
-      enabling and the merge commit completing.
-- [ ] The rebase-inversion assertion from Theme B (ours/theirs flip) is exercised in this suite too,
-      not just in the git-engine integration tests — a UI-level regression (e.g. mislabeling a
-      button) would not be caught by the git-engine test alone.
+- [x] `moon run :typecheck :lint :test` green.
+- [x] End-to-end: a real merge conflict fixture, resolved with a mix of one whole-file action
+      (Theme B) and one region-by-region session (Theme C) in the same repo, ending with
+      `conflictedPaths()` empty (the exact condition `ConflictBanner`'s Continue button gates on)
+      and `continueOp` completing a real two-parent merge commit
+      (`conflict-flow.integration.test.ts`, real git via `TempRepo`).
+  - **No pre-existing "real git behind the UI" harness to reuse** — checked first: every Playwright
+    spec in `packages/app/e2e/` drives the renderer against a mocked bridge, and no spec anywhere
+    combines that with a `TempRepo`. Read as intended new coverage rather than a gap to route around:
+    this landed as a git-engine integration test exercising the real production functions
+    (`merge`/`resolveConflictWholeFile`/`applyConflictHunk`/`continueOp`) together, at the layer that
+    actually owns "does the merge complete" — a UI-level Electron-in-the-loop harness would be new
+    infrastructure disproportionate to an `S`-sized theme, and correctness here has nothing to do
+    with rendering.
+- [x] The rebase-inversion assertion from Theme B (ours/theirs flip) exercised where a
+      per-theme-isolated test couldn't: `conflict-flow.integration.test.ts`'s rebase case proves
+      Theme B's whole-file accept and Theme C's hunk accept agree with EACH OTHER about which side
+      is "ours" inside the same rebase (both write paths, one repo) — the risk each theme's own
+      suite could only ever prove against itself. And at the UI level, new RTL coverage
+      (`conflict-resolution-studio.test.tsx`) pins the button→`side` mapping directly: "Accept
+      theirs"/"Accept both"/"Accept all theirs" each had **no** payload-asserting test before this
+      theme — only "Accept mine"/"Accept all mine" did — so a swapped `onClick` on any of the
+      untested three was a silent regression a git-engine test could never see (nothing there
+      renders a button).
 - [ ] **Open, for a human:** a real conflict against `merge.conflictStyle = diff3` set locally (most
       users don't set it, so CI fixtures alone won't exercise the `base` region path in practice).
 

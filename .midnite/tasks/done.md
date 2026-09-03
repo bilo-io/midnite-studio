@@ -28,6 +28,28 @@ and Claude. Theme A is contracts only: no engine, no store, no view yet.
       stay green with no `video` property anywhere in `preload/index.ts` yet — the same posture
       workflow's and councils' own Theme A landed in.
 
+## 2026-09-04 — Phase 47 Theme F (partial) — the wiring/safety-net pass
+
+[PR #111]. Themes B and C each proved their own write path in isolation; nothing proved using both
+together in the same conflicted operation actually reaches a completed merge.
+
+- [x] **`conflict-flow.integration.test.ts`** (real git via `TempRepo`): a merge resolved with one
+      whole-file accept (Theme B) and one region-by-region file (Theme C) reaches
+      `conflictedPaths()` empty — the exact condition `ConflictBanner`'s Continue button gates on —
+      and `continueOp` completes a real two-parent merge commit. A second case does the same inside a
+      rebase, proving Theme B's and Theme C's own "ours" conventions agree with EACH OTHER, not just
+      each with itself, which is the integration risk their separate suites couldn't see.
+  - **Checked for a reusable "real git behind the UI" harness first, found none**: every existing
+    Playwright spec drives the renderer against a mocked bridge; nothing combines that with a real
+    repo. Landed as a git-engine integration test instead — the layer that actually owns "does the
+    merge complete" — rather than building new Electron-in-the-loop infrastructure disproportionate
+    to an `S`-sized theme.
+- [x] New RTL coverage closes a real gap: "Accept theirs"/"Accept both"/"Accept all theirs" had no
+      payload-asserting test before this pass — only "Accept mine"/"Accept all mine" did. A swapped
+      `onClick` on any of the other three was a silent regression no git-engine test could ever catch.
+- **Open, for a human** (unchanged from the doc): a real conflict against a locally-set
+  `merge.conflictStyle = diff3`, which no CI fixture exercises in practice.
+
 ## 2026-09-04 — Phase 43 Theme I (partial) — the palette command, the settings page, and the wiring between them
 
 [PR #108]. Closes out Phase 43's build entirely bar one human-only pass.
