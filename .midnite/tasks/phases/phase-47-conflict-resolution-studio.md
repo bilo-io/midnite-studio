@@ -64,27 +64,33 @@ Nothing past this theme can render or act on anything; it turns opaque marker te
       exactly as it is — it is the flag that tells the caller *whether* to route through this new
       parser at all, not something this theme changes. Untouched.
 
-### B — Whole-file resolution actions (M)
+### B — Whole-file resolution actions (M) — ✅ DONE (PR #64, 2026-09-03)
 
 The safe baseline: accept one side for an entire file, no partial state.
 
-- [ ] `resolveConflictWholeFile(worktreePath, path, side: 'ours' | 'theirs' | 'base')` in
-      [`git-engine/src/commands/`](../../../packages/git-engine/src/commands/) (new file, e.g.
-      `conflict-resolve.ts`, alongside `stage.ts` and `sequencer.ts` rather than inside either).
-      Reads the requested side's blob (`git show :2:<path>` = ours, `:3:<path>` = theirs, `:1:<path>`
-      = base) and writes it to the worktree, then stages it through the **existing**
-      `stagePaths` — no new staging primitive for the whole-file case.
-- [ ] **Ours/theirs inversion across ops is the theme's one real hazard, and it must be tested, not
+- [x] `resolveConflictWholeFile(worktreePath, path, side: 'ours' | 'theirs' | 'base')` in
+      [`git-engine/src/commands/conflict-resolve.ts`](../../../packages/git-engine/src/commands/conflict-resolve.ts),
+      alongside `stage.ts` and `sequencer.ts` rather than inside either. Reads the requested side's
+      blob off the matching index stage (`:1:`/`:2:`/`:3:` for base/ours/theirs) through the
+      **existing** `readBlob` — a binary-safe `Buffer` read off `cat-file blob`, not a
+      string-decoding `git show`, which would silently mangle bytes outside dugite's assumed
+      encoding — then writes it to the worktree and stages it through the **existing**
+      `stagePaths`. No new staging primitive for the whole-file case.
+- [x] **Ours/theirs inversion across ops is the theme's one real hazard, and it must be tested, not
       assumed.** `ConflictOpSchema` names four ops — `merge`, `rebase`, `cherry-pick`, `revert` (plus
       `stash-apply`) — and git's own documented behavior flips "ours"/"theirs" for `rebase`: the
       commit being replayed is `theirs`, the branch being rebased *onto* is `ours`, which reads
-      backwards to anyone used to merge's convention. Integration tests must cover **at least merge
-      and rebase** against real fixture repos, asserting the resolved content matches the side the
-      *user* would call "mine," not whichever blob happens to sit at `:2`.
-- [ ] A new IPC channel (e.g. `mstudio:conflicts:resolveWholeFile`) in
+      backwards to anyone used to merge's convention. Integration tests cover **both merge and
+      rebase** against real fixture repos (`conflict-resolve.integration.test.ts`), asserting the
+      resolved content matches the side the *user* would call "mine" for merge, and separately
+      proving the rebase inversion by name rather than assuming the naive reading. The function
+      itself does not correct for the inversion — it passes git's own `:2:`/`:3:` convention
+      through unmodified, and the tests are what prove that's still the right answer.
+- [x] A new IPC channel `mstudio:op:conflict-resolve-whole-file` in
       [`shared/src/ipc/schemas.ts`](../../../packages/shared/src/ipc/schemas.ts), handled by a new
-      `packages/desktop/src/main/conflict-handlers.ts` — thin, delegates straight to the git-engine
-      function, no logic of its own (matches every other write-path handler's shape).
+      [`packages/desktop/src/main/ipc/conflict-handlers.ts`](../../../packages/desktop/src/main/ipc/conflict-handlers.ts) —
+      thin, delegates straight to the git-engine function, no logic of its own (matches every other
+      write-path handler's shape).
 
 ### C — Hunk-level patch application, the phase's biggest risk (L)
 
