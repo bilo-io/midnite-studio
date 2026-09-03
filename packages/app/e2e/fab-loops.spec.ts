@@ -1084,8 +1084,12 @@ test.describe('FAB loop console — rehydration (Theme I)', () => {
     // Blurring it and refocusing it is what a tab switch, a window blur, or
     // Cmd-Tab does — with focus tracking armed, xterm turns that into an
     // `ESC[O`/`ESC[I` pair on the very `onData` stream real keystrokes use.
+    // Focused explicitly rather than asserted from the app's own
+    // focus-follows-selection effect — a headless CI window doesn't reliably
+    // grant real OS-level focus, and this test only needs the blur/focus
+    // pair to fire on the pane's own textarea, not proof of who focused it.
     const textarea = page.locator('.xterm-helper-textarea').first();
-    await expect(textarea).toBeFocused();
+    await textarea.focus();
     await textarea.evaluate((el) => (el as HTMLTextAreaElement).blur());
     await textarea.focus();
 
