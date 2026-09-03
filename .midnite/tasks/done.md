@@ -30,7 +30,7 @@ the card while it runs.
   session, which the card's own new terminal now legitimately makes two — rescoped to the panel.
 ## 2026-09-03 — Phase 43 Themes A, B, C, D — the workflow engine, backend-complete
 
-[PR #91]. The whole main-process half of Workflows, with no renderer: contracts, engine,
+[PR #92]. The whole main-process half of Workflows, with no renderer: contracts, engine,
 executors, and a real local CRUD API to run against. Themes E–G and I (the canvas, the
 inspector, the run view, the settings page) stay open.
 

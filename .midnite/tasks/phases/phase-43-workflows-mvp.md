@@ -80,7 +80,7 @@ Effort tags: **S** ≈ an hour or two · **M** ≈ half a day · **L** ≈ a day
 
 ## Deliverables
 
-### A — Shared contracts (M) — ✅ DONE (PR #91, 2026-09-03)
+### A — Shared contracts (M) — ✅ DONE (PR #92, 2026-09-03)
 
 - [x] `Workflow`, `WorkflowNode`, `WorkflowEdge`, `WorkflowRun`, `WorkflowNodeRun` zod schemas in a
       new [`shared/src/workflow.ts`](../../../packages/shared/src/workflow.ts), plus
@@ -145,7 +145,7 @@ Effort tags: **S** ≈ an hour or two · **M** ≈ half a day · **L** ≈ a day
     fails the suite.
   - *Acceptance:* deleting one channel's row from `expected` makes `ipc.test.ts` fail.
 
-### B — The engine (L) — ✅ DONE (PR #91, 2026-09-03)
+### B — The engine (L) — ✅ DONE (PR #92, 2026-09-03)
 
 - [x] `desktop/src/main/workflow/executor-registry.ts` — `kind → executor` lookup, one place a new
       node type is registered.
@@ -217,7 +217,7 @@ Effort tags: **S** ≈ an hour or two · **M** ≈ half a day · **L** ≈ a day
     persisted run has 20 recorded outcomes — the assertion that fails without `withRunLock`.
   - *Acceptance for the lock leak:* `runLocks.size === 0` after the run reaches a terminal state.
 
-### C — The HTTP executor (M) — ✅ DONE (PR #91, 2026-09-03)
+### C — The HTTP executor (M) — ✅ DONE (PR #92, 2026-09-03)
 
 - [x] `workflow/executors/http.ts` — method, URL, headers, body; `GET`, `POST`, `PUT`, `PATCH`,
       `DELETE`, `HEAD` and a `QUERY`-shaped GET-with-params, covering the verbs the feature note
@@ -273,7 +273,7 @@ Effort tags: **S** ≈ an hour or two · **M** ≈ half a day · **L** ≈ a day
     birds: the executor tests and the demo API's own tests exercise the same server.
   - *Acceptance:* the whole executor suite passes with the machine's network cable out.
 
-### D — The demo CRUD API (M) — ◐ PARTIAL (PR #91, 2026-09-03) — the view-header surface carried to Theme H
+### D — The demo CRUD API (M) — ◐ PARTIAL (PR #92, 2026-09-03) — the view-header surface carried to Theme H
 
 - [x] `desktop/src/main/demo-api/server.ts` — `node:http`, bound to **`127.0.0.1` only**, on an
       ephemeral port reported back to the renderer. Never `0.0.0.0`; this is a dev conveniences
@@ -494,7 +494,7 @@ Effort tags: **S** ≈ an hour or two · **M** ≈ half a day · **L** ≈ a day
   - *Acceptance:* `moon run app:perf --blurred` shows no measurable idle-CPU delta with a run
     mid-flight and the window blurred.
 
-### H — Persistence and the list (M) — ◐ PARTIAL (PR #91, 2026-09-03) — the two stores + handlers landed with B/D
+### H — Persistence and the list (M) — ◐ PARTIAL (PR #92, 2026-09-03) — the two stores + handlers landed with B/D
 
 - [x] `workflows-store.ts` and `workflow-runs-store.ts` in `desktop/src/main/`, JSON under
       `userData`, one malformed entry never costing the rest of the file — the councils stores'
