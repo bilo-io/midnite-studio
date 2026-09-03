@@ -129,6 +129,15 @@ export const keys = {
     context: number,
   ) => [...keys.status(repoId, worktreePath), 'diff', path, staged, context] as const,
   /**
+   * A conflicted path's parsed regions (Phase 47 Theme D). Under `status` for
+   * the same reason `diff` is: the watcher invalidates that prefix on every
+   * worktree/index event, which is exactly what `applyConflictHunk` writing
+   * the file — or another tool resolving it outside the app — produces, and
+   * is how the Studio ever sees a region it accepted disappear.
+   */
+  conflictRegions: (repoId: string, worktreePath: string | undefined, path: string) =>
+    [...keys.status(repoId, worktreePath), 'conflict-regions', path] as const,
+  /**
    * A repo's GitHub listings.
    *
    * Under the repo prefix so closing one drops them, but deliberately NOT

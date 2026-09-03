@@ -1,15 +1,32 @@
-import { applyConflictHunk, resolveConflictWholeFile } from '@midnite/studio-git-engine';
+import {
+  applyConflictHunk,
+  parseConflictedFile,
+  readFileDiff,
+  resolveConflictWholeFile,
+} from '@midnite/studio-git-engine';
 import { CHANNELS, failure, schemas, type GitOpResult } from '@midnite/studio-shared';
 
 import { resolveWorkdir } from '../repo-registry';
-import { handleOp } from './handle';
+import { handle, handleOp } from './handle';
 
 /**
- * Conflict resolution (Phase 47). Themes B (whole-file) and C (hunk-level) —
- * thin, delegates straight to the git-engine function, no logic of its own,
- * same shape as every other write-path handler in this app.
+ * Conflict resolution (Phase 47). Themes B (whole-file), C (hunk-level) and
+ * D's read side — thin, delegates straight to the git-engine function, no
+ * logic of its own, same shape as every other handler in this app.
  */
 export function registerConflictHandlers(): void {
+  handle(
+    CHANNELS.conflictRegions,
+    schemas.ConflictRegionsRequest,
+    async (req) => {
+      const cwd = await resolveWorkdir(req.repoId, req.worktreePath);
+      if (!cwd) return [];
+      const diff = await readFileDiff(cwd, req.path, false);
+      return parseConflictedFile(diff.hunks);
+    },
+    () => [],
+  );
+
   handleOp(
     CHANNELS.opConflictResolveWholeFile,
     schemas.ConflictResolveWholeFileRequest,
