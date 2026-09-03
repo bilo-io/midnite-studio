@@ -168,7 +168,7 @@ Effort tags: **S** ≈ an hour or two · **M** ≈ half a day · **L** ≈ a day
   - Decided: RTL component tests for the dialog's own grouping/wording logic, on top of Theme E's
     e2e pass — `setup-dialog.test.tsx`, 6 tests.
 
-### E — Update, capability detection, and the menu (M) — ◐ PARTIAL (2026-09-03)
+### E — Update, capability detection, and the menu (M) — ✅ DONE (2026-09-03)
 
 - [x] A repo-capability helper beside [`repo-lifecycle.ts`](../../../packages/app/src/features/repos/repo-lifecycle.ts):
       `hasMidniteDir`, `isMoonWorkspace` (reuse, don't re-derive) and `isMidniteStudioCheckout` —
@@ -192,12 +192,19 @@ Effort tags: **S** ≈ an hour or two · **M** ≈ half a day · **L** ≈ a day
 - [x] **Update is disabled with a `disabledReason`** anywhere `isMidniteStudioCheckout` is false —
       "Only for the Midnite Studio checkout" — using the `disabled`/`disabledReason` fields
       [`context-menu.tsx`](../../../packages/app/src/components/context-menu.tsx) already carries.
-- [ ] A pre-flight before typing: `release/mac-arm64/Midnite Studio.app` present? If not, the leaf
+- [x] A pre-flight before typing: `release/mac-arm64/Midnite Studio.app` present? If not, the leaf
       still works but the dialog-free path says what will happen (`install-local` depends on
       `~:dist`, so the command *will* build first — several minutes and ~200 MB of uncached
       artifacts; [`moon.yml`](../../../packages/desktop/moon.yml) marks `dist` `cache: false`
-      deliberately). **Not done**: `hasPackagedBuild` exists and is tested, but nothing surfaces its
-      answer in the menu yet — no tooltip, no inline note. Left open rather than guessed at.
+      deliberately).
+  - Surfaced in the **tooltip only** (`buttonLabel`), not a `ContextMenu` `description` —
+    [`context-menu.tsx`](../../../packages/app/src/components/context-menu.tsx)'s own rule is that a
+    caller describes every row of a menu or none, and this menu's rows are all undescribed today.
+    Giving Update alone one would have singled it out; giving all six a description for one
+    pre-flight note would have been a far bigger change than the ask.
+  - `hasPackagedBuild` is re-read when the Update session's own terminal state reaches `exited` —
+    the run that just finished is exactly what flips it false→true, so the tooltip is right again
+    without waiting for the menu to close and reopen.
 - [x] Update then does exactly what the other eighteen leaves do — ~~`startAgent` types~~ **a plain
       shell session queues** `moon run desktop:install-local` into a session on the checkout and
       **stops**. The user presses Return, and so chooses the moment the app they are running gets
@@ -218,9 +225,25 @@ Effort tags: **S** ≈ an hour or two · **M** ≈ half a day · **L** ≈ a day
       command on the studio checkout, and the Setup dialog rendering a plan; a new screenshot in
       [`midnite-menu-shots.spec.ts`](../../../packages/app/e2e/midnite-menu-shots.spec.ts) beside
       the existing `menu-open`/`menu-tasks`/`menu-loops` set, plus one for the Setup dialog itself.
-- [ ] A **packaged-build check** that the template resolves off `process.resourcesPath` — the one
-      Theme A failure mode that dev mode cannot catch. **Not done** — needs a packaged build
-      (`moon run desktop:dist`), not exercised this batch.
+- [x] A **packaged-build check** that the template resolves off `process.resourcesPath` — the one
+      Theme A failure mode that dev mode cannot catch.
+  - Lands in [`verify-dist.mjs`](../../../packages/desktop/scripts/verify-dist.mjs), which already
+    runs in CI's `package` job (`moon run desktop:dist` → `desktop:verify-dist`, macOS-only, on
+    `main` rather than every PR) — reusing that job's existing packaged build rather than adding a
+    second one. Asserts a **specific file**,
+    `Contents/Resources/templates/midnite/.midnite/tasks/_INDEX.md`, not just that the directory
+    exists — a truncated `extraResources` copy would still create an (empty) directory.
+  - `template-path.test.ts`'s mocked coverage of `templateRoot()`'s packaged branch (all three
+    cases: packaged, unpackaged, unpackaged-but-the-packaged-path-exists) already existed from
+    Theme A — nothing to add there. What this closes is specifically the real-build gap that mock
+    can't reach: an `extraResources` entry that is wrong in a way `templateRoot()` itself would
+    never catch (a bad `from` glob, an `electron-builder.yml` typo), since the function under test
+    never touches the packaging config at all.
+  - **Still a real gap, recorded rather than hidden:** this only runs after landing on `main` (the
+    `package` job's own trigger), so a broken `extraResources` entry on a PR ships to `main` before
+    the check catches it. Fixing that means moving `package` to run on every PR, which is a job
+    that already runs unconditionally as macOS-arm64-only and slow — out of scope for a phase 49
+    remainder, and not this item's call to make alone.
 
 ## Files this phase touches
 
@@ -242,7 +265,7 @@ Effort tags: **S** ≈ an hour or two · **M** ≈ half a day · **L** ≈ a day
 
 *(The assertions live in Themes C and E rather than being duplicated here.)*
 
-- [ ] `moon run :typecheck :lint :test` green.
+- [x] `moon run :typecheck :lint :test` green.
 - [ ] A human pass: run Setup against a scratch repo, confirm the dialog's counts match what lands
       on disk, then re-run it unchanged and confirm every entry reads `unchanged` and nothing is
       written.
