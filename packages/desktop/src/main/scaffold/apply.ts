@@ -3,6 +3,7 @@ import { join } from 'node:path';
 
 import type { ScaffoldApplyResult, ScaffoldManifest } from '@midnite/studio-shared';
 
+import { joinWithin } from '../fs-scope';
 import { sha256File } from './hash';
 import { readManifest, writeManifest } from './manifest';
 import { TEMPLATE_VERSION_FILE, readTemplateVersion } from './version';
@@ -36,6 +37,19 @@ export async function applyScaffold(
   for (const relPath of requestedPaths) {
     if (relPath === TEMPLATE_VERSION_FILE) {
       skipped.push({ path: relPath, reason: 'not a scaffold entry' });
+      continue;
+    }
+
+    // `requestedPaths` is renderer-supplied and zod only checks "non-empty
+    // string", not "safe relative path" — confirm it resolves inside BOTH
+    // roots before it drives any `join()`/`sha256File()` read below. Without
+    // this, a `../`-laden entry could get its hash read (and existence
+    // leaked back via `written`/`skipped`) from outside the target or
+    // template tree entirely, even though the eventual WRITE is already
+    // confined by `writeConfinedFile`. Same check `plan.ts` runs before it
+    // will classify an entry at all.
+    if (joinWithin(targetRoot, relPath) === null || joinWithin(templateRoot, relPath) === null) {
+      skipped.push({ path: relPath, reason: 'resolves outside the target repository' });
       continue;
     }
 

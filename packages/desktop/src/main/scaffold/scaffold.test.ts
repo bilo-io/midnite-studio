@@ -217,6 +217,25 @@ describe('applyScaffold', () => {
     expect(await readFile(join(targetRoot, 'a.md'), 'utf8')).toBe('appeared after the plan was read');
   });
 
+  it('skips a requested path that would escape the target root, without touching it', async () => {
+    const templateRoot = await track(await makeTemplate({ 'a.md': 'from template' }));
+    const targetRoot = await track(await makeTarget());
+    // A sibling of targetRoot under the same tmp parent — what a `../`-laden
+    // `paths` entry from a compromised renderer would actually be reaching
+    // for, since `scaffold.apply`'s zod schema only checks "non-empty
+    // string", not "safe relative path".
+    const secretRoot = await track(await makeTarget({ 'secret.md': 'do not touch' }));
+    const escapingPath = `../${secretRoot.split('/').pop()}/secret.md`;
+
+    const result = await applyScaffold(templateRoot, targetRoot, [escapingPath]);
+
+    expect(result.written).toEqual([]);
+    expect(result.skipped).toEqual([
+      { path: escapingPath, reason: 'resolves outside the target repository' },
+    ]);
+    expect(await readFile(join(secretRoot, 'secret.md'), 'utf8')).toBe('do not touch');
+  });
+
   it('writes files under directories that do not exist yet', async () => {
     const templateRoot = await track(
       await makeTemplate({ '.claude/skills/midnite-exec/SKILL.md': 'the skill' }),
