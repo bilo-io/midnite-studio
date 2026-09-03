@@ -251,6 +251,8 @@ type SessionInfo = {
   pid: number;
   cols: number;
   rows: number;
+  /** Served by a legacy broker peer rather than the current primary — see `BrokerSessionInfo.legacy`. */
+  legacy: boolean;
 };
 
 const sessions = new Map<string, SessionInfo>();
@@ -404,6 +406,7 @@ export async function initPtyService(deps: {
         pid: r.pid,
         cols: r.cols,
         rows: r.rows,
+        legacy: r.legacy,
       });
       sessionIdByPty.set(r.ptyId, r.sessionId);
     }
@@ -439,6 +442,9 @@ export async function createPty(options: {
         pid: result.pid,
         cols: options.cols,
         rows: options.rows,
+        // A pty this call just created is always on the primary — `createPty`
+        // has no legacy-peer branch (see `broker-client.ts`'s own `createPty`).
+        legacy: false,
       });
       sessionIdByPty.set(result.ptyId, options.sessionId);
       agentWatcher?.track(result.ptyId, result.pid, options.agentId ?? null);
@@ -508,7 +514,7 @@ export function sessionIdFor(ptyId: string): string | undefined {
 
 export function livePtyFor(
   sessionId: string,
-): { ptyId: string; pid: number; cols: number; rows: number } | null {
+): { ptyId: string; pid: number; cols: number; rows: number; legacy: boolean } | null {
   if (brokerClient && brokerClient.getStatus().mode === 'broker') {
     for (const session of sessions.values()) {
       if (session.sessionId === sessionId) {
@@ -517,6 +523,7 @@ export function livePtyFor(
           pid: session.pid,
           cols: session.cols,
           rows: session.rows,
+          legacy: session.legacy,
         };
       }
     }
