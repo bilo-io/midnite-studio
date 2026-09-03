@@ -55,6 +55,7 @@ import { loadTerminalView } from './features/terminal/lazy-terminal-view';
 import { TerminalPanel } from './features/terminal/terminal-panel';
 import { useAgentActivity } from './features/terminal/use-agent-activity';
 import { useSessionExits } from './features/terminal/use-session-exits';
+import { RailVersion } from './features/version/rail-version';
 import { hslTokenToHex } from './lib/color';
 import { idlePreload } from './lib/idle-preload';
 import { markOnce } from './lib/perf';
@@ -937,7 +938,10 @@ function Shell() {
         free-form, so the row restates the nav-item look by hand.
       */
       footer: ({ expanded }) => (
-        <div className="flex w-full flex-col gap-1">
+        // `pb-3` reserves the half of the version strip that reaches past the
+        // rail's own `py-3`: the strip is absolutely positioned and claims no
+        // space, so without it the Settings row would sit on the hairline.
+        <div className="flex w-full flex-col gap-1 pb-3">
           <RailLockButton expanded={expanded} />
           <button
             type="button"
@@ -954,6 +958,11 @@ function Shell() {
             <LuSettings aria-hidden className="h-4 w-4 shrink-0" />
             {expanded ? <span>Settings</span> : null}
           </button>
+          {/*
+            Last, and flush with the rail's bottom edge — its hairline is the
+            status bar's, continued across the rail. See `rail-version.tsx`.
+          */}
+          <RailVersion expanded={expanded} />
         </div>
       ),
     }),

@@ -5,6 +5,7 @@ import { BrowserWindow, app, ipcMain } from 'electron';
 import { parseDeepLink } from './protocol-parse';
 import { registerCliHandlers } from './ipc/cli-handlers';
 import { registerUpdater } from './update-service';
+import { registerReleaseNotesHandlers } from './ipc/release-notes-handlers';
 import { readSystemHealth } from './system-health';
 
 
@@ -287,6 +288,7 @@ if (!app.requestSingleInstanceLock()) {
     registerWorkflowHandlers();
     registerDemoApiHandlers();
     registerUpdater(getWindow);
+    registerReleaseNotesHandlers();
     ipcMain.handle(CHANNELS.systemHealth, () => readSystemHealth());
     registerPerfHandlers();
     installMgitFileProtocol();

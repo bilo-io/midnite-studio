@@ -68,6 +68,14 @@ export type MidniteStudioBridge = {
   homeDir: string;
 
   /**
+   * This build's semantic version, as `app.getVersion()` reports it.
+   *
+   * A plain value for the same reason `homeDir` is one — see `APP_VERSION_ARG`,
+   * which is how it crosses.
+   */
+  appVersion: string;
+
+  /**
    * This machine's hostname, as an absolute-truth string.
    *
    * Here for the same reason as `homeDir`, and needed for a reason that is not
@@ -736,6 +744,15 @@ export type MidniteStudioBridge = {
     restart: () => void;
     setChannel: (req: In<typeof S.UpdateSetChannelRequest>) => void;
     onState: (handler: (state: z.infer<typeof S.UpdateStateSchema>) => void) => Unsubscribe;
+    /**
+     * This version's changelog section from the public mirror repo.
+     *
+     * Fetched in main rather than by the renderer, and not because the renderer
+     * cannot reach the network: it is loaded from `file://` in the packaged
+     * build, so a cross-origin fetch would need the CSP widened for one string
+     * of markdown. Main already owns every other outbound request this app makes.
+     */
+    releaseNotes: (req: In<typeof S.ReleaseNotesRequest>) => Promise<z.infer<typeof S.ReleaseNotesResponse>>;
   };
 
   /**

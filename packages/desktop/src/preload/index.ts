@@ -3,6 +3,7 @@ import { homedir, hostname } from 'node:os';
 import { contextBridge, ipcRenderer } from 'electron';
 
 import {
+  APP_VERSION_ARG,
   CHANNELS,
   EVENT_CHANNELS,
   MSTUDIO_PERF_MARK,
@@ -50,6 +51,14 @@ function subscribe<T>(channel: string, handler: (payload: T) => void): Unsubscri
 const framelessArg = process.argv.find((a) => a.startsWith(WINDOW_FRAMELESS_ARG));
 const frameless = framelessArg?.slice(WINDOW_FRAMELESS_ARG.length) === '1';
 
+// Same route, same reason: only main can ask Electron for the packaged app's
+// version, and the renderer's own package.json is a different fact that happens
+// to agree (see APP_VERSION_ARG). `0.0.0` when the switch is absent — which
+// compares as "behind everything", so nothing mistakes a missing value for a
+// current one.
+const versionArg = process.argv.find((a) => a.startsWith(APP_VERSION_ARG));
+const appVersion = versionArg?.slice(APP_VERSION_ARG.length) || '0.0.0';
+
 /**
  * The `@bilo-io/shell` WindowChromeBridge implementation backing <TitleBar>.
  *
@@ -83,6 +92,7 @@ const bridge: Pick<
   MidniteStudioBridge,
   | 'homeDir'
   | 'hostname'
+  | 'appVersion'
   | 'repos'
   | 'log'
   | 'search'
@@ -128,6 +138,7 @@ const bridge: Pick<
   */
   homeDir: homedir(),
   hostname: hostname(),
+  appVersion,
 
   repos: {
     open: (req) => call(CHANNELS.repoOpen, req),
@@ -407,6 +418,7 @@ const bridge: Pick<
     restart: () => ipcRenderer.send(CHANNELS.updateRestart),
     setChannel: (req) => ipcRenderer.send(CHANNELS.updateSetChannel, req),
     onState: (handler) => subscribe(EVENT_CHANNELS.updateState, handler),
+    releaseNotes: (req) => call(CHANNELS.updateReleaseNotes, req),
   },
   perf: {
     // Read once, here: the preload is the last place in the renderer's own

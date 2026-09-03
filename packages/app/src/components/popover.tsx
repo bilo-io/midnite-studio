@@ -39,6 +39,7 @@ export function Popover({
   align = 'end',
   label,
   panelClassName = '',
+  triggerClassName,
   open: controlledOpen,
   onOpenChange,
   testId,
@@ -52,6 +53,16 @@ export function Popover({
   /** Accessible name for the trigger button. */
   label: string;
   panelClassName?: string;
+  /**
+   * Replaces the trigger's default look outright rather than appending to it.
+   *
+   * Appending would leave the default `hover:bg-accent` fighting whatever the
+   * caller wants on hover — two background utilities of equal specificity, the
+   * winner decided by stylesheet order rather than by the caller. The rail's
+   * version pill is the case: it hovers by deepening its own primary tint, and
+   * "keep everything except the hover" is not a thing a class string can say.
+   */
+  triggerClassName?: string;
   /** Controlled mode. Omit for a self-managed popover. */
   open?: boolean;
   onOpenChange?: (open: boolean) => void;
@@ -88,8 +99,7 @@ export function Popover({
   }, [setOpen]);
 
   /** Position against the trigger, clamped to the viewport. */
-  useLayoutEffect(() => {
-    if (!open) return;
+  const place = useCallback(() => {
     const anchor = triggerRef.current?.getBoundingClientRect();
     const panel = panelRef.current?.getBoundingClientRect();
     if (!anchor || !panel) return;
@@ -110,7 +120,32 @@ export function Popover({
       x: clamp(x, margin, window.innerWidth - panel.width - margin),
       y: clamp(y, margin, window.innerHeight - panel.height - margin),
     });
-  }, [open, side, align, children]);
+  }, [side, align]);
+
+  useLayoutEffect(() => {
+    if (!open) return;
+    place();
+  }, [open, place, children]);
+
+  /**
+   * Re-place whenever the panel's own size changes.
+   *
+   * The effect above cannot see it. Its `children` dependency catches a panel
+   * that changes because *this* component re-rendered, but a panel whose
+   * content arrives asynchronously re-renders itself — a query resolving inside
+   * it never reaches this scope. `side="top"` is where that shows: the panel is
+   * positioned by subtracting a height it no longer has, so a panel that grew
+   * after mount hangs down over its own trigger, and past the bottom of the
+   * window the clamp was supposed to keep it inside.
+   */
+  useEffect(() => {
+    if (!open || typeof ResizeObserver === 'undefined') return;
+    const panel = panelRef.current;
+    if (!panel) return;
+    const observer = new ResizeObserver(() => place());
+    observer.observe(panel);
+    return () => observer.disconnect();
+  }, [open, place]);
 
   // Escape, outside click, and a capture-phase scroll anywhere in the app.
   // Scroll dismisses rather than repositions: the panel is anchored to an
@@ -175,7 +210,10 @@ export function Popover({
         aria-label={label}
         data-testid={testId}
         onClick={() => (open ? close() : setOpen(true))}
-        className="flex items-center gap-3 rounded px-1 transition-colors hover:bg-accent hover:text-foreground data-[open=true]:bg-accent"
+        className={
+          triggerClassName ??
+          'flex items-center gap-3 rounded px-1 transition-colors hover:bg-accent hover:text-foreground data-[open=true]:bg-accent'
+        }
         data-open={open}
       >
         {trigger}

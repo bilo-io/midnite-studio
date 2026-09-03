@@ -258,6 +258,8 @@ export const CHANNELS = {
   updateDownload: 'mstudio:update:download',
   updateRestart: 'mstudio:update:restart',
   updateSetChannel: 'mstudio:update:set-channel',
+  /** This version's changelog section, fetched from the public mirror repo. */
+  updateReleaseNotes: 'mstudio:update:release-notes',
   systemHealth: 'mstudio:system:health',
 
   // --- stash -----------------------------------------------------------------
@@ -594,6 +596,19 @@ export const EVENT_CHANNELS = {
  * flag) — and the symptom is an app-drawn title bar stacked on a native one.
  */
 export const WINDOW_FRAMELESS_ARG = '--mstudio-frameless=';
+
+/**
+ * CLI switch carrying `app.getVersion()` from main into the preload.
+ *
+ * Here rather than on a channel for the same reason `homeDir` is a value: it
+ * never changes for the life of the process, and the rail's version pill needs
+ * it on its first paint — an async round-trip would render an empty pill and
+ * then fill it in. And it has to come from main at all because only main can
+ * ask Electron: the renderer's own `package.json` version is the *source*
+ * version, which is the packaged app's only by the lockstep release rule, and
+ * silently wrong the moment that rule bends.
+ */
+export const APP_VERSION_ARG = '--mstudio-app-version=';
 
 export type ChannelName = (typeof CHANNELS)[keyof typeof CHANNELS];
 export type EventChannelName = (typeof EVENT_CHANNELS)[keyof typeof EVENT_CHANNELS];
