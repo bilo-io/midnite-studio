@@ -25,7 +25,7 @@
 - **[Phase 34 · Agent Councils](phases/phase-34-agent-councils.md)** (100% · 34/34) — Landed. Fills the nav/palette-reserved "Councils" slot: a standing panel of AI members answers a prompt in parallel, synthesized into one distilled write-up. MVP scope — one format (brainstorm), global (not per-repo), a 3-agent member pool (`agy`/`codex`/`opencode`), and an explicit auto-send exception to the app's usual type-but-don't-send agent-launch posture. Two manual passes (a real end-to-end run, a copy review) remain for a human.
 - **Phases 25–33 all landed** — search/blame, split diffs, status bar + browser pane, worktrees-first sidebar, markdown slides, the detached terminal broker, interactive rebase, the real browser engine, and the installable app + CLI.
 - **[24 · The explorer learns to write](phases/phase-24-writable-explorer.md)** (78% · 43/55) **and [23 · A command palette](phases/phase-23-command-palette.md)** (76% · 42/55) are both closed as DONE with their remainders logged in [`outstanding.md`](outstanding.md).
-- **[22 · Stash, the reflog, and writes you can take back](phases/phase-22-stash-and-safety-net.md)** (80% · 45/56, [PR #51](https://github.com/bilo-io/midnite-studio/pull/51)) — **Themes B, E, F and G landed** (2026-09-03), closing the four surfaces the prior audit found stubbed: stash reaches the **sidebar** (a `Stashes` `TreeSection`, `hideWhenEmpty={false}` so its own "Stash changes" action stays reachable at zero count) and the **Changes view** (a toolbar action + per-row action, a dedicated `StashPushDialog` rather than the generic one-field prompt); **force-push** ships as `--force-with-lease` only, gated behind a new `Settings ▸ Git Safety` opt-in and offered only from the per-ref badge menu once a plain push has already been rejected as non-fast-forward; and the **reflog** is real — `readReflog` via `--date=unix` (the doc's own `%gt` placeholder doesn't exist in git, confirmed directly), replacing Theme H's honest `ReflogList` placeholder with a ref selector, action filter, and checkout-able/copy-able list. Themes C (graph pseudo-rows) and D (the stash inspector) remain `◻ TODO`; Theme H stays `◐ PARTIAL`.
+- **[22 · Stash, the reflog, and writes you can take back](phases/phase-22-stash-and-safety-net.md)** (100% · 56/56, [PR #51](https://github.com/bilo-io/midnite-studio/pull/51) + [PR #52](https://github.com/bilo-io/midnite-studio/pull/52)) — **Themes B, E, F and G landed** (2026-09-03, PR #51), closing the four surfaces the prior audit found stubbed: stash reaches the **sidebar** (a `Stashes` `TreeSection`, `hideWhenEmpty={false}` so its own "Stash changes" action stays reachable at zero count) and the **Changes view** (a toolbar action + per-row action, a dedicated `StashPushDialog` rather than the generic one-field prompt); **force-push** ships as `--force-with-lease` only, gated behind a new `Settings ▸ Git Safety` opt-in and offered only from the per-ref badge menu once a plain push has already been rejected as non-fast-forward; and the **reflog** is real — `readReflog` via `--date=unix` (the doc's own `%gt` placeholder doesn't exist in git, confirmed directly), replacing Theme H's honest `ReflogList` placeholder with a ref selector, action filter, and checkout-able/copy-able list. **Themes C and D landed** (2026-09-03, PR #52): stashes are pseudo-rows above the graph (`StashRows`, the same dashed grammar `UncommittedRow` set) and the inspector reads all three of a stash's parts — tracked, index and untracked — over one `TreeSection`-per-part list rather than tabs, with a new discriminated `graphSelection` in `ui-store.ts` routing both the graph and the sidebar into the same panel. Theme H stays `◐ PARTIAL` — its narrowed starter-subset scope is otherwise complete, so the phase counts 56/56 with H's own remainder left as-is rather than resolved here.
 
 
 
@@ -64,7 +64,7 @@ Completed work is logged append-only in [`done.md`](done.md). Deferred scope liv
 | [25 · Search everywhere, and the blame that explains it](phases/phase-25-search-everywhere.md) | ✅ DONE | x1 | 101/101 | `██████████` | 100% | — | — |
 | [24 · The explorer learns to write, and to search](phases/phase-24-writable-explorer.md) | ✅ DONE | — | 43/55 | `████████░░` | 78% | — | — |
 | [23 · A command palette, and the registry that can feed it](phases/phase-23-command-palette.md) | ✅ DONE | — | 42/55 | `████████░░` | 76% | — | — |
-| [22 · Stash, the reflog, and writes you can take back](phases/phase-22-stash-and-safety-net.md) | 🔄 WIP | — | 45/56 | `████████░░` | 80% | C D | H (partial) |
+| [22 · Stash, the reflog, and writes you can take back](phases/phase-22-stash-and-safety-net.md) | 🔄 WIP | — | 56/56 | `██████████` | 100% | — | H (partial) |
 | [21 · Agent roster + terminal identity](phases/phase-21-agent-roster-and-terminal-identity.md) | ✅ DONE | — | 46/46 | `██████████` | 100% | — | — |
 | [20 · Reviews page & unified diff syntax highlighting](phases/phase-20-reviews-page.md) | ✅ DONE | — | 45/45 | `██████████` | 100% | — | — |
 | [19 · Dashboard, Actions and Tests as views](phases/phase-19-dashboard-actions-tests.md) | ✅ DONE | — | 76/76 | `██████████` | 100% | — | — |
@@ -923,10 +923,19 @@ first toast primitive and first undo.*
   parallel to `refMenu` rather than forced through `RefSectionKey`, `keys.stashes(repoId)` under
   `keys.repo`. Genuinely landed this time — see the correction below for the earlier false claim.
   (Falsely marked done 2026-08-28, corrected 2026-09-02; really done 2026-09-03, PR #51.)
-- ◻ **C** — no `features/graph/stash-rows.tsx` exists; stashes are not pseudo-rows in the graph.
-  Falsely marked done 2026-08-28; corrected 2026-09-02.
-- ◻ **D** — no `stashDiff` in `commands/stash.ts`; the inspector has no stash mode.
-  Falsely marked done 2026-08-28; corrected 2026-09-02.
+- ✅ **C** — `features/graph/stash-rows.tsx`: pseudo-rows above the `role="grid"` scroller, the same
+  dashed-ring/dashed-lane/italic grammar `UncommittedRow` set, collapsing past two entries into an
+  overflow row that opens the sidebar's `Stashes` section. Selection is a new discriminated
+  `graphSelection: {kind:'commit',sha} | {kind:'stash',selector} | null` in `ui-store.ts`, replacing
+  the old commit-only `selectedCommitSha` — one selection state reached identically from the graph
+  and the sidebar's `StashRow`. (Really done 2026-09-03, PR #52 — corrects the 2026-08-28 false claim.)
+- ✅ **D** — `readStashDetail`/`readStashFileDiff` in `commands/stash.ts` (a new `readRefDiff` in
+  `diff.ts` answers the index part's two-ref diff; tracked/untracked reuse `readCommitFileDiff`
+  unchanged), `mstudio:stash:detail`/`mstudio:stash:diff` with their own schemas, and
+  `features/stash/stash-inspector.tsx` — three labelled `TreeSection`s (tracked/staged-at-stash-time/
+  untracked) over the shared `ChangeTree`/`DiffView`, not tabs, plus Apply/Pop/Branch/Drop header
+  actions calling the exact same `useTargetedStash*` hooks the sidebar's `stashMenu` already uses.
+  (Really done 2026-09-03, PR #52 — corrects the 2026-08-28 false claim.)
 - ✅ **E** — a "Stash changes" toolbar action (whole worktree) and a per-row "Stash file" action in
   the Changes view, both opening a dedicated `StashPushDialog` with keep-index/include-untracked as
   unchecked-by-default checkboxes — reuses Theme B's `useStashPush`. (Falsely marked done 2026-08-28,

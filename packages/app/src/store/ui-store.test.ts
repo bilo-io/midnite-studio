@@ -19,7 +19,7 @@ const reset = () =>
     activeView: 'graph',
     selectedRepoId: null,
     selectedWorktreePath: null,
-    selectedCommitSha: null,
+    graphSelection: null,
     reposOpen: true,
     terminalOpen: false,
     terminalMaximized: false,
@@ -56,8 +56,22 @@ describe('useUiStore', () => {
     expect(useUiStore.getState()).toMatchObject({
       selectedRepoId: 'repo-b',
       selectedWorktreePath: null,
-      selectedCommitSha: null,
+      graphSelection: null,
     });
+  });
+
+  it('selecting a stash clears a commit selection and vice versa', () => {
+    useUiStore.getState().selectCommit('abc');
+    expect(useUiStore.getState().graphSelection).toEqual({ kind: 'commit', sha: 'abc' });
+
+    useUiStore.getState().selectStash('stash@{0}');
+    expect(useUiStore.getState().graphSelection).toEqual({
+      kind: 'stash',
+      selector: 'stash@{0}',
+    });
+
+    useUiStore.getState().selectCommit(null);
+    expect(useUiStore.getState().graphSelection).toBeNull();
   });
 
   it('toggles the terminal', () => {
@@ -280,7 +294,7 @@ describe('persistence', () => {
 
     expect(saved.state.layout).toMatchObject({ reposWidth: 300 });
     expect(saved.state).not.toHaveProperty('graphRefFilter');
-    expect(saved.state).not.toHaveProperty('selectedCommitSha');
+    expect(saved.state).not.toHaveProperty('graphSelection');
   });
 
   it('persists the terminal chrome, so a restart reopens what was open', () => {

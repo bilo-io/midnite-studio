@@ -143,45 +143,59 @@ The spine: B–E all read off this contract, so it lands first.
       `SECTION_LABELS` already had a compile-enforced `stashes` entry from the phase that widened
       `SectionKey`; only its stale doc comment needed updating.
 
-### C — Stashes in the graph (M)
+### C — Stashes in the graph (M) ✅ DONE (2026-09-03, PR #52)
 
-- [ ] Stash rows are **pseudo-rows**, following the precedent
+- [x] Stash rows are **pseudo-rows**, following the precedent
       [`uncommitted-row.tsx`](../packages/app/src/features/graph/uncommitted-row.tsx) set and
       documented: `GraphRowSchema` in
       [`commit.ts`](../packages/shared/src/domain/commit.ts) stays a commit-only type, and a stash
       is not given a fake sha to smuggle it into `graph-store`, the virtualizer's index space, and
       every `rows[i]` lookup that would then have to exclude it again.
-- [ ] A `StashRows` sibling rendered above the `role="grid"` scroller in
+- [x] A [`StashRows`](../packages/app/src/features/graph/stash-rows.tsx) sibling rendered above the
+      `role="grid"` scroller in
       [`graph-view.tsx`](../packages/app/src/features/graph/graph-view.tsx), beneath
       `UncommittedRow`, taking `lane`/`colorIdx` from `headRow` the same way.
-- [ ] The same "this is not a real commit" visual grammar `UncommittedRow` established — dashed
+- [x] The same "this is not a real commit" visual grammar `UncommittedRow` established — dashed
       ring node, dashed lane, italic muted text — so the two pseudo-rows read as one family rather
       than two exceptions.
-- [ ] Collapse past two entries: a repo with fourteen stashes must not push the actual graph off
-      the top of the pane. The overflow row links to the sidebar section.
-- [ ] Selecting a stash row drives the same selection state a commit row does, so Theme D's
-      inspector is reached identically from the graph and from the sidebar.
-- [ ] A stash's rows disappear the moment the underlying entry is popped or dropped — the watcher
-      `'refs'` event from Theme B is the trigger, not a manual refresh.
+- [x] Collapse past two entries: a repo with fourteen stashes must not push the actual graph off
+      the top of the pane. The overflow row links to the sidebar section (expands its `TreeSection`
+      if collapsed).
+- [x] Selecting a stash row drives the same selection state a commit row does — `graphSelection` in
+      [`ui-store.ts`](../packages/app/src/store/ui-store.ts), a discriminated
+      `{kind:'commit',sha} | {kind:'stash',selector} | null` replacing the old commit-only
+      `selectedCommitSha`, so Theme D's inspector is reached identically from the graph and from
+      the sidebar's own `StashRow`.
+- [x] A stash's rows disappear the moment the underlying entry is popped or dropped — the watcher
+      `'refs'` event from Theme B is the trigger (`useStashes`'s existing invalidation), not a
+      manual refresh.
 
-### D — A stash you can read (M)
+### D — A stash you can read (M) ✅ DONE (2026-09-03, PR #52)
 
-- [ ] `stashDiff(worktreePath, selector)` in `commands/stash.ts`, returning the same parsed shape
-      [`diff.ts`](../packages/git-engine/src/commands/diff.ts) and
-      [`diff-parser.ts`](../packages/git-engine/src/parsers/diff-parser.ts) already produce, so the
-      inspector renders it through the one shared `DiffView` with no new renderer.
-- [ ] **Three parts, not one.** The tracked changes are `stash@{n}^1..stash@{n}`; the index state is
-      `stash@{n}^2`; the untracked files are `stash@{n}^3` and exist only when the stash was made
-      with `-u`. `git stash show -p` shows the first and silently omits the rest, which is exactly
-      the kind of quiet partial truth this inspector should not repeat.
-- [ ] The inspector's stash mode reuses Phase 12's file list and hunk rendering wholesale, with a
-      header naming the branch the stash was made on (parsed out of `%gs`, which reads
-      `WIP on main: 1a2b3c4 subject`) and the time it was made.
-- [ ] Untracked entries are labelled as untracked in the file list — they are additions with no
-      "before", and rendering them as ordinary adds loses the one fact that matters when deciding
-      whether a pop is safe.
-- [ ] Apply / Pop / Drop / Branch as actions in the inspector header, sharing Theme B's handlers
-      rather than a second copy of them.
+- [x] `readStashDetail`/`readStashFileDiff` in `commands/stash.ts`, the latter returning the same
+      parsed `FileDiff` shape [`diff.ts`](../packages/git-engine/src/commands/diff.ts) and
+      [`diff-parser.ts`](../packages/git-engine/src/parsers/diff-parser.ts) already produce (via a
+      new two-ref `readRefDiff` for the index part), so the inspector renders it through the one
+      shared `DiffView` with no new renderer. `mstudio:stash:detail`/`mstudio:stash:diff` join
+      `CHANNELS`, each with their own request/response schemas (`StashDetailSchema`/
+      `StashDiffFileSchema`/`StashPartSchema` in `shared/src/domain/stash.ts`).
+- [x] **Three parts, not one.** The tracked changes are `stash@{n}^1..stash@{n}`; the index state is
+      `stash@{n}^1..stash@{n}^2`; the untracked files are `stash@{n}^3` and exist only when the
+      stash was made with `-u`. `git stash show -p` shows the first and silently omits the rest,
+      which is exactly the kind of quiet partial truth this inspector does not repeat.
+- [x] The inspector ([`stash-inspector.tsx`](../packages/app/src/features/stash/stash-inspector.tsx))
+      reuses Phase 12's `ChangeTree`/`buildChangeTree` file-list rendering and the shared
+      `DiffView`, with a header showing the stash's own message (its `%gs` line already names the
+      branch) and relative age. **Deviation from the doc's exact wording**: three labelled
+      `TreeSection`s in one scrollable list rather than tabs — the Stage 2.5 design decision this
+      batch confirmed, mirroring how the Changes panel splits staged/unstaged over one scroller.
+- [x] Untracked entries sit under their own "Untracked files" section, distinct from "Tracked
+      changes" and "Staged at stash time" — the fact that they are additions with no "before" is
+      exactly what a separate labelled section says without a per-row badge.
+- [x] Apply / Pop / Drop / Branch as icon actions in the inspector header, calling the exact same
+      `useTargetedStashApply`/`Pop`/`Branch`/`Drop` mutation hooks
+      (`features/stash/use-stash-actions.ts`) the sidebar's `stashMenu` already calls — a second
+      consumer of Theme B's handlers, not a second copy of them.
 
 ### E — Stash from the Changes view (S) ✅ DONE (2026-09-03, PR #51)
 

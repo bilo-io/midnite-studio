@@ -7,6 +7,8 @@ import { TempRepo } from '../testing/temp-repo';
 import { conflictedPaths, detectInProgress } from './status';
 import {
   listStashes,
+  readStashDetail,
+  readStashFileDiff,
   stashApply,
   stashBranch,
   stashDrop,
@@ -195,6 +197,100 @@ describe('stashStore', () => {
     expect(result.ok).toBe(false);
     if (result.ok) throw new Error('expected a failure');
     expect(result.kind).toBe('error');
+  });
+});
+
+describe('readStashDetail', () => {
+  it('reports only the tracked part for a plain stash', async () => {
+    await repo.commitFile('a.txt', 'one\n', 'base');
+    await repo.writeFile('a.txt', 'two\n');
+    await stashPush(repo.path, { message: 'wip' });
+
+    const detail = await readStashDetail(repo.path, 'stash@{0}');
+    expect(detail?.tracked.map((f) => f.path)).toEqual(['a.txt']);
+    expect(detail?.index).toEqual([]);
+    expect(detail?.untracked).toEqual([]);
+  });
+
+  it('reports the index part for a stash with a distinct staged state', async () => {
+    await repo.commitFile('a.txt', 'one\n', 'base');
+    await repo.writeFile('a.txt', 'staged\n');
+    await repo.git(['add', '--', 'a.txt']);
+    await repo.writeFile('a.txt', 'working\n');
+    await stashPush(repo.path);
+
+    const detail = await readStashDetail(repo.path, 'stash@{0}');
+    expect(detail?.tracked.map((f) => f.path)).toEqual(['a.txt']);
+    expect(detail?.index.map((f) => f.path)).toEqual(['a.txt']);
+    expect(detail?.untracked).toEqual([]);
+  });
+
+  it('reports the untracked part for a stash made with -u', async () => {
+    await repo.commitFile('a.txt', 'one\n', 'base');
+    await repo.writeFile('a.txt', 'two\n');
+    await repo.writeFile('new.txt', 'untracked\n');
+    await stashPush(repo.path, { includeUntracked: true });
+
+    const detail = await readStashDetail(repo.path, 'stash@{0}');
+    expect(detail?.tracked.map((f) => f.path)).toEqual(['a.txt']);
+    expect(detail?.untracked.map((f) => f.path)).toEqual(['new.txt']);
+  });
+
+  it('returns null for a selector with no matching stash', async () => {
+    await repo.commitFile('a.txt', 'one\n', 'base');
+    expect(await readStashDetail(repo.path, 'stash@{0}')).toBeNull();
+  });
+});
+
+describe('readStashFileDiff', () => {
+  it('diffs the tracked part against HEAD at stash time', async () => {
+    await repo.commitFile('a.txt', 'one\n', 'base');
+    await repo.writeFile('a.txt', 'two\n');
+    await stashPush(repo.path);
+
+    const diff = await readStashFileDiff(repo.path, 'stash@{0}', 'tracked', 'a.txt');
+    expect(diff?.hunks.flatMap((h) => h.lines).some((l) => l.text.includes('two'))).toBe(true);
+  });
+
+  it('diffs the index part between HEAD-at-stash-time and the staged state', async () => {
+    await repo.commitFile('a.txt', 'one\n', 'base');
+    await repo.writeFile('a.txt', 'staged\n');
+    await repo.git(['add', '--', 'a.txt']);
+    await stashPush(repo.path);
+
+    const diff = await readStashFileDiff(repo.path, 'stash@{0}', 'index', 'a.txt');
+    expect(diff?.hunks.flatMap((h) => h.lines).some((l) => l.text.includes('staged'))).toBe(true);
+  });
+
+  it('diffs the untracked part as a whole new file', async () => {
+    await repo.commitFile('a.txt', 'one\n', 'base');
+    await repo.writeFile('new.txt', 'untracked\n');
+    await stashPush(repo.path, { includeUntracked: true });
+
+    const diff = await readStashFileDiff(repo.path, 'stash@{0}', 'untracked', 'new.txt');
+    expect(diff?.change).toBe('added');
+  });
+
+  it('reports no hunks for the index part when nothing was staged at stash time', async () => {
+    // A plain `stash push` still gives the commit two parents (HEAD and the
+    // index tree) — `^2` exists even when nothing was staged, so this reads
+    // as an empty diff, not an absent part.
+    await repo.commitFile('a.txt', 'one\n', 'base');
+    await repo.writeFile('a.txt', 'two\n');
+    await stashPush(repo.path);
+
+    const diff = await readStashFileDiff(repo.path, 'stash@{0}', 'index', 'a.txt');
+    expect(diff?.hunks).toEqual([]);
+  });
+
+  it('returns null for the untracked part when the stash was made without -u', async () => {
+    // Unlike the index part, `^3` genuinely does not exist on a plain stash —
+    // there is no rootless third parent to diff at all.
+    await repo.commitFile('a.txt', 'one\n', 'base');
+    await repo.writeFile('a.txt', 'two\n');
+    await stashPush(repo.path);
+
+    expect(await readStashFileDiff(repo.path, 'stash@{0}', 'untracked', 'a.txt')).toBeNull();
   });
 });
 
