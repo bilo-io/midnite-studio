@@ -7,7 +7,7 @@ import type { IconComponent } from '../../components/icon-button';
 import { IconButton } from '../../components/icon-button';
 import { useUiStore } from '../../store/ui-store';
 import { useTerminalStore } from '../terminal/terminal-store';
-import { hasMidniteDir, isMidniteStudioCheckout } from './repo-capability';
+import { hasMidniteDir, hasPackagedBuild, isMidniteStudioCheckout } from './repo-capability';
 import { SetupDialog } from './setup-dialog';
 
 /**
@@ -84,6 +84,7 @@ export function useProjectActions(target: ProjectActionsTarget): {
   // opens), and a click should not wait on two IPC round trips first.
   const [hasKit, setHasKit] = useState(false);
   const [isStudioCheckout, setIsStudioCheckout] = useState(false);
+  const [hasBuild, setHasBuild] = useState(false);
   useEffect(() => {
     let cancelled = false;
     void hasMidniteDir(repoId, worktreePath).then((value) => {
@@ -92,10 +93,27 @@ export function useProjectActions(target: ProjectActionsTarget): {
     void isMidniteStudioCheckout(repoId, worktreePath).then((value) => {
       if (!cancelled) setIsStudioCheckout(value);
     });
+    void hasPackagedBuild(repoId, worktreePath).then((value) => {
+      if (!cancelled) setHasBuild(value);
+    });
     return () => {
       cancelled = true;
     };
   }, [repoId, worktreePath]);
+
+  // A run of `install-local` is exactly what turns `hasBuild` from false to
+  // true (it depends on `~:dist`), so the one-time read above goes stale the
+  // moment Update's own session finishes — re-read when that session exits
+  // rather than waiting for the menu to unmount and remount.
+  const [updateSessionId, setUpdateSessionId] = useState<string | null>(null);
+  const updateSessionState = useTerminalStore((s) =>
+    updateSessionId ? (s.states[updateSessionId] ?? 'idle') : 'idle',
+  );
+  useEffect(() => {
+    if (!updateSessionId || updateSessionState !== 'exited') return;
+    setUpdateSessionId(null);
+    void hasPackagedBuild(repoId, worktreePath).then(setHasBuild);
+  }, [updateSessionId, updateSessionState, repoId, worktreePath]);
 
   const actions: ProjectAction[] = [
     {
@@ -110,7 +128,9 @@ export function useProjectActions(target: ProjectActionsTarget): {
     {
       key: 'update',
       label: 'Update Midnite Studio',
-      buttonLabel: 'Update Midnite Studio — rebuild and install this checkout',
+      buttonLabel: hasBuild
+        ? 'Update Midnite Studio — rebuild and install this checkout'
+        : 'Update Midnite Studio — no packaged build yet, will run dist first (several minutes, ~200MB)',
       icon: LuDownload,
       ...(isStudioCheckout
         ? {}
@@ -125,6 +145,7 @@ export function useProjectActions(target: ProjectActionsTarget): {
           repoId,
         });
         useTerminalStore.getState().queueInput(session.id, 'moon run desktop:install-local');
+        setUpdateSessionId(session.id);
       },
     },
   ];
