@@ -31,7 +31,7 @@ const LOCKFILE_MANAGER: readonly [string, PackageManager][] = [
  * this only TYPE the result into a terminal — see `runLifecycleAction` — so a
  * wrong guess costs an edit, not a mistaken run.
  */
-async function inspectRepoRoot(
+export async function inspectRepoRoot(
   repoId: string,
   worktreePath: string | undefined,
 ): Promise<{ moon: boolean; pm: PackageManager; scripts: Record<string, string> }> {

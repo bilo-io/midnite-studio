@@ -137,12 +137,12 @@ const rowNames = (menu: Locator): Promise<(string | null)[]> =>
     .evaluateAll((nodes) => nodes.map((node) => node.getAttribute('aria-label')));
 
 /**
- * The top level is five groups and nothing else, and each opens onto its own
- * verbs. Asserted as the exact ordered list rather than five presence checks:
+ * The top level is six groups and nothing else, and each opens onto its own
+ * verbs. Asserted as the exact ordered list rather than six presence checks:
  * the previous shape had all eleven verbs on this plane, so a test that only
  * looked for "Tasks" would have passed against a menu that still showed them.
  */
-test('the top level is the five groups, each opening its own verbs', async ({ page }) => {
+test('the top level is the six groups, each opening its own verbs', async ({ page }) => {
   await open(page);
   await page.getByRole('button', { name: `Run a midnite skill on ${REPO}` }).click();
 
@@ -153,6 +153,7 @@ test('the top level is the five groups, each opening its own verbs', async ({ pa
     'Releases',
     'Git',
     'Loops',
+    'Project',
   ]);
   // Groups only: no verb escaped onto the top level, and no divider is left
   // over from the flat list the groups replaced.
@@ -189,6 +190,9 @@ test('the top level is the five groups, each opening its own verbs', async ({ pa
     'Loop: Brainstorm',
   ]);
 
+  await topMenu.getByRole('menuitem', { name: 'Project', exact: true }).hover();
+  await expect.poll(() => rowNames(submenu)).toEqual(['Set up this repo', 'Update Midnite Studio']);
+
   /*
     Iconed throughout: every group row carries its own glyph *and* a chevron,
     and every submenu row one glyph.
@@ -197,12 +201,12 @@ test('the top level is the five groups, each opening its own verbs', async ({ pa
     as a descendant — the submenu is positioned against its parent row, so it
     is nested in the DOM even though it reads as a separate surface.
   */
-  for (const group of ['Tasks', 'Reviews', 'Releases', 'Git', 'Loops']) {
+  for (const group of ['Tasks', 'Reviews', 'Releases', 'Git', 'Loops', 'Project']) {
     const row = topMenu.getByRole('menuitem', { name: group, exact: true });
     await expect(row.locator('svg')).toHaveCount(2);
   }
-  // Loops is the submenu left open above: one glyph per row, seven of them.
-  await expect(submenu.getByRole('menuitem').locator('svg')).toHaveCount(7);
+  // Project is the submenu left open above: one glyph per row, two of them.
+  await expect(submenu.getByRole('menuitem').locator('svg')).toHaveCount(2);
 });
 
 /**
@@ -344,4 +348,82 @@ test('switching the primary agent in Settings changes which binary and prefix th
   // stored `/midnite-exec` prompt gets its prefix translated on the way out.
   // It also only runs a prompt non-interactively behind `exec`.
   await expect.poll(() => ptyInputs(page)).toEqual(["codex exec '$midnite-exec'"]);
+});
+
+/**
+ * The onboarding kit's Project group (Phase 49 Theme E). Neither leaf is a
+ * skill-typing verb — see `agent-commands.ts`'s own comment on the group —
+ * so these specs are separate from the generic "an entry types its skill"
+ * coverage above.
+ */
+test.describe('the Project group', () => {
+  test('Setup opens a dialog that renders the plan, grouped by status', async ({ page }) => {
+    await installMockBridge(page, {
+      ...fixtures,
+      scaffoldPlanResult: {
+        ok: true,
+        value: {
+          targetRoot: '/tmp/repo',
+          templateVersion: '1.0.0',
+          entries: [
+            { path: '.claude/skills/midnite-exec/SKILL.md', status: 'create', bytes: 10 },
+            { path: 'CLAUDE.md', status: 'locally-edited', bytes: 20 },
+          ],
+        },
+      },
+    });
+    await page.goto('/');
+    await expect(page.getByRole('columnheader', { name: 'Commit message' })).toBeVisible();
+
+    await openMidniteMenu(page, 'Project');
+    await page.getByRole('menuitem', { name: 'Set up this repo', exact: true }).click();
+
+    const dialog = page.getByRole('dialog', { name: 'Set up this repo' });
+    await expect(dialog).toBeVisible();
+    await expect(dialog.getByText('.claude/skills/midnite-exec/SKILL.md')).toBeVisible();
+    await expect(dialog.getByText('CLAUDE.md')).toBeVisible();
+    // No terminal opened — Setup previews, it never blindly writes.
+    await expect(page.locator('[data-terminal-panel]')).toHaveCount(0);
+  });
+
+  test('Update is disabled outside the Midnite Studio checkout', async ({ page }) => {
+    await open(page);
+    await openMidniteMenu(page, 'Project');
+
+    // The default fixture has no `install-local.mjs` entry, so the capability
+    // check reads "not this checkout" — exactly the case this spec targets.
+    const update = page.getByRole('menuitem', { name: 'Update Midnite Studio', exact: true });
+    await expect(update).toBeDisabled();
+  });
+
+  test('Update types (never runs) the install command on the Midnite Studio checkout', async ({
+    page,
+  }) => {
+    await installMockBridge(page, {
+      ...fixtures,
+      fsFiles: {
+        'repo:packages/desktop/scripts/install-local.mjs': {
+          kind: 'text',
+          content: '// installs the packaged build',
+          size: 10,
+        },
+      },
+    });
+    await page.goto('/');
+    await expect(page.getByRole('columnheader', { name: 'Commit message' })).toBeVisible();
+
+    await openMidniteMenu(page, 'Project');
+    const update = page.getByRole('menuitem', { name: 'Update Midnite Studio', exact: true });
+    await expect(update).toBeEnabled();
+    await update.click();
+
+    await expect(page.locator('[data-terminal-panel]')).toBeVisible();
+    // The literal shell command, NOT wrapped as an argument to an agent CLI —
+    // `startAgent` would have produced `claude 'moon run desktop:install-local'`,
+    // which is exactly the bug this leaf's own onSelect avoids by using a
+    // plain shell session instead.
+    await expect.poll(() => ptyInputs(page)).toEqual(['moon run desktop:install-local']);
+    const inputs = await ptyInputs(page);
+    expect(inputs[0]).not.toContain('\r');
+  });
 });
