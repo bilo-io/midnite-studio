@@ -1,5 +1,5 @@
 import { forwardRef, useMemo, useRef, type KeyboardEventHandler, type ReactNode } from 'react';
-import { LuChartColumn, LuChartSpline, LuGrid3X3, LuLayoutGrid } from 'react-icons/lu';
+import { LuChartArea, LuChartColumn, LuGrid3X3, LuLayoutGrid } from 'react-icons/lu';
 
 import type { IconComponent } from '../../components/icon-button';
 import {
@@ -37,6 +37,7 @@ export function CommitActivityPanel({ slot }: { slot: 'right' | 'bottom' }) {
   const timeframe = useUiStore((s) => s.activityTimeframe);
   const gridlines = useUiStore((s) => s.activityTimelineGridlines);
   const barLayout = useUiStore((s) => s.activityTimelineBarLayout);
+  const areaLayout = useUiStore((s) => s.activityTimelineAreaLayout);
   const repoId = useUiStore((s) => s.selectedRepoId);
 
   const placed = open && (slot === 'right') === (orientation === 'vertical');
@@ -97,6 +98,7 @@ export function CommitActivityPanel({ slot }: { slot: 'right' | 'bottom' }) {
             orientation={orientation}
             gridlines={gridlines}
             barLayout={barLayout}
+            areaLayout={areaLayout}
           />
         ) : (
           <p className="flex h-full items-center justify-center text-center text-[11px] text-muted-foreground">
@@ -155,7 +157,7 @@ const TIMEFRAMES: readonly (readonly [ActivityTimeframe, ReactNode, string])[] =
 const STYLE_ICONS: readonly (readonly [ActivityTimelineStyle, IconComponent, string])[] = [
   ['bars', LuChartColumn, 'Bars'],
   ['heatmap', LuLayoutGrid, 'Heatmap'],
-  ['sparkline', LuChartSpline, 'Sparkline'],
+  ['area', LuChartArea, 'Area'],
 ];
 
 const STYLES: readonly (readonly [ActivityTimelineStyle, ReactNode, string])[] = STYLE_ICONS.map(

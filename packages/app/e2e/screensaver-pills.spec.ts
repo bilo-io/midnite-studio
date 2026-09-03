@@ -17,7 +17,7 @@ async function seedPasscode(page: import('@playwright/test').Page): Promise<void
       'midnite-studio.ui',
       JSON.stringify({
         state: { requirePasscode: true, passcode: '1234', passcodeOnlyWhenLocked: false },
-        version: 5,
+        version: 6,
       }),
     );
   });

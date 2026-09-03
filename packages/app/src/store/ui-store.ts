@@ -10,6 +10,7 @@ import {
 
 import type { ActivityTimeframe } from '../components/commit-activity-timeline/activity-buckets';
 import type {
+  ActivityAreaLayout,
   ActivityBarLayout,
   ActivityTimelineOrientation,
   ActivityTimelineStyle,
@@ -439,6 +440,13 @@ export type UiState = {
    * persisted key is forever, so it agrees with them from the start.
    */
   activityTimelineBarLayout: ActivityBarLayout;
+  /**
+   * Overlaid off one baseline, or additions stacked on deletions. The `Area`
+   * style's counterpart to `activityTimelineBarLayout` — a separate field
+   * because the two styles answer different questions and a reader who wants
+   * side-by-side bars has said nothing about how areas should stack.
+   */
+  activityTimelineAreaLayout: ActivityAreaLayout;
   /** Active tab in the FAB panel. */
   activeFabTab: FabTab;
   /**
@@ -681,6 +689,7 @@ export type UiState = {
   toggleActivityTimelineGridlines: () => void;
   setActivityTimelineGridlines: (on: boolean) => void;
   setActivityTimelineBarLayout: (layout: ActivityBarLayout) => void;
+  setActivityTimelineAreaLayout: (layout: ActivityAreaLayout) => void;
   setActiveFabTab: (tab: FabTab) => void;
   onFabTabClick: (tab: FabTab) => void;
   /**
@@ -957,6 +966,7 @@ type PersistedUi = Pick<
   | 'activityTimeframe'
   | 'activityTimelineGridlines'
   | 'activityTimelineBarLayout'
+  | 'activityTimelineAreaLayout'
   | 'fabSessions'
   | 'loopModifierDefaults'
   | 'loopChoices'
@@ -1044,6 +1054,7 @@ export const useUiStore = create<UiState>()(
       activityTimeframe: 'week',
       activityTimelineGridlines: false,
       activityTimelineBarLayout: 'diverging',
+      activityTimelineAreaLayout: 'overlaid',
       activeFabTab: 'innovate',
       fabSessions: {},
       setFabSession: (tab, sessionId) =>
@@ -1223,6 +1234,8 @@ export const useUiStore = create<UiState>()(
       setActivityTimelineGridlines: (activityTimelineGridlines) =>
         set({ activityTimelineGridlines }),
       setActivityTimelineBarLayout: (activityTimelineBarLayout) => set({ activityTimelineBarLayout }),
+      setActivityTimelineAreaLayout: (activityTimelineAreaLayout) =>
+        set({ activityTimelineAreaLayout }),
       setActiveFabTab: (activeFabTab) => set({ activeFabTab }),
       onFabTabClick: (tab) => {
         set((state) => {
@@ -1349,7 +1362,7 @@ export const useUiStore = create<UiState>()(
     }),
     {
       name: 'midnite-studio.ui',
-      version: 5,
+      version: 6,
       partialize: (state): PersistedUi => ({
         layout: state.layout,
         graphColumns: state.graphColumns,
@@ -1381,6 +1394,7 @@ export const useUiStore = create<UiState>()(
         activityTimeframe: state.activityTimeframe,
         activityTimelineGridlines: state.activityTimelineGridlines,
         activityTimelineBarLayout: state.activityTimelineBarLayout,
+        activityTimelineAreaLayout: state.activityTimelineAreaLayout,
         fabSessions: state.fabSessions,
         loopModifierDefaults: state.loopModifierDefaults,
         loopChoices: state.loopChoices,
@@ -1420,6 +1434,7 @@ export const useUiStore = create<UiState>()(
        * v2 → v3: supply `{}` for `collapsedRepoSections`.
        * v3 → v4: supply empty defaults for `repoGroups`.
        * v4 → v5: seed `updatesAutoCheck`, `updateChannel`, and set `onboardedAt` for existing installs.
+       * v5 → v6: rename the `sparkline` timeline style to `area`, which now draws churn.
        */
       migrate: (persisted, version) => {
         const state = (persisted ?? {}) as Record<string, unknown> & {
@@ -1431,6 +1446,7 @@ export const useUiStore = create<UiState>()(
           updatesAutoCheck?: boolean;
           updateChannel?: 'stable' | 'beta';
           onboardedAt?: string | null;
+          activityTimelineStyle?: string;
         };
         if (version < 2 && state.graphColumns) {
           const { author: _retired, ...rest } = state.graphColumns;
@@ -1448,6 +1464,11 @@ export const useUiStore = create<UiState>()(
           state.updatesAutoCheck = true;
           state.updateChannel = 'stable';
           state.onboardedAt = new Date().toISOString();
+        }
+        if (version < 6 && state.activityTimelineStyle === 'sparkline') {
+          // The style kept its slot and gained a second series; only the id
+          // changed, so an existing reader stays on the drawing they picked.
+          state.activityTimelineStyle = 'area';
         }
         return state as PersistedUi;
       },

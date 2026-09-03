@@ -111,15 +111,15 @@ test('the style icons swap the drawing, and the choice reaches Settings', async 
   await expect(chart).toHaveAttribute('data-variant', 'bars');
   await page.getByRole('radio', { name: 'Heatmap' }).click();
   await expect(chart).toHaveAttribute('data-variant', 'heatmap');
-  await page.getByRole('radio', { name: 'Sparkline' }).click();
-  await expect(chart).toHaveAttribute('data-variant', 'sparkline');
+  await page.getByRole('radio', { name: 'Area' }).click();
+  await expect(chart).toHaveAttribute('data-variant', 'area');
+  // Two bands off one baseline is the default; Settings' own Churn areas
+  // choice is what switches them to stacked.
+  await expect(page.getByTestId('activity-area-overlaid')).toBeVisible();
 
   // Same store field the Settings page edits — the panel's icons are the
   // second door onto it, so the first door has to agree.
-  await expect(page.getByRole('radio', { name: 'Sparkline' })).toHaveAttribute(
-    'aria-checked',
-    'true',
-  );
+  await expect(page.getByRole('radio', { name: 'Area' })).toHaveAttribute('aria-checked', 'true');
 });
 
 test('the gridlines toggle draws the timeframe cadence it names', async ({ page }) => {

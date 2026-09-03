@@ -120,7 +120,7 @@ async function openBoard(page: Page, data: MockFixtures, options: { writes?: boo
     await page.addInitScript(() => {
       window.localStorage.setItem(
         'midnite-studio.ui',
-        JSON.stringify({ state: { forgeWritesEnabled: true }, version: 5 }),
+        JSON.stringify({ state: { forgeWritesEnabled: true }, version: 6 }),
       );
     });
   }

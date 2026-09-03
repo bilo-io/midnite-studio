@@ -5,8 +5,8 @@ import { Choice, Field } from './settings-pages/controls';
 
 /**
  * The commit-activity timeline's settings: what it draws, which way it hangs,
- * how far back it looks, and the two options that only change the drawing —
- * gridlines and the churn bars' layout.
+ * how far back it looks, and the three options that only change the drawing —
+ * gridlines, and the per-style layouts for the churn bars and the churn areas.
  *
  * Three of these are also editable from the panel's own header (style,
  * gridlines, timeframe) — two doors onto the same store fields, the way the
@@ -18,6 +18,7 @@ export function ActivityTimelineSettings() {
   const timeframe = useUiStore((s) => s.activityTimeframe);
   const gridlines = useUiStore((s) => s.activityTimelineGridlines);
   const barLayout = useUiStore((s) => s.activityTimelineBarLayout);
+  const areaLayout = useUiStore((s) => s.activityTimelineAreaLayout);
 
   return (
     <div className="flex flex-col gap-4">
@@ -29,7 +30,7 @@ export function ActivityTimelineSettings() {
         options={[
           ['bars', 'Bars', 'Lines added and removed per bucket, split around a centre baseline'],
           ['heatmap', 'Heatmap', 'One cell per bucket, shaded by commit count'],
-          ['sparkline', 'Sparkline', 'Commit counts as a continuous line'],
+          ['area', 'Area', 'Lines added and removed as two areas over the window'],
         ]}
       />
       <Choice
@@ -68,6 +69,24 @@ export function ActivityTimelineSettings() {
             'grouped',
             'Side by side',
             'Two bars per bucket off the same edge, so their lengths compare directly',
+          ],
+        ]}
+      />
+      <Choice
+        label="Churn areas"
+        hint="How the two areas relate. Only affects the Area style."
+        value={areaLayout}
+        onChange={(next) => useUiStore.getState().setActivityTimelineAreaLayout(next)}
+        options={[
+          [
+            'overlaid',
+            'Overlaid',
+            'Both areas off the same baseline, so their heights compare directly',
+          ],
+          [
+            'stacked',
+            'Stacked',
+            'Additions sit on top of deletions, so the outline is total churn',
           ],
         ]}
       />

@@ -126,6 +126,27 @@ test('closing the only tab leaves one fresh blank tab, not zero', async ({ page 
   await expect(page.getByTestId('browser-newtab')).toBeVisible();
 });
 
+/**
+ * Asserted as a mechanism, not a stopwatch.
+ *
+ * This started life as `filter.click({ timeout: 150 })` — a wall clock racing
+ * the 200ms `REVEAL_MS` exit, on the theory that a click landing inside the
+ * budget proves the pane let go early. Fifty milliseconds is not enough
+ * headroom for Playwright's own actionability round-trip on a loaded Linux
+ * runner, so the spec tipped over whenever shard 1 grew and its position in
+ * the shard — not the code under test — decided whether the build was green.
+ *
+ * The regression it guards is the pane keeping its pointer capture for the
+ * whole exit, and that is stateful rather than temporal: `pointer-events-none`
+ * has to land on the pane in the same commit that starts the fade. Polling for
+ * it from the test races the other way, though — `useReveal` unmounts the pane
+ * `REVEAL_MS + SETTLE_SLACK_MS` later, so a stalled runner reaches its first
+ * poll to find no element at all. So the page records the class itself, the
+ * instant the fade begins, and the assertion reads that recording afterwards
+ * at whatever pace it likes.
+ */
+const EXIT_CLASS = '__midniteBrowserPaneExitClass';
+
 test('closing the pane restores clicks to the content beneath it immediately, not after the exit transition', async ({
   page,
 }) => {
@@ -137,9 +158,29 @@ test('closing the pane restores clicks to the content beneath it immediately, no
   await toggle.click();
   await expect(page.getByRole('textbox', { name: 'Address' })).toBeVisible();
 
+  // `opacity-0` is what marks the first commit of the exit; whatever else the
+  // pane is carrying at that moment is what decides whether the content
+  // beneath it is clickable for the next 200ms.
+  await page.evaluate((key) => {
+    const pane = document.querySelector('[role="dialog"][aria-label="Browser"]');
+    if (!pane) throw new Error('the browser pane is not open');
+    const store = window as unknown as Record<string, string | undefined>;
+    new MutationObserver(() => {
+      if (store[key] === undefined && pane.className.includes('opacity-0')) {
+        store[key] = pane.className;
+      }
+    }).observe(pane, { attributes: true, attributeFilter: ['class'] });
+  }, EXIT_CLASS);
+
   await toggle.click();
+  await expect
+    .poll(() =>
+      page.evaluate((key) => (window as unknown as Record<string, string | undefined>)[key], EXIT_CLASS),
+    )
+    .toContain('pointer-events-none');
+
   const filter = page.getByPlaceholder('Filter repos…');
-  await filter.click({ timeout: 150 });
+  await filter.click();
   await filter.fill('nothing-matches');
   await expect(filter).toHaveValue('nothing-matches');
 });

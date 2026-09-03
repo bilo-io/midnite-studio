@@ -1094,7 +1094,7 @@ test.describe('FAB loop console — rehydration (Theme I)', () => {
     await page.addInitScript((map: Record<string, string>) => {
       try {
         const stored = localStorage.getItem('midnite-studio.ui');
-        const persisted = stored ? JSON.parse(stored) : { version: 5 };
+        const persisted = stored ? JSON.parse(stored) : { version: 6 };
         persisted.state = { ...persisted.state, fabSessions: map };
         localStorage.setItem('midnite-studio.ui', JSON.stringify(persisted));
       } catch {
