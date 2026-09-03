@@ -6,6 +6,7 @@ import {
   WorkflowNodeSchema,
   WorkflowRunSchema,
   WorkflowSchema,
+  ancestorIds,
   findCycleEdge,
   validateWorkflow,
   wouldCycle,
@@ -203,5 +204,29 @@ describe('findCycleEdge / wouldCycle', () => {
     expect(wouldCycle(edges, ids, { from: 'c', to: 'a' })).toBe(true);
     expect(wouldCycle(edges, ids, { from: 'a', to: 'c' })).toBe(false);
     expect(edges).toHaveLength(2);
+  });
+});
+
+describe('ancestorIds', () => {
+  const edge = (id: string, from: string, to: string): WorkflowEdge => ({ id, from, to });
+
+  it('returns every transitive predecessor, not just direct parents', () => {
+    const edges = [edge('e1', 'a', 'b'), edge('e2', 'b', 'c')];
+    expect(ancestorIds('c', edges)).toEqual(new Set(['a', 'b']));
+  });
+
+  it('returns an empty set for a node with no incoming edges', () => {
+    const edges = [edge('e1', 'a', 'b')];
+    expect(ancestorIds('a', edges)).toEqual(new Set());
+  });
+
+  it('merges branches of a diamond without duplicating the shared root', () => {
+    const edges = [edge('e1', 'a', 'b'), edge('e2', 'a', 'c'), edge('e3', 'b', 'd'), edge('e4', 'c', 'd')];
+    expect(ancestorIds('d', edges)).toEqual(new Set(['a', 'b', 'c']));
+  });
+
+  it('excludes the node itself even when it sits on a cycle', () => {
+    const edges = [edge('e1', 'a', 'b'), edge('e2', 'b', 'a')];
+    expect(ancestorIds('a', edges)).toEqual(new Set(['b']));
   });
 });

@@ -421,6 +421,36 @@ export function wouldCycle(
   return findCycleEdge(nodeIds, [...edges, { id: '__candidate__', ...candidate }]) !== null;
 }
 
+/**
+ * Every node id upstream of `nodeId` — its transitive predecessors — sharing
+ * the parent-map traversal shape {@link findCycleEdge} builds, but walking
+ * `from`s instead of settling an in-degree queue. Used by the node inspector
+ * (Theme F) to list which upstream nodes' output a `{{...}}` reference may
+ * legally name; a workflow mid-edit can be cyclic, so this does not assume an
+ * acyclic graph — a node reachable only through a cycle back to itself is
+ * still excluded, since `nodeId` itself is never added to the result.
+ */
+export function ancestorIds(
+  nodeId: string,
+  edges: readonly Pick<WorkflowEdge, 'from' | 'to'>[],
+): Set<string> {
+  const parentsOf = new Map<string, string[]>();
+  for (const edge of edges) {
+    if (!parentsOf.has(edge.to)) parentsOf.set(edge.to, []);
+    parentsOf.get(edge.to)!.push(edge.from);
+  }
+
+  const seen = new Set<string>();
+  const stack = [...(parentsOf.get(nodeId) ?? [])];
+  while (stack.length > 0) {
+    const id = stack.pop()!;
+    if (seen.has(id) || id === nodeId) continue;
+    seen.add(id);
+    stack.push(...(parentsOf.get(id) ?? []));
+  }
+  return seen;
+}
+
 // --- tunables ----------------------------------------------------------------
 
 /**

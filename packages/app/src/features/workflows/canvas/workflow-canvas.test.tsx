@@ -1,4 +1,4 @@
-import type { WorkflowNode } from '@midnite/studio-shared';
+import { validateWorkflow, type Workflow, type WorkflowNode } from '@midnite/studio-shared';
 import { cleanup, fireEvent, render, screen } from '@testing-library/react';
 import { useState } from 'react';
 import { afterEach, beforeAll, describe, expect, it } from 'vitest';
@@ -138,5 +138,91 @@ describe('WorkflowCanvas', () => {
     expect(rendered).toBeGreaterThan(0);
     expect(rendered).toBeLessThan(nodes.length);
     expect(rendered).toBeLessThan(300);
+  });
+
+  it('draws a destructive badge on a node named by invalidNodeIds', () => {
+    const { container } = render(
+      <WorkflowCanvas
+        graph={{ nodes: [noteNode('a', 0, 0), noteNode('b', 20, 0)], edges: [] }}
+        resetKey="w1"
+        onChange={() => {}}
+        invalidNodeIds={new Set(['a'])}
+      />,
+    );
+    expect(container.querySelector('[data-node-id="a"] [data-invalid-badge]')).not.toBeNull();
+    expect(container.querySelector('[data-node-id="b"] [data-invalid-badge]')).toBeNull();
+  });
+
+  it('hides the Run control entirely when onRun is not passed', () => {
+    render(<Harness initial={{ nodes: [], edges: [] }} />);
+    expect(screen.queryByRole('button', { name: /run/i })).toBeNull();
+  });
+
+  it('disables Run and names the reason when runDisabledReason is set', () => {
+    const onRun = vi.fn();
+    render(
+      <WorkflowCanvas
+        graph={{ nodes: [], edges: [] }}
+        resetKey="w1"
+        onChange={() => {}}
+        onRun={onRun}
+        runDisabledReason={'"HTTP" has no URL.'}
+      />,
+    );
+    const run = screen.getByRole('button', { name: /run/i }) as HTMLButtonElement;
+    expect(run.disabled).toBe(true);
+    expect(run.getAttribute('title')).toBe('"HTTP" has no URL.');
+    fireEvent.click(run);
+    expect(onRun).not.toHaveBeenCalled();
+  });
+
+  it('calls onRun when the workflow is valid', () => {
+    const onRun = vi.fn();
+    render(
+      <WorkflowCanvas graph={{ nodes: [], edges: [] }} resetKey="w1" onChange={() => {}} onRun={onRun} />,
+    );
+    const run = screen.getByRole('button', { name: /run/i }) as HTMLButtonElement;
+    expect(run.disabled).toBe(false);
+    fireEvent.click(run);
+    expect(onRun).toHaveBeenCalledTimes(1);
+  });
+
+  it('acceptance: clearing a required URL disables Run via the real validateWorkflow pass', () => {
+    const httpNodeWithUrl = (url: string): WorkflowNode => ({
+      id: 'n1',
+      label: 'HTTP',
+      x: 0,
+      y: 0,
+      kind: 'http',
+      config: { method: 'GET', url, headers: {}, params: {}, queryShaped: false },
+    });
+    const asWorkflow = (nodes: WorkflowNode[]): Workflow => ({
+      id: 'w1',
+      name: 'W',
+      nodes,
+      edges: [],
+      createdAt: 0,
+      updatedAt: 0,
+    });
+
+    function ValidatedHarness({ url }: { url: string }) {
+      const nodes = [httpNodeWithUrl(url)];
+      const issues = validateWorkflow(asWorkflow(nodes));
+      return (
+        <WorkflowCanvas
+          graph={{ nodes, edges: [] }}
+          resetKey="w1"
+          onChange={() => {}}
+          onRun={() => {}}
+          runDisabledReason={issues[0]?.message}
+        />
+      );
+    }
+
+    const { rerender } = render(<ValidatedHarness url="https://example.com" />);
+    expect((screen.getByRole('button', { name: /run/i }) as HTMLButtonElement).disabled).toBe(false);
+
+    rerender(<ValidatedHarness url="" />);
+    expect((screen.getByRole('button', { name: /run/i }) as HTMLButtonElement).disabled).toBe(true);
   });
 });
