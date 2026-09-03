@@ -327,11 +327,11 @@ const WORKSPACE_NAV_ITEMS: NavItem[] = [
 ];
 
 const GIT_NAV_ITEMS: NavItem[] = [
+  { view: 'projects', label: 'Projects', icon: VIEW_ICON.projects },
   { view: 'graph', label: 'Graph', icon: VIEW_ICON.graph },
   { view: 'changes', label: 'Changes', icon: VIEW_ICON.changes },
   { view: 'actions', label: 'Actions', icon: VIEW_ICON.actions },
   { view: 'reviews', label: 'Reviews', icon: VIEW_ICON.reviews },
-  { view: 'projects', label: 'Projects', icon: VIEW_ICON.projects },
   { view: 'history', label: 'History', icon: VIEW_ICON.history },
 ];
 
