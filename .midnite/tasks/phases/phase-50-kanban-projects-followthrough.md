@@ -118,7 +118,7 @@ Effort tags: **S** ≈ an hour or two · **M** ≈ half a day · **L** ≈ a day
     not built to run inside a panel-stack pane) and stays a `#number` link-out, unchanged from
     Phase 41 Theme B.
 
-### E — "Add to project" from the Reviews page (M) — ✅ DONE (2026-09-03)
+### E — "Add to project" from the Reviews page (M) — ✅ DONE (PR #101, 2026-09-03)
 
 - [x] Add `id` to `PULL_FIELDS`/`PULL_DETAIL_FIELDS` in
       [`gh-cli.ts`](../../../packages/desktop/src/main/forge/gh-cli.ts) (currently
@@ -142,7 +142,7 @@ Effort tags: **S** ≈ an hour or two · **M** ≈ half a day · **L** ≈ a day
     detail pane an action could attach to), so an Issues entry point has no surface to live on
     yet and is not this theme's job to invent one for.
 
-### F — Activity markers beyond Claude (M) — ◐ PARTIAL (2026-09-03)
+### F — Activity markers beyond Claude (M) — ◐ PARTIAL (PR #101, 2026-09-03) — agy, opencode; codex needs a human login pass
 
 - [x] Author `activity` marker sets (`thinking`/`frameEnd`/`awaitingInput` regex sources, per
       `AgentDefinitionSchema.activity`) for `agy`, `codex` and `opencode` — the three providers
