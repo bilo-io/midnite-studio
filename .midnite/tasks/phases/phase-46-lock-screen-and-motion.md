@@ -59,39 +59,48 @@ Effort tags: **S** ≈ an hour or two · **M** ≈ half a day · **L** ≈ a day
 
 ## Deliverables
 
-### A — Weather, top centre (M)
+### A — Weather, top centre (M) — ✅ DONE (PR #55, 2026-09-03)
 
 `_features.md`: *"Show weather top center"*. The only net-new data source in the phase, and it has
 an exact precedent to copy rather than a design to invent.
 
-- [ ] A `packages/app/src/features/weather/` shaped like
+- [x] A `packages/app/src/features/weather/` shaped like
       [`features/finance/`](../../../packages/app/src/features/finance/) — `weather-api.ts`
       (transport), `weather-queries.ts` (react-query hooks), `weather-derive.ts` (formatting),
       `weather-store.ts` (the persisted location/unit preference).
-- [ ] **Set `staleTime` and `refetchInterval` explicitly.** This is the one trap the finance module
+- [x] **Set `staleTime` and `refetchInterval` explicitly.** This is the one trap the finance module
       already documents and it applies verbatim: *"The global default (`app.tsx`) is
       `staleTime: Infinity`, which is wrong for live prices, so every finance query sets its own"*
       ([`finance-queries.ts:7`](../../../packages/app/src/features/finance/finance-queries.ts)).
       Weather is live data behind the same default. Refresh on the order of 15 minutes, not 60
-      seconds — it is weather.
-- [ ] **Open-Meteo as the provider, and therefore no API key.** Finance carries an `apiKey` and
+      seconds — it is weather. `CURRENT_WEATHER_REFRESH_MS = 15 * 60_000`.
+- [x] **Open-Meteo as the provider, and therefore no API key.** Finance carries an `apiKey` and
       gates `enabled` on it for the stock path while the crypto path needs none, so both patterns
       exist in-tree; take the keyless one. A key would need a settings field, a secret store and an
       empty-state, for a widget on a lock screen.
-- [ ] Location is a **stored preference with a manual entry**, not silent geolocation. Default to
+- [x] Location is a **stored preference with a manual entry**, not silent geolocation. Default to
       unset and render nothing until it is set — an unset widget must be invisible, not an error.
-- [ ] Units (°C/°F) follow the same stored preference. One control, next to the location.
-- [ ] A settings entry under
+      A search-by-city field (Open-Meteo's own free geocoding endpoint), not raw lat/lon —
+      `WeatherLocationEditor` in `screen-lock-page.tsx`, mirroring `finance-panel.tsx`'s
+      `WatchlistEditor` search-and-select shape.
+- [x] Units (°C/°F) follow the same stored preference. One control, next to the location.
+- [x] A settings entry under
       [`settings-pages/screen-lock-page.tsx`](../../../packages/app/src/features/settings/settings-pages/screen-lock-page.tsx),
-      using the existing `Field` primitive from
+      using the existing `Field`/`Choice` primitives from
       [`controls.tsx`](../../../packages/app/src/features/settings/settings-pages/controls.tsx) —
       the lock screen's settings already live there and a second page would split them.
-- [ ] The query is **gated on the lock screen being open**. `enabled: screensaverOpen` — a network
-      request every 15 minutes for a surface nobody is looking at is the exact shape
-      [Phase 36 Theme E](phase-36-performance-diet.md) was written about, and Theme F of this phase
-      will check it.
-- [ ] Fetch failure renders **nothing**, not a broken widget. No retry storm, no error toast: the
-      lock screen is ambient.
+- [x] The query is **gated on the lock screen being open** — but not literally via
+      `enabled: screensaverOpen`. `LockScreenWeatherWidget` only ever mounts while `Screensaver`
+      is mounted (which itself only exists while `screensaverOpen` is true —
+      `ScreensaverHost` returns `null` otherwise, which already stops react-query's refetch
+      interval) or while `LandingView` is genuinely showing it (mounted once, outside the
+      carousel, not remounted per slide). Same posture `LockScreenFintechWidget`/
+      `LockScreenSysmonWidget` already take — neither gates on `screensaverOpen` either, since
+      mounting already is the gate. A literal boolean flag would have been redundant with what
+      the component tree already guarantees; see Theme F's own remaining item below, left open
+      for the same reason.
+- [x] Fetch failure renders **nothing**, not a broken widget. No retry storm (`retry: false`), no
+      error toast: the lock screen is ambient.
 
 ### B — Battery, bottom right (S) — ✅ DONE (PR #53, 2026-09-03)
 
@@ -118,37 +127,50 @@ an exact precedent to copy rather than a design to invent.
       dialect, so Theme E's unification covers them and this theme must not add a third copy.
       Converted alongside every other guard in Theme E; untouched by this theme itself.
 
-### C — Pills that navigate (M)
+### C — Pills that navigate (M) — ✅ DONE (PR #55, 2026-09-03)
 
 `_features.md`: *"Make pills clickable, navigating to the respective view or revealing the terminal,
 etc."* The most interesting theme, because the destination is the easy half.
 
-- [ ] The four `PILLS`
-      ([`screensaver.tsx:210`](../../../packages/app/src/features/screensaver/screensaver.tsx)) each
-      gain a destination, and each already has a real one to go to:
-      - `repos` → `setActiveView('repos')`
-      - `agents` → close the lock screen and reveal the terminal panel
+- [x] The four `PILLS` (moved to
+      [`screensaver-stage.tsx`](../../../packages/app/src/features/screensaver/screensaver-stage.tsx)
+      since this doc was written) each gain a destination, and each already has a real one to go to:
+      - `repos` → **`setReposOpen(true)`**, corrected from the doc's `setActiveView('repos')` —
+        there is no `'repos'` `ViewId` (`ui-store.ts`'s union has none); the repos sidebar is a
+        panel with its own open flag, exactly like the terminal.
+      - `agents` → close the lock screen and reveal the terminal panel (`setTerminalOpen(true)`)
       - `myPrs` / `teamPrs` → `setActiveView('reviews')`
-- [ ] They become **buttons, not `<span>`s** — keyboard-reachable, with a focus ring and an
+      All three in a new, independently-testable `pill-destinations.ts`
+      (`applyPillDestination`), used by both `screensaver.tsx` and `landing-view.tsx`.
+- [x] They become **buttons, not `<span>`s** — keyboard-reachable, with a focus ring and an
       `aria-label` that reads the count and the destination together. A clickable `<span>` on the
       one surface a user reaches by keyboard is not acceptable.
-- [ ] **The click must not be swallowed.** `LockScreen`'s root div carries an `onClick` that either
+- [x] **The click must not be swallowed.** `LockScreen`'s root div carries an `onClick` that either
       dismisses the screensaver or opens the passcode pad
       ([`lock-screen.tsx:71`](../../../packages/app/src/features/screensaver/lock-screen.tsx)), and a
-      keydown listener on `window` does the same. `LockScreenWidgets` already shows the pattern —
-      `pointer-events-none` on the container, `pointer-events-auto` on each island, and a
-      `stopPropagation` on the wrapper. Follow it; do not add a second mechanism.
-- [ ] **Intent must survive the passcode pad.** With `requirePasscode` on, clicking a pill has to
+      keydown listener on `window` does the same. Each pill's own `onClick` calls
+      `e.stopPropagation()` — `LockScreenWidgets`' `pointer-events-none`/`pointer-events-auto`
+      split solves a different problem (making a non-interactive widget inert) and doesn't apply
+      to a genuinely interactive button; `stopPropagation` is the direct fix here.
+- [x] **Intent must survive the passcode pad.** With `requirePasscode` on, clicking a pill has to
       unlock *first* and navigate *after* — so the destination is held while `PasscodeUnlockDialog`
       runs and applied in `onUnlock`, and **dropped on `onCancel`**. A navigation that fires after a
       cancelled unlock is a lock-screen bypass, and it is the one thing in this phase that must not
-      ship wrong.
-- [ ] Navigating **closes the screensaver** via `setScreensaverOpen(false, false)`
-      ([`ui-store.ts:883`](../../../packages/app/src/store/ui-store.ts)) and then calls
-      `setActiveView`, which already maintains the title bar's back/forward stack
-      ([`ui-store.ts:987`](../../../packages/app/src/store/ui-store.ts)) — so the pill's jump is
-      undoable by the existing Back button for free.
-- [ ] A pill whose count is **zero** still navigates. "0 my PRs" going to Reviews is correct; a
+      ship wrong. Implemented as a **second, independent** `PasscodeUnlockDialog` in
+      `screensaver.tsx` (not a hook into `LockScreen`'s own internal `unlocking` state), nested
+      inside `LockScreen`'s own children — a sibling `document.body` portal was tried first and sat
+      *under* `LockScreen`'s own `z-[200]` backdrop, silently eating every click on it. A new
+      `suppressUnlockTrigger` prop on `LockScreen` quiets its own click/keydown-to-unlock listeners
+      while the pill's dialog is up — found necessary when a real Playwright keypress (not a unit
+      test's `fireEvent`, which never dispatches a real `window` `keydown`) also fired
+      `LockScreen`'s own listener and popped a second, redundant dialog underneath the pill's.
+- [x] Navigating **closes the screensaver** via `setScreensaverOpen(false, false)`
+      ([`ui-store.ts:883`](../../../packages/app/src/store/ui-store.ts)) — via the `onClose` prop
+      `screensaver.tsx` already receives, itself wired to exactly that call in
+      `screensaver-host.tsx` — and then applies the pill's destination, which for `myPrs`/`teamPrs`
+      calls `setActiveView`, maintaining the title bar's back/forward stack
+      ([`ui-store.ts:987`](../../../packages/app/src/store/ui-store.ts)) for free.
+- [x] A pill whose count is **zero** still navigates. "0 my PRs" going to Reviews is correct; a
       disabled control that looks live is worse than an empty destination.
 
 ### D — The corner layout becomes data (S) — ✅ DONE (PR #53, 2026-09-03)
@@ -291,23 +313,34 @@ they did.
 - [x] A second assertion catching the duplicate class that Theme E deletes: **no `@keyframes` name
       declared twice**. That is the bug this phase found by reading, and a two-line test means the
       next one is found by CI.
-- [ ] Also assert the **query gating** Theme A relies on — that the weather query is not enabled
-      when the lock screen is closed. Phase 36 Theme E's absence assertions are the model: a test
-      that fails the day someone removes the gate.
+- [ ] ~~Also assert the **query gating** Theme A relies on...~~ **Doesn't apply as written**:
+      Theme A landed (PR #55) without a literal `enabled: screensaverOpen` boolean to assert on —
+      the gate is that `LockScreenWeatherWidget` simply isn't mounted while the lock screen is
+      closed, which react-query's own lifecycle already handles (an unmounted query's observer
+      stops, no interval keeps running). A test asserting "no fetch after unmount" would be
+      testing generic React/react-query behavior, not anything this phase's own code could
+      regress. Left unchecked rather than falsely marked done or backfilled with a vacuous test.
 
-### G — Verification and screenshots (S)
+### G — Verification and screenshots (S) — ◐ PARTIAL (2026-09-03)
 
 - [ ] Playwright shots of the lock screen in **both motion modes** and both themes, following the
-      existing screenshot specs' conventions.
+      existing screenshot specs' conventions. PR #55 captured two ad hoc PNGs (weather widget,
+      pill passcode-hold) for the PR body via a throwaway script, not a committed, re-runnable
+      `MSTUDIO_SHOTS`-gated spec covering both motion modes and both themes — that remains open.
 - [ ] Note the known hazard before adding shots: `outstanding.md` records that **screenshot PNGs are
       not byte-reproducible** and a full `app:e2e` run rewrites ~40 committed images. Commit only
       this phase's shots and `git checkout --` the rest.
 - [ ] Specs press **`ControlOrMeta`, never a hard-coded `Meta`** — the Phase 38 lesson that cost a
-      shard 22 minutes.
-- [ ] Unit tests alongside the existing
+      shard 22 minutes. Not yet exercised — PR #55's new specs (`screensaver-pills.spec.ts`, the
+      weather additions to `lock-screen-widgets.spec.ts`) press digit keys and click buttons only,
+      no modifier chords.
+- [x] Unit tests alongside the existing
       [`lock-screen-widgets.test.tsx`](../../../packages/app/src/features/screensaver/lock-screen-widgets.test.tsx)
-      and `screensaver-host.test.ts`, covering: pill → destination mapping, the cancelled-passcode
-      case from Theme C, weather's unset-location empty state, and battery's absent state.
+      and `screensaver-host.test.ts`, covering: pill → destination mapping
+      (`pill-destinations.test.ts`), the cancelled-passcode case from Theme C
+      (`screensaver.test.tsx`, plus a regression test for the redundant-second-dialog bug found
+      along the way), weather's unset-location empty state and a fetch-failure case
+      (`lock-screen-widgets.test.tsx`), and battery's absent state (pre-existing, PR #53). (PR #55)
 
 ## Files this phase touches
 
