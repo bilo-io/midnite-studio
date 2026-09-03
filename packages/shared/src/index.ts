@@ -18,4 +18,5 @@ export * from './loops';
 export * from './perf';
 export * from './release';
 export * from './terminal';
+export * from './video';
 export * from './workflow';

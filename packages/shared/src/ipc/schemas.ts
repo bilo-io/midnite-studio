@@ -91,6 +91,14 @@ import {
 } from '../council';
 import { LoopModelSchema, LoopRunRecordSchema } from '../loops';
 import {
+  VideoProjectSchema,
+  VideoRenderProgressEventSchema,
+  VideoRenderSchema,
+  VideoStudioChangedEventSchema,
+  VideoStudioStatusSchema,
+  VideoToolchainSchema,
+} from '../video';
+import {
   WORKFLOW_MAX_NODE_TIMEOUT_MS,
   WorkflowRunSchema,
   WorkflowSchema,
@@ -1860,3 +1868,61 @@ export type DemoApiStatus = z.infer<typeof DemoApiStatusSchema>;
 export const DemoApiStartResponse = GitOpResultOf(DemoApiStatusSchema);
 export const DemoApiStopResponse = GitOpResultSchema;
 export const DemoApiStatusResponse = DemoApiStatusSchema;
+
+// --- video (Phase 44) --------------------------------------------------------
+
+/**
+ * Global, so no `repoId` on any of these — the deliberate difference from
+ * every git-touching channel in this file, and the same shape workflows and
+ * councils use.
+ */
+export const VideoProjectListResponse = z.object({ projects: z.array(VideoProjectSchema) });
+
+export const VideoProjectGetRequest = z.object({ id: z.string().min(1) });
+export const VideoProjectGetResponse = z.object({ project: VideoProjectSchema.nullable() });
+
+/** Copies `<root>/projects/_template/` — the mechanism `ekko-videos` already documents. */
+export const VideoProjectCreateRequest = z.object({ id: z.string().min(1), title: z.string().min(1) });
+export const VideoProjectCreateResponse = GitOpResultOf(VideoProjectSchema);
+
+export const VideoProjectRemoveRequest = z.object({ id: z.string().min(1) });
+export const VideoProjectRemoveResponse = GitOpResultSchema;
+
+export const VideoStudioStartRequest = z.object({ projectId: z.string().min(1) });
+export const VideoStudioStartResponse = GitOpResultOf(VideoStudioStatusSchema);
+
+export const VideoStudioStopRequest = z.object({ projectId: z.string().min(1) });
+export const VideoStudioStopResponse = GitOpResultSchema;
+
+export const VideoStudioStatusRequest = z.object({ projectId: z.string().min(1) });
+export const VideoStudioStatusResponse = z.object({ status: VideoStudioStatusSchema });
+
+/**
+ * Resolves with the freshly-minted render, exactly as `WorkflowRunResponse`
+ * does — a render can take minutes, and its progress arrives on
+ * `videoRenderProgress`.
+ */
+export const VideoRenderStartRequest = z.object({
+  projectId: z.string().min(1),
+  compositionId: z.string().min(1),
+});
+export const VideoRenderStartResponse = GitOpResultOf(VideoRenderSchema);
+
+export const VideoRenderCancelRequest = z.object({ renderId: z.string().min(1) });
+export const VideoRenderCancelResponse = GitOpResultSchema;
+
+export const VideoRenderListRequest = z.object({ projectId: z.string().min(1) });
+export const VideoRenderListResponse = z.object({ renders: z.array(VideoRenderSchema) });
+
+export const VideoToolchainRequest = z.object({ projectId: z.string().min(1) });
+export const VideoToolchainResponse = z.object({ toolchain: VideoToolchainSchema });
+
+/**
+ * Re-exported under the `ipc/schemas` namespace so `bridge.ts` can reference
+ * it as `S.*`, the way `BrowserEventPayload` does for `BrowserEventSchema` —
+ * `Payload` rather than the domain module's own name, since `../video`
+ * already exports a same-named inferred TYPE and the barrel in `index.ts`
+ * cannot re-export both.
+ */
+export const VideoStudioChangedPayload = VideoStudioChangedEventSchema;
+export const VideoRenderProgressPayload = VideoRenderProgressEventSchema;

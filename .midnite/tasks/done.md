@@ -2,6 +2,32 @@
 
 <!-- Append one entry per landed phase/PR: date, phase, PR link, one-line summary. -->
 
+## 2026-09-04 — Phase 44 Theme A — Video Studio's shared contracts
+
+[PR #110]. Opens Phase 44, the last of the five `_features.md` items — a **Video** view driving a
+real npm project on disk (Remotion, no dependency shipped) exactly as this app already drives `gh`
+and Claude. Theme A is contracts only: no engine, no store, no view yet.
+
+- [x] **`shared/src/video.ts`.** `VideoProjectFileSchema` checked directly against
+      `~/Dev/ekko-videos/projects/_template/project.json` rather than transcribed from the phase
+      doc's own paraphrase — `{ id, title, composition, source, brief, script }`, verbatim.
+      `VideoProjectSchema` wraps it as the `valid: true` arm of a union with `{ valid: false, id,
+      error }`, since Theme B's "malformed project.json → invalid, never a crash" needs a shape to
+      land in and the folder name is the only identity available when the file can't be parsed.
+- [x] **`VideoStudioStatus`/`VideoToolchain`, schema-enforced not just documented.** `running`
+      cannot omit its `url`; `failed` cannot omit its `stderr` lines — both asserted in
+      `video.test.ts` by trying to construct the invalid shape and catching the throw, not just by
+      reading the type. `VideoToolBinary` is a `found`-discriminated pair so a consumer cannot read
+      `path` without narrowing `found` first.
+- [x] Channels (`mstudio:video:*`, 11 of them), two push events, and full `bridge.ts` signatures.
+- [x] Found and fixed in passing: a genuine tracker error, not a code one — the phase's own Theme
+      key section in `_INDEX.md` already claimed Theme A landed via `PR #92`, which is Phase 43's
+      PR (`shared/src/workflow.ts`). `shared/src/video.ts` did not exist before this PR; corrected
+      the citation rather than leaving a false landing on the books.
+- [x] Confirmed a contracts-only theme genuinely stands alone: `app:typecheck`/`desktop:typecheck`
+      stay green with no `video` property anywhere in `preload/index.ts` yet — the same posture
+      workflow's and councils' own Theme A landed in.
+
 ## 2026-09-04 — Phase 43 Theme I (partial) — the palette command, the settings page, and the wiring between them
 
 [PR #108]. Closes out Phase 43's build entirely bar one human-only pass.
