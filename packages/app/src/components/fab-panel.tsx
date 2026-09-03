@@ -126,12 +126,28 @@ export function FabPanel({ isOpen, width }: FabPanelProps) {
           })}
         </div>
 
-        {/* One pane per loop; only the active one is visible. */}
+        {/*
+          One pane per loop; only the active one is visible. All four stay
+          mounted — a tab's terminal is its whole point and remounting one
+          would throw the session away — so the three behind it are stacked
+          under the active one at `inset-0`.
+
+          `inert` alongside `invisible`, because `visibility: hidden` is not
+          the guarantee it looks like: it inherits, but a descendant that sets
+          `visibility: visible` climbs back out of it, and `react-select`'s
+          input does exactly that. The composer's four selects in each hidden
+          pane were therefore live, focusable and — being at identical
+          coordinates to the visible pane's own — intercepting clicks aimed at
+          the tab you are actually looking at. `inert` takes the whole subtree
+          out of hit-testing and out of the tab order in one attribute,
+          whatever any descendant says about its own visibility.
+        */}
         <div className="flex-1 min-h-0 relative">
           {DEFAULT_LOOPS.map((loop) => (
             <div
               key={loop.id}
               data-fab-tab={loop.id}
+              inert={activeFabTab !== loop.id}
               className={`absolute inset-0 ${activeFabTab === loop.id ? 'visible' : 'invisible'}`}
             >
               <LoopTab

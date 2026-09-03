@@ -1,11 +1,12 @@
 import {
+  BUILTIN_AGENTS,
   DEFAULT_LOOP_SCHEDULE,
   DEFAULT_LOOPS,
   LOOP_FREQUENCIES,
   LOOP_MODELS,
   type LoopDefinition,
 } from '@midnite/studio-shared';
-import { cleanup, fireEvent, render, screen } from '@testing-library/react';
+import { cleanup, fireEvent, render, screen, within } from '@testing-library/react';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 
 import { LoopComposer } from './loop-composer';
@@ -16,6 +17,31 @@ const watchdog = DEFAULT_LOOPS.find((l) => l.id === 'watchdog') as LoopDefinitio
 const boxes = watchdog.modifiers.filter((m) => m.control === 'checkbox');
 const switches = watchdog.modifiers.filter((m) => m.control === 'switch');
 
+/**
+ * A `react-select`'s own input, by accessible name.
+ *
+ * `getByRole('combobox')` rather than `getByLabelText`: `ComposerSection`
+ * gives its `<Collapse>` body an `aria-label` of the section title, so a
+ * label query for "Model" matches both that wrapper and the select inside it.
+ */
+function combobox(name: string): HTMLElement {
+  return screen.getByRole('combobox', { name });
+}
+
+/**
+ * Open a `react-select` and click one of its rows.
+ *
+ * `mouseDown` rather than `click` on the control — that is the event
+ * `react-select` opens its menu on — and the row is addressed by its `option`
+ * role, not its text: the day picker keeps selected rows in the menu
+ * (`hideSelectedOptions={false}`), so "Sat" appears as both a chip and an
+ * option and `getByText` would be ambiguous.
+ */
+function pickInSelect(name: string, option: string): void {
+  fireEvent.mouseDown(combobox(name));
+  fireEvent.click(screen.getByRole('option', { name: option }));
+}
+
 function renderComposer(overrides: Partial<Parameters<typeof LoopComposer>[0]> = {}) {
   const props = {
     loop: watchdog,
@@ -24,6 +50,8 @@ function renderComposer(overrides: Partial<Parameters<typeof LoopComposer>[0]> =
     thinking: false,
     checked: {} as Record<string, boolean>,
     choiceIds: {} as Record<string, string>,
+    agents: BUILTIN_AGENTS,
+    agentId: 'claude',
     model: 'default' as const,
     schedule: DEFAULT_LOOP_SCHEDULE,
     extras: '',
@@ -31,6 +59,7 @@ function renderComposer(overrides: Partial<Parameters<typeof LoopComposer>[0]> =
     disabledReason: undefined,
     onToggle: vi.fn(),
     onChoice: vi.fn(),
+    onAgent: vi.fn(),
     onModel: vi.fn(),
     onSchedule: vi.fn(),
     onExtras: vi.fn(),
@@ -95,19 +124,57 @@ describe('LoopComposer — idle', () => {
     expect(props.onChoice).toHaveBeenCalledWith('autonomy', 'fastest');
   });
 
-  it('offers every registered model as a radio, on Default until asked otherwise', () => {
+  it('offers the provider and its models as two selects, Claude on Default', () => {
     const { props } = renderComposer();
-    const models = screen.getByRole('radiogroup', { name: 'Model' });
-    expect([...models.querySelectorAll('input')].map((input) => input.value)).toEqual(
-      LOOP_MODELS.map((entry) => entry.id),
+    expect(combobox('Provider')).not.toBeNull();
+    expect(combobox('Model')).not.toBeNull();
+
+    // Every registered model, since the provider is Claude.
+    fireEvent.mouseDown(combobox('Model'));
+    expect(screen.getAllByRole('option').map((row) => row.textContent)).toEqual(
+      LOOP_MODELS.map((entry) => entry.label),
     );
-    expect((screen.getByRole('radio', { name: 'Default' }) as HTMLInputElement).checked).toBe(true);
 
-    fireEvent.click(screen.getByRole('radio', { name: 'Opus 5' }));
+    pickInSelect('Model', 'Opus 5');
     expect(props.onModel).toHaveBeenCalledWith('opus-5');
+  });
 
-    fireEvent.click(screen.getByRole('radio', { name: 'Fable 5.1' }));
-    expect(props.onModel).toHaveBeenCalledWith('fable-5-1');
+  it('reports a provider by roster id, and offers every roster agent', () => {
+    const { props } = renderComposer();
+    fireEvent.mouseDown(combobox('Provider'));
+    expect(screen.getAllByRole('option')).toHaveLength(BUILTIN_AGENTS.length);
+
+    pickInSelect('Provider', 'Codex');
+    expect(props.onAgent).toHaveBeenCalledWith('codex');
+  });
+
+  it('collapses the model select to Default for a provider that takes no --model', () => {
+    // `loopModelArgs` passes `--model` to `claude` alone; a picker that
+    // offered Opus for Codex would claim a flag the launcher drops.
+    const { container } = renderComposer({ agentId: 'codex', model: 'opus-5' });
+    const section = container.querySelector('[data-loop-section="model"]') as HTMLElement;
+
+    // A disabled `react-select` hides its own input from the a11y tree, so the
+    // control is unreachable rather than merely styled as off.
+    expect(within(section).queryByRole('combobox', { name: 'Model' })).toBeNull();
+    const input = section.querySelector('input[aria-label="Model"]') as HTMLInputElement;
+    expect(input.disabled).toBe(true);
+
+    // The stored Claude model is kept, not cleared — switch back and it is
+    // still there — but what a Codex run carries is shown, which is nothing.
+    expect(within(section).getByText('Default')).not.toBeNull();
+    expect(within(section).queryByText('Opus 5')).toBeNull();
+    expect(within(section).getByRole('combobox', { name: 'Provider' })).not.toBeNull();
+  });
+
+  it('names provider and model on the heading, and drops a neutral model', () => {
+    const { unmount } = renderComposer({ agentId: 'codex', model: 'default' });
+    expect(screen.getByRole('button', { name: /^Model/ }).textContent).toContain('Codex');
+    expect(screen.getByRole('button', { name: /^Model/ }).textContent).not.toContain('Default');
+    unmount();
+
+    renderComposer({ agentId: 'claude', model: 'opus-5' });
+    expect(screen.getByRole('button', { name: /^Model/ }).textContent).toContain('Claude · Opus 5');
   });
 
   it('leaves the schedule off, with its window disabled until it is armed', () => {
@@ -136,37 +203,64 @@ describe('LoopComposer — idle', () => {
     expect(screen.getByText(/no window is sent/i)).not.toBeNull();
   });
 
-  it('offers a cadence and a day set, both neutral until picked', () => {
+  it('offers the cadence as a select, on the neutral option until picked', () => {
     const { props } = renderComposer();
-    const every = screen.getByRole('radiogroup', { name: 'Every' });
-    expect([...every.querySelectorAll('input')].map((input) => input.value)).toEqual(
-      LOOP_FREQUENCIES.map((entry) => entry.id),
-    );
-    expect((screen.getByRole('radio', { name: 'Continuous' }) as HTMLInputElement).checked).toBe(
-      true,
-    );
-    expect((screen.getByRole('radio', { name: 'Every day' }) as HTMLInputElement).checked).toBe(
-      true,
+    fireEvent.mouseDown(combobox('Every'));
+    expect(screen.getAllByRole('option').map((row) => row.textContent)).toEqual(
+      LOOP_FREQUENCIES.map((entry) => entry.label),
     );
 
-    fireEvent.click(screen.getByRole('radio', { name: 'Hourly' }));
+    pickInSelect('Every', 'Hourly');
     expect(props.onSchedule).toHaveBeenCalledWith({
       ...DEFAULT_LOOP_SCHEDULE,
       frequency: 'hourly',
     });
+  });
 
-    fireEvent.click(screen.getByRole('radio', { name: 'Weekdays' }));
-    expect(props.onSchedule).toHaveBeenCalledWith({ ...DEFAULT_LOOP_SCHEDULE, days: 'weekdays' });
+  it('offers all seven days as a multi-select, every one of them on by default', () => {
+    const { props } = renderComposer();
+    fireEvent.mouseDown(combobox('Days'));
+    expect(screen.getAllByRole('option').map((row) => row.textContent)).toEqual([
+      'Mon',
+      'Tue',
+      'Wed',
+      'Thu',
+      'Fri',
+      'Sat',
+      'Sun',
+    ]);
+
+    // Clicking a selected row in a multi-select removes it — the neutral
+    // "every day" answer becomes a restriction with one gesture.
+    fireEvent.click(screen.getByRole('option', { name: 'Sat' }));
+    expect(props.onSchedule).toHaveBeenCalledWith({
+      ...DEFAULT_LOOP_SCHEDULE,
+      days: ['mon', 'tue', 'wed', 'thu', 'fri', 'sun'],
+    });
+  });
+
+  it('reads a schedule stored as a legacy preset token as the day set it named', () => {
+    // Nothing re-parses `settings.json` through zod on the way in, so the
+    // string is still what reaches this component.
+    renderComposer({
+      schedule: { ...DEFAULT_LOOP_SCHEDULE, days: 'weekends' as unknown as never },
+    });
+    fireEvent.mouseDown(combobox('Days'));
+    expect(screen.getByRole('option', { name: 'Sat' }).getAttribute('aria-selected')).toBe('true');
+    expect(screen.getByRole('option', { name: 'Mon' }).getAttribute('aria-selected')).toBe('false');
+  });
+
+  it('warns rather than silently sending nothing when no day is picked', () => {
+    renderComposer({ schedule: { ...DEFAULT_LOOP_SCHEDULE, days: [] } });
+    expect(screen.getByText(/no day restriction is sent/i)).not.toBeNull();
   });
 
   it('leaves cadence and days live while the window switch is off', () => {
     // They are answers you set once; greying them out with the switch would
     // mean re-answering them every time a loop is re-armed.
     renderComposer({ schedule: { ...DEFAULT_LOOP_SCHEDULE, enabled: false } });
-    expect((screen.getByRole('radio', { name: 'Hourly' }) as HTMLInputElement).disabled).toBe(false);
-    expect((screen.getByRole('radio', { name: 'Weekends' }) as HTMLInputElement).disabled).toBe(
-      false,
-    );
+    expect((combobox('Every') as HTMLInputElement).disabled).toBe(false);
+    expect((combobox('Days') as HTMLInputElement).disabled).toBe(false);
   });
 
   it('offers Start, not Stop', () => {
@@ -215,6 +309,27 @@ describe('LoopComposer — idle', () => {
     renderComposer();
     expect(screen.getByTestId('loop-start').className).not.toContain('loop-run-glow');
   });
+
+  it('sits Start under the extras field, full width, wearing the gradient border', () => {
+    renderComposer();
+    const start = screen.getByTestId('loop-start');
+    expect(start.className).toContain('w-full');
+    expect(start.className).toContain('loop-start-gradient');
+    // `border-border` would paint an opaque line over the gradient the
+    // two-layer `background-clip` in `.loop-start-gradient` exists to show.
+    expect(start.className).not.toContain('border-border');
+
+    const extras = screen.getByPlaceholderText('Extra instructions…');
+    expect(extras.parentElement).toBe(start.parentElement);
+    expect(extras.compareDocumentPosition(start) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+  });
+
+  it('keeps Stop inline in the running strip rather than full width', () => {
+    renderComposer({ running: true });
+    const stop = screen.getByTestId('loop-stop');
+    expect(stop.className).not.toContain('w-full');
+    expect(stop.className).not.toContain('loop-start-gradient');
+  });
 });
 
 describe('LoopComposer — accordions', () => {
@@ -241,6 +356,16 @@ describe('LoopComposer — accordions', () => {
     expect(tasks.getAttribute('aria-expanded')).toBe('true');
   });
 
+  it('gives every heading a glyph of its own, chevron aside', () => {
+    // Five identical rows of small uppercase text is what this was; the icon
+    // is what makes "where do I set the model" answerable at a glance.
+    const { container } = renderComposer();
+    for (const id of ['tasks', 'scope', 'run', 'model', 'schedule']) {
+      const heading = container.querySelector(`[data-loop-section="${id}"] > button`);
+      expect(heading?.querySelectorAll('svg').length, id).toBe(2);
+    }
+  });
+
   it('points each heading at the body it controls', () => {
     renderComposer();
     const heading = screen.getByRole('button', { name: /^Schedule/ });
@@ -260,7 +385,7 @@ describe('LoopComposer — accordions', () => {
   it('names the current model and schedule on their own headings', () => {
     renderComposer({
       model: 'opus-4-8',
-      schedule: { enabled: true, from: '22:00', to: '06:00', days: 'weekends' },
+      schedule: { enabled: true, from: '22:00', to: '06:00', days: ['sat', 'sun'] },
     });
     expect(screen.getByRole('button', { name: /^Model/ }).textContent).toContain('Opus 4.8');
     const schedule = screen.getByRole('button', { name: /^Schedule/ }).textContent;
@@ -312,6 +437,16 @@ describe('LoopComposer — running', () => {
     expect(screen.getByText('Recommended')).not.toBeNull();
     expect(screen.getByText('Opus 5')).not.toBeNull();
     expect(screen.getByText('22:00–06:00')).not.toBeNull();
+  });
+
+  it('drops the model chip for a provider that never carried the flag', () => {
+    // Pick Opus under Claude, switch to Codex, Start: the command line has no
+    // `--model` at all, so a chip claiming one would have the strip and the
+    // section heading disagreeing about what the run costs.
+    renderComposer({ running: true, checked, agentId: 'codex', model: 'opus-5' });
+    expect(screen.queryByText('Opus 5')).toBeNull();
+    // The provider itself is a chip, though — it is not the loop's declared one.
+    expect(screen.getByText('Codex')).not.toBeNull();
   });
 
   it('says nothing about a neutral choice, a default model or an unarmed schedule', () => {
