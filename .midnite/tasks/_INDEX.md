@@ -41,7 +41,7 @@ Completed work is logged append-only in [`done.md`](done.md). Deferred scope liv
 
 | Phase | Status | Refined | Done | Progress | % | 🔄 WIP | ◻ TODO |
 |-------|--------|---------|------|----------|---|--------|--------|
-| [50 · Kanban & Projects, Follow-Through](phases/phase-50-kanban-projects-followthrough.md) | 🔄 WIP | — | 11/17 | `███████░░░` | 65% | — | E F |
+| [50 · Kanban & Projects, Follow-Through](phases/phase-50-kanban-projects-followthrough.md) | 🔄 WIP | — | 11/17 | `███████░░░` | 65% | E F | — |
 | [49 · Onboarding a repo: Setup and Update](phases/phase-49-repo-onboarding.md) | 🔄 WIP | — | 28/33 | `████████░░` | 85% | E | — |
 | [48 · Apply suggested-change blocks](phases/phase-48-apply-suggested-changes.md) | 🔄 WIP | — | 19/20 | `██████████` | 95% | — | E (human round-trip verification) |
 | [47 · Conflict Resolution Studio](phases/phase-47-conflict-resolution-studio.md) | 🔄 WIP | — | 7/23 | `███░░░░░░░` | 30% | — | C D E F |
