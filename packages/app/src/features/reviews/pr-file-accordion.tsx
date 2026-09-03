@@ -135,6 +135,9 @@ export function PrFileAccordion({
             onResolve={review.onResolve}
             busy={review.busy}
             error={review.error}
+            file={file}
+            repoId={repoId}
+            worktreePath={worktreePath}
           />
 
           {/*
@@ -177,6 +180,9 @@ export function PrFileAccordion({
                 onResolve={review.onResolve}
                 busy={review.busy}
                 error={review.error}
+                file={file}
+                repoId={repoId}
+                worktreePath={worktreePath}
               />
             )}
             composer={

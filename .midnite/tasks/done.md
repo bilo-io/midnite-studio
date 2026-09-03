@@ -2,6 +2,38 @@
 
 <!-- Append one entry per landed phase/PR: date, phase, PR link, one-line summary. -->
 
+## 2026-09-03 — Phase 48 Themes B, C, D, E — apply GitHub suggestion blocks to the working tree
+
+[PR #62]. The rest of the phase, on top of Theme A's suggestion-fence parser (PR #51).
+
+- [x] **Theme B — line-range resolution.** `suggestionLineRange(thread)` in `suggestion-block.ts`:
+      `(thread.startLine ?? thread.line)` through `thread.line`, the first consumer of `startLine` —
+      every existing renderer anchors off `line` alone. `null` for a `LEFT`-side thread; Apply is
+      never offered there at all, not disabled-with-a-reason.
+- [x] **Theme C — local-file divergence detection, the phase's real weight.**
+      `checkSuggestionApplies` + `expectedRightSideText` compare the local file's current content at
+      the resolved range against what the PR's own diff says is there (walked off `FileDiff`'s
+      hunks), independent of `fsWriteFile`'s own `expectedVersion` check. Fails closed on a mismatch,
+      an unverifiable gap in the diff, a deleted local file, or an already-`outdated` thread.
+- [x] **Theme D — rendering + the write.** `comment-thread.tsx`'s `CommentBody` gains a `code`/`pre`
+      override rendering a `suggestion` fence as a struck-through/added preview (styled off
+      `DiffCell`'s own add/del tokens, matching `slide-code.tsx`'s `language-(\w+)` detection
+      pattern) plus an Apply button that reads the local file eagerly — disabled, with the reason as
+      its `title`, before any click — and on click splices the suggestion over the range and calls
+      the existing `fsWriteFile` IPC. Never auto-stages, auto-commits, or resolves the thread.
+- [x] **Theme E — wiring + verification.** Full gate green; integration tests for the happy path,
+      every Theme C refusal path with its specific reason asserted, and a containment test proving
+      the write's `relPath` is always the thread's own path verbatim.
+
+A real defect was caught and fixed in review, not just in the plan: `spliceSuggestion` originally
+rejoined the *whole* file with a bare `\n` after stripping `\r` for comparison, so applying one
+suggestion to a CRLF file would have silently converted every other line's ending too — fixed to
+rejoin with whichever ending the local file actually uses, with a regression test. Both open
+decisions the phase doc left behind were taken as recommended: a partial/fuzzy match fails closed,
+and the removed/added preview stays the simple all-struck/all-added rendering GitHub's own preview
+uses, no real line-diff. Theme E's one human-only item (a real github.com suggestion round-tripped
+against a real checkout, confirming line endings/encoding survive) stays open by design.
+
 ## 2026-09-03 — Phase 46 Themes A, C — the lock screen weather widget, pills that navigate
 
 [PR #55]. The last two build items in Phase 46, landed after Themes B/D/E/F (PR #53) had already
