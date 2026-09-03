@@ -1,8 +1,10 @@
 import { Accordion } from '@bilo-io/ui';
 import { useState } from 'react';
-import { LuCheck, LuCopy, LuInfo, LuShieldAlert } from 'react-icons/lu';
+import { LuCheck, LuCopy, LuInfo, LuPlay, LuShieldAlert } from 'react-icons/lu';
 
 import { bridge } from '../../../services/bridge';
+import { useUiStore } from '../../../store/ui-store';
+import { Field } from './controls';
 
 /** How the fix is spelled — shown verbatim, matching `MissingScopeState` in `projects-view.tsx`. */
 const SCOPE_FIX_COMMAND = 'gh auth refresh -s project';
@@ -17,8 +19,39 @@ const SCOPE_FIX_COMMAND = 'gh auth refresh -s project';
  * state here would be a second place to keep in sync with it.
  */
 export function ProjectsPage() {
+  const launchAndRunEnabled = useUiStore((s) => s.launchAndRunEnabled);
+  const setLaunchAndRunEnabled = useUiStore((s) => s.setLaunchAndRunEnabled);
+
   return (
     <div className="flex flex-col gap-3">
+      <Accordion title="Launch and run" icon={<LuPlay className="h-4 w-4" />}>
+        <div className="flex flex-col gap-4 p-3">
+          <Field
+            label="Allow launch-and-run from a card"
+            hint="Reveals a second button beside Start on a card's composer, beside the existing type-but-don't-send default. Pressing it still shows a confirm dialog with the exact composed command first — this setting only removes the extra step of reaching the button, not the look-before-you-leap."
+          >
+            <label className="flex items-center gap-2 text-xs">
+              <input
+                type="checkbox"
+                checked={launchAndRunEnabled}
+                onChange={(event) => setLaunchAndRunEnabled(event.target.checked)}
+                className="h-3.5 w-3.5 accent-[hsl(var(--primary))]"
+              />
+              Allow launch-and-run from a card
+            </label>
+          </Field>
+
+          <div className="space-y-1.5 rounded-md border border-border/60 bg-card/50 p-3 text-[11px] text-muted-foreground">
+            <p className="font-medium text-foreground">Why this stays off by default</p>
+            <p>
+              A card's prompt is composed from an issue or PR's own title and body — remote text any
+              contributor to the repository could have written, unlike a FAB loop's fixed,
+              user-authored prompt. The confirm dialog names that source every time, on or off.
+            </p>
+          </div>
+        </div>
+      </Accordion>
+
       <Accordion title="Missing permission" icon={<LuShieldAlert className="h-4 w-4" />} defaultOpen>
         <div className="flex flex-col gap-2 p-3">
           <p className="text-[11px] leading-relaxed text-muted-foreground">

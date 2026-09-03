@@ -7,7 +7,7 @@ import {
   type ForgeProjectWriteResult,
 } from '@midnite/studio-shared';
 
-import { addItemToProject, setItemFieldValue } from '../forge/gh-project-write';
+import { addItemToProject, clearItemFieldValue, setItemFieldValue } from '../forge/gh-project-write';
 import { listProjects, projectFields, projectItems } from '../forge/gh-project';
 import { githubForge, noForgeStatus } from './forge-handlers';
 import { handle } from './handle';
@@ -84,6 +84,18 @@ export function registerForgeProjectHandlers(): void {
     CHANNELS.forgeProjectAddItem,
     schemas.ForgeProjectAddItemRequest,
     async (req) => addItemToProject(GITHUB_COM_FORGE, { projectId: req.projectId, contentId: req.contentId }),
+    (issue) => ({ ok: false, kind: 'error', message: issue }),
+  );
+
+  handle<typeof schemas.ForgeProjectClearFieldRequest, ForgeProjectWriteResult>(
+    CHANNELS.forgeProjectClearField,
+    schemas.ForgeProjectClearFieldRequest,
+    async (req) =>
+      clearItemFieldValue(GITHUB_COM_FORGE, {
+        projectId: req.projectId,
+        itemId: req.itemId,
+        fieldId: req.fieldId,
+      }),
     (issue) => ({ ok: false, kind: 'error', message: issue }),
   );
 }

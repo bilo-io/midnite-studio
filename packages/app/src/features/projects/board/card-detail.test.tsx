@@ -3,6 +3,7 @@ import type { ForgeProjectField, ForgeProjectItem } from '@midnite/studio-shared
 import { cleanup, fireEvent, render, screen } from '@testing-library/react';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
+import { DialogHost } from '../../../components/dialog-host';
 import { CardDetail } from './card-detail';
 
 afterEach(cleanup);
@@ -59,14 +60,16 @@ function renderDetail(onClose = vi.fn(), overrides: { repoId?: string | null; wo
   const queryClient = new QueryClient({ defaultOptions: { queries: { retry: false } } });
   return render(
     <QueryClientProvider client={queryClient}>
-      <CardDetail
-        projectId="PVT_1"
-        repoId={repoId}
-        worktreePath={worktreePath}
-        item={item}
-        fields={[statusField, priorityField]}
-        onClose={onClose}
-      />
+      <DialogHost>
+        <CardDetail
+          projectId="PVT_1"
+          repoId={repoId}
+          worktreePath={worktreePath}
+          item={item}
+          fields={[statusField, priorityField]}
+          onClose={onClose}
+        />
+      </DialogHost>
     </QueryClientProvider>,
   );
 }

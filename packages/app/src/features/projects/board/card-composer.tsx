@@ -1,9 +1,12 @@
 import { LOOP_MODELS, loopModelArgs, type ForgeProjectItem, type LoopModel } from '@midnite/studio-shared';
 import { useEffect, useMemo, useState } from 'react';
-import { LuCircleStop, LuPlay, LuSquareTerminal } from 'react-icons/lu';
+import { LuCircleStop, LuPlay, LuSquareTerminal, LuX, LuZap } from 'react-icons/lu';
 
+import { useDialogs } from '../../../components/dialog-host';
 import { IconSelect, type IconSelectOption } from '../../../components/select/icon-select';
 import { resolveAgentIcon } from '../../../components/icons';
+import { useToastStore } from '../../../store/toast-store';
+import { useUiStore } from '../../../store/ui-store';
 import {
   agentInvocationArgs,
   shellQuote,
@@ -18,7 +21,7 @@ import {
   useTerminalStore,
 } from '../../terminal/terminal-store';
 import { useAgents } from '../../terminal/use-agents';
-import { composeCardPrompt } from './board-derive';
+import { composeCardPrompt, CONCURRENT_CARD_SESSION_SOFT_LIMIT, countLiveCardSessions } from './board-derive';
 
 /**
  * `LOOP_MODELS` is Claude-only today — see `loopModelArgs`'s own comment:
@@ -44,6 +47,26 @@ const MODEL_OPTIONS: IconSelectOption[] = LOOP_MODELS.map((model) => ({ id: mode
  * inline transcript here — that is Theme E, not in this batch — so a
  * running card shows its status and a Stop, and the main terminal panel is
  * the only place to watch it work once Theme H re-homes it.
+ *
+ * **A session outlives its agent (Phase 50 Theme A).** The Start form stays
+ * hidden for an ended or asleep session too, not just a live one — `anySession`
+ * gates it, not `isLive` — because the binding is exactly what
+ * `findAnyCardSession` would otherwise still resolve to on a second Start,
+ * hiding the freshly-launched session behind the stale one forever (both
+ * would carry the same `taskRef`, and `.find()` returns whichever is first).
+ * Dismiss is the one way past that: it clears the binding via
+ * `dismissCardSession`, the same drop-to-`'main'` transition Theme H's
+ * automatic `rehomeSession` already performs, so a still-live session is
+ * never the one Dismiss is offered for — Stop is.
+ *
+ * **Launch and run, opt-in (Phase 50 Theme B).** A second button beside
+ * Start, revealed only behind `Settings ▸ Projects`'s toggle (default off).
+ * The setting removes a step, not the look-before-you-leap: pressing it
+ * still opens a confirm naming the exact composed command before
+ * `startAgent({ ..., autoSend: true })` ever runs — a kanban prompt is
+ * composed from remote GitHub text, unlike a FAB loop's fixed,
+ * user-authored one, and that argument is exactly what the confirm carries
+ * regardless of the setting.
  */
 export function CardComposer({
   projectId,
@@ -59,6 +82,9 @@ export function CardComposer({
   const { agents } = useAgents();
   const sessions = useTerminalStore((s) => s.sessions);
   const states = useTerminalStore((s) => s.states);
+  const addToast = useToastStore((s) => s.addToast);
+  const launchAndRunEnabled = useUiStore((s) => s.launchAndRunEnabled);
+  const dialogs = useDialogs();
 
   const taskRef = useMemo(() => ({ projectId, itemId: item.id }), [projectId, item.id]);
   const liveSession = findCardSession(sessions, states, taskRef);
@@ -104,9 +130,29 @@ export function CardComposer({
     ].join(' ');
   }, [agents, agentId, modelArgs, prompt]);
 
-  function handleStart() {
+  /**
+   * Shared by Start (`autoSend: false`) and Launch and run (`true`, Theme B)
+   * — everything about the launch is identical except whether the composed
+   * prompt is typed or sent, so this is the one place either path funnels
+   * through rather than two copies drifting apart.
+   */
+  function launch(autoSend: boolean) {
     const agent = agents.find((a) => a.id === agentId);
     if (!agent) return;
+
+    /*
+      Soft warning, not a block (Phase 50 Theme A): the 6th concurrently-live
+      card session on this board gets a heads-up here, before the mutation
+      below — a client-side quota that refused the launch outright is
+      exactly what the phase doc's own recommendation argues against.
+    */
+    if (countLiveCardSessions(sessions, states, projectId) >= CONCURRENT_CARD_SESSION_SOFT_LIMIT) {
+      addToast({
+        status: 'warning',
+        message: `${CONCURRENT_CARD_SESSION_SOFT_LIMIT}+ agents already running on this board — that's a lot to keep track of.`,
+      });
+    }
+
     startAgent({
       repoId,
       cwd: worktreePath,
@@ -117,12 +163,29 @@ export function CardComposer({
       surface: 'kanban',
       taskRef,
       extraArgs: modelArgs,
-      autoSend: false,
+      autoSend,
+    });
+  }
+
+  function handleStart() {
+    launch(false);
+  }
+
+  function handleLaunchAndRun() {
+    dialogs.confirm({
+      title: 'Launch and run?',
+      body: commandPreview,
+      confirmLabel: 'Launch and run',
+      onConfirm: () => launch(true),
     });
   }
 
   function handleStop() {
     if (liveSession) useTerminalStore.getState().sleepSession(liveSession.id);
+  }
+
+  function handleDismiss() {
+    useTerminalStore.getState().dismissCardSession(taskRef);
   }
 
   return (
@@ -160,12 +223,22 @@ export function CardComposer({
                 <LuCircleStop aria-hidden className="h-3 w-3" />
                 Stop
               </button>
-            ) : null}
+            ) : (
+              <button
+                type="button"
+                onClick={handleDismiss}
+                data-testid="card-dismiss"
+                className="flex items-center gap-1 text-[11px] text-muted-foreground hover:text-foreground"
+              >
+                <LuX aria-hidden className="h-3 w-3" />
+                Dismiss
+              </button>
+            )}
           </span>
         </p>
       ) : null}
 
-      {!isLive ? (
+      {!anySession ? (
         <div className="flex flex-col gap-2">
           <div className="flex items-center gap-2">
             <div className="min-w-0 flex-1">
@@ -203,20 +276,36 @@ export function CardComposer({
           />
           <p
             title={commandPreview}
+            data-testid="card-command-preview"
             className="truncate rounded border border-border/50 bg-muted/20 px-2 py-1 font-mono text-[10px] text-muted-foreground"
           >
             {commandPreview}
           </p>
-          <button
-            type="button"
-            onClick={handleStart}
-            disabled={agentId === ''}
-            data-testid="card-start"
-            className="flex h-7 shrink-0 items-center justify-center gap-1.5 self-start rounded-md border border-border px-2.5 text-[11px] font-medium text-foreground transition-colors hover:bg-accent disabled:cursor-not-allowed disabled:opacity-50"
-          >
-            <LuPlay aria-hidden className="h-3.5 w-3.5" />
-            Start
-          </button>
+          <div className="flex items-center gap-2 self-start">
+            <button
+              type="button"
+              onClick={handleStart}
+              disabled={agentId === ''}
+              data-testid="card-start"
+              className="flex h-7 shrink-0 items-center justify-center gap-1.5 rounded-md border border-border px-2.5 text-[11px] font-medium text-foreground transition-colors hover:bg-accent disabled:cursor-not-allowed disabled:opacity-50"
+            >
+              <LuPlay aria-hidden className="h-3.5 w-3.5" />
+              Start
+            </button>
+            {launchAndRunEnabled ? (
+              <button
+                type="button"
+                onClick={handleLaunchAndRun}
+                disabled={agentId === ''}
+                data-testid="card-launch-and-run"
+                title="Confirms the exact command, then sends it — no typed-but-not-sent step."
+                className="flex h-7 shrink-0 items-center justify-center gap-1.5 rounded-md border border-border px-2.5 text-[11px] font-medium text-foreground transition-colors hover:bg-accent disabled:cursor-not-allowed disabled:opacity-50"
+              >
+                <LuZap aria-hidden className="h-3.5 w-3.5" />
+                Launch and run
+              </button>
+            ) : null}
+          </div>
         </div>
       ) : null}
     </section>

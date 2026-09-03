@@ -1,10 +1,12 @@
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import type { ForgeProjectItem, TerminalSession } from '@midnite/studio-shared';
-import { cleanup, fireEvent, render, screen } from '@testing-library/react';
+import { cleanup, fireEvent, render, screen, within } from '@testing-library/react';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 import { CardComposer } from './card-composer';
+import { DialogHost } from '../../../components/dialog-host';
 import { useUiStore } from '../../../store/ui-store';
+import { useToastStore } from '../../../store/toast-store';
 import { useTerminalStore } from '../../terminal/terminal-store';
 
 afterEach(cleanup);
@@ -43,9 +45,14 @@ const item: ForgeProjectItem = {
 
 function renderComposer() {
   const queryClient = new QueryClient({ defaultOptions: { queries: { retry: false } } });
+  // Launch and run's confirm (Theme B) reaches `useDialogs()` unconditionally
+  // — every render needs the host it expects in the real app tree, same as
+  // `board-view.test.tsx`'s own `renderWithClient`.
   return render(
     <QueryClientProvider client={queryClient}>
-      <CardComposer projectId="PVT_1" repoId="repo-1" worktreePath="/repo/widgets" item={item} />
+      <DialogHost>
+        <CardComposer projectId="PVT_1" repoId="repo-1" worktreePath="/repo/widgets" item={item} />
+      </DialogHost>
     </QueryClientProvider>,
   );
 }
@@ -70,7 +77,8 @@ describe('CardComposer', () => {
       states: {},
       pendingInput: {},
     });
-    useUiStore.setState({ terminalOpen: false, terminalListOpen: false });
+    useUiStore.setState({ terminalOpen: false, terminalListOpen: false, launchAndRunEnabled: false });
+    useToastStore.setState({ toasts: [] });
   });
 
   it('seeds the prompt from the card and shows the composed command above Start', () => {
@@ -80,7 +88,11 @@ describe('CardComposer', () => {
     expect(textarea.value).toContain('Fix the flaky test (#42)');
     expect(textarea.value).toContain('Steps to reproduce…');
 
-    expect(screen.getByTestId('card-start').closest('div')?.textContent).toContain('claude');
+    // Theme B (Phase 50) wraps Start alongside a conditional "Launch and
+    // run" button in its own row div, so the composed-command preview is no
+    // longer inside `card-start`'s nearest ancestor `div` — asserted on its
+    // own stable test id instead of a DOM-distance-dependent traversal.
+    expect(screen.getByTestId('card-command-preview').textContent).toContain('claude');
   });
 
   it('Start opens a kanban session bound to the card via taskRef, prompt queued but not sent', () => {
@@ -127,7 +139,7 @@ describe('CardComposer', () => {
     expect(screen.getByTestId('card-stop')).toBeDefined();
   });
 
-  it('Stop puts the session to sleep, and the form comes back — reactively, off the store', () => {
+  it('Stop puts the session to sleep — the session stays bound, so the form does not come back on its own (Phase 50 Theme A)', () => {
     useTerminalStore.setState({
       sessions: [liveSession()],
       activeId: null,
@@ -140,7 +152,108 @@ describe('CardComposer', () => {
 
     const slept = useTerminalStore.getState().sessions.find((s) => s.id === 's1');
     expect(slept?.asleep).toBe(true);
-    expect(screen.getByTestId('card-start')).toBeDefined();
+    expect(screen.queryByTestId('card-start')).toBeNull();
+    expect(screen.getByTestId('card-dismiss')).toBeDefined();
+  });
+
+  describe('the concurrent-session soft warning (Phase 50 Theme A)', () => {
+    const otherLiveSession = (n: number): TerminalSession => ({
+      id: `other-${n}`,
+      kind: 'agent',
+      agentId: 'claude',
+      title: 'card',
+      cwd: '/repo/widgets',
+      repoId: 'repo-1',
+      createdAt: 1,
+      surface: 'kanban',
+      taskRef: { projectId: 'PVT_1', itemId: `other-item-${n}` },
+    });
+
+    it('warns, but still launches, once this would be the 6th concurrently-live card session', () => {
+      const others = [1, 2, 3, 4, 5].map(otherLiveSession);
+      useTerminalStore.setState({
+        sessions: others,
+        activeId: null,
+        states: Object.fromEntries(others.map((s) => [s.id, 'open'])),
+        pendingInput: {},
+      });
+
+      renderComposer();
+      fireEvent.click(screen.getByTestId('card-start'));
+
+      expect(useToastStore.getState().toasts).toHaveLength(1);
+      expect(useToastStore.getState().toasts[0]).toMatchObject({ status: 'warning' });
+      // Soft — never a block: the launch still happens.
+      expect(useTerminalStore.getState().sessions).toHaveLength(6);
+    });
+
+    it('no warning below the threshold', () => {
+      const others = [1, 2, 3, 4].map(otherLiveSession);
+      useTerminalStore.setState({
+        sessions: others,
+        activeId: null,
+        states: Object.fromEntries(others.map((s) => [s.id, 'open'])),
+        pendingInput: {},
+      });
+
+      renderComposer();
+      fireEvent.click(screen.getByTestId('card-start'));
+
+      expect(useToastStore.getState().toasts).toHaveLength(0);
+    });
+  });
+
+  describe('Dismiss (Phase 50 Theme A)', () => {
+    it('is absent for a still-live session — Stop is the control there, not Dismiss', () => {
+      useTerminalStore.setState({
+        sessions: [liveSession()],
+        activeId: null,
+        states: { s1: 'open' },
+        pendingInput: {},
+      });
+
+      renderComposer();
+
+      expect(screen.queryByTestId('card-dismiss')).toBeNull();
+    });
+
+    it('clears the binding and brings the Start form back', () => {
+      useTerminalStore.setState({
+        sessions: [liveSession()],
+        activeId: null,
+        states: { s1: 'exited' },
+        pendingInput: {},
+      });
+
+      renderComposer();
+      expect(screen.queryByTestId('card-start')).toBeNull();
+
+      fireEvent.click(screen.getByTestId('card-dismiss'));
+
+      const dismissed = useTerminalStore.getState().sessions.find((s) => s.id === 's1');
+      expect(dismissed?.surface).toBeUndefined();
+      expect(dismissed?.taskRef).toBeUndefined();
+      expect(screen.getByTestId('card-start')).toBeDefined();
+    });
+
+    it('a fresh Start after Dismiss is the session findAnyCardSession resolves — not the old one', () => {
+      useTerminalStore.setState({
+        sessions: [liveSession()],
+        activeId: null,
+        states: { s1: 'exited' },
+        pendingInput: {},
+      });
+
+      renderComposer();
+      fireEvent.click(screen.getByTestId('card-dismiss'));
+      fireEvent.click(screen.getByTestId('card-start'));
+
+      const bound = useTerminalStore
+        .getState()
+        .sessions.filter((s) => s.surface === 'kanban' && s.taskRef?.itemId === 'item1');
+      expect(bound).toHaveLength(1);
+      expect(bound[0]?.id).not.toBe('s1');
+    });
   });
 
   it('picking a model for Claude adds a --model flag to the queued command', () => {
@@ -204,9 +317,77 @@ describe('CardComposer', () => {
       renderComposer();
       expect(screen.getByText('Ended')).toBeDefined();
       expect(screen.queryByTestId('card-stop')).toBeNull();
+      expect(screen.getByTestId('card-dismiss')).toBeDefined();
       fireEvent.click(screen.getByTestId('composer-reveal-terminal'));
 
       expect(useTerminalStore.getState().activeId).toBe('s1');
+    });
+  });
+
+  describe('Launch and run (Phase 50 Theme B)', () => {
+    it('is not rendered at all with the setting off — the default', () => {
+      renderComposer();
+
+      expect(screen.getByTestId('card-start')).toBeDefined();
+      expect(screen.queryByTestId('card-launch-and-run')).toBeNull();
+    });
+
+    it('appears beside Start once the setting is on', () => {
+      useUiStore.setState({ launchAndRunEnabled: true });
+      renderComposer();
+
+      expect(screen.getByTestId('card-launch-and-run')).toBeDefined();
+    });
+
+    it('opens a confirm showing the exact command and sends nothing before it is accepted', () => {
+      useUiStore.setState({ launchAndRunEnabled: true });
+      renderComposer();
+
+      const preview = screen.getByTestId('card-command-preview').textContent!;
+      fireEvent.click(screen.getByTestId('card-launch-and-run'));
+
+      // The dialog body is the command preview verbatim: what gets confirmed
+      // is what gets run, which is the whole reason this path is confirmed
+      // every time rather than only the first. Queried inside the dialog,
+      // since the composer's own preview line carries the same text.
+      const dialog = within(screen.getByRole('dialog'));
+      expect(dialog.getByText('Launch and run?')).toBeDefined();
+      expect(dialog.getByText(preview)).toBeDefined();
+      // Nothing launched yet — the confirm is a gate, not a receipt.
+      expect(useTerminalStore.getState().sessions).toHaveLength(0);
+    });
+
+    it('cancelling the confirm launches nothing', () => {
+      useUiStore.setState({ launchAndRunEnabled: true });
+      renderComposer();
+
+      fireEvent.click(screen.getByTestId('card-launch-and-run'));
+      fireEvent.click(within(screen.getByRole('dialog')).getByRole('button', { name: 'Cancel' }));
+
+      expect(useTerminalStore.getState().sessions).toHaveLength(0);
+    });
+
+    it('confirming queues the prompt WITH the send — the one difference from Start', () => {
+      useUiStore.setState({ launchAndRunEnabled: true });
+      renderComposer();
+
+      fireEvent.click(screen.getByTestId('card-launch-and-run'));
+      // Scoped to the dialog: the trigger button carries the same label.
+      fireEvent.click(
+        within(screen.getByRole('dialog')).getByRole('button', { name: 'Launch and run' }),
+      );
+
+      const sessions = useTerminalStore.getState().sessions;
+      expect(sessions).toHaveLength(1);
+      const created = sessions[0]!;
+      // Same binding as Start's: only `autoSend` differs, because both paths
+      // funnel through the one `launch()`.
+      expect(created.surface).toBe('kanban');
+      expect(created.taskRef).toEqual({ projectId: 'PVT_1', itemId: 'item1' });
+
+      const queued = useTerminalStore.getState().pendingInput[created.id];
+      expect(queued).toContain('Fix the flaky test (#42)');
+      expect(queued?.endsWith('\r')).toBe(true); // autoSend: true — sent, not just typed
     });
   });
 });
