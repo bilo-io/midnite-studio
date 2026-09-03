@@ -14,6 +14,7 @@ import { keys } from '../queries';
 import { useFileEditorStore } from '../../store/file-editor-store';
 import { useUiStore } from '../../store/ui-store';
 import { useWorkbenchStore } from '../../store/workbench-store';
+import { useWorkflowRunCommandStore } from '../../store/workflow-run-command-store';
 import { useCommandHandlers } from './use-command-handlers';
 
 const BRANCH_CLEAN: BranchStatus = {
@@ -67,6 +68,7 @@ beforeEach(() => {
   });
   useSlidesStore.setState({ deck: null, activeMarkdown: null });
   useTerminalStore.setState({ sessions: [], activeId: null, states: {}, foregroundCommand: {} });
+  useWorkflowRunCommandStore.setState({ handle: null });
 });
 
 describe('useCommandHandlers — no repo open', () => {
@@ -314,6 +316,27 @@ describe('useCommandHandlers — markdown.presentAsSlides', () => {
     const presentActive = vi.spyOn(useSlidesStore.getState(), 'presentActive');
     result.current['markdown.presentAsSlides'].run();
     expect(presentActive).toHaveBeenCalledOnce();
+  });
+});
+
+describe('useCommandHandlers — workflow.run', () => {
+  it('is always enabled, and navigates to Workflows with no workflow open', () => {
+    const { result } = withProviders(new QueryClient());
+    expect(result.current['workflow.run'].enabled).toBe(true);
+
+    result.current['workflow.run'].run();
+    expect(useUiStore.getState().activeView).toBe('workflows');
+  });
+
+  it('navigates AND calls the registered handle once a workflow is open', () => {
+    const run = vi.fn();
+    useWorkflowRunCommandStore.getState().register({ run });
+    const { result } = withProviders(new QueryClient());
+
+    result.current['workflow.run'].run();
+
+    expect(useUiStore.getState().activeView).toBe('workflows');
+    expect(run).toHaveBeenCalledOnce();
   });
 });
 

@@ -654,6 +654,8 @@ export type MidniteStudioBridge = {
       ) => Promise<z.infer<typeof S.WorkflowRunsGetResponse>>;
     };
     onRunChanged: (handler: () => void) => Unsubscribe;
+    /** One-way, like `update.setChannel` — sent on change, not synced on boot. */
+    setDefaults: (req: In<typeof S.WorkflowSetDefaultsRequest>) => void;
   };
 
   /**

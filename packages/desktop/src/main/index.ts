@@ -65,7 +65,7 @@ import { createRepoStore } from './repo-store';
 import { configureCouncils } from './council-service';
 import { createCouncilsRunsStore } from './councils-runs-store';
 import { createCouncilsStore } from './councils-store';
-import { configureWorkflows } from './workflow-service';
+import { configureWorkflows, getWorkflowRunHistoryCap } from './workflow-service';
 import { createWorkflowsStore } from './workflows-store';
 import { createWorkflowRunsStore } from './workflow-runs-store';
 import { stopDemoApi } from './demo-api/server';
@@ -323,7 +323,7 @@ if (!app.requestSingleInstanceLock()) {
     */
     configureWorkflows(
       createWorkflowsStore(userData),
-      createWorkflowRunsStore(userData),
+      createWorkflowRunsStore(userData, getWorkflowRunHistoryCap),
       getWindow,
     );
     configureDiagnostics(createTrustStore(userData));

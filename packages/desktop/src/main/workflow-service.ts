@@ -1,5 +1,7 @@
 import {
   EVENT_CHANNELS,
+  MAX_STORED_WORKFLOW_RUNS_PER_WORKFLOW,
+  WORKFLOW_NODE_TIMEOUT_MS,
   failure,
   ok,
   type GitOpResult,
@@ -46,6 +48,25 @@ let runs: WorkflowRun[] = [];
 */
 let workflowsLoading: Promise<void> | null = null;
 let runsLoading: Promise<void> | null = null;
+
+/**
+ * Theme I's settings page — the same `updateSetChannel` shape: a bare
+ * in-memory value, set on change, never synced on boot. `runHistoryCap`
+ * starts applying on this process's very next `saveRun`/`runsStore.save`;
+ * it does not retroactively trim what is already on disk.
+ */
+let defaultTimeoutMs = WORKFLOW_NODE_TIMEOUT_MS;
+let runHistoryCap = MAX_STORED_WORKFLOW_RUNS_PER_WORKFLOW;
+
+export function setWorkflowDefaults(next: { defaultTimeoutMs: number; runHistoryCap: number }): void {
+  defaultTimeoutMs = next.defaultTimeoutMs;
+  runHistoryCap = next.runHistoryCap;
+}
+
+/** Read live by `createWorkflowRunsStore`'s own trim, so a change applies to the very next save. */
+export function getWorkflowRunHistoryCap(): number {
+  return runHistoryCap;
+}
 
 export function configureWorkflows(
   store: WorkflowsStore,
@@ -181,12 +202,12 @@ async function saveRun(run: WorkflowRun): Promise<void> {
   const next = index === -1 ? [...runs, run] : runs.map((existing) => (existing.id === run.id ? run : existing));
   // Trimmed here, at write time — not left to the store's own trim, which only
   // ever bounded the copy written to disk (Phase 45 Theme D).
-  runs = trimRunsPerWorkflow(next);
+  runs = trimRunsPerWorkflow(next, runHistoryCap);
   await runsStore.save(runs);
 }
 
 function engineDeps(): EngineDeps {
-  return { saveRun, getRun, emitChanged };
+  return { saveRun, getRun, emitChanged, defaultTimeoutMs };
 }
 
 export async function runWorkflow(workflowId: string): Promise<GitOpResult<WorkflowRun>> {

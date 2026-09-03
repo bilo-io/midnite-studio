@@ -316,6 +316,34 @@ describe('timeouts', () => {
     expect(byId.fine!.status).toBe('succeeded');
     expect(run.status).toBe('failed');
   });
+
+  it("uses deps.defaultTimeoutMs (Theme I's settings page) for a node with no override of its own", async () => {
+    const store = makeStore();
+    const recorder: Recorder = { started: [], settled: [] };
+    const w = workflow([delayNode('a')], []);
+    const seenDeadlines: number[] = [];
+
+    await startWorkflowRun(
+      w,
+      deps(store, {
+        executors: fakeRegistry({}, recorder),
+        defaultTimeoutMs: 5_000,
+        clock: {
+          now: () => Date.now(),
+          setTimeout: (fn, ms) => {
+            seenDeadlines.push(ms);
+            const timer = setTimeout(fn, 0);
+            timer.unref?.();
+            return timer;
+          },
+          clearTimeout: ((handle: never) => clearTimeout(handle)) as never,
+        },
+      }),
+    );
+    await settle();
+
+    expect(seenDeadlines).toEqual([5_000]);
+  });
 });
 
 describe('cancellation', () => {

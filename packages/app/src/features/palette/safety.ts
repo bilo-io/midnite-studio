@@ -39,6 +39,9 @@ export const PALETTE_SAFE: readonly CommandId[] = [
   'palette.files',
   'file.save',
   'markdown.presentAsSlides',
+  // Starting a workflow run is recoverable by the same logic as `sync.fetch`:
+  // nothing it does cannot be inspected or re-run, and it never deletes state.
+  'workflow.run',
 ] as const;
 
 export function isPaletteSafe(id: CommandId): boolean {

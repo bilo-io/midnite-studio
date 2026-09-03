@@ -2,6 +2,46 @@
 
 <!-- Append one entry per landed phase/PR: date, phase, PR link, one-line summary. -->
 
+## 2026-09-04 — Phase 43 Theme I (partial) — the palette command, the settings page, and the wiring between them
+
+[PR #108]. Closes out Phase 43's build entirely bar one human-only pass.
+
+- [x] **`workflow.run`, and the gate the doc missed.** Declared in `COMMANDS`
+      (chord-less), given a `CommandRuntime` entry and a `COMMAND_ICONS` row —
+      all typecheck-enforced. None of that made it *findable*: the palette
+      filters every row through `PALETTE_SAFE`, a separate explicit allowlist
+      in `features/palette/safety.ts` the phase doc never mentioned. An e2e
+      run against the real palette (not a unit test) is what caught it —
+      the command searched for zero results until added there too.
+- [x] **A new seam for "which workflow is open."** `WorkflowsView`'s selection
+      is local state, invisible to the global command runtime. New
+      `workflow-run-command-store.ts` mirrors `commit-box-store.ts`/
+      `status.commit` exactly: `WorkflowEditor` registers a `{run}` handle
+      while a valid workflow is open; the command always navigates to
+      Workflows and calls `.handle?.run()`, a harmless no-op with nothing
+      open rather than a second `enabled` gate this runtime would need new
+      state to compute.
+- [x] **The Workflows settings page, wired all the way to main.** Registered
+      the standard four places (`SettingsPageId`, `SETTINGS_PAGES`,
+      `PAGE_CONTENT`, `SETTINGS_PAGE_ICON`); `workflows-page.tsx` follows
+      `graph-page.tsx`'s `<Accordion>` shape with `screen-lock-page.tsx`-style
+      sliders. Reaching main needed a real IPC round trip the doc never
+      designed: a new one-way `workflowSetDefaults` channel, the exact
+      `update.setChannel` shape (`ipcMain.on` + manual `safeParse`, sent on
+      change, never synced on boot). `EngineDeps` gained an injected
+      `defaultTimeoutMs?` (the same seam `clock` already uses, for the same
+      testability reason); `trimRunsPerWorkflow`/`createWorkflowRunsStore`
+      gained an optional cap parameter/thunk. Every existing caller, tests
+      included, is unaffected — both default to the untouched constants.
+- [x] Native menu item in `menu.ts`'s View submenu.
+- [x] e2e: the `workflow.run` palette round trip, against the real assembled
+      app and the real `isPaletteSafe` gate.
+- [x] Screenshot: the new settings page.
+- [ ] **Open, for a human:** the one real end-to-end pass — start the demo
+      API, build a POST-then-GET workflow against it, run it, watch the
+      created record come back. Nothing here can drive a real HTTP round
+      trip unattended.
+
 ## 2026-09-03 — Phase 43 Theme G — the workflow run view
 
 [PR #105]. Closes out Phase 43's build half — Theme I (settings) is the one item left.

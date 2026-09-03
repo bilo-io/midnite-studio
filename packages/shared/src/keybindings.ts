@@ -243,6 +243,10 @@ export const COMMANDS = [
   // surface (Files preview, PR/review description) is in view — see
   // `activeMarkdown` in `slides-store.ts`.
   { id: 'markdown.presentAsSlides', label: 'Present as Slides', group: 'view' },
+  // Declared, unbound: like `sync.fetch`, chord-free by choice rather than by
+  // exhaustion — a run action does not need a global chord, and the canvas's
+  // own Run button (Theme F) is already one click away once the view is open.
+  { id: 'workflow.run', label: 'Run Workflow', group: 'view' },
 ] as const satisfies readonly CommandDescriptorInput[];
 
 export type CommandDescriptor = (typeof COMMANDS)[number];

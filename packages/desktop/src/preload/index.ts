@@ -336,6 +336,7 @@ const bridge: Pick<
       get: (req) => call(CHANNELS.workflowRunsGet, req),
     },
     onRunChanged: (handler) => subscribe(EVENT_CHANNELS.workflowRunChanged, handler),
+    setDefaults: (req) => ipcRenderer.send(CHANNELS.workflowSetDefaults, req),
   },
   demoApi: {
     start: () => call(CHANNELS.demoApiStart),

@@ -81,5 +81,6 @@ export const COMMAND_ICONS: Record<CommandId, IconType> = {
   'palette.open': LuCommand,
   'palette.files': LuFile,
   'file.save': LuFile,
+  'workflow.run': LuPlay,
   'markdown.presentAsSlides': LuSparkles,
 };

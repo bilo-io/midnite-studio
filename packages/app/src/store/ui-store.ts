@@ -133,6 +133,7 @@ export type SettingsPageId =
   | 'agent'
   | 'reviews'
   | 'projects'
+  | 'workflows'
   | 'gitSafety'
   | 'monitor'
   | 'browser'
@@ -173,6 +174,7 @@ export const SETTINGS_PAGES: { id: SettingsPageId; label: string; group: Setting
   { id: 'agent', label: 'Agent', group: 'tools' },
   { id: 'reviews', label: 'Reviews', group: 'tools' },
   { id: 'projects', label: 'Projects', group: 'tools' },
+  { id: 'workflows', label: 'Workflows', group: 'tools' },
   { id: 'gitSafety', label: 'Git Safety', group: 'tools' },
   { id: 'browser', label: 'Browser', group: 'tools' },
   { id: 'cli', label: 'CLI Integration', group: 'system' },
@@ -903,6 +905,16 @@ export type UiState = {
 
   inactivityTimeoutS: number;
   setInactivityTimeout: (seconds: number) => void;
+  /**
+   * Theme I's Workflows settings page. Persisted here like every other
+   * setting, but only takes effect in main once changed — `workflows-page.tsx`
+   * sends both over `workflow.setDefaults` on every change, the same
+   * `update.setChannel` one-way shape; main is not synced on boot.
+   */
+  workflowDefaultTimeoutS: number;
+  setWorkflowDefaultTimeoutS: (seconds: number) => void;
+  workflowRunHistoryCap: number;
+  setWorkflowRunHistoryCap: (cap: number) => void;
   cycleDurationS: number;
   setCycleDuration: (seconds: number) => void;
   requirePasscode: boolean;
@@ -1073,6 +1085,8 @@ type PersistedUi = Pick<
   | 'showOnboarding'
   | 'councilConfigCollapsed'
   | 'inactivityTimeoutS'
+  | 'workflowDefaultTimeoutS'
+  | 'workflowRunHistoryCap'
   | 'cycleDurationS'
   | 'requirePasscode'
   | 'passcode'
@@ -1105,6 +1119,13 @@ export const useUiStore = create<UiState>()(
       primaryAgent: 'claude',
       inactivityTimeoutS: 900,
       setInactivityTimeout: (inactivityTimeoutS) => set({ inactivityTimeoutS }),
+      // Matches `WORKFLOW_NODE_TIMEOUT_MS`/`MAX_STORED_WORKFLOW_RUNS_PER_WORKFLOW`
+      // in `shared/workflow.ts` — the same defaults main starts at before any
+      // change is sent over `workflow.setDefaults`.
+      workflowDefaultTimeoutS: 120,
+      setWorkflowDefaultTimeoutS: (workflowDefaultTimeoutS) => set({ workflowDefaultTimeoutS }),
+      workflowRunHistoryCap: 20,
+      setWorkflowRunHistoryCap: (workflowRunHistoryCap) => set({ workflowRunHistoryCap }),
       cycleDurationS: 10,
       setCycleDuration: (cycleDurationS) => set({ cycleDurationS }),
       requirePasscode: false,
@@ -1531,6 +1552,8 @@ export const useUiStore = create<UiState>()(
         councilConfigCollapsed: state.councilConfigCollapsed,
         inactivityTimeoutS: state.inactivityTimeoutS,
         cycleDurationS: state.cycleDurationS,
+        workflowDefaultTimeoutS: state.workflowDefaultTimeoutS,
+        workflowRunHistoryCap: state.workflowRunHistoryCap,
         requirePasscode: state.requirePasscode,
         passcode: state.passcode,
         passcodeOnlyWhenLocked: state.passcodeOnlyWhenLocked,
