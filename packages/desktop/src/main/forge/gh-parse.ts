@@ -608,7 +608,7 @@ export function rollupChecks(payload: unknown): ForgeChecksRollup | null {
 }
 
 /**
- * `gh pr list --json number,title,state,isDraft,reviewDecision,headRefName,author,url,statusCheckRollup,mergedAt,closedAt`
+ * `gh pr list --json id,number,title,state,isDraft,reviewDecision,headRefName,author,url,statusCheckRollup,mergedAt,closedAt`
  *
  * `state` arrives uppercase (`OPEN`); `reviewDecision` is `""` when nobody has
  * reviewed and no rule demands one — distinct from `REVIEW_REQUIRED`.
@@ -625,6 +625,7 @@ export function parsePullList(payload: unknown): ForgePull[] {
     const row = raw as Record<string, unknown>;
 
     const parsed = ForgePullSchema.safeParse({
+      id: asString(row['id']) ?? '',
       number: row['number'],
       title: asString(row['title']) ?? '(no title)',
       state: asString(row['state'])?.toLowerCase(),

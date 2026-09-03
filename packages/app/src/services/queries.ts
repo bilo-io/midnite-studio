@@ -707,6 +707,30 @@ export function useClearProjectItemField(projectId: string | null) {
 }
 
 /**
+ * Attach an existing pull request to a ProjectV2 board (Phase 50 Theme E).
+ *
+ * Unlike its two siblings above, this one takes no bound `projectId` — "Add
+ * to project" from the Reviews page picks the board at call time, from
+ * whichever one the user selects in the menu, so `projectId` travels with
+ * each `mutate()` call instead of being fixed for the hook's lifetime.
+ */
+export function useAddProjectItem() {
+  const client = useQueryClient();
+  return useMutation({
+    mutationFn: async (input: { projectId: string; contentId: string }): Promise<ForgeProjectWriteResult> => {
+      const api = bridge();
+      if (!api) return NO_FORGE_PROJECT_WRITE;
+      return api.forgeProject.addItem(input);
+    },
+    onSuccess: (result, input) => {
+      if (result.ok) {
+        void client.invalidateQueries({ queryKey: keys.forgeProjectItems(input.projectId) });
+      }
+    },
+  });
+}
+
+/**
  * One run's job/step tree, fetched only once a row has been expanded.
  *
  * The same staleness window as its siblings, deliberately: a completed run is
