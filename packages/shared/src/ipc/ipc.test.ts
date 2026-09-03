@@ -828,6 +828,7 @@ describe('stats schemas', () => {
       calendar: [],
       contributors: [],
       activity: [],
+      timeline: [],
       health: {
         localBranches: 0,
         remoteBranches: 0,

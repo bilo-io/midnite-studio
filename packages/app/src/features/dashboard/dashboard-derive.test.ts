@@ -28,6 +28,7 @@ const baseStats = (over: Partial<RepoStats> = {}): RepoStats => ({
   calendar: [],
   contributors: [],
   activity: [],
+  timeline: [],
   churn: null,
   health,
   ...over,

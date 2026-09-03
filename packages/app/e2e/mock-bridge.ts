@@ -262,6 +262,7 @@ export type MockFixtures = {
     calendar?: { date: string; count: number }[];
     contributors?: unknown[];
     activity?: unknown[];
+    timeline?: { sha: string; at: number; additions: number | null; deletions: number | null }[];
     churn?: unknown;
     health?: Record<string, unknown>;
     truncated?: boolean;
@@ -1084,6 +1085,7 @@ export async function installMockBridge(page: Page, fixtures: MockFixtures): Pro
           calendar: data.stats?.calendar ?? [],
           contributors: data.stats?.contributors ?? [],
           activity: data.stats?.activity ?? [],
+          timeline: data.stats?.timeline ?? [],
           churn: data.stats?.churn ?? null,
           health: {
             localBranches: 0,
