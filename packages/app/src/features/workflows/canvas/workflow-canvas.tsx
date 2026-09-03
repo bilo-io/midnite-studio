@@ -14,7 +14,7 @@ import {
   type KeyboardEvent as ReactKeyboardEvent,
   type PointerEvent as ReactPointerEvent,
 } from 'react';
-import { LuRedo2, LuUndo2 } from 'react-icons/lu';
+import { LuPlay, LuRedo2, LuUndo2 } from 'react-icons/lu';
 
 import { IconButton } from '../../../components/icon-button';
 import { createNode } from '../workflow-io';
@@ -65,12 +65,23 @@ export function WorkflowCanvas({
   resetKey,
   onSelectionChange,
   onChange,
+  invalidNodeIds,
+  onRun,
+  runDisabledReason,
+  isRunning,
 }: {
   graph: WorkflowGraph;
   /** Changing this clears undo/redo history and re-centres the viewport — used when switching to a different workflow. */
   resetKey: string;
   onSelectionChange?: (selected: ReadonlySet<string>) => void;
   onChange: (next: WorkflowGraph) => void;
+  /** Node ids `validateWorkflow` (Theme F) flagged — drawn with a destructive outline and badge. */
+  invalidNodeIds?: ReadonlySet<string>;
+  /** Absent hides the Run control entirely — Theme F wires it, the canvas doesn't invent it on its own. */
+  onRun?: () => void;
+  /** Set (to the first issue's message) to disable Run and explain why via `title`. */
+  runDisabledReason?: string;
+  isRunning?: boolean;
 }) {
   const containerRef = useRef<HTMLDivElement>(null);
   const [size, setSize] = useState({ width: 0, height: 0 });
@@ -408,6 +419,18 @@ export function WorkflowCanvas({
             {selection.size} selected
           </span>
         ) : null}
+        {onRun ? (
+          <button
+            type="button"
+            disabled={Boolean(runDisabledReason) || isRunning}
+            title={runDisabledReason}
+            onClick={onRun}
+            className={`flex items-center gap-1 rounded-md bg-primary px-2 py-1 text-xs font-medium text-primary-foreground transition-opacity disabled:opacity-40 ${selection.size > 0 ? '' : 'ml-auto'}`}
+          >
+            <LuPlay aria-hidden className="h-3 w-3" />
+            {isRunning ? 'Running…' : 'Run'}
+          </button>
+        ) : null}
       </div>
 
       <div
@@ -475,14 +498,16 @@ export function WorkflowCanvas({
             const pos = positionFor(node);
             const meta = NODE_KIND_META[node.kind];
             const selected = selection.has(node.id);
+            const invalid = invalidNodeIds?.has(node.id) ?? false;
+            const strokeClass = invalid ? 'stroke-destructive' : selected ? 'stroke-primary' : 'stroke-border';
             return (
               <g key={node.id} data-node-id={node.id} transform={`translate(${pos.x}, ${pos.y})`} className="cursor-move">
                 <rect
                   width={WORKFLOW_NODE_GEOMETRY.width}
                   height={WORKFLOW_NODE_GEOMETRY.height}
                   rx={8}
-                  className={selected ? 'fill-card stroke-primary' : 'fill-card stroke-border'}
-                  strokeWidth={selected ? 2 : 1}
+                  className={`fill-card ${strokeClass}`}
+                  strokeWidth={invalid || selected ? 2 : 1}
                 />
                 <text x={10} y={18} className="fill-muted-foreground text-[9px] font-medium uppercase tracking-wide">
                   {meta.label}
@@ -490,6 +515,17 @@ export function WorkflowCanvas({
                 <text x={10} y={36} className="fill-foreground text-[12px]">
                   {truncateLabel(node.label)}
                 </text>
+                {invalid ? (
+                  <circle
+                    data-invalid-badge
+                    cx={WORKFLOW_NODE_GEOMETRY.width - 10}
+                    cy={10}
+                    r={5}
+                    className="fill-destructive"
+                  >
+                    <title>{`"${node.label}" is not valid.`}</title>
+                  </circle>
+                ) : null}
                 {node.kind !== 'note' ? (
                   <>
                     <circle

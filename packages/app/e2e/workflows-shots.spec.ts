@@ -110,4 +110,15 @@ test.describe('workflows screenshots', () => {
     await page.waitForTimeout(SETTLE_MS);
     await page.screenshot({ path: `${OUT}/workflows-node-selected.png` });
   });
+
+  test('the node inspector offering an upstream reference (Theme F)', async ({ page }) => {
+    await openWorkflows(page, shots);
+    await page.getByText('Fetch, transform, notify').first().click();
+    await page.locator('[data-node-id="n2"]').waitFor();
+    await page.locator('[data-node-id="n2"]').click();
+    await page.getByLabel('Left').focus();
+    await page.getByText('Insert a reference').waitFor();
+    await page.waitForTimeout(SETTLE_MS);
+    await page.screenshot({ path: `${OUT}/workflows-node-inspector-reference.png` });
+  });
 });

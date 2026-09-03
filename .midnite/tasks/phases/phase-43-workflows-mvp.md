@@ -403,50 +403,26 @@ Effort tags: **S** ≈ an hour or two · **M** ≈ half a day · **L** ≈ a day
   - *Acceptance:* a 200-node fixture renders under 300 DOM nodes at default zoom, asserted in an
     RTL test counting `[data-node-id]` elements.
 
-### F — The node inspector (M)
+### F — The node inspector (M) — ✅ DONE (PR #102, 2026-09-03)
 
-- [ ] Right-hand config panel for the selected node, its form driven by the node `kind` — the
+- [x] Right-hand config panel for the selected node, its form driven by the node `kind` — the
       discriminated union from Theme A is what makes this exhaustive rather than a `switch` with a
       default nobody maintains.
-  - Type the form map as `Record<WorkflowNode['kind'], (props) => ReactNode>` so a sixth node kind
-    is a typecheck failure until its form exists.
-  - **There is no right-hand config pane anywhere in this app today** — every config surface is on
-    the left. Mirror `council-detail.tsx:103`'s column markup with `border-l` instead of `border-r`,
-    placed after the canvas: `flex w-80 shrink-0 flex-col border-l border-border`, a
-    `shrink-0 … border-b` header, a `min-h-0 flex-1 overflow-auto px-3 py-2` body.
-  - With nothing selected the pane shows `<EmptyState>` with body *"Select a node to configure it."*
-- [ ] Form primitives: hoist, do not copy.
-  - There is **no shared form library**. `Field({label, hint, children})` and
-    `Choice<T>({label, hint, value, onChange, options})` are exported but live under
-    [`settings-pages/controls.tsx`](../../../packages/app/src/features/settings/settings-pages/controls.tsx);
-    `SwitchRow`, `RadioRow`, `ChoiceRow` and `ScheduleRow` are **module-private** inside
-    [`loop-composer.tsx:262-387`](../../../packages/app/src/features/loops/loop-composer.tsx).
-  - Move `Field`, `Choice`, `SwitchRow` and `RadioRow` into `components/form/` and re-export from
-    both call sites. `loop-composer.tsx`'s `ScheduleRow` already re-inlines the switch markup
-    verbatim rather than reusing it — this theme is the moment that seam gets closed, not widened
-    by a third copy.
-  - A text input and a textarea do not exist as components at all; `council-detail.tsx:136,156`
-    uses bare elements with a repeated className. Add `TextField` and `TextArea` carrying that same
-    className so the inspector does not invent a third visual style.
-- [ ] Live validation: a required field left empty marks the node invalid **on the canvas**, and an
-      invalid workflow cannot be run.
-  - Validation is the node's own zod schema — `WorkflowNodeSchema.safeParse(node)` — so there is one
-    definition of valid, not a form-layer copy of it.
-  - An invalid node draws a `stroke-destructive` outline and a small badge; the Run button is
-    disabled with a `title` naming the first invalid node.
-  - *Acceptance:* an RTL test clears a required URL and asserts the Run button is `disabled`.
-- [ ] The `{{...}}` interpolation helper lists the upstream nodes and fields actually available at
-      that point in the graph, rather than asking the user to remember them.
-  - "Available" means the transitive ancestors of the selected node, computed by the same
-    `wouldCycle`/traversal module Theme E uses. Fields come from the **last run's** recorded output
-    for that node when one exists, and from the node kind's declared output shape otherwise.
-  - Insert-on-click into the focused field at the caret. No autocomplete popup in the MVP.
-- [ ] Navigation between workflow → node → run detail.
-  - **Do not build `panel-stack` here.** It does not exist
-    ([Phase 42](phase-42-councils-layout.md) builds it; grep confirms zero source hits), and this
-    phase's three panes need no history: the canvas is always visible and the inspector always
-    reflects the current selection. Use plain selection state, as `councils-view.tsx` does.
-  - If Phase 42 lands first, adopt its primitive for the runs drawer only. Recorded as a Decision.
+  - `node-inspector.tsx`'s `NODE_FORMS` is typed exactly as `Record<WorkflowNodeKind, (props: NodeFormProps) => ReactNode>`, so a sixth node kind is a typecheck failure until its form exists in `node-forms.tsx`.
+  - `council-detail.tsx` no longer exists under that name — it is `council-config-panel.tsx` after Phase 42's rearrangement. The inspector mirrors its column markup with `border-l` instead of `border-r`, placed after the canvas: `flex w-80 shrink-0 flex-col border-l border-border`, a `shrink-0 … border-b` header, a `min-h-0 flex-1 overflow-auto px-3 py-2` body.
+  - With nothing (or more than one node) selected the pane shows `<EmptyState>` with body *"Select a node to configure it."*
+- [x] Form primitives: hoisted, not copied.
+  - `Field`/`Choice` moved into `components/form/field.tsx`; `settings-pages/controls.tsx` re-exports them so its dozen call sites need no change. `TextField`/`TextArea` are new there, carrying the same className `council-config-panel.tsx`'s bare `<input>`/`<textarea>` already used.
+  - `SwitchRow`/`RadioRow` needed no move — Phase 41 Theme G already hoisted them into `components/form/toggle-rows.tsx`, ahead of this phase's own doc catching up to it.
+- [x] Live validation: a required field left empty marks the node invalid **on the canvas**, and an invalid workflow cannot be run.
+  - **Correction:** validation is the existing `validateWorkflow()` (Theme A), not a bare `WorkflowNodeSchema.safeParse(node)` — that schema's `url`/`picks`/`right` fields have no `.min(1)`/presence constraint, so a zod parse would never catch an empty URL. `validateWorkflow`'s own docblock already earmarks it as "shared by the engine … and the canvas (which disables Run and names the offender)" — this theme is that consumer.
+  - An invalid node draws a `stroke-destructive` outline and a `fill-destructive` badge (`workflow-canvas.tsx`); the canvas's new Run button is disabled with a `title` naming the first invalid node's issue.
+  - *Acceptance:* `workflow-canvas.test.tsx`'s "acceptance" test runs the real `validateWorkflow` against a fixture, clears its URL, and asserts Run flips to disabled.
+- [x] The `{{...}}` interpolation helper lists the upstream nodes and fields actually available at that point in the graph.
+  - "Available" is the transitive ancestors of the selected node via `ancestorIds()` (new in `workflow.ts`, alongside `findCycleEdge`/`wouldCycle`). Fields come from the node kind's **declared output shape** (`node-output-fields.ts`) — the last-run fallback is Theme G's concern, since run history storage/reads live there; the doc's "when one exists" clause is deferred with it rather than guessed.
+  - Insert-on-click into the focused field at the caret (`selectionStart`/`selectionEnd` on the stored element, `onMouseDown` `preventDefault` on the insert buttons so the field never blurs). No autocomplete popup.
+- [x] Navigation between workflow → node.
+  - No `panel-stack`: plain `ReadonlySet<string>` selection lifted from the canvas's existing `onSelectionChange`, exactly as recorded. Run-detail navigation is Theme G's own surface once it exists.
 
 ### G — Runs (M)
 
