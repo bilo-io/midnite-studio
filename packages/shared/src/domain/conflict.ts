@@ -37,3 +37,15 @@ export const ConflictedHunkSchema = z.object({
   segments: z.array(ConflictSegmentSchema),
 });
 export type ConflictedHunk = z.infer<typeof ConflictedHunkSchema>;
+
+/**
+ * Which side of a conflict to accept. Maps directly onto git's own index
+ * stages (`:1:` base, `:2:` ours, `:3:` theirs) — including during a rebase,
+ * where git's documented behavior flips what a merge user would call "ours"
+ * and "theirs" (the commit being replayed is `theirs`; the branch being
+ * rebased onto is `ours`). This type does not correct for that: it names the
+ * stages the way git itself does, and the caller's tests are what prove the
+ * inversion rather than the type.
+ */
+export const ConflictSideSchema = z.enum(['ours', 'theirs', 'base']);
+export type ConflictSide = z.infer<typeof ConflictSideSchema>;

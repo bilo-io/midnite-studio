@@ -1,6 +1,7 @@
 export * from './blame';
 export * from './blob';
 export * from './commit';
+export * from './conflict-resolve';
 export * from './diff';
 export * from './grep';
 export * from './ignore';
