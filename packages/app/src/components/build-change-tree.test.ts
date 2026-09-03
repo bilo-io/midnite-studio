@@ -1,6 +1,12 @@
 import { describe, expect, it } from 'vitest';
 
-import { buildChangeTree, flattenBySize, type ChangedFile, type DirNode } from './build-change-tree';
+import {
+  buildChangeTree,
+  collectFilePaths,
+  flattenBySize,
+  type ChangedFile,
+  type DirNode,
+} from './build-change-tree';
 
 const file = (path: string, insertions = 1, deletions = 0): ChangedFile => ({
   path,
@@ -106,6 +112,25 @@ describe('buildChangeTree', () => {
     const tree = buildChangeTree([file('CLAUDE.md')]);
     expect(tree).toHaveLength(1);
     expect(tree[0]).toMatchObject({ kind: 'file', name: 'CLAUDE.md', path: 'CLAUDE.md' });
+  });
+});
+
+describe('collectFilePaths', () => {
+  it('collects every file under a directory, however deep', () => {
+    const tree = buildChangeTree([
+      file('src/a.ts'),
+      file('src/nested/b.ts'),
+      file('other/c.ts'),
+    ]);
+    const src = tree.find((n) => n.name === 'src') as DirNode;
+    expect(collectFilePaths(src).sort()).toEqual(['src/a.ts', 'src/nested/b.ts']);
+  });
+
+  it('does not collapse a chain of directories away — a middle segment still finds its files', () => {
+    const tree = buildChangeTree([file('a/b/c/d.ts'), file('a/b/c/e.ts')]);
+    // The chain collapses into one row named "a/b/c"; the files are still there.
+    const collapsed = tree[0] as DirNode;
+    expect(collectFilePaths(collapsed).sort()).toEqual(['a/b/c/d.ts', 'a/b/c/e.ts']);
   });
 });
 

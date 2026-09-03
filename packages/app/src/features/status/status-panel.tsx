@@ -7,8 +7,10 @@ import { AiOutlineDiff } from 'react-icons/ai';
 
 import {
   buildChangeTree,
+  collectFilePaths,
   flattenBySize,
   type ChangedFile,
+  type DirNode,
 } from '../../components/build-change-tree';
 import { ChangeTotals, ChangeTree, Counts } from '../../components/change-tree';
 import { IconButton, type IconComponent } from '../../components/icon-button';
@@ -88,6 +90,8 @@ export function StatusPanel() {
     staged: ReadonlySet<string>;
     unstaged: ReadonlySet<string>;
   }>({ staged: EMPTY_SET, unstaged: EMPTY_SET });
+  /** Both sections are accordions; each opens independently and starts open. */
+  const [sectionOpen, setSectionOpen] = useState({ staged: true, unstaged: true });
 
   const stage = useStage();
   const unstage = useUnstage();
@@ -187,6 +191,9 @@ export function StatusPanel() {
       return { ...current, [side]: next };
     });
 
+  const toggleSection = (side: 'staged' | 'unstaged') =>
+    setSectionOpen((current) => ({ ...current, [side]: !current[side] }));
+
   /*
     One roll-up over BOTH lists, deduplicated by path.
 
@@ -259,6 +266,9 @@ export function StatusPanel() {
             title="Staged"
             count={staged.length}
             meta={<Counts {...linesOf(staged)} />}
+            collapsible
+            open={sectionOpen.staged}
+            onToggle={() => toggleSection('staged')}
             action={
               staged.length > 0
                 ? { label: 'Unstage all', onClick: () => unstage.mutate(staged.map((e) => e.path)) }
@@ -280,6 +290,13 @@ export function StatusPanel() {
               actionsFor={(row) => [
                 { icon: LuMinus, title: 'Unstage', onClick: () => unstage.mutate([row.path]) },
               ]}
+              dirActionsFor={(node) => [
+                {
+                  icon: LuMinus,
+                  title: 'Unstage folder',
+                  onClick: () => unstage.mutate(collectFilePaths(node)),
+                },
+              ]}
             />
           </TreeSection>
 
@@ -287,6 +304,9 @@ export function StatusPanel() {
             title="Changes"
             count={unstaged.length}
             meta={<Counts {...linesOf(unstaged)} />}
+            collapsible
+            open={sectionOpen.unstaged}
+            onToggle={() => toggleSection('unstaged')}
             action={
               unstaged.length > 0
                 ? { label: 'Stage all', onClick: () => stage.mutate(unstaged.map((e) => e.path)) }
@@ -457,6 +477,7 @@ function ChangeRows({
   onSelect,
   busy,
   actionsFor,
+  dirActionsFor,
 }: {
   testId: string;
   rows: readonly ChangeRow[];
@@ -467,6 +488,8 @@ function ChangeRows({
   onSelect: (row: ChangeRow) => void;
   busy: boolean;
   actionsFor: (row: ChangeRow) => RowAction[];
+  /** A bulk action over every file under a directory — folder-level staging. */
+  dirActionsFor?: (node: DirNode<ChangeRow>) => RowAction[];
 }) {
   const nodes = view === 'tree' ? buildChangeTree(rows) : flattenBySize(rows);
 
@@ -482,6 +505,11 @@ function ChangeRows({
       renderActions={(node) => (
         <RowActions actions={actionsFor(node)} path={node.path} busy={busy} />
       )}
+      renderDirActions={
+        dirActionsFor
+          ? (node) => <RowActions actions={dirActionsFor(node)} path={node.path} busy={busy} />
+          : undefined
+      }
     />
   );
 }

@@ -410,3 +410,78 @@ test.describe('stash from the Changes view', () => {
     expect(await stashOps(page)).toHaveLength(0);
   });
 });
+
+/** A section's fold toggle — accessible name is the title plus its item count. */
+const section = (page: Page, name: string) =>
+  page.getByRole('button', { name: new RegExp(`^${name}( \\d+)?$`) });
+
+const opsOf = (page: Page, op: string) =>
+  page.evaluate(
+    (wantOp) =>
+      (window as unknown as { __mstudioOps: { op: string; args: { paths: string[] } }[] })
+        .__mstudioOps.filter((c) => c.op === wantOp),
+    op,
+  );
+
+/**
+ * `Collapse` (`@bilo-io/ui`) clips a closed section to zero height with a
+ * `grid-rows-[0fr]` track rather than `display:none` — the row itself keeps
+ * its normal layout box, so Playwright's `toBeVisible()` (which only checks
+ * `display`/`visibility`/an empty bounding box, not an ancestor's clip) would
+ * still call it visible. `inert` on the wrapping div is the part that is
+ * actually load-bearing while closed — it is what pulls every row out of the
+ * tab order and off the accessibility tree — so that is what this checks.
+ */
+const isInert = (locator: ReturnType<Page['locator']>) =>
+  locator.evaluate((el) => el.closest('[inert]') !== null);
+
+test.describe('Staged and Changes sections as accordions', () => {
+  test('each section collapses and expands independently of the other', async ({ page }) => {
+    await open(page);
+
+    await expect(section(page, 'Staged')).toHaveAttribute('aria-expanded', 'true');
+    await expect(section(page, 'Changes')).toHaveAttribute('aria-expanded', 'true');
+    expect(await isInert(row(page, 'src/a.ts').first())).toBe(false);
+
+    await section(page, 'Staged').click();
+    await expect(section(page, 'Staged')).toHaveAttribute('aria-expanded', 'false');
+    expect(await isInert(row(page, 'src/a.ts').first())).toBe(true);
+
+    // The other section is untouched — collapsing one is not "collapse all".
+    await expect(section(page, 'Changes')).toHaveAttribute('aria-expanded', 'true');
+    expect(await isInert(row(page, 'README.md'))).toBe(false);
+
+    await section(page, 'Staged').click();
+    await expect(section(page, 'Staged')).toHaveAttribute('aria-expanded', 'true');
+    expect(await isInert(row(page, 'src/a.ts').first())).toBe(false);
+  });
+});
+
+test.describe('unstaging a whole folder', () => {
+  const folderStaged: MockFixtures = {
+    ...fixtures,
+    statusEntries: [
+      entry('src/a.ts', { staged: 'modified' }),
+      entry('src/b.ts', { staged: 'modified' }),
+      entry('README.md', { unstaged: 'modified' }),
+    ],
+    statusCounts: {
+      'staged:src/a.ts': { insertions: 1, deletions: 0 },
+      'staged:src/b.ts': { insertions: 2, deletions: 0 },
+      'unstaged:README.md': { insertions: 1, deletions: 0 },
+    },
+  };
+
+  test('the folder action unstages every file inside it, not just the ones showing', async ({
+    page,
+  }) => {
+    await open(page, folderStaged);
+    await page.getByRole('button', { name: 'Group the changed files by folder' }).click();
+
+    await page.getByRole('button', { name: 'Unstage folder src' }).click();
+
+    const calls = await opsOf(page, 'unstage');
+    expect(calls).toHaveLength(1);
+    expect([...calls[0]!.args.paths].sort()).toEqual(['src/a.ts', 'src/b.ts']);
+  });
+});

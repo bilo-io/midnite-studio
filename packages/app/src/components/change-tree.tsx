@@ -31,6 +31,7 @@ export function ChangeTree<T extends ChangedFile>({
   flat = false,
   renderLeading,
   renderActions,
+  renderDirActions,
   testId,
 }: {
   nodes: readonly TreeNode<T>[];
@@ -50,12 +51,15 @@ export function ChangeTree<T extends ChangedFile>({
    * the DOM allows, and the counts must not shift as the buttons fade in.
    */
   renderActions?: (node: FileNode<T>) => ReactNode;
+  /** Same slot, one level up — a bulk action over everything under a directory. */
+  renderDirActions?: (node: DirNode<T>) => ReactNode;
   testId?: string;
 }) {
   const rowProps = {
     selection,
     ...(renderLeading ? { renderLeading } : {}),
     ...(renderActions ? { renderActions } : {}),
+    ...(renderDirActions ? { renderDirActions } : {}),
   };
 
   return (
@@ -86,6 +90,7 @@ type RowSlots<T extends ChangedFile> = {
   selection: FileSelection<T>;
   renderLeading?: (node: FileNode<T>) => ReactNode;
   renderActions?: (node: FileNode<T>) => ReactNode;
+  renderDirActions?: (node: DirNode<T>) => ReactNode;
 };
 
 function DirRow<T extends ChangedFile>({
@@ -93,6 +98,7 @@ function DirRow<T extends ChangedFile>({
   depth,
   collapsed,
   onToggleDir,
+  renderDirActions,
   ...slots
 }: RowSlots<T> & {
   node: DirNode<T>;
@@ -103,34 +109,45 @@ function DirRow<T extends ChangedFile>({
   // Collapsed is the exception set, so a commit opens fully expanded and a
   // directory that appears in a later commit is not silently already closed.
   const isCollapsed = collapsed.has(node.path);
+  const actions = renderDirActions?.(node);
 
   return (
     <li>
-      <button
-        type="button"
-        onClick={() => onToggleDir(node.path)}
-        aria-expanded={!isCollapsed}
-        // The path alone, so the accessible name is the directory rather than
-        // "packages/desktop +4 −1" — the counts are visible text beside it, and
-        // reading them as part of the control's name is not what they are.
-        aria-label={node.path}
-        className="flex w-full items-center gap-1 px-3 py-0.5 text-left text-xs text-muted-foreground hover:bg-accent/40"
-        style={{ paddingLeft: 12 + depth * INDENT }}
-      >
-        {isCollapsed ? (
-          <LuChevronRight className="h-3 w-3 shrink-0" strokeWidth={2} />
-        ) : (
-          <LuChevronDown className="h-3 w-3 shrink-0" strokeWidth={2} />
-        )}
-        <LuFolder className="h-3.5 w-3.5 shrink-0" strokeWidth={2} />
-        <span className="min-w-0 flex-1 truncate" title={node.path}>
-          {node.name}
-        </span>
-        {/* Subtree totals, so a collapsed directory still says how much is
-            inside it — otherwise collapsing hides the very number you would
-            collapse in order to compare. */}
-        <Counts insertions={node.insertions} deletions={node.deletions} />
-      </button>
+      {/*
+        `group` scopes to this row alone, not the `<li>` — the nested `<ul>`
+        of children sits outside this `<div>`, as its sibling below, so
+        hovering a file two levels down never also lights up this directory's
+        own action button (which nested `group`s would, since :hover is true
+        on every ancestor of whatever the pointer is actually over).
+      */}
+      <div className="group flex items-center pr-2 text-xs text-muted-foreground hover:bg-accent/40">
+        <button
+          type="button"
+          onClick={() => onToggleDir(node.path)}
+          aria-expanded={!isCollapsed}
+          // The path alone, so the accessible name is the directory rather than
+          // "packages/desktop +4 −1" — the counts are visible text beside it, and
+          // reading them as part of the control's name is not what they are.
+          aria-label={node.path}
+          className="flex min-w-0 flex-1 items-center gap-1 py-0.5 text-left"
+          style={{ paddingLeft: 12 + depth * INDENT }}
+        >
+          {isCollapsed ? (
+            <LuChevronRight className="h-3 w-3 shrink-0" strokeWidth={2} />
+          ) : (
+            <LuChevronDown className="h-3 w-3 shrink-0" strokeWidth={2} />
+          )}
+          <LuFolder className="h-3.5 w-3.5 shrink-0" strokeWidth={2} />
+          <span className="min-w-0 flex-1 truncate" title={node.path}>
+            {node.name}
+          </span>
+          {/* Subtree totals, so a collapsed directory still says how much is
+              inside it — otherwise collapsing hides the very number you would
+              collapse in order to compare. */}
+          <Counts insertions={node.insertions} deletions={node.deletions} />
+        </button>
+        {actions}
+      </div>
 
       {isCollapsed ? null : (
         <ul>
@@ -142,6 +159,7 @@ function DirRow<T extends ChangedFile>({
                 depth={depth + 1}
                 collapsed={collapsed}
                 onToggleDir={onToggleDir}
+                renderDirActions={renderDirActions}
                 {...slots}
               />
             ) : (

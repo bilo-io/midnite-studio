@@ -1,10 +1,11 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 
 import { useVirtualizer } from '@tanstack/react-virtual';
-import { LuGitBranch, LuGitCommitVertical, LuUsers } from 'react-icons/lu';
+import { LuGitBranch, LuGitCommitVertical, LuUsers, LuX } from 'react-icons/lu';
 
 import { useDialogs } from '../../components/dialog-host';
 import { EmptyState } from '../../components/empty-state';
+import { IconButton } from '../../components/icon-button';
 import { ResizeHandle } from '../../components/resizable/resize-handle';
 import { useResizable } from '../../components/resizable/use-resizable';
 import { useRefs, useStashes } from '../../services/queries';
@@ -66,6 +67,20 @@ export function GraphView() {
     useUiStore((s) => s.graphDensity),
   );
   useGraphStream(repoId, graphRefFilter);
+
+  /*
+    Esc deselects whichever the graph currently has open, commit or stash —
+    `selectCommit(null)` clears `graphSelection` outright regardless of its
+    current `kind`, so one call covers both without branching on it.
+  */
+  useEffect(() => {
+    if (!graphSelection) return;
+    const onKeyDown = (event: KeyboardEvent) => {
+      if (event.key === 'Escape') selectCommit(null);
+    };
+    window.addEventListener('keydown', onKeyDown);
+    return () => window.removeEventListener('keydown', onKeyDown);
+  }, [graphSelection, selectCommit]);
 
   // `rows` is a stable buffer the store mutates in place for the life of a
   // stream (see graph-store.ts), so `rowCount` — not the array's own identity
@@ -466,20 +481,30 @@ export function GraphView() {
         <>
           <ResizeHandle resizable={detail} axis="x" label="Resize commit detail" />
           <aside
-            className={`shrink-0 border-l border-border ${
+            className={`flex shrink-0 flex-col border-l border-border ${
               detail.dragging ? '' : 'transition-[width] duration-150 ease-in-out'
             }`}
             style={{ width: detail.current }}
           >
-            {graphSelection.kind === 'commit' ? (
-              <CommitDetail repoId={repoId} sha={graphSelection.sha} />
-            ) : (
-              <StashInspector
-                repoId={repoId}
-                selector={graphSelection.selector}
-                onError={setOpError}
+            <div className="flex shrink-0 items-center justify-end border-b border-border px-1 py-1">
+              <IconButton
+                icon={LuX}
+                label="Close"
+                size="sm"
+                onClick={() => selectCommit(null)}
               />
-            )}
+            </div>
+            <div className="min-h-0 flex-1">
+              {graphSelection.kind === 'commit' ? (
+                <CommitDetail repoId={repoId} sha={graphSelection.sha} />
+              ) : (
+                <StashInspector
+                  repoId={repoId}
+                  selector={graphSelection.selector}
+                  onError={setOpError}
+                />
+              )}
+            </div>
           </aside>
         </>
       ) : null}
