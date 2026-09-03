@@ -28,6 +28,7 @@ async function open(page: Page): Promise<void> {
 }
 
 const fab = (page: Page) => page.getByRole('button', { name: 'Open quick access panel' });
+const closeFab = (page: Page) => page.getByRole('button', { name: 'Close quick access panel' });
 
 async function shotFab(page: Page, name: string): Promise<void> {
   const box = (await fab(page).boundingBox())!;
@@ -54,7 +55,7 @@ for (const mode of ['light', 'dark'] as const) {
     for (const tab of ['Ideate', 'Create', 'Patrol', 'Medic']) {
       await page.getByRole('button', { name: tab, exact: true }).click();
       await page.waitForTimeout(300);
-      await fab(page).click(); // close
+      await closeFab(page).click(); // close
       await page.waitForTimeout(400);
       await shotFab(page, `${mode}-${tab.toLowerCase()}`);
       await fab(page).click(); // reopen for the next tab
@@ -67,7 +68,7 @@ for (const mode of ['light', 'dark'] as const) {
         'waiting',
       );
     });
-    await fab(page).click();
+    await closeFab(page).click();
     await page.waitForTimeout(400);
     await shotFab(page, `${mode}-waiting`);
   });

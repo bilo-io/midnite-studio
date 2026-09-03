@@ -1861,6 +1861,14 @@ html[data-motion='reduced'] .card-run-glow.is-running {
     --fab-arc-to 0.5s ease;
 }
 
+/* The statusbar's miniature FAB (`assistant-menu.tsx`) — a 16px button where
+ * the full-size -6px/6px collar would read as a formless smear rather than a
+ * ring. Half the inset, half the blur, scaled to a quarter of the button. */
+.fab-loop-halo.is-compact {
+  inset: -3px;
+  filter: blur(3px);
+}
+
 .fab-loop-halo.is-pulsing {
   animation:
     loop-glow-spin 4s linear infinite,
