@@ -2,6 +2,36 @@
 
 <!-- Append one entry per landed phase/PR: date, phase, PR link, one-line summary. -->
 
+## 2026-09-03 — Phase 43 Theme G — the workflow run view
+
+[PR #105]. Closes out Phase 43's build half — Theme I (settings) is the one item left.
+
+- [x] **Read-only run mode, one canvas.** `workflow-canvas.tsx` gained `readOnly`/`nodeStatuses`
+      props rather than a second component: pan/zoom and click-to-select stay live, drag/connect/
+      marquee/delete/undo are gated behind `!readOnly` in the existing handlers. A run's per-node
+      status colours the node stroke (`stroke-blue-500`/`stroke-green-500`/`stroke-destructive`/
+      `stroke-muted-foreground`), overriding the invalid/selected colouring Theme F added.
+- [x] **Push, then re-fetch.** `use-workflow-run.ts` subscribes to `workflow.onRunChanged` (no
+      payload) and invalidates one `['workflow-runs']` key prefix covering both the list and detail
+      queries — correct regardless of which run changed, and the reason councils' 1200ms poll was
+      the wrong precedent to copy.
+- [x] **Run detail, swapped into the inspector's pane.** `run-node-detail.tsx` shows status,
+      duration, error and output (with `truncated` surfaced, never dropped) — not "input", which
+      the phase doc named but `WorkflowNodeRunSchema` never actually captured.
+- [x] **History, per workflow.** `run-history-list.tsx` behind a new History button on the canvas
+      toolbar (a `Popover`, not a `panel-stack` drawer — that would mean building the same
+      unmount-persistence store Councils needed for its own run history, for a list this small).
+      Capped per-workflow at 20 by the store Theme H already shipped, not the 200-global the doc
+      guessed before that store existed.
+- [x] **Focus-gated running indicator, the current way.** `.card-run-glow` (BoardView's Kanban-card
+      idiom) on the History button, not `.loop-run-glow`'s tab-hued rainbow system the doc named —
+      that predates `BoardView`'s simpler version. `useWindowFocusGate` already supports concurrent
+      hosts (`FabPanel`, `LandingView`), so `WorkflowEditor` calls it directly; no `app.tsx` hoist.
+- [x] Found and fixed in passing: the e2e mock's `workflow.run()` fabricated a run shaped as
+      `{ nodeRuns: [] }` — the real schema's field is `nodes`, and `workflowName`/`edges` were
+      missing entirely. Nothing had consumed the mock's run object before this theme, so the drift
+      went uncaught; fixed to mirror the real workflow's nodes with a `succeeded` status each.
+
 ## 2026-09-03 — Phase 49 Theme E — Update pre-flight tooltip + packaged-build template check
 
 [PR #104]. Closes out Theme E's last two open items, and with them the phase's build half.

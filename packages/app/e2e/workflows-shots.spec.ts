@@ -65,6 +65,45 @@ const SEEDED_WORKFLOW = {
 
 const shots: MockFixtures = { ...fixtures, appWorkflows: [SEEDED_WORKFLOW] };
 
+/**
+ * A separate, **valid** workflow for the run-related shots (Theme G):
+ * `SEEDED_WORKFLOW` above connects an edge into its `note` node, which
+ * `validateWorkflow` refuses — correctly, since a note has no executor — so
+ * Run has never been clickable against that fixture. Kept apart rather than
+ * fixing the shared one, which Theme F's own screenshots already baselined.
+ */
+const RUNNABLE_WORKFLOW = {
+  id: 'wf-runnable',
+  name: 'Fetch and shape',
+  nodes: [
+    {
+      id: 'n1',
+      label: 'Fetch users',
+      kind: 'http',
+      x: 40,
+      y: 120,
+      config: { method: 'GET', url: 'https://api.example.com/users', headers: {}, params: {}, queryShaped: false },
+    },
+    {
+      id: 'n2',
+      label: 'Shape row',
+      kind: 'transform',
+      x: 280,
+      // Off-axis from n1 on purpose: a dead-flat edge between two same-y
+      // nodes gets a zero-height SVG bounding box, which Playwright's own
+      // visibility check treats as hidden — `[data-edge-id]` then never
+      // resolves `.waitFor()`. Found the hard way debugging this fixture.
+      y: 240,
+      config: { picks: [{ from: 'n1.body.name', to: 'name' }] },
+    },
+  ],
+  edges: [{ id: 'e1', from: 'n1', to: 'n2' }],
+  createdAt: NOW,
+  updatedAt: NOW,
+};
+
+const runShots: MockFixtures = { ...fixtures, appWorkflows: [RUNNABLE_WORKFLOW] };
+
 /** The canvas measures its container on mount; give the resize a tick to settle. */
 const SETTLE_MS = 300;
 
@@ -120,5 +159,30 @@ test.describe('workflows screenshots', () => {
     await page.getByText('Insert a reference').waitFor();
     await page.waitForTimeout(SETTLE_MS);
     await page.screenshot({ path: `${OUT}/workflows-node-inspector-reference.png` });
+  });
+
+  test('the run history popover (Theme G)', async ({ page }) => {
+    await openWorkflows(page, runShots);
+    await page.getByText('Fetch and shape').first().click();
+    await page.locator('[data-edge-id]').first().waitFor();
+    await page.getByRole('button', { name: 'Run', exact: true }).click();
+    await page.getByRole('button', { name: 'Run history' }).click();
+    await page.getByText('Completed').waitFor();
+    await page.waitForTimeout(SETTLE_MS);
+    await page.screenshot({ path: `${OUT}/workflows-run-history.png` });
+  });
+
+  test('viewing a run, read-only with per-node status (Theme G)', async ({ page }) => {
+    await openWorkflows(page, runShots);
+    await page.getByText('Fetch and shape').first().click();
+    await page.locator('[data-edge-id]').first().waitFor();
+    await page.getByRole('button', { name: 'Run', exact: true }).click();
+    await page.getByRole('button', { name: 'Run history' }).click();
+    await page.getByText('Completed').click();
+    await page.getByText('Viewing run').waitFor();
+    await page.locator('[data-node-id="n1"]').click();
+    await page.getByText('Duration').waitFor();
+    await page.waitForTimeout(SETTLE_MS);
+    await page.screenshot({ path: `${OUT}/workflows-run-view.png` });
   });
 });

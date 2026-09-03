@@ -225,4 +225,52 @@ describe('WorkflowCanvas', () => {
     rerender(<ValidatedHarness url="" />);
     expect((screen.getByRole('button', { name: /run/i }) as HTMLButtonElement).disabled).toBe(true);
   });
+
+  describe('readOnly (Theme G — run view)', () => {
+    it('hides the editing toolbar and shows a "Viewing run" label instead', () => {
+      render(<WorkflowCanvas graph={{ nodes: [noteNode('a', 0, 0)], edges: [] }} resetKey="w1" onChange={() => {}} readOnly />);
+      expect(screen.getByText('Viewing run')).not.toBeNull();
+      expect(screen.queryByLabelText('Undo')).toBeNull();
+      expect(screen.queryByLabelText('Add Note node')).toBeNull();
+    });
+
+    it('still selects a node with a click, but a Delete does nothing', () => {
+      const { container } = render(
+        <WorkflowCanvas graph={{ nodes: [noteNode('a', 0, 0)], edges: [] }} resetKey="w1" onChange={() => {}} readOnly />,
+      );
+      const nodeEl = container.querySelector('[data-node-id="a"]')!;
+      fireEvent.pointerDown(nodeEl, { pointerId: 1, button: 0, clientX: 5, clientY: 5 });
+      fireEvent.pointerUp(nodeEl, { pointerId: 1, button: 0, clientX: 5, clientY: 5 });
+
+      fireEvent.keyDown(screen.getByRole('application'), { key: 'Delete' });
+      expect(container.querySelectorAll('[data-node-id]')).toHaveLength(1);
+    });
+
+    it('does not drag a node — its position stays put', () => {
+      const onChangeSpy = vi.fn();
+      const { container } = render(
+        <WorkflowCanvas graph={{ nodes: [noteNode('a', 0, 0)], edges: [] }} resetKey="w1" onChange={onChangeSpy} readOnly />,
+      );
+      const nodeEl = container.querySelector('[data-node-id="a"]')!;
+      fireEvent.pointerDown(nodeEl, { pointerId: 1, button: 0, clientX: 0, clientY: 0 });
+      fireEvent.pointerMove(nodeEl, { pointerId: 1, clientX: 40, clientY: 40 });
+      fireEvent.pointerUp(nodeEl, { pointerId: 1, button: 0, clientX: 40, clientY: 40 });
+      expect(onChangeSpy).not.toHaveBeenCalled();
+    });
+
+    it('colours a node by its run status rather than by validity/selection', () => {
+      const { container } = render(
+        <WorkflowCanvas
+          graph={{ nodes: [noteNode('a', 0, 0), noteNode('b', 20, 0)], edges: [] }}
+          resetKey="w1"
+          onChange={() => {}}
+          readOnly
+          nodeStatuses={new Map([['a', 'failed'], ['b', 'succeeded']])}
+        />,
+      );
+      expect(container.querySelector('[data-node-id="a"]')?.getAttribute('data-status')).toBe('failed');
+      expect(container.querySelector('[data-node-id="a"] rect')?.getAttribute('class')).toContain('stroke-destructive');
+      expect(container.querySelector('[data-node-id="b"] rect')?.getAttribute('class')).toContain('stroke-green-500');
+    });
+  });
 });

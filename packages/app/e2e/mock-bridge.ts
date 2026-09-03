@@ -1590,13 +1590,28 @@ export async function installMockBridge(page: Page, fixtures: MockFixtures): Pro
           const workflow = workflows.find((w) => w.id === req.workflowId);
           if (!workflow) return { ok: false as const, kind: 'error' as const, message: 'Workflow not found.' };
           const now = Date.now();
+          // Shaped to the real `WorkflowRunSchema` (`nodes`, not `nodeRuns` —
+          // nothing consumed this object until Theme G's run view, which is
+          // what caught the drift), so RunHistoryList/RunNodeDetail have
+          // something real to read rather than an always-empty run.
           const run = {
             id: `workflow-run-${++workflowRunCounter}`,
             workflowId: req.workflowId,
+            workflowName: workflow.name,
             status: 'completed' as const,
-            nodeRuns: [],
+            nodes: workflow.nodes.map((node: { id: string; kind: string; label: string }) => ({
+              nodeId: node.id,
+              kind: node.kind,
+              label: node.label,
+              status: 'succeeded' as const,
+              truncated: false,
+              gatedDownstream: false,
+              startedAt: now,
+              endedAt: now + 120,
+            })),
+            edges: workflow.edges,
             startedAt: now,
-            endedAt: now,
+            endedAt: now + 120,
           };
           workflowRuns = [...workflowRuns, run];
           return { ok: true as const, value: run };

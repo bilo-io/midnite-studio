@@ -1,4 +1,4 @@
-import type { Workflow, WorkflowRun } from '@midnite/studio-shared';
+import type { Workflow } from '@midnite/studio-shared';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 
 import { bridge } from '../../services/bridge';
@@ -46,21 +46,5 @@ export function useDeleteWorkflow() {
       reportFailure<void>(result);
       if (result.ok) void client.invalidateQueries({ queryKey: WORKFLOW_KEYS.list });
     },
-  });
-}
-
-/**
- * Starts a run and reports failure the way every other mutation here does.
- *
- * Deliberately does not touch run state or subscribe to `onRunChanged` —
- * that live-progress/history surface is Theme G's ("Runs"), not this one's.
- * Theme F's whole stake in a run is refusing to start an invalid one, which
- * is enforced by disabling the button that calls this, not by anything here.
- */
-export function useRunWorkflow() {
-  return useMutation({
-    mutationFn: async (workflowId: string) =>
-      (await bridge()?.workflow.run({ workflowId })) ?? noBridge<WorkflowRun>(),
-    onSuccess: (result) => reportFailure(result),
   });
 }
