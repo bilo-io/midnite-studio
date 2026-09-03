@@ -1,4 +1,4 @@
-import { useEffect } from 'react';
+import { useEffect, useState } from 'react';
 
 import {
   applyAccent,
@@ -102,22 +102,72 @@ export const useAppearanceStore = create<AppearanceState>()(
 );
 
 /**
+ * `'system'`, resolved against the OS query directly — Phase 46 Theme E.
+ *
+ * This app's own CSS keys its reduced-motion guards on the literal
+ * `'reduced'`/`'full'` strings `data-motion` can carry (see `styles.css`'s
+ * single dialect after this phase); a literal `'system'` attribute value
+ * matches none of them, regardless of what the OS actually asks for. The
+ * shell's own effects resolve `'system'` themselves via per-effect media
+ * queries, but this app's guards predate that convention and were built
+ * against a resolved value — so `'system'` has to become one before it
+ * reaches `applyMotion`, here and in `useMotionPreference` (`app.tsx`) alike.
+ */
+export function resolveSystemMotion(): 'reduced' | 'full' {
+  if (typeof matchMedia !== 'function') return 'full';
+  return matchMedia('(prefers-reduced-motion: reduce)').matches ? 'reduced' : 'full';
+}
+
+/**
+ * The live, resolved motion preference — `'reduced'` or `'full'`, `'system'`
+ * already turned into whichever the OS is currently asking for.
+ *
+ * For components CSS cannot reach: `data-motion` drives every `@media`/
+ * attribute guard in `styles.css`, but a canvas `requestAnimationFrame` loop
+ * (`NeuroCloudBackground`) makes its own frame-by-frame decision in JS, and
+ * nothing about the DOM attribute is visible from there. This is that
+ * decision, exposed as a hook rather than re-derived per consumer — the same
+ * `resolveSystemMotion` this file's `useAppearanceSync` uses, kept live
+ * against OS changes for as long as the stored preference stays `'system'`.
+ */
+export function useResolvedMotion(): 'reduced' | 'full' {
+  const motion = useAppearanceStore((s) => s.motion);
+  const [osReduced, setOsReduced] = useState(() => resolveSystemMotion() === 'reduced');
+
+  useEffect(() => {
+    if (motion !== 'system' || typeof matchMedia !== 'function') return;
+    const query = matchMedia('(prefers-reduced-motion: reduce)');
+    const sync = () => setOsReduced(query.matches);
+    sync();
+    query.addEventListener('change', sync);
+    return () => query.removeEventListener('change', sync);
+  }, [motion]);
+
+  return motion === 'system' ? (osReduced ? 'reduced' : 'full') : motion;
+}
+
+/**
  * Push every preference at the DOM.
  *
  * One effect for all seven rather than one per applier: they write to the same
  * `<html>` element, and a single subscription means a hydration or a reset
  * cannot leave half the attributes from the old state and half from the new.
  *
- * `motion: 'system'` is resolved by the shell itself via its per-effect media
- * queries, so it is passed through rather than pre-resolved here — unlike the
- * boot-time call in `app.tsx`, which had no user preference to defer to.
+ * This is the sole writer of `data-motion` once a value is settled: an
+ * explicit `full`/`reduced` choice is applied verbatim; `'system'` is
+ * resolved against the OS query right here, on every re-run (including the
+ * one triggered by switching *back* to `'system'` in Settings, which must
+ * not wait for the next OS `change` event to reflect the current OS state).
+ * `useMotionPreference`'s OS listener in `app.tsx` only ever touches the
+ * attribute while the stored preference is `'system'`, so the two writers
+ * agree rather than racing — see its own comment for that half.
  */
 export function useAppearanceSync(): void {
   const state = useAppearanceStore();
 
   useEffect(() => {
     applyAccent({ kind: 'solid', swatch: state.accent });
-    applyMotion(state.motion);
+    applyMotion(state.motion === 'system' ? resolveSystemMotion() : state.motion);
     applyDensity(state.density);
     applyUiFont(state.uiFont);
     applyBackground(state.background as never, state.bgIntensity);

@@ -1,7 +1,20 @@
 import { useEffect, useRef } from 'react';
 
+import { useResolvedMotion } from '../../store/appearance-store';
+
+/**
+ * `animate` stays a caller-level toggle (the landing page's carousel wants
+ * different control than the lock screen does); the motion setting is this
+ * component's own responsibility now (Phase 46 Theme E) — `screensaver.tsx`
+ * used to compute `motion !== 'reduced'` and pass it down, which treated the
+ * default `'system'` as "animate" even when the OS asked for stillness. A
+ * canvas rAF loop is the one animation none of `styles.css`'s guards can
+ * reach, so the resolution has to happen here, in JS.
+ */
 export function NeuroCloudBackground({ animate = true }: { animate?: boolean }) {
   const canvasRef = useRef<HTMLCanvasElement | null>(null);
+  const resolvedMotion = useResolvedMotion();
+  const shouldAnimate = animate && resolvedMotion !== 'reduced';
 
   useEffect(() => {
     const canvas = canvasRef.current;
@@ -32,7 +45,7 @@ export function NeuroCloudBackground({ animate = true }: { animate?: boolean }) 
       ctx.clearRect(0, 0, width, height);
 
       blobs.forEach((b) => {
-        if (animate) {
+        if (shouldAnimate) {
           b.x += b.vx;
           b.y += b.vy;
           if (b.x < 0 || b.x > width) b.vx *= -1;
@@ -50,7 +63,7 @@ export function NeuroCloudBackground({ animate = true }: { animate?: boolean }) 
         ctx.fill();
       });
 
-      if (animate) {
+      if (shouldAnimate) {
         animId = requestAnimationFrame(render);
       }
     };
@@ -61,7 +74,7 @@ export function NeuroCloudBackground({ animate = true }: { animate?: boolean }) 
       window.removeEventListener('resize', onResize);
       if (animId) cancelAnimationFrame(animId);
     };
-  }, [animate]);
+  }, [shouldAnimate]);
 
   return (
     <canvas

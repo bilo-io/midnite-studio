@@ -58,7 +58,7 @@ import { useKeybindings } from './services/keybindings/use-keybindings';
 import { keys, useRemotes, useRepos } from './services/queries';
 import { useWatchInvalidation } from './services/watch-invalidation';
 import { useTestsStream } from './features/tests/use-tests-stream';
-import { useAppearanceSync } from './store/appearance-store';
+import { useAppearanceStore, useAppearanceSync } from './store/appearance-store';
 import { useFileEditorStore } from './store/file-editor-store';
 import {
   DEFAULT_LAYOUT,
@@ -1208,7 +1208,8 @@ function Shell() {
 }
 
 /**
- * Arms or disarms every animation in the app from the OS setting.
+ * Arms or disarms every animation in the app from the OS setting, while the
+ * stored preference is `'system'`.
  *
  * `@bilo-io/shell/appearance.css` ships a universal reduced-motion reset, but
  * it is keyed on `html[data-motion='reduced']` and nothing was ever setting the
@@ -1219,12 +1220,25 @@ function Shell() {
  * blocks covering the shell's OWN effects, which would leave this app's
  * keyframes (fade-in, the cascade, the fetch spinner) running against a user
  * who asked for stillness.
+ *
+ * **Phase 46 Theme E's fix, on top of that:** this effect runs before
+ * `useAppearanceSync`'s (declaration order in `App()`), so on every mount both
+ * wrote `data-motion`, unconditionally, and whichever ran last won — an
+ * explicit `Motion: full` choice would settle correctly at mount only to be
+ * clobbered back to `'system'` by `useAppearanceSync`'s own re-run, and a
+ * live OS change here would just as readily clobber an explicit choice the
+ * other way. The `!== 'system'` guard below is what makes the two agree: an
+ * explicit choice is `useAppearanceSync`'s to apply, exclusively, and this
+ * listener only ever touches the attribute for the case it actually owns.
  */
 function useMotionPreference(): void {
   useEffect(() => {
     if (typeof matchMedia !== 'function') return;
     const query = matchMedia('(prefers-reduced-motion: reduce)');
-    const sync = () => applyMotion(query.matches ? 'reduced' : 'full');
+    const sync = () => {
+      if (useAppearanceStore.getState().motion !== 'system') return;
+      applyMotion(query.matches ? 'reduced' : 'full');
+    };
     sync();
     query.addEventListener('change', sync);
     return () => query.removeEventListener('change', sync);
