@@ -39,7 +39,13 @@ function walk(root: unknown, segments: string[]): { found: true; value: unknown 
     }
     if (typeof current !== 'object') return { found: false };
     const record = current as Record<string, unknown>;
-    if (!(segment in record)) return { found: false };
+    /*
+      `hasOwn`, never `in`: `in` walks the prototype chain, so `{{a.toString}}`
+      or `{{a.constructor}}` would "resolve" to a function that `render`
+      stringifies to `''` — the silent empty substitution this module's own
+      header forbids, arriving through the one door nobody thinks to check.
+    */
+    if (!Object.hasOwn(record, segment)) return { found: false };
     current = record[segment];
   }
   return { found: true, value: current };
@@ -53,10 +59,13 @@ function walk(root: unknown, segments: string[]): { found: true; value: unknown 
  * object or array interpolated into a body is valid JSON rather than
  * `[object Object]`.
  */
-function render(value: unknown): string {
+function render(value: unknown): string | null {
   if (typeof value === 'string') return value;
   if (value === null) return 'null';
-  return JSON.stringify(value) ?? '';
+  // `null` back means "not renderable" — a function or a symbol, which
+  // `JSON.stringify` answers `undefined` for. Treated as unresolved rather
+  // than substituted as empty.
+  return JSON.stringify(value) ?? null;
 }
 
 export function interpolate(
@@ -80,7 +89,9 @@ export function interpolate(
       error = `Cannot resolve {{${path}}} — a reference needs a node id.`;
       return match;
     }
-    if (!(nodeId in upstream)) {
+    // `hasOwn` for the same reason as in `walk`: `'constructor' in upstream` is
+    // true for any plain object literal.
+    if (!Object.hasOwn(upstream, nodeId)) {
       error = `Cannot resolve {{${path}}} — node "${nodeId}" is not upstream of this one.`;
       return match;
     }
@@ -94,7 +105,12 @@ export function interpolate(
       return match;
     }
 
-    return render(found.value);
+    const rendered = render(found.value);
+    if (rendered === null) {
+      error = `Cannot resolve {{${path}}} — that value cannot be written into a request.`;
+      return match;
+    }
+    return rendered;
   });
 
   return error === null ? { ok: true, value } : { ok: false, error };

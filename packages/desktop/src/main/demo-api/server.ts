@@ -30,15 +30,33 @@ const BIND_HOST = '127.0.0.1';
 
 let server: Server | null = null;
 let port: number | null = null;
+/*
+  The in-flight start, so overlapping calls share one server.
+
+  The `server !== null` early-out below is checked BEFORE the first await, so
+  two overlapping `demo-api:start` invokes — a double-clicked button, or a
+  double-invoked effect in dev — both passed it and both bound a socket. Module
+  state then named whichever resolved last, and the other server stayed
+  listening for the life of the process with no handle left to close it.
+*/
+let starting: Promise<DemoApiStatus> | null = null;
 
 export function demoApiStatus(): DemoApiStatus {
   return server !== null && port !== null ? { running: true, port } : { running: false };
 }
 
-/** Idempotent: starting an already-running server answers its existing port. */
+/** Idempotent: starting an already-running (or already-starting) server answers its port. */
 export function startDemoApi(): Promise<DemoApiStatus> {
   if (server !== null && port !== null) return Promise.resolve({ running: true, port });
+  if (starting !== null) return starting;
 
+  starting = listenOnce().finally(() => {
+    starting = null;
+  });
+  return starting;
+}
+
+function listenOnce(): Promise<DemoApiStatus> {
   return new Promise((resolve, reject) => {
     const next = createServer((req, res) => {
       void handleDemoRequest(req, res).catch(() => {
@@ -49,12 +67,21 @@ export function startDemoApi(): Promise<DemoApiStatus> {
       });
     });
 
-    next.once('error', (error) => {
+    const onListenError = (error: Error) => {
       next.close();
       reject(error);
-    });
+    };
+    next.once('error', onListenError);
 
     next.listen(0, BIND_HOST, () => {
+      /*
+        Detached the moment we are listening. Left attached it can still fire
+        later, and its body closes the socket while module `server`/`port` stay
+        set — so `demoApiStatus()` would keep reporting a running server that
+        answers nothing, and `startDemoApi()` would short-circuit on that same
+        state with no way back short of an explicit stop.
+      */
+      next.off('error', onListenError);
       const address = next.address();
       if (address === null || typeof address === 'string') {
         next.close();
@@ -75,7 +102,17 @@ export function startDemoApi(): Promise<DemoApiStatus> {
  * workflow's own `fetch` leaves behind — otherwise holds `close` open until it
  * times out, and on `before-quit` that is a visibly slow exit.
  */
-export function stopDemoApi(): Promise<void> {
+export async function stopDemoApi(): Promise<void> {
+  /*
+    A stop landing mid-start has to wait for that start, or it clears module
+    state and the pending `listen` callback then re-assigns it — leaving a
+    "stopped" server listening and `demoApiStatus()` reporting it.
+  */
+  if (starting !== null) await starting.catch(() => undefined);
+  return closeCurrent();
+}
+
+function closeCurrent(): Promise<void> {
   const current = server;
   server = null;
   port = null;

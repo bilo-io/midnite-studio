@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest';
 
 import {
+  WORKFLOW_MAX_NODE_TIMEOUT_MS,
   WORKFLOW_NODE_KINDS,
   WorkflowNodeSchema,
   WorkflowRunSchema,
@@ -150,5 +151,22 @@ describe('validateWorkflow', () => {
       }),
     );
     expect(issues).toEqual([{ message: 'This workflow has nothing to run.' }]);
+  });
+});
+
+describe('the http node timeout override', () => {
+  function withTimeout(ms: number): unknown {
+    return {
+      ...node(),
+      config: { method: 'GET', url: 'http://127.0.0.1/x', headers: {}, params: {}, queryShaped: false, timeoutMs: ms },
+    };
+  }
+
+  it('is bounded, for the reason `delay.ms` is bounded', () => {
+    expect(WorkflowNodeSchema.safeParse(withTimeout(WORKFLOW_MAX_NODE_TIMEOUT_MS)).success).toBe(true);
+    // Unbounded, a mistyped `86400000` parks a run for a day — and while it
+    // runs, deleting that workflow is refused as "still running".
+    expect(WorkflowNodeSchema.safeParse(withTimeout(86_400_000)).success).toBe(false);
+    expect(WorkflowNodeSchema.safeParse(withTimeout(0)).success).toBe(false);
   });
 });

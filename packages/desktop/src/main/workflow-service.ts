@@ -33,9 +33,19 @@ let runsStore: WorkflowRunsStore = nullWorkflowRunsStore;
 let getWindowThunk: () => BrowserWindow | null = () => null;
 
 let workflows: Workflow[] = [];
-let workflowsLoaded = false;
 let runs: WorkflowRun[] = [];
-let runsLoaded = false;
+/*
+  The IN-FLIGHT promise, not a `loaded` boolean.
+
+  A boolean is not re-entrant: two callers arriving before the first `await`
+  both see `false`, both load, and the later assignment replaces the array
+  wholesale — so a workflow saved (or a run created) between the two loads is
+  dropped from memory, and the *next* save then persists that stale array over
+  the real one. That is data loss, not a stale read, and workflows write far
+  more often than councils do.
+*/
+let workflowsLoading: Promise<void> | null = null;
+let runsLoading: Promise<void> | null = null;
 
 export function configureWorkflows(
   store: WorkflowsStore,
@@ -45,8 +55,8 @@ export function configureWorkflows(
   workflowsStore = store;
   runsStore = runStore;
   getWindowThunk = getWindow;
-  workflowsLoaded = false;
-  runsLoaded = false;
+  workflowsLoading = null;
+  runsLoading = null;
 }
 
 function emitChanged(): void {
@@ -57,13 +67,18 @@ function emitChanged(): void {
 }
 
 async function ensureWorkflowsLoaded(): Promise<void> {
-  if (workflowsLoaded) return;
-  workflows = await workflowsStore.load();
-  workflowsLoaded = true;
+  workflowsLoading ??= (async () => {
+    workflows = await workflowsStore.load();
+  })();
+  await workflowsLoading;
 }
 
 async function ensureRunsLoaded(): Promise<void> {
-  if (runsLoaded) return;
+  runsLoading ??= loadRuns();
+  await runsLoading;
+}
+
+async function loadRuns(): Promise<void> {
   /*
     A run this file says is `running` outlived nothing: its driver died with the
     process that started it. Finalise on load rather than leaving a run that can
@@ -87,7 +102,6 @@ async function ensureRunsLoaded(): Promise<void> {
       ),
     };
   });
-  runsLoaded = true;
   if (dangling) await runsStore.save(runs);
 }
 

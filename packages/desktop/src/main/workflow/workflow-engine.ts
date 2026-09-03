@@ -261,9 +261,16 @@ export async function cancelWorkflowRun(runId: string, deps: EngineDeps): Promis
     return failure('That run has already finished.');
   }
   state.cancelled = true;
-  // Wait for the driver to stop and write the terminal state, so the caller's
-  // next read cannot see a half-cancelled run.
-  await state.done;
+  /*
+    Wait for the driver to stop and write the terminal state, so the caller's
+    next read cannot see a half-cancelled run — but SWALLOW its rejection.
+    `drive` can reject (its `finally` awaits `finalizeRun`, whose locked body
+    reads the store), and letting that out of here would throw across
+    `ipcRenderer.invoke`, which this repo's IPC ops never do: the renderer would
+    get an opaque "Error invoking remote method …" with the real cause gone. The
+    cancel itself succeeded regardless — the flag is set and honoured.
+  */
+  await state.done.catch(() => undefined);
   return ok();
 }
 
@@ -311,32 +318,46 @@ async function drive(
         const gated = new Map(run.nodes.map((n) => [n.nodeId, n.gatedDownstream === true]));
 
         /*
-          Two passes, in this order. First cascade: any pending node whose
-          parent failed, timed out, was skipped, or gated its branch off
-          becomes `skipped`. That has to settle before eligibility is computed,
-          or a node under a failed parent would count as "still waiting" for
-          ever and this loop would find nothing to start and nothing to wait on.
+          The cascade runs to a FIXED POINT, not once over the array.
+
+          One pass in array order is wrong, and wrong in a way a user hits on
+          their first run: `run.nodes` is drop order on the canvas, so a graph
+          wired a→b→c whose nodes were dropped c, b, a marks `b` skipped, writes
+          that into `status` — where `skipped` counts as terminal — and then
+          finds `c` eligible and RUNS it under a failed grandparent. If `c` is
+          an `http` node, that is a real request that should never have been
+          sent. Looping until nothing changes propagates the skip the whole
+          length of the chain whatever order the nodes sit in.
+
+          It must also settle before eligibility is computed at all, or a node
+          under a failed parent counts as "still waiting" for ever and the
+          driver finds nothing to start and nothing to wait on.
         */
         let mutated = false;
-        for (const node of run.nodes) {
-          if (node.status !== 'pending') continue;
-          const parents = graph.parents.get(node.nodeId) ?? [];
-          const blocked = parents.find((parent) => {
-            const parentStatus = status.get(parent);
-            if (parentStatus === 'failed' || parentStatus === 'timeout' || parentStatus === 'skipped') {
-              return true;
-            }
-            return gated.get(parent) === true;
-          });
-          if (blocked !== undefined) {
+        for (;;) {
+          let changedThisPass = false;
+          for (const node of run.nodes) {
+            if (node.status !== 'pending') continue;
+            const parents = graph.parents.get(node.nodeId) ?? [];
+            const blocked = parents.find((parent) => {
+              const parentStatus = status.get(parent);
+              if (parentStatus === 'failed' || parentStatus === 'timeout' || parentStatus === 'skipped') {
+                return true;
+              }
+              return gated.get(parent) === true;
+            });
+            if (blocked === undefined) continue;
             node.status = 'skipped';
             node.error =
               gated.get(blocked) === true
                 ? 'Skipped — a condition upstream did not hold.'
                 : 'Skipped — an earlier step did not succeed.';
+            node.endedAt = clock.now();
             status.set(node.nodeId, 'skipped');
+            changedThisPass = true;
             mutated = true;
           }
+          if (!changedThisPass) break;
         }
 
         const inFlightCount = run.nodes.filter((n) => n.status === 'running').length;
@@ -494,10 +515,38 @@ async function runNode(
   timeoutMs: number,
 ): Promise<{ status: WorkflowNodeStatus; result?: NodeOutcome }> {
   const clock = deps.clock ?? realClock;
+  /*
+    Only this node's ANCESTORS, not every node that happens to have settled.
+
+    Handing over every settled output made a reference across two unconnected
+    branches resolve or fail depending purely on scheduling — `{{b.body.id}}`
+    from a node in a different branch worked if `b` won the race and failed if
+    it did not, which with a concurrency of 4 flips run to run. Restricting it
+    to real ancestors makes both outcomes deterministic and makes
+    `interpolate.ts`'s "is not upstream of this one" message literally true.
+
+    Read immediately before the call, under the lock, so a node that waited on
+    a join sees everything that landed while it waited.
+  */
   const upstream = await withRunLock(runId, async () => {
     const run = await deps.getRun(runId);
+    if (!run) return {};
+    const graph = buildGraph(
+      run.nodes.map((n) => n.nodeId),
+      run.edges,
+    );
+    const ancestors = new Set<string>();
+    const queue = [...(graph.parents.get(node.id) ?? [])];
+    while (queue.length > 0) {
+      const id = queue.shift()!;
+      if (ancestors.has(id)) continue;
+      ancestors.add(id);
+      queue.push(...(graph.parents.get(id) ?? []));
+    }
+
     const outputs: Record<string, unknown> = {};
-    for (const recorded of run?.nodes ?? []) {
+    for (const recorded of run.nodes) {
+      if (!ancestors.has(recorded.nodeId)) continue;
       if (recorded.output !== undefined) outputs[recorded.nodeId] = recorded.output;
     }
     return outputs;

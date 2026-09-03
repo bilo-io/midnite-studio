@@ -610,3 +610,156 @@ describe('the terminal write', () => {
     expect(node.error).toBe('Timed out after 5000 ms.');
   });
 });
+
+describe('the skip cascade, regardless of node array order', () => {
+  // `workflow.nodes` order is drop order on the canvas, so a user who places
+  // C, then B, then A and wires a→b→c produces exactly this array. A cascade
+  // that is one pass in array order marks `b` skipped, writes that into the
+  // status map, and then finds `c` eligible — because `skipped` is terminal —
+  // so `c` RUNS under a failed grandparent. If `c` is an http node that is a
+  // real request that should never have been sent.
+  it.each([
+    ['a,b,c', ['a', 'b', 'c']],
+    ['c,b,a', ['c', 'b', 'a']],
+    ['b,c,a', ['b', 'c', 'a']],
+  ])('skips a grandchild of a failed node with node order %s', async (_label, order) => {
+    const store = makeStore();
+    const recorder: Recorder = { started: [], settled: [] };
+    const w = workflow(
+      order.map((id) => delayNode(id)),
+      [
+        ['a', 'b'],
+        ['b', 'c'],
+      ],
+    );
+
+    const started = await startWorkflowRun(
+      w,
+      deps(store, {
+        executors: fakeRegistry({ a: async () => ({ ok: false, error: 'boom' }) }, recorder),
+      }),
+    );
+    await settle();
+
+    const run = store.get(started.ok ? started.value.id : '')!;
+    const byId = Object.fromEntries(run.nodes.map((n) => [n.nodeId, n]));
+    expect(byId.a!.status).toBe('failed');
+    expect(byId.b!.status).toBe('skipped');
+    expect(byId.c!.status).toBe('skipped');
+    expect(recorder.started).toEqual(['a']);
+  });
+
+  it('skips a grandchild behind a false condition whatever the node order', async () => {
+    const store = makeStore();
+    const recorder: Recorder = { started: [], settled: [] };
+    const w = workflow(
+      [delayNode('c'), delayNode('b'), conditionNode('gate', 'x', 'y')],
+      [
+        ['gate', 'b'],
+        ['b', 'c'],
+      ],
+    );
+
+    const started = await startWorkflowRun(
+      w,
+      deps(store, {
+        executors: fakeRegistry(
+          { gate: async () => ({ ok: true, output: { passed: false }, skipDownstream: true }) },
+          recorder,
+        ),
+      }),
+    );
+    await settle();
+
+    const run = store.get(started.ok ? started.value.id : '')!;
+    const byId = Object.fromEntries(run.nodes.map((n) => [n.nodeId, n]));
+    expect(byId.b!.status).toBe('skipped');
+    expect(byId.c!.status).toBe('skipped');
+    expect(recorder.started).toEqual(['gate']);
+  });
+});
+
+describe('upstream is ancestry, not whatever settled', () => {
+  it('does not hand a node the output of an unconnected branch', async () => {
+    const store = makeStore();
+    const recorder: Recorder = { started: [], settled: [] };
+    let seen: Record<string, unknown> | null = null;
+    const capture: NodeExecutor = async (_node, context) => {
+      seen = context.upstream;
+      return { ok: true, output: {} };
+    };
+    const registry = fakeRegistry(
+      {
+        a: async () => ({ ok: true, output: { from: 'a' } }),
+        // `b` settles fast, so with a scheduling-dependent "every settled
+        // output" upstream it would be visible to `d` — coupling two branches
+        // the graph never connected, and doing so only sometimes.
+        b: async () => ({ ok: true, output: { from: 'b' } }),
+        c: () =>
+          new Promise((resolve) => {
+            const timer = setTimeout(() => resolve({ ok: true, output: { from: 'c' } }), 15);
+            timer.unref?.();
+          }),
+      },
+      recorder,
+    );
+
+    const started = await startWorkflowRun(
+      workflow(
+        [
+          delayNode('a'),
+          delayNode('b'),
+          delayNode('c'),
+          { id: 'd', label: 'd', x: 0, y: 0, kind: 'transform', config: { picks: [{ from: 'c.from', to: 'f' }] } },
+        ],
+        [
+          ['a', 'b'],
+          ['c', 'd'],
+        ],
+      ),
+      deps(store, { executors: { ...registry, transform: capture } }),
+    );
+    expect(started.ok).toBe(true);
+    await settle();
+
+    // Only `c`, `d`'s single ancestor. Not `a` and not `b`.
+    expect(seen).toEqual({ c: { from: 'c' } });
+  });
+
+  it('hands a node every ancestor, not just its direct parents', async () => {
+    const store = makeStore();
+    const recorder: Recorder = { started: [], settled: [] };
+    let seen: Record<string, unknown> | null = null;
+    const capture: NodeExecutor = async (_node, context) => {
+      seen = context.upstream;
+      return { ok: true, output: {} };
+    };
+    const registry = fakeRegistry(
+      {
+        a: async () => ({ ok: true, output: { from: 'a' } }),
+        b: async () => ({ ok: true, output: { from: 'b' } }),
+      },
+      recorder,
+    );
+
+    const started = await startWorkflowRun(
+      workflow(
+        [
+          delayNode('a'),
+          delayNode('b'),
+          { id: 'c', label: 'c', x: 0, y: 0, kind: 'transform', config: { picks: [{ from: 'a.from', to: 'f' }] } },
+        ],
+        [
+          ['a', 'b'],
+          ['b', 'c'],
+        ],
+      ),
+      deps(store, { executors: { ...registry, transform: capture } }),
+    );
+    expect(started.ok).toBe(true);
+    await settle();
+
+    // A grandparent is still upstream — `{{a.from}}` two hops down must work.
+    expect(seen).toEqual({ a: { from: 'a' }, b: { from: 'b' } });
+  });
+});

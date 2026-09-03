@@ -29,12 +29,32 @@ export const DEMO_COLLECTION_CAP = 1_000;
 
 const collections = new Map<string, DemoRecord[]>();
 
+/**
+ * Read-only view of a collection. Never creates one.
+ *
+ * `DEMO_COLLECTION_CAP` bounds records *within* a collection, but nothing
+ * bounds how many collections exist — so a create-on-read would let a workflow
+ * looping `GET /{{n.id}}` grow main's heap one permanent empty array at a time
+ * until the server is stopped.
+ */
+const EMPTY: readonly DemoRecord[] = [];
+
+function read(collection: string): readonly DemoRecord[] {
+  return collections.get(collection) ?? EMPTY;
+}
+
+/** Write path only — this is the one place a collection comes into being. */
 function bucket(collection: string): DemoRecord[] {
   const existing = collections.get(collection);
   if (existing) return existing;
   const created: DemoRecord[] = [];
   collections.set(collection, created);
   return created;
+}
+
+/** Test-only: proves a read never brings a collection into being. */
+export function collectionCount(): number {
+  return collections.size;
 }
 
 export function resetDemoStore(): void {
@@ -44,8 +64,8 @@ export function resetDemoStore(): void {
 export function listRecords(
   collection: string,
   query: { limit?: number; offset?: number; filters?: Record<string, string> } = {},
-): { records: DemoRecord[]; total: number } {
-  let records = bucket(collection);
+): { records: readonly DemoRecord[]; total: number } {
+  let records = read(collection);
 
   const filters = query.filters ?? {};
   const keys = Object.keys(filters);
@@ -64,7 +84,7 @@ export function listRecords(
 }
 
 export function getRecord(collection: string, id: string): DemoRecord | undefined {
-  return bucket(collection).find((record) => record.id === id);
+  return read(collection).find((record) => record.id === id);
 }
 
 export function createRecord(collection: string, body: Record<string, unknown>): DemoRecord {
@@ -84,7 +104,8 @@ export function replaceRecord(
   id: string,
   body: Record<string, unknown>,
 ): DemoRecord | undefined {
-  const records = bucket(collection);
+  const records = collections.get(collection);
+  if (!records) return undefined;
   const index = records.findIndex((record) => record.id === id);
   const current = records[index];
   if (index === -1 || !current) return undefined;
@@ -104,7 +125,8 @@ export function mergeRecord(
   id: string,
   body: Record<string, unknown>,
 ): DemoRecord | undefined {
-  const records = bucket(collection);
+  const records = collections.get(collection);
+  if (!records) return undefined;
   const index = records.findIndex((record) => record.id === id);
   const current = records[index];
   if (index === -1 || !current) return undefined;
@@ -114,7 +136,8 @@ export function mergeRecord(
 }
 
 export function deleteRecord(collection: string, id: string): boolean {
-  const records = bucket(collection);
+  const records = collections.get(collection);
+  if (!records) return false;
   const index = records.findIndex((record) => record.id === id);
   if (index === -1) return false;
   records.splice(index, 1);

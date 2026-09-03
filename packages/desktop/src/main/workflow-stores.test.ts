@@ -88,3 +88,24 @@ describe('trimRunsPerWorkflow', () => {
     expect(trimmed.at(-1)!.id).toBe(`r${MAX_STORED_WORKFLOW_RUNS_PER_WORKFLOW + 2}`);
   });
 });
+
+describe('trimRunsPerWorkflow and a live run', () => {
+  it('never evicts a run that is still running', () => {
+    const older = Array.from({ length: MAX_STORED_WORKFLOW_RUNS_PER_WORKFLOW + 5 }, (_, i) =>
+      run(`old-${i}`, 'w'),
+    );
+    const live: WorkflowRun = { ...run('live', 'w'), status: 'running' };
+    // The live run is the OLDEST entry — exactly the one a positional cap
+    // throws away first. The engine reads its run back from the store on every
+    // node settle, so evicting it mid-flight makes it vanish from history
+    // while its already-launched fetches carry on.
+    const trimmed = trimRunsPerWorkflow([live, ...older]);
+
+    expect(trimmed.map((r) => r.id)).toContain('live');
+    // It does not consume a slot either: the full history budget still applies
+    // to the finished runs.
+    expect(trimmed.filter((r) => r.status !== 'running')).toHaveLength(
+      MAX_STORED_WORKFLOW_RUNS_PER_WORKFLOW,
+    );
+  });
+});

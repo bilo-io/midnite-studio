@@ -48,12 +48,25 @@ async function readJsonBody(
 ): Promise<{ ok: true; value: Record<string, unknown> } | { ok: false; message: string }> {
   const chunks: Buffer[] = [];
   let size = 0;
+  let tooLarge = false;
   for await (const chunk of req) {
     const buf = chunk as Buffer;
     size += buf.length;
-    if (size > MAX_BODY_BYTES) return { ok: false, message: 'Request body too large.' };
+    if (size > MAX_BODY_BYTES) {
+      /*
+        Flag and keep draining rather than returning out of the `for await`:
+        that calls the iterator's `return()`, which DESTROYS the request stream
+        — and writing a response on a destroyed request reaches the client as a
+        connection reset, so a workflow POSTing past the cap would record a
+        transport failure instead of the honest 400 the routing table
+        advertises.
+      */
+      tooLarge = true;
+      continue;
+    }
     chunks.push(buf);
   }
+  if (tooLarge) return { ok: false, message: 'Request body too large.' };
   const raw = Buffer.concat(chunks).toString('utf8');
   if (raw.trim() === '') return { ok: true, value: {} };
   try {

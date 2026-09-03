@@ -40,6 +40,18 @@ export function trimRunsPerWorkflow(runs: readonly WorkflowRun[]): WorkflowRun[]
   // Walk newest-first so the ones dropped are the oldest of each workflow.
   for (let i = runs.length - 1; i >= 0; i -= 1) {
     const run = runs[i]!;
+    /*
+      A run still `running` is never evicted, and does not count against the
+      cap. The engine reads its run back from the store on every node settle,
+      so trimming one out mid-flight makes `getRun` answer null — the driver
+      then finds nothing to do, breaks, and `finalizeRun` no-ops: the run
+      vanishes from history while its already-launched fetches carry on. The
+      cap exists to bound history, and a live run is not history yet.
+    */
+    if (run.status === 'running') {
+      kept.add(run.id);
+      continue;
+    }
     const seen = counts.get(run.workflowId) ?? 0;
     if (seen >= MAX_STORED_WORKFLOW_RUNS_PER_WORKFLOW) continue;
     counts.set(run.workflowId, seen + 1);
@@ -50,6 +62,17 @@ export function trimRunsPerWorkflow(runs: readonly WorkflowRun[]): WorkflowRun[]
 
 export function createWorkflowRunsStore(directory: string): WorkflowRunsStore {
   const file = join(directory, FILE_NAME);
+  /*
+    One writer at a time, the `write-queue.ts` idiom.
+
+    The engine's mutation lock is keyed by runId, so two runs in flight at once
+    — normal, since workflows are global and Run is not exclusive — settle
+    nodes under DIFFERENT locks and both land here. Two concurrent `writeFile`s
+    on one path each truncate at open, and a torn write is invalid JSON that
+    `load()` swallows into `[]`: the user's entire run history, silently gone.
+    `.then(fn, fn)` so a rejected write still advances the queue.
+  */
+  let queue: Promise<unknown> = Promise.resolve();
 
   return {
     load: async () => {
@@ -62,13 +85,22 @@ export function createWorkflowRunsStore(directory: string): WorkflowRunsStore {
       return parseStoredRuns(raw);
     },
 
-    save: async (runs) => {
+    save: (runs) => {
+      // Serialised, and the payload is snapshotted before the wait so a later
+      // mutation of the caller's array cannot change what this write emits.
       const state: StoredState = { version: 1, runs: trimRunsPerWorkflow(runs) };
-      try {
-        await writeFile(file, `${JSON.stringify(state, null, 2)}\n`, 'utf8');
-      } catch {
-        // See `workflows-store.ts` — a read-only data dir is not fatal.
-      }
+      const next = queue.then(async () => {
+        try {
+          await writeFile(file, `${JSON.stringify(state, null, 2)}\n`, 'utf8');
+        } catch {
+          // See `workflows-store.ts` — a read-only data dir is not fatal.
+        }
+      });
+      queue = next.then(
+        () => undefined,
+        () => undefined,
+      );
+      return next;
     },
   };
 }

@@ -95,3 +95,28 @@ describe('interpolateRecord', () => {
     expect(result.ok).toBe(false);
   });
 });
+
+describe('prototype keys', () => {
+  // `in` walks the prototype chain, so `'constructor' in {}` is true for any
+  // plain object literal — and `render`ing the `Object` function gave `''`,
+  // the silent empty substitution this module exists to prevent, arriving
+  // through the one door nobody thinks to check.
+  it.each(['{{constructor}}', '{{toString}}', '{{fetch.constructor}}', '{{fetch.body.toString}}'])(
+    'refuses to resolve %s',
+    (template) => {
+      const result = interpolate(template, upstream);
+      expect(result.ok).toBe(false);
+    },
+  );
+
+  it('still resolves an own property that shadows a prototype name', () => {
+    const result = interpolate('{{a.constructor}}', { a: { constructor: 'mine' } });
+    expect(result).toEqual({ ok: true, value: 'mine' });
+  });
+
+  it('fails rather than substituting empty for a value it cannot write', () => {
+    const result = interpolate('{{a.fn}}', { a: { fn: () => 1 } });
+    expect(result.ok).toBe(false);
+    expect(!result.ok && result.error).toContain('cannot be written into a request');
+  });
+});

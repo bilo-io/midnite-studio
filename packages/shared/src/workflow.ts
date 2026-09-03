@@ -62,8 +62,15 @@ export const WorkflowHttpConfigSchema = z.object({
    * in an RFC.
    */
   queryShaped: z.boolean().default(false),
-  /** Overrides {@link WORKFLOW_NODE_TIMEOUT_MS} for this node. */
-  timeoutMs: z.number().int().positive().optional(),
+  /**
+   * Overrides {@link WORKFLOW_NODE_TIMEOUT_MS} for this node, bounded at
+   * {@link WORKFLOW_MAX_NODE_TIMEOUT_MS}.
+   *
+   * Bounded for the same reason `delay.ms` is: unbounded, a mistyped
+   * `86400000` parks a run for a day — and while it runs, deleting that
+   * workflow is refused as "still running" and the run only ends at quit.
+   */
+  timeoutMs: z.number().int().positive().max(600_000).optional(),
 });
 export type WorkflowHttpConfig = z.infer<typeof WorkflowHttpConfigSchema>;
 
@@ -357,6 +364,14 @@ export function validateWorkflow(workflow: Workflow): WorkflowIssue[] {
  * node through an `http` node's `config.timeoutMs`.
  */
 export const WORKFLOW_NODE_TIMEOUT_MS = 120_000;
+
+/**
+ * Ceiling on a per-node override — ten minutes.
+ *
+ * Enforced in {@link WorkflowHttpConfigSchema} rather than only in the
+ * executor, so a bad value fails to parse instead of parking a run.
+ */
+export const WORKFLOW_MAX_NODE_TIMEOUT_MS = 600_000;
 
 /**
  * Nodes in flight at once, across the whole run.
