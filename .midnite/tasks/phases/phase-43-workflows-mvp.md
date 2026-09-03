@@ -424,51 +424,18 @@ Effort tags: **S** ≈ an hour or two · **M** ≈ half a day · **L** ≈ a day
 - [x] Navigation between workflow → node.
   - No `panel-stack`: plain `ReadonlySet<string>` selection lifted from the canvas's existing `onSelectionChange`, exactly as recorded. Run-detail navigation is Theme G's own surface once it exists.
 
-### G — Runs (M)
+### G — Runs (M) — ✅ DONE (PR #105, 2026-09-03)
 
-- [ ] Run view: the same canvas, in read-only mode, with per-node status colouring updating live.
-  - `workflow-canvas.tsx` takes a `readOnly?: boolean`; in read-only mode pan/zoom stay live and
-    drag, edge creation, delete and undo are all inert. One component, not two.
-  - Status colours reuse the councils map verbatim
-    ([`council-run-view.tsx:11`](../../../packages/app/src/features/councils/council-run-view.tsx)):
-    `running → text-blue-500`, `succeeded → text-green-500`, `failed`/`timeout → text-destructive`,
-    `skipped → text-muted-foreground`. `pending` is the default border.
-- [ ] Liveness: **push, then re-fetch** — not polling.
-  - Subscribe once at the app root to `workflowRunChanged` and invalidate the run query, following
-    [`use-tests-stream.ts`](../../../packages/app/src/features/tests/use-tests-stream.ts) exactly,
-    including the rule that **every subscription returns its unsubscribe** (preload doc, rule 1 —
-    StrictMode double-mounts, so a missing teardown silently duplicates in dev).
-  - Councils' `refetchInterval` poll (`RUN_POLL_MS = 1200`) is the wrong precedent here: it exists
-    because a council member's live output rides `pty:*`, and a workflow node has no pty. A
-    12-node run settling in 400 ms would look frozen at a 1 200 ms poll.
-- [ ] Clicking a node in a run shows its input, output, duration and error.
-  - Rendered in the same right-hand pane as the inspector, swapped by mode. Output is
-    `<pre className="whitespace-pre-wrap">` with the `truncated` flag from Theme C surfaced as a
-    trailing muted line, never silently dropped.
-- [ ] Run history list per workflow, capped.
-  - `MAX_STORED_WORKFLOW_RUNS = 200`, matching `MAX_STORED_RUNS` / `MAX_STORED_LOOP_RUNS` exactly,
-    with the same **evict-on-save, keep-newest-tail** rule:
-    `runs.length > MAX ? runs.slice(runs.length - MAX) : runs`.
-  - Capped **globally across all workflows**, not per workflow — `councils-runs-store.ts:15`
-    records why: per-node output is already capped, so a global bound is the one that matters.
-- [ ] The running indicator reuses the app's existing glow idiom, and **this theme owns making it
-      focus-gated.**
-  - `loopGlowColor(loopId: string): string` and `LOOP_WAITING_COLOR`
-    ([`loop-glow.ts:37,44`](../../../packages/app/src/features/loops/loop-glow.ts)) are the exports;
-    the glow itself is the `.loop-run-glow` CSS class at
-    [`styles.css:1028`](../../../packages/app/src/styles.css).
-  - **The Phase 37 focus gate does not cover it.** `html[data-window-focused='false']` pauses only
-    `.fab-panel-gradient::before` (`styles.css:967`), and `data-window-focused` is written by
-    `useWindowFocusGate` **inside** `fab-panel.tsx:155`, only while that panel is mounted. Using the
-    glow on a canvas therefore ships an ungated permanently-mounted animation — precisely what
-    Phase 36 Theme E was written about.
-  - So: hoist `useWindowFocusGate` out of `fab-panel.tsx` into an always-mounted host (`app.tsx`),
-    and extend the paused selector to `.loop-run-glow`. Both changes are small and both are
-    load-bearing.
-  - `html[data-motion='reduced'] .loop-run-glow` already sets `animation: none`
-    (`styles.css:1122`) — reduced motion is already handled, do not re-solve it.
-  - *Acceptance:* `moon run app:perf --blurred` shows no measurable idle-CPU delta with a run
-    mid-flight and the window blurred.
+- [x] Run view: the same canvas, in read-only mode, with per-node status colouring.
+  - `workflow-canvas.tsx` takes `readOnly?: boolean` and `nodeStatuses?: ReadonlyMap<string, WorkflowNodeStatus>`; pan/zoom and click-to-select stay live, drag/edge-creation/marquee/delete/undo are all gated behind `!readOnly` in the same handlers rather than a second component.
+  - Status colours reuse the councils map, as **stroke** rather than text colour (an SVG `<rect>`, not a label): `running → stroke-blue-500`, `succeeded → stroke-green-500`, `failed`/`timeout → stroke-destructive`, `skipped → stroke-muted-foreground`, `pending → stroke-border`.
+- [x] Liveness: **push, then re-fetch** — not polling.
+  - `use-workflow-run.ts`'s `useWorkflowRunEvents()` subscribes to `workflow.onRunChanged` and invalidates one shared `['workflow-runs']` key prefix, covering both the run-list and run-detail queries under it — the event carries no payload, so there is no narrower key to invalidate correctly. Each hook call subscribes independently (react-query dedupes the underlying query), the same "no app-root wiring dependency" call `BoardView` already made for `useWindowFocusGate` below.
+  - Confirmed the wrong precedent by name: Councils' `refetchInterval` (`RUN_POLL_MS = 1200`) exists because a member's live output rides `pty:*`; a workflow node has none, and this mock's own 120ms run would look frozen at that cadence.
+- [x] Clicking a node in a run shows its status, duration and error — **not "input"**, which the doc named but `WorkflowNodeRunSchema` never captured (`nodeId`/`kind`/`label`/`status`/`output`/`truncated`/`gatedDownstream`/`error`/timestamps, no input field at all). `run-node-detail.tsx` shows what the schema actually records, honestly, rather than a field that doesn't exist.
+  - Rendered in the same right-hand pane as the inspector, swapped by mode (`RunNodeDetail` in place of `NodeInspector`). Output is a `<pre className="whitespace-pre-wrap">` with `truncated` surfaced as a trailing muted line.
+- [x] Run history, per workflow — **not a 200-row global cap**, which the doc asked for but `workflow-runs-store.ts` (already landed in Theme H, PR #92) never built: it trims per workflow at `MAX_STORED_WORKFLOW_RUNS_PER_WORKFLOW = 20`, matching `shared/workflow.ts`'s own constant. `run-history-list.tsx` is a `Popover` off the canvas toolbar's new History button, not a `panel-stack` drawer: adopting that primitive here would mean solving the same "this view unmounts" persistence problem Councils needed its own history store for, for a run list this small.
+- [x] The running indicator is focus-gated — via the **current** precedent, not `.loop-run-glow`'s tab-hued rainbow system the doc named (which predates `BoardView`'s simpler `.card-run-glow`, and `useWindowFocusGate` turned out to already support concurrent hosts — `FabPanel` and `LandingView` both call it independently today, so no `app.tsx` hoist was needed). The History button's icon wears `.card-run-glow.is-running` while any of this workflow's runs is `running`, and `WorkflowEditor` calls `useWindowFocusGate` itself, the same way `BoardView` does for `card-run-glow`.
 
 ### H — Persistence and the list (M) — ✅ DONE (PR #92, #100, 2026-09-03) — stores + handlers (PR #92), the renderer half (PR #100)
 

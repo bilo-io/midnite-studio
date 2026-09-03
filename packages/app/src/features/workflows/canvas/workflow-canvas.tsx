@@ -4,6 +4,7 @@ import {
   type WorkflowEdge,
   type WorkflowNode,
   type WorkflowNodeKind,
+  type WorkflowNodeStatus,
 } from '@midnite/studio-shared';
 import {
   useCallback,
@@ -46,6 +47,16 @@ export type WorkflowGraph = { nodes: WorkflowNode[]; edges: WorkflowEdge[] };
 
 const ARROW_MARKER_ID = 'mstudio-workflow-arrow';
 
+/** Matches `council-run-view.tsx`'s own `STATUS_TONE`, as stroke rather than text colour. */
+const STATUS_STROKE: Record<WorkflowNodeStatus, string> = {
+  pending: 'stroke-border',
+  running: 'stroke-blue-500',
+  succeeded: 'stroke-green-500',
+  failed: 'stroke-destructive',
+  timeout: 'stroke-destructive',
+  skipped: 'stroke-muted-foreground',
+};
+
 /**
  * The workflow canvas (Phase 43 Theme E) — a hand-rolled SVG, per the phase's
  * own guardrail (no graph library; the same call Phase 5 and Phase 18 made).
@@ -69,6 +80,9 @@ export function WorkflowCanvas({
   onRun,
   runDisabledReason,
   isRunning,
+  readOnly,
+  nodeStatuses,
+  toolbarExtra,
 }: {
   graph: WorkflowGraph;
   /** Changing this clears undo/redo history and re-centres the viewport — used when switching to a different workflow. */
@@ -82,6 +96,17 @@ export function WorkflowCanvas({
   /** Set (to the first issue's message) to disable Run and explain why via `title`. */
   runDisabledReason?: string;
   isRunning?: boolean;
+  /**
+   * Run view mode (Theme G): pan/zoom and click-to-select stay live; drag,
+   * edge creation, marquee, delete and undo/redo are inert. One component,
+   * not two — the doc's own call, since the read-only pass is otherwise the
+   * exact same geometry and virtualization the editor already has.
+   */
+  readOnly?: boolean;
+  /** A run's per-node status, keyed by node id — colours the stroke over whatever `invalidNodeIds`/selection would otherwise draw. */
+  nodeStatuses?: ReadonlyMap<string, WorkflowNodeStatus>;
+  /** Extra toolbar content (Theme G's History control, e.g.) — the canvas owns the bar, not what a caller puts in it. */
+  toolbarExtra?: React.ReactNode;
 }) {
   const containerRef = useRef<HTMLDivElement>(null);
   const [size, setSize] = useState({ width: 0, height: 0 });
@@ -214,6 +239,11 @@ export function WorkflowCanvas({
     (event: ReactKeyboardEvent) => {
       const mod = event.metaKey || event.ctrlKey;
       const key = event.key.toLowerCase();
+      if (event.key === 'Escape') {
+        setSelectionAnd(new Set());
+        return;
+      }
+      if (readOnly) return;
       if (mod && key === 'z' && event.shiftKey) {
         event.preventDefault();
         redo();
@@ -226,11 +256,9 @@ export function WorkflowCanvas({
       } else if (event.key === 'Delete' || event.key === 'Backspace') {
         event.preventDefault();
         deleteSelection();
-      } else if (event.key === 'Escape') {
-        setSelectionAnd(new Set());
       }
     },
-    [deleteSelection, graph, redo, setSelectionAnd, undo],
+    [deleteSelection, graph, readOnly, redo, setSelectionAnd, undo],
   );
 
   const nodesById = new Map(graph.nodes.map((node) => [node.id, node]));
@@ -258,7 +286,7 @@ export function WorkflowCanvas({
 
     const target = event.target as Element;
     const portEl = target.closest('[data-port]');
-    if (portEl) {
+    if (portEl && !readOnly) {
       const nodeId = portEl.closest('[data-node-id]')?.getAttribute('data-node-id');
       if (portEl.getAttribute('data-port') === 'out' && nodeId) {
         svg.setPointerCapture(event.pointerId);
@@ -284,19 +312,27 @@ export function WorkflowCanvas({
       }
       setSelectionAnd(next);
 
-      svg.setPointerCapture(event.pointerId);
-      setInteraction({
-        type: 'node-drag',
-        ids: next.has(nodeId) ? Array.from(next) : [nodeId],
-        startClientX: event.clientX,
-        startClientY: event.clientY,
-        dx: 0,
-        dy: 0,
-      });
+      // Read-only (Theme G): select only, no drag — the node's position is
+      // whatever the live workflow says it is, not something a run can move.
+      if (!readOnly) {
+        svg.setPointerCapture(event.pointerId);
+        setInteraction({
+          type: 'node-drag',
+          ids: next.has(nodeId) ? Array.from(next) : [nodeId],
+          startClientX: event.clientX,
+          startClientY: event.clientY,
+          dx: 0,
+          dy: 0,
+        });
+      }
       return;
     }
 
-    // Empty background: marquee-select.
+    // Empty background: marquee-select (skipped read-only — a click still clears selection).
+    if (readOnly) {
+      if (!event.shiftKey) setSelectionAnd(new Set());
+      return;
+    }
     svg.setPointerCapture(event.pointerId);
     const g = clientToGraph(viewport, localX, localY);
     if (!event.shiftKey) setSelectionAnd(new Set());
@@ -405,15 +441,24 @@ export function WorkflowCanvas({
   return (
     <div className="flex h-full min-h-0 flex-1 flex-col">
       <div className="flex shrink-0 items-center gap-1 border-b border-border px-2 py-1.5">
-        {WORKFLOW_NODE_KINDS.map((kind) => {
-          const meta = NODE_KIND_META[kind];
-          return (
-            <IconButton key={kind} icon={meta.icon} label={`Add ${meta.label} node`} size="sm" onClick={() => addNode(kind)} />
-          );
-        })}
-        <span className="mx-1 h-4 w-px bg-border" aria-hidden />
-        <IconButton icon={LuUndo2} label="Undo" size="sm" onClick={undo} disabled={undoStack.current.length === 0} />
-        <IconButton icon={LuRedo2} label="Redo" size="sm" onClick={redo} disabled={redoStack.current.length === 0} />
+        {readOnly ? (
+          <span className="text-[11px] font-medium uppercase tracking-wide text-muted-foreground">
+            Viewing run
+          </span>
+        ) : (
+          <>
+            {WORKFLOW_NODE_KINDS.map((kind) => {
+              const meta = NODE_KIND_META[kind];
+              return (
+                <IconButton key={kind} icon={meta.icon} label={`Add ${meta.label} node`} size="sm" onClick={() => addNode(kind)} />
+              );
+            })}
+            <span className="mx-1 h-4 w-px bg-border" aria-hidden />
+            <IconButton icon={LuUndo2} label="Undo" size="sm" onClick={undo} disabled={undoStack.current.length === 0} />
+            <IconButton icon={LuRedo2} label="Redo" size="sm" onClick={redo} disabled={redoStack.current.length === 0} />
+          </>
+        )}
+        {toolbarExtra}
         {selection.size > 0 ? (
           <span className="ml-auto text-[11px] text-muted-foreground">
             {selection.size} selected
@@ -499,9 +544,22 @@ export function WorkflowCanvas({
             const meta = NODE_KIND_META[node.kind];
             const selected = selection.has(node.id);
             const invalid = invalidNodeIds?.has(node.id) ?? false;
-            const strokeClass = invalid ? 'stroke-destructive' : selected ? 'stroke-primary' : 'stroke-border';
+            const status = nodeStatuses?.get(node.id);
+            const strokeClass = status
+              ? STATUS_STROKE[status]
+              : invalid
+                ? 'stroke-destructive'
+                : selected
+                  ? 'stroke-primary'
+                  : 'stroke-border';
             return (
-              <g key={node.id} data-node-id={node.id} transform={`translate(${pos.x}, ${pos.y})`} className="cursor-move">
+              <g
+                key={node.id}
+                data-node-id={node.id}
+                data-status={status}
+                transform={`translate(${pos.x}, ${pos.y})`}
+                className={readOnly ? 'cursor-pointer' : 'cursor-move'}
+              >
                 <rect
                   width={WORKFLOW_NODE_GEOMETRY.width}
                   height={WORKFLOW_NODE_GEOMETRY.height}
