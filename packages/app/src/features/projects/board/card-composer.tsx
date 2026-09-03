@@ -1,8 +1,9 @@
-import type { ForgeProjectItem } from '@midnite/studio-shared';
-import { useMemo, useState } from 'react';
+import { LOOP_MODELS, loopModelArgs, type ForgeProjectItem, type LoopModel } from '@midnite/studio-shared';
+import { useEffect, useMemo, useState } from 'react';
 import { LuCircleStop, LuPlay } from 'react-icons/lu';
 
-import { RadioRow } from '../../../components/form/toggle-rows';
+import { IconSelect, type IconSelectOption } from '../../../components/select/icon-select';
+import { resolveAgentIcon } from '../../../components/icons';
 import {
   agentInvocationArgs,
   shellQuote,
@@ -17,6 +18,14 @@ import {
 } from '../../terminal/terminal-store';
 import { useAgents } from '../../terminal/use-agents';
 import { composeCardPrompt } from './board-derive';
+
+/**
+ * `LOOP_MODELS` is Claude-only today — see `loopModelArgs`'s own comment:
+ * handing `--model` to `codex exec` or `agy -p` fails the invocation outright
+ * rather than degrading. So every other agent gets a select disabled down to
+ * the one neutral option, not a guessed flag.
+ */
+const MODEL_OPTIONS: IconSelectOption[] = LOOP_MODELS.map((model) => ({ id: model.id, label: model.label }));
 
 /**
  * A card's agent launcher (Phase 41 Theme G): pick an agent, review and edit
@@ -72,14 +81,27 @@ export function CardComposer({
     return mostRecent?.agentId ?? agents[0]?.id ?? '';
   });
   const [prompt, setPrompt] = useState(() => composeCardPrompt(item, worktreePath));
+  const [model, setModel] = useState<LoopModel>('default');
+
+  // A model chosen for one agent means nothing for another — `loopModelArgs`
+  // is Claude-only, so switching away from `claude` drops back to the neutral
+  // choice rather than carrying a `--model` flag it would refuse to apply.
+  useEffect(() => {
+    if (agentId !== 'claude') setModel('default');
+  }, [agentId]);
+
+  const modelArgs = useMemo(() => loopModelArgs(agentId, model), [agentId, model]);
 
   const commandPreview = useMemo(() => {
     const agent = agents.find((a) => a.id === agentId);
     if (!agent) return '';
-    return [agent.command, ...agentInvocationArgs(agentId), shellQuote(toAgentPrompt(prompt, agentId))].join(
-      ' ',
-    );
-  }, [agents, agentId, prompt]);
+    return [
+      agent.command,
+      ...modelArgs,
+      ...agentInvocationArgs(agentId),
+      shellQuote(toAgentPrompt(prompt, agentId)),
+    ].join(' ');
+  }, [agents, agentId, modelArgs, prompt]);
 
   function handleStart() {
     const agent = agents.find((a) => a.id === agentId);
@@ -93,6 +115,7 @@ export function CardComposer({
       command: agent.command,
       surface: 'kanban',
       taskRef,
+      extraArgs: modelArgs,
       autoSend: false,
     });
   }
@@ -126,13 +149,32 @@ export function CardComposer({
 
       {!isLive ? (
         <div className="flex flex-col gap-2">
-          <RadioRow
-            name={`card-agent-${item.id}`}
-            label="Agent"
-            options={agents.map((agent) => ({ id: agent.id, label: agent.label }))}
-            value={agentId}
-            onSelect={setAgentId}
-          />
+          <div className="flex items-center gap-2">
+            <div className="min-w-0 flex-1">
+              <p className="mb-1 text-[10px] font-medium text-muted-foreground">Agent</p>
+              <IconSelect
+                ariaLabel="Agent"
+                options={agents.map((agent) => ({
+                  id: agent.id,
+                  label: agent.label,
+                  icon: resolveAgentIcon(agent),
+                  iconColor: agent.accent,
+                }))}
+                value={agentId}
+                onChange={setAgentId}
+              />
+            </div>
+            <div className="min-w-0 flex-1">
+              <p className="mb-1 text-[10px] font-medium text-muted-foreground">Model</p>
+              <IconSelect
+                ariaLabel="Model"
+                options={MODEL_OPTIONS}
+                value={model}
+                onChange={(id) => setModel(id as LoopModel)}
+                isDisabled={agentId !== 'claude'}
+              />
+            </div>
+          </div>
           <textarea
             aria-label="Prompt"
             value={prompt}

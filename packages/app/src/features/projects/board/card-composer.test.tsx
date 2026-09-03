@@ -140,4 +140,33 @@ describe('CardComposer', () => {
     expect(slept?.asleep).toBe(true);
     expect(screen.getByTestId('card-start')).toBeDefined();
   });
+
+  it('picking a model for Claude adds a --model flag to the queued command', () => {
+    renderComposer();
+
+    const modelInput = screen.getByLabelText('Model');
+    fireEvent.mouseDown(modelInput);
+    fireEvent.click(screen.getByText('Opus 5'));
+
+    fireEvent.click(screen.getByTestId('card-start'));
+
+    const created = useTerminalStore.getState().sessions[0]!;
+    expect(useTerminalStore.getState().pendingInput[created.id]).toContain('--model claude-opus-5');
+  });
+
+  it('switching to an agent with no model flag disables Model and drops back to Default', () => {
+    renderComposer();
+
+    const agentInput = screen.getByLabelText('Agent');
+    fireEvent.mouseDown(agentInput);
+    fireEvent.click(screen.getByText('Codex'));
+
+    const modelInput = screen.getByLabelText('Model') as HTMLInputElement;
+    expect(modelInput.disabled).toBe(true);
+    expect(screen.getByText('Default')).toBeDefined();
+
+    fireEvent.click(screen.getByTestId('card-start'));
+    const created = useTerminalStore.getState().sessions[0]!;
+    expect(useTerminalStore.getState().pendingInput[created.id]).not.toContain('--model');
+  });
 });
