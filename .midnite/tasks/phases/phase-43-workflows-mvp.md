@@ -624,8 +624,21 @@ Effort tags: **S** ≈ an hour or two · **M** ≈ half a day · **L** ≈ a day
 - [ ] Boundary lint clean: the engine and the demo server stay in `packages/desktop`; `shared`
       carries only zod; `git-engine` is untouched — workflows do not touch git.
 - [ ] No module imports both `WorkflowNode` and `ForgeWorkflow` without a comment explaining why.
-- [ ] `moon run app:perf`: the Workflows view and its canvas are lazy, entry chunk unmoved, no new
+- [ ] ◐ `moon run app:perf`: the Workflows view and its canvas are lazy, entry chunk unmoved, no new
       runtime dependency added.
+  - **Measured for Themes A–D (PR #92, 2026-09-03):** entry chunk **1298.5 KB → 1300.5 KB
+    (+2.0 KB, +0.15%)**, total JS 13984.5 → 13986.5 KB across the same 453 chunks;
+    `scripts/perf/bundle-report.mjs` against `moon run app:build`, baseline a detached worktree
+    at `origin/main`. **No new runtime dependency** — the `http` executor is Node 22's global
+    `fetch` and the demo API is `node:http`.
+  - The +2 KB is `shared/src/workflow.ts` reaching the renderer through the `index.ts` barrel,
+    and it is not tree-shakeable: `const X = z.object(...)` is an unannotated call, so rollup
+    cannot prove it pure and keeps it. `council.ts` is already in the entry chunk for exactly
+    the same reason, so this is the established cost of a domain living in `shared`, not a
+    regression introduced here. Worth revisiting for the whole barrel if it ever matters — the
+    fix would be a deep-import convention, which is a Phase 36 question and not this phase's.
+  - **Still open:** the lazy-chunk half, which needs Themes E/H's actual view to exist before
+    there is anything to assert is lazy.
 - [ ] `ipc.test.ts`'s new `describe('workflow contract')` block fails when a `workflow*` channel is
       added without a `CASES` row — proven by deleting one row and watching it go red.
 - [ ] The demo API refuses a non-loopback bind: `server.address().address === '127.0.0.1'`, and a
