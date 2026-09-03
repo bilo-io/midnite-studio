@@ -228,6 +228,45 @@ test.describe('commit selection colour', () => {
   });
 });
 
+test.describe('deselecting a commit', () => {
+  test('the close button clears the selection and hides the detail panel', async ({ page }) => {
+    await openGraph(page);
+
+    const row = rowFor(page, 'feat(graph): resizable columns');
+    await row.click();
+    await expect(row).toHaveAttribute('aria-selected', 'true');
+    await expect(page.getByRole('button', { name: 'Close' })).toBeVisible();
+
+    await page.getByRole('button', { name: 'Close' }).click();
+
+    await expect(row).toHaveAttribute('aria-selected', 'false');
+    await expect(page.getByRole('button', { name: 'Close' })).toHaveCount(0);
+  });
+
+  test('Escape clears the selection the same way', async ({ page }) => {
+    await openGraph(page);
+
+    const row = rowFor(page, 'feat(graph): resizable columns');
+    await row.click();
+    await expect(row).toHaveAttribute('aria-selected', 'true');
+
+    await page.keyboard.press('Escape');
+
+    await expect(row).toHaveAttribute('aria-selected', 'false');
+    await expect(page.getByRole('button', { name: 'Close' })).toHaveCount(0);
+  });
+
+  test('Escape is a no-op with nothing selected', async ({ page }) => {
+    await openGraph(page);
+
+    // Nothing to assert changes — this is a smoke test that the listener
+    // does not throw or otherwise break the graph when there is no
+    // `graphSelection` to clear.
+    await page.keyboard.press('Escape');
+    await expect(page.getByRole('columnheader', { name: 'Commit message' })).toBeVisible();
+  });
+});
+
 /**
  * The PR's before/after PNGs, from the same mocked bridge as the assertions
  * above. `MSTUDIO_SHOTS=1` only — the normal suite stays fast and does not
