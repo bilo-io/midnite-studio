@@ -93,7 +93,7 @@ an exact precedent to copy rather than a design to invent.
 - [ ] Fetch failure renders **nothing**, not a broken widget. No retry storm, no error toast: the
       lock screen is ambient.
 
-### B — Battery, bottom right (S) — ✅ DONE (2026-09-03)
+### B — Battery, bottom right (S) — ✅ DONE (PR #53, 2026-09-03)
 
 `_features.md`: *"Show battery in bottom right"*. Almost entirely reuse — the audit's happiest find.
 
@@ -151,7 +151,7 @@ etc."* The most interesting theme, because the destination is the easy half.
 - [ ] A pill whose count is **zero** still navigates. "0 my PRs" going to Reviews is correct; a
       disabled control that looks live is worse than an empty destination.
 
-### D — The corner layout becomes data (S) — ✅ DONE (2026-09-03)
+### D — The corner layout becomes data (S) — ✅ DONE (PR #53, 2026-09-03)
 
 Three hard-coded `absolute` positions across two files, and this phase adds two more surfaces to
 them. Make the slots declared before that happens, not after.
@@ -172,7 +172,7 @@ them. Make the slots declared before that happens, not after.
       asked for it. `Record<LockScreenSlot, string>` of Tailwind position classes; no runtime
       reordering exists.
 
-### E — The motion audit (M) — ✅ DONE (2026-09-03)
+### E — The motion audit (M) — ✅ DONE (PR #53, 2026-09-03)
 
 The findings in the framing, resolved. This is the theme the last three phases each punted.
 
@@ -251,7 +251,7 @@ deliberate two-form guard — audited, out of this table's scope, left unchanged
       already fixed in PR #7; what stayed open was the same class of "does `'system'` actually
       resolve" question this theme answers for the whole app. See `done.md`.
 
-### F — A guard that can't be forgotten (S) — ✅ DONE (2026-09-03)
+### F — A guard that can't be forgotten (S) — ✅ DONE (PR #53, 2026-09-03)
 
 The highest-leverage item here, and the reason the phase is worth writing rather than fixing the
 CSS in a drive-by. Three phases ended with an unfinished motion item because nothing failed when

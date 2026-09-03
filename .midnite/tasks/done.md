@@ -60,6 +60,39 @@ three-part inspector reusing Phase 12's file-list/diff machinery wholesale.
       `useTargetedStashApply`/`Pop`/`Branch`/`Drop` hooks the sidebar's `stashMenu` already uses — a
       second consumer, not a second copy.
 
+## 2026-09-03 — Phase 46 Themes B, D, E, F — battery widget, a declared corner layout, motion policy fix
+
+[PR #53]. Three phases in a row (37 F, 39 G, 42 F) each left reduced motion as an unfinished
+trailing item; this batch closes it for good, plus the two lock-screen build items that motivated
+touching the layout.
+
+- [x] **Phase 46 Theme B — battery, bottom right.** `LockScreenBatteryWidget` in
+      `lock-screen-widgets.tsx`, pure reuse of the existing `features/battery/` icons/panel and the
+      metrics sample's already-optional `BatteryReadingSchema` — no new IPC, sampling, or schema.
+      Stacks above the sysmon widget in the same corner rather than displacing it; renders nothing
+      on a machine with no battery.
+- [x] **Phase 46 Theme D — the corner layout becomes data.** `lock-screen-slots.tsx`'s
+      `LockScreenSlotIsland` replaces three hard-coded `absolute` positions across
+      `lock-screen-widgets.tsx`/`lock-screen-chrome.tsx` with one declared slot map (`top-left`,
+      `top-centre`, `top-right`, `bottom-left`, `bottom-right`), owning the
+      `pointer-events-none`/`pointer-events-auto` split so a future widget can't get it wrong.
+- [x] **Phase 46 Theme E — the motion audit.** Root cause: `useMotionPreference` (`app.tsx`) and
+      `useAppearanceSync` (`appearance-store.ts`) both wrote `data-motion`, and only one resolved
+      `'system'` — so on the default preference the attribute literally read the string `'system'`,
+      matching none of `styles.css`'s guards regardless of the OS setting. Fixed via a shared
+      `resolveSystemMotion()`/`useResolvedMotion()` (`appearance-store.ts`); the two writers now
+      agree instead of racing. Standardized every convertible guard in `styles.css` (14 rules) on
+      the `@media (prefers-reduced-motion: reduce)` dialect, deleted the byte-identical duplicated
+      `pill-shimmer` block, and taught `NeuroCloudBackground`'s canvas rAF loop to consult the
+      setting directly (a media guard cannot reach a JS animation loop). Closes the motion half of
+      [Phase 39 Theme G](phases/phase-39-status-bar-shortcut-rail.md)'s remaining `◐ PARTIAL` item.
+- [x] **Phase 46 Theme F — a guard that can't be forgotten.** `styles-motion-guards.test.ts`: every
+      `@keyframes` in `styles.css` must be referenced by a guarded rule or explicitly allowlisted
+      with a reason (one entry: `shake`), plus a no-duplicate-`@keyframes`-name assertion — the bug
+      this phase found by reading. Modelled on `icon-names.test.ts`.
+
+Themes A (weather), C (clickable pills) and G (screenshot verification) remain `◻ TODO`.
+
 ## 2026-09-03 — Phase 22 Themes B, E, F, G + Phase 45 Themes E, F + Phase 49 Theme A + Phase 48 Theme A
 
 [PR #51]. A large batch, four phases: stash reaches the sidebar and the Changes view, force-push
