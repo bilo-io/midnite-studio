@@ -14,6 +14,7 @@ import type { MenuItem } from '../../components/context-menu';
 import { useDialogs } from '../../components/dialog-host';
 import { IconButton } from '../../components/icon-button';
 import { useUiStore } from '../../store/ui-store';
+import { useProjectActions } from '../agent/project-actions';
 import { runLifecycleAction, type LifecycleAction } from './repo-lifecycle';
 
 const ACTIONS: { action: LifecycleAction; icon: typeof LuPackage; label: string }[] = [
@@ -26,11 +27,13 @@ const ACTIONS: { action: LifecycleAction; icon: typeof LuPackage; label: string 
 /**
  * Install / Build / Test / Launch, for one checkout.
  *
- * Shared between the sidebar's per-repository header and the title bar's
- * per-selected-checkout cluster — the two are the same four verbs aimed at
- * different targets (a repo's main worktree; whichever checkout is selected),
- * and a repo open in both places should not be able to disagree about what
- * "Build" means for it.
+ * The title bar's per-selected-checkout cluster, where these four stand as
+ * four buttons; the sidebar's per-repository header takes the same four verbs
+ * collapsed behind {@link RepoLifecycleMenu}. Both call the same
+ * `runLifecycleAction`, so a repo open in both places cannot disagree about
+ * what "Build" means for it — and the same holds for the Setup/Update pair
+ * that sits ahead of this cluster up there (`ProjectActions`) and heads that
+ * menu.
  *
  * Each click is fire-and-forget: `runLifecycleAction` opens a terminal with
  * its guessed command typed in, not run, so there is no result to await here
@@ -77,7 +80,8 @@ export function RepoLifecycleActions({
 }
 
 /**
- * Install / Build / Test / Launch, collapsed behind one ellipsis.
+ * The repository's own tooling, collapsed behind one ellipsis: Setup and
+ * Update, then Install / Build / Test / Launch.
  *
  * Same four verbs and the same `runLifecycleAction` as {@link RepoLifecycleActions}, but for
  * the sidebar's repository row specifically: four standing icon buttons there, next to the
@@ -85,6 +89,13 @@ export function RepoLifecycleActions({
  * room to carry. Collapsing them behind one ellipsis — this repo's tooling, as distinct from
  * the Git-logo menu's git and housekeeping actions — keeps the row scannable without dropping
  * any verb, and each verb keeps its glyph inside the menu.
+ *
+ * Setup and Update head that list because this menu is where they belong:
+ * they act on the repository itself, not on an agent working in it, which is
+ * the one thing every row of the midnite menu they came from has in common.
+ * They sit above Install rather than below Launch because they are the rarer,
+ * heavier pair — set the checkout up, or replace the installed app — and a
+ * divider keeps them from reading as two more lifecycle verbs.
  */
 export function RepoLifecycleMenu({
   repoId,
@@ -98,6 +109,12 @@ export function RepoLifecycleMenu({
   worktreePath?: string;
 }) {
   const dialogs = useDialogs();
+  const { actions: projectActions, dialog: setupDialog } = useProjectActions({
+    repoId,
+    repoName,
+    cwd,
+    ...(worktreePath ? { worktreePath } : {}),
+  });
   const repoGroups = useUiStore((s) => s.repoGroups);
   const currentGroupId = useUiStore((s) => s.repoGroupMembership[repoId]);
   const createRepoGroup = useUiStore((s) => s.createRepoGroup);
@@ -150,6 +167,21 @@ export function RepoLifecycleMenu({
   const items: MenuItem[] = [
     addToGroup,
     { type: 'separator' },
+    /*
+      Undescribed rows, though the midnite menu these two came from printed a
+      line of sub-text under each: `ContextMenu`'s own rule is that a caller
+      describes every entry of a menu or none of them, and the four lifecycle
+      verbs beside them here explain themselves in a word. What that sub-text
+      said survives in `buttonLabel`, which is the title bar pair's tooltip.
+    */
+    ...projectActions.map((action) => ({
+      label: action.label,
+      icon: action.icon,
+      ...(action.disabled ? { disabled: true } : {}),
+      ...(action.disabledReason ? { disabledReason: action.disabledReason } : {}),
+      onSelect: action.onSelect,
+    })),
+    { type: 'separator' },
     ...ACTIONS.map(({ action, icon, label }) => ({
       label,
       icon,
@@ -158,17 +190,20 @@ export function RepoLifecycleMenu({
   ];
 
   return (
-    <IconButton
-      icon={LuEllipsisVertical}
-      label={`Install, build, test or launch ${repoName}`}
-      size="sm"
-      onClick={(event) => {
-        const rect = event.currentTarget.getBoundingClientRect();
-        dialogs.openMenu(
-          { clientX: event.clientX || rect.left, clientY: event.clientY || rect.bottom },
-          items,
-        );
-      }}
-    />
+    <>
+      <IconButton
+        icon={LuEllipsisVertical}
+        label={`Set up, install, build, test or launch ${repoName}`}
+        size="sm"
+        onClick={(event) => {
+          const rect = event.currentTarget.getBoundingClientRect();
+          dialogs.openMenu(
+            { clientX: event.clientX || rect.left, clientY: event.clientY || rect.bottom },
+            items,
+          );
+        }}
+      />
+      {setupDialog}
+    </>
   );
 }
