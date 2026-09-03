@@ -72,8 +72,22 @@ export function FabLoopHalo({ tab, compact = false }: { tab: FabTab; compact?: b
   );
 }
 
+export type LoopsRunning = { running: boolean; waiting: boolean; thinking: boolean };
+
+/**
+ * The FAB's own glow classes for a given running state — shared by the large
+ * FAB (`app.tsx`) and the statusbar's mini version of it
+ * (`assistant-menu.tsx`), so the two cannot drift on which state wins.
+ */
+export function fabGlowClass(loopsRunning: LoopsRunning): string {
+  if (!loopsRunning.running) return '';
+  return `loop-run-glow on-primary ${
+    loopsRunning.waiting ? 'is-waiting' : loopsRunning.thinking ? 'is-thinking' : ''
+  }`;
+}
+
 /** Whether any loop is live — what puts the gradient glow on the FAB itself. */
-export function useAnyLoopRunning(): { running: boolean; waiting: boolean; thinking: boolean } {
+export function useAnyLoopRunning(): LoopsRunning {
   const statuses = useAllLoopStatuses(LOOP_IDS);
   const waiting = statuses.some((s) => s.waiting);
   return {

@@ -25,8 +25,8 @@ import { navChord } from './components/nav-chords';
 import { Tooltip } from './components/tooltip';
 import { commandChord } from './features/status-bar/chord-hint';
 import { FabPanel } from './components/fab-panel';
-import { FabLoopHalo, useAnyLoopRunning } from './features/loops/fab-loop-halo';
-import { captureFabMorphOrigin, useFabMorphEntrance } from './features/loops/fab-morph';
+import { FabLoopHalo, fabGlowClass, useAnyLoopRunning } from './features/loops/fab-loop-halo';
+import { captureFabMorphOrigin, useFabMorphRef } from './features/loops/fab-morph';
 import { useLoopAttention } from './features/loops/use-loop-attention';
 import { PaletteHost } from './components/palette-host';
 import { ResizeHandle } from './components/resizable/resize-handle';
@@ -543,7 +543,7 @@ function Shell() {
   // The FLIP entrance for the big FAB reappearing after the statusbar's mini
   // version closed the panel — see `fab-morph.ts`.
   const fabButtonRef = useRef<HTMLButtonElement | null>(null);
-  useFabMorphEntrance(fabButtonRef);
+  const fabMorphRef = useFabMorphRef(fabButtonRef);
   const selectedRepoId = useUiStore((s) => s.selectedRepoId);
   const selectedWorktreePath = useUiStore((s) => s.selectedWorktreePath);
   // The repo's own name labels its terminals; the path is the fallback for a
@@ -1397,7 +1397,7 @@ function Shell() {
             <div className="absolute bottom-4 right-4 z-20 h-10 w-10">
               <FabLoopHalo tab={activeFabTab} />
               <button
-                ref={fabButtonRef}
+                ref={fabMorphRef}
                 type="button"
                 onClick={() => {
                   captureFabMorphOrigin(fabButtonRef.current);
@@ -1415,17 +1415,7 @@ function Shell() {
                   `position: relative` too, but only while a loop runs, which is
                   too load-bearing a coincidence to lean on.
                 */
-                className={`relative flex h-10 w-10 items-center justify-center rounded-full bg-primary text-primary-foreground shadow-lg transition-transform hover:scale-110 active:scale-95 ${
-                  loopsRunning.running
-                    ? `loop-run-glow on-primary ${
-                        loopsRunning.waiting
-                          ? 'is-waiting'
-                          : loopsRunning.thinking
-                            ? 'is-thinking'
-                            : ''
-                      }`
-                    : ''
-                }`}
+                className={`relative flex h-10 w-10 items-center justify-center rounded-full bg-primary text-primary-foreground shadow-lg transition-transform hover:scale-110 active:scale-95 ${fabGlowClass(loopsRunning)}`}
               >
                 <BrandMark className="h-full w-full" />
               </button>

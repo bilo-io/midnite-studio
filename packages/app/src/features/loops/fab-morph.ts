@@ -1,19 +1,20 @@
-import { useLayoutEffect, type RefObject } from 'react';
+import { useCallback, type RefCallback, type RefObject } from 'react';
 
 import { motionMs } from '../../components/use-reveal';
 
 /**
  * FLIP transform between the large FAB and the statusbar's mini version of
- * it — whichever one a click just closed stashes its rect here, and the one
- * that mounts in its place reads it back to animate in from there instead of
- * just appearing. A single module-level slot is enough: only one of the two
- * buttons is ever mounted at a time, and the stash-then-mount happens inside
- * one synchronous click handler, so there is never a second writer to race.
+ * it — whichever button a click just hid stashes its rect here, and the one
+ * that mounts in its place reads it back to animate in from there (and to
+ * take over its focus) instead of just appearing. A single module-level slot
+ * is enough: only one of the two buttons is ever mounted at a time, and the
+ * stash-then-mount happens inside one synchronous click handler, so there is
+ * never a second writer to race.
  *
  * A toggle with no button behind it (the `fab.toggle` command, a
- * waiting-loop notification opening a tab) leaves this `null`, and the
- * button that mounts just appears at rest — there is no on-screen origin to
- * move from.
+ * waiting-loop notification opening a tab, a loop launcher chip closing the
+ * panel) leaves this `null`, and the button that mounts just appears at
+ * rest — there is no on-screen origin, or focus, to take over.
  */
 let originRect: DOMRect | null = null;
 
@@ -22,22 +23,43 @@ export function captureFabMorphOrigin(el: HTMLElement | null): void {
 }
 
 /**
- * On mount, invert this element's transform to match the stashed origin
- * rect, then release it under a transition — translate and scale animate it
- * from the other button's old screen position/size to this one's, the
- * classic FLIP dance. No-ops (and clears the stash) when there is nothing to
- * animate from, or under reduced motion.
+ * A ref CALLBACK for the FAB/mini-FAB button, not a `useLayoutEffect` on a
+ * ref object — the button is conditionally rendered (`{!fabPanelOpen ?
+ * <button ref={...}> : null}`), mounting and unmounting on every panel
+ * toggle, and a plain effect with an empty dependency array runs once for
+ * the lifetime of whichever component calls this hook (`Shell`,
+ * `AssistantMenu`), not once per mount of the button itself — so it would
+ * only ever see the FIRST mount and never animate a real toggle. A ref
+ * callback fires exactly when React attaches this specific DOM node, every
+ * time, which is what "on mount" actually needs to mean here.
+ *
+ * Also stands in for a plain `useRef`: `target.current` is kept in sync, so
+ * callers still read it in their own `onClick` to capture the outgoing
+ * rect.
+ *
+ * On the entrance that follows a real click (an origin was stashed): hands
+ * focus over, since the button the interaction landed on just vanished from
+ * under it, and inverts the transform to the stashed rect before releasing
+ * it under a transition — translate and scale animate the button from the
+ * counterpart's old screen position/size to this one's. Returns a React 19
+ * ref-cleanup function so a fast double-toggle tears down an in-flight
+ * animation cleanly instead of leaking its frame/timer.
  */
-export function useFabMorphEntrance(ref: RefObject<HTMLElement | null>): void {
-  useLayoutEffect(() => {
-    const el = ref.current;
+export function useFabMorphRef<T extends HTMLElement>(target: RefObject<T | null>): RefCallback<T> {
+  return useCallback((el: T | null) => {
+    target.current = el;
+    if (!el) return undefined;
+
     const from = originRect;
     originRect = null;
-    const ms = motionMs();
-    if (!el || !from || ms === 0) return undefined;
+    if (!from) return undefined;
 
+    el.focus({ preventScroll: true });
+
+    const ms = motionMs();
     const to = el.getBoundingClientRect();
-    if (to.width === 0 || to.height === 0) return undefined;
+    if (ms === 0 || to.width === 0 || to.height === 0) return undefined;
+
     const dx = from.left + from.width / 2 - (to.left + to.width / 2);
     const dy = from.top + from.height / 2 - (to.top + to.height / 2);
     const sx = from.width / to.width;
@@ -63,7 +85,7 @@ export function useFabMorphEntrance(ref: RefObject<HTMLElement | null>): void {
       el.style.transform = '';
     };
     // `transitionend` for the normal case; the timeout is what fires if the
-    // element unmounts or the transition is interrupted mid-flight.
+    // transition is interrupted or never starts.
     const timer = setTimeout(clear, ms + 50);
     el.addEventListener('transitionend', clear, { once: true });
 
@@ -72,6 +94,5 @@ export function useFabMorphEntrance(ref: RefObject<HTMLElement | null>): void {
       clearTimeout(timer);
       el.removeEventListener('transitionend', clear);
     };
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
+  }, [target]);
 }

@@ -3,8 +3,8 @@ import { useRef, useState } from 'react';
 import { BrandMark } from '../../components/brand';
 import { Popover } from '../../components/popover';
 import { MidniteIcon } from '../../components/icons/midnite-icon';
-import { FabLoopHalo, useAnyLoopRunning } from '../loops/fab-loop-halo';
-import { captureFabMorphOrigin, useFabMorphEntrance } from '../loops/fab-morph';
+import { FabLoopHalo, fabGlowClass, useAnyLoopRunning } from '../loops/fab-loop-halo';
+import { captureFabMorphOrigin, useFabMorphRef } from '../loops/fab-morph';
 import { useUiStore } from '../../store/ui-store';
 
 /**
@@ -27,14 +27,14 @@ export function AssistantMenu() {
   const activeFabTab = useUiStore((s) => s.activeFabTab);
   const loopsRunning = useAnyLoopRunning();
   const miniFabRef = useRef<HTMLButtonElement | null>(null);
-  useFabMorphEntrance(miniFabRef);
+  const miniFabMorphRef = useFabMorphRef(miniFabRef);
 
   if (fabPanelOpen) {
     return (
       <div className="relative flex h-4 w-4 items-center justify-center">
         <FabLoopHalo tab={activeFabTab} compact />
         <button
-          ref={miniFabRef}
+          ref={miniFabMorphRef}
           type="button"
           onClick={() => {
             captureFabMorphOrigin(miniFabRef.current);
@@ -47,17 +47,7 @@ export function AssistantMenu() {
           data-fab-tab={activeFabTab}
           // `relative`, same reason as the large FAB: the halo sits at
           // `-z-10` behind this button and needs it to not be a static box.
-          className={`relative flex h-4 w-4 items-center justify-center rounded-full bg-primary text-primary-foreground transition-transform hover:scale-110 active:scale-95 ${
-            loopsRunning.running
-              ? `loop-run-glow on-primary ${
-                  loopsRunning.waiting
-                    ? 'is-waiting'
-                    : loopsRunning.thinking
-                      ? 'is-thinking'
-                      : ''
-                }`
-              : ''
-          }`}
+          className={`relative flex h-4 w-4 items-center justify-center rounded-full bg-primary text-primary-foreground transition-transform hover:scale-110 active:scale-95 ${fabGlowClass(loopsRunning)}`}
         >
           <BrandMark className="h-full w-full" />
         </button>
