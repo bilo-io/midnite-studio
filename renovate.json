@@ -1,6 +1,25 @@
 {
   "$schema": "https://docs.renovatebot.com/renovate-schema.json",
   "extends": [
-    "config:recommended"
+    "config:recommended",
+    ":dependencyDashboard"
+  ],
+  "schedule": [
+    "before 9am on monday"
+  ],
+  "packageRules": [
+    {
+      "matchPackageNames": [
+        "electron",
+        "node-pty"
+      ],
+      "dependencyDashboardApproval": true
+    },
+    {
+      "matchDepTypes": [
+        "devDependencies"
+      ],
+      "groupName": "dev dependencies"
+    }
   ]
 }
