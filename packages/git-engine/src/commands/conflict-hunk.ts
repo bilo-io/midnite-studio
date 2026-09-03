@@ -150,7 +150,13 @@ export async function applyConflictHunk(
     } catch (error) {
       return failure(error instanceof Error ? error.message : `Could not read ${path}.`);
     }
-    if (resolvedContent.includes('<<<<<<<')) return ok(); // sibling regions remain — stay unmerged
+    // A per-line `startsWith` check, not `resolvedContent.includes('<<<<<<<')`:
+    // a whole-string search would misfire on a file whose legitimate resolved
+    // content happens to contain that substring mid-line (a doc explaining
+    // conflict markers, a fixture like this phase's own parser tests) and
+    // leave the path silently stuck unmerged despite reporting `ok()`.
+    const stillConflicted = splitFile(resolvedContent).some((line) => line.startsWith('<<<<<<<'));
+    if (stillConflicted) return ok(); // sibling regions remain — stay unmerged
 
     const staged = await execGit(worktreePath, ['add', '--', path], { write: true });
     if (staged.exitCode !== 0) {

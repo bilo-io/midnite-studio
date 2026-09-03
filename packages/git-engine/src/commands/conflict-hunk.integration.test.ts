@@ -117,6 +117,27 @@ describe('applyConflictHunk', () => {
     await expect(repo.git(['show', ':0:f.txt'])).resolves.toBe(after);
   });
 
+  it('finalizes staging even when the resolved text itself contains a literal marker string', async () => {
+    // A whole-string `includes('<<<<<<<')` check would misfire here: the
+    // resolved content legitimately contains that substring mid-line, but
+    // zero real conflict regions remain.
+    await repo.commitFile('f.txt', 'start\nend\n', 'base');
+    await repo.git(['checkout', '-b', 'feature']);
+    await repo.commitFile('f.txt', 'start\ndocs: <<<<<<< marks a conflict\nend\n', 'feature edit');
+    await repo.git(['checkout', 'main']);
+    await repo.commitFile('f.txt', 'start\nORIGINAL\nend\n', 'main edit');
+    const merge = await repo.gitAllowFailure(['merge', 'feature']);
+    expect(merge.exitCode).not.toBe(0);
+
+    const region = regionOf(await read(repo, 'f.txt'), 0);
+    const result = await applyConflictHunk(repo.path, 'f.txt', 0, region, 'theirs');
+
+    expect(result.ok).toBe(true);
+    await expect(read(repo, 'f.txt')).resolves.toBe('start\ndocs: <<<<<<< marks a conflict\nend\n');
+    // Finalized, not left stuck unmerged.
+    expect((await repo.gitAllowFailure(['diff', '--name-only', '--diff-filter=U'])).stdout).toBe('');
+  });
+
   it('fails as a stale write, not a crash or a corrupted file, when the region no longer matches', async () => {
     await setUpTwoRegionConflict();
     const before = await read(repo, 'f.txt');
