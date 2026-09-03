@@ -244,6 +244,7 @@ const bridge: Pick<
     unstage: (req) => call(CHANNELS.opUnstage, req),
     discard: (req) => call(CHANNELS.opDiscard, req),
     conflictResolveWholeFile: (req) => call(CHANNELS.opConflictResolveWholeFile, req),
+    conflictApplyHunk: (req) => call(CHANNELS.opConflictApplyHunk, req),
     commit: (req) => call(CHANNELS.opCommit, req),
     fetch: (req) => call(CHANNELS.opFetch, req),
     pull: (req) => call(CHANNELS.opPull, req),

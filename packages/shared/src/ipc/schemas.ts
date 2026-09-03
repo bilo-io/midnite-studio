@@ -6,6 +6,8 @@ import {
   BrowserEventSchema,
   BrowserNavErrorSchema,
   CommitSchema,
+  ConflictHunkSideSchema,
+  ConflictRegionSchema,
   ConflictSideSchema,
   InProgressOpSchema,
   DiagnosticsCandidateSchema,
@@ -887,6 +889,28 @@ export const DiscardRequest = StageRequest;
 export const ConflictResolveWholeFileRequest = OpBase.extend({
   path: z.string().min(1),
   side: ConflictSideSchema,
+});
+
+/**
+ * Resolve one conflicted region within a path (Phase 47 Theme C).
+ *
+ * `regionIndex` is the region's 0-based position in document order among
+ * every `kind: 'conflict'` segment the file currently parses to — the same
+ * order Theme A's parser already walks the file in, so a renderer that lists
+ * regions top-to-bottom can pass its list index straight through.
+ *
+ * `region` is the caller's own last-read view of that region's content. It is
+ * not trusted for the write itself (the engine re-reads the file and locates
+ * the region fresh) — it is what lets a region that shifted or changed on
+ * disk since the caller last looked fail as `code: 'stale-write'` instead of
+ * either applying against the wrong text or surfacing git's own opaque
+ * "patch does not apply".
+ */
+export const ApplyConflictHunkRequest = OpBase.extend({
+  path: z.string().min(1),
+  regionIndex: z.number().int().nonnegative(),
+  region: ConflictRegionSchema,
+  side: ConflictHunkSideSchema,
 });
 
 export const CommitRequest = OpBase.extend({
