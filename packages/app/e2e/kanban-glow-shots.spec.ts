@@ -112,7 +112,7 @@ async function openBoard(page: Page, mode: 'light' | 'dark'): Promise<void> {
   await page.evaluate(() => document.documentElement.setAttribute('data-motion', 'reduced'));
   await clickRailLink(page, 'Projects');
   await page.getByRole('combobox', { name: 'Project board' }).selectOption(BOARD.id);
-  await page.getByTestId('projects-view-mode-slot').getByRole('button', { name: 'Board' }).click();
+  await page.getByTestId('projects-view-mode-slot').getByRole('button', { name: 'Board view' }).click();
   await expect(page.getByTestId('board-view')).toBeVisible();
   await expect(page.getByText('Wire the write path')).toBeVisible();
 }

@@ -129,7 +129,7 @@ async function openBoard(page: Page, data: MockFixtures, options: { writes?: boo
   await expect(page.getByRole('heading', { name: 'Worktrees' })).toBeVisible();
   await clickRailLink(page, 'Projects');
   await page.getByRole('combobox', { name: 'Project board' }).selectOption(BOARD.id);
-  await page.getByTestId('projects-view-mode-slot').getByRole('button', { name: 'Board' }).click();
+  await page.getByTestId('projects-view-mode-slot').getByRole('button', { name: 'Board view' }).click();
   await expect(page.getByTestId('board-view')).toBeVisible();
   await expect(page.getByText('Wire the write path')).toBeVisible();
 }
@@ -287,7 +287,7 @@ test.describe('kanban card running glow (Theme F)', () => {
     await expect(page.getByRole('heading', { name: 'Worktrees' })).toBeVisible();
     await clickRailLink(page, 'Projects');
     await page.getByRole('combobox', { name: 'Project board' }).selectOption(BOARD.id);
-    await page.getByTestId('projects-view-mode-slot').getByRole('button', { name: 'Board' }).click();
+    await page.getByTestId('projects-view-mode-slot').getByRole('button', { name: 'Board view' }).click();
 
     // `TaskCard`'s own root carries `role="button"` and the glow class
     // together — searching by role rather than counting div depth is what
@@ -332,7 +332,7 @@ test.describe('revealing a card session in the terminal', () => {
     await expect(page.getByRole('heading', { name: 'Worktrees' })).toBeVisible();
     await clickRailLink(page, 'Projects');
     await page.getByRole('combobox', { name: 'Project board' }).selectOption(BOARD.id);
-    await page.getByTestId('projects-view-mode-slot').getByRole('button', { name: 'Board' }).click();
+    await page.getByTestId('projects-view-mode-slot').getByRole('button', { name: 'Board view' }).click();
 
     const card = page
       .getByText('Wire the write path')
@@ -366,7 +366,7 @@ test.describe('revealing a card session in the terminal', () => {
     await expect(page.getByRole('heading', { name: 'Worktrees' })).toBeVisible();
     await clickRailLink(page, 'Projects');
     await page.getByRole('combobox', { name: 'Project board' }).selectOption(BOARD.id);
-    await page.getByTestId('projects-view-mode-slot').getByRole('button', { name: 'Board' }).click();
+    await page.getByTestId('projects-view-mode-slot').getByRole('button', { name: 'Board view' }).click();
 
     await page.getByText('Wire the write path').click();
     await expect(page.getByTestId('card-detail')).toBeVisible();

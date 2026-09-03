@@ -1,11 +1,19 @@
 import { useVirtualizer } from '@tanstack/react-virtual';
 import { useRef, useState } from 'react';
-import { LuCheck, LuCircleDot, LuCopy, LuGitPullRequest, LuNotebookPen } from 'react-icons/lu';
+import {
+  LuCheck,
+  LuCircleDot,
+  LuCopy,
+  LuGitPullRequest,
+  LuKanban,
+  LuNotebookPen,
+  LuTable,
+} from 'react-icons/lu';
 
 import type { ForgeProjectField, ForgeProjectItem } from '@midnite/studio-shared';
 
 import { EmptyState } from '../../components/empty-state';
-import type { IconComponent } from '../../components/icon-button';
+import { IconButton, type IconComponent } from '../../components/icon-button';
 import { VIEW_ICON } from '../../components/nav-icons';
 import { ExternalLink } from '../markdown/external-link';
 import { bridge } from '../../services/bridge';
@@ -111,27 +119,23 @@ export function ProjectsView() {
           role="group"
           aria-label="View mode"
           data-testid="projects-view-mode-slot"
-          className="flex overflow-hidden rounded border border-border text-xs"
+          className="flex items-center gap-0.5"
         >
           {(
             [
-              { id: 'table', label: 'Table' },
-              { id: 'board', label: 'Board' },
+              { id: 'table', label: 'Table view', icon: LuTable },
+              { id: 'board', label: 'Board view', icon: LuKanban },
             ] as const
           ).map((option) => (
-            <button
+            <IconButton
               key={option.id}
-              type="button"
+              icon={option.icon}
+              label={option.label}
               aria-pressed={mode === option.id}
+              size="sm"
+              className={mode === option.id ? 'bg-primary/10 text-foreground' : ''}
               onClick={() => repoId && setProjectsMode(repoId, option.id)}
-              className={`px-2 py-1 transition-colors ${
-                mode === option.id
-                  ? 'bg-primary/10 text-foreground'
-                  : 'text-muted-foreground hover:bg-accent hover:text-foreground'
-              }`}
-            >
-              {option.label}
-            </button>
+            />
           ))}
         </div>
       </header>

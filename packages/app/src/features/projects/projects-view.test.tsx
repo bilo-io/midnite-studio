@@ -144,7 +144,7 @@ describe('ProjectsView', () => {
     expect(await screen.findByText('No items')).toBeDefined();
   });
 
-  it('clicking Board persists the mode choice per repo', async () => {
+  it('clicking Board view persists the mode choice per repo', async () => {
     boardByRepo = { 'repo-1': 'PVT_1' };
     list.mockResolvedValue({
       cli: CLI_READY,
@@ -160,7 +160,7 @@ describe('ProjectsView', () => {
     renderWithClient();
     await screen.findByText('No items');
 
-    fireEvent.click(screen.getByRole('button', { name: 'Board' }));
+    fireEvent.click(screen.getByRole('button', { name: 'Board view' }));
 
     expect(setProjectsMode).toHaveBeenCalledWith('repo-1', 'board');
   });
