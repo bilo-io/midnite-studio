@@ -28,6 +28,7 @@ the card while it runs.
   the over-cap fallback for one frame on a card with a genuinely free slot. CI then caught a third:
   `kanban.spec.ts` asserted exactly one `.xterm-screen` on the whole page after revealing a card's
   session, which the card's own new terminal now legitimately makes two — rescoped to the panel.
+
 ## 2026-09-03 — Phase 43 Themes A, B, C, D — the workflow engine, backend-complete
 
 [PR #92]. The whole main-process half of Workflows, with no renderer: contracts, engine,
