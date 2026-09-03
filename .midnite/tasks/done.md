@@ -2,6 +2,44 @@
 
 <!-- Append one entry per landed phase/PR: date, phase, PR link, one-line summary. -->
 
+## 2026-09-03 — Phase 46 Themes A, C — the lock screen weather widget, pills that navigate
+
+[PR #55]. The last two build items in Phase 46, landed after Themes B/D/E/F (PR #53) had already
+shipped the corner-slot layout and motion-policy fix underneath them.
+
+- [x] **Phase 46 Theme A — weather, top centre.** A new `packages/app/src/features/weather/`
+      module shaped like `features/finance/` (`weather-api.ts`, `weather-queries.ts`,
+      `weather-derive.ts`, `weather-store.ts`), Open-Meteo (keyless) for both geocoding and the
+      current-conditions forecast, WMO weather codes mapped to `react-icons/lu` glyphs (no new
+      icon dependency), and a location search-and-select field on the Screen Lock settings page
+      mirroring `finance-panel.tsx`'s `WatchlistEditor`. `LockScreenWeatherWidget` slots
+      `top-centre` via Theme D's already-landed corner layout; renders nothing until a location
+      is set and nothing on a fetch failure. The doc's literal `enabled: screensaverOpen` query
+      gate was not implemented as a boolean flag — the widget only ever mounts while the lock
+      screen (or the landing page, which shows the same corner widgets) is actually showing it,
+      which already stops react-query's refetch interval, matching the ungated posture the
+      sibling fintech/sysmon widgets already have.
+- [x] **Phase 46 Theme C — pills that navigate.** The four count pills in `screensaver-stage.tsx`
+      became real, keyboard-reachable `<button>`s with a destination each, via a new
+      `applyPillDestination` (`repos`→`setReposOpen(true)`, `agents`→`setTerminalOpen(true)`,
+      `myPrs`/`teamPrs`→`setActiveView('reviews')` — the doc's `setActiveView('repos')` corrected,
+      since there is no `'repos'` `ViewId`). A pill click stops propagation so `LockScreen`'s own
+      dismiss/unlock handler never swallows it; behind a passcode the destination is held in local
+      state, applied on unlock, dropped on cancel, via a second independent `PasscodeUnlockDialog`.
+      **Found only by testing in a real browser**, not a `fireEvent`-based unit test: `LockScreen`'s
+      own "any key opens my dialog too" `keydown` listener doesn't know about the pill's own
+      dialog, so typing the pill's passcode used to also pop a *second*, redundant dialog
+      underneath it — fixed with a new `suppressUnlockTrigger` prop on `LockScreen`. And the
+      pill's dialog, first tried as a sibling `document.body` portal, sat under `LockScreen`'s own
+      `z-[200]` backdrop and silently ate every click on it — fixed by nesting it inside
+      `LockScreen`'s own children instead of a separate portal.
+
+Theme F's one remaining item (a test asserting the weather query's gate) is left `◻` rather than
+falsely checked — there is no boolean gate to assert on, per Theme A's note above. Theme G
+(screenshots in both motion modes/both themes, `ControlOrMeta` coverage) stays `◐ PARTIAL`: its
+unit-test bullet is satisfied by this batch, the Playwright-shots and chord-convention bullets are
+not.
+
 ## 2026-09-03 — Phase 49 Themes B, C, D, E (partial) — the onboarding kit's plan/apply engine, Setup dialog, and menu wiring
 
 [PR #TBD].

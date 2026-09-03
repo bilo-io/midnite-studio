@@ -34,6 +34,18 @@ export type LockScreenProps = {
   corners?: ReactNode;
   label?: string;
   labels?: LockScreenLabels;
+  /**
+   * Phase 46 Theme C. A pill held behind the passcode pad runs its own,
+   * independent `PasscodeUnlockDialog` (`screensaver.tsx`) rather than this
+   * component's generic one — so while that is up, this component's own
+   * click-anywhere / keydown-anywhere triggers must go quiet. Without this,
+   * typing the pill's passcode also fires this component's own `keydown`
+   * listener (it only ever checked its OWN `unlocking` flag, which the pill
+   * flow never touches) and opens a SECOND, redundant dialog underneath the
+   * pill's — invisible to a `fireEvent`-based unit test, since that never
+   * dispatches a real `window` `keydown`, but real in a browser.
+   */
+  suppressUnlockTrigger?: boolean;
 };
 
 export function LockScreen({
@@ -46,6 +58,7 @@ export function LockScreen({
   corners,
   label,
   labels,
+  suppressUnlockTrigger = false,
 }: LockScreenProps) {
   const copy = { ...DEFAULT_LABELS, ...labels };
   const [unlocking, setUnlocking] = useState(false);
@@ -55,6 +68,7 @@ export function LockScreen({
   useEffect(() => setMounted(true), []);
 
   useEffect(() => {
+    if (suppressUnlockTrigger) return;
     if (dismissible) {
       const onKey = () => onDismiss?.();
       window.addEventListener('keydown', onKey);
@@ -65,17 +79,19 @@ export function LockScreen({
       window.addEventListener('keydown', onKey);
       return () => window.removeEventListener('keydown', onKey);
     }
-  }, [dismissible, unlocking, onDismiss]);
+  }, [dismissible, unlocking, onDismiss, suppressUnlockTrigger]);
 
   if (!mounted) return null;
+
+  const clickToUnlock = !suppressUnlockTrigger && (dismissible ? onDismiss : !unlocking ? () => setUnlocking(true) : undefined);
 
   return createPortal(
     <div
       role="dialog"
       aria-label={label ?? (requireCode ? copy.locked : copy.screensaver)}
-      onClick={dismissible ? onDismiss : !unlocking ? () => setUnlocking(true) : undefined}
+      onClick={clickToUnlock || undefined}
       className={`fixed inset-0 z-[200] flex flex-col items-center justify-center bg-background/90 px-6 text-center backdrop-blur-[120px] ${
-        dismissible || !unlocking ? 'cursor-pointer' : ''
+        clickToUnlock ? 'cursor-pointer' : ''
       }`}
     >
       <NeuroCloudBackground animate={animateBackground} />
@@ -88,7 +104,7 @@ export function LockScreen({
         {requireCode ? copy.unlockHint : copy.wakeHint}
       </p>
 
-      {requireCode && unlocking ? (
+      {requireCode && unlocking && !suppressUnlockTrigger ? (
         <PasscodeUnlockDialog
           expected={passcode}
           label={copy.passcodeDialogLabel}
