@@ -282,6 +282,16 @@ describe('readStashFileDiff', () => {
     const diff = await readStashFileDiff(repo.path, 'stash@{0}', 'index', 'a.txt');
     expect(diff?.hunks).toEqual([]);
   });
+
+  it('returns null for the untracked part when the stash was made without -u', async () => {
+    // Unlike the index part, `^3` genuinely does not exist on a plain stash —
+    // there is no rootless third parent to diff at all.
+    await repo.commitFile('a.txt', 'one\n', 'base');
+    await repo.writeFile('a.txt', 'two\n');
+    await stashPush(repo.path);
+
+    expect(await readStashFileDiff(repo.path, 'stash@{0}', 'untracked', 'a.txt')).toBeNull();
+  });
 });
 
 describe('stashBranch', () => {

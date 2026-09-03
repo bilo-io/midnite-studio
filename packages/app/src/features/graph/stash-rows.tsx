@@ -193,11 +193,17 @@ function StashOverflowRow({
   theme: GraphTheme;
 }) {
   const closed = useUiStore((s) => s.collapsedRepoSections[repoId]);
+  const reposOpen = useUiStore((s) => s.reposOpen);
+  const setReposOpen = useUiStore((s) => s.setReposOpen);
 
   return (
     <button
       type="button"
       onClick={() => {
+        // Both folds independently hide the row this points at: the sidebar
+        // can be toggled off entirely, separately from any one repo's
+        // Stashes section being collapsed within it.
+        if (!reposOpen) setReposOpen(true);
         if (closed?.includes('stashes')) toggleRepoSection(repoId, 'stashes');
       }}
       className="flex w-full shrink-0 cursor-default items-center border-b border-dashed border-border/60 pl-3 pr-3 text-left text-xs italic text-muted-foreground transition-colors hover:bg-accent/30"
