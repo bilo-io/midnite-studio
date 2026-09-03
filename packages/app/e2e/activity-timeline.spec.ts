@@ -54,9 +54,28 @@ test('the status-bar toggle raises the panel, vertical by default', async ({ pag
 
 test('the chord toggles it too', async ({ page }) => {
   await open(page);
-  await page.keyboard.press('ControlOrMeta+Shift+A');
+  // Dispatched as a DOM event rather than `keyboard.press`: Ctrl+Shift+A is
+  // Chromium's own "search tabs" accelerator on Linux, so on CI the real
+  // keystroke never reaches the page. Electron has no such accelerator — the
+  // chord works in the app; only the test harness's browser collides.
+  const pressChord = () =>
+    page.evaluate(() => {
+      const mac = /mac/i.test(navigator.platform || navigator.userAgent);
+      window.dispatchEvent(
+        new KeyboardEvent('keydown', {
+          key: 'A',
+          code: 'KeyA',
+          shiftKey: true,
+          metaKey: mac,
+          ctrlKey: !mac,
+          bubbles: true,
+          cancelable: true,
+        }),
+      );
+    });
+  await pressChord();
   await expect(page.getByTestId('commit-activity-panel')).toBeVisible();
-  await page.keyboard.press('ControlOrMeta+Shift+A');
+  await pressChord();
   await expect(page.getByTestId('commit-activity-panel')).toHaveCount(0);
 });
 
