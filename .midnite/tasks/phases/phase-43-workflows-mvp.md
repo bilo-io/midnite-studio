@@ -424,7 +424,7 @@ Effort tags: **S** ≈ an hour or two · **M** ≈ half a day · **L** ≈ a day
 - [x] Navigation between workflow → node.
   - No `panel-stack`: plain `ReadonlySet<string>` selection lifted from the canvas's existing `onSelectionChange`, exactly as recorded. Run-detail navigation is Theme G's own surface once it exists.
 
-### G — Runs (M) — ✅ DONE (PR #TBD, 2026-09-03)
+### G — Runs (M) — ✅ DONE (PR #105, 2026-09-03)
 
 - [x] Run view: the same canvas, in read-only mode, with per-node status colouring.
   - `workflow-canvas.tsx` takes `readOnly?: boolean` and `nodeStatuses?: ReadonlyMap<string, WorkflowNodeStatus>`; pan/zoom and click-to-select stay live, drag/edge-creation/marquee/delete/undo are all gated behind `!readOnly` in the same handlers rather than a second component.

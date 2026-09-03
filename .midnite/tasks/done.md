@@ -4,7 +4,7 @@
 
 ## 2026-09-03 — Phase 43 Theme G — the workflow run view
 
-[PR #TBD]. Closes out Phase 43's build half — Theme I (settings) is the one item left.
+[PR #105]. Closes out Phase 43's build half — Theme I (settings) is the one item left.
 
 - [x] **Read-only run mode, one canvas.** `workflow-canvas.tsx` gained `readOnly`/`nodeStatuses`
       props rather than a second component: pan/zoom and click-to-select stay live, drag/connect/
