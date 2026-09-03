@@ -92,30 +92,50 @@ The safe baseline: accept one side for an entire file, no partial state.
       thin, delegates straight to the git-engine function, no logic of its own (matches every other
       write-path handler's shape).
 
-### C — Hunk-level patch application, the phase's biggest risk (L)
+### C — Hunk-level patch application, the phase's biggest risk (L) — ✅ DONE (PR #103, 2026-09-03)
 
 > This is exactly the "write path through the index with its own conflict semantics" Phase 26
 > flagged and deliberately did not build. Nothing here is precedented anywhere in the repo —
 > grepping `git-engine` for `--ours`, `--theirs`, `apply --cached`, or `rerere` returns zero hits.
 
-- [ ] `applyConflictHunk(worktreePath, path, region, side: 'ours' | 'theirs' | 'both')` — synthesizes
-      a single-hunk unified-diff patch from the parsed `ConflictRegion` (Theme A) and applies it with
-      `git apply --index` (not `--cached`) so the **worktree file and the index agree** on
-      resolution progress after every accepted hunk — a file mid-resolution should never show staged
-      content that disagrees with what's on disk.
-- [ ] A file with N conflicted regions is resolved incrementally: after each accepted hunk, the file
-      still reads as `conflicted` in `StatusResult` until every region is resolved, and querying its
-      diff again re-parses only the **remaining** unresolved regions (Theme A's parser run again on
-      the file's current state) rather than the whole original conflict.
-- [ ] `side: 'both'` (accept ours-then-theirs concatenated, in that order) is included because it is
-      the single most common real resolution for additive conflicts (both sides added an import, a
-      dependency, a changelog line) — confirm this against a fixture where it's the objectively
-      correct answer, not just a nice-to-have.
-- [ ] Integration tests: applying one hunk in a multi-hunk file leaves the **sibling** hunks in that
-      same file still conflicted and still parseable; a malformed or already-stale patch (the file
-      changed on disk since the region was read) fails the apply rather than corrupting the file —
-      surface this as the existing `GitOpResult` `error` kind, not a thrown exception.
-- [ ] A new IPC channel (`mstudio:conflicts:applyHunk`), same thin-handler shape as Theme B.
+- [x] `applyConflictHunk(worktreePath, path, regionIndex, region, side: 'ours' | 'theirs' | 'both')`
+      — synthesizes a single-hunk unified-diff patch from a freshly re-read `ConflictRegion` (Theme
+      A) and applies it.
+  - **Corrected, found spiking it against real git before writing any code**: `git apply --index`
+    (or `--cached`) cannot work against an unmerged path — there is no stage-0 entry to patch
+    (`ls-files -u` shows only stages 1/2/3), and both flags fail outright with "does not exist in
+    index". There is also no such thing as a *partial* index for a conflicted path — staging is
+    whole-file-or-nothing. So "the worktree file and the index agree on resolution progress" can
+    only mean "don't touch the index while regions remain," which leaving the pre-existing 1/2/3
+    stages alone already guarantees; the patch applies to the **worktree only**, and the path is
+    staged (collapsing to one resolved stage-0 entry) the moment a fresh read shows zero markers
+    left — the one point where "agree" genuinely bites.
+  - **Widened from the doc's own signature**: takes a `regionIndex` (0-based, document order) too,
+    not just `region`'s content. Content alone can't address a specific occurrence when two
+    conflicts in the same file happen to hold identical text; the index is what a renderer walking
+    the file top-to-bottom already has for free, and `region` still does its job — a stale-content
+    check against what the engine finds at that index on a fresh read.
+- [x] A file with N conflicted regions is resolved incrementally: after each accepted hunk, the file
+      still reads as `conflicted` in `StatusResult` until every region is resolved, and re-locating
+      a region re-scans the file's **current** state (`locateConflictRegion`, new in
+      `conflict-parser.ts`) rather than the original conflict.
+- [x] `side: 'both'` (accept ours-then-theirs concatenated, in that order) — covered against a
+      fixture where it's the objectively correct answer (two branches each adding their own import).
+- [x] Integration tests (`conflict-hunk.integration.test.ts`, real git via `TempRepo`): applying one
+      hunk in a multi-hunk file leaves the **sibling** hunks still conflicted and still parseable;
+      incremental resolution finalizes staging only once zero markers remain; a stale region (changed
+      on disk, or an index past the last region) fails as the existing `GitOpResult` `code:
+      'stale-write'` rather than a thrown exception or a corrupted file; resolved content that
+      legitimately contains the literal marker substring still finalizes correctly (self-review
+      caught a whole-string `includes` check that would have false-positived on that case).
+- [x] A new IPC channel — `mstudio:op:conflict-apply-hunk`, not the doc's originally-sketched
+      `mstudio:conflicts:applyHunk` (naming now matches every other op channel's `mstudio:op:*`
+      convention, Theme B's included) — same thin-handler shape as Theme B: schema, channel, bridge
+      type, preload call, main handler. No renderer consumer yet — that's Theme D.
+- **Not done**: the no-trailing-newline case. A conflict region touching a file's very last line,
+  when that file has no trailing `\n`, fails to apply — the patch never emits a `\ No newline at end
+  of file` marker. Left open rather than guessed at; every fixture this batch's tests touch ends in
+  `\n`, and Theme D's real-file testing is what will show whether it matters in practice.
 
 ### D — The Conflict Resolution Studio UI (L)
 

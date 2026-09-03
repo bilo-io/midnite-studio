@@ -25,6 +25,44 @@ nothing to configure them with until now.
       `components/form/field.tsx`; `settings-pages/controls.tsx` re-exports them unchanged.
       `SwitchRow`/`RadioRow` needed no move — Phase 41 Theme G had already hoisted them.
 
+## 2026-09-03 — Phase 47 Theme C — hunk-level conflict patch application
+
+[PR #103]. The phase's own flagged "biggest risk" — a net-new write path through the index for
+hunk-level conflict resolution, with zero precedent anywhere in the repo (Phase 26 named this exact
+gap and deliberately declined to build it). Themes D (the Studio UI), E (agent-assisted suggestion)
+and F (wiring/verification) were all blocked on this landing first.
+
+- [x] **`applyConflictHunk`** resolves one conflicted region within a path to `ours`/`theirs`/`both`,
+      leaving sibling regions in the same file untouched and still parseable as conflicted.
+  - **Corrected from the phase doc, found spiking it against real git before writing any code**:
+    `git apply --index`/`--cached` cannot target an unmerged path — there is no stage-0 entry to
+    patch against (`ls-files -u` shows only stages 1/2/3), confirmed against a throwaway repo. There
+    is also no partial-index state for a conflicted path — staging is whole-file-or-nothing. The
+    patch applies to the **worktree only**, leaving the pre-existing 1/2/3 stages alone while regions
+    remain, and finalizes with a plain `git add` (one resolved stage-0 entry) the moment a fresh read
+    shows zero markers left.
+  - **Widened from the doc's signature**: takes a `regionIndex` (0-based, document order) alongside
+    `region`, so two conflicts with identical content in the same file can't be confused — the index
+    is what a renderer walking the file top-to-bottom already has for free.
+  - A stale region (changed on disk, or an index past the last region) fails as `GitOpResult`'s
+    existing `code: 'stale-write'` — the same code Phase 24's fs-write channels already use for the
+    identical shape of problem.
+- [x] New `locateConflictRegion` parser (`conflict-parser.ts`): scans a whole file's raw lines for its
+      Nth conflict region in document order, keeping the literal marker line text the display parser
+      (Theme A) deliberately discards, since a patch has to reproduce it byte-for-byte.
+- [x] New IPC channel `mstudio:op:conflict-apply-hunk` (schema, channel, bridge type, preload call,
+      main handler), same thin-handler shape as Theme B's whole-file resolution. No renderer consumer
+      yet — that's Theme D.
+- Self-review caught one real defect before merge: a whole-string `resolvedContent.includes('<<<<<<<')`
+  check that would false-positive on resolved content legitimately containing that substring mid-line
+  (a fixture or a file documenting conflict markers), leaving the path silently stuck unmerged despite
+  reporting success — fixed to a per-line `startsWith` check, matching how the marker scanner itself
+  detects a marker, with a regression test.
+- **Not done**: the no-trailing-newline case (a region touching a file's very last line when that file
+  has no trailing `\n` fails to apply, since the patch never emits a `\ No newline at end of file`
+  marker) — left open, no fixture in this batch's tests needed it, and Theme D's real-file testing is
+  what will show whether it matters in practice.
+
 ## 2026-09-03 — Phase 50 Themes E, F — "Add to project" from Reviews, activity markers beyond Claude
 
 [PR #101]. Two of the six gaps Phases 40–42 named and declined, the last two Phase 50 had left open
