@@ -2,6 +2,9 @@ import { describe, expect, it } from 'vitest';
 
 import {
   bucketCommits,
+  bucketLabel,
+  gridlineIndices,
+  GRIDLINE_CADENCE,
   TIMEFRAME_BUCKETS,
   type CommitActivity,
 } from './activity-buckets';
@@ -78,5 +81,63 @@ describe('bucketCommits', () => {
       NOW,
     );
     expect(buckets.every((b) => b.count === 0)).toBe(true);
+  });
+});
+
+describe('gridlineIndices', () => {
+  it('rules a day window on even LOCAL hours, never on index 0', () => {
+    const buckets = bucketCommits([], 'day', NOW);
+    const marks = gridlineIndices(buckets, 'day');
+
+    expect(marks).not.toContain(0);
+    // Twelve even hours in 24, minus the one that would land on index 0 if the
+    // window happens to open on an even hour.
+    expect(marks.length).toBeGreaterThanOrEqual(11);
+    expect(marks.length).toBeLessThanOrEqual(12);
+    for (const index of marks) {
+      expect(new Date(buckets[index]!.start).getHours() % 2).toBe(0);
+    }
+  });
+
+  it('rules a week window at every day boundary but the first', () => {
+    const buckets = bucketCommits([], 'week', NOW);
+    expect(gridlineIndices(buckets, 'week')).toEqual([1, 2, 3, 4, 5, 6]);
+  });
+
+  it('rules a month window on Mondays, seven apart', () => {
+    const buckets = bucketCommits([], 'month', NOW);
+    const marks = gridlineIndices(buckets, 'month');
+
+    expect(marks).toHaveLength(4);
+    for (const index of marks) {
+      expect(new Date(buckets[index]!.start).getDay()).toBe(1);
+    }
+    expect(marks.map((index, i) => index - (marks[0]! + i * 7))).toEqual([0, 0, 0, 0]);
+  });
+
+  it('names its own cadence for every timeframe', () => {
+    expect(Object.keys(GRIDLINE_CADENCE).sort()).toEqual(['day', 'month', 'week']);
+  });
+});
+
+describe('bucketLabel', () => {
+  it('gives an hour bucket a clock range and a date', () => {
+    const [bucket] = bucketCommits([], 'day', NOW).slice(-1);
+    const label = bucketLabel(bucket!, 'day');
+    expect(label).toContain('–');
+    // Both ends of the range, an hour apart.
+    expect(label.split('–')).toHaveLength(2);
+  });
+
+  it('gives a day bucket the weekday, and no clock at all', () => {
+    const week = bucketCommits([], 'week', NOW);
+    const label = bucketLabel(week.at(-1)!, 'week');
+    expect(label).not.toContain('–');
+    // Distinct per bucket — a label that lost the date would collapse the
+    // seven of them onto one string, which `toContain('3')` would not catch.
+    expect(new Set(week.map((bucket) => bucketLabel(bucket, 'week'))).size).toBe(7);
+    // The weekday-bearing form, which the day view's own label never carries.
+    const dayForm = bucketLabel(bucketCommits([], 'day', NOW).at(-1)!, 'day');
+    expect(label).not.toBe(dayForm);
   });
 });
