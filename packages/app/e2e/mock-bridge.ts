@@ -447,7 +447,7 @@ export async function installMockBridge(page: Page, fixtures: MockFixtures): Pro
     await page.addInitScript(() => {
       try {
         const stored = localStorage.getItem('midnite-studio.ui');
-        const persisted = stored ? JSON.parse(stored) : { version: 5 };
+        const persisted = stored ? JSON.parse(stored) : { version: 6 };
         persisted.state = {
           selectedRepoId: 'repo-1',
           selectedWorktreePath: '/tmp/midnite-studio',

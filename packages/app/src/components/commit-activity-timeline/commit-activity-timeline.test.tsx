@@ -71,13 +71,17 @@ describe('CommitActivityTimeline', () => {
     expect(marks(container)).toHaveLength(30);
   });
 
-  it('draws the sparkline as an area plus a non-scaling line', () => {
+  it('draws the churn areas as two bands, each a fill plus a non-scaling line', () => {
     const { container } = render(
-      <CommitActivityTimeline commits={commits} timeframe="week" variant="sparkline" now={NOW} />,
+      <CommitActivityTimeline commits={commits} timeframe="week" variant="area" now={NOW} />,
     );
-    const paths = container.querySelectorAll('path');
-    expect(paths).toHaveLength(2);
-    expect(paths[1]?.getAttribute('vector-effect')).toBe('non-scaling-stroke');
+    const paths = [...container.querySelectorAll('path')];
+    expect(paths).toHaveLength(4);
+    expect(paths.filter((p) => p.getAttribute('vector-effect') === 'non-scaling-stroke')).toHaveLength(
+      2,
+    );
+    expect(container.querySelectorAll('path.text-emerald-500')).toHaveLength(2);
+    expect(container.querySelectorAll('path.text-rose-500')).toHaveLength(2);
   });
 
   it('swaps the viewBox axes with the orientation', () => {
@@ -192,6 +196,92 @@ describe('CommitActivityTimeline bar layout', () => {
     expect(del).toBeDefined();
     const bottom = Number(add.getAttribute('y')) + Number(add.getAttribute('height'));
     expect(bottom).toBeCloseTo(Number(del!.getAttribute('y')), 5);
+  });
+});
+
+/**
+ * The churn areas' two layouts.
+ *
+ * Asserted off the stroked upper edge of each band rather than its fill: the
+ * fill path is the edge plus a return leg, so the edge is the same numbers
+ * with none of the closing noise. `AREA_PAD` puts the zero edge at 31 and the
+ * far edge at 1, and `alongPoints` squares the ends off, so bucket `i` is
+ * point `i + 1`.
+ */
+describe('CommitActivityTimeline area layout', () => {
+  const edge = (container: HTMLElement, colour: 'emerald' | 'rose'): [number, number][] => {
+    const d = container
+      .querySelector(`path.text-${colour}-500[vector-effect="non-scaling-stroke"]`)!
+      .getAttribute('d')!;
+    return d
+      .slice(1)
+      .split(' L')
+      .map((point) => point.split(',').map(Number) as [number, number]);
+  };
+
+  const area = (props: Partial<Parameters<typeof CommitActivityTimeline>[0]> = {}) =>
+    render(
+      <CommitActivityTimeline
+        commits={commits}
+        timeframe="week"
+        variant="area"
+        now={NOW}
+        {...props}
+      />,
+    ).container;
+
+  /**
+   * Sep 1 — the bucket carrying deletions and no additions. A week window
+   * opens on Aug 28, so that is bucket 4, and the leading shoulder shifts
+   * every bucket one point along.
+   */
+  const SEP_1 = 4 + 1;
+
+  it('squares the band off to both ends of the time axis', () => {
+    const points = edge(area(), 'rose');
+    // Seven buckets plus a shoulder at each end.
+    expect(points).toHaveLength(9);
+    expect(points[0]![0]).toBe(0);
+    expect(points.at(-1)![0]).toBe(100);
+    // A shoulder repeats its neighbour's value, so the end is flat.
+    expect(points[0]![1]).toBe(points[1]![1]);
+    expect(points.at(-1)![1]).toBe(points.at(-2)![1]);
+  });
+
+  it('overlays both bands off the same zero edge by default', () => {
+    const container = area();
+    expect(container.querySelector('[data-testid="activity-area-overlaid"]')).not.toBeNull();
+    // No additions in this bucket, so the green edge is flat on the axis while
+    // the red one rises off it.
+    expect(edge(container, 'emerald')[SEP_1]![1]).toBeCloseTo(31, 5);
+    expect(edge(container, 'rose')[SEP_1]![1]).toBeLessThan(31);
+  });
+
+  it('rests additions on top of deletions when stacked', () => {
+    const container = area({ areaLayout: 'stacked' });
+    expect(container.querySelector('[data-testid="activity-area-stacked"]')).not.toBeNull();
+    // Same bucket: with nothing added, the green edge lands exactly on the red
+    // one rather than on the axis.
+    const green = edge(container, 'emerald')[SEP_1]![1];
+    const red = edge(container, 'rose')[SEP_1]![1];
+    expect(green).toBeCloseTo(red, 5);
+    expect(green).toBeLessThan(31);
+  });
+
+  it('scales stacked bands against the largest total, not the largest single side', () => {
+    // Sep 1's −9 is 9 of a 10-line largest side but only 9 of a 14-line
+    // largest total, so stacking shortens it — a larger y is a shorter band.
+    expect(edge(area({ areaLayout: 'stacked' }), 'rose')[SEP_1]![1]).toBeGreaterThan(
+      edge(area(), 'rose')[SEP_1]![1],
+    );
+  });
+
+  it('falls back to one neutral commit-count area when no bucket carries line stats', () => {
+    const flat = commits.map((c) => ({ ...c, additions: 0, deletions: 0 }));
+    const container = area({ commits: flat });
+    expect(container.querySelector('path.text-emerald-500')).toBeNull();
+    expect(container.querySelector('path.text-rose-500')).toBeNull();
+    expect(container.querySelectorAll('path.text-muted-foreground')).toHaveLength(2);
   });
 });
 
@@ -314,6 +404,23 @@ describe('CommitActivityTimeline vertical orientation', () => {
       Number(rect.getAttribute('x')) + Number(rect.getAttribute('width'));
     expect(right(add)).toBeCloseTo(right(del), 5);
     expect(right(add)).toBeCloseTo(32, 5);
+  });
+
+  it('turns the churn bands sideways, measured off the left edge', () => {
+    const container = vertical({ variant: 'area' });
+    const points = [
+      ...container
+        .querySelector('path.text-rose-500[vector-effect="non-scaling-stroke"]')!
+        .getAttribute('d')!
+        .slice(1)
+        .split(' L'),
+    ].map((point) => point.split(',').map(Number) as [number, number]);
+
+    // Vertically the pair is `across,along`: time runs down y from 0 to 100,
+    // and depth is x measured off the `CROSS - AREA_PAD` edge.
+    expect(points[0]![1]).toBe(0);
+    expect(points.at(-1)![1]).toBe(100);
+    expect(Math.max(...points.map(([x]) => x))).toBeCloseTo(31, 5);
   });
 
   it('lays the hit rects down the time axis, spanning the full cross axis', () => {
