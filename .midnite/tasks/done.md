@@ -2,6 +2,29 @@
 
 <!-- Append one entry per landed phase/PR: date, phase, PR link, one-line summary. -->
 
+## 2026-09-03 — Phase 43 Theme F — the workflow node inspector
+
+[PR #102]. The canvas's first right-hand config pane — the five node kinds `#100` shipped had
+nothing to configure them with until now.
+
+- [x] **The inspector.** `node-inspector.tsx` + `node-forms.tsx`: one form per `WorkflowNodeKind`,
+      dispatched via an exhaustive `Record<WorkflowNodeKind, ...>` so a sixth kind fails to
+      typecheck until its form exists. `<EmptyState>` with *"Select a node to configure it."* when
+      nothing (or more than one node) is selected — plain `ReadonlySet<string>` selection lifted from
+      the canvas's existing `onSelectionChange`, no `panel-stack`.
+- [x] **Live validation.** Reuses the existing `validateWorkflow()` (Theme A) rather than the doc's
+      own suggested `WorkflowNodeSchema.safeParse` — that schema has no presence constraints, so it
+      would never catch an empty URL. An invalid node draws a `stroke-destructive` outline and a
+      badge on the canvas; the new Run button (also this theme's, wired to the existing
+      `workflow.run` IPC) is disabled with a `title` naming the first issue.
+- [x] **The `{{...}}` reference helper.** `ancestorIds()` (new in `shared/workflow.ts`) lists a
+      node's transitive upstream predecessors; `node-output-fields.ts` gives each one's declared
+      output shape. Insert-on-click at the focused field's caret — the last-run-output fallback the
+      doc names is left to Theme G, since run history storage lives there.
+- [x] **Form primitives hoisted.** `Field`/`Choice`/new `TextField`/`TextArea` moved into
+      `components/form/field.tsx`; `settings-pages/controls.tsx` re-exports them unchanged.
+      `SwitchRow`/`RadioRow` needed no move — Phase 41 Theme G had already hoisted them.
+
 ## 2026-09-03 — Phase 50 Themes E, F — "Add to project" from Reviews, activity markers beyond Claude
 
 [PR #101]. Two of the six gaps Phases 40–42 named and declined, the last two Phase 50 had left open

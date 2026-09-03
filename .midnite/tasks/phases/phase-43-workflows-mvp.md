@@ -403,7 +403,7 @@ Effort tags: **S** ≈ an hour or two · **M** ≈ half a day · **L** ≈ a day
   - *Acceptance:* a 200-node fixture renders under 300 DOM nodes at default zoom, asserted in an
     RTL test counting `[data-node-id]` elements.
 
-### F — The node inspector (M) — ✅ DONE (2026-09-03)
+### F — The node inspector (M) — ✅ DONE (PR #102, 2026-09-03)
 
 - [x] Right-hand config panel for the selected node, its form driven by the node `kind` — the
       discriminated union from Theme A is what makes this exhaustive rather than a `switch` with a
