@@ -76,6 +76,23 @@ describe('useUiStore', () => {
     expect(useUiStore.getState().graphSelection).toBeNull();
   });
 
+  it('selecting a conflicted path clears a commit selection and vice versa (Phase 47 Theme D)', () => {
+    useUiStore.getState().selectCommit('abc');
+    expect(useUiStore.getState().graphSelection).toEqual({ kind: 'commit', sha: 'abc' });
+
+    useUiStore.getState().selectConflict('src/f.txt');
+    expect(useUiStore.getState().graphSelection).toEqual({
+      kind: 'conflict',
+      path: 'src/f.txt',
+    });
+
+    useUiStore.getState().selectCommit('def');
+    expect(useUiStore.getState().graphSelection).toEqual({ kind: 'commit', sha: 'def' });
+
+    useUiStore.getState().selectConflict(null);
+    expect(useUiStore.getState().graphSelection).toBeNull();
+  });
+
   it('toggles the terminal', () => {
     useUiStore.getState().toggleTerminal();
     expect(useUiStore.getState().terminalOpen).toBe(true);

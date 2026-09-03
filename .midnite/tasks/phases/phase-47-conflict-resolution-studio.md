@@ -137,27 +137,43 @@ The safe baseline: accept one side for an entire file, no partial state.
   of file` marker. Left open rather than guessed at; every fixture this batch's tests touch ends in
   `\n`, and Theme D's real-file testing is what will show whether it matters in practice.
 
-### D — The Conflict Resolution Studio UI (L)
+### D — The Conflict Resolution Studio UI (L) — ✅ DONE (PR #107, 2026-09-04)
 
-- [ ] A new component, e.g.
+- [x] A new component,
       [`app/src/features/conflicts/conflict-resolution-studio.tsx`](../../../packages/app/src/features/conflicts/conflict-resolution-studio.tsx),
-      opened when a conflicted path is clicked in `ConflictBanner` — replacing the current inert
-      `<li>` list entry with a real affordance. **Not** built on `diff-view.tsx`'s `SplitRow`/
-      `toSplitRows` data model — Phase 26 excluded combined diffs from that model on purpose (three
-      sides, no honest two-column reading) — but free to reuse `DiffCell`'s virtualization, gutter
-      rendering and shiki syntax highlighting underneath a new row shape built for
-      context/ours/theirs/base segments (Theme A's `ConflictRegion`).
-- [ ] Per-region controls: **Accept mine / Accept theirs / Accept both**, each calling Theme C's
-      `applyHunk` IPC; a file-level **Accept all mine / Accept all theirs** shortcut calling Theme
-      B's whole-file action when the user wants to skip region-by-region review entirely.
-- [ ] A resolved region renders as resolved (no more markers, shown as plain context) without
-      leaving the Studio — no full-file re-fetch-and-remount per accepted hunk; append the resolved
-      state locally and reconcile with the next `StatusResult`/diff poll the same way the rest of the
-      app treats server state as authoritative but not synchronous.
-- [ ] `ConflictBanner` itself changes minimally: the path list becomes clickable, opening the Studio
-      for that file; **Continue stays gated exactly as it is today** — disabled while any file is
-      still `conflicted` — and **Abort is untouched**. This theme adds a resolution surface in front
-      of the existing gate, it does not change the gate.
+      opened when a conflicted path is clicked in `ConflictBanner` — replacing the inert `<li>` list
+      entry with a real button. **Not** built on `diff-view.tsx`'s `SplitRow`/`toSplitRows` data
+      model — Phase 26 excluded combined diffs from that model on purpose (three sides, no honest
+      two-column reading).
+  - **Narrowed from the doc's plan**: reuses none of `DiffCell`'s virtualization, gutter rendering
+    or shiki highlighting — a plain monospace rendering instead. Stretching a two-column cell
+    component to a three-sided region cost more than a new one; the actual risk in this theme is
+    the per-region accept flow and stale-write recovery, not the row's paint. Left for a follow-up
+    pass rather than guessed at.
+  - **A new read-side IPC was needed and added**, `mstudio:conflict:regions`: Themes A–C's
+    `parseConflictedFile`/`readFileDiff` had only ever run main-process-side, feeding
+    `applyConflictHunk`'s own patch synthesis — nothing exposed parsed regions to the renderer at
+    all until this theme needed to display them. Response carries a `truncated` flag (self-review
+    catch): `readFileDiff` caps at `DIFF_LINE_CAP`, and a conflicted file past that cutoff was
+    silently missing trailing regions with no signal; the Studio now shows a warning banner instead.
+- [x] Per-region controls: **Accept mine / Accept theirs / Accept both**, each calling Theme C's
+      `applyConflictHunk` IPC; a file-level **Accept all mine / Accept all theirs** shortcut calling
+      Theme B's whole-file action when the user wants to skip region-by-region review entirely.
+- [x] A resolved region renders as resolved (no more markers, shown as plain context) without
+      leaving the Studio — no full-file re-fetch-and-remount per accepted hunk. Not a local append:
+      `useConflictRegions` is nested under the same `keys.status(...)` React Query prefix every
+      write op's `onSettled` already invalidates, and the file watcher invalidates it again the
+      moment `applyConflictHunk`'s worktree write lands — the existing "server state authoritative
+      but not synchronous" reconciliation, reused rather than rebuilt.
+- [x] `ConflictBanner` changes minimally: the path list is now clickable (`onOpenConflict` prop),
+      opening the Studio in the graph's existing side-panel slot (`GraphSelection` widened with a
+      `'conflict'` kind, beside `commit`/`stash`) — **Continue stays gated exactly as it was** and
+      **Abort is untouched**.
+  - **A real bug caught mid-build**: the mutation hooks first read the checkout to target off the
+    *globally selected* worktree (`useGitOp`) rather than the Studio's own `worktreePath` prop —
+    invisible until a test asserting the exact op payload caught the mismatch. Fixed with
+    `useTargetedGitOp` and an explicit target, matching `use-repo-actions.ts`'s own precedent for
+    exactly this shape of problem.
 
 ### E — Agent-assisted resolution suggestion (S)
 

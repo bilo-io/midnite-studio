@@ -60,6 +60,21 @@ export type MockFixtures = {
   };
   graphRows: unknown[];
   statusEntries: unknown[];
+  /**
+   * `status.get`'s `inProgress` — `null` (the default) is every ordinary spec;
+   * set to drive `ConflictBanner`, which renders nothing at all otherwise.
+   */
+  inProgress?: 'merge' | 'rebase' | 'cherry-pick' | 'revert' | null;
+  /**
+   * A conflicted path's parsed regions (Phase 47 Theme D), keyed by path —
+   * the hunks half of what `status.conflictRegions` answers. A path with no
+   * entry parses to zero regions, same as the real handler on an unmerged
+   * path it can't read. `truncated` is always `false` unless the path is
+   * also named in `conflictRegionsTruncated`.
+   */
+  conflictRegions?: Record<string, unknown[]>;
+  /** Paths whose `conflictRegions` answer should report `truncated: true` — the "file too large" banner. */
+  conflictRegionsTruncated?: Record<string, boolean>;
   /** Refs the sidebar and the BRANCH / TAG column render. */
   refs?: unknown[];
   /** What `stash.list` answers — the sidebar's Stashes section (Phase 22 Theme B). */
@@ -735,7 +750,7 @@ export async function installMockBridge(page: Page, fixtures: MockFixtures): Pro
           entries:
             (req.worktreePath ? data.statusByWorktree?.[req.worktreePath] : undefined) ??
             data.statusEntries,
-          inProgress: null,
+          inProgress: data.inProgress ?? null,
         }),
         counts: async (req: { worktreePath?: string }) => {
           const entries = ((req.worktreePath
@@ -764,6 +779,12 @@ export async function installMockBridge(page: Page, fixtures: MockFixtures): Pro
           data.diffs[`${req.sha}:${req.path}:${req.context}`] ??
           data.diffs[`${req.sha}:${req.path}`] ??
           emptyDiff(req.path),
+        // The Studio's read side (Phase 47 Theme D) — a path with no fixture
+        // parses to zero regions, same as a fully-resolved or unmerged path.
+        conflictRegions: async (req: { path: string }) => ({
+          hunks: data.conflictRegions?.[req.path] ?? [],
+          truncated: data.conflictRegionsTruncated?.[req.path] ?? false,
+        }),
       },
       remotes: {
         list: async () => data.remotes ?? [],

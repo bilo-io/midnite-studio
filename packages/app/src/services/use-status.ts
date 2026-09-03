@@ -1,5 +1,8 @@
 import type {
   ChangeCounts,
+  ConflictHunkSide,
+  ConflictRegion,
+  ConflictSide,
   GitOpResult,
   JournalOp,
   OpJournalEntry,
@@ -268,7 +271,9 @@ export type GitOpId =
   | 'tag-create'
   | 'worktree-add'
   | 'abort'
-  | 'continue';
+  | 'continue'
+  | 'conflict-resolve-whole-file'
+  | 'conflict-apply-hunk';
 
 /** The present participle the op-progress segment renders while one runs. */
 export const GIT_OP_LABEL: Record<GitOpId, string> = {
@@ -292,6 +297,8 @@ export const GIT_OP_LABEL: Record<GitOpId, string> = {
   'worktree-add': 'Adding worktree…',
   abort: 'Aborting…',
   continue: 'Continuing…',
+  'conflict-resolve-whole-file': 'Resolving…',
+  'conflict-apply-hunk': 'Resolving…',
 };
 
 /**
@@ -322,6 +329,8 @@ export const GIT_OP_RANK: Record<GitOpId, number> = {
   'worktree-add': 30,
   abort: 40,
   continue: 40,
+  'conflict-resolve-whole-file': 10,
+  'conflict-apply-hunk': 10,
 };
 
 /**
@@ -353,6 +362,8 @@ const JOURNAL_OP_LABEL: Record<GitOpId, string> = {
   'worktree-add': 'Added a worktree',
   abort: 'Aborted',
   continue: 'Continued',
+  'conflict-resolve-whole-file': 'Resolved a conflict',
+  'conflict-apply-hunk': 'Resolved a conflict region',
 };
 
 /**
@@ -478,6 +489,28 @@ export const useUnstage = () =>
 
 export const useDiscard = () =>
   useGitOp<string[]>('discard', (api, paths, ctx) => api.ops.discard({ ...ctx, paths }));
+
+/** Accept one side for an entire conflicted path (Phase 47 Theme B). */
+/**
+ * Targeted, not `useGitOp`: the Studio (Phase 47 Theme D) opens for whichever
+ * checkout `ConflictBanner` was rendered for, passed down as a prop — reading
+ * the globally *active* worktree instead (what plain `useGitOp` does) would
+ * silently resolve against the wrong checkout the one time those two differ.
+ */
+export const useConflictResolveWholeFile = (target: StatusTarget) =>
+  useTargetedGitOp<{ path: string; side: ConflictSide }>(
+    target,
+    'conflict-resolve-whole-file',
+    (api, args, ctx) => api.ops.conflictResolveWholeFile({ ...ctx, ...args }),
+  );
+
+/** Resolve one region within a conflicted path (Phase 47 Theme C/D). See above re: targeting. */
+export const useConflictApplyHunk = (target: StatusTarget) =>
+  useTargetedGitOp<{ path: string; regionIndex: number; region: ConflictRegion; side: ConflictHunkSide }>(
+    target,
+    'conflict-apply-hunk',
+    (api, args, ctx) => api.ops.conflictApplyHunk({ ...ctx, ...args }),
+  );
 
 export const useCommit = () =>
   useGitOp<{ message: string; amend?: boolean }>('commit', (api, args, ctx) =>

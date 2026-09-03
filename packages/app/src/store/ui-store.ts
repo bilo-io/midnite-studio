@@ -62,6 +62,8 @@ export type CommitFileView = 'tree' | 'list';
 export type GraphSelection =
   | { kind: 'commit'; sha: string }
   | { kind: 'stash'; selector: string }
+  /** The Conflict Resolution Studio for one path (Phase 47 Theme D). */
+  | { kind: 'conflict'; path: string }
   | null;
 
 /**
@@ -736,6 +738,8 @@ export type UiState = {
   selectCommit: (sha: string | null) => void;
   /** Select a stash entry — clears any commit selection (Phase 22 Theme D). */
   selectStash: (selector: string | null) => void;
+  /** Open the Conflict Resolution Studio for one path (Phase 47 Theme D). */
+  selectConflict: (path: string | null) => void;
   toggleRepos: () => void;
   setReposOpen: (open: boolean) => void;
   toggleTerminal: () => void;
@@ -1314,6 +1318,8 @@ export const useUiStore = create<UiState>()(
       selectCommit: (sha) => set({ graphSelection: sha === null ? null : { kind: 'commit', sha } }),
       selectStash: (selector) =>
         set({ graphSelection: selector === null ? null : { kind: 'stash', selector } }),
+      selectConflict: (path) =>
+        set({ graphSelection: path === null ? null : { kind: 'conflict', path } }),
       toggleRepos: () => set((state) => ({ reposOpen: !state.reposOpen })),
       setReposOpen: (reposOpen) => set({ reposOpen }),
       toggleTerminal: () => set((state) => ({ terminalOpen: !state.terminalOpen })),

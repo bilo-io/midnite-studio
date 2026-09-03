@@ -13,6 +13,7 @@ import { useStatus } from '../../services/use-status';
 import { ConflictBanner } from '../status/conflict-banner';
 import { DEFAULT_LAYOUT, LAYOUT_BOUNDS, useUiStore } from '../../store/ui-store';
 import { CommitDetail } from '../commit/commit-detail';
+import { ConflictResolutionStudio } from '../conflicts/conflict-resolution-studio';
 import { StashInspector } from '../stash/stash-inspector';
 import { StashRows } from './stash-rows';
 import { GraphDndProvider, type DropEvent } from './graph-dnd';
@@ -46,10 +47,12 @@ import { useActiveAgentWorktreePaths } from './use-agent-worktrees';
  */
 export function GraphView() {
   const repoId = useUiStore((s) => s.selectedRepoId);
+  const selectedWorktreePath = useUiStore((s) => s.selectedWorktreePath);
   const graphSelection = useUiStore((s) => s.graphSelection);
   const selectedSha = graphSelection?.kind === 'commit' ? graphSelection.sha : null;
   const selectCommit = useUiStore((s) => s.selectCommit);
   const selectStash = useUiStore((s) => s.selectStash);
+  const selectConflict = useUiStore((s) => s.selectConflict);
   const detailWidth = useUiStore((s) => s.layout.detailWidth);
   const setLayout = useUiStore((s) => s.setLayout);
   const setActiveView = useUiStore((s) => s.setActiveView);
@@ -338,7 +341,9 @@ export function GraphView() {
         }}
       >
       <div className="flex min-w-0 flex-1 flex-col" style={graphColumnVars(columns)}>
-        {status ? <ConflictBanner status={status} onError={setOpError} /> : null}
+        {status ? (
+          <ConflictBanner status={status} onError={setOpError} onOpenConflict={selectConflict} />
+        ) : null}
         <GraphDefs theme={theme} />
         <GraphHeader
           refs={refs}
@@ -497,10 +502,18 @@ export function GraphView() {
             <div className="min-h-0 flex-1">
               {graphSelection.kind === 'commit' ? (
                 <CommitDetail repoId={repoId} sha={graphSelection.sha} />
-              ) : (
+              ) : graphSelection.kind === 'stash' ? (
                 <StashInspector
                   repoId={repoId}
                   selector={graphSelection.selector}
+                  onError={setOpError}
+                />
+              ) : (
+                <ConflictResolutionStudio
+                  repoId={repoId}
+                  worktreePath={selectedWorktreePath ?? undefined}
+                  path={graphSelection.path}
+                  onClose={() => selectConflict(null)}
                   onError={setOpError}
                 />
               )}
