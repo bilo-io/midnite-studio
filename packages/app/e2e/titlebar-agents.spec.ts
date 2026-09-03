@@ -71,12 +71,13 @@ async function openWithAgent(page: Page): Promise<void> {
   await expect(page.getByRole('button', { name: 'Ideate', exact: true })).toBeVisible();
   await expect(page.getByTestId('titlebar-agent-count')).toBeVisible();
   /*
-    Shut again by the same toggle. It has to be shut: `fabPanelOpen` is one of
-    the three things that expand the launcher strip, so leaving the console up
-    would put four glyphs in the cluster and measure a width no resting bar
+    Shut again — via the statusbar's mini FAB, the toggle that stands in for
+    this one while the panel is open. It has to be shut: `fabPanelOpen` is one
+    of the three things that expand the launcher strip, so leaving the console
+    up would put four glyphs in the cluster and measure a width no resting bar
     ever has.
   */
-  await fab.click();
+  await page.getByRole('button', { name: 'Close quick access panel' }).click();
   await expect(page.getByRole('button', { name: 'Ideate', exact: true })).toBeHidden();
   await expect(page.getByTestId('fab-launchers')).toHaveAttribute('data-expanded', 'false');
 }

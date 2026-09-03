@@ -144,7 +144,7 @@ test('the collapsed FAB carries the tab arc, and a waiting loop overrides it', a
   await page.getByTestId('loop-composer-medic').getByTestId('loop-start').click();
   await expect(page.getByTestId('loop-composer-medic').getByTestId('loop-stop')).toBeVisible();
 
-  await page.getByRole('button', { name: 'Open quick access panel' }).click();
+  await page.getByRole('button', { name: 'Close quick access panel' }).click();
   await page.waitForTimeout(400);
   await page.getByRole('button', { name: 'Open quick access panel' }).screenshot({
     path: `${OUT_P37}/collapsed-medic-running.png`,

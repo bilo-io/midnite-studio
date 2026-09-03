@@ -403,7 +403,9 @@ test.describe('FAB loop console', () => {
         };
       };
       const halo = document.querySelector('[data-testid="fab-loop-halo"]')!;
-      const button = document.querySelector('[aria-label="Open quick access panel"]')!;
+      // The panel is open here — the big FAB is hidden and this is the
+      // statusbar's mini version of it (`assistant-menu.tsx`).
+      const button = document.querySelector('[aria-label="Close quick access panel"]')!;
       return { halo: read(halo), button: read(button), mask: getComputedStyle(halo).maskImage };
     });
     // Create's row of the tab table, on both — see the Phase 37 describe below.
@@ -419,7 +421,7 @@ test.describe('FAB loop console', () => {
     await page.waitForTimeout(600); // the 0.5s arc sweep
     const masks = await page.evaluate(() => ({
       halo: getComputedStyle(document.querySelector('[data-testid="fab-loop-halo"]')!).maskImage,
-      ring: getComputedStyle(document.querySelector('[aria-label="Open quick access panel"]')!)
+      ring: getComputedStyle(document.querySelector('[aria-label="Close quick access panel"]')!)
         .maskImage,
     }));
     for (const mask of [masks.halo, masks.ring]) {
@@ -604,12 +606,13 @@ test.describe('FAB loop console — the waiting notice (Theme G)', () => {
     /*
       Away from the loop's own tab, and then out of the panel entirely — the
       case the notice exists for is a loop that went quiet while you were
-      looking at something else. The FAB button is a toggle, so pressing it
-      again is what shuts the console; `FabPanel` returns null when closed,
-      which is why the composers vanish rather than merely hiding here.
+      looking at something else. The statusbar's mini FAB is the toggle while
+      the panel is open, so pressing IT is what shuts the console; `FabPanel`
+      returns null when closed, which is why the composers vanish rather than
+      merely hiding here.
     */
     await page.getByRole('button', { name: 'Create', exact: true }).click();
-    await page.getByRole('button', { name: 'Open quick access panel' }).click();
+    await page.getByRole('button', { name: 'Close quick access panel' }).click();
     await expect(page.getByTestId('loop-composer-innovate')).toHaveCount(0);
 
     await emitActivity(page, 'waiting', 'pty-1');
@@ -748,7 +751,7 @@ test.describe('FAB panel — the tab glow (Phase 37)', () => {
     await expect(page.getByTestId('loop-composer-medic').getByTestId('loop-stop')).toBeVisible();
 
     // Collapse — the button, not the panel, is what Theme D has to agree with.
-    await page.getByRole('button', { name: 'Open quick access panel' }).click();
+    await page.getByRole('button', { name: 'Close quick access panel' }).click();
     const button = page.getByRole('button', { name: 'Open quick access panel' });
     await expect(button).toHaveAttribute('data-fab-tab', 'medic');
     await expect.poll(() => arcOf(button)).toEqual(ARCS['Medic']);

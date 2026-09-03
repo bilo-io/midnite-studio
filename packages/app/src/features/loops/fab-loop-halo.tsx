@@ -35,7 +35,7 @@ const LOOP_IDS = DEFAULT_LOOPS.map((loop) => loop.id);
  * nothing at all: the FAB is a button people press fifty times a day, and it
  * should look exactly as it did before whenever there is nothing to say.
  */
-export function FabLoopHalo({ tab }: { tab: FabTab }) {
+export function FabLoopHalo({ tab, compact = false }: { tab: FabTab; compact?: boolean }) {
   const { running, waiting, thinking } = useAnyLoopRunning();
   /*
     The pulse only runs while this window has focus, the gate Phase 36 Theme E
@@ -59,16 +59,35 @@ export function FabLoopHalo({ tab }: { tab: FabTab }) {
         escaping past the edge. `-z-10` sits inside the stacking context the
         FAB wrapper's `z-20` already establishes, so this goes under the brand
         mark without falling behind the app.
+
+        `compact` is the statusbar's miniature FAB (`assistant-menu.tsx`):
+        `.is-compact` shrinks the collar and its blur to match a button a
+        quarter the size — the full-size inset/blur pair would read as a
+        formless smear at 16px.
       */
-      className={`fab-loop-halo pointer-events-none absolute -z-10 ${waiting ? 'is-waiting' : ''} ${
+      className={`fab-loop-halo pointer-events-none absolute -z-10 ${compact ? 'is-compact' : ''} ${waiting ? 'is-waiting' : ''} ${
         pulsing && !waiting ? 'is-pulsing' : ''
       } ${thinking ? 'is-thinking' : ''}`}
     />
   );
 }
 
+export type LoopsRunning = { running: boolean; waiting: boolean; thinking: boolean };
+
+/**
+ * The FAB's own glow classes for a given running state — shared by the large
+ * FAB (`app.tsx`) and the statusbar's mini version of it
+ * (`assistant-menu.tsx`), so the two cannot drift on which state wins.
+ */
+export function fabGlowClass(loopsRunning: LoopsRunning): string {
+  if (!loopsRunning.running) return '';
+  return `loop-run-glow on-primary ${
+    loopsRunning.waiting ? 'is-waiting' : loopsRunning.thinking ? 'is-thinking' : ''
+  }`;
+}
+
 /** Whether any loop is live — what puts the gradient glow on the FAB itself. */
-export function useAnyLoopRunning(): { running: boolean; waiting: boolean; thinking: boolean } {
+export function useAnyLoopRunning(): LoopsRunning {
   const statuses = useAllLoopStatuses(LOOP_IDS);
   const waiting = statuses.some((s) => s.waiting);
   return {

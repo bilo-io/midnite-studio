@@ -25,7 +25,8 @@ import { navChord } from './components/nav-chords';
 import { Tooltip } from './components/tooltip';
 import { commandChord } from './features/status-bar/chord-hint';
 import { FabPanel } from './components/fab-panel';
-import { FabLoopHalo, useAnyLoopRunning } from './features/loops/fab-loop-halo';
+import { FabLoopHalo, fabGlowClass, useAnyLoopRunning } from './features/loops/fab-loop-halo';
+import { captureFabMorphOrigin, useFabMorphRef } from './features/loops/fab-morph';
 import { useLoopAttention } from './features/loops/use-loop-attention';
 import { PaletteHost } from './components/palette-host';
 import { ResizeHandle } from './components/resizable/resize-handle';
@@ -539,6 +540,10 @@ function Shell() {
   // for — so both live here rather than inside <FabPanel>.
   useLoopAttention();
   const loopsRunning = useAnyLoopRunning();
+  // The FLIP entrance for the big FAB reappearing after the statusbar's mini
+  // version closed the panel — see `fab-morph.ts`.
+  const fabButtonRef = useRef<HTMLButtonElement | null>(null);
+  const fabMorphRef = useFabMorphRef(fabButtonRef);
   const selectedRepoId = useUiStore((s) => s.selectedRepoId);
   const selectedWorktreePath = useUiStore((s) => s.selectedWorktreePath);
   // The repo's own name labels its terminals; the path is the fallback for a
@@ -1380,39 +1385,42 @@ function Shell() {
             </>
           ) : null}
 
-          {/* FAB Button — glows while any loop is live, ringed and haloed in the active tab's arc. */}
-          <div className="absolute bottom-4 right-4 z-20 h-10 w-10">
-            <FabLoopHalo tab={activeFabTab} />
-            <button
-              type="button"
-              onClick={toggleFabPanel}
-              aria-label="Open quick access panel"
-              title="Quick Access"
-              data-loops-running={loopsRunning.running ? 'true' : undefined}
-              data-fab-tab={activeFabTab}
-              /*
-                `relative` is load-bearing: the halo sits at `-z-10` behind this
-                button, and a static box would paint UNDER a negative-z
-                positioned sibling rather than over it — the halo's opaque disc
-                would swallow the brand mark. `.loop-run-glow` happens to set
-                `position: relative` too, but only while a loop runs, which is
-                too load-bearing a coincidence to lean on.
-              */
-              className={`relative flex h-10 w-10 items-center justify-center rounded-full bg-primary text-primary-foreground shadow-lg transition-transform hover:scale-110 active:scale-95 ${
-                loopsRunning.running
-                  ? `loop-run-glow on-primary ${
-                      loopsRunning.waiting
-                        ? 'is-waiting'
-                        : loopsRunning.thinking
-                          ? 'is-thinking'
-                          : ''
-                    }`
-                  : ''
-              }`}
-            >
-              <BrandMark className="h-full w-full" />
-            </button>
-          </div>
+          {/*
+            FAB Button — glows while any loop is live, ringed and haloed in
+            the active tab's arc. Hidden while the panel is open: the
+            statusbar's rightmost segment (`AssistantMenu`) wears the same
+            look in miniature for as long as the panel stays open, and the
+            two swap places with a FLIP transform (`fab-morph.ts`) rather
+            than one simply appearing where the other vanished.
+          */}
+          {!fabPanelOpen ? (
+            <div className="absolute bottom-4 right-4 z-20 h-10 w-10">
+              <FabLoopHalo tab={activeFabTab} />
+              <button
+                ref={fabMorphRef}
+                type="button"
+                onClick={() => {
+                  captureFabMorphOrigin(fabButtonRef.current);
+                  toggleFabPanel();
+                }}
+                aria-label="Open quick access panel"
+                title="Quick Access"
+                data-loops-running={loopsRunning.running ? 'true' : undefined}
+                data-fab-tab={activeFabTab}
+                /*
+                  `relative` is load-bearing: the halo sits at `-z-10` behind this
+                  button, and a static box would paint UNDER a negative-z
+                  positioned sibling rather than over it — the halo's opaque disc
+                  would swallow the brand mark. `.loop-run-glow` happens to set
+                  `position: relative` too, but only while a loop runs, which is
+                  too load-bearing a coincidence to lean on.
+                */
+                className={`relative flex h-10 w-10 items-center justify-center rounded-full bg-primary text-primary-foreground shadow-lg transition-transform hover:scale-110 active:scale-95 ${fabGlowClass(loopsRunning)}`}
+              >
+                <BrandMark className="h-full w-full" />
+              </button>
+            </div>
+          ) : null}
         </div>
 
         {/*
