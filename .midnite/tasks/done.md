@@ -2,6 +2,33 @@
 
 <!-- Append one entry per landed phase/PR: date, phase, PR link, one-line summary. -->
 
+## 2026-09-03 — Phase 50 Themes E, F — "Add to project" from Reviews, activity markers beyond Claude
+
+[PR #101]. Two of the six gaps Phases 40–42 named and declined, the last two Phase 50 had left open
+after A–D (PR #93).
+
+- [x] **Theme E — "Add to project" from the Reviews page.** The real gap, found while grounding the
+      theme: `ForgePullSchema` carried no `id` at all, and `addItemToProject`'s `contentId` needs
+      exactly the GraphQL global node id `gh pr list/view --json id` returns. Added to `PULL_FIELDS`,
+      threaded through `gh-parse.ts` and `ForgePullSchema` (defaulted `''`, matching the schema's
+      existing tolerance for withheld fields), and a new "Add to project ▸" button on
+      `review-action-bar.tsx` reuses the Projects view's own `useForgeProjects`/`boardByRepo` state
+      rather than a second picker. Disabled only on the boards query's genuine first load
+      (`isLoading`, not `isFetching`) so a background refetch of an already-warm cache never disables
+      it and the menu never opens into a "Loading…" placeholder that can't update itself.
+- [x] **Theme F — activity markers beyond Claude, for two of the three targeted providers.**
+      `agy` and `opencode` both got real marker sets captured from a PTY-driven session (a trivial
+      prompt, ANSI stripped): a braille spinner plus a text tell for `thinking`, and a distinct
+      idle-only string for `frameEnd`. `codex` shipped **without** one — it requires an interactive
+      `codex login` (OAuth device flow) this pass had no business driving unattended, so its roster
+      entry stays unset with a comment explaining why, the same bar the theme's own doc sets for
+      excluding a marker set rather than guessing one. `terminal.test.ts`'s builtins-with-activity
+      assertion now names `claude`, `agy` and `opencode`.
+- Three human-only verification passes stay open, all pre-existing or newly surfaced by this pass:
+  the live "No status" clear on a real board (Theme C, unchanged), "Add to project" landing on
+  github.com, and a non-Claude agent's live activity transition — plus a captured `codex` transcript
+  once someone runs `codex login`.
+
 ## 2026-09-03 — Phase 43 Themes E, H — the workflow canvas and its list/persistence
 
 [PR #100]. Fills in the renderer half of Workflows: Theme A–D's contract and engine (PR #92) had

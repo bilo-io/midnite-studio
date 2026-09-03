@@ -245,6 +245,27 @@ export const BUILTIN_AGENTS: readonly AgentDefinition[] = [
     accent: '#4285F4',
     icon: 'antigravity',
     install: 'See antigravity.google/docs/cli for the Antigravity CLI',
+    /*
+      Phase 50 Theme F, captured from a real session (a PTY-driven trivial
+      prompt, ANSI stripped). Two independent tells for the same reason
+      Claude's own entry gives: the braille spinner (`⣷⣯⣟⡿⢿⣻⣽⣾`, a Braille
+      Patterns block glyph — U+2800-28FF — immediately before "Generating")
+      and "esc to cancel", which is printed on every repaint of a turn in
+      progress. The frame-end footer, printed only once idle, happens to be
+      the identical string Claude Code uses for its own — different app,
+      same UX copy, unrelated coincidence.
+
+      No `awaitingInput` here: the one option-sheet this session actually
+      triggered (a first-run "Do you trust this folder?" prompt) draws its
+      selected row as a bare `> ` — the SAME leading glyph the ordinary idle
+      input box always shows empty. A regex keyed on it would fire on every
+      idle frame, which is worse than no marker, so this is left unset
+      rather than guessed.
+    */
+    activity: {
+      thinking: '[\\u2800-\\u28ff][^\\n]{0,40}Generating|esc to cancel',
+      frameEnd: '\\? for shortcuts',
+    },
   },
   {
     id: 'codex',
@@ -254,6 +275,11 @@ export const BUILTIN_AGENTS: readonly AgentDefinition[] = [
     resume: ['resume', '--last'],
     accent: '#10A37F',
     install: 'npm i -g @openai/codex',
+    // No `activity` set — Phase 50 Theme F could not capture a real Codex
+    // session in this pass: the local CLI required `codex login` (an
+    // interactive OAuth device flow), which is not something to drive
+    // unattended just to author a regex. Left unset rather than guessed —
+    // the phase doc's own bar for excluding a marker set.
   },
   {
     /*
@@ -296,6 +322,26 @@ export const BUILTIN_AGENTS: readonly AgentDefinition[] = [
     resume: ['--continue'],
     accent: '#03B000',
     install: 'npm i -g opencode-ai',
+    /*
+      Phase 50 Theme F, captured the same way as `agy`'s. OpenCode's own
+      braille spinner (`⠋⠙⠹⠸⠼⠴⠦⠧⠇⠏`, the classic "dots" cli-spinner set —
+      also Braille Patterns, U+2800-28FF, coincidentally the same block agy's
+      distinct glyph set falls in) sits beside the literal word "Thinking";
+      "esc interrupt" is the same turn's second independent tell, printed on
+      every repaint while it runs. `frameEnd` is "tab agents" — the label on
+      the idle input box's own agent-switch hint, verified absent from every
+      frame between "Thinking" appearing and the response text landing, so it
+      is read as a real idle-only boundary rather than a persistent status
+      string like the "Build · Big Pickle" model/agent line beside it (that
+      one prints in both states and would tell the detector nothing).
+
+      No `awaitingInput`: no session in this pass ever reached a tool-approval
+      or option-sheet frame to read one from.
+    */
+    activity: {
+      thinking: '[\\u2800-\\u28ff][^\\n]{0,20}Thinking|esc interrupt',
+      frameEnd: 'tab agents',
+    },
   },
   {
     id: 'kilo',
