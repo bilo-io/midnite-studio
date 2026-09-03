@@ -95,6 +95,17 @@ describe('MultiIconSelect', () => {
     expect(onChange).toHaveBeenCalledWith(['mon', 'sun']);
   });
 
+  it('gives each chip an announced remove control, not a hidden div', () => {
+    // `isClearable={false}` means the per-chip × is the only pointer route to
+    // dropping a value; unnamed, a screen-reader user has Backspace and
+    // nothing else.
+    render(
+      <MultiIconSelect ariaLabel="Days" options={DAYS} values={['sat']} onChange={vi.fn()} />,
+    );
+
+    expect(screen.getByRole('button', { name: 'Remove Sat' })).toBeDefined();
+  });
+
   it('shows its placeholder rather than a chip row when nothing is picked', () => {
     render(
       <MultiIconSelect

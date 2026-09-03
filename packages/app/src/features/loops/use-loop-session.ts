@@ -115,6 +115,16 @@ export function useLoopSession(
       extras,
     });
 
+    /*
+      The flag this run actually carries — empty for `'default'`, and empty for
+      any provider whose CLI has no `--model` (see `loopModelArgs`). Computed
+      once, because the ledger below has to agree with it: a Codex run recorded
+      as `model: 'opus-5'` would be a durable claim about what the run cost
+      that no argument on the command line supports, and
+      `LoopRunRecordSchema.model` exists precisely to answer that question.
+    */
+    const modelArgs = loopModelArgs(agentId, model);
+
     const session = startAgent({
       repoId,
       cwd,
@@ -122,9 +132,7 @@ export function useLoopSession(
       prompt: composedPrompt,
       agentId,
       command,
-      // Empty for `'default'`, and empty for any agent whose CLI has no
-      // `--model` — see `loopModelArgs`.
-      extraArgs: loopModelArgs(agentId, model),
+      extraArgs: modelArgs,
       surface: 'fab',
       // The explicit Start press IS the confirmation the withheld Return
       // normally collects — see `startAgent`'s own note.
@@ -137,7 +145,9 @@ export function useLoopSession(
       sessionId: session.id,
       composedPrompt,
       checkedModifierIds,
-      model,
+      // Absent, not `'default'`, when no flag went out — the field is optional
+      // for exactly this reason, and inventing an answer would be a guess.
+      ...(modelArgs.length > 0 ? { model } : {}),
     });
   }, [
     repoId,

@@ -370,7 +370,17 @@ export function resolveLoopDays(days: LoopSchedule['days']): LoopWeekday[] {
   const raw: unknown = days;
   if (raw === undefined || raw === null) return [...ALL_LOOP_WEEKDAYS];
   if (typeof raw === 'string') {
-    return [...(LEGACY_LOOP_DAY_SETS[raw] ?? ALL_LOOP_WEEKDAYS)];
+    /*
+      `Object.hasOwn`, not a bare lookup — the same guard `widenLegacyDays`
+      uses, and for the same reason `resolveAgentIcon` gives in the renderer:
+      an object literal inherits `toString`, `constructor` and `valueOf`, so a
+      stored `days: 'constructor'` would find a function, skip the `??`, and
+      throw on the spread. A corrupted store is supposed to cost this function
+      its neutral answer, not the whole composer's render.
+    */
+    return Object.hasOwn(LEGACY_LOOP_DAY_SETS, raw)
+      ? [...LEGACY_LOOP_DAY_SETS[raw]!]
+      : [...ALL_LOOP_WEEKDAYS];
   }
   if (!Array.isArray(raw)) return [...ALL_LOOP_WEEKDAYS];
   return ALL_LOOP_WEEKDAYS.filter((day) => (raw as unknown[]).includes(day));

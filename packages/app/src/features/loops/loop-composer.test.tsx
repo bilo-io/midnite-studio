@@ -439,6 +439,16 @@ describe('LoopComposer — running', () => {
     expect(screen.getByText('22:00–06:00')).not.toBeNull();
   });
 
+  it('drops the model chip for a provider that never carried the flag', () => {
+    // Pick Opus under Claude, switch to Codex, Start: the command line has no
+    // `--model` at all, so a chip claiming one would have the strip and the
+    // section heading disagreeing about what the run costs.
+    renderComposer({ running: true, checked, agentId: 'codex', model: 'opus-5' });
+    expect(screen.queryByText('Opus 5')).toBeNull();
+    // The provider itself is a chip, though — it is not the loop's declared one.
+    expect(screen.getByText('Codex')).not.toBeNull();
+  });
+
   it('says nothing about a neutral choice, a default model or an unarmed schedule', () => {
     renderComposer({
       running: true,

@@ -296,6 +296,12 @@ test.describe('FAB loop console', () => {
     const codexRun = (await ptyCreates(page))[1];
     expect(codexRun?.agentId).toBe('codex');
     expect(codexRun?.initialInput).not.toContain('--model');
+
+    // And the ledger agrees with the command line rather than with the store:
+    // `model` answers "what did this run cost", so a Codex run that carried no
+    // flag records no model at all.
+    await expect.poll(async () => (await loopRuns(page)).length).toBe(2);
+    expect((await loopRuns(page)).map((run) => run['model'])).toEqual(['opus-5', undefined]);
   });
 
   test('the loop session never appears in the main terminal housing', async ({ page }) => {

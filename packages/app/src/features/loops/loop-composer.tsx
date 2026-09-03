@@ -801,7 +801,14 @@ function RunningStrip({
     const agent = agents.find((entry) => entry.id === agentId);
     chips.push({ key: 'agent', label: agent?.label ?? agentId });
   }
-  const modelLabel = LOOP_MODELS.find((entry) => entry.id === model);
+  /*
+    …and the model, but only one the chosen provider can actually be given.
+    `cliModel !== null` alone was the whole test, which made a strip claim
+    "Codex · Opus 5" for a run whose command line carried no `--model` at all —
+    the section heading two rows up already drops it, and the two must agree
+    about what the run costs. Same rule, one source: `loopModelsFor`.
+  */
+  const modelLabel = loopModelsFor(agentId).find((entry) => entry.id === model);
   if (modelLabel && modelLabel.cliModel !== null) {
     chips.push({ key: 'model', label: modelLabel.label });
   }

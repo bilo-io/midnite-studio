@@ -17,7 +17,11 @@ export type IconSelectOption = {
   icon?: IconComponent;
   /** Roster `accent` — a colour Tailwind has never seen, same reasoning as `IconButton`'s `style` prop. */
   iconColor?: string;
-  /** Hover title on the row — what this option actually does, when the label cannot say it. */
+  /**
+   * Hover title on the row — what this option actually does, when the label
+   * cannot say it. `disabledReason` outranks it: "why can't I pick this" is
+   * the more urgent answer whenever both are set.
+   */
   hint?: string;
   isDisabled?: boolean;
   disabledReason?: string;
@@ -57,12 +61,6 @@ const BASE_CLASS_NAMES: ClassNamesConfig<IconSelectOption, boolean> = {
     }`,
   noOptionsMessage: () => 'px-2 py-1.5 text-muted-foreground',
   /*
-    Portalled menus only (see `menuInPortal`): the menu leaves the app's own
-    stacking contexts for `document.body`, so it needs a z-index of its own or
-    it lands under the panels it was opened from.
-  */
-  menuPortal: () => 'z-[60]',
-  /*
     Multi only, and unused by the single-value control — one table rather than
     two, so a chip in the day picker is themed off the same tokens as the
     single-value row above it.
@@ -89,7 +87,7 @@ function classNamesFor<IsMulti extends boolean>(): ClassNamesConfig<IconSelectOp
 function OptionLabel({ option }: { option: IconSelectOption }) {
   const Icon = option.icon;
   return (
-    <span className="flex min-w-0 items-center gap-1.5" title={option.hint ?? option.disabledReason}>
+    <span className="flex min-w-0 items-center gap-1.5" title={option.disabledReason ?? option.hint}>
       {Icon ? (
         <Icon aria-hidden className="size-3.5 shrink-0" style={{ color: option.iconColor }} />
       ) : null}
@@ -114,6 +112,16 @@ function OptionLabel({ option }: { option: IconSelectOption }) {
 const PORTAL_PROPS = {
   menuPortalTarget: typeof document === 'undefined' ? undefined : document.body,
   menuPosition: 'fixed',
+  /*
+    The one place this file uses `styles` rather than a Tailwind class, because
+    a class cannot win here: `menuPortalCSS` is the one style function
+    `react-select` does NOT drop under `unstyled`, so it always emits
+    `zIndex: 1` through emotion — and emotion injects its `<style>` into
+    `<head>` at first render, after the build-time Tailwind link, so at equal
+    specificity emotion wins. A `z-[60]` class was silently doing nothing, and
+    a menu overlapping the FAB button (`z-20`) would have opened underneath it.
+  */
+  styles: { menuPortal: (base: Record<string, unknown>) => ({ ...base, zIndex: 60 }) },
 } as const;
 
 export function IconSelect({
@@ -234,11 +242,18 @@ export function MultiIconSelect({
  * full-height control, which on a 10px chip in a 320px panel is most of the
  * chip. `innerProps` carries the click handler and the class from the table
  * above, so this only swaps the glyph.
+ *
+ * `role="button"` and a name of its own, because `innerProps` carries neither:
+ * `removeProps` in react-select is the three pointer handlers and nothing
+ * else, so a custom component that drops the default role (or hides itself
+ * with `aria-hidden`, as this did) leaves a screen-reader user no announced
+ * way to drop a value — Backspace and nothing else. `aria-hidden` belongs on
+ * the glyph inside it, which is decoration.
  */
-function MultiValueRemove({ innerProps }: MultiValueRemoveProps<IconSelectOption, true>) {
+function MultiValueRemove({ innerProps, data }: MultiValueRemoveProps<IconSelectOption, true>) {
   return (
-    <div {...innerProps} aria-hidden>
-      <LuX className="size-2.5" />
+    <div {...innerProps} role="button" aria-label={`Remove ${data.label}`}>
+      <LuX aria-hidden className="size-2.5" />
     </div>
   );
 }

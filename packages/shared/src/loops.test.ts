@@ -366,6 +366,27 @@ describe('resolveLoopDays', () => {
     expect(resolveLoopDays(undefined)).toEqual([...ALL_LOOP_WEEKDAYS]);
   });
 
+  it('answers neutrally for a key it inherits rather than owns', () => {
+    // An object literal inherits `toString`/`constructor`/`valueOf`, and a
+    // bare lookup would find a function and throw on the spread — taking the
+    // composer's render with it rather than falling back.
+    for (const key of ['constructor', 'toString', 'valueOf']) {
+      expect(resolveLoopDays(key as unknown as LoopSchedule['days']), key).toEqual([
+        ...ALL_LOOP_WEEKDAYS,
+      ]);
+    }
+    // …and the composed line neither throws nor gains a day rule: a
+    // zero-width window plus an unreadable day token says nothing at all.
+    expect(
+      loopScheduleFragment({
+        enabled: true,
+        from: '09:00',
+        to: '09:00',
+        days: 'constructor' as unknown as LoopSchedule['days'],
+      }),
+    ).toBeNull();
+  });
+
   it('reads a legacy preset string, which the store still holds unparsed', () => {
     // `settings.json` is spread into the store rather than re-parsed through
     // zod, so the type says array while the value on disk may be a token.
