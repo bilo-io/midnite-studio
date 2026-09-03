@@ -1,6 +1,6 @@
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import type { ForgeProjectField, ForgeProjectItem } from '@midnite/studio-shared';
-import { cleanup, render, screen } from '@testing-library/react';
+import { cleanup, fireEvent, render, screen } from '@testing-library/react';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 import { DialogHost } from '../../../components/dialog-host';
@@ -12,7 +12,12 @@ vi.mock('../../../services/bridge', () => ({
   bridge: () => ({
     forgeProject: { setField: vi.fn() },
     terminal: { list: vi.fn(async () => ({ sessions: [] })), save: vi.fn() },
-    agent: { list: vi.fn(async () => ({ agents: [], status: [] })) },
+    agent: {
+      list: vi.fn(async () => ({
+        agents: [{ id: 'claude', label: 'Claude', command: 'claude', args: [], accent: '#000' }],
+        status: [],
+      })),
+    },
   }),
   hasBridge: () => true,
 }));
@@ -46,24 +51,51 @@ const cardA = itemFor('a', 'Card A');
 const cardB = itemFor('b', 'Card B');
 const items = [cardA, cardB];
 
-function renderStack(selectedItemId: string, onClose = vi.fn()) {
+function Harness({
+  selectedItemId,
+  items: itemsProp = items,
+  onSelectItem = vi.fn(),
+  onClose = vi.fn(),
+}: {
+  selectedItemId: string;
+  items?: ForgeProjectItem[];
+  onSelectItem?: (id: string) => void;
+  onClose?: () => void;
+}) {
+  return (
+    <CardPanelStack
+      projectId="PVT_1"
+      repoId="repo-1"
+      worktreePath="/repo/widgets"
+      items={itemsProp}
+      fields={fields}
+      selectedItemId={selectedItemId}
+      onSelectItem={onSelectItem}
+      onClose={onClose}
+    />
+  );
+}
+
+function renderStack(props: Parameters<typeof Harness>[0]) {
   const queryClient = new QueryClient({ defaultOptions: { queries: { retry: false } } });
   const utils = render(
     <QueryClientProvider client={queryClient}>
       <DialogHost>
-        <CardPanelStack
-          projectId="PVT_1"
-          repoId="repo-1"
-          worktreePath="/repo/widgets"
-          items={items}
-          fields={fields}
-          selectedItemId={selectedItemId}
-          onClose={onClose}
-        />
+        <Harness {...props} />
       </DialogHost>
     </QueryClientProvider>,
   );
-  return { ...utils, queryClient, onClose };
+  return {
+    ...utils,
+    rerenderWith: (next: Parameters<typeof Harness>[0]) =>
+      utils.rerender(
+        <QueryClientProvider client={queryClient}>
+          <DialogHost>
+            <Harness {...next} />
+          </DialogHost>
+        </QueryClientProvider>,
+      ),
+  };
 }
 
 describe('CardPanelStack', () => {
@@ -72,7 +104,7 @@ describe('CardPanelStack', () => {
   });
 
   it('renders the selected card and disables Back on first open', () => {
-    renderStack(cardA.id);
+    renderStack({ selectedItemId: cardA.id });
 
     expect(screen.getByTestId('card-detail')).toBeDefined();
     expect(screen.getAllByText('Card A').length).toBeGreaterThan(0);
@@ -80,23 +112,9 @@ describe('CardPanelStack', () => {
   });
 
   it('pushes a new history entry when a different card is selected, buying Back to the prior one', () => {
-    const { rerender, queryClient, onClose } = renderStack(cardA.id);
+    const { rerenderWith } = renderStack({ selectedItemId: cardA.id });
 
-    rerender(
-      <QueryClientProvider client={queryClient}>
-        <DialogHost>
-          <CardPanelStack
-            projectId="PVT_1"
-            repoId="repo-1"
-            worktreePath="/repo/widgets"
-            items={items}
-            fields={fields}
-            selectedItemId={cardB.id}
-            onClose={onClose}
-          />
-        </DialogHost>
-      </QueryClientProvider>,
-    );
+    rerenderWith({ selectedItemId: cardB.id });
 
     // Breadcrumb now carries both cards, current one last.
     expect(screen.getAllByText('Card A').length).toBeGreaterThan(0);
@@ -105,24 +123,44 @@ describe('CardPanelStack', () => {
   });
 
   it('re-selecting the already-open card is a no-op — Back stays disabled', () => {
-    const { rerender, queryClient, onClose } = renderStack(cardA.id);
+    const { rerenderWith } = renderStack({ selectedItemId: cardA.id });
 
-    rerender(
-      <QueryClientProvider client={queryClient}>
-        <DialogHost>
-          <CardPanelStack
-            projectId="PVT_1"
-            repoId="repo-1"
-            worktreePath="/repo/widgets"
-            items={items}
-            fields={fields}
-            selectedItemId={cardA.id}
-            onClose={onClose}
-          />
-        </DialogHost>
-      </QueryClientProvider>,
-    );
+    rerenderWith({ selectedItemId: cardA.id });
 
     expect(screen.getByLabelText('Back')).toHaveProperty('disabled', true);
+  });
+
+  it('resets CardComposer state per card — a prompt edited on card A does not bleed into card B', () => {
+    const { rerenderWith } = renderStack({ selectedItemId: cardA.id });
+
+    const prompt = screen.getByLabelText('Prompt') as HTMLTextAreaElement;
+    fireEvent.change(prompt, { target: { value: 'a note only relevant to card A' } });
+    expect(prompt.value).toBe('a note only relevant to card A');
+
+    rerenderWith({ selectedItemId: cardB.id });
+
+    // `.at(-1)`: the transition briefly mounts both the outgoing and
+    // incoming pane (see the sibling `.last()` note in `kanban.spec.ts`) —
+    // the incoming one is the later sibling.
+    const promptForB = screen.getAllByLabelText('Prompt').at(-1) as HTMLTextAreaElement;
+    expect(promptForB.value).not.toContain('a note only relevant to card A');
+  });
+
+  it('reports a Back navigation back up to the board, so its own selection state stays in sync', () => {
+    const onSelectItem = vi.fn();
+    const { rerenderWith } = renderStack({ selectedItemId: cardA.id, onSelectItem });
+    rerenderWith({ selectedItemId: cardB.id, onSelectItem });
+    onSelectItem.mockClear();
+
+    fireEvent.click(screen.getByLabelText('Back'));
+
+    expect(onSelectItem).toHaveBeenCalledWith(cardA.id);
+  });
+
+  it('closes the pane instead of rendering blank when the current entry drops out of `items`', () => {
+    const onClose = vi.fn();
+    renderStack({ selectedItemId: 'gone', items: [], onClose });
+
+    expect(onClose).toHaveBeenCalled();
   });
 });

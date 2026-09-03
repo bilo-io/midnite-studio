@@ -34,6 +34,7 @@ export function CardPanelStack({
   items,
   fields,
   selectedItemId,
+  onSelectItem,
   onClose,
 }: {
   projectId: string;
@@ -43,6 +44,13 @@ export function CardPanelStack({
   items: readonly ForgeProjectItem[];
   fields: readonly ForgeProjectField[];
   selectedItemId: string;
+  /**
+   * Reports a navigation that happened *inside* the panel (Back/Forward)
+   * back up to the board, so `BoardView`'s own `selectedItemId` — which
+   * drives the column's "is this card open" highlight — never disagrees
+   * with what the pane is actually showing.
+   */
+  onSelectItem: (itemId: string) => void;
   onClose: () => void;
 }) {
   const history = usePanelHistory<string>(selectedItemId);
@@ -55,6 +63,17 @@ export function CardPanelStack({
     // selection change.
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [selectedItemId]);
+
+  useEffect(() => {
+    // The other direction: Back/Forward inside the panel changes
+    // `history.current` without ever touching the `selectedItemId` prop —
+    // this is what keeps the board's highlight in sync with that move.
+    // Guarded the same way the effect above is, and for the same reason:
+    // without it, this would also fire right back on the push that effect
+    // just made, one render later.
+    if (history.current !== selectedItemId) onSelectItem(history.current);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [history.current]);
 
   useRegisterActivePanel(history, true);
 
@@ -69,9 +88,21 @@ export function CardPanelStack({
         className="min-h-0 flex-1"
         render={(itemId) => {
           const item = items.find((i) => i.id === itemId);
-          if (!item) return null;
+          // A history entry can outlive its item — the card left the board
+          // (moved off-project, deleted) while still sitting in this panel's
+          // own back-stack. Closing rather than rendering a dead end: there
+          // is nothing a blank pane can offer the user that a closed one
+          // doesn't.
+          if (!item) return <MissingCardNotice onClose={onClose} />;
           return (
             <CardDetail
+              // Forces `CardComposer`'s own local state (prompt, agent,
+              // model) to reset per card — without this key, switching
+              // cards without ever fully closing the pane would leave the
+              // previous card's composer state bleeding into the new one,
+              // since `panel-stack` (deliberately) keeps this pane mounted
+              // across a push rather than remounting it.
+              key={item.id}
               projectId={projectId}
               repoId={repoId}
               worktreePath={worktreePath}
@@ -84,4 +115,11 @@ export function CardPanelStack({
       />
     </div>
   );
+}
+
+function MissingCardNotice({ onClose }: { onClose: () => void }) {
+  useEffect(() => {
+    onClose();
+  }, [onClose]);
+  return null;
 }

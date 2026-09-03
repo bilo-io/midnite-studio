@@ -208,7 +208,6 @@ export function BoardView({
     if (currentColumnId === toColumnId) return;
 
     const next = applyOptimisticMove(boardItems, itemId, statusField, toColumnId);
-    setOptimisticItems(next);
 
     const onSettled = (result: ForgeProjectWriteResult): void => {
       if (result.ok) {
@@ -232,14 +231,20 @@ export function BoardView({
       none, by design, and `clearProjectV2ItemFieldValue` takes none either.
     */
     if (toColumnId === NO_STATUS_COLUMN_ID) {
+      setOptimisticItems(next);
       clearField.mutate({ itemId, fieldId: statusField.id }, { onSuccess: onSettled });
       return;
     }
 
     const moved = next.find((i) => i.id === itemId);
     const value = moved?.fieldValues[statusField.id];
+    // Bail *before* touching optimistic state — setting it here and then
+    // returning with no mutation fired would freeze the board on a stale
+    // snapshot forever, since nothing would ever call `onSettled` to clear
+    // it (a real regression this comment's neighbouring fix caught).
     if (!value) return;
 
+    setOptimisticItems(next);
     setField.mutate({ itemId, fieldId: statusField.id, value }, { onSuccess: onSettled });
   };
 
@@ -286,6 +291,7 @@ export function BoardView({
             items={boardItems}
             fields={fields}
             selectedItemId={selectedItemId}
+            onSelectItem={setSelectedItemId}
             onClose={() => setSelectedItemId(null)}
           />
         ) : null}
