@@ -246,6 +246,29 @@ test.describe('FAB loop console', () => {
     expect(run?.['model']).toBe('opus-5');
   });
 
+  test('the three tabs you are not looking at take neither clicks nor focus', async ({
+    page,
+  }) => {
+    await open(page);
+    await openFab(page, 'Patrol');
+
+    /*
+      `visibility: hidden` on the pane is not enough on its own: it inherits,
+      but a descendant setting `visibility: visible` climbs back out of it, and
+      `react-select`'s input does. Three hidden composers' selects sat at the
+      same coordinates as the visible one's and swallowed its clicks.
+    */
+    for (const id of ['innovate', 'automate', 'medic']) {
+      await expect(page.locator(`[inert] [data-testid="loop-composer-${id}"]`)).toHaveCount(1);
+    }
+    await expect(page.locator('[inert] [data-testid="loop-composer-watchdog"]')).toHaveCount(0);
+
+    // And the visible tab's own controls answer, which is the point of it.
+    const composer = page.getByTestId('loop-composer-watchdog');
+    await composer.getByRole('combobox', { name: 'Model' }).click();
+    await expect(page.getByRole('option', { name: 'Opus 5', exact: true })).toBeVisible();
+  });
+
   test('the provider select decides what the launch actually runs', async ({ page }) => {
     await open(page);
     await openFab(page, 'Patrol');
