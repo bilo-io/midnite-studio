@@ -26,11 +26,13 @@ import { MODE_TINT, nextRandomIndex, WORD_SETS, type Mode } from './screensaver-
 
 type Counts = { repos: number; agents: number; myPrs: number; teamPrs: number };
 
-const PILLS: Array<{ key: keyof Counts; label: string; hueVar: string }> = [
-  { key: 'repos', label: 'repos', hueVar: '217 91% 60%' },
-  { key: 'agents', label: 'agents', hueVar: '280 65% 60%' },
-  { key: 'myPrs', label: 'my PRs', hueVar: '142 71% 45%' },
-  { key: 'teamPrs', label: 'team PRs', hueVar: '38 92% 50%' },
+export type PillKey = keyof Counts;
+
+const PILLS: Array<{ key: PillKey; label: string; hueVar: string; destination: string }> = [
+  { key: 'repos', label: 'repos', hueVar: '217 91% 60%', destination: 'open the repositories panel' },
+  { key: 'agents', label: 'agents', hueVar: '280 65% 60%', destination: 'reveal the terminal' },
+  { key: 'myPrs', label: 'my PRs', hueVar: '142 71% 45%', destination: 'open Reviews' },
+  { key: 'teamPrs', label: 'team PRs', hueVar: '38 92% 50%', destination: 'open Reviews' },
 ];
 
 export type ScreensaverReading = { mode: Mode; counts: Counts };
@@ -121,7 +123,13 @@ export function ScreensaverStage({
   mode,
   counts,
   paused = false,
-}: ScreensaverReading & { paused?: boolean }) {
+  onPillClick,
+}: ScreensaverReading & {
+  paused?: boolean;
+  /** Phase 46 Theme C. Both call sites pass one; optional only so a future
+   * read-only host isn't forced to invent a no-op. */
+  onPillClick?: (key: PillKey) => void;
+}) {
   const typed = useTypedWord(mode, paused);
   const tint = { '--sv-tint': MODE_TINT[mode] } as CSSProperties;
 
@@ -147,13 +155,23 @@ export function ScreensaverStage({
       <p className="mt-2 text-sm text-muted-foreground">{MODE_SUBTITLE[mode]}</p>
 
       <div className="mt-10 flex flex-wrap items-center justify-center gap-2.5">
-        {PILLS.map(({ key, label, hueVar }, i) => {
+        {PILLS.map(({ key, label, hueVar, destination }, i) => {
           const n = counts[key];
           const hue = `hsl(${hueVar})`;
           return (
-            <span
+            <button
               key={key}
-              className="relative inline-flex items-center gap-2 overflow-hidden rounded-full border border-border/60 bg-card/60 px-3.5 py-1.5 text-xs font-medium text-foreground/80 backdrop-blur"
+              type="button"
+              onClick={(e) => {
+                // Must not be swallowed by LockScreen's root dismiss/unlock
+                // handler — the same reason widgets stop propagation, just for
+                // the opposite outcome: this click does something specific
+                // instead of nothing at all.
+                e.stopPropagation();
+                onPillClick?.(key);
+              }}
+              aria-label={`${n} ${label} — ${destination}`}
+              className="relative inline-flex items-center gap-2 overflow-hidden rounded-full border border-border/60 bg-card/60 px-3.5 py-1.5 text-xs font-medium text-foreground/80 backdrop-blur transition-colors hover:bg-card/80 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
             >
               <span
                 aria-hidden
@@ -170,9 +188,9 @@ export function ScreensaverStage({
                 className="relative h-2 w-2 rounded-full"
                 style={{ background: hue, boxShadow: `0 0 8px ${hue}` }}
               />
-              <span className="relative tabular-nums text-foreground">{n}</span>
-              <span className="relative">{label}</span>
-            </span>
+              <span aria-hidden className="relative tabular-nums text-foreground">{n}</span>
+              <span aria-hidden className="relative">{label}</span>
+            </button>
           );
         })}
       </div>

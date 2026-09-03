@@ -4,7 +4,8 @@ import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 
 import { useMetricsStore } from '../../store/metrics-store';
 import { useFinanceStore } from '../finance/finance-store';
-import { LockScreenBatteryWidget, LockScreenWidgets } from './lock-screen-widgets';
+import { useWeatherStore } from '../weather/weather-store';
+import { LockScreenBatteryWidget, LockScreenWeatherWidget, LockScreenWidgets } from './lock-screen-widgets';
 
 function jsonResponse(body: unknown): Response {
   return { ok: true, status: 200, statusText: 'OK', json: async () => body } as Response;
@@ -132,6 +133,51 @@ describe('LockScreenWidgets', () => {
     expect(screen.getByText('$50,000.00').className).toContain('text-destructive');
     expect(screen.getByText('Bitcoin (BTC)').className).toContain('text-destructive');
     expect(widget.querySelector('svg[width="76"]')?.parentElement?.className).toContain('text-destructive');
+  });
+});
+
+describe('LockScreenWeatherWidget (Phase 46 Theme A)', () => {
+  afterEach(() => {
+    cleanup();
+    vi.unstubAllGlobals();
+  });
+
+  it('renders nothing when no location is set', () => {
+    useWeatherStore.setState({ location: null, unit: 'celsius' });
+    const { container } = render(<LockScreenWeatherWidget />, { wrapper: createWrapper() });
+    expect(container.firstChild).toBeNull();
+  });
+
+  it('renders nothing on a fetch failure — no error toast on the lock screen', async () => {
+    vi.stubGlobal('fetch', vi.fn().mockRejectedValue(new Error('network down')));
+    useWeatherStore.setState({
+      location: { name: 'London', latitude: 51.5, longitude: -0.13 },
+      unit: 'celsius',
+    });
+    const { container } = render(<LockScreenWeatherWidget />, { wrapper: createWrapper() });
+    await new Promise((resolve) => setTimeout(resolve, 10));
+    expect(container.querySelector('[data-testid="lock-weather-widget"]')).toBeNull();
+  });
+
+  it('shows the temperature, condition and location once loaded', async () => {
+    vi.stubGlobal(
+      'fetch',
+      vi.fn().mockResolvedValue({
+        ok: true,
+        status: 200,
+        statusText: 'OK',
+        json: async () => ({ current: { temperature_2m: 18.4, weather_code: 0 } }),
+      }),
+    );
+    useWeatherStore.setState({
+      location: { name: 'London', latitude: 51.5, longitude: -0.13, country: 'United Kingdom' },
+      unit: 'celsius',
+    });
+    render(<LockScreenWeatherWidget />, { wrapper: createWrapper() });
+
+    expect(await screen.findByText('18°C')).toBeTruthy();
+    expect(screen.getByText('Clear sky')).toBeTruthy();
+    expect(screen.getByText('London, United Kingdom')).toBeTruthy();
   });
 });
 

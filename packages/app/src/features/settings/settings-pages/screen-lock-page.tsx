@@ -1,10 +1,16 @@
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { Accordion } from '@bilo-io/ui';
-import { LuClock, LuLock } from 'react-icons/lu';
+import { LuClock, LuLock, LuMapPin, LuX } from 'react-icons/lu';
 
 import { useUiStore } from '../../../store/ui-store';
 import { PasscodeSetupDialog } from '../../screensaver/passcode-pad';
-import { Field } from './controls';
+import { fmtLocationName } from '../../weather/weather-derive';
+import { useLocationSearch } from '../../weather/weather-queries';
+import { useWeatherStore } from '../../weather/weather-store';
+import type { WeatherLocation } from '../../weather/weather-types';
+import { Choice, Field } from './controls';
+
+const LOCATION_SEARCH_DEBOUNCE_MS = 300;
 
 export const INACTIVITY_MIN_S = 60;
 export const INACTIVITY_MAX_S = 14400;
@@ -156,6 +162,12 @@ export function ScreenLockPage() {
         </div>
       </Accordion>
 
+      <Accordion title="Weather" icon={<LuMapPin className="h-4 w-4" />} defaultOpen>
+        <div className="flex flex-col gap-4 p-3">
+          <WeatherLocationEditor />
+        </div>
+      </Accordion>
+
       <Accordion title="Screen Lock" icon={<LuLock className="h-4 w-4" />} defaultOpen>
         <div className="flex flex-col gap-4 p-3">
           <Field
@@ -250,6 +262,99 @@ export function ScreenLockPage() {
           onCancel={() => setSetup(null)}
         />
       ) : null}
+    </div>
+  );
+}
+
+/**
+ * The lock screen weather widget's one real decision: where. A search box
+ * over Open-Meteo's own (keyless) geocoding endpoint, mirroring
+ * `finance-panel.tsx`'s `WatchlistEditor` search-and-select shape — the same
+ * debounce, the same "type at least two characters" gate on `useLocationSearch`.
+ */
+function WeatherLocationEditor() {
+  const location = useWeatherStore((s) => s.location);
+  const unit = useWeatherStore((s) => s.unit);
+  const setLocation = useWeatherStore((s) => s.setLocation);
+  const setUnit = useWeatherStore((s) => s.setUnit);
+
+  const [query, setQuery] = useState('');
+  const [debounced, setDebounced] = useState('');
+
+  useEffect(() => {
+    const id = setTimeout(() => setDebounced(query), LOCATION_SEARCH_DEBOUNCE_MS);
+    return () => clearTimeout(id);
+  }, [query]);
+
+  const { data: results, isFetching, error } = useLocationSearch(debounced);
+
+  const onPick = (result: WeatherLocation) => {
+    setLocation(result);
+    setQuery('');
+  };
+
+  return (
+    <div className="space-y-3">
+      <Choice
+        label="Units"
+        hint="Temperature shown on the lock screen widget."
+        value={unit}
+        onChange={setUnit}
+        options={[
+          ['celsius', '°C'],
+          ['fahrenheit', '°F'],
+        ]}
+      />
+
+      {location ? (
+        <div className="flex items-center gap-2 rounded-md border border-border/50 px-2 py-1">
+          <LuMapPin className="h-3.5 w-3.5 shrink-0 text-muted-foreground" aria-hidden />
+          <span className="min-w-0 flex-1 truncate text-sm">{fmtLocationName(location)}</span>
+          <button
+            type="button"
+            onClick={() => setLocation(null)}
+            aria-label="Remove weather location"
+            className="rounded p-0.5 text-muted-foreground hover:text-destructive"
+          >
+            <LuX className="h-3 w-3" />
+          </button>
+        </div>
+      ) : (
+        <div className="space-y-1">
+          <label className="block space-y-1">
+            <span className="text-[11px] text-muted-foreground">Location</span>
+            <input
+              value={query}
+              onChange={(e) => setQuery(e.target.value)}
+              placeholder="Search a city…"
+              className="w-full min-w-0 flex-1 rounded-md border border-border/60 bg-transparent px-2 py-1 text-sm focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
+            />
+          </label>
+          {debounced.trim().length >= 2 && (
+            <ul className="max-h-40 space-y-0.5 overflow-auto rounded-md border border-border/50 p-1">
+              {isFetching ? (
+                <li className="px-1.5 py-1 text-xs text-muted-foreground">Searching…</li>
+              ) : error instanceof Error ? (
+                <li className="px-1.5 py-1 text-xs text-destructive">{error.message}</li>
+              ) : results && results.length > 0 ? (
+                results.map((r, i) => (
+                  <li key={`${r.latitude},${r.longitude}-${i}`}>
+                    <button
+                      type="button"
+                      onClick={() => onPick(r)}
+                      className="flex w-full items-center justify-between gap-2 rounded px-1.5 py-1 text-left text-xs hover:bg-accent hover:text-accent-foreground"
+                    >
+                      <span className="min-w-0 flex-1 truncate">{fmtLocationName(r)}</span>
+                    </button>
+                  </li>
+                ))
+              ) : (
+                <li className="px-1.5 py-1 text-xs text-muted-foreground">No matches.</li>
+              )}
+            </ul>
+          )}
+        </div>
+      )}
     </div>
   );
 }

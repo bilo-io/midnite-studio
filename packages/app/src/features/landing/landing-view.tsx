@@ -1,7 +1,9 @@
 import { NeuroCloudBackground } from '../screensaver/neuro-cloud-background';
 import { LockScreenChrome } from '../screensaver/lock-screen-chrome';
+import { applyPillDestination } from '../screensaver/pill-destinations';
 import { ScreensaverStage, useScreensaverReading } from '../screensaver/screensaver-stage';
 import { useAppearanceStore } from '../../store/appearance-store';
+import { useUiStore } from '../../store/ui-store';
 import { useWindowFocusGate } from '../../lib/use-window-focus-gate';
 import { LandingCarousel, type CarouselSlide } from './landing-carousel';
 import { SHORTCUT_BATCHES } from './landing-shortcuts';
@@ -35,6 +37,9 @@ import { FabSlide, ShortcutSlide } from './landing-slides';
 export function LandingView() {
   const reading = useScreensaverReading();
   const reduced = useAppearanceStore((s) => s.motion) === 'reduced';
+  const setActiveView = useUiStore((s) => s.setActiveView);
+  const setReposOpen = useUiStore((s) => s.setReposOpen);
+  const setTerminalOpen = useUiStore((s) => s.setTerminalOpen);
 
   // The rotation and the rim pulse both freeze while the OS has focus
   // elsewhere, exactly as the FAB console's do — same attribute, same CSS.
@@ -46,7 +51,15 @@ export function LandingView() {
       label: 'Workspace status',
       // Held still for the length of the transition, so the word types
       // itself out once the slide has settled rather than while it moves.
-      render: (active) => <ScreensaverStage {...reading} paused={!active} />,
+      // No passcode gate here (Phase 46 Theme C): this is a real view, not
+      // an overlay to unlock, so a pill click navigates immediately.
+      render: (active) => (
+        <ScreensaverStage
+          {...reading}
+          paused={!active}
+          onPillClick={(key) => applyPillDestination(key, { setActiveView, setReposOpen, setTerminalOpen })}
+        />
+      ),
     },
     ...SHORTCUT_BATCHES.map((batch) => ({
       key: `shortcuts-${batch.title}`,

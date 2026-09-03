@@ -1,7 +1,11 @@
+import { useState } from 'react';
+
 import { useUiStore } from '../../store/ui-store';
 import { LockScreen } from './lock-screen';
 import { LockScreenChrome } from './lock-screen-chrome';
-import { ScreensaverStage, useScreensaverReading } from './screensaver-stage';
+import { PasscodeUnlockDialog } from './passcode-pad';
+import { applyPillDestination } from './pill-destinations';
+import { ScreensaverStage, useScreensaverReading, type PillKey } from './screensaver-stage';
 
 /**
  * The screensaver / lock screen.
@@ -29,11 +33,38 @@ export function Screensaver({
   const requirePasscode = useUiStore((s) => s.requirePasscode);
   const passcode = useUiStore((s) => s.passcode);
   const passcodeOnlyWhenLocked = useUiStore((s) => s.passcodeOnlyWhenLocked);
+  const setActiveView = useUiStore((s) => s.setActiveView);
+  const setReposOpen = useUiStore((s) => s.setReposOpen);
+  const setTerminalOpen = useUiStore((s) => s.setTerminalOpen);
 
   const reading = useScreensaverReading();
 
   const requireCode =
     requirePasscode && !!passcode && (passcodeOnlyWhenLocked ? locked : true);
+
+  /**
+   * A pill clicked behind a passcode has to hold its destination across the
+   * pad, apply it on unlock and drop it on cancel — anything else is a
+   * lock-screen bypass (Phase 46 Theme C). A second, independent
+   * `PasscodeUnlockDialog` rather than a hook into `LockScreen`'s own
+   * internal `unlocking` state: the two stay deliberately separate, so a
+   * cancelled pill-intent can never accidentally unlock the generic screen
+   * underneath it, and a generic unlock never accidentally fires a pill's
+   * navigation it was never asked for.
+   */
+  const [pendingPill, setPendingPill] = useState<PillKey | null>(null);
+
+  const navigate = (key: PillKey) =>
+    applyPillDestination(key, { setActiveView, setReposOpen, setTerminalOpen });
+
+  const handlePillClick = (key: PillKey) => {
+    if (requireCode) {
+      setPendingPill(key);
+      return;
+    }
+    onClose();
+    navigate(key);
+  };
 
   return (
     <LockScreen
@@ -42,8 +73,27 @@ export function Screensaver({
       onUnlock={onClose}
       onDismiss={onClose}
       corners={<LockScreenChrome />}
+      suppressUnlockTrigger={pendingPill !== null}
     >
-      <ScreensaverStage {...reading} />
+      <ScreensaverStage {...reading} onPillClick={handlePillClick} />
+      {pendingPill ? (
+        // Nested inside `LockScreen`'s own children, not a separate portal:
+        // `LockScreen`'s root is `fixed inset-0 z-[200]` and this dialog's
+        // own backdrop is `z-[110]` — a sibling portal at the same
+        // `document.body` level would sit UNDER that backdrop and swallow
+        // every click. Nesting here puts it inside that same stacking
+        // context instead, where `z-[110]` only has to beat its own siblings.
+        <PasscodeUnlockDialog
+          expected={passcode ?? ''}
+          onUnlock={() => {
+            const key = pendingPill;
+            setPendingPill(null);
+            onClose();
+            navigate(key);
+          }}
+          onCancel={() => setPendingPill(null)}
+        />
+      ) : null}
     </LockScreen>
   );
 }

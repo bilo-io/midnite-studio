@@ -17,6 +17,9 @@ import { useFinanceHistory, useFinanceQuote } from '../finance/finance-queries';
 import { assetTicker, fmtPct, fmtPrice, historyChange } from '../finance/finance-derive';
 import { Sparkline } from '../finance/sparkline';
 import { useTitleTypewriter } from '../slides/use-title-typewriter';
+import { fmtLocationName, fmtTemperature, weatherCondition } from '../weather/weather-derive';
+import { useCurrentWeather } from '../weather/weather-queries';
+import { useWeatherStore } from '../weather/weather-store';
 import { LockScreenSlotIsland } from './lock-screen-slots';
 
 const LOCK_CHART_GEOMETRY = {
@@ -43,6 +46,48 @@ export function LockScreenWidgets() {
         <LockScreenBatteryWidget />
         <LockScreenSysmonWidget />
       </LockScreenSlotIsland>
+      <LockScreenSlotIsland slot="top-centre">
+        <LockScreenWeatherWidget />
+      </LockScreenSlotIsland>
+    </div>
+  );
+}
+
+/**
+ * Weather, top centre (Phase 46 Theme A) — nothing until a location is set,
+ * matching the absent-state rule every other widget here follows. Renders
+ * nothing on a fetch failure too: the lock screen is ambient, not a place for
+ * a retry storm or an error toast.
+ *
+ * No explicit `enabled: screensaverOpen` gate on the query: `LockScreen`
+ * itself unmounts entirely when the screensaver is closed (`ScreensaverHost`
+ * returns `null`), which already stops the query's refetch interval, and the
+ * landing page mounts this same tree while genuinely showing it — exactly
+ * the same posture `LockScreenFintechWidget`/`LockScreenSysmonWidget` already
+ * take, neither of which gates on `screensaverOpen` either.
+ */
+export function LockScreenWeatherWidget() {
+  const location = useWeatherStore((s) => s.location);
+  const unit = useWeatherStore((s) => s.unit);
+  const { data } = useCurrentWeather(location, unit, true);
+
+  if (location === null || !data) return null;
+
+  const { label, icon: Icon } = weatherCondition(data.weatherCode);
+
+  return (
+    <div
+      data-testid="lock-weather-widget"
+      className="flex flex-col items-center gap-1 rounded-xl border border-transparent bg-transparent p-3.5 text-center transition-all"
+    >
+      <div className="flex items-center gap-2">
+        <Icon className="h-6 w-6 text-primary" aria-hidden />
+        <span className="font-mono text-2xl font-semibold tabular-nums tracking-tight text-foreground">
+          {fmtTemperature(data.temperature, unit)}
+        </span>
+      </div>
+      <div className="text-xs text-muted-foreground">{label}</div>
+      <div className="text-[11px] text-muted-foreground/80">{fmtLocationName(location)}</div>
     </div>
   );
 }
