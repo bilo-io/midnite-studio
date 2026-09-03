@@ -2,6 +2,36 @@
 
 <!-- Append one entry per landed phase/PR: date, phase, PR link, one-line summary. -->
 
+## 2026-09-03 — Phase 49 Themes B, C, D, E (partial) — the onboarding kit's plan/apply engine, Setup dialog, and menu wiring
+
+[PR #TBD].
+
+- [x] **Theme B — the contract in `shared`.** `ScaffoldPlan`/`ScaffoldEntry`/`ScaffoldApplyResult`
+      zod schemas and the `.midnite/settings.json` hash manifest, plus two IPC channels
+      (`scaffold.plan`/`scaffold.apply`) keyed by `repoId` only, on the house `{ok}` envelope.
+- [x] **Theme C — plan and apply in main.** `desktop/src/main/scaffold/`: sha256 classification
+      into create/unchanged/stale/locally-edited, confinement through the existing
+      `fs-scope-write.ts` (a new `ensureConfinedDirs`, since a fresh repo has neither
+      `.claude/skills/<name>/` nor `.midnite/tasks/phases/` yet), a re-check immediately before
+      each write, and the manifest written last. Corrected `unchanged`'s definition to a direct
+      hash match against the current template rather than requiring the manifest to agree too —
+      same outcome, simpler rule.
+- [x] **Theme D — the Setup dialog.** A modal preview grouped by status, `locally-edited` entries
+      excluded from the write and said so up front, Apply/result/error states. Found building it: a
+      dialog rendered inline inside the (virtualized) repo row had its `fixed inset-0` overlay
+      contained by a transformed ancestor instead of the viewport — caught by the screenshot, not
+      the RTL tests — fixed with a `createPortal` to `document.body`.
+- [◐] **Theme E — Update, capability detection and the menu, partial.** A sixth `Project` menu
+      group; `isMidniteStudioCheckout` gating Update with a `disabledReason` elsewhere. Two real
+      corrections: `AgentCommandId`/`DEFAULT_AGENT_SKILLS` do not widen — Setup and Update are built
+      directly in `midnite-menu.tsx`, since neither is a user-configurable skill the way every other
+      leaf is; and `startAgent` is the wrong mechanism for Update's literal command — it always
+      wraps its prompt as an agent-CLI argument, which would have typed
+      `claude 'moon run desktop:install-local'` instead of running the command verbatim.
+      `repo-lifecycle.ts`'s `runLifecycleAction` (the phase doc's own precedent) is what Update
+      actually mirrors: a plain shell session, command queued raw. Still open: the packaged-build
+      pre-flight surfacing in the menu, and Theme A's own packaged-build assertion.
+
 ## 2026-09-03 — Phase 22 Themes B, E, F, G + Phase 45 Themes E, F + Phase 49 Theme A + Phase 48 Theme A
 
 [PR #51]. A large batch, four phases: stash reaches the sidebar and the Changes view, force-push
