@@ -4,6 +4,7 @@ import {
   LuChartLine,
   LuClipboardCheck,
   LuFilePen,
+  LuFolderCog,
   LuGitBranch,
   LuGitPullRequest,
   LuInfinity,
@@ -38,7 +39,7 @@ import type { AgentCommandId } from '../../store/ui-store';
  * `hint` is the sub-text under the label — one line, in every place the group
  * is drawn.
  */
-export type AgentCommandCategory = 'tasks' | 'reviews' | 'releases' | 'git' | 'loops';
+export type AgentCommandCategory = 'tasks' | 'reviews' | 'releases' | 'git' | 'loops' | 'project';
 
 export type AgentCommandGroup = {
   id: AgentCommandCategory;
@@ -78,6 +79,24 @@ export const AGENT_COMMAND_GROUPS: readonly AgentCommandGroup[] = [
     label: 'Loops',
     icon: LuInfinity,
     hint: 'The same verbs, repeating until you stop them.',
+  },
+  /*
+    Sixth group (Phase 49). Its two leaves — Setup and Update — are built
+    directly in `midnite-menu.tsx` rather than as `AGENT_COMMANDS` entries:
+    every entry above types a user-configurable SKILL string at an agent, and
+    `agentSkills`/`DEFAULT_AGENT_SKILLS` are a total `Record<AgentCommandId,
+    string>` over that assumption. Setup does not type anything at all — it
+    opens `SetupDialog` — and Update's command is fixed
+    (`moon run desktop:install-local`), never meant to be user-edited the way
+    a skill is. Forcing either into the generic registry would have given
+    the Agent settings page a "skill" field with nothing sensible to put in
+    it.
+  */
+  {
+    id: 'project',
+    label: 'Project',
+    icon: LuFolderCog,
+    hint: 'About the repository itself, not an agent working in it.',
   },
 ];
 

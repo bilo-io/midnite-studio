@@ -35,7 +35,7 @@ test('the row, closed — three marks rather than three ellipses', async ({ page
   await shoot(page, 'row-marks');
 });
 
-test('the menu, open — the five groups and nothing else', async ({ page }) => {
+test('the menu, open — the six groups and nothing else', async ({ page }) => {
   await page.getByRole('button', { name: `Run a midnite skill on ${REPO}` }).click();
   await expect(page.getByRole('menuitem', { name: 'Loops', exact: true })).toBeVisible();
   await shoot(page, 'menu-open');
@@ -46,7 +46,7 @@ test('the menu, open — the five groups and nothing else', async ({ page }) => 
  * gets, and the gradient edge is on both surfaces — which is only visible with
  * the second one showing.
  */
-for (const group of ['Tasks', 'Loops']) {
+for (const group of ['Tasks', 'Loops', 'Project']) {
   test(`the ${group} submenu, open`, async ({ page }) => {
     await page.getByRole('button', { name: `Run a midnite skill on ${REPO}` }).click();
     await page.getByRole('menuitem', { name: group, exact: true }).hover();
@@ -54,6 +54,35 @@ for (const group of ['Tasks', 'Loops']) {
     await shoot(page, `menu-${group.toLowerCase()}`);
   });
 }
+
+/** The onboarding kit's preview dialog (Phase 49 Theme D). */
+test('the Setup dialog, previewing a plan', async ({ page }) => {
+  await installMockBridge(page, {
+    ...fixtures,
+    scaffoldPlanResult: {
+      ok: true,
+      value: {
+        targetRoot: '/tmp/repo',
+        templateVersion: '1.0.0',
+        entries: [
+          { path: '.claude/skills/midnite-exec/SKILL.md', status: 'create', bytes: 512 },
+          { path: '.midnite/tasks/_INDEX.md', status: 'stale', bytes: 340 },
+          { path: 'CLAUDE.md', status: 'locally-edited', bytes: 900 },
+          { path: 'README.md', status: 'unchanged', bytes: 120 },
+        ],
+      },
+    },
+  });
+  await page.goto('/');
+  await expect(page.getByRole('columnheader', { name: 'Commit message' })).toBeVisible();
+
+  await page.getByRole('button', { name: `Run a midnite skill on ${REPO}` }).click();
+  await page.getByRole('menuitem', { name: 'Project', exact: true }).hover();
+  await page.getByRole('menuitem', { name: 'Set up this repo', exact: true }).click();
+  await expect(page.getByRole('dialog', { name: 'Set up this repo' })).toBeVisible();
+  await expect(page.getByText('CLAUDE.md')).toBeVisible();
+  await shoot(page, 'setup-dialog');
+});
 
 test('the Agent page, where each entry is pointed', async ({ page }) => {
   await page.getByRole('button', { name: 'Settings' }).click();

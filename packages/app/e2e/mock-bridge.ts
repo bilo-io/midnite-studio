@@ -317,6 +317,22 @@ export type MockFixtures = {
   fsListFilesResult?:
     | { ok: true; files: string[]; truncated: boolean }
     | { ok: false; message: string };
+  /** The onboarding kit's `scaffold.plan` answer (Phase 49). Defaults to an
+   *  empty, already-up-to-date plan when omitted. */
+  scaffoldPlanResult?:
+    | {
+        ok: true;
+        value: {
+          targetRoot: string;
+          templateVersion: string;
+          entries: { path: string; status: string; bytes: number }[];
+        };
+      }
+    | { ok: false; kind: 'error'; message: string };
+  /** The onboarding kit's `scaffold.apply` answer (Phase 49). */
+  scaffoldApplyResult?:
+    | { ok: true; value: { written: string[]; skipped: { path: string; reason: string }[] } }
+    | { ok: false; kind: 'error'; message: string };
   /**
    * The samples `metrics.onSample` pushes, in order, one per entry.
    *
@@ -1752,6 +1768,21 @@ export async function installMockBridge(page: Page, fixtures: MockFixtures): Pro
             }
           );
         },
+      },
+      /*
+        The onboarding kit (Phase 49). One fixed answer per spec, like
+        `fsSearchResult` above — a spec's plan/apply expectations are fully
+        under its own control, so there is nothing for the mock to derive
+        from `fsFiles`/`fsDirs` here.
+      */
+      scaffold: {
+        plan: async () =>
+          data.scaffoldPlanResult ?? {
+            ok: true,
+            value: { targetRoot: '/tmp/repo', templateVersion: '1.0.0', entries: [] },
+          },
+        apply: async () =>
+          data.scaffoldApplyResult ?? { ok: true, value: { written: [], skipped: [] } },
       },
       /*
         A live stream, not an inert one.
