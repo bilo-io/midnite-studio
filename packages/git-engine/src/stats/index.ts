@@ -11,6 +11,7 @@ import { readHistory } from './commit-history';
 import { buildContributors } from './contributors';
 import { readHealth } from './health';
 import { createStatsCache, refDigest, type StatsCache } from './stats-cache';
+import { buildTimeline } from './timeline';
 
 export * from './calendar';
 export * from './churn';
@@ -18,6 +19,7 @@ export * from './commit-history';
 export * from './contributors';
 export * from './health';
 export * from './stats-cache';
+export * from './timeline';
 
 /**
  * Repository statistics, computed once and folded many ways.
@@ -110,6 +112,7 @@ export async function computeStats(
       authorEmail: commit.authorEmail,
       subject: commit.subject,
     })),
+    timeline: buildTimeline(history.commits),
     // Null, not an empty table: "not requested" and "no files changed" are
     // different answers and the widget renders them differently.
     churn: withChurn ? buildChurn(history.commits) : null,

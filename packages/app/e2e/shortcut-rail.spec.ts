@@ -209,7 +209,7 @@ test('diagnostics sits in the left zone, not the right', async ({ page }) => {
 });
 
 /** Render order and collapse order agree — the priority inversion Theme B fixed. */
-test('the rail renders repos, terminal, explorer, browser, palette, files in that order', async ({
+test('the rail renders repos, terminal, explorer, browser, activity, palette, files in that order', async ({
   page,
 }) => {
   await open(page);
@@ -218,11 +218,12 @@ test('the rail renders repos, terminal, explorer, browser, palette, files in tha
       .map((child) => child.getAttribute('data-testid'))
       .filter((id): id is string => id !== null),
   );
-  expect(ids.slice(0, 6)).toEqual([
+  expect(ids.slice(0, 7)).toEqual([
     'repos-toggle',
     'terminal-toggle',
     'explorer-toggle',
     'browser-toggle',
+    'activity-toggle',
     'palette-toggle',
     'files-toggle',
   ]);
@@ -249,6 +250,11 @@ test(
   */
   { tag: '@linux-red' },
   async ({ page }) => {
+    // Wider than the default viewport, and set BEFORE the app loads: the
+    // activity toggle widened the rail past 1280px's full band on macOS
+    // fonts, and a bar that boots compact cannot widen back to full (see
+    // status-bar.spec.ts's narrowing spec for why).
+    await page.setViewportSize({ width: 1400, height: 800 });
     await openWide(page);
     const repos = page.getByTestId('repos-toggle');
     await expect(repos).toHaveAttribute('aria-pressed', 'true');

@@ -109,6 +109,7 @@ export function buildMenu(getWindow: () => BrowserWindow | null): Menu {
         item('terminal.toggle'),
         item('browser.toggle'),
         item('fab.toggle'),
+        item('activity.toggle'),
         { type: 'separator' },
         { role: 'togglefullscreen' },
         { role: 'toggleDevTools' },

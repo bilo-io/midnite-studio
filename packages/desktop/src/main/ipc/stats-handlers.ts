@@ -51,6 +51,7 @@ const emptyStats = (repoId: string, window: RepoStats['window']): RepoStats => (
   calendar: [],
   contributors: [],
   activity: [],
+  timeline: [],
   churn: null,
   health: {
     localBranches: 0,

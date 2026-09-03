@@ -172,6 +172,12 @@ test(
   */
   { tag: '@linux-red' },
   async ({ page }) => {
+    // Wider than the default viewport, and set BEFORE the app loads: the
+    // activity toggle widened the rail past 1280px's full band on macOS
+    // fonts, and the first measurement must land `full` — once the bar fits,
+    // `scrollWidth` equals `clientWidth`, so a post-load widening can never
+    // clear `densityFor`'s restore hysteresis.
+    await page.setViewportSize({ width: 1400, height: 800 });
     await installMockBridge(page, {
       ...fixtures,
       remotes: [GITHUB_REMOTE],

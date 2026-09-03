@@ -121,6 +121,10 @@ export function useCommandHandlers(): CommandRuntime {
     'repos.toggle': { enabled: true, run: () => useUiStore.getState().toggleRepos() },
     'browser.toggle': { enabled: true, run: () => useUiStore.getState().toggleBrowser() },
     'fab.toggle': { enabled: true, run: () => useUiStore.getState().toggleFabPanel() },
+    'activity.toggle': {
+      enabled: true,
+      run: () => useUiStore.getState().toggleActivityTimeline(),
+    },
     ...browserTabCommands(browserOpen),
     'search.open': { enabled: true, run: () => useUiStore.getState().setActiveView('search') },
 

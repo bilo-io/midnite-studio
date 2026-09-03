@@ -33,6 +33,7 @@ import { TitleBarAgents } from './components/title-bar-agents';
 import { TitleBarNav } from './components/title-bar-nav';
 import { TitleBarStatus } from './features/titlebar-status/titlebar-status';
 import { ScreensaverHost } from './features/screensaver/screensaver-host';
+import { CommitActivityPanel } from './features/activity/commit-activity-panel';
 import { EmptyWorkspace } from './features/empty/empty-workspace';
 import { FileEditorGuard } from './features/files/preview/file-editor-guard';
 import { GraphView } from './features/graph/graph-view';
@@ -982,6 +983,8 @@ function Shell() {
               <ResizeHandle resizable={repos} axis="x" label="Resize repositories sidebar" />
             </>
           ) : null}
+          {/* Renders only when open AND the orientation setting says vertical. */}
+          <CommitActivityPanel slot="right" />
           <div className="flex min-w-0 flex-1 flex-col">
             {/*
               View, splitter and terminal share this box, but the status bar does
@@ -1198,6 +1201,12 @@ function Shell() {
           </div>
         </div>
 
+        {/*
+          The horizontal timeline sits between the content row and the status
+          bar — a sibling of both, `shrink-0` with a fixed height, which is what
+          keeps the stackHeight reasoning above intact.
+        */}
+        <CommitActivityPanel slot="bottom" />
         <StatusBar />
         <Suspense fallback={null}>
           <FirstRunModal />

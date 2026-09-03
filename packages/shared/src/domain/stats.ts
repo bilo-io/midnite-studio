@@ -78,6 +78,25 @@ export const ActivityEntrySchema = z.object({
 });
 export type ActivityEntry = z.infer<typeof ActivityEntrySchema>;
 
+/**
+ * One commit, reduced to when it happened and how much it moved — the row the
+ * activity timeline buckets.
+ *
+ * Distinct from `ActivityEntry`, which is a **feed** (names, subjects, capped
+ * at a glanceable 50): a timeline needs every commit in the window or its
+ * buckets lie, and needs nothing about any of them but the numbers. Counts are
+ * null when churn was not requested — "not measured", not zero, the same rule
+ * `ContributorStat` follows.
+ */
+export const TimelineCommitSchema = z.object({
+  sha: z.string(),
+  /** Unix **seconds**, exactly as `%at` gives it. */
+  at: z.number().int(),
+  additions: z.number().int().nonnegative().nullable(),
+  deletions: z.number().int().nonnegative().nullable(),
+});
+export type TimelineCommit = z.infer<typeof TimelineCommitSchema>;
+
 /** A file and how much it moved. */
 export const ChurnFileSchema = z.object({
   path: z.string(),
@@ -141,6 +160,8 @@ export const RepoStatsSchema = z.object({
   calendar: z.array(CalendarDaySchema),
   contributors: z.array(ContributorStatSchema),
   activity: z.array(ActivityEntrySchema),
+  /** Every commit in the window as `{at, ±lines}`, newest first, capped like the scan. */
+  timeline: z.array(TimelineCommitSchema),
   /** Null when churn was not requested — `--numstat` is the expensive half. */
   churn: ChurnStatsSchema.nullable(),
   health: RepoHealthSchema,
