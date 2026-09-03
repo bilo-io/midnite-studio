@@ -80,8 +80,8 @@ describe('CommitActivityTimeline', () => {
     expect(paths.filter((p) => p.getAttribute('vector-effect') === 'non-scaling-stroke')).toHaveLength(
       2,
     );
-    expect(container.querySelector('g.text-emerald-500 path')).not.toBeNull();
-    expect(container.querySelector('g.text-rose-500 path')).not.toBeNull();
+    expect(container.querySelectorAll('path.text-emerald-500')).toHaveLength(2);
+    expect(container.querySelectorAll('path.text-rose-500')).toHaveLength(2);
   });
 
   it('swaps the viewBox axes with the orientation', () => {
@@ -211,7 +211,7 @@ describe('CommitActivityTimeline bar layout', () => {
 describe('CommitActivityTimeline area layout', () => {
   const edge = (container: HTMLElement, colour: 'emerald' | 'rose'): [number, number][] => {
     const d = container
-      .querySelector(`g.text-${colour}-500 path[vector-effect="non-scaling-stroke"]`)!
+      .querySelector(`path.text-${colour}-500[vector-effect="non-scaling-stroke"]`)!
       .getAttribute('d')!;
     return d
       .slice(1)
@@ -279,9 +279,9 @@ describe('CommitActivityTimeline area layout', () => {
   it('falls back to one neutral commit-count area when no bucket carries line stats', () => {
     const flat = commits.map((c) => ({ ...c, additions: 0, deletions: 0 }));
     const container = area({ commits: flat });
-    expect(container.querySelector('g.text-emerald-500')).toBeNull();
-    expect(container.querySelector('g.text-rose-500')).toBeNull();
-    expect(container.querySelectorAll('g.text-muted-foreground path')).toHaveLength(2);
+    expect(container.querySelector('path.text-emerald-500')).toBeNull();
+    expect(container.querySelector('path.text-rose-500')).toBeNull();
+    expect(container.querySelectorAll('path.text-muted-foreground')).toHaveLength(2);
   });
 });
 
@@ -410,7 +410,7 @@ describe('CommitActivityTimeline vertical orientation', () => {
     const container = vertical({ variant: 'area' });
     const points = [
       ...container
-        .querySelector('g.text-rose-500 path[vector-effect="non-scaling-stroke"]')!
+        .querySelector('path.text-rose-500[vector-effect="non-scaling-stroke"]')!
         .getAttribute('d')!
         .slice(1)
         .split(' L'),

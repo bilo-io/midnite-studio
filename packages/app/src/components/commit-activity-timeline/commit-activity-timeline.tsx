@@ -447,9 +447,7 @@ function ChurnArea({ buckets, horizontal, layout }: Drawn & { layout: ActivityAr
   if (maxLines === 0) return <CountArea buckets={buckets} horizontal={horizontal} />;
 
   const stacked = layout === 'stacked';
-  const max = stacked
-    ? Math.max(...buckets.map((b) => b.additions + b.deletions))
-    : maxLines;
+  const max = stacked ? Math.max(...buckets.map((b) => b.additions + b.deletions)) : maxLines;
 
   const floor = buckets.map(() => 0);
   const deletions = buckets.map((b) => depth(b.deletions, max));
@@ -458,90 +456,107 @@ function ChurnArea({ buckets, horizontal, layout }: Drawn & { layout: ActivityAr
   const addFloor = stacked ? deletions : floor;
   const additions = buckets.map((b, i) => addFloor[i]! + depth(b.additions, max));
 
+  const bands = [
+    // Deletions first — a fixed order rather than largest-first, so which
+    // band is on top never moves as the window changes.
+    { key: 'deletions', colour: 'text-rose-500', ...bandPaths(horizontal, floor, deletions) },
+    { key: 'additions', colour: 'text-emerald-500', ...bandPaths(horizontal, addFloor, additions) },
+  ];
+
   return (
-    <g data-testid={stacked ? 'activity-area-stacked' : 'activity-area-overlaid'}>
-      {/*
-        Deletions first, additions over them — a fixed order rather than
-        largest-first, so which band is on top never moves as the window
-        changes. Overlaid bands are translucent enough to read through, and
-        each band's stroke sits on top of both fills either way.
-      */}
-      <Band
-        horizontal={horizontal}
-        className="text-rose-500"
-        fillOpacity={stacked ? STACKED_FILL : OVERLAID_FILL}
-        floor={floor}
-        top={deletions}
-      />
-      <Band
-        horizontal={horizontal}
-        className="text-emerald-500"
-        fillOpacity={stacked ? STACKED_FILL : OVERLAID_FILL}
-        floor={addFloor}
-        top={additions}
-      />
-    </g>
+    <Bands
+      bands={bands}
+      fillOpacity={stacked ? STACKED_FILL : OVERLAID_FILL}
+      testId={stacked ? 'activity-area-stacked' : 'activity-area-overlaid'}
+    />
   );
 }
 
 /** Commit counts as one neutral area — what the churn areas fall back to. */
 function CountArea({ buckets, horizontal }: Drawn) {
   const maxCount = Math.max(...buckets.map((b) => b.count), 1);
+  const top = buckets.map((b) => depth(b.count, maxCount));
   return (
-    <Band
-      horizontal={horizontal}
-      className="text-muted-foreground"
+    <Bands
+      bands={[
+        {
+          key: 'counts',
+          colour: 'text-muted-foreground',
+          ...bandPaths(horizontal, buckets.map(() => 0), top),
+        },
+      ]}
       fillOpacity={0.15}
-      floor={buckets.map(() => 0)}
-      top={buckets.map((b) => depth(b.count, maxCount))}
+      testId="activity-area-counts"
     />
   );
 }
 
 /**
- * One filled band between two depth series, with its upper edge stroked.
+ * Every band's fill, then every band's edge.
+ *
+ * Both layers rather than one `<g>` per band, because an edge drawn under the
+ * next band's fill is muted by it — and in the overlaid layout the two edges
+ * are the only marks that stay readable where the bands cross.
+ *
+ * `vectorEffect="non-scaling-stroke"` because the viewBox is stretched
+ * non-uniformly: a scaled hairline is a different thickness in each
+ * orientation and at each panel size.
+ */
+function Bands({
+  bands,
+  fillOpacity,
+  testId,
+}: {
+  bands: readonly { key: string; colour: string; area: string; line: string }[];
+  fillOpacity: number;
+  testId: string;
+}) {
+  return (
+    <g data-testid={testId}>
+      {bands.map((band) => (
+        <path
+          key={band.key}
+          className={band.colour}
+          d={band.area}
+          fill="currentColor"
+          opacity={fillOpacity}
+        />
+      ))}
+      {bands.map((band) => (
+        <path
+          key={band.key}
+          className={band.colour}
+          d={band.line}
+          fill="none"
+          stroke="currentColor"
+          strokeWidth={1.5}
+          vectorEffect="non-scaling-stroke"
+        />
+      ))}
+    </g>
+  );
+}
+
+/**
+ * One band between two depth series: the filled shape, and its upper edge on
+ * its own so the two can be drawn in separate layers.
  *
  * Depths, not coordinates: a series is "how far off the zero edge", which is
  * the vocabulary stacking is expressed in and the only one that survives the
  * orientation swap. `at()` turns a depth into the across-axis coordinate and
  * `pt()` decides which axis that lands on.
- *
- * `vectorEffect="non-scaling-stroke"` because the viewBox is stretched
- * non-uniformly — a scaled hairline is a different thickness in each
- * orientation and at each panel size.
  */
-function Band({
-  horizontal,
-  className,
-  fillOpacity,
-  floor,
-  top,
-}: {
-  horizontal: boolean;
-  className: string;
-  fillOpacity: number;
-  floor: readonly number[];
-  top: readonly number[];
-}) {
+function bandPaths(
+  horizontal: boolean,
+  floor: readonly number[],
+  top: readonly number[],
+): { area: string; line: string } {
   const alongs = alongPoints(top.length);
   const edge = (series: readonly number[]): string[] =>
     shoulder(series).map((d, i) => pt(horizontal, alongs[i]!, at(d)));
 
   const line = `M${edge(top).join(' L')}`;
-  const area = `${line} L${edge(floor).reverse().join(' L')} Z`;
-
-  return (
-    <g className={className}>
-      <path d={area} fill="currentColor" opacity={fillOpacity} />
-      <path
-        d={line}
-        fill="none"
-        stroke="currentColor"
-        strokeWidth={1.5}
-        vectorEffect="non-scaling-stroke"
-      />
-    </g>
-  );
+  return { line, area: `${line} L${edge(floor).reverse().join(' L')} Z` };
 }
 
 /** Fill opacity per layout: overlaid bands have to read through each other. */
