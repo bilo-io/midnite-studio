@@ -8,6 +8,11 @@ import {
   type MetricId,
 } from '@midnite/studio-shared';
 
+import type { ActivityTimeframe } from '../components/commit-activity-timeline/activity-buckets';
+import type {
+  ActivityTimelineOrientation,
+  ActivityTimelineStyle,
+} from '../components/commit-activity-timeline/commit-activity-timeline';
 import {
   DEFAULT_GRAPH_DENSITY,
   DEFAULT_GRAPH_THEME,
@@ -408,6 +413,18 @@ export type UiState = {
   browserOpen: boolean;
   /** Whether the FAB panel is open. */
   fabPanelOpen: boolean;
+  /**
+   * Whether the commit-activity timeline is shown. A flat boolean like
+   * `browserOpen`; WHERE it shows is `activityTimelineOrientation`'s call —
+   * a vertical panel beside the repositories, or a strip above the status bar.
+   */
+  activityTimelineOpen: boolean;
+  /** Which of the timeline's three drawings is used. A preference, so it persists. */
+  activityTimelineStyle: ActivityTimelineStyle;
+  /** Vertical panel beside the repositories, or a horizontal strip above the status bar. */
+  activityTimelineOrientation: ActivityTimelineOrientation;
+  /** How far back the timeline looks: 24 hours, 7 days or 30. */
+  activityTimeframe: ActivityTimeframe;
   /** Active tab in the FAB panel. */
   activeFabTab: FabTab;
   /**
@@ -631,6 +648,10 @@ export type UiState = {
   setBrowserOpen: (open: boolean) => void;
   toggleFabPanel: () => void;
   setFabPanelOpen: (open: boolean) => void;
+  toggleActivityTimeline: () => void;
+  setActivityTimelineStyle: (style: ActivityTimelineStyle) => void;
+  setActivityTimelineOrientation: (orientation: ActivityTimelineOrientation) => void;
+  setActivityTimeframe: (timeframe: ActivityTimeframe) => void;
   setActiveFabTab: (tab: FabTab) => void;
   onFabTabClick: (tab: FabTab) => void;
   /**
@@ -901,6 +922,10 @@ type PersistedUi = Pick<
   | 'terminalListOpen'
   | 'browserOpen'
   | 'fabPanelOpen'
+  | 'activityTimelineOpen'
+  | 'activityTimelineStyle'
+  | 'activityTimelineOrientation'
+  | 'activityTimeframe'
   | 'fabSessions'
   | 'loopModifierDefaults'
   | 'loopChoices'
@@ -981,6 +1006,10 @@ export const useUiStore = create<UiState>()(
       terminalListOpen: true,
       browserOpen: false,
       fabPanelOpen: false,
+      activityTimelineOpen: false,
+      activityTimelineStyle: 'bars',
+      activityTimelineOrientation: 'vertical',
+      activityTimeframe: 'week',
       activeFabTab: 'innovate',
       fabSessions: {},
       setFabSession: (tab, sessionId) =>
@@ -1146,6 +1175,12 @@ export const useUiStore = create<UiState>()(
       setBrowserOpen: (browserOpen) => set({ browserOpen }),
       toggleFabPanel: () => set((state) => ({ fabPanelOpen: !state.fabPanelOpen })),
       setFabPanelOpen: (fabPanelOpen) => set({ fabPanelOpen }),
+      toggleActivityTimeline: () =>
+        set((state) => ({ activityTimelineOpen: !state.activityTimelineOpen })),
+      setActivityTimelineStyle: (activityTimelineStyle) => set({ activityTimelineStyle }),
+      setActivityTimelineOrientation: (activityTimelineOrientation) =>
+        set({ activityTimelineOrientation }),
+      setActivityTimeframe: (activityTimeframe) => set({ activityTimeframe }),
       setActiveFabTab: (activeFabTab) => set({ activeFabTab }),
       onFabTabClick: (tab) => {
         set((state) => {
@@ -1298,6 +1333,10 @@ export const useUiStore = create<UiState>()(
         terminalListOpen: state.terminalListOpen,
         browserOpen: state.browserOpen,
         fabPanelOpen: state.fabPanelOpen,
+        activityTimelineOpen: state.activityTimelineOpen,
+        activityTimelineStyle: state.activityTimelineStyle,
+        activityTimelineOrientation: state.activityTimelineOrientation,
+        activityTimeframe: state.activityTimeframe,
         fabSessions: state.fabSessions,
         loopModifierDefaults: state.loopModifierDefaults,
         loopChoices: state.loopChoices,

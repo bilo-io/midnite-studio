@@ -5,6 +5,7 @@ import { DiagnosticsSegment } from '../diagnostics/diagnostics-segment';
 import { FinanceSegment } from '../finance/finance-segment';
 import { MonitorCluster } from '../monitor/monitor-cluster';
 
+import { ActivityToggle } from './activity-toggle';
 import { AssistantMenu } from './assistant-menu';
 import { BrowserToggle } from './browser-toggle';
 import { ChecksVerdictSegment } from './checks-verdict';
@@ -88,6 +89,7 @@ export const STATUS_SEGMENTS: StatusSegment[] = [
   { id: 'terminal-toggle', zone: 'left', group: 'shortcuts', priority: 20, label: 'Terminal', El: TerminalToggle },
   { id: 'explorer-toggle', zone: 'left', group: 'shortcuts', priority: 25, label: 'Explorer', El: ExplorerToggle },
   { id: 'browser-toggle', zone: 'left', group: 'shortcuts', priority: 30, label: 'Browser', El: BrowserToggle },
+  { id: 'activity-toggle', zone: 'left', group: 'shortcuts', priority: 35, label: 'Activity', El: ActivityToggle },
   { id: 'palette-toggle', zone: 'left', group: 'shortcuts', priority: 40, label: 'Command palette', El: PaletteToggle },
   { id: 'files-toggle', zone: 'left', group: 'shortcuts', priority: 50, label: 'Go to file', El: FilesToggle },
   // `health`: this repository's own problems. Moved out of the right zone in
