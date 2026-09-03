@@ -6,8 +6,9 @@ import { installMockBridge, type MockFixtures } from './mock-bridge';
 /**
  * Committed screenshots for the commit-activity timeline: the vertical panel
  * in each of its three styles, the horizontal strip above the status bar in
- * two of them, and the three drawing options that only the chart shows —
- * gridlines, side-by-side churn bars, and the hover tooltip — in both themes.
+ * two of them, and the drawing options that only the chart shows — gridlines,
+ * side-by-side churn bars, stacked churn areas, and the hover tooltip — in
+ * both themes.
  *
  * Gated behind `MSTUDIO_SHOTS` like every other shots suite — committed
  * images, not assertions a normal `app:e2e` run must keep passing.
@@ -39,6 +40,8 @@ interface Shot {
   gridlines?: boolean;
   /** `grouped` stands the churn bars side by side instead of diverging. */
   barLayout?: string;
+  /** `stacked` sits the additions area on top of the deletions one. */
+  areaLayout?: string;
   /** Hover the newest bucket before shooting, so the tooltip is in frame. */
   hover?: boolean;
   /** Suffix distinguishing this shot from the plain one for the same style. */
@@ -63,8 +66,9 @@ async function land(page: Page, theme: 'light' | 'dark', prefs: Shot): Promise<v
           activityTimelineOrientation: seeded.orientation,
           activityTimelineGridlines: seeded.gridlines ?? false,
           activityTimelineBarLayout: seeded.barLayout ?? 'diverging',
+          activityTimelineAreaLayout: seeded.areaLayout ?? 'overlaid',
         },
-        version: 5,
+        version: 6,
       }),
     );
   }, prefs);
@@ -86,9 +90,11 @@ async function land(page: Page, theme: 'light' | 'dark', prefs: Shot): Promise<v
 const SHOTS: Shot[] = [
   { style: 'bars', orientation: 'vertical' },
   { style: 'heatmap', orientation: 'vertical' },
-  { style: 'sparkline', orientation: 'vertical' },
+  { style: 'area', orientation: 'vertical' },
   { style: 'bars', orientation: 'horizontal' },
-  { style: 'sparkline', orientation: 'horizontal' },
+  { style: 'area', orientation: 'horizontal' },
+  { style: 'area', orientation: 'horizontal', areaLayout: 'stacked', name: 'stacked' },
+  { style: 'area', orientation: 'vertical', areaLayout: 'stacked', name: 'stacked' },
   { style: 'bars', orientation: 'horizontal', gridlines: true, name: 'gridlines' },
   { style: 'bars', orientation: 'horizontal', barLayout: 'grouped', name: 'grouped' },
   {

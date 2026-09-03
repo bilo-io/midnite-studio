@@ -403,6 +403,18 @@ describe('phase 14 store additions', () => {
     const payload = { graphColumns: { branchTag: 200, date: 112, sha: 64 } };
     expect(migrate?.(payload, 2)).toBe(payload);
   });
+
+  it('renames the retired sparkline timeline style to area on v5 to v6', () => {
+    const migrate = useUiStore.persist.getOptions().migrate;
+    const style = (persisted: Record<string, unknown>, version: number) =>
+      (migrate?.(persisted, version) as { activityTimelineStyle?: string }).activityTimelineStyle;
+
+    expect(style({ activityTimelineStyle: 'sparkline' }, 5)).toBe('area');
+    // The other two styles kept their ids, and a payload already on v6 is
+    // never rewritten.
+    expect(style({ activityTimelineStyle: 'heatmap' }, 5)).toBe('heatmap');
+    expect(style({ activityTimelineStyle: 'sparkline' }, 6)).toBe('sparkline');
+  });
 });
 
 

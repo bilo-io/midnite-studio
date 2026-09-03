@@ -12,7 +12,7 @@ import { ActivityTooltip, type PointerAt } from './activity-tooltip';
  * How a bucket is drawn. All three read the same buckets; the choice is a
  * Settings preference, like the graph's own style.
  */
-export type ActivityTimelineStyle = 'bars' | 'heatmap' | 'sparkline';
+export type ActivityTimelineStyle = 'bars' | 'heatmap' | 'area';
 
 /**
  * How the churn bars split additions from deletions.
@@ -25,6 +25,18 @@ export type ActivityTimelineStyle = 'bars' | 'heatmap' | 'sparkline';
  * across a line, which the eye is bad at.
  */
 export type ActivityBarLayout = 'diverging' | 'grouped';
+
+/**
+ * How the churn areas relate the two series.
+ *
+ * `overlaid` draws both off the same baseline, translucent, one over the other:
+ * two heights measured from one zero, so "was this day more additions or more
+ * deletions" is a direct comparison. `stacked` sits additions on top of
+ * deletions, so the silhouette is total churn and the two bands are its split —
+ * the shape to pick when the question is "how busy was the week", at the cost
+ * of the additions band no longer being readable against the axis.
+ */
+export type ActivityAreaLayout = 'overlaid' | 'stacked';
 
 /**
  * Which way time flows: `horizontal` (oldest left) for the strip above the
@@ -40,6 +52,7 @@ export interface CommitActivityTimelineProps {
   /** Rules across the time axis, at the timeframe's own cadence. */
   gridlines?: boolean;
   barLayout?: ActivityBarLayout;
+  areaLayout?: ActivityAreaLayout;
   /** Injectable clock, so a test or screenshot renders the same buckets twice. */
   now?: number;
 }
@@ -65,6 +78,7 @@ export function CommitActivityTimeline({
   orientation = 'horizontal',
   gridlines = false,
   barLayout = 'diverging',
+  areaLayout = 'overlaid',
   now,
 }: CommitActivityTimelineProps) {
   const buckets = useMemo(
@@ -127,7 +141,9 @@ export function CommitActivityTimeline({
         ) : null}
         {variant === 'bars' ? <Bars buckets={buckets} horizontal={horizontal} layout={barLayout} /> : null}
         {variant === 'heatmap' ? <Heatmap buckets={buckets} horizontal={horizontal} /> : null}
-        {variant === 'sparkline' ? <Sparkline buckets={buckets} horizontal={horizontal} /> : null}
+        {variant === 'area' ? (
+          <ChurnArea buckets={buckets} horizontal={horizontal} layout={areaLayout} />
+        ) : null}
         <HoverLayer buckets={buckets} horizontal={horizontal} onHover={onHover} onLeave={() => setHovered(null)} />
       </svg>
       {hoveredBucket ? (
@@ -183,9 +199,9 @@ function slot(index: number, count: number): { along: number; length: number } {
  * Rules across the time axis at the bucket edges `gridlineIndices` picked, plus
  * — for diverging bars only — the centre baseline the two halves grow off.
  *
- * `vectorEffect="non-scaling-stroke"` for the same reason the sparkline uses
- * it: the viewBox is stretched non-uniformly, so a scaled hairline is a
- * different thickness in each orientation and in each panel size.
+ * `vectorEffect="non-scaling-stroke"` for the same reason `Band` uses it: the
+ * viewBox is stretched non-uniformly, so a scaled hairline is a different
+ * thickness in each orientation and in each panel size.
  */
 function Gridlines({
   rules,
@@ -412,26 +428,111 @@ function Heatmap({ buckets, horizontal }: Drawn) {
   );
 }
 
-/** Commit counts as a line with a translucent fill, one point per bucket centre. */
-function Sparkline({ buckets, horizontal }: Drawn) {
-  const maxCount = Math.max(...buckets.map((b) => b.count), 1);
-  const pad = 1;
+/**
+ * Churn as two areas — additions in green, deletions in red — in one of two
+ * layouts.
+ *
+ * `overlaid` draws both off the same baseline and scales them against the
+ * window's largest single side, so the two heights compare directly. `stacked`
+ * puts additions on top of deletions and scales against the largest *total*,
+ * so the outline is total churn. Both are the same `Band` twice; only the
+ * floor each band sits on and the number they scale against differ.
+ *
+ * Same fallback rule the bars have: with no line counts anywhere in the window
+ * (churn absent, or nothing changed) it draws commit counts in the neutral
+ * colour instead, because an empty chart would read as "no commits".
+ */
+function ChurnArea({ buckets, horizontal, layout }: Drawn & { layout: ActivityAreaLayout }) {
+  const maxLines = Math.max(...buckets.map((b) => Math.max(b.additions, b.deletions)), 0);
+  if (maxLines === 0) return <CountArea buckets={buckets} horizontal={horizontal} />;
 
-  const points = buckets.map((bucket, i) => {
-    const width = AXIS / buckets.length;
-    const along = i * width + width / 2;
-    const across = pad + (1 - bucket.count / maxCount) * (CROSS - 2 * pad);
-    return horizontal ? `${r(along)},${r(across)}` : `${r(across)},${r(along)}`;
-  });
-  const line = points.map((p, i) => `${i === 0 ? 'M' : 'L'}${p}`).join(' ');
-  // Closed toward the "zero" edge: bottom when horizontal, left when vertical.
-  const area = horizontal
-    ? `${line} L${AXIS},${CROSS} L0,${CROSS} Z`
-    : `${line} L${CROSS},${AXIS} L${CROSS},0 Z`;
+  const stacked = layout === 'stacked';
+  const max = stacked
+    ? Math.max(...buckets.map((b) => b.additions + b.deletions))
+    : maxLines;
+
+  const floor = buckets.map(() => 0);
+  const deletions = buckets.map((b) => depth(b.deletions, max));
+  // Deletions sit on the baseline in both layouts; stacking lifts additions
+  // onto them, and overlaying starts them from the same zero.
+  const addFloor = stacked ? deletions : floor;
+  const additions = buckets.map((b, i) => addFloor[i]! + depth(b.additions, max));
 
   return (
-    <g className="text-primary">
-      <path d={area} fill="currentColor" opacity={0.15} />
+    <g data-testid={stacked ? 'activity-area-stacked' : 'activity-area-overlaid'}>
+      {/*
+        Deletions first, additions over them — a fixed order rather than
+        largest-first, so which band is on top never moves as the window
+        changes. Overlaid bands are translucent enough to read through, and
+        each band's stroke sits on top of both fills either way.
+      */}
+      <Band
+        horizontal={horizontal}
+        className="text-rose-500"
+        fillOpacity={stacked ? STACKED_FILL : OVERLAID_FILL}
+        floor={floor}
+        top={deletions}
+      />
+      <Band
+        horizontal={horizontal}
+        className="text-emerald-500"
+        fillOpacity={stacked ? STACKED_FILL : OVERLAID_FILL}
+        floor={addFloor}
+        top={additions}
+      />
+    </g>
+  );
+}
+
+/** Commit counts as one neutral area — what the churn areas fall back to. */
+function CountArea({ buckets, horizontal }: Drawn) {
+  const maxCount = Math.max(...buckets.map((b) => b.count), 1);
+  return (
+    <Band
+      horizontal={horizontal}
+      className="text-muted-foreground"
+      fillOpacity={0.15}
+      floor={buckets.map(() => 0)}
+      top={buckets.map((b) => depth(b.count, maxCount))}
+    />
+  );
+}
+
+/**
+ * One filled band between two depth series, with its upper edge stroked.
+ *
+ * Depths, not coordinates: a series is "how far off the zero edge", which is
+ * the vocabulary stacking is expressed in and the only one that survives the
+ * orientation swap. `at()` turns a depth into the across-axis coordinate and
+ * `pt()` decides which axis that lands on.
+ *
+ * `vectorEffect="non-scaling-stroke"` because the viewBox is stretched
+ * non-uniformly — a scaled hairline is a different thickness in each
+ * orientation and at each panel size.
+ */
+function Band({
+  horizontal,
+  className,
+  fillOpacity,
+  floor,
+  top,
+}: {
+  horizontal: boolean;
+  className: string;
+  fillOpacity: number;
+  floor: readonly number[];
+  top: readonly number[];
+}) {
+  const alongs = alongPoints(top.length);
+  const edge = (series: readonly number[]): string[] =>
+    shoulder(series).map((d, i) => pt(horizontal, alongs[i]!, at(d)));
+
+  const line = `M${edge(top).join(' L')}`;
+  const area = `${line} L${edge(floor).reverse().join(' L')} Z`;
+
+  return (
+    <g className={className}>
+      <path d={area} fill="currentColor" opacity={fillOpacity} />
       <path
         d={line}
         fill="none"
@@ -442,3 +543,38 @@ function Sparkline({ buckets, horizontal }: Drawn) {
     </g>
   );
 }
+
+/** Fill opacity per layout: overlaid bands have to read through each other. */
+const OVERLAID_FILL = 0.28;
+const STACKED_FILL = 0.5;
+
+/** Inset from each end of the cross axis, so a full-height band's stroke is not clipped. */
+const AREA_PAD = 1;
+
+/** Depth of `value` against the window's `max`, in cross-axis units. */
+const depth = (value: number, max: number): number =>
+  max === 0 ? 0 : (value / max) * (CROSS - 2 * AREA_PAD);
+
+/** Cross-axis coordinate of a depth, measured off the "zero" edge. */
+const at = (value: number): number => CROSS - AREA_PAD - value;
+
+/** An along/across pair as an SVG point, swapped for the vertical orientation. */
+const pt = (horizontal: boolean, along: number, across: number): string =>
+  horizontal ? `${r(along)},${r(across)}` : `${r(across)},${r(along)}`;
+
+/**
+ * Bucket centres along the time axis, with the two ends squared off to the
+ * axis edges — a band drawn only between centres would leave half a bucket of
+ * blank at each end, which reads as the window being narrower than it is.
+ */
+function alongPoints(count: number): number[] {
+  const width = AXIS / count;
+  return [0, ...Array.from({ length: count }, (_, i) => i * width + width / 2), AXIS];
+}
+
+/** The end values repeated, so the squared-off shoulders are flat. */
+const shoulder = (series: readonly number[]): number[] => [
+  series[0] ?? 0,
+  ...series,
+  series.at(-1) ?? 0,
+];
