@@ -1385,3 +1385,83 @@ describe('search and blame channels and schemas', () => {
   });
 });
 
+
+describe('workflow contract', () => {
+  /*
+    The exhaustiveness guards in this file are prefix-scoped and opt-in — there
+    is no council block at all, which is exactly why a council channel can be
+    added unvalidated. Without this block the only guards a `workflow*` channel
+    would get are the two global ones (unique names, `mstudio:` prefix). With
+    it, a later channel added without a row here fails the suite.
+  */
+  it('covers every workflow and demo-api channel', () => {
+    const expected: Record<string, string[]> = {
+      workflowList: ['WorkflowListResponse'],
+      workflowSave: ['WorkflowSaveRequest', 'WorkflowSaveResponse'],
+      workflowDelete: ['WorkflowDeleteRequest', 'WorkflowDeleteResponse'],
+      workflowRun: ['WorkflowRunRequest', 'WorkflowRunResponse'],
+      workflowCancel: ['WorkflowCancelRequest', 'WorkflowCancelResponse'],
+      workflowRunsList: ['WorkflowRunsListRequest', 'WorkflowRunsListResponse'],
+      workflowRunsGet: ['WorkflowRunsGetRequest', 'WorkflowRunsGetResponse'],
+      workflowRunChanged: [],
+      demoApiStart: ['DemoApiStartResponse'],
+      demoApiStop: ['DemoApiStopResponse'],
+      demoApiStatus: ['DemoApiStatusResponse'],
+    };
+
+    const channelKeys = [...Object.keys(CHANNELS), ...Object.keys(EVENT_CHANNELS)].filter(
+      (key) => key.startsWith('workflow') || key.startsWith('demoApi'),
+    );
+
+    expect(channelKeys.sort()).toEqual(Object.keys(expected).sort());
+    for (const names of Object.values(expected)) {
+      for (const name of names) expect(schemas).toHaveProperty(name);
+    }
+  });
+
+  it('scopes nothing to a repository — workflows are global, like councils', () => {
+    for (const schema of [
+      schemas.WorkflowSaveRequest,
+      schemas.WorkflowDeleteRequest,
+      schemas.WorkflowRunRequest,
+      schemas.WorkflowCancelRequest,
+      schemas.WorkflowRunsListRequest,
+      schemas.WorkflowRunsGetRequest,
+    ]) {
+      expect(Object.keys(schema.shape)).not.toContain('repoId');
+    }
+  });
+
+  it('answers a run with the freshly-minted run, not a finished result', () => {
+    const parsed = schemas.WorkflowRunResponse.parse({
+      ok: true,
+      value: {
+        id: 'r1',
+        workflowId: 'w1',
+        workflowName: 'Two steps',
+        status: 'running',
+        nodes: [{ nodeId: 'a', kind: 'http', label: 'Fetch', status: 'pending', truncated: false }],
+        edges: [],
+        startedAt: 1,
+      },
+    });
+    expect(parsed.ok && parsed.value.status).toBe('running');
+  });
+
+  it('carries the demo API port only on the running arm, and never accepts a chosen one', () => {
+    expect(schemas.DemoApiStatusResponse.parse({ running: false })).toEqual({ running: false });
+    expect(schemas.DemoApiStatusResponse.parse({ running: true, port: 51234 })).toEqual({
+      running: true,
+      port: 51234,
+    });
+    // No start request schema exists at all: the port is main's to choose.
+    expect(schemas).not.toHaveProperty('DemoApiStartRequest');
+  });
+
+  it('does not blur into the GitHub Actions sense of "workflow"', () => {
+    // `forgeWorkflows` is the Actions one and lives under the `forge` prefix;
+    // nothing named `workflow*` may answer with a Forge shape.
+    expect(Object.keys(CHANNELS)).toContain('forgeWorkflows');
+    expect(CHANNELS.workflowList).not.toBe(CHANNELS.forgeWorkflows);
+  });
+});

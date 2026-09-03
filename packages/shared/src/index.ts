@@ -17,3 +17,4 @@ export * from './keybindings';
 export * from './loops';
 export * from './perf';
 export * from './terminal';
+export * from './workflow';
