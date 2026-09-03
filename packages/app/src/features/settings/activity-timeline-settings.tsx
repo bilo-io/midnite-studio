@@ -10,7 +10,7 @@ import { Choice, Field } from './settings-pages/controls';
  *
  * Three of these are also editable from the panel's own header (style,
  * gridlines, timeframe) — two doors onto the same store fields, the way the
- * D/W/M picker has always worked.
+ * D/W/M/Y picker has always worked.
  */
 export function ActivityTimelineSettings() {
   const style = useUiStore((s) => s.activityTimelineStyle);
@@ -52,6 +52,7 @@ export function ActivityTimelineSettings() {
           ['day', 'Day', 'The last 24 hours, bucketed by hour'],
           ['week', 'Week', 'The last 7 days, bucketed by day'],
           ['month', 'Month', 'The last 30 days, bucketed by day'],
+          ['year', 'Year', 'The last 12 calendar months, bucketed by month'],
         ]}
       />
       <Choice

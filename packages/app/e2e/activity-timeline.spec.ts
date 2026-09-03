@@ -10,7 +10,7 @@ import { installMockBridge, type MockFixtures } from './mock-bridge';
  * drawings, the axis swap. What only the running app can show is the wiring:
  * that the status-bar toggle actually raises the panel, that the chord reaches
  * it, that each header control moves the store field Settings shares with it
- * (D/W/M, the style icons, the gridline switch), that hovering a bucket raises
+ * (D/W/M/Y, the style icons, the gridline switch), that hovering a bucket raises
  * the tooltip and leaving the chart takes it away, and that a repository with
  * no timeline rows says "No commits" rather than drawing an empty chart.
  */
@@ -88,7 +88,7 @@ test('the chord toggles it too', async ({ page }) => {
   await expect(page.getByTestId('commit-activity-panel')).toHaveCount(0);
 });
 
-test('the D/W/M picker moves the window the chart announces', async ({ page }) => {
+test('the D/W/M/Y picker moves the window the chart announces', async ({ page }) => {
   await open(page);
   await page.getByTestId('activity-toggle').click();
   const chart = page.getByTestId('commit-activity-chart');
@@ -101,6 +101,35 @@ test('the D/W/M picker moves the window the chart announces', async ({ page }) =
 
   await page.getByRole('radio', { name: 'Last 24 hours' }).click();
   await expect(chart).toHaveAttribute('aria-label', 'Commit activity, last 24 hours: 1 commit');
+
+  // Y widens to twelve calendar months — and asks main for the `1y` window,
+  // which is a different query key, so this also covers the refetch.
+  await page.getByRole('radio', { name: 'Last 12 months' }).click();
+  await expect(chart).toHaveAttribute('aria-label', 'Commit activity, last 12 months: 3 commits');
+});
+
+test('the year view buckets by month, twelve of them', async ({ page }) => {
+  await open(page);
+  await page.getByTestId('activity-toggle').click();
+  await page.getByRole('radio', { name: 'Last 12 months' }).click();
+  await page.getByRole('radio', { name: 'Heatmap' }).click();
+
+  // One cell per bucket in the heatmap, empty months included.
+  const chart = page.getByTestId('commit-activity-chart');
+  await expect(chart.locator('rect:not([data-testid="activity-hit"])')).toHaveCount(12);
+
+  // And the tooltip names the month rather than a day or an hour range.
+  const hits = chart.locator('[data-testid="activity-hit"]');
+  await hits.nth((await hits.count()) - 1).hover();
+  const tooltip = page.getByTestId('activity-tooltip');
+  // Formatted *in the page*, not in node: the component formats through
+  // `undefined`, so the expected string is the browser's locale's, not the
+  // runner's — and it has to hold whatever month the suite runs in.
+  const thisMonth = await page.evaluate(() =>
+    new Date().toLocaleDateString(undefined, { month: 'long', year: 'numeric' }),
+  );
+  await expect(tooltip).toContainText(thisMonth);
+  await expect(tooltip).toContainText('% of the last 12 months');
 });
 
 test('the style icons swap the drawing, and the choice reaches Settings', async ({ page }) => {
@@ -148,6 +177,14 @@ test('the gridlines toggle draws the timeframe cadence it names', async ({ page 
   const monthRules = await rules.count();
   expect(monthRules).toBeLessThan(7);
   expect(monthRules).toBeGreaterThanOrEqual(5);
+
+  // A year rules its quarters: three or four in twelve months depending on
+  // whether one lands on the axis edge, plus the churn baseline.
+  await page.getByRole('radio', { name: 'Last 12 months' }).click();
+  await expect(toggle).toHaveAttribute('aria-label', 'Hide gridlines (every quarter)');
+  const yearRules = await rules.count();
+  expect(yearRules).toBeGreaterThanOrEqual(4);
+  expect(yearRules).toBeLessThanOrEqual(5);
 });
 
 test('the header controls are one tab stop each, arrow-navigable', async ({ page }) => {
@@ -162,7 +199,12 @@ test('the header controls are one tab stop each, arrow-navigable', async ({ page
     'aria-checked',
     'true',
   );
-  // And it wraps — three options make stopping at the end a dead key.
+  await page.keyboard.press('ArrowRight');
+  await expect(page.getByRole('radio', { name: 'Last 12 months' })).toHaveAttribute(
+    'aria-checked',
+    'true',
+  );
+  // And it wraps — a ring of four makes stopping at the end a dead key.
   await page.keyboard.press('ArrowRight');
   await expect(page.getByRole('radio', { name: 'Last 24 hours' })).toHaveAttribute(
     'aria-checked',

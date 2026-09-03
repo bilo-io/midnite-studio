@@ -108,6 +108,31 @@ describe('CommitActivityTimeline', () => {
       'Commit activity, last 7 days: 2 commits',
     );
   });
+
+  it('draws a year as twelve month buckets, and says so', () => {
+    const { container } = render(
+      <CommitActivityTimeline commits={commits} timeframe="year" variant="heatmap" now={NOW} />,
+    );
+    // Heatmap, because it is the one drawing with a cell per bucket whether
+    // the bucket is empty or not.
+    expect(marks(container)).toHaveLength(12);
+    expect(container.querySelector('svg')?.getAttribute('aria-label')).toBe(
+      'Commit activity, last 12 months: 2 commits',
+    );
+  });
+
+  it('labels a year bucket by its month, not by a day range', () => {
+    const { container } = render(
+      <CommitActivityTimeline commits={commits} timeframe="year" now={NOW} />,
+    );
+    const hits = container.querySelectorAll('[data-testid="activity-hit"]');
+    hover(hits[hits.length - 1]!);
+    // Both fixture commits land in the current month once buckets are months.
+    expect(screen.getByTestId('activity-tooltip').textContent).toContain('2 commits');
+    expect(screen.getByTestId('activity-tooltip').textContent).toContain(
+      'of the last 12 months',
+    );
+  });
 });
 
 describe('CommitActivityTimeline gridlines', () => {
@@ -151,6 +176,42 @@ describe('CommitActivityTimeline gridlines', () => {
     expect(
       container.querySelectorAll('[data-testid="activity-gridlines"] line'),
     ).toHaveLength(4 + 1);
+  });
+
+  it('rules a year on its quarters', () => {
+    const { container } = render(
+      <CommitActivityTimeline commits={commits} timeframe="year" gridlines now={NOW} />,
+    );
+    const rules = [
+      ...container.querySelectorAll('[data-testid="activity-gridlines"] line'),
+    ].filter((line) => line.getAttribute('stroke-dasharray') !== null);
+    expect(rules).toHaveLength(3);
+  });
+
+  /*
+    The dividers were drawn in the `--border` token under a 0.7 group opacity,
+    which multiplied into a hairline indistinguishable from the panel it sat
+    on. Asserted because "almost invisible" is a regression no other test in
+    this file would notice.
+  */
+  it('draws the dividers in a colour that reads against the panel', () => {
+    const { container } = render(
+      <CommitActivityTimeline commits={commits} timeframe="week" gridlines now={NOW} />,
+    );
+    const group = container.querySelector('[data-testid="activity-gridlines"]')!;
+    expect(group.getAttribute('opacity')).toBeNull();
+
+    const lines = [...group.querySelectorAll('line')];
+    for (const line of lines) {
+      expect(line.classList.contains('stroke-muted-foreground')).toBe(true);
+      expect(Number(line.getAttribute('opacity'))).toBeGreaterThanOrEqual(0.5);
+    }
+    // The baseline is an axis, not a note — stronger than the rules around it.
+    const [baseline] = lines.filter((l) => l.getAttribute('stroke-dasharray') === null);
+    const [rule] = lines.filter((l) => l.getAttribute('stroke-dasharray') !== null);
+    expect(Number(baseline!.getAttribute('opacity'))).toBeGreaterThan(
+      Number(rule!.getAttribute('opacity')),
+    );
   });
 });
 
