@@ -1,8 +1,7 @@
 import { COMMANDS, type CommandId } from '@midnite/studio-shared';
 
 import { COMMAND_ICONS } from '../palette/command-icons';
-import { chordOf } from '../../store/palette-store';
-import { chordFor, displayChord } from '../status-bar/chord-hint';
+import { commandChord } from '../status-bar/chord-hint';
 import type { IconComponent } from '../../components/icon-button';
 
 /**
@@ -83,22 +82,13 @@ const BATCH_TWO: readonly CommandId[] = [
 ];
 
 /**
- * A command's chord, from the registry, rendered for this platform — or
- * `undefined` for a command that has none.
- *
- * Exported because slide 4 needs the FAB's chord on its own, outside a card,
- * and the alternative was a second literal `'Mod+m'` beside the one in
- * `COMMANDS` — which is the exact duplication this whole module exists to
- * avoid. `chordOf` rather than `command.chord`: `CommandDescriptor` is the
- * const array's own union, so half its members have no such property to read
- * at the type level.
+ * Re-exported for slide 4, which needs the FAB's chord on its own, outside a
+ * card — the alternative was a second literal `'Mod+l'` beside the one in
+ * `COMMANDS`, which is the exact duplication this whole module exists to
+ * avoid. It lives in `chord-hint` rather than here now that the nav rail
+ * teaches chords too; see its header.
  */
-export function commandChord(id: CommandId): string | undefined {
-  const command = COMMANDS.find((c) => c.id === id);
-  if (!command) return undefined;
-  const declared = chordOf(command);
-  return declared === undefined ? undefined : displayChord(chordFor(id, declared));
-}
+export { commandChord };
 
 /**
  * An id becomes a card by reading the registry.

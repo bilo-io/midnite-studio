@@ -938,19 +938,40 @@ describe('keybindings', () => {
     expect(GLOBAL_CHORDS).not.toContain('Mod+Shift+r');
   });
 
-  it('yields exactly the reload pair and the panel-history pair to the shell, and nothing else', () => {
-    // Four wide on purpose: `app` scope does not, on its own, keep a chord out
+  it('yields exactly the reload pair, the panel-history pair and the loop toggle to the shell, and nothing else', () => {
+    // Five wide on purpose: `app` scope does not, on its own, keep a chord out
     // of the terminal, and everything else is better off firing from there.
     // `panel.back`/`panel.forward` (Phase 42 Theme D) join the reload pair
     // for the same reason `Mod+R` does — `Mod+[` off macOS is `Ctrl+[`,
-    // which is `ESC` in every shell.
+    // which is `ESC` in every shell — and `fab.toggle` joins them off the back
+    // of taking `Mod+l`, which is `Ctrl+L`, i.e. clear-screen.
     expect([...TERMINAL_YIELD_COMMANDS].sort()).toEqual([
       'app.hardReload',
       'app.reload',
+      'fab.toggle',
       'panel.back',
       'panel.forward',
     ]);
     for (const command of TERMINAL_YIELD_COMMANDS) expect(isCommandId(command)).toBe(true);
+  });
+
+  it('gives the loop panel Mod+l and the lock screen its shifted sibling', () => {
+    // "L" for Loops — the panel's own name, not a letter left over once g and
+    // b were taken. The lock screen takes the same letter one modifier up, so
+    // the two "L" surfaces read as a family; neither is `global`, since the
+    // xterm escape allow-list is not where either belongs.
+    const fab = DEFAULT_KEYMAP.find((b) => b.command === 'fab.toggle');
+    const lock = DEFAULT_KEYMAP.find((b) => b.command === 'app.lock');
+    expect(fab?.chord).toBe('Mod+l');
+    expect(lock?.chord).toBe('Mod+Shift+l');
+    expect(fab?.scope).toBe('app');
+    expect(lock?.scope).toBe('app');
+    expect(GLOBAL_CHORDS).not.toContain('Mod+l');
+    expect(GLOBAL_CHORDS).not.toContain('Mod+Shift+l');
+    // Mod+m and Mod+Alt+l are what these two used to be; nothing may quietly
+    // inherit either, or an old muscle memory starts firing a new command.
+    expect(DEFAULT_KEYMAP.map((b) => b.chord)).not.toContain('Mod+m');
+    expect(DEFAULT_KEYMAP.map((b) => b.chord)).not.toContain('Mod+Alt+l');
   });
 
   it('leaves view.refresh and sync.fetch declared but unbound, the reload pair having taken their chords', () => {

@@ -20,6 +20,9 @@ import { DelayedFallback } from './components/delayed-fallback';
 import { DialogHost } from './components/dialog-host';
 import { ToastHost } from './components/toast-host';
 import { VIEW_ICON } from './components/nav-icons';
+import { navChord } from './components/nav-chords';
+import { Tooltip } from './components/tooltip';
+import { commandChord } from './features/status-bar/chord-hint';
 import { FabPanel } from './components/fab-panel';
 import { FabLoopHalo, useAnyLoopRunning } from './features/loops/fab-loop-halo';
 import { useLoopAttention } from './features/loops/use-loop-attention';
@@ -168,7 +171,8 @@ const queryClient = new QueryClient({
  */
 const ViewLink: NavLinkComponent = ({ href, className, children, ...rest }) => {
   const setActiveView = useUiStore((s) => s.setActiveView);
-  return (
+  const chord = navChord(viewForPath(href));
+  const link = (
     <a
       href={href}
       className={className}
@@ -181,7 +185,72 @@ const ViewLink: NavLinkComponent = ({ href, className, children, ...rest }) => {
       {children}
     </a>
   );
+  /*
+    The chord, and ONLY the chord — never the label, and never inline.
+
+    AppFrame renders a rail row as icon + label, and hover or focus anywhere in
+    the rail expands it (this app only ever runs `auto` or `expanded`, so a row
+    the pointer is over always has its label showing). A bubble repeating
+    "Graph" beside the word Graph teaches nothing; the key it responds to is the
+    one thing the row cannot say for itself. Rows whose view has no chord get no
+    bubble at all rather than an empty one — see `nav-chords`.
+
+    `side="right"`, because the rail is a vertical stack: a bubble below a row
+    lands on top of the next one, which is the row the user is about to reach
+    for if the tooltip just told them the wrong key.
+  */
+  return chord === undefined ? (
+    link
+  ) : (
+    <Tooltip label={chord} side="right">
+      {link}
+    </Tooltip>
+  );
 };
+
+/**
+ * `app.lock`'s chord, read once — `COMMANDS` is a module constant, so there is
+ * nothing here that can change between renders.
+ */
+const LOCK_CHORD = commandChord('app.lock');
+
+/**
+ * The rail footer's lock button — `app.lock`, with its chord on hover.
+ *
+ * Its own component rather than inline JSX in the footer slot because the
+ * tooltip is conditional on that chord existing: `app.lock` has one today, and
+ * a bubble reading `Lock screen undefined` is the failure mode of assuming it
+ * always will.
+ *
+ * Same rule as the rail rows: the chord alone while the label is showing, the
+ * label with it while the rail is a strip of icons. This slot is the one place
+ * that can tell the difference — AppFrame hands it `expanded`, which a row
+ * AppFrame renders itself never sees. `<Tooltip>` rather than the `title=`
+ * attribute it replaces: the native one takes a second to appear, never appears
+ * for a keyboard user, and arrives in the OS's colours mid-window.
+ */
+function RailLockButton({ expanded }: { expanded: boolean }) {
+  const button = (
+    <button
+      type="button"
+      onClick={() => useUiStore.getState().setScreensaverOpen(true, true)}
+      aria-label="Lock screen"
+      {...(LOCK_CHORD === undefined ? { title: 'Lock screen' } : {})}
+      className={`flex w-full items-center gap-2 rounded-md px-2 py-1.5 text-xs text-muted-foreground transition-colors hover:bg-accent hover:text-foreground ${
+        expanded ? '' : 'justify-center'
+      }`}
+    >
+      <CiPower aria-hidden className="h-4 w-4 shrink-0" />
+      {expanded ? <span>Lock screen</span> : null}
+    </button>
+  );
+  if (LOCK_CHORD === undefined) return button;
+  return (
+    <Tooltip label={expanded ? LOCK_CHORD : `Lock screen  ${LOCK_CHORD}`} side="right">
+      {button}
+    </Tooltip>
+  );
+}
 
 /**
  * The app's box: the whole viewport, with the title bar's height held clear at
@@ -771,18 +840,7 @@ function Shell() {
       */
       footer: ({ expanded }) => (
         <div className="flex w-full flex-col gap-1">
-          <button
-            type="button"
-            onClick={() => useUiStore.getState().setScreensaverOpen(true, true)}
-            aria-label="Lock screen"
-            title="Lock screen"
-            className={`flex w-full items-center gap-2 rounded-md px-2 py-1.5 text-xs text-muted-foreground transition-colors hover:bg-accent hover:text-foreground ${
-              expanded ? '' : 'justify-center'
-            }`}
-          >
-            <CiPower aria-hidden className="h-4 w-4 shrink-0" />
-            {expanded ? <span>Lock screen</span> : null}
-          </button>
+          <RailLockButton expanded={expanded} />
           <button
             type="button"
             onClick={() => useUiStore.getState().setActiveView('settings')}

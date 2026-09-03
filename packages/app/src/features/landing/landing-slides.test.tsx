@@ -24,7 +24,7 @@ describe('landing slides', () => {
     render(<FabSlide />);
 
     // The chord comes from the keymap; `Mod` must never reach the screen.
-    expect(screen.getByText(/⌘M|Ctrl\+M/)).toBeTruthy();
+    expect(screen.getByText(/⌘L|Ctrl\+L/)).toBeTruthy();
 
     for (const loop of DEFAULT_LOOPS) {
       const tab = screen.getByTestId(`landing-loop-${loop.id}`);

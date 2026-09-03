@@ -34,7 +34,12 @@ export function Tooltip({
 }: {
   /** The tooltip text. Also becomes the trigger's accessible description. */
   label: ReactNode;
-  side?: 'top' | 'bottom';
+  /**
+   * `right` is for a vertical stack — the nav rail, where a bubble below a row
+   * lands on top of the next one. It is the only side that centres on the
+   * anchor's Y rather than its X.
+   */
+  side?: 'top' | 'bottom' | 'right';
   /** A single focusable element. Cloned, not wrapped. */
   children: ReactElement<Record<string, unknown>>;
 }) {
@@ -88,13 +93,18 @@ export function Tooltip({
     const box = bubble.getBoundingClientRect();
     const margin = 6;
 
-    const y = side === 'top' ? anchor.top - box.height - margin : anchor.bottom + margin;
+    const x =
+      side === 'right'
+        ? anchor.right + margin
+        : anchor.left + anchor.width / 2 - box.width / 2;
+    const y =
+      side === 'right'
+        ? anchor.top + anchor.height / 2 - box.height / 2
+        : side === 'top'
+          ? anchor.top - box.height - margin
+          : anchor.bottom + margin;
     setPlaced({
-      x: clamp(
-        anchor.left + anchor.width / 2 - box.width / 2,
-        margin,
-        window.innerWidth - box.width - margin,
-      ),
+      x: clamp(x, margin, window.innerWidth - box.width - margin),
       y: clamp(y, margin, window.innerHeight - box.height - margin),
     });
   }, [open, side, label]);

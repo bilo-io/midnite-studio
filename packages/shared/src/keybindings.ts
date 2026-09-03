@@ -114,11 +114,17 @@ export const COMMANDS = [
    */
   { id: 'browser.toggle', label: 'Toggle Browser', group: 'view', chord: 'Mod+b' },
   /**
-   * Mod+m for the FAB panel (agent loops), matching the mnemonic-by-elimination
-   * pattern the other panel toggles already use (g/b taken). A standalone
-   * chord — nothing else claims Mod+m, so no carve-out is needed here.
+   * Mod+l — "L" for Loops, which is what the FAB panel actually is. It used to
+   * be Mod+m, picked by elimination back when g and b were the taken letters;
+   * a mnemonic that names the panel beats one that names the leftovers.
+   *
+   * Listed in `TERMINAL_YIELD_COMMANDS` below, unlike the g/b toggles beside
+   * it: `Mod` is Ctrl off macOS, and `Ctrl+L` there is the shell's own
+   * clear-screen. Same carve-out as the reload pair, for the same reason — the
+   * dispatcher grabs every bound chord app-wide, terminal focus included, so
+   * `app` scope alone would swallow it.
    */
-  { id: 'fab.toggle', label: 'Toggle Loop Panel', group: 'view', chord: 'Mod+m' },
+  { id: 'fab.toggle', label: 'Toggle Loop Panel', group: 'view', chord: 'Mod+l' },
   /**
    * Mod+Shift+a for the commit-activity timeline. Shifted because plain Mod+a
    * is select-all everywhere text can be selected, and `app` scope like the
@@ -187,7 +193,14 @@ export const COMMANDS = [
    */
   { id: 'app.reload', label: 'Reload', group: 'view', chord: 'Mod+r' },
   { id: 'app.hardReload', label: 'Hard Reload', group: 'view', chord: 'Mod+Shift+r' },
-  { id: 'app.lock', label: 'Lock Screen', group: 'view', chord: 'Mod+Alt+l' },
+  /**
+   * Mod+Shift+l, the shifted sibling of `fab.toggle`'s Mod+l — the same letter,
+   * one modifier apart, for the two things the "L" surfaces do. It replaces
+   * Mod+Alt+l, which shared no family with anything and on macOS types a `¬`
+   * into whatever has focus if the app ever misses it. No terminal carve-out
+   * needed: `Ctrl+Shift+L` is not a readline binding, unlike bare `Ctrl+L`.
+   */
+  { id: 'app.lock', label: 'Lock Screen', group: 'view', chord: 'Mod+Shift+l' },
   { id: 'app.screensaver', label: 'Start Screensaver', group: 'view' },
   /**
    * Mod+Shift+g navigates to the Graph view from anywhere. `app` scope like
@@ -280,12 +293,18 @@ export const GLOBAL_CHORDS: readonly string[] = DEFAULT_KEYMAP.filter(
  * the docked Terminal panel can be open regardless of which view is active,
  * so Councils being the active view is not enough on its own to know the
  * keystroke was meant for the panel rather than the shell sitting behind it.
+ *
+ * `fab.toggle` joins them the day it took `Mod+l`: `Ctrl+L` is clear-screen in
+ * every shell, and a loop panel is never what someone reaching for it mid-
+ * command meant. On macOS, where `Mod` is Cmd, the yield costs nothing —
+ * `Ctrl+L` was never the chord there in the first place.
  */
 export const TERMINAL_YIELD_COMMANDS: readonly CommandId[] = [
   'app.reload',
   'app.hardReload',
   'panel.back',
   'panel.forward',
+  'fab.toggle',
 ];
 
 export const isCommandId = (value: string): value is CommandId =>
