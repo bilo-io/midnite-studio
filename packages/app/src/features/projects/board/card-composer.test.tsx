@@ -1,6 +1,6 @@
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import type { ForgeProjectItem, TerminalSession } from '@midnite/studio-shared';
-import { cleanup, fireEvent, render, screen } from '@testing-library/react';
+import { cleanup, fireEvent, render, screen, within } from '@testing-library/react';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 import { CardComposer } from './card-composer';
@@ -321,6 +321,73 @@ describe('CardComposer', () => {
       fireEvent.click(screen.getByTestId('composer-reveal-terminal'));
 
       expect(useTerminalStore.getState().activeId).toBe('s1');
+    });
+  });
+
+  describe('Launch and run (Phase 50 Theme B)', () => {
+    it('is not rendered at all with the setting off — the default', () => {
+      renderComposer();
+
+      expect(screen.getByTestId('card-start')).toBeDefined();
+      expect(screen.queryByTestId('card-launch-and-run')).toBeNull();
+    });
+
+    it('appears beside Start once the setting is on', () => {
+      useUiStore.setState({ launchAndRunEnabled: true });
+      renderComposer();
+
+      expect(screen.getByTestId('card-launch-and-run')).toBeDefined();
+    });
+
+    it('opens a confirm showing the exact command and sends nothing before it is accepted', () => {
+      useUiStore.setState({ launchAndRunEnabled: true });
+      renderComposer();
+
+      const preview = screen.getByTestId('card-command-preview').textContent!;
+      fireEvent.click(screen.getByTestId('card-launch-and-run'));
+
+      // The dialog body is the command preview verbatim: what gets confirmed
+      // is what gets run, which is the whole reason this path is confirmed
+      // every time rather than only the first. Queried inside the dialog,
+      // since the composer's own preview line carries the same text.
+      const dialog = within(screen.getByRole('dialog'));
+      expect(dialog.getByText('Launch and run?')).toBeDefined();
+      expect(dialog.getByText(preview)).toBeDefined();
+      // Nothing launched yet — the confirm is a gate, not a receipt.
+      expect(useTerminalStore.getState().sessions).toHaveLength(0);
+    });
+
+    it('cancelling the confirm launches nothing', () => {
+      useUiStore.setState({ launchAndRunEnabled: true });
+      renderComposer();
+
+      fireEvent.click(screen.getByTestId('card-launch-and-run'));
+      fireEvent.click(within(screen.getByRole('dialog')).getByRole('button', { name: 'Cancel' }));
+
+      expect(useTerminalStore.getState().sessions).toHaveLength(0);
+    });
+
+    it('confirming queues the prompt WITH the send — the one difference from Start', () => {
+      useUiStore.setState({ launchAndRunEnabled: true });
+      renderComposer();
+
+      fireEvent.click(screen.getByTestId('card-launch-and-run'));
+      // Scoped to the dialog: the trigger button carries the same label.
+      fireEvent.click(
+        within(screen.getByRole('dialog')).getByRole('button', { name: 'Launch and run' }),
+      );
+
+      const sessions = useTerminalStore.getState().sessions;
+      expect(sessions).toHaveLength(1);
+      const created = sessions[0]!;
+      // Same binding as Start's: only `autoSend` differs, because both paths
+      // funnel through the one `launch()`.
+      expect(created.surface).toBe('kanban');
+      expect(created.taskRef).toEqual({ projectId: 'PVT_1', itemId: 'item1' });
+
+      const queued = useTerminalStore.getState().pendingInput[created.id];
+      expect(queued).toContain('Fix the flaky test (#42)');
+      expect(queued?.endsWith('\r')).toBe(true); // autoSend: true — sent, not just typed
     });
   });
 });

@@ -181,16 +181,28 @@ Effort tags: **S** ≈ an hour or two · **M** ≈ half a day · **L** ≈ a day
 ## Verification
 
 - [x] `moon run :typecheck :lint :test` green.
-- [ ] A card whose agent has exited still shows in the board with a terminal-state indicator, not a
+- [x] A card whose agent has exited still shows in the board with a terminal-state indicator, not a
       stale glow, and Dismiss clears its binding without ending a still-live session early.
-- [ ] The 6th concurrent card launch on one board shows the soft-warn toast; it does not block the
-      launch.
-- [ ] "Launch and run" is invisible with the settings toggle off, and even with it on, still shows
+      (`card-composer.test.tsx` — "Ended" + Dismiss present, Stop absent; `terminal-store.test.ts` —
+      `dismissCardSession` finds an ended session and leaves another board's alone.)
+- [x] The 6th concurrent card launch on one board shows the soft-warn toast; it does not block the
+      launch. (`card-composer.test.tsx` "warns, but still launches"; `board-derive.test.ts` proves
+      the count ignores asleep, main-surface and other-board sessions.)
+- [x] "Launch and run" is invisible with the settings toggle off, and even with it on, still shows
       the confirm dialog with the exact command before sending it.
-- [ ] Dragging a card to "No status" clears the field on github.com (mock-bridge e2e for the shape;
-      a real-board human pass for the live mutation, same posture as Phase 41 Theme I).
-- [ ] Opening a card, closing it and reopening a different one is `Mod+[`-reachable back to the
-      first, via the board's own panel-stack instance.
+      (`card-composer.test.tsx` `describe('Launch and run (Phase 50 Theme B)')` — five cases: absent
+      by default, present when on, the confirm carrying the preview verbatim with nothing launched
+      yet, cancel launching nothing, and confirm queuing the prompt *with* the trailing `\r` that
+      Start's own case asserts the absence of.)
+- [ ] Dragging a card to "No status" clears the field on github.com — **mock-bridge half done,
+      the item stays open for the human half**
+      (`e2e/kanban.spec.ts` asserts the drop routes through `clearField`, not `setField`;
+      `board-view.test.tsx` asserts the same for the "Move to ▸ No status" menu path). The
+      real-board human pass for the live mutation stays open, same posture as Phase 41 Theme I.
+- [x] Opening a card, closing it and reopening a different one is `Mod+[`-reachable back to the
+      first, via the board's own panel-stack instance. (`e2e/kanban.spec.ts` "opening a second card,
+      then Back, returns to the first"; `card-panel-stack.test.tsx` covers the push/no-op/reset/
+      drop-out cases and `use-command-handlers.test.ts` the `panel.back`/`panel.forward` gating.)
 - [ ] "Add to project ▸" from a PR's Reviews detail pane adds it to the last-used board, verified
       against a mock bridge; a real-board human pass confirms the item appears on github.com.
 - [ ] A non-Claude agent's kanban card / FAB tab shows a live `thinking`/`waiting` transition during
