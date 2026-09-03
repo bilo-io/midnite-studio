@@ -415,7 +415,19 @@ export const ConflictRegionsRequest = RepoId.extend({
   path: z.string().min(1),
   worktreePath: z.string().optional(),
 });
-export const ConflictRegionsResponse = z.array(ConflictedHunkSchema);
+export const ConflictRegionsResponse = z.object({
+  hunks: z.array(ConflictedHunkSchema),
+  /**
+   * True when the underlying `readFileDiff` hit `DIFF_LINE_CAP` before
+   * reaching the end of the file — found in self-review: a conflict region
+   * past that line is silently absent from `hunks`, with the same region
+   * count `locateConflictRegion` (git-engine) would still compute correctly
+   * for everything *before* the cutoff, but nothing to say a region *after*
+   * it exists at all. The Studio surfaces this rather than letting a huge
+   * conflicted file (a lockfile, say) look fully resolved when it is not.
+   */
+  truncated: z.boolean(),
+});
 
 // --- remotes ---------------------------------------------------------------
 

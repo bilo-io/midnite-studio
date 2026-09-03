@@ -28,12 +28,15 @@ const STATUS_GET = vi.fn().mockResolvedValue({
 
 function installBridge(overrides: {
   hunks?: ConflictedHunk[];
+  truncated?: boolean;
   ops?: Record<string, unknown>;
 } = {}) {
   (window as unknown as { midniteStudio: Partial<MidniteStudioBridge> }).midniteStudio = {
     status: {
       get: STATUS_GET,
-      conflictRegions: vi.fn().mockResolvedValue(overrides.hunks ?? []),
+      conflictRegions: vi
+        .fn()
+        .mockResolvedValue({ hunks: overrides.hunks ?? [], truncated: overrides.truncated ?? false }),
     } as unknown as MidniteStudioBridge['status'],
     ops: new Proxy(
       {},
@@ -144,5 +147,26 @@ describe('ConflictResolutionStudio', () => {
 
     expect(await screen.findByText('all regions resolved')).toBeTruthy();
     expect(screen.queryByTestId('conflict-region')).toBeNull();
+  });
+
+  it('warns that some regions may be missing when the underlying diff was truncated', async () => {
+    useUiStore.setState({ selectedRepoId: 'r1' });
+    installBridge({ hunks: TWO_REGIONS, truncated: true });
+
+    render(<ConflictResolutionStudio repoId="r1" path="f.txt" onClose={vi.fn()} />, { wrapper });
+
+    expect(
+      await screen.findByText(/too large to show in full/),
+    ).toBeTruthy();
+  });
+
+  it('shows no truncation warning for an ordinary file', async () => {
+    useUiStore.setState({ selectedRepoId: 'r1' });
+    installBridge({ hunks: TWO_REGIONS });
+
+    render(<ConflictResolutionStudio repoId="r1" path="f.txt" onClose={vi.fn()} />, { wrapper });
+
+    await screen.findAllByTestId('conflict-region');
+    expect(screen.queryByText(/too large to show in full/)).toBeNull();
   });
 });

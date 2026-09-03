@@ -20,11 +20,11 @@ export function registerConflictHandlers(): void {
     schemas.ConflictRegionsRequest,
     async (req) => {
       const cwd = await resolveWorkdir(req.repoId, req.worktreePath);
-      if (!cwd) return [];
+      if (!cwd) return { hunks: [], truncated: false };
       const diff = await readFileDiff(cwd, req.path, false);
-      return parseConflictedFile(diff.hunks);
+      return { hunks: parseConflictedFile(diff.hunks), truncated: diff.truncated };
     },
-    () => [],
+    () => ({ hunks: [], truncated: false }),
   );
 
   handleOp(

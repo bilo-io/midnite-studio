@@ -39,7 +39,7 @@ export function ConflictResolutionStudio({
   onClose: () => void;
   onError?: (message: string) => void;
 }) {
-  const { hunks, isLoading } = useConflictRegions({ repoId, worktreePath, path });
+  const { hunks, truncated, isLoading } = useConflictRegions({ repoId, worktreePath, path });
   const items = useMemo(() => flattenConflictHunks(hunks), [hunks]);
   const conflictCount = items.filter((item) => item.kind === 'conflict').length;
 
@@ -113,6 +113,13 @@ export function ConflictResolutionStudio({
           </button>
         </span>
       </div>
+
+      {truncated ? (
+        <div className="shrink-0 border-b border-border bg-muted/40 px-2 py-1 text-xs text-muted-foreground">
+          This file is too large to show in full — some regions past the cutoff may not appear here.
+          Use "Accept all mine"/"Accept all theirs", or resolve the rest outside the app.
+        </div>
+      ) : null}
 
       {error ? (
         <div className="shrink-0 border-b border-destructive/40 bg-destructive/10 px-2 py-1 text-xs text-destructive">

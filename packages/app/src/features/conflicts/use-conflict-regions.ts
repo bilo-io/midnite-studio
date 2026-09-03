@@ -14,6 +14,8 @@ import { keys } from '../../services/queries';
  * append. `applyConflictHunk` also writes the file directly, which the
  * watcher classifies as a worktree event regardless of which process wrote it.
  */
+const EMPTY = { hunks: [] as ConflictedHunk[], truncated: false };
+
 export function useConflictRegions({
   repoId,
   worktreePath,
@@ -22,7 +24,7 @@ export function useConflictRegions({
   repoId: string;
   worktreePath?: string;
   path: string;
-}): { hunks: ConflictedHunk[]; isLoading: boolean } {
+}): { hunks: ConflictedHunk[]; truncated: boolean; isLoading: boolean } {
   const { data, isLoading } = useQuery({
     queryKey: keys.conflictRegions(repoId, worktreePath, path),
     queryFn: async () =>
@@ -30,8 +32,8 @@ export function useConflictRegions({
         repoId,
         path,
         ...(worktreePath ? { worktreePath } : {}),
-      }) ?? [],
+      }) ?? EMPTY,
   });
 
-  return { hunks: data ?? [], isLoading };
+  return { hunks: data?.hunks ?? [], truncated: data?.truncated ?? false, isLoading };
 }

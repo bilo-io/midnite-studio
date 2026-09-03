@@ -67,10 +67,14 @@ export type MockFixtures = {
   inProgress?: 'merge' | 'rebase' | 'cherry-pick' | 'revert' | null;
   /**
    * A conflicted path's parsed regions (Phase 47 Theme D), keyed by path —
-   * what `status.conflictRegions` answers. A path with no entry parses to
-   * zero regions, same as the real handler on an unmerged path it can't read.
+   * the hunks half of what `status.conflictRegions` answers. A path with no
+   * entry parses to zero regions, same as the real handler on an unmerged
+   * path it can't read. `truncated` is always `false` unless the path is
+   * also named in `conflictRegionsTruncated`.
    */
   conflictRegions?: Record<string, unknown[]>;
+  /** Paths whose `conflictRegions` answer should report `truncated: true` — the "file too large" banner. */
+  conflictRegionsTruncated?: Record<string, boolean>;
   /** Refs the sidebar and the BRANCH / TAG column render. */
   refs?: unknown[];
   /** What `stash.list` answers — the sidebar's Stashes section (Phase 22 Theme B). */
@@ -777,7 +781,10 @@ export async function installMockBridge(page: Page, fixtures: MockFixtures): Pro
           emptyDiff(req.path),
         // The Studio's read side (Phase 47 Theme D) — a path with no fixture
         // parses to zero regions, same as a fully-resolved or unmerged path.
-        conflictRegions: async (req: { path: string }) => data.conflictRegions?.[req.path] ?? [],
+        conflictRegions: async (req: { path: string }) => ({
+          hunks: data.conflictRegions?.[req.path] ?? [],
+          truncated: data.conflictRegionsTruncated?.[req.path] ?? false,
+        }),
       },
       remotes: {
         list: async () => data.remotes ?? [],
