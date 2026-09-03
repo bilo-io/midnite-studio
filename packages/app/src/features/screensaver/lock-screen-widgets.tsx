@@ -1,7 +1,14 @@
 import { useEffect, useState } from 'react';
-import { LuActivity, LuArrowDown, LuArrowUp, LuTrendingUp } from 'react-icons/lu';
+import { LuActivity, LuArrowDown, LuArrowUp, LuBatteryCharging, LuTrendingUp } from 'react-icons/lu';
 import { type MetricId } from '@midnite/studio-shared';
 
+import { BatteryIcon } from '../battery/battery-icon';
+import {
+  getBatteryFlashClass,
+  getBatteryFlashTier,
+  getBatteryTier,
+  getBatteryTierClasses,
+} from '../battery/battery-style';
 import { useMetricsStore } from '../../store/metrics-store';
 import { METRIC_LABELS, metricColor, metricFill } from '../monitor/metric-palette';
 import { MetricChart } from '../monitor/metric-chart';
@@ -10,6 +17,7 @@ import { useFinanceHistory, useFinanceQuote } from '../finance/finance-queries';
 import { assetTicker, fmtPct, fmtPrice, historyChange } from '../finance/finance-derive';
 import { Sparkline } from '../finance/sparkline';
 import { useTitleTypewriter } from '../slides/use-title-typewriter';
+import { LockScreenSlotIsland } from './lock-screen-slots';
 
 const LOCK_CHART_GEOMETRY = {
   width: 140,
@@ -26,11 +34,58 @@ export function LockScreenWidgets() {
       className="absolute inset-0 pointer-events-none"
       onClick={(e) => e.stopPropagation()}
     >
-      <div className="pointer-events-auto absolute bottom-8 left-8 z-10">
+      <LockScreenSlotIsland slot="bottom-left">
         <LockScreenFintechWidget />
-      </div>
-      <div className="pointer-events-auto absolute bottom-8 right-8 z-10">
+      </LockScreenSlotIsland>
+      {/* Battery stacks above the system monitor in the same corner (Theme B) — both
+          are machine vitals, and the slot's own gap is what keeps them apart. */}
+      <LockScreenSlotIsland slot="bottom-right">
+        <LockScreenBatteryWidget />
         <LockScreenSysmonWidget />
+      </LockScreenSlotIsland>
+    </div>
+  );
+}
+
+/**
+ * Battery, bottom right (Phase 46 Theme B) — pure reuse of `features/battery/`.
+ * No new IPC, no new sampling, no new schema: `BatteryReadingSchema` is
+ * already an optional field on the metrics sample, exactly as the status
+ * bar's own `BatterySegment` reads it.
+ *
+ * Renders nothing on a machine with no battery, matching the status bar
+ * segment's own absent-state rule — a lock screen widget for hardware that
+ * does not exist is worse than no widget at all.
+ */
+export function LockScreenBatteryWidget() {
+  const latest = useMetricsStore((s) => s.latest);
+  const battery = latest?.battery;
+  const percent =
+    battery?.percent ?? (battery?.devices && battery.devices.length > 0 ? battery.devices[0]?.percent : undefined);
+
+  if (percent === undefined || battery?.hasBattery === false) return null;
+
+  const rounded = Math.round(percent);
+  const tier = getBatteryTier(rounded);
+  const { textClass, glowStyle } = getBatteryTierClasses(tier);
+  const flashTier = getBatteryFlashTier(rounded);
+  const flashClass = getBatteryFlashClass(flashTier);
+
+  return (
+    <div
+      data-testid="lock-battery-widget"
+      className="flex min-w-[280px] items-center justify-between rounded-xl border border-transparent bg-transparent p-3.5 text-left transition-all sm:w-[320px]"
+    >
+      <div className="flex items-center gap-1.5 text-xs font-semibold uppercase tracking-wider text-muted-foreground">
+        <BatteryIcon percent={rounded} isCharging={battery?.isCharging} className="h-3.5 w-3.5 text-primary" />
+        <span>Battery</span>
+      </div>
+      <div
+        className={`flex items-center gap-1.5 font-mono text-sm font-semibold tabular-nums ${textClass} ${flashClass}`}
+        style={glowStyle}
+      >
+        {battery?.isCharging ? <LuBatteryCharging className="h-3.5 w-3.5" /> : null}
+        <span>{rounded}%</span>
       </div>
     </div>
   );

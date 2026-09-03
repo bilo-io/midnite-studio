@@ -4,7 +4,7 @@ import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 
 import { useMetricsStore } from '../../store/metrics-store';
 import { useFinanceStore } from '../finance/finance-store';
-import { LockScreenWidgets } from './lock-screen-widgets';
+import { LockScreenBatteryWidget, LockScreenWidgets } from './lock-screen-widgets';
 
 function jsonResponse(body: unknown): Response {
   return { ok: true, status: 200, statusText: 'OK', json: async () => body } as Response;
@@ -132,5 +132,44 @@ describe('LockScreenWidgets', () => {
     expect(screen.getByText('$50,000.00').className).toContain('text-destructive');
     expect(screen.getByText('Bitcoin (BTC)').className).toContain('text-destructive');
     expect(widget.querySelector('svg[width="76"]')?.parentElement?.className).toContain('text-destructive');
+  });
+});
+
+describe('LockScreenBatteryWidget (Phase 46 Theme B)', () => {
+  afterEach(cleanup);
+
+  it('renders nothing on a machine with no battery', () => {
+    useMetricsStore.setState({ latest: { at: 1, battery: { hasBattery: false, devices: [] } } });
+    const { container } = render(<LockScreenBatteryWidget />);
+    expect(container.firstChild).toBeNull();
+  });
+
+  it('renders nothing when no sample has arrived yet', () => {
+    useMetricsStore.setState({ latest: null });
+    const { container } = render(<LockScreenBatteryWidget />);
+    expect(container.firstChild).toBeNull();
+  });
+
+  it('shows the percentage and a charging glyph while plugged in', () => {
+    useMetricsStore.setState({
+      latest: { at: 1, battery: { hasBattery: true, percent: 82, isCharging: true, devices: [] } },
+    });
+    render(<LockScreenBatteryWidget />);
+    expect(screen.getByTestId('lock-battery-widget')).toBeTruthy();
+    expect(screen.getByText('82%')).toBeTruthy();
+  });
+
+  it('falls back to the first connected device when there is no primary percent', () => {
+    useMetricsStore.setState({
+      latest: {
+        at: 1,
+        battery: {
+          hasBattery: true,
+          devices: [{ id: 'kb', name: 'Keyboard', type: 'keyboard', percent: 41 }],
+        },
+      },
+    });
+    render(<LockScreenBatteryWidget />);
+    expect(screen.getByText('41%')).toBeTruthy();
   });
 });
