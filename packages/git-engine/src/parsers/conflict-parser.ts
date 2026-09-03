@@ -20,11 +20,15 @@ export function parseConflictMarkers(lines: string[]): ConflictedHunk {
     }
   };
 
+  // An index cursor rather than a for-of: each marker branch below consumes
+  // a variable number of lines, which a single increment-per-iteration loop
+  // can't express.
   let i = 0;
+  const at = (idx: number): string => lines[idx] ?? '';
+
   while (i < lines.length) {
-    const line = lines[i];
-    if (!line.startsWith('<<<<<<<')) {
-      context.push(line);
+    if (!at(i).startsWith('<<<<<<<')) {
+      context.push(at(i));
       i++;
       continue;
     }
@@ -33,30 +37,30 @@ export function parseConflictMarkers(lines: string[]): ConflictedHunk {
     i++; // past the `<<<<<<<` marker itself
 
     const ours: string[] = [];
-    while (i < lines.length && !lines[i].startsWith('|||||||') && !lines[i].startsWith('=======')) {
-      ours.push(lines[i]);
+    while (i < lines.length && !at(i).startsWith('|||||||') && !at(i).startsWith('=======')) {
+      ours.push(at(i));
       i++;
     }
 
     let base: string[] | null = null;
-    if (i < lines.length && lines[i].startsWith('|||||||')) {
+    if (i < lines.length && at(i).startsWith('|||||||')) {
       i++; // past the `|||||||` marker
       const baseLines: string[] = [];
-      while (i < lines.length && !lines[i].startsWith('=======')) {
-        baseLines.push(lines[i]);
+      while (i < lines.length && !at(i).startsWith('=======')) {
+        baseLines.push(at(i));
         i++;
       }
       base = baseLines;
     }
 
-    if (i < lines.length && lines[i].startsWith('=======')) i++; // past `=======`
+    if (i < lines.length && at(i).startsWith('=======')) i++; // past `=======`
 
     const theirs: string[] = [];
-    while (i < lines.length && !lines[i].startsWith('>>>>>>>')) {
-      theirs.push(lines[i]);
+    while (i < lines.length && !at(i).startsWith('>>>>>>>')) {
+      theirs.push(at(i));
       i++;
     }
-    if (i < lines.length && lines[i].startsWith('>>>>>>>')) i++; // past `>>>>>>>`
+    if (i < lines.length && at(i).startsWith('>>>>>>>')) i++; // past `>>>>>>>`
 
     segments.push({ kind: 'conflict', region: { ours, theirs, base } });
   }

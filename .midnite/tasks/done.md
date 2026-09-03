@@ -2,6 +2,26 @@
 
 <!-- Append one entry per landed phase/PR: date, phase, PR link, one-line summary. -->
 
+## 2026-09-03 — Phase 46 Theme G + Phase 47 Theme A
+
+[PR #63]. Two unrelated, self-contained slices in one batch.
+
+- [x] **Phase 46 Theme G — verification and screenshots, closing the phase's build half.**
+      `lock-screen-shots.spec.ts`: a committed, `MSTUDIO_SHOTS`-gated Playwright spec shooting the
+      full lock screen (weather top-centre, battery + sysmon bottom-right, the navigating pills)
+      across `motion ∈ {full, reduced}` × `theme ∈ {light, dark}` — 4 shots, replacing PR #55's two
+      ad hoc throwaway-script PNGs. The Phase 38 `ControlOrMeta` lesson doesn't apply here: the spec
+      presses no modifier chords at all. Phase's remaining open items are the `## Verification`
+      section's human keyboard/eye passes, same posture as Phases 36/37/39.
+- [x] **Phase 47 Theme A — the conflict data model + parser, the phase's foundation.**
+      `ConflictRegionSchema`/`ConflictedHunkSchema` in `shared/src/domain/conflict.ts` (zod only); a
+      new `git-engine/src/parsers/conflict-parser.ts` walking `readFileDiff`'s literal
+      `<<<<<<<`/`|||||||`/`=======`/`>>>>>>>` marker text into `context`/`conflict` segments,
+      supporting both the default 2-way and `diff3`'s 3-way style. Round-tripped against real git
+      merge output for both styles, not just hand-written fixtures. A markerless file parses to zero
+      regions rather than throwing. Themes B–F (whole-file resolution, hunk-level patch application,
+      the Studio UI, council-assisted suggestions, wiring) remain open.
+
 ## 2026-09-03 — Phase 48 Themes B, C, D, E — apply GitHub suggestion blocks to the working tree
 
 [PR #62]. The rest of the phase, on top of Theme A's suggestion-fence parser (PR #51).
