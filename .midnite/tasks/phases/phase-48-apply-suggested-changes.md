@@ -57,69 +57,69 @@ Effort tags: **S** ≈ an hour or two · **M** ≈ half a day · **L** ≈ a day
       two separate fences (first wins, documented), nested in a blockquote, nested in a list item,
       multi-line content with blank lines preserved exactly.
 
-### B — Line-range resolution (S)
+### B — Line-range resolution (S) ✅ DONE (2026-09-03, PR #62)
 
-- [ ] A pure function, e.g. `suggestionLineRange(thread: ForgeReviewThread)`, returning
+- [x] A pure function, e.g. `suggestionLineRange(thread: ForgeReviewThread)`, returning
       `{ start: number; end: number }` as `(thread.startLine ?? thread.line)` through `thread.line`
       — the first consumer of `startLine`, which every existing thread renderer
-      ([`comment-anchors.ts`](../../../packages/app/src/features/reviews/comment-anchors.ts),
+      ([`comment-anchors.ts`](../../../packages/app/src/features/diff/comment-anchors.ts),
       `comment-thread.tsx`) currently ignores in favor of `line` alone.
-- [ ] **Restricted to `side === 'RIGHT'`.** A suggestion proposes a replacement for the PR's own
+- [x] **Restricted to `side === 'RIGHT'`.** A suggestion proposes a replacement for the PR's own
       incoming lines; a `LEFT`-side (deleted/base) thread anchors to content the current working
       tree doesn't carry in the same position, and applying there has no honest target. Apply is
       simply **not offered** on a `LEFT`-side thread, regardless of whether its body happens to
       contain a suggestion fence.
-- [ ] Unit tests: single-line thread (`startLine` absent → range is one line), multi-line thread,
+- [x] Unit tests: single-line thread (`startLine` absent → range is one line), multi-line thread,
       and a `LEFT`-side thread with a suggestion fence correctly reporting "not applicable."
 
-### C — Local-file divergence detection, the phase's real weight (M)
+### C — Local-file divergence detection, the phase's real weight (M) ✅ DONE (2026-09-03, PR #62)
 
 > Confirmed as unsolved today: `outdated-threads.tsx` only detects a thread whose anchor no longer
 > exists in the **PR's own diff** (a force-push on GitHub's side). Nothing anywhere compares the
 > **locally checked-out file** against what the suggestion assumes.
 
-- [ ] Before Apply is offered as enabled (not just present), read the local file's current content
+- [x] Before Apply is offered as enabled (not just present), read the local file's current content
       at the resolved line range (Theme B) and compare it against the expected original text — the
       right-side content at those lines as the PR's own diff/thread data describes it. A mismatch
       disables Apply with an explicit reason ("this file has changed since the suggestion was
       written"), never a silent no-op and never a best-effort patch.
-- [ ] This is **stricter than, and separate from**, `fsWriteFile`'s own `expectedVersion` check
+- [x] This is **stricter than, and separate from**, `fsWriteFile`'s own `expectedVersion` check
       (Theme D) — that guard only catches "changed since *this app* last read the file," not
       "diverged from the commit the PR thread is anchored to." Both checks run; either can refuse.
-- [ ] Also disabled, for the same "unsafe to assume" reason: any thread already marked `outdated`
+- [x] Also disabled, for the same "unsafe to assume" reason: any thread already marked `outdated`
       (Phase 20's existing flag) or where the file itself is untracked/deleted locally.
-- [ ] Unit tests: exact match → enabled; local edit at the target lines → disabled with the
+- [x] Unit tests: exact match → enabled; local edit at the target lines → disabled with the
       divergence reason; file deleted locally → disabled; `outdated: true` → disabled regardless of
       content match.
 
-### D — Suggestion rendering, and the write (M)
+### D — Suggestion rendering, and the write (M) ✅ DONE (2026-09-03, PR #62)
 
-- [ ] `comment-thread.tsx`'s `CommentBody` gains a `code`/`pre` override on its `react-markdown`
+- [x] `comment-thread.tsx`'s `CommentBody` gains a `code`/`pre` override on its `react-markdown`
       tree (it currently overrides only `a`), detecting `language-suggestion` the same way
       `slide-code.tsx` detects any fenced language — rendering the block as a small removed/added
       preview (original line(s) struck through, suggested line(s) added) styled off the same tokens
       `DiffCell` already uses, rather than inventing a second red/green vocabulary.
-- [ ] An **Apply** button beside the existing Resolve/Reply actions, enabled only per Theme C's
+- [x] An **Apply** button beside the existing Resolve/Reply actions, enabled only per Theme C's
       check. Clicking it computes the new file content (splice the suggested text over the resolved
       line range in the file's current content) and calls the **existing** `fsWriteFile` IPC
       (Phase 24, [`fs-write-handlers.ts`](../../../packages/desktop/src/main/ipc/fs-write-handlers.ts))
       with the just-read `expectedVersion` — no new write channel.
-- [ ] Applying does **not** mark the thread resolved. That stays the existing, separate Resolve
+- [x] Applying does **not** mark the thread resolved. That stays the existing, separate Resolve
       click — an applied suggestion and a resolved thread are two different facts, and conflating
       them would make Resolve lie about the reviewer's own sign-off.
-- [ ] A failed write (Theme C's check passed, but `fsWriteFile` still rejects — a race between the
+- [x] A failed write (Theme C's check passed, but `fsWriteFile` still rejects — a race between the
       check and the click) surfaces the same `stale-write` reason `fsWriteFile` already returns,
       not a generic error.
 
-### E — Wiring + verification (S)
+### E — Wiring + verification (S) ✅ DONE (2026-09-03, PR #62)
 
-- [ ] `moon run :typecheck :lint :test` green.
-- [ ] Integration test covering the full path: a fixture comment body with a suggestion fence,
+- [x] `moon run :typecheck :lint :test` green.
+- [x] Integration test covering the full path: a fixture comment body with a suggestion fence,
       resolved line range, matching local file → Apply → file content updated on disk exactly as
       GitHub's own suggestion preview would show it, working tree still unstaged.
-- [ ] Integration test for each Theme C refusal path (divergent content, outdated thread, deleted
+- [x] Integration test for each Theme C refusal path (divergent content, outdated thread, deleted
       file) asserting Apply stays disabled with the specific reason shown, not just "disabled."
-- [ ] A repo-scope containment test — the target path stays inside the repo the thread belongs to,
+- [x] A repo-scope containment test — the target path stays inside the repo the thread belongs to,
       reusing `fs-scope-write.ts`'s existing `confineParent()` rather than trusting the PR payload's
       path string.
 - [ ] **Open, for a human:** apply a real suggestion from an actual github.com PR review against a
