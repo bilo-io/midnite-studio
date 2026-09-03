@@ -26,7 +26,12 @@ export type MockFixtures = {
    * deleted them would pass every spec. See `reviews-loading-shots.spec.ts`.
    */
   forgeLatencyMs?: number;
-  /** Keyed by `${sha}:${path}` for commit diffs, and `wt:${path}` for worktree ones. */
+  /**
+   * Keyed by `${sha}:${path}` for commit diffs, `wt:${path}` for worktree ones,
+   * and `stash:${selector}:${part}:${path}` for a stash part (Phase 22 Theme D)
+   * — each also answers a `:${context}`-suffixed key first, same as commit
+   * diffs, so a spec can assert a context expansion actually refetches.
+   */
   diffs: Record<string, unknown>;
   /**
    * Keyed by resolved sha, so a spec can navigate between commits — clicking a
@@ -59,6 +64,8 @@ export type MockFixtures = {
   refs?: unknown[];
   /** What `stash.list` answers — the sidebar's Stashes section (Phase 22 Theme B). */
   stashes?: unknown[];
+  /** What `stash.detail` answers, keyed by selector — the stash inspector (Phase 22 Theme D). */
+  stashDetails?: Record<string, unknown>;
   /** What `reflog.list` answers for HEAD — the History view's Reflog tab (Phase 22 Theme G). */
   reflog?: unknown[];
   /** Per-ref override for `reflog.list`, keyed exactly as the request's `ref` arrives — proves the ref selector actually re-requests rather than re-filtering one fixed list. */
@@ -1162,6 +1169,11 @@ export async function installMockBridge(page: Page, fixtures: MockFixtures): Pro
           opCalls.push({ op: 'stash.drop', args });
           return data.opResults?.['stash.drop'] ?? { ok: true as const };
         },
+        detail: async (req: { selector: string }) => data.stashDetails?.[req.selector] ?? null,
+        diff: async (req: { selector: string; part: string; path: string; context: number }) =>
+          data.diffs[`stash:${req.selector}:${req.part}:${req.path}:${req.context}`] ??
+          data.diffs[`stash:${req.selector}:${req.part}:${req.path}`] ??
+          null,
       },
       /** The History view's Reflog tab (Phase 22 Theme G) — a plain read, same shape as `stash.list`. */
       reflog: {

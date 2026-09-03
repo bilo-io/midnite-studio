@@ -5,12 +5,12 @@ import { installMockBridge, type MockFixtures } from './mock-bridge';
 
 /**
  * Phase 22 (Stash, the reflog, and writes you can take back) screenshots —
- * Themes B, E, F and G, the phase's visual surfaces.
+ * Themes B, C, D, E, F and G, the phase's visual surfaces.
  *
  * Not assertions — the themes' own specs (`repos-panel.test.tsx`,
- * `changes-panel.spec.ts`, `history.spec.ts`) own those. These exist to
- * produce the PNGs the PR embeds, from the same mocked bridge the rest of
- * the suite uses.
+ * `stash-graph.spec.ts`, `stash-inspector.spec.ts`, `changes-panel.spec.ts`,
+ * `history.spec.ts`) own those. These exist to produce the PNGs the PR
+ * embeds, from the same mocked bridge the rest of the suite uses.
  *
  * Run with `MSTUDIO_SHOTS=1`; skipped otherwise, so the normal suite stays
  * fast and does not rewrite committed images on every run.
@@ -52,6 +52,56 @@ test.describe('Phase 22 screenshots', () => {
     await page.getByRole('heading', { name: 'Stashes' }).waitFor();
     await page.waitForTimeout(SETTLE_MS);
     await page.screenshot({ path: `${OUT}/theme-b-sidebar-stashes.png` });
+  });
+
+  test('Theme C — Stashes above the graph', async ({ page }) => {
+    const data: MockFixtures = {
+      ...fixtures,
+      stashes: [
+        {
+          selector: 'stash@{0}',
+          sha: SHA_A,
+          parents: [SHA_B],
+          message: 'WIP on main: refactor the sidebar tree',
+          authoredAt: Math.floor(Date.now() / 1000) - 3600,
+          author: { name: 'Ada Lovelace', email: 'ada@example.com' },
+        },
+      ],
+    };
+    await installMockBridge(page, data);
+    await page.goto('/');
+    await page.getByRole('button', { name: /Stash: WIP on main/ }).waitFor();
+    await page.waitForTimeout(SETTLE_MS);
+    await page.screenshot({ path: `${OUT}/theme-c-stashes-above-graph.png` });
+  });
+
+  test('Theme D — the stash inspector', async ({ page }) => {
+    const data: MockFixtures = {
+      ...fixtures,
+      stashes: [
+        {
+          selector: 'stash@{0}',
+          sha: SHA_B,
+          parents: [SHA_A, SHA_A, SHA_A],
+          message: 'WIP on main: try a layout change',
+          authoredAt: Math.floor(Date.now() / 1000) - 3600,
+          author: { name: 'Ada Lovelace', email: 'ada@example.com' },
+        },
+      ],
+      stashDetails: {
+        'stash@{0}': {
+          tracked: [{ path: 'src/a.ts', oldPath: null, insertions: 1, deletions: 0 }],
+          index: [{ path: 'src/b.ts', oldPath: null, insertions: 2, deletions: 0 }],
+          untracked: [{ path: 'new.txt', oldPath: null, insertions: 3, deletions: 0 }],
+        },
+      },
+    };
+    await installMockBridge(page, data);
+    await page.goto('/');
+    await page.getByRole('button', { name: /Stash: WIP on main/ }).click();
+    await page.getByRole('heading', { name: 'Untracked files' }).waitFor();
+    await page.waitForTimeout(SETTLE_MS);
+    await page.screenshot({ path: `${OUT}/theme-d-stash-inspector.png` });
   });
 
   test('Theme E — Stash prompt from the Changes view', async ({ page }) => {
