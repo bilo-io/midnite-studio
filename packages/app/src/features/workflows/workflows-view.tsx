@@ -1,11 +1,12 @@
-import type { Workflow } from '@midnite/studio-shared';
+import { validateWorkflow, type Workflow, type WorkflowNode } from '@midnite/studio-shared';
 import { useState } from 'react';
 import { LuWorkflow } from 'react-icons/lu';
 
 import { EmptyState } from '../../components/empty-state';
 import { useFlushableSave } from '../councils/use-flushable-save';
+import { NodeInspector } from './canvas/node-inspector';
 import { WorkflowCanvas, type WorkflowGraph } from './canvas/workflow-canvas';
-import { useSaveWorkflow, useWorkflows } from './use-workflow';
+import { useRunWorkflow, useSaveWorkflow, useWorkflows } from './use-workflow';
 import { WorkflowList } from './workflow-list';
 
 /** Matches `council-config-panel.tsx`'s own auto-save debounce. */
@@ -72,18 +73,46 @@ export function WorkflowsView() {
  */
 function WorkflowEditor({ workflow }: { workflow: Workflow }) {
   const save = useSaveWorkflow();
+  const runWorkflow = useRunWorkflow();
   const { schedule } = useFlushableSave<Workflow>((next) => save.mutate(next), SAVE_DEBOUNCE_MS);
   const [local, setLocal] = useState(workflow);
+  const [selection, setSelection] = useState<ReadonlySet<string>>(new Set());
+
+  const issues = validateWorkflow(local);
+  const invalidNodeIds = new Set(issues.map((issue) => issue.nodeId).filter((id): id is string => id !== undefined));
+  const selectedNode =
+    selection.size === 1 ? (local.nodes.find((node) => node.id === Array.from(selection)[0]) ?? null) : null;
+  const selectedIssue = selectedNode ? issues.find((issue) => issue.nodeId === selectedNode.id) : undefined;
+
+  const changeNode = (next: WorkflowNode) => {
+    const updated = { ...local, nodes: local.nodes.map((node) => (node.id === next.id ? next : node)), updatedAt: Date.now() };
+    setLocal(updated);
+    schedule(updated);
+  };
 
   return (
-    <WorkflowCanvas
-      resetKey={workflow.id}
-      graph={{ nodes: local.nodes, edges: local.edges }}
-      onChange={(next: WorkflowGraph) => {
-        const updated = { ...local, ...next, updatedAt: Date.now() };
-        setLocal(updated);
-        schedule(updated);
-      }}
-    />
+    <div className="flex h-full min-h-0">
+      <WorkflowCanvas
+        resetKey={workflow.id}
+        graph={{ nodes: local.nodes, edges: local.edges }}
+        onSelectionChange={setSelection}
+        onChange={(next: WorkflowGraph) => {
+          const updated = { ...local, ...next, updatedAt: Date.now() };
+          setLocal(updated);
+          schedule(updated);
+        }}
+        invalidNodeIds={invalidNodeIds}
+        onRun={() => runWorkflow.mutate(local.id)}
+        runDisabledReason={issues[0]?.message}
+        isRunning={runWorkflow.isPending}
+      />
+      <NodeInspector
+        node={selectedNode}
+        nodes={local.nodes}
+        edges={local.edges}
+        issue={selectedIssue}
+        onChange={changeNode}
+      />
+    </div>
   );
 }

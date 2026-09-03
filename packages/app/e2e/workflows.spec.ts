@@ -171,3 +171,38 @@ test('deletes a workflow from the list after the destructive confirm', async ({ 
 
   await expect(page.getByText('No workflows yet')).toBeVisible();
 });
+
+/**
+ * The node inspector (Theme F). `workflow-canvas.test.tsx` and
+ * `node-inspector.test.tsx` already exercise the form/validation logic in
+ * isolation — this is the one thing only the assembled app can show: that
+ * selecting a node on the real canvas actually opens the real inspector
+ * wired to the real Run button, not a mock of either.
+ */
+test('selecting a node opens its inspector, and an invalid URL disables Run', async ({ page }) => {
+  await open(page);
+  await createWorkflow(page);
+  await addNode(page, 'HTTP');
+
+  await page.locator('[data-node-id]').first().click();
+  await expect(page.getByLabel('URL')).toBeVisible();
+
+  const run = page.getByRole('button', { name: 'Run', exact: true });
+  await expect(run).toBeDisabled();
+  await expect(run).toHaveAttribute('title', /has no URL/);
+
+  await page.getByLabel('URL').fill('https://example.com');
+  await expect(run).toBeEnabled();
+});
+
+test('deselecting every node closes the inspector', async ({ page }) => {
+  await open(page);
+  await createWorkflow(page);
+  await addNode(page, 'HTTP');
+
+  await page.locator('[data-node-id]').first().click();
+  await expect(page.getByLabel('URL')).toBeVisible();
+
+  await canvas(page).press('Escape');
+  await expect(page.getByText('Select a node to configure it.')).toBeVisible();
+});
