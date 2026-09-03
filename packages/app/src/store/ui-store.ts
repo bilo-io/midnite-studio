@@ -497,6 +497,18 @@ export type UiState = {
   loopChoices: Record<string, Record<string, string>>;
   setLoopChoice: (loopId: string, choiceId: string, optionId: string) => void;
   /**
+   * Which provider (roster agent) each loop runs on, when it is not the one
+   * the loop declares. Persisted alongside the model for the same reason: the
+   * pair is one decision, and half of it surviving a relaunch would be worse
+   * than neither.
+   *
+   * Keyed loopId → roster agent id, and resolved against the live roster on
+   * read (`LoopTab`) — an id naming no agent falls back to `loop.agentId`
+   * rather than launching a command that does not exist.
+   */
+  loopAgents: Record<string, string>;
+  setLoopAgent: (loopId: string, agentId: string) => void;
+  /**
    * Which Claude each loop runs on. Persisted for the same reason as the
    * radios above, and for one more: a model is a cost decision, and one made
    * on Monday should still hold on Tuesday.
@@ -948,6 +960,7 @@ type PersistedUi = Pick<
   | 'fabSessions'
   | 'loopModifierDefaults'
   | 'loopChoices'
+  | 'loopAgents'
   | 'loopModels'
   | 'loopSchedules'
   | 'hiddenMetrics'
@@ -1072,6 +1085,9 @@ export const useUiStore = create<UiState>()(
             [loopId]: { ...state.loopChoices[loopId], [choiceId]: optionId },
           },
         })),
+      loopAgents: {},
+      setLoopAgent: (loopId, agentId) =>
+        set((state) => ({ loopAgents: { ...state.loopAgents, [loopId]: agentId } })),
       loopModels: {},
       setLoopModel: (loopId, model) =>
         set((state) => ({ loopModels: { ...state.loopModels, [loopId]: model } })),
@@ -1368,6 +1384,7 @@ export const useUiStore = create<UiState>()(
         fabSessions: state.fabSessions,
         loopModifierDefaults: state.loopModifierDefaults,
         loopChoices: state.loopChoices,
+        loopAgents: state.loopAgents,
         loopModels: state.loopModels,
         loopSchedules: state.loopSchedules,
         hiddenMetrics: state.hiddenMetrics,
@@ -1464,6 +1481,7 @@ export const useUiStore = create<UiState>()(
             ...saved.loopModifierDefaults,
           },
           loopChoices: { ...current.loopChoices, ...saved.loopChoices },
+          loopAgents: { ...current.loopAgents, ...saved.loopAgents },
           loopModels: { ...current.loopModels, ...saved.loopModels },
           loopSchedules: { ...current.loopSchedules, ...saved.loopSchedules },
           repoGroupMembership: { ...current.repoGroupMembership, ...saved.repoGroupMembership },

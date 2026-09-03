@@ -1,24 +1,75 @@
 import {
-  LOOP_DAY_SETS,
   LOOP_FREQUENCIES,
   LOOP_GROUPS,
   LOOP_MODELS,
+  LOOP_WEEKDAYS,
+  loopModelsFor,
   loopScheduleSummary,
   resolveLoopChoice,
+  resolveLoopDays,
+  type AgentDefinition,
   type LoopChoice,
-  type LoopDays,
   type LoopDefinition,
   type LoopFrequency,
   type LoopGroup,
   type LoopModel,
   type LoopModifier,
   type LoopSchedule,
+  type LoopWeekday,
 } from '@midnite/studio-shared';
 import { Collapse } from '@bilo-io/ui';
 import { useId, useState, type ReactNode } from 'react';
-import { LuChevronRight, LuCircleStop, LuPlay } from 'react-icons/lu';
+import {
+  LuBrain,
+  LuCalendarDays,
+  LuCalendarClock,
+  LuChevronRight,
+  LuCircleStop,
+  LuClock,
+  LuListChecks,
+  LuPlay,
+  LuRepeat,
+  LuSettings2,
+  LuTarget,
+} from 'react-icons/lu';
 
 import { RadioRow, SwitchRow, SwitchTrack } from '../../components/form/toggle-rows';
+import { resolveAgentIcon } from '../../components/icons';
+import type { IconComponent } from '../../components/icon-button';
+import { IconSelect, MultiIconSelect, type IconSelectOption } from '../../components/select/icon-select';
+
+/**
+ * A glyph per section heading — the composer's five headings were five
+ * identical rows of small uppercase text, and a form you scan for "where do I
+ * set the model" is exactly where an icon earns its place.
+ *
+ * Keyed by section id (the three registry groups plus `model`/`schedule`),
+ * with a fallback rather than a lookup that can be undefined: a loop from a
+ * newer store declaring a group this build has never heard of should cost a
+ * glyph, not a crashed panel — the same rule `loopIcon` follows.
+ */
+const SECTION_ICONS: Record<string, IconComponent> = {
+  tasks: LuListChecks,
+  scope: LuTarget,
+  run: LuSettings2,
+  model: LuBrain,
+  schedule: LuCalendarClock,
+};
+
+/** The seven days as the multi-select's rows — short labels, week order. */
+const DAY_OPTIONS: IconSelectOption[] = LOOP_WEEKDAYS.map((day) => ({
+  id: day.id,
+  label: day.short,
+}));
+
+/** Cadence rows. The neutral one's own hint is why it is not a blank. */
+const FREQUENCY_OPTIONS: IconSelectOption[] = LOOP_FREQUENCIES.map(
+  ({ id, label, promptFragment }) => ({
+    id,
+    label,
+    hint: promptFragment ?? 'No cadence is sent — the loop paces itself.',
+  }),
+);
 
 /**
  * The controls above a loop's terminal: what the next run will be told, and
@@ -49,6 +100,8 @@ export function LoopComposer({
   thinking,
   checked,
   choiceIds,
+  agents,
+  agentId,
   model,
   schedule,
   extras,
@@ -56,6 +109,7 @@ export function LoopComposer({
   disabledReason,
   onToggle,
   onChoice,
+  onAgent,
   onModel,
   onSchedule,
   onExtras,
@@ -70,6 +124,10 @@ export function LoopComposer({
   checked: Record<string, boolean>;
   /** choiceId → optionId. Unset ids resolve to the choice's own default. */
   choiceIds: Record<string, string>;
+  /** The agent roster, as the provider select's rows — icon and accent included. */
+  agents: readonly AgentDefinition[];
+  /** Which provider runs this loop: a roster id, resolved by the caller. */
+  agentId: string;
   model: LoopModel;
   schedule: LoopSchedule;
   extras: string;
@@ -78,6 +136,7 @@ export function LoopComposer({
   disabledReason: string | undefined;
   onToggle: (modifierId: string, on: boolean) => void;
   onChoice: (choiceId: string, optionId: string) => void;
+  onAgent: (agentId: string) => void;
   onModel: (model: LoopModel) => void;
   onSchedule: (schedule: LoopSchedule) => void;
   onExtras: (text: string) => void;
@@ -105,7 +164,17 @@ export function LoopComposer({
       return { ...current, [id]: true };
     });
 
+  const agent = agents.find((entry) => entry.id === agentId);
   const modelLabel = LOOP_MODELS.find((entry) => entry.id === model)?.label ?? 'Default';
+  /*
+    The heading says provider first, then model — and drops the model when it
+    is the neutral one, which is not a model but the absence of a `--model`
+    flag. "Claude · Default" would be a heading claiming an answer nobody gave.
+  */
+  const providerMeta =
+    model === 'default' || loopModelsFor(agentId).length === 1
+      ? (agent?.label ?? agentId)
+      : `${agent?.label ?? agentId} · ${modelLabel}`;
   const scheduleSummary = loopScheduleSummary(schedule);
 
   return (
@@ -118,6 +187,8 @@ export function LoopComposer({
           loop={loop}
           checked={checked}
           choiceIds={choiceIds}
+          agents={agents}
+          agentId={agentId}
           model={model}
           schedule={schedule}
           waiting={waiting}
@@ -133,8 +204,17 @@ export function LoopComposer({
             push its own output off the bottom. The accordions are what make
             the cap comfortable rather than merely enforced — a tall loop is
             now two clicks from fitting, instead of a scrollbar you live with.
+
+            **12rem, where this was 18rem.** The cap is what buys the four
+            fixed rows under it — Model, Schedule, the extras field and Start —
+            their place on screen, and the schedule's three-row grid plus a
+            seven-chip day picker made the old figure too generous: the
+            composer grew past the panel's own frame, which clips
+            (`overflow-hidden`), and Start went under the fold and stopped
+            taking clicks. Patrol, the tallest loop, still shows its whole
+            Tasks section inside the new cap.
           */}
-          <div className="flex max-h-72 flex-col overflow-y-auto">
+          <div className="flex max-h-48 flex-col overflow-y-auto">
             {LOOP_GROUPS.map((group) => (
               <SettingsGroup
                 key={group.id}
@@ -161,17 +241,16 @@ export function LoopComposer({
           <ComposerSection
             id="model"
             title="Model"
-            meta={modelLabel}
+            meta={providerMeta}
             open={!closed['model']}
             onToggle={() => toggleSection('model')}
           >
-            <RadioRow
-              name={`${loop.id}-model`}
-              label="Model"
-              hideLabel
-              options={LOOP_MODELS.map(({ id, label }) => ({ id, label }))}
-              value={model}
-              onSelect={(id) => onModel(id as LoopModel)}
+            <ProviderModelRow
+              agents={agents}
+              agentId={agentId}
+              model={model}
+              onAgent={onAgent}
+              onModel={onModel}
             />
           </ComposerSection>
 
@@ -185,7 +264,16 @@ export function LoopComposer({
             <ScheduleRows loop={loop} schedule={schedule} onSchedule={onSchedule} />
           </ComposerSection>
 
-          <div className="flex items-end gap-2 border-t border-border/50 px-2 py-2">
+          {/*
+            One column, not a row: the Start button sits UNDER the field at
+            full width rather than beside it. Beside it, the button was the
+            width of the word "Start" against a field that had already been
+            narrowed to make room — and the panel's one commit action was the
+            smallest target on the surface. Full width also gives its gradient
+            border something to be: a 60px pill wearing a rainbow reads as a
+            decoration, a full-width one reads as the button.
+          */}
+          <div className="flex flex-col gap-2 border-t border-border/50 px-2 py-2">
             <textarea
               value={extras}
               spellCheck={false}
@@ -205,12 +293,13 @@ export function LoopComposer({
                   onStart();
                 }
               }}
-              className="loop-spectrum-field min-h-[3.25rem] min-w-0 flex-1 resize-y rounded px-2 py-1 text-[11px] leading-relaxed outline-none"
+              className="loop-spectrum-field min-h-[3.25rem] w-full min-w-0 resize-y rounded px-2 py-1 text-[11px] leading-relaxed outline-none"
             />
             <StartStopButton
               running={false}
               waiting={false}
               thinking={false}
+              fullWidth
               disabled={disabled}
               disabledReason={disabledReason}
               onClick={onStart}
@@ -253,6 +342,7 @@ function ComposerSection({
   children: ReactNode;
 }) {
   const bodyId = useId();
+  const Icon = SECTION_ICONS[id] ?? LuSettings2;
   return (
     <section
       data-loop-section={id}
@@ -272,6 +362,7 @@ function ComposerSection({
             open ? 'rotate-90' : ''
           }`}
         />
+        <Icon aria-hidden className="h-3 w-3 shrink-0 text-muted-foreground" />
         <h4 className="text-[9px] font-semibold uppercase tracking-wider text-muted-foreground">
           {title}
         </h4>
@@ -437,13 +528,97 @@ function ChoiceRow({
 }
 
 /**
- * The window the loop is told to work in, and how often it comes back round.
+ * Which provider, and then which of its models — two selects on one row.
+ *
+ * This was one radio group over `LOOP_MODELS`, which could only ever answer
+ * half the question: `LoopDefinition.agentId` has always existed so that "a
+ * per-tab agent picker later is a data change, not a schema change", and the
+ * composer never offered it. Now it does, and the model list is a function of
+ * the answer — `loopModelsFor` collapses to the single neutral entry for every
+ * agent whose CLI has no `--model`, so the pair can never offer Opus to
+ * `codex` and then silently drop the flag.
+ *
+ * Two caveats worth knowing before switching a loop off Claude, both inherited
+ * rather than introduced here: `claude` is the only roster agent with
+ * `activity` markers, so a loop on another provider still runs but its
+ * Start/Stop glow and waiting-detection are guesses; and the loop's base
+ * prompt is a `/loop …` skill invocation, which is Claude Code's own dialect.
+ * The disabled model select says the first part; the roster is what a user who
+ * wants the second is reaching for anyway.
+ */
+function ProviderModelRow({
+  agents,
+  agentId,
+  model,
+  onAgent,
+  onModel,
+}: {
+  agents: readonly AgentDefinition[];
+  agentId: string;
+  model: LoopModel;
+  onAgent: (agentId: string) => void;
+  onModel: (model: LoopModel) => void;
+}) {
+  const models = loopModelsFor(agentId);
+  const modelOptions: IconSelectOption[] = models.map((entry) => ({
+    id: entry.id,
+    label: entry.label,
+    hint: entry.cliModel ?? "No --model flag — the CLI's own configuration decides.",
+  }));
+  /*
+    A provider with one model has nothing to pick, and showing a stored
+    `opus-5` under `codex` would claim a flag that is never passed. The value
+    shown falls back to the neutral entry rather than the store's answer, which
+    is kept — switch back to Claude and the model you chose is still there.
+  */
+  const shown = models.some((entry) => entry.id === model) ? model : 'default';
+
+  return (
+    <div className="flex min-w-0 items-center gap-1.5">
+      <div className="min-w-0 flex-1">
+        <IconSelect
+          ariaLabel="Provider"
+          menuInPortal
+          options={agents.map((agent) => ({
+            id: agent.id,
+            label: agent.label,
+            icon: resolveAgentIcon(agent),
+            iconColor: agent.accent,
+          }))}
+          value={agentId}
+          onChange={onAgent}
+        />
+      </div>
+      <div className="min-w-0 flex-1">
+        <IconSelect
+          ariaLabel="Model"
+          menuInPortal
+          options={modelOptions}
+          value={shown}
+          isDisabled={modelOptions.length === 1}
+          onChange={(id) => onModel(id as LoopModel)}
+        />
+      </div>
+    </div>
+  );
+}
+
+/**
+ * The window the loop is told to work in, which days it may work at all, and
+ * how often it comes back round.
  *
  * All three axes are prompt-level, and the hint says so: Start still starts
  * now, and the composed line carries days, window and cadence as standing
  * rules that `/loop` — which paces itself and schedules its own next wake-up —
  * can honour. Promising a timer here would be promising something that does
  * not survive a quit.
+ *
+ * **One label column, three rows.** The three axes used to be a wrapping flex
+ * row of switch-plus-two-time-fields with two pill groups under it, and at
+ * 320px the window row wrapped mid-control — the `→` between the times landing
+ * on its own line. A two-column grid (`auto` label, `1fr` control) is what
+ * makes the three answers line up as three answers, and the icon in each label
+ * is what makes them findable without reading all three.
  *
  * Frequency and days stay live while the master switch is off, unlike the two
  * time fields. They are answers you set once and leave alone, and greying them
@@ -460,20 +635,29 @@ function ScheduleRows({
   onSchedule: (schedule: LoopSchedule) => void;
 }) {
   const empty = schedule.enabled && schedule.from === schedule.to;
+  const days = resolveLoopDays(schedule.days);
+
   return (
-    <>
-      <div className="flex flex-wrap items-center gap-x-2 gap-y-1 text-[11px] text-muted-foreground">
-        <label
-          className="relative flex cursor-pointer items-center gap-2"
-          title="Only work inside this window"
-        >
-          <span>Window</span>
+    <div className="grid grid-cols-[auto_minmax(0,1fr)] items-center gap-x-2 gap-y-1.5">
+      <ScheduleLabel icon={LuClock} text="Window" title="Only work inside this window" />
+      <div className="flex min-w-0 items-center gap-1.5 text-[11px] text-muted-foreground">
+        <label className="relative flex cursor-pointer items-center" title="Only work inside this window">
+          <span className="sr-only">Window</span>
           <input
             type="checkbox"
             role="switch"
             checked={schedule.enabled}
             onChange={(event) => onSchedule({ ...schedule, enabled: event.target.checked })}
-            className="peer absolute inset-0 h-full w-full cursor-pointer opacity-0"
+            /*
+              `z-10`, unlike every other switch in this form: those sit in a
+              full-width row where the label text is the click target, and this
+              one's label lives in the grid cell to its left, so the input's box
+              is exactly the painted track's. The track is a positioned sibling
+              declared after it and would otherwise take the click — Playwright
+              reports it as "intercepts pointer events", and a user clicking the
+              switch would find it dead.
+            */
+            className="peer absolute inset-0 z-10 h-full w-full cursor-pointer opacity-0"
           />
           <SwitchTrack />
         </label>
@@ -483,46 +667,80 @@ function ScheduleRows({
           disabled={!schedule.enabled}
           aria-label={`Run ${loop.label} from`}
           onChange={(event) => onSchedule({ ...schedule, from: event.target.value })}
-          className="loop-spectrum-field rounded px-1 py-[1px] text-[10px] outline-none disabled:opacity-50"
+          className="loop-spectrum-field min-w-0 flex-1 rounded px-1 py-[2px] text-[10px] outline-none disabled:opacity-50"
         />
-        <span aria-hidden>→</span>
+        <span aria-hidden className="shrink-0">
+          →
+        </span>
         <input
           type="time"
           value={schedule.to}
           disabled={!schedule.enabled}
           aria-label={`Run ${loop.label} until`}
           onChange={(event) => onSchedule({ ...schedule, to: event.target.value })}
-          className="loop-spectrum-field rounded px-1 py-[1px] text-[10px] outline-none disabled:opacity-50"
+          className="loop-spectrum-field min-w-0 flex-1 rounded px-1 py-[2px] text-[10px] outline-none disabled:opacity-50"
         />
       </div>
+
       {empty ? (
-        <p className="text-[10px] text-amber-500">
+        <p className="col-span-2 text-[10px] text-amber-500">
           Same start and end — no window is sent until they differ.
         </p>
       ) : null}
-      <RadioRow
-        name={`${loop.id}-frequency`}
-        label="Every"
-        options={LOOP_FREQUENCIES.map(({ id, label, promptFragment }) => ({
-          id,
-          label,
-          title: promptFragment ?? 'No cadence is sent — the loop paces itself.',
-        }))}
+
+      <ScheduleLabel icon={LuRepeat} text="Every" title="How often the loop takes another pass" />
+      <IconSelect
+        ariaLabel="Every"
+        menuInPortal
+        options={FREQUENCY_OPTIONS}
         value={schedule.frequency ?? 'continuous'}
-        onSelect={(id) => onSchedule({ ...schedule, frequency: id as LoopFrequency })}
+        onChange={(id) => onSchedule({ ...schedule, frequency: id as LoopFrequency })}
       />
-      <RadioRow
-        name={`${loop.id}-days`}
-        label="On"
-        options={LOOP_DAY_SETS.map(({ id, label, promptFragment }) => ({
-          id,
-          label,
-          title: promptFragment ?? 'No day restriction is sent.',
-        }))}
-        value={schedule.days ?? 'all'}
-        onSelect={(id) => onSchedule({ ...schedule, days: id as LoopDays })}
+
+      <ScheduleLabel icon={LuCalendarDays} text="Days" title="Which days it may work at all" />
+      <MultiIconSelect
+        ariaLabel="Days"
+        menuInPortal
+        options={DAY_OPTIONS}
+        values={days}
+        placeholder="Every day"
+        onChange={(ids) => onSchedule({ ...schedule, days: ids as LoopWeekday[] })}
       />
-    </>
+
+      {days.length === 0 ? (
+        /*
+          The mirror of the zero-width-window warning above, and for the same
+          reason: an empty selection is a user mid-edit, and `loopDaysFragment`
+          reads it as neutral rather than composing "work on no days", which
+          would contradict the Start that is about to be pressed.
+        */
+        <p className="col-span-2 text-[10px] text-amber-500">
+          No days picked — no day restriction is sent until at least one is.
+        </p>
+      ) : null}
+    </div>
+  );
+}
+
+/** The left column of a schedule row: one glyph, one word. */
+function ScheduleLabel({
+  icon: Icon,
+  text,
+  title,
+}: {
+  icon: IconComponent;
+  text: string;
+  title: string;
+}) {
+  return (
+    <span
+      title={title}
+      className="flex items-center gap-1.5 text-[11px] text-muted-foreground"
+      aria-hidden
+    >
+      <Icon className="h-3 w-3 shrink-0" />
+      {text}
+    </span>
   );
 }
 
@@ -537,6 +755,8 @@ function RunningStrip({
   loop,
   checked,
   choiceIds,
+  agents,
+  agentId,
   model,
   schedule,
   waiting,
@@ -546,6 +766,8 @@ function RunningStrip({
   loop: LoopDefinition;
   checked: Record<string, boolean>;
   choiceIds: Record<string, string>;
+  agents: readonly AgentDefinition[];
+  agentId: string;
   model: LoopModel;
   schedule: LoopSchedule;
   waiting: boolean;
@@ -569,6 +791,16 @@ function RunningStrip({
     }
   }
 
+  /*
+    The provider, but only when it is not the one the loop declares — the same
+    rule the model chip follows one line down. Every run carries an agent, so a
+    chip for the default one would be on every strip and would stop "Running
+    with defaults" from ever being the honest thing to say.
+  */
+  if (agentId !== loop.agentId) {
+    const agent = agents.find((entry) => entry.id === agentId);
+    chips.push({ key: 'agent', label: agent?.label ?? agentId });
+  }
   const modelLabel = LOOP_MODELS.find((entry) => entry.id === model);
   if (modelLabel && modelLabel.cliModel !== null) {
     chips.push({ key: 'model', label: modelLabel.label });
@@ -621,6 +853,7 @@ function StartStopButton({
   running,
   waiting,
   thinking,
+  fullWidth = false,
   disabled,
   disabledReason,
   onClick,
@@ -628,6 +861,8 @@ function StartStopButton({
   running: boolean;
   waiting: boolean;
   thinking: boolean;
+  /** Start, under the extras field. Stop keeps its place at the end of the strip. */
+  fullWidth?: boolean;
   disabled: boolean;
   disabledReason?: string | undefined;
   onClick: () => void;
@@ -653,10 +888,21 @@ function StartStopButton({
       title={disabled ? disabledReason : undefined}
       data-testid={running ? 'loop-stop' : 'loop-start'}
       data-running={running ? 'true' : undefined}
-      className={`flex h-7 shrink-0 items-center gap-1.5 rounded-md px-2.5 text-[11px] font-medium transition-colors disabled:cursor-not-allowed disabled:opacity-50 ${glow} ${
+      /*
+        Idle, the button wears `.loop-start-gradient`: the tab's own
+        sub-spectrum as a conic border at rest, and on hover the full-strength
+        ramp orbiting behind a pulsing glow. That class owns the border
+        longhand (the two-layer `background-clip` trick needs a transparent
+        one), so `border-border` is not co-applied — it would paint an opaque
+        line straight over the gradient, which is the same trap
+        `.gradient-border--always` documents further up `styles.css`.
+      */
+      className={`flex h-7 items-center gap-1.5 rounded-md px-2.5 text-[11px] font-medium transition-colors disabled:cursor-not-allowed disabled:opacity-50 ${
+        fullWidth ? 'w-full justify-center' : 'shrink-0'
+      } ${glow} ${
         running
           ? 'text-foreground'
-          : 'border border-border text-foreground hover:bg-accent'
+          : 'loop-start-gradient text-foreground'
       }`}
     >
       {running ? (

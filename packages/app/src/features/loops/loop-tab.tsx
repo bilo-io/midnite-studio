@@ -67,11 +67,13 @@ export function LoopTab({
   const defaults = useUiStore((s) => s.loopModifierDefaults[loop.id]);
   const checks = useUiStore((s) => s.loopModifierChecks[loop.id]);
   const savedChoices = useUiStore((s) => s.loopChoices[loop.id]);
+  const savedAgentId = useUiStore((s) => s.loopAgents[loop.id]);
   const model = useUiStore((s) => s.loopModels[loop.id] ?? 'default');
   const schedule = useUiStore((s) => s.loopSchedules[loop.id] ?? DEFAULT_LOOP_SCHEDULE);
   const extras = useUiStore((s) => s.loopExtras[loop.id] ?? '');
   const setCheck = useUiStore((s) => s.setLoopModifierCheck);
   const setChoice = useUiStore((s) => s.setLoopChoice);
+  const setAgent = useUiStore((s) => s.setLoopAgent);
   const setModel = useUiStore((s) => s.setLoopModel);
   const setSchedule = useUiStore((s) => s.setLoopSchedule);
   const setExtras = useUiStore((s) => s.setLoopExtras);
@@ -103,8 +105,21 @@ export function LoopTab({
 
   const status = useLoopStatus(loop.id);
   const agents = useAgents();
+  /*
+    The provider this tab runs on: whatever the user picked, as long as the
+    live roster still has it. Resolved here rather than in the store because
+    the roster is queried (`agents.json` can be edited between launches) — a
+    saved `cursor` that has since been removed from the roster must fall back
+    to the loop's declared agent, not launch a command that does not exist.
+    The saved answer is left alone either way: re-add the agent and the tab is
+    back on it.
+  */
+  const agentId =
+    savedAgentId !== undefined && agents.agents.some((a) => a.id === savedAgentId)
+      ? savedAgentId
+      : loop.agentId;
   // The roster's own command, not the id — see `useLoopSession`'s note.
-  const command = agents.agents.find((a) => a.id === loop.agentId)?.command ?? loop.agentId;
+  const command = agents.agents.find((a) => a.id === agentId)?.command ?? agentId;
   const { start, stop } = useLoopSession(loop, {
     repoId: selectedRepoId,
     cwd,
@@ -112,6 +127,7 @@ export function LoopTab({
     checkedModifierIds,
     choiceIds,
     schedule: schedule.enabled ? schedule : null,
+    agentId,
     model,
     extras,
     command,
@@ -131,6 +147,8 @@ export function LoopTab({
         thinking={status.thinking}
         checked={checked}
         choiceIds={choiceIds}
+        agents={agents.agents}
+        agentId={agentId}
         model={model}
         schedule={schedule}
         extras={extras}
@@ -148,6 +166,7 @@ export function LoopTab({
         }
         onToggle={(modifierId, on) => setCheck(loop.id, modifierId, on)}
         onChoice={(choiceId, optionId) => setChoice(loop.id, choiceId, optionId)}
+        onAgent={(next) => setAgent(loop.id, next)}
         onModel={(next: LoopModel) => setModel(loop.id, next)}
         onSchedule={(next) => setSchedule(loop.id, next)}
         onExtras={(text) => setExtras(loop.id, text)}
