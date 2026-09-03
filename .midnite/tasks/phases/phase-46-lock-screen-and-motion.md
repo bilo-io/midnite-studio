@@ -186,16 +186,25 @@ The findings in the framing, resolved. This is the theme the last three phases e
       `applyMotion`, and `useMotionPreference`'s OS listener now no-ops once the stored preference is
       an explicit `'full'`/`'reduced'` — the two writers agree instead of racing. Two new unit tests
       (`appearance-store.test.ts`) confirmed to fail against the unfixed code first.
-- [x] **One dialect, everywhere.** Standardised on
-      `@media (prefers-reduced-motion: reduce) { html:not([data-motion='full']) .x }` across every
-      guard this phase found in the old `html[data-motion='reduced']` form (14 rules, `styles.css`).
-      **One exception, left alone on purpose:** `panel-stack-pane`'s guard (Phase 42) already carries
-      *both* forms as a deliberate belt-and-suspenders pair — its own comment explains why the plain
-      form is still load-bearing for "explicit `Motion: reduced` while the OS itself prefers full
-      motion," a real combination the pure `@media` form cannot reach (an `@media` block never
-      evaluates its contents unless the OS condition is independently true, however
-      `data-motion` reads). That is prior art from a different phase's PR, not a gap this pass
-      introduced — left untouched rather than re-litigated.
+- [x] **Belt-and-braces, everywhere — not the single dialect first attempted.** The first pass added
+      `@media (prefers-reduced-motion: reduce) { html:not([data-motion='full']) .x }` and *deleted* the
+      old plain `html[data-motion='reduced']` form across the 14 rules this phase found in it,
+      reasoning (wrongly) that `panel-stack-pane`'s existing dual-form guard (Phase 42) was a special
+      case rather than the general rule. CI's e2e shards caught the actual gap: `fab-loops.spec.ts`,
+      `titlebar-agents.spec.ts` and `terminal.spec.ts` each assert reduced motion by setting
+      `data-motion='reduced'` directly, **without** emulating the OS media query — an established
+      pattern across the e2e suite, not a test bug — so a pure `@media` guard never fires for them
+      (the CI runner's default `prefers-reduced-motion` is `no-preference`, confirmed by reproducing
+      locally with `page.emulateMedia` unset). `panel-stack-pane`'s own comment already named the
+      reason the plain form has to stay: an `@media` block only ever evaluates its contents when the
+      OS condition is independently true, regardless of what `data-motion` says, so it alone can't
+      serve an explicit choice tested without OS emulation. **Fix:** restored the plain
+      `html[data-motion='reduced'] .x { ... }` form alongside the `@media` one for all 14 rules —
+      byte-identical property values, both present — matching `panel-stack-pane`'s pattern exactly
+      rather than treating it as an exception. The `@media` form remains what closes the actual blind
+      spot (the default `'system'` preference with the OS asking for reduced motion, now additionally
+      fixed at the JS source below); the plain form is what an explicit, directly-tested
+      `data-motion='reduced'` still needs.
 - [x] **Deleted the duplicated `pill-shimmer` block** (byte-identical `@keyframes` + `.pill-shimmer`
       at old lines 143/152 and 567/579, two different guards). `.tab-loop-shimmer` still resolves the
       keyframe by name against the one remaining declaration.
@@ -222,27 +231,39 @@ The findings in the framing, resolved. This is the theme the last three phases e
       [Phase 45](phase-45-leak-audit.md) Theme B's sweep used, and in the PR description: every
       keyframe is now guarded except `shake`, allowlisted in Theme F's own test with its reason (a
       single ~0.4s shake on an invalid action, never a loop).
+- [x] **`e2e/councils.spec.ts`'s own Theme F suite (Phase 42) needed updating, not just re-running.**
+      Its "the setting outranks the OS" test poked `data-motion='full'` *after* `open(page)`, but
+      `PanelStack`'s duration comes from `motionMs()` (`use-reveal.ts`), read once at render time and
+      never re-read on a later DOM mutation alone — so a post-boot poke only ever proves the other
+      guards' pure-CSS mechanism, never this component's. Rewritten to seed the persisted
+      `midnite.settings` `localStorage` key with `motion: 'full'` via `page.addInitScript`, before
+      `open()` — an explicit choice really is already on disk before the app's next launch, so this
+      is the faithful way to put it in front of `PanelStack`'s first render, not a workaround. Its
+      "the blind spot" test's `data-motion` assertion is updated from `.toBe('system')` to
+      `.toBe('reduced')`: that test was asserting the *unfixed* bug this theme's first bullet closes,
+      so the literal `'system'` string it expected no longer lands — proof the fix works, not
+      breakage.
 
 #### The keyframes table
 
 | Keyframe | Verdict | Guard |
 |---|---|---|
-| `pill-shimmer` | GUARDED | `@media` dialect (already correct pre-phase; its byte-identical duplicate, with a second, non-firing guard, is deleted) |
-| `repo-row-shimmer` | GUARDED | Converted to `@media` this phase |
-| `battery-flash-{slow,medium,fast}` | GUARDED | Converted to `@media` this phase |
+| `pill-shimmer` | GUARDED | `@media` form already correct pre-phase (its byte-identical duplicate, carrying the plain-attribute form, is deleted as dead code); a fresh plain-attribute form added back this phase for belt-and-braces parity with the rest of the sweep |
+| `repo-row-shimmer` | GUARDED | Converted to belt-and-braces (`@media` + attribute) this phase |
+| `battery-flash-{slow,medium,fast}` | GUARDED | Converted to belt-and-braces this phase |
 | `shake` | **UNGUARDED, allowlisted** | Single ~0.4s run on an invalid action, never a loop |
-| `code-preview-hit-fade` | GUARDED | Already `@media`; widened to the full `html:not([data-motion='full'])` form this phase |
-| `screensaver-sheen` | GUARDED | Converted to `@media` this phase |
-| `breadcrumb-spin` | GUARDED | Converted to `@media` this phase (via `.breadcrumb-repo-pill`) |
-| `landing-slide-out` / `landing-slide-in` | GUARDED | Converted to `@media` this phase |
-| `fab-panel-spin` | GUARDED | `.gradient-frame` — already `@media`-adjacent; unified this phase |
+| `code-preview-hit-fade` | GUARDED | Already `@media`; widened to the full `html:not([data-motion='full'])` form and given a matching plain-attribute form this phase |
+| `screensaver-sheen` | GUARDED | Converted to belt-and-braces this phase |
+| `breadcrumb-spin` | GUARDED | Converted to belt-and-braces this phase (via `.breadcrumb-repo-pill`) |
+| `landing-slide-out` / `landing-slide-in` | GUARDED | Converted to belt-and-braces this phase |
+| `fab-panel-spin` | GUARDED | `.gradient-frame` — already `@media`-adjacent; given a matching plain-attribute form this phase |
 | `fab-glow-pulse` | GUARDED | `.gradient-frame::before` — same rule as `fab-panel-spin` |
-| `loop-glow-spin` / `loop-glow-pulse` | GUARDED | `.loop-run-glow` — converted to `@media` this phase |
-| `card-glow-pulse` | GUARDED | `.card-run-glow.is-running` — converted to `@media` this phase |
-| `fab-halo-pulse` | GUARDED | `.fab-loop-halo` — converted to `@media` this phase |
-| `loop-launcher-pulse` | GUARDED | `.loop-launcher`/`.loop-launcher.is-running.is-pulsing` — converted to `@media`, specificity arithmetic preserved |
+| `loop-glow-spin` / `loop-glow-pulse` | GUARDED | `.loop-run-glow` — converted to belt-and-braces this phase (CI's e2e caught the pure-`@media` regression; see above) |
+| `card-glow-pulse` | GUARDED | `.card-run-glow.is-running` — converted to belt-and-braces this phase |
+| `fab-halo-pulse` | GUARDED | `.fab-loop-halo` — converted to belt-and-braces this phase |
+| `loop-launcher-pulse` | GUARDED | `.loop-launcher`/`.loop-launcher.is-running.is-pulsing` — converted to belt-and-braces, specificity arithmetic preserved; CI's e2e caught the pure-`@media` regression |
 | `graph-lane-glow` / `graph-rail-glow` | GUARDED | Already correct `@media` dialect pre-phase |
-| `[data-activity]` (`caret-blink`/`dot-wave`/spinner glyphs) | GUARDED | Converted to `@media` this phase |
+| `[data-activity]` (`caret-blink`/`dot-wave`/spinner glyphs) | GUARDED | Converted to belt-and-braces this phase; CI's e2e caught the pure-`@media` regression |
 
 `.panel-stack-pane` (Phase 42) is transition-driven, not `@keyframes`-driven, and carries its own
 deliberate two-form guard — audited, out of this table's scope, left unchanged (see Theme E above).

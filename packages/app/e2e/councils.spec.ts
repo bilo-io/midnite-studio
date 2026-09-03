@@ -200,31 +200,50 @@ test.describe('panel-stack reduced motion — three configurations (Theme F)', (
     expect(await paneTransitionDuration(page)).toBeLessThan(0.01);
   });
 
-  test("data-motion='full' still animates even with the OS's own reduce-motion on — the setting outranks the OS", async ({
+  test("an explicit Motion: Full choice still animates with the OS's own reduce-motion on — the setting outranks the OS", async ({
     page,
   }) => {
+    // Seeded before boot, not poked after `open()`: `motionMs()`
+    // (`use-reveal.ts`) is read once per render, and nothing re-renders
+    // `PanelStack` on a later DOM mutation alone — a raw post-boot
+    // `setAttribute` call here would only prove the OTHER guards' pure-CSS
+    // mechanism, not this component's. The persisted setting is what a real
+    // explicit choice actually is: already on disk before the app's next
+    // launch, present from the very first render — Phase 46 Theme E's fix
+    // resolves `'system'` from the OS query, but never touches an explicit
+    // `'full'`/`'reduced'` value, which is exactly what this configuration
+    // now exercises end to end.
+    await page.addInitScript(() => {
+      window.localStorage.setItem(
+        'midnite.settings',
+        JSON.stringify({ state: { motion: 'full' }, version: 1 }),
+      );
+    });
     await page.emulateMedia({ reducedMotion: 'reduce' });
     await open(page);
-    await page.evaluate(() => document.documentElement.setAttribute('data-motion', 'full'));
 
     expect(await paneTransitionDuration(page)).toBeGreaterThan(0.1);
   });
 
-  test("the default 'system' setting with the OS's reduce-motion on still collapses the slide — the blind spot", async ({
+  test("the default 'system' setting resolves against the OS's reduce-motion before it ever reaches data-motion", async ({
     page,
   }) => {
-    // The path the doc names precisely: `useMotionPreference` resolves the OS
-    // query to 'reduced'/'full' first, but `useAppearanceSync` runs after it
-    // and overwrites the attribute with the *persisted* setting — 'system' by
-    // default, never having been changed. So `data-motion` reads literally
-    // 'system' here, not 'reduced', and only the `@media` form of the guard
-    // (not the `[data-motion='reduced']` attribute selector) can catch it.
+    // Phase 46 Theme E's fix, proven directly: before it, `useMotionPreference`
+    // resolved the OS query to 'reduced'/'full' first, but `useAppearanceSync`
+    // ran after it and overwrote the attribute with the literal *persisted*
+    // setting — 'system' by default, never having been resolved — so
+    // `data-motion` read literally 'system' here, matching no
+    // `[data-motion='reduced']` guard regardless of what the OS asked for
+    // (only the `@media` form's own independent OS check ever caught it).
+    // Fixed at the source: both writers now resolve `'system'` via
+    // `resolveSystemMotion()` before it reaches the DOM, so the attribute
+    // itself now reads the resolved value.
     await page.emulateMedia({ reducedMotion: 'reduce' });
     await open(page);
 
     expect(
       await page.evaluate(() => document.documentElement.getAttribute('data-motion')),
-    ).toBe('system');
+    ).toBe('reduced');
     expect(await paneTransitionDuration(page)).toBeLessThan(0.01);
   });
 });

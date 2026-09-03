@@ -81,11 +81,17 @@ touching the layout.
       `'system'` — so on the default preference the attribute literally read the string `'system'`,
       matching none of `styles.css`'s guards regardless of the OS setting. Fixed via a shared
       `resolveSystemMotion()`/`useResolvedMotion()` (`appearance-store.ts`); the two writers now
-      agree instead of racing. Standardized every convertible guard in `styles.css` (14 rules) on
-      the `@media (prefers-reduced-motion: reduce)` dialect, deleted the byte-identical duplicated
-      `pill-shimmer` block, and taught `NeuroCloudBackground`'s canvas rAF loop to consult the
-      setting directly (a media guard cannot reach a JS animation loop). Closes the motion half of
-      [Phase 39 Theme G](phases/phase-39-status-bar-shortcut-rail.md)'s remaining `◐ PARTIAL` item.
+      agree instead of racing. Gave every convertible guard in `styles.css` (14 rules) a
+      belt-and-braces `@media (prefers-reduced-motion: reduce)` + plain-attribute pair — a
+      pure-`@media` first attempt broke three existing e2e specs (`fab-loops`, `titlebar-agents`,
+      `terminal`) that assert reduced motion by setting `data-motion` directly, without emulating the
+      OS query; CI caught it, and the fix matches `panel-stack-pane`'s (Phase 42) own prior art rather
+      than treating it as a one-off exception. Deleted the byte-identical duplicated `pill-shimmer`
+      block, taught `NeuroCloudBackground`'s canvas rAF loop to consult the setting directly (a media
+      guard cannot reach a JS animation loop), and rewrote `councils.spec.ts`'s own Theme F suite
+      (Phase 42) where it had been asserting the pre-fix bug as expected behaviour. Closes the motion
+      half of [Phase 39 Theme G](phases/phase-39-status-bar-shortcut-rail.md)'s remaining
+      `◐ PARTIAL` item.
 - [x] **Phase 46 Theme F — a guard that can't be forgotten.** `styles-motion-guards.test.ts`: every
       `@keyframes` in `styles.css` must be referenced by a guarded rule or explicitly allowlisted
       with a reason (one entry: `shake`), plus a no-duplicate-`@keyframes`-name assertion — the bug

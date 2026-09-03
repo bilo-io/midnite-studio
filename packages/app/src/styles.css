@@ -160,6 +160,10 @@
   }
 }
 
+html[data-motion='reduced'] .pill-shimmer {
+  animation: none;
+}
+
 /* Selected Repo Row — gradient shimmer in the repos panel accordion header.
  * A moving highlight over the same `bg-accent/60` the row already wore, so the
  * resting look is unchanged and the sweep is the only new thing to notice.
@@ -207,6 +211,12 @@
   }
 }
 
+html[data-motion='reduced'] .repo-row-shimmer {
+  animation: none;
+  background-image: none;
+  background-color: hsl(var(--accent) / 0.6);
+}
+
 /* Battery status-bar segment — below 30% the low tier flashes, getting
  * faster the lower the reading goes: slow under 30%, quicker under 20%,
  * urgent under 10%. */
@@ -237,6 +247,12 @@
   html:not([data-motion='full']) .battery-flash-fast {
     animation: none;
   }
+}
+
+html[data-motion='reduced'] .battery-flash-slow,
+html[data-motion='reduced'] .battery-flash-medium,
+html[data-motion='reduced'] .battery-flash-fast {
+  animation: none;
 }
 
 @keyframes shake {
@@ -324,6 +340,11 @@
   }
 }
 
+html[data-motion='reduced'] .code-preview-hit {
+  animation: none;
+  background-color: hsl(var(--primary) / 0.25);
+}
+
 /* Phase 30 Theme F — the terminal's activity glyphs, under reduced motion.
  * `@bilo-io/shell/appearance.css` forces `animation-duration: 0.001ms
  * !important` AND `animation-fill-mode: forwards !important` on every element
@@ -345,6 +366,11 @@
   html:not([data-motion='full']) [data-activity] * {
     animation-name: none !important;
   }
+}
+
+html[data-motion='reduced'] [data-activity],
+html[data-motion='reduced'] [data-activity] * {
+  animation-name: none !important;
 }
 
 [data-density='compact'] .status-label,
@@ -565,6 +591,10 @@ section.bg-card\/60 {
   }
 }
 
+html[data-motion='reduced'] .screensaver-title {
+  animation: none;
+}
+
 /*
  * Phase 46 Theme E: this used to redeclare `@keyframes pill-shimmer` and
  * `.pill-shimmer` byte-for-byte identically to the copy above (line 143),
@@ -588,6 +618,10 @@ section.bg-card\/60 {
   html:not([data-motion='full']) .tab-loop-shimmer {
     animation: none;
   }
+}
+
+html[data-motion='reduced'] .tab-loop-shimmer {
+  animation: none;
 }
 
 /* Breadcrumb Repo Pill — Rainbow gradient border & rotating glow/box-shadow on hover */
@@ -646,6 +680,10 @@ section.bg-card\/60 {
   html:not([data-motion='full']) .breadcrumb-repo-pill {
     animation: none;
   }
+}
+
+html[data-motion='reduced'] .breadcrumb-repo-pill {
+  animation: none;
 }
 
 /* ---------------------------------------------------------------------------
@@ -716,6 +754,11 @@ section.bg-card\/60 {
   html:not([data-motion='full']) .landing-slide-in {
     animation: none;
   }
+}
+
+html[data-motion='reduced'] .landing-slide-out,
+html[data-motion='reduced'] .landing-slide-in {
+  animation: none;
 }
 
 /* FAB Panel — Rainbow gradient border animation */
@@ -1452,6 +1495,16 @@ html[data-window-focused='false'] .gradient-frame::before {
   }
 }
 
+html[data-motion='reduced'] .gradient-frame {
+  animation: none;
+  transition: none;
+}
+
+html[data-motion='reduced'] .gradient-frame::before {
+  animation-name: none !important;
+  transition: none;
+}
+
 
 /*
   Loop run glow (Phase 35) — worn by a Start/Stop button and by the collapsed
@@ -1598,6 +1651,12 @@ html[data-window-focused='false'] .gradient-frame::before {
   }
 }
 
+html[data-motion='reduced'] .loop-run-glow {
+  animation: none;
+  transition: none;
+  box-shadow: 0 0 10px rgba(236, 72, 153, 0.4);
+}
+
 /*
   Card run glow (Phase 41 Theme F) — a Kanban card's own border glow, and
   deliberately not `.loop-run-glow` reused verbatim: that class paints the
@@ -1657,6 +1716,11 @@ html[data-window-focused='false'] .card-run-glow.is-running {
     animation: none;
     box-shadow: 0 0 8px var(--card-glow-color);
   }
+}
+
+html[data-motion='reduced'] .card-run-glow.is-running {
+  animation: none;
+  box-shadow: 0 0 8px var(--card-glow-color);
 }
 
 /* ---------------------------------------------------------------------------
@@ -1777,6 +1841,11 @@ html[data-window-focused='false'] .card-run-glow.is-running {
   }
 }
 
+html[data-motion='reduced'] .fab-loop-halo {
+  animation: none;
+  transition: none;
+}
+
 /* ---------------------------------------------------------------------------
  * Phase 39 — the loop launchers, now in the title bar's agent cluster.
  *
@@ -1880,6 +1949,11 @@ html[data-window-focused='false'] .card-run-glow.is-running {
   html:not([data-motion='full']) .loop-launcher.is-running.is-pulsing {
     animation-name: none;
   }
+}
+
+html[data-motion='reduced'] .loop-launcher,
+html[data-motion='reduced'] .loop-launcher.is-running.is-pulsing {
+  animation-name: none;
 }
 
 /* ---------------------------------------------------------------------------
