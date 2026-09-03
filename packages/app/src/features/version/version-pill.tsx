@@ -63,10 +63,9 @@ function Pill({ version, expanded }: { version: string; expanded: boolean }) {
 }
 
 function Panel({ version }: { version: string }) {
-  // Mounted only while the popover is open (the panel is not rendered
-  // otherwise), so the query's `enabled` is simply `true` here — the laziness
-  // is the mount, not a flag this component has to track a second time.
-  const { data, isLoading } = useReleaseNotes(version, true);
+  // Mounted only while the popover is open, which is the whole of the fetch's
+  // laziness — see `release-notes.ts`.
+  const { data, isLoading } = useReleaseNotes(version);
 
   return (
     <div className="flex flex-col">
