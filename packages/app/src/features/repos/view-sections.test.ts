@@ -125,8 +125,8 @@ describe('filterFor', () => {
 });
 
 describe('view ids', () => {
-  it('lists all sixteen, the landing page first and Dashboard behind it', () => {
-    expect(VIEW_IDS).toHaveLength(16);
+  it('lists all seventeen, the landing page first and Dashboard behind it', () => {
+    expect(VIEW_IDS).toHaveLength(17);
     // `landing` is the app's root (`/`) and has no rail row; `dashboard` is
     // still the first rail entry, which is what `NavConfig.pinned` renders.
     expect(VIEW_IDS[0]).toBe('landing');
