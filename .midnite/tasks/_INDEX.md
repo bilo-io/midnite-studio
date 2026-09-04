@@ -2,6 +2,8 @@
 
 **Headlines:**
 
+- **[Phase 58 · Notes, and the menu that holds them](phases/phase-58-notes-and-the-menu.md)** (0% · 0/60) — **Planned, not started.** A thought you have while reading a diff has nowhere to go: every surface in this app is about work that already exists, and nothing catches work that doesn't yet. This phase adds **Notes** — a per-repository list in a centred, gradient-ringed modal on `localStorage`, edited in place — where each note carries two icon buttons that hand it to the workflow the repo already runs, seeding `/midnite-brainstorm` or `/midnite-exec-adhoc` into a terminal cwd'd to that repo (typed, never auto-sent) and flipping the note to `planned`. It also builds the **modal primitive the app never had** (seven hand-rolled `fixed inset-0 z-dialog` copies exist; Notes would be the eighth) and collapses the FAB and the blank assistant-menu popover into **one quick-access menu with two entry points** — `Mod+L` then `L` Loops · `N` Notes · `I` Report Issue · `G` Guided tour, the last two shipped visibly disabled.
+
 - **[Phase 57 · Midnite Studio speaks MCP](phases/phase-57-mcp-server.md)** (0% · 0/48) — **Planned, not started.** Every agent the app launches runs blind: a `claude`, `codex` or `opencode` process started in one of its terminals shells out for `git status` while `status-handlers.ts` holds the parsed answer, and pages `git log` while the lane layout for those commits sits in git-engine. This phase makes the app an **MCP server** — a build-fingerprinted Unix socket under `userData` plus a bundled stdio shim, cribbing the transport trick the pty broker already proved — serving eight read-only tools (`repo.list`, `repo.current`, `status.get`, `graph.log`, `diff.file`, `branch.list`, `forge.pulls`, `forge.checks`) whose input schemas are derived from the 2,052 lines of zod already in `ipc/schemas.ts`. Read-only and off by default on purpose: write tools need the write queue and a real consent model, and are deferred to a follow-up.
 
 - **[Phase 56 · E2E Suite Speed Run](phases/phase-56-e2e-speed-run.md)** (83% · 24/29, [PR #148](https://github.com/bilo-io/midnite-studio/pull/148), [PR #152](https://github.com/bilo-io/midnite-studio/pull/152)) — **Themes A, B, C, E, F landed** (2026-09-04): 4 → 8 e2e shards (`timeout-minutes` 20 → 10), `fullyParallel: true` (inherited by the CI ratchet config), an `actions/cache@v4` step for Vite's `.vite` dir, and screenshot writes in four functional specs gated behind `MSTUDIO_SHOTS` (verified: a normal run touches zero files under `docs/screenshots/`, `MSTUDIO_SHOTS=1` regenerates all 14 target PNGs). **Theme C measured, no change adopted**: `workers: 2` ran green across 3 full CI runs (24 shard-attempts, zero flake) but averaged ≈4m28s/shard against the `workers: 1` baseline's ≈4m22s — no measured win, so the override was reverted per the doc's own "adopt only on a demonstrated net reduction" rule, with the numbers left in both configs' own comments. **Theme D (retry trim 2→1) was tried and reverted** in PR #148: it passed on the first CI run, but a second full CI run — triggered by an unrelated docs-only rebase, no code change — failed `titlebar-agents.spec.ts`'s "reduced motion keeps a running launcher glow and full opacity" (not in `KNOWN_RED`, reliable across many recent `main` runs) twice in a row, while an exact local reproduction of that shard passed 77/77 clean — the one-run-in-two CI variance the retry budget exists to absorb, reverted to `retries: 2` pending a real fix. Remaining: **G** — extracting a shared `shots-helper.ts` and refactoring the 25 `*-shots.spec.ts` files, left for its own pass given the file count.
@@ -53,6 +55,7 @@ Completed work is logged append-only in [`done.md`](done.md). Deferred scope liv
 
 | Phase | Status | Refined | Done | Progress | % | 🔄 WIP | ◻ TODO |
 |-------|--------|---------|------|----------|---|--------|--------|
+| [58 · Notes, and the menu that holds them](phases/phase-58-notes-and-the-menu.md) | ◻ TODO | — | 0/60 | `░░░░░░░░░░` | 0% | — | A B C D E F G |
 | [57 · Midnite Studio speaks MCP](phases/phase-57-mcp-server.md) | ◻ TODO | — | 0/48 | `░░░░░░░░░░` | 0% | — | A B C D E F |
 | [56 · E2E Suite Speed Run](phases/phase-56-e2e-speed-run.md) | 🔄 WIP | — | 24/29 | `████████░░` | 83% | — | D G |
 | [55 · Multi-Window Studio & Detachable Panels](phases/phase-55-multi-window-studio.md) | 🔄 WIP | x1 | 31/32 | `█████████░` | 97% | | |
@@ -116,6 +119,18 @@ Completed work is logged append-only in [`done.md`](done.md). Deferred scope liv
 
 <!-- Each phase currently carries a single theme A = its full deliverables checklist. Split into
      lettered themes if a phase gets parallelised. -->
+
+### [Phase 58 — Notes, and the menu that holds them](phases/phase-58-notes-and-the-menu.md)
+
+*Per-repository notes in a gradient-ringed modal on `localStorage`, each one able to hand itself to `/midnite-brainstorm` or `/midnite-exec-adhoc` in a terminal cwd'd to its own repo. Plus the modal primitive seven hand-rolled dialogs have been re-deriving, and one quick-access menu behind both the FAB and the blank assistant-menu popover.*
+
+- ◻ **A** — The notes store: `midnite-studio.notes` on zustand `persist`, keyed by repo, `status` and `done` as two independent axes, GC'd when a repo leaves the registry.
+- ◻ **B** — The modal primitive the app never had: occluder-registering, focus-trapped, reduced-motion-aware, with a `.gradient-frame` variant — proved by migrating `prompt-dialog` and `browser-launcher` onto it.
+- ◻ **C** — The Notes surface: a centred 900px/80vh panel, in-place editing on Midnite's exact key contract (Enter commits · Shift+Enter newlines · Escape cancels · empty cancels), hide-completed, two distinct empty states.
+- ◻ **D** — Status and handoff: Draft plan / Adhoc task seed `startAgent()` with the note as prompt, typed and never auto-sent, flipping the note to `planned` without ever deleting or completing it.
+- ◻ **E** — The quick-access menu: one component, two entry points, rows of icon + label + mnemonic + description with a delimiter before the disabled pair — `L` Loops · `N` Notes · `I` Report Issue · `G` Guided tour.
+- ◻ **F** — Commands, keybindings and the doc sync: `fab.toggle` re-pointed at the menu (staying in `TERMINAL_YIELD_COMMANDS`), a chord-free `notes.toggle`, and the `Mod+l` paragraph updated in all three convention files.
+- ◻ **G** — Verification: both entry points, the mnemonic paths, the full note lifecycle, and a Playwright test that the Notes modal actually hides the `WebContentsView` via the occluder contract.
 
 ### [Phase 57 — Midnite Studio speaks MCP](phases/phase-57-mcp-server.md)
 
