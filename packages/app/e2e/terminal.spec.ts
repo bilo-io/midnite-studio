@@ -805,13 +805,16 @@ test.describe('terminal panel', () => {
    * and gets clipped, which is how the shell is told its new column count once
    * per toggle instead of once per frame. So the frame is what this measures.
    *
-   * Two of the five steps are held to "it ended where it should, and it only
-   * ever moved one way", and the other three to "it also went through the
-   * middle". That is not timidity about those two, it is what the main thread
-   * allows: the FIRST open pays for xterm's first paint (shader compile, glyph
-   * atlas) and restoring from maximized pays for the view coming back out of
-   * `display: none`, and either can eat every frame the middle would have been
-   * visible in. The transition is the same one in all five.
+   * Three of the five steps are held to "it ended where it should, and it
+   * only ever moved one way", and the other two to "it also went through the
+   * middle". That is not timidity about those three, it is what the main
+   * thread allows: opening pays for xterm's first paint (shader compile,
+   * glyph atlas) every time it happens, not just the first — the panel
+   * unmounts on close (see the `toHaveCount(0)` assertion below), so
+   * `reopening` is exactly as fresh a mount as the initial `opening`, and
+   * restoring from maximized pays for the view coming back out of
+   * `display: none` — any of the three can eat every frame the middle would
+   * have been visible in. The transition is the same one in all five.
    */
   test('the panel slides between hidden, open and maximized', async ({ page }) => {
     await open(page, { terminalSessions: RESTORED });
@@ -834,7 +837,6 @@ test.describe('terminal panel', () => {
     const reopening = await slide(page, toggle, frame, 'height');
     expect(reopening[reopening.length - 1]).toBe(shown);
     expect(reopening).toEqual(rising(reopening));
-    expect(passedThrough(reopening, 0, shown)).toBe(true);
 
     const growing = await slide(page, '[aria-label="Expand terminal"]', frame, 'height');
     const tall = growing[growing.length - 1];

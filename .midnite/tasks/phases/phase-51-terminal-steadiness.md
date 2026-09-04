@@ -115,7 +115,7 @@ covers the activity readout and the sidebar side only.
     `useUiStore` on change. The live-apply wiring inside `terminal-view.tsx` has no test of its
     own, for the same live-xterm-context reason Theme A's `clearTextureAtlas()` wiring doesn't.
 
-### C — One renderer story, not two (M)
+### C — One renderer story, not two (M) — ✅ DONE (2026-09-04)
 
 Why two panes can look different **on the same display**. Today `new WebglAddon()` is loaded in a
 `try/catch` and wired as `webgl.onContextLoss(() => webgl.dispose())`
@@ -129,10 +129,19 @@ budgets *Kanban card* terminals only — the main panel's open sessions
 FAB loop tabs ([`loop-tab.tsx`](../../../packages/app/src/features/loops/loop-tab.tsx)) are
 untracked and spend from the same process-wide ceiling.
 
-- [ ] Re-acquire on restore: listen for `webglcontextrestored` on the canvas and re-add a fresh
+- [x] Re-acquire on restore: listen for `webglcontextrestored` on the canvas and re-add a fresh
       `WebglAddon`, rather than treating the first loss as terminal. A restored context with no
       addon is the worst of both — the GPU resource is back and unused.
-- [ ] Generalise the budget into a process-wide mounted-xterm registry that **every** mount site
+  - **Correction:** `@xterm/addon-webgl` already listens for `webglcontextlost`/`webglcontextrestored`
+    on its own canvas internally, with a ~3s grace window before it ever fires our `onContextLoss` —
+    confirmed by reading the addon's own bundled source rather than assumed. So by the time our
+    handler runs, the addon has already tried and failed to recover in place; its own canvas is
+    torn down with it. What `terminal-view.tsx` does instead: on `onContextLoss`, if the
+    process-wide budget still grants this session a slot, immediately construct and load a *fresh*
+    `WebglAddon` (one retry, not a loop) rather than falling to the DOM renderer permanently — the
+    same "don't treat the first loss as terminal" outcome, reached through a new context rather
+    than a restored one, since the addon doesn't expose its internal canvas for us to re-listen on.
+- [x] Generalise the budget into a process-wide mounted-xterm registry that **every** mount site
       reports to — panel, card and FAB tab — replacing the card-only counter. This is the
       "process-wide WebGL context budget" that [Phase 41 Theme E](phase-41-agentic-kanban.md) and
       [Phase 50](phase-50-kanban-projects-followthrough.md) each declined *because neither phase
@@ -141,13 +150,60 @@ untracked and spend from the same process-wide ceiling.
   - Over budget, the **least-recently-visible** pane drops to the DOM renderer deliberately, and
     the newly-revealed pane gets the context. Deliberate and predictable beats Chromium's own
     eviction order, which is arrival order and therefore punishes the pane you have been staring at.
-- [ ] `Settings ▸ Terminal` shows, per live session, which renderer it is actually using. The bug
+  - Landed as `xterm-budget.ts`: every `TerminalView` reports `(session.id, active)` — `active` is
+    already each mount site's own "the user can see this one" signal (panel: the selected session;
+    card: gated by the caller's `IntersectionObserver` one level up; FAB tab: the selected tab), so
+    no call-site change was needed beyond the view itself. `MAX_WEBGL_CONTEXTS = 12`, twelve of
+    Chromium's own roughly-16-per-process ceiling, leaving headroom for whatever else in the
+    process holds a context that this registry has no visibility into.
+  - `card-terminal-mounts.ts`'s `MAX_CARD_TERMINALS` retired outright, not left alongside the new
+    registry: its whole reason to exist was rationing the same WebGL contexts, by refusing to mount
+    a 5th card terminal at all. The new registry rations the identical resource with a strictly
+    better failure mode — a pane over budget still mounts and degrades to the DOM renderer — so
+    keeping both would have meant two mechanisms solving one problem. `CardTerminal` now mounts
+    whenever `visible`, with no cap of its own.
+  - **Correction, caught by CI (`terminal-reveal.spec.ts`), not by review:** the first landed cut
+    deferred WebGL acquisition entirely to a reactive effect keyed on the budget grant, running
+    only once `ready` flipped true — which is *after* `openWhenSized`'s own first `safeFit()`. That
+    first fit measured the DOM renderer's own cell metrics; the WebGL addon then loaded moments
+    later with its own, very slightly different metrics, and nothing re-fit — so the pty's own
+    `resize` count was one higher than before for a container that never actually changed size,
+    caught by `terminal-reveal.spec.ts`'s own resize-count assertion. Fixed by restoring the
+    original ordering: acquisition happens inline in `openWhenSized`, before the first `safeFit()`,
+    exactly as the pre-Theme-C code did — a session over budget still briefly holds a real context
+    for one tick before the reactive effect (now purely a POST-mount correction, watching
+    `webglRef.current` against the current grant) evicts it. The reactive effect's job shrank to
+    exactly what it needs to be: react to a LATER transition, never the initial one.
+  - **A known, unresolved CI-only flake, investigated and left alone:** `terminal.spec.ts`'s "the
+    panel slides between hidden, open and maximized" failed on CI (never once locally, across many
+    repeated local runs) at the `reopening` step's own `passedThrough` check — the one step of five
+    that both creates a brand-new WebGL context (a fresh `Terminal` after the panel fully unmounts)
+    AND is asserted strictly, unlike the very first open (which the test's own docblock already
+    excuses for exactly this reason: "the FIRST open pays for xterm's first paint (shader compile,
+    glyph atlas)... and can eat every frame the middle would have been visible in"). A genuine
+    attempt at a fix — deferring `xterm-budget.ts`'s registration effect by one
+    `requestAnimationFrame`, on the theory that it was stacking an extra React reconciliation pass
+    directly on top of the shader compile — not only failed to help, it introduced a real bug
+    (reverted): with registration deferred, `terminal-view.tsx`'s own reactive correction effect
+    could see `granted` as `false` for that one deferred frame even though `webglRef.current` was
+    already set from the initial, unconditional acquisition — a spurious dispose-then-reacquire
+    race. Registration is back to synchronous, which is provably race-free (traced through React's
+    effect-ordering guarantees) and was never the actual defect. No further attempt made: the
+    underlying WebGL-compile timing is outside this repo's control, the test's own docblock already
+    documents this exact class of risk, and a CI-only failure with zero local reproduction across
+    dozens of runs does not meet the bar for guessing at a second unverifiable fix.
+- [x] `Settings ▸ Terminal` shows, per live session, which renderer it is actually using. The bug
       was invisible for as long as it was because nothing ever said "this pane is on the DOM
       renderer" — the same argument [Phase 30 Theme G](phase-30-terminal-hardening.md) made for a
       detector that can be wrong out loud.
-- [ ] Tests: `xterm-budget.test.ts` — mounts from three different surfaces count against one
+  - A new "Renderer" accordion, `rendererRows` pure function mirroring `activityRows`'s own shape —
+    every *live* session (not just agent rows, since a plain shell's pane can fall to the DOM
+    renderer exactly as an agent's can), reading `xterm-budget.ts`'s own `renderers` map.
+- [x] Tests: `xterm-budget.test.ts` — mounts from three different surfaces count against one
       ceiling; the least-recently-visible pane is the one demoted; a demoted pane that becomes
-      visible again reclaims a context; unmounting frees the slot exactly once.
+      visible again reclaims a context; unmounting frees the slot exactly once; and a real-budget
+      (12) eviction/reclaim pass. The wiring inside `terminal-view.tsx` itself has no test file of
+      its own, for the same live-xterm-context reason Theme A's DPR wiring doesn't.
 
 ### D — A resize that costs one fit, not one per frame (S) — ✅ DONE (PR #118, 2026-09-04)
 
@@ -226,7 +282,7 @@ again with no queue.
     ordering itself, not something a pure queue test can exercise without mounting a real
     `TerminalView` and a real xterm, which is outside what this theme's test plan scoped to.
 
-### F — Backpressure that exists (M)
+### F — Backpressure that exists (M) — ✅ DONE (2026-09-04)
 
 There is **none, at any hop**. `socket.write()`'s return value is ignored on both sides
 ([`broker-client.ts:666`](../../../packages/desktop/src/main/broker-client.ts),
@@ -238,19 +294,40 @@ exited between frames disappears with no error reaching the renderer. Input that
 parse is dropped with no `else`
 ([`pty-handlers.ts:35`](../../../packages/desktop/src/main/ipc/pty-handlers.ts)).
 
-- [ ] Honour the `false` return from `socket.write()` on both hops: queue subsequent frames and
+- [x] Honour the `false` return from `socket.write()` on both hops: queue subsequent frames and
       resume on `'drain'`, with the queue bounded and its overflow reported rather than absorbed.
-- [ ] A failed `pty.write` becomes an outcome the renderer can see, not an empty catch. It does not
+  - Landed as a new shared `broker/socket-write-queue.ts` (`createQueuedSocketWriter`), used at
+    both cited hops: `broker-client.ts`'s `writePty` (per-`Peer`, 8 MiB cap, input frames) and
+    `server.ts`'s `broadcastControl` (per-client, 512 KiB cap — control traffic is small and
+    infrequent). `false` from `write()` means "this chunk was accepted, wait before writing more,"
+    not "retry it" — the queue shifts a chunk the instant `write()` returns, `ok` or not, and only
+    *stops* attempting further writes until `'drain'`. Overflow drops the *oldest* queued chunk,
+    matching Theme E's `input-queue.ts` precedent, reported via `log(...)` rather than absorbed.
+    `queuePtyOutput`/`flushPtyOutput`'s own 16 ms output coalescer is untouched, per the next item.
+- [x] A failed `pty.write` becomes an outcome the renderer can see, not an empty catch. It does not
       need a new channel — the session already has an exit/error path — but it must stop being
       indistinguishable from success.
-- [ ] A rejected-by-zod input logs through the one existing log seam instead of vanishing. A
+  - **Correction/scope trim:** landed as a logged catch (`log('[broker] pty.write failed …')`) at
+    both call sites (`frame.type === 0x01`'s live-input path and the `pendingInput` auto-send path),
+    not a synthetic exit broadcast. `pty.write` throwing means the pty is already dead in the
+    overwhelming case, and node-pty's own `onExit` — which already broadcasts `t: 'exit'` — fires
+    independently of write failures, so the renderer's existing exit path reaches it on its own;
+    inventing a second exit signal here would race the real one for no benefit. What was missing
+    was observability of the failure itself, not a new user-facing signal.
+- [x] A rejected-by-zod input logs through the one existing log seam instead of vanishing. A
       malformed payload is a bug somewhere; silence is what let it stay one.
-- [ ] Note explicitly that this is the **input** direction. The broker's 16 ms output coalescer
+  - `pty-handlers.ts`'s `ptyInput` handler logs via `defaultLogger` on a failed `safeParse`.
+- [x] Note explicitly that this is the **input** direction. The broker's 16 ms output coalescer
       ([`server.ts:190-236`](../../../packages/desktop/src/broker/server.ts)) and its ordering
       invariants are correct, tested by `output-coalescing.test.ts`, and are not touched here.
-- [ ] Tests: extend `broker/server.test.ts` and `main/broker-client.test.ts` — a write against a
+- [x] Tests: extend `broker/server.test.ts` and `main/broker-client.test.ts` — a write against a
       saturated socket queues rather than disappearing, `'drain'` releases it in order, the bounded
       queue reports overflow, and a multi-megabyte paste arrives byte-complete and in order.
+  - The four backpressure behaviors themselves are covered deterministically in a new
+    `socket-write-queue.test.ts` (a scriptable fake socket, since the real backpressure case is not
+    reliably reproducible over a real Unix socket in a test); `main/broker-client.test.ts` gained a
+    real end-to-end test sending a multi-megabyte paste as thousands of small `writePty` calls
+    through a real broker and asserting the fake pty received it byte-complete and in order.
 
 ### G — Reattach that actually hands the session back (M)
 

@@ -10,7 +10,7 @@ import {
   DEFAULT_TERMINAL_LINE_HEIGHT,
 } from '../../terminal/terminal-font';
 import type { ConnectionState } from '../../terminal/terminal-store';
-import { activityRows, TerminalPage } from './terminal-page';
+import { activityRows, rendererRows, TerminalPage } from './terminal-page';
 
 function renderWithClient() {
   const queryClient = new QueryClient({ defaultOptions: { queries: { retry: false } } });
@@ -118,6 +118,43 @@ describe('activityRows', () => {
       10,
     );
     expect(rows.map((r) => r.sessionId)).toEqual(['a', 'b']);
+  });
+});
+
+describe('rendererRows', () => {
+  it('is empty with no sessions', () => {
+    expect(rendererRows([], {}, {}, [])).toEqual([]);
+  });
+
+  it('excludes a session that is not live', () => {
+    const sessions = [session({ id: 'a', kind: 'shell' })];
+    const states: Record<string, ConnectionState> = { a: 'exited' };
+    expect(rendererRows(sessions, states, { a: 'webgl' }, [])).toEqual([]);
+  });
+
+  it('reports "unmounted" for a live session with no reported renderer yet', () => {
+    const sessions = [session({ id: 's1', kind: 'shell' })];
+    const states: Record<string, ConnectionState> = { s1: 'open' };
+
+    const rows = rendererRows(sessions, states, {}, []);
+    expect(rows[0]?.renderer).toBe('unmounted');
+  });
+
+  it('reports the renderer a live session actually landed on', () => {
+    const sessions = [session({ id: 's1', kind: 'shell' })];
+    const states: Record<string, ConnectionState> = { s1: 'open' };
+
+    const rows = rendererRows(sessions, states, { s1: 'dom' }, []);
+    expect(rows[0]?.renderer).toBe('dom');
+  });
+
+  it("names an agent session by the roster's label", () => {
+    const sessions = [session({ id: 's1', kind: 'agent', agentId: 'claude' })];
+    const states: Record<string, ConnectionState> = { s1: 'open' };
+    const agents = [agent({ id: 'claude', label: 'Claude' })];
+
+    const rows = rendererRows(sessions, states, { s1: 'webgl' }, agents);
+    expect(rows[0]?.name).toBe('Claude');
   });
 });
 

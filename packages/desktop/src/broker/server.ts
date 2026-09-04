@@ -14,6 +14,7 @@ import {
   PROTOCOL,
   type ControlMessage,
 } from './protocol';
+import { createQueuedSocketWriter, type QueuedSocketWriter } from './socket-write-queue';
 import { staleBrokerMessage } from './staleness';
 
 export interface IPtyLike {
@@ -139,6 +140,23 @@ export function createBrokerServer(options: BrokerServerOptions): BrokerServer {
   const sessions = new Map<string, Session>();
   const scrollbackBySession = new Map<string, Uint8Array>();
   const clients = new Set<net.Socket>();
+  /** One bounded, drain-aware write queue per client (Phase 51 Theme F). */
+  const clientQueues = new Map<net.Socket, QueuedSocketWriter>();
+  /** Control frames are small and infrequent; a few hundred KB is generous headroom. */
+  const CONTROL_QUEUE_CAP_BYTES = 512 * 1024;
+
+  function queueFor(client: net.Socket): QueuedSocketWriter {
+    let queue = clientQueues.get(client);
+    if (!queue) {
+      queue = createQueuedSocketWriter(client, {
+        capBytes: CONTROL_QUEUE_CAP_BYTES,
+        onOverflow: (droppedBytes) =>
+          log(`[broker] control queue overflow: dropped ${droppedBytes} bytes to a slow client`),
+      });
+      clientQueues.set(client, queue);
+    }
+    return queue;
+  }
 
   let idleTimer: NodeJS.Timeout | null = null;
   let flushTimer: NodeJS.Timeout | null = null;
@@ -239,7 +257,7 @@ export function createBrokerServer(options: BrokerServerOptions): BrokerServer {
     const buf = encodeControl(msg);
     for (const client of clients) {
       if (!client.destroyed && client.writable) {
-        client.write(buf);
+        queueFor(client).write(buf);
       }
     }
   }
@@ -377,8 +395,14 @@ export function createBrokerServer(options: BrokerServerOptions): BrokerServer {
           if (session) {
             try {
               session.pty.write(new TextDecoder().decode(frame.data));
-            } catch {
-              // PTY may have exited
+            } catch (err) {
+              // The pty has almost always already exited (its own `onExit`
+              // handler below is what tells the renderer so) — logged rather
+              // than swallowed so a write failure that ISN'T just a race with
+              // exit is not invisible everywhere, per Phase 51 Theme F.
+              log(
+                `[broker] pty.write failed for ${frame.ptyId}: ${err instanceof Error ? err.message : String(err)}`,
+              );
             }
           }
         }
@@ -387,11 +411,15 @@ export function createBrokerServer(options: BrokerServerOptions): BrokerServer {
 
     socket.on('close', () => {
       clients.delete(socket);
+      clientQueues.get(socket)?.dispose();
+      clientQueues.delete(socket);
       checkIdle();
     });
 
     socket.on('error', () => {
       clients.delete(socket);
+      clientQueues.get(socket)?.dispose();
+      clientQueues.delete(socket);
       checkIdle();
     });
   };
@@ -579,8 +607,10 @@ export function createBrokerServer(options: BrokerServerOptions): BrokerServer {
               session.pendingInput = null;
               try {
                 pty.write(input);
-              } catch {
-                // Ignore
+              } catch (err) {
+                log(
+                  `[broker] pending-input pty.write failed for ${id}: ${err instanceof Error ? err.message : String(err)}`,
+                );
               }
             }
 

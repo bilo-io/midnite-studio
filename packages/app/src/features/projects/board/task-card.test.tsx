@@ -209,8 +209,7 @@ describe('TaskCard', () => {
     // card here behaves exactly as an off-screen one does for real — the
     // free, mount-independent fallback is the one thing that can be asserted
     // without a real browser. The visible/mounted path is
-    // `card-terminal.test.tsx`'s job; the granted-vs-visible split is
-    // `card-terminal-mounts.test.ts`'s.
+    // `card-terminal.test.tsx`'s job.
     it('renders the activity line for a running session, not the terminal, with no IntersectionObserver', () => {
       useTerminalStore.getState().openSession({
         kind: 'agent',

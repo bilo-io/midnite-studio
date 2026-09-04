@@ -3,7 +3,6 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 import { useTerminalStore } from '../../terminal/terminal-store';
 import { CardTerminal } from './card-terminal';
-import { useCardTerminalMounts } from './card-terminal-mounts';
 
 const revealSession = vi.fn();
 vi.mock('../../terminal/reveal-session', () => ({
@@ -25,7 +24,6 @@ vi.mock('../../terminal/lazy-terminal-view', () => ({
 afterEach(cleanup);
 beforeEach(() => {
   useTerminalStore.setState({ sessions: [], activeId: null, states: {}, pendingInput: {} });
-  useCardTerminalMounts.setState({ wanters: [] });
   revealSession.mockClear();
 });
 
@@ -46,7 +44,7 @@ describe('CardTerminal', () => {
     expect(container.firstChild).toBeNull();
   });
 
-  it('mounts the xterm view once granted a slot', () => {
+  it('mounts the xterm view whenever visible, with no cap', () => {
     const session = openCardSession();
 
     render(<CardTerminal sessionId={session.id} visible />);
@@ -54,17 +52,7 @@ describe('CardTerminal', () => {
     expect(screen.getByTestId('stub-terminal').dataset['sessionId']).toBe(session.id);
   });
 
-  it('shows the over-cap message instead of mounting a fifth terminal', () => {
-    useCardTerminalMounts.setState({ wanters: ['s1', 's2', 's3', 's4'] });
-    const session = openCardSession();
-
-    render(<CardTerminal sessionId={session.id} visible />);
-
-    expect(screen.queryByTestId('stub-terminal')).toBeNull();
-    expect(screen.getByText('Terminal running — open the card to watch')).toBeDefined();
-  });
-
-  it('shows the over-cap message when it does not want a slot at all', () => {
+  it('renders nothing while not visible', () => {
     const session = openCardSession();
 
     render(<CardTerminal sessionId={session.id} visible={false} />);

@@ -13,6 +13,7 @@ import {
   type ControlReply,
   type Frame,
 } from '../broker/protocol';
+import { createQueuedSocketWriter, type QueuedSocketWriter } from '../broker/socket-write-queue';
 
 export type BrokerStatus = {
   mode: 'broker' | 'inproc';
@@ -117,7 +118,18 @@ type Peer = {
   legacy: boolean;
   /** ptyIds this broker owns, from `list` and `create`, minus `exit`. */
   ptys: Set<string>;
+  /**
+   * Queues `writePty` input frames while this peer's socket is backpressured
+   * (Phase 51 Theme F) — set in `attach()`, disposed on `'close'`. `control`
+   * frames (`sendRequest`, `broadcastControl`'s own equivalent here) stay
+   * direct `socket.write()` calls: they are low-volume and, for `create`,
+   * already round-trip-awaited, so there is nothing for a queue to protect.
+   */
+  inputQueue: QueuedSocketWriter;
 };
+
+/** Bytes of queued-but-unsent pty input a backpressured peer may hold before the oldest is dropped. */
+const INPUT_QUEUE_CAP_BYTES = 8 * 1024 * 1024;
 
 export function createBrokerClient(deps: BrokerClientDeps): BrokerClient {
   const {
@@ -401,6 +413,7 @@ export function createBrokerClient(deps: BrokerClientDeps): BrokerClient {
       log(`[broker] ${peer.legacy ? 'legacy ' : ''}broker socket closed (${peer.path})`);
       if (primary === peer) primary = null;
       legacy.delete(peer.path);
+      peer.inputQueue.dispose();
       for (const ptyId of [...peer.ptys]) forgetPty(ptyId);
     });
 
@@ -409,15 +422,35 @@ export function createBrokerClient(deps: BrokerClientDeps): BrokerClient {
     });
   }
 
+  function inputQueueFor(socket: net.Socket): QueuedSocketWriter {
+    return createQueuedSocketWriter(socket, {
+      capBytes: INPUT_QUEUE_CAP_BYTES,
+      onOverflow: (droppedBytes) =>
+        log(`[broker] input queue overflow: dropped ${droppedBytes} bytes of unsent pty input`),
+    });
+  }
+
   function adoptPrimary(socket: net.Socket): Peer {
-    const peer: Peer = { path: socketPath, socket, legacy: false, ptys: new Set() };
+    const peer: Peer = {
+      path: socketPath,
+      socket,
+      legacy: false,
+      ptys: new Set(),
+      inputQueue: inputQueueFor(socket),
+    };
     primary = peer;
     attach(peer);
     return peer;
   }
 
   function adoptLegacy(path: string, socket: net.Socket): Peer {
-    const peer: Peer = { path, socket, legacy: true, ptys: new Set() };
+    const peer: Peer = {
+      path,
+      socket,
+      legacy: true,
+      ptys: new Set(),
+      inputQueue: inputQueueFor(socket),
+    };
     legacy.set(path, peer);
     attach(peer);
     return peer;
@@ -662,11 +695,7 @@ export function createBrokerClient(deps: BrokerClientDeps): BrokerClient {
     writePty(ptyId: string, data: string): void {
       const target = ptyOwner.get(ptyId) ?? primary;
       if (target && !target.socket.destroyed) {
-        try {
-          target.socket.write(encodeData(ptyId, new TextEncoder().encode(data)));
-        } catch {
-          // Ignore
-        }
+        target.inputQueue.write(encodeData(ptyId, new TextEncoder().encode(data)));
       }
     },
 

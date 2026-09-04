@@ -12,6 +12,15 @@ import { brokerSocketName, createBrokerClient, fingerprintFile } from './broker-
 
 const tick = (ms: number) => new Promise((r) => setTimeout(r, ms));
 
+/** Poll `check` until it holds, for a suite that runs in parallel on a loaded machine. */
+async function waitFor(check: () => boolean, timeoutMs = 2000): Promise<void> {
+  const deadline = Date.now() + timeoutMs;
+  while (!check()) {
+    if (Date.now() > deadline) throw new Error('waitFor: condition not met in time');
+    await new Promise((r) => setTimeout(r, 10));
+  }
+}
+
 function createFakePty(pid: number): {
   pty: IPtyLike;
   emitData: (data: string) => void;
@@ -92,6 +101,50 @@ describe('broker client', () => {
 
     expect(client.getStatus()).toEqual({ mode: 'broker' });
     expect(client.isAlive()).toBe(true);
+
+    await client.disconnect();
+    await broker.close();
+  });
+
+  it('a multi-megabyte paste sent as many writePty calls arrives byte-complete and in order (Phase 51 Theme F)', async () => {
+    const tmp = mkdtempSync(join(tmpdir(), 'msb-'));
+    const socketPath = join(tmp, 'broker', brokerSocketName('0.12.0', 'b1', false));
+    const fake = createFakePty(1);
+    const received: string[] = [];
+    fake.pty.write = vi.fn((data: string) => {
+      received.push(data);
+    });
+
+    const broker = createBrokerServer({
+      socketPath,
+      userDataDir: tmp,
+      appVersion: '0.12.0',
+      buildId: 'b1',
+      spawnPty: () => fake.pty,
+    });
+    await tick(30);
+
+    const client = createBrokerClient({
+      userDataDir: tmp,
+      appVersion: '0.12.0',
+      isPackaged: false,
+      buildId: 'b1',
+    });
+    await client.init();
+
+    const created = await client.createPty({ sessionId: 'paste-sess', cwd: '/tmp', cols: 80, rows: 24, env: {} });
+    expect(created.ok).toBe(true);
+    const ptyId = (created as { ptyId: string }).ptyId;
+
+    // A paste delivered as many small `writePty` calls, the way the renderer
+    // hands off `term.onData` one chunk at a time.
+    const original = Array.from({ length: 20_000 }, (_, i) => `line ${i}\n`).join('');
+    const pieces = original.match(/.{1,64}/gs) ?? [];
+    for (const piece of pieces) client.writePty(ptyId, piece);
+
+    await waitFor(() => received.join('').length >= original.length, 5000);
+
+    expect(received.join('')).toBe(original);
 
     await client.disconnect();
     await broker.close();

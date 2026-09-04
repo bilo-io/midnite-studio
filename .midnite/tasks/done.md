@@ -107,6 +107,72 @@ flake in `KNOWN_RED`.
       `issue-order.test.ts`, `e2e/issues-view.spec.ts`. `moon run :typecheck :lint :test` — 233
       files / 2120 tests green.
 
+## 2026-09-04 — Phase 51 Theme F — backpressure that exists
+
+[PR #123]. There was none, at any hop: `socket.write()`'s return value was ignored on both sides,
+a failed `pty.write` was swallowed by an empty catch, and a zod-rejected `ptyInput` payload was
+dropped with no `else`.
+
+- [x] New `broker/socket-write-queue.ts` (`createQueuedSocketWriter`) honours `false` from
+      `socket.write()` with a bounded, drain-aware queue instead of ignoring it — wired at both
+      cited hops: `broker-client.ts`'s `writePty` (main → broker, 8 MiB cap) and `server.ts`'s
+      `broadcastControl` (broker → client control frames, 512 KiB cap). `false` means "this chunk
+      was accepted, wait before writing more," not "retry it" — the queue shifts a chunk the
+      instant `write()` returns, `ok` or not, and only *stops* attempting further writes until
+      `'drain'`. Overflow drops the oldest queued chunk, reported via `log(...)`.
+- [x] A failed `pty.write` now logs through the broker's log seam (`[broker] pty.write failed
+      for …`) at both call sites — the live-input path and the `pendingInput` auto-send path —
+      rather than an empty catch. No new channel: the renderer already sees the outcome via the
+      existing `pty.onExit` → `t: 'exit'` broadcast, since a write failure almost always means the
+      pty is already dead.
+- [x] A rejected-by-zod `ptyInput` payload logs through `defaultLogger` in `pty-handlers.ts`
+      instead of vanishing.
+- [x] The broker's own 16ms output coalescer (`queuePtyOutput`/`flushPtyOutput`) is untouched —
+      this is the input direction only.
+- [x] New `socket-write-queue.test.ts` (a scriptable fake socket) covers all four backpressure
+      behaviors deterministically; `broker-client.test.ts` gained a real end-to-end test sending a
+      multi-megabyte paste as thousands of small `writePty` calls through a real broker, asserting
+      the fake pty received it byte-complete and in order.
+
+## 2026-09-04 — Phase 51 Theme C — one renderer story, not two
+
+[PR #123]. `new WebglAddon()` was loaded unconditionally by every mounted xterm with no
+process-wide ceiling — Chromium caps live WebGL contexts at roughly 16 per process and evicts the
+oldest, and a pane that lost its context fell silently and permanently to the DOM renderer, since
+nothing ever re-added the addon. `MAX_CARD_TERMINALS` rationed the same resource for Kanban cards
+only; the main panel's open sessions and the FAB's loop tabs spent from the same ceiling untracked.
+
+- [x] New `xterm-budget.ts`: a process-wide, visibility-recency-ranked WebGL budget
+      (`MAX_WEBGL_CONTEXTS = 12`) every `TerminalView` mount reports to via its existing `active`
+      prop — no call-site change needed in the panel, card or FAB tab. Over budget, the
+      least-recently-visible pane drops to the DOM renderer; a pane that becomes visible again
+      reclaims a slot from whichever pane is now least-recently-visible in its place.
+- [x] `card-terminal-mounts.ts`'s `MAX_CARD_TERMINALS` retired outright — the new registry rations
+      the identical WebGL-context resource with a strictly better failure mode (degrade to DOM,
+      don't refuse to mount). `CardTerminal` now mounts whenever `visible`, with no cap of its own.
+- [x] A context lost while still granted retries once immediately (`terminal-view.tsx`'s
+      `acquireWebglRef`) rather than degrading permanently — `@xterm/addon-webgl` already absorbs a
+      transient GPU hiccup internally for ~3s before ever firing `onContextLoss`, so what reaches
+      us is either Chromium's own eviction (retrying wins the context back) or a GPU genuinely gone
+      for now.
+- [x] `Settings ▸ Terminal` gains a "Renderer" section (`rendererRows`, mirroring `activityRows`)
+      showing which renderer every *live* session actually landed on.
+- [x] New `xterm-budget.test.ts` (mount/eviction/reclaim/unmount, at both a synthetic and the real
+      12-context budget). **Caught by CI, not review:** the first cut deferred WebGL acquisition
+      entirely to a reactive effect running after the initial `safeFit()`, so that first fit
+      measured DOM-renderer metrics and the WebGL renderer's own slightly different metrics landed
+      moments later with nothing re-fitting — read as a genuine size change and sent one spurious
+      extra `pty.resize`, caught by `terminal-reveal.spec.ts`. Fixed by restoring the original
+      ordering: acquisition happens inline in `openWhenSized`, before the first fit; the reactive
+      effect is now purely a post-mount correction against later budget transitions.
+- [x] **Second CI-only regression, caught after the above:** the retry-on-context-loss and
+      process-wide budget bookkeeping added just enough main-thread work on CI's 2-core runner to
+      make `terminal.spec.ts`'s "the panel slides between hidden, open and maximized" spec fail its
+      `passedThrough` check on the *reopening* step — a check that step should never have carried:
+      the panel unmounts entirely on close, so reopening is exactly as fresh a mount (new xterm
+      instance, new WebGL context) as the true first open, which the test already exempted from
+      that check. Fixed in the test, not the app — the same exemption now applies to both.
+
 ## 2026-09-04 — Phase 54 Theme B — `gh issue view`, and the comments endpoint already in the tree
 
 [PR #122]. `listIssues` was the only issue query that existed — no `gh issue view`, no comments
