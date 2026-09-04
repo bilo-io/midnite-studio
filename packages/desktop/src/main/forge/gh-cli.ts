@@ -72,7 +72,7 @@ const RUN_FIELDS =
   'databaseId,name,status,conclusion,headBranch,headSha,createdAt,url,' +
   'event,workflowDatabaseId,workflowName,startedAt,updatedAt,displayTitle,number,attempt';
 const RUN_DETAIL_FIELDS = `${RUN_FIELDS},jobs`;
-const ISSUE_FIELDS = 'number,title,state,author,labels,assignees,updatedAt,createdAt,url';
+const ISSUE_FIELDS = 'id,number,title,state,author,labels,assignees,updatedAt,createdAt,url,milestone';
 const WORKFLOW_FIELDS = 'id,name,path,state';
 const PULL_FIELDS =
   'id,number,title,state,isDraft,reviewDecision,headRefName,author,url,statusCheckRollup,' +
