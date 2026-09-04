@@ -2,6 +2,30 @@
 
 <!-- Append one entry per landed phase/PR: date, phase, PR link, one-line summary. -->
 
+## 2026-09-04 — Phase 54 Themes C+D — The Issues view, and its registration
+
+[PR #126]. Three phases (19, 50, 52) had each deferred issue work with the same sentence:
+`features/issues/` doesn't exist. It does now.
+
+- [x] **Theme C** — `features/issues/`: `issues-view.tsx` (shell, mirrors `actions-view.tsx`'s
+      structure exactly), `issue-list.tsx` (flat, newest-updated first), `issue-detail.tsx` (one
+      pane, not tabs), `issue-conversation.tsx`, `label-chip.tsx` (colours with a YIQ-computed
+      contrast text colour), `issues-skeletons.tsx`, and a per-repo `issues-store.ts` mirroring
+      `reviews-store.ts`.
+- [x] **Theme D** — `issues` in the `ViewId` union and rail order, `GIT_NAV_ITEMS` entry, lazy
+      route, one `FORGE_GATED_VIEWS` entry, all five exhaustive `Record<ViewId, …>` maps (plus two
+      more that only typecheck/full-test-run turned up: `COMMAND_ICONS` and a hardcoded
+      `view-sections.test.ts` fixture), `issuesListWidth` in all three layout tables, and a
+      `Mod+Shift+I` chord.
+- [x] **Self-review caught two real bugs before push:** `IssueDetail`'s loading gate resolved on
+      the issue body alone, showing "Nobody has commented on this issue." while the comment fetch
+      was still in flight; and a failed `gh issue view` rendered identically to a genuinely empty
+      description because `useForgeIssueDetail`'s own `error` field was never read. Both fixed,
+      with a regression test added for the second.
+- [x] Tests: `issue-list.test.tsx`, `issue-detail.test.tsx`, `issues-store.test.ts`,
+      `issue-order.test.ts`, `e2e/issues-view.spec.ts`. `moon run :typecheck :lint :test` — 233
+      files / 2120 tests green.
+
 ## 2026-09-04 — Phase 54 Theme B — `gh issue view`, and the comments endpoint already in the tree
 
 [PR #122]. `listIssues` was the only issue query that existed — no `gh issue view`, no comments

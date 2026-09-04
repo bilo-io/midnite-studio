@@ -100,6 +100,7 @@ export type ViewId =
   | 'changes'
   | 'actions'
   | 'reviews'
+  | 'issues'
   | 'projects'
   | 'history'
   | 'councils'
@@ -119,6 +120,7 @@ export const VIEW_IDS: readonly ViewId[] = [
   'changes',
   'actions',
   'reviews',
+  'issues',
   'history',
   'councils',
   'workflows',
@@ -216,6 +218,8 @@ export type LayoutSizes = {
   testsListWidth: number;
   /** The Reviews view's PR list, left of the PR detail (Phase 20 Theme C). */
   reviewsListWidth: number;
+  /** The Issues view's issue list, left of the issue detail (Phase 54 Theme D). */
+  issuesListWidth: number;
   /** The Search view's results list, left of the detail preview (Phase 25 Theme C). */
   searchResultsWidth: number;
   /** The FAB panel width, on the right side of the content area. */
@@ -293,6 +297,9 @@ export const DEFAULT_LAYOUT: LayoutSizes = {
   // A PR row carries two status pills, a title, a number, a branch and an
   // author — the widest row of any list pane in the app.
   reviewsListWidth: 380,
+  // A status pill, a title, a number, labels and an author — no branch, so
+  // narrower than Reviews' own row.
+  issuesListWidth: 360,
   searchResultsWidth: 420,
   fabPanelWidth: 320,
   // The "never dragged" sentinel — half the window, resolved against the real
@@ -336,6 +343,7 @@ export const LAYOUT_BOUNDS = {
   actionsListWidth: { min: 240, max: 640 },
   testsListWidth: { min: 240, max: 640 },
   reviewsListWidth: { min: 280, max: 640 },
+  issuesListWidth: { min: 240, max: 640 },
   searchResultsWidth: { min: 280, max: 900 },
   /*
     Max is NOT this number — see `FAB_PANEL_MAX_SHARE`. The panel's ceiling is a

@@ -153,6 +153,13 @@ export type MockFixtures = {
      * apart. Nothing else in the forge fixture is affected by it.
      */
     issuesDisabled?: boolean;
+    /**
+     * `gh issue view` answers, keyed by issue number — the listing row and the
+     * opened body are two fetches, mirroring `pullDetail`'s own split.
+     */
+    issueDetail?: Record<string, { issue?: unknown; body?: string }>;
+    /** The comment thread, keyed by issue number — `ForgeComment[]`. */
+    issueComments?: Record<string, unknown[]>;
     /** Job trees, keyed by run id — what expanding a run row reveals. */
     runDetail?: Record<string, { run?: unknown; jobs?: unknown[] }>;
     /**
@@ -810,6 +817,26 @@ export async function installMockBridge(page: Page, fixtures: MockFixtures): Pro
           cli: forgeCli(),
           issues: data.forge?.issues ?? [],
           disabled: data.forge?.issuesDisabled === true,
+          error: forgeError(),
+        }),
+        issueDetail: async (req: { number: number }) => {
+          const seeded = data.forge?.issueDetail?.[String(req.number)];
+          if (!seeded) return { cli: forgeCli(), issue: null, error: forgeError() };
+          // The listing row fills the `issue` half, the same "listing first,
+          // detail fills in" split `pullDetail` follows — a spec should not
+          // have to restate an issue it already listed in `issues`.
+          const listed = (data.forge?.issues ?? []).find(
+            (row) => (row as { number?: number }).number === req.number,
+          );
+          return {
+            cli: forgeCli(),
+            issue: { issue: seeded.issue ?? listed, body: seeded.body ?? '' },
+            error: null,
+          };
+        },
+        issueComments: async (req: { number: number }) => ({
+          cli: forgeCli(),
+          comments: data.forge?.issueComments?.[String(req.number)] ?? [],
           error: forgeError(),
         }),
         runDetail: async (req: { runId: string }) => {

@@ -133,6 +133,8 @@ const loadTestsView = () => import('./features/tests/tests-view');
 const TestsView = lazy(() => loadTestsView().then((m) => ({ default: m.TestsView })));
 const loadReviewsView = () => import('./features/reviews/reviews-view');
 const ReviewsView = lazy(() => loadReviewsView().then((m) => ({ default: m.ReviewsView })));
+const loadIssuesView = () => import('./features/issues/issues-view');
+const IssuesView = lazy(() => loadIssuesView().then((m) => ({ default: m.IssuesView })));
 const loadProjectsView = () => import('./features/projects/projects-view');
 const ProjectsView = lazy(() => loadProjectsView().then((m) => ({ default: m.ProjectsView })));
 const loadHistoryView = () => import('./features/history/history-view');
@@ -336,6 +338,7 @@ const GIT_NAV_ITEMS: NavItem[] = [
   { view: 'changes', label: 'Changes', icon: VIEW_ICON.changes },
   { view: 'actions', label: 'Actions', icon: VIEW_ICON.actions },
   { view: 'reviews', label: 'Reviews', icon: VIEW_ICON.reviews },
+  { view: 'issues', label: 'Issues', icon: VIEW_ICON.issues },
   { view: 'history', label: 'History', icon: VIEW_ICON.history },
 ];
 
@@ -360,7 +363,7 @@ const ALL_NAV_ITEMS: NavItem[] = [
  * comparisons, so a future forge-gated view (Theme C's PR detail among them)
  * is one array entry, not three call sites to remember to update together.
  */
-const FORGE_GATED_VIEWS: readonly ViewId[] = ['actions', 'reviews', 'projects'];
+const FORGE_GATED_VIEWS: readonly ViewId[] = ['actions', 'reviews', 'issues', 'projects'];
 
 /**
  * Whether the Actions and Reviews views have anything they could ever show.
@@ -1274,6 +1277,8 @@ function Shell() {
                   <TestsView />
                 ) : activeView === 'reviews' ? (
                   <ReviewsView />
+                ) : activeView === 'issues' ? (
+                  <IssuesView />
                 ) : activeView === 'projects' ? (
                   <ProjectsView />
                 ) : activeView === 'history' ? (

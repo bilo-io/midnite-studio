@@ -138,46 +138,59 @@ excludes issues from the writable surface explicitly.
     list" — writing a second case for the same parser through a different caller would test the
     reuse, not the behavior.
 
-### C — The Issues view itself (M)
+### C — The Issues view itself (M) — ✅ DONE (PR #126, 2026-09-04)
 
-- [ ] `features/issues/` as `issues-view.tsx` (shell: resolve `repoId` from `useActiveWorktree()`,
+- [x] `features/issues/` as `issues-view.tsx` (shell: resolve `repoId` from `useActiveWorktree()`,
       empty state when null) → `issue-list.tsx` → `issue-detail.tsx`, a resizable split on a new
       `issuesListWidth` layout key. This is `actions-view.tsx`'s structure, deliberately, and it is
       the size target for the whole theme.
-- [ ] Selection persisted in `store/issues-store.ts` — `selectedIssue: ByRepo<number>`, the exact
+- [x] Selection persisted in `store/issues-store.ts` — `selectedIssue: ByRepo<number>`, the exact
       shape [`reviews-store.ts`](../../../packages/app/src/store/reviews-store.ts) uses in its 52
       lines. A per-repo selection is what makes switching repos and coming back feel like returning
       rather than restarting.
-- [ ] The detail pane is **one pane, not tabs.** A PR earns three tabs because it has files and
+- [x] The detail pane is **one pane, not tabs.** A PR earns three tabs because it has files and
       checks; an issue has a body and a conversation, which is one scroll. Tabs here would be
       chrome imitating the Reviews page rather than serving the content.
-- [ ] Open/closed state, labels with their real colours (the schema already carries six-hex-digit
+- [x] Open/closed state, labels with their real colours (the schema already carries six-hex-digit
       values without the `#`), assignees and the comment count on each row. Markdown bodies and
       comments render through the app's existing markdown surface, not a new one.
-- [ ] Skeletons for list and detail. Reviews has a dedicated `reviews-skeletons.tsx` for a reason —
+  - No comment count landed on the row — Theme A's own correction established `gh` never exposes
+    one without the full comment array, so there is nothing free to show. Everything else in this
+    bullet is on the row.
+- [x] Skeletons for list and detail. Reviews has a dedicated `reviews-skeletons.tsx` for a reason —
       forge calls are network-bound and a bare spinner on a two-pane layout reads as a hang.
-- [ ] Tests: `issue-list.test.tsx` (rows, empty, `disabled` tracker, error), `issue-detail.test.tsx`
-      (body, comments, no-comments), `issues-store.test.ts` (per-repo selection survives a switch).
-- [ ] Honour `disabled` as its own state. `ForgeIssuesResultSchema` makes it a first-class field
+- [x] Tests: `issue-list.test.tsx` (rows, empty, `disabled` tracker, error), `issue-detail.test.tsx`
+      (body, comments, no-comments, plus a fetch-error case added during self-review), `issues-store.test.ts`
+      (per-repo selection survives a switch), `issue-order.test.ts` (sort/pick helpers, not
+      originally listed but needed once they existed as their own module), and
+      `e2e/issues-view.spec.ts` for the assembled view (list + detail + chord navigation).
+- [x] Honour `disabled` as its own state. `ForgeIssuesResultSchema` makes it a first-class field
       distinct from `error` precisely because a repo with its issue tracker switched off is a
       *configuration*, not a fault — and it must not render as one.
+  - **Self-review caught two real bugs, both fixed before push:** the detail pane's loading gate
+    (`loading && body === null`) resolved as soon as the issue body arrived even if the comment
+    fetch was still in flight, showing "Nobody has commented on this issue." prematurely — fixed by
+    gating the whole pane on both queries settling. And `useForgeIssueDetail`'s own `error` field was
+    never read, so a failed `gh issue view` rendered identically to a genuinely empty description —
+    fixed to surface the error, matching how the list-level `issues.data?.error` is already handled
+    in `issues-view.tsx`.
 
-### D — Registering a view, in the places that actually need it (S)
+### D — Registering a view, in the places that actually need it (S) — ✅ DONE (PR #126, 2026-09-04)
 
 Small, but wide, and easy to half-do. The compiler catches most of it and not all.
 
-- [ ] `'issues'` into the `ViewId` union and `VIEW_IDS` (rail order) in
+- [x] `'issues'` into the `ViewId` union and `VIEW_IDS` (rail order) in
       [`ui-store.ts`](../../../packages/app/src/store/ui-store.ts) — `pathForView`/`viewForPath`
       derive from it, so routing needs no edit.
-- [ ] `GIT_NAV_ITEMS` in [`app.tsx`](../../../packages/app/src/app.tsx), beside `projects`,
+- [x] `GIT_NAV_ITEMS` in [`app.tsx`](../../../packages/app/src/app.tsx), beside `projects`,
       `actions` and `reviews`; the lazy `loadIssuesView`/`IssuesView` pair in the same file's
       established inline style; and a branch in the `activeView` chain placed **after** the
       `!selectedRepoId` guard, because issues are repo-scoped. Miss that ordering and the view
       renders against a null repo instead of the workspace empty state.
-- [ ] **One entry** in `FORGE_GATED_VIEWS`, exactly as that constant's docblock promises. If this
+- [x] **One entry** in `FORGE_GATED_VIEWS`, exactly as that constant's docblock promises. If this
       turns into three call sites, the promise was wrong and the abstraction should be fixed rather
       than worked around.
-- [ ] The five exhaustive `Record<ViewId, …>` maps that will fail typecheck until updated:
+- [x] The five exhaustive `Record<ViewId, …>` maps that will fail typecheck until updated:
       `VIEW_ICON` ([`nav-icons.ts`](../../../packages/app/src/components/nav-icons.ts)),
       `VIEW_LABELS` ([`title-bar-nav.tsx`](../../../packages/app/src/components/title-bar-nav.tsx)),
       `VIEW_LABELS`/`VIEW_KEYWORDS` ([`providers.ts`](../../../packages/app/src/services/palette/providers.ts)),
@@ -185,9 +198,20 @@ Small, but wide, and easy to half-do. The compiler catches most of it and not al
       and `VIEW_FILTERS` ([`view-sections.ts`](../../../packages/app/src/features/repos/view-sections.ts)).
       The last one is not a formality: it decides whether the sidebar's existing `IssuesSection`
       still shows once there is a whole view for the same data.
-- [ ] `issuesListWidth` in the layout type, `DEFAULT_LAYOUT` and `LAYOUT_BOUNDS` — all three, the way
+  - Two more `Record<ViewId, …>` sites turned up only under typecheck/full-test-run, not in this
+    doc's own list: `COMMAND_ICONS` in
+    [`command-icons.ts`](../../../packages/app/src/features/palette/command-icons.ts) (keyed by
+    `CommandId`, but the new `view.issues` command needed its own icon entry), and a hardcoded
+    `Record<ViewId, boolean>` test fixture plus a `VIEW_IDS` length assertion in
+    [`view-sections.test.ts`](../../../packages/app/src/features/repos/view-sections.test.ts).
+  - `VIEW_FILTERS.issues` deliberately omits `'issues'` from its own section list, hiding the
+    sidebar's `IssuesSection` while the dedicated view is open — the same redundancy
+    `VIEW_FILTERS.actions`/`VIEW_FILTERS.reviews` still show today for their own sections, per the
+    self-review pass. Left as a one-off rather than generalised to every dedicated forge view: that
+    would touch `ActionsView`/`ReviewsView` behaviour this PR has no other reason to change.
+- [x] `issuesListWidth` in the layout type, `DEFAULT_LAYOUT` and `LAYOUT_BOUNDS` — all three, the way
       `reviewsListWidth` and `actionsListWidth` appear in all three.
-- [ ] A chord: a `view.issues` descriptor in
+- [x] A chord: a `view.issues` descriptor in
       [`keybindings.ts`](../../../packages/shared/src/keybindings.ts)'s `COMMANDS` (`CommandId` and
       `COMMAND_IDS` derive from it), `issues: 'view.issues'` in
       [`nav-chords.ts`](../../../packages/app/src/components/nav-chords.ts)'s `VIEW_COMMAND` — a
@@ -195,7 +219,10 @@ Small, but wide, and easy to half-do. The compiler catches most of it and not al
       handler in `use-command-handlers.ts`. Follow the `Mod+Shift+<letter>` convention the other
       cross-app navigations use; a plain `Mod+<letter>` would need a `TERMINAL_YIELD_COMMANDS`
       argument this view has no reason to make.
-- [ ] The command palette needs nothing — `providers.ts` maps over `VIEW_IDS` already.
+  - Landed as `Mod+Shift+I`, settling the phase doc's own open question the same way its
+    recommendation called it.
+- [x] The command palette needs nothing — `providers.ts` maps over `VIEW_IDS` already.
+  - Confirmed: only `VIEW_LABELS`/`VIEW_KEYWORDS` needed the new key, no new provider logic.
 
 ### E — The filter toolbar, extracted rather than copied (M)
 

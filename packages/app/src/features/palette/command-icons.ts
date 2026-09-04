@@ -1,5 +1,6 @@
 import type { CommandId } from '@midnite/studio-shared';
 import type { IconType } from 'react-icons';
+import { GoIssueOpened } from 'react-icons/go';
 import { IoIosGitNetwork } from 'react-icons/io';
 import {
   LuActivity,
@@ -66,6 +67,7 @@ export const COMMAND_ICONS: Record<CommandId, IconType> = {
   'app.screensaver': LuClock,
   'view.graph': IoIosGitNetwork,
   'view.files': LuFolderTree,
+  'view.issues': GoIssueOpened,
   'graph.focus': IoIosGitNetwork,
   'status.focus': LuGitCommitHorizontal,
   'status.commit': LuGitCommitHorizontal,

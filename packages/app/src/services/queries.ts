@@ -3,6 +3,8 @@ import type {
   DiagnosticsCommand,
   DiagnosticsRun,
   DiagnosticsTrustStatus,
+  ForgeIssueCommentsResult,
+  ForgeIssueDetailResult,
   ForgeIssuesResult,
   ForgePullCommentsResult,
   ForgePullDetailResult,
@@ -151,8 +153,21 @@ export const keys = {
     ['repos', repoId, 'forge', 'runs', branch ?? 'all'] as const,
   forgePulls: (repoId: string, limit = 20, state = 'open', scope: ForgePullScope = 'all') =>
     ['repos', repoId, 'forge', 'pulls', limit, state, scope] as const,
-  forgeIssues: (repoId: string, state: string) =>
-    ['repos', repoId, 'forge', 'issues', state] as const,
+  forgeIssues: (repoId: string, limit = 20, state = 'open') =>
+    ['repos', repoId, 'forge', 'issues', limit, state] as const,
+  /**
+   * One opened issue's two payloads — its metadata+body and its conversation.
+   *
+   * Two keys, not one, for the same reason `forgePullDetail`/`forgePullComments`
+   * are two: a reader who opens an issue pays for its body immediately (it's the
+   * point of opening it) but the comment thread is worth its own key so a
+   * successful comment/close-reopen write can invalidate just the piece that
+   * changed.
+   */
+  forgeIssueDetail: (repoId: string, number: number) =>
+    ['repos', repoId, 'forge', 'issue-detail', number] as const,
+  forgeIssueComments: (repoId: string, number: number) =>
+    ['repos', repoId, 'forge', 'issue-comments', number] as const,
   /**
    * One run's job tree.
    *
@@ -557,18 +572,66 @@ export function useForgeRuns(repoId: string | null, enabled: boolean, branch?: s
 }
 
 /**
- * Open issues. `enabled` carries the same promise as the runs query — a human
+ * Issues. `enabled` carries the same promise as the runs query — a human
  * opened the section — for the same subprocess-and-rate-limit reason.
+ *
+ * Defaults match the sidebar section's and dashboard widget's original
+ * "what's open right now" ask; the Issues view (Phase 54 Theme C) is the one
+ * caller that raises `limit` and passes `state: 'all'` — its own filter
+ * toolbar (Theme E) is what narrows it back down, the same relationship
+ * `useForgePulls`'s `state` param has with the Reviews view's status tabs.
  */
-export function useForgeIssues(repoId: string | null, enabled: boolean) {
+export function useForgeIssues(
+  repoId: string | null,
+  enabled: boolean,
+  limit = 20,
+  state: 'open' | 'closed' | 'all' = 'open',
+) {
   return useQuery<ForgeIssuesResult>({
-    queryKey: keys.forgeIssues(repoId ?? '', 'open'),
+    queryKey: keys.forgeIssues(repoId ?? '', limit, state),
     queryFn: async () => {
       const api = bridge();
       if (!api || !repoId) return EMPTY_ISSUES;
-      return api.forge.issues({ repoId, limit: 20, state: 'open' });
+      return api.forge.issues({ repoId, limit, state });
     },
     enabled: enabled && repoId !== null,
+    staleTime: FORGE_STALE_MS,
+  });
+}
+
+/**
+ * One issue's metadata and body, fetched when it is opened and never for a list.
+ *
+ * `enabled` carries the same promise as its PR-detail sibling — every one of
+ * these is a `gh` subprocess against the user's rate limit.
+ */
+export function useForgeIssueDetail(repoId: string | null, number: number | null, enabled = true) {
+  return useQuery<ForgeIssueDetailResult>({
+    queryKey: keys.forgeIssueDetail(repoId ?? '', number ?? 0),
+    queryFn: async () => {
+      const api = bridge();
+      if (!api || !repoId || number === null) return EMPTY_ISSUE_DETAIL;
+      return api.forge.issueDetail({ repoId, number });
+    },
+    enabled: enabled && repoId !== null && number !== null,
+    staleTime: FORGE_STALE_MS,
+  });
+}
+
+/** One issue's conversation, fetched when it is opened and never for a list. */
+export function useForgeIssueComments(
+  repoId: string | null,
+  number: number | null,
+  enabled: boolean,
+) {
+  return useQuery<ForgeIssueCommentsResult>({
+    queryKey: keys.forgeIssueComments(repoId ?? '', number ?? 0),
+    queryFn: async () => {
+      const api = bridge();
+      if (!api || !repoId || number === null) return EMPTY_ISSUE_COMMENTS;
+      return api.forge.issueComments({ repoId, number });
+    },
+    enabled: enabled && repoId !== null && number !== null,
     staleTime: FORGE_STALE_MS,
   });
 }
@@ -1207,6 +1270,8 @@ const EMPTY_PULL_DETAIL: ForgePullDetailResult = { cli: EMPTY_CLI, detail: null,
 // diff is empty, and `{files: []}` would render "no files changed" as a fact.
 const EMPTY_PULL_FILES: ForgePullFilesResult = { cli: EMPTY_CLI, files: null, error: null };
 const EMPTY_PULL_COMMENTS: ForgePullCommentsResult = { cli: EMPTY_CLI, comments: [], error: null };
+const EMPTY_ISSUE_DETAIL: ForgeIssueDetailResult = { cli: EMPTY_CLI, issue: null, error: null };
+const EMPTY_ISSUE_COMMENTS: ForgeIssueCommentsResult = { cli: EMPTY_CLI, comments: [], error: null };
 const EMPTY_PULL_THREADS: ForgePullThreadsResult = { cli: EMPTY_CLI, threads: [], error: null };
 const EMPTY_PROJECTS: ForgeProjectsResult = { cli: EMPTY_CLI, projects: [], error: null, kind: 'ok' };
 const EMPTY_PROJECT_FIELDS: ForgeProjectFieldsResult = {

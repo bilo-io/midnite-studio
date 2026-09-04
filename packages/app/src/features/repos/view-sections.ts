@@ -194,6 +194,15 @@ export const VIEW_FILTERS: Record<ViewId, ViewFilter> = {
   tests: { sections: ['tests', 'worktrees'], dirtyOnly: false },
   reviews: { sections: ['reviews', 'worktrees'], dirtyOnly: false },
   /*
+   * Deliberately omits its own `issues` leaf, unlike `actions`/`reviews`
+   * above: this is the one place showing the sidebar's `IssuesSection`
+   * alongside the dedicated view for the same data would be obviously
+   * redundant, so it narrows to Worktrees only while the Issues view is open.
+   * Elsewhere in the app the section is unaffected — still reachable exactly
+   * as it always was.
+   */
+  issues: { sections: ['worktrees'], dirtyOnly: false },
+  /*
    * Starts at `WORK_IN_PROGRESS`, matching councils — a board picker one
    * click away from the header is enough for now, and a dedicated `projects`
    * sidebar section is worth adding only if that picker proves insufficient

@@ -103,7 +103,7 @@ const heading = (page: Page, name: string) =>
 const section = (page: Page, name: string) =>
   panel(page).getByRole('button', { name: new RegExp(`^${name}( \\d+)?$`) });
 
-test('the rail carries all thirteen views, Dashboard ungrouped above the rest', async ({ page }) => {
+test('the rail carries all fourteen views, Dashboard ungrouped above the rest', async ({ page }) => {
   await open(page);
 
   for (const label of [
@@ -116,6 +116,7 @@ test('the rail carries all thirteen views, Dashboard ungrouped above the rest', 
     'Changes',
     'Actions',
     'Reviews',
+    'Issues',
     'History',
     'Councils',
     'Workflows',
@@ -154,6 +155,7 @@ test('the rail carries all thirteen views, Dashboard ungrouped above the rest', 
     '/changes',
     '/actions',
     '/reviews',
+    '/issues',
     '/history',
     '/councils',
     '/workflows',
