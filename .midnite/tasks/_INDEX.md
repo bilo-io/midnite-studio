@@ -52,7 +52,7 @@ Completed work is logged append-only in [`done.md`](done.md). Deferred scope liv
 | [54 · An Issues view](phases/phase-54-issues-view.md) | ◻ TODO | — | 0/45 | `░░░░░░░░░░` | 0% | — | A B C D E F G |
 | [53 · The first release](phases/phase-53-first-release.md) | ◻ TODO | — | 0/42 | `░░░░░░░░░░` | 0% | — | A B C D E F G H |
 | [52 · Projects, the Board, and Workflows, navigable](phases/phase-52-projects-navigation.md) | 🔄 WIP | — | 0/43 | `░░░░░░░░░░` | 0% | A B C D | E F G |
-| [51 · The terminal, made steady](phases/phase-51-terminal-steadiness.md) | 🔄 WIP | — | 8/37 | `██░░░░░░░░` | 22% | — | C D E F G |
+| [51 · The terminal, made steady](phases/phase-51-terminal-steadiness.md) | 🔄 WIP | — | 8/37 | `██░░░░░░░░` | 22% | D | C E F G |
 | [50 · Kanban & Projects, Follow-Through](phases/phase-50-kanban-projects-followthrough.md) | 🔄 WIP | — | 15/17 | `█████████░` | 88% | — | F (codex human pass), Verification (2 human passes) |
 | [49 · Onboarding a repo: Setup and Update](phases/phase-49-repo-onboarding.md) | 🔄 WIP | — | 31/33 | `█████████░` | 94% | — | Verification (2 human passes) |
 | [48 · Apply suggested-change blocks](phases/phase-48-apply-suggested-changes.md) | 🔄 WIP | — | 19/20 | `██████████` | 95% | — | E (human round-trip verification) |
