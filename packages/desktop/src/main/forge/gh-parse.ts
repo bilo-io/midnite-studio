@@ -1,5 +1,6 @@
 import {
   ForgeCommentSchema,
+  ForgeIssueDetailSchema,
   ForgeIssueSchema,
   ForgeJobSchema,
   ForgePullDetailSchema,
@@ -11,6 +12,7 @@ import {
   type ForgeChecksRollup,
   type ForgeComment,
   type ForgeIssue,
+  type ForgeIssueDetail,
   type ForgeJob,
   type ForgePull,
   type ForgePullDetail,
@@ -181,6 +183,30 @@ function asMilestone(value: unknown): { title: string } | null {
   if (typeof value !== 'object' || value === null) return null;
   const title = asString((value as Record<string, unknown>)['title']);
   return title === null ? null : { title };
+}
+
+/**
+ * `gh issue view <n> --json id,number,title,state,author,labels,assignees,updatedAt,createdAt,url,milestone,body`
+ *
+ * The listing half is parsed by `parseIssueList` rather than re-mapped, the
+ * same reasoning `parsePullDetail` gives for its own `parsePullList` reuse:
+ * `gh issue view` returns exactly `gh issue list`'s field names for the
+ * fields they share, and a second copy of that map is a second place for
+ * `milestone`'s shape to drift. Null when the row cannot be understood at
+ * all — a detail with no issue above it has nothing to render against.
+ */
+export function parseIssueDetail(payload: unknown): ForgeIssueDetail | null {
+  if (typeof payload !== 'object' || payload === null || Array.isArray(payload)) return null;
+  const row = payload as Record<string, unknown>;
+
+  const [issue] = parseIssueList([row]);
+  if (!issue) return null;
+
+  const parsed = ForgeIssueDetailSchema.safeParse({
+    issue,
+    body: asString(row['body']) ?? '',
+  });
+  return parsed.success ? parsed.data : null;
 }
 
 /** `{login: 'x'}`, or a bare string, or a forge that withheld it. */

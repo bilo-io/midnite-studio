@@ -207,6 +207,14 @@ export type MidniteStudioBridge = {
     runs: (req: In<typeof S.ForgeRunsRequest>) => Promise<z.infer<typeof S.ForgeRunsResponse>>;
     pulls: (req: In<typeof S.ForgePullsRequest>) => Promise<z.infer<typeof S.ForgePullsResponse>>;
     issues: (req: In<typeof S.ForgeIssuesRequest>) => Promise<z.infer<typeof S.ForgeIssuesResponse>>;
+    /** One issue's metadata — body plus every listing field. */
+    issueDetail: (
+      req: In<typeof S.ForgeIssueDetailRequest>,
+    ) => Promise<z.infer<typeof S.ForgeIssueDetailResponse>>;
+    /** One issue's conversation — the same REST path and parser `pullComments` uses. */
+    issueComments: (
+      req: In<typeof S.ForgeIssueCommentsRequest>,
+    ) => Promise<z.infer<typeof S.ForgeIssueCommentsResponse>>;
     /** One run's job/step tree. Served from main's cache once the run is over. */
     runDetail: (
       req: In<typeof S.ForgeRunDetailRequest>,

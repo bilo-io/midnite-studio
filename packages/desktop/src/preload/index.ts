@@ -191,6 +191,8 @@ const bridge: Pick<
     runs: (req) => call(CHANNELS.forgeRuns, req),
     pulls: (req) => call(CHANNELS.forgePulls, req),
     issues: (req) => call(CHANNELS.forgeIssues, req),
+    issueDetail: (req) => call(CHANNELS.forgeIssueDetail, req),
+    issueComments: (req) => call(CHANNELS.forgeIssueComments, req),
     runDetail: (req) => call(CHANNELS.forgeRunDetail, req),
     runLog: (req) => call(CHANNELS.forgeRunLog, req),
     workflows: (req) => call(CHANNELS.forgeWorkflows, req),
