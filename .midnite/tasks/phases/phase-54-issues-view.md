@@ -90,28 +90,53 @@ mid-phase. The same discovery is avoidable here by making it Theme A.
     defaulting to `''` rather than rejecting the row, a milestone's title kept while the rest of
     gh's shape is dropped, and a null milestone parsing as null rather than a missing field.
 
-### B — `gh issue view`, and the comments endpoint already in the tree (M)
+### B — `gh issue view`, and the comments endpoint already in the tree (M) — ✅ DONE (PR #122, 2026-09-04)
 
 `listIssues` is the only issue query that exists. There is no `gh issue view`, no comments call, and
 no issue write anywhere — [`gh-write.ts`](../../../packages/desktop/src/main/forge/gh-write.ts)
 excludes issues from the writable surface explicitly.
 
-- [ ] `issueDetail(repo, number)` in `gh-cli.ts` — `gh issue view <n> --json body,…` following the
+- [x] `issueDetail(repo, number)` in `gh-cli.ts` — `gh issue view <n> --json body,…` following the
       shape of `pullDetail` exactly, returning the established `{cli, issue, error}` envelope. **Not**
       the `kind: 'ok' | 'insufficient-scope' | 'error'` triple: that is ProjectV2-only
       (`ForgeProjectReadKindSchema`), and borrowing it here would suggest a scope failure mode that
       `gh issue view` does not have.
-- [ ] `issueComments(repo, number)` — **reuse `pullComments`' REST path and `parseIssueComments`
+  - New shared shapes `ForgeIssueDetailSchema` (`{ issue, body }`, mirroring `ForgePullDetailSchema`'s
+    `{ pull, body, … }`) and `ForgeIssueDetailResultSchema` (`{ cli, issue, error }`). `gh-parse.ts`'s
+    new `parseIssueDetail` reuses `parseIssueList` for the shared fields, the same way `parsePullDetail`
+    reuses `parsePullList`.
+- [x] `issueComments(repo, number)` — **reuse `pullComments`' REST path and `parseIssueComments`
       verbatim.** `repos/{slug}/issues/{n}/comments` is the same endpoint for both, because GitHub
       models PR conversation comments as issue comments. If this theme ends up with a second
       comment parser, something has gone wrong.
   - Rename nothing on the Reviews side to make this read better. `pullComments` is called from a PR
     surface and its name is honest there; a shared internal that both call is the right shape, and
     a rename would touch a working surface for a cosmetic gain.
-- [ ] Two channels, two twelve-line handlers, two schema pairs, one bridge group — the same
+  - Confirmed no second parser: `issueComments` calls `parseIssueComments` directly, with no
+    `reviews`-merging half — reviews are pull-request-only, which is also why this is one API call
+    where `pullComments` is two.
+- [x] Two channels, two twelve-line handlers, two schema pairs, one bridge group — the same
       boilerplate `forgeIssues` already follows, with no new pattern invented.
-- [ ] Tests: `gh-cli`/`gh-parse` cases for the detail and comment shapes, plus an
+  - `forgeIssueDetail`/`forgeIssueComments` channels, `ForgeIssueDetailRequest/Response` and
+    `ForgeIssueCommentsRequest/Response` schema pairs (a new shared `IssueNumber`/`ForgeIssueRequest`,
+    parallel to `PullNumber`/`ForgePullRequest`), handlers in `forge-handlers.ts`, `bridge.ts`'s
+    `forge.issueDetail`/`forge.issueComments` methods, and preload exposure. **Also caught and fixed**
+    a whole-index guard test (`ipc.test.ts`'s "has a request schema for every forge channel") that
+    enumerates every `forge*` channel by name and fails loudly on one with no matching schema pair —
+    exactly the kind of drift guard this repo's tracker convention already uses elsewhere.
+- [x] Tests: `gh-cli`/`gh-parse` cases for the detail and comment shapes, plus an
       issue-with-no-comments case (the empty array, not a null).
+  - 4 new `parseIssueDetail` cases in `gh-parse.test.ts`: reuses the listing parser for shared
+    fields, carries the detail-only body, defaults a withheld body rather than dropping the issue,
+    and returns null for a payload with no url (nothing to render against). No `gh-cli.ts`-level
+    tests were added for `issueDetail`/`issueComments` themselves — this repo has no `gh-cli.test.ts`
+    at all, by design: those functions are thin shell-spawning wrappers, kept deliberately untested
+    directly so the *parsing* half stays pure and testable under bare vitest (see `gh-parse.ts`'s
+    own docblock); `pullDetail`/`pullComments` follow the identical pattern. The
+    issue-with-no-comments case does not need a new test either: `issueComments` reuses
+    `parseIssueComments` verbatim, which already asserts "answers empty for anything that is not a
+    list" — writing a second case for the same parser through a different caller would test the
+    reuse, not the behavior.
 
 ### C — The Issues view itself (M)
 

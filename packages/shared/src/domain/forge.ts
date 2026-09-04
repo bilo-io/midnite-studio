@@ -423,6 +423,34 @@ export const ForgeIssuesResultSchema = z.object({
 });
 export type ForgeIssuesResult = z.infer<typeof ForgeIssuesResultSchema>;
 
+/**
+ * One issue's detail — the row the list already renders, plus the body a list
+ * of a hundred issues never carries. Mirrors `ForgePullDetailSchema`'s own
+ * `{ pull, body, … }` shape; an issue's detail needs nothing else `gh issue
+ * view` offers (no head/base shas, no mergeability, no commit sample — those
+ * are pull-request-only concepts).
+ */
+export const ForgeIssueDetailSchema = z.object({
+  issue: ForgeIssueSchema,
+  /** Markdown. Empty when the author left it blank. */
+  body: z.string().default(''),
+});
+export type ForgeIssueDetail = z.infer<typeof ForgeIssueDetailSchema>;
+
+/**
+ * One issue's metadata. `issue` is null whenever `error` is set, and vice
+ * versa — named `issue`, not `detail`, per this phase's own recorded
+ * envelope shape: `gh issue view` has no ProjectV2-style scope-failure mode
+ * to distinguish, so this stays the plain two-outcome result every other
+ * `gh <noun> view` call in this contract uses.
+ */
+export const ForgeIssueDetailResultSchema = z.object({
+  cli: ForgeCliStatusSchema,
+  issue: ForgeIssueDetailSchema.nullable().default(null),
+  error: z.string().nullable().default(null),
+});
+export type ForgeIssueDetailResult = z.infer<typeof ForgeIssueDetailResultSchema>;
+
 /** A run's job tree. `detail` is null whenever `error` is set, and vice versa. */
 export const ForgeRunDetailResultSchema = z.object({
   cli: ForgeCliStatusSchema,
@@ -640,6 +668,21 @@ export const ForgePullCommentsResultSchema = z.object({
   error: z.string().nullable().default(null),
 });
 export type ForgePullCommentsResult = z.infer<typeof ForgePullCommentsResultSchema>;
+
+/**
+ * One issue's conversation, newest last — `ForgeComment`, the exact shape
+ * `ForgePullCommentsResultSchema` above uses, because GitHub models a PR's
+ * conversation comments as issue comments on the issue-numbered REST route.
+ * No `reviews` half here: reviews are a pull-request-only concept, which is
+ * also why `issueComments` (`gh-cli.ts`) makes one API call where
+ * `pullComments` makes two.
+ */
+export const ForgeIssueCommentsResultSchema = z.object({
+  cli: ForgeCliStatusSchema,
+  comments: z.array(ForgeCommentSchema).default([]),
+  error: z.string().nullable().default(null),
+});
+export type ForgeIssueCommentsResult = z.infer<typeof ForgeIssueCommentsResultSchema>;
 
 /**
  * The byte ceiling main applies to a PR patch before parsing it.

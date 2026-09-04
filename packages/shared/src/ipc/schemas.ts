@@ -19,6 +19,8 @@ import {
   DIFF_FULL_CONTEXT,
   FileDiffSchema,
   ForgeCliStatusSchema,
+  ForgeIssueCommentsResultSchema,
+  ForgeIssueDetailResultSchema,
   ForgeIssuesResultSchema,
   ForgeMergeMethodSchema,
   ForgePullCommentsResultSchema,
@@ -495,6 +497,24 @@ export const ForgeIssuesRequest = ForgeListRequest.extend({
   state: z.enum(['open', 'closed', 'all']).default('open'),
 });
 export const ForgeIssuesResponse = ForgeIssuesResultSchema;
+
+/**
+ * An issue number.
+ *
+ * A positive integer by construction, the same reasoning `PullNumber` gives
+ * below for its own splice-into-the-command-line safety — declared here
+ * rather than sharing `PullNumber` because the two travel with different
+ * requests and a rename on one side must not silently rename the other's.
+ */
+const IssueNumber = z.number().int().positive();
+
+const ForgeIssueRequest = RepoId.extend({ number: IssueNumber });
+
+export const ForgeIssueDetailRequest = ForgeIssueRequest;
+export const ForgeIssueDetailResponse = ForgeIssueDetailResultSchema;
+
+export const ForgeIssueCommentsRequest = ForgeIssueRequest;
+export const ForgeIssueCommentsResponse = ForgeIssueCommentsResultSchema;
 
 /**
  * A run id, as the string it has always been in this contract.

@@ -676,6 +676,8 @@ describe('forge schemas', () => {
       forgeRuns: ['ForgeRunsRequest', 'ForgeRunsResponse'],
       forgePulls: ['ForgePullsRequest', 'ForgePullsResponse'],
       forgeIssues: ['ForgeIssuesRequest', 'ForgeIssuesResponse'],
+      forgeIssueDetail: ['ForgeIssueDetailRequest', 'ForgeIssueDetailResponse'],
+      forgeIssueComments: ['ForgeIssueCommentsRequest', 'ForgeIssueCommentsResponse'],
       forgeRunDetail: ['ForgeRunDetailRequest', 'ForgeRunDetailResponse'],
       forgeRunLog: ['ForgeRunLogRequest', 'ForgeRunLogResponse'],
       forgeWorkflows: ['ForgeWorkflowsRequest', 'ForgeWorkflowsResponse'],

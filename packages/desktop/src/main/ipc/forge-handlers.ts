@@ -5,6 +5,8 @@ import {
   schemas,
   type Forge,
   type ForgeCliStatus,
+  type ForgeIssueCommentsResult,
+  type ForgeIssueDetailResult,
   type ForgeIssuesResult,
   type ForgePullCommentsResult,
   type ForgePullDetailResult,
@@ -19,6 +21,8 @@ import {
 } from '@midnite/studio-shared';
 
 import {
+  issueComments,
+  issueDetail,
   listIssues,
   listPulls,
   listRuns,
@@ -325,6 +329,35 @@ export function registerForgeHandlers(): void {
       return listIssues(forge, { limit: req.limit, state: req.state });
     },
     (issue) => ({ cli: noForgeStatus(), issues: [], disabled: false, error: issue }),
+  );
+
+  /*
+    The two issue detail channels — the same split reasoning as the pull
+    request trio above: a body and a conversation are payloads the list never
+    needs, so opening an issue costs two more subprocesses only when a reader
+    actually opens one.
+  */
+
+  handle<typeof schemas.ForgeIssueDetailRequest, ForgeIssueDetailResult>(
+    CHANNELS.forgeIssueDetail,
+    schemas.ForgeIssueDetailRequest,
+    async (req) => {
+      const forge = await githubForge(req.repoId);
+      if (!forge) return { cli: noForgeStatus(), issue: null, error: null };
+      return issueDetail(forge, req.number);
+    },
+    (error) => ({ cli: noForgeStatus(), issue: null, error }),
+  );
+
+  handle<typeof schemas.ForgeIssueCommentsRequest, ForgeIssueCommentsResult>(
+    CHANNELS.forgeIssueComments,
+    schemas.ForgeIssueCommentsRequest,
+    async (req) => {
+      const forge = await githubForge(req.repoId);
+      if (!forge) return { cli: noForgeStatus(), comments: [], error: null };
+      return issueComments(forge, req.number);
+    },
+    (error) => ({ cli: noForgeStatus(), comments: [], error }),
   );
 
   handle<typeof schemas.ForgeRunDetailRequest, ForgeRunDetailResult>(

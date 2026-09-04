@@ -3,6 +3,8 @@ import {
   DIFF_DEFAULT_CONTEXT,
   PULL_PATCH_BYTE_CAP,
   type Forge,
+  type ForgeIssueCommentsResult,
+  type ForgeIssueDetailResult,
   type ForgeIssuesResult,
   type ForgePullCommentsResult,
   type ForgePullDetailResult,
@@ -21,6 +23,7 @@ import {
   isIssuesDisabled,
   mergeConversation,
   parseIssueComments,
+  parseIssueDetail,
   parseIssueList,
   parseJsonPayload,
   parsePullDetail,
@@ -73,6 +76,8 @@ const RUN_FIELDS =
   'event,workflowDatabaseId,workflowName,startedAt,updatedAt,displayTitle,number,attempt';
 const RUN_DETAIL_FIELDS = `${RUN_FIELDS},jobs`;
 const ISSUE_FIELDS = 'id,number,title,state,author,labels,assignees,updatedAt,createdAt,url,milestone';
+/** `gh issue view --json` accepts every `issue list` field plus `body`, the detail header's own fact. */
+const ISSUE_DETAIL_FIELDS = `${ISSUE_FIELDS},body`;
 const WORKFLOW_FIELDS = 'id,name,path,state';
 const PULL_FIELDS =
   'id,number,title,state,isDraft,reviewDecision,headRefName,author,url,statusCheckRollup,' +
@@ -449,6 +454,55 @@ export async function listIssues(
     return { cli, issues: [], disabled: false, error: describeFailure(result.output) };
   }
   return { cli, issues: parseIssueList(payload), disabled: false, error: null };
+}
+
+/**
+ * `gh issue view <n>` — the body, alongside every listing field.
+ *
+ * Follows `pullDetail`'s shape exactly, but returns the plain `{cli, issue,
+ * error}` two-outcome envelope rather than `pullDetail`'s (which has none of
+ * its own either — see `ForgeIssueDetailResultSchema`'s own note). There is
+ * no `kind: 'insufficient-scope'` triple here: that is `ForgeProjectV2`'s own
+ * failure mode, and `gh issue view` has no equivalent to distinguish.
+ */
+export async function issueDetail(forge: Forge, number: number): Promise<ForgeIssueDetailResult> {
+  const cli = await ghStatus();
+  if (cli.reason !== 'ready') return { cli, issue: null, error: null };
+
+  const command = `gh issue view ${number} ${repoFlag(forge)} --json ${ISSUE_DETAIL_FIELDS}`;
+
+  const result = await runInShell(command, LIST_TIMEOUT_MS);
+  const payload = parseJsonPayload(result.output);
+  const issue = payload === null ? null : parseIssueDetail(payload);
+  if (issue === null) {
+    invalidateGhProbe();
+    return { cli, issue: null, error: describeFailure(result.output) };
+  }
+  return { cli, issue, error: null };
+}
+
+/**
+ * One issue's conversation — **reuses `pullComments`' REST path and
+ * `parseIssueComments` verbatim.** `repos/{slug}/issues/{n}/comments` is the
+ * same endpoint for both: GitHub models a PR's conversation comments as
+ * issue comments on the issue-numbered route. No `reviews` half — reviews
+ * are a pull-request-only concept, which is why this makes one API call
+ * where `pullComments` makes two.
+ */
+export async function issueComments(forge: Forge, number: number): Promise<ForgeIssueCommentsResult> {
+  const cli = await ghStatus();
+  if (cli.reason !== 'ready') return { cli, comments: [], error: null };
+
+  const host = apiHostFlag(forge);
+  const command = `gh api ${shellQuote(`repos/${slug(forge)}/issues/${number}/comments?per_page=${CONVERSATION_PAGE}`)}${host}`;
+
+  const result = await runInShell(command, LIST_TIMEOUT_MS);
+  if (result.exitCode !== 0) {
+    invalidateGhProbe();
+    return { cli, comments: [], error: describeFailure(result.output) };
+  }
+
+  return { cli, comments: parseIssueComments(parseJsonPayload(result.output)), error: null };
 }
 
 /**

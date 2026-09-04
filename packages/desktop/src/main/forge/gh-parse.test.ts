@@ -21,6 +21,7 @@ import {
   isIssuesDisabled,
   mergeConversation,
   parseIssueComments,
+  parseIssueDetail,
   parseIssueList,
   parseJsonPayload,
   parsePullDetail,
@@ -322,6 +323,49 @@ describe('parseIssueList', () => {
     const [issue] = parseIssueList([{ ...rows[0], author: null, assignees: [] }]);
     expect(issue?.author).toBe('');
     expect(issue?.assignees).toEqual([]);
+  });
+});
+
+describe('parseIssueDetail', () => {
+  /* Captured from `gh issue view --json …` against a public repo. */
+  const row = {
+    id: 'I_kwDOABCDEF',
+    number: 42,
+    title: 'Graph rows jump on resize',
+    state: 'OPEN',
+    author: { login: 'bilo' },
+    labels: [{ name: 'bug', color: 'd73a4a' }],
+    assignees: [{ login: 'bilo' }],
+    createdAt: '2026-08-01T09:00:00Z',
+    updatedAt: '2026-08-20T09:00:00Z',
+    url: 'https://github.com/o/r/issues/42',
+    milestone: { number: 3, title: 'v0.4', state: 'open', dueOn: null },
+    body: 'Steps to reproduce…',
+  };
+
+  it('reuses the listing parser for the fields a row already has', () => {
+    const detail = parseIssueDetail(row);
+    expect(detail?.issue.number).toBe(42);
+    expect(detail?.issue.id).toBe('I_kwDOABCDEF');
+    expect(detail?.issue.milestone).toEqual({ title: 'v0.4' });
+    expect(detail?.issue.labels.map((l) => l.name)).toEqual(['bug']);
+  });
+
+  it('carries the detail-only fact — the body', () => {
+    expect(parseIssueDetail(row)?.body).toBe('Steps to reproduce…');
+  });
+
+  it('defaults a withheld body rather than dropping the issue', () => {
+    const { body: _body, ...bare } = row;
+    expect(parseIssueDetail(bare)?.body).toBe('');
+  });
+
+  it('returns null for a payload that is not an issue', () => {
+    expect(parseIssueDetail(null)).toBeNull();
+    expect(parseIssueDetail([row])).toBeNull();
+    // No url — parseIssueList drops such a row, and a detail with no issue
+    // above it has nothing to render against.
+    expect(parseIssueDetail({ ...row, url: '' })).toBeNull();
   });
 });
 

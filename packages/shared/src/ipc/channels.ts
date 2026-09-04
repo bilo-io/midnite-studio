@@ -172,6 +172,19 @@ export const CHANNELS = {
    * the UI states, not a fault it reports.
    */
   forgeIssues: 'mstudio:forge:issues',
+  /**
+   * One issue's metadata: body, plus every listing field. Its own channel
+   * for the same reason `forgePullDetail` is separate from `forgePulls` — a
+   * body is a payload the list never needs.
+   */
+  forgeIssueDetail: 'mstudio:forge:issue-detail',
+  /**
+   * One issue's conversation — reuses `forgePullComments`' own REST path and
+   * parser, since GitHub models a PR's conversation as issue comments on the
+   * issue-numbered route. No `reviews` half: reviews are a pull-request-only
+   * concept.
+   */
+  forgeIssueComments: 'mstudio:forge:issue-comments',
   /** One run's job/step tree. Cached in main once the run has completed. */
   forgeRunDetail: 'mstudio:forge:run-detail',
   /** One run's (or job's) log, capped head-and-tail unless `full` is asked for. */
