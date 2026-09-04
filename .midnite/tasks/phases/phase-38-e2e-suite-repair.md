@@ -394,7 +394,9 @@ any rendering is even attempted.
       content's actual demand at that width. **Fixed instead by walking the viewport down** in a
       20px stride (well inside `densityFor`'s 24px hysteresis band) and asserting each band's
       behaviour the instant the bar first reports it, never by jumping back up to a width visited
-      on the way down. Both tests' `@linux-red` tags dropped.
+      on the way down. Both tests' `@linux-red` tags dropped, **confirmed green on this PR's own
+      real Linux CI run** — the exact kind of confirmation this theme's own history says a local
+      macOS pass cannot substitute for.
 - [x] `titlebar-agents.spec.ts` and `panel-snap.spec.ts` — the two files this theme's own doc had
       flagged as "not enumerated above, not investigated." **`titlebar-agents.spec.ts` needed no
       fix at all**: it carries zero `@linux-red` tags in the actual source — every width-dependent
@@ -402,7 +404,8 @@ any rendering is even attempted.
       (the `fullWidth - 20`/`fullWidth - 60` pattern), the doc's own note about it was stale.
       `panel-snap.spec.ts` had exactly one tagged spec, and it turned out to be the SAME
       chord-mismatch wall this theme's `mock-bridge.ts` platform-pin fix already closed for six
-      other files — `toggleTerminal()` presses `Control+\`` too. Tag dropped, confirmed green.
+      other files — `toggleTerminal()` presses `Control+\`` too. Tag dropped, **confirmed green on
+      this PR's own real Linux CI run**, not just locally.
 - [x] **New sighting (PR #47, 2026-09-02): `terminal.spec.ts` joined this theme's scope, not just
       Theme D's.** Theme D fixed its own two named specs (both spec races) and tried dropping the
       whole file from `KNOWN_RED` — verified 38/38 green on macOS, then reverted once CI failed on
