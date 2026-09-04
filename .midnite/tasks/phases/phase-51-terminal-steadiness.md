@@ -162,6 +162,18 @@ untracked and spend from the same process-wide ceiling.
     better failure mode — a pane over budget still mounts and degrades to the DOM renderer — so
     keeping both would have meant two mechanisms solving one problem. `CardTerminal` now mounts
     whenever `visible`, with no cap of its own.
+  - **Correction, caught by CI (`terminal-reveal.spec.ts`), not by review:** the first landed cut
+    deferred WebGL acquisition entirely to a reactive effect keyed on the budget grant, running
+    only once `ready` flipped true — which is *after* `openWhenSized`'s own first `safeFit()`. That
+    first fit measured the DOM renderer's own cell metrics; the WebGL addon then loaded moments
+    later with its own, very slightly different metrics, and nothing re-fit — so the pty's own
+    `resize` count was one higher than before for a container that never actually changed size,
+    caught by `terminal-reveal.spec.ts`'s own resize-count assertion. Fixed by restoring the
+    original ordering: acquisition happens inline in `openWhenSized`, before the first `safeFit()`,
+    exactly as the pre-Theme-C code did — a session over budget still briefly holds a real context
+    for one tick before the reactive effect (now purely a POST-mount correction, watching
+    `webglRef.current` against the current grant) evicts it. The reactive effect's job shrank to
+    exactly what it needs to be: react to a LATER transition, never the initial one.
 - [x] `Settings ▸ Terminal` shows, per live session, which renderer it is actually using. The bug
       was invisible for as long as it was because nothing ever said "this pane is on the DOM
       renderer" — the same argument [Phase 30 Theme G](phase-30-terminal-hardening.md) made for a

@@ -22,7 +22,7 @@ import { sessionPhase, useTerminalStore } from './terminal-store';
 import { useAgents } from './use-agents';
 import { useDevicePixelRatio } from './use-device-pixel-ratio';
 import { useTerminalIpc } from './use-terminal-ipc';
-import { useXtermBudget, useXtermWebglSlot } from './xterm-budget';
+import { grantedWebglKeys, useXtermBudget, useXtermWebglSlot } from './xterm-budget';
 
 /**
  * How long OSC 7 has to stay quiet before the store is told.
@@ -313,46 +313,41 @@ export function TerminalView({
   }, [dpr, safeFit]);
 
   /**
-   * Acquire or release the WebGL addon as the process-wide budget grants or
-   * revokes this session's slot (Phase 51 Theme C) — decoupled from the mount
-   * effect above (which builds the `Terminal` once per session) so a later
-   * grant or revoke never rebuilds it.
+   * Attempts to (re)acquire the WebGL addon on the CURRENT `termRef.current`,
+   * retrying once immediately on a context loss if the process-wide budget
+   * still grants this session a slot at that moment (Phase 51 Theme C).
    *
-   * A lost context while still granted is worth one immediate retry rather
-   * than a permanent fall to the DOM renderer: the addon's own ~3s internal
-   * restoration window has already had its chance to absorb a transient GPU
-   * hiccup by the time `onContextLoss` reaches us, so what's left is either
-   * Chromium's own eviction (another context freed up almost immediately,
-   * and retrying wins it back) or a GPU that is genuinely gone for now (the
-   * retry fails too, and this session stays on the DOM renderer until the
-   * next grant/revoke transition tries again).
+   * A ref, not a plain function, so `openWhenSized` below (declared inside
+   * the mount effect, which runs once per session) can call today's version
+   * without becoming a dependency of that effect — the same pattern this
+   * component already uses for `sendInputRef`/`startRef`/etc.
+   *
+   * A lost context is worth one immediate retry rather than a permanent fall
+   * to the DOM renderer: the addon's own ~3s internal restoration window has
+   * already had its chance to absorb a transient GPU hiccup by the time
+   * `onContextLoss` reaches us, so what's left is either Chromium's own
+   * eviction (another context freed up almost immediately, and retrying wins
+   * it back) or a GPU that is genuinely gone for now (the retry fails too,
+   * and this session stays on the DOM renderer until the next budget
+   * transition tries again).
    */
-  const grantedWebgl = useXtermWebglSlot(session.id, active);
-  useEffect(() => {
+  const acquireWebglRef = useRef<() => void>(() => {});
+  acquireWebglRef.current = () => {
     const term = termRef.current;
-    if (!term || !ready) return;
+    if (!term) return;
     const setRenderer = useXtermBudget.getState().setRenderer;
-
-    if (!grantedWebgl) {
-      webglRef.current?.dispose();
-      webglRef.current = null;
-      setRenderer(session.id, 'dom');
-      return;
-    }
-
-    let disposed = false;
     let retried = false;
-    const acquire = () => {
-      if (disposed) return;
+    const attempt = () => {
       try {
         const webgl = new WebglAddon();
         webgl.onContextLoss(() => {
           webgl.dispose();
           if (webglRef.current === webgl) webglRef.current = null;
           setRenderer(session.id, 'dom');
-          if (!disposed && !retried) {
+          const stillGranted = grantedWebglKeys(useXtermBudget.getState().mounts).has(session.id);
+          if (stillGranted && !retried) {
             retried = true;
-            acquire();
+            attempt();
           }
         });
         term.loadAddon(webgl);
@@ -363,11 +358,31 @@ export function TerminalView({
         setRenderer(session.id, 'dom');
       }
     };
-    acquire();
+    attempt();
+  };
 
-    return () => {
-      disposed = true;
-    };
+  /**
+   * React to the process-wide budget granting or revoking this session's
+   * slot AFTER the initial mount (Phase 51 Theme C) — the initial acquisition
+   * itself happens inline in `openWhenSized`, before the very first `fit()`,
+   * so that call is never the one comparing DOM-renderer metrics against a
+   * later WebGL-renderer refit and sending a spurious "resize" for no actual
+   * size change. This effect only corrects a LATER mismatch between
+   * `webglRef.current` and what the budget currently grants: an eviction (a
+   * newer, more-recently-visible mount took the slot) disposes it; a later
+   * regrant (this session becomes visible again, or the budget frees up)
+   * reacquires — `acquireWebglRef` is a no-op if `termRef.current` is gone.
+   */
+  const grantedWebgl = useXtermWebglSlot(session.id, active);
+  useEffect(() => {
+    if (!ready) return;
+    if (!grantedWebgl && webglRef.current) {
+      webglRef.current.dispose();
+      webglRef.current = null;
+      useXtermBudget.getState().setRenderer(session.id, 'dom');
+    } else if (grantedWebgl && !webglRef.current) {
+      acquireWebglRef.current();
+    }
   }, [grantedWebgl, ready, session.id]);
 
   /**
@@ -531,11 +546,16 @@ export function TerminalView({
       if (!el || el.clientWidth === 0 || el.clientHeight === 0) return;
 
       term.open(el);
-      // The WebGL addon loads once `ready` flips true, from the budget-driven
-      // effect below — not here. Loading it inline at open time is what used
-      // to make every mounted xterm claim a context unconditionally,
-      // regardless of the process-wide ceiling (Phase 51 Theme C).
       termRef.current = term;
+      // Must load after open() and before the first `safeFit()` below — a
+      // fit computed against the DOM renderer's own metrics, followed later
+      // by one against the WebGL renderer's slightly different ones, reads
+      // as a genuine size change and sends a spurious resize even though the
+      // container never moved (Phase 51 Theme C). The process-wide budget
+      // (`xterm-budget.ts`) can still evict this session moments later via
+      // the reactive effect above; that is a real, later transition and not
+      // a race with the very first fit.
+      acquireWebglRef.current();
       fitRef.current = fit;
       safeFit();
 
