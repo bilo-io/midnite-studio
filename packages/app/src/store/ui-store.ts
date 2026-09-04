@@ -21,6 +21,10 @@ import {
   type GraphDensity,
   type GraphThemeId,
 } from '../features/graph/graph-themes';
+import {
+  DEFAULT_TERMINAL_FONT_SIZE,
+  DEFAULT_TERMINAL_LINE_HEIGHT,
+} from '../features/terminal/terminal-font';
 import { useFileEditorStore } from './file-editor-store';
 
 import { adoptRenamedPersistKey } from './persist-rename';
@@ -919,6 +923,19 @@ export type UiState = {
   setWorkflowDefaultTimeoutS: (seconds: number) => void;
   workflowRunHistoryCap: number;
   setWorkflowRunHistoryCap: (cap: number) => void;
+  /**
+   * Phase 51 Theme B — the three cell metrics `terminal-view.tsx` applies
+   * live to every mounted xterm through `terminalFontOptions()`.
+   * `terminalFontFamily: ''` is the field's own "unset" state, resolved to
+   * the Nerd Font stack by the builder rather than stored here — an empty
+   * string persists cleanly and needs no separate `null`/`undefined` case.
+   */
+  terminalFontFamily: string;
+  setTerminalFontFamily: (fontFamily: string) => void;
+  terminalFontSize: number;
+  setTerminalFontSize: (fontSize: number) => void;
+  terminalLineHeight: number;
+  setTerminalLineHeight: (lineHeight: number) => void;
   cycleDurationS: number;
   setCycleDuration: (seconds: number) => void;
   requirePasscode: boolean;
@@ -1091,6 +1108,9 @@ type PersistedUi = Pick<
   | 'inactivityTimeoutS'
   | 'workflowDefaultTimeoutS'
   | 'workflowRunHistoryCap'
+  | 'terminalFontFamily'
+  | 'terminalFontSize'
+  | 'terminalLineHeight'
   | 'cycleDurationS'
   | 'requirePasscode'
   | 'passcode'
@@ -1130,6 +1150,12 @@ export const useUiStore = create<UiState>()(
       setWorkflowDefaultTimeoutS: (workflowDefaultTimeoutS) => set({ workflowDefaultTimeoutS }),
       workflowRunHistoryCap: 20,
       setWorkflowRunHistoryCap: (workflowRunHistoryCap) => set({ workflowRunHistoryCap }),
+      terminalFontFamily: '',
+      setTerminalFontFamily: (terminalFontFamily) => set({ terminalFontFamily }),
+      terminalFontSize: DEFAULT_TERMINAL_FONT_SIZE,
+      setTerminalFontSize: (terminalFontSize) => set({ terminalFontSize }),
+      terminalLineHeight: DEFAULT_TERMINAL_LINE_HEIGHT,
+      setTerminalLineHeight: (terminalLineHeight) => set({ terminalLineHeight }),
       cycleDurationS: 10,
       setCycleDuration: (cycleDurationS) => set({ cycleDurationS }),
       requirePasscode: false,
@@ -1560,6 +1586,9 @@ export const useUiStore = create<UiState>()(
         cycleDurationS: state.cycleDurationS,
         workflowDefaultTimeoutS: state.workflowDefaultTimeoutS,
         workflowRunHistoryCap: state.workflowRunHistoryCap,
+        terminalFontFamily: state.terminalFontFamily,
+        terminalFontSize: state.terminalFontSize,
+        terminalLineHeight: state.terminalLineHeight,
         requirePasscode: state.requirePasscode,
         passcode: state.passcode,
         passcodeOnlyWhenLocked: state.passcodeOnlyWhenLocked,

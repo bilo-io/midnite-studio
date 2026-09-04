@@ -1,8 +1,25 @@
 import type { AgentDefinition, TerminalSession } from '@midnite/studio-shared';
-import { describe, expect, it } from 'vitest';
+import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
+import { cleanup, fireEvent, render, screen } from '@testing-library/react';
+import { afterEach, describe, expect, it } from 'vitest';
 
+import { useUiStore } from '../../../store/ui-store';
+import {
+  DEFAULT_TERMINAL_FONT_FAMILY,
+  DEFAULT_TERMINAL_FONT_SIZE,
+  DEFAULT_TERMINAL_LINE_HEIGHT,
+} from '../../terminal/terminal-font';
 import type { ConnectionState } from '../../terminal/terminal-store';
-import { activityRows } from './terminal-page';
+import { activityRows, TerminalPage } from './terminal-page';
+
+function renderWithClient() {
+  const queryClient = new QueryClient({ defaultOptions: { queries: { retry: false } } });
+  return render(
+    <QueryClientProvider client={queryClient}>
+      <TerminalPage />
+    </QueryClientProvider>,
+  );
+}
 
 const session = (overrides: Partial<TerminalSession> & { id: string }): TerminalSession => ({
   kind: 'shell',
@@ -101,5 +118,51 @@ describe('activityRows', () => {
       10,
     );
     expect(rows.map((r) => r.sessionId)).toEqual(['a', 'b']);
+  });
+});
+
+describe('TerminalPage — Appearance (Phase 51 Theme B)', () => {
+  afterEach(() => {
+    cleanup();
+    useUiStore.setState({
+      terminalFontFamily: '',
+      terminalFontSize: DEFAULT_TERMINAL_FONT_SIZE,
+      terminalLineHeight: DEFAULT_TERMINAL_LINE_HEIGHT,
+    });
+  });
+
+  it('renders an empty font family (falling back to the default via its placeholder) and the persisted size/line-height', () => {
+    useUiStore.setState({ terminalFontSize: 16, terminalLineHeight: 1.3 });
+    renderWithClient();
+
+    const family = screen.getByLabelText('Font family') as HTMLInputElement;
+    expect(family.value).toBe('');
+    expect(family.placeholder).toBe(DEFAULT_TERMINAL_FONT_FAMILY);
+    expect(screen.getByLabelText('Font size')).toHaveProperty('value', '16');
+    expect(screen.getByLabelText('Line height')).toHaveProperty('value', '1.3');
+  });
+
+  it('typing a font family updates the store', () => {
+    renderWithClient();
+
+    fireEvent.change(screen.getByLabelText('Font family'), { target: { value: 'Comic Mono' } });
+
+    expect(useUiStore.getState().terminalFontFamily).toBe('Comic Mono');
+  });
+
+  it('moving the font size slider updates the store', () => {
+    renderWithClient();
+
+    fireEvent.change(screen.getByLabelText('Font size'), { target: { value: '18' } });
+
+    expect(useUiStore.getState().terminalFontSize).toBe(18);
+  });
+
+  it('moving the line height slider updates the store', () => {
+    renderWithClient();
+
+    fireEvent.change(screen.getByLabelText('Line height'), { target: { value: '1.45' } });
+
+    expect(useUiStore.getState().terminalLineHeight).toBe(1.45);
   });
 });

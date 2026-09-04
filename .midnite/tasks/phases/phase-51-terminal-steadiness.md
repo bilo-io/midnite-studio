@@ -73,7 +73,7 @@ window size changes neither.
     outside what a jsdom unit test can construct; that component has no existing test file for
     the same reason.
 
-### B — Explicit cell metrics, and a font the user can set (M)
+### B — Explicit cell metrics, and a font the user can set (M) — ✅ DONE (PR #117, 2026-09-04)
 
 The second cause of uneven text, and independent of Theme A. The xterm is constructed with
 `fontSize: 12` and **no `lineHeight`, no `letterSpacing`, no `fontWeight`/`fontWeightBold`**
@@ -83,22 +83,37 @@ baselines, worst at small sizes. There is no user-facing font control anywhere:
 [`terminal-page.tsx`](../../../packages/app/src/features/settings/settings-pages/terminal-page.tsx)
 covers the activity readout and the sidebar side only.
 
-- [ ] Set the metrics explicitly at construction: `lineHeight`, `letterSpacing`, `fontWeight` and
+- [x] Set the metrics explicitly at construction: `lineHeight`, `letterSpacing`, `fontWeight` and
       `fontWeightBold`. Every one of these is currently an xterm default arrived at by omission;
       writing them down makes them a decision this repo owns and a thing a test can assert.
-- [ ] `Settings ▸ Terminal` gains **font family**, **font size** and **line height**, persisted in
+  - Landed as a new `terminal-font.ts` module: `terminalFontOptions(settings)` resolves the three
+    user-facing fields plus the two fixed ones (`letterSpacing: 0`, `fontWeight: 'normal'`,
+    `fontWeightBold: 'bold'`) into a complete options object. The fixed values are xterm's own
+    defaults, so this is a no-visual-change write-down, not a rendering change — the actual
+    unevenness this theme's intro describes is closer to Theme C's WebGL-context story.
+- [x] `Settings ▸ Terminal` gains **font family**, **font size** and **line height**, persisted in
       [`ui-store.ts`](../../../packages/app/src/store/ui-store.ts) (added to both `partialize` and
       the custom `merge`, like every other persisted key). The family field keeps the existing Nerd
       Font stack as its default and its placeholder — a user overriding it is opting out of glyph
       coverage, and the control should say so rather than silently offering a font with no
       powerline glyphs.
-- [ ] Changes apply to **already-mounted** terminals without a remount: write `term.options.fontSize`
+  - **Correction:** no `merge` change was needed. `merge`'s per-key re-spreading only exists for
+    *nested* persisted objects (`layout`, `graphColumns`, ...) that a shallow `{...current,
+    ...saved}` would otherwise clobber; these three are plain scalars, exactly like
+    `workflowDefaultTimeoutS`/`workflowRunHistoryCap` before them, and the existing top-level
+    spread already gives a missing key on an old install the current default.
+- [x] Changes apply to **already-mounted** terminals without a remount: write `term.options.fontSize`
       etc. on the live instance, then `fit()`. xterm supports live option writes; rebuilding the
       terminal would drop the pane's scrollback and re-fetch up to 1 MiB of snapshot per session
       for a font tweak.
-- [ ] Tests: a pure `terminalFontOptions(settings)` builder + `terminal-font.test.ts` (defaults, an
+- [x] Tests: a pure `terminalFontOptions(settings)` builder + `terminal-font.test.ts` (defaults, an
       override of each field, and the invariant that the returned object never carries `undefined`
       for a key xterm treats as "use the default" — an explicit value or absence, never both).
+  - Also added, beyond the doc's own plan: 11 RTL tests for the new `Settings ▸ Terminal ▸
+    Appearance` section (`terminal-page.test.tsx`) — renders the persisted values (an empty
+    family falling back to its placeholder), and each of the three controls updates
+    `useUiStore` on change. The live-apply wiring inside `terminal-view.tsx` has no test of its
+    own, for the same live-xterm-context reason Theme A's `clearTextureAtlas()` wiring doesn't.
 
 ### C — One renderer story, not two (M)
 
