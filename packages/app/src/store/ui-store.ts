@@ -216,6 +216,10 @@ export type LayoutSizes = {
    * want tall depends entirely on whether you are picking a file or reading one.
    */
   commitFilesHeight: number;
+  /**
+   * The Actions run detail's jobs tree, above its log pane.
+   */
+  actionsJobsHeight: number;
   /** The Actions view's run list, left of the run detail. */
   actionsListWidth: number;
   /** The Tests view's suite tree, left of the suite detail. */
@@ -294,6 +298,7 @@ export const DEFAULT_LAYOUT: LayoutSizes = {
   changesListWidth: 384,
   filesTreeWidth: 320,
   commitFilesHeight: 200,
+  actionsJobsHeight: 200,
   // Wider than the files tree: a run row carries a status pill, a workflow
   // name, a branch and an age, and the branch is the part that truncates first.
   actionsListWidth: 360,
@@ -344,6 +349,7 @@ export const LAYOUT_BOUNDS = {
   // how tall the window is and a 720px file list in a short one would leave the
   // message above and the diff below with no room at all.
   commitFilesHeight: { min: 80, max: 720 },
+  actionsJobsHeight: { min: 80, max: 720 },
   actionsListWidth: { min: 240, max: 640 },
   testsListWidth: { min: 240, max: 640 },
   reviewsListWidth: { min: 280, max: 640 },
