@@ -770,16 +770,38 @@ test.describe('FAB panel — the tab glow (Phase 37)', () => {
     await open(page);
     await openFab(page, 'Patrol');
     await expect(gradient(page)).toHaveAttribute('data-loop-state', 'idle');
+    await expect(gradient(page)).toHaveAttribute('data-loops-running', 'false');
 
     await page.getByTestId('loop-composer-watchdog').getByTestId('loop-start').click();
     await expect(page.getByTestId('loop-composer-watchdog').getByTestId('loop-stop')).toBeVisible();
     await expect(gradient(page)).toHaveAttribute('data-loop-state', 'running');
+    await expect(gradient(page)).toHaveAttribute('data-loops-running', 'true');
     // The pty behind the tab is created once TerminalView's lazy chunk mounts
     // (Phase 36 Theme C) — a moment after Stop appears, not the same tick.
     await expect(page.locator('.xterm-screen')).toHaveCount(1);
 
     await emitActivity(page, 'waiting', 'pty-1');
     await expect(gradient(page)).toHaveAttribute('data-loop-state', 'waiting');
+    await expect(gradient(page)).toHaveAttribute('data-loops-running', 'true');
+  });
+
+  /**
+   * When idle (no loops running), the panel shows a full static gradient border
+   * without inner glow.
+   */
+  test('idle panel has a static full gradient border without inner glow', async ({ page }) => {
+    await open(page);
+    await openFab(page, 'Patrol');
+    await expect(gradient(page)).toHaveAttribute('data-loops-running', 'false');
+
+    const info = await gradient(page).evaluate((el) => ({
+      borderMask: getComputedStyle(el).maskImage,
+      beforeDisplay: getComputedStyle(el, '::before').display,
+      ownAnimation: getComputedStyle(el).animationName,
+    }));
+    expect(info.borderMask).toBe('none');
+    expect(info.beforeDisplay).toBe('none');
+    expect(info.ownAnimation).toBe('none');
   });
 
   /**
@@ -849,6 +871,8 @@ test.describe('FAB panel — the tab glow (Phase 37)', () => {
     // a tab CHANGE, and the pseudo's two angles ease over 0.5s — read nothing
     // until they have landed.
     await openFab(page, 'Medic');
+    await page.getByTestId('loop-composer-medic').getByTestId('loop-start').click();
+    await expect(page.getByTestId('loop-composer-medic').getByTestId('loop-stop')).toBeVisible();
     await expect
       .poll(() =>
         gradient(page).evaluate((el) => {
@@ -997,6 +1021,8 @@ test.describe('FAB panel — the tab glow (Phase 37)', () => {
   }) => {
     await open(page);
     await openFab(page, 'Ideate');
+    await page.getByTestId('loop-composer-innovate').getByTestId('loop-start').click();
+    await expect(page.getByTestId('loop-composer-innovate').getByTestId('loop-stop')).toBeVisible();
     const before = () =>
       gradient(page).evaluate((el) => getComputedStyle(el, '::before').animationName);
 
@@ -1029,6 +1055,8 @@ test.describe('FAB panel — the tab glow (Phase 37)', () => {
   test("data-window-focused='false' pauses the ring and the rim together", async ({ page }) => {
     await open(page);
     await openFab(page, 'Ideate');
+    await page.getByTestId('loop-composer-innovate').getByTestId('loop-start').click();
+    await expect(page.getByTestId('loop-composer-innovate').getByTestId('loop-stop')).toBeVisible();
     // A play-state list is reported as declared, not expanded per animation:
     // the pseudo's two animations under one `paused` read back as `paused`,
     // so each value in the list is checked rather than the list's shape.
