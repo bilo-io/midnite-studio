@@ -4,7 +4,7 @@
 
 ## 2026-09-04 — Phase 54 Theme E — The filter toolbar, extracted rather than copied
 
-[PR TBD]. Closes out Phase 54's build entirely — every theme (A-G) is now landed, two
+[PR #130]. Closes out Phase 54's build entirely — every theme (A-G) is now landed, two
 Verification bullets left as a human pass against a real repo.
 
 - [x] `filter.ts`'s `filterItems`/`deriveAssigneeCounts`/`deriveLabelCounts` generalised over a
