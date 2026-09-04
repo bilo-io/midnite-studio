@@ -7,6 +7,7 @@ import {
   LuList,
   LuListTree,
   LuRows3,
+  LuX,
 } from 'react-icons/lu';
 import { Suspense, lazy, useCallback, useEffect, useId, useMemo, useRef, useState } from 'react';
 
@@ -58,9 +59,18 @@ const CommitMessage = lazy(() =>
  * question being asked of a file list — "which of these do I want to read" — is
  * one you answer by looking at the list and the diff together.
  */
-export function CommitDetail({ repoId, sha }: { repoId: string; sha: string }) {
+export function CommitDetail({
+  repoId,
+  sha,
+  onClose,
+}: {
+  repoId: string;
+  sha: string;
+  onClose?: () => void;
+}) {
   const { data, isLoading } = useCommitDetail(repoId, sha);
   const { data: remotes } = useRemotes(repoId);
+  const openTab = useWorkbenchStore((s) => s.openTab);
   const selectCommit = useUiStore((s) => s.selectCommit);
   const fileView = useUiStore((s) => s.commitFileView);
   const setFileView = useUiStore((s) => s.setCommitFileView);
@@ -210,7 +220,12 @@ export function CommitDetail({ repoId, sha }: { repoId: string; sha: string }) {
   if (!data) {
     return (
       <div className="p-3">
-        <p className="text-sm">Commit not found</p>
+        <div className="flex items-center justify-between">
+          <p className="text-sm">Commit not found</p>
+          {onClose ? (
+            <IconButton icon={LuX} label="Close" size="sm" onClick={onClose} />
+          ) : null}
+        </div>
         <p className="mt-1 text-xs text-muted-foreground">
           <span className="font-mono">{shortSha(sha)}</span> is not in this repository. It may not
           have been fetched, or a rebase may have replaced it.
@@ -248,30 +263,29 @@ export function CommitDetail({ repoId, sha }: { repoId: string; sha: string }) {
             <LuChevronRight className="h-3 w-3" strokeWidth={2.5} />
           )}
         </button>
-        {/*
-          11px rather than the panel's 12: forty monospace characters plus
-          the buttons beside them fit the default 384px pane at this size and
-          wrap to an orphaned character at the next one up. Still `break-all`,
-          because the pane is draggable down to 280.
-
-          The row's padding is tighter than the `px-3` used everywhere below,
-          and that is what pays for the chevron: at `px-3` the 40th character
-          wrapped to a line of its own. Sitting the chevron in the reclaimed
-          gutter is also the usual shape for an accordion header — the control
-          is left of the content it opens, not inset with it.
-        */}
-        <p
-          className="min-w-0 flex-1 break-all font-mono text-[11px] leading-tight text-muted-foreground"
-          data-selectable
+        <button
+          type="button"
+          onClick={() =>
+            openTab({
+              kind: 'commit',
+              repoId,
+              sha: data.sha,
+              label: `${data.sha.slice(0, 7)}: ${data.subject}`,
+            })
+          }
+          title={`Open commit in tab (${data.sha})`}
+          aria-label={`Open commit in tab (${data.sha})`}
+          className="group inline-flex min-w-0 flex-1 items-center gap-1 overflow-hidden font-mono text-[11px] leading-tight text-muted-foreground transition-colors hover:text-foreground"
         >
-          {data.sha}
-        </p>
+          <span className="truncate underline decoration-muted-foreground/40 underline-offset-2 group-hover:decoration-foreground">
+            {data.sha.slice(0, 16)}…
+          </span>
+          <LuExternalLink
+            aria-hidden
+            className="h-3 w-3 shrink-0 text-muted-foreground/70 transition-colors group-hover:text-foreground"
+          />
+        </button>
         <CopySha sha={data.sha} />
-        <OpenInTabButton
-          repoId={repoId}
-          sha={data.sha}
-          label={`${data.sha.slice(0, 7)}: ${data.subject}`}
-        />
         <div className="flex shrink-0 items-center">
           <ViewToggle
             view={fileView}
@@ -280,6 +294,9 @@ export function CommitDetail({ repoId, sha }: { repoId: string; sha: string }) {
             onToggleAll={toggleShowAll}
           />
         </div>
+        {onClose ? (
+          <IconButton icon={LuX} label="Close" size="sm" onClick={onClose} />
+        ) : null}
       </div>
 
       {/*
@@ -583,18 +600,5 @@ function Parents({ parents, onSelect }: { parents: string[]; onSelect: (sha: str
         </span>
       ))}
     </div>
-  );
-}
-
-function OpenInTabButton({ repoId, sha, label }: { repoId: string; sha: string; label: string }) {
-  const openTab = useWorkbenchStore((s) => s.openTab);
-
-  return (
-    <IconButton
-      icon={LuExternalLink}
-      label="Open commit in tab"
-      size="sm"
-      onClick={() => openTab({ kind: 'commit', repoId, sha, label })}
-    />
   );
 }

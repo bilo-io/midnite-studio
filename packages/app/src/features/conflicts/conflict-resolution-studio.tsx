@@ -1,7 +1,9 @@
 import { useMemo, useState, type ReactNode } from 'react';
+import { LuX } from 'react-icons/lu';
 
 import type { ConflictHunkSide, ConflictRegion, ConflictSide } from '@midnite/studio-shared';
 
+import { IconButton } from '../../components/icon-button';
 import { useConflictApplyHunk, useConflictResolveWholeFile } from '../../services/use-status';
 import { flattenConflictHunks } from './flatten-conflict-hunks';
 import { useConflictRegions } from './use-conflict-regions';
@@ -111,6 +113,7 @@ export function ConflictResolutionStudio({
           >
             Accept all theirs
           </button>
+          <IconButton icon={LuX} label="Close" size="sm" onClick={onClose} />
         </span>
       </div>
 
