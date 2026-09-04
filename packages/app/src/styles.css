@@ -1514,18 +1514,7 @@ html[data-motion='reduced'] .landing-slide-in {
  * waiting/thinking distinction. The lock screen has no active tab for a
  * waiting loop's amber ring to attach to, and "something is running" is the
  * whole of what this surface needs to say.
- *
-/*
- * The screensaver's fixed half-ring arc (the same 180deg span the FAB panel
- * and landing page use). Rather than a static unbroken full ring, the glow
- * orbits the frame as a single rotating arc.
  */
-.screensaver-panel-gradient,
-.screensaver-panel-gradient::before {
-  --fab-arc-from: -90deg;
-  --fab-arc-to: 90deg;
-}
-
 .screensaver-panel-gradient {
   border: none;
   background-image: none;
@@ -1543,6 +1532,27 @@ html[data-motion='reduced'] .landing-slide-in {
  */
 .screensaver-panel-gradient::before {
   z-index: 30;
+}
+
+/*
+ * The screensaver's own fixed half-ring, for the same reason the landing page
+ * pins one: no `[data-fab-tab]` anywhere above it, so both angles would rest
+ * at their registered initial values (`0deg`/`360deg`) and the mask would keep
+ * the whole ramp lit — a full, unbroken ring around the screen, which reads as
+ * a static border rather than as motion. Pinned to the same plain 180deg span,
+ * `--fab-panel-angle`'s 4s rotation walks that arc's position and the glow
+ * becomes one lit segment orbiting the screen's edge.
+ *
+ * The pseudo alone, unlike the landing page's two-selector row. Both
+ * properties are `inherits: false`, so the pseudo needs its own declaration
+ * regardless of the host — and on this host the host half would be dead: the
+ * block above resets its `mask-image` to `none`, so nothing there consumes an
+ * arc. Declared after that block so it survives it (`animation: none` there
+ * kills only the host's rotation; `.gradient-frame::before` keeps its own).
+ */
+.screensaver-panel-gradient::before {
+  --fab-arc-from: -90deg;
+  --fab-arc-to: 90deg;
 }
 
 html[data-window-focused='false'] .gradient-frame,
