@@ -898,6 +898,12 @@ export type MidniteStudioBridge = {
     onWindowsChanged: (
       handler: (e: z.infer<typeof S.WindowsChangedEvent>) => void,
     ) => Unsubscribe;
+    /** Fire-and-forget: ask main to rebroadcast a sync message to every other window. */
+    relay: (message: z.infer<typeof S.WindowRelayMessage>) => void;
+    /** A `relay` message from another window, rebroadcast by main. */
+    onRelayed: (
+      handler: (message: z.infer<typeof S.WindowRelayMessage>) => void,
+    ) => Unsubscribe;
   };
 
   /**

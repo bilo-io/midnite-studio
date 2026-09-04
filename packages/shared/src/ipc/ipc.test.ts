@@ -810,6 +810,8 @@ describe('window contract (Phase 55)', () => {
       windowList: ['WindowListResponse'],
       windowFocusRole: ['WindowFocusRoleRequest'],
       windowsChanged: ['WindowsChangedEvent'],
+      windowRelay: ['WindowRelayMessage'],
+      windowRelayed: ['WindowRelayMessage'],
     };
     const channelKeys = [...Object.keys(CHANNELS), ...Object.keys(EVENT_CHANNELS)].filter((key) =>
       key.startsWith('window'),

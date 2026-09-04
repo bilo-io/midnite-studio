@@ -12,18 +12,22 @@ import { BrowserPane } from './features/browser/browser-pane';
 import { FabPanel } from './components/fab-panel';
 import { ReposPanel } from './features/repos/repos-panel';
 import { TerminalPanel } from './features/terminal/terminal-panel';
+import { useBroadcastSync } from './services/broadcast-sync';
 import { useCommandHandlers } from './services/keybindings/use-command-handlers';
 import { useKeybindings } from './services/keybindings/use-keybindings';
 import { useRepos } from './services/queries';
 import { primaryTarget } from './features/repos/use-repo-actions';
+import { useAppearanceSync } from './store/appearance-store';
 import { useUiStore } from './store/ui-store';
 
 /**
  * A QueryClient per popout — a second renderer process has no access to the
  * main window's cache, so this window fetches its own (staleTime infinite,
- * no window-focus refetch, same as `app.tsx`'s own client). Cross-window
- * invalidation is Theme E's job, not this one's: a popout's data is a
- * snapshot as of mount until that theme lands.
+ * no window-focus refetch, same as `app.tsx`'s own client). `useBroadcastSync`
+ * (Theme E) keeps `selectedRepoId`/`selectedWorktreePath` current from the
+ * moment it mounts, and relays a `watch` invalidation into this client — but a
+ * popout still has no watcher of its own, so its data is a snapshot as of
+ * mount until the first relayed change.
  */
 const queryClient = new QueryClient({
   defaultOptions: {
@@ -104,6 +108,12 @@ function DetachedContent({ role }: { role: Exclude<WindowRole, 'main'> }) {
  */
 function DetachedShell({ role }: { role: Exclude<WindowRole, 'main'> }) {
   useKeybindings(useCommandHandlers());
+  // Each popout is its own renderer process with its own `appearance-store`
+  // instance — without this it never applies the accent/density/font/
+  // background/effects/shimmer the main window already carries, boot-time
+  // `localStorage` hydration notwithstanding (E.3).
+  useAppearanceSync();
+  useBroadcastSync();
   return (
     <DetachedWindowFrame role={role} title={ROLE_TITLE[role]}>
       <DetachedContent role={role} />

@@ -3,7 +3,14 @@ import { ipcMain, type BrowserWindow } from 'electron';
 
 import type { Logger } from '../log';
 import { reparentBrowserTabs } from '../browser-service';
-import { createRoleWindow, listWindows, windowForRole } from '../window-manager';
+import {
+  closePopoutForRedock,
+  createRoleWindow,
+  listWindows,
+  relayToOtherWindows,
+  resolveWindow,
+  windowForRole,
+} from '../window-manager';
 import { handleBare } from './handle';
 
 const isPopoutRole = (role: WindowRole): role is Exclude<WindowRole, 'main'> => role !== 'main';
@@ -36,7 +43,7 @@ export function registerWindowHandlers(getMainWindow: () => BrowserWindow | null
       const main = getMainWindow();
       if (main && !main.isDestroyed()) reparentBrowserTabs(main);
     }
-    win.close();
+    closePopoutForRedock(win);
   });
 
   ipcMain.on(CHANNELS.windowFocusRole, (_event, raw: unknown) => {
@@ -49,4 +56,16 @@ export function registerWindowHandlers(getMainWindow: () => BrowserWindow | null
   });
 
   handleBare(CHANNELS.windowList, () => listWindows());
+
+  // Theme E: rebroadcast to every window except whichever sent it. Resolved
+  // from `event.sender` rather than a field in the payload — a renderer
+  // cannot claim to be a window it isn't, the same reason `handleFromSender`
+  // exists for the invoke handlers.
+  ipcMain.on(CHANNELS.windowRelay, (event, raw: unknown) => {
+    const parsed = schemas.WindowRelayMessage.safeParse(raw);
+    if (!parsed.success) return;
+    const win = resolveWindow(event.sender);
+    if (!win) return;
+    relayToOtherWindows(win.id, parsed.data);
+  });
 }

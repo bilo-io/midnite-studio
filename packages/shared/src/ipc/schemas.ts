@@ -1712,6 +1712,23 @@ export const WindowListResponse = z.array(WindowDescriptorSchema);
 export const WindowFocusRoleRequest = z.object({ role: WindowRoleSchema });
 export const WindowsChangedEvent = z.object({ windows: z.array(WindowDescriptorSchema) });
 
+/**
+ * A cross-window sync message (Theme E). `payload` is intentionally
+ * unstructured: it mirrors whatever slice of `ui-store`/`appearance-store`/
+ * `browser-store` the sending renderer already validated against its own
+ * zod-less zustand shape, and both endpoints are equally-trusted renderer
+ * processes of this same app — not a security boundary the way a git-command
+ * argument or a filesystem path is. `origin` is a per-renderer-lifetime
+ * random id (not Electron's numeric window id), so the same value works
+ * whether the message arrived via this relay or via `BroadcastChannel`.
+ */
+export const WindowRelayMessage = z.object({
+  id: z.string().min(1),
+  origin: z.string().min(1),
+  kind: z.enum(['ui', 'appearance', 'browser', 'theme', 'watch']),
+  payload: z.record(z.string(), z.unknown()),
+});
+
 export const PtySubscribeRequest = z.object({ ptyId: z.string().min(1) });
 export const PtyUnsubscribeRequest = z.object({ ptyId: z.string().min(1) });
 

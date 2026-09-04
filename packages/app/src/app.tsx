@@ -62,6 +62,7 @@ import { hslTokenToHex } from './lib/color';
 import { idlePreload } from './lib/idle-preload';
 import { markOnce } from './lib/perf';
 import { bridge } from './services/bridge';
+import { useBroadcastSync } from './services/broadcast-sync';
 import { useCommandHandlers } from './services/keybindings/use-command-handlers';
 import { useKeybindings } from './services/keybindings/use-keybindings';
 import { keys, useRemotes, useRepos } from './services/queries';
@@ -536,6 +537,9 @@ function Shell() {
   // The single source of truth for the four flags above is main's own
   // window registry (Phase 55) — see the hook's own doc for why.
   useWindowSync();
+  // Cross-window sync (Theme E) — mounted here too, not just in
+  // `DetachedRoot`, so a change made in the main window reaches every popout.
+  useBroadcastSync();
   /*
     The setters the three splitters need for their snaps: dragging a pane past
     its own minimum closes it, and dragging the terminal past the top of the

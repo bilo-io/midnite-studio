@@ -9,7 +9,7 @@ import {
   type WindowDescriptor,
   type WindowRole,
 } from '@midnite/studio-shared';
-import { BrowserWindow, app, shell, type WebContents } from 'electron';
+import { BrowserWindow, app, screen, shell, type Display, type WebContents } from 'electron';
 
 import { reparentBrowserTabs } from './browser-service';
 import type { Logger } from './log';
@@ -65,8 +65,29 @@ export function configureWindowsStore(
   boundsCache = initial;
 }
 
+/**
+ * G.4: a saved rect whose origin falls outside every display's work area is
+ * unreachable — the failure mode is a window positioned at `x: 3000` on a
+ * single 1440-wide display after the second monitor it lived on was
+ * unplugged, invisible with no way to drag it back. Origin-only, not full
+ * containment: a window straddling a display edge is still fine.
+ */
+export function boundsWithinAnyDisplay(bounds: WindowBounds, displays: readonly Display[]): boolean {
+  return displays.some(({ workArea }) => {
+    return (
+      bounds.x >= workArea.x &&
+      bounds.y >= workArea.y &&
+      bounds.x < workArea.x + workArea.width &&
+      bounds.y < workArea.y + workArea.height
+    );
+  });
+}
+
 function loadStoredBounds(role: Exclude<WindowRole, 'main'>): WindowBounds | undefined {
-  return boundsCache[role];
+  const bounds = boundsCache[role];
+  if (!bounds) return undefined;
+  if (!boundsWithinAnyDisplay(bounds, screen.getAllDisplays())) return undefined;
+  return bounds;
 }
 
 /** Captures geometry on close and persists it — read back by the next `createRoleWindow`. */
@@ -127,6 +148,21 @@ export function registerMainWindow(win: BrowserWindow): void {
 }
 
 /**
+ * G.5: why a popout's `close` line names the reason it does. Set just before
+ * calling `win.close()` from a path that knows something the plain `closed`
+ * listener doesn't — a crash, or the explicit re-dock button — and read
+ * (then cleared) by that listener. Absent means the ordinary case: the user's
+ * own traffic light.
+ */
+const pendingCloseReason = new Map<number, 'redock' | 'crashed'>();
+
+/** The explicit re-dock path (`windowDock`) — distinguishes its close line from a bare user close. */
+export function closePopoutForRedock(win: BrowserWindow): void {
+  pendingCloseReason.set(win.id, 'redock');
+  win.close();
+}
+
+/**
  * A crashed or killed popout renderer closes and re-docks (A.6's rule),
  * pulled forward from Theme G.3 rather than left as a blank frozen window
  * until that theme lands. Mirrors `main/index.ts`'s own `bindRenderProcessGone`
@@ -136,7 +172,10 @@ export function registerMainWindow(win: BrowserWindow): void {
 export function bindPopoutRenderProcessGone(win: BrowserWindow, log: Logger): void {
   win.webContents.on('render-process-gone', (_event, details) => {
     if (details.reason === 'clean-exit') return;
-    log(`[window] crash role=${resolveRole(win)} reason=${details.reason} exit=${details.exitCode}`);
+    log(
+      `[window] render-process-gone role=${resolveRole(win)} reason=${details.reason} exit=${details.exitCode}`,
+    );
+    pendingCloseReason.set(win.id, 'crashed');
     if (!win.isDestroyed()) win.close();
   });
 }
@@ -221,7 +260,9 @@ export function createRoleWindow(role: Exclude<WindowRole, 'main'>, log: Logger)
 
   win.on('closed', () => {
     windows.delete(win.id);
-    log(`[window] close role=${role} id=${win.id} reason=closed`);
+    const reason = pendingCloseReason.get(win.id) ?? 'closed';
+    pendingCloseReason.delete(win.id);
+    log(`[window] close role=${role} id=${win.id} reason=${reason}`);
     emitWindowsChanged();
   });
 
@@ -235,5 +276,17 @@ export function createRoleWindow(role: Exclude<WindowRole, 'main'>, log: Logger)
 export function closeAllPopouts(): void {
   for (const { win, role } of [...windows.values()]) {
     if (role !== 'main' && !win.isDestroyed()) win.close();
+  }
+}
+
+/**
+ * Theme E's cross-window relay: rebroadcast `message` to every window except
+ * `originId` (the sender). Fire-and-forget, mirroring `emitWindowsChanged` —
+ * the sender already applied its own change locally before asking for this.
+ */
+export function relayToOtherWindows(originId: number, message: unknown): void {
+  for (const { win } of windows.values()) {
+    if (win.id === originId || win.isDestroyed()) continue;
+    win.webContents.send(EVENT_CHANNELS.windowRelayed, message);
   }
 }

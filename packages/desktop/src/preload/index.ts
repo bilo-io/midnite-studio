@@ -458,6 +458,8 @@ const bridge: Pick<
     focusRole: (req) => ipcRenderer.send(CHANNELS.windowFocusRole, req),
     list: () => call(CHANNELS.windowList),
     onWindowsChanged: (handler) => subscribe(EVENT_CHANNELS.windowsChanged, handler),
+    relay: (message) => ipcRenderer.send(CHANNELS.windowRelay, message),
+    onRelayed: (handler) => subscribe(EVENT_CHANNELS.windowRelayed, handler),
   },
   menu: {
     onCommand: (handler) => subscribe(EVENT_CHANNELS.menuCommand, handler),
