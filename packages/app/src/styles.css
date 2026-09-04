@@ -2463,3 +2463,21 @@ html[data-motion='reduced'] .loop-start-gradient:focus-visible:not(:disabled) {
     0 0 12px rgb(var(--fab-spec-3, 16 185 129) / 0.6),
     0 0 22px rgb(var(--fab-spec-5, 139 92 246) / 0.4);
 }
+
+/*
+ * Keep TitleBar's center slot in-flow between left and right instead of
+ * absolute-centered, preventing collision with wide left breadcrumbs / sync
+ * controls on narrower viewports and letting scrollWidth reflect the full row.
+ */
+.titlebar-root > div:nth-child(2) {
+  position: static !important;
+  width: auto !important;
+  min-width: 0 !important;
+  max-width: none !important;
+  transform: none !important;
+  flex: 0 0 auto !important;
+  margin-left: auto !important;
+  margin-right: auto !important;
+  display: flex !important;
+  justify-content: center !important;
+}

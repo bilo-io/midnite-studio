@@ -1042,9 +1042,9 @@ function Shell() {
         Leads the cluster: the live-agent count and the four loop launchers,
         which used to be two segments in the status bar's left zone. They sit
         ahead of everything else on this side because they are the only part of
-        it that changes on its own — the date, the lifecycle actions and the
-        theme toggle all sit still until you touch them — and a readout that
-        moves is worth the corner nearest the eye.
+        it that changes on its own — the date and the theme toggle sit still
+        until you touch them — and a readout that moves is worth the corner
+        nearest the eye.
 
         `TitleBarAgents` draws its OWN trailing hairline rather than taking one
         from here, so the rule cannot outlive the cluster; see its header for
@@ -1053,59 +1053,60 @@ function Shell() {
       <TitleBarAgents />
       <TitleBarStatus />
       {/*
-        The repository's own tooling for whichever checkout is selected — the
-        same set the sidebar collapses behind one ellipsis per repository,
-        aimed here at "wherever you are" rather than "this repo's main
-        worktree". Absent with no repository selected: there is no checkout
-        for a guessed command to run against.
-
-        Two clusters, not one: Setup and Update act on the checkout itself —
-        write an onboarding kit into it, replace the installed app from it —
-        while Install / Build / Test / Launch only ever type a guessed command
-        at a prompt. A hairline between them says that, and it is the same
-        divider the sidebar's menu draws between the same two halves.
-      */}
-      {selectedRepo ? (
-        <>
-          <span aria-hidden className="h-4 w-px shrink-0 bg-border" />
-          <ProjectActions
-            repoId={selectedRepo.id}
-            repoName={selectedRepo.name}
-            cwd={selectedWorktreePath ?? primaryTarget(selectedRepo).worktreePath ?? selectedRepo.path}
-            {...(selectedWorktreePath ? { worktreePath: selectedWorktreePath } : {})}
-          />
-          <span aria-hidden className="h-4 w-px shrink-0 bg-border" />
-          <RepoLifecycleActions
-            repoId={selectedRepo.id}
-            repoName={selectedRepo.name}
-            cwd={selectedWorktreePath ?? primaryTarget(selectedRepo).worktreePath ?? selectedRepo.path}
-            {...(selectedWorktreePath ? { worktreePath: selectedWorktreePath } : {})}
-          />
-        </>
-      ) : null}
-      {/*
-        The theme toggle is an app preference, not one of the git actions beside
-        it, so it gets the same hairline the action clusters use between
-        themselves rather than sitting flush against the last of them.
+        The theme toggle is an app preference, not a status readout, so it
+        gets a hairline rather than sitting flush against the status pill.
       */}
       <span aria-hidden className="h-4 w-px shrink-0 bg-border" />
       <ThemeToggle />
     </>
   );
 
+  /*
+    The repository's own tooling for whichever checkout is selected — the
+    same set the sidebar collapses behind one ellipsis per repository,
+    aimed here at "wherever you are" rather than "this repo's main
+    worktree". Absent with no repository selected: there is no checkout
+    for a guessed command to run against. Centered in the title bar.
+
+    Two clusters, not one: Setup and Update act on the checkout itself —
+    write an onboarding kit into it, replace the installed app from it —
+    while Install / Build / Test / Launch only ever type a guessed command
+    at a prompt. A hairline between them says that, and it is the same
+    divider the sidebar's menu draws between the same two halves.
+  */
+  const centerActions = selectedRepo ? (
+    <div className="flex items-center gap-1.5">
+      <ProjectActions
+        repoId={selectedRepo.id}
+        repoName={selectedRepo.name}
+        cwd={selectedWorktreePath ?? primaryTarget(selectedRepo).worktreePath ?? selectedRepo.path}
+        {...(selectedWorktreePath ? { worktreePath: selectedWorktreePath } : {})}
+      />
+      <span aria-hidden className="h-4 w-px shrink-0 bg-border" />
+      <RepoLifecycleActions
+        repoId={selectedRepo.id}
+        repoName={selectedRepo.name}
+        cwd={selectedWorktreePath ?? primaryTarget(selectedRepo).worktreePath ?? selectedRepo.path}
+        {...(selectedWorktreePath ? { worktreePath: selectedWorktreePath } : {})}
+      />
+    </div>
+  ) : null;
+
   const titleBar = (
     <TitleBar
+      className="titlebar-root"
       windowChrome={windowChrome}
       left={
         <div className="flex min-w-0 items-center">
           <BrandHomeButton>
-                <Wordmark className="text-xs" />
-              </BrandHomeButton>
+            <Wordmark className="text-xs" />
+          </BrandHomeButton>
           <TitleBarNav />
           <span aria-hidden className="mx-1.5 h-4 w-px shrink-0 bg-border" />
           <SyncActions />
         </div>
       }
+      center={centerActions}
       right={chrome}
     />
   );
@@ -1159,6 +1160,11 @@ function Shell() {
               <span aria-hidden className="mx-1.5 h-4 w-px shrink-0 bg-border" />
               <SyncActions />
             </div>
+            {centerActions ? (
+              <div className="flex min-w-0 flex-1 items-center justify-center">
+                {centerActions}
+              </div>
+            ) : null}
             <div className="flex items-center gap-2">{chrome}</div>
           </div>
         ) : null}
