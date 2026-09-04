@@ -63,14 +63,20 @@ export function Wordmark({ className = '' }: { className?: string }) {
 export function Brand({
   className = '',
   showWordmark = true,
+  markClassName,
+  wordmarkClassName = 'text-sm',
+  'data-testid': testId,
 }: {
   className?: string;
   showWordmark?: boolean;
+  markClassName?: string;
+  wordmarkClassName?: string;
+  'data-testid'?: string;
 }) {
   return (
-    <span className={`flex items-center gap-2 ${className}`}>
-      <BrandMark />
-      {showWordmark ? <Wordmark className="text-sm" /> : null}
+    <span data-testid={testId} className={`flex items-center gap-2 ${className}`}>
+      <BrandMark className={markClassName} />
+      {showWordmark ? <Wordmark className={wordmarkClassName} /> : null}
     </span>
   );
 }

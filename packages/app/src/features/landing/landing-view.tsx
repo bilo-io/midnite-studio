@@ -1,3 +1,4 @@
+import { Brand } from '../../components/brand';
 import { NeuroCloudBackground } from '../screensaver/neuro-cloud-background';
 import { LockScreenChrome } from '../screensaver/lock-screen-chrome';
 import { applyPillDestination } from '../screensaver/pill-destinations';
@@ -76,7 +77,16 @@ export function LandingView() {
     >
       <NeuroCloudBackground animate={!reduced} />
 
-      <LockScreenChrome />
+      <LockScreenChrome
+        topCentre={
+          <Brand
+            data-testid="landing-brand"
+            className="gap-2.5 drop-shadow-sm"
+            markClassName="h-7 w-7"
+            wordmarkClassName="text-xl"
+          />
+        }
+      />
 
       <LandingCarousel slides={slides} />
     </div>

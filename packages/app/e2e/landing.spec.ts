@@ -39,6 +39,9 @@ test('it keeps the lock screen frame around a four-slide carousel', async ({ pag
   await open(page);
   await homeLink(page).click();
 
+  await expect(page.getByTestId('landing-brand')).toBeVisible();
+  await expect(page.getByTestId('landing-brand')).toContainText('Midnite');
+  await expect(page.getByTestId('landing-brand')).toContainText('Studio');
   await expect(page.getByTestId('lock-screen-widgets')).toBeVisible();
   await expect(page.getByText('Local Time')).toBeVisible();
   await expect(page.getByRole('tab')).toHaveCount(4);

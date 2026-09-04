@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useState, type ReactNode } from 'react';
 
 import { LockScreenSlotIsland } from './lock-screen-slots';
 import { LockScreenWidgets } from './lock-screen-widgets';
@@ -33,7 +33,7 @@ function pad(n: number): string {
   return n.toString().padStart(2, '0');
 }
 
-export function LockScreenChrome() {
+export function LockScreenChrome({ topCentre }: { topCentre?: ReactNode } = {}) {
   const [now, setNow] = useState(() => new Date());
 
   useEffect(() => {
@@ -67,7 +67,7 @@ export function LockScreenChrome() {
         </div>
       </LockScreenSlotIsland>
 
-      <LockScreenWidgets />
+      <LockScreenWidgets topCentre={topCentre} />
     </>
   );
 }
