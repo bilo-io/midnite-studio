@@ -1,16 +1,16 @@
 ---
 name: midnite-brainstorm
-description: Interactively brainstorm a brand-new todo/ phase — scan existing phases, show a status overview, riff on proposals together, then write the phase doc.
+description: Interactively brainstorm a brand-new .midnite/tasks/ phase — scan existing phases, show a status overview, riff on proposals together, then write the phase doc.
 ---
 
 **Invoke with:** [optional: a topic/theme to seed the new phase, e.g. 'mobile app' or 'observability']
 
-You are running the **brainstorm** workflow for the **Midnite Studio** repo: an interactive, human-in-the-loop session that lands a **new `todo/phase-N-*.md`** plan. It's a back-and-forth — propose, let the user steer, refine over a few rounds, then write the doc. **Do not write the phase file until the user has converged on a direction** (Stage 5).
+You are running the **brainstorm** workflow for the **Midnite Studio** repo: an interactive, human-in-the-loop session that lands a **new `.midnite/tasks/phases/phase-N-*.md`** plan. It's a back-and-forth — propose, let the user steer, refine over a few rounds, then write the doc. **Do not write the phase file until the user has converged on a direction** (Stage 5).
 
 ## Context you must respect
 
-- Phase plans live in **`todo/`** (note: *not* `docs/todo/`), one file per phase: `phase-N-<slug>.md`. `docs/INITIAL_PLAN.md` is the design source of truth; `todo/README.md` has the conventions; `done.md` is the append-only completed log.
-- Match the **house style** of the existing phase docs (read a couple first — e.g. [`todo/phase-5-commit-graph.md`](../../../todo/phase-5-commit-graph.md), [`todo/phase-9-terminal-and-keybindings.md`](../../../todo/phase-9-terminal-and-keybindings.md)): a `# Phase N — Title` heading; a short framing paragraph up top (what this builds on + scope guardrails); a **Deliverables** checklist (grouped into lettered Themes if the phase is parallelisable); a **Verification** checklist; crib-file references where midnite/midnite-ui already solved the problem.
+- Phase plans live in **`.midnite/tasks/`** (note: *not* `docs/todo/`), one file per phase: `phase-N-<slug>.md`. `docs/INITIAL_PLAN.md` is the design source of truth; `.midnite/tasks/README.md` has the conventions; `done.md` is the append-only completed log.
+- Match the **house style** of the existing phase docs (read a couple first — e.g. [`.midnite/tasks/phases/phase-5-commit-graph.md`](../../../.midnite/tasks/phases/phase-5-commit-graph.md), [`.midnite/tasks/phases/phase-9-terminal-and-keybindings.md`](../../../.midnite/tasks/phases/phase-9-terminal-and-keybindings.md)): a `# Phase N — Title` heading; a short framing paragraph up top (what this builds on + scope guardrails); a **Deliverables** checklist (grouped into lettered Themes if the phase is parallelisable); a **Verification** checklist; crib-file references where midnite/midnite-ui already solved the problem.
 - Respect `CLAUDE.md` and `docs/INITIAL_PLAN.md` (package boundaries — `shared ◀ git-engine ◀ desktop`, `shared ◀ app`; shared is the IPC contract; git-engine stays electron-free) — proposals must fit the architecture, not fight it.
 - **Checkboxes** start unchecked (`- [ ]`) in a fresh plan — this is net-new work, nothing is done yet.
 
@@ -18,10 +18,10 @@ You are running the **brainstorm** workflow for the **Midnite Studio** repo: an 
 
 ## 🔭 Stage 1 — Scan & show the overview (do this BEFORE prompting for anything)
 
-The scan is read-heavy — **every** `todo/phase-*.md` (a couple of dozen files) plus git/PR state — so **delegate it to a single read-only subagent** (a dedicated read-only sub-task, if your CLI supports spawning one) and keep the raw file dumps out of this conversation. You only need the digest it returns to render the table.
+The scan is read-heavy — **every** `.midnite/tasks/phases/phase-*.md` (a couple of dozen files) plus git/PR state — so **delegate it to a single read-only subagent** (a dedicated read-only sub-task, if your CLI supports spawning one) and keep the raw file dumps out of this conversation. You only need the digest it returns to render the table.
 
 1. **Dispatch one scan subagent** with these instructions; have it return a structured per-phase digest:
-   - Read **every** `todo/phase-*.md` (actually read them, don't guess from filenames) and skim `open-decisions.md` / `outstanding.md`. For each phase capture: number, title, a one-clause summary, theme spread, and the done-vs-outstanding split.
+   - Read **every** `.midnite/tasks/phases/phase-*.md` (actually read them, don't guess from filenames) and skim `open-decisions.md` / `outstanding.md`. For each phase capture: number, title, a one-clause summary, theme spread, and the done-vs-outstanding split.
    - **Compute completion per phase:** count `- [x]`/`✅` (done) vs `- [ ]` (outstanding); `completion% = round(100 × done / (done + outstanding))`. **Exclude** items marked `OUT OF SCOPE` or `deferred`/`⏳` from the denominator (not in-scope work). A phase whose items are all `✅ DONE` is 100%.
    - **Gather git state** (part of the status picture — a phase may be further along than its checkboxes if work is committed-but-unmerged or in a PR): `git status --short`, `git branch --show-current`, `git log --oneline -15`, `gh pr list --state open`, `git worktree list`. If `gh` isn't available/authed, note it and fall back to branch + log only — don't fail. **Map each open PR / unmerged branch / worktree to the phase/theme it advances.**
    - **Return** structured text (not raw file contents): one row per phase — `{ number, title, summary, done%, doneCount, outstandingCount, inFlight: "PR #N" | branch | "—" }` — plus a git-state line (current branch, uncommitted-work flag, open-PR count) and the highest phase number seen.
@@ -61,10 +61,10 @@ The scan is read-heavy — **every** `todo/phase-*.md` (a couple of dozen files)
 
 ## 📝 Stage 5 — Write the phase doc
 
-1. Write `todo/phase-N-<slug>.md`, matching the house style (see Stage 1 context): `# Phase N — Title`, framing blockquotes (build-on + scope guardrails + an effort-tag legend), **Themes** with `- [ ]` checklist items and S/M/L tags, a **Files this phase touches** map (link real paths with markdown links), a **Verification** checklist, and **Decisions / open questions** capturing what came up in the brainstorm (with your recommendations; mark any the user already settled as resolved).
+1. Write `.midnite/tasks/phases/phase-N-<slug>.md`, matching the house style (see Stage 1 context): `# Phase N — Title`, framing blockquotes (build-on + scope guardrails + an effort-tag legend), **Themes** with `- [ ]` checklist items and S/M/L tags, a **Files this phase touches** map (link real paths with markdown links), a **Verification** checklist, and **Decisions / open questions** capturing what came up in the brainstorm (with your recommendations; mark any the user already settled as resolved).
 2. Use clickable markdown links for file/section references (relative paths), per this repo's convention.
 3. **Do not** mark anything done, and **do not** touch `done.md` (nothing's built yet). Don't start implementing — this command only produces the plan.
-4. **Register the phase in [`todo/_INDEX.md`](../../../todo/_INDEX.md) — required.** The index is the roll-up `$midnite-exec` scans to pick work; a phase that isn't in it is invisible (and `$midnite-exec` has no row to bump when a theme later lands). Add both:
+4. **Register the phase in [`.midnite/tasks/_INDEX.md`](../../../.midnite/tasks/_INDEX.md) — required.** The index is the roll-up `/midnite-exec` scans to pick work; a phase that isn't in it is invisible (and `/midnite-exec` has no row to bump when a theme later lands). Add both:
    - A **new row at the TOP of the `## Phases` table** (the table is newest-first — highest phase number first): `| [N · Title](phase-N-<slug>.md) | ◻ TODO | 0/<total> | \`░░░░░░░░░░\` | 0% | — | <all theme letters> |`, where `<total>` is the count of `- [ ]` items you just wrote and **every** theme letter goes in the `◻ TODO` column (nothing WIP or done yet).
    - A **new section at the TOP of the `## Theme key`** list: `### [Phase N — Title](phase-N-<slug>.md)`, an optional one-line italic framing, then one `- ◻ **X** — <one-liner>` per theme (mirroring the checklist).
    - If the new phase changes the "live frontier" summary, update the **Headline** paragraph too.
@@ -73,7 +73,7 @@ The scan is read-heavy — **every** `todo/phase-*.md` (a couple of dozen files)
 
 The new plan is a doc-only change and belongs in the **source of truth**, so commit it to `main` automatically (no PR needed — this matches how the other phase docs land; CLAUDE.md allows committing trivial doc changes straight to `main`).
 
-1. **Land it on `main`.** Ensure you're committing against `main` (if the session is on a feature branch/worktree, switch to or target the primary checkout's `main`). Stage **both tracker files by explicit path** — `git add todo/phase-N-<slug>.md todo/_INDEX.md` (the new doc **and** its index row/theme-key entry from Stage 5.4) — never `git add -A`/`.` (it can sweep unrelated or worktree-admin files). Commit with a conventional message ending in the required trailer:
+1. **Land it on `main`.** Ensure you're committing against `main` (if the session is on a feature branch/worktree, switch to or target the primary checkout's `main`). Stage **both tracker files by explicit path** — `git add .midnite/tasks/phases/phase-N-<slug>.md .midnite/tasks/_INDEX.md` (the new doc **and** its index row/theme-key entry from Stage 5.4) — never `git add -A`/`.` (it can sweep unrelated or worktree-admin files). Commit with a conventional message ending in the required trailer:
    ```
    docs: add phase-N <slug> plan (+ index row)
 
@@ -83,13 +83,13 @@ The new plan is a doc-only change and belongs in the **source of truth**, so com
    (Use the executing model's standard co-author trailer.)
    Then `git push origin main`. (If the push races another loop's `_INDEX.md` edit: `git pull --rebase origin main`, reconcile the table, re-push.)
 2. **Clean up before continuing.** Remove any scratch/intermediate files the brainstorm created, and confirm a clean state with `git status` — the working tree should be clean, and both the new doc **and** its `_INDEX.md` row present on `main` (and pushed). If anything unexpected is staged or dirty, stop and show the user rather than committing it.
-3. **Drift guard — run before you report done.** Prove the new phase actually reached the index (Stage 5.4 is easy to skip; a doc with no row is invisible to `$midnite-exec` and renders as stale everywhere). This one-liner flags any `phase-*.md` with no `## Phases` row — it must print nothing:
+3. **Drift guard — run before you report done.** Prove the new phase actually reached the index (Stage 5.4 is easy to skip; a doc with no row is invisible to `/midnite-exec` and renders as stale everywhere). This one-liner flags any `phase-*.md` with no `## Phases` row — it must print nothing:
    ```bash
-   for f in todo/phase-*.md; do n=${f#todo/phase-}; n=${n%%-*}; \
-     grep -qE "^\| \[$n ·" todo/_INDEX.md || echo "DRIFT: phase $n absent from _INDEX.md"; done
+   for f in .midnite/tasks/phases/phase-*.md; do n=${f#.midnite/tasks/phases/phase-}; n=${n%%-*}; \
+     grep -qE "^\| \[$n ·" .midnite/tasks/_INDEX.md || echo "DRIFT: phase $n absent from _INDEX.md"; done
    ```
    If it names your phase (or any other), add the missing row + theme-key entry (Stage 5.4) and re-commit before finishing.
-3. Tell the user the file path + the commit/push result, give a 2–3 line recap, and suggest that `$midnite-exec` is how they'd later pick up a slice of it.
+3. Tell the user the file path + the commit/push result, give a 2–3 line recap, and suggest that `/midnite-exec` is how they'd later pick up a slice of it.
 
 ---
 
