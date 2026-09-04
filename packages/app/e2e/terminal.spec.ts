@@ -1231,6 +1231,10 @@ test.describe('terminal panel', () => {
  */
 test.describe('phase 15 screenshots', () => {
   test('the panel, and the panel maximized', async ({ page }) => {
+    // Phase 56 Theme F: this test exists to produce the two PNGs below, so
+    // ungated it rewrote them on every routine `app:e2e` run rather than an
+    // explicit regeneration.
+    test.skip(!process.env.MSTUDIO_SHOTS, 'set MSTUDIO_SHOTS=1 to regenerate');
     await open(page, { terminalSessions: RESTORED });
     await toggleTerminal(page);
 
@@ -1300,16 +1304,22 @@ test.describe('phase 21 screenshots', () => {
     await expect(header.locator('[title]').first()).toHaveText(
       '~/midnite-studio/.worktrees/theme-f/packages/app',
     );
-    await header.screenshot({ path: '../../docs/screenshots/phase-21-terminal-header.png' });
+    // Phase 56 Theme F: the truncation assertions above are this test's real
+    // coverage, so only the screenshots are gated.
+    if (process.env.MSTUDIO_SHOTS) {
+      await header.screenshot({ path: '../../docs/screenshots/phase-21-terminal-header.png' });
+    }
 
     // Narrow enough that the ancestors have to give way — which is the whole
     // reason the path truncates from the left rather than the right. The tail
     // is what survives, and the tail is where you are.
     await page.setViewportSize({ width: 640, height: 800 });
     await page.waitForTimeout(300);
-    await header.screenshot({
-      path: '../../docs/screenshots/phase-21-terminal-header-narrow.png',
-    });
+    if (process.env.MSTUDIO_SHOTS) {
+      await header.screenshot({
+        path: '../../docs/screenshots/phase-21-terminal-header-narrow.png',
+      });
+    }
   });
 
   /**
@@ -1338,9 +1348,13 @@ test.describe('phase 21 screenshots', () => {
       about which session each one belongs to.
     */
     const list = panel(page);
-    await list.screenshot({
-      path: '../../docs/screenshots/phase-21-live-agent-before.png',
-    });
+    // Phase 56 Theme F: the probe assertions above are this test's real
+    // coverage, so only the screenshots are gated.
+    if (process.env.MSTUDIO_SHOTS) {
+      await list.screenshot({
+        path: '../../docs/screenshots/phase-21-live-agent-before.png',
+      });
+    }
 
     // What main's probe found: Codex running in the plain shell, and nothing at
     // all in the session that was opened for Claude Code.
@@ -1348,9 +1362,11 @@ test.describe('phase 21 screenshots', () => {
     await emitAgentChanged(page, null, 'pty-2');
     await page.waitForTimeout(200);
 
-    await list.screenshot({
-      path: '../../docs/screenshots/phase-21-live-agent-after.png',
-    });
+    if (process.env.MSTUDIO_SHOTS) {
+      await list.screenshot({
+        path: '../../docs/screenshots/phase-21-live-agent-after.png',
+      });
+    }
   });
 
   /**

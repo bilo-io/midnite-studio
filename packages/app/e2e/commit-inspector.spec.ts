@@ -307,6 +307,11 @@ test('the file list and the diff can be resized against each other', async ({ pa
  * open. Written to `docs/screenshots/phase-12/`, alongside the earlier phases'.
  */
 test('screenshot the inspector', async ({ page }) => {
+  // Phase 56 Theme F: this test exists to produce the two PNGs below, so
+  // ungated it rewrote them on every routine `app:e2e` run rather than an
+  // explicit regeneration — the same reason `footer-monitor.spec.ts`'s own
+  // `screenshots` test gates itself this way.
+  test.skip(!process.env.MSTUDIO_SHOTS, 'set MSTUDIO_SHOTS=1 to regenerate');
   await page.setViewportSize({ width: 1440, height: 900 });
   await openCommit(page);
 

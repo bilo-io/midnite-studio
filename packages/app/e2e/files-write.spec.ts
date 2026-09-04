@@ -43,7 +43,12 @@ test('right-click on a file offers New/Rename/Delete/Reveal/Copy', async ({ page
   await expect(page.getByRole('menuitem', { name: 'Copy Relative Path' })).toBeVisible();
   // A file cannot contain children.
   await expect(page.getByRole('menuitem', { name: 'New File' })).toHaveCount(0);
-  await page.screenshot({ path: '../../docs/screenshots/phase-24-c/context-menu.png' });
+  // Phase 56 Theme F: this test's own assertions are the coverage, so only
+  // the incidental screenshot is gated — an unconditional skip would drop
+  // real functional coverage on every routine run.
+  if (process.env.MSTUDIO_SHOTS) {
+    await page.screenshot({ path: '../../docs/screenshots/phase-24-c/context-menu.png' });
+  }
 });
 
 test('right-click on empty tree space offers only New File/New Folder', async ({ page }) => {
@@ -69,7 +74,9 @@ test('New File creates an inline row, pre-filled and selected, that becomes a re
   await expect(input).toBeVisible();
   await expect(input).toHaveValue('Untitled');
   await expect(input).toBeFocused();
-  await page.screenshot({ path: '../../docs/screenshots/phase-24-c/inline-create.png' });
+  if (process.env.MSTUDIO_SHOTS) {
+    await page.screenshot({ path: '../../docs/screenshots/phase-24-c/inline-create.png' });
+  }
 
   await input.fill('notes.md');
   await input.press('Enter');
@@ -171,7 +178,9 @@ test('deleting a directory counts its contents before showing the confirm', asyn
   // `src` holds one 64-byte file — the dirStats walk over the mock's own fsDirs.
   await expect(dialog).toContainText('1 file, 64 B');
   await expect(dialog.getByText('Checking what this affects…')).toHaveCount(0);
-  await page.screenshot({ path: '../../docs/screenshots/phase-24-c/delete-confirm.png' });
+  if (process.env.MSTUDIO_SHOTS) {
+    await page.screenshot({ path: '../../docs/screenshots/phase-24-c/delete-confirm.png' });
+  }
   await dialog.getByRole('button', { name: 'Delete' }).click();
 
   await expect(page.getByRole('treeitem', { name: /^src$/ })).toHaveCount(0);
