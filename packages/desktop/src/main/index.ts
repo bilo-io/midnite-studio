@@ -68,6 +68,9 @@ import { createCouncilsStore } from './councils-store';
 import { configureWorkflows, getWorkflowRunHistoryCap } from './workflow-service';
 import { createWorkflowsStore } from './workflows-store';
 import { createWorkflowRunsStore } from './workflow-runs-store';
+import { registerVideoHandlers } from './ipc/video-handlers';
+import { configureVideo, stopAllVideoProcesses } from './video-service';
+import { createProjectsStore as createVideoProjectsStore } from './video/projects-store';
 import { stopDemoApi } from './demo-api/server';
 import { migrateAnyLegacyRepoStore } from './userdata-migration';
 import { installMgitFileProtocol, registerMgitFileScheme } from './fs-protocol';
@@ -286,6 +289,7 @@ if (!app.requestSingleInstanceLock()) {
     registerCouncilHandlers();
     registerLoopRunsHandlers();
     registerWorkflowHandlers();
+    registerVideoHandlers();
     registerDemoApiHandlers();
     registerUpdater(getWindow);
     registerReleaseNotesHandlers();
@@ -326,6 +330,7 @@ if (!app.requestSingleInstanceLock()) {
       createWorkflowRunsStore(userData, getWorkflowRunHistoryCap),
       getWindow,
     );
+    configureVideo(createVideoProjectsStore(userData), getWindow);
     configureDiagnostics(createTrustStore(userData));
     configureTests(createTestTrustStore(userData));
 
@@ -481,6 +486,10 @@ if (!app.requestSingleInstanceLock()) {
   app.on('before-quit', (event) => {
     stopAllWatchers();
     destroyAllBrowserTabs();
+    // A `remotion studio` or an in-flight render surviving the app is a port
+    // leak / an orphaned headless Chrome the user cannot see — Theme C's own
+    // doc names this exact wiring as its one open item, owned by Theme H.
+    stopAllVideoProcesses();
     /*
       Fire-and-forget: `closeAllConnections()` inside makes the close immediate
       rather than waiting out a keep-alive socket, and the demo API holds no

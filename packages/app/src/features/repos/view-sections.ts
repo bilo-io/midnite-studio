@@ -212,6 +212,7 @@ export const VIEW_FILTERS: Record<ViewId, ViewFilter> = {
   history: WORK_IN_PROGRESS,
   councils: WORK_IN_PROGRESS,
   workflows: WORK_IN_PROGRESS,
+  video: WORK_IN_PROGRESS,
   sessions: WORK_IN_PROGRESS,
   settings: WORK_IN_PROGRESS,
 };

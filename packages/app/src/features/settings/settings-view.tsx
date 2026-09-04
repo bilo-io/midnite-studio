@@ -23,6 +23,7 @@ import { SearchSettingsPage } from './settings-pages/search-page';
 import { SidebarPage } from './settings-pages/sidebar-page';
 import { TerminalPage } from './settings-pages/terminal-page';
 import { UpdatesPage } from './settings-pages/updates-page';
+import { VideoSettingsPage } from './settings-pages/video-page';
 import { WorkflowsPage } from './settings-pages/workflows-page';
 
 /**
@@ -44,6 +45,7 @@ const PAGE_CONTENT: Record<SettingsPageId, () => React.ReactNode> = {
   reviews: () => <ReviewsPage />,
   projects: () => <ProjectsPage />,
   workflows: () => <WorkflowsPage />,
+  video: () => <VideoSettingsPage />,
   gitSafety: () => <GitSafetyPage />,
   monitor: () => <MonitorPage />,
   browser: () => <BrowserPage />,
