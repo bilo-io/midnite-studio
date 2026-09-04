@@ -165,11 +165,32 @@ test('the cluster sheds width before the bar can overflow', async ({ page }) => 
   await openWithAgent(page);
   await page.setViewportSize({ width: 1400, height: 800 });
   await expect(page.getByTestId('titlebar-agents')).toHaveAttribute('data-density', 'full');
+  /*
+    Wait for the breadcrumb's page label to fold away before measuring. It is
+    on screen for the first few seconds after a navigation and then collapses
+    (`.breadcrumb-page-label` in `styles.css`), which is a change in the bar's
+    own width demand — a walk that straddles it is measuring two different
+    bars, and could see a narrower step give way to a wider one purely because
+    the label went. Waiting on the attribute rather than the duration keeps the
+    3s out of this file.
+  */
+  await expect(page.locator('.breadcrumb-page-label').last()).toHaveAttribute(
+    'data-revealed',
+    'false',
+  );
 
   const RANK = { full: 2, compact: 1, collapsed: 0 } as const;
   let previous = RANK.full;
 
-  for (let width = 1400; width >= 1060; width -= 40) {
+  /*
+    The floor was 1060px until the title bar gave back the ~120px its wordmark
+    and that wordmark's divider used to hold: the cluster now has room to stay
+    `full` down to ~960px, and only reaches `collapsed` below that. The number
+    is a floor for the walk, not an assertion about any particular width —
+    what is asserted is still the invariant at every step, plus `collapsed`
+    by the end.
+  */
+  for (let width = 1400; width >= 900; width -= 40) {
     await page.setViewportSize({ width, height: 800 });
 
     /*

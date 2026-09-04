@@ -1121,6 +1121,11 @@ function Shell() {
       windowChrome={windowChrome}
       left={
         <div className="flex min-w-0 items-center">
+          {/*
+            No brand here. It named an app you have already launched, in the
+            space the breadcrumbs need — and the rail's own mark is on screen
+            at every width, so the way home is not lost with it.
+          */}
           <TitleBarNav />
           <span aria-hidden className="mx-1.5 h-4 w-px shrink-0 bg-border" />
           <SyncActions />
