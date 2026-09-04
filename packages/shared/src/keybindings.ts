@@ -29,7 +29,8 @@ export type CommandGroup =
   | 'graph'
   | 'operation'
   | 'palette'
-  | 'files';
+  | 'files'
+  | 'window';
 
 /**
  * Where a command is allowed to fire. The terminal swallows almost every
@@ -255,6 +256,18 @@ export const COMMANDS = [
   // own Run button (Theme F) is already one click away once the view is open.
   { id: 'workflow.run', label: 'Run Workflow', group: 'view' },
   { id: 'view.video', label: 'Go to Video Studio', group: 'view' },
+  /**
+   * Multi-window (Phase 55). One chord for the common case — detach whichever
+   * panel currently has the top-left morph focus/hover — plus four chord-free
+   * palette rows for a specific panel. `Mod+Shift+d` is unused: the
+   * `Mod+Shift+` space is nearly exhausted (a, e, f, g, i, l, p, r, t, u taken)
+   * and `Mod+m`/`Mod+Alt+l` are forbidden by assertion (see `ipc.test.ts`).
+   */
+  { id: 'window.detachActive', label: 'Detach Active Panel', group: 'window', chord: 'Mod+Shift+d' },
+  { id: 'window.detachTerminal', label: 'Detach Terminal', group: 'window' },
+  { id: 'window.detachRepos', label: 'Detach Git Repos', group: 'window' },
+  { id: 'window.detachFab', label: 'Detach Loops Panel', group: 'window' },
+  { id: 'window.detachBrowser', label: 'Detach Browser', group: 'window' },
 ] as const satisfies readonly CommandDescriptorInput[];
 
 export type CommandDescriptor = (typeof COMMANDS)[number];
@@ -317,6 +330,7 @@ export const TERMINAL_YIELD_COMMANDS: readonly CommandId[] = [
   'panel.back',
   'panel.forward',
   'fab.toggle',
+  'window.detachActive',
 ];
 
 export const isCommandId = (value: string): value is CommandId =>

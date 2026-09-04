@@ -10,10 +10,11 @@ import {
 import { restrictToHorizontalAxis, restrictToParentElement } from '@dnd-kit/modifiers';
 import { SortableContext, horizontalListSortingStrategy } from '@dnd-kit/sortable';
 import { useEffect, useRef, useState, type ReactNode } from 'react';
-import { LuChevronRight, LuGlobe, LuPlus, LuX } from 'react-icons/lu';
+import { LuChevronRight, LuGlobe, LuPlus, LuSquareArrowOutUpRight, LuX } from 'react-icons/lu';
 
 import { ContextMenu, type MenuItem, type MenuPosition } from '../../components/context-menu';
 import { useDialogs } from '../../components/dialog-host';
+import { IconButton } from '../../components/icon-button';
 import { MidniteIcon } from '../../components/icons/midnite-icon';
 import { Tooltip } from '../../components/tooltip';
 import { useSortableRow } from '../../components/sortable-list';
@@ -57,6 +58,10 @@ const CLOSE_GROUP_CONFIRM_THRESHOLD = 3;
  * the same group appearing twice rather than corrupting anything.
  */
 export function BrowserTabStrip() {
+  // This exact strip renders inside the Browser popout too (`DetachedRoot`
+  // reuses `<BrowserPane>` verbatim) — the detach button would otherwise
+  // advertise "detach me into a window" while already being one.
+  const isPopout = (bridge()?.windowRole ?? 'main') !== 'main';
   const tabs = useBrowserStore((s) => s.tabs);
   const groups = useBrowserStore((s) => s.groups);
   const activeTabId = useBrowserStore((s) => s.activeTabId);
@@ -115,6 +120,15 @@ export function BrowserTabStrip() {
         aria-label="Browser tabs"
         className="flex shrink-0 items-stretch overflow-x-auto border-b border-border bg-card/40"
       >
+        {!isPopout && (
+          <IconButton
+            icon={LuSquareArrowOutUpRight}
+            label="Detach Browser into its own window"
+            size="sm"
+            className="my-auto ml-1 shrink-0"
+            onClick={() => bridge()?.window.detach({ role: 'browser' })}
+          />
+        )}
         <SortableContext items={tabs.map((t) => t.id)} strategy={horizontalListSortingStrategy}>
           {segments.map((segment, index) =>
             segment.groupId === null ? (

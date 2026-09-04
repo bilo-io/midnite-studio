@@ -1,7 +1,9 @@
-import { ipcMain } from 'electron';
+import { ipcMain, type BrowserWindow } from 'electron';
 import type { z } from 'zod';
 
 import { failure, type GitOpResult } from '@midnite/studio-shared';
+
+import { resolveWindow } from '../window-manager';
 
 /**
  * Register an `invoke` handler that validates its payload before doing anything.
@@ -46,4 +48,26 @@ export function handleOp<S extends z.ZodTypeAny>(
 /** A handler taking no payload. */
 export function handleBare<R>(channel: string, handler: () => Promise<R> | R): void {
   ipcMain.handle(channel, () => handler());
+}
+
+/**
+ * Like {@link handle}, but also resolves the `BrowserWindow` that sent the
+ * call (Phase 55) — for the handful of handlers where two windows can
+ * legitimately ask for different answers. `resolveWindow` returns `null` for
+ * a webContents Electron cannot map back to a window (a destroyed window
+ * mid-teardown); handlers treat that the same as no window at all.
+ */
+export function handleFromSender<S extends z.ZodTypeAny, R>(
+  channel: string,
+  schema: S,
+  handler: (payload: z.output<S>, win: BrowserWindow | null) => Promise<R> | R,
+  onInvalid: (issue: string) => R,
+): void {
+  ipcMain.handle(channel, async (event, raw: unknown) => {
+    const parsed = schema.safeParse(raw);
+    if (!parsed.success) {
+      return onInvalid(`${channel}: ${parsed.error.issues[0]?.message ?? 'invalid payload'}`);
+    }
+    return handler(parsed.data, resolveWindow(event.sender));
+  });
 }

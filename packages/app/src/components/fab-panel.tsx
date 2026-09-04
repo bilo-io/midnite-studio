@@ -1,7 +1,10 @@
 import { DEFAULT_LOOPS } from '@midnite/studio-shared';
 import { useEffect } from 'react';
 import type { CSSProperties } from 'react';
+import { LuSquareArrowOutUpRight } from 'react-icons/lu';
 
+import { BrandMark } from './brand';
+import { IconButton } from './icon-button';
 import { loopGlowColor } from '../features/loops/loop-glow';
 import { loopIcon } from '../features/loops/loop-icons';
 import { LoopTab } from '../features/loops/loop-tab';
@@ -9,6 +12,7 @@ import { useAllLoopStatuses, type LoopStatus } from '../features/loops/loop-stat
 import { useLoopRuns } from '../features/loops/use-loop-runs';
 import { useTerminalStore } from '../features/terminal/terminal-store';
 import { useWindowFocusGate } from '../lib/use-window-focus-gate';
+import { bridge } from '../services/bridge';
 import { useUiStore, type FabTab } from '../store/ui-store';
 
 interface FabPanelProps {
@@ -48,6 +52,10 @@ function loopGlowState(status: LoopStatus | undefined): LoopGlowState {
  * so editing a `/loop …` field in Settings ▸ Agent changes what the tab runs.
  */
 export function FabPanel({ isOpen, width, fitSignal }: FabPanelProps) {
+  // This exact panel renders inside the Loops popout too (`DetachedRoot`
+  // reuses it verbatim) — the detach button would otherwise advertise
+  // "detach me into a window" while already being one.
+  const isPopout = (bridge()?.windowRole ?? 'main') !== 'main';
   const activeFabTab = useUiStore((s) => s.activeFabTab);
   const onTabClick = useUiStore((s) => s.onFabTabClick);
   const statuses = useAllLoopStatuses(LOOP_IDS);
@@ -71,8 +79,42 @@ export function FabPanel({ isOpen, width, fitSignal }: FabPanelProps) {
         data-loop-state={loopState}
         data-loops-running={anyRunning ? 'true' : 'false'}
       >
-        {/* Tab Bar */}
-        <div className="flex border-b border-border shrink-0">
+        {/*
+          Tab Bar — the detach control rides in the SAME row as the loop tabs
+          (a leading brand-mark/button slot, exactly `terminal-header.tsx`'s
+          `HeaderMark` hover-morph) rather than a header row of its own.
+
+          A dedicated header cost real `shrink-0` height that this panel does
+          not have to spare: the loop tabs' terminal pane already lives on
+          whatever the composer above it leaves behind (`flex-1 min-h-0`), and
+          a 28px header pushed that remainder low enough that xterm's own
+          `clientHeight === 0` open-guard (`terminal-view.tsx`) started
+          rejecting it — the pane never rendered `.xterm-screen` at all. This
+          row was already there, so folding the button into it costs nothing.
+        */}
+        <div className="group flex border-b border-border shrink-0">
+          <div className="relative flex w-8 shrink-0 items-center justify-center">
+            <span
+              aria-hidden
+              className="pointer-events-none absolute flex items-center justify-center transition-opacity group-hover:opacity-0"
+            >
+              <BrandMark className="h-4 w-4" />
+            </span>
+            {!isPopout && (
+              <IconButton
+                icon={LuSquareArrowOutUpRight}
+                label="Detach Loops Panel into its own window"
+                size="sm"
+                className="opacity-0 transition-opacity group-hover:opacity-100"
+                onClick={() => {
+                  // Collapses the dock so the floating FAB button reappears
+                  // (dimmed) rather than sitting open beside its own popout.
+                  useUiStore.getState().setFabPanelOpen(false);
+                  bridge()?.window.detach({ role: 'fab' });
+                }}
+              />
+            )}
+          </div>
           {DEFAULT_LOOPS.map((loop, index) => {
             const Icon = loopIcon(loop.icon);
             const status = statuses[index];

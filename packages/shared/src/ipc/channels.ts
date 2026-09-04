@@ -585,6 +585,19 @@ export const CHANNELS = {
    * a hard refresh that bypasses the HTTP cache (`webContents.reloadIgnoringCache`).
    */
   windowReload: 'mstudio:window:reload',
+
+  // --- multi-window (Phase 55) -----------------------------------------------
+  /** Detach a panel role into its own `BrowserWindow`, creating it if needed. */
+  windowDetach: 'mstudio:window:detach',
+  /** Re-dock a popout's panel back into the main window, closing the popout. */
+  windowDock: 'mstudio:window:dock',
+  /** Every currently-open window, main included. */
+  windowList: 'mstudio:window:list',
+  /** Focus (and un-minimize) the window hosting a role, without detaching it. */
+  windowFocusRole: 'mstudio:window:focus-role',
+  /** Subscribe this window to one pty's output — see `pty-service.ts`'s registry. */
+  ptySubscribe: 'mstudio:pty:subscribe',
+  ptyUnsubscribe: 'mstudio:pty:unsubscribe',
 } as const;
 
 /** One-way pushes from main → renderer (`webContents.send`). */
@@ -666,6 +679,13 @@ export const EVENT_CHANNELS = {
   videoRenderProgress: 'mstudio:video:render-progress',
   updateState: 'mstudio:update:state',
   deepLink: 'mstudio:protocol:deep-link',
+  /**
+   * The open-window list changed — a popout was created, closed, or re-docked.
+   * Its own name rather than `windowStateChanged`, which already means
+   * maximize/fullscreen/focus for the frameless `<TitleBar>` and has three
+   * live consumers keyed on that shape.
+   */
+  windowsChanged: 'mstudio:window:windows-changed',
 } as const;
 
 /**
@@ -692,6 +712,17 @@ export const WINDOW_FRAMELESS_ARG = '--mstudio-frameless=';
  * silently wrong the moment that rule bends.
  */
 export const APP_VERSION_ARG = '--mstudio-app-version=';
+
+/**
+ * CLI switch carrying a popout's `WindowRole` from main into the preload.
+ *
+ * Not a `?window=<role>` query string: this is the established mechanism for
+ * per-window facts (see `WINDOW_FRAMELESS_ARG`/`APP_VERSION_ARG`), it arrives
+ * typed at the bridge boundary, and it survives `loadFile` in the packaged
+ * build where there is no query string to carry. Absent or unrecognised falls
+ * back to `'main'` — see `main.tsx`.
+ */
+export const WINDOW_ROLE_ARG = '--mstudio-window-role=';
 
 export type ChannelName = (typeof CHANNELS)[keyof typeof CHANNELS];
 export type EventChannelName = (typeof EVENT_CHANNELS)[keyof typeof EVENT_CHANNELS];

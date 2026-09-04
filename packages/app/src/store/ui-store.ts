@@ -523,6 +523,25 @@ export type UiState = {
   /** Whether the FAB panel is open. */
   fabPanelOpen: boolean;
   /**
+   * Whether each of the four detachable panels (Phase 55) is currently
+   * showing in its own popout window rather than docked in the main one.
+   * Main-window-local — a popout's own `ui-store` instance never reads these.
+   *
+   * NOT persisted, deliberately: a popout is never recreated on launch (main
+   * only ever restores itself), so a `true` saved before quitting is
+   * guaranteed stale the next time the app opens — same reasoning
+   * `browserLauncherOpen` above gives for staying unpersisted. `use-window-
+   * sync.ts` corrects these from main's own window registry at runtime, but
+   * only after an async round trip; starting from the wrong default would
+   * flash a spurious "detached" placeholder over a panel that is actually
+   * docked until that correction lands.
+   */
+  terminalDetached: boolean;
+  reposDetached: boolean;
+  fabDetached: boolean;
+  browserDetached: boolean;
+  setDetached: (role: 'terminal' | 'repos' | 'fab' | 'browser', detached: boolean) => void;
+  /**
    * Whether the commit-activity timeline is shown. A flat boolean like
    * `browserOpen`; WHERE it shows is `activityTimelineOrientation`'s call —
    * a vertical panel beside the repositories, or a strip above the status bar.
@@ -1242,6 +1261,16 @@ export const useUiStore = create<UiState>()(
       browserLayout: 'full',
       browserLauncherOpen: false,
       fabPanelOpen: false,
+      terminalDetached: false,
+      reposDetached: false,
+      fabDetached: false,
+      browserDetached: false,
+      setDetached: (role, detached) => {
+        if (role === 'terminal') set({ terminalDetached: detached });
+        else if (role === 'repos') set({ reposDetached: detached });
+        else if (role === 'fab') set({ fabDetached: detached });
+        else set({ browserDetached: detached });
+      },
       activityTimelineOpen: false,
       activityTimelineStyle: 'bars',
       activityTimelineOrientation: 'vertical',

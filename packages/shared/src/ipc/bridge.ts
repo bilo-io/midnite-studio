@@ -14,6 +14,8 @@ import type {
   StatusCounts,
   StatusResult,
   WatchEvent,
+  WindowDescriptor,
+  WindowRole,
   Worktree,
 } from '../domain';
 import type { CommandId } from '../keybindings';
@@ -450,6 +452,13 @@ export type MidniteStudioBridge = {
       req: In<typeof S.PtySnapshotRequest>,
     ) => Promise<z.infer<typeof S.PtySnapshotResponse>>;
     /**
+     * Subscribe THIS window to one pty's output (Phase 55) — `ptyData`/`ptyExit`
+     * otherwise reach only the main window. A popout terminal calls this once
+     * per session it renders; `unsubscribe` on unmount.
+     */
+    subscribe: (req: In<typeof S.PtySubscribeRequest>) => void;
+    unsubscribe: (req: In<typeof S.PtyUnsubscribeRequest>) => void;
+    /**
      * Terminal output. Bytes cross the boundary as a `Uint8Array` via structured
      * clone — no base64 round-trip (the app is in-process; only a WebSocket path
      * would need one), so xterm gets the raw bytes and multi-byte UTF-8 split
@@ -877,7 +886,27 @@ export type MidniteStudioBridge = {
     ) => Unsubscribe;
     /** `false` for a plain reload, `true` to bypass the HTTP cache. */
     reload: (hard: boolean) => void;
+    /** Detach a panel role into its own window, creating it if needed. */
+    detach: (req: In<typeof S.WindowDetachRequest>) => void;
+    /** Re-dock a popout's panel and close the popout. */
+    dock: (req: In<typeof S.WindowDockRequest>) => void;
+    /** Focus (and un-minimize) the window hosting a role. */
+    focusRole: (req: In<typeof S.WindowFocusRoleRequest>) => void;
+    /** Every currently-open window, main included. */
+    list: () => Promise<WindowDescriptor[]>;
+    /** The open-window list changed. */
+    onWindowsChanged: (
+      handler: (e: z.infer<typeof S.WindowsChangedEvent>) => void,
+    ) => Unsubscribe;
   };
+
+  /**
+   * This window's own role — `'main'` for the primary window, or the popout
+   * role it was created with. A scalar, not a channel: it never changes for
+   * the life of the renderer and is read from `additionalArguments` at
+   * preload time (see `WINDOW_ROLE_ARG`).
+   */
+  windowRole: WindowRole;
 
   /** Implements `@bilo-io/shell`'s WindowChromeBridge for <TitleBar>. */
   windowChrome: WindowChromeBridge;

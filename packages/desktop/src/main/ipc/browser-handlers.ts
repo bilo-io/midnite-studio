@@ -1,4 +1,4 @@
-import { ipcMain, type BrowserWindow } from 'electron';
+import { ipcMain } from 'electron';
 
 import { CHANNELS, ok, schemas } from '@midnite/studio-shared';
 
@@ -18,7 +18,7 @@ import {
   stopFindInBrowserTab,
   toggleBrowserDevTools,
 } from '../browser-service';
-import { handle, handleBare } from './handle';
+import { handleBare, handleFromSender } from './handle';
 
 /**
  * Registers the `mstudio:browser:*` channels over `browser-service.ts`.
@@ -27,13 +27,16 @@ import { handle, handleBare } from './handle';
  * view failed to spin up); everything else is a one-way `ipcMain.on`, same
  * as `pty.input`/`pty.resize` — a bounds update fires every animation frame
  * while dragging, and a round-trip would only add latency to typing a URL.
+ *
+ * `create` is sender-resolved (Phase 55), not bound to the main window: a
+ * `Mod+t` fired inside the browser popout must attach its new tab to that
+ * window, not silently open it back in main.
  */
-export function registerBrowserHandlers(getWindow: () => BrowserWindow | null): void {
-  handle(
+export function registerBrowserHandlers(): void {
+  handleFromSender(
     CHANNELS.browserCreate,
     schemas.BrowserCreateRequest,
-    async ({ tabId, url }) => {
-      const win = getWindow();
+    async ({ tabId, url }, win) => {
       if (!win) return { ok: false as const, message: 'No window' };
       createBrowserTab(win, tabId, url);
       return { ok: true as const };

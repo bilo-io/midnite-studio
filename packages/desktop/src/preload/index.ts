@@ -8,11 +8,14 @@ import {
   EVENT_CHANNELS,
   MSTUDIO_PERF_MARK,
   WINDOW_FRAMELESS_ARG,
+  WINDOW_ROLE_ARG,
+  WindowRoleSchema,
   perfEnabled,
   type DesktopPlatform,
   type MidniteStudioBridge,
   type Unsubscribe,
   type WindowChromeBridge,
+  type WindowRole,
 } from '@midnite/studio-shared';
 
 /**
@@ -58,6 +61,13 @@ const frameless = framelessArg?.slice(WINDOW_FRAMELESS_ARG.length) === '1';
 // current one.
 const versionArg = process.argv.find((a) => a.startsWith(APP_VERSION_ARG));
 const appVersion = versionArg?.slice(APP_VERSION_ARG.length) || '0.0.0';
+
+// Same route as the two above: only main knows which role a popout was
+// created for. An unrecognised or absent value falls back to `'main'` — the
+// switch is only ever passed by `window-manager.ts`'s `createRoleWindow`.
+const roleArg = process.argv.find((a) => a.startsWith(WINDOW_ROLE_ARG));
+const parsedRole = WindowRoleSchema.safeParse(roleArg?.slice(WINDOW_ROLE_ARG.length));
+const windowRole: WindowRole = parsedRole.success ? parsedRole.data : 'main';
 
 /**
  * The `@bilo-io/shell` WindowChromeBridge implementation backing <TitleBar>.
@@ -126,6 +136,7 @@ const bridge: Pick<
   | 'watch'
   | 'window'
   | 'windowChrome'
+  | 'windowRole'
   | 'menu'
   | 'cli'
   | 'update'
@@ -278,6 +289,8 @@ const bridge: Pick<
     resize: (req) => ipcRenderer.send(CHANNELS.ptyResize, req),
     kill: (req) => ipcRenderer.send(CHANNELS.ptyKill, req),
     snapshot: (req) => call(CHANNELS.ptySnapshot, req),
+    subscribe: (req) => ipcRenderer.send(CHANNELS.ptySubscribe, req),
+    unsubscribe: (req) => ipcRenderer.send(CHANNELS.ptyUnsubscribe, req),
     onData: (handler) => subscribe(EVENT_CHANNELS.ptyData, handler),
     onExit: (handler) => subscribe(EVENT_CHANNELS.ptyExit, handler),
     onAgentChanged: (handler) => subscribe(EVENT_CHANNELS.ptyAgentChanged, handler),
@@ -440,6 +453,11 @@ const bridge: Pick<
     getState: () => ipcRenderer.invoke(CHANNELS.windowState),
     onStateChange: (handler) => subscribe(EVENT_CHANNELS.windowStateChanged, handler),
     reload: (hard) => ipcRenderer.send(CHANNELS.windowReload, hard),
+    detach: (req) => ipcRenderer.send(CHANNELS.windowDetach, req),
+    dock: (req) => ipcRenderer.send(CHANNELS.windowDock, req),
+    focusRole: (req) => ipcRenderer.send(CHANNELS.windowFocusRole, req),
+    list: () => call(CHANNELS.windowList),
+    onWindowsChanged: (handler) => subscribe(EVENT_CHANNELS.windowsChanged, handler),
   },
   menu: {
     onCommand: (handler) => subscribe(EVENT_CHANNELS.menuCommand, handler),
@@ -469,6 +487,7 @@ const bridge: Pick<
     onDeepLink: (handler) => subscribe(EVENT_CHANNELS.deepLink, handler),
   },
   windowChrome,
+  windowRole,
 };
 
 try {

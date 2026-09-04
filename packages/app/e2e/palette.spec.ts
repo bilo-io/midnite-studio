@@ -99,8 +99,13 @@ test('typing narrows the list across groups', async ({ page }) => {
   await search(page).fill('terminal');
 
   const options = palette(page).getByRole('option');
-  await expect(options).toHaveCount(3);
-  await expect(options).toContainText(['Toggle Terminal', 'Focus Terminal', 'Settings: Terminal']);
+  await expect(options).toHaveCount(4);
+  await expect(options).toContainText([
+    'Toggle Terminal',
+    'Focus Terminal',
+    'Detach Terminal',
+    'Settings: Terminal',
+  ]);
 });
 
 test('ArrowDown and Enter run the selected command and close the palette', async ({ page }) => {
