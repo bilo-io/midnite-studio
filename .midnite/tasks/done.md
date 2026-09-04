@@ -2,6 +2,34 @@
 
 <!-- Append one entry per landed phase/PR: date, phase, PR link, one-line summary. -->
 
+## 2026-09-04 — Phase 54 Themes F+G — Add to project, and the two issue writes
+
+[PR TBD]. Closes a deferral three phases old ([Phase 50 Theme E](phases/phase-50-kanban-projects-followthrough.md)
+shipped "Add to project ▸" for pull requests only, explicitly blocked on an Issues surface to
+attach it to) and gives the Issues view a write surface — comment, and close/reopen, and only
+those two.
+
+- [x] **Theme F** — `IssueActionBar`'s "Add to project ▸" reuses `useAddProjectItem()` and the
+      board picker `ReviewActionBar` already built, with no changes to either. Requires the node
+      `id` Theme A put on `ForgeIssueSchema` ahead of needing it.
+- [x] **Theme G** — Two new writes and only two: `forgeIssueComment`/`forgeIssueSetState`
+      channels, `gh-write.ts`'s `issueCommentCommand`/`issueSetStateCommand` (plain `gh issue
+      comment`/`close`/`reopen` subcommands, not `gh-project-write.ts`'s `--input -` JSON pattern
+      the doc's draft named — corrected once written). Comment invalidates the conversation only;
+      close/reopen invalidates the detail *and* the list prefix, since the header's state pill
+      reads the `issue` prop sourced from the list.
+- [x] Both gated on the existing `forgeWritesEnabled` switch — no new gate — which meant fixing
+      the Reviews settings page's own "it never writes to issues" claim, now false.
+- [x] Updated [Phase 50](phases/phase-50-kanban-projects-followthrough.md)'s Theme E entry and
+      [Phase 52](phases/phase-52-projects-navigation.md)'s deferral note to record the blocker is
+      gone, rather than leaving two docs asserting a limitation that no longer holds.
+- [x] Tests: `issue-action-bar.test.tsx` (8 cases — the gate, comment success/refusal/empty-body,
+      close, reopen, both Add-to-project cases), `gh-write.test.ts` (command construction),
+      `ipc.test.ts`'s whole-index forge-channel guard extended. `moon run :typecheck :lint :test`
+      green (234 files / 2128 tests in app).
+- [x] Self-review (background `code-review` pass) found nothing — traced the list-invalidation
+      claim above against `IssuesView`'s actual `selected` derivation to confirm it.
+
 ## 2026-09-04 — Phase 54 Themes C+D — The Issues view, and its registration
 
 [PR #126]. Three phases (19, 50, 52) had each deferred issue work with the same sentence:
