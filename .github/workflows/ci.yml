@@ -82,8 +82,7 @@ jobs:
   # attempts at the 60s CI test timeout. 9 x 3 x 60s is half an hour of pure
   # failure on one worker. The chords are fixed now; with eight shards each
   # running roughly an eighth of the suite in well under 3 minutes, 10 minutes
-  # is generous headroom for one retry (Theme D) while still failing fast on a
-  # real hang.
+  # is generous headroom for retries while still failing fast on a real hang.
   e2e:
     runs-on: ubuntu-24.04
     timeout-minutes: 10

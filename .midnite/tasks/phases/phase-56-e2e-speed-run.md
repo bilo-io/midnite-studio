@@ -63,7 +63,7 @@ thrashing.
 - [ ] Document the measured results in the phase verification log.
 - [ ] If `workers: 2` demonstrates a net wall-clock reduction without increasing flake, adopt `workers: process.env.CI ? 2 : undefined` (or maintain worker tuning in `ci.yml`). If oversubscription degrades stability, keep workers at 1 and document why.
 
-### D — Retry trim: 2 → 1 in CI (S) ✅ DONE (PR #148, 2026-09-04)
+### D — Retry trim: 2 → 1 in CI (S) ◐ ATTEMPTED, REVERTED (PR #148, 2026-09-04)
 
 Phase 38 introduced `retries: process.env.CI ? 2 : 0` to absorb infrastructure variance. However, each
 retry costs a full 60-second test timeout. With `KNOWN_RED` down to a single remaining file, a failed spec
@@ -71,7 +71,7 @@ currently burns up to 3 minutes (attempt + 2 retries) on a single worker.
 
 - [x] In [`packages/app/playwright.config.ts`](../../../packages/app/playwright.config.ts), adjust retries to `retries: process.env.CI ? 1 : 0`.
 - [x] Update the comment explaining the balance: 1 retry absorbs transient runner variance without allowing failing tests to burn 3 minutes per shard.
-- [x] Confirm in CI that a single retry remains sufficient to keep the passing baseline green. All 8 shards passed in PR #148's own CI run under the new value.
+- [ ] Confirm in CI that a single retry remains sufficient to keep the passing baseline green. **Disproved, not confirmed.** `titlebar-agents.spec.ts`'s "reduced motion keeps a running launcher glow and full opacity" — not in `KNOWN_RED`, previously reliable on `main` across many recent runs — failed twice in a row on two independent full CI re-runs under `retries: 1`, while passing clean 77/77 in an exact local reproduction of the same shard (`--shard=8/8 --workers=1`). That is the one-run-in-two infrastructure variance `retries` exists to absorb, and one retry wasn't enough margin for this spec. **Reverted to `retries: process.env.CI ? 2 : 0`** pending either a real fix for this spec's own timing sensitivity or a second CI data set showing the trim is safe — see `done.md` and the base config's own comment.
 
 ### E — Vite dev server build cache in CI (S) ✅ DONE (PR #148, 2026-09-04)
 

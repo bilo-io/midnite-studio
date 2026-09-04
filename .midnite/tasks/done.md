@@ -2,16 +2,17 @@
 
 <!-- Append one entry per landed phase/PR: date, phase, PR link, one-line summary. -->
 
-## 2026-09-04 — Phase 56 Themes A, B, D, E — E2E shard scale-up, fullyParallel, retry trim, Vite cache
+## 2026-09-04 — Phase 56 Themes A, B, E — E2E shard scale-up, fullyParallel, Vite cache (D reverted)
 
-[PR #148]. The four deterministic, config-only levers on e2e wall-clock speed, ahead of the
-`workers: 2` trial (Theme C, needs a live multi-run comparison) and the screenshot-gating/shots-helper
-work (Themes F/G, which touch 25 spec files each).
+[PR #148]. Three of four config-only levers on e2e wall-clock speed landed; the fourth (retry trim)
+was tried and reverted on real CI evidence. `workers: 2` (Theme C, needs a live multi-run comparison)
+and the screenshot-gating/shots-helper work (Themes F/G, which touch 25 spec files each) are left for
+later batches.
 
 - [x] **A** — e2e shard matrix 4 → 8 on `ubuntu-24.04`, `timeout-minutes` 20 → 10 (an eighth of the
-      suite fits well inside 3 minutes; 10 gives headroom for one retry before failing a real hang
-      fast). Measured on PR #148's own CI run: 3m24s–5m17s per shard, all 8 green — down from the
-      6m39s–7m30s baseline at 4 shards.
+      suite fits well inside 3 minutes; 10 gives generous headroom for retries before failing a real
+      hang fast). Measured on PR #148's own CI run: 3m24s–5m17s per shard, all 8 green — down from
+      the 6m39s–7m30s baseline at 4 shards.
 - [x] **B** — `fullyParallel: true` in `playwright.config.ts`, inherited by `playwright.ci.config.ts`
       (which spreads the base config object rather than overriding the key). No spec uses
       `beforeAll`/`afterAll`/`describe.serial`, so nothing relied on file-scoped test ordering — a
@@ -19,8 +20,16 @@ work (Themes F/G, which touch 25 spec files each).
       reproduced as pre-existing flakiness in isolation (2 are `graph-themes.spec.ts` cascade specs
       already carried in `playwright.ci.config.ts`'s `KNOWN_RED` as CI-only-red/local-green and
       excluded from the CI-blocking task; the third, a `fab-loops.spec.ts` spec, passed 3/3 standalone).
-- [x] **D** — CI retries 2 → 1 in `playwright.config.ts`, now that `KNOWN_RED` is down to a single
-      file — a failing spec no longer burns up to 3 minutes per shard, just up to 2.
+- **D — attempted, reverted.** CI retries 2 → 1 in `playwright.config.ts` looked safe after the first
+      CI run (8/8 shards green under the new value) but a second full CI run — triggered only by an
+      unrelated docs-only rebase, no code change — failed `titlebar-agents.spec.ts`'s "reduced motion
+      keeps a running launcher glow and full opacity" twice in a row (original run + one full re-run),
+      a spec not in `KNOWN_RED` and reliable across many recent runs on `main`. An exact local
+      reproduction of the failing shard (`--shard=8/8 --config=playwright.ci.config.ts --workers=1`)
+      passed 77/77 clean, confirming this is CI-runner-only variance, not a real regression from A/B/E.
+      That is exactly the one-run-in-two infrastructure flake the retry mechanism exists to absorb —
+      trimming it to one attempt removed the margin this specific spec needs. Reverted to `retries:
+      process.env.CI ? 2 : 0` pending either a real timing fix for that spec or a larger CI data set.
 - [x] **E** — `actions/cache@v4` for `packages/app/node_modules/.vite` in `ci.yml`, keyed on the
       lockfile, `vite.config.ts` and a hash of `packages/app/src/**`, with an OS-scoped
       `restore-keys` fallback. First run on the branch was necessarily a cold cache; the win applies
