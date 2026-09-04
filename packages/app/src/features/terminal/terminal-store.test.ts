@@ -410,6 +410,7 @@ describe('useTerminalStore', () => {
           rows: number;
           activity?: 'thinking' | 'waiting' | 'idle' | null;
         } | null;
+        legacy?: boolean;
       }[],
       ptyCreate: () => void,
     ) => {
@@ -496,6 +497,38 @@ describe('useTerminalStore', () => {
       expect(state.states['s-2']).toBe('exited');
       expect(state.replay['s-2']).toEqual(scrollback);
       expect(state.reattachedCount).toBe(0);
+    });
+
+    // Phase 51 Theme G: a legacy broker session with a bound pty binds to
+    // 'open' exactly like a same-run live row above — main already reports
+    // it that way (see `terminal-service.ts`'s own comment: "a legacy pty
+    // still reports live... but is marked asleep by it" — the "it" being the
+    // renderer's own `sessionPhase`, which this theme stops doing). Nothing
+    // about hydrate's own live-binding logic needs to change; `sessionPhase`
+    // is the only place that used to special-case `legacy`.
+    it('binds a legacy row to open too, and records it as reattached', async () => {
+      mockBridge(
+        [
+          {
+            session: session('s-legacy'),
+            scrollback: new Uint8Array(),
+            live: { ptyId: 'pty-legacy', pid: 456, cols: 80, rows: 24 },
+            legacy: true,
+          },
+        ],
+        vi.fn(),
+      );
+
+      await useTerminalStore.getState().hydrate();
+
+      const state = useTerminalStore.getState();
+      expect(state.states['s-legacy']).toBe('open');
+      expect(state.legacy['s-legacy']).toBe(true);
+      expect(state.reattachedSessionIds).toEqual(['s-legacy']);
+      // The point of this theme: with a bound pty and an 'open' state, this
+      // reports live — not asleep just because it came from a legacy peer.
+      const restored = state.sessions.find((s) => s.id === 's-legacy');
+      expect(sessionPhase(restored!, state.states['s-legacy'])).toBe('live');
     });
   });
 });
@@ -600,10 +633,12 @@ describe('cleanAutoName', () => {
 });
 
 describe('sessionPhase', () => {
-  it('returns asleep for legacy broker sessions', () => {
-    expect(sessionPhase({ asleep: false, legacy: true }, 'open')).toBe('asleep');
-  });
-
+  // Phase 51 Theme G: a legacy broker session with a bound pty is a real,
+  // running process on a reachable socket — `legacy` is provenance ("from a
+  // previous run"), not a lifecycle state, and no longer forces `asleep`.
+  // `sessionPhase` itself takes no `legacy` field at all now; `terminal.list`
+  // still reports one as `state: 'open'` (verified in `hydrate`'s own tests),
+  // which is what makes this fall through to the ordinary `live` branch.
   it('returns asleep when session is flagged asleep regardless of connection state', () => {
     expect(sessionPhase({ asleep: true }, 'open')).toBe('asleep');
     expect(sessionPhase({ asleep: true }, 'exited')).toBe('asleep');

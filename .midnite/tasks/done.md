@@ -2,6 +2,37 @@
 
 <!-- Append one entry per landed phase/PR: date, phase, PR link, one-line summary. -->
 
+## 2026-09-04 — Phase 51 Theme G — Reattach that actually hands the session back
+
+[PR #131]. Closes the phase's build entirely — every theme (A–G) is now landed, six Verification
+bullets left as a human pass (real displays, a real relaunch, real megabyte pastes).
+
+- [x] `sessionPhase()` no longer folds a legacy broker session into `asleep`. A legacy peer with a
+      bound pty is a real, running process on a reachable socket — `asleep` was an honest label for
+      "we have not attached," not for "it is not running" — so it now falls through to the ordinary
+      `live` branch like any other open session.
+  - The moon glyph in `terminal-session-list.tsx` stays as a *provenance* mark ("from a previous
+    run"), checked independently of `phase` rather than folded into it: a legacy peer's broker is
+    on an older build and will not accept a `create`, which is worth keeping visible even once the
+    row reads `live`.
+- [x] The "Reattached N sessions" status-bar note is now clickable: `reattachedSessionIds` tracks
+      which sessions a `hydrate()` reattached, and clicking the note reveals the first one through
+      the existing `reveal-session.ts` panel-open path rather than a second navigation mechanism.
+- [x] The dead `attach` message is deleted from `protocol.ts`'s wire union — declared with **no
+      `case` in `handleControlMessage`**, so it always fell to `default:` and answered
+      `{ok:false, code:'protocol'}`, a documented capability the server never implemented. Reattach
+      is genuinely "hold a socket open and `list`," which already works.
+- [x] Tests: `terminal-store.test.ts` gains a legacy-opens-live case (binds to `open`, reports
+      `live`, lands in `reattachedSessionIds`); `reattached-note.test.tsx` covers the click-to-reveal
+      path end to end against the real stores; `terminal-session-list.test.tsx` covers the glyph
+      reading `legacy` independently of `phase`. **Scope trim:** no new `broker-client.test.ts`
+      cases — this theme's fix is entirely renderer-side plus a wire-type removal, nothing on the
+      desktop side changed behavior for the legacy-adoption path it already covered. No dedicated
+      protocol test asserts `attach` is gone from the union either — confirmed by grep that no
+      caller references it anywhere, and the union member's removal is enforced by
+      `moon run :typecheck` on every push. `moon run :typecheck :lint :test` green (234 files /
+      2145 tests).
+
 ## 2026-09-04 — Phase 54 Theme E — The filter toolbar, extracted rather than copied
 
 [PR #130]. Closes out Phase 54's build entirely — every theme (A-G) is now landed, two
