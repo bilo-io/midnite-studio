@@ -74,6 +74,7 @@ export function VideoProjectDetail({ projectId }: { projectId: string | null }) 
   const valid = project.data?.valid ? project.data : null;
   const brief = useVideoProjectFile(projectId, valid?.brief ?? null);
   const script = useVideoProjectFile(projectId, valid?.script ?? null);
+  const changelog = useVideoProjectFile(projectId, 'output/CHANGELOG.md');
 
   if (!projectId || !project.data) return null;
   if (!project.data.valid) {
@@ -197,6 +198,12 @@ export function VideoProjectDetail({ projectId }: { projectId: string | null }) 
           </ul>
         )}
         <VideoFileList projectId={projectId} area="output" emptyLabel="No output files yet." />
+        {changelog.data ? (
+          <div className="mt-3 space-y-1">
+            <h4 className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">Changelog</h4>
+            <MarkdownPreview content={changelog.data} />
+          </div>
+        ) : null}
       </section>
     </div>
   );

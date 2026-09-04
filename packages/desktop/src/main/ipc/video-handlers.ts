@@ -1,4 +1,4 @@
-import { CHANNELS, failure, ok, schemas } from '@midnite/studio-shared';
+import { CHANNELS, failure, schemas } from '@midnite/studio-shared';
 
 import {
   createVideoProject,

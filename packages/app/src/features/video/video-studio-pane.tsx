@@ -1,10 +1,12 @@
 import { useEffect, useRef } from 'react';
-import { LuClapperboard, LuOctagonAlert, LuPlay, LuSquare, LuTriangleAlert } from 'react-icons/lu';
+import { LuClapperboard, LuExternalLink, LuOctagonAlert, LuPlay, LuSquare, LuTriangleAlert } from 'react-icons/lu';
 
 import { useBrowserBounds } from '../browser/use-browser-bounds';
 import { EmptyState } from '../../components/empty-state';
 import { Spinner } from '../../components/skeleton';
 import { bridge } from '../../services/bridge';
+import { useBrowserStore } from '../../store/browser-store';
+import { useUiStore } from '../../store/ui-store';
 import { useStartVideoStudio, useStopVideoStudio, useVideoStudioStatus, useVideoToolchain } from './use-video';
 
 /** Keyed by project id — one `WebContentsView` per hosted studio, never reused across projects. */
@@ -70,7 +72,8 @@ export function VideoStudioPane({ projectId }: { projectId: string | null }) {
     );
   }
 
-  switch (status.data.state) {
+  const currentStatus = status.data;
+  switch (currentStatus.state) {
     case 'stopped':
       return (
         <div className="flex h-full flex-col items-center justify-center gap-3">
@@ -99,7 +102,19 @@ export function VideoStudioPane({ projectId }: { projectId: string | null }) {
       return (
         <div className="relative flex h-full w-full flex-col">
           <div ref={ref} className="min-h-0 flex-1" />
-          <div className="absolute right-2 top-2">
+          <div className="absolute right-2 top-2 flex items-center gap-1.5">
+            <button
+              type="button"
+              onClick={() => {
+                useUiStore.getState().setBrowserOpen(true);
+                useBrowserStore.getState().openTab(currentStatus.url);
+              }}
+              className="flex items-center gap-1.5 rounded-md border border-border bg-card/90 px-2 py-1 text-[11px] text-foreground shadow-sm hover:bg-accent"
+              title="Open Remotion Studio in browser pane"
+            >
+              <LuExternalLink aria-hidden className="h-3 w-3" />
+              Open in tab
+            </button>
             <button
               type="button"
               onClick={() => stop.mutate(projectId)}
@@ -117,9 +132,9 @@ export function VideoStudioPane({ projectId }: { projectId: string | null }) {
         <div className="flex h-full flex-col items-center justify-center gap-3 p-6 text-center">
           <LuOctagonAlert aria-hidden className="h-8 w-8 text-destructive" />
           <p className="text-sm font-medium">The studio failed to start</p>
-          {status.data.stderr.length > 0 ? (
+          {currentStatus.stderr.length > 0 ? (
             <pre className="max-h-32 max-w-md overflow-auto rounded bg-card p-2 text-left text-[11px] text-muted-foreground">
-              {status.data.stderr.join('\n')}
+              {currentStatus.stderr.join('\n')}
             </pre>
           ) : null}
           <button

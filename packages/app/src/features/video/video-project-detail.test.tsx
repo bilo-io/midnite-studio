@@ -20,9 +20,12 @@ const VALID_PROJECT: VideoProject = {
 function installBridge(overrides: { renders?: VideoRender[] } = {}) {
   const cancel = vi.fn().mockResolvedValue({ ok: true });
   const startRender = vi.fn().mockResolvedValue({ ok: true, value: { id: 'r2', projectId: 'p1', compositionId: 'MyComp', status: 'queued', startedAt: 0 } });
-  const readFile = vi.fn().mockImplementation(({ relPath }: { relPath: string }) =>
-    Promise.resolve({ content: relPath === 'input/BRIEF.md' ? '# The brief' : '# The script' }),
-  );
+  const readFile = vi.fn().mockImplementation(({ relPath }: { relPath: string }) => {
+    if (relPath === 'input/BRIEF.md') return Promise.resolve({ content: '# The brief' });
+    if (relPath === 'EDITORIAL_SCRIPT.md') return Promise.resolve({ content: '# The script' });
+    if (relPath === 'output/CHANGELOG.md') return Promise.resolve({ content: '# The changelog' });
+    return Promise.resolve({ content: null });
+  });
   (window as unknown as { midniteStudio: Partial<MidniteStudioBridge> }).midniteStudio = {
     video: {
       project: { get: vi.fn().mockResolvedValue({ project: VALID_PROJECT }), list: vi.fn(), create: vi.fn(), remove: vi.fn() },
