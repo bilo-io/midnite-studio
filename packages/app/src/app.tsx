@@ -18,7 +18,6 @@ import { Brand, BrandHomeButton, BrandMark, Wordmark } from './components/brand'
 import { BrowserLauncher } from './features/browser/browser-launcher';
 import { BrowserPane } from './features/browser/browser-pane';
 import { DelayedFallback } from './components/delayed-fallback';
-import { DetachedPlaceholder } from './components/detached-placeholder';
 import { DialogHost } from './components/dialog-host';
 import { ToastHost } from './components/toast-host';
 import { VIEW_ICON } from './components/nav-icons';
@@ -534,6 +533,17 @@ function Shell() {
   const reposDetached = useUiStore((s) => s.reposDetached);
   const fabDetached = useUiStore((s) => s.fabDetached);
   const browserDetached = useUiStore((s) => s.browserDetached);
+  /*
+    A panel detaching into its own window collapses its docked slot exactly
+    like closing it — same tween, same "no placeholder" result — and
+    re-docking expands it again, because the `*Open` flag above is untouched
+    by detaching: it keeps tracking the user's own open/closed intent while
+    `*Detached` gates whether that intent is currently allowed to show here.
+  */
+  const reposDocked = reposOpen && !reposDetached;
+  const terminalDocked = terminalOpen && !terminalDetached;
+  const browserDocked = browserOpen && !browserDetached;
+  const fabPanelDocked = fabPanelOpen && !fabDetached;
   // The single source of truth for the four flags above is main's own
   // window registry (Phase 55) — see the hook's own doc for why.
   useWindowSync();
@@ -788,7 +798,9 @@ function Shell() {
     NOT one of these: it tweens opacity, not a size, and keeps `useReveal`.
   */
   const reposTween = useRevealSize({
-    open: reposOpen,
+    // Detaching collapses this slot the same way closing it does — see the
+    // `reposDocked` comment above.
+    open: reposDocked,
     // Zero while a drag is poised to close the panel — the same preview the
     // terminal and the FAB panel draw, and the same reason: past the minimum
     // the splitter stops following the pointer, so the pane going to nothing is
@@ -798,7 +810,7 @@ function Shell() {
     dragging: repos.dragging,
   });
   const terminalTween = useRevealSize<HTMLDivElement>({
-    open: terminalOpen,
+    open: terminalDocked,
     size: terminalFrameSize,
     axis: 'y',
     dragging: terminal.dragging,
@@ -810,29 +822,30 @@ function Shell() {
       the terminal's bottom edge trailing the window edge by `motionMs()`.
       Keying on the discrete open/maximize TOGGLE instead is what makes a
       live window resize apply instantly, at any size, exactly as it did
-      before this hook existed.
+      before this hook existed. `terminalDocked`, not raw `terminalOpen`, so a
+      detach/re-dock is its own discrete toggle too, exactly like open/close.
     */
-    animateKey: `${terminalOpen}:${terminalMaximized}`,
+    animateKey: `${terminalDocked}:${terminalMaximized}`,
   });
   /*
     The browser gets BOTH reveal primitives, one per layout, because the two
     layouts are structurally different panes: full screen is an overlay that
     fades (`useReveal`, opacity), side by side is a flex child that has to
     push the view aside as it arrives (`useRevealSize`, width). Both key on
-    the same `browserOpen`, so only the one matching the current layout is
+    the same `browserDocked`, so only the one matching the current layout is
     ever rendered — and a layout change mid-open finds the other already at
     its target, which is why switching does not replay an animation.
   */
-  const browserReveal = useReveal(browserOpen);
+  const browserReveal = useReveal(browserDocked);
   const browserSideBySide = browserLayout !== 'full';
   const browserTween = useRevealSize<HTMLDivElement>({
-    open: browserOpen,
+    open: browserDocked,
     size: browser.snap === 'collapse' ? 0 : browser.current,
     axis: 'x',
     dragging: browser.dragging,
   });
   const fabPanelTween = useRevealSize<HTMLDivElement>({
-    open: fabPanelOpen,
+    open: fabPanelDocked,
     size: fabPanel.snap === 'collapse' ? 0 : fabPanel.current,
     axis: 'x',
     dragging: fabPanel.dragging,
@@ -897,11 +910,14 @@ function Shell() {
         style={browserTween.style}
       >
         <div className="h-full" style={{ width: browser.current }}>
-          {browserDetached ? (
-            <DetachedPlaceholder role="browser" label="Browser" />
-          ) : (
-            <BrowserPane shown={browserTween.shown} />
-          )}
+          {/*
+            Guards the tail of the collapse tween, not the steady state: once
+            it settles, `browserTween.mounted` is already false and this whole
+            column is null. Mid-collapse the slot is still mounted but its
+            `WebContentsView` has already reparented to the popout (Phase 55),
+            so there is nothing here to show.
+          */}
+          {browserDetached ? null : <BrowserPane shown={browserTween.shown} />}
         </div>
       </div>
     ) : null;
@@ -1185,11 +1201,8 @@ function Shell() {
                 style={reposTween.style}
               >
                 <div className="h-full" style={{ width: repos.current }}>
-                  {reposDetached ? (
-                    <DetachedPlaceholder role="repos" label="Git Repos" />
-                  ) : (
-                    <ReposPanel />
-                  )}
+                  {/* Guards the tail of the collapse tween — see `browserColumn`'s. */}
+                  {reposDetached ? null : <ReposPanel />}
                 </div>
               </aside>
               <ResizeHandle resizable={repos} axis="x" label="Resize repositories sidebar" />
@@ -1367,9 +1380,8 @@ function Shell() {
                       clipped out of reach halfway through it.
                     */}
                     <div style={{ height: terminalTarget }}>
-                      {terminalDetached ? (
-                        <DetachedPlaceholder role="terminal" label="Terminal" />
-                      ) : (
+                      {/* Guards the tail of the collapse tween — see `browserColumn`'s. */}
+                      {terminalDetached ? null : (
                         <TerminalPanel
                           cwd={selectedWorktreePath}
                           repoId={selectedRepoId}
@@ -1397,11 +1409,8 @@ function Shell() {
             what leaves the footer — a sibling of the row, one level up — alone.
           */}
           {!browserSideBySide && browserReveal.mounted ? (
-            browserDetached ? (
-              <DetachedPlaceholder role="browser" label="Browser" />
-            ) : (
-              <BrowserPane shown={browserReveal.shown} />
-            )
+            // Guards the tail of the collapse tween — see `browserColumn`'s.
+            browserDetached ? null : <BrowserPane shown={browserReveal.shown} />
           ) : null}
 
           {/* FAB Panel (docked on right) */}
@@ -1416,9 +1425,8 @@ function Shell() {
                 className="shrink-0 overflow-hidden h-full"
                 style={fabPanelTween.style}
               >
-                {fabDetached ? (
-                  <DetachedPlaceholder role="fab" label="Midnite Loops" />
-                ) : (
+                {/* Guards the tail of the collapse tween — see `browserColumn`'s. */}
+                {fabDetached ? null : (
                   <FabPanel
                     isOpen={fabPanelOpen}
                     width={fabPanel.current}
@@ -1431,13 +1439,18 @@ function Shell() {
 
           {/*
             FAB Button — glows while any loop is live, ringed and haloed in
-            the active tab's arc. Hidden while the panel is open: the
-            statusbar's rightmost segment (`AssistantMenu`) wears the same
-            look in miniature for as long as the panel stays open, and the
-            two swap places with a FLIP transform (`fab-morph.ts`) rather
-            than one simply appearing where the other vanished.
+            the active tab's arc. Hidden while the panel is open AND docked:
+            the statusbar's rightmost segment (`AssistantMenu`) wears the same
+            look in miniature for as long as the panel stays open here, and
+            the two swap places with a FLIP transform (`fab-morph.ts`) rather
+            than one simply appearing where the other vanished. Detaching
+            collapses the docked slot but leaves `fabPanelOpen` itself
+            untouched (so re-docking can expand it straight back), which is
+            why this button also has to reappear on `fabDetached` alone —
+            without it, an open-when-detached panel would hide both the
+            docked slot and this, its only way back.
           */}
-          {!fabPanelOpen ? (
+          {!fabPanelOpen || fabDetached ? (
             <div className="absolute bottom-4 right-4 z-20 h-10 w-10">
               <FabLoopHalo tab={activeFabTab} />
               <button

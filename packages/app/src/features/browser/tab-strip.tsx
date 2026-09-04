@@ -10,10 +10,12 @@ import {
 import { restrictToHorizontalAxis, restrictToParentElement } from '@dnd-kit/modifiers';
 import { SortableContext, horizontalListSortingStrategy } from '@dnd-kit/sortable';
 import { useEffect, useRef, useState, type ReactNode } from 'react';
+import { createPortal } from 'react-dom';
 import { LuChevronRight, LuGlobe, LuPlus, LuSquareArrowOutUpRight, LuX } from 'react-icons/lu';
 
 import { ContextMenu, type MenuItem, type MenuPosition } from '../../components/context-menu';
 import { useDialogs } from '../../components/dialog-host';
+import { usePopoutHeaderActions } from '../../components/detached-window-frame';
 import { IconButton } from '../../components/icon-button';
 import { MidniteIcon } from '../../components/icons/midnite-icon';
 import { Tooltip } from '../../components/tooltip';
@@ -62,6 +64,10 @@ export function BrowserTabStrip() {
   // reuses `<BrowserPane>` verbatim) — the detach button would otherwise
   // advertise "detach me into a window" while already being one.
   const isPopout = (bridge()?.windowRole ?? 'main') !== 'main';
+  // Set only once popped out AND the window has a frameless title bar to
+  // merge into (`DetachedWindowFrame`) — otherwise this falls back to the
+  // header row below, same as a plain, un-merged popout always has.
+  const portalTarget = usePopoutHeaderActions();
   const tabs = useBrowserStore((s) => s.tabs);
   const groups = useBrowserStore((s) => s.groups);
   const activeTabId = useBrowserStore((s) => s.activeTabId);
@@ -108,6 +114,65 @@ export function BrowserTabStrip() {
     else segments.push({ groupId: id, tabs: [tab] });
   }
 
+  const tabList = (
+    <>
+      <SortableContext items={tabs.map((t) => t.id)} strategy={horizontalListSortingStrategy}>
+        {segments.map((segment, index) =>
+          segment.groupId === null ? (
+            segment.tabs.map((tab) => (
+              <BrowserTabButton key={tab.id} tab={tab} active={tab.id === activeTabId} />
+            ))
+          ) : (
+            <GroupChip
+              key={`${segment.groupId}:${index}`}
+              groupId={segment.groupId}
+              group={groups.find((g) => g.id === segment.groupId)}
+              repoName={
+                segment.groupId.startsWith('repo:')
+                  ? repoNameById.get(segment.groupId.slice('repo:'.length))
+                  : undefined
+              }
+              tabs={segment.tabs}
+              activeTabId={activeTabId}
+            />
+          ),
+        )}
+      </SortableContext>
+
+      <Tooltip label="New tab (Mod+T)">
+        <button
+          type="button"
+          aria-label="New tab"
+          onClick={() => useBrowserStore.getState().openTab()}
+          className="flex shrink-0 items-center px-2 text-muted-foreground transition-colors hover:bg-accent/30 hover:text-foreground"
+        >
+          <LuPlus aria-hidden className="h-3.5 w-3.5" />
+        </button>
+      </Tooltip>
+    </>
+  );
+
+  if (isPopout && portalTarget) {
+    // Merged into the window's own title bar (`DetachedWindowFrame`'s `left`
+    // already carries the hover-mark and "Browser") — the whole strip moves
+    // here verbatim, minus the detach button (replaced by hovering that
+    // mark), and drops the full-width border/background that made sense as
+    // a header row but not inside the bar's own action slot.
+    return createPortal(
+      <DndContext
+        sensors={sensors}
+        collisionDetection={closestCenter}
+        modifiers={[restrictToHorizontalAxis, restrictToParentElement]}
+        onDragEnd={onDragEnd}
+      >
+        <div role="tablist" aria-label="Browser tabs" className="flex items-stretch gap-0.5">
+          {tabList}
+        </div>
+      </DndContext>,
+      portalTarget,
+    );
+  }
+
   return (
     <DndContext
       sensors={sensors}
@@ -129,39 +194,7 @@ export function BrowserTabStrip() {
             onClick={() => bridge()?.window.detach({ role: 'browser' })}
           />
         )}
-        <SortableContext items={tabs.map((t) => t.id)} strategy={horizontalListSortingStrategy}>
-          {segments.map((segment, index) =>
-            segment.groupId === null ? (
-              segment.tabs.map((tab) => (
-                <BrowserTabButton key={tab.id} tab={tab} active={tab.id === activeTabId} />
-              ))
-            ) : (
-              <GroupChip
-                key={`${segment.groupId}:${index}`}
-                groupId={segment.groupId}
-                group={groups.find((g) => g.id === segment.groupId)}
-                repoName={
-                  segment.groupId.startsWith('repo:')
-                    ? repoNameById.get(segment.groupId.slice('repo:'.length))
-                    : undefined
-                }
-                tabs={segment.tabs}
-                activeTabId={activeTabId}
-              />
-            ),
-          )}
-        </SortableContext>
-
-        <Tooltip label="New tab (Mod+T)">
-          <button
-            type="button"
-            aria-label="New tab"
-            onClick={() => useBrowserStore.getState().openTab()}
-            className="flex shrink-0 items-center px-2 text-muted-foreground transition-colors hover:bg-accent/30 hover:text-foreground"
-          >
-            <LuPlus aria-hidden className="h-3.5 w-3.5" />
-          </button>
-        </Tooltip>
+        {tabList}
       </div>
     </DndContext>
   );

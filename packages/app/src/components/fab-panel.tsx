@@ -106,12 +106,7 @@ export function FabPanel({ isOpen, width, fitSignal }: FabPanelProps) {
                 label="Detach Loops Panel into its own window"
                 size="sm"
                 className="opacity-0 transition-opacity group-hover:opacity-100"
-                onClick={() => {
-                  // Collapses the dock so the floating FAB button reappears
-                  // (dimmed) rather than sitting open beside its own popout.
-                  useUiStore.getState().setFabPanelOpen(false);
-                  bridge()?.window.detach({ role: 'fab' });
-                }}
+                onClick={() => bridge()?.window.detach({ role: 'fab' })}
               />
             )}
           </div>
