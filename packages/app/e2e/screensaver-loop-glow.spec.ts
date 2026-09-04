@@ -45,6 +45,21 @@ test('stays off while idle, lights up once a loop is running, off again once it 
   await page.getByRole('button', { name: 'Lock screen' }).click();
   await expect(lockScreen(page)).toHaveAttribute('data-loops-running', 'true');
   await expect(lockScreen(page)).toHaveClass(/screensaver-panel-gradient/);
+
+  // The glow is one arc orbiting the edge, not a full static ring. Only the
+  // browser proves this half: `--fab-arc-from`/`--fab-arc-to` are registered
+  // `inherits: false`, so the value has to land on the *pseudo* — read it off
+  // `::before`'s computed style, where the mask actually consumes it, rather
+  // than off the host, where it would resolve whether or not the rule works.
+  const arc = await lockScreen(page).evaluate((el) => {
+    const style = getComputedStyle(el, '::before');
+    return {
+      from: style.getPropertyValue('--fab-arc-from').trim(),
+      to: style.getPropertyValue('--fab-arc-to').trim(),
+    };
+  });
+  expect(arc).toEqual({ from: '-90deg', to: '90deg' });
+
   await lockScreen(page).click({ position: { x: 2, y: 2 } });
   await expect(lockScreen(page)).toHaveCount(0);
 
