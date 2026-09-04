@@ -33,6 +33,41 @@ fractional cell height the WebGL renderer rounds per row.
       store). The live-apply wiring inside `terminal-view.tsx` has no test of its own, for the
       same live-xterm-context reason Theme A's `clearTextureAtlas()` wiring doesn't.
 
+## 2026-09-04 — Phase 52 Theme A + B + C + D — filter, group-by and sort for the Projects view
+
+[PR #116]. Phases 40, 41 and 50 each declined filtering, grouping and sorting in the same words;
+this phase stops declining. No new IPC channel, no schema change — every value was already
+client-side on `ForgeProjectItem`.
+
+- [x] **Theme A** — one filter toolbar (`filter.ts`), shared by Table and Board: `FilterInput` plus
+      four `MultiSelectMenu` facets (assignees, labels, type, state), the house "empty means
+      everyone" convention throughout. Landed `filterItems(items, filter)` without the doc's own
+      third `fields` parameter — no facet here reads a field's `dataType`, so it would have been
+      unused. Caught a real gap while writing the tests: `e2e/projects.spec.ts`'s own item fixture
+      was missing `body`/`labels` (zod's `.default([])`/`.default('')` masks this in production;
+      the mock e2e bridge skips validation and hands fixtures back verbatim) — the exact class of
+      bug `kanban.spec.ts`'s fixture already documents fixing once, now fixed here too.
+- [x] **Theme B** — `resolve-group-field.ts` replaces `findStatusField`'s literal `Status`-only
+      match; `deriveColumns` generalises to `iteration` fields, whose columns are discovered from
+      the items themselves (no fixed option list exists the way there is for `single_select`) —
+      which is also why grouping by iteration is **read-only**: `board-view.tsx` folds it into the
+      existing `writesEnabled` gate with a `disabledReason` string, reusing every already-tested
+      disabled-drag rendering path rather than a second one. The synthetic "No status" column
+      generalises to "No `<field name>`".
+- [x] **Theme C** — tri-state sortable table headers (`sort.ts`), one comparator per `dataType` —
+      option order for `single_select`, not alphabetical. No-value items (including an
+      unresolvable `single_select` option id) sort last in both directions. **Correction:**
+      iteration sorts by `title`, not "start-date" as drafted — the value schema carries no start
+      date, and this phase adds no schema field to invent one.
+- [x] **Theme D** — `projectViewByProject` in `ui-store.ts` (filter, group field, sort, collapsed
+      columns), keyed by `projectId` not `repoId` since one project is reachable from several
+      repos. Version bumped 6 → 7 with a seeding migration. Bounded by `project-view-lru.ts`'s
+      `touchProjectView`, relying on a plain object's key-insertion-order guarantee rather than a
+      second bookkeeping array.
+- [x] Screenshotted manually via a throwaway Playwright script against the real `mock-bridge` e2e
+      harness (not committed): table toolbar, search filtering, a sorted column, and Board mode
+      regrouped from Status to Priority — all confirmed working.
+
 ## 2026-09-04 — Phase 51 Theme A — text that survives a change of display
 
 [PR #115]. Opens Phase 51: `devicePixelRatio` was never read anywhere in this repo, so the WebGL
