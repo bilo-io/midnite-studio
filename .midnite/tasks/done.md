@@ -4,7 +4,7 @@
 
 ## 2026-09-04 — Phase 54 Themes F+G — Add to project, and the two issue writes
 
-[PR TBD]. Closes a deferral three phases old ([Phase 50 Theme E](phases/phase-50-kanban-projects-followthrough.md)
+[PR #128]. Closes a deferral three phases old ([Phase 50 Theme E](phases/phase-50-kanban-projects-followthrough.md)
 shipped "Add to project ▸" for pull requests only, explicitly blocked on an Issues surface to
 attach it to) and gives the Issues view a write surface — comment, and close/reopen, and only
 those two.
