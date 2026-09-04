@@ -1,10 +1,11 @@
 import type { Workflow } from '@midnite/studio-shared';
-import { useRef } from 'react';
+import { useRef, useState } from 'react';
 import { LuCopy, LuDownload, LuPlus, LuTrash2, LuUpload, LuWorkflow } from 'react-icons/lu';
 
 import type { MenuItem } from '../../components/context-menu';
 import { useDialogs } from '../../components/dialog-host';
 import { EmptyState } from '../../components/empty-state';
+import { FilterInput } from '../../components/filter-input';
 import { IconButton } from '../../components/icon-button';
 import { useToastStore } from '../../store/toast-store';
 import { useDeleteWorkflow, useSaveWorkflow, useWorkflows } from './use-workflow';
@@ -23,6 +24,10 @@ import {
  * rather than as always-visible buttons, matching every other list in this
  * app (`repos-panel.tsx`, `tab-strip.tsx`) rather than inventing a hover
  * toolbar for this one.
+ *
+ * **Phase 52 Theme E** adds a name filter — fine at three workflows, not at
+ * thirty. Reuses `FilterInput` verbatim (the same component Theme A adopted
+ * for the Projects toolbar) rather than a second search box.
  */
 export function WorkflowList({
   selectedId,
@@ -36,7 +41,10 @@ export function WorkflowList({
   const remove = useDeleteWorkflow();
   const dialogs = useDialogs();
   const fileInputRef = useRef<HTMLInputElement>(null);
-  const rows: Workflow[] = workflows.data ?? [];
+  const [query, setQuery] = useState('');
+  const all: Workflow[] = workflows.data ?? [];
+  const needle = query.trim().toLowerCase();
+  const rows = needle.length === 0 ? all : all.filter((w) => w.name.toLowerCase().includes(needle));
 
   const createNewWorkflow = () => {
     const workflow = createEmptyWorkflow(Date.now());
@@ -126,11 +134,19 @@ export function WorkflowList({
         />
       </div>
 
+      {all.length > 0 ? (
+        <div className="shrink-0 border-b border-border px-2 py-1.5">
+          <FilterInput value={query} onChange={setQuery} placeholder="Filter workflows…" />
+        </div>
+      ) : null}
+
       <div className="min-h-0 flex-1 overflow-auto">
         {workflows.isLoading ? (
           <p className="px-2 py-3 text-xs text-muted-foreground">Loading…</p>
-        ) : rows.length === 0 ? (
+        ) : all.length === 0 ? (
           <EmptyState icon={LuWorkflow} title="No workflows yet" body="Create one to get started." />
+        ) : rows.length === 0 ? (
+          <EmptyState icon={LuWorkflow} title="No matches" body="No workflow name matches this filter." />
         ) : (
           rows.map((workflow) => (
             <button

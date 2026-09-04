@@ -29,17 +29,19 @@ function formatDuration(ms: number): string {
 }
 
 /**
- * The right-hand pane's run-mode content (Theme G) — what `NodeInspector`
- * swaps for while a run is being viewed. Shows what `WorkflowNodeRun`
- * actually records: status, duration, output (with the executor's own
- * `truncated` flag surfaced rather than silently dropped, per Theme C's
- * rule), and an error. There is no per-node "input" here — the schema never
- * captured one, so nothing here pretends otherwise.
+ * The right-hand panel-stack's `'run'` entry content (Phase 43 Theme G;
+ * reached via `workflows-view.tsx`'s panel-stack navigation as of Phase 52
+ * Theme F) — a node's result for whichever run is being viewed. Shows what
+ * `WorkflowNodeRun` actually records: status, duration, output (with the
+ * executor's own `truncated` flag surfaced rather than silently dropped, per
+ * Theme C's rule), and an error. There is no per-node "input" here — the
+ * schema never captured one, so nothing here pretends otherwise. Carries no
+ * width or border of its own — see `node-inspector.tsx`'s identical note.
  */
 export function RunNodeDetail({ node }: { node: WorkflowNodeRun | null }) {
   if (!node) {
     return (
-      <div className="flex w-80 shrink-0 flex-col border-l border-border">
+      <div className="flex h-full flex-col">
         <EmptyState title="No node selected" body="Select a node on the canvas to see its result." />
       </div>
     );
@@ -50,7 +52,7 @@ export function RunNodeDetail({ node }: { node: WorkflowNodeRun | null }) {
   const duration = node.startedAt !== undefined && node.endedAt !== undefined ? node.endedAt - node.startedAt : null;
 
   return (
-    <div className="flex w-80 shrink-0 flex-col border-l border-border">
+    <div className="flex h-full flex-col">
       <div className="flex shrink-0 items-center gap-2 border-b border-border px-3 py-2">
         <Icon aria-hidden className="h-3.5 w-3.5 shrink-0 text-muted-foreground" />
         <span className="min-w-0 flex-1 truncate text-xs font-medium">{node.label}</span>
