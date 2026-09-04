@@ -208,6 +208,10 @@ function useGroupedRepos(repos: readonly RepoDescriptor[], query: string) {
  * count, so the tree answers "where did I leave off" without being opened.
  */
 export function ReposPanel() {
+  // This exact panel renders inside the Repos popout too (`DetachedRoot`
+  // reuses it verbatim) — the detach button would otherwise advertise
+  // "detach me into a window" while already being one.
+  const isPopout = (bridge()?.windowRole ?? 'main') !== 'main';
   const { data: repos = [], isLoading } = useRepos();
   const { pickAndOpen, isPending } = usePickAndOpenRepo();
   const reorderRepos = useReorderRepos();
@@ -274,7 +278,7 @@ export function ReposPanel() {
 
   return (
     <div className="flex h-full min-h-0 flex-col border-r border-border bg-card/40">
-      <header className="flex h-9 items-center gap-2 px-3">
+      <header className="group flex h-9 items-center gap-2 px-3">
         {/*
           "Git Repos", with the Git mark — word for word and glyph for glyph
           what the status bar's `ReposToggle` says, because that button is what
@@ -291,7 +295,23 @@ export function ReposPanel() {
           several sets.)
         */}
         <h2 className="flex min-w-0 flex-1 items-center gap-1.5 text-xs font-semibold uppercase tracking-wide text-muted-foreground">
-          <FaGitAlt aria-hidden className="h-3.5 w-3.5 shrink-0 text-[#F05032]" />
+          <div className="relative flex h-6 w-6 shrink-0 items-center justify-center normal-case">
+            <span
+              aria-hidden
+              className="pointer-events-none absolute flex items-center justify-center transition-opacity group-hover:opacity-0"
+            >
+              <FaGitAlt className="h-3.5 w-3.5 shrink-0 text-[#F05032]" />
+            </span>
+            {!isPopout && (
+              <IconButton
+                icon={LuSquareArrowOutUpRight}
+                label="Detach Git Repos into its own window"
+                size="sm"
+                className="opacity-0 transition-opacity group-hover:opacity-100"
+                onClick={() => bridge()?.window.detach({ role: 'repos' })}
+              />
+            )}
+          </div>
           <span className="truncate">Git Repos</span>
         </h2>
         {/*

@@ -67,6 +67,8 @@ import {
   TestRunResultSchema,
   TestTrustStatusSchema,
   WatchEventSchema,
+  WindowDescriptorSchema,
+  WindowRoleSchema,
   WorktreeSchema,
 } from '../domain';
 import {
@@ -1701,6 +1703,17 @@ export const WindowStateSchema = z.object({
   fullScreen: z.boolean(),
   focused: z.boolean(),
 });
+
+// --- multi-window (Phase 55) -------------------------------------------------
+
+export const WindowDetachRequest = z.object({ role: WindowRoleSchema });
+export const WindowDockRequest = z.object({ role: WindowRoleSchema });
+export const WindowListResponse = z.array(WindowDescriptorSchema);
+export const WindowFocusRoleRequest = z.object({ role: WindowRoleSchema });
+export const WindowsChangedEvent = z.object({ windows: z.array(WindowDescriptorSchema) });
+
+export const PtySubscribeRequest = z.object({ ptyId: z.string().min(1) });
+export const PtyUnsubscribeRequest = z.object({ ptyId: z.string().min(1) });
 
 // --- browser (Phase 32) -----------------------------------------------------
 

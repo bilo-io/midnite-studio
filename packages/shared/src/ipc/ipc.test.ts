@@ -792,6 +792,41 @@ describe('metrics schemas', () => {
   });
 });
 
+describe('window contract (Phase 55)', () => {
+  it('covers every window channel with a schema', () => {
+    const expected: Record<string, string[]> = {
+      // Pre-existing chrome channels (Phase 81) — no payload of their own
+      // except `windowState`'s response and `windowStateChanged`'s event.
+      windowMinimize: [],
+      windowMaximizeToggle: [],
+      windowClose: [],
+      windowState: ['WindowStateSchema'],
+      windowSetBackground: [],
+      windowReload: [],
+      windowStateChanged: ['WindowStateSchema'],
+      // Multi-window (Phase 55).
+      windowDetach: ['WindowDetachRequest'],
+      windowDock: ['WindowDockRequest'],
+      windowList: ['WindowListResponse'],
+      windowFocusRole: ['WindowFocusRoleRequest'],
+      windowsChanged: ['WindowsChangedEvent'],
+    };
+    const channelKeys = [...Object.keys(CHANNELS), ...Object.keys(EVENT_CHANNELS)].filter((key) =>
+      key.startsWith('window'),
+    );
+    expect(channelKeys.sort()).toEqual(Object.keys(expected).sort());
+    for (const names of Object.values(expected)) {
+      for (const name of names) expect(schemas).toHaveProperty(name);
+    }
+  });
+
+  it('WindowRoleSchema accepts exactly the four popout roles plus main', () => {
+    expect(schemas.WindowDetachRequest.safeParse({ role: 'terminal' }).success).toBe(true);
+    expect(schemas.WindowDetachRequest.safeParse({ role: 'main' }).success).toBe(true);
+    expect(schemas.WindowDetachRequest.safeParse({ role: 'bogus' }).success).toBe(false);
+  });
+});
+
 describe('stats schemas', () => {
   it('defaults to the 90-day window and to churn off', () => {
     // Churn off by default is the load-bearing half: `--numstat` makes git diff
@@ -944,19 +979,22 @@ describe('keybindings', () => {
     expect(GLOBAL_CHORDS).not.toContain('Mod+Shift+r');
   });
 
-  it('yields exactly the reload pair, the panel-history pair and the loop toggle to the shell, and nothing else', () => {
-    // Five wide on purpose: `app` scope does not, on its own, keep a chord out
+  it('yields exactly the reload pair, the panel-history pair, the loop toggle and detach-active to the shell, and nothing else', () => {
+    // Six wide on purpose: `app` scope does not, on its own, keep a chord out
     // of the terminal, and everything else is better off firing from there.
     // `panel.back`/`panel.forward` (Phase 42 Theme D) join the reload pair
     // for the same reason `Mod+R` does — `Mod+[` off macOS is `Ctrl+[`,
-    // which is `ESC` in every shell — and `fab.toggle` joins them off the back
-    // of taking `Mod+l`, which is `Ctrl+L`, i.e. clear-screen.
+    // which is `ESC` in every shell — `fab.toggle` joins them off the back
+    // of taking `Mod+l`, which is `Ctrl+L`, i.e. clear-screen — and
+    // `window.detachActive` (Phase 55) joins them for the same reason:
+    // `Mod+Shift+D` off macOS is `Ctrl+Shift+D`, meaningful inside a shell.
     expect([...TERMINAL_YIELD_COMMANDS].sort()).toEqual([
       'app.hardReload',
       'app.reload',
       'fab.toggle',
       'panel.back',
       'panel.forward',
+      'window.detachActive',
     ]);
     for (const command of TERMINAL_YIELD_COMMANDS) expect(isCommandId(command)).toBe(true);
   });
@@ -1112,6 +1150,18 @@ describe('terminal and pty schemas', () => {
     {
       name: 'PtySnapshotRequest',
       schema: schemas.PtySnapshotRequest,
+      valid: { ptyId: 'p1' },
+      invalid: [['no ptyId', {}], ['empty ptyId', { ptyId: '' }]],
+    },
+    {
+      name: 'PtySubscribeRequest',
+      schema: schemas.PtySubscribeRequest,
+      valid: { ptyId: 'p1' },
+      invalid: [['no ptyId', {}], ['empty ptyId', { ptyId: '' }]],
+    },
+    {
+      name: 'PtyUnsubscribeRequest',
+      schema: schemas.PtyUnsubscribeRequest,
       valid: { ptyId: 'p1' },
       invalid: [['no ptyId', {}], ['empty ptyId', { ptyId: '' }]],
     },
@@ -1305,6 +1355,8 @@ describe('terminal and pty schemas', () => {
       ptyResize: ['PtyResizeRequest'],
       ptyKill: ['PtyKillRequest'],
       ptySnapshot: ['PtySnapshotRequest'],
+      ptySubscribe: ['PtySubscribeRequest'],
+      ptyUnsubscribe: ['PtyUnsubscribeRequest'],
       ptyExit: ['PtyExitEvent'],
       ptyAgentChanged: ['PtyAgentChangedEvent'],
       ptyCommandChanged: ['PtyCommandChangedEvent'],

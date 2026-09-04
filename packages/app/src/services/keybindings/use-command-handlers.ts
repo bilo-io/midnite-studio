@@ -56,6 +56,30 @@ export function useCommandHandlers(): CommandRuntime {
   const selectedWorktreePath = useUiStore((s) => s.selectedWorktreePath);
   const activeView = useUiStore((s) => s.activeView);
   const browserOpen = useUiStore((s) => s.browserOpen);
+  const terminalOpen = useUiStore((s) => s.terminalOpen);
+  const fabPanelOpen = useUiStore((s) => s.fabPanelOpen);
+  const reposOpen = useUiStore((s) => s.reposOpen);
+  const terminalDetached = useUiStore((s) => s.terminalDetached);
+  const reposDetached = useUiStore((s) => s.reposDetached);
+  const fabDetached = useUiStore((s) => s.fabDetached);
+  const browserDetached = useUiStore((s) => s.browserDetached);
+  // The four *Detached flags and the panel-open flags below are main's own
+  // — a popout's own ui-store instance never reflects them (see ui-store.ts).
+  const isMainWindow = (bridge()?.windowRole ?? 'main') === 'main';
+  // `window.detachActive`'s target — the first open, undetached panel in a
+  // fixed priority order. There is no hover/focus tracking to say which
+  // panel a user actually means by "active", so this covers the common
+  // single-panel case rather than adding new state for it.
+  const activeDetachRole =
+    terminalOpen && !terminalDetached
+      ? ('terminal' as const)
+      : browserOpen && !browserDetached
+        ? ('browser' as const)
+        : fabPanelOpen && !fabDetached
+          ? ('fab' as const)
+          : reposOpen && !reposDetached
+            ? ('repos' as const)
+            : null;
   const workbenchActiveTabId = useWorkbenchStore((s) => s.activeTabId);
   const { data: repos } = useRepos();
   const selectedRepo = repos?.find((repo) => repo.id === selectedRepoId) ?? null;
@@ -128,6 +152,64 @@ export function useCommandHandlers(): CommandRuntime {
     'repos.toggle': { enabled: true, run: () => useUiStore.getState().toggleRepos() },
     'browser.toggle': { enabled: true, run: () => useUiStore.getState().toggleBrowser() },
     'fab.toggle': { enabled: true, run: () => useUiStore.getState().toggleFabPanel() },
+    /*
+      Multi-window (Phase 55). `detach<Role>` is enabled only while that panel
+      is docked — a detached panel's row is disabled with the standard
+      "already open" reason, same shape as every other disabled command here.
+      `detachActive` has no explicit notion of "which panel has focus" yet
+      (that needs hover/focus tracking the phase doc left open), so it picks
+      the first OPEN, undetached panel in a fixed priority order — terminal,
+      browser, loops, repos — which covers the common single-panel case
+      without new state.
+
+      All five are disabled outright OUTSIDE the main window: they read and
+      write main's OWN `ui-store` flags (`terminalOpen`, `*Detached`, …), which
+      a popout's own separate store instance never reflects. Without this
+      gate, `Mod+Shift+D` fired inside a popout resolves `activeDetachRole`
+      against that popout's stale, frozen-at-mount snapshot and can detach an
+      entirely different, still-docked panel the user never meant to touch.
+    */
+    'window.detachTerminal': !isMainWindow
+      ? { enabled: false, disabledReason: 'Only available in the main window', run: () => {} }
+      : terminalDetached
+        ? { enabled: false, disabledReason: 'Already open in a detached window', run: () => {} }
+        : { enabled: true, run: () => bridge()?.window.detach({ role: 'terminal' }) },
+    'window.detachRepos': !isMainWindow
+      ? { enabled: false, disabledReason: 'Only available in the main window', run: () => {} }
+      : reposDetached
+        ? { enabled: false, disabledReason: 'Already open in a detached window', run: () => {} }
+        : { enabled: true, run: () => bridge()?.window.detach({ role: 'repos' }) },
+    'window.detachFab': !isMainWindow
+      ? { enabled: false, disabledReason: 'Only available in the main window', run: () => {} }
+      : fabDetached
+        ? { enabled: false, disabledReason: 'Already open in a detached window', run: () => {} }
+        : {
+            enabled: true,
+            run: () => {
+              // Collapses the docked slot so the floating FAB button
+              // reappears (dimmed, per its own `fabDetached` read) rather
+              // than sitting open beside a popout that already shows the
+              // same panel.
+              useUiStore.getState().setFabPanelOpen(false);
+              bridge()?.window.detach({ role: 'fab' });
+            },
+          },
+    'window.detachBrowser': !isMainWindow
+      ? { enabled: false, disabledReason: 'Only available in the main window', run: () => {} }
+      : browserDetached
+        ? { enabled: false, disabledReason: 'Already open in a detached window', run: () => {} }
+        : { enabled: true, run: () => bridge()?.window.detach({ role: 'browser' }) },
+    'window.detachActive': !isMainWindow
+      ? { enabled: false, disabledReason: 'Only available in the main window', run: () => {} }
+      : activeDetachRole
+        ? {
+            enabled: true,
+            run: () => {
+              if (activeDetachRole === 'fab') useUiStore.getState().setFabPanelOpen(false);
+              bridge()?.window.detach({ role: activeDetachRole });
+            },
+          }
+        : { enabled: false, disabledReason: 'No open panel to detach', run: () => {} },
     'activity.toggle': {
       enabled: true,
       run: () => useUiStore.getState().toggleActivityTimeline(),

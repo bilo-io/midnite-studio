@@ -102,6 +102,22 @@ export function useTerminalIpc(session: TerminalSession, onData: (bytes: Uint8Ar
   }, [session.id, session.kind]);
 
   /**
+   * Subscribe THIS window to the session's pty output (Phase 55) — main and
+   * every popout rendering the same session both need this now that
+   * `ptyData`/`ptyExit` fan out per-subscriber rather than to a single
+   * hard-coded window (see `pty-service.ts`'s registry). Keyed on `ptyId`
+   * rather than `session.id`: it is only known once `start()` resolves, and a
+   * revived session gets a new one.
+   */
+  useEffect(() => {
+    if (!ptyId) return undefined;
+    const api = bridge();
+    if (!api) return undefined;
+    api.pty.subscribe({ ptyId });
+    return () => api.pty.unsubscribe({ ptyId });
+  }, [ptyId]);
+
+  /**
    * Start a shell for this session. Safe to call repeatedly — a live one wins.
    *
    * For an agent session the command is handed to main as `initialInput` rather

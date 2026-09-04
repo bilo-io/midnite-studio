@@ -23,6 +23,7 @@ import {
   LuRotateCw,
   LuSearch,
   LuSparkles,
+  LuSquareArrowOutUpRight,
   LuSquareTerminal,
   LuUpload,
   LuX,
@@ -86,5 +87,10 @@ export const COMMAND_ICONS: Record<CommandId, IconType> = {
   'file.save': LuFile,
   'workflow.run': LuPlay,
   'view.video': LuClapperboard,
+  'window.detachActive': LuSquareArrowOutUpRight,
+  'window.detachTerminal': LuSquareTerminal,
+  'window.detachRepos': LuPanelLeft,
+  'window.detachFab': LuPanelRight,
+  'window.detachBrowser': LuGlobe,
   'markdown.presentAsSlides': LuSparkles,
 };

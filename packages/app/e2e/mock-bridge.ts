@@ -1400,6 +1400,11 @@ export async function installMockBridge(page: Page, fixtures: MockFixtures): Pro
             activityHandlers.splice(activityHandlers.indexOf(handler), 1);
           };
         },
+        // Phase 55: the mock has one window (main), which every pre-existing
+        // handler above already broadcasts to unconditionally — subscribing
+        // is a real no-op here, not just an unimplemented stub.
+        subscribe: noop,
+        unsubscribe: noop,
       },
       /*
         Restored sessions come from the fixture, and the roster is the builtin
@@ -2213,6 +2218,14 @@ export async function installMockBridge(page: Page, fixtures: MockFixtures): Pro
         getState: async () => ({ maximized: false, fullScreen: false, focused: true }),
         onStateChange: unsubscribe,
         reload: noop,
+        // Phase 55: no spec here exercises multi-window detach/dock, so the
+        // mock reports a single always-docked main window — the pre-Phase-55
+        // shape every existing spec already assumes.
+        detach: noop,
+        dock: noop,
+        focusRole: noop,
+        list: async () => [{ id: 1, role: 'main' as const, repoId: null }],
+        onWindowsChanged: unsubscribe,
       },
       cli: {
         status: async () => ({ installed: false, path: null, target: null, managed: false }),
@@ -2263,6 +2276,9 @@ export async function installMockBridge(page: Page, fixtures: MockFixtures): Pro
         onFocusChange: unsubscribe,
         setBackgroundColor: noop,
       },
+      // Phase 55: every e2e spec runs as the main window — nothing here
+      // exercises a popout's own renderer.
+      windowRole: 'main' as const,
     };
 
     // Declared after use above because `var` hoisting is what makes the closure

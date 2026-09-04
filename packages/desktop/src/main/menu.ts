@@ -15,9 +15,18 @@ import { COMMANDS, DEFAULT_KEYMAP, EVENT_CHANNELS, type CommandId } from '@midni
  * roles, copy and paste silently stop working everywhere in the app, including
  * inside the integrated terminal.
  */
-export function buildMenu(getWindow: () => BrowserWindow | null): Menu {
+export function buildMenu(getMainWindow: () => BrowserWindow | null): Menu {
+  /*
+   * Always the main window, deliberately NOT sender-resolved (Phase 55):
+   * every menu command here — repos.toggle, sync.*, the git-status reads —
+   * is meaningful only against main's own docked layout and per-window
+   * `ui-store`. Routing to `BrowserWindow.getFocusedWindow()` would silently
+   * toggle a POPOUT's own unrendered flag while the user watched nothing
+   * happen (a popout renders one panel, not the multi-view Shell), which is
+   * worse than the pre-Phase-55 behaviour this restores.
+   */
   const send = (command: CommandId) => () => {
-    const win = getWindow();
+    const win = getMainWindow();
     if (win && !win.isDestroyed()) win.webContents.send(EVENT_CHANNELS.menuCommand, command);
   };
 
