@@ -329,7 +329,7 @@ parse is dropped with no `else`
     real end-to-end test sending a multi-megabyte paste as thousands of small `writePty` calls
     through a real broker and asserting the fake pty received it byte-complete and in order.
 
-### G — Reattach that actually hands the session back (M)
+### G — Reattach that actually hands the session back (M) — ✅ DONE (PR #131, 2026-09-04)
 
 Sessions **do** survive a relaunch: `probeLegacyBrokers()`
 ([`broker-client.ts:532`](../../../packages/desktop/src/main/broker-client.ts)) finds the previous
@@ -342,17 +342,17 @@ and the "Reattached N sessions" note
 ([`reattached-note.tsx`](../../../packages/app/src/features/status-bar/reattached-note.tsx)) tells
 you it happened without giving you anywhere to click.
 
-- [ ] A legacy-peer session opens as a **real live pane** — snapshot, replay gate, live data, live
+- [x] A legacy-peer session opens as a **real live pane** — snapshot, replay gate, live data, live
       input — rather than rendering as `asleep`. It is a running process on a reachable socket;
       `asleep` was an honest label for "we have not attached", not for "it is not running".
-  - Keep the moon glyph in [`terminal-session-list.tsx`](../../../packages/app/src/features/terminal/terminal-session-list.tsx)
-    as a *provenance* mark ("from a previous run") rather than a *state* mark. The distinction is
-    real and worth keeping visible: a legacy peer's broker is on an older build and will not accept
-    a `create`.
-- [ ] The reattached note becomes actionable — clicking it reveals the reattached sessions, using
+  - Kept the moon glyph in [`terminal-session-list.tsx`](../../../packages/app/src/features/terminal/terminal-session-list.tsx)
+    as a *provenance* mark ("from a previous run") rather than a *state* mark, checked
+    independently of `phase` — a legacy row can be `live`. The distinction is real and worth
+    keeping visible: a legacy peer's broker is on an older build and will not accept a `create`.
+- [x] The reattached note becomes actionable — clicking it reveals the reattached sessions, using
       the existing [`reveal-session.ts`](../../../packages/app/src/features/terminal/reveal-session.ts)
       path rather than a second navigation mechanism.
-- [ ] **Delete the dead `attach` message** from [`protocol.ts`](../../../packages/desktop/src/broker/protocol.ts).
+- [x] **Delete the dead `attach` message** from [`protocol.ts`](../../../packages/desktop/src/broker/protocol.ts).
       It is declared on the wire and has **no `case` in `handleControlMessage`**, so it falls to
       `default:` and answers `{ok:false, code:'protocol'}` — a documented capability the server has
       never implemented. Reattach is genuinely "hold a socket open and `list`", which works; the
@@ -360,8 +360,18 @@ you it happened without giving you anywhere to click.
   - *Recommended over implementing it.* A real `attach` handshake would buy nothing a `list` plus
     `pty.snapshot` does not already deliver, and would add a per-pty state machine to a server
     whose current simplicity is what makes its ordering invariants provable.
-- [ ] Tests: `terminal-store.test.ts` gains legacy-opens-live cases; `broker-client.test.ts`'s
-      legacy adoption cases extend to the open path; a protocol test asserts `attach` is gone from
+- [x] Tests: `terminal-store.test.ts` gains a legacy-opens-live case (binds to `open`, reports
+      `live`, lands in `reattachedSessionIds`); `reattached-note.test.tsx` covers the click-to-reveal
+      path end to end against the real stores; `terminal-session-list.test.tsx` covers the glyph
+      reading `legacy` independently of `phase`. **Scope trim from the doc's draft:**
+      `broker-client.test.ts` gained no new cases — this theme's fix is entirely renderer-side
+      (`sessionPhase` no longer special-casing `legacy`) plus a wire-type removal; nothing on the
+      desktop side changed behavior for the legacy-adoption path, which `broker-client.test.ts`
+      already covered. No dedicated protocol test asserts `attach` is gone from the union either —
+      grepped the tree and confirmed no caller references it anywhere, and the union member's
+      removal is enforced by `moon run :typecheck` on every push, which is the actual guarantee a
+      runtime test would have been standing in for.
+
       the union rather than answering an error.
 
 ## Files this phase touches
@@ -385,7 +395,7 @@ you it happened without giving you anywhere to click.
 
 ## Verification
 
-- [ ] `moon run :typecheck :lint :test` green.
+- [x] `moon run :typecheck :lint :test` green.
 - [ ] Moving the window between a Retina and a non-Retina display leaves text as crisp as it
       started, with no remount and no lost scrollback — **a human pass**, since it needs two real
       displays. The unit test covers the hook's re-arming; only an eye covers the atlas.
@@ -405,7 +415,7 @@ you it happened without giving you anywhere to click.
       clickable through to them. A human pass, for the same reason
       [Phase 30's e2e docblock](../../../packages/app/e2e/terminal.spec.ts) gives: the mock bridge
       has no real relaunch.
-- [ ] `attach` no longer appears in the broker protocol union, and no caller references it.
+- [x] `attach` no longer appears in the broker protocol union, and no caller references it.
 
 ## Not in this phase
 
