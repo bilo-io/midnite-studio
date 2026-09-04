@@ -44,6 +44,7 @@ const VIEW_LABELS: Record<ViewId, string> = {
   history: 'History',
   councils: 'Councils',
   workflows: 'Workflows',
+  video: 'Video',
   sessions: 'Sessions',
   settings: 'Settings',
 };

@@ -734,6 +734,27 @@ export type MidniteStudioBridge = {
     toolchain: (
       req: In<typeof S.VideoToolchainRequest>,
     ) => Promise<z.infer<typeof S.VideoToolchainResponse>>;
+    /** A shallow, read-only listing of `assets/`, one project's `input/`, or its `output/`. */
+    files: (
+      req: In<typeof S.VideoProjectFilesRequest>,
+    ) => Promise<z.infer<typeof S.VideoProjectFilesResponse>>;
+    /** One text file's content, read-only — `BRIEF.md`/`EDITORIAL_SCRIPT.md` (Theme F). */
+    readFile: (
+      req: In<typeof S.VideoProjectReadFileRequest>,
+    ) => Promise<z.infer<typeof S.VideoProjectReadFileResponse>>;
+    /** Reveal a listed file in the OS file manager (Theme E). */
+    revealFile: (
+      req: In<typeof S.VideoFileHandoffRequest>,
+    ) => Promise<z.infer<typeof S.VideoFileHandoffResponse>>;
+    /** Open a listed file in its OS default app (Theme E). */
+    openFile: (
+      req: In<typeof S.VideoFileHandoffRequest>,
+    ) => Promise<z.infer<typeof S.VideoFileHandoffResponse>>;
+    /** The Settings page's own read/write of the one setting Video Studio has. */
+    root: {
+      get: () => Promise<z.infer<typeof S.VideoRootGetResponse>>;
+      set: (req: In<typeof S.VideoRootSetRequest>) => Promise<z.infer<typeof S.VideoRootSetResponse>>;
+    };
     onStudioChanged: (handler: (event: z.infer<typeof S.VideoStudioChangedPayload>) => void) => Unsubscribe;
     onRenderProgress: (handler: (event: z.infer<typeof S.VideoRenderProgressPayload>) => void) => Unsubscribe;
   };

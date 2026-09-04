@@ -105,6 +105,7 @@ export type ViewId =
   | 'history'
   | 'councils'
   | 'workflows'
+  | 'video'
   | 'sessions'
   | 'settings';
 
@@ -124,6 +125,7 @@ export const VIEW_IDS: readonly ViewId[] = [
   'history',
   'councils',
   'workflows',
+  'video',
   'sessions',
   'settings',
 ];
@@ -145,6 +147,7 @@ export type SettingsPageId =
   | 'reviews'
   | 'projects'
   | 'workflows'
+  | 'video'
   | 'gitSafety'
   | 'monitor'
   | 'browser'
@@ -186,6 +189,7 @@ export const SETTINGS_PAGES: { id: SettingsPageId; label: string; group: Setting
   { id: 'reviews', label: 'Reviews', group: 'tools' },
   { id: 'projects', label: 'Projects', group: 'tools' },
   { id: 'workflows', label: 'Workflows', group: 'tools' },
+  { id: 'video', label: 'Video Studio', group: 'tools' },
   { id: 'gitSafety', label: 'Git Safety', group: 'tools' },
   { id: 'browser', label: 'Browser', group: 'tools' },
   { id: 'cli', label: 'CLI Integration', group: 'system' },

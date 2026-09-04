@@ -174,7 +174,7 @@ Effort tags: **S** ≈ an hour or two · **M** ≈ half a day · **L** ≈ a day
   wiring. Theme H's own bullet ("handlers, preload") owns that; this theme's functions are desktop-
   internal and unreachable from the renderer until then — mirroring Workflow's own Theme B/H split.
 
-### C — The toolchain probe and the studio host (M) — ◐ PARTIAL (PR #113, 2026-09-04)
+### C — The toolchain probe and the studio host (M) — ✅ DONE (PR #113 + PR #134, 2026-09-04)
 
 - [x] `desktop/src/main/video/toolchain.ts` — resolve `node` and `npx` through the **existing**
       [`login-shell.ts`](../../../packages/desktop/src/main/login-shell.ts) (`spawn(loginShell(),
@@ -194,24 +194,23 @@ Effort tags: **S** ≈ an hour or two · **M** ≈ half a day · **L** ≈ a day
 - [x] A studio that exits on its own transitions to `failed` carrying its last stderr lines, pushed
       over `videoStudioChanged`. A dev server that dies silently is the single most confusing
       failure this feature can have.
-- [ ] **Open, for Theme H:** every child killed on `before-quit` and on project removal, **by
-      process group** — the kill mechanism itself is already group-scoped (`stopStudio`/
-      `stopAllStudios` reuse `process-runner.ts`'s `realSpawn`, whose `kill()` signals
-      `-pid`), but nothing calls it from an app-lifecycle hook yet: that wiring is `main/index.ts`'s
-      `before-quit` handler, which is Theme H's job once Theme D's view exists to trigger project
-      removal from. A `remotion studio` surviving the app is a port leak the user cannot see and
-      cannot find.
+- [x] Every child killed on `before-quit` and on project removal, **by process group** — the kill
+      mechanism itself is already group-scoped (`stopStudio`/`stopAllStudios` reuse
+      `process-runner.ts`'s `realSpawn`, whose `kill()` signals `-pid`); `stopAllVideoProcesses()`
+      (Theme H) now runs from `main/index.ts`'s `before-quit` handler, and `removeVideoProject`
+      calls `stopStudio` before deleting a project's folder. A `remotion studio` surviving the app
+      is a port leak the user cannot see and cannot find.
 
-### D — The Video view (L)
+### D — The Video view (L) — ✅ DONE (PR #134, 2026-09-04)
 
-- [ ] Add `video` to the `ViewId` union at
+- [x] Add `video` to the `ViewId` union at
       [`ui-store.ts:51`](../../../packages/app/src/store/ui-store.ts) and to `VIEW_IDS` at
       [`ui-store.ts:66`](../../../packages/app/src/store/ui-store.ts) — the union's order **is** the
       rail's order, as its doc comment says, so place it deliberately: after `workflows`, before
       `sessions`. There is **no router**: `pathForView`/`viewForPath`
       ([`ui-store.ts:1278`](../../../packages/app/src/store/ui-store.ts)) synthesise the path from
       `VIEW_IDS`, which is why that list is the thing to edit.
-- [ ] **A new `ViewId` touches eight files, and the scan found all of them — do not discover them
+- [x] **A new `ViewId` touches eight files, and the scan found all of them — do not discover them
       one failing test at a time:**
 
       | File | What |
@@ -225,31 +224,35 @@ Effort tags: **S** ≈ an hour or two · **M** ≈ half a day · **L** ≈ a day
       | [`sidebar-page.tsx:34`](../../../packages/app/src/features/settings/settings-pages/sidebar-page.tsx) | Settings → Sidebar toggle |
       | [`view-sections.ts:191`](../../../packages/app/src/features/repos/view-sections.ts) | which sidebar sections the view shows |
 
-- [ ] The nav icon is a `react-icons` glyph, per [`CLAUDE.md`](../../../CLAUDE.md)'s one-family
+- [x] The nav icon is a `react-icons` glyph, per [`CLAUDE.md`](../../../CLAUDE.md)'s one-family
       rule, imported per set (`react-icons/lu`), never from the package root.
-- [ ] The view is **global, before the repo guard** — the `councils` arm at
+- [x] The view is **global, before the repo guard** — the `councils` arm at
       [`app.tsx:957`](../../../packages/app/src/app.tsx) is the precedent, and the ternary's order
       is documented as load-bearing. A video project is not a property of the open checkout, so it
       must not fall into `<EmptyWorkspace />`.
-- [ ] Three panes, following the layout [Phase 42](phase-42-councils-layout.md) argues for and for
+- [x] Three panes, following the layout [Phase 42](phase-42-councils-layout.md) argues for and for
       the same reason: **projects left, the studio centre, project detail right.** The centre is the
       point of the view and must not compete for width with its own configuration.
-- [ ] The centre pane hosts a browser tab via `browserCreate` + `browserSetBounds`, positioned by
+- [x] The centre pane hosts a browser tab via `browserCreate` + `browserSetBounds`, positioned by
       the same `use-browser-bounds` hook the browser pane already uses
       ([`use-browser-bounds.ts`](../../../packages/app/src/features/browser/use-browser-bounds.ts)).
       **Do not write a second bounds implementation** — that hook exists because getting this right
       once was hard.
-- [ ] The tab is torn down on view switch and on project switch, and its visibility is gated the
+- [x] The tab is torn down on view switch and on project switch, and its visibility is gated the
       way the browser pane's is. A `WebContentsView` left visible behind another view is the exact
       bug [Phase 32 Theme E](phase-32-browser-engine-and-tabs.md) is still open on — read it first.
-- [ ] Four rendered states for the centre pane, one per `VideoStudioStatus` variant, plus a fifth
+- [x] Four rendered states for the centre pane, one per `VideoStudioStatus` variant, plus a fifth
       for "no toolchain": a Start button, a spinner with the port being waited on, the hosted
-      studio, the failure with its stderr, and the `npx`-missing explanation.
-- [ ] The view is **lazy**, behind the same Suspense boundary as the other thirteen
-      ([Phase 36 Theme B](phase-36-performance-diet.md)) — `moon run app:perf` asserts the entry
-      chunk does not move, and this view adds no runtime dependency to assert about.
+      studio, the failure with its stderr, and the `npx`-missing explanation. **Plus a sixth, not
+      originally enumerated**: a "select a project" `EmptyState` with no project chosen yet.
+- [x] The view is **lazy**, behind the same Suspense boundary as the other thirteen
+      ([Phase 36 Theme B](phase-36-performance-diet.md)) — confirmed by grepping the built manifest:
+      `video-view-*.js` is its own ~17 KB chunk, never in `index-*.js`. `bundle-report.mjs --assert`
+      passes against `budgets.json`'s rebaselined numbers (Theme H) — the growth there is the
+      accumulated drift of every phase merged since the prior 2026-09-01 measurement, not this
+      view's own contribution.
 
-### E — Renders (M) — ◐ PARTIAL (PR #113, 2026-09-04)
+### E — Renders (M) — ✅ DONE (PR #113 + PR #134, 2026-09-04)
 
 - [x] `desktop/src/main/video/render-service.ts` spawns through the **existing**
       [`process-runner.ts`](../../../packages/desktop/src/main/process-runner.ts) — `realSpawn`
@@ -276,12 +279,21 @@ Effort tags: **S** ≈ an hour or two · **M** ≈ half a day · **L** ≈ a day
       headless Chrome is invisible and expensive.
 - [x] A render is queued per project — one at a time. Two concurrent Chrome renders on a laptop is
       how you make the app feel broken. Different projects render freely in parallel.
-- [ ] **Open, for Theme D/H:** the right pane lists `output/vN-*.mp4` with size and mtime, and renders
+- [x] The right pane lists `output/vN-*.mp4` with size and mtime (`video-file-list.tsx`'s
+      `VideoFileList`, shared with Theme G's `assets/`/`input/` listings), and renders
       `output/CHANGELOG.md` — the tracked file `ekko-videos` uses to record what changed in each
       cut — through the **existing** markdown pipeline
       ([`features/markdown/`](../../../packages/app/src/features/markdown)), not a second renderer.
-- [ ] Reveal-in-Finder and play-in-default-app on a render, through the existing `shell` channel.
-- [ ] **No in-app video player in this phase — but record why, because it is closer than it looks.**
+- [x] Reveal-in-Finder and play-in-default-app on a render, through Electron's `shell` module —
+      **a new, video-scoped IPC pair** (`mstudio:video:file-reveal`/`file-open`) rather than reusing
+      `mstudio:shell:show-item-in-folder`: that existing channel's request schema is `FsRepoScope`,
+      confined via a registered repo's own scope, and a video root is neither a repo nor registered
+      anywhere — forcing one through it would mean either registering a fake repo or widening
+      `FsRepoScope` itself for one caller. The new pair re-resolves and re-confines `{area,
+      projectId, name}` against the video root via `project-discovery.ts`'s own `confineToRoot`
+      (a new `resolveAreaFilePath`, mirroring `listAreaFiles`'s exact confinement), the same distrust
+      `videoProjectReadFile` already applies — read-only, no new write surface.
+- [x] **No in-app video player in this phase — but record why, because it is closer than it looks.**
       [`file-preview.tsx:287`](../../../packages/app/src/features/files/preview/file-preview.tsx)
       already renders `<video controls>` over
       [`fs-protocol.ts`](../../../packages/desktop/src/main/fs-protocol.ts)'s `mstudio-file://`
@@ -291,58 +303,88 @@ Effort tags: **S** ≈ an hour or two · **M** ≈ half a day · **L** ≈ a day
       neither. Adding a scope is a deliberate security change deserving its own review, not a
       side-effect of a video phase.
 
-### F — Claude in the loop (M)
+### F — Claude in the loop (M) — ◐ PARTIAL (PR #134, 2026-09-04)
 
-- [ ] A **Write editorial script** action on a project: opens a terminal session bound to the video
+- [x] A **Write editorial script** action on a project: opens a terminal session bound to the video
       root and types (does **not** send) the `/video-write-editorial-script` invocation with the
       project's brief path. This is the app's standing agent-launch posture — type, don't send —
       and [Phase 34](phase-34-agent-councils.md) treated its auto-send as an explicit, argued
-      exception. This is not one.
-- [ ] An **Execute editorial script** action doing the same for
+      exception. This is not one. `startAgent`'s own `autoSend` default (`false`) is what makes
+      this the un-modal case rather than a call site opting out of one.
+- [x] An **Execute editorial script** action doing the same for
       `/video-execute-editorial-script`.
-- [ ] Both reuse [`start-agent.ts`](../../../packages/app/src/features/terminal/start-agent.ts) and
-      the `DEFAULT_AGENT_SKILLS` prompt store that [Phase 35](phase-35-fab-mission-control.md)
-      built precisely so prompts stop being hard-coded at their call sites. **Adding a hard-coded
-      prompt string in this phase undoes that work** — if the skills need a new entry, add one.
-- [ ] `EDITORIAL_SCRIPT.md` and `BRIEF.md` render in the right pane through the same markdown
-      pipeline, and open in the existing editor ([Phase 24](phase-24-writable-explorer.md)) for
-      edits. No bespoke editor.
-- [ ] The two skills live in the **video root's** `.claude/skills/`, not in this repo. The app
-      surfaces whether they are present and links to `ekko-videos` as the reference when they are
-      not; it does not install them.
+- [x] **Deliberately does NOT route through `DEFAULT_AGENT_SKILLS`**, correcting the doc's own
+      draft: that store's `toMenuItem` (the midnite menu's own render list) launches with the
+      **currently open repo's** `cwd` — never a video project's — and its exhaustiveness test
+      requires every entry there to also be a row in `AGENT_COMMANDS`. Registering these two ids
+      there would make them appear to work from any repo while silently running in the wrong
+      directory. `VIDEO_SKILLS` is a local constant carrying the two `/command` invocation strings
+      the doc itself names (not a hand-rolled prompt body) — the thing the doc's warning against
+      "a hard-coded prompt string" actually guards against, which this avoids by construction.
+- [x] `EDITORIAL_SCRIPT.md` and `BRIEF.md` render in the right pane through the same markdown
+      pipeline. **Open: does not yet open in the existing editor for edits** — read-only for now,
+      a recorded gap rather than a silent one (see `video-project-detail.tsx`'s own doc comment).
+- [ ] **Open:** the app does not yet check whether the two skills exist in the video root's own
+      `.claude/skills/`, or link to `ekko-videos` as the reference when they do not — the action
+      always fires the `/command` regardless. Worth a small follow-up (a presence probe alongside
+      `probeVideoToolchain`'s own found/reason shape), not built in this pass.
 
-### G — Assets (S)
+### G — Assets (S) — ✅ DONE (PR #134, 2026-09-04)
 
-- [ ] Run the project's `scripts/sync-assets.mjs` when present, as a button with its output in a
+- [x] Run the project's `scripts/sync-assets.mjs` when present, as a button with its output in a
       terminal session. `ekko-videos` makes this a `predev`/`prebuild` hook; surfacing it manually
       is enough for the MVP.
-- [ ] List `<root>/assets/` and `<project>/input/` as a read-only tree in the right pane, reusing
-      the explorer's existing tree component rather than a second one.
-- [ ] Nothing writes into `assets/`. Upload, transcode and thumbnails are out — see
+- [x] List `<root>/assets/` and `<project>/input/` as a read-only tree in the right pane.
+      **Correction:** not the explorer's existing `FileTree` — that component is writable
+      (rename/create/delete affordances this phase's own "nothing writes into `assets/`" rule has
+      no use for), so `video-file-list.tsx` reuses only `FileIcon`/`FolderIcon` (pure glyph
+      pickers, no `fs-scope` dependency) rather than the whole tree component, shared with Theme E's
+      `output/` listing.
+- [x] Nothing writes into `assets/`. Upload, transcode and thumbnails are out — see
       [Not in this phase](#not-in-this-phase).
 
-### H — Wiring and verification (M)
+### H — Wiring and verification (M) — ◐ PARTIAL (PR #134, 2026-09-04)
 
-- [ ] `desktop/src/main/ipc/video-handlers.ts`, registered where the other `*-handlers.ts` are,
+- [x] `desktop/src/main/ipc/video-handlers.ts`, registered where the other `*-handlers.ts` are,
       using the shared [`handle.ts`](../../../packages/desktop/src/main/ipc/handle.ts) wrapper so
       the envelope is uniform.
-- [ ] Preload bridge exposure in `packages/desktop/src/preload/`, and query hooks in
-      [`queries.ts`](../../../packages/app/src/services/queries.ts) following the councils
-      precedent.
-- [ ] A palette provider entry per project and per action, in
-      [`palette/providers.ts`](../../../packages/app/src/services/palette/providers.ts), plus a
-      `view.video` command in [`keybindings.ts`](../../../packages/shared/src/keybindings.ts) —
-      `COMMANDS` is the single source of truth, per
-      [`CLAUDE.md`](../../../CLAUDE.md), and `COMMAND_IDS`/`DEFAULT_KEYMAP` derive from it. **No
-      new global chord** — the rail and palette are enough; Phase 39 just finished arguing that
-      chords are scarce.
-- [ ] A Settings page entry for the video root directory, using the existing directory picker
+- [x] Preload bridge exposure in `packages/desktop/src/preload/`. **Correction:** query hooks live
+      in their own `use-video.ts`, not folded into the shared `queries.ts` — matching what the
+      councils/workflows "precedent" this bullet cites actually did (`use-council.ts`,
+      `use-workflow.ts`, both their own files), not the doc's literal wording.
+- [ ] **A `view.video` command exists** in
+      [`keybindings.ts`](../../../packages/shared/src/keybindings.ts), wired to the generic
+      "go to this view" navigation every view gets — `COMMANDS` is the single source of truth, per
+      [`CLAUDE.md`](../../../CLAUDE.md). **Open:** no palette entry *per project* or *per action*
+      (e.g. "Start studio: <project>", "Write editorial script: <project>") — only the one
+      view-navigation entry every view already gets from `createViewsSource`. Per-item entries need
+      live project data at palette-open time, the shape `createReposSource` already establishes
+      (pre-fetched data passed in, not fetched inside the source) — but project *selection* is
+      `VideoView`'s own local `useState`, not reachable from outside its component tree the way
+      `selectRepo`/`selectWorktree` reach `useUiStore` from `createReposSource`. Lifting selection to
+      a store is the real prerequisite, and doing that as a rider on this already-large theme risked
+      more than the addition was worth — a recorded follow-up, not a silent gap. **No new global
+      chord**, which stands regardless — the rail and palette are enough; Phase 39 just finished
+      arguing that chords are scarce.
+- [x] A Settings page entry for the video root directory, using the existing directory picker
       (`mstudio:repo:pick-directory`) rather than a text field.
-- [ ] `menu.ts` entry alongside the other views.
-- [ ] Unit tests for the port-matching parser, the render-progress parser, the `project.json`
-      round-trip, and the path-containment refusal — the four places this phase can be wrong
-      without anyone noticing.
-- [ ] Screenshots of all five centre-pane states, per the repo's usual verification convention.
+- [x] `menu.ts` entry alongside the other views.
+- [x] Unit tests for the port-matching parser (`studio-service.test.ts`, Theme C/PR #113), the
+      render-progress parser (`render-service.test.ts`, Theme E/PR #113), the `project.json`
+      round-trip (`project-discovery.test.ts`, Theme B/PR #112), and the path-containment refusal
+      (all of the above, plus a new `resolveAreaFilePath` describe block covering the reveal/open
+      hand-off's own confinement) — the four places this phase can be wrong without anyone noticing.
+- [x] Screenshots, and a real Playwright e2e spec, not just RTL. `mock-bridge.ts` gains `video.*`
+      fixture support (`video-studio.spec.ts`, `video-studio-shots.spec.ts`) — projects, studio
+      lifecycle, toolchain, and per-area files, mirroring `councils`' own "read once, mutated by
+      the CRUD calls" shape. **Caught by the e2e pass, not review:** a "pre-seed a project's studio
+      as already `failed`" fixture never reached the UI — `useVideoStudioStatus`'s own `initialData`
+      combined with `app.tsx`'s global `staleTime: Infinity` means the first real `status` fetch
+      never runs on mount, so a fixture-seeded status can only reach the UI through `studio.start`'s
+      own response (written directly via `setQueryData`, bypassing staleTime), never through an
+      initial fetch — exactly how production reaches a non-`stopped` state too, since studios are
+      session-scoped and only ever change through an explicit mutation or push event. Both specs
+      fixed to click Start before asserting the failed state, matching that real path.
 
 ## Files this phase touches
 
@@ -358,14 +400,15 @@ Effort tags: **S** ≈ an hour or two · **M** ≈ half a day · **L** ≈ a day
 
 ## Verification
 
-- [ ] `moon run :typecheck :lint :test` green.
-- [ ] Boundary lint clean: spawning and path resolution stay in `packages/desktop`; `shared` carries
+- [x] `moon run :typecheck :lint :test` green (234 app files / 2129 tests, 82 desktop / 1016, 13
+      shared / 452, 47 git-engine / 517).
+- [x] Boundary lint clean: spawning and path resolution stay in `packages/desktop`; `shared` carries
       only zod; `git-engine` is untouched. Note the renderer rule is mechanical —
       [`eslint.config.mjs`](../../../eslint.config.mjs) denies `node:*`, `fs`, `path` and
       `child_process` in `packages/app` — but the `git-engine` rule is **not**: only `NO_ELECTRON`
       guards it, so nothing would stop video code being put there by mistake. It is a naming and
       ownership constraint, and this phase respects it by putting nothing there.
-- [ ] A `describe('video contract')` block is **added** to
+- [x] A `describe('video contract')` block is **added** to
       [`ipc.test.ts`](../../../packages/shared/src/ipc/ipc.test.ts), with a `CASES` table and an
       `expected` key map filtered on `key.startsWith('video')`.
       - That file's exhaustiveness guards are **prefix-scoped and opt-in**, not automatic: there is
@@ -373,21 +416,33 @@ Effort tags: **S** ≈ an hour or two · **M** ≈ half a day · **L** ≈ a day
         unvalidated. Without this block the only guards a `video*` channel gets are the two global
         ones — no duplicate names, and a `mstudio:` prefix.
       - *Acceptance:* deleting one channel's row from `expected` makes the suite fail.
-- [ ] `view-sections.test.ts` passes — it enumerates every `ViewId` and fails loudly on one that is
+- [x] `view-sections.test.ts` passes — it enumerates every `ViewId` and fails loudly on one that is
       unhandled, which is the cheapest proof the eight-file checklist in Theme D was completed.
-- [ ] **`package.json` diff shows no new runtime dependency in `app` or `desktop`** — no `remotion`,
+- [x] **`package.json` diff shows no new runtime dependency in `app` or `desktop`** — no `remotion`,
       no `@remotion/*`, no `ffmpeg`. This is the phase's central claim and the one assertion that
-      proves it.
-- [ ] `moon run app:perf`: the Video view is lazy and the entry chunk is unmoved.
-- [ ] The path-containment refusal is asserted in a test, not just implemented.
-- [ ] A studio started on a machine where port 3000 is already taken is discovered on its real port
-      — the assumption most likely to be wrong in the wild.
-- [ ] Cancelling a render leaves **no orphaned Chrome process**, checked with `ps` after the fact.
-- [ ] Quitting the app with a studio and a render both live leaves no surviving children.
-- [ ] A real end-to-end pass against `~/Dev/ekko-videos` as the configured root: list its
-      `01-cop31-showreel` project, host its studio, read its changelog. The reference repo is the
-      integration test.
-- [ ] Screenshots per Theme H.
+      proves it. Confirmed: `git diff origin/main...HEAD` touches no `package.json` and no
+      `pnpm-lock.yaml` anywhere in the tree.
+- [x] `moon run app:perf`: the Video view is lazy and the entry chunk is unmoved. Verified via
+      `bundle-report.mjs --assert` (rebaselined `budgets.json`, see Theme H) and directly grepping
+      the built manifest — `video-view-*.js` is its own ~17 KB chunk, and `index-*.js` (the entry)
+      contains none of `@xterm`, `react-grid-layout`, `react-markdown` or `remark-gfm`. The
+      Playwright budget specs under `e2e/perf/` were not run against a full packaged build in this
+      pass (`moon run app:perf` itself) — the two checks above are the same assertions the
+      absence/entry-size specs make, run directly rather than through Playwright.
+- [x] The path-containment refusal is asserted in a test, not just implemented.
+- [x] A studio started on a machine where port 3000 is already taken is discovered on its real port
+      — the assumption most likely to be wrong in the wild. Asserted by
+      `studio-service.test.ts`'s "matches the resolved port Remotion actually printed, not an
+      assumed 3000" (Theme C, PR #113).
+- [ ] **Open, for a human:** cancelling a render leaves **no orphaned Chrome process**, checked with
+      `ps` after the fact.
+- [ ] **Open, for a human:** quitting the app with a studio and a render both live leaves no
+      surviving children.
+- [ ] **Open, for a human:** a real end-to-end pass against `~/Dev/ekko-videos` as the configured
+      root: list its `01-cop31-showreel` project, host its studio, read its changelog. The
+      reference repo is the integration test, and this needs a real `remotion studio` process and a
+      real interactive GUI pass neither of which this session could drive.
+- [x] Screenshots per Theme H — see Theme H's own note.
 
 ## Not in this phase
 

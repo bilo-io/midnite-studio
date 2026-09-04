@@ -115,6 +115,7 @@ const bridge: Pick<
   | 'loopRuns'
   | 'workflow'
   | 'demoApi'
+  | 'video'
   | 'fs'
   | 'stats'
   | 'diag'
@@ -347,6 +348,35 @@ const bridge: Pick<
     start: () => call(CHANNELS.demoApiStart),
     stop: () => call(CHANNELS.demoApiStop),
     status: () => call(CHANNELS.demoApiStatus),
+  },
+  video: {
+    project: {
+      list: () => call(CHANNELS.videoProjectList),
+      get: (req) => call(CHANNELS.videoProjectGet, req),
+      create: (req) => call(CHANNELS.videoProjectCreate, req),
+      remove: (req) => call(CHANNELS.videoProjectRemove, req),
+    },
+    studio: {
+      start: (req) => call(CHANNELS.videoStudioStart, req),
+      stop: (req) => call(CHANNELS.videoStudioStop, req),
+      status: (req) => call(CHANNELS.videoStudioStatus, req),
+    },
+    render: {
+      start: (req) => call(CHANNELS.videoRenderStart, req),
+      cancel: (req) => call(CHANNELS.videoRenderCancel, req),
+      list: (req) => call(CHANNELS.videoRenderList, req),
+    },
+    toolchain: (req) => call(CHANNELS.videoToolchain, req),
+    files: (req) => call(CHANNELS.videoProjectFiles, req),
+    readFile: (req) => call(CHANNELS.videoProjectReadFile, req),
+    revealFile: (req) => call(CHANNELS.videoFileReveal, req),
+    openFile: (req) => call(CHANNELS.videoFileOpen, req),
+    root: {
+      get: () => call(CHANNELS.videoRootGet),
+      set: (req) => call(CHANNELS.videoRootSet, req),
+    },
+    onStudioChanged: (handler) => subscribe(EVENT_CHANNELS.videoStudioChanged, handler),
+    onRenderProgress: (handler) => subscribe(EVENT_CHANNELS.videoRenderProgress, handler),
   },
   loopRuns: {
     list: () => call(CHANNELS.loopRunsList),

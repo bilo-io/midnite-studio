@@ -6,6 +6,7 @@ import {
   LuActivity,
   LuChevronLeft,
   LuChevronRight,
+  LuClapperboard,
   LuClock,
   LuCommand,
   LuDownload,
@@ -84,5 +85,6 @@ export const COMMAND_ICONS: Record<CommandId, IconType> = {
   'palette.files': LuFile,
   'file.save': LuFile,
   'workflow.run': LuPlay,
+  'view.video': LuClapperboard,
   'markdown.presentAsSlides': LuSparkles,
 };

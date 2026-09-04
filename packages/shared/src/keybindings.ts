@@ -254,6 +254,7 @@ export const COMMANDS = [
   // exhaustion — a run action does not need a global chord, and the canvas's
   // own Run button (Theme F) is already one click away once the view is open.
   { id: 'workflow.run', label: 'Run Workflow', group: 'view' },
+  { id: 'view.video', label: 'Go to Video Studio', group: 'view' },
 ] as const satisfies readonly CommandDescriptorInput[];
 
 export type CommandDescriptor = (typeof COMMANDS)[number];

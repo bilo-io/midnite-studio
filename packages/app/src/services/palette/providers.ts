@@ -38,6 +38,7 @@ const VIEW_LABELS: Record<ViewId, string> = {
   history: 'History',
   councils: 'Agent Councils',
   workflows: 'Agent Workflows',
+  video: 'Video Studio',
   sessions: 'Agent Sessions',
   settings: 'Settings',
 };
@@ -58,6 +59,7 @@ const VIEW_KEYWORDS: Record<ViewId, string> = {
   history: 'reflog journal undo ops history',
   councils: 'agents council teams debate',
   workflows: 'agent workflow pipeline automation',
+  video: 'video studio remotion render project brief editorial script',
   sessions: 'agent session history transcripts',
   settings: 'preferences configuration options theme',
 };

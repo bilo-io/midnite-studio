@@ -228,6 +228,85 @@ only; the main panel's open sessions and the FAB's loop tabs spent from the same
       instance, new WebGL context) as the true first open, which the test already exempted from
       that check. Fixed in the test, not the app — the same exemption now applies to both.
 
+## 2026-09-04 — Phase 44 Themes D, E, F, G, H — The Video view, and Claude in it
+
+[PR #134]. Closes out Themes C, D, E and G fully, and lands most of F (Claude actions) and H
+(wiring) with a handful of gaps recorded rather than silently skipped.
+
+- [x] **Theme D — the Video view.** `video` added to the `ViewId` union (after `workflows`, before
+      `sessions`) and every one of the eight files that touches — `nav-icons.ts`'s exhaustive
+      `VIEW_ICON` record among them, which fails typecheck without it. Three panes: projects left,
+      the studio hosted centre via the browser pane's own `use-browser-bounds` (no second bounds
+      implementation), project detail right. Global, positioned before the `!selectedRepoId` guard
+      alongside `settings`/`councils`/`workflows` — a video project is not a property of an open
+      checkout. Six rendered centre-pane states in `video-studio-pane.tsx`, one more than the five
+      originally enumerated: a "select a project" `EmptyState` with none chosen. Lazy behind the
+      same Suspense boundary as the other thirteen views — confirmed by grepping the built manifest
+      that `video-view-*.js` is its own ~17 KB chunk, never in `index-*.js`.
+- [x] **Theme E — renders, closed out.** `video-file-list.tsx`'s shared listing (see Theme G) now
+      covers `output/` too, with size and mtime; `output/CHANGELOG.md` renders through the existing
+      markdown pipeline. Reveal-in-Finder and play-in-default-app land through a **new,
+      video-scoped** IPC pair (`mstudio:video:file-reveal`/`file-open`) rather than the existing
+      `mstudio:shell:show-item-in-folder` — that channel's request schema is `FsRepoScope`, confined
+      via a registered repo's own scope, and a video root is neither a repo nor registered anywhere.
+      The new pair re-resolves and re-confines `{area, projectId, name}` against the video root via
+      a new `resolveAreaFilePath` in `project-discovery.ts` (mirroring `listAreaFiles`'s exact
+      confinement), the same distrust `videoProjectReadFile` already applies to `relPath` — read-only,
+      no new write surface. `video-file-list.tsx` gained an on-hover reveal button for every file,
+      and a play button for `output/` files only.
+- [x] **Theme G — assets.** `video-file-list.tsx` (shared with E) lists `assets/`/`input/` read-only,
+      reusing `FileIcon`/`FolderIcon` rather than the explorer's writable `FileTree` — that
+      component's rename/create/delete affordances have no use under this phase's own "nothing
+      writes into `assets/`" rule. `scripts/sync-assets.mjs` runs as a button, output in a terminal
+      session.
+- [x] **Theme F — Claude in the loop, mostly.** Write/Execute editorial script actions, type-don't-send
+      (`startAgent`'s own `autoSend` default). **Deliberately does not** route through Phase 35's
+      `DEFAULT_AGENT_SKILLS`: that store's own menu launches with the *currently open repo's* `cwd`,
+      never a video project's, which would silently run these in the wrong directory. `VIDEO_SKILLS`
+      is a local constant carrying the two `/command` invocation strings the doc itself names, not a
+      hand-rolled prompt body. **Open:** no presence check for the two skills in the video root's own
+      `.claude/skills/`, and `BRIEF.md`/`EDITORIAL_SCRIPT.md` stay read-only rather than opening in
+      the existing editor.
+- [x] **Theme H — wiring, mostly.** `video-handlers.ts` registered; preload bridge exposure; a
+      dedicated `use-video.ts` (matching the councils/workflows precedent of their own hook files,
+      not the doc's literal "in `queries.ts`" wording); a `view.video` command; a Settings page entry
+      for the root; `stopAllVideoProcesses()` wired into `main/index.ts`'s `before-quit` handler,
+      closing Theme C's own last open item. **Open:** no palette entry per project/per action — only
+      the standard view-navigation entry every view gets. Per-item entries need project *selection*
+      reachable from outside `VideoView`'s own local `useState`, the way `createReposSource` reaches
+      `selectRepo`/`selectWorktree` through `useUiStore` — lifting selection to a store is the real
+      prerequisite, and doing that as a rider on this already-large theme risked more than the
+      addition was worth.
+- [x] Unit tests: `resolveAreaFilePath` (`project-discovery.test.ts`) and `revealVideoFile`/
+      `openVideoFile` (`video-service.test.ts`) cover the new hand-off's own containment refusal;
+      `video-file-list.test.tsx` (new) covers the reveal/play buttons end to end against a mocked
+      bridge. `moon run :typecheck :lint :test` green (234 app files / 2129 tests, 82 desktop /
+      1016, 13 shared / 452, 47 git-engine / 517).
+- [x] `scripts/perf/budgets.json` rebaselined against a real `moon run app:build desktop:bundle` +
+      `bundle-report.mjs` run (the prior uncommitted numbers were close but not run against *this*
+      state, and their multiplier math didn't match the file's own stated 1.13x rule) — entry
+      1335.8 KB / total 14098.3 KB measured, budgets set to 1520/15950 (1.13x). The growth from the
+      prior 2026-09-01 baseline (1109.4/13731.3) is the accumulated drift of every phase merged
+      since, not this phase's own contribution — confirmed by grepping the built manifest: Video
+      Studio's own code is entirely in its own ~17 KB lazy chunk, and the entry chunk contains none
+      of `@xterm`, `react-grid-layout`, `react-markdown` or `remark-gfm`.
+- [x] `mock-bridge.ts` gains `video.*` fixture support, and a real Playwright e2e spec plus
+      screenshots (`video-studio.spec.ts`, `video-studio-shots.spec.ts`) — the empty state, the
+      three panes wired together, a failed studio with its stderr and a retry button, the
+      no-toolchain warning, and creating a project. **Caught a real bug in the process:** a fixture
+      pre-seeding a project's studio as already `failed` never reached the UI —
+      `useVideoStudioStatus`'s own `initialData` combined with `app.tsx`'s global
+      `staleTime: Infinity` means the first real `status` fetch never runs on mount, so a
+      fixture-seeded status can only reach the UI through `studio.start`'s own response (written
+      directly via `setQueryData`, bypassing staleTime) — exactly the path production reaches a
+      non-`stopped` state through too, since studios are session-scoped and only ever change via an
+      explicit mutation or push event. Both specs fixed to click Start before asserting the failed
+      state.
+- [x] **Open, for a human:** a real interactive pass against `~/Dev/ekko-videos` with `ps`-checked
+      process cleanup on a cancelled render and on quit with a studio and a render both live —
+      needs a real `remotion studio` process and a real GUI pass, neither of which this session
+      could drive.
+
 ## 2026-09-04 — Phase 54 Theme B — `gh issue view`, and the comments endpoint already in the tree
 
 [PR #122]. `listIssues` was the only issue query that existed — no `gh issue view`, no comments
@@ -1146,7 +1225,7 @@ not.
 
 ## 2026-09-03 — Phase 49 Themes B, C, D, E (partial) — the onboarding kit's plan/apply engine, Setup dialog, and menu wiring
 
-[PR #TBD].
+[PR #134].
 
 - [x] **Theme B — the contract in `shared`.** `ScaffoldPlan`/`ScaffoldEntry`/`ScaffoldApplyResult`
       zod schemas and the `.midnite/settings.json` hash manifest, plus two IPC channels
@@ -1301,7 +1380,7 @@ kit ships as a checked-in template, and PR-suggestion detection lands its first 
 
 ## 2026-09-02 — Phase 42 Themes E, F + Phase 38 Themes G, I (partial) — councils/runs share the rail, motion proven, a wrong CI diagnosis corrected
 
-[PR #TBD].
+[PR #134].
 
 - [x] **Phase 42 Theme E — councils and runs share the panel.** `council-run-list.tsx` (new)
       replaces the old horizontal run-picker strip with a vertical list in the left rail, rendered
@@ -1468,7 +1547,7 @@ batch and stay open.
 
 ## 2026-09-02 — Phase 41 Themes C, F, D (partial), I (partial) — drag, glow, the surface fix
 
-[PR #TBD]. Batch built without Theme G (card composer) or Theme E (in-card terminal) — both stay
+[PR #134]. Batch built without Theme G (card composer) or Theme E (in-card terminal) — both stay
 open, and Theme D/I are marked partial because of it.
 
 - [x] **Theme C — drag between columns.** `@dnd-kit` `useDraggable`/`useDroppable` (not

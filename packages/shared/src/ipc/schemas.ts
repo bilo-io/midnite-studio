@@ -1963,6 +1963,54 @@ export const VideoRenderListResponse = z.object({ renders: z.array(VideoRenderSc
 export const VideoToolchainRequest = z.object({ projectId: z.string().min(1) });
 export const VideoToolchainResponse = z.object({ toolchain: VideoToolchainSchema });
 
+/** `'assets'` is root-wide; `'input'`/`'output'` are one project's own subfolder. */
+export const VideoFileAreaSchema = z.enum(['assets', 'input', 'output']);
+export const VideoProjectFilesRequest = z.object({
+  projectId: z.string().min(1),
+  area: VideoFileAreaSchema,
+});
+export const VideoFileEntrySchema = z.object({
+  name: z.string().min(1),
+  isDir: z.boolean(),
+  size: z.number().int().nonnegative(),
+  mtimeMs: z.number().nonnegative(),
+});
+export const VideoProjectFilesResponse = z.object({ entries: z.array(VideoFileEntrySchema) });
+
+/**
+ * One text file's content, read-only, for `BRIEF.md`/`EDITORIAL_SCRIPT.md`
+ * rendered through the existing markdown pipeline (Theme F). `relPath` is
+ * one project's own field value (`project.brief`/`project.script`), already
+ * containment-checked once by `readProject` — this channel re-checks anyway,
+ * since a renderer request is never trusted on the strength of an earlier one.
+ */
+export const VideoProjectReadFileRequest = z.object({
+  projectId: z.string().min(1),
+  relPath: z.string().min(1),
+});
+export const VideoProjectReadFileResponse = z.object({ content: z.string().nullable() });
+
+/**
+ * Reveal-in-Finder / play-in-default-app on a listed file (Theme E) —
+ * `{area, projectId, name}` re-resolved and re-confined against the video
+ * root itself, the same distrust `VideoProjectReadFileRequest` applies to
+ * `relPath`, rather than trusting a path the renderer already listed once.
+ */
+export const VideoFileHandoffRequest = z.object({
+  projectId: z.string().min(1),
+  area: VideoFileAreaSchema,
+  name: z.string().min(1),
+});
+/** Mirrors `ShowItemInFolderResponse` — a hand-off outcome, not a `GitOpResult`. */
+export const VideoFileHandoffResponse = z.object({
+  ok: z.boolean(),
+  message: z.string().optional(),
+});
+
+export const VideoRootGetResponse = z.object({ root: z.string().nullable() });
+export const VideoRootSetRequest = z.object({ root: z.string().nullable() });
+export const VideoRootSetResponse = z.object({ root: z.string().nullable() });
+
 /**
  * Re-exported under the `ipc/schemas` namespace so `bridge.ts` can reference
  * it as `S.*`, the way `BrowserEventPayload` does for `BrowserEventSchema` —

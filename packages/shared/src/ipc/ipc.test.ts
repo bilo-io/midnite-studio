@@ -1472,3 +1472,58 @@ describe('workflow contract', () => {
     expect(CHANNELS.workflowList).not.toBe(CHANNELS.forgeWorkflows);
   });
 });
+
+describe('video contract', () => {
+  /*
+    Same prefix-scoped, opt-in guard as `workflow contract` above — there is
+    no council block at all, which is exactly why a council channel can be
+    added unvalidated. Without this, a `video*` channel gets only the two
+    global guards (unique names, `mstudio:` prefix); with it, a channel added
+    with no row here fails the suite (Phase 44 Theme H).
+  */
+  it('covers every video channel', () => {
+    const expected: Record<string, string[]> = {
+      videoProjectList: ['VideoProjectListResponse'],
+      videoProjectGet: ['VideoProjectGetRequest', 'VideoProjectGetResponse'],
+      videoProjectCreate: ['VideoProjectCreateRequest', 'VideoProjectCreateResponse'],
+      videoProjectRemove: ['VideoProjectRemoveRequest', 'VideoProjectRemoveResponse'],
+      videoStudioStart: ['VideoStudioStartRequest', 'VideoStudioStartResponse'],
+      videoStudioStop: ['VideoStudioStopRequest', 'VideoStudioStopResponse'],
+      videoStudioStatus: ['VideoStudioStatusRequest', 'VideoStudioStatusResponse'],
+      videoRenderStart: ['VideoRenderStartRequest', 'VideoRenderStartResponse'],
+      videoRenderCancel: ['VideoRenderCancelRequest', 'VideoRenderCancelResponse'],
+      videoRenderList: ['VideoRenderListRequest', 'VideoRenderListResponse'],
+      videoToolchain: ['VideoToolchainRequest', 'VideoToolchainResponse'],
+      videoProjectFiles: ['VideoProjectFilesRequest', 'VideoProjectFilesResponse'],
+      videoProjectReadFile: ['VideoProjectReadFileRequest', 'VideoProjectReadFileResponse'],
+      videoFileReveal: ['VideoFileHandoffRequest', 'VideoFileHandoffResponse'],
+      videoFileOpen: ['VideoFileHandoffRequest', 'VideoFileHandoffResponse'],
+      videoRootGet: ['VideoRootGetResponse'],
+      videoRootSet: ['VideoRootSetRequest', 'VideoRootSetResponse'],
+      videoStudioChanged: ['VideoStudioChangedPayload'],
+      videoRenderProgress: ['VideoRenderProgressPayload'],
+    };
+
+    const channelKeys = [...Object.keys(CHANNELS), ...Object.keys(EVENT_CHANNELS)].filter((key) =>
+      key.startsWith('video'),
+    );
+
+    expect(channelKeys.sort()).toEqual(Object.keys(expected).sort());
+    for (const names of Object.values(expected)) {
+      for (const name of names) expect(schemas).toHaveProperty(name);
+    }
+  });
+
+  it('scopes nothing to a repository — video is global, like workflows and councils', () => {
+    for (const schema of [
+      schemas.VideoProjectGetRequest,
+      schemas.VideoProjectCreateRequest,
+      schemas.VideoProjectRemoveRequest,
+      schemas.VideoStudioStartRequest,
+      schemas.VideoRenderStartRequest,
+      schemas.VideoToolchainRequest,
+    ]) {
+      expect(Object.keys(schema.shape)).not.toContain('repoId');
+    }
+  });
+});

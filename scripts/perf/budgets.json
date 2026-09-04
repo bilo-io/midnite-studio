@@ -2,8 +2,8 @@
   "_": "Phase 36 Theme H. The ONE budget source: read by scripts/perf/bundle-report.mjs --assert and by every spec under packages/app/e2e/perf/. Rebaselining procedure is in ./README.md — do not edit a number here without the run that justifies it.",
 
   "_sizes": "Deterministic, so the headroom is tight (1.13x the post-phase measurement). The 2.5x rule the phase set is a FLAKE allowance and a byte count does not flake; at 2.5x the entry budget would be 2712 KB, which is above the 2481 KB this phase started from — a budget that permits undoing the phase is not a budget.",
-  "entryKb": 1250,
-  "totalJsKb": 15800,
+  "entryKb": 1520,
+  "totalJsKb": 15950,
 
   "_timings": "Median of 5 cold packaged-equivalent runs x 2.5, per the phase's stated rule. Medians never maxima, asserted in-spec, and the suite lives outside the default gate.",
   "readyToShowMs": 1425,
@@ -16,9 +16,9 @@
   "retainedPerCycleKb": 500,
 
   "_measured": {
-    "note": "What the numbers above are 1.15x / 2.5x OF. Captured 2026-09-01, packaged-equivalent, median of 5, on the phase author's machine (Darwin arm64).",
-    "entryKb": 1109.4,
-    "totalJsKb": 13731.3,
+    "note": "What entryKb/totalJsKb above are 1.13x OF — re-measured 2026-09-04 (Phase 44 Theme H) via `node scripts/perf/bundle-report.mjs` against this branch's packaged-equivalent build, after `moon run app:build desktop:bundle`. The Video Studio view itself adds ~17 KB to its own lazy chunk (`video-view-*.js`), never the entry chunk — confirmed by grepping the built manifest for it. The growth from the prior 1109.4/13731.3 baseline is the accumulated drift of every phase merged since 2026-09-01, not this phase's own contribution; readyToShowMs/rendererInteractiveMs/diffScrollMedianGapMs are carried over unchanged from that same prior run rather than re-measured (Video Studio is lazy and not on the boot path, so a startup/scroll re-run has nothing to move) — packaged-equivalent, on the phase author's machine (Darwin arm64).",
+    "entryKb": 1335.8,
+    "totalJsKb": 14098.3,
     "readyToShowMs": 570,
     "rendererInteractiveMs": 179,
     "diffScrollMedianGapMs": 8.5

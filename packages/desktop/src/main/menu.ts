@@ -111,6 +111,7 @@ export function buildMenu(getWindow: () => BrowserWindow | null): Menu {
         item('fab.toggle'),
         item('activity.toggle'),
         item('workflow.run'),
+        item('view.video'),
         { type: 'separator' },
         { role: 'togglefullscreen' },
         { role: 'toggleDevTools' },
