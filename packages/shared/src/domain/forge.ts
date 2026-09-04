@@ -265,8 +265,28 @@ export const ForgeLabelSchema = z.object({
 });
 export type ForgeLabel = z.infer<typeof ForgeLabelSchema>;
 
+/**
+ * Just enough to show a chip on the detail pane — a title. `gh issue
+ * list/view --json milestone` also returns `number`/`state`/`dueOn`, but
+ * nothing in this app reads them yet, and this schema's own convention (see
+ * `ForgeLabelSchema`, `ForgeIssue` below) is to carry what a consumer
+ * actually needs, not everything the forge is willing to hand over.
+ */
+export const ForgeMilestoneSchema = z.object({
+  title: z.string(),
+});
+export type ForgeMilestone = z.infer<typeof ForgeMilestoneSchema>;
+
 /** One issue. */
 export const ForgeIssueSchema = z.object({
+  /**
+   * The GraphQL global node id — `gh issue list/view --json id` — never the
+   * plain `number` below. Same shape and same reason as `ForgePullSchema.id`:
+   * a future "Add to project ▸" for issues (Phase 54 Theme F) needs exactly
+   * this, and defaulting rather than requiring it means a withheld id still
+   * renders every read-only surface; it only cannot be added to a project.
+   */
+  id: z.string().default(''),
   number: z.number().int().positive(),
   title: z.string(),
   state: ForgeIssueStateSchema,
@@ -279,6 +299,8 @@ export const ForgeIssueSchema = z.object({
   updatedAt: z.string(),
   createdAt: z.string().nullable().default(null),
   url: z.string(),
+  /** `null` when the issue is not attached to one. */
+  milestone: ForgeMilestoneSchema.nullable().default(null),
 });
 export type ForgeIssue = z.infer<typeof ForgeIssueSchema>;
 

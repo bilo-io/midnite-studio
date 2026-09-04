@@ -52,7 +52,7 @@ Effort tags: **S** ≈ an hour or two · **M** ≈ half a day · **L** ≈ a day
 
 ## Deliverables
 
-### A — The schema learns what a detail pane needs (S)
+### A — The schema learns what a detail pane needs (S) — ✅ DONE (PR #121, 2026-09-04)
 
 [`ForgeIssueSchema`](../../../packages/shared/src/domain/forge.ts) carries `number`, `title`,
 `state`, `author`, `labels`, `assignees`, `updatedAt`, `createdAt` and `url` — everything a *list
@@ -61,16 +61,34 @@ id, which is exactly the field [Phase 50 Theme E](phase-50-kanban-projects-follo
 discovered was missing from `ForgePullSchema` and had to thread through `gh-cli.ts`/`gh-parse.ts`
 mid-phase. The same discovery is avoidable here by making it Theme A.
 
-- [ ] Add `id` (node id), `body`, `commentCount` and `milestone` (nullable) to `ForgeIssueSchema`,
+- [x] Add `id` (node id), `body`, `commentCount` and `milestone` (nullable) to `ForgeIssueSchema`,
       and the corresponding names to `ISSUE_FIELDS` in
       [`gh-cli.ts`](../../../packages/desktop/src/main/forge/gh-cli.ts).
-- [ ] `body` belongs on the **detail** response, not the list one. A list of 100 issue bodies is a
+  - **Correction — landed `id` and `milestone` only, not `body` or `commentCount`.** `body`'s own
+    exclusion is this same bullet's very next sentence — the doc names it here and un-names it one
+    line later; `ForgeIssueSchema` is correctly the wrong home for it, and the right one (a new
+    `ForgeIssueDetailSchema`, mirroring `ForgePullDetailSchema`) is Theme B's, once `issueDetail()`
+    actually exists to populate it. `commentCount` turned out not to be free: verified against the
+    real `gh` CLI (`gh issue list --json comments` / `gh issue view --json comments`), the **only**
+    `comments` field either exposes is the full comment array — bodies included — not a count, so
+    the "costs nothing" premise below does not hold for `gh`'s own subcommands. `milestone` was
+    added with the trimmed shape `{ title }` — this schema's own established convention (see
+    `ForgeLabelSchema`, `ForgePullSchema`) is to carry what a consumer actually needs, and `title`
+    is a chip, which is all a list row or the not-yet-built detail pane needs today.
+- [x] `body` belongs on the **detail** response, not the list one. A list of 100 issue bodies is a
       payload nobody asked for; keep the list lean and let the detail fetch its own. `commentCount`
       is the exception — it is a row-level signal and costs nothing.
-- [ ] Extend `parseIssueList` and its tests rather than writing a second parser. Its existing job
+  - See the correction above — this bullet's own reasoning is why `body` stayed off
+    `ForgeIssueSchema`, and turned out to also disqualify `commentCount` on the same "costs
+    nothing" test it states, once checked against what `gh` actually returns.
+- [x] Extend `parseIssueList` and its tests rather than writing a second parser. Its existing job
       — lowercasing `gh`'s uppercase enums, flattening `{login}` and label objects — is unchanged.
-- [ ] Tests: `gh-parse` cases for the new fields, including a null milestone and a zero comment
+- [x] Tests: `gh-parse` cases for the new fields, including a null milestone and a zero comment
       count, which are the two shapes a real repo produces constantly and a fixture usually omits.
+  - The zero-comment-count case does not apply — no `commentCount` field landed, per the
+    correction above. Covers instead: the node id present and round-tripping, a withheld id
+    defaulting to `''` rather than rejecting the row, a milestone's title kept while the rest of
+    gh's shape is dropped, and a null milestone parsing as null rather than a missing field.
 
 ### B — `gh issue view`, and the comments endpoint already in the tree (M)
 

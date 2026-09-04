@@ -139,12 +139,14 @@ export function parseRunList(payload: unknown): ForgeRun[] {
 }
 
 /**
- * `gh issue list --json number,title,state,author,labels,assignees,updatedAt,createdAt,url`
+ * `gh issue list --json id,number,title,state,author,labels,assignees,updatedAt,createdAt,url,milestone`
  *
  * `state` arrives uppercase (`OPEN`/`CLOSED`), like every other `gh` enum.
  * `labels` is an array of objects and `assignees` an array of objects with a
  * `login` — both are flattened here so the renderer never has to know `gh`'s
- * nesting.
+ * nesting. `id` follows `parsePullList`'s own `ForgePull.id` treatment
+ * exactly — defaulted to `''` by the schema rather than required, since a
+ * withheld id should still render a read-only row.
  */
 export function parseIssueList(payload: unknown): ForgeIssue[] {
   if (!Array.isArray(payload)) return [];
@@ -155,6 +157,7 @@ export function parseIssueList(payload: unknown): ForgeIssue[] {
     const row = raw as Record<string, unknown>;
 
     const parsed = ForgeIssueSchema.safeParse({
+      id: asString(row['id']) ?? '',
       number: row['number'],
       title: asString(row['title']) ?? '(no title)',
       state: asString(row['state'])?.toLowerCase(),
@@ -166,10 +169,18 @@ export function parseIssueList(payload: unknown): ForgeIssue[] {
       updatedAt: asString(row['updatedAt']) ?? asString(row['createdAt']),
       createdAt: asString(row['createdAt']),
       url: asString(row['url']) ?? '',
+      milestone: asMilestone(row['milestone']),
     });
     if (parsed.success && parsed.data.url.length > 0) issues.push(parsed.data);
   }
   return issues;
+}
+
+/** `{title, number, state, dueOn, …}`, or `null` for an issue with none — only `title` is kept. */
+function asMilestone(value: unknown): { title: string } | null {
+  if (typeof value !== 'object' || value === null) return null;
+  const title = asString((value as Record<string, unknown>)['title']);
+  return title === null ? null : { title };
 }
 
 /** `{login: 'x'}`, or a bare string, or a forge that withheld it. */
