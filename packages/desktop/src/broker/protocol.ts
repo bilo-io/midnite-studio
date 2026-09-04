@@ -26,7 +26,6 @@ export type ControlMessage =
       env: Record<string, string>;
       initialInput?: string | undefined;
     }
-  | { t: 'attach'; id?: number; ptyId: string }
   | { t: 'resize'; id?: number; ptyId: string; cols: number; rows: number }
   | { t: 'kill'; id?: number; ptyId: string }
   | { t: 'snapshot'; id?: number; sessionId: string }

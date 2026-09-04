@@ -25,8 +25,12 @@ export type ConnectionState = 'idle' | 'starting' | 'open' | 'exited' | 'unavail
 /**
  * Derived honest lifecycle phase of a terminal session across process and sleep states.
  *
- * - `live`: process is running or starting up (`open`, `starting`, `idle`).
- * - `asleep`: deliberately put to sleep (process killed, transcript kept) or legacy broker session.
+ * - `live`: process is running or starting up (`open`, `starting`, `idle`) — including a
+ *   `legacy` broker session with a bound pty (Phase 51 Theme G): it is a real, running
+ *   process on a reachable socket, not dormant. `legacy` is provenance ("from a previous
+ *   run"), not a lifecycle state, and is rendered as such — see `terminal-session-list.tsx`'s
+ *   own moon glyph, which reads `session.legacy` directly rather than this phase.
+ * - `asleep`: deliberately put to sleep (process killed, transcript kept).
  * - `ended`: process has exited, backend unavailable, or restored without live process.
  */
 export type SessionPhase = 'live' | 'asleep' | 'ended';
@@ -35,10 +39,9 @@ export type SessionPhase = 'live' | 'asleep' | 'ended';
  * Derive the honest session phase for a session given its persisted flags and runtime connection state.
  */
 export function sessionPhase(
-  session: Pick<TerminalSession, 'asleep'> & { legacy?: boolean },
+  session: Pick<TerminalSession, 'asleep'>,
   state: ConnectionState | undefined,
 ): SessionPhase {
-  if (session.legacy) return 'asleep';
   if (session.asleep === true) return 'asleep';
   if (state === 'open' || state === 'starting' || state === 'idle') return 'live';
   return 'ended';
@@ -89,6 +92,13 @@ type TerminalState = {
   reattachedCount: number;
   /** `Date.now()` at the `hydrate()` that produced `reattachedCount`. */
   reattachedAt: number;
+  /**
+   * Which sessions those were (Phase 51 Theme G) — so the reattached note can
+   * actually reveal one, rather than only stating a count with nowhere to
+   * click. Same lifetime as `reattachedCount`: replaced wholesale by the
+   * `hydrate()` that produced it, never accumulated across launches.
+   */
+  reattachedSessionIds: string[];
   /** Whether the reattached note badge was dismissed by the user. */
   reattachedDismissed: boolean;
   /** Backend broker status (broker vs fail-soft inproc). */
@@ -290,6 +300,7 @@ export const useTerminalStore = create<TerminalState>()((set, get) => ({
   hydrated: false,
   reattachedCount: 0,
   reattachedAt: 0,
+  reattachedSessionIds: [],
   reattachedDismissed: false,
   broker: { mode: 'broker' },
   legacyBannerDismissed: false,
@@ -426,6 +437,10 @@ export const useTerminalStore = create<TerminalState>()((set, get) => ({
         ),
         reattachedCount: liveEntries.length,
         reattachedAt: liveEntries.length > 0 ? Date.now() : state.reattachedAt,
+        reattachedSessionIds:
+          liveEntries.length > 0
+            ? liveEntries.map((e) => e.sessionId)
+            : state.reattachedSessionIds,
       };
     });
   },

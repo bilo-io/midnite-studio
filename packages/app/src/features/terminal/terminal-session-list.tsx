@@ -176,6 +176,7 @@ export function TerminalSessionList({
             agent={agents.find((a) => a.id === session.agentId)}
             runningAgent={agents.find((a) => a.id === resolveSessionAgentId(session, liveAgentId))}
             isAgentRow={isAgentRow(session, liveAgentId)}
+            legacy={Boolean(legacy[session.id])}
           />
         ))}
       </SortableList>
@@ -189,6 +190,7 @@ function SessionRow({
   agent,
   runningAgent,
   isAgentRow: rowIsAgent,
+  legacy,
 }: {
   session: TerminalSession;
   active: boolean;
@@ -205,6 +207,8 @@ function SessionRow({
   runningAgent: AgentDefinition | undefined;
   /** `isAgentRow(session, liveAgentId)` — gates the activity glyph. */
   isAgentRow: boolean;
+  /** Whether a legacy broker peer answered this session's `list` — provenance, not lifecycle. */
+  legacy: boolean;
 }) {
   const dialogs = useDialogs();
   const state = useTerminalStore((s) => s.states[session.id] ?? 'idle');
@@ -279,9 +283,21 @@ function SessionRow({
     >
       <div className="flex min-w-0 flex-1 items-center gap-1 text-left">
         <SessionIcon agent={runningAgent} live={live} />
-        {phase === 'asleep' ? (
-          <LuMoon className="h-3 w-3 shrink-0 text-muted-foreground" aria-label="Asleep" />
-        ) : null}
+        {
+          // Provenance, not state (Phase 51 Theme G) — a legacy session can be
+          // live (see `sessionPhase`'s own note), so this checks `legacy`
+          // first and independently of `phase`. Falls back to the ordinary
+          // asleep mark only when the row is neither.
+          legacy ? (
+            <LuMoon
+              className="h-3 w-3 shrink-0 text-muted-foreground"
+              aria-label="From a previous run"
+              title="From a previous run"
+            />
+          ) : phase === 'asleep' ? (
+            <LuMoon className="h-3 w-3 shrink-0 text-muted-foreground" aria-label="Asleep" />
+          ) : null
+        }
         {/*
           The repo name, then the session's own name — "Claude · Claude" for
           every agent session (Phase 19's shape) said the same thing twice and
