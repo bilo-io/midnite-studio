@@ -2,6 +2,30 @@
 
 <!-- Append one entry per landed phase/PR: date, phase, PR link, one-line summary. -->
 
+## 2026-09-04 — Phase 47 Theme E — Agent-assisted conflict resolution suggestions
+
+[PR #132]. Closes out the phase's build entirely — every theme (A–F) is now landed, one item left
+open for a human (Theme F's real `diff3` conflict-style pass).
+
+- [x] Reuses [Phase 34](phases/phase-34-agent-councils.md)'s existing `mstudio:council:run:start`
+      and `council-runner.ts`'s `startRun` unchanged — no new IPC channel, no new orchestration. A
+      "Suggest a resolution" button per conflict region composes a prompt
+      (`compose-suggestion-prompt.ts`) from that region's ours/base/theirs text plus up to 8 lines
+      of surrounding context on each side.
+- [x] The response renders as advisory text in a panel beside the region (`suggest-resolution-panel.tsx`)
+      — never pre-selected or auto-applied. Theme D's Accept mine/theirs/both actions sit unchanged
+      right beside it. **Scope trim:** no parsing of the free-text response into a specific
+      recommended side to pre-fill a button — the response is arbitrary council prose, and a
+      reliable side-extraction would need a second, constrained run for a benefit the advisory text
+      already delivers by being read before any click.
+- [x] Uses the existing council/member picker convention: a "Suggestions from" `<select>` defaults
+      to whichever council the Councils view was last on, falling back to the first council that
+      exists, freely overridable; renders nothing when no council exists yet.
+- [x] Tests: `compose-suggestion-prompt.test.ts` (pure prompt-building), `suggest-resolution-panel.test.tsx`
+      (start/poll/render), `conflict-resolution-studio.test.tsx` (picker + per-region button +
+      exact-region prompt composition), two new e2e specs (with a council / with none), plus a
+      screenshot spec. `moon run :typecheck :lint :test` green (236 files / 2159 tests).
+
 ## 2026-09-04 — Phase 51 Theme G — Reattach that actually hands the session back
 
 [PR #131]. Closes the phase's build entirely — every theme (A–G) is now landed, six Verification

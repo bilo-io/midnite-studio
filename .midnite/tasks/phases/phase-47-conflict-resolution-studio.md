@@ -175,20 +175,27 @@ The safe baseline: accept one side for an entire file, no partial state.
     `useTargetedGitOp` and an explicit target, matching `use-repo-actions.ts`'s own precedent for
     exactly this shape of problem.
 
-### E — Agent-assisted resolution suggestion (S)
+### E — Agent-assisted resolution suggestion (S) — ✅ DONE (PR #132, 2026-09-04)
 
-- [ ] Reuses [Phase 34](phase-34-agent-councils.md)'s existing `mstudio:council:run:start`
+- [x] Reuses [Phase 34](phase-34-agent-councils.md)'s existing `mstudio:council:run:start`
       (`{councilId, prompt}`, [`schemas.ts:1075-1076`](../../../packages/shared/src/ipc/schemas.ts))
       and [`council-runner.ts`](../../../packages/desktop/src/main/council-runner.ts)'s `startRun` —
-      **unchanged**. A "Suggest a resolution" button in the Studio composes a prompt from the
-      region's ours/theirs/base text and the surrounding context lines, and runs it through the
-      existing council mechanism.
-- [ ] The response renders as advisory text in a side panel next to the region — **never** as a
+      **unchanged**. A "Suggest a resolution" button per region composes a prompt
+      (`compose-suggestion-prompt.ts`) from that region's ours/base/theirs text plus up to 8 lines of
+      surrounding context on each side, and runs it through the existing council mechanism.
+- [x] The response renders as advisory text in a side panel next to the region — **never** as a
       pre-selected or auto-applied choice. Accepting a suggestion still routes through the same
-      Accept-mine/theirs/both action Theme D built; the button just pre-fills which one to click, it
-      does not skip the click.
-- [ ] Uses the existing council/member picker UI conventions (whichever council the user has active,
-      or a lightweight inline picker if none is) — no new orchestration, no new IPC channel.
+      Accept-mine/theirs/both action Theme D built, completely unaffected. **Scope trim from the
+      doc's draft:** the button does not parse the free-text response into a specific recommended
+      side to pre-fill/highlight — the response is arbitrary prose from whichever council ran it,
+      and turning that reliably into a structured `mine`/`theirs`/`both` pick would need a second,
+      constrained run (or a parser fragile to phrasing) for a benefit the advisory text itself
+      already delivers by being read before any click. Purely advisory, full stop — matches the
+      phase's own settled decision ("AI suggestions are advisory-only, never auto-applied").
+- [x] Uses the existing council/member picker UI conventions — a "Suggestions from" `<select>`
+      defaults to whichever council the Councils view was last on, falling back to the first
+      council that exists, freely overridable; renders nothing when no council exists yet. No new
+      orchestration, no new IPC channel.
 
 ### F — Wiring, safety net, verification (S) — ◐ PARTIAL (PR #111, 2026-09-04)
 
