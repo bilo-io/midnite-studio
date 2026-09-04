@@ -19,9 +19,10 @@ import base from './playwright.config';
  * one place instead of being discovered again in six months.
  *
  * Retries are NOT set here: they come from the base config, which allows two
- * under `process.env.CI` and none locally. Deliberately there rather than in
- * this file, so that deleting this ratchet (Phase 38 Theme H) does not silently
- * take CI's flake tolerance with it.
+ * under `process.env.CI` (Phase 56 Theme D tried trimming this to one; a real
+ * CI run disproved it — see the base config's own comment) and none locally.
+ * Deliberately there rather than in this file, so that deleting this ratchet
+ * (Phase 38 Theme H) does not silently take CI's flake tolerance with it.
  *
  * KNOWN_RED only ever shrinks. Repairing a file is a one-line deletion here,
  * and Phase 38 exists to empty the list; when it is empty, delete this config

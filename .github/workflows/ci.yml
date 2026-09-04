@@ -59,18 +59,20 @@ jobs:
   # e2e/mock-bridge.ts). No Electron, no dugite, no packaged app — nothing in it
   # is macOS-specific, and macOS minutes bill at 10x on a private repo.
   #
-  # Sharded four ways, and that is not premature. Unsharded, this job took
-  # 21m30s against 3m0s for the same specs locally. A private repo's ubuntu
-  # runner is 2-core, so Playwright takes `cores/2` = ONE worker where a 12-core
-  # laptop takes six, on slower cores. `gate` finishes in ~2m20s, so a single
-  # e2e job would have set the floor for every PR at twenty minutes. Four shards
-  # put it back to ~7 (measured: 6m39s–7m30s), for about the same total runner
-  # minutes — affordable precisely because this lane is ubuntu at 1x rather than
-  # macOS at 10x.
+  # Sharded eight ways (Phase 56 Theme A — up from four). Unsharded, this job
+  # took 21m30s against 3m0s for the same specs locally. A private repo's
+  # ubuntu runner is 2-core, so Playwright takes `cores/2` = ONE worker where a
+  # 12-core laptop takes six, on slower cores. `gate` finishes in ~2m20s, so a
+  # single e2e job would have set the floor for every PR at twenty minutes.
+  # Four shards put it back to ~7 (measured: 6m39s–7m30s); eight shards halve
+  # each shard's slice of the suite again, for about the same total runner
+  # minutes — affordable precisely because this lane is ubuntu at 1x rather
+  # than macOS at 10x.
   #
-  # Workers stay at the default ON PURPOSE. Raising them on a 2-core runner
-  # oversubscribes it, and this suite is timing-sensitive enough already.
-  # Add shards, not workers.
+  # Workers stay at the default here ON PURPOSE. Raising them on a 2-core
+  # runner oversubscribes it, and this suite is timing-sensitive enough
+  # already — Phase 56 Theme C owns evaluating `workers: 2` on real CI data
+  # before this comment can be revised. Add shards, not workers, until then.
   #
   # `timeout-minutes` is not decoration. Without it a job inherits GitHub's
   # 6-HOUR default, and the first attempt at this one looked hung at 22 minutes
@@ -78,17 +80,18 @@ jobs:
   # grinding: nine `palette.spec.ts` specs pressed a hard-coded `Meta+k` that
   # does nothing on Linux (`Mod` is Ctrl there), and each failure cost three
   # attempts at the 60s CI test timeout. 9 x 3 x 60s is half an hour of pure
-  # failure on one worker. The chords are fixed now; the cap is here so the next
-  # such mistake fails in twenty minutes instead of holding a runner all day.
+  # failure on one worker. The chords are fixed now; with eight shards each
+  # running roughly an eighth of the suite in well under 3 minutes, 10 minutes
+  # is generous headroom for retries while still failing fast on a real hang.
   e2e:
     runs-on: ubuntu-24.04
-    timeout-minutes: 20
+    timeout-minutes: 10
     strategy:
       # Every shard reports. Cancelling siblings on the first failure would hide
       # three quarters of a broken suite behind whichever shard happened to fail.
       fail-fast: false
       matrix:
-        shard: [1, 2, 3, 4]
+        shard: [1, 2, 3, 4, 5, 6, 7, 8]
     steps:
       - uses: actions/checkout@v4
 
@@ -128,11 +131,24 @@ jobs:
         run: pnpm exec playwright install --with-deps chromium
         working-directory: packages/app
 
+      # Phase 56 Theme E: the `webServer` block below starts a cold Vite dev
+      # server, which spends 20-30s of every shard's runtime on-demand
+      # compiling chunks nobody has asked for yet. Keying on the lockfile,
+      # Vite's own config and a hash of the source tree means the cache is
+      # invalidated exactly when Vite would have produced different output —
+      # a stale `.vite` dir from a different source tree is worse than none.
+      - uses: actions/cache@v4
+        with:
+          path: packages/app/node_modules/.vite
+          key: vite-${{ runner.os }}-${{ hashFiles('pnpm-lock.yaml', 'packages/app/vite.config.ts', 'packages/app/src/**') }}
+          restore-keys: |
+            vite-${{ runner.os }}-
+
       # `app:e2e-ci`, not `app:e2e` — the ratchet config, which is the full suite
       # minus the 17 files that were already failing when this job was added.
       # See packages/app/playwright.ci.config.ts.
-      - name: E2E (shard ${{ matrix.shard }}/4)
-        run: pnpm exec moon run app:e2e-ci -- --shard=${{ matrix.shard }}/4
+      - name: E2E (shard ${{ matrix.shard }}/8)
+        run: pnpm exec moon run app:e2e-ci -- --shard=${{ matrix.shard }}/8
         env:
           GITHUB_PACKAGES_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
