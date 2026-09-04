@@ -42,9 +42,9 @@ const SETTLE_WAIT_MS = 300;
  * Every colour-stop position in a computed conic-gradient, in degrees.
  *
  * Chromium clamps a conic stop's position to `[0deg, 360deg]` rather than
- * wrapping it, so an arc mask written with a negative stop (`#000 -90deg`)
- * renders a different — smaller — arc than it says. Medic's `-90deg → 90deg`
- * half-ring came out as the top-right quarter alone for exactly this reason,
+ * wrapping it, so an arc mask written with a negative stop (`#000 -60deg`)
+ * renders a different — smaller — arc than it says. Medic's `-60deg → 60deg`
+ * arc came out cut short for exactly this reason,
  * so the arc masks are written wrap-safe (the arc's start folded into `from`,
  * the leading fade at `330deg → 360deg`), and this is what a test can hold
  * them to: computed values have `var()` and `calc()` already resolved, so a
@@ -409,7 +409,7 @@ test.describe('FAB loop console', () => {
       return { halo: read(halo), button: read(button), mask: getComputedStyle(halo).maskImage };
     });
     // Create's row of the tab table, on both — see the Phase 37 describe below.
-    expect(arcs.halo).toEqual({ from: '30deg', to: '210deg' });
+    expect(arcs.halo).toEqual({ from: '60deg', to: '180deg' });
     expect(arcs.button).toEqual(arcs.halo);
     expect(arcs.mask).toContain('conic-gradient');
 
@@ -715,14 +715,16 @@ test.describe('FAB panel — the tab glow (Phase 37)', () => {
   /**
    * The computed custom properties are the testable seam here — the rendered
    * gradient/mask pixels are not. Every row matches `styles.css`'s arc table:
-   * `anchor - 90deg` to `anchor + 90deg` against each tab's own ramp anchor,
-   * never each tab's angles individually wrapped into `[0deg, 360deg)`.
+   * `anchor - 60deg` to `anchor + 60deg` against each tab's own ramp anchor,
+   * never each tab's angles individually wrapped into `[0deg, 360deg)`. The
+   * span is the FAB's own — the landing page pins 180deg and the screensaver
+   * 90deg, and none of the three reads another's.
    */
   const ARCS: Record<string, { from: string; to: string }> = {
-    Medic: { from: '-90deg', to: '90deg' },
-    Patrol: { from: '-30deg', to: '150deg' },
-    Create: { from: '30deg', to: '210deg' },
-    Ideate: { from: '90deg', to: '270deg' },
+    Medic: { from: '-60deg', to: '60deg' },
+    Patrol: { from: '0deg', to: '120deg' },
+    Create: { from: '60deg', to: '180deg' },
+    Ideate: { from: '120deg', to: '240deg' },
   };
 
   const gradient = (page: Page) => page.locator('.fab-panel-gradient');
