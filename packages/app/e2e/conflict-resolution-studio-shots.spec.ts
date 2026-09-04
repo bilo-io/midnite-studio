@@ -102,4 +102,26 @@ test.describe('conflict resolution studio screenshots', () => {
     await page.waitForTimeout(SETTLE_MS);
     await page.screenshot({ path: `${OUT}/conflict-studio-one-region-left.png` });
   });
+
+  test('a suggested resolution (Phase 47 Theme E)', async ({ page }) => {
+    await installMockBridge(page, {
+      ...shots,
+      councils: [
+        {
+          id: 'c1',
+          name: 'Reviewers',
+          members: [{ id: 'm1', name: 'Reviewer', provider: 'agy', role: 'Review the conflict.' }],
+          synthProvider: 'agy',
+        },
+      ],
+    });
+    await page.goto('/graph');
+    await page.getByTestId('conflict-banner').getByRole('button', { name: 'src/config.ts' }).click();
+    const studio = page.getByTestId('conflict-resolution-studio');
+    await studio.getByLabel('Suggestions from').waitFor();
+    await studio.getByRole('button', { name: 'Suggest a resolution' }).first().click();
+    await studio.getByTestId('suggestion-panel').waitFor();
+    await page.waitForTimeout(SETTLE_MS);
+    await page.screenshot({ path: `${OUT}/conflict-studio-suggestion.png` });
+  });
 });

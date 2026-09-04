@@ -30,6 +30,9 @@ function installBridge(overrides: {
   hunks?: ConflictedHunk[];
   truncated?: boolean;
   ops?: Record<string, unknown>;
+  councils?: unknown[];
+  councilRunStart?: ReturnType<typeof vi.fn>;
+  councilRunGet?: ReturnType<typeof vi.fn>;
 } = {}) {
   (window as unknown as { midniteStudio: Partial<MidniteStudioBridge> }).midniteStudio = {
     status: {
@@ -42,6 +45,13 @@ function installBridge(overrides: {
       {},
       { get: (_t, name) => overrides.ops?.[String(name)] ?? vi.fn().mockResolvedValue({ ok: true }) },
     ) as unknown as MidniteStudioBridge['ops'],
+    council: {
+      list: vi.fn().mockResolvedValue({ councils: overrides.councils ?? [] }),
+      run: {
+        start: overrides.councilRunStart ?? vi.fn().mockResolvedValue({ ok: true, value: { id: 'run-1' } }),
+        get: overrides.councilRunGet ?? vi.fn().mockResolvedValue({ run: null }),
+      },
+    } as unknown as MidniteStudioBridge['council'],
   };
 }
 
@@ -211,5 +221,67 @@ describe('ConflictResolutionStudio', () => {
 
     await screen.findAllByTestId('conflict-region');
     expect(screen.queryByText(/too large to show in full/)).toBeNull();
+  });
+
+  describe('"Suggest a resolution" (Phase 47 Theme E)', () => {
+    it('shows no council picker and no suggest button when no council exists', async () => {
+      useUiStore.setState({ selectedRepoId: 'r1' });
+      installBridge({ hunks: TWO_REGIONS, councils: [] });
+
+      render(<ConflictResolutionStudio repoId="r1" path="f.txt" onClose={vi.fn()} />, { wrapper });
+
+      await screen.findAllByTestId('conflict-region');
+      expect(screen.queryByLabelText('Suggestions from')).toBeNull();
+      expect(screen.queryByRole('button', { name: 'Suggest a resolution' })).toBeNull();
+    });
+
+    it('offers a council picker and a suggest button per region once a council exists', async () => {
+      useUiStore.setState({ selectedRepoId: 'r1' });
+      installBridge({ hunks: TWO_REGIONS, councils: [{ id: 'c1', name: 'Reviewers' }] });
+
+      render(<ConflictResolutionStudio repoId="r1" path="f.txt" onClose={vi.fn()} />, { wrapper });
+
+      await screen.findAllByTestId('conflict-region');
+      expect(await screen.findByLabelText('Suggestions from')).toBeTruthy();
+      expect(screen.getByRole('option', { name: 'Reviewers' })).toBeTruthy();
+      expect(screen.getAllByRole('button', { name: 'Suggest a resolution' })).toHaveLength(2);
+    });
+
+    it('composes a prompt from that exact region and starts a run against the picked council', async () => {
+      useUiStore.setState({ selectedRepoId: 'r1' });
+      const start = vi.fn().mockResolvedValue({ ok: true, value: { id: 'run-1' } });
+      installBridge({ hunks: TWO_REGIONS, councils: [{ id: 'c1', name: 'Reviewers' }], councilRunStart: start });
+
+      render(<ConflictResolutionStudio repoId="r1" path="f.txt" onClose={vi.fn()} />, { wrapper });
+
+      await screen.findAllByTestId('conflict-region');
+      fireEvent.click(screen.getAllByRole('button', { name: 'Suggest a resolution' })[0]!);
+
+      await waitFor(() => expect(start).toHaveBeenCalledTimes(1));
+      const [args] = start.mock.calls[0] as [{ councilId: string; prompt: string }];
+      expect(args.councilId).toBe('c1');
+      expect(args.prompt).toContain('MAIN1');
+      expect(args.prompt).toContain('FEAT1');
+      expect(args.prompt).toContain('shared line');
+    });
+
+    it('never routes a suggestion through anything other than the advisory panel — Accept buttons are unaffected', async () => {
+      useUiStore.setState({ selectedRepoId: 'r1' });
+      const applyHunk = vi.fn().mockResolvedValue({ ok: true });
+      installBridge({
+        hunks: TWO_REGIONS,
+        councils: [{ id: 'c1', name: 'Reviewers' }],
+        ops: { conflictApplyHunk: applyHunk },
+      });
+
+      render(<ConflictResolutionStudio repoId="r1" path="f.txt" onClose={vi.fn()} />, { wrapper });
+
+      await screen.findAllByTestId('conflict-region');
+      fireEvent.click(screen.getAllByRole('button', { name: 'Suggest a resolution' })[0]!);
+      fireEvent.click(screen.getAllByRole('button', { name: 'Accept mine' })[0]!);
+
+      await waitFor(() => expect(applyHunk).toHaveBeenCalledTimes(1));
+      expect(applyHunk).toHaveBeenCalledWith(expect.objectContaining({ regionIndex: 0, side: 'ours' }));
+    });
   });
 });

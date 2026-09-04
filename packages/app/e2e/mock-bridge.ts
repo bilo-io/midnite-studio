@@ -423,6 +423,13 @@ export type MockFixtures = {
    * `forge.workflows`, the unrelated GitHub Actions `.yml` listing.
    */
   appWorkflows?: Array<{ id: string; [key: string]: unknown }>;
+  /**
+   * Seeded councils (Phase 34), mutated afterwards by `create`/`updateMembers`/
+   * `remove` the way `appWorkflows` is. Every existing council spec instead
+   * creates one through the UI — this exists for a spec (Phase 47 Theme E)
+   * that needs one to already exist before the page loads.
+   */
+  councils?: Array<{ id: string; [key: string]: unknown }>;
 };
 
 
@@ -2192,8 +2199,9 @@ export async function installMockBridge(page: Page, fixtures: MockFixtures): Pro
     // eslint-disable-next-line no-var
     var loopRunsHandlers: Array<() => void> = [];
     // --- councils (Phase 34) ------------------------------------------------
+    /** Read once from the fixture, then mutated by `create`/`updateMembers`/`remove` like `workflows`. */
     // eslint-disable-next-line no-var
-    var councils: Array<{ id: string; [key: string]: unknown }> = [];
+    var councils: Array<{ id: string; [key: string]: unknown }> = data.councils ?? [];
     // eslint-disable-next-line no-var
     var councilRuns: Array<{ id: string; councilId: string; [key: string]: unknown }> = [];
     // eslint-disable-next-line no-var
