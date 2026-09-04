@@ -26,6 +26,14 @@ const VIDEO_KEYS = {
     ['video-files', projectId, area] as const,
 };
 
+/** The configured video root, for building an absolute project `cwd` (Theme F/G). */
+export function useVideoRoot() {
+  return useQuery({
+    queryKey: ['video-root'] as const,
+    queryFn: async () => (await bridge()?.video.root.get())?.root ?? null,
+  });
+}
+
 export function useVideoProjects() {
   return useQuery({
     queryKey: VIDEO_KEYS.projects,
@@ -198,5 +206,15 @@ export function useVideoFiles(projectId: string | null, area: 'assets' | 'input'
       (await bridge()?.video.files({ projectId: projectId ?? '', area }))?.entries ?? [],
     enabled: projectId !== null,
     initialData: [],
+  });
+}
+
+/** `BRIEF.md`/`EDITORIAL_SCRIPT.md` content, read-only (Theme F). */
+export function useVideoProjectFile(projectId: string | null, relPath: string | null) {
+  return useQuery<string | null>({
+    queryKey: ['video-file-content', projectId ?? '', relPath ?? ''],
+    queryFn: async () =>
+      (await bridge()?.video.readFile({ projectId: projectId ?? '', relPath: relPath ?? '' }))?.content ?? null,
+    enabled: projectId !== null && relPath !== null,
   });
 }
