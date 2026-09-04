@@ -3,4 +3,4 @@
  * Theme F, `components/form/field.tsx`) so every existing settings page keeps
  * importing `Field`/`Choice` from this path unchanged.
  */
-export { Field, Choice } from '../../../components/form/field';
+export { Field, Choice, TextField } from '../../../components/form/field';

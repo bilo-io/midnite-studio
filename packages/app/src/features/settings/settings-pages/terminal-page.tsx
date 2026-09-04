@@ -1,6 +1,6 @@
 import type { AgentDefinition, SessionActivity, TerminalSession } from '@midnite/studio-shared';
 import { Accordion } from '@bilo-io/ui';
-import { LuActivity, LuBot, LuSquareTerminal } from 'react-icons/lu';
+import { LuActivity, LuBot, LuSquareTerminal, LuType } from 'react-icons/lu';
 
 import {
   isAgentRow,
@@ -10,10 +10,19 @@ import {
   useTerminalStore,
   type ConnectionState,
 } from '../../terminal/terminal-store';
+import {
+  DEFAULT_TERMINAL_FONT_FAMILY,
+  DEFAULT_TERMINAL_FONT_SIZE,
+  DEFAULT_TERMINAL_LINE_HEIGHT,
+  TERMINAL_FONT_SIZE_MAX,
+  TERMINAL_FONT_SIZE_MIN,
+  TERMINAL_LINE_HEIGHT_MAX,
+  TERMINAL_LINE_HEIGHT_MIN,
+} from '../../terminal/terminal-font';
 import { useNow } from '../../../lib/use-now';
 import { useAgents } from '../../terminal/use-agents';
 import { useUiStore, type TerminalSidebarSide } from '../../../store/ui-store';
-import { Choice, Field } from './controls';
+import { Choice, Field, TextField } from './controls';
 
 /** One row of the live readout below — a session, what it's doing, when last. */
 export type ActivityRow = {
@@ -84,6 +93,12 @@ function useNowTick(): number {
 export function TerminalPage() {
   const side = useUiStore((s) => s.terminalSidebarSide);
   const setSide = useUiStore((s) => s.setTerminalSidebarSide);
+  const fontFamily = useUiStore((s) => s.terminalFontFamily);
+  const setFontFamily = useUiStore((s) => s.setTerminalFontFamily);
+  const fontSize = useUiStore((s) => s.terminalFontSize);
+  const setFontSize = useUiStore((s) => s.setTerminalFontSize);
+  const lineHeight = useUiStore((s) => s.terminalLineHeight);
+  const setLineHeight = useUiStore((s) => s.setTerminalLineHeight);
   /*
     Through the shared hook, not a second `useQuery` on the same key. React
     Query keys by KEY, not by query function — two `['agents']` observers with
@@ -122,6 +137,80 @@ export function TerminalPage() {
           >
             <code className="w-fit rounded bg-muted px-1.5 py-0.5 font-mono text-xs">Ctrl+`</code>
           </Field>
+        </div>
+      </Accordion>
+
+      <Accordion title="Appearance" icon={<LuType className="h-4 w-4" />} defaultOpen>
+        <div className="flex flex-col gap-4 p-3">
+          <Field
+            label="Font family"
+            hint="A CSS font-family list, like xterm's own. Blank uses the built-in Nerd Font stack — overriding it opts out of powerline/box-drawing glyph coverage."
+          >
+            <TextField
+              value={fontFamily}
+              onChange={setFontFamily}
+              label="Font family"
+              placeholder={DEFAULT_TERMINAL_FONT_FAMILY}
+            />
+          </Field>
+
+          <div className="flex items-start justify-between gap-6">
+            <div className="space-y-1">
+              <p className="text-xs font-medium text-foreground">Font size</p>
+              <p className="text-[11px] text-muted-foreground">Applies to every open terminal immediately.</p>
+            </div>
+            <div className="flex h-8 min-w-[3.5rem] items-center justify-center rounded border border-border bg-card px-3 text-sm font-semibold tabular-nums">
+              {fontSize}
+            </div>
+          </div>
+          <div className="flex items-center gap-3">
+            <span className="w-8 text-right text-xs text-muted-foreground tabular-nums">
+              {TERMINAL_FONT_SIZE_MIN}
+            </span>
+            <input
+              type="range"
+              min={TERMINAL_FONT_SIZE_MIN}
+              max={TERMINAL_FONT_SIZE_MAX}
+              step={1}
+              value={fontSize}
+              onChange={(e) => setFontSize(Number(e.target.value))}
+              aria-label="Font size"
+              className="h-1.5 flex-1 cursor-pointer appearance-none rounded-full bg-border accent-primary"
+            />
+            <span className="w-8 text-xs text-muted-foreground tabular-nums">{TERMINAL_FONT_SIZE_MAX}</span>
+          </div>
+          <p className="text-[11px] text-muted-foreground">Default {DEFAULT_TERMINAL_FONT_SIZE}px</p>
+
+          <div className="flex items-start justify-between gap-6">
+            <div className="space-y-1">
+              <p className="text-xs font-medium text-foreground">Line height</p>
+              <p className="text-[11px] text-muted-foreground">
+                A multiple of the font's own line height — above 1 adds breathing room between rows.
+              </p>
+            </div>
+            <div className="flex h-8 min-w-[3.5rem] items-center justify-center rounded border border-border bg-card px-3 text-sm font-semibold tabular-nums">
+              {lineHeight.toFixed(2)}
+            </div>
+          </div>
+          <div className="flex items-center gap-3">
+            <span className="w-8 text-right text-xs text-muted-foreground tabular-nums">
+              {TERMINAL_LINE_HEIGHT_MIN.toFixed(1)}
+            </span>
+            <input
+              type="range"
+              min={TERMINAL_LINE_HEIGHT_MIN}
+              max={TERMINAL_LINE_HEIGHT_MAX}
+              step={0.05}
+              value={lineHeight}
+              onChange={(e) => setLineHeight(Number(e.target.value))}
+              aria-label="Line height"
+              className="h-1.5 flex-1 cursor-pointer appearance-none rounded-full bg-border accent-primary"
+            />
+            <span className="w-8 text-xs text-muted-foreground tabular-nums">
+              {TERMINAL_LINE_HEIGHT_MAX.toFixed(1)}
+            </span>
+          </div>
+          <p className="text-[11px] text-muted-foreground">Default {DEFAULT_TERMINAL_LINE_HEIGHT.toFixed(2)}</p>
         </div>
       </Accordion>
 
