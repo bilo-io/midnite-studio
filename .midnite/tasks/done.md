@@ -2,6 +2,23 @@
 
 <!-- Append one entry per landed phase/PR: date, phase, PR link, one-line summary. -->
 
+## 2026-09-04 — Phase 41 Theme H (partial) — switching boards doesn't kill a session, tested
+
+[PR #114]. Closes one of Theme H's two remaining items — the other (quit-and-relaunch against a
+packaged build) still needs a human on real hardware.
+
+- [x] **`board-view.test.tsx`, two new integration tests against the real `useTerminalStore`.**
+      A kanban session seeded directly into the store (with `hydrated: true` so `BoardView`'s own
+      `hydrate()` short-circuits rather than racing the seed) survives this board mounting,
+      unmounting and remounting untouched — proving "switching boards or repos does not kill
+      running sessions... and returning reattaches" is actually true, not just true by
+      construction. A second test confirms a session bound to a *different* board's card is left
+      alone by this board's reconciliation effect, since it is scoped to `board.projectId`.
+- [x] No production code changed — the behaviour already existed (nothing kills a session on
+      unmount); this was a test-coverage gap, closed at the layer that actually covers it (an RTL
+      mount/unmount test on `BoardView` itself, not a further unit test on the already-tested pure
+      `sessionsToRehome`).
+
 ## 2026-09-04 — Phase 44 Theme B — project discovery and the store
 
 [PR #112]. Projects are **discovered, not registered** — `discoverProjects` scans
