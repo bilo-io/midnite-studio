@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useState, type ReactNode } from 'react';
 import { LuActivity, LuArrowDown, LuArrowUp, LuBatteryCharging, LuTrendingUp } from 'react-icons/lu';
 import { type MetricId } from '@midnite/studio-shared';
 
@@ -30,7 +30,7 @@ const LOCK_CHART_GEOMETRY = {
   areaAlpha: 0.25,
 };
 
-export function LockScreenWidgets() {
+export function LockScreenWidgets({ topCentre }: { topCentre?: ReactNode } = {}) {
   return (
     <div
       data-testid="lock-screen-widgets"
@@ -47,6 +47,7 @@ export function LockScreenWidgets() {
         <LockScreenSysmonWidget />
       </LockScreenSlotIsland>
       <LockScreenSlotIsland slot="top-centre">
+        {topCentre}
         <LockScreenWeatherWidget />
       </LockScreenSlotIsland>
     </div>

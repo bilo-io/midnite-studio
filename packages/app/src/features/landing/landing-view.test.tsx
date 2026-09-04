@@ -55,6 +55,13 @@ describe('LandingView', () => {
     expect(screen.getByText('Local Time')).toBeTruthy();
   });
 
+  it('renders the brand wordmark logo at the center top', () => {
+    render(<LandingView />, { wrapper });
+    expect(screen.getByTestId('landing-brand')).toBeTruthy();
+    expect(screen.getByText('Midnite')).toBeTruthy();
+    expect(screen.getByText('Studio')).toBeTruthy();
+  });
+
   it('paginates four slides — the screensaver stage, two shortcut batches, the loop console', () => {
     render(<LandingView />, { wrapper });
     const dots = screen.getAllByRole('tab');
