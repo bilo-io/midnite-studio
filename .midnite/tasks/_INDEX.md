@@ -49,6 +49,7 @@ Completed work is logged append-only in [`done.md`](done.md). Deferred scope liv
 
 | Phase | Status | Refined | Done | Progress | % | 🔄 WIP | ◻ TODO |
 |-------|--------|---------|------|----------|---|--------|--------|
+| [55 · Multi-Window Studio & Detachable Panels](phases/phase-55-multi-window-studio.md) | ◻ TODO | — | 0/17 | `░░░░░░░░░░` | 0% | — | A B C D E F |
 | [54 · An Issues view](phases/phase-54-issues-view.md) | 🔄 WIP | — | 43/45 | `██████████` | 96% | — | Verification (2 human passes) |
 | [53 · The first release](phases/phase-53-first-release.md) | ◻ TODO | — | 0/42 | `░░░░░░░░░░` | 0% | — | A B C D E F G H |
 | [52 · Projects, the Board, and Workflows, navigable](phases/phase-52-projects-navigation.md) | ✅ DONE | — | 40/43 | `█████████░` | 93% | — | Verification (3 human passes) |
@@ -109,6 +110,17 @@ Completed work is logged append-only in [`done.md`](done.md). Deferred scope liv
 
 <!-- Each phase currently carries a single theme A = its full deliverables checklist. Split into
      lettered themes if a phase gets parallelised. -->
+
+### [Phase 55 — Multi-Window Studio & Detachable Panels](phases/phase-55-multi-window-studio.md)
+
+*Auxiliary surfaces (Terminal, Git Repos, FAB Loops, Embedded Browser) detached into dedicated popout windows with universal top-left dock/undock hover-morph affordances and cross-window state sync.*
+
+- ◻ **A** — Window lifecycle & multi-window IPC infrastructure: contracts, window manager, event routing and query entry router.
+- ◻ **B** — Universal top-left dock/undock affordances: hover morph icons for Terminal, Repos, Browser and new "Midnite Loops" header with Midnite brand mark.
+- ◻ **C** — Detachable Terminal & FAB Loops popouts over existing detached PTY broker and multi-loop consoles.
+- ◻ **D** — Detachable Embedded Browser & WebContentsView reparenting across windows without reloading web apps.
+- ◻ **E** — Cross-window state synchronization via BroadcastChannel for Zustand stores and React Query caches.
+- ◻ **F** — Verification & screenshots: automated specs, visual regression shots and multi-monitor verification.
 
 ### [Phase 54 — An Issues view](phases/phase-54-issues-view.md)
 
