@@ -2,6 +2,31 @@
 
 <!-- Append one entry per landed phase/PR: date, phase, PR link, one-line summary. -->
 
+## 2026-09-04 — Phase 51 Theme D — a resize that costs one fit, not one per frame
+
+[PR #118]. There was no debouncing on the fit path at all: the `ResizeObserver` called `fit()`
+synchronously on every observer callback, so a drag-resize ran a full xterm re-measure and reflow
+per observation, faster than the browser can even paint a frame.
+
+- [x] **`fit-coalescer.ts`.** `createFitCoalescer(fit, raf?, cancelRaf?)` schedules at most one
+      call to `fit` per animation frame — a re-`schedule()` within the same frame cancels the
+      previous rAF handle rather than letting both run. `raf`/`cancelRaf` are injectable
+      (defaulting to the real globals) so a test can step through frames by hand instead of racing
+      the browser's own clock.
+- [x] **`terminal-view.tsx` wiring.** The `ResizeObserver`'s callback now calls
+      `fitCoalescer.schedule()` instead of `safeFit()` directly (the "not yet sized, first open"
+      branch stays synchronous — that's the deferred-open concern, not the per-frame storm this
+      theme targets). `lastSentRef`'s own IPC-resize dedupe (inside `safeFit`) is untouched — it
+      solves a different problem one layer down and the two guards are not redundant.
+- [x] **Correction to the doc:** cancelled, not "flushed", on unmount. Running a queued fit against
+      a container mid-teardown measures something about to be torn down for no benefit;
+      `fitCoalescer.cancel()` runs in the same cleanup, before `termRef.current`/`fitRef.current`
+      are nulled, so no dangling rAF can fire against a disposed terminal either way.
+- [x] 5 tests (`fit-coalescer.test.ts`): N schedules within one frame produce one fit; cancel drops
+      a pending fit; cancel is a safe no-op with nothing pending; a burst still fits, and a second,
+      independent frame is not throttled away by the first; re-scheduling within a frame cancels
+      the previous rAF handle by its actual handle value, not just its callback reference.
+
 ## 2026-09-04 — Phase 51 Theme B — explicit cell metrics, and a font the user can set
 
 [PR #117]. Independent of Theme A: `fontSize: 12` was the only metric this repo ever set, with no
