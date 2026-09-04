@@ -1990,6 +1990,23 @@ export const VideoProjectReadFileRequest = z.object({
 });
 export const VideoProjectReadFileResponse = z.object({ content: z.string().nullable() });
 
+/**
+ * Reveal-in-Finder / play-in-default-app on a listed file (Theme E) —
+ * `{area, projectId, name}` re-resolved and re-confined against the video
+ * root itself, the same distrust `VideoProjectReadFileRequest` applies to
+ * `relPath`, rather than trusting a path the renderer already listed once.
+ */
+export const VideoFileHandoffRequest = z.object({
+  projectId: z.string().min(1),
+  area: VideoFileAreaSchema,
+  name: z.string().min(1),
+});
+/** Mirrors `ShowItemInFolderResponse` — a hand-off outcome, not a `GitOpResult`. */
+export const VideoFileHandoffResponse = z.object({
+  ok: z.boolean(),
+  message: z.string().optional(),
+});
+
 export const VideoRootGetResponse = z.object({ root: z.string().nullable() });
 export const VideoRootSetRequest = z.object({ root: z.string().nullable() });
 export const VideoRootSetResponse = z.object({ root: z.string().nullable() });

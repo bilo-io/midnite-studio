@@ -209,6 +209,20 @@ export function useVideoFiles(projectId: string | null, area: 'assets' | 'input'
   });
 }
 
+/**
+ * Reveal-in-Finder / play-in-default-app on a listed file (Theme E) — plain
+ * fire-and-forget hand-offs, the same shape `use-file-actions.ts`'s own
+ * `reveal()` already uses for the identical OS-shell action elsewhere in the
+ * app. Not a mutation: nothing here changes any query's data.
+ */
+export function revealVideoFile(projectId: string, area: 'assets' | 'input' | 'output', name: string): void {
+  void bridge()?.video.revealFile({ projectId, area, name });
+}
+
+export function openVideoFile(projectId: string, area: 'assets' | 'input' | 'output', name: string): void {
+  void bridge()?.video.openFile({ projectId, area, name });
+}
+
 /** `BRIEF.md`/`EDITORIAL_SCRIPT.md` content, read-only (Theme F). */
 export function useVideoProjectFile(projectId: string | null, relPath: string | null) {
   return useQuery<string | null>({

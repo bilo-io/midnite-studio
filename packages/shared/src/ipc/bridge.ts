@@ -742,6 +742,14 @@ export type MidniteStudioBridge = {
     readFile: (
       req: In<typeof S.VideoProjectReadFileRequest>,
     ) => Promise<z.infer<typeof S.VideoProjectReadFileResponse>>;
+    /** Reveal a listed file in the OS file manager (Theme E). */
+    revealFile: (
+      req: In<typeof S.VideoFileHandoffRequest>,
+    ) => Promise<z.infer<typeof S.VideoFileHandoffResponse>>;
+    /** Open a listed file in its OS default app (Theme E). */
+    openFile: (
+      req: In<typeof S.VideoFileHandoffRequest>,
+    ) => Promise<z.infer<typeof S.VideoFileHandoffResponse>>;
     /** The Settings page's own read/write of the one setting Video Studio has. */
     root: {
       get: () => Promise<z.infer<typeof S.VideoRootGetResponse>>;

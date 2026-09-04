@@ -550,6 +550,15 @@ export const CHANNELS = {
    */
   videoProjectFiles: 'mstudio:video:project-files',
   videoProjectReadFile: 'mstudio:video:project-read-file',
+  /**
+   * Reveal-in-Finder / play-in-default-app on a listed file (Theme E), both
+   * hand-offs to Electron's `shell` module — read-only, no new write surface.
+   * Re-confines `{area, projectId, name}` against the video root itself
+   * rather than trusting a path the renderer already listed, the same
+   * distrust `videoProjectReadFile` already applies to `relPath`.
+   */
+  videoFileReveal: 'mstudio:video:file-reveal',
+  videoFileOpen: 'mstudio:video:file-open',
   /** The Settings page's own read/write of the one setting Video Studio has. */
   videoRootGet: 'mstudio:video:root-get',
   videoRootSet: 'mstudio:video:root-set',

@@ -1496,6 +1496,8 @@ describe('video contract', () => {
       videoToolchain: ['VideoToolchainRequest', 'VideoToolchainResponse'],
       videoProjectFiles: ['VideoProjectFilesRequest', 'VideoProjectFilesResponse'],
       videoProjectReadFile: ['VideoProjectReadFileRequest', 'VideoProjectReadFileResponse'],
+      videoFileReveal: ['VideoFileHandoffRequest', 'VideoFileHandoffResponse'],
+      videoFileOpen: ['VideoFileHandoffRequest', 'VideoFileHandoffResponse'],
       videoRootGet: ['VideoRootGetResponse'],
       videoRootSet: ['VideoRootSetRequest', 'VideoRootSetResponse'],
       videoStudioChanged: ['VideoStudioChangedPayload'],

@@ -1,7 +1,7 @@
 import { existsSync } from 'node:fs';
 import { join } from 'node:path';
 import { randomUUID } from 'node:crypto';
-import type { BrowserWindow } from 'electron';
+import { shell, type BrowserWindow } from 'electron';
 
 import {
   EVENT_CHANNELS,
@@ -22,6 +22,7 @@ import {
   listOutputFiles,
   readProjectFile,
   removeProject,
+  resolveAreaFilePath,
   type VideoFileEntry,
 } from './video/project-discovery';
 import { nullProjectsStore, type ProjectsStore } from './video/projects-store';
@@ -153,6 +154,44 @@ export async function readVideoProjectFile(projectId: string, relPath: string): 
   const root = await requireRoot();
   if (!root.ok) return null;
   return readProjectFile(root.value, projectId, relPath);
+}
+
+type FileHandoffResult = { ok: boolean; message?: string };
+
+async function resolveHandoffPath(
+  projectId: string,
+  area: 'assets' | 'input' | 'output',
+  name: string,
+): Promise<{ ok: true; path: string } | { ok: false; message: string }> {
+  const root = await requireRoot();
+  if (!root.ok) return { ok: false, message: 'message' in root ? root.message : String(root.kind) };
+  const path = await resolveAreaFilePath(root.value, area, projectId, name);
+  if (path === null) return { ok: false, message: 'That file does not exist, or is outside the configured root.' };
+  return { ok: true, path };
+}
+
+/** Reveal a listed file in the OS file manager (Theme E) — read-only, through Electron's `shell`. */
+export async function revealVideoFile(
+  projectId: string,
+  area: 'assets' | 'input' | 'output',
+  name: string,
+): Promise<FileHandoffResult> {
+  const resolved = await resolveHandoffPath(projectId, area, name);
+  if (!resolved.ok) return resolved;
+  shell.showItemInFolder(resolved.path);
+  return { ok: true };
+}
+
+/** Open a listed file in its OS default app (Theme E) — read-only, through Electron's `shell`. */
+export async function openVideoFile(
+  projectId: string,
+  area: 'assets' | 'input' | 'output',
+  name: string,
+): Promise<FileHandoffResult> {
+  const resolved = await resolveHandoffPath(projectId, area, name);
+  if (!resolved.ok) return resolved;
+  const error = await shell.openPath(resolved.path);
+  return error ? { ok: false, message: error } : { ok: true };
 }
 
 // --- studio --------------------------------------------------------------

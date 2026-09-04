@@ -369,6 +369,8 @@ const bridge: Pick<
     toolchain: (req) => call(CHANNELS.videoToolchain, req),
     files: (req) => call(CHANNELS.videoProjectFiles, req),
     readFile: (req) => call(CHANNELS.videoProjectReadFile, req),
+    revealFile: (req) => call(CHANNELS.videoFileReveal, req),
+    openFile: (req) => call(CHANNELS.videoFileOpen, req),
     root: {
       get: () => call(CHANNELS.videoRootGet),
       set: (req) => call(CHANNELS.videoRootSet, req),

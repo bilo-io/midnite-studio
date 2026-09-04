@@ -258,6 +258,25 @@ export async function listAreaFiles(
 }
 
 /**
+ * Resolves one already-listed file's absolute path, re-confined against the
+ * root (Theme E) — for a hand-off to Electron's `shell` module
+ * (reveal-in-Finder / play-in-default-app), which needs a real filesystem
+ * path, not a directory listing. Shares `listAreaFiles`'s own confinement
+ * exactly rather than trusting the `name` a prior listing already returned.
+ */
+export async function resolveAreaFilePath(
+  root: string,
+  area: 'assets' | 'input' | 'output',
+  projectId: string,
+  name: string,
+): Promise<string | null> {
+  const relDir = area === 'assets' ? 'assets' : join(PROJECTS_DIR, projectId, area);
+  const dir = await confineToRoot(root, relDir);
+  if (dir === null) return null;
+  return confineToRoot(dir, name);
+}
+
+/**
  * Renders already on disk, read back from `<project>/output/` by filename —
  * never counted in a store that can disagree with what is actually there.
  * A file that does not match `vN-<label>.mp4` is silently not a render this

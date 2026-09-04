@@ -1,4 +1,4 @@
-import { mkdir, mkdtemp, rm, writeFile } from 'node:fs/promises';
+import { mkdir, mkdtemp, realpath, rm, writeFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 
@@ -34,6 +34,17 @@ vi.mock('./video/render-service', () => ({
   })),
 }));
 
+// `revealVideoFile`/`openVideoFile` (Theme E) are the only two functions in
+// this file that touch `electron` at runtime — every other export here is
+// pure orchestration over the mocked modules above.
+const { showItemInFolder: showItemInFolderMock, openPath: openPathMock } = vi.hoisted(() => ({
+  showItemInFolder: vi.fn(),
+  openPath: vi.fn(async () => ''),
+}));
+vi.mock('electron', () => ({
+  shell: { showItemInFolder: showItemInFolderMock, openPath: openPathMock },
+}));
+
 import { startStudio, stopStudio } from './video/studio-service';
 import { buildRenderCommand, queueRender } from './video/render-service';
 import {
@@ -41,8 +52,10 @@ import {
   createVideoProject,
   getVideoRoot,
   listVideoProjects,
+  openVideoFile,
   readVideoProjectFile,
   removeVideoProject,
+  revealVideoFile,
   setVideoRoot,
   videoRenderStart,
   videoStudioStart,
@@ -160,5 +173,55 @@ describe('removeVideoProject', () => {
 
     await removeVideoProject('p1');
     expect(stopStudio).toHaveBeenCalledWith('p1');
+  });
+});
+
+describe('revealVideoFile / openVideoFile (Theme E)', () => {
+  it('hands the confined, real path to shell.showItemInFolder / shell.openPath', async () => {
+    const root = await realpath(await tempDir());
+    const outputDir = join(root, 'projects', 'p1', 'output');
+    await mkdir(outputDir, { recursive: true });
+    await writeFile(join(outputDir, 'v1-cut.mp4'), 'fake video', 'utf8');
+    await setVideoRoot(root);
+
+    const revealed = await revealVideoFile('p1', 'output', 'v1-cut.mp4');
+    expect(revealed).toEqual({ ok: true });
+    expect(showItemInFolderMock).toHaveBeenCalledWith(join(outputDir, 'v1-cut.mp4'));
+
+    const opened = await openVideoFile('p1', 'output', 'v1-cut.mp4');
+    expect(opened).toEqual({ ok: true });
+    expect(openPathMock).toHaveBeenCalledWith(join(outputDir, 'v1-cut.mp4'));
+  });
+
+  it('refuses a name that escapes the area, and never calls shell', async () => {
+    const root = await realpath(await tempDir());
+    await mkdir(join(root, 'projects', 'p1', 'output'), { recursive: true });
+    await setVideoRoot(root);
+
+    const revealed = await revealVideoFile('p1', 'output', '../../../../etc/passwd');
+    expect(revealed.ok).toBe(false);
+    expect(showItemInFolderMock).not.toHaveBeenCalled();
+
+    const opened = await openVideoFile('p1', 'output', '../../../../etc/passwd');
+    expect(opened.ok).toBe(false);
+    expect(openPathMock).not.toHaveBeenCalled();
+  });
+
+  it('surfaces shell.openPath\'s own error string rather than reporting success', async () => {
+    const root = await realpath(await tempDir());
+    const outputDir = join(root, 'projects', 'p1', 'output');
+    await mkdir(outputDir, { recursive: true });
+    await writeFile(join(outputDir, 'v1-cut.mp4'), 'fake video', 'utf8');
+    await setVideoRoot(root);
+    openPathMock.mockResolvedValueOnce('no application registered for this file type');
+
+    const opened = await openVideoFile('p1', 'output', 'v1-cut.mp4');
+    expect(opened).toEqual({ ok: false, message: 'no application registered for this file type' });
+  });
+
+  it('fails with no root configured, and never calls shell', async () => {
+    const revealed = await revealVideoFile('p1', 'output', 'v1-cut.mp4');
+    expect(revealed.ok).toBe(false);
+    expect(showItemInFolderMock).not.toHaveBeenCalled();
   });
 });

@@ -1,4 +1,4 @@
-import { mkdir, mkdtemp, rm, symlink, writeFile } from 'node:fs/promises';
+import { mkdir, mkdtemp, realpath, rm, symlink, writeFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 
@@ -14,6 +14,7 @@ import {
   listOutputFiles,
   readProjectFile,
   removeProject,
+  resolveAreaFilePath,
 } from './project-discovery';
 
 let dirs: string[] = [];
@@ -302,6 +303,32 @@ describe('listAreaFiles', () => {
     const root = await tempDir();
     expect(await listAreaFiles(root, 'input', '../../../../etc')).toEqual([]);
     expect(await listAreaFiles(root, 'output', '../../../../etc')).toEqual([]);
+  });
+});
+
+describe('resolveAreaFilePath', () => {
+  it("resolves one already-listed file's real absolute path (Theme E hand-off)", async () => {
+    const root = await realpath(await tempDir());
+    const outputDir = join(root, 'projects', 'p1', 'output');
+    await mkdir(outputDir, { recursive: true });
+    await writeFile(join(outputDir, 'v1-cut.mp4'), 'x', 'utf8');
+
+    expect(await resolveAreaFilePath(root, 'output', 'p1', 'v1-cut.mp4')).toBe(join(outputDir, 'v1-cut.mp4'));
+  });
+
+  it('refuses a name that escapes the area, and a project id that escapes the root', async () => {
+    const root = await tempDir();
+    await mkdir(join(root, 'projects', 'p1', 'output'), { recursive: true });
+
+    expect(await resolveAreaFilePath(root, 'output', 'p1', '../../../../etc/passwd')).toBeNull();
+    expect(await resolveAreaFilePath(root, 'output', '../../../../etc', 'passwd')).toBeNull();
+  });
+
+  it('refuses a file that does not exist', async () => {
+    const root = await tempDir();
+    await mkdir(join(root, 'projects', 'p1', 'output'), { recursive: true });
+
+    expect(await resolveAreaFilePath(root, 'output', 'p1', 'nothing-here.mp4')).toBeNull();
   });
 });
 

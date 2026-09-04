@@ -6,8 +6,10 @@ import {
   getVideoRoot,
   listVideoProjectFiles,
   listVideoProjects,
+  openVideoFile,
   readVideoProjectFile,
   removeVideoProject,
+  revealVideoFile,
   setVideoRoot,
   videoRenderCancel,
   videoRenderList,
@@ -115,6 +117,20 @@ export function registerVideoHandlers(): void {
     schemas.VideoProjectReadFileRequest,
     async ({ projectId, relPath }) => ({ content: await readVideoProjectFile(projectId, relPath) }),
     () => ({ content: null }),
+  );
+
+  handle(
+    CHANNELS.videoFileReveal,
+    schemas.VideoFileHandoffRequest,
+    async ({ projectId, area, name }) => revealVideoFile(projectId, area, name),
+    (issue) => ({ ok: false, message: issue }),
+  );
+
+  handle(
+    CHANNELS.videoFileOpen,
+    schemas.VideoFileHandoffRequest,
+    async ({ projectId, area, name }) => openVideoFile(projectId, area, name),
+    (issue) => ({ ok: false, message: issue }),
   );
 
   handleBare(CHANNELS.videoRootGet, async () => ({ root: await getVideoRoot() }));
