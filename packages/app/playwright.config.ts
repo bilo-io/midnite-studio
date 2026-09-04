@@ -43,7 +43,19 @@ export default defineConfig({
   */
   fullyParallel: true,
   /*
-    Zero locally, one in CI — and the asymmetry is the whole point.
+    Phase 56 Theme C trial: `ci.yml`'s own comment has held "workers stay at
+    the default ON PURPOSE... raising them on a 2-core runner oversubscribes
+    it" since the e2e job was first sharded, on the theory that a 2-core
+    runner's cores/2 = ONE worker is already saturated. That was never
+    measured against this suite's actual profile — mostly waiting on the
+    local Vite server and the DOM rather than CPU-bound rendering — so this
+    tries `workers: 2` in CI and measures shard duration + flake rate against
+    the `workers: 1` baseline (PR #148: 3m24s–5m17s/shard, 8/8 green) before
+    landing a value either way.
+  */
+  workers: process.env.CI ? 2 : undefined,
+  /*
+    Zero locally, two in CI — and the asymmetry is the whole point.
 
     The standing rule here was a flat `retries: 0`, on the grounds that this
     suite is UI-deterministic and a retry would therefore mask a real race
