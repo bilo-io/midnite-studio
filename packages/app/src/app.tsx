@@ -843,6 +843,17 @@ function Shell() {
     size: browser.snap === 'collapse' ? 0 : browser.current,
     axis: 'x',
     dragging: browser.dragging,
+    /*
+      Keyed on the open/close toggle alone, the same reason the terminal's
+      does (above) — `size` also drifts on a plain window resize (`browserMax`
+      tracks `viewportWidth`), and re-arming the settle race on every resize
+      tick would leave `browserColumn` treating the pane as "mid-toggle" for
+      as long as the window kept moving. That matters here beyond the CSS
+      transition: `BrowserPane`'s `shown` prop below is ANDed with `settled`,
+      so an unwanted re-arm would blank the live `WebContentsView`, not just
+      skip an animation.
+    */
+    animateKey: `${browserDocked}`,
   });
   const fabPanelTween = useRevealSize<HTMLDivElement>({
     open: fabPanelDocked,
@@ -896,8 +907,18 @@ function Shell() {
    * pane inside stays at its settled width and is clipped — so the browser's
    * own chrome does not re-layout on every frame of an open or close.
    *
-   * `null` unless the layout asks for it, so the full-screen overlay below and
-   * this are never both mounted.
+   * That split is exactly why `BrowserPane` also takes `settled`, separate
+   * from `shown`: its own bounds tracking (`useBrowserBounds`) measures the
+   * settled-width INNER box, not this animating outer one, because a
+   * `WebContentsView` is a native layer — the outer box's `overflow-hidden`
+   * clips ordinary DOM chrome but has no effect on it. Mid-tween the two
+   * boxes are different sizes; pushing the inner box's bounds while the
+   * outer one is still smaller paints the real page past the visible
+   * column's edge (over the toolbar, into whatever sits beside it) until
+   * the tween settles and they agree again. `BrowserPane` keeps its own
+   * chrome — the toolbar, the address bar — live off `shown` alone the
+   * instant the pane opens; only the native view itself waits on `settled`,
+   * the same reason `terminalTween.settled` gates `viewBoxClassName` above.
    */
   const browserColumn =
     browserSideBySide && browserTween.mounted ? (
@@ -917,7 +938,9 @@ function Shell() {
             `WebContentsView` has already reparented to the popout (Phase 55),
             so there is nothing here to show.
           */}
-          {browserDetached ? null : <BrowserPane shown={browserTween.shown} />}
+          {browserDetached ? null : (
+            <BrowserPane shown={browserTween.shown} settled={browserTween.settled} />
+          )}
         </div>
       </div>
     ) : null;
