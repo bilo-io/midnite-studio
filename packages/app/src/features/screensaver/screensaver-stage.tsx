@@ -140,6 +140,7 @@ export function ScreensaverStage({
       </div>
 
       <h1
+        data-mode={mode}
         className="screensaver-title flex items-baseline pb-3 text-4xl font-semibold leading-[1.15] tracking-tight sm:text-6xl"
         style={tint}
       >
