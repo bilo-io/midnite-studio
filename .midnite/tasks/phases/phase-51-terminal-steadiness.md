@@ -174,6 +174,20 @@ untracked and spend from the same process-wide ceiling.
     for one tick before the reactive effect (now purely a POST-mount correction, watching
     `webglRef.current` against the current grant) evicts it. The reactive effect's job shrank to
     exactly what it needs to be: react to a LATER transition, never the initial one.
+  - **Second correction, also caught by CI, not locally reproducible:** `terminal.spec.ts`'s own
+    "the panel slides between hidden, open and maximized" failed **only** on CI (its own docblock
+    already documents this class of test as sensitive to main-thread contention around a fresh
+    xterm's WebGL shader compile — the very case this change touches) and **only** at the
+    `reopening` step's `passedThrough` check, three CI runs straight, never once locally. The
+    registry's own registration effect (`useXtermWebglSlot`) was firing synchronously in the SAME
+    passive-effects flush as `terminal-view.tsx`'s own WebGL-creation effect, stacking an extra
+    React reconciliation pass immediately after the heaviest synchronous work this component ever
+    does — invisible on a real GPU's fast compile, plausibly enough on CI's much slower one (no
+    real GPU) to push an already-marginal transition's main-thread block past the point the tween
+    still shows a middle frame at all. Registration is now deferred one `requestAnimationFrame` —
+    correctness is unaffected (the initial acquisition itself is unconditional, not gated on this
+    registry), and it moves that reconciliation pass off the critical frame. `xterm-budget.test.ts`
+    updated to advance a faked `requestAnimationFrame` after each render.
 - [x] `Settings ▸ Terminal` shows, per live session, which renderer it is actually using. The bug
       was invisible for as long as it was because nothing ever said "this pane is on the DOM
       renderer" — the same argument [Phase 30 Theme G](phase-30-terminal-hardening.md) made for a

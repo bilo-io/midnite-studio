@@ -1,11 +1,19 @@
-import { renderHook } from '@testing-library/react';
-import { afterEach, describe, expect, it, vi } from 'vitest';
+import { act, renderHook } from '@testing-library/react';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 import { MAX_WEBGL_CONTEXTS, grantedWebglKeys, useXtermBudget, useXtermWebglSlot } from './xterm-budget';
 
+beforeEach(() => {
+  vi.useFakeTimers({ toFake: ['requestAnimationFrame'] });
+});
+
 afterEach(() => {
+  vi.useRealTimers();
   useXtermBudget.setState({ mounts: {}, renderers: {} });
 });
+
+/** Flushes `useXtermWebglSlot`'s one-frame-deferred registration. */
+const flushRaf = () => act(() => vi.advanceTimersByTime(20));
 
 describe('grantedWebglKeys', () => {
   it('grants every mount when under budget', () => {
@@ -47,19 +55,28 @@ describe('grantedWebglKeys', () => {
 });
 
 describe('useXtermWebglSlot', () => {
+  it('answers false on the very first render — registration is deferred a frame, not synchronous', () => {
+    const { result } = renderHook(() => useXtermWebglSlot('fresh', true));
+    expect(result.current).toBe(false);
+
+    flushRaf();
+    expect(result.current).toBe(true);
+  });
+
   it('mounts from three different surfaces count against one ceiling', () => {
-    const { result: panel } = renderHook(() => useXtermWebglSlot('panel-session', true));
-    const { result: card } = renderHook(() => useXtermWebglSlot('card-session', true));
-    const { result: fab } = renderHook(() => useXtermWebglSlot('fab-session', true));
+    const panel = renderHook(() => useXtermWebglSlot('panel-session', true));
+    const card = renderHook(() => useXtermWebglSlot('card-session', true));
+    const fab = renderHook(() => useXtermWebglSlot('fab-session', true));
+    flushRaf();
 
     expect(useXtermBudget.getState().mounts).toEqual({
       'panel-session': expect.objectContaining({ visible: true }),
       'card-session': expect.objectContaining({ visible: true }),
       'fab-session': expect.objectContaining({ visible: true }),
     });
-    expect(panel.current).toBe(true);
-    expect(card.current).toBe(true);
-    expect(fab.current).toBe(true);
+    expect(panel.result.current).toBe(true);
+    expect(card.result.current).toBe(true);
+    expect(fab.result.current).toBe(true);
   });
 
   it('the least-recently-visible pane is the one demoted once over budget', () => {
@@ -72,6 +89,7 @@ describe('useXtermWebglSlot', () => {
     });
 
     const { result } = renderHook(() => useXtermWebglSlot('s3', true));
+    flushRaf();
 
     expect(result.current).toBe(true);
     // Over a budget of 2, s1 (oldest) is the one bumped, not s2.
@@ -88,6 +106,7 @@ describe('useXtermWebglSlot', () => {
       ({ visible }: { visible: boolean }) => useXtermWebglSlot('subject', visible),
       { initialProps: { visible: false } },
     );
+    flushRaf();
 
     // Both hidden: the more-recently-visible rival wins a budget of one.
     expect(grantedWebglKeys(useXtermBudget.getState().mounts, 1)).toEqual(new Set(['rival']));
@@ -100,27 +119,24 @@ describe('useXtermWebglSlot', () => {
   });
 
   it('holds the real budget: a 13th visible mount evicts the least-recently-visible of 12', () => {
-    vi.useFakeTimers();
-    try {
-      const fillers = Array.from({ length: MAX_WEBGL_CONTEXTS }, (_, i) => {
-        const hook = renderHook(() => useXtermWebglSlot(`filler-${i}`, true));
-        vi.advanceTimersByTime(1);
-        return hook;
-      });
-      expect(fillers.every((f) => f.result.current)).toBe(true);
+    const fillers = Array.from({ length: MAX_WEBGL_CONTEXTS }, (_, i) => {
+      const hook = renderHook(() => useXtermWebglSlot(`filler-${i}`, true));
+      flushRaf();
+      return hook;
+    });
+    expect(fillers.every((f) => f.result.current)).toBe(true);
 
-      const newcomer = renderHook(() => useXtermWebglSlot('newcomer', true));
+    const newcomer = renderHook(() => useXtermWebglSlot('newcomer', true));
+    flushRaf();
 
-      expect(newcomer.result.current).toBe(true);
-      expect(fillers[0]?.result.current).toBe(false);
-      expect(fillers.slice(1).every((f) => f.result.current)).toBe(true);
-    } finally {
-      vi.useRealTimers();
-    }
+    expect(newcomer.result.current).toBe(true);
+    expect(fillers[0]?.result.current).toBe(false);
+    expect(fillers.slice(1).every((f) => f.result.current)).toBe(true);
   });
 
   it('unmounting frees the slot exactly once', () => {
     const { unmount } = renderHook(() => useXtermWebglSlot('temp', true));
+    flushRaf();
     expect(useXtermBudget.getState().mounts['temp']).toBeDefined();
 
     unmount();
