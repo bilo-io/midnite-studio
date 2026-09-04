@@ -2,6 +2,33 @@
 
 <!-- Append one entry per landed phase/PR: date, phase, PR link, one-line summary. -->
 
+## 2026-09-04 — Phase 51 Theme E — keystrokes that are never silently dropped
+
+[PR #119]. The most likely "buggy input after a while": `term.onData` reads `stateRef.current`,
+assigned during render, so between `pty.create` resolving and this component's own next
+re-render the ref could still say `'starting'` — and the handler returned without queueing,
+dropping every character typed in that window.
+
+- [x] **`input-queue.ts`.** `createInputQueue(capBytes)`, a bounded FIFO — 4 KiB. On overflow it
+      drops the **oldest already-buffered chunk(s)**, not the newest, since losing the user's most
+      recent keystroke is the failure they would actually notice. Drops whole chunks rather than
+      trimming to an exact byte count, since `onData` delivers whole decoded strings and slicing
+      one could cut a multi-byte UTF-8 character in half.
+- [x] **`terminal-view.tsx` wiring.** `onData` now pushes to the queue while `stateRef.current ===
+      'starting'` instead of dropping (still drops for `'unavailable'` — nothing will ever bind
+      there). A new `useEffect` keyed on `connectionState` flushes the queue through `sendInput`
+      the instant `'open'` is observed — before any live keystroke reaches `sendInput`, since that
+      call is itself gated on the same `stateRef.current === 'open'` check the flush effect just
+      made true. `Cmd+Enter`'s `\x1b\r` routes through the identical gate — previously it silently
+      dropped rather than queued, a different bug wearing the same clothes.
+- [x] **Scope trim from the doc:** no pane-level "overflow" mark. The cap is a defensive backstop
+      against adversarial/pathological input, not a case real typing speed against real
+      millisecond-scale pty-startup latency actually reaches; a new UI affordance for it would be
+      disproportionate to the fix.
+- [x] 7 tests (`input-queue.test.ts`): in-order flush; empty after flush; drops oldest on overflow
+      (including dropping several chunks for one large push); never trims mid-chunk; discards on
+      `clear()` rather than leaking; correct UTF-8 byte counting for multi-byte characters.
+
 ## 2026-09-04 — Phase 51 Theme D — a resize that costs one fit, not one per frame
 
 [PR #118]. There was no debouncing on the fit path at all: the `ResizeObserver` called `fit()`
