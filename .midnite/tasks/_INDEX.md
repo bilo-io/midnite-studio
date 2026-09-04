@@ -2,6 +2,8 @@
 
 **Headlines:**
 
+- **[Phase 53 · The first release](phases/phase-53-first-release.md)** (0% · 0/42) — **Planned, not started.** [Phase 11](phases/phase-11-packaging.md) taught this repo to build a dmg and [Phase 33](phases/phase-33-installable-app-and-cli-integration.md) taught it to install one and shipped an updater against a feed that did not exist. Both halves are finished and have never been joined: `git tag | wc -l` is **0**, `bilo-io/midnite-apps` has **zero releases**, and its `version.json` still carries `"version": null`, so the in-app updater has never once been observed to work — its feed URL has 404'd since the day it was written, and a fail-soft that has never succeeded is indistinguishable from a broken one. The receiving side needs nothing: an `apps.json` registry, an `install.sh` that parses the feed with `sed` so it depends on nothing but `curl`, and a `release-feed.yml` that rewrites `version.json` automatically. **The `~/Dev/midnite` sibling is the crib, and this app is the smaller problem because nothing in its download or update path requires a login** — a `generic` provider on a `raw.githubusercontent.com` path means no GitHub API call to authenticate, no `releases/latest` redirect, no rate limit, one matrix leg instead of three, and no `emit-version-manifest` to build. Eight themes. Three are real bugs the research surfaced: **A** the CLI wrapper is resolved from `${process.resourcesPath}/bin/` and was never added to `extraResources`, so it has been broken in every packaged build; **C** `verify-dist` has six gates and none of them is the feed the updater actually consumes; **E** the `generic` provider makes `latest-mac.yml` a *committed file* rather than a release asset, which is why the release skill still asks a human to commit it by hand — the one step whose omission silently pins the updater to the previous version. **D** brings the tag-triggered workflow Phase 33 deferred for want of a remote, carrying four guards the sibling app each paid a broken release to learn — chiefly that an unset `CSC_LINK` secret expands to `""`, which electron-builder reads as a certificate to import and dies on before auto-discovery is ever consulted. **F** cuts v0.1.0 and proves every link independently; **G** finally watches the updater work; **H** wires signing and says plainly that it stays blocked on a certificate that is a purchase, not a task — which is why, per Phase 33's own decision, it does not block the release.
+
 - **[Phase 52 · Projects, the Board, and Workflows, navigable](phases/phase-52-projects-navigation.md)** (0% · 0/43) — **Planned, not started.** The filtering, grouping and sorting Phases 40, 41 and 50 each put out of scope in the same words. The Projects view today has no search box, no facet, no sortable column and exactly one grouping — a single-select field matched by the **literal string `Status`**, so a board organised around "Priority" renders an EmptyState. The phase is small because none of it needs the network: every value it filters, groups and sorts on is already client-side on `ForgeProjectItem.fieldValues`, `deriveColumns` already takes its grouping field as a parameter (only its caller is hardcoded), `MultiSelectMenu` already carries the house "empty means everyone" convention, and `FilterInput` exists with **zero consumers** — this is its first. Seven themes: **A** one filter toolbar shared by Table and Board, keeping the 1000-item truncation honest under a filter; **B** group by any single-select or iteration field, with iteration read-only because its write payload differs and iteration writes stay out of scope; **C** tri-state sortable columns whose single-select comparator follows option order, not the alphabet; **D** that view state persisted **keyed by `projectId`, not `repoId`** — the trap being that the items query key is already repo-agnostic and one project is reachable from several repos; **E** the Workflows list learning to filter, as the cheapest proof Theme A built a pattern; **F** Workflows finally adopting `panel-stack`, the consumer that primitive's own docblock has named since Phase 42; **G** the board becoming keyboard-navigable, with focus rescued rather than lost when a filter hides the focused card. No new IPC channel, no `gh-project.ts` change, no schema change — a diff touching them means a theme drifted.
 
 - **[Phase 51 · The terminal, made steady](phases/phase-51-terminal-steadiness.md)** (11% · 4/37, [PR #115](https://github.com/bilo-io/midnite-studio/pull/115)) — **Theme A landed** (2026-09-04): a new `useDevicePixelRatio()` hook (`matchMedia` re-armed at the new ratio on every change, since the query embeds the old one and only ever fires once), wired into `terminal-view.tsx` as a `webglRef`-gated `clearTextureAtlas() → fit() → refresh()` sequence — the DOM-renderer fallback gets the fit/refresh half with no atlas call. Tests scoped to the hook itself, per the doc's own plan; the wiring needs a live xterm + WebGL context no jsdom test can construct, same reason `terminal-view.tsx` has no test file of its own. [Phase 30](phases/phase-30-terminal-hardening.md) made the terminal *survive*; it did not make it *steady*. A read of the subsystem found a concrete cause behind each of the three standing complaints rather than a suspicion. **Jagged text**: `devicePixelRatio` is never read anywhere in this repo — no `matchMedia` resolution query, no display bridge — so the WebGL glyph atlas stays rasterised at the DPR in force when the addon loaded, and `safeFit()` cannot rescue it because it early-returns when cols/rows are unchanged, which a display change at a constant window size leaves them. Compounded by `fontSize: 12` with **no `lineHeight`**, so xterm computes a fractional cell the renderer rounds per row. **Panes that look different from each other**: `webgl.onContextLoss(() => webgl.dispose())` and nothing ever re-adds it, against a Chromium cap of ~16 contexts per process that `MAX_CARD_TERMINALS = 4` budgets for Kanban cards *only* — panel sessions and FAB loop tabs spend from the same ceiling untracked, so some panes are silently on the DOM renderer. **Buggy input**: `onData` reads a `stateRef` assigned during render, so between `pty.create` resolving and the next render it still says `'starting'` and the keystroke is **dropped with no queue**; and there is no backpressure at any hop — `socket.write()`'s return is ignored on both sides, there is no `'drain'` handler, and a failed `pty.write` is swallowed by an empty catch. **Reattach**: sessions genuinely survive a relaunch, but `sessionPhase()` folds `legacy` into `asleep` so a running shell is presented as dormant, and `attach` is **dead protocol** — declared on the wire, no `case` in the handler, answering `{ok:false,'protocol'}`. Seven themes fix the causes: a DPR watcher with clear-atlas → fit → refresh (**A**), explicit cell metrics plus live-applied font settings (**B**), WebGL re-acquisition and a process-wide xterm budget every mount site reports to — the one Phases 41 and 50 each declined (**C**), a rAF-coalesced fit (**D**), a bounded pre-ready input queue that drops oldest-first (**E**), drain-aware writes on the input direction (**F**), and a previous run's session opening as a live pane with `attach` deleted rather than implemented (**G**).
@@ -45,6 +47,7 @@ Completed work is logged append-only in [`done.md`](done.md). Deferred scope liv
 
 | Phase | Status | Refined | Done | Progress | % | 🔄 WIP | ◻ TODO |
 |-------|--------|---------|------|----------|---|--------|--------|
+| [53 · The first release](phases/phase-53-first-release.md) | ◻ TODO | — | 0/42 | `░░░░░░░░░░` | 0% | — | A B C D E F G H |
 | [52 · Projects, the Board, and Workflows, navigable](phases/phase-52-projects-navigation.md) | 🔄 WIP | — | 0/43 | `░░░░░░░░░░` | 0% | A B C D | E F G |
 | [51 · The terminal, made steady](phases/phase-51-terminal-steadiness.md) | 🔄 WIP | — | 4/37 | `█░░░░░░░░░` | 11% | B | C D E F G |
 | [50 · Kanban & Projects, Follow-Through](phases/phase-50-kanban-projects-followthrough.md) | 🔄 WIP | — | 15/17 | `█████████░` | 88% | — | F (codex human pass), Verification (2 human passes) |
@@ -104,17 +107,18 @@ Completed work is logged append-only in [`done.md`](done.md). Deferred scope liv
 <!-- Each phase currently carries a single theme A = its full deliverables checklist. Split into
      lettered themes if a phase gets parallelised. -->
 
-### [Phase 51 — The terminal, made steady](phases/phase-51-terminal-steadiness.md)
+### [Phase 53 — The first release](phases/phase-53-first-release.md)
 
-*Seven causes, not three symptoms: the DPR the repo never read, the cell metrics it never set, the WebGL context it never got back, the fit it never coalesced, the keystrokes it dropped, the backpressure it never had, and the reattach it never offered.*
+*Everything a user receives is built; nothing has ever been sent. Zero tags here, zero releases in `midnite-apps`, and a `version.json` still reading `null`.*
 
-- ✅ **A** (PR #115) — Text that survives a change of display: a `devicePixelRatio` watcher, then clear-atlas → fit → refresh.
-- ◻ **B** — Explicit cell metrics (`lineHeight`, `letterSpacing`, weights) plus font family/size/line-height in Settings, applied live.
-- ◻ **C** — One renderer story: re-acquire WebGL on restore, and a process-wide xterm budget every mount site reports to.
-- ◻ **D** — A resize that costs one fit per frame, not one per observation.
-- ◻ **E** — A bounded pre-ready input queue, so a keystroke typed before the shell paints is never silently dropped.
-- ◻ **F** — Backpressure on the input direction: honour `socket.write()`, drain, and stop swallowing a failed `pty.write`.
-- ◻ **G** — A previous run's session opens as a live pane, the reattached note is clickable, and the dead `attach` message leaves the protocol.
+- ◻ **A** — The CLI wrapper actually ships: `resources/bin` is resolved at runtime but was never in `extraResources`.
+- ◻ **B** — Lockstep as a CI check, not a convention: a seeded `CHANGELOG.md`, `version.ts`, and `root:version-check`.
+- ◻ **C** — `verify-dist` learns what a distributable build is: the feed manifest, the blockmap, the bundle version.
+- ◻ **D** — A tag-triggered release workflow, cross-repo to `midnite-apps`, with the four guards the sibling app paid for.
+- ◻ **E** — `latest-mac.yml` committed by the workflow, ordered after the assets exist — and both release skills de-staled.
+- ◻ **F** — v0.1.0, end to end: tag, release, both feeds, and a curl install on a machine with no checkout.
+- ◻ **G** — An updater observed working for the first time, with the raw error surfaced and the channel read at boot.
+- ◻ **H** — Signing and notarization wired, documented, and honestly blocked on a certificate nobody has bought.
 
 ### [Phase 52 — Projects, the Board, and Workflows, navigable](phases/phase-52-projects-navigation.md)
 
@@ -127,6 +131,18 @@ Completed work is logged append-only in [`done.md`](done.md). Deferred scope liv
 - ◻ **E** — The Workflows list and run history learn to filter, reusing Theme A's primitives verbatim.
 - ◻ **F** — Workflows adopts `panel-stack`, the consumer its own docblock has been naming since Phase 42.
 - ◻ **G** — The board becomes keyboard-navigable: roving focus, open/close, and focus rescued when a filter hides the focused card.
+
+### [Phase 51 — The terminal, made steady](phases/phase-51-terminal-steadiness.md)
+
+*Seven causes, not three symptoms: the DPR the repo never read, the cell metrics it never set, the WebGL context it never got back, the fit it never coalesced, the keystrokes it dropped, the backpressure it never had, and the reattach it never offered.*
+
+- ✅ **A** (PR #115) — Text that survives a change of display: a `devicePixelRatio` watcher, then clear-atlas → fit → refresh.
+- ◻ **B** — Explicit cell metrics (`lineHeight`, `letterSpacing`, weights) plus font family/size/line-height in Settings, applied live.
+- ◻ **C** — One renderer story: re-acquire WebGL on restore, and a process-wide xterm budget every mount site reports to.
+- ◻ **D** — A resize that costs one fit per frame, not one per observation.
+- ◻ **E** — A bounded pre-ready input queue, so a keystroke typed before the shell paints is never silently dropped.
+- ◻ **F** — Backpressure on the input direction: honour `socket.write()`, drain, and stop swallowing a failed `pty.write`.
+- ◻ **G** — A previous run's session opens as a live pane, the reattached note is clickable, and the dead `attach` message leaves the protocol.
 
 ### [Phase 50 — Kanban & Projects, Follow-Through](phases/phase-50-kanban-projects-followthrough.md)
 
