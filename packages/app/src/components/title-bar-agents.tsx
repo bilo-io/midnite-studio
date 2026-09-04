@@ -7,8 +7,7 @@ import { useTitleBarDensity } from './use-titlebar-density';
 /**
  * The title bar's agent cluster — how many agent sessions are live, then the
  * four loop launchers — mounted at the **head** of `<TitleBar>`'s `right` slot,
- * ahead of the date/weather pill, the repo lifecycle actions and the theme
- * toggle.
+ * ahead of the date/weather pill and the theme toggle.
  *
  * Both readouts used to be `STATUS_SEGMENTS` entries in the status bar's left
  * zone, in its `live` group. They are the only two things in this app that

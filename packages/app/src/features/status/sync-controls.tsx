@@ -170,9 +170,15 @@ function AheadBehind({ branch, plan }: { branch: BranchStatus; plan: SyncPlan })
   }
 
   return (
-    <span className="flex shrink-0 items-center gap-1 tabular-nums text-muted-foreground">
-      <span className={branch.ahead === 0 ? 'opacity-50' : ''}>↑{branch.ahead}</span>
-      <span className={branch.behind === 0 ? 'opacity-50' : ''}>↓{branch.behind}</span>
+    <span className="flex shrink-0 items-center gap-1 text-[11px] tabular-nums text-muted-foreground">
+      <span className={branch.ahead === 0 ? 'opacity-50' : ''}>
+        <span className="text-[9px]">↑</span>
+        {branch.ahead}
+      </span>
+      <span className={branch.behind === 0 ? 'opacity-50' : ''}>
+        <span className="text-[9px]">↓</span>
+        {branch.behind}
+      </span>
     </span>
   );
 }
