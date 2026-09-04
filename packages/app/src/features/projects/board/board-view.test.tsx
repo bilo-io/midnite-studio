@@ -4,6 +4,7 @@ import { cleanup, fireEvent, render, screen, within } from '@testing-library/rea
 import { afterEach, describe, expect, it, vi } from 'vitest';
 
 import { DialogHost } from '../../../components/dialog-host';
+import { useTerminalStore } from '../../terminal/terminal-store';
 import { BoardView } from './board-view';
 
 afterEach(() => {
@@ -255,6 +256,81 @@ describe('BoardView', () => {
       // immediately.
       const noStatusColumn = screen.getByRole('button', { name: 'Collapse No status' }).closest('div')!;
       expect(within(noStatusColumn).getByText('A task')).toBeDefined();
+    });
+  });
+
+  describe('switching boards does not kill a running session (Theme H)', () => {
+    // `hydrated: true` short-circuits `BoardView`'s own `hydrate()` call —
+    // otherwise it would race this seed with a `terminal.list()` resolution
+    // that merges in an empty session list.
+    const seedKanbanSession = (id: string, taskRef: { projectId: string; itemId: string }) =>
+      useTerminalStore.setState((state) => ({
+        hydrated: true,
+        sessions: [
+          ...state.sessions,
+          {
+            id,
+            kind: 'shell',
+            title: 'Task',
+            cwd: '/repo',
+            repoId: 'repo-1',
+            createdAt: Date.now(),
+            surface: 'kanban',
+            taskRef,
+          },
+        ],
+      }));
+
+    afterEach(() => {
+      useTerminalStore.setState({ sessions: [], hydrated: false });
+    });
+
+    it("leaves another board's session alone, and mounting/unmounting this one does not kill it", () => {
+      seedKanbanSession('s-other-board', { projectId: 'PVT_2', itemId: 'i9' });
+
+      const { unmount } = renderWithClient(
+        <BoardView projectId="PVT_1" repoId="repo-1" worktreePath="/repo" fields={[statusField]} items={[item('i1', 'A task', 'todo')]} />,
+      );
+
+      // Reconciliation is scoped to `board.projectId` — a session bound to a
+      // *different* board's card is not touched just because this board mounted.
+      expect(useTerminalStore.getState().sessions.find((s) => s.id === 's-other-board')?.taskRef).toEqual({
+        projectId: 'PVT_2',
+        itemId: 'i9',
+      });
+
+      unmount();
+
+      // Switching away (unmounting this board) does not kill a session
+      // belonging to another one — nothing here targets it on unmount, and
+      // the session lives in the store, outside this component's lifecycle.
+      const stillThere = useTerminalStore.getState().sessions.find((s) => s.id === 's-other-board');
+      expect(stillThere).toBeDefined();
+      expect(stillThere?.surface).toBe('kanban');
+    });
+
+    it("a card's own session survives its board being closed, and reattaches on reopen", () => {
+      seedKanbanSession('s-this-board', { projectId: 'PVT_1', itemId: 'i1' });
+
+      const { unmount } = renderWithClient(
+        <BoardView projectId="PVT_1" repoId="repo-1" worktreePath="/repo" fields={[statusField]} items={[item('i1', 'A task', 'todo')]} />,
+      );
+      unmount();
+
+      // Board closed (e.g. the user switched projects) — the session is
+      // hidden, not rehomed or killed just because its board unmounted.
+      const whileClosed = useTerminalStore.getState().sessions.find((s) => s.id === 's-this-board');
+      expect(whileClosed?.surface).toBe('kanban');
+      expect(whileClosed?.taskRef).toEqual({ projectId: 'PVT_1', itemId: 'i1' });
+
+      renderWithClient(
+        <BoardView projectId="PVT_1" repoId="repo-1" worktreePath="/repo" fields={[statusField]} items={[item('i1', 'A task', 'todo')]} />,
+      );
+
+      // Reopening the same board reattaches: the item is still on the board,
+      // so the session's binding is left exactly as it was, not orphaned.
+      const afterReopen = useTerminalStore.getState().sessions.find((s) => s.id === 's-this-board');
+      expect(afterReopen?.taskRef).toEqual({ projectId: 'PVT_1', itemId: 'i1' });
     });
   });
 });

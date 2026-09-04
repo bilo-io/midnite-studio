@@ -431,7 +431,7 @@ Effort tags: **S** ≈ an hour or two · **M** ≈ half a day · **L** ≈ a day
     than a prop threaded through `CardDetail` — matching `useCardStatus`'s own rule that a card
     never keeps its own copy of "which session am I."
 
-### H — Binding survives a restart (M) — ◐ PARTIAL (PR #47, 2026-09-02)
+### H — Binding survives a restart (M) — ◐ PARTIAL (PR #47, PR #114, 2026-09-04)
 
 - [x] On board load, reconcile live broker sessions against cards by `taskRef` — a session whose
       card is gone renders in the main terminal panel rather than being orphaned invisibly.
@@ -458,10 +458,12 @@ Effort tags: **S** ≈ an hour or two · **M** ≈ half a day · **L** ≈ a day
     nobody has actually run it against a **packaged** build (quit, relaunch, watch the card
     reattach). Left open for the same reason Phase 35/37's own equivalent items are: it needs a
     human on real hardware, not something this batch could verify.
-- [ ] Switching boards or repos does not kill running sessions; it hides them, and returning
+- [x] Switching boards or repos does not kill running sessions; it hides them, and returning
       reattaches.
-  - True by construction (nothing here kills a session on unmount or board switch), but not
-    exercised by a test — left open rather than checked on inference alone.
+  - Was true by construction but unexercised by a test; now covered in `board-view.test.tsx` —
+    a session bound to a *different* board's card is untouched by this board mounting or
+    unmounting, and a card's own session survives its board unmounting and is still bound
+    (reattached) when the same board remounts.
 
 ### I — Verification coverage (M) — ◐ PARTIAL (2026-09-02)
 
