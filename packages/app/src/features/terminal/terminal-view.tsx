@@ -16,6 +16,7 @@ import { attachTerminalLinks } from './terminal-links';
 import { agentInput } from './terminal-panel';
 import { sessionPhase, useTerminalStore } from './terminal-store';
 import { useAgents } from './use-agents';
+import { useDevicePixelRatio } from './use-device-pixel-ratio';
 import { useTerminalIpc } from './use-terminal-ipc';
 
 /**
@@ -123,6 +124,8 @@ export function TerminalView({
   const containerRef = useRef<HTMLDivElement>(null);
   const termRef = useRef<Terminal | null>(null);
   const fitRef = useRef<FitAddon | null>(null);
+  /** Set only when the WebGL addon actually loaded — null on the DOM-renderer fallback. */
+  const webglRef = useRef<WebglAddon | null>(null);
   const [ready, setReady] = useState(false);
   /**
    * The last size actually sent to the shell, so `safeFit` can skip a resize
@@ -238,6 +241,32 @@ export function TerminalView({
     const term = termRef.current;
     if (term) term.refresh(0, term.rows - 1);
   }, [fitSignal, safeFit]);
+
+  /**
+   * A DPR change (moved to a display with a different scale factor, or the
+   * OS changed scaling on the current one) leaves the WebGL glyph atlas
+   * rasterised for the wrong pixel grid — `safeFit()` alone can't rescue it,
+   * since it early-returns when `cols`/`rows` are unchanged, which a DPR
+   * change at a constant window size leaves them.
+   *
+   * Order matters: clear the stale atlas *before* fitting or refreshing —
+   * clearing after a refresh would repaint from the stale atlas and then
+   * throw it away, and fitting before clearing measures cells against the
+   * old rasterisation. `webglRef` is null on the DOM-renderer fallback,
+   * which needs the refit but has no atlas to clear.
+   */
+  const dpr = useDevicePixelRatio();
+  useEffect(() => {
+    const term = termRef.current;
+    if (!term) return;
+    try {
+      webglRef.current?.clearTextureAtlas();
+    } catch {
+      // Addon already disposed (a lost GPU context) — nothing to clear.
+    }
+    safeFit();
+    term.refresh(0, term.rows - 1);
+  }, [dpr, safeFit]);
 
   useEffect(() => {
     const container = containerRef.current;
@@ -372,8 +401,12 @@ export function TerminalView({
       // DOM renderer: everything still works, only the drawn glyphs degrade.
       try {
         const webgl = new WebglAddon();
-        webgl.onContextLoss(() => webgl.dispose());
+        webgl.onContextLoss(() => {
+          webgl.dispose();
+          webglRef.current = null;
+        });
         term.loadAddon(webgl);
+        webglRef.current = webgl;
       } catch {
         // WebGL unavailable; DOM renderer remains active.
       }
@@ -525,6 +558,7 @@ export function TerminalView({
       term.dispose();
       termRef.current = null;
       fitRef.current = null;
+      webglRef.current = null;
       setReady(false);
     };
     // One xterm per session, built once: `session.id` is the only dep that can
