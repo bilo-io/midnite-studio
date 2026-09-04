@@ -1515,12 +1515,17 @@ html[data-motion='reduced'] .landing-slide-in {
  * waiting loop's amber ring to attach to, and "something is running" is the
  * whole of what this surface needs to say.
  *
- * No `--fab-arc-from`/`--fab-arc-to` override either, unlike the landing
- * page's fixed half-ring: those default to a full `0deg`-`360deg` span (see
- * the arc-mask note near `.gradient-frame`'s own declaration), so the glow
- * reads as one ring running the whole edge of the screen — there is no tab
- * for a half-arc to identify here, so a full ring is the more honest shape.
+/*
+ * The screensaver's fixed half-ring arc (the same 180deg span the FAB panel
+ * and landing page use). Rather than a static unbroken full ring, the glow
+ * orbits the frame as a single rotating arc.
  */
+.screensaver-panel-gradient,
+.screensaver-panel-gradient::before {
+  --fab-arc-from: -90deg;
+  --fab-arc-to: 90deg;
+}
+
 .screensaver-panel-gradient {
   border: none;
   background-image: none;
