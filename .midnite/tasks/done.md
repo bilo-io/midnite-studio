@@ -2,6 +2,41 @@
 
 <!-- Append one entry per landed phase/PR: date, phase, PR link, one-line summary. -->
 
+## 2026-09-04 — Phase 54 Theme B — `gh issue view`, and the comments endpoint already in the tree
+
+[PR #122]. `listIssues` was the only issue query that existed — no `gh issue view`, no comments
+call, and no issue write anywhere.
+
+- [x] **`issueDetail(repo, number)`** in `gh-cli.ts`, following `pullDetail`'s shape exactly.
+      New `ForgeIssueDetailSchema` (`{ issue, body }`) and `ForgeIssueDetailResultSchema` (`{ cli,
+      issue, error }` — named `issue`, not `detail`, per this theme's own recorded envelope; `gh
+      issue view` has no ProjectV2-style scope-failure mode to distinguish). `gh-parse.ts`'s new
+      `parseIssueDetail` reuses `parseIssueList` for the shared fields, the same way
+      `parsePullDetail` reuses `parsePullList`.
+- [x] **`issueComments(repo, number)`** — reuses `pullComments`' REST path
+      (`repos/{slug}/issues/{n}/comments`) and `parseIssueComments` verbatim, confirmed with no
+      second comment parser. One API call, not two: no `reviews`-merging half, since reviews are a
+      pull-request-only concept.
+- [x] **Two channels** (`forgeIssueDetail`, `forgeIssueComments`), **two schema pairs**
+      (`ForgeIssueDetailRequest/Response`, `ForgeIssueCommentsRequest/Response`, plus a new
+      `IssueNumber`/`ForgeIssueRequest` parallel to `PullNumber`/`ForgePullRequest`), **handlers**
+      in `forge-handlers.ts`, and **bridge + preload exposure** — `forgeIssues`'s existing
+      boilerplate, no new pattern.
+- [x] **Caught in passing:** a whole-index guard test (`ipc.test.ts`'s "has a request schema for
+      every forge channel") enumerates every `forge*` channel by name against its schema pair and
+      fails loudly on a mismatch — exactly the drift guard this repo's tracker convention already
+      uses elsewhere for `.midnite/tasks/_INDEX.md` itself. Updated it rather than letting the new
+      channels land unvalidated by that guard.
+- [x] 4 new `gh-parse.test.ts` cases for `parseIssueDetail`: reuses the listing parser for shared
+      fields, carries the detail-only body, defaults a withheld body rather than dropping the
+      issue, returns null for a payload with no url. No new `gh-cli.ts`-level tests, matching this
+      repo's existing convention — there is no `gh-cli.test.ts` at all; those functions are thin
+      shell-spawning wrappers, deliberately left untested directly so the *parsing* half stays pure
+      and testable under bare vitest, exactly as `pullDetail`/`pullComments` already are. The
+      doc's planned issue-with-no-comments case is already covered by `parseIssueComments`'s own
+      existing "answers empty for anything that is not a list" test — a second case through a
+      different caller of the same parser would test the reuse, not new behavior.
+
 ## 2026-09-04 — Phase 54 Theme A — the schema learns what a detail pane needs
 
 [PR #121]. Opens Phase 54: `features/issues/` does not exist, and this schema previously carried
