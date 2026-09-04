@@ -1,19 +1,29 @@
 import type { ForgeComment, ForgeIssue, ForgeIssueDetailResult } from '@midnite/studio-shared';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { cleanup, render, screen } from '@testing-library/react';
-import { afterEach, describe, expect, it, vi } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
+import { DialogHost } from '../../components/dialog-host';
 import { IssueDetail } from './issue-detail';
 
 const issueDetailFn = vi.fn();
 const issueCommentsFn = vi.fn();
+const listProjectsFn = vi.fn();
 
 vi.mock('../../services/bridge', () => ({
   bridge: () => ({
     forge: {
       issueDetail: issueDetailFn,
       issueComments: issueCommentsFn,
+      issueComment: vi.fn(),
+      issueSetState: vi.fn(),
     },
+    // `IssueActionBar`'s "Add to project" fetches boards unconditionally
+    // (see its own doc comment) — a bare `vi.fn()` with no resolved value
+    // would leave that query pending forever, which is fine for these tests
+    // since none of them opens the menu, but must still exist or the call
+    // throws before render settles.
+    forgeProject: { list: listProjectsFn, addItem: vi.fn() },
   }),
   hasBridge: () => true,
 }));
@@ -58,15 +68,24 @@ function renderDetail() {
   const queryClient = new QueryClient({ defaultOptions: { queries: { retry: false } } });
   render(
     <QueryClientProvider client={queryClient}>
-      <IssueDetail repoId="repo-1" issue={issue()} />
+      <DialogHost>
+        <IssueDetail repoId="repo-1" issue={issue()} />
+      </DialogHost>
     </QueryClientProvider>,
   );
 }
+
+// `IssueActionBar`'s boards fetch, resolved by default so react-query never
+// complains about an undefined result — none of these tests reads it.
+beforeEach(() => {
+  listProjectsFn.mockResolvedValue({ cli: CLI_READY, projects: [], error: null, kind: 'ok' });
+});
 
 afterEach(() => {
   cleanup();
   issueDetailFn.mockReset();
   issueCommentsFn.mockReset();
+  listProjectsFn.mockReset();
 });
 
 describe('IssueDetail', () => {

@@ -490,3 +490,47 @@ export function rerunChecks(
 ): Promise<ForgeWriteResult> {
   return runWrite(rerunCommand(forge, runId, failedOnly));
 }
+
+/*
+  ─── Theme G: comment, and close/reopen — two writes and only two ──────────
+*/
+
+/**
+ * `gh issue comment <n> --repo … --body …`
+ *
+ * The issue-numbered twin of `commentCommand` above, and there is no
+ * `gh issue review`-shaped alternative to disambiguate from the way
+ * `commentCommand`'s own doc comment has to for pull requests: an issue has
+ * no review concept, so every comment on it is unambiguously discussion.
+ */
+export function issueCommentCommand(forge: Forge, number: number, body: string): string {
+  return `gh issue comment ${number} ${repoFlag(forge)} --body ${shellQuote(body)}`;
+}
+
+/**
+ * `gh issue close <n> --repo …` / `gh issue reopen <n> --repo …`
+ *
+ * Two subcommands, not one with a flag — `gh` itself has no `gh issue edit
+ * --state`, so the target `state` in the request picks which of the two verbs
+ * this builds. Neither takes `--comment`: a closing or reopening note is a
+ * second write bundled into this one, and the composer above already covers
+ * "say something about this issue" as its own action.
+ */
+export function issueSetStateCommand(forge: Forge, number: number, state: 'open' | 'closed'): string {
+  const verb = state === 'closed' ? 'close' : 'reopen';
+  return `gh issue ${verb} ${number} ${repoFlag(forge)}`;
+}
+
+/** Post a top-level comment on an issue's conversation. */
+export function commentIssue(forge: Forge, number: number, body: string): Promise<ForgeWriteResult> {
+  return runWrite(issueCommentCommand(forge, number, body));
+}
+
+/** Close or reopen an issue. */
+export function setIssueState(
+  forge: Forge,
+  number: number,
+  state: 'open' | 'closed',
+): Promise<ForgeWriteResult> {
+  return runWrite(issueSetStateCommand(forge, number, state));
+}

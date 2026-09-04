@@ -38,6 +38,7 @@ import { ghStatus } from '../forge/gh-shell';
 import { pullThreads } from '../forge/gh-graphql';
 import {
   addReviewComment,
+  commentIssue,
   commentPull,
   markReady,
   mergePull,
@@ -45,6 +46,7 @@ import {
   requestReview,
   rerunChecks,
   reviewPull,
+  setIssueState,
   setThreadResolved,
 } from '../forge/gh-write';
 import { resolveWorkdir } from '../repo-registry';
@@ -358,6 +360,35 @@ export function registerForgeHandlers(): void {
       return issueComments(forge, req.number);
     },
     (error) => ({ cli: noForgeStatus(), comments: [], error }),
+  );
+
+  /*
+    The two issue writes (Phase 54 Theme G), and the only two this app makes.
+    Same discipline as the pull-request writes above: owner/repo resolved
+    here, never sent; `ok: false` with no error when there is no forge to
+    write to; a rejected payload lands as `ok: false` plus the validation text.
+  */
+
+  handle<typeof schemas.ForgeIssueCommentRequest, ForgeWriteResult>(
+    CHANNELS.forgeIssueComment,
+    schemas.ForgeIssueCommentRequest,
+    async (req) => {
+      const forge = await githubForge(req.repoId);
+      if (!forge) return noForgeWrite();
+      return commentIssue(forge, req.number, req.body);
+    },
+    (issue) => ({ ok: false, cli: noForgeStatus(), error: issue }),
+  );
+
+  handle<typeof schemas.ForgeIssueSetStateRequest, ForgeWriteResult>(
+    CHANNELS.forgeIssueSetState,
+    schemas.ForgeIssueSetStateRequest,
+    async (req) => {
+      const forge = await githubForge(req.repoId);
+      if (!forge) return noForgeWrite();
+      return setIssueState(forge, req.number, req.state);
+    },
+    (issue) => ({ ok: false, cli: noForgeStatus(), error: issue }),
   );
 
   handle<typeof schemas.ForgeRunDetailRequest, ForgeRunDetailResult>(

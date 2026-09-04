@@ -283,8 +283,10 @@ there is no roving focus, no arrow-key movement and no keyboard route into a car
   auto-advance, agent handoff.** [Phase 41](phase-41-agentic-kanban.md)'s deferrals, unchanged.
 - **Keyboard card *movement*.** Theme G ships navigation; wiring `@dnd-kit`'s keyboard sensor needs
   its own announcement and confirmation semantics and is a slice of its own.
-- **An Issues view.** Still absent, still the prerequisite that blocks
-  [Phase 50 Theme E](phase-50-kanban-projects-followthrough.md)'s Issues half.
+- **An Issues view.** Was still absent at the time this phase was written, and was the
+  prerequisite blocking [Phase 50 Theme E](phase-50-kanban-projects-followthrough.md)'s Issues
+  half — [Phase 54](phase-54-issues-view.md) built it, 2026-09-04, and shipped that exact action
+  in its own Theme F.
 - **Raising `PROJECT_ITEMS_PAGE_CEILING`, or moving filtering into the GraphQL query.** Both are the
   answer if a real board ever exceeds 1000 items; neither is worth its complexity while every value
   is already client-side and the truncation is visible.

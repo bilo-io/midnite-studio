@@ -703,6 +703,9 @@ describe('forge schemas', () => {
       ],
       forgePullReady: ['ForgePullReadyRequest', 'ForgePullReadyResponse'],
       forgeRunRerun: ['ForgeRunRerunRequest', 'ForgeRunRerunResponse'],
+      /* Phase 54 Theme G — the two issue writes, and only two. */
+      forgeIssueComment: ['ForgeIssueCommentRequest', 'ForgeIssueCommentResponse'],
+      forgeIssueSetState: ['ForgeIssueSetStateRequest', 'ForgeIssueSetStateResponse'],
       /*
         GitHub ProjectV2 (Phase 40 Theme A) — its own `forge-project:`
         namespace, but still swept by this guard since every key here starts

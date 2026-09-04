@@ -1237,6 +1237,69 @@ export function useRerunChecks(repoId: string | null) {
   });
 }
 
+/*
+  ─── Phase 54 Theme G: the two issue writes ─────────────────────────────────
+
+  Same envelope discipline as the pull-request writes above — `ForgeWriteResult`,
+  never a rejection — and the same asymmetry in what a success invalidates.
+  Comment changes only the conversation. Close/reopen changes `state`, which
+  the list's rows *and* the detail pane's header both draw (the header reads
+  the `issue` its caller passed in, sourced from the same list), so that one
+  invalidates the list's own prefix too — exactly `invalidatePullState`'s
+  reasoning above, one write earlier in this file.
+*/
+
+function invalidateIssueState(
+  client: QueryClient,
+  repoId: string | null,
+  number: number | null,
+): void {
+  if (!repoId) return;
+  if (number !== null) {
+    void client.invalidateQueries({ queryKey: keys.forgeIssueDetail(repoId, number) });
+  }
+  // Prefix-matched: `keys.forgeIssues` is keyed by limit AND state, and the
+  // sidebar section, the dashboard widget and the Issues view each ask with
+  // different values.
+  void client.invalidateQueries({ queryKey: ['repos', repoId, 'forge', 'issues'] });
+}
+
+/**
+ * Post a top-level comment on an issue's conversation.
+ *
+ * Invalidates the conversation only — a discussion comment carries no state
+ * change, so the row's status pill is the same as it was.
+ */
+export function useCommentIssue(repoId: string | null, number: number | null) {
+  const client = useQueryClient();
+  return useMutation({
+    mutationFn: async (input: { body: string }): Promise<ForgeWriteResult> => {
+      const api = bridge();
+      if (!api || !repoId || number === null) return NO_FORGE_WRITE;
+      return api.forge.issueComment({ repoId, number, ...input });
+    },
+    onSuccess: (result) => {
+      if (!result.ok || !repoId || number === null) return;
+      void client.invalidateQueries({ queryKey: keys.forgeIssueComments(repoId, number) });
+    },
+  });
+}
+
+/** Close or reopen an issue. */
+export function useSetIssueState(repoId: string | null, number: number | null) {
+  const client = useQueryClient();
+  return useMutation({
+    mutationFn: async (input: { state: 'open' | 'closed' }): Promise<ForgeWriteResult> => {
+      const api = bridge();
+      if (!api || !repoId || number === null) return NO_FORGE_WRITE;
+      return api.forge.issueSetState({ repoId, number, ...input });
+    },
+    onSuccess: (result) => {
+      if (result.ok) invalidateIssueState(client, repoId, number);
+    },
+  });
+}
+
 /**
  * The bridge-less answer, shaped like a repository with no GitHub remote.
  *
