@@ -457,3 +457,80 @@ test('side by side reflows the workspace into the other half instead of covering
   expect(movedBox.x).toBeLessThan(frameBox.x);
   await expect(page.getByRole('textbox', { name: 'Address' })).toBeVisible();
 });
+
+const browserVisibleCalls = (page: Page) =>
+  page.evaluate(
+    () =>
+      (
+        window as unknown as {
+          __mstudioBrowserVisibleCalls: () => Array<{ tabId: string; visible: boolean }>;
+        }
+      ).__mstudioBrowserVisibleCalls(),
+  );
+
+test('side by side does not mark the page visible until the panel finishes opening', async ({ page }) => {
+  // The side-by-side column has an OUTER box the open tween animates and an
+  // INNER one that stays at the settled target width throughout, so the
+  // browser's own chrome doesn't re-layout every frame. A `WebContentsView`
+  // is a native layer, not clipped by the outer box's `overflow-hidden` the
+  // way that chrome is — so marking it visible off the (already full-width)
+  // inner box the instant the pane starts opening would paint the real page
+  // at its final bounds while the column is still narrower than that,
+  // escaping the still-animating container. Withholding `setVisible(true)`
+  // until the tween settles is what keeps that from happening.
+  await installMockBridge(page, { ...fixtures });
+  await page.goto('/');
+  const address = page.getByRole('textbox', { name: 'Address' });
+  const frame = page.locator('[data-browser-frame]');
+
+  // Navigate and close first, so the tab is ALREADY a settled `page` tab
+  // before the timed reopen below — isolating the open tween's own delay
+  // from one-time navigation/tab-creation overhead.
+  await openBrowser(page, 'right');
+  await address.fill('https://example.com');
+  await address.press('Enter');
+  await expect.poll(async () => (await browserVisibleCalls(page)).some((c) => c.visible)).toBe(true);
+  await page.keyboard.press('Meta+b');
+  await expect(frame).toHaveCount(0);
+  const callsBeforeReopen = (await browserVisibleCalls(page)).length;
+
+  const reopenedAt = Date.now();
+  await openBrowser(page, 'right');
+  await expect
+    .poll(async () => (await browserVisibleCalls(page)).slice(callsBeforeReopen).some((c) => c.visible))
+    .toBe(true);
+  const elapsed = Date.now() - reopenedAt;
+
+  // `useRevealSize`'s width tween runs ~200ms (`REVEAL_MS`) — a floor well
+  // under that still fails if the gate regresses to "visible the instant the
+  // pane opens" (ordinary UI-interaction overhead alone is single-digit ms)
+  // without being fragile against a slower CI run, which can only push
+  // `elapsed` higher, never lower.
+  expect(elapsed).toBeGreaterThanOrEqual(80);
+});
+
+test('Mod+B hides the page even in side-by-side layout', async ({ page }) => {
+  await installMockBridge(page, { ...fixtures });
+  await page.goto('/');
+  await openBrowser(page, 'right');
+
+  const address = page.getByRole('textbox', { name: 'Address' });
+  await address.fill('https://example.com');
+  await address.press('Enter');
+  await expect.poll(async () => (await browserVisibleCalls(page)).some((c) => c.visible)).toBe(true);
+
+  const tabId = (
+    await page.evaluate(
+      () => (window as unknown as { __mstudioBrowserTabs: () => string[] }).__mstudioBrowserTabs(),
+    )
+  )[0];
+
+  await page.keyboard.press('Meta+b');
+  await expect(page.locator('[data-browser-frame]')).toHaveCount(0);
+
+  // The chrome collapsing away is not proof the native view actually
+  // stopped painting — that's a real IPC call, and this is the only way a
+  // mocked engine lets a spec see it happened.
+  const calls = await browserVisibleCalls(page);
+  expect(calls.at(-1)).toEqual({ tabId, visible: false });
+});

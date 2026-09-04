@@ -42,7 +42,25 @@ import { FindBar } from './find-bar';
  * The focus trap, Escape handling and close-focus-restore are the same in
  * both.
  */
-export function BrowserPane({ shown }: { shown: boolean }) {
+export function BrowserPane({
+  shown,
+  settled = true,
+}: {
+  shown: boolean;
+  /**
+   * Whether the pane's own SIZE has finished changing — distinct from
+   * `shown`, which only ever gates the CHROME (opacity, focus trap, the
+   * "new tab" address-bar focus): the toolbar and address bar must stay
+   * live from the instant `shown` goes true, or a user cannot even type a
+   * URL until an open animation finishes. `false` for exactly as long as
+   * the side-by-side column's width tween takes (`app.tsx`'s
+   * `browserTween.settled`) — see `useBrowserBounds`/`useBrowserTabsEffects`
+   * below for why the NATIVE view specifically has to wait for it.
+   * Defaults to `true` for the full-screen overlay, which is always at its
+   * final size the instant it mounts and so has nothing to wait for.
+   */
+  settled?: boolean;
+}) {
   const containerRef = useRef<HTMLDivElement>(null);
   const addressRef = useRef<HTMLInputElement>(null);
   const tabs = useBrowserStore((s) => s.tabs);
@@ -52,11 +70,18 @@ export function BrowserPane({ shown }: { shown: boolean }) {
   const [draft, setDraft] = useState(activeTab?.url ?? '');
   const [editing, setEditing] = useState(false);
 
-  const { ref: bodyRef, sync: syncBrowserView } = useBrowserBounds(
-    activeTabId,
-    shown && activeTab?.kind === 'page',
-  );
-  useBrowserTabsEffects(shown, syncBrowserView);
+  /*
+    The pane's chrome (below) reacts to `shown` alone — a `WebContentsView`
+    is a native layer, not clipped by the side-by-side column's still-
+    animating outer box the way that chrome is, so pushing its bounds/
+    visibility before the tween settles would paint the real page past the
+    column's current (narrower) edge. `nativeVisible` is what actually
+    reaches the engine; `shown` on its own only controls this component's
+    own DOM.
+  */
+  const nativeVisible = shown && settled && activeTab?.kind === 'page';
+  const { ref: bodyRef, sync: syncBrowserView } = useBrowserBounds(activeTabId, nativeVisible);
+  useBrowserTabsEffects(shown, settled, syncBrowserView);
 
   useFocusTrap(containerRef, shown);
 
