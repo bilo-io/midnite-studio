@@ -49,7 +49,7 @@ Completed work is logged append-only in [`done.md`](done.md). Deferred scope liv
 
 | Phase | Status | Refined | Done | Progress | % | 🔄 WIP | ◻ TODO |
 |-------|--------|---------|------|----------|---|--------|--------|
-| [55 · Multi-Window Studio & Detachable Panels](phases/phase-55-multi-window-studio.md) | ◻ TODO | — | 0/17 | `░░░░░░░░░░` | 0% | — | A B C D E F |
+| [55 · Multi-Window Studio & Detachable Panels](phases/phase-55-multi-window-studio.md) | ◻ TODO | x1 | 0/32 | `░░░░░░░░░░` | 0% | — | A B C D E F G |
 | [54 · An Issues view](phases/phase-54-issues-view.md) | 🔄 WIP | — | 43/45 | `██████████` | 96% | — | Verification (2 human passes) |
 | [53 · The first release](phases/phase-53-first-release.md) | ◻ TODO | — | 0/42 | `░░░░░░░░░░` | 0% | — | A B C D E F G H |
 | [52 · Projects, the Board, and Workflows, navigable](phases/phase-52-projects-navigation.md) | ✅ DONE | — | 40/43 | `█████████░` | 93% | — | Verification (3 human passes) |
@@ -113,14 +113,15 @@ Completed work is logged append-only in [`done.md`](done.md). Deferred scope liv
 
 ### [Phase 55 — Multi-Window Studio & Detachable Panels](phases/phase-55-multi-window-studio.md)
 
-*Auxiliary surfaces (Terminal, Git Repos, FAB Loops, Embedded Browser) detached into dedicated popout windows with universal top-left dock/undock hover-morph affordances and cross-window state sync.*
+*Auxiliary surfaces (Terminal, Git Repos, FAB Loops, Embedded Browser) detached into dedicated popout windows with universal top-left dock/undock hover-morph affordances and cross-window state sync. Refined against the tree: the window domain is **not** empty — `windowStateChanged` is already taken by `<TitleBar>` — `ptyData` reaches exactly one window today, and the e2e suite never launches Electron. Each of those bends a theme.*
 
-- ◻ **A** — Window lifecycle & multi-window IPC infrastructure: contracts, window manager, event routing and query entry router.
-- ◻ **B** — Universal top-left dock/undock affordances: hover morph icons for Terminal, Repos, Browser and new "Midnite Loops" header with Midnite brand mark.
-- ◻ **C** — Detachable Terminal & FAB Loops popouts over existing detached PTY broker and multi-loop consoles.
-- ◻ **D** — Detachable Embedded Browser & WebContentsView reparenting across windows without reloading web apps.
-- ◻ **E** — Cross-window state synchronization via BroadcastChannel for Zustand stores and React Query caches.
-- ◻ **F** — Verification & screenshots: automated specs, visual regression shots and multi-monitor verification.
+- ◻ **A** — Window lifecycle & multi-window IPC: `domain/window.ts`, a `window-manager.ts` registry, the new `windowsChanged` event (the obvious name is taken), role-via-`additionalArguments`, a `windows.json` bounds store, and close/quit semantics.
+- ◻ **B** — Universal top-left dock/undock affordances: hover morphs copying `terminal-session-list.tsx`'s fixed-size box, a `<TitleBar>`-reusing popout frame, `Mod+Shift+d` plus four chord-free palette rows, and one uniform re-dock strip for all four panels.
+- ◻ **C** — Detachable Terminal & FAB Loops popouts — gated on the per-`ptyId` subscriber registry that replaces `pty-service.ts`'s single-window `getWindowThunk`, without which a popout terminal receives nothing.
+- ◻ **D** — Detachable Embedded Browser: `WebContentsView` reparenting via the `win` that `Tracked` already carries, all tabs moving as a set, and `activateBrowserTab` narrowed to one window.
+- ◻ **E** — Cross-window sync: a main-process relay as the authority (packaged renderers are `file://`, where `BroadcastChannel` may never fire) with an explicit field allowlist, `invalidateForWatchKind` reused for cache invalidation, and theme flips relayed.
+- ◻ **F** — Verification: bare vitest in `packages/desktop` plus a human multi-monitor pass — the e2e suite mocks the bridge and cannot see a second window — and the `window*` guard block `ipc.test.ts` currently lacks.
+- ◻ **G** — The invariants that stay single-window: metrics bound to the main window, popout crash re-docking, off-screen bounds clamped against `screen.getAllDisplays()`, and per-window logging.
 
 ### [Phase 54 — An Issues view](phases/phase-54-issues-view.md)
 
