@@ -5,7 +5,11 @@ import type { ConflictHunkSide, ConflictRegion, ConflictSide } from '@midnite/st
 
 import { IconButton } from '../../components/icon-button';
 import { useConflictApplyHunk, useConflictResolveWholeFile } from '../../services/use-status';
+import { councilIdOf, useCouncilsHistory } from '../councils/councils-history-store';
+import { useCouncils } from '../councils/use-council';
+import { composeSuggestionPrompt } from './compose-suggestion-prompt';
 import { flattenConflictHunks } from './flatten-conflict-hunks';
+import { SuggestResolutionPanel } from './suggest-resolution-panel';
 import { useConflictRegions } from './use-conflict-regions';
 
 /**
@@ -44,6 +48,17 @@ export function ConflictResolutionStudio({
   const { hunks, truncated, isLoading } = useConflictRegions({ repoId, worktreePath, path });
   const items = useMemo(() => flattenConflictHunks(hunks), [hunks]);
   const conflictCount = items.filter((item) => item.kind === 'conflict').length;
+
+  // "Suggest a resolution" (Phase 47 Theme E) — a council picked once for the
+  // whole file, not per region. Defaults to whichever council the Councils
+  // view was last on (`councilIdOf`'s own "active council" is a byproduct of
+  // its nav stack, not a purpose-built concept — a reasonable default, still
+  // freely overridable here), falling back to the first council that exists.
+  const { data: councils } = useCouncils();
+  const activeCouncilId = councilIdOf(useCouncilsHistory().current);
+  const [selectedCouncilId, setSelectedCouncilId] = useState<string | null>(null);
+  const councilId =
+    selectedCouncilId ?? (councils?.some((c) => c.id === activeCouncilId) ? activeCouncilId : null) ?? councils?.[0]?.id ?? null;
 
   const target = { repoId, ...(worktreePath ? { worktreePath } : {}) };
   const applyHunk = useConflictApplyHunk(target);
@@ -117,6 +132,24 @@ export function ConflictResolutionStudio({
         </span>
       </div>
 
+      {councils && councils.length > 0 ? (
+        <div className="flex shrink-0 items-center gap-2 border-b border-border px-2 py-1 text-xs text-muted-foreground">
+          <label htmlFor="conflict-suggest-council">Suggestions from</label>
+          <select
+            id="conflict-suggest-council"
+            value={councilId ?? ''}
+            onChange={(event) => setSelectedCouncilId(event.target.value || null)}
+            className="rounded border border-border bg-transparent px-1 py-0.5 text-xs text-foreground"
+          >
+            {councils.map((council) => (
+              <option key={council.id} value={council.id}>
+                {council.name}
+              </option>
+            ))}
+          </select>
+        </div>
+      ) : null}
+
       {truncated ? (
         <div className="shrink-0 border-b border-border bg-muted/40 px-2 py-1 text-xs text-muted-foreground">
           This file is too large to show in full — some regions past the cutoff may not appear here.
@@ -145,6 +178,11 @@ export function ConflictResolutionStudio({
               region={item.region}
               busy={busy}
               onAccept={(side) => void acceptRegion(item.regionIndex, item.region, side)}
+              suggest={
+                councilId
+                  ? { councilId, prompt: composeSuggestionPrompt(items, item.regionIndex, path) }
+                  : null
+              }
             />
           ),
         )}
@@ -160,10 +198,13 @@ function ConflictRegionRow({
   region,
   busy,
   onAccept,
+  suggest,
 }: {
   region: ConflictRegion;
   busy: boolean;
   onAccept: (side: ConflictHunkSide) => void;
+  /** Non-null once a council is available (Phase 47 Theme E) — purely advisory, see `SuggestResolutionPanel`. */
+  suggest: { councilId: string; prompt: string } | null;
 }) {
   return (
     <div className="my-1 border-y border-border" data-testid="conflict-region">
@@ -178,7 +219,12 @@ function ConflictRegionRow({
           Accept theirs
         </AcceptButton>
       </RegionSide>
-      <div className="flex justify-end px-2 py-0.5">
+      {suggest ? (
+        <div className="px-2">
+          <SuggestResolutionPanel councilId={suggest.councilId} prompt={suggest.prompt} />
+        </div>
+      ) : null}
+      <div className="flex items-center justify-end gap-1 px-2 py-0.5">
         <AcceptButton disabled={busy} onClick={() => onAccept('both')}>
           Accept both
         </AcceptButton>
