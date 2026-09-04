@@ -2220,6 +2220,25 @@ html[data-motion='reduced'] .loop-launcher.is-running.is-pulsing {
   animation: graph-rail-glow 2.4s ease-in-out infinite;
 }
 
+/* Ref badges on the lit lane. The border/glow pulses in sync with the rail and lane halo. */
+@keyframes graph-badge-glow {
+  0%,
+  100% {
+    box-shadow:
+      0 0 0 1px hsl(var(--lane-h) var(--lane-s) var(--lane-l) / 0.45),
+      0 0 5px 1px hsl(var(--lane-h) var(--lane-s) var(--lane-l) / 0.25);
+  }
+  50% {
+    box-shadow:
+      0 0 0 1px hsl(var(--lane-h) var(--lane-s) var(--lane-l) / 0.85),
+      0 0 9px 2px hsl(var(--lane-h) var(--lane-s) var(--lane-l) / 0.65);
+  }
+}
+
+.graph-badge-glow {
+  animation: graph-badge-glow 2.4s ease-in-out infinite;
+}
+
 /* Reduced motion keeps the highlight and drops the pulse — the glow is what
  * says which branch, and a steady one says it just as well. Gated on
  * `data-motion` the same way `.pill-shimmer` is, so the app's own Motion
@@ -2234,6 +2253,30 @@ html[data-motion='reduced'] .loop-launcher.is-running.is-pulsing {
     animation: none;
     box-shadow: 0 0 5px 0 hsl(var(--lane-h) var(--lane-s) var(--lane-l) / 0.55);
   }
+
+  html:not([data-motion='full']) .graph-badge-glow {
+    animation: none;
+    box-shadow:
+      0 0 0 1px hsl(var(--lane-h) var(--lane-s) var(--lane-l) / 0.65),
+      0 0 7px 1px hsl(var(--lane-h) var(--lane-s) var(--lane-l) / 0.45);
+  }
+}
+
+html[data-motion='reduced'] .graph-lane-glow {
+  animation: none;
+  opacity: 0.7;
+}
+
+html[data-motion='reduced'] .graph-rail-glow {
+  animation: none;
+  box-shadow: 0 0 5px 0 hsl(var(--lane-h) var(--lane-s) var(--lane-l) / 0.55);
+}
+
+html[data-motion='reduced'] .graph-badge-glow {
+  animation: none;
+  box-shadow:
+    0 0 0 1px hsl(var(--lane-h) var(--lane-s) var(--lane-l) / 0.65),
+    0 0 7px 1px hsl(var(--lane-h) var(--lane-s) var(--lane-l) / 0.45);
 }
 
 /*
