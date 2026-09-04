@@ -29,10 +29,14 @@ function basename(path: string): string {
 export function DetachedWindowFrame({
   role,
   title,
+  titleBarLeft,
+  titleBarRight,
   children,
 }: {
   role: WindowRole;
   title: string;
+  titleBarLeft?: ReactNode;
+  titleBarRight?: ReactNode;
   children: ReactNode;
 }) {
   const windowChrome = bridge()?.windowChrome ?? null;
@@ -47,21 +51,25 @@ export function DetachedWindowFrame({
     >
       <TitleBar
         windowChrome={windowChrome}
-        left={<span className="truncate px-1 text-xs font-medium">{title}</span>}
+        left={
+          titleBarLeft ?? <span className="truncate px-1 text-xs font-medium">{title}</span>
+        }
         right={
-          <div className="flex items-center gap-2">
-            {selectedRepo ? (
-              <span className="truncate text-xs text-muted-foreground">
-                {basename(selectedRepo.path)}
-              </span>
-            ) : null}
-            <IconButton
-              icon={LuSquareArrowDownLeft}
-              label={`Re-dock ${title}`}
-              size="sm"
-              onClick={() => bridge()?.window.dock({ role })}
-            />
-          </div>
+          titleBarRight ?? (
+            <div className="flex items-center gap-2">
+              {selectedRepo ? (
+                <span className="truncate text-xs text-muted-foreground">
+                  {basename(selectedRepo.path)}
+                </span>
+              ) : null}
+              <IconButton
+                icon={LuSquareArrowDownLeft}
+                label={`Re-dock ${title}`}
+                size="sm"
+                onClick={() => bridge()?.window.dock({ role })}
+              />
+            </div>
+          )
         }
       />
       <div className="min-h-0 flex-1">{children}</div>

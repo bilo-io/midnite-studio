@@ -1270,10 +1270,15 @@ export const useUiStore = create<UiState>()(
       fabDetached: false,
       browserDetached: false,
       setDetached: (role, detached) => {
-        if (role === 'terminal') set({ terminalDetached: detached });
-        else if (role === 'repos') set({ reposDetached: detached });
-        else if (role === 'fab') set({ fabDetached: detached });
-        else set({ browserDetached: detached });
+        if (role === 'terminal') set({ terminalDetached: detached, terminalOpen: !detached });
+        else if (role === 'repos') set({ reposDetached: detached, reposOpen: !detached });
+        else if (role === 'fab') set({ fabDetached: detached, fabPanelOpen: !detached });
+        else
+          set({
+            browserDetached: detached,
+            browserOpen: !detached,
+            ...(detached ? { browserLauncherOpen: false } : {}),
+          });
       },
       activityTimelineOpen: false,
       activityTimelineStyle: 'bars',

@@ -2,16 +2,29 @@ import { useEffect, useRef, useState } from 'react';
 
 import { ShellProviders } from '@bilo-io/shell';
 import { QueryClient } from '@tanstack/react-query';
-import type { WindowRole } from '@midnite/studio-shared';
+import type { AgentDefinition, WindowRole } from '@midnite/studio-shared';
 
 import { DetachedWindowFrame } from './components/detached-window-frame';
-import { DialogHost } from './components/dialog-host';
+import { DialogHost, useDialogs } from './components/dialog-host';
 import { PaletteHost } from './components/palette-host';
 import { ToastHost } from './components/toast-host';
 import { BrowserPane } from './features/browser/browser-pane';
+import { BrowserPopoutHeaderLeft } from './features/browser/tab-strip';
 import { FabPanel } from './components/fab-panel';
-import { ReposPanel } from './features/repos/repos-panel';
+import {
+  ReposPanel,
+  ReposPopoutHeaderLeft,
+  ReposPopoutHeaderRight,
+  ReposProvider,
+} from './features/repos/repos-panel';
+import {
+  TerminalPopoutHeaderLeft,
+  TerminalPopoutHeaderRight,
+} from './features/terminal/terminal-header';
 import { TerminalPanel } from './features/terminal/terminal-panel';
+import { buildNewSessionMenu } from './features/terminal/new-session-menu';
+import { inMainPanel, resolveSessionAgentId, useTerminalStore } from './features/terminal/terminal-store';
+import { useAgents } from './features/terminal/use-agents';
 import { useBroadcastSync } from './services/broadcast-sync';
 import { useCommandHandlers } from './services/keybindings/use-command-handlers';
 import { useKeybindings } from './services/keybindings/use-keybindings';
@@ -63,35 +76,130 @@ const ROLE_TITLE: Record<Exclude<WindowRole, 'main'>, string> = {
   browser: 'Browser',
 };
 
-function DetachedContent({ role }: { role: Exclude<WindowRole, 'main'> }) {
+function ReposPopoutShell() {
+  return (
+    <DetachedWindowFrame
+      role="repos"
+      title={ROLE_TITLE.repos}
+      titleBarLeft={<ReposPopoutHeaderLeft />}
+      titleBarRight={<ReposPopoutHeaderRight />}
+    >
+      <ReposPanel showHeader={false} />
+    </DetachedWindowFrame>
+  );
+}
+
+function ReposPopout() {
+  return (
+    <ReposProvider>
+      <ReposPopoutShell />
+    </ReposProvider>
+  );
+}
+
+function TerminalPopout() {
   const fitSignal = usePopoutFitSignal();
-  const width = useWindowWidth();
+  const dialogs = useDialogs();
   const selectedRepoId = useUiStore((s) => s.selectedRepoId);
   const selectedWorktreePath = useUiStore((s) => s.selectedWorktreePath);
   const { data: repos } = useRepos();
   const selectedRepo = repos?.find((repo) => repo.id === selectedRepoId) ?? null;
+  const cwd =
+    selectedWorktreePath ?? (selectedRepo ? (primaryTarget(selectedRepo).worktreePath ?? null) : null);
+  const repoName = selectedRepo?.name ?? 'terminal';
 
-  if (role === 'terminal') {
-    const cwd =
-      selectedWorktreePath ?? (selectedRepo ? (primaryTarget(selectedRepo).worktreePath ?? null) : null);
-    return (
+  const sessions = useTerminalStore((s) => s.sessions).filter(inMainPanel);
+  const activeId = useTerminalStore((s) => s.activeId);
+  const active = sessions.find((s) => s.id === activeId) ?? null;
+  const activeState = useTerminalStore((s) => (activeId ? (s.states[activeId] ?? 'idle') : 'idle'));
+  const activeLiveCwd = useTerminalStore((s) => (activeId ? s.liveCwd[activeId] : undefined));
+  const liveAgentId = useTerminalStore((s) => s.liveAgentId);
+  const { agents, status } = useAgents();
+  const activeAgent = active
+    ? agents.find((a) => a.id === resolveSessionAgentId(active, liveAgentId))
+    : undefined;
+
+  const hasLegacy = sessions.some((s) => (s as { legacy?: boolean }).legacy);
+  const listable = sessions.length > 1 || hasLegacy;
+  const listOpen = useUiStore((s) => s.terminalListOpen);
+  const showList = listable && listOpen;
+
+  const openNew = (agent?: AgentDefinition) => {
+    if (!cwd || !selectedRepoId) return;
+    useTerminalStore.getState().openSession({
+      kind: agent ? 'agent' : 'shell',
+      ...(agent ? { agentId: agent.id } : {}),
+      title: repoName,
+      cwd,
+      repoId: selectedRepoId,
+    });
+  };
+
+  const showNewMenu = (event: React.MouseEvent<HTMLElement>) => {
+    const rect = event.currentTarget.getBoundingClientRect();
+    const items = buildNewSessionMenu({
+      agents,
+      status,
+      hasWorktree: Boolean(cwd),
+      onNewTerminal: () => openNew(),
+      onNewAgent: (agent) => openNew(agent),
+    });
+    dialogs.openMenu({ clientX: rect.left, clientY: rect.bottom }, items);
+  };
+
+  return (
+    <DetachedWindowFrame
+      role="terminal"
+      title={ROLE_TITLE.terminal}
+      titleBarLeft={
+        <TerminalPopoutHeaderLeft
+          path={activeLiveCwd ?? active?.cwd ?? cwd}
+          state={activeState}
+          agent={activeAgent}
+          repos={repos}
+        />
+      }
+      titleBarRight={
+        <TerminalPopoutHeaderRight
+          listable={listable}
+          showList={showList}
+          onNewMenu={showNewMenu}
+        />
+      }
+    >
       <TerminalPanel
         cwd={cwd}
         repoId={selectedRepoId}
-        repoName={selectedRepo?.name ?? 'terminal'}
+        repoName={repoName}
         fitSignal={fitSignal}
+        showHeader={false}
       />
-    );
-  }
+    </DetachedWindowFrame>
+  );
+}
 
-  if (role === 'repos') return <ReposPanel />;
-
-  if (role === 'fab') return <FabPanel isOpen width={width} fitSignal={fitSignal} />;
-
+function BrowserPopout() {
   return (
-    <div className="relative h-full w-full">
-      <BrowserPane shown />
-    </div>
+    <DetachedWindowFrame
+      role="browser"
+      title={ROLE_TITLE.browser}
+      titleBarLeft={<BrowserPopoutHeaderLeft />}
+      titleBarRight={null}
+    >
+      <div className="relative h-full w-full">
+        <BrowserPane shown showTabStrip={false} />
+      </div>
+    </DetachedWindowFrame>
+  );
+}
+
+function FabPopout() {
+  const fitSignal = usePopoutFitSignal();
+  const width = useWindowWidth();
+  return (
+    <DetachedWindowFrame role="fab" title={ROLE_TITLE.fab}>
+      <FabPanel isOpen width={width} fitSignal={fitSignal} />
+    </DetachedWindowFrame>
   );
 }
 
@@ -114,11 +222,11 @@ function DetachedShell({ role }: { role: Exclude<WindowRole, 'main'> }) {
   // `localStorage` hydration notwithstanding (E.3).
   useAppearanceSync();
   useBroadcastSync();
-  return (
-    <DetachedWindowFrame role={role} title={ROLE_TITLE[role]}>
-      <DetachedContent role={role} />
-    </DetachedWindowFrame>
-  );
+
+  if (role === 'repos') return <ReposPopout />;
+  if (role === 'terminal') return <TerminalPopout />;
+  if (role === 'browser') return <BrowserPopout />;
+  return <FabPopout />;
 }
 
 export function DetachedRoot({ role }: { role: WindowRole }) {

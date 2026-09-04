@@ -5,6 +5,7 @@ import { useDialogs } from '../../components/dialog-host';
 import { ResizeHandle } from '../../components/resizable/resize-handle';
 import { useResizable } from '../../components/resizable/use-resizable';
 import { useRevealSize } from '../../components/use-reveal';
+import { bridge } from '../../services/bridge';
 import { useRepos } from '../../services/queries';
 import { DEFAULT_LAYOUT, LAYOUT_BOUNDS, useUiStore } from '../../store/ui-store';
 import { buildNewSessionMenu } from './new-session-menu';
@@ -23,7 +24,15 @@ import { useAgents } from './use-agents';
  * unmount-when-hidden rule — which existed because a hidden shell had no UI to
  * see or stop it. The session list is that UI.
  */
-export function TerminalPanel({ cwd, repoId, repoName, fitSignal }: TerminalPanelProps) {
+export function TerminalPanel({
+  cwd,
+  repoId,
+  repoName,
+  fitSignal,
+  showHeader,
+}: TerminalPanelProps) {
+  const isPopout = (bridge()?.windowRole ?? 'main') !== 'main';
+  const shouldShowHeader = showHeader ?? !isPopout;
   const dialogs = useDialogs();
   // The panel and the session list show main-surface sessions plus Kanban
   // ones (`inMainPanel`) — a FAB loop's session (Phase 35) renders inside the
@@ -167,16 +176,18 @@ export function TerminalPanel({ cwd, repoId, repoName, fitSignal }: TerminalPane
     // Named for the e2e suite: the panel's own box is what maximizing changes,
     // and its header, its list and its panes are all separately-sized children.
     <div data-terminal-panel className="flex h-full min-h-0 flex-col bg-background">
-      <TerminalHeader
-        path={activeLiveCwd ?? active?.cwd ?? cwd}
-        state={activeState}
-        agent={activeAgent}
-        repos={repos}
-        listable={listable}
-        showList={showList}
-        maximized={maximized}
-        onNewMenu={showNewMenu}
-      />
+      {shouldShowHeader ? (
+        <TerminalHeader
+          path={activeLiveCwd ?? active?.cwd ?? cwd}
+          state={activeState}
+          agent={activeAgent}
+          repos={repos}
+          listable={listable}
+          showList={showList}
+          maximized={maximized}
+          onNewMenu={showNewMenu}
+        />
+      ) : null}
 
       <div className={`flex min-h-0 flex-1 ${side === 'left' ? 'flex-row' : 'flex-row-reverse'}`}>
         {listTween.mounted ? (
@@ -223,6 +234,7 @@ export type TerminalPanelProps = {
   repoName: string;
   /** Bumped once per settled reveal tween — fits and repaints every open xterm. */
   fitSignal: number;
+  showHeader?: boolean;
 };
 
 /**

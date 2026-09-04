@@ -109,6 +109,44 @@ describe('useUiStore', () => {
     useUiStore.getState().toggleRepos();
     expect(useUiStore.getState().reposOpen).toBe(true);
   });
+
+  it('collapses the respective panel on undock and expands on dock', () => {
+    // Repos
+    expect(useUiStore.getState().reposOpen).toBe(true);
+    useUiStore.getState().setDetached('repos', true);
+    expect(useUiStore.getState().reposDetached).toBe(true);
+    expect(useUiStore.getState().reposOpen).toBe(false);
+    useUiStore.getState().setDetached('repos', false);
+    expect(useUiStore.getState().reposDetached).toBe(false);
+    expect(useUiStore.getState().reposOpen).toBe(true);
+
+    // Terminal
+    expect(useUiStore.getState().terminalOpen).toBe(false);
+    useUiStore.getState().setDetached('terminal', true);
+    expect(useUiStore.getState().terminalDetached).toBe(true);
+    expect(useUiStore.getState().terminalOpen).toBe(false);
+    useUiStore.getState().setDetached('terminal', false);
+    expect(useUiStore.getState().terminalDetached).toBe(false);
+    expect(useUiStore.getState().terminalOpen).toBe(true);
+
+    // Fab
+    expect(useUiStore.getState().fabPanelOpen).toBe(false);
+    useUiStore.getState().setDetached('fab', true);
+    expect(useUiStore.getState().fabDetached).toBe(true);
+    expect(useUiStore.getState().fabPanelOpen).toBe(false);
+    useUiStore.getState().setDetached('fab', false);
+    expect(useUiStore.getState().fabDetached).toBe(false);
+    expect(useUiStore.getState().fabPanelOpen).toBe(true);
+
+    // Browser
+    expect(useUiStore.getState().browserOpen).toBe(false);
+    useUiStore.getState().setDetached('browser', true);
+    expect(useUiStore.getState().browserDetached).toBe(true);
+    expect(useUiStore.getState().browserOpen).toBe(false);
+    useUiStore.getState().setDetached('browser', false);
+    expect(useUiStore.getState().browserDetached).toBe(false);
+    expect(useUiStore.getState().browserOpen).toBe(true);
+  });
 });
 
 describe('navigation guarded by an open, dirty file editor (Phase 24 D)', () => {

@@ -1,4 +1,4 @@
-import { Fragment, useEffect, useMemo, useState, type ReactNode } from 'react';
+import { createContext, Fragment, useContext, useEffect, useMemo, useState, type ReactNode } from 'react';
 import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { bridge } from '../../services/bridge';
 import { keys } from '../../services/queries';
@@ -31,6 +31,7 @@ import {
   LuPackage,
   LuPlus,
   LuSearch,
+  LuSquareArrowDownLeft,
   LuSquareArrowOutUpRight,
   LuTag,
   LuX,
@@ -207,15 +208,37 @@ function useGroupedRepos(repos: readonly RepoDescriptor[], query: string) {
  * primary context — and since Phase 17 every checkout carries its own change
  * count, so the tree answers "where did I leave off" without being opened.
  */
-export function ReposPanel() {
-  // This exact panel renders inside the Repos popout too (`DetachedRoot`
-  // reuses it verbatim) — the detach button would otherwise advertise
-  // "detach me into a window" while already being one.
+export type ReposContextValue = {
+  isPopout: boolean;
+  repos: readonly RepoDescriptor[];
+  isLoading: boolean;
+  folds: ReturnType<typeof useRepoFolds>;
+  matched: RepoDescriptor[];
+  ungrouped: RepoDescriptor[];
+  groups: { group: { id: string; name: string }; repos: RepoDescriptor[] }[];
+  query: string;
+  setQuery: (q: string) => void;
+  fetchAll: { mutate: () => void; isPending: boolean };
+  fetchGroupRepos: (groupId: string, targetRepos: readonly RepoDescriptor[]) => Promise<void>;
+  fetchingGroupIds: ReadonlySet<string>;
+  onOpen: () => Promise<void>;
+  isPending: boolean;
+  error: string | null;
+  setError: (err: string | null) => void;
+  sections: ViewSections;
+  allCollapsed: boolean;
+};
+
+const ReposContext = createContext<ReposContextValue | null>(null);
+
+export function useReposPanelContext() {
+  return useContext(ReposContext);
+}
+
+export function ReposProvider({ children }: { children: ReactNode }) {
   const isPopout = (bridge()?.windowRole ?? 'main') !== 'main';
   const { data: repos = [], isLoading } = useRepos();
   const { pickAndOpen, isPending } = usePickAndOpenRepo();
-  const reorderRepos = useReorderRepos();
-  const reorderRepoGroups = useUiStore((s) => s.reorderRepoGroups);
   const [error, setError] = useState<string | null>(null);
   const [query, setQuery] = useState('');
   const sections = useViewSections();
@@ -268,143 +291,220 @@ export function ReposPanel() {
     if (result && !result.ok) setError(result.message);
   };
 
-  /*
-    "All collapsed" is asked of what is ON SCREEN, not of the registry — and so
-    is the button's action. A filter narrowed to one repository whose tree is
-    open should offer to collapse it, even if the eleven repos the filter hid
-    are already shut.
-  */
   const allCollapsed = matched.length > 0 && matched.every((repo) => folds.collapsed(repo.id));
+
+  const value: ReposContextValue = {
+    isPopout,
+    repos,
+    isLoading,
+    folds,
+    matched,
+    ungrouped,
+    groups,
+    query,
+    setQuery,
+    fetchAll,
+    fetchGroupRepos,
+    fetchingGroupIds,
+    onOpen,
+    isPending,
+    error,
+    setError,
+    sections,
+    allCollapsed,
+  };
+
+  return <ReposContext.Provider value={value}>{children}</ReposContext.Provider>;
+}
+
+export function ReposPopoutHeaderLeft() {
+  return (
+    <div className="flex items-center gap-1.5">
+      <div className="group/dock relative flex h-6 w-6 shrink-0 items-center justify-center normal-case">
+        <span
+          aria-hidden
+          className="pointer-events-none absolute flex items-center justify-center transition-opacity group-hover/dock:opacity-0"
+        >
+          <FaGitAlt className="h-3.5 w-3.5 shrink-0 text-[#F05032]" />
+        </span>
+        <IconButton
+          icon={LuSquareArrowDownLeft}
+          label="Re-dock Git Repos"
+          size="sm"
+          className="opacity-0 transition-opacity group-hover/dock:opacity-100"
+          onClick={() => bridge()?.window.dock({ role: 'repos' })}
+        />
+      </div>
+      <span className="truncate text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+        Git Repos
+      </span>
+    </div>
+  );
+}
+
+export function ReposPopoutHeaderRight() {
+  const ctx = useContext(ReposContext);
+  if (!ctx) return null;
+  const { repos, matched, folds, allCollapsed, fetchAll, sections, isPending, onOpen } = ctx;
+
+  return (
+    <div className="flex shrink-0 items-center gap-0.5">
+      {repos.length > 0 ? (
+        <IconButton
+          icon={allCollapsed ? LuChevronsUpDown : LuChevronsDownUp}
+          label={allCollapsed ? 'Expand all repositories' : 'Collapse all repositories'}
+          size="sm"
+          disabled={matched.length === 0}
+          disabledReason="No repository matches the filter."
+          onClick={() =>
+            folds.setAll(
+              matched.map((repo) => repo.id),
+              !allCollapsed,
+            )
+          }
+        />
+      ) : null}
+      {repos.length > 0 ? (
+        <IconButton
+          icon={LuCloudDownload}
+          label="Fetch all listed repositories"
+          size="sm"
+          busy={fetchAll.isPending}
+          disabled={matched.length === 0}
+          disabledReason="No repository matches the filter."
+          onClick={() => fetchAll.mutate()}
+        />
+      ) : null}
+      <IconButton
+        icon={LuListFilter}
+        label={sectionFilterLabel(sections)}
+        aria-pressed={sections.filtered}
+        size="sm"
+        onClick={sections.toggle}
+        className={sections.filtered ? 'text-primary' : ''}
+      />
+      <NewGroupButton />
+      <IconButton
+        icon={LuPlus}
+        label="Open a repository…"
+        size="sm"
+        disabled={isPending}
+        onClick={() => void onOpen()}
+      />
+    </div>
+  );
+}
+
+export function ReposPanel({ showHeader }: { showHeader?: boolean } = {}) {
+  const context = useContext(ReposContext);
+  if (!context) {
+    return (
+      <ReposProvider>
+        <ReposPanelInner showHeader={showHeader} />
+      </ReposProvider>
+    );
+  }
+  return <ReposPanelInner showHeader={showHeader} />;
+}
+
+function ReposPanelInner({ showHeader }: { showHeader?: boolean }) {
+  const ctx = useContext(ReposContext)!;
+  const {
+    isPopout,
+    repos,
+    isLoading,
+    matched,
+    ungrouped,
+    groups,
+    query,
+    setQuery,
+    fetchAll,
+    fetchGroupRepos,
+    fetchingGroupIds,
+    folds,
+    allCollapsed,
+    sections,
+    onOpen,
+    isPending,
+    error,
+    setError,
+  } = ctx;
+  const reorderRepos = useReorderRepos();
+  const reorderRepoGroups = useUiStore((s) => s.reorderRepoGroups);
+
+  const shouldShowHeader = showHeader ?? !isPopout;
 
   return (
     <div className="flex h-full min-h-0 flex-col border-r border-border bg-card/40">
-      <header className="group flex h-9 items-center gap-2 px-3">
-        {/*
-          "Git Repos", with the Git mark — word for word and glyph for glyph
-          what the status bar's `ReposToggle` says, because that button is what
-          summons this panel and the two reading differently made them look like
-          two features — the same ambiguity plain "Repos" already had in the
-          status bar, which is why the button says "Git Repos" there.
-
-          `FaGitAlt` is the Git logo in Git's own `#F05032`, the same pairing
-          `IconButton`'s `git` tone uses for the per-repo git menu further down
-          this file. It is deliberately not one of lucide's folders: the three
-          folder variants in this panel already mean "worktree", "main worktree"
-          and "missing worktree" a few rows down, and a fourth would have said
-          the panel was a checkout. (See CLAUDE.md on react-icons fronting
-          several sets.)
-        */}
-        <h2 className="flex min-w-0 flex-1 items-center gap-1.5 text-xs font-semibold uppercase tracking-wide text-muted-foreground">
-          <div className="relative flex h-6 w-6 shrink-0 items-center justify-center normal-case">
-            <span
-              aria-hidden
-              className="pointer-events-none absolute flex items-center justify-center transition-opacity group-hover:opacity-0"
-            >
-              <FaGitAlt className="h-3.5 w-3.5 shrink-0 text-[#F05032]" />
-            </span>
-            {!isPopout && (
+      {shouldShowHeader ? (
+        <header className="group flex h-9 items-center gap-2 px-3">
+          <h2 className="flex min-w-0 flex-1 items-center gap-1.5 text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+            <div className="relative flex h-6 w-6 shrink-0 items-center justify-center normal-case">
+              <span
+                aria-hidden
+                className="pointer-events-none absolute flex items-center justify-center transition-opacity group-hover:opacity-0"
+              >
+                <FaGitAlt className="h-3.5 w-3.5 shrink-0 text-[#F05032]" />
+              </span>
+              {!isPopout && (
+                <IconButton
+                  icon={LuSquareArrowOutUpRight}
+                  label="Detach Git Repos into its own window"
+                  size="sm"
+                  className="opacity-0 transition-opacity group-hover:opacity-100"
+                  onClick={() => bridge()?.window.detach({ role: 'repos' })}
+                />
+              )}
+            </div>
+            <span className="truncate">Git Repos</span>
+          </h2>
+          <div className="flex shrink-0 items-center gap-0.5">
+            {repos.length > 0 ? (
               <IconButton
-                icon={LuSquareArrowOutUpRight}
-                label="Detach Git Repos into its own window"
+                icon={allCollapsed ? LuChevronsUpDown : LuChevronsDownUp}
+                label={allCollapsed ? 'Expand all repositories' : 'Collapse all repositories'}
                 size="sm"
-                className="opacity-0 transition-opacity group-hover:opacity-100"
-                onClick={() => bridge()?.window.detach({ role: 'repos' })}
+                disabled={matched.length === 0}
+                disabledReason="No repository matches the filter."
+                onClick={() =>
+                  folds.setAll(
+                    matched.map((repo) => repo.id),
+                    !allCollapsed,
+                  )
+                }
               />
-            )}
+            ) : null}
+            {repos.length > 0 ? (
+              <IconButton
+                icon={LuCloudDownload}
+                label="Fetch all listed repositories"
+                size="sm"
+                busy={fetchAll.isPending}
+                disabled={matched.length === 0}
+                disabledReason="No repository matches the filter."
+                onClick={() => fetchAll.mutate()}
+              />
+            ) : null}
+            <IconButton
+              icon={LuListFilter}
+              label={sectionFilterLabel(sections)}
+              aria-pressed={sections.filtered}
+              size="sm"
+              onClick={sections.toggle}
+              className={sections.filtered ? 'text-primary' : ''}
+            />
+            <NewGroupButton />
+            <IconButton
+              icon={LuPlus}
+              label="Open a repository…"
+              size="sm"
+              disabled={isPending}
+              onClick={() => void onOpen()}
+            />
           </div>
-          <span className="truncate">Git Repos</span>
-        </h2>
-        {/*
-          One toolbar cluster, not two controls spread by `justify-between`.
-          The filter and "open a repository" are both things done TO the list,
-          so they belong together at the trailing edge; floating the filter
-          mid-header read as a third column of the title row.
-        */}
-        <div className="flex shrink-0 items-center gap-0.5">
-          {/*
-            One button for both directions, not two.
+        </header>
+      ) : null}
 
-            "Expand all" with everything already expanded is a control that can
-            only do nothing, and the pair would have spent two thirds of their
-            life with one of them inert — in a toolbar where the two neighbours
-            are always live. As a toggle it always has a job, and it says which
-            one in words: the chevrons close inward to collapse and open outward
-            to expand, matching the direction the tree is about to move.
-
-            It acts on the FILTERED list, so the button never quietly reaches
-            past what the panel is showing.
-          */}
-          {repos.length > 0 ? (
-            <IconButton
-              icon={allCollapsed ? LuChevronsUpDown : LuChevronsDownUp}
-              label={allCollapsed ? 'Expand all repositories' : 'Collapse all repositories'}
-              size="sm"
-              disabled={matched.length === 0}
-              disabledReason="No repository matches the filter."
-              onClick={() =>
-                folds.setAll(
-                  matched.map((repo) => repo.id),
-                  !allCollapsed,
-                )
-              }
-            />
-          ) : null}
-          {repos.length > 0 ? (
-            <IconButton
-              icon={LuCloudDownload}
-              label="Fetch all listed repositories"
-              size="sm"
-              busy={fetchAll.isPending}
-              disabled={matched.length === 0}
-              disabledReason="No repository matches the filter."
-              onClick={() => fetchAll.mutate()}
-            />
-          ) : null}
-          {/*
-            The narrowing is visible whenever it is on, and reversible from
-            here. Arriving in a view to find two thirds of the tree missing is
-            only acceptable if the thing that did it is on screen saying so — a
-            hidden mode that eats rows is indistinguishable from data loss.
-
-            The label names the STATE while narrowed and the ACTION while not,
-            which is the pairing the Changes filter shipped with; the views that
-            hide sections rather than checkouts get their own wording, because
-            "showing only changed checkouts" would be a lie in Actions.
-          */}
-          <IconButton
-            icon={LuListFilter}
-            label={sectionFilterLabel(sections)}
-            aria-pressed={sections.filtered}
-            size="sm"
-            onClick={sections.toggle}
-            /*
-              NOTE: this tint does not currently read.
-
-              `--primary` is a near-black in this theme (`240 5.9% 10%`), within
-              a point of `--muted-foreground` on every channel, so the pressed
-              icon computes to rgb(93,93,100) against a resting rgb(93,93,101).
-              Tinted backgrounds fare no better — `bg-accent` and `bg-primary/10`
-              both resolve to alpha ≈0.03 here. It is a token problem rather than
-              a problem with this control, it predates Phase 19 (Phase 17 shipped
-              the same line), and chasing it belongs with the appearance tokens,
-              not in the nav shell.
-
-              The STATE is not lost meanwhile: `aria-pressed` is correct, the
-              label says which mode is on in words, and both are asserted by
-              `nav-shell.spec.ts`.
-            */
-            className={sections.filtered ? 'text-primary' : ''}
-          />
-          <NewGroupButton />
-          <IconButton
-            icon={LuPlus}
-            label="Open a repository…"
-            size="sm"
-            disabled={isPending}
-            onClick={() => void onOpen()}
-          />
-        </div>
-      </header>
 
       {/*
         A standing box, not a magnifier that swaps itself for an input. The

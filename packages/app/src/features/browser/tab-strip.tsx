@@ -10,7 +10,14 @@ import {
 import { restrictToHorizontalAxis, restrictToParentElement } from '@dnd-kit/modifiers';
 import { SortableContext, horizontalListSortingStrategy } from '@dnd-kit/sortable';
 import { useEffect, useRef, useState, type ReactNode } from 'react';
-import { LuChevronRight, LuGlobe, LuPlus, LuSquareArrowOutUpRight, LuX } from 'react-icons/lu';
+import {
+  LuChevronRight,
+  LuGlobe,
+  LuPlus,
+  LuSquareArrowDownLeft,
+  LuSquareArrowOutUpRight,
+  LuX,
+} from 'react-icons/lu';
 
 import { ContextMenu, type MenuItem, type MenuPosition } from '../../components/context-menu';
 import { useDialogs } from '../../components/dialog-host';
@@ -41,6 +48,29 @@ import {
  */
 const CLOSE_GROUP_CONFIRM_THRESHOLD = 3;
 
+export function BrowserPopoutHeaderLeft() {
+  return (
+    <div className="flex min-w-0 items-center">
+      <div className="group/dock relative flex h-6 w-6 shrink-0 items-center justify-center my-auto ml-1 mr-1">
+        <span
+          aria-hidden
+          className="pointer-events-none absolute flex items-center justify-center transition-opacity group-hover/dock:opacity-0"
+        >
+          <MidniteIcon className="h-3.5 w-3.5 shrink-0" />
+        </span>
+        <IconButton
+          icon={LuSquareArrowDownLeft}
+          label="Re-dock Browser"
+          size="sm"
+          className="opacity-0 transition-opacity group-hover/dock:opacity-100"
+          onClick={() => bridge()?.window.dock({ role: 'browser' })}
+        />
+      </div>
+      <BrowserTabStrip showDetach={false} borderless />
+    </div>
+  );
+}
+
 /**
  * The browser's own tab bar, modelled on
  * `features/workbench/tab-strip.tsx` — same `role="tablist"`, same
@@ -57,7 +87,13 @@ const CLOSE_GROUP_CONFIRM_THRESHOLD = 3;
  * practice; a plain drag-reorder can still interrupt one, which reads as
  * the same group appearing twice rather than corrupting anything.
  */
-export function BrowserTabStrip() {
+export function BrowserTabStrip({
+  showDetach = true,
+  borderless = false,
+}: {
+  showDetach?: boolean;
+  borderless?: boolean;
+} = {}) {
   // This exact strip renders inside the Browser popout too (`DetachedRoot`
   // reuses `<BrowserPane>` verbatim) — the detach button would otherwise
   // advertise "detach me into a window" while already being one.
@@ -118,9 +154,11 @@ export function BrowserTabStrip() {
       <div
         role="tablist"
         aria-label="Browser tabs"
-        className="flex shrink-0 items-stretch overflow-x-auto border-b border-border bg-card/40"
+        className={`flex shrink-0 items-stretch overflow-x-auto ${
+          borderless ? '' : 'border-b border-border bg-card/40'
+        }`}
       >
-        {!isPopout && (
+        {!isPopout && showDetach && (
           <IconButton
             icon={LuSquareArrowOutUpRight}
             label="Detach Browser into its own window"

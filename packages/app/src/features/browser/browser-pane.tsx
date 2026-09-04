@@ -42,7 +42,15 @@ import { FindBar } from './find-bar';
  * The focus trap, Escape handling and close-focus-restore are the same in
  * both.
  */
-export function BrowserPane({ shown }: { shown: boolean }) {
+export function BrowserPane({
+  shown,
+  showTabStrip,
+}: {
+  shown: boolean;
+  showTabStrip?: boolean;
+}) {
+  const isPopout = (bridge()?.windowRole ?? 'main') !== 'main';
+  const shouldShowTabStrip = showTabStrip ?? !isPopout;
   const containerRef = useRef<HTMLDivElement>(null);
   const addressRef = useRef<HTMLInputElement>(null);
   const tabs = useBrowserStore((s) => s.tabs);
@@ -145,7 +153,7 @@ export function BrowserPane({ shown }: { shown: boolean }) {
         the terminal frame's `z-10` within this same row.
       */
       className={`${
-        fullScreen ? 'absolute inset-y-0 right-0 z-browser' : 'relative h-full w-full z-20'
+        fullScreen && !isPopout ? 'absolute inset-y-0 right-0 z-browser' : 'relative h-full w-full z-20'
       } flex flex-col bg-background outline-none transition-opacity ${
         shown ? 'pointer-events-auto opacity-100' : 'pointer-events-none opacity-0'
       }`}
@@ -158,10 +166,10 @@ export function BrowserPane({ shown }: { shown: boolean }) {
           edge — measured from the variable the shell itself writes, so a
           locked-open (16rem) rail is covered as exactly as a collapsed one.
         */
-        ...(fullScreen ? { left: 'calc(-1 * var(--nav-offset, 0px))' } : null),
+        ...(fullScreen && !isPopout ? { left: 'calc(-1 * var(--nav-offset, 0px))' } : null),
       }}
     >
-      <BrowserTabStrip />
+      {shouldShowTabStrip ? <BrowserTabStrip /> : null}
 
       <div className="flex h-9 shrink-0 items-center gap-2 border-b border-border px-3">
         <IconButton

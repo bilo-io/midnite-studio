@@ -4,6 +4,7 @@ import {
   LuChevronUp,
   LuList,
   LuPlus,
+  LuSquareArrowDownLeft,
   LuSquareArrowOutUpRight,
   LuTerminal,
   LuTriangleAlert,
@@ -211,5 +212,79 @@ function HeaderPath({
         {tail}
       </span>
     </span>
+  );
+}
+
+export function TerminalPopoutHeaderLeft({
+  path,
+  state,
+  agent,
+  repos,
+}: {
+  path: string | null;
+  state: ConnectionState;
+  agent: AgentDefinition | undefined;
+  repos: readonly RepoDescriptor[] | undefined;
+}) {
+  const broker = useTerminalStore((s) => s.broker);
+
+  return (
+    <div className="flex min-w-0 items-center gap-2">
+      <div className="group/dock relative flex h-6 w-6 shrink-0 items-center justify-center">
+        <span
+          aria-hidden
+          className="pointer-events-none absolute flex items-center justify-center transition-opacity group-hover/dock:opacity-0"
+        >
+          <HeaderMark agent={agent} />
+        </span>
+        <IconButton
+          icon={LuSquareArrowDownLeft}
+          label="Re-dock Terminal"
+          size="sm"
+          className="opacity-0 transition-opacity group-hover/dock:opacity-100"
+          onClick={() => bridge()?.window.dock({ role: 'terminal' })}
+        />
+      </div>
+      <StateDot state={state} />
+      <HeaderPath path={path} repos={repos} />
+
+      {broker.mode === 'inproc' && broker.reason ? (
+        <Tooltip label={`Sessions will not survive quit — ${broker.reason}`}>
+          <div className="flex items-center text-amber-500" tabIndex={0} role="status">
+            <LuTriangleAlert className="h-3.5 w-3.5" />
+          </div>
+        </Tooltip>
+      ) : null}
+    </div>
+  );
+}
+
+export function TerminalPopoutHeaderRight({
+  listable,
+  showList,
+  onNewMenu,
+}: {
+  listable: boolean;
+  showList: boolean;
+  onNewMenu: (event: React.MouseEvent<HTMLElement>) => void;
+}) {
+  return (
+    <div className="flex shrink-0 items-center gap-0.5">
+      <IconButton
+        icon={LuList}
+        label={showList ? 'Hide session list' : 'Show session list'}
+        size="sm"
+        aria-pressed={showList}
+        {...(listable ? {} : { disabled: true, disabledReason: 'Only one session is open' })}
+        onClick={() => useUiStore.getState().toggleTerminalList()}
+      />
+      <IconButton
+        icon={LuPlus}
+        label="New terminal or agent"
+        size="sm"
+        aria-expanded={false}
+        onClick={onNewMenu}
+      />
+    </div>
   );
 }
