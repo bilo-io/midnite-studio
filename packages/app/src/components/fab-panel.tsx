@@ -79,9 +79,21 @@ export function FabPanel({ isOpen, width, fitSignal }: FabPanelProps) {
         data-loop-state={loopState}
         data-loops-running={anyRunning ? 'true' : 'false'}
       >
-        {/* Header — the morph's resting glyph is the brand mark, not a per-loop one. */}
-        <div className="group flex h-7 shrink-0 items-center gap-2 border-b border-border px-2">
-          <div className="relative flex h-6 w-6 shrink-0 items-center justify-center">
+        {/*
+          Tab Bar — the detach control rides in the SAME row as the loop tabs
+          (a leading brand-mark/button slot, exactly `terminal-header.tsx`'s
+          `HeaderMark` hover-morph) rather than a header row of its own.
+
+          A dedicated header cost real `shrink-0` height that this panel does
+          not have to spare: the loop tabs' terminal pane already lives on
+          whatever the composer above it leaves behind (`flex-1 min-h-0`), and
+          a 28px header pushed that remainder low enough that xterm's own
+          `clientHeight === 0` open-guard (`terminal-view.tsx`) started
+          rejecting it — the pane never rendered `.xterm-screen` at all. This
+          row was already there, so folding the button into it costs nothing.
+        */}
+        <div className="group flex border-b border-border shrink-0">
+          <div className="relative flex w-8 shrink-0 items-center justify-center">
             <span
               aria-hidden
               className="pointer-events-none absolute flex items-center justify-center transition-opacity group-hover:opacity-0"
@@ -103,11 +115,6 @@ export function FabPanel({ isOpen, width, fitSignal }: FabPanelProps) {
               />
             )}
           </div>
-          <span className="text-xs font-medium text-muted-foreground">Midnite Loops</span>
-        </div>
-
-        {/* Tab Bar */}
-        <div className="flex border-b border-border shrink-0">
           {DEFAULT_LOOPS.map((loop, index) => {
             const Icon = loopIcon(loop.icon);
             const status = statuses[index];
