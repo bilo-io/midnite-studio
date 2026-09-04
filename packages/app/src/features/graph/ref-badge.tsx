@@ -84,6 +84,7 @@ export function RefBadge({
   onContextMenu,
   onDoubleClick,
   agentActive = false,
+  branchGlow = false,
   dnd,
 }: {
   refItem: Ref;
@@ -110,6 +111,8 @@ export function RefBadge({
   onDoubleClick?: (event: React.MouseEvent) => void;
   /** Whether an AI agent is actively working in this branch's worktree. */
   agentActive?: boolean;
+  /** Whether this ref sits on the actively highlighted / glowing branch. */
+  branchGlow?: boolean;
   /** Drag/drop wiring from useRefDnd — omitted where the badge is static. */
   dnd?: {
     setNodeRef: (node: HTMLElement | null) => void;
@@ -168,7 +171,9 @@ export function RefBadge({
               */
               boxShadow: agentActive
                 ? '0 0 0 1px hsl(var(--lane-h) var(--lane-s) var(--lane-l) / 0.8), 0 0 8px 2px hsl(var(--lane-h) var(--lane-s) var(--lane-l) / 0.65), 0 0 16px 4px hsl(calc(var(--lane-h) + 15) var(--lane-s) var(--lane-l) / 0.4)'
-                : '0 0 0 1px hsl(var(--lane-h) var(--lane-s) var(--lane-l) / 0.55), 0 0 7px 1px hsl(var(--lane-h) var(--lane-s) var(--lane-l) / 0.5)',
+                : branchGlow
+                  ? undefined
+                  : '0 0 0 1px hsl(var(--lane-h) var(--lane-s) var(--lane-l) / 0.55), 0 0 7px 1px hsl(var(--lane-h) var(--lane-s) var(--lane-l) / 0.5)',
             }
           : agentActive
             ? {
@@ -176,14 +181,18 @@ export function RefBadge({
                   '0 0 0 1px hsl(var(--lane-h) var(--lane-s) var(--lane-l) / 0.7), 0 0 8px 2px hsl(var(--lane-h) var(--lane-s) var(--lane-l) / 0.55), 0 0 14px 3px hsl(calc(var(--lane-h) + 15) var(--lane-s) var(--lane-l) / 0.35)',
               }
             : undefined),
-        opacity: current || agentActive ? 1 : RESTING_OPACITY,
+        opacity: current || agentActive || branchGlow ? 1 : RESTING_OPACITY,
       }}
       className={`relative inline-flex min-w-0 max-w-full shrink cursor-default items-center gap-1 rounded-[3px] border px-1.5 py-px text-[11px] leading-4 transition-opacity ${
         current
           ? 'border-[hsl(var(--lane-h)_var(--lane-s)_var(--lane-l))] bg-[hsl(var(--lane-h)_var(--lane-s)_var(--lane-l))] font-semibold'
           : agentActive
             ? 'border-[hsl(var(--lane-h)_var(--lane-s)_var(--lane-l)/0.8)] bg-[hsl(var(--lane-h)_var(--lane-s)_var(--lane-l)/0.25)] text-[hsl(var(--lane-h)_var(--lane-s)_var(--lane-ink-l))] font-medium hover:opacity-100'
-            : 'border-[hsl(var(--lane-h)_var(--lane-s)_var(--lane-l)/0.45)] bg-[hsl(var(--lane-h)_var(--lane-s)_var(--lane-l)/0.14)] text-[hsl(var(--lane-h)_var(--lane-s)_var(--lane-ink-l))] hover:opacity-100'
+            : branchGlow
+              ? 'border-[hsl(var(--lane-h)_var(--lane-s)_var(--lane-l)/0.75)] bg-[hsl(var(--lane-h)_var(--lane-s)_var(--lane-l)/0.2)] text-[hsl(var(--lane-h)_var(--lane-s)_var(--lane-ink-l))] font-medium hover:opacity-100'
+              : 'border-[hsl(var(--lane-h)_var(--lane-s)_var(--lane-l)/0.45)] bg-[hsl(var(--lane-h)_var(--lane-s)_var(--lane-l)/0.14)] text-[hsl(var(--lane-h)_var(--lane-s)_var(--lane-ink-l))] hover:opacity-100'
+      } ${
+        branchGlow && !agentActive ? 'graph-badge-glow' : ''
       } ${
         // A drop target has to look like one mid-drag, or the gesture is a
         // guess — the ring is the only feedback the user gets before releasing.
