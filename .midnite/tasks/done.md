@@ -2,6 +2,63 @@
 
 <!-- Append one entry per landed phase/PR: date, phase, PR link, one-line summary. -->
 
+## 2026-09-04 — Phase 55 Themes A+B+C+D — Multi-window studio: detach/dock for Terminal, Git Repos, Loops and the Browser
+
+[PR #139]. Themes E, F, G stay open (cross-window sync, verification/screenshots, and the
+single-window invariants) — this batch ships standalone popouts with no cross-window state relay,
+per an explicit Stage 2.5 decision to defer that to Theme E.
+
+- [x] **A** — `domain/window.ts` (`WindowRoleSchema`, `WindowDescriptorSchema`), a
+      `window-manager.ts` registry (`createRoleWindow`, `listWindows`, `resolveRole`,
+      `resolveWindow`), the `windowsChanged` event, role-via-`additionalArguments`
+      (`WINDOW_ROLE_ARG`), a `windows.json` bounds store with writes serialized through a
+      `writeChain` to avoid an out-of-order save when several popouts close at once, and
+      `closeAllPopouts()`/`bindPopoutRenderProcessGone` lifecycle wiring (crash-safety pulled
+      forward from Theme G per an explicit Stage 2.5 decision).
+- [x] **B** — Hover-morph detach buttons on all four surfaces (Terminal, Git Repos, Loops, Browser
+      tab strip), `DetachedWindowFrame` wrapping `@bilo-io/shell`'s `<TitleBar>`, five new
+      `window.*` commands (`Mod+Shift+d` for the active panel, four chord-free) mounted with the
+      full command dispatcher and palette in every popout, and a uniform `DetachedPlaceholder`
+      re-dock strip. The FAB panel's detach button rides in its *existing* tab-bar row rather than
+      a new header — a dedicated header (as the doc originally specified) cost 28px this panel
+      does not have to spare, squeezing the loop terminal pane below xterm's minimum openable
+      height; caught by CI, not locally, and fixed post-merge-attempt.
+- [x] **C** — Detached Terminal and FAB Loops popouts, gated on a real fix: `pty-service.ts`'s
+      `subscribersFor(ptyId)` replaces the old single-window broadcast with a per-ptyId
+      `Map<string, Set<number>>` registry (`ptySubscribe`/`ptyUnsubscribe`), while always unioning
+      in the main window regardless of explicit subscription — `use-session-exits.ts` and
+      `CouncilLiveOutput` both rely on that pre-existing guarantee and never call `subscribe`
+      themselves. A single `closed` listener per window drops every ptyId it held, rather than
+      accumulating one per subscription.
+- [x] **D** — `reparentBrowserTabs` moves every `WebContentsView` between windows with no
+      `loadURL`/reload (verified: same `webContents`, same `persist:browser` partition, so cookies
+      and scroll position survive), `activateBrowserTab` narrowed to the activating tab's own
+      window, and a re-dock triggers `useBrowserStore.persist.rehydrate()` in main so the
+      renderer-side tab list (a separate zustand instance per window, which `reparentBrowserTabs`
+      never touches) doesn't show a stale or phantom tab.
+- [x] Repos popout render and the full-dispatcher/palette scope in every popout were phase-doc
+      gaps filled per explicit Stage 2.5 decisions, not part of the original A-D text.
+- [x] Two self-review passes (a direct agent query plus the `code-review` skill fork) found two
+      critical regressions before merge: popout title-bar buttons were captured to a single
+      `getMainWindow` closure, so a popout's own minimize/maximize/close silently acted on the main
+      window; and the new per-ptyId registry broke the two always-on consumers named above. Both
+      fixed pre-merge. CI then caught two more the local gate couldn't see: the e2e mock bridge had
+      no `window.list`/`onWindowsChanged`/`detach`/`dock`/`focusRole`, `pty.subscribe`/
+      `unsubscribe`, or `windowRole` scalar, so every e2e spec's `useWindowSync()` and pty-subscribe
+      effect threw on mount; and the FAB header regression above. Both fixed and reverified against
+      the full local e2e-ci suite before the CI-green retry.
+- [x] Tests: `window-manager` covered via `pty-subscribers.test.ts` (7 cases, including the
+      always-union-main and single-closed-listener regression guards) and `windows-store.test.ts`
+      (round-trip, corrupt file, malformed entry); `ipc.test.ts` gained an exhaustiveness guard over
+      the new `window` contract and `TERMINAL_YIELD_COMMANDS`; `browser-service.test.ts` extended
+      for reparenting and window-scoped activation. `moon run :typecheck :lint :test` green (2194
+      app tests, 1042 desktop tests).
+- [x] Deliberately not covered here, left for Theme E: a detached Terminal's selected repo/worktree
+      freezes at popout-mount time (no live relay), and `ptyAgentChanged`/`ptyCommandChanged`/
+      `ptyActivity` stay main-window-only (a popout terminal won't show a live agent icon or
+      foreground-command update) — both are the explicit "ship standalone, no relay" scope this
+      batch chose over building Theme E early.
+
 ## 2026-09-04 — Phase 47 Theme E — Agent-assisted conflict resolution suggestions
 
 [PR #133]. Closes out the phase's build entirely — every theme (A–F) is now landed, one item left
