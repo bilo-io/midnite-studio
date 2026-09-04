@@ -41,7 +41,10 @@ export function DetachedWindowFrame({
   const selectedRepo = repos?.find((repo) => repo.id === selectedRepoId) ?? null;
 
   return (
-    <div className="flex h-screen w-screen flex-col overflow-hidden bg-background text-foreground">
+    <div
+      className="flex h-screen w-screen flex-col overflow-hidden bg-background text-foreground"
+      style={{ paddingTop: 'var(--titlebar-h, 0px)' }}
+    >
       <TitleBar
         windowChrome={windowChrome}
         left={<span className="truncate px-1 text-xs font-medium">{title}</span>}
