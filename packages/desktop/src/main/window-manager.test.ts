@@ -272,8 +272,8 @@ describe('window-manager (Phase 55)', () => {
     it('a crashed renderer logs reason=crashed on its close line', () => {
       const win = createRoleWindow('fab', log) as unknown as InstanceType<typeof FakeBrowserWindow>;
       log.mockClear();
-      const goneHandler = win.webContents.on.mock.calls.find(
-        ([event]: [string, unknown]) => event === 'render-process-gone',
+      const goneHandler = (win.webContents.on.mock.calls as [string, unknown][]).find(
+        ([event]) => event === 'render-process-gone',
       )?.[1] as ((event: unknown, details: { reason: string; exitCode: number }) => void) | undefined;
       goneHandler?.(undefined, { reason: 'crashed', exitCode: 1 });
 
@@ -287,8 +287,8 @@ describe('window-manager (Phase 55)', () => {
     it('a clean-exit render-process-gone does not close the window', () => {
       const win = createRoleWindow('browser', log) as unknown as InstanceType<typeof FakeBrowserWindow>;
       log.mockClear();
-      const goneHandler = win.webContents.on.mock.calls.find(
-        ([event]: [string, unknown]) => event === 'render-process-gone',
+      const goneHandler = (win.webContents.on.mock.calls as [string, unknown][]).find(
+        ([event]) => event === 'render-process-gone',
       )?.[1] as ((event: unknown, details: { reason: string; exitCode: number }) => void) | undefined;
       goneHandler?.(undefined, { reason: 'clean-exit', exitCode: 0 });
 
