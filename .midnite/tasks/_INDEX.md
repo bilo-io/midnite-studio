@@ -49,7 +49,7 @@ Completed work is logged append-only in [`done.md`](done.md). Deferred scope liv
 
 | Phase | Status | Refined | Done | Progress | % | 🔄 WIP | ◻ TODO |
 |-------|--------|---------|------|----------|---|--------|--------|
-| [54 · An Issues view](phases/phase-54-issues-view.md) | 🔄 WIP | — | 4/45 | `█░░░░░░░░░` | 9% | — | B C D E F G |
+| [54 · An Issues view](phases/phase-54-issues-view.md) | 🔄 WIP | — | 4/45 | `█░░░░░░░░░` | 9% | B | C D E F G |
 | [53 · The first release](phases/phase-53-first-release.md) | ◻ TODO | — | 0/42 | `░░░░░░░░░░` | 0% | — | A B C D E F G H |
 | [52 · Projects, the Board, and Workflows, navigable](phases/phase-52-projects-navigation.md) | ✅ DONE | — | 40/43 | `█████████░` | 93% | — | Verification (3 human passes) |
 | [51 · The terminal, made steady](phases/phase-51-terminal-steadiness.md) | 🔄 WIP | — | 16/37 | `████░░░░░░` | 43% | — | C F G |
