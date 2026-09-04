@@ -5,7 +5,8 @@ import { TerminalHeader } from './terminal-header';
 
 const mocks = vi.hoisted(() => ({
   windowRole: 'main' as string,
-  portalTarget: null as HTMLDivElement | null,
+  actionsTarget: null as HTMLDivElement | null,
+  leadingTarget: null as HTMLDivElement | null,
 }));
 
 vi.mock('../../services/bridge', () => ({
@@ -13,7 +14,8 @@ vi.mock('../../services/bridge', () => ({
 }));
 
 vi.mock('../../components/detached-window-frame', () => ({
-  usePopoutHeaderActions: () => mocks.portalTarget,
+  usePopoutHeaderActions: () => mocks.actionsTarget,
+  usePopoutHeaderLeading: () => mocks.leadingTarget,
 }));
 
 const baseProps = {
@@ -30,7 +32,8 @@ const baseProps = {
 describe('TerminalHeader', () => {
   beforeEach(() => {
     mocks.windowRole = 'main';
-    mocks.portalTarget = null;
+    mocks.actionsTarget = null;
+    mocks.leadingTarget = null;
   });
 
   afterEach(cleanup);
@@ -43,11 +46,14 @@ describe('TerminalHeader', () => {
     expect(screen.getByLabelText('Show session list')).toBeDefined();
   });
 
-  it('portals into the title bar action slot once popped out with a merged frame, dropping the mark', () => {
+  it('portals buttons to actions and dot/path to leading slot once popped out with a merged frame', () => {
     mocks.windowRole = 'terminal';
-    const portal = document.createElement('div');
-    document.body.appendChild(portal);
-    mocks.portalTarget = portal;
+    const actionsPortal = document.createElement('div');
+    const leadingPortal = document.createElement('div');
+    document.body.appendChild(actionsPortal);
+    document.body.appendChild(leadingPortal);
+    mocks.actionsTarget = actionsPortal;
+    mocks.leadingTarget = leadingPortal;
 
     render(<TerminalHeader {...baseProps} />);
 
@@ -55,17 +61,20 @@ describe('TerminalHeader', () => {
     // here any more, not even collapsed.
     expect(document.querySelector('[data-terminal-header]')).toBeNull();
     expect(screen.queryByLabelText('Detach Terminal into its own window')).toBeNull();
-    // Everything else the row used to show landed in the portal target
-    // instead — the bar's own `right` slot (`DetachedWindowFrame`).
-    expect(portal.querySelector('[aria-label="Show session list"]')).not.toBeNull();
-    expect(portal.querySelector('[aria-label="New terminal or agent"]')).not.toBeNull();
+    // Buttons landed in the action slot on the right
+    expect(actionsPortal.querySelector('[aria-label="Show session list"]')).not.toBeNull();
+    expect(actionsPortal.querySelector('[aria-label="New terminal or agent"]')).not.toBeNull();
+    // Dot and path landed in the leading slot on the left
+    expect(leadingPortal.querySelector('[title="/Users/you/Dev/midnite-studio"]')).not.toBeNull();
 
-    portal.remove();
+    actionsPortal.remove();
+    leadingPortal.remove();
   });
 
   it('falls back to the full row when popped out but no merged frame exists', () => {
     mocks.windowRole = 'terminal';
-    mocks.portalTarget = null;
+    mocks.actionsTarget = null;
+    mocks.leadingTarget = null;
 
     render(<TerminalHeader {...baseProps} />);
 
