@@ -537,7 +537,7 @@ land before either. Everything after them is blame proper.
     colour from the Phase 14 avatar palette, so the bands read as bands at both themes and at both
     row densities. `sha` is `font-mono text-[10px] text-muted-foreground`, seven characters.
   - The toggle's state is `blameByFile: Record<string, true>` in the **plain** half of
-    `blame-store.ts`, keyed `` `${fsScopeKey(scope).join('/')} ${relPath}` `` — per file, off by
+    `blame-store.ts`, keyed `` `${fsScopeKey(scope).join('/')}\0${relPath}` `` — per file, off by
     default, and deliberately not persisted: blame is a question you ask about a file, not a
     preference about the pane.
   - Uncommitted lines (sha `0000000…`) render “Uncommitted” in italic muted text with no date and
@@ -605,7 +605,7 @@ The find bar depends on **D's first two items**.
     }): JSX.Element;
     ```
   - `matchesTerms` keeps the repos panel's two load-bearing conventions verbatim: an empty query
-    matches everything, and the haystack's fields are joined with ` ` so a term cannot span
+    matches everything, and the haystack's fields are joined with `\0` so a term cannot span
     two of them.
 - [ ] Retrofit both call sites onto it, and add the third the Changes view has never had:
       [`all-changes-view.tsx`](../packages/app/src/features/changes/all-changes-view.tsx) has no
@@ -649,7 +649,7 @@ The find bar depends on **D's first two items**.
     same path.
 - [ ] `filter-input.test.ts` over `matchesTerms`, including the case-folding, the
       empty-query-matches-everything convention both existing call sites rely on, and the
-      ` ` join that stops a term matching across two fields.
+      `\0` join that stops a term matching across two fields.
 
 ### F — Chords, the palette source, and Settings (M)
 
@@ -800,7 +800,7 @@ The find bar depends on **D's first two items**.
       empty after a repo switch.
 - [ ] Vitest (E): `matchesTerms` — the AND-terms behaviour, case-folding, the
       empty-query-matches-everything convention both existing call sites depend on, and that a term
-      cannot match across the ` ` field join.
+      cannot match across the `\0` field join.
 - [ ] Vitest (F): no two keybindings share a chord; every chord's final segment is lowercase;
       `Mod+Shift+r` resolves to `sync.fetch` and `Mod+Shift+f` to `search.open`; and `sync.fetch`
       appears exactly once in `DEFAULT_KEYMAP`.

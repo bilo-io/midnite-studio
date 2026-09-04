@@ -2,6 +2,22 @@
 
 Recorded here when a phase punts on something; pick these up post-MVP.
 
+- **Tick the phase docs that landed without being ticked.** Three docs assert far less progress than
+  the tree does, and `_INDEX.md` — not the doc — is the accurate record in each case. Phase 25 has
+  39 of 103 boxes ticked while `search.ts`, `grep.ts`, `blame.ts`, `grep-parser.ts`,
+  `blame-parser.ts`, `stream-registry.ts`, `search-service.ts` and `search-view.tsx` all exist;
+  Themes D and E even carry a `✅ DONE` stamp above unticked items. Phase 32 has 39 unticked
+  deliverables (Themes E, F, H, I) and Phase 33 has 26 (Themes A–E) with `entitlements.mac.plist`,
+  `notarize.cjs`, `verify-dist.mjs` and the `dmg:`/`protocols:` blocks all present in
+  `electron-builder.yml`. The fix is per-item verification against the tree, not a bulk tick —
+  which is why it is parked here rather than done in passing. Two structural bugs travel with it:
+  Phase 32 contains **Themes H and I twice**, with contradictory stamps (`✅ DONE` above,
+  `✅ PARTIAL`/unstamped below), so any per-theme automation double-counts them; and Phase 33's
+  doc says `✅ PARTIAL` for B, C and D where the index says `✅` — the `◐` symbol the key already
+  uses elsewhere is the one that belongs there.
+  *(Phase 25's own unreadability is fixed: it held four raw NUL bytes where `\0` was meant, which
+  made every grep-based counter see an empty file. It is UTF-8 text again as of 2026-09-04.)*
+
 - **Interactive rebase** — via a `GIT_SEQUENCE_EDITOR` helper binary that writes the UI's todo
   list; `GIT_EDITOR` for reword. Impossible with libgit2/isomorphic-git; CLI-only trick.
 - ~~**Proper diff viewer**~~ — ✅ landed in Phase 12 Theme D: parsed hunks over IPC, one shared
