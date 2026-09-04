@@ -151,57 +151,57 @@ The three facts that shape every theme below, because each one contradicts an ob
   - `activateBrowserTab` (`:286–288`) currently runs `for (const [id, tracked] of tabs) tracked.view.setVisible(id === tabId)` across **all** tabs process-wide, on the documented assumption that "only one view is ever attached-and-visible". With D.3 that assumption holds only within a window.
   - Narrow the loop to tabs whose `tracked.win` matches the activating tab's window. Without this, activating a tab in the popout hides nothing incorrectly today but will regress the moment any tab lives elsewhere — and it is the exact bug D.1 would otherwise introduce silently.
 
-### Theme E — Cross-Window State Synchronization (M)
+### Theme E — Cross-Window State Synchronization (M) — ✅ DONE (PR #143, 2026-09-04)
 
-- [ ] **E.1** Implement the state bridge in [`packages/app/src/services/broadcast-sync.ts`](../../../packages/app/src/services/broadcast-sync.ts) *(new)*:
+- [x] **E.1** Implement the state bridge in [`packages/app/src/services/broadcast-sync.ts`](../../../packages/app/src/services/broadcast-sync.ts) *(new)*:
   - **Two transports, one authority.** The main-process relay (`mstudio:window:relay`, main rebroadcasts any window's message to every *other* window) is authoritative and always runs; `BroadcastChannel('midnite-studio')` is a same-origin fast path layered on top. The relay cannot be the untested half: in the packaged build renderers load from `file://`, where origins are opaque and `BroadcastChannel` may never fire between windows — dev (`http://localhost:5173`) would pass while the shipped app silently desynced.
   - Messages are de-duplicated by a per-message `id` (a `crypto.randomUUID()`), so a payload arriving on both transports applies once.
   - **Synced state is an explicit allowlist, not a whole store.** `ui-store` persists ~60 fields and syncing all of them would have two windows fighting over pane sizes. The allowlist is: `selectedRepoId`, `selectedWorktreePath`, the four `*Detached` flags, and the whole of `appearance-store` (accent, motion, density, uiFont, background, bgIntensity, effects, shimmer).
   - **`browser-store` syncs** (tabs, groups, `activeTabId`) because after D.3 both windows can render the strip. **`terminal-store` does not** — it is deliberately unpersisted, main owns terminal durability via `terminals.json`, and a synced second copy would be exactly the drifting duplicate its module doc warns against.
   - There is **no renderer `repo-store`** — the original plan named one. Selected repo lives in `ui-store`; the repo *list* is React Query (`keys.repos`) and is covered by E.2.
-- [ ] **E.2** Cross-window React Query invalidation:
+- [x] **E.2** Cross-window React Query invalidation:
   - The client is configured `staleTime: Number.POSITIVE_INFINITY`, `refetchOnWindowFocus: false`, `retry: false` ([`app.tsx:167`](../../../packages/app/src/app.tsx)) — deliberately, because freshness comes from the watcher, not polling. So a popout **never refetches on its own**: without this item its data is frozen at mount.
   - Reuse the existing seam rather than inventing one: [`invalidateForWatchKind(client, repoId, kind)`](../../../packages/app/src/services/watch-invalidation.ts) already maps a `WatchKind` to the narrowest correct invalidation plus a `{restreamGraph}` flag. A relayed `{ repoId, kind }` message calls exactly that function in every other window.
   - Main pushes `watchEvent` to one window today ([`watch-service.ts:27`](../../../packages/desktop/src/main/watch-service.ts) takes an explicit `win`); `reconcileWatchers` is bound to the main window at [`index.ts:456`](../../../packages/desktop/src/main/index.ts). Keep that, and let the main window relay — one watcher, N consumers, no duplicate `git status` per popout.
   - The documented key invariant holds: "a key outside the `repos/<id>` prefix is never invalidated by the watcher" ([`queries.ts:69`](../../../packages/app/src/services/queries.ts)).
-- [ ] **E.3** Theme and appearance propagation:
+- [x] **E.3** Theme and appearance propagation:
   - Theme is **not** in any Zustand store — `@bilo-io/ui`'s `ThemeProvider` reads `localStorage['midnite.theme']` **once on mount** and applies `documentElement.classList.toggle('dark', …)` plus `style.colorScheme`. There is no `storage` listener, so a flip in one window never reaches another.
   - A popout gets the *stored* theme free at boot via the pre-paint script in [`index.html:19–41`](../../../packages/app/index.html). This item covers *later* flips: the theme change rides the E.1 relay, and each window applies the same two DOM mutations.
   - Two existing consumers already observe that class and keep working unchanged: `useWindowBackgroundSync()`'s `MutationObserver` on `attributeFilter: ['class']` ([`app.tsx:1503`](../../../packages/app/src/app.tsx)) and [`terminal-view.tsx:82,748`](../../../packages/app/src/features/terminal/terminal-view.tsx). Verifying the popout's native backing retints is what proves the chain end to end.
-- [ ] **E.4** Echo suppression and ordering:
+- [x] **E.4** Echo suppression and ordering:
   - Every applied message sets a module-level `applying = true` around the store write so the subscriber that would rebroadcast it stays silent — without this, two windows ping-pong a single change forever.
   - Messages carry the originating window id; a window ignores its own.
   - A window that mounts mid-session pulls current state once via `bridge().window.list()` plus its own persisted stores, rather than waiting for the next change.
 
-### Theme F — Verification & Screenshots (M)
+### Theme F — Verification & Screenshots (M) — ◐ PARTIAL (PR #143, 2026-09-04) — F.3 open, for a human
 
-- [ ] **F.1** Automated coverage, at the layer that can actually run it:
+- [x] **F.1** Automated coverage, at the layer that can actually run it:
   - **Bare vitest in `packages/desktop`** — new `window-manager.test.ts` and `pty-subscribers.test.ts`. Assertions: `createRoleWindow` registers exactly one descriptor per role and `listWindows()` returns it; a second `createRoleWindow('terminal')` focuses the existing window instead of opening a second; `resolveRole` round-trips; closing a window removes its descriptor **and** all its pty subscriptions; `subscribersFor(ptyId)` returns only windows that subscribed.
   - `windows-store.test.ts` against a tmpdir: bounds written on close are read back on the next `createRoleWindow`; a corrupt/absent `windows.json` yields role defaults rather than throwing (same fail-soft posture as `repo-store.ts`).
   - Renderer-side vitest for `broadcast-sync.ts`: two `applySync` calls with the same message `id` apply once; a message whose origin is this window is ignored; `applying` suppresses rebroadcast.
   - **No Electron Playwright suite is added.** The existing e2e suite runs Vite + a mocked bridge and cannot see a second window; standing up `_electron.launch` would be new CI infrastructure while Phase 38 is still retiring `KNOWN_RED`. Real two-window behaviour is F.3's human pass instead.
-- [ ] **F.2** Visual regression & screenshot verification:
+- [x] **F.2** Visual regression & screenshot verification:
   - New `packages/app/e2e/detached-panels-shots.spec.ts`, following the ~25 existing `*-shots.spec.ts` files: gated by `test.skip(!process.env['MSTUDIO_SHOTS'], …)`, output to `docs/screenshots/phase-55-multi-window/`, invoked as `MSTUDIO_SHOTS=1 pnpm exec playwright test e2e/detached-panels-shots.spec.ts`.
   - It photographs the *renderer-side* halves that the mocked bridge can reach: each `DetachedRoot` role rendered standalone, and each `DetachedPlaceholder` in the main layout — light and dark, dark via `document.documentElement.classList.add('dark')` as the other shots specs do.
   - The `window` namespace in [`e2e/mock-bridge.ts`](../../../packages/app/e2e/mock-bridge.ts) gains `detach`, `dock`, `focusRole`, `list`, `onWindowsChanged` and the `windowRole` scalar — the object literal there is serialised via `addInitScript` and may not close over anything from the test file.
 - [ ] **F.3** **Open, for a human:** multi-monitor pass — detach all four panels across two displays, confirm a running `claude` session keeps streaming into the terminal popout, start a loop and watch its halo animate in the FAB popout, navigate the browser popout and confirm no reload on re-dock, flip the theme in the main window and watch all four follow, then re-dock everything and confirm the main window is whole.
-- [ ] **F.4** Extend the IPC guard so these channels cannot land unvalidated:
+- [x] **F.4** Extend the IPC guard so these channels cannot land unvalidated:
   - [`ipc.test.ts`](../../../packages/shared/src/ipc/ipc.test.ts)'s exhaustiveness guards are **prefix-scoped and opt-in**, and there is currently **no `window*` block at all** — the two global guards (unique names, `mstudio:` prefix) are all a new window channel gets today.
   - Add a `covers every window channel with a schema` block in the shape of the `metrics` one (`:778`): an `expected: Record<string, string[]>` mapping every `window`-prefixed key in `CHANNELS`/`EVENT_CHANNELS` to its schema export names, `expect(channelKeys.sort()).toEqual(Object.keys(expected).sort())`, and a `toHaveProperty` per name. The pre-existing chrome channels (`windowMinimize`, `windowClose`, …) are listed with `[]` where they carry no payload, exactly as `metricsStop` is.
 
-### Theme G — Edge cases, diagnostics, and the invariants that stay single-window (M)
+### Theme G — Edge cases, diagnostics, and the invariants that stay single-window (M) — ✅ DONE (PR #143, 2026-09-04)
 
-- [ ] **G.1** Metrics stay bound to the main window, deliberately:
+- [x] **G.1** Metrics stay bound to the main window, deliberately:
   - `bindMetricsToWindow(service, win)` ([`metrics-handlers.ts:54`](../../../packages/desktop/src/main/ipc/metrics-handlers.ts)) binds one shared `MetricsService` to one window's `blur`/`focus`/`hide`/`show`/`minimize`/`restore`/`closed`. Two windows would fight over pause/resume.
   - Popouts render **no footer monitor** and never call `metrics.start()`. Phase 37's idle-CPU gating and [`scripts/perf/idle-cpu.mjs`](../../../scripts/perf/idle-cpu.mjs) both assume a single window and keep working untouched.
-- [ ] **G.2** Repo switch while detached: changing `selectedRepoId` in any window relays (E.1) and every popout re-renders against the new repo. The Repos popout is the one window that must **not** collapse or close on the switch — it is the switcher.
-- [ ] **G.3** Popout crash and renderer death:
+- [x] **G.2** Repo switch while detached: changing `selectedRepoId` in any window relays (E.1) and every popout re-renders against the new repo. The Repos popout is the one window that must **not** collapse or close on the switch — it is the switcher.
+- [x] **G.3** Popout crash and renderer death:
   - `bindRenderProcessGone(win, defaultLogger)` — already applied to the main window at [`index.ts:443`](../../../packages/desktop/src/main/index.ts) — is applied to every popout by `createRoleWindow`.
   - A popout whose renderer dies is closed and re-docked (A.6's rule), so the panel comes back in the main window rather than leaving a dead frame on a second monitor. The log line names the role.
-- [ ] **G.4** Off-screen and display-change safety:
+- [x] **G.4** Off-screen and display-change safety:
   - Saved bounds are validated against `screen.getAllDisplays()` before use; a rect whose origin falls outside every display's work area is discarded and the role's default size is used instead. Unplugging the monitor a popout lived on must not make it unreachable — the failure mode is a window positioned at `x: 3000` on a single 1440-wide display, invisible with no way to drag it back.
   - This is the phase's first use of Electron's `screen` module; it is main-process only.
-- [ ] **G.5** Per-window diagnostics: every `window-manager` mutation logs one line through the existing single log seam — `[window] open role=terminal id=3`, `[window] close role=terminal id=3 reason=redock|closed|crashed`. `MSTUDIO_PERF=1` boot marks stay main-window-only; a popout does not emit boot stages, because `startup-report.mjs` medians would otherwise mix two windows' marks.
+- [x] **G.5** Per-window diagnostics: every `window-manager` mutation logs one line through the existing single log seam — `[window] open role=terminal id=3`, `[window] close role=terminal id=3 reason=redock|closed|crashed`. `MSTUDIO_PERF=1` boot marks stay main-window-only; a popout does not emit boot stages, because `startup-report.mjs` medians would otherwise mix two windows' marks.
 
 ---
 
