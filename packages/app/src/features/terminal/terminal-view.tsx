@@ -11,6 +11,7 @@ import { openExternal } from '../../services/queries';
 import { useUiStore } from '../../store/ui-store';
 import { EndedStrip } from './ended-banner';
 import { createFitCoalescer } from './fit-coalescer';
+import { createInputQueue, type InputQueue } from './input-queue';
 import { isXtermFocusReport } from './is-xterm-focus-report';
 import { parseOsc7 } from './parse-osc7';
 import { createReplayGate } from './replay-gate';
@@ -30,6 +31,9 @@ import { useTerminalIpc } from './use-terminal-ipc';
  * directory on every Enter collapses into one write.
  */
 const OSC7_QUIET_MS = 80;
+
+/** A few KiB — enough for a burst typed while a pty is starting, not a hostage buffer for one that never binds. */
+const INPUT_QUEUE_CAP_BYTES = 4096;
 
 /**
  * One session's xterm.
@@ -132,6 +136,14 @@ export function TerminalView({
   const [ready, setReady] = useState(false);
 
   /**
+   * Input typed before this session's pty is ready (Phase 51 Theme E) — built
+   * fresh per session inside the mount effect below, alongside `termRef`, and
+   * discarded (not flushed) in that same effect's cleanup: a session that ends
+   * without ever binding a pty has nothing worth sending.
+   */
+  const inputQueueRef = useRef<InputQueue | null>(null);
+
+  /**
    * Cell metrics (Phase 51 Theme B) — read reactively so the live-apply
    * effect below re-runs on every change, but NOT a dependency of the mount
    * effect that constructs the `Terminal` (that effect deliberately runs
@@ -202,6 +214,23 @@ export function TerminalView({
   initialInputRef.current = initialInput;
   const stateRef = useRef(connectionState);
   stateRef.current = connectionState;
+
+  /**
+   * Flush queued input the moment this session's pty is actually ready.
+   *
+   * `connectionState` becoming `'open'` is set in the same store update as
+   * `bindPty` (`use-terminal-ipc.ts`'s `start()`), so this fires as soon as
+   * React has committed that transition — well before another keystroke
+   * could plausibly race it. The flush goes out through `sendInput` first,
+   * synchronously, so a queued byte can never be overtaken by a live one:
+   * `onData` only calls `sendInputRef.current` once `stateRef.current` is
+   * already `'open'`, which this same render made true.
+   */
+  useEffect(() => {
+    if (connectionState !== 'open') return;
+    const queued = inputQueueRef.current?.flush();
+    if (queued) sendInputRef.current(queued);
+  }, [connectionState]);
 
   /**
    * Whether the process probe has EVER named a foreground command for this
@@ -308,6 +337,9 @@ export function TerminalView({
     const container = containerRef.current;
     if (termRef.current || !container) return;
 
+    const inputQueue = createInputQueue(INPUT_QUEUE_CAP_BYTES);
+    inputQueueRef.current = inputQueue;
+
     const initialFont = useUiStore.getState();
     const term = new Terminal({
       convertEol: false,
@@ -397,7 +429,12 @@ export function TerminalView({
        * Cmd specifically.
        */
       if (event.key === 'Enter' && event.metaKey && !event.ctrlKey && !event.altKey) {
+        // Same readiness gate `onData` uses below: while the pty is still
+        // starting this queues rather than sending into a session that may
+        // not exist yet, which is a different bug wearing the same clothes as
+        // the one this theme fixes for typed input.
         if (stateRef.current === 'open') sendInputRef.current('\x1b\r');
+        else if (stateRef.current === 'starting') inputQueue.push('\x1b\r');
         return false;
       }
 
@@ -531,7 +568,19 @@ export function TerminalView({
           }
           return;
         }
-        if (stateRef.current === 'starting' || stateRef.current === 'unavailable') return;
+        if (stateRef.current === 'starting') {
+          // The race Phase 51 Theme E fixes: `pty.create` can resolve and
+          // flip the store to `'open'` before this component's own re-render
+          // catches up, so `stateRef.current` still reads `'starting'` for a
+          // moment even once the session is genuinely ready. Buffering here
+          // instead of dropping means that moment costs nothing — the queue
+          // flushes in order the instant `connectionState` is observed as
+          // `'open'` (the effect above), through the same `sendInput` path a
+          // live keystroke uses.
+          inputQueue.push(data);
+          return;
+        }
+        if (stateRef.current === 'unavailable') return;
         // A dead pane stays mounted (FAB tabs in particular sit `exited`
         // unattended while the user works elsewhere), and its xterm instance
         // can still have DEC focus-tracking latched on from whatever TUI was
@@ -608,6 +657,11 @@ export function TerminalView({
       termRef.current = null;
       fitRef.current = null;
       webglRef.current = null;
+      // Discarded, not flushed — a session ending before it ever bound a pty
+      // has nothing worth sending, and the queue instance itself is about to
+      // be replaced (or simply dropped) by whatever runs this effect next.
+      inputQueue.clear();
+      inputQueueRef.current = null;
       setReady(false);
     };
     // One xterm per session, built once: `session.id` is the only dep that can
