@@ -1,3 +1,4 @@
+import { useMemo } from 'react';
 import { LuRefreshCw } from 'react-icons/lu';
 
 import { IconButton } from '../../components/icon-button';
@@ -43,16 +44,22 @@ export function IssuesView() {
   const stored = useIssuesStore((s) => (repoId === null ? null : (s.selectedIssue[repoId] ?? null)));
   const selectIssue = useIssuesStore((s) => s.selectIssue);
 
-  const rows = issues.data?.issues ?? [];
+  const fetchedRows = issues.data?.issues;
 
   // The stored selection wins, but only while it still exists — an issue
   // ages out of the fetched page the same way a run or a PR does, and
   // honouring a number no longer in it would leave the pane empty with no
-  // way to tell why. Mirrors `ActionsView`'s own fallback exactly.
-  const selectedNumber =
-    (stored !== null && rows.some((issue) => issue.number === stored) ? stored : null) ??
-    pickInitialIssue(rows);
-  const selected = rows.find((issue) => issue.number === selectedNumber) ?? null;
+  // way to tell why. Mirrors `ActionsView`'s own fallback exactly. Memoized
+  // on the query's own array reference so a re-render triggered by something
+  // other than new issue data (selecting a row, resizing the split) doesn't
+  // redo the sort or hand `IssueList` a fresh array identity.
+  const { rows, selectedNumber, selected } = useMemo(() => {
+    const list = fetchedRows ?? [];
+    const number =
+      (stored !== null && list.some((issue) => issue.number === stored) ? stored : null) ??
+      pickInitialIssue(list);
+    return { rows: list, selectedNumber: number, selected: list.find((issue) => issue.number === number) ?? null };
+  }, [fetchedRows, stored]);
 
   if (repoId === null) {
     return <Notice>Select a repository to see its issues.</Notice>;

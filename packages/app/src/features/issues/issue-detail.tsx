@@ -24,6 +24,11 @@ export function IssueDetail({ repoId, issue }: { repoId: string; issue: ForgeIss
   const comments = useForgeIssueComments(repoId, issue.number, true);
 
   const body = detail.data?.issue?.body ?? null;
+  const error = detail.data?.error ?? null;
+  // Both queries have to settle before the pane is final — resolving early on
+  // just the body would show "Nobody has commented" while comments are still
+  // in flight, and resolving early on just comments would flash the skeleton
+  // then swap the body in underneath it.
   const loading = detail.isLoading || (comments.isLoading && comments.data === undefined);
 
   return (
@@ -47,8 +52,10 @@ export function IssueDetail({ repoId, issue }: { repoId: string; issue: ForgeIss
         ) : null}
       </div>
 
-      {loading && body === null ? (
+      {loading ? (
         <IssueDetailSkeleton />
+      ) : error !== null ? (
+        <p className="px-4 py-3 text-xs text-destructive">{error}</p>
       ) : (
         <div className="min-h-0 flex-1 overflow-y-auto">
           {body !== null && body.length > 0 ? (

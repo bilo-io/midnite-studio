@@ -98,4 +98,13 @@ describe('IssueDetail', () => {
 
     expect(await screen.findByText('Nobody has commented on this issue.')).not.toBeNull();
   });
+
+  it('surfaces a failed fetch instead of rendering it as an empty description', async () => {
+    issueDetailFn.mockResolvedValue({ cli: CLI_READY, issue: null, error: 'gh: command not found' });
+    issueCommentsFn.mockResolvedValue({ cli: CLI_READY, comments: [], error: null });
+    renderDetail();
+
+    expect(await screen.findByText('gh: command not found')).not.toBeNull();
+    expect(screen.queryByText('No description.')).toBeNull();
+  });
 });
