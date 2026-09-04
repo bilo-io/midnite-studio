@@ -230,7 +230,7 @@ only; the main panel's open sessions and the FAB's loop tabs spent from the same
 
 ## 2026-09-04 — Phase 44 Themes D, E, F, G, H — The Video view, and Claude in it
 
-[PR #TBD]. Closes out Themes C, D, E and G fully, and lands most of F (Claude actions) and H
+[PR #134]. Closes out Themes C, D, E and G fully, and lands most of F (Claude actions) and H
 (wiring) with a handful of gaps recorded rather than silently skipped.
 
 - [x] **Theme D — the Video view.** `video` added to the `ViewId` union (after `workflows`, before
@@ -1225,7 +1225,7 @@ not.
 
 ## 2026-09-03 — Phase 49 Themes B, C, D, E (partial) — the onboarding kit's plan/apply engine, Setup dialog, and menu wiring
 
-[PR #TBD].
+[PR #134].
 
 - [x] **Theme B — the contract in `shared`.** `ScaffoldPlan`/`ScaffoldEntry`/`ScaffoldApplyResult`
       zod schemas and the `.midnite/settings.json` hash manifest, plus two IPC channels
@@ -1380,7 +1380,7 @@ kit ships as a checked-in template, and PR-suggestion detection lands its first 
 
 ## 2026-09-02 — Phase 42 Themes E, F + Phase 38 Themes G, I (partial) — councils/runs share the rail, motion proven, a wrong CI diagnosis corrected
 
-[PR #TBD].
+[PR #134].
 
 - [x] **Phase 42 Theme E — councils and runs share the panel.** `council-run-list.tsx` (new)
       replaces the old horizontal run-picker strip with a vertical list in the left rail, rendered
@@ -1547,7 +1547,7 @@ batch and stay open.
 
 ## 2026-09-02 — Phase 41 Themes C, F, D (partial), I (partial) — drag, glow, the surface fix
 
-[PR #TBD]. Batch built without Theme G (card composer) or Theme E (in-card terminal) — both stay
+[PR #134]. Batch built without Theme G (card composer) or Theme E (in-card terminal) — both stay
 open, and Theme D/I are marked partial because of it.
 
 - [x] **Theme C — drag between columns.** `@dnd-kit` `useDraggable`/`useDroppable` (not

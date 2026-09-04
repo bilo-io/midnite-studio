@@ -174,7 +174,7 @@ Effort tags: **S** ≈ an hour or two · **M** ≈ half a day · **L** ≈ a day
   wiring. Theme H's own bullet ("handlers, preload") owns that; this theme's functions are desktop-
   internal and unreachable from the renderer until then — mirroring Workflow's own Theme B/H split.
 
-### C — The toolchain probe and the studio host (M) — ✅ DONE (PR #113 + PR #TBD, 2026-09-04)
+### C — The toolchain probe and the studio host (M) — ✅ DONE (PR #113 + PR #134, 2026-09-04)
 
 - [x] `desktop/src/main/video/toolchain.ts` — resolve `node` and `npx` through the **existing**
       [`login-shell.ts`](../../../packages/desktop/src/main/login-shell.ts) (`spawn(loginShell(),
@@ -201,7 +201,7 @@ Effort tags: **S** ≈ an hour or two · **M** ≈ half a day · **L** ≈ a day
       calls `stopStudio` before deleting a project's folder. A `remotion studio` surviving the app
       is a port leak the user cannot see and cannot find.
 
-### D — The Video view (L) — ✅ DONE (PR #TBD, 2026-09-04)
+### D — The Video view (L) — ✅ DONE (PR #134, 2026-09-04)
 
 - [x] Add `video` to the `ViewId` union at
       [`ui-store.ts:51`](../../../packages/app/src/store/ui-store.ts) and to `VIEW_IDS` at
@@ -252,7 +252,7 @@ Effort tags: **S** ≈ an hour or two · **M** ≈ half a day · **L** ≈ a day
       accumulated drift of every phase merged since the prior 2026-09-01 measurement, not this
       view's own contribution.
 
-### E — Renders (M) — ✅ DONE (PR #113 + PR #TBD, 2026-09-04)
+### E — Renders (M) — ✅ DONE (PR #113 + PR #134, 2026-09-04)
 
 - [x] `desktop/src/main/video/render-service.ts` spawns through the **existing**
       [`process-runner.ts`](../../../packages/desktop/src/main/process-runner.ts) — `realSpawn`
@@ -303,7 +303,7 @@ Effort tags: **S** ≈ an hour or two · **M** ≈ half a day · **L** ≈ a day
       neither. Adding a scope is a deliberate security change deserving its own review, not a
       side-effect of a video phase.
 
-### F — Claude in the loop (M) — ◐ PARTIAL (PR #TBD, 2026-09-04)
+### F — Claude in the loop (M) — ◐ PARTIAL (PR #134, 2026-09-04)
 
 - [x] A **Write editorial script** action on a project: opens a terminal session bound to the video
       root and types (does **not** send) the `/video-write-editorial-script` invocation with the
@@ -329,7 +329,7 @@ Effort tags: **S** ≈ an hour or two · **M** ≈ half a day · **L** ≈ a day
       always fires the `/command` regardless. Worth a small follow-up (a presence probe alongside
       `probeVideoToolchain`'s own found/reason shape), not built in this pass.
 
-### G — Assets (S) — ✅ DONE (PR #TBD, 2026-09-04)
+### G — Assets (S) — ✅ DONE (PR #134, 2026-09-04)
 
 - [x] Run the project's `scripts/sync-assets.mjs` when present, as a button with its output in a
       terminal session. `ekko-videos` makes this a `predev`/`prebuild` hook; surfacing it manually
@@ -343,7 +343,7 @@ Effort tags: **S** ≈ an hour or two · **M** ≈ half a day · **L** ≈ a day
 - [x] Nothing writes into `assets/`. Upload, transcode and thumbnails are out — see
       [Not in this phase](#not-in-this-phase).
 
-### H — Wiring and verification (M) — ◐ PARTIAL (PR #TBD, 2026-09-04)
+### H — Wiring and verification (M) — ◐ PARTIAL (PR #134, 2026-09-04)
 
 - [x] `desktop/src/main/ipc/video-handlers.ts`, registered where the other `*-handlers.ts` are,
       using the shared [`handle.ts`](../../../packages/desktop/src/main/ipc/handle.ts) wrapper so
