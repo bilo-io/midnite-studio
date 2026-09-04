@@ -36,6 +36,13 @@ extraResources:
   # owns the branch.
   - from: ../../templates
     to: templates
+  # The CLI wrapper (`midnite-studio` on PATH). `resources/` is only
+  # `directories.buildResources` — a source of build inputs electron-builder
+  # never copies into the bundle on its own — so `cli-handlers.ts`'s
+  # `getBundleBinPath()` (`${process.resourcesPath}/bin/midnite-studio`) has
+  # pointed at a path that does not exist in every packaged build until now.
+  - from: resources/bin
+    to: bin
 
 asar: true
 asarUnpack:
