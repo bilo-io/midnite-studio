@@ -22,6 +22,7 @@ import { sessionPhase, useTerminalStore } from './terminal-store';
 import { useAgents } from './use-agents';
 import { useDevicePixelRatio } from './use-device-pixel-ratio';
 import { useTerminalIpc } from './use-terminal-ipc';
+import { useXtermBudget, useXtermWebglSlot } from './xterm-budget';
 
 /**
  * How long OSC 7 has to stay quiet before the store is told.
@@ -312,6 +313,64 @@ export function TerminalView({
   }, [dpr, safeFit]);
 
   /**
+   * Acquire or release the WebGL addon as the process-wide budget grants or
+   * revokes this session's slot (Phase 51 Theme C) — decoupled from the mount
+   * effect above (which builds the `Terminal` once per session) so a later
+   * grant or revoke never rebuilds it.
+   *
+   * A lost context while still granted is worth one immediate retry rather
+   * than a permanent fall to the DOM renderer: the addon's own ~3s internal
+   * restoration window has already had its chance to absorb a transient GPU
+   * hiccup by the time `onContextLoss` reaches us, so what's left is either
+   * Chromium's own eviction (another context freed up almost immediately,
+   * and retrying wins it back) or a GPU that is genuinely gone for now (the
+   * retry fails too, and this session stays on the DOM renderer until the
+   * next grant/revoke transition tries again).
+   */
+  const grantedWebgl = useXtermWebglSlot(session.id, active);
+  useEffect(() => {
+    const term = termRef.current;
+    if (!term || !ready) return;
+    const setRenderer = useXtermBudget.getState().setRenderer;
+
+    if (!grantedWebgl) {
+      webglRef.current?.dispose();
+      webglRef.current = null;
+      setRenderer(session.id, 'dom');
+      return;
+    }
+
+    let disposed = false;
+    let retried = false;
+    const acquire = () => {
+      if (disposed) return;
+      try {
+        const webgl = new WebglAddon();
+        webgl.onContextLoss(() => {
+          webgl.dispose();
+          if (webglRef.current === webgl) webglRef.current = null;
+          setRenderer(session.id, 'dom');
+          if (!disposed && !retried) {
+            retried = true;
+            acquire();
+          }
+        });
+        term.loadAddon(webgl);
+        webglRef.current = webgl;
+        setRenderer(session.id, 'webgl');
+      } catch {
+        // WebGL unavailable; DOM renderer remains active.
+        setRenderer(session.id, 'dom');
+      }
+    };
+    acquire();
+
+    return () => {
+      disposed = true;
+    };
+  }, [grantedWebgl, ready, session.id]);
+
+  /**
    * A `Settings ▸ Terminal` font/line-height change reaches every already-
    * mounted terminal — not just the next one created — by writing the
    * options onto the live instance rather than rebuilding it. Rebuilding
@@ -472,20 +531,10 @@ export function TerminalView({
       if (!el || el.clientWidth === 0 || el.clientHeight === 0) return;
 
       term.open(el);
-      // Must load after open() - the addon needs the terminal's element. If the
-      // GPU says no (context creation fails or is later lost), fall back to the
-      // DOM renderer: everything still works, only the drawn glyphs degrade.
-      try {
-        const webgl = new WebglAddon();
-        webgl.onContextLoss(() => {
-          webgl.dispose();
-          webglRef.current = null;
-        });
-        term.loadAddon(webgl);
-        webglRef.current = webgl;
-      } catch {
-        // WebGL unavailable; DOM renderer remains active.
-      }
+      // The WebGL addon loads once `ready` flips true, from the budget-driven
+      // effect below — not here. Loading it inline at open time is what used
+      // to make every mounted xterm claim a context unconditionally,
+      // regardless of the process-wide ceiling (Phase 51 Theme C).
       termRef.current = term;
       fitRef.current = fit;
       safeFit();
