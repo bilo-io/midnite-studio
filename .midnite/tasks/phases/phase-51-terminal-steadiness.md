@@ -149,7 +149,7 @@ untracked and spend from the same process-wide ceiling.
       ceiling; the least-recently-visible pane is the one demoted; a demoted pane that becomes
       visible again reclaims a context; unmounting frees the slot exactly once.
 
-### D — A resize that costs one fit, not one per frame (S)
+### D — A resize that costs one fit, not one per frame (S) — ✅ DONE (PR #118, 2026-09-04)
 
 There is **no debouncing on the fit path at all**: `new ResizeObserver(() => … safeFit())`
 ([`terminal-view.tsx:490-494`](../../../packages/app/src/features/terminal/terminal-view.tsx))
@@ -158,17 +158,28 @@ resize* but not the `fit()` measurement or the reflow it triggers, so a drag-res
 xterm re-measure per frame and, whenever cols/rows actually change, one `SIGWINCH` per frame at the
 shell.
 
-- [ ] Coalesce the observer into a single `requestAnimationFrame` callback — at most one `fit()`
+- [x] Coalesce the observer into a single `requestAnimationFrame` callback — at most one `fit()`
       per frame, cancelled and re-scheduled on each observation, flushed on unmount.
-- [ ] This is [Phase 30's own resolved rule](phase-30-terminal-hardening.md#decisions--open-questions)
+  - **Correction:** landed as *cancelled*, not flushed, on unmount. Running a queued fit during
+    teardown would measure a container about to be torn down for no benefit — `cancel()` runs
+    before `termRef.current`/`fitRef.current` are cleared in the same cleanup, so no dangling rAF
+    callback can fire against a disposed terminal either way. "Flushed" in the draft reads as
+    "resolved deterministically, not leaked", which `cancel()` satisfies.
+- [x] This is [Phase 30's own resolved rule](phase-30-terminal-hardening.md#decisions--open-questions)
       ("fit once at the end of a tween") applied to the case it did not cover. That decision was
       made for the panel's open/close tween; a user dragging the window edge produces the identical
       per-frame storm and never got the same treatment.
-- [ ] Keep `lastSentRef`. The rAF coalescer reduces *measurement* work; the dedupe is what still
+- [x] Keep `lastSentRef`. The rAF coalescer reduces *measurement* work; the dedupe is what still
       stops an unchanged cols/rows from sending a pointless `pty.resize`, and the two guards are
       not redundant.
-- [ ] Tests: `fit-coalescer.test.ts` — N observations inside one frame produce one fit; a scheduled
+  - Untouched: `createFitCoalescer` only wraps *when* `safeFit()` runs, never its body — `safeFit`
+    still owns `lastSentRef`'s own dedupe internally, same as every other caller (Themes A/B, the
+    `fitSignal` effect).
+- [x] Tests: `fit-coalescer.test.ts` — N observations inside one frame produce one fit; a scheduled
       fit is cancelled by unmount; a fit still runs for the final size after a burst.
+  - Built against an injected fake `requestAnimationFrame`/`cancelAnimationFrame` (manually
+    stepped, `raf`/`cancelRaf` are optional constructor params defaulting to the real globals) —
+    the real ones fire on the browser's own clock, which a test cannot step deterministically.
 
 ### E — Keystrokes that are never silently dropped (M)
 

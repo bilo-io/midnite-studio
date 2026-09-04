@@ -10,6 +10,7 @@ import { shouldEscapeTerminal } from '../../services/keybindings/use-keybindings
 import { openExternal } from '../../services/queries';
 import { useUiStore } from '../../store/ui-store';
 import { EndedStrip } from './ended-banner';
+import { createFitCoalescer } from './fit-coalescer';
 import { isXtermFocusReport } from './is-xterm-focus-report';
 import { parseOsc7 } from './parse-osc7';
 import { createReplayGate } from './replay-gate';
@@ -558,9 +559,18 @@ export function TerminalView({
       }
     };
 
+    /**
+     * At most one `fit()` per animation frame — a drag-resize can fire this
+     * observer's callback faster than once per frame, and `fit()` is a full
+     * xterm re-measure plus reflow, not something to run per observation.
+     * `lastSentRef` (inside `safeFit`) still dedupes the IPC `resize` this
+     * produces when cols/rows land unchanged; that guard runs after the
+     * measurement and does nothing about the measurement storm itself.
+     */
+    const fitCoalescer = createFitCoalescer(safeFit);
     const observer = new ResizeObserver(() => {
       if (!termRef.current) openWhenSized();
-      else safeFit();
+      else fitCoalescer.schedule();
     });
     observer.observe(container);
     openWhenSized();
@@ -587,6 +597,7 @@ export function TerminalView({
     return () => {
       cancelled = true;
       observer.disconnect();
+      fitCoalescer.cancel();
       document.removeEventListener('visibilitychange', onVisibilityChange);
       if (cwdTimer) clearTimeout(cwdTimer);
       dataSub?.dispose();
