@@ -1,5 +1,5 @@
 import { EVENT_CHANNELS, SCROLLBACK_BYTES, type SessionActivity } from '@midnite/studio-shared';
-import type { BrowserWindow } from 'electron';
+import { BrowserWindow } from 'electron';
 
 import {
   createActivityClock,
@@ -37,6 +37,53 @@ export function isPidAlive(pid: number): boolean {
 let agentWatcher: AgentWatcher | null = null;
 let brokerClient: BrokerClient | null = null;
 let getWindowThunk: () => BrowserWindow | null = () => null;
+
+// --- per-window pty output subscriptions (Phase 55) -------------------------
+//
+// `ptyData`/`ptyExit` used to reach exactly one window — whatever
+// `getWindowThunk()` answered. A second window (a detached Terminal popout)
+// rendering the SAME session got nothing. Broadcasting to every window was
+// the simpler fix but would make every popout pay full output throughput for
+// sessions it never renders, against Phase 51's WebGL/backpressure budgeting
+// — so this is opt-in, keyed by ptyId, and the main window subscribes to a
+// session's output the same way a popout does (see `use-terminal-ipc.ts`).
+
+const ptySubscribers = new Map<string, Set<number>>();
+
+export function subscribeWindowToPty(ptyId: string, win: BrowserWindow): void {
+  let ids = ptySubscribers.get(ptyId);
+  if (!ids) {
+    ids = new Set<number>();
+    ptySubscribers.set(ptyId, ids);
+  }
+  ids.add(win.id);
+  win.once('closed', () => {
+    ptySubscribers.get(ptyId)?.delete(win.id);
+  });
+}
+
+export function unsubscribeWindowFromPty(ptyId: string, win: BrowserWindow): void {
+  const ids = ptySubscribers.get(ptyId);
+  if (!ids) return;
+  ids.delete(win.id);
+  if (ids.size === 0) ptySubscribers.delete(ptyId);
+}
+
+/** Every live, non-destroyed window currently subscribed to `ptyId`'s output. */
+export function subscribersFor(ptyId: string): BrowserWindow[] {
+  const ids = ptySubscribers.get(ptyId);
+  if (!ids) return [];
+  const result: BrowserWindow[] = [];
+  for (const id of ids) {
+    const win = BrowserWindow.fromId(id);
+    if (win && !win.isDestroyed()) result.push(win);
+  }
+  return result;
+}
+
+function dropPtySubscribers(ptyId: string): void {
+  ptySubscribers.delete(ptyId);
+}
 
 // --- per-ptyId listeners (Phase 34) -----------------------------------------
 //
@@ -370,8 +417,7 @@ export async function initPtyService(deps: {
     noteActivity(ptyId, bytes);
     ptyDataListeners.get(ptyId)?.(bytes);
 
-    const win = getWindowThunk();
-    if (win && !win.isDestroyed()) {
+    for (const win of subscribersFor(ptyId)) {
       win.webContents.send(EVENT_CHANNELS.ptyData, { ptyId, data: bytes });
     }
   });
@@ -386,14 +432,14 @@ export async function initPtyService(deps: {
     ptyExitListeners.get(ptyId)?.(exitCode, signal);
     offPty(ptyId);
 
-    const win = getWindowThunk();
-    if (win && !win.isDestroyed()) {
+    for (const win of subscribersFor(ptyId)) {
       win.webContents.send(EVENT_CHANNELS.ptyExit, {
         ptyId,
         exitCode,
         ...(signal === undefined ? {} : { signal }),
       });
     }
+    dropPtySubscribers(ptyId);
   });
 
   // Re-hydrate running sessions if any
@@ -459,8 +505,7 @@ export async function createPty(options: {
     (ptyId, bytes) => {
       noteActivity(ptyId, bytes);
       ptyDataListeners.get(ptyId)?.(bytes);
-      const win = getWindowThunk();
-      if (win && !win.isDestroyed()) {
+      for (const win of subscribersFor(ptyId)) {
         win.webContents.send(EVENT_CHANNELS.ptyData, { ptyId, data: bytes });
       }
     },
@@ -470,14 +515,14 @@ export async function createPty(options: {
       disposeActivity(ptyId);
       ptyExitListeners.get(ptyId)?.(exitCode, signal);
       offPty(ptyId);
-      const win = getWindowThunk();
-      if (win && !win.isDestroyed()) {
+      for (const win of subscribersFor(ptyId)) {
         win.webContents.send(EVENT_CHANNELS.ptyExit, {
           ptyId,
           exitCode,
           ...(signal === undefined ? {} : { signal }),
         });
       }
+      dropPtySubscribers(ptyId);
     },
   );
 

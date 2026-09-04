@@ -2,12 +2,15 @@ import { CHANNELS, SCROLLBACK_BYTES, schemas } from '@midnite/studio-shared';
 import { ipcMain, type BrowserWindow } from 'electron';
 
 import { defaultLogger } from '../log';
+import { resolveWindow } from '../window-manager';
 import {
   createPty,
   fetchScrollbackSnapshot,
   killPty,
   resizePty,
   sessionIdFor,
+  subscribeWindowToPty,
+  unsubscribeWindowFromPty,
   writePty,
 } from '../pty-service';
 import { trimScrollback } from '../terminal-store';
@@ -63,4 +66,20 @@ export function registerPtyHandlers(_getWindow: () => BrowserWindow | null): voi
     },
     () => ({ bytes: new Uint8Array(0) }),
   );
+
+  // Sender-resolved (Phase 55): a popout terminal subscribes ITSELF to a
+  // ptyId's output, so `ptyData`/`ptyExit` reach every window rendering that
+  // session rather than only the main window — see the registry in
+  // `pty-service.ts`.
+  ipcMain.on(CHANNELS.ptySubscribe, (event, raw: unknown) => {
+    const parsed = schemas.PtySubscribeRequest.safeParse(raw);
+    const win = resolveWindow(event.sender);
+    if (parsed.success && win) subscribeWindowToPty(parsed.data.ptyId, win);
+  });
+
+  ipcMain.on(CHANNELS.ptyUnsubscribe, (event, raw: unknown) => {
+    const parsed = schemas.PtyUnsubscribeRequest.safeParse(raw);
+    const win = resolveWindow(event.sender);
+    if (parsed.success && win) unsubscribeWindowFromPty(parsed.data.ptyId, win);
+  });
 }

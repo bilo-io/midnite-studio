@@ -282,9 +282,37 @@ export function setBrowserVisible(tabId: string, visible: boolean): void {
   tabs.get(tabId)?.view.setVisible(visible);
 }
 
-/** Only one view is ever attached-and-visible; every other tracked tab is hidden. */
+/**
+ * Only one view is ever attached-and-visible PER WINDOW; every other tab in
+ * the SAME window is hidden. Narrowed from a process-wide loop (Phase 55):
+ * `reparentBrowserTabs` means a tab can now live in a different window than
+ * the one activating another tab, and the old unconditional loop would hide
+ * a tab showing correctly in a popout the instant any tab was clicked in
+ * main.
+ */
 export function activateBrowserTab(tabId: string): void {
-  for (const [id, tracked] of tabs) tracked.view.setVisible(id === tabId);
+  const activating = tabs.get(tabId);
+  if (!activating) return;
+  for (const [id, tracked] of tabs) {
+    if (tracked.win === activating.win) tracked.view.setVisible(id === tabId);
+  }
+}
+
+/**
+ * Move every tracked tab's `WebContentsView` to `next` (Phase 55) — detaching
+ * or re-docking the Embedded Browser. `partition: 'persist:browser'` is
+ * untouched: the view keeps its `webContents`, so cookies, storage, login
+ * sessions, navigation history and in-page DOM state all survive by
+ * construction. No `loadURL`, no `reload`, no `setWindowOpenHandler`
+ * re-registration.
+ */
+export function reparentBrowserTabs(next: BrowserWindow): void {
+  for (const [tabId, tracked] of tabs) {
+    if (tracked.win === next) continue;
+    if (!tracked.win.isDestroyed()) tracked.win.contentView.removeChildView(tracked.view);
+    if (!next.isDestroyed()) next.contentView.addChildView(tracked.view);
+    tabs.set(tabId, { view: tracked.view, win: next });
+  }
 }
 
 export async function clearBrowserData(): Promise<void> {

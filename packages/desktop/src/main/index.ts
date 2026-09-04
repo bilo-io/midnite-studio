@@ -80,6 +80,9 @@ import { startHeapSampler } from '../heap-sampler';
 import { ensureLoginShellPathAsync } from './shell-path';
 import { createWindow } from './window';
 import { registerWindowChrome } from './window-chrome';
+import { closeAllPopouts, configureWindowsStore, registerMainWindow } from './window-manager';
+import { registerWindowHandlers } from './ipc/window-handlers';
+import { createWindowsStore } from './windows-store';
 
 /**
  * Electron main entry point.
@@ -90,7 +93,7 @@ import { registerWindowChrome } from './window-chrome';
  */
 
 let mainWindow: BrowserWindow | null = null;
-const getWindow = (): BrowserWindow | null => mainWindow;
+const getMainWindow = (): BrowserWindow | null => mainWindow;
 
 /**
  * Open repositories named by `MSTUDIO_OPEN_REPOS` (a colon-separated path list).
@@ -171,7 +174,7 @@ async function handleDeepLinkUrl(rawUrl: string): Promise<void> {
   const parsed = parseDeepLink(rawUrl);
   if (!parsed) return;
 
-  const win = getWindow();
+  const win = getMainWindow();
   if (!win || win.isDestroyed()) {
     pendingDeepLink = rawUrl;
     return;
@@ -234,9 +237,9 @@ if (!app.requestSingleInstanceLock()) {
 
   void app.whenReady().then(async () => {
     bootMark('when-ready');
-    registerWindowChrome(getWindow);
-    registerRepoHandlers(getWindow);
-    registerSearchHandlers(getWindow);
+    registerWindowChrome(getMainWindow);
+    registerRepoHandlers(getMainWindow);
+    registerSearchHandlers(getMainWindow);
     registerStatusHandlers();
     registerConflictHandlers();
     registerStatsHandlers();
@@ -248,9 +251,10 @@ if (!app.requestSingleInstanceLock()) {
     registerForgeProjectHandlers();
     registerDiagHandlers();
     registerScaffoldHandlers();
-    registerTestsHandlers(getWindow);
-    registerPtyHandlers(getWindow);
-    registerBrowserHandlers(getWindow);
+    registerTestsHandlers(getMainWindow);
+    registerPtyHandlers(getMainWindow);
+    registerBrowserHandlers();
+    registerWindowHandlers(getMainWindow, defaultLogger);
     /*
       What is running inside each terminal, from the pty's own process tree.
 
@@ -265,13 +269,13 @@ if (!app.requestSingleInstanceLock()) {
         realAgentWatcherDeps(
           listAgents,
           (event) => {
-            const win = getWindow();
+            const win = getMainWindow();
             if (win && !win.isDestroyed()) {
               win.webContents.send(EVENT_CHANNELS.ptyAgentChanged, event);
             }
           },
           (event) => {
-            const win = getWindow();
+            const win = getMainWindow();
             if (win && !win.isDestroyed()) {
               win.webContents.send(EVENT_CHANNELS.ptyCommandChanged, event);
             }
@@ -279,24 +283,24 @@ if (!app.requestSingleInstanceLock()) {
         ),
       ),
     );
-    const metrics = registerMetricsHandlers(getWindow);
+    const metrics = registerMetricsHandlers(getMainWindow);
     registerTerminalHandlers();
     registerFsHandlers();
     registerFsWriteHandlers();
     registerFsSearchHandlers();
-    registerClaudeHandlers(getWindow);
+    registerClaudeHandlers(getMainWindow);
     registerCliHandlers();
     registerCouncilHandlers();
     registerLoopRunsHandlers();
     registerWorkflowHandlers();
     registerVideoHandlers();
     registerDemoApiHandlers();
-    registerUpdater(getWindow);
+    registerUpdater(getMainWindow);
     registerReleaseNotesHandlers();
     ipcMain.handle(CHANNELS.systemHealth, () => readSystemHealth());
     registerPerfHandlers();
     installMgitFileProtocol();
-    installMenu(getWindow);
+    installMenu(getMainWindow);
     bootMark('handlers-registered');
 
     // Restore before the window opens: the renderer's first `repo:list` fires
@@ -316,21 +320,23 @@ if (!app.requestSingleInstanceLock()) {
       needs the agents store, and both now start at the same moment.
     */
     configureRegistry(createRepoStore(userData));
+    const windowsStore = createWindowsStore(userData);
+    configureWindowsStore(windowsStore, await windowsStore.load());
     configureTerminals(createTerminalStore(userData), userData);
     configureCouncils(createCouncilsStore(userData), createCouncilsRunsStore(userData));
     /*
       Wired here beside councils rather than in a boot chain: it is synchronous
       module-state assignment, and a `workflow:list` can arrive on the
-      renderer's first paint. The `getWindow` thunk is what a run's
+      renderer's first paint. The `getMainWindow` thunk is what a run's
       `workflowRunChanged` ping is sent through — see `loop-runs.ts` for the
       same pattern and the same destroyed-window guard.
     */
     configureWorkflows(
       createWorkflowsStore(userData),
       createWorkflowRunsStore(userData, getWorkflowRunHistoryCap),
-      getWindow,
+      getMainWindow,
     );
-    configureVideo(createVideoProjectsStore(userData), getWindow);
+    configureVideo(createVideoProjectsStore(userData), getMainWindow);
     configureDiagnostics(createTrustStore(userData));
     configureTests(createTestTrustStore(userData));
 
@@ -356,7 +362,7 @@ if (!app.requestSingleInstanceLock()) {
           userDataDir: userData,
           appVersion: app.getVersion(),
           isPackaged: app.isPackaged,
-          getWindow,
+          getWindow: getMainWindow,
           log: (msg) => defaultLogger(msg),
         }),
       )
@@ -369,7 +375,7 @@ if (!app.requestSingleInstanceLock()) {
           registry is module state, but the exits it observes only exist once the
           service is up.
         */
-        configureLoopRuns(createLoopRunsStore(userData), getWindow);
+        configureLoopRuns(createLoopRunsStore(userData), getMainWindow);
         onSessionExit(noteSessionExit);
       });
 
@@ -409,7 +415,7 @@ if (!app.requestSingleInstanceLock()) {
 
       `Promise.all` rejects on the first failure and abandons the rest — so a
       corrupt `agents.json` breaking `listAgents()` would leave `initPtyService`
-      and `restoreRepos` to finish against a `getWindow()` that returns null
+      and `restoreRepos` to finish against a `getMainWindow()` that returns null
       forever, because `createWindow()` below never runs. A live main process with
       a broker, ptys and watchers, and no window: nothing to see, nothing to
       close, and an unhandled rejection as the only trace.
@@ -433,7 +439,10 @@ if (!app.requestSingleInstanceLock()) {
 
     mainWindow = createWindow();
     bootMark('create-window');
+    registerMainWindow(mainWindow);
     mainWindow.on('closed', () => {
+      // The main window is the app; popouts are satellites of it.
+      closeAllPopouts();
       mainWindow = null;
     });
     // Sampling follows visibility: blurred, hidden or minimized stops it
@@ -462,7 +471,9 @@ if (!app.requestSingleInstanceLock()) {
     app.on('activate', () => {
       if (BrowserWindow.getAllWindows().length === 0) {
         mainWindow = createWindow();
+        registerMainWindow(mainWindow);
         mainWindow.on('closed', () => {
+          closeAllPopouts();
           mainWindow = null;
         });
         // The reopened window is a new BrowserWindow, so it carries none of

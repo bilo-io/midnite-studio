@@ -5,6 +5,7 @@ import {
   closeBrowserTab,
   createBrowserTab,
   destroyAllBrowserTabs,
+  reparentBrowserTabs,
   resetBrowserServiceForTests,
 } from './browser-service';
 
@@ -151,6 +152,49 @@ describe('browser-service lifecycle', () => {
     const viewB = (win.contentView.addChildView as ReturnType<typeof vi.fn>).mock.calls[1]?.[0] as FakeView;
     expect(viewA.visible).toBe(false);
     expect(viewB.visible).toBe(true);
+  });
+
+  it('activate is window-scoped (Phase 55): a tab in another window is untouched', () => {
+    const main = fakeWindow();
+    const popout = fakeWindow();
+    createBrowserTab(main, 'a', 'https://a.example');
+    createBrowserTab(popout, 'b', 'https://b.example');
+
+    const viewA = (main.contentView.addChildView as ReturnType<typeof vi.fn>).mock.calls[0]?.[0] as FakeView;
+    const viewB = (popout.contentView.addChildView as ReturnType<typeof vi.fn>).mock.calls[0]?.[0] as FakeView;
+    viewA.setVisible(true); // simulate 'a' already being the shown tab in main
+
+    // 'b' lives in a different window than 'a' — activating it must not hide
+    // 'a', which the old process-wide loop would have done.
+    activateBrowserTab('b');
+
+    expect(viewA.visible).toBe(true);
+    expect(viewB.visible).toBe(true);
+  });
+
+  it('reparentBrowserTabs moves every tracked view to the next window, keeping webContents', () => {
+    const main = fakeWindow();
+    const popout = fakeWindow();
+    createBrowserTab(main, 'a', 'https://a.example');
+    createBrowserTab(main, 'b', 'https://b.example');
+    const viewA = (main.contentView.addChildView as ReturnType<typeof vi.fn>).mock.calls[0]?.[0] as FakeView;
+    const viewB = (main.contentView.addChildView as ReturnType<typeof vi.fn>).mock.calls[1]?.[0] as FakeView;
+
+    reparentBrowserTabs(popout);
+
+    expect(main.contentView.removeChildView).toHaveBeenCalledWith(viewA);
+    expect(main.contentView.removeChildView).toHaveBeenCalledWith(viewB);
+    expect(popout.contentView.addChildView).toHaveBeenCalledWith(viewA);
+    expect(popout.contentView.addChildView).toHaveBeenCalledWith(viewB);
+    // No reload, no fresh loadURL — the same webContents/view instances moved.
+    expect(viewA.webContents.loadURL).toHaveBeenCalledTimes(1);
+    expect(viewB.webContents.loadURL).toHaveBeenCalledTimes(1);
+
+    // Activation now resolves against the NEW window: both moved together,
+    // so both stay visible-eligible in the popout.
+    activateBrowserTab('a');
+    expect(viewA.visible).toBe(true);
+    expect(viewB.visible).toBe(false);
   });
 
   it('close destroys the view and detaches it from the window', () => {

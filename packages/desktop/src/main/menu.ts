@@ -1,4 +1,4 @@
-import { Menu, type BrowserWindow, type MenuItemConstructorOptions } from 'electron';
+import { BrowserWindow, Menu, type MenuItemConstructorOptions } from 'electron';
 
 import { COMMANDS, DEFAULT_KEYMAP, EVENT_CHANNELS, type CommandId } from '@midnite/studio-shared';
 
@@ -15,9 +15,16 @@ import { COMMANDS, DEFAULT_KEYMAP, EVENT_CHANNELS, type CommandId } from '@midni
  * roles, copy and paste silently stop working everywhere in the app, including
  * inside the integrated terminal.
  */
-export function buildMenu(getWindow: () => BrowserWindow | null): Menu {
+export function buildMenu(getMainWindow: () => BrowserWindow | null): Menu {
+  /*
+   * Sender-resolved (Phase 55): a native accelerator/menu click fires
+   * regardless of which window is focused, and a popout has commands of its
+   * own (Reload, the reload pair, the future palette). Preferring the
+   * focused window over `getMainWindow()` is what lets a menu action land on
+   * whichever window the user is actually looking at.
+   */
   const send = (command: CommandId) => () => {
-    const win = getWindow();
+    const win = BrowserWindow.getFocusedWindow() ?? getMainWindow();
     if (win && !win.isDestroyed()) win.webContents.send(EVENT_CHANNELS.menuCommand, command);
   };
 
