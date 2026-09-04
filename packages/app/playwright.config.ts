@@ -34,7 +34,16 @@ export default defineConfig({
   */
   testIgnore: '**/perf/**',
   /*
-    Zero locally, two in CI — and the asymmetry is the whole point.
+    Playwright's default runs test *files* in parallel across workers but the
+    `test()` declarations within one file sequentially. Phase 56 Theme B turns
+    that off: with `fullyParallel: true`, every `test()` is scheduled
+    independently, so a file with ten specs no longer forces one worker to run
+    them one after another while a sibling worker sits idle waiting for the
+    next file. `playwright.ci.config.ts` inherits this by spreading `base`.
+  */
+  fullyParallel: true,
+  /*
+    Zero locally, one in CI — and the asymmetry is the whole point.
 
     The standing rule here was a flat `retries: 0`, on the grounds that this
     suite is UI-deterministic and a retry would therefore mask a real race
@@ -51,11 +60,17 @@ export default defineConfig({
     comment set retries against masking — and a blocking gate that is red half
     the time on nobody's fault is a gate that gets switched off.
 
+    Trimmed from 2 to 1 (Phase 56 Theme D): each retry burns a full 60s CI test
+    timeout, and with `KNOWN_RED` down to a single remaining file a failing
+    spec no longer needs three attempts' worth of runway to tell infrastructure
+    variance from a real regression — one retry absorbs a flaky runner without
+    letting a genuinely failing test burn 3 minutes per shard.
+
     So: strict where a failure is debuggable, tolerant where it is not. If a
     spec needs the retry every time, that is a real race and belongs in
     `.midnite/tasks/phases/phase-38-e2e-suite-repair.md`, not behind this flag.
   */
-  retries: process.env.CI ? 2 : 0,
+  retries: process.env.CI ? 1 : 0,
   /*
     Assertions and tests get longer in CI, for hardware reasons.
 
@@ -70,11 +85,11 @@ export default defineConfig({
     playwright.ci.config.ts with Phase 38 Theme I owning the real fix. The
     honest justification is only the hardware one above.
 
-    Note the cost, because it bit once already: every failing spec now burns up
-    to 60s per attempt and is retried twice, so a failure is 3 minutes of wall
-    clock. Nine such failures in one shard read as a hung job for 22 minutes.
-    That is a reason to keep the suite green, not a reason to lower these — but
-    it is why the e2e job carries a `timeout-minutes` cap.
+    Note the cost, because it bit once already: every failing spec burns up to
+    60s per attempt and is retried once (Theme D trimmed this from two), so a
+    failure is up to 2 minutes of wall clock rather than 3. That is a reason to
+    keep the suite green, not a reason to lower these — but it is why the e2e
+    job carries a `timeout-minutes` cap.
   */
   timeout: process.env.CI ? 60_000 : 30_000,
   expect: { timeout: process.env.CI ? 15_000 : 5_000 },

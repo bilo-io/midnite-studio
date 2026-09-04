@@ -18,10 +18,10 @@ import base from './playwright.config';
  * do pass means those can never regress, while the debt stays written down in
  * one place instead of being discovered again in six months.
  *
- * Retries are NOT set here: they come from the base config, which allows two
- * under `process.env.CI` and none locally. Deliberately there rather than in
- * this file, so that deleting this ratchet (Phase 38 Theme H) does not silently
- * take CI's flake tolerance with it.
+ * Retries are NOT set here: they come from the base config, which allows one
+ * under `process.env.CI` (Phase 56 Theme D trimmed this from two) and none
+ * locally. Deliberately there rather than in this file, so that deleting this
+ * ratchet (Phase 38 Theme H) does not silently take CI's flake tolerance with it.
  *
  * KNOWN_RED only ever shrinks. Repairing a file is a one-line deletion here,
  * and Phase 38 exists to empty the list; when it is empty, delete this config
