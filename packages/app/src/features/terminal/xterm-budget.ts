@@ -111,30 +111,18 @@ export function useXtermWebglSlot(key: string, visible: boolean): boolean {
   const granted = useXtermBudget((s) => grantedWebglKeys(s.mounts).has(key));
 
   useEffect(() => {
-    /*
-     * Deferred one frame, deliberately: this effect runs in the SAME passive-
-     * effects flush as `terminal-view.tsx`'s own mount effect, which for a
-     * brand-new session is doing the heaviest synchronous work this component
-     * ever does (constructing the `Terminal`, compiling the WebGL addon's
-     * shaders) — see that file's own note on why WebGL acquisition has to
-     * stay inline there. Registering synchronously here would notify this
-     * store's subscribers (this component included, since it selects
-     * `granted` above) and queue a reconciliation pass stacked directly on
-     * top of that already-heavy synchronous block, rather than after the
-     * browser has had a chance to paint what that block produced. The
-     * registration itself has no urgency: the initial WebGL acquisition is
-     * unconditional in `terminal-view.tsx`, not gated on `granted` — this
-     * registry only needs to be caught up before any OTHER mount's eviction
-     * decision depends on it, which a frame's delay does not risk.
-     */
-    const raf = requestAnimationFrame(() => mount(key, visible));
-    return () => {
-      cancelAnimationFrame(raf);
-      unmount(key);
-    };
+    mount(key, visible);
+    return () => unmount(key);
     // `key` alone: a session id never changes for a mounted xterm's lifetime,
     // and `visible`'s own transitions are reported by the effect below rather
-    // than by tearing this one down and re-running it.
+    // than by tearing this one down and re-running it. Registered
+    // synchronously, not deferred: `terminal-view.tsx`'s own reactive
+    // correction effect reads `granted` the moment `ready` first turns true,
+    // and a deferred registration would show this session as NOT granted for
+    // that one window (nothing has told the registry it exists yet) even
+    // though it already holds a real context from its own unconditional
+    // initial acquisition — a spurious dispose-then-reacquire race, not a
+    // savings, tried and reverted (see the phase doc's own account of it).
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [key]);
 
