@@ -51,7 +51,7 @@ Completed work is logged append-only in [`done.md`](done.md). Deferred scope liv
 
 | Phase | Status | Refined | Done | Progress | % | 🔄 WIP | ◻ TODO |
 |-------|--------|---------|------|----------|---|--------|--------|
-| [56 · E2E Suite Speed Run](phases/phase-56-e2e-speed-run.md) | ◻ TODO | — | 0/29 | `░░░░░░░░░░` | 0% | — | A B C D E F G |
+| [56 · E2E Suite Speed Run](phases/phase-56-e2e-speed-run.md) | 🔄 WIP | — | 0/29 | `░░░░░░░░░░` | 0% | A B D E | C F G |
 | [55 · Multi-Window Studio & Detachable Panels](phases/phase-55-multi-window-studio.md) | 🔄 WIP | x1 | 31/32 | `█████████░` | 97% | | |
 | [54 · An Issues view](phases/phase-54-issues-view.md) | 🔄 WIP | — | 43/45 | `██████████` | 96% | — | Verification (2 human passes) |
 | [53 · The first release](phases/phase-53-first-release.md) | ◻ TODO | — | 0/42 | `░░░░░░░░░░` | 0% | — | A B C D E F G H |
