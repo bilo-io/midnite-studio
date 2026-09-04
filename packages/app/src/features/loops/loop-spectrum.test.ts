@@ -47,7 +47,77 @@ describe('tab sub-spectrum', () => {
       expect(declaresVar(loop.id, '--fab-arc-to'), `${loop.id} arc`).toBe(true);
     }
   });
+});
 
+/**
+ * The `--rainbow-*` conic at 30deg resolution — the ramp's own six stops and
+ * the five midpoints between them, each written exactly as `styles.css`
+ * writes it. The sub-spectrum is a *sample* of this, so this table is what
+ * makes "re-sampled with the arc" checkable rather than a comment.
+ */
+const RAMP: Record<number, string> = {
+  0: '244 63 94',
+  30: '244 110 52',
+  60: '245 158 11',
+  90: '130 171 70',
+  120: '16 185 129',
+  150: '37 157 187',
+  180: '59 130 246',
+  210: '99 111 246',
+  240: '139 92 246',
+  270: '187 82 200',
+  300: '236 72 153',
+  330: '240 67 123',
+};
+
+function readVar(tabId: string, name: string): string | undefined {
+  const blocks = stylesCss.match(
+    new RegExp(`\\[data-fab-tab='${tabId}'\\][^{]*\\{([^}]*)\\}`, 'g'),
+  );
+  for (const block of blocks ?? []) {
+    const hit = block.match(new RegExp(`${name}:\\s*([^;]+);`));
+    if (hit?.[1]) return hit[1].trim();
+  }
+  return undefined;
+}
+
+function arcSpan(tabId: string): { from: number; to: number } {
+  const from = Number(readVar(tabId, '--fab-arc-from')?.replace('deg', ''));
+  const to = Number(readVar(tabId, '--fab-arc-to')?.replace('deg', ''));
+  return { from, to };
+}
+
+describe('tab arc width', () => {
+  it('gives every tab the same 120deg span, centred on its own anchor', () => {
+    for (const loop of DEFAULT_LOOPS) {
+      const { from, to } = arcSpan(loop.id);
+      expect(to - from, `${loop.id} span`).toBe(120);
+    }
+  });
+});
+
+describe('tab sub-spectrum tracks the arc', () => {
+  it('samples the five stops at the arc’s own edges and midpoints', () => {
+    // The file says these are "two expressions of one decision" — narrow the
+    // arc and the sampled ramp has to move with it, or the composer's border
+    // shows a wider slice of the spectrum than the ring it is meant to echo.
+    // This is the assertion that makes that non-optional.
+    for (const loop of DEFAULT_LOOPS) {
+      const { from, to } = arcSpan(loop.id);
+      const step = (to - from) / 4;
+
+      for (const [index, stop] of SPEC_STOPS.entries()) {
+        const angle = ((from + step * index) % 360 + 360) % 360;
+        expect(RAMP[angle], `${loop.id} stop ${stop} at ${angle}deg is not a ramp stop`).toBeDefined();
+        expect(readVar(loop.id, `--fab-spec-${stop}`), `${loop.id} --fab-spec-${stop}`).toBe(
+          RAMP[angle],
+        );
+      }
+    }
+  });
+});
+
+describe('tab sub-spectrum centres', () => {
   it('centres each tab on its own stop 3, so the ramp matches the tab glyph', () => {
     // `DEFAULT_LOOPS` already carries a Tailwind colour class per tab; stop 3
     // is the arc's midpoint and must be the same hue, or the composer and the

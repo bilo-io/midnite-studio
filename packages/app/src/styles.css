@@ -804,29 +804,37 @@ html[data-motion='reduced'] .landing-slide-in {
 /*
  * Phase 37 Theme C — the spectrum knows the tab.
  *
- * `--fab-arc-from`/`--fab-arc-to` are the two edges of the 180° span every
- * consumer (the border above, the inner glow below, `.loop-run-glow`'s own
- * ring) keeps lit; the rest of the ramp goes transparent. Registered as
- * `<angle>` so the 0.5s sweep between tabs animates the two numbers rather
- * than snapping — anything that reads or masks by these values gets the
- * motion for free once the attribute selectors below change which value is
- * in force.
+ * `--fab-arc-from`/`--fab-arc-to` are the two edges of the span a consumer
+ * (the border above, the inner glow below, `.loop-run-glow`'s own ring) keeps
+ * lit; the rest of the ramp goes transparent. Registered as `<angle>` so the
+ * 0.5s sweep between tabs animates the two numbers rather than snapping —
+ * anything that reads or masks by these values gets the motion for free once
+ * the attribute selectors below change which value is in force.
+ *
+ * **The width is per host, not global.** Three surfaces pin their own and
+ * none of them reads another's: the FAB tabs below are 120° (`anchor ± 60`),
+ * the landing page's fixed half-ring is 180°, the screensaver's is 90°. Each
+ * is set on the elements that consume it — these two properties are
+ * registered `inherits: false`, so there is no ambient value to leak from one
+ * surface to the next, and narrowing one leaves the other two exactly where
+ * they were. The FAB's is the widest of the three because it is the only one
+ * that has to be legible as a *colour* (which tab is active), not just as
+ * motion.
  *
  * The four rows use ONE continuous, never-wrapping number line —
- * `anchor - 90deg` to `anchor + 90deg` against each tab's own ramp anchor
+ * `anchor - 60deg` to `anchor + 60deg` against each tab's own ramp anchor
  * (medic/rose 0°, watchdog/amber 60°, automate/emerald 120°, innovate/blue
  * 180°) — rather than each tab's angles individually normalised into
- * [0deg, 360deg). `medic` becomes `-90deg → 90deg` instead of the equivalent
- * `270deg → 90deg`, which is the fix the phase doc calls out by name; doing
- * the same for every row (watchdog: `-30deg → 150deg`) rather than medic
- * alone means no pair of these four tabs is ever more than 180deg apart on
- * this line, so a registered-angle transition between ANY two of them always
- * interpolates numerically through the shorter arc — there is no seam left
- * to cross, so no tab needed a second, special-cased fix. (That number line
- * is for the TRANSITION. The masks that consume these two angles fold
- * `--fab-arc-from` into the gradient's `from` and never place a stop below
- * `0deg` — see the arc-mask note further down for why a negative stop is a
- * rendering bug, not a wrap.)
+ * [0deg, 360deg). `medic` becomes `-60deg → 60deg` instead of the equivalent
+ * `300deg → 60deg`, which is the fix the phase doc calls out by name; doing
+ * the same for every row rather than medic alone keeps the four anchors
+ * themselves no more than 180deg apart on this line, so a registered-angle
+ * transition between ANY two of them always interpolates numerically through
+ * the shorter arc — there is no seam left to cross, so no tab needed a
+ * second, special-cased fix. (That number line is for the TRANSITION. The
+ * masks that consume these two angles fold `--fab-arc-from` into the
+ * gradient's `from` and never place a stop below `0deg` — see the arc-mask
+ * note further down for why a negative stop is a rendering bug, not a wrap.)
  *
  * The initial value (0deg/360deg, a full untouched ramp) is what
  * `.loop-run-glow` falls back to everywhere `data-fab-tab` is not set — the
@@ -865,29 +873,29 @@ html[data-motion='reduced'] .landing-slide-in {
 [data-fab-tab='medic'],
 [data-fab-tab='medic']::before,
 [data-fab-tab='medic'] .loop-run-glow {
-  --fab-arc-from: -90deg;
-  --fab-arc-to: 90deg;
+  --fab-arc-from: -60deg;
+  --fab-arc-to: 60deg;
 }
 
 [data-fab-tab='watchdog'],
 [data-fab-tab='watchdog']::before,
 [data-fab-tab='watchdog'] .loop-run-glow {
-  --fab-arc-from: -30deg;
-  --fab-arc-to: 150deg;
+  --fab-arc-from: 0deg;
+  --fab-arc-to: 120deg;
 }
 
 [data-fab-tab='automate'],
 [data-fab-tab='automate']::before,
 [data-fab-tab='automate'] .loop-run-glow {
-  --fab-arc-from: 30deg;
-  --fab-arc-to: 210deg;
+  --fab-arc-from: 60deg;
+  --fab-arc-to: 180deg;
 }
 
 [data-fab-tab='innovate'],
 [data-fab-tab='innovate']::before,
 [data-fab-tab='innovate'] .loop-run-glow {
-  --fab-arc-from: 90deg;
-  --fab-arc-to: 270deg;
+  --fab-arc-from: 120deg;
+  --fab-arc-to: 240deg;
 }
 
 /*
@@ -900,8 +908,9 @@ html[data-motion='reduced'] .landing-slide-in {
  * background is a wash, and neither can be expressed as a sector of anything.
  * So the arc has to arrive here as a linear ramp, and the only honest way to
  * build that ramp is to read the colours the arc actually covers off the same
- * `--rainbow-*` stops the conic uses — the ramp sits at even 60° increments,
- * so a stop landing between two of them is their midpoint, computed once and
+ * `--rainbow-*` stops the conic uses — the ramp sits at even 60° increments
+ * and the five samples at even 30° ones (`anchor ± 60`, ± 30, centre), so a
+ * stop landing between two ramp stops is their midpoint, computed once and
  * written down rather than recomputed by the browser.
  *
  * Stop 3 of five is each tab's own centre, which is why they line up with the
@@ -917,35 +926,35 @@ html[data-motion='reduced'] .landing-slide-in {
  * step.
  */
 [data-fab-tab='medic'] {
-  --fab-spec-1: 187 82 200; /* 270deg — violet/pink midpoint */
-  --fab-spec-2: 236 72 153; /* 300deg — pink */
+  --fab-spec-1: 236 72 153; /* 300deg — pink */
+  --fab-spec-2: 240 67 123; /* 330deg — pink/rose midpoint */
   --fab-spec-3: 244 63 94; /*   0deg — rose */
-  --fab-spec-4: 245 158 11; /*  60deg — amber */
-  --fab-spec-5: 130 171 70; /*  90deg — amber/emerald midpoint */
+  --fab-spec-4: 244 110 52; /*  30deg — rose/amber midpoint */
+  --fab-spec-5: 245 158 11; /*  60deg — amber */
 }
 
 [data-fab-tab='watchdog'] {
-  --fab-spec-1: 240 67 123; /* 330deg — pink/rose midpoint */
-  --fab-spec-2: 244 63 94; /*   0deg — rose */
+  --fab-spec-1: 244 63 94; /*   0deg — rose */
+  --fab-spec-2: 244 110 52; /*  30deg — rose/amber midpoint */
   --fab-spec-3: 245 158 11; /*  60deg — amber */
-  --fab-spec-4: 16 185 129; /* 120deg — emerald */
-  --fab-spec-5: 37 157 187; /* 150deg — emerald/blue midpoint */
+  --fab-spec-4: 130 171 70; /*  90deg — amber/emerald midpoint */
+  --fab-spec-5: 16 185 129; /* 120deg — emerald */
 }
 
 [data-fab-tab='automate'] {
-  --fab-spec-1: 244 110 52; /*  30deg — rose/amber midpoint */
-  --fab-spec-2: 245 158 11; /*  60deg — amber */
+  --fab-spec-1: 245 158 11; /*  60deg — amber */
+  --fab-spec-2: 130 171 70; /*  90deg — amber/emerald midpoint */
   --fab-spec-3: 16 185 129; /* 120deg — emerald */
-  --fab-spec-4: 59 130 246; /* 180deg — blue */
-  --fab-spec-5: 99 111 246; /* 210deg — blue/violet midpoint */
+  --fab-spec-4: 37 157 187; /* 150deg — emerald/blue midpoint */
+  --fab-spec-5: 59 130 246; /* 180deg — blue */
 }
 
 [data-fab-tab='innovate'] {
-  --fab-spec-1: 130 171 70; /*  90deg — amber/emerald midpoint */
-  --fab-spec-2: 16 185 129; /* 120deg — emerald */
+  --fab-spec-1: 16 185 129; /* 120deg — emerald */
+  --fab-spec-2: 37 157 187; /* 150deg — emerald/blue midpoint */
   --fab-spec-3: 59 130 246; /* 180deg — blue */
-  --fab-spec-4: 139 92 246; /* 240deg — violet */
-  --fab-spec-5: 187 82 200; /* 270deg — violet/pink midpoint */
+  --fab-spec-4: 99 111 246; /* 210deg — blue/violet midpoint */
+  --fab-spec-5: 139 92 246; /* 240deg — violet */
 }
 
 /*
@@ -1054,7 +1063,8 @@ html[data-motion='reduced'] .landing-slide-in {
  * **It is written wrap-safe, and the naive form is a rendering bug.** The
  * obvious way to say it — `from <angle>, transparent (from - 30deg), #000
  * from, #000 to, transparent (to + 30deg)` — puts colour stops at NEGATIVE
- * positions for medic (`-90deg → 90deg`) and watchdog (`-30deg → 150deg`),
+ * positions for medic (`-60deg → 60deg`, the one row of the four that still
+ * starts below zero once the span narrowed to 120deg),
  * and Chromium clamps a conic stop's position to `[0deg, 360deg]` rather than
  * wrapping it: every stop below zero collapses onto `0deg`, the region before
  * the first stop takes the first stop's colour (transparent), and medic's
@@ -1091,7 +1101,7 @@ html[data-motion='reduced'] .landing-slide-in {
    * 300-400px panel where 2px "reads as a selection outline"; this panel is
    * the better part of 900px tall and is the one surface whose border is the
    * feature rather than a hover affordance — it carries the active tab's
-   * 180deg arc of the spectrum. At 1.5px the arc's colour was there to be
+   * 120deg arc of the spectrum. At 1.5px the arc's colour was there to be
    * inferred rather than seen.
    */
   border: 2.5px solid transparent;
@@ -1184,8 +1194,8 @@ html[data-motion='reduced'] .landing-slide-in {
  * border wears — `conic-gradient` from `--fab-panel-angle`, transparent
  * outside `[--fab-arc-from, --fab-arc-to]` with the 30deg fade at each edge —
  * and `mask-composite: intersect` on it cuts the four-ramp union down to the
- * active tab's 180deg. Where the ring is transparent the rim is too, so the
- * glow reads as one lit half creeping round the inside of the panel with the
+ * active tab's 120deg. Where the ring is transparent the rim is too, so the
+ * glow reads as one lit third creeping round the inside of the panel with the
  * border rather than a full wash sitting behind an arc.
  *
  * That layer existed once before and did nothing: Theme C's
@@ -1506,12 +1516,17 @@ html[data-motion='reduced'] .landing-slide-in {
  * The landing page's own fixed half-ring. It has no `[data-fab-tab]` to read
  * an arc off — there is no tab, no loop, nothing for a colour to identify —
  * so it pins `--fab-arc-from`/`--fab-arc-to` to a plain 180deg span itself,
- * the same width every FAB tab row above narrows to and the same two
- * properties the border and rim masks further up already key off. That is
- * the whole mechanism: `--fab-panel-angle`'s rotation walks the arc's
- * position, this only fixes its width, so the border and the glow read as
- * one lit segment orbiting the frame's edge exactly as the FAB panel's does
- * for whichever tab is active, rather than a full unbroken ring.
+ * off the same two properties the border and rim masks further up already
+ * key off. That is the whole mechanism: `--fab-panel-angle`'s rotation walks
+ * the arc's position, this only fixes its width, so the border and the glow
+ * read as one lit segment orbiting the frame's edge exactly as the FAB
+ * panel's does for whichever tab is active, rather than a full unbroken ring.
+ *
+ * 180deg is this surface's own number, not a shared one — the FAB's tabs are
+ * 120deg and the screensaver's is 90deg (see both). The landing page is the
+ * widest because it is the largest quiet surface in the app and the one with
+ * nothing else moving on it: a segment short enough to read as a highlight on
+ * the FAB's 900px panel reads as a stray smudge across a full window.
  */
 .landing-panel-gradient,
 .landing-panel-gradient::before {
@@ -1566,9 +1581,17 @@ html[data-motion='reduced'] .landing-slide-in {
  * pins one: no `[data-fab-tab]` anywhere above it, so both angles would rest
  * at their registered initial values (`0deg`/`360deg`) and the mask would keep
  * the whole ramp lit — a full, unbroken ring around the screen, which reads as
- * a static border rather than as motion. Pinned to the same plain 180deg span,
+ * a static border rather than as motion. Pinned to a 90deg span,
  * `--fab-panel-angle`'s 4s rotation walks that arc's position and the glow
  * becomes one lit segment orbiting the screen's edge.
+ *
+ * 90deg, the narrowest of the three surfaces that pin one (the FAB's tabs are
+ * 120deg, the landing page's 180deg), because this is the only one where the
+ * frame is the whole screen: the same fraction of a ring is a much longer
+ * stretch of lit edge here, and at 180deg it read as two adjacent walls lit at
+ * once rather than as one thing travelling. Nothing shared changes with it —
+ * all three are pinned on their own consumers, and these properties are
+ * registered `inherits: false`.
  *
  * The pseudo alone, unlike the landing page's two-selector row. Both
  * properties are `inherits: false`, so the pseudo needs its own declaration
@@ -1578,8 +1601,8 @@ html[data-motion='reduced'] .landing-slide-in {
  * kills only the host's rotation; `.gradient-frame::before` keeps its own).
  */
 .screensaver-panel-gradient::before {
-  --fab-arc-from: -90deg;
-  --fab-arc-to: 90deg;
+  --fab-arc-from: -45deg;
+  --fab-arc-to: 45deg;
 }
 
 html[data-window-focused='false'] .gradient-frame,
@@ -2265,7 +2288,7 @@ html[data-motion='reduced'] .panel-stack-pane {
  * and when.
  *
  * **The colours are the tab's, not the rainbow's.** `--fab-spec-1…5` are the
- * active tab's own 180deg arc sampled as five stops (see the sub-spectrum table
+ * active tab's own 120deg arc sampled as five stops (see the sub-spectrum table
  * further up), so Start says which loop it starts. Conic rather than linear —
  * unlike the fields, which cannot rotate — because the hover state's whole
  * gesture is the ramp orbiting the button, and a conic from a registered angle

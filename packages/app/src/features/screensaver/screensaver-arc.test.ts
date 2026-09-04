@@ -47,18 +47,31 @@ describe('screensaver glow arc', () => {
     // whole mechanism.
     const block = declarationsFor('.screensaver-panel-gradient::before');
 
-    expect(angle(block, '--fab-arc-from')).toBe(-90);
-    expect(angle(block, '--fab-arc-to')).toBe(90);
+    expect(angle(block, '--fab-arc-from')).toBe(-45);
+    expect(angle(block, '--fab-arc-to')).toBe(45);
   });
 
-  it('lights a half-ring — a span narrower than the full 360deg ramp', () => {
+  it('lights a quarter-ring, the narrowest of the three pinned spans', () => {
     const block = declarationsFor('.screensaver-panel-gradient::before');
     const from = angle(block, '--fab-arc-from');
     const to = angle(block, '--fab-arc-to');
 
     expect(from).toBeDefined();
     expect(to).toBeDefined();
-    expect((to as number) - (from as number)).toBe(180);
+    expect((to as number) - (from as number)).toBe(90);
+  });
+
+  it('is nobody else’s span — the landing page and the FAB tabs keep their own', () => {
+    // The point of pinning each surface on its own consumers: narrowing one
+    // must not move the other two. `inherits: false` is what makes that true,
+    // and this is the assertion that would catch a "shared" value creeping
+    // back in — a single `:root` declaration, say, or one selector list
+    // grown to cover all three.
+    const landing = declarationsFor('.landing-panel-gradient::before');
+    expect(angle(landing, '--fab-arc-to')! - angle(landing, '--fab-arc-from')!).toBe(180);
+
+    const medic = declarationsFor("[data-fab-tab='medic']::before");
+    expect(angle(medic, '--fab-arc-to')! - angle(medic, '--fab-arc-from')!).toBe(120);
   });
 
   it('keeps the rotation that walks the arc around the frame', () => {

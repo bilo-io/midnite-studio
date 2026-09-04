@@ -58,7 +58,7 @@ test('stays off while idle, lights up once a loop is running, off again once it 
       to: style.getPropertyValue('--fab-arc-to').trim(),
     };
   });
-  expect(arc).toEqual({ from: '-90deg', to: '90deg' });
+  expect(arc).toEqual({ from: '-45deg', to: '45deg' });
 
   await lockScreen(page).click({ position: { x: 2, y: 2 } });
   await expect(lockScreen(page)).toHaveCount(0);
