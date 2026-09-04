@@ -1,6 +1,6 @@
 ---
 name: midnite-exec
-description: Pick one or more unblocked todo/ themes across up to 4 phases, build them together in a worktree, screenshot visual changes with Playwright, open a PR, drive CI green, merge.
+description: Pick one or more unblocked .midnite/tasks/ themes across up to 4 phases, build them together in a worktree, screenshot visual changes with Playwright, open a PR, drive CI green, merge.
 ---
 
 **Invoke with:** [optional: phase number or task hint]
@@ -11,12 +11,12 @@ End-to-end "execute a phase slice" for **Midnite Studio**.
 
 ## Respect
 - `CLAUDE.md` = conventions (package boundaries — `shared ◀ git-engine ◀ desktop`, `shared ◀ app`; commit style; pre-push gate). Re-read the relevant bits before coding. `docs/INITIAL_PLAN.md` is the design source of truth.
-- `todo/` = tracker: **`_INDEX.md` (the roll-up you scan first — phase status, progress, `🔄 WIP`/`◻ TODO` themes)**, `phase-N-*.md` (open checklist per phase), `done.md` (append-only, newest first), `open-decisions.md`, `outstanding.md`; rules in `todo/README.md`. Markers: `- [ ]` open · `- [x]`/`✅` done · `◐ PARTIAL` · `⏳ deferred` · `❌ OUT OF SCOPE`. Never pick `deferred`/`OUT OF SCOPE` unless told. `_INDEX.md` is the source of truth for what's claimed/in-flight — keep it current (Stages 2.7 + 10).
+- `.midnite/tasks/` = tracker: **`_INDEX.md` (the roll-up you scan first — phase status, progress, `🔄 WIP`/`◻ TODO` themes)**, `phase-N-*.md` (open checklist per phase), `done.md` (append-only, newest first), `open-decisions.md`, `outstanding.md`; rules in `.midnite/tasks/README.md`. Markers: `- [ ]` open · `- [x]`/`✅` done · `◐ PARTIAL` · `⏳ deferred` · `❌ OUT OF SCOPE`. Never pick `deferred`/`OUT OF SCOPE` unless told. `_INDEX.md` is the source of truth for what's claimed/in-flight — keep it current (Stages 2.7 + 10).
 - Parallel work → git worktrees in the repo-root **`.worktrees/<branch>/`** dir (git-ignored; **never** under `.git/` — that path gets pruned by parallel `git worktree` runs and Vite denies `.git/**`); keep the primary checkout (`/Users/bilolwabona/Dev/midnite-studio`) as home base.
 - **`.worktrees/` is outside `.git/`, so the full `moon run :test` runs fine inside the worktree** — no need to hop back to the primary checkout.
 
 ## 1 · Scan
-Read **[`todo/_INDEX.md`](../../../todo/_INDEX.md)** — the roll-up of every phase's status, progress, and which themes are `🔄 WIP` / `◻ TODO`. **Do not** read every `phase-*.md`; that's what the index replaces (saves context). Only open the individual `phase-N-*.md` for the **candidate phases** you're about to propose, to read the open theme detail. Skim `open-decisions.md`/`outstanding.md` if relevant. `gh pr list --state open` + the index's `🔄 WIP` column — anything in flight or already claimed isn't a fresh candidate. Emit a tight digest of the few candidate phases + their real open themes.
+Read **[`.midnite/tasks/_INDEX.md`](../../../.midnite/tasks/_INDEX.md)** — the roll-up of every phase's status, progress, and which themes are `🔄 WIP` / `◻ TODO`. **Do not** read every `phase-*.md`; that's what the index replaces (saves context). Only open the individual `phase-N-*.md` for the **candidate phases** you're about to propose, to read the open theme detail. Skim `open-decisions.md`/`outstanding.md` if relevant. `gh pr list --state open` + the index's `🔄 WIP` column — anything in flight or already claimed isn't a fresh candidate. Emit a tight digest of the few candidate phases + their real open themes.
 
 ## 2 · Choose — STOP for the human
 Pick up to **4 candidate phases** with open, unblocked themes (favor: doc-flagged "next" slices; small/self-contained/high-value; unblockers). Assign each theme a t-shirt size and **include it directly in the option label**: `<Theme letter>: <name> [<size> · <time>]`.
@@ -60,11 +60,11 @@ Once the batch is chosen, immediately set the terminal/session title so the sess
 3. Run: `printf '\033]0;Loop: exec %s\007' "<label>"` — this updates the terminal title the session surfaces.
 
 ## 2.7 · Claim the theme(s) on `main` — before the worktree
-So parallel `$midnite-exec` loops don't grab the same slice, **claim the whole batch in the index first**:
-1. In **[`todo/_INDEX.md`](../../../todo/_INDEX.md)**, for **every phase touched by the batch**, move its chosen theme letter(s) from the `◻ TODO` column into the `🔄 WIP` column (flip that row's **Status** to `🔄 WIP` if it wasn't already). A multi-phase batch touches multiple rows — update all of them in the same pass.
+So parallel `/midnite-exec` loops don't grab the same slice, **claim the whole batch in the index first**:
+1. In **[`.midnite/tasks/_INDEX.md`](../../../.midnite/tasks/_INDEX.md)**, for **every phase touched by the batch**, move its chosen theme letter(s) from the `◻ TODO` column into the `🔄 WIP` column (flip that row's **Status** to `🔄 WIP` if it wasn't already). A multi-phase batch touches multiple rows — update all of them in the same pass.
 2. Commit **straight to `main`** and push immediately, one commit for the whole batch:
    ```bash
-   git add todo/_INDEX.md
+   git add .midnite/tasks/_INDEX.md
    git commit -m "chore(todo): claim Phase <N> Theme <X>[, Phase <M> Theme <Y>, ...] (WIP)"
    git push origin main
    ```
@@ -114,8 +114,8 @@ Against, in order: fidelity to the phase doc/decisions → `CLAUDE.md` conventio
 
 ## 10 · Merge & wrap
 - **Update the trackers in the branch first, so the merge auto-publishes them** (don't wait to do this on `main` afterward). The batch spans one or more phases — repeat this for **every phase touched**, not just the first:
-  - **Phase doc** (`phase-<N>-*.md`), per phase in the batch: mark that phase's landed theme/items done (`✅ DONE (PR #<n>, <date>)`) and **move** the completed `- [ ]` items into `done.md` (today's date, per `todo/README.md`) — don't just tick in place.
-  - **[`todo/_INDEX.md`](../../../todo/_INDEX.md) — MANDATORY every merge, never skip it.** This is the roll-up the next loop scans; a theme that lands but doesn't move this file reads as "still 0%". For **each phase in the batch**, do all three:
+  - **Phase doc** (`phase-<N>-*.md`), per phase in the batch: mark that phase's landed theme/items done (`✅ DONE (PR #<n>, <date>)`) and **move** the completed `- [ ]` items into `done.md` (today's date, per `.midnite/tasks/README.md`) — don't just tick in place.
+  - **[`.midnite/tasks/_INDEX.md`](../../../.midnite/tasks/_INDEX.md) — MANDATORY every merge, never skip it.** This is the roll-up the next loop scans; a theme that lands but doesn't move this file reads as "still 0%". For **each phase in the batch**, do all three:
     1. **Phases table row** for that phase: remove the just-landed theme letter(s) from the `🔄 WIP` column (the claim from 2.7); **recompute the numbers from the phase doc** — `Done` = `<count of - [x]/✅ items> / <total in-scope items>`, `%` = `round(100 × done / total)`, and **redraw the 10-cell `Progress` bar** (`█` × `round(done/total × 10)`, remainder `░`); flip **Status** to `✅ DONE` once **every** theme of that phase is done (else leave `🔄 WIP`).
     2. **`## Theme key`** section: flip each landed theme's icon (`◻`/`🔄` → `✅`) and append the PR # to its one-liner.
     3. **Verify before Stage 10's `gh pr ready`:** re-read every touched row and confirm its `Done`/`%`/bar **actually changed** for that phase — unchanged numbers mean you skipped this and the merge will look like no progress.
@@ -126,18 +126,18 @@ Against, in order: fidelity to the phase doc/decisions → `CLAUDE.md` conventio
   ```bash
   git checkout main && git pull origin main
   ```
-  Re-read **[`todo/_INDEX.md`](../../../todo/_INDEX.md)** and confirm **every phase touched by the batch** has its row (**Status** / `🔄 WIP` theme letters / `Done` / `%` / the 10-cell progress bar) and its `## Theme key` line **actually reflect the just-merged work**. If a race dropped, clobbered, or under-counted any of them, fix `_INDEX.md` **directly on `main`** and push:
+  Re-read **[`.midnite/tasks/_INDEX.md`](../../../.midnite/tasks/_INDEX.md)** and confirm **every phase touched by the batch** has its row (**Status** / `🔄 WIP` theme letters / `Done` / `%` / the 10-cell progress bar) and its `## Theme key` line **actually reflect the just-merged work**. If a race dropped, clobbered, or under-counted any of them, fix `_INDEX.md` **directly on `main`** and push:
   ```bash
-  git add todo/_INDEX.md
+  git add .midnite/tasks/_INDEX.md
   git commit -m "docs(todo): sync _INDEX.md after PR #<n>"
   git push origin main    # if it races: git pull --rebase origin main && re-push
   ```
-  Then run the **whole-index drift guard** — it catches any `phase-*.md` (yours *or* one a `$midnite-brainstorm` run left unregistered) that has no `## Phases` row. It must print nothing:
+  Then run the **whole-index drift guard** — it catches any `phase-*.md` (yours *or* one a `/midnite-brainstorm` run left unregistered) that has no `## Phases` row. It must print nothing:
   ```bash
-  for f in todo/phase-*.md; do n=${f#todo/phase-}; n=${n%%-*}; \
-    grep -qE "^\| \[$n ·" todo/_INDEX.md || echo "DRIFT: phase $n absent from _INDEX.md"; done
+  for f in .midnite/tasks/phases/phase-*.md; do n=${f#.midnite/tasks/phases/phase-}; n=${n%%-*}; \
+    grep -qE "^\| \[$n ·" .midnite/tasks/_INDEX.md || echo "DRIFT: phase $n absent from _INDEX.md"; done
   ```
-  If it names a phase, add that row (Status / counts / bar / theme letters, from its phase doc) directly on `main` and push — an unregistered phase is invisible to the next `$midnite-exec` and reads as stale on every surface.
+  If it names a phase, add that row (Status / counts / bar / theme letters, from its phase doc) directly on `main` and push — an unregistered phase is invisible to the next `/midnite-exec` and reads as stale on every surface.
 - **Teardown + report freed space — every merge.** Measure the worktree's on-disk size *before* removing it, tear down the worktree + branch, then report the reclaimed space:
   ```bash
   freed=$(du -sk .worktrees/<slice> 2>/dev/null | cut -f1)       # KB, before removal
