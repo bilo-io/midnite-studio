@@ -293,6 +293,19 @@ export type MidniteStudioBridge = {
     runRerun: (
       req: In<typeof S.ForgeRunRerunRequest>,
     ) => Promise<z.infer<typeof S.ForgeRunRerunResponse>>;
+    /*
+      Phase 54 Theme G — the two issue writes, and only two. Same envelope
+      discipline as the pull-request writes above: `ForgeWriteResult`, never a
+      rejection.
+    */
+    /** A top-level comment on an issue's conversation. */
+    issueComment: (
+      req: In<typeof S.ForgeIssueCommentRequest>,
+    ) => Promise<z.infer<typeof S.ForgeIssueCommentResponse>>;
+    /** Close or reopen an issue. */
+    issueSetState: (
+      req: In<typeof S.ForgeIssueSetStateRequest>,
+    ) => Promise<z.infer<typeof S.ForgeIssueSetStateResponse>>;
   };
 
   /**

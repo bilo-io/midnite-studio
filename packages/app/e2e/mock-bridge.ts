@@ -1049,6 +1049,15 @@ export async function installMockBridge(page: Page, fixtures: MockFixtures): Pro
           recordWrite('runRerun', req);
           return writeResult(writeError() === null);
         },
+        /** Phase 54 Theme G — the two issue writes, and only two. */
+        issueComment: async (req: Record<string, unknown>) => {
+          recordWrite('issueComment', req);
+          return writeResult(writeError() === null);
+        },
+        issueSetState: async (req: Record<string, unknown>) => {
+          recordWrite('issueSetState', req);
+          return writeResult(writeError() === null);
+        },
       }),
       /*
         ProjectV2 (Phase 40 Theme G), its own IPC namespace in the real

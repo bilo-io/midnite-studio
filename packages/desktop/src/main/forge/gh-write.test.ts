@@ -6,6 +6,8 @@ import {
   addReviewComment,
   commentCommand,
   describeApiFailure,
+  issueCommentCommand,
+  issueSetStateCommand,
   mergeCommand,
   readyCommand,
   replyToReviewComment,
@@ -394,6 +396,34 @@ describe('rerunCommand', () => {
     expect(rerunCommand(forge, '123456', true)).toBe(
       "gh run rerun '123456' --repo 'bilo-io/midnite-studio' --failed",
     );
+  });
+});
+
+describe('issueCommentCommand', () => {
+  it('is the issue-numbered twin of commentCommand', () => {
+    expect(issueCommentCommand(forge, 12, 'ping')).toBe(
+      "gh issue comment 12 --repo 'bilo-io/midnite-studio' --body 'ping'",
+    );
+  });
+});
+
+describe('issueSetStateCommand', () => {
+  it('closes with the close subcommand, not a flag', () => {
+    expect(issueSetStateCommand(forge, 12, 'closed')).toBe(
+      "gh issue close 12 --repo 'bilo-io/midnite-studio'",
+    );
+  });
+
+  it('reopens with the reopen subcommand', () => {
+    expect(issueSetStateCommand(forge, 12, 'open')).toBe(
+      "gh issue reopen 12 --repo 'bilo-io/midnite-studio'",
+    );
+  });
+
+  it('never bundles a closing/reopening comment', () => {
+    // `gh issue close/reopen --comment` exists; this app's composer already
+    // covers "say something about this issue" as its own action.
+    expect(issueSetStateCommand(forge, 12, 'closed')).not.toContain('--comment');
   });
 });
 

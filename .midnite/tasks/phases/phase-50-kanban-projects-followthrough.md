@@ -141,6 +141,9 @@ Effort tags: **S** ≈ an hour or two · **M** ≈ half a day · **L** ≈ a day
     (`ForgeIssuesResultSchema` is read for the repo dashboard's issue list, not a page with a
     detail pane an action could attach to), so an Issues entry point has no surface to live on
     yet and is not this theme's job to invent one for.
+  - **Blocker gone, 2026-09-04.** [Phase 54](phase-54-issues-view.md) built the Issues view and,
+    in its own Theme F, this exact action on the issue detail pane — `useAddProjectItem()` and
+    the board picker above, called with no changes.
 
 ### F — Activity markers beyond Claude (M) — ◐ PARTIAL (PR #101, 2026-09-03) — agy, opencode; codex needs a human login pass
 

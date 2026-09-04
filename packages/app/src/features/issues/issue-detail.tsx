@@ -6,6 +6,7 @@ import { useForgeIssueComments, useForgeIssueDetail } from '../../services/queri
 import { issueStatus, StatusPill } from '../forge/forge-status';
 import { ExternalLink } from '../markdown/external-link';
 import { MARKDOWN_PROSE_CLASSES } from '../markdown/prose';
+import { IssueActionBar } from './issue-action-bar';
 import { IssueConversation } from './issue-conversation';
 import { IssueDetailSkeleton } from './issues-skeletons';
 import { LabelChip } from './label-chip';
@@ -50,6 +51,16 @@ export function IssueDetail({ repoId, issue }: { repoId: string; issue: ForgeIss
             {issue.milestone !== null ? <span className="truncate">{issue.milestone.title}</span> : null}
           </div>
         ) : null}
+      </div>
+
+      {/*
+        Outside the scroll on purpose, the same reason `PrDetail` keeps
+        `ReviewActionBar` outside its tabpanel: these actions apply to the
+        issue, not to one part of it, so they stay put while the body and
+        conversation scroll underneath.
+      */}
+      <div className="shrink-0 border-b border-border px-4 py-2">
+        <IssueActionBar repoId={repoId} issue={issue} />
       </div>
 
       {loading ? (

@@ -252,43 +252,57 @@ not one.
       signature — that is the actual proof the extraction was behaviour-preserving — plus new cases
       over an issue-shaped record.
 
-### F — "Add to project ▸" for issues, closing a deferral three phases old (S)
+### F — "Add to project ▸" for issues, closing a deferral three phases old (S) — ✅ DONE (2026-09-04)
 
 The whole point of the dependency chain.
 [Phase 50 Theme E](phase-50-kanban-projects-followthrough.md) shipped this action for PRs and left
 the Issues half explicitly blocked on a surface to attach it to.
 
-- [ ] The same "Add to project ▸" action on the issue detail pane, reusing `addItemToProject` and
+- [x] The same "Add to project ▸" action on the issue detail pane, reusing `addItemToProject` and
       the board picker from
       [`review-action-bar.tsx`](../../../packages/app/src/features/reviews/review-action-bar.tsx)
       without modification. `addItemToProject`'s own docblock names *"the Reviews and Issues
       surfaces"* as its two intended entry points; this is the second one finally arriving.
-- [ ] Requires Theme A's `id`. The mutation takes a node id, and the schema has never carried one —
+  - Landed as `useAddProjectItem()` + `useForgeProjects()`, called verbatim from the new
+    `issue-action-bar.tsx` — no changes to either hook.
+- [x] Requires Theme A's `id`. The mutation takes a node id, and the schema has never carried one —
       the same gap Phase 50 hit on the PR side.
-- [ ] Gated on `forgeWritesEnabled`, like every other write in this app. No new gate, no exception.
-- [ ] Update [Phase 50's](phase-50-kanban-projects-followthrough.md) Theme E entry and
+- [x] Gated on `forgeWritesEnabled`, like every other write in this app. No new gate, no exception.
+- [x] Update [Phase 50's](phase-50-kanban-projects-followthrough.md) Theme E entry and
       [Phase 52's](phase-52-projects-navigation.md) deferral note to record that the blocker is
       gone, rather than leaving two docs asserting a limitation that no longer holds.
 
-### G — Two writes, and only two (M)
+### G — Two writes, and only two (M) — ✅ DONE (2026-09-04)
 
 An issue view that cannot reply is a worse GitHub. But the write surface is where Reviews spent most
 of its size — `review-action-bar.tsx` alone is 561 lines — so this theme names its two writes and
 stops.
 
-- [ ] **Comment** and **close / reopen**. Both through
+- [x] **Comment** and **close / reopen**. Both through
       [`gh-write.ts`](../../../packages/desktop/src/main/forge/gh-write.ts), which excludes issues
       today, using the JSON-on-stdin (`--input -`) pattern
       [`gh-project-write.ts`](../../../packages/desktop/src/main/forge/gh-project-write.ts)
       documents — never `-f`/`-F`, which string-coerce and type-guess — and returning the existing
       `ForgeWriteResult` `{ok, cli, error}` envelope.
-- [ ] Both gated on `forgeWritesEnabled`; both refetch the detail on success rather than mutating a
+  - **Correction — no `--input -` here.** `gh issue comment`/`gh issue close`/`gh issue reopen`
+    are plain `gh` subcommands with a `--body` flag, not `gh api` calls — the same shape
+    `commentCommand`/`readyCommand` already use for the identical PR-side verbs, and there is no
+    JSON payload to post. `issueCommentCommand`/`issueSetStateCommand` in `gh-write.ts` follow
+    those two, not `gh-project-write.ts`'s `--input -` pattern.
+- [x] Both gated on `forgeWritesEnabled`; both refetch the detail on success rather than mutating a
       cache optimistically, matching the house rule that only the board's drag is optimistic.
-- [ ] **Labels, assignees and milestone editing are out.** Each needs its own picker over its own
+  - Comment invalidates only the conversation; close/reopen invalidates the detail *and* the
+    issue-list prefix, since `IssueDetail`'s header state pill reads the `issue` prop its caller
+    passed in (sourced from the list), not `detail.data`. Same split `invalidatePullState` already
+    draws for PR writes, one function earlier in `queries.ts`.
+- [x] **Labels, assignees and milestone editing are out.** Each needs its own picker over its own
       remote vocabulary, which is three more surfaces and the reason Reviews' action bar is the size
       it is. Recorded below as deferred, so it reads as a decision rather than an oversight.
-- [ ] Tests: a write refused when the gate is off, a successful comment refetching the detail, and a
+- [x] Tests: a write refused when the gate is off, a successful comment refetching the detail, and a
       close/reopen round trip against a mock bridge.
+  - `issue-action-bar.test.tsx` (8 cases): the gate disabling every control, a successful comment
+    (with its own refusal-message case), an empty-body guard, close, reopen, and the two
+    Add-to-project cases `review-action-bar.test.tsx` already covers for PRs.
 
 ## Files this phase touches
 
