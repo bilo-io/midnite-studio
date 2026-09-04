@@ -5,6 +5,7 @@ import {
   LuGitBranchPlus,
   LuPackage,
   LuTrash2,
+  LuX,
 } from 'react-icons/lu';
 
 import { buildChangeTree } from '../../components/build-change-tree';
@@ -42,10 +43,12 @@ import type { GitOpResult, StashDiffFile, StashPart } from '@midnite/studio-shar
 export function StashInspector({
   repoId,
   selector,
+  onClose,
   onError,
 }: {
   repoId: string;
   selector: string;
+  onClose?: () => void;
   /** Surfaces an Apply/Pop/Branch/Drop failure — the graph's own error banner. */
   onError?: (message: string) => void;
 }) {
@@ -119,7 +122,12 @@ export function StashInspector({
   if (!detail) {
     return (
       <div className="p-3">
-        <p className="text-sm">Stash not found</p>
+        <div className="flex items-center justify-between">
+          <p className="text-sm">Stash not found</p>
+          {onClose ? (
+            <IconButton icon={LuX} label="Close" size="sm" onClick={onClose} />
+          ) : null}
+        </div>
         <p className="mt-1 text-xs text-muted-foreground">
           <span className="font-mono">{selector}</span> is no longer in this repository.
         </p>
@@ -184,6 +192,9 @@ export function StashInspector({
             })
           }
         />
+        {onClose ? (
+          <IconButton icon={LuX} label="Close" size="sm" onClick={onClose} />
+        ) : null}
       </header>
 
       {empty ? (

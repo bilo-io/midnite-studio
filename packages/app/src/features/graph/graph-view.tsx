@@ -1,11 +1,10 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 
 import { useVirtualizer } from '@tanstack/react-virtual';
-import { LuGitBranch, LuGitCommitVertical, LuUsers, LuX } from 'react-icons/lu';
+import { LuGitBranch, LuGitCommitVertical, LuUsers } from 'react-icons/lu';
 
 import { useDialogs } from '../../components/dialog-host';
 import { EmptyState } from '../../components/empty-state';
-import { IconButton } from '../../components/icon-button';
 import { ResizeHandle } from '../../components/resizable/resize-handle';
 import { useResizable } from '../../components/resizable/use-resizable';
 import { useRefs, useStashes } from '../../services/queries';
@@ -491,21 +490,18 @@ export function GraphView() {
             }`}
             style={{ width: detail.current }}
           >
-            <div className="flex shrink-0 items-center justify-end border-b border-border px-1 py-1">
-              <IconButton
-                icon={LuX}
-                label="Close"
-                size="sm"
-                onClick={() => selectCommit(null)}
-              />
-            </div>
             <div className="min-h-0 flex-1">
               {graphSelection.kind === 'commit' ? (
-                <CommitDetail repoId={repoId} sha={graphSelection.sha} />
+                <CommitDetail
+                  repoId={repoId}
+                  sha={graphSelection.sha}
+                  onClose={() => selectCommit(null)}
+                />
               ) : graphSelection.kind === 'stash' ? (
                 <StashInspector
                   repoId={repoId}
                   selector={graphSelection.selector}
+                  onClose={() => selectStash(null)}
                   onError={setOpError}
                 />
               ) : (

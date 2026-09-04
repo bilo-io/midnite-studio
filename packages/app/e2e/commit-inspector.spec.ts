@@ -119,10 +119,10 @@ test('the trailer block renders as metadata, with its email linkified', async ({
 
 // --- Theme B: the header --------------------------------------------------
 
-test('the header shows the full sha and copies it through the bridge', async ({ page }) => {
+test('the header shows the truncated sha hyperlink and copies full sha through the bridge', async ({ page }) => {
   await openCommit(page);
 
-  await expect(page.getByText(COMMIT_SHA, { exact: true })).toBeVisible();
+  await expect(page.getByRole('button', { name: `Open commit in tab (${COMMIT_SHA})` })).toContainText(`${COMMIT_SHA.slice(0, 16)}…`);
   await page.getByRole('button', { name: 'Copy the full sha' }).click();
 
   // The full 40 characters, not the abbreviation the header could have shown.
@@ -152,7 +152,7 @@ test('the metadata collapses to its header, and the choice survives a reload', a
   // toggle stay, because they are the accordion's own header row.
   await expect(identities(page)).toHaveCount(0);
   await expect(message(page)).toHaveCount(0);
-  await expect(page.getByText(COMMIT_SHA, { exact: true })).toBeVisible();
+  await expect(page.getByRole('button', { name: `Open commit in tab (${COMMIT_SHA})` })).toContainText(`${COMMIT_SHA.slice(0, 16)}…`);
   await expect(page.getByRole('button', { name: 'Copy the full sha' })).toBeVisible();
   await expect(files(page)).toBeVisible();
 
@@ -184,7 +184,7 @@ test('a parent sha navigates the panel, and a root commit says it has none', asy
 
   await page.getByRole('button', { name: `Show commit ${PARENT_SHA}` }).click();
 
-  await expect(page.getByText(PARENT_SHA, { exact: true })).toBeVisible();
+  await expect(page.getByRole('button', { name: `Open commit in tab (${PARENT_SHA})` })).toContainText(`${PARENT_SHA.slice(0, 16)}…`);
   await expect(page.getByText('Root commit — no parents.')).toBeVisible();
 });
 
@@ -195,7 +195,7 @@ test('a linkified sha selects a commit that is not in the loaded graph', async (
 
   await message(page).getByRole('button', { name: LINKED_ABBREV }).click();
 
-  await expect(page.getByText(LINKED_SHA, { exact: true })).toBeVisible();
+  await expect(page.getByRole('button', { name: `Open commit in tab (${LINKED_SHA})` })).toContainText(`${LINKED_SHA.slice(0, 16)}…`);
   await expect(page.getByText('fix(graph): the linkified target').first()).toBeVisible();
 });
 
