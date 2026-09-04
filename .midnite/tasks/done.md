@@ -29,6 +29,33 @@ dropping every character typed in that window.
       (including dropping several chunks for one large push); never trims mid-chunk; discards on
       `clear()` rather than leaking; correct UTF-8 byte counting for multi-byte characters.
 
+## 2026-09-04 — Phase 52 Theme E + F + G — workflows filter, panel-stack navigation, board keyboard nav
+
+[PR #120]. Closes out Phase 52 (filter/group/sort for Projects, PR #116 already landed A–D).
+
+- [x] **Theme E** — `FilterInput` over workflow names (`workflow-list.tsx`) plus a `MultiSelectMenu`
+      status facet over `RunHistoryList`, both Theme A's components reused verbatim rather than a
+      second pair — the cheapest proof that toolbar was a pattern, not a one-off.
+- [x] **Theme F** — `workflows-view.tsx`'s right-hand region becomes a real `panel-stack` (Inspector
+      → History → Run) via a `WorkflowPanelEntry` discriminated union, replacing the ad-hoc
+      `mode === 'run'` toggle and the `Popover`-wrapped `RunHistoryList`; `activeRunId`/`mode` are
+      now derived from `panels.current` rather than tracked separately. The first *heterogeneous*
+      panel-stack consumer — `councils-view.tsx`'s `CouncilEntry` union turned out to be the closer
+      crib than `card-panel-stack.tsx`'s single-kind one. `NodeInspector`/`RunNodeDetail`/
+      `RunHistoryList` all drop their own `w-80`/`border-l` wrappers, matching `card-detail.tsx`'s
+      convention that a panel-stack entry is content, not a column.
+- [x] **Theme G** — `board-keyboard.ts`'s pure roving-tabindex arithmetic wired into `board-view.tsx`:
+      one Tab stop for the whole board, arrow keys to traverse, Enter opens the card, Escape closes
+      it and returns focus. Two real bugs the tests caught before merge: `useDraggable`'s own
+      attributes default `tabIndex` to `0` for a keyboard sensor this app never wires, which would
+      have made every card's drag wrapper a second, competing Tab stop — overridden explicitly; and
+      collapsing the *focused* card's own column needs an immediate focus rescue (its DOM node is
+      gone, not CSS-hidden), not just a rescue on the next arrow press, which the original
+      reconciliation effect (watching only `columns`, not `collapsedColumns`) missed entirely.
+- [x] Screenshotted manually via a throwaway Playwright script against the real `mock-bridge` e2e
+      harness (not committed): the workflow filter narrowing the list, and the Inspector → History
+      breadcrumb navigation.
+
 ## 2026-09-04 — Phase 51 Theme D — a resize that costs one fit, not one per frame
 
 [PR #118]. There was no debouncing on the fit path at all: the `ResizeObserver` called `fit()`

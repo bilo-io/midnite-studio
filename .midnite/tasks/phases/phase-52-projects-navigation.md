@@ -159,21 +159,22 @@ Only two things persist on this surface today: `projectBoardByRepo` and `project
 - [x] Tests: `ui-store.test.ts` — round-trips through `partialize`/`merge`, keys by project not
       repo, survives a repo switch, and the LRU evicts oldest-first.
 
-### E — The Workflows list learns to filter (S)
+### E — The Workflows list learns to filter (S) — ✅ DONE (PR #120, 2026-09-04)
 
 [`workflow-list.tsx`](../../../packages/app/src/features/workflows/workflow-list.tsx) has **no
 filter state at all**, and the run history beside it has none either — fine at three workflows,
 not at thirty.
 
-- [ ] `FilterInput` over workflow names in the 224px list, and a status facet over the run history
+- [x] `FilterInput` over workflow names in the 224px list, and a status facet over the run history
       (`RunHistoryList`) so a failed run is one click away rather than a scroll.
-- [ ] Reuse Theme A's primitives verbatim. This theme exists partly because it is genuinely wanted
+- [x] Reuse Theme A's primitives verbatim. This theme exists partly because it is genuinely wanted
       and partly because it is the cheapest possible proof that the toolbar built in A is a
       *pattern* and not a one-off — if it does not drop in here, A built something too specific.
-- [ ] Tests: `workflow-list.test.tsx` — name filtering, an empty query showing everything, and the
-      run-status facet.
+- [x] Tests: `workflow-list.test.tsx` — name filtering, an empty query showing everything, and the
+      run-status facet. **Correction:** the status-facet cases landed in `run-history-list.test.tsx`
+      instead — that component, not `workflow-list.tsx`, is what owns the facet state.
 
-### F — Workflows adopts `panel-stack` (M)
+### F — Workflows adopts `panel-stack` (M) — ✅ DONE (PR #120, 2026-09-04)
 
 [`use-panel-history.ts`](../../../packages/app/src/components/panel-stack/use-panel-history.ts)'s own
 docblock names *"Projects (Phase 40) and Workflows (Phase 43)"* as its next obvious consumers.
@@ -181,38 +182,51 @@ docblock names *"Projects (Phase 40) and Workflows (Phase 43)"* as its next obvi
 board card's detail pane is `Mod+[`-reachable. Workflows still is not: moving node inspector → run
 history → run node detail is a one-way trip.
 
-- [ ] A `panel-stack` instance in [`workflows-view.tsx`](../../../packages/app/src/features/workflows/workflows-view.tsx)'s
+- [x] A `panel-stack` instance in [`workflows-view.tsx`](../../../packages/app/src/features/workflows/workflows-view.tsx)'s
       right-hand region, so `NodeInspector` → `RunHistoryList` → `RunNodeDetail` push and pop with
-      `panel.back`/`panel.forward`.
-- [ ] Follow [`card-panel-stack.tsx`](../../../packages/app/src/features/projects/board/card-panel-stack.tsx)
+      `panel.back`/`panel.forward`. A `WorkflowPanelEntry` discriminated union (`inspector | history
+      | run`) drives it — the first *heterogeneous* panel-stack consumer, `councils-view.tsx`'s
+      `CouncilEntry` the closer crib for that shape than `card-panel-stack.tsx`'s single-kind one.
+- [x] Follow [`card-panel-stack.tsx`](../../../packages/app/src/features/projects/board/card-panel-stack.tsx)
       as the crib — it is the most recent adoption and it already settles the push/no-op/reset/
       drop-out cases that a second consumer would otherwise re-derive differently.
-- [ ] Both chords already yield to the terminal via `TERMINAL_YIELD_COMMANDS`
+- [x] Both chords already yield to the terminal via `TERMINAL_YIELD_COMMANDS`
       ([`keybindings.ts`](../../../packages/shared/src/keybindings.ts)); this theme adds a consumer,
       not a binding, and must not touch the registry.
-- [ ] Tests: `workflow-panel-stack.test.tsx` — push, back, forward, and reset on switching workflow.
+- [x] Tests: `workflow-panel-stack.test.tsx` — push, back, forward, and reset on switching workflow.
 
-### G — The board becomes keyboard-navigable (M)
+### G — The board becomes keyboard-navigable (M) — ✅ DONE (PR #120, 2026-09-04)
 
 The board is mouse-only. Every card is a `useDraggable` and the columns are `useDroppable`
 ([`board-view.tsx:347,481`](../../../packages/app/src/features/projects/board/board-view.tsx));
 there is no roving focus, no arrow-key movement and no keyboard route into a card's detail pane.
 
-- [ ] Roving tabindex across columns and cards: `←`/`→` between columns, `↑`/`↓` within one,
+- [x] Roving tabindex across columns and cards: `←`/`→` between columns, `↑`/`↓` within one,
       `Enter` opening the card into the panel stack, `Escape` returning focus to the card it came
       from. One tab stop for the board as a whole, not one per card — a 200-card board must not
-      cost 200 tab presses to traverse.
-- [ ] Column collapse reachable from the keyboard, and a collapsed column skipped by `←`/`→` rather
-      than being a focus stop with nothing in it.
-- [ ] Focus must survive Theme A's filtering and Theme B's regrouping: when the focused card leaves
+      cost 200 tab presses to traverse. `useDraggable`'s own attributes default `tabIndex` to `0`
+      for a keyboard sensor this app never wires, which would have made every card's drag wrapper
+      a second Tab stop; overridden to `-1` explicitly.
+- [x] Column collapse reachable from the keyboard, and a collapsed column skipped by `←`/`→` rather
+      than being a focus stop with nothing in it. Collapsing the *focused* card's own column
+      rescues focus immediately (its DOM node is gone, not just visually hidden) rather than
+      waiting for the next arrow press — found by testing the interaction, not just the arithmetic.
+- [x] Focus must survive Theme A's filtering and Theme B's regrouping: when the focused card leaves
       the visible set, focus moves to the nearest remaining card rather than to `document.body`,
       which is what silently ends keyboard navigation mid-task.
-- [ ] Card **movement** by keyboard is **not** in this theme — `@dnd-kit` ships a keyboard sensor and
+- [x] Card **movement** by keyboard is **not** in this theme — `@dnd-kit` ships a keyboard sensor and
       wiring it is a real slice with its own announcements and confirmation semantics. Navigation
       first; the write path after. Recorded in *Not in this phase* below so it is a deferral, not
       an omission.
-- [ ] Tests: `board-keyboard.test.tsx` — roving focus across columns, collapsed columns skipped,
-      `Enter` opening the detail pane, and focus rescued when the focused card is filtered out.
+- [x] Tests: `board-keyboard.test.ts` (new) — the pure roving-tabindex arithmetic in isolation.
+      **Correction:** the doc's own named RTL behaviours (roving focus across columns, collapsed
+      columns skipped, `Enter` opening the detail pane, focus rescued when filtered out) landed as
+      a new `describe` block in the existing `board-view.test.tsx` instead of a second
+      `board-keyboard.test.tsx` — that file already owns `BoardView`'s real-DOM `Harness`, and a
+      second copy of it would have been the exact redundancy this repo's conventions warn against.
+      **Known gap, recorded rather than silently shipped:** a focused card past a virtualized
+      column's (>50 cards) own render window has no DOM node for the focus-move to find —
+      `board-view.tsx`'s `VirtualizedColumnItems` names it in place.
 
 ## Files this phase touches
 
@@ -229,24 +243,34 @@ there is no roving focus, no arrow-key movement and no keyboard route into a car
 
 ## Verification
 
-- [ ] `moon run :typecheck :lint :test` green.
-- [ ] A filter set in Table mode is still applied after switching to Board and back, and vice versa.
-- [ ] With a filter applied to a truncated result, the footer says the filter ran over a partial
+- [x] `moon run :typecheck :lint :test` green.
+- [x] A filter set in Table mode is still applied after switching to Board and back, and vice versa.
+      True by construction, not just by test: `view.filter` lives in `projectViewByProject`, keyed
+      by `projectId` alone — `mode` is a separate, `repoId`-keyed store entry, so switching between
+      them never touches the filter at all.
+- [x] With a filter applied to a truncated result, the footer says the filter ran over a partial
       set — not just how many matched.
-- [ ] A project whose status-like field is **not** named `Status` renders as a board with columns,
+- [x] A project whose status-like field is **not** named `Status` renders as a board with columns,
       where today it renders an EmptyState.
-- [ ] Grouping by an iteration field renders columns and refuses the drag with a visible reason,
+- [x] Grouping by an iteration field renders columns and refuses the drag with a visible reason,
       rather than attempting a write that would fail.
-- [ ] Sorting a single-select column follows the field's own option order, not alphabetical; a
+- [x] Sorting a single-select column follows the field's own option order, not alphabetical; a
       third click restores the project's API order.
-- [ ] Filter, group field, sort and collapsed columns survive an app restart, are keyed to the
+- [x] Filter, group field, sort and collapsed columns survive an app restart, are keyed to the
       project rather than the repo (the same project opened from a second repo shows the same view
-      state), and a field deleted from the project degrades to the default grouping.
+      state), and a field deleted from the project degrades to the default grouping. Proved at the
+      persistence-mechanism level (`ui-store.test.ts`'s `partialize`/`merge`/migration round-trips,
+      the same zustand `persist` every other setting in this store already trusts) rather than by a
+      literal app restart, which no test in this repo performs for any setting.
 - [ ] The board is fully traversable from the keyboard — columns, cards, open, close — and focus is
       never lost when a filter removes the focused card. **A human pass** with the mouse untouched,
       alongside the unit tests.
 - [ ] `Mod+[` walks back through a Workflows run detail to the node inspector, and typing `[` inside
-      a terminal still reaches the shell.
+      a terminal still reaches the shell. The panel registers through the same
+      `useRegisterActivePanel` every other panel-stack consumer uses, so the global chord reaching
+      it is structurally the same path already proven for Councils and Projects — but no test here
+      exercises the *global* keybinding dispatch specifically, only the panel's own local
+      back/forward. Left open rather than claimed on inference alone.
 - [ ] Real-board pass on github.com: filtering and regrouping change nothing server-side, and a drag
       under a non-`Status` single-select grouping writes the field it says it does. A human pass —
       the mock bridge cannot prove the second half.
