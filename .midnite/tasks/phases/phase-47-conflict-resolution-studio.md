@@ -175,7 +175,7 @@ The safe baseline: accept one side for an entire file, no partial state.
     `useTargetedGitOp` and an explicit target, matching `use-repo-actions.ts`'s own precedent for
     exactly this shape of problem.
 
-### E — Agent-assisted resolution suggestion (S) — ✅ DONE (PR #132, 2026-09-04)
+### E — Agent-assisted resolution suggestion (S) — ✅ DONE (PR #133, 2026-09-04)
 
 - [x] Reuses [Phase 34](phase-34-agent-councils.md)'s existing `mstudio:council:run:start`
       (`{councilId, prompt}`, [`schemas.ts:1075-1076`](../../../packages/shared/src/ipc/schemas.ts))

@@ -4,7 +4,7 @@
 
 ## 2026-09-04 — Phase 47 Theme E — Agent-assisted conflict resolution suggestions
 
-[PR #132]. Closes out the phase's build entirely — every theme (A–F) is now landed, one item left
+[PR #133]. Closes out the phase's build entirely — every theme (A–F) is now landed, one item left
 open for a human (Theme F's real `diff3` conflict-style pass).
 
 - [x] Reuses [Phase 34](phases/phase-34-agent-councils.md)'s existing `mstudio:council:run:start`
