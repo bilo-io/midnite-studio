@@ -4,8 +4,11 @@ import type { ForgeJob, ForgeRun } from '@midnite/studio-shared';
 import { LuChevronDown, LuChevronRight, LuSquareArrowOutUpRight } from 'react-icons/lu';
 
 import { IconButton } from '../../components/icon-button';
+import { ResizeHandle } from '../../components/resizable/resize-handle';
+import { useResizable } from '../../components/resizable/use-resizable';
 import { openExternal, useForgeRunLog, useForgeWorkflows } from '../../services/queries';
 import { useActionsStore } from '../../store/actions-store';
+import { LAYOUT_BOUNDS, useUiStore } from '../../store/ui-store';
 import { jobStatus, runStatus, StatusPill } from '../forge/forge-status';
 import { LogPane } from './log-pane';
 import { jobLogFor, parseRunLogLines } from './log-model';
@@ -34,6 +37,17 @@ export function RunDetail({
 }) {
   const selectedJob = useActionsStore((s) => s.selectedJob[repoId] ?? null);
   const selectJob = useActionsStore((s) => s.selectJob);
+  const jobsHeight = useUiStore((s) => s.layout.actionsJobsHeight);
+  const setLayout = useUiStore((s) => s.setLayout);
+
+  const resizableJobs = useResizable({
+    size: jobsHeight,
+    onSize: (value) => setLayout('actionsJobsHeight', value),
+    min: LAYOUT_BOUNDS.actionsJobsHeight.min,
+    max: LAYOUT_BOUNDS.actionsJobsHeight.max,
+    initial: 200,
+    axis: 'y',
+  });
 
   /*
     `full` is stored WITH the run it was asked of, not reset by an effect.
@@ -97,13 +111,14 @@ export function RunDetail({
       <RunHeader repoId={repoId} run={run} />
 
       {/*
-        Shrinkable, not `shrink-0`. The tree is capped at 45% of the pane and
-        scrolls inside that, so when the pane itself is short — a PR's Checks
-        tab under a tall header, or the terminal taken up to half the window —
-        the honest response is for the tree to give ground and keep scrolling,
-        not to hold its content height and push the log pane off the bottom.
+        Resizable vertical pane for jobs tree, capped at 60% of the pane so
+        a large drag does not completely hide the log pane below it.
       */}
-      <div className="max-h-[45%] min-h-0 overflow-y-auto border-b border-border">
+      <div
+        data-testid="actions-jobs-pane"
+        style={{ height: resizableJobs.current, maxHeight: '60%' }}
+        className="min-h-0 shrink-0 overflow-y-auto"
+      >
         {jobsError !== null ? (
           <p className="px-3 py-2 text-xs text-destructive">{jobsError}</p>
         ) : loadingJobs && jobs.length === 0 ? (
@@ -123,6 +138,8 @@ export function RunDetail({
           </ul>
         )}
       </div>
+
+      <ResizeHandle resizable={resizableJobs} axis="y" label="Resize the jobs list" />
 
       {log.data?.pending === true ? (
         <Empty>
