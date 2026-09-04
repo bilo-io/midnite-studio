@@ -52,6 +52,10 @@ function loopGlowState(status: LoopStatus | undefined): LoopGlowState {
  * so editing a `/loop …` field in Settings ▸ Agent changes what the tab runs.
  */
 export function FabPanel({ isOpen, width, fitSignal }: FabPanelProps) {
+  // This exact panel renders inside the Loops popout too (`DetachedRoot`
+  // reuses it verbatim) — the detach button would otherwise advertise
+  // "detach me into a window" while already being one.
+  const isPopout = (bridge()?.windowRole ?? 'main') !== 'main';
   const activeFabTab = useUiStore((s) => s.activeFabTab);
   const onTabClick = useUiStore((s) => s.onFabTabClick);
   const statuses = useAllLoopStatuses(LOOP_IDS);
@@ -84,18 +88,20 @@ export function FabPanel({ isOpen, width, fitSignal }: FabPanelProps) {
             >
               <BrandMark className="h-4 w-4" />
             </span>
-            <IconButton
-              icon={LuSquareArrowOutUpRight}
-              label="Detach Loops Panel into its own window"
-              size="sm"
-              className="opacity-0 transition-opacity group-hover:opacity-100"
-              onClick={() => {
-                // Collapses the dock so the floating FAB button reappears
-                // (dimmed) rather than sitting open beside its own popout.
-                useUiStore.getState().setFabPanelOpen(false);
-                bridge()?.window.detach({ role: 'fab' });
-              }}
-            />
+            {!isPopout && (
+              <IconButton
+                icon={LuSquareArrowOutUpRight}
+                label="Detach Loops Panel into its own window"
+                size="sm"
+                className="opacity-0 transition-opacity group-hover:opacity-100"
+                onClick={() => {
+                  // Collapses the dock so the floating FAB button reappears
+                  // (dimmed) rather than sitting open beside its own popout.
+                  useUiStore.getState().setFabPanelOpen(false);
+                  bridge()?.window.detach({ role: 'fab' });
+                }}
+              />
+            )}
           </div>
           <span className="text-xs font-medium text-muted-foreground">Midnite Loops</span>
         </div>

@@ -60,6 +60,10 @@ export function TerminalHeader({
   onNewMenu,
 }: TerminalHeaderProps) {
   const broker = useTerminalStore((s) => s.broker);
+  // This exact header renders inside the Terminal popout too (`DetachedRoot`
+  // reuses `<TerminalPanel>` verbatim) — the detach button would otherwise
+  // advertise "detach me into a window" while already being one.
+  const isPopout = (bridge()?.windowRole ?? 'main') !== 'main';
 
   return (
     /*
@@ -78,13 +82,15 @@ export function TerminalHeader({
         >
           <HeaderMark agent={agent} />
         </span>
-        <IconButton
-          icon={LuSquareArrowOutUpRight}
-          label="Detach Terminal into its own window"
-          size="sm"
-          className="opacity-0 transition-opacity group-hover:opacity-100"
-          onClick={() => bridge()?.window.detach({ role: 'terminal' })}
-        />
+        {!isPopout && (
+          <IconButton
+            icon={LuSquareArrowOutUpRight}
+            label="Detach Terminal into its own window"
+            size="sm"
+            className="opacity-0 transition-opacity group-hover:opacity-100"
+            onClick={() => bridge()?.window.detach({ role: 'terminal' })}
+          />
+        )}
       </div>
       <StateDot state={state} />
       <HeaderPath path={path} repos={repos} />

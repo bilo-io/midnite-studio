@@ -526,6 +526,15 @@ export type UiState = {
    * Whether each of the four detachable panels (Phase 55) is currently
    * showing in its own popout window rather than docked in the main one.
    * Main-window-local — a popout's own `ui-store` instance never reads these.
+   *
+   * NOT persisted, deliberately: a popout is never recreated on launch (main
+   * only ever restores itself), so a `true` saved before quitting is
+   * guaranteed stale the next time the app opens — same reasoning
+   * `browserLauncherOpen` above gives for staying unpersisted. `use-window-
+   * sync.ts` corrects these from main's own window registry at runtime, but
+   * only after an async round trip; starting from the wrong default would
+   * flash a spurious "detached" placeholder over a panel that is actually
+   * docked until that correction lands.
    */
   terminalDetached: boolean;
   reposDetached: boolean;
@@ -1136,10 +1145,6 @@ type PersistedUi = Pick<
   | 'browserOpen'
   | 'browserLayout'
   | 'fabPanelOpen'
-  | 'terminalDetached'
-  | 'reposDetached'
-  | 'fabDetached'
-  | 'browserDetached'
   | 'activityTimelineOpen'
   | 'activityTimelineStyle'
   | 'activityTimelineOrientation'
@@ -1608,7 +1613,7 @@ export const useUiStore = create<UiState>()(
     }),
     {
       name: 'midnite-studio.ui',
-      version: 8,
+      version: 7,
       partialize: (state): PersistedUi => ({
         layout: state.layout,
         graphColumns: state.graphColumns,
@@ -1635,10 +1640,6 @@ export const useUiStore = create<UiState>()(
         browserOpen: state.browserOpen,
         browserLayout: state.browserLayout,
         fabPanelOpen: state.fabPanelOpen,
-        terminalDetached: state.terminalDetached,
-        reposDetached: state.reposDetached,
-        fabDetached: state.fabDetached,
-        browserDetached: state.browserDetached,
         activityTimelineOpen: state.activityTimelineOpen,
         activityTimelineStyle: state.activityTimelineStyle,
         activityTimelineOrientation: state.activityTimelineOrientation,
@@ -1694,7 +1695,6 @@ export const useUiStore = create<UiState>()(
        * v4 → v5: seed `updatesAutoCheck`, `updateChannel`, and set `onboardedAt` for existing installs.
        * v5 → v6: rename the `sparkline` timeline style to `area`, which now draws churn.
        * v6 → v7: seed `projectViewByProject` for existing installs.
-       * v7 → v8: seed the four `*Detached` flags `false` for existing installs.
        */
       migrate: (persisted, version) => {
         const state = (persisted ?? {}) as Record<string, unknown> & {
@@ -1708,10 +1708,6 @@ export const useUiStore = create<UiState>()(
           onboardedAt?: string | null;
           activityTimelineStyle?: string;
           projectViewByProject?: Record<string, ProjectViewState>;
-          terminalDetached?: boolean;
-          reposDetached?: boolean;
-          fabDetached?: boolean;
-          browserDetached?: boolean;
         };
         if (version < 2 && state.graphColumns) {
           const { author: _retired, ...rest } = state.graphColumns;
@@ -1737,12 +1733,6 @@ export const useUiStore = create<UiState>()(
         }
         if (version < 7) {
           state.projectViewByProject = {};
-        }
-        if (version < 8) {
-          state.terminalDetached = false;
-          state.reposDetached = false;
-          state.fabDetached = false;
-          state.browserDetached = false;
         }
         return state as PersistedUi;
       },

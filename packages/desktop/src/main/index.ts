@@ -237,7 +237,7 @@ if (!app.requestSingleInstanceLock()) {
 
   void app.whenReady().then(async () => {
     bootMark('when-ready');
-    registerWindowChrome(getMainWindow);
+    registerWindowChrome();
     registerRepoHandlers(getMainWindow);
     registerSearchHandlers(getMainWindow);
     registerStatusHandlers();
@@ -320,8 +320,11 @@ if (!app.requestSingleInstanceLock()) {
       needs the agents store, and both now start at the same moment.
     */
     configureRegistry(createRepoStore(userData));
+    // Not awaited: nothing reads this until a user detaches a panel, long
+    // after boot — awaiting it here would serialize a disk read ahead of the
+    // three parallel chains below for data with no reader yet.
     const windowsStore = createWindowsStore(userData);
-    configureWindowsStore(windowsStore, await windowsStore.load());
+    void windowsStore.load().then((initial) => configureWindowsStore(windowsStore, initial));
     configureTerminals(createTerminalStore(userData), userData);
     configureCouncils(createCouncilsStore(userData), createCouncilsRunsStore(userData));
     /*

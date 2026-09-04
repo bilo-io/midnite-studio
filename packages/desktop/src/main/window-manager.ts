@@ -46,6 +46,11 @@ const windows = new Map<number, Entry>();
 
 let windowsStore: WindowsStore | null = null;
 let boundsCache: Partial<Record<WindowRole, WindowBounds>> = {};
+// Serializes `windows.json` writes: `closeAllPopouts()` (fired on main-window
+// close) can close several popouts back-to-back, and unserialized writes of
+// different-sized `boundsCache` snapshots can resolve out of order, silently
+// dropping whichever geometry was captured first.
+let writeChain: Promise<void> = Promise.resolve();
 
 /**
  * Wire the persistence layer in, with whatever it already had on disk.
@@ -70,7 +75,9 @@ function saveBoundsOnClose(win: BrowserWindow, role: Exclude<WindowRole, 'main'>
     const [x, y] = win.getPosition();
     const [width, height] = win.getSize();
     boundsCache = { ...boundsCache, [role]: { x, y, width, height } };
-    void windowsStore?.save(boundsCache);
+    const snapshot = boundsCache;
+    const store = windowsStore;
+    if (store) writeChain = writeChain.then(() => store.save(snapshot));
   });
 }
 

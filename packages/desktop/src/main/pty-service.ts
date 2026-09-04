@@ -1,6 +1,8 @@
 import { EVENT_CHANNELS, SCROLLBACK_BYTES, type SessionActivity } from '@midnite/studio-shared';
 import { BrowserWindow } from 'electron';
 
+import { windowForRole } from './window-manager';
+
 import {
   createActivityClock,
   createActivityState,
@@ -45,10 +47,28 @@ let getWindowThunk: () => BrowserWindow | null = () => null;
 // rendering the SAME session got nothing. Broadcasting to every window was
 // the simpler fix but would make every popout pay full output throughput for
 // sessions it never renders, against Phase 51's WebGL/backpressure budgeting
-// — so this is opt-in, keyed by ptyId, and the main window subscribes to a
-// session's output the same way a popout does (see `use-terminal-ipc.ts`).
+// — so popouts are opt-in, keyed by ptyId (see `use-terminal-ipc.ts`).
+//
+// The main window is NOT opt-in, though it also calls `pty.subscribe` for
+// symmetry: `use-session-exits.ts` (mounted for the app's whole life, exactly
+// so a FAB loop's exit is never missed while its panel is collapsed) and
+// `CouncilLiveOutput` both read `pty.onData`/`pty.onExit` for a ptyId they
+// never explicitly subscribed to, on the pre-Phase-55 guarantee that main
+// always got everything. `subscribersFor` restores that guarantee by
+// unioning the explicit set with the main window, rather than requiring
+// every such consumer to learn about subscribe/unsubscribe.
 
 const ptySubscribers = new Map<string, Set<number>>();
+
+// One 'closed' listener per window, not one per subscribe call — a window
+// that subscribes/unsubscribes across many sessions over its lifetime
+// (ordinary terminal churn, or StrictMode's double-invoke) would otherwise
+// accumulate an unbounded number of listeners on the same `BrowserWindow`.
+const closedListenerBound = new Set<number>();
+
+function dropWindowFromEverySubscription(windowId: number): void {
+  for (const ids of ptySubscribers.values()) ids.delete(windowId);
+}
 
 export function subscribeWindowToPty(ptyId: string, win: BrowserWindow): void {
   let ids = ptySubscribers.get(ptyId);
@@ -57,9 +77,13 @@ export function subscribeWindowToPty(ptyId: string, win: BrowserWindow): void {
     ptySubscribers.set(ptyId, ids);
   }
   ids.add(win.id);
-  win.once('closed', () => {
-    ptySubscribers.get(ptyId)?.delete(win.id);
-  });
+  if (!closedListenerBound.has(win.id)) {
+    closedListenerBound.add(win.id);
+    win.once('closed', () => {
+      closedListenerBound.delete(win.id);
+      dropWindowFromEverySubscription(win.id);
+    });
+  }
 }
 
 export function unsubscribeWindowFromPty(ptyId: string, win: BrowserWindow): void {
@@ -69,10 +93,16 @@ export function unsubscribeWindowFromPty(ptyId: string, win: BrowserWindow): voi
   if (ids.size === 0) ptySubscribers.delete(ptyId);
 }
 
-/** Every live, non-destroyed window currently subscribed to `ptyId`'s output. */
+/**
+ * Every live, non-destroyed window that should receive `ptyId`'s output —
+ * every explicit subscriber, plus the main window unconditionally (see the
+ * block doc above for why).
+ */
 export function subscribersFor(ptyId: string): BrowserWindow[] {
-  const ids = ptySubscribers.get(ptyId);
-  if (!ids) return [];
+  const ids = new Set(ptySubscribers.get(ptyId) ?? []);
+  const main = windowForRole('main');
+  if (main) ids.add(main.id);
+
   const result: BrowserWindow[] = [];
   for (const id of ids) {
     const win = BrowserWindow.fromId(id);

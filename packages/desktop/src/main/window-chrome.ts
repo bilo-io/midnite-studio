@@ -55,20 +55,24 @@ const pushState = (win: BrowserWindow): void => {
 /**
  * Register the renderer → main half of the chrome bridge.
  *
- * `getWindow` is read lazily rather than captured: on macOS the app survives
- * its last window closing, and a captured reference would be to a destroyed
- * window after a dock-icon reactivate.
+ * Sender-resolved (Phase 55), not bound to one captured window: every window
+ * now draws its own `<TitleBar>` (main and every popout), and this is one
+ * global `ipcMain` registration shared by all of them. Resolving
+ * `BrowserWindow.fromWebContents(event.sender)` per call is what makes a
+ * popout's own minimize/maximize/close/reload act on ITSELF — the earlier
+ * single-`getWindow`-closure version routed every window's title-bar button
+ * to the main window regardless of which one was actually clicked.
  */
-export function registerWindowChrome(getWindow: () => BrowserWindow | null): void {
-  const withWindow = (fn: (win: BrowserWindow) => void) => () => {
-    const win = getWindow();
+export function registerWindowChrome(): void {
+  const withSender = (fn: (win: BrowserWindow) => void) => (event: { sender: BrowserWindow['webContents'] }) => {
+    const win = BrowserWindow.fromWebContents(event.sender);
     if (win && !win.isDestroyed()) fn(win);
   };
 
-  ipcMain.on(CHANNELS.windowMinimize, withWindow((win) => win.minimize()));
+  ipcMain.on(CHANNELS.windowMinimize, withSender((win) => win.minimize()));
   ipcMain.on(
     CHANNELS.windowMaximizeToggle,
-    withWindow((win) => {
+    withSender((win) => {
       // A frameless window has no native title bar for macOS to apply the
       // double-click-to-zoom gesture to, so the renderer reports the
       // double-click and the zoom happens here. Fullscreen is left alone —
@@ -78,18 +82,16 @@ export function registerWindowChrome(getWindow: () => BrowserWindow | null): voi
       else win.maximize();
     }),
   );
-  ipcMain.on(CHANNELS.windowClose, withWindow((win) => win.close()));
-  // Not `withWindow`: that helper's listener takes no arguments, and this one
-  // needs the `hard` payload the renderer sends alongside it.
-  ipcMain.on(CHANNELS.windowReload, (_event, hard: unknown) => {
-    const win = getWindow();
+  ipcMain.on(CHANNELS.windowClose, withSender((win) => win.close()));
+  ipcMain.on(CHANNELS.windowReload, (event, hard: unknown) => {
+    const win = BrowserWindow.fromWebContents(event.sender);
     if (!win || win.isDestroyed()) return;
     if (hard === true) win.webContents.reloadIgnoringCache();
     else win.webContents.reload();
   });
 
-  ipcMain.handle(CHANNELS.windowState, () => {
-    const win = getWindow();
+  ipcMain.handle(CHANNELS.windowState, (event) => {
+    const win = BrowserWindow.fromWebContents(event.sender);
     return win && !win.isDestroyed()
       ? stateOf(win)
       : { maximized: false, fullScreen: false, focused: false };
@@ -98,9 +100,9 @@ export function registerWindowChrome(getWindow: () => BrowserWindow | null): voi
   // Retint the native window backing when the app theme changes, so resize
   // flashes and the rounded-corner backing stay seamless with the UI. Never
   // trust the payload — anything that isn't `#rrggbb` is dropped.
-  ipcMain.on(CHANNELS.windowSetBackground, (_event, color: unknown) => {
+  ipcMain.on(CHANNELS.windowSetBackground, (event, color: unknown) => {
     if (typeof color !== 'string' || !HEX_RE.test(color)) return;
-    const win = getWindow();
+    const win = BrowserWindow.fromWebContents(event.sender);
     if (win && !win.isDestroyed()) win.setBackgroundColor(color);
   });
 }

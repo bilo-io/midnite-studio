@@ -1,6 +1,7 @@
 import { describe, expect, it, vi } from 'vitest';
 
 import { subscribeWindowToPty, subscribersFor, unsubscribeWindowFromPty } from './pty-service';
+import { registerMainWindow } from './window-manager';
 
 /**
  * `pty-service.ts` needs a real `BrowserWindow` value (`BrowserWindow.fromId`)
@@ -77,7 +78,33 @@ describe('pty output subscriber registry (Phase 55)', () => {
     expect(subscribersFor('pty-4')).toEqual([]);
   });
 
+  it('subscribing to many ptyIds registers only one closed listener, and closing drops all of them', () => {
+    const win = new FakeBrowserWindow();
+    for (let i = 0; i < 5; i += 1) {
+      subscribeWindowToPty(`pty-multi-${i}`, win as unknown as import('electron').BrowserWindow);
+    }
+    expect(win.closedHandlers).toHaveLength(1);
+
+    win.simulateClose();
+    for (let i = 0; i < 5; i += 1) {
+      expect(subscribersFor(`pty-multi-${i}`)).toEqual([]);
+    }
+  });
+
   it('a ptyId nobody subscribed to has no subscribers', () => {
     expect(subscribersFor('never-subscribed')).toEqual([]);
+  });
+
+  it('the main window always receives every ptyId, even with no explicit subscribe — and is deduplicated when it also does', () => {
+    // Regression guard: use-session-exits.ts and CouncilLiveOutput read
+    // pty.onData/onExit for a ptyId they never call pty.subscribe for, on
+    // the pre-Phase-55 guarantee that main got everything unconditionally.
+    const main = new FakeBrowserWindow();
+    registerMainWindow(main as unknown as import('electron').BrowserWindow);
+
+    expect(subscribersFor('pty-never-subscribed-by-main').map((w) => w.id)).toEqual([main.id]);
+
+    subscribeWindowToPty('pty-5', main as unknown as import('electron').BrowserWindow);
+    expect(subscribersFor('pty-5').map((w) => w.id)).toEqual([main.id]);
   });
 });

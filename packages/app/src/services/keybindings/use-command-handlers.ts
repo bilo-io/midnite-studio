@@ -63,6 +63,9 @@ export function useCommandHandlers(): CommandRuntime {
   const reposDetached = useUiStore((s) => s.reposDetached);
   const fabDetached = useUiStore((s) => s.fabDetached);
   const browserDetached = useUiStore((s) => s.browserDetached);
+  // The four *Detached flags and the panel-open flags below are main's own
+  // — a popout's own ui-store instance never reflects them (see ui-store.ts).
+  const isMainWindow = (bridge()?.windowRole ?? 'main') === 'main';
   // `window.detachActive`'s target — the first open, undetached panel in a
   // fixed priority order. There is no hover/focus tracking to say which
   // panel a user actually means by "active", so this covers the common
@@ -158,37 +161,55 @@ export function useCommandHandlers(): CommandRuntime {
       the first OPEN, undetached panel in a fixed priority order — terminal,
       browser, loops, repos — which covers the common single-panel case
       without new state.
+
+      All five are disabled outright OUTSIDE the main window: they read and
+      write main's OWN `ui-store` flags (`terminalOpen`, `*Detached`, …), which
+      a popout's own separate store instance never reflects. Without this
+      gate, `Mod+Shift+D` fired inside a popout resolves `activeDetachRole`
+      against that popout's stale, frozen-at-mount snapshot and can detach an
+      entirely different, still-docked panel the user never meant to touch.
     */
-    'window.detachTerminal': terminalDetached
-      ? { enabled: false, disabledReason: 'Already open in a detached window', run: () => {} }
-      : { enabled: true, run: () => bridge()?.window.detach({ role: 'terminal' }) },
-    'window.detachRepos': reposDetached
-      ? { enabled: false, disabledReason: 'Already open in a detached window', run: () => {} }
-      : { enabled: true, run: () => bridge()?.window.detach({ role: 'repos' }) },
-    'window.detachFab': fabDetached
-      ? { enabled: false, disabledReason: 'Already open in a detached window', run: () => {} }
-      : {
-          enabled: true,
-          run: () => {
-            // Collapses the docked slot so the floating FAB button reappears
-            // (dimmed, per its own `fabDetached` read) rather than sitting
-            // open beside a popout that already shows the same panel.
-            useUiStore.getState().setFabPanelOpen(false);
-            bridge()?.window.detach({ role: 'fab' });
+    'window.detachTerminal': !isMainWindow
+      ? { enabled: false, disabledReason: 'Only available in the main window', run: () => {} }
+      : terminalDetached
+        ? { enabled: false, disabledReason: 'Already open in a detached window', run: () => {} }
+        : { enabled: true, run: () => bridge()?.window.detach({ role: 'terminal' }) },
+    'window.detachRepos': !isMainWindow
+      ? { enabled: false, disabledReason: 'Only available in the main window', run: () => {} }
+      : reposDetached
+        ? { enabled: false, disabledReason: 'Already open in a detached window', run: () => {} }
+        : { enabled: true, run: () => bridge()?.window.detach({ role: 'repos' }) },
+    'window.detachFab': !isMainWindow
+      ? { enabled: false, disabledReason: 'Only available in the main window', run: () => {} }
+      : fabDetached
+        ? { enabled: false, disabledReason: 'Already open in a detached window', run: () => {} }
+        : {
+            enabled: true,
+            run: () => {
+              // Collapses the docked slot so the floating FAB button
+              // reappears (dimmed, per its own `fabDetached` read) rather
+              // than sitting open beside a popout that already shows the
+              // same panel.
+              useUiStore.getState().setFabPanelOpen(false);
+              bridge()?.window.detach({ role: 'fab' });
+            },
           },
-        },
-    'window.detachBrowser': browserDetached
-      ? { enabled: false, disabledReason: 'Already open in a detached window', run: () => {} }
-      : { enabled: true, run: () => bridge()?.window.detach({ role: 'browser' }) },
-    'window.detachActive': activeDetachRole
-      ? {
-          enabled: true,
-          run: () => {
-            if (activeDetachRole === 'fab') useUiStore.getState().setFabPanelOpen(false);
-            bridge()?.window.detach({ role: activeDetachRole });
-          },
-        }
-      : { enabled: false, disabledReason: 'No open panel to detach', run: () => {} },
+    'window.detachBrowser': !isMainWindow
+      ? { enabled: false, disabledReason: 'Only available in the main window', run: () => {} }
+      : browserDetached
+        ? { enabled: false, disabledReason: 'Already open in a detached window', run: () => {} }
+        : { enabled: true, run: () => bridge()?.window.detach({ role: 'browser' }) },
+    'window.detachActive': !isMainWindow
+      ? { enabled: false, disabledReason: 'Only available in the main window', run: () => {} }
+      : activeDetachRole
+        ? {
+            enabled: true,
+            run: () => {
+              if (activeDetachRole === 'fab') useUiStore.getState().setFabPanelOpen(false);
+              bridge()?.window.detach({ role: activeDetachRole });
+            },
+          }
+        : { enabled: false, disabledReason: 'No open panel to detach', run: () => {} },
     'activity.toggle': {
       enabled: true,
       run: () => useUiStore.getState().toggleActivityTimeline(),
