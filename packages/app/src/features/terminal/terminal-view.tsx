@@ -8,12 +8,14 @@ import { useCallback, useEffect, useRef, useState } from 'react';
 import { bridge } from '../../services/bridge';
 import { shouldEscapeTerminal } from '../../services/keybindings/use-keybindings';
 import { openExternal } from '../../services/queries';
+import { useUiStore } from '../../store/ui-store';
 import { EndedStrip } from './ended-banner';
 import { isXtermFocusReport } from './is-xterm-focus-report';
 import { parseOsc7 } from './parse-osc7';
 import { createReplayGate } from './replay-gate';
 import { attachTerminalLinks } from './terminal-links';
 import { agentInput } from './terminal-panel';
+import { terminalFontOptions } from './terminal-font';
 import { sessionPhase, useTerminalStore } from './terminal-store';
 import { useAgents } from './use-agents';
 import { useDevicePixelRatio } from './use-device-pixel-ratio';
@@ -127,6 +129,17 @@ export function TerminalView({
   /** Set only when the WebGL addon actually loaded — null on the DOM-renderer fallback. */
   const webglRef = useRef<WebglAddon | null>(null);
   const [ready, setReady] = useState(false);
+
+  /**
+   * Cell metrics (Phase 51 Theme B) — read reactively so the live-apply
+   * effect below re-runs on every change, but NOT a dependency of the mount
+   * effect that constructs the `Terminal` (that effect deliberately runs
+   * once per session; it reads the current value off the store directly at
+   * construction time instead).
+   */
+  const terminalFontFamily = useUiStore((s) => s.terminalFontFamily);
+  const terminalFontSize = useUiStore((s) => s.terminalFontSize);
+  const terminalLineHeight = useUiStore((s) => s.terminalLineHeight);
   /**
    * The last size actually sent to the shell, so `safeFit` can skip a resize
    * that would repeat it.
@@ -268,16 +281,41 @@ export function TerminalView({
     term.refresh(0, term.rows - 1);
   }, [dpr, safeFit]);
 
+  /**
+   * A `Settings ▸ Terminal` font/line-height change reaches every already-
+   * mounted terminal — not just the next one created — by writing the
+   * options onto the live instance rather than rebuilding it. Rebuilding
+   * would drop the pane's scrollback and re-fetch up to 1 MiB of snapshot
+   * per session for what is only a font tweak.
+   */
+  useEffect(() => {
+    const term = termRef.current;
+    if (!term) return;
+    Object.assign(
+      term.options,
+      terminalFontOptions({
+        fontFamily: terminalFontFamily,
+        fontSize: terminalFontSize,
+        lineHeight: terminalLineHeight,
+      }),
+    );
+    safeFit();
+    term.refresh(0, term.rows - 1);
+  }, [terminalFontFamily, terminalFontSize, terminalLineHeight, safeFit]);
+
   useEffect(() => {
     const container = containerRef.current;
     if (termRef.current || !container) return;
 
+    const initialFont = useUiStore.getState();
     const term = new Terminal({
       convertEol: false,
       cursorBlink: true,
-      fontFamily:
-        '"MesloLGS NF", "Hack Nerd Font Mono", "JetBrainsMono Nerd Font Mono", "FiraCode Nerd Font Mono", ui-monospace, SFMono-Regular, "SF Mono", Menlo, monospace',
-      fontSize: 12,
+      ...terminalFontOptions({
+        fontFamily: initialFont.terminalFontFamily,
+        fontSize: initialFont.terminalFontSize,
+        lineHeight: initialFont.terminalLineHeight,
+      }),
       // Honored by the WebGL renderer below: box-drawing and powerline glyphs
       // are drawn by xterm itself instead of looked up in the font.
       customGlyphs: true,

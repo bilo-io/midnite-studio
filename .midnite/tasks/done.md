@@ -2,6 +2,37 @@
 
 <!-- Append one entry per landed phase/PR: date, phase, PR link, one-line summary. -->
 
+## 2026-09-04 — Phase 51 Theme B — explicit cell metrics, and a font the user can set
+
+[PR #117]. Independent of Theme A: `fontSize: 12` was the only metric this repo ever set, with no
+`lineHeight`, `letterSpacing`, `fontWeight` or `fontWeightBold` anywhere, so xterm computed a
+fractional cell height the WebGL renderer rounds per row.
+
+- [x] **`terminal-font.ts`.** `terminalFontOptions(settings)` resolves a possibly-partial,
+      possibly-blank settings object into a complete xterm options object with no `undefined`
+      fields: `fontFamily`/`fontSize`/`lineHeight` from the user (falling back to the Nerd Font
+      stack, `12`, `1` respectively — xterm's own defaults, so no existing pane's rendering
+      changes), plus `letterSpacing: 0`/`fontWeight: 'normal'`/`fontWeightBold: 'bold'`, fixed,
+      repo-owned decisions rather than user-facing settings.
+- [x] **`ui-store.ts`.** `terminalFontFamily`/`terminalFontSize`/`terminalLineHeight`, persisted
+      like every other scalar setting. **Correction to the doc:** no `merge` change was needed —
+      `merge`'s per-key re-spreading exists only for *nested* persisted objects a shallow spread
+      would clobber; plain scalars already get a missing key's current default from the top-level
+      spread, the same shape `workflowDefaultTimeoutS`/`workflowRunHistoryCap` already used.
+- [x] **`Settings ▸ Terminal ▸ Appearance`** (new accordion): a `TextField` for font family
+      (blank, placeholder-only by default) and two sliders (font size 9–20px, line height 1–1.6),
+      mirroring `workflows-page.tsx`'s own slider pattern.
+- [x] **`terminal-view.tsx`.** The `Terminal` constructor reads a store snapshot through
+      `terminalFontOptions()` at mount (not a reactive dependency — the mount effect stays
+      once-per-session); a second effect reacts to the three settings and writes them onto the
+      *live* instance via `Object.assign(term.options, ...)`, then `safeFit()` + `refresh()` — no
+      remount, no dropped scrollback, no re-fetched snapshot.
+- [x] 15 new tests: 4 in `terminal-font.test.ts` (defaults, blank-family fallback, per-field
+      override, the no-`undefined`-field invariant) and 11 RTL tests in `terminal-page.test.tsx`
+      covering the new Appearance section (persisted-value render, each control updating the
+      store). The live-apply wiring inside `terminal-view.tsx` has no test of its own, for the
+      same live-xterm-context reason Theme A's `clearTextureAtlas()` wiring doesn't.
+
 ## 2026-09-04 — Phase 51 Theme A — text that survives a change of display
 
 [PR #115]. Opens Phase 51: `devicePixelRatio` was never read anywhere in this repo, so the WebGL
