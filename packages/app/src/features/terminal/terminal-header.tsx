@@ -1,3 +1,5 @@
+import { createPortal } from 'react-dom';
+
 import type { AgentDefinition, RepoDescriptor } from '@midnite/studio-shared';
 import {
   LuChevronDown,
@@ -10,6 +12,7 @@ import {
   LuX,
 } from 'react-icons/lu';
 
+import { usePopoutHeaderActions } from '../../components/detached-window-frame';
 import { IconButton } from '../../components/icon-button';
 import { resolveAgentIcon } from '../../components/icons';
 import { StateDot } from '../../components/state-dot';
@@ -64,6 +67,65 @@ export function TerminalHeader({
   // reuses `<TerminalPanel>` verbatim) — the detach button would otherwise
   // advertise "detach me into a window" while already being one.
   const isPopout = (bridge()?.windowRole ?? 'main') !== 'main';
+  // Set only once popped out AND the window actually has a frameless title
+  // bar to merge into (`DetachedWindowFrame`) — a plain browser tab or a
+  // non-mac popout falls back to the row below, unchanged.
+  const portalTarget = usePopoutHeaderActions();
+
+  const buttons = (
+    <>
+      <IconButton
+        icon={LuList}
+        label={showList ? 'Hide session list' : 'Show session list'}
+        size="sm"
+        aria-pressed={showList}
+        {...(listable ? {} : { disabled: true, disabledReason: 'Only one session is open' })}
+        onClick={() => useUiStore.getState().toggleTerminalList()}
+      />
+      <IconButton
+        icon={LuPlus}
+        label="New terminal or agent"
+        size="sm"
+        aria-expanded={false}
+        onClick={onNewMenu}
+      />
+      <IconButton
+        icon={maximized ? LuChevronDown : LuChevronUp}
+        label={maximized ? 'Restore terminal height' : 'Expand terminal'}
+        size="sm"
+        aria-pressed={maximized}
+        onClick={() => useUiStore.getState().toggleTerminalMaximized()}
+      />
+      <IconButton
+        icon={LuX}
+        label="Hide terminal"
+        size="sm"
+        onClick={() => useUiStore.getState().setTerminalOpen(false)}
+      />
+    </>
+  );
+
+  if (isPopout && portalTarget) {
+    // Merged into the window's own title bar (`DetachedWindowFrame`'s `left`
+    // already carries the mark and the title) — everything this row used to
+    // show to the right of them moves here verbatim, minus the `ml-auto`
+    // trick, which existed only to share a row with that mark.
+    return createPortal(
+      <>
+        <StateDot state={state} />
+        <HeaderPath path={path} repos={repos} />
+        {broker.mode === 'inproc' && broker.reason ? (
+          <Tooltip label={`Sessions will not survive quit — ${broker.reason}`}>
+            <div className="flex items-center text-amber-500" tabIndex={0} role="status">
+              <LuTriangleAlert className="h-3.5 w-3.5" />
+            </div>
+          </Tooltip>
+        ) : null}
+        <div className="flex shrink-0 items-center gap-0.5">{buttons}</div>
+      </>,
+      portalTarget,
+    );
+  }
 
   return (
     /*
@@ -104,36 +166,7 @@ export function TerminalHeader({
       ) : null}
 
       {/* `ml-auto` and shrink-0: the path is the only thing that gives ground. */}
-      <div className="ml-auto flex shrink-0 items-center gap-0.5">
-        <IconButton
-          icon={LuList}
-          label={showList ? 'Hide session list' : 'Show session list'}
-          size="sm"
-          aria-pressed={showList}
-          {...(listable ? {} : { disabled: true, disabledReason: 'Only one session is open' })}
-          onClick={() => useUiStore.getState().toggleTerminalList()}
-        />
-        <IconButton
-          icon={LuPlus}
-          label="New terminal or agent"
-          size="sm"
-          aria-expanded={false}
-          onClick={onNewMenu}
-        />
-        <IconButton
-          icon={maximized ? LuChevronDown : LuChevronUp}
-          label={maximized ? 'Restore terminal height' : 'Expand terminal'}
-          size="sm"
-          aria-pressed={maximized}
-          onClick={() => useUiStore.getState().toggleTerminalMaximized()}
-        />
-        <IconButton
-          icon={LuX}
-          label="Hide terminal"
-          size="sm"
-          onClick={() => useUiStore.getState().setTerminalOpen(false)}
-        />
-      </div>
+      <div className="ml-auto flex shrink-0 items-center gap-0.5">{buttons}</div>
     </div>
   );
 }

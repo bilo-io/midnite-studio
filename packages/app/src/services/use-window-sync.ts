@@ -48,7 +48,7 @@ export function useWindowSync(): void {
         store.setDetached(role, detached);
         // Re-docking the browser: the popout's own `browser-store` was the
         // live copy of the tab list while detached (main's own instance sat
-        // idle behind a `DetachedPlaceholder`, and `reparentBrowserTabs`
+        // idle behind its collapsed slot, and `reparentBrowserTabs`
         // only moves native `WebContentsView`s, not this renderer-side
         // bookkeeping). Both windows are same-origin and share
         // `localStorage`, and the popout's `persist` middleware writes to it

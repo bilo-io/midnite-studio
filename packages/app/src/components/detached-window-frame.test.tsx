@@ -1,7 +1,7 @@
 import { render, screen } from '@testing-library/react';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
-import { DetachedWindowFrame } from './detached-window-frame';
+import { DetachedWindowFrame, usePopoutHeaderActions } from './detached-window-frame';
 
 const mockBridge = {
   windowChrome: {
@@ -47,5 +47,57 @@ describe('DetachedWindowFrame', () => {
     const root = container.firstElementChild as HTMLElement;
     expect(root).toBeDefined();
     expect(root.style.paddingTop).toBe('var(--titlebar-h, 0px)');
+  });
+
+  it('merges terminal/repos/browser into the bar: dock-on-hover mark, no separate re-dock button', () => {
+    render(
+      <DetachedWindowFrame role="repos" title="Git Repos">
+        <div data-testid="content">Repos Content</div>
+      </DetachedWindowFrame>,
+    );
+
+    expect(screen.getByText('Git Repos')).toBeDefined();
+    expect(screen.queryByLabelText('Re-dock Git Repos')).toBeNull();
+
+    screen.getByLabelText('Dock Git Repos').click();
+    expect(mockBridge.window.dock).toHaveBeenCalledWith({ role: 'repos' });
+  });
+
+  it('leaves the FAB popout on the plain generic frame — a dedicated re-dock button, no merged mark', () => {
+    render(
+      <DetachedWindowFrame role="fab" title="Midnite Loops">
+        <div data-testid="content">Loops Content</div>
+      </DetachedWindowFrame>,
+    );
+
+    expect(screen.getByText('Midnite Loops')).toBeDefined();
+    expect(screen.queryByLabelText('Dock Midnite Loops')).toBeNull();
+
+    screen.getByLabelText('Re-dock Midnite Loops').click();
+    expect(mockBridge.window.dock).toHaveBeenCalledWith({ role: 'fab' });
+  });
+
+  it('exposes the merged bar action slot only for a merged role', () => {
+    let slotForRepos: HTMLDivElement | null = null;
+    let slotForFab: HTMLDivElement | null = null;
+
+    function ReadSlot({ into }: { into: (el: HTMLDivElement | null) => void }) {
+      into(usePopoutHeaderActions());
+      return null;
+    }
+
+    render(
+      <DetachedWindowFrame role="repos" title="Git Repos">
+        <ReadSlot into={(el) => (slotForRepos = el)} />
+      </DetachedWindowFrame>,
+    );
+    render(
+      <DetachedWindowFrame role="fab" title="Midnite Loops">
+        <ReadSlot into={(el) => (slotForFab = el)} />
+      </DetachedWindowFrame>,
+    );
+
+    expect(slotForRepos).not.toBeNull();
+    expect(slotForFab).toBeNull();
   });
 });
