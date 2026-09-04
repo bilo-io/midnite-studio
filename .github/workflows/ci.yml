@@ -69,15 +69,14 @@ jobs:
   # minutes — affordable precisely because this lane is ubuntu at 1x rather
   # than macOS at 10x.
   #
-  # Workers held at the default (cores/2 = ONE) from the day this job was
-  # sharded through Phase 56 Themes A/B/E, on the theory that raising them on
-  # a 2-core runner oversubscribes it. Phase 56 Theme C tries `workers: 2`
-  # (set in `playwright.config.ts`, `process.env.CI`-gated) against that
-  # theory: this suite spends most of its time waiting on the local Vite
-  # server and the DOM rather than saturating a core, so two workers may not
-  # thrash the way a CPU-bound suite would. Measured against real shard
-  # timing and flake rate before landing either way — see the base config's
-  # own comment for the verdict.
+  # Workers stay at the default (cores/2 = ONE) ON PURPOSE. Raising them on a
+  # 2-core runner oversubscribes it — Phase 56 Theme C measured `workers: 2`
+  # against this suite's actual profile (mostly waiting on the local Vite
+  # server and the DOM, not CPU-bound) rather than assuming the theory held,
+  # and three full CI runs (24 shard-attempts) came back green with no
+  # measured speedup (~4m28s/shard average vs. this baseline's ~4m22s). See
+  # `playwright.config.ts`'s own comment for the numbers. Add shards, not
+  # workers.
   #
   # `timeout-minutes` is not decoration. Without it a job inherits GitHub's
   # 6-HOUR default, and the first attempt at this one looked hung at 22 minutes
