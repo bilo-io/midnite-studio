@@ -595,6 +595,14 @@ export const CHANNELS = {
   windowList: 'mstudio:window:list',
   /** Focus (and un-minimize) the window hosting a role, without detaching it. */
   windowFocusRole: 'mstudio:window:focus-role',
+  /**
+   * Renderer → main, fire-and-forget: rebroadcast a cross-window sync message
+   * (Theme E) to every *other* window. The main-process relay is the
+   * authoritative transport — `BroadcastChannel` is a same-origin fast path
+   * layered on top, and cannot be relied on alone once the packaged app loads
+   * renderers from `file://`, where origins can be opaque per window.
+   */
+  windowRelay: 'mstudio:window:relay',
   /** Subscribe this window to one pty's output — see `pty-service.ts`'s registry. */
   ptySubscribe: 'mstudio:pty:subscribe',
   ptyUnsubscribe: 'mstudio:pty:unsubscribe',
@@ -686,6 +694,8 @@ export const EVENT_CHANNELS = {
    * live consumers keyed on that shape.
    */
   windowsChanged: 'mstudio:window:windows-changed',
+  /** A `windowRelay` message rebroadcast to every window except its origin. */
+  windowRelayed: 'mstudio:window:relayed',
 } as const;
 
 /**

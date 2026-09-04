@@ -49,7 +49,7 @@ Completed work is logged append-only in [`done.md`](done.md). Deferred scope liv
 
 | Phase | Status | Refined | Done | Progress | % | 🔄 WIP | ◻ TODO |
 |-------|--------|---------|------|----------|---|--------|--------|
-| [55 · Multi-Window Studio & Detachable Panels](phases/phase-55-multi-window-studio.md) | 🔄 WIP | x1 | 19/32 | `██████░░░░` | 59% | E F G | |
+| [55 · Multi-Window Studio & Detachable Panels](phases/phase-55-multi-window-studio.md) | 🔄 WIP | x1 | 31/32 | `█████████░` | 97% | | |
 | [54 · An Issues view](phases/phase-54-issues-view.md) | 🔄 WIP | — | 43/45 | `██████████` | 96% | — | Verification (2 human passes) |
 | [53 · The first release](phases/phase-53-first-release.md) | ◻ TODO | — | 0/42 | `░░░░░░░░░░` | 0% | — | A B C D E F G H |
 | [52 · Projects, the Board, and Workflows, navigable](phases/phase-52-projects-navigation.md) | ✅ DONE | — | 40/43 | `█████████░` | 93% | — | Verification (3 human passes) |
@@ -119,9 +119,9 @@ Completed work is logged append-only in [`done.md`](done.md). Deferred scope liv
 - ✅ **B** ([PR #139](https://github.com/bilo-io/midnite-studio/pull/139)) — Universal top-left dock/undock affordances: hover morphs copying `terminal-session-list.tsx`'s fixed-size box, a `<TitleBar>`-reusing popout frame, `Mod+Shift+d` plus four chord-free palette rows, and one uniform re-dock strip for all four panels. The FAB detach button rides in the existing tab-bar row, not a new header — a dedicated header cost 28px the panel didn't have to spare, caught by CI.
 - ✅ **C** ([PR #139](https://github.com/bilo-io/midnite-studio/pull/139)) — Detachable Terminal & FAB Loops popouts — gated on the per-`ptyId` subscriber registry that replaces `pty-service.ts`'s single-window `getWindowThunk`, without which a popout terminal receives nothing. The registry always unions in the main window regardless of explicit subscription, since `use-session-exits.ts` and `CouncilLiveOutput` rely on the pre-existing broadcast-to-main guarantee and never subscribe themselves.
 - ✅ **D** ([PR #139](https://github.com/bilo-io/midnite-studio/pull/139)) — Detachable Embedded Browser: `WebContentsView` reparenting via the `win` that `Tracked` already carries, all tabs moving as a set, and `activateBrowserTab` narrowed to one window.
-- ◻ **E** — Cross-window sync: a main-process relay as the authority (packaged renderers are `file://`, where `BroadcastChannel` may never fire) with an explicit field allowlist, `invalidateForWatchKind` reused for cache invalidation, and theme flips relayed.
-- ◻ **F** — Verification: bare vitest in `packages/desktop` plus a human multi-monitor pass — the e2e suite mocks the bridge and cannot see a second window — and the `window*` guard block `ipc.test.ts` currently lacks.
-- ◻ **G** — The invariants that stay single-window: metrics bound to the main window, popout crash re-docking, off-screen bounds clamped against `screen.getAllDisplays()`, and per-window logging.
+- ✅ **E** ([PR #143](https://github.com/bilo-io/midnite-studio/pull/143)) — Cross-window sync: a main-process relay as the authority (packaged renderers are `file://`, where `BroadcastChannel` may never fire) with an explicit field allowlist, `invalidateForWatchKind` reused for cache invalidation, and theme flips relayed.
+- ◐ **F** ([PR #143](https://github.com/bilo-io/midnite-studio/pull/143)) — Verification: bare vitest in `packages/desktop` and the `window*` guard block `ipc.test.ts` was missing, plus the `detached-panels-shots.spec.ts` screenshot suite. F.3, the human multi-monitor pass, stays open — the e2e suite mocks the bridge and cannot see a second window.
+- ✅ **G** ([PR #143](https://github.com/bilo-io/midnite-studio/pull/143)) — The invariants that stay single-window: metrics bound to the main window, popout crash re-docking, off-screen bounds clamped against `screen.getAllDisplays()`, and per-window logging.
 
 ### [Phase 54 — An Issues view](phases/phase-54-issues-view.md)
 
