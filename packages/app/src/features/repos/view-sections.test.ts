@@ -159,6 +159,7 @@ describe('view ids', () => {
       history: false,
       councils: false,
       workflows: false,
+      video: false,
       sessions: false,
       settings: false,
     };

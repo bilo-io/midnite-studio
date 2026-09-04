@@ -20,6 +20,7 @@ import {
   getProject,
   listAreaFiles,
   listOutputFiles,
+  readProjectFile,
   removeProject,
   type VideoFileEntry,
 } from './video/project-discovery';
@@ -146,6 +147,12 @@ export async function listVideoProjectFiles(
   const root = await requireRoot();
   if (!root.ok) return [];
   return listAreaFiles(root.value, area, projectId);
+}
+
+export async function readVideoProjectFile(projectId: string, relPath: string): Promise<string | null> {
+  const root = await requireRoot();
+  if (!root.ok) return null;
+  return readProjectFile(root.value, projectId, relPath);
 }
 
 // --- studio --------------------------------------------------------------

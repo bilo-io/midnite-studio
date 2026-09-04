@@ -738,6 +738,15 @@ export type MidniteStudioBridge = {
     files: (
       req: In<typeof S.VideoProjectFilesRequest>,
     ) => Promise<z.infer<typeof S.VideoProjectFilesResponse>>;
+    /** One text file's content, read-only — `BRIEF.md`/`EDITORIAL_SCRIPT.md` (Theme F). */
+    readFile: (
+      req: In<typeof S.VideoProjectReadFileRequest>,
+    ) => Promise<z.infer<typeof S.VideoProjectReadFileResponse>>;
+    /** The Settings page's own read/write of the one setting Video Studio has. */
+    root: {
+      get: () => Promise<z.infer<typeof S.VideoRootGetResponse>>;
+      set: (req: In<typeof S.VideoRootSetRequest>) => Promise<z.infer<typeof S.VideoRootSetResponse>>;
+    };
     onStudioChanged: (handler: (event: z.infer<typeof S.VideoStudioChangedPayload>) => void) => Unsubscribe;
     onRenderProgress: (handler: (event: z.infer<typeof S.VideoRenderProgressPayload>) => void) => Unsubscribe;
   };

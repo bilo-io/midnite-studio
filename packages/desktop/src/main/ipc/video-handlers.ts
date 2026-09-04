@@ -3,9 +3,12 @@ import { CHANNELS, failure, ok, schemas } from '@midnite/studio-shared';
 import {
   createVideoProject,
   getVideoProject,
+  getVideoRoot,
   listVideoProjectFiles,
   listVideoProjects,
+  readVideoProjectFile,
   removeVideoProject,
+  setVideoRoot,
   videoRenderCancel,
   videoRenderList,
   videoRenderStart,
@@ -105,5 +108,24 @@ export function registerVideoHandlers(): void {
     schemas.VideoProjectFilesRequest,
     async ({ projectId, area }) => ({ entries: await listVideoProjectFiles(projectId, area) }),
     () => ({ entries: [] }),
+  );
+
+  handle(
+    CHANNELS.videoProjectReadFile,
+    schemas.VideoProjectReadFileRequest,
+    async ({ projectId, relPath }) => ({ content: await readVideoProjectFile(projectId, relPath) }),
+    () => ({ content: null }),
+  );
+
+  handleBare(CHANNELS.videoRootGet, async () => ({ root: await getVideoRoot() }));
+
+  handle(
+    CHANNELS.videoRootSet,
+    schemas.VideoRootSetRequest,
+    async ({ root }) => {
+      await setVideoRoot(root);
+      return { root };
+    },
+    () => ({ root: null }),
   );
 }

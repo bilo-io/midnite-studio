@@ -12,6 +12,7 @@ import {
   getProject,
   listAreaFiles,
   listOutputFiles,
+  readProjectFile,
   removeProject,
 } from './project-discovery';
 
@@ -301,5 +302,34 @@ describe('listAreaFiles', () => {
     const root = await tempDir();
     expect(await listAreaFiles(root, 'input', '../../../../etc')).toEqual([]);
     expect(await listAreaFiles(root, 'output', '../../../../etc')).toEqual([]);
+  });
+});
+
+describe('readProjectFile', () => {
+  it('reads a file relative to the project folder', async () => {
+    const root = await tempDir();
+    await writeProject(root, 'p1');
+    await mkdir(join(root, 'projects', 'p1', 'input'), { recursive: true });
+    await writeFile(join(root, 'projects', 'p1', 'input', 'BRIEF.md'), '# Brief\n', 'utf8');
+    expect(await readProjectFile(root, 'p1', 'input/BRIEF.md')).toBe('# Brief\n');
+  });
+
+  it('returns null for a path that escapes the project folder', async () => {
+    const root = await tempDir();
+    await writeProject(root, 'p1');
+    expect(await readProjectFile(root, 'p1', '../../../../etc/passwd')).toBeNull();
+  });
+
+  it('returns null for a file that does not exist', async () => {
+    const root = await tempDir();
+    await writeProject(root, 'p1');
+    expect(await readProjectFile(root, 'p1', 'nope.md')).toBeNull();
+  });
+
+  it('returns null for a directory (not a file)', async () => {
+    const root = await tempDir();
+    await writeProject(root, 'p1');
+    await mkdir(join(root, 'projects', 'p1', 'input'), { recursive: true });
+    expect(await readProjectFile(root, 'p1', 'input')).toBeNull();
   });
 });

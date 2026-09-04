@@ -368,6 +368,11 @@ const bridge: Pick<
     },
     toolchain: (req) => call(CHANNELS.videoToolchain, req),
     files: (req) => call(CHANNELS.videoProjectFiles, req),
+    readFile: (req) => call(CHANNELS.videoProjectReadFile, req),
+    root: {
+      get: () => call(CHANNELS.videoRootGet),
+      set: (req) => call(CHANNELS.videoRootSet, req),
+    },
     onStudioChanged: (handler) => subscribe(EVENT_CHANNELS.videoStudioChanged, handler),
     onRenderProgress: (handler) => subscribe(EVENT_CHANNELS.videoRenderProgress, handler),
   },

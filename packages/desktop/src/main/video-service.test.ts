@@ -41,6 +41,7 @@ import {
   createVideoProject,
   getVideoRoot,
   listVideoProjects,
+  readVideoProjectFile,
   removeVideoProject,
   setVideoRoot,
   videoRenderStart,
@@ -96,6 +97,10 @@ describe('root gating', () => {
     const result = await videoStudioStart('p1');
     expect(result.ok).toBe(false);
     expect(startStudio).not.toHaveBeenCalled();
+  });
+
+  it('readVideoProjectFile returns null with no root configured', async () => {
+    expect(await readVideoProjectFile('p1', 'BRIEF.md')).toBeNull();
   });
 
   it('videoRenderStart fails with no root configured, and never calls queueRender', async () => {

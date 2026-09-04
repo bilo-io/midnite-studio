@@ -549,6 +549,10 @@ export const CHANNELS = {
    * (`fsListDir` and friends) gains no video-shaped hole to reason about.
    */
   videoProjectFiles: 'mstudio:video:project-files',
+  videoProjectReadFile: 'mstudio:video:project-read-file',
+  /** The Settings page's own read/write of the one setting Video Studio has. */
+  videoRootGet: 'mstudio:video:root-get',
+  videoRootSet: 'mstudio:video:root-set',
 
   // --- onboarding kit scaffold (Phase 49) -----------------------------------
   // `plan` reads the template tree and the target repo, hashes both sides and

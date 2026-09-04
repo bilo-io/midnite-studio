@@ -119,6 +119,8 @@ const loadCouncilsView = () => import('./features/councils/councils-view');
 const CouncilsView = lazy(() => loadCouncilsView().then((m) => ({ default: m.CouncilsView })));
 const loadWorkflowsView = () => import('./features/workflows/workflows-view');
 const WorkflowsView = lazy(() => loadWorkflowsView().then((m) => ({ default: m.WorkflowsView })));
+const loadVideoView = () => import('./features/video/video-view');
+const VideoView = lazy(() => loadVideoView().then((m) => ({ default: m.VideoView })));
 const loadDashboardView = () => import('./features/dashboard/dashboard-view');
 const DashboardView = lazy(() => loadDashboardView().then((m) => ({ default: m.DashboardView })));
 const loadFilesView = () => import('./features/files/files-view');
@@ -345,6 +347,7 @@ const GIT_NAV_ITEMS: NavItem[] = [
 const AGENT_NAV_ITEMS: NavItem[] = [
   { view: 'councils', label: 'Councils', icon: VIEW_ICON.councils },
   { view: 'workflows', label: 'Workflows', icon: VIEW_ICON.workflows },
+  { view: 'video', label: 'Video', icon: VIEW_ICON.video },
   { view: 'sessions', label: 'Sessions', icon: VIEW_ICON.sessions },
 ];
 
@@ -1240,10 +1243,10 @@ function Shell() {
               >
                 {/*
                   The ternary's ORDER is load-bearing and does not change:
-                  `settings`, `councils` and `workflows` are global and must be
-                  reachable *before* the `!selectedRepoId` guard, or opening one
-                  of them with no repo selected would show the empty workspace
-                  instead.
+                  `settings`, `councils`, `workflows` and `video` are global and
+                  must be reachable *before* the `!selectedRepoId` guard, or
+                  opening one of them with no repo selected would show the
+                  empty workspace instead.
                 */}
                   {activeView === 'landing' ? (
                   // The landing page shows no repository, so like Settings and
@@ -1259,6 +1262,9 @@ function Shell() {
                 ) : activeView === 'workflows' ? (
                   // Global too (Phase 43) — a workflow is not scoped to a repo.
                   <WorkflowsView />
+                ) : activeView === 'video' ? (
+                  // Global too (Phase 44) — a video project is not a property of an open checkout.
+                  <VideoView />
                 ) : !selectedRepoId ? (
                   <EmptyWorkspace />
                 ) : activeView === 'dashboard' ? (

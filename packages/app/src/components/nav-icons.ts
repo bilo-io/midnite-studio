@@ -4,6 +4,7 @@ import { IoIosGitNetwork } from 'react-icons/io';
 import {
   LuActivity,
   LuBot,
+  LuClapperboard,
   LuDiff,
   LuDownload,
   LuFolderTree,
@@ -72,6 +73,7 @@ export const VIEW_ICON: Record<ViewId, IconType> = {
   history: LuScrollText,
   councils: LuUsers,
   workflows: LuWorkflow,
+  video: LuClapperboard,
   sessions: LuHistory,
   settings: LuSettings,
 };
@@ -95,6 +97,7 @@ export const SETTINGS_PAGE_ICON: Record<SettingsPageId, IconType> = {
   reviews: LuShieldCheck,
   projects: LuSquareKanban,
   workflows: LuWorkflow,
+  video: LuClapperboard,
   gitSafety: LuShieldAlert,
   monitor: LuActivity,
   browser: GoGlobe,

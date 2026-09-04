@@ -199,6 +199,27 @@ export async function removeProject(root: string, id: string): Promise<GitOpResu
   return ok();
 }
 
+/** Caps a runaway read — briefs and scripts are hand-written markdown, never megabytes. */
+const READ_FILE_SIZE_CAP = 2_000_000;
+
+/**
+ * One text file's content, read-only, for `BRIEF.md`/`EDITORIAL_SCRIPT.md`
+ * (Theme F). `relPath` is relative to the project's own folder — the same
+ * shape `readProject` already validates `source`/`brief`/`script` against —
+ * and this re-checks containment itself rather than trusting a prior read.
+ */
+export async function readProjectFile(root: string, projectId: string, relPath: string): Promise<string | null> {
+  const confined = await confineToRoot(root, join(PROJECTS_DIR, projectId, relPath));
+  if (confined === null) return null;
+  try {
+    const info = await stat(confined);
+    if (!info.isFile() || info.size > READ_FILE_SIZE_CAP) return null;
+    return await readFile(confined, 'utf8');
+  } catch {
+    return null;
+  }
+}
+
 export type VideoFileEntry = { name: string; isDir: boolean; size: number; mtimeMs: number };
 
 /**
