@@ -653,6 +653,13 @@ export async function installMockBridge(page: Page, fixtures: MockFixtures): Pro
     */
     const browserTabIds = new Set<string>();
     const browserEventHandlers: ((e: unknown) => void)[] = [];
+    /**
+     * Every `setVisible` call, in order — the only way a spec can see
+     * whether the real engine would currently be painting a tab, since
+     * there's no `WebContentsView` here for a screenshot to catch escaping
+     * its container.
+     */
+    const browserVisibleCalls: Array<{ tabId: string; visible: boolean }> = [];
 
     (window as unknown as { midniteStudio: unknown }).midniteStudio = {
       /*
@@ -1789,7 +1796,9 @@ export async function installMockBridge(page: Page, fixtures: MockFixtures): Pro
         reload: noop,
         stop: noop,
         setBounds: noop,
-        setVisible: noop,
+        setVisible: (req: { tabId: string; visible: boolean }) => {
+          browserVisibleCalls.push({ tabId: req.tabId, visible: req.visible });
+        },
         activate: noop,
         devtools: noop,
         find: noop,
@@ -2679,6 +2688,9 @@ export async function installMockBridge(page: Page, fixtures: MockFixtures): Pro
       for (const handler of [...browserEventHandlers]) handler(event);
     };
     (window as unknown as { __mstudioBrowserTabs: unknown }).__mstudioBrowserTabs = () => [...browserTabIds];
+    (window as unknown as { __mstudioBrowserVisibleCalls: unknown }).__mstudioBrowserVisibleCalls = () => [
+      ...browserVisibleCalls,
+    ];
     /*
       A getter, not the array: `loopRuns` is REASSIGNED on every start and
       stop (the ledger is immutable-updated the way main's is), so a spec
