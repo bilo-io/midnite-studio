@@ -2,6 +2,30 @@
 
 <!-- Append one entry per landed phase/PR: date, phase, PR link, one-line summary. -->
 
+## 2026-09-04 — Phase 56 Themes A, B, D, E — E2E shard scale-up, fullyParallel, retry trim, Vite cache
+
+[PR #148]. The four deterministic, config-only levers on e2e wall-clock speed, ahead of the
+`workers: 2` trial (Theme C, needs a live multi-run comparison) and the screenshot-gating/shots-helper
+work (Themes F/G, which touch 25 spec files each).
+
+- [x] **A** — e2e shard matrix 4 → 8 on `ubuntu-24.04`, `timeout-minutes` 20 → 10 (an eighth of the
+      suite fits well inside 3 minutes; 10 gives headroom for one retry before failing a real hang
+      fast). Measured on PR #148's own CI run: 3m24s–5m17s per shard, all 8 green — down from the
+      6m39s–7m30s baseline at 4 shards.
+- [x] **B** — `fullyParallel: true` in `playwright.config.ts`, inherited by `playwright.ci.config.ts`
+      (which spreads the base config object rather than overriding the key). No spec uses
+      `beforeAll`/`afterAll`/`describe.serial`, so nothing relied on file-scoped test ordering — a
+      full local run under the new config passed 583/586 non-skipped specs; the 3 failures all
+      reproduced as pre-existing flakiness in isolation (2 are `graph-themes.spec.ts` cascade specs
+      already carried in `playwright.ci.config.ts`'s `KNOWN_RED` as CI-only-red/local-green and
+      excluded from the CI-blocking task; the third, a `fab-loops.spec.ts` spec, passed 3/3 standalone).
+- [x] **D** — CI retries 2 → 1 in `playwright.config.ts`, now that `KNOWN_RED` is down to a single
+      file — a failing spec no longer burns up to 3 minutes per shard, just up to 2.
+- [x] **E** — `actions/cache@v4` for `packages/app/node_modules/.vite` in `ci.yml`, keyed on the
+      lockfile, `vite.config.ts` and a hash of `packages/app/src/**`, with an OS-scoped
+      `restore-keys` fallback. First run on the branch was necessarily a cold cache; the win applies
+      to the next run against the same source tree.
+
 ## 2026-09-04 — Phase 55 Themes E+F+G — Cross-window state sync, verification, and the single-window invariants
 
 [PR #143]. Closes out the standalone popouts Themes A-D shipped: the four detached windows now
