@@ -4,7 +4,6 @@ import { Tooltip } from '../../../components/tooltip';
 import { LazyTerminalView } from '../../terminal/lazy-terminal-view';
 import { revealSession } from '../../terminal/reveal-session';
 import { useTerminalStore } from '../../terminal/terminal-store';
-import { useCardTerminalSlot } from './card-terminal-mounts';
 
 /**
  * The terminal inside a running card (Phase 41 Theme E) — through
@@ -14,24 +13,18 @@ import { useCardTerminalSlot } from './card-terminal-mounts';
  *
  * Rendered only while `visible` — the caller (`TaskCard`) owns the
  * `IntersectionObserver` and falls back to `CardActivityLine` itself when
- * this card is off-screen, so "off-screen" and "visible but over the
- * four-terminal cap" stay visibly different states rather than collapsing
- * into one message.
+ * this card is off-screen. There is no longer a separate cap on how many
+ * card terminals may mount at once (Phase 51 Theme C retired
+ * `card-terminal-mounts.ts`'s `MAX_CARD_TERMINALS`, which existed only to
+ * ration the same WebGL contexts `xterm-budget.ts` now rations directly,
+ * process-wide) — a card over that budget still mounts, and degrades to the
+ * DOM renderer instead of not rendering at all.
  */
 export function CardTerminal({ sessionId, visible }: { sessionId: string; visible: boolean }) {
-  const granted = useCardTerminalSlot(sessionId, visible);
   const session = useTerminalStore((s) => s.sessions.find((row) => row.id === sessionId));
   const pendingInput = useTerminalStore((s) => s.pendingInput[sessionId]);
 
-  if (!session) return null;
-
-  if (!granted) {
-    return (
-      <p className="rounded border border-dashed border-border px-2 py-3 text-center text-[11px] text-muted-foreground">
-        Terminal running — open the card to watch
-      </p>
-    );
-  }
+  if (!session || !visible) return null;
 
   return (
     <div className="relative h-40 overflow-hidden rounded border border-border">

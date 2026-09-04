@@ -1,6 +1,7 @@
 import { CHANNELS, SCROLLBACK_BYTES, schemas } from '@midnite/studio-shared';
 import { ipcMain, type BrowserWindow } from 'electron';
 
+import { defaultLogger } from '../log';
 import {
   createPty,
   fetchScrollbackSnapshot,
@@ -32,7 +33,13 @@ export function registerPtyHandlers(_getWindow: () => BrowserWindow | null): voi
 
   ipcMain.on(CHANNELS.ptyInput, (_event, raw: unknown) => {
     const parsed = schemas.PtyInputRequest.safeParse(raw);
-    if (parsed.success) writePty(parsed.data.ptyId, parsed.data.data);
+    if (parsed.success) {
+      writePty(parsed.data.ptyId, parsed.data.data);
+    } else {
+      // A malformed payload here is a bug somewhere upstream — logged
+      // through the one log seam instead of vanishing (Phase 51 Theme F).
+      defaultLogger(`[pty] rejected malformed ptyInput payload: ${parsed.error.message}`);
+    }
   });
 
   ipcMain.on(CHANNELS.ptyResize, (_event, raw: unknown) => {

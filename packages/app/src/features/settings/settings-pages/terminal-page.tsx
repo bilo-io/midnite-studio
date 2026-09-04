@@ -1,6 +1,6 @@
 import type { AgentDefinition, SessionActivity, TerminalSession } from '@midnite/studio-shared';
 import { Accordion } from '@bilo-io/ui';
-import { LuActivity, LuBot, LuSquareTerminal, LuType } from 'react-icons/lu';
+import { LuActivity, LuBot, LuMonitor, LuSquareTerminal, LuType } from 'react-icons/lu';
 
 import {
   isAgentRow,
@@ -22,6 +22,7 @@ import {
 import { useNow } from '../../../lib/use-now';
 import { useAgents } from '../../terminal/use-agents';
 import { useUiStore, type TerminalSidebarSide } from '../../../store/ui-store';
+import { useXtermBudget, type XtermRenderer } from '../../terminal/xterm-budget';
 import { Choice, Field, TextField } from './controls';
 
 /** One row of the live readout below — a session, what it's doing, when last. */
@@ -75,6 +76,42 @@ export function activityRows(
     });
 }
 
+/** One row of the renderer readout below — a live session and what it's actually drawing with. */
+export type RendererRow = {
+  sessionId: string;
+  name: string;
+  /** `'unmounted'` means no `TerminalView` has reported in for this session yet. */
+  renderer: XtermRenderer | 'unmounted';
+};
+
+/**
+ * Every live session and which renderer it actually landed on (Phase 51
+ * Theme C) — pure, so the accordion around it is the only untested half.
+ *
+ * Every live session, not just agent rows: a plain shell's pane can fall to
+ * the DOM renderer exactly as an agent's can, and the bug this answers
+ * ("nothing ever said this pane is on the DOM renderer") was invisible for
+ * both kinds alike.
+ */
+export function rendererRows(
+  sessions: readonly TerminalSession[],
+  states: Record<string, ConnectionState | undefined>,
+  renderers: Record<string, XtermRenderer>,
+  agents: readonly AgentDefinition[],
+): RendererRow[] {
+  return sessions
+    .filter((s) => sessionPhase(s, states[s.id]) === 'live')
+    .map((s) => ({
+      sessionId: s.id,
+      name: sessionLabel(
+        s,
+        undefined,
+        s.kind === 'agent' ? agents.find((a) => a.id === s.agentId)?.label : undefined,
+      ),
+      renderer: renderers[s.id] ?? 'unmounted',
+    }));
+}
+
 /**
  * A one-second re-render tick, and nothing else — `activityRows` stays a pure
  * function of `(…, now)`, so this is the only thing on the page that owns a
@@ -115,6 +152,9 @@ export function TerminalPage() {
   const now = useNowTick();
   const rows = activityRows(sessions, states, activity, activityAt, liveAgentId, agents, now);
   const detectedAgentLabels = agents.filter((a) => a.activity !== undefined).map((a) => a.label);
+
+  const renderers = useXtermBudget((s) => s.renderers);
+  const rendererRowsList = rendererRows(sessions, states, renderers, agents);
 
   return (
     <div className="flex flex-col gap-3">
@@ -289,6 +329,41 @@ export function TerminalPage() {
               ? 'No agent in the roster has an activity detector.'
               : `Has a detector: ${detectedAgentLabels.join(', ')}.`}
           </p>
+        </div>
+      </Accordion>
+
+      <Accordion
+        title="Renderer"
+        icon={<LuMonitor className="h-4 w-4" />}
+        count={rendererRowsList.length}
+      >
+        <div className="flex flex-col gap-2 p-3">
+          <Field
+            label="Live sessions"
+            hint="Which renderer each live terminal actually landed on. A pane falls to DOM canvas when the process-wide WebGL budget is full or the GPU context was lost — everything still works, only the drawn glyphs degrade."
+          >
+            {rendererRowsList.length === 0 ? (
+              <p className="text-xs text-muted-foreground">No live sessions.</p>
+            ) : (
+              <ul className="flex flex-col gap-1">
+                {rendererRowsList.map((row) => (
+                  <li
+                    key={row.sessionId}
+                    className="flex items-center gap-2 rounded border border-border px-2 py-1.5 text-xs"
+                  >
+                    <span className="min-w-0 flex-1 truncate font-medium">{row.name}</span>
+                    <code className="rounded bg-muted px-1 py-0.5 font-mono text-[10px]">
+                      {row.renderer === 'webgl'
+                        ? 'WebGL'
+                        : row.renderer === 'dom'
+                          ? 'DOM canvas'
+                          : 'unmounted'}
+                    </code>
+                  </li>
+                ))}
+              </ul>
+            )}
+          </Field>
         </div>
       </Accordion>
     </div>
