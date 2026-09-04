@@ -14,7 +14,7 @@ import type { IconType } from 'react-icons';
 import { CiPower } from 'react-icons/ci';
 import { LuChevronLeft, LuSettings } from 'react-icons/lu';
 
-import { Brand, BrandHomeButton, BrandMark, Wordmark } from './components/brand';
+import { Brand, BrandHomeButton, BrandMark } from './components/brand';
 import { BrowserLauncher } from './features/browser/browser-launcher';
 import { BrowserPane } from './features/browser/browser-pane';
 import { DelayedFallback } from './components/delayed-fallback';
@@ -1121,9 +1121,6 @@ function Shell() {
       windowChrome={windowChrome}
       left={
         <div className="flex min-w-0 items-center">
-          <BrandHomeButton>
-            <Wordmark className="text-xs" />
-          </BrandHomeButton>
           <TitleBarNav />
           <span aria-hidden className="mx-1.5 h-4 w-px shrink-0 bg-border" />
           <SyncActions />
@@ -1176,9 +1173,6 @@ function Shell() {
         {framed ? (
           <div className="flex h-10 shrink-0 items-center justify-between gap-2 border-b border-border px-3">
             <div className="flex min-w-0 items-center">
-              <BrandHomeButton>
-                <Wordmark className="text-xs" />
-              </BrandHomeButton>
               <TitleBarNav />
               <span aria-hidden className="mx-1.5 h-4 w-px shrink-0 bg-border" />
               <SyncActions />
