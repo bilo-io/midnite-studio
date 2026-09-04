@@ -174,7 +174,7 @@ Effort tags: **S** ≈ an hour or two · **M** ≈ half a day · **L** ≈ a day
   wiring. Theme H's own bullet ("handlers, preload") owns that; this theme's functions are desktop-
   internal and unreachable from the renderer until then — mirroring Workflow's own Theme B/H split.
 
-### C — The toolchain probe and the studio host (M) — ◐ PARTIAL (PR #113, 2026-09-04)
+### C — The toolchain probe and the studio host (M) — ✅ DONE (PR #113 + PR #TBD, 2026-09-04)
 
 - [x] `desktop/src/main/video/toolchain.ts` — resolve `node` and `npx` through the **existing**
       [`login-shell.ts`](../../../packages/desktop/src/main/login-shell.ts) (`spawn(loginShell(),
@@ -194,13 +194,12 @@ Effort tags: **S** ≈ an hour or two · **M** ≈ half a day · **L** ≈ a day
 - [x] A studio that exits on its own transitions to `failed` carrying its last stderr lines, pushed
       over `videoStudioChanged`. A dev server that dies silently is the single most confusing
       failure this feature can have.
-- [ ] **Open, for Theme H:** every child killed on `before-quit` and on project removal, **by
-      process group** — the kill mechanism itself is already group-scoped (`stopStudio`/
-      `stopAllStudios` reuse `process-runner.ts`'s `realSpawn`, whose `kill()` signals
-      `-pid`), but nothing calls it from an app-lifecycle hook yet: that wiring is `main/index.ts`'s
-      `before-quit` handler, which is Theme H's job once Theme D's view exists to trigger project
-      removal from. A `remotion studio` surviving the app is a port leak the user cannot see and
-      cannot find.
+- [x] Every child killed on `before-quit` and on project removal, **by process group** — the kill
+      mechanism itself is already group-scoped (`stopStudio`/`stopAllStudios` reuse
+      `process-runner.ts`'s `realSpawn`, whose `kill()` signals `-pid`); `stopAllVideoProcesses()`
+      (Theme H) now runs from `main/index.ts`'s `before-quit` handler, and `removeVideoProject`
+      calls `stopStudio` before deleting a project's folder. A `remotion studio` surviving the app
+      is a port leak the user cannot see and cannot find.
 
 ### D — The Video view (L) — ✅ DONE (PR #TBD, 2026-09-04)
 
@@ -375,12 +374,17 @@ Effort tags: **S** ≈ an hour or two · **M** ≈ half a day · **L** ≈ a day
       round-trip (`project-discovery.test.ts`, Theme B/PR #112), and the path-containment refusal
       (all of the above, plus a new `resolveAreaFilePath` describe block covering the reveal/open
       hand-off's own confinement) — the four places this phase can be wrong without anyone noticing.
-- [ ] **Open, for a human:** screenshots of all five centre-pane states. The RTL suite
-      (`video-studio-pane.test.tsx`) already exercises all six states functionally (the fifth
-      un-enumerated one being "no project selected"), but no Playwright e2e spec exists for Video
-      Studio yet — `mock-bridge.ts` carries no `video.*` fixture support at all, and building that
-      (project list/studio lifecycle/render-progress event simulation) is a real addition in its
-      own right, not a rider on an already-large theme.
+- [x] Screenshots, and a real Playwright e2e spec, not just RTL. `mock-bridge.ts` gains `video.*`
+      fixture support (`video-studio.spec.ts`, `video-studio-shots.spec.ts`) — projects, studio
+      lifecycle, toolchain, and per-area files, mirroring `councils`' own "read once, mutated by
+      the CRUD calls" shape. **Caught by the e2e pass, not review:** a "pre-seed a project's studio
+      as already `failed`" fixture never reached the UI — `useVideoStudioStatus`'s own `initialData`
+      combined with `app.tsx`'s global `staleTime: Infinity` means the first real `status` fetch
+      never runs on mount, so a fixture-seeded status can only reach the UI through `studio.start`'s
+      own response (written directly via `setQueryData`, bypassing staleTime), never through an
+      initial fetch — exactly how production reaches a non-`stopped` state too, since studios are
+      session-scoped and only ever change through an explicit mutation or push event. Both specs
+      fixed to click Start before asserting the failed state, matching that real path.
 
 ## Files this phase touches
 
@@ -438,8 +442,7 @@ Effort tags: **S** ≈ an hour or two · **M** ≈ half a day · **L** ≈ a day
       root: list its `01-cop31-showreel` project, host its studio, read its changelog. The
       reference repo is the integration test, and this needs a real `remotion studio` process and a
       real interactive GUI pass neither of which this session could drive.
-- [ ] **Open, for a human:** screenshots per Theme H — see Theme H's own note on why (no e2e
-      mock-bridge support for `video.*` yet).
+- [x] Screenshots per Theme H — see Theme H's own note.
 
 ## Not in this phase
 

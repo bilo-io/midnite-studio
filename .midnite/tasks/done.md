@@ -230,8 +230,8 @@ only; the main panel's open sessions and the FAB's loop tabs spent from the same
 
 ## 2026-09-04 — Phase 44 Themes D, E, F, G, H — The Video view, and Claude in it
 
-[PR #TBD]. Closes out Theme D (view) and E/G (renders/assets) fully, and lands most of F (Claude
-actions) and H (wiring) with a handful of gaps recorded rather than silently skipped.
+[PR #TBD]. Closes out Themes C, D, E and G fully, and lands most of F (Claude actions) and H
+(wiring) with a handful of gaps recorded rather than silently skipped.
 
 - [x] **Theme D — the Video view.** `video` added to the `ViewId` union (after `workflows`, before
       `sessions`) and every one of the eight files that touches — `nav-icons.ts`'s exhaustive
@@ -290,10 +290,22 @@ actions) and H (wiring) with a handful of gaps recorded rather than silently ski
       since, not this phase's own contribution — confirmed by grepping the built manifest: Video
       Studio's own code is entirely in its own ~17 KB lazy chunk, and the entry chunk contains none
       of `@xterm`, `react-grid-layout`, `react-markdown` or `remark-gfm`.
-- [x] **Open, for a human:** screenshots of the five-plus centre-pane states (no e2e mock-bridge
-      support for `video.*` exists yet — a real addition in its own right), and a real interactive
-      pass against `~/Dev/ekko-videos` with `ps`-checked process cleanup on a cancelled render and
-      on quit with a studio and a render both live.
+- [x] `mock-bridge.ts` gains `video.*` fixture support, and a real Playwright e2e spec plus
+      screenshots (`video-studio.spec.ts`, `video-studio-shots.spec.ts`) — the empty state, the
+      three panes wired together, a failed studio with its stderr and a retry button, the
+      no-toolchain warning, and creating a project. **Caught a real bug in the process:** a fixture
+      pre-seeding a project's studio as already `failed` never reached the UI —
+      `useVideoStudioStatus`'s own `initialData` combined with `app.tsx`'s global
+      `staleTime: Infinity` means the first real `status` fetch never runs on mount, so a
+      fixture-seeded status can only reach the UI through `studio.start`'s own response (written
+      directly via `setQueryData`, bypassing staleTime) — exactly the path production reaches a
+      non-`stopped` state through too, since studios are session-scoped and only ever change via an
+      explicit mutation or push event. Both specs fixed to click Start before asserting the failed
+      state.
+- [x] **Open, for a human:** a real interactive pass against `~/Dev/ekko-videos` with `ps`-checked
+      process cleanup on a cancelled render and on quit with a studio and a render both live —
+      needs a real `remotion studio` process and a real GUI pass, neither of which this session
+      could drive.
 
 ## 2026-09-04 — Phase 54 Theme B — `gh issue view`, and the comments endpoint already in the tree
 
