@@ -90,6 +90,14 @@ describe('applyOptimisticMove', () => {
     expect(next).toEqual(items);
   });
 
+  it('a drag is refused under iteration grouping (Phase 52 Theme B) — its write payload differs and iteration writes are out of scope', () => {
+    const sprintField: ForgeProjectField = { id: 'f-sprint', name: 'Sprint', dataType: 'iteration' };
+    const items = [item()];
+    const next = applyOptimisticMove(items, 'item-1', sprintField, 'sprint-2');
+
+    expect(next).toEqual(items);
+  });
+
   it('leaves the original array untouched (returns a new one)', () => {
     const items = [item()];
     const next = applyOptimisticMove(items, 'item-1', STATUS_FIELD, 'opt-done');

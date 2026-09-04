@@ -734,3 +734,81 @@ describe('the primary agent', () => {
     expect(merged.primaryAgent).toBe('claude');
   });
 });
+
+describe('project view state, keyed by project (Phase 52 Theme D)', () => {
+  beforeEach(() => {
+    reset();
+    useUiStore.setState({ projectViewByProject: {}, projectBoardByRepo: {} });
+  });
+
+  it('has no entry until a project has ever been touched', () => {
+    expect(useUiStore.getState().projectViewByProject['proj-1']).toBeUndefined();
+  });
+
+  it('merges a patch over the previous view rather than replacing it', () => {
+    useUiStore.getState().setProjectView('proj-1', { groupFieldId: 'f1' });
+    useUiStore.getState().setProjectView('proj-1', { sort: { fieldId: 'f2', direction: 'asc' } });
+
+    expect(useUiStore.getState().projectViewByProject['proj-1']).toMatchObject({
+      groupFieldId: 'f1',
+      sort: { fieldId: 'f2', direction: 'asc' },
+    });
+  });
+
+  it('holds independent state per project', () => {
+    useUiStore.getState().setProjectView('proj-1', { groupFieldId: 'f1' });
+    useUiStore.getState().setProjectView('proj-2', { groupFieldId: 'f2' });
+
+    expect(useUiStore.getState().projectViewByProject['proj-1']?.groupFieldId).toBe('f1');
+    expect(useUiStore.getState().projectViewByProject['proj-2']?.groupFieldId).toBe('f2');
+  });
+
+  it('survives switching the active repo — it is keyed by project, not repo', () => {
+    useUiStore.getState().setProjectView('proj-1', { groupFieldId: 'f1' });
+    useUiStore.getState().selectRepo('repo-b');
+
+    expect(useUiStore.getState().projectViewByProject['proj-1']?.groupFieldId).toBe('f1');
+  });
+
+  it('the same project opened from a second repo shows the same view state', () => {
+    useUiStore.getState().setProjectBoard('repo-a', 'proj-1');
+    useUiStore.getState().setProjectView('proj-1', { groupFieldId: 'f1' });
+
+    useUiStore.getState().setProjectBoard('repo-b', 'proj-1');
+
+    expect(useUiStore.getState().projectViewByProject['proj-1']?.groupFieldId).toBe('f1');
+  });
+
+  it('persists the map', () => {
+    useUiStore.getState().setProjectView('proj-1', { groupFieldId: 'f1' });
+
+    const saved = JSON.parse(localStorage.getItem('midnite-studio.ui') ?? '{}') as {
+      state: { projectViewByProject: Record<string, { groupFieldId: string | null }> };
+    };
+    expect(saved.state.projectViewByProject['proj-1']).toMatchObject({ groupFieldId: 'f1' });
+  });
+
+  it('a payload predating the key merges in as an empty map, not undefined', () => {
+    const merged = useUiStore.persist.getOptions().merge?.({}, useUiStore.getState()) as {
+      projectViewByProject: Record<string, unknown>;
+    };
+    expect(merged.projectViewByProject).toEqual({});
+  });
+
+  it('migrates a pre-v7 payload by seeding an empty map', () => {
+    const migrate = useUiStore.persist.getOptions().migrate;
+    const migrated = migrate?.({}, 6) as { projectViewByProject: Record<string, unknown> };
+    expect(migrated.projectViewByProject).toEqual({});
+  });
+
+  it('the LRU evicts oldest-first once past the cap', () => {
+    for (let i = 0; i < 21; i += 1) {
+      useUiStore.getState().setProjectView(`p${i}`, { groupFieldId: 'f' });
+    }
+
+    const keys = Object.keys(useUiStore.getState().projectViewByProject);
+    expect(keys).toHaveLength(20);
+    expect(keys).not.toContain('p0');
+    expect(keys).toContain('p20');
+  });
+});

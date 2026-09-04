@@ -46,6 +46,10 @@ export function BoardView({
   worktreePath,
   fields,
   items,
+  groupField,
+  collapsedColumns,
+  onToggleColumn,
+  onExpandColumn,
 }: {
   projectId: string;
   repoId: string | null;
@@ -53,15 +57,38 @@ export function BoardView({
   worktreePath: string | undefined;
   fields: readonly ForgeProjectField[];
   items: readonly ForgeProjectItem[];
+  /** Resolved by the caller via `resolveGroupField` (Phase 52 Theme B) — this
+   *  component groups by whatever it is handed, `Status` included. */
+  groupField: ForgeProjectField | null;
+  /** Lifted to the caller (Phase 52 Theme D) so it can persist per project. */
+  collapsedColumns: ReadonlySet<string>;
+  onToggleColumn: (columnId: string) => void;
+  /** Idempotent "ensure expanded" — distinct from the toggle: a drag hovering
+   *  a collapsed column's rail must only ever open it, never close it. */
+  onExpandColumn: (columnId: string) => void;
 }) {
-  const statusField = useMemo(() => findStatusField(fields), [fields]);
-  const [collapsed, setCollapsed] = useState<ReadonlySet<string>>(new Set());
   const [selectedItemId, setSelectedItemId] = useState<string | null>(null);
+  /**
+   * Grouping by an iteration field is read-only (Phase 52 Theme B): its
+   * columns are discovered from the items themselves rather than a fixed
+   * option set (see `board-derive.ts`), so there is nothing a drop could
+   * target that isn't itself a consequence of who is already in it. Folded
+   * into the same `writesEnabled` gate every draggable/droppable surface
+   * already reads, rather than a second disabled path, so this reuses the
+   * existing tested "disabled with a reason" rendering wholesale.
+   */
+  const readOnlyGrouping = groupField?.dataType === 'iteration';
   // Same gate the table's own `ProjectFieldCell` reads — a drag is a write
   // like any other, and "gated at the surface, not in the mutation" applies
   // to a gesture exactly as it does to a control: `useDraggable`'s own
   // `disabled` is that surface for a card.
-  const writesEnabled = useUiStore((s) => s.forgeWritesEnabled);
+  const forgeWritesEnabled = useUiStore((s) => s.forgeWritesEnabled);
+  const writesEnabled = forgeWritesEnabled && !readOnlyGrouping;
+  const disabledReason = readOnlyGrouping
+    ? `Grouping by "${groupField?.name}" is read-only — an iteration field's write payload differs and iteration writes are out of scope.`
+    : !forgeWritesEnabled
+      ? 'Enable review actions in Settings → Reviews to move cards'
+      : undefined;
 
   /*
     Without this, Theme F's glow is inert on a fresh boot: `useTerminalStore`
@@ -141,7 +168,7 @@ export function BoardView({
   }, [items]);
 
   const boardItems = optimisticItems ?? items;
-  const columns = useMemo(() => deriveColumns(statusField, boardItems), [statusField, boardItems]);
+  const columns = useMemo(() => deriveColumns(groupField, boardItems), [groupField, boardItems]);
 
   const setField = useSetProjectItemField(projectId);
   const clearField = useClearProjectItemField(projectId);
@@ -151,19 +178,19 @@ export function BoardView({
 
   const sensors = useSensors(useSensor(PointerSensor, { activationConstraint: { distance: 6 } }));
 
-  // Every field except Status — the column already says that one.
+  // Every field except the one grouping the board — the column already says that one.
   const cardFields = useMemo(
-    () => fields.filter((field) => field.id !== statusField?.id),
-    [fields, statusField],
+    () => fields.filter((field) => field.id !== groupField?.id),
+    [fields, groupField],
   );
 
 
-  if (!statusField) {
+  if (!groupField) {
     return (
       <EmptyState
         icon={VIEW_ICON.projects}
-        title="No Status field"
-        body="This project has no Status field — the board groups by Status, so there are no columns to show."
+        title="No groupable field"
+        body="This project has no single-select or iteration field for the board to group by."
       />
     );
   }
@@ -171,15 +198,6 @@ export function BoardView({
   if (items.length === 0) {
     return <EmptyState icon={VIEW_ICON.projects} title="No items" body="This project has no items yet." />;
   }
-
-  const toggle = (columnId: string): void => {
-    setCollapsed((prev) => {
-      const next = new Set(prev);
-      if (next.has(columnId)) next.delete(columnId);
-      else next.add(columnId);
-      return next;
-    });
-  };
 
   const handleDragStart = (event: DragStartEvent): void => {
     const payload = event.active.data.current as CardDragPayload | undefined;
@@ -193,7 +211,7 @@ export function BoardView({
   const handleDragOver = (event: DragOverEvent): void => {
     const target = event.over?.data.current as ColumnDropPayload | undefined;
     if (!target) return;
-    setCollapsed((prev) => (prev.has(target.optionId) ? without(prev, target.optionId) : prev));
+    onExpandColumn(target.optionId);
   };
 
   /*
@@ -204,10 +222,10 @@ export function BoardView({
   */
   const moveItemToColumn = (itemId: string, toColumnId: string): void => {
     const item = boardItems.find((i) => i.id === itemId);
-    const currentColumnId = item ? columnIdFor(statusField, item) : null;
+    const currentColumnId = item ? columnIdFor(groupField, item) : null;
     if (currentColumnId === toColumnId) return;
 
-    const next = applyOptimisticMove(boardItems, itemId, statusField, toColumnId);
+    const next = applyOptimisticMove(boardItems, itemId, groupField, toColumnId);
 
     const onSettled = (result: ForgeProjectWriteResult): void => {
       if (result.ok) {
@@ -232,12 +250,12 @@ export function BoardView({
     */
     if (toColumnId === NO_STATUS_COLUMN_ID) {
       setOptimisticItems(next);
-      clearField.mutate({ itemId, fieldId: statusField.id }, { onSuccess: onSettled });
+      clearField.mutate({ itemId, fieldId: groupField.id }, { onSuccess: onSettled });
       return;
     }
 
     const moved = next.find((i) => i.id === itemId);
-    const value = moved?.fieldValues[statusField.id];
+    const value = moved?.fieldValues[groupField.id];
     // Bail *before* touching optimistic state — setting it here and then
     // returning with no mutation fired would freeze the board on a stale
     // snapshot forever, since nothing would ever call `onSettled` to clear
@@ -245,7 +263,7 @@ export function BoardView({
     if (!value) return;
 
     setOptimisticItems(next);
-    setField.mutate({ itemId, fieldId: statusField.id, value }, { onSuccess: onSettled });
+    setField.mutate({ itemId, fieldId: groupField.id, value }, { onSuccess: onSettled });
   };
 
   const handleDragEnd = (event: DragEndEvent): void => {
@@ -274,9 +292,10 @@ export function BoardView({
               fields={cardFields}
               projectId={projectId}
               selectedItemId={selectedItemId}
-              collapsed={collapsed.has(column.id)}
+              collapsed={collapsedColumns.has(column.id)}
               writesEnabled={writesEnabled}
-              onToggle={() => toggle(column.id)}
+              disabledReason={disabledReason}
+              onToggle={() => onToggleColumn(column.id)}
               onSelectItem={setSelectedItemId}
               onMoveToColumn={moveItemToColumn}
             />
@@ -314,27 +333,20 @@ export function BoardView({
   );
 }
 
-function without<T>(set: ReadonlySet<T>, value: T): ReadonlySet<T> {
-  const next = new Set(set);
-  next.delete(value);
-  return next;
-}
-
 /**
  * The column id an item currently belongs to — used only for the drag/menu
  * "already in this column, no-op" check, so it does not need
  * `deriveColumns`'s own orphaned-option-id fallback to `NO_STATUS_COLUMN_ID`:
  * a stale option id can never equal a real target column's id, so the no-op
- * guard below still fires correctly either way.
+ * guard below still fires correctly either way. Iteration grouping never
+ * reaches this at all in practice — the move is read-only — but resolves the
+ * same "no value" fallback if it ever did.
  */
 function columnIdFor(field: ForgeProjectField, item: ForgeProjectItem): string {
   const value = item.fieldValues[field.id];
-  return value?.dataType === 'single_select' ? value.optionId : NO_STATUS_COLUMN_ID;
-}
-
-/** `Status` by name — GitHub's own default board field, and the only one this phase groups by. */
-function findStatusField(fields: readonly ForgeProjectField[]): ForgeProjectField | null {
-  return fields.find((f) => f.dataType === 'single_select' && f.name === 'Status') ?? null;
+  if (value?.dataType === 'single_select') return value.optionId;
+  if (value?.dataType === 'iteration') return value.iterationId;
+  return NO_STATUS_COLUMN_ID;
 }
 
 const COLLAPSED_WIDTH = 'w-9';
@@ -352,6 +364,7 @@ function BoardColumnView({
   selectedItemId,
   collapsed,
   writesEnabled,
+  disabledReason,
   onToggle,
   onSelectItem,
   onMoveToColumn,
@@ -364,6 +377,8 @@ function BoardColumnView({
   selectedItemId: string | null;
   collapsed: boolean;
   writesEnabled: boolean;
+  /** Why dragging is off, shown as the card's `title` — absent when it is on. */
+  disabledReason: string | undefined;
   onToggle: () => void;
   onSelectItem: (itemId: string) => void;
   onMoveToColumn: (itemId: string, toColumnId: string) => void;
@@ -431,6 +446,7 @@ function BoardColumnView({
           projectId={projectId}
           selectedItemId={selectedItemId}
           writesEnabled={writesEnabled}
+          disabledReason={disabledReason}
           onSelectItem={onSelectItem}
           onMoveToColumn={onMoveToColumn}
         />
@@ -445,6 +461,7 @@ function BoardColumnView({
                 projectId={projectId}
                 isOpen={item.id === selectedItemId}
                 writesEnabled={writesEnabled}
+                disabledReason={disabledReason}
                 columns={columns}
                 currentColumnId={column.id}
                 onClick={() => onSelectItem(item.id)}
@@ -484,6 +501,7 @@ function DraggableCard({
   projectId,
   isOpen,
   writesEnabled,
+  disabledReason,
   columns,
   currentColumnId,
   onClick,
@@ -494,6 +512,7 @@ function DraggableCard({
   projectId: string;
   isOpen: boolean;
   writesEnabled: boolean;
+  disabledReason: string | undefined;
   columns: readonly BoardColumn[];
   currentColumnId: string;
   onClick: () => void;
@@ -550,7 +569,7 @@ function DraggableCard({
         re-adding them on the way back.
       */
       {...(writesEnabled ? draggable.attributes : {})}
-      title={writesEnabled ? undefined : 'Enable review actions in Settings → Reviews to move cards'}
+      title={writesEnabled ? undefined : disabledReason}
       style={draggable.isDragging ? { opacity: 0 } : undefined}
       onContextMenu={(event) => {
         event.preventDefault();
@@ -577,6 +596,7 @@ function VirtualizedColumnItems({
   projectId,
   selectedItemId,
   writesEnabled,
+  disabledReason,
   onSelectItem,
   onMoveToColumn,
 }: {
@@ -586,6 +606,7 @@ function VirtualizedColumnItems({
   projectId: string;
   selectedItemId: string | null;
   writesEnabled: boolean;
+  disabledReason: string | undefined;
   onSelectItem: (itemId: string) => void;
   onMoveToColumn: (itemId: string, toColumnId: string) => void;
 }) {
@@ -618,6 +639,7 @@ function VirtualizedColumnItems({
                 projectId={projectId}
                 isOpen={item.id === selectedItemId}
                 writesEnabled={writesEnabled}
+                disabledReason={disabledReason}
                 columns={columns}
                 currentColumnId={column.id}
                 onClick={() => onSelectItem(item.id)}

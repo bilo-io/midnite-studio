@@ -39,38 +39,43 @@ Effort tags: **S** ≈ an hour or two · **M** ≈ half a day · **L** ≈ a day
 
 ## Deliverables
 
-### A — One filter toolbar, over both modes (M)
+### A — One filter toolbar, over both modes (M) — ✅ DONE (PR #116, 2026-09-04)
 
 The Projects view has two controls today: a board `<select>` and a Table/Board `IconButton` pair
 ([`projects-view.tsx:96-141`](../../../packages/app/src/features/projects/projects-view.tsx)).
 No search, no facets, in either mode.
 
-- [ ] A toolbar in [`projects-view.tsx`](../../../packages/app/src/features/projects/projects-view.tsx),
+- [x] A toolbar in [`projects-view.tsx`](../../../packages/app/src/features/projects/projects-view.tsx),
       above the mode switch and **shared by both modes** — a filter is a property of what you are
       looking at, not of how it is arranged, so switching Table↔Board must not reset it.
-- [ ] [`FilterInput`](../../../packages/app/src/components/filter-input.tsx) for free text, matching
+- [x] [`FilterInput`](../../../packages/app/src/components/filter-input.tsx) for free text, matching
       title, item number and body. It has no consumers today; adopting it here is the whole reason
       it was built, and doing so is cheaper than inventing a second search input.
-- [ ] `MultiSelectMenu` facets for **assignees**, **labels**, **type** (issue / pull / draft) and
+- [x] `MultiSelectMenu` facets for **assignees**, **labels**, **type** (issue / pull / draft) and
       **state** (open / closed / merged), following the established *empty array means everyone*
       convention that [`dashboard-store.ts:38`](../../../packages/app/src/store/dashboard-store.ts)
       documents and every other facet in this app already obeys.
   - Draft items carry no `number`, `url` or `labels` — the type facet is therefore not cosmetic, it
     is what lets a user exclude the items for which half the other facets are meaningless.
-- [ ] A pure `filterItems(items, filter, fields)` in a new `features/projects/filter.ts`, with the
-      view holding only the filter state. Every other pure derivation on this surface
-      (`deriveColumns`, `applyOptimisticMove`, `composeCardPrompt`) lives outside its component and
-      is unit-tested; this follows that.
-- [ ] The truncation footer stays truthful. `useForgeProjectItems` caps at
+- [x] A pure `filterItems(items, filter)` in a new `features/projects/filter.ts`, with the
+      view holding only the filter state. **Correction:** landed without the doc's own third
+      `fields` parameter — no facet here (assignees/labels/type/state) reads a field's `dataType`,
+      unlike `deriveColumns`'s own `field` argument, so it would have been an unused parameter.
+      Every other pure derivation on this surface (`deriveColumns`, `applyOptimisticMove`,
+      `composeCardPrompt`) lives outside its component and is unit-tested; this follows that.
+- [x] The truncation footer stays truthful. `useForgeProjectItems` caps at
       `PROJECT_ITEMS_PAGE_CEILING = 10` pages and reports `truncated`; with a filter applied the
       footer must say the filter ran over a *truncated* set, not merely that N items matched.
       Filtering a partial list and presenting the result as complete is the one way this theme
       could actively mislead.
-- [ ] Tests: `filter.test.ts` — each facet alone, facets combined as AND across categories and OR
+- [x] Tests: `filter.test.ts` — each facet alone, facets combined as AND across categories and OR
       within one, an empty facet matching everything, text matching title/number/body, and a draft
-      item behaving correctly against a label facet it cannot satisfy.
+      item behaving correctly against a label facet it cannot satisfy. Also caught a real gap in
+      `e2e/projects.spec.ts`'s own fixture — missing `body`/`labels` (zod's `.default()` masks this
+      in production; the mock bridge skips validation) — the same class of bug `kanban.spec.ts`'s
+      fixture already documents, now fixed here too.
 
-### B — Group by any single-select or iteration field (M)
+### B — Group by any single-select or iteration field (M) — ✅ DONE (PR #116, 2026-09-04)
 
 The board's grouping is `findStatusField()`
 ([`board-view.tsx:336`](../../../packages/app/src/features/projects/board/board-view.tsx)),
@@ -78,69 +83,80 @@ which matches a single-select field by **the literal name `Status`**. A board or
 "Priority", or a project whose status field is called "Stage", renders an EmptyState. `deriveColumns`
 itself is already generic — it takes a field and derives columns from its options.
 
-- [ ] A group-by picker in the toolbar listing every `single_select` and `iteration` field on the
+- [x] A group-by picker in the toolbar listing every `single_select` and `iteration` field on the
       project, defaulting to a field named `Status` when one exists (so today's behaviour is the
       default, not a special case) and to the first single-select otherwise.
-- [ ] `findStatusField` is replaced by a `resolveGroupField(fields, preferredId)` that falls back
+- [x] `findStatusField` is replaced by a `resolveGroupField(fields, preferredId)` that falls back
       predictably when the remembered field has been deleted from the project since it was chosen —
       a stale persisted id must degrade to the default, not to the EmptyState.
-- [ ] **Drag-to-move stays enabled for `single_select` grouping and is disabled for `iteration`.**
+- [x] **Drag-to-move stays enabled for `single_select` grouping and is disabled for `iteration`.**
       The drop handler writes through `setItemFieldValue`
       ([`gh-project-write.ts`](../../../packages/desktop/src/main/forge/gh-project-write.ts)), whose
       payload shape differs for an iteration value, and writing iterations is explicitly out of
       scope per [Phase 40](phase-40-github-projects.md). Grouping by iteration is therefore a
       **read-only** arrangement, and the board must say so rather than offering a drag that fails.
-- [ ] The synthetic "No status" column generalises with it — it is "no value for the grouping
+      `board-view.tsx` folds this into the existing `writesEnabled` gate (so every already-tested
+      disabled-drag rendering path is reused) with a `disabledReason` string naming which of the two
+      causes applies.
+- [x] The synthetic "No status" column generalises with it — it is "no value for the grouping
       field", and [Phase 50 Theme C](phase-50-kanban-projects-followthrough.md)'s
       `clearProjectV2ItemFieldValue` already makes it a real drop target for any single-select.
-- [ ] This theme explicitly **reverses** Phase 41's and Phase 50's "no grouping by a field other
+      Reads `No <field name>` now (e.g. "No Priority"), not a hardcoded "No status".
+- [x] This theme explicitly **reverses** Phase 41's and Phase 50's "no grouping by a field other
       than `Status`". Recording why: both deferrals were scope decisions taken while the load-bearing
       work was elsewhere, not judgements that it was hard. `deriveColumns` was written generic on
       day one; only its caller was hardcoded.
-- [ ] Tests: `board-derive.test.ts` gains non-Status grouping cases; `resolve-group-field.test.ts`
+- [x] Tests: `board-derive.test.ts` gains non-Status grouping cases; `resolve-group-field.test.ts`
       covers the default, the explicit choice, and the deleted-field fallback; `board-dnd.test.ts`
       asserts a drag is refused under iteration grouping.
 
-### C — Sortable table columns (S)
+### C — Sortable table columns (S) — ✅ DONE (PR #116, 2026-09-04)
 
 The table's column order is fixed — `Title | Assignees | …fields in API order`
 ([`projects-view.tsx:220-228`](../../../packages/app/src/features/projects/projects-view.tsx)) —
 and no header does anything when clicked.
 
-- [ ] Tri-state click-to-sort headers (ascending → descending → none), where *none* restores the
+- [x] Tri-state click-to-sort headers (ascending → descending → none), where *none* restores the
       API order rather than some other sort. A two-state toggle would make the project's own
       ordering unreachable once you had sorted.
-- [ ] One comparator per `dataType`: lexical for `text`, numeric for `number`, chronological for
+- [x] One comparator per `dataType`: lexical for `text`, numeric for `number`, chronological for
       `date`, **option order** for `single_select` (not alphabetical — "Todo, In Progress, Done" is
-      meaningful and alphabetising it destroys the meaning), and start-date for `iteration`.
-- [ ] Items with no value for the sorted field sort last in both directions. An empty value is not
+      meaningful and alphabetising it destroys the meaning). **Correction, iteration:** sorted by
+      `title`, not "start-date" as drafted — `ForgeProjectFieldValueSchema`'s iteration member
+      carries no start date at all (`{iterationId, title}` only), and this phase adds no schema
+      field to invent one, per its own hard guardrail against any schema change.
+- [x] Items with no value for the sorted field sort last in both directions. An empty value is not
       "smallest"; it is absent, and it should not migrate to the top merely because the user
-      reversed the direction.
-- [ ] Sorting composes with Theme A's filter and runs after it, over the already-virtualized rows
+      reversed the direction. An unresolvable `single_select` option id (deleted/renamed since set)
+      sorts last the same way, rather than crashing the comparator.
+- [x] Sorting composes with Theme A's filter and runs after it, over the already-virtualized rows
       (`@tanstack/react-virtual`, `ROW_HEIGHT = 32`) — the row count changes, the virtualizer does
       not.
-- [ ] Tests: `sort.test.ts` — a comparator per `dataType`, single-select following option order,
+- [x] Tests: `sort.test.ts` — a comparator per `dataType`, single-select following option order,
       empty-last in both directions, and the tri-state cycle returning to API order.
 
-### D — View state that survives, keyed by the right thing (S)
+### D — View state that survives, keyed by the right thing (S) — ✅ DONE (PR #116, 2026-09-04)
 
 Only two things persist on this surface today: `projectBoardByRepo` and `projectsMode`
 ([`ui-store.ts:864,875`](../../../packages/app/src/store/ui-store.ts)). Column collapse
 (`board-view.tsx:58`) is ephemeral and is lost on every remount.
 
-- [ ] Persist filter, group field, sort and column-collapse in `ui-store`, added to **both**
+- [x] Persist filter, group field, sort and column-collapse in `ui-store`, added to **both**
       `partialize` and the custom `merge` and declared in `PersistedUi` — the three places every
       other persisted key in this store appears, and forgetting `merge` is the failure mode that
-      silently drops a key on the next app version.
-- [ ] **Key it by `projectId`, not `repoId`.** This is the trap: `keys.forgeProjectItems(projectId)`
+      silently drops a key on the next app version. Version bumped 6 → 7, with a migration seeding
+      an empty map for existing installs.
+- [x] **Key it by `projectId`, not `repoId`.** This is the trap: `keys.forgeProjectItems(projectId)`
       ([`queries.ts:226`](../../../packages/app/src/services/queries.ts)) is repo-agnostic and sits
       *outside* the `repos/*` prefix the fs watcher invalidates, and one project is reachable from
       several repos. `projectBoardByRepo`/`projectsMode` are correctly repo-keyed because they answer
       "which board is this repo looking at"; a filter answers "how am I looking at this board", which
       is a property of the board.
-- [ ] Bound the persisted map so a user who opens many projects does not accumulate localStorage
-      indefinitely — an LRU cap, evicting least-recently-used project entries.
-- [ ] Tests: `ui-store.test.ts` — round-trips through `partialize`/`merge`, keys by project not
+- [x] Bound the persisted map so a user who opens many projects does not accumulate localStorage
+      indefinitely — an LRU cap, evicting least-recently-used project entries. `project-view-lru.ts`'s
+      `touchProjectView` relies on a plain object's string keys preserving insertion order (deleting
+      and re-inserting a key moves it to the end) rather than a second bookkeeping array.
+- [x] Tests: `ui-store.test.ts` — round-trips through `partialize`/`merge`, keys by project not
       repo, survives a repo switch, and the LRU evicts oldest-first.
 
 ### E — The Workflows list learns to filter (S)
