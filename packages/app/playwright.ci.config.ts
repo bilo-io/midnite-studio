@@ -56,15 +56,16 @@ export default defineConfig({
     and `status-bar.spec.ts` used to each carry one `@linux-red` spec this way
     — both asserted a status-bar *density* at hard-coded viewport widths, and
     density is decided from measured content width, which the CI runner's
-    font set renders differently from macOS. Fixed (Phase 38 Theme I) by
-    deriving the widths from a live measurement of the bar's own
-    `fullWidth`/`compactWidth` instead — the same stamp-`data-density`-and-
-    read-`scrollWidth` dance `use-overflow.ts` runs internally — rather than a
-    pixel guess picked against one operator's machine. `panel-snap.spec.ts`'s
-    one remaining `@linux-red` spec is unrelated: it mounts a real terminal,
-    the wall Theme I's `mock-bridge.ts` platform pin already closed for every
-    other file that hit it — dropped once this batch confirmed it green on a
-    real CI run too.
+    font set renders differently from macOS. A live-measurement fix (stamping
+    `data-density` and reading `scrollWidth`, the trick `use-overflow.ts` and
+    `titlebar-agents.spec.ts` both use) does NOT generalise to this element —
+    the status bar's `grid-cols-[1fr_auto_1fr]` tracks stretch to fill a wide
+    viewport, so `scrollWidth` reads back `clientWidth` rather than real
+    content demand. Fixed instead (Phase 38 Theme I) by walking the viewport
+    down and asserting each density band the instant the bar first reports
+    it. `panel-snap.spec.ts`'s one remaining `@linux-red` spec was unrelated:
+    it mounts a real terminal, the wall Theme I's `mock-bridge.ts` platform
+    pin already closed for every other file that hit it.
   */
   grepInvert: /@linux-red/,
 });

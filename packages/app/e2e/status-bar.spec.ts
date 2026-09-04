@@ -170,11 +170,11 @@ test("the bar's left edge does not move with the repositories panel", async ({ p
  * overflow popover keeps its click behaviour — collapsing must not turn an
  * action into a label.
  *
- * The three viewport widths this drives through are derived from a live
- * measurement of the bar's own `fullWidth`/`compactWidth` (see below), not
- * written down — `@bilo-io/shell`'s own `md:` (768px) breakpoint sits well
- * under any of them regardless of what this fixture measures, so the bar's
- * own collapse is always what narrows it, never the shell's mobile chrome.
+ * The two transitions are found by walking the viewport down
+ * (`narrowUntilDensity`, above) rather than jumping to a written-down width —
+ * `@bilo-io/shell`'s own `md:` (768px) breakpoint sits well under wherever
+ * either lands regardless of what this fixture measures, so the bar's own
+ * collapse is always what narrows it, never the shell's mobile chrome.
  */
 test(
   'narrowing drives compact then collapsed, and a collapsed segment still acts',
