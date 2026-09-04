@@ -12,7 +12,10 @@ import {
   LuX,
 } from 'react-icons/lu';
 
-import { usePopoutHeaderActions } from '../../components/detached-window-frame';
+import {
+  usePopoutHeaderActions,
+  usePopoutHeaderLeading,
+} from '../../components/detached-window-frame';
 import { IconButton } from '../../components/icon-button';
 import { resolveAgentIcon } from '../../components/icons';
 import { StateDot } from '../../components/state-dot';
@@ -70,7 +73,8 @@ export function TerminalHeader({
   // Set only once popped out AND the window actually has a frameless title
   // bar to merge into (`DetachedWindowFrame`) — a plain browser tab or a
   // non-mac popout falls back to the row below, unchanged.
-  const portalTarget = usePopoutHeaderActions();
+  const actionsTarget = usePopoutHeaderActions();
+  const leadingTarget = usePopoutHeaderLeading();
 
   const buttons = (
     <>
@@ -105,12 +109,11 @@ export function TerminalHeader({
     </>
   );
 
-  if (isPopout && portalTarget) {
-    // Merged into the window's own title bar (`DetachedWindowFrame`'s `left`
-    // already carries the mark and the title) — everything this row used to
-    // show to the right of them moves here verbatim, minus the `ml-auto`
-    // trick, which existed only to share a row with that mark.
-    return createPortal(
+  if (isPopout && actionsTarget) {
+    // Merged into the window's own title bar: `DetachedWindowFrame`'s `left`
+    // carries the dock mark, state dot, and path; the right action slot
+    // carries the button cluster.
+    const pathAndDot = (
       <>
         <StateDot state={state} />
         <HeaderPath path={path} repos={repos} />
@@ -121,9 +124,20 @@ export function TerminalHeader({
             </div>
           </Tooltip>
         ) : null}
-        <div className="flex shrink-0 items-center gap-0.5">{buttons}</div>
-      </>,
-      portalTarget,
+      </>
+    );
+
+    return (
+      <>
+        {leadingTarget ? createPortal(pathAndDot, leadingTarget) : null}
+        {createPortal(
+          <>
+            {!leadingTarget && pathAndDot}
+            <div className="flex shrink-0 items-center gap-0.5">{buttons}</div>
+          </>,
+          actionsTarget,
+        )}
+      </>
     );
   }
 

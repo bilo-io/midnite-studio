@@ -49,16 +49,23 @@ export function usePopoutHeaderActions(): HTMLDivElement | null {
   return useContext(PopoutHeaderActionsContext);
 }
 
+const PopoutHeaderLeadingContext = createContext<HTMLDivElement | null>(null);
+
+export function usePopoutHeaderLeading(): HTMLDivElement | null {
+  return useContext(PopoutHeaderLeadingContext);
+}
+
 /**
  * The bar's `left` slot for a merged role: the same hover-morph mark every
  * docked header already draws (a role glyph that swaps for an action on
  * hover), except here hovering reveals "dock" rather than "detach" — the
- * window is already the detached one — followed by the panel's title.
+ * window is already the detached one — followed by the panel's title (except
+ * for the terminal, where the state dot and path sit directly beside the mark).
  */
 function PopoutHeaderMark({ role, title }: { role: MergedRole; title: string }) {
   const Icon = ROLE_ICON[role];
   return (
-    <div className="group flex min-w-0 items-center gap-1.5">
+    <div className="group flex min-w-0 shrink-0 items-center gap-1.5">
       <div className="relative flex h-6 w-6 shrink-0 items-center justify-center">
         <span
           aria-hidden
@@ -76,7 +83,7 @@ function PopoutHeaderMark({ role, title }: { role: MergedRole; title: string }) 
           onClick={() => bridge()?.window.dock({ role })}
         />
       </div>
-      <span className="truncate text-xs font-medium">{title}</span>
+      {role !== 'terminal' && <span className="truncate text-xs font-medium">{title}</span>}
     </div>
   );
 }
@@ -111,6 +118,7 @@ export function DetachedWindowFrame({
   const selectedRepoId = useUiStore((s) => s.selectedRepoId);
   const { data: repos } = useRepos();
   const selectedRepo = repos?.find((repo) => repo.id === selectedRepoId) ?? null;
+  const [leadingEl, setLeadingEl] = useState<HTMLDivElement | null>(null);
   const [actionsEl, setActionsEl] = useState<HTMLDivElement | null>(null);
   const merged = isMergedRole(role);
 
@@ -123,7 +131,13 @@ export function DetachedWindowFrame({
         windowChrome={windowChrome}
         left={
           merged ? (
-            <PopoutHeaderMark role={role} title={title} />
+            <div className="flex min-w-0 items-center gap-2">
+              <PopoutHeaderMark role={role} title={title} />
+              <div
+                ref={setLeadingEl}
+                className="flex min-w-0 items-center gap-2 overflow-hidden text-xs text-muted-foreground"
+              />
+            </div>
           ) : (
             <span className="truncate px-1 text-xs font-medium">{title}</span>
           )
@@ -158,7 +172,9 @@ export function DetachedWindowFrame({
         }
       />
       <PopoutHeaderActionsContext.Provider value={merged ? actionsEl : null}>
-        <div className="min-h-0 flex-1">{children}</div>
+        <PopoutHeaderLeadingContext.Provider value={merged ? leadingEl : null}>
+          <div className="min-h-0 flex-1">{children}</div>
+        </PopoutHeaderLeadingContext.Provider>
       </PopoutHeaderActionsContext.Provider>
     </div>
   );
