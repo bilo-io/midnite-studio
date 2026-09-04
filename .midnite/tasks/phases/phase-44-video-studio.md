@@ -174,29 +174,33 @@ Effort tags: **S** ≈ an hour or two · **M** ≈ half a day · **L** ≈ a day
   wiring. Theme H's own bullet ("handlers, preload") owns that; this theme's functions are desktop-
   internal and unreachable from the renderer until then — mirroring Workflow's own Theme B/H split.
 
-### C — The toolchain probe and the studio host (M)
+### C — The toolchain probe and the studio host (M) — ◐ PARTIAL (PR #113, 2026-09-04)
 
-- [ ] `desktop/src/main/video/toolchain.ts` — resolve `node` and `npx` through the **existing**
+- [x] `desktop/src/main/video/toolchain.ts` — resolve `node` and `npx` through the **existing**
       [`login-shell.ts`](../../../packages/desktop/src/main/login-shell.ts) (`spawn(loginShell(),
       ['-lic', cmd])`, line 42), which [`gh-shell.ts`](../../../packages/desktop/src/main/forge/gh-shell.ts)
       already uses for exactly this reason. Do not write a second PATH probe. Cache the result;
       re-probe on explicit request only.
-- [ ] `desktop/src/main/video/studio-service.ts` owns **at most one** `remotion studio` child per
+- [x] `desktop/src/main/video/studio-service.ts` owns **at most one** `remotion studio` child per
       project, in a `Map<projectId, ChildProcess>` the way
       [`browser-service.ts`](../../../packages/desktop/src/main/browser-service.ts) owns its tab map
       and `pty-service.ts` owns its ptys. Starting a studio that is already running returns the
       running one; it never spawns a second.
-- [ ] Spawn with `--no-open` — the flag `ekko-videos/docs/REMOTION.md` uses — so Remotion does not
+- [x] Spawn with `--no-open` — the flag `ekko-videos/docs/REMOTION.md` uses — so Remotion does not
       launch the OS browser out from under the app.
-- [ ] **Port discovery reads stdout, it does not assume 3000.** Remotion picks the next free port
+- [x] **Port discovery reads stdout, it does not assume 3000.** Remotion picks the next free port
       when 3000 is taken, and a machine running two studios or an unrelated dev server is the normal
       case, not the edge case. Match the printed URL; until it appears the state is `starting`.
-- [ ] A studio that exits on its own transitions to `failed` carrying its last stderr lines, pushed
+- [x] A studio that exits on its own transitions to `failed` carrying its last stderr lines, pushed
       over `videoStudioChanged`. A dev server that dies silently is the single most confusing
       failure this feature can have.
-- [ ] Every child is killed on `before-quit` and on project removal, **by process group** — see
-      Theme E. A `remotion studio` surviving the app is a port leak the user cannot see and cannot
-      find.
+- [ ] **Open, for Theme H:** every child killed on `before-quit` and on project removal, **by
+      process group** — the kill mechanism itself is already group-scoped (`stopStudio`/
+      `stopAllStudios` reuse `process-runner.ts`'s `realSpawn`, whose `kill()` signals
+      `-pid`), but nothing calls it from an app-lifecycle hook yet: that wiring is `main/index.ts`'s
+      `before-quit` handler, which is Theme H's job once Theme D's view exists to trigger project
+      removal from. A `remotion studio` surviving the app is a port leak the user cannot see and
+      cannot find.
 
 ### D — The Video view (L)
 
@@ -245,27 +249,34 @@ Effort tags: **S** ≈ an hour or two · **M** ≈ half a day · **L** ≈ a day
       ([Phase 36 Theme B](phase-36-performance-diet.md)) — `moon run app:perf` asserts the entry
       chunk does not move, and this view adds no runtime dependency to assert about.
 
-### E — Renders (M)
+### E — Renders (M) — ◐ PARTIAL (PR #113, 2026-09-04)
 
-- [ ] `desktop/src/main/video/render-service.ts` spawns through the **existing**
+- [x] `desktop/src/main/video/render-service.ts` spawns through the **existing**
       [`process-runner.ts`](../../../packages/desktop/src/main/process-runner.ts) — `realSpawn`
       (line 43) already does argv-vector-no-shell, `NO_COLOR`, `detached: true`, a deadline timer
       with SIGKILL, and an `OUTPUT_TAIL_CAP`. It is what `main/testing/runner.ts` and
       `main/diagnostics/runner.ts` use, and a render is the same shape of job. **Writing a fresh
-      `spawn` here is the mistake this item exists to prevent.**
-- [ ] Run the project's own wrapper when it exists (`scripts/render.mjs <project-id> [label]`, which
+      `spawn` here is the mistake this item exists to prevent.** Rides `runProcess` itself (not bare
+      `realSpawn`) — the same layer `testing/runner.ts` sits on — with a 20-minute deadline in place
+      of `runProcess`'s own 120s default, since a real render runs minutes, not seconds.
+- [x] Run the project's own wrapper when it exists (`scripts/render.mjs <project-id> [label]`, which
       `ekko-videos` has) and fall back to `npx remotion render <composition> <out>`. Prefer the
       wrapper: it already knows the output convention and appends the changelog stub.
-- [ ] Parse Remotion's progress output into `videoRenderProgress` events — frames done / total and
-      a phase (`bundling | rendering | encoding`). Progress that only says "working" is not worth
-      the channel.
-- [ ] Cancel kills the child **and its process group** — `process.kill(-pid)`, which
+- [x] Parse Remotion's progress output into `videoRenderProgress` events — frames done / total.
+      **Correction: no `phase` field.** Theme A's own landed `VideoRenderProgressEventSchema`
+      carries only `{renderId, projectId, status, progress}` — no `bundling | rendering | encoding`
+      enum was ever added to the contract. Reported instead as a single weighted fraction (traced
+      against `@remotion/renderer`'s own `render-media.js`, which combines its two frame-counted
+      stages 70% rendering / 30% encoding for exactly this reason), undefined until the rendering
+      stage has printed its first real number — a bundling-only buffer is "working", not a number
+      worth a channel push.
+- [x] Cancel kills the child **and its process group** — `process.kill(-pid)`, which
       `process-runner.ts` already implements because `detached: true` is what makes it possible.
       `npx` spawns Remotion, which spawns Chrome; killing only `npx` orphans both, and an orphaned
       headless Chrome is invisible and expensive.
-- [ ] A render is queued per project — one at a time. Two concurrent Chrome renders on a laptop is
-      how you make the app feel broken.
-- [ ] The right pane lists `output/vN-*.mp4` with size and mtime, and renders
+- [x] A render is queued per project — one at a time. Two concurrent Chrome renders on a laptop is
+      how you make the app feel broken. Different projects render freely in parallel.
+- [ ] **Open, for Theme D/H:** the right pane lists `output/vN-*.mp4` with size and mtime, and renders
       `output/CHANGELOG.md` — the tracked file `ekko-videos` uses to record what changed in each
       cut — through the **existing** markdown pipeline
       ([`features/markdown/`](../../../packages/app/src/features/markdown)), not a second renderer.

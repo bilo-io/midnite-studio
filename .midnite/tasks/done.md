@@ -19,6 +19,40 @@ packaged build) still needs a human on real hardware.
       mount/unmount test on `BoardView` itself, not a further unit test on the already-tested pure
       `sessionsToRehome`).
 
+## 2026-09-04 — Phase 44 Theme C + Theme E — the toolchain probe, studio host and render service
+
+[PR #113]. Two main-process services, decoupled from Theme B's `projects-store.ts` by taking a
+directory as a parameter rather than resolving one — IPC wiring stays Theme H's job once a view
+exists to call it from.
+
+- [x] **`desktop/src/main/video/toolchain.ts`.** `probeVideoToolchain` resolves `node`/`npx`
+      through the existing `login-shell.ts` probe (the same fix `agent-probe.ts` and
+      `gh-shell.ts` already apply for the same PATH problem), framed and batched in one shell
+      call the way `agent-probe.ts`'s roster probe is. Cached until an explicit reset rather than
+      on a TTL — installing a binary mid-session is rare enough that a manual re-detect is the
+      right cost. `remotionVersion` reads the Remotion app's own `package.json`, per project.
+- [x] **`desktop/src/main/video/studio-service.ts`.** Owns at most one `remotion studio --no-open`
+      child per project (`Map<projectId, …>`, `browser-service.ts`'s tab-map shape). Port
+      discovery matches the URL Remotion's own `printServerReadyComment` prints to stdout —
+      traced through the real `@remotion/studio-server` source in `~/Dev/ekko-videos` rather than
+      assumed — never 3000. A studio that dies on its own reports `failed` with its last stderr
+      lines and stays restartable; one already running or starting is never spawned twice.
+- [x] **`desktop/src/main/video/render-service.ts`.** `queueRender`/`cancelRender` run one render
+      at a time per project (different projects render in parallel) through the existing
+      `runProcess`, at a 20-minute deadline in place of its 120s default. Prefers a project's own
+      `scripts/render.mjs` wrapper, falling back to the raw Remotion CLI with the exact `vN`
+      version-numbering the wrapper itself uses. Progress is parsed straight out of Remotion's CLI
+      text — piping stdout forces its non-overlaying, non-ANSI logger — combined with the same
+      70/30 render/encode weighting `@remotion/renderer`'s `render-media.js` uses internally.
+      **Correction:** Theme A's landed `VideoRenderProgressEventSchema` carries no `phase` field,
+      so progress is one combined fraction rather than a `bundling|rendering|encoding` enum.
+      Cancelling kills the whole process group; a merely-queued render is dropped unspawned.
+- [x] Both theme headings land `◐ PARTIAL`, not `✅ DONE`: Theme C's process-group kill on
+      `before-quit`/project-removal and Theme E's output-listing/reveal-in-Finder pane are UI- and
+      lifecycle-wiring concerns that belong to Theme D/H, which don't exist yet.
+- [x] 41 tests, all against captured process output/fake spawned children (`agent-probe.test.ts`'s
+      posture) — no real `npx`/`remotion` invoked.
+
 ## 2026-09-04 — Phase 44 Theme B — project discovery and the store
 
 [PR #112]. Projects are **discovered, not registered** — `discoverProjects` scans
