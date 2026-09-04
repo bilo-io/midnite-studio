@@ -33,7 +33,7 @@ Effort tags: **S** ≈ an hour or two · **M** ≈ half a day · **L** ≈ a day
 
 ## Deliverables
 
-### A — Text that survives a change of display (M)
+### A — Text that survives a change of display (M) — ✅ DONE (PR #115, 2026-09-04)
 
 The single clearest cause of "jagged" text. **`devicePixelRatio` is never read anywhere in this
 repo** — no `matchMedia` resolution query, no `screen`/`display-metrics-changed` bridge. The WebGL
@@ -44,7 +44,7 @@ is drawn from an atlas built for the wrong pixel grid. `safeFit()`
 cannot rescue it: it early-returns when `cols`/`rows` are unchanged, and a DPR change at a constant
 window size changes neither.
 
-- [ ] A `useDevicePixelRatio()` hook in `features/terminal/`, built on the self-re-arming
+- [x] A `useDevicePixelRatio()` hook in `features/terminal/`, built on the self-re-arming
       `matchMedia(\`(resolution: ${dpr}dppx)\`)` idiom — the listener has to be torn down and
       re-created on every change, because the query itself embeds the old ratio. Return the current
       ratio; the hook is pure DOM and needs no bridge call, which is why this stays renderer-side
@@ -53,16 +53,25 @@ window size changes neither.
     updates `window.devicePixelRatio` when a window crosses displays, so main would only be
     forwarding a value the renderer can read directly. An Electron `screen` bridge would add a
     channel that can disagree with the DOM.
-- [ ] On a DPR change, force a full re-rasterisation in this order: `webgl.clearTextureAtlas()`
+- [x] On a DPR change, force a full re-rasterisation in this order: `webgl.clearTextureAtlas()`
       (a real method on `WebglAddon`, and the only way to discard the stale atlas without
       re-instantiating the addon) → `fit()` → `term.refresh(0, term.rows - 1)`.
   - The order is load-bearing. Clearing the atlas after a refresh repaints from the stale atlas
     and then throws it away; fitting before clearing measures cells against the old rasterisation.
-- [ ] The same path runs when the addon is **not** loaded (the DOM-renderer fallback) minus the
+  - Landed as a new `webglRef` (parallel to the existing `termRef`/`fitRef`), set when the addon
+    loads and cleared both on context loss and on unmount — `clearTextureAtlas()` is called through
+    it wrapped in a `try/catch`, since a lost-context dispose can race the DPR effect.
+- [x] The same path runs when the addon is **not** loaded (the DOM-renderer fallback) minus the
       atlas call — a DOM-rendered pane also measures its cell against `devicePixelRatio` and also
       needs the refit.
-- [ ] Tests: `use-device-pixel-ratio.test.ts` — the listener re-arms with the new ratio on each
+  - `webglRef.current?.clearTextureAtlas()` is the only WebGL-specific line; `safeFit()` +
+    `term.refresh(...)` run unconditionally for both renderers.
+- [x] Tests: `use-device-pixel-ratio.test.ts` — the listener re-arms with the new ratio on each
       change, tears down exactly once per change, and reports the initial value synchronously.
+  - Scoped to the hook itself, per the doc's own test plan — the re-rasterisation wiring inside
+    `terminal-view.tsx` needs a live xterm + WebGL context to exercise meaningfully, which is
+    outside what a jsdom unit test can construct; that component has no existing test file for
+    the same reason.
 
 ### B — Explicit cell metrics, and a font the user can set (M)
 
