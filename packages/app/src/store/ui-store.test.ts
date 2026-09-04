@@ -812,3 +812,47 @@ describe('project view state, keyed by project (Phase 52 Theme D)', () => {
     expect(keys).toContain('p20');
   });
 });
+
+describe('v7 -> v8 migration (Phase 55)', () => {
+  it('seeds all four *Detached flags false, disturbing no sibling key', () => {
+    const migrate = useUiStore.persist.getOptions().migrate;
+    const migrated = migrate?.({ selectedRepoId: 'repo-1' }, 7) as {
+      selectedRepoId: string;
+      terminalDetached: boolean;
+      reposDetached: boolean;
+      fabDetached: boolean;
+      browserDetached: boolean;
+    };
+    expect(migrated.terminalDetached).toBe(false);
+    expect(migrated.reposDetached).toBe(false);
+    expect(migrated.fabDetached).toBe(false);
+    expect(migrated.browserDetached).toBe(false);
+    expect(migrated.selectedRepoId).toBe('repo-1');
+  });
+
+  it('a pre-v8 payload with no popout to be detached from loads all four false', () => {
+    const migrate = useUiStore.persist.getOptions().migrate;
+    const migrated = migrate?.({}, 6) as { terminalDetached: boolean; browserDetached: boolean };
+    expect(migrated.terminalDetached).toBe(false);
+    expect(migrated.browserDetached).toBe(false);
+  });
+
+  it('leaves an already-v8 payload alone', () => {
+    const migrate = useUiStore.persist.getOptions().migrate;
+    const payload = { terminalDetached: true, reposDetached: false, fabDetached: false, browserDetached: false };
+    expect(migrate?.(payload, 8)).toBe(payload);
+  });
+
+  it('a persisted version-7 blob round-trips through the real store with the flags seeded', () => {
+    localStorage.setItem(
+      'midnite-studio.ui',
+      JSON.stringify({ state: { selectedRepoId: 'repo-legacy' }, version: 7 }),
+    );
+    void useUiStore.persist.rehydrate();
+    expect(useUiStore.getState().terminalDetached).toBe(false);
+    expect(useUiStore.getState().reposDetached).toBe(false);
+    expect(useUiStore.getState().fabDetached).toBe(false);
+    expect(useUiStore.getState().browserDetached).toBe(false);
+    expect(useUiStore.getState().selectedRepoId).toBe('repo-legacy');
+  });
+});

@@ -5,6 +5,7 @@ import { useQueryClient, type QueryClient } from '@tanstack/react-query';
 
 import { useGraphStore } from '../features/graph/graph-store';
 import { bridge } from './bridge';
+import { relayWatchEvent } from './broadcast-sync';
 import { keys } from './queries';
 
 /**
@@ -124,6 +125,11 @@ export function useWatchInvalidation(selectedRepoId: string | null): void {
       if (restreamGraph && event.repoId === selectedRepoId) {
         useGraphStore.getState().requestRestream();
       }
+
+      // `watchEvent` reaches only the main window (`watch-service.ts` binds
+      // one `win`), so this is the one relay point — every other window
+      // invalidates off it instead of running a second watcher.
+      relayWatchEvent(event.repoId, event.kind);
     });
   }, [client, selectedRepoId]);
 }

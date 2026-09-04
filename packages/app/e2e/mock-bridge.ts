@@ -447,6 +447,21 @@ export type MockFixtures = {
     fileContent?: Record<string, string | null>;
     renders?: Record<string, Array<{ id: string; [key: string]: unknown }>>;
   };
+  /**
+   * Which panel `main.tsx` renders (Phase 55) — `'main'`, the default, for
+   * `<App />`; any popout role for `<DetachedRoot role={…} />` standalone.
+   * Every spec but `detached-panels-shots.spec.ts` leaves this unset.
+   */
+  windowRole?: 'main' | 'terminal' | 'repos' | 'fab' | 'browser';
+  /**
+   * Extra popout roles `window.list()` reports as open, alongside `main`.
+   * `useWindowSync` (`use-window-sync.ts`) reconciles `ui-store`'s four
+   * `*Detached` flags against exactly this list on every mount — writing
+   * `terminalDetached: true` straight into localStorage without this is
+   * clobbered back to `false` the instant that hook's effect runs, since main
+   * (this list) is the reconciliation's only source of truth.
+   */
+  openPopoutRoles?: ('terminal' | 'repos' | 'fab' | 'browser')[];
 };
 
 
@@ -2224,8 +2239,19 @@ export async function installMockBridge(page: Page, fixtures: MockFixtures): Pro
         detach: noop,
         dock: noop,
         focusRole: noop,
-        list: async () => [{ id: 1, role: 'main' as const, repoId: null }],
+        list: async () => [
+          { id: 1, role: 'main' as const, repoId: null },
+          ...(data.openPopoutRoles ?? []).map((role, index) => ({
+            id: index + 2,
+            role,
+            repoId: null,
+          })),
+        ],
         onWindowsChanged: unsubscribe,
+        // Theme E: no spec here exercises a second real window either, so a
+        // relay send is a no-op and nothing ever answers `onRelayed`.
+        relay: noop,
+        onRelayed: unsubscribe,
       },
       cli: {
         status: async () => ({ installed: false, path: null, target: null, managed: false }),
@@ -2276,9 +2302,9 @@ export async function installMockBridge(page: Page, fixtures: MockFixtures): Pro
         onFocusChange: unsubscribe,
         setBackgroundColor: noop,
       },
-      // Phase 55: every e2e spec runs as the main window — nothing here
-      // exercises a popout's own renderer.
-      windowRole: 'main' as const,
+      // Phase 55: every spec but `detached-panels-shots.spec.ts` leaves this
+      // unset and runs as the main window.
+      windowRole: data.windowRole ?? 'main',
     };
 
     // Declared after use above because `var` hoisting is what makes the closure

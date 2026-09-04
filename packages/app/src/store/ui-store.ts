@@ -1187,6 +1187,10 @@ type PersistedUi = Pick<
   | 'passcodeOnlyWhenLocked'
   | 'allowForceWithLease'
   | 'launchAndRunEnabled'
+  | 'terminalDetached'
+  | 'reposDetached'
+  | 'fabDetached'
+  | 'browserDetached'
 >;
 
 /**
@@ -1613,7 +1617,7 @@ export const useUiStore = create<UiState>()(
     }),
     {
       name: 'midnite-studio.ui',
-      version: 7,
+      version: 8,
       partialize: (state): PersistedUi => ({
         layout: state.layout,
         graphColumns: state.graphColumns,
@@ -1686,6 +1690,10 @@ export const useUiStore = create<UiState>()(
         passcodeOnlyWhenLocked: state.passcodeOnlyWhenLocked,
         allowForceWithLease: state.allowForceWithLease,
         launchAndRunEnabled: state.launchAndRunEnabled,
+        terminalDetached: state.terminalDetached,
+        reposDetached: state.reposDetached,
+        fabDetached: state.fabDetached,
+        browserDetached: state.browserDetached,
       }),
 
       /**
@@ -1695,6 +1703,8 @@ export const useUiStore = create<UiState>()(
        * v4 → v5: seed `updatesAutoCheck`, `updateChannel`, and set `onboardedAt` for existing installs.
        * v5 → v6: rename the `sparkline` timeline style to `area`, which now draws churn.
        * v6 → v7: seed `projectViewByProject` for existing installs.
+       * v7 → v8: seed all four `*Detached` flags `false` — a persisted blob
+       * from before Phase 55 has no popout to be detached from.
        */
       migrate: (persisted, version) => {
         const state = (persisted ?? {}) as Record<string, unknown> & {
@@ -1708,6 +1718,10 @@ export const useUiStore = create<UiState>()(
           onboardedAt?: string | null;
           activityTimelineStyle?: string;
           projectViewByProject?: Record<string, ProjectViewState>;
+          terminalDetached?: boolean;
+          reposDetached?: boolean;
+          fabDetached?: boolean;
+          browserDetached?: boolean;
         };
         if (version < 2 && state.graphColumns) {
           const { author: _retired, ...rest } = state.graphColumns;
@@ -1733,6 +1747,12 @@ export const useUiStore = create<UiState>()(
         }
         if (version < 7) {
           state.projectViewByProject = {};
+        }
+        if (version < 8) {
+          state.terminalDetached = false;
+          state.reposDetached = false;
+          state.fabDetached = false;
+          state.browserDetached = false;
         }
         return state as PersistedUi;
       },

@@ -2,6 +2,53 @@
 
 <!-- Append one entry per landed phase/PR: date, phase, PR link, one-line summary. -->
 
+## 2026-09-04 — Phase 55 Themes E+F+G — Cross-window state sync, verification, and the single-window invariants
+
+[PR #143]. Closes out the standalone popouts Themes A-D shipped: the four detached windows now
+stay live-synced with the main window instead of freezing at mount time.
+
+- [x] **E** — `broadcast-sync.ts`: a main-process relay (`mstudio:window:relay`/`windowRelayed`,
+      rebroadcast to every window but the sender, resolved off `event.sender` not a payload field)
+      as the authoritative transport, with `BroadcastChannel('midnite-studio')` layered on top as a
+      same-origin fast path — the relay alone is load-bearing because a packaged app's `file://`
+      renderers can have opaque origins where `BroadcastChannel` never fires. Messages carry a
+      per-message `id` (de-duplicated, bounded FIFO) and a per-renderer-lifetime `origin` so a
+      window ignores its own echo; an `applying` flag suppresses the rebroadcast a straight
+      subscriber would otherwise send back out, which is what stops ping-pong. The synced slice is
+      an explicit allowlist — `selectedRepoId`, `selectedWorktreePath`, the four `*Detached` flags,
+      all of `appearance-store`, and `browser-store`'s tabs/groups/`activeTabId` — not a whole-store
+      mirror; `terminal-store` deliberately does not sync, since main already owns terminal
+      durability and a synced second copy would be the drifting duplicate its own module doc warns
+      against. Cross-window React Query invalidation reuses `invalidateForWatchKind` rather than a
+      new mechanism: the one main-bound watcher's `watchEvent` now also calls `relayWatchEvent`, so
+      every other window invalidates off the relay instead of running its own `git status` poll.
+      Theme flips ride the same relay as a `{dark}` message, applied as the same two DOM mutations
+      (`classList.toggle('dark')` + `style.colorScheme`) every existing theme consumer already
+      observes.
+- [x] **F** — `window-manager.test.ts` gained edge-case coverage for crashed vs. clean-exit
+      `render-process-gone`; `broadcast-sync.test.ts` covers dedup-by-id, self-origin ignoring,
+      echo suppression, and per-store-kind sync. `detached-panels-shots.spec.ts` (gated by
+      `MSTUDIO_SHOTS=1`) photographs every `DetachedRoot` role standalone and every
+      `DetachedPlaceholder` in the main layout, light and dark, into
+      `docs/screenshots/phase-55-multi-window/`. `ipc.test.ts` gained the `window*` exhaustiveness
+      block F.4 called for. **F.3 (the human multi-monitor pass) stays open** — no Electron
+      Playwright harness exists to automate two real windows; see the phase doc's own guardrail.
+- [x] **G** — Saved popout bounds are validated against `screen.getAllDisplays()` before use
+      (`boundsWithinAnyDisplay`); an origin outside every display's work area — the
+      unplugged-second-monitor case — is discarded in favor of the role default rather than
+      reopening off-screen. Each `window-manager` mutation's close line now names *why*: a
+      `pendingCloseReason` map distinguishes the user's own traffic-light close (`reason=closed`)
+      from the explicit re-dock path (`closePopoutForRedock`, `reason=redock`) and a crashed
+      renderer (`reason=crashed`), set just before the `win.close()` call that knows which one it
+      is. Metrics stay bound to the main window only (no code change needed — `bindMetricsToWindow`
+      already took one `win`); repo-switch-while-detached now actually reaches every popout because
+      it rides the Theme E relay.
+- [x] Post-rebase fixup: rebasing onto #142 (the detached-window title-bar padding fix) shifted the
+      detached-terminal screenshot's pixels, so it was regenerated; a `tsc` cast on the
+      `render-process-gone` mock-call lookup was tightened to satisfy strict mode after rebase.
+- [x] `moon run :typecheck :lint :test` green (245 app test files / 2214 tests, 86 desktop test
+      files / 1060 tests). CI: gate + all 4 e2e shards green.
+
 ## 2026-09-04 — Phase 55 Themes A+B+C+D — Multi-window studio: detach/dock for Terminal, Git Repos, Loops and the Browser
 
 [PR #139]. Themes E, F, G stay open (cross-window sync, verification/screenshots, and the
