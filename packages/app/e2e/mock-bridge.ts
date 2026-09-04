@@ -430,6 +430,23 @@ export type MockFixtures = {
    * that needs one to already exist before the page loads.
    */
   councils?: Array<{ id: string; [key: string]: unknown }>;
+  /**
+   * Video Studio (Phase 44) — global, discovered projects rather than a
+   * registry, mirroring `councils`' own "read once, mutated by `create`/
+   * `remove`" shape. `studioStatus`/`toolchain` are keyed by project id so a
+   * spec can put one project in `failed` while another stays `stopped`;
+   * omitted keys fall back to `{state: 'stopped'}` / both binaries found,
+   * matching the real handler's own defaults.
+   */
+  video?: {
+    root?: string | null;
+    projects?: Array<{ id: string; [key: string]: unknown }>;
+    studioStatus?: Record<string, { state: string; [key: string]: unknown }>;
+    toolchain?: Record<string, { node: unknown; npx: unknown; [key: string]: unknown }>;
+    files?: Record<string, Array<{ name: string; [key: string]: unknown }>>;
+    fileContent?: Record<string, string | null>;
+    renders?: Record<string, Array<{ id: string; [key: string]: unknown }>>;
+  };
 };
 
 
@@ -1765,6 +1782,105 @@ export async function installMockBridge(page: Page, fixtures: MockFixtures): Pro
           };
         },
       },
+      /*
+        Video Studio (Phase 44). `studio.start`/`studio.stop` mutate
+        `videoStudioStatus` directly and answer with the new value rather than
+        pushing it through `onStudioChanged` — no spec here drives a live
+        starting→running transition, so a real event stream would be an
+        unused indirection; `onStudioChanged`/`onRenderProgress` stay inert
+        subscriptions, same posture as `update.onState` below.
+      */
+      video: {
+        project: {
+          list: async () => ({ projects: videoProjects }),
+          get: async (req: { id: string }) => ({
+            project: videoProjects.find((p) => p.id === req.id) ?? null,
+          }),
+          create: async (req: { id: string; title: string }) => {
+            const project = {
+              id: req.id,
+              title: req.title,
+              valid: true,
+              composition: 'Main',
+              source: 'input/original.mp4',
+              brief: 'input/BRIEF.md',
+              script: 'EDITORIAL_SCRIPT.md',
+            };
+            videoProjects = [...videoProjects, project];
+            return { ok: true as const, value: project };
+          },
+          remove: async (req: { id: string }) => {
+            const before = videoProjects.length;
+            videoProjects = videoProjects.filter((p) => p.id !== req.id);
+            return before === videoProjects.length
+              ? { ok: false as const, kind: 'error' as const, message: 'Project not found.' }
+              : { ok: true as const };
+          },
+        },
+        studio: {
+          // Returns the fixture's pre-seeded outcome for this project if one
+          // exists (letting a spec script "starting this studio fails"),
+          // defaulting to 'running' otherwise — `useVideoStudioStatus`'s own
+          // `initialData` + the app's global `staleTime: Infinity`
+          // (`app.tsx`) mean the first real `status` fetch never runs on
+          // mount, so `start`'s own response, written directly via
+          // `setQueryData`, is the only path a fixture-seeded status can
+          // actually reach the UI through — matching production exactly.
+          start: async (req: { projectId: string }) => {
+            const status = data.video?.studioStatus?.[req.projectId] ?? {
+              state: 'running' as const,
+              url: 'http://localhost:3000',
+            };
+            videoStudioStatus = { ...videoStudioStatus, [req.projectId]: status };
+            return { ok: true as const, value: status };
+          },
+          stop: async (req: { projectId: string }) => {
+            videoStudioStatus = { ...videoStudioStatus, [req.projectId]: { state: 'stopped' } };
+            return { ok: true as const };
+          },
+          status: async (req: { projectId: string }) => ({
+            status: videoStudioStatus[req.projectId] ?? { state: 'stopped' },
+          }),
+        },
+        render: {
+          start: async (req: { projectId: string; compositionId: string }) => {
+            const render = {
+              id: `render-${(videoRenders[req.projectId]?.length ?? 0) + 1}`,
+              projectId: req.projectId,
+              compositionId: req.compositionId,
+              status: 'queued' as const,
+              startedAt: Date.now(),
+            };
+            videoRenders = {
+              ...videoRenders,
+              [req.projectId]: [...(videoRenders[req.projectId] ?? []), render],
+            };
+            return { ok: true as const, value: render };
+          },
+          cancel: async () => ({ ok: true as const }),
+          list: async (req: { projectId: string }) => ({ renders: videoRenders[req.projectId] ?? [] }),
+        },
+        toolchain: async (req: { projectId: string }) => ({
+          toolchain: data.video?.toolchain?.[req.projectId] ?? {
+            node: { found: true, path: '/usr/local/bin/node' },
+            npx: { found: true, path: '/usr/local/bin/npx' },
+          },
+        }),
+        files: async (req: { projectId: string; area: string }) => ({
+          entries: data.video?.files?.[`${req.projectId}:${req.area}`] ?? [],
+        }),
+        readFile: async (req: { projectId: string; relPath: string }) => ({
+          content: data.video?.fileContent?.[`${req.projectId}:${req.relPath}`] ?? null,
+        }),
+        revealFile: async () => ({ ok: true as const }),
+        openFile: async () => ({ ok: true as const }),
+        root: {
+          get: async () => ({ root: data.video?.root ?? null }),
+          set: async (req: { root: string | null }) => ({ root: req.root }),
+        },
+        onStudioChanged: unsubscribe,
+        onRenderProgress: unsubscribe,
+      },
       cli: {
         status: async () => ({ installed: false, path: null, target: null, managed: false }),
         install: async () => ({ ok: true as const, value: { installed: true, path: '/usr/local/bin/midnite-studio', target: '/usr/local/bin/midnite-studio', managed: true } }),
@@ -2206,6 +2322,21 @@ export async function installMockBridge(page: Page, fixtures: MockFixtures): Pro
     var councilRuns: Array<{ id: string; councilId: string; [key: string]: unknown }> = [];
     // eslint-disable-next-line no-var
     var councilRunCounter = 0;
+    // --- video (Phase 44) -----------------------------------------------------
+    /** Read once from the fixture, then mutated by `project.create`/`project.remove` like `councils`. */
+    // eslint-disable-next-line no-var
+    var videoProjects: Array<{ id: string; [key: string]: unknown }> = data.video?.projects
+      ? [...data.video.projects]
+      : [];
+    /** Keyed by project id, mutated by `studio.start`/`studio.stop`. */
+    // eslint-disable-next-line no-var
+    var videoStudioStatus: Record<string, { state: string; [key: string]: unknown }> = {
+      ...(data.video?.studioStatus ?? {}),
+    };
+    // eslint-disable-next-line no-var
+    var videoRenders: Record<string, Array<{ id: string; [key: string]: unknown }>> = {
+      ...(data.video?.renders ?? {}),
+    };
     // --- workflows (Phase 43) ------------------------------------------------
     /** Read once from the fixture, then mutated by `save`/`delete` like `councils`. */
     // eslint-disable-next-line no-var
