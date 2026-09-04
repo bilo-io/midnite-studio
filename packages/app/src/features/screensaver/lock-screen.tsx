@@ -1,6 +1,8 @@
 import { useEffect, useState, type ReactNode } from 'react';
 import { createPortal } from 'react-dom';
 
+import { useWindowFocusGate } from '../../lib/use-window-focus-gate';
+import { useAnyLoopRunning } from '../loops/fab-loop-halo';
 import { NeuroCloudBackground } from './neuro-cloud-background';
 import {
   PasscodeUnlockDialog,
@@ -67,6 +69,15 @@ export function LockScreen({
   const [mounted, setMounted] = useState(false);
   useEffect(() => setMounted(true), []);
 
+  // The same `.gradient-frame` inner glow the FAB's loop console and the
+  // landing page wear (`styles.css`'s `.screensaver-panel-gradient`), lit
+  // across the whole screen the instant any loop is live anywhere in the FAB.
+  // Window-focus-gated like those other two hosts, and only while it could
+  // actually be showing: `useWindowFocusGate` counts its mounted hosts, so
+  // this only joins that count while the glow itself is on.
+  const { running: loopsRunning } = useAnyLoopRunning();
+  useWindowFocusGate(loopsRunning);
+
   useEffect(() => {
     if (suppressUnlockTrigger) return;
     if (dismissible) {
@@ -90,7 +101,8 @@ export function LockScreen({
       role="dialog"
       aria-label={label ?? (requireCode ? copy.locked : copy.screensaver)}
       onClick={clickToUnlock || undefined}
-      className={`fixed inset-0 z-[200] flex flex-col items-center justify-center bg-background/90 px-6 text-center backdrop-blur-[120px] ${
+      data-loops-running={loopsRunning ? 'true' : 'false'}
+      className={`gradient-frame screensaver-panel-gradient fixed inset-0 z-[200] flex flex-col items-center justify-center bg-background/90 px-6 text-center backdrop-blur-[120px] ${
         clickToUnlock ? 'cursor-pointer' : ''
       }`}
     >
