@@ -124,11 +124,14 @@ export function deriveLabelCounts<T>(
 /*
  * ─── The Projects view's own filter (Phase 52 Theme A) ─────────────────────
  *
- * `ProjectItemFilterState` extends the shared facets with `types`, and the
- * three functions below are what `projects-view.tsx` actually calls — a
- * thin ProjectV2-specific layer over the generic primitives above, so
- * nothing outside this file needs to know `ForgeProjectItem.content` is a
- * discriminated union.
+ * `ProjectItemFilterState` extends the shared facets with `types`, and
+ * `filterProjectItems` below is what `projects-view.tsx` actually calls for
+ * filtering — a thin ProjectV2-specific layer over the generic primitive
+ * above, so nothing outside this file needs to know `ForgeProjectItem.content`
+ * is a discriminated union. `selectProjectItem` is exported on its own too:
+ * `deriveAssigneeCounts`/`deriveLabelCounts` take it directly rather than
+ * through a second pair of Projects-specific wrappers — see
+ * `item-filter-toolbar.tsx`'s own `select` prop.
  */
 
 export type ProjectItemFilterState = ItemFilterState & {
@@ -168,12 +171,4 @@ export function filterProjectItems(
   const typed =
     filter.types.length === 0 ? items : items.filter((item) => filter.types.includes(item.content.type));
   return filterItems(typed, filter, selectProjectItem);
-}
-
-export function deriveProjectAssigneeCounts(items: readonly ForgeProjectItem[]): Map<string, number> {
-  return deriveAssigneeCounts(items, selectProjectItem);
-}
-
-export function deriveProjectLabelCounts(items: readonly ForgeProjectItem[]): Map<string, number> {
-  return deriveLabelCounts(items, selectProjectItem);
 }

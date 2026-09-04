@@ -4,14 +4,13 @@ import { describe, expect, it } from 'vitest';
 import {
   deriveAssigneeCounts,
   deriveLabelCounts,
-  deriveProjectAssigneeCounts,
-  deriveProjectLabelCounts,
   EMPTY_ITEM_FILTER,
   EMPTY_PROJECT_ITEM_FILTER,
   filterItems,
   filterProjectItems,
   isItemFilterEmpty,
   isProjectItemFilterEmpty,
+  selectProjectItem,
   type FilterableItem,
   type ItemFilterState,
   type ProjectItemFilterState,
@@ -143,20 +142,20 @@ describe('filterProjectItems', () => {
   });
 });
 
-describe('deriveProjectAssigneeCounts / deriveProjectLabelCounts', () => {
+describe('deriveAssigneeCounts / deriveLabelCounts, over ForgeProjectItem via selectProjectItem', () => {
   it('counts each login/label across every item', () => {
     const items = [
       issue('i1', { assignees: ['alice'], labels: ['bug'] }),
       issue('i2', { assignees: ['alice', 'bob'], labels: ['bug', 'ui'] }),
       draft('i3'),
     ];
-    expect(deriveProjectAssigneeCounts(items)).toEqual(
+    expect(deriveAssigneeCounts(items, selectProjectItem)).toEqual(
       new Map([
         ['alice', 2],
         ['bob', 1],
       ]),
     );
-    expect(deriveProjectLabelCounts(items)).toEqual(
+    expect(deriveLabelCounts(items, selectProjectItem)).toEqual(
       new Map([
         ['bug', 2],
         ['ui', 1],
@@ -165,7 +164,7 @@ describe('deriveProjectAssigneeCounts / deriveProjectLabelCounts', () => {
   });
 
   it('drafts never contribute a label, even though they carry none to begin with', () => {
-    expect(deriveProjectLabelCounts([draft('i1')]).size).toBe(0);
+    expect(deriveLabelCounts([draft('i1')], selectProjectItem).size).toBe(0);
   });
 });
 
