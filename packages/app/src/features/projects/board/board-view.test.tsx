@@ -2,12 +2,18 @@ import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import type { ForgeProjectField, ForgeProjectItem } from '@midnite/studio-shared';
 import { cleanup, fireEvent, render, screen, within } from '@testing-library/react';
 import { useState } from 'react';
-import { afterEach, describe, expect, it, vi } from 'vitest';
+import { afterEach, beforeAll, describe, expect, it, vi } from 'vitest';
 
 import { DialogHost } from '../../../components/dialog-host';
 import { useTerminalStore } from '../../terminal/terminal-store';
 import { BoardView } from './board-view';
 import { resolveGroupField } from './resolve-group-field';
+
+/** jsdom implements no `CSS` global at all — `board-view.tsx`'s
+ *  `moveFocusTo` reads `CSS.escape` to build its `data-card-id` selector. */
+beforeAll(() => {
+  vi.stubGlobal('CSS', { escape: (value: string) => value.replace(/[^a-zA-Z0-9_-]/g, '\\$&') });
+});
 
 /**
  * `BoardView` no longer resolves its own grouping field or owns collapse
@@ -428,5 +434,161 @@ describe('grouping by an iteration field is read-only (Phase 52 Theme B)', () =>
 
     fireEvent.contextMenu(screen.getByText('A task'));
     expect(screen.queryByRole('menu')).toBeNull();
+  });
+});
+
+/**
+ * The board's keyboard navigation (Phase 52 Theme G) — roving tabindex, so
+ * the board costs one Tab press to enter and arrow keys to traverse, not one
+ * Tab press per card. `board-keyboard.test.ts` covers the underlying
+ * arithmetic (`moveVertical`/`moveHorizontal`/`nearestCardId`) in isolation;
+ * these are the doc's own named behaviours, at the layer that actually shows
+ * them — real DOM focus on a real `BoardView`.
+ */
+describe('board keyboard navigation (Phase 52 Theme G)', () => {
+  const cardEl = (title: string): HTMLElement =>
+    screen.getByText(title).closest('[data-card-id]') as HTMLElement;
+
+  it('roving tabindex: only the focused card is a Tab stop, and arrow keys move it', () => {
+    renderWithClient(
+      <Harness
+        projectId="PVT_1" repoId="repo-1" worktreePath="/repo"
+        fields={[statusField]}
+        items={[
+          item('i1', 'Todo A', 'todo'),
+          item('i2', 'Todo B', 'todo'),
+          item('i3', 'Done A', 'done'),
+        ]}
+      />,
+    );
+
+    const todoA = cardEl('Todo A');
+    const todoB = cardEl('Todo B');
+    const doneA = cardEl('Done A');
+
+    // Seeded to the first card without anyone pressing a key yet — the
+    // board's one Tab stop, not zero.
+    expect(todoA.getAttribute('tabindex')).toBe('0');
+    expect(todoB.getAttribute('tabindex')).toBe('-1');
+    expect(doneA.getAttribute('tabindex')).toBe('-1');
+
+    todoA.focus();
+    fireEvent.keyDown(todoA, { key: 'ArrowDown' });
+    expect(document.activeElement).toBe(todoB);
+    expect(todoB.getAttribute('tabindex')).toBe('0');
+    expect(todoA.getAttribute('tabindex')).toBe('-1');
+
+    fireEvent.keyDown(todoB, { key: 'ArrowRight' });
+    expect(document.activeElement).toBe(doneA);
+    expect(doneA.getAttribute('tabindex')).toBe('0');
+
+    fireEvent.keyDown(doneA, { key: 'ArrowUp' });
+    // Clamped, not wrapped — there is no row above the first in this column.
+    expect(document.activeElement).toBe(doneA);
+  });
+
+  it('a collapsed column is skipped by ←/→, never a focus stop with nothing on it', () => {
+    const threeColumnField: ForgeProjectField = {
+      id: 'f1',
+      name: 'Status',
+      dataType: 'single_select',
+      options: [
+        { id: 'todo', name: 'Todo', color: 'GRAY' },
+        { id: 'doing', name: 'Doing', color: 'YELLOW' },
+        { id: 'done', name: 'Done', color: 'GREEN' },
+      ],
+    };
+    renderWithClient(
+      <Harness
+        projectId="PVT_1" repoId="repo-1" worktreePath="/repo"
+        fields={[threeColumnField]}
+        items={[item('i1', 'Todo A', 'todo'), item('i2', 'Doing A', 'doing'), item('i3', 'Done A', 'done')]}
+      />,
+    );
+
+    // Collapse the middle column — the one directly between the focused
+    // card and its target — before any arrow key is pressed, so it is
+    // already in the way rather than disappearing out from under focus.
+    fireEvent.click(screen.getByRole('button', { name: 'Collapse Doing' }));
+
+    const todoA = cardEl('Todo A');
+    todoA.focus();
+    fireEvent.keyDown(todoA, { key: 'ArrowRight' });
+
+    expect(document.activeElement).toBe(cardEl('Done A'));
+  });
+
+  it('collapsing the focused card\'s own column rescues focus to the nearest navigable card', () => {
+    renderWithClient(
+      <Harness
+        projectId="PVT_1" repoId="repo-1" worktreePath="/repo"
+        fields={[statusField]}
+        items={[item('i1', 'Todo A', 'todo'), item('i2', 'Done A', 'done')]}
+      />,
+    );
+
+    cardEl('Todo A').focus();
+    fireEvent.click(screen.getByRole('button', { name: 'Collapse Todo' }));
+
+    // The card's own DOM node is gone the instant its column collapses — the
+    // roving target moves off it without anyone pressing an arrow key.
+    expect(screen.queryByText('Todo A')).toBeNull();
+    expect(cardEl('Done A').getAttribute('tabindex')).toBe('0');
+  });
+
+  it('Enter opens the focused card into the detail pane', () => {
+    renderWithClient(
+      <Harness projectId="PVT_1" repoId="repo-1" worktreePath="/repo" fields={[statusField]} items={[item('i1', 'A task', 'todo')]} />,
+    );
+
+    const card = cardEl('A task');
+    card.focus();
+    fireEvent.keyDown(card, { key: 'Enter' });
+
+    expect(screen.getByTestId('card-detail')).toBeDefined();
+  });
+
+  it('Escape closes the detail pane and returns focus to the card it came from', () => {
+    renderWithClient(
+      <Harness projectId="PVT_1" repoId="repo-1" worktreePath="/repo" fields={[statusField]} items={[item('i1', 'A task', 'todo')]} />,
+    );
+
+    const card = cardEl('A task');
+    card.focus();
+    fireEvent.keyDown(card, { key: 'Enter' });
+    expect(screen.getByTestId('card-detail')).toBeDefined();
+
+    fireEvent.keyDown(screen.getByTestId('board-view'), { key: 'Escape' });
+
+    expect(screen.queryByTestId('card-detail')).toBeNull();
+    expect(document.activeElement).toBe(cardEl('A task'));
+  });
+
+  it('focus is rescued to the nearest remaining card when the focused one is filtered out', () => {
+    const queryClient = new QueryClient({ defaultOptions: { queries: { retry: false } } });
+    const tree = (items: ForgeProjectItem[]) => (
+      <QueryClientProvider client={queryClient}>
+        <DialogHost>
+          <Harness projectId="PVT_1" repoId="repo-1" worktreePath="/repo" fields={[statusField]} items={items} />
+        </DialogHost>
+      </QueryClientProvider>
+    );
+
+    const { rerender } = render(
+      tree([item('i1', 'Todo A', 'todo'), item('i2', 'Todo B', 'todo'), item('i3', 'Done A', 'done')]),
+    );
+
+    cardEl('Todo A').focus();
+    fireEvent.keyDown(cardEl('Todo A'), { key: 'ArrowDown' });
+    expect(document.activeElement).toBe(cardEl('Todo B'));
+
+    // Simulate the caller applying a filter that removes "Todo B" — the
+    // prop change alone, no key press, is what must trigger the rescue.
+    rerender(tree([item('i1', 'Todo A', 'todo'), item('i3', 'Done A', 'done')]));
+
+    expect(screen.queryByText('Todo B')).toBeNull();
+    // "Todo B" was the second (index 1) of three flattened cards; the same
+    // flattened index in the two-card board that's left is "Done A".
+    expect(cardEl('Done A').getAttribute('tabindex')).toBe('0');
   });
 });

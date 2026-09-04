@@ -12,7 +12,7 @@ import {
   type DragStartEvent,
 } from '@dnd-kit/core';
 import { useVirtualizer } from '@tanstack/react-virtual';
-import { useEffect, useMemo, useRef, useState } from 'react';
+import { useEffect, useMemo, useRef, useState, type KeyboardEvent } from 'react';
 import { LuChevronRight } from 'react-icons/lu';
 
 import type { ForgeProjectField, ForgeProjectItem, ForgeProjectWriteResult } from '@midnite/studio-shared';
@@ -26,6 +26,14 @@ import { useClearProjectItemField, useSetProjectItemField } from '../../../servi
 import { useUiStore } from '../../../store/ui-store';
 import { useToastStore } from '../../../store/toast-store';
 import { useTerminalStore } from '../../terminal/terminal-store';
+import {
+  findCardPosition,
+  flattenCardIds,
+  moveHorizontal,
+  moveVertical,
+  nearestCardId,
+  positionToItemId,
+} from './board-keyboard';
 import { applyOptimisticMove, type CardDragPayload, type ColumnDropPayload } from './board-dnd';
 import { CardPanelStack } from './card-panel-stack';
 import { deriveColumns, NO_STATUS_COLUMN_ID, sessionsToRehome, type BoardColumn } from './board-derive';
@@ -184,6 +192,95 @@ export function BoardView({
     [fields, groupField],
   );
 
+  /*
+    Roving tabindex (Phase 52 Theme G): one card on the board is `0` — this
+    one — every other card is `-1`, reachable only by arrow keys. A board
+    with 200 cards costs one Tab press to enter, not two hundred to
+    traverse.
+
+    Reconciled (not imperatively focused) whenever `columns` or
+    `collapsedColumns` changes — a filter, a regroup, a card moving off the
+    board entirely, *or* the focused card's own column collapsing out from
+    under it (its DOM node is gone the instant that happens — `collapsed`
+    is a render branch in `BoardColumnView`, not a CSS hide). If the focused
+    card is still somewhere in `columns` AND its column is expanded, it
+    stays focused; otherwise focus moves to the item at the same flattened
+    index as before, skipping any collapsed column, clamped to the new,
+    possibly-shorter end — never to `document.body`, which is what would
+    silently end keyboard navigation mid-task. "Before" prefers the *current*
+    `columns` read without collapse applied (the common case: nothing
+    moved, a column merely (dis)appeared), falling back to `prevColumnsRef`
+    only when the card is gone from `columns` outright. This effect only
+    ever updates state; only `moveFocusTo` below ever calls a real DOM
+    `.focus()`, which is what keeps a passive filter from stealing focus off
+    whatever else the user was doing.
+  */
+  const [focusedItemId, setFocusedItemId] = useState<string | null>(null);
+  const boardRef = useRef<HTMLDivElement>(null);
+  const prevColumnsRef = useRef(columns);
+  useEffect(() => {
+    const position = focusedItemId !== null ? findCardPosition(columns, focusedItemId) : null;
+    const usable = position !== null && !collapsedColumns.has(columns[position.columnIndex]!.id);
+    if (!usable) {
+      const rawIndex = focusedItemId !== null ? flattenCardIds(columns).indexOf(focusedItemId) : -1;
+      const previousFlatIndex =
+        rawIndex !== -1
+          ? rawIndex
+          : focusedItemId !== null
+            ? Math.max(0, flattenCardIds(prevColumnsRef.current).indexOf(focusedItemId))
+            : 0;
+      setFocusedItemId(nearestCardId(columns, previousFlatIndex, collapsedColumns));
+    }
+    prevColumnsRef.current = columns;
+    // `focusedItemId` deliberately excluded — this only ever reacts to
+    // `columns`/`collapsedColumns` changing, never to a focus move it just
+    // made itself, or every arrow-key press would re-run this reconciliation
+    // against a now-stale `prevColumnsRef`.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [columns, collapsedColumns]);
+
+  /**
+   * Sets the roving target *and* moves real DOM focus there — the only path
+   * that does both; the reconciliation effect above only ever does the
+   * former. Synchronous, not deferred to a frame: every card is already in
+   * the DOM (only its `tabIndex` changes), and `.focus()` works on a
+   * `tabIndex={-1}` element regardless of whether React has re-rendered its
+   * new `0` yet — a negative `tabIndex` blocks reaching an element by
+   * pressing Tab, never a direct `.focus()` call.
+   */
+  const moveFocusTo = (itemId: string | null): void => {
+    if (itemId === null) return;
+    setFocusedItemId(itemId);
+    boardRef.current?.querySelector<HTMLElement>(`[data-card-id="${CSS.escape(itemId)}"]`)?.focus();
+  };
+
+  const handleBoardKeyDown = (event: KeyboardEvent<HTMLDivElement>): void => {
+    if (event.key === 'Escape') {
+      if (selectedItemId === null) return;
+      event.preventDefault();
+      const origin = focusedItemId;
+      setSelectedItemId(null);
+      moveFocusTo(origin);
+      return;
+    }
+
+    if (focusedItemId === null) return;
+    const position = findCardPosition(columns, focusedItemId);
+    if (!position) return;
+
+    if (event.key === 'ArrowDown' || event.key === 'ArrowUp') {
+      event.preventDefault();
+      moveFocusTo(positionToItemId(columns, moveVertical(columns, position, event.key === 'ArrowDown' ? 1 : -1)));
+    } else if (event.key === 'ArrowRight' || event.key === 'ArrowLeft') {
+      event.preventDefault();
+      moveFocusTo(
+        positionToItemId(
+          columns,
+          moveHorizontal(columns, collapsedColumns, position, event.key === 'ArrowRight' ? 1 : -1),
+        ),
+      );
+    }
+  };
 
   if (!groupField) {
     return (
@@ -282,7 +379,7 @@ export function BoardView({
       onDragOver={handleDragOver}
       onDragEnd={handleDragEnd}
     >
-      <div className="flex h-full min-h-0" data-testid="board-view">
+      <div ref={boardRef} className="flex h-full min-h-0" data-testid="board-view" onKeyDown={handleBoardKeyDown}>
         <div className="flex min-h-0 flex-1 gap-3 overflow-x-auto p-3">
           {columns.map((column) => (
             <BoardColumnView
@@ -292,11 +389,15 @@ export function BoardView({
               fields={cardFields}
               projectId={projectId}
               selectedItemId={selectedItemId}
+              focusedItemId={focusedItemId}
               collapsed={collapsedColumns.has(column.id)}
               writesEnabled={writesEnabled}
               disabledReason={disabledReason}
               onToggle={() => onToggleColumn(column.id)}
-              onSelectItem={setSelectedItemId}
+              onSelectItem={(itemId) => {
+                setFocusedItemId(itemId);
+                setSelectedItemId(itemId);
+              }}
               onMoveToColumn={moveItemToColumn}
             />
           ))}
@@ -362,6 +463,7 @@ function BoardColumnView({
   fields,
   projectId,
   selectedItemId,
+  focusedItemId,
   collapsed,
   writesEnabled,
   disabledReason,
@@ -375,6 +477,9 @@ function BoardColumnView({
   fields: readonly ForgeProjectField[];
   projectId: string;
   selectedItemId: string | null;
+  /** The roving-tabindex target (Phase 52 Theme G) — the one card on the
+   *  whole board that renders `tabIndex={0}`. */
+  focusedItemId: string | null;
   collapsed: boolean;
   writesEnabled: boolean;
   /** Why dragging is off, shown as the card's `title` — absent when it is on. */
@@ -445,6 +550,7 @@ function BoardColumnView({
           fields={fields}
           projectId={projectId}
           selectedItemId={selectedItemId}
+          focusedItemId={focusedItemId}
           writesEnabled={writesEnabled}
           disabledReason={disabledReason}
           onSelectItem={onSelectItem}
@@ -460,6 +566,7 @@ function BoardColumnView({
                 fields={fields}
                 projectId={projectId}
                 isOpen={item.id === selectedItemId}
+                tabIndex={item.id === focusedItemId ? 0 : -1}
                 writesEnabled={writesEnabled}
                 disabledReason={disabledReason}
                 columns={columns}
@@ -500,6 +607,7 @@ function DraggableCard({
   fields,
   projectId,
   isOpen,
+  tabIndex,
   writesEnabled,
   disabledReason,
   columns,
@@ -511,6 +619,9 @@ function DraggableCard({
   fields: readonly ForgeProjectField[];
   projectId: string;
   isOpen: boolean;
+  /** Roving tabindex (Phase 52 Theme G) — forwarded to `TaskCard`, the
+   *  element that actually owns the board's one Tab stop. */
+  tabIndex: number;
   writesEnabled: boolean;
   disabledReason: string | undefined;
   columns: readonly BoardColumn[];
@@ -567,8 +678,15 @@ function DraggableCard({
         gesture that is not on offer. `listeners` still spread — dnd-kit
         makes them no-ops when disabled, and dropping them would mean
         re-adding them on the way back.
+
+        `tabIndex` is overridden to `-1` regardless: `draggable.attributes`
+        defaults it to `0` for a keyboard sensor this app deliberately does
+        not wire (see this component's own docblock), and left as `attributes`
+        hands it, every card's wrapper would be an independent Tab stop
+        alongside `TaskCard`'s own roving one below (Phase 52 Theme G) —
+        two stops per card, not the board's promised one.
       */
-      {...(writesEnabled ? draggable.attributes : {})}
+      {...(writesEnabled ? { ...draggable.attributes, tabIndex: -1 } : {})}
       title={writesEnabled ? undefined : disabledReason}
       style={draggable.isDragging ? { opacity: 0 } : undefined}
       onContextMenu={(event) => {
@@ -576,7 +694,14 @@ function DraggableCard({
         openMoveMenu(event);
       }}
     >
-      <TaskCard item={item} fields={fields} projectId={projectId} isOpen={isOpen} onClick={onClick} />
+      <TaskCard
+        item={item}
+        fields={fields}
+        projectId={projectId}
+        isOpen={isOpen}
+        tabIndex={tabIndex}
+        onClick={onClick}
+      />
     </div>
   );
 }
@@ -595,6 +720,7 @@ function VirtualizedColumnItems({
   fields,
   projectId,
   selectedItemId,
+  focusedItemId,
   writesEnabled,
   disabledReason,
   onSelectItem,
@@ -605,6 +731,14 @@ function VirtualizedColumnItems({
   fields: readonly ForgeProjectField[];
   projectId: string;
   selectedItemId: string | null;
+  /** See `BoardColumnView`'s own note. **Known gap:** a focused card past the
+   *  virtualizer's own render window has no DOM node for `moveFocusTo` to
+   *  find — arrow-key nav can move `focusedItemId` here correctly while the
+   *  browser's actual focus stays behind, on a >50-card column. Scrolling
+   *  the virtualizer to the new index first is the fix, and is not this
+   *  theme's — card *movement* is explicitly deferred, and this is the same
+   *  shape of "scroll to make it real" gap, just for focus rather than drag. */
+  focusedItemId: string | null;
   writesEnabled: boolean;
   disabledReason: string | undefined;
   onSelectItem: (itemId: string) => void;
@@ -638,6 +772,7 @@ function VirtualizedColumnItems({
                 fields={fields}
                 projectId={projectId}
                 isOpen={item.id === selectedItemId}
+                tabIndex={item.id === focusedItemId ? 0 : -1}
                 writesEnabled={writesEnabled}
                 disabledReason={disabledReason}
                 columns={columns}

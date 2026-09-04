@@ -1,6 +1,6 @@
 import type { MidniteStudioBridge, WorkflowRun } from '@midnite/studio-shared';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
-import { cleanup, fireEvent, render, screen } from '@testing-library/react';
+import { cleanup, fireEvent, render, screen, within } from '@testing-library/react';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 
 import { RunHistoryList } from './run-history-list';
@@ -61,7 +61,8 @@ describe('RunHistoryList', () => {
     installBridge([run({ id: 'older', startedAt: Date.now() - 60_000 }), run({ id: 'newer' })]);
     const { onSelectRun } = renderList();
 
-    const rows = await screen.findAllByRole('button');
+    const list = await screen.findByRole('list', { name: 'Runs' });
+    const rows = within(list).getAllByRole('button');
     expect(rows).toHaveLength(2);
 
     fireEvent.click(rows[0]!);
@@ -72,5 +73,41 @@ describe('RunHistoryList', () => {
     installBridge([run({ status: 'running', endedAt: undefined })]);
     renderList();
     expect(await screen.findByText('Running')).not.toBeNull();
+  });
+
+  describe('the status facet (Phase 52 Theme E)', () => {
+    it('shows every run when nothing is selected — empty means everyone', async () => {
+      installBridge([run({ id: 'r1', status: 'completed' }), run({ id: 'r2', status: 'failed' })]);
+      renderList();
+
+      const list = await screen.findByRole('list', { name: 'Runs' });
+      expect(within(list).getAllByRole('button')).toHaveLength(2);
+    });
+
+    it('narrows to only the selected status', async () => {
+      installBridge([run({ id: 'r1', status: 'completed' }), run({ id: 'r2', status: 'failed' })]);
+      renderList();
+      await screen.findByRole('list', { name: 'Runs' });
+
+      fireEvent.click(screen.getByRole('button', { name: 'All statuses' }));
+      fireEvent.click(await screen.findByRole('option', { name: 'Failed' }));
+
+      const list = screen.getByRole('list', { name: 'Runs' });
+      const rows = within(list).getAllByRole('button');
+      expect(rows).toHaveLength(1);
+      expect(within(rows[0]!).getByText('Failed')).not.toBeNull();
+    });
+
+    it('a status that matches nothing shows the no-matches state, not the empty-runs state', async () => {
+      installBridge([run({ id: 'r1', status: 'completed' })]);
+      renderList();
+      await screen.findByRole('list', { name: 'Runs' });
+
+      fireEvent.click(screen.getByRole('button', { name: 'All statuses' }));
+      fireEvent.click(await screen.findByRole('option', { name: 'Failed' }));
+
+      expect(await screen.findByText('No matches')).not.toBeNull();
+      expect(screen.queryByText("Hit Run to start this workflow's first run.")).toBeNull();
+    });
   });
 });
