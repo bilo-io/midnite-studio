@@ -3,6 +3,7 @@ import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { cleanup, render, screen, within } from '@testing-library/react';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 
+import { DialogHost } from '../../components/dialog-host';
 import { useUiStore } from '../../store/ui-store';
 import { IssuesView } from './issues-view';
 
@@ -52,7 +53,14 @@ function renderView() {
   const queryClient = new QueryClient({ defaultOptions: { queries: { retry: false } } });
   render(
     <QueryClientProvider client={queryClient}>
-      <IssuesView />
+      {/*
+        `IssueActionBar` (mounted once a row is selected) calls `useDialogs()`
+        for its "Add to project" menu — needed here even though these tests
+        only assert on the list pane.
+      */}
+      <DialogHost>
+        <IssuesView />
+      </DialogHost>
     </QueryClientProvider>,
   );
 }

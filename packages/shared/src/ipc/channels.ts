@@ -185,6 +185,23 @@ export const CHANNELS = {
    * concept.
    */
   forgeIssueComments: 'mstudio:forge:issue-comments',
+  /**
+   * A top-level comment on an issue's conversation (Phase 54 Theme G).
+   *
+   * `gh issue comment`, not `gh pr comment` — a different subcommand even
+   * though both land in the same `issues/{n}/comments` REST collection, the
+   * way `pullComment` and this one are two functions in `gh-write.ts` for one
+   * shape of write.
+   */
+  forgeIssueComment: 'mstudio:forge:issue-comment',
+  /**
+   * Close or reopen an issue (Phase 54 Theme G).
+   *
+   * One channel with a target `state`, not two — the same reasoning
+   * `forgeResolveThread`'s single `resolved` boolean gives: the UI has one
+   * toggle, not two verbs to pick between.
+   */
+  forgeIssueSetState: 'mstudio:forge:issue-set-state',
   /** One run's job/step tree. Cached in main once the run has completed. */
   forgeRunDetail: 'mstudio:forge:run-detail',
   /** One run's (or job's) log, capped head-and-tail unless `full` is asked for. */

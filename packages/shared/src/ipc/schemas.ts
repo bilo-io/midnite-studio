@@ -679,6 +679,32 @@ export const ForgePullCommentRequest = ForgePullRequest.extend({
 export const ForgePullCommentResponse = ForgeWriteResultSchema;
 
 /**
+ * A top-level comment on an issue (Phase 54 Theme G).
+ *
+ * The same non-empty rule as `ForgePullCommentRequest` above, for the
+ * identical reason: `gh issue comment` with an empty `--body` still posts a
+ * comment, and an empty comment is not a thing GitHub's own UI lets anyone
+ * write.
+ */
+export const ForgeIssueCommentRequest = ForgeIssueRequest.extend({
+  body: ForgeBody.trim().min(1, 'a comment needs a body'),
+});
+export const ForgeIssueCommentResponse = ForgeWriteResultSchema;
+
+/**
+ * Close or reopen an issue (Phase 54 Theme G).
+ *
+ * A target `state`, not two channels — the same shape `ForgeResolveThreadRequest`
+ * gives its own `resolved` boolean above: the UI has one toggle, and encoding
+ * the two verbs as one field with two values keeps the request self-describing
+ * without a second channel that would only ever run the opposite command.
+ */
+export const ForgeIssueSetStateRequest = ForgeIssueRequest.extend({
+  state: z.enum(['open', 'closed']),
+});
+export const ForgeIssueSetStateResponse = ForgeWriteResultSchema;
+
+/**
  * A merge.
  *
  * `method` has no default on purpose. Every other request in this file defaults
