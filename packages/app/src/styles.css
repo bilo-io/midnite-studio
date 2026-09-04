@@ -556,13 +556,13 @@ section.bg-card\/60 {
   background-image: linear-gradient(
     100deg,
     hsl(var(--foreground)) 0%,
-    hsl(var(--foreground)) 12%,
-    hsl(var(--sv-tint, var(--foreground))) 26%,
-    hsl(var(--sv-tint, var(--foreground))) 40%,
-    hsl(var(--foreground)) 54%,
-    hsl(var(--foreground)) 62%,
-    hsl(var(--sv-tint, var(--foreground))) 74%,
-    hsl(var(--sv-tint, var(--foreground))) 88%,
+    hsl(var(--foreground)) 8%,
+    hsl(var(--sv-tint, var(--foreground))) 22%,
+    hsl(var(--sv-tint, var(--foreground))) 44%,
+    hsl(var(--foreground)) 50%,
+    hsl(var(--foreground)) 56%,
+    hsl(var(--sv-tint, var(--foreground))) 70%,
+    hsl(var(--sv-tint, var(--foreground))) 92%,
     hsl(var(--foreground)) 100%
   );
   background-size: 200% 100%;
@@ -571,9 +571,36 @@ section.bg-card\/60 {
   background-clip: text;
   color: transparent;
   text-shadow:
-    0 0 22px hsl(var(--sv-tint, var(--foreground)) / 0.56),
-    0 0 48px hsl(var(--sv-tint, var(--foreground)) / 0.31);
+    0 0 28px hsl(var(--sv-tint, var(--foreground)) / 0.58),
+    0 0 60px hsl(var(--sv-tint, var(--foreground)) / 0.35);
   animation: screensaver-sheen 6s ease-in-out infinite alternate;
+}
+
+.screensaver-title[data-mode='active'] {
+  background-image: linear-gradient(
+    100deg,
+    hsl(var(--foreground)) 0%,
+    hsl(var(--foreground)) 6%,
+    var(--rainbow-0) 18%,
+    var(--rainbow-1) 24%,
+    var(--rainbow-2) 30%,
+    var(--rainbow-3) 36%,
+    var(--rainbow-4) 42%,
+    var(--rainbow-5) 48%,
+    hsl(var(--foreground)) 52%,
+    hsl(var(--foreground)) 54%,
+    var(--rainbow-0) 66%,
+    var(--rainbow-1) 72%,
+    var(--rainbow-2) 78%,
+    var(--rainbow-3) 84%,
+    var(--rainbow-4) 90%,
+    var(--rainbow-5) 96%,
+    hsl(var(--foreground)) 100%
+  );
+  text-shadow:
+    0 0 28px rgba(59, 130, 246, 0.45),
+    0 0 60px rgba(139, 92, 246, 0.32),
+    0 0 84px rgba(244, 63, 94, 0.22);
 }
 
 @keyframes screensaver-sheen {

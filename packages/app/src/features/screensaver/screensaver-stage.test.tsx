@@ -52,4 +52,16 @@ describe('ScreensaverStage pills (Phase 46 Theme C)', () => {
     fireEvent.click(screen.getByRole('button', { name: /^3 repos/ }));
     expect(ancestorClick).not.toHaveBeenCalled();
   });
+
+  it('sets data-mode attribute on the screensaver title heading', () => {
+    const { rerender } = render(<ScreensaverStage mode="active" counts={counts} />);
+    const heading = screen.getByRole('heading', { level: 1 });
+    expect(heading.getAttribute('data-mode')).toBe('active');
+
+    rerender(<ScreensaverStage mode="waiting" counts={counts} />);
+    expect(heading.getAttribute('data-mode')).toBe('waiting');
+
+    rerender(<ScreensaverStage mode="idle" counts={counts} />);
+    expect(heading.getAttribute('data-mode')).toBe('idle');
+  });
 });
