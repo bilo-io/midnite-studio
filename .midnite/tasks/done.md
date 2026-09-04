@@ -2,6 +2,43 @@
 
 <!-- Append one entry per landed phase/PR: date, phase, PR link, one-line summary. -->
 
+## 2026-09-04 — Phase 44 Theme B — project discovery and the store
+
+[PR #112]. Projects are **discovered, not registered** — `discoverProjects` scans
+`<root>/projects/*/project.json` on every request rather than mirroring what's found into a
+store that can drift from disk.
+
+- [x] **`desktop/src/main/video/projects-store.ts`.** JSON under `userData`, following
+      `councils-store.ts`'s shape, persisting exactly one field — the video root. Missing or
+      corrupt file both load as `{ videoRoot: null }`, never a throw.
+- [x] **`desktop/src/main/video/project-discovery.ts`.** `discoverProjects`/`getProject` read the
+      root fresh every call; `_template` is never listed as a project. A folder that fails at any
+      step — no `project.json`, unparseable, schema-invalid, `id` disagreeing with its own folder
+      name — comes back `valid: false` with a human-readable reason, never a crash and never a
+      silently skipped folder. `createProject` copies `_template/` (the `ekko-videos`-documented
+      "copy this to start the next one") and patches the copy's `id`/`title` so folder and file
+      agree from the moment it exists. `listOutputFiles` parses `<project>/output/vN-<label>.mp4`
+      back off disk rather than counting iterations in a store that could disagree with it.
+- [x] Path containment reuses `fs-scope.ts` rather than a second implementation, and three bugs
+      only the tests surfaced: (1) validating `source`/`brief`/`script` with `confineToRoot`
+      (which `realpath`s, requiring existence) wrongly failed a fresh project whose referenced
+      files aren't written yet — fixed by using the pure, existence-independent `joinWithin` for
+      those three fields, reserving `confineToRoot` for paths required to already exist.
+      (2) `readdir`'s `Dirent.isDirectory()` reports `false` for a **symlinked** directory (it's
+      the symlink's own `lstat` type, not its target's) — the original folder filter silently
+      dropped a symlink-escape project instead of reading and refusing it; fixed by also admitting
+      `isSymbolicLink()` entries so `confineToRoot`'s `realpath` check catches the escape.
+      (3) Using `confineToRoot` for the `project.json` existence check conflated "doesn't exist"
+      with "escapes via symlink" into the same misleading error — split into a sequential
+      `joinWithin` (pure string escape) → `readFile` (existence) → `confineToRoot` (symlink escape,
+      only once existence is confirmed).
+- [x] 22 tests (`projects-store.test.ts` ×5, `project-discovery.test.ts` ×17), all against a real
+      temp filesystem — including the `../../../../etc/passwd`-style escape and a project folder
+      reached through an actual symlink pointing outside the root.
+- [x] Deliberately out of scope, per the phase doc's own split: IPC handlers and preload wiring —
+      Theme H's job. These functions are desktop-internal and unreachable from the renderer until
+      then.
+
 ## 2026-09-04 — Phase 22 Theme H — the remaining undo executors
 
 [PR #109]. Closes out Theme H — every op `isUndoableOpKind` calls undoable in principle now has a
