@@ -46,7 +46,12 @@ test('Edit swaps the read-only preview for a CodeMirror editor with line numbers
   await expect(page.getByTestId('code-editor')).toBeVisible();
   await expect(page.locator('.cm-gutters')).toBeVisible();
   await expect(page.locator('.cm-content')).toContainText('const answer = 42;');
-  await page.screenshot({ path: '../../docs/screenshots/phase-24-d/editor-clean.png' });
+  // Phase 56 Theme F: this test's own assertions are the coverage, so only
+  // the incidental screenshot is gated — an unconditional skip would drop
+  // real functional coverage on every routine run.
+  if (process.env.MSTUDIO_SHOTS) {
+    await page.screenshot({ path: '../../docs/screenshots/phase-24-d/editor-clean.png' });
+  }
 });
 
 test('typing shows a dirty indicator, and Save clears it', async ({ page }) => {
@@ -57,7 +62,9 @@ test('typing shows a dirty indicator, and Save clears it', async ({ page }) => {
   await page.locator('.cm-content').click();
   await page.keyboard.type('// edited\n');
   await expect(page.getByTitle('Unsaved changes')).toBeVisible();
-  await page.screenshot({ path: '../../docs/screenshots/phase-24-d/editor-dirty.png' });
+  if (process.env.MSTUDIO_SHOTS) {
+    await page.screenshot({ path: '../../docs/screenshots/phase-24-d/editor-dirty.png' });
+  }
 
   await page.getByRole('button', { name: 'Save' }).click();
   await expect(page.getByTitle('Unsaved changes')).toHaveCount(0);
@@ -77,7 +84,9 @@ test('leaving a dirty file for another shows the Save/Discard/Cancel guard', asy
   await expect(dialog.getByRole('button', { name: 'Save' })).toBeVisible();
   await expect(dialog.getByRole('button', { name: 'Discard' })).toBeVisible();
   await expect(dialog.getByRole('button', { name: 'Cancel' })).toBeVisible();
-  await page.screenshot({ path: '../../docs/screenshots/phase-24-d/editor-guard.png' });
+  if (process.env.MSTUDIO_SHOTS) {
+    await page.screenshot({ path: '../../docs/screenshots/phase-24-d/editor-guard.png' });
+  }
 
   // Discard proceeds with the blocked navigation.
   await dialog.getByRole('button', { name: 'Discard' }).click();
