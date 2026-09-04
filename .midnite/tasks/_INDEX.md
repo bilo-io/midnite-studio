@@ -60,7 +60,7 @@ Completed work is logged append-only in [`done.md`](done.md). Deferred scope liv
 | [56 · E2E Suite Speed Run](phases/phase-56-e2e-speed-run.md) | 🔄 WIP | — | 24/29 | `████████░░` | 83% | — | D G |
 | [55 · Multi-Window Studio & Detachable Panels](phases/phase-55-multi-window-studio.md) | 🔄 WIP | x1 | 31/32 | `█████████░` | 97% | | |
 | [54 · An Issues view](phases/phase-54-issues-view.md) | 🔄 WIP | — | 43/45 | `██████████` | 96% | — | Verification (2 human passes) |
-| [53 · The first release](phases/phase-53-first-release.md) | ◻ TODO | — | 0/42 | `░░░░░░░░░░` | 0% | — | A B C D E F G H |
+| [53 · The first release](phases/phase-53-first-release.md) | 🔄 WIP | — | 0/42 | `░░░░░░░░░░` | 0% | A | B C D E F G H |
 | [52 · Projects, the Board, and Workflows, navigable](phases/phase-52-projects-navigation.md) | ✅ DONE | — | 40/43 | `█████████░` | 93% | — | Verification (3 human passes) |
 | [51 · The terminal, made steady](phases/phase-51-terminal-steadiness.md) | 🔄 WIP | — | 31/37 | `████████░░` | 84% | — | human verification pass (6 items) |
 | [50 · Kanban & Projects, Follow-Through](phases/phase-50-kanban-projects-followthrough.md) | 🔄 WIP | — | 15/17 | `█████████░` | 88% | — | F (codex human pass), Verification (2 human passes) |
