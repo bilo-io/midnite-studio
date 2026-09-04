@@ -61,6 +61,7 @@ export function FabPanel({ isOpen, width, fitSignal }: FabPanelProps) {
 
   const activeIndex = LOOP_IDS.indexOf(activeFabTab);
   const loopState = loopGlowState(statuses[activeIndex]);
+  const anyRunning = statuses.some((s) => s.running);
 
   return (
     <div className="h-full w-full flex flex-col" style={{ width }}>
@@ -68,6 +69,7 @@ export function FabPanel({ isOpen, width, fitSignal }: FabPanelProps) {
         className="gradient-frame fab-panel-gradient relative h-full w-full border border-border bg-popover flex flex-col"
         data-fab-tab={activeFabTab}
         data-loop-state={loopState}
+        data-loops-running={anyRunning ? 'true' : 'false'}
       >
         {/* Tab Bar */}
         <div className="flex border-b border-border shrink-0">
