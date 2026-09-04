@@ -1,7 +1,32 @@
-import { expect, test } from '@playwright/test';
+import { expect, test, type Locator, type Page } from '@playwright/test';
 
 import { fixtures } from './fixtures';
 import { installMockBridge } from './mock-bridge';
+
+/**
+ * Narrows the window from `from` down toward `to` in `step`-px strides,
+ * stopping the instant `bar`'s own `data-density` first reports `target` —
+ * used instead of a written-down pixel width because density is decided from
+ * *measured* content width (`use-overflow.ts`), which a runner's font metrics
+ * change out from under a hard-coded number (`@linux-red`, Phase 38 Theme I).
+ * A short settle wait per step covers the `ResizeObserver` callback + React
+ * commit; walking one direction only avoids `densityFor`'s restore
+ * hysteresis, which needs `compactWidth + 24px` to come back from `collapsed`
+ * rather than the same width that dropped it there.
+ */
+async function narrowUntilDensity(
+  page: Page,
+  bar: Locator,
+  target: 'compact' | 'collapsed',
+  { from, to = 320, step = 20 }: { from: number; to?: number; step?: number },
+): Promise<number> {
+  for (let width = from; width >= to; width -= step) {
+    await page.setViewportSize({ width, height: 800 });
+    await page.waitForTimeout(50);
+    if ((await bar.getAttribute('data-density')) === target) return width;
+  }
+  throw new Error(`bar never reached density="${target}" narrowing ${from}px → ${to}px`);
+}
 
 /**
  * Phase 27 Theme C: the status bar as a three-column grid, not `ml-auto`/
@@ -145,39 +170,16 @@ test("the bar's left edge does not move with the repositories panel", async ({ p
  * overflow popover keeps its click behaviour — collapsing must not turn an
  * action into a label.
  *
- * The thresholds moved in Phase 39: the left zone gained the palette and
- * Go-to-File toggles and the loop-launcher strip, and diagnostics arrived from
- * the right. Measured against this fixture, `full` holds to ~1200px, `compact`
- * spans ~1000-1150px and `collapsed` takes over by ~950px — so the widths below
- * sit mid-band rather than on an edge. `collapsed` at 950px is further above
- * `@bilo-io/shell`'s own `md:` (768px) breakpoint than it was, so this still
- * never contends with the shell's mobile chrome.
- *
- * They moved back a little when the loop-launcher strip and the live-agent
- * count left for the title bar's agent cluster: the left zone gave up its
- * collapsed brand glyph and a `gap-3` slot, so every band shifted a few dozen
- * pixels narrower. The widths below were re-checked against that and still sit
- * mid-band, which is the whole reason they were picked mid-band.
+ * The two transitions are found by walking the viewport down
+ * (`narrowUntilDensity`, above) rather than jumping to a written-down width —
+ * `@bilo-io/shell`'s own `md:` (768px) breakpoint sits well under wherever
+ * either lands regardless of what this fixture measures, so the bar's own
+ * collapse is always what narrows it, never the shell's mobile chrome.
  */
 test(
   'narrowing drives compact then collapsed, and a collapsed segment still acts',
-  /*
-    `@linux-red`: this asserts a DENSITY, and density is decided from measured
-    content width — which depends on the fonts installed. The CI runner has a
-    different set from macOS, so the same viewport lands on the other side of the
-    breakpoint there ('compact' where macOS gives 'full'). Green locally, red on
-    CI, and a spec-portability problem rather than a product fault: pin the
-    viewport to a width that is unambiguous on both, or assert the breakpoint
-    against a measured width rather than a hard-coded one. Phase 38 Theme I.
-  */
-  { tag: '@linux-red' },
   async ({ page }) => {
-    // Wider than the default viewport, and set BEFORE the app loads: the
-    // activity toggle widened the rail past 1280px's full band on macOS
-    // fonts, and the first measurement must land `full` — once the bar fits,
-    // `scrollWidth` equals `clientWidth`, so a post-load widening can never
-    // clear `densityFor`'s restore hysteresis.
-    await page.setViewportSize({ width: 1400, height: 800 });
+    await page.setViewportSize({ width: 1600, height: 800 });
     await installMockBridge(page, {
       ...fixtures,
       remotes: [GITHUB_REMOTE],
@@ -195,13 +197,15 @@ test(
     await expect(bar).toHaveAttribute('data-density', 'full');
     await expect(page.getByTestId('status-segment-checks-verdict')).toBeVisible();
 
-    await page.setViewportSize({ width: 1080, height: 800 });
-    await expect(bar).toHaveAttribute('data-density', 'compact');
+    // `@linux-red` used to live on this test: it jumped straight to three
+    // hard-coded viewport widths (1400/1080/900), tuned against macOS's own
+    // font metrics. See `narrowUntilDensity`'s own docblock for why walking
+    // down instead is what makes this hold on any runner's fonts.
+    const compactWidth = await narrowUntilDensity(page, bar, 'compact', { from: 1600 });
     // Icon-only: the toggles' trailing labels are hidden, not removed.
     await expect(page.getByRole('button', { name: 'Toggle Repositories' })).toBeVisible();
 
-    await page.setViewportSize({ width: 900, height: 800 });
-    await expect(bar).toHaveAttribute('data-density', 'collapsed');
+    await narrowUntilDensity(page, bar, 'collapsed', { from: compactWidth - 20 });
     await expect(page.getByTestId('status-segment-checks-verdict')).toHaveCount(0);
 
     const trigger = page.getByTestId('status-overflow');

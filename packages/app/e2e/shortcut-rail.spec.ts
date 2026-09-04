@@ -1,7 +1,30 @@
-import { expect, test, type Page } from '@playwright/test';
+import { expect, test, type Locator, type Page } from '@playwright/test';
 
 import { fixtures } from './fixtures';
 import { installMockBridge } from './mock-bridge';
+
+/**
+ * Narrows the window from `from` down in `step`-px strides, stopping the
+ * instant `bar`'s own `data-density` first reports `target` — used instead of
+ * a written-down pixel width because density is decided from *measured*
+ * content width (`use-overflow.ts`), which a runner's font metrics change out
+ * from under a hard-coded number (`@linux-red`, Phase 38 Theme I). Mirrors
+ * `status-bar.spec.ts`'s identical helper rather than importing it — each e2e
+ * spec file in this suite is self-contained, with no shared helpers module.
+ */
+async function narrowUntilDensity(
+  page: Page,
+  bar: Locator,
+  target: 'compact' | 'collapsed',
+  { from, to = 320, step = 20 }: { from: number; to?: number; step?: number },
+): Promise<number> {
+  for (let width = from; width >= to; width -= step) {
+    await page.setViewportSize({ width, height: 800 });
+    await page.waitForTimeout(50);
+    if ((await bar.getAttribute('data-density')) === target) return width;
+  }
+  throw new Error(`bar never reached density="${target}" narrowing ${from}px → ${to}px`);
+}
 
 /**
  * The status bar's shortcut rail (Phase 39 Themes A–F).
@@ -237,38 +260,25 @@ test('the rail renders repos, terminal, explorer, browser, activity, palette, fi
  * label reappearing in a narrow window could re-trigger the very overflow that
  * produced the narrow window.
  */
-test(
-  'compact density hides every name, including an active one',
-  /*
-    `@linux-red`: this asserts a DENSITY, and density is decided from measured
-    content width — which depends on the fonts installed. The CI runner has a
-    different set from macOS, so the same viewport lands on the other side of the
-    breakpoint there ('compact' where macOS gives 'full'). Green locally, red on
-    CI, and a spec-portability problem rather than a product fault: pin the
-    viewport to a width that is unambiguous on both, or assert the breakpoint
-    against a measured width rather than a hard-coded one. Phase 38 Theme I.
-  */
-  { tag: '@linux-red' },
-  async ({ page }) => {
-    // Wider than the default viewport, and set BEFORE the app loads: the
-    // activity toggle widened the rail past 1280px's full band on macOS
-    // fonts, and a bar that boots compact cannot widen back to full (see
-    // status-bar.spec.ts's narrowing spec for why).
-    await page.setViewportSize({ width: 1400, height: 800 });
-    await openWide(page);
-    const repos = page.getByTestId('repos-toggle');
-    await expect(repos).toHaveAttribute('aria-pressed', 'true');
-    await expect(repos.locator('.status-label')).toBeVisible();
+test('compact density hides every name, including an active one', async ({ page }) => {
+  await page.setViewportSize({ width: 1600, height: 800 });
+  await openWide(page);
+  const repos = page.getByTestId('repos-toggle');
+  await expect(repos).toHaveAttribute('aria-pressed', 'true');
+  await expect(repos.locator('.status-label')).toBeVisible();
 
-    await page.setViewportSize({ width: 1080, height: 800 });
-    await expect(page.getByTestId('status-bar')).toHaveAttribute('data-density', 'compact');
-    await expect(repos.locator('.status-label')).toBeHidden();
-    await expect(repos.locator('.status-chord')).toBeHidden();
-    // Hovering must not bring it back at compact either.
-    await repos.hover();
-    await expect(repos.locator('.status-label')).toBeHidden();
-  },
-);
+  const bar = page.getByTestId('status-bar');
+  // `@linux-red` used to live on this test — it asserted `compact` at a
+  // hard-coded 1080px, tuned against macOS's own font metrics. See
+  // `narrowUntilDensity`'s own docblock for why walking down instead is what
+  // makes this hold on any runner's fonts.
+  await narrowUntilDensity(page, bar, 'compact', { from: 1600 });
+  await expect(repos.locator('.status-label')).toBeHidden();
+  await expect(repos.locator('.status-chord')).toBeHidden();
+  // Hovering must not bring it back at compact either.
+  await repos.hover();
+  await expect(repos.locator('.status-label')).toBeHidden();
+});
 
 /**
  * The regression that made the state gate CSS rather than a `hidden` attribute.

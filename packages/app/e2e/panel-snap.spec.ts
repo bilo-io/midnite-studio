@@ -94,14 +94,17 @@ test('a drag that stops at the minimum leaves the repositories panel open', asyn
 test(
   'dragging the terminal splitter to the top maximizes it, and to the bottom closes it',
   /*
-    `@linux-red`: this is the one spec in the file that mounts a terminal, and
-    the panel never appears on the CI runner — xterm paints through
-    `@xterm/addon-webgl`, which a GPU-less runner cannot give it. The same wall
-    terminal-links, terminal-reveal and phase-21-roster hit; Phase 38 Theme I
-    owns the fix. Green locally on macOS, where the assertions below are the
-    real coverage for both terminal snaps.
+    Used to carry `@linux-red`: this is the one spec in the file that mounts a
+    terminal via `toggleTerminal`'s `Control+\`` press, and that chord never
+    opened the panel on the CI runner at all — not a WebGL/GPU problem as
+    first diagnosed, but `navigator.platform` genuinely reading `'Linux'`
+    there, which `chordFromEvent` resolves a bare Ctrl to `Mod` under, and
+    `Mod+\`` never matches `terminal.toggle`'s registered `Ctrl+\``. Phase 38
+    Theme I's `mock-bridge.ts` fix pins `navigator.platform` to `'MacIntel'`
+    for every spec, closing this exact wall for `terminal-links`,
+    `terminal-reveal`, `phase-21-roster` and five others — this file just
+    hadn't had its tag dropped yet.
   */
-  { tag: '@linux-red' },
   async ({ page }) => {
     await open(page);
     await toggleTerminal(page);

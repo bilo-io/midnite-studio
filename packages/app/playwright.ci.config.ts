@@ -53,16 +53,19 @@ export default defineConfig({
     One spec rather than one file, whenever the failures are a minority of it —
     the alternative, adding the whole file to KNOWN_RED, would cost every
     passing spec in it its place in the blocking job. `shortcut-rail.spec.ts`
-    and `status-bar.spec.ts` each carry one `@linux-red` spec this way: both
-    assert a status-bar *density*, decided from measured content width, and
-    the CI runner's font set differs from macOS's enough to land even the
-    "wide" fixture on the wrong side of the `full` breakpoint at the default
-    1280px viewport. A fix that read the real breakpoint from the DOM at test
-    time (rather than a hard-coded pixel guess) was tried and reverted — it
-    addressed a later assertion in each spec, but the FIRST assertion (that
-    the fixture starts in `full`) was already failing on the real CI run,
-    which a local, real-GPU macOS run cannot see. Phase 38 Theme I's own
-    remaining item.
+    and `status-bar.spec.ts` used to each carry one `@linux-red` spec this way
+    — both asserted a status-bar *density* at hard-coded viewport widths, and
+    density is decided from measured content width, which the CI runner's
+    font set renders differently from macOS. A live-measurement fix (stamping
+    `data-density` and reading `scrollWidth`, the trick `use-overflow.ts` and
+    `titlebar-agents.spec.ts` both use) does NOT generalise to this element —
+    the status bar's `grid-cols-[1fr_auto_1fr]` tracks stretch to fill a wide
+    viewport, so `scrollWidth` reads back `clientWidth` rather than real
+    content demand. Fixed instead (Phase 38 Theme I) by walking the viewport
+    down and asserting each density band the instant the bar first reports
+    it. `panel-snap.spec.ts`'s one remaining `@linux-red` spec was unrelated:
+    it mounts a real terminal, the wall Theme I's `mock-bridge.ts` platform
+    pin already closed for every other file that hit it.
   */
   grepInvert: /@linux-red/,
 });

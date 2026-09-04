@@ -29,6 +29,29 @@ those two.
       green (234 files / 2128 tests in app).
 - [x] Self-review (background `code-review` pass) found nothing — traced the list-invalidation
       claim above against `IssuesView`'s actual `selected` derivation to confirm it.
+## 2026-09-04 — Phase 38 Theme I — closing Linux CI's last three e2e gaps
+
+[PR #127]. Closes out Theme I, leaving only Theme G's unrelated `graph-themes.spec.ts` cascade
+flake in `KNOWN_RED`.
+
+- [x] **`titlebar-agents.spec.ts` — investigated, needed no fix.** It already derives every
+      width-dependent assertion from a live `scrollWidth` measurement instead of a hard-coded
+      pixel, so it never carried an `@linux-red` tag at all — the phase doc's own "not enumerated,
+      not investigated" note was stale.
+- [x] **`panel-snap.spec.ts` — the same chord-mismatch wall, untagged.** Its one `@linux-red` spec
+      mounts a terminal via `Control+\``, the exact wall the platform pin already closed for six
+      other files. Tag dropped, confirmed green.
+- [x] **`shortcut-rail.spec.ts` / `status-bar.spec.ts` — the font-metric density bug, actually
+      fixed.** Their density tests asserted at hard-coded viewport widths tuned against macOS's
+      own fonts. A stamp-`data-density`-and-read-`scrollWidth` measurement (the trick that fixed
+      `titlebar-agents.spec.ts`) does not generalise here: this bar's `grid-cols-[1fr_auto_1fr]`
+      tracks stretch to fill a wide viewport, so `scrollWidth` reads back `clientWidth` rather than
+      real content demand. Fixed by walking the viewport down in a 20px stride instead, asserting
+      each density band the instant the bar first reports it — never by jumping back up to a width
+      visited on the way down, since `densityFor`'s hysteresis needs `compactWidth + 24px` to
+      restore from `collapsed`.
+- [x] `KNOWN_RED` now holds only `graph-themes.spec.ts` — zero `@linux-red` tags remain anywhere in
+      `packages/app/e2e/`.
 
 ## 2026-09-04 — Phase 54 Themes C+D — The Issues view, and its registration
 
