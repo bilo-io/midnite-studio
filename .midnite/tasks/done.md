@@ -2,6 +2,32 @@
 
 <!-- Append one entry per landed phase/PR: date, phase, PR link, one-line summary. -->
 
+## 2026-09-04 — Phase 51 Theme A — text that survives a change of display
+
+[PR #115]. Opens Phase 51: `devicePixelRatio` was never read anywhere in this repo, so the WebGL
+glyph atlas stayed rasterised at whatever DPR was in force when the addon loaded — move the window
+across displays, or change scaling on the current one, and every glyph is drawn from an atlas built
+for the wrong pixel grid.
+
+- [x] **`use-device-pixel-ratio.ts`.** `useDevicePixelRatio()`, built on the self-re-arming
+      `matchMedia(\`(resolution: ${dpr}dppx)\`)` idiom — the query embeds the ratio it was created
+      at, so it fires exactly once; each `change` tears the old listener down and arms a fresh query
+      at the new ratio. Pure DOM, no bridge call, so it stays renderer-side on purpose: Chromium
+      already updates `window.devicePixelRatio` itself, and an Electron `screen` bridge would only
+      add a channel that can disagree with it.
+- [x] **`terminal-view.tsx` wiring.** A new `webglRef` (parallel to the existing `termRef`/`fitRef`)
+      holds the loaded `WebglAddon`, cleared on context loss and on unmount. The DPR effect runs
+      `webglRef.current?.clearTextureAtlas()` (wrapped in `try/catch` — a lost-context dispose can
+      race it) → `safeFit()` → `term.refresh(...)`, in that order because clearing after a refresh
+      repaints from the stale atlas first and fitting before clearing measures against the old
+      rasterisation. The DOM-renderer fallback runs the same fit/refresh half with no atlas call,
+      since `webglRef` is null there.
+- [x] 3 tests (`use-device-pixel-ratio.test.ts`), scoped to the hook per the doc's own plan: reports
+      the initial ratio synchronously, re-arms with a fresh query at the new ratio on each change
+      while tearing the old one down exactly once, and tears down on unmount. The `terminal-view.tsx`
+      wiring itself has no test — it needs a live xterm + WebGL context no jsdom test can construct,
+      the same reason that component has no existing test file.
+
 ## 2026-09-04 — Phase 41 Theme H (partial) — switching boards doesn't kill a session, tested
 
 [PR #114]. Closes one of Theme H's two remaining items — the other (quit-and-relaunch against a
