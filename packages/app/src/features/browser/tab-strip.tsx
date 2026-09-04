@@ -10,10 +10,11 @@ import {
 import { restrictToHorizontalAxis, restrictToParentElement } from '@dnd-kit/modifiers';
 import { SortableContext, horizontalListSortingStrategy } from '@dnd-kit/sortable';
 import { useEffect, useRef, useState, type ReactNode } from 'react';
-import { LuChevronRight, LuGlobe, LuPlus, LuX } from 'react-icons/lu';
+import { LuChevronRight, LuGlobe, LuPlus, LuSquareArrowOutUpRight, LuX } from 'react-icons/lu';
 
 import { ContextMenu, type MenuItem, type MenuPosition } from '../../components/context-menu';
 import { useDialogs } from '../../components/dialog-host';
+import { IconButton } from '../../components/icon-button';
 import { MidniteIcon } from '../../components/icons/midnite-icon';
 import { Tooltip } from '../../components/tooltip';
 import { useSortableRow } from '../../components/sortable-list';
@@ -115,6 +116,13 @@ export function BrowserTabStrip() {
         aria-label="Browser tabs"
         className="flex shrink-0 items-stretch overflow-x-auto border-b border-border bg-card/40"
       >
+        <IconButton
+          icon={LuSquareArrowOutUpRight}
+          label="Detach Browser into its own window"
+          size="sm"
+          className="my-auto ml-1 shrink-0"
+          onClick={() => bridge()?.window.detach({ role: 'browser' })}
+        />
         <SortableContext items={tabs.map((t) => t.id)} strategy={horizontalListSortingStrategy}>
           {segments.map((segment, index) =>
             segment.groupId === null ? (

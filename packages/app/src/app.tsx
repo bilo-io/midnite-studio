@@ -18,6 +18,7 @@ import { Brand, BrandHomeButton, BrandMark, Wordmark } from './components/brand'
 import { BrowserLauncher } from './features/browser/browser-launcher';
 import { BrowserPane } from './features/browser/browser-pane';
 import { DelayedFallback } from './components/delayed-fallback';
+import { DetachedPlaceholder } from './components/detached-placeholder';
 import { DialogHost } from './components/dialog-host';
 import { ToastHost } from './components/toast-host';
 import { VIEW_ICON } from './components/nav-icons';
@@ -65,6 +66,7 @@ import { useCommandHandlers } from './services/keybindings/use-command-handlers'
 import { useKeybindings } from './services/keybindings/use-keybindings';
 import { keys, useRemotes, useRepos } from './services/queries';
 import { useWatchInvalidation } from './services/watch-invalidation';
+import { useWindowSync } from './services/use-window-sync';
 import { useTestsStream } from './features/tests/use-tests-stream';
 import { useAppearanceStore, useAppearanceSync } from './store/appearance-store';
 import { useFileEditorStore } from './store/file-editor-store';
@@ -527,6 +529,13 @@ function Shell() {
   const browserLayout = useUiStore((s) => s.browserLayout);
   const fabPanelOpen = useUiStore((s) => s.fabPanelOpen);
   const toggleFabPanel = useUiStore((s) => s.toggleFabPanel);
+  const terminalDetached = useUiStore((s) => s.terminalDetached);
+  const reposDetached = useUiStore((s) => s.reposDetached);
+  const fabDetached = useUiStore((s) => s.fabDetached);
+  const browserDetached = useUiStore((s) => s.browserDetached);
+  // The single source of truth for the four flags above is main's own
+  // window registry (Phase 55) — see the hook's own doc for why.
+  useWindowSync();
   /*
     The setters the three splitters need for their snaps: dragging a pane past
     its own minimum closes it, and dragging the terminal past the top of the
@@ -884,7 +893,11 @@ function Shell() {
         style={browserTween.style}
       >
         <div className="h-full" style={{ width: browser.current }}>
-          <BrowserPane shown={browserTween.shown} />
+          {browserDetached ? (
+            <DetachedPlaceholder role="browser" label="Browser" />
+          ) : (
+            <BrowserPane shown={browserTween.shown} />
+          )}
         </div>
       </div>
     ) : null;
@@ -1168,7 +1181,11 @@ function Shell() {
                 style={reposTween.style}
               >
                 <div className="h-full" style={{ width: repos.current }}>
-                  <ReposPanel />
+                  {reposDetached ? (
+                    <DetachedPlaceholder role="repos" label="Git Repos" />
+                  ) : (
+                    <ReposPanel />
+                  )}
                 </div>
               </aside>
               <ResizeHandle resizable={repos} axis="x" label="Resize repositories sidebar" />
@@ -1346,12 +1363,16 @@ function Shell() {
                       clipped out of reach halfway through it.
                     */}
                     <div style={{ height: terminalTarget }}>
-                      <TerminalPanel
-                        cwd={selectedWorktreePath}
-                        repoId={selectedRepoId}
-                        repoName={selectedRepoName}
-                        fitSignal={terminalTween.settleCount}
-                      />
+                      {terminalDetached ? (
+                        <DetachedPlaceholder role="terminal" label="Terminal" />
+                      ) : (
+                        <TerminalPanel
+                          cwd={selectedWorktreePath}
+                          repoId={selectedRepoId}
+                          repoName={selectedRepoName}
+                          fitSignal={terminalTween.settleCount}
+                        />
+                      )}
                     </div>
                   </div>
                 </>
@@ -1372,7 +1393,11 @@ function Shell() {
             what leaves the footer — a sibling of the row, one level up — alone.
           */}
           {!browserSideBySide && browserReveal.mounted ? (
-            <BrowserPane shown={browserReveal.shown} />
+            browserDetached ? (
+              <DetachedPlaceholder role="browser" label="Browser" />
+            ) : (
+              <BrowserPane shown={browserReveal.shown} />
+            )
           ) : null}
 
           {/* FAB Panel (docked on right) */}
@@ -1387,11 +1412,15 @@ function Shell() {
                 className="shrink-0 overflow-hidden h-full"
                 style={fabPanelTween.style}
               >
-                <FabPanel
-                  isOpen={fabPanelOpen}
-                  width={fabPanel.current}
-                  fitSignal={fabPanelTween.settleCount}
-                />
+                {fabDetached ? (
+                  <DetachedPlaceholder role="fab" label="Midnite Loops" />
+                ) : (
+                  <FabPanel
+                    isOpen={fabPanelOpen}
+                    width={fabPanel.current}
+                    fitSignal={fabPanelTween.settleCount}
+                  />
+                )}
               </div>
             </>
           ) : null}
@@ -1411,11 +1440,18 @@ function Shell() {
                 ref={fabMorphRef}
                 type="button"
                 onClick={() => {
+                  // Detached (Phase 55): the panel already lives in its own
+                  // window, so this focuses it rather than opening a second
+                  // copy docked here.
+                  if (fabDetached) {
+                    bridge()?.window.focusRole({ role: 'fab' });
+                    return;
+                  }
                   captureFabMorphOrigin(fabButtonRef.current);
                   toggleFabPanel();
                 }}
-                aria-label="Open quick access panel"
-                title="Quick Access"
+                aria-label={fabDetached ? 'Focus the detached Loops window' : 'Open quick access panel'}
+                title={fabDetached ? 'Midnite Loops (detached)' : 'Quick Access'}
                 data-loops-running={loopsRunning.running ? 'true' : undefined}
                 data-fab-tab={activeFabTab}
                 /*
@@ -1426,7 +1462,7 @@ function Shell() {
                   `position: relative` too, but only while a loop runs, which is
                   too load-bearing a coincidence to lean on.
                 */
-                className={`relative flex h-10 w-10 items-center justify-center rounded-full bg-primary text-primary-foreground shadow-lg transition-transform hover:scale-110 active:scale-95 ${fabGlowClass(loopsRunning)}`}
+                className={`relative flex h-10 w-10 items-center justify-center rounded-full bg-primary text-primary-foreground shadow-lg transition-transform hover:scale-110 active:scale-95 ${fabGlowClass(loopsRunning)} ${fabDetached ? 'opacity-50' : ''}`}
               >
                 <BrandMark className="h-full w-full" />
               </button>

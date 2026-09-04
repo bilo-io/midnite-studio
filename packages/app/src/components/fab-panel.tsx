@@ -1,7 +1,10 @@
 import { DEFAULT_LOOPS } from '@midnite/studio-shared';
 import { useEffect } from 'react';
 import type { CSSProperties } from 'react';
+import { LuSquareArrowOutUpRight } from 'react-icons/lu';
 
+import { BrandMark } from './brand';
+import { IconButton } from './icon-button';
 import { loopGlowColor } from '../features/loops/loop-glow';
 import { loopIcon } from '../features/loops/loop-icons';
 import { LoopTab } from '../features/loops/loop-tab';
@@ -9,6 +12,7 @@ import { useAllLoopStatuses, type LoopStatus } from '../features/loops/loop-stat
 import { useLoopRuns } from '../features/loops/use-loop-runs';
 import { useTerminalStore } from '../features/terminal/terminal-store';
 import { useWindowFocusGate } from '../lib/use-window-focus-gate';
+import { bridge } from '../services/bridge';
 import { useUiStore, type FabTab } from '../store/ui-store';
 
 interface FabPanelProps {
@@ -71,6 +75,31 @@ export function FabPanel({ isOpen, width, fitSignal }: FabPanelProps) {
         data-loop-state={loopState}
         data-loops-running={anyRunning ? 'true' : 'false'}
       >
+        {/* Header — the morph's resting glyph is the brand mark, not a per-loop one. */}
+        <div className="group flex h-7 shrink-0 items-center gap-2 border-b border-border px-2">
+          <div className="relative flex h-6 w-6 shrink-0 items-center justify-center">
+            <span
+              aria-hidden
+              className="pointer-events-none absolute flex items-center justify-center transition-opacity group-hover:opacity-0"
+            >
+              <BrandMark className="h-4 w-4" />
+            </span>
+            <IconButton
+              icon={LuSquareArrowOutUpRight}
+              label="Detach Loops Panel into its own window"
+              size="sm"
+              className="opacity-0 transition-opacity group-hover:opacity-100"
+              onClick={() => {
+                // Collapses the dock so the floating FAB button reappears
+                // (dimmed) rather than sitting open beside its own popout.
+                useUiStore.getState().setFabPanelOpen(false);
+                bridge()?.window.detach({ role: 'fab' });
+              }}
+            />
+          </div>
+          <span className="text-xs font-medium text-muted-foreground">Midnite Loops</span>
+        </div>
+
         {/* Tab Bar */}
         <div className="flex border-b border-border shrink-0">
           {DEFAULT_LOOPS.map((loop, index) => {
