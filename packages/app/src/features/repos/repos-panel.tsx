@@ -438,11 +438,11 @@ export function ReposPanel() {
         "run `for-each-ref` over everything you have ever opened".
       */}
       {repos.length > 0 ? (
-        <div className="px-3 pb-2">
-          <div className="relative">
+        <div className={`px-3 pb-2 ${isPopout && portalTarget ? 'pt-2' : ''}`}>
+          <div className="relative gradient-border rounded-md">
             <LuSearch
               aria-hidden
-              className="pointer-events-none absolute left-2 top-1/2 h-3 w-3 -translate-y-1/2 text-muted-foreground"
+              className="pointer-events-none absolute left-2 top-1/2 z-10 h-3 w-3 -translate-y-1/2 text-muted-foreground"
             />
             <input
               // `search` for the semantics and the Escape-to-clear the platform
@@ -453,7 +453,7 @@ export function ReposPanel() {
               onChange={(event) => setQuery(event.target.value)}
               placeholder="Filter repos…"
               aria-label="Filter repositories by name or path"
-              className="h-7 w-full rounded-md border border-input bg-background pl-7 pr-7 text-xs outline-none placeholder:text-muted-foreground focus-visible:border-primary [&::-webkit-search-cancel-button]:appearance-none"
+              className="block h-7 w-full rounded-md border-0 bg-background pl-7 pr-7 text-xs outline-none placeholder:text-muted-foreground [&::-webkit-search-cancel-button]:appearance-none"
             />
             {query ? (
               <button
@@ -461,7 +461,7 @@ export function ReposPanel() {
                 onClick={() => setQuery('')}
                 aria-label="Clear the repository filter"
                 title="Clear the repository filter"
-                className="absolute right-1 top-1/2 -translate-y-1/2 rounded p-0.5 text-muted-foreground transition-colors hover:text-foreground"
+                className="absolute right-1 top-1/2 z-10 -translate-y-1/2 rounded p-0.5 text-muted-foreground transition-colors hover:text-foreground"
               >
                 <LuX aria-hidden className="h-3 w-3" />
               </button>
