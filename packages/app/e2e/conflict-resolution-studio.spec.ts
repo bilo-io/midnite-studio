@@ -119,3 +119,42 @@ test('a plain (non-conflicted) status entry never renders as a clickable banner 
   await expect(banner.getByText('conflicts resolved — ready to continue')).toBeVisible();
   await expect(banner.getByRole('button', { name: 'clean.txt' })).toHaveCount(0);
 });
+
+/**
+ * "Suggest a resolution" (Phase 47 Theme E), end to end. The mock's own
+ * `council.run.start` answers with an already-`completed` run synchronously
+ * (real member/synthesis orchestration is main-only, covered by
+ * `council-runner.test.ts`) — exactly what lets this assert the advisory
+ * text renders without choreographing a fake multi-process race.
+ */
+const REVIEWERS_COUNCIL = {
+  id: 'c1',
+  name: 'Reviewers',
+  members: [{ id: 'm1', name: 'Reviewer', provider: 'agy', role: 'Review the conflict.' }],
+  synthProvider: 'agy',
+};
+
+test('with a council available, "Suggest a resolution" runs it and shows the advisory text', async ({ page }) => {
+  await installMockBridge(page, { ...base, councils: [REVIEWERS_COUNCIL] });
+  await page.goto('/graph');
+  await page.getByTestId('conflict-banner').getByRole('button', { name: 'src/f.txt' }).click();
+
+  const studio = page.getByTestId('conflict-resolution-studio');
+  await expect(studio.getByLabel('Suggestions from')).toBeVisible();
+  await studio.getByRole('button', { name: 'Suggest a resolution' }).first().click();
+
+  await expect(studio.getByText(/Synthesis of the panel's views/)).toBeVisible();
+
+  // Purely advisory — Accept mine is still there, unaffected, still a click away.
+  await expect(studio.getByRole('button', { name: 'Accept mine' }).first()).toBeEnabled();
+});
+
+test('with no council yet, the Studio shows no picker and no suggest button', async ({ page }) => {
+  await open(page);
+  await page.getByTestId('conflict-banner').getByRole('button', { name: 'src/f.txt' }).click();
+
+  const studio = page.getByTestId('conflict-resolution-studio');
+  await expect(studio).toBeVisible();
+  await expect(studio.getByLabel('Suggestions from')).toHaveCount(0);
+  await expect(studio.getByRole('button', { name: 'Suggest a resolution' })).toHaveCount(0);
+});
