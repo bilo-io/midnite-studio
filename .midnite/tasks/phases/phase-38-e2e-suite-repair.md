@@ -318,7 +318,7 @@ becomes a place to hide the next 45.
       check whether CI is green at `retries: 0` over a week of merges and take the tolerance
       back out if it is. A retry allowance nobody revisits is how the next 45 hide.
 
-### I — The terminal does not render on the CI runner (M) — ◐ PARTIAL (2026-09-02)
+### I — The terminal does not render on the CI runner (M) — ✅ DONE (2026-09-04)
 
 Discovered while wiring the job up, and different in kind from every theme above:
 these four specs are **green on macOS and red only on Linux**, so they are not drift. Each
@@ -384,14 +384,25 @@ any rendering is even attempted.
       only terminal spec in a ten-spec file.
 - [x] `palette.spec.ts:148` — "Mod+K opens the palette while the terminal has focus". Green with
       the platform fix.
-- [ ] `shortcut-rail.spec.ts:261` and `status-bar.spec.ts:149` — a **different, still-open**
-      Linux-only cause from the rest of this theme: both assert a status-bar *density*, decided
-      from measured content width, which depends on the fonts installed. An attempted fix
-      (`status-bar-density.ts`, reading the real breakpoint from the DOM at test time instead of
-      a hard-coded pixel guess) was tried and reverted — it addressed a LATER assertion in each
-      spec, but the real CI run failed on an EARLIER one (that the fixture starts in `full`
-      density at all), which a real-GPU macOS run does not exercise the same way. Both stay
-      `@linux-red`.
+- [x] `shortcut-rail.spec.ts:261` and `status-bar.spec.ts:149` — a **different** Linux-only cause
+      from the rest of this theme: both assert a status-bar *density*, decided from measured
+      content width, which depends on the fonts installed. A first fix attempt (a `bar.evaluate`
+      stamp-`data-density`-and-read-`scrollWidth` measurement, the same trick
+      `titlebar-agents.spec.ts` uses) does NOT generalise to this element: unlike the title bar's
+      `shrink-0` slots, the status bar's `grid-cols-[1fr_auto_1fr]` tracks stretch to fill a wide
+      viewport, so `scrollWidth` reads back whatever `clientWidth` already is rather than the
+      content's actual demand at that width. **Fixed instead by walking the viewport down** in a
+      20px stride (well inside `densityFor`'s 24px hysteresis band) and asserting each band's
+      behaviour the instant the bar first reports it, never by jumping back up to a width visited
+      on the way down. Both tests' `@linux-red` tags dropped.
+- [x] `titlebar-agents.spec.ts` and `panel-snap.spec.ts` — the two files this theme's own doc had
+      flagged as "not enumerated above, not investigated." **`titlebar-agents.spec.ts` needed no
+      fix at all**: it carries zero `@linux-red` tags in the actual source — every width-dependent
+      assertion in it already derives its target width from a live `scrollWidth` measurement
+      (the `fullWidth - 20`/`fullWidth - 60` pattern), the doc's own note about it was stale.
+      `panel-snap.spec.ts` had exactly one tagged spec, and it turned out to be the SAME
+      chord-mismatch wall this theme's `mock-bridge.ts` platform-pin fix already closed for six
+      other files — `toggleTerminal()` presses `Control+\`` too. Tag dropped, confirmed green.
 - [x] **New sighting (PR #47, 2026-09-02): `terminal.spec.ts` joined this theme's scope, not just
       Theme D's.** Theme D fixed its own two named specs (both spec races) and tried dropping the
       whole file from `KNOWN_RED` — verified 38/38 green on macOS, then reverted once CI failed on
@@ -404,9 +415,11 @@ any rendering is even attempted.
       **and `terminal.spec.ts` itself** from `KNOWN_RED`, and the `@linux-red` tag from all six
       affected specs across `fab-loops.spec.ts`, `terminal-links.spec.ts`, `reviews.spec.ts` and
       `palette.spec.ts`.
-  - **`grepInvert` stays** — `shortcut-rail.spec.ts`/`status-bar.spec.ts` (above) and
-    `titlebar-agents.spec.ts`/`panel-snap.spec.ts` (not enumerated above, not investigated) still
-    carry `@linux-red` tags, so removing it is not yet safe.
+  - **`grepInvert` stays** — it is what makes a spec's own `@linux-red` tag opt it back in the
+    instant the tag is dropped, with no config edit needed alongside. Zero specs carry the tag as
+    of this batch (`shortcut-rail.spec.ts`/`status-bar.spec.ts`/`titlebar-agents.spec.ts`/
+    `panel-snap.spec.ts` all resolved above) — kept rather than removed, since a future Linux-only
+    finding needs somewhere to land without re-inventing the mechanism.
 
 ## Files this phase touches
 
