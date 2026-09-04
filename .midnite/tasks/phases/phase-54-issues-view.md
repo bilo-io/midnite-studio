@@ -224,7 +224,7 @@ Small, but wide, and easy to half-do. The compiler catches most of it and not al
 - [x] The command palette needs nothing — `providers.ts` maps over `VIEW_IDS` already.
   - Confirmed: only `VIEW_LABELS`/`VIEW_KEYWORDS` needed the new key, no new provider logic.
 
-### E — The filter toolbar, extracted rather than copied (M)
+### E — The filter toolbar, extracted rather than copied (M) — ✅ DONE (2026-09-04)
 
 [Phase 52 Theme A](phase-52-projects-navigation.md) built `filter.ts` — `filterItems`,
 `deriveAssigneeCounts`, `deriveLabelCounts`, the "empty array means everyone" convention — and a
@@ -234,23 +234,48 @@ cheapest proof a toolbar is a pattern and not a one-off. Issues is that consumer
 that decides the question, because `filter.ts` is typed against `ForgeProjectItem` and an issue is
 not one.
 
-- [ ] Generalise `filterItems` over a **structural** shape — `{title, number, body?, assignees,
+- [x] Generalise `filterItems` over a **structural** shape — `{title, number, body?, assignees,
       labels, state}` — rather than the concrete `ForgeProjectItem`. Both callers satisfy it; a
       generic here is a type parameter, not an abstraction layer.
-- [ ] Drop the ProjectV2-specific `types` facet from the shared path. `content.type === 'draft'` is
+  - **Correction — a `select: T => FilterableItem` accessor, not `T extends FilterableItem`.**
+    `ForgeProjectItem`'s filterable fields live under `.content`, a discriminated union, not at
+    the item's own top level — there is no flat shape for `T` to structurally satisfy without every
+    caller reshaping its whole array first. `filterItems`/`deriveAssigneeCounts`/`deriveLabelCounts`
+    all take a `select` accessor instead; `T` itself carries no shape at all, which is the more
+    literal reading of "a generic here is a type parameter, not an abstraction layer."
+- [x] Drop the ProjectV2-specific `types` facet from the shared path. `content.type === 'draft'` is
       meaningless for issues, and carrying it into a shared module as permanently-empty dead weight
       is how a shared module becomes a union of its callers.
-- [ ] Lift `ProjectsToolbar` out of `projects-view.tsx` into `components/`, keeping its
+  - `ItemFilterState` (the shared facets) has no `types` field at all; `ProjectItemFilterState`
+    extends it with `types` for Projects' own use, and `filterProjectItems` applies that facet
+    before handing off to the generic `filterItems`.
+- [x] Lift `ProjectsToolbar` out of `projects-view.tsx` into `components/`, keeping its
       `MultiSelectMenu` composition unchanged — the same primitive
       [`reviews-list.tsx`](../../../packages/app/src/features/reviews/reviews-list.tsx) already uses
       for its assignee facet, so this is a third alignment rather than a new direction.
-- [ ] **Do not** add a chips primitive to `@bilo-io/ui`. Phase 52 declined it explicitly and nothing
+  - Landed as `components/item-filter-toolbar.tsx` — the search box and the assignee/label/state
+    `MultiSelectMenu`s, unchanged. Projects' own `types` menu and the Board group-by `<select>`
+    render as `children` rather than the shared component growing caller-specific facets.
+  - **Not wired into `IssuesView` in this phase.** The checklist above proves the toolbar and the
+    primitives are genuinely reusable (new tests over a plain issue-shaped record, no
+    `ForgeProjectItem` in sight) without committing to a live Issues filter UI — the phase doc's own
+    Verification and Files-touched sections never named that as this theme's job, only the
+    extraction and its tests. A future theme wires it in.
+- [x] **Do not** add a chips primitive to `@bilo-io/ui`. Phase 52 declined it explicitly and nothing
       here changes that argument.
-- [ ] Blocked on Phase 52 Theme A being merged. Forking `filter.ts` to unblock this theme would
+- [x] Blocked on Phase 52 Theme A being merged. Forking `filter.ts` to unblock this theme would
       create precisely the duplication the theme exists to prevent.
-- [ ] Tests: the existing `filter.test.ts` cases must pass unchanged against the generalised
+  - Confirmed merged (Phase 52 is `✅ DONE`) before starting.
+- [x] Tests: the existing `filter.test.ts` cases must pass unchanged against the generalised
       signature — that is the actual proof the extraction was behaviour-preserving — plus new cases
       over an issue-shaped record.
+  - All pre-existing cases pass, renamed to call `filterProjectItems` (the thin ProjectV2 wrapper)
+    where they exercised `types`. New cases: a plain `MinimalIssue` record (no `ForgeProjectItem`
+    anywhere) proves `filterItems`/`deriveAssigneeCounts`/`deriveLabelCounts` work through nothing
+    but a `select` function. Self-review caught two unused wrappers
+    (`deriveProjectAssigneeCounts`/`deriveProjectLabelCounts`) this pass introduced and then never
+    called in production — removed; their coverage moved to calling the generic functions with
+    `selectProjectItem` directly.
 
 ### F — "Add to project ▸" for issues, closing a deferral three phases old (S) — ✅ DONE (2026-09-04)
 
@@ -320,22 +345,38 @@ stops.
 
 ## Verification
 
-- [ ] `moon run :typecheck :lint :test` green.
-- [ ] The Issues view is reachable from the rail, the command palette and its chord, is hidden and
+- [x] `moon run :typecheck :lint :test` green.
+- [x] The Issues view is reachable from the rail, the command palette and its chord, is hidden and
       redirected away from on a repo with no GitHub remote (like the other three forge views), and
       shows the workspace empty state — not a null-repo render — when no repo is selected.
-- [ ] A repo with its issue tracker **disabled** shows the disabled state, not an error state.
-- [ ] An issue's conversation renders from the same REST path the Reviews page already uses, and the
+  - `e2e/issues-view.spec.ts`.
+- [x] A repo with its issue tracker **disabled** shows the disabled state, not an error state.
+  - `e2e/issues-view.spec.ts` ("a repo with issues turned off says so, not an error").
+- [x] An issue's conversation renders from the same REST path the Reviews page already uses, and the
       diff adds no second comment parser.
-- [ ] Selecting an issue, switching repos and switching back returns to the same issue.
-- [ ] Phase 52's `filter.test.ts` passes unchanged against the generalised `filterItems`, and the
+  - Confirmed in Theme B: `issueComments` calls `parseIssueComments` directly, verbatim.
+- [x] Selecting an issue, switching repos and switching back returns to the same issue.
+  - `issues-store.test.ts` ("keeps each repo's selection independent, surviving a switch") — a
+    store-level proof rather than a full e2e click-through, the same posture the equivalent
+    Reviews bullet took: `IssuesView` reads `selectedIssue[repoId]` from this store with no other
+    logic between the two.
+- [x] Phase 52's `filter.test.ts` passes unchanged against the generalised `filterItems`, and the
       Projects view's filtering behaviour is visibly identical after the extraction.
+  - `filter.test.ts`'s pre-existing cases pass (renamed to call `filterProjectItems`, the thin
+    wrapper — see Theme E's own correction note); `projects-view.test.tsx` (12 cases) and the
+    projects/kanban e2e specs pass unchanged; a fresh screenshot alongside the phase's own
+    `p52-1-table-toolbar.png` shows the same toolbar, same order.
 - [ ] "Add to project ▸" on an issue adds it to the chosen board — against a mock bridge in the
       suite, and **a human pass** on github.com, the same posture
       [Phase 50 Theme E](phase-50-kanban-projects-followthrough.md) took for the PR half.
+  - Mock-bridge half done: `issue-action-bar.test.tsx` ("lists the repo boards and adds the issue
+    to the one picked"). **Human pass on github.com stays open.**
 - [ ] With `forgeWritesEnabled` off, neither write is offered; with it on, a comment appears after
       the refetch and a close/reopen round-trips. **A human pass** for the real-repo half.
-- [ ] Phase 50's and Phase 52's deferral notes no longer claim an Issues view is missing.
+  - Mock-bridge half done: `issue-action-bar.test.tsx` (the gate test, comment success, close,
+    reopen). **Human pass against a real repo stays open.**
+- [x] Phase 50's and Phase 52's deferral notes no longer claim an Issues view is missing.
+  - Both updated in Theme F.
 
 ## Not in this phase
 
