@@ -263,6 +263,7 @@ describe('parseIssueList', () => {
   /* Captured from `gh issue list --json …` against a public repo. */
   const rows = [
     {
+      id: 'I_kwDOABCDEF',
       number: 42,
       title: 'Graph rows jump on resize',
       state: 'OPEN',
@@ -275,6 +276,7 @@ describe('parseIssueList', () => {
       createdAt: '2026-08-01T09:00:00Z',
       updatedAt: '2026-08-20T09:00:00Z',
       url: 'https://github.com/o/r/issues/42',
+      milestone: { number: 3, title: 'v0.4', state: 'open', dueOn: null },
     },
   ];
 
@@ -285,6 +287,26 @@ describe('parseIssueList', () => {
     expect(issue?.assignees).toEqual(['bilo', 'other']);
     // Uppercase everywhere in gh's output; lowercase everywhere in ours.
     expect(issue?.state).toBe('open');
+  });
+
+  it('carries the node id, the field `addItemToProject` needs (Phase 54 Theme F)', () => {
+    const [issue] = parseIssueList(rows);
+    expect(issue?.id).toBe('I_kwDOABCDEF');
+  });
+
+  it('defaults a withheld id to the empty string rather than rejecting the row', () => {
+    const [issue] = parseIssueList([{ ...rows[0], id: null }]);
+    expect(issue?.id).toBe('');
+  });
+
+  it('keeps only the milestone’s title, dropping the rest of gh’s shape', () => {
+    const [issue] = parseIssueList(rows);
+    expect(issue?.milestone).toEqual({ title: 'v0.4' });
+  });
+
+  it('parses a null milestone as null, not a missing field', () => {
+    const [issue] = parseIssueList([{ ...rows[0], milestone: null }]);
+    expect(issue?.milestone).toBeNull();
   });
 
   it('reads an empty listing as an empty listing', () => {

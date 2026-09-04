@@ -2,6 +2,36 @@
 
 <!-- Append one entry per landed phase/PR: date, phase, PR link, one-line summary. -->
 
+## 2026-09-04 — Phase 54 Theme A — the schema learns what a detail pane needs
+
+[PR #121]. Opens Phase 54: `features/issues/` does not exist, and this schema previously carried
+everything a list row needs and nothing a detail pane will.
+
+- [x] **`ForgeIssueSchema`** (`shared/src/domain/forge.ts`) gains `id` — the GraphQL node id,
+      following `ForgePullSchema.id`'s own documented precedent verbatim (defaulted to `''`, not
+      required, since a withheld id still renders every read-only surface). Avoids the exact gap
+      [Phase 50 Theme E](phases/phase-50-kanban-projects-followthrough.md) hit mid-theme on the PR
+      side and had to thread through `gh-cli.ts`/`gh-parse.ts` under pressure.
+- [x] **New `ForgeMilestoneSchema`**, `{ title: string }`, and `ForgeIssueSchema.milestone:
+      ForgeMilestoneSchema.nullable().default(null)`. Trimmed to the one field a chip needs,
+      matching this schema's own established minimalism (`ForgeLabelSchema`, `ForgePullSchema`).
+- [x] **`gh-cli.ts`**: `ISSUE_FIELDS` gains `id,milestone`. **`gh-parse.ts`**: `parseIssueList`
+      parses both, plus a new `asMilestone()` helper that keeps only `title` from gh's richer
+      `{number, title, state, dueOn, …}` shape.
+- [x] **Correction to the phase doc, verified against the real `gh` CLI, not assumed:** `body` and
+      `commentCount` were dropped from scope. `body`'s own exclusion is the doc's very next
+      sentence after naming it as an addition — the right home is a future `ForgeIssueDetailSchema`
+      (Theme B's job, once `issueDetail()` exists). `commentCount` turned out not to be the "costs
+      nothing" row-level signal the doc assumed: `gh issue list --json comments` and `gh issue view
+      --json comments` both expose only the **full comment array** (bodies included), never a
+      count — there is no lightweight count field on either `gh` subcommand. Adding it to the list
+      schema would mean fetching every comment body for every row, the exact cost the doc's own
+      reasoning says the list must avoid.
+- [x] 6 new `gh-parse.test.ts` cases: the node id present and round-tripping, a withheld id
+      defaulting to `''` rather than rejecting the row, a milestone's title kept while the rest of
+      gh's shape is dropped, and a null milestone parsing as null. The doc's own planned
+      zero-comment-count case does not apply, per the correction above.
+
 ## 2026-09-04 — Phase 51 Theme E — keystrokes that are never silently dropped
 
 [PR #119]. The most likely "buggy input after a while": `term.onData` reads `stateRef.current`,
