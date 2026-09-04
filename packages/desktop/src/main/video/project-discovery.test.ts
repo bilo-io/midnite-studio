@@ -4,7 +4,16 @@ import { join } from 'node:path';
 
 import { afterEach, describe, expect, it } from 'vitest';
 
-import { createProject, discoverProjects, getProject, listOutputFiles } from './project-discovery';
+import { existsSync } from 'node:fs';
+
+import {
+  createProject,
+  discoverProjects,
+  getProject,
+  listAreaFiles,
+  listOutputFiles,
+  removeProject,
+} from './project-discovery';
 
 let dirs: string[] = [];
 
@@ -225,5 +234,72 @@ describe('listOutputFiles', () => {
     const root = await tempDir();
     await writeProject(root, 'p1');
     expect(await listOutputFiles(root, 'p1')).toEqual([]);
+  });
+});
+
+describe('removeProject', () => {
+  it('deletes the project folder', async () => {
+    const root = await tempDir();
+    await writeProject(root, 'p1');
+    const dir = join(root, 'projects', 'p1');
+    expect(existsSync(dir)).toBe(true);
+
+    const result = await removeProject(root, 'p1');
+    expect(result.ok).toBe(true);
+    expect(existsSync(dir)).toBe(false);
+  });
+
+  it('refuses to remove `_template`', async () => {
+    const root = await tempDir();
+    await writeProject(root, '_template');
+    const result = await removeProject(root, '_template');
+    expect(result.ok).toBe(false);
+    expect(existsSync(join(root, 'projects', '_template'))).toBe(true);
+  });
+
+  it('refuses a project id that does not exist', async () => {
+    const root = await tempDir();
+    const result = await removeProject(root, 'nope');
+    expect(result.ok).toBe(false);
+  });
+
+  it('refuses a project id that escapes the configured root', async () => {
+    const root = await tempDir();
+    const result = await removeProject(root, '../../../../etc');
+    expect(result.ok).toBe(false);
+  });
+});
+
+describe('listAreaFiles', () => {
+  it('lists `assets/`, root-wide across every project', async () => {
+    const root = await tempDir();
+    await mkdir(join(root, 'assets'), { recursive: true });
+    await writeFile(join(root, 'assets', 'logo.png'), 'x', 'utf8');
+
+    const entries = await listAreaFiles(root, 'assets', 'unused-project-id');
+    expect(entries).toEqual([{ name: 'logo.png', isDir: false, size: 1, mtimeMs: expect.any(Number) }]);
+  });
+
+  it("lists one project's own `input/`, dirs before files, alphabetised within each", async () => {
+    const root = await tempDir();
+    const inputDir = join(root, 'projects', 'p1', 'input');
+    await mkdir(join(inputDir, 'b-folder'), { recursive: true });
+    await writeFile(join(inputDir, 'original.mp4'), 'xx', 'utf8');
+    await writeFile(join(inputDir, 'BRIEF.md'), 'x', 'utf8');
+
+    const entries = await listAreaFiles(root, 'input', 'p1');
+    expect(entries.map((e) => e.name)).toEqual(['b-folder', 'BRIEF.md', 'original.mp4']);
+    expect(entries[0]!.isDir).toBe(true);
+  });
+
+  it('returns an empty list for a directory that does not exist yet', async () => {
+    const root = await tempDir();
+    expect(await listAreaFiles(root, 'output', 'p1')).toEqual([]);
+  });
+
+  it("refuses a project id that escapes the configured root, for input/output", async () => {
+    const root = await tempDir();
+    expect(await listAreaFiles(root, 'input', '../../../../etc')).toEqual([]);
+    expect(await listAreaFiles(root, 'output', '../../../../etc')).toEqual([]);
   });
 });

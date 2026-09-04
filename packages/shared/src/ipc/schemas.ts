@@ -1963,6 +1963,20 @@ export const VideoRenderListResponse = z.object({ renders: z.array(VideoRenderSc
 export const VideoToolchainRequest = z.object({ projectId: z.string().min(1) });
 export const VideoToolchainResponse = z.object({ toolchain: VideoToolchainSchema });
 
+/** `'assets'` is root-wide; `'input'`/`'output'` are one project's own subfolder. */
+export const VideoFileAreaSchema = z.enum(['assets', 'input', 'output']);
+export const VideoProjectFilesRequest = z.object({
+  projectId: z.string().min(1),
+  area: VideoFileAreaSchema,
+});
+export const VideoFileEntrySchema = z.object({
+  name: z.string().min(1),
+  isDir: z.boolean(),
+  size: z.number().int().nonnegative(),
+  mtimeMs: z.number().nonnegative(),
+});
+export const VideoProjectFilesResponse = z.object({ entries: z.array(VideoFileEntrySchema) });
+
 /**
  * Re-exported under the `ipc/schemas` namespace so `bridge.ts` can reference
  * it as `S.*`, the way `BrowserEventPayload` does for `BrowserEventSchema` —

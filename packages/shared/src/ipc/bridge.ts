@@ -734,6 +734,10 @@ export type MidniteStudioBridge = {
     toolchain: (
       req: In<typeof S.VideoToolchainRequest>,
     ) => Promise<z.infer<typeof S.VideoToolchainResponse>>;
+    /** A shallow, read-only listing of `assets/`, one project's `input/`, or its `output/`. */
+    files: (
+      req: In<typeof S.VideoProjectFilesRequest>,
+    ) => Promise<z.infer<typeof S.VideoProjectFilesResponse>>;
     onStudioChanged: (handler: (event: z.infer<typeof S.VideoStudioChangedPayload>) => void) => Unsubscribe;
     onRenderProgress: (handler: (event: z.infer<typeof S.VideoRenderProgressPayload>) => void) => Unsubscribe;
   };

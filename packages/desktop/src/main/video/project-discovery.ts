@@ -1,4 +1,4 @@
-import { cp, readFile, readdir, writeFile } from 'node:fs/promises';
+import { cp, readFile, readdir, rm, stat, writeFile } from 'node:fs/promises';
 import { existsSync } from 'node:fs';
 import { join } from 'node:path';
 
@@ -11,6 +11,11 @@ import {
 } from '@midnite/studio-shared';
 
 import { confineToRoot, joinWithin } from '../fs-scope';
+
+/** `confineToRoot`'s own `realpath` requires the target to exist, so a project
+ *  that is not there and one that escapes the root come back the same way —
+ *  the same "not there" answer `readProject` gives a project it cannot read. */
+const REMOVE_ERROR = 'That project does not exist, or is outside the configured root.';
 
 /**
  * Video projects, **discovered, not registered** (Phase 44 Theme B).
@@ -183,6 +188,52 @@ export async function createProject(root: string, id: string, title: string): Pr
   await writeFile(projectJsonPath, `${JSON.stringify(updated, null, 2)}\n`, 'utf8');
 
   return ok({ valid: true, ...updated });
+}
+
+/** Never the template — that folder is the seed `project-create` copies, not a project. */
+export async function removeProject(root: string, id: string): Promise<GitOpResult> {
+  if (id === TEMPLATE_ID) return failure(REMOVE_ERROR);
+  const dir = await confineToRoot(root, join(PROJECTS_DIR, id));
+  if (dir === null) return failure(REMOVE_ERROR);
+  await rm(dir, { recursive: true, force: true });
+  return ok();
+}
+
+export type VideoFileEntry = { name: string; isDir: boolean; size: number; mtimeMs: number };
+
+/**
+ * A shallow, read-only listing of one of the three video-scoped directories
+ * (Theme D/G): `assets/` is root-wide (shared across every project);
+ * `input/` and `output/` are one project's own — never a recursive tree,
+ * matching the shallow depth `ekko-videos` projects actually have.
+ */
+export async function listAreaFiles(
+  root: string,
+  area: 'assets' | 'input' | 'output',
+  projectId: string,
+): Promise<VideoFileEntry[]> {
+  const relDir = area === 'assets' ? 'assets' : join(PROJECTS_DIR, projectId, area);
+  const dir = await confineToRoot(root, relDir);
+  if (dir === null) return [];
+
+  let names: string[];
+  try {
+    names = await readdir(dir);
+  } catch {
+    return [];
+  }
+
+  const entries: VideoFileEntry[] = [];
+  for (const name of names) {
+    let info;
+    try {
+      info = await stat(join(dir, name));
+    } catch {
+      continue;
+    }
+    entries.push({ name, isDir: info.isDirectory(), size: info.size, mtimeMs: info.mtimeMs });
+  }
+  return entries.sort((a, b) => (a.isDir === b.isDir ? a.name.localeCompare(b.name) : a.isDir ? -1 : 1));
 }
 
 /**

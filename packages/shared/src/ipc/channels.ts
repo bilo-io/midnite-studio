@@ -541,6 +541,14 @@ export const CHANNELS = {
   videoRenderCancel: 'mstudio:video:render-cancel',
   videoRenderList: 'mstudio:video:render-list',
   videoToolchain: 'mstudio:video:toolchain',
+  /**
+   * A shallow, read-only listing of one video-scoped directory (Theme D/G):
+   * `<root>/assets/`, `<project>/input/` or `<project>/output/`. Its own
+   * small surface rather than a new `fs-scope.ts` variant — nothing here
+   * ever writes, so the read-only fs jail's write-adjacent surface area
+   * (`fsListDir` and friends) gains no video-shaped hole to reason about.
+   */
+  videoProjectFiles: 'mstudio:video:project-files',
 
   // --- onboarding kit scaffold (Phase 49) -----------------------------------
   // `plan` reads the template tree and the target repo, hashes both sides and
