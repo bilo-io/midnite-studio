@@ -68,3 +68,41 @@ describe('RefBadge with agentActive glow', () => {
     expect(sweep).not.toBeNull();
   });
 });
+
+describe('RefBadge with branchGlow', () => {
+  afterEach(cleanup);
+
+  it('renders RefBadge with graph-badge-glow class and full opacity when branchGlow is true', () => {
+    const ref = makeRef('feature/highlighted');
+    const { container } = render(
+      <RefBadge
+        refItem={ref}
+        colorIdx={3}
+        palette={theme.palette}
+        branchGlow={true}
+      />,
+    );
+
+    const badge = container.querySelector('[data-ref="refs/heads/feature/highlighted"]') as HTMLElement;
+    expect(badge).not.toBeNull();
+    expect(badge.className).toContain('graph-badge-glow');
+    expect(badge.style.opacity).toBe('1');
+  });
+
+  it('renders resting opacity and no glow class when branchGlow is false', () => {
+    const ref = makeRef('feature/unlit');
+    const { container } = render(
+      <RefBadge
+        refItem={ref}
+        colorIdx={3}
+        palette={theme.palette}
+        branchGlow={false}
+      />,
+    );
+
+    const badge = container.querySelector('[data-ref="refs/heads/feature/unlit"]') as HTMLElement;
+    expect(badge).not.toBeNull();
+    expect(badge.className).not.toContain('graph-badge-glow');
+    expect(badge.style.opacity).toBe('0.78');
+  });
+});

@@ -174,6 +174,7 @@ function GraphRowInner({
             onSync={(action) => onSync(ref, action)}
             syncing={syncing[ref.fullName] ?? null}
             agentActive={isAgentActive ? isAgentActive(ref) : false}
+            branchGlow={onGlowingLane}
             onContextMenu={(event) => {
               // Stop the row's own menu opening as well — the badge's menu is
               // the more specific target the user aimed at.
@@ -201,6 +202,7 @@ function GraphRowInner({
             onRefContextMenu={onRefContextMenu}
             onRefActivate={onRefActivate}
             isAgentActive={isAgentActive}
+            branchGlow={onGlowingLane}
           />
         ) : null}
 
@@ -217,11 +219,14 @@ function GraphRowInner({
         {refs.length > 0 ? (
           <span
             aria-hidden
-            className="min-w-0 flex-1"
+            data-graph-connector
+            className={`min-w-0 flex-1 transition-opacity duration-150 ease-in-out ${
+              onGlowingLane ? 'graph-rail-glow' : ''
+            }`}
             style={{
               height: theme.strokeWidth,
               backgroundColor: laneColor(row.colorIdx, theme.palette),
-              opacity: CONNECTOR_OPACITY,
+              opacity: onGlowingLane ? 1 : CONNECTOR_OPACITY,
             }}
           />
         ) : null}
@@ -390,6 +395,7 @@ function DraggableRefBadge({
   onSync,
   syncing,
   agentActive,
+  branchGlow,
   onContextMenu,
   onDoubleClick,
 }: {
@@ -402,6 +408,7 @@ function DraggableRefBadge({
   onSync: (action: SyncAction) => void;
   syncing: SyncAction['kind'] | null;
   agentActive?: boolean;
+  branchGlow?: boolean;
   onContextMenu: (event: React.MouseEvent) => void;
   onDoubleClick: (event: React.MouseEvent) => void;
 }) {
@@ -417,6 +424,7 @@ function DraggableRefBadge({
       onSync={onSync}
       syncing={syncing}
       agentActive={agentActive}
+      branchGlow={branchGlow}
       onContextMenu={onContextMenu}
       onDoubleClick={onDoubleClick}
       dnd={{
@@ -444,6 +452,7 @@ function RefOverflowButton({
   onRefContextMenu,
   onRefActivate,
   isAgentActive,
+  branchGlow,
 }: {
   refs: readonly Ref[];
   colorIdx: number;
@@ -451,6 +460,7 @@ function RefOverflowButton({
   onRefContextMenu: (event: React.MouseEvent, ref: Ref) => void;
   onRefActivate: (ref: Ref) => void;
   isAgentActive?: (ref: Ref) => boolean;
+  branchGlow?: boolean;
 }) {
   const [open, setOpen] = useState(false);
   const buttonRef = useRef<HTMLButtonElement | null>(null);
@@ -527,6 +537,7 @@ function RefOverflowButton({
                         colorIdx={colorIdx}
                         palette={palette}
                         agentActive={active}
+                        branchGlow={branchGlow}
                         onContextMenu={(event) => {
                           event.preventDefault();
                           event.stopPropagation();

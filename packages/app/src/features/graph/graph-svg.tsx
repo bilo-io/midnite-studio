@@ -249,21 +249,27 @@ export function GraphSvg({
           {row.edges.map((edge, index) =>
             edge.colorIdx === glowColorIdx ? renderEdge(edge, index, false) : null,
           )}
-          {/*
-            The node's own halo — a ring at the node's outer edge, which is the
-            avatar's rim in the avatar styles and the dot's circumference in
-            `dot`. Only on rows that actually SIT on the lane: a row the lane
-            merely passes through has its node somewhere else entirely.
-          */}
           {row.colorIdx === glowColorIdx ? (
-            <circle
-              cx={nodeX}
-              cy={mid}
-              r={nodeExtent(theme)}
-              fill="none"
-              stroke={nodeColor}
-              strokeWidth={theme.strokeWidth}
-            />
+            <>
+              {connector ? (
+                <line
+                  x1={-ROW_GAP}
+                  y1={mid}
+                  x2={nodeX}
+                  y2={mid}
+                  stroke={nodeColor}
+                  strokeWidth={theme.strokeWidth}
+                />
+              ) : null}
+              <circle
+                cx={nodeX}
+                cy={mid}
+                r={nodeExtent(theme)}
+                fill="none"
+                stroke={nodeColor}
+                strokeWidth={theme.strokeWidth}
+              />
+            </>
           ) : null}
         </g>
       ) : null}

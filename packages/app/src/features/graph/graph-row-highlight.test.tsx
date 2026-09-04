@@ -1,4 +1,4 @@
-import type { GraphRow } from '@midnite/studio-shared';
+import type { GraphRow, Ref } from '@midnite/studio-shared';
 import { cleanup, render } from '@testing-library/react';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 
@@ -129,5 +129,51 @@ describe('branch halo', () => {
     const el = renderRow(makeRow('abc', 3), { glowColorIdx: 5 });
     const glow = el.querySelector('[data-graph-glow]')!;
     expect(glow.querySelectorAll('line, path, circle')).toHaveLength(0);
+  });
+
+  it('haloes the connector line and branch badges when row is on the lit lane', () => {
+    const testRef: Ref = {
+      name: 'feature/glow',
+      fullName: 'refs/heads/feature/glow',
+      kind: 'localBranch',
+      sha: 'abc',
+      isHead: false,
+      worktreePath: null,
+      upstream: null,
+    };
+    const el = renderRow(makeRow('abc', 3), { glowColorIdx: 3, refs: [testRef] });
+    const glow = el.querySelector('[data-graph-glow]')!;
+    // In SVG halo: 1 edge line + 1 connector line + 1 circle = 2 lines + 1 circle
+    expect(glow.querySelectorAll('line')).toHaveLength(2);
+    expect(glow.querySelectorAll('circle')).toHaveLength(1);
+
+    // HTML connector line has graph-rail-glow
+    const connector = el.querySelector('[data-graph-connector]');
+    expect(connector).not.toBeNull();
+    expect(connector!.className).toContain('graph-rail-glow');
+
+    // Ref badge has graph-badge-glow
+    const badge = el.querySelector('[data-ref="refs/heads/feature/glow"]');
+    expect(badge).not.toBeNull();
+    expect(badge!.className).toContain('graph-badge-glow');
+  });
+
+  it('does not glow connector line or badge on unlit lane', () => {
+    const testRef: Ref = {
+      name: 'feature/unlit',
+      fullName: 'refs/heads/feature/unlit',
+      kind: 'localBranch',
+      sha: 'abc',
+      isHead: false,
+      worktreePath: null,
+      upstream: null,
+    };
+    const el = renderRow(makeRow('abc', 3), { glowColorIdx: 5, refs: [testRef] });
+
+    const connector = el.querySelector('[data-graph-connector]');
+    expect(connector!.className).not.toContain('graph-rail-glow');
+
+    const badge = el.querySelector('[data-ref="refs/heads/feature/unlit"]');
+    expect(badge!.className).not.toContain('graph-badge-glow');
   });
 });
