@@ -2,6 +2,27 @@
 
 <!-- Append one entry per landed phase/PR: date, phase, PR link, one-line summary. -->
 
+## 2026-09-04 — Phase 56 Themes C, F — worker-count measurement, e2e screenshot gating
+
+[PR #152]. Closes the phase's build except Theme G (shots-helper extraction, 25 spec files, left
+for its own pass) and Theme D (retry trim, reverted in PR #148 pending a real fix).
+
+- [x] **C — measured, no change adopted.** `workers: 2` (CI-gated in `playwright.config.ts`) against
+      the standing `workers: 1` default, on the theory that this suite — mostly waiting on the local
+      Vite server and the DOM, not CPU-bound — might not thrash the way a 2-core runner's cores/2 = 1
+      rule assumes. Three full CI runs (24 shard-attempts) came back 8/8, 8/8, 8/8 green — no flake
+      increase — but averaged ≈4m28s/shard against the `workers: 1` baseline's ≈4m22s (PR #148:
+      3m24s–5m17s/shard). No measured win, so per the phase doc's own rule ("adopt only on a
+      demonstrated net reduction"), the override was reverted; the numbers are left in both
+      `playwright.config.ts`'s and `ci.yml`'s own comments for a future re-measurement.
+- [x] **F** — `commit-inspector.spec.ts`, `files-editor.spec.ts`, `files-write.spec.ts` and
+      `terminal.spec.ts` wrote PNGs into `docs/screenshots/` on every routine run. Two gating shapes
+      depending on the test's own purpose (per the existing `footer-monitor.spec.ts` precedent): a
+      test whose whole purpose is the image (no real assertion beyond setup) gets
+      `test.skip(!process.env.MSTUDIO_SHOTS, ...)`; a functional test that also grabs a screenshot
+      keeps every assertion and gates only the `.screenshot()` call inline. Verified: a normal run
+      touches zero files under `docs/screenshots/`; `MSTUDIO_SHOTS=1` regenerates all 14 target PNGs.
+
 ## 2026-09-04 — Phase 56 Themes A, B, E — E2E shard scale-up, fullyParallel, Vite cache (D reverted)
 
 [PR #148]. Three of four config-only levers on e2e wall-clock speed landed; the fourth (retry trim)

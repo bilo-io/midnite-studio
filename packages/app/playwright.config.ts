@@ -43,7 +43,20 @@ export default defineConfig({
   */
   fullyParallel: true,
   /*
-    Zero locally, one in CI — and the asymmetry is the whole point.
+    Phase 56 Theme C measured `workers: 2` against the standing `workers: 1`
+    default (`ci.yml`'s own comment: a 2-core runner's cores/2 = ONE worker,
+    raising it oversubscribes) on the theory that this suite — mostly waiting
+    on the local Vite server and the DOM rather than CPU-bound — might not
+    thrash the way that theory assumes. Three full CI runs at `workers: 2`
+    (24 shard-attempts) came back 8/8, 8/8, 8/8 green — no flake increase —
+    but averaged ~4m28s/shard against the `workers: 1` baseline's ~4m22s
+    (PR #148: 3m24s–5m17s/shard). No measured win, so no `workers` override
+    lands: the default stays. Left here rather than only in a commit message
+    so a future re-measurement (a different runner tier, a much larger suite)
+    knows this was tried and what it found.
+  */
+  /*
+    Zero locally, two in CI — and the asymmetry is the whole point.
 
     The standing rule here was a flat `retries: 0`, on the grounds that this
     suite is UI-deterministic and a retry would therefore mask a real race
