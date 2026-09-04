@@ -128,4 +128,46 @@ describe('WorkflowList', () => {
     expect(useToastStore.getState().toasts[0]?.message).toContain('Could not import');
     expect(save).not.toHaveBeenCalled();
   });
+
+  describe('the name filter (Phase 52 Theme E)', () => {
+    it('shows every workflow for an empty query', async () => {
+      installBridge({
+        list: vi.fn().mockResolvedValue({ workflows: [workflow(), workflow({ id: 'w2', name: 'Second' })] }),
+      });
+      renderList();
+      expect(await screen.findByText('Fetch and log')).toBeDefined();
+      expect(screen.getByText('Second')).toBeDefined();
+    });
+
+    it('narrows to workflows whose name matches, case-insensitively', async () => {
+      installBridge({
+        list: vi.fn().mockResolvedValue({ workflows: [workflow(), workflow({ id: 'w2', name: 'Second' })] }),
+      });
+      renderList();
+      await screen.findByText('Fetch and log');
+
+      fireEvent.change(screen.getByPlaceholderText('Filter workflows…'), { target: { value: 'FETCH' } });
+
+      expect(screen.getByText('Fetch and log')).toBeDefined();
+      expect(screen.queryByText('Second')).toBeNull();
+    });
+
+    it('a query matching nothing shows a no-matches state, not the empty-list one', async () => {
+      installBridge({ list: vi.fn().mockResolvedValue({ workflows: [workflow()] }) });
+      renderList();
+      await screen.findByText('Fetch and log');
+
+      fireEvent.change(screen.getByPlaceholderText('Filter workflows…'), { target: { value: 'nope' } });
+
+      expect(await screen.findByText('No matches')).toBeDefined();
+      expect(screen.queryByText('No workflows yet')).toBeNull();
+    });
+
+    it('does not render the filter input at all with no workflows to filter', async () => {
+      installBridge();
+      renderList();
+      await screen.findByText('No workflows yet');
+      expect(screen.queryByPlaceholderText('Filter workflows…')).toBeNull();
+    });
+  });
 });

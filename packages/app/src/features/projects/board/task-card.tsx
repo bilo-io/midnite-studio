@@ -34,6 +34,7 @@ export function TaskCard({
   fields,
   projectId,
   isOpen = false,
+  tabIndex = -1,
   onClick,
 }: {
   item: ForgeProjectItem;
@@ -47,6 +48,13 @@ export function TaskCard({
   projectId?: string;
   /** Whether this card's detail pane is the one currently open (Theme F). */
   isOpen?: boolean;
+  /**
+   * Roving tabindex (Phase 52 Theme G): exactly one card on the board is `0`
+   * at a time — the board's own single Tab stop — every other card (and the
+   * `DragOverlay`'s own visual-only copy, which never passes this at all) is
+   * `-1`, reachable only by the board's own arrow-key navigation.
+   */
+  tabIndex?: number;
   onClick?: () => void;
 }) {
   const Icon = CONTENT_ICON[item.content.type];
@@ -84,7 +92,8 @@ export function TaskCard({
     <div
       ref={cardRef}
       role="button"
-      tabIndex={0}
+      tabIndex={tabIndex}
+      data-card-id={item.id}
       onClick={onClick}
       onKeyDown={(event) => {
         if (event.key === 'Enter' || event.key === ' ') {

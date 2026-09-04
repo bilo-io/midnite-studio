@@ -2,8 +2,11 @@ import { validateWorkflow, type Workflow, type WorkflowNode, type WorkflowNodeSt
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { LuHistory, LuWorkflow, LuX } from 'react-icons/lu';
 
+import { useRegisterActivePanel } from '../../components/panel-stack/active-panel';
+import { PanelHeader } from '../../components/panel-stack/panel-header';
+import { PanelStack } from '../../components/panel-stack/panel-stack';
+import { usePanelHistory } from '../../components/panel-stack/use-panel-history';
 import { EmptyState } from '../../components/empty-state';
-import { Popover } from '../../components/popover';
 import { useWindowFocusGate } from '../../lib/use-window-focus-gate';
 import { useWorkflowRunCommandStore, type WorkflowRunHandle } from '../../store/workflow-run-command-store';
 import { useFlushableSave } from '../councils/use-flushable-save';
@@ -15,6 +18,31 @@ import { RunHistoryList } from './run-history-list';
 import { useRunWorkflow, useWorkflowRun, useWorkflowRuns } from './use-workflow-run';
 import { useSaveWorkflow, useWorkflows } from './use-workflow';
 import { WorkflowList } from './workflow-list';
+
+/**
+ * The right-hand panel's own navigation (Phase 52 Theme F) — `NodeInspector`
+ * is the base entry; picking "History" pushes the run list, and picking a
+ * run from it pushes that run's node detail. `usePanelHistory`'s own
+ * docblock has named Workflows as an obvious consumer since Phase 42 shipped
+ * the primitive.
+ */
+type WorkflowPanelEntry = { kind: 'inspector' } | { kind: 'history' } | { kind: 'run'; runId: string };
+
+function sameWorkflowPanelEntry(a: WorkflowPanelEntry, b: WorkflowPanelEntry): boolean {
+  if (a.kind !== b.kind) return false;
+  return a.kind === 'run' && b.kind === 'run' ? a.runId === b.runId : true;
+}
+
+function workflowPanelLabel(entry: WorkflowPanelEntry): string {
+  switch (entry.kind) {
+    case 'inspector':
+      return 'Inspector';
+    case 'history':
+      return 'History';
+    case 'run':
+      return 'Run';
+  }
+}
 
 /** Matches `council-config-panel.tsx`'s own auto-save debounce. */
 const SAVE_DEBOUNCE_MS = 500;
@@ -84,11 +112,17 @@ function WorkflowEditor({ workflow }: { workflow: Workflow }) {
   const { schedule } = useFlushableSave<Workflow>((next) => save.mutate(next), SAVE_DEBOUNCE_MS);
   const [local, setLocal] = useState(workflow);
   const [selection, setSelection] = useState<ReadonlySet<string>>(new Set());
-  const [activeRunId, setActiveRunId] = useState<string | null>(null);
+  // One instance per mount, not a module-level store (`card-panel-stack.tsx`'s
+  // own reasoning) — `WorkflowEditor` is already remounted per workflow via
+  // its caller's `key={workflow.id}`, which resets this stack for free on a
+  // switch, the same way that remount already resets `local`/`selection`.
+  const panels = usePanelHistory<WorkflowPanelEntry>({ kind: 'inspector' }, { isSame: sameWorkflowPanelEntry });
+  useRegisterActivePanel(panels, true);
 
   const runs = useWorkflowRuns(workflow.id);
+  const activeRunId = panels.current.kind === 'run' ? panels.current.runId : null;
   const activeRun = useWorkflowRun(activeRunId);
-  const mode: 'edit' | 'run' = activeRunId !== null ? 'run' : 'edit';
+  const mode: 'edit' | 'run' = panels.current.kind === 'run' ? 'run' : 'edit';
 
   // A pulsing history button costs a permanently-mounted animation the
   // instant a run is in flight — gated the way `BoardView`'s `card-run-glow`
@@ -157,7 +191,7 @@ function WorkflowEditor({ workflow }: { workflow: Workflow }) {
           mode === 'run' ? (
             <button
               type="button"
-              onClick={() => setActiveRunId(null)}
+              onClick={() => panels.reset()}
               className="flex items-center gap-1 rounded-md px-1.5 py-1 text-[11px] text-muted-foreground hover:bg-accent hover:text-foreground"
             >
               <LuX aria-hidden className="h-3 w-3" />
@@ -165,30 +199,16 @@ function WorkflowEditor({ workflow }: { workflow: Workflow }) {
             </button>
           ) : (
             <>
-              <Popover
-                label="Run history"
-                side="bottom"
-                align="start"
-                panelClassName="p-0"
-                trigger={
-                  <span
-                    className={`flex h-6 w-6 items-center justify-center rounded-md border border-transparent ${
-                      hasRunningRun ? 'card-run-glow is-running' : ''
-                    }`}
-                  >
-                    <LuHistory aria-hidden className="h-3.5 w-3.5" />
-                  </span>
-                }
-                triggerClassName="rounded-md hover:bg-accent"
+              <button
+                type="button"
+                onClick={() => panels.push({ kind: 'history' })}
+                aria-label="Run history"
+                className={`flex h-6 w-6 items-center justify-center rounded-md border border-transparent hover:bg-accent ${
+                  hasRunningRun ? 'card-run-glow is-running' : ''
+                }`}
               >
-                <RunHistoryList
-                  workflowId={workflow.id}
-                  onSelectRun={(runId) => {
-                    setActiveRunId(runId);
-                    setSelection(new Set());
-                  }}
-                />
-              </Popover>
+                <LuHistory aria-hidden className="h-3.5 w-3.5" />
+              </button>
               <DemoApiPill
                 selectedNode={selectedNode}
                 onInsertUrl={(baseUrl) => {
@@ -201,17 +221,43 @@ function WorkflowEditor({ workflow }: { workflow: Workflow }) {
           )
         }
       />
-      {mode === 'run' ? (
-        <RunNodeDetail node={selectedRunNode} />
-      ) : (
-        <NodeInspector
-          node={selectedNode}
-          nodes={local.nodes}
-          edges={local.edges}
-          issue={selectedIssue}
-          onChange={changeNode}
+      <div className="flex h-full w-80 shrink-0 flex-col border-l border-border">
+        <PanelHeader
+          history={panels}
+          label={workflowPanelLabel}
+          className="shrink-0 border-b border-border px-2 py-1.5"
         />
-      )}
+        <PanelStack
+          history={panels}
+          className="min-h-0 flex-1"
+          render={(entry) => {
+            switch (entry.kind) {
+              case 'history':
+                return (
+                  <RunHistoryList
+                    workflowId={workflow.id}
+                    onSelectRun={(runId) => {
+                      panels.push({ kind: 'run', runId });
+                      setSelection(new Set());
+                    }}
+                  />
+                );
+              case 'run':
+                return <RunNodeDetail node={selectedRunNode} />;
+              case 'inspector':
+                return (
+                  <NodeInspector
+                    node={selectedNode}
+                    nodes={local.nodes}
+                    edges={local.edges}
+                    issue={selectedIssue}
+                    onChange={changeNode}
+                  />
+                );
+            }
+          }}
+        />
+      </div>
     </div>
   );
 }

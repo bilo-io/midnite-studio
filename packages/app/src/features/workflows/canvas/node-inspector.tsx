@@ -38,14 +38,11 @@ function asTextInput(el: HTMLElement): HTMLInputElement | HTMLTextAreaElement {
 }
 
 /**
- * The right-hand config panel for the workflow canvas's selected node
- * (Phase 43 Theme F) — there is no right-hand config pane anywhere else in
- * this app, so this mirrors `council-config-panel.tsx`'s column markup with
- * `border-l` instead of `border-r`, placed after the canvas.
- *
- * Plain selection, not `panel-stack`: the phase doc's own recorded decision
- * reserves that primitive for Theme G's runs drawer, since this panel always
- * reflects the current selection rather than needing a "back".
+ * The workflow canvas's selected-node config panel (Phase 43 Theme F) — the
+ * base entry of `workflows-view.tsx`'s right-hand `panel-stack` (Phase 52
+ * Theme F). Carries no width or border of its own: `workflows-view.tsx`'s
+ * own wrapper owns those, matching `card-detail.tsx`'s identical convention
+ * for the same reason (a panel-stack entry is content, not a column).
  */
 export function NodeInspector({
   node,
@@ -66,7 +63,7 @@ export function NodeInspector({
 
   if (!node) {
     return (
-      <div className="flex w-80 shrink-0 flex-col border-l border-border">
+      <div className="flex h-full flex-col">
         <EmptyState title="No node selected" body="Select a node to configure it." />
       </div>
     );
@@ -101,7 +98,7 @@ export function NodeInspector({
   };
 
   return (
-    <div className="flex w-80 shrink-0 flex-col border-l border-border">
+    <div className="flex h-full flex-col">
       <div className="flex shrink-0 items-center gap-2 border-b border-border px-3 py-2">
         <Icon aria-hidden className="h-3.5 w-3.5 shrink-0 text-muted-foreground" />
         <TextField
