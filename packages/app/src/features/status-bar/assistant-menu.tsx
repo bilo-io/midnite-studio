@@ -23,13 +23,18 @@ import { useUiStore } from '../../store/ui-store';
 export function AssistantMenu() {
   const [open, setOpen] = useState(false);
   const fabPanelOpen = useUiStore((s) => s.fabPanelOpen);
+  const fabDetached = useUiStore((s) => s.fabDetached);
   const toggleFabPanel = useUiStore((s) => s.toggleFabPanel);
   const activeFabTab = useUiStore((s) => s.activeFabTab);
   const loopsRunning = useAnyLoopRunning();
   const miniFabRef = useRef<HTMLButtonElement | null>(null);
   const miniFabMorphRef = useFabMorphRef(miniFabRef);
 
-  if (fabPanelOpen) {
+  // Detaching collapses the docked panel but leaves `fabPanelOpen` itself
+  // untouched (so re-docking can expand it straight back, `app.tsx`) — this
+  // segment has to read `fabDetached` too, or it would wear the "open"
+  // look for a panel that is not actually showing here.
+  if (fabPanelOpen && !fabDetached) {
     return (
       <div className="relative flex h-4 w-4 items-center justify-center">
         <FabLoopHalo tab={activeFabTab} compact />

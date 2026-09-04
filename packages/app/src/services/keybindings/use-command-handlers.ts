@@ -183,17 +183,7 @@ export function useCommandHandlers(): CommandRuntime {
       ? { enabled: false, disabledReason: 'Only available in the main window', run: () => {} }
       : fabDetached
         ? { enabled: false, disabledReason: 'Already open in a detached window', run: () => {} }
-        : {
-            enabled: true,
-            run: () => {
-              // Collapses the docked slot so the floating FAB button
-              // reappears (dimmed, per its own `fabDetached` read) rather
-              // than sitting open beside a popout that already shows the
-              // same panel.
-              useUiStore.getState().setFabPanelOpen(false);
-              bridge()?.window.detach({ role: 'fab' });
-            },
-          },
+        : { enabled: true, run: () => bridge()?.window.detach({ role: 'fab' }) },
     'window.detachBrowser': !isMainWindow
       ? { enabled: false, disabledReason: 'Only available in the main window', run: () => {} }
       : browserDetached
@@ -202,13 +192,7 @@ export function useCommandHandlers(): CommandRuntime {
     'window.detachActive': !isMainWindow
       ? { enabled: false, disabledReason: 'Only available in the main window', run: () => {} }
       : activeDetachRole
-        ? {
-            enabled: true,
-            run: () => {
-              if (activeDetachRole === 'fab') useUiStore.getState().setFabPanelOpen(false);
-              bridge()?.window.detach({ role: activeDetachRole });
-            },
-          }
+        ? { enabled: true, run: () => bridge()?.window.detach({ role: activeDetachRole }) }
         : { enabled: false, disabledReason: 'No open panel to detach', run: () => {} },
     'activity.toggle': {
       enabled: true,

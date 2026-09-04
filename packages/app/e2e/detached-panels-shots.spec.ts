@@ -7,10 +7,12 @@ import { installMockBridge, type MockFixtures } from './mock-bridge';
  * Phase 55 Theme F.2 — the renderer-side half of multi-window verification
  * this suite can actually reach: each `DetachedRoot` role rendered standalone
  * (the mocked bridge reports that `windowRole`, exactly as `main.tsx` reads
- * it from `additionalArguments` in the real app), and each `DetachedPlaceholder`
- * in the main layout once its role's flag is set. A real second `BrowserWindow`
- * — two windows staying in sync, a popout surviving a crash — is F.3's human
- * pass; this suite never launches Electron (see the phase doc's own audit).
+ * it from `additionalArguments` in the real app), and each docked slot
+ * COLLAPSED in the main layout once its role's flag is set — a detached
+ * panel reclaims its space rather than leaving a placeholder behind. A real
+ * second `BrowserWindow` — two windows staying in sync, a popout surviving a
+ * crash — is F.3's human pass; this suite never launches Electron (see the
+ * phase doc's own audit).
  *
  * Run with `MSTUDIO_SHOTS=1`; skipped otherwise so the normal suite stays fast.
  */
@@ -20,17 +22,23 @@ test.skip(!process.env['MSTUDIO_SHOTS'], 'set MSTUDIO_SHOTS=1 to write screensho
 
 const POPOUT_ROLES = ['terminal', 'repos', 'fab', 'browser'] as const;
 
-const PLACEHOLDER: Record<(typeof POPOUT_ROLES)[number], string> = {
-  terminal: 'Terminal is open in a detached window',
-  repos: 'Git Repos is open in a detached window',
-  fab: 'Midnite Loops is open in a detached window',
-  browser: 'Browser is open in a detached window',
+/**
+ * A selector that is only present while the role's docked content is
+ * actually mounted — used both to prove the panel is there when open and
+ * docked, and gone once detached collapses its slot.
+ */
+const DOCKED_CONTENT: Record<(typeof POPOUT_ROLES)[number], string> = {
+  terminal: '[data-terminal-panel]',
+  repos: '[aria-label="Repositories"]',
+  fab: '[data-fab-panel-frame]',
+  browser: '[role="dialog"][aria-label="Browser"]',
 };
 
 /**
- * `useReveal` (`use-reveal.ts`) keeps a panel entirely unmounted — not just
- * zero-height — until its own `*Open` flag goes true, so the placeholder
- * inside a detached panel needs its section expanded to render at all.
+ * `useRevealSize`/`useReveal` keep a panel entirely unmounted — not just
+ * zero-size — once closed, so each role's section needs its own `*Open` flag
+ * set to prove collapse is what detaching does, not just an already-closed
+ * panel reading as absent.
  */
 const OPEN_FLAG: Record<(typeof POPOUT_ROLES)[number], string> = {
   terminal: 'terminalOpen',
@@ -66,7 +74,7 @@ for (const role of POPOUT_ROLES) {
 
 for (const role of POPOUT_ROLES) {
   for (const theme of ['light', 'dark'] as const) {
-    test(`DetachedPlaceholder(${role}) in the main layout — ${theme} theme`, async ({ page }) => {
+    test(`detached ${role} collapses in the main layout — ${theme} theme`, async ({ page }) => {
       await gotoDark(page, theme === 'dark');
       // `useWindowSync` reconciles the *Detached flags off `window.list()`,
       // not off anything written straight into localStorage — see that
@@ -87,8 +95,10 @@ for (const role of POPOUT_ROLES) {
       await page.goto('/graph');
       if (theme === 'dark') await page.evaluate(() => document.documentElement.classList.add('dark'));
 
-      await expect(page.getByText(PLACEHOLDER[role])).toBeVisible();
-      await page.screenshot({ path: `${OUT}/detached-placeholder-${role}-${theme}.png` });
+      // The docked slot is fully collapsed — no placeholder banner, no
+      // content — reclaiming its space rather than reserving it.
+      await expect(page.locator(DOCKED_CONTENT[role])).toHaveCount(0);
+      await page.screenshot({ path: `${OUT}/detached-collapsed-${role}-${theme}.png` });
     });
   }
 }
