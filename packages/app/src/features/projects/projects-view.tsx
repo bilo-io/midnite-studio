@@ -12,15 +12,13 @@ import {
   LuLayers,
   LuNotebookPen,
   LuTable,
-  LuTag,
-  LuUsers,
 } from 'react-icons/lu';
 
 import type { ForgeProjectField, ForgeProjectItem } from '@midnite/studio-shared';
 
 import { EmptyState } from '../../components/empty-state';
 import { IconButton, type IconComponent } from '../../components/icon-button';
-import { FilterInput } from '../../components/filter-input';
+import { ItemFilterToolbar } from '../../components/item-filter-toolbar';
 import { MultiSelectMenu, type MultiSelectOption } from '../../components/multi-select-menu';
 import { VIEW_ICON } from '../../components/nav-icons';
 import { ExternalLink } from '../markdown/external-link';
@@ -29,10 +27,10 @@ import { BoardView } from './board/board-view';
 import { groupableFields, resolveGroupField } from './board/resolve-group-field';
 import { ProjectFieldCell } from './field-editor';
 import {
-  deriveAssigneeCounts,
-  deriveLabelCounts,
-  filterItems,
+  filterProjectItems,
   isProjectItemFilterEmpty,
+  selectProjectItem,
+  type ItemFilterState,
   type ProjectItemFilterState,
 } from './filter';
 import { nextSortState, sortItems, type SortState } from './sort';
@@ -89,6 +87,14 @@ export function ProjectsView() {
   // Hoisted above every conditional return — a hook cannot be called only on
   // the branch that happens to render Board mode.
   const collapsedColumns = useMemo(() => new Set(view.collapsedColumns), [view.collapsedColumns]);
+  // Same reasoning, now that `ItemFilterToolbar`'s lift (Theme E) moved this
+  // out of the old private `ProjectsToolbar`, which mounted only once
+  // `dataReady` — a component, unlike a plain expression, cannot skip its
+  // own hook call on the renders before that.
+  const groupableColumns = useMemo(
+    () => groupableFields(fieldsQuery.data?.fields ?? []),
+    [fieldsQuery.data?.fields],
+  );
 
   const scopeMissing =
     projects.data?.kind === 'insufficient-scope' || itemsQuery.data?.kind === 'insufficient-scope';
@@ -121,12 +127,22 @@ export function ProjectsView() {
 
   const allFields = fieldsQuery.data?.fields ?? [];
   const allItems = itemsQuery.data?.items ?? [];
-  const filteredItems = filterItems(allItems, view.filter);
+  const filteredItems = filterProjectItems(allItems, view.filter);
   const filterActive = !isProjectItemFilterEmpty(view.filter);
   const dataReady = selectedProjectId !== null && !itemsQuery.isLoading && !fieldsQuery.isLoading && !itemsQuery.data?.error;
 
   const setFilter = (filter: ProjectItemFilterState): void => {
     if (selectedProjectId) setProjectView(selectedProjectId, { filter });
+  };
+  /**
+   * `ItemFilterToolbar`'s own `onFilterChange` hands back the shared facets
+   * only — `types` is not its concern (see the component's own doc comment)
+   * — so this merges the update onto the current `types` rather than
+   * dropping it, the way the sibling `types` menu below merges onto the
+   * shared facets it does not own either.
+   */
+  const setSharedFilter = (shared: ItemFilterState): void => {
+    setFilter({ ...shared, types: view.filter.types });
   };
   const setGroupFieldId = (groupFieldId: string | null): void => {
     if (selectedProjectId) setProjectView(selectedProjectId, { groupFieldId });
@@ -201,15 +217,50 @@ export function ProjectsView() {
       </header>
 
       {dataReady ? (
-        <ProjectsToolbar
+        <ItemFilterToolbar
           items={allItems}
+          select={selectProjectItem}
           filter={view.filter}
-          onFilterChange={setFilter}
-          mode={mode}
-          fields={allFields}
-          groupFieldId={groupField?.id ?? null}
-          onGroupFieldChange={setGroupFieldId}
-        />
+          onFilterChange={setSharedFilter}
+          stateOptions={STATE_OPTIONS}
+        >
+          <MultiSelectMenu
+            options={TYPE_OPTIONS}
+            selected={view.filter.types}
+            onChange={(types) => setFilter({ ...view.filter, types: types as ProjectItemFilterState['types'] })}
+            icon={<LuLayers aria-hidden className="h-3.5 w-3.5 shrink-0" />}
+            allLabel="All types"
+            searchPlaceholder="Filter type…"
+            emptyLabel="No type matches."
+            label="Filter by item type"
+            summarise={(n) => `${n} types`}
+          />
+
+          {/*
+            Board-only, but lives here rather than beside the board
+            `<select>`: grouping is how you are looking at the board, like
+            the filters, and that `<select>` chooses *which* board — a
+            different kind of choice. Same reasoning `ProjectsToolbar`
+            carried before Theme E lifted it.
+          */}
+          {mode === 'board' && groupableColumns.length > 0 ? (
+            <label className="ml-auto flex items-center gap-1.5 text-xs text-muted-foreground">
+              <span>Group by</span>
+              <select
+                aria-label="Group by"
+                value={groupField?.id ?? ''}
+                onChange={(event) => setGroupFieldId(event.target.value || null)}
+                className="rounded border border-border bg-background px-1.5 py-1 text-xs"
+              >
+                {groupableColumns.map((field) => (
+                  <option key={field.id} value={field.id}>
+                    {field.name}
+                  </option>
+                ))}
+              </select>
+            </label>
+          ) : null}
+        </ItemFilterToolbar>
       ) : null}
 
       {selectedProjectId === null ? (
@@ -273,123 +324,6 @@ const STATE_OPTIONS: MultiSelectOption[] = [
   { value: 'merged', label: 'Merged' },
 ];
 
-/** Most-used first, then alphabetical — same ordering `reviews-list.tsx`'s own author facet uses. */
-function optionsFromCounts(counts: Map<string, number>): MultiSelectOption[] {
-  return [...counts.entries()]
-    .sort((a, b) => b[1] - a[1] || a[0].localeCompare(b[0]))
-    .map(([value, count]) => ({
-      value,
-      label: value,
-      meta: <span className="tabular-nums text-[10px] text-muted-foreground">{count}</span>,
-    }));
-}
-
-/**
- * One filter toolbar, shared by Table and Board (Phase 52 Theme A) — a
- * filter is a property of what you are looking at, not of how it is
- * arranged, so switching modes must not reset it. The group-by picker is
- * Board-only, but lives here rather than beside the board `<select>`:
- * grouping is how you are looking at the board, like the filters, and the
- * `<select>` above chooses *which* board — a different kind of choice.
- */
-function ProjectsToolbar({
-  items,
-  filter,
-  onFilterChange,
-  mode,
-  fields,
-  groupFieldId,
-  onGroupFieldChange,
-}: {
-  items: readonly ForgeProjectItem[];
-  filter: ProjectItemFilterState;
-  onFilterChange: (filter: ProjectItemFilterState) => void;
-  mode: 'table' | 'board';
-  fields: readonly ForgeProjectField[];
-  groupFieldId: string | null;
-  onGroupFieldChange: (fieldId: string | null) => void;
-}) {
-  const assigneeOptions = useMemo(() => optionsFromCounts(deriveAssigneeCounts(items)), [items]);
-  const labelOptions = useMemo(() => optionsFromCounts(deriveLabelCounts(items)), [items]);
-  const groupable = useMemo(() => groupableFields(fields), [fields]);
-
-  return (
-    <div className="flex shrink-0 flex-wrap items-center gap-2 border-b border-border px-3 py-1.5">
-      <FilterInput
-        value={filter.query}
-        onChange={(query) => onFilterChange({ ...filter, query })}
-        placeholder="Search title, number or body…"
-        className="w-56"
-      />
-
-      <MultiSelectMenu
-        options={assigneeOptions}
-        selected={filter.assignees}
-        onChange={(assignees) => onFilterChange({ ...filter, assignees })}
-        icon={<LuUsers aria-hidden className="h-3.5 w-3.5 shrink-0" />}
-        allLabel="All assignees"
-        searchPlaceholder="Filter assignees…"
-        emptyLabel="No assignee matches."
-        label="Filter by assignee"
-        summarise={(n) => `${n} assignees`}
-      />
-
-      <MultiSelectMenu
-        options={labelOptions}
-        selected={filter.labels}
-        onChange={(labels) => onFilterChange({ ...filter, labels })}
-        icon={<LuTag aria-hidden className="h-3.5 w-3.5 shrink-0" />}
-        allLabel="All labels"
-        searchPlaceholder="Filter labels…"
-        emptyLabel="No label matches."
-        label="Filter by label"
-        summarise={(n) => `${n} labels`}
-      />
-
-      <MultiSelectMenu
-        options={TYPE_OPTIONS}
-        selected={filter.types}
-        onChange={(types) => onFilterChange({ ...filter, types: types as ProjectItemFilterState['types'] })}
-        icon={<LuLayers aria-hidden className="h-3.5 w-3.5 shrink-0" />}
-        allLabel="All types"
-        searchPlaceholder="Filter type…"
-        emptyLabel="No type matches."
-        label="Filter by item type"
-        summarise={(n) => `${n} types`}
-      />
-
-      <MultiSelectMenu
-        options={STATE_OPTIONS}
-        selected={filter.states}
-        onChange={(states) => onFilterChange({ ...filter, states: states as ProjectItemFilterState['states'] })}
-        icon={<LuCircleDot aria-hidden className="h-3.5 w-3.5 shrink-0" />}
-        allLabel="All states"
-        searchPlaceholder="Filter state…"
-        emptyLabel="No state matches."
-        label="Filter by state"
-        summarise={(n) => `${n} states`}
-      />
-
-      {mode === 'board' && groupable.length > 0 ? (
-        <label className="ml-auto flex items-center gap-1.5 text-xs text-muted-foreground">
-          <span>Group by</span>
-          <select
-            aria-label="Group by"
-            value={groupFieldId ?? ''}
-            onChange={(event) => onGroupFieldChange(event.target.value || null)}
-            className="rounded border border-border bg-background px-1.5 py-1 text-xs"
-          >
-            {groupable.map((field) => (
-              <option key={field.id} value={field.id}>
-                {field.name}
-              </option>
-            ))}
-          </select>
-        </label>
-      ) : null}
-    </div>
-  );
-}
 
 const CONTENT_ICON: Record<ForgeProjectItem['content']['type'], IconComponent> = {
   issue: LuCircleDot,

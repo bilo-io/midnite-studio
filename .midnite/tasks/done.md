@@ -2,6 +2,36 @@
 
 <!-- Append one entry per landed phase/PR: date, phase, PR link, one-line summary. -->
 
+## 2026-09-04 — Phase 54 Theme E — The filter toolbar, extracted rather than copied
+
+[PR #130]. Closes out Phase 54's build entirely — every theme (A-G) is now landed, two
+Verification bullets left as a human pass against a real repo.
+
+- [x] `filter.ts`'s `filterItems`/`deriveAssigneeCounts`/`deriveLabelCounts` generalised over a
+      `select: T => FilterableItem` accessor. **Correction from the doc's draft**: `T extends
+      FilterableItem` directly doesn't work — `ForgeProjectItem`'s filterable fields live under a
+      discriminated `.content` union, not the item's own top level, so there's no flat shape for
+      `T` to structurally satisfy without every caller reshaping its whole array first.
+- [x] The ProjectV2-specific `types` facet dropped from the shared `ItemFilterState`;
+      `ProjectItemFilterState` extends it for Projects' own use, and `filterProjectItems` applies
+      `types` before handing off to the generic primitive.
+- [x] `ProjectsToolbar` lifted out of `projects-view.tsx` into `components/item-filter-toolbar.tsx`
+      — the search box and assignee/label/state `MultiSelectMenu`s unchanged; Projects' own `types`
+      menu and Board's group-by `<select>` render as `children` rather than the shared component
+      growing caller-specific facets.
+- [x] **Not wired into `IssuesView` in this phase** — the checklist proves genericity via tests
+      (a plain issue-shaped record, no `ForgeProjectItem` anywhere), which is what the doc's own
+      Verification and Files-touched sections actually asked of this theme. A future theme wires
+      it in live.
+- [x] Tests: `filter.test.ts`'s pre-existing cases pass (renamed to call `filterProjectItems`),
+      plus new cases proving the generic primitives work over `MinimalIssue`, a record with no
+      `ForgeProjectItem` shape at all. `projects-view.test.tsx` (12 cases) and the projects/kanban
+      e2e specs pass unchanged. Self-review caught two unused wrappers
+      (`deriveProjectAssigneeCounts`/`deriveProjectLabelCounts`) introduced then never called in
+      production — removed. `moon run :typecheck :lint :test` green (234 files / 2135 tests).
+- [x] A screenshot alongside Phase 52's own `p52-1-table-toolbar.png` shows the Projects toolbar
+      rendering identically after the extraction.
+
 ## 2026-09-04 — Phase 54 Themes F+G — Add to project, and the two issue writes
 
 [PR #128]. Closes a deferral three phases old ([Phase 50 Theme E](phases/phase-50-kanban-projects-followthrough.md)
