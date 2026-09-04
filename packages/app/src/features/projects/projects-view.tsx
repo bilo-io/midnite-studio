@@ -1,27 +1,44 @@
 import { useVirtualizer } from '@tanstack/react-virtual';
-import { useRef, useState } from 'react';
+import { useMemo, useRef, useState } from 'react';
 import {
+  LuArrowDown,
+  LuArrowUp,
   LuCheck,
+  LuChevronsUpDown,
   LuCircleDot,
   LuCopy,
   LuGitPullRequest,
   LuKanban,
+  LuLayers,
   LuNotebookPen,
   LuTable,
+  LuTag,
+  LuUsers,
 } from 'react-icons/lu';
 
 import type { ForgeProjectField, ForgeProjectItem } from '@midnite/studio-shared';
 
 import { EmptyState } from '../../components/empty-state';
 import { IconButton, type IconComponent } from '../../components/icon-button';
+import { FilterInput } from '../../components/filter-input';
+import { MultiSelectMenu, type MultiSelectOption } from '../../components/multi-select-menu';
 import { VIEW_ICON } from '../../components/nav-icons';
 import { ExternalLink } from '../markdown/external-link';
 import { bridge } from '../../services/bridge';
 import { BoardView } from './board/board-view';
+import { groupableFields, resolveGroupField } from './board/resolve-group-field';
 import { ProjectFieldCell } from './field-editor';
+import {
+  deriveAssigneeCounts,
+  deriveLabelCounts,
+  filterItems,
+  isProjectItemFilterEmpty,
+  type ProjectItemFilterState,
+} from './filter';
+import { nextSortState, sortItems, type SortState } from './sort';
 import { useForgeProjectFields, useForgeProjectItems, useForgeProjects } from '../../services/queries';
 import { useActiveWorktree } from '../../services/use-status';
-import { useUiStore } from '../../store/ui-store';
+import { DEFAULT_PROJECT_VIEW, useUiStore } from '../../store/ui-store';
 
 /**
  * The Projects view (Phase 40 Theme D): a board picker above the picked
@@ -38,6 +55,12 @@ import { useUiStore } from '../../store/ui-store';
  * The board mode (Phase 41 Theme A) lives inside this same view rather than
  * as its own nav item — one board picker, one gating path, one data source
  * turned sideways rather than duplicated.
+ *
+ * **Phase 52** adds one filter toolbar shared by both modes (Theme A), a
+ * group-by picker for Board mode (Theme B), sortable Table columns (Theme C)
+ * and per-project persistence of all three plus column collapse (Theme D) —
+ * every value already client-side on `ForgeProjectItem`, so none of this
+ * needs a new IPC channel.
  */
 export function ProjectsView() {
   const { repoId, worktreePath } = useActiveWorktree();
@@ -56,11 +79,19 @@ export function ProjectsView() {
   const boardStillExists =
     selectedProjectId !== null && boards.some((b) => b.id === selectedProjectId);
 
-  const fields = useForgeProjectFields(selectedProjectId, selectedProjectId !== null);
-  const items = useForgeProjectItems(selectedProjectId, selectedProjectId !== null);
+  const fieldsQuery = useForgeProjectFields(selectedProjectId, selectedProjectId !== null);
+  const itemsQuery = useForgeProjectItems(selectedProjectId, selectedProjectId !== null);
+
+  const view =
+    useUiStore((s) => (selectedProjectId ? s.projectViewByProject[selectedProjectId] : undefined)) ??
+    DEFAULT_PROJECT_VIEW;
+  const setProjectView = useUiStore((s) => s.setProjectView);
+  // Hoisted above every conditional return — a hook cannot be called only on
+  // the branch that happens to render Board mode.
+  const collapsedColumns = useMemo(() => new Set(view.collapsedColumns), [view.collapsedColumns]);
 
   const scopeMissing =
-    projects.data?.kind === 'insufficient-scope' || items.data?.kind === 'insufficient-scope';
+    projects.data?.kind === 'insufficient-scope' || itemsQuery.data?.kind === 'insufficient-scope';
 
   if (scopeMissing) return <MissingScopeState />;
 
@@ -87,6 +118,35 @@ export function ProjectsView() {
       />
     );
   }
+
+  const allFields = fieldsQuery.data?.fields ?? [];
+  const allItems = itemsQuery.data?.items ?? [];
+  const filteredItems = filterItems(allItems, view.filter);
+  const filterActive = !isProjectItemFilterEmpty(view.filter);
+  const dataReady = selectedProjectId !== null && !itemsQuery.isLoading && !fieldsQuery.isLoading && !itemsQuery.data?.error;
+
+  const setFilter = (filter: ProjectItemFilterState): void => {
+    if (selectedProjectId) setProjectView(selectedProjectId, { filter });
+  };
+  const setGroupFieldId = (groupFieldId: string | null): void => {
+    if (selectedProjectId) setProjectView(selectedProjectId, { groupFieldId });
+  };
+  const setSort = (sort: SortState): void => {
+    if (selectedProjectId) setProjectView(selectedProjectId, { sort });
+  };
+  const toggleColumn = (columnId: string): void => {
+    if (!selectedProjectId) return;
+    const collapsed = view.collapsedColumns.includes(columnId)
+      ? view.collapsedColumns.filter((id) => id !== columnId)
+      : [...view.collapsedColumns, columnId];
+    setProjectView(selectedProjectId, { collapsedColumns: collapsed });
+  };
+  const expandColumn = (columnId: string): void => {
+    if (!selectedProjectId || !view.collapsedColumns.includes(columnId)) return;
+    setProjectView(selectedProjectId, { collapsedColumns: view.collapsedColumns.filter((id) => id !== columnId) });
+  };
+
+  const groupField = mode === 'board' ? resolveGroupField(allFields, view.groupFieldId) : null;
 
   return (
     <div className="flex h-full min-h-0 flex-col" data-testid="projects-view">
@@ -140,38 +200,193 @@ export function ProjectsView() {
         </div>
       </header>
 
+      {dataReady ? (
+        <ProjectsToolbar
+          items={allItems}
+          filter={view.filter}
+          onFilterChange={setFilter}
+          mode={mode}
+          fields={allFields}
+          groupFieldId={groupField?.id ?? null}
+          onGroupFieldChange={setGroupFieldId}
+        />
+      ) : null}
+
       {selectedProjectId === null ? (
         <EmptyState
           icon={VIEW_ICON.projects}
           title="Pick a board"
           body="Choose a project board above to see its items."
         />
-      ) : items.isLoading || fields.isLoading ? (
+      ) : itemsQuery.isLoading || fieldsQuery.isLoading ? (
         <p className="p-4 text-xs text-muted-foreground">Loading items…</p>
-      ) : items.data?.error ? (
-        <EmptyState icon={VIEW_ICON.projects} title="Could not load items" body={items.data.error} />
+      ) : itemsQuery.data?.error ? (
+        <EmptyState icon={VIEW_ICON.projects} title="Could not load items" body={itemsQuery.data.error} />
       ) : mode === 'board' ? (
         <BoardView
           projectId={selectedProjectId}
           repoId={repoId}
           worktreePath={worktreePath}
-          items={items.data?.items ?? []}
-          fields={fields.data?.fields ?? []}
+          items={filteredItems}
+          fields={allFields}
+          groupField={groupField}
+          collapsedColumns={collapsedColumns}
+          onToggleColumn={toggleColumn}
+          onExpandColumn={expandColumn}
         />
-      ) : (items.data?.items.length ?? 0) === 0 ? (
+      ) : allItems.length === 0 ? (
         <EmptyState
           icon={VIEW_ICON.projects}
           title="No items"
           body="This board has no items yet."
         />
+      ) : filteredItems.length === 0 ? (
+        <EmptyState
+          icon={VIEW_ICON.projects}
+          title="No items match"
+          body="No items match the current filter."
+        />
       ) : (
         <ProjectItemsTable
           projectId={selectedProjectId}
-          items={items.data?.items ?? []}
-          fields={fields.data?.fields ?? []}
-          truncated={items.data?.truncated ?? false}
+          items={sortItems(filteredItems, allFields, view.sort)}
+          fields={allFields}
+          truncated={itemsQuery.data?.truncated ?? false}
+          filterActive={filterActive}
+          sort={view.sort}
+          onSortChange={(fieldId) => setSort(nextSortState(view.sort, fieldId))}
         />
       )}
+    </div>
+  );
+}
+
+const TYPE_OPTIONS: MultiSelectOption[] = [
+  { value: 'issue', label: 'Issues' },
+  { value: 'pull', label: 'Pull requests' },
+  { value: 'draft', label: 'Drafts' },
+];
+
+const STATE_OPTIONS: MultiSelectOption[] = [
+  { value: 'open', label: 'Open' },
+  { value: 'closed', label: 'Closed' },
+  { value: 'merged', label: 'Merged' },
+];
+
+/** Most-used first, then alphabetical — same ordering `reviews-list.tsx`'s own author facet uses. */
+function optionsFromCounts(counts: Map<string, number>): MultiSelectOption[] {
+  return [...counts.entries()]
+    .sort((a, b) => b[1] - a[1] || a[0].localeCompare(b[0]))
+    .map(([value, count]) => ({
+      value,
+      label: value,
+      meta: <span className="tabular-nums text-[10px] text-muted-foreground">{count}</span>,
+    }));
+}
+
+/**
+ * One filter toolbar, shared by Table and Board (Phase 52 Theme A) — a
+ * filter is a property of what you are looking at, not of how it is
+ * arranged, so switching modes must not reset it. The group-by picker is
+ * Board-only, but lives here rather than beside the board `<select>`:
+ * grouping is how you are looking at the board, like the filters, and the
+ * `<select>` above chooses *which* board — a different kind of choice.
+ */
+function ProjectsToolbar({
+  items,
+  filter,
+  onFilterChange,
+  mode,
+  fields,
+  groupFieldId,
+  onGroupFieldChange,
+}: {
+  items: readonly ForgeProjectItem[];
+  filter: ProjectItemFilterState;
+  onFilterChange: (filter: ProjectItemFilterState) => void;
+  mode: 'table' | 'board';
+  fields: readonly ForgeProjectField[];
+  groupFieldId: string | null;
+  onGroupFieldChange: (fieldId: string | null) => void;
+}) {
+  const assigneeOptions = useMemo(() => optionsFromCounts(deriveAssigneeCounts(items)), [items]);
+  const labelOptions = useMemo(() => optionsFromCounts(deriveLabelCounts(items)), [items]);
+  const groupable = useMemo(() => groupableFields(fields), [fields]);
+
+  return (
+    <div className="flex shrink-0 flex-wrap items-center gap-2 border-b border-border px-3 py-1.5">
+      <FilterInput
+        value={filter.query}
+        onChange={(query) => onFilterChange({ ...filter, query })}
+        placeholder="Search title, number or body…"
+        className="w-56"
+      />
+
+      <MultiSelectMenu
+        options={assigneeOptions}
+        selected={filter.assignees}
+        onChange={(assignees) => onFilterChange({ ...filter, assignees })}
+        icon={<LuUsers aria-hidden className="h-3.5 w-3.5 shrink-0" />}
+        allLabel="All assignees"
+        searchPlaceholder="Filter assignees…"
+        emptyLabel="No assignee matches."
+        label="Filter by assignee"
+        summarise={(n) => `${n} assignees`}
+      />
+
+      <MultiSelectMenu
+        options={labelOptions}
+        selected={filter.labels}
+        onChange={(labels) => onFilterChange({ ...filter, labels })}
+        icon={<LuTag aria-hidden className="h-3.5 w-3.5 shrink-0" />}
+        allLabel="All labels"
+        searchPlaceholder="Filter labels…"
+        emptyLabel="No label matches."
+        label="Filter by label"
+        summarise={(n) => `${n} labels`}
+      />
+
+      <MultiSelectMenu
+        options={TYPE_OPTIONS}
+        selected={filter.types}
+        onChange={(types) => onFilterChange({ ...filter, types: types as ProjectItemFilterState['types'] })}
+        icon={<LuLayers aria-hidden className="h-3.5 w-3.5 shrink-0" />}
+        allLabel="All types"
+        searchPlaceholder="Filter type…"
+        emptyLabel="No type matches."
+        label="Filter by item type"
+        summarise={(n) => `${n} types`}
+      />
+
+      <MultiSelectMenu
+        options={STATE_OPTIONS}
+        selected={filter.states}
+        onChange={(states) => onFilterChange({ ...filter, states: states as ProjectItemFilterState['states'] })}
+        icon={<LuCircleDot aria-hidden className="h-3.5 w-3.5 shrink-0" />}
+        allLabel="All states"
+        searchPlaceholder="Filter state…"
+        emptyLabel="No state matches."
+        label="Filter by state"
+        summarise={(n) => `${n} states`}
+      />
+
+      {mode === 'board' && groupable.length > 0 ? (
+        <label className="ml-auto flex items-center gap-1.5 text-xs text-muted-foreground">
+          <span>Group by</span>
+          <select
+            aria-label="Group by"
+            value={groupFieldId ?? ''}
+            onChange={(event) => onGroupFieldChange(event.target.value || null)}
+            className="rounded border border-border bg-background px-1.5 py-1 text-xs"
+          >
+            {groupable.map((field) => (
+              <option key={field.id} value={field.id}>
+                {field.name}
+              </option>
+            ))}
+          </select>
+        </label>
+      ) : null}
     </div>
   );
 }
@@ -184,6 +399,33 @@ const CONTENT_ICON: Record<ForgeProjectItem['content']['type'], IconComponent> =
 
 const ROW_HEIGHT = 32;
 
+function SortableHeader({
+  field,
+  sort,
+  onSortChange,
+}: {
+  field: ForgeProjectField;
+  sort: SortState;
+  onSortChange: (fieldId: string) => void;
+}) {
+  const active = sort?.fieldId === field.id;
+  const direction = active ? sort.direction : undefined;
+  const Icon = direction === 'asc' ? LuArrowUp : direction === 'desc' ? LuArrowDown : LuChevronsUpDown;
+  const directionLabel = direction === 'asc' ? ', ascending' : direction === 'desc' ? ', descending' : '';
+
+  return (
+    <button
+      type="button"
+      onClick={() => onSortChange(field.id)}
+      aria-label={`Sort by ${field.name}${directionLabel}`}
+      className="flex min-w-0 items-center gap-1 truncate hover:text-foreground"
+    >
+      <span className="min-w-0 truncate">{field.name}</span>
+      <Icon aria-hidden className={`h-3 w-3 shrink-0 ${active ? 'text-foreground' : 'text-muted-foreground/50'}`} />
+    </button>
+  );
+}
+
 /**
  * The item table: title, type glyph, assignees, one column per field.
  *
@@ -193,17 +435,29 @@ const ROW_HEIGHT = 32;
  * (no wrapped multi-line cells), so `estimateSize` is a constant, but
  * `measureElement` is still wired so a future wrapped-text column does not
  * need the virtualizer rebuilt.
+ *
+ * `items` arrives already filtered and sorted (Phase 52 Themes A/C) — this
+ * component renders whatever order it is handed, composing the two exactly
+ * the way the phase doc calls for: sorting runs after filtering, over the
+ * already-virtualized rows, so the row count changes and the virtualizer
+ * does not.
  */
 function ProjectItemsTable({
   projectId,
   items,
   fields,
   truncated,
+  filterActive,
+  sort,
+  onSortChange,
 }: {
   projectId: string;
   items: readonly ForgeProjectItem[];
   fields: readonly ForgeProjectField[];
   truncated: boolean;
+  filterActive: boolean;
+  sort: SortState;
+  onSortChange: (fieldId: string) => void;
 }) {
   const scrollRef = useRef<HTMLDivElement>(null);
 
@@ -222,8 +476,8 @@ function ProjectItemsTable({
         <span className="min-w-0 flex-1">Title</span>
         <span className="w-40 shrink-0">Assignees</span>
         {fields.map((field) => (
-          <span key={field.id} className="w-32 shrink-0 truncate px-2">
-            {field.name}
+          <span key={field.id} className="w-32 shrink-0 px-2">
+            <SortableHeader field={field} sort={sort} onSortChange={onSortChange} />
           </span>
         ))}
       </div>
@@ -272,7 +526,9 @@ function ProjectItemsTable({
 
       {truncated ? (
         <p className="shrink-0 border-t border-border px-3 py-2 text-[11px] text-muted-foreground">
-          Showing the first 1,000 items — this board has more than this view will load.
+          {filterActive
+            ? 'Showing the first 1,000 items, filtered — this board has more than this view will load.'
+            : 'Showing the first 1,000 items — this board has more than this view will load.'}
         </p>
       ) : null}
     </div>

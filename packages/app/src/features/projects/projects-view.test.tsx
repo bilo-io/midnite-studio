@@ -40,7 +40,32 @@ const setProjectsMode = vi.fn((repoId: string, mode: 'table' | 'board') => {
   projectsMode = { ...projectsMode, [repoId]: mode };
 });
 
+type ProjectView = {
+  filter: { query: string; assignees: string[]; labels: string[]; types: string[]; states: string[] };
+  groupFieldId: string | null;
+  sort: { fieldId: string; direction: 'asc' | 'desc' } | null;
+  collapsedColumns: string[];
+};
+// `vi.hoisted` because the mock factory below runs the moment some other
+// import (transitively, `DialogHost` → `context-menu.tsx` → `ui-store`)
+// pulls the mocked module in — which happens before this file's own
+// top-level `const`s run, even though they read earlier on the page.
+const DEFAULT_PROJECT_VIEW_MOCK = vi.hoisted(
+  (): ProjectView => ({
+    filter: { query: '', assignees: [], labels: [], types: [], states: [] },
+    groupFieldId: null,
+    sort: null,
+    collapsedColumns: [],
+  }),
+);
+let projectViewByProject: Record<string, ProjectView> = {};
+const setProjectView = vi.fn((projectId: string, patch: Partial<ProjectView>) => {
+  const current = projectViewByProject[projectId] ?? DEFAULT_PROJECT_VIEW_MOCK;
+  projectViewByProject = { ...projectViewByProject, [projectId]: { ...current, ...patch } };
+});
+
 vi.mock('../../store/ui-store', () => ({
+  DEFAULT_PROJECT_VIEW: DEFAULT_PROJECT_VIEW_MOCK,
   useUiStore: (
     selector: (state: {
       projectBoardByRepo: Record<string, string>;
@@ -48,6 +73,8 @@ vi.mock('../../store/ui-store', () => ({
       forgeWritesEnabled: boolean;
       projectsMode: Record<string, 'table' | 'board'>;
       setProjectsMode: typeof setProjectsMode;
+      projectViewByProject: Record<string, ProjectView>;
+      setProjectView: typeof setProjectView;
     }) => unknown,
   ) =>
     selector({
@@ -56,6 +83,8 @@ vi.mock('../../store/ui-store', () => ({
       forgeWritesEnabled,
       projectsMode,
       setProjectsMode,
+      projectViewByProject,
+      setProjectView,
     }),
 }));
 
@@ -85,6 +114,8 @@ describe('ProjectsView', () => {
     forgeWritesEnabled = false;
     projectsMode = {};
     setProjectsMode.mockClear();
+    projectViewByProject = {};
+    setProjectView.mockClear();
   });
 
   it('issues zero item fetches when no board has been picked', async () => {
@@ -205,5 +236,148 @@ describe('ProjectsView', () => {
     // The phase doc's own Theme I acceptance test: one item read for the
     // whole board, never one per column.
     expect(items).toHaveBeenCalledTimes(1);
+  });
+});
+
+describe('Phase 52 — filter toolbar, group-by, sort', () => {
+  beforeEach(() => {
+    list.mockReset();
+    fields.mockReset();
+    items.mockReset();
+    boardByRepo = { 'repo-1': 'PVT_1' };
+    setProjectBoard.mockClear();
+    forgeWritesEnabled = false;
+    projectsMode = {};
+    setProjectsMode.mockClear();
+    projectViewByProject = {};
+    setProjectView.mockClear();
+
+    list.mockResolvedValue({
+      cli: CLI_READY,
+      projects: [
+        { id: 'PVT_1', number: 1, title: 'Roadmap', url: 'https://github.com/orgs/acme/projects/1', closed: false },
+      ],
+      error: null,
+      kind: 'ok',
+    });
+    fields.mockResolvedValue({
+      cli: CLI_READY,
+      fields: [{ id: 'f1', name: 'Status', dataType: 'single_select', options: [{ id: 'todo', name: 'Todo', color: 'GRAY' }] }],
+      error: null,
+      kind: 'ok',
+    });
+    items.mockResolvedValue({
+      cli: CLI_READY,
+      items: [
+        {
+          id: 'item1',
+          content: {
+            type: 'issue',
+            id: 'I_1',
+            number: 1,
+            title: 'Fix the flaky test',
+            url: 'https://github.com/acme/widgets/issues/1',
+            state: 'open',
+            assignees: ['alice'],
+            body: '',
+            labels: [],
+          },
+          fieldValues: {},
+        },
+        {
+          id: 'item2',
+          content: {
+            type: 'issue',
+            id: 'I_2',
+            number: 2,
+            title: 'Something else',
+            url: 'https://github.com/acme/widgets/issues/2',
+            state: 'open',
+            assignees: ['bob'],
+            body: '',
+            labels: [],
+          },
+          fieldValues: {},
+        },
+      ],
+      nextCursor: null,
+      error: null,
+      kind: 'ok',
+    });
+  });
+
+  it('renders the toolbar once items have loaded, in Table mode', async () => {
+    renderWithClient();
+    expect(await screen.findByPlaceholderText('Search title, number or body…')).toBeDefined();
+    expect(screen.getByRole('button', { name: 'All assignees' })).toBeDefined();
+  });
+
+  it('typing a search query persists it per project', async () => {
+    renderWithClient();
+    const input = await screen.findByPlaceholderText('Search title, number or body…');
+
+    fireEvent.change(input, { target: { value: 'flaky' } });
+
+    expect(setProjectView).toHaveBeenCalledWith('PVT_1', {
+      filter: { query: 'flaky', assignees: [], labels: [], types: [], states: [] },
+    });
+  });
+
+  it('picking an assignee facet persists the selection', async () => {
+    renderWithClient();
+    await screen.findByPlaceholderText('Search title, number or body…');
+
+    fireEvent.click(screen.getByRole('button', { name: 'All assignees' }));
+    fireEvent.click(await screen.findByRole('option', { name: /alice/ }));
+
+    expect(setProjectView).toHaveBeenCalledWith('PVT_1', {
+      filter: { query: '', assignees: ['alice'], labels: [], types: [], states: [] },
+    });
+  });
+
+  it('clicking a sortable column header cycles the sort, persisted per project', async () => {
+    renderWithClient();
+    const header = await screen.findByRole('button', { name: 'Sort by Status' });
+
+    fireEvent.click(header);
+    expect(setProjectView).toHaveBeenCalledWith('PVT_1', { sort: { fieldId: 'f1', direction: 'asc' } });
+
+    projectViewByProject = { PVT_1: { ...DEFAULT_PROJECT_VIEW_MOCK, sort: { fieldId: 'f1', direction: 'asc' } } };
+    cleanup();
+    renderWithClient();
+    fireEvent.click(await screen.findByRole('button', { name: /Sort by Status/ }));
+    expect(setProjectView).toHaveBeenCalledWith('PVT_1', { sort: { fieldId: 'f1', direction: 'desc' } });
+  });
+
+  it('shows a "Group by" picker only in Board mode, defaulting to Status', async () => {
+    renderWithClient();
+    await screen.findByPlaceholderText('Search title, number or body…');
+    expect(screen.queryByLabelText('Group by')).toBeNull();
+
+    cleanup();
+    projectsMode = { 'repo-1': 'board' };
+    renderWithClient();
+
+    expect(await screen.findByLabelText('Group by')).toBeDefined();
+    expect(screen.getByRole('option', { name: 'Status' })).toBeDefined();
+  });
+
+  it('changing the group-by picker persists the chosen field', async () => {
+    fields.mockResolvedValue({
+      cli: CLI_READY,
+      fields: [
+        { id: 'f1', name: 'Status', dataType: 'single_select', options: [] },
+        { id: 'f2', name: 'Priority', dataType: 'single_select', options: [] },
+      ],
+      error: null,
+      kind: 'ok',
+    });
+    projectsMode = { 'repo-1': 'board' };
+    renderWithClient();
+
+    const picker = await screen.findByLabelText('Group by');
+    fireEvent.change(picker, { target: { value: 'f2' } });
+
+    expect(setProjectView).toHaveBeenCalledWith('PVT_1', { groupFieldId: 'f2' });
   });
 });

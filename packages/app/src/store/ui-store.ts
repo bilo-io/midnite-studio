@@ -25,6 +25,9 @@ import {
   DEFAULT_TERMINAL_FONT_SIZE,
   DEFAULT_TERMINAL_LINE_HEIGHT,
 } from '../features/terminal/terminal-font';
+import { EMPTY_PROJECT_ITEM_FILTER, type ProjectItemFilterState } from '../features/projects/filter';
+import { touchProjectView } from '../features/projects/project-view-lru';
+import type { SortState } from '../features/projects/sort';
 import { useFileEditorStore } from './file-editor-store';
 
 import { adoptRenamedPersistKey } from './persist-rename';
@@ -398,6 +401,25 @@ export const GRAPH_COLUMN_BOUNDS = {
   // `useGraphColumns`. A constant pair here would be a second answer to a
   // question that already has one.
 } as const;
+
+/**
+ * One project board's view state (Phase 52 Theme D) — everything that
+ * answers "how am I looking at this board" rather than "which board".
+ */
+export type ProjectViewState = {
+  filter: ProjectItemFilterState;
+  /** `null` means "let `resolveGroupField` pick" — no choice has been made. */
+  groupFieldId: string | null;
+  sort: SortState;
+  collapsedColumns: readonly string[];
+};
+
+export const DEFAULT_PROJECT_VIEW: ProjectViewState = {
+  filter: EMPTY_PROJECT_ITEM_FILTER,
+  groupFieldId: null,
+  sort: null,
+  collapsedColumns: [],
+};
 
 /**
  * UI state: what's selected, what's open, how the panes are sized.
@@ -879,6 +901,22 @@ export type UiState = {
   projectsMode: Record<string, 'table' | 'board'>;
   setProjectsMode: (repoId: string, mode: 'table' | 'board') => void;
   /**
+   * How you are looking at one project board (Phase 52 Theme D): its filter,
+   * which field it groups by, the table's sort, and which board columns are
+   * collapsed. Keyed by `projectId`, **not** `repoId` — the trap this theme
+   * is written around: `keys.forgeProjectItems(projectId)` is already
+   * repo-agnostic, and one project is reachable from several repos, so a
+   * repo-keyed map would show the same board two different ways depending on
+   * which repo you opened it from. `projectBoardByRepo`/`projectsMode` answer
+   * a different question ("which board is this repo looking at") and are
+   * correctly repo-keyed for it; this one answers "how am I looking at this
+   * board", which is a property of the board itself. Bounded by
+   * `touchProjectView`'s LRU so a user who opens many projects over time does
+   * not accumulate this map forever.
+   */
+  projectViewByProject: Record<string, ProjectViewState>;
+  setProjectView: (projectId: string, patch: Partial<ProjectViewState>) => void;
+  /**
    * Which skill each entry of the sidebar's midnite menu invokes.
    *
    * A setting rather than a constant because a skill is a *file in the user's
@@ -1095,6 +1133,7 @@ type PersistedUi = Pick<
   | 'forgeWritesEnabled'
   | 'projectBoardByRepo'
   | 'projectsMode'
+  | 'projectViewByProject'
   | 'agentSkills'
   | 'primaryAgent'
   | 'repoGroups'
@@ -1139,6 +1178,7 @@ export const useUiStore = create<UiState>()(
       forgeWritesEnabled: false,
       projectBoardByRepo: {},
       projectsMode: {},
+      projectViewByProject: {},
       agentSkills: DEFAULT_AGENT_SKILLS,
       primaryAgent: 'claude',
       inactivityTimeoutS: 900,
@@ -1516,13 +1556,23 @@ export const useUiStore = create<UiState>()(
         })),
       setProjectsMode: (repoId, mode) =>
         set((state) => ({ projectsMode: { ...state.projectsMode, [repoId]: mode } })),
+      setProjectView: (projectId, patch) =>
+        set((state) => {
+          const current = state.projectViewByProject[projectId] ?? DEFAULT_PROJECT_VIEW;
+          return {
+            projectViewByProject: touchProjectView(state.projectViewByProject, projectId, {
+              ...current,
+              ...patch,
+            }),
+          };
+        }),
       setAgentSkill: (id, skill) =>
         set((state) => ({ agentSkills: { ...state.agentSkills, [id]: skill } })),
       setPrimaryAgent: (id) => set({ primaryAgent: id }),
     }),
     {
       name: 'midnite-studio.ui',
-      version: 6,
+      version: 7,
       partialize: (state): PersistedUi => ({
         layout: state.layout,
         graphColumns: state.graphColumns,
@@ -1568,6 +1618,7 @@ export const useUiStore = create<UiState>()(
         forgeWritesEnabled: state.forgeWritesEnabled,
         projectBoardByRepo: state.projectBoardByRepo,
         projectsMode: state.projectsMode,
+        projectViewByProject: state.projectViewByProject,
         agentSkills: state.agentSkills,
         primaryAgent: state.primaryAgent,
         repoGroups: state.repoGroups,
@@ -1602,6 +1653,7 @@ export const useUiStore = create<UiState>()(
        * v3 → v4: supply empty defaults for `repoGroups`.
        * v4 → v5: seed `updatesAutoCheck`, `updateChannel`, and set `onboardedAt` for existing installs.
        * v5 → v6: rename the `sparkline` timeline style to `area`, which now draws churn.
+       * v6 → v7: seed `projectViewByProject` for existing installs.
        */
       migrate: (persisted, version) => {
         const state = (persisted ?? {}) as Record<string, unknown> & {
@@ -1614,6 +1666,7 @@ export const useUiStore = create<UiState>()(
           updateChannel?: 'stable' | 'beta';
           onboardedAt?: string | null;
           activityTimelineStyle?: string;
+          projectViewByProject?: Record<string, ProjectViewState>;
         };
         if (version < 2 && state.graphColumns) {
           const { author: _retired, ...rest } = state.graphColumns;
@@ -1636,6 +1689,9 @@ export const useUiStore = create<UiState>()(
           // The style kept its slot and gained a second series; only the id
           // changed, so an existing reader stays on the drawing they picked.
           state.activityTimelineStyle = 'area';
+        }
+        if (version < 7) {
+          state.projectViewByProject = {};
         }
         return state as PersistedUi;
       },
@@ -1675,6 +1731,7 @@ export const useUiStore = create<UiState>()(
           repoGroupMembership: { ...current.repoGroupMembership, ...saved.repoGroupMembership },
           projectBoardByRepo: { ...current.projectBoardByRepo, ...saved.projectBoardByRepo },
           projectsMode: { ...current.projectsMode, ...saved.projectsMode },
+          projectViewByProject: { ...current.projectViewByProject, ...saved.projectViewByProject },
         };
       },
     },

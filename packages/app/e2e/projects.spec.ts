@@ -54,6 +54,17 @@ const ITEM = {
     url: 'https://github.com/bilo-io/midnite-studio/issues/42',
     state: 'OPEN' as const,
     assignees: [],
+    /*
+      Neither optional nor decoration — see `kanban.spec.ts`'s own note on
+      this exact fixture shape. `ForgeProjectItemContentSchema` gives `body`
+      and `labels` a `.default([])`/`.default('')`, so a real (zod-parsed)
+      payload always carries both; the mock bridge hands fixtures back
+      verbatim, with no parse, so omitting either throws the moment something
+      reads it unguarded. Phase 52 Theme A's filter toolbar is that something
+      here — `deriveLabelCounts` iterates `content.labels` on every render.
+    */
+    body: '',
+    labels: [],
   },
   fieldValues: {
     FIELD_status: { fieldId: 'FIELD_status', dataType: 'single_select' as const, optionId: 'OPT_todo', name: 'Todo' },
