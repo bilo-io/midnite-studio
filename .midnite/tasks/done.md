@@ -2,6 +2,53 @@
 
 <!-- Append one entry per landed phase/PR: date, phase, PR link, one-line summary. -->
 
+## 2026-09-05 — Phase 73 Themes A, B, C — the system-cache registry, its own confinement primitive, and a stronger consent gate
+
+[PR #191]. Moves Phase 73 0/68 → 24/68 (0% → 35%). Themes D (vendor reclaim commands), E (the
+Storage-tab UI) and F (verification) stay open for a follow-up: D/E build on this PR's registry
+and wire contract, and E additionally needs Phase 72 Theme D's `SegmentedBar` generalisation,
+which has not landed. Phase 72 itself was still `◻ TODO` (claimed WIP, no commits yet) when this
+PR was built, so its `EcosystemSchema`/`ReclaimCostSchema` were absorbed into
+`domain/optimizer.ts` here instead, per the phase doc's own stated fallback — `'go'` already sits
+at its final Decision-8 position (immediately before `'git'`) for Phase 72 to import rather than
+redeclare.
+
+- [x] **A** — `system-cache-registry.ts`: a fixed, hand-written 13-entry catalogue (Cargo, Go,
+      Gradle, Maven, NuGet, Xcode/CocoaPods, pip, npm/pnpm/Yarn, Homebrew) — never a directory walk
+      looking for evidence, unlike Phase 72's detectors. `resolveSystemCacheEntries` never throws;
+      a `queryTool` result (`go env GOCACHE`, `pnpm store path`, `brew --cache`) is bounded strictly
+      to `os.homedir()` since it is untrusted env-var-derived input; an entry whose final segment
+      is a symlink is dropped, never followed (the hole exact-match confinement alone does not
+      close); two entries resolving to the same real path keep the first. `confineAllowlist`
+      (beside, not replacing, `confineTree` in `fs-scope-write.ts`) is exact-match-only — no
+      `startsWith`, no descent, no prefix match, ever.
+- [x] **B** — The parallel wire contract (`domain/system-optimizer.ts`'s `SystemCacheItemSchema`/
+      `SystemScanResultSchema`/`SystemCacheCatalogueEntrySchema`), deliberately never merged with
+      the repo-scoped `ScanItemSchema` family (Decision 3). Five new IPC channels/schemas/
+      bridge+preload methods in the existing `optimizer` group. `system-cache-service.ts`'s
+      `scanSystemCaches`/`cleanSystemCaches`: each entry walked with its own `WalkState` (Phase 72
+      Theme E's fairness argument, applied to a strictly worse case) and a
+      `MAX_ENTRIES_PER_SYSTEM_ENTRY` approximate flag; `cleanSystemCaches` re-resolves and
+      re-confines every `entryId` fresh at clean time, since the request never carries a raw path.
+      `scan-service.ts` changes by **four `export` keywords only** (`dirBytes`, `readDirSafe`,
+      `newWalkState`, `WalkState`) — no behaviour, signature or budget change; Phase 74's own Theme
+      B (landed just before this PR, PR #189) already exported the same four symbols independently
+      for its Trash walk, so this PR's rebase onto it made that particular hunk a no-op.
+      `optimizer-store.ts` gains a `systemScan` slice + `systemCatalogue` field via a new generic
+      parameter on `OptimizerScanState` rather than a drifting duplicate.
+- [x] **C** — `allowSystemCacheClean` + `systemCacheConsentGiven` (default off, no version bump —
+      the store's custom `merge` already spreads a persisted blob over defaults), the seven-edit
+      pattern across `ui-store.ts`/`persisted-keys.ts`. A new "System caches" section on the
+      existing Optimizer settings page (no new page, no new tab — Decision 5): the checkbox never
+      sets `allowSystemCacheClean` directly, only the one-time consent dialog's confirm sets both
+      booleans — closing the window where the setting could be on with no consent recorded.
+      Consent is a fact about what the user was shown, not a live permission: unchecking never
+      clears it, and re-checking after consent was already given does not re-show the dialog (the
+      "one-time" in "one-time acknowledgment"). The dialog's and the settings page's enumeration
+      both render from the system-cache catalogue (fetched once, defensively try/caught so a
+      bridge that hasn't wired the method yet — the e2e mock bridge before Theme E — degrades to
+      an empty list instead of throwing) rather than hardcoded prose.
+
 ## 2026-09-05 — Phase 74 Theme B, and Theme C partially — the Trash summary and emptying it via Finder
 
 [PR #189]. Moves Phase 74 0/70 → 20/70 (0% → 29%). Theme A confirmed blocked rather than

@@ -9,7 +9,7 @@ Completed work is logged append-only in [`done.md`](done.md). Deferred scope liv
 | Phase | Status | Refined | Done | Progress | % | 🔄 WIP | ◻ TODO |
 |-------|--------|---------|------|----------|---|--------|--------|
 | [74 · Media caches and the Trash](phases/phase-74-media-caches-and-the-trash.md) | 🔄 WIP | x1 | 20/70 | `███░░░░░░░` | 29% | — | A C D E |
-| [73 · The optimizer leaves the repo](phases/phase-73-the-optimizer-leaves-the-repo.md) | 🔄 WIP | x1 | 0/68 | `░░░░░░░░░░` | 0% | A B C | D E F |
+| [73 · The optimizer leaves the repo](phases/phase-73-the-optimizer-leaves-the-repo.md) | 🔄 WIP | x1 | 25/68 | `████░░░░░░` | 37% | — | D E F |
 | [72 · Every build system's leftovers](phases/phase-72-every-build-systems-leftovers.md) | 🔄 WIP | x2 | 0/102 | `░░░░░░░░░░` | 0% | A B C | D E F |
 | [71 · Links that open in place, and the dev server they point at](phases/phase-71-links-that-open-in-place.md) | ◻ TODO | x1 | 0/41 | `░░░░░░░░░░` | 0% | — | A B C D |
 | [70 · The API client grows an environment, a test and a run](phases/phase-70-api-client-environments-tests-and-runs.md) | ◻ TODO | x1 | 0/50 | `░░░░░░░░░░` | 0% | — | A B C D E |
@@ -175,7 +175,7 @@ recoverability. A narrow, justified exception to Phase 73's own no-discovery rul
 confirm dialog enumerate every mounted volume's own Trash — safe only because that discovery feeds
 a displayed number, never a delete target.*
 
-- ◻ **A** — Plex's two verified cache directories join Phase 73's `SystemCacheEntryId` union and `DEFAULT_SYSTEM_CACHE_ENTRIES`; `'media'` inserted before `'git'` in `EcosystemSchema`, plus its `ECOSYSTEM_LABELS`/`ECOSYSTEM_HUES` (120) entries. **Blocked**: `EcosystemSchema` has no `'media'` member and `system-cache-registry.ts` does not exist on `main` yet (Phase 72 Theme C / Phase 73 Themes A–C claimed `🔄 WIP` but unmerged).
+- ◻ **A** — Plex's two verified cache directories join Phase 73's `SystemCacheEntryId` union and `DEFAULT_SYSTEM_CACHE_ENTRIES`; `'media'` inserted before `'git'` in `EcosystemSchema`, plus its `ECOSYSTEM_LABELS`/`ECOSYSTEM_HUES` (120) entries. **No longer blocked on Phase 73**: `system-cache-registry.ts` and `EcosystemSchema` now exist on `main` (PR #191) — still needs `'media'` added to the enum and its two Plex entries, and Phase 72 Theme C's ecosystem taxonomy work is still `🔄 WIP` (unmerged).
 - ✅ **B** — `computeTrashSummary()`: a read-only walk of `~/.Trash` plus every mounted volume's own `.Trashes/<uid>`, reusing Phase 59's walker once its four private primitives are exported. [PR #189]
 - ◐ **C** — `emptyTrash()` via one fixed `osascript` argv, never `fs.rm`; its own consent pair, handler file and `requireAck` checkbox-gated Confirm — plus the Automation entitlement and `NSAppleEventsUsageDescription` the app currently lacks. **Partial (PR #189)**: the backend/IPC half and the `ConfirmDialog` primitive landed; the consent pair (`ui-store.ts` flags + the acknowledgment dialog) and the Storage-tab wiring wait on Theme D, which is what satisfies `persisted-keys.test.ts`'s "named under `features/settings/`" assertion.
 - ◻ **D** — UI: a `trashSafety` settings page in the `tools` group beside Git Safety, and a destructive-tinted Trash card with five explicit states in the Storage tab.
@@ -196,9 +196,9 @@ Optimizer toggle, a new checkbox, and a one-time acknowledgment dialog) beyond a
 the app. Media caches (Plex) and emptying the Trash are explicitly deferred to
 [Phase 74](phases/phase-74-media-caches-and-the-trash.md) — a different trust problem each.*
 
-- ◻ **A** — A hand-written system cache registry (Cargo, Go, Gradle, Maven, .NET, Xcode, CocoaPods, pip, npm/pnpm/yarn, Homebrew) and `confineAllowlist`, an exact-match-only confinement primitive that never touches `knownRoots()`.
-- ◻ **B** — A wire contract deliberately kept separate from the repo-scoped `ScanItem`/`ScanResult` family, five own IPC channels (including a catalogue read the consent dialog derives its copy from), and per-entry walk budgets that make an under-report visible rather than silent.
-- ◻ **C** — A three-factor consent gate: the existing Optimizer toggle, a new checkbox, and a one-time acknowledgment dialog naming exactly what gets unlocked.
+- ✅ **A** (PR #191) — A hand-written system cache registry (Cargo, Go, Gradle, Maven, .NET, Xcode, CocoaPods, pip, npm/pnpm/yarn, Homebrew) and `confineAllowlist`, an exact-match-only confinement primitive that never touches `knownRoots()`.
+- ✅ **B** (PR #191) — A wire contract deliberately kept separate from the repo-scoped `ScanItem`/`ScanResult` family, five own IPC channels (including a catalogue read the consent dialog derives its copy from), and per-entry walk budgets that make an under-report visible rather than silent.
+- ✅ **C** (PR #191) — A three-factor consent gate: the existing Optimizer toggle, a new checkbox, and a one-time acknowledgment dialog naming exactly what gets unlocked.
 - ◻ **D** — Vendor reclaim commands (`brew cleanup -s`, `go clean -cache`, `pnpm store prune`) run through the existing no-shell `runProcess` primitive, never a renderer-supplied command.
 - ◻ **E** — A gated "System" section inside the existing Storage tab with its own empty/loading/error/approximate states, consuming Phase 72's generic `SegmentedBar` rather than forking it, plus a third `blastRadiusKind`.
 - ◻ **F** — Verification, weighted to the confinement primitive's refusal cases and the consent gate's three-way AND.
