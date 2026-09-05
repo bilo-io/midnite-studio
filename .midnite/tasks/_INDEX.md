@@ -8,9 +8,9 @@ Completed work is logged append-only in [`done.md`](done.md). Deferred scope liv
 
 | Phase | Status | Refined | Done | Progress | % | 🔄 WIP | ◻ TODO |
 |-------|--------|---------|------|----------|---|--------|--------|
-| [74 · Media caches and the Trash](phases/phase-74-media-caches-and-the-trash.md) | ◻ TODO | — | 0/40 | `░░░░░░░░░░` | 0% | — | A B C D E |
-| [73 · The optimizer leaves the repo](phases/phase-73-the-optimizer-leaves-the-repo.md) | ◻ TODO | — | 0/43 | `░░░░░░░░░░` | 0% | — | A B C D E F |
-| [72 · Every build system's leftovers](phases/phase-72-every-build-systems-leftovers.md) | ◻ TODO | x1 | 0/65 | `░░░░░░░░░░` | 0% | — | A B C D E F |
+| [74 · Media caches and the Trash](phases/phase-74-media-caches-and-the-trash.md) | ◻ TODO | x1 | 0/70 | `░░░░░░░░░░` | 0% | — | A B C D E |
+| [73 · The optimizer leaves the repo](phases/phase-73-the-optimizer-leaves-the-repo.md) | ◻ TODO | x1 | 0/68 | `░░░░░░░░░░` | 0% | — | A B C D E F |
+| [72 · Every build system's leftovers](phases/phase-72-every-build-systems-leftovers.md) | ◻ TODO | x2 | 0/102 | `░░░░░░░░░░` | 0% | — | A B C D E F |
 | [71 · Links that open in place, and the dev server they point at](phases/phase-71-links-that-open-in-place.md) | ◻ TODO | x1 | 0/41 | `░░░░░░░░░░` | 0% | — | A B C D |
 | [70 · The API client grows an environment, a test and a run](phases/phase-70-api-client-environments-tests-and-runs.md) | ◻ TODO | x1 | 0/50 | `░░░░░░░░░░` | 0% | — | A B C D E |
 | [69 · A tracker that can count](phases/phase-69-a-tracker-that-can-count.md) | 🔄 WIP | — | 30/31 | `██████████` | 97% | — | — |
@@ -175,11 +175,11 @@ recoverability. A narrow, justified exception to Phase 73's own no-discovery rul
 confirm dialog enumerate every mounted volume's own Trash — safe only because that discovery feeds
 a displayed number, never a delete target.*
 
-- ◻ **A** — Plex's two verified cache directories (`Cache/`, `Plug-in Support/Caches/`) join Phase 73's `DEFAULT_SYSTEM_CACHE_ENTRIES` and consent gate; a new `'media'` ecosystem member.
-- ◻ **B** — `computeTrashSummary()`: a read-only walk of `~/.Trash` plus every discovered mounted volume's own Trash, reusing Phase 59's walker and budgets.
-- ◻ **C** — `emptyTrash()` via `osascript`/Finder only, never a raw `fs.rm`; its own separate consent pair and settings page; a new `requireAck` checkbox-gated Confirm button.
-- ◻ **D** — UI: a dedicated `trashSafety` settings page and a Trash card in the Storage tab, visually distinct from Phase 73's System section.
-- ◻ **E** — Verification, weighted to the confinement/discovery boundary (Decision 7) and the consent gate's three-way AND.
+- ◻ **A** — Plex's two verified cache directories join Phase 73's `SystemCacheEntryId` union and `DEFAULT_SYSTEM_CACHE_ENTRIES`; `'media'` inserted before `'git'` in `EcosystemSchema`, plus its `ECOSYSTEM_LABELS`/`ECOSYSTEM_HUES` (120) entries.
+- ◻ **B** — `computeTrashSummary()`: a read-only walk of `~/.Trash` plus every mounted volume's own `.Trashes/<uid>`, reusing Phase 59's walker once its four private primitives are exported.
+- ◻ **C** — `emptyTrash()` via one fixed `osascript` argv, never `fs.rm`; its own consent pair, handler file and `requireAck` checkbox-gated Confirm — plus the Automation entitlement and `NSAppleEventsUsageDescription` the app currently lacks.
+- ◻ **D** — UI: a `trashSafety` settings page in the `tools` group beside Git Safety, and a destructive-tinted Trash card with five explicit states in the Storage tab.
+- ◻ **E** — Verification, weighted to the confinement/discovery boundary (Decision 7), the literal-argv assertion, and the three-way consent AND.
 
 ### [Phase 73 — The optimizer leaves the repo](phases/phase-73-the-optimizer-leaves-the-repo.md)
 
@@ -197,10 +197,10 @@ the app. Media caches (Plex) and emptying the Trash are explicitly deferred to
 [Phase 74](phases/phase-74-media-caches-and-the-trash.md) — a different trust problem each.*
 
 - ◻ **A** — A hand-written system cache registry (Cargo, Go, Gradle, Maven, .NET, Xcode, CocoaPods, pip, npm/pnpm/yarn, Homebrew) and `confineAllowlist`, an exact-match-only confinement primitive that never touches `knownRoots()`.
-- ◻ **B** — A wire contract deliberately kept separate from the repo-scoped `ScanItem`/`ScanResult` family, and its own IPC channels.
+- ◻ **B** — A wire contract deliberately kept separate from the repo-scoped `ScanItem`/`ScanResult` family, five own IPC channels (including a catalogue read the consent dialog derives its copy from), and per-entry walk budgets that make an under-report visible rather than silent.
 - ◻ **C** — A three-factor consent gate: the existing Optimizer toggle, a new checkbox, and a one-time acknowledgment dialog naming exactly what gets unlocked.
 - ◻ **D** — Vendor reclaim commands (`brew cleanup -s`, `go clean -cache`, `pnpm store prune`) run through the existing no-shell `runProcess` primitive, never a renderer-supplied command.
-- ◻ **E** — A gated "System" section inside the existing Storage tab, visually distinct from repo-scoped rows, with its own confirm copy.
+- ◻ **E** — A gated "System" section inside the existing Storage tab with its own empty/loading/error/approximate states, consuming Phase 72's generic `SegmentedBar` rather than forking it, plus a third `blastRadiusKind`.
 - ◻ **F** — Verification, weighted to the confinement primitive's refusal cases and the consent gate's three-way AND.
 
 ### [Phase 72 — Every build system's leftovers](phases/phase-72-every-build-systems-leftovers.md)
@@ -215,7 +215,7 @@ also retires the shipped `.moon` detector, which offers checked-in configuration
 - ◻ **B** — Nine ecosystems catalogued — Node, moon, Rust, C/C++, .NET, Python, Java/Gradle/Maven, Swift/Xcode, Ruby — each naming what identifies it, what proves it, and what recreates it. Go ships nothing, deliberately.
 - ◻ **C** — One orthogonal `Ecosystem` axis instead of twelve categories; `nodeModules` → `dependencies`; a `cheap`/`costly` reclaim grade on every item.
 - ◻ **D** — A result list grouped by ecosystem, with bulk clean restricted to `cheap` items and a confirm that names the build commands that will have to run again.
-- ◻ **E** — A per-root entry budget so one pathological repo cannot silently starve the rest, per-ecosystem opt-outs applied in main, and the `.moon` fix.
+- ◻ **E** — A per-root entry budget carried on `WalkState` so one pathological repo cannot silently starve the rest (and cannot cap `cleanItems`' delete-time sizing), per-ecosystem opt-outs applied in main, and the `.moon` fix.
 - ◻ **F** — Verification, weighted to negative fixtures: a `bin/` beside a `package.json`, a `build/` with no cache file, a `venv/` with no `pyvenv.cfg` must each produce zero items.
 
 ### [Phase 71 — Links that open in place, and the dev server they point at](phases/phase-71-links-that-open-in-place.md)
