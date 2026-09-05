@@ -210,7 +210,7 @@ promise. No user-visible change lands here; unified must look byte-identical aft
       [`e2e/diff-view.spec.ts`](../../../packages/app/e2e/diff-view.spec.ts) passes unmodified, and the
       committed unified screenshots do not change.
 
-### C — Two columns, and the toggle (M) ✅ DONE (PR #1, 2026-08-30)
+### C — Two columns, and the toggle (M) ◐ PARTIAL (PR #1, 2026-08-30; two items reverted at refinement x1)
 
 - [x] Split rows go through the existing `useVirtualizer` in `DiffView` with the same
       `ROW_HEIGHT`, `measureElement` and overscan as unified; a `split-line` row is **one** virtual
@@ -387,7 +387,7 @@ on the thing you are looking at" reads as a bug.
       the tab lays the file tree out beside the diff rather than above it. Decide once and write it
       down; a tree that is 200px tall and 1400px wide is neither.
 
-### H — Image diffs in a pull request (S) ✅ DONE (2026-08-30)
+### H — Image diffs in a pull request (S) ◐ PARTIAL (2026-08-30; two items reverted at refinement x1)
 
 The one contract change in the phase, and a documented gap in
 [`outstanding.md`](../outstanding.md): the `ImageDiff` viewer works in Changes and the commit inspector
