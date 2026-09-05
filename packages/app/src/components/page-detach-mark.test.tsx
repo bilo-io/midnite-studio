@@ -1,6 +1,8 @@
 import { cleanup, fireEvent, render, screen } from '@testing-library/react';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
+import { PAGE_WINDOW_ROLES } from '@midnite/studio-shared';
+
 import { PAGE_ROLE_TITLE, PageDetachMark } from './page-detach-mark';
 import { useUiStore } from '../store/ui-store';
 
@@ -73,13 +75,22 @@ describe('PageDetachMark', () => {
     expect(screen.getByLabelText('Detach Graph into its own window')).toBeDefined();
   });
 
-  it('names every detachable page', () => {
-    expect(Object.keys(PAGE_ROLE_TITLE).sort()).toEqual([
-      'actions',
-      'changes',
-      'database',
-      'files',
-      'graph',
-    ]);
+  /*
+    A title per role, and the guard that keeps them in step: `PAGE_ROLE_TITLE`
+    is a total `Record<PageWindowRole, string>`, so a role added to the shared
+    tuple without a title here fails `moon run :typecheck` — but a title left
+    behind for a role that was REMOVED would not, and would silently name a
+    window that can no longer exist.
+  */
+  it('names every detachable page and no others', () => {
+    expect(Object.keys(PAGE_ROLE_TITLE).sort()).toEqual([...PAGE_WINDOW_ROLES].sort());
+  });
+
+  it('never offers a page the phase deliberately excluded', () => {
+    // Duplicate rendering is only safe for a view whose mount has no
+    // load-bearing side effects — see `PAGE_WINDOW_ROLES`' own note.
+    for (const excluded of ['settings', 'landing', 'sessions', 'councils', 'workflows', 'video']) {
+      expect(PAGE_WINDOW_ROLES as readonly string[]).not.toContain(excluded);
+    }
   });
 });

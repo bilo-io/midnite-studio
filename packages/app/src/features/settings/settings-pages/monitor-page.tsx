@@ -1,3 +1,5 @@
+import { useEffect, useState } from 'react';
+
 import { Accordion } from '@bilo-io/ui';
 import { LuActivity, LuShieldCheck } from 'react-icons/lu';
 
@@ -5,6 +7,7 @@ import {
   METRICS_ACTIVE_INTERVAL_MS,
   METRICS_IDLE_INTERVAL_MS,
   METRIC_IDS,
+  NEW_ISSUE_URL,
   commandLine,
   type MetricId,
 } from '@midnite/studio-shared';
@@ -15,6 +18,8 @@ import {
   useRunDiagnostics,
   useUntrustDiagnostics,
 } from '../../../services/queries';
+import { bridge } from '../../../services/bridge';
+import { openExternal } from '../../../services/queries';
 import { useActiveWorktree } from '../../../services/use-status';
 import { useUiStore } from '../../../store/ui-store';
 import { METRIC_LABELS, metricColor } from '../../monitor/metric-palette';
@@ -95,6 +100,8 @@ export function MonitorPage() {
 
       <Accordion title="Diagnostics" icon={<LuShieldCheck className="h-4 w-4" />} defaultOpen>
         <div className="flex flex-col gap-2 p-3">
+          <CrashReporting />
+
           <p className="text-[11px] leading-relaxed text-muted-foreground">
             Problem counts come from running the repository's own linter. That is code from a folder
             you opened, so it runs only for repositories you have explicitly enabled.
@@ -166,6 +173,111 @@ export function MonitorPage() {
           )}
         </div>
       </Accordion>
+    </div>
+  );
+}
+
+/**
+ * Phase 65 Theme E — the user-facing half of the crash log.
+ *
+ * Themes A–D built the whole machine: a size-capped rotating NDJSON sink, the
+ * `mstudio:report:*` channels, main's own `uncaughtException` hooks. None of it
+ * was reachable. A user on a support thread could not say where the log was,
+ * let alone attach it, and `grep -rni "report a bug"` over the repo returned
+ * nothing at all.
+ *
+ * Three controls, inside the **existing** Diagnostics accordion rather than an
+ * eighteenth settings page — a new page is four coupled edits (`ui-store`'s
+ * union, `SETTINGS_PAGES`, `PAGE_CONTENT`, `SETTINGS_PAGE_ICON`) for buttons
+ * that belong beside the two already here.
+ *
+ * The path is printed beside the reveal button, not just opened by it, because
+ * a user answering "where is your log?" needs to be able to *say* it.
+ *
+ * Report a bug is here as well as in the release-notes panel, and this is the
+ * copy that matters: `version-pill.tsx` hides itself on `'0.0.0'`, so in a dev
+ * build that panel never opens. This accordion renders in every build.
+ */
+function CrashReporting() {
+  const api = bridge();
+  const hasBridge = api !== null;
+  const [logPath, setLogPath] = useState<string | null>(null);
+  const [error, setError] = useState<string | null>(null);
+  const [copied, setCopied] = useState(false);
+
+  useEffect(() => {
+    if (!api) return;
+    void api.report
+      .logPath()
+      .then((res) => setLogPath(res.path))
+      .catch(() => setLogPath(null));
+  }, [api]);
+
+  const reveal = async (): Promise<void> => {
+    setError(null);
+    const result = await api?.report.reveal();
+    // `GitOpResult`'s failure arm is a union — revealing a file can only ever
+    // produce the `error` kind, but the envelope is shared, so narrow rather
+    // than reach for a field the `conflict` arm does not have.
+    if (result && !result.ok && result.kind === 'error') setError(result.message);
+  };
+
+  const copyBundle = async (): Promise<void> => {
+    setError(null);
+    try {
+      const { text } = (await api?.report.bundle()) ?? { text: '' };
+      // Already redacted main-side through `redactPaths` — this is one block a
+      // user can paste into an issue without being asked three follow-ups.
+      await navigator.clipboard.writeText(text);
+      setCopied(true);
+      window.setTimeout(() => setCopied(false), 2000);
+    } catch (cause) {
+      setError(cause instanceof Error ? cause.message : String(cause));
+    }
+  };
+
+  return (
+    <div className="flex flex-col gap-2 border-b border-border pb-3">
+      <p className="text-[11px] leading-relaxed text-muted-foreground">
+        Crashes and errors are written to a rotating log on this machine. Nothing leaves the app
+        unless you send it.
+      </p>
+
+      <div className="flex flex-wrap items-center gap-2 text-xs">
+        <button
+          type="button"
+          disabled={!hasBridge}
+          onClick={() => void reveal()}
+          className="rounded border border-border px-2 py-1 transition-colors hover:bg-accent disabled:opacity-50"
+        >
+          Reveal log
+        </button>
+        <button
+          type="button"
+          data-testid="diag-copy-bundle"
+          disabled={!hasBridge}
+          onClick={() => void copyBundle()}
+          className="rounded border border-border px-2 py-1 transition-colors hover:bg-accent disabled:opacity-50"
+        >
+          {copied ? 'Copied' : 'Copy diagnostics'}
+        </button>
+        <button
+          type="button"
+          disabled={!hasBridge}
+          onClick={() => openExternal(NEW_ISSUE_URL)}
+          className="rounded border border-border px-2 py-1 transition-colors hover:bg-accent disabled:opacity-50"
+        >
+          Report a bug
+        </button>
+      </div>
+
+      {logPath ? (
+        <code className="block break-all font-mono text-[10px] text-muted-foreground" data-selectable>
+          {logPath}
+        </code>
+      ) : null}
+
+      {error ? <p className="text-[11px] text-destructive">{error}</p> : null}
     </div>
   );
 }

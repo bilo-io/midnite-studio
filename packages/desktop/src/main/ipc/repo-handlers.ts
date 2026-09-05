@@ -15,7 +15,7 @@ import {
   worktreesFor,
 } from '../repo-registry';
 import { reconcileWatchers } from '../watch-service';
-import { handle, handleBare, handleOp } from './handle';
+import { handle, handleBare, handleFromSender, handleOp } from './handle';
 
 /**
  * Repository IPC surface: open, list, close, and the two derived reads
@@ -27,12 +27,17 @@ import { handle, handleBare, handleOp } from './handle';
  * exception renders as an error boundary.
  */
 export function registerRepoHandlers(getWindow: () => BrowserWindow | null): void {
-  /** Reconcile after any registry change, so no open repo is left unwatched. */
+  /*
+    Reconcile after any registry change, so no open repo is left unwatched.
+
+    No longer gated on a window existing (Theme I): a watcher fans its events
+    out to whatever windows are open at the time each event fires, rather than
+    capturing one at start-up, so there is nothing here that needs a window to
+    bind to. Skipping the reconcile because `getWindow()` happened to answer
+    null would leave a just-opened repo unwatched for the rest of the session.
+  */
   const syncWatchers = async (): Promise<void> => {
-    const win = getWindow();
-    if (!win) return;
     await reconcileWatchers(
-      win,
       (await listRepos()).map((repo) => ({ id: repo.id, path: repo.path })),
     );
   };
@@ -95,12 +100,20 @@ export function registerRepoHandlers(getWindow: () => BrowserWindow | null): voi
    * Start streaming the commit graph. Resolves immediately — the rows arrive as
    * `log:batch` events, and the `log:done` event ends the stream.
    */
-  handle(
+  /*
+    `handleFromSender`, NOT `getWindow()`. The rows come back over the
+    `log:batch` EVENT channel, so whichever window this call resolves to is the
+    window that gets the graph — and `getWindow()` always answers main. A
+    detached Graph page therefore asked for a stream, main received every row,
+    and the popout sat on an empty graph for the life of the window. The stream
+    registry is keyed by window too, so cancelling has to resolve the same way
+    or a popout's cancel would tear down main's stream instead.
+  */
+  handleFromSender(
     CHANNELS.logStart,
     schemas.LogStartRequest,
-    (req) => {
+    (req, win) => {
       const entry = getRepo(req.repoId);
-      const win = getWindow();
       if (!entry || !win) return;
       startLog(win, {
         requestId: req.requestId,
@@ -112,11 +125,10 @@ export function registerRepoHandlers(getWindow: () => BrowserWindow | null): voi
     () => undefined,
   );
 
-  handle(
+  handleFromSender(
     CHANNELS.logCancel,
     schemas.LogCancelRequest,
-    ({ requestId }) => {
-      const win = getWindow();
+    ({ requestId }, win) => {
       if (win) cancelLog(win, requestId);
     },
     () => undefined,
