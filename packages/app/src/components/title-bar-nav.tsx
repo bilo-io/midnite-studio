@@ -46,6 +46,7 @@ const VIEW_LABELS: Record<ViewId, string> = {
   workflows: 'Workflows',
   video: 'Video',
   sessions: 'Sessions',
+  optimizer: 'Optimizer',
   settings: 'Settings',
 };
 

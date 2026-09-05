@@ -16,6 +16,7 @@ import { GitSafetyPage } from './settings-pages/git-safety-page';
 import { GraphPage } from './settings-pages/graph-page';
 import { HealthPage } from './settings-pages/health-page';
 import { MonitorPage } from './settings-pages/monitor-page';
+import { OptimizerSettingsPage } from './settings-pages/optimizer-settings-page';
 import { ProjectsPage } from './settings-pages/projects-page';
 import { ReviewsPage } from './settings-pages/reviews-page';
 import { ScreenLockPage } from './settings-pages/screen-lock-page';
@@ -52,6 +53,7 @@ const PAGE_CONTENT: Record<SettingsPageId, () => React.ReactNode> = {
   cli: () => <CliPage />,
   updates: () => <UpdatesPage />,
   health: () => <HealthPage />,
+  optimizer: () => <OptimizerSettingsPage />,
 };
 
 function PageLink({ id, label }: { id: SettingsPageId; label: string }) {

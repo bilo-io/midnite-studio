@@ -125,39 +125,43 @@ Effort tags: **S** ≈ an hour or two · **M** ≈ half a day · **L** ≈ a day
 
 Re-tagged **S → M**: a gated setting is seven edits, not the three the first draft listed.
 
-- [ ] Add `'optimizer'` to the `ViewId` union ([`ui-store.ts:85`](../../../packages/app/src/store/ui-store.ts))
+- [x] Add `'optimizer'` to the `ViewId` union ([`ui-store.ts:85`](../../../packages/app/src/store/ui-store.ts))
       **and** to `VIEW_IDS` (`:113`), positioned where it should sit in rail order.
-- [ ] Add a `VIEW_ICON` entry ([`nav-icons.ts:43`](../../../packages/app/src/components/nav-icons.ts)).
+- [x] Add a `VIEW_ICON` entry ([`nav-icons.ts:43`](../../../packages/app/src/components/nav-icons.ts)).
       It is `Record<ViewId, IconType>`, **exhaustive** — omitting it is a typecheck failure, not a
       blank rail row. No `VIEW_COMMAND` entry (Decision 5); that map is `Partial`, so omission is free.
-- [ ] **Sequence against [Phase 60](phase-60-view-registry-and-error-boundaries.md).** Phase 60
+- [x] **Sequence against [Phase 60](phase-60-view-registry-and-error-boundaries.md).** Phase 60
       replaces `app.tsx`'s 17-branch ternary with an exhaustive `Record<ViewId, ViewEntry>` in
       `components/view-registry.tsx`, and asserts `ui-store.ts` is unchanged. **Land 60 first.** Then
       this item is one `VIEW_COMPONENT` entry rather than a ternary branch, and 60's typecheck
       guarantee does the work. If 59 lands first, 60's line-number anchors and its "17-branch" count
       go stale and must be re-derived.
-- [ ] The gate is **seven edits**, all in [`ui-store.ts`](../../../packages/app/src/store/ui-store.ts)
+      **Outcome: 59 landed first** — Phase 60 was still "Planned, not started" (no
+      `view-registry.tsx`) when this theme built, so `optimizer` became the 18th ternary branch in
+      `app.tsx`, exactly the contingency this bullet names. Phase 60's own doc needs its branch count
+      and anchors re-derived when it is picked up.
+- [x] The gate is **seven edits**, all in [`ui-store.ts`](../../../packages/app/src/store/ui-store.ts)
       except the last two, following `allowForceWithLease` exactly: state + setter on the interface
       (`:1024`), a member of the `PersistedUi` `Pick<>` union (`:1194`), default `false` + setter in
       the creator (`:1246`), an entry in `partialize` (`:1697`), a `SettingsPageId` member (`:139`), a
       `SETTINGS_PAGES` row (`:181`) in group `'system'` beside `monitor`/`health`, and a
       `SETTINGS_PAGE_ICON` entry ([`nav-icons.ts:87`](../../../packages/app/src/components/nav-icons.ts)).
       The first draft named three of the seven.
-- [ ] **Do not bump `version` and do not write a `migrate` arm.** `version: 8` (`:1626`).
+- [x] **Do not bump `version` and do not write a `migrate` arm.** `version: 8` (`:1626`).
       `allowForceWithLease` (Phase 22) and `launchAndRunEnabled` (Phase 50) were both added with no
       migrate arm — zustand's default merge supplies `false` for an older blob. "Add a setting" reads
       as "bump and migrate", and here it must not.
-- [ ] Rail entry in **`WORKSPACE_NAV_ITEMS`** ([`app.tsx:333`](../../../packages/app/src/app.tsx)),
+- [x] Rail entry in **`WORKSPACE_NAV_ITEMS`** ([`app.tsx:333`](../../../packages/app/src/app.tsx)),
       filtered at all **three** call sites (`:970`, `:977`, `:984`). Note `FORGE_GATED_VIEWS` (`:371`)
       keys on a *runtime capability probe*, not persisted state — the filter shape transfers, the
       source of truth does not.
-- [ ] Handle the view being active when the setting is switched **off**: extend the redirect effect
+- [x] Handle the view being active when the setting is switched **off**: extend the redirect effect
       at [`app.tsx:608`](../../../packages/app/src/app.tsx) to send `activeView === 'optimizer'` back
       to `'graph'`. Without this, turning the gate off leaves the user stranded on a hidden view.
-- [ ] Add `packages/shared/src/domain/optimizer.ts` — **not** `shared/src/optimizer.ts`. Every other
+- [x] Add `packages/shared/src/domain/optimizer.ts` — **not** `shared/src/optimizer.ts`. Every other
       schema lives under `domain/` ([`domain/metrics.ts`](../../../packages/shared/src/domain/metrics.ts),
       `domain/repo.ts`, `domain/result.ts`); a top-level module would match nothing.
-- [ ] The schemas, with fields named rather than listed:
+- [x] The schemas, with fields named rather than listed:
       `ScanCategory = z.enum(['nodeModules','buildOutput','staleWorktree','looseObjects'])`;
       `ScanItem = { path: string; bytes: number; category: ScanCategory; repoId: string | null }`;
       `ScanResult = { totalBytes: number; byCategory: Record<ScanCategory, number>; items: ScanItem[]; truncated: boolean }`;
@@ -165,34 +169,34 @@ Re-tagged **S → M**: a gated setting is seven edits, not the three the first d
       `GpuStats = { model: string | null; vramBytes: number | null; loadPercent: number | null }`.
       No temperature field anywhere — the schema is where that guardrail is enforced, exactly as
       `MetricSampleSchema` enforces it for the footer.
-- [ ] The envelope is `OptimizerResultOf<T>` in the same file: `{ ok: true; value: T } | { ok: false; message: string }`.
+- [x] The envelope is `OptimizerResultOf<T>` in the same file: `{ ok: true; value: T } | { ok: false; message: string }`.
       Modelled on `GitOpResultOf` ([`domain/result.ts:69`](../../../packages/shared/src/domain/result.ts))
       **minus the `conflict` arm**, which is git-specific. Say so in the docstring so nobody
       "fixes" it back to `GitOpResult`.
-- [ ] `ScanResult.items` is **capped at 2,000 entries** with `truncated: true` beyond it. A monorepo
+- [x] `ScanResult.items` is **capped at 2,000 entries** with `truncated: true` beyond it. A monorepo
       scan produces thousands of paths, and the first draft sent them across IPC as one uncapped
       payload.
-- [ ] Channels in [`ipc/channels.ts`](../../../packages/shared/src/ipc/channels.ts) following the
+- [x] Channels in [`ipc/channels.ts`](../../../packages/shared/src/ipc/channels.ts) following the
       file's `mstudio:<domain>:<verb>` rule: `optimizerScan`, `optimizerScanProgress` (event),
       `optimizerClean`, `optimizerProcesses`, `optimizerKill`, `optimizerGpu`. Schemas in
       `ipc/schemas.ts`, bridge entries in `ipc/bridge.ts`, preload wiring in
       [`preload/index.ts`](../../../packages/desktop/src/preload/index.ts).
-- [ ] Add `packages/desktop/src/main/ipc/optimizer-handlers.ts` exporting
+- [x] Add `packages/desktop/src/main/ipc/optimizer-handlers.ts` exporting
       `registerOptimizerHandlers()`, called from `main/index.ts`'s `whenReady()` block. **There are
       37 `*-handlers.ts` files in `main/ipc/` and the first draft's file map listed none** — every
       IPC surface in this repo has one.
-- [ ] Add [`store/optimizer-store.ts`](../../../packages/app/src/store/optimizer-store.ts):
+- [x] Add [`store/optimizer-store.ts`](../../../packages/app/src/store/optimizer-store.ts):
       `{ tab: OptimizerTab; scan: { state: 'idle'|'scanning'|'done'|'error'; progress: number; result: ScanResult | null; message: string | null }; processes: ProcessInfo[]; gpu: GpuStats | null }`.
       **Not persisted** — a cached `ScanResult` surviving a restart would show byte counts for files
       that no longer exist. Say so in the docstring.
-- [ ] Add [`features/optimizer/optimizer-page.tsx`](../../../packages/app/src/features/optimizer/optimizer-page.tsx)
+- [x] Add [`features/optimizer/optimizer-page.tsx`](../../../packages/app/src/features/optimizer/optimizer-page.tsx)
       and [`optimizer-layout.tsx`](../../../packages/app/src/features/optimizer/optimizer-layout.tsx) —
       the split is: `optimizer-page.tsx` is the `ViewId` entry point and owns the store wiring;
       `optimizer-layout.tsx` is the presentational four-tab chrome, so the tab shell can be
       screenshot without a store. Transitions use `fade-in`/`fade-in-up` from
       [`packages/app/tailwind.config.ts:142`](../../../packages/app/tailwind.config.ts), duration from
       `motionMs()` ([`use-reveal.ts:41`](../../../packages/app/src/components/use-reveal.ts)).
-- [ ] `optimizer-store.test.ts`: tab switching; the four `scan.state` transitions including
+- [x] `optimizer-store.test.ts`: tab switching; the four `scan.state` transitions including
       `scanning → error`; that the store is absent from `localStorage` after a scan.
 
 ### B — Aesthetic components (M)
@@ -200,16 +204,16 @@ Re-tagged **S → M**: a gated setting is seven edits, not the three the first d
 Re-tagged **S → M**: the segmented bar cannot extend the footer's palette or its chart, so it is a
 new component with a new domain, not a variant.
 
-- [ ] Add [`features/optimizer/components/segmented-bar.tsx`](../../../packages/app/src/features/optimizer/components/segmented-bar.tsx):
+- [x] Add [`features/optimizer/components/segmented-bar.tsx`](../../../packages/app/src/features/optimizer/components/segmented-bar.tsx):
       `export function SegmentedBar({ segments, total, label }: { segments: readonly { id: ScanCategory; bytes: number }[]; total: number; label: string })`.
       A byte domain, so it takes `total` explicitly — unlike `MetricChart`, whose domain is fixed at
       0–100 by contract.
-- [ ] Add [`features/optimizer/components/circular-gauge.tsx`](../../../packages/app/src/features/optimizer/components/circular-gauge.tsx):
+- [x] Add [`features/optimizer/components/circular-gauge.tsx`](../../../packages/app/src/features/optimizer/components/circular-gauge.tsx):
       `export function CircularGauge({ percent, label, detail }: { percent: number; label: string; detail?: string })`.
       Reuse `ringGeometry` from
       [`metric-path.ts:128`](../../../packages/app/src/features/monitor/metric-path.ts) — that
       function is pure maths over a `MetricGeometry` and is `MetricId`-free, unlike the palette.
-- [ ] **Add a second palette; do not extend `MetricId`.** `metric-palette.ts`'s exports are all
+- [x] **Add a second palette; do not extend `MetricId`.** `metric-palette.ts`'s exports are all
       `(id: MetricId)` over a closed union that flows into `MetricSampleSchema`, the footer and
       `metricsPresent`; widening it to carry storage categories would change the metrics contract to
       colour a bar. Add `features/optimizer/category-palette.ts` with one hue per `ScanCategory`,
@@ -217,67 +221,67 @@ new component with a new domain, not a variant.
       ([`metric-palette.ts:25`](../../../packages/app/src/features/monitor/metric-palette.ts)), and
       say in its docstring why it is separate. The first draft's "pull colour from `metric-palette.ts`"
       is not expressible.
-- [ ] Both components clamp: a `percent` above 100 or below 0 renders at the bound rather than
+- [x] Both components clamp: a `percent` above 100 or below 0 renders at the bound rather than
       overflowing its ring, and segments summing above `total` render proportionally rather than
       past the bar's end. Assert both — a scan racing a delete produces exactly this.
-- [ ] Every byte figure renders through `formatBytes` / `formatUsage`
+- [x] Every byte figure renders through `formatBytes` / `formatUsage`
       ([`format-bytes.ts:12`](../../../packages/app/src/features/monitor/format-bytes.ts)). No local
       formatting anywhere in this phase.
-- [ ] `segmented-bar.test.tsx` / `circular-gauge.test.tsx`: the segment widths sum to 100% of the
+- [x] `segmented-bar.test.tsx` / `circular-gauge.test.tsx`: the segment widths sum to 100% of the
       track; a zero total renders an empty track rather than `NaN`; the clamps above.
-- [ ] Screenshots live in `packages/app/e2e/optimizer-shots.spec.ts` — **the repo convention is
+- [x] Screenshots live in `packages/app/e2e/optimizer-shots.spec.ts` — **the repo convention is
       `*-shots.spec.ts`** (18 such files); the first draft's `optimizer-visual.spec.ts` matches
       nothing. Owned by Theme F, listed here only as its subject.
 
 ### C — Workspace Cleaner: Smart Scan + Storage (L)
 
-- [ ] **Add `confineTree(root: string, target: string): Promise<string | null>` to
+- [x] **Add `confineTree(root: string, target: string): Promise<string | null>` to
       [`fs-scope-write.ts`](../../../packages/desktop/src/main/fs-scope-write.ts)** — the deliverable
       the first draft never listed. `fs-scope-write` today confines a **single final segment** under
       one resolved root and never descends; Theme C deletes **directory trees, across repos, plus one
       user-picked root**. `confineTree` resolves both sides with `realpath` and refuses unless the
       target is strictly under the root. Without this, Theme C has no jail at all.
-- [ ] The recursive walk **refuses to traverse any symlinked directory**, and the delete refuses any
+- [x] The recursive walk **refuses to traverse any symlinked directory**, and the delete refuses any
       path whose `lstat` says symlink. `fs-scope-write.ts:32-38`'s `O_NOFOLLOW` protects a file
       descriptor, not a tree walk — a symlink swapped into a `node_modules` subtree between scan and
       delete escapes the root entirely.
-- [ ] **Delete moves to the trash, not to nothing.** Use Electron's `shell.trashItem`, not
+- [x] **Delete moves to the trash, not to nothing.** Use Electron's `shell.trashItem`, not
       `fs.rm({ recursive: true })`. This drops the risk class of the whole feature by an order of
       magnitude for one API call, and it is what makes a mis-scan recoverable. See Decision 9.
-- [ ] Add [`desktop/src/main/optimizer/scan-service.ts`](../../../packages/desktop/src/main/optimizer/scan-service.ts)
+- [x] Add [`desktop/src/main/optimizer/scan-service.ts`](../../../packages/desktop/src/main/optimizer/scan-service.ts)
       exporting `scanWorkspace(opts: { extraRoot?: string; signal: AbortSignal; onProgress: (done: number, total: number) => void }): Promise<ScanResult>`.
       It enumerates via `listRepos()` then `worktreesFor(repo.id)`
       ([`repo-registry.ts:145`/`:157`](../../../packages/desktop/src/main/repo-registry.ts)) — both
       already exist and neither was named.
-- [ ] **Sizing is a JS `readdir`+`lstat` walk, not `du`.** Nothing in this repo shells `du` and there
+- [x] **Sizing is a JS `readdir`+`lstat` walk, not `du`.** Nothing in this repo shells `du` and there
       is no directory-sizing helper of any kind, so this is greenfield and the choice must be made
       here rather than by whoever writes it. A walk is cancellable via `AbortSignal`, gives real
       progress events, and cannot be defeated by a path with a newline in it. Bound it: **max depth
       12, max 200,000 entries, and stop at `signal.aborted`.**
-- [ ] `node_modules` and build output are matched by an exported, testable predicate —
+- [x] `node_modules` and build output are matched by an exported, testable predicate —
       `export function classify(path: string): ScanCategory | null` — seeded with `node_modules`,
       `dist`, `.moon`. A **directory matching `node_modules` is sized and not descended into**, or the
       walk's entry budget is spent on npm's own tree.
-- [ ] `.git` is refused at any depth, matching `fs-scope-write.ts`'s existing rule. The git-gc
+- [x] `.git` is refused at any depth, matching `fs-scope-write.ts`'s existing rule. The git-gc
       sub-item does not change this — see Decision 11.
-- [ ] **Stale worktrees, defined rather than implied.** `Worktree.branch` is **nullable** on a
+- [x] **Stale worktrees, defined rather than implied.** `Worktree.branch` is **nullable** on a
       detached HEAD and `Worktree` carries **no base**
       ([`shared/src/domain/repo.ts:8`](../../../packages/shared/src/domain/repo.ts)), so "no unmerged
       commits against its base" has no answer for a detached worktree. The rule: a worktree is a
       candidate when `branch !== null`, it is not `isMain`, and its branch is merged into the repo's
       default branch. A detached worktree is **never** a candidate. Also note `RepoEntry.path` is
       always the *main* worktree (`repo-registry.ts:29`).
-- [ ] Progress is a **stream, not a return value**: `optimizerScanProgress` events carry
+- [x] Progress is a **stream, not a return value**: `optimizerScanProgress` events carry
       `{ done, total }`, so Smart Scan's ring is driven by real progress. The first draft required
       "real scan progress events" in one item and defined a single-shot `scanSystem()` return in
       another.
-- [ ] Add [`features/optimizer/smart-scan-tab.tsx`](../../../packages/app/src/features/optimizer/smart-scan-tab.tsx):
+- [x] Add [`features/optimizer/smart-scan-tab.tsx`](../../../packages/app/src/features/optimizer/smart-scan-tab.tsx):
       the Scan button morphing into a progress ring driven by those events, then a per-category
       summary with a Clean action each.
-- [ ] Add [`features/optimizer/storage-tab.tsx`](../../../packages/app/src/features/optimizer/storage-tab.tsx):
+- [x] Add [`features/optimizer/storage-tab.tsx`](../../../packages/app/src/features/optimizer/storage-tab.tsx):
       the Theme B segmented bar plus a subcategory list, each row deep-linking to the repo/worktree in
       the sidebar via the existing selection actions.
-- [ ] **Clean routes through the two-step confirm**, copying `withBlastRadius`
+- [x] **Clean routes through the two-step confirm**, copying `withBlastRadius`
       ([`use-graph-actions.ts:214`](../../../packages/app/src/features/graph/use-graph-actions.ts)):
       open the dialog with `blastRadius: undefined`, then fill it in. Because `BlastRadius.sample` is
       `{sha, subject}[]` and cannot hold a path or a byte count, **the item count goes in `count` and
@@ -285,15 +289,15 @@ new component with a new domain, not a variant.
       [`confirm-dialog.tsx:38`](../../../packages/app/src/components/confirm-dialog.tsx) exists for
       *"consequences that are not measured in commits"*, which is exactly this. `danger: true`.
       See Decision 7.
-- [ ] **Re-validate at delete time.** A `ScanResult` is computed, rendered, confirmed and only then
+- [x] **Re-validate at delete time.** A `ScanResult` is computed, rendered, confirmed and only then
       acted on — minutes may pass. Before each delete: re-run `confineTree`, re-`lstat`, and skip
       (reporting it) any path that no longer exists, is now a symlink, or no longer resolves under a
       known root. The repo already closes a far narrower TOCTOU window for a single file; this one is
       wider.
-- [ ] `scan-service.test.ts` (bare vitest, no Electron): `classify` for each category; the walk's
+- [x] `scan-service.test.ts` (bare vitest, no Electron): `classify` for each category; the walk's
       depth and entry bounds; abort mid-walk leaves no partial delete; the detached-HEAD worktree is
       not a candidate; a symlinked directory is not traversed.
-- [ ] `confine-tree.test.ts`: a path outside the root is refused; a symlink pointing outside is
+- [x] `confine-tree.test.ts`: a path outside the root is refused; a symlink pointing outside is
       refused; `.git` at depth is refused; a legitimate `node_modules` under a registered repo is
       allowed.
 
@@ -349,50 +353,50 @@ new component with a new domain, not a variant.
 
 Re-tagged **M → S**: the load probe and the CI fallback already exist.
 
-- [ ] `getGpuStats()` in `packages/desktop/src/main/optimizer/gpu-service.ts` **combines two
+- [x] `getGpuStats()` in `packages/desktop/src/main/optimizer/gpu-service.ts` **combines two
       sources**: `app.getGPUInfo('complete')` for `model` and `vramBytes`, and the existing
       `createGpuProbe` ([`metrics/gpu.ts:62`](../../../packages/desktop/src/main/metrics/gpu.ts)) for
       `loadPercent`. `getGPUInfo` does not report load and the existing probe does not report model;
       the first draft attributed all three to one call.
-- [ ] `app.getGPUInfo` returns `Promise<unknown>` in Electron's own types, so **parse it with a zod
+- [x] `app.getGPUInfo` returns `Promise<unknown>` in Electron's own types, so **parse it with a zod
       schema** and return `{ model: null, vramBytes: null }` on a shape mismatch rather than reading
       through an `any`.
-- [ ] Reuse the existing self-disable: `createGpuProbe` already stops after three consecutive
+- [x] Reuse the existing self-disable: `createGpuProbe` already stops after three consecutive
       failures and takes an injected `platform` so it is testable off macOS. Theme E's "graceful
       fallback in headless/CI" is **already implemented** — verify it covers `getGPUInfo` rejecting
       too, and extend only if it does not.
-- [ ] Add [`features/optimizer/gpu-tab.tsx`](../../../packages/app/src/features/optimizer/gpu-tab.tsx):
+- [x] Add [`features/optimizer/gpu-tab.tsx`](../../../packages/app/src/features/optimizer/gpu-tab.tsx):
       an info card, and a 60-second rolling load chart using **`MetricChart` with a custom
       `geometry`**, not `Sparkline`. `Sparkline`
       ([`sparkline.tsx:19`](../../../packages/app/src/features/monitor/sparkline.tsx)) is hardcoded to
       `SPARKLINE_GEOMETRY` (~28×12) and `aria-hidden` — it is explicitly the inline form. `id: 'gpu'`
       keeps the footer's colour, and the 0–100 domain fits.
-- [ ] The two "Tweak Settings" toggles ship **visibly disabled with a "not wired yet" caption**, not
+- [x] The two "Tweak Settings" toggles ship **visibly disabled with a "not wired yet" caption**, not
       merely inert. A stub that flips but does nothing reads as a bug; a disabled control with a
       reason reads as a plan.
-- [ ] `gpu-service.test.ts`: the combined shape; a `getGPUInfo` rejection yields nulls rather than
+- [x] `gpu-service.test.ts`: the combined shape; a `getGPUInfo` rejection yields nulls rather than
       throwing; a malformed `getGPUInfo` payload fails the zod parse and degrades.
 
 ### F — Verification (M)
 
-- [ ] `moon run :typecheck :lint :test` green.
-- [ ] Boundary lint clean: nothing new in `git-engine` (see Decision 11); `packages/app` reaches the
+- [x] `moon run :typecheck :lint :test` green.
+- [x] Boundary lint clean: nothing new in `git-engine` (see Decision 11); `packages/app` reaches the
       feature only through `window.midniteStudio`.
-- [ ] Playwright: the view is absent from the rail with the setting off, appears when switched on,
+- [x] Playwright: the view is absent from the rail with the setting off, appears when switched on,
       and **switching it off while the view is active redirects rather than stranding**.
-- [ ] Playwright: the four tabs render and switch.
-- [ ] Playwright: Smart Scan → Storage handoff from one `ScanResult`; a Clean shows the confirm with
+- [x] Playwright: the four tabs render and switch.
+- [x] Playwright: Smart Scan → Storage handoff from one `ScanResult`; a Clean shows the confirm with
       a real item count and a real byte figure, and on confirm the item leaves the list.
-- [ ] Playwright: the extra-root folder picker — the widest blast radius in the phase, and untested in
+- [x] Playwright: the extra-root folder picker — the widest blast radius in the phase, and untested in
       the first draft.
 - [ ] Playwright: the Memory tab's table renders; killing a Midnite-spawned test process removes it.
-- [ ] Playwright: the GPU tab renders info and a growing 60s chart; **no temperature field appears
+- [x] Playwright: the GPU tab renders info and a growing 60s chart; **no temperature field appears
       anywhere**; the two Tweak toggles render disabled with their caption.
-- [ ] `optimizer-shots.spec.ts`: all four tabs, light and dark.
-- [ ] A scan of a fixture tree with a symlink escaping the root does not size or delete anything
+- [x] `optimizer-shots.spec.ts`: all four tabs, light and dark.
+- [x] A scan of a fixture tree with a symlink escaping the root does not size or delete anything
       outside it.
-- [ ] A delete whose target vanished between scan and confirm is skipped and reported, not thrown.
-- [ ] `shell.trashItem` is what runs — assert the file is recoverable, not gone.
+- [x] A delete whose target vanished between scan and confirm is skipped and reported, not thrown.
+- [x] `shell.trashItem` is what runs — assert the file is recoverable, not gone.
 - [ ] **Deliberately not automated:** the arbitrary-PID kill path, which is the whole subject of
       Decision 1. Killing a real system process cannot be a test. Stated here as a choice rather than
       left as a gap.

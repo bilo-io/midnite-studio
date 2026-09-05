@@ -141,6 +141,7 @@ const bridge: Pick<
   | 'cli'
   | 'update'
   | 'systemHealth'
+  | 'optimizer'
   | 'protocol'
 > = {
   /*
@@ -485,6 +486,14 @@ const bridge: Pick<
     mark: (m) => ipcRenderer.send(MSTUDIO_PERF_MARK, m),
   },
   systemHealth: () => call(CHANNELS.systemHealth),
+  optimizer: {
+    scan: (req) => call(CHANNELS.optimizerScan, req),
+    onScanProgress: (handler) => subscribe(EVENT_CHANNELS.optimizerScanProgress, handler),
+    clean: (req) => call(CHANNELS.optimizerClean, req),
+    processes: () => call(CHANNELS.optimizerProcesses),
+    kill: (req) => call(CHANNELS.optimizerKill, req),
+    gpu: () => call(CHANNELS.optimizerGpu),
+  },
   protocol: {
     onDeepLink: (handler) => subscribe(EVENT_CHANNELS.deepLink, handler),
   },

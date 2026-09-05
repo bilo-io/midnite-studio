@@ -25,6 +25,7 @@ import { registerFsHandlers } from './ipc/fs-handlers';
 import { registerFsSearchHandlers } from './ipc/fs-search-handlers';
 import { registerFsWriteHandlers } from './ipc/fs-write-handlers';
 import { bindMetricsToWindow, registerMetricsHandlers } from './ipc/metrics-handlers';
+import { registerOptimizerHandlers } from './ipc/optimizer-handlers';
 import { registerPtyHandlers } from './ipc/pty-handlers';
 import { registerTerminalHandlers } from './ipc/terminal-handlers';
 import { registerRefHandlers } from './ipc/ref-handlers';
@@ -298,6 +299,7 @@ if (!app.requestSingleInstanceLock()) {
     registerUpdater(getMainWindow);
     registerReleaseNotesHandlers();
     ipcMain.handle(CHANNELS.systemHealth, () => readSystemHealth());
+    registerOptimizerHandlers(getMainWindow);
     registerPerfHandlers();
     installMgitFileProtocol();
     installMenu(getMainWindow);

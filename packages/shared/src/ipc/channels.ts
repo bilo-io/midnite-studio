@@ -296,6 +296,18 @@ export const CHANNELS = {
   updateReleaseNotes: 'mstudio:update:release-notes',
   systemHealth: 'mstudio:system:health',
 
+  // --- optimizer (Phase 59) ---------------------------------------------------
+  /** Smart Scan across every registered repo/worktree, plus one optional extra root. */
+  optimizerScan: 'mstudio:optimizer:scan',
+  /** Move re-validated scan items to the trash — see `confineTree`. */
+  optimizerClean: 'mstudio:optimizer:clean',
+  /** The widened `agent-process.ts` process table (adds `rss=`/`pcpu=`). */
+  optimizerProcesses: 'mstudio:optimizer:processes',
+  /** `SIGTERM`, then `SIGKILL` after 3s, behind the argv-match PID-reuse guard. */
+  optimizerKill: 'mstudio:optimizer:kill',
+  /** Combined `app.getGPUInfo('complete')` model/VRAM plus the existing load probe. */
+  optimizerGpu: 'mstudio:optimizer:gpu',
+
   // --- stash -----------------------------------------------------------------
   /** Every stash entry for one checkout, newest first — same shape `for-each-ref` gets. */
   stashList: 'mstudio:stash:list',
@@ -685,6 +697,8 @@ export const EVENT_CHANNELS = {
   videoStudioChanged: 'mstudio:video:studio-changed',
   /** A render's status/progress advanced — see `VideoRenderProgressEventSchema`. */
   videoRenderProgress: 'mstudio:video:render-progress',
+  /** Smart Scan's walk advanced — `{done, total}` — see `OptimizerScanProgressEventSchema`. */
+  optimizerScanProgress: 'mstudio:optimizer:scan-progress',
   updateState: 'mstudio:update:state',
   deepLink: 'mstudio:protocol:deep-link',
   /**

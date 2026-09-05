@@ -40,6 +40,7 @@ const VIEW_LABELS: Record<ViewId, string> = {
   workflows: 'Agent Workflows',
   video: 'Video Studio',
   sessions: 'Agent Sessions',
+  optimizer: 'Workspace Optimizer',
   settings: 'Settings',
 };
 
@@ -61,6 +62,7 @@ const VIEW_KEYWORDS: Record<ViewId, string> = {
   workflows: 'agent workflow pipeline automation',
   video: 'video studio remotion render project brief editorial script',
   sessions: 'agent session history transcripts',
+  optimizer: 'clean scan storage memory gpu disk space node_modules trash',
   settings: 'preferences configuration options theme',
 };
 
