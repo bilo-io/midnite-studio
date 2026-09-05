@@ -197,6 +197,20 @@ export type McpResponse =
       message: string;
     };
 
+/**
+ * One row of Theme E's bounded audit ring — the last 50 MCP tool calls kept
+ * in main's memory (`desktop/src/main/mcp/audit.ts`), gone on quit. No
+ * payload bodies and no path deeper than what the caller passed as
+ * `repoPath` — a diff hunk or a subpath in a log file would be a leak.
+ */
+export type McpCallEntry = {
+  at: number;
+  tool: McpToolId;
+  repoPath: string;
+  ok: boolean;
+  ms: number;
+};
+
 export const MCP_PROTOCOL = 1;
 /**
  * Sized for what a model should be handed in one call, not for pty output —
