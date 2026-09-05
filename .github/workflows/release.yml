@@ -1,0 +1,230 @@
+name: Release
+
+# Push a lockstep version tag (e.g. v0.1.0) to build the macOS arm64 desktop
+# app and publish it as a GitHub Release to the PUBLIC bilo-io/midnite-apps
+# repo. This repo is private, so its own release assets aren't anonymously
+# downloadable — midnite-apps is the shared downloads + issue tracker for
+# every midnite app, which is why the tag it receives is NAMESPACED
+# (midnite-studio/vX.Y.Z) rather than a bare vX.Y.Z that would collide with a
+# sibling app's (Phase 53 Theme D).
+#
+# Only `v*` (the lockstep tag `planReleaseTags` cuts for a minor/major bump)
+# triggers this — a scoped independent-patch tag (`@midnite/studio-desktop@X.Y.Z`)
+# does not match this glob and will not build a new distributable here. The
+# phase doc specifies this exact trigger without addressing that case; left
+# as a known gap for a future pass rather than an invented extra pattern.
+#
+# Crib: ~/Dev/midnite's own release.yml — same SHAPE, never its `repository:`
+# value. That repo publishes to bilo-io/midnite-app (singular) — a DIFFERENT
+# repo from this app's bilo-io/midnite-apps.
+on:
+  push:
+    tags:
+      - 'v*'
+
+# Workflow default covers the `build` job (checkout + GitHub Packages
+# install, same as ci.yml's `package` job). `release` overrides this with its
+# own `contents: write` below — a job-level `permissions:` block REPLACES the
+# default rather than adding to it.
+permissions:
+  contents: read
+  packages: read
+
+jobs:
+  build:
+    name: Build macOS arm64
+    runs-on: macos-14
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - uses: pnpm/action-setup@v4
+        with:
+          version: 9.15.0
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22.12.0
+          cache: pnpm
+
+      # Same reasoning as ci.yml's `gate`/`package` jobs: @bilo-io/ui and
+      # @bilo-io/shell come from GitHub Packages, which requires an
+      # Authorization header even for public packages.
+      - name: Install
+        run: pnpm install --frozen-lockfile
+        env:
+          GITHUB_PACKAGES_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Rebuild native modules for Electron
+        run: pnpm exec moon run desktop:rebuild-native
+
+      # Signing env-gate, cribbed from the sibling app's release.yml — the bug
+      # it exists to avoid cost that repo a broken macOS leg on v0.2.0. GitHub
+      # expands an unset secret to an EMPTY string, and electron-builder reads
+      # an empty CSC_LINK as "a certificate to import" — it resolves that
+      # empty path and dies BEFORE CSC_IDENTITY_AUTO_DISCOVERY is ever
+      # consulted, so an unsigned build fails outright instead of proceeding
+      # unsigned. Writing into $GITHUB_ENV from a conditional bash step (never
+      # inline as a step's `env:`) is what avoids that: an unset secret here
+      # just skips the block entirely, leaving CSC_LINK unset rather than "".
+      #
+      # APPLE_ID/APPLE_APP_SPECIFIC_PASSWORD/APPLE_TEAM_ID join the $GITHUB_ENV
+      # write too — a deliberate addition beyond the sibling's own pattern
+      # (which sets them as plain step-scoped `env:` on its packaging step).
+      # That works there because that repo's release.yml packages once, full
+      # stop. Here, `desktop:verify-dist` DEPENDS ON `~:dist`
+      # (packages/desktop/moon.yml) with `cache: false`, so the "Verify
+      # Distribution Integrity" step below silently re-invokes the entire
+      # packaging command a second time. Step-scoped env vars don't survive
+      # into that second, implicit invocation — only $GITHUB_ENV does — so
+      # without this, a real Apple cert would sign+notarize the FIRST build
+      # and then have the SECOND, credential-less rebuild silently overwrite
+      # it with an unsigned one, exactly the kind of bug this whole guard
+      # section exists to prevent.
+      - name: Configure macOS code-signing
+        shell: bash
+        env:
+          CSC_LINK: ${{ secrets.CSC_LINK }}
+          CSC_KEY_PASSWORD: ${{ secrets.CSC_KEY_PASSWORD }}
+          APPLE_ID: ${{ secrets.APPLE_ID }}
+          APPLE_APP_SPECIFIC_PASSWORD: ${{ secrets.APPLE_APP_SPECIFIC_PASSWORD }}
+          APPLE_TEAM_ID: ${{ secrets.APPLE_TEAM_ID }}
+        run: |
+          if [ -n "$CSC_LINK" ]; then
+            {
+              echo "CSC_LINK<<__MSTUDIO_EOF__"
+              echo "$CSC_LINK"
+              echo "__MSTUDIO_EOF__"
+              echo "CSC_KEY_PASSWORD=$CSC_KEY_PASSWORD"
+              echo "CSC_IDENTITY_AUTO_DISCOVERY=true"
+              echo "APPLE_ID=$APPLE_ID"
+              echo "APPLE_APP_SPECIFIC_PASSWORD=$APPLE_APP_SPECIFIC_PASSWORD"
+              echo "APPLE_TEAM_ID=$APPLE_TEAM_ID"
+            } >> "$GITHUB_ENV"
+            echo "macOS code-signing: certificate present -> signed build."
+          else
+            echo "CSC_IDENTITY_AUTO_DISCOVERY=false" >> "$GITHUB_ENV"
+            echo "macOS code-signing: no certificate -> clean unsigned build."
+          fi
+
+      # `desktop:dist` bakes `--publish never` into its own command
+      # (packages/desktop/moon.yml) — electron-builder itself never publishes
+      # anything, in this workflow or anywhere else. The `generic` provider in
+      # electron-builder.yml's `publish:` block is read-only by construction;
+      # publishing is the separate `release` job below, against a different
+      # repo entirely.
+      - name: Package desktop app
+        run: pnpm exec moon run desktop:dist
+        env:
+          GITHUB_PACKAGES_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+      # Reuses the exact chain ci.yml's `package` job runs, so the release
+      # path and the CI path cannot drift. Note `desktop:dist`/`verify-dist`
+      # carry `options.runInCI: false` in packages/desktop/moon.yml — that
+      # suppresses them under `moon ci` only; both this workflow and ci.yml
+      # invoke them by explicit `moon run`, so they execute regardless.
+      - name: Verify Distribution Integrity
+        run: pnpm exec moon run desktop:verify-dist
+        env:
+          GITHUB_PACKAGES_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+      # The explicit allowlist below is what `release` actually publishes;
+      # this upload only needs to be a superset of it plus the dmg (a human
+      # download target, not an updater input, but worth carrying along).
+      - name: Upload installers + feed manifest
+        uses: actions/upload-artifact@v4
+        with:
+          name: mac-arm64
+          path: |
+            packages/desktop/release/*.dmg
+            packages/desktop/release/*.zip
+            packages/desktop/release/*.blockmap
+            packages/desktop/release/latest-mac.yml
+          if-no-files-found: error
+
+  release:
+    name: Publish release
+    needs: build
+    # Publish even when `build` failed or was cancelled. Without this, a
+    # failed macOS leg leaves this job silently SKIPPED — easy to miss — and
+    # (per the sibling's own cost: a glob upload collision once left a release
+    # an untagged draft) a half-finished release is worse than a loud one that
+    # explicitly refuses to publish nothing. The guard step below is what
+    # turns "build failed" into a clear ::error instead of a silent no-op.
+    if: ${{ !cancelled() }}
+    runs-on: ubuntu-latest
+    # Overrides the workflow default (contents: read) — publishing needs
+    # write. `packages: read` isn't needed here; this job never installs.
+    permissions:
+      contents: write
+    steps:
+      - name: Download installers
+        uses: actions/download-artifact@v4
+        with:
+          path: artifacts
+
+      # Guards both ways the publishable set can be wrong before uploading
+      # anything: empty (the build leg failed or was cancelled) and
+      # duplicated (a basename collision, which is exactly what the explicit
+      # allowlist below — not `artifacts/**/*` — exists to prevent: every
+      # electron-builder invocation also emits its own `builder-debug.yml`,
+      # and a wildcard upload would collide on that shared basename).
+      - name: Check the publishable asset set
+        shell: bash
+        run: |
+          find artifacts -type f \
+            \( -name '*.dmg' -o -name '*.zip' -o -name '*.blockmap' -o -name 'latest-mac.yml' \) | sort > publishable.txt
+          count=$(wc -l < publishable.txt | tr -d ' ')
+          echo "Publishable assets ($count):"
+          sed 's/^/  /' publishable.txt
+
+          if [ "$count" -eq 0 ]; then
+            echo "::error::No installers were built — refusing to publish an empty release."
+            exit 1
+          fi
+
+          dupes=$(xargs -n1 basename < publishable.txt | sort | uniq -d)
+          if [ -n "$dupes" ]; then
+            echo "::error::Duplicate asset basename(s) would collide on upload: $(echo "$dupes" | tr '\n' ' ')"
+            exit 1
+          fi
+
+      # The source tag here is the lockstep vX.Y.Z this workflow triggers on;
+      # the receiving repo's tag is NAMESPACED under the app
+      # (midnite-studio/vX.Y.Z) since it holds several apps' releases.
+      - name: Derive the namespaced release tag
+        id: version
+        run: |
+          source_tag="${GITHUB_REF#refs/tags/}"
+          echo "source_tag=$source_tag" >> "$GITHUB_OUTPUT"
+          echo "release_tag=midnite-studio/$source_tag" >> "$GITHUB_OUTPUT"
+
+      # Cross-repo publish needs a fine-grained PAT with Contents:write on
+      # bilo-io/midnite-apps — the default GITHUB_TOKEN is scoped to THIS
+      # (private) repo only and cannot write to a different one.
+      #
+      # RELEASES_REPO_TOKEN does not exist as a secret in this repo yet —
+      # this workflow cannot actually publish until it's created in Settings
+      # > Secrets and variables > Actions. See the PR description.
+      #
+      # `files:` is an explicit ALLOWLIST, matching the guard step above —
+      # never `artifacts/**/*`, for the same `builder-debug.yml` collision
+      # reason. Asset basenames come straight from electron-builder.yml's
+      # `artifactName` (midnite-studio-${version}-${arch}.${ext}) and must
+      # match the receiving repo's apps.json exactly, since its install.sh
+      # builds its download URL from that same template.
+      - name: Publish release to bilo-io/midnite-apps
+        if: ${{ !cancelled() }}
+        uses: softprops/action-gh-release@v2
+        with:
+          repository: bilo-io/midnite-apps
+          tag_name: ${{ steps.version.outputs.release_tag }}
+          token: ${{ secrets.RELEASES_REPO_TOKEN }}
+          draft: false
+          generate_release_notes: true
+          files: |
+            artifacts/**/*.dmg
+            artifacts/**/*.zip
+            artifacts/**/*.blockmap
+            artifacts/**/latest-mac.yml
