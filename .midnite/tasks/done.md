@@ -4,7 +4,7 @@
 
 ## 2026-09-05 — Phase 43 Theme I — the Verification checklist, actually re-run
 
-[PR #TBD]. No code change: Themes A–I had already landed (PRs #92, #100, #102, #105, #108) and
+[PR #187]. No code change: Themes A–I had already landed (PRs #92, #100, #102, #105, #108) and
 every deliverable was already checked, but 19 of the phase's own 20 Verification-section lines
 were still unticked — the residue Themes A–I's PRs left behind rather than a gap in the work
 itself. This pass ran each one for real rather than trusting the theme that produced it:
