@@ -62,4 +62,27 @@ describe('the View menu', () => {
     expect(fetch).toBeDefined();
     expect(fetch?.accelerator).toBeUndefined();
   });
+
+  /**
+   * Phase 64 Theme D: an OS-level accelerator bypasses `YIELD_ROOTS` entirely
+   * — it fires whenever the WINDOW is focused, Monaco included, and the
+   * renderer's own listener never sees it. `Cmd+G` is find-next in Monaco,
+   * `Cmd+L` is expand-line-selection there and already in the terminal's own
+   * yield list, and `Cmd+O` opens a native folder picker mid-keystroke.
+   */
+  it('offers Toggle Repositories and Toggle Loop Panel with no native accelerator', () => {
+    const view = submenuOf('View');
+    expect(row(view, 'Toggle Repositories')).toBeDefined();
+    expect(row(view, 'Toggle Repositories')?.accelerator).toBeUndefined();
+    expect(row(view, 'Toggle Loop Panel')).toBeDefined();
+    expect(row(view, 'Toggle Loop Panel')?.accelerator).toBeUndefined();
+  });
+});
+
+describe('the File menu', () => {
+  it('offers Open Repository… with no native accelerator', () => {
+    const openRow = row(submenuOf('File'), 'Open Repository…');
+    expect(openRow).toBeDefined();
+    expect(openRow?.accelerator).toBeUndefined();
+  });
 });
