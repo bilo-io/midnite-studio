@@ -192,12 +192,12 @@ constant values into the three new fields); **a partial landing of A without C d
 
 ## Deliverables
 
-### A — The detector registry (M)
+### A — The detector registry (M) · ✅ DONE (PR #190, 2026-09-05)
 
 Replaces the basename list with a structure that can express "this directory, but only when the
 evidence beside it says so."
 
-- [ ] Add `packages/desktop/src/main/optimizer/detectors.ts` — a new module, **not** more constants
+- [x] Add `packages/desktop/src/main/optimizer/detectors.ts` — a new module, **not** more constants
       in `scan-service.ts`.
       - The scanner and the catalogue change for different reasons and at different rates: the
         walker is security-critical machinery, the catalogue is a list that grows every time
@@ -207,7 +207,7 @@ evidence beside it says so."
         never change walker behaviour by accident.
       - *Done when:* `detectors.ts` exists, exports the four symbols below, and
         `scan-service.ts` imports from it rather than declaring patterns inline.
-- [ ] Export the detector shape, with every field named:
+- [x] Export the detector shape, with every field named:
       ```ts
       export type DetectorId = string; // kebab, e.g. 'rust-target', 'dotnet-obj'
 
@@ -230,7 +230,7 @@ evidence beside it says so."
         stays readable and stays correct on Windows even though this app ships macOS-only today.
       - *Done when:* `tsc` accepts every entry in `DEFAULT_DETECTORS` against this type with no
         `as`, no `satisfies` widening and no optional field.
-- [ ] Export `EvidenceRule` as a four-arm discriminated union, and **say in the docblock which arm
+- [x] Export `EvidenceRule` as a four-arm discriminated union, and **say in the docblock which arm
       costs a syscall**:
       ```ts
       export type EvidenceRule =
@@ -247,7 +247,7 @@ evidence beside it says so."
       catalogue is expressible in these four; an arm nobody uses is an arm nobody tests.
       - *Done when:* `detectors.test.ts` has at least one positive and one negative fixture per arm,
         and a `switch (rule.kind)` over the union with no `default` still typechecks (exhaustive).
-- [ ] Export `matchesPathSuffix(path: string, suffix: string): boolean` — splits `path` on `sep` and
+- [x] Export `matchesPathSuffix(path: string, suffix: string): boolean` — splits `path` on `sep` and
       `suffix` on `'/'`, compares the trailing segments pairwise, and is **case-sensitive**.
       - macOS's default volume is case-*insensitive* but case-*preserving*, so `Build/` and `build/`
         both exist as spellings on disk. Compare case-sensitively and list both spellings in `match`
@@ -260,7 +260,7 @@ evidence beside it says so."
         `matchesPathSuffix('/a/xvendor/bundle', 'vendor/bundle') === false` and
         `matchesPathSuffix('/bundle', 'vendor/bundle') === false`, all asserted in
         `detectors.test.ts`.
-- [ ] Export `matchesFileSuffix(names: ReadonlySet<string>, suffixes: readonly string[]): boolean` —
+- [x] Export `matchesFileSuffix(names: ReadonlySet<string>, suffixes: readonly string[]): boolean` —
       the `siblingSuffix` helper, a plain `endsWith` scan over the set.
       - Kept separate from `matchesPathSuffix` on purpose: one compares *path segments*, the other
         compares *filename tails*, and collapsing them into one "suffix" function is how a
@@ -269,7 +269,7 @@ evidence beside it says so."
         `.csproj`-named directory beside an `obj/` is not a case worth defending against.
       - *Done when:* asserted for `.csproj` present, `.csproj` absent, and a name that merely
         *contains* `.csproj` mid-string.
-- [ ] Rewrite `classify` in
+- [x] Rewrite `classify` in
       [`scan-service.ts:47-53`](../../../packages/desktop/src/main/optimizer/scan-service.ts) as:
       ```ts
       export async function classify(
@@ -290,7 +290,7 @@ evidence beside it says so."
         (`:31`) goes with them — under Theme C's rename it would not compile anyway.
       - *Done when:* `classify` has no `basename()` call left in it and
         `grep -c BuildArtifactPattern packages/` returns 0.
-- [ ] **Order matters and is part of the contract.** `classify` returns the **first** matching
+- [x] **Order matters and is part of the contract.** `classify` returns the **first** matching
       detector in array order, and `DEFAULT_DETECTORS` is ordered most-specific-first.
       - Two detectors legitimately claim `target/` (Cargo and Maven) and two claim `build/` (CMake
         and Gradle); their evidence rules disambiguate, but a detector with `evidence: {kind:'none'}`
@@ -301,7 +301,7 @@ evidence beside it says so."
       - *Done when:* `detectors.test.ts`'s `no evidence-free detector shadows an evidenced one`
         passes, and deliberately moving `node_modules` above a hypothetical evidenced
         `node_modules` entry makes it fail.
-- [ ] Wire the sibling set through `walk` with no extra `readdir`.
+- [x] Wire the sibling set through `walk` with no extra `readdir`.
       - `readDirSafe(dir, log)` at
         [`:150`](../../../packages/desktop/src/main/optimizer/scan-service.ts) already returns the
         parent's `Dirent[]`; build `const siblingNames = new Set(entries.map((e) => e.name));`
@@ -311,7 +311,7 @@ evidence beside it says so."
         is built once per directory even when no entry in it is a candidate, which costs one array
         map on a list already in memory.
       - *Done when:* `walk` contains exactly one `new Set(` and exactly one `readDirSafe` call.
-- [ ] **Thread the detector list from `scanWorkspace` to `classify` — this plumbing does not exist
+- [x] **Thread the detector list from `scanWorkspace` to `classify` — this plumbing does not exist
       today.** `ScanWorkspaceOptions` (`:227-234`) gains `detectors?: readonly ArtifactDetector[]`;
       `walk` gains a `detectors: readonly ArtifactDetector[]` parameter after `repoId`; `walk`'s
       `classify(full)` at `:168` becomes `await classify(full, siblingNames, detectors, log)`.
@@ -322,7 +322,7 @@ evidence beside it says so."
         fixture inject a two-entry catalogue instead of running the full twenty-four.
       - *Done when:* a `scanWorkspace({ signal, onProgress, detectors: [oneDetector] })` call in
         `scan-service.test.ts` produces items only for that detector.
-- [ ] `childAny` evidence goes through `readDirSafe`, never a bare `readdir`.
+- [x] `childAny` evidence goes through `readDirSafe`, never a bare `readdir`.
       - A candidate the user cannot read must skip the detector, not fail the scan. The existing
         helper already logs `[optimizer] scan: could not read "<dir>": <describeFsError>` and
         returns `[]`; that is the correct behaviour here too — **no evidence found ⇒ no match**,
@@ -332,7 +332,7 @@ evidence beside it says so."
         detectors are enabled.
       - *Done when:* a fixture directory chmod'd `0o000` (skipped on CI where the test runs as
         root — guard with `process.getuid?.() !== 0`) yields zero items and one log line.
-- [ ] **`.git` stays refused at any depth** and symlinks stay untraversed and unsized.
+- [x] **`.git` stays refused at any depth** and symlinks stay untraversed and unsized.
       - [`:158`](../../../packages/desktop/src/main/optimizer/scan-service.ts)
         (`if (entry.name === '.git') continue;`), `:159` (`if (entry.isSymbolicLink()) continue;`)
         and `:119` (the same check inside `dirBytes`) do not move, do not reorder, and stay
@@ -341,25 +341,25 @@ evidence beside it says so."
         a fixture plants `.git/node_modules/` there.
       - *Done when:* `scan-service.test.ts`'s `a detector never matches inside .git` passes and the
         two existing symlink assertions (`:131-149`) are untouched.
-- [ ] `detectors.test.ts`: every arm of `EvidenceRule` proved against a fixture tree — a `target/`
+- [x] `detectors.test.ts`: every arm of `EvidenceRule` proved against a fixture tree — a `target/`
       with a sibling `Cargo.toml` matches, the same `target/` without one does not; a `build/`
       containing `CMakeCache.txt` matches, an empty `build/` does not; `matchesPathSuffix` accepts
       `a/b/vendor/bundle` for `vendor/bundle` and rejects `a/vendorbundle`.
       - Reuse `scan-service.test.ts`'s `mkdtemp(join(tmpdir(), …))` + `realpath` + `afterAll(rm)`
         harness shape (`:87-95`) rather than a mocked `fs`; the whole point is real `Dirent`s.
-- [ ] Docblock at the top of `detectors.ts` states the three rules an entry must satisfy — a named
+- [x] Docblock at the top of `detectors.ts` states the three rules an entry must satisfy — a named
       `producer`, evidence unless Decision 1's rule admits the name, and a place in the ordering —
       and names the two things deliberately absent: **no Go detector** (Decision 7) and **no
       per-detector exclusion list** (Decision 9). A future reader "fixing the gap" is the failure
       mode this paragraph exists to prevent.
 
-### B — The catalogue: nine ecosystems in the repo (M)
+### B — The catalogue: nine ecosystems in the repo (M) · ✅ DONE (PR #190, 2026-09-05)
 
 Each entry below states **what identifies it**, **what proves it**, and **what recreates it**. An
 entry with no third column does not ship. Every `id` below is normative — Theme F asserts on them
 and Phase 73/74 rows sit beside them.
 
-- [ ] **Node/web** — `node-modules` (`node_modules`, `evidence: none`, category `dependencies`,
+- [x] **Node/web** — `node-modules` (`node_modules`, `evidence: none`, category `dependencies`,
       ecosystem `node`, producer `npm/pnpm/yarn install`, **costly**); `node-dist` (`dist`,
       `siblingAny: ['package.json']`, `buildOutput`, `npm run build`, cheap); `node-next`
       (`.next`), `node-turbo` (`.turbo`), `node-parcel-cache` (`.parcel-cache`), `node-svelte-kit`
@@ -369,7 +369,7 @@ and Phase 73/74 rows sit beside them.
         `buildOutput`. All cheap.
       - `dist` **must** keep its sibling evidence: `dist/` is also a perfectly ordinary hand-written
         folder name in a non-Node repo.
-- [ ] **moon** — `moon-cache` (`.moon/cache`) and `moon-docker` (`.moon/docker`) as **two-segment
+- [x] **moon** — `moon-cache` (`.moon/cache`) and `moon-docker` (`.moon/docker`) as **two-segment
       `match` suffixes**, never `.moon`. Category `toolCache`, ecosystem `multi`, producer
       `moon run`, cheap.
       - This is the [`.gitignore:5-6`](../../../.gitignore) boundary written into the catalogue:
@@ -377,12 +377,12 @@ and Phase 73/74 rows sit beside them.
         configuration. See Theme E for retiring the old entry.
       - Ecosystem `multi` rather than `node`: moon is language-agnostic and this repo's own
         `.moon/toolchain.yml` configures more than node.
-- [ ] **Rust** — `rust-target` (`target`, `siblingAny: ['Cargo.toml']`, `buildOutput`, producer
+- [x] **Rust** — `rust-target` (`target`, `siblingAny: ['Cargo.toml']`, `buildOutput`, producer
       `cargo build`, cheap).
       - The registry of downloaded crates lives at `~/.cargo/registry`, is **not** in a repo, and is
         [Phase 73](phase-73-the-optimizer-leaves-the-repo.md)'s — so a `target/` delete costs a
         recompile, not a re-download, and `cheap` is the honest grade.
-- [ ] **C/C++ (CMake)** — `cmake-build` (`build`, `_build`, `cmake-build-debug`,
+- [x] **C/C++ (CMake)** — `cmake-build` (`build`, `_build`, `cmake-build-debug`,
       `cmake-build-release`, `childAny: ['CMakeCache.txt', 'CMakeFiles']`, `buildOutput`, producer
       `cmake --build`, cheap).
       - **The evidence is a child, not a sibling** — CMake writes `CMakeCache.txt` *into* the build
@@ -391,7 +391,7 @@ and Phase 73/74 rows sit beside them.
       - `_build` also belongs to Elixir/Dune, which this phase does not cover; the `CMakeCache.txt`
         evidence means an Elixir `_build` simply does not match, which is correct — a miss is a bug
         report, a false match is a data-loss incident.
-- [ ] **.NET / C#** — `dotnet-obj` (`obj`) and `dotnet-bin` (`bin`), both
+- [x] **.NET / C#** — `dotnet-obj` (`obj`) and `dotnet-bin` (`bin`), both
       `siblingSuffix: ['.csproj', '.fsproj', '.vbproj', '.vcxproj']`, `buildOutput`, producer
       `dotnet build`, cheap.
       - `bin/` is the single most dangerous basename in this catalogue — it is a script folder in
@@ -400,18 +400,18 @@ and Phase 73/74 rows sit beside them.
         `bin/` with no siblings at all (must not match).
       - `~/.nuget/packages` is out of repo and is
         [Phase 73](phase-73-the-optimizer-leaves-the-repo.md)'s.
-- [ ] **Python (tool caches)** — `py-pycache` (`__pycache__`), `py-pytest-cache` (`.pytest_cache`),
+- [x] **Python (tool caches)** — `py-pycache` (`__pycache__`), `py-pytest-cache` (`.pytest_cache`),
       `py-mypy-cache` (`.mypy_cache`), `py-ruff-cache` (`.ruff_cache`), `py-tox` (`.tox`) —
       `evidence: none`, category `toolCache`, ecosystem `python`, cheap.
       - Producers respectively: `python import`, `pytest`, `mypy`, `ruff`, `tox`. Each name is
         tool-private and unambiguous; `__pycache__` is grandfathered by Decision 1's second clause.
-- [ ] **Python (environments)** — `py-venv` (`.venv`, `venv`, `env`,
+- [x] **Python (environments)** — `py-venv` (`.venv`, `venv`, `env`,
       `childAny: ['pyvenv.cfg']`, category `dependencies`, producer `python -m venv`, **costly**).
       - `pyvenv.cfg` is written by `venv`/`virtualenv` and by nothing else, which is what makes
         `env` — otherwise an unacceptable basename, since `env/` is also a common config directory —
         safe to list.
       - `~/Library/Caches/pip` and the uv/poetry caches are out of repo.
-- [ ] **Java / Kotlin / Gradle / Maven** — `gradle-build` (`build`,
+- [x] **Java / Kotlin / Gradle / Maven** — `gradle-build` (`build`,
       `siblingAny: ['build.gradle','build.gradle.kts','settings.gradle','settings.gradle.kts']`,
       `buildOutput`, producer `gradle build`, cheap); `gradle-project-cache` (`.gradle` — the
       **project-local** one, same four sibling files, `toolCache`, producer `gradle`, cheap);
@@ -421,7 +421,7 @@ and Phase 73/74 rows sit beside them.
       - `~/.gradle/caches` and `~/.m2/repository` are out of repo.
       - `idea-out` is ecosystem `java` even though `.idea` is IDE-wide: IntelliJ's `out/` is a JVM
         compile output, and putting it under `multi` would hide it from a Java user's group.
-- [ ] **Swift / Xcode (project-local)** — `swiftpm-build` (`.build`,
+- [x] **Swift / Xcode (project-local)** — `swiftpm-build` (`.build`,
       `siblingAny: ['Package.swift']`, `buildOutput`, producer `swift build`, cheap);
       `cocoapods-pods` (`Pods`, `siblingAny: ['Podfile']`, `dependencies`, producer `pod install`,
       **costly**); `xcode-deriveddata` (`DerivedData`,
@@ -431,12 +431,12 @@ and Phase 73/74 rows sit beside them.
       - `.build` is listed with a leading dot but is **not** admitted by Decision 1 — SwiftPM's
         `.build` is not tool-namespaced, and `.build` is a plausible hand-made directory name. It
         carries sibling evidence like any undotted name.
-- [ ] **Ruby** — `ruby-vendor-bundle` (`vendor/bundle` as a **two-segment suffix** with
+- [x] **Ruby** — `ruby-vendor-bundle` (`vendor/bundle` as a **two-segment suffix** with
       `childAny: ['ruby']`, category `dependencies`, producer `bundle install --path vendor/bundle`,
       **costly**).
       - Never a bare `vendor/`: in a Ruby repo `vendor/` also holds checked-in assets and forked
         gems. `~/.gem` and `~/.bundle/cache` are out of repo.
-- [ ] **Go — deliberately nothing in-repo, and this is a finding, not an omission.**
+- [x] **Go — deliberately nothing in-repo, and this is a finding, not an omission.**
       - Go builds into `GOCACHE`/`GOMODCACHE` under the home directory, so a Go repo has no build
         artifact to find. Its one in-repo candidate, `vendor/`, is **checked in on purpose** and
         changes build behaviour when absent (`go build` silently switches from `-mod=vendor` to the
@@ -445,7 +445,7 @@ and Phase 73/74 rows sit beside them.
         [Phase 73](phase-73-the-optimizer-leaves-the-repo.md) Decision 8 adds that member with the
         caches that justify it. Say so in `detectors.ts`'s docblock so the next person does not
         "fix" the gap.
-- [ ] **The stale-worktree item is synthesised, not detected — give it a stable identity.**
+- [x] **The stale-worktree item is synthesised, not detected — give it a stable identity.**
       `scanWorkspace` adds its `staleWorktree` item directly at
       [`:249`](../../../packages/desktop/src/main/optimizer/scan-service.ts), bypassing `classify`
       entirely, so Theme C's three new `ScanItem` fields have no detector to read them from.
@@ -459,14 +459,14 @@ and Phase 73/74 rows sit beside them.
       - *Done when:* a stale-worktree item in a scan carries
         `detectorId: 'git-stale-worktree', ecosystem: 'git', reclaim: 'cheap'` and appears in
         `result.detectors` with its label and producer.
-- [ ] Export `DEFAULT_DETECTORS: readonly ArtifactDetector[]` containing exactly the twenty-four
+- [x] Export `DEFAULT_DETECTORS: readonly ArtifactDetector[]` containing exactly the twenty-four
       entries above, in the order the items are listed here (Node first, Ruby last), and export
       `DETECTOR_COUNT = DEFAULT_DETECTORS.length` — asserted equal to `24` in Theme F so an
       accidental deletion during a merge is a failing test rather than a silent regression.
 
-### C — The data model widens by one axis, not twelve (M)
+### C — The data model widens by one axis, not twelve (M) · ✅ DONE (PR #190, 2026-09-05)
 
-- [ ] Add `EcosystemSchema` to
+- [x] Add `EcosystemSchema` to
       [`shared/src/domain/optimizer.ts`](../../../packages/shared/src/domain/optimizer.ts):
       ```ts
       export const EcosystemSchema = z.enum([
@@ -490,7 +490,7 @@ and Phase 73/74 rows sit beside them.
         [`domain/index.ts:13`](../../../packages/shared/src/domain/index.ts) re-exports both flat, so
         say in one line which is which and that neither should be widened to serve the other — see
         Decision 15.
-- [ ] Widen `ScanCategorySchema` ([`:18-23`](../../../packages/shared/src/domain/optimizer.ts)) to
+- [x] Widen `ScanCategorySchema` ([`:18-23`](../../../packages/shared/src/domain/optimizer.ts)) to
       **five** members, not twelve:
       `z.enum(['dependencies','buildOutput','toolCache','staleWorktree','looseObjects'])`.
       - `'dependencies'` **renames** `'nodeModules'` — a union member that names one ecosystem
@@ -504,7 +504,7 @@ and Phase 73/74 rows sit beside them.
         packages/` must return nothing when the theme is done.
       - Replace the schema's stale docblock (`:12-17`, which still says "the three patterns
         `classify()` actually matches today") with one naming this phase.
-- [ ] Add `ReclaimCostSchema` with the rule in its docblock:
+- [x] Add `ReclaimCostSchema` with the rule in its docblock:
       ```ts
       /** `cheap`: a local rebuild restores it. `costly`: the network does. */
       export const ReclaimCostSchema = z.enum(['cheap', 'costly']);
@@ -513,7 +513,7 @@ and Phase 73/74 rows sit beside them.
       - `node_modules`, `.venv`, `Pods` and `vendor/bundle` are `costly` — deleting them on a plane
         is a different decision than deleting a `dist/`. This is not decoration; Theme D gates
         behaviour on it and [Phase 73](phase-73-the-optimizer-leaves-the-repo.md) imports the type.
-- [ ] Widen `ScanItemSchema` ([`:26-33`](../../../packages/shared/src/domain/optimizer.ts)) by three
+- [x] Widen `ScanItemSchema` ([`:26-33`](../../../packages/shared/src/domain/optimizer.ts)) by three
       fields: `detectorId: z.string()`, `ecosystem: EcosystemSchema`, `reclaim: ReclaimCostSchema`.
       `path`, `bytes`, `category` and `repoId` are unchanged and keep their order.
       - `detectorId` is a plain `z.string()` and **not** an enum: the catalogue grows in `desktop/`,
@@ -522,7 +522,7 @@ and Phase 73/74 rows sit beside them.
       - All three are **required, not optional**. An optional field would let `walk` forget one and
         still typecheck; three required fields make the `:249` stale-worktree call site a compile
         error until Theme B's `STALE_WORKTREE_DETECTOR` exists.
-- [ ] Add `detectors` to `ScanResultSchema` — the map that lets a row render prose without
+- [x] Add `detectors` to `ScanResultSchema` — the map that lets a row render prose without
       duplicating it 2,000 times:
       ```ts
       export const DetectorInfoSchema = z.object({ label: z.string(), producer: z.string() });
@@ -537,7 +537,7 @@ and Phase 73/74 rows sit beside them.
         lives in `desktop/` and `packages/app` may not import it
         ([`eslint.config.mjs`](../../../eslint.config.mjs) boundary groups), which is the whole
         reason this map is on the wire.
-- [ ] Add `byEcosystem: z.record(EcosystemSchema, z.number().nonnegative())` to `ScanResultSchema`
+- [x] Add `byEcosystem: z.record(EcosystemSchema, z.number().nonnegative())` to `ScanResultSchema`
       ([`:41-47`](../../../packages/shared/src/domain/optimizer.ts)) alongside the existing
       `byCategory`.
       - Both roll-ups are computed in `main` during the walk — the renderer receives totals, it does
@@ -545,37 +545,37 @@ and Phase 73/74 rows sit beside them.
       - The two-argument `z.record(keySchema, valueSchema)` form is house style in
         `packages/shared` (`byCategory` at `:43`, `workflow.ts:53`, `blame.ts:29`); zod resolves to
         `3.25.76`, which supports it.
-- [ ] Add `truncatedRoots: z.array(z.string())` to `ScanResultSchema` — see Theme E item 5 for what
+- [x] Add `truncatedRoots: z.array(z.string())` to `ScanResultSchema` — see Theme E item 5 for what
       fills it and Theme D item 9 for what renders it. `truncated: z.boolean()` stays, unchanged, as
       the coarse flag.
-- [ ] `SCAN_ITEMS_CAP = 2_000` ([`:39`](../../../packages/shared/src/domain/optimizer.ts)) is
+- [x] `SCAN_ITEMS_CAP = 2_000` ([`:39`](../../../packages/shared/src/domain/optimizer.ts)) is
       **unchanged**.
       - More detectors means more items, and the cap plus `truncated: true` is the mechanism that
         already covers it. Raising the cap because the scan now finds more things is the wrong
         instinct — Theme D's grouping is what makes 2,000 items legible.
-- [ ] Update `WalkState` ([`:55-61`](../../../packages/desktop/src/main/optimizer/scan-service.ts))
+- [x] Update `WalkState` ([`:55-61`](../../../packages/desktop/src/main/optimizer/scan-service.ts))
       and `newWalkState()` (`:63-71`) for the two new roll-ups and the detector map.
       - `byCategory`'s initialiser is a literal with one key per member; **keep both it and the new
         `byEcosystem` literals** (not a computed `reduce`) so a new union member is a typecheck
         failure rather than a silently-missing key. `byEcosystem` gets ten `0` entries.
       - `detectors` starts `{}` and is filled in `addItem`'s caller, not `addItem` — `addItem` takes
         a `ScanItem`, which no longer carries `label`/`producer`.
-- [ ] Update `addItem` ([`:73-81`](../../../packages/desktop/src/main/optimizer/scan-service.ts)) to
+- [x] Update `addItem` ([`:73-81`](../../../packages/desktop/src/main/optimizer/scan-service.ts)) to
       add `state.byEcosystem[item.ecosystem] += item.bytes;` beside the existing `byCategory` line.
       **The `SCAN_ITEMS_CAP`/`itemsTruncated` behaviour does not change** — the roll-ups still
       accumulate past the cap, so the byte totals stay honest when the item list is truncated.
-- [ ] Update `scanWorkspace`'s return ([`:266-272`](../../../packages/desktop/src/main/optimizer/scan-service.ts))
+- [x] Update `scanWorkspace`'s return ([`:266-272`](../../../packages/desktop/src/main/optimizer/scan-service.ts))
       to spread `byEcosystem`, `detectors` and `truncatedRoots` alongside the existing four fields.
       `truncated`'s existing expression (`state.itemsTruncated || state.entriesWalked >=
       MAX_WALK_ENTRIES`) gains `|| state.truncatedRoots.length > 0`.
-- [ ] No new IPC channel. `optimizerScan`, `optimizerClean` and `optimizerScanProgress`
+- [x] No new IPC channel. `optimizerScan`, `optimizerClean` and `optimizerScanProgress`
       ([`channels.ts:299-309`, `:762`](../../../packages/shared/src/ipc/channels.ts)) carry the
       wider payload unchanged; only the schemas in
       [`ipc/schemas.ts:1889-1909`](../../../packages/shared/src/ipc/schemas.ts) widen, and
       `OptimizerScanResponse` widens *by re-export* (`OptimizerResultOf(ScanResultSchema)` is
       already written in terms of the domain schema). Say so in the theme's PR description — "no new
       channels" is a claim reviewers should be able to verify from the diff.
-- [ ] Widen the e2e mock bridge's fixture type in step with the schema:
+- [x] Widen the e2e mock bridge's fixture type in step with the schema:
       [`mock-bridge.ts:522-548`](../../../packages/app/e2e/mock-bridge.ts)'s
       `MockFixtures['optimizer'].scanResult` and its `byCategory: Record<string, number>` (`:525`),
       and the `byCategory: {}` default at `:2400`, gain `byEcosystem`, `detectors` and

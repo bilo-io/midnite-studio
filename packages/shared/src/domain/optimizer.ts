@@ -21,9 +21,12 @@ import { z } from 'zod';
  * build-tool-agnostic member (moon); `'git'` is last because nothing in the
  * catalogue produces it — it covers the synthesised `staleWorktree` and the
  * still-unpopulated `looseObjects` category. **Later phases append
- * immediately before `'git'`** — Phase 73 adds `'go'`, Phase 74 adds
+ * immediately before `'git'`** — Phase 73 already adds `'go'` (its
+ * machine-wide tool-cache catalogue needed this enum before Phase 72 had
+ * landed it, so it absorbed the schema here rather than block; reconciled
+ * onto this one definition now that both have landed), Phase 74 adds
  * `'media'` — so `'git'` staying last keeps the Storage legend's ordering
- * stable across both.
+ * stable across all three.
  *
  * Do not confuse this with `DiagnosticsEcosystemSchema`
  * (`diagnostics.ts`, `z.enum(['javascript','go','python','dotnet','cpp',
@@ -44,6 +47,7 @@ export const EcosystemSchema = z.enum([
   'java',
   'swift',
   'ruby',
+  'go',
   'git',
 ]);
 export type Ecosystem = z.infer<typeof EcosystemSchema>;
@@ -139,39 +143,6 @@ export const ProcessTableResultSchema = z.object({
   memory: MemoryBreakdownSchema.nullable(),
 });
 export type ProcessTableResult = z.infer<typeof ProcessTableResultSchema>;
-
-/**
- * The build-ecosystem taxonomy shared by Phase 72's repo-scoped catalogue and
- * Phase 73's machine-wide one — see Phase 73's Decision 8.
- *
- * **Landed ahead of Phase 72 on purpose.** Phase 73 (system-wide tool caches)
- * needed this enum first and Phase 72 (the repo-scoped detector catalogue)
- * had not landed it yet when Phase 73 was built — its own doc's sequencing
- * guardrail names exactly this fallback: absorb the shared schema here rather
- * than block, and never duplicate it under a different name. **`'go'` is
- * already included** at the position Phase 73's Decision 8 requires
- * (immediately before `'git'`) — Phase 72 should import this enum rather than
- * redeclare it; if Phase 72 lands first in a future session, reconcile onto
- * this file rather than shipping two `Ecosystem` unions.
- */
-export const EcosystemSchema = z.enum([
-  'node',
-  'multi',
-  'rust',
-  'cpp',
-  'dotnet',
-  'python',
-  'java',
-  'swift',
-  'ruby',
-  'go',
-  'git',
-]);
-export type Ecosystem = z.infer<typeof EcosystemSchema>;
-
-/** How expensive it is to rebuild what a cleaned entry held — same source. */
-export const ReclaimCostSchema = z.enum(['cheap', 'costly']);
-export type ReclaimCost = z.infer<typeof ReclaimCostSchema>;
 
 /** No temperature field — settled in code since Phase 18 (`metrics/gpu.ts`). */
 export const GpuStatsSchema = z.object({

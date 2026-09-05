@@ -78,6 +78,43 @@ own note on why the two are coupled through `persisted-keys.test.ts`.
       `use-optimizer.ts`'s `loadTrashSummary`/`runEmptyTrash` and the confirm's warnings-array/
       recompute-own-numbers/point-of-use-gate behaviour, which are Storage-tab (Theme D) wiring.
 
+## 2026-09-05 — Phase 72 Themes A, B, C — the detector registry, the nine-ecosystem catalogue, the wire widening
+
+[PR #190]. Moves Phase 72 0/102 → 39/102 (0% → 38%). Replaces the Optimizer's
+basename-only `classify()` with an evidence-driven detector registry — the bug this phase
+exists to fix: today's scanner offers this repo's own checked-in `.moon/workspace.yml` for
+deletion, labelled "Build output," because it matches on the bare directory name alone.
+Themes D, E and F are left open for a follow-up.
+
+- [x] **A** — New `packages/desktop/src/main/optimizer/detectors.ts` (imports nothing from
+      `scan-service.ts`, so a catalogue edit can never change walker behaviour by
+      accident): `ArtifactDetector`, a four-arm `EvidenceRule` (`none`/`siblingAny`/
+      `siblingSuffix`/`childAny`), `matchesPathSuffix`/`matchesFileSuffix`. `classify()`
+      is now `async`, takes the parent directory's sibling names (built once per
+      directory in `walk` — zero extra syscalls) plus an injectable detector list, and
+      returns the whole matched detector rather than a bare category. The
+      no-evidence-free-detector-shadows-an-evidenced-one ordering invariant is asserted
+      as a test. `childAny`'s one `readdir` per candidate does not count against
+      `state.entriesWalked` and fails closed (no match, not a thrown error) on an
+      unreadable directory. The `.git` guard and symlink guard are unchanged and still
+      sit above `classify`. `BuildArtifactPattern`/`DEFAULT_BUILD_ARTIFACT_PATTERNS` are
+      deleted, not deprecated, along with the old bare `.moon` entry that offered checked-in
+      moon configuration for deletion. `MAX_WALK_ENTRIES` rises 200k → 500k (Decision 6).
+- [x] **B** — `DEFAULT_DETECTORS`: 28 entries across Node/web, moon, Rust, C/C++ (CMake),
+      .NET, Python (tool caches + venvs), Java/Gradle/Maven, Swift/Xcode, and Ruby, plus
+      the synthesised `STALE_WORKTREE_DETECTOR` (excluded from `DEFAULT_DETECTORS` since
+      an empty `match` can never fire). No Go detector ships (Decision 7). The phase
+      doc's own prose miscounted this catalogue as "twenty-four" while naming
+      twenty-eight entries; every named entry ships, and `DETECTOR_COUNT` reflects the
+      real 28 — corrected in the doc rather than cut to match a stale number.
+- [x] **C** — `EcosystemSchema` (10 members) and `ReclaimCostSchema` (`cheap`/`costly`)
+      added to `shared`; `ScanCategorySchema` widens to five members (`nodeModules` →
+      `dependencies`, new `toolCache`); `ScanItemSchema` gains `detectorId`/`ecosystem`/
+      `reclaim`; `ScanResultSchema` gains `byEcosystem`/`detectors`/`truncatedRoots`. No
+      new IPC channel — only the payload schemas widen. The rename's mechanical fallout
+      (`category-palette.ts`'s new `toolCache` hue, the e2e specs, `mock-bridge.ts`'s
+      fixture type) is included; `grep -rn "'nodeModules'" packages/` returns nothing.
+
 ## 2026-09-05 — Phase 53 Theme E, and Themes G/H partially — feed/changelog automation, the pill's blind spot, RELEASING.md
 
 [PR #188]. Moves Phase 53 21/59 → 33/59 (36% → 56%). Theme E fully lands; G and H land the parts
