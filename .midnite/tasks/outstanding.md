@@ -18,6 +18,24 @@ Recorded here when a phase punts on something; pick these up post-MVP.
   *(Phase 25's own unreadability is fixed: it held four raw NUL bytes where `\0` was meant, which
   made every grep-based counter see an empty file. It is UTF-8 text again as of 2026-09-04.)*
 
+- **Five persisted preferences with no settings page.** Found by [Phase 63](phases/phase-63-settings-diff-and-orphan-preferences.md)'s
+  x1 refinement, which ran the orphan audit rather than leaving it to Theme C: of `PersistedUi`'s 71
+  keys, 34 are named nowhere under `features/settings/`, and 9 of those 34 are genuine preferences.
+  Four are Phase 63's own. These five are not, and Phase 63 deliberately does **not** build them —
+  its Decision 6 fixes orphans only when there are fewer than three:
+  - `browserLayout` → the **browser** page. A three-way Full / Split-left / Split-right control for
+    the layout the browser pane opens with.
+  - `loopChoices`, `loopAgents`, `loopModels`, `loopSchedules` → the **agent** page, inside the
+    `Accordion title="Loops"` that already holds their sibling `loopModifierDefaults`
+    (`settings-pages/agent-page.tsx:70`). Per loop: a radio group per declared choice, a roster-agent
+    select, a model select paired in the same row, and a working-window picker.
+
+  These four `loop*` keys are one coherent block — a "Loops" settings section — not four separate
+  chores, and `loopSchedules`' own store comment already calls it *"a standing preference, not a
+  property of one run"*. Until they are built they sit in Phase 63's five-entry `KNOWN_ORPHANS`
+  allow-list, which is the only thing keeping `persisted-keys.test.ts` green; building them means
+  deleting entries from it.
+
 - **Interactive rebase** — via a `GIT_SEQUENCE_EDITOR` helper binary that writes the UI's todo
   list; `GIT_EDITOR` for reword. Impossible with libgit2/isomorphic-git; CLI-only trick.
 - ~~**Proper diff viewer**~~ — ✅ landed in Phase 12 Theme D: parsed hunks over IPC, one shared
