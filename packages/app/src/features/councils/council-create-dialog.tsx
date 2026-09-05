@@ -1,6 +1,7 @@
 import { useRef, useState } from 'react';
 
 import { useFocusTrap } from '../../components/use-focus-trap';
+import { useOccluder } from '../../components/use-occluder';
 
 /**
  * Name + optional description only — matching upstream's own minimal create
@@ -18,6 +19,7 @@ export function CouncilCreateDialog({
   const [name, setName] = useState('');
   const [description, setDescription] = useState('');
   const containerRef = useRef<HTMLFormElement>(null);
+  useOccluder(true);
   useFocusTrap(containerRef, true);
 
   const empty = name.trim().length === 0;

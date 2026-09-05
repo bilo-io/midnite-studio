@@ -31,7 +31,9 @@ export function StashPushDialog({ request, onCancel }: { request: StashPushReque
 
   useFocusTrap(containerRef, true);
 
-  // Escape cancels, through the shared dismissal stack (Phase 62).
+  // Escape cancels, through the shared dismissal stack (Phase 62) — which also
+  // carries the occluder registration this dialog would otherwise need to make
+  // by hand.
   useDismiss(true, onCancel, { layer: 'dialog' });
 
   useEffect(() => {

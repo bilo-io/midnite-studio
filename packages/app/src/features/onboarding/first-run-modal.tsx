@@ -2,12 +2,14 @@ import { useRef } from 'react';
 import { useUiStore } from '../../store/ui-store';
 import { HealthChecklist } from '../settings/settings-pages/health-page';
 import { useFocusTrap } from '../../components/use-focus-trap';
+import { useOccluder } from '../../components/use-occluder';
 
 export function FirstRunModal() {
   const onboardedAt = useUiStore((s) => s.onboardedAt);
   const setOnboardedAt = useUiStore((s) => s.setOnboardedAt);
   const containerRef = useRef<HTMLDivElement>(null);
 
+  useOccluder(onboardedAt === null);
   useFocusTrap(containerRef, onboardedAt === null);
 
   if (onboardedAt !== null) {

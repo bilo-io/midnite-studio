@@ -16,6 +16,7 @@ import { LuChevronLeft, LuSettings } from 'react-icons/lu';
 
 import { Brand, BrandHomeButton, BrandMark } from './components/brand';
 import { BrowserLauncher } from './features/browser/browser-launcher';
+import { NotesModal } from './features/notes/notes-modal';
 import { BrowserPane } from './features/browser/browser-pane';
 import { DelayedFallback } from './components/delayed-fallback';
 import { DialogHost } from './components/dialog-host';
@@ -1457,6 +1458,7 @@ function Shell() {
           after the keystroke would swallow the `Enter` that follows it.
         */}
         <BrowserLauncher />
+        <NotesModal />
         {/*
           Silent, like the two below: a modal whose chunk fails to load must not
           paint an error card over the app it was optional to. It renders

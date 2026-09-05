@@ -5,6 +5,7 @@ import { LuLoaderCircle } from 'react-icons/lu';
 import type { ScaffoldApplyResult, ScaffoldEntry, ScaffoldPlan, ScaffoldStatus } from '@midnite/studio-shared';
 
 import { useFocusTrap } from '../../components/use-focus-trap';
+import { useOccluder } from '../../components/use-occluder';
 import { bridge } from '../../services/bridge';
 
 /**
@@ -61,6 +62,7 @@ export function SetupDialog({
   const [result, setResult] = useState<ScaffoldApplyResult | null>(null);
   const [errorMessage, setErrorMessage] = useState<string>('Something went wrong.');
   const containerRef = useRef<HTMLDivElement>(null);
+  useOccluder(true);
   useFocusTrap(containerRef, true);
 
   useEffect(() => {

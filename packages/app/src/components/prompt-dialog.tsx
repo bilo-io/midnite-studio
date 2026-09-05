@@ -1,7 +1,6 @@
 import { useEffect, useRef, useState } from 'react';
 
-import { useDismiss } from './use-dismiss';
-import { useFocusTrap } from './use-focus-trap';
+import { Modal } from './modal';
 
 /**
  * Single-line text prompt — new branch name, new tag name, rename.
@@ -30,17 +29,9 @@ export function PromptDialog({
   onCancel: () => void;
 }) {
   const [value, setValue] = useState(request.initialValue ?? '');
-  const containerRef = useRef<HTMLFormElement>(null);
   const inputRef = useRef<HTMLInputElement>(null);
   const error = value.length > 0 ? (request.validate?.(value) ?? null) : null;
   const empty = value.trim().length === 0;
-
-  useFocusTrap(containerRef, true);
-
-  // Escape cancels, through the shared dismissal stack (Phase 62) — which is
-  // also where this dialog picks up the occluder registration it never had, so
-  // it can no longer be raised UNDERNEATH a live browser tab's native view.
-  useDismiss(true, onCancel, { layer: 'dialog' });
 
   useEffect(() => {
     inputRef.current?.select();
@@ -52,19 +43,9 @@ export function PromptDialog({
   };
 
   return (
-    <div
-      className="fixed inset-0 z-dialog flex items-center justify-center bg-background/70 p-6"
-      role="dialog"
-      aria-modal="true"
-      aria-label={request.title}
-      onClick={(event) => {
-        if (event.target === event.currentTarget) onCancel();
-      }}
-    >
+    <Modal open onClose={onCancel} title={request.title} size="sm" initialFocusRef={inputRef}>
       <form
-        ref={containerRef}
-        tabIndex={-1}
-        className="w-full max-w-md rounded-lg border border-border bg-popover p-4 shadow-xl"
+        className="p-4"
         onSubmit={(event) => {
           event.preventDefault();
           submit();
@@ -102,7 +83,7 @@ export function PromptDialog({
           </button>
         </div>
       </form>
-    </div>
+    </Modal>
   );
 }
 

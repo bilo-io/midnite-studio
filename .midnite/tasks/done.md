@@ -90,6 +90,17 @@ verified to fail without the fix.
   calls `mcp.set`, empty-state call list), the three-way registration assertion, and Playwright
   screenshots of the MCP Settings page.
 
+## 2026-09-05 — Phase 58 Themes A, B, C, D — Notes store, modal primitive, and skill handoff
+
+[PR #160]. Closes Phase 58 Themes A, B, C, D.
+
+- [x] **A** — `packages/app/src/store/notes-store.ts`: Notes store on zustand `persist` (`midnite-studio.notes`), `Record<noteId, Note>`, pure `notesForRepo` selector returning newest-first, `status` (`captured` | `planned` | `implemented`) and `done` moving independently, `adoptRenamedPersistKey`, manual repository prune.
+- [x] **B** — `packages/app/src/components/modal.tsx`: `Modal` primitive with enumerated `size`, `variant`, `align`, focus trap, focus restoration, backdrop dismiss, Escape dismiss, `.gradient-frame` motion reset in `styles.css`, and occluder registration. Migrated `prompt-dialog` and `browser-launcher`. Added `useOccluder` to the 4 still-unmigrated `z-dialog` overlays (`help-overlay`, `setup-dialog`, `council-create-dialog`, `first-run-modal`), with a coverage guard test; rebasing onto main's Phase 62 dismissal stack meant `modal.tsx` and five other overlays (`confirm-dialog`, `palette`, `merge-dialog`, `stash-push-dialog`, `slides-modal` — via its child `Deck`'s own `useDismiss`) already pick up occluder registration through `useDismiss`'s `blocking` default, so those reuse that instead of registering twice. Two self-review fixes before merge, both caught by rebasing onto phases that landed after this branch's own commits were authored: `slides-modal.tsx` shipped with a redundant explicit `useOccluder` call that double-counted (`occluder-coverage.test.tsx` caught it at 2 instead of 1 while open); and `modal.tsx` carried a second, hand-rolled focus-restoration effect written against the (pre-Phase-68) assumption that `useFocusTrap` doesn't restore focus — it does now (Phase 68 Theme A), and the redundant one raced it under React StrictMode's dev-only effect double-invoke, silently stealing focus back to the pre-open element a tick after open and breaking every keyboard interaction with `browser-launcher` in a real run (caught by CI's `e2e (1)` shard, not by any unit test, since RTL does not double-invoke effects). Both removed in favour of the already-landed mechanism.
+- [x] **C** — `packages/app/src/features/notes/notes-modal.tsx` & `note-row.tsx`: Notes modal surface with 80vh scrollable list, composer with Enter to add, in-place edit with Escape stopping propagation to preserve modal, per-status badge styling, done-count pill, show/hide-completed toggle, prune orphaned notes dialog, and empty states.
+- [x] **D** — `packages/app/src/features/agent/use-skill-handoff.ts`: Extracted `useSkillHandoff` from `midnite-menu.tsx`, reading dynamic `agentSkills`, launching typed-not-sent terminal sessions (`autoSend: false`) without literal backticks, handling brainstorm and adhoc task handoffs from notes.
+
+---
+
 ## 2026-09-05 — Phase 64 Themes E, F — VS Code theme importer & Appearance palette controls
 
 [PR #171]. Closes Themes E and F of Phase 64 — 14 of the phase's 72 items, bringing the phase to

@@ -1,6 +1,7 @@
 import { useRef } from 'react';
 
 import { useFocusTrap } from '../../components/use-focus-trap';
+import { useOccluder } from '../../components/use-occluder';
 
 const ROWS: { keys: string; label: string }[] = [
   { keys: '→ / Space / Enter', label: 'Next step, then next slide' },
@@ -26,6 +27,7 @@ export function HelpOverlay({ onClose }: { onClose: () => void }) {
     when nothing inside it already holds focus.
   */
   useFocusTrap(containerRef, true);
+  useOccluder(true);
 
   return (
     <div
