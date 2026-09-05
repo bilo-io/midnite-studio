@@ -8,6 +8,7 @@ Completed work is logged append-only in [`done.md`](done.md). Deferred scope liv
 
 | Phase | Status | Refined | Done | Progress | % | 🔄 WIP | ◻ TODO |
 |-------|--------|---------|------|----------|---|--------|--------|
+| [71 · Links that open in place, and the dev server they point at](phases/phase-71-links-that-open-in-place.md) | ◻ TODO | x1 | 0/41 | `░░░░░░░░░░` | 0% | — | A B C D |
 | [70 · The API client grows an environment, a test and a run](phases/phase-70-api-client-environments-tests-and-runs.md) | ◻ TODO | x1 | 0/50 | `░░░░░░░░░░` | 0% | — | A B C D E |
 | [69 · A tracker that can count](phases/phase-69-a-tracker-that-can-count.md) | 🔄 WIP | — | 30/31 | `██████████` | 97% | — | — |
 | [68 · Where focus goes when the dialog closes](phases/phase-68-where-focus-goes.md) | ✅ DONE | — | 32/37 | `█████████░` | 86% | — | — |
@@ -46,7 +47,7 @@ Completed work is logged append-only in [`done.md`](done.md). Deferred scope liv
 | [35 · FAB Mission Control](phases/phase-35-fab-mission-control.md) | 🔄 WIP | — | 39/40 | `██████████` | 98% | — | — |
 | [34 · Agent Councils](phases/phase-34-agent-councils.md) | ✅ DONE | — | 34/34 | `██████████` | 100% | — | — |
 | [33 · Application Installation, CLI Tool & Desktop Integration](phases/phase-33-installable-app-and-cli-integration.md) | 🔄 WIP | x1 | 15/59 | `███░░░░░░░` | 25% | — | — |
-| [32 · The browser gets an engine, and the tabs to fill it](phases/phase-32-browser-engine-and-tabs.md) | 🔄 WIP | — | 45/99 | `█████░░░░░` | 45% | — | — |
+| [32 · The browser gets an engine, and the tabs to fill it](phases/phase-32-browser-engine-and-tabs.md) | 🔄 WIP | x1 | 45/92 | `█████░░░░░` | 49% | E F G | — |
 | [31 · Interactive Rebase Builder & Graph Sequence Editor](phases/phase-31-interactive-rebase.md) | ✅ DONE | — | 22/22 | `██████████` | 100% | — | — |
 | [30 · A terminal that survives you](phases/phase-30-terminal-hardening.md) | 🔄 WIP | x2 | 90/91 | `██████████` | 99% | — | — |
 | [29 · Markdown slides, everywhere markdown already renders](phases/phase-29-markdown-slides-viewer.md) | 🔄 WIP | x1 | 21/49 | `████░░░░░░` | 43% | — | F, G |
@@ -158,6 +159,18 @@ Completed work is logged append-only in [`done.md`](done.md). Deferred scope liv
 <!-- Each phase currently carries a single theme A = its full deliverables checklist. Split into
      lettered themes if a phase gets parallelised. -->
 
+### [Phase 71 — Links that open in place, and the dev server they point at](phases/phase-71-links-that-open-in-place.md)
+
+*[Phase 32](phases/phase-32-browser-engine-and-tabs.md) built a browser; twenty-five `openExternal`
+call sites still open every PR, run and preview deploy in Safari. This is that phase's Themes H and
+I, lifted out and refined — they touch the rest of the app rather than the browser's own surface,
+and share no file with what 32 keeps. `browser-store`'s `originRepoId` argument, and the derived
+groups it feeds, have existed and been tested since 2026-08-30 with no production caller.*
+
+- ◻ **A** — `openInMidnite(url, {originRepoId, target, background})`, a persisted `linkTarget` preference, and pure modifier resolution (`Shift` beats `Cmd`).
+- ◻ **B** — Twenty-five call sites routed — markdown, Reviews, Actions, the repos sidebar, the dashboard, the terminal — each passing its repo so tabs group themselves.
+- ◻ **C** — Dev-server detection: `package.json` script parsing plus a loopback, port-validated probe channel; a hint, never a navigation. Plus the viewport preset persisted per tab.
+- ◻ **D** — Preview deploys: a settable host allowlist, fixture-backed tests, a new optional `url` on the check-run schema, and an Open-preview affordance in Reviews.
 ### [Phase 70 — The API client grows an environment, a test and a run](phases/phase-70-api-client-environments-tests-and-runs.md)
 
 *Refined x1 at birth: the second half of [Phase 66](phases/phase-66-api-client.md)'s split. The parts that cost something — the phase that executes user-supplied JavaScript, and the phase that writes a secret to disk — reviewed as their own change rather than smuggled in behind a request builder. Blocked on Phase 66 Themes A, C, E and G.*
@@ -828,23 +841,24 @@ wrapper over the protocol), with A and D independent and E last.*
 
 ### [Phase 32 — The browser gets an engine, and the tabs to fill it](phases/phase-32-browser-engine-and-tabs.md)
 
-*Phase 27 Theme F shipped a browser with no browser in it — chrome drawn disabled over a "No web
-engine yet" plate — and attached a condition to the engine: embedding remote content is a
-sandboxing, permissions and navigation-policy surface with a security review of its own. This phase
-fills the body and pays that condition. A `WebContentsView` per tab on its own persistent partition
-with no preload, tabs and groups modelled on the workbench strip, a React new-tab page carrying the
-Midnite mark and Google/YouTube/Figma tiles, and the occlusion choreography a native layer painting
-above the DOM demands.*
+*Refined x1 (2026-09-05) against the tree, which corrected fifteen citations and the theme marks
+below: A–D landed whole, but E–I were marked ✅ on the strength of `done.md` entries the code does
+not support. The engine is real — `browser-service.ts` is 347 lines with 26 tests, `browser-pane.tsx`
+is 337 with every chrome button wired, `browser-store.ts` has 20 actions — and what is left is the
+last mile of the surface around it: the overlays that still paint under the native layer, the
+new-tab page's three hard-coded stubs, and a chrome that never tells you the page is loading, failed
+or zoomed. Zoom has no channel at all; closing a tab leaks its `WebContentsView`. Themes H and I
+moved whole to [Phase 71](phases/phase-71-links-that-open-in-place.md).*
 
 - ✅ **A** — `WebContentsView` host in main, the `mstudio:browser:*` channel contract, per-tab lifecycle. (2026-08-30)
 - ✅ **B** — Permissions denied, navigation policy, no preload on embedded views, clear browsing data. (2026-08-30)
-- ✅ **C** — Tab store and strip: drag-reorder, context menu, browser-scoped chords. (2026-08-30)
+- ✅ **C** — Tab store and strip: drag-reorder, context menu, chord collision resolved at dispatch. (2026-08-30)
 - ✅ **D** — Tab groups, manual (named, coloured, collapsible) and repo-derived. (2026-08-30)
-- ✅ **E** — Occlusion registry and bounds choreography — every overlay must outrank the native layer. (2026-08-30)
-- ✅ **F** — The new-tab page: `BrandMark` hero, shortcut tiles, repo-derived tiles, recents. (2026-08-30)
-- ✅ **G** — Real chrome: back/forward/reload, URL-vs-search resolution, find-in-page, zoom, errors. (2026-08-30)
-- ✅ **H** — Dev powers: detached DevTools, dev-server detection, responsive width presets. (2026-08-30)
-- ✅ **I** — Forge in place: links open in-app by default, `originRepoId` routing, preview deploys. (2026-08-30)
+- ◻ **E** — Occlusion residue after Phase 62: the tab-close view leak, CSS-px-vs-DIP bounds, sender-scoped bounds, six unregistered overlays, `occludes` split from `blocking`.
+- ◻ **F** — New-tab page residue: live recents, store-backed editable tiles, a repo row, the wallpaper theme out of raw `localStorage`, one `resolveInput` instead of two.
+- ◻ **G** — Chrome residue: the whole zoom contract, a DOM error page for `failed`, a loading bar and Stop, address-bar focus/blur/Escape, a find match count, `Mod+f`, two palette commands.
+- ◐ **H** — Dev powers: detached DevTools landed; dev-server detection and preset persistence moved to [Phase 71](phases/phase-71-links-that-open-in-place.md). (2026-08-30)
+- ◐ **I** — Forge in place: only the `preview-deploy.ts` matcher landed, with zero callers; the theme moved to [Phase 71](phases/phase-71-links-that-open-in-place.md).
 
 ### [Phase 31 — Interactive Rebase Builder & Graph Sequence Editor](phases/phase-31-interactive-rebase.md)
 
