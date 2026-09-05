@@ -169,4 +169,38 @@ if (bundleShortVersion !== version) {
   process.exit(1);
 }
 
+// Phase 53 Theme H: `notarize.cjs` silently no-ops without Apple credentials —
+// `[notarize] skipped (missing Apple credentials in env)` — and nothing
+// downstream ever recorded which mode a build actually shipped in, so a
+// mistyped secret name would produce an unnotarized release that looked
+// identical to a deliberate unsigned one. Record the mode here, and — per the
+// phase doc's own recommendation — require Gatekeeper's assessment to pass
+// only when a real cert was used; an unconditional `spctl` gate would fail
+// every unsigned build's own verification, which today is all of them.
+console.log('Recording code-signing mode...');
+let signingMode = 'unsigned (ad-hoc)';
+try {
+  const codesignInfo = execSync(`codesign -dv --verbose=2 "${appPath}" 2>&1`, { encoding: 'utf8' });
+  const isAdHoc = codesignInfo.includes('Signature=adhoc') || codesignInfo.includes('Authority=-');
+  signingMode = isAdHoc ? 'unsigned (ad-hoc)' : 'signed (Developer ID)';
+} catch (err) {
+  console.warn('Could not determine signing mode from codesign output:', err);
+}
+console.log(`  -> ${signingMode}`);
+
+if (signingMode === 'signed (Developer ID)') {
+  console.log('Signed build — verifying Gatekeeper accepts the notarization ticket...');
+  try {
+    execSync(`spctl --assess --type execute -vv "${appPath}"`, { stdio: 'inherit' });
+  } catch (err) {
+    console.error(
+      'Build is signed with a Developer ID cert but Gatekeeper rejects it — a signed-but-unnotarized ' +
+        'release would be quarantined on a stranger\'s Mac exactly like an unsigned one, just without saying so.',
+    );
+    process.exit(1);
+  }
+} else {
+  console.log('  (no Developer ID cert present — notarization is not expected yet; see docs/RELEASING.md)');
+}
+
 console.log('✓ All dist verification checks passed successfully!');
