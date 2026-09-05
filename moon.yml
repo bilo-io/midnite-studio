@@ -27,3 +27,9 @@ tasks:
     command: 'pnpm install'
     options:
       cache: false
+
+  # tracker-check: verifies phase doc and _INDEX.md consistency across 7 rules.
+  tracker-check:
+    command: 'node scripts/tracker-check.mjs'
+    options:
+      cache: false

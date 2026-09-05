@@ -2,7 +2,7 @@
 
 **Headlines:**
 
-- **[Phase 69 · A tracker that can count](phases/phase-69-a-tracker-that-can-count.md)** (0% · 0/31) — **Planned, not started.** **Fifteen of sixty-nine phase docs disagree with this index about how much work they contain.** Three phases it calls **100% done** carry **162 unticked boxes** between them — Phase 33's doc says `15 done / 44 open` against a row reading `44/44`; Phase 32 says `45/54` against `99/99`; Phase 25 says `39/64` against `101/101`. Phase 32 declares **eleven theme headings for nine letters**, with `### H` stamped `✅ DONE` at :279 and `✅ PARTIAL` at :312 — so every per-theme count double-counts it. Two more phases have theme-letter drift between doc and theme key. None of it is caught, because the drift guard all three skills run asks only whether a phase has a *row*, never whether that row is *right*. And it is live, not historical: Phase 59's doc currently says 55 done while its row says 44, because a session is ticking faster than the roll-up — which is how the other fourteen got here. This matters beyond tidiness: `_INDEX.md` is the input `/midnite-exec` reads to pick work, and the `%` it picks by is wrong for 22% of the tracker — a phase marked done with 64 open items is never chosen. Adds `scripts/tracker-check.mjs` (seven rules, `--fix` for the arithmetic two only — never for a duplicate theme, which is a human decision about what the phase *is*) wired as `root:tracker-check`, in the shape and directory of Phase 53's `version-check.mjs`. Deliberately **does not** tick the 162 boxes: `outstanding.md` parked that for per-item verification against the tree and the reason still holds. What it does is make the index honest about being incomplete — three phases' `%` will *drop* from 100%. 31 items, three themes, no dependency.
+- **[Phase 69 · A tracker that can count](phases/phase-69-a-tracker-that-can-count.md)** (97% · 30/31, [PR #168](https://github.com/bilo-io/midnite-studio/pull/168)) — **Themes A, B, C landed** (2026-09-05): the automated tracker check (`scripts/tracker-check.mjs`, seven consistency rules, `--fix` for arithmetic rules 3 and 7) wired as `root:tracker-check` and in CI, the four structural bugs resolved (Phase 32's duplicate H/I, Phase 33's `◐` stamps, Phase 25's heading level, Phase 35's theme key), and the index numbers reconciled across all 19 drifted phases with `outstanding.md` updated. One human verification item stays open. 31 items, three themes, no dependency.
 
 - **[Phase 68 · Where focus goes when the dialog closes](phases/phase-68-where-focus-goes.md)** (0% · 0/37) — **Planned, not started.** Eleven overlays trap focus; **three restore it, each a different way, and eight drop it on the floor** — onto `<body>`, so the next Tab starts from the top of the document and a screen-reader user loses their place. [Phase 62](phases/phase-62-one-escape-one-dismissal.md) named this and correctly declined it as *'a different hook'*. The thesis is why it cannot be fixed one dialog at a time: the newest modal in the app copied `ConfirmDialog` (`setup-dialog.tsx:21` says so outright), two more are the **same skeleton byte for byte**, and `ConfirmDialog` does not restore — so the defect lives in the file everybody copies and will keep propagating until the shell carries the behaviour. Hence restoration goes *inside* `useFocusTrap`, signature unchanged, fixing eight components with no edit to any of them. The one general implementation that exists has three bugs: `palette.tsx` restores without an `isConnected` check (`document.contains`/`isConnected` → **0 hits** in the renderer, and the palette *navigates views*, so the captured node is routinely detached), without handling `<body>`, and without the `preventScroll` every other focus call in the repo passes. A third implementation uses `querySelector('[data-testid=…]')` as production wiring. Test coverage exactly matches implementation — the three e2e restore tests cover precisely the three components that restore — so nothing would catch a regression in the other eight. Also folded in: `context-menu.tsx` declares `role="menu"` and `role="menuitem"` with **zero** focus/tabIndex/autoFocus, advertising a keyboard contract it does not implement (submenus open on hover only, so they are unreachable without a mouse), and `onboarding-modal.tsx` and `rebase-modal.tsx` have no role, no `aria-modal` and no trap at all. 37 items, four small themes, `packages/app` only, no new dependency.
 
@@ -77,7 +77,7 @@ Completed work is logged append-only in [`done.md`](done.md). Deferred scope liv
 
 | Phase | Status | Refined | Done | Progress | % | 🔄 WIP | ◻ TODO |
 |-------|--------|---------|------|----------|---|--------|--------|
-| [69 · A tracker that can count](phases/phase-69-a-tracker-that-can-count.md) | 🔄 WIP | — | 0/31 | `░░░░░░░░░░` | 0% | A B C | — |
+| [69 · A tracker that can count](phases/phase-69-a-tracker-that-can-count.md) | 🔄 WIP | — | 30/31 | `██████████` | 97% | — | — |
 | [68 · Where focus goes when the dialog closes](phases/phase-68-where-focus-goes.md) | 🔄 WIP | — | 0/37 | `░░░░░░░░░░` | 0% | A B C D | — |
 | [67 · The sessions you closed](phases/phase-67-the-sessions-you-closed.md) | ◻ TODO | — | 0/42 | `░░░░░░░░░░` | 0% | — | A B C D |
 | [66 · API Client](phases/phase-66-api-client.md) | ◻ TODO | — | 0/58 | `░░░░░░░░░░` | 0% | — | A B C D E F G H I J K |
@@ -87,14 +87,14 @@ Completed work is logged append-only in [`done.md`](done.md). Deferred scope liv
 | [62 · One Escape, one dismissal](phases/phase-62-one-escape-one-dismissal.md) | 🔄 WIP | — | 0/33 | `░░░░░░░░░░` | 0% | A B C | — |
 | [61 · Database Explorer](phases/phase-61-database-explorer.md) | 🔄 WIP | x1 | 0/94 | `░░░░░░░░░░` | 0% | A B D E | C F G H I J |
 | [60 · A window that never goes blank](phases/phase-60-view-registry-and-error-boundaries.md) | 🔄 WIP | — | 0/34 | `░░░░░░░░░░` | 0% | A B C | — |
-| [59 · Workspace Optimizer](phases/phase-59-workspace-optimizer.md) | 🔄 WIP | x1 | 44/70 | `██████░░░░` | 63% | D F | — |
+| [59 · Workspace Optimizer](phases/phase-59-workspace-optimizer.md) | 🔄 WIP | x1 | 55/70 | `████████░░` | 79% | D F | — |
 | [58 · Notes, and the menu that holds them](phases/phase-58-notes-and-the-menu.md) | 🔄 WIP | x1 | 0/78 | `░░░░░░░░░░` | 0% | A B C D | E F G |
 | [57 · Midnite Studio speaks MCP](phases/phase-57-mcp-server.md) | 🔄 WIP | x1 | 0/76 | `░░░░░░░░░░` | 0% | A B C D | E F |
 | [56 · E2E Suite Speed Run](phases/phase-56-e2e-speed-run.md) | 🔄 WIP | — | 27/29 | `█████████░` | 93% | — | D |
-| [55 · Multi-Window Studio & Detachable Panels](phases/phase-55-multi-window-studio.md) | 🔄 WIP | x1 | 31/32 | `█████████░` | 97% | | |
+| [55 · Multi-Window Studio & Detachable Panels](phases/phase-55-multi-window-studio.md) | 🔄 WIP | x1 | 31/47 | `███████░░░` | 66% |  |  |
 | [54 · An Issues view](phases/phase-54-issues-view.md) | 🔄 WIP | — | 43/45 | `██████████` | 96% | — | Verification (2 human passes) |
 | [53 · The first release](phases/phase-53-first-release.md) | 🔄 WIP | x1 | 3/59 | `█░░░░░░░░░` | 5% | — | B C D E F G H |
-| [52 · Projects, the Board, and Workflows, navigable](phases/phase-52-projects-navigation.md) | ✅ DONE | — | 40/43 | `█████████░` | 93% | — | Verification (3 human passes) |
+| [52 · Projects, the Board, and Workflows, navigable](phases/phase-52-projects-navigation.md) | 🔄 WIP | — | 40/43 | `█████████░` | 93% | — | Verification (3 human passes) |
 | [51 · The terminal, made steady](phases/phase-51-terminal-steadiness.md) | 🔄 WIP | — | 31/37 | `████████░░` | 84% | — | human verification pass (6 items) |
 | [50 · Kanban & Projects, Follow-Through](phases/phase-50-kanban-projects-followthrough.md) | 🔄 WIP | — | 15/17 | `█████████░` | 88% | — | F (codex human pass), Verification (2 human passes) |
 | [49 · Onboarding a repo: Setup and Update](phases/phase-49-repo-onboarding.md) | 🔄 WIP | — | 31/33 | `█████████░` | 94% | — | Verification (2 human passes) |
@@ -104,36 +104,36 @@ Completed work is logged append-only in [`done.md`](done.md). Deferred scope liv
 | [45 · The leak audit](phases/phase-45-leak-audit.md) | 🔄 WIP | — | 32/35 | `█████████░` | 91% | — | F (human long-running-session pass) |
 | [44 · Video Studio](phases/phase-44-video-studio.md) | 🔄 WIP | — | 59/64 | `█████████░` | 92% | F H | F (skill-presence check), H (per-item palette entries), human pass (real repo + `ps` checks) |
 | [43 · Workflows](phases/phase-43-workflows-mvp.md) | 🔄 WIP | x1 | 56/77 | `███████░░░` | 73% | — | I (human pass) |
-| [42 · Councils, rearranged](phases/phase-42-councils-layout.md) | ✅ DONE | x1 | 38/44 | `█████████░` | 86% | — | — |
+| [42 · Councils, rearranged](phases/phase-42-councils-layout.md) | 🔄 WIP | x1 | 38/44 | `█████████░` | 86% | — | — |
 | [41 · Agentic Kanban](phases/phase-41-agentic-kanban.md) | 🔄 WIP | x1 | 49/57 | `█████████░` | 86% | H | — |
 | [40 · GitHub Projects](phases/phase-40-github-projects.md) | 🔄 WIP | x1 | 38/53 | `███████░░░` | 72% | — | G (human screenshots + real-board pass) |
-| [39 · One rail, five chords and four loops](phases/phase-39-status-bar-shortcut-rail.md) | 🔄 WIP | — | 61/64 | `██████████` | 95% | — | Verification (human keyboard + eye pass) |
+| [39 · One rail, five chords and four loops](phases/phase-39-status-bar-shortcut-rail.md) | 🔄 WIP | — | 61/63 | `██████████` | 97% | — | Verification (human keyboard + eye pass) |
 | [38 · Paying off the e2e suite](phases/phase-38-e2e-suite-repair.md) | 🔄 WIP | — | 53/60 | `█████████░` | 88% | G | H (blocked on G — Theme H's own precondition is `KNOWN_RED` empty) |
 | [37 · A glow that knows which tab](phases/phase-37-fab-tab-glow.md) | 🔄 WIP | — | 41/44 | `█████████░` | 93% | — | F (human idle-cpu + resize check) |
 | [36 · Faster, lighter, same app](phases/phase-36-performance-diet.md) | 🔄 WIP | x1 | 58/64 | `█████████░` | 91% | — | G (human passes) |
 | [35 · FAB Mission Control](phases/phase-35-fab-mission-control.md) | 🔄 WIP | — | 39/40 | `██████████` | 98% | — | — |
 | [34 · Agent Councils](phases/phase-34-agent-councils.md) | ✅ DONE | — | 34/34 | `██████████` | 100% | — | — |
-| [33 · Application Installation, CLI Tool & Desktop Integration](phases/phase-33-installable-app-and-cli-integration.md) | ✅ DONE | x1 | 44/44 | `██████████` | 100% | — | — |
-| [32 · The browser gets an engine, and the tabs to fill it](phases/phase-32-browser-engine-and-tabs.md) | ✅ DONE | — | 99/99 | `██████████` | 100% | — | — |
-| [31 · Interactive Rebase Builder & Graph Sequence Editor](phases/phase-31-interactive-rebase.md) | ✅ DONE | — | 18/18 | `██████████` | 100% | — | — |
-| [30 · A terminal that survives you](phases/phase-30-terminal-hardening.md) | ✅ DONE | x2 | 91/91 | `██████████` | 100% | — | — |
-| [29 · Markdown slides, everywhere markdown already renders](phases/phase-29-markdown-slides-viewer.md) | ✅ DONE | — | 21/21 | `██████████` | 100% | — | — |
-| [28 · Worktrees first, and the section tree that can say so](phases/phase-28-sidebar-section-tree.md) | ✅ DONE | — | 62/62 | `██████████` | 100% | — | — |
+| [33 · Application Installation, CLI Tool & Desktop Integration](phases/phase-33-installable-app-and-cli-integration.md) | 🔄 WIP | x1 | 15/59 | `███░░░░░░░` | 25% | — | — |
+| [32 · The browser gets an engine, and the tabs to fill it](phases/phase-32-browser-engine-and-tabs.md) | 🔄 WIP | — | 45/99 | `█████░░░░░` | 45% | — | — |
+| [31 · Interactive Rebase Builder & Graph Sequence Editor](phases/phase-31-interactive-rebase.md) | ✅ DONE | — | 22/22 | `██████████` | 100% | — | — |
+| [30 · A terminal that survives you](phases/phase-30-terminal-hardening.md) | 🔄 WIP | x2 | 90/91 | `██████████` | 99% | — | — |
+| [29 · Markdown slides, everywhere markdown already renders](phases/phase-29-markdown-slides-viewer.md) | 🔄 WIP | — | 21/29 | `███████░░░` | 72% | — | — |
+| [28 · Worktrees first, and the section tree that can say so](phases/phase-28-sidebar-section-tree.md) | ✅ DONE | — | 61/61 | `██████████` | 100% | — | — |
 | [27 · The footer becomes a status bar, and the browser it makes room for](phases/phase-27-status-bar-and-browser-panel.md) | ✅ DONE | x1 | 90/90 | `██████████` | 100% | — | — |
-| [26 · Side by side, and the room to show it](phases/phase-26-side-by-side-diffs.md) | ✅ DONE | — | 68/68 | `██████████` | 100% | — | — |
-| [25 · Search everywhere, and the blame that explains it](phases/phase-25-search-everywhere.md) | ✅ DONE | x1 | 101/101 | `██████████` | 100% | — | — |
-| [24 · The explorer learns to write, and to search](phases/phase-24-writable-explorer.md) | ✅ DONE | — | 43/55 | `████████░░` | 78% | — | — |
-| [23 · A command palette, and the registry that can feed it](phases/phase-23-command-palette.md) | ✅ DONE | — | 42/55 | `████████░░` | 76% | — | — |
-| [22 · Stash, the reflog, and writes you can take back](phases/phase-22-stash-and-safety-net.md) | ✅ DONE | — | 56/56 | `██████████` | 100% | — | — |
+| [26 · Side by side, and the room to show it](phases/phase-26-side-by-side-diffs.md) | 🔄 WIP | — | 54/68 | `████████░░` | 79% | — | — |
+| [25 · Search everywhere, and the blame that explains it](phases/phase-25-search-everywhere.md) | 🔄 WIP | x1 | 39/101 | `████░░░░░░` | 39% | — | — |
+| [24 · The explorer learns to write, and to search](phases/phase-24-writable-explorer.md) | 🔄 WIP | — | 43/55 | `████████░░` | 78% | — | — |
+| [23 · A command palette, and the registry that can feed it](phases/phase-23-command-palette.md) | 🔄 WIP | — | 42/55 | `████████░░` | 76% | — | — |
+| [22 · Stash, the reflog, and writes you can take back](phases/phase-22-stash-and-safety-net.md) | 🔄 WIP | — | 56/70 | `████████░░` | 80% | — | — |
 | [21 · Agent roster + terminal identity](phases/phase-21-agent-roster-and-terminal-identity.md) | ✅ DONE | — | 46/46 | `██████████` | 100% | — | — |
 | [20 · Reviews page & unified diff syntax highlighting](phases/phase-20-reviews-page.md) | ✅ DONE | — | 45/45 | `██████████` | 100% | — | — |
 | [19 · Dashboard, Actions and Tests as views](phases/phase-19-dashboard-actions-tests.md) | ✅ DONE | — | 76/76 | `██████████` | 100% | — | — |
 | [18 · Footer system monitor + repo diagnostics](phases/phase-18-footer-monitor-diagnostics.md) | ✅ DONE | — | 54/54 | `██████████` | 100% | — | — |
-| [17 · Repositories workbench + forge](phases/phase-17-repos-workbench.md) | ✅ DONE | — | 48/48 | `██████████` | 100% | — | — |
-| [16 · Folder explorer, preview pane + settings pages](phases/phase-16-explorer-and-settings-pages.md) | ✅ DONE | — | 41/41 | `██████████` | 100% | — | — |
+| [17 · Repositories workbench + forge](phases/phase-17-repos-workbench.md) | ✅ DONE | — | 41/41 | `██████████` | 100% | — | — |
+| [16 · Folder explorer, preview pane + settings pages](phases/phase-16-explorer-and-settings-pages.md) | ✅ DONE | — | 42/42 | `██████████` | 100% | — | — |
 | [15 · Multi-terminal sessions + agents](phases/phase-15-multi-terminal-sessions.md) | ✅ DONE | — | 39/39 | `██████████` | 100% | — | — |
 | [14 · Graph themes + avatars](phases/phase-14-graph-themes.md) | ✅ DONE | — | 28/28 | `██████████` | 100% | — | — |
-| [13 · UI polish](phases/phase-13-ui-polish.md) | ✅ DONE | — | 26/26 | `██████████` | 100% | — | — |
+| [13 · UI polish](phases/phase-13-ui-polish.md) | ✅ DONE | — | 28/28 | `██████████` | 100% | — | — |
 | [12 · Commit inspector + live badges](phases/phase-12-commit-inspector.md) | ✅ DONE | — | 12/12 | `██████████` | 100% | — | — |
 | [11 · Packaging + docs](phases/phase-11-packaging.md) | ✅ DONE | — | 12/12 | `██████████` | 100% | — | — |
 | [10 · Watcher / live refresh](phases/phase-10-watcher.md) | ✅ DONE | — | 9/9 | `██████████` | 100% | — | — |
@@ -157,9 +157,9 @@ Completed work is logged append-only in [`done.md`](done.md). Deferred scope liv
 
 *15 of 69 docs disagree with the index about their own item counts; three phases marked 100% hold 162 open boxes; one declares two themes twice with contradictory stamps. The guard all three skills run checks only that a row exists, never that it is right.*
 
-- ◻ **A** — The check: `scripts/tracker-check.mjs`, seven rules (row exists, doc exists, counts agree, no duplicate theme letters, theme letters agree, `Refined: xN` matches, bar and `%` match), import-free like Phase 53's `version-check.mjs`, with `--fix` for the arithmetic rules **only** — a duplicate theme is a human decision, not an arithmetic one.
-- ◻ **B** — The three structural bugs it fails on day one: Phase 32's duplicate H and I with contradictory stamps (`✅ DONE` at :279 vs `✅ PARTIAL` at :312), Phase 33's `✅ PARTIAL` where `◐` belongs, and phases 25 and 35's theme-letter drift.
-- ◻ **C** — Making the fifteen honest without pretending: `--fix` the arithmetic so three phases' `%` **drops** from 100% and nine `✅ DONE` rows become `🔄 WIP`, re-describe the parked entries in `outstanding.md` now that the doc is the accurate record, and replace the shell one-liner in six skill files with the task. **Ticks nothing** — the tracker becomes honest about being incomplete, not more complete.
+- ✅ **A** — The check: `scripts/tracker-check.mjs`, seven rules (row exists, doc exists, counts agree, no duplicate theme letters, theme letters agree, `Refined: xN` matches, bar and `%` match), import-free like Phase 53's `version-check.mjs`, with `--fix` for the arithmetic rules **only** — a duplicate theme is a human decision, not an arithmetic one. ([PR #168](https://github.com/bilo-io/midnite-studio/pull/168))
+- ✅ **B** — The three structural bugs it fails on day one: Phase 32's duplicate H and I with contradictory stamps (`✅ DONE` at :279 vs `✅ PARTIAL` at :312), Phase 33's `✅ PARTIAL` where `◐` belongs, and phases 25 and 35's theme-letter drift. ([PR #168](https://github.com/bilo-io/midnite-studio/pull/168))
+- ✅ **C** — Making the fifteen honest without pretending: `--fix` the arithmetic so three phases' `%` **drops** from 100% and nine `✅ DONE` rows become `🔄 WIP`, re-describe the parked entries in `outstanding.md` now that the doc is the accurate record, and replace the shell one-liner in six skill files with the task. **Ticks nothing** — the tracker becomes honest about being incomplete, not more complete. ([PR #168](https://github.com/bilo-io/midnite-studio/pull/168))
 
 ### [Phase 68 — Where focus goes when the dialog closes](phases/phase-68-where-focus-goes.md)
 
@@ -761,20 +761,6 @@ history à la `councils-runs-store`). Claude-only this phase; Stop = sleep, tran
 - ✅ **E** — Mission control: FAB glow + per-loop dots (amber on waiting), an actionable waiting
   notice, `loop-runs-store.ts` capped history whose ENDS are owned by main (finalised off the
   pty's own exit) + per-tab history list, `fab-loops.spec.ts`. (2026-09-01)
-- ✅ **F** — Loop lifecycle: a pty that exits on its own flips Stop back to Start, drops the glow
-  and its dots, and finalises as `exited` rather than `stopped`; Stop keeps the transcript and the
-  next Start is a genuinely fresh session. Driven off a new `__mstudioPtyExit` seam rather than
-  the app-initiated kill path, which is the one Stop already covered. (PR #3)
-- ✅ **G** — Waiting notice, end to end: exactly one notification per waiting *transition*, in the
-  status-bar bell — the shipped surface, since there is no floating toast host — and its
-  `Open <Loop>` action reopens the panel on the right tab. (PR #3)
-- ✅ **H** — Reduced motion, asserted: `html[data-motion='reduced']` resolves `.loop-run-glow` to a
-  computed `animation-name: none`, read through the cascade rather than out of the stylesheet,
-  over both the plain ring and the thinking pulse. (PR #3)
-- ✅ **I** — Rehydration: a persisted `surface: 'fab'` session comes back asleep with its transcript
-  in the right tab, spawns no pty, and still never reaches the main session list — which it did
-  NOT, until this: `hydrate()` lived only in `TerminalPanel`, so a loop restored only if you
-  opened the main terminal panel first. The FAB now hydrates when it opens. (PR #3)
 
 ### [Phase 34 — Agent Councils](phases/phase-34-agent-councils.md)
 

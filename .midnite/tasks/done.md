@@ -2,6 +2,21 @@
 
 <!-- Append one entry per landed phase/PR: date, phase, PR link, one-line summary. -->
 
+## 2026-09-05 — Phase 69 Themes A, B, C — A tracker that can count
+
+[PR #168]. Automated tracker consistency checker (`scripts/tracker-check.mjs`), four structural doc fixes, 19 reconciled index rows, and CI gate enforcement.
+
+- [x] **A** — `scripts/tracker-check.mjs` verifying seven consistency rules between phase docs and
+      `_INDEX.md`, with `--fix` for arithmetic rules (3 and 7), import-free Node with zero external
+      dependencies. Unit test suite (`scripts/tracker-check.test.mjs`, 20 tests) and `root:tracker-check`
+      moon task wired into `.github/workflows/ci.yml`.
+- [x] **B** — Four structural doc fixes: Phase 32 duplicate H/I headings merged and stamped `◐ PARTIAL`,
+      Phase 33 `✅ PARTIAL` reconciled to `◐ PARTIAL`, Phase 25 Theme E heading level corrected, and
+      Phase 35 theme key trimmed to match doc headings (A–E).
+- [x] **C** — Reconciled item counts, progress bars, and WIP statuses for 19 drifted phases in `_INDEX.md`
+      via `--fix`, updated `outstanding.md` to establish docs as the source of truth for work items, and
+      replaced shell one-liner drift guards across 6 skill files with `moon run root:tracker-check`.
+
 ## 2026-09-05 — Phase 64 Themes A, B, C, D — offline Monaco + cross-surface theme registry
 
 [PR #164]. The editor half (A, C, D) and the palette half (B) of the phase's 50 deliverables,
