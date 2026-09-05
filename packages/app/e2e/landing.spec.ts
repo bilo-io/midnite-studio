@@ -86,7 +86,7 @@ test('a dot moves the middle and leaves the frame alone', async ({ page }) => {
   await page.getByTestId('landing-dot-3').click();
   await expect(page.getByText('The loop console')).toBeVisible();
   // All four loop tabs, in their own colours.
-  for (const id of ['innovate', 'automate', 'watchdog', 'medic']) {
+  for (const id of ['guard', 'innovate', 'automate', 'watchdog', 'medic', 'overhaul']) {
     await expect(page.getByTestId(`landing-loop-${id}`)).toBeVisible();
   }
 });

@@ -40,7 +40,7 @@ async function open(page: Page): Promise<void> {
 
 async function openFab(page: Page, tab?: string): Promise<void> {
   await page.getByRole('button', { name: 'Open quick access panel' }).click();
-  await expect(page.getByRole('button', { name: 'Ideate', exact: true })).toBeVisible();
+  await expect(page.getByRole('button', { name: 'Guard', exact: true })).toBeVisible();
   if (tab) await page.getByRole('button', { name: tab, exact: true }).click();
   await page.waitForTimeout(400);
 }

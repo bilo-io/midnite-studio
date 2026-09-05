@@ -37,8 +37,8 @@ test('stays off while idle, lights up once a loop is running, off again once it 
   await expect(lockScreen(page)).toHaveCount(0);
 
   await page.getByRole('button', { name: 'Open quick access panel' }).click();
-  await expect(page.getByRole('button', { name: 'Ideate', exact: true })).toBeVisible();
-  const composer = page.getByTestId('loop-composer-innovate');
+  await expect(page.getByRole('button', { name: 'Guard', exact: true })).toBeVisible();
+  const composer = page.getByTestId('loop-composer-guard');
   await composer.getByTestId('loop-start').click();
   await expect(composer.getByTestId('loop-stop')).toBeVisible();
 

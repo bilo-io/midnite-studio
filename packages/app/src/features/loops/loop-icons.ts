@@ -1,7 +1,7 @@
 import type { IconType } from 'react-icons';
 import { FaHeartbeat } from 'react-icons/fa';
 import { GiOvermind } from 'react-icons/gi';
-import { LuCircleDot } from 'react-icons/lu';
+import { LuCircleDot, LuGauge, LuShieldCheck } from 'react-icons/lu';
 import { SiClevercloud, SiSecurityscorecard } from 'react-icons/si';
 
 /**
@@ -15,10 +15,12 @@ import { SiClevercloud, SiSecurityscorecard } from 'react-icons/si';
  * crashed panel is not.
  */
 const LOOP_ICONS: Record<string, IconType> = {
+  guard: LuShieldCheck,
   brain: GiOvermind,
   bot: SiClevercloud,
   watchdog: SiSecurityscorecard,
   medic: FaHeartbeat,
+  overhaul: LuGauge,
 };
 
 export function loopIcon(token: string): IconType {

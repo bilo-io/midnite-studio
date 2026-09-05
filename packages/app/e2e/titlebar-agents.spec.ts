@@ -68,7 +68,7 @@ async function openWithAgent(page: Page): Promise<void> {
 
   const fab = page.getByRole('button', { name: 'Open quick access panel' });
   await fab.click();
-  await expect(page.getByRole('button', { name: 'Ideate', exact: true })).toBeVisible();
+  await expect(page.getByRole('button', { name: 'Guard', exact: true })).toBeVisible();
   await expect(page.getByTestId('titlebar-agent-count')).toBeVisible();
   /*
     Shut again — via the statusbar's mini FAB, the toggle that stands in for
@@ -78,7 +78,7 @@ async function openWithAgent(page: Page): Promise<void> {
     ever has.
   */
   await page.getByRole('button', { name: 'Close quick access panel' }).click();
-  await expect(page.getByRole('button', { name: 'Ideate', exact: true })).toBeHidden();
+  await expect(page.getByRole('button', { name: 'Guard', exact: true })).toBeHidden();
   await expect(page.getByTestId('fab-launchers')).toHaveAttribute('data-expanded', 'false');
 }
 
@@ -318,7 +318,7 @@ test('the loop strip rests as one glyph and expands to four on hover', async ({ 
 
   await strip.hover();
   await expect(strip).toHaveAttribute('data-expanded', 'true');
-  for (const id of ['innovate', 'automate', 'watchdog', 'medic']) {
+  for (const id of ['guard', 'innovate', 'automate', 'watchdog', 'medic', 'overhaul']) {
     await expect(page.getByTestId(`loop-launcher-${id}`)).toBeVisible();
   }
 });
