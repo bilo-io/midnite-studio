@@ -2461,6 +2461,35 @@ export async function installMockBridge(page: Page, fixtures: MockFixtures): Pro
         onQueryBatch: unsubscribe,
         onQueryDone: unsubscribe,
       },
+      mcp: {
+        get: async () => ({
+          enabled: mcpEnabled,
+          running: mcpEnabled,
+          socketPath: mcpEnabled
+            ? '/Users/demo/Library/Application Support/Midnite Studio/mcp/1.0.0-abc12345.sock'
+            : null,
+          shimPath: '/Applications/Midnite Studio.app/Contents/Resources/app.asar.unpacked/mcp-shim.js',
+        }),
+        set: async (req: { enabled: boolean }) => {
+          mcpEnabled = req.enabled;
+          return {
+            enabled: mcpEnabled,
+            running: mcpEnabled,
+            socketPath: mcpEnabled
+              ? '/Users/demo/Library/Application Support/Midnite Studio/mcp/1.0.0-abc12345.sock'
+              : null,
+            shimPath: '/Applications/Midnite Studio.app/Contents/Resources/app.asar.unpacked/mcp-shim.js',
+          };
+        },
+        calls: async () => ({
+          calls: mcpEnabled
+            ? [
+                { at: Date.now() - 2_000, tool: 'status.get', repoPath: '/tmp/midnite-studio', ok: true, ms: 8 },
+                { at: Date.now() - 9_000, tool: 'graph.log', repoPath: '/tmp/midnite-studio', ok: true, ms: 42 },
+              ]
+            : [],
+        }),
+      },
       windowChrome: {
         platform: 'darwin',
         /*
@@ -2507,6 +2536,11 @@ export async function installMockBridge(page: Page, fixtures: MockFixtures): Pro
       argv: p.argv ?? p.name,
       ...p,
     }));
+    // Off by default in the real app, but on by default for the mock so a
+    // screenshot of Settings ▸ MCP Server shows the populated state without
+    // every spec having to flip the switch first.
+    // eslint-disable-next-line no-var
+    var mcpEnabled = true;
 
     // Published on `window` so a test can read the ops back, and clear the
     // array between gestures.
