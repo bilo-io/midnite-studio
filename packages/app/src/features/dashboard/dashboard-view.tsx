@@ -20,6 +20,7 @@ import GridLayout, { useContainerWidth, type LayoutItem } from 'react-grid-layou
 
 import { BrandMark } from '../../components/brand';
 import type { MenuItem } from '../../components/context-menu';
+import { EmptyState } from '../../components/empty-state';
 import { useDialogs } from '../../components/dialog-host';
 import { IconButton, type IconComponent } from '../../components/icon-button';
 import { MultiSelectMenu } from '../../components/multi-select-menu';
@@ -61,6 +62,16 @@ import { HealthWidget } from './widgets/health-widget';
  * standing promise — every `gh` call is a subprocess and an API request against
  * the user's rate limit — while letting a board that genuinely shows PRs fetch
  * them without a second click.
+ *
+ * The house ladder — error → empty → skeleton → content
+ * (`components/skeleton.tsx`) — runs at two levels here, and deliberately so.
+ * The statistics pass feeds four of the seven widgets at once, so a pass that
+ * threw is a fact about the BOARD and is answered here, before the grid is
+ * built; each widget then answers its own empty and its own skeleton, because
+ * "no open pull requests" is not something the board can say on a widget's
+ * behalf. Before Phase 60 Theme C the failure had no branch at all: a
+ * `git log` that threw left four widgets shimmering indefinitely, which is the
+ * one thing a skeleton must never be allowed to mean.
  */
 const WINDOW_LABELS: Record<StatsWindow, string> = {
   '30d': 'Last 30 days',
@@ -103,11 +114,11 @@ export function DashboardView() {
   const onBoard = useMemo(() => new Set(specs.map((spec) => spec.id)), [specs]);
 
   const withChurn = needsChurn(layoutIds);
-  const { data: rawStats, isFetching: statsFetching } = useRepoStats(
-    selectedRepoId,
-    board.window,
-    withChurn,
-  );
+  const {
+    data: rawStats,
+    isFetching: statsFetching,
+    error: statsError,
+  } = useRepoStats(selectedRepoId, board.window, withChurn);
   const refreshStats = useRefreshStats(selectedRepoId);
 
   const pulls = useForgePulls(selectedRepoId, hasForge && onBoard.has('pulls'));
@@ -139,6 +150,18 @@ export function DashboardView() {
   );
 
   if (!selectedRepoId) return <NoRepo />;
+
+  // Error before anything else. `statsError` covers the whole four-widget
+  // group, so a shimmering board would be four lies at once.
+  if (statsError) {
+    return (
+      <EmptyState
+        icon={LuHeartPulse}
+        title="Could not read this repository's history"
+        body={statsError instanceof Error ? statsError.message : String(statsError)}
+      />
+    );
+  }
 
   const repoId = selectedRepoId;
 
@@ -340,13 +363,16 @@ function Board({
     };
   });
 
+  // The board's own empty state: a repository with every widget removed. Not a
+  // loading state and not a failure — the board is exactly as the user left it.
   if (specs.length === 0) {
     return (
       <div ref={containerRef} className="min-h-0 flex-1 overflow-auto p-4">
-        <p className="text-sm text-muted-foreground">
-          No widgets on this board. Use <span className="font-medium">Widgets and layout</span> to
-          add some.
-        </p>
+        <EmptyState
+          icon={LuLayoutGrid}
+          title="No widgets on this board"
+          body="Use Widgets and layout, in the header above, to add some."
+        />
       </div>
     );
   }

@@ -14,6 +14,13 @@ import { ReviewsList } from './reviews-list';
  * component can answer on its own — which repository is being asked about.
  *
  * Refresh is explicit, matching every other forge surface — no polling.
+ *
+ * That is also why the house ladder — error → empty → skeleton → content
+ * (`components/skeleton.tsx`) — is not restated here: `ReviewsList` runs it
+ * per group, which is the only level it can be run at, since three groups
+ * fetch independently and can be in three different states at once. Phase 60
+ * Theme C's addition there was the transport-error rung, the one an envelope
+ * that never arrives cannot carry.
  */
 export function ReviewsView() {
   const { repoId } = useActiveWorktree();

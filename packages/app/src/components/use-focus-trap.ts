@@ -1,11 +1,88 @@
-import { useEffect, type RefObject } from 'react';
-
-const FOCUSABLE =
-  'a[href], button:not([disabled]), input:not([disabled]), select:not([disabled]), textarea:not([disabled]), [tabindex]:not([tabindex="-1"])';
+import { useEffect, useRef, type RefObject } from 'react';
 
 /**
- * Keep Tab inside `ref`'s subtree while `active`, and give it focus the
- * moment it activates.
+ * `inert` hides a whole subtree from focus, and the attribute sits on the
+ * *container* of that subtree — `@bilo-io/ui`'s `Collapse` marks its clipped
+ * region, not the buttons inside it — so excluding only elements that carry the
+ * attribute themselves would still Tab-wrap a trapped dialog through a closed
+ * accordion's invisible controls. Hence both clauses.
+ *
+ * Both are pure selector matching, deliberately: the trap re-queries on every
+ * Tab, so `getComputedStyle`-based visibility filtering would be per-element
+ * style resolution per keypress in a fifty-row menu. Visibility and
+ * `aria-hidden` therefore stay out (Phase 68 Decision 6).
+ */
+const NOT_INERT = ':not([inert]):not([inert] *)';
+
+const FOCUSABLE = [
+  'a[href]',
+  'button:not([disabled])',
+  'input:not([disabled])',
+  'select:not([disabled])',
+  'textarea:not([disabled])',
+  '[tabindex]:not([tabindex="-1"])',
+]
+  .map((selector) => `${selector}${NOT_INERT}`)
+  .join(', ');
+
+/**
+ * What restoration will accept as a destination — `FOCUSABLE` plus explicitly
+ * programmatic holders (`tabindex="-1"`), which `.focus()` works on even though
+ * Tab cannot reach them. Every dialog container in the app is one of those.
+ */
+const RESTORABLE = `${FOCUSABLE}, [tabindex]${NOT_INERT}`;
+
+/**
+ * The element focus should return to when the surface closes, or `null` for
+ * "nothing worth returning to".
+ *
+ * `<body>` is never captured: restoring to it is indistinguishable from doing
+ * nothing, and dressing a no-op up as a restore hides that nothing was ever
+ * captured (Phase 68 Decision 3).
+ */
+function captureRestoreTarget(container: HTMLElement | null): HTMLElement | null {
+  const focused = document.activeElement;
+  if (!(focused instanceof HTMLElement)) return null;
+  if (focused === document.body) return null;
+  // Already inside the surface that is opening — not somewhere to come back to.
+  if (container?.contains(focused)) return null;
+  return focused;
+}
+
+/**
+ * A detached trigger's ancestors are detached with it (removing a node clears
+ * its `parentElement`), so this walk usually finds nothing — which is the
+ * correct answer, and the point: leave focus where it is rather than forcing it
+ * onto `<body>`.
+ */
+function nearestConnectedFocusable(target: HTMLElement): HTMLElement | null {
+  for (let node = target.parentElement; node; node = node.parentElement) {
+    if (node.isConnected && node !== document.body && node.matches(RESTORABLE)) return node;
+  }
+  return null;
+}
+
+function restoreFocus(container: HTMLElement, target: HTMLElement | null): void {
+  if (!target) return;
+
+  // Don't fight a deliberate move. At cleanup time focus is either still inside
+  // the closing surface or — the usual case, since the browser resets to
+  // `<body>` when the focused node is removed — on `<body>`. Anything else means
+  // something claimed focus while this surface was open: a second overlay, a
+  // toast action, a re-opening pane. Stealing it back is worse than doing
+  // nothing, and this clause is what makes the hook safe to switch on for every
+  // consumer at once rather than one at a time.
+  const holder = document.activeElement;
+  if (holder && holder !== document.body && !container.contains(holder)) return;
+
+  const destination = target.isConnected ? target : nearestConnectedFocusable(target);
+  if (!destination) return;
+  destination.focus({ preventScroll: true });
+}
+
+/**
+ * Keep Tab inside `ref`'s subtree while `active`, give it focus the moment it
+ * activates, and hand focus back to wherever it came from when it deactivates.
  *
  * Extracted verbatim from `popover.tsx`'s inline effect (Phase 18) rather
  * than rewritten, so `Popover`'s own behaviour — and the e2e coverage that
@@ -14,8 +91,32 @@ const FOCUSABLE =
  * holds focus on itself rather than letting Tab escape into the document
  * behind it, which is why the container needs `tabIndex={-1}` even when it
  * has focusable children.
+ *
+ * Restoration lives *here* rather than in a companion hook because the eight
+ * overlays that dropped focus on the floor were broken precisely by not calling
+ * an extra thing — every one of them was copied from `ConfirmDialog`, which did
+ * not restore. The only fix that survives the next copy-paste is one that
+ * arrives with the line the author already writes, which is why the signature
+ * is unchanged (Phase 68 Theme A, Decision 1).
  */
 export function useFocusTrap(ref: RefObject<HTMLElement | null>, active: boolean): void {
+  const restoreTargetRef = useRef<HTMLElement | null>(null);
+  const wasActiveRef = useRef(false);
+
+  // Captured during render, not in the effect, and only on the false→true
+  // transition. A child's `autoFocus` is applied in React's commit phase, which
+  // finishes before *any* effect — layout effects included — so by the time an
+  // effect could look, `document.activeElement` is already inside the surface
+  // and the element that held focus before it opened is unrecoverable. Reading
+  // `document.activeElement` is a DOM read, not a mutation, so it is safe to do
+  // while rendering. It is deliberately not `useRef`'s initializer either: that
+  // re-evaluates on every render, and for a consumer whose `active` is a state
+  // flag it would capture something from mount time.
+  if (active !== wasActiveRef.current) {
+    wasActiveRef.current = active;
+    if (active) restoreTargetRef.current = captureRestoreTarget(ref.current);
+  }
+
   useEffect(() => {
     if (!active) return;
     const container = ref.current;
@@ -29,10 +130,10 @@ export function useFocusTrap(ref: RefObject<HTMLElement | null>, active: boolean
       if (!first || !last) {
         event.preventDefault();
         // `preventScroll` — focusing an element the browser considers out of view
-    // scrolls an ancestor to reveal it, and a surface that owns a scroll-to-
-    // dismiss listener reads its own reveal scroll as the user scrolling away.
-    // A focus trap has no business moving the viewport regardless.
-    container.focus({ preventScroll: true });
+        // scrolls an ancestor to reveal it, and a surface that owns a scroll-to-
+        // dismiss listener reads its own reveal scroll as the user scrolling away.
+        // A focus trap has no business moving the viewport regardless.
+        container.focus({ preventScroll: true });
         return;
       }
       if (event.shiftKey && document.activeElement === first) {
@@ -44,10 +145,7 @@ export function useFocusTrap(ref: RefObject<HTMLElement | null>, active: boolean
       }
     };
 
-    // `preventScroll` — focusing an element the browser considers out of view
-    // scrolls an ancestor to reveal it, and a surface that owns a scroll-to-
-    // dismiss listener reads its own reveal scroll as the user scrolling away.
-    // A focus trap has no business moving the viewport regardless.
+    // `preventScroll` — see above.
     //
     // Only when nothing inside already has it: `autoFocus` on a child (the
     // Cancel button in a destructive `ConfirmDialog`, say) runs during React's
@@ -60,6 +158,13 @@ export function useFocusTrap(ref: RefObject<HTMLElement | null>, active: boolean
       container.focus({ preventScroll: true });
     }
     container.addEventListener('keydown', onKeyDown);
-    return () => container.removeEventListener('keydown', onKeyDown);
+    return () => {
+      container.removeEventListener('keydown', onKeyDown);
+      // The captured target is deliberately *not* cleared: React's StrictMode
+      // remounts effects in development, and clearing here would leave the real
+      // close with nothing to restore to. A genuine re-activation recaptures
+      // during render anyway.
+      restoreFocus(container, restoreTargetRef.current);
+    };
   }, [ref, active]);
 }

@@ -1,5 +1,5 @@
-import { cleanup, render } from '@testing-library/react';
-import { afterEach, describe, expect, it } from 'vitest';
+import { cleanup, fireEvent, render, screen } from '@testing-library/react';
+import { afterEach, describe, expect, it, vi } from 'vitest';
 
 import { ContextMenu } from './context-menu';
 import { useUiStore } from '../store/ui-store';
@@ -30,5 +30,35 @@ describe('ContextMenu occluder registration', () => {
     unmount();
 
     expect(useUiStore.getState().occluders).toBe(0);
+  });
+});
+
+/**
+ * Phase 62 Theme B — Escape is delivered by the shared dismissal stack, and the
+ * menu's own callback holds the two-step rule: an open submenu is a surface of
+ * its own, so it closes first and the menu survives the keypress.
+ */
+describe('ContextMenu Escape', () => {
+  afterEach(cleanup);
+
+  const items = [
+    { label: 'Copy', onSelect: () => {} },
+    { label: 'Open with', submenu: [{ label: 'Editor', onSelect: () => {} }] },
+  ];
+
+  it('closes an open submenu first, and the menu only once there is none', () => {
+    const onClose = vi.fn();
+    render(<ContextMenu position={{ x: 0, y: 0 }} items={items} onClose={onClose} />);
+
+    // Hover is what opens a submenu here — there is no click affordance.
+    fireEvent.mouseEnter(screen.getByText('Open with').closest('div.relative')!);
+    expect(screen.queryByText('Editor')).not.toBeNull();
+
+    fireEvent.keyDown(window, { key: 'Escape' });
+    expect(screen.queryByText('Editor')).toBeNull();
+    expect(onClose).not.toHaveBeenCalled();
+
+    fireEvent.keyDown(window, { key: 'Escape' });
+    expect(onClose).toHaveBeenCalledTimes(1);
   });
 });

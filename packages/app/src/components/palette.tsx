@@ -27,6 +27,7 @@ import {
   createViewsSource,
 } from '../services/palette/providers';
 import { parsePaletteQuery, usePaletteStore, type PaletteMode } from '../store/palette-store';
+import { useDismiss } from './use-dismiss';
 import { useFocusTrap } from './use-focus-trap';
 
 const MODE_PLACEHOLDER: Partial<Record<PaletteMode, string>> = {
@@ -248,13 +249,17 @@ export function Palette() {
   const runSelectedItemRef = useRef(runSelectedItem);
   runSelectedItemRef.current = runSelectedItem;
 
+  // Escape closes, through the shared dismissal stack (Phase 62). The
+  // `stopPropagation()` that used to guard it here was inert — every listener
+  // it was competing with was also on `window`, where `stopPropagation` does
+  // not stop siblings — and the blocking registration is what finally makes the
+  // palette an occluder, so it can no longer open UNDERNEATH a live browser
+  // tab's native view. Arrow keys and Enter stay on this listener: they are the
+  // palette's own navigation, not a dismissal.
+  useDismiss(true, close, { layer: 'dialog' });
+
   useEffect(() => {
     const onKeyDown = (event: KeyboardEvent) => {
-      if (event.key === 'Escape') {
-        event.stopPropagation();
-        close();
-        return;
-      }
       const length = scoredResultsLengthRef.current;
       if (length === 0) return;
       if (event.key === 'ArrowDown') {
@@ -270,7 +275,7 @@ export function Palette() {
     };
     window.addEventListener('keydown', onKeyDown);
     return () => window.removeEventListener('keydown', onKeyDown);
-  }, [close, setSelectedIndex]);
+  }, [setSelectedIndex]);
 
   const placeholder = MODE_PLACEHOLDER[mode];
 

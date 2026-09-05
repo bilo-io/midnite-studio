@@ -1,12 +1,15 @@
 import { describe, expect, it } from 'vitest';
 
+import { loggerFrom } from './log';
 import { createBootMark } from './perf-marks';
 
 describe('boot marks (Phase 36 Theme A)', () => {
   it('logs each stage with elapsed-since-start, in the format the report parses', () => {
     const lines: string[] = [];
     let clock = 0;
-    const mark = createBootMark({ enabled: true, log: (m) => lines.push(m), now: () => clock });
+    const mark = createBootMark({ enabled: true, log: loggerFrom((m) => {
+        lines.push(m);
+      }), now: () => clock });
 
     clock = 118.6;
     mark('login-shell-done');
@@ -20,7 +23,9 @@ describe('boot marks (Phase 36 Theme A)', () => {
     const lines: string[] = [];
     const mark = createBootMark({
       enabled: false,
-      log: (m) => lines.push(m),
+      log: loggerFrom((m) => {
+        lines.push(m);
+      }),
       // Not even consulted: the disabled path returns an empty closure rather
       // than checking a flag per call.
       now: () => {

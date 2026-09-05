@@ -2158,3 +2158,56 @@ export const DbQueryDoneEvent = z.object({
   /** Set when the query failed or the connection could not be reached. */
   error: z.string().optional(),
 });
+
+/* --- crash & error reporting (Phase 65) ---------------------------------- */
+
+/**
+ * Where a report came from.
+ *
+ * Three, and only three, because each is a distinct place the renderer can
+ * learn about a failure: a React error boundary's `componentDidCatch`, the
+ * window's `error` event, and its `unhandledrejection` event. A `source` that
+ * meant "somewhere" would make the field decoration rather than triage.
+ */
+export const ErrorReportSourceSchema = z.enum([
+  'boundary',
+  'window-error',
+  'unhandled-rejection',
+]);
+export type ErrorReportSource = z.infer<typeof ErrorReportSourceSchema>;
+
+/**
+ * One crash, renderer → main.
+ *
+ * **Every string is capped**, the way `PerfMarkSchema` caps its `name`. This is
+ * not tidiness: an unbounded string arriving over IPC from a renderer that is
+ * already misbehaving is a second failure mode layered on the first, and the
+ * renderer truncates to these same limits before sending (see
+ * `app/src/lib/report.ts`) so a cap is never the reason a report is rejected.
+ *
+ * `role` is `'main' | 'popout'` rather than the full `WindowRole` union: what a
+ * triage needs to know is whether the surface that blanked was the app or a
+ * satellite of it, and `view` already says which surface.
+ */
+export const ErrorReportSchema = z.object({
+  source: ErrorReportSourceSchema,
+  /** The error's constructor name — `TypeError`, `ZodError`, … */
+  name: z.string().max(128),
+  message: z.string().max(1024),
+  /** May be empty: a thrown non-`Error` has no stack, and the report is still worth having. */
+  stack: z.string().max(8192),
+  /** React's own frame list, present only on a `'boundary'` report. */
+  componentStack: z.string().max(8192).optional(),
+  /** The `ViewId` on screen at send time, so a report says which surface blanked. */
+  view: z.string().max(64).optional(),
+  role: z.enum(['main', 'popout']),
+  /** Epoch milliseconds, taken in the renderer — main's clock is the same one. */
+  at: z.number(),
+});
+export type ErrorReport = z.infer<typeof ErrorReportSchema>;
+
+/** `null` when the sink never opened — a read-only volume, or a boot that failed before it. */
+export const ReportLogPathResponse = z.object({ path: z.string().nullable() });
+
+/** The diagnostics block, already redacted. Empty when there is nothing to report. */
+export const ReportBundleResponse = z.object({ text: z.string() });

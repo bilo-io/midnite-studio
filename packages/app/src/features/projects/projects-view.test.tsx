@@ -66,26 +66,38 @@ const setProjectView = vi.fn((projectId: string, patch: Partial<ProjectView>) =>
 
 vi.mock('../../store/ui-store', () => ({
   DEFAULT_PROJECT_VIEW: DEFAULT_PROJECT_VIEW_MOCK,
-  useUiStore: (
-    selector: (state: {
-      projectBoardByRepo: Record<string, string>;
-      setProjectBoard: typeof setProjectBoard;
-      forgeWritesEnabled: boolean;
-      projectsMode: Record<string, 'table' | 'board'>;
-      setProjectsMode: typeof setProjectsMode;
-      projectViewByProject: Record<string, ProjectView>;
-      setProjectView: typeof setProjectView;
-    }) => unknown,
-  ) =>
-    selector({
-      projectBoardByRepo: boardByRepo,
-      setProjectBoard,
-      forgeWritesEnabled,
-      projectsMode,
-      setProjectsMode,
-      projectViewByProject,
-      setProjectView,
-    }),
+  useUiStore: Object.assign(
+    (
+      selector: (state: {
+        projectBoardByRepo: Record<string, string>;
+        setProjectBoard: typeof setProjectBoard;
+        forgeWritesEnabled: boolean;
+        projectsMode: Record<string, 'table' | 'board'>;
+        setProjectsMode: typeof setProjectsMode;
+        projectViewByProject: Record<string, ProjectView>;
+        setProjectView: typeof setProjectView;
+      }) => unknown,
+    ) =>
+      selector({
+        projectBoardByRepo: boardByRepo,
+        setProjectBoard,
+        forgeWritesEnabled,
+        projectsMode,
+        setProjectsMode,
+        projectViewByProject,
+        setProjectView,
+      }),
+    {
+      /*
+        The static half of zustand's API, which the hook half of this mock does
+        not imply. `useDismiss` (Phase 62) reads the occluder counters
+        imperatively — `useUiStore.getState().incrementOccluders()` — when the
+        filter toolbar's <MultiSelectMenu> registers on the dismissal stack, and
+        a bare selector function has no `getState` to call.
+      */
+      getState: () => ({ incrementOccluders: () => {}, decrementOccluders: () => {} }),
+    },
+  ),
 }));
 
 function renderWithClient() {

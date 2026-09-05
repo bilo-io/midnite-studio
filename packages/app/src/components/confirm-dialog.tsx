@@ -1,7 +1,8 @@
-import { useEffect, useRef } from 'react';
+import { useRef } from 'react';
 
 import { LuTriangleAlert } from 'react-icons/lu';
 
+import { useDismiss } from './use-dismiss';
 import { useFocusTrap } from './use-focus-trap';
 
 /**
@@ -89,17 +90,18 @@ export function ConfirmDialog({
   const containerRef = useRef<HTMLDivElement>(null);
   const confirmRef = useRef<HTMLButtonElement>(null);
 
+  // The trap's first stop is Cancel, not Confirm: for a destructive action the
+  // safe option is the one a stray Return should hit.
   useFocusTrap(containerRef, true);
 
-  useEffect(() => {
-    const onKeyDown = (event: KeyboardEvent) => {
-      if (event.key === 'Escape') onCancel();
-    };
-    window.addEventListener('keydown', onKeyDown);
-    // Focus Cancel, not Confirm: for a destructive action the safe option is
-    // the one a stray Return should hit.
-    return () => window.removeEventListener('keydown', onKeyDown);
-  }, [onCancel]);
+  /*
+    Escape cancels, through the shared dismissal stack (Phase 62). The
+    registration is `blocking`, which is also what finally makes this dialog an
+    occluder: raised over a live browser tab it used to paint UNDERNEATH the
+    native `WebContentsView`, unreachable, because `use-browser-bounds.ts` only
+    hides that view while `occluders > 0` and nothing here ever counted.
+  */
+  useDismiss(true, onCancel, { layer: 'dialog' });
 
   const radius = request.blastRadius;
   const copy = BLAST_RADIUS_COPY[request.blastRadiusKind ?? 'commits'];

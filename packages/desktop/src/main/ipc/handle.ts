@@ -45,6 +45,43 @@ export function handleOp<S extends z.ZodTypeAny>(
   handle<S, GitOpResult>(channel, schema, handler, (issue) => failure(issue));
 }
 
+/**
+ * The `ipcMain.on` counterpart to {@link handle} — Phase 65 Theme B.
+ *
+ * Forty one-way channels in this app hand-roll their own `safeParse` because
+ * this helper did not exist. It does now; only Phase 65's own channel is
+ * migrated onto it, since converting the rest is a mechanical sweep with no
+ * behaviour change that would bury the phase it landed in.
+ *
+ * Two things differ from `handle`, and both follow from there being no reply.
+ * `onInvalid` cannot return a value to the caller, so it is a *reporting* hook
+ * rather than a fallback — what a caller does with it is a per-channel
+ * decision, and this phase's is "log it, because a payload malformed enough to
+ * fail `safeParse` is itself evidence of the bug being reported". And the
+ * handler is wrapped: an exception thrown out of an `ipcMain.on` listener is an
+ * uncaught exception in the main process, where `handle`'s would merely reject
+ * a promise.
+ */
+export function handleSend<S extends z.ZodTypeAny>(
+  channel: string,
+  schema: S,
+  handler: (payload: z.output<S>) => void,
+  onInvalid: (issue: string) => void,
+): void {
+  ipcMain.on(channel, (_event, raw: unknown) => {
+    const parsed = schema.safeParse(raw);
+    if (!parsed.success) {
+      onInvalid(`${channel}: ${parsed.error.issues[0]?.message ?? 'invalid payload'}`);
+      return;
+    }
+    try {
+      handler(parsed.data);
+    } catch (error) {
+      onInvalid(`${channel}: handler threw: ${error instanceof Error ? error.message : String(error)}`);
+    }
+  });
+}
+
 /** A handler taking no payload. */
 export function handleBare<R>(channel: string, handler: () => Promise<R> | R): void {
   ipcMain.handle(channel, () => handler());

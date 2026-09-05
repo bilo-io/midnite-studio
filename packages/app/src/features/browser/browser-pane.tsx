@@ -3,6 +3,7 @@ import { useEffect, useRef, useState, type FormEvent } from 'react';
 import { GoArrowLeft, GoArrowRight, GoSync, GoX } from 'react-icons/go';
 
 import { IconButton } from '../../components/icon-button';
+import { useDismiss } from '../../components/use-dismiss';
 import { useFocusTrap } from '../../components/use-focus-trap';
 import { motionMs } from '../../components/use-reveal';
 import { bridge } from '../../services/bridge';
@@ -104,15 +105,25 @@ export function BrowserPane({
     if (shown && activeTab?.kind === 'newtab') addressRef.current?.focus();
   }, [shown, activeTab?.id, activeTab?.kind]);
 
-  useEffect(() => {
-    const onKeyDown = (event: KeyboardEvent) => {
-      if (event.key === 'Escape') useUiStore.getState().setBrowserOpen(false);
-    };
-    // No `stopPropagation`: `Ctrl+`` must still reach the terminal's global
-    // escape allow-list while this pane is open.
-    window.addEventListener('keydown', onKeyDown);
-    return () => window.removeEventListener('keydown', onKeyDown);
-  }, []);
+  /*
+    Escape closes the pane, through the shared dismissal stack (Phase 62), and
+    only while the pane is actually `shown` — the listener this replaces had
+    `[]` deps and was live for every Escape ever pressed, open or not.
+
+    PASSIVE, and this is the one place in the app where that is not a style
+    choice. `blocking` is one flag with two duties: it consumes Escape, and it
+    registers an occluder — and an occluder is precisely what hides this pane's
+    own native `WebContentsView` (`use-browser-bounds.ts` keys on
+    `occluders > 0`). A blocking registration here would blank the page for as
+    long as the browser was open, i.e. always. Passive is also the right answer
+    for delivery: a menu, popover or dialog raised over the pane is blocking, so
+    it takes Escape first and the pane survives — which is the rule this phase
+    is for.
+  */
+  useDismiss(shown, () => useUiStore.getState().setBrowserOpen(false), {
+    layer: 'inline',
+    blocking: false,
+  });
 
   // Restore focus to the toggle the moment the pane stops being shown —
   // Escape, the close button, or Mod+b again all funnel through `shown`

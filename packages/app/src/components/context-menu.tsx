@@ -4,7 +4,7 @@ import { createPortal } from 'react-dom';
 import { LuChevronRight } from 'react-icons/lu';
 
 import type { IconComponent } from './icon-button';
-import { useUiStore } from '../store/ui-store';
+import { useDismiss } from './use-dismiss';
 
 /**
  * A renderer-drawn context menu.
@@ -103,32 +103,42 @@ export function ContextMenu({
     });
   }, [position]);
 
+  /*
+    Escape closes an open submenu first and the menu itself only once there is
+    none — one keypress, one surface, the same rule the dismissal stack applies
+    between components applied here between a menu and its own child. Written
+    as one callback rather than two registrations because a submenu is not a
+    separate overlay: it has no element of its own until it opens and it dies
+    with its parent row.
+
+    Delivered by `useDismiss` (Phase 62), which also does the occluder
+    bookkeeping this effect used to do by hand: a loaded browser tab's page is
+    an Electron `WebContentsView`, an OS-composited layer that paints above the
+    whole renderer window regardless of `z-index` (see `use-browser-bounds.ts`),
+    and hiding it while a DOM overlay is up is the only way that overlay can
+    appear above it.
+  */
+  useDismiss(
+    true,
+    () => {
+      if (openSubmenu !== null) setOpenSubmenu(null);
+      else onClose();
+    },
+    { layer: 'menu' },
+  );
+
   useEffect(() => {
     const onPointerDown = (event: MouseEvent) => {
       if (!ref.current?.contains(event.target as Node)) onClose();
     };
-    const onKeyDown = (event: KeyboardEvent) => {
-      if (event.key === 'Escape') onClose();
-    };
     // `capture` so a click lands on the menu's own item handler first but still
     // closes menus opened over other interactive elements.
     window.addEventListener('mousedown', onPointerDown, true);
-    window.addEventListener('keydown', onKeyDown);
     window.addEventListener('resize', onClose);
-
-    // A loaded browser tab's page is an Electron `WebContentsView`, an
-    // OS-composited layer that paints above the whole renderer window
-    // regardless of `z-index` (see `use-browser-bounds.ts`). Registering as an
-    // occluder — same pattern as `popover.tsx` — hides that native view while
-    // this menu is open, which is the only way a DOM overlay can appear above it.
-    const store = useUiStore.getState();
-    store.incrementOccluders();
 
     return () => {
       window.removeEventListener('mousedown', onPointerDown, true);
-      window.removeEventListener('keydown', onKeyDown);
       window.removeEventListener('resize', onClose);
-      store.decrementOccluders();
     };
   }, [onClose]);
 

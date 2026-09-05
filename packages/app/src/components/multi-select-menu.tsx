@@ -3,6 +3,7 @@ import { useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
 import { LuCheck, LuChevronDown } from 'react-icons/lu';
 
 import { cascadeStyle } from '../lib/cascade';
+import { useDismiss } from './use-dismiss';
 
 export type MultiSelectOption = {
   /** Stable identity — what `selected` holds. */
@@ -66,20 +67,16 @@ export function MultiSelectMenu({
     );
   }, [options, query]);
 
+  // Escape through the shared dismissal stack (Phase 62), at `menu`.
+  useDismiss(open, () => setOpen(false), { layer: 'menu' });
+
   useEffect(() => {
     if (!open) return;
     const onPointerDown = (event: MouseEvent) => {
       if (!boxRef.current?.contains(event.target as Node)) setOpen(false);
     };
-    const onKeyDown = (event: KeyboardEvent) => {
-      if (event.key === 'Escape') setOpen(false);
-    };
     window.addEventListener('mousedown', onPointerDown, true);
-    window.addEventListener('keydown', onKeyDown);
-    return () => {
-      window.removeEventListener('mousedown', onPointerDown, true);
-      window.removeEventListener('keydown', onKeyDown);
-    };
+    return () => window.removeEventListener('mousedown', onPointerDown, true);
   }, [open]);
 
   const toggle = (value: string) =>

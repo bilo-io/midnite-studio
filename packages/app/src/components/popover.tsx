@@ -9,8 +9,8 @@ import {
 } from 'react';
 import { createPortal } from 'react-dom';
 
+import { useDismiss } from './use-dismiss';
 import { useFocusTrap } from './use-focus-trap';
-import { useUiStore } from '../store/ui-store';
 
 /**
  * A click-toggled panel anchored to its trigger.
@@ -147,18 +147,20 @@ export function Popover({
     return () => observer.disconnect();
   }, [open, place]);
 
-  // Escape, outside click, and a capture-phase scroll anywhere in the app.
-  // Scroll dismisses rather than repositions: the panel is anchored to an
-  // element that just moved, and chasing it mid-scroll reads as a glitch.
+  // Escape goes through the shared dismissal stack (Phase 62), which is what
+  // makes one keypress close one surface: the panel's own `stopPropagation`
+  // never worked, because every handler it was competing with was also on
+  // `window` and `stopPropagation` does not stop siblings on the same target.
+  // The hook's blocking registration also does the occluder bookkeeping this
+  // effect used to do by hand.
+  useDismiss(open, close, { layer: 'popover' });
+
+  // Outside click, and a capture-phase scroll anywhere in the app. Scroll
+  // dismisses rather than repositions: the panel is anchored to an element that
+  // just moved, and chasing it mid-scroll reads as a glitch.
   useEffect(() => {
     if (!open) return;
 
-    const onKeyDown = (event: KeyboardEvent) => {
-      if (event.key === 'Escape') {
-        event.stopPropagation();
-        close();
-      }
-    };
     const onPointerDown = (event: PointerEvent) => {
       const target = event.target as Node | null;
       if (!target) return;
@@ -177,20 +179,14 @@ export function Popover({
       setOpen(false);
     };
 
-    window.addEventListener('keydown', onKeyDown);
     window.addEventListener('pointerdown', onPointerDown, true);
     window.addEventListener('scroll', onScroll, true);
 
-    const store = useUiStore.getState();
-    store.incrementOccluders();
-
     return () => {
-      window.removeEventListener('keydown', onKeyDown);
       window.removeEventListener('pointerdown', onPointerDown, true);
       window.removeEventListener('scroll', onScroll, true);
-      store.decrementOccluders();
     };
-  }, [open, close, setOpen]);
+  }, [open, setOpen]);
 
   // Keep Tab inside the panel while it is open. A panel that lets Tab walk
   // out from under it is worse than one with no keyboard support at all:

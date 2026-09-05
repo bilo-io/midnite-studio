@@ -1,6 +1,8 @@
 import { useEffect, useRef, useState, type ReactNode } from 'react';
 import { LuLock, LuX } from 'react-icons/lu';
 
+import { useDismiss } from '../../components/use-dismiss';
+
 export const PASSCODE_LENGTH = 4;
 
 function PasscodeFields({
@@ -245,13 +247,11 @@ function PasscodeDialog({
   onCancel: () => void;
   children: ReactNode;
 }) {
-  useEffect(() => {
-    const onKey = (e: KeyboardEvent) => {
-      if (e.key === 'Escape') onCancel();
-    };
-    document.addEventListener('keydown', onKey);
-    return () => document.removeEventListener('keydown', onKey);
-  }, [onCancel]);
+  // Escape cancels, through the shared dismissal stack (Phase 62). This was the
+  // app's one `document`-scoped Escape handler — a distinction with no
+  // behavioural payoff, since `document` and `window` see the same bubbled
+  // event, and one more listener nothing else could see or order itself against.
+  useDismiss(true, onCancel, { layer: 'dialog' });
 
   return (
     <>

@@ -6,6 +6,7 @@ import type { WindowRole } from '@midnite/studio-shared';
 
 import { DetachedWindowFrame } from './components/detached-window-frame';
 import { DialogHost } from './components/dialog-host';
+import { ErrorBoundary } from './components/error-boundary';
 import { PaletteHost } from './components/palette-host';
 import { ToastHost } from './components/toast-host';
 import { BrowserPane } from './features/browser/browser-pane';
@@ -105,6 +106,12 @@ function DetachedContent({ role }: { role: Exclude<WindowRole, 'main'> }) {
  * `Mod+K`, the reload pair and `window.detachActive` all work identically in
  * a popout — most navigation commands are simply no-ops here, since a
  * popout renders one panel rather than the multi-view Shell.
+ *
+ * The seam Phase 60 Theme B filled: `<DetachedShell>` below is the root render
+ * this window has, and an error thrown under it blanks a window with no nav
+ * rail to navigate away with — so the boundary goes around it, with no
+ * `resetKey` (there is no view to switch to and back from) and the Try-again
+ * button doing the whole job.
  */
 function DetachedShell({ role }: { role: Exclude<WindowRole, 'main'> }) {
   useKeybindings(useCommandHandlers());
@@ -131,7 +138,19 @@ export function DetachedRoot({ role }: { role: WindowRole }) {
       <DialogHost>
         <ToastHost>
           <PaletteHost>
-            <DetachedShell role={popoutRole} />
+            {/*
+              No `resetKey`: a popout has one panel and no rail, so there is
+              nothing to navigate away to and back from. Try again — which
+              remounts `DetachedShell` — is the whole recovery this window has
+              short of closing it.
+
+              `label` is the panel's own title, so the card says "Terminal
+              stopped rendering" rather than naming a view this window does not
+              have.
+            */}
+            <ErrorBoundary label={ROLE_TITLE[popoutRole]}>
+              <DetachedShell role={popoutRole} />
+            </ErrorBoundary>
           </PaletteHost>
         </ToastHost>
       </DialogHost>

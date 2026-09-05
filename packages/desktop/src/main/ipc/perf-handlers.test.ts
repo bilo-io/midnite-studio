@@ -1,6 +1,7 @@
 import { MSTUDIO_PERF_MARK } from '@midnite/studio-shared';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
+import { loggerFrom } from '../log';
 import { registerPerfHandlers } from './perf-handlers';
 
 // `vi.hoisted` because vitest lifts `vi.mock` above the imports: the factory has
@@ -22,7 +23,7 @@ describe('perf marks from the renderer (Phase 36 Theme A)', () => {
 
   it('logs a well-formed mark as one parseable line', () => {
     const lines: string[] = [];
-    registerPerfHandlers((m) => lines.push(m));
+    registerPerfHandlers(loggerFrom((m) => lines.push(m)));
 
     send({ name: 'first-view-rendered', tMs: 812.4 });
 
@@ -33,7 +34,7 @@ describe('perf marks from the renderer (Phase 36 Theme A)', () => {
 
   it('drops a malformed payload instead of logging a poisoned line', () => {
     const lines: string[] = [];
-    registerPerfHandlers((m) => lines.push(m));
+    registerPerfHandlers(loggerFrom((m) => lines.push(m)));
 
     // A missing field, a wrong type, a name past the cap, and not an object at
     // all — the report treats the resulting gap as a failed run, which is a

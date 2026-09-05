@@ -17,6 +17,7 @@ export * from './keybindings';
 export * from './loops';
 export * from './mcp';
 export * from './perf';
+export * from './redact';
 export * from './release';
 export * from './terminal';
 export * from './video';
