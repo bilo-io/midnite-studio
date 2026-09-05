@@ -1,4 +1,4 @@
-import { mkdtemp, rm } from 'node:fs/promises';
+import { mkdtemp, rm, symlink } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 
@@ -113,6 +113,28 @@ describe('repoResolve', () => {
       await expect(repoResolve({ repoPath: dir })).rejects.toMatchObject({ kind: 'not-found' });
     } finally {
       await rm(dir, { recursive: true, force: true });
+    }
+  });
+
+  it('refuses a symlink whose real target is a repository Midnite Studio has not opened (Theme E)', async () => {
+    const opened = await newRepo();
+    await opened.commitFile('a.txt', 'hi', 'initial');
+    await openRepo(opened.path);
+
+    const notOpened = await newRepo();
+    await notOpened.commitFile('a.txt', 'hi', 'initial');
+    // Deliberately not opened.
+
+    const linkDir = await mkdtemp(join(tmpdir(), 'mstudio-mcp-symlink-'));
+    const link = join(linkDir, 'repo-link');
+    await symlink(notOpened.path, link, 'dir');
+    try {
+      // Resolving through the symlink must land on `notOpened`'s real path —
+      // refused, exactly as calling with `notOpened.path` directly would be —
+      // never accidentally matched against `opened` or accepted outright.
+      await expect(repoResolve({ repoPath: link })).rejects.toMatchObject({ kind: 'refused' });
+    } finally {
+      await rm(linkDir, { recursive: true, force: true });
     }
   });
 });

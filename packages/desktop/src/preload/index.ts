@@ -145,6 +145,7 @@ const bridge: Pick<
   | 'optimizer'
   | 'protocol'
   | 'db'
+  | 'mcp'
 > = {
   /*
     A plain value, not a channel: it never changes for the life of the process,
@@ -519,6 +520,11 @@ const bridge: Pick<
     queryCancel: (req) => call(CHANNELS.dbQueryCancel, req),
     onQueryBatch: (handler) => subscribe(EVENT_CHANNELS.dbQueryBatch, handler),
     onQueryDone: (handler) => subscribe(EVENT_CHANNELS.dbQueryDone, handler),
+  },
+  mcp: {
+    get: () => call(CHANNELS.mcpGet),
+    set: (req) => call(CHANNELS.mcpSet, req),
+    calls: () => call(CHANNELS.mcpCalls),
   },
   windowChrome,
   windowRole,

@@ -2211,3 +2211,38 @@ export const ReportLogPathResponse = z.object({ path: z.string().nullable() });
 
 /** The diagnostics block, already redacted. Empty when there is nothing to report. */
 export const ReportBundleResponse = z.object({ text: z.string() });
+
+// --- MCP server (Phase 57 Themes E, F) --------------------------------------
+//
+// The tool contract itself (`MCP_TOOLS`, `McpRequest`/`McpResponse`) lives in
+// `../mcp.ts`, not here — these three are the Settings page's own read/write
+// of main's enable flag and diagnostics, mirroring `VideoRootGetResponse`'s
+// shape exactly, and are served over `ipcMain` like every other Settings
+// control (the MCP tool socket itself is a separate transport entirely).
+
+/**
+ * `enabled` is the persisted flag; `running`/`socketPath` are live facts a
+ * crashed-then-restarted bind can disagree with the flag about. `shimPath` is
+ * the on-disk `mcp-shim.js` this build actually ships — resolved the same way
+ * the packaged app resolves it, so the Settings page's printed
+ * `claude mcp add` line is never a guess.
+ */
+export const McpGetResponse = z.object({
+  enabled: z.boolean(),
+  running: z.boolean(),
+  socketPath: z.string().nullable(),
+  shimPath: z.string().nullable(),
+});
+export const McpSetRequest = z.object({ enabled: z.boolean() });
+/** `error` is set when turning the switch on failed to bind (e.g. the 104-byte `sun_path` ceiling) — the flag is still persisted either way. */
+export const McpSetResponse = McpGetResponse.extend({ error: z.string().optional() });
+
+/** One row of the last-50 audit ring (`main/mcp/audit.ts`). `tool` stays a plain string here — see `McpCallEntry` in `../mcp.ts` for the `McpToolId`-typed shape main actually keeps. */
+export const McpCallEntrySchema = z.object({
+  at: z.number(),
+  tool: z.string(),
+  repoPath: z.string(),
+  ok: z.boolean(),
+  ms: z.number(),
+});
+export const McpCallsResponse = z.object({ calls: z.array(McpCallEntrySchema) });

@@ -67,9 +67,9 @@ import { createCredentialVault } from './db/credential-vault';
 import { createTrustStore } from './diagnostics/trust-store';
 import { createTestTrustStore } from './testing/trust-store';
 import { createRepoStore } from './repo-store';
-import { registerMcpServer } from './mcp';
+import { getMcpServerHandle, registerMcpServer } from './mcp';
+import { registerMcpHandlers } from './ipc/mcp-handlers';
 import { fingerprintFile } from './socket-name';
-import type { McpServerHandle } from './mcp/server';
 import { configureCouncils } from './council-service';
 import { createCouncilsRunsStore } from './councils-runs-store';
 import { createCouncilsStore } from './councils-store';
@@ -104,9 +104,6 @@ import { createWindowsStore } from './windows-store';
 
 let mainWindow: BrowserWindow | null = null;
 const getMainWindow = (): BrowserWindow | null => mainWindow;
-
-/** Non-null only when the user has turned the MCP server on (Phase 57 Theme B) — off by default, and this batch ships no UI to change that. */
-let mcpServerHandle: McpServerHandle | null = null;
 
 /**
  * Open repositories named by `MSTUDIO_OPEN_REPOS` (a colon-separated path list).
@@ -357,6 +354,7 @@ if (!app.requestSingleInstanceLock()) {
     registerWorkflowHandlers();
     registerVideoHandlers();
     registerDemoApiHandlers();
+    registerMcpHandlers();
     registerUpdater(getMainWindow);
     registerReleaseNotesHandlers();
     ipcMain.handle(CHANNELS.systemHealth, () => readSystemHealth());
@@ -429,13 +427,13 @@ if (!app.requestSingleInstanceLock()) {
     configureRegistry(createRepoStore(userData));
     /*
       Off by default (Decision 8): `registerMcpServer` reads the enable flag
-      first and only binds a socket when it is `true`, which this phase ships
-      no UI to set (Theme F, a later batch) — so this resolves to `null`
-      after one fast disk read for every user today. Placed after the repo
-      registry is configured so a tool call reaching the socket the instant
-      it opens never sees an empty registry.
+      first and only binds a socket when it is `true` — Theme F's Settings
+      switch (`registerMcpHandlers`, just below) is what can now turn it on,
+      live, without a restart. Placed after the repo registry is configured
+      so a tool call reaching the socket the instant it opens never sees an
+      empty registry.
     */
-    mcpServerHandle = await registerMcpServer({
+    await registerMcpServer({
       userDataDir: userData,
       appVersion: app.getVersion(),
       buildId: fingerprintFile(join(__dirname, 'main.js')),
@@ -632,12 +630,12 @@ if (!app.requestSingleInstanceLock()) {
       second `before-quit` (fired by this same handler's own `app.quit()`
       call below) does not try to close it twice.
     */
-    if (!mcpClosed && mcpServerHandle) {
+    const mcpHandle = getMcpServerHandle();
+    if (!mcpClosed && mcpHandle) {
       mcpClosed = true;
-      const handle = mcpServerHandle;
-      void handle.close();
+      void mcpHandle.close();
       try {
-        unlinkSync(handle.socketPath);
+        unlinkSync(mcpHandle.socketPath);
       } catch {
         // Best-effort — close() above will also have tried.
       }

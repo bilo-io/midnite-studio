@@ -508,6 +508,18 @@ describe('grouped settings navigation', () => {
     }
   });
 
+  it('registers the MCP server page (Phase 57 Theme F)', () => {
+    // Three registration points, per the phase doc: `SettingsPageId` itself,
+    // `SETTINGS_PAGES`, and `settings-view.tsx`'s `PAGE_CONTENT` record. The
+    // first is asserted here at compile time (this file wouldn't typecheck
+    // with `page: 'mcp'` below if the union lacked it); `PAGE_CONTENT` and
+    // `nav-icons.ts`'s `SETTINGS_PAGE_ICON` are both `Record<SettingsPageId, …>`,
+    // so tsc already refuses to build with 'mcp' missing from either — the one
+    // gap nothing else catches is `SETTINGS_PAGES` itself, a plain array a
+    // missing row leaves silently short. That's what this actually checks.
+    expect(SETTINGS_PAGES.find((page) => page.id === 'mcp')).toBeTruthy();
+  });
+
   it('toggles a settings group shut and open again', () => {
     useUiStore.getState().toggleSettingsGroup('tools');
     expect(useUiStore.getState().collapsedSettingsGroups).toEqual(['tools']);

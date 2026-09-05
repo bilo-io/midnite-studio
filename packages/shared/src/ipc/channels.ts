@@ -638,6 +638,7 @@ export const CHANNELS = {
   dbApplyEdit: 'mstudio:db:apply-edit',
   dbQueryStart: 'mstudio:db:query-start',
   dbQueryCancel: 'mstudio:db:query-cancel',
+
   // --- crash & error reporting (Phase 65) ----------------------------------
   // `mstudio:report:*`, NOT `mstudio:diag:*` — that prefix already belongs to
   // the per-repo lint runner above, which is a different thing entirely
@@ -666,6 +667,18 @@ export const CHANNELS = {
    * channel with nothing to defend.
    */
   reportReveal: 'mstudio:report:reveal',
+
+  // --- MCP server (Phase 57 Themes E, F) --------------------------------------
+  // The server itself is a Unix socket (`main/mcp/server.ts`), not `ipcMain` —
+  // an MCP caller has no `event.sender` for `handleFromSender` to resolve. These
+  // three channels are the Settings page's own read/write of the enable flag
+  // and diagnostics, mirroring `videoRootGet`/`videoRootSet`'s shape.
+  /** The enable flag plus live status — is it actually listening, and where. */
+  mcpGet: 'mstudio:mcp:get',
+  /** Turn the server on or off. Persists through `mcp-store.ts` before acting. */
+  mcpSet: 'mstudio:mcp:set',
+  /** The last 50 tool calls from the in-memory audit ring. Pulled, never pushed. */
+  mcpCalls: 'mstudio:mcp:calls',
 } as const;
 
 /** One-way pushes from main → renderer (`webContents.send`). */

@@ -12,6 +12,7 @@ import { ChecksVerdictSegment } from './checks-verdict';
 import { ExplorerToggle } from './explorer-toggle';
 import { FilesToggle } from './files-toggle';
 import { InProgressSegment } from './in-progress';
+import { McpIndicator } from './mcp-indicator';
 import { NotificationBell } from './notification-bell';
 import { OpProgressSegment } from './op-progress';
 import { PaletteToggle } from './palette-toggle';
@@ -148,7 +149,10 @@ export const STATUS_SEGMENTS: StatusSegment[] = [
   // `.status-label`, so compact density drops the number and keeps the icon.
   { id: 'monitor', zone: 'right', group: 'machine', priority: 42, label: 'System monitor', El: MonitorCluster },
   { id: 'battery', zone: 'right', group: 'machine', priority: 43, label: 'Battery', El: BatterySegment },
-  // `alerts`: the notification controls.
+  // `alerts`: the notification controls. `mcp-indicator` sits first among
+  // them — it returns `null` while the server is off (the default), same
+  // "nothing to report" idiom `DiagnosticsSegment` uses on the left.
+  { id: 'mcp-indicator', zone: 'right', group: 'alerts', priority: 44, label: 'MCP server', El: McpIndicator },
   { id: 'app-update', zone: 'right', group: 'alerts', priority: 45, label: 'Update', El: UpdatePill },
   { id: 'notification-bell', zone: 'right', group: 'alerts', priority: 50, label: 'Notifications', El: NotificationBell },
   { id: 'assistant-menu', zone: 'right', group: 'alerts', priority: 60, label: 'Midnite Assistant', El: AssistantMenu },
