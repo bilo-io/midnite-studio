@@ -70,9 +70,17 @@ tasks:
       - 'scripts/**/*'
       - '/eslint.config.mjs'
 
-  # Bundle main + preload into single files (see scripts/bundle.mjs).
+  # Bundle main + preload + broker + mcp-shim into single files (see
+  # scripts/bundle.mjs). esbuild resolves every non-external import from
+  # node_modules, so `root:install` is an explicit dep: without it moon schedules
+  # the install alongside the bundle, and on a checkout whose node_modules
+  # predates a new dependency the bundle loses the race with "Could not resolve"
+  # while the install is killed mid-run — which is exactly how a fresh pull that
+  # added `@modelcontextprotocol/sdk` broke `desktop:install-local`.
   bundle:
     command: 'node scripts/bundle.mjs'
+    deps:
+      - 'root:install'
     inputs:
       - 'src/**/*'
       - 'scripts/bundle.mjs'
