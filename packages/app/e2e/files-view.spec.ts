@@ -156,6 +156,43 @@ test('markdown renders, toggles source, and navigates internal relative links', 
   await expect(page.getByText(/\*\*git client\*\*/)).toBeVisible();
 });
 
+test('file viewer toolbar has icon buttons with tooltips for edit, source, and blame', async ({ page }) => {
+  await openFiles(page);
+
+  // README.md is open: shows Edit (pen), Source (code), Present as slides, Blame (pointer)
+  const editBtn = page.getByRole('button', { name: 'Edit' });
+  const sourceBtn = page.getByRole('button', { name: 'Source' });
+  const blameBtn = page.getByRole('button', { name: 'Blame' });
+
+  await expect(editBtn).toBeVisible();
+  await expect(sourceBtn).toBeVisible();
+  await expect(blameBtn).toBeVisible();
+
+  // Hovering edit shows tooltip
+  await editBtn.hover();
+  await expect(page.getByRole('tooltip', { name: 'Edit' })).toBeVisible();
+
+  // Hovering source shows tooltip
+  await sourceBtn.hover();
+  await expect(page.getByRole('tooltip', { name: 'Source' })).toBeVisible();
+
+  // Hovering blame shows tooltip
+  await blameBtn.hover();
+  await expect(page.getByRole('tooltip', { name: 'Blame' })).toBeVisible();
+
+  // Toggling blame activates it
+  await blameBtn.click();
+  await expect(blameBtn).toHaveAttribute('aria-pressed', 'true');
+
+  // Toggling source switches to source view and updates button label to Rendered
+  await sourceBtn.click();
+  const renderedBtn = page.getByRole('button', { name: 'Rendered' });
+  await expect(renderedBtn).toBeVisible();
+  await page.mouse.move(0, 0);
+  await renderedBtn.hover();
+  await expect(page.getByRole('tooltip', { name: 'Rendered' })).toBeVisible();
+});
+
 test('a binary file gets the fallback card, not a preview', async ({ page }) => {
   await openFiles(page);
 
