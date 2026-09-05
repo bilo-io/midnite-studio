@@ -4,6 +4,7 @@ import {
   createFrameDecoder,
   encodeControl,
   encodeData,
+  encodeJsonFrame,
   MAX_PAYLOAD_LENGTH,
   PROTOCOL,
   type ControlMessage,
@@ -101,5 +102,46 @@ describe('protocol codec', () => {
     badHeader.writeUInt32BE(MAX_PAYLOAD_LENGTH + 1, 1);
 
     expect(() => decoder.push(badHeader)).toThrow(/exceeds maximum/i);
+  });
+
+  it('honours a caller-supplied cap smaller than the pty default', () => {
+    const decoder = createFrameDecoder(10);
+    const badHeader = Buffer.alloc(5);
+    badHeader[0] = 0x00;
+    badHeader.writeUInt32BE(11, 1);
+
+    expect(() => decoder.push(badHeader)).toThrow(/exceeds maximum \(11 > 10\)/i);
+  });
+
+  it('resynchronises after an oversized frame split across many pushes, throwing once', () => {
+    // A real oversized-but-well-formed frame: the declared length and the
+    // actual body agree, and the whole thing arrives in small chunks — the
+    // shape a genuinely too-large MCP request takes over a real socket,
+    // where the OS delivers it across many `data` events rather than one.
+    const decoder = createFrameDecoder(10);
+    const oversized = encodeJsonFrame({ big: 'x'.repeat(50) });
+    expect(oversized.length).toBeGreaterThan(15);
+
+    let threwOnFirstChunk = false;
+    for (let offset = 0; offset < oversized.length; offset += 3) {
+      const chunk = oversized.subarray(offset, offset + 3);
+      try {
+        const frames = decoder.push(chunk);
+        expect(frames).toEqual([]);
+      } catch (err) {
+        expect(offset).toBeLessThanOrEqual(5); // only the header-completing push throws
+        expect(threwOnFirstChunk).toBe(false); // exactly once across the whole stream
+        expect((err as Error).message).toMatch(/exceeds maximum/i);
+        threwOnFirstChunk = true;
+      }
+    }
+    expect(threwOnFirstChunk).toBe(true);
+
+    // The connection resynchronises: a well-formed, in-cap frame right after
+    // the oversized one's tail decodes cleanly.
+    const next = encodeJsonFrame({ a: 1 });
+    const frames = decoder.push(next);
+    expect(frames).toHaveLength(1);
+    expect(frames[0]).toEqual({ type: 0x00, message: { a: 1 } });
   });
 });

@@ -13,10 +13,12 @@
     "dist": "node scripts/bundle.mjs && electron-builder --mac --config electron-builder.yml"
   },
   "dependencies": {
+    "@modelcontextprotocol/sdk": "^1.30.0",
     "dugite": "^2.7.1",
     "electron-updater": "^6.3.9",
     "node-pty": "^1.0.0",
-    "zod": "^3.23.8"
+    "zod": "^3.23.8",
+    "zod-to-json-schema": "^3.25.1"
   },
   "devDependencies": {
     "@electron/notarize": "^2.5.0",

@@ -1,3 +1,4 @@
+import { unlinkSync } from 'node:fs';
 import { resolve, dirname, join } from 'node:path';
 
 import { EVENT_CHANNELS, CHANNELS, perfEnabled } from '@midnite/studio-shared';
@@ -66,6 +67,9 @@ import { createCredentialVault } from './db/credential-vault';
 import { createTrustStore } from './diagnostics/trust-store';
 import { createTestTrustStore } from './testing/trust-store';
 import { createRepoStore } from './repo-store';
+import { registerMcpServer } from './mcp';
+import { fingerprintFile } from './socket-name';
+import type { McpServerHandle } from './mcp/server';
 import { configureCouncils } from './council-service';
 import { createCouncilsRunsStore } from './councils-runs-store';
 import { createCouncilsStore } from './councils-store';
@@ -98,6 +102,9 @@ import { createWindowsStore } from './windows-store';
 
 let mainWindow: BrowserWindow | null = null;
 const getMainWindow = (): BrowserWindow | null => mainWindow;
+
+/** Non-null only when the user has turned the MCP server on (Phase 57 Theme B) — off by default, and this batch ships no UI to change that. */
+let mcpServerHandle: McpServerHandle | null = null;
 
 /**
  * Open repositories named by `MSTUDIO_OPEN_REPOS` (a colon-separated path list).
@@ -326,6 +333,21 @@ if (!app.requestSingleInstanceLock()) {
       needs the agents store, and both now start at the same moment.
     */
     configureRegistry(createRepoStore(userData));
+    /*
+      Off by default (Decision 8): `registerMcpServer` reads the enable flag
+      first and only binds a socket when it is `true`, which this phase ships
+      no UI to set (Theme F, a later batch) — so this resolves to `null`
+      after one fast disk read for every user today. Placed after the repo
+      registry is configured so a tool call reaching the socket the instant
+      it opens never sees an empty registry.
+    */
+    mcpServerHandle = await registerMcpServer({
+      userDataDir: userData,
+      appVersion: app.getVersion(),
+      buildId: fingerprintFile(join(__dirname, 'main.js')),
+      isPackaged: app.isPackaged,
+      log: defaultLogger,
+    });
     // Not awaited: nothing reads this until a user detaches a panel, long
     // after boot — awaiting it here would serialize a disk read ahead of the
     // three parallel chains below for data with no reader yet.
@@ -504,7 +526,29 @@ if (!app.requestSingleInstanceLock()) {
    * on next launch is whatever the last 15-second interval happened to catch.
    */
   let flushed = false;
+  let mcpClosed = false;
   app.on('before-quit', (event) => {
+    /*
+      `before-quit` is synchronous and `McpServerHandle.close()` is not
+      (Phase 57 Theme B), so `close()` is called fire-and-forget and the
+      socket file is unlinked here too, synchronously, inside its own
+      try/catch — the OS reclaims the descriptor either way, but the file is
+      what must not outlive the process, and this is the part of the cleanup
+      that has to complete before exit, not just be asked for. Guarded so a
+      second `before-quit` (fired by this same handler's own `app.quit()`
+      call below) does not try to close it twice.
+    */
+    if (!mcpClosed && mcpServerHandle) {
+      mcpClosed = true;
+      const handle = mcpServerHandle;
+      void handle.close();
+      try {
+        unlinkSync(handle.socketPath);
+      } catch {
+        // Best-effort — close() above will also have tried.
+      }
+    }
+
     stopAllWatchers();
     destroyAllBrowserTabs();
     // A `remotion studio` or an in-flight render surviving the app is a port

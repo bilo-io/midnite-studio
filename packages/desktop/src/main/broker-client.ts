@@ -1,6 +1,5 @@
 import { spawn, type ChildProcess } from 'node:child_process';
-import { createHash } from 'node:crypto';
-import { existsSync, mkdirSync, openSync, readdirSync, statSync, unlinkSync } from 'node:fs';
+import { existsSync, mkdirSync, openSync, readdirSync, unlinkSync } from 'node:fs';
 import * as net from 'node:net';
 import { join } from 'node:path';
 
@@ -14,6 +13,9 @@ import {
   type Frame,
 } from '../broker/protocol';
 import { createQueuedSocketWriter, type QueuedSocketWriter } from '../broker/socket-write-queue';
+import { brokerSocketName, fingerprintFile, isSocketPathTooLong } from './socket-name';
+
+export { brokerSocketName, fingerprintFile };
 
 export type BrokerStatus = {
   mode: 'broker' | 'inproc';
@@ -83,33 +85,6 @@ export type BrokerClient = {
   onExit: (listener: (ptyId: string, exitCode: number, signal?: number | undefined) => void) => () => void;
   isAlive: () => boolean;
 };
-
-/**
- * The socket a build looks for its broker on.
- *
- * Keyed by version AND build fingerprint, not version alone. The broker is
- * detached on purpose — it outlives the app so terminals survive a relaunch —
- * and so it also outlives the bundle it was started from. Two builds carrying
- * the same version (every dev build is `0.1.0`) used to share one socket, so a
- * freshly installed app reconnected to a broker whose node-pty spawn-helper had
- * moved out from under it and got "posix_spawnp failed." for every new
- * terminal, restart after restart. A fingerprint in the name means a new build
- * starts its own broker; the old one is found by {@link probeLegacyBrokers}
- * and its sessions stay reachable until they end.
- */
-export function brokerSocketName(appVersion: string, buildId: string, isPackaged: boolean): string {
-  return `${appVersion}-${buildId}${isPackaged ? '' : '-dev'}.sock`;
-}
-
-/** Eight hex chars of the file's size and mtime; `unknown` when it cannot be read. */
-export function fingerprintFile(path: string): string {
-  try {
-    const st = statSync(path);
-    return createHash('sha1').update(`${st.size}:${Math.floor(st.mtimeMs)}`).digest('hex').slice(0, 8);
-  } catch {
-    return 'unknown';
-  }
-}
 
 /** One connected broker process: the primary that takes new ptys, or a legacy one serving out its old ones. */
 type Peer = {
@@ -595,7 +570,7 @@ export function createBrokerClient(deps: BrokerClientDeps): BrokerClient {
       return false;
     }
 
-    if (Buffer.byteLength(socketPath) >= 104) {
+    if (isSocketPathTooLong(socketPath)) {
       status = { mode: 'inproc', reason: 'socket path too long' };
       log(`[broker] socket path too long (${socketPath}), falling back to in-process`);
       return false;

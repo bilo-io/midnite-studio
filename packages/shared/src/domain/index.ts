@@ -1,5 +1,6 @@
 export * from './blame';
 export * from './browser';
+export * from './checks-verdict';
 export * from './commit';
 export * from './conflict';
 export * from './database';

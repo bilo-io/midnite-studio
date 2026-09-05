@@ -91,49 +91,49 @@ One registry, in the house style of `COMMANDS` — every tool id, its title, its
 (the text a model actually reads to decide whether to call it), and its zod input schema, in one
 literal that everything else derives from.
 
-- [ ] Add [`packages/shared/src/mcp.ts`](../../../packages/shared/src/mcp.ts) exporting
+- [x] Add [`packages/shared/src/mcp.ts`](../../../packages/shared/src/mcp.ts) exporting
       `export const MCP_TOOLS` as a `const` object literal keyed by tool id, each entry
       `{ id: McpToolId; title: string; description: string; input: z.ZodTypeAny; output: z.ZodTypeAny; readOnly: true }`.
       `output` is new in this refinement and is the point of the registry: it is what lets a vitest
       assert a handler's return shape without the handler and the doc disagreeing.
-- [ ] Derive the ids rather than listing them:
+- [x] Derive the ids rather than listing them:
       `export const MCP_TOOL_IDS = Object.keys(MCP_TOOLS) as McpToolId[]` and
       `export type McpToolId = keyof typeof MCP_TOOLS`, exactly as `COMMAND_IDS` derives from
       `COMMANDS` in [`keybindings.ts`](../../../packages/shared/src/keybindings.ts). Never a
       hand-maintained second list.
-- [ ] **Inputs are new schemas keyed by path, not reused `RepoId` extensions.** Add
+- [x] **Inputs are new schemas keyed by path, not reused `RepoId` extensions.** Add
       `export const McpRepoTarget = z.object({ repoPath: z.string().min(1) })` and build each tool's
       input by extending it. State the reason in the docstring — an agent knows its `cwd`, never a
       `repoId` — so the next reader does not "fix" it back to `RepoId.extend`.
-- [ ] **Outputs are reused, verbatim.** Every tool's `output` is an existing export from
+- [x] **Outputs are reused, verbatim.** Every tool's `output` is an existing export from
       [`ipc/schemas.ts`](../../../packages/shared/src/ipc/schemas.ts) or
       [`domain/`](../../../packages/shared/src/domain/) — `StatusResultSchema`, `z.array(GraphRowSchema)`,
       `z.array(RefSchema)`, the file-diff payload — never a re-typed copy. If a tool needs a
       narrower shape, it is `.pick()`ed from the existing one.
-- [ ] Tool descriptions obey a stated rule, not an aspiration: **≤ 220 characters, one sentence,
+- [x] Tool descriptions obey a stated rule, not an aspiration: **≤ 220 characters, one sentence,
       beginning with a verb, naming the shell command it replaces.** e.g. `status.get` →
       *"Returns the parsed working tree (staged, unstaged, untracked, conflicted) for a repository —
       use instead of `git status --porcelain`; conflict states are already classified."* The
       character cap and the "names its shell command" rule are both assertable, which is why they
       are the rule.
-- [ ] Add the frame protocol types in the same file: `McpRequest = { id: string; tool: string; input: unknown }`
+- [x] Add the frame protocol types in the same file: `McpRequest = { id: string; tool: string; input: unknown }`
       and `McpResponse = { id: string } & ({ ok: true; value: unknown } | { ok: false; kind: 'error' | 'not-found' | 'refused'; message: string })`.
       **This is deliberately shaped like `GitOpResultOf`** ([`domain/result.ts:64`](../../../packages/shared/src/domain/result.ts))
       — success payload under `value`, failure carrying a discriminating `kind` — and deliberately
       *not* `GitOpResult` itself, whose `kind: 'conflict'` arm is meaningless for a read-only tool.
       The first draft of this phase said `{ ok: false, error }`, which matches neither.
-- [ ] Add `export const MCP_PROTOCOL = 1` and `export const MCP_MAX_REQUEST_BYTES = 256 * 1024`,
+- [x] Add `export const MCP_PROTOCOL = 1` and `export const MCP_MAX_REQUEST_BYTES = 256 * 1024`,
       `export const MCP_MAX_RESPONSE_BYTES = 4 * 1024 * 1024`. These override
       `broker/protocol.ts`'s `MAX_PAYLOAD_LENGTH = 16 * 1024 * 1024`, which is sized for pty output
       and is three orders of magnitude past anything a model should be handed in one frame.
-- [ ] Export it from [`packages/shared/src/index.ts`](../../../packages/shared/src/index.ts).
-- [ ] Vitest (`packages/shared/src/mcp.test.ts`): every entry's `description` is non-empty, ≤ 220
+- [x] Export it from [`packages/shared/src/index.ts`](../../../packages/shared/src/index.ts).
+- [x] Vitest (`packages/shared/src/mcp.test.ts`): every entry's `description` is non-empty, ≤ 220
       characters and contains a backticked command name; `id` matches its key; `MCP_TOOL_IDS` equals
       `Object.keys(MCP_TOOLS)`; every `readOnly` is `true` (the guardrail, asserted).
-- [ ] Vitest: every entry's `output` is a zod schema that parses the corresponding fixture in
+- [x] Vitest: every entry's `output` is a zod schema that parses the corresponding fixture in
       [`git-engine/src/testing/`](../../../packages/git-engine/src/testing/) — the check that a tool's
       declared output and the service's real return cannot drift apart silently.
-- [ ] Vitest: `MCP_TOOLS` imports nothing but `zod` and sibling `shared` modules — the boundary rule
+- [x] Vitest: `MCP_TOOLS` imports nothing but `zod` and sibling `shared` modules — the boundary rule
       asserted in the one file most likely to break it.
 
 ### B — The server in main (M)
@@ -142,85 +142,85 @@ A Unix-socket listener that dispatches a tool call to the same service the match
 calls. Not through `ipcMain` — that seam belongs to the renderer, and routing a local socket
 through it would mean synthesising a fake sender.
 
-- [ ] Add `packages/desktop/src/main/mcp/server.ts` exporting
+- [x] Add `packages/desktop/src/main/mcp/server.ts` exporting
       `export async function startMcpServer(opts: { userDataDir: string; appVersion: string; buildId: string; isPackaged: boolean; log?: Logger }): Promise<McpServerHandle>`
       and `export type McpServerHandle = { socketPath: string; close: () => Promise<void> }`.
       Named exports, not a class — matching `createRepoStore`/`createWindowsStore`.
-- [ ] Socket path is `join(userDataDir, 'mcp', mcpSocketName(appVersion, buildId, isPackaged))`,
+- [x] Socket path is `join(userDataDir, 'mcp', mcpSocketName(appVersion, buildId, isPackaged))`,
       where `mcpSocketName` comes from the extracted
       `packages/desktop/src/main/socket-name.ts` (Decision 6) — the same build-fingerprint scheme as
       `brokerSocketName`, and for the same reason (a reinstall must not leave a new shim talking to
       an old app).
-- [ ] **Honour the 104-byte `sun_path` ceiling.** [`broker-client.ts:598`](../../../packages/desktop/src/main/broker-client.ts)
+- [x] **Honour the 104-byte `sun_path` ceiling.** [`broker-client.ts:598`](../../../packages/desktop/src/main/broker-client.ts)
       already refuses to bind when `Buffer.byteLength(socketPath) >= 104` and falls back in-process;
       an MCP socket under the same `userData` root inherits the same risk with a longer directory
       name. `startMcpServer` returns a `{ ok: false }`-shaped refusal the Settings page renders as
       *"path too long for a Unix socket"* — it does **not** silently not-listen.
-- [ ] Reuse `createFrameDecoder()` from [`broker/protocol.ts`](../../../packages/desktop/src/broker/protocol.ts)
+- [x] Reuse `createFrameDecoder()` from [`broker/protocol.ts`](../../../packages/desktop/src/broker/protocol.ts)
       rather than inventing newline-delimited JSON, passing `MCP_MAX_REQUEST_BYTES` as its cap.
       Note the behavioural difference and handle it: the broker's decoder **throws** on oversize
       (`protocol.ts:120-122`); the MCP server catches that throw, answers
       `{ ok: false, kind: 'refused', message: 'request too large' }` and **keeps the connection
       open**. An agent that overshoots once must not lose its session.
-- [ ] Add `packages/desktop/src/main/mcp/dispatch.ts` exporting
+- [x] Add `packages/desktop/src/main/mcp/dispatch.ts` exporting
       `export const MCP_HANDLERS: { [K in McpToolId]: (input: z.output<(typeof MCP_TOOLS)[K]['input']>) => Promise<unknown> }`
       — a mapped type over the registry, so a tool added to `MCP_TOOLS` without a handler is a
       typecheck failure rather than a runtime 'unknown tool'.
-- [ ] Every handler parses its input with `MCP_TOOLS[id].input.safeParse` **before** touching the
+- [x] Every handler parses its input with `MCP_TOOLS[id].input.safeParse` **before** touching the
       filesystem — the same validate-at-the-boundary discipline
       [`handle.ts`](../../../packages/desktop/src/main/ipc/handle.ts) documents, for a boundary that
       is *less* trusted than the renderer, not more. A parse failure is
       `{ ok: false, kind: 'error', message: issue }`.
-- [ ] A tool call never throws across the socket: `dispatch` wraps every handler in try/catch and
+- [x] A tool call never throws across the socket: `dispatch` wraps every handler in try/catch and
       serialises into the `{ ok: false, kind, message }` arm defined in Theme A.
-- [ ] Register it the house way: `registerMcpServer()` in `main/mcp/index.ts`, called inline from
+- [x] Register it the house way: `registerMcpServer()` in `main/mcp/index.ts`, called inline from
       [`main/index.ts`](../../../packages/desktop/src/main/index.ts)'s `app.whenReady()` block
       alongside `registerStatusHandlers()` et al (`index.ts:241-297`).
-- [ ] **`before-quit` is synchronous** ([`main/index.ts:500`](../../../packages/desktop/src/main/index.ts)
+- [x] **`before-quit` is synchronous** ([`main/index.ts:500`](../../../packages/desktop/src/main/index.ts)
       says so) and `server.close()` is not. So on quit: call `server.close()` fire-and-forget, then
       `unlinkSync(socketPath)` inside a try/catch, and return. The OS reclaims the descriptor; the
       file is what must not outlive the process, and the sync unlink is the only part that has to
       complete.
-- [ ] Cap concurrency at **8 simultaneous connections**; the 9th is accepted, answered
+- [x] Cap concurrency at **8 simultaneous connections**; the 9th is accepted, answered
       `{ ok: false, kind: 'refused' }` and destroyed. Cap responses at `MCP_MAX_RESPONSE_BYTES`;
       a handler whose serialised result exceeds it answers `kind: 'refused'` with the byte count in
       the message rather than truncating — a silently truncated diff is worse than a refused one.
-- [ ] Vitest (`packages/desktop/src/main/mcp/server.test.ts`, beside `broker/server.test.ts`):
+- [x] Vitest (`packages/desktop/src/main/mcp/server.test.ts`, beside `broker/server.test.ts`):
       round trip over a real socket in `mkdtemp`; unknown tool id returns the error arm and the
       socket stays open; an oversized request returns `refused` and the socket stays open; the 9th
       connection is refused; `close()` removes the socket file.
-- [ ] Vitest: `statSync(socketPath).mode & 0o777 === 0o600`.
+- [x] Vitest: `statSync(socketPath).mode & 0o777 === 0o600`.
 
 ### C — The stdio shim (S)
 
 The piece that makes any MCP client able to reach the app: a ~100-line node script that speaks MCP
 over stdin/stdout and forwards each tool call to the socket.
 
-- [ ] Add `packages/desktop/src/mcp-shim/index.ts`, added to `bundle.mjs`'s outfile list —
+- [x] Add `packages/desktop/src/mcp-shim/index.ts`, added to `bundle.mjs`'s outfile list —
       [`bundle.mjs:64`](../../../packages/desktop/scripts/bundle.mjs) is
       `const outfiles = ['main', 'preload', 'broker'].map(...)`; this becomes
       `['main', 'preload', 'broker', 'mcp-shim']`.
-- [ ] **`@modelcontextprotocol/sdk` is bundled in, not external.** `bundle.mjs`'s
+- [x] **`@modelcontextprotocol/sdk` is bundled in, not external.** `bundle.mjs`'s
       `external: ['electron', 'node-pty', 'dugite']` list stays as it is — those three are native or
       host-provided; the SDK is pure JS and the shim must be a single file an MCP client can spawn
       by path with no `node_modules` beside it.
-- [ ] The shim runs under **plain `node`**, not `ELECTRON_RUN_AS_NODE=1` like the broker: an MCP
+- [x] The shim runs under **plain `node`**, not `ELECTRON_RUN_AS_NODE=1` like the broker: an MCP
       client spawns it, and it cannot assume Electron is on the client's PATH. Say so in the file
       header, because the broker sitting next to it does the opposite.
-- [ ] Implement `initialize`, `tools/list` and `tools/call` against the SDK's stdio server
+- [x] Implement `initialize`, `tools/list` and `tools/call` against the SDK's stdio server
       transport, with `tools/list` built from `MCP_TOOLS` via `zod-to-json-schema` so the shim never
       carries its own copy of the tool names.
-- [ ] When the socket is absent or `connect` yields `ENOENT`/`ECONNREFUSED`, answer `tools/call`
+- [x] When the socket is absent or `connect` yields `ENOENT`/`ECONNREFUSED`, answer `tools/call`
       with a clean *"Midnite Studio is not running, or its MCP server is off (Settings ▸ MCP)"*
       error within **2 seconds**, and answer `tools/list` from the registry anyway. An agent blocked
       on a dead socket is worse than one told to shell out.
-- [ ] **Reconnect, do not die.** The shim dials the socket per call rather than holding one
+- [x] **Reconnect, do not die.** The shim dials the socket per call rather than holding one
       connection, so quitting and relaunching the app restores service without the MCP client
       restarting the shim. This is the deliverable the first draft's verification line assumed and
       never listed.
-- [ ] Emit nothing on stdout that is not an MCP frame — every diagnostic goes to `process.stderr`.
+- [x] Emit nothing on stdout that is not an MCP frame — every diagnostic goes to `process.stderr`.
       An MCP stdio server that logs to stdout corrupts its own protocol stream.
-- [ ] Vitest (`packages/desktop/src/mcp-shim/shim.test.ts`): `tools/list` answers from the registry
+- [x] Vitest (`packages/desktop/src/mcp-shim/shim.test.ts`): `tools/list` answers from the registry
       with the socket absent; `tools/call` returns the not-running error inside 2s; and a spy on
       `process.stdout.write` sees only well-formed frames across a session that also logs to stderr.
 
@@ -230,56 +230,56 @@ Eight tools chosen because each one replaces a command an agent demonstrably run
 one is *better* than the command it replaces — parsed, laid out, or already fetched. Every handler
 below is named with the real function it calls.
 
-- [ ] `repo.list` — the registered repositories. Calls
+- [x] `repo.list` — the registered repositories. Calls
       [`repo-registry.ts:145`](../../../packages/desktop/src/main/repo-registry.ts) `listRepos(): Promise<RepoDescriptor[]>`.
       An agent in a terminal knows its `cwd` and nothing else; this is how it learns what else exists.
-- [ ] `repo.resolve` — **replaces the first draft's `repo.current`.** Takes `{ repoPath }` (the
+- [x] `repo.resolve` — **replaces the first draft's `repo.current`.** Takes `{ repoPath }` (the
       agent's `cwd`), calls [`git-exec.ts:173`](../../../packages/git-engine/src/exec/git-exec.ts)
       `resolveRepoRoot(path)`, and returns the containing registered repo plus its current branch
       from [`refs.ts:34`](../../../packages/git-engine/src/commands/refs.ts) `currentBranch(repoPath)`.
       `repo.current` was cut because "the repo the app is focused on" has no main-side answer since
       [Phase 55](phase-55-multi-window-studio.md) — see Decision 10.
-- [ ] `status.get` — calls [`commands/status.ts:20`](../../../packages/git-engine/src/commands/status.ts)
+- [x] `status.get` — calls [`commands/status.ts:20`](../../../packages/git-engine/src/commands/status.ts)
       `getStatus(worktreePath: string): Promise<StatusResult>`. Output schema `StatusResultSchema`.
       Strictly better than `git status --porcelain` because the conflict states are already classified.
-- [ ] `graph.log` — calls [`commands/log.ts:92`](../../../packages/git-engine/src/commands/log.ts)
+- [x] `graph.log` — calls [`commands/log.ts:92`](../../../packages/git-engine/src/commands/log.ts)
       `readLog(repoPath, options)` then [`layout/lane-layout.ts:190`](../../../packages/git-engine/src/layout/lane-layout.ts)
       `layoutGraph(commits): GraphRow[]`. **Default 50 rows, hard maximum 200**, `limit` clamped
       server-side rather than trusted. This is the one an agent cannot reproduce cheaply at all;
       lane layout runs in main by design.
-- [ ] `diff.file` — calls [`commands/diff.ts:67`](../../../packages/git-engine/src/commands/diff.ts)
+- [x] `diff.file` — calls [`commands/diff.ts:67`](../../../packages/git-engine/src/commands/diff.ts)
       `readFileDiff(...)`, the same shape `<DiffView>` renders. A binary or over-cap diff returns
       `{ ok: false, kind: 'refused' }` with the reason, never a truncated hunk list.
-- [ ] `branch.list` — calls [`commands/refs.ts:14`](../../../packages/git-engine/src/commands/refs.ts)
+- [x] `branch.list` — calls [`commands/refs.ts:14`](../../../packages/git-engine/src/commands/refs.ts)
       `listRefs(repoPath): Promise<Ref[]>` and filters to branches. Ahead/behind is already a field
       on `Ref` ([`domain/ref.ts:10`](../../../packages/shared/src/domain/ref.ts)), parsed from
       `FOR_EACH_REF_FORMAT` — so this is a filter, not new work.
-- [ ] `forge.pulls` — calls `listPulls(forge, { limit, state })` in
+- [x] `forge.pulls` — calls `listPulls(forge, { limit, state })` in
       [`forge/gh-cli.ts`](../../../packages/desktop/src/main/forge/gh-cli.ts). It takes a `Forge`
       (`{ host, owner, repo, kind }`, [`domain/remote.ts:24`](../../../packages/shared/src/domain/remote.ts)),
       **not** a path — so the tool resolves `repoPath` → remote → `Forge` first, and returns
       `kind: 'not-found'` when the repo has no recognised forge remote. Note in the item that the
       pull *diff* is deliberately uncached (`gh-cli.ts:331`), so this tool does not offer one.
-- [ ] `forge.checks` — calls `listRuns(...)` (`gh-cli.ts:101`) and `logVerdict(...)` (`gh-cli.ts:700`)
+- [x] `forge.checks` — calls `listRuns(...)` (`gh-cli.ts:101`) and `logVerdict(...)` (`gh-cli.ts:700`)
       in main. **Not** `packages/app/src/features/repos/checks-verdict.ts`, which the first draft
       named: that file is in the *renderer*, and main importing renderer modules is a pattern used
       nowhere in this repo. If the verdict logic is genuinely shared, lift it to `shared` in this
       theme rather than reaching across.
-- [ ] The `gh` caching claim, corrected: there is **no `gh-cache.ts`**. The caches are inline in
+- [x] The `gh` caching claim, corrected: there is **no `gh-cache.ts`**. The caches are inline in
       `gh-cli.ts` (`workflowCache`, `WORKFLOW_CACHE_MS`, `remember(...)`, `clearForgeRunCache()` at
       `:590`). "Costs no network round trip the app has not already paid" holds only for a warm
       cache — the tool description must not promise otherwise.
-- [ ] Every tool takes an explicit `repoPath` and resolves it through `resolveRepoRoot` + the
+- [x] Every tool takes an explicit `repoPath` and resolves it through `resolveRepoRoot` + the
       registry — a tool that implicitly acts on "the current repo" is a footgun when two windows are
       open on two repos.
-- [ ] No handler calls `writeQueue.run`. Vitest asserts it: a spy on
+- [x] No handler calls `writeQueue.run`. Vitest asserts it: a spy on
       [`write-queue.ts`](../../../packages/git-engine/src/exec/write-queue.ts)'s exported
       `writeQueue.run` records zero calls across the whole tool set. That is the read-only guardrail
       made enforceable rather than remembered.
-- [ ] Vitest (`packages/desktop/src/main/mcp/tools.test.ts`): each tool's handler against a scratch
+- [x] Vitest (`packages/desktop/src/main/mcp/tools.test.ts`): each tool's handler against a scratch
       repo built by [`git-engine/src/testing/`](../../../packages/git-engine/src/testing/), asserting
       `MCP_TOOLS[id].output.safeParse(result).success === true`.
-- [ ] Vitest edge cases, named: an empty repository (no commits) for `graph.log`; a detached HEAD for
+- [x] Vitest edge cases, named: an empty repository (no commits) for `graph.log`; a detached HEAD for
       `repo.resolve`; a path inside a worktree rather than the main checkout for `status.get`; a
       repo with no remote for `forge.pulls`; a binary file for `diff.file`.
 
