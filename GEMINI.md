@@ -218,6 +218,35 @@ explanatory messages. If a boundary rule fires, the fix is an IPC channel, not a
   git config --local core.hooksPath .githooks
   ```
 
+## Sitrep — the standing format when the user asks for status
+
+**"sitrep"** (situation report) is a fixed request, not a free-form one. Whenever the user types it —
+or asks for a status update, a progress check, or "where are we" — answer with **one markdown table
+and nothing else above it**, one row per agent or workstream:
+
+| Agent | % | Doing | Notes |
+|-------|---|-------|-------|
+| refine-73 | 45% | Stage 3 audit — grounding `confineTree` against the tree | posted the final `confineAllowlist` signature to the board |
+
+- **One row per agent**, identified by the thing it owns (phase number, PR, task) — never by an
+  internal agent id.
+- **A completion percentage in its own column**, always. An unknown percentage is `?`, never a blank.
+- **A notes column**, always — what changed since the last sitrep, what it is blocked on, what it
+  handed another agent. An empty note is `—`.
+- **Succinct.** The table is the report. Add at most one or two lines under it, and only for
+  something the table cannot carry — a decision needed from the user, or a failure.
+- The same shape applies to a **recurring** status report (e.g. "every 10 minutes"): each tick is
+  one table, so the user can diff it against the last one at a glance.
+
+When several agents run in parallel, give them a **shared append-only board file** in the session
+scratchpad and make every cross-agent contract change go through it *before* it is written into a
+doc or a file. Sitrep rows then have something real to report, and the orchestrator — never a
+worker — owns the shared files (`_INDEX.md`, the git commit) so parallel writers cannot race.
+
+A multi-phase fan-out is exactly the case this format is for:
+[`midnite-exec-swarm`](.agents/skills/midnite-exec-swarm/SKILL.md) launches one subagent per phase
+and drives this same recurring-table report until every one of them has merged.
+
 ## Phase workflow
 
 One phase per PR where practical. Work the checklist in `.midnite/tasks/phases/phase-N-*.md`, leave
@@ -227,13 +256,13 @@ table in `.midnite/tasks/_INDEX.md`.
 ## Onboarding another repo
 
 [`templates/midnite/`](templates/midnite/) is a checked-in, repo-agnostic skeleton of this same
-workflow — the `.midnite/tasks/` tracker, the eight core skills mirrored into `.claude/`, `.agents/`
+workflow — the `.midnite/tasks/` tracker, the nine core skills mirrored into `.claude/`, `.agents/`
 and `.codex/`, and `CLAUDE.md`/`AGENTS.md`/`GEMINI.md` stubs — for onboarding a *different* repo
 onto it, not this one. The midnite menu's Setup leaf is what will copy it in and track a hash
 manifest so a re-run is an upgrade rather than a guess (Phase 49); until then,
 [`midnite-setup`](.claude/skills/midnite-setup/SKILL.md) is the interactive path — it emits this
 same tree. See the template's own [README](templates/midnite/README.md) for what ships and why
-three of this repo's eleven skills are deliberately left out.
+three of this repo's twelve skills are deliberately left out.
 
 ## graphify
 
