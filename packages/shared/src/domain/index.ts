@@ -8,6 +8,7 @@ export * from './forge';
 export * from './forge-project';
 export * from './journal';
 export * from './metrics';
+export * from './optimizer';
 export * from './rebase';
 export * from './ref';
 export * from './reflog';

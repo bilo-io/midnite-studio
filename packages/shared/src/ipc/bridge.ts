@@ -872,6 +872,26 @@ export type MidniteStudioBridge = {
 
   systemHealth: () => Promise<z.infer<typeof S.SystemHealthResponse>>;
 
+  /**
+   * The Workspace Optimizer (Phase 59) — Smart Scan/Storage, the widened
+   * process table, kill, and GPU stats. Gated behind a default-off setting;
+   * see `Settings ▸ Workspace Optimizer`.
+   */
+  optimizer: {
+    /** Walks every registered repo/worktree plus one optional extra root. */
+    scan: (req: In<typeof S.OptimizerScanRequest>) => Promise<z.infer<typeof S.OptimizerScanResponse>>;
+    /** `{done, total}` — driven by the walk itself, not a timer. */
+    onScanProgress: (
+      handler: (event: z.infer<typeof S.OptimizerScanProgressEventSchema>) => void,
+    ) => Unsubscribe;
+    /** Re-validates each path before moving it to the trash. */
+    clean: (req: In<typeof S.OptimizerCleanRequest>) => Promise<z.infer<typeof S.OptimizerCleanResponse>>;
+    processes: () => Promise<z.infer<typeof S.OptimizerProcessesResponse>>;
+    /** `expectArgv` guards against a recycled PID between render and confirm. */
+    kill: (req: In<typeof S.OptimizerKillRequest>) => Promise<z.infer<typeof S.OptimizerKillResponse>>;
+    gpu: () => Promise<z.infer<typeof S.OptimizerGpuResponse>>;
+  };
+
   protocol: {
     onDeepLink: (handler: (e: z.infer<typeof S.DeepLinkEventSchema>) => void) => Unsubscribe;
   };

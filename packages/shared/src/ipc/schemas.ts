@@ -48,6 +48,11 @@ import {
   METRICS_MAX_INTERVAL_MS,
   METRICS_MIN_INTERVAL_MS,
   MetricSampleSchema,
+  GpuStatsSchema,
+  OptimizerResultOf,
+  OptimizerVoidResultSchema,
+  ProcessInfoSchema,
+  ScanResultSchema,
   RefSchema,
   ReflogEntrySchema,
   RemoteSchema,
@@ -1866,6 +1871,41 @@ export const SystemHealthResponse = z.object({
   cli: CliStatusResponse,
 });
 export type SystemHealth = z.infer<typeof SystemHealthResponse>;
+
+// --- optimizer (Phase 59) ---------------------------------------------------
+
+export const OptimizerScanRequest = z.object({
+  /** One user-chosen extra root per scan — never an unscoped crawl. */
+  extraRoot: z.string().optional(),
+});
+export const OptimizerScanResponse = OptimizerResultOf(ScanResultSchema);
+
+/** `{done, total}` — a stream, not a return value, driving Smart Scan's ring. */
+export const OptimizerScanProgressEventSchema = z.object({
+  done: z.number().int().nonnegative(),
+  total: z.number().int().nonnegative(),
+});
+
+export const OptimizerCleanRequest = z.object({
+  paths: z.array(z.string().min(1)).min(1),
+});
+export const OptimizerCleanResultSchema = z.object({
+  freedBytes: z.number().nonnegative(),
+  /** Re-validated at delete time; a path gone/changed since the scan lands here, not thrown. */
+  skipped: z.array(z.object({ path: z.string(), reason: z.string() })),
+});
+export const OptimizerCleanResponse = OptimizerResultOf(OptimizerCleanResultSchema);
+
+export const OptimizerProcessesResponse = OptimizerResultOf(z.array(ProcessInfoSchema));
+
+export const OptimizerKillRequest = z.object({
+  pid: z.number().int().positive(),
+  /** The PID-reuse guard — refused if the row no longer matches when re-read. */
+  expectArgv: z.string(),
+});
+export const OptimizerKillResponse = OptimizerVoidResultSchema;
+
+export const OptimizerGpuResponse = OptimizerResultOf(GpuStatsSchema);
 
 // --- deep link (Phase 33) --------------------------------------------------
 export const DeepLinkSchema = z.discriminatedUnion('kind', [
