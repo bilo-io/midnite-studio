@@ -40,6 +40,14 @@ const DEFAULT_POPOUT_SIZE: Record<Exclude<WindowRole, 'main'>, { width: number; 
   changes: { width: 1280, height: 860 },
   files: { width: 1180, height: 820 },
   database: { width: 1280, height: 820 },
+  dashboard: { width: 1280, height: 900 },
+  search: { width: 1180, height: 820 },
+  tests: { width: 1180, height: 800 },
+  projects: { width: 1400, height: 900 },
+  reviews: { width: 1280, height: 860 },
+  issues: { width: 1180, height: 820 },
+  history: { width: 1180, height: 800 },
+  optimizer: { width: 1280, height: 860 },
 };
 
 /**

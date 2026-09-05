@@ -297,7 +297,7 @@ if (!app.requestSingleInstanceLock()) {
     bootMark('when-ready');
     registerWindowChrome();
     registerRepoHandlers(getMainWindow);
-    registerSearchHandlers(getMainWindow);
+    registerSearchHandlers();
     registerStatusHandlers();
     registerConflictHandlers();
     registerStatsHandlers();

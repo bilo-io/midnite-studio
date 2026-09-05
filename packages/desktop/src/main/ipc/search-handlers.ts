@@ -1,5 +1,3 @@
-import type { BrowserWindow } from 'electron';
-
 import { CHANNELS, failure, schemas } from '@midnite/studio-shared';
 
 import { getRepo } from '../repo-registry';
@@ -8,8 +6,12 @@ import { handleFromSender, handleOp, handleOpFromSender } from './handle';
 
 /**
  * Register search and blame IPC handlers.
+ *
+ * Takes no window accessor any more: every streaming handler here resolves its
+ * target from the IPC sender, so there is no longer a "the" window for this
+ * module to be handed.
  */
-export function registerSearchHandlers(getWindow: () => BrowserWindow | null): void {
+export function registerSearchHandlers(): void {
   /*
     Resolved from the sender, not `getWindow()` — hits come back over the
     `search:batch` EVENT channel, so the window that asked has to be the window

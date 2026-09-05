@@ -12,6 +12,7 @@ import { IssueDetail } from './issue-detail';
 import { IssueList } from './issue-list';
 import { IssueListSkeleton } from './issues-skeletons';
 import { pickInitialIssue } from './issue-order';
+import { PageDetachMark } from '../../components/page-detach-mark';
 
 /**
  * The Issues view: an issue list, and one issue read in full.
@@ -82,7 +83,8 @@ export function IssuesView() {
         style={{ width: list.current }}
         className="flex min-h-0 shrink-0 flex-col border-r border-border"
       >
-        <div className="flex shrink-0 items-center gap-2 border-b border-border px-2 py-1">
+        <div className="flex shrink-0 items-center gap-2 border-b border-border px-1.5 py-1">
+          <PageDetachMark role="issues" />
           <h2 className="text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">
             Issues
           </h2>

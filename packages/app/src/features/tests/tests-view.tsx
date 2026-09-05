@@ -11,6 +11,7 @@ import { DEFAULT_LAYOUT, LAYOUT_BOUNDS, useUiStore } from '../../store/ui-store'
 import { SuiteDetail } from './suite-detail';
 import { SuiteList } from './suite-list';
 import { useTestsStore } from './tests-store';
+import { PageDetachMark } from '../../components/page-detach-mark';
 
 /**
  * The Tests view: a package/suite tree, and one suite examined in depth.
@@ -91,7 +92,8 @@ export function TestsView() {
         style={{ width: list.current }}
         className="flex min-h-0 shrink-0 flex-col border-r border-border"
       >
-        <div className="flex shrink-0 items-center gap-2 border-b border-border px-2 py-1">
+        <div className="flex shrink-0 items-center gap-2 border-b border-border px-1.5 py-1">
+          <PageDetachMark role="tests" />
           <h2 className="text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">
             Suites
           </h2>
