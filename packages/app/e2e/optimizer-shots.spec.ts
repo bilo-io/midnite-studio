@@ -20,30 +20,36 @@ const OUT = '../../docs/screenshots/p59-abce';
 const OUT_DF = '../../docs/screenshots/p59-df';
 const OUT_P73 = '../../docs/screenshots/p73-def';
 
+// Phase 72 Theme F: at least node + rust + python, one `costly` among them —
+// so the grouped list and both segmented bars (category and ecosystem) each
+// have more than one real segment to render.
 const SCAN_RESULT = {
-  totalBytes: 2_400_000_000,
+  totalBytes: 2_750_000_000,
   byCategory: {
     dependencies: 1_800_000_000,
-    buildOutput: 500_000_000,
-    toolCache: 0,
+    buildOutput: 800_000_000,
+    toolCache: 50_000_000,
     staleWorktree: 100_000_000,
     looseObjects: 0,
   },
   byEcosystem: {
     node: 2_300_000_000,
     multi: 0,
-    rust: 0,
+    rust: 300_000_000,
     cpp: 0,
     dotnet: 0,
-    python: 0,
+    python: 50_000_000,
     java: 0,
     swift: 0,
     ruby: 0,
+    go: 0,
     git: 100_000_000,
   },
   detectors: {
     'node-modules': { label: 'node_modules', producer: 'npm/pnpm/yarn install' },
     'node-dist': { label: 'dist/', producer: 'npm run build' },
+    'rust-target': { label: 'target/ (Cargo)', producer: 'cargo build' },
+    'py-pytest-cache': { label: '.pytest_cache/', producer: 'pytest' },
     'git-stale-worktree': { label: 'Stale worktree', producer: 'git worktree add' },
   },
   items: [
@@ -63,6 +69,24 @@ const SCAN_RESULT = {
       repoId: 'repo-1',
       detectorId: 'node-dist',
       ecosystem: 'node',
+      reclaim: 'cheap',
+    },
+    {
+      path: '/tmp/midnite-studio/vendor/rust-tool/target',
+      bytes: 300_000_000,
+      category: 'buildOutput',
+      repoId: 'repo-1',
+      detectorId: 'rust-target',
+      ecosystem: 'rust',
+      reclaim: 'cheap',
+    },
+    {
+      path: '/tmp/midnite-studio/scripts/.pytest_cache',
+      bytes: 50_000_000,
+      category: 'toolCache',
+      repoId: 'repo-1',
+      detectorId: 'py-pytest-cache',
+      ecosystem: 'python',
       reclaim: 'cheap',
     },
     {
@@ -273,6 +297,9 @@ test.describe('optimizer screenshots', () => {
     await openOptimizer(page);
     await page.getByRole('button', { name: 'Run Smart Scan' }).click();
     await tab(page, 'Storage').click();
+    await expect(
+      page.getByRole('img', { name: 'Reclaimable storage by ecosystem' }),
+    ).toBeVisible();
     await expect(page.getByRole('img', { name: 'Reclaimable storage by category' })).toBeVisible();
     await page.waitForTimeout(SETTLE_MS);
     await page.screenshot({ path: `${OUT}/optimizer-storage-light.png` });
@@ -283,6 +310,9 @@ test.describe('optimizer screenshots', () => {
     await openOptimizer(page);
     await page.getByRole('button', { name: 'Run Smart Scan' }).click();
     await tab(page, 'Storage').click();
+    await expect(
+      page.getByRole('img', { name: 'Reclaimable storage by ecosystem' }),
+    ).toBeVisible();
     await expect(page.getByRole('img', { name: 'Reclaimable storage by category' })).toBeVisible();
     await paintDark(page);
     await page.screenshot({ path: `${OUT}/optimizer-storage-dark.png` });
