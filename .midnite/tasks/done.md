@@ -2,6 +2,37 @@
 
 <!-- Append one entry per landed phase/PR: date, phase, PR link, one-line summary. -->
 
+## 2026-09-05 — Phase 57 Themes E, F — MCP consent/audit and the Settings page
+
+[PR #177]. Closes Themes E and F of Phase 57 — 17 of the phase's 76 items, bringing the phase to
+73/76 (96%). All six themes (A–F) are now landed; three human-verification passes remain open.
+
+- [x] **E** — `packages/desktop/src/main/mcp-store.ts`: a main-side `mcp.json` store (`{ version: 1,
+      enabled: false }`) copying `repo-store.ts`'s injected-directory shape, wired to two new IPC
+      channels (`mstudio:mcp:get`/`mstudio:mcp:set`) so the server knows its own setting at boot,
+      before any window exists. Turning the switch on/off persists through `mcpStore.save` **before**
+      calling `startMcpServer`/`handle.close()`, so a crash between the two leaves the app off rather
+      than listening with the UI saying otherwise. `repoPath` is gated through `resolveRepoRoot` +
+      `listRepos()` (never `fs-scope.ts`'s `joinWithin`, which refuses absolute paths outright), with
+      a `realpath` resolve-before-compare step so a symlink into an unregistered repo is refused, not
+      just a raw unregistered path — closing the TOCTOU gap. A bounded 50-entry audit ring
+      (`main/mcp/audit.ts`) records `{ at, tool, repoPath, ok, ms }` and logs one `[mcp] <tool>
+      <ok|err> <ms>ms <repoRoot>` line per call, with no payload bodies and no path below the repo
+      root.
+- [x] **F** — `packages/app/src/features/settings/settings-pages/mcp-page.tsx`, built from the house
+      `<Accordion>`/`<Field>` controls and copying `git-safety-page.tsx`'s default-off-switch pattern.
+      Registered in all three required places (`SettingsPageId`, `SETTINGS_PAGES`, `settings-view.tsx`'s
+      `PAGES`) — the first draft's single-registration trap the phase doc calls out by name. The switch
+      reads/writes through the new `mcp.get`/`mcp.set` bridge calls rather than `useUiStore`, since main
+      owns this setting. Renders the socket path, a copyable `claude mcp add midnite-studio -- node
+      <shim path>` line, the live tool list from `MCP_TOOLS`, and the last 50 calls from Theme E's
+      audit ring (pulled on an interval, not pushed). A status-bar listening indicator
+      (`features/status-bar/`) is visible only while the server is on.
+- Coverage: `mcp-store.test.ts`, `mcp-handlers.test.ts`, `audit.test.ts`, symlink/TOCTOU refusal cases
+  in `tools.test.ts`, RTL coverage for `mcp-page.tsx` (row-per-tool, switch reflects `mcp.get`, toggle
+  calls `mcp.set`, empty-state call list), the three-way registration assertion, and Playwright
+  screenshots of the MCP Settings page.
+
 ## 2026-09-05 — Phase 64 Themes E, F — VS Code theme importer & Appearance palette controls
 
 [PR #171]. Closes Themes E and F of Phase 64 — 14 of the phase's 72 items, bringing the phase to
