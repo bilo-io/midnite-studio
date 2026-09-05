@@ -2523,7 +2523,37 @@ html[data-motion='reduced'] .graph-badge-glow {
     0 0 7px 1px hsl(var(--lane-h) var(--lane-s) var(--lane-l) / 0.45);
 }
 
-/* Recent commit styling (< 1m: shimmer + pulsating text glow/opacity; 1-2m: pulsating text glow/opacity; >= 2m: normal) */
+/* ---------------------------------------------------------------------------
+ * Commit graph — recency decay.
+ *
+ * A commit that landed while you were looking at the graph should announce
+ * itself and then stop, without a hard cut back to plain text. `commitRecencyTier`
+ * (features/graph/graph-row.tsx) picks the tier; these are the four layers it
+ * composes, each dropped in turn:
+ *
+ *   < 2m   shimmer + lane ink + text glow + row glow + opacity pulse
+ *   2m-5m            lane ink + text glow + row glow + opacity pulse
+ *   5m-10m                      text glow + row glow + opacity pulse
+ *   >= 10m nothing
+ *
+ * All of this rides `--lane-h/s/l`, set inline on every row from its own
+ * `colorIdx`, so the effect names the branch the commit landed on rather than
+ * being one generic "new" highlight.
+ *
+ * These animate paint properties (`box-shadow`, `text-shadow`), not just
+ * `opacity` the way the lane halo above does. That is affordable only because
+ * the tiers expire: at most a handful of rows in a repo anyone is working in
+ * are under ten minutes old, where the halo can be running on ~30 at once.
+ * ------------------------------------------------------------------------- */
+
+/* Subject in the branch's hue. `--lane-ink-l` rather than `--lane-l`, for the
+ * same reason the selected row's ink takes it — the lane palette is tuned for a
+ * dark ground. Unlayered, so it outranks `text-muted-foreground`; graph-row.tsx
+ * drops that utility anyway rather than leaning on stylesheet order. */
+.commit-text-lane {
+  color: hsl(var(--lane-h) var(--lane-s) var(--lane-ink-l));
+}
+
 @keyframes commit-text-pulse {
   0%,
   100% {
@@ -2544,6 +2574,27 @@ html[data-motion='reduced'] .graph-badge-glow {
 
 .commit-text-pulse {
   animation: commit-text-pulse 2s ease-in-out infinite;
+}
+
+/* The row's own glow, `inset` on both stops. Rows are stacked flush in a
+ * virtualised list with no gaps, so an outer shadow would be painted over by
+ * its neighbours on three sides and read as a bar rather than a halo. */
+@keyframes commit-row-glow {
+  0%,
+  100% {
+    box-shadow:
+      inset 0 0 0 1px hsl(var(--lane-h) var(--lane-s) var(--lane-l) / 0.1),
+      inset 0 0 12px -2px hsl(var(--lane-h) var(--lane-s) var(--lane-l) / 0.22);
+  }
+  50% {
+    box-shadow:
+      inset 0 0 0 1px hsl(var(--lane-h) var(--lane-s) var(--lane-l) / 0.4),
+      inset 0 0 20px -2px hsl(var(--lane-h) var(--lane-s) var(--lane-l) / 0.55);
+  }
+}
+
+.commit-row-glow {
+  animation: commit-row-glow 2s ease-in-out infinite;
 }
 
 @keyframes commit-row-shimmer {
@@ -2572,12 +2623,21 @@ html[data-motion='reduced'] .graph-badge-glow {
   animation: commit-row-shimmer 2.5s ease-in-out infinite;
 }
 
+/* Reduced motion keeps the colour — which is the information — and freezes the
+ * movement, at the resting end of each pulse rather than its peak. */
 @media (prefers-reduced-motion: reduce) {
   html:not([data-motion='full']) .commit-text-pulse {
     animation: none;
     opacity: 1;
     -webkit-text-stroke: 0.5px hsl(var(--lane-h) var(--lane-s) var(--lane-l) / 0.8);
     text-shadow: 0 0 6px hsl(var(--lane-h) var(--lane-s) var(--lane-l) / 0.6);
+  }
+
+  html:not([data-motion='full']) .commit-row-glow {
+    animation: none;
+    box-shadow:
+      inset 0 0 0 1px hsl(var(--lane-h) var(--lane-s) var(--lane-l) / 0.28),
+      inset 0 0 16px -2px hsl(var(--lane-h) var(--lane-s) var(--lane-l) / 0.4);
   }
 
   html:not([data-motion='full']) .commit-row-shimmer::after {
@@ -2591,6 +2651,13 @@ html[data-motion='reduced'] .commit-text-pulse {
   opacity: 1;
   -webkit-text-stroke: 0.5px hsl(var(--lane-h) var(--lane-s) var(--lane-l) / 0.8);
   text-shadow: 0 0 6px hsl(var(--lane-h) var(--lane-s) var(--lane-l) / 0.6);
+}
+
+html[data-motion='reduced'] .commit-row-glow {
+  animation: none;
+  box-shadow:
+    inset 0 0 0 1px hsl(var(--lane-h) var(--lane-s) var(--lane-l) / 0.28),
+    inset 0 0 16px -2px hsl(var(--lane-h) var(--lane-s) var(--lane-l) / 0.4);
 }
 
 html[data-motion='reduced'] .commit-row-shimmer::after {

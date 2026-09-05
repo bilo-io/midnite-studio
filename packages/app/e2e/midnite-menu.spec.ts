@@ -167,6 +167,7 @@ test('the top level is the five groups, each opening its own verbs', async ({ pa
     'Address Issue',
     'Brainstorm',
     'Refine Plan',
+    'Swarm',
   ]);
 
   await topMenu.getByRole('menuitem', { name: 'Reviews', exact: true }).hover();

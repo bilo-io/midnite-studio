@@ -183,34 +183,68 @@ describe('recent commit effects', () => {
 
   const now = 1_700_000_000_000;
 
-  it('applies shimmer and text-pulse for commits under 1 minute old (just now)', () => {
-    const committerDate = Math.floor((now - 20_000) / 1000);
-    const row = makeRow('recent1', 2);
-    row.commit.committerDate = committerDate;
+  /** Render a row whose commit landed `msAgo` before `now`. */
+  const renderAged = (sha: string, msAgo: number) => {
+    const row = makeRow(sha, 2);
+    row.commit.committerDate = Math.floor((now - msAgo) / 1000);
+    return renderRow(row, { nowMs: now });
+  };
 
-    const el = renderRow(row, { nowMs: now });
-    expect(el.querySelector('.commit-row-shimmer')).not.toBeNull();
-    expect(el.querySelector('.commit-text-pulse')).not.toBeNull();
+  /*
+    The ink layers are counted, not merely detected. Subject, date and sha are
+    the three `.graph-row-ink` cells this theme renders (`git-graph` has no
+    Author column), and they take the treatment together — a count catches the
+    subject being lit while the two columns beside it stay dark, which a
+    `!== null` cannot.
+  */
+  const layers = (el: HTMLElement) => ({
+    shimmer: el.querySelector('.commit-row-shimmer') !== null,
+    laneInk: el.querySelectorAll('.commit-text-lane').length,
+    textPulse: el.querySelectorAll('.commit-text-pulse').length,
+    rowGlow: el.classList.contains('commit-row-glow'),
   });
 
-  it('applies text-pulse without shimmer for commits between 1 and 2 minutes old (1m ago)', () => {
-    const committerDate = Math.floor((now - 80_000) / 1000);
-    const row = makeRow('recent2', 2);
-    row.commit.committerDate = committerDate;
+  const INK_CELLS = 3;
 
-    const el = renderRow(row, { nowMs: now });
-    expect(el.querySelector('.commit-row-shimmer')).toBeNull();
-    expect(el.querySelector('.commit-text-pulse')).not.toBeNull();
+  it('gives a commit under 2 minutes old every layer', () => {
+    expect(layers(renderAged('fresh', 30_000))).toEqual({
+      shimmer: true,
+      laneInk: INK_CELLS,
+      textPulse: INK_CELLS,
+      rowGlow: true,
+    });
   });
 
-  it('applies neither shimmer nor text-pulse for older commits (>= 2 minutes old)', () => {
-    const committerDate = Math.floor((now - 150_000) / 1000);
-    const row = makeRow('older', 2);
-    row.commit.committerDate = committerDate;
+  it('drops only the shimmer between 2 and 5 minutes', () => {
+    expect(layers(renderAged('recent', 200_000))).toEqual({
+      shimmer: false,
+      laneInk: INK_CELLS,
+      textPulse: INK_CELLS,
+      rowGlow: true,
+    });
+  });
 
-    const el = renderRow(row, { nowMs: now });
-    expect(el.querySelector('.commit-row-shimmer')).toBeNull();
-    expect(el.querySelector('.commit-text-pulse')).toBeNull();
+  it('returns the subject to its normal ink between 5 and 10 minutes, keeping the glow', () => {
+    const el = renderAged('fading', 400_000);
+    expect(layers(el)).toEqual({
+      shimmer: false,
+      laneInk: 0,
+      textPulse: INK_CELLS,
+      rowGlow: true,
+    });
+    // The muted utility comes back with the lane tint gone, so all three cells
+    // are styled rather than merely un-tinted.
+    for (const cell of el.querySelectorAll('.commit-text-pulse')) {
+      expect(cell.className).toContain('text-muted-foreground');
+    }
+  });
+
+  it('drops every layer at 10 minutes and older', () => {
+    expect(layers(renderAged('old', 900_000))).toEqual({
+      shimmer: false,
+      laneInk: 0,
+      textPulse: 0,
+      rowGlow: false,
+    });
   });
 });
-
