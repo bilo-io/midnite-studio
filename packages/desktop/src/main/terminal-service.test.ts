@@ -41,7 +41,9 @@ const {
   forgetTerminal,
   resetTerminalsForTest,
   saveTerminal,
+  shutdownTerminals,
   watchSessionExits,
+  whenArchivesSettle,
 } = await import('./terminal-service');
 
 let dirs: string[] = [];
@@ -62,11 +64,14 @@ const session = (over: Partial<TerminalSession> = {}): TerminalSession => ({
   ...over,
 });
 
-/** `forgetTerminal` is fire-and-forget; the archive lands a microtask later. */
-const settle = async (): Promise<void> => {
-  for (let i = 0; i < 20; i += 1) await Promise.resolve();
-  await new Promise((resolve) => setTimeout(resolve, 10));
-};
+/**
+ * `forgetTerminal` is fire-and-forget, so the archive lands after it returns.
+ *
+ * Awaiting the service's own in-flight set rather than sleeping: a fixed delay
+ * would be a flake on a loaded machine, and this is the same handle
+ * `shutdownTerminals` uses to keep a quit from outrunning an archive.
+ */
+const settle = (): Promise<void> => whenArchivesSettle();
 
 const setup = async (): Promise<{ dir: string; history: ReturnType<typeof createSessionHistoryStore> }> => {
   const dir = await tempDir();
@@ -168,8 +173,23 @@ describe('forgetTerminal', () => {
     expect(await history.list()).toEqual([]);
   });
 
-  it('leaves the archive byte-identical to the scrollback that preceded it', async () => {
+  it('does not let a quit outrun an archive still in flight', async () => {
     const { dir, history } = await setup();
+    saveTerminal(session());
+    ring.set('sess-1', new TextEncoder().encode('closed, then quit\n'));
+
+    // No `settle()`: the point is that shutdown does the waiting, because a
+    // session closed a moment before the quit still has a record to write.
+    forgetTerminal('sess-1');
+    await shutdownTerminals();
+
+    expect(await history.list()).toHaveLength(1);
+    expect(Buffer.from(await history.transcript('sess-1')).toString()).toBe('closed, then quit\n');
+    await expect(readdir(join(dir, 'scrollback'))).resolves.toEqual([]);
+  });
+
+  it('leaves the archive byte-identical to the scrollback that preceded it', async () => {
+    const { dir } = await setup();
     saveTerminal(session());
     const bytes = new Uint8Array([0x1b, 0x5b, 0x33, 0x31, 0x6d, 0xff, 0x00, 0x0a]);
     ring.set('sess-1', bytes);

@@ -57,6 +57,22 @@ let dataDir: string | null = null;
 const lastExit = new Map<string, number>();
 let stopExitWatch: (() => void) | null = null;
 
+/**
+ * Archives still in flight.
+ *
+ * `terminal:forget` is a one-way `ipcMain.on`, so the archive runs detached
+ * from any caller — which means a quit landing between the close and the rename
+ * would lose the record. `shutdownTerminals` awaits this set for the same
+ * reason it awaits the final `flushScrollback()`: the shutdown flush is the one
+ * that actually matters.
+ */
+const inFlightArchives = new Set<Promise<void>>();
+
+/** Resolve once every in-flight archive has settled. */
+export function whenArchivesSettle(): Promise<void> {
+  return Promise.allSettled([...inFlightArchives]).then(() => undefined);
+}
+
 /** Metadata is small and changes rarely — a short debounce coalesces a burst. */
 const SAVE_DEBOUNCE_MS = 1_000;
 /**
@@ -186,10 +202,12 @@ export function forgetTerminal(sessionId: string, intent: ForgetIntent = 'closed
   sessions = sessions.filter((s) => s.id !== sessionId);
   scheduleSave();
 
-  void archiveSession(session, intent).finally(() => {
+  const archive = archiveSession(session, intent).finally(() => {
     dropScrollback(sessionId);
     lastExit.delete(sessionId);
+    inFlightArchives.delete(archive);
   });
+  inFlightArchives.add(archive);
 }
 
 async function archiveSession(
@@ -299,6 +317,9 @@ export async function shutdownTerminals(): Promise<void> {
     clearInterval(flushTimer);
     flushTimer = null;
   }
+  // The archives first: a session closed a moment before the quit has a record
+  // to write, and `store.save` must not race it to `terminals.json`.
+  await whenArchivesSettle();
   await Promise.all([store.save(sessions), flushScrollback()]);
 }
 
