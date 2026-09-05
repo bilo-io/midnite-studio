@@ -36,6 +36,23 @@ export function Modal({
 }: ModalProps) {
   const panelRef = useRef<HTMLDivElement>(null);
 
+  // Trap + focus-on-open + restore-on-close, all in one hook (Phase 68 Theme
+  // A, already on `main`). `Modal` used to carry a second, hand-rolled
+  // restoration effect here — a `previousActiveRef` captured during render
+  // plus a `setTimeout(() => target.focus(), 0)` in its cleanup — written
+  // against the phase doc's (pre-Phase-68) claim that `useFocusTrap`
+  // "deliberately does not restore." It now does, and the second mechanism
+  // didn't just duplicate the first, it raced it: React StrictMode's dev-only
+  // mount→cleanup→mount dance ran that `setTimeout` during the *simulated*
+  // cleanup of the initial mount, so it fired for real a tick later and
+  // silently stole focus back to whatever was focused before the modal
+  // opened — landing on `browser-launcher`'s trigger button instead of the
+  // radiogroup `initialFocusRef`/the focus-follows-selection effect had
+  // already placed it on, which broke every keyboard interaction with the
+  // dialog in a real (dev-server, StrictMode) run despite every unit test
+  // passing (RTL does not double-invoke effects). Removed rather than
+  // guarded — `useFocusTrap` already carries the "don't fight a deliberate
+  // move" check a second restorer would have to reinvent.
   useFocusTrap(panelRef, open);
 
   // Escape closes, through the shared dismissal stack (Phase 62) — which is
@@ -45,37 +62,13 @@ export function Modal({
   // topmost-surface rule nor counted as an occluder.
   useDismiss(open, onClose, { layer: 'dialog' });
 
-  // Focus restoration: capture previously active element before focus trap moves it.
-  const previousActiveRef = useRef<HTMLElement | null>(null);
-
-  if (open && previousActiveRef.current === null && typeof document !== 'undefined') {
-    if (!panelRef.current?.contains(document.activeElement)) {
-      previousActiveRef.current = document.activeElement as HTMLElement | null;
-    }
-  }
-
+  // `initialFocusRef` wins over `useFocusTrap`'s own default (the panel
+  // container) because this effect is declared after it and runs later in
+  // the same commit — see the test asserting exactly that ordering.
   useEffect(() => {
-    if (!open) {
-      if (previousActiveRef.current && typeof previousActiveRef.current.focus === 'function') {
-        previousActiveRef.current.focus();
-      }
-      previousActiveRef.current = null;
-      return;
-    }
-
-    if (initialFocusRef?.current) {
+    if (open && initialFocusRef?.current) {
       initialFocusRef.current.focus();
     }
-
-    return () => {
-      const target = previousActiveRef.current;
-      previousActiveRef.current = null;
-      if (target && typeof target.focus === 'function') {
-        setTimeout(() => {
-          target.focus();
-        }, 0);
-      }
-    };
   }, [open, initialFocusRef]);
 
   if (!open) return null;
