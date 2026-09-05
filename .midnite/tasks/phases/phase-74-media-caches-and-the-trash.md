@@ -181,9 +181,15 @@ Effort tags: **S** ≈ an hour or two · **M** ≈ half a day · **L** ≈ a day
 
 ### A — Plex, and only Plex, joins Phase 73's registry (M)
 
-*Blocked on Phase 72 Theme C and Phase 73 Themes A–C. Do Themes B–D first.*
+**◐ PARTIAL (this PR, 2026-09-05).** Unblocked and landed: Phase 72 Theme C and Phase 73 Themes
+A–C are on `main`, so the registry entries, `EcosystemSchema`'s `'media'` member, the
+`confineAllowlist`/`system-cache-registry.test.ts` coverage, and the consent-enumeration assertion
+all shipped. **Left open, genuinely blocked**: the `ECOSYSTEM_LABELS`/`ECOSYSTEM_HUES` palette
+entries wait on Phase 72 Theme D, which had not landed on `main` as of this PR (verified:
+`category-palette.test.ts` does not exist in the tree). Pick that one bullet back up once Theme D
+lands — it is a two-line addition to two already-exhaustive `Record`s.
 
-- [ ] **Verified paths**, cross-checked against two independent sources because
+- [x] **Verified paths**, cross-checked against two independent sources because
       `support.plex.tv` itself returned HTTP 403 to every automated fetch attempted while writing
       this doc (see Decision 3 for the honest chain of custody on this):
       - `~/Library/Application Support/Plex Media Server/Cache` — Plex's own documented working
@@ -202,7 +208,7 @@ Effort tags: **S** ≈ an hour or two · **M** ≈ half a day · **L** ≈ a day
       - **Deliberately excluded**: a third path, `~/Library/Caches/PlexMediaServer/transcode/Sessions`,
         surfaced by one search result but not corroborated by a second source in this session. Not
         shipped without a second confirmation — see Decision 3.
-- [ ] Add `'media'` to `EcosystemSchema` in
+- [x] Add `'media'` to `EcosystemSchema` in
       [`shared/src/domain/optimizer.ts`](../../../packages/shared/src/domain/optimizer.ts),
       following Phase 73's own Decision 8 precedent for `'go'` — a genuinely new grouping, not a
       guess dressed as one of the existing ones.
@@ -216,8 +222,13 @@ Effort tags: **S** ≈ an hour or two · **M** ≈ half a day · **L** ≈ a day
         after `'git'` would put the git row above a media row that produces nothing.
       - **Acceptance:** `Ecosystem` includes `'media'`, the enum's last member is still `'git'`, and
         every `Record<Ecosystem, …>` still compiles.
-- [ ] Add the two `Record<Ecosystem, …>` entries Phase 72 Theme D's palette work requires, in
+- [ ] **Still blocked** — Add the two `Record<Ecosystem, …>` entries Phase 72 Theme D's palette
+      work requires, in
       [`category-palette.ts`](../../../packages/app/src/features/optimizer/category-palette.ts) —
+      genuinely blocked, verified at execution time: `ECOSYSTEM_LABELS`/`ECOSYSTEM_HUES` and
+      `category-palette.test.ts` do not exist on `main` yet — they are Phase 72 **Theme D**'s
+      deliverable (not Theme C, which only lands `EcosystemSchema`), and Theme D had not landed as
+      of this PR. Pick this bullet back up once it has.
       **exhaustive records, so omitting either is a typecheck failure, not a runtime gap**:
       - `ECOSYSTEM_LABELS.media = 'Media'`.
       - `ECOSYSTEM_HUES.media = 120`. The hue is not free choice: Phase 72's net-new
@@ -228,7 +239,7 @@ Effort tags: **S** ≈ an hour or two · **M** ≈ half a day · **L** ≈ a day
       - **Acceptance:** `moon run app:test` passes `category-palette.test.ts` with no threshold
         adjustment. If it fails, move the hue inside another free band (48–70, 173–178, 192–197,
         223–226, 293–297); never relax the 12° assertion.
-- [ ] Add `'plex-transcode-cache' | 'plex-plugin-http-cache'` to Phase 73's `SystemCacheEntryId`
+- [x] Add `'plex-transcode-cache' | 'plex-plugin-http-cache'` to Phase 73's `SystemCacheEntryId`
       union **and** the two objects below to `DEFAULT_SYSTEM_CACHE_ENTRIES` — both in
       `packages/desktop/src/main/optimizer/system-cache-registry.ts`, once Phase 73 lands it. Two
       edits, one file: the union is what makes a typo in an id a compile error rather than an entry
@@ -269,12 +280,12 @@ Effort tags: **S** ≈ an hour or two · **M** ≈ half a day · **L** ≈ a day
       - **Acceptance:** both ids appear in `DEFAULT_SYSTEM_CACHE_ENTRIES` and nothing else in the
         registry changes; ids are kebab, stable, and never reused (Phase 73's own rule — they key
         settings state and `OptimizerSystemCleanRequest.entryIds`).
-- [ ] `resolve: { kind: 'fixed', … }` for both, stated as a decision rather than a default — Plex
+- [x] `resolve: { kind: 'fixed', … }` for both, stated as a decision rather than a default — Plex
       exposes no `env`/CLI equivalent of `go env GOCACHE` to ask for its own data directory, so
       there is no `queryTool` arm to prefer here. Phase 73's Decision 2 rule ("prefer `queryTool`
       whenever the tool exposes one") correctly falls through to `fixed` when nothing exists to ask.
       Record that in a code comment on the entries, so a later reader does not "fix" it.
-- [ ] **Prove the consent enumeration picked Plex up — do not hand-edit the copy.** Phase 73
+- [x] **Prove the consent enumeration picked Plex up — do not hand-edit the copy.** Phase 73
       resolved its own Decision 9 by deriving the dialog's enumeration from the catalogue at render
       time (over its `optimizerSystemCatalogue` channel) and rendering the same live list beside the
       settings checkbox, so adding two registry entries updates both surfaces automatically.
@@ -291,7 +302,7 @@ Effort tags: **S** ≈ an hour or two · **M** ≈ half a day · **L** ≈ a day
       - No consent version and no reset of `systemCacheConsentGiven` — the whole point of the
         derived list is that a user can always see the current covered set without being re-asked.
         See Decision 3.
-- [ ] Extend `system-cache-registry.test.ts` with both new entries:
+- [x] Extend `system-cache-registry.test.ts` with both new entries:
       - each resolves to `<fakeHome>/Library/Application Support/Plex Media Server/…` under a fake
         `homedir`, using the temp-dir idiom from
         [`scan-service.test.ts`](../../../packages/desktop/src/main/optimizer/scan-service.test.ts)
@@ -306,7 +317,7 @@ Effort tags: **S** ≈ an hour or two · **M** ≈ half a day · **L** ≈ a day
       - `reclaim` is `'cheap'` for the transcode entry and `'costly'` for the agent entry, asserted
         by id so a future reorder cannot silently swap them;
       - both `resolve.path` strings begin with neither `~` nor `/`, per Phase 73's authoring rule.
-- [ ] `confineAllowlist` refuses every sibling, asserted **explicitly rather than left implied** —
+- [x] `confineAllowlist` refuses every sibling, asserted **explicitly rather than left implied** —
       in `confine-allowlist.test.ts` (or wherever Phase 73 Theme A lands its own):
       - `…/Plex Media Server` (the parent) → `null`
       - `…/Plex Media Server/Metadata` (artwork, expensive to rebuild) → `null`
@@ -315,7 +326,7 @@ Effort tags: **S** ≈ an hour or two · **M** ≈ half a day · **L** ≈ a day
       - `…/Plex Media Server/Cache/Transcode` (a **child** of an allowed entry) → `null`, which is
         the assertion that proves the rule is equality and not `startsWith`
       - `…/Plex Media Server/Cache` → the realpath, i.e. accepted.
-- [ ] **Deliberately absent**: Emby, Jellyfin, Kodi, iTunes/Music.app, Photos.app's own library
+- [x] **Deliberately absent**: Emby, Jellyfin, Kodi, iTunes/Music.app, Photos.app's own library
       caches. "Media tool caches" as a category could plausibly include all of these, and each is
       plausibly shaped the same way (a cache subfolder beside a database) — but this session
       verified none of them against source documentation the way Plex's paths above are verified,
@@ -481,16 +492,13 @@ Effort tags: **S** ≈ an hour or two · **M** ≈ half a day · **L** ≈ a day
 
 ### C — Emptying the Trash: Finder, never a raw unlink (L)
 
-**◐ PARTIAL (PR #189, 2026-09-05).** The backend/IPC half landed: `emptyTrash()`, its stderr
-mapping and timeout wording, `trash-handlers.ts`, packaging (entitlement + usage string), and
-`ConfirmDialog`'s `requireAck`/`trash` copy arm. **Left open, on purpose**: `ui-store.ts`'s
-`allowTrashEmpty`/`trashEmptyConsentGiven` (and the one-time acknowledgment dialog they gate) are
-asserted by `persisted-keys.test.ts` to be named literally under `features/settings/` — satisfied
-only once Theme D's `trash-safety-page.tsx` exists, so landing the flags alone here would either
-fail that test or require building Theme D's page in a PR scoped to B/C. `use-optimizer.ts`'s
-`loadTrashSummary`/`runEmptyTrash`, the confirm's warnings-array/recompute-own-numbers behaviour and
-the point-of-use three-way gate are storage-tab (Theme D) wiring and wait on the same page. Pick
-these back up together with Theme D.
+**✅ DONE (PR #189 backend/IPC half + this PR's remainder, 2026-09-05).** PR #189 landed
+`emptyTrash()`, its stderr mapping and timeout wording, `trash-handlers.ts`, packaging (entitlement
++ usage string), and `ConfirmDialog`'s `requireAck`/`trash` copy arm. This PR closes the rest,
+folded in with Theme D since the two were coupled exactly as this doc predicted:
+`ui-store.ts`'s `allowTrashEmpty`/`trashEmptyConsentGiven` (plus the one-time acknowledgment
+dialog), `use-optimizer.ts`'s `loadTrashSummary`/`runEmptyTrash`, the confirm's
+warnings-array/recompute-own-numbers behaviour, and the point-of-use three-way gate.
 
 *No upstream dependency. This is the theme a reviewer should read most carefully — see Decision 4.*
 
@@ -563,7 +571,7 @@ these back up together with Theme D.
         *"Finder is still emptying the Trash. Midnite Studio stopped waiting; it did not stop
         Finder — check the Trash in a moment."*, returned as `{ok: false, message}` so the card
         re-checks rather than claiming success.
-- [ ] **Known, accepted double-confirm**: if Finder's own "Warn before emptying the Trash"
+- [x] **Known, accepted double-confirm**: if Finder's own "Warn before emptying the Trash"
       preference (Finder ▸ Settings ▸ Advanced) is on, invoking this via AppleScript still surfaces
       Finder's own native confirm sheet after this app's. Left as-is, not suppressed — Finder's own
       dialog is out of this app's control, and suppressing it would mean this app reaching further
@@ -593,7 +601,7 @@ these back up together with Theme D.
         — so a developer may be re-prompted after each `desktop:dist`. This is the same class of
         problem the pty broker's build fingerprint solves for its socket, and it is a packaging
         question, not a feature one. See the one remaining Open in Decisions.
-- [ ] Add `allowTrashEmpty: boolean` (default `false`) and `trashEmptyConsentGiven: boolean`
+- [x] Add `allowTrashEmpty: boolean` (default `false`) and `trashEmptyConsentGiven: boolean`
       (default `false`) to [`ui-store.ts`](../../../packages/app/src/store/ui-store.ts) —
       **a separate pair, never reusing `allowSystemCacheClean`/`systemCacheConsentGiven`** (Decision 5).
       Following `allowForceWithLease`'s real edit list, which is **six edits per flag in `ui-store.ts`
@@ -614,7 +622,7 @@ these back up together with Theme D.
       - **No `version` bump, no `migrate` arm.** The store is at `version: 9`; a persisted blob from
         before this phase simply lacks the keys, and zustand merges the `false` defaults. Identical
         reasoning to `allowForceWithLease` and `optimizerEnabled`, neither of which added an arm.
-- [ ] The one-time acknowledgment dialog — confirmed once, the first time `allowTrashEmpty` flips
+- [x] The one-time acknowledgment dialog — confirmed once, the first time `allowTrashEmpty` flips
       `false → true`; toggling off and back on does **not** re-ask, because
       `trashEmptyConsentGiven` stays true. Body copy, in substance:
       > Emptying the Trash permanently deletes everything in it — including anything another app put
@@ -679,7 +687,7 @@ these back up together with Theme D.
       `blastRadiusKind?: keyof typeof BLAST_RADIUS_COPY` widens by itself; no type edit is needed.
       Note it deliberately reads *"permanently deleted"* where the `files` arm reads *"moved to the
       trash"* — the two sentences are the whole difference between Phase 59's confirm and this one.
-- [ ] The Trash confirm's `warnings` array, built in order, each line a full sentence:
+- [x] The Trash confirm's `warnings` array, built in order, each line a full sentence:
       - `` `${formatBytes(summary.totalBytes)} will be freed.` ``
       - `` `The oldest item was last modified ${formatDate(summary.oldestModifiedAt)}.` `` — omitted
         entirely when `oldestModifiedAt` is `null`. Worded as *last modified*, never *"deleted on"*
@@ -690,7 +698,7 @@ these back up together with Theme D.
         are a floor, not an exact total.'`
       - `sample` stays `[]` — `BlastRadius.sample` is `{sha, subject}[]`, git-only, and
         `ConfirmDialog` already skips the list when it is empty (`:176-189`).
-- [ ] **The confirm recomputes its own numbers; it never trusts the card's.** The click handler calls
+- [x] **The confirm recomputes its own numbers; it never trusts the card's.** The click handler calls
       `dialogs.confirm({ …, blastRadius: undefined })` — which renders *"Checking what this
       affects…"* (`:169`) — then awaits `trashSummary()` and calls `dialogs.setBlastRadius({count:
       summary.itemCount, sample: []})` plus the warnings.
@@ -701,12 +709,12 @@ these back up together with Theme D.
         available. See Decision 15.
       - If the re-check fails, close the confirm and toast the error — **never** offer a Confirm
         button with an unknown blast radius.
-- [ ] The `emptyTrash` request is gated at the point of use by
+- [x] The `emptyTrash` request is gated at the point of use by
       `optimizerEnabled && allowTrashEmpty && trashEmptyConsentGiven` — the same three-way-AND shape
       Phase 73 Theme C established, with `allowTrashEmpty`/`trashEmptyConsentGiven` standing in for
       its second and third factors. The gate hides the card entirely (Theme D); it is not a disabled
       button, because a disabled control advertises a capability the user has not consented to.
-- [ ] Add `loadTrashSummary()` and `runEmptyTrash()` to
+- [x] Add `loadTrashSummary()` and `runEmptyTrash()` to
       [`use-optimizer.ts`](../../../packages/app/src/features/optimizer/use-optimizer.ts), following
       its existing shape exactly: plain exported async functions (not hooks), `const api = bridge();
       if (!api) { … return; }`, results written into the store, failures raised via
@@ -742,9 +750,12 @@ these back up together with Theme D.
 
 ### D — UI: a settings page of its own, and a card that never reads as recoverable (M)
 
-*No upstream dependency for the Trash half; the Plex-rows item waits on Theme A.*
+**✅ DONE (this PR, 2026-09-05), Plex-rows item excepted.** The Trash half is complete: the
+`trashSafety` settings page, the Storage tab's five-state Trash card, the `optimizer-store.ts`
+slice, and both e2e specs. The Plex-rows item stays open — it waits on Phase 73 Theme E (the
+gated System section), which had not landed on `main` as of this PR; see its own note above.
 
-- [ ] Add `packages/app/src/features/settings/settings-pages/trash-safety-page.tsx`, copying
+- [x] Add `packages/app/src/features/settings/settings-pages/trash-safety-page.tsx`, copying
       [`git-safety-page.tsx`](../../../packages/app/src/features/settings/settings-pages/git-safety-page.tsx)'s
       shape exactly — that file's own reasoning, *"a switch that turns on a real force-push is a
       different weight of decision… it deserves a page a user has to go looking for,"* applies with
@@ -765,7 +776,7 @@ these back up together with Theme D.
         Finder, which is what handles locked and in-use items*.
       - The checkbox's `onChange(true)` is what triggers Theme C's one-time acknowledgment dialog
         when `trashEmptyConsentGiven` is false; `onChange(false)` just clears `allowTrashEmpty`.
-- [ ] Register the page at its **three** required points plus the two `Record`s tsc already enforces:
+- [x] Register the page at its **three** required points plus the two `Record`s tsc already enforces:
       - `'trashSafety'` added to `SettingsPageId`
         ([`ui-store.ts:161-181`](../../../packages/app/src/store/ui-store.ts));
       - `{ id: 'trashSafety', label: 'Trash Safety', group: 'tools' }` inserted into
@@ -789,7 +800,7 @@ these back up together with Theme D.
       - Add the page to the registration guardrail in
         [`ui-store.test.ts:487-521`](../../../packages/app/src/store/ui-store.test.ts), which
         already asserts every page files into a real group and that a named page is present.
-- [ ] Storage tab ([`storage-tab.tsx`](../../../packages/app/src/features/optimizer/storage-tab.tsx)):
+- [x] Storage tab ([`storage-tab.tsx`](../../../packages/app/src/features/optimizer/storage-tab.tsx)):
       add a **separate** Trash card, rendered after the existing bar/list/legend and after Phase 73's
       System section, gated on Theme C's three-way AND (absent entirely when any factor is false).
       - **Container**: the `gpu-tab.tsx:66` card shape (`space-y-2 rounded-md border p-3`) with
@@ -830,27 +841,29 @@ these back up together with Theme D.
         empty, and never otherwise. Resolves Decision 11.
       - Never merged into the System section itself: the Trash is not a tool cache, and grouping it
         with Cargo/Plex would understate what it does.
-- [ ] Hold the card's state in
+- [x] Hold the card's state in
       [`optimizer-store.ts`](../../../packages/app/src/store/optimizer-store.ts) as a `trash` slice
       (`{status: 'idle' | 'loading' | 'ready' | 'error'; summary: TrashSummary | null; message:
       string | null}`), not in component state — the Storage tab unmounts on every tab switch, and
       local state would silently discard a check the user just paid for. Same reason `scan`, `gpu`,
       `memory` already live there.
-- [ ] Plex's two new rows need **no new UI code** — they render automatically inside Phase 73's
-      existing gated System section once Theme A's registry entries exist, using that section's
-      existing `label`/`producer` row format (*"Plex transcode cache · Plex Media Server
-      (regenerates on next transcode or thumbnail request)"*). The only Theme D obligation for Plex
-      is the screenshot below.
-- [ ] Every icon from `react-icons`, imported per set (`react-icons/lu`), never `lucide-react` —
+- [ ] **Still blocked** — Plex's two new rows need **no new UI code** once Phase 73's gated System
+      section exists, but that section is Phase 73 **Theme E**'s own deliverable, and it had not
+      landed on `main` as of this PR — `storage-tab.tsx` has no System section on `main` yet
+      (verified: no "System caches by ecosystem" string anywhere in the tree). The registry entries
+      from this PR's Theme A will render there automatically the day Theme E lands; nothing more to
+      build here. The Theme D screenshot obligation for Plex (below) is deferred with it.
+- [x] Every icon from `react-icons`, imported per set (`react-icons/lu`), never `lucide-react` —
       unchanged repo rule, enforced by `no-restricted-imports` and by
       `components/icons/icon-names.test.ts`.
-- [ ] `packages/app/e2e/optimizer.spec.ts` — behavioural, following its own `test.describe('the
+- [x] `packages/app/e2e/optimizer.spec.ts` — behavioural, following its own `test.describe('the
       feature gate')` shape: with all three flags seeded true the "Trash" card is visible; with
       `allowTrashEmpty` false it is absent; clicking "Empty Trash…" opens a dialog headed
       **"Empty the Trash?"** whose Confirm button is `disabled` until the acknowledgment checkbox is
       checked, then enabled.
-- [ ] `packages/app/e2e/optimizer-shots.spec.ts` — the Trash card (has-items state) light and dark,
-      and the System section with Plex's two rows light and dark, gate on.
+- [x] `packages/app/e2e/optimizer-shots.spec.ts` — the Trash card (has-items state) light and dark,
+      shipped. **The System section with Plex's two rows light and dark stays open** — see the
+      still-blocked note above; there is no System section on `main` to screenshot yet.
       - Seed via the existing `seedOptimizerEnabled` helper (`:114-121`), extended with
         `allowTrashEmpty` and `trashEmptyConsentGiven`.
       - **Fix the stale version literal while you are in there**: that helper writes `{ version: 8 }`
@@ -866,45 +879,50 @@ these back up together with Theme D.
 
 ### E — Verification (M)
 
-- [ ] `moon run :typecheck :lint :test` green.
-- [ ] `packages/desktop/src/main/optimizer/system-cache-registry.test.ts` (Theme A) — both Plex
+**◐ PARTIAL (this PR, 2026-09-05).** `moon run :typecheck :lint :test` green; every test this PR
+could write is written and passing. Two items stay open, both tracking the same two Theme A/D
+blockers noted above (Phase 72 Theme D, Phase 73 Theme E) — not new gaps — plus the human pass,
+which no automated session can perform.
+
+- [x] `moon run :typecheck :lint :test` green.
+- [x] `packages/desktop/src/main/optimizer/system-cache-registry.test.ts` (Theme A) — both Plex
       entries resolve under a fake `homedir`; a non-existent path is dropped silently by
       `resolveSystemCacheEntries`; `reclaim` is `'cheap'`/`'costly'` asserted by id.
-- [ ] `confine-allowlist.test.ts` — the six Plex assertions listed in Theme A, including the
+- [x] `confine-allowlist.test.ts` — the six Plex assertions listed in Theme A, including the
       **child** path (`Cache/Transcode`) returning `null`, which is what proves equality-not-prefix.
-- [ ] A **symlinked** `Plex Media Server/Cache` is dropped by `resolveSystemCacheEntries` rather
+- [x] A **symlinked** `Plex Media Server/Cache` is dropped by `resolveSystemCacheEntries` rather
       than followed — the one case exact-match confinement cannot catch on its own.
 - [ ] Phase 72's `category-palette.test.ts` still passes with `ECOSYSTEM_HUES.media = 120` present,
       with no change to its 12°-separation threshold.
-- [ ] The consent enumeration, rendered from a stubbed catalogue, contains both Plex labels and no
+- [x] The consent enumeration, rendered from a stubbed catalogue, contains both Plex labels and no
       longer contains `another media tool's cache`.
-- [ ] `packages/desktop/src/main/trash-service.test.ts` (summary) — the ten fixture assertions listed
+- [x] `packages/desktop/src/main/trash-service.test.ts` (summary) — the ten fixture assertions listed
       in Theme B, of which the two that matter most are the `/Volumes` symlink skip (no double count)
       and the missing-`.Trash` zero summary.
-- [ ] `packages/desktop/src/main/trash-service.test.ts` (empty) — `expect(spawn).toHaveBeenCalledWith(
+- [x] `packages/desktop/src/main/trash-service.test.ts` (empty) — `expect(spawn).toHaveBeenCalledWith(
       'osascript', ['-e', 'tell application "Finder" to empty trash'], expect.any(String))` **and**
       `toHaveBeenCalledTimes(1)`; the four stderr mappings (`-1743`, `-128`, `-600`, unrecognised);
       the non-zero-exit-with-`ok:true` path; the timeout message.
-- [ ] `packages/desktop/src/main/ipc/trash-handlers.test.ts` — both channels registered via
+- [x] `packages/desktop/src/main/ipc/trash-handlers.test.ts` — both channels registered via
       `handleBare`; a second summary invoke aborts the first; the empty handler passes no argument
       through to `emptyTrash`.
-- [ ] A source-level assertion that `trash-service.ts` contains no `rm`/`rmdir`/`unlink`/`trashItem`.
-- [ ] `packages/app/src/components/confirm-dialog.test.tsx` — the Confirm button is `disabled` while
+- [x] A source-level assertion that `trash-service.ts` contains no `rm`/`rmdir`/`unlink`/`trashItem`.
+- [x] `packages/app/src/components/confirm-dialog.test.tsx` — the Confirm button is `disabled` while
       `requireAck` is set and the box is unchecked, enabled once checked, and **unaffected for every
       request without `requireAck`**; a `setBlastRadius` patch on an open request does **not** clear
       the checkbox.
-- [ ] `packages/app/src/features/settings/settings-pages/trash-consent.test.tsx` — note the `.tsx`
+- [x] `packages/app/src/features/settings/settings-pages/trash-consent.test.tsx` — note the `.tsx`
       extension, matching every rendering sibling in that directory. Following
       `crash-reporting.test.tsx`'s harness and `use-graph-actions.test.tsx`'s gate idiom
       (`useUiStore.setState(…)`, then assert presence/absence): toggling `allowTrashEmpty` on with
       `trashEmptyConsentGiven` false opens the acknowledgment dialog; confirming persists both;
       cancelling reverts `allowTrashEmpty` to `false`.
-- [ ] `packages/app/src/features/optimizer/storage-tab.test.tsx` — the Trash card is absent with any
+- [x] `packages/app/src/features/optimizer/storage-tab.test.tsx` — the Trash card is absent with any
       one of `optimizerEnabled` / `allowTrashEmpty` / `trashEmptyConsentGiven` false and present only
       with all three true; each of the five card states renders its literal copy; a `window.midniteStudio`
       stub is installed inline per `mcp-page.test.tsx:15-29` (there is no shared vitest mock bridge).
-- [ ] `ui-store.test.ts` — `trashSafety` is present in `SETTINGS_PAGES` and files into a real group.
-- [ ] `packages/app/e2e/optimizer.spec.ts` + `optimizer-shots.spec.ts` per Theme D, with the
+- [x] `ui-store.test.ts` — `trashSafety` is present in `SETTINGS_PAGES` and files into a real group.
+- [x] `packages/app/e2e/optimizer.spec.ts` + `optimizer-shots.spec.ts` per Theme D, with the
       `{ version: 9 }` seed fix.
 - [ ] **Human pass, on a real Mac, against a `moon run desktop:dist` build — not `desktop:start`:**
       - With Plex installed: confirm the System section reports real, correct byte figures for
@@ -1035,25 +1053,26 @@ these back up together with Theme D.
 
 ## Verification
 
-- [ ] `moon run :typecheck :lint :test` green.
-- [ ] Plex's two entries resolve under a fake home, and `confineAllowlist` refuses the parent, both
+- [x] `moon run :typecheck :lint :test` green.
+- [x] Plex's two entries resolve under a fake home, and `confineAllowlist` refuses the parent, both
       dangerous siblings (`Metadata`, `Plug-in Support/Databases`), the intermediate
       `Plug-in Support`, **and a child of an allowed entry** — the last being the assertion that
       proves equality rather than prefix matching.
-- [ ] `emptyTrash` spawns `osascript` with a literal, module-constant argv, exactly once per call,
+- [x] `emptyTrash` spawns `osascript` with a literal, module-constant argv, exactly once per call,
       in every test — never influenced by any input, because it accepts none.
-- [ ] A non-zero `osascript` exit is treated as a failure even though `runProcess` reports
+- [x] A non-zero `osascript` exit is treated as a failure even though `runProcess` reports
       `ok: true`, and each of `-1743` / `-128` / `-600` maps to its own message.
-- [ ] `computeTrashSummary` skips symlinks in `/Volumes` (no double-count of the boot volume),
+- [x] `computeTrashSummary` skips symlinks in `/Volumes` (no double-count of the boot volume),
       excludes another user's `.Trashes/<uid>`, and returns a zeroed summary for a missing `~/.Trash`.
-- [ ] `truncated` is driven by `MAX_WALK_ENTRIES` alone; the doc and the code agree that
+- [x] `truncated` is driven by `MAX_WALK_ENTRIES` alone; the doc and the code agree that
       `MAX_WALK_DEPTH` does not apply to `dirBytes`.
-- [ ] The Trash card and its confirm dialog are unreachable with any one of the three Theme C gates
+- [x] The Trash card and its confirm dialog are unreachable with any one of the three Theme C gates
       off, and the Confirm button cannot be clicked before `requireAck`'s checkbox — including after
       a `setBlastRadius` patch lands mid-dialog.
-- [ ] All five Trash-card states render their literal copy, and the "checking" state shows no
+- [x] All five Trash-card states render their literal copy, and the "checking" state shows no
       progress gauge.
-- [ ] Storage tab shots refreshed: System section with Plex rows, Trash card — light and dark.
+- [x] Storage tab shots refreshed: **Trash card**, light and dark. **Still open**: the System
+      section with Plex rows, blocked on Phase 73 Theme E (not yet landed) — see Theme A/D's notes.
 - [ ] **Human:** real-Mac pass per Theme E on a **packaged** build, Plex and Trash both, including a
       deliberate denial of the Automation prompt and a cancel of Finder's own sheet.
 

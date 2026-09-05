@@ -520,6 +520,14 @@ describe('grouped settings navigation', () => {
     expect(SETTINGS_PAGES.find((page) => page.id === 'mcp')).toBeTruthy();
   });
 
+  it('registers the Trash Safety page, in the tools group (Phase 74 Theme D)', () => {
+    // Same reasoning as the MCP registration test above: `SETTINGS_PAGES` is
+    // the one registration point a missing entry leaves silently short.
+    const page = SETTINGS_PAGES.find((p) => p.id === 'trashSafety');
+    expect(page).toBeTruthy();
+    expect(page?.group).toBe('tools');
+  });
+
   it('toggles a settings group shut and open again', () => {
     useUiStore.getState().toggleSettingsGroup('tools');
     expect(useUiStore.getState().collapsedSettingsGroups).toEqual(['tools']);

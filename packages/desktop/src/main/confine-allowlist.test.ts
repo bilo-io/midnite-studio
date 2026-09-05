@@ -76,3 +76,59 @@ describe('confineAllowlist (Phase 73 — the system-cache registry jail)', () =>
     ).resolves.toBe(await realpath(target));
   });
 });
+
+describe('confineAllowlist — Plex siblings (Phase 74 Theme A)', () => {
+  let plexHome: string;
+  let plexAllowed: string[];
+
+  beforeAll(async () => {
+    plexHome = await realpath(await mkdtemp(join(tmpdir(), 'mstudio-confine-plex-')));
+    const server = join(plexHome, 'Library', 'Application Support', 'Plex Media Server');
+
+    await mkdir(join(server, 'Cache', 'Transcode'), { recursive: true });
+    await mkdir(join(server, 'Metadata'), { recursive: true });
+    await mkdir(join(server, 'Plug-in Support', 'Databases'), { recursive: true });
+    await mkdir(join(server, 'Plug-in Support', 'Caches'), { recursive: true });
+
+    // Only the two Phase 74 registry paths are ever allowed — everything
+    // else in this tree is a dangerous sibling that must stay refused.
+    plexAllowed = [join(server, 'Cache'), join(server, 'Plug-in Support', 'Caches')];
+  });
+
+  afterAll(async () => {
+    await rm(plexHome, { recursive: true, force: true });
+  });
+
+  const server = () => join(plexHome, 'Library', 'Application Support', 'Plex Media Server');
+
+  it('accepts the allowed Cache directory itself', async () => {
+    const target = join(server(), 'Cache');
+    await expect(confineAllowlist(plexAllowed, target)).resolves.toBe(await realpath(target));
+  });
+
+  it('refuses the parent "Plex Media Server" directory', async () => {
+    await expect(confineAllowlist(plexAllowed, server())).resolves.toBeNull();
+  });
+
+  it('refuses "Metadata" (artwork, expensive to rebuild) — a dangerous sibling', async () => {
+    await expect(confineAllowlist(plexAllowed, join(server(), 'Metadata'))).resolves.toBeNull();
+  });
+
+  it('refuses "Plug-in Support/Databases" — the actual Plex database', async () => {
+    await expect(
+      confineAllowlist(plexAllowed, join(server(), 'Plug-in Support', 'Databases')),
+    ).resolves.toBeNull();
+  });
+
+  it('refuses "Plug-in Support" itself — the parent of an allowed entry', async () => {
+    await expect(
+      confineAllowlist(plexAllowed, join(server(), 'Plug-in Support')),
+    ).resolves.toBeNull();
+  });
+
+  it('refuses "Cache/Transcode" — a CHILD of an allowed entry, proving equality not prefix', async () => {
+    await expect(
+      confineAllowlist(plexAllowed, join(server(), 'Cache', 'Transcode')),
+    ).resolves.toBeNull();
+  });
+});

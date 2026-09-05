@@ -1,7 +1,8 @@
-import type { ScanCategory, SystemCacheItem } from '@midnite/studio-shared';
-import { LuHardDrive } from 'react-icons/lu';
+import type { ScanCategory, SystemCacheItem, TrashSummary } from '@midnite/studio-shared';
+import { LuHardDrive, LuTrash2 } from 'react-icons/lu';
 
 import { useDialogs } from '../../components/dialog-host';
+import { bridge } from '../../services/bridge';
 import { useOptimizerStore } from '../../store/optimizer-store';
 import { useToastStore } from '../../store/toast-store';
 import { useUiStore } from '../../store/ui-store';
@@ -9,7 +10,13 @@ import { formatBytes } from '../monitor/format-bytes';
 import { CircularGauge } from './components/circular-gauge';
 import { SegmentedBar } from './components/segmented-bar';
 import { CATEGORY_LABELS, categoryColor } from './category-palette';
-import { runSystemClean, runSystemReclaim, runSystemScan } from './use-optimizer';
+import {
+  loadTrashSummary,
+  runEmptyTrash,
+  runSystemClean,
+  runSystemReclaim,
+  runSystemScan,
+} from './use-optimizer';
 
 // Phase 72 Theme D groups this list by ecosystem; until it lands, this stays
 // the same flat four-of-five categories it always was (`toolCache` items are
@@ -22,14 +29,172 @@ const CATEGORY_ORDER: readonly ScanCategory[] = [
   'looseObjects',
 ];
 
+function formatTrashDate(iso: string): string {
+  return new Date(iso).toLocaleString(undefined, { dateStyle: 'medium', timeStyle: 'short' });
+}
+
+function trashWarnings(summary: TrashSummary): string[] {
+  const lines = [`${formatBytes(summary.totalBytes)} will be freed.`];
+  if (summary.oldestModifiedAt) {
+    lines.push(`The oldest item was last modified ${formatTrashDate(summary.oldestModifiedAt)}.`);
+  }
+  if (summary.volumeCount > 1) {
+    const otherDisks = summary.volumeCount - 1;
+    lines.push(
+      `Includes the Trash on ${otherDisks} other mounted disk${otherDisks === 1 ? '' : 's'}.`,
+    );
+  }
+  if (summary.truncated) {
+    lines.push(
+      'More than 200,000 entries were found — the count and size above are a floor, not an exact total.',
+    );
+  }
+  return lines;
+}
+
+const TRASH_BUTTON_CLASS =
+  'rounded-md border border-destructive/40 px-3 py-1.5 text-xs font-medium text-destructive hover:bg-destructive/10 disabled:cursor-default disabled:opacity-60 disabled:hover:bg-transparent';
+
+/**
+ * Phase 74 Theme D — a Trash card in its own destructive-tinted container,
+ * never merged into Phase 73's System section: the Trash is not a tool
+ * cache, and grouping it with Cargo/Plex would understate what it does.
+ *
+ * Gated on the same three-way AND Theme C established — hidden entirely
+ * (not a disabled button) when any factor is off, because a disabled
+ * control would advertise a capability the user has not consented to.
+ */
+function TrashCard() {
+  const dialogs = useDialogs();
+  const optimizerEnabled = useUiStore((s) => s.optimizerEnabled);
+  const allowTrashEmpty = useUiStore((s) => s.allowTrashEmpty);
+  const trashEmptyConsentGiven = useUiStore((s) => s.trashEmptyConsentGiven);
+  const trash = useOptimizerStore((s) => s.trash);
+
+  if (!(optimizerEnabled && allowTrashEmpty && trashEmptyConsentGiven)) return null;
+
+  const handleCheck = (): void => {
+    void loadTrashSummary();
+  };
+
+  // Decision 15 — the confirm recomputes its own numbers rather than
+  // trusting the card's cached summary, since anything trashed since the
+  // last "Check Trash" would make the confirm understate what it destroys.
+  const handleEmpty = (): void => {
+    dialogs.confirm({
+      title: 'Empty the Trash?',
+      confirmLabel: 'Empty Trash',
+      danger: true,
+      blastRadiusKind: 'trash',
+      // Absent, not null — renders "Checking what this affects…" while the
+      // fresh count below is still in flight.
+      blastRadius: undefined,
+      requireAck: 'I understand this cannot be undone',
+      onConfirm: () => {
+        void runEmptyTrash();
+      },
+    });
+
+    void (async () => {
+      const api = bridge();
+      if (!api) {
+        dialogs.close();
+        useToastStore.getState().addToast({ message: 'The app bridge is unavailable.', status: 'error' });
+        return;
+      }
+      const response = await api.optimizer.trashSummary();
+      if (response.ok) {
+        dialogs.setBlastRadius(
+          { count: response.value.itemCount, sample: [] },
+          trashWarnings(response.value),
+        );
+      } else {
+        dialogs.close();
+        useToastStore.getState().addToast({ message: response.message, status: 'error' });
+      }
+    })();
+  };
+
+  return (
+    <div className="space-y-2 rounded-md border border-destructive/40 bg-destructive/5 p-3">
+      <div className="flex items-center gap-2">
+        <LuTrash2 className="h-4 w-4 text-destructive" aria-hidden />
+        <p className="text-sm font-medium text-foreground">Trash</p>
+      </div>
+
+      {trash.status === 'idle' ? (
+        <>
+          <p className="text-xs text-muted-foreground">The Trash hasn&rsquo;t been checked yet.</p>
+          <button type="button" onClick={handleCheck} className={TRASH_BUTTON_CLASS}>
+            Check Trash
+          </button>
+        </>
+      ) : null}
+
+      {trash.status === 'loading' ? (
+        <button type="button" disabled className={TRASH_BUTTON_CLASS}>
+          Checking…
+        </button>
+      ) : null}
+
+      {trash.status === 'error' ? (
+        <>
+          <p className="text-xs text-destructive">{trash.message}</p>
+          <button type="button" onClick={handleCheck} className={TRASH_BUTTON_CLASS}>
+            Check Trash
+          </button>
+        </>
+      ) : null}
+
+      {trash.status === 'ready' && trash.summary && trash.summary.itemCount === 0 ? (
+        <>
+          <p className="text-xs text-muted-foreground">The Trash is empty.</p>
+          <button type="button" disabled className={TRASH_BUTTON_CLASS}>
+            Empty Trash…
+          </button>
+        </>
+      ) : null}
+
+      {trash.status === 'ready' && trash.summary && trash.summary.itemCount > 0 ? (
+        <>
+          <p className="text-sm text-foreground">
+            {trash.summary.itemCount} item{trash.summary.itemCount === 1 ? '' : 's'} —{' '}
+            {formatBytes(trash.summary.totalBytes)}
+          </p>
+          {trash.summary.oldestModifiedAt ? (
+            <p className="text-xs text-muted-foreground">
+              Oldest item last modified {formatTrashDate(trash.summary.oldestModifiedAt)}.
+            </p>
+          ) : null}
+          {trash.summary.volumeCount > 1 ? (
+            <p className="text-xs text-muted-foreground">
+              Includes {trash.summary.volumeCount - 1} other mounted disk
+              {trash.summary.volumeCount - 1 === 1 ? '' : 's'}.
+            </p>
+          ) : null}
+          {trash.summary.truncated ? (
+            <p className="text-xs text-muted-foreground">
+              More than 200,000 entries — this is a floor.
+            </p>
+          ) : null}
+          <button type="button" onClick={handleEmpty} className={TRASH_BUTTON_CLASS}>
+            Empty Trash…
+          </button>
+        </>
+      ) : null}
+    </div>
+  );
+}
+
 export function StorageTab() {
   const result = useOptimizerStore((s) => s.scan.result);
   const selectRepo = useUiStore((s) => s.selectRepo);
 
-  // The System section (Theme E) has its own, independent scan state and is
-  // NOT nested under "a Smart Scan hasn't run yet" — it is a variant of
-  // Storage's own "what's taking up space" question, not a fact this repo's
-  // own scan result gates. It renders in both branches below.
+  // The System section (Theme E) and the Trash card (Theme D) each have
+  // their own, independent gating state and are NOT nested under "a Smart
+  // Scan hasn't run yet" — they are variants of Storage's own "what's taking
+  // up space" question, not facts this repo's own scan result gates. Both
+  // render in both branches below, after the existing category breakdown.
   if (!result) {
     return (
       <div className="flex flex-col gap-4">
@@ -37,6 +202,7 @@ export function StorageTab() {
           Run a Smart Scan first — Storage shows the same result as a breakdown.
         </p>
         <SystemCachesSection />
+        <TrashCard />
       </div>
     );
   }
@@ -47,7 +213,11 @@ export function StorageTab() {
 
   return (
     <div className="flex flex-col gap-4">
-      <SegmentedBar label="Reclaimable storage by category" total={result.totalBytes} segments={segments} />
+      <SegmentedBar
+        label="Reclaimable storage by category"
+        total={result.totalBytes}
+        segments={segments}
+      />
 
       <ul className="space-y-1">
         {result.items.map((item) => (
@@ -71,7 +241,9 @@ export function StorageTab() {
               />
               <span className="truncate font-mono text-xs text-foreground">{item.path}</span>
             </button>
-            <span className="shrink-0 text-xs text-muted-foreground">{formatBytes(item.bytes)}</span>
+            <span className="shrink-0 text-xs text-muted-foreground">
+              {formatBytes(item.bytes)}
+            </span>
           </li>
         ))}
       </ul>
@@ -90,6 +262,7 @@ export function StorageTab() {
       </ul>
 
       <SystemCachesSection />
+      <TrashCard />
     </div>
   );
 }

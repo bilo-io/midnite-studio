@@ -222,6 +222,55 @@ export async function loadOptimizerProcesses(): Promise<void> {
   }
 }
 
+/**
+ * Phase 74 Theme D — "Check Trash". Recomputes the Storage tab's Trash card
+ * every time it is called; there is no auto-refresh (Decision 11).
+ */
+export async function loadTrashSummary(): Promise<void> {
+  const store = useOptimizerStore.getState();
+  store.trashLoading();
+
+  const api = bridge();
+  if (!api) {
+    store.trashFailed('The app bridge is unavailable.');
+    return;
+  }
+
+  const response = await api.optimizer.trashSummary();
+  if (response.ok) {
+    store.trashReady(response.value);
+  } else {
+    store.trashFailed(response.message);
+  }
+}
+
+/**
+ * Phase 74 Theme C/D — the one no-undo operation in this arc. On success,
+ * re-runs `loadTrashSummary()` immediately so the card shows `0 items`
+ * rather than a stale count. A Finder cancel (`-128`) toasts as `'info'`,
+ * not `'error'` — the user did that on purpose.
+ */
+export async function runEmptyTrash(): Promise<{ ok: boolean; message?: string }> {
+  const api = bridge();
+  if (!api) {
+    useToastStore.getState().addToast({ message: 'The app bridge is unavailable.', status: 'error' });
+    return { ok: false, message: 'The app bridge is unavailable.' };
+  }
+
+  const response = await api.optimizer.emptyTrash();
+  if (response.ok) {
+    await loadTrashSummary();
+    return { ok: true };
+  }
+
+  const cancelledInFinder = response.message.startsWith('Cancelled in Finder');
+  useToastStore.getState().addToast({
+    message: response.message,
+    status: cancelledInFinder ? 'info' : 'error',
+  });
+  return { ok: false, message: response.message };
+}
+
 export async function killOptimizerProcess(
   pid: number,
   expectArgv: string,

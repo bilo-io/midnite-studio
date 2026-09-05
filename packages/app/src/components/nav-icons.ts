@@ -26,6 +26,7 @@ import {
   LuSquareTerminal,
   LuStethoscope,
   LuTerminal,
+  LuTrash2,
   LuUsers,
   LuWorkflow,
 } from 'react-icons/lu';
@@ -105,6 +106,10 @@ export const SETTINGS_PAGE_ICON: Record<SettingsPageId, IconType> = {
   workflows: LuWorkflow,
   video: LuClapperboard,
   gitSafety: LuShieldAlert,
+  // A literal trash can, not a third shield glyph: `reviews` already owns
+  // `LuShieldCheck` and `gitSafety` owns `LuShieldAlert`, and a third shield
+  // is indistinguishable at 16px.
+  trashSafety: LuTrash2,
   mcp: LuServer,
   monitor: LuActivity,
   optimizer: LuGauge,

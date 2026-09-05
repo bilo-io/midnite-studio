@@ -147,7 +147,6 @@ function SystemCachesSection() {
             </li>
             <li>Never a path that is a symlink, even a named one.</li>
             <li>Never the system Trash (a separate review).</li>
-            <li>Never Plex or another media tool&rsquo;s cache (a separate review).</li>
             <li>
               Never a path this registry doesn&rsquo;t name, and never one from a repo-scan{' '}
               <code>extraRoot</code> picker.

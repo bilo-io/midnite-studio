@@ -48,6 +48,7 @@ export const EcosystemSchema = z.enum([
   'swift',
   'ruby',
   'go',
+  'media',
   'git',
 ]);
 export type Ecosystem = z.infer<typeof EcosystemSchema>;

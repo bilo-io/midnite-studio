@@ -25,8 +25,15 @@ type DialogApi = {
    * alternative to acknowledging it.
    */
   notify: (notice: { title: string; body?: string; okLabel?: string }) => void;
-  /** Replace the open confirm's blast radius once it has been counted. */
-  setBlastRadius: (radius: ConfirmRequest['blastRadius']) => void;
+  /**
+   * Replace the open confirm's blast radius once it has been counted.
+   *
+   * The optional second argument replaces `warnings` in the same patch —
+   * Phase 74's Trash confirm recomputes its own count AND its own warning
+   * lines (bytes freed, oldest-modified date) from the same freshly-fetched
+   * summary, so both need to land in one state update rather than two.
+   */
+  setBlastRadius: (radius: ConfirmRequest['blastRadius'], warnings?: string[]) => void;
   prompt: (request: PromptRequest) => void;
   close: () => void;
 };
@@ -82,8 +89,10 @@ export function DialogHost({ children }: { children: ReactNode }) {
           onConfirm: () => setConfirmRequest(null),
         });
       },
-      setBlastRadius: (blastRadius) =>
-        setConfirmRequest((current) => (current ? { ...current, blastRadius } : current)),
+      setBlastRadius: (blastRadius, warnings) =>
+        setConfirmRequest((current) =>
+          current ? { ...current, blastRadius, ...(warnings ? { warnings } : {}) } : current,
+        ),
       prompt: (request) => {
         setMenu(null);
         setPromptRequest(request);

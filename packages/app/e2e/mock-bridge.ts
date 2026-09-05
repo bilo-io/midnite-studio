@@ -586,6 +586,20 @@ export type MockFixtures = {
         producer: string;
       }>;
     };
+    /**
+     * Phase 74 Theme D/E — `trashSummary()` answers with this shape;
+     * `undefined` (the default) is an empty Trash, `{itemCount: 0, ...}`.
+     * `emptyTrash` always succeeds against this fixture — a failing empty is
+     * not exercised here (it is covered at the unit level in
+     * `trash-service.test.ts`'s stderr-mapping suite).
+     */
+    trash?: {
+      itemCount: number;
+      totalBytes: number;
+      oldestModifiedAt: string | null;
+      volumeCount: number;
+      truncated: boolean;
+    };
   };
   /**
    * The MCP server's Settings-page state (Phase 57 Theme F). Off by default —
@@ -2550,6 +2564,22 @@ export async function installMockBridge(page: Page, fixtures: MockFixtures): Pro
           ok: true as const,
           value: { stdout: 'done', stderr: '', exitCode: 0 },
         }),
+        // Phase 74 Theme D/E — mutable so a spec's "empty" click can zero the
+        // count the very next "Check Trash" without re-seeding the fixture.
+        trashSummary: async () => ({
+          ok: true as const,
+          value: trashFixture ?? {
+            itemCount: 0,
+            totalBytes: 0,
+            oldestModifiedAt: null,
+            volumeCount: 1,
+            truncated: false,
+          },
+        }),
+        emptyTrash: async () => {
+          trashFixture = { itemCount: 0, totalBytes: 0, oldestModifiedAt: null, volumeCount: 1, truncated: false };
+          return { ok: true as const };
+        },
       },
       protocol: {
         onDeepLink: unsubscribe,
@@ -2651,6 +2681,10 @@ export async function installMockBridge(page: Page, fixtures: MockFixtures): Pro
       argv: p.argv ?? p.name,
       ...p,
     }));
+    // Mutable so `emptyTrash()` can zero it for the next `trashSummary()`
+    // call without a spec re-seeding the fixture (Phase 74 Theme D/E).
+    // eslint-disable-next-line no-var
+    var trashFixture = data.optimizer?.trash;
     // Off by default, matching the real app's own default (Decision 8) and
     // keeping the status-bar `McpIndicator` out of every spec but the one that
     // asks for it — see `MockFixtures.mcp`'s own doc comment for why an
