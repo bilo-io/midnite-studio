@@ -1,7 +1,17 @@
 import { test, type Page } from '@playwright/test';
 
-import { fixtures } from './fixtures';
-import { installMockBridge, type MockFixtures } from './mock-bridge';
+import {
+  buildReproducibleHistory,
+  DAY_S,
+  fixtures,
+  installMockBridge,
+  type MockFixtures,
+  REPRODUCIBLE_NOW_S,
+  REPRODUCIBLE_REMOTE,
+  setTheme,
+  shotPath,
+  stubGravatars,
+} from './shots-helper';
 
 /**
  * The Phase 19 Theme D screenshots.
@@ -18,12 +28,7 @@ const OUT = '../../docs/screenshots/phase-19-dashboard';
 
 const MAIN = '/tmp/midnite-studio';
 
-const GITHUB_REMOTE = {
-  name: 'origin',
-  fetchUrl: 'git@github.com:bilo-io/midnite-studio.git',
-  pushUrl: 'git@github.com:bilo-io/midnite-studio.git',
-  forge: { host: 'github.com', owner: 'bilo-io', repo: 'midnite-studio', kind: 'github' },
-};
+const GITHUB_REMOTE = REPRODUCIBLE_REMOTE;
 
 const localRef = (name: string, over: Record<string, unknown> = {}) => ({
   name,
@@ -36,70 +41,10 @@ const localRef = (name: string, over: Record<string, unknown> = {}) => ({
   ...over,
 });
 
-/**
- * A year of plausible history, so the heatmap has a shape rather than two dots.
- *
- * Generated from a seeded pattern instead of `Math.random()`: a screenshot that
- * looks different every run is one nobody can review a change to.
- */
-const DAY = 86_400;
-const TODAY = Math.floor(Date.UTC(2026, 7, 26, 12) / 1000);
+const DAY = DAY_S;
+const TODAY = REPRODUCIBLE_NOW_S;
 
-const PEOPLE = [
-  { name: 'Ada Lovelace', email: 'ada@example.com' },
-  { name: 'Grace Hopper', email: 'grace@example.com' },
-  { name: 'Bo Diddley', email: 'bo@example.com' },
-];
-
-const SUBJECTS = [
-  'feat(phase-19): the dashboard becomes a board',
-  'fix(graph): lane ink against a CVD-safe palette',
-  'refactor(stats): one traversal, many aggregations',
-  'chore(todo): claim Phase 19 Theme D',
-  'feat(forge): gh issue list, behind the existing wrapper',
-  'test(dashboard): the author filter scopes every widget',
-];
-
-function buildHistory(): { calendar: { date: string; count: number }[]; activity: unknown[] } {
-  const calendar: { date: string; count: number }[] = [];
-  const activity: unknown[] = [];
-
-  /*
-    Walked NEWEST-first so the 60-commit cap keeps the newest 60.
-
-    Counting down from the oldest day and stopping at 60 would fill the feed
-    with commits from a year ago and leave today's off it — the calendar would
-    show a busy August and the feed would show nothing since September.
-  */
-  for (let back = 0; back <= 364; back += 1) {
-    const at = TODAY - back * DAY;
-    const date = new Date(at * 1000).toLocaleDateString('en-CA');
-    const weekday = new Date(at * 1000).getUTCDay();
-
-    // Quiet weekends, a mid-week peak, and a slow build over the year — the
-    // pattern a real repository has, from a formula rather than a dice roll.
-    const seasonal = Math.round(((364 - back) / 364) * 3);
-    const weekly = weekday === 0 || weekday === 6 ? 0 : back % 5 === 0 ? 3 : 1;
-    const count = Math.max(0, weekly + seasonal - (back % 11 === 0 ? 2 : 0));
-
-    calendar.push({ date, count });
-    for (let i = 0; i < count && activity.length < 60; i += 1) {
-      const person = PEOPLE[(back + i) % PEOPLE.length];
-      activity.push({
-        sha: `${back}${i}`.padStart(40, 'e'),
-        at: at - i * 900,
-        authorName: person?.name ?? 'Ada Lovelace',
-        authorEmail: person?.email ?? 'ada@example.com',
-        subject: SUBJECTS[(back + i) % SUBJECTS.length] ?? 'chore: tidy',
-      });
-    }
-  }
-
-  calendar.reverse();
-  return { calendar, activity };
-}
-
-const { calendar, activity } = buildHistory();
+const { calendar, activity } = buildReproducibleHistory();
 
 const shots: MockFixtures = {
   ...fixtures,
@@ -254,15 +199,11 @@ const shots: MockFixtures = {
  * reproduce is one nobody can review a change to. Aborting the request takes
  * the same path a real 404 does, deterministically and without the network.
  */
-async function stubAvatars(page: Page): Promise<void> {
-  await page.route('**/gravatar.com/**', (route) => route.abort());
-}
-
 /** The grid positions from a measured width and the tiles animate in. */
 const SETTLE_MS = 600;
 
 async function openDashboard(page: Page): Promise<void> {
-  await stubAvatars(page);
+  await stubGravatars(page);
   await installMockBridge(page, shots);
   await page.goto('/');
   await page.getByRole('link', { name: 'Dashboard', exact: true }).click();
@@ -276,20 +217,20 @@ test.describe('dashboard screenshots', () => {
 
   test('the board, light', async ({ page }) => {
     await openDashboard(page);
-    await page.screenshot({ path: `${OUT}/dashboard-light.png` });
+    await page.screenshot({ path: shotPath(OUT, 'dashboard-light.png') });
   });
 
   test('the board, dark', async ({ page }) => {
-    await stubAvatars(page);
+    await stubGravatars(page);
     await installMockBridge(page, shots);
     await page.goto('/');
     // Set before the board is opened so the grid's own stylesheet overrides are
     // in force for the first paint of every tile.
-    await page.evaluate(() => document.documentElement.classList.add('dark'));
+    await setTheme(page, 'dark');
     await page.getByRole('link', { name: 'Dashboard', exact: true }).click();
     await page.getByRole('region', { name: 'Repo health' }).waitFor();
     await page.waitForTimeout(SETTLE_MS);
-    await page.screenshot({ path: `${OUT}/dashboard-dark.png` });
+    await page.screenshot({ path: shotPath(OUT, 'dashboard-dark.png') });
   });
 
   test('the board scoped to one author', async ({ page }) => {
@@ -299,13 +240,13 @@ test.describe('dashboard screenshots', () => {
       .getByRole('button', { name: /Grace Hopper/ })
       .click();
     await page.waitForTimeout(400);
-    await page.screenshot({ path: `${OUT}/dashboard-author-filter.png` });
+    await page.screenshot({ path: shotPath(OUT, 'dashboard-author-filter.png') });
   });
 
   test('the widget picker', async ({ page }) => {
     await openDashboard(page);
     await page.getByRole('button', { name: 'Widgets and layout' }).click();
     await page.getByRole('menu').waitFor();
-    await page.screenshot({ path: `${OUT}/dashboard-widget-menu.png` });
+    await page.screenshot({ path: shotPath(OUT, 'dashboard-widget-menu.png') });
   });
 });

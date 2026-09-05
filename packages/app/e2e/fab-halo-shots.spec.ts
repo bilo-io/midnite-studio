@@ -1,7 +1,13 @@
 import { expect, test, type Page } from '@playwright/test';
 
-import { fixtures } from './fixtures';
-import { installMockBridge, type MockFixtures } from './mock-bridge';
+import {
+  fixtures,
+  installMockBridge,
+  type MockFixtures,
+  setReducedMotion,
+  setTheme,
+  shotPath,
+} from './shots-helper';
 
 /**
  * The collapsed FAB with a loop live — before/after shots for the orbiting
@@ -35,7 +41,7 @@ async function shotFab(page: Page, name: string): Promise<void> {
   const pad = 28;
   await page.waitForTimeout(300);
   await page.screenshot({
-    path: `${OUT}/${name}-${VARIANT}.png`,
+    path: shotPath(OUT, `${name}-${VARIANT}.png`),
     clip: { x: box.x - pad, y: box.y - pad, width: box.width + pad * 2, height: box.height + pad * 2 },
   });
 }
@@ -43,8 +49,8 @@ async function shotFab(page: Page, name: string): Promise<void> {
 for (const mode of ['light', 'dark'] as const) {
   test(`the collapsed FAB with a loop live, per tab, then waiting (${mode})`, async ({ page }) => {
     await open(page);
-    if (mode === 'dark') await page.evaluate(() => document.documentElement.classList.add('dark'));
-    await page.evaluate(() => document.documentElement.setAttribute('data-motion', 'reduced'));
+    if (mode === 'dark') await setTheme(page, 'dark');
+    await setReducedMotion(page);
 
     await fab(page).click();
     await expect(page.getByRole('button', { name: 'Ideate', exact: true })).toBeVisible();

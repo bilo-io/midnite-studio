@@ -1,7 +1,13 @@
 import { expect, test } from '@playwright/test';
 
-import { fixtures } from './fixtures';
-import { installMockBridge, type MockFixtures } from './mock-bridge';
+import {
+  fixtures,
+  installMockBridge,
+  type MockFixtures,
+  settle,
+  shotPath,
+  SHOT_VIEWPORTS,
+} from './shots-helper';
 
 /**
  * The Phase 47 Theme D screenshots. Not assertions — `conflict-resolution-studio.spec.ts`
@@ -56,14 +62,14 @@ const shots: MockFixtures = {
 
 test.describe('conflict resolution studio screenshots', () => {
   test.skip(!process.env.MSTUDIO_SHOTS, 'set MSTUDIO_SHOTS=1 to regenerate');
-  test.use({ viewport: { width: 1400, height: 900 } });
+  test.use({ viewport: SHOT_VIEWPORTS.board });
 
   test('the banner with a conflicted, clickable path', async ({ page }) => {
     await installMockBridge(page, shots);
     await page.goto('/graph');
     await expect(page.getByTestId('conflict-banner')).toBeVisible();
-    await page.waitForTimeout(SETTLE_MS);
-    await page.screenshot({ path: `${OUT}/conflict-banner.png` });
+    await settle(page, SETTLE_MS);
+    await page.screenshot({ path: shotPath(OUT, 'conflict-banner.png') });
   });
 
   test('the Studio open for a two-region conflict', async ({ page }) => {
@@ -71,8 +77,8 @@ test.describe('conflict resolution studio screenshots', () => {
     await page.goto('/graph');
     await page.getByTestId('conflict-banner').getByRole('button', { name: 'src/config.ts' }).click();
     await page.getByTestId('conflict-resolution-studio').getByText('2 regions left').waitFor();
-    await page.waitForTimeout(SETTLE_MS);
-    await page.screenshot({ path: `${OUT}/conflict-studio-two-regions.png` });
+    await settle(page, SETTLE_MS);
+    await page.screenshot({ path: shotPath(OUT, 'conflict-studio-two-regions.png') });
   });
 
   test('one region resolved, one left', async ({ page }) => {
@@ -99,8 +105,8 @@ test.describe('conflict resolution studio screenshots', () => {
     await page.goto('/graph');
     await page.getByTestId('conflict-banner').getByRole('button', { name: 'src/config.ts' }).click();
     await page.getByTestId('conflict-resolution-studio').getByText('1 region left').waitFor();
-    await page.waitForTimeout(SETTLE_MS);
-    await page.screenshot({ path: `${OUT}/conflict-studio-one-region-left.png` });
+    await settle(page, SETTLE_MS);
+    await page.screenshot({ path: shotPath(OUT, 'conflict-studio-one-region-left.png') });
   });
 
   test('a suggested resolution (Phase 47 Theme E)', async ({ page }) => {
@@ -121,7 +127,7 @@ test.describe('conflict resolution studio screenshots', () => {
     await studio.getByLabel('Suggestions from').waitFor();
     await studio.getByRole('button', { name: 'Suggest a resolution' }).first().click();
     await studio.getByTestId('suggestion-panel').waitFor();
-    await page.waitForTimeout(SETTLE_MS);
-    await page.screenshot({ path: `${OUT}/conflict-studio-suggestion.png` });
+    await settle(page, SETTLE_MS);
+    await page.screenshot({ path: shotPath(OUT, 'conflict-studio-suggestion.png') });
   });
 });

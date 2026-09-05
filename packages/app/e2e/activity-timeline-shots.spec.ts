@@ -1,7 +1,14 @@
 import { expect, test, type Page } from '@playwright/test';
 
-import { fixtures } from './fixtures';
-import { installMockBridge, type MockFixtures } from './mock-bridge';
+import {
+  DAY_S,
+  fixtures,
+  installShotsBridge,
+  type MockFixtures,
+  REPRODUCIBLE_NOW_S,
+  setTheme,
+  shotPath,
+} from './shots-helper';
 
 /**
  * Committed screenshots for the commit-activity timeline: the vertical panel
@@ -16,8 +23,7 @@ import { installMockBridge, type MockFixtures } from './mock-bridge';
 
 const OUT = '../../docs/screenshots/adhoc-activity-timeline';
 
-const DAY_S = 86_400;
-const nowS = Math.floor(Date.now() / 1000);
+const nowS = REPRODUCIBLE_NOW_S;
 
 /** A busy-looking week, so every bucket style has something to say. */
 const TIMELINE = Array.from({ length: 40 }, (_, i) => ({
@@ -68,7 +74,7 @@ interface Shot {
  * clicking through the settings view in every screenshot.
  */
 async function land(page: Page, theme: 'light' | 'dark', prefs: Shot): Promise<void> {
-  if (theme === 'dark') await page.emulateMedia({ colorScheme: 'dark' });
+  await setTheme(page, theme);
   await page.addInitScript((seeded) => {
     window.localStorage.setItem(
       'midnite-studio.ui',
@@ -86,11 +92,11 @@ async function land(page: Page, theme: 'light' | 'dark', prefs: Shot): Promise<v
       }),
     );
   }, prefs);
-  await installMockBridge(page, dataFor(prefs.timeframe));
+  await installShotsBridge(page, dataFor(prefs.timeframe));
   await page.goto('/');
   await expect(page.getByTestId('status-bar')).toBeVisible();
   if (theme === 'dark') {
-    await page.evaluate(() => document.documentElement.classList.add('dark'));
+    await setTheme(page, 'dark');
   }
   await expect(page.getByTestId('commit-activity-chart')).toBeVisible();
   await page.waitForTimeout(300);
@@ -154,7 +160,7 @@ test.describe('activity timeline screenshots', () => {
       const slug = [shot.orientation, shot.style, shot.name].filter(Boolean).join('-');
       test(`${slug} ${theme}`, async ({ page }) => {
         await land(page, theme, shot);
-        await page.screenshot({ path: `${OUT}/${slug}-${theme}.png` });
+        await page.screenshot({ path: shotPath(OUT, `${slug}-${theme}.png`) });
       });
     }
   }

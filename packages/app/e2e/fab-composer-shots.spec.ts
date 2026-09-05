@@ -1,7 +1,6 @@
 import { test, expect, type Page } from '@playwright/test';
 
-import { fixtures } from './fixtures';
-import { installMockBridge, type MockFixtures } from './mock-bridge';
+import { fixtures, installMockBridge, type MockFixtures, shotPath } from './shots-helper';
 
 /**
  * The FAB composer, one shot per tab.
@@ -34,7 +33,7 @@ async function shootEveryTab(page: Page, suffix: string): Promise<void> {
   for (const [tab, id] of TABS) {
     await page.getByRole('button', { name: tab, exact: true }).click();
     await page.waitForTimeout(250);
-    await page.getByTestId(`loop-composer-${id}`).screenshot({ path: `${OUT}/${id}${suffix}.png` });
+    await page.getByTestId(`loop-composer-${id}`).screenshot({ path: shotPath(OUT, `${id}${suffix}.png`) });
   }
 }
 

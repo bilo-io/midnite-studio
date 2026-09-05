@@ -1,7 +1,15 @@
-import { expect, test, type Page } from '@playwright/test';
+import { expect, test } from '@playwright/test';
 
-import { fixtures } from './fixtures';
-import { clickRailLink, installMockBridge, type MockFixtures } from './mock-bridge';
+import {
+  clickRailLink,
+  createShotTaker,
+  fixtures,
+  installMockBridge,
+  type MockFixtures,
+  mockSha,
+  REPRODUCIBLE_REMOTE,
+  setTheme,
+} from './shots-helper';
 
 /**
  * The Reviews view's loading states, held still and photographed.
@@ -24,16 +32,9 @@ const OUT = '../../docs/screenshots/phase-20-reviews-loading';
    that four tests do not add a minute to the suite. */
 const LATENCY = 4000;
 
-const HEAD_SHA = 'c0ffee'.padEnd(40, '0');
+const HEAD_SHA = mockSha('c0ffee', '0');
 
-const REMOTES = [
-  {
-    name: 'origin',
-    fetchUrl: 'git@github.com:bilo-io/midnite-studio.git',
-    pushUrl: 'git@github.com:bilo-io/midnite-studio.git',
-    forge: { host: 'github.com', owner: 'bilo-io', repo: 'midnite-studio', kind: 'github' },
-  },
-];
+const REMOTES = [REPRODUCIBLE_REMOTE];
 
 const pull = {
   number: 128,
@@ -158,9 +159,7 @@ function prRow(page: Page, title: string) {
  * their end state and cancels infinite ones to their first frame, so the chrome
  * settles and the bars sit at full opacity, the same way every time.
  */
-async function shoot(page: Page, name: string): Promise<void> {
-  await page.screenshot({ path: `${OUT}/${name}.png`, animations: 'disabled' });
-}
+const shoot = createShotTaker(OUT, { animations: 'disabled' });
 
 test('the pull request list, mid-fetch', async ({ page }) => {
   await openReviews(page);
@@ -227,11 +226,11 @@ test('the Files tab in dark, mid-fetch', async ({ page }) => {
   // The bars are `bg-muted`, so they follow the theme rather than being a grey
   // that only works on one ground. This is the shot that would catch it if that
   // stopped being true.
-  await page.emulateMedia({ colorScheme: 'dark' });
+  await setTheme(page, 'dark');
   await openReviews(page);
   await prRow(page, pull.title).click();
   await expect(page.getByRole('region', { name: `Pull request #${pull.number}` })).toBeVisible();
-  await page.evaluate(() => document.documentElement.classList.add('dark'));
+  await setTheme(page, 'dark');
 
   const files = page.getByRole('tab', { name: 'Files', exact: true });
   await files.click();

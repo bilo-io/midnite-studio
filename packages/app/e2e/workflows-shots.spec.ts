@@ -1,7 +1,14 @@
 import { expect, test, type Page } from '@playwright/test';
 
-import { fixtures } from './fixtures';
-import { installMockBridge, type MockFixtures } from './mock-bridge';
+import {
+  fixtures,
+  installMockBridge,
+  type MockFixtures,
+  REPRODUCIBLE_NOW_MS,
+  settle,
+  SHOT_VIEWPORTS,
+  shotPath,
+} from './shots-helper';
 
 /**
  * The Phase 43 (Workflows) screenshots.
@@ -15,7 +22,7 @@ import { installMockBridge, type MockFixtures } from './mock-bridge';
  */
 const OUT = '../../docs/screenshots/phase-43-workflows';
 
-const NOW = Date.now();
+const NOW = REPRODUCIBLE_NOW_MS;
 
 const SEEDED_WORKFLOW = {
   id: 'wf-seeded',
@@ -120,25 +127,25 @@ async function openWorkflows(page: Page, data: MockFixtures): Promise<void> {
     await expect(page.getByRole('button', { name: 'New workflow' })).toBeVisible({ timeout: 500 });
   }).toPass({ timeout: 5000 });
 
-  await page.waitForTimeout(SETTLE_MS);
+  await settle(page, SETTLE_MS);
 }
 
 test.describe('workflows screenshots', () => {
   test.skip(!process.env.MSTUDIO_SHOTS, 'set MSTUDIO_SHOTS=1 to regenerate');
-  test.use({ viewport: { width: 1600, height: 1000 } });
+  test.use({ viewport: SHOT_VIEWPORTS.wide });
 
   test('the empty list', async ({ page }) => {
     await openWorkflows(page, { ...fixtures, appWorkflows: [] });
     await page.getByText('No workflows yet').waitFor();
-    await page.screenshot({ path: `${OUT}/workflows-empty.png` });
+    await page.screenshot({ path: shotPath(OUT, 'workflows-empty.png') });
   });
 
   test('a workflow with connected nodes on the canvas', async ({ page }) => {
     await openWorkflows(page, shots);
     await page.getByText('Fetch, transform, notify').first().click();
     await page.locator('[data-edge-id]').first().waitFor();
-    await page.waitForTimeout(SETTLE_MS);
-    await page.screenshot({ path: `${OUT}/workflows-canvas.png` });
+    await settle(page, SETTLE_MS);
+    await page.screenshot({ path: shotPath(OUT, 'workflows-canvas.png') });
   });
 
   test('a selected node', async ({ page }) => {
@@ -146,8 +153,8 @@ test.describe('workflows screenshots', () => {
     await page.getByText('Fetch, transform, notify').first().click();
     await page.locator('[data-node-id="n1"]').waitFor();
     await page.locator('[data-node-id="n1"]').click();
-    await page.waitForTimeout(SETTLE_MS);
-    await page.screenshot({ path: `${OUT}/workflows-node-selected.png` });
+    await settle(page, SETTLE_MS);
+    await page.screenshot({ path: shotPath(OUT, 'workflows-node-selected.png') });
   });
 
   test('the node inspector offering an upstream reference (Theme F)', async ({ page }) => {
@@ -157,8 +164,8 @@ test.describe('workflows screenshots', () => {
     await page.locator('[data-node-id="n2"]').click();
     await page.getByLabel('Left').focus();
     await page.getByText('Insert a reference').waitFor();
-    await page.waitForTimeout(SETTLE_MS);
-    await page.screenshot({ path: `${OUT}/workflows-node-inspector-reference.png` });
+    await settle(page, SETTLE_MS);
+    await page.screenshot({ path: shotPath(OUT, 'workflows-node-inspector-reference.png') });
   });
 
   test('the run history popover (Theme G)', async ({ page }) => {
@@ -168,8 +175,8 @@ test.describe('workflows screenshots', () => {
     await page.getByRole('button', { name: 'Run', exact: true }).click();
     await page.getByRole('button', { name: 'Run history' }).click();
     await page.getByText('Completed').waitFor();
-    await page.waitForTimeout(SETTLE_MS);
-    await page.screenshot({ path: `${OUT}/workflows-run-history.png` });
+    await settle(page, SETTLE_MS);
+    await page.screenshot({ path: shotPath(OUT, 'workflows-run-history.png') });
   });
 
   test('viewing a run, read-only with per-node status (Theme G)', async ({ page }) => {
@@ -182,8 +189,8 @@ test.describe('workflows screenshots', () => {
     await page.getByText('Viewing run').waitFor();
     await page.locator('[data-node-id="n1"]').click();
     await page.getByText('Duration').waitFor();
-    await page.waitForTimeout(SETTLE_MS);
-    await page.screenshot({ path: `${OUT}/workflows-run-view.png` });
+    await settle(page, SETTLE_MS);
+    await page.screenshot({ path: shotPath(OUT, 'workflows-run-view.png') });
   });
 
   test('the Workflows settings page (Theme I)', async ({ page }) => {
@@ -197,7 +204,7 @@ test.describe('workflows screenshots', () => {
       .getByRole('button', { name: 'Workflows' })
       .click();
     await page.getByText('Default node timeout').waitFor();
-    await page.waitForTimeout(SETTLE_MS);
-    await page.screenshot({ path: `${OUT}/workflows-settings-page.png` });
+    await settle(page, SETTLE_MS);
+    await page.screenshot({ path: shotPath(OUT, 'workflows-settings-page.png') });
   });
 });

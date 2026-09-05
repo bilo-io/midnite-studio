@@ -1,6 +1,13 @@
 import { expect, test, type Page } from '@playwright/test';
-import { fixtures } from './fixtures';
-import { clickRailLink, installMockBridge, type MockFixtures } from './mock-bridge';
+import {
+  clickRailLink,
+  fixtures,
+  installMockBridge,
+  type MockFixtures,
+  REPRODUCIBLE_REMOTE,
+  setTheme,
+  shotPath,
+} from './shots-helper';
 
 /**
  * The committed screenshots for Phase 19 Theme E.
@@ -16,7 +23,7 @@ import { clickRailLink, installMockBridge, type MockFixtures } from './mock-brid
 const OUT = '../../docs/screenshots/phase-19-actions';
 const ESC = String.fromCharCode(27);
 
-const REMOTES = [{ name: 'origin', fetchUrl: 'git@github.com:bilo-io/midnite-studio.git', pushUrl: 'git@github.com:bilo-io/midnite-studio.git', forge: { host: 'github.com', owner: 'bilo-io', repo: 'midnite-studio', kind: 'github' } }];
+const REMOTES = [REPRODUCIBLE_REMOTE];
 const run = (o: Record<string, unknown>) => ({ name: 'CI', status: 'completed', conclusion: 'success', headBranch: 'main', headSha: 'a'.repeat(40), createdAt: '2026-08-26T10:00:00Z', startedAt: '2026-08-26T10:00:00Z', updatedAt: '2026-08-26T10:04:12Z', event: 'push', workflowId: '900', workflowName: 'CI', ...o, url: `https://github.com/bilo-io/midnite-studio/actions/runs/${String(o['id'])}` });
 const step = (n: number, name: string, c: string) => ({ number: n, name, status: 'completed', conclusion: c, startedAt: '2026-08-26T10:00:10Z', completedAt: '2026-08-26T10:01:40Z' });
 const job = (o: Record<string, unknown>) => ({ status: 'completed', conclusion: 'success', startedAt: '2026-08-26T10:00:10Z', completedAt: '2026-08-26T10:03:50Z', steps: [], ...o, url: `https://github.com/bilo-io/midnite-studio/actions/runs/2/job/${String(o['id'])}` });
@@ -86,20 +93,19 @@ async function land(page: Page): Promise<void> {
 
 test('light', async ({ page }) => {
   await land(page);
-  await page.screenshot({ path: `${OUT}/actions-view-light.png` });
+  await page.screenshot({ path: shotPath(OUT, 'actions-view-light.png') });
 });
 
 test('dark', async ({ page }) => {
-  await page.emulateMedia({ colorScheme: 'dark' });
+  await setTheme(page, 'dark');
   await land(page);
-  await page.evaluate(() => document.documentElement.classList.add('dark'));
-  await page.waitForTimeout(400);
-  await page.screenshot({ path: `${OUT}/actions-view-dark.png` });
+  await setTheme(page, 'dark', { settleMs: 400 });
+  await page.screenshot({ path: shotPath(OUT, 'actions-view-dark.png') });
 });
 
 test('folded', async ({ page }) => {
   await land(page);
   await page.getByRole('region', { name: 'Job log' }).getByRole('button', { name: 'Collapse all groups' }).click();
   await page.waitForTimeout(300);
-  await page.screenshot({ path: `${OUT}/actions-log-folded.png` });
+  await page.screenshot({ path: shotPath(OUT, 'actions-log-folded.png') });
 });
