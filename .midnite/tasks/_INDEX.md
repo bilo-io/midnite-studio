@@ -12,7 +12,7 @@
 
 - **[Phase 62 · One Escape, one dismissal](phases/phase-62-one-escape-one-dismissal.md)** (0% · 0/33) — **Planned, not started.** Twenty-four hand-rolled Escape handlers, no two of which agree, and no notion anywhere in the renderer of which overlay is on top. `stopPropagation()` on a `window` listener does nothing to sibling listeners on the same `window` — that needs `stopImmediatePropagation`, which appears **zero** times in the codebase — so the two overlays that try to be well-behaved are not, and one Escape dismisses two things by three reachable paths (graph selection + context menu; board card + context menu; a toast over any dialog). `palette-store.ts:115` already names the gap out loud: *"the whole nesting question, avoided in one check."* This builds the answer once — a module-level LIFO stack behind a single `window` listener, delivering to the topmost blocking entry — and folds occluder registration into the same call, which fixes the four blocking overlays currently painted underneath a live `WebContentsView`. 33 items, `packages/app` only, no new dependency.
 
-- **[Phase 61 · Database Explorer](phases/phase-61-database-explorer.md)** (0% · 0/53) — **Planned, not started.** A DataGrip-style database client — the first phase to touch anything database-shaped, with no prior art anywhere in this tracker. A new **Database** entry joins the Workspace sidebar group (Explorer/Search/Tests), connecting to Postgres/MySQL/MariaDB/MSSQL/SQLite behind a new `packages/db-engine` (mirroring `git-engine`'s electron-free boundary), with a schema tree and multi-tab SQL query editors reusing the Changes view's own `WorkbenchTab`/`TabStrip` mechanism (generalized with a new `'query'` kind) and the existing CodeMirror 6 setup (`@codemirror/lang-sql`, new dependency). Results render in a `@tanstack/react-virtual`-windowed grid with inline-editable cells generating PK-keyed `UPDATE`s, staleness-checked before applying; non-`SELECT` statements route through the app's existing blast-radius confirm dialog. SQLite's `better-sqlite3` driver is isolated as its own theme for the same native-module ABI risk `node-pty` already carries. No SSH tunneling or SSL/TLS connection config in v1 — a real gap, recorded rather than dropped.
+- **[Phase 61 · Database Explorer](phases/phase-61-database-explorer.md)** (0% · 0/94 · **Refined x1**) — **Planned, not started.** A DataGrip-style database client behind a new `packages/db-engine`. The x1 refinement found **six wrong premises and one architectural conflict**. The conflict: `better-sqlite3` must load under Node 22 (ABI 127) for bare-vitest tests *and* Electron 33 (ABI 130) in the shipped app, making it the repo's first dual-ABI native consumer — which `rebuild-native.mjs:5-8` explicitly says has never existed here, naming "midnite's dual-ABI staging" as the thing avoided; Decision 6 recommends `node:sqlite` and no native module at all. The largest contract change: **`runQuery` was a plain `invoke`**, which would serialise a whole `SELECT *` through one IPC reply with no cancellation, progress or cap signal — while `stream-registry.ts` (`BATCH_SIZE = 500`, a total `POLICY` record) and `log-service.ts`'s `truncated` flag already solve exactly this, so `'query'` now joins as a `'supersede'` stream and `DbDriver.query` takes a batch callback. The rest: the workbench-store change is architectural, not "entirely in the store's scoping" (no vanilla-zustand precedent exists, and `use-prune-closed-repos.ts` is mounted from `Shell` *specifically* so it runs when Changes is not rendered) — Decision 7 recommends not scoping it at all; `TabStrip` has **neither** the new-tab button **nor** the dirty-dot convention the plan claimed to reuse; `Mod+Enter` is already `status.commit`; `tree-section.tsx` keeps collapsed children **mounted**, a trap `forge-sections.tsx` documents having already been caught by; `BlastRadius` is git-shaped and cannot carry a row estimate; and adding a `ViewId` is **17 sites**, not four — with the render arm needing to sit above the `!selectedRepoId` guard, since a database connection is not repo-scoped. Decision 12 recommends splitting into three phases along the package / IPC / view seams.
 
 - **[Phase 60 · A window that never goes blank](phases/phase-60-view-registry-and-error-boundaries.md)** (0% · 0/34) — **Planned, not started.** Three facts that are one problem: the renderer has **zero** error boundaries against eighteen `lazy()` calls, so one render throw or one 404'd chunk after an in-place reinstall blanks the whole window; the view switch is a 17-branch ternary sitting beside three per-`ViewId` records that already do the job declaratively, which is how `sessions` fell through to a `Placeholder` still pointing users at a `todo/` directory that no longer exists; and six views render no empty, loading **or** error state while both primitives exist with twenty and eighteen consumers. Deliberately small — 34 items, three themes, `packages/app` only, no new dependency, no new IPC channel, no new surface.
 
@@ -76,7 +76,7 @@ Completed work is logged append-only in [`done.md`](done.md). Deferred scope liv
 | [64 · Offline Monaco Editor & Cross-Surface Theme Engine](phases/phase-64-offline-monaco-and-themes.md) | ◻ TODO | x1 | 0/72 | `░░░░░░░░░░` | 0% | — | A B C D E F G |
 | [63 · The preferences with nowhere to live](phases/phase-63-settings-diff-and-orphan-preferences.md) | ◻ TODO | — | 0/26 | `░░░░░░░░░░` | 0% | — | A B C |
 | [62 · One Escape, one dismissal](phases/phase-62-one-escape-one-dismissal.md) | ◻ TODO | — | 0/33 | `░░░░░░░░░░` | 0% | — | A B C |
-| [61 · Database Explorer](phases/phase-61-database-explorer.md) | ◻ TODO | — | 0/53 | `░░░░░░░░░░` | 0% | — | A B C D E F G H I J |
+| [61 · Database Explorer](phases/phase-61-database-explorer.md) | ◻ TODO | x1 | 0/94 | `░░░░░░░░░░` | 0% | — | A B C D E F G H I J |
 | [60 · A window that never goes blank](phases/phase-60-view-registry-and-error-boundaries.md) | ◻ TODO | — | 0/34 | `░░░░░░░░░░` | 0% | — | A B C |
 | [59 · Workspace Optimizer](phases/phase-59-workspace-optimizer.md) | 🔄 WIP | x1 | 0/70 | `░░░░░░░░░░` | 0% | A B C E | D F |
 | [58 · Notes, and the menu that holds them](phases/phase-58-notes-and-the-menu.md) | 🔄 WIP | x1 | 0/78 | `░░░░░░░░░░` | 0% | A B C D | E F G |
@@ -200,34 +200,18 @@ Completed work is logged append-only in [`done.md`](done.md). Deferred scope liv
 
 ### [Phase 61 — Database Explorer](phases/phase-61-database-explorer.md)
 
-*A DataGrip-style database client — new **Database** entry in the Workspace sidebar group,
-connections to Postgres/MySQL/MariaDB/MSSQL/SQLite, a schema tree, and multi-tab SQL query
-editors with an inline-editable, virtualized results grid. New `packages/db-engine`, mirroring
-`git-engine`'s electron-free boundary. No SSH tunneling / SSL config in v1 — recorded as a real
-gap, not silently dropped.*
+*Refined x1: six wrong premises and one architectural conflict. `better-sqlite3` would make this the repo's first **dual-ABI** native consumer — `rebuild-native.mjs` says in as many words that node-pty being main-process-only is "what makes this a one-line story rather than midnite's dual-ABI staging". `runQuery` was specified as a plain `invoke` when a full streaming precedent already exists (`stream-registry.ts`, `BATCH_SIZE = 500`, a `truncated` flag). The workbench-store change is architectural, not "entirely scoping". `TabStrip` has neither the new-tab button nor the dirty-dot convention the plan said it would reuse. `Mod+Enter` is `status.commit`. And `tree-section.tsx` keeps collapsed children **mounted**, a trap already documented in this repo.*
 
-- ◻ **A** — Shared contracts: `ConnectionConfig`/`SchemaTree`/`QueryResult`/`StatementKind` zod
-  schemas in `shared`, new IPC channels, the `{ok:true|false}` envelope.
-- ◻ **B** — `db-engine`'s pure-JS drivers: Postgres/MySQL/MariaDB/MSSQL behind one `DbDriver`
-  interface, connection pooling, schema introspection, statement-kind sniffing.
-- ◻ **C** — `db-engine`'s SQLite driver: `better-sqlite3`, a native module carrying the same
-  ABI-rebuild risk as `node-pty`, isolated as its own theme.
-- ◻ **D** — `desktop`: IPC handlers wiring `db-engine` in, a `safeStorage`-backed credential
-  vault (first use of `safeStorage` in this repo) and a `userData`-rooted non-secret connections
-  store.
-- ◻ **E** — Sidebar nav: new `ViewId`, a `Database` entry in `WORKSPACE_NAV_ITEMS` (ungated),
-  the view shell.
-- ◻ **F** — Schema tree browser: per-connection lazy-loaded tree (tables/views/columns/PK-FK),
-  the add/edit-connection dialog.
-- ◻ **G** — Query tab editor: generalizes `workbench-store`'s `WorkbenchTab`/`TabStrip` beyond
-  the Changes view with a new `'query'` kind, CodeMirror 6 + `@codemirror/lang-sql` for the
-  editor.
-- ◻ **H** — Results grid: `@tanstack/react-virtual`-windowed, inline-editable cells generating
-  PK-keyed `UPDATE`s with a staleness re-check before applying.
-- ◻ **I** — Destructive-statement safety gate: sniffs non-`SELECT` statements, routes through
-  the existing blast-radius `confirm-dialog.tsx`.
-- ◻ **J** — Verification: full connect → browse → query → edit flow against a SQLite fixture in
-  CI, screenshots, a human pass against real Postgres/MySQL/MariaDB/MSSQL.
+- ◻ **A** — Shared contracts: positional `rows` (SQL allows duplicate column names), `sqlitePath` with optional host/port, bigint/Date/Buffer normalisation, and channels split across **both** `CHANNELS` and `EVENT_CHANNELS` for the streaming pair.
+- ◻ **B** — `db-engine` package from git-engine's literal template (no `type` field, hand-written tsconfig references since `syncProjectReferences: false`), four cursor-based drivers, a pooled connect guarded against the double-bind race `demo-api/server.ts` already documents, a CTE-aware statement sniffer, and **three** eslint edits not one.
+- ◻ **C** — SQLite (**M, was S**): six packaging edits — `dependencies` not dev, esbuild `external`, `rebuild-native --only` list, `asarUnpack`, an unpacked-path `require` fallback, and the `verify-dist` native assertion that does not exist today. Gated on Decision 6, which recommends `node:sqlite` instead.
+- ◻ **D** — IPC + vault: `register`/`configure` split (handlers register *before* `userData` exists), trust-store's shape with real zod, first `safeStorage` use — but the app already has a plaintext key in localStorage that names `safeStorage` as what it skipped — plus `'query'` in `StreamKind` **and** `POLICY`, and a batch producer mirroring `log-service.ts`.
+- ◻ **E** — Nav + shell (**M, was S**): adding a `ViewId` is **17 sites**, seven compiler-enforced and ten silent — including `VIEW_IDS`, which routing derives from. The render arm must sit **above** the `!selectedRepoId` guard, because a database connection is not repo-scoped.
+- ◻ **F** — Schema tree: `TreeSection` supplies chrome only and fights lazy loading (`<Collapse>` keeps children mounted), so the consumer ANDs both fold states into `enabled`; `depth` is capped at 4 levels, which is exactly what a schema tree needs.
+- ◻ **G** — Query tabs (**L, was M**): a `'query'` arm carrying no `repoId` — which breaks `closeRepoTabs` and Phase 28's pruning — plus the `+` button `TabStrip` has never had, and a `●` in its `stats` slot. Decision 7 recommends **not** scoping the store.
+- ◻ **H** — Results grid: rows stream in by subscription with stale-batch discard, `truncated` rendered visibly, parameterised PK-keyed `UPDATE`s in one transaction with their staleness re-read, editing refused on joins and PK-less tables, and CSV via the `Blob` + `<a download>` precedent that settled policy against a new IPC channel.
+- ◻ **I** — Destructive gate: **not** `blastRadius`, whose type is git-shaped (`{sha, subject}[]`) — the row estimate goes in `warnings`, and `WITH … DELETE` is the sniffer's must-not-fail case.
+- ◻ **J** — Suites + CI: four Playwright specs, shots through Phase 56 Theme G's shared helper, and three providers as service containers with MSSQL manual (Decision 5, now settled).
 
 ### [Phase 60 — A window that never goes blank](phases/phase-60-view-registry-and-error-boundaries.md)
 
