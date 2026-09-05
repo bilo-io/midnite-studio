@@ -4,17 +4,17 @@ Four separate phases have deferred the same feature with the same sentence. Phas
 — *"the inspector is a narrow panel; split view earns its keep only in a full-width diff surface,
 which does not exist yet"* — and Phase 20 restated it as a second reason: *"a second
 diff-rendering surface is its own project and a real risk of drifting visually from the one everyone
-else uses."* Phase 22 repeated the ruling for stashes. [`outstanding.md`](outstanding.md) still
+else uses."* Phase 22 repeated the ruling for stashes. [`outstanding.md`](../outstanding.md) still
 carries the line. Both premises have quietly stopped being true. Phase 17's workbench gave the app
 full-width tabs — `all-changes` and `review` are already two of them — and Phase 12's own diff work
-turned [`diff-rows.ts`](../packages/app/src/features/diff/diff-rows.ts) into a pure, tested,
+turned [`diff-rows.ts`](../../../packages/app/src/features/diff/diff-rows.ts) into a pure, tested,
 DOM-free row builder that a second arrangement can sit *beside* rather than fork.
 
 The engine has been ready the whole time and nobody has needed it to change. Every `DiffLine` in
-[`shared/src/domain/diff.ts`](../packages/shared/src/domain/diff.ts) already carries **both**
+[`shared/src/domain/diff.ts`](../../../packages/shared/src/domain/diff.ts) already carries **both**
 `oldNo` and `newNo`, because `parseUnifiedDiff` has tracked two line counters since Phase 12 — a
 unified view throws one of them away on every row. `annotateIntraline` in
-[`diff-parser.ts`](../packages/git-engine/src/parsers/diff-parser.ts) already computes word-level
+[`diff-parser.ts`](../../../packages/git-engine/src/parsers/diff-parser.ts) already computes word-level
 `IntralineRange[]` and stores each side's ranges on its own line, so a split view inherits word-diff
 for free and does not get a say in it. This phase therefore adds **no git command, no IPC channel
 and no diff schema** — the whole of A–G is renderer work, and only Theme H touches a contract at
@@ -23,7 +23,7 @@ all, to add the one field a pull request has always been missing.
 Room is the other half. Two of the four diff surfaces are already full-width; the Changes pane takes
 the remainder of a resizable panel and is fine. The commit inspector is the one Phase 12 was talking
 about: it lives in the Graph's right dock, capped at `detailWidth` **max 720** in
-[`LAYOUT_BOUNDS`](../packages/app/src/store/ui-store.ts), and no amount of split-view code makes 720
+[`LAYOUT_BOUNDS`](../../../packages/app/src/store/ui-store.ts), and no amount of split-view code makes 720
 pixels into two readable columns. Rather than widen the dock until it eats the graph, Theme G gives
 `WorkbenchTab` a third kind so a commit can be *opened* the way a review already can, and leaves the
 dock as the quick-look panel it is good at being.
@@ -56,7 +56,7 @@ Effort tags: **S** ≈ an hour or two · **M** ≈ half a day · **L** ≈ a day
 Pure, DOM-free and testable, sitting beside `toDiffRows` in the same module. Everything else reads
 off this shape, so it lands first.
 
-- [x] `SplitRow` union in [`diff-rows.ts`](../packages/app/src/features/diff/diff-rows.ts):
+- [x] `SplitRow` union in [`diff-rows.ts`](../../../packages/app/src/features/diff/diff-rows.ts):
       `{kind:'hunk'}` (spans both columns, carries the same `gap` and heading as today),
       `{kind:'pair', left: DiffLine | null, right: DiffLine | null}`, plus the existing
       `{kind:'thread'}` and `{kind:'composer'}` re-used verbatim — threads span both columns, so
@@ -67,7 +67,7 @@ off this shape, so it lands first.
 - [x] `pairRun(dels: DiffLine[], adds: DiffLine[]): SplitRow[]` as its own export: rows
       `0..min(n,m)-1` sit side by side, the remainder gets `null` opposite. This is deliberately the
       same positional rule as `pairLines` in
-      [`diff-parser.ts`](../packages/git-engine/src/parsers/diff-parser.ts) — add a test that
+      [`diff-parser.ts`](../../../packages/git-engine/src/parsers/diff-parser.ts) — add a test that
       asserts the correspondence directly, so a future change to one is caught against the other.
 - [x] `canSplit(diff: FileDiff): boolean` — `false` for `combined` (a conflict diff has three sides
       and no honest two-column reading), for `binary`, and for a diff with no hunks. The call sites
@@ -77,7 +77,7 @@ off this shape, so it lands first.
       anchored to.
 - [x] An exported `splitRowKey(row, index)` so the virtualizer and React both key on something
       stable across a context expansion, rather than on the array index.
-- [x] Vitest in [`diff-rows.test.ts`](../packages/app/src/features/diff/diff-rows.test.ts): a
+- [x] Vitest in [`diff-rows.test.ts`](../../../packages/app/src/features/diff/diff-rows.test.ts): a
       balanced 3-for-3 run, an unbalanced 5-for-2 and 2-for-5, a pure addition against an empty
       file, a pure deletion, a hunk gap, and a `combined` diff returning `canSplit === false`.
 
@@ -87,7 +87,7 @@ The theme that makes the "there is one diff renderer" guardrail structurally tru
 promise. No user-visible change lands here; unified must look byte-identical afterwards.
 
 - [x] Extract the body of `LineRow` in
-      [`diff-view.tsx`](../packages/app/src/features/diff/diff-view.tsx) into a `DiffCell` —
+      [`diff-view.tsx`](../../../packages/app/src/features/diff/diff-view.tsx) into a `DiffCell` —
       the 2px kind bar, the line-number gutter, the marker column, and the text with its
       `data-diff-mark` intraline spans and merged shiki tokens.
 - [x] `DiffCell` takes an explicit `gutter: 'old' | 'new' | 'both'` prop instead of reading
@@ -96,14 +96,14 @@ promise. No user-visible change lands here; unified must look byte-identical aft
 - [x] A `null` cell renders as a filler — the kind bar and gutter drawn empty at the same
       `ROW_HEIGHT`, so a one-sided run does not collapse the row it is opposite.
 - [x] `useLineHighlight` in
-      [`line-highlight.ts`](../packages/app/src/features/diff/line-highlight.ts) is called from
+      [`line-highlight.ts`](../../../packages/app/src/features/diff/line-highlight.ts) is called from
       `DiffCell`, unchanged. Its cache key is already content-keyed
       (`${dark}${path}${kind}${text}`), so a line highlighted on the left in split is free on the
       right in unified — confirm that with a test rather than assuming it.
 - [x] `LineRow` becomes a thin unified wrapper over one `DiffCell`; `mergeSegmentsWithTokens` and
       `toSegments` are untouched and stay in `diff-rows.ts`.
 - [x] Confirm no visual regression: the existing
-      [`e2e/diff-view.spec.ts`](../packages/app/e2e/diff-view.spec.ts) passes unmodified, and the
+      [`e2e/diff-view.spec.ts`](../../../packages/app/e2e/diff-view.spec.ts) passes unmodified, and the
       committed unified screenshots do not change.
 
 ### C — Two columns, and the toggle (M) ✅ DONE (PR #1, 2026-08-30)
@@ -116,12 +116,12 @@ promise. No user-visible change lands here; unified must look byte-identical aft
       two-column grid — not two scrollers synchronised by an event handler, which fights the
       virtualizer and drifts on momentum scroll.
 - [x] `diffLayout: 'unified' | 'split'` in
-      [`ui-store.ts`](../packages/app/src/store/ui-store.ts) beside `diffShowOldGutter`, with
+      [`ui-store.ts`](../../../packages/app/src/store/ui-store.ts) beside `diffShowOldGutter`, with
       `setDiffLayout`, added to **both** the `PersistedUi` type and `partialize` (the type exists
       precisely so those two cannot drift), and a `version: 3` `migrate` arm defaulting existing
       users to `'unified'`.
 - [x] A toolbar toggle in `DiffView` next to the old-gutter button, using `react-icons` per
-      [`CLAUDE.md`](../CLAUDE.md) — and read the file first: `diff-view.tsx` currently imports
+      [`CLAUDE.md`](../../../CLAUDE.md) — and read the file first: `diff-view.tsx` currently imports
       `Columns2`/`Columns3` from `lucide-react`, so match the family already in the file rather
       than mixing.
 - [x] Auto-fallback: a `ResizeObserver` on the diff body, below a threshold the surface renders
@@ -138,8 +138,8 @@ promise. No user-visible change lands here; unified must look byte-identical aft
 ### D — The accordions learn to virtualize (L) ✅ DONE (PR #1, 2026-08-30)
 
 
-`inline` mode has no virtualizer at all — [`file-accordion.tsx`](../packages/app/src/features/changes/file-accordion.tsx)
-and [`pr-file-accordion.tsx`](../packages/app/src/features/reviews/pr-file-accordion.tsx) render
+`inline` mode has no virtualizer at all — [`file-accordion.tsx`](../../../packages/app/src/features/changes/file-accordion.tsx)
+and [`pr-file-accordion.tsx`](../../../packages/app/src/features/reviews/pr-file-accordion.tsx) render
 every row of every expanded file into one page scroller. Split doubles the per-row DOM, which turns
 a tolerable cost into the phase's main performance risk.
 
@@ -156,10 +156,10 @@ a tolerable cost into the phase's main performance risk.
       min-w-full`), so one very wide file does not make every other file scroll.
 - [x] Collapsing a file releases its rows; expanding restores scroll position rather than jumping.
 - [x] Revisit `EXPAND_ALL_LIMIT` / `withheldByCap` in
-      [`expansion.ts`](../packages/app/src/features/changes/expansion.ts) — the cap exists because
+      [`expansion.ts`](../../../packages/app/src/features/changes/expansion.ts) — the cap exists because
       expanding everything renders everything, which stops being true here. Relax it with a
       measured number, or write down why it stays.
-- [x] Extend [`e2e/diff-scroll-perf.spec.ts`](../packages/app/e2e/diff-scroll-perf.spec.ts) with a
+- [x] Extend [`e2e/diff-scroll-perf.spec.ts`](../../../packages/app/e2e/diff-scroll-perf.spec.ts) with a
       split case. The existing spec asserts *exact* rendered row counts against `ROW_COUNT = 4000`
       and will need its own expectation for pairs — do not loosen the unified assertion to make one
       number fit both.
@@ -191,7 +191,7 @@ said so. Split view makes the deleted side a first-class column, at which point 
 on the thing you are looking at" reads as a bug.
 
 - [x] `leftSideLines(diff): Set<number>` in
-      [`comment-anchors.ts`](../packages/app/src/features/diff/comment-anchors.ts), the `oldNo`
+      [`comment-anchors.ts`](../../../packages/app/src/features/diff/comment-anchors.ts), the `oldNo`
       mirror of `rightSideLines`.
 - [x] `isAnchored` widened to accept `side === 'LEFT'`, and `threadsForFile` returning threads
       keyed by side — a `ThreadsByLine` per side rather than one map, because line 40 on the left
@@ -208,11 +208,11 @@ on the thing you are looking at" reads as a bug.
       badge and the old-or-new line number, so the anchor is never ambiguous once the row no longer
       sits under one column.
 - [x] Left-side threads that were previously bucketed into
-      [`outdated-threads.tsx`](../packages/app/src/features/reviews/outdated-threads.tsx)'s
+      [`outdated-threads.tsx`](../../../packages/app/src/features/reviews/outdated-threads.tsx)'s
       above-the-diff list now anchor inline where they can. `outdated` and `fileLevel` threads stay
       in that list — those are genuinely unanchorable, not merely left-side.
 - [x] Vitest in
-      [`comment-anchors.test.ts`](../packages/app/src/features/diff/comment-anchors.test.ts): a
+      [`comment-anchors.test.ts`](../../../packages/app/src/features/diff/comment-anchors.test.ts): a
       LEFT thread on a deleted line, a LEFT thread whose line has since been removed from the diff
       (falls through to unanchored), a `ctx` line resolving RIGHT, and both maps built from one
       mixed thread list.
@@ -220,16 +220,16 @@ on the thing you are looking at" reads as a bug.
 ### G — A commit is a workbench tab (M) ✅ DONE (2026-08-30)
 
 - [x] A `commit` arm on the `WorkbenchTab` union in
-      [`workbench-store.ts`](../packages/app/src/store/workbench-store.ts), beside
+      [`workbench-store.ts`](../../../packages/app/src/store/workbench-store.ts), beside
       `all-changes | run | review`, carrying `{repoId, sha, worktreePath?}`.
 - [x] `CommitDetail` in
-      [`commit-detail.tsx`](../packages/app/src/features/commit/commit-detail.tsx) rendered at
+      [`commit-detail.tsx`](../../../packages/app/src/features/commit/commit-detail.tsx) rendered at
       full width in the tab, reusing `ChangeTree` and the same `DiffView` — the panel and the tab
       are two mounts of one component, not two components.
 - [x] The tab title is the abbreviated sha plus the subject, truncated the way the review tab
       already truncates.
 - [x] An "Open in tab" verb: on the inspector header, and in the graph row context menu built by
-      [`use-graph-actions.ts`](../packages/app/src/features/graph/use-graph-actions.ts).
+      [`use-graph-actions.ts`](../../../packages/app/src/features/graph/use-graph-actions.ts).
 - [x] The dock is unchanged — `detailWidth` keeps its 720 cap and the inspector stays the quick-look
       panel. This theme adds a destination; it does not move the inspector.
 - [x] Opening the same commit twice focuses the existing tab rather than adding a second, matching
@@ -241,15 +241,15 @@ on the thing you are looking at" reads as a bug.
 ### H — Image diffs in a pull request (S) ✅ DONE (2026-08-30)
 
 The one contract change in the phase, and a documented gap in
-[`outstanding.md`](outstanding.md): the `ImageDiff` viewer works in Changes and the commit inspector
+[`outstanding.md`](../outstanding.md): the `ImageDiff` viewer works in Changes and the commit inspector
 but not in Reviews, because `ForgePullDetailSchema` carries `headSha` and no base sha at all.
 
 - [x] `baseSha` added to `ForgePullDetailSchema` in
-      [`shared/src/domain/forge.ts`](../packages/shared/src/domain/forge.ts), and populated from
+      [`shared/src/domain/forge.ts`](../../../packages/shared/src/domain/forge.ts), and populated from
       `gh pr view`'s `baseRefOid` in
-      [`gh-cli.ts`](../packages/desktop/src/main/forge/gh-cli.ts).
+      [`gh-cli.ts`](../../../packages/desktop/src/main/forge/gh-cli.ts).
 - [x] `imageDiffSources` in
-      [`image-sources.ts`](../packages/app/src/features/diff/image-sources.ts) reached from
+      [`image-sources.ts`](../../../packages/app/src/features/diff/image-sources.ts) reached from
       `PrFileAccordion` with `{baseSha, headSha}`, so `ImageDiff`'s existing two-up / swipe / onion
       modes light up on a PR with no new component.
 - [x] Both blobs must be in the local checkout, which is not guaranteed — a fork PR needs a fetch
@@ -265,14 +265,14 @@ but not in Reviews, because `ForgePullDetailSchema` carries `headSha` and no bas
 
 | Area | Files |
 |------|-------|
-| Contract | [`shared/src/domain/forge.ts`](../packages/shared/src/domain/forge.ts) (`baseSha` on `ForgePullDetailSchema` — the phase's only schema change), [`shared/src/domain/diff.ts`](../packages/shared/src/domain/diff.ts) (**unchanged**, and load-bearing for all of A–G) |
-| Main | [`forge/gh-cli.ts`](../packages/desktop/src/main/forge/gh-cli.ts) (`baseRefOid`), [`forge/gh-write.ts`](../packages/desktop/src/main/forge/gh-write.ts) (confirm `side` is sent, not defaulted) |
-| Renderer — diff core | [`features/diff/diff-rows.ts`](../packages/app/src/features/diff/diff-rows.ts) (`SplitRow`, `toSplitRows`, `pairRun`, `canSplit`), [`features/diff/diff-view.tsx`](../packages/app/src/features/diff/diff-view.tsx) (`DiffCell`, `SplitBody`, `DiffToolbar`), [`features/diff/line-highlight.ts`](../packages/app/src/features/diff/line-highlight.ts) (unchanged; called from a new place), [`features/diff/comment-anchors.ts`](../packages/app/src/features/diff/comment-anchors.ts), [`features/diff/image-sources.ts`](../packages/app/src/features/diff/image-sources.ts), [`features/diff/image-diff.tsx`](../packages/app/src/features/diff/image-diff.tsx) (unchanged), [`features/diff/describe-empty.ts`](../packages/app/src/features/diff/describe-empty.ts) |
-| Renderer — surfaces | [`features/status/file-diff.tsx`](../packages/app/src/features/status/file-diff.tsx), [`features/changes/file-accordion.tsx`](../packages/app/src/features/changes/file-accordion.tsx), [`features/changes/all-changes-view.tsx`](../packages/app/src/features/changes/all-changes-view.tsx), [`features/changes/expansion.ts`](../packages/app/src/features/changes/expansion.ts), [`features/reviews/pr-files.tsx`](../packages/app/src/features/reviews/pr-files.tsx), [`features/reviews/pr-file-accordion.tsx`](../packages/app/src/features/reviews/pr-file-accordion.tsx), [`features/reviews/comment-thread.tsx`](../packages/app/src/features/reviews/comment-thread.tsx), [`features/reviews/comment-composer.tsx`](../packages/app/src/features/reviews/comment-composer.tsx), [`features/reviews/outdated-threads.tsx`](../packages/app/src/features/reviews/outdated-threads.tsx) |
-| Renderer — workbench | [`store/workbench-store.ts`](../packages/app/src/store/workbench-store.ts) (the `commit` tab kind), [`features/workbench/workbench.tsx`](../packages/app/src/features/workbench/workbench.tsx), [`features/commit/commit-detail.tsx`](../packages/app/src/features/commit/commit-detail.tsx), [`features/graph/graph-view.tsx`](../packages/app/src/features/graph/graph-view.tsx) (unchanged dock; a new verb), [`features/graph/use-graph-actions.ts`](../packages/app/src/features/graph/use-graph-actions.ts) |
-| Store | [`store/ui-store.ts`](../packages/app/src/store/ui-store.ts) — `diffLayout`, `setDiffLayout`, `PersistedUi`, `partialize`, `version: 3` + `migrate` arm |
-| Docs | [`todo/outstanding.md`](outstanding.md) (side-by-side, image diffs in a PR, and the stale syntax-highlighting entry all come off), [`docs/INITIAL_PLAN.md`](../docs/INITIAL_PLAN.md) |
-| Tests | [`diff-rows.test.ts`](../packages/app/src/features/diff/diff-rows.test.ts), [`comment-anchors.test.ts`](../packages/app/src/features/diff/comment-anchors.test.ts), new `diff-cell.test.tsx`, [`e2e/diff-view.spec.ts`](../packages/app/e2e/diff-view.spec.ts) (must pass unmodified after B), [`e2e/diff-scroll-perf.spec.ts`](../packages/app/e2e/diff-scroll-perf.spec.ts), new `e2e/diff-split.spec.ts`, [`e2e/mock-bridge.ts`](../packages/app/e2e/mock-bridge.ts) |
+| Contract | [`shared/src/domain/forge.ts`](../../../packages/shared/src/domain/forge.ts) (`baseSha` on `ForgePullDetailSchema` — the phase's only schema change), [`shared/src/domain/diff.ts`](../../../packages/shared/src/domain/diff.ts) (**unchanged**, and load-bearing for all of A–G) |
+| Main | [`forge/gh-cli.ts`](../../../packages/desktop/src/main/forge/gh-cli.ts) (`baseRefOid`), [`forge/gh-write.ts`](../../../packages/desktop/src/main/forge/gh-write.ts) (confirm `side` is sent, not defaulted) |
+| Renderer — diff core | [`features/diff/diff-rows.ts`](../../../packages/app/src/features/diff/diff-rows.ts) (`SplitRow`, `toSplitRows`, `pairRun`, `canSplit`), [`features/diff/diff-view.tsx`](../../../packages/app/src/features/diff/diff-view.tsx) (`DiffCell`, `SplitBody`, `DiffToolbar`), [`features/diff/line-highlight.ts`](../../../packages/app/src/features/diff/line-highlight.ts) (unchanged; called from a new place), [`features/diff/comment-anchors.ts`](../../../packages/app/src/features/diff/comment-anchors.ts), [`features/diff/image-sources.ts`](../../../packages/app/src/features/diff/image-sources.ts), [`features/diff/image-diff.tsx`](../../../packages/app/src/features/diff/image-diff.tsx) (unchanged), [`features/diff/describe-empty.ts`](../../../packages/app/src/features/diff/describe-empty.ts) |
+| Renderer — surfaces | [`features/status/file-diff.tsx`](../../../packages/app/src/features/status/file-diff.tsx), [`features/changes/file-accordion.tsx`](../../../packages/app/src/features/changes/file-accordion.tsx), [`features/changes/all-changes-view.tsx`](../../../packages/app/src/features/changes/all-changes-view.tsx), [`features/changes/expansion.ts`](../../../packages/app/src/features/changes/expansion.ts), [`features/reviews/pr-files.tsx`](../../../packages/app/src/features/reviews/pr-files.tsx), [`features/reviews/pr-file-accordion.tsx`](../../../packages/app/src/features/reviews/pr-file-accordion.tsx), [`features/reviews/comment-thread.tsx`](../../../packages/app/src/features/reviews/comment-thread.tsx), [`features/reviews/comment-composer.tsx`](../../../packages/app/src/features/reviews/comment-composer.tsx), [`features/reviews/outdated-threads.tsx`](../../../packages/app/src/features/reviews/outdated-threads.tsx) |
+| Renderer — workbench | [`store/workbench-store.ts`](../../../packages/app/src/store/workbench-store.ts) (the `commit` tab kind), [`features/workbench/workbench.tsx`](../../../packages/app/src/features/workbench/workbench.tsx), [`features/commit/commit-detail.tsx`](../../../packages/app/src/features/commit/commit-detail.tsx), [`features/graph/graph-view.tsx`](../../../packages/app/src/features/graph/graph-view.tsx) (unchanged dock; a new verb), [`features/graph/use-graph-actions.ts`](../../../packages/app/src/features/graph/use-graph-actions.ts) |
+| Store | [`store/ui-store.ts`](../../../packages/app/src/store/ui-store.ts) — `diffLayout`, `setDiffLayout`, `PersistedUi`, `partialize`, `version: 3` + `migrate` arm |
+| Docs | [`outstanding.md`](../outstanding.md) (side-by-side, image diffs in a PR, and the stale syntax-highlighting entry all come off), [`docs/INITIAL_PLAN.md`](../../../docs/INITIAL_PLAN.md) |
+| Tests | [`diff-rows.test.ts`](../../../packages/app/src/features/diff/diff-rows.test.ts), [`comment-anchors.test.ts`](../../../packages/app/src/features/diff/comment-anchors.test.ts), new `diff-cell.test.tsx`, [`e2e/diff-view.spec.ts`](../../../packages/app/e2e/diff-view.spec.ts) (must pass unmodified after B), [`e2e/diff-scroll-perf.spec.ts`](../../../packages/app/e2e/diff-scroll-perf.spec.ts), new `e2e/diff-split.spec.ts`, [`e2e/mock-bridge.ts`](../../../packages/app/e2e/mock-bridge.ts) |
 
 ## Verification
 

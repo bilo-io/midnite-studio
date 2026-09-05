@@ -4,19 +4,19 @@ Twenty-one phases in, Midnite Studio can merge, rebase, cherry-pick, reset behin
 confirm, and review a pull request without leaving the window — and it still cannot put work down
 for five minutes. `git stash` appears nowhere in the codebase: a grep across all four packages
 finds it only in prose, in a Claude prompt string in
-[`sync-resolution.ts`](../packages/app/src/features/status/sync-resolution.ts) that asks the *agent*
-to stash on the app's behalf, and in one line of [`outstanding.md`](outstanding.md). The parser is
+[`sync-resolution.ts`](../../../packages/app/src/features/status/sync-resolution.ts) that asks the *agent*
+to stash on the app's behalf, and in one line of [`outstanding.md`](../outstanding.md). The parser is
 more pointed than that — `kindFor()` in
-[`refs-parser.ts`](../packages/git-engine/src/parsers/refs-parser.ts) returns `null` for anything
+[`refs-parser.ts`](../../../packages/git-engine/src/parsers/refs-parser.ts) returns `null` for anything
 outside `refs/heads|remotes|tags`, so `refs/stash` is *deliberately* dropped on the floor, with a
 test asserting it stays dropped.
 
 The second half of the phase is the thing that has been written into the margins since Phase 7 and
 never built. Three separate files carry a doc comment saying, in effect, *only the reflog stands
-between you and this* — [`refs-ops.ts`](../packages/git-engine/src/commands/refs-ops.ts),
-[`stage.ts`](../packages/git-engine/src/commands/stage.ts),
-[`status-panel.tsx`](../packages/app/src/features/status/status-panel.tsx) — and
-[`use-graph-actions.ts`](../packages/app/src/features/graph/use-graph-actions.ts) tells the user
+between you and this* — [`refs-ops.ts`](../../../packages/git-engine/src/commands/refs-ops.ts),
+[`stage.ts`](../../../packages/git-engine/src/commands/stage.ts),
+[`status-panel.tsx`](../../../packages/app/src/features/status/status-panel.tsx) — and
+[`use-graph-actions.ts`](../../../packages/app/src/features/graph/use-graph-actions.ts) tells the user
 outright that *"there is no undo for them."* All four are true. The reflog is never read, `.git/logs`
 is not watched, there is no ops journal, and there is no toast — the app has no way to say *that
 happened, and here is how to take it back*. This phase builds the reading, the record, and the
@@ -65,12 +65,12 @@ these. **The real total across A–H is 56**, not 70.
 The spine: B–E all read off this contract, so it lands first.
 
 - [x] `packages/git-engine/src/parsers/stash-parser.ts`, following
-      [`log-parser.ts`](../packages/git-engine/src/parsers/log-parser.ts)'s rule that *the parser
+      [`log-parser.ts`](../../../packages/git-engine/src/parsers/log-parser.ts)'s rule that *the parser
       owns the format string*: `export const STASH_FORMAT` built from `%gd` (the `stash@{n}`
       selector), `%H`, `%P`, `%gs`, `%at`, `%an`, `%ae` joined on `%x00`, with a `FIELD_COUNT`
       guard and `export function parseStashRecord(record: string): StashEntry | null`. Records come
       from `git stash list -z --format=STASH_FORMAT`.
-- [x] `StashEntrySchema` in [`shared/src/domain/`](../packages/shared/src/domain/) — `{ selector,
+- [x] `StashEntrySchema` in [`shared/src/domain/`](../../../packages/shared/src/domain/) — `{ selector,
       sha, parents, message, authoredAt, author }`. `parents` is load-bearing and not decoration: a
       stash commit has `^1` = HEAD at stash time, `^2` = the index state, and `^3` = the untracked
       files *only when `-u` was used*, and Theme D reads all three. A two-parent stash and a
@@ -85,11 +85,11 @@ The spine: B–E all read off this contract, so it lands first.
       appended after `--`, which is what Theme E needs and what makes `git stash push` the right
       subcommand rather than the older `git stash save`.
 - [x] **A pop can conflict, and the contract cannot currently say so.** `ConflictOpSchema` in
-      [`result.ts`](../packages/shared/src/domain/result.ts) is
+      [`result.ts`](../../../packages/shared/src/domain/result.ts) is
       `z.enum(['merge','rebase','cherry-pick','revert'])`; `stashPop`/`stashApply` need a
       `'stash-apply'` arm added to it, and every exhaustive switch over `ConflictOp` in the renderer
       has to grow the case. Detection follows
-      [`sequencer.ts`](../packages/git-engine/src/commands/sequencer.ts)'s rule that exit code alone
+      [`sequencer.ts`](../../../packages/git-engine/src/commands/sequencer.ts)'s rule that exit code alone
       is not enough — on non-zero, call `conflictedPaths()` and return `conflict('stash-apply', files)`
       when it is non-empty.
 - [x] A conflicted `pop` **must not drop the stash**, which is git's own behaviour and worth
@@ -98,15 +98,15 @@ The spine: B–E all read off this contract, so it lands first.
 - [x] `stashDrop` captures the dropped commit sha from stderr *before* returning, so Theme H has an
       anchor to restore from (`git stash store`). A dropped stash is unreachable, not gone.
 - [x] Failure messages go through `gitErrorLine(stderr)` — exported, slightly oddly, from
-      [`worktree-ops.ts`](../packages/git-engine/src/commands/worktree-ops.ts) — the same way
+      [`worktree-ops.ts`](../../../packages/git-engine/src/commands/worktree-ops.ts) — the same way
       refs-ops, sequencer and sync already do.
 - [x] Contract wiring: `mstudio:stash:list` in `CHANNELS` plus `opStashPush`/`opStashPop`/
       `opStashApply`/`opStashDrop`/`opStashBranch`; `OpBase.extend(…)` request schemas and
-      `OpResponse` in [`schemas.ts`](../packages/shared/src/ipc/schemas.ts); the `ops` block in
-      [`bridge.ts`](../packages/shared/src/ipc/bridge.ts); the preload entries in
-      [`preload/index.ts`](../packages/desktop/src/preload/index.ts); and handlers registered with
+      `OpResponse` in [`schemas.ts`](../../../packages/shared/src/ipc/schemas.ts); the `ops` block in
+      [`bridge.ts`](../../../packages/shared/src/ipc/bridge.ts); the preload entries in
+      [`preload/index.ts`](../../../packages/desktop/src/preload/index.ts); and handlers registered with
       `handleOp` behind the local `inWorkdir()` wrapper in
-      [`ipc/status-handlers.ts`](../packages/desktop/src/main/ipc/status-handlers.ts).
+      [`ipc/status-handlers.ts`](../../../packages/desktop/src/main/ipc/status-handlers.ts).
 - [x] Integration coverage in `stash.integration.test.ts` against a scratch repo, matching the
       `*.integration.test.ts` convention: push with and without `-u`, `--keep-index`, a path-scoped
       push, pop clean, pop conflicted, drop, and `stash branch`.
@@ -114,13 +114,13 @@ The spine: B–E all read off this contract, so it lands first.
 ### B — Stashes in the sidebar (M) ✅ DONE (2026-09-03, PR #51)
 
 - [x] `'stashes'` joins `SectionKey`/`ALL_SECTIONS`/`SECTION_TREE` in
-      [`view-sections.ts`](../packages/app/src/features/repos/view-sections.ts) (already reserved
+      [`view-sections.ts`](../../../packages/app/src/features/repos/view-sections.ts) (already reserved
       from an earlier phase, right after `tags`). **Deviation**: it does **not** join
       `RefSectionKey` — that type is specifically for ref-backed heading menus, and a `StashEntry`
       is not a `Ref`. A parallel, dedicated `stashMenu(entry)` + `promptStashPush` mechanism was
       built instead (see below), rather than forcing a non-ref type through a ref-shaped seam.
 - [x] A `<TreeSection title="Stashes">` block in `RepoTree` in
-      [`repos-panel.tsx`](../packages/app/src/features/repos/repos-panel.tsx)'s `SECTION_BODY`, with
+      [`repos-panel.tsx`](../../../packages/app/src/features/repos/repos-panel.tsx)'s `SECTION_BODY`, with
       its entry in `SECTION_TITLE`/`useSectionToggles`. `hideWhenEmpty={false}` — deliberately the
       opposite of the plan's own assumption: the heading's "Stash changes" action is the only way to
       create a repo's *first* stash, so the section stays visible at zero count instead of hiding the
@@ -131,29 +131,29 @@ The spine: B–E all read off this contract, so it lands first.
       no `--format` token for one; a second subprocess per row costs more than the chip is worth.
       Left for later if it turns out to matter in practice.
 - [x] The query key (`keys.stashes(repoId)`) nests under `keys.repo(repoId)` in
-      [`queries.ts`](../packages/app/src/services/queries.ts).
+      [`queries.ts`](../../../packages/app/src/services/queries.ts).
 - [x] `.git/refs/stash` invalidation confirmed directly in
-      [`watch-invalidation.ts`](../packages/app/src/services/watch-invalidation.ts)'s `'refs'` case
+      [`watch-invalidation.ts`](../../../packages/app/src/services/watch-invalidation.ts)'s `'refs'` case
       (not assumed) — `stash push`/`pop`/`apply`/`drop`/`branch` all invalidate for free.
 - [x] A row menu via `use-repo-actions.ts`'s `stashMenu(entry)`: Apply, Pop, Branch from stash, Copy
       sha, Drop. Drop is `danger` and goes through `dialogs.confirm`.
 - [x] The heading action (`promptStashPush`) creates a stash from the current worktree state,
       prompting for a message through the existing `PromptDialog`.
-- [x] [`sidebar-page.tsx`](../packages/app/src/features/settings/settings-pages/sidebar-page.tsx)'s
+- [x] [`sidebar-page.tsx`](../../../packages/app/src/features/settings/settings-pages/sidebar-page.tsx)'s
       `SECTION_LABELS` already had a compile-enforced `stashes` entry from the phase that widened
       `SectionKey`; only its stale doc comment needed updating.
 
 ### C — Stashes in the graph (M) ✅ DONE (2026-09-03, PR #52)
 
 - [x] Stash rows are **pseudo-rows**, following the precedent
-      [`uncommitted-row.tsx`](../packages/app/src/features/graph/uncommitted-row.tsx) set and
+      [`uncommitted-row.tsx`](../../../packages/app/src/features/graph/uncommitted-row.tsx) set and
       documented: `GraphRowSchema` in
-      [`commit.ts`](../packages/shared/src/domain/commit.ts) stays a commit-only type, and a stash
+      [`commit.ts`](../../../packages/shared/src/domain/commit.ts) stays a commit-only type, and a stash
       is not given a fake sha to smuggle it into `graph-store`, the virtualizer's index space, and
       every `rows[i]` lookup that would then have to exclude it again.
-- [x] A [`StashRows`](../packages/app/src/features/graph/stash-rows.tsx) sibling rendered above the
+- [x] A [`StashRows`](../../../packages/app/src/features/graph/stash-rows.tsx) sibling rendered above the
       `role="grid"` scroller in
-      [`graph-view.tsx`](../packages/app/src/features/graph/graph-view.tsx), beneath
+      [`graph-view.tsx`](../../../packages/app/src/features/graph/graph-view.tsx), beneath
       `UncommittedRow`, taking `lane`/`colorIdx` from `headRow` the same way.
 - [x] The same "this is not a real commit" visual grammar `UncommittedRow` established — dashed
       ring node, dashed lane, italic muted text — so the two pseudo-rows read as one family rather
@@ -162,7 +162,7 @@ The spine: B–E all read off this contract, so it lands first.
       the top of the pane. The overflow row links to the sidebar section (expands its `TreeSection`
       if collapsed).
 - [x] Selecting a stash row drives the same selection state a commit row does — `graphSelection` in
-      [`ui-store.ts`](../packages/app/src/store/ui-store.ts), a discriminated
+      [`ui-store.ts`](../../../packages/app/src/store/ui-store.ts), a discriminated
       `{kind:'commit',sha} | {kind:'stash',selector} | null` replacing the old commit-only
       `selectedCommitSha`, so Theme D's inspector is reached identically from the graph and from
       the sidebar's own `StashRow`.
@@ -173,8 +173,8 @@ The spine: B–E all read off this contract, so it lands first.
 ### D — A stash you can read (M) ✅ DONE (2026-09-03, PR #52)
 
 - [x] `readStashDetail`/`readStashFileDiff` in `commands/stash.ts`, the latter returning the same
-      parsed `FileDiff` shape [`diff.ts`](../packages/git-engine/src/commands/diff.ts) and
-      [`diff-parser.ts`](../packages/git-engine/src/parsers/diff-parser.ts) already produce (via a
+      parsed `FileDiff` shape [`diff.ts`](../../../packages/git-engine/src/commands/diff.ts) and
+      [`diff-parser.ts`](../../../packages/git-engine/src/parsers/diff-parser.ts) already produce (via a
       new two-ref `readRefDiff` for the index part), so the inspector renders it through the one
       shared `DiffView` with no new renderer. `mstudio:stash:detail`/`mstudio:stash:diff` join
       `CHANNELS`, each with their own request/response schemas (`StashDetailSchema`/
@@ -183,7 +183,7 @@ The spine: B–E all read off this contract, so it lands first.
       `stash@{n}^1..stash@{n}^2`; the untracked files are `stash@{n}^3` and exist only when the
       stash was made with `-u`. `git stash show -p` shows the first and silently omits the rest,
       which is exactly the kind of quiet partial truth this inspector does not repeat.
-- [x] The inspector ([`stash-inspector.tsx`](../packages/app/src/features/stash/stash-inspector.tsx))
+- [x] The inspector ([`stash-inspector.tsx`](../../../packages/app/src/features/stash/stash-inspector.tsx))
       reuses Phase 12's `ChangeTree`/`buildChangeTree` file-list rendering and the shared
       `DiffView`, with a header showing the stash's own message (its `%gs` line already names the
       branch) and relative age. **Deviation from the doc's exact wording**: three labelled
@@ -297,9 +297,9 @@ found unbuilt in this same pass (see the phase-level Correction note above), so 
 reader for the journal to sit beside yet.
 
 - [x] **A toast primitive.** `components/toast.tsx` + `components/toast-host.tsx`, shaped after
-      [`dialog-host.tsx`](../packages/app/src/components/dialog-host.tsx) — a `useToasts(): ToastApi`
+      [`dialog-host.tsx`](../../../packages/app/src/components/dialog-host.tsx) — a `useToasts(): ToastApi`
       with `{ show, dismiss }`, a stacking host mounted once in
-      [`app.tsx`](../packages/app/src/app.tsx), a `ToastRequest` carrying an optional `action`.
+      [`app.tsx`](../../../packages/app/src/app.tsx), a `ToastRequest` carrying an optional `action`.
       Non-modal, keyboard-dismissible, and reusable far past this phase: today every op result goes
       through a locally-defined `report(result)` that sets inline error state and nothing else.
 - [x] **A journal.** `OpJournalEntrySchema` in shared — `{ id, repoId, worktreePath, op, label,
@@ -333,17 +333,17 @@ reader for the journal to sit beside yet.
 
 | Area | Files |
 |------|-------|
-| Contract | [`shared/src/domain/result.ts`](../packages/shared/src/domain/result.ts) (`ConflictOpSchema` gains `'stash-apply'`), [`shared/src/domain/commit.ts`](../packages/shared/src/domain/commit.ts) (unchanged, but load-bearing for Theme C), [`shared/src/domain/watch.ts`](../packages/shared/src/domain/watch.ts), new `shared/src/domain/stash.ts`, new `shared/src/domain/reflog.ts`, new `shared/src/domain/journal.ts`, [`ipc/channels.ts`](../packages/shared/src/ipc/channels.ts), [`ipc/schemas.ts`](../packages/shared/src/ipc/schemas.ts), [`ipc/bridge.ts`](../packages/shared/src/ipc/bridge.ts) |
-| git-engine | new [`commands/stash.ts`](../packages/git-engine/src/commands/stash.ts), new `commands/reflog.ts`, new `parsers/stash-parser.ts`, new `parsers/reflog-parser.ts`, [`commands/sync.ts`](../packages/git-engine/src/commands/sync.ts) (`forceWithLease`, `describePushFailure`), [`commands/refs-ops.ts`](../packages/git-engine/src/commands/refs-ops.ts) (`countOrphanedCommits` for a remote ref), [`commands/index.ts`](../packages/git-engine/src/commands/index.ts), [`parsers/index.ts`](../packages/git-engine/src/parsers/index.ts), [`watch/repo-watcher.ts`](../packages/git-engine/src/watch/repo-watcher.ts) (`.git/logs`) |
-| Main | [`ipc/status-handlers.ts`](../packages/desktop/src/main/ipc/status-handlers.ts), [`ipc/ref-handlers.ts`](../packages/desktop/src/main/ipc/ref-handlers.ts), [`preload/index.ts`](../packages/desktop/src/preload/index.ts) |
-| Renderer — stash | new `features/stash/stash-row.tsx`, new `features/stash/use-stash-actions.ts`, [`features/repos/repos-panel.tsx`](../packages/app/src/features/repos/repos-panel.tsx), [`features/repos/view-sections.ts`](../packages/app/src/features/repos/view-sections.ts), [`features/repos/use-repo-actions.ts`](../packages/app/src/features/repos/use-repo-actions.ts) |
-| Renderer — graph | new `features/graph/stash-rows.tsx`, [`features/graph/graph-view.tsx`](../packages/app/src/features/graph/graph-view.tsx), [`features/graph/uncommitted-row.tsx`](../packages/app/src/features/graph/uncommitted-row.tsx) (the precedent; unchanged), [`features/graph/use-graph-actions.ts`](../packages/app/src/features/graph/use-graph-actions.ts), [`features/graph/ref-sync.ts`](../packages/app/src/features/graph/ref-sync.ts) |
-| Renderer — inspector | the Phase 12 inspector and the shared `DiffView`, [`services/queries.ts`](../packages/app/src/services/queries.ts), [`services/use-status.ts`](../packages/app/src/services/use-status.ts), [`services/watch-invalidation.ts`](../packages/app/src/services/watch-invalidation.ts) |
-| Renderer — history | new `features/history/history-view.tsx`, new `features/history/reflog-list.tsx`, new `features/history/journal-list.tsx`, the Phase 19 nav-rail view registry, [`app.tsx`](../packages/app/src/app.tsx) |
-| Renderer — shared | new [`components/toast.tsx`](../packages/app/src/components/toast.tsx), new `components/toast-host.tsx`, [`components/confirm-dialog.tsx`](../packages/app/src/components/confirm-dialog.tsx) (unchanged; reused by F), [`components/dialog-host.tsx`](../packages/app/src/components/dialog-host.tsx) (the shape toasts copy), [`components/tree-section.tsx`](../packages/app/src/components/tree-section.tsx) |
-| Settings | [`features/settings/settings-pages/sidebar-page.tsx`](../packages/app/src/features/settings/settings-pages/sidebar-page.tsx), the Repositories page (the force-with-lease switch) |
-| Docs | [`CLAUDE.md`](../CLAUDE.md) (the no-force-push rule, rewritten rather than deleted), [`docs/INITIAL_PLAN.md`](../docs/INITIAL_PLAN.md), [`todo/outstanding.md`](outstanding.md) (stash and force-push come off the list) |
-| Tests | new `stash.integration.test.ts`, new `reflog.integration.test.ts`, new `stash-parser.test.ts`, new `reflog-parser.test.ts`, [`refs-parser.test.ts`](../packages/git-engine/src/parsers/refs-parser.test.ts) (the `refs/stash`-is-dropped assertion stays), new `undoable.test.ts`, new `journal-store.test.ts`, new `e2e/stash.spec.ts`, new `e2e/history.spec.ts`, [`e2e/mock-bridge.ts`](../packages/app/e2e/mock-bridge.ts) |
+| Contract | [`shared/src/domain/result.ts`](../../../packages/shared/src/domain/result.ts) (`ConflictOpSchema` gains `'stash-apply'`), [`shared/src/domain/commit.ts`](../../../packages/shared/src/domain/commit.ts) (unchanged, but load-bearing for Theme C), [`shared/src/domain/watch.ts`](../../../packages/shared/src/domain/watch.ts), new `shared/src/domain/stash.ts`, new `shared/src/domain/reflog.ts`, new `shared/src/domain/journal.ts`, [`ipc/channels.ts`](../../../packages/shared/src/ipc/channels.ts), [`ipc/schemas.ts`](../../../packages/shared/src/ipc/schemas.ts), [`ipc/bridge.ts`](../../../packages/shared/src/ipc/bridge.ts) |
+| git-engine | new [`commands/stash.ts`](../../../packages/git-engine/src/commands/stash.ts), new `commands/reflog.ts`, new `parsers/stash-parser.ts`, new `parsers/reflog-parser.ts`, [`commands/sync.ts`](../../../packages/git-engine/src/commands/sync.ts) (`forceWithLease`, `describePushFailure`), [`commands/refs-ops.ts`](../../../packages/git-engine/src/commands/refs-ops.ts) (`countOrphanedCommits` for a remote ref), [`commands/index.ts`](../../../packages/git-engine/src/commands/index.ts), [`parsers/index.ts`](../../../packages/git-engine/src/parsers/index.ts), [`watch/repo-watcher.ts`](../../../packages/git-engine/src/watch/repo-watcher.ts) (`.git/logs`) |
+| Main | [`ipc/status-handlers.ts`](../../../packages/desktop/src/main/ipc/status-handlers.ts), [`ipc/ref-handlers.ts`](../../../packages/desktop/src/main/ipc/ref-handlers.ts), [`preload/index.ts`](../../../packages/desktop/src/preload/index.ts) |
+| Renderer — stash | new `features/stash/stash-row.tsx`, new `features/stash/use-stash-actions.ts`, [`features/repos/repos-panel.tsx`](../../../packages/app/src/features/repos/repos-panel.tsx), [`features/repos/view-sections.ts`](../../../packages/app/src/features/repos/view-sections.ts), [`features/repos/use-repo-actions.ts`](../../../packages/app/src/features/repos/use-repo-actions.ts) |
+| Renderer — graph | new `features/graph/stash-rows.tsx`, [`features/graph/graph-view.tsx`](../../../packages/app/src/features/graph/graph-view.tsx), [`features/graph/uncommitted-row.tsx`](../../../packages/app/src/features/graph/uncommitted-row.tsx) (the precedent; unchanged), [`features/graph/use-graph-actions.ts`](../../../packages/app/src/features/graph/use-graph-actions.ts), [`features/graph/ref-sync.ts`](../../../packages/app/src/features/graph/ref-sync.ts) |
+| Renderer — inspector | the Phase 12 inspector and the shared `DiffView`, [`services/queries.ts`](../../../packages/app/src/services/queries.ts), [`services/use-status.ts`](../../../packages/app/src/services/use-status.ts), [`services/watch-invalidation.ts`](../../../packages/app/src/services/watch-invalidation.ts) |
+| Renderer — history | new `features/history/history-view.tsx`, new `features/history/reflog-list.tsx`, new `features/history/journal-list.tsx`, the Phase 19 nav-rail view registry, [`app.tsx`](../../../packages/app/src/app.tsx) |
+| Renderer — shared | new [`components/toast.tsx`](../../../packages/app/src/components/toast.tsx), new `components/toast-host.tsx`, [`components/confirm-dialog.tsx`](../../../packages/app/src/components/confirm-dialog.tsx) (unchanged; reused by F), [`components/dialog-host.tsx`](../../../packages/app/src/components/dialog-host.tsx) (the shape toasts copy), [`components/tree-section.tsx`](../../../packages/app/src/components/tree-section.tsx) |
+| Settings | [`features/settings/settings-pages/sidebar-page.tsx`](../../../packages/app/src/features/settings/settings-pages/sidebar-page.tsx), the Repositories page (the force-with-lease switch) |
+| Docs | [`CLAUDE.md`](../../../CLAUDE.md) (the no-force-push rule, rewritten rather than deleted), [`docs/INITIAL_PLAN.md`](../../../docs/INITIAL_PLAN.md), [`outstanding.md`](../outstanding.md) (stash and force-push come off the list) |
+| Tests | new `stash.integration.test.ts`, new `reflog.integration.test.ts`, new `stash-parser.test.ts`, new `reflog-parser.test.ts`, [`refs-parser.test.ts`](../../../packages/git-engine/src/parsers/refs-parser.test.ts) (the `refs/stash`-is-dropped assertion stays), new `undoable.test.ts`, new `journal-store.test.ts`, new `e2e/stash.spec.ts`, new `e2e/history.spec.ts`, [`e2e/mock-bridge.ts`](../../../packages/app/e2e/mock-bridge.ts) |
 
 ## Verification
 
@@ -357,7 +357,7 @@ reader for the journal to sit beside yet.
       deliberately conflicted `pop` asserting both `kind: 'conflict'` and that the entry survives.
 - [ ] Vitest (F): the push arg builder emits `--force-with-lease=<ref>:<sha>` and **never** a bare
       `--force-with-lease` or a `--force`, asserted as a string-shape test the way
-      [`gh-write.test.ts`](../packages/desktop/src/main/forge/gh-write.test.ts) asserts `--undo`
+      [`gh-write.test.ts`](../../../packages/desktop/src/main/forge/gh-write.test.ts) asserts `--undo`
       never appears.
 - [ ] Vitest (G): `REFLOG_FORMAT` round-trips captured real output; a subject the action parser
       cannot classify degrades to a plain row rather than a wrong verb.
@@ -391,7 +391,7 @@ reader for the journal to sit beside yet.
   here. Their inverse is a reset the user should choose with a blast radius in front of them, and
   wiring that to a toast button is how you delete someone's afternoon.
 - **A command palette.** The `CommandId` registry in
-  [`shared/src/keybindings.ts`](../packages/shared/src/keybindings.ts) is the obvious data source
+  [`shared/src/keybindings.ts`](../../../packages/shared/src/keybindings.ts) is the obvious data source
   and the journal would be a good second one, but the palette is [Phase 23](phase-23-command-palette.md)'s
   own surface, which stays independent of this phase via its provider seam (Theme E).
 - **Side-by-side diff** for stashes or anything else — the shared `DiffView` stays unified, as it
@@ -400,7 +400,7 @@ reader for the journal to sit beside yet.
   `reflog delete` and `gc` are not exposed; a client that offers to prune the only safety net it
   just spent a phase building is working against itself.
 - **Submodules**, which have their own stash semantics entirely and are deferred wholesale in
-  [`outstanding.md`](outstanding.md).
+  [`outstanding.md`](../outstanding.md).
 - **Non-macOS shapes.** `.git/logs` watching goes through the same `fs.watch` path as everything
   else and should port, but Phase 22 is verified on darwin like every phase before it.
 
