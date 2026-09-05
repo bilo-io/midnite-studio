@@ -2,6 +2,51 @@
 
 <!-- Append one entry per landed phase/PR: date, phase, PR link, one-line summary. -->
 
+## 2026-09-05 — Phase 53 Themes B, C, D — lockstep check, verify-dist feed gates, tag-triggered release workflow
+
+[PR #179]. Closes three of Phase 53's remaining themes (5% → 15/59). Themes E, F, G, H stay open —
+F cuts a real, public v0.1.0 release and needs a human in the loop; G depends on F's feed being
+live; H needs a real Apple Developer certificate that doesn't exist yet; E is release-workflow
+automation that's really part of the F/G release-cut story, deferred to that same later pass.
+
+- [x] **B** — Seeded root `CHANGELOG.md` (Keep a Changelog, empty `Unreleased`). New
+      `scripts/version-check.mjs` asserts the lockstep invariant — every `package.json` shares one
+      `MAJOR.MINOR`, `PATCH` free to diverge — as a **grouping**, not pairwise equality; import-free,
+      wired as `root:version-check` (moon.yml's second task) and a new CI step. `resources/bin/midnite-studio`'s
+      hardcoded `0.1.0` (Theme A's own release-blocker, the sixth version site) now **derives** its
+      version from `Contents/Info.plist` (packaged) or `package.json` (dev) rather than being
+      checked — a checked constant is still a constant to remember to bump. Ported the six helpers
+      the two `/midnite-release-*` skills call by name but that exist nowhere in this repo
+      (`planVersionBump`, `sharesLockstepMajorMinor`, `parseConventionalCommit`,
+      `bumpLevelFromCommits`, `planReleaseTags`, `versionFromReleaseBranch`) into a new
+      `packages/shared/src/version.ts` — all six in one file rather than split across
+      `version.ts`/`release.ts` as the sibling does, since this repo's `release.ts` already ships
+      unrelated, tested content. Restated `/midnite-release-complete`'s changelog precondition
+      against `extractChangelogSection`'s real `string | null` signature (it expected a `.date` that
+      doesn't exist) across all three homes (`.claude`, `.agents`, `.codex`) — `release.ts` itself
+      stays unchanged, per the phase doc's own file map. The ⚠️ banner and the six files' broader
+      drift stay untouched (Theme E's explicit scope). 31 + 9 new tests.
+- [x] **C** — `verify-dist.mjs` gains three gates, additive to the existing ten: `latest-mac.yml`
+      exists, its version matches `package.json`, and its `path`/`sha512` match the emitted zip
+      (computed for real via `node:crypto`); the `.blockmap` is present; `Info.plist`'s
+      `CFBundleShortVersionString` matches `package.json` — the version-skew gate the doc calls out
+      as passing silently today. All three proven against a real `moon run desktop:dist` build, each
+      broken on purpose once (missing manifest, corrupted sha512, missing blockmap) and confirmed to
+      fail loudly, not just inspected.
+- [x] **D** — `.github/workflows/release.yml`, triggered on `push: tags: v*`, single macOS-14 leg
+      reusing `ci.yml`'s `package` job as the literal build template so the release and CI paths
+      can't drift. Publishes to `bilo-io/midnite-apps` under the namespaced `midnite-studio/vX.Y.Z`
+      tag via `RELEASES_REPO_TOKEN` (does not exist as a secret yet — needs creating before this
+      workflow can run for real). Four guards cribbed from the sibling app's own `release.yml`, each
+      of which cost it a broken release: the `$GITHUB_ENV` `CSC_LINK` guard, an explicit asset
+      allowlist instead of a glob, a pre-flight on an empty/duplicate asset set, and
+      `if: ${{ !cancelled() }}` on the publish job. One addition beyond the crib: `APPLE_ID`/
+      `APPLE_APP_SPECIFIC_PASSWORD`/`APPLE_TEAM_ID` also go through `$GITHUB_ENV` rather than a
+      step-scoped `env:`, since `desktop:verify-dist` depends on `~:dist` with `cache: false` and
+      silently re-runs packaging a second time — a step-scoped env wouldn't survive into that second
+      invocation. `--publish never` baked into the shared `dist` moon task itself for the same
+      reason. Validated with `actionlint` (clean); a real tag push is Theme F's job, not this PR's.
+
 ## 2026-09-05 — Phase 55 Themes H, I, J + Phase 65 Theme E — pages detach, and the crash log becomes reachable
 
 [PR #178]. Closes three new Phase 55 themes (55 → 50/65) and the last outstanding theme of Phase 65

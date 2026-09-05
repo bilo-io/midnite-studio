@@ -110,7 +110,7 @@ at a path that does not exist.
       **no completion file exists anywhere in the repo** — that is a missing feature, not a
       packaging bug, and writing zsh/bash completions is its own slice.
 
-### B — Lockstep as a check, not a convention (S)
+### B — Lockstep as a check, not a convention (S) — ✅ DONE (PR #179, 2026-09-05)
 
 Both release skills have preconditions that fail on a first run today. There is **no
 `CHANGELOG.md` at the repo root**, so `/midnite-release-prep` has nothing to append to and
@@ -119,11 +119,11 @@ Both release skills have preconditions that fail on a first run today. There is 
 package sharing one `MAJOR.MINOR`, with independent `PATCH` — is a paragraph in a skill rather than
 something CI can fail on.
 
-- [ ] Seed a root [`CHANGELOG.md`](../../../CHANGELOG.md) in the Keep-a-Changelog shape the release
+- [x] Seed a root [`CHANGELOG.md`](../../../CHANGELOG.md) in the Keep-a-Changelog shape the release
       skills already assume, with an `Unreleased` section. Empty-but-present is what unblocks the
       flow; back-filling fifty-three phases of history into it is not this phase's job and would be
       a fiction assembled after the fact.
-- [ ] A `scripts/version-check.mjs` asserting the lockstep invariant across the root and every
+- [x] A `scripts/version-check.mjs` asserting the lockstep invariant across the root and every
       `packages/*` `package.json`, wired as a `root:version-check` moon task inside `moon ci`. Crib
       the sibling app's `scripts/version-check.mjs` — the invariant is identical.
   - The comparison is a **grouping, not a pairwise equality**: bucket every package by its
@@ -137,17 +137,17 @@ something CI can fail on.
     anything is built.
   - **Root [`moon.yml`](../../../moon.yml) has exactly one task today (`install`).** `version-check`
     is its second, not an addition to a list.
-- [ ] **Bring `resources/bin/midnite-studio` under the check — it is the sixth version site and it
+- [x] **Bring `resources/bin/midnite-studio` under the check — it is the sixth version site and it
       is brand new.** PR #155 shipped
       [`packages/desktop/resources/bin/midnite-studio:32`](../../../packages/desktop/resources/bin/midnite-studio)
       hardcoding `echo "midnite-studio 0.1.0"`. Nothing bumps it and nothing reads it back. Either
       have the wrapper derive its version from the bundle it sits inside (it already resolves
       `$RESOURCES`), or add it to `version-check.mjs`'s file list with a regex. **Deriving is
       preferred** — a sixth site that merely gets checked is still a sixth site to remember.
-- [ ] The check runs in CI, not only in the release skill. A rule enforced solely by the tool that
+- [x] The check runs in CI, not only in the release skill. A rule enforced solely by the tool that
       performs the release is a rule that can only be discovered to be broken at the least
       convenient moment.
-- [ ] Tests for the pure comparison (`version-check.test.mjs` or equivalent): all-equal passes, a
+- [x] Tests for the pure comparison (`version-check.test.mjs` or equivalent): all-equal passes, a
       divergent `MINOR` fails, a divergent `PATCH` passes, and a missing package is reported rather
       than skipped.
   - **Do not expect to inherit these.** The sibling app's only test
@@ -156,46 +156,46 @@ something CI can fail on.
     is net-new coverage of the one thing that matters here.
   - Export the comparison as a pure function so the test does not shell out; the sibling's
     import-free style already makes this straightforward.
-- [ ] **Fix the two release skills' broken helper references, in all six files.** They call
+- [x] **Fix the two release skills' broken helper references, in all six files.** They call
       `planVersionBump`, `planReleaseTags`, `parseConventionalCommit`, `bumpLevelFromCommits`,
       `sharesLockstepMajorMinor` and `versionFromReleaseBranch` by name; `grep -rn` finds **zero** of
       them. Either port them into `packages/shared/src/version.ts` alongside the lockstep helper this
       theme is already adding, or rewrite those skill steps as hand-applied rules. **Porting is
       preferred** — the skills are written around them and a rules-only rewrite loses the precision.
-- [ ] **Fix `/midnite-release-complete`'s unimplementable changelog precondition.** It asserts
+- [x] **Fix `/midnite-release-complete`'s unimplementable changelog precondition.** It asserts
       `extractChangelogSection(CHANGELOG.md, 'X.Y.Z')` "returns a section with a non-null `date`";
       the shipped helper ([`release.ts:57`](../../../packages/shared/src/release.ts)) returns
       `string | null` and has no `date`. Either widen the helper's return (and its nine existing
       tests in `release.test.ts`) or restate the precondition against the real signature.
 
-### C — `verify-dist` learns what a *distributable* build is (S)
+### C — `verify-dist` learns what a *distributable* build is (S) — ✅ DONE (PR #179, 2026-09-05)
 
 [`verify-dist.mjs`](../../../packages/desktop/scripts/verify-dist.mjs) has six gates — dmg exists,
 zip exists, both ≥ 50 MB, `codesign --verify`, `hdiutil verify`, `Info.plist` names the app, plus
 Phase 49's template check. **None of them is about the feed**, which is the artifact the in-app
 updater actually consumes and the one most likely to be missing or stale.
 
-- [ ] Assert `latest-mac.yml` exists beside the dmg and that its `version` matches the
+- [x] Assert `latest-mac.yml` exists beside the dmg and that its `version` matches the
       `package.json` version and its `path`/`sha512` match the emitted **zip** — the zip, because
       that is what electron-updater downloads and the dmg is only what a human clicks.
-- [ ] Assert the `.blockmap` is present. It is what makes a differential update possible; a release
+- [x] Assert the `.blockmap` is present. It is what makes a differential update possible; a release
       missing it still updates, just by re-downloading everything, and nothing would ever say so.
-- [ ] Assert `Info.plist`'s `CFBundleShortVersionString` equals the `package.json` version — the
+- [x] Assert `Info.plist`'s `CFBundleShortVersionString` equals the `package.json` version — the
       cheapest possible guard against shipping a bundle whose internal version disagrees with the
       tag it was cut from, which is exactly the disagreement an updater compares against.
-- [ ] Keep every existing gate. This theme adds; it does not renegotiate what Phase 11 and Phase 49
+- [x] Keep every existing gate. This theme adds; it does not renegotiate what Phase 11 and Phase 49
       each put there for a reason. **There are ten of them today**, not six —
       [`verify-dist.mjs`](../../../packages/desktop/scripts/verify-dist.mjs) exits on: dmg exists
       (`:16`), zip exists (`:20`), dmg ≥ 50 MB (`:29`), zip ≥ 50 MB (`:33`), `codesign --verify`
       (`:38`), `hdiutil verify` (`:46`), `Info.plist` names the URL scheme (`:54`), Phase 49's
       template check (`:68`), and **two** from PR #155 — wrapper present (`:90`) and wrapper
       executable (`:96`).
-- [ ] Note what the version gate is actually guarding against: `verify-dist.mjs:7-8` reads `version`
+- [x] Note what the version gate is actually guarding against: `verify-dist.mjs:7-8` reads `version`
       from `packages/desktop/package.json` and builds every expected artifact name from it, but never
       compares it to the built bundle. A skew between the two passes today, silently, and it is
       exactly the skew an updater compares against.
 
-### D — A tag-triggered release workflow (M)
+### D — A tag-triggered release workflow (M) — ✅ DONE (PR #179, 2026-09-05)
 
 [Phase 33](phase-33-installable-app-and-cli-integration.md) deferred this in as many words: *"the
 `publish:` block lands so packaged builds emit a manifest, but the repo has no remote and zero
@@ -203,10 +203,10 @@ tags, so a workflow would have nothing to publish to."* The repo now has a remot
 gives it a tag. CI's existing `package` job cannot do this job: it triggers on `main` rather than a
 tag, holds `contents: read`, and uploads **the dmg only** — not the zip and not `latest-mac.yml`.
 
-- [ ] `.github/workflows/release.yml`, triggered on `push: tags: v*`, single leg on `macos-14`,
+- [x] `.github/workflows/release.yml`, triggered on `push: tags: v*`, single leg on `macos-14`,
       running the existing `desktop:rebuild-native` → `desktop:dist` → `desktop:verify-dist` chain
       so the release path and the CI path cannot drift.
-- [ ] Publish cross-repo to `bilo-io/midnite-apps` under the **namespaced** tag
+- [x] Publish cross-repo to `bilo-io/midnite-apps` under the **namespaced** tag
       `midnite-studio/vX.Y.Z`, using a fine-grained PAT (`RELEASES_REPO_TOKEN`, Contents: write).
       The default `GITHUB_TOKEN` is scoped to this private repo and cannot write to the other one;
       the namespacing is not cosmetic, since a bare `vX.Y.Z` would collide with a sibling app's.
@@ -220,7 +220,7 @@ tag, holds `contents: read`, and uploads **the dmg only** — not the zip and no
     builds its download URL from that template, so a rename there breaks installation silently.
   - **Copy the sibling workflow's shape, never its `repository:` value.** midnite publishes to
     `bilo-io/midnite-app` — *singular*, a different repo. This one targets `bilo-io/midnite-apps`.
-- [ ] **Crib four guards from the sibling app's `release.yml`, each of which cost it a broken
+- [x] **Crib four guards from the sibling app's `release.yml`, each of which cost it a broken
       release to learn:**
   - Write `CSC_LINK`/`CSC_KEY_PASSWORD` into `$GITHUB_ENV` from a conditional bash step, never
     inline as `env:`. GitHub expands an unset secret to `""`, electron-builder reads an empty
@@ -237,18 +237,18 @@ tag, holds `contents: read`, and uploads **the dmg only** — not the zip and no
   - A pre-flight failing on an empty asset set or a duplicate basename, before anything is published.
   - `if: ${{ !cancelled() }}` on the publish job, so one flaky leg cannot silently skip the publish
     and leave a tag with no release behind it.
-- [ ] The workflow needs **`permissions: contents: write`** on its publish job. CI's existing
+- [x] The workflow needs **`permissions: contents: write`** on its publish job. CI's existing
       `package` job holds `contents: read` + `packages: read`
       ([`ci.yml:179-181`](../../../.github/workflows/ci.yml)) — it could not publish even if it
       wanted to, which is why this is a new workflow rather than a trigger added to that one.
-- [ ] Reuse `ci.yml`'s `package` job as the literal template for the build steps (checkout, pnpm
+- [x] Reuse `ci.yml`'s `package` job as the literal template for the build steps (checkout, pnpm
       9.15.0 / node 22.12.0, `GITHUB_PACKAGES_TOKEN`, `desktop:rebuild-native`, `desktop:dist` with
       `CSC_IDENTITY_AUTO_DISCOVERY: 'false'`, `desktop:verify-dist`) so the two paths cannot drift.
       Note `desktop:dist`/`verify-dist` carry `options.runInCI: false` in
       [`packages/desktop/moon.yml`](../../../packages/desktop/moon.yml) — that suppresses them under
       `moon ci` only, and both CI and this workflow invoke them by explicit `moon run`, so they do
       execute. Fragile, and worth a comment in the new workflow rather than a rediscovery.
-- [ ] `--publish never` on the electron-builder invocation. The `generic` provider is **read-only**
+- [x] `--publish never` on the electron-builder invocation. The `generic` provider is **read-only**
       — it describes where the app *fetches* its manifest, not somewhere anything can be uploaded —
       so the flag still generates `latest-mac.yml` while correctly attempting no upload. Publishing
       is `gh release`/`action-gh-release` against the other repo, and conflating the two is the

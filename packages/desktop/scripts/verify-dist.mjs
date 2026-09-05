@@ -1,6 +1,8 @@
 import { existsSync, statSync, readFileSync } from 'node:fs';
-import { join } from 'node:path';
+import { join, basename } from 'node:path';
 import { execSync } from 'node:child_process';
+import { createHash } from 'node:crypto';
+import { extractYamlScalar } from './lib/yaml-scalar.mjs';
 
 const desktopDir = process.cwd();
 const releaseDir = join(desktopDir, 'release');
@@ -96,6 +98,74 @@ if (!existsSync(cliWrapperPath)) {
 const cliWrapperMode = statSync(cliWrapperPath).mode;
 if ((cliWrapperMode & 0o111) === 0) {
   console.error(`CLI wrapper at ${cliWrapperPath} is not executable (mode ${cliWrapperMode.toString(8)})`);
+  process.exit(1);
+}
+
+// Phase 53 Theme C: none of the ten gates above are about the FEED, which is
+// the artifact the in-app updater actually consumes and the one most likely
+// to be missing or stale. `latest-mac.yml` is what electron-updater polls
+// (`publish:` in electron-builder.yml is the `generic` provider pointed at
+// exactly this file), so a build missing it, or shipping one that disagrees
+// with the zip it describes, is silently un-updatable while every other gate
+// still passes.
+console.log('Verifying the electron-updater feed manifest (latest-mac.yml)...');
+const manifestPath = join(releaseDir, 'latest-mac.yml');
+if (!existsSync(manifestPath)) {
+  console.error(`Missing electron-updater feed manifest at ${manifestPath}`);
+  process.exit(1);
+}
+const manifestContent = readFileSync(manifestPath, 'utf8');
+
+const manifestVersion = extractYamlScalar(manifestContent, 'version');
+if (manifestVersion !== version) {
+  console.error(
+    `latest-mac.yml version "${manifestVersion}" does not match package.json version "${version}"`,
+  );
+  process.exit(1);
+}
+
+// `path`/`sha512`, because that is what electron-updater downloads and
+// verifies — the dmg is only what a human clicks, and a manifest pointing at
+// the wrong file (or the right file with a stale hash) would pass every gate
+// above while quietly breaking every running app's next update check.
+const manifestPathField = extractYamlScalar(manifestContent, 'path');
+if (manifestPathField !== basename(zipPath)) {
+  console.error(
+    `latest-mac.yml path "${manifestPathField}" does not match the emitted zip "${basename(zipPath)}"`,
+  );
+  process.exit(1);
+}
+const manifestSha512 = extractYamlScalar(manifestContent, 'sha512');
+const actualZipSha512 = createHash('sha512').update(readFileSync(zipPath)).digest('base64');
+if (manifestSha512 !== actualZipSha512) {
+  console.error('latest-mac.yml sha512 does not match the emitted zip\'s actual sha512');
+  process.exit(1);
+}
+
+// The `.blockmap` is what makes a DIFFERENTIAL update possible — a release
+// missing it still updates, just by re-downloading the whole zip, and nothing
+// today would ever say so.
+console.log('Verifying the update blockmap...');
+const blockmapPath = `${zipPath}.blockmap`;
+if (!existsSync(blockmapPath)) {
+  console.error(`Missing update blockmap at ${blockmapPath}`);
+  process.exit(1);
+}
+
+// The cheapest possible guard against shipping a bundle whose INTERNAL
+// version disagrees with the tag/package.json it was cut from — exactly the
+// disagreement an updater compares against, and the one skew none of the
+// other version gates (Theme B's lockstep check, the manifest check above)
+// can see, since neither one ever opens the packaged bundle itself.
+console.log("Verifying Info.plist's bundle version...");
+const bundleShortVersionMatch = /<key>CFBundleShortVersionString<\/key>\s*<string>([^<]+)<\/string>/.exec(
+  plistContent,
+);
+const bundleShortVersion = bundleShortVersionMatch?.[1] ?? null;
+if (bundleShortVersion !== version) {
+  console.error(
+    `Info.plist CFBundleShortVersionString "${bundleShortVersion}" does not match package.json version "${version}"`,
+  );
   process.exit(1);
 }
 

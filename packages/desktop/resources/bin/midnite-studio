@@ -1,6 +1,59 @@
 #!/bin/sh
 set -e
 
+# Derive the version from the bundle this script ships inside, rather than
+# hardcoding one here (Phase 53 Theme B). A hardcoded string is a sixth
+# hand-written version site the lockstep check would have to remember to
+# watch — deriving means there is nothing left to disagree with
+# `package.json` in the first place.
+#
+# This script's own location tells it where to look: packaged, it sits at
+# `Contents/Resources/bin/midnite-studio`, two levels below `Contents/Info.plist`
+# (whose `CFBundleShortVersionString` electron-builder stamps from
+# `package.json` at build time — the same value Theme C's `verify-dist.mjs`
+# gate checks). In dev, `getBundleBinPath()` points straight at this file in
+# the repo (`packages/desktop/resources/bin/midnite-studio`), two levels below
+# `packages/desktop/package.json`. Either way "two levels up" is where the
+# answer lives, so the script tries the plist first and falls back to the
+# package.json.
+resolve_self() {
+  # $0 may be a symlink (cli-handlers.ts installs one on PATH) — walk it back
+  # to the real file so "two levels up" lands in the right place. No `readlink
+  # -f` (not on macOS by default): resolve the chain by hand.
+  candidate="$1"
+  while [ -L "$candidate" ]; do
+    link=$(readlink "$candidate")
+    case "$link" in
+      /*) candidate="$link" ;;
+      *) candidate="$(dirname "$candidate")/$link" ;;
+    esac
+  done
+  (cd "$(dirname "$candidate")" && pwd)
+}
+
+resolve_version() {
+  dir="$1"
+  plist="$dir/../../Info.plist"
+  if [ -f "$plist" ]; then
+    v=$(plutil -extract CFBundleShortVersionString raw -o - "$plist" 2>/dev/null || true)
+    if [ -n "$v" ]; then
+      echo "$v"
+      return 0
+    fi
+  fi
+  pkg="$dir/../../package.json"
+  if [ -f "$pkg" ]; then
+    v=$(sed -n 's/.*"version"[[:space:]]*:[[:space:]]*"\([^"]*\)".*/\1/p' "$pkg" | head -1)
+    if [ -n "$v" ]; then
+      echo "$v"
+      return 0
+    fi
+  fi
+  echo "unknown"
+}
+
+SELF_DIR=$(resolve_self "$0")
+
 SHOW_HELP=0
 SHOW_VERSION=0
 COMMAND=""
@@ -29,7 +82,7 @@ for arg in "$@"; do
 done
 
 if [ "$SHOW_VERSION" -eq 1 ]; then
-  echo "midnite-studio 0.1.0"
+  echo "midnite-studio $(resolve_version "$SELF_DIR")"
   exit 0
 fi
 
