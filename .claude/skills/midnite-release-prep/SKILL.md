@@ -9,18 +9,12 @@ Prepare a Midnite Studio release: the read-mostly, reversible half of the two-st
 Ends with a `release/vX.Y.Z` branch holding the changelog + version bumps as a draft,
 ready for `/midnite-release-complete`. **Never tags, never pushes to `main`, nothing irreversible.**
 
-> ⚠️ **Ported from midnite — release infra doesn't exist here yet.** Midnite Studio has no
-> `docs/RELEASING.md`, no `packages/shared/src/{version,release}.ts` helpers, no
-> `root:version-check` task, and no release workflow (packaging lands in Phase 11;
-> the updater is post-MVP). On first use, either port those helpers from
-> `~/Dev/midnite/packages/shared/src/{version,release}.ts` (they're tested and
-> self-contained) or apply the rules below by hand — and update this skill once the
-> infra lands.
-
 **Policy is fixed, don't re-derive it:** lockstep `MAJOR.MINOR` (every package
 shares it) + independent `PATCH` (per package). The bump math and commit→bump
-categorisation follow midnite's tested `planVersionBump` / `release.ts` rules —
-apply their rules, don't invent new ones.
+categorisation follow the tested `planVersionBump` / `release.ts` rules, ported into
+[`packages/shared/src/version.ts`](../../../packages/shared/src/version.ts) and
+[`release.ts`](../../../packages/shared/src/release.ts) (Phase 53 Theme B) — apply their rules,
+don't invent new ones.
 
 **Style:** terse — report findings + decisions, don't narrate the gathering.
 
@@ -52,10 +46,9 @@ gathered commits (this is exactly what its unit tests pin):
 - **Changed packages** (only matters for `patch`) = map the `git diff` paths onto the repo's `package.json` list (root; `@midnite/studio-*` = `packages/*`).
 - **Next versions** = `planVersionBump(current, { level, changedPackages })`, where `current` is read from every `package.json`.
 
-If the version helpers have been ported into `packages/shared`, build shared once and
-call them (`moon run shared:build` + a small `node --input-type=module` snippet that
-prints `planVersionBump(...)`). Otherwise apply the table by hand — for a clean
-minor/major the rule is obvious.
+Build shared once and call the ported helper (`moon run shared:build` + a small
+`node --input-type=module` snippet that imports `packages/shared/dist/version.js` and prints
+`planVersionBump(...)`) rather than re-deriving the table by hand.
 
 **Show the reasoning:** the base tag, the bump level + the commit(s) that triggered
 it, and the resulting version(s). If the level is `none`, stop — there's nothing to
@@ -78,7 +71,7 @@ Honour an explicit `$ARGUMENTS` override but still show what auto-detect picked.
   - Flag any **breaking** change prominently in the section.
   - Re-seed an empty `## [Unreleased]` stub above it, and update the compare/tag link refs at the bottom (`[Unreleased]: …compare/vX.Y.Z...HEAD`, add `[X.Y.Z]: …/releases/tag/vX.Y.Z`).
   - Keep this separate from `.midnite/tasks/done.md` (phase tracker, not release notes).
-- **Sanity-check:** the lockstep invariant still holds — patches may differ, `MAJOR.MINOR` must not (run `moon run root:version-check` if the task has been ported; otherwise eyeball every `package.json`).
+- **Sanity-check:** the lockstep invariant still holds — patches may differ, `MAJOR.MINOR` must not. Run `moon run root:version-check`.
 - **Commit the draft:** `chore(release): prepare vX.Y.Z` (changelog + version bumps), with the required `Co-Authored-By` trailer. Do **not** tag, do **not** push.
 
 ## 6 · Hand off

@@ -11,13 +11,7 @@ Runs **after** a human has reviewed the `release/vX.Y.Z` branch that
 cuts a GitHub Release — so it **stops for explicit confirmation before the first
 irreversible step** and refuses to run if preconditions aren't met.
 
-> ⚠️ **Ported from midnite — release infra doesn't exist here yet.** Midnite Studio has no
-> `packages/shared/src/{version,release}.ts` helpers, no `root:version-check` task, and
-> no tag-triggered release workflow (packaging lands in Phase 11; the updater is
-> post-MVP). Port the helpers from `~/Dev/midnite/packages/shared/src/` or apply the
-> rules by hand, and update this skill once the infra lands.
-
-**Policy + math are fixed** — don't re-derive them (midnite's tested helpers, if ported):
+**Policy + math are fixed** — don't re-derive them (ported from midnite, Phase 53 Theme B):
 - tag scheme = `planReleaseTags` (lockstep `vX.Y.Z` vs scoped `‹pkg›@X.Y.Z`);
 - bump math = `planVersionBump`; lockstep invariant = `sharesLockstepMajorMinor`;
 - changelog section = `extractChangelogSection`; branch→version = `versionFromReleaseBranch`.
@@ -29,7 +23,7 @@ Gather, and **stop with a clear message** on the first failure (nothing has chan
 - **On a release branch:** current branch = `release/vX.Y.Z`; derive `X.Y.Z` with `versionFromReleaseBranch` (`git rev-parse --abbrev-ref HEAD`). Not a release branch → tell the user to run `/midnite-release-prep` first.
 - **Clean tree:** `git status --porcelain` empty.
 - **In sync:** `git fetch origin`; the branch's `main` base isn't ahead in a way that conflicts (rebase/merge `main` first if so).
-- **Versions match the branch:** read every `package.json`; for a lockstep release every package is `X.Y.0`; for a patch the bumped package(s) are `X.Y.Z`. The lockstep MAJOR.MINOR invariant holds (run `moon run root:version-check` if ported; otherwise eyeball).
+- **Versions match the branch:** read every `package.json`; for a lockstep release every package is `X.Y.0`; for a patch the bumped package(s) are `X.Y.Z`. The lockstep MAJOR.MINOR invariant holds — run `moon run root:version-check`.
 - **Changelog ready:** this repo's `extractChangelogSection(markdown, version)` ([`release.ts`](../../../packages/shared/src/release.ts)) returns just the section body as `string | null` — no `.date` field — so check both halves directly: `extractChangelogSection(CHANGELOG.md, 'X.Y.Z')` is non-null and non-empty, AND the changelog literally has a dated heading for that version (`## [X.Y.Z] - YYYY-MM-DD`, not `## [Unreleased]` — grep the heading text). Either missing means `/midnite-release-prep` wasn't finished — stop.
 - **Green:** `moon ci` passes. (Run it; don't trust a stale cache for the gate.)
 
@@ -42,13 +36,48 @@ Gather, and **stop with a clear message** on the first failure (nothing has chan
 - Create the tag(s) from `planReleaseTags`: `git tag vX.Y.Z` (annotated: `-a -m "vX.Y.Z"`), or each scoped `git tag '‹pkg›@X.Y.Z'`.
 
 ## 4 · Publish
-- **Push** the branch and the tag(s): `git push origin release/vX.Y.Z` then `git push origin ‹tag›`. (If a tag-triggered release workflow exists — Phase 11+ — a `v*` tag kicks off the desktop build; note its status. Until then, tags are just tags.)
+Two repos are involved, and the split matters: **this repo is private, so nothing users touch can
+live here.** Source tags stay here; the public Release, the installers and the feeds go to
+**[bilo-io/midnite-apps](https://github.com/bilo-io/midnite-apps)**, the shared downloads + issue
+tracker. Because that repo carries several apps, its tags are namespaced — `midnite-studio/vX.Y.Z`,
+never a bare `vX.Y.Z`, which would collide with another app's.
+
+- **Push** the source tag(s) here: `git push origin ‹tag›`. This is what
+  [`.github/workflows/release.yml`](../../../.github/workflows/release.yml) (Phase 53 Theme D)
+  triggers on — it builds the macOS arm64 dmg/zip, publishes the namespaced Release to
+  `bilo-io/midnite-apps`, then (Theme E) a second job commits `latest-mac.yml` under
+  `midnite-studio/feed/` there and mirrors this version's changelog section into
+  `midnite-studio/CHANGELOG.md` — **once the release job it depends on has actually published,
+  never before** (a manifest committed first would point at assets that don't exist yet).
+  `gh run list --workflow release.yml` / `gh run watch` to follow it rather than assuming.
 - **Merge to main:** open the release PR if one isn't open (`gh pr create --base main --title 'chore(release): vX.Y.Z' --body …`), wait for CI, then `gh pr merge` — prefer a **merge commit** here so the tagged commit stays on `main`.
-- **GitHub Release:** cut it on **this repo** against the tag, with the curated changelog section as the body: `gh release create vX.Y.Z --title 'vX.Y.Z' --notes-file ‹changelog section›` (attach installer artifacts if the desktop build produced them).
+- **Verify, don't perform, the three propagation targets** — `release.yml` did the work; this step
+  confirms it actually happened rather than assuming a green workflow means every side effect
+  landed:
+  - **The Release itself:** `gh release view 'midnite-studio/vX.Y.Z' --repo bilo-io/midnite-apps
+    --json assets` names both the dmg and the zip (and the `.blockmap`) — no `builder-debug.yml`
+    among them.
+  - **`version.json`:** rewritten automatically by `bilo-io/midnite-apps`'s own
+    `release-feed.yml`, triggered by the Release publishing — confirm it reads the new version
+    rather than editing it by hand.
+  - **`midnite-studio/feed/latest-mac.yml`:** committed by `release.yml`'s `publish-feed` job.
+    Confirm its `version` matches and that the commit landed *after* the Release (check the job
+    log or the commit's parent) — this is the job that most silently no-ops if
+    `RELEASES_REPO_TOKEN` is missing or expired, since a failed cross-repo push here still leaves
+    the Release itself looking published.
+  - **`midnite-studio/CHANGELOG.md`:** the same job's changelog-mirror step. If this version's
+    section was genuinely empty (a patch of docs/chore-only commits), `has_section=false` in the
+    job's own output is the expected outcome, not a failure to chase.
 
 ## 5 · Re-seed + confirm
 - Re-seed an empty `## [Unreleased]` stub above the released section in `CHANGELOG.md` and refresh the compare link (`[Unreleased]: …/compare/vX.Y.Z...HEAD`), if `/midnite-release-prep` didn't. Commit on `main` (`docs(changelog): re-seed Unreleased after vX.Y.Z`).
-- Report, terse: the **released version**, the **tag(s)**, the **Release URL** (`gh release view vX.Y.Z --json url`), the merge commit, and that `## [Unreleased]` is reset. Note the desktop-build workflow status if one exists and a `v*` tag was pushed.
+- Report, terse: the **released version**, the **source tag(s)** here, the **Release URL**
+  (`gh release view 'midnite-studio/vX.Y.Z' --repo bilo-io/midnite-apps --json url`), the merge
+  commit, and that `## [Unreleased]` is reset. Also state, per §4, whether the assets attached,
+  whether `release-feed.yml` updated `version.json`, and whether the `publish-feed` job committed
+  both `latest-mac.yml` and the changelog mirror — a release missing any of the three is published
+  but not installable (or, for the changelog, installable but mute), and that must not be reported
+  as done.
 
 ## Notes
 - **Out of scope:** publishing packages to a registry (private monorepo) — tags + GitHub Release only.

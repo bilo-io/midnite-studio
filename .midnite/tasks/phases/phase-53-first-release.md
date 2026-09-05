@@ -254,7 +254,7 @@ tag, holds `contents: read`, and uploads **the dmg only** — not the zip and no
       is `gh release`/`action-gh-release` against the other repo, and conflating the two is the
       mistake the `generic`-vs-`github` choice makes easy.
 
-### E — `latest-mac.yml` stops being a step a human forgets (M)
+### E — `latest-mac.yml` stops being a step a human forgets (M) — ✅ DONE (PR #188, 2026-09-05)
 
 This is where this app genuinely differs from its sibling, and the difference is a trap.
 midnite's feed is the `github` provider, so its manifest is a **release asset** and uploading the
@@ -266,11 +266,11 @@ instructs a human to commit it by hand, and the `feed/README.md` in the receivin
 names the failure mode: a release that updates one feed and not the other *"leaves either the
 installer or the in-app updater pinned to the previous version."*
 
-- [ ] A second job in the release workflow that commits `latest-mac.yml` into
+- [x] A second job in the release workflow that commits `latest-mac.yml` into
       `midnite-studio/feed/` in `midnite-apps`, using the same `RELEASES_REPO_TOKEN`.
   - That directory holds **only a `README.md`** today — confirmed against the live repo tree. The
     manifest has never existed there, so the first run creates it rather than replacing it.
-- [ ] **Mirror the changelog section too — it is the third propagation target, not a second.** The
+- [x] **Mirror the changelog section too — it is the third propagation target, not a second.** The
       receiving repo's `midnite-studio/CHANGELOG.md` describes itself as *"the public mirror of the
       changelog in the private source repo … the release flow copies the released section across"*,
       and [`release.ts:20`](../../../packages/shared/src/release.ts)'s `RELEASE_CHANGELOG_RAW_URL`
@@ -278,17 +278,17 @@ installer or the in-app updater pinned to the previous version."*
       updates the feed but not the mirror ships an empty notes panel for its own version.
       `/midnite-release-complete` §4 lists it as a third manual step; automate it in the same job as
       the manifest, since both are commits to the same repo under the same token.
-- [ ] **Ordering is load-bearing:** the release must exist first, because the manifest's `path`
+- [x] **Ordering is load-bearing:** the release must exist first, because the manifest's `path`
       resolves against release assets that must already be downloadable. Committing the manifest
       before the assets are attached publishes a feed that points at a 404 — and every running app
       would find it, offer the update, and fail the download.
-- [ ] Concurrency-guard it the way the receiving repo's own `release-feed.yml` guards
+- [x] Concurrency-guard it the way the receiving repo's own `release-feed.yml` guards
       `version.json` (`group:`, `cancel-in-progress: false`). Two releases close together must not
       race on a push to the same branch.
-- [ ] Update [`/midnite-release-complete`](../../.claude/skills/midnite-release-complete/SKILL.md)
+- [x] Update [`/midnite-release-complete`](../../.claude/skills/midnite-release-complete/SKILL.md)
       §4 to describe verifying the automated commit rather than performing a manual one, matching
       how it already treats `version.json`.
-- [ ] **De-stale the release skills — six files, not two.** The ⚠️ banner is duplicated verbatim
+- [x] **De-stale the release skills — six files, not two.** The ⚠️ banner is duplicated verbatim
       across `.claude/`, `.agents/` and `.codex/` × `midnite-release-prep` and
       `midnite-release-complete`, and [`CLAUDE.md`](../../../CLAUDE.md)'s three-way sync rule makes
       updating all six mandatory, not tidy.
@@ -333,7 +333,7 @@ is deliberately the *verification* theme rather than an afterthought inside anot
       Run the installer **once before** cutting the release to see that message, so the after-state
       is a proven change rather than an assumed one.
 
-### G — An updater observed working, for the first time (S)
+### G — An updater observed working, for the first time (S) — ◐ PARTIAL (PR #188, 2026-09-05)
 
 The updater has **never been seen to function**, because the feed URL it points at has 404'd since
 the day it was written. [Phase 33 Decision 3](phase-33-installable-app-and-cli-integration.md)
@@ -342,8 +342,9 @@ but a fail-soft that has never once succeeded is indistinguishable from a broken
 
 - [ ] With Theme F's feed live, confirm the pill and Settings ▸ Updates actually reach `available`,
       and that `manualInstall` routes an ad-hoc-signed build to the curl one-liner rather than
-      offering a Restart that Squirrel.Mac cannot perform.
-- [ ] **Surface the updater error in the status-bar pill — Settings already does it.**
+      offering a Restart that Squirrel.Mac cannot perform. **Blocked on Theme F** — there is no live
+      feed to observe this against yet.
+- [x] **Surface the updater error in the status-bar pill — Settings already does it.**
       [`updates-page.tsx:92`](../../../packages/app/src/features/settings/settings-pages/updates-page.tsx)
       already renders `updateState.error ?? 'Failed to check for updates'`, so the original
       deliverable was aimed at the one surface that was never blind. The blind one is
@@ -352,7 +353,7 @@ but a fail-soft that has never once succeeded is indistinguishable from a broken
       Check button that does nothing visible, forever. Render at least an error affordance there.
       The sibling app added its loud line after a fail-soft banner concealed a broken feed *across
       multiple releases*; the lesson applies to whichever surface the user is actually looking at.
-- [ ] Make the channel survive a relaunch. [`update-service.ts:50`](../../../packages/desktop/src/main/update-service.ts)
+- [x] Make the channel survive a relaunch. [`update-service.ts:50`](../../../packages/desktop/src/main/update-service.ts)
       is `const config = feedChannelFor('stable');` and the only other `feedChannelFor` call is at
       `:100`, inside the `updateSetChannel` handler — so a beta user is back on `latest` after every
       relaunch until they re-touch the Settings control.
@@ -362,7 +363,7 @@ but a fail-soft that has never once succeeded is indistinguishable from a broken
     Two options, and the phase picks one before writing code — see the Decision below.
   - Whichever is chosen, the acceptance test is the same and is already in `## Verification`: set
     beta, relaunch, and assert the app requests `beta-mac.yml`.
-- [ ] Keep `feedChannelFor`'s `stable → 'latest'` mapping, and **write down why — the test already
+- [x] Keep `feedChannelFor`'s `stable → 'latest'` mapping, and **write down why — the test already
       exists but the reasoning does not.**
       [`feed-channel.test.ts:5`](../../../packages/desktop/src/updates/feed-channel.test.ts)
       (*"maps stable to latest channel"*) pins the behaviour, but
@@ -375,7 +376,7 @@ but a fail-soft that has never once succeeded is indistinguishable from a broken
       swallows. This is the sibling app's most expensive bug, and this repo has already avoided it by
       accident of naming.
 
-### H — Signing and notarization, wired and honestly blocked (M)
+### H — Signing and notarization, wired and honestly blocked (M) — ◐ PARTIAL (PR #188, 2026-09-05)
 
 [`notarize.cjs`](../../../packages/desktop/scripts/notarize.cjs) exists and no-ops unless `APPLE_ID`,
 `APPLE_APP_SPECIFIC_PASSWORD` and `APPLE_TEAM_ID` are all present.
@@ -384,7 +385,7 @@ but a fail-soft that has never once succeeded is indistinguishable from a broken
 the step. Every piece is in place except a certificate, **and a certificate is a purchase, not a
 task.**
 
-- [ ] Document the five secrets — `CSC_LINK`, `CSC_KEY_PASSWORD`, `APPLE_ID`,
+- [x] Document the five secrets — `CSC_LINK`, `CSC_KEY_PASSWORD`, `APPLE_ID`,
       `APPLE_APP_SPECIFIC_PASSWORD`, `APPLE_TEAM_ID` (the doc previously said four; the three
       `APPLE_*` plus the two `CSC_*` are five) — where each comes from and how to set them, in a new
       `docs/RELEASING.md`, which both release skills already reference and which **does not exist**.
@@ -393,23 +394,32 @@ task.**
     `APPLE_*` only as `process.env` reads in
     [`notarize.cjs:12-14`](../../../packages/desktop/scripts/notarize.cjs). **No workflow references
     any of them.**
+  - `docs/RELEASING.md` (PR #188) also documents `RELEASES_REPO_TOKEN`, the sixth secret the
+    Theme D/E release jobs need — not one of the five signing secrets, but the same file is where a
+    future session will look for it.
 - [ ] Verify the unsigned path stays green with all five absent — Theme D's `$GITHUB_ENV` guard is
       precisely what makes that true, and it is worth an explicit CI run rather than an assumption.
-- [ ] **Make the notarization skip visible.** [`notarize.cjs:16-19`](../../../packages/desktop/scripts/notarize.cjs)
+      **Not directly exercised by PR #188**: `ci.yml`'s `package` job (the one that actually builds
+      the dmg) is gated `if: github.ref == 'refs/heads/main'`, so a PR branch never runs it — this
+      will run for real the moment this PR is merged, but that is a fact about `main`, not something
+      this PR itself observed.
+- [x] **Make the notarization skip visible.** [`notarize.cjs:16-19`](../../../packages/desktop/scripts/notarize.cjs)
       logs `[notarize] skipped (missing Apple credentials in env)` and returns — and nothing
       downstream asserts it ran, so an unnotarized build passes `verify-dist` (`codesign --verify`
       succeeds on the ad-hoc signature from `afterpack.cjs`). That is correct today and a trap the
       day a cert exists: a mistyped secret name would silently produce an unnotarized release.
       Theme C's verify step should record which mode the build was in.
-- [ ] Note that [`afterpack.cjs:87`](../../../packages/desktop/scripts/afterpack.cjs) only
+- [x] Note that [`afterpack.cjs:87`](../../../packages/desktop/scripts/afterpack.cjs) only
       `console.warn`s when the ad-hoc `codesign` fails rather than throwing — a failed sign surfaces
       two steps later at `verify-dist`'s `codesign --verify`, with a misleading proximate cause.
 - [ ] Flip `notarize: true` and require the signed path **only once a Developer ID exists**. Until
-      then this box stays unticked on purpose, and the phase does not pretend otherwise.
+      then this box stays unticked on purpose, and the phase does not pretend otherwise. **Blocked
+      on a purchased Apple Developer ID membership** — not something an agent session can buy.
 - [ ] Say plainly, in the receiving repo's README, that builds are ad-hoc signed and `manualInstall`
       is therefore the permanent update route for now. The README already explains the Gatekeeper
       workaround for a browser download; what it does not yet say is that this is a *state with an
-      end*, not the design.
+      end*, not the design. **That edit lives in `bilo-io/midnite-apps`, a different repo from this
+      one** — left for a human pass alongside Theme F rather than made unilaterally here.
 
 ## Files this phase touches
 
