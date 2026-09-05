@@ -1,4 +1,4 @@
-import type { ScanCategory, SystemCacheItem, TrashSummary } from '@midnite/studio-shared';
+import type { SystemCacheItem, TrashSummary } from '@midnite/studio-shared';
 import { LuHardDrive, LuTrash2 } from 'react-icons/lu';
 
 import { useDialogs } from '../../components/dialog-host';
@@ -9,7 +9,14 @@ import { useUiStore } from '../../store/ui-store';
 import { formatBytes } from '../monitor/format-bytes';
 import { CircularGauge } from './components/circular-gauge';
 import { SegmentedBar } from './components/segmented-bar';
-import { CATEGORY_LABELS, categoryColor } from './category-palette';
+import {
+  CATEGORY_LABELS,
+  CATEGORY_ORDER,
+  categoryColor,
+  ECOSYSTEM_LABELS,
+  ECOSYSTEM_ORDER,
+  ecosystemColor,
+} from './category-palette';
 import {
   loadTrashSummary,
   runEmptyTrash,
@@ -17,17 +24,6 @@ import {
   runSystemReclaim,
   runSystemScan,
 } from './use-optimizer';
-
-// Phase 72 Theme D groups this list by ecosystem; until it lands, this stays
-// the same flat four-of-five categories it always was (`toolCache` items are
-// found but not yet listed here — Theme C's own sequencing note says that is
-// safe on its own).
-const CATEGORY_ORDER: readonly ScanCategory[] = [
-  'dependencies',
-  'buildOutput',
-  'staleWorktree',
-  'looseObjects',
-];
 
 function formatTrashDate(iso: string): string {
   return new Date(iso).toLocaleString(undefined, { dateStyle: 'medium', timeStyle: 'short' });
@@ -207,45 +203,86 @@ export function StorageTab() {
     );
   }
 
-  const segments = CATEGORY_ORDER.filter((category) => (result.byCategory[category] ?? 0) > 0).map(
-    (category) => ({ id: category, bytes: result.byCategory[category] ?? 0 }),
-  );
+  const ecosystemSegments = ECOSYSTEM_ORDER.filter(
+    (ecosystem) => (result.byEcosystem[ecosystem] ?? 0) > 0,
+  ).map((ecosystem) => ({ id: ecosystem, bytes: result.byEcosystem[ecosystem] ?? 0 }));
+
+  const categorySegments = CATEGORY_ORDER.filter(
+    (category) => (result.byCategory[category] ?? 0) > 0,
+  ).map((category) => ({ id: category, bytes: result.byCategory[category] ?? 0 }));
 
   return (
     <div className="flex flex-col gap-4">
+      {/*
+        Ecosystem above category — the ecosystem is what the user recognises
+        ("my Rust projects"); the category is the technical refinement.
+      */}
+      <SegmentedBar
+        label="Reclaimable storage by ecosystem"
+        total={result.totalBytes}
+        segments={ecosystemSegments}
+        color={ecosystemColor}
+        name={(id) => ECOSYSTEM_LABELS[id]}
+      />
+      <ul className="flex flex-wrap gap-x-4 gap-y-1 text-xs text-muted-foreground">
+        {ECOSYSTEM_ORDER.map((ecosystem) => (
+          <li key={ecosystem} className="flex items-center gap-1.5">
+            <span
+              aria-hidden
+              className="h-2 w-2 rounded-full"
+              style={{ backgroundColor: ecosystemColor(ecosystem) }}
+            />
+            {ECOSYSTEM_LABELS[ecosystem]}
+          </li>
+        ))}
+      </ul>
+
       <SegmentedBar
         label="Reclaimable storage by category"
         total={result.totalBytes}
-        segments={segments}
+        segments={categorySegments}
+        color={categoryColor}
+        name={(id) => CATEGORY_LABELS[id]}
       />
 
       <ul className="space-y-1">
-        {result.items.map((item) => (
-          <li
-            key={item.path}
-            className="flex items-center justify-between gap-2 rounded-md px-2 py-1.5 text-sm hover:bg-accent/40"
-          >
-            <button
-              type="button"
-              // Deep-links to the repo in the sidebar. Items sit at arbitrary
-              // depth under a worktree, so only the owning repo (not the
-              // exact worktree) is a reliable target to select.
-              onClick={() => item.repoId && selectRepo(item.repoId)}
-              disabled={!item.repoId}
-              className="flex min-w-0 flex-1 items-center gap-2 text-left disabled:cursor-default"
+        {result.items.map((item) => {
+          // `??`-guarded: a `ScanResult` replayed from an older mock fixture
+          // has no `detectors` entry for this id, and a bare lookup would
+          // otherwise render `undefined`.
+          const label = result.detectors[item.detectorId]?.label ?? item.detectorId;
+          return (
+            <li
+              key={item.path}
+              className="flex items-center justify-between gap-2 rounded-md px-2 py-1.5 text-sm hover:bg-accent/40"
             >
-              <span
-                aria-hidden
-                className="h-2 w-2 shrink-0 rounded-full"
-                style={{ backgroundColor: categoryColor(item.category) }}
-              />
-              <span className="truncate font-mono text-xs text-foreground">{item.path}</span>
-            </button>
-            <span className="shrink-0 text-xs text-muted-foreground">
-              {formatBytes(item.bytes)}
-            </span>
-          </li>
-        ))}
+              <button
+                type="button"
+                // Deep-links to the repo in the sidebar. Items sit at arbitrary
+                // depth under a worktree, so only the owning repo (not the
+                // exact worktree) is a reliable target to select.
+                onClick={() => item.repoId && selectRepo(item.repoId)}
+                disabled={!item.repoId}
+                className="flex min-w-0 flex-1 items-center gap-2 text-left disabled:cursor-default"
+              >
+                <span
+                  aria-hidden
+                  className="h-2 w-2 shrink-0 rounded-full"
+                  style={{ backgroundColor: categoryColor(item.category) }}
+                />
+                <span className="min-w-0 flex-1">
+                  <span className="block truncate text-sm text-foreground">{label}</span>
+                  <span className="block truncate font-mono text-xs text-foreground">
+                    {item.path}
+                  </span>
+                </span>
+              </button>
+              <span className="shrink-0 text-xs text-muted-foreground">
+                {formatBytes(item.bytes)}
+              </span>
+            </li>
+          );
+        })}
       </ul>
 
       <ul className="flex flex-wrap gap-x-4 gap-y-1 text-xs text-muted-foreground">
